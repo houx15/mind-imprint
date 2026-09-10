@@ -39,7 +39,7 @@ func TestLensDoneSuppressesThePressedStartFallback(t *testing.T) {
 		Quote:    "但人均排放仍低于多数发达国家。",
 		Finding:  "这句把总量和人均分开了，是一次口径切换。",
 	}
-	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), nil, nil, nil, "", done)
+	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", done)
 
 	if strings.Contains(prompt, "她刚点了「开始」") {
 		t.Fatalf("a finished lens must never look like 开始 — 印记 would re-introduce the plan:\n%s", prompt)
@@ -60,7 +60,7 @@ func TestLensDoneAttributesTheFindingToTheCoach(t *testing.T) {
 		Quote:    "但人均排放仍低于多数发达国家。",
 		Finding:  "这句把总量和人均分开了。",
 	}
-	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), nil, nil, nil, "", done)
+	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", done)
 
 	i := strings.Index(prompt, "【她刚做完一副透镜】")
 	if i < 0 {
@@ -91,7 +91,7 @@ func TestLensDoneWithNoQuoteIsNotACompletedLens(t *testing.T) {
 			if tc.done.clean() {
 				t.Fatalf("clean() must reject %s", tc.name)
 			}
-			prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), nil, nil, nil, "", tc.done)
+			prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", tc.done)
 			if strings.Contains(prompt, "【她刚做完一副透镜】") {
 				t.Errorf("no section for %s:\n%s", tc.name, prompt)
 			}
@@ -107,7 +107,7 @@ func TestLensDoneStillYieldsToWhatSheTyped(t *testing.T) {
 	// typed is the more direct thing and keeps 【她刚刚说的】; the lens still
 	// gets its own section, so neither is dropped.
 	done := &readingLensDone{CardName: "溯源体检", Quote: "但人均排放仍低于多数发达国家。"}
-	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), nil, nil, nil, "我觉得这句在换口径", done)
+	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "我觉得这句在换口径", done)
 
 	if !strings.Contains(prompt, "我觉得这句在换口径") {
 		t.Errorf("her own words must survive:\n%s", prompt)

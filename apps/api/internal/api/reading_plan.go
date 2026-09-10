@@ -44,7 +44,7 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 
 下面会给你：这篇文章（按段落编号）、可选的几套读法、以及她的语言。
 
-你要做的只有四件事：
+你要做的只有五件事：
 
 1. 从给出的读法里**挑一套**（routineKey 必须逐字取自表里）。
 2. 指出哪 **1–2 段**值得精读（focusBlocks，用段落编号 b1/b2/…）。这是你最重要的
@@ -53,6 +53,25 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 3. 给每一步写一句**贴着这篇文章**的说明（steps[].detail）。比如不要写「精读重点
    段」，要写「这一段是全文唯一给出数据的地方，值得细读」。
 4. 篇幅很短、或者内容很浅的文章，可以少排几步——一步都不能编，但可以不排。
+5. 排一份**导读**：oneLine、shape、load。见下。
+
+## 导读
+
+学生一进阅读室就会看见这三样东西，它们是她的地图。
+
+- **oneLine**：这篇在**问**什么。不超过 30 个字。
+  🚨 **问题，不是结论。**「屋顶光伏到底划不划算」可以；
+  「屋顶光伏其实并不划算」不行——那是这篇的答案，说出来她就不用读了。
+- **shape**：它是怎么组织的，四到六个词，中间用 → 连。
+  比如「问题 → 数据 → 让步 → 结论」「事件 → 各方反应 → 未解决的部分」。
+- **load**：**每一段**的承重，一段一个值，只能取这三个之一：
+  - 「core」（核心）——承载主张的那几段。读到这里要停下来。
+  - 「support」（支撑）——证据、例子、数据。它们在撑上面某个主张。
+  - 「bridge」（过渡）——转场、连接、背景交代。
+  🚨 **核心段不要超过全文的三分之一。** 全都是核心等于没有核心，
+  系统会把整份导读丢掉，她就什么地图都看不到。一篇十二段的报道，
+  核心段通常是三到四段。
+  🚨 **每一段都要给一个值**，包括小标题那一段（小标题算 「bridge」）。
 
 严格规则：
 - **不要替她读。** 说明里不要出现这篇文章的结论、主旨、答案。你在说「这一步要
@@ -64,7 +83,8 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
   她的屏幕上没有。（focusBlocks 字段里当然还是用 b1/b2。）
 
 只输出一个 JSON 对象：
-{"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}]}
+{"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}],
+ "oneLine":"...","shape":"... → ... → ...","load":{"b1":"bridge","b2":"core"}}
 
 steps 按顺序对应你挑的那套读法的步骤；kind 逐字照抄。不要输出对象以外的任何
 文字或代码块标记。`
@@ -139,6 +159,16 @@ type readingPlanReply struct {
 		Kind   string `json:"kind"`
 		Detail string `json:"detail"`
 	} `json:"steps"`
+	// 导读。这一次调用本来就要把全文读一遍并挑出重点段，所以它顺带给出
+	// 「这篇在问什么 / 它怎么组织 / 哪几段承重」。见 reading_outline.go。
+	OneLine string            `json:"oneLine"`
+	Shape   string            `json:"shape"`
+	Load    map[string]string `json:"load"`
+}
+
+// outline 把这份回复里属于导读的三样东西拿出来。
+func (p readingPlanReply) outline() readingOutline {
+	return readingOutline{OneLine: p.OneLine, Shape: p.Shape, Load: p.Load}
 }
 
 // salvageReadingPlan 逐个字段读一份坏掉的排读法回复，到齐的留下。
@@ -190,6 +220,12 @@ func salvageReadingPlan(s string) (readingPlanReply, bool) {
 			_ = json.Unmarshal(raw, &got.FocusBlocks)
 		case "steps":
 			_ = json.Unmarshal(raw, &got.Steps)
+		case "oneLine":
+			_ = json.Unmarshal(raw, &got.OneLine)
+		case "shape":
+			_ = json.Unmarshal(raw, &got.Shape)
+		case "load":
+			_ = json.Unmarshal(raw, &got.Load)
 		}
 	}
 	// routineKey 是唯一不能少的东西 —— 没有它就没有读法，也就没有清单。
@@ -376,6 +412,19 @@ func (a *API) planReadingTasks(
 		Labels: labels, Details: details, BlockIds: blockIDs,
 	}); err != nil {
 		return nil, err
+	}
+	// 导读。校验不过就不写 —— 那一列留着上一次的（或者 '{}'），阅读室因此
+	// 不显示导读卡，而不是显示一份修补过的。见 validateOutline。
+	if o, ok := validateOutline(plan.outline(), blocks); ok {
+		if raw, merr := json.Marshal(o); merr == nil {
+			if _, err := qtx.UpdateReadingSourceOutline(ctx, sqlc.UpdateReadingSourceOutlineParams{
+				AtomID: atomID, Outline: raw,
+			}); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		slog.Info("reading plan: outline rejected", "atom_id", atomID, "blocks", len(blocks))
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

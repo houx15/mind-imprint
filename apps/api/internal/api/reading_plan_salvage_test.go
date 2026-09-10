@@ -28,8 +28,14 @@ func TestReadingPlanSurvivesBrokenSteps(t *testing.T) {
 	if len(positions) != len(routine.Steps) {
 		t.Fatalf("got %d steps, want the routine's %d", len(positions), len(routine.Steps))
 	}
-	if kinds[0] != "read" || labels[0] == "" || details[0] == "" {
-		t.Errorf("first step is not usable: kind=%q label=%q detail=%q", kinds[0], labels[0], details[0])
+	// 第一步的 kind 来自读法库自己，不是写死的 "read" —— 库里加一步（2026-09-10
+	// 加了「先预测」）不该让这条测试变红：它测的是「steps 写坏了，清单照样排得
+	// 出来」，不是「第一步一定叫 read」。
+	if want := string(routine.Steps[0].Kind); kinds[0] != want {
+		t.Errorf("first step kind = %q, want the routine's own %q", kinds[0], want)
+	}
+	if labels[0] == "" || details[0] == "" {
+		t.Errorf("first step is not usable: label=%q detail=%q", labels[0], details[0])
 	}
 }
 

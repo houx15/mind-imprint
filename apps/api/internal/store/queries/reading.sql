@@ -155,3 +155,9 @@ FROM reading r
 JOIN atom a ON a.id = r.atom_id
 WHERE a.user_id = $1 AND a.kind = 'reading' AND r.library_slug <> ''
 ORDER BY a.created_at DESC;
+
+-- name: UpdateReadingSourceOutline :one
+-- 导读（一句话 + 结构 + 每段的承重）。排读法那一次调用产出它，见迁移 0143。
+-- 分开一条 UPDATE 而不是并进 UpsertReadingSource：正文是入库时写的，导读是
+-- 之后排读法时才有的，两者不在同一次请求里。
+UPDATE reading_source SET outline = $2 WHERE atom_id = $1 RETURNING *;

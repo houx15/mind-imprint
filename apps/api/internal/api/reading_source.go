@@ -59,6 +59,39 @@ type sourceDTO struct {
 	// Headings 是要渲染成小标题的段 id。它们仍然是段（SplitBlocks 不认识
 	// Markdown），只是长得不一样。
 	Headings []string `json:"headings,omitempty"`
+	// Outline 是导读：这篇在问什么、它怎么组织、哪几段承重。排读法那一次
+	// 算出来的（reading_outline.go），阅读室把它摆在正文顶上。
+	// 排读法之前它是空的，那时候整个字段省略。
+	Outline *outlineDTO `json:"outline,omitempty"`
+}
+
+// outlineDTO 是导读发给前端的形状。
+//
+// 🚨 `core` 是**段 id 的列表**，不是 load 那张全表。前端要的就是「哪几段是
+// 核心」——把三种标签的全表发过去，客户端还得自己再筛一遍，而筛的规则就会
+// 变成第二份真相。支撑/过渡这两类在界面上不显示任何东西，发过去也没人用。
+type outlineDTO struct {
+	OneLine string   `json:"oneLine"`
+	Shape   string   `json:"shape"`
+	Core    []string `json:"core"`
+	// Blocks 是这篇一共几段。导读卡上要说「共 12 段，核心 3 段」，而
+	// 前端手里的 Blocks 长度就是它 —— 但那份是切出来的，这一份是服务端
+	// 数的，两边对不上的时候以服务端为准（她看到的段号来自服务端）。
+	Blocks int `json:"blocks"`
+}
+
+// outlineDTOFrom 把存下来的那份导读变成发出去的那份。空的返回 nil，
+// 于是 JSON 里整个字段消失，前端因此不必区分「没有导读」和「有一份空导读」。
+func outlineDTOFrom(o readingOutline, blocks []Block) *outlineDTO {
+	if o.blank() {
+		return nil
+	}
+	return &outlineDTO{
+		OneLine: o.OneLine,
+		Shape:   o.Shape,
+		Core:    o.coreBlockIDs(blocks),
+		Blocks:  len(blocks),
+	}
 }
 
 func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
@@ -153,9 +186,11 @@ func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	figures, headings := a.readingLayout(row.Figures, row.Headings)
+	blocks := SplitBlocks(row.Body)
 	httpx.WriteJSON(w, http.StatusOK, sourceDTO{
-		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: SplitBlocks(row.Body),
+		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: blocks,
 		Figures: figures, Headings: headings,
+		Outline: outlineDTOFrom(decodeOutline(row.Outline), blocks),
 	})
 }
 

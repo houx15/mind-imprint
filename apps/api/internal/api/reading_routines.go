@@ -64,6 +64,29 @@ const (
 	// 找一找：不是打字回答，是回到文章里把某样东西点出来。收尾用它，因为
 	// 打字的答案可以凭印象给，点出来的句子不能。
 	taskHunt readingTaskKind = "hunt"
+
+	// ── 2026-09-10 新增的三步 ────────────────────────────────────────────
+	//
+	// 三步都来自 docs/2026-09-10-reading-guidance-redesign.md 那份调研，
+	// 它们补的是我们**整套读法里根本没有的位置**，不是把已有的步骤换个说法。
+
+	// 预测：只看标题和第一句，猜这篇要解决什么问题、作者站哪边。
+	//
+	// 关键在它的**禁止**：这一步明说「正文先别读」。调研里那句
+	// 「Do not give the expected answer after asking prediction questions」
+	// 同样重要 —— 预测是一个待检验的假设，不是一道当场对答案的题。
+	// 它把「读」从「接收」变成「验证」，而这个转换只有在读之前做才有意义。
+	taskPredict readingTaskKind = "predict"
+	// 标注论证：给几句话各自贴一个角色（主张 / 证据 / 限制 / 背景 / 对比）。
+	//
+	// 这是一次**不问「你懂了吗」的理解检查**：贴不出来就是没读懂，而她一个字
+	// 都不用写。对应 label_roles 那块板（reading_coach_card.go）。
+	taskLabel readingTaskKind = "label"
+	// 复述：合上文章，凭记忆说出三个表达、一句话主张、和它靠什么撑着。
+	//
+	// 调研里叫 exit retrieval。它便宜（一分半钟）、假不了（合上了文章，
+	// 凭印象说不出来就是真的没留下），而且产出的是一条完整的过程记录。
+	taskRecall readingTaskKind = "recall"
 )
 
 // focusBlockLabelBase is the 精读 step's label WITHOUT its paragraph number.
@@ -118,6 +141,7 @@ var readingRoutines = []readingRoutine{
 		Name:  "通读 → 精读 → 透镜",
 		Blurb: "默认读法。适合说明文、议论文、新闻这类讲道理的文章。",
 		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇要解决什么问题？正文先别读。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "不查词、不停下来，先知道这篇大概在说什么。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
 			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度重新过一遍，看看能不能看出刚才没看见的东西。"},
@@ -145,13 +169,19 @@ var readingRoutines = []readingRoutine{
 		Name:  "Close Read",
 		Blurb: "英文文章的默认读法：先看懂，再看它是怎么写的。",
 		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题和第一句：这篇要解决什么问题？正文先别读。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "第二段。这一次先自己读，读不懂再点工具。"},
+			{Kind: taskLabel, Label: "标注论证", Detail: "给几句话各自贴一个角色：主张、证据、限制、背景、对比。"},
 			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度重新过一遍。"},
-			{Kind: taskReflect, Label: "用你自己的话复述", Detail: "不看原文，用中文把这篇讲一遍。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出你觉得最难、但现在读懂了的那一句。"},
+			// 🚨 复述在前，找句在后，而且是这个顺序才对：她先凭记忆说一遍，
+			// 再回文章里核对自己说得准不准。反过来（点完句子再合上文章复述）
+			// 是让她把刚看过的那一句背一遍，什么都测不出来。
+			// hunt 必须是最后一步 —— 见 reading_routines_internal_test.go：
+			// 打字的答案可以凭印象给，点出来的句子不能。
+			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：作者的主张一句话，加上你记住的两三个表达。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
 		},
 	},
 	{
@@ -160,8 +190,10 @@ var readingRoutines = []readingRoutine{
 		Name:  "Follow the Argument",
 		Blurb: "适合英文议论文、社论、TOEFL 阅读——作者在说服你的时候用。",
 		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：作者大概站哪一边？正文先别读。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先找出作者站哪一边。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具，看他是怎么把话说重的。"},
+			{Kind: taskLabel, Label: "标注论证", Detail: "给几句话各自贴一个角色：主张、证据、限制、背景、对比。"},
 			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度检查他的论证。"},
 			{Kind: taskReflect, Label: "你信吗", Detail: "哪一步你觉得站得住，哪一步你觉得他跳过去了？"},
 			{Kind: taskConnect, Label: "你站哪边", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
@@ -248,6 +280,22 @@ var readingBlockTools = []readingBlockTool{
 	{
 		Shape: "prose", ID: "grammar", Label: "语法", Lang: "en",
 		Instruction: "指出这一段里让人读不懂的那 1–2 个句子结构（长从句、倒装、插入语、非谓语……）。把那个句子摘出来，说清楚它的主干是什么、修饰的部分挂在哪。只讲让人卡住的，不要通篇语法课。",
+	},
+	{
+		Shape: "prose", ID: "hedge", Label: "把握度", Lang: "en",
+		// 来自 english-close-reading-skill 的「把握度」那一维（见
+		// docs/2026-09-10-reading-guidance-redesign.md）。
+		//
+		// 这是读英文新闻真正要学会的那件事：**分清作者声称什么和他证明了什么**。
+		// 中文写作者常常一律用「表明」，把猜测写成结论；英文里那个梯子写在动词
+		// 上，看动词就能判，所以它也是可核对的 —— 不是一个由模型自由发挥的印象。
+		Instruction: "这一段里的每个主张，作者用的是哪一级把握度？从强到弱：" +
+			"shows / demonstrates（证明）> found / reported（报告了观察到的事）> " +
+			"suggests / indicates（提示）> may / could / might（可能）> " +
+			"is associated with（只是同时出现，不是因果）。" +
+			"挑出 2–3 处，each 摘出那个动词或短语，说清楚它属于哪一级、" +
+			"以及**如果换成更强的那一级，这句话会多说出什么**。" +
+			"这一段全是叙述、没有主张，就直说没有，不要硬找。",
 	},
 	{
 		Shape: "prose", ID: "craft", Label: "写作解析", Lang: "en",

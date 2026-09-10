@@ -18,6 +18,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"mindimprint/api/internal/api"
 )
 
 type readingTaskJSON struct {
@@ -79,7 +81,13 @@ func decodeReadingPlan(t *testing.T, rec *httptest.ResponseRecorder) readingPlan
 }
 
 // A well-formed reply for the zh default routine.
+//
+// 🚨 steps 是**按位置**对上读法库那几步的（buildReadingTasks 同时比对下标和
+// kind），所以库里加一步，这份桩也要跟着加一步 —— 否则从那一步往后，每一条
+// detail 都对不上 kind，全部退回库里的通用说法，而这条测试正是在验「模型写的
+// 那句贴着这篇文章的话有没有落到那一步上」。
 const zhPlanReply = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"steps":[
+  {"kind":"predict","detail":"看标题猜猜：作者要解释什么？"},
   {"kind":"read","detail":"这篇不长，先整体过一遍。"},
   {"kind":"focus_block","detail":"第三段是全文唯一解释原理的地方。"},
   {"kind":"lens","detail":"用一个角度再看一遍。"},
@@ -104,12 +112,12 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	if out.RoutineName == "" {
 		t.Fatalf("routineName empty — she is never shown a bare key")
 	}
-	if len(out.Tasks) != 6 {
-		t.Fatalf("got %d tasks, want the routine's 6; %+v", len(out.Tasks), out.Tasks)
+	// 🚨 别把步数写死。读法库是会长的（2026-09-10 给这一套加了「先预测」），
+	// 而这条测试要证明的是「清单照着库里那一套排」，不是「一共六步」。
+	wantKinds := api.ReadingRoutineKindsForTest("zh-scan-focus-lens")
+	if len(out.Tasks) != len(wantKinds) {
+		t.Fatalf("got %d tasks, want the routine's %d; %+v", len(out.Tasks), len(wantKinds), out.Tasks)
 	}
-
-	// The shape the product asked for, in order.
-	wantKinds := []string{"read", "focus_block", "lens", "reflect", "connect", "hunt"}
 	for i, want := range wantKinds {
 		if out.Tasks[i].Kind != want {
 			t.Fatalf("task %d kind = %q, want %q", i, out.Tasks[i].Kind, want)
@@ -123,7 +131,17 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	}
 
 	// The focus step carries a REAL paragraph — the coach's actual judgement.
-	focus := out.Tasks[1]
+	//
+	// 🚨 按 kind 找，不按下标找。这里原来写的是 Tasks[1]，因为当时精读是第二步；
+	// 库里在它前面插了一步，这行就指向了「通读全文」，而通读本来就没有段号。
+	focusAt := 0
+	for i, k := range wantKinds {
+		if k == "focus_block" {
+			focusAt = i
+			break
+		}
+	}
+	focus := out.Tasks[focusAt]
 	if focus.BlockID != "b3" {
 		t.Fatalf("focus block = %q, want the paragraph the model chose", focus.BlockID)
 	}
@@ -148,8 +166,8 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("GET plan = %d; body=%s", rec2.Code, rec2.Body)
 	}
-	if got := decodeReadingPlan(t, rec2); len(got.Tasks) != 6 {
-		t.Fatalf("GET plan returned %d tasks, want 6", len(got.Tasks))
+	if got := decodeReadingPlan(t, rec2); len(got.Tasks) != len(wantKinds) {
+		t.Fatalf("GET plan returned %d tasks, want %d", len(got.Tasks), len(wantKinds))
 	}
 }
 
@@ -174,7 +192,7 @@ func TestReadingPlan_ModelCannotInventSteps(t *testing.T) {
 	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
 
 	out := decodeReadingPlan(t, postReadingPlan(t, h, cookie, id))
-	wantKinds := []string{"read", "focus_block", "lens", "reflect", "connect", "hunt"}
+	wantKinds := api.ReadingRoutineKindsForTest("zh-scan-focus-lens")
 	if len(out.Tasks) != len(wantKinds) {
 		t.Fatalf("got %d tasks, want the routine's %d — the model added steps", len(out.Tasks), len(wantKinds))
 	}

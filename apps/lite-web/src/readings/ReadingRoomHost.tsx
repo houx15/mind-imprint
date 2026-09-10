@@ -11,6 +11,7 @@ import {
   type Reading,
   type ReadingSource,
   type ReadingFigure,
+  type ReadingOutline,
 } from "../api/readings";
 import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel";
 import {
@@ -165,10 +166,17 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     return toMaterialSource(readingId, state.reading, state.source, state.annotations);
   }, [state, readingId]);
 
-  // 版式（图 + 小标题）。只有分级阅读库开来的阅读有；粘贴进来的两个都是空的。
+  // 版式（图 + 小标题）+ 导读。图和小标题只有分级阅读库开来的阅读有；导读是
+  // 排读法那一次算出来的，所以排读法之前也是空的。
   const layout = useMemo(() => {
-    if (state.phase !== "ready") return { figures: [] as ReadingFigure[], headings: [] as string[] };
-    return { figures: state.source.figures ?? [], headings: state.source.headings ?? [] };
+    if (state.phase !== "ready") {
+      return { figures: [] as ReadingFigure[], headings: [] as string[], outline: undefined as ReadingOutline | undefined };
+    }
+    return {
+      figures: state.source.figures ?? [],
+      headings: state.source.headings ?? [],
+      outline: state.source.outline,
+    };
   }, [state]);
 
   // Her confirmed findings, rebuilt from the card rows. Without this a reload
@@ -233,6 +241,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // 契约，而图和小标题只有轻量版的分级阅读库有。
         figures={layout.figures}
         headingBlockIds={layout.headings}
+        outline={layout.outline}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         // 完成这篇 lands her on the report. Re-running the load is what does

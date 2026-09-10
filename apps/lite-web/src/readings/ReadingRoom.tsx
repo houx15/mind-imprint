@@ -25,7 +25,8 @@ import type {
   ReadingLensDone,
   ReadingTask,
 } from "../api/readingRoom";
-import type { ReadingFigure } from "../api/readings";
+import type { ReadingFigure, ReadingOutline } from "../api/readings";
+import { ReadingOutlineCard } from "./ReadingOutlineCard";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -146,6 +147,8 @@ export type LiteReadingRoomProps = {
   figures?: ReadingFigure[];
   /** 要渲染成小标题的段 id。 */
   headingBlockIds?: string[];
+  /** 导读：这篇在问什么、它怎么组织、哪几段承重。排读法之前没有。 */
+  outline?: ReadingOutline;
 };
 
 /**
@@ -221,6 +224,7 @@ export function ReadingRoom({
   blockNotes,
   figures,
   headingBlockIds,
+  outline,
   onBlockNote,
 }: LiteReadingRoomProps) {
   // DEBT: `useReadingLoop` still carries pro's signature and wants a
@@ -432,6 +436,12 @@ export function ReadingRoom({
       : source.blocks[0]?.id ?? null
     : null;
 
+  /** 段 id → 第几段。段号是她屏幕上唯一认得的坐标 —— b3 不是，导读卡因此
+   *  只说段号。找不到返回 0，调用方据此不显示那一条。 */
+  function ordinalOf(blockId: string): number {
+    return source.blocks.findIndex((b) => b.id === blockId) + 1;
+  }
+
   function locateBlock(blockId: string) {
     // 左边永远是文章，所以这里不用再切视图 —— 只要滚过去。
     requestAnimationFrame(() => {
@@ -627,9 +637,17 @@ export function ReadingRoom({
                   )}
                   {leadFigure && <ArticleFigure figure={leadFigure} />}
                 </header>
+                {outline && (
+                  <ReadingOutlineCard
+                    outline={outline}
+                    ordinalOf={ordinalOf}
+                    onLocate={locateBlock}
+                  />
+                )}
                 <Annotate
                   blocks={source.blocks}
                   headingBlockIds={headingBlockIds}
+                  coreBlockIds={outline?.core}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
                   onSelectSpan={setActiveSpanId}

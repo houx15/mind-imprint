@@ -38,6 +38,18 @@ export type AnnotateProps = {
    */
   headingBlockIds?: string[];
   /**
+   * Block ids the coach judged to be load-bearing — the paragraphs that carry
+   * the argument rather than support it (轻量版的导读，见
+   * `apps/api/internal/api/reading_outline.go`).
+   *
+   * Renders as `data-core` and NOTHING else: the styling is one line of
+   * lite's own CSS colouring the `3px solid transparent` left border this
+   * component already puts on every paragraph, so there is zero layout
+   * change. Absent by default — output is byte-identical to before this prop
+   * existed when it is not supplied, and pro never passes it.
+   */
+  coreBlockIds?: string[];
+  /**
    * "Click a sentence to reference it" (引用原文). When supplied AND
    * `selectMode` is null (i.e. NOT in evidence-pick mode), each block
    * becomes clickable and calls back with the block's id. Absent by
@@ -93,6 +105,7 @@ export function Annotate({
   onCreateSpan,
   renderAfterBlock,
   headingBlockIds,
+  coreBlockIds,
   onReferenceBlock,
   onReferenceSelection,
   referencedBlockIds,
@@ -216,11 +229,13 @@ export function Annotate({
           const runs = segmentBlock(block.id, block.text, state.spans);
           const referenced = Boolean(referencedBlockIds?.includes(block.id));
           const heading = Boolean(headingBlockIds?.includes(block.id));
+          const core = Boolean(coreBlockIds?.includes(block.id));
           return (
             <Fragment key={block.id}>
               <p
                 data-block-id={block.id}
                 data-heading={heading ? "" : undefined}
+                data-core={core ? "" : undefined}
                 role={heading ? "heading" : undefined}
                 aria-level={heading ? 2 : undefined}
                 onClick={

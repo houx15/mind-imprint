@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"mindimprint/api/internal/api"
 )
 
 type coachTurnJSON struct {
@@ -184,12 +186,27 @@ func TestReadingCoach_FocusBlockPrefersThePlansOwnParagraph(t *testing.T) {
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
 
-	// This stub advances on every turn, so exactly ONE turn is what lands her
-	// on the focus_block step — step 1 completes and step 2 becomes current.
-	// That step carries b3 from the plan, and it must win over the turn's own
-	// "b1". (Driving a second turn here would advance PAST the focus step and
-	// assert nothing, which is how this test first failed.)
-	out := decodeCoachTurn(t, coachTurn(t, h, cookie, id, ""))
+	// This stub advances on every turn, so she has to be walked forward until
+	// the focus_block step is the current one. That step carries b3 from the
+	// plan, and it must win over the turn's own "b1".
+	//
+	// 🚨 别把轮数写死。这里原来写的是「正好一轮」，因为当时 focus_block 是第二
+	// 步；2026-09-10 在它前面插了「先预测」，一轮就只走到 read，测试变红而产品
+	// 完全正常。走到那一步为止 —— 走过头会什么都断言不到（这条测试第一次失败
+	// 就是这么来的）。
+	focusAt := 0
+	for i, kind := range api.ReadingRoutineKindsForTest("zh-scan-focus-lens") {
+		if kind == "focus_block" {
+			focusAt = i
+			break
+		}
+	}
+	// 每一轮完成当前这一步，于是走完 focusAt 轮之后，当前那一步正好是精读
+	// （下标 focusAt）。多走一轮就越过它了，那时候什么都断言不到。
+	var out coachTurnJSON
+	for i := 0; i < focusAt; i++ {
+		out = decodeCoachTurn(t, coachTurn(t, h, cookie, id, ""))
+	}
 	if out.FocusBlock != "b3" {
 		t.Fatalf("focusBlock = %q, want the plan's own b3", out.FocusBlock)
 	}

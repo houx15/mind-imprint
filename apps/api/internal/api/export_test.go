@@ -104,3 +104,22 @@ func IsAdminForTest(ctx context.Context) bool {
 func (a *API) LoadOwnedAtomForTest(w http.ResponseWriter, r *http.Request, kind string) (sqlc.Atom, bool) {
 	return a.loadOwnedAtom(w, r, kind)
 }
+
+// ReadingRoutineKindsForTest — 某一套读法的步骤 kind，按顺序。
+//
+// 🚨 存在的理由是**别把步数和顺序抄进测试里**。读法库是会长的
+// （2026-09-10 给三套各加了「先预测」，给英文那套加了「标注论证」和「复述」），
+// 而 HTTP 层那几条测试要证明的是「清单照着库里那一套排、模型加不进步骤」，
+// 不是「一共六步、第一步叫 read」。抄一份进测试，库一长就是十几条红的，
+// 而产品完全正常 —— 那种红色最贵：它教人把测试改绿，而不是去看发生了什么。
+func ReadingRoutineKindsForTest(key string) []string {
+	r, ok := findReadingRoutine(key)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(r.Steps))
+	for _, s := range r.Steps {
+		out = append(out, string(s.Kind))
+	}
+	return out
+}

@@ -1765,3 +1765,209 @@
   font-size: 11.5px;
   color: var(--mk-faint);
 }
+
+/* ---------------------------------------------------------------------------
+ * 导读（`ReadingOutlineCard`）
+ *
+ * 摆在正文顶上：这篇在问什么、它怎么组织、哪几段承重。它替掉的是 印记 开场
+ * 那一段把文章讲了一遍的话 —— 见 docs/2026-09-10-reading-guidance-redesign.md。
+ *
+ * 视觉上它要读起来像**便签**，不像正文的一部分：所以有底色、有虚线边、字比正文
+ * 小一号。她扫一眼就该看完，然后开始读文章。
+ * ------------------------------------------------------------------------ */
+
+.mk-reading-outline {
+  margin: 0 0 26px;
+  padding: 12px 14px;
+  border: 1px dashed color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
+  border-radius: var(--mk-radius-md);
+  background: color-mix(in srgb, var(--mk-accent-50) 55%, var(--mk-surface));
+}
+
+.mk-reading-outline__line {
+  margin: 0 0 5px;
+  color: var(--mk-ink);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.mk-reading-outline__line:last-of-type {
+  margin-bottom: 0;
+}
+
+/* 「在问 / 结构 / 承重」—— 名词标签，定宽，所以三行的内容左边对齐。 */
+.mk-reading-outline__key {
+  display: inline-block;
+  min-width: 34px;
+  margin-right: 8px;
+  color: var(--mk-accent-700);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mk-reading-outline__jump {
+  border: 0;
+  padding: 0;
+  color: var(--mk-accent-700);
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.mk-reading-outline__jump:hover {
+  color: var(--mk-accent-600);
+}
+
+.mk-reading-outline__note {
+  margin: 8px 0 0;
+  color: var(--mk-faint);
+  font-size: 11px;
+}
+
+/* 核心段：正文左边一道竖线。
+ *
+ * 用的是 Annotate 已经写在每个 <p> 上的那条 `3px solid transparent` 行内边框
+ * —— 只改颜色，所以**零布局位移**，也不会跟 referenced / heading 那两种状态
+ * 抢位置。`!important` 是必须的：那条边框是行内样式。 */
+.mk-lite-room .mk-reading-room__article-inner p[data-core] {
+  border-left-color: color-mix(in srgb, var(--mk-accent-500) 32%, transparent) !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 板（`CoachBoards`）
+ *
+ * 🚨 「交互」在这个产品里有确定的意思（2026-09-04）：**一块能用手摆的板**，
+ * 拖是主要动词。2026-09-01 被否掉的是「form-like things」，所以这里没有一个
+ * 勾选框、没有一个下拉菜单。
+ * ------------------------------------------------------------------------ */
+
+.mk-board {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mk-board__hint {
+  margin: 0 0 6px;
+  color: var(--mk-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mk-board__loose {
+  padding: 8px 10px;
+  border-radius: var(--mk-radius-md);
+  background: color-mix(in srgb, var(--mk-surface) 70%, transparent);
+}
+
+.mk-board__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mk-board__bins {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.mk-board__bin {
+  display: flex;
+  min-height: 66px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px dashed var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+/* 手里拿着一张卡（拖着，或者点选了）的时候，每个格子都亮一点边 —— 她得看得见
+   「可以放到哪儿」，否则点选那条路径在屏幕上没有任何提示。 */
+.mk-board__bin.is-armed {
+  border-color: color-mix(in srgb, var(--mk-accent-500) 40%, transparent);
+}
+
+.mk-board__bin.is-over {
+  border-color: var(--mk-accent-500);
+  border-style: solid;
+  background: color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface));
+}
+
+.mk-board__binname {
+  color: var(--mk-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mk-board__chip {
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-sm);
+  color: var(--mk-ink);
+  background: var(--mk-surface);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  /* 🚨 触屏上按住横向拖动默认是滚页面。不关掉，板在手机上完全拖不动。 */
+  touch-action: none;
+  cursor: grab;
+}
+
+.mk-board__chip.is-picked {
+  border-color: var(--mk-accent-500);
+  background: color-mix(in srgb, var(--mk-accent-50) 85%, var(--mk-surface));
+}
+
+/* 拖起来的那一张在原位留一个空位，而不是原地消失 —— 消失会让下面的卡片
+   往上跳，她拖到一半时目标就移动了。 */
+.mk-board__chip.is-dragging {
+  opacity: 0.35;
+}
+
+.mk-board__ghost {
+  position: fixed;
+  z-index: 60;
+  max-width: 260px;
+  padding: 5px 9px;
+  border: 1px solid var(--mk-accent-500);
+  border-radius: var(--mk-radius-sm);
+  background: var(--mk-surface);
+  box-shadow: 0 6px 18px rgba(31, 37, 48, 0.16);
+  color: var(--mk-ink);
+  font-size: 12px;
+  line-height: 1.5;
+  /* 指针底下的元素要能被 elementFromPoint 找到，所以这一张必须让路。 */
+  pointer-events: none;
+  transform: translate(10px, 10px);
+}
+
+.mk-board__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mk-board__submit {
+  padding: 5px 13px;
+  border: 0;
+  border-radius: var(--mk-radius-full);
+  color: #fff;
+  background: var(--mk-accent-500);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mk-board__submit:disabled {
+  background: color-mix(in srgb, var(--mk-accent-500) 32%, transparent);
+  cursor: not-allowed;
+}

@@ -1,0 +1,89 @@
+import { describe, expect, it } from "vitest";
+import { boardItems, composeBoardAnswer, type CoachCardSpec } from "@lite/readings/CoachCard";
+
+/**
+ * 板摆完之后变成的那段话。
+ *
+ * 只测这一件事，因为只有这一件事「读代码看不出对错」：**引文必须单独成行**。
+ *
+ * 服务端的 `composeCardAnswerMessage`（reading_coach.go）会拿她这一轮的每一行
+ * 回文章里做字面核对，是原文的那几行带上 `> ` 前缀。这是 R4 的第三道闸：
+ * 文章的句子绝不能以「她说的话」的身份进语料，否则它有资格被印在一张可以分享
+ * 的报告图片上、署她的名。
+ *
+ * 「证据：「原文」」写成一行的话，那一行既不是纯粹的原文（前面多了三个字），
+ * 核对就过不了，于是整句文章的话落进了她的语料。屏幕上完全看不出来 ——
+ * 报告是几天之后才生成的。
+ */
+
+const SPANS: CoachCardSpec = {
+  type: "label_roles",
+  prompt: "这几句在文章里各自在干什么？",
+  labels: ["主张", "证据", "限制"],
+  options: [
+    { blockId: "b2", quote: "The agency said it had delivered 40 trucks of supplies." },
+    { blockId: "b3", quote: "Officials cautioned that the figure could not be verified." },
+  ],
+};
+
+const WORDS: CoachCardSpec = {
+  type: "word_bank",
+  prompt: "这几个词，哪些你已经认识？",
+  words: [
+    { blockId: "b1", term: "scrambling" },
+    { blockId: "b2", term: "delivered" },
+    { blockId: "b3", term: "cautioned" },
+  ],
+};
+
+describe("板摆完之后的那段话", () => {
+  it("标注板：标签一行，引文自己一行，逐字不动", () => {
+    const items = boardItems(SPANS);
+    const text = composeBoardAnswer(SPANS, { [items[0]!.id]: "证据", [items[1]!.id]: "限制" }, items);
+    const lines = text.split("\n");
+    expect(lines).toEqual([
+      "证据：",
+      "The agency said it had delivered 40 trucks of supplies.",
+      "限制：",
+      "Officials cautioned that the figure could not be verified.",
+    ]);
+    // 🚨 这是这条测试存在的理由：每一句引文所在的那一行，必须**整行**逐字等于
+    // 文章里的那句话。前面粘上标签，服务端就核对不上，文章的句子会以她的话的
+    // 身份进语料。
+    for (const o of SPANS.options ?? []) {
+      expect(lines, `引文没有单独成行：${o.quote}`).toContain(o.quote);
+    }
+  });
+
+  it("没摆进格子的那几张不进这段话", () => {
+    const items = boardItems(SPANS);
+    const text = composeBoardAnswer(SPANS, { [items[0]!.id]: "证据" }, items);
+    expect(text).not.toContain("Officials cautioned");
+  });
+
+  it("生词板：一个词一行，词不是句子所以不必单独成行", () => {
+    const items = boardItems(WORDS);
+    const text = composeBoardAnswer(
+      WORDS,
+      { [items[0]!.id]: "不认识", [items[1]!.id]: "认识", [items[2]!.id]: "不确定" },
+      items,
+    );
+    expect(text.split("\n")).toEqual([
+      "scrambling — 不认识",
+      "delivered — 认识",
+      "cautioned — 不确定",
+    ]);
+  });
+
+  it("一张都没摆 = 一段空话，调用方据此不发这一轮", () => {
+    const items = boardItems(WORDS);
+    expect(composeBoardAnswer(WORDS, {}, items)).toBe("");
+  });
+
+  it("boardItems 按卡片的形状取东西，取错了板上就是空的", () => {
+    expect(boardItems(SPANS).map((i) => i.blockId)).toEqual(["b2", "b3"]);
+    expect(boardItems(WORDS).map((i) => i.text)).toEqual(["scrambling", "delivered", "cautioned"]);
+    // 三种老卡片没有任何可摆的东西 —— 不是崩，是空。
+    expect(boardItems({ type: "short_text", prompt: "说说看" })).toEqual([]);
+  });
+});

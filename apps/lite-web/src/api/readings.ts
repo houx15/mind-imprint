@@ -44,6 +44,22 @@ export interface ReadingFigure {
   credit: string;
 }
 
+/**
+ * 导读：这篇在问什么、它怎么组织、哪几段承重。
+ *
+ * 排读法那一次调用算出来的（`apps/api/internal/api/reading_outline.go`），
+ * 排读法之前整个字段不存在。
+ *
+ * `core` 已经是筛好的段 id 列表 —— 服务端不把三种承重的全表发过来，因为界面上
+ * 只有核心段会显示东西，而在客户端再筛一遍就等于把规则写了第二份。
+ */
+export interface ReadingOutline {
+  oneLine: string;
+  shape: string;
+  core: string[];
+  blocks: number;
+}
+
 export interface ReadingSource {
   title: string;
   sourceUrl: string;
@@ -52,6 +68,8 @@ export interface ReadingSource {
   figures?: ReadingFigure[];
   /** 要渲染成小标题的段 id。它们仍然是段（服务端按空行切，不认识 Markdown）。 */
   headings?: string[];
+  /** 导读。排读法之前没有。 */
+  outline?: ReadingOutline;
 }
 
 /**

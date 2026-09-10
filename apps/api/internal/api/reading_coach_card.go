@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -16,15 +17,61 @@ import (
 // **保证靠输出类型，不靠嘴上叮嘱** —— 不求模型好好引用，而是逐条核对，
 // 过不了的整张丢掉。丢掉不是错误：这一轮照常成功，她只是收到一条没有卡片的回复。
 
-// coachCardType 三种：
+// coachCardType 五种。前三种是「说」，后两种是「摆」：
+//
 //   - choose_span     —— 从文章的几句原话里点一句（options 必填）
 //   - pick_in_article —— 请她自己去正文里划一句（没有 options）
 //   - short_text      —— 请她用自己的话写一小段（没有 options）
+//   - label_roles     —— 把几句原话各自摆到一个角色下面（options 必填）
+//   - word_bank       —— 把这一段里的几个词分到「认识 / 不确定 / 不认识」（words 必填）
+//
+// # 后两种为什么存在（2026-09-10）
+//
+// 产品负责人的原话：
+//
+//	> the guiding, now only texts, or questions/choices/text input, is not
+//	> enough. we have great 透镜 interaction. and we can be richer.
+//	> we can make our ai be able to call out an interactive part and then back
+//
+// 也就是说：结构没问题（印记 排步骤、领着走），缺的是**手上能摆的东西**。
+// 透镜是唯一一件，而它一篇文章只用一两次。
+//
+// 这两种沿用**同一条回路**（印记 在回复里给一张卡 → 她动手 → 作答回灌成真的
+// 一轮），所以它们不是一套平行的运行时，是这张卡片多了两种形状。
+//
+// 两种都来自 docs/2026-09-10-reading-guidance-redesign.md 里那份调研：
+//
+//   - label_roles 是 article-active-reading-tutor 的 role labeling。
+//     「给这几句各自贴一个角色」是一次**不问「你懂了吗」的理解检查**：
+//     贴不出来就是没读懂，而她一个字都不用写。
+//   - word_bank 是那份调研里反复出现的「选材来自她自己的回答」：印记 不再对着
+//     一整段讲生词，而是先看她把哪几个词划到「不认识」，下一轮只讲那几个。
 const (
 	coachCardChooseSpan    = "choose_span"
 	coachCardPickInArticle = "pick_in_article"
 	coachCardShortText     = "short_text"
+	coachCardLabelRoles    = "label_roles"
+	coachCardWordBank      = "word_bank"
 )
+
+// coachCardRoleLabels 是 label_roles 那块板上的格子。
+//
+// 🚨 **闭表，而且由服务端填**，模型只给句子、给不了标签。理由和学科表一样：
+// 模型能编出第六个角色，而第六个角色在板上没有格子、在带读规矩里没有对应的
+// 说法。它们也是她真正要学会认的那五种东西 —— 换一篇文章还是这五个格子，
+// 那个「认得出」就是学习本身（reading_routines.go 开头那三条里的第 2 条）。
+var coachCardRoleLabels = []string{"主张", "证据", "限制", "背景", "对比"}
+
+// coachCardWord 是生词板上的一个词：它出现在哪一段（BlockID），词本身（Term）。
+//
+// 🚨 没有「释义」这个字段，而且是故意的。板上不摆答案 —— 她先分「认识 /
+// 不确定 / 不认识」，印记 下一轮只讲她划到后两格的那几个。把释义一起发下来，
+// 这块板当场退化成一张单词表，而那正是调研里说的「把答案先给了，后面每一步
+// 都成了走过场」。
+type coachCardWord struct {
+	BlockID string `json:"blockId"`
+	Term    string `json:"term"`
+}
 
 const (
 	// coachCardPromptMaxRunes 按 rune 数，不是 byte 数 —— 正文是中文，
@@ -66,10 +113,26 @@ type coachCardOption struct {
 // coachCard 是 印记 在这一轮回复里附带的一张卡片。**它不带 answer key** ——
 // 没有对错、没有分数（铁律②）；卡片只是把「想」这一步交回给她。
 type coachCard struct {
-	Type    string            `json:"type"`    // choose_span | pick_in_article | short_text
-	Prompt  string            `json:"prompt"`  // ≤ 60 字的一句话提问
-	Options []coachCardOption `json:"options"` // choose_span 专用
+	Type   string `json:"type"`
+	Prompt string `json:"prompt"` // ≤ 60 字的一句话提问
+	// choose_span 和 label_roles 用它：文章里的几句原话。
+	Options []coachCardOption `json:"options"`
+	// word_bank 用它：这一段里的几个词。
+	Words []coachCardWord `json:"words,omitempty"`
+	// label_roles 那块板上的格子。**服务端填的**，模型给不了 —— 见
+	// coachCardRoleLabels。模型如果自己塞了一份，这里会被覆盖掉。
+	Labels []string `json:"labels,omitempty"`
 }
+
+const (
+	// 生词板上的词：少于 3 个不成一块板，多于 6 个就变成一张单词表了。
+	// 上限跟调研里那几个 skill 的口径一致（一次 4–6 个高价值词，宁缺毋滥）。
+	coachCardMinWords = 3
+	coachCardMaxWords = 6
+	// 一个「词」最长四个英文单词 —— 再长就不是词，是句子，那是 label_roles
+	// 该做的事。
+	coachCardMaxWordTokens = 4
+)
 
 // validateCoachCard 校验模型给出的这张卡片，不合格返回 nil —— 静默丢弃，
 // 不报错、不渲染残卡。返回的是一张新卡片，调用方手里那张不会被就地改写。
@@ -89,7 +152,8 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 		return nil
 	}
 	switch c.Type {
-	case coachCardChooseSpan, coachCardPickInArticle, coachCardShortText:
+	case coachCardChooseSpan, coachCardPickInArticle, coachCardShortText,
+		coachCardLabelRoles, coachCardWordBank:
 	default:
 		return nil
 	}
@@ -97,7 +161,18 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	if prompt == "" || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
 		return nil
 	}
-	if c.Type != coachCardChooseSpan {
+	// 🚨 一句一句定义就能打发的问题，整张卡丢掉。见 rejectBannedQuestion。
+	if rejectBannedQuestion(prompt) {
+		return nil
+	}
+	if c.Type == coachCardWordBank {
+		words := validateCardWords(c.Words, blocks)
+		if len(words) < coachCardMinWords {
+			return nil
+		}
+		return &coachCard{Type: c.Type, Prompt: prompt, Words: words}
+	}
+	if c.Type != coachCardChooseSpan && c.Type != coachCardLabelRoles {
 		return &coachCard{Type: c.Type, Prompt: prompt}
 	}
 
@@ -156,7 +231,136 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	if !coachCardSpansBlocks(out) {
 		return nil
 	}
-	return &coachCard{Type: c.Type, Prompt: prompt, Options: out}
+	card := &coachCard{Type: c.Type, Prompt: prompt, Options: out}
+	if c.Type == coachCardLabelRoles {
+		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉：
+		// 见 coachCardRoleLabels。
+		card.Labels = coachCardRoleLabels
+	}
+	return card
+}
+
+// validateCardWords 把生词板上那几个词收进「确实在那一段里」的范围。
+//
+// 和句子那一侧同一条思路：**保证靠核对，不靠嘱咐**。一个模型顺手写出来的、
+// 文章里根本没有的词，在板上和一个真词长得一模一样，而她会把它背下来。
+//
+// 核对是**整词**核对，不是子串：`art` 是 `article` 的子串，但它不是这一段里
+// 出现过的词。英文按词边界判；中文没有词边界，退回子串（中文文章的生词板本来
+// 也不是主要用途 —— 段落工具里的「关键单词」才是）。
+func validateCardWords(words []coachCardWord, blocks []Block) []coachCardWord {
+	byID := make(map[string]string, len(blocks))
+	for _, b := range blocks {
+		byID[b.ID] = b.Text
+	}
+	seen := make(map[string]bool, len(words))
+	out := make([]coachCardWord, 0, len(words))
+	for _, w := range words {
+		term := strings.TrimSpace(w.Term)
+		if term == "" {
+			continue
+		}
+		if len(strings.Fields(term)) > coachCardMaxWordTokens {
+			continue
+		}
+		body, ok := byID[w.BlockID]
+		if !ok || !blockContainsTerm(body, term) {
+			continue
+		}
+		// 大小写不敏感地去重：`Aid` 和 `aid` 摆在板上是同一个词。
+		key := strings.ToLower(term)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, coachCardWord{BlockID: w.BlockID, Term: term})
+		if len(out) == coachCardMaxWords {
+			break
+		}
+	}
+	return out
+}
+
+// blockContainsTerm —— term 是不是 body 里真的出现过的一个词。
+//
+// 英文（term 里有 ASCII 字母）按**词边界**判：两侧不能再接字母或数字。
+// 否则退回子串（中文没有词边界可判）。大小写不敏感 —— 句首那个词首字母大写，
+// 而板上摆的是词本身。
+func blockContainsTerm(body, term string) bool {
+	if !hasASCIILetter(term) {
+		return strings.Contains(body, term)
+	}
+	lowerBody := strings.ToLower(body)
+	lowerTerm := strings.ToLower(term)
+	for i := 0; ; {
+		j := strings.Index(lowerBody[i:], lowerTerm)
+		if j < 0 {
+			return false
+		}
+		start := i + j
+		end := start + len(lowerTerm)
+		if !isWordByte(lowerBody, start-1) && !isWordByte(lowerBody, end) {
+			return true
+		}
+		i = start + 1
+		if i >= len(lowerBody) {
+			return false
+		}
+	}
+}
+
+func hasASCIILetter(s string) bool {
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
+// isWordByte —— s 的第 i 个字节是不是一个会把词粘住的字符。越界当成不是。
+func isWordByte(s string, i int) bool {
+	if i < 0 || i >= len(s) {
+		return false
+	}
+	c := s[i]
+	return c == '\'' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+// bannedQuestionForms —— 一句定义就能打发的问题，没有承重。
+//
+// 来自 ljg-qa 的 QuestionDesign（见 docs/2026-09-10-reading-guidance-redesign.md）。
+// 它顺带点出了模型的默认毛病：「AI 默认会写「什么是 X」型问题 —— 教科书腔」。
+//
+// 🚨 写成代码而不是只写进 prompt，是因为
+// [[prompt-output-must-be-verifiable-2026-09-03]]：prompt 里的「必须」如果代码
+// 里验不了，它就只是一句期望。命中就把整张卡丢掉 —— 这一轮她收到一条没有卡片
+// 的回复，和引文核不上原文时是同一种处理。
+var bannedQuestionForms = []*regexp.Regexp{
+	// 「什么是 X？」「X 是什么？」—— 一句定义打发。
+	regexp.MustCompile(`^什么是[^？?]{1,20}[？?]?$`),
+	regexp.MustCompile(`^[^？?]{1,20}是什么[？?]?$`),
+	// 「X 有几个步骤 / 几个部分 / 哪几点」—— 问的是目录。
+	regexp.MustCompile(`有(几个|哪几个|哪些)(步骤|部分|阶段|要点|方面)`),
+	// 「X 重要吗」—— 答案预设。
+	regexp.MustCompile(`(重要|关键)吗[？?]?$`),
+	// 「我们应当如何看待 X」—— 学术腔，没有具体动作。
+	regexp.MustCompile(`(我们)?应(当|该)(如何|怎样|怎么)看待`),
+	// 「X 的优缺点是什么」—— 商学院八股。
+	regexp.MustCompile(`(优缺点|优点和缺点|利弊)(是什么|有哪些)`),
+	// 「这段讲了什么」—— prompt 里本来就点名禁止的那种空问题。
+	regexp.MustCompile(`^这(一)?段(主要)?(讲|说)了?什么[？?]?$`),
+}
+
+// rejectBannedQuestion —— 这个问题是不是上面那几种。
+func rejectBannedQuestion(prompt string) bool {
+	p := strings.TrimSpace(prompt)
+	for _, re := range bannedQuestionForms {
+		if re.MatchString(p) {
+			return true
+		}
+	}
+	return false
 }
 
 // coachCardSpansBlocks —— 这批选项是不是来自至少 coachCardMinBlocks 个不同的

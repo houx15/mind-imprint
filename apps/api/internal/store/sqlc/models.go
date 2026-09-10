@@ -1019,6 +1019,7 @@ type ReadingSource struct {
 	IngestedAt time.Time `json:"ingested_at"`
 	Figures    []byte    `json:"figures"`
 	Headings   []byte    `json:"headings"`
+	Outline    []byte    `json:"outline"`
 }
 
 type ReadingTakeaway struct {

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { CoachBoard, type BoardItem, type BoardPlacement } from "./CoachBoards";
 
 /**
  * CoachCard — 印记 把这一步递到她手上，让她点。
@@ -75,17 +76,31 @@ import { useEffect, useId, useRef, useState } from "react";
  * 拍到的那一下抖动）。一旦折起来就保持折着，直到她**主动点开**。
  */
 
-export type CoachCardType = "choose_span" | "pick_in_article" | "short_text";
+export type CoachCardType =
+  | "choose_span"
+  | "pick_in_article"
+  | "short_text"
+  // 两块板（2026-09-10）。前三种是「她说」，这两种是「她摆」——
+  // 见 CoachBoards.tsx 的头注。
+  | "label_roles"
+  | "word_bank";
 
 /** 卡片上的一个选项：文章里某一段（blockId）的某一句原话（quote）。 */
 export type CoachCardOption = { blockId: string; quote: string };
+
+/** 生词板上的一个词。**没有释义字段**，而且是故意的：板上不摆答案。 */
+export type CoachCardWord = { blockId: string; term: string };
 
 /** 服务端 `coachCard` 键上那张卡片（`reading_coach.go` 的响应）。 */
 export type CoachCardSpec = {
   type: CoachCardType;
   prompt: string;
-  /** 只有 `choose_span` 有；另外两种服务端会清空。 */
+  /** `choose_span` 和 `label_roles` 有；其余服务端会清空。 */
   options?: CoachCardOption[];
+  /** `word_bank` 专用。 */
+  words?: CoachCardWord[];
+  /** `label_roles` 那块板上的格子。**服务端填的闭表**，模型给不了。 */
+  labels?: string[];
 };
 
 /**
@@ -102,6 +117,60 @@ export type CoachCardAnswer = {
   choice: string;
   blockId?: string;
 };
+
+/** 生词板的三格。写死在这里而不是由服务端发：它们和这块板是同一件东西，
+ *  换了格子就是换了一块板，而服务端那一侧没有任何东西需要知道它们。 */
+const WORD_BINS = ["认识", "不确定", "不认识"];
+
+/** 一块板上待分类的那些东西，从卡片本身派生。 */
+export function boardItems(card: CoachCardSpec): BoardItem[] {
+  if (card.type === "word_bank") {
+    return (card.words ?? []).map((w, i) => ({
+      id: `w${i}`,
+      text: w.term,
+      blockId: w.blockId,
+    }));
+  }
+  return (card.options ?? []).map((o, i) => ({
+    id: `o${i}`,
+    text: o.quote,
+    blockId: o.blockId,
+  }));
+}
+
+/**
+ * 她摆完之后，这块板变成一段什么话。
+ *
+ * 🚨 这段话要同时被两个人读：印记（它得看懂她把什么放进了哪儿）和**她自己**
+ * （它会原样留在对话记录里，刷新之后还在）。所以它不是 JSON，是人话。
+ *
+ * 🚨 而且每一行都得能被服务端逐行认出来。`composeCardAnswerMessage`
+ * （reading_coach.go）会拿每一行回文章里做字面核对，是原文的那几行会带上
+ * `> ` 前缀 —— 这是 R4 的第三道闸：文章的句子绝不能以「她说的话」的身份
+ * 进语料。所以引文**单独成行**，标签写在它自己那一行上。
+ */
+export function composeBoardAnswer(
+  card: CoachCardSpec,
+  placement: BoardPlacement,
+  items: BoardItem[],
+): string {
+  const lines: string[] = [];
+  for (const it of items) {
+    const bin = placement[it.id];
+    if (!bin) continue;
+    if (card.type === "word_bank") {
+      // 词不是句子，它不会被误认成原文的一整行，所以一行放得下。
+      lines.push(`${it.text} — ${bin}`);
+      continue;
+    }
+    // 🚨 标签一行，引文一行。写成「证据：「原文」」的话，那一行既不是纯粹的
+    // 原文（前面多了两个字），也就核对不上，于是文章的句子会以她的话的身份
+    // 落进语料 —— 正是 R4 那条闸要拦的东西。
+    lines.push(`${bin}：`);
+    lines.push(it.text);
+  }
+  return lines.join("\n");
+}
 
 export function CoachCard({
   card,
@@ -232,6 +301,21 @@ export function CoachCard({
               分数，服务端也不发答案），不需要再用一句话去安抚。 */}
           <p className="text-mk-small text-mk-faint">请选择一句。</p>
         </>
+      ) : card.type === "label_roles" || card.type === "word_bank" ? (
+        <CoachBoard
+          items={boardItems(card)}
+          bins={card.type === "label_roles" ? card.labels ?? [] : WORD_BINS}
+          itemLabel={
+            card.type === "label_roles"
+              ? "把每一句拖到它的角色下面。也可以先点一句，再点一个格子。"
+              : "把每个词拖到你现在的状态下面。也可以先点一个词，再点一个格子。"
+          }
+          submitLabel={card.type === "label_roles" ? "摆好了" : "分好了"}
+          busy={busy}
+          onSubmit={(placement) =>
+            answer(composeBoardAnswer(card, placement, boardItems(card)))
+          }
+        />
       ) : card.type === "pick_in_article" ? (
         // 🚨 一个方位词都不许有。这里曾经写着「在**左边**文章里点出那一句」，
         // 而文章在桌面端排在**右边**、手机上排在**下面**——两次真实走查开头的

@@ -146,7 +146,7 @@ func (q *Queries) GetReadingBrief(ctx context.Context, atomID uuid.UUID) (Readin
 }
 
 const getReadingSource = `-- name: GetReadingSource :one
-SELECT atom_id, title, body, source_url, bib, ingested_at, figures, headings FROM reading_source WHERE atom_id = $1
+SELECT atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline FROM reading_source WHERE atom_id = $1
 `
 
 func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (ReadingSource, error) {
@@ -161,6 +161,7 @@ func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (Readi
 		&i.IngestedAt,
 		&i.Figures,
 		&i.Headings,
+		&i.Outline,
 	)
 	return i, err
 }
@@ -634,6 +635,35 @@ func (q *Queries) SetReadingTaskStatus(ctx context.Context, arg SetReadingTaskSt
 	return i, err
 }
 
+const updateReadingSourceOutline = `-- name: UpdateReadingSourceOutline :one
+UPDATE reading_source SET outline = $2 WHERE atom_id = $1 RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
+`
+
+type UpdateReadingSourceOutlineParams struct {
+	AtomID  uuid.UUID `json:"atom_id"`
+	Outline []byte    `json:"outline"`
+}
+
+// 导读（一句话 + 结构 + 每段的承重）。排读法那一次调用产出它，见迁移 0143。
+// 分开一条 UPDATE 而不是并进 UpsertReadingSource：正文是入库时写的，导读是
+// 之后排读法时才有的，两者不在同一次请求里。
+func (q *Queries) UpdateReadingSourceOutline(ctx context.Context, arg UpdateReadingSourceOutlineParams) (ReadingSource, error) {
+	row := q.db.QueryRow(ctx, updateReadingSourceOutline, arg.AtomID, arg.Outline)
+	var i ReadingSource
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Body,
+		&i.SourceUrl,
+		&i.Bib,
+		&i.IngestedAt,
+		&i.Figures,
+		&i.Headings,
+		&i.Outline,
+	)
+	return i, err
+}
+
 const upsertLibraryReadingSource = `-- name: UpsertLibraryReadingSource :one
 INSERT INTO reading_source (atom_id, title, body, source_url, figures, headings)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -641,7 +671,7 @@ ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
       source_url = EXCLUDED.source_url, figures = EXCLUDED.figures,
       headings = EXCLUDED.headings, ingested_at = now()
-RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
 `
 
 type UpsertLibraryReadingSourceParams struct {
@@ -673,6 +703,7 @@ func (q *Queries) UpsertLibraryReadingSource(ctx context.Context, arg UpsertLibr
 		&i.IngestedAt,
 		&i.Figures,
 		&i.Headings,
+		&i.Outline,
 	)
 	return i, err
 }
@@ -719,7 +750,7 @@ VALUES ($1, $2, $3, $4)
 ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
       source_url = EXCLUDED.source_url, ingested_at = now()
-RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
 `
 
 type UpsertReadingSourceParams struct {
@@ -746,6 +777,7 @@ func (q *Queries) UpsertReadingSource(ctx context.Context, arg UpsertReadingSour
 		&i.IngestedAt,
 		&i.Figures,
 		&i.Headings,
+		&i.Outline,
 	)
 	return i, err
 }
