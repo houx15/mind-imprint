@@ -36,3 +36,30 @@ func (m *MuxProvider) Stream(ctx context.Context, r Resolved, req ChatRequest) (
 	}
 	return p.Stream(ctx, r, req)
 }
+
+// Complete 把「一次要整份回答」转给底下那个通道，前提是它做得到。
+//
+// 做不到就报 errNotCompletable，`Collect` 据此退回流式。为什么值得有这条路，见
+// complete.go 的文件头：DashScope 那条聚合口的**流式**回复会悄悄丢掉最后一块
+// 内容，而要解析 JSON 的调用因此整份作废。
+func (m *MuxProvider) Complete(ctx context.Context, r Resolved, req ChatRequest) (ChatResult, error) {
+	p := m.pick(r)
+	if p == nil {
+		return ChatResult{}, fmt.Errorf("%w: unknown provider %q (kind %q)", errStreamFailed, r.Provider, r.Kind)
+	}
+	c, ok := p.(Completer)
+	if !ok {
+		return ChatResult{}, errNotCompletable
+	}
+	return c.Complete(ctx, r, req)
+}
+
+// pick 是 Stream 与 Complete 共用的那一段路由。
+func (m *MuxProvider) pick(r Resolved) Provider {
+	if r.Kind != "" {
+		if p, ok := m.providers[r.Kind]; ok {
+			return p
+		}
+	}
+	return m.providers[r.Provider]
+}
