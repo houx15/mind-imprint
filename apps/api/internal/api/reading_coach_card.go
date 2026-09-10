@@ -584,6 +584,17 @@ type coachMessagePayload struct {
 	// she already answered after a refresh, instead of showing a live card
 	// waiting for a tap she has made.
 	Answer *coachCardAnswer `json:"answer,omitempty"`
+	// Dropped 是这一轮 印记 写了一张卡、而它没能发出去的时候，那条理由。
+	//
+	// 🚨 它存在的理由是「闭环」也要覆盖失败那一侧。线上实测：印记 连着六轮在说
+	// 「点这张卡，它会让你从第 2 段里挑一句」，而那张卡每一轮都被跨段落那条规则
+	// 丢掉 —— 她屏幕上只有一句句「点这张卡」，指着一张不存在的卡。
+	//
+	// 模型没有办法自己发现这件事：它写完就交出去了，下一轮的上文里只有它自己
+	// 说过的话，看不出卡片有没有到。所以理由存下来，下一轮当面告诉它。
+	// 存在消息的 payload 上而不是另开一张表：它属于**那一条回复**，
+	// 一起写、一起读、一起被删。
+	Dropped string `json:"dropped,omitempty"`
 }
 
 // coachCardAnswer is her answer to a chat card: which card it was, what it
@@ -627,10 +638,16 @@ func coachCardAnswerPayload(a *coachCardAnswer) []byte {
 // reason the column is nullable: carrying nothing is the normal case, not one
 // every caller has to build an empty shell for.
 func coachCardPayload(c *coachCard) []byte {
-	if c == nil {
+	return coachCardPayloadWithDrop(c, cardOK)
+}
+
+// coachCardPayloadWithDrop 同上，外加「这一轮那张卡为什么没发出去」。
+// 两个都空的时候不写 payload —— 大多数轮本来就是这样。
+func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
+	if c == nil && (why == cardOK || why == cardRejectNoCard) {
 		return nil
 	}
-	b, err := json.Marshal(coachMessagePayload{Card: c})
+	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why)})
 	if err != nil {
 		// A struct of strings cannot fail to marshal; if it somehow did, the
 		// turn is still hers — she loses the card, not the reply.

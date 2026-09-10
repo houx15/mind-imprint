@@ -797,6 +797,18 @@ func buildReadingCoachPrompt(
 		b.WriteString("（还没聊过。）\n")
 	}
 
+	// 🚨 上一轮那张卡片没发出去的话，当面告诉它为什么。
+	//
+	// 它自己发现不了：写完就交出去了，下一轮的上文里只有它说过的话。线上实测
+	// 连着六轮在说「点这张卡」而卡片每轮都被丢掉 —— 她屏幕上是一句句指着空气的
+	// 话。这是「闭环」的失败那一侧：AI 递出去的东西没送到，也得让它知道。
+	if why := lastDroppedCard(tail); why != "" {
+		b.WriteString("\n【你上一轮那张卡片没有发出去】\n原因：" + why + "\n" +
+			"她的屏幕上只有你说的话，没有卡片 —— 所以**不要再提「这张卡」**，她看不到。\n" +
+			"这一轮要么按上面的规矩重新出一张（选项跨两段、逐字抄原文），要么就不发卡，\n" +
+			"用一句具体的指令把这一步说清楚。\n")
+	}
+
 	// 🚨 这一步是不是卡住了（同一步带了三轮以上还没动）。卡住了才加这一节，
 	// 没卡住一个字都不加 —— 常驻的提示会抢掉这一轮真正该做的事。
 	// 见 reading_coach_repeat.go。
@@ -858,6 +870,25 @@ func buildReadingCoachPrompt(
 	return b.String()
 }
 
+// lastDroppedCard —— 最后一条 印记 说的话里，那张卡片是不是被丢掉了；是的话
+// 给出理由。只看最后一条：再往前的那些它已经收到过反馈了。
+func lastDroppedCard(msgs []sqlc.AtomMessage) string {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != "ai" {
+			continue
+		}
+		if len(msgs[i].Payload) == 0 {
+			return ""
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(msgs[i].Payload, &p); err != nil {
+			return ""
+		}
+		return p.Dropped
+	}
+	return ""
+}
+
 // readingCoachToolMenu renders the paragraph tools for the article's language
 // into the coach's own prompt, from the same table the explain endpoint
 // validates against — so an id the coach names is always an id the endpoint
@@ -914,6 +945,10 @@ type readingCoachReply struct {
 	Reply      string `json:"reply"`
 	Advance    string `json:"advance"`
 	FocusBlock string `json:"focusBlock"`
+	// cardWhy 是这一轮那张卡片为什么没发出去（发出去了就是空）。不是模型给的，
+	// 是校验器填的 —— 所以没有 json tag，它不参与解析。跟着 reply 一起走出去，
+	// 是为了让它能被存进这条消息的 payload，下一轮当面告诉模型。
+	cardWhy cardReject
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -1089,13 +1124,12 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// that its answer doesn't exist outside the text. So it is checked, not
 	// trusted, and a card that fails is dropped rather than repaired: the turn
 	// still succeeds and she gets the coach's words with no card attached.
-	var cardWhy cardReject
-	got.Card, cardWhy = validateCoachCardWhy(got.Card, blocks)
+	got.Card, got.cardWhy = validateCoachCardWhy(got.Card, blocks)
 	// 🚨 说出为什么。丢掉是对的，静默不是：走查里 印记 连着两轮在说「把这几句
 	// 拖到格子里」而板从来没出现过，日志里一个字都没有，只能靠猜。
 	// 「no card in the reply」不记 —— 大多数轮本来就没有卡片，那不是失败。
-	if cardWhy != cardOK && cardWhy != cardRejectNoCard {
-		slog.Info("reading coach: card dropped", "why", string(cardWhy),
+	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
+		slog.Info("reading coach: card dropped", "why", string(got.cardWhy),
 			"type", cardType, "prompt", cardPrompt)
 	}
 	// 铁律③「一次只问一个」：透镜和卡片都是把这一步交回她手上。两个一起弹到
@@ -1435,7 +1469,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// the reply without the card it was written around.
 	if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: parsed.Reply,
-		Payload: coachCardPayload(parsed.Card),
+		// 卡片没发出去的时候，理由也一起存 —— 下一轮当面告诉它。见
+		// coachMessagePayload.Dropped。
+		Payload: coachCardPayloadWithDrop(parsed.Card, parsed.cardWhy),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
