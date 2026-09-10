@@ -104,6 +104,42 @@ func TestDropNoticeIsNotForHerEars(t *testing.T) {
 	}
 }
 
+func TestEveryRejectReasonSaysHowToFixIt(t *testing.T) {
+	// 🚨 光把理由喂回去不够。第一版喂的是那句英文标识，线上实测 印记 收到之后
+	// 连着六轮出同一张卡：它知道自己错了，不知道该改哪儿。
+	//
+	// 所以每一种理由都要有一句中文的「怎么改」。加一种理由却忘了加这一句，
+	// 这条测试会红 —— 而线上只会表现成 印记 又在原地打转。
+	all := []cardReject{
+		cardRejectUnknownType, cardRejectPromptLen, cardRejectBannedForm,
+		cardRejectFewWords, cardRejectFewOptions, cardRejectOneBlock,
+		cardRejectPromised,
+	}
+	for _, why := range all {
+		if strings.TrimSpace(cardFixIt[why]) == "" {
+			t.Errorf("%q 没有对应的「怎么改」", why)
+		}
+	}
+	// cardOK / cardRejectNoCard 不是失败，不该有这一句。
+	for _, why := range []cardReject{cardOK, cardRejectNoCard} {
+		if cardFixIt[why] != "" {
+			t.Errorf("%q 不是失败，不该有「怎么改」", why)
+		}
+	}
+}
+
+func TestTheNoticeCarriesTheFixNotJustTheReason(t *testing.T) {
+	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
+	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	if !strings.Contains(prompt, "怎么改：") {
+		t.Fatal("那一节只说了理由，没说怎么改 —— 它会照着原样再出一张")
+	}
+	if !strings.Contains(prompt, cardFixIt[cardRejectOneBlock]) {
+		t.Fatal("「怎么改」那一句和理由对不上")
+	}
+}
+
 func TestReplyPromisingACardWithNoCard(t *testing.T) {
 	// 🚨 另一种失败，日志里干净得可怕：模型压根没在 JSON 里给 card，却在 reply
 	// 里说「我给你一张标注板」。线上实测（OSIRIS-REx 那篇）连着三轮说

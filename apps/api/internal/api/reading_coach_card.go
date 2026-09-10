@@ -154,6 +154,27 @@ const (
 	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
 )
 
+// cardFixIt —— 每一种理由对应的**怎么改**，中文，一句话。
+//
+// 🚨 光把理由喂回去不够。第一版喂的是那句英文标识（「every surviving option
+// came from one paragraph」），线上实测 印记 收到之后连着六轮出同一张卡：
+// 它知道自己错了，不知道该改哪儿。理由是**给日志看的**，这一句是**给它看的**。
+var cardFixIt = map[cardReject]string{
+	cardRejectOneBlock: "选项不能全出自同一段。换成跨段落取：这一段一句、" +
+		"另一段一句，让她非把两处放在一起比不可。做不到就这一轮不发卡。",
+	cardRejectFewOptions: "选项没能和原文对上。每一句都要**逐字**抄自你标的那一段，" +
+		"一个字都不能改；而且要从一个标点后面开始、到一个标点为止，不要从半句中间截。",
+	cardRejectFewWords: "生词板上的词没能和原文对上。每个词都要原样出现在你标的那一段里，" +
+		"至少三个。",
+	cardRejectBannedForm: "换一个问法：问动作（他是怎么做到的）、问对比（为什么是 A 不是 B）、" +
+		"问因果（这一步凭什么成立）、或者问边界（它什么时候不成立）。",
+	cardRejectPromptLen: "问题写成一句话，不超过 60 个字。",
+	cardRejectUnknownType: "type 只能是 choose_span / pick_in_article / short_text / " +
+		"label_roles / word_bank 五个之一。",
+	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
+		"她那边什么都没出现。要给就真的给，不给就别提。",
+}
+
 // cardPromiseWords —— 这句回复是不是在**指着一张卡片说话**。
 //
 // 🚨 它抓的是另一种失败，和「卡片被丢掉」不是一回事：模型压根没在 JSON 里给
