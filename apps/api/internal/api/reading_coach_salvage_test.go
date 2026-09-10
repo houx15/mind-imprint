@@ -85,3 +85,40 @@ func TestCoachReplyWholeStillParses(t *testing.T) {
 		t.Errorf("fields lost: advance=%q focusBlock=%q", got.Advance, got.FocusBlock)
 	}
 }
+
+// 🚨 模型压根没在写 JSON，直接说了人话。
+//
+// 2026-09-10 模拟学生走查抓到的，日志里逐字记着：256 个字符、stop_reason
+// "stop"、一句**完全能用**的话。我们把它整份丢掉，给她看
+// 「后台错误：AI 响应错误（model_unavailable）」—— 她当场卡死走不下去。
+//
+// 那句话就是 印记 说的话，只是没穿 JSON 那件外套。当 reply 用，别的字段全空：
+// 她拿到真话，没有卡片、不推进，下一轮照常。这不是编造。
+func TestCoachReplyThatIsJustProse(t *testing.T) {
+	const prose = "你的眼睛很准——第4段是整个报道里信息最密的一段。" +
+		"现在我要给你一张卡片，请你从整篇文章里挑一句。"
+	got, ok := parseReadingCoachReply(prose, salvageBlocks(), "zh", func(string) bool { return true })
+	if !ok {
+		t.Fatal("一句能用的话不该被整份丢掉")
+	}
+	if got.Reply != prose {
+		t.Fatalf("reply = %q，想要原话", got.Reply)
+	}
+	if got.Advance != "" || got.FocusBlock != "" || got.Tool != "" || got.Lens != "" {
+		t.Fatalf("散文里没有这些字段，不该凭空长出来：%+v", got)
+	}
+}
+
+// 🚨 它在写 JSON 只是写坏了 —— 这一种绝不能原样端给她。半截 JSON 摆在对话里
+// 比一句报错更糟：报错至少是一句她看得懂的中文。
+func TestBrokenJsonIsNotServedAsProse(t *testing.T) {
+	for _, broken := range []string{
+		`{"reply":"我们看第三段","advance":`,
+		`好的，这就给你：{"reply":"看第三段"`,
+	} {
+		got, ok := parseReadingCoachReply(broken, salvageBlocks(), "zh", func(string) bool { return true })
+		if ok && strings.Contains(got.Reply, "{") {
+			t.Fatalf("把半截 JSON 当话端给了她：%q", got.Reply)
+		}
+	}
+}

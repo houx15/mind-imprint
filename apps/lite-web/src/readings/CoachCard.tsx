@@ -350,7 +350,7 @@ export function CoachCard({
             onChange={(e) => setDraft(e.target.value)}
             rows={2}
             disabled={busy}
-            placeholder="写一句你自己的话就够了"
+            placeholder="用中文写一句你自己的话"
             className="mk-scroll w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small leading-relaxed text-mk-ink placeholder:text-mk-faint focus:border-mk-accent-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:opacity-60"
           />
           <div className="flex justify-end">

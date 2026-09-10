@@ -1100,6 +1100,23 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 		// 🚨 断在半路的回复，把已经到齐的那部分留下来。见 salvageCoachReply。
 		var ok bool
 		if got, ok = salvageCoachReply(whole); !ok {
+			// 🚨 最后一种：它压根没在写 JSON，直接说了人话。
+			//
+			// 2026-09-10 的模拟学生走查抓到的，日志里逐字记着：256 个字符、
+			// stop_reason "stop"、一句**完全能用**的话 ——
+			// 「你的眼睛很准——第4段是整个报道里信息最密的一段。现在我要给你
+			// 一张卡片……」。我们把它整份丢掉，然后给她看
+			// 「后台错误：AI 响应错误（model_unavailable）」，她当场卡死。
+			//
+			// 把它当 reply 用，别的字段全空：她拿到 印记 真正说的那句话，
+			// 没有卡片、不推进，下一轮照常。这不是编造 —— 这就是模型说的话，
+			// 只是没穿那件 JSON 外套。
+			//
+			// 🚨 只在**一个左大括号都没有**的时候这么做。它要是在写 JSON 只是
+			// 写坏了，原样端给她的会是一堆 {"reply":... —— 那比报错更糟。
+			if prose := strings.TrimSpace(whole); prose != "" && !strings.Contains(prose, "{") {
+				return readingCoachReply{Reply: prose}, true
+			}
 			return readingCoachReply{}, false
 		}
 	}

@@ -4,3 +4,4 @@ playwright-report/
 e2e/.auth.online.json
 e2e/.camp/
 e2e/.shots/
+e2e/.readwalk/

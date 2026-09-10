@@ -500,6 +500,14 @@ export function ReadingCoachPanel({
       <div className="shrink-0 flex flex-col gap-2">
         {slot.quotes.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
+            {/* 🚨 这一行是模拟学生走查逼出来的。她在文章里划了一句，屏幕上出现
+                一个带 ✕ 的小块，然后她连着四轮在问「那两句后面都带✕，是我选错了
+                吗？」「是该点叉关掉还是再划一句？」—— 她把 ✕ 读成了「错」，
+                而屏幕上没有任何字说这些是什么、接下来该干什么。
+                在那之前这里只有一排光秃秃的引文。 */}
+            <span className="w-full text-mk-label text-mk-muted">
+              已引用 {slot.quotes.length} 处，随你下一句话一起发出。不要的那一处点 ✕ 去掉。
+            </span>
             {slot.quotes.map((q) => (
               <span
                 key={q.key}
