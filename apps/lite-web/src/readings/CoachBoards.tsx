@@ -59,6 +59,29 @@ export type BoardPlacement = Record<string, string>;
 // 拖 + 点，一套状态
 // ---------------------------------------------------------------------------
 
+/** 超过这么多像素才算「拖」，之内都算「点」。见 isDrag。 */
+export const DRAG_SLOP = 6;
+
+/**
+ * 这一下是「拖」还是「点」。
+ *
+ * 🚨 它是一个独立的纯函数，不是写在事件处理里的一行，因为**它是这块板上唯一
+ * 一处「读代码看不出对错」的逻辑**，而 jsdom 里没有 PointerEvent，事件那条路
+ * 根本测不了。
+ *
+ * 原来那一行写的是「动了就算拖」（`> 0`）。手指按下去总会动一两个像素，鼠标
+ * 也一样，于是绝大多数「点一下选中」都被当成一次拖动；而那次拖动的落点还在
+ * 原地（未分类那一堆的容器 `data-board-bin=""`），于是卡片被「放回」原处，
+ * 屏幕上什么都没发生。模拟学生走查里这块板出现了 52 步、她摆了 51 次，
+ * 四张卡片一张都没进格子 —— 看上去像她不会用，其实是那一行。
+ *
+ * 距离从**按下的那个点**算，不累加每一帧的位移：累加的话，慢慢挪一圈再回到
+ * 原处也会被算成拖了很远。
+ */
+export function isDrag(from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  return Math.hypot(to.x - from.x, to.y - from.y) > DRAG_SLOP;
+}
+
 /**
  * 一块板的公共行为：选中一张卡、把它放进一个格子、以及拖动时的落点判定。
  *
@@ -72,6 +95,8 @@ function useBoard(initial: BoardPlacement = {}) {
   const [hoverBin, setHoverBin] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  // 按下去的那个点，用来判断这到底是一次「点」还是一次「拖」。
+  const downAtRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
 
   function binAt(x: number, y: number): string | null {
@@ -94,15 +119,16 @@ function useBoard(initial: BoardPlacement = {}) {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     movedRef.current = false;
+    downAtRef.current = { x: e.clientX, y: e.clientY };
     setDragging(itemId);
     setGhost({ x: e.clientX, y: e.clientY });
   }
 
   function onItemPointerMove(e: React.PointerEvent<HTMLElement>) {
     if (!dragging) return;
-    // 抖动不算拖动：手指按下去总会动几个像素，而一次「点」和一次「拖」的
-    // 区别全在这里 —— 没有这个阈值，点选那条路径永远走不到。
-    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 0) movedRef.current = true;
+    // 抖动不算拖动，门槛见 isDrag。
+    const from = downAtRef.current;
+    if (from && isDrag(from, { x: e.clientX, y: e.clientY })) movedRef.current = true;
     setGhost({ x: e.clientX, y: e.clientY });
     setHoverBin(binAt(e.clientX, e.clientY));
   }
@@ -120,6 +146,7 @@ function useBoard(initial: BoardPlacement = {}) {
       setPicked(null);
       return;
     }
+    downAtRef.current = null;
     // 没动过 = 这是一次点击：选中 / 取消选中。
     setPicked((prev) => (prev === itemId ? null : itemId));
   }
