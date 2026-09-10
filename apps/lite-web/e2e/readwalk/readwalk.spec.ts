@@ -64,6 +64,8 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     taught?: number;
     snag?: string;
     board?: boolean;
+    buttons?: string;
+    quotes?: string;
     done?: boolean;
     action?: ReadAction;
   };
@@ -213,11 +215,21 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     note = sameFor >= 2 ? "上一步之后屏幕没有变化。" : undefined;
 
     const beat = await think({ screen, recent, note });
-    log.push({ step, ...beat, board: Boolean(screen.board) });
+    log.push({
+      step,
+      ...beat,
+      board: Boolean(screen.board),
+      // 🚨 把这一屏上的按钮也记下来。走查记录里只有她的转述时，
+      //「她为什么不点那个按钮」只能靠猜 —— 而按钮在不在是个事实。
+      buttons: screen.buttons.filter((b) => !b.disabled).map((b) => b.label).join(" | "),
+      quotes: (screen.text.match(/已引用 (\d+) 处/) ?? [])[1] ?? "",
+    });
     const a = beat.action;
+    const quoted = (screen.text.match(/已引用 (\d+) 处/) ?? [])[1];
     console.log(
       `[${step}] clarity=${beat.clarity} taught=${beat.taught} ${a.kind}` +
-        `${beat.snag ? ` · snag: ${beat.snag}` : ""}\n      读到：${beat.read}`,
+        `${quoted ? ` · 已引用${quoted}` : ""}${screen.board ? " · 有板" : ""}` +
+        `${beat.snag ? ` · snag: ${beat.snag}` : ""}`,
     );
 
     recent.push(`${a.kind}${a.kind === "say" ? "：" + a.text.slice(0, 40) : ""}`);
