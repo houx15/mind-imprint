@@ -92,6 +92,18 @@ func TestDropNoticeTellsItNotToMentionTheCard(t *testing.T) {
 	}
 }
 
+func TestDropNoticeIsNotForHerEars(t *testing.T) {
+	// 🚨 线上实测：印记 把这件事原样念给了她听 ——「上一轮那张卡没发出去，
+	// 它卡在选项全来自同一段，系统不收」。她不需要知道我们这边有校验、有规则，
+	// 说出来只会让她觉得这个房间在出故障。
+	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
+	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	if !strings.Contains(prompt, "这件事不要说给她听") {
+		t.Fatal("那一节没有交代「别把这件事讲给她」")
+	}
+}
+
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
