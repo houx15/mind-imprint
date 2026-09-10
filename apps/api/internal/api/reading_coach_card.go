@@ -152,6 +152,7 @@ const (
 	cardRejectFewOptions  cardReject = "fewer than 2 options survived the article check"
 	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
 	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
+	cardRejectLensWon     cardReject = "a lens was given this turn, so the card was dropped (铁律③)"
 )
 
 // cardFixIt —— 每一种理由对应的**怎么改**，中文，一句话。
@@ -173,6 +174,8 @@ var cardFixIt = map[cardReject]string{
 		"label_roles / word_bank 五个之一。",
 	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
 		"她那边什么都没出现。要给就真的给，不给就别提。",
+	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
+		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
 }
 
 // cardPromiseWords —— 这句回复是不是在**指着一张卡片说话**。

@@ -1205,6 +1205,15 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 没有理由让卡片跟着陪葬。
 	if got.Lens != "" && got.Card != nil {
 		got.Card = nil
+		// 🚨 第三个静默丢弃点，而且它在上面那两条日志**之后**，所以之前一次都
+		// 没被记下来过。模拟学生走查（2026-09-10，第三轮）就死在这儿：
+		// 印记 说「现在我给你一张卡片，把这三层的关系看清楚」，卡片被这一行拿掉，
+		// 她在屏幕上找了三轮那张卡，最后 stuck。日志里干干净净。
+		//
+		// 丢卡片仍然是对的（铁律③：一次只问一个），但她那边少了一样它刚说过的
+		// 东西，所以照样要说 —— 走的是和另外两种同一条路。
+		got.cardWhy = cardRejectLensWon
+		slog.Info("reading coach: card dropped", "why", string(got.cardWhy))
 	}
 	return got, true
 }

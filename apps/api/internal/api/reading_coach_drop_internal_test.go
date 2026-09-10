@@ -113,7 +113,7 @@ func TestEveryRejectReasonSaysHowToFixIt(t *testing.T) {
 	all := []cardReject{
 		cardRejectUnknownType, cardRejectPromptLen, cardRejectBannedForm,
 		cardRejectFewWords, cardRejectFewOptions, cardRejectOneBlock,
-		cardRejectPromised,
+		cardRejectPromised, cardRejectLensWon,
 	}
 	for _, why := range all {
 		if strings.TrimSpace(cardFixIt[why]) == "" {
