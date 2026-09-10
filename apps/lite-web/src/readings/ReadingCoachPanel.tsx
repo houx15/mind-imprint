@@ -445,8 +445,17 @@ export function ReadingCoachPanel({
           </p>
         </div>
         <Button onClick={() => void turn("")} loading={busy} iconStart={<Icon icon={Play} size={14} />}>
-          开始
+          {/* 🚨 排一条读法要跑一次旗舰模型，四十秒起。这段时间里按钮是禁用的，
+              而在这之前它上面写的仍然是「开始」—— 屏幕上唯一的动静是一个转圈。
+              模拟学生的走查在这里当场卡死：它读到的是「一个按不动的『开始』」，
+              于是判定自己没路可走了。真人看得见那个转圈，所以不至于此，但四十秒
+              里一个字都不给还是太少。
+              「处理中」是 ui-copy-style 第 4 条的那个词（状态用「已/待/中」）。 */}
+          {busy ? "处理中" : "开始"}
         </Button>
+        {busy && (
+          <p className="text-mk-small text-mk-muted">正在通读全文，排一条读法。这一步要花几十秒。</p>
+        )}
         {error && <p className="text-mk-small text-mk-danger">{error}</p>}
       </div>
     );
