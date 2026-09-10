@@ -803,9 +803,11 @@ func buildReadingCoachPrompt(
 	// 连着六轮在说「点这张卡」而卡片每轮都被丢掉 —— 她屏幕上是一句句指着空气的
 	// 话。这是「闭环」的失败那一侧：AI 递出去的东西没送到，也得让它知道。
 	if why := lastDroppedCard(tail); why != "" {
-		b.WriteString("\n【她没有看到你上一轮说的那张卡片】\n原因：" + why + "\n" +
-			"她的屏幕上只有你说的话，没有卡片 —— 所以**不要再提「这张卡」**，她看不到。\n" +
-			"这一轮要么按上面的规矩重新出一张，要么就不发卡，用一句具体的指令把这一步说清楚。\n" +
+		b.WriteString("\n【你上一轮递出去的东西没有到她屏幕上】\n原因：" + why + "\n" +
+			"她那边只有你说的话，没有卡片、也没有透镜 —— 所以**不要再提「这张卡」" +
+			"「这副透镜」「上面那块板」**，她看不到。\n" +
+			"这一轮要么按上面的规矩重新给一次，要么就什么都不给，用一句具体的指令" +
+			"把这一步说清楚。\n" +
 			"🚨 **这件事不要说给她听。** 她不需要知道我们这边有校验、有规则、" +
 			"有什么「系统不收」——那是我们的事，说出来只会让她觉得这个房间在出故障。\n")
 	}
@@ -869,6 +871,18 @@ func buildReadingCoachPrompt(
 			"直接领她进第一步，并且用一张卡片把她领进去。）\n")
 	}
 	return b.String()
+}
+
+// dropReason —— 这一轮有什么东西没送到她屏幕上。卡片优先（它更具体）；
+// 卡片没问题的时候，透镜那条也要说。
+func (r readingCoachReply) dropReason() cardReject {
+	if r.cardWhy != cardOK && r.cardWhy != cardRejectNoCard {
+		return r.cardWhy
+	}
+	if r.lensWhy != "" {
+		return cardReject(r.lensWhy)
+	}
+	return cardOK
 }
 
 // lastDroppedCard —— 最后一条 印记 说的话里，那张卡片是不是被丢掉了；是的话
@@ -950,6 +964,8 @@ type readingCoachReply struct {
 	// 是校验器填的 —— 所以没有 json tag，它不参与解析。跟着 reply 一起走出去，
 	// 是为了让它能被存进这条消息的 payload，下一轮当面告诉模型。
 	cardWhy cardReject
+	// lensWhy 同理：这一轮那副透镜为什么没落到文章上。
+	lensWhy string
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -1113,7 +1129,20 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// she already has — what makes this the thing the product asked for is
 	// that it lands on the paragraph the coach just talked about.
 	if got.Lens != "" && (got.FocusBlock == "" || lensOK == nil || !lensOK(got.Lens)) {
+		// 🚨 透镜和卡片一样，被丢掉是**静默**的。线上实测（OSIRIS-REx 那篇）：
+		// 印记 连着八轮**一字不差**地说「用一副透镜重新看一遍第8段」——透镜每轮
+		// 都因为没有落点被丢掉，她屏幕上什么都没变，于是下一轮的状态和上一轮
+		// 完全一样，同样的输入自然产出同样的输出。
+		//
+		// 记下来，理由和卡片走同一条路：存进这条回复的 payload，下一轮当面说。
 		got.Lens = ""
+		if got.lensWhy == "" {
+			if got.FocusBlock == "" {
+				got.lensWhy = "the lens had no focusBlock to land on"
+			} else {
+				got.lensWhy = "the lens id is not in the deck"
+			}
+		}
 	}
 	cardType, cardPrompt := "", ""
 	if got.Card != nil {
@@ -1138,6 +1167,9 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
 		slog.Info("reading coach: card dropped", "why", string(got.cardWhy),
 			"type", cardType, "prompt", cardPrompt)
+	}
+	if got.lensWhy != "" {
+		slog.Info("reading coach: lens dropped", "why", got.lensWhy)
 	}
 	// 铁律③「一次只问一个」：透镜和卡片都是把这一步交回她手上。两个一起弹到
 	// 屏幕上，她第一件要做的事就变成了「先做哪个」—— 那是我们替她制造的分心。
@@ -1478,7 +1510,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: parsed.Reply,
 		// 卡片没发出去的时候，理由也一起存 —— 下一轮当面告诉它。见
 		// coachMessagePayload.Dropped。
-		Payload: coachCardPayloadWithDrop(parsed.Card, parsed.cardWhy),
+		Payload: coachCardPayloadWithDrop(parsed.Card, parsed.dropReason()),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

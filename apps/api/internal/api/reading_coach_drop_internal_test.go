@@ -81,7 +81,7 @@ func TestDropNoticeTellsItNotToMentionTheCard(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
-	if !strings.Contains(prompt, "她没有看到你上一轮说的那张卡片") {
+	if !strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
 		t.Fatal("prompt 里没有那一节")
 	}
 	if !strings.Contains(prompt, string(cardRejectOneBlock)) {
@@ -145,7 +145,7 @@ func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
-	if strings.Contains(prompt, "她没有看到你上一轮说的那张卡片") {
+	if strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
 	}
 }
