@@ -9,11 +9,14 @@ import (
 	"mindimprint/api/internal/interests"
 )
 
-// select.go —— 从候选池里挑五颗星，并把每一颗写成学生看得懂的样子。
+// select.go —— 从候选池里挑今天的那几条，并给每一条归好类。
 //
 // **一天一次调用。** 抓取、去重、过滤、排序都在前面做完了，模型只负责它唯一
-// 做得比规则好的那件事：判断哪五条对一个中学生**有意思**，以及怎么用两句话
-// 把一篇 Nature 摘要说清楚。
+// 做得比规则好的那件事：判断哪几条对一个中学生**有意思**。
+//
+// 🚨 这一步**不写任何给学生看的字**。文案在 write.go 里写，写之前先把那一篇的
+// 正文抓回来。分开的理由见 write.go 的文件头：合在一起时，模型手上只有 400 字
+// 导语却要写出摘要和钩子，于是它把没读到的部分补全了。
 
 // PlanetCount 是一天几颗星。
 //
@@ -54,16 +57,18 @@ func ExcerptFor(it Item, runes int) string {
 }
 
 // Planet 是星图上的一颗星。
+//
+// 选星那一步只填得出下面这几个字段；给学生看的中文（TitleZh / Summary / Hook /
+// Evidence）由 write.go 照着正文补上。一个 TitleZh 还空着的 Planet 是半成品，
+// 不该落库。
 type Planet struct {
-	// 候选池里的下标，模型用它指认自己挑了哪条。
+	// Index 是它在**送进 prompt 的那批候选**里的下标，由服务端按标题回查得出，
+	// 不是模型给的（见 anchorByTitle）。链接、出处、时间都从那一条上取。
 	Index int
-	// TitleZh 是给学生看的标题：**重写过的**，不是原标题的翻译。
-	TitleZh string
+	// TitleEn 是原标题。
 	TitleEn string
-	// Summary 两句话，说清楚发生了什么以及为什么值得知道。
-	Summary string
-	// Hook 是一个她可以立刻追问的问题 —— 这一屏的钩子。
-	Hook string
+	// Written 是照着正文写出来的那几段中文，选星这一步是空的。
+	Written
 	// Field 是七根主枝之一；DisciplineID 是学科表里的一条。
 	Field        string
 	DisciplineID string
@@ -73,36 +78,24 @@ type Planet struct {
 	InterestID string
 }
 
-const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五条科学新闻，并把它们
-写成她能读懂的表述。她 15-18 岁，读国际课程（IB / A-Level / AP）。
+const selectSystemPrompt = `你在为一个中学生挑今天值得知道的科学新闻。她 15-18 岁，
+读国际课程（IB / A-Level / AP）。
+
+**这一步只挑，不写。** 挑完之后我们会去把每一篇的正文抓回来，照着正文写标题和摘要，
+所以你现在一个字的中文文案都不用给 —— 把选择做对就行。
 
 挑的标准，按重要性排：
 - **能引出一个她可以自己追问的问题**。一条只能被记住、不能被追问的新闻不要。
-- **五条必须落在至少三根不同的主枝上**（见下面 field 的七选一）。候选里本来就
-  有人文、社会、艺术、心理类的条目，请真的用上它们 —— 五条全是自然科学不合格。
+- **必须落在至少三根不同的主枝上**（见下面 field 的七选一）。候选里本来就有人文、
+  社会、艺术、心理类的条目，请真的用上它们 —— 全是自然科学不合格。
 - 具体的发现优于综述，有数字、有方法、有争议的优于「科学家表示」。
+- **标题本身就读不懂的不要**：一个术语堆成的论文标题，翻成中文照样读不懂，而她
+  看到的就是那个标题。
 - 不要政治、战争、灾难报道。不要健康建议类的软文。
 
-写的要求：
-- titleZh：**重写**，不是翻译。一句中文，20 字以内，说出这件事本身。
-  好：「深海珊瑚在 30 度水里活下来了」。差：「研究人员发现珊瑚耐热性新机制」。
-- titleEn：原标题即可。
-- summary：两句话。第一句发生了什么，第二句为什么这值得知道。不超过 80 字。
-- hook：**一个逼她去想的问题**，以问号结尾，可以是两句。它要问的是**这条新闻
-  自己的说法站不站得住**，不是「接下来还能做什么」。四种问法，挑一种：
-  · 这个结论撑得住吗 —— 样本、方法、时间跨度够不够支持它下的判断。
-    「四平方公里的珊瑚，能代表一整片海吗？」
-  · 这里的词是什么意思 —— 标题用的那个词和它实际做到的事是不是一回事。
-    「『验证一个证明』和『发现一个定理』是同一种能力吗？」
-  · 这一步能推多远 —— 从这件事推到那个大结论，中间少了哪一步。
-    「AI 十一天做完了数学家几年的活。这一件事足以说明它比数学家聪明吗？」
-  · 是谁在说、怎么算的 —— 数字是谁测的、按什么口径。
-    「这个『提升 40%』是和什么比出来的？」
-  差的问法有两种，都不要：一是感叹（「是不是很神奇？」），二是把这条新闻当
-  跳板去问下一件事（「那它接下来能不能自己发现新定理？」）—— 后者看着像个
-  问题，其实是在替她跳过眼前这条新闻。
-- hook 的长度：**不超过 45 字**，一到两句。这一条是硬的：一屏五颗星的回复被模型
-  截断过一次，那一整天就没有星图。写得长不会更有力，只会把问题埋在一段话里。
+每条只填四个字段：
+- titleEn：**把候选里那条英文标题原样照抄**，一个字都不要改、不要截短。我们靠它
+  回查你挑的是哪一条，对不上这条就作废了。
 - field：七选一 —— formal（数学与形式）/ science（科学与自然）/ making（技术与创造）
   / society（社会与世界）/ humanities（人文与写作）/ arts（艺术与表达）/ self（自我与成长）
   按**这条新闻在问什么**判，不是按它发在哪个网站。
@@ -112,7 +105,7 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
   表里实在没有贴切的就留空字符串 —— 硬凑一个不相干的领域比留空糟得多。
 
 只输出一个 JSON 对象，不要任何解释：
-{"planets":[{"index":0,"titleZh":"","titleEn":"","summary":"","hook":"","field":"","disciplineId":"","interestId":""}]}`
+{"planets":[{"titleEn":"","field":"","disciplineId":"","interestId":""}]}`
 
 // isQuestion —— 这句话是不是一个问题。
 //
@@ -145,7 +138,7 @@ func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	}
 	b.WriteString("\n候选领域（中文名 · id）：\n")
 	b.WriteString(interests.PromptList())
-	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), PlanetCount)
+	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), SelectCount())
 	for i, it := range items {
 		fmt.Fprintf(&b, "[%d] (%s) %s\n", i, it.Source, it.Title)
 		if s := ExcerptFor(it, promptExcerptRunes); s != "" {
@@ -155,17 +148,15 @@ func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	return selectSystemPrompt, b.String(), items
 }
 
+type selectPick struct {
+	TitleEn      string `json:"titleEn"`
+	Field        string `json:"field"`
+	DisciplineID string `json:"disciplineId"`
+	InterestID   string `json:"interestId"`
+}
+
 type selectReply struct {
-	Planets []struct {
-		Index        int    `json:"index"`
-		TitleZh      string `json:"titleZh"`
-		TitleEn      string `json:"titleEn"`
-		Summary      string `json:"summary"`
-		Hook         string `json:"hook"`
-		Field        string `json:"field"`
-		DisciplineID string `json:"disciplineId"`
-		InterestID   string `json:"interestId"`
-	} `json:"planets"`
+	Planets []selectPick `json:"planets"`
 }
 
 // ParseSelectReply 读选星的回话。
@@ -173,19 +164,17 @@ type selectReply struct {
 // 丢弃规则，按这个顺序：
 //
 //  1. 解析不出 JSON → **报错**，今天不出星图。绝不用昨天的冒充今天的，也绝不
-//     编五条新闻（memory: ai-errors-must-surface-never-fake）。
-//  2. index 越界 → 丢。模型偶尔会指一个不存在的候选。
-//  3. titleZh 或 hook 为空 → 丢。一颗没有钩子的星球是一条只能被记住的新闻。
-//     hook 里没有问号也丢：prompt 要求它是一个问题，而「要求」只有能验才算数
-//     （memory: prompt-output-must-be-verifiable）。一句陈述放在「它想问你」
-//     下面，是这一屏唯一的谎。
-//  4. field 不是七根主枝之一 → 丢。
-//  5. 模型自己写出来的中文里带政治信号 → 丢。抓取那一层看的是英文原标题，
-//     漏得掉；中文重写漏不掉。
-//  6. disciplineId 不在学科表里 → **不丢这颗星，只清空这条边**。学科连错比
-//     没连上糟，但为了一条连错的边扔掉一条好新闻更糟。
-//  6. 同一个 index 重复 → 只留第一个。
-//  7. 超过五颗 → 截断。
+//     编几条新闻（memory: ai-errors-must-surface-never-fake）。
+//  2. titleEn 在候选里回查不到 → 丢。这条见下面那段 🚨。
+//  3. field 不是七根主枝之一 → 丢。
+//  4. interestId 落在禁掉的领域上 → 丢。
+//  5. disciplineId 不在学科表里 → **不丢这颗星，只清空这条边**。学科连错比
+//     没连上糟，但为了一条连错的边扔掉一条好新闻更糟。interestId 同理。
+//  6. 同一条候选被挑了两次 → 只留第一个。
+//  7. 超过 SelectCount 条 → 截断。
+//
+// 🚨 这里**不再**验 titleZh / hook：选星这一步压根不写它们。那几道校验搬去了
+// write.go，并且严了不少 —— 那边验的是「你写的这句话，原文里有没有」。
 func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 	var rep selectReply
 	body, err := sliceJSONObject(raw)
@@ -195,14 +184,15 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 			return nil, fmt.Errorf("select reply is not the expected object: %w", uerr)
 		}
 	default:
-		// 🚨 回复被截断时，**把写完的那几颗捞出来**，不要整天没有星图。
+		// 🚨 回复被截断时，**把写完的那几条捞出来**，不要整天没有星图。
 		//
 		// 2026-09-07 实测：钩子改成「问这条新闻自己站不站得住」之后，模型写得长
 		// 了不少，五颗星那一回正好在收尾的 `]}` 之前断掉 —— 五颗完整的星球都在
 		// 回复里，而整张星图因为少两个字符全丢了。一天只生成一次，所以这一下的
 		// 代价是**当天没有探索地图**。
 		//
-		// 四颗真的星，好过零颗。
+		// 拆成两步之后这一段回复短了一个数量级（一条只剩四个短字段），截断已经
+		// 很难发生了。留着：它不贵，而它挡的那件事一次的代价是一整天。
 		salvaged, ok := salvagePlanets(raw)
 		if !ok {
 			return nil, err
@@ -210,36 +200,24 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 		rep = salvaged
 	}
 
-	out := make([]Planet, 0, PlanetCount)
+	out := make([]Planet, 0, SelectCount())
 	seen := map[int]bool{}
 	for _, p := range rep.Planets {
-		zh := strings.TrimSpace(p.TitleZh)
-		hook := strings.TrimSpace(p.Hook)
-		if zh == "" || !isQuestion(hook) || !disciplines.IsField(p.Field) {
+		if !disciplines.IsField(p.Field) {
 			continue
 		}
-		// 🚨 **不信任模型给的下标。** 2026-09-03 实测：模型描述了五条真实存在的
-		// 新闻，却把它们一律编号成 0,1,2,3,4 —— 下标指向的候选和它自己写的标题
-		// 毫不相干。后果是每颗星球挂着一篇**无关文章**的链接与出处，而学生点
-		// 「读原文」就落在那篇上。
+		// 🚨 **不信任模型给的下标 —— 所以干脆不问它要。** 2026-09-03 实测：模型
+		// 描述了五条真实存在的新闻，却把它们一律编号成 0,1,2,3,4，下标指向的候选
+		// 和它自己写的标题毫不相干。后果是每颗星球挂着一篇**无关文章**的链接与
+		// 出处，而学生点「读原文」就落在那篇上。
 		//
-		// 所以按 titleEn（prompt 要求填原标题）回查真正的那一条；查不到就
-		// **丢掉这颗星**。四颗真的星，好过五颗里有一颗指向随机文章。
+		// 所以按 titleEn（prompt 要求原样照抄）回查真正的那一条；查不到就丢掉。
+		// 四颗真的星，好过五颗里有一颗指向随机文章。
 		idx := anchorByTitle(p.TitleEn, candidates)
 		if idx < 0 || seen[idx] {
 			continue
 		}
-		// 🚨 **对模型自己的产物再过一遍政治过滤。** 抓取那一层看的是英文原标题，
-		// 而一条政治新闻的英文标题可能一个信号词都不含 —— 实测漏过一条
-		// "Venice Biennale President Defends Russia Inclusion"，它的中文改写却是
-		// 「文化制裁边界」，制裁两个字明明白白。
-		//
-		// 模型的中文重写常常比英文原标题更直白地暴露这条新闻在谈什么，所以这里
-		// 是第二道、也是更灵敏的一道闸。
 		if IsBannedNewsInterest(strings.TrimSpace(p.InterestID)) {
-			continue
-		}
-		if IsPolitical(zh, p.Summary+" "+hook) {
 			continue
 		}
 		did := strings.TrimSpace(p.DisciplineID)
@@ -249,20 +227,17 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 		seen[idx] = true
 		out = append(out, Planet{
 			Index:        idx,
-			TitleZh:      zh,
-			TitleEn:      strings.TrimSpace(p.TitleEn),
-			Summary:      strings.TrimSpace(p.Summary),
-			Hook:         hook,
+			TitleEn:      strings.TrimSpace(candidates[idx].Title),
 			Field:        p.Field,
 			DisciplineID: did,
 			InterestID:   keptInterestID(p.InterestID),
 		})
-		if len(out) == PlanetCount {
+		if len(out) == SelectCount() {
 			break
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("select reply 里没有一颗可用的星球")
+		return nil, fmt.Errorf("select reply 里没有一条可用的新闻")
 	}
 	return out, nil
 }
@@ -363,18 +338,9 @@ func salvagePlanets(raw string) (selectReply, bool) {
 	}
 	var rep selectReply
 	for dec.More() {
-		var one struct {
-			Index        int    `json:"index"`
-			TitleZh      string `json:"titleZh"`
-			TitleEn      string `json:"titleEn"`
-			Summary      string `json:"summary"`
-			Hook         string `json:"hook"`
-			Field        string `json:"field"`
-			DisciplineID string `json:"disciplineId"`
-			InterestID   string `json:"interestId"`
-		}
+		var one selectPick
 		if err := dec.Decode(&one); err != nil {
-			break // 断在这一颗上，前面那几颗仍然算数。
+			break // 断在这一条上，前面那几条仍然算数。
 		}
 		rep.Planets = append(rep.Planets, one)
 	}

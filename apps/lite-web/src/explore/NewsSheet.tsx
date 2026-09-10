@@ -57,7 +57,17 @@ export function NewsSheet({
 
   if (!item) return null;
   const meta = fieldById(item.field as FieldId);
-  const title = lang === "zh" ? item.titleZh : item.titleEn || item.titleZh;
+  // 两种语言都显示，不跟着语言开关切（2026-09-10）。
+  //
+  // titleZh 现在是原标题的**如实翻译**（服务端 internal/news/write.go），所以
+  // 两行说的是同一件事，一行是她读得快的那种语言，一行是她点进去会看到的那个
+  // 标题。上一版按开关二选一，而那时的 titleZh 是一次改写 —— 切到中文看到
+  // 「AI白天使11天？数学难题争议更大」，切到英文看到另一句完全不同的话，两边
+  // 对不上，她无从判断哪一个是真的。
+  //
+  // 语言开关仍然决定哪一行在上面：她读中文时先看中文。
+  const primary = lang === "zh" ? item.titleZh : item.titleEn || item.titleZh;
+  const secondary = lang === "zh" ? item.titleEn : item.titleZh;
 
   /**
    * 落到阅读室的那一篇。服务端幂等 —— 同一颗星球永远是同一篇，所以「稍后读」
@@ -132,7 +142,10 @@ export function NewsSheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         {/* ── 这条新闻 ─────────────────────────────────────────────────── */}
-        <h2 className="mt-3 text-mk-h1 leading-[1.45] text-[#F5EFE7]">{title}</h2>
+        <h2 className="mt-3 text-mk-h1 leading-[1.45] text-[#F5EFE7]">{primary}</h2>
+        {secondary && secondary !== primary ? (
+          <p className="mt-1.5 text-mk-body leading-[1.6] text-[#9A8E80]">{secondary}</p>
+        ) : null}
         {item.summary ? (
           <p className="mt-3 text-mk-body-lg leading-[1.9] text-[#D9CEC1]">{item.summary}</p>
         ) : null}
@@ -147,6 +160,23 @@ export function NewsSheet({
         >
           <Sys tone="dark">它想问你</Sys>
           <p className="mt-1.5 text-mk-h3 leading-[1.7] text-[#F5EFE7]">{item.hook}</p>
+          {/*
+            这个问题出自原文的哪一句。
+            
+            摆在这里，是因为上面那个问题曾经问过一件原文没说过的事（2026-09-10：
+            一条 Quanta 的报道被写成「AI 找到一个特例就叫解决了难题」，而通篇没
+            有出现过特例）。服务端现在要求模型交出这句原话并回原文里验过才放行，
+            把它显示出来，她自己就能对一遍 —— 这本来就是我们想教的那件事。
+          */}
+          {item.evidence ? (
+            <blockquote
+              className="mt-3 border-l-2 pl-3 text-mk-small leading-[1.8] text-[#C0B4A6]"
+              style={{ borderColor: `color-mix(in srgb, ${meta.hue} 50%, transparent)` }}
+            >
+              <Sys tone="dark">原文里的这句话</Sys>
+              <p className="mt-1">{item.evidence}</p>
+            </blockquote>
+          ) : null}
         </div>
 
         {/* ── 出处 ─────────────────────────────────────────────────────── */}

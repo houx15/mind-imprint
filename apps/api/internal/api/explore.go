@@ -47,6 +47,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -128,7 +129,13 @@ type planetDTO struct {
 	TitleEn string `json:"titleEn"`
 	Summary string `json:"summary"`
 	/** 她能自己追问的那个问题。永远非空。 */
-	Hook        string                `json:"hook"`
+	Hook string `json:"hook"`
+	/**
+	 * Hook 出自正文的哪一句，逐字照抄（原文语言）。写入前已验过它确实出现在
+	 * 正文里 —— 界面把它摆在问题旁边，她自己就能判断这个问题问得对不对。
+	 * 空串 = 2026-09-10 之前生成的旧行，界面照常显示，只是没有出处。
+	 */
+	Evidence    string                `json:"evidence"`
 	URL         string                `json:"url"`
 	Source      string                `json:"source"`
 	Field       string                `json:"field"`
@@ -403,7 +410,8 @@ func (a *API) ensureTodayStarmap(ctx context.Context, day pgtype.Date) {
 			Day: day, Rank: int32(i + 1),
 			TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
 			Url: src.Link, SourceName: src.Source,
-			Field: p.Field, DisciplineID: p.DisciplineID, InterestID: interestIDArg(p.InterestID),
+			Evidence: p.Evidence,
+			Field:    p.Field, DisciplineID: p.DisciplineID, InterestID: interestIDArg(p.InterestID),
 			PublishedAt: published,
 			// feed 自己带的正文（迁移 0141）。取正文的第三条路：这一份已经在
 			// 手上了，她点进去就能读，不必再抓一次原页面、也不必让她粘。
@@ -429,7 +437,7 @@ type plannedPlanet struct {
 	candidates []news.Item
 }
 
-// buildStarmap 抓 → 过滤 → 选五颗。返回 (星球, 失败原话)。
+// buildStarmap 抓 → 过滤 → 选 → 照着正文写。返回 (星球, 失败原话)。
 //
 // 任何一步失败都返回零颗星加一句原话。**绝不返回昨天的，也绝不编五条新闻。**
 func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
@@ -447,6 +455,22 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	if len(pool) < news.PlanetCount {
 		return nil, fmt.Sprintf("抓取失败：今天只凑到 %d 条候选，不足 %d 条。", len(pool), news.PlanetCount)
 	}
+	picked, note := a.selectPlanets(ctx, resolved, pool)
+	if note != "" {
+		return nil, note
+	}
+	written := a.writePlanets(ctx, resolved, picked)
+	if len(written) == 0 {
+		return nil, "生成失败：选出来的新闻一条都没能照着原文写成（正文抓不到，或者模型给的出处在原文里查不到）。"
+	}
+	return written, ""
+}
+
+// selectPlanets 是第一步：从候选池里挑出今天的那几条，并给每一条归类。
+//
+// 这一步**不产出任何给学生看的字**，所以它的回复很短，被截断的风险比上一版低
+// 一个数量级。
+func (a *API) selectPlanets(ctx context.Context, resolved gateway.Resolved, pool []news.Item) ([]plannedPlanet, string) {
 	// 🚨 用 BuildSelectPrompt 交回来的那批候选去解析，**不是完整的 pool**：
 	// prompt 里只描述了前 maxCandidates 条，下标必须按同一个切片解释。
 	system, user, candidates := news.BuildSelectPrompt(pool)
@@ -482,13 +506,118 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	return out, ""
 }
 
+// articleFetchTimeout 是单篇正文抓取的上限。
+//
+// 12 秒。抓不到就退回 feed 自带的那份，所以这里宁可放弃得早一点 —— 五篇并行，
+// 最慢的那篇决定学生等多久。
+const articleFetchTimeout = 12 * time.Second
+
+// writePlanets 是第二步：把每一条的正文抓回来，照着正文写。
+//
+// **并行，一条一次调用。** 两个理由，都不是为了快：
+//
+//   - 一条写坏只丢一条。上一版一次调用写五条，回复被截断过一次，那一整天就
+//     没有星图（select.go 里那段 salvage 就是为它加的）。
+//   - 每次调用的上下文里只有一篇文章，模型没有机会把 A 篇的争议按到 B 篇上。
+//
+// 返回的条数可能少于传进来的（正文抓不到、出处对不上就丢），所以选星那一步多
+// 挑了 news.WriteMargin 条。最后截到 PlanetCount。
+func (a *API) writePlanets(ctx context.Context, resolved gateway.Resolved, picked []plannedPlanet) []plannedPlanet {
+	type result struct {
+		p  plannedPlanet
+		ok bool
+	}
+	results := make([]result, len(picked))
+	var wg sync.WaitGroup
+	for i, pp := range picked {
+		wg.Add(1)
+		go func(i int, pp plannedPlanet) {
+			defer wg.Done()
+			src := news.Item{}
+			if pp.Index >= 0 && pp.Index < len(pp.candidates) {
+				src = pp.candidates[pp.Index]
+			}
+			w, err := a.writeOnePlanet(ctx, resolved, src)
+			if err != nil {
+				slog.Warn("explore: could not write this planet from its article",
+					"err", err, "source", src.Source, "title", src.Title)
+				return
+			}
+			pp.Written = w
+			results[i] = result{p: pp, ok: true}
+		}(i, pp)
+	}
+	wg.Wait()
+
+	out := make([]plannedPlanet, 0, news.PlanetCount)
+	for _, r := range results {
+		if !r.ok {
+			continue
+		}
+		out = append(out, r.p)
+		if len(out) == news.PlanetCount {
+			break
+		}
+	}
+	return out
+}
+
+// writeOnePlanet 抓一篇的正文，让模型照着它写。
+//
+// 校验与重试都在 news.WriteOne 里 —— 这里只负责「怎么问模型」。这么分是为了让
+// LIVE_LLM 那个用例跑的是同一段循环：一个只在生产里跑的重试逻辑，等于没被测过。
+func (a *API) writeOnePlanet(ctx context.Context, resolved gateway.Resolved, src news.Item) (news.Written, error) {
+	fetched := ""
+	// 🚨 这里抓的 URL 来自**我们自己那张源表**（internal/news/sources.go），不是
+	// 学生贴的、更不是模型挑的。Fetcher 那道 SSRF 守卫照旧生效，只是这一次
+	// 「谁决定抓哪个地址」的答案是我们。
+	if a.d.Fetcher != nil && src.Link != "" {
+		fctx, cancel := context.WithTimeout(ctx, articleFetchTimeout)
+		_, text, _, ferr := a.d.Fetcher.FetchReadable(fctx, src.Link)
+		cancel()
+		if ferr != nil {
+			// 不是错误，是三条路里的第一条没走通。剩下两条照旧。
+			slog.Info("explore: article body not fetchable, falling back to the feed",
+				"source", src.Source, "err", ferr)
+		}
+		fetched = text
+	}
+	ground := news.GroundText(fetched, src)
+	if strings.TrimSpace(ground) == "" {
+		return news.Written{}, fmt.Errorf("这一条既抓不到正文，feed 里也没有摘要")
+	}
+
+	return news.WriteOne(src, ground, func(system string, turns []news.Turn) (string, error) {
+		if len(turns) > 1 {
+			// 第一版没过校验，这是带着理由的那次重写。记下来 —— 重写的比例高了，
+			// 说明 prompt 或者哪道校验该改。
+			slog.Info("explore: rewriting this planet after the first version did not check out",
+				"source", src.Source)
+		}
+		msgs := []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: system}}
+		for _, t := range turns {
+			msgs = append(msgs, gateway.ChatMessage{Role: t.Role, Content: t.Content})
+		}
+		res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages:       msgs,
+			ResponseFormat: gateway.ResponseFormatJSONObject,
+		})
+		a.recordLiteLLMCall(ctx, uuid.Nil, uuid.Nil, "news_planet_write", resolved, res.Usage)
+		if cerr != nil {
+			return "", cerr
+		}
+		return res.Text, nil
+	})
+}
+
 /* ── 转换 ───────────────────────────────────────────────────────────────── */
 
 func planetToDTO(p sqlc.NewsPlanet, saved bool, readingID uuid.UUID, finished bool) planetDTO {
 	dto := planetDTO{
 		ID: p.ID.String(), Rank: int(p.Rank),
 		TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
-		URL: p.Url, Source: p.SourceName, Field: p.Field, Keyword: planetKeywordZh(p.InterestID),
+		Evidence: p.Evidence,
+		URL:      p.Url, Source: p.SourceName, Field: p.Field, Keyword: planetKeywordZh(p.InterestID),
 		Saved: saved, Finished: finished, InterestID: derefString(p.InterestID),
 	}
 	if readingID != uuid.Nil {

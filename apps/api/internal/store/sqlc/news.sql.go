@@ -51,7 +51,7 @@ func (q *Queries) GetNewsDay(ctx context.Context, day pgtype.Date) (NewsDay, err
 }
 
 const getNewsPlanet = `-- name: GetNewsPlanet :one
-SELECT id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body FROM news_planet WHERE id = $1
+SELECT id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body, evidence FROM news_planet WHERE id = $1
 `
 
 func (q *Queries) GetNewsPlanet(ctx context.Context, id uuid.UUID) (NewsPlanet, error) {
@@ -73,6 +73,7 @@ func (q *Queries) GetNewsPlanet(ctx context.Context, id uuid.UUID) (NewsPlanet, 
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.Body,
+		&i.Evidence,
 	)
 	return i, err
 }
@@ -111,11 +112,11 @@ func (q *Queries) HasSavedPlanet(ctx context.Context, arg HasSavedPlanetParams) 
 
 const insertNewsPlanet = `-- name: InsertNewsPlanet :one
 INSERT INTO news_planet (
-  day, rank, title_zh, title_en, summary, hook, url, source_name,
+  day, rank, title_zh, title_en, summary, hook, evidence, url, source_name,
   field, discipline_id, interest_id, published_at, body
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 ON CONFLICT (day, rank) DO NOTHING
-RETURNING id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body
+RETURNING id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body, evidence
 `
 
 type InsertNewsPlanetParams struct {
@@ -125,6 +126,7 @@ type InsertNewsPlanetParams struct {
 	TitleEn      string             `json:"title_en"`
 	Summary      string             `json:"summary"`
 	Hook         string             `json:"hook"`
+	Evidence     string             `json:"evidence"`
 	Url          string             `json:"url"`
 	SourceName   string             `json:"source_name"`
 	Field        string             `json:"field"`
@@ -142,6 +144,7 @@ func (q *Queries) InsertNewsPlanet(ctx context.Context, arg InsertNewsPlanetPara
 		arg.TitleEn,
 		arg.Summary,
 		arg.Hook,
+		arg.Evidence,
 		arg.Url,
 		arg.SourceName,
 		arg.Field,
@@ -167,12 +170,13 @@ func (q *Queries) InsertNewsPlanet(ctx context.Context, arg InsertNewsPlanetPara
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.Body,
+		&i.Evidence,
 	)
 	return i, err
 }
 
 const listNewsPlanets = `-- name: ListNewsPlanets :many
-SELECT id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body FROM news_planet WHERE day = $1 ORDER BY rank
+SELECT id, day, rank, title_zh, title_en, summary, hook, url, source_name, field, discipline_id, interest_id, published_at, created_at, body, evidence FROM news_planet WHERE day = $1 ORDER BY rank
 `
 
 func (q *Queries) ListNewsPlanets(ctx context.Context, day pgtype.Date) ([]NewsPlanet, error) {
@@ -200,6 +204,7 @@ func (q *Queries) ListNewsPlanets(ctx context.Context, day pgtype.Date) ([]NewsP
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.Body,
+			&i.Evidence,
 		); err != nil {
 			return nil, err
 		}

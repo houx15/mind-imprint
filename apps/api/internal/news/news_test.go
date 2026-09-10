@@ -348,16 +348,6 @@ func TestParseSelectReplyAnchorsATruncatedTitle(t *testing.T) {
 	}
 }
 
-func TestParseSelectReplyNeedsAHook(t *testing.T) {
-	// 一颗没有钩子的星球是一条只能被记住、不能被追问的新闻 —— 这一屏的全部
-	// 意义就是那个问题。
-	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
-		`"hook":"","field":"science"}]}`
-	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
-		t.Error("没有钩子的星球被留下了")
-	}
-}
-
 func TestParseSelectReplySalvagesATruncatedReply(t *testing.T) {
 	// 🚨 2026-09-07 实测抓到的：钩子改长之后，模型在收尾的 `]}` 之前断掉了。
 	// 五颗完整的星球都在回复里，而整张星图因为少两个字符全丢 —— 星图一天只生成
@@ -368,7 +358,7 @@ func TestParseSelectReplySalvagesATruncatedReply(t *testing.T) {
 		`{"index":1,"titleZh":"二","titleEn":"Story number 1 about topic 1","summary":"s",` +
 		`"hook":"是谁测的？","field":"society"},` +
 		`{"index":2,"titleZh":"三","titleEn":"Story number 2 about topic 2","summary":"s",` +
-		`"hook":"这一步能推多`  // ← 断在这里，第三颗没写完
+		`"hook":"这一步能推多` // ← 断在这里，第三颗没写完
 
 	got, err := ParseSelectReply(raw, candidates(5))
 	if err != nil {
@@ -377,8 +367,8 @@ func TestParseSelectReplySalvagesATruncatedReply(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("捞出 %d 颗，want 2（写完的那两颗）", len(got))
 	}
-	if got[0].TitleZh != "一" || got[1].TitleZh != "二" {
-		t.Errorf("捞出来的不是前两颗：%q / %q", got[0].TitleZh, got[1].TitleZh)
+	if got[0].Index != 0 || got[1].Index != 1 {
+		t.Errorf("捞出来的不是前两条：%d / %d", got[0].Index, got[1].Index)
 	}
 }
 
@@ -387,24 +377,6 @@ func TestParseSelectReplyStillFailsOnGarbage(t *testing.T) {
 	// 仍然要报错 —— 今天没有星图，并且说得出为什么。
 	if _, err := ParseSelectReply("模型今天不想说话。", candidates(3)); err == nil {
 		t.Error("一段散文被当成星图收下了")
-	}
-}
-
-func TestParseSelectReplyDropsAHookThatIsNotAQuestion(t *testing.T) {
-	// 🚨 prompt 要求 hook 是一个问题、以问号结尾。一条只能在 prompt 里写、在
-	// 代码里验不了的规矩会被悄悄破掉（memory: prompt-output-must-be-verifiable），
-	// 而破掉的样子是「它想问你」下面摆着一句陈述句。
-	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
-		`"hook":"这展示了 AI 在数学推理上的潜力。","field":"science"}]}`
-	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
-		t.Error("一句陈述被当成钩子留下了")
-	}
-
-	// 英文问号照样算数：模型偶尔会用半角。
-	raw = `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
-		`"hook":"Does it hold?","field":"science"}]}`
-	if _, err := ParseSelectReply(raw, candidates(3)); err != nil {
-		t.Errorf("半角问号被丢了：%v", err)
 	}
 }
 
@@ -432,7 +404,7 @@ func TestParseSelectReplyDropsUnknownField(t *testing.T) {
 	}
 }
 
-func TestParseSelectReplyDedupesIndexAndCapsAtFive(t *testing.T) {
+func TestParseSelectReplyDedupesAndCapsAtSelectCount(t *testing.T) {
 	var b strings.Builder
 	b.WriteString(`{"planets":[`)
 	for i := 0; i < 12; i++ {
@@ -452,8 +424,8 @@ func TestParseSelectReplyDedupesIndexAndCapsAtFive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if len(got) != PlanetCount {
-		t.Fatalf("回了 %d 颗星，want %d", len(got), PlanetCount)
+	if len(got) != SelectCount() {
+		t.Fatalf("回了 %d 条，want %d", len(got), SelectCount())
 	}
 	seen := map[int]bool{}
 	for _, p := range got {
@@ -597,27 +569,30 @@ func TestInterleaveBySourceHandlesEmptyAndSingle(t *testing.T) {
 // 2026-09-04 之前，是模型自己写的中文关键词「文化制裁边界」里的「制裁」把它
 // 拦下来的。关键词改成闭表 id 之后那句中文没有了，现在拦住它的是**模型选的
 // 领域**：一条落在「外交」上的新闻，主语就是当下的政治。
-func TestParseSelectReplyDropsPoliticsTheEnglishTitleHid(t *testing.T) {
+// 选星这一步认的是**领域**：模型自己把这条归到了 diplomacy，而那是一张禁掉的
+// 领域表上的词。
+//
+// 🚨 这条用例以前叫「中文改写暴露了英文标题藏起来的政治」，而 2026-09-10 之后
+// 选星根本不写中文了 —— 那道闸搬去了 write.go（照着正文写出来的中文标题再过一遍
+// IsPolitical），见下面 TestParseWriteReplyDropsPoliticsTheEnglishTitleHid。
+// 名字留着旧含义会让人以为这里还验着那件事。
+func TestParseSelectReplyDropsAPickInABannedInterest(t *testing.T) {
 	cs := []Item{{Title: "Venice Biennale President Defends Russia Inclusion in New Interview"}}
-	raw := `{"planets":[{"index":0,"titleZh":"威尼斯双年展主席坚持邀请俄罗斯",` +
-		`"titleEn":"Venice Biennale President Defends Russia Inclusion in New Interview",` +
-		`"summary":"主席在采访中为邀请俄罗斯辩护。","hook":"文化和政治能分开吗？",` +
+	raw := `{"planets":[{"titleEn":"Venice Biennale President Defends Russia Inclusion in New Interview",` +
 		`"field":"society","disciplineId":"political-economy","interestId":"diplomacy"}]}`
 	if _, err := ParseSelectReply(raw, cs); err == nil {
-		t.Error("一条政治新闻通过了输出侧的过滤")
+		t.Error("一条落在禁掉领域上的新闻被留下了")
 	}
 }
 
+// 那道闸不能比入口那道更凶：气候、预警一类的词必须活下来。
 func TestParseSelectReplyKeepsScienceThatMerelySoundsLoud(t *testing.T) {
-	// 输出侧那道闸不能比入口那道更凶：气候、预警一类的词必须活下来。
 	cs := []Item{{Title: "Global warming pushed the reef past its threshold"}}
-	raw := `{"planets":[{"index":0,"titleZh":"全球变暖让珊瑚越过临界点",` +
-		`"titleEn":"Global warming pushed the reef past its threshold",` +
-		`"summary":"预警系统记录到温度越过阈值。","hook":"临界点是怎么定出来的？",` +
+	raw := `{"planets":[{"titleEn":"Global warming pushed the reef past its threshold",` +
 		`"field":"science","disciplineId":"climate-ocean","interestId":"climate"}]}`
 	got, err := ParseSelectReply(raw, cs)
 	if err != nil || len(got) != 1 {
-		t.Errorf("一条气候新闻被输出侧的政治过滤误伤了：%v", err)
+		t.Errorf("一条气候新闻被误伤了：%v", err)
 	}
 }
 

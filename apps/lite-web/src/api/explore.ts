@@ -27,6 +27,12 @@ export interface ExplorePlanet {
   summary: string;
   /** 她能自己追问的那个问题。永远非空 —— 这是这一屏存在的理由。 */
   hook: string;
+  /**
+   * hook 出自正文的哪一句，逐字照抄（原文语言）。服务端在写入前验过它确实出现
+   * 在正文里（`internal/news/write.go`），所以它是这个问题的出处，不是一句配图。
+   * 空 = 2026-09-10 之前生成的旧行。
+   */
+  evidence: string;
   url: string;
   source: string;
   /** 七根主枝之一。星球的颜色 = 它会长在树的哪根枝上。 */
@@ -71,6 +77,7 @@ function normalizePlanet(p: Partial<ExplorePlanet>): ExplorePlanet {
     titleEn: p.titleEn ?? "",
     summary: p.summary ?? "",
     hook: p.hook ?? "",
+    evidence: p.evidence ?? "",
     url: p.url ?? "",
     source: p.source ?? "",
     field: p.field ?? "science",

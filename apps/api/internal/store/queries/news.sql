@@ -23,9 +23,9 @@ UPDATE news_day SET planet_count = $2, note = $3 WHERE day = $1;
 
 -- name: InsertNewsPlanet :one
 INSERT INTO news_planet (
-  day, rank, title_zh, title_en, summary, hook, url, source_name,
+  day, rank, title_zh, title_en, summary, hook, evidence, url, source_name,
   field, discipline_id, interest_id, published_at, body
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 ON CONFLICT (day, rank) DO NOTHING
 RETURNING *;
 

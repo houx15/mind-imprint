@@ -11,10 +11,15 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// Fetcher turns a student-supplied URL into readable text. Injected so tests
-// can bypass the production SSRF guard (httptest binds loopback, which the
-// guard blocks by design). Never used by the agent — only the student's
-// explicit POST /projects/{id}/materials reaches it (RL-2, spec §4).
+// Fetcher turns a URL into readable text. Injected so tests can bypass the
+// production SSRF guard (httptest binds loopback, which the guard blocks by
+// design).
+//
+// 🚨 **Never reachable by the agent.** Only two callers decide what to fetch,
+// and neither is a model: the student's explicit POST /projects/{id}/materials
+// (RL-2, spec §4), and the daily starmap, which fetches the articles behind
+// the feeds in internal/news/sources.go so a planet's copy can be written from
+// the real article rather than from a truncated blurb (internal/news/write.go).
 type Fetcher interface {
 	FetchReadable(ctx context.Context, rawURL string) (title, text string, meta *materialize.DOIMeta, err error)
 	// SearchWorks/RelatedWorks (#A2) back the exploration "深挖" tray: OpenAlex

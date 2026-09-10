@@ -547,6 +547,8 @@ type NewsPlanet struct {
 	CreatedAt    time.Time          `json:"created_at"`
 	// feed 自带的正文（content:encoded），已清成纯文本、段落之间一个空行。空串 = 这个源的 feed 没带正文。
 	Body string `json:"body"`
+	// 钩子出自正文的哪一句，逐字照抄（原文语言）。写入前已验过它确实出现在正文里。空串 = 0145 之前生成的旧行。
+	Evidence string `json:"evidence"`
 }
 
 type NewsSaved struct {
