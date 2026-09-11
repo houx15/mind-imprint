@@ -234,7 +234,12 @@ export async function think(args: {
       const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };
       const beat = JSON.parse(firstObject(j.choices?.[0]?.message?.content ?? "")) as WriteBeat;
       if (!beat.action || typeof beat.action.kind !== "string") {
+        // 🚨 这一支原来是**立刻**重来，没有任何间隔。第七轮走查里英文那条
+        // 就死在这儿：模型连着六次回了没有 action 的 JSON，六次几乎同时发出，
+        // 拿到的当然是同一个结果，一整条 walk 就没了。
+        // 隔一下再要，采样才会变 —— 和网络出错那一支用同一条退避。
         lastErr = `学生没给出动作`;
+        await sleep(backoffMs(attempt));
         continue;
       }
       beat.clarity = clamp(beat.clarity);
