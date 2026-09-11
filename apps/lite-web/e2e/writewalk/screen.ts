@@ -123,6 +123,16 @@ export async function readScreen(page: Page): Promise<WriteAffordances> {
   };
 }
 
+/**
+ * 一个输入框里的字最多显示多少。
+ *
+ * 见下面那段注释：这里切一刀，学生就会以为自己的字丢了，然后花好几步去
+ * 「补回来」。段落的上限在服务端是 1200 字（writingProjectionSnippetRunes），
+ * 这里放到 2500，好让「她看得见的」永远不少于「陪练看得见的」——
+ * 反过来的话，她会为一件根本没发生的事去找印记。
+ */
+const FIELD_VALUE_CAP = 2500;
+
 /** 给模型看的那一段。 */
 export function renderWriteScreen(a: WriteAffordances): string {
   const bs = a.buttons.length
@@ -152,14 +162,24 @@ export function renderWriteScreen(a: WriteAffordances): string {
         .map((f) => {
           const kind =
             f.i === chatIdx ? "  ←跟印记说话的地方" : proseIdx.has(f.i) ? "  ←写文章正文的地方" : "";
-          // 🚨 **截断要说出来。**
+          // 🚨 **她自己写的字，一个都不要切。**
           //
-          // 第一版这里写的是 `f.value.slice(0, 120)`，不声不响地切一刀。学生
-          // 于是反复看到自己刚写的那段「停在半个字上」，一连五六步都在
-          // 「补全被截掉的那一段」—— 而她的字一个都没丢，是这只眼睛自己切的。
-          // 又一次：判据/渲染写错，会把一个好的产品记成坏的。
-          const shown = f.value.length > 400 ? f.value.slice(0, 400) : f.value;
-          const more = f.value.length > 400 ? `……（这一段一共 ${f.value.length} 字，这里只显示前 400 字，后面的没丢）` : "";
+          // 这一条改过两次，两次都是被同一种记录打回来的。
+          // 第一版是 `slice(0, 120)`，不声不响；第二版切到 400、并且加了一句
+          // 「后面的没丢」—— 以为说清楚就行了。2026-09-11 第二轮线上走查证明
+          // 不行：英文那个学生在第 17、19、23 步跟印记说了三次
+          //「框0只能看到前面400个字，后面那句 smell was so stron... 就断了，
+          // 我没法往下翻」，然后**把整段重新打了一遍**，还把「我的字被截断了」
+          // 这件事讲进了对话里，污染了那几轮教学。
+          // 而她一个字都没丢，是这只眼睛切的。
+          //
+          // 教训：**「我告诉你它被截断了」不等于「它没被截断」。** 对一个只能
+          // 看见这段字的人来说，看不见就是没有。段落顶多一两千字，全给她。
+          const shown = f.value.length > FIELD_VALUE_CAP ? f.value.slice(0, FIELD_VALUE_CAP) : f.value;
+          const more =
+            f.value.length > FIELD_VALUE_CAP
+              ? `……（这一段一共 ${f.value.length} 字，这里只显示前 ${FIELD_VALUE_CAP} 字）`
+              : "";
           const has = f.value ? `（里面已经有：${shown}${more}）` : "（空的）";
           // 🚨 框长什么样也要说 —— 真人一眼就分得出「一行的数字框」和
           // 「一大块写文章的框」，这只眼睛原来只报 placeholder，于是她把
