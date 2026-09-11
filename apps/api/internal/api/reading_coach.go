@@ -1614,6 +1614,24 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		if current.Kind == string(taskLabel) && advance == "" && answeredBoard(req.CardAnswer) {
 			advance = "done"
 		}
+		// 🚨 一步耗满六轮，我们替她往下走。
+		//
+		// 实测下来模型**极少主动推进**：一条 150 步的走查里，八步只走完两步，
+		// 每一步都在「再找一句」「再说说看」之间来回。卡住提示（第 3 轮）给过
+		// 之后再等三轮，还不动就是不会动了 —— 这正是通读那一步变成审问的那个
+		// 形状，只是换了一步。
+		//
+		// 往下走**不等于**判她做完了：她在这一步里说过的每一句话都在转写里，
+		// 过程评估读的是那个（铁律④）。把她钉在原地才是真的丢东西 ——
+		// 她会直接关掉页面。
+		//
+		// hunt 那一步不在此列：它要的是「真的在文章里点一句」，而那个证据
+		// 上面已经单独判过了，替她推进会把这一步唯一的保证也抹掉。
+		if advance == "" && current.Kind != string(taskHunt) && coachStepStalled(tasks, msgs) {
+			slog.Info("reading coach: step stalled, advancing for her",
+				"atom_id", at.ID, "kind", current.Kind)
+			advance = "done"
+		}
 		if advance != "" {
 			if _, err := qtx.SetReadingTaskStatus(turnCtx, sqlc.SetReadingTaskStatusParams{
 				AtomID: at.ID, ID: current.ID, Status: advance,
