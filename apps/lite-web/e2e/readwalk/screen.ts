@@ -20,8 +20,14 @@ import { readScreen as readBaseScreen, type Affordances } from "../camp/screen";
 export type ReadAffordances = Affordances & {
   /** 正文段落，按屏幕上的顺序编号（1 起）。给它划句子用。 */
   paragraphs: { n: number; text: string }[];
-  /** 板上还没摆的卡片，和可以摆进去的格子。没有板的时候两个都是空的。 */
-  board: { chips: { i: number; text: string }[]; bins: { i: number; name: string }[] } | null;
+  /** 板上的卡片（含已经摆进格子的那些，`in` 是它现在在哪一格）和所有格子。
+   *  没有板的时候是 null。
+   *  🚨 已经摆好的那些也要列出来：只列未摆的话，全部摆完之后 印记 让她「把某句
+   *  挪到主张那一格」就没有任何东西可点了 —— 走查逐字报过这一条。 */
+  board: {
+    chips: { i: number; text: string; in: string }[];
+    bins: { i: number; name: string }[];
+  } | null;
 };
 
 export async function readScreen(page: Page): Promise<ReadAffordances> {
@@ -41,10 +47,15 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
     ? {
         chips: (
           await page
-            .locator(".mk-board__loose .mk-board__chip")
-            .evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))
-            .catch(() => [] as string[])
-        ).map((text, i) => ({ i, text })),
+            .locator(".mk-board__chip")
+            .evaluateAll((els) =>
+              els.map((e) => ({
+                text: (e.textContent ?? "").trim(),
+                in: e.closest("[data-board-bin]")?.getAttribute("data-board-bin") ?? "",
+              })),
+            )
+            .catch(() => [] as { text: string; in: string }[])
+        ).map((c, i) => ({ i, ...c })),
         bins: (
           await page
             .locator(".mk-board__bin")
@@ -61,7 +72,11 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
 export function renderReadScreen(a: ReadAffordances): string {
   const bs = a.buttons.length
     ? a.buttons
-        .map((b) => `  [${b.i}] ${b.label || "（没有文字的按钮）"}${b.disabled ? "  ←按不动" : ""}`)
+        .map(
+          (b) =>
+            `  [${b.i}] ${b.label || "（没有文字的按钮）"}` +
+            `${b.pressed ? "  ←已经打开了，别再点它" : ""}${b.disabled ? "  ←按不动" : ""}`,
+        )
         .join("\n")
     : "  （一个按钮都没有）";
   const fs = a.fields.length
@@ -75,10 +90,12 @@ export function renderReadScreen(a: ReadAffordances): string {
   const boardBlock = a.board
     ? [
         ``,
-        `屏幕上有一块板。上面还没摆的卡片：`,
+        `屏幕上有一块板。板上的卡片：`,
         a.board.chips.length
-          ? a.board.chips.map((c) => `  [${c.i}] ${c.text}`).join("\n")
-          : "  （都摆好了）",
+          ? a.board.chips
+              .map((c) => `  [${c.i}] ${c.text}${c.in ? `  ←现在在「${c.in}」格，可以挪` : "  ←还没摆"}`)
+              .join("\n")
+          : "  （板上没有卡片）",
         `能摆进去的格子：`,
         a.board.bins.map((b) => `  [${b.i}] ${b.name}`).join("\n"),
       ].join("\n")

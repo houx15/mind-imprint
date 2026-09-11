@@ -275,7 +275,9 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
       continue;
     }
     if (a.kind === "place") {
-      const chip = page.locator(".mk-board__loose .mk-board__chip").nth(a.chip);
+      // 🚨 所有卡片，不只是没摆的那些 —— 全部摆完之后她还得能把某一张挪到
+      // 别的格子里去（印记 经常这么要求）。
+      const chip = page.locator(".mk-board__chip").nth(a.chip);
       const bin = page.locator(".mk-board__bin").nth(a.bin);
       if (!(await chip.count()) || !(await bin.count())) {
         note = "板上没有那张卡片或那个格子。";
