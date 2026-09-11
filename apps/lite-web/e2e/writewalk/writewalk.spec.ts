@@ -31,6 +31,31 @@ test.describe.configure({ mode: "parallel", retries: 0 });
 const API = process.env.E2E_API_BASE ?? "https://mind-api.uni-robot.cn";
 const BASE = process.env.E2E_BASE_URL ?? "https://mind-lite.uni-robot.cn";
 const JOIN = process.env.E2E_JOIN_CODE ?? "G624-UXFE";
+/**
+ * 「第几个框」这个序号，**读和写必须用同一个选择器**。
+ *
+ * 🚨 2026-09-12 第十七轮才查出来：读那一侧（camp/screen.ts）用的是
+ * `input:visible, textarea:visible`，而写这一侧用的是
+ * `textarea:visible, input[type=text]:visible` —— 后者**把 `type=number` 排除
+ * 在外**。于是在写作设定那个弹窗上（一个数字框「目标字数」+ 一个大文本框），
+ * 两边的序号整个错位：
+ *
+ *   她看到的 [0] = 数字框、[1] = 大文本框
+ *   她写到的 [0] = 大文本框、[1] = 不存在
+ *
+ * 她要往字数框填「300」，300 落进了正文大框；她把想写的事打进 [1]，
+ * 那一下哪儿都没去。于是她连着九步在同一个弹窗上重打同一段话，
+ * 最后得出结论「之前写的东西都没了」——**而她一个字都没写过**。
+ *
+ * 这也解释了好几轮里我当成「她自己打错了」的那条重复卡壳：
+ *「字数框里有个600/800/300，不知道是不是我不小心打进去的」。
+ * 不是她打错了，是这只眼睛的左手和右手数的不是同一排框。
+ *
+ * 错位**看起来完全合理**（序号都在、值也都在），所以它能活十几轮 ——
+ * 这一类是最难查的：两处各自都对，只有放在一起才错。
+ */
+const FIELD_SELECTOR = "input:visible, textarea:visible";
+
 const OUT = process.env.WRITEWALK_OUT ?? "e2e/.writewalk";
 const STEPS = Number(process.env.WRITEWALK_STEPS ?? 45);
 
@@ -163,7 +188,7 @@ for (const student of WRITE_STUDENTS) {
           note = "这一屏没有跟印记说话的地方。";
           continue;
         }
-        const box = page.locator("textarea:visible, input[type=text]:visible").nth(idx);
+        const box = page.locator(FIELD_SELECTOR).nth(idx);
         if (!(await box.count())) {
           note = "找不到那个对话框。";
           continue;
@@ -174,7 +199,7 @@ for (const student of WRITE_STUDENTS) {
         continue;
       }
       if (a.kind === "write") {
-        const box = page.locator("textarea:visible, input[type=text]:visible").nth(a.field);
+        const box = page.locator(FIELD_SELECTOR).nth(a.field);
         if (!(await box.count())) {
           note = `没有第 ${a.field} 号框。`;
           continue;
