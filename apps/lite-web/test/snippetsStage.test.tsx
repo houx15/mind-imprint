@@ -490,20 +490,29 @@ describe("B4 — tracing a point back to the sentence, or honestly not at all", 
     expect(document.activeElement).toBe(textarea);
   });
 
-  it("does NOTHING when the quote is no longer in the text — never an approximate highlight", async () => {
-    // She rewrote the sentence after the comment was generated. An
-    // approximate match here would land on a neighbouring sentence and teach
-    // her something false about her own paragraph — the same reason the
-    // server drops points whose quote is not a literal substring.
+  it("她把那句改掉之后，这一条根本不再摆出来给她点 —— 更不会近似高亮", async () => {
+    // 她在这条意见之后把那句话重写了。近似匹配会落到旁边那句上，
+    // 教她一件关于她自己段落的假事 —— 服务端丢掉引文对不上的意见，
+    // 也正是这个理由。
+    //
+    // 🚨 这条断言 2026-09-11 改过一次，而且是**加强**不是放宽。
+    // 原来的行为是「照样摆出来，点了不动」；第九轮线上走查里她连着八步
+    // 抱怨这个：「卡片19标着『上一版』但还在列表里，看着像没刷新，
+    // 不知道它到底还要不要我改」「看着很烦，明明我已经改了」。
+    // 摆着不动的东西看起来就是待办。做完的那几条现在折到
+    //「你已经改过的 N 条」后面，主列表里一条都不留。
     const rewritten: WritingSnippet = { ...linkedSnippet, text: "街上的树种得太密，夏天反而不凉快。" };
     const point = await renderWithComment(BLOCK_COMMENT, rewritten);
+
+    // 主列表里没有这一条可点的卡片了。
+    expect(point).toBeNull();
+    // 她的正文一个字都没被碰过。
     const textarea = screen.getByDisplayValue(rewritten.text) as HTMLTextAreaElement;
-
-    fireEvent.click(point);
-
     expect(textarea.selectionStart).toBe(0);
     expect(textarea.selectionEnd).toBe(0);
     expect(document.activeElement).not.toBe(textarea);
+    // 但它没有被删掉 —— 折在那一行后面，她想回头看还翻得开。
+    expect(screen.getByText(/你已经改过的 1 条/)).toBeTruthy();
   });
 });
 

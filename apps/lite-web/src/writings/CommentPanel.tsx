@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button, Icon } from "@/ui";
 import { ArrowRight, Quote } from "lucide-react";
 import { COMMENT_LAYER_NAMES, type Comment } from "../api/writingRoom";
@@ -95,41 +96,46 @@ export function CommentPanel({
   // 所以再问一个 quote 答不了的问题：**这一段在这条意见之后动过没有。**
   // 这个只有服务端知道（它存下了当时读的那一版），比对是逐字的，没有猜测。
   const edited = comment.sourceText !== "" && currentText !== undefined && currentText !== comment.sourceText;
+  // 🚨 **做完的那几条要从眼前拿走，不是压暗留在那儿。**
+  //
+  // 上一版给它们加了「上一版」的标、压到 55% 不透明度，以为「说清楚」就够了。
+  // 第九轮线上走查一个学生连着八步在说同一件事，而且越说越烦：
+  //
+  //   「那三张卡片还是显示『上一版』，看着很烦，明明我已经改了」
+  //   「卡片19标着『上一版』但还在列表里，看着像没刷新，不知道它到底还要不要我改」
+  //   「希望按了之后能更新」
+  //
+  // 她把「还摆在列表里」读成「没刷新」，不是「你已经做完了」。摆着不动的东西
+  // 看起来就是待办 —— 压暗改变不了这一点。而这几条她**已经做完了**：
+  // 被引的那句话在她正文里逐字都不在了。
+  //
+  // 所以收起来，不是删掉：折在一行后面，她想回头看还能翻开。
+  const livePoints = comment.points.filter((p) => !stale(p.quote));
+  const stalePoints = comment.points.filter((p) => stale(p.quote));
+  const [showStale, setShowStale] = useState(false);
 
   return (
     <div className="flex flex-col gap-4 rounded-mk-md border border-mk-border bg-mk-paper p-4">
       <p className="text-mk-body-lg font-semibold text-mk-ink">{comment.summary}</p>
 
-      {comment.points.length > 0 && (
+      {livePoints.length > 0 && (
         <ol className="flex list-none flex-col gap-3">
-          {comment.points.map((point, i) => (
+          {livePoints.map((point, i) => (
             <li key={i}>
               <button
                 type="button"
                 data-comment-point
-                data-comment-stale={stale(point.quote) ? "" : undefined}
                 onClick={() => onTrace(point.quote)}
-                className={
-                  "flex w-full flex-col items-start gap-1.5 rounded-mk-md border p-3 text-left transition-colors hover:border-mk-accent" +
-                  (stale(point.quote) ? " opacity-55" : "")
-                }
+                className="flex w-full flex-col items-start gap-1.5 rounded-mk-md border p-3 text-left transition-colors hover:border-mk-accent"
                 style={{
                   borderColor: "var(--mk-border)",
-                  background: stale(point.quote)
-                    ? "transparent"
-                    : "color-mix(in srgb, var(--mk-accent-500) 5%, transparent)",
+                  background: "color-mix(in srgb, var(--mk-accent-500) 5%, transparent)",
                 }}
               >
                 {/* 已经用对的那一条排在最前面，给它一个看得出来的标。
                     要改的那些带一个层名（立意/材料/结构/字句）——她因此知道
                     印记这一轮在管哪一层，而不是随口挑了一句。 */}
                 <span className="flex items-center gap-2">
-                  {/* 这条说的是上一版 —— 摆在最前面，她一眼就知道不用再照着做。 */}
-                  {stale(point.quote) && (
-                    <span className="rounded-mk-full border border-mk-border px-2 py-0.5 text-mk-small text-mk-muted">
-                      上一版
-                    </span>
-                  )}
                   {point.kind === "good" ? (
                     <span
                       className="rounded-mk-full px-2 py-0.5 text-mk-small"
@@ -174,11 +180,41 @@ export function CommentPanel({
 
       {/* 改完之后那一下。没有它，这一轮就永远不结束 ——
           她照着改了，屏幕上还是那几条旧话，只好反复问印记是不是没看见。 */}
+      {/* 已经改过的那几条，折起来。她想回头看还翻得开 —— 收起不等于删掉。 */}
+      {stalePoints.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowStale((v) => !v)}
+            className="w-fit text-mk-small text-mk-muted underline hover:text-mk-accent-700"
+          >
+            {showStale ? "收起" : `你已经改过的 ${stalePoints.length} 条`}
+          </button>
+          {showStale && (
+            <ol className="flex list-none flex-col gap-2">
+              {stalePoints.map((point, i) => (
+                <li
+                  key={i}
+                  data-comment-stale
+                  className="rounded-mk-sm border border-mk-border p-2.5 text-mk-small text-mk-muted"
+                >
+                  <span className="block text-mk-ink">{point.text}</span>
+                  <span className="mt-1 flex items-start gap-1.5">
+                    <Icon icon={Quote} size={12} className="mt-[3px] shrink-0" />
+                    <span>{point.quote}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+
       {(staleCount > 0 || edited) && onRecheck && (
         <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-3">
           <span className="text-mk-body text-mk-muted">
             {staleCount > 0
-              ? `这一段改过了，上面有 ${staleCount} 条说的是上一版。`
+              ? `这一段改过了，上面那 ${staleCount} 条你已经做完。`
               : "这一段在这条意见之后改过了。"}
           </span>
           <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>

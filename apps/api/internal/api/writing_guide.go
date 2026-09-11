@@ -694,10 +694,41 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	guide, okParse := parseWritingGuide(res.Text)
 	if !okParse {
+		// 和批量那一路同一件事、同一个修法。2026-09-11 第九轮走查里批量那边
+		// 一次都没坏（重试接住了），坏的是这条单块的路 —— 她的原话是
+		//「第四段刚才报了个 model_unavailable 的错误，不知道现在按获取引导
+		// 能不能正常出来」。这条路上既没有救援也没有重试，模型收错一个括号
+		// 就直接弹错。
+		//
+		// 一次。她正同步等着，而且每次都要花钱；第二次还坏就老实报错。
 		slog.Warn("writing block guide: reply unparseable or held no questions",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+			"stop_reason", res.StopReason, "reply_bytes", len(res.Text),
+			"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 200))
+
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: writingGuideSystem},
+				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs)},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res2.Usage)
+		if cerr2 != nil {
+			slog.Warn("writing block guide: retry provider call failed", "err", cerr2,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		guide, okParse = parseWritingGuide(res2.Text)
+		if !okParse {
+			slog.Warn("writing block guide: retry also unparseable",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"stop_reason", res2.StopReason, "reply_bytes", len(res2.Text),
+				"reply_head", headRunes(res2.Text, 220), "reply_tail", tailRunes(res2.Text, 200))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		slog.Info("writing block guide: retry parsed fine", "atom_id", at.ID)
 	}
 
 	dto := writingGuideDTOOf(guide)
