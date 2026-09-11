@@ -1580,6 +1580,32 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		seq++
 	}
+	// 🚨 走到「标注论证」这一步而模型没给板 —— 服务端自己摆一块。
+	//
+	// 这一步的**全部内容**就是那块板。而实测下来模型一遍遍在话里说「把这三句
+	// 拖到格子里」却不附 card：十条走查里这是唯一反复挡住整条链子的东西。
+	// 检测、重试、把理由喂回去，都只是降低概率，她还是会撞上「屏幕上根本没有板」。
+	//
+	// 这一步不需要模型来决定「有没有板」：读法库已经规定了它是标注论证
+	// （reading_routines.go：步骤由 routine 拥有）。挑哪几句仍然优先用它的判断，
+	// 它没给才用确定性的规则兜底 —— 和排读法那条链子是同一个分工。
+	//
+	// 🚨 兜底出来的那块板照样送进 validateCoachCard：它不是一条绕过校验的后门，
+	// 句子逐字来自正文，本来就过得了。
+	if cur := currentReadingTask(tasks); cur != nil && cur.Kind == string(taskLabel) &&
+		parsed.Card == nil && parsed.Lens == "" {
+		focus := parsed.FocusBlock
+		if focus == "" {
+			focus = cur.BlockID
+		}
+		if built := validateCoachCard(buildLabelBoard(blocks, focus), blocks); built != nil {
+			slog.Info("reading coach: label step had no board, built one",
+				"atom_id", at.ID, "options", len(built.Options))
+			parsed.Card = built
+			parsed.cardWhy = cardOK
+		}
+	}
+
 	// The card rides on the AI message's payload (0106), inside the same
 	// transaction as the words it came with — so a refresh can never show her
 	// the reply without the card it was written around.
