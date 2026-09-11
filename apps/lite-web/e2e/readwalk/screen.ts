@@ -70,12 +70,19 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
   // 「你已经划好了，现在该发出去」。真人看得见那几个引文小块和那颗按钮；
   // 模型只拿得到文字，所以这里明说。
   const quoted = (base.text.match(/已引用\s*(\d+)\s*处/) ?? [])[1];
-  const text = quoted
+  const text0 = quoted
     ? base.text +
       `\n\n（系统提示：你已经划好了 ${quoted} 处引文，它们还**没有**发出去。` +
       `要让印记看到，请点「发出这 ${quoted} 处」那颗按钮，或者在输入框里写一句话再发。` +
       `不要反复划新的句子。）`
     : base.text;
+
+  // 🚨 板摆满了就该交上去。她摆完四张卡片之后停住了：「我摆完卡片了但屏幕
+  // 没变化，不知道该点哪。」那颗按钮此刻刚变成可点的，但模型只拿得到文字。
+  const allPlaced = board !== null && board.chips.length > 0 && board.chips.every((c) => c.in);
+  const text = allPlaced
+    ? text0 + `\n\n（系统提示：板上的卡片都摆好了，现在请点「摆好了」那颗按钮交上去。）`
+    : text0;
 
   return { ...base, text, paragraphs, board };
 }

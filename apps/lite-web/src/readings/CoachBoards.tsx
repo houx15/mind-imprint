@@ -221,8 +221,12 @@ export function CoachBoard({
   return (
     <div className="mk-board">
       <div className="mk-board__loose" data-board-bin="">
+        {/* 🚨 摆完之后要说下一步是什么。
+            走查里她摆完四张卡片就停住了：「我摆完卡片了但屏幕没变化，不知道
+            该点哪。」—— 那颗按钮此刻刚从禁用变成可点，但屏幕上没有任何东西
+            把她指过去，而未分类那一格这时候是空的，看着像这块板已经交掉了。 */}
         <p className="mk-board__hint">
-          {loose.length > 0 ? itemLabel : "都摆好了。"}
+          {loose.length > 0 ? itemLabel : `都摆好了。请点下面的「${submitLabel}」。`}
         </p>
         <div className="mk-board__chips">
           {loose.map((it) => (
