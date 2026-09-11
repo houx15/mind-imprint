@@ -856,14 +856,57 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		//        它没捞到就是救援这条路上出了问题。
 		//   二 · **第一块**就坏了 —— 救援一条都捞不到是正确行为，
 		//        该改的是提示词或者档位，不是救援。
-		// 2026-09-11 线上这一条只有尾巴，两种猜都成立，等于没有证据。
+		//
+		// 2026-09-11 第四轮走查抓到的那一条属于第二种：整份回复只有一块，
+		// 而它的 questions 数组用 `}` 收的尾（`…收尾？"}]}`）—— 和
+		// 2026-09-08 一模一样的形状。stop_reason 是 "stop"，一个字都没少：
+		// **「写完了」和「写对了」是两件事。** 只有一块的时候，那一块坏掉就是
+		// 整份坏掉，救援无处可救。
+		//
+		// 🚨 reply_len 记的是**字节**。4693 个字节的中文只有一千六百字上下 ——
+		// 我第一次看这条日志时按字数读，于是以为它有四五块，白找了一圈救援的毛病。
 		slog.Warn("writing block guide batch: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
-			"stop_reason", res.StopReason, "reply_len", len(res.Text),
+			"stop_reason", res.StopReason, "reply_bytes", len(res.Text),
 			"reply_head", headRunes(res.Text, 220),
 			"reply_tail", tailRunes(res.Text, 200))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+
+		// 再要一次。
+		//
+		// 这不是「多试几次总会好」那种重试 —— 它治的是一个具体的、反复出现的
+		// 毛病：模型偶尔把一个括号收错，而这件事和她写了什么没关系，
+		// 换一次采样几乎总能过。阅读室那边同一个判断早就这么做了
+		// （reading_coach.go：「reply looks broken, retrying once」）。
+		//
+		// 一次，不是三次。这是学生正等着的一条同步请求，而且每一次都要花钱；
+		// 第二次还坏就老老实实报错——她那一屏的「获取引导」按钮本来就在，
+		// 不会没有退路。
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: writingGuideBatchSystem},
+				{Role: gateway.RoleUser, Content: buildWritingGuideBatchPrompt(wr, blocks, textByBlock, msgs)},
+			},
+		})
+		// 打到了通道就要记账，哪怕这一份也读不出来。
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res2.Usage)
+		if cerr2 != nil {
+			slog.Warn("writing block guide batch: retry provider call failed", "err", cerr2,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		guides, okParse = parseWritingGuideBatch(res2.Text, missing)
+		if !okParse {
+			slog.Warn("writing block guide batch: retry also unparseable",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"stop_reason", res2.StopReason, "reply_bytes", len(res2.Text),
+				"reply_head", headRunes(res2.Text, 220),
+				"reply_tail", tailRunes(res2.Text, 200))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		slog.Info("writing block guide batch: retry parsed fine",
+			"atom_id", at.ID, "blocks", len(guides))
 	}
 
 	for id, g := range guides {

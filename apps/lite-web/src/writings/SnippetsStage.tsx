@@ -137,6 +137,7 @@ export function SnippetsStage({
   snippets,
   onSnippetsChange,
   onGoToStructure,
+  onGoToDraft,
   onSay,
 }: {
   writingId: string;
@@ -148,6 +149,8 @@ export function SnippetsStage({
   /** Sends her to 结构 from the empty state — naming the step she needs is
    *  not the same as getting her there. */
   onGoToStructure: () => void;
+  /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
+  onGoToDraft: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
 
@@ -336,6 +339,32 @@ export function SnippetsStage({
           );
         })}
       </div>
+
+      {/* 每一块都写好了 → 屏幕上出现一条真的邀请。
+          🚨 这是结构那一步「去写」那条邀请的同一件事，在下一个接缝上。
+          产品负责人当时的判断是：那颗按钮从第一秒就在，**但从来没有人提议过它**，
+          于是一个已经做完的学生会继续在原地待着。段落这一步是同一个形状 ——
+          2026-09-11 走查里她两次走到这儿停住：
+          「每段都写完了，但没有一个按钮能把它们拼成整篇文章或者进入下一步」。
+          顶上那排「结构 / 段落 / 成稿」一直可点，她只是没把它读成「下一步」。
+
+          ⚠️ 它不替她走。按不按仍然是她的事，导航也照旧。 */}
+      {slots.length > 0 && slots.every((s) => (s.snippet?.text ?? "").trim() !== "") && (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-mk-lg border p-3"
+          style={{
+            // mk-* 是裸 CSS 变量：Tailwind 的 alpha 语法对它们一个字节的 CSS
+            // 都不生成，半透明只能走 color-mix。
+            background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+            borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+          }}
+        >
+          <span className="text-mk-body text-mk-ink">每一块都写好了。下一步把它们拼成整篇。</span>
+          <Button size="sm" onClick={onGoToDraft}>
+            去成稿
+          </Button>
+        </div>
+      )}
 
       <button
         type="button"

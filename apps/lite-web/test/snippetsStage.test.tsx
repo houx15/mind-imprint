@@ -58,6 +58,7 @@ function Harness({
       snippets={snippets}
       onSnippetsChange={setSnippets}
       onGoToStructure={() => {}}
+      onGoToDraft={() => {}}
       onSay={async () => {}}
     />
   );

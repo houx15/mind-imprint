@@ -370,6 +370,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             writingId={writingId}
             setState={setState}
             onGoToStructure={() => void jumpStage("outline")}
+            onGoToDraft={() => void jumpStage("draft")}
             onSay={say}
           />
         </div>
@@ -469,12 +470,15 @@ function StagePanel({
   writingId,
   setState,
   onGoToStructure,
+  onGoToDraft,
   onSay,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
   onGoToStructure: () => void;
+  /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
+  onGoToDraft: () => void;
   /** 一块板摆完了：把结果当成她说的一句话发出去。 */
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
 }) {
@@ -488,6 +492,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           onGoToStructure={onGoToStructure}
+          onGoToDraft={onGoToDraft}
           onSay={onSay}
         />
       );
@@ -523,6 +528,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           onGoToStructure={onGoToStructure}
+          onGoToDraft={onGoToDraft}
           onSay={onSay}
         />
       );
