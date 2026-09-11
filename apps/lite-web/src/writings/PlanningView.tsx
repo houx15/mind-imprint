@@ -303,7 +303,13 @@ export function PlanningView({
                 className="rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
-                点一条可以改，也能删
+                {/* 🚨 原来只说了改和删，没说**怎么加** —— 而这张图长什么样
+                    全靠她说。2026-09-13 第十四轮走查她的原话：「它问我有几条
+                    理由，但我不知道怎么把理由加到'你的思路'那个列表里去，
+                    那里只有一个删除按钮。」她在找一颗「＋」，而这里没有、
+                    也不该有：加一条的办法是跟印记说一句，它摆上去。
+                    那条路一直在，只是没有一个字讲过。 */}
+                想加一条，说给印记听；点一条可以改，也能删
               </span>
             </div>
             <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} />
