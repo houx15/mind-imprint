@@ -131,9 +131,16 @@ export function CommentPanel({
       {(staleCount > 0 || edited) && onRecheck && (
         <div className="flex flex-wrap items-center gap-2 rounded-mk-sm border border-mk-border px-3 py-2">
           <span className="text-mk-body text-mk-muted">
-            {staleCount > 0
-              ? `这一段改过了，下面那 ${staleCount} 条你已经做完。`
-              : "这一段在这条意见之后改过了，下面说的是上一版。"}
+            {/* 🚨 数数这件事交给下面那一行，这里不重复。
+                原来这句写的是「下面那 N 条你已经做完」—— 两处毛病：
+                做完的那几条已经**折起来**了、不在「下面」（这是我把横幅从面板
+                底部挪到顶部时顺手改坏的，位置变了指代没跟着变）；而且它和折叠
+                那一行说的是同一句话，同一块面板上出现两遍。
+                2026-09-12 第二十一轮她照着这句去数可见的卡片，数不上：
+                「提示说『下面那1条你已经做完』，但我数了一下只有两条建议卡片，
+                  不知道第三条是什么、在哪里改的」。
+                横幅只说一件事：这一段动过了。几条、在哪儿，下面那一行自己会说。 */}
+            {staleCount > 0 ? "这一段改过了。" : "这一段在这条意见之后改过了，下面说的是上一版。"}
           </span>
           <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
             请印记再看一遍
