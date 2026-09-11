@@ -128,10 +128,13 @@ export async function readScreen(page: Page): Promise<WriteAffordances> {
  *
  * 见下面那段注释：这里切一刀，学生就会以为自己的字丢了，然后花好几步去
  * 「补回来」。段落的上限在服务端是 1200 字（writingProjectionSnippetRunes），
- * 这里放到 2500，好让「她看得见的」永远不少于「陪练看得见的」——
+ * 这里放到 8000 —— 第八轮走查她的成稿写到 3364 字，2500 又切了一刀，她又报了
+ * 一次「正文被截断了，我看不见最后一段」。**每次她写得更多，这个数就又小了**，
+ * 所以直接放到一个成稿根本到不了的高度，好让「她看得见的」永远不少于
+ * 「陪练看得见的」——
  * 反过来的话，她会为一件根本没发生的事去找印记。
  */
-const FIELD_VALUE_CAP = 2500;
+const FIELD_VALUE_CAP = 8000;
 
 /** 给模型看的那一段。 */
 export function renderWriteScreen(a: WriteAffordances): string {

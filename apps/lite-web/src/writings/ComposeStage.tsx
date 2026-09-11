@@ -427,7 +427,26 @@ export function ComposeStage({
         </div>
 
         <aside className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l">
-          {comment && <CommentPanel comment={comment} onTrace={setHighlight} />}
+          {/* 🚨 这一块本来只传了 comment 和 onTrace —— 段落那一步早就会说
+              「这条是上一版」了，成稿这一步一直没接上，而**整稿意见更容易过期**：
+              她照着改的正是被引的那几句。2026-09-11 第八轮走查，两个学生一共
+              五步在说同一件事：
+
+                「印记的建议里还引用着『我站在收残台旁边数了一下』这些旧句子，
+                  但我正文里已经没有这些了」
+                「下面的材料卡片显示的还是我改之前的旧句子…我不知道该点哪个按钮
+                  把这些卡片消掉或者更新」
+
+              判据和存的那一版都是现成的，只差把它们接上。 */}
+          {comment && (
+            <CommentPanel
+              comment={comment}
+              onTrace={setHighlight}
+              currentText={body}
+              onRecheck={() => void review()}
+              rechecking={reviewing}
+            />
+          )}
           <SnippetRail snippets={snippets} edited={wouldOverwrite} />
         </aside>
       </div>
