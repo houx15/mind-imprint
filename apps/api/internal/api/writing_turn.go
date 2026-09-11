@@ -397,6 +397,45 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	// whatever happens to its reply, including an enforcement rejection.
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "writing_turn", resolved, usage)
 
+	// 🚨 引了一句她根本没写过的话 —— 查一下，查到就再要一次。
+	//
+	// 这是 writing_ghostquote.go 那条纪律的落点：结构化那条路（请印记看看这一段）
+	// 从第一天起就验引文，对话这条路一直没验。提示词打过两次没压下去
+	//（第二十三轮三条、第二十四轮八条），而她已经说出了代价：
+	//「我不知道该听它的还是按我现在的正文来。」
+	//
+	// 一次重试，而且**查不过也照样把回复给她**：一句引错的话仍然带着有用的
+	// 教学，扣下整轮反而让她白等一次。这跟解析失败不一样 —— 那种情况屏幕上
+	// 什么都没有。
+	if cerr == nil {
+		corpus := writingQuoteCorpus(snippets, "", msgs)
+		if ghost := firstGhostQuote(out.Body, corpus); ghost != "" {
+			slog.Warn("lite writing turn: reply quoted text she never wrote; retrying once",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"ghost_quote", ghost)
+			retryHistory := append(append([]agent.ChatTurn{}, history...), agent.ChatTurn{
+				Role: "user",
+				Content: "【刚才那一版你引错了】你引的那句「" + ghost + "」" +
+					"在她现在的正文里一个字都找不到 —— 多半是你在照着这段对话里更早的" +
+					"版本说话，而她已经改过了。请重答一遍：只引【已经写好的片段】里" +
+					"逐字有的句子，或者干脆不引、直接说第几段的第几句。",
+			})
+			out2, usage2, cerr2 := agent.ProposeProjectCoachReply(turnCtx, a.d.Provider, resolved, retryHistory, projection, surfaceLabel)
+			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "writing_turn", resolved, usage2)
+			if cerr2 == nil && strings.TrimSpace(out2.Body) != "" {
+				if again := firstGhostQuote(out2.Body, corpus); again == "" {
+					out = out2
+				} else {
+					// 两次都引错。用第二版（它至少刚被提醒过），并记下来 ——
+					// 这条日志是「这个毛病还在不在」的唯一证据。
+					slog.Warn("lite writing turn: retry quoted a ghost too",
+						"atom_id", at.ID, "ghost_quote", again)
+					out = out2
+				}
+			}
+		}
+	}
+
 	// USER RULE: an AI-dialogue failure is surfaced as a real 502, never
 	// masked by a canned stand-in sentence. Unlike agent.RouteReading (see
 	// postLiteReadingTurn's long comment on this exact point),
