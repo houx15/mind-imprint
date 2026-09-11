@@ -382,7 +382,48 @@ func salvageWritingPlanReply(s string) (writingPlanReply, bool) {
 			break
 		}
 	}
-	return got, strings.TrimSpace(got.Reply) != ""
+	return got, looksLikeAWholeSentence(got.Reply)
+}
+
+// looksLikeAWholeSentence 判断救出来的这句话像不像**说完了**。
+//
+// 🚨 这道关是 2026-09-12 补的，补的是**救援自己造成的回归**，而那个回归比它
+// 取代的错误更糟 —— 因为它不出声。
+//
+// 模型偶尔会在 JSON 字符串里写一个没转义的引号：
+//
+//	{"reply":"…一个是李浩然"同学那件事"，还有…","add":[…]}
+//
+// 整份 Unmarshal 失败，走到救援；救援把 reply 解到**第一个没转义的引号**为止，
+// 得到一个语法合法、语义半截的字符串，然后当成成功交了出去。第十五轮线上走查
+// 里她连着六步在说这件事（「印记的话没说完就断了，停在『后面』」），
+// 而日志上一条 unparseable 都没有。
+//
+// 判据是句末那个标点。一轮说完了的陪练发言几乎总是以终止标点收尾；
+// 被一个游离引号切断的字符串几乎从不。
+//
+// 🚨 方向是故意偏向报错的：宁可让她重发一次（她刚说的话还在输入框里），
+// 也不要把半句话当成印记说的话摆给她看 —— 她没法判断那是印记没说完，
+// 还是自己漏读了什么。这和 [[ai-errors-must-surface-never-fake]] 是同一条：
+// 半句话也是一种「看起来像真的」的假回答。
+func looksLikeAWholeSentence(reply string) bool {
+	t := strings.TrimSpace(reply)
+	if t == "" {
+		return false
+	}
+	// 收尾的引号/括号不算话说完了，但它后面那个标点算 —— 先把它们剥掉，
+	// 再看剩下的最后一个字符。「…那一句「浪费不是个别现象」」是说完了的。
+	t = strings.TrimRight(t, "」』）)\"'”’】》")
+	if t == "" {
+		// 整句就是一对引号，没别的 —— 当它没说完。
+		return false
+	}
+	last := []rune(t)[len([]rune(t))-1]
+	switch last {
+	case '。', '！', '？', '…', '.', '!', '?', '；', ';', '：', ':', '~', '～':
+		return true
+	}
+	return false
 }
 
 // salvagePlanField 读一个字段，返回「还能不能接着往下读」。
@@ -442,6 +483,12 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 		if !ok {
 			return writingPlanReply{}, false
 		}
+		// 🚨 **救援要出声。** 它原来一声不响地成功，于是 2026-09-12 那个
+		// 「半句话」回归在线上跑了整整一轮都没被发现 —— 日志里一条
+		// unparseable 都没有，因为救援报告的是成功。
+		// 一行「这一轮是捡回来的」比事后翻数据库便宜得多。
+		slog.Warn("writing plan turn: reply salvaged from broken JSON",
+			"reply_bytes", len(c), "nodes_kept", len(salvaged.Add))
 		got = salvaged
 	}
 	got.Reply = strings.TrimSpace(got.Reply)
@@ -692,10 +739,38 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		// 不等于写完了）。
 		slog.Warn("writing plan turn: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
-			"reply_len", len([]rune(res.Text)), "stop_reason", res.StopReason,
+			"reply_bytes", len(res.Text), "stop_reason", res.StopReason,
 			"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 220))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+
+		// 再要一次 —— 和段落引导那两条路同一个判断（writing_guide.go）。
+		// 这一类坏法（字符串里一个没转义的引号、数组收错括号）和她写了什么
+		// 无关，换一次采样几乎总能过；而这一轮的钱已经花掉了，直接报错等于
+		// 让她白等一次，还得自己把刚才那句话再说一遍。
+		//
+		// 一次，不是三次：她正同步等着。第二次还坏就老实报错。
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 != nil {
+			slog.Warn("writing plan turn: retry provider call failed", "err", cerr2,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		parsed, okParse = parseWritingPlanReply(res2.Text)
+		if !okParse {
+			slog.Warn("writing plan turn: retry also unparseable",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"reply_bytes", len(res2.Text), "stop_reason", res2.StopReason,
+				"reply_head", headRunes(res2.Text, 220), "reply_tail", tailRunes(res2.Text, 220))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		slog.Info("writing plan turn: retry parsed fine", "atom_id", at.ID)
 	}
 
 	byID := make(map[string]sqlc.WritingOutline, len(rows))
