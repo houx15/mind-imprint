@@ -151,6 +151,9 @@ func TestReplyPromisingACardWithNoCard(t *testing.T) {
 		"标注板还在屏幕上，四句话等着你。",
 		"下面这张卡片上有三句话。",
 		"把它们拖进对应的格子。",
+		// 🚨 线上实测漏掉过这一句：「拖进」不是「拖句子进去」的子串。
+		"我给你一块五格的板，让你把句子拖进去。",
+		"下面这块板有五个格子，你把三句话各自拖到该去的那一格。",
 	}
 	for _, r := range promises {
 		if !replyPromisesACard(r) {
