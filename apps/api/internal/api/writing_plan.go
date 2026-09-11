@@ -212,6 +212,16 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 		b.WriteString("（篇幅只用来判断要几条分论点，别追着她凑字数。）\n")
 	}
 
+	// 计划现在有什么、还缺什么，由服务端数出来当事实给它——不让它每轮从十六轮
+	// 对话里重新推一遍「她定下中心论点了吗」。见 writing_plan_state.go。
+	b.WriteString(writingPlanShapeOf(rows).promptBlock())
+
+	// 她连着两轮等于没答 → 这一轮别再问了。**只在真的停滞时出现，不做常驻**
+	// （2026-09-05：常驻提示会把该做的事挤掉）。
+	if writingPlanStalled(msgs, studentText) {
+		b.WriteString(writingPlanStalledBlock)
+	}
+
 	b.WriteString("\n【当前的图】\n")
 	if len(rows) == 0 {
 		b.WriteString("（还是空的。先帮她把这篇要说的那一句话定下来。）\n")
@@ -374,22 +384,13 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 // thesis, landing), 1 = 分论点, 2 = 论据. Openings and closings are deliberately
 // NOT required — they are decided after the middle exists, so demanding them
 // would hold her at exactly the step this function exists to release.
+// 🚨 THE OTHER DIRECTION, 2026-09-11: this function is a FLOOR (the model is
+// too perfectionist to release her), and it needed a CEILING to match (a
+// student who says almost nothing never reaches the floor at all, so the
+// questions never stop). That half is writingPlanStalled — see
+// writing_plan_state.go, which also owns the shape counting below.
 func planLooksReady(rows []sqlc.WritingOutline) bool {
-	var top, points, material int
-	for _, r := range rows {
-		if strings.TrimSpace(r.Text) == "" {
-			continue
-		}
-		switch r.Depth {
-		case 0:
-			top++
-		case 1:
-			points++
-		default:
-			material++
-		}
-	}
-	return top >= 1 && points >= 2 && material >= 1
+	return writingPlanShapeOf(rows).ready()
 }
 
 // rootInsertPosition decides where a NEW top-level (depth-0) node lands
@@ -652,6 +653,17 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		// See writingPlanReply.Ready and planLooksReady: the one thing the
 		// planning room could never say before, which is 「这份计划够写了」.
 		// The structural floor is COMPUTED; the model can only add to it.
-		"ready": parsed.Ready || planLooksReady(live),
+		//
+		// 🚨 第三项（2026-09-11）：她连着两轮等于没答，而图上至少有了一块，
+		// 就也给 true。理由和前两项是同一个——「够了没有」不能只听模型的。
+		// 一个话很少的学生永远到不了那三条判据，于是那三条判据在她身上从
+		// 「一条线」变成了「一道关」，而这一步本来就不是关卡。
+		//
+		// 🚨 为什么要 `shape.Top >= 1` 这个下限：强制 ready 会把她送进段落，
+		// 而提纲为空的段落页是一页空白——那不是放她走，是把她扔了。
+		// 图上还什么都没有的时候，停止提问这件事只由 prompt 那一段来做
+		// （writingPlanStalledBlock：这一轮不要再问，告诉她可以先去写）。
+		"ready": parsed.Ready || planLooksReady(live) ||
+			(writingPlanStalled(msgs, studentText) && writingPlanShapeOf(live).Top >= 1),
 	})
 }
