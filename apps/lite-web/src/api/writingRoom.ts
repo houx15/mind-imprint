@@ -112,8 +112,31 @@ export type WritingDraft = { body: string; updatedAt: string | null };
  * quote does not appear literally in the source, so every point that reaches
  * the client is guaranteed traceable). `text` is why that sentence matters —
  * never a rewrite of it.
+ *
+ * 2026-09-11：一条意见从「一段话」变成「一件能做的事」。
+ * `kind` 分「已经用对的」和「要改的」；`action` 是一句祈使，说清她接下来要做
+ * 什么——服务端会把 action 为空的 issue 整条丢掉（writing_comment.go）。
+ * `layer` 是第几层（1 立意 / 2 材料 / 3 结构 / 4 字句），同一条回复里的 issue
+ * 一定同属一层：优先级在服务端就筛过了，这里不重筛。
+ * 老的评论行只有 text+quote，所以除了这两个字段以外都要当可能不存在来读。
  */
-export type CommentPoint = { text: string; quote: string };
+export type CommentPoint = {
+  kind?: "good" | "issue";
+  symptom?: string;
+  layer?: number;
+  method?: string;
+  text: string;
+  action?: string;
+  quote: string;
+};
+
+/** 四层在界面上的名字。服务端 writingLayerNames 的镜像。 */
+export const COMMENT_LAYER_NAMES: Record<number, string> = {
+  1: "立意",
+  2: "材料",
+  3: "结构",
+  4: "字句",
+};
 
 /**
  * 印记's structured critique of a piece of writing — writing_comment.go's

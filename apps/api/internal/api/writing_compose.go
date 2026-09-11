@@ -238,7 +238,7 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingCommentSystem},
+			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues)},
 			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她的整篇稿子", body)},
 		},
 	})
@@ -262,7 +262,7 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	points := validateCommentPoints(parsed.Points, body)
+	points := validateCommentPoints(parsed.Points, body, wr.Lang, writingDraftReviewMaxIssues)
 	payload, merr := json.Marshal(points)
 	if merr != nil {
 		slog.Warn("writing review: marshal points failed", "err", merr, "atom_id", at.ID)
