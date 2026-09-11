@@ -51,6 +51,25 @@ func TestFirstGhostQuote_LetsHerOwnWordsThrough(t *testing.T) {
 	}
 }
 
+// 🚨 她的英文正文里本来就有直双引号 —— 那一路绝不能参与判定。
+//
+// 2026-09-12 第二十五轮那个学生写的就是 `By "more" I mean two things`。
+// 成对地数直双引号，切出来的要么是 `more`、要么是跨句拼起来的一段，
+// 两者都不在语料里 —— 于是一句**她真的写过**的话会被判成幻引，
+// 重试再去告诉印记「这句找不到」，印记接着告诉她这句不存在。
+// 宁可少抓几个，也不能把她写过的话说成没写过。
+func TestFirstGhostQuote_IgnoresStraightDoubleQuotesInHerEnglish(t *testing.T) {
+	corpus := writingQuoteCorpus(
+		[]sqlc.WritingSnippet{{Text: `By "more" I mean two things: more rice and more dishes.`}},
+		"", nil,
+	)
+	// 印记原样复述她那句话（里面就带着直双引号）。
+	reply := `你最后那句 By "more" I mean two things 已经把话说清楚了，接着往下写。`
+	if got := firstGhostQuote(reply, corpus); got != "" {
+		t.Fatalf("把她自己写的英文句子判成了幻引：%q", got)
+	}
+}
+
 // 🚨 印记自己上一轮说过的话不算数。这一条是承重的：幻引的来源就是它自己的
 // 上文，如果把 ai 的消息也收进语料，它引自己说过的假话就永远查不出来。
 func TestWritingQuoteCorpus_ExcludesTheCoachsOwnWords(t *testing.T) {
