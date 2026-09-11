@@ -212,6 +212,66 @@ func TestWholeSentencesAreNotCutOff(t *testing.T) {
 	}
 }
 
+// 她屏幕上现在摆着的那张卡片，要原样给模型看。
+//
+// 🚨 模型只看得见自己说过的**话**，看不见随那句话发出去的 card —— 而那张卡有时
+// 根本不是它写的（标注论证那一步由服务端兜底摆板）。实测：它对着一块自己没见过
+// 的板说「把主张那张换成文章里某个人亲口说的话」，而板上四句全是叙述句，一句
+// 引语都没有，她照着做不到，当场卡死。
+func TestOpenCardIsShownToTheCoach(t *testing.T) {
+	card := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "这几句各自在论证里扮演什么角色？",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段那句话。"},
+			{BlockID: "b2", Quote: "第二段那句话。"},
+		},
+		Labels: coachCardRoleLabels,
+	}
+	blocks := []Block{{ID: "b1", Text: "第一段那句话。"}, {ID: "b2", Text: "第二段那句话。"}}
+	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(card, cardOK))}
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+
+	if !strings.Contains(prompt, "她屏幕上现在摆着这张卡片") {
+		t.Fatal("prompt 里没有那一节 —— 模型看不见自己递出去的东西")
+	}
+	for _, o := range card.Options {
+		if !strings.Contains(prompt, o.Quote) {
+			t.Errorf("板上这一句没给它看：%q", o.Quote)
+		}
+	}
+	if !strings.Contains(prompt, "只能要求她用板上真有的东西") {
+		t.Error("没告诉它别让她去找板上没有的东西")
+	}
+	// 段号要说出来 —— 它对她说话时只能说「第几段」。
+	if !strings.Contains(prompt, "第1段") {
+		t.Error("没标出这一句在第几段")
+	}
+}
+
+func TestAnsweredCardIsNotShownAgain(t *testing.T) {
+	// 她答过了，那一轮的作答本来就在转写里；再把卡片贴一遍只会让它重提旧事。
+	card := &coachCard{Type: coachCardShortText, Prompt: "说说看。"}
+	msgs := []sqlc.AtomMessage{
+		aiWithPayload(coachCardPayloadWithDrop(card, cardOK)),
+		{
+			Role:    "student",
+			Content: "我说完了。",
+			Payload: coachCardAnswerPayload(&coachCardAnswer{Type: coachCardShortText, Choice: "我说完了。"}),
+		},
+	}
+	if got := lastOpenCard(msgs); got != nil {
+		t.Fatalf("这张卡她已经答过了，不该再贴给模型：%+v", got)
+	}
+}
+
+func TestNoOpenCardOnAPlainTurn(t *testing.T) {
+	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第三段。"}}
+	if got := lastOpenCard(msgs); got != nil {
+		t.Fatalf("这一轮没有卡片：%+v", got)
+	}
+}
+
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}

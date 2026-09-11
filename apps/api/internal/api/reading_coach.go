@@ -797,6 +797,36 @@ func buildReadingCoachPrompt(
 		b.WriteString("（还没聊过。）\n")
 	}
 
+	// 🚨 她屏幕上现在摆着的那张卡片/板，原样给它看。
+	//
+	// 模型只看得见自己说过的**话**，看不见随那句话发出去的 card —— 而那张卡有时
+	// 根本不是它写的（标注论证那一步由服务端兜底摆板，见
+	// reading_coach_board_build.go）。于是它会对着一块自己没见过的板提要求：
+	// 实测「把主张那张换成文章里某个人亲口说的话」，而板上四句全是叙述句，
+	// 一句引语都没有 —— 她照着做不到，当场卡死。
+	//
+	// 递出去的东西要让它知道，这和「没送到要告诉它」是同一条闭环的两半。
+	if card := lastOpenCard(tail); card != nil {
+		b.WriteString("\n【她屏幕上现在摆着这张卡片，你看不到，所以照着它说话】\n")
+		b.WriteString("类型：" + card.Type + "　问题：" + card.Prompt + "\n")
+		for i, o := range card.Options {
+			ord, ok := readingPickOrdinal(blocks, o.BlockID)
+			where := ""
+			if ok {
+				where = "（第" + itoaSmall(ord) + "段）"
+			}
+			b.WriteString("  " + itoaSmall(i+1) + ". " + where + "「" + o.Quote + "」\n")
+		}
+		for i, w := range card.Words {
+			b.WriteString("  " + itoaSmall(i+1) + ". " + w.Term + "\n")
+		}
+		if len(card.Labels) > 0 {
+			b.WriteString("格子：" + strings.Join(card.Labels, " / ") + "\n")
+		}
+		b.WriteString("🚨 **只能要求她用板上真有的东西。** 板上没有的句子、没有的词，" +
+			"不要让她去找 —— 她手上只有上面这几样。\n")
+	}
+
 	// 🚨 上一轮那张卡片没发出去的话，当面告诉它为什么。
 	//
 	// 它自己发现不了：写完就交出去了，下一轮的上文里只有它说过的话。线上实测
@@ -903,6 +933,42 @@ func (r readingCoachReply) dropReason() cardReject {
 		return cardReject(r.lensWhy)
 	}
 	return cardOK
+}
+
+// lastOpenCard —— 她屏幕上现在摆着的那张卡片（最后一条 印记 的话带的那张），
+// 她还没答的时候。答过了就不必再给模型看：那一轮的作答本来就在转写里。
+func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role == "student" {
+			// 她在这张卡之后说过话 —— 那就是答过了（或者这一轮不是卡片轮）。
+			if coachAnswerFromPayload(m.Payload) != nil {
+				return nil
+			}
+			continue
+		}
+		if m.Role != "ai" || len(m.Payload) == 0 {
+			continue
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(m.Payload, &p); err != nil {
+			return nil
+		}
+		return p.Card
+	}
+	return nil
+}
+
+// coachAnswerFromPayload —— 这条学生消息里有没有一次卡片作答。
+func coachAnswerFromPayload(raw []byte) *coachCardAnswer {
+	if len(raw) == 0 {
+		return nil
+	}
+	var p coachMessagePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil
+	}
+	return p.Answer
 }
 
 // lastDroppedCard —— 最后一条 印记 说的话里，那张卡片是不是被丢掉了；是的话
