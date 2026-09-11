@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -935,6 +937,46 @@ func (r readingCoachReply) dropReason() cardReject {
 	return cardOK
 }
 
+// spokenParagraph —— 这句回复里提到的**最后一个**段号，换成段 id。
+//
+// 「第 5 段」是 印记 对她唯一的坐标说法（prompt 里明令不许说 b1/b2）。一句话里
+// 提到好几段时取最后一个：「第 2 段说了封锁，现在我们看第 5 段」—— 她要去的是
+// 第 5 段。段号不存在（它数错了）就当没说。
+func spokenParagraph(reply string, blocks []Block) string {
+	re := regexp.MustCompile(`第\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*段`)
+	all := re.FindAllStringSubmatch(reply, -1)
+	for i := len(all) - 1; i >= 0; i-- {
+		n := parseChineseOrdinal(all[i][1])
+		if n >= 1 && n <= len(blocks) {
+			return blocks[n-1].ID
+		}
+	}
+	return ""
+}
+
+// parseChineseOrdinal —— 「5」或者「五」变成 5。超出两位就不认了（段号不会那么大）。
+func parseChineseOrdinal(s string) int {
+	if n, err := strconv.Atoi(s); err == nil {
+		return n
+	}
+	digits := map[rune]int{'一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+		'六': 6, '七': 7, '八': 8, '九': 9}
+	r := []rune(s)
+	switch {
+	case len(r) == 1 && r[0] == '十':
+		return 10
+	case len(r) == 1:
+		return digits[r[0]]
+	case len(r) == 2 && r[0] == '十': // 十一 … 十九
+		return 10 + digits[r[1]]
+	case len(r) == 2 && r[1] == '十': // 二十 … 九十
+		return digits[r[0]] * 10
+	case len(r) == 3 && r[1] == '十': // 二十一 …
+		return digits[r[0]]*10 + digits[r[2]]
+	}
+	return 0
+}
+
 // lastOpenCard —— 她屏幕上现在摆着的那张卡片（最后一条 印记 的话带的那张），
 // 她还没答的时候。答过了就不必再给模型看：那一轮的作答本来就在转写里。
 func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
@@ -1677,6 +1719,17 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		focus := parsed.FocusBlock
 		if focus == "" {
 			focus = cur.BlockID
+		}
+		// 🚨 它嘴上说的那一段才是她正在看的那一段。
+		//
+		// focusBlock 和这一步自带的 BlockID 经常都是空的，兜底就从第 1 段取句子
+		// —— 而 印记 那句话说的是「我们来摆第 5 段的这几句」。实测她逐字报的：
+		// 「它说让我摆第5段的句子，但板上给的卡片全是第1段的。」
+		//
+		// 它对她只会说「第几段」（prompt 里明令不许说 b1/b2），所以从回复里把那个
+		// 段号读回来，比任何字段都准。
+		if spoken := spokenParagraph(parsed.Reply, blocks); spoken != "" {
+			focus = spoken
 		}
 		if built := validateCoachCard(buildLabelBoard(blocks, focus), blocks); built != nil {
 			slog.Info("reading coach: label step had no board, built one",

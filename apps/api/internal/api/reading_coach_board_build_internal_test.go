@@ -80,6 +80,39 @@ func TestBuiltBoardGivesUpRatherThanShipEmpty(t *testing.T) {
 	}
 }
 
+// 🚨 板要摆在 印记 嘴上说的那一段。
+//
+// focusBlock 和这一步自带的 BlockID 经常都是空的，兜底就从第 1 段取句子 ——
+// 而它那句话说的是「我们来摆第 5 段的这几句」。实测她逐字报的：
+// 「它说让我摆第5段的句子，但板上给的卡片全是第1段的。」
+func TestSpokenParagraphWinsOverEmptyFields(t *testing.T) {
+	blocks := SplitBlocks(strings.Join([]string{
+		"一段。", "二段。", "三段。", "四段。", "五段。", "六段。",
+	}, "\n\n"))
+	cases := []struct{ reply, want string }{
+		{"我们来看第 5 段，把这几句摆一摆。", "b5"},
+		{"第二段说了封锁，现在我们看第五段。", "b5"},   // 一句话提到两段 → 取最后一个
+		{"翻到第十段看看。", ""},                       // 只有六段 —— 它数错了，当没说
+		{"我们继续往下读。", ""},                       // 没提段号
+		{"回到第1段。", "b1"},
+	}
+	for _, c := range cases {
+		if got := spokenParagraph(c.reply, blocks); got != c.want {
+			t.Errorf("spokenParagraph(%q) = %q，想要 %q", c.reply, got, c.want)
+		}
+	}
+}
+
+func TestParseChineseOrdinal(t *testing.T) {
+	for in, want := range map[string]int{
+		"3": 3, "12": 12, "三": 3, "十": 10, "十二": 12, "二十": 20, "二十一": 21,
+	} {
+		if got := parseChineseOrdinal(in); got != want {
+			t.Errorf("parseChineseOrdinal(%q) = %d，想要 %d", in, got, want)
+		}
+	}
+}
+
 func TestSplitSentences(t *testing.T) {
 	got := splitSentences("他来了。她说：「真的吗？」然后走了。")
 	if len(got) != 3 {
