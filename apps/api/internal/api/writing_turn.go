@@ -95,6 +95,10 @@ func writingStageLabel(stage string) string {
 // in), so this is deliberately smaller than reading_turn.go's liteTurnReq.
 type liteWritingTurnReq struct {
 	Text string `json:"text"`
+	// Board 说的是「这一条消息是摆完一块板产生的」。闭表，认不出来的值当没给
+	// 处理——她摆的东西是真的，少一句上下文不该把这一轮弄丢。
+	// 见 writing_board.go。
+	Board string `json:"board"`
 }
 
 // buildWritingCoachProjection assembles the free-text state projection
@@ -248,6 +252,10 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	history := buildWritingTurnHistory(msgs, studentText)
 	projection := buildWritingCoachProjection(wr, outline, snippets)
+	// 她刚摆完一块板 → 在上文里加一句说明，好让 印记 知道她交了作业，
+	// 不是在闲聊。加在 projection 上而不是改那个 producer，因为它是 pro 和
+	// lite 共用的（lite-must-not-break-pro）。见 writing_board.go。
+	projection += writingBoardNote(req.Board)
 	surfaceLabel := writingStageLabel(wr.Stage)
 
 	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)

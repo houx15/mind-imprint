@@ -164,6 +164,21 @@ function useBoard(initial: BoardPlacement = {}) {
       return;
     }
     downAtRef.current = null;
+    // 🚨 已经选中了**另一张**卡，而这一下点在某个**格子里**：
+    // 这是「把选中的那张放进这个格子」，不是「改选这一张」。
+    //
+    // 2026-09-11 写作面走查抓到的第三个「点选路径断掉」的毛病，和上面那两个
+    // （拖动阈值、dragging 读到上一次渲染）是各自独立的：
+    // 格子一旦有了一张卡，那张卡就占住了格子的中心，于是「点格子」这一下实际
+    // 点在卡片上，被 Chip 的 stopPropagation 吃掉，armed 的那张永远放不进去。
+    // 也就是说**点选这条路在格子非空之后就断了** —— 而它正是一只手扶着手机的
+    // 人唯一能用的那条路。拖那条路没事（binAt 用的是坐标），所以这个毛病在
+    // 鼠标上很难发现：标注板上四张卡，前两张进得去，第三张起就不动了。
+    if (picked && picked !== itemId && bin) {
+      place(picked, bin);
+      setPicked(null);
+      return;
+    }
     // 没动过 = 这是一次点击：选中 / 取消选中。
     setPicked((prev) => (prev === itemId ? null : itemId));
   }

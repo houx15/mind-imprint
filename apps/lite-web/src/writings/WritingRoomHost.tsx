@@ -20,6 +20,7 @@ import {
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingDraft,
+  type WritingBoardKind,
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
@@ -211,16 +212,25 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     [state.phase, writingId],
   );
 
-  async function send() {
-    const text = draftText.trim();
-    if (!text || sending || state.phase !== "ready") return;
-    setDraftText("");
+  /**
+   * 说一句话，走房间那条对话。
+   *
+   * 2026-09-11 从 `send()` 里抽出来，因为多了第二个调用方：**一块板摆完之后，
+   * 摆的结果原样变成一条真的学生消息**，走的是和她自己打字完全同一条路
+   * （阅读室那两块板从第一天起就是这么接的，所以它们不需要第二套接线）。
+   *
+   * `board` 只是告诉服务端「这一条是摆完一块板产生的」，好让它在那一轮的
+   * 上文里加一句说明。消息本身仍然是她的话——她摆的就是她的判断。
+   */
+  async function say(text: string, board?: WritingBoardKind) {
+    const t = text.trim();
+    if (!t || sending || state.phase !== "ready") return;
     setSending(true);
     setRoomError(null);
-    const optimistic: LiteMessage = { seq: -1, role: "student", content: text, createdAt: "" };
+    const optimistic: LiteMessage = { seq: -1, role: "student", content: t, createdAt: "" };
     setState((s) => (s.phase === "ready" ? { ...s, messages: [...s.messages, optimistic] } : s));
     try {
-      const turn = await postWritingTurn(writingId, text);
+      const turn = await postWritingTurn(writingId, t, board);
       const reply = turn.reply.trim();
       if (reply) {
         setState((s) =>
@@ -230,9 +240,21 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     } catch (err) {
       setRoomError(apiErrorText(err));
       setState((s) => (s.phase === "ready" ? { ...s, messages: s.messages.filter((m) => m !== optimistic) } : s));
-      setDraftText(text);
+      throw err;
     } finally {
       setSending(false);
+    }
+  }
+
+  async function send() {
+    const text = draftText.trim();
+    if (!text || sending || state.phase !== "ready") return;
+    setDraftText("");
+    try {
+      await say(text);
+    } catch {
+      // 发不出去就把她打的字还给她——这条路原来就是这么做的。
+      setDraftText(text);
     }
   }
 
@@ -343,7 +365,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
               : "mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
           }
         >
-          <StagePanel state={state} writingId={writingId} setState={setState} onGoToStructure={() => void jumpStage("outline")} />
+          <StagePanel
+            state={state}
+            writingId={writingId}
+            setState={setState}
+            onGoToStructure={() => void jumpStage("outline")}
+            onSay={say}
+          />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
@@ -441,11 +469,14 @@ function StagePanel({
   writingId,
   setState,
   onGoToStructure,
+  onSay,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
   onGoToStructure: () => void;
+  /** 一块板摆完了：把结果当成她说的一句话发出去。 */
+  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -457,6 +488,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           onGoToStructure={onGoToStructure}
+          onSay={onSay}
         />
       );
     case "draft":
@@ -490,6 +522,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           onGoToStructure={onGoToStructure}
+          onSay={onSay}
         />
       );
   }

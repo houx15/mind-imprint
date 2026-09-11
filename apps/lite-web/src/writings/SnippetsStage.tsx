@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, HelpCircle, Eye } from "lucide-react";
+import { Plus, HelpCircle, Eye, LayoutGrid } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
+import { RoleBoard } from "./RoleBoard";
+import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { apiErrorText } from "../api/errorText";
 import {
   putWritingSnippet,
@@ -17,6 +19,7 @@ import {
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingBlockGuide,
+  type WritingBoardKind,
 } from "../api/writingRoom";
 
 /**
@@ -133,11 +136,14 @@ export function SnippetsStage({
   snippets,
   onSnippetsChange,
   onGoToStructure,
+  onSay,
 }: {
   writingId: string;
   outline: WritingOutlineItem[];
   snippets: WritingSnippet[];
   onSnippetsChange: (next: WritingSnippet[]) => void;
+  /** 一块板摆完了：把结果当成她说的一句话发出去，印记 在右栏接住它。 */
+  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
   /** Sends her to 结构 from the empty state — naming the step she needs is
    *  not the same as getting her there. */
   onGoToStructure: () => void;
@@ -311,6 +317,7 @@ export function SnippetsStage({
                 if (sid) setComments((prev) => ({ ...prev, [sid]: c }));
               }}
               onSaved={onSnippetsChange}
+              onSay={onSay}
             />
           );
         })}
@@ -345,6 +352,7 @@ function SnippetBlock({
   comment,
   onCommented,
   onSaved,
+  onSay,
 }: {
   writingId: string;
   slot: Slot;
@@ -358,11 +366,17 @@ function SnippetBlock({
   comment: Comment | null;
   onCommented: (next: Comment) => void;
   onSaved: (next: WritingSnippet[]) => void;
+  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
   const [guiding, setGuiding] = useState(false);
   const [commenting, setCommenting] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [boardBusy, setBoardBusy] = useState(false);
+  // 拆句是纯函数、很便宜，所以每次渲染算一遍就行——把它记忆化只会多一个
+  // 会和 text 失去同步的地方。
+  const sentenceCount = splitSentences(text).length;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /**
    * 收起 hides the box; it does not throw the guidance away. Regenerating on
@@ -546,6 +560,20 @@ function SnippetBlock({
           >
             请印记看看这一段
           </Button>
+          {/* 标注板。只有这一段真的有两句以上才出现——一句话的段落没有角色
+              可分，那时候这颗按钮只是一个会让人失望的入口。
+              🚨 它和「请印记看看这一段」是同一类东西（针对这一段的一个动作），
+              不是 2026-08-27 删掉的那种常驻卡片货架。 */}
+          {sentenceCount >= ROLE_BOARD_MIN && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setBoardOpen((v) => !v)}
+              iconStart={<Icon icon={LayoutGrid} size={14} />}
+            >
+              {boardOpen ? "收起标注" : "标一下这一段"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -561,6 +589,28 @@ function SnippetBlock({
       />
       {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+
+      {/* 标注板 —— 这个房间里第一件她用手摆的东西。
+          闭环和阅读室那两块板一模一样：她摆完 → 结果原样变成一条真的学生
+          消息 → 印记 在右栏对着它说话。所以这里只负责把那条消息发出去，
+          然后把板收起来。 */}
+      {boardOpen && sentenceCount >= ROLE_BOARD_MIN && (
+        <RoleBoard
+          text={text}
+          snippetId={slot.snippet?.id ?? `pos-${slot.position}`}
+          busy={boardBusy}
+          onSubmit={(message) => {
+            setBoardBusy(true);
+            void onSay(message, "role")
+              .then(() => setBoardOpen(false))
+              .catch(() => {
+                // 发不出去就把板留在原地：她摆的东西还在，可以再按一次。
+                setError("发送失败，再试一次。");
+              })
+              .finally(() => setBoardBusy(false));
+          }}
+        />
+      )}
 
       {/* The SAME renderer 成稿 uses — one comment shape, one component, two
           zoom levels. `onTrace` is what differs, because the surface differs. */}

@@ -52,7 +52,14 @@ function Harness({
 }) {
   const [snippets, setSnippets] = useState(initialSnippets);
   return (
-    <SnippetsStage writingId={WID} outline={outline} snippets={snippets} onSnippetsChange={setSnippets} onGoToStructure={() => {}} />
+    <SnippetsStage
+      writingId={WID}
+      outline={outline}
+      snippets={snippets}
+      onSnippetsChange={setSnippets}
+      onGoToStructure={() => {}}
+      onSay={async () => {}}
+    />
   );
 }
 

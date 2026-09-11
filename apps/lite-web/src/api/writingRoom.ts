@@ -304,8 +304,25 @@ export async function getWritingBlockThread(id: string, outlineId: string): Prom
 
 // --- coach turn ---------------------------------------------------------
 
-export async function postWritingTurn(id: string, text: string): Promise<LiteTurn> {
-  return apiFetch<LiteTurn>(`${base(id)}/turn`, { method: "POST", body: JSON.stringify({ text }) });
+/**
+ * 一块板的种类。闭表，服务端 `writingBoardKinds` 的镜像——认不出来的值服务端
+ * 会当成没给，那一轮就退化成一条普通的学生消息（不报错：她摆的东西是真的，
+ * 少一句上下文也不该把这一轮弄丢）。
+ */
+export type WritingBoardKind = "role";
+
+/**
+ * 说一句话。
+ *
+ * `board` 只在这条消息是**摆完一块板**产生的时候给：服务端会据此在那一轮的
+ * 上文里加一句说明，好让 印记 知道她刚交了作业，而不是在闲聊。消息本身仍然
+ * 是她的话——她怎么摆就是她的判断。
+ */
+export async function postWritingTurn(id: string, text: string, board?: WritingBoardKind): Promise<LiteTurn> {
+  return apiFetch<LiteTurn>(`${base(id)}/turn`, {
+    method: "POST",
+    body: JSON.stringify(board ? { text, board } : { text }),
+  });
 }
 
 export async function listWritingMessages(id: string): Promise<LiteMessage[]> {
