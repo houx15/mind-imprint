@@ -82,10 +82,22 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
 
   // 🚨 板摆满了就该交上去。她摆完四张卡片之后停住了：「我摆完卡片了但屏幕
   // 没变化，不知道该点哪。」那颗按钮此刻刚变成可点的，但模型只拿得到文字。
+  // 🚨 透镜有三段：看示范 → 选一句 → 写下发现并交上去。走查一直漏掉第三段。
+  //
+  // 选完之后屏幕上出现「重新选一句 / 记下这条发现」，而模型只拿得到文字，看不出
+  // 「那一句已经收下了」。于是它以为自己还没选中，一遍遍地重选 —— 一条 170 步的
+  // 走查里划了 123 次，只换来 3 句话。
+  const lensPicked = base.buttons.some((b) => b.label === "记下这条发现");
   const allPlaced = board !== null && board.chips.length > 0 && board.chips.every((c) => c.in);
-  const text = allPlaced
-    ? text0 + `\n\n（系统提示：板上的卡片都摆好了，现在请点「摆好了」那颗按钮交上去。）`
-    : text0;
+  let text = text0;
+  if (allPlaced) {
+    text += `\n\n（系统提示：板上的卡片都摆好了，现在请点「摆好了」那颗按钮交上去。）`;
+  }
+  if (lensPicked) {
+    text +=
+      `\n\n（系统提示：你选的那一句已经收下了，不用再选。` +
+      `现在请在输入框里写下你用这副透镜看出了什么，然后点「记下这条发现」。）`;
+  }
 
   return { ...base, text, paragraphs, board };
 }
