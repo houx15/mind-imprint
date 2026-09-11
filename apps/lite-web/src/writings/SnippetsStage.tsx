@@ -560,20 +560,6 @@ function SnippetBlock({
           >
             请印记看看这一段
           </Button>
-          {/* 标注板。只有这一段真的有两句以上才出现——一句话的段落没有角色
-              可分，那时候这颗按钮只是一个会让人失望的入口。
-              🚨 它和「请印记看看这一段」是同一类东西（针对这一段的一个动作），
-              不是 2026-08-27 删掉的那种常驻卡片货架。 */}
-          {sentenceCount >= ROLE_BOARD_MIN && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setBoardOpen((v) => !v)}
-              iconStart={<Icon icon={LayoutGrid} size={14} />}
-            >
-              {boardOpen ? "收起标注" : "标一下这一段"}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -590,6 +576,29 @@ function SnippetBlock({
       {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
 
+      {/* 🚨 **把板递到她手上，而不是把按钮摆在那儿等她发现。**
+          第一版这颗按钮长在正文框**上面**那条工具条里，和「获取引导」
+          「请印记看看这一段」挤在一起。模拟学生走查里它连着出现 22 步，
+          她一次都没按过 —— 屏幕上有它，和她手上有它，是两回事。
+          （这也正是 2026-08-27 删掉卡片货架的那条裁定在说的事。）
+          现在它长在她刚写完的那一段**下面**，而且带一句话说清它是干嘛的：
+          出现的时机是「她已经写出两句以上」，也就是真的有东西可标的那一刻。 */}
+      {!boardOpen && sentenceCount >= ROLE_BOARD_MIN && (
+        <div className="flex flex-wrap items-center gap-2 rounded-mk-sm border border-mk-border px-3 py-2">
+          <span className="text-mk-body text-mk-muted">
+            这一段有 {sentenceCount} 句。标一下每一句在做什么，就看得出缺了哪一种。
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setBoardOpen(true)}
+            iconStart={<Icon icon={LayoutGrid} size={14} />}
+          >
+            标一下这一段
+          </Button>
+        </div>
+      )}
+
       {/* 标注板 —— 这个房间里第一件她用手摆的东西。
           闭环和阅读室那两块板一模一样：她摆完 → 结果原样变成一条真的学生
           消息 → 印记 在右栏对着它说话。所以这里只负责把那条消息发出去，
@@ -599,6 +608,7 @@ function SnippetBlock({
           text={text}
           snippetId={slot.snippet?.id ?? `pos-${slot.position}`}
           busy={boardBusy}
+          onCancel={() => setBoardOpen(false)}
           onSubmit={(message) => {
             setBoardBusy(true);
             void onSay(message, "role")

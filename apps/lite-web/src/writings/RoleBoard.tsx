@@ -78,6 +78,7 @@ export function RoleBoard({
   snippetId,
   busy,
   onSubmit,
+  onCancel,
 }: {
   /** 她写的这一段。 */
   text: string;
@@ -86,6 +87,8 @@ export function RoleBoard({
   busy?: boolean;
   /** 摆完了。调用方负责把这条消息发出去，并且收起这块板。 */
   onSubmit: (message: string) => void;
+  /** 先不标了。板自己要有退出的路——它现在是被递过来的，不是一颗开关。 */
+  onCancel?: () => void;
 }) {
   const { sentences, truncated } = sentencesForBoard(text);
   const items: BoardItem[] = sentences.map((s) => ({
@@ -96,10 +99,15 @@ export function RoleBoard({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-mk-body text-mk-muted">
-        这一段有 {sentences.length} 句。把每一句拖到它在做的那件事下面。
+      <p className="flex flex-wrap items-center gap-2 text-mk-body text-mk-muted">
+        <span>这一段有 {sentences.length} 句。把每一句拖到它在做的那件事下面。</span>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="underline hover:text-mk-accent-700">
+            先不标
+          </button>
+        )}
         {/* 少几句必须说出来 —— 悄悄截断会让她以为自己写的东西丢了。 */}
-        {truncated && `（这一段比板装得下的更长，先标前 ${sentences.length} 句。）`}
+        {truncated && <span>（这一段比板装得下的更长，先标前 {sentences.length} 句。）</span>}
       </p>
       <CoachBoard
         items={items}
