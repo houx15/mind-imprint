@@ -24,7 +24,7 @@ func TestWritingCoachProjection_GroundingRulesArriveOnceSheHasWritten(t *testing
 		snippet(0, "上周五我数了一下，六个桶是满的。"),
 	})
 
-	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾"} {
+	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾", "以这里为准"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("她已经写了东西，上文里却没有 %q：\n%s", want, got)
 		}
