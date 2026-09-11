@@ -116,6 +116,31 @@ export function CommentPanel({
 
   return (
     <div className="flex flex-col gap-4 rounded-mk-md border border-mk-border bg-mk-paper p-4">
+      {/* 🚨 **这一行要排在总评上面。**
+          原来它在整块面板的最下面，而她是从上往下读的：第一眼看到的是那句
+          总评，而总评里往往**逐字引着她已经改掉的句子**（点评逐条会折起来，
+          总评是一句人话，没法逐条过滤）。
+          2026-09-11 第十一轮线上走查，她为这个卡了三步：
+
+            「印记最新的反馈说最后一句是『大家真的应该重视起来』，
+              但框0里明明已经不是这句了」
+            「不知道是不是我已经改过了它还没刷新，还是我该在现有基础上再加点东西」
+            「不知道该不该再点一下请印记看看确认改好了」
+
+          先告诉她「这是对着上一版说的」，她再往下读那句总评就对得上了。 */}
+      {(staleCount > 0 || edited) && onRecheck && (
+        <div className="flex flex-wrap items-center gap-2 rounded-mk-sm border border-mk-border px-3 py-2">
+          <span className="text-mk-body text-mk-muted">
+            {staleCount > 0
+              ? `这一段改过了，下面那 ${staleCount} 条你已经做完。`
+              : "这一段在这条意见之后改过了，下面说的是上一版。"}
+          </span>
+          <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
+            请印记再看一遍
+          </Button>
+        </div>
+      )}
+
       <p className="text-mk-body-lg font-semibold text-mk-ink">{comment.summary}</p>
 
       {livePoints.length > 0 && (
@@ -210,18 +235,6 @@ export function CommentPanel({
         </div>
       )}
 
-      {(staleCount > 0 || edited) && onRecheck && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-3">
-          <span className="text-mk-body text-mk-muted">
-            {staleCount > 0
-              ? `这一段改过了，上面那 ${staleCount} 条你已经做完。`
-              : "这一段在这条意见之后改过了。"}
-          </span>
-          <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
-            请印记再看一遍
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

@@ -434,6 +434,23 @@ type writingGuideBatchReply struct {
 	Blocks []writingGuideBatchItem `json:"blocks"`
 }
 
+// writingGuideBracketNudge 是重试那一次额外加的一句。
+//
+// 🚨 **重试同一份提示词，换来的是同一个错误。** 2026-09-11 第十一轮线上走查，
+// 批量引导坏了两次：一次重试救回来了，另一次重试**又坏在同一个地方** ——
+//
+//	…你希望落在哪个具体动作上？"}]}
+//
+// 该收 `]` 的地方收了 `}`，两次一模一样。这说明它不是采样抖动，是这份提示词
+// 稳定诱发的一个手滑：示例结尾那一串 `"]}]}` 括号很密，它少写一个 `]`。
+// 既然知道错在哪，重试的时候就该说出来，而不是原样再问一遍。
+//
+// 只在重试时加。正常那一次不提括号 —— 一句和写作无关的格式叮嘱，
+// 每一轮都塞进去只会占掉它本该用来想教学的注意力。
+const writingGuideBracketNudge = "\n\n【上一次的回复 JSON 不合法】" +
+	"questions 这个数组要用 `]` 收尾，再用 `}` 关掉这一块，" +
+	"结尾应当是 `\"…？\"]}]}`。这一次请原样重答，只输出严格合法的 JSON。"
+
 // salvageWritingGuideBatch 从一份没写完（或写坏了）的批量回复里，把已经到齐的
 // 那几块捞出来。
 //
@@ -709,7 +726,7 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingGuideSystem},
-				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs)},
+				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) + writingGuideBracketNudge},
 			},
 		})
 		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res2.Usage)
@@ -915,7 +932,7 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingGuideBatchSystem},
-				{Role: gateway.RoleUser, Content: buildWritingGuideBatchPrompt(wr, blocks, textByBlock, msgs)},
+				{Role: gateway.RoleUser, Content: buildWritingGuideBatchPrompt(wr, blocks, textByBlock, msgs) + writingGuideBracketNudge},
 			},
 		})
 		// 打到了通道就要记账，哪怕这一份也读不出来。
