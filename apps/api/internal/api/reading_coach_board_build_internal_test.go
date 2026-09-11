@@ -170,3 +170,30 @@ func TestReplyMentionsSentence(t *testing.T) {
 		t.Error("没引到原文的话不该算数")
 	}
 }
+
+// 🚨 落点段的最后一句一定要上板。
+//
+// 印记 常常按位置指句子（「第二段最后一句」）而不是把原话引出来，那样
+// replyMentionsSentence 认不出来。实测她逐字报的：「它让我把第二段最后一句
+// 拖到主张格，但板上根本没有这张卡片。」段里句子多于四句时，前几句会把名额
+// 占满，最后一句正好是被挤掉的那个。
+func TestBuiltBoardKeepsTheLastSentenceOfTheFocusParagraph(t *testing.T) {
+	// 落点段有六句，比板上的名额多。
+	long := "第一句讲了一件事情，长度够上板。第二句讲了另一件事情，长度也够。" +
+		"第三句继续说这件事，写得也不短。第四句还在说，同样够长。" +
+		"第五句快说完了，长度仍然够用。最后一句才是要点，它必须在板上。"
+	blocks := SplitBlocks(long + "\n\n第二段讲了别的事情，句子也够长可以上板。")
+	got := buildLabelBoardFromReply(blocks, "b1", "我们看第 1 段最后一句，把它放进它的角色里。")
+	if got == nil {
+		t.Fatal("没摆出板")
+	}
+	found := false
+	for _, o := range got.Options {
+		if strings.Contains(o.Quote, "最后一句才是要点") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("落点段的最后一句被挤掉了：%+v", got.Options)
+	}
+}

@@ -78,9 +78,9 @@ func buildLabelBoardFromReply(blocks []Block, focus, reply string) *coachCard {
 	}
 	cands := make([]cand, 0, 16)
 	for i, b := range ordered {
-		rank := 2
+		rank := 3
 		if focus != "" && b.ID == focus {
-			rank = 1
+			rank = 2
 		}
 		for _, s := range splitSentences(b.Text) {
 			n := utf8.RuneCountInString(s)
@@ -106,6 +106,25 @@ func buildLabelBoardFromReply(blocks []Block, focus, reply string) *coachCard {
 	if len(cands) < 2 {
 		return nil
 	}
+	// 🚨 落点段的**最后一句**一定要上板。
+	//
+	// 它常常按位置指句子（「第二段最后一句」「开头那句」）而不是把原话引出来，
+	// 那样 replyMentionsSentence 认不出来 —— 实测她逐字报的：「它让我把第二段
+	// 最后一句拖到主张格，但板上根本没有这张卡片。」
+	// 段里句子多于四句时，前几句会把名额占满，最后一句正好是被挤掉的那个。
+	if focus != "" {
+		last := -1
+		for i, c := range cands {
+			if c.opt.BlockID == focus {
+				last = i
+			}
+		}
+		// 排在它点名的那一句后面（0），但在落点段其余句子前面（2）。
+		if last >= 0 && cands[last].rank > 1 {
+			cands[last].rank = 1
+		}
+	}
+
 	sort.SliceStable(cands, func(i, j int) bool { return cands[i].rank < cands[j].rank })
 
 	out := make([]coachCardOption, 0, boardWantSentences)
