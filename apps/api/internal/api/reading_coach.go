@@ -1115,9 +1115,11 @@ type readingCoachReply struct {
 	cardWhy cardReject
 	// lensWhy 同理：这一轮那副透镜为什么没落到文章上。
 	lensWhy string
-	// lensNoDemo：透镜递出去了，但这一轮的话里没有当着她的面做一遍。
-	// 和上面两个不一样 —— 它不导致任何东西被丢掉，只让这一轮重来一次。
-	lensNoDemo bool
+	// lensRetry：透镜递出去了，但这一轮的话配不上它 —— 没有当着她的面做一遍，
+	// 或者话里说的是另一件她此刻做不了的事（板）。
+	// 和上面两个不一样：它不导致任何东西被丢掉，只让这一轮重来一次。
+	lensRetry    bool
+	lensRetryWhy string
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -1375,7 +1377,19 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 🚨 这一条**不丢透镜**。丢了她就只剩那几个生词而没有工具，比教得薄更糟。
 	// 走的是重来一次那条路：第二次带上示范就用第二次，仍然没有就照常把透镜给她。
 	if got.Lens != "" && got.lensWhy == "" && !replyQuotesBlock(got.Reply, blocks, got.FocusBlock) {
-		got.lensNoDemo = true
+		got.lensRetry = true
+		got.lensRetryWhy = "the lens turn never demonstrates the method on a real sentence"
+	}
+	// 🚨 一轮里递了透镜，话里却在说板 —— 她照着话去做，做不成。
+	//
+	// 铁律③ 一次只交给她一件事：透镜在的时候卡片会被丢掉（cardRejectLensWon），
+	// 于是「把这句挪到证据那个格子里」这句话指向的东西根本不存在。实测她逐字
+	// 报的：「它让我把句子挪到『证据』那个格子里，但我现在看不到任何可以拖拽的
+	// 板子或卡片，只有文本框。」
+	// 递哪件，话就只说哪件。这一轮重来一次。
+	if got.Lens != "" && got.lensWhy == "" && replyPromisesACard(got.Reply) {
+		got.lensRetry = true
+		got.lensRetryWhy = "the turn gives a lens but the words describe a board"
 	}
 	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
 	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
@@ -1661,10 +1675,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
 	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
-		parsed.cardWhy == cardRejectDeadTurn || parsed.lensNoDemo) {
+		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry) {
 		why := string(parsed.cardWhy)
-		if parsed.lensNoDemo {
-			why = "the lens turn never demonstrates the method on a real sentence"
+		if parsed.lensRetry {
+			why = parsed.lensRetryWhy
 		}
 		slog.Warn("reading coach: reply looks broken, retrying once",
 			"why", why,
@@ -1675,7 +1689,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 否则留着第一次那份 —— 它至少是完整的一句话。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				again.cardWhy != cardRejectPromised && again.cardWhy != cardRejectCutOff &&
-				again.cardWhy != cardRejectDeadTurn && !again.lensNoDemo {
+				again.cardWhy != cardRejectDeadTurn && !again.lensRetry {
 				res, parsed = retryRes, again
 			}
 		}

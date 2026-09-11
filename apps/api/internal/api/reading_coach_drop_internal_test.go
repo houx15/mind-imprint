@@ -386,7 +386,7 @@ func TestLensTurnMustDemonstrateOnARealSentence(t *testing.T) {
 	if !ok {
 		t.Fatal("解析失败")
 	}
-	if !got.lensNoDemo {
+	if !got.lensRetry {
 		t.Fatal("这一轮没有示范，应该认出来")
 	}
 	// 🚨 透镜不能因此被丢掉 —— 丢了她就只剩几个生词而没有工具。
@@ -401,7 +401,30 @@ func TestLensTurnMustDemonstrateOnARealSentence(t *testing.T) {
 	if !ok2 {
 		t.Fatal("解析失败")
 	}
-	if got2.lensNoDemo {
+	if got2.lensRetry {
 		t.Fatal("这一轮引了原句，是做过示范的")
+	}
+}
+
+// 🚨 一轮里递了透镜，话里却在说板 —— 她照着话去做，做不成。
+//
+// 铁律③ 一次只交给她一件事：透镜在的时候卡片会被丢掉，于是「把这句挪到证据
+// 那个格子里」指向的东西根本不存在。实测她逐字报的：「它让我把句子挪到『证据』
+// 那个格子里，但我现在看不到任何可以拖拽的板子或卡片，只有文本框。」
+func TestLensTurnThatTalksAboutABoardIsRetried(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	raw := `{"reply":"看第 1 段这句：Officials cautioned that the figure could not be independently verified。现在把它挪到「证据」那个格子里。",
+	          "lens":"lens-methods","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensRetry {
+		t.Fatal("递了透镜却在说板，应该重来一次")
+	}
+	if got.Lens == "" {
+		t.Fatal("透镜不该被丢掉 —— 这一条只让这一轮重来")
 	}
 }
