@@ -98,6 +98,21 @@ function useBoard(initial: BoardPlacement = {}) {
   // 按下去的那个点，用来判断这到底是一次「点」还是一次「拖」。
   const downAtRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
+  /**
+   * 🚨 正在被按住的是哪一张 —— **ref，不是 state**。
+   *
+   * 这里原来用的是上面那个 `dragging` state 来判断「这次 pointerup 属不属于
+   * 一次真的按下」。一次**快速点击**里 pointerdown 和 pointerup 落在同一个
+   * React 批次里：pointerup 的处理函数读到的还是上一次渲染的闭包，`dragging`
+   * 仍然是 null，于是它直接 return，这一下什么都没发生。
+   *
+   * 手指在触屏上的一次点按正正好就是这么快。所以「点一下选中」对真人基本上
+   * 是坏的 —— 改完拖动阈值之后，模拟学生又摆了 82 次，屏幕上仍然是
+   * 「现在一张都还没摆」。
+   *
+   * ref 在同一个事件循环里就是最新值，不等渲染。state 留着，它只负责画。
+   */
+  const draggingRef = useRef<string | null>(null);
 
   function binAt(x: number, y: number): string | null {
     const el = document.elementFromPoint(x, y);
@@ -120,12 +135,13 @@ function useBoard(initial: BoardPlacement = {}) {
     e.currentTarget.setPointerCapture(e.pointerId);
     movedRef.current = false;
     downAtRef.current = { x: e.clientX, y: e.clientY };
+    draggingRef.current = itemId;
     setDragging(itemId);
     setGhost({ x: e.clientX, y: e.clientY });
   }
 
   function onItemPointerMove(e: React.PointerEvent<HTMLElement>) {
-    if (!dragging) return;
+    if (!draggingRef.current) return;
     // 抖动不算拖动，门槛见 isDrag。
     const from = downAtRef.current;
     if (from && isDrag(from, { x: e.clientX, y: e.clientY })) movedRef.current = true;
@@ -134,9 +150,10 @@ function useBoard(initial: BoardPlacement = {}) {
   }
 
   function onItemPointerUp(itemId: string, e: React.PointerEvent<HTMLElement>) {
-    if (!dragging) return;
+    if (draggingRef.current !== itemId) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     const bin = binAt(e.clientX, e.clientY);
+    draggingRef.current = null;
     setDragging(null);
     setGhost(null);
     setHoverBin(null);
