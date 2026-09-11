@@ -269,7 +269,17 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
         continue;
       }
       await box.fill(a.text);
-      await page.keyboard.press("Enter");
+      // 🚨 透镜那一步交东西的按钮不是「发送」，是「记下这条发现」。
+      //
+      // Enter 走的是发送那条路，而透镜开着的时候发送是锁住的 —— 于是她写的
+      // 字一次都没交出去。实测：170 步里打了 96 次字，只换来 8 轮对话，她在
+      // 最后二十步一直在重写同一段发现。
+      const record = page.getByRole("button", { name: "记下这条发现" });
+      if (await record.isVisible().catch(() => false)) {
+        await record.click({ timeout: 8000 }).catch(() => {});
+      } else {
+        await page.keyboard.press("Enter");
+      }
       await page.waitForTimeout(800);
       continue;
     }
