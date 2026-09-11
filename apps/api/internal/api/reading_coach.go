@@ -878,6 +878,21 @@ func buildReadingCoachPrompt(
 	return b.String()
 }
 
+// answeredBoard —— 这一轮她交上来的是不是一块摆完了的板。
+//
+// 只认两块板的类型，且作答非空。她在输入框里打一句「我摆好了」不算：
+// 这条判据的全部价值就在于它认的是**动作**，不是一句声明。
+func answeredBoard(a *coachCardAnswer) bool {
+	if a == nil || strings.TrimSpace(a.Choice) == "" {
+		return false
+	}
+	switch strings.TrimSpace(a.Type) {
+	case coachCardLabelRoles, coachCardWordBank:
+		return true
+	}
+	return false
+}
+
 // dropReason —— 这一轮有什么东西没送到她屏幕上。卡片优先（它更具体）；
 // 卡片没问题的时候，透镜那条也要说。
 func (r readingCoachReply) dropReason() cardReject {
@@ -1581,6 +1596,23 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// whole point of that ruling.
 		if current.Kind == string(taskHunt) && advance == "done" && !hasHuntPickEvidence(picks, msgs, blocks) {
 			advance = ""
+		}
+		// 🚨 她把标注板摆完了，这一步就是做完了 —— 不由模型决定。
+		//
+		// 和上面那条 hunt 是同一件事的另一半：hunt 那条防的是「模型被说服了就
+		// 推进」，这条防的是「她真的做完了，模型却不推进」。
+		//
+		// 实测（2026-09-11 模拟学生走查）：她把三张卡片全摆进格子、提交，印记
+		// 回了一段很好的点评（「这三张贴得很干净……」），然后 advance 给了空 ——
+		// 这一步永远停在那儿。130 步只走完 8 步里的 3 步，卡的就是这里。
+		// prompt 里那一节明写着「这一步已经用这块板做完了，advance 给 done」，
+		// 而它不照做，所以改由代码兜底
+		// （[[prompt-output-must-be-verifiable-2026-09-03]]）。
+		//
+		// 这不是替她判对错：板上本来就没有对错，摆完这个动作本身就是这一步的
+		// 产出，和 hunt 要求「真的点一句」是同一种判据。
+		if current.Kind == string(taskLabel) && advance == "" && answeredBoard(req.CardAnswer) {
+			advance = "done"
 		}
 		if advance != "" {
 			if _, err := qtx.SetReadingTaskStatus(turnCtx, sqlc.SetReadingTaskStatusParams{

@@ -142,6 +142,34 @@ func TestWordBankIsCaseInsensitiveButDedupes(t *testing.T) {
 	}
 }
 
+// 她把板摆完了，这一步就是做完了 —— 不由模型决定。
+//
+// 🚨 和 hunt 那条守卫是同一件事的另一半：hunt 防的是「模型被说服了就推进」，
+// 这条防的是「她真的做完了，模型却不推进」。实测（2026-09-11 走查）：她把三张
+// 卡片全摆进格子、提交，印记 回了一段很好的点评然后 advance 给了空，这一步
+// 就永远停在那儿 —— 130 步只走完 8 步里的 3 步，卡的就是这里。
+func TestAnsweredBoardIsAnAction(t *testing.T) {
+	full := func(kind string) *coachCardAnswer {
+		return &coachCardAnswer{Type: kind, Choice: "主张：\nThe agency said it had delivered 40 trucks."}
+	}
+	if !answeredBoard(full(coachCardLabelRoles)) {
+		t.Error("摆完的标注板应该算这一步做完了")
+	}
+	if !answeredBoard(full(coachCardWordBank)) {
+		t.Error("分完的生词板同理")
+	}
+	// 🚨 只认动作，不认声明：她在输入框里打一句「我摆好了」不算。
+	if answeredBoard(&coachCardAnswer{Type: coachCardShortText, Choice: "我摆好了"}) {
+		t.Error("打字说摆好了，不是摆好了")
+	}
+	if answeredBoard(&coachCardAnswer{Type: coachCardLabelRoles, Choice: "   "}) {
+		t.Error("空的作答不算")
+	}
+	if answeredBoard(nil) {
+		t.Error("这一轮根本没有作答")
+	}
+}
+
 func TestBannedQuestionFormsDropTheWholeCard(t *testing.T) {
 	// 来自 ljg-qa 的 QuestionDesign。它顺带点出了模型的默认毛病：
 	// 「AI 默认会写「什么是 X」型问题 —— 教科书腔」。
