@@ -131,6 +131,14 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
       .isVisible()
       .catch(() => false);
     if (lensOpen) {
+      // 🚨 透镜是两段的：先看 印记 的示范，点过「看懂示范，开始选句」之后
+      // 正文才收她的选择。走查不知道这道门，于是在示范还开着的时候一遍遍点
+      // 正文 —— 170 步里划了 140 次，引文数始终是 0。
+      const gate = page.getByRole("button", { name: "看懂示范，开始选句" });
+      if (await gate.isVisible().catch(() => false)) {
+        await gate.click();
+        await page.waitForTimeout(300);
+      }
       // 透镜模式：点在那句话的中间。Annotate 按坐标去认是哪一句。
       const box = await p.evaluate((el, want) => {
         const text = el.textContent ?? "";
