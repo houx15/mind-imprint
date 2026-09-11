@@ -153,6 +153,13 @@ export type Comment = {
   summary: string;
   points: CommentPoint[];
   createdAt: string;
+  /**
+   * 写这条意见时印记读的那一版原文。
+   *
+   * 拿它回答一个 quote 回答不了的问题：**这一段在这条意见之后改过没有。**
+   * 空串 = 2026-09-11 之前存的老评论，不知道那一版长什么样。
+   */
+  sourceText: string;
 };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;

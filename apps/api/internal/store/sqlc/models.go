@@ -1206,6 +1206,8 @@ type WritingComment struct {
 	Summary   string      `json:"summary"`
 	Points    []byte      `json:"points"`
 	CreatedAt time.Time   `json:"created_at"`
+	// 写这条意见时，它读的那一版原文。空串 = 2026-09-11 之前的老行，不知道。
+	SourceText string `json:"source_text"`
 }
 
 type WritingDraft struct {

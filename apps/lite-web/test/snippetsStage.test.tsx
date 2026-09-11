@@ -370,6 +370,7 @@ const BLOCK_COMMENT: Comment = {
   snippetId: "s1",
   summary: "理由说清楚了，但没说是谁的钱。",
   points: [{ text: "这句只说了结果，没说原因。", quote: "修剪的钱也没人出。" }],
+  sourceText: "",
   createdAt: "",
 };
 

@@ -133,6 +133,16 @@ type Comment struct {
 	Summary   string         `json:"summary"`
 	Points    []CommentPoint `json:"points"`
 	CreatedAt string         `json:"createdAt"`
+	// SourceText 是写这条意见时它读的那一版原文。
+	//
+	// 前端拿它回答一个 quote 回答不了的问题：**这一段在这条意见之后改过没有。**
+	// 只看 quote 还在不在是不够的 —— 她「新加」一句让步、原来被引的那句没动，
+	// quote 判据说「这条还算数」，而那条意见说的正是「缺让步」。
+	// 2026-09-11 第五轮走查里一个学生连着四步都在说这一件事
+	//（「我明明已经加了让步句，但下面还是显示缺，是不是没刷新啊」）。
+	//
+	// 空串 = 0147 之前的老行，不知道那一版长什么样；前端据此退回老判据。
+	SourceText string `json:"sourceText"`
 }
 
 // toCommentDTO decodes a stored writing_comment row into the wire shape.
@@ -149,11 +159,12 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 		}
 	}
 	out := Comment{
-		ID:        row.ID.String(),
-		Scope:     row.Scope,
-		Summary:   row.Summary,
-		Points:    points,
-		CreatedAt: row.CreatedAt.Format(time.RFC3339),
+		ID:         row.ID.String(),
+		Scope:      row.Scope,
+		Summary:    row.Summary,
+		Points:     points,
+		CreatedAt:  row.CreatedAt.Format(time.RFC3339),
+		SourceText: row.SourceText,
 	}
 	if row.SnippetID.Valid {
 		s := uuid.UUID(row.SnippetID.Bytes).String()
@@ -538,9 +549,12 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	row, serr := a.d.Queries.CreateWritingComment(turnCtx, sqlc.CreateWritingCommentParams{
 		AtomID:    at.ID,
 		SnippetID: pgtype.UUID{Bytes: snippet.ID, Valid: true},
-		Scope:     "block",
-		Summary:   strings.TrimSpace(parsed.Summary),
-		Points:    payload,
+		Scope:   "block",
+		Summary: strings.TrimSpace(parsed.Summary),
+		Points:  payload,
+		// 存的是**它真的读过的那一版**（服务端手上这一份），不是她此刻框里
+		// 的字：意见是对着这一版说的，比对也只能对着这一版。
+		SourceText: snippet.Text,
 	})
 	if serr != nil {
 		httpx.WriteError(w, r, serr)

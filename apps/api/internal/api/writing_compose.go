@@ -272,9 +272,11 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	row, serr := a.d.Queries.CreateWritingComment(turnCtx, sqlc.CreateWritingCommentParams{
 		AtomID:    at.ID,
 		SnippetID: pgtype.UUID{Valid: false},
-		Scope:     "draft",
-		Summary:   strings.TrimSpace(parsed.Summary),
-		Points:    payload,
+		Scope:   "draft",
+		Summary: strings.TrimSpace(parsed.Summary),
+		Points:  payload,
+		// 同 commentOnSnippet：存它真的读过的那一版全文。
+		SourceText: body,
 	})
 	if serr != nil {
 		httpx.WriteError(w, r, serr)

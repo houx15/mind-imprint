@@ -80,6 +80,21 @@ export function CommentPanel({
   // 再把下一步递给她。判她改得对不对是 onRecheck 那一下的事，由她决定。
   const stale = (quote: string) => commentPointIsStale(quote, currentText);
   const staleCount = comment.points.filter((p) => stale(p.quote)).length;
+  // 🚨 **quote 还在，不等于这条意见还说得准。**
+  //
+  // 第一版只看 quote 在不在，理由是「她把那句改了才算照着做了」。线上第五轮
+  // 打脸得很干脆 —— 一个学生连着四步说同一件事：
+  //
+  //   「我已经按它说的加了让步句，但下面还是显示缺，不知道是不是没刷新」
+  //   「框2里面明明已经有让步的句子了，但下面材料那块还是说缺让步」
+  //
+  // 那条意见说的正是「缺让步」，而她的做法是**新加一句**，被引的那句原封不动。
+  // 于是 quote 判据说「还算数」，屏幕接着说她没做 —— 判错的方向恰好是最伤的
+  // 那一个：她做完了，产品说她没做。
+  //
+  // 所以再问一个 quote 答不了的问题：**这一段在这条意见之后动过没有。**
+  // 这个只有服务端知道（它存下了当时读的那一版），比对是逐字的，没有猜测。
+  const edited = comment.sourceText !== "" && currentText !== undefined && currentText !== comment.sourceText;
 
   return (
     <div className="flex flex-col gap-4 rounded-mk-md border border-mk-border bg-mk-paper p-4">
@@ -159,10 +174,12 @@ export function CommentPanel({
 
       {/* 改完之后那一下。没有它，这一轮就永远不结束 ——
           她照着改了，屏幕上还是那几条旧话，只好反复问印记是不是没看见。 */}
-      {staleCount > 0 && onRecheck && (
+      {(staleCount > 0 || edited) && onRecheck && (
         <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-3">
           <span className="text-mk-body text-mk-muted">
-            这一段改过了，上面有 {staleCount} 条说的是上一版。
+            {staleCount > 0
+              ? `这一段改过了，上面有 ${staleCount} 条说的是上一版。`
+              : "这一段在这条意见之后改过了。"}
           </span>
           <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
             请印记再看一遍

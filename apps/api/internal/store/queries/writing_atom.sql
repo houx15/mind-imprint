@@ -147,8 +147,8 @@ RETURNING *;
 UPDATE writing_outline SET guide = $2 WHERE id = $1;
 
 -- name: CreateWritingComment :one
-INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points, source_text)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListWritingComments :many
