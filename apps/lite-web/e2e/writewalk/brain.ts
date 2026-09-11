@@ -204,14 +204,34 @@ export async function think(args: {
     // 在补同一段被截掉的话（「停在'还'字那里」），而截断发生在**学生这个模型**
     // 的输出上，不在产品里。额度给够，再让她自己把段落写短一点。
     max_tokens: 2000,
-    messages: [
-      { role: "system", content: systemFor(args.student) },
-      { role: "user", content: user },
-    ],
     response_format: { type: "json_object" as const },
   };
 
+  /**
+   * 上一次回的不是合法 JSON 时，重试要**说出错在哪**。
+   *
+   * 🚨 第十九轮英文那条 walk 就死在这儿：连着六次
+   * `Unterminated string in JSON at position 147` —— 位置很靠前，远不到
+   * max_tokens，所以不是被截断，是她在正文里写了一个没转义的引号
+   *（和服务端那个括号手滑是同一类）。原样重问六次，换来六次同样的错。
+   *
+   * 只在重试时加。正常那一次不提转义 —— 一句和写作无关的格式叮嘱，
+   * 每一轮都塞进去只会占掉她本该用来当学生的注意力。
+   */
+  const jsonNudge =
+    "【上一次你回的不是合法 JSON】" +
+    "报错是：{err}。多半是你在正文里直接写了英文双引号。" +
+    "正文里要引号就用中文的「」或 '，双引号必须写成 \\\" 。这一次请重答，只输出严格合法的 JSON。";
+
+  const messagesFor = (err: string) => [
+    { role: "system", content: systemFor(args.student) },
+    { role: "user", content: user },
+    ...(err ? [{ role: "user", content: jsonNudge.replace("{err}", err.slice(0, 160)) }] : []),
+  ];
+
   let lastErr = "";
+  // 只有「回的不是 JSON」这一类才值得在重试时纠正；网络错跟它没关系。
+  let jsonErr = "";
   // 🚨 **耐心要配得上这条 walk 有多贵。**
   // 原来是三次、退避 1.5s/3s —— 加起来只等 4.5 秒。2026-09-11 线上那次，
   // 英文那个学生走到第 24 步（六百多字、二十多分钟）时 DashScope 抖了一下，
@@ -223,7 +243,7 @@ export async function think(args: {
       const r = await fetch(BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, messages: messagesFor(jsonErr) }),
       });
       if (!r.ok) {
         // 🚨 报错里绝不带 key。
@@ -249,6 +269,8 @@ export async function think(args: {
       return beat;
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
+      // fetch 失败和「JSON 读不出来」都会落到这里，只有后者要纠正。
+      jsonErr = /JSON|Unterminated|Unexpected token/i.test(lastErr) ? lastErr : "";
       await sleep(backoffMs(attempt));
     }
   }
