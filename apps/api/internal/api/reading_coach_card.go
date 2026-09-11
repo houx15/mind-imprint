@@ -153,7 +153,34 @@ const (
 	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
 	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
 	cardRejectLensWon     cardReject = "a lens was given this turn, so the card was dropped (铁律③)"
+	cardRejectCutOff      cardReject = "the reply ends mid-sentence"
 )
+
+// replyLooksCutOff —— 这句话像不像说到一半断掉了。
+//
+// 🚨 线上实测（2026-09-11 走查）她看到的：
+//
+//	「……他们同样在讲封锁的后果，但说得更具体：不是」
+//
+// 159 个字，就这么断在「不是」上。她读到的是半句话，当场不知道这一步要干嘛。
+// 我们这边不截断任何东西（max_tokens 是 16000），所以它是模型自己写出来的。
+//
+// 判据：**中文的一句话总要有个收尾**。句号、问号、叹号、引号、右括号都算收尾；
+// 冒号和逗号不算 —— 「现在点出那一句：」后面本该跟着一张卡片。
+//
+// 所以这条只在**没有附卡片、也没有透镜**的时候才判：真的带着卡片时，一个冒号
+// 收尾是完全正常的写法（卡片自己会把话说完）。
+func replyLooksCutOff(reply string) bool {
+	r := []rune(strings.TrimSpace(reply))
+	if len(r) == 0 {
+		return false
+	}
+	switch r[len(r)-1] {
+	case '。', '！', '？', '」', '』', '）', '…', '.', '!', '?', ')', '"', '\'', '~':
+		return false
+	}
+	return true
+}
 
 // cardFixIt —— 每一种理由对应的**怎么改**，中文，一句话。
 //
@@ -174,6 +201,8 @@ var cardFixIt = map[cardReject]string{
 		"label_roles / word_bank 五个之一。",
 	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
 		"她那边什么都没出现。要给就真的给，不给就别提。",
+	cardRejectCutOff: "你上一轮那句话断在半句上，她读到的是半截。" +
+		"这一轮把话说完整，句子要有收尾。",
 	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
 		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
 }

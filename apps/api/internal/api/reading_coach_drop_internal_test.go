@@ -180,6 +180,38 @@ func TestOrdinaryRepliesDoNotCountAsPromises(t *testing.T) {
 	}
 }
 
+func TestReplyCutOffMidSentence(t *testing.T) {
+	// 🚨 线上实测她看到的那一句，逐字：159 个字，断在「不是」上。
+	cut := []string{
+		"他们同样在讲封锁的后果，但说得更具体：不是",
+		"现在我们往下走，看第 8 段里作者是怎么",
+		"这一句的关键在于",
+	}
+	for _, r := range cut {
+		if !replyLooksCutOff(r) {
+			t.Errorf("没认出这是半句话：%q", r)
+		}
+	}
+}
+
+func TestWholeSentencesAreNotCutOff(t *testing.T) {
+	// 一张网如果把好好说完的话也判成断句，印记 每一轮都要被多问一次 ——
+	// 白烧一次旗舰调用，还会把对的那句换掉。
+	whole := []string{
+		"这一句选得准，它把总量和人均分开了。",
+		"你觉得作者为什么要在这里放一个数字？",
+		"先别看正文，只看标题！",
+		"在文章里点出最能撑住他观点的那一句（不用整段）。",
+		"作者说的是「可能」，不是「已经」。",
+		"往下走吧……",
+	}
+	for _, r := range whole {
+		if replyLooksCutOff(r) {
+			t.Errorf("误判成半句话：%q", r)
+		}
+	}
+}
+
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
