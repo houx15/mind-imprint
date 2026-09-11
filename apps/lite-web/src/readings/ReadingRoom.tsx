@@ -168,6 +168,8 @@ export type ReadingCoachSlot = {
   quotes: { key: string; quote: string; blockId?: string }[];
   removeQuote: (key: string) => void;
   clearQuotes: () => void;
+  /** 把她送到那副敞开的透镜跟前（滚到它挂着的那一段）。见面板里那条锁住时的提示。 */
+  locateLens?: () => void;
   /** A lens landed on the article from OUTSIDE this room's own turn/summon
    *  flow (印记 minting one mid-带读, via a different endpoint) — so the
    *  room's own card state has no way to have picked it up on its own. */
@@ -807,6 +809,11 @@ export function ReadingRoom({
               // Narrow re-check, not a reload: nothing here unmounts the
               // room, so her transcript/draft/scroll position survive.
               onCardSummoned: () => void loop.refetchOpenCard(),
+              // 透镜挂在哪一段，只有房间知道。面板锁住的时候那颗「带我过去」
+              // 按钮就调这个。
+              locateLens: () => {
+                if (cardBlockId) locateBlock(cardBlockId);
+              },
             }}
             onTasks={onTasks}
             onFocusBlock={focusBlock}

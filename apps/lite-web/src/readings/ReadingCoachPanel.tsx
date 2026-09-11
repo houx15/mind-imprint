@@ -583,6 +583,33 @@ export function ReadingCoachPanel({
           </div>
         )}
 
+        {/* 🚨 一副透镜开着的时候，这一栏是锁住的 —— 而在这之前，屏幕上说明这件
+            事的全部内容是输入框里一句灰色的 placeholder。模拟学生走查逐字报的：
+            「发送按钮按不动，我打不了字。」她盯着右边这一栏，而那副透镜在**左边
+            文章上**，她根本没往那边看。
+            一句明确的话 + 一颗把她送过去的按钮。 */}
+        {slot.locked && (
+          <div
+            className="flex items-center justify-between gap-3 rounded-mk-md border px-3 py-2"
+            style={{
+              borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+              background: "color-mix(in srgb, var(--mk-accent-50) 70%, var(--mk-surface))",
+            }}
+          >
+            <span className="text-mk-small leading-relaxed text-mk-ink">
+              这一步要在文章里做：印记 给了你一副透镜，请在左边的文章里选出那一句。
+            </span>
+            <button
+              type="button"
+              onClick={() => slot.locateLens?.()}
+              className="shrink-0 rounded-mk-full px-3 py-1 text-mk-label text-white"
+              style={{ background: "var(--mk-accent-500)" }}
+            >
+              带我过去
+            </button>
+          </div>
+        )}
+
         <Composer
           value={draft}
           onChange={setDraft}
