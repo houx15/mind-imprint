@@ -283,7 +283,12 @@ export function SnippetsStage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <h2 className="text-mk-h2 text-mk-ink">段落</h2>
-        <p className="text-mk-body text-mk-muted">一块一块来。每一块上面都写着它要做的事，照着想就行。</p>
+        {/* 🚨 她一进来撞见的是八个空框。2026-09-13 第十三轮走查里三步在问
+            同两件事：「不知道是不是要按顺序全写完才算一段」「不确定应该按顺序
+            从第一块开始写还是先写中心论点那块」。
+            原来这句写的是「一块一块来…照着想就行」—— 说了节奏，没说规则。
+            她要的是两条事实：顺序归她，存盘各自独立。 */}
+        <p className="text-mk-body text-mk-muted">一块一段，各自保存，先写哪一块都可以。每一块上面写着它要做的事。</p>
       </div>
 
       {batching && (
@@ -443,8 +448,25 @@ function SnippetBlock({
    * 收起 hides the box; it does not throw the guidance away. Regenerating on
    * the way back in would charge a model call to see something we already
    * have, so the button becomes 「打开引导」 instead.
+   *
+   * 🚨 **已经写过的那一块，进来时就折着。**
+   *
+   * 引导那几个问题是对着**一张白纸**写的（「你见过哪一次？」「那天几点？」）。
+   * 她写完三百字之后，那几个问题还挂在正文框上面 —— 而它们看起来跟印记的
+   * 反馈是一类东西。2026-09-13 第十三轮线上走查，两个学生一共三步在说这个：
+   *
+   *   「左侧的意见卡片[18][19][20]好像还是旧版的提示，没跟着我的正文一起更新，
+   *     看着有点乱」
+   *   「下面那个卡片18还显示旧的提示，看着有点乱」
+   *
+   * 她没说错：那几个问题**确实**不会跟着她的正文变，它们也不该变 ——
+   * 它们不是反馈，是开工前的脚手架。脚手架该在她开工之后让开。
+   *
+   * ⚠️ 这不动「引导一进来就在」那条（Task 11：最需要它的那个学生，正是最不会
+   * 主动去点的那个）—— 空白的块照旧摊开。折的只是**她已经写过的**那些块，
+   * 而且只在进来那一刻决定一次：写到一半把她眼前的东西收走，比留着更糟。
    */
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => (slot.snippet?.text ?? "").trim() !== "");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
