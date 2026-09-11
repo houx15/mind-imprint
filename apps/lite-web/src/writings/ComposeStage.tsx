@@ -428,7 +428,7 @@ export function ComposeStage({
 
         <aside className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l">
           {comment && <CommentPanel comment={comment} onTrace={setHighlight} />}
-          <SnippetRail snippets={snippets} />
+          <SnippetRail snippets={snippets} edited={wouldOverwrite} />
         </aside>
       </div>
 
@@ -504,13 +504,33 @@ export function ComposeStage({
  * Her paragraphs, beside the page. Read-only on purpose: 段落 is where they
  * are written, and a second editable copy of the same text is how the two
  * quietly disagree about which one is current.
+ *
+ * 🚨 只读拦不住那场误会 —— 它只是拦住了「两边都能改」。2026-09-11 第六轮
+ * 线上走查，一个学生六步都在问同一件事：
+ *
+ *   「成稿框里已经是改好的了，但下面段落卡片还是旧的错句子」
+ *   「有点搞不清到底以哪个为准」
+ *   「不知道要不要重新覆盖写一遍还是点哪个按钮提交」
+ *
+ * 她在成稿里改了语法，下面这些卡片当然还是原样 —— 它们本来就是「段落」那一步
+ * 的原文。**只读是对的，没说出口才是错的**：屏幕上摆着她同一段文字的两个版本，
+ * 而没有一个字讲过哪个算数。
+ *
+ * 所以这里现在直说：上面那块是这一篇的正文，下面这些是原文、不会跟着变。
+ * 她改过之后再加一句，免得她以为是自己哪一步没保存。
  */
-function SnippetRail({ snippets }: { snippets: WritingSnippet[] }) {
+function SnippetRail({ snippets, edited }: { snippets: WritingSnippet[]; edited: boolean }) {
   const written = snippets.filter((s) => s.text.trim() !== "").slice().sort((a, b) => a.position - b.position);
 
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-mk-small font-semibold text-mk-secondary">你的段落</h3>
+      {written.length > 0 && (
+        <p className="text-mk-small text-mk-muted">
+          这一篇的正文是上面那一块。下面是「段落」那一步写的原文，只读，不会跟着上面变。
+          {edited && "你在上面改过的字，下面这些段里不会出现。"}
+        </p>
+      )}
       {written.length === 0 ? (
         <p className="text-mk-body text-mk-muted">「段落」那一步还没有写好的段。写了以后会出现在这里，方便你对着改。</p>
       ) : (
