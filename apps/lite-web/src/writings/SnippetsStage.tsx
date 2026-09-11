@@ -152,6 +152,16 @@ export function SnippetsStage({
   const slots = buildSlots(outline, snippets);
 
   /**
+   * 现在开着的是**哪一块**的标注板。一次只开一块。
+   *
+   * 🚨 走查里她同时开了两块板（截图上下各一块）。两个后果：
+   * 屏幕上一次摆着十个格子，她不知道哪一组对应哪一段；
+   * 而且「摆完这一块」这件事没有终点 —— 她在两块之间来回点，
+   * 一块都没交上去。板是被递过来的一件事，不是一排可以同时摊开的抽屉。
+   */
+  const [openBoardFor, setOpenBoardFor] = useState<string | null>(null);
+
+  /**
    * Guides live here rather than inside each block, because the batch call
    * answers for the WHOLE outline at once and every block has to be able to
    * receive its share. Seeded from what the server already stored; a locally
@@ -319,6 +329,9 @@ export function SnippetsStage({
               }}
               onSaved={onSnippetsChange}
               onSay={onSay}
+              boardKey={`${oid ?? "free"}-${slot.position}`}
+              openBoardFor={openBoardFor}
+              onBoardOpen={setOpenBoardFor}
             />
           );
         })}
@@ -354,6 +367,9 @@ function SnippetBlock({
   onCommented,
   onSaved,
   onSay,
+  boardKey,
+  openBoardFor,
+  onBoardOpen,
 }: {
   writingId: string;
   slot: Slot;
@@ -368,13 +384,18 @@ function SnippetBlock({
   onCommented: (next: Comment) => void;
   onSaved: (next: WritingSnippet[]) => void;
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
+  /** 这一块在「谁的板开着」里的名字。 */
+  boardKey: string;
+  openBoardFor: string | null;
+  onBoardOpen: (key: string | null) => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
   const [guiding, setGuiding] = useState(false);
   const [commenting, setCommenting] = useState(false);
-  const [boardOpen, setBoardOpen] = useState(false);
   const [boardBusy, setBoardBusy] = useState(false);
+  const boardOpen = openBoardFor === boardKey;
+  const setBoardOpen = (on: boolean) => onBoardOpen(on ? boardKey : null);
   // 拆句是纯函数、很便宜，所以每次渲染算一遍就行——把它记忆化只会多一个
   // 会和 text 失去同步的地方。
   const sentenceCount = splitSentences(text).length;
