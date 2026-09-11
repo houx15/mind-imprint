@@ -43,6 +43,19 @@ const (
 // focus 是这一步的落点段（可以是空的）。返回 nil 表示这篇文章里挑不出足够的
 // 句子 —— 那时候宁可没有板，也不要一块空板。
 func buildLabelBoard(blocks []Block, focus string) *coachCard {
+	return buildLabelBoardFromReply(blocks, focus, "")
+}
+
+// buildLabelBoardFromReply —— 同上，但**印记 在话里点了名的那几句排最前面**。
+//
+// 🚨 实测她卡住的那一幕：印记 说「把『以色列下令空袭』那句挪到对的格子里」，
+// 而板上四张卡片全是第 1 段的话。她逐字报的是「根本没有以色列空袭那句，
+// 我找不到要挪的那张卡片」。
+//
+// 板是服务端在它写完之后补的，只按段落取句子 —— 它嘴上点名的那一句因此可能
+// 根本不在板上。它对她说话时指的是**那句话**，不是「第几段」，所以先看它引了
+// 什么，引到的那几句优先上板。
+func buildLabelBoardFromReply(blocks []Block, focus, reply string) *coachCard {
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -65,18 +78,27 @@ func buildLabelBoard(blocks []Block, focus string) *coachCard {
 	}
 	cands := make([]cand, 0, 16)
 	for i, b := range ordered {
-		rank := 1
+		rank := 2
 		if focus != "" && b.ID == focus {
-			rank = 0
+			rank = 1
 		}
 		for _, s := range splitSentences(b.Text) {
 			n := utf8.RuneCountInString(s)
 			if n < boardSentenceMinRunes || n > boardSentenceMaxRunes {
 				continue
 			}
-			cands = append(cands, cand{opt: coachCardOption{BlockID: b.ID, Quote: s}, rank: rank})
+			r := rank
+			// 它在话里点了名的那一句，排在所有人前面。
+			if reply != "" && replyMentionsSentence(reply, s) {
+				r = 0
+			}
+			cands = append(cands, cand{opt: coachCardOption{BlockID: b.ID, Quote: s}, rank: r})
 		}
 		// 扫够两段就停：再往后取的句子离 印记 刚讲的地方太远，她得满篇找。
+		// 🚨 除非它话里点了名 —— 点名的那一句可能在任何一段，要扫到。
+		if reply != "" && i < len(ordered)-1 {
+			continue
+		}
 		if i >= 1 && len(cands) >= boardWantSentences {
 			break
 		}
@@ -170,4 +192,29 @@ func asciiWordLenBefore(runes []rune, i int) int {
 		break
 	}
 	return n
+}
+
+// replyMentionsSentence —— 印记 那句话里，是不是提到了正文这一句。
+//
+// 它引原文时很少一字不差：会截短、会换掉标点、会只引其中最要紧的半句。所以
+// 判据是**这一句里连续的一小段出现在它的回复里**。
+//
+// 🚨 这一小段该多长，要看是哪种文字。中文八个字已经足够独一无二（「以色列下令
+// 空袭」就是八个），英文八个字母到处都是（"the same"），得要二十。按十二一刀切
+// 的那一版漏掉了实测里那句真实的截短引用 —— 它只引了十一个字。
+func replyMentionsSentence(reply, sentence string) bool {
+	window := 20
+	if hasCJK(sentence) {
+		window = 8
+	}
+	r := []rune(sentence)
+	if len(r) < window {
+		return strings.Contains(reply, strings.TrimSpace(sentence))
+	}
+	for i := 0; i+window <= len(r); i++ {
+		if strings.Contains(reply, string(r[i:i+window])) {
+			return true
+		}
+	}
+	return false
 }

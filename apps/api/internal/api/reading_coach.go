@@ -1755,7 +1755,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		if spoken := spokenParagraph(parsed.Reply, blocks); spoken != "" {
 			focus = spoken
 		}
-		if built := validateCoachCard(buildLabelBoard(blocks, focus), blocks); built != nil {
+		if built := validateCoachCard(buildLabelBoardFromReply(blocks, focus, parsed.Reply), blocks); built != nil {
 			slog.Info("reading coach: label step had no board, built one",
 				"atom_id", at.ID, "options", len(built.Options))
 			parsed.Card = built

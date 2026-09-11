@@ -128,3 +128,45 @@ func TestSplitSentences(t *testing.T) {
 		t.Errorf("U.S. 里的点被当成了句末：%q", one)
 	}
 }
+
+// 🚨 印记 在话里点了名的那一句，必须在板上。
+//
+// 实测她卡住的那一幕：印记 说「把『以色列下令空袭』那句挪到对的格子里」，
+// 而板上四张卡片全是第 1 段的话 —— 她逐字报的是「根本没有以色列空袭那句，
+// 我找不到要挪的那张卡片」。
+func TestBuiltBoardIncludesTheSentenceTheReplyNames(t *testing.T) {
+	blocks := SplitBlocks(strings.Join([]string{
+		"Aid groups are scrambling to help people caught in the war. They say the blockade has made every delivery slower.",
+		"The agency said it had delivered 40 trucks of supplies last week. Officials cautioned that the figure could not be independently verified.",
+		"以色列下令空袭加沙北部，要求当地居民立刻向南撤离。救援车队因此停在了半路上。",
+	}, "\n\n"))
+	// 落点段是第 1 段，但它嘴上点的是第 3 段那一句。
+	reply := "我们把「以色列下令空袭加沙北部，要求当地居民立刻向南撤离」这句挪到对的格子里。"
+	got := buildLabelBoardFromReply(blocks, "b1", reply)
+	if got == nil {
+		t.Fatal("没摆出板")
+	}
+	named := false
+	for _, o := range got.Options {
+		if strings.Contains(o.Quote, "以色列下令空袭") {
+			named = true
+		}
+	}
+	if !named {
+		t.Fatalf("它点名的那一句不在板上：%+v", got.Options)
+	}
+	if got.Options[0].Quote == "" || !strings.Contains(got.Options[0].Quote, "以色列下令空袭") {
+		t.Errorf("点名的那一句应该排在最前面，拿到 %q", got.Options[0].Quote)
+	}
+}
+
+func TestReplyMentionsSentence(t *testing.T) {
+	sent := "以色列下令空袭加沙北部，要求当地居民立刻向南撤离。"
+	// 它引原文时常常截短、换标点。
+	if !replyMentionsSentence("我们看「以色列下令空袭加沙北部」这一句。", sent) {
+		t.Error("截短了的引用应该算数")
+	}
+	if replyMentionsSentence("我们继续看第三段讲了什么。", sent) {
+		t.Error("没引到原文的话不该算数")
+	}
+}
