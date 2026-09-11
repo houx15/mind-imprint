@@ -1416,3 +1416,25 @@ func TestCardSurvivesANearMissQuote(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 教它换一种说法的时候，认「它是不是在指着一块板说话」的那张表要跟着换。
+//
+// 实测：上一条 prompt 教它改口说「把这几句各自放进它的角色里」（不要自己编
+// 格子名），而 cardPromiseWords 里一个字都没对上 —— 于是服务端没有补板，
+// 她看到的是那句话加上一片空白：「屏幕上看不到任何格子、板子或者可以拖拽的
+// 地方，我不知道该把句子放到哪里去。」
+func TestPromiseWordsCoverThePhrasingWeTeachIt(t *testing.T) {
+	for _, reply := range []string{
+		"现在把这几句各自放进它的角色里。",
+		"看看第 2 段这三句，各自放进哪个角色。",
+		"把它们归到各自的角色里。",
+	} {
+		if !replyPromisesACard(reply) {
+			t.Errorf("这是在指着一块板说话，没认出来：%q", reply)
+		}
+	}
+	// 只是提到「角色」不算 —— 讲解里常常出现这个词。
+	if replyPromisesACard("这一句在论证里的角色是证据。") {
+		t.Error("讲解里提到角色被误判成了在指板说话")
+	}
+}
