@@ -295,9 +295,18 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
       continue;
     }
     if (a.kind === "place") {
-      // 🚨 所有卡片，不只是没摆的那些 —— 全部摆完之后她还得能把某一张挪到
-      // 别的格子里去（印记 经常这么要求）。
-      const chip = page.locator(".mk-board__chip").nth(a.chip);
+      // 🚨 按**卡片上的字**去找，不按序号。
+      //
+      // 序号是 DOM 顺序，而一张卡片摆进格子之后它在 DOM 里就换了位置 ——
+      // 于是模型刚看到的那份编号当场作废：它说「把 3 号摆进去」，点到的是
+      // 另一张。实测那一幕是一张卡片在「主张」和「背景」之间来回换了 158 次，
+      // 而她嘴里一直说「还有三张没摆」—— 那三张她根本点不到。
+      //
+      // 字是她看得见的东西，也是这一屏发给她的那份清单上的东西，全程不变。
+      const want = screen.board?.chips[a.chip]?.text ?? "";
+      const chip = want
+        ? page.locator(".mk-board__chip", { hasText: want }).first()
+        : page.locator(".mk-board__chip").nth(a.chip);
       const bin = page.locator(".mk-board__bin").nth(a.bin);
       if (!(await chip.count()) || !(await bin.count())) {
         note = "板上没有那张卡片或那个格子。";
