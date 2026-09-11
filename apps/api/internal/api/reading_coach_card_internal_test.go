@@ -254,7 +254,11 @@ func TestValidateCoachCard(t *testing.T) {
 		}
 	})
 
-	t.Run("两头都不在边界上的片段被丢掉", func(t *testing.T) {
+	t.Run("两头都不在边界上的片段，贴回它自己那一句", func(t *testing.T) {
+		// 🚨 这一条以前是「整张卡丢掉」。改成贴回去的理由在 snapQuoteToArticle：
+		// 丢掉的代价她全担着 —— 屏幕上只剩一个输入框，而她不知道该打什么。
+		// 真正要守的不变量没有变：**最终上卡的那句话，一定是原文里一段
+		// 落在从句边界上的字面子串**。下面就是照着这条查的。
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
@@ -264,8 +268,20 @@ func TestValidateCoachCard(t *testing.T) {
 				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
 			},
 		}, blocks)
-		if got != nil {
-			t.Fatalf("expected nil (only 1 survivor), got %+v", got)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("这一句贴得回去，不该整张丢掉：%+v", got)
+		}
+		byID := map[string]string{}
+		for _, b := range blocks {
+			byID[b.ID] = b.Text
+		}
+		for _, o := range got.Options {
+			if o.Quote == "吸热、夜里" {
+				t.Errorf("半截片段原样上了卡片：%+v", got.Options)
+			}
+			if !coachCardQuoteIsClause(byID[o.BlockID], o.Quote) {
+				t.Errorf("上卡的这一句没落在从句边界上：%q", o.Quote)
+			}
 		}
 	})
 
@@ -1337,5 +1353,66 @@ func TestCardAnswerQuotesEveryPromptLine(t *testing.T) {
 	}
 	if stripQuotedLines(got) != "服气一半。" {
 		t.Fatalf("only her own words may survive stripQuotedLines, got %q", stripQuotedLines(got))
+	}
+}
+
+// 🚨 引文差一点点对不上，贴回原文那一句，而不是把整张卡丢掉。
+//
+// 实测那一幕：日志写「fewer than 2 options survived the article check」，
+// 她那边 印记 说「我们集中看第 2 段」然后什么都没给 ——
+// 「只有一个输入框，不知道该往里面打什么字」。
+func TestSnapQuoteToArticle(t *testing.T) {
+	body := "Aid groups said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified."
+	cases := []struct{ name, quote, want string }{
+		{
+			"少了收尾的句号",
+			"Aid groups said the blockade had made every delivery slower",
+			"Aid groups said the blockade had made every delivery slower.",
+		},
+		{
+			"从半句中间起头",
+			"the figure could not be independently verified",
+			"Officials cautioned that the figure could not be independently verified.",
+		},
+		{
+			"说的是别的句子 —— 宁可丢掉，也不要贴错一句让她去文章里找",
+			"完全无关的一句中文，和这一段没有任何关系。",
+			"",
+		},
+	}
+	for _, c := range cases {
+		if got := snapQuoteToArticle(body, c.quote); got != c.want {
+			t.Errorf("%s：snapQuoteToArticle(%q) = %q，想要 %q", c.name, c.quote, got, c.want)
+		}
+	}
+}
+
+func TestCardSurvivesANearMissQuote(t *testing.T) {
+	blocks := SplitBlocks("Aid groups said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段在讲别的事情，句子也够长，能上卡片。")
+	c := &coachCard{
+		Type:   coachCardChooseSpan,
+		Prompt: "哪一句更像主张？",
+		Options: []coachCardOption{
+			// 两句都差一点：一句少了句号，一句从半句中间起头。
+			// choose_span 的选项要来自不同段落（同段的一对没法靠扫读分辨）。
+			{BlockID: "b1", Quote: "Aid groups said the blockade had made every delivery slower"},
+			{BlockID: "b2", Quote: "第二段在讲别的事情，句子也够长"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("整张卡被丢掉了，理由 %q —— 两句都贴得回去", why)
+	}
+	byID := map[string]string{}
+	for _, b := range blocks {
+		byID[b.ID] = b.Text
+	}
+	for _, o := range got.Options {
+		if !strings.Contains(byID[o.BlockID], o.Quote) {
+			t.Errorf("贴回去之后这一句还是不在 %s 里：%q", o.BlockID, o.Quote)
+		}
 	}
 }

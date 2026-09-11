@@ -308,8 +308,24 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 			continue
 		}
 		body, ok := byID[o.BlockID]
-		if !ok || !coachCardQuoteIsClause(body, q) {
+		if !ok {
 			continue
+		}
+		if !coachCardQuoteIsClause(body, q) {
+			// 🚨 对不上就**贴回原文里最像的那一句**，而不是整张卡丢掉。
+			//
+			// 模型抄原句时最常见的失手是差一点点：少一个逗号、把两句并成一句、
+			// 从半句中间起头。整张卡丢掉的代价她全担着 —— 实测那一幕是 印记
+			// 说「我们集中看第 2 段」然后什么都没给，她逐字报的是「只有一个
+			// 输入框，不知道该往里面打什么字」。
+			//
+			// 贴回去只会让卡片**更**忠于原文：落点段是它自己标的，最终上卡的
+			// 那句话逐字来自那一段，下面那道从句边界照常还要过一遍。
+			snapped := snapQuoteToArticle(body, q)
+			if snapped == "" || !coachCardQuoteIsClause(body, snapped) {
+				continue
+			}
+			q = snapped
 		}
 		// 按她**看得见的那句话**去重：同一句从两个段落各来一次，屏幕上就是
 		// 两个一模一样的选项，点哪个都没有区别。
@@ -745,4 +761,49 @@ func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
 		return nil
 	}
 	return b
+}
+
+// snapQuoteToArticle —— 把一句对不上的引文贴回这一段里最像的那句话。
+//
+// 判据是**这句引文里的字有多少落在那句话里**，不是反过来：模型常见的失手是把
+// 两句并成一句、或者从半句中间起头，那种情况下引文比真句子长。门槛定在七成，
+// 低于它就当它说的是别的句子，宁可丢掉 —— 贴错一句比没有卡片更糟，她会照着
+// 一句文章里没有的话去找。
+func snapQuoteToArticle(body, quote string) string {
+	want := quoteRuneSet(quote)
+	if len(want) == 0 {
+		return ""
+	}
+	best, bestScore := "", 0.0
+	for _, sent := range splitSentences(body) {
+		if utf8.RuneCountInString(sent) < coachCardMinQuoteRunes {
+			continue
+		}
+		have := quoteRuneSet(sent)
+		hit := 0
+		for r := range want {
+			if have[r] {
+				hit++
+			}
+		}
+		score := float64(hit) / float64(len(want))
+		if score > bestScore {
+			best, bestScore = strings.TrimSpace(sent), score
+		}
+	}
+	if bestScore < 0.7 {
+		return ""
+	}
+	return best
+}
+
+// quoteRuneSet —— 一句话里出现过哪些字，标点和空白不算。
+func quoteRuneSet(s string) map[rune]bool {
+	out := make(map[rune]bool, len(s))
+	for _, r := range strings.ToLower(s) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			out[r] = true
+		}
+	}
+	return out
 }
