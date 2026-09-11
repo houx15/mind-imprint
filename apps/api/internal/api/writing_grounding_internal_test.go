@@ -22,7 +22,7 @@ func TestWritingCoachProjection_GroundingRulesArriveOnceSheHasWritten(t *testing
 	wr := sqlc.Writing{Title: "食堂浪费", Lang: "zh"}
 	got := buildWritingCoachProjection(wr, nil, []sqlc.WritingSnippet{
 		snippet(0, "上周五我数了一下，六个桶是满的。"),
-	})
+	}, "")
 
 	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾", "以这里为准"} {
 		if !strings.Contains(got, want) {
@@ -43,9 +43,59 @@ func TestWritingCoachProjection_NoGroundingRulesBeforeSheWrites(t *testing.T) {
 		nil,
 		{snippet(0, "   ")}, // 只有空白，等于没写
 	} {
-		got := buildWritingCoachProjection(wr, nil, snips)
+		got := buildWritingCoachProjection(wr, nil, snips, "")
 		if strings.Contains(got, "逐字引出来") {
 			t.Errorf("她还没写，不该加这两条：\n%s", got)
+		}
+	}
+}
+
+// 🚨 **成稿开了之后，她的正文就是成稿那一页，不再是段落那几块。**
+//
+// 2026-09-12 第二十七轮走查里她自己把这条诊断出来了，而且诊断得准：
+//
+//	「印记反复让我改一句我正文里根本没有的话（它在读下面那段只读的旧文本），
+//	  导致对话死循环」
+//
+// 她在成稿里改的是 writing_draft.body；段落那几块停在她进成稿之前的样子
+//（屏幕上那一栏本来就标着「只读、不会跟着上面变」）。而这个上文一直只喂
+// snippets —— 陪练读的确实是旧的那份。
+//
+// 两份她的文字同时摆进上文，正是让它挑错一份的原因。所以有成稿就只给成稿。
+func TestWritingCoachProjection_DraftWinsOverTheFrozenSnippets(t *testing.T) {
+	wr := sqlc.Writing{Title: "食堂浪费", Lang: "zh", Stage: "draft"}
+	stale := []sqlc.WritingSnippet{snippet(0, "我看见很多人倒饭，这个现象很严重。")}
+	current := "上周五我在收餐台数了二十分钟，四十多个人把饭倒进桶里。"
+
+	got := buildWritingCoachProjection(wr, nil, stale, current)
+
+	if !strings.Contains(got, "四十多个人") {
+		t.Fatalf("成稿那一版没进上文：\n%s", got)
+	}
+	if strings.Contains(got, "这个现象很严重") {
+		t.Errorf("段落那份旧的还在上文里 —— 陪练会照着它提意见：\n%s", got)
+	}
+	if !strings.Contains(got, "以这里为准") {
+		t.Error("没说清哪一份算数")
+	}
+	// 🚨 那三条规矩在成稿这一支上同样要有。成稿这一支是后加的、而且提前
+	// return，差一点就把它们漏在另一支里 —— 上面那条测试当时用的是空成稿，
+	// 绿着也发现不了。
+	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("成稿这一支上少了 %q", want)
+		}
+	}
+}
+
+// 还没进成稿（或成稿页还没落过字）的时候，照旧以段落为准。
+func TestWritingCoachProjection_FallsBackToSnippetsWithoutADraft(t *testing.T) {
+	wr := sqlc.Writing{Title: "食堂浪费", Lang: "zh", Stage: "snippets"}
+	snips := []sqlc.WritingSnippet{snippet(0, "上周五我数了一下，六个桶是满的。")}
+	for _, body := range []string{"", "   "} {
+		got := buildWritingCoachProjection(wr, nil, snips, body)
+		if !strings.Contains(got, "六个桶是满的") {
+			t.Errorf("没有成稿时该以段落为准（body=%q）：\n%s", body, got)
 		}
 	}
 }

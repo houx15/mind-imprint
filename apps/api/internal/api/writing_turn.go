@@ -112,7 +112,9 @@ type liteWritingTurnReq struct {
 // never invented) — 2026-08-27 product ruling (W-R7): the coach must be able
 // to SEE that length is still unsettled while she is in 构思 so she can raise
 // it, but nothing here treats it as a precondition.
-func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet) string {
+// draftBody 是成稿那一页上她此刻的正文。空串 = 她还没进成稿（或者那一页还没
+// 落过字），这时以段落为准。
+func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet, draftBody string) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
@@ -136,6 +138,34 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 			fmt.Fprintf(&b, "%s- %s\n", indent, truncateRunes(o.Text, 120))
 		}
 	}
+	// 🚨 **成稿那一页开了之后，她的正文就是那一页，不再是段落那几块。**
+	//
+	// 这是 2026-09-12 第二十七轮走查里她自己诊断出来的 —— 而且她是对的：
+	//
+	//	「印记反复让我改一句我正文里根本没有的话（**它在读下面那段只读的旧文本**），
+	//	  导致对话死循环」
+	//	「印记给的修改意见滞后了，我正文框里的第二段已经是改过时态的版本了，
+	//	  它还让我改 go、see、finish eat」
+	//
+	// 她在成稿里改的是 writing_draft.body；段落那几块 writing_snippet 停在她
+	// 进成稿之前的样子（那一栏在屏幕上本来就标着「只读、不会跟着上面变」）。
+	// 而这个上文一直只喂 snippets —— 陪练读的**确实**是那份旧的。
+	//
+	// 前面几轮我一直在治这个的症状（提示词说「以这里为准」、幻引判据、
+	// 把截断上限一路调高），都没治到这儿。根因就是这个函数从来没拿过 draft。
+	//
+	// 一旦有成稿，就**只**给成稿：两份她的文字同时摆在上文里，正是让它挑错
+	// 一份的原因。段落那几块此刻是历史，不是她的正文。
+	if body := strings.TrimSpace(draftBody); body != "" {
+		b.WriteString("正文（**这是她此刻的正文，以这里为准**；" +
+			"上面对话里你早先引过的句子她可能已经改掉了，不要照着那些再提一遍）：\n")
+		b.WriteString(writingProjectionSnippet(body) + "\n")
+		// 🚨 这三条在成稿这一支上同样要有。差点漏掉：这一支是后加的、而且
+		// 提前 return，而那条测试当时用的是空成稿，绿着也没发现。
+		b.WriteString(writingCoachGroundingRules)
+		return b.String()
+	}
+
 	nonEmpty := 0
 	for _, s := range snippets {
 		if strings.TrimSpace(s.Text) != "" {
@@ -380,8 +410,14 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// 成稿那一页的正文。没有这一行，陪练在成稿里读的是段落那份旧的 ——
+	// 见 buildWritingCoachProjection 里那段。没有这一行就当空串（她还没进成稿）。
+	var draftBody string
+	if dr, derr := a.d.Queries.GetWritingDraft(turnCtx, at.ID); derr == nil {
+		draftBody = dr.Body
+	}
 	history := buildWritingTurnHistory(msgs, studentText)
-	projection := buildWritingCoachProjection(wr, outline, snippets)
+	projection := buildWritingCoachProjection(wr, outline, snippets, draftBody)
 	// 她刚摆完一块板 → 在上文里加一句说明，好让 印记 知道她交了作业，
 	// 不是在闲聊。加在 projection 上而不是改那个 producer，因为它是 pro 和
 	// lite 共用的（lite-must-not-break-pro）。见 writing_board.go。
@@ -419,7 +455,8 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	// 教学，扣下整轮反而让她白等一次。这跟解析失败不一样 —— 那种情况屏幕上
 	// 什么都没有。
 	if cerr == nil {
-		corpus := writingQuoteCorpus(snippets, "", msgs)
+		// 判幻引要对着**陪练该读的那一份**来，否则它会跟着一起认旧文本。
+		corpus := writingQuoteCorpus(snippets, draftBody, msgs)
 		if ghost := firstGhostQuote(out.Body, corpus); ghost != "" {
 			slog.Warn("lite writing turn: reply quoted text she never wrote; retrying once",
 				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
