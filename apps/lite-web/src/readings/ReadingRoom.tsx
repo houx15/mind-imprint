@@ -168,7 +168,9 @@ export type ReadingCoachSlot = {
   quotes: { key: string; quote: string; blockId?: string }[];
   removeQuote: (key: string) => void;
   clearQuotes: () => void;
-  /** 把她送到那副敞开的透镜跟前（滚到它挂着的那一段）。见面板里那条锁住时的提示。 */
+  /** 文章上真的有一副敞开的透镜（而不只是「这一栏暂时锁住了」）。 */
+  lensOpen?: boolean;
+  /** 把她送到那副敞开的透镜跟前（滚到它挂着的那一段）。 */
   locateLens?: () => void;
   /** A lens landed on the article from OUTSIDE this room's own turn/summon
    *  flow (印记 minting one mid-带读, via a different endpoint) — so the
@@ -803,6 +805,11 @@ export function ReadingRoom({
             initialMessages={coachMessages}
             slot={{
               locked: busyOrCarded,
+              // 🚨 「锁住了」和「文章上真的有一副透镜」不是一回事：一次还在飞
+              // 的请求也会锁住这一栏。面板那条「请到文章里选一句」只能挂在后者
+              // 上 —— 挂错的话，她会点「带我过去」然后发现屏幕纹丝不动
+              // （走查逐字报过这一条）。
+              lensOpen: Boolean(cardBlockId) && loop.status !== "idle",
               quotes: quoted,
               removeQuote: removeQuoted,
               clearQuotes: () => setQuoted([]),

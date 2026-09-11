@@ -588,7 +588,7 @@ export function ReadingCoachPanel({
             「发送按钮按不动，我打不了字。」她盯着右边这一栏，而那副透镜在**左边
             文章上**，她根本没往那边看。
             一句明确的话 + 一颗把她送过去的按钮。 */}
-        {slot.locked && (
+        {slot.lensOpen && (
           <div
             className="flex items-center justify-between gap-3 rounded-mk-md border px-3 py-2"
             style={{
