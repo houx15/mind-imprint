@@ -530,7 +530,17 @@ func parseWritingGuideBatch(text string, knownIDs map[uuid.UUID]bool) (map[uuid.
 		//
 		// 到齐的留下，没写完的当没给：没拿到引导的那几块照旧摆「获取引导」，
 		// 那个按钮本来就在。见 memory: model-json-half-arrived-2026-09-08。
-		items, okSalvage := salvageWritingGuideBatch(strings.TrimSpace(text))
+		// 🚨 救援要喂**剥过外壳的 `c`**，不是原始的 `text`。
+		//
+		// 这一行原来传的是 `text`。模型只要把回复包进 ```json 围栏里，
+		// `salvageWritingGuideBatch` 第一个 `dec.Token()` 读到的就是反引号，
+		// 直接 return false —— 于是那份**本来救得回来**的回复被整批丢掉，
+		// 她那一屏上每一块都是空的，外加一个「后台错误：AI 响应错误」的弹窗。
+		//
+		// 2026-09-11 的模拟学生走查里这个弹窗挡住了她两次（中英各一次）。
+		// 上面那段注释写着「不要整批丢掉」，而这一行让那段注释在带围栏的回复上
+		// 一次都没生效过。
+		items, okSalvage := salvageWritingGuideBatch(strings.TrimSpace(c))
 		if !okSalvage {
 			return nil, false
 		}

@@ -70,6 +70,8 @@ for (const student of WRITE_STUDENTS) {
     let note: string | undefined;
     let lastKey = "";
     let sameFor = 0;
+    /** 老师走过去说了几次。次数本身是结果，不是噪音。 */
+    let nudges = 0;
 
     /**
      * 等 印记 把这一轮做完。
@@ -99,7 +101,21 @@ for (const student of WRITE_STUDENTS) {
       const key = screenKey(screen);
       sameFor = key === lastKey ? sameFor + 1 : 0;
       lastKey = key;
-      note = sameFor >= 2 ? "上一步之后屏幕没有变化。" : note;
+      // 🚨 她在同一屏上转不出去的时候，给一句越来越具体的话 —— 营地那条 walk
+      // 里这叫「老师介入」，而且**介入次数本身就是结果**：一个二十人的营，
+      // 老师要走过去多少次，就是「够不够清楚」的量化答案。
+      //
+      // 不给这一句的话，一个会认死理的学生能在设定弹窗上耗掉一半的步数，
+      // 后面的段落、板、反馈就全都走不到了 —— 那不是产品的结论，
+      // 是走查没走到那儿。
+      if (sameFor >= 5) {
+        nudges++;
+        note =
+          "你已经在这一屏上停了好几步，屏幕一直没变。别再改那几个框了，" +
+          "直接按下面那几个按钮里能往下走的那一个（比如「开始」「跳过」「去写」）。";
+      } else if (sameFor >= 2) {
+        note = "上一步之后屏幕没有变化。";
+      }
 
       const beat = await think({ student, screen, recent, note });
       note = undefined;
@@ -216,6 +232,7 @@ for (const student of WRITE_STUDENTS) {
     // 🚨 这一行是这条走查最要紧的一个数字。一个只会回「好的」的学生也能把
     // 路走完，而一个字的作文都没有 —— 那种「走通了」毫无意义。
     console.log(`她真的写出来的字数：${wrote}`);
+    console.log(`老师介入次数：${nudges}`);
     const snags = log.filter((b) => b.snag).map((b) => `  [${b.step}] ${b.snag}`);
     console.log(snags.length ? `她卡住/觉得缺东西的地方：\n${snags.join("\n")}` : "她没提出任何卡点。");
     console.log(`板出现过：${log.some((b) => b.board) ? "是" : "否"}`);
