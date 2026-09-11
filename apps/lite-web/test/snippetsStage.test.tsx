@@ -58,6 +58,7 @@ function Harness({
       snippets={snippets}
       onSnippetsChange={setSnippets}
       onGoToStructure={() => {}}
+      lang="zh"
       onGoToDraft={() => {}}
       onSay={async () => {}}
     />

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Layers, MessageSquareText, Check } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
+import { wordUnit } from "./wordUnit";
 import { ApiError } from "../api/client";
 import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
@@ -59,6 +60,7 @@ const AUTOSAVE_MS = 1500;
 
 export function ComposeStage({
   origin,
+  lang,
   writingId,
   draft,
   snippets,
@@ -74,6 +76,8 @@ export function ComposeStage({
   /** Her 段落 blocks, shown in the rail beside the page — there by default,
    *  not summoned. */
   snippets: WritingSnippet[];
+  /** 中文还是英文 —— 篇幅按「字」还是「词」说。见 wordUnit.ts。 */
+  lang: string;
   onDraftChange: (next: WritingDraft) => void;
   onFinished: (writing: Writing) => void;
   /** Lifted so the room header's `EditableTitle` shows the new name the
@@ -447,7 +451,7 @@ export function ComposeStage({
               rechecking={reviewing}
             />
           )}
-          <SnippetRail snippets={snippets} edited={wouldOverwrite} />
+          <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
         </aside>
       </div>
 
@@ -488,7 +492,7 @@ export function ComposeStage({
       >
         <div className="flex flex-col gap-2">
           <p className="text-mk-body text-mk-ink">
-            现在这篇成稿有 {countWords(body)} 字。重新拼会用「段落」里的 {snippets.length} 段整个替换它，你在这一页上写的、改的都会没有，也找不回来。
+            现在这篇成稿有 {countWords(body)} {wordUnit(lang)}。重新拼会用「段落」里的 {snippets.length} 段整个替换它，你在这一页上写的、改的都会没有，也找不回来。
           </p>
           <p className="text-mk-small text-mk-muted">
             如果只是想补上刚改过的某一段，回「段落」改完再回来，把那几句自己贴进去，比整篇重拼稳妥。
@@ -538,7 +542,15 @@ export function ComposeStage({
  * 所以这里现在直说：上面那块是这一篇的正文，下面这些是原文、不会跟着变。
  * 她改过之后再加一句，免得她以为是自己哪一步没保存。
  */
-function SnippetRail({ snippets, edited }: { snippets: WritingSnippet[]; edited: boolean }) {
+function SnippetRail({
+  snippets,
+  edited,
+  lang,
+}: {
+  snippets: WritingSnippet[];
+  edited: boolean;
+  lang: string;
+}) {
   const written = snippets.filter((s) => s.text.trim() !== "").slice().sort((a, b) => a.position - b.position);
 
   return (
@@ -556,7 +568,16 @@ function SnippetRail({ snippets, edited }: { snippets: WritingSnippet[]; edited:
         <ul className="flex list-none flex-col gap-3">
           {written.map((s) => (
             <li key={s.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-3">
-              <p className="text-mk-small text-mk-muted">{s.outlineHeading || "自由段落"}</p>
+              {/* 🚨 每一段各自多少字/词。她要按老师给的篇幅删，得知道删哪一段
+                  才有用 —— 2026-09-12 走查里她的原话是「我找不到每一段分别
+                  多少词的显示」，而那时她正对着一个 150 词的上限。
+                  上面那个总数只告诉她超了，没告诉她超在哪。 */}
+              <p className="flex items-baseline justify-between gap-2 text-mk-small text-mk-muted">
+                <span className="min-w-0 truncate">{s.outlineHeading || "自由段落"}</span>
+                <span className="shrink-0">
+                  {countWords(s.text)} {wordUnit(lang)}
+                </span>
+              </p>
               <p className="mt-1 whitespace-pre-wrap text-mk-body text-mk-ink">{s.text}</p>
             </li>
           ))}

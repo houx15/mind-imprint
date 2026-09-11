@@ -491,6 +491,7 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          lang={writing.lang}
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}
@@ -501,6 +502,7 @@ function StagePanel({
       return (
         <ComposeStage
           origin={writing.origin}
+          lang={writing.lang}
           writingId={writingId}
           draft={draft}
           snippets={snippets}
@@ -527,6 +529,7 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          lang={writing.lang}
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}

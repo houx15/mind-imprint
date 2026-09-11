@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, HelpCircle, Eye, LayoutGrid } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
+import { wordUnit } from "./wordUnit";
 import { ApiError } from "../api/client";
 import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
@@ -136,6 +137,7 @@ export function SnippetsStage({
   outline,
   snippets,
   onSnippetsChange,
+  lang,
   onGoToStructure,
   onGoToDraft,
   onSay,
@@ -148,6 +150,8 @@ export function SnippetsStage({
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
   /** Sends her to 结构 from the empty state — naming the step she needs is
    *  not the same as getting her there. */
+  /** 这一篇是中文还是英文 —— 决定篇幅按「字」还是「词」说。见 wordUnit.ts。 */
+  lang: string;
   onGoToStructure: () => void;
   /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
   onGoToDraft: () => void;
@@ -332,6 +336,7 @@ export function SnippetsStage({
               }}
               onSaved={onSnippetsChange}
               onSay={onSay}
+              lang={lang}
               boardKey={`${oid ?? "free"}-${slot.position}`}
               openBoardFor={openBoardFor}
               onBoardOpen={setOpenBoardFor}
@@ -399,6 +404,7 @@ function SnippetBlock({
   boardKey,
   openBoardFor,
   onBoardOpen,
+  lang,
 }: {
   writingId: string;
   slot: Slot;
@@ -415,6 +421,7 @@ function SnippetBlock({
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
   /** 这一块在「谁的板开着」里的名字。 */
   boardKey: string;
+  lang: string;
   openBoardFor: string | null;
   onBoardOpen: (key: string | null) => void;
 }) {
@@ -653,13 +660,13 @@ function SnippetBlock({
         {saving ? (
           <span>处理中…</span>
         ) : saved ? (
-          <span>已保存 · {countWords(text)} 字</span>
+          <span>已保存 · {countWords(text)} {wordUnit(lang)}</span>
         ) : text.trim() !== "" ? (
           <>
             <Button variant="secondary" size="sm" onClick={() => void save()}>
               保存这一段
             </Button>
-            <span>{countWords(text)} 字</span>
+            <span>{countWords(text)} {wordUnit(lang)}</span>
           </>
         ) : null}
       </div>
