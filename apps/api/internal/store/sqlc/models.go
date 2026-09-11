@@ -531,9 +531,10 @@ type NewsDay struct {
 }
 
 type NewsPlanet struct {
-	ID           uuid.UUID          `json:"id"`
-	Day          pgtype.Date        `json:"day"`
-	Rank         int32              `json:"rank"`
+	ID   uuid.UUID   `json:"id"`
+	Day  pgtype.Date `json:"day"`
+	Rank int32       `json:"rank"`
+	// 原标题的如实翻译（不是改写）。校验见 internal/news/write.go 的 checkTitle：原标题不是问句时译文里不许有问号，也不许出现原标题里没有的数字。
 	TitleZh      string             `json:"title_zh"`
 	TitleEn      string             `json:"title_en"`
 	Summary      string             `json:"summary"`
@@ -1193,6 +1194,8 @@ type Writing struct {
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 	StructureKey string             `json:"structure_key"`
 	SetupAt      pgtype.Timestamptz `json:"setup_at"`
+	// here = 在这个房间里写的；brought = 她带进来的成稿。报告据此说明哪几步没有发生过。
+	Origin string `json:"origin"`
 }
 
 type WritingComment struct {

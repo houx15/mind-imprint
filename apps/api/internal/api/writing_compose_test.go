@@ -104,8 +104,10 @@ type commentResp struct {
 }
 
 type writingResp struct {
-	ID         string  `json:"id"`
-	Stage      string  `json:"stage"`
+	ID    string `json:"id"`
+	Stage string `json:"stage"`
+	// Origin: "here" 在这儿写的 / "brought" 她带进来的（0146）。
+	Origin     string  `json:"origin"`
 	Status     string  `json:"status"`
 	FinishedAt *string `json:"finishedAt"`
 }

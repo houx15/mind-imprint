@@ -15,7 +15,7 @@ import (
 
 const createWriting = `-- name: CreateWriting :one
 
-INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
 `
 
 type CreateWritingParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		&i.FinishedAt,
 		&i.StructureKey,
 		&i.SetupAt,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -105,7 +106,7 @@ func (q *Queries) GetLatestWritingDraftComment(ctx context.Context, atomID uuid.
 }
 
 const getWriting = `-- name: GetWriting :one
-SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at FROM writing WHERE atom_id = $1
+SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin FROM writing WHERE atom_id = $1
 `
 
 func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, error) {
@@ -122,6 +123,7 @@ func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, er
 		&i.FinishedAt,
 		&i.StructureKey,
 		&i.SetupAt,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -275,7 +277,7 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, a.created_at AS atom_created_at, a.last_activity_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, w.origin, a.created_at AS atom_created_at, a.last_activity_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
@@ -293,6 +295,7 @@ type ListWritingsByUserRow struct {
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
 	StructureKey   string             `json:"structure_key"`
 	SetupAt        pgtype.Timestamptz `json:"setup_at"`
+	Origin         string             `json:"origin"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 }
@@ -327,6 +330,7 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.FinishedAt,
 			&i.StructureKey,
 			&i.SetupAt,
+			&i.Origin,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 		); err != nil {
@@ -338,6 +342,19 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const markWritingBrought = `-- name: MarkWritingBrought :exec
+UPDATE writing SET origin = 'brought', stage = 'draft', updated_at = now()
+WHERE atom_id = $1
+`
+
+// 她带进来的一篇成稿：来源记成 brought，而且直接落在 draft ——
+// 结构和段落两步对这一篇根本没有发生过，让它假装经过那两步是不诚实的。
+// origin 为什么要存下来，见 0146_writing_origin.sql。
+func (q *Queries) MarkWritingBrought(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markWritingBrought, atomID)
+	return err
 }
 
 const relinkWritingSnippetOutline = `-- name: RelinkWritingSnippetOutline :exec
@@ -471,7 +488,7 @@ const setWritingSetup = `-- name: SetWritingSetup :one
 UPDATE writing
 SET lang = $2, target_words = $3, setup_at = now(), updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
 `
 
 type SetWritingSetupParams struct {
@@ -498,12 +515,13 @@ func (q *Queries) SetWritingSetup(ctx context.Context, arg SetWritingSetupParams
 		&i.FinishedAt,
 		&i.StructureKey,
 		&i.SetupAt,
+		&i.Origin,
 	)
 	return i, err
 }
 
 const setWritingStage = `-- name: SetWritingStage :one
-UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
 `
 
 type SetWritingStageParams struct {
@@ -528,6 +546,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 		&i.FinishedAt,
 		&i.StructureKey,
 		&i.SetupAt,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -535,7 +554,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 const setWritingStructure = `-- name: SetWritingStructure :one
 UPDATE writing SET structure_key = $2, updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
 `
 
 type SetWritingStructureParams struct {
@@ -559,6 +578,7 @@ func (q *Queries) SetWritingStructure(ctx context.Context, arg SetWritingStructu
 		&i.FinishedAt,
 		&i.StructureKey,
 		&i.SetupAt,
+		&i.Origin,
 	)
 	return i, err
 }

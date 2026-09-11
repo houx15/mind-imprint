@@ -58,6 +58,7 @@ import { apiErrorText } from "../api/errorText";
 const AUTOSAVE_MS = 1500;
 
 export function ComposeStage({
+  origin,
   writingId,
   draft,
   snippets,
@@ -65,6 +66,9 @@ export function ComposeStage({
   onFinished,
   onRenamed,
 }: {
+  /** `"brought"` = 她带进来的成稿（0146）。这一页据此说明结构和段落两步没有
+   *  走过 —— 她看见那两步是空的，得知道为什么。 */
+  origin?: string;
   writingId: string;
   draft: WritingDraft;
   /** Her 段落 blocks, shown in the rail beside the page — there by default,
@@ -398,6 +402,16 @@ export function ComposeStage({
       {error && (
         <p role="alert" className="shrink-0 px-4 py-2 text-mk-small text-mk-danger">
           {error}
+        </p>
+      )}
+
+      {/* 🚨 如实说这一篇是带进来的。
+          不是元数据洁癖：她会看到结构和段落两步是空的，得知道为什么；
+          而过程评估的全部意义就是分清哪些是她在这儿想出来的
+          —— 铁律① 最后半句说的就是「诚实介绍 AI 和人的分工」。 */}
+      {origin === "brought" && (
+        <p className="shrink-0 px-4 py-2 text-mk-small text-mk-muted">
+          这一篇是你带进来的。结构和段落两步没有走过，印记 只看这一份成稿。
         </p>
       )}
 

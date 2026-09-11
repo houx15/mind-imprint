@@ -37,6 +37,9 @@ export interface Writing {
    *  readings.ts's `Reading.lastActivityAt` exactly. */
   lastActivityAt: string;
   finishedAt: string | null;
+  /** `"here"` 在这个房间里写的 / `"brought"` 她带进来的成稿（0146）。
+   *  界面据此说明结构和段落两步没有发生过。老的行读到 "here"。 */
+  origin?: string;
 }
 
 /** A writing is finished when the server says so — same both-fields
@@ -70,11 +73,21 @@ export async function listWritings(limit?: number): Promise<Writing[]> {
  * and had no way to discover why. The entry 设定 dialog now asks her outright
  * and overwrites this via `setWritingSetup` before she does anything, so a
  * wrong guess at creation time costs nothing.
+ *
+ * `body` 是她**已经写完**带进来的那一篇（2026-09-11）。给了 body，服务端会把
+ * 这一篇直接落在 draft、来源记成 brought —— 她要的是意见，不是从零开始。
+ * 正文只进 writing_draft，不进转录（理由见 writings.go）。
  */
-export async function createWriting(input: { idea: string; lang?: "zh" | "en" }): Promise<{ id: string }> {
+export async function createWriting(input: {
+  idea: string;
+  lang?: "zh" | "en";
+  body?: string;
+}): Promise<{ id: string }> {
+  const payload: Record<string, string> = { idea: input.idea, lang: input.lang ?? "zh" };
+  if (input.body) payload.body = input.body;
   return apiFetch<{ id: string }>("/api/v1/writings", {
     method: "POST",
-    body: JSON.stringify({ idea: input.idea, lang: input.lang ?? "zh" }),
+    body: JSON.stringify(payload),
   });
 }
 

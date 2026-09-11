@@ -495,6 +495,7 @@ function StagePanel({
     case "finished":
       return (
         <ComposeStage
+          origin={writing.origin}
           writingId={writingId}
           draft={draft}
           snippets={snippets}
