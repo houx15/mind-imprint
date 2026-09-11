@@ -1011,6 +1011,20 @@ func tailRunes(s string, n int) string {
 	return "…" + string(r[len(r)-n:])
 }
 
+// headRunes returns the first n runes of s, for the same reason tailRunes
+// returns the last ones.
+//
+// 🚨 两头都要。一份读不出来的回复，只看尾巴分不出「前几块是好的、坏在最后一
+// 块」和「第一块就坏了」——而这两种的处置完全相反：前者该查救援那条路，
+// 后者该查提示词。2026-09-11 线上那一条只有尾巴，两种猜都成立。
+func headRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
 // salvageCoachReply reads a coach reply key by key and keeps every field that
 // arrived whole, stopping at the first one that did not.
 //

@@ -151,7 +151,7 @@ export function renderWriteScreen(a: WriteAffordances): string {
         `屏幕上有一块板。上面还没摆的卡片：`,
         a.board.chips.length
           ? a.board.chips.map((c) => `  [${c.i}] ${c.text}`).join("\n")
-          : "  （都摆好了）",
+          : "  （都摆好了 —— 现在去点那颗「标好了」把结果交上去）",
         `能摆进去的格子：`,
         a.board.bins.map((b) => `  [${b.i}] ${b.name}`).join("\n"),
       ].join("\n")

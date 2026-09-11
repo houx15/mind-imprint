@@ -628,6 +628,21 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 			}
 			parent = &p
 		}
+		// 🚨 图上已经有这句话了，就不要再加一个。
+		//
+		// 这一路是**只加不改**的，所以重复的节点谁也删不掉，它会一直摆在那儿。
+		// 2026-09-11 线上走查里她就撞上了：「第五段的标签跟我第二段一模一样，
+		// 不知道是不是系统搞错了」—— 而提纲的每一块都会变成段落那一步的一个
+		// 写作格子，于是她要对着两个一模一样的标题各写一段。
+		//
+		// 模型这么干不是出错：她把同一件事又说了一遍，它就又记了一遍。
+		// 判据放在**文字**上而不是让模型自己记得，理由和 parentId 那条一样 ——
+		// 能在代码里验的，就别只写在提示词里。
+		if outlineHasText(live, node.Text) {
+			slog.Warn("writing plan turn: duplicate node text, dropped",
+				"atom_id", at.ID, "text", truncateRunes(node.Text, 40))
+			continue
+		}
 		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, parent, node.Text, node.Role)
 		if ierr != nil {
 			httpx.WriteError(w, r, ierr)

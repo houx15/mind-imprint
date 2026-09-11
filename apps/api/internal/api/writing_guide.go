@@ -849,9 +849,18 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		// 🚨 把模型到底回了什么记下来。上一版只说一句「unparseable」，而排查一次
 		// 模型回复唯一有用的证据就是它写了什么 —— 2026-09-08 这条 502 就是靠
 		// 补上 reply_tail 才两分钟定位的（同 reading_plan.go）。
+		// 🚨 尾巴不够，**开头也要记**。
+		//
+		// 整批被丢掉有两种完全不同的原因，而它们要靠开头才分得开：
+		//   一 · 前几块是好的，坏在最后一块 —— 那么救援本该捞回前几块，
+		//        它没捞到就是救援这条路上出了问题。
+		//   二 · **第一块**就坏了 —— 救援一条都捞不到是正确行为，
+		//        该改的是提示词或者档位，不是救援。
+		// 2026-09-11 线上这一条只有尾巴，两种猜都成立，等于没有证据。
 		slog.Warn("writing block guide batch: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
 			"stop_reason", res.StopReason, "reply_len", len(res.Text),
+			"reply_head", headRunes(res.Text, 220),
 			"reply_tail", tailRunes(res.Text, 200))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return

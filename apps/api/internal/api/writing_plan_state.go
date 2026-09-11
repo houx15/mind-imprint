@@ -197,6 +197,44 @@ func (s writingPlanShape) promptBlock() string {
 	return b.String()
 }
 
+// outlineHasText 说这张图上有没有已经写着这句话的节点。
+//
+// 比的是**规范化之后**的文字：去掉首尾空白、统一大小写（英文那一侧
+// "Serving staff give too much" 和 "serving staff give too much" 是同一句），
+// 并且把空白和常见句读抹平 —— 模型复述同一句话时，最常变的就是句末那个标点。
+//
+// 🚨 不做模糊匹配。「差不多的两句」是两句，判重只认「基本上就是同一句」：
+// 判错的代价不对称 —— 多留一个重复节点她自己看得见、能改；把她真的新说的
+// 一件事当成重复丢掉，她永远不知道发生过什么。
+func outlineHasText(rows []sqlc.WritingOutline, text string) bool {
+	want := normalizeOutlineText(text)
+	if want == "" {
+		return false
+	}
+	for _, r := range rows {
+		if normalizeOutlineText(r.Text) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeOutlineText(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case ' ', '\t', '\n', '　',
+			'。', '，', '、', '；', '：', '！', '？',
+			'.', ',', ';', ':', '!', '?':
+			// 空白和句读不参与比对。
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // writingPlanStalledBlock 是她连着两轮等于没答时，加进 prompt 的那一段。
 //
 // 🚨 这一段**只在真的停滞时出现**，不做常驻。2026-09-05 的教训：

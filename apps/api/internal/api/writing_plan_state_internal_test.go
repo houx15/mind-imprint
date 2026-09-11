@@ -120,3 +120,38 @@ func TestWritingPlanShape_PromptBlockNamesWhatIsMissing(t *testing.T) {
 		t.Fatalf("a plan that meets every criterion must say so:\n%s", full)
 	}
 }
+
+// 图上已经有这句话了，就不要再加一个 —— 2026-09-11 线上走查里她撞上的那一种：
+// 「第五段的标签跟我第二段一模一样，不知道是不是系统搞错了」。
+//
+// 这一路是只加不改的，重复的节点谁也删不掉；而提纲的每一块都会变成段落那一步
+// 的一个写作格子，于是她要对着两个一模一样的标题各写一段。
+func TestOutlineHasText(t *testing.T) {
+	rows := []sqlc.WritingOutline{
+		node("食堂每天倒掉的饭特别多", 0),
+		node("Serving staff give too much, students can't finish", 1),
+	}
+
+	for _, same := range []string{
+		"食堂每天倒掉的饭特别多",   // 一模一样
+		"食堂每天倒掉的饭特别多。",  // 只差句末标点 —— 模型复述时最常变的就是这个
+		"  食堂每天倒掉的饭特别多  ", // 前后空白
+		"serving staff give too much, students can't finish", // 英文只差大小写
+	} {
+		if !outlineHasText(rows, same) {
+			t.Errorf("没认出重复：%q", same)
+		}
+	}
+
+	// 🚨 差不多的两句是两句。判错的代价不对称：多留一个重复节点她看得见、能改；
+	// 把她真的新说的一件事当成重复丢掉，她永远不知道发生过什么。
+	for _, different := range []string{
+		"食堂每天倒掉的菜特别多",
+		"食堂每天倒掉的饭特别多，尤其是米饭",
+		"",
+	} {
+		if outlineHasText(rows, different) {
+			t.Errorf("把一句不一样的话当成重复丢掉了：%q", different)
+		}
+	}
+}
