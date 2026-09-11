@@ -198,6 +198,11 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 %LENS%
 
 规矩：
+- 🚨 **方法名照说，但说完要跟一句白话。**
+  「传播学」「科学方法论」这些名字她要学，所以照说；但一个名字后面不跟一句
+  「它就是看……」，那个名字对她就只是一个生词。实测她逐字报的：
+  「它让我用传播学的角度分析……我真的不懂这些词是什么意思，我只是个高中生。」
+  说法是：先给名字，再一句白话，然后当场拿这一段的某一句做一遍。
 - 🚨 **先问自己：这篇文章撑得住这副透镜吗？**
   挑透镜要看**这一篇有没有那种东西**，不是看哪副听起来更深。
   实测出过这么一次：一篇讲打仗和救援物资的新闻，你召了「科学方法论」那副，
@@ -1110,6 +1115,9 @@ type readingCoachReply struct {
 	cardWhy cardReject
 	// lensWhy 同理：这一轮那副透镜为什么没落到文章上。
 	lensWhy string
+	// lensNoDemo：透镜递出去了，但这一轮的话里没有当着她的面做一遍。
+	// 和上面两个不一样 —— 它不导致任何东西被丢掉，只让这一轮重来一次。
+	lensNoDemo bool
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -1350,6 +1358,24 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 只在没卡片也没透镜的时候判 —— 带着卡片时用冒号收尾是正常写法。
 	if got.cardWhy == cardOK && got.Card == nil && got.Lens == "" && replyLooksCutOff(got.Reply) {
 		got.cardWhy = cardRejectCutOff
+	}
+	// 🚨 递透镜的那一轮，话里必须当着她的面把这套看法做一遍 —— 拿原文的一句。
+	//
+	// prompt 里早就写着「先在 reply 里挑出这一段里的某一句，当着她的面把这种
+	// 分析做一遍」，但没有任何东西验它。实测她逐字报的：
+	//   「它一直让我用一副『透镜』去拆句子，但从来没给我看过这副透镜是什么、
+	//     怎么用。前面说要先演示一遍给我看，结果什么都没有。」
+	//   「它让我用传播学的角度分析……我真的不懂这些词是什么意思，我只是个高中生。」
+	// 方法名照说（[[yinji-must-talk-like-a-teacher]]：要用真的方法名），
+	// 但光有名字没有示范，那个名字对她就是一个生词。
+	//
+	// 判据是能验的那一个：**这一轮的话里有没有一段逐字来自落点段的原文**。
+	// 示范一定引原句，空谈一定不引。
+	//
+	// 🚨 这一条**不丢透镜**。丢了她就只剩那几个生词而没有工具，比教得薄更糟。
+	// 走的是重来一次那条路：第二次带上示范就用第二次，仍然没有就照常把透镜给她。
+	if got.Lens != "" && got.lensWhy == "" && !replyQuotesBlock(got.Reply, blocks, got.FocusBlock) {
+		got.lensNoDemo = true
 	}
 	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
 	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
@@ -1635,9 +1661,13 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
 	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
-		parsed.cardWhy == cardRejectDeadTurn) {
+		parsed.cardWhy == cardRejectDeadTurn || parsed.lensNoDemo) {
+		why := string(parsed.cardWhy)
+		if parsed.lensNoDemo {
+			why = "the lens turn never demonstrates the method on a real sentence"
+		}
 		slog.Warn("reading coach: reply looks broken, retrying once",
-			"why", string(parsed.cardWhy),
+			"why", why,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		if retryRes, retryErr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq); retryErr == nil {
 			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, retryRes.Usage)
@@ -1645,7 +1675,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 否则留着第一次那份 —— 它至少是完整的一句话。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				again.cardWhy != cardRejectPromised && again.cardWhy != cardRejectCutOff &&
-				again.cardWhy != cardRejectDeadTurn {
+				again.cardWhy != cardRejectDeadTurn && !again.lensNoDemo {
 				res, parsed = retryRes, again
 			}
 		}
@@ -1946,4 +1976,28 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		resp["coachCard"] = parsed.Card
 	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+
+// replyQuotesBlock —— 这一轮的话里，有没有一段逐字来自那一段的原文。
+//
+// 用来判「它是真的做了一遍示范，还是只说了这套看法的名字」。示范一定引原句
+// （prompt 要求挑出那一段里的某一句当着她的面分析），空谈一定不引。
+//
+// 窗口沿用 replyMentionsSentence 那一套：中文八个字、英文二十个字母。
+func replyQuotesBlock(reply string, blocks []Block, blockID string) bool {
+	if reply == "" || blockID == "" {
+		return false
+	}
+	for _, b := range blocks {
+		if b.ID != blockID {
+			continue
+		}
+		for _, sent := range splitSentences(b.Text) {
+			if replyMentionsSentence(reply, sent) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }

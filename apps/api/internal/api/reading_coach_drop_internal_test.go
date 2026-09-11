@@ -364,3 +364,44 @@ func TestAdvancingWithoutAnAskIsStillADeadTurn(t *testing.T) {
 		t.Fatalf("推进了但什么都没请她做，应该判 dead turn，拿到 %q", got.cardWhy)
 	}
 }
+
+// 🚨 递透镜的那一轮，话里要当着她的面把这套看法做一遍 —— 拿原文的一句。
+//
+// 实测她逐字报的：「它一直让我用一副『透镜』去拆句子，但从来没给我看过这副
+// 透镜是什么、怎么用。前面说要先演示一遍给我看，结果什么都没有。」
+// 以及：「我真的不懂这些词是什么意思，我只是个高中生。」
+//
+// 方法名照说（印记 要用真的方法名），但光有名字没有示范，那个名字对她就是
+// 一个生词。判据取能验的那一个：这一轮的话里有没有一段逐字来自落点段的原文。
+func TestLensTurnMustDemonstrateOnARealSentence(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	lensOK := func(string) bool { return true }
+
+	// 只说了方法名，没引原文 —— 空谈。
+	empty := `{"reply":"我们用传播学的角度看第 1 段，注意表达方式怎么影响判断。",
+	            "lens":"lens-communication","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(empty, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensNoDemo {
+		t.Fatal("这一轮没有示范，应该认出来")
+	}
+	// 🚨 透镜不能因此被丢掉 —— 丢了她就只剩几个生词而没有工具。
+	if got.Lens == "" {
+		t.Fatal("透镜被丢掉了；这一条只该让这一轮重来，不该丢东西")
+	}
+
+	// 引了原文那一句 —— 这才是示范。
+	demo := `{"reply":"看第 1 段这句：Officials cautioned that the figure could not be independently verified。cautioned 和 could not be verified 把这条数字的分量压下来了。",
+	           "lens":"lens-communication","focusBlock":"b1"}`
+	got2, ok2 := parseReadingCoachReply(demo, blocks, "en", lensOK)
+	if !ok2 {
+		t.Fatal("解析失败")
+	}
+	if got2.lensNoDemo {
+		t.Fatal("这一轮引了原句，是做过示范的")
+	}
+}
