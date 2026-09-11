@@ -1725,8 +1725,14 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	//
 	// 🚨 兜底出来的那块板照样送进 validateCoachCard：它不是一条绕过校验的后门，
 	// 句子逐字来自正文，本来就过得了。
-	if cur := currentReadingTask(tasks); cur != nil && cur.Kind == string(taskLabel) &&
-		parsed.Card == nil && parsed.Lens == "" {
+	// 🚨 两种情况都要摆板：走到标注论证那一步，**或者**它嘴上说了板却没附。
+	//
+	// 后一种是实测反复出现的那一幕：她刚把板交上去（板随即从屏幕上收走），
+	// 印记 接着说「把这句挪到主张旁边」「再拖一张过去」，她照着做时屏幕上什么
+	// 都没有。prompt 里写了「想让她再摆一次就重新发一块新的板」，它不照做。
+	// 写了两版规矩都不管用之后，改成：它说了，我们就真的给她一块。
+	if cur := currentReadingTask(tasks); cur != nil && parsed.Card == nil && parsed.Lens == "" &&
+		(cur.Kind == string(taskLabel) || replyPromisesACard(parsed.Reply)) {
 		focus := parsed.FocusBlock
 		if focus == "" {
 			focus = cur.BlockID
