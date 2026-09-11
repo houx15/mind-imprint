@@ -131,14 +131,12 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
       .isVisible()
       .catch(() => false);
     if (lensOpen) {
-      // 🚨 透镜是两段的：先看 印记 的示范，点过「看懂示范，开始选句」之后
-      // 正文才收她的选择。走查不知道这道门，于是在示范还开着的时候一遍遍点
-      // 正文 —— 170 步里划了 140 次，引文数始终是 0。
-      const gate = page.getByRole("button", { name: "看懂示范，开始选句" });
-      if (await gate.isVisible().catch(() => false)) {
-        await gate.click();
-        await page.waitForTimeout(300);
-      }
+      // 🚨 这道门**不在这里替它点**。
+      //
+      // 第一版在这里自动点掉了「看懂示范，开始选句」，于是 印记 那段示范在模型
+      // 读到之前就被收走了 —— 她逐字报的：「前面说要先演示一遍给我看，结果
+      // 什么都没有……我连工具都不会用。」那段示范正是这一步要教的东西。
+      // 门留给它自己点（screen.ts 里会告诉它门在哪），示范因此一定被读过。
       // 透镜模式：点在那句话的中间。Annotate 按坐标去认是哪一句。
       const box = await p.evaluate((el, want) => {
         const text = el.textContent ?? "";

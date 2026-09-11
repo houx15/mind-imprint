@@ -87,11 +87,17 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
   // 选完之后屏幕上出现「重新选一句 / 记下这条发现」，而模型只拿得到文字，看不出
   // 「那一句已经收下了」。于是它以为自己还没选中，一遍遍地重选 —— 一条 170 步的
   // 走查里划了 123 次，只换来 3 句话。
+  const lensDemo = base.buttons.some((b) => b.label === "看懂示范，开始选句");
   const lensPicked = base.buttons.some((b) => b.label === "记下这条发现");
   const allPlaced = board !== null && board.chips.length > 0 && board.chips.every((c) => c.in);
   let text = text0;
   if (allPlaced) {
     text += `\n\n（系统提示：板上的卡片都摆好了，现在请点「摆好了」那颗按钮交上去。）`;
+  }
+  if (lensDemo) {
+    text +=
+      `\n\n（系统提示：印记 正在示范这副透镜怎么用，上面那段就是示范。` +
+      `读完它，再点「看懂示范，开始选句」—— 点之前在文章里选句子是不算数的。）`;
   }
   if (lensPicked) {
     text +=
