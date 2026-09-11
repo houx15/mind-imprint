@@ -395,6 +395,26 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 	}
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标字数"))
+
+	// 🚨 【可用的方法】必须真的出现在这里。
+	//
+	// 系统提示词从一开始就写着「method 取自【可用的方法】的 id」，但这个
+	// builder 从来没把那张表放进去过——2026-09-11 的 LIVE_LLM 实测一眼看穿：
+	// 真模型回了 `"method":"concrete_data"` 和 `"specific_detail"`，
+	// 两个都不存在，于是 validateCommentPoints 把这个字段清空，
+	// 「说出她刚才用对的是哪一个方法」这件事**一次都没发生过**。
+	//
+	// 单元测试对这个是绿的（我喂的 JSON 里写的是真 id），屏幕上也看不出来
+	// （少一个方法名而已）。这正是那条「prompt 里的必须要能在代码里验」
+	// 反过来的一面：能验，但得先把可选项给它。
+	//
+	// 按语言过滤，理由同 writing_plan.go：一句英文句式出现在中文作文的意见里
+	// 是个 bug。
+	b.WriteString("\n【可用的方法】（method 只能从这里挑 id，别自己造词）\n")
+	for _, m := range vocab.ForLang(wr.Lang) {
+		b.WriteString("- " + m.ID + "（" + m.Label() + "）：" + m.Definition + "\n")
+	}
+
 	b.WriteString("\n" + label + "：\n" + text + "\n")
 	return b.String()
 }

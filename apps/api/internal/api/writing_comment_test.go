@@ -1,6 +1,11 @@
 package api
 
-import "testing"
+import (
+	"testing"
+
+	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/vocab"
+)
 
 // 这些测的都是「读代码看不出对错」的那一类：一条意见在什么情况下会被丢掉。
 // 每一条对应 writing_comment.go 里一条写成代码的规矩——prompt 里的「必须」
@@ -181,6 +186,33 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 		for l := writingLayerClaim; l <= writingLayerSentence; l++ {
 			if byLayer[l] == 0 {
 				t.Fatalf("%s: layer %d has no symptoms", lang, l)
+			}
+		}
+	}
+}
+
+// 🚨 系统提示词说「method 取自【可用的方法】」，那份表就必须真的在用户那一轮里。
+//
+// 这条测试是被 LIVE_LLM 实测逼出来的：prompt 一直这么写，而 builder 从来没把
+// 表放进去，于是真模型回了 `concrete_data` / `specific_detail` 两个不存在的 id，
+// 校验器把字段清空 ——「说出她用对了哪个方法」这件事一次都没发生过。
+// 单元测试当时全绿（我喂的 JSON 里写的是真 id），屏幕上也看不出来。
+//
+// 凡是提示词里点名要模型从某张表里挑的东西，那张表在不在 prompt 里，
+// 都是可以这样机械地验一次的。
+func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
+	for _, lang := range []string{"zh", "en"} {
+		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。")
+		if !contains(prompt, "【可用的方法】") {
+			t.Fatalf("%s: prompt 里没有【可用的方法】这一节", lang)
+		}
+		methods := vocab.ForLang(lang)
+		if len(methods) == 0 {
+			t.Fatalf("%s: 方法库是空的", lang)
+		}
+		for _, m := range methods {
+			if !contains(prompt, m.ID) {
+				t.Fatalf("%s: prompt 里缺方法 id %q —— 模型挑不到它，只会自己造一个", lang, m.ID)
 			}
 		}
 	}
