@@ -1,4 +1,4 @@
-import { Icon } from "@/ui";
+import { Button, Icon } from "@/ui";
 import { ArrowRight, Quote } from "lucide-react";
 import { COMMENT_LAYER_NAMES, type Comment } from "../api/writingRoom";
 
@@ -23,7 +23,64 @@ import { COMMENT_LAYER_NAMES, type Comment } from "../api/writingRoom";
  * DOM attribute, not a design choice — because the later e2e walk selects
  * `[data-comment-point]` and nothing else in this plan creates it.
  */
-export function CommentPanel({ comment, onTrace }: { comment: Comment; onTrace: (quote: string) => void }) {
+/**
+ * 这条意见说的是不是上一版。
+ *
+ * 判据和服务端存进来时用的是同一条（writing_comment.go 的
+ * validateCommentPoints：quote 必须逐字出现在她写的东西里）。当时成立、
+ * 现在不成立，只可能是她把那句话改掉了——也就是她照着这条做了。
+ *
+ * 🚨 两条边界都是「拿不准就当还算数」，而且方向是故意的：
+ * 把一条还有效的意见标成「上一版」，等于告诉她一件没做完的事不用做了；
+ * 反过来只是多留一条旧话在屏幕上，她点一下「再看一遍」就清掉。
+ *
+ *   - `currentText` 没给（成稿那一步还没接）→ 不算上一版。
+ *   - `quote` 是空的（2026-09-11 之前存下来的老评论可能没有）→ 不算。
+ *     空串是任何字符串的子串，不挡这一下的话，`includes("")` 永远为真，
+ *     结论会反过来。
+ */
+export function commentPointIsStale(quote: string, currentText?: string): boolean {
+  if (currentText === undefined) return false;
+  if (quote.trim() === "") return false;
+  return !currentText.includes(quote);
+}
+
+export function CommentPanel({
+  comment,
+  onTrace,
+  currentText,
+  onRecheck,
+  rechecking = false,
+}: {
+  comment: Comment;
+  onTrace: (quote: string) => void;
+  /**
+   * 她现在框里的字。给了的话，这块面板就能认出哪几条说的已经是上一版。
+   * 不给（成稿那一步暂时没给）就照旧全都当成还算数。
+   */
+  currentText?: string;
+  /** 「请印记再看一遍」。不给就不摆那颗按钮。 */
+  onRecheck?: () => void;
+  rechecking?: boolean;
+}) {
+  // 🚨 **一条意见指着的那句话不在了，这条意见就是上一版的。**
+  //
+  // 判据和服务端存进来时用的是同一条（writing_comment.go 的
+  // validateCommentPoints：quote 必须逐字出现在她写的东西里）。当时成立，
+  // 现在不成立，只可能是她把那句话改掉了 —— 也就是她照着这条做了。
+  //
+  // 2026-09-11 第三轮线上走查，三条卡壳说的都是这一件事：
+  //   「框[0]里同时存在我新写的带 So 的版本和它标黄的旧版本，看着像没保存好」
+  //   「框1里明明已经有那句话了，但下面还在叫我加。是不是要重新提交它才看得到？」
+  //   「印记的回复好像还在说旧版的顺序问题」
+  // 她照着意见改完，意见还挂在那儿说着改之前的话，于是她读成了
+  //「印记没看见我改了」。改完之后**没有任何东西告诉她这一轮结束了**。
+  //
+  // 这里不调模型、不猜她改得好不好：只诚实地说「这条说的是上一版」，
+  // 再把下一步递给她。判她改得对不对是 onRecheck 那一下的事，由她决定。
+  const stale = (quote: string) => commentPointIsStale(quote, currentText);
+  const staleCount = comment.points.filter((p) => stale(p.quote)).length;
+
   return (
     <div className="flex flex-col gap-4 rounded-mk-md border border-mk-border bg-mk-paper p-4">
       <p className="text-mk-body-lg font-semibold text-mk-ink">{comment.summary}</p>
@@ -35,17 +92,29 @@ export function CommentPanel({ comment, onTrace }: { comment: Comment; onTrace: 
               <button
                 type="button"
                 data-comment-point
+                data-comment-stale={stale(point.quote) ? "" : undefined}
                 onClick={() => onTrace(point.quote)}
-                className="flex w-full flex-col items-start gap-1.5 rounded-mk-md border p-3 text-left transition-colors hover:border-mk-accent"
+                className={
+                  "flex w-full flex-col items-start gap-1.5 rounded-mk-md border p-3 text-left transition-colors hover:border-mk-accent" +
+                  (stale(point.quote) ? " opacity-55" : "")
+                }
                 style={{
                   borderColor: "var(--mk-border)",
-                  background: "color-mix(in srgb, var(--mk-accent-500) 5%, transparent)",
+                  background: stale(point.quote)
+                    ? "transparent"
+                    : "color-mix(in srgb, var(--mk-accent-500) 5%, transparent)",
                 }}
               >
                 {/* 已经用对的那一条排在最前面，给它一个看得出来的标。
                     要改的那些带一个层名（立意/材料/结构/字句）——她因此知道
                     印记这一轮在管哪一层，而不是随口挑了一句。 */}
                 <span className="flex items-center gap-2">
+                  {/* 这条说的是上一版 —— 摆在最前面，她一眼就知道不用再照着做。 */}
+                  {stale(point.quote) && (
+                    <span className="rounded-mk-full border border-mk-border px-2 py-0.5 text-mk-small text-mk-muted">
+                      上一版
+                    </span>
+                  )}
                   {point.kind === "good" ? (
                     <span
                       className="rounded-mk-full px-2 py-0.5 text-mk-small"
@@ -86,6 +155,19 @@ export function CommentPanel({ comment, onTrace }: { comment: Comment; onTrace: 
             </li>
           ))}
         </ol>
+      )}
+
+      {/* 改完之后那一下。没有它，这一轮就永远不结束 ——
+          她照着改了，屏幕上还是那几条旧话，只好反复问印记是不是没看见。 */}
+      {staleCount > 0 && onRecheck && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-3">
+          <span className="text-mk-body text-mk-muted">
+            这一段改过了，上面有 {staleCount} 条说的是上一版。
+          </span>
+          <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
+            请印记再看一遍
+          </Button>
+        </div>
       )}
     </div>
   );

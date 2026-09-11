@@ -684,7 +684,15 @@ function SnippetBlock({
 
       {/* The SAME renderer 成稿 uses — one comment shape, one component, two
           zoom levels. `onTrace` is what differs, because the surface differs. */}
-      {comment && <CommentPanel comment={comment} onTrace={trace} />}
+      {comment && (
+        <CommentPanel
+          comment={comment}
+          onTrace={trace}
+          currentText={text}
+          onRecheck={() => void askForComment()}
+          rechecking={commenting}
+        />
+      )}
     </div>
   );
 }
