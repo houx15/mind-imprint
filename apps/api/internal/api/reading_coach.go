@@ -1353,8 +1353,14 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	}
 	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
 	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
+	//
+	// 🚨 推进了一步**不算**给了她事做。第一版在这里加了 Advance == ""，于是
+	// 「你选得准，我们进到下一段」这种一句话的收尾照样溜过去 —— 而下一步要她
+	// 先开口，她手上却没有任何东西可说。实测她逐字报的：「它说我选得准、推进到
+	// 下一段了，但是下面没有任何新题目或者按钮让我继续，发送也按不动。」
+	// 推进和交给她一件事，是这一轮要同时做的两件事。
 	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
-		got.Card == nil && got.Lens == "" && got.Advance == "" &&
+		got.Card == nil && got.Lens == "" &&
 		!replyAsksForSomething(got.Reply) {
 		got.cardWhy = cardRejectDeadTurn
 	}

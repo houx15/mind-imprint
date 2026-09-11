@@ -337,7 +337,7 @@ func TestATurnThatAsksForSomethingIsFine(t *testing.T) {
 	for _, reply := range []string{
 		`{"reply":"scramble 是「手忙脚乱地赶着做」。你觉得第 2 段里谁在 scramble？"}`,
 		`{"reply":"scramble 是「手忙脚乱地赶着做」。请在第 2 段里找出那个动作。"}`,
-		`{"reply":"这一段讲完了，我们接着读第 3 段。","advance":"done"}`,
+		`{"reply":"这一段讲完了，请接着读第 3 段，读完告诉我它在回应上一段的哪一句。","advance":"done"}`,
 	} {
 		got, ok := parseReadingCoachReply(reply, blocks, "en", func(string) bool { return true })
 		if !ok {
@@ -346,5 +346,21 @@ func TestATurnThatAsksForSomethingIsFine(t *testing.T) {
 		if got.cardWhy == cardRejectDeadTurn {
 			t.Errorf("这一轮是有下文的，不该判 dead turn：%s", reply)
 		}
+	}
+}
+
+// 🚨 推进了一步不算给了她事做。
+//
+// 实测：「它说我选得准、推进到下一段了，但是下面没有任何新题目或者按钮让我
+// 继续，发送也按不动。」下一步要她先开口，而她手上没有任何东西可说。
+func TestAdvancingWithoutAnAskIsStillADeadTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	raw := `{"reply":"你选得准。我们进到下一段。","advance":"done"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("推进了但什么都没请她做，应该判 dead turn，拿到 %q", got.cardWhy)
 	}
 }
