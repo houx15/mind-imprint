@@ -35,6 +35,19 @@ export type WriteAffordances = Affordances & {
   chatBox: { i: number; placeholder: string } | null;
   /** 板上还没摆的卡片，和可以摆进去的格子。没有板的时候是 null。 */
   board: { chips: { i: number; text: string }[]; bins: { i: number; name: string }[] } | null;
+  /**
+   * 每个按钮 / 每个输入框属于哪一段（`data-write-block` 上的标题）。
+   * 不在任何段落块里的是 null。按 `buttons` / `fields` 的下标对齐。
+   *
+   * 🚨 段落那一步屏幕上是**一段一张卡片**：标题、引导、正文框、这一段的几颗
+   * 按钮，在一起。这只眼睛原来把它们全拉平成两串序号，于是 2026-09-11 的走查
+   * 里十条卡壳有五条是同一件事：「有三个『标一下这一段』按钮，不知道是不是都要
+   * 点」「『中心论点』那个引导到底管哪一段」「板子写着中心论点，我第一段已经写
+   * 完了，它也不消失」。产品是分了组的，是读屏的人没读到。
+   * 又一次 [[camp-simulated-students-2026-09-04]] 那四个坑里的第一个。
+   */
+  blockOfButton: (string | null)[];
+  blockOfField: (string | null)[];
 };
 
 /** 哪些输入框是「正文」。按 placeholder 认，因为屏幕上只有这个是稳定的。 */
@@ -87,12 +100,26 @@ export async function readScreen(page: Page): Promise<WriteAffordances> {
     .evaluateAll((els) => els.map((e) => e.getAttribute("aria-pressed") === "true"))
     .catch(() => [] as boolean[]);
 
+  // 🚨 必须用**同一个选择器**去问「你属于哪一段」，否则下标会和上面那两串
+  // 错开一位，而错开之后的结果看起来仍然是合理的 —— 最难查的那一种。
+  const blockOf = (sel: string) =>
+    page
+      .locator(sel)
+      .evaluateAll((els) =>
+        els.map((e) => e.closest("[data-write-block]")?.getAttribute("data-write-block") ?? null),
+      )
+      .catch(() => [] as (string | null)[]);
+  const blockOfButton = await blockOf("button:visible");
+  const blockOfField = await blockOf("input:visible, textarea:visible");
+
   return {
     ...base,
     pressed,
     proseBoxes,
     chatBox: chat ? { i: chat.i, placeholder: chat.placeholder } : null,
     board,
+    blockOfButton,
+    blockOfField,
   };
 }
 
@@ -157,11 +184,37 @@ export function renderWriteScreen(a: WriteAffordances): string {
       ].join("\n")
     : "";
 
+  // 🚨 **哪几样东西是一组，要说出来。** 段落那一步屏幕上是一段一张卡片；
+  // 拉平之后她看到的是「三个一模一样的『标一下这一段』按钮」，只好猜。
+  const blockNames: string[] = [];
+  for (const n of [...a.blockOfButton, ...a.blockOfField]) {
+    if (n !== null && !blockNames.includes(n)) blockNames.push(n);
+  }
+  const groups = blockNames.length
+    ? [
+        ``,
+        `这一屏上的段落块（**一块 = 一个小标题 + 它自己的框 + 它自己的那几颗按钮**，`,
+        `互不相干；一颗按钮只管它所在的那一块）：`,
+        ...blockNames.map((name) => {
+          const fs = a.fields.filter((f) => a.blockOfField[f.i] === name).map((f) => `[${f.i}]`);
+          const btns = a.buttons
+            .filter((b) => a.blockOfButton[b.i] === name)
+            .map((b) => `[${b.i}]${b.label}`);
+          return (
+            `  ◆「${name}」这一块：` +
+            `写它的框 ${fs.length ? fs.join(" ") : "（无）"}；` +
+            `它的按钮 ${btns.length ? btns.join(" ") : "（无）"}`
+          );
+        }),
+      ].join("\n")
+    : "";
+
   return [
     `你现在这一屏上的字：`,
     `"""`,
     a.text,
     `"""`,
+    groups,
     boardBlock,
     ``,
     `能按的按钮：`,

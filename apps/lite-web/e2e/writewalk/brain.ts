@@ -212,7 +212,13 @@ export async function think(args: {
   };
 
   let lastErr = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // 🚨 **耐心要配得上这条 walk 有多贵。**
+  // 原来是三次、退避 1.5s/3s —— 加起来只等 4.5 秒。2026-09-11 线上那次，
+  // 英文那个学生走到第 24 步（六百多字、二十多分钟）时 DashScope 抖了一下，
+  // 连着三次 `fetch failed`，整条 walk 就这么没了，那二十分钟的模型钱一起没了。
+  // 网络抖一下不是一条结论，不该把一整次观察作废。
+  // 六次、指数退避封顶 20 秒 ≈ 一分钟的耐心，对一条要跑半小时的 walk 来说很便宜。
+  for (let attempt = 0; attempt < BRAIN_ATTEMPTS; attempt++) {
     try {
       const r = await fetch(BASE, {
         method: "POST",
@@ -222,7 +228,7 @@ export async function think(args: {
       if (!r.ok) {
         // 🚨 报错里绝不带 key。
         lastErr = `HTTP ${r.status} ${(await r.text()).slice(0, 300)}`;
-        await sleep(1500 * (attempt + 1));
+        await sleep(backoffMs(attempt));
         continue;
       }
       const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };
@@ -238,10 +244,18 @@ export async function think(args: {
       return beat;
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
-      await sleep(1500 * (attempt + 1));
+      await sleep(backoffMs(attempt));
     }
   }
-  throw new Error(`扮演学生的模型连着三次没给出动作：${lastErr}`);
+  throw new Error(`扮演学生的模型连着 ${BRAIN_ATTEMPTS} 次没给出动作：${lastErr}`);
+}
+
+/** 学生这一边重试几次。见上面那段为什么不是三次。 */
+const BRAIN_ATTEMPTS = 6;
+
+/** 1.5s、3s、6s、12s、20s、20s —— 封顶，免得最后两次各等一分钟。 */
+function backoffMs(attempt: number): number {
+  return Math.min(20_000, 1500 * 2 ** attempt);
 }
 
 function clamp(n: unknown): number {

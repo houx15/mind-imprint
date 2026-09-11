@@ -56,7 +56,7 @@ import (
 // different producers whose prompts are built out of different material (an
 // article that must keep dominating the prompt, versus a stage/outline/
 // snippet projection that already carries its own separate size discipline —
-// see buildWritingCoachProjection's truncateRunes calls). Collapsing them into
+// see writingProjectionSnippetRunes). Collapsing them into
 // one shared constant would couple two rooms' prompt budgets to a single
 // number for no reason other than that the numbers happen to match today.
 // Load-bearing for the same reason as reading's: lite has NO compaction
@@ -149,10 +149,44 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 			if text == "" {
 				continue
 			}
-			fmt.Fprintf(&b, "  [%d] %s\n", s.Position+1, truncateRunes(text, 300))
+			fmt.Fprintf(&b, "  [%d] %s\n", s.Position+1, writingProjectionSnippet(text))
 		}
 	}
 	return b.String()
+}
+
+// writingProjectionSnippetRunes 是一段正文喂进陪练上下文时的上限。
+//
+// 🚨 **原来是 300，而这个数字是线上量出来错的。** 2026-09-11 的走查里，
+// 同一个学生在三步上报了同一件事：
+//
+//	[35]「印记说缺例子，但我框里明明已经写了张伟那句，感觉它没看到。」
+//	[38]「正文框0里明明已经有张伟和王浩的例子了，但印记说缺。」
+//	[43]「框0里明明已经有张伟的例子了，印记还让我加。」
+//
+// 她是对的，而且三次都对：那个例子在第 300 个字之后，陪练**根本没拿到**。
+// 于是它诚实地按它看见的那半段作了判断，说缺例子；她照做又补一遍，
+// 补出来的还是在 300 之后。这是个会自我延续的坑。
+//
+// 一千二。lite 这边一篇的目标篇幅本来就在八百字上下，一段一千二等于
+// 「整段都给」，而十二轮对话窗口比这大得多——省这几百个 token 换来的是
+// 陪练对着半段文章提意见。
+const writingProjectionSnippetRunes = 1200
+
+// writingProjectionSnippet 渲染一段正文，**并且在真的截断时说出来**。
+//
+// 🚨 截断要说出来，不能只留一个「…」。默不作声地切一刀，下游那个读的人
+// （这里是模型）会把「被切掉」当成「她没写」，然后去要一件她已经写过的东西。
+// 我自己在走查那只眼睛上犯过一模一样的错：`f.value.slice(0, 120)` 不声不响
+// 切一刀，学生于是连着五六步在「补全被截掉的那一段」，而她一个字都没丢。
+// 同一个毛病，这次在产品里。
+func writingProjectionSnippet(text string) string {
+	r := []rune(text)
+	if len(r) <= writingProjectionSnippetRunes {
+		return text
+	}
+	return fmt.Sprintf("%s……（这一段一共 %d 字，上面只给了前 %d 字，后面的她已经写了，只是没放进来——别据此说她少写了什么）",
+		string(r[:writingProjectionSnippetRunes]), len(r), writingProjectionSnippetRunes)
 }
 
 // buildWritingTurnHistory windows the raw transcript to writingTurnsWindow

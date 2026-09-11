@@ -523,7 +523,15 @@ function SnippetBlock({
   const showGuide = guide !== null && !collapsed;
 
   return (
-    <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4">
+    /* data-write-block 是给走查用的：**这一块的标题，和这一块里的框、按钮，
+       是一组**。真人一眼就看见它们在同一张卡片里；模拟学生那只眼睛原来只拿到
+       一串拉平的按钮和输入框，于是报「有三个『标一下这一段』按钮，不知道是不是
+       都要点」「『中心论点』那个引导到底管哪一段」。屏幕上分了组，读屏的人
+       没读到，记下来就成了产品的毛病。见 e2e/writewalk/screen.ts。 */
+    <div
+      data-write-block={slot.heading || "自由段落"}
+      className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-2">
           {slot.role && (
@@ -604,11 +612,26 @@ function SnippetBlock({
           于是她一直在找一颗并不存在的「发送」。
           存下来这件事本身要**留在屏幕上**，她才知道可以往下走。
           用 已/处理中 这对词（ui-copy-style 第 4 条），不写「未保存」吓她。 */}
+      {/* 🚨 **一颗真的「保存」按钮。**
+          上一版只把「已保存」这行字留在屏幕上，以为这样她就知道存过了。
+          线上走查里她第二次报同一件事：「没有明显的写文章正文的按钮，
+          不知道写完怎么提交这一段」—— 因为那行字**只在存过之后才出现**。
+          她刚写完、还没失焦的那一刻，屏幕上关于「怎么交」一个字都没有，
+          于是她继续找一颗并不存在的「发送」。
+          状态看得见 ≠ 动作做得到：要交的那一下，得有个东西给她按。
+          失焦自动存照旧，这颗按钮只是把那件事摆到手边。 */}
       <div className="flex items-center gap-2 text-mk-small text-mk-faint">
         {saving ? (
           <span>处理中…</span>
         ) : saved ? (
           <span>已保存 · {countWords(text)} 字</span>
+        ) : text.trim() !== "" ? (
+          <>
+            <Button variant="secondary" size="sm" onClick={() => void save()}>
+              保存这一段
+            </Button>
+            <span>{countWords(text)} 字</span>
+          </>
         ) : null}
       </div>
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}

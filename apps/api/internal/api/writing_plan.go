@@ -308,10 +308,11 @@ type writingPlanReply struct {
 	Ready bool `json:"ready"`
 }
 
-// parseWritingPlanReply decodes and clamps. Anything it cannot validate is
-// DROPPED rather than guessed at: an unparseable parentId would otherwise
-// silently reparent a node somewhere she never put it.
-func parseWritingPlanReply(text string) (writingPlanReply, bool) {
+// stripWritingPlanFence 把模型爱加的围栏和前后闲话去掉，留下那对大括号之间
+// 的东西。拆成一个函数是因为**救援那一路必须吃到和正解同一份字符串**——
+// 2026-09-11 的教训：段落引导那边的救援喂的是没去围栏的原文，于是带围栏的
+// 回复一次都没救到过，第一个 token 就不是 '{'。
+func stripWritingPlanFence(text string) string {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -327,9 +328,121 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
 		c = c[:j+1]
 	}
-	var got writingPlanReply
-	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
+	return strings.TrimSpace(c)
+}
+
+// salvageWritingPlanReply 从一份读不出来的回复里，把**她那句话**捞出来。
+//
+// # 为什么要捞
+//
+// 这一轮的钱已经花掉了，而整份 JSON 作废的代价不是「少一个节点」，是她眼前
+// 弹一个「model_unavailable」，这一轮说的话石沉大海。2026-09-11 线上走查里
+// 英文那个学生撞上一次，她的原话是「刚才报了个后台错误，不知道会不会影响发送」。
+//
+// 而**坏掉的地方几乎从来不是 reply**。实测到的两次都断在结构那一半：
+// 一次是 `"questions":[...}]}`（该收 `]` 的地方收了 `}`），一次是流式少送
+// 最后一个分片。那句陪练的话本身是完整的、可用的、已经付过钱的。
+// 见 [[model-json-half-arrived-2026-09-08]]、[[streaming-drops-last-chunk-2026-09-10]]。
+//
+// # 捞什么、不捞什么
+//
+//   - `reply` 捞。它是一句人话，自己就成立。
+//   - `add` 只收**在断点之前已经完整解出来**的那几个。半个节点宁可不要。
+//   - `ready` 捞不到就当 false —— 判「够了没有」本来就有 planLooksReady
+//     在兜底（结构判据），少模型这一票不会让她卡住。
+//
+// 🚨 这不是「编一句话糊弄她」。捞出来的每个字都是模型真的写的，
+// 一个字都不是我们补的；补出来的那种才是 [[ai-errors-must-surface-never-fake]]
+// 禁的事。捞不到 reply 就照旧报错。
+func salvageWritingPlanReply(s string) (writingPlanReply, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
 		return writingPlanReply{}, false
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return writingPlanReply{}, false
+	}
+	var got writingPlanReply
+	for {
+		key, kerr := dec.Token()
+		if kerr != nil {
+			break // 断在这里了，就用已经读到的那些
+		}
+		if d, isDelim := key.(json.Delim); isDelim && d == '}' {
+			break
+		}
+		name, isStr := key.(string)
+		if !isStr {
+			break
+		}
+		if !salvagePlanField(dec, name, &got) {
+			// 这个字段自己断了。后面的读不到了，但前面读到的
+			//（可能已经包含 reply）仍然算数。
+			break
+		}
+	}
+	return got, strings.TrimSpace(got.Reply) != ""
+}
+
+// salvagePlanField 读一个字段，返回「还能不能接着往下读」。
+func salvagePlanField(dec *json.Decoder, name string, got *writingPlanReply) bool {
+	switch name {
+	case "reply":
+		var v string
+		if err := dec.Decode(&v); err != nil {
+			return false
+		}
+		got.Reply = v
+		return true
+	case "ready":
+		var v bool
+		if err := dec.Decode(&v); err != nil {
+			return false
+		}
+		got.Ready = v
+		return true
+	case "add":
+		open, err := dec.Token()
+		if err != nil {
+			return false
+		}
+		if d, isDelim := open.(json.Delim); !isDelim || d != '[' {
+			return false
+		}
+		for dec.More() {
+			var item writingPlanAdd
+			if derr := dec.Decode(&item); derr != nil {
+				// 这一个断在半路，它和它后面的都当没给；数组也就没法
+				// 正常收尾，所以这一份到此为止。
+				return false
+			}
+			got.Add = append(got.Add, item)
+		}
+		// 吃掉收尾的 ']'。吃不到说明它根本没收尾。
+		if _, cerr := dec.Token(); cerr != nil {
+			return false
+		}
+		return true
+	default:
+		var skip json.RawMessage
+		return dec.Decode(&skip) == nil
+	}
+}
+
+// parseWritingPlanReply decodes and clamps. Anything it cannot validate is
+// DROPPED rather than guessed at: an unparseable parentId would otherwise
+// silently reparent a node somewhere she never put it.
+func parseWritingPlanReply(text string) (writingPlanReply, bool) {
+	c := stripWritingPlanFence(text)
+	var got writingPlanReply
+	if err := json.Unmarshal([]byte(c), &got); err != nil {
+		// 🚨 整份读不出来 ≠ 整份没到。见 salvageWritingPlanReply。
+		salvaged, ok := salvageWritingPlanReply(c)
+		if !ok {
+			return writingPlanReply{}, false
+		}
+		got = salvaged
 	}
 	got.Reply = strings.TrimSpace(got.Reply)
 	if got.Reply == "" {
@@ -567,8 +680,20 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseWritingPlanReply(res.Text)
 	if !okParse {
+		// 🚨 **把模型到底回了什么记下来。** 这一行原来只有 atom_id 和
+		// request_id —— 也就是「它坏了」，没有一个字说它怎么坏的。
+		// 2026-09-11 线上撞到一次，回头查日志，除了知道它发生过之外
+		// 什么都得不到。
+		//
+		// 两头都要：只有尾巴，分不清「断在最后一块、救援本该救回前面那些」
+		// 和「第一块就是坏的、救援什么都救不回才对」—— 这两种的修法相反。
+		// 长度和 stop_reason 一起看，才分得出「没写完」和「写完了但写坏了」
+		//（[[model-json-half-arrived-2026-09-08]]：finish_reason:"stop"
+		// 不等于写完了）。
 		slog.Warn("writing plan turn: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+			"reply_len", len([]rune(res.Text)), "stop_reason", res.StopReason,
+			"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 220))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
