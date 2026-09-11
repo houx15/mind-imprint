@@ -65,7 +65,19 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
       }
     : null;
 
-  return { ...base, paragraphs, board };
+  // 🚨 她划出来的句子排在输入框上面，**还没发出去**。走查里她一遍遍地划、
+  // 划完再划（82 次划、只换来 9 轮对话）—— 因为这一屏上没有任何东西告诉她
+  // 「你已经划好了，现在该发出去」。真人看得见那几个引文小块和那颗按钮；
+  // 模型只拿得到文字，所以这里明说。
+  const quoted = (base.text.match(/已引用\s*(\d+)\s*处/) ?? [])[1];
+  const text = quoted
+    ? base.text +
+      `\n\n（系统提示：你已经划好了 ${quoted} 处引文，它们还**没有**发出去。` +
+      `要让印记看到，请点「发出这 ${quoted} 处」那颗按钮，或者在输入框里写一句话再发。` +
+      `不要反复划新的句子。）`
+    : base.text;
+
+  return { ...base, text, paragraphs, board };
 }
 
 /** 给模型看的那一段。 */
