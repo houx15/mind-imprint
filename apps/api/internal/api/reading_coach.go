@@ -1346,6 +1346,13 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if got.cardWhy == cardOK && got.Card == nil && got.Lens == "" && replyLooksCutOff(got.Reply) {
 		got.cardWhy = cardRejectCutOff
 	}
+	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
+	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
+	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
+		got.Card == nil && got.Lens == "" && got.Advance == "" &&
+		!replyAsksForSomething(got.Reply) {
+		got.cardWhy = cardRejectDeadTurn
+	}
 	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
 		slog.Info("reading coach: card dropped", "why", string(got.cardWhy),
 			"type", cardType, "prompt", cardPrompt)
@@ -1616,7 +1623,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	//
 	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
 	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
-	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff) {
+	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
+		parsed.cardWhy == cardRejectDeadTurn) {
 		slog.Warn("reading coach: reply looks broken, retrying once",
 			"why", string(parsed.cardWhy),
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -1625,7 +1633,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 只在第二次**确实更好**的时候采用它：解析得动，而且不再是一句空话。
 			// 否则留着第一次那份 —— 它至少是完整的一句话。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
-				again.cardWhy != cardRejectPromised && again.cardWhy != cardRejectCutOff {
+				again.cardWhy != cardRejectPromised && again.cardWhy != cardRejectCutOff &&
+				again.cardWhy != cardRejectDeadTurn {
 				res, parsed = retryRes, again
 			}
 		}

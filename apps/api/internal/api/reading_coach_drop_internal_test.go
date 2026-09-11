@@ -315,3 +315,36 @@ func TestPromiseVerdictStillFiresWhenNoCardCame(t *testing.T) {
 		t.Fatalf("话里指着一张不存在的卡片，应该判 promised，拿到 %q", got.cardWhy)
 	}
 }
+
+// 🚨 讲完就停、什么也没请她做的那一轮，要被认出来。
+//
+// 实测她逐字报的：「它说完了 scramble 的意思，显示了 1/8，但没有告诉我下一步
+// 要做什么，发送按钮也是灰的，我不知道该继续等还是要点别的地方。」
+func TestDeadTurnIsCaught(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	dead := `{"reply":"scramble 在这里是「手忙脚乱地赶着做」的意思。它常用来写救援现场。"}`
+	got, ok := parseReadingCoachReply(dead, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("这一轮什么都没请她做，应该判 dead turn，拿到 %q", got.cardWhy)
+	}
+}
+
+func TestATurnThatAsksForSomethingIsFine(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	for _, reply := range []string{
+		`{"reply":"scramble 是「手忙脚乱地赶着做」。你觉得第 2 段里谁在 scramble？"}`,
+		`{"reply":"scramble 是「手忙脚乱地赶着做」。请在第 2 段里找出那个动作。"}`,
+		`{"reply":"这一段讲完了，我们接着读第 3 段。","advance":"done"}`,
+	} {
+		got, ok := parseReadingCoachReply(reply, blocks, "en", func(string) bool { return true })
+		if !ok {
+			t.Fatalf("解析失败：%s", reply)
+		}
+		if got.cardWhy == cardRejectDeadTurn {
+			t.Errorf("这一轮是有下文的，不该判 dead turn：%s", reply)
+		}
+	}
+}

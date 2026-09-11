@@ -154,6 +154,7 @@ const (
 	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
 	cardRejectLensWon     cardReject = "a lens was given this turn, so the card was dropped (铁律③)"
 	cardRejectCutOff      cardReject = "the reply ends mid-sentence"
+	cardRejectDeadTurn    cardReject = "the turn hands her nothing to do"
 )
 
 // replyLooksCutOff —— 这句话像不像说到一半断掉了。
@@ -203,6 +204,9 @@ var cardFixIt = map[cardReject]string{
 		"她那边什么都没出现。要给就真的给，不给就别提。",
 	cardRejectCutOff: "你上一轮那句话断在半句上，她读到的是半截。" +
 		"这一轮把话说完整，句子要有收尾。",
+	cardRejectDeadTurn: "你上一轮讲完就停了，没有请她做任何事 —— 她屏幕上没有卡片、" +
+		"没有透镜，也没有一句话告诉她下一步。这一轮结尾要么给一张卡片，" +
+		"要么明确请她做一件事。",
 	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
 		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
 }
@@ -806,4 +810,30 @@ func quoteRuneSet(s string) map[rune]bool {
 		}
 	}
 	return out
+}
+
+// replyAsksForSomething —— 这一轮有没有请她做点什么。
+//
+// 🚨 一轮里既没有卡片、也没有透镜、又没有推进步骤，还不请她做任何事，那她
+// 屏幕上就只剩一句讲完的话和一个灰着的发送键。实测她逐字报的：
+// 「它说完了 scramble 的意思……但没有告诉我下一步要做什么，发送按钮也是灰的，
+// 我不知道该继续等还是要点别的地方。」
+//
+// 判据取最宽的那一个：一个问号，或者一个请她动手的词。宽是故意的 —— 这条要
+// 触发的是**真的什么都没说**的那一轮，不是去评判它问得好不好。
+func replyAsksForSomething(reply string) bool {
+	if strings.ContainsAny(reply, "？?") {
+		return true
+	}
+	for _, w := range replyAskWords {
+		if strings.Contains(reply, w) {
+			return true
+		}
+	}
+	return false
+}
+
+var replyAskWords = []string{
+	"请", "说说", "写下", "写一", "挑一", "选一", "找一", "找出", "标出", "圈出",
+	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
 }
