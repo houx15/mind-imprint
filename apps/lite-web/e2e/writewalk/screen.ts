@@ -134,7 +134,13 @@ export function renderWriteScreen(a: WriteAffordances): string {
           const shown = f.value.length > 400 ? f.value.slice(0, 400) : f.value;
           const more = f.value.length > 400 ? `……（这一段一共 ${f.value.length} 字，这里只显示前 400 字，后面的没丢）` : "";
           const has = f.value ? `（里面已经有：${shown}${more}）` : "（空的）";
-          return `  [${f.i}] ${f.placeholder || "（没有提示文字）"} ${has}${kind}`;
+          // 🚨 框长什么样也要说 —— 真人一眼就分得出「一行的数字框」和
+          // 「一大块写文章的框」，这只眼睛原来只报 placeholder，于是她把
+          // 目标字数填进了「还想说点什么」那个大框里，连着三轮走查都卡在
+          // 设定弹窗上。`kind` 在 camp/screen.ts 里本来就有，是这里没拿出来。
+          const shape =
+            f.kind === "number" ? "［一行·只能填数字］" : f.kind === "textarea" ? "［一大块·写长文字］" : "［一行］";
+          return `  [${f.i}] ${shape} ${f.placeholder || "（没有提示文字）"} ${has}${kind}`;
         })
         .join("\n")
     : "  （这一屏没有能打字的地方）";

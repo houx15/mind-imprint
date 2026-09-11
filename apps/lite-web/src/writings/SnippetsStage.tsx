@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, HelpCircle, Eye, LayoutGrid } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
+import { countWords } from "@/workspace/blocks/wordcount";
 import { ApiError } from "../api/client";
 import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
@@ -377,6 +378,9 @@ function SnippetBlock({
   // 拆句是纯函数、很便宜，所以每次渲染算一遍就行——把它记忆化只会多一个
   // 会和 text 失去同步的地方。
   const sentenceCount = splitSentences(text).length;
+  // 「已保存」＝ 服务端那一行的字和框里的字一模一样。比一个 savedAt 时间戳
+  // 诚实：她改了一个字，这行就自己消失，不会留下一句过期的「已保存」。
+  const saved = text.trim() !== "" && slot.snippet?.text === text;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /**
    * 收起 hides the box; it does not throw the guidance away. Regenerating on
@@ -573,7 +577,19 @@ function SnippetBlock({
         placeholder="写这一段……"
         className="min-h-[100px] w-full resize-y rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
       />
-      {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
+      {/* 🚨 这一段到底算不算交上去了。
+          走查里她写完四段之后问的是：「发送按钮按不动，不知道怎么交」——
+          这个房间是失焦自动存的，存完只闪一下「保存中…」就什么都不剩，
+          于是她一直在找一颗并不存在的「发送」。
+          存下来这件事本身要**留在屏幕上**，她才知道可以往下走。
+          用 已/处理中 这对词（ui-copy-style 第 4 条），不写「未保存」吓她。 */}
+      <div className="flex items-center gap-2 text-mk-small text-mk-faint">
+        {saving ? (
+          <span>处理中…</span>
+        ) : saved ? (
+          <span>已保存 · {countWords(text)} 字</span>
+        ) : null}
+      </div>
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
 
       {/* 🚨 **把板递到她手上，而不是把按钮摆在那儿等她发现。**
