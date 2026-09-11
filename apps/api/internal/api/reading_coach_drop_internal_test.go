@@ -280,3 +280,38 @@ func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
 	}
 }
+
+// 🚨 给了卡、但卡被校验刷掉的时候，要说**真正的**那个原因。
+//
+// 实测日志里出现过这么一行：「the reply promises a card but none was attached」，
+// 同一行里却印着那张卡的 type 和 prompt。真原因（句子不在原文里）被盖掉了，
+// 喂回给模型的修正话术也跟着说错，它下一轮只会照着错的方向改。
+func TestPromiseVerdictDoesNotMaskTheRealReason(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	// 话里指着一张卡片说，卡也真的给了 —— 但句子是它自己编的，不在原文里。
+	raw := `{"reply":"点下面这张卡片，把你的想法写下来。",
+	          "card":{"type":"choose_span","prompt":"哪一句更像主张？",
+	                  "options":[{"blockId":"b1","quote":"这句话原文里没有。"},
+	                             {"blockId":"b2","quote":"这句也没有。"}]}}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("这份 JSON 本身是好的，应该解析得出来")
+	}
+	if got.cardWhy == cardRejectPromised {
+		t.Fatal("真原因被「提了卡却没给」盖掉了 —— 卡是给了的")
+	}
+	if got.cardWhy == cardOK {
+		t.Fatal("原文里没有的句子应该被刷掉")
+	}
+}
+
+func TestPromiseVerdictStillFiresWhenNoCardCame(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	got, ok := parseReadingCoachReply(`{"reply":"点下面这张卡片，把你的想法写下来。"}`, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectPromised {
+		t.Fatalf("话里指着一张不存在的卡片，应该判 promised，拿到 %q", got.cardWhy)
+	}
+}

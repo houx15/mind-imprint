@@ -1331,7 +1331,14 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 🚨 说了「点这张卡」却没给卡：对她来说和「卡片被丢掉」长得一模一样 ——
 	// 屏幕上一句指着空气的话。区别只在日志里干净得可怕（没有东西被丢掉，
 	// 是根本没有东西），所以这一条必须自己抓。
-	if got.Card == nil && replyPromisesACard(got.Reply) {
+	//
+	// 🚨 只在**它压根没给卡**的时候判这一条。给了卡但卡被上面那道校验刷掉，
+	// 真正的原因是那一条（句子不在原文里、选项只来自一段、问法被禁……），
+	// 在这里改写成「你提了卡却没给」就把真原因盖掉了 —— 日志和喂回去的
+	// 修正话术会一起说错，而喂错了它下一轮只会照着错的方向改。
+	// 实测那一幕：日志写着「提了卡片却没附」，同一行里却印着那张卡的 type
+	// 和 prompt；她那一步什么都没等到，屏幕上只有一句指着空气的话。
+	if got.Card == nil && got.cardWhy == cardRejectNoCard && replyPromisesACard(got.Reply) {
 		got.cardWhy = cardRejectPromised
 	}
 	// 🚨 断在半句上的回复也算这一轮坏了。她读到的是半截话，不知道该干嘛。
