@@ -164,7 +164,19 @@ function ProsePending({ pending }: { pending: boolean }) {
   return (
     <section className="mk-rp-section" role="status" aria-live="polite">
       <SectionTitle>金句 · 这次的收获</SectionTitle>
-      <p className="text-mk-small text-mk-muted">处理中，稍后刷新可见。</p>
+      {/* 🚨 这句话原来写的是「处理中，稍后刷新可见」，而**根本不需要她刷新**：
+          ReportPanel 在 prosePending 的时候自己又发了一次请求，那一次回来
+          就把这两节加到她眼前的报告上（那个请求本身就是在等模型，所以要等
+          一会儿）。屏幕上没有刷新按钮，也不该有。
+
+          2026-09-11 第十轮线上走查，她为这一句连着卡了四步：
+            「它说处理中稍后刷新可见，但我不知道怎么刷新，也没有刷新按钮」
+            「页面说处理中，不知道是该等还是该点『回到这篇文章』」
+            「金句和收获那里还在转圈没出来，不知道该等还是该点回去看文章」
+
+          一句她照做不了的指令，比不说更糟：她会去找一颗不存在的按钮，
+          然后以为是自己哪里弄错了。说事实就行 —— 它会自己出现。 */}
+      <p className="text-mk-small text-mk-muted">处理中，好了会自己出现。</p>
     </section>
   );
 }
