@@ -198,6 +198,13 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 %LENS%
 
 规矩：
+- 🚨 **先问自己：这篇文章撑得住这副透镜吗？**
+  挑透镜要看**这一篇有没有那种东西**，不是看哪副听起来更深。
+  实测出过这么一次：一篇讲打仗和救援物资的新闻，你召了「科学方法论」那副，
+  一遍遍要她找「样本不够、测量有偏差」的句子 —— 那篇文章里根本没有做实验。
+  她连着说了三遍「这篇没有这种句子」，越说越烦，而她是对的。
+  **她说文章里没有这种句子的时候，先信她**：回去看一眼，真没有就换一副，
+  或者干脆不用透镜，直接往下走。不要让她为一个不存在的东西找第四遍。
 - **给 lens 就必须同时给 focusBlock**，而且是你 reply 里刚讲的那一段。
   没有落点的透镜等于没有——她自己去透镜库点也是一样的东西。
 - 一轮最多一副。屏幕上已经开着一副的时候，不要再给。
@@ -1793,6 +1800,25 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// hunt 那一步不在此列：它要的是「真的在文章里点一句」，而那个证据
 		// 上面已经单独判过了，替她推进会把这一步唯一的保证也抹掉。
 		if advance == "" && current.Kind != string(taskHunt) && coachStepStalled(tasks, msgs) {
+			// 🚨 透镜那一步耗满了，先把敞开的透镜撤掉再往下走。
+			//
+			// 不撤的话她根本走不掉：透镜开着时这一栏是锁住的，而「往下走」只改了
+			// 任务状态，屏幕上那副透镜还在，她还是只能对着它。
+			//
+			// 实测那一幕：印记 在一篇打仗救援的新闻上召了「科学方法论」的透镜，
+			// 一遍遍要她找「样本不够、测量有偏差」的句子。她连着说了三遍
+			// 「这篇根本没有做实验」，越说越烦 —— 而那样的句子确实不存在。
+			// 一副套不上这篇文章的透镜，硬耗下去只会把她耗走。
+			if current.Kind == string(taskLens) {
+				for _, c := range cardRows {
+					if c.Status == "proposed" || c.Status == "active" {
+						if _, err := qtx.UpdateAtomCardStatus(turnCtx, sqlc.UpdateAtomCardStatusParams{ID: c.ID, Status: "skipped"}); err != nil {
+							slog.Warn("reading coach: could not retire the stalled lens",
+								"err", err, "atom_id", at.ID)
+						}
+					}
+				}
+			}
 			slog.Info("reading coach: step stalled, advancing for her",
 				"atom_id", at.ID, "kind", current.Kind)
 			advance = "done"
