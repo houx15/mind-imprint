@@ -117,7 +117,19 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     if (!(await p.count())) return `第${paragraph}段不存在`;
     await p.scrollIntoViewIfNeeded();
 
-    const lensOpen = await page.getByText("在文章里选出你要用来回答").isVisible().catch(() => false);
+    // 🚨 认透镜开没开，要认一件**不会因为改文案而消失的东西**。
+    //
+    // 这里原来匹配的是右栏那句提示的原文。那句话后来被改写了（「请在左边的
+    // 文章里选出那一句」），这一行就永远是 false —— 于是透镜开着的时候走查
+    // 走的是划选那条路，而透镜只认点击。实测：109 次划句子，引文数始终是 0，
+    // 她在最后 20 步里一遍遍地划、一句都没交出去。
+    //
+    // 「带我过去」那颗按钮只在透镜开着时存在，而按钮是功能不是措辞，比一句
+    // 提示稳得多。
+    const lensOpen = await page
+      .getByRole("button", { name: "带我过去" })
+      .isVisible()
+      .catch(() => false);
     if (lensOpen) {
       // 透镜模式：点在那句话的中间。Annotate 按坐标去认是哪一句。
       const box = await p.evaluate((el, want) => {

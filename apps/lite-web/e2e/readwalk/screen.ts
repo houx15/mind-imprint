@@ -69,7 +69,10 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
   // 划完再划（82 次划、只换来 9 轮对话）—— 因为这一屏上没有任何东西告诉她
   // 「你已经划好了，现在该发出去」。真人看得见那几个引文小块和那颗按钮；
   // 模型只拿得到文字，所以这里明说。
-  const quoted = (base.text.match(/已引用\s*(\d+)\s*处/) ?? [])[1];
+  // 透镜开着的时候这一栏是锁住的，那颗「发出这 N 处」并不存在 —— 这时候劝她
+  // 去点它，等于把她按在一个不存在的按钮上。
+  const lensOpen = base.buttons.some((b) => b.label === "带我过去");
+  const quoted = lensOpen ? undefined : (base.text.match(/已引用\s*(\d+)\s*处/) ?? [])[1];
   const text0 = quoted
     ? base.text +
       `\n\n（系统提示：你已经划好了 ${quoted} 处引文，它们还**没有**发出去。` +
