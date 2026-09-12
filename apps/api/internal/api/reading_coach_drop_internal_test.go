@@ -564,3 +564,41 @@ func TestReadingPlusSomethingToDoIsFine(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 它说了有卡，她屏幕上就必须有卡。
+//
+// 产品负责人 2026-09-12 定的线：「不应该让用户有 bug 的感觉。要么不满足自己
+// 不调用，要么就是有兜底策略。」她逐字说过的那一幕是 印记 连着两轮道歉
+// 「卡没送到你手里」，她连着两轮回「没有卡啊」。
+func TestFallbackCardCannotBeRejected(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
+
+	// 兜底那张必须**过得了**校验 —— 它要是也能被驳回，就不叫兜底。
+	got := fallbackCardFor("哪一句最能说明援助进不去？")
+	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+		t.Fatalf("兜底卡被驳回了，理由 %q —— 那它就不是兜底", why)
+	}
+	if got.Type != coachCardPickInArticle {
+		t.Errorf("兜底只能是 pick_in_article（没有 options 就没有对不上原文这回事），拿到 %q", got.Type)
+	}
+	// 印记 自己那道题要留住 —— 她看到的是它问的话，不是我们编的。
+	if got.Prompt != "哪一句最能说明援助进不去？" {
+		t.Errorf("它自己那道题没留住：%q", got.Prompt)
+	}
+}
+
+func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
+	got := fallbackCardFor("")
+	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+		t.Fatalf("没有题目时的兜底也必须过得了校验，理由 %q", why)
+	}
+	if strings.TrimSpace(got.Prompt) == "" {
+		t.Error("兜底卡不能没有问题")
+	}
+	// 超长的那一道也不能原样塞回去 —— 它自己会被 promptLen 驳回。
+	long := strings.Repeat("很", 200)
+	if kept, _ := validateCoachCardWhy(fallbackCardFor(long), blocks); kept == nil {
+		t.Error("题目超长时应该换成中性那句，而不是把兜底也弄坏")
+	}
+}

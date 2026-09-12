@@ -1130,6 +1130,9 @@ type readingCoachReply struct {
 	cardWhy cardReject
 	// lensWhy 同理：这一轮那副透镜为什么没落到文章上。
 	lensWhy string
+	// askedPrompt：这一轮它本来想问的那道题（哪怕那张卡后来被丢掉了）。
+	// 兜底发卡时用它，这样她看到的仍然是 印记 问的那句话，不是我们编的。
+	askedPrompt string
 	// lensRetry：透镜递出去了，但这一轮的话配不上它 —— 没有当着她的面做一遍，
 	// 或者话里说的是另一件她此刻做不了的事（板）。
 	// 和上面两个不一样：它不导致任何东西被丢掉，只让这一轮重来一次。
@@ -1348,6 +1351,10 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if got.Card != nil {
 		cardType = got.Card.Type
 		cardPrompt = tailRunes(got.Card.Prompt, 60)
+		// 🚨 校验会把这张卡整个丢掉，而**她的那道题是好的** —— 坏的是选项
+		// （引文对不上原文、或者全来自同一段）。留住那句问题，兜底的时候还给她：
+		// 见 fallbackCardFor。
+		got.askedPrompt = strings.TrimSpace(got.Card.Prompt)
 	}
 	// A card whose options are not literally in the article is the one failure
 	// she could never detect herself — the whole reason to build the card is
@@ -1888,6 +1895,28 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 🚨 最后一道兜底：**它说了有卡，她屏幕上就必须有卡。**
+	//
+	// 产品负责人 2026-09-12 定的那条线：「不应该让用户有 bug 的感觉。要么不满足
+	// 自己不调用，要么就是有兜底策略。」
+	//
+	// 到这里为止，一张卡可能已经被驳回两次（一次原始、一次重试），上面那块板也
+	// 可能没摆成（不是标注那一步、或者这篇文章挑不出句子）。再往下走，她看到的
+	// 就是 印记 说「我给你一张卡」而屏幕上什么都没有 —— 那正是她逐字说过的
+	// 「没有卡啊」。
+	//
+	// pick_in_article 是唯一**不可能被驳回**的形状：它没有 options，也就没有
+	// 「引文对不上原文」可言，只有一句问题加一次「你到文章里点一句」。
+	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
+	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
+	// 的时候才用那句中性的。
+	if parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
+		parsed.Card = fallbackCardFor(parsed.askedPrompt)
+		parsed.cardWhy = cardOK
+		slog.Info("reading coach: promised a card and had none, fell back to pick_in_article",
+			"atom_id", at.ID, "kept_prompt", parsed.askedPrompt != "")
+	}
+
 	// The card rides on the AI message's payload (0106), inside the same
 	// transaction as the words it came with — so a refresh can never show her
 	// the reply without the card it was written around.
@@ -2189,4 +2218,19 @@ func replyOnlyAsksHerToRead(reply string) bool {
 		}
 	}
 	return true
+}
+
+// fallbackCardFor —— 它说了有卡、而那张卡没能发出去时，兜底的那一张。
+//
+// 🚨 只可能是 pick_in_article：五种卡片里只有它**没有 options**，因此不存在
+// 「引文和原文对不上」这种驳回理由 —— 它一定发得出去。这正是兜底需要的性质。
+//
+// 问题优先用 印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
+// 本身是好的）。它连题都没写才用中性的那句。
+func fallbackCardFor(asked string) *coachCard {
+	prompt := strings.TrimSpace(asked)
+	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
+		prompt = "请在文章里点出你想说的那一句。"
+	}
+	return &coachCard{Type: coachCardPickInArticle, Prompt: prompt}
 }
