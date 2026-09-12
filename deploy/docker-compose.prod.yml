@@ -48,9 +48,20 @@ services:
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # 旧的三个别名（→ dialogue / reflex / assess）。
       MODEL_CHAT: ${MODEL_CHAT:-}
       MODEL_FAST_CHAT: ${MODEL_FAST_CHAT:-}
       MODEL_EVAL: ${MODEL_EVAL:-}
+      # 每档一个。少了这几行，AGENTS.md 里「换模型 = 改一个环境变量」这句话在
+      # 线上对七个档里的五个都是假的：变量设了也进不去容器，服务照旧用目录里的
+      # 绑定，而改的人会以为自己已经换过了。
+      MODEL_REFLEX: ${MODEL_REFLEX:-}
+      MODEL_DIALOGUE: ${MODEL_DIALOGUE:-}
+      MODEL_COMPOSE: ${MODEL_COMPOSE:-}
+      MODEL_REVIEW: ${MODEL_REVIEW:-}
+      MODEL_ASSESS: ${MODEL_ASSESS:-}
+      MODEL_DIGEST: ${MODEL_DIGEST:-}
+      MODEL_DRAW: ${MODEL_DRAW:-}
       VOICE_APP_ID: ${VOICE_APP_ID:-}
       VOICE_ACCESS_KEY: ${VOICE_ACCESS_KEY:-}
       VOICE_TTS_VOICE: ${VOICE_TTS_VOICE:-}

@@ -139,7 +139,19 @@
     "--print-models flags it. The DashScope rows below are deliberately unpriced —",
     "Aliyun bills in CNY at its own rates, and guessing them would silently corrupt",
     "every cost comparison the catalog exists to make. Fill them in from the",
-    "Bailian console before drawing any cost conclusion from llm_usage."
+    "Bailian console before drawing any cost conclusion from llm_usage.",
+    "",
+    "2026-09-12 · 两行 deepseek 直连价改了，因为原来那两行是错的（V4 时代的旧价，",
+    "按它算出来的钱只有真实的三分之一）。现价取自 api-docs.deepseek.com 的",
+    "Models & Pricing，记的是**峰时**（cache miss）：deepseek-v4-pro 1.32/3.96，",
+    "deepseek-flash 0.30/1.20 USD per 1M。闲时是峰时的一半，我们记贵的那个——",
+    "成本估高了只是保守，估低了会让一次降级看起来没必要。",
+    "",
+    "deepseek-v4-flash 这个线名在直连口上被官方指向了 V4.1 Flash（实测：请求它，",
+    "回包的 model 字段是 deepseek-flash），所以两行同价。经 DashScope 时不是这样：",
+    "那边的 deepseek-v4-flash 仍是老的 V4 Flash，V4.1 还没上架（实测 2026-09-12，",
+    "GET /models 里没有，直接调是 model_not_found）。同一个线名在两条通道上不是",
+    "同一个模型——这正是价格和绑定都必须按通道记的原因。"
   ],
   "models": {
     "dashscope/deepseek-v4-pro": {
@@ -313,17 +325,26 @@
       "label": "DeepSeek V4 Pro (direct)",
       "flagship": true,
       "priceUsd": {
-        "inputPerMillion": 0.435,
-        "outputPerMillion": 0.87
+        "inputPerMillion": 1.32,
+        "outputPerMillion": 3.96
       }
     },
     "deepseek/deepseek-v4-flash": {
       "provider": "deepseek",
       "model": "deepseek-v4-flash",
-      "label": "DeepSeek V4 Flash (direct)",
+      "label": "DeepSeek V4 Flash (direct) — 别名，实际答的是 V4.1 Flash",
       "priceUsd": {
-        "inputPerMillion": 0.14,
-        "outputPerMillion": 0.28
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
+      }
+    },
+    "deepseek/deepseek-flash": {
+      "provider": "deepseek",
+      "model": "deepseek-flash",
+      "label": "DeepSeek V4.1 Flash (direct)",
+      "priceUsd": {
+        "inputPerMillion": 0.3,
+        "outputPerMillion": 1.2
       }
     },
     "glm/glm-5.3-flash": {

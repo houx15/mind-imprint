@@ -33,17 +33,17 @@
     ],
     "dialogue": [
       "dashscope/deepseek-v4-pro",
+      "deepseek/deepseek-flash",
       "dashscope/deepseek-v4-flash",
       "dashscope/qwen3.8-flash",
-      "dashscope/qwen3.7-plus",
-      "dashscope/kimi-k3"
+      "dashscope/qwen3.7-plus"
     ],
     "compose": [
-      "dashscope/deepseek-v4-pro",
-      "dashscope/qwen3.8-max",
-      "dashscope/qwen3.7-plus",
-      "dashscope/kimi-k3",
-      "dashscope/glm-5.2"
+      "dashscope/glm-5.3",
+      "dashscope/glm-5.3-flash",
+      "deepseek/deepseek-flash",
+      "dashscope/qwen3.8-flash",
+      "dashscope/qwen3.7-plus"
     ],
     "review": [
       "dashscope/deepseek-v4-pro",

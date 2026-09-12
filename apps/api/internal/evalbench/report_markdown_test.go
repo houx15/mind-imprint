@@ -1,6 +1,7 @@
 package evalbench
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,20 @@ import (
 	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/gateway"
 )
+
+// fixtureCostString is the per-call cost the markdown fixture must render,
+// computed from the catalog rather than pinned as a literal. The fixture's two
+// calls are 10 in / 20 out on deepseek-v4-pro; when that row is repriced the
+// expectation moves with it, so a price refresh stays a price refresh instead
+// of turning into a failing golden test.
+func fixtureCostString(t *testing.T) string {
+	t.Helper()
+	cost, ok := gateway.EstimateCost("deepseek", "deepseek-v4-pro", 10, 20)
+	if !ok {
+		t.Fatal("fixture model must be priced in the catalog")
+	}
+	return fmt.Sprintf("$%.6f", cost)
+}
 
 func TestRenderMarkdownReportGoldenFixture(t *testing.T) {
 	c, manifest, summary, states := markdownFixture()
@@ -28,7 +43,7 @@ func TestRenderMarkdownReportGoldenFixture(t *testing.T) {
 		"不可评估（每个 case 少于 2 个完整成功 run）",
 		"[详细报告](report-details.md)",
 		"[summary.json](summary.json)",
-		"$0.000022",
+		fixtureCostString(t),
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report missing %q", want)
@@ -81,7 +96,7 @@ func TestRenderDetailedMarkdownReportGoldenFixture(t *testing.T) {
 	if gotCount := strings.Count(got, "| 认知深度 | D1 | judgement |"); gotCount != 4 {
 		t.Fatalf("D1 comparison rows = %d, want each variant in highlighted differences and complete matrix", gotCount)
 	}
-	if !strings.Contains(got, "$0.000022") || !strings.Contains(got, "eval\\_report\\_rubric") || !strings.Contains(got, "single\\_prompt\\_evalreport\\_v1") {
+	if !strings.Contains(got, fixtureCostString(t)) || !strings.Contains(got, "eval\\_report\\_rubric") || !strings.Contains(got, "single\\_prompt\\_evalreport\\_v1") {
 		t.Fatalf("cost comparison is missing priced call details:\n%s", got)
 	}
 	if strings.Contains(got, "<script>") || !strings.Contains(got, "&lt;script&gt;") {
