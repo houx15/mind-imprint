@@ -6,6 +6,7 @@ import { wordUnit } from "./wordUnit";
 import { ApiError } from "../api/client";
 import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
+import { registerPendingSave } from "./pendingSaves";
 import { NamePieceModal } from "./NamePieceModal";
 import {
   composeWritingDraft,
@@ -223,6 +224,23 @@ export function ComposeStage({
     clearPending();
     return save(bodyRef.current);
   }
+
+  /**
+   * 🚨 成稿这一页也有那个抢跑：她在正文里敲完就去问印记，防抖还没到，
+   * 陪练读的还是服务端那一版。
+   *
+   * 段落那一步上一轮已经堵上了（pendingSaves.ts），成稿这一页当时漏了 ——
+   * 第三十九轮中文那一路还在报同一件事：「成稿第三段明明已经有解释了，
+   * 印记还说我缺解释，不知道是不是它看的是旧版本。」
+   * flush 本来就有（失焦时用的那一个），差的只是把它登记出去。
+   */
+  useEffect(() => {
+    return registerPendingSave(async () => {
+      if (bodyRef.current === savedRef.current) return;
+      await flush();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function assemble() {
     // The textarea stays enabled while this is in flight (a disabled surface
