@@ -62,6 +62,8 @@ export function useMindMapDrag(
   // 同 CoachBoards：ref 在同一个事件循环里就是最新值，state 要等渲染。
   // 一次快速点按的 down 和 up 落在同一个 React 批次里，只读 state 会漏掉。
   const draggingRef = useRef<string | null>(null);
+  /** 这一次有没有已经捕获过指针。见 onPointerDown 那段。 */
+  const capturedRef = useRef(false);
 
   function nodeAt(x: number, y: number): string | null {
     const el = document.elementFromPoint(x, y);
@@ -75,9 +77,19 @@ export function useMindMapDrag(
         if (!onMove) return;
         // 只接主键/单指。右键和第二根手指不该开始一次拖动。
         if (e.button !== 0) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        // 🚨 **这里故意不捕获指针。**
+        //
+        // 捕获之后，随后那个 click 事件会被派发到**捕获的那个元素**（这张卡），
+        // 而不是她真正点到的那个 span —— 于是卡片上「点字改这一条」整个失效。
+        // 这不是推出来的：2026-09-12 的真浏览器检查里，拖动本身通过了、
+        // 库里也改对了，唯独点字不再打开改字框。jsdom 里看不见这件事，
+        // 因为它没有真的 pointer capture。
+        //
+        // 所以改成**真的开始拖了再捕获**（见 onPointerMove）。一次普通的点击
+        // 从头到尾没有捕获发生，click 照常落在 span 上。
         downAtRef.current = { x: e.clientX, y: e.clientY };
         movedRef.current = false;
+        capturedRef.current = false;
         draggingRef.current = id;
         setDraggingId(id);
       },
@@ -86,12 +98,19 @@ export function useMindMapDrag(
         const from = downAtRef.current;
         if (from && isDrag(from, { x: e.clientX, y: e.clientY })) movedRef.current = true;
         if (!movedRef.current) return;
+        // 越过门槛的第一帧才捕获：不捕获的话，手指一离开这张卡，
+        // 后面的 move 和 up 就都收不到了，这次拖动会断在半路。
+        if (!capturedRef.current) {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          capturedRef.current = true;
+        }
         const over = nodeAt(e.clientX, e.clientY);
         setHoverId(over === draggingRef.current ? null : over);
       },
       onPointerUp(e: React.PointerEvent<HTMLElement>) {
         if (draggingRef.current !== id) return;
-        e.currentTarget.releasePointerCapture?.(e.pointerId);
+        if (capturedRef.current) e.currentTarget.releasePointerCapture?.(e.pointerId);
+        capturedRef.current = false;
         const over = movedRef.current ? nodeAt(e.clientX, e.clientY) : null;
         draggingRef.current = null;
         setDraggingId(null);
