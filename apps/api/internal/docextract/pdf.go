@@ -40,9 +40,9 @@ func PDF(b []byte) (title, text string, err error) {
 		return "", "", fmt.Errorf("docextract: open pdf: %w", rerr)
 	}
 
-	var out strings.Builder
 	fonts := make(map[string]*pdf.Font)
 	total := r.NumPage()
+	pages := make([]string, 0, total)
 	for i := 1; i <= total; i++ {
 		p := r.Page(i)
 		if p.V.IsNull() {
@@ -53,11 +53,13 @@ func PDF(b []byte) (title, text string, err error) {
 			continue // skip an unreadable page rather than fail the whole doc
 		}
 		if s := strings.TrimSpace(pageText); s != "" {
-			out.WriteString(s)
-			out.WriteString("\n\n")
+			pages = append(pages, s)
 		}
 	}
-	return "", normalizeText(out.String()), nil
+	// 🚨 去页眉页脚页码，**就在这里**：页的边界只在这一层存在。文本一旦拼成
+	// 一整篇，「这一行是第 3 页的页眉」和「这一句她写了两遍」就再也分不开了。
+	// 见 furniture.go。
+	return "", normalizeText(strings.Join(stripFurniture(pages), "\n\n")), nil
 }
 
 // normalizeText collapses runs of spaces/tabs to a single space and runs of 3+
