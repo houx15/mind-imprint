@@ -1439,7 +1439,7 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 推进和交给她一件事，是这一轮要同时做的两件事。
 	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
 		got.Card == nil && got.Lens == "" &&
-		!replyAsksForSomething(got.Reply) {
+		(!replyAsksForSomething(got.Reply) || replyOnlyAsksHerToRead(got.Reply)) {
 		got.cardWhy = cardRejectDeadTurn
 	}
 	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
@@ -2154,4 +2154,39 @@ func replyAsksForANoOpMove(reply string, placed map[string]string) bool {
 		}
 	}
 	return false
+}
+
+// replyOnlyAsksHerToRead —— 这一轮的全部内容是「你先把全文读一遍」。
+//
+// 🚨 「请通读一遍全文」是一句**祈使句**，所以 replyAsksForSomething 认它是
+// 「请她做事了」—— 但读文章这件事**在屏幕上交不出来**：没有卡片可点、没有句子
+// 可划，她读完之后手里什么都没有，只能干等。实测她连着四轮说的是同一句：
+//
+//	「它说『先通读一遍全文』，但我读完了不知道接下来要干嘛，没有下一步的按钮。」
+//
+// 第五轮她放弃了。
+//
+// prompt 里早就写着「不要以『先通读全文，读完告诉我』收尾」，它照样这么收尾 ——
+// 按 [[prompt-twice-then-make-it-checkable-2026-09-12]]，写第三遍不如做成判据。
+//
+// 只在**没有卡片也没有透镜**的时候判：带着卡片说「先通读一遍再点」是正常的，
+// 那一轮她手上有东西。
+func replyOnlyAsksHerToRead(reply string) bool {
+	read := false
+	for _, w := range []string{"通读", "读一遍", "全文读", "读完全文", "先读一下全文"} {
+		if strings.Contains(reply, w) {
+			read = true
+			break
+		}
+	}
+	if !read {
+		return false
+	}
+	// 它在同一轮里还请她做了别的（划一句、写一句、挑一个）—— 那就有落点。
+	for _, w := range []string{"划", "挑一", "选一", "找出", "标出", "圈出", "写下", "写一"} {
+		if strings.Contains(reply, w) {
+			return false
+		}
+	}
+	return true
 }

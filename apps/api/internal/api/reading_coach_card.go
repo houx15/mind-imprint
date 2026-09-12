@@ -873,6 +873,10 @@ func replyAsksForSomething(reply string) bool {
 var replyAskWords = []string{
 	"请", "说说", "写下", "写一", "挑一", "选一", "找一", "找出", "标出", "圈出",
 	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
+	// 🚨 「划」是这个房间最核心的动作（在文章里划出一句），第一版这张表里**没有它** ——
+	// 于是「在文章里划出你最不服气的那一句」被判成「什么都没请她做」。
+	// 守着这条的是 TestReadingPlusSomethingToDoIsFine。
+	"划出", "划一", "划到", "标一",
 }
 
 // coachLabelBoardPrompt —— 标注板的标准题目。服务端兜底摆板时用它，模型把题目

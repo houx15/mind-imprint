@@ -524,3 +524,43 @@ func TestCutOffIsCaughtOnACardlessTurn(t *testing.T) {
 		t.Fatalf("半句话没被判出来，cardWhy = %q", got.cardWhy)
 	}
 }
+
+// 🚨 「你先把全文读一遍」不是一件她在屏幕上交得出来的事。
+//
+// 实测她连着四轮说同一句：「它说『先通读一遍全文』，但我读完了不知道接下来要
+// 干嘛，没有下一步的按钮。」第五轮她放弃了，整条走查停在第 6 步。
+//
+// prompt 里早就写着「不要以『先通读全文，读完告诉我』收尾」，它照样这么收尾 ——
+// 写第三遍不如做成判据。
+func TestReadOnlyTurnIsADeadTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	lensOK := func(string) bool { return true }
+
+	raw := `{"reply":"我们先通读一遍全文，读完跟我说一声。"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("只让她读、没有落点，应该判 dead turn，拿到 %q", got.cardWhy)
+	}
+}
+
+func TestReadingPlusSomethingToDoIsFine(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	lensOK := func(string) bool { return true }
+	for _, reply := range []string{
+		// 读 + 一个她交得出来的动作。
+		`{"reply":"先通读一遍全文，然后在文章里划出你最不服气的那一句。"}`,
+		// 带着卡片说「先读一遍再点」是正常的 —— 那一轮她手上有东西。
+		`{"reply":"先通读一遍全文，再看下面这张卡。","card":{"type":"short_text","prompt":"读完之后，你最想问作者什么？"}}`,
+	} {
+		got, ok := parseReadingCoachReply(reply, blocks, "en", lensOK)
+		if !ok {
+			t.Fatalf("解析失败：%s", reply)
+		}
+		if got.cardWhy == cardRejectDeadTurn {
+			t.Errorf("这一轮她有东西可做，不该判 dead turn：%s", reply)
+		}
+	}
+}
