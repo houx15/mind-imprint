@@ -48,6 +48,17 @@ import { useRef, useState } from "react";
  * 🚨 写的是**这一句在文章里干什么**，不是给这个词下定义。「主张 = 作者要你
  * 接受的那句话」她拿着就能去比对；「主张：作者的核心论点」只是把一个生词换成
  * 另外两个。
+ *
+ * 🚨 **这一份是阅读室的，别当成全局的。** 它的每一句都站在「读别人写的东西」
+ * 这一侧说话 —— 「**作者**要你接受的那句话」。
+ *
+ * 而 `CoachBoard` 是两个房间共用的：写作室的 RoleBoard 也从这里进来
+ *（apps/lite-web/src/writings/RoleBoard.tsx），它的格子是
+ * 主张 / 证据 / 解释 / 让步 / 背景。那一侧**作者就是她自己**，同一句话摆过去
+ * 就是错的；而且「解释」「让步」两格在这张表里根本没有，板会半边有字半边没字。
+ *
+ * 所以这一份只当**默认值**，房间可以自己传一份（`binHints`）。
+ * 两个房间的格子本来就不是同一套词，共用一份表是让它们迟早互相踩的唯一原因。
  */
 const BIN_HINT: Record<string, string> = {
   主张: "作者要你接受的那句话",
@@ -241,6 +252,7 @@ export function CoachBoard({
   submitLabel,
   busy,
   onSubmit,
+  binHints,
 }: {
   items: BoardItem[];
   /** 格子的名字，按屏幕顺序。 */
@@ -250,7 +262,15 @@ export function CoachBoard({
   submitLabel: string;
   busy?: boolean;
   onSubmit: (placement: BoardPlacement) => void;
+  /**
+   * 每个格子底下那一句白话。不给就用阅读室那一份（BIN_HINT）。
+   *
+   * 🚨 房间自己传，因为那句话是**站在谁的位置上说的**：阅读室说「作者要你
+   * 接受的那句话」，写作室那一侧作者就是她自己。见 BIN_HINT 上面那段。
+   */
+  binHints?: Record<string, string>;
 }) {
+  const hints = binHints ?? BIN_HINT;
   const b = useBoard();
   const loose = items.filter((it) => !b.placed[it.id]);
   const done = loose.length === 0;
@@ -295,7 +315,7 @@ export function CoachBoard({
                   这五个词是她来这儿要学的（所以照说），但一个只有名字的格子
                   对她就是一个生词 —— 她只能猜，或者照着 印记 说漏的答案搬。
                   一句白话不是把题目做掉：她仍然得判断每一句在干什么。 */}
-              {BIN_HINT[bin] && <span className="mk-board__binhint">{BIN_HINT[bin]}</span>}
+              {hints[bin] && <span className="mk-board__binhint">{hints[bin]}</span>}
               <div className="mk-board__chips">
                 {inside.map((it) => (
                   <Chip

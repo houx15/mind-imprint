@@ -54,6 +54,30 @@ import { sentencesForBoard, type Sentence } from "./sentences";
  */
 export const ROLE_BINS = ["主张", "证据", "解释", "让步", "背景"] as const;
 
+/**
+ * 每个格子底下那一句白话。
+ *
+ * 🚨 **这一份必须是写作室自己的，不能用阅读室那一份。**
+ *
+ * `CoachBoard` 是两个房间共用的组件，而它自带的 BIN_HINT 是阅读室的：
+ * 「主张 = **作者**要你接受的那句话」。那句话站在「读别人写的东西」这一侧说，
+ * 搬到这里就是错的 —— **这一侧作者就是她自己**。而且「解释」「让步」两格在
+ * 那张表里根本没有，直接用会让这块板半边有字半边没字。
+ *
+ * 上面那段已经写了「不要把这两张表合并」。格子不合并，格子底下这句话同样不能。
+ *
+ * 写的是**这一句在这一段里干什么**，不是给这个词下定义
+ *（同阅读室那份的理由）。「让步」用的是学生看得懂的说法 ——
+ * methods.json 里它的 name 就是「先承认，再反驳」，「让步」是正式名称。
+ */
+export const ROLE_BIN_HINT: Record<string, string> = {
+  主张: "你要读者接受的那句话",
+  证据: "你拿来撑住它的那件事、那个数字",
+  解释: "说清这件事凭什么能支持上面那句",
+  让步: "先承认对方有道理的那一句",
+  背景: "交代情况，不参与说服",
+};
+
 /** 她摆完之后，这块板变成一条什么话——回灌给 印记 的就是这条。 */
 export function composeRoleBoardAnswer(sentences: Sentence[], placement: BoardPlacement): string {
   const lines: string[] = ["我给这一段的每一句标了它在干什么："];
@@ -112,6 +136,7 @@ export function RoleBoard({
       <CoachBoard
         items={items}
         bins={[...ROLE_BINS]}
+        binHints={ROLE_BIN_HINT}
         itemLabel="把每一句拖到下面某一格里，或者点一句再点一格。"
         submitLabel="标好了"
         busy={busy}
