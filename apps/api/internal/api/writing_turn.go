@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
@@ -189,12 +191,32 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		// 最后那半句是真正的代价：**她开始怀疑该信屏幕上的哪一个**。
 		b.WriteString("已经写好的片段（**这是她此刻的正文，以这里为准**；" +
 			"上面对话里你早先引过的句子她可能已经改掉了，不要照着那些再提一遍）：\n")
+		// 🚨 **带上这一块的标题，别只给一个号。**
+		//
+		// 第三十六轮中文那一路：「印记说的『第3段最后那两句』跟我现在看到的
+		// 第一段最后一句有点像，但不确定它到底在说哪一段，有点乱。」
+		// 屏幕上每一块的抬头写的是**结构那一步的标题**，一个数字都没有；
+		// 而这里只给了号。于是「第3段」在她那边没有任何落点，只能自己数 ——
+		// 而空的块也占位置，数出来常常对不上。
+		//
+		// 两头一起改：屏幕上把号摆出来（SnippetsStage），这里把标题给它。
+		// 有标题就能说「『各地都能开设很好的学校』那一块」，比数字准得多。
+		headingOf := map[string]string{}
+		for _, o := range outline {
+			headingOf[o.ID.String()] = strings.TrimSpace(o.Text)
+		}
 		for _, s := range snippets {
 			text := strings.TrimSpace(s.Text)
 			if text == "" {
 				continue
 			}
-			fmt.Fprintf(&b, "  [%d] %s\n", s.Position+1, writingProjectionSnippet(text))
+			label := ""
+			if s.OutlineID.Valid {
+				if h := headingOf[uuid.UUID(s.OutlineID.Bytes).String()]; h != "" {
+					label = "「" + h + "」"
+				}
+			}
+			fmt.Fprintf(&b, "  [第%d块]%s %s\n", s.Position+1, label, writingProjectionSnippet(text))
 		}
 		b.WriteString(writingCoachGroundingRules)
 	}
@@ -222,7 +244,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 // 🚨 这一条**没法在代码里验**（自由对话没有可校验的输出类型），所以它只是
 // 一条希望，不是保证 —— 见 [[prompt-output-must-be-verifiable-2026-09-03]]。
 // 真正的保证在那条结构化的路上；这里能做的是把她的原文摆在上文里
-//（上面那几段就是），让「引一句」成为最省力的选择。
+// （上面那几段就是），让「引一句」成为最省力的选择。
 //
 // # 二 · 她此刻在写，不在现场
 //
@@ -269,7 +291,6 @@ const writingCoachGroundingRules = `
 🚨 给的是**动作**，不是那句话本身。「把第三句挪到第一句前面」是动作；
 替她写出那一句，就是替她写作文。
 `
-
 
 // writingProjectionSnippetRunes 是一段正文喂进陪练上下文时的上限。
 //

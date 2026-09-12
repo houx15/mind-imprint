@@ -637,6 +637,13 @@ function SnippetBlock({
               {slot.role}
             </span>
           )}
+          {/* 🚨 号要摆出来 —— 印记 说的是「第 N 块」。
+              第三十六轮中文那一路：「印记说的『第3段最后那两句』跟我现在看到的
+              第一段最后一句有点像，不确定它到底在说哪一段，有点乱。」
+              抬头上原来只有结构那一步的标题，一个数字都没有，于是她只能自己数；
+              而空的块也占位置，数出来常常对不上。
+              这个号和服务端 projection 里那个是同一个（position + 1）。 */}
+          <span className="shrink-0 text-mk-small text-mk-faint">第 {slot.position + 1} 块</span>
           <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
