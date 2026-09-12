@@ -100,7 +100,7 @@ func TestPlanLooksReady(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := planLooksReady(tc.rows); got != tc.want {
+			if got := planLooksReady(sqlc.Writing{}, tc.rows); got != tc.want {
 				t.Errorf("planLooksReady = %v, want %v — %s", got, tc.want, tc.why)
 			}
 		})

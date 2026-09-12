@@ -99,15 +99,17 @@ func TestWritingPlanShape_CountsByDepth(t *testing.T) {
 		t.Fatalf("shape = %+v, want {Top:1 Points:2 Material:1}", s)
 	}
 	// 一份判据两个实现是它们悄悄分岔的唯一原因。
-	if planLooksReady(rows) != s.ready() {
+	if planLooksReady(sqlc.Writing{}, rows) != s.ready(writingPlanNeedOf(sqlc.Writing{})) {
 		t.Fatal("planLooksReady and writingPlanShape.ready must never disagree")
 	}
 }
 
 // prompt 里那段事实要说出**还缺什么**——模型下一个问题直接由缺口决定。
 func TestWritingPlanShape_PromptBlockNamesWhatIsMissing(t *testing.T) {
-	block := writingPlanShapeOf([]sqlc.WritingOutline{node("中心论点", 0)}).promptBlock()
-	for _, want := range []string{"分论点还不到两条", "还没有一条她自己"} {
+	block := writingPlanShapeOf([]sqlc.WritingOutline{node("中心论点", 0)}).promptBlock(writingPlanNeedOf(sqlc.Writing{}))
+	// 缺口里现在带着**这篇篇幅下要几条**那个数（2026-09-12：一条写死的线量不了
+	// 800 字和 3000 字两种文章），所以这里比的是带数字的那句。
+	for _, want := range []string{"分论点还不到 2 条", "材料还不到 1 条"} {
 		if !contains(block, want) {
 			t.Fatalf("prompt block should name the gap %q:\n%s", want, block)
 		}
@@ -115,7 +117,7 @@ func TestWritingPlanShape_PromptBlockNamesWhatIsMissing(t *testing.T) {
 
 	full := writingPlanShapeOf([]sqlc.WritingOutline{
 		node("a", 0), node("b", 1), node("c", 1), node("d", 2),
-	}).promptBlock()
+	}).promptBlock(writingPlanNeedOf(sqlc.Writing{}))
 	if !contains(full, "这一轮就请她去写") {
 		t.Fatalf("a plan that meets every criterion must say so:\n%s", full)
 	}

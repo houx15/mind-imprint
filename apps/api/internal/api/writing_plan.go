@@ -170,8 +170,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 ready 给 true，当下面几件事都成立：
 - 这篇要说的**那一句话**已经定下来了；
-- 支撑它的**分论点有两条以上**，而且不是同一条说了两遍；
-- 至少有一条底下挂着她自己的材料（一件她见过的事、一个例子、一组数据）。
+- **分论点的条数够了**，而且不是同一条说了两遍；
+- **她自己的材料的条数够了**（一件她见过的事、一个例子、一组数据）。
+
+🚨 这两个「够了」具体是几条，**不要自己拍**——下面【这份计划现在有什么】里
+逐条写着这篇篇幅下该有几条、现在有几条。一篇 800 字的短文和一篇 3000 字的论文
+要的骨架不一样，那个数字已经按篇幅算好了，照着它读。
 
 或者，她自己说想开始写了——**这时候直接给 true，一个字都不要劝**。
 
@@ -214,7 +218,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 
 	// 计划现在有什么、还缺什么，由服务端数出来当事实给它——不让它每轮从十六轮
 	// 对话里重新推一遍「她定下中心论点了吗」。见 writing_plan_state.go。
-	b.WriteString(writingPlanShapeOf(rows).promptBlock())
+	b.WriteString(writingPlanShapeOf(rows).promptBlock(writingPlanNeedOf(wr)))
 
 	// 她连着两轮等于没答 → 这一轮别再问了。**只在真的停滞时出现，不做常驻**
 	// （2026-09-05：常驻提示会把该做的事挤掉）。
@@ -549,8 +553,8 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 // student who says almost nothing never reaches the floor at all, so the
 // questions never stop). That half is writingPlanStalled — see
 // writing_plan_state.go, which also owns the shape counting below.
-func planLooksReady(rows []sqlc.WritingOutline) bool {
-	return writingPlanShapeOf(rows).ready()
+func planLooksReady(wr sqlc.Writing, rows []sqlc.WritingOutline) bool {
+	return writingPlanShapeOf(rows).ready(writingPlanNeedOf(wr))
 }
 
 // rootInsertPosition decides where a NEW top-level (depth-0) node lands
@@ -778,6 +782,39 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		byID[row.ID.String()] = row
 	}
 
+	// 🚨 这一轮要是请她去写的那一轮，话里就不能还挂着一个问题。
+	// 见 writing_plan_invite.go 那一段（产品负责人 2026-09-12 带截图报的第一条）。
+	//
+	// 必须在落库**之前**判：回复是先写进 atom_message 再加节点的，等 live 有了
+	// 这几个节点，那句带问号的话已经存进对话里，改不动了。所以形状要连这一轮
+	// 还没落库的 add 一起算。
+	if writingPlanShapeWith(rows, byID, parsed.Add).ready(writingPlanNeedOf(wr)) && writingPlanReplyAsks(parsed.Reply) {
+		slog.Info("writing plan turn: invite turn still asked a question, retrying once",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		// assistant 那一轮用 parsed 重新序列化，不用 res.Text —— 上面解析失败
+		// 重试过的话，res.Text 是那份坏掉的，parsed 才是真正在用的这一份。
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingPlanInviteNudge},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && !writingPlanReplyAsks(p2.Reply) {
+				parsed = p2
+				parsed.Ready = true
+			} else {
+				// 两次都带问号，或者第二次读不出来：用第一份。一句带问号的好
+				// 教学，比扣下整轮让她什么都拿不到强 —— 同 firstGhostQuote 那条路。
+				slog.Warn("writing plan turn: invite retry still asked or unparseable", "atom_id", at.ID)
+			}
+		}
+	}
+
 	tx, err := a.d.Pool.Begin(turnCtx)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -878,7 +915,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		// 而提纲为空的段落页是一页空白——那不是放她走，是把她扔了。
 		// 图上还什么都没有的时候，停止提问这件事只由 prompt 那一段来做
 		// （writingPlanStalledBlock：这一轮不要再问，告诉她可以先去写）。
-		"ready": parsed.Ready || planLooksReady(live) ||
+		"ready": parsed.Ready || planLooksReady(wr, live) ||
 			(writingPlanStalled(msgs, studentText) && writingPlanShapeOf(live).Top >= 1),
 	})
 }

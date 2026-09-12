@@ -17,6 +17,7 @@ import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
 import { apiErrorText } from "../api/errorText";
+import { planShapeLine, planShapeOf } from "./planShape";
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -268,6 +269,13 @@ export function PlanningView({
                 <p className="text-mk-small leading-relaxed text-mk-ink">
                   这份思路已经够撑起一篇。开头与结尾可以等主体写出来之后再定。
                 </p>
+                {/* 🚨 它凭什么说够了 —— 把数出来的那几个数摆出来。
+                    产品负责人 2026-09-12 的原话：「AI 就判断已足以支撑一篇文章，
+                    **判断依据不清晰**。」原来这块绿框只有上面那一句，没有一个字
+                    说它数了什么，于是她既没法判断该不该信，也看不出自己还差什么。
+                    这一行只报事实（几条），「够不够」那条判据留在服务端，
+                    见 planShape.ts 里那段。 */}
+                <p className="text-mk-small text-mk-secondary">{planShapeLine(planShapeOf(outline))}</p>
                 <div className="flex justify-end">
                   <Button onClick={onDone} iconEnd={<Icon icon={ArrowRight} size={14} />}>
                     开始写作

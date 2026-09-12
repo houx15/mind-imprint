@@ -162,8 +162,75 @@ func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
 //
 // 两处必须一致，所以 planLooksReady 改成调用这里——一份判据两个实现，
 // 是它们悄悄分岔的唯一原因。
-func (s writingPlanShape) ready() bool {
-	return s.Top >= 1 && s.Points >= 2 && s.Material >= 1
+//
+// 判据跟着这一篇的篇幅走，见 writingPlanNeedOf。
+func (s writingPlanShape) ready(need writingPlanNeed) bool {
+	return s.Top >= 1 && s.Points >= need.Points && s.Material >= need.Material
+}
+
+// writingPlanNeed 是这一篇**按它的篇幅**该有的骨架。
+//
+// 🚨 **一条固定的线，量不了两种长度的文章。**
+//
+// 产品负责人 2026-09-12：
+//
+//	「希望能支持不同类型的文本的写作，目前思路梳理的部分太短了，
+//	  800字和3000字的论文的思路长短不一，需要扩展。」
+//
+// 她说得准。篇幅本来只以一句软话进了提示词（「篇幅只用来判断要几条分论点」），
+// 而**真正放她走的那条线是写死的**：两条分论点、一条材料。于是一篇 3000 字的
+// 论文和一篇 800 字的短文，在第三条分论点还没出现的时候就同时被判为「想好了」。
+// 模型那边再怎么被提醒篇幅，也跨不过一条服务端写死的线 —— 这和
+// [[prompt-twice-then-make-it-checkable]] 是同一件事的另一面：
+// 真正算数的是代码里那条判据，那就得让它知道篇幅。
+//
+// 每条分论点撑多少：中文按 400 字，英文按 250 词（英文一个词大致抵一个半到
+// 两个汉字，这个比例和 writingLengthLine 里换算单位的那一处是同一个来源）。
+//
+//	800 字  → 2 条分论点、1 条材料（和原来那条线一样，短文不受影响）
+//	1600 字 → 4 条、3 条
+//	3000 字 → 封顶 4 条、3 条
+//
+// 封在 4：再往上就不是「还没想清楚」，而是这篇文章该拆章节了，而拆章节不是
+// 拦着她不让动笔的理由。下限仍是 2 —— 一条理由撑不起一篇议论文。
+//
+// 没设目标字数就还是原来那条线：不知道她要写多长，就不该替她加码。
+type writingPlanNeed struct {
+	Points   int
+	Material int
+}
+
+const (
+	writingPlanRunesPerPoint = 400 // 中文，字
+	writingPlanWordsPerPoint = 250 // 英文，词
+	writingPlanMinPoints     = 2
+	writingPlanMaxPoints     = 4
+)
+
+func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
+	need := writingPlanNeed{Points: writingPlanMinPoints, Material: 1}
+	if wr.TargetWords == nil {
+		return need
+	}
+	per := writingPlanRunesPerPoint
+	if wr.Lang == langEnglish {
+		per = writingPlanWordsPerPoint
+	}
+	n := int(*wr.TargetWords) / per
+	if n < writingPlanMinPoints {
+		n = writingPlanMinPoints
+	}
+	if n > writingPlanMaxPoints {
+		n = writingPlanMaxPoints
+	}
+	need.Points = n
+	// 材料比分论点少一条：不必每条理由底下都压着一件她见过的事，但也不能
+	// 只有一条材料就去写四条理由 —— 那几条会全是空推理。
+	need.Material = n - 1
+	if need.Material < 1 {
+		need.Material = 1
+	}
+	return need
 }
 
 // promptBlock 把形状渲染成 prompt 里那一段。
@@ -171,25 +238,30 @@ func (s writingPlanShape) ready() bool {
 // 写的是**还缺什么**，而不只是有什么：模型要挑的是下一个问题，
 // 而「下一个问题」直接由缺口决定。这也是 my-literary-moment 的「单点聚焦」——
 // 她一次给了多层就跳过已有层，只问缺的。
-func (s writingPlanShape) promptBlock() string {
+//
+// 🚨 这里的门槛必须和 ready(need) 用同一份 need。写死一个 2 的话，一篇 3000 字
+// 的论文里模型会以为两条分论点就齐了、催她去写，而服务端那道门还关着 ——
+// 两边说的话对不上，她就卡在中间。
+func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 	var b strings.Builder
 	b.WriteString("\n【这份计划现在有什么】（服务端数出来的，不用你再数一遍）\n")
 	b.WriteString("- 最上层的块：" + strconv.Itoa(s.Top) + " 个\n")
-	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条\n")
-	b.WriteString("- 她自己的材料（挂在某条分论点下面的）：" + strconv.Itoa(s.Material) + " 条\n")
+	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条（这篇篇幅下要 " + strconv.Itoa(need.Points) + " 条）\n")
+	b.WriteString("- 她自己的材料（挂在某条分论点下面的）：" + strconv.Itoa(s.Material) +
+		" 条（要 " + strconv.Itoa(need.Material) + " 条）\n")
 
 	var missing []string
 	if s.Top == 0 {
 		missing = append(missing, "这篇要说的那一句话还没定下来")
 	}
-	if s.Points < 2 {
-		missing = append(missing, "支撑它的分论点还不到两条")
+	if s.Points < need.Points {
+		missing = append(missing, "支撑它的分论点还不到 "+strconv.Itoa(need.Points)+" 条")
 	}
-	if s.Material == 0 {
-		missing = append(missing, "还没有一条她自己见过、经历过的材料")
+	if s.Material < need.Material {
+		missing = append(missing, "她自己见过、经历过的材料还不到 "+strconv.Itoa(need.Material)+" 条")
 	}
 	if len(missing) == 0 {
-		b.WriteString("- **三条判据都满足了。这一轮就请她去写。**\n")
+		b.WriteString("- **判据都满足了。这一轮就请她去写。**\n")
 		return b.String()
 	}
 	b.WriteString("- 还缺：" + strings.Join(missing, "；") + "。\n")

@@ -132,7 +132,7 @@ func TestLiveWritingPlanSignalsReady(t *testing.T) {
 		{Text: "应该往后推一小时", Role: "中心论点", Depth: 0, Position: 0},
 		{Text: "青少年生物钟本来就晚", Role: "一条理由", Depth: 1, Position: 1},
 	}
-	if planLooksReady(rows) {
+	if planLooksReady(sqlc.Writing{}, rows) {
 		t.Fatal("fixture is no longer thin — the structural floor would decide this, not the model")
 	}
 
