@@ -431,6 +431,11 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 	}
 
 	b.WriteString("\n" + label + "：\n" + text + "\n")
+
+	// 字句层面的重复，服务端数出来当事实给它 —— 见 writing_repeats.go。
+	// 论点层面的重复（middle_collapse / ending_only_summary）和连贯
+	// （paragraph_jump / reference_linking）本来就在症状表里，缺的是这一层。
+	b.WriteString(writingRepeatBlock(text, wr.Lang))
 	return b.String()
 }
 
