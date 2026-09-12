@@ -335,7 +335,11 @@ function Branch({
           isNew ? "mk-node-new mk-node-flash" : "",
           // 拖动中的三个状态。被拖的那张压暗、悬停的那张亮边，
           // 其余不动 —— 整张图跟着闪会让她找不到自己拖的是哪一张。
-          drag.enabled ? "touch-none select-none" : "",
+          // 🚨 光标要说出「这张卡能抓」。第三十五轮英文那一路第 8 步：
+          //「它说『拖一条到另一条上面』，但我看不到可以拖的东西」——
+          // 提示里写着能拖，而卡片上没有任何一处这么说。
+          //（走查那个学生只读得到文字和按钮，看不见光标；这一条是给真人改的。）
+          drag.enabled ? "touch-none select-none cursor-grab active:cursor-grabbing" : "",
           drag.draggingId === node.item.id ? "opacity-50" : "",
           drag.hoverId === node.item.id ? "mk-node-drop" : "",
         ]
