@@ -42,18 +42,28 @@ export function SkyTab({
   onSwitch: (next: SkySurface) => void;
 }) {
   const live = useInterestTree();
+  // 地图是夜，树是纸。切换器浮在两者之上，所以它得知道自己现在站在哪一张上。
+  const night = surface === "map";
 
   return (
     <div className="relative flex h-full min-h-full w-full flex-col">
-      {/* 切换器浮在两屏之上，而不是占一条自己的横栏：两屏都是满幅的深色画面，
-          一条横栏会把它们各压掉 56px，而这一格最不缺的就是画面。 */}
+      {/* 切换器浮在两屏之上，而不是占一条自己的横栏：一条横栏会把两屏各压掉
+          56px，而这一格最不缺的就是画面。
+
+          🚨 它跟着脚下那一屏换色（2026-09-12）。地图是夜、树是纸，一块写死的
+          深色药丸摆在纸上，看起来是别的产品掉下来的一个控件。 */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-4">
         <div
           className="pointer-events-auto flex items-center gap-1 rounded-mk-full p-1 backdrop-blur-md"
-          style={{
-            background: "rgba(18,15,20,.72)",
-            border: "1px solid rgba(240,233,224,.16)",
-          }}
+          style={
+            night
+              ? { background: "rgba(18,15,20,.72)", border: "1px solid rgba(240,233,224,.16)" }
+              : {
+                  background: "rgba(255,255,255,.82)",
+                  border: "1px solid var(--mk-border)",
+                  boxShadow: "0 4px 16px rgba(51,48,46,.08)",
+                }
+          }
           role="tablist"
           aria-label="探索与我的树"
         >
@@ -68,10 +78,17 @@ export function SkyTab({
                 onClick={() => onSwitch(key)}
                 className={cx(
                   "flex items-center gap-2 rounded-mk-full px-4 py-1.5 text-mk-small transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-                  active
-                    ? "bg-[rgba(245,239,231,.14)] font-semibold text-[#F5EFE7]"
-                    : "text-[#9A8E80] hover:text-[#C0B4A6]",
+                  "focus-visible:outline-none focus-visible:ring-2",
+                  night
+                    ? "focus-visible:ring-white/40"
+                    : "focus-visible:ring-mk-accent-300",
+                  night
+                    ? active
+                      ? "bg-[rgba(245,239,231,.14)] font-semibold text-[#F5EFE7]"
+                      : "text-[#9A8E80] hover:text-[#C0B4A6]"
+                    : active
+                      ? "bg-[rgba(51,48,46,.07)] font-semibold text-mk-ink"
+                      : "text-mk-muted hover:text-mk-ink",
                 )}
               >
                 <Ico size={14} strokeWidth={1.8} />

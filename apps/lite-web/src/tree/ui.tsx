@@ -15,7 +15,9 @@ import "./branchHues.css";
  * pro 的组件没有、也不该为这一页长一个；而零耦合意味着这一页不可能弄坏 pro
  * （见 memory: lite-must-not-break-pro）。
  *
- * `tone="dark"` = 在夜色底上；`tone="light"` = 在纸上。
+ * `tone="dark"` = 在夜色底上（今日探索地图）；`tone="light"` = 在纸上（兴趣树，
+ * 以及 lite 其余每一页）。浅色那一支取的是 `tree.css` 的 `--tree-*`，所以换色
+ * 只改那一处。
  */
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -87,7 +89,7 @@ export function Hint({ text, tone = "light" }: { text: string; tone?: Tone }) {
             background: dark ? "rgba(28,23,19,.97)" : "var(--mk-surface)",
             border: dark ? "1px solid rgba(240,233,224,.18)" : "1px solid var(--mk-border)",
             color: dark ? "#DCD2C6" : "var(--mk-secondary)",
-            boxShadow: "0 20px 46px rgba(0,0,0,.34)",
+            boxShadow: dark ? "0 20px 46px rgba(0,0,0,.34)" : "0 20px 46px rgba(51,48,46,.16)",
           }}
         >
           {text}
@@ -118,12 +120,14 @@ export function Drawer({
   children,
   width = 480,
   label,
+  tone = "dark",
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   width?: number;
   label: string;
+  tone?: Tone;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -135,31 +139,38 @@ export function Drawer({
   }, [open, onClose]);
 
   if (!open) return null;
-  return createPortal(
-    <div
-      className="mk-branch-hues fixed inset-0 z-50 flex justify-end"
-      role="dialog"
-      aria-label={label}
-    >
-      <button
-        type="button"
-        aria-label="关闭"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default"
-        style={{ background: "rgba(10,8,6,.58)" }}
-      />
-      <aside
-        className="tree-sheet-in relative flex h-full flex-col overflow-hidden"
-        style={{
-          width: `min(${width}px, 100vw)`,
-          background: "#1C1713",
-          borderLeft: "1px solid rgba(240,233,224,.14)",
-          color: "#F0E9E0",
-        }}
+  const dark = tone === "dark";
+  return (
+    createPortal(
+      <div
+        className={cx(
+          "fixed inset-0 z-50 flex justify-end",
+          dark ? "mk-branch-hues" : "mk-branch-hues--light",
+        )}
+        role="dialog"
+        aria-label={label}
       >
-        {children}
-      </aside>
-    </div>,
-    document.body,
+        <button
+          type="button"
+          aria-label="关闭"
+          onClick={onClose}
+          className="absolute inset-0 cursor-default"
+          style={{ background: dark ? "rgba(10,8,6,.58)" : "var(--tree-veil)" }}
+        />
+        <aside
+          className="tree-sheet-in relative flex h-full flex-col overflow-hidden"
+          style={{
+            width: `min(${width}px, 100vw)`,
+            background: dark ? "#1C1713" : "var(--tree-card)",
+            borderLeft: dark ? "1px solid rgba(240,233,224,.14)" : "1px solid var(--tree-line)",
+            color: dark ? "#F0E9E0" : "var(--tree-ink)",
+            boxShadow: dark ? "none" : "-24px 0 60px rgba(51,48,46,.14)",
+          }}
+        >
+          {children}
+        </aside>
+      </div>,
+      document.body,
+    )
   );
 }

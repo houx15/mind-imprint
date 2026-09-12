@@ -11,26 +11,49 @@
  * 半透明色都是 `color-mix()` 或字面 rgba。如果你发现自己在 `mk-` token 后面
  * 打了一个斜杠，停下。（见 memory: tailwind-mk-token-alpha-trap）
  *
- * 科技感在这里不是霓虹青。它是：发丝线、点阵、等宽系统标签、数字读数、缓慢
- * 漂移、错峰入场。底色始终是暖的。
+ * # 浅色（2026-09-12）
+ *
+ * 这一页原来是一张夜：暗底、发光的枝、半透明的光珠。它自己成立，但 lite 的其余
+ * 每一页都是纸（`--mk-paper` #FBF8F4 + 白卡片 + 左边那条朱砂导航轨），学生从
+ * 阅读室切到这里等于换了一个产品。现在它和外框一样是纸。
+ *
+ * 换掉的不只是背景色。夜里那套手段（bloom、光珠、上升的光尘）在纸上全部失效
+ * 或者变脏，所以：**发光换成落墨** —— 枝是更深更饱和的同色线（`branchHues.css`
+ * 的第二套值），bloom 收窄成一层浅浅的晕，关键词标签是白卡片加发丝描边，结构
+ * 线（年轮、地平线、刻度）是暖灰。
+ *
+ * 下面这一组 `--tree-*` 是这一页的取色表。所有颜色只在这里出现一次，组件里写
+ * `var(--tree-ink-2)` 而不是写死一个 hex —— 上一版把七十多个 hex 摊在 TSX 里，
+ * 换一次底色要改七十多处，这就是它一直没换的原因。
+ *
+ * 🚨 第二个选择器不是多余的。关键词抽屉 portal 到 `document.body`（`ui.tsx` 的
+ * `Drawer`，理由见那里），一离开 `.tree-grove` 的作用域这一整组变量就全部失效，
+ * 而失效的样子不报错 —— 只是一声不响地少了颜色。所以抽屉自己带上
+ * `mk-branch-hues--light`，它同时管这一组和 `branchHues.css` 的浅色主枝。
  * ======================================================================== */
 
-/* --- 主枝的七种颜色 -------------------------------------------------------
- *
- * 🚨 这七个必须定义在这里。原型最初直接引用了 `--mk-mist` / `--mk-matcha` /
- * `--mk-taro` / `--mk-berry` 四个 token，而它们在 lite 的 index.css 里**根本
- * 不存在**——六根主枝里有四根一直在用一个无效颜色渲染，浏览器悄悄回退，没有
- * 任何报错。这是那类只有人眼能发现的 bug（见 memory:
- * test-logic-not-endless-frontend）。
- *
- * 定义在这一页自己的作用域里，而不是加进 lite 的全局 token：主枝配色是这张图
- * 的内部语言，别的界面没有「学科主枝」这个概念，不该被迫认识这七个名字。
- *
- * 暖底马卡龙，不是赛博霓虹。
- * ------------------------------------------------------------------------ */
+.tree-grove,
+.mk-branch-hues--light {
+  /* 文字，从重到轻。直接引 lite 的全局 token —— 这一页的字和别的页是同一套字。 */
+  --tree-ink: var(--mk-ink);
+  --tree-ink-2: var(--mk-secondary);
+  --tree-ink-3: var(--mk-muted);
+  --tree-ink-4: var(--mk-faint);
 
-/* 值搬到 `branchHues.css` 了 —— 抽屉 portal 到 body 之后也要认得这七个名字，
-   而那份定义同时管着 `.tree-grove` / `.exp-sky` / `.mk-branch-hues` 三个作用域。 */
+  /* 面与线。 */
+  --tree-card: var(--mk-surface);
+  --tree-line: var(--mk-border);
+  --tree-line-strong: var(--mk-input-border);
+  --tree-hover: rgba(51, 48, 46, 0.05);
+  --tree-veil: rgba(51, 48, 46, 0.34);
+
+  /* 画里的结构线：年轮、地平线、刻度、叶脉。比正文的灰再浅一档，因为它们
+     是底图不是内容。 */
+  --tree-struct: #8a827a;
+  --tree-rib: #4a443f;
+  /* 树干。暖灰褐，下浓上淡 —— 结构在被喂得最多的地方最确定。 */
+  --tree-trunk: #b6a48e;
+}
 
 /* --- 系统字 -------------------------------------------------------------- */
 
@@ -43,29 +66,28 @@
   font-weight: 600;
 }
 
-/* --- 树的夜 --------------------------------------------------------------
+/* --- 纸 ------------------------------------------------------------------
  *
- * 这棵树发光，关键词是挂在结构上的半透明光珠。之所以仍然是 SVG 而不是一张画：
- * 每一颗珠子都由 `pointOnBranch()` 放在 SVG 画的那条贝塞尔曲线上。一张画出来
- * 的树，它的枝是数学不认识的，珠子就会飘在细枝旁边而不是挂在枝上，于是整个
- * 主张——**这张图就是你的模型**——会悄悄退化成装饰。所以这层光是搭出来的，
- * 不是导入的。
+ * 底是 lite 的纸（`--mk-paper`），上面压三团几乎看不见的暖色晕，让这一大片
+ * 空白不是一张死的白纸。之所以这棵树仍然是 SVG 而不是一张画：每一片叶子都由
+ * `pointOnBranch()` 放在 SVG 画的那条贝塞尔曲线上。一张画出来的树，它的枝是
+ * 数学不认识的，叶子就会飘在细枝旁边而不是挂在枝上，于是整个主张——**这张图
+ * 就是你的模型**——会退化成装饰。
  * ------------------------------------------------------------------------ */
 .tree-grove {
-  background-color: #0B0907;
+  background-color: var(--mk-paper);
   background-image:
-    radial-gradient(900px 700px at 50% 78%, rgba(234, 81, 64, 0.1), transparent 66%),
-    radial-gradient(760px 640px at 26% 30%, rgba(111, 191, 176, 0.075), transparent 62%),
-    radial-gradient(700px 600px at 76% 26%, rgba(180, 155, 216, 0.08), transparent 62%),
-    radial-gradient(1200px 900px at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.6) 100%);
-  color: #EFE7DC;
+    radial-gradient(900px 700px at 50% 80%, rgba(234, 81, 64, 0.05), transparent 66%),
+    radial-gradient(760px 640px at 24% 28%, rgba(109, 164, 200, 0.05), transparent 62%),
+    radial-gradient(700px 600px at 78% 26%, rgba(160, 130, 200, 0.045), transparent 62%);
+  color: var(--tree-ink);
   position: relative;
   isolation: isolate;
   overflow: hidden;
 }
 
-/* 光尘：两层缓慢上升的点阵。和星空是同一个手法、相反的方向——向外时天在落，
-   向内时光在升。 */
+/* 纸上的浮尘：两层缓慢移动的暖色微点。在夜里这是上升的光，在纸上它只是让
+   这一大片留白有一点活气 —— 所以颜色是暖灰而不是光，浓度压到刚好能看出来。 */
 .tree-motes::before,
 .tree-motes::after {
   content: "";
@@ -76,17 +98,17 @@
 }
 .tree-motes::before {
   background-image:
-    radial-gradient(1.6px 1.6px at 24% 36%, rgba(255, 226, 186, 0.5), transparent 60%),
-    radial-gradient(1.2px 1.2px at 71% 18%, rgba(198, 236, 224, 0.42), transparent 60%),
-    radial-gradient(1.8px 1.8px at 47% 78%, rgba(255, 226, 186, 0.34), transparent 60%),
-    radial-gradient(1.1px 1.1px at 86% 58%, rgba(214, 200, 240, 0.4), transparent 60%);
+    radial-gradient(1.6px 1.6px at 24% 36%, rgba(138, 130, 122, 0.22), transparent 60%),
+    radial-gradient(1.2px 1.2px at 71% 18%, rgba(138, 130, 122, 0.18), transparent 60%),
+    radial-gradient(1.8px 1.8px at 47% 78%, rgba(176, 165, 153, 0.2), transparent 60%),
+    radial-gradient(1.1px 1.1px at 86% 58%, rgba(176, 165, 153, 0.18), transparent 60%);
   background-size: 320px 280px;
   animation: tree-mote-rise 120s linear infinite;
 }
 .tree-motes::after {
   background-image:
-    radial-gradient(1px 1px at 58% 44%, rgba(255, 240, 220, 0.3), transparent 60%),
-    radial-gradient(1px 1px at 17% 88%, rgba(255, 240, 220, 0.24), transparent 60%);
+    radial-gradient(1px 1px at 58% 44%, rgba(138, 130, 122, 0.16), transparent 60%),
+    radial-gradient(1px 1px at 17% 88%, rgba(138, 130, 122, 0.13), transparent 60%);
   background-size: 176px 158px;
   animation: tree-mote-rise 200s linear infinite reverse;
   opacity: 0.7;
@@ -141,14 +163,14 @@
   to { opacity: 1; transform: none; }
 }
 
-/* 暗底上做分节线的一道细扫描线。 */
+/* 做分节线的一道细横线，两端淡出。 */
 .tree-scanline {
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(240, 233, 224, 0.28) 18%,
-    rgba(240, 233, 224, 0.28) 82%,
+    var(--tree-line-strong) 18%,
+    var(--tree-line-strong) 82%,
     transparent
   );
 }
