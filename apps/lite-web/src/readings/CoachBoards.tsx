@@ -42,6 +42,21 @@ import { useRef, useState } from "react";
  * 服务端也不发。
  */
 
+/**
+ * 每个角色格子底下那一句白话。
+ *
+ * 🚨 写的是**这一句在文章里干什么**，不是给这个词下定义。「主张 = 作者要你
+ * 接受的那句话」她拿着就能去比对；「主张：作者的核心论点」只是把一个生词换成
+ * 另外两个。
+ */
+const BIN_HINT: Record<string, string> = {
+  主张: "作者要你接受的那句话",
+  证据: "拿来撑住主张的事实、数字或例子",
+  限制: "作者自己承认的那一点「但是」",
+  背景: "交代情况，不参与说服",
+  对比: "拿来比的另一面",
+};
+
 /** 一张待分类的卡片：它显示什么，以及回灌时它是谁。 */
 export type BoardItem = {
   /** 板内唯一。 */
@@ -274,6 +289,13 @@ export function CoachBoard({
               className={`mk-board__bin${b.hoverBin === bin ? " is-over" : ""}${b.picked ? " is-armed" : ""}`}
             >
               <span className="mk-board__binname">{bin}</span>
+              {/* 🚨 格子名底下要有一句她能照着做的话。
+                  走查里同一条抱怨出现了十二次：「『主张』『证据』『限制』『对比』
+                  这几个词到底怎么分啊，英语课上没这么讲过，我只能瞎猜。」
+                  这五个词是她来这儿要学的（所以照说），但一个只有名字的格子
+                  对她就是一个生词 —— 她只能猜，或者照着 印记 说漏的答案搬。
+                  一句白话不是把题目做掉：她仍然得判断每一句在干什么。 */}
+              {BIN_HINT[bin] && <span className="mk-board__binhint">{BIN_HINT[bin]}</span>}
               <div className="mk-board__chips">
                 {inside.map((it) => (
                   <Chip
