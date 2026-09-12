@@ -454,9 +454,16 @@ function LengthMeter({
       title="点一下改目标字数"
       className="rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
+      {/* 🚨 「/ 800」单摆在那儿，读起来是**配额**，不是目标。
+          2026-09-12 第二十八轮，中文那个学生停在这儿：
+            「正文框已经790/800字了，按它说的挪句子肯定会超字数限制，
+              不知道超了会怎样」
+          没有任何东西在拦她 —— 这个数是她自己在上面设的，框上没有 maxLength，
+          超了照样存。她把一个目标读成了一道门，然后不敢动。
+          补一个名词就够了：目标。多写不用问谁。 */}
       {writing.targetWords != null ? (
         <>
-          已写 <span className="font-semibold text-mk-ink">{written}</span> / {writing.targetWords}
+          已写 <span className="font-semibold text-mk-ink">{written}</span> / 目标 {writing.targetWords}
         </>
       ) : (
         <>已写 {written} · 定个目标</>

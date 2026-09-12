@@ -381,7 +381,11 @@ action 不许是「再想一想」「多加一些细节」这种没有落点的�
 她知道哪个动作起了作用，下次才能重复。
 
 输出 JSON：{"summary":"…","points":[{"kind":"good","method":"…","text":"…","quote":"…"},{"kind":"issue","symptom":"…","text":"…","action":"…","quote":"…"}]}
-- summary：一句话，整体判断。不要打分。
+- summary：一句话，说这篇稿子**现在站在哪儿**。不要打分。
+  🚨 **summary 里不许说她「缺」什么**——不写「缺少」「没有」「不足」「尚未」，
+  英文不写 lack / missing / absent / fails to。少了什么由下面那几条 point 去说：
+  那几条指着她原文里的一句话，还带着她现在就能做的那个动作，说错了查得出来。
+  summary 没有那句话撑着，一旦说错，她第一眼读到的就是一句假话。
 - points：**一条 good 打头**，后面跟 %d 条 issue，**全部来自同一层**。
 
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
@@ -517,23 +521,14 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues)},
-			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", source)},
-		},
-	})
-	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_comment", resolved, res.Usage)
-	if cerr != nil {
-		slog.Warn("writing block comment: provider call failed", "err", cerr,
-			"atom_id", at.ID, "snippet_id", snippet.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-	parsed, okParse := parseWritingComment(res.Text)
+	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
+	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
+	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
+		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues),
+		buildWritingCommentPrompt(wr, "她写的这一段", source),
+		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
+		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {
-		slog.Warn("writing block comment: reply unparseable or empty summary",
-			"atom_id", at.ID, "snippet_id", snippet.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
