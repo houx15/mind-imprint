@@ -48,23 +48,53 @@ import (
 // （花钱、让她多等），而漏掉一次只是维持现状。
 const writingGhostQuoteMinRunes = 8
 
-// writingQuoteCorpus 是「她的字」的全集：每一段 + 成稿 + 她自己说过的话。
-func writingQuoteCorpus(snippets []sqlc.WritingSnippet, draftBody string, msgs []sqlc.AtomMessage) string {
+// 🚨 **「她写的」和「她说的」要分开，不能揉成一份语料。**
+//
+// 原来这里只有一份：每一段 + 成稿 + 她在对话里说过的话。于是一句她只在聊天里
+// 提过、正文里从来没有的话，判据说「她写过」，印记就可以指着它让她改 ——
+// 而她会去正文里找，找不到。
+//
+// 第三十六、三十七两轮里这条各出现一次，措辞几乎一样：
+//
+//	「它引用的那句「全校一天倒掉的饭真的很多」在我现在框里的字里没找到」
+//	「印记引用的那句『看到什么就拿什么』在我现在的框[0]里根本找不到，
+//	  不知道它在读哪一版」
+//
+// 注意她找的地方：**框里**。她把印记的引文理解成「我正文里的句子」，
+// 这个理解是对的 —— 错的是我们允许它引一句只出现在聊天里的话而不说明出处。
+//
+// 所以分成两份，判据也分三种：在正文里（好）、只在对话里（要说明出处）、
+// 哪儿都没有（幻引）。不是简单地把对话踢出语料 —— 印记 引她刚才说的话
+// 「你刚才说那个男生一口没动红烧肉」是好教学，不该为此重试。
+
+// writingWrittenCorpus 是**她写进作品里**的字：每一段 + 成稿。
+func writingWrittenCorpus(snippets []sqlc.WritingSnippet, draftBody string) string {
 	var b strings.Builder
 	for _, s := range snippets {
 		b.WriteString(s.Text)
 		b.WriteString("\n")
 	}
 	b.WriteString(draftBody)
-	b.WriteString("\n")
+	return normalizeQuoteText(b.String())
+}
+
+// writingSaidCorpus 是她**在对话里说过**的话。
+//
+// 只收她说的。印记自己说过的话正是幻引的来源，收进来等于自证。
+func writingSaidCorpus(msgs []sqlc.AtomMessage) string {
+	var b strings.Builder
 	for _, m := range msgs {
-		// 只收她说的。印记自己说过的话正是幻引的来源，收进来等于自证。
 		if m.Role == "student" {
 			b.WriteString(m.Content)
 			b.WriteString("\n")
 		}
 	}
 	return normalizeQuoteText(b.String())
+}
+
+// writingQuoteCorpus 两份合起来 —— 「哪儿都没有」用它判。
+func writingQuoteCorpus(snippets []sqlc.WritingSnippet, draftBody string, msgs []sqlc.AtomMessage) string {
+	return writingWrittenCorpus(snippets, draftBody) + writingSaidCorpus(msgs)
 }
 
 // normalizeQuoteText 抹掉空白和常见句读再比 —— 模型复述一句话时最常变的就是

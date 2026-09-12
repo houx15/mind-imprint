@@ -478,7 +478,43 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	// 什么都没有。
 	if cerr == nil {
 		// 判幻引要对着**陪练该读的那一份**来，否则它会跟着一起认旧文本。
-		corpus := writingQuoteCorpus(snippets, draftBody, msgs)
+		written := writingWrittenCorpus(snippets, draftBody)
+		said := writingSaidCorpus(msgs)
+		corpus := written + said
+
+		// 🚨 第二种错法：这句话她**说过**，但没写进作品里。
+		//
+		// 判据分三种（见 writing_ghostquote.go 开头）：在正文里、只在对话里、
+		// 哪儿都没有。只在对话里的那一种原来是放行的，于是印记可以指着一句她
+		// 只在聊天里提过的话让她改，而她会去框里找 —— 找不到。
+		// 第三十六、三十七两轮各撞一次：
+		//	「印记引用的那句『看到什么就拿什么』在我现在的框[0]里根本找不到」
+		//
+		// 不禁止它引对话（「你刚才说那个男生一口没动红烧肉」是好教学），
+		// 只要求它**说清这是她说的、不是她写的**。
+		talkOnly := ""
+		if firstGhostQuote(out.Body, corpus) == "" {
+			talkOnly = firstGhostQuote(out.Body, written)
+		}
+		if talkOnly != "" {
+			slog.Info("lite writing turn: reply quoted something she only said, retrying once",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"talk_quote", talkOnly)
+			retryHistory := append(append([]agent.ChatTurn{}, history...), agent.ChatTurn{
+				Role: "user",
+				Content: "【你引的那句不在她正文里】「" + talkOnly + "」是她在**对话里**跟你说的，" +
+					"她的作品里没有这句。她会照着你的话去正文里找，找不到就会以为自己弄丢了什么。" +
+					"请重答一遍：要么改成引【已经写好的片段】里逐字有的句子，" +
+					"要么把出处说出来（「你刚才跟我说的……」），别让它读起来像她写过的。",
+			})
+			out2, usage2, cerr2 := agent.ProposeProjectCoachReply(turnCtx, a.d.Provider, resolved, retryHistory, projection, surfaceLabel)
+			// 打到 provider 就已经花钱了，无论这一版用不用 —— 先记账。
+			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "writing_turn", resolved, usage2)
+			if cerr2 == nil && strings.TrimSpace(out2.Body) != "" {
+				out = out2
+			}
+		}
+
 		if ghost := firstGhostQuote(out.Body, corpus); ghost != "" {
 			slog.Warn("lite writing turn: reply quoted text she never wrote; retrying once",
 				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
