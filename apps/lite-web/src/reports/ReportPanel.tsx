@@ -7,6 +7,7 @@ import { useAlive } from "../shared/useAlive";
 import { exportPoster } from "./exportPoster";
 import { ReportPoster } from "./ReportPoster";
 import { ReportView } from "./ReportView";
+import { ReadingArticle } from "./ReadingArticle";
 import { ArticleView } from "./ArticleView";
 import { SharePanel } from "./SharePanel";
 import { ReportActions } from "./ReportActions";
@@ -271,6 +272,11 @@ export function ReportPanel({
 
               放在报告之后、五颗星之前：她先看完这一篇留下了什么，再决定哪几个
               词进树。反过来问，是在问一件她还没看到的事。 */}
+          {/* 🚨 只在她自己这一面，而且只有阅读：正文是**别人的文章**，
+              分享链接不该把它一起带走。写作那一侧成稿本来就在报告里
+              （那是她自己的字），这里补的是阅读这一侧一直缺的那条路。 */}
+          {kind === "reading" && <ReadingArticle atomId={atomId} />}
+
           <TreeProposals atomId={atomId} />
 
           {/* The five stars come AFTER the report — she reads it, then says how
