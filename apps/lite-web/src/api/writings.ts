@@ -104,3 +104,21 @@ export async function renameWriting(id: string, title: string): Promise<Writing>
     body: JSON.stringify({ title }),
   });
 }
+
+/**
+ * POST /api/v1/documents/extract —— 把一个上传的文件变成纯文本，**不落任何库**。
+ *
+ * 阅读那一侧的上传会直接把文本落成那一篇阅读材料（和一个 reading id 绑死）；
+ * 写作要的是另一件事：把文字取出来放进她正在写的那个框，落不落库由她按
+ * 「请印记看看」的时候决定。共用的是取文字那一段，不是落库那一段。
+ *
+ * 收哪几种格式由服务端的 docextract.Supported 说了算。
+ */
+export async function extractDocument(file: File): Promise<{ title: string; text: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<{ title: string; text: string }>("/api/v1/documents/extract", {
+    method: "POST",
+    body: form,
+  });
+}

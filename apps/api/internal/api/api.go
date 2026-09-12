@@ -244,6 +244,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/readings/{id}/source", liteOnly(a.putReadingSourceLite))
 	mux.Handle("GET /api/v1/readings/{id}/source", liteOnly(a.getReadingSourceLite))
 	mux.Handle("POST /api/v1/readings/{id}/source/file", liteOnly(a.postReadingSourceFileLite))
+	// 取文字，不落库。阅读和写作共用 —— 见 document_extract.go。
+	mux.Handle("POST /api/v1/documents/extract", liteOnly(a.postDocumentExtract))
 	mux.Handle("GET /api/v1/readings/{id}/brief", liteOnly(a.liteGetBrief))
 	mux.Handle("PUT /api/v1/readings/{id}/brief", liteOnly(a.litePutBrief))
 	mux.Handle("GET /api/v1/readings/{id}/takeaway", liteOnly(a.liteGetTakeaway))

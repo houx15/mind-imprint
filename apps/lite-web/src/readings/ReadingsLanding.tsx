@@ -55,7 +55,7 @@ import { apiErrorText } from "../api/errorText";
  *   - greeting: 「Hi，今天要读点什么」 (读 is its own <span>, so match by
  *     the container's textContent, not by a single text node)
  *   - title input placeholder: 「给这次阅读起个名字（可留空）」 (unchanged)
- *   - body textarea placeholder: 「贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF」
+ *   - body textarea placeholder: 「贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT」
  *   - submit button label: 「开始阅读」 (unchanged)
  *   - upload button label: 「上传 DOCX / PDF」
  *   - history entry label: 「我的阅读」
@@ -276,7 +276,7 @@ export function ReadingsLanding() {
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF"
+              placeholder="贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT"
               disabled={starting}
               aria-label="文章正文或链接"
               className="min-h-[176px] w-full resize-none rounded-mk-sm bg-transparent px-3 pb-2 text-mk-body-lg text-mk-ink outline-none placeholder:text-[#B8ADA2] disabled:cursor-not-allowed"
