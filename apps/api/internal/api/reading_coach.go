@@ -1675,6 +1675,19 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+	// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
+	//
+	// 她摆完的结果原样在转写里（「限制：」加上那一句），所以这是它没读，不是
+	// 我们没给。实测她逐字报的：「它让我把发电机那句拖到限制格，但那句已经在
+	// 限制格里了……屏幕上显示的摆放和它文字描述的矛盾了，我没法确定该怎么挪。」
+	//
+	// 判据要同时满足三件事，才不会误伤一句正常的肯定
+	// （「你把发电机那句放进限制，这个判断很准」是对的，不能拦）：
+	// 话里有一个「挪」的动词 + 提到了那一句 + 点了那一格的名字。
+	if okParse && replyAsksForANoOpMove(parsed.Reply, lastBoardPlacement(msgs)) {
+		parsed.lensRetry = true
+		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
+	}
 	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
 	// 再问一次。
 	//
@@ -2046,4 +2059,60 @@ func replyEndsOnAQuestion(reply string) bool {
 		return false
 	}
 	return r[len(r)-1] == '？' || r[len(r)-1] == '?'
+}
+
+// lastBoardPlacement —— 她最近一次摆完的板：每一句现在在哪一格。
+//
+// 读的是她那条消息里那份原样的作答（composeBoardAnswer 写的格式）：
+// 一行「格子名：」，下一行是那句原文。
+func lastBoardPlacement(msgs []sqlc.AtomMessage) map[string]string {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role != "student" {
+			continue
+		}
+		ans := coachAnswerFromPayload(m.Payload)
+		if ans == nil || ans.Type != coachCardLabelRoles {
+			continue
+		}
+		out := map[string]string{}
+		lines := strings.Split(ans.Choice, "\n")
+		for j := 0; j+1 < len(lines); j++ {
+			bin := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(lines[j]), "："))
+			if !isRoleLabel(bin) {
+				continue
+			}
+			if sent := strings.TrimSpace(lines[j+1]); sent != "" {
+				out[sent] = bin
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// coachMoveVerbs —— 「把它挪过去」的说法。
+var coachMoveVerbs = []string{"拖到", "拖进", "挪到", "挪进", "移到", "移进", "放进", "放到", "改放", "换到"}
+
+// replyAsksForANoOpMove —— 这句话是不是在让她把一张卡挪到它已经在的那一格。
+func replyAsksForANoOpMove(reply string, placed map[string]string) bool {
+	if reply == "" || len(placed) == 0 {
+		return false
+	}
+	moves := false
+	for _, v := range coachMoveVerbs {
+		if strings.Contains(reply, v) {
+			moves = true
+			break
+		}
+	}
+	if !moves {
+		return false
+	}
+	for sent, bin := range placed {
+		if strings.Contains(reply, bin) && replyMentionsSentence(reply, sent) {
+			return true
+		}
+	}
+	return false
 }

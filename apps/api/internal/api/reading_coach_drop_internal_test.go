@@ -477,3 +477,30 @@ func TestReplyEndsOnAQuestion(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
+//
+// 实测她逐字报的：「它让我把发电机那句拖到限制格，但那句已经在限制格里了……
+// 屏幕上显示的摆放和它文字描述的矛盾了，我没法确定该怎么挪。」
+// 她摆完的结果原样在转写里，所以这是它没读，不是我们没给。
+func TestNoOpMoveIsCaught(t *testing.T) {
+	placed := map[string]string{
+		"The generator has fuel for three more days.": "限制",
+		"Cutting off fuel stopped the pumps.":         "证据",
+	}
+	if !replyAsksForANoOpMove("把 The generator has fuel for three more days 这句拖到「限制」那一格。", placed) {
+		t.Error("这是一条挪不动的指令，应该抓出来")
+	}
+	// 挪到**别的**格子是正常的教学动作。
+	if replyAsksForANoOpMove("把 The generator has fuel for three more days 这句拖到「证据」那一格。", placed) {
+		t.Error("挪到别的格子是正常的，不该拦")
+	}
+	// 🚨 肯定她摆得对，不是指令 —— 这一条最容易误伤。
+	if replyAsksForANoOpMove("你把 The generator has fuel for three more days 放在限制，这个判断很准。", placed) {
+		t.Error("误伤了一句肯定")
+	}
+	// 没有板的时候什么都不判。
+	if replyAsksForANoOpMove("把那句拖到限制。", nil) {
+		t.Error("没有摆放记录时不该判")
+	}
+}
