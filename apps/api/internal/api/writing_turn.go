@@ -515,7 +515,12 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if ghost := firstGhostQuote(out.Body, corpus); ghost != "" {
+		// 🚨 **一轮最多纠正一次。**
+		// 幻引那一条和上面这一条是两种错法，但它们不该叠加成两次额外调用：
+		// 一轮本来就要等一个模型，再叠两次就顶着 150 秒的请求上限了，
+		// 而超上限的样子就是她屏幕上那句 model_unavailable
+		//（第三十八轮出现过两次）。已经纠正过一次就到此为止。
+		if ghost := firstGhostQuote(out.Body, corpus); ghost != "" && talkOnly == "" {
 			slog.Warn("lite writing turn: reply quoted text she never wrote; retrying once",
 				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
 				"ghost_quote", ghost)

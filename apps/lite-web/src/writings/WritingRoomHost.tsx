@@ -29,6 +29,7 @@ import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
+import { flushPendingSaves } from "./pendingSaves";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
@@ -230,6 +231,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     const optimistic: LiteMessage = { seq: -1, role: "student", content: t, createdAt: "" };
     setState((s) => (s.phase === "ready" ? { ...s, messages: [...s.messages, optimistic] } : s));
     try {
+      // 🚨 先把她还没存下去的字存完，再问印记。
+      // 陪练读的是服务端那一份；她敲完直接发问的时候，防抖还没到，
+      // 于是它照着一份少了那句话的正文说「你缺 X」。见 pendingSaves.ts。
+      await flushPendingSaves();
       const turn = await postWritingTurn(writingId, t, board);
       const reply = turn.reply.trim();
       if (reply) {

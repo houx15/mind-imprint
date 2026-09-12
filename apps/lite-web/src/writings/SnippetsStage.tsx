@@ -11,6 +11,7 @@ import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { apiErrorText } from "../api/errorText";
+import { registerPendingSave } from "./pendingSaves";
 import {
   putWritingSnippet,
   guideWritingBlock,
@@ -508,6 +509,24 @@ function SnippetBlock({
     if (text === (slot.snippet?.text ?? "")) return;
     const t = setTimeout(() => void save(), 1200);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, slot.snippet?.text]);
+
+  /**
+   * 🚨 **她一敲完就问印记的时候，防抖还没到。**
+   *
+   * 上面那个 1.2 秒是给「停下来」用的；她打完最后一个字直接去跟印记说话，
+   * 这一轮的上文里就没有刚敲的那句。第三十八轮十六条卡壳里十条是这个 ——
+   * 「框里明明已经有让步的句子了，印记还说我缺让步」。
+   *
+   * 所以把「存这一块」登记出去，`say()` 发消息之前会等它。
+   * 卸载时注销，见 pendingSaves.ts 里那段。
+   */
+  useEffect(() => {
+    return registerPendingSave(async () => {
+      if (text === (slot.snippet?.text ?? "")) return;
+      await save();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, slot.snippet?.text]);
 
