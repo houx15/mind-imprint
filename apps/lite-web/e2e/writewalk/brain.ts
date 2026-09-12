@@ -277,10 +277,21 @@ export async function think(args: {
   throw new Error(`扮演学生的模型连着 ${BRAIN_ATTEMPTS} 次没给出动作：${lastErr}`);
 }
 
-/** 学生这一边重试几次。见上面那段为什么不是三次。 */
-const BRAIN_ATTEMPTS = 6;
+/**
+ * 学生这一边重试几次。见上面那段为什么不是三次。
+ *
+ * 🚨 6 次退避加起来只有 62.5 秒（1.5+3+6+12+20+20），**扛不住一次两分钟的抖动**。
+ * 2026-09-12 第三十轮两条 walk 同时死在第 10 步，报的是 `fetch failed` ——
+ * 本机到阿里云断了一小会儿，产品那边一点事都没有（同一时刻 healthz 200、
+ * dashscope 401 都在 0.2 秒内回）。一次十分钟的走查就这么没了，而且它长得
+ * 很像一条产品缺陷：这是 [[observation-tool-is-the-bug-2026-09-12]] 那一族的
+ * 又一个变种 —— 观察工具自己坏了，记下来的却是被观察者的账。
+ *
+ * 9 次 ⇒ 多等三个 20 秒，总窗口约两分钟。模型真的坏掉时也只多花一分钟才报错。
+ */
+const BRAIN_ATTEMPTS = 9;
 
-/** 1.5s、3s、6s、12s、20s、20s —— 封顶，免得最后两次各等一分钟。 */
+/** 1.5s、3s、6s、12s、20s，之后一律 20s —— 封顶，免得后面几次各等一分钟。 */
 function backoffMs(attempt: number): number {
   return Math.min(20_000, 1500 * 2 ** attempt);
 }

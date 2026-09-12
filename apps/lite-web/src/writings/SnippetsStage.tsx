@@ -470,9 +470,46 @@ function SnippetBlock({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 🚨 **她手正放在这个框里的时候，绝不把服务端那一份写回去。**
+    //
+    // 这一行原来是无条件 setText。在只有「失焦才存」的年代它是安全的：
+    // 存的那一刻她已经不在框里了。下面加了打字停顿自动存之后，这一条就成了
+    // 一个吞字的入口 —— 第一次存会把 snippet 行建出来，`slot.snippet?.id`
+    // 从 undefined 变成一个 id，这个 effect 于是跑一次，把她**在那一次往返
+    // 期间又敲的字**覆盖回存下去的那一版。
+    //
+    // 丢掉她写的字，是这一整轮里最不能犯的一类错（她跟印记说过三次「我的字
+    // 被截断了」，那次只是没显示，这次会是真的没了）。所以宁可让框里那一份
+    // 留着不同步：她在打字，框里那份就是最新的。
+    if (textareaRef.current !== null && document.activeElement === textareaRef.current) return;
     setText(slot.snippet?.text ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.snippet?.id]);
+
+  /**
+   * 打字停下来就存，不必等她离开这个框。
+   *
+   * 🚨 顶上那个「已写 N / 目标 M」数的是**服务端存着的**东西（草稿正文，
+   * 没有就把各段加起来）。只在失焦时存，意味着她正在打的这一段服务端还没有，
+   * 于是同一屏上两个数字互相打脸 —— 2026-09-12 第二十九轮她的原话：
+   *
+   *	「已写还是0，但我明明看到第二段有85字了」
+   *
+   * 这一块自己那行小字是当场算的（`countWords(text)`），所以她看见的是
+   * 「这一段 85 字」和「已写 0」并排摆着。她的下一句是「不知道会不会影响保存」。
+   *
+   * 顺带把真的风险也堵上：在这之前，她写完一段却没点进别处，那段字**服务端
+   * 一个字都没有**。
+   *
+   * 存下去会把 snippet 行建出来（`slot.snippet?.id` 从无到有），上面那个
+   * effect 因此会跑一次 —— 那里的焦点判断就是为这一刻加的，别删。
+   */
+  useEffect(() => {
+    if (text === (slot.snippet?.text ?? "")) return;
+    const t = setTimeout(() => void save(), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, slot.snippet?.text]);
 
   /**
    * Persist this block's text. Returns the saved row for THIS slot (or null

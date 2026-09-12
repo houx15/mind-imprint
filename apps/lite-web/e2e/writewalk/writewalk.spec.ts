@@ -107,6 +107,26 @@ for (const student of WRITE_STUDENTS) {
      *         「按不动」读成「没路可走」。`aria-busy` 是 Button 在 loading 时挂的。
      */
     async function settle() {
+      // 🚨 **先等这一页真的画出来，再谈它忙不忙。**
+      //
+      // 下面那两个判据问的都是「有没有某个东西」：正在打字的标记、aria-busy 的
+      // 按钮。**一张还没渲染的空白页上，两个都不存在** —— 于是 waitForFunction
+      // 立刻通过，300 毫秒之后就去读屏，读到的是空的。
+      //
+      // `page.goto` 只等到 load；React 挂载 + 取 /writings 的数据都在那之后。
+      // 第二十八轮侥幸赢了这场比赛，第二十九、三十、三十一轮连着输：两条 walk
+      // 的第 1 步都是 clarity=1、「整个页面是空白的，不知道该干什么」。
+      // 一个 1 分拉着 45 步的平均分走，而且她会照着这个空白去解释产品 ——
+      // 这是 [[observation-tool-is-the-bug-2026-09-12]] 的第七次。
+      //
+      // 15 秒上限 + catch：真的空白十五秒，那就是产品的事，照样让她读到。
+      await page
+        .waitForFunction(
+          () => (document.body?.innerText ?? "").trim() !== "" || document.querySelectorAll("button").length > 0,
+          null,
+          { timeout: 15_000 },
+        )
+        .catch(() => {});
       await page
         .waitForFunction(
           () =>
