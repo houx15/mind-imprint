@@ -284,10 +284,10 @@ export function ReadingsLanding() {
             <div className="flex items-center justify-between gap-3 px-1.5 pb-1">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200">
                 <Icon icon={Paperclip} size={15} />
-                上传 DOCX / PDF
+                上传 PDF / DOCX / TXT
                 <input
                   type="file"
-                  accept=".pdf,.docx"
+                  accept=".pdf,.docx,.txt,.md"
                   className="sr-only"
                   disabled={starting}
                   onChange={(e) => {
