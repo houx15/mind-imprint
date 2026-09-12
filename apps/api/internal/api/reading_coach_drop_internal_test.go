@@ -504,3 +504,23 @@ func TestNoOpMoveIsCaught(t *testing.T) {
 		t.Error("没有摆放记录时不该判")
 	}
 }
+
+// 🚨 没有卡片的那一轮，断句也要判出来。
+//
+// 这道闸原来写的是 cardWhy == cardOK，而没有卡片的那一轮 cardWhy 是
+// cardRejectNoCard —— 加上它自己要求 Card == nil，两个条件永远不会同时成立，
+// 这道闸从写下来那天起一次都没响过。
+//
+// 线上逐字证据（atom 609f3910，2026-09-11）：「对，调查数据是一个方向。**但」，
+// payload 里 dropped 是空的。产品负责人报的第 1 条就是它。
+func TestCutOffIsCaughtOnACardlessTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	raw := `{"reply":"对，调查数据是一个方向。**但"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectCutOff {
+		t.Fatalf("半句话没被判出来，cardWhy = %q", got.cardWhy)
+	}
+}

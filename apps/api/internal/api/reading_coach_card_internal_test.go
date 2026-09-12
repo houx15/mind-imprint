@@ -1482,3 +1482,52 @@ func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
 		t.Fatalf("格子被改了：%+v", got.Labels)
 	}
 }
+
+// 🚨 题目就是那道题：不写怎么操作，也不写有几句。
+//
+// 产品负责人 2026-09-12 逐字指过这一张：「这三句各自在算账的哪一步？拖到角色
+// 各自里。」—— 板上只有两句，而且这不像一道题。
+func TestPromptTellsHerHowToDrag(t *testing.T) {
+	for prompt, want := range map[string]bool{
+		"这三句各自在算账的哪一步？拖到角色各自里。": true,
+		"把它们拖进对应的格子。":            true,
+		"分析下列句子，判断它们各自属于哪一类论证成分。": false,
+	} {
+		if got := promptTellsHerHowToDrag(prompt); got != want {
+			t.Errorf("promptTellsHerHowToDrag(%q) = %v，想要 %v", prompt, got, want)
+		}
+	}
+}
+
+func TestPromptCountMismatch(t *testing.T) {
+	// 说三句、板上两句 —— 她数得出来。
+	if !promptCountMismatch("这三句各自在算账的哪一步？", 2) {
+		t.Error("说了三句、只有两句，应该算对不上")
+	}
+	if promptCountMismatch("这三句各自在算账的哪一步？", 3) {
+		t.Error("数目对得上，不该判")
+	}
+	// 没写数目是对的写法。
+	if promptCountMismatch("分析下列句子，判断它们各自属于哪一类论证成分。", 2) {
+		t.Error("题目里没写数目，不该判")
+	}
+}
+
+func TestAwkwardLabelPromptGetsTheStandardOne(t *testing.T) {
+	blocks := SplitBlocks("第一段这句话足够长，可以上板使用。\n\n第二段这句话也足够长，同样可以上板。")
+	c := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "这三句各自在算账的哪一步？拖到角色各自里。",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段这句话足够长，可以上板使用。"},
+			{BlockID: "b2", Quote: "第二段这句话也足够长，同样可以上板。"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("不该丢卡：%q", why)
+	}
+	if got.Prompt != coachLabelBoardPrompt {
+		t.Fatalf("题目没换成标准那一句：%q", got.Prompt)
+	}
+}

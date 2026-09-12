@@ -291,6 +291,14 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   ⚠️ 这一条和下面那条同时守，不冲突：5W1H 管的是**问题的形式**（问的是内容），
   「不能有唯一正解」管的是**答案的空间**（站得住的答法有很多种）。
   「作者是如何让你相信这笔账划算的？」两条都满足。
+- 🚨 **题目就是那道题：不写怎么操作，也不写有几句。**
+  怎么拖、怎么点，卡片下面那行字一直在说；你再写一遍，出来的就是
+  「这三句各自在算账的哪一步？拖到角色各自里。」这种句子 —— 产品负责人
+  2026-09-12 逐字指过这一张。
+  **数目更不要写。** 你先写题目再写选项，而选项要逐字核对原文，对不上的会被
+  刷掉 —— 于是「这三句」剩下两句，她数得出来。用「下列句子」，不要用「这三句」。
+  书面一点，像一道真的分析题：**「分析下列句子，判断它们各自属于哪一类论证成分。」**
+  而不是「这三句各自在算账的哪一步？」
 - **问题要问她的判断，不能有唯一正解。**「哪一句你读着最不服气」可以，
   「哪一句是作者的结论」不行——两个都逼她把几句都读一遍，但后一个是考试。
   我们不考她，她自己的想法才是这里最值钱的东西。
@@ -1358,7 +1366,17 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	}
 	// 🚨 断在半句上的回复也算这一轮坏了。她读到的是半截话，不知道该干嘛。
 	// 只在没卡片也没透镜的时候判 —— 带着卡片时用冒号收尾是正常写法。
-	if got.cardWhy == cardOK && got.Card == nil && got.Lens == "" && replyLooksCutOff(got.Reply) {
+	//
+	// 🚨 这里原来写的是 `got.cardWhy == cardOK`，而**没有卡片的那一轮 cardWhy 是
+	// cardRejectNoCard**（见 validateCoachCardWhy）—— 于是这道闸只对「带着卡片的
+	// 回复」生效，而它的条件里又要求 Card == nil。两个条件永远不会同时成立，
+	// 这道闸从写下来那天起一次都没响过。
+	//
+	// 线上逐字证据（atom 609f3910，2026-09-11）：seq 3 是
+	// 「对，调查数据是一个方向。**但」，payload 里 dropped 是空的 —— 没有任何
+	// 东西被判失败，她只能自己打一个「?」去问。产品负责人报的第 1 条就是它。
+	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
+		got.Card == nil && got.Lens == "" && replyLooksCutOff(got.Reply) {
 		got.cardWhy = cardRejectCutOff
 	}
 	// 🚨 递透镜的那一轮，话里必须当着她的面把这套看法做一遍 —— 拿原文的一句。
@@ -1700,8 +1718,17 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	//
 	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
 	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
+	// 🚨 被校验刷掉的卡片也要立刻重来一次，不只是「说了卡却没给」那一种。
+	//
+	// 把理由留给下一轮，救不了这一轮：她这一轮看到的是 印记 说「我给你一张卡」
+	// 而屏幕上什么都没有。线上逐字证据（atom 609f3910，2026-09-11）：seq 36
+	// 的卡因为选项全来自同一段被丢掉，seq 42 的卡因为引文对不上被丢掉 ——
+	// 中间 印记 连着两轮道歉「卡没送到你手里」，她连着两轮回「没有卡啊」。
+	// 产品负责人报的第 5 条就是这两轮。
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
-		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry) {
+		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry ||
+		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
+		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm) {
 		why := string(parsed.cardWhy)
 		if parsed.lensRetry {
 			why = parsed.lensRetryWhy
@@ -1713,9 +1740,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, retryRes.Usage)
 			// 只在第二次**确实更好**的时候采用它：解析得动，而且不再是一句空话。
 			// 否则留着第一次那份 —— 它至少是完整的一句话。
+			// 第二次只在**它确实更好**的时候采用：解析得动，而且没有被判失败。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
-				again.cardWhy != cardRejectPromised && again.cardWhy != cardRejectCutOff &&
-				again.cardWhy != cardRejectDeadTurn && !again.lensRetry {
+				!again.lensRetry &&
+				(again.cardWhy == cardOK || again.cardWhy == cardRejectNoCard) {
 				res, parsed = retryRes, again
 			}
 		}
@@ -1860,7 +1888,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: parsed.Reply,
 		// 卡片没发出去的时候，理由也一起存 —— 下一轮当面告诉它。见
 		// coachMessagePayload.Dropped。
-		Payload: coachCardPayloadWithDrop(parsed.Card, parsed.dropReason()),
+		// 🚨 两次都断的时候，这条半句话仍然会交给她（不编、不改写它的话）——
+		// 但要让界面说出「这条没说完」。产品负责人 2026-09-12：
+		// 「sometimes the AI response interrupts mid-stream without any notice」。
+		Payload: coachCardPayloadFull(parsed.Card, parsed.dropReason(),
+			replyLooksCutOff(parsed.Reply)),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

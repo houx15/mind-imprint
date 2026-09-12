@@ -10,6 +10,7 @@ import { ApiError } from "../api/client";
 import {
   coachAnswerOf,
   coachCardOf,
+  replyIsIncomplete,
   postReadingCoachTurn,
   type ReadingLensDone,
   type ReadingTask,
@@ -368,6 +369,15 @@ export function ReadingCoachPanel({
         node: (
           <>
             <LiteChatMarkdown text={m.content} />
+            {/* 🚨 半句话本身不是错 —— 模型真的只发出来这么多，我们不替它补
+                （[[ai-errors-must-surface-never-fake]]）。错的是没有任何东西
+                告诉她这是半句：产品负责人 2026-09-12 报的那一幕是屏幕上只有
+                「对，调用数据是一个方向。**但」，她只能自己打一个「?」去问。 */}
+            {replyIsIncomplete(m) && (
+              <p className="mt-1.5 text-mk-caption text-mk-muted">
+                这条回复没有生成完整。请让印记接着说。
+              </p>
+            )}
             <ThinkingFold text={thinkingBySeq[m.seq] ?? ""} />
           </>
         ),

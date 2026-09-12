@@ -386,6 +386,12 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	// 的后果，哪一句是原因？」），两次都被这条规则丢掉，而她屏幕上只看到 印记
 	// 在描述一块从来没出现过的板。日志里那两行写着
 	// 「every surviving option came from one paragraph」。
+	// 🚨 选项全来自同一段就丢掉这张卡 —— 扫一眼选项里的名词就能点，等于一个字
+	// 都没读懂。丢掉是对的，但**不能让这一轮空着**：调用点会立刻重来一次
+	// （见 reading_coach.go 那条重试），把「怎么改」当面交给它。
+	//
+	// 线上逐字证据（atom 609f3910，2026-09-11）seq 36 就是这么掉的，而当时没有
+	// 重试：接着 印记 连着两轮跟她道歉「卡没送到你手里」，她连着两轮回「没有卡啊」。
 	if c.Type == coachCardChooseSpan && !coachCardSpansBlocks(out) {
 		return nil, cardRejectOneBlock
 	}
@@ -402,7 +408,9 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		//
 		// 覆盖而不是丢卡：格子本来就是我们的，这一句也是（兜底摆板时用的就是
 		// 它）。丢掉的话她这一步什么都没有。
-		if labelPromptInventsBins(card.Prompt) {
+		if labelPromptInventsBins(card.Prompt) ||
+			promptTellsHerHowToDrag(card.Prompt) ||
+			promptCountMismatch(card.Prompt, len(card.Options)) {
 			card.Prompt = coachLabelBoardPrompt
 		}
 	}
@@ -721,6 +729,15 @@ type coachMessagePayload struct {
 	// 存在消息的 payload 上而不是另开一张表：它属于**那一条回复**，
 	// 一起写、一起读、一起被删。
 	Dropped string `json:"dropped,omitempty"`
+	// Incomplete 表示这条回复**没说完**就交给她了。
+	//
+	// 🚨 断句的回复本来就会重来一次，但两次都断的时候我们仍然把第一次那句给她
+	// （不编、不改写它的话）。产品负责人 2026-09-12 逐字报的那一幕：屏幕上是
+	// 「对，调用数据是一个方向。**但」，然后就没有了，她只能自己打一个「?」去问。
+	//
+	// 半句话本身不是错 —— 错的是**没有任何东西告诉她这是半句**。所以这里只做
+	// 一件事：把「这条没说完」这个事实标在那条消息上，由界面照实说出来。
+	Incomplete bool `json:"incomplete,omitempty"`
 }
 
 // coachCardAnswer is her answer to a chat card: which card it was, what it
@@ -770,10 +787,15 @@ func coachCardPayload(c *coachCard) []byte {
 // coachCardPayloadWithDrop 同上，外加「这一轮那张卡为什么没发出去」。
 // 两个都空的时候不写 payload —— 大多数轮本来就是这样。
 func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
-	if c == nil && (why == cardOK || why == cardRejectNoCard) {
+	return coachCardPayloadFull(c, why, false)
+}
+
+// coachCardPayloadFull —— 同上，外加「这条回复没说完」这个事实。
+func coachCardPayloadFull(c *coachCard, why cardReject, incomplete bool) []byte {
+	if c == nil && !incomplete && (why == cardOK || why == cardRejectNoCard) {
 		return nil
 	}
-	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why)})
+	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why), Incomplete: incomplete})
 	if err != nil {
 		// A struct of strings cannot fail to marshal; if it somehow did, the
 		// turn is still hers — she loses the card, not the reply.
@@ -853,9 +875,14 @@ var replyAskWords = []string{
 	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
 }
 
-// coachLabelBoardPrompt —— 标注板的标准题目。服务端兜底摆板时用它，模型自己
-// 另起一套格子名时也换回它。
-const coachLabelBoardPrompt = "这几句在作者的论证里各自扮演什么角色？"
+// coachLabelBoardPrompt —— 标注板的标准题目。服务端兜底摆板时用它，模型把题目
+// 写坏时也换回它。
+//
+// 🚨 措辞是产品负责人 2026-09-12 定的。他看到的那一张写着
+// 「这三句各自在算账的哪一步？拖到角色各自里。」并指出两件事：数目对不上，
+// 而且这不像一道题。他给的样子是「分析下列句子，观察他们分别属于哪一类论证模式。」
+// —— 一句书面的分析题，**不写怎么拖**（怎么拖是界面的事，卡片下面那行字在说）。
+const coachLabelBoardPrompt = "分析下列句子，判断它们各自属于哪一类论证成分。"
 
 // labelPromptInventsBins —— 这道题目是不是另起了一套格子名。
 //
@@ -936,4 +963,31 @@ func splitBinCandidates(s string) []string {
 		parts[i] = strings.TrimSpace(parts[i])
 	}
 	return parts
+}
+
+// promptTellsHerHowToDrag —— 题目里在讲怎么操作。
+//
+// 怎么拖、怎么点是**界面**的事（卡片下面那行字一直在说），题目要留给那道题。
+// 两边都写，出来的就是「这三句各自在算账的哪一步？拖到角色各自里。」这种句子。
+func promptTellsHerHowToDrag(prompt string) bool {
+	for _, w := range []string{"拖到", "拖进", "拖入", "拖下面", "拖过去", "点一句", "点格子", "放进格"} {
+		if strings.Contains(prompt, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// promptCountMismatch —— 题目里说了几句，和板上真有的对不上。
+//
+// 🚨 这是必然会发生的：模型先写题目再写选项，而选项要逐字核对原文，对不上的
+// 会被刷掉 —— 于是「这三句」剩下两句。产品负责人 2026-09-12 报的就是这一张。
+func promptCountMismatch(prompt string, n int) bool {
+	re := regexp.MustCompile(`([0-9]|[一二三四五六七八九十])\s*(句|个词|个句子)`)
+	for _, m := range re.FindAllStringSubmatch(prompt, -1) {
+		if said := parseChineseOrdinal(m[1]); said > 0 && said != n {
+			return true
+		}
+	}
+	return false
 }

@@ -87,7 +87,12 @@ export type LiteAnnotation = {
  * the second one, a refresh redraws a card still waiting for a tap she has
  * already made.
  */
-export type CoachMessagePayload = { card?: CoachCardSpec | null; answer?: CoachCardAnswer | null };
+export type CoachMessagePayload = {
+  card?: CoachCardSpec | null;
+  answer?: CoachCardAnswer | null;
+  /** 这条回复没说完就交给她了。服务端两次都拿到半句话时标上。 */
+  incomplete?: boolean | null;
+};
 
 export type LiteMessage = {
   seq: number;
@@ -96,6 +101,13 @@ export type LiteMessage = {
   createdAt: string;
   payload?: CoachMessagePayload | null;
 };
+
+/** 这条回复是不是半句话。半句话本身不是错（模型真的只发出来这么多），
+ *  错的是没有任何东西告诉她 —— 产品负责人 2026-09-12 报的那一幕：屏幕上是
+ *  「对，调用数据是一个方向。**但」，然后就没有了，她只能自己打一个「?」去问。 */
+export function replyIsIncomplete(m: LiteMessage): boolean {
+  return m.payload?.incomplete === true;
+}
 
 /** The card on this message, if it carried one. Shape-checked rather than
  *  trusted: `payload` is jsonb the client never wrote, and a half-built card
