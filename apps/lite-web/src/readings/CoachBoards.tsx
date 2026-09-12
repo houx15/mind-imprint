@@ -114,6 +114,18 @@ export function isDrag(from: { x: number; y: number }, to: { x: number; y: numbe
  * 落点是用 `elementFromPoint` 找的，而不是靠每个格子各挂一个 pointerenter：
  * 拖动过程中指针被 `setPointerCapture` 捕获在卡片上，格子收不到任何
  * pointer 事件 —— 不捕获的话，手指一离开卡片这次拖动就断了。
+ *
+ * 🚨 捕获还有第三个后果，比上面两个隐蔽：**接下来的 click 事件也会被改派给
+ * 捕获它的那个元素**，而不是手指底下那个。写作那边 2026-09-12 就是这么把
+ * 「点标题改名」弄坏的 —— 加了拖拽之后，click 全被卡片接走了，而 644 个单元
+ * 测试一路全绿（jsdom 没有真的指针捕获，它**不可能**看见这件事）。
+ *
+ * 这块板没被这一条咬到，但**不是因为运气**，是因为两条路各自不依赖 click：
+ *   拖    松手时 `onItemPointerUp` 用 elementFromPoint 找落点，不看 click。
+ *   点选  点卡片是一次完整的 down+up，捕获在 up 时就释放了；她接着点格子
+ *         是**另一次**手势，那时没有任何捕获，格子的 onClick 照常响。
+ * 所以那两条看着重复的路**都不能删**：删掉 pointerup 那条，拖拽就没有落点；
+ * 删掉格子的 onClick，一只手扶着手机的人就没法用点选。
  */
 function useBoard(initial: BoardPlacement = {}) {
   const [placed, setPlaced] = useState<BoardPlacement>(initial);
