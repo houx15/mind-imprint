@@ -95,8 +95,14 @@ export function ReportView({
   actions,
   sharePanel,
   onBackToArticle,
+  proseStuck = false,
+  onRetryProse,
 }: {
   report: LiteReport;
+  /** 那一次自动补请求已经回来了，而金句还是没有。见 ProsePending。 */
+  proseStuck?: boolean;
+  /** 她按「再看一次」时再问一次。不给就不显示那颗按钮（公开分享页）。 */
+  onRetryProse?: () => void;
   /** 导出/分享 icon buttons, pinned in the hero's upper-right corner. Omitted
    *  entirely on the public share page: a visitor is not the owner and must
    *  never be shown controls over someone else's report. */
@@ -136,7 +142,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
-      <ProsePending pending={report.prosePending} />
+      <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
     </article>
   );
 }
@@ -159,7 +165,15 @@ export function ReportView({
  * 里摘掉了（访客没法去轮询一个需要登录的接口），所以 `PublicReportPage`
  * 渲染同一个组件时这里恒为 false。
  */
-function ProsePending({ pending }: { pending: boolean }) {
+function ProsePending({
+  pending,
+  stuck,
+  onRetry,
+}: {
+  pending: boolean;
+  stuck?: boolean;
+  onRetry?: () => void;
+}) {
   if (!pending) return null;
   return (
     <section className="mk-rp-section" role="status" aria-live="polite">
@@ -176,7 +190,30 @@ function ProsePending({ pending }: { pending: boolean }) {
 
           一句她照做不了的指令，比不说更糟：她会去找一颗不存在的按钮，
           然后以为是自己哪里弄错了。说事实就行 —— 它会自己出现。 */}
-      <p className="text-mk-small text-mk-muted">处理中，好了会自己出现。</p>
+      {/* 🚨 2026-09-12：上面那段说的「它会自己出现」只在**顺利的时候**是真的。
+          ReportPanel 只补发**一次**请求（那一次要等一个 180s 的旗舰调用，
+          而且每问一次就真的再算一次，所以不能轮询）。那一次要是失败了、
+          或者回来时金句仍然没好，屏幕上这句话就变成了一个不会兑现的承诺 ——
+          她只能一直等。走查里她连着四步盯着它：
+            「金句那里写着『处理中，好了会自己出现』，一直在转」
+
+          上一版把「稍后刷新可见」换成这一句，修的是「一句她照做不了的指令」，
+          方向对；但只修了一半 —— 换来的是一句我们守不住的承诺。
+          两半都要：**顺利的时候说事实，不顺利的时候给她一颗真的能按的按钮。** */}
+      {stuck && onRetry ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-mk-small text-mk-muted">这两节还没整理出来。</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-mk-full border border-mk-border px-3 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
+          >
+            再看一次
+          </button>
+        </div>
+      ) : (
+        <p className="text-mk-small text-mk-muted">处理中，好了会自己出现。</p>
+      )}
     </section>
   );
 }

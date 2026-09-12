@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { Pebble } from "@/ui";
@@ -80,6 +80,9 @@ export function ReportPanel({
   fallback?: React.ReactNode;
 }) {
   const [report, setReport] = useState<LiteReport | null>(null);
+  // 那一次自动补请求没成 —— 屏幕上换成一颗她能按的按钮。见 fetchProse。
+  const [proseStuck, setProseStuck] = useState(false);
+  const [proseRetrying, setProseRetrying] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
@@ -99,6 +102,35 @@ export function ReportPanel({
    */
   const [page, setPage] = useState<"article" | "record">("article");
   const alive = useAlive();
+
+  /**
+   * 再问一次金句。
+   *
+   * 🚨 **一次一颗按钮，不是轮询。** 服务端在 prosePending 的时候每收到一次请求
+   * 就真的再跑一次旗舰 assess 调用（enrichAtomReportProse，180s 预算）——
+   * 轮询会把它变成一串昂贵的重复调用。
+   *
+   * 所以：进来的时候自动补一次（顺利的话她什么都不用做），那一次**没成**就
+   * 把 proseStuck 立起来，屏幕上换成一颗她能按的按钮。
+   * 2026-09-12 走查里她连着四步盯着「处理中，好了会自己出现」——
+   * 那句话只在顺利的时候是真的。
+   */
+  const fetchProse = useCallback(async () => {
+    setProseRetrying(true);
+    try {
+      const withProse = await getReportEnvelope(kind, atomId);
+      if (!alive.current) return;
+      // 只往已经在屏幕上的报告里**加**东西：这里回一个空报告多半是服务端出了
+      // 岔子，而拿一份空的去换掉她手上那份好的，比什么都不做更糟。
+      if (withProse.report) setReport(withProse.report);
+      // 回来了但金句仍然没有 —— 这一次没成。
+      if (withProse.report?.prosePending !== false) setProseStuck(true);
+    } catch {
+      if (alive.current) setProseStuck(true);
+    } finally {
+      if (alive.current) setProseRetrying(false);
+    }
+  }, [kind, atomId, alive]);
 
   useEffect(() => {
     setState("loading");
@@ -133,18 +165,7 @@ export function ReportPanel({
          * tries the prose again).
          */
         if (env.report?.prosePending) {
-          getReportEnvelope(kind, atomId)
-            .then((withProse) => {
-              // Only ever ADD prose to a report already on screen. A null
-              // report here would mean something odd happened server-side,
-              // and replacing a good report with nothing is strictly worse
-              // than leaving hers alone.
-              if (!alive.current || !withProse.report) return;
-              setReport(withProse.report);
-            })
-            .catch(() => {
-              /* Her report is already on screen — see above. */
-            });
+          void fetchProse();
         }
       })
       .catch(() => {
@@ -234,6 +255,14 @@ export function ReportPanel({
           onBackToArticle={hasArticle ? () => setPage("article") : undefined}
           actions={actions}
           sharePanel={sharePanel}
+          // 那一次自动补请求没成的时候，给她一颗真的能按的按钮（见 fetchProse）。
+          // 按下去正在问的那一会儿收起按钮，免得她连按 —— 每一次都是一个
+          // 180s 的旗舰调用。
+          proseStuck={proseStuck && !proseRetrying}
+          onRetryProse={() => {
+            setProseStuck(false);
+            void fetchProse();
+          }}
         />
 
         <div className="mk-rp-measure flex flex-col gap-5 pb-4">
