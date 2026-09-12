@@ -1438,3 +1438,47 @@ func TestPromiseWordsCoverThePhrasingWeTeachIt(t *testing.T) {
 		t.Error("讲解里提到角色被误判成了在指板说话")
 	}
 }
+
+// 🚨 题目里另起一套格子名的，把题目换回标准那一句。
+//
+// 格子是闭表、由服务端填，但**题目**不是 —— 于是屏幕上是「把卡片放进
+// 『进不去/动不了/快撑不住了』三个格子」，而下面摆着的是主张/证据/限制/背景/
+// 对比。她逐字报的：「名字完全不一样，我不知道哪个对应哪个，没法往下做。」
+func TestLabelPromptInventsBins(t *testing.T) {
+	for prompt, want := range map[string]bool{
+		"把这几句放进「进不去/动不了/快撑不住了」三个格子":  true,
+		"放进进不去/动不了/快撑不住了":            true,
+		"这几句在作者的论证里各自扮演什么角色？":        false,
+		"把这几句各自放进它的角色里":              false,
+		// 闭表里的名字照说不算编。
+		"哪一句是「主张」，哪一句是「证据」？":         false,
+		"分成主张/证据两类":                  false,
+	} {
+		if got := labelPromptInventsBins(prompt); got != want {
+			t.Errorf("labelPromptInventsBins(%q) = %v，想要 %v", prompt, got, want)
+		}
+	}
+}
+
+func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
+	blocks := SplitBlocks("第一段这句话足够长，可以上板使用。\n\n第二段这句话也足够长，同样可以上板。")
+	c := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "把这几句放进「进不去/动不了/快撑不住了」三个格子",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段这句话足够长，可以上板使用。"},
+			{BlockID: "b2", Quote: "第二段这句话也足够长，同样可以上板。"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("不该丢卡，丢了她这一步什么都没有：%q", why)
+	}
+	if got.Prompt != coachLabelBoardPrompt {
+		t.Fatalf("题目没换回标准那一句：%q", got.Prompt)
+	}
+	// 格子仍然是闭表那五个。
+	if len(got.Labels) != len(coachCardRoleLabels) {
+		t.Fatalf("格子被改了：%+v", got.Labels)
+	}
+}

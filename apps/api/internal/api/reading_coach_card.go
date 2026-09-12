@@ -394,6 +394,17 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉：
 		// 见 coachCardRoleLabels。
 		card.Labels = coachCardRoleLabels
+		// 🚨 题目里另起一套格子名的，把题目换成标准那一句。
+		//
+		// 格子被覆盖了，题目没有 —— 于是屏幕上是「把卡片放进『进不去/动不了/
+		// 快撑不住了』三个格子」，而下面摆着的是主张/证据/限制/背景/对比。
+		// 她逐字报的：「名字完全不一样，我不知道哪个对应哪个，没法往下做。」
+		//
+		// 覆盖而不是丢卡：格子本来就是我们的，这一句也是（兜底摆板时用的就是
+		// 它）。丢掉的话她这一步什么都没有。
+		if labelPromptInventsBins(card.Prompt) {
+			card.Prompt = coachLabelBoardPrompt
+		}
 	}
 	return card, cardOK
 }
@@ -840,4 +851,89 @@ func replyAsksForSomething(reply string) bool {
 var replyAskWords = []string{
 	"请", "说说", "写下", "写一", "挑一", "选一", "找一", "找出", "标出", "圈出",
 	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
+}
+
+// coachLabelBoardPrompt —— 标注板的标准题目。服务端兜底摆板时用它，模型自己
+// 另起一套格子名时也换回它。
+const coachLabelBoardPrompt = "这几句在作者的论证里各自扮演什么角色？"
+
+// labelPromptInventsBins —— 这道题目是不是另起了一套格子名。
+//
+// 格子是闭表（coachCardRoleLabels），由服务端填。模型有时在题目里自己编一套
+// （「进不去 / 动不了 / 快撑不住了」），而屏幕上的格子仍然是那五个。
+//
+// 判据看**题目里被引号框起来、或者用斜杠并列起来的短词**：那是它在点名格子。
+// 只要其中有一个不在闭表里，这套名字就是它自己编的。
+func labelPromptInventsBins(prompt string) bool {
+	for _, seg := range quotedSegments(prompt) {
+		for _, part := range splitBinCandidates(seg) {
+			if part != "" && !isRoleLabel(part) {
+				return true
+			}
+		}
+	}
+	// 没加引号也能并列：「放进进不去/动不了/快撑不住了」。
+	//
+	// 🚨 闭表里五个名字**都是两个字**，所以判据就取斜杠两边各两个字：
+	// 「分成主张/证据两类」两边是主张、证据，都在表里，是一句正常的话；
+	// 「放进进不去/动不了/……」左边是「不去」，不在表里，那就是它自己编的。
+	//
+	// 先按整句切斜杠的那一版在这里栽过：那样切出来的是「分成主张」和
+	// 「证据两类」，两个都不在表里，一句完全正常的话被判成编格子名。
+	r := []rune(prompt)
+	for i, c := range r {
+		if c != '/' {
+			continue
+		}
+		if i < 2 || i+2 >= len(r) {
+			return true
+		}
+		if !isRoleLabel(string(r[i-2:i])) || !isRoleLabel(string(r[i+1:i+3])) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRoleLabel(s string) bool {
+	s = strings.TrimSpace(s)
+	for _, l := range coachCardRoleLabels {
+		if s == l {
+			return true
+		}
+	}
+	return false
+}
+
+// quotedSegments —— 「」『』 里面的东西。
+func quotedSegments(s string) []string {
+	var out []string
+	for _, pair := range [][2]rune{{'「', '」'}, {'『', '』'}} {
+		r := []rune(s)
+		for i := 0; i < len(r); i++ {
+			if r[i] != pair[0] {
+				continue
+			}
+			for j := i + 1; j < len(r); j++ {
+				if r[j] == pair[1] {
+					out = append(out, string(r[i+1:j]))
+					i = j
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
+// splitBinCandidates —— 按并列的分隔符拆开，得到一串候选格子名。
+func splitBinCandidates(s string) []string {
+	f := func(r rune) bool {
+		return r == '/' || r == '、' || r == '｜' || r == '|'
+	}
+	parts := strings.FieldsFunc(s, f)
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
 }

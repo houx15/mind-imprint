@@ -144,7 +144,7 @@ func buildLabelBoardFromReply(blocks []Block, focus, reply string) *coachCard {
 	}
 	return &coachCard{
 		Type:   coachCardLabelRoles,
-		Prompt: "这几句在作者的论证里各自扮演什么角色？",
+		Prompt: coachLabelBoardPrompt,
 		// 🚨 逐字来自正文，所以它照样过得了 validateCoachCard 那一关 ——
 		// 调用方仍然会把它送进去校验，这里不是一条绕过校验的后门。
 		Options: out,
