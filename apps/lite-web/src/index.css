@@ -153,6 +153,19 @@
   }
 }
 
+/* 拖动时的落点：指针正悬在这张卡上，松手它就成为被拖那张的新父亲。
+ *
+ * 只描边 + 一点底色，不放大、不移动 —— 这张卡是**参照物**，它一动，
+ * 她正在瞄准的那个位置就跟着动了。
+ *
+ * mk-* 是裸 CSS 变量，Tailwind 的 alpha 语法对它们一个字节的 CSS 都不生成，
+ * 半透明只能走 color-mix（见 [[tailwind-mk-token-alpha-trap]]）。 */
+.mk-node-drop {
+  border-color: var(--mk-accent-500) !important;
+  background: color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-accent-500) 22%, transparent);
+}
+
 /* The accent ring fades out on its own, so a node stops looking "new" a beat
  * after she has seen it — without any state to clear. */
 .mk-node-flash {

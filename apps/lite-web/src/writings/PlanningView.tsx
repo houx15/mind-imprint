@@ -18,6 +18,7 @@ import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
 import { apiErrorText } from "../api/errorText";
 import { planShapeLine, planShapeOf } from "./planShape";
+import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -199,6 +200,19 @@ export function PlanningView({
     void mutate(keep.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
   }
 
+  /**
+   * 她把一个节点拖到另一个节点上：那一个连着它底下的东西，挂到这一个下面。
+   *
+   * 算新清单的是纯函数（outlineMove.ts），这里只负责落库。算不出来
+   *（拖到自己身上、拖进自己底下、超过深度上限）就**什么都不做** ——
+   * 一次非法的拖动不该变成一次让图变形的写入。
+   */
+  function moveNode(draggedId: string, targetId: string, mode: OutlineMoveMode) {
+    const next = moveOutlineNode(outline, draggedId, targetId, mode);
+    if (!next) return;
+    void mutate(next.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
+  }
+
   function editNode(id: string, text: string) {
     void mutate(
       outline
@@ -317,10 +331,10 @@ export function PlanningView({
                     那里只有一个删除按钮。」她在找一颗「＋」，而这里没有、
                     也不该有：加一条的办法是跟印记说一句，它摆上去。
                     那条路一直在，只是没有一个字讲过。 */}
-                想加一条，说给印记听；点一条可以改，也能删
+                想加一条，说给印记听；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
-            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} />
+            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />
           </aside>
         )}
       </div>
