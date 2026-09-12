@@ -976,6 +976,114 @@
   margin-bottom: 28px !important;
 }
 
+/* ── 文章顶上的查找与跳转 ───────────────────────────────────────────── */
+.mk-lite-room .mk-article-finder {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mk-border);
+  font-size: 12px;
+  color: var(--mk-muted);
+}
+.mk-lite-room .mk-article-finder input {
+  border: 1px solid var(--mk-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--mk-ink);
+  background: var(--mk-surface);
+}
+.mk-lite-room .mk-article-finder__q {
+  width: 160px;
+}
+.mk-lite-room .mk-article-finder__n {
+  width: 64px;
+}
+.mk-lite-room .mk-article-finder button {
+  border: 1px solid var(--mk-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--mk-ink);
+  background: var(--mk-surface);
+  cursor: pointer;
+}
+.mk-lite-room .mk-article-finder button:hover {
+  background: var(--mk-surface-2);
+}
+.mk-lite-room .mk-article-finder__sep {
+  width: 1px;
+  height: 16px;
+  background: var(--mk-border);
+}
+
+/* ── 段号 ───────────────────────────────────────────────────────────────
+ *
+ * 产品负责人 2026-09-12：「为每段标注段落编号，方便定位内容」。
+ *
+ * 🚨 数字画在 ::before 里，**不进正文**。标注的锚点是这一段文本里的字节偏移，
+ * 正文里多一个字符，之前存下来的每一条标注就都错位。属性 data-n 由 Annotate
+ * 给，画在左边的空白里，不占正文的宽度。
+ */
+.mk-lite-room .mk-reading-room__article-inner p[data-block-id],
+.mk-lite-room .mk-reading-room__article-inner div[data-block-id] {
+  position: relative;
+}
+.mk-lite-room .mk-reading-room__article-inner p[data-block-id]::before,
+.mk-lite-room .mk-reading-room__article-inner div[data-block-id]::before {
+  content: attr(data-n);
+  position: absolute;
+  left: -2.4em;
+  top: 0.15em;
+  width: 2em;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--mk-muted);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+}
+/* 窄屏没有那条空白，段号压在正文上就不好看了 —— 收起来。 */
+@media (max-width: 900px) {
+  .mk-lite-room .mk-reading-room__article-inner p[data-block-id]::before,
+  .mk-lite-room .mk-reading-room__article-inner div[data-block-id]::before {
+    display: none;
+  }
+}
+
+/* ── 正文里的表格 ───────────────────────────────────────────────────────
+ *
+ * 论文常常带 markdown 表格，正文原来按纯文本渲染，她看到的是一屏竖线和横杠。
+ * 表格块不进 `<p data-block-id>`（见 markdownTable.ts 的说明），所以这里单独写。
+ */
+.mk-lite-room .mk-reading-room__article-inner .mk-article-table {
+  margin: 0 0 28px;
+  overflow-x: auto;
+}
+.mk-lite-room .mk-reading-room__article-inner .mk-article-table table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.mk-lite-room .mk-reading-room__article-inner .mk-article-table th,
+.mk-lite-room .mk-reading-room__article-inner .mk-article-table td {
+  border: 1px solid var(--mk-border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  color: var(--mk-ink);
+}
+.mk-lite-room .mk-reading-room__article-inner .mk-article-table th {
+  background: var(--mk-surface-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* ── 小标题 ─────────────────────────────────────────────────────────────
  *
  * 小标题在服务端和正文段落是同一种东西（`SplitBlocks` 不认识 Markdown），
@@ -1953,7 +2061,26 @@
 
 .mk-board__foot {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 退一步。低调一点：它是补救，不是这块板要她做的事。 */
+.mk-board__undo {
+  padding: 5px 11px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-full);
+  color: var(--mk-secondary);
+  background: var(--mk-surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mk-board__undo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .mk-board__submit {

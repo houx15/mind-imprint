@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import type { AnnotateState } from "@mind-imprint/contracts";
+import { parseMarkdownTable } from "./markdownTable";
 import { segmentBlock } from "./segment";
 import { selectionToSpan, pointToRuneOffset, type CreatedSpan } from "./selection";
 import { segmentSentences, sentenceAtOffset } from "./sentences";
@@ -225,7 +226,41 @@ export function Annotate({
         </div>
       )}
       <div onMouseUp={handleMouseUp}>
-        {blocks.map((block) => {
+        {blocks.map((block, blockIndex) => {
+          // 🚨 表格块单独画。见 markdownTable.ts：标注的锚点是这一段文本里的
+          // 字节偏移，把一段文字拆成单元格就对不上了，所以表格不进
+          // `<p data-block-id>` 那条路，其余段落一个字都不变。
+          const table = parseMarkdownTable(block.text);
+          if (table) {
+            return (
+              <div
+                key={block.id}
+                data-block-id={block.id}
+                data-table=""
+                data-n={blockIndex + 1}
+                className="mk-article-table"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      {table.header.map((h, i) => (
+                        <th key={i}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row, r) => (
+                      <tr key={r}>
+                        {row.map((cell, c) => (
+                          <td key={c}>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
           const runs = segmentBlock(block.id, block.text, state.spans);
           const referenced = Boolean(referencedBlockIds?.includes(block.id));
           const heading = Boolean(headingBlockIds?.includes(block.id));
@@ -234,6 +269,10 @@ export function Annotate({
             <Fragment key={block.id}>
               <p
                 data-block-id={block.id}
+                // 段号。🚨 用属性而不是往正文里插字：标注的锚点是这一段文本里
+                // 的字节偏移，正文里多一个字符，之前存下来的每一条标注就都错位。
+                // 数字由 CSS ::before 画出来（见 index.css）。
+                data-n={blockIndex + 1}
                 data-heading={heading ? "" : undefined}
                 data-core={core ? "" : undefined}
                 role={heading ? "heading" : undefined}

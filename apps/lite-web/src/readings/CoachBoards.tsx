@@ -120,13 +120,35 @@ function useBoard(initial: BoardPlacement = {}) {
     return bin ? bin.getAttribute("data-board-bin") : null;
   }
 
+  /**
+   * 🚨 每摆一次留一份上一步，给「撤销」用。
+   *
+   * 产品负责人 2026-09-12：「为阅读模块的标注板卡片及各类选项增加回退功能，
+   * 支持返回上一步重新选择。」摆错一张之前只能靠再摆一次盖过去，而她往往
+   * 记不清它原来在哪一格 —— 摆错就等于丢了一个信息。
+   */
+  const historyRef = useRef<BoardPlacement[]>([]);
+
   function place(itemId: string, bin: string | null) {
     setPlaced((prev) => {
+      historyRef.current.push(prev);
       const next = { ...prev };
       if (bin) next[itemId] = bin;
       else delete next[itemId];
       return next;
     });
+  }
+
+  /** 退回上一步。没有上一步就什么都不做。 */
+  function undo() {
+    const prev = historyRef.current.pop();
+    if (!prev) return;
+    setPlaced(prev);
+    setPicked(null);
+  }
+
+  function canUndo() {
+    return historyRef.current.length > 0;
   }
 
   function onItemPointerDown(itemId: string, e: React.PointerEvent<HTMLElement>) {
@@ -190,7 +212,7 @@ function useBoard(initial: BoardPlacement = {}) {
     setPicked(null);
   }
 
-  return { placed, picked, hoverBin, dragging, ghost, place, setPicked, onItemPointerDown, onItemPointerMove, onItemPointerUp, onBinClick };
+  return { placed, picked, hoverBin, dragging, ghost, place, undo, canUndo, setPicked, onItemPointerDown, onItemPointerMove, onItemPointerUp, onBinClick };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +291,16 @@ export function CoachBoard({
       </div>
 
       <div className="mk-board__foot">
+        {/* 退一步。摆错一张之前只能靠再摆一次盖过去，而她往往记不清它原来在
+            哪一格 —— 摆错就等于丢了一个信息。 */}
+        <button
+          type="button"
+          disabled={busy || !b.canUndo()}
+          onClick={b.undo}
+          className="mk-board__undo"
+        >
+          撤销上一步
+        </button>
         <button
           type="button"
           disabled={busy || !done}

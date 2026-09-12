@@ -27,6 +27,7 @@ import type {
 } from "../api/readingRoom";
 import type { ReadingFigure, ReadingOutline } from "../api/readings";
 import { ReadingOutlineCard } from "./ReadingOutlineCard";
+import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -651,6 +652,9 @@ export function ReadingRoom({
                     />
                   )}
                   {leadFigure && <ArticleFigure figure={leadFigure} />}
+                  {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
+                      要回去找一个词」，不是开读前的那张地图。 */}
+                  <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
                 </header>
                 <Annotate
                   blocks={source.blocks}
