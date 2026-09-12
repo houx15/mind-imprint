@@ -1391,6 +1391,19 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 		got.lensRetry = true
 		got.lensRetryWhy = "the turn gives a lens but the words describe a board"
 	}
+	// 🚨 递透镜的那一轮，话不要以一个问句收尾。
+	//
+	// 透镜自己就是那句「请她做什么」：她要去文章里点一句。话里再抛一个问题，
+	// 屏幕上就有了两件事，而它们要的动作不一样 —— 一个要她点句子，一个要她
+	// 打字。实测她逐字报的：
+	//   「它让我用『经济学透镜』在第12段里找一句，看哪个成本被漏掉了。但它又说
+	//     『这一步要在文章里做』，我不知道到底是要我从第12段 pick 一句英文，
+	//     还是在下面那个框里用中文写答案。」
+	// 示范照做（上面那条），收尾用陈述句把手交给她。
+	if got.Lens != "" && got.lensWhy == "" && !got.lensRetry && replyEndsOnAQuestion(got.Reply) {
+		got.lensRetry = true
+		got.lensRetryWhy = "the lens turn ends on a question, which asks her to type instead of pick"
+	}
 	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
 	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
 	//
@@ -2014,4 +2027,23 @@ func replyQuotesBlock(reply string, blocks []Block, blockID string) bool {
 		return false
 	}
 	return false
+}
+
+// replyEndsOnAQuestion —— 这句话是不是以一个问句收尾。
+//
+// 只看**最后一句**：中间出现问号是正常的（「这句在问什么？它在说成本」这种
+// 自问自答是讲解的一部分），收尾那句才决定她接下来伸手去做什么。
+func replyEndsOnAQuestion(reply string) bool {
+	r := []rune(strings.TrimSpace(reply))
+	if len(r) == 0 {
+		return false
+	}
+	// 收尾的引号、括号不算数，往回找到真正的最后一个字。
+	for len(r) > 0 && strings.ContainsRune("」』）)\"'“”", r[len(r)-1]) {
+		r = r[:len(r)-1]
+	}
+	if len(r) == 0 {
+		return false
+	}
+	return r[len(r)-1] == '？' || r[len(r)-1] == '?'
 }

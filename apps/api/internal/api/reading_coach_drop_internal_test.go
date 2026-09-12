@@ -428,3 +428,52 @@ func TestLensTurnThatTalksAboutABoardIsRetried(t *testing.T) {
 		t.Fatal("透镜不该被丢掉 —— 这一条只让这一轮重来")
 	}
 }
+
+// 🚨 递透镜的那一轮，话不要以一个问句收尾。
+//
+// 透镜自己就是那句「请她做什么」。话里再抛一个问题，屏幕上就有了两件事，而
+// 它们要的动作不一样。实测她逐字报的：「我不知道到底是要我从第12段 pick 一句
+// 英文，还是在下面那个框里用中文写答案。」
+func TestLensTurnMustNotEndOnAQuestion(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	lensOK := func(string) bool { return true }
+	quote := "Officials cautioned that the figure could not be independently verified"
+
+	asks := `{"reply":"看第 1 段这句：` + quote + `。cautioned 把这条数字的分量压下来了。你觉得哪个成本被漏掉了？",
+	           "lens":"lens-economics","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(asks, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensRetry {
+		t.Fatal("以问句收尾，应该重来一次")
+	}
+
+	hands := `{"reply":"看第 1 段这句：` + quote + `。cautioned 把这条数字的分量压下来了。现在换你，在文章别处找一句这样的。",
+	           "lens":"lens-economics","focusBlock":"b1"}`
+	got2, ok2 := parseReadingCoachReply(hands, blocks, "en", lensOK)
+	if !ok2 {
+		t.Fatal("解析失败")
+	}
+	if got2.lensRetry {
+		t.Fatalf("这一轮做了示范、用陈述句收尾，不该重来：%q", got2.lensRetryWhy)
+	}
+}
+
+func TestReplyEndsOnAQuestion(t *testing.T) {
+	for reply, want := range map[string]bool{
+		"你觉得哪个成本被漏掉了？":            true,
+		"Which cost is missing?":  true,
+		"现在换你，在文章别处找一句这样的。":       false,
+		// 中间的问号是讲解的一部分，不算。
+		"这句在问什么？它在说成本。现在换你找一句。": false,
+		// 收尾的引号不算数，要看引号前面那个字。
+		"他问的是「哪个成本被漏掉了？」":         true,
+	} {
+		if got := replyEndsOnAQuestion(reply); got != want {
+			t.Errorf("replyEndsOnAQuestion(%q) = %v，想要 %v", reply, got, want)
+		}
+	}
+}
