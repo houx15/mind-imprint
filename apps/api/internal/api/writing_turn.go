@@ -128,6 +128,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 	// for the advice that came out the other end.
 	if wr.TargetWords != nil {
 		b.WriteString(writingLengthLine(wr, "目标篇幅"))
+		b.WriteString(writingLengthGapBlock(wr, draftBody))
 	} else {
 		b.WriteString("目标篇幅：还没定\n")
 	}
