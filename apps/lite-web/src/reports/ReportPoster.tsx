@@ -34,36 +34,23 @@ import { displayStat } from "./statLabels";
  *
  * html-to-image rasterizes through an SVG `<foreignObject>`, which never
  * loads a web font — it would fall back silently mid-export and the picture
- * would differ from whatever she previewed. `FONT_STACK` below is the
- * platform CJK stack only. Colours are explicit hex, copied from the same
- * `mk-*` macaron palette `apps/web/src/index.css` defines (so the poster
- * still reads as the same product), rather than `var(--mk-…)` custom
- * properties: this is a separate rasterization context from the page's own
- * cascade, and an explicit value removes a class of "did the variable
- * actually resolve at capture time" failure for no visible cost. This also
- * sidesteps the unrelated `mk-*`-as-Tailwind-alpha trap (`bg-mk-x/NN` emits
- * no CSS at all, since these are bare custom properties) by never going
- * through a Tailwind class for colour on this component at all.
+ * would differ from whatever she previewed. FONT_STACK uses system fonts.
+ * Colors inherit the student's shared design tokens from the themed body.
+ * html-to-image resolves their computed values before rasterization; the
+ * browser export check verifies both actual content and the resulting colors.
  */
 
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif';
 
-const INK = "#33302E";
-const MUTED = "#8A827A";
-const PAPER = "#FBF8F4";
+const INK = "var(--mk-ink)";
+const MUTED = "var(--mk-muted)";
+const PAPER = "var(--mk-paper)";
 
-/** Copied from `apps/web/src/index.css`'s `--mk-*` macaron tokens — see the
- *  file-level comment above for why these are hex literals, not `var()`. */
-const MACARON = [
-  { bg: "#FDE7D3", fg: "#9A5A22" }, // peach
-  { bg: "#E0F0EC", fg: "#177368" }, // lake
-  { bg: "#FCE7EB", fg: "#A63A50" }, // berry
-  { bg: "#E7F1DD", fg: "#4D6B3A" }, // matcha
-  { bg: "#F0EAF6", fg: "#5B4A80" }, // taro
-  { bg: "#FAF3DE", fg: "#8A6320" }, // butter
-  { bg: "#E6EEF9", fg: "#3C5A86" }, // mist
-] as const;
+/** Semantic report colors stay shared with the on-screen record. */
+const MACARON = ["peach", "lake", "berry", "matcha", "taro", "butter", "mist"].map(
+  tone => ({ bg: `var(--mk-${tone}-bg)`, fg: `var(--mk-${tone}-fg)` }),
+);
 
 /** How many stat tiles fit on one row of a 1080-wide picture. See the
  *  `slice` in the component for why exceeding it is not merely ugly. */
@@ -72,7 +59,7 @@ const MAX_POSTER_STATS = 4;
 function macaron(i: number) {
   // `i % MACARON.length` is always a valid index into a non-empty literal
   // array — the `?? MACARON[0]` only satisfies noUncheckedIndexedAccess.
-  return MACARON[i % MACARON.length] ?? MACARON[0];
+  return MACARON[i % MACARON.length] ?? MACARON[0]!;
 }
 
 /** Absolute date, matching `ReportView`'s own `formatDate` — this picture
@@ -123,13 +110,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           flexDirection: "column",
           gap: 44,
           padding: 76,
-          // Layered radial washes over paper rather than a separate banner
-          // element: same warm light as the page's own hero, with zero effect
-          // on layout inside a box whose height is fixed and whose overflow is
-          // hidden. Explicit hex, no `var()` and no `color-mix()` — see the
-          // file comment on why this rasterization context takes literals.
-          background: `radial-gradient(90% 60% at 6% 0%, #FDE7D3 0%, rgba(253,231,211,0) 60%),
-            radial-gradient(80% 55% at 96% 4%, #E0F0EC 0%, rgba(224,240,236,0) 62%), ${PAPER}`,
+          background: PAPER,
           fontFamily: FONT_STACK,
         }}
       >

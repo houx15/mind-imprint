@@ -123,7 +123,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
       <header className="relative z-20 flex flex-wrap items-start justify-between gap-4 px-7 pt-5">
         <div className="min-w-0">
           <Sys tone="dark">今日探索地图 · EXPLORATION MAP</Sys>
-          <p className="mt-1 text-mk-h2 text-[#F5EFE7]">
+          <p className="mt-1 text-mk-h2 text-[var(--mk-explore-ink)]">
             {live.day ? formatDay(live.day) : "今天"}
           </p>
         </div>
@@ -133,7 +133,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             type="button"
             onClick={() => setLang((l) => (l === "zh" ? "en" : "zh"))}
             className="inline-flex items-center gap-1.5 rounded-mk-full border px-3 py-1.5 text-mk-small
-                       text-[#C0B4A6] transition-colors hover:bg-[rgba(240,233,224,.1)]"
+                       text-[var(--mk-explore-muted)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
             style={{ borderColor: "rgba(240,233,224,.22)" }}
           >
             <Languages size={14} strokeWidth={1.8} />
@@ -142,7 +142,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
 
           <span className="text-right">
             <Sys tone="dark">已浏览</Sys>
-            <span className="block font-mono text-mk-h3 tabular-nums text-[#F5EFE7]">
+            <span className="block font-mono text-mk-h3 tabular-nums text-[var(--mk-explore-ink)]">
               {known ? `${lit} / ${live.planets.length}` : "—"}
             </span>
           </span>
@@ -152,7 +152,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             type="button"
             onClick={() => setNote((v) => !v)}
             aria-expanded={note}
-            className="rounded-mk-full border p-2 text-[#C0B4A6] transition-colors hover:bg-[rgba(240,233,224,.1)]"
+            className="rounded-mk-full border p-2 text-[var(--mk-explore-muted)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
             style={{ borderColor: "rgba(240,233,224,.22)" }}
             aria-label="这五条是怎么来的"
           >
@@ -165,8 +165,8 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
         <div className="relative z-20 mx-7 mt-3 rounded-mk-md p-4"
              style={{ background: "rgba(23,19,15,.9)", border: "1px solid rgba(240,233,224,.18)" }}>
           <Sys tone="dark">这五条是怎么来的</Sys>
-          <p className="mt-1.5 text-mk-small leading-[1.85] text-[#C0B4A6]">{SELECTION_NOTE}</p>
-          <p className="mt-2 text-mk-small leading-[1.85] text-[#C0B4A6]">{POLITICS_NOTE}</p>
+          <p className="mt-1.5 text-mk-small leading-[1.85] text-[var(--mk-explore-muted)]">{SELECTION_NOTE}</p>
+          <p className="mt-2 text-mk-small leading-[1.85] text-[var(--mk-explore-muted)]">{POLITICS_NOTE}</p>
         </div>
       ) : null}
 
@@ -297,10 +297,10 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "loading" && (
           <>
             <Sys tone="dark">处理中 · BUILDING</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">正在生成今天的星图</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">正在生成今天的星图</p>
             {/* 第一个打开的人触发一次抓取（十二个源）加一次模型调用。说出来，
                 别让她以为卡住了。 */}
-            <p className="mt-1 text-mk-small leading-[1.8] text-[#9A8E80]">
+            <p className="mt-1 text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
               正在从十二个科学源里挑今天的五条，需要几秒。
             </p>
           </>
@@ -309,12 +309,12 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "error" && (
           <>
             <Sys tone="dark">读取失败 · ERROR</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">星图读取失败</p>
-            <p className="mt-1 break-words text-mk-small text-[#9A8E80]">{live.error}</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">星图读取失败</p>
+            <p className="mt-1 break-words text-mk-small text-[var(--mk-explore-muted)]">{live.error}</p>
             <button
               type="button"
               onClick={live.reload}
-              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
+              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[var(--mk-explore-ink)] transition hover:opacity-80"
               style={{ borderColor: "rgba(245,239,231,0.3)" }}
             >
               重试
@@ -325,9 +325,9 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "empty" && (
           <>
             <Sys tone="dark">空 · NO STARMAP TODAY</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">今天没有星图</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">今天没有星图</p>
             {/* 后台原话原样给出。空着比摆一张昨天的诚实。 */}
-            <p className="mt-1 break-words text-mk-small leading-[1.8] text-[#9A8E80]">
+            <p className="mt-1 break-words text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
               {live.note || "今天还没有生成。"}
             </p>
             {/* 🚨 这个按钮以前是死的：服务端失败一次就把这一天封了，按下去请求
@@ -359,17 +359,17 @@ function RetryLine({ retryAfter, onRetry }: { retryAfter: number; onRetry: () =>
 
   if (retryAfter < 0) {
     return (
-      <p className="mt-3 text-mk-small text-[#9A8E80]">今天已经试过多次，不再重试。明天会重新生成。</p>
+      <p className="mt-3 text-mk-small text-[var(--mk-explore-muted)]">今天已经试过多次，不再重试。明天会重新生成。</p>
     );
   }
   if (left > 0) {
-    return <p className="mt-3 text-mk-small text-[#9A8E80]">{left} 秒后可以再试一次。</p>;
+    return <p className="mt-3 text-mk-small text-[var(--mk-explore-muted)]">{left} 秒后可以再试一次。</p>;
   }
   return (
     <button
       type="button"
       onClick={onRetry}
-      className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
+      className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[var(--mk-explore-ink)] transition hover:opacity-80"
       style={{ borderColor: "rgba(245,239,231,0.3)" }}
     >
       重试

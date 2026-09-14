@@ -1,0 +1,162 @@
+/* Student presentation; shared components and business state remain unchanged. */
+.lite-student-theme {
+  --mk-line: var(--mk-border);
+  --mk-hover: var(--mk-accent-50);
+}
+.lite-student-theme :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--mk-accent-700);
+  outline-offset: 3px;
+}
+.lite-student-theme [role="dialog"] {
+  font-family: var(--mk-font-family);
+  color: var(--mk-ink);
+}
+.mk-companion { border-radius: var(--mk-radius-sm); }
+.mk-companion--thinking, .mk-companion--processing { animation: student-companion-breathe 1.8s ease-in-out infinite; }
+@keyframes student-companion-breathe { 50% { opacity: .65; transform: translateY(-2px); } }
+.lite-student .mk-lite-room.mk-reading-room {
+  --canvas: var(--mk-paper);
+  --paper: var(--mk-surface);
+  --surface: var(--mk-surface);
+  --surface-muted: var(--mk-paper);
+  --ink: var(--mk-ink);
+  --muted: var(--mk-muted);
+  --label: var(--mk-muted);
+  --line: var(--mk-border);
+  --accent: var(--mk-accent-500);
+  --font-ui: var(--mk-font-family);
+  font-family: var(--mk-font-family);
+}
+.lite-student .mk-lite-room .mk-reading-room__topbar {
+  background: var(--mk-paper);
+  min-height: 72px;
+  height: auto;
+  padding: var(--mk-space-16) var(--mk-space-24);
+}
+.lite-student .mk-lite-room .mk-reading-room__workspace { padding: var(--mk-space-20); gap: 0; }
+.lite-student .mk-lite-room :is(.mk-reading-room__reading, .mk-reading-room__coach) {
+  box-shadow: none;
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.lite-student .mk-lite-room .mk-reading-room__coach::before { display: none; }
+.lite-student .mk-lite-room .mk-reading-room__article-header h2 { font-family: var(--mk-font-family); font-weight: 600; line-height: 1.5; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner { max-width: 780px; margin-inline: auto; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner p[data-block-id] { line-height: 1.95; }
+.lite-student .mk-lite-room .mk-reading-figure img { border-radius: var(--mk-radius-input); }
+.lite-student .mk-lite-room .mk-lite-coachtabs { padding-bottom: var(--mk-space-12); border-color: var(--mk-border); }
+.lite-student .mk-plandial__disc { box-shadow: none; }
+.lite-student .student-writing-room > header { padding-block: var(--mk-space-8); }
+.lite-student .student-coach-panel { padding: var(--mk-space-18); }
+.lite-student .student-coach-heading { display: flex; align-items: center; gap: var(--mk-space-10); padding-bottom: var(--mk-space-12); border-bottom: 1px solid var(--mk-border); font-size: var(--mk-font-size-body); font-weight: 600; }
+.lite-student .student-coach-heading img { width: 42px; height: 48px; object-fit: contain; }
+.lite-student .student-coach-heading span { display: block; color: var(--mk-muted); font-size: var(--mk-font-size-label); font-weight: 400; margin-top: var(--mk-space-4); }
+.lite-student [data-student-page="settings"] > div { max-width: 900px; margin-inline: auto; }
+.lite-student [data-student-page="settings"] .shadow-mk-sm { box-shadow: none; border: 1px solid var(--mk-border); }
+.lite-student :is(.mk-rp-card, .mk-rp-stat, .mk-rp-keep) { box-shadow: none; border: 1px solid var(--mk-border); border-radius: var(--mk-radius-lg); }
+.lite-student .mk-rp-hero { background: var(--mk-accent-50); border-radius: var(--mk-radius-lg); }
+.lite-student .mk-rp-hero__glow { display: none; }
+.lite-student .mk-rp-title__rule { background: var(--mk-border); }
+@media (max-width: 1023px) {
+  .lite-student .mk-lite-room .mk-reading-room__workspace { gap: var(--mk-space-16); padding: var(--mk-space-12); }
+  .lite-student .student-writing-room { height: auto; min-height: 100%; }
+  .lite-student .student-writing-workspace { flex: none; }
+  .lite-student .student-writing-workspace > div:first-child { min-height: 420px; }
+  .lite-student .student-coach-panel { min-height: 460px; }
+}
+@media (max-width: 650px) {
+  .lite-student .mk-lite-room .mk-reading-room__topbar { padding: var(--mk-space-12); gap: var(--mk-space-10); }
+  .lite-student .mk-lite-room .mk-reading-room__article { padding: var(--mk-space-20) var(--mk-space-16); }
+  .lite-student .student-writing-room { padding: var(--mk-space-12); }
+  .lite-student .student-coach-panel { padding: var(--mk-space-12); }
+}
+@media (prefers-reduced-motion: reduce) { .mk-companion { animation: none; } }
+.lite-student .student-planning-room > header, .student-project-room > section > header {
+  min-height: 76px;
+  background: var(--mk-paper);
+  padding: var(--mk-space-16) var(--mk-space-24);
+}
+.lite-student .student-planning-room > div > div:first-child { background: var(--mk-surface); }
+.lite-student .student-project-room > section { background: var(--mk-paper); }
+.lite-student .mk-lite-room .mk-reading-room__brand-title { font-weight: 600; letter-spacing: normal; }
+@media (max-width: 1023px) {
+  .lite-student .student-planning-room { height: auto; min-height: 100%; }
+  .lite-student .student-planning-room > div:last-child { flex: none; }
+  .lite-student .student-planning-room > div:last-child > div:first-child { min-height: 460px; }
+  .lite-student .student-planning-room aside { min-height: 460px; }
+}
+.lite-student .student-courses .course-catalog-measure { max-width: 1160px; margin-inline: auto; padding: 0 var(--mk-space-38) var(--mk-space-48) !important; }
+.lite-student .student-courses .learning-landing-header { min-height: 170px; }
+.lite-student .student-courses [data-tour="courses-grid"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important; }
+.lite-student .student-courses input[type="search"] { border-radius: var(--mk-radius-input) !important; min-height: 44px; }
+.lite-student .student-courses .course-detail-measure { max-width: 920px !important; }
+.lite-student .student-site-empty h1 { font-size: var(--mk-font-size-page); font-weight: 600; }
+.lite-student :is(.tree-mono, .exp-mono) { font-family: var(--mk-font-family); letter-spacing: .04em; font-weight: 500; }
+.lite-student .tree-grove { --tree-hover: var(--mk-accent-50); }
+@media (max-width: 700px) {
+  .lite-student .student-courses .course-catalog-measure, .student-courses .course-detail-measure { padding: var(--mk-space-16) !important; }
+  .lite-student .student-courses [data-tour="courses-grid"] { gap: var(--mk-space-16) !important; }
+  .lite-student .student-site-empty h1 { font-size: var(--mk-font-size-page-mobile); }
+  .lite-student .student-site-empty img { max-width: 80%; }
+}
+.lite-student .student-guest .shadow-mk-lg { box-shadow: none; border: 1px solid var(--mk-border); }
+.lite-student .student-guest .text-mk-h2 { font-weight: 600; }
+.lite-student .student-guest input { min-height: 44px; border-radius: var(--mk-radius-input); }
+@media (max-width: 700px) {
+  .lite-student .student-guest > div { align-items: flex-start; }
+}
+.lite-student .exp-sky {
+  background: var(--mk-explore-paper);
+  color: var(--mk-explore-ink);
+}
+.lite-student .exp-bubble { box-shadow: none !important; backdrop-filter: none; }
+.lite-student .exp-bubble::after { display: none; }
+.lite-student .exp-stars::before, .lite-student .exp-stars::after { opacity: .35; }
+.lite-student .exp-star-dot { box-shadow: 0 0 8px color-mix(in srgb, var(--hue) 30%, transparent); }
+.lite-student-theme .awk {
+  --ink: var(--mk-explore-ink);
+  --muted: var(--mk-explore-muted);
+  --panel: var(--mk-explore-surface);
+  --panel-soft: var(--mk-explore-paper);
+  --line: var(--mk-explore-line);
+  --cyan: var(--mk-explore-accent);
+  --cyan-2: var(--mk-explore-accent);
+  font-family: var(--mk-font-family);
+  background: var(--mk-explore-paper);
+}
+.lite-student-theme .awk::before { display: none; }
+.lite-student .student-tool-frame { background: var(--mk-surface); }
+.lite-student .student-tool-frame > header { padding: var(--mk-space-20); }
+.lite-student .student-tool-frame > header h2 { font-size: var(--mk-font-size-section); font-weight: 600; }
+.lite-student .student-tool-frame > footer { background: var(--mk-surface); }
+.lite-student .student-tool-frame > header > div { gap: var(--mk-space-16); }
+@media (max-width: 650px) { .lite-student .student-tool-frame > header { padding: var(--mk-space-16); } }
+
+.lite-student .course-ask-panel { border-radius: 0; }
+@media (max-width: 700px) {
+  .lite-student .course-ask-panel { position: absolute; inset: 64px 0 0 auto; width: min(330px, 100%) !important; z-index: 20; box-shadow: var(--mk-shadow-md); }
+}
+.lite-student-theme .awk :is(.awk-eyebrow, .awk-pill) { font-family: var(--mk-font-family); letter-spacing: .08em; }
+.lite-student-theme .awk :is(.awk-primary, .awk-panel, .awk-card) { box-shadow: none; }
+
+.lite-student .course-report-hero { box-shadow: none !important; background: var(--mk-accent-600) !important; }
+.lite-student .course-report-hero svg { stroke: var(--mk-on-accent); }
+.lite-student .course-report-hero > div:last-child > div { color: var(--mk-on-accent) !important; }
+@media (max-width: 700px) {
+  .lite-student .course-report-measure { padding: 20px 16px 40px !important; }
+  .lite-student .course-report-columns { grid-template-columns: minmax(0, 1fr) !important; }
+  .lite-student .course-report-hero { padding: 20px !important; gap: 14px !important; }
+  .lite-student .course-report-hero > div:first-child { width: 42px !important; height: 42px !important; }
+}
+
+.lite-student .mk-studio-composer textarea::placeholder { color: var(--mk-muted); }
+.lite-student .mk-studio-composer button:disabled { background: var(--mk-border); color: var(--mk-muted); }
+.lite-student .mk-coachcard { border-left-width: 1px !important; box-shadow: none !important; }
+@media (max-width: 1023px) {
+  .lite-student .student-writing-workspace { grid-auto-rows: auto; }
+  .lite-student .student-writing-workspace > div:first-child { height: 75dvh; }
+  .lite-student .student-coach-panel { height: 460px; }
+}
+
+.lite-student .mk-lite-room :is(.mk-reading-room__finalize-btn, .mk-reading-room__composer-send, .mk-finalize-panel__confirm, .mk-msg__avatar, .mk-msg--student .mk-msg__bubble, .mk-msg__lens button) { color: var(--mk-on-accent); }
+.lite-student .mk-lite-room :is(.mk-reading-room__offer, .mk-reading-room__quote-chip-x, .mk-reading-room__trace-btn):hover { color: var(--mk-on-accent); }

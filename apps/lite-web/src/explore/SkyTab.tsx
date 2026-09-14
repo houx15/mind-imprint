@@ -84,8 +84,8 @@ export function SkyTab({
                     : "focus-visible:ring-mk-accent-300",
                   night
                     ? active
-                      ? "bg-[rgba(245,239,231,.14)] font-semibold text-[#F5EFE7]"
-                      : "text-[#9A8E80] hover:text-[#C0B4A6]"
+                      ? "bg-[rgba(245,239,231,.14)] font-semibold text-[var(--mk-explore-ink)]"
+                      : "text-[var(--mk-explore-muted)] hover:text-[var(--mk-explore-muted)]"
                     : active
                       ? "bg-[rgba(51,48,46,.07)] font-semibold text-mk-ink"
                       : "text-mk-muted hover:text-mk-ink",

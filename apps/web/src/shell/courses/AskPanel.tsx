@@ -159,7 +159,7 @@ export function AskPanel({
   }
 
   return (
-    <div style={{ width: 330, flex: "none", background: "var(--mk-surface)", borderLeft: "1px solid var(--mk-border)", display: "flex", flexDirection: "column" }}>
+    <div className="course-ask-panel" style={{ width: 330, flex: "none", background: "var(--mk-surface)", borderLeft: "1px solid var(--mk-border)", display: "flex", flexDirection: "column" }}>
       <style>{`@keyframes mkPulse { 0%,100% { opacity:.5;} 50% { opacity:1;} }`}</style>
       <div style={{ flex: "none", padding: "16px 18px 14px", borderBottom: "1px solid var(--mk-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

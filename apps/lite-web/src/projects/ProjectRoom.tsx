@@ -372,7 +372,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   return (
     // relative：铺开的工具面板贴着**房间**铺开，不是贴着整个视口——
     // 视口的左边还有一条 64px 的导航栏。
-    <div className="relative flex h-full min-h-0">
+    <div className="student-project-room relative flex h-full min-h-0">
       {/* ── conversation ─────────────────────────────────────────────── */}
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-mk-border px-5 py-3">

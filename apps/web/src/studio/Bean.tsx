@@ -1,3 +1,4 @@
+import { useCompanionImage } from "../ui/CompanionAppearance";
 type BeanProps = { color?: string; size?: number };
 
 // Ported from the Claude Design Bean.dc.html: a rounded "bean" body with two
@@ -16,6 +17,8 @@ type BeanProps = { color?: string; size?: number };
 // `ui/Pebble.tsx`'s `EYE_FILL`: these are computed contrast values, not
 // theme colors, and Bean.test.tsx asserts the exact fill string.
 export function Bean({ color = "#EA5140", size = 38 }: BeanProps) {
+  const image = useCompanionImage();
+  if (image) return <img src={image} alt="" width={size} height={size} style={{ objectFit: "contain", flexShrink: 0 }} />;
   const m = /^#?([0-9a-f]{6})$/i.exec(color.trim());
   let eye = "#17223B";
   if (m) {

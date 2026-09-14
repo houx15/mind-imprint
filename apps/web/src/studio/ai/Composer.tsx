@@ -88,7 +88,7 @@ export function Composer({
   }
 
   return (
-    <div className={cx("flex items-end gap-2", className)}>
+    <div className={cx("mk-studio-composer flex items-end gap-2", className)}>
       <textarea
         ref={textareaRef}
         value={value}

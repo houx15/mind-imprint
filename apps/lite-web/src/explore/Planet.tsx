@@ -78,7 +78,7 @@ export function Planet({
     : kept
       ? { label: "在阅读室", color: "#E4C36A" }
       : discovered
-        ? { label: "已浏览", color: "#9A8E80" }
+        ? { label: "已浏览", color: "var(--mk-explore-muted)" }
         : null;
   const showHook = hover && !dimmed;
   // The headline has to survive a 150px bubble on a short window as well as a
@@ -197,12 +197,12 @@ export function Planet({
             </span>
             <span
               className="mt-1.5 block text-mk-body-lg font-semibold leading-[1.6]"
-              style={{ color: "#F5EFE7" }}
+              style={{ color: "var(--mk-explore-ink)" }}
             >
               {item.hook}
             </span>
             {item.discipline ? (
-              <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "#9A8E80" }}>
+              <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "var(--mk-explore-muted)" }}>
                 {item.discipline.zh} · {item.discipline.asks}
               </span>
             ) : null}

@@ -46,7 +46,7 @@ export function ToolFrame({
   const ready = !todo;
   const { wide, toggle } = useWidePane();
   return (
-    <div className="flex h-full flex-col">
+    <div className="student-tool-frame flex h-full flex-col">
       <header className="border-b border-mk-border px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>

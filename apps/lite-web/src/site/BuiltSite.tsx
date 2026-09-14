@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Essay } from "./Essay";
 import { Ledger } from "./Ledger";
 import { Magazine } from "./Magazine";
@@ -30,7 +31,7 @@ export function BuiltSite({
   layout,
   palette,
   heroUrl,
-  narrow = false,
+  narrow,
   editing = false,
 }: {
   site: SiteContent;
@@ -43,8 +44,20 @@ export function BuiltSite({
   /** 她自己在看 = true（会显示「这里还没写」）；访客 = false。 */
   editing?: boolean;
 }) {
-  const props = { site, theme: themeFor(layout, palette), narrow, editing, heroUrl };
-  if (layout === "ledger") return <Ledger {...props} />;
-  if (layout === "magazine") return <Magazine {...props} />;
-  return <Essay {...props} />;
+  const container = useRef<HTMLDivElement>(null);
+  const [autoNarrow, setAutoNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 700);
+  useEffect(() => {
+    if (narrow !== undefined || !container.current) return;
+    const measure = () => setAutoNarrow(container.current!.getBoundingClientRect().width < 700);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [narrow]);
+  // Explicit preview widths win; normal pages respond to their actual space,
+  // including the student's navigation rail beside the published site.
+  const props = { site, theme: themeFor(layout, palette), narrow: narrow ?? autoNarrow, editing, heroUrl };
+  return <div ref={container} style={{ width: "100%", minWidth: 0 }}>
+    {layout === "ledger" ? <Ledger {...props} /> : layout === "magazine" ? <Magazine {...props} /> : <Essay {...props} />}
+  </div>;
 }

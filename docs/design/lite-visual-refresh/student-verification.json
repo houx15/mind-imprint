@@ -1,0 +1,494 @@
+{
+  "date": "2026-09-14",
+  "scope": "Local frontend fixtures; no production writes or live model calls",
+  "runs": {
+    "lite-entry-browser": {
+      "checks": [
+        {
+          "url": "/readings",
+          "mobileOverflow": false
+        },
+        {
+          "url": "/writings",
+          "mobileOverflow": false
+        },
+        {
+          "url": "/projects",
+          "mobileOverflow": false
+        },
+        {
+          "url": "/readings/library",
+          "mobileOverflow": false
+        },
+        {
+          "settingsAccentChanged": true,
+          "sidebarPickerAbsent": true
+        },
+        {
+          "paletteChecks": [
+            {
+              "name": "松石青",
+              "color": "#087f8c"
+            },
+            {
+              "name": "靛蓝",
+              "color": "#3f60ce"
+            },
+            {
+              "name": "紫棠",
+              "color": "#7952bd"
+            },
+            {
+              "name": "玫紫",
+              "color": "#b93e7a"
+            },
+            {
+              "name": "朱砂红",
+              "color": "#ce4b48"
+            },
+            {
+              "name": "竹青绿",
+              "color": "#2d855b"
+            },
+            {
+              "name": "陶土红",
+              "color": "#bb5340"
+            },
+            {
+              "name": "蜜柑橙",
+              "color": "#a96512"
+            }
+          ],
+          "reloadPreserved": true
+        }
+      ],
+      "errors": []
+    },
+    "lite-rooms": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "reading-room",
+          "overflow": false
+        },
+        {
+          "name": "writing-plan",
+          "overflow": false
+        },
+        {
+          "name": "writing-snippets",
+          "overflow": false
+        },
+        {
+          "name": "writing-draft",
+          "overflow": false
+        }
+      ]
+    },
+    "lite-workspace-states": {
+      "checks": [
+        {
+          "name": "reading-guided",
+          "overflow": false
+        },
+        {
+          "name": "reading-paragraph-tools",
+          "overflow": false
+        },
+        {
+          "name": "writing-setup",
+          "overflow": false
+        },
+        {
+          "name": "writing-deepen",
+          "overflow": false
+        },
+        {
+          "name": "writing-coach-visible",
+          "overflow": false
+        },
+        {
+          "name": "reading-error",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-rooms-dark": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "reading-room",
+          "overflow": false
+        },
+        {
+          "name": "writing-plan",
+          "overflow": false
+        },
+        {
+          "name": "writing-snippets",
+          "overflow": false
+        },
+        {
+          "name": "writing-draft",
+          "overflow": false
+        }
+      ]
+    },
+    "lite-runtime-full": {
+      "checks": [
+        {
+          "name": "course-opening",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-content",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-content-mobile",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-ask-mobile",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-closing-mobile",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-report-mobile",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        },
+        {
+          "name": "course-report",
+          "url": "http://127.0.0.1:5192/courses/evidence",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-project-course": {
+      "checks": [
+        {
+          "name": "course-opening",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-content",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-content-mobile",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-ask-mobile",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-closing-mobile",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-report-mobile",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        },
+        {
+          "name": "course-report",
+          "url": "http://127.0.0.1:5192/visual-review.html?tool=course-modal",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-secondary-final": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "courses",
+          "overflow": false
+        },
+        {
+          "name": "course-detail",
+          "overflow": false
+        },
+        {
+          "name": "project-room",
+          "overflow": false
+        },
+        {
+          "name": "explore",
+          "overflow": false
+        },
+        {
+          "name": "tree",
+          "overflow": false
+        },
+        {
+          "name": "my-site-published",
+          "overflow": false
+        },
+        {
+          "name": "public-site",
+          "overflow": false
+        },
+        {
+          "name": "settings",
+          "overflow": false
+        },
+        {
+          "name": "login",
+          "overflow": false
+        }
+      ]
+    },
+    "lite-account-states": {
+      "checks": [
+        {
+          "name": "tree-keyword",
+          "overflow": false
+        },
+        {
+          "name": "tree-keyword-mobile",
+          "overflow": false
+        },
+        {
+          "name": "courses-dark-mobile",
+          "overflow": false
+        },
+        {
+          "name": "settings-dark-mobile",
+          "overflow": false
+        },
+        {
+          "name": "site-dark-mobile",
+          "overflow": false
+        },
+        {
+          "name": "register-mobile",
+          "overflow": false
+        },
+        {
+          "name": "register-bind-mobile",
+          "overflow": false
+        },
+        {
+          "name": "register-bind",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-quiz": {
+      "checks": [
+        {
+          "name": "quiz-world",
+          "overflow": false
+        },
+        {
+          "name": "quiz-navigator",
+          "overflow": false
+        },
+        {
+          "name": "quiz-interest",
+          "overflow": false
+        },
+        {
+          "name": "quiz-lens",
+          "overflow": false
+        },
+        {
+          "name": "quiz-challenge",
+          "overflow": false
+        },
+        {
+          "name": "quiz-result",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-tools": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "observe",
+          "overflow": false
+        },
+        {
+          "name": "board",
+          "overflow": false
+        },
+        {
+          "name": "reframe",
+          "overflow": false
+        },
+        {
+          "name": "ideas",
+          "overflow": false
+        },
+        {
+          "name": "review",
+          "overflow": false
+        },
+        {
+          "name": "decide",
+          "overflow": false
+        },
+        {
+          "name": "structure",
+          "overflow": false
+        },
+        {
+          "name": "split",
+          "overflow": false
+        },
+        {
+          "name": "course",
+          "overflow": false
+        },
+        {
+          "name": "lookback",
+          "overflow": false
+        },
+        {
+          "name": "keep",
+          "overflow": false
+        },
+        {
+          "name": "ship",
+          "overflow": false
+        },
+        {
+          "name": "sites",
+          "overflow": false
+        },
+        {
+          "name": "persona",
+          "overflow": false
+        },
+        {
+          "name": "look",
+          "overflow": false
+        }
+      ]
+    },
+    "lite-tools-filled": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "observe",
+          "overflow": false
+        },
+        {
+          "name": "board",
+          "overflow": false
+        },
+        {
+          "name": "reframe",
+          "overflow": false
+        },
+        {
+          "name": "ideas",
+          "overflow": false
+        },
+        {
+          "name": "review",
+          "overflow": false
+        },
+        {
+          "name": "decide",
+          "overflow": false
+        },
+        {
+          "name": "structure",
+          "overflow": false
+        },
+        {
+          "name": "split",
+          "overflow": false
+        },
+        {
+          "name": "course",
+          "overflow": false
+        },
+        {
+          "name": "lookback",
+          "overflow": false
+        },
+        {
+          "name": "keep",
+          "overflow": false
+        },
+        {
+          "name": "ship",
+          "overflow": false
+        },
+        {
+          "name": "sites",
+          "overflow": false
+        },
+        {
+          "name": "persona",
+          "overflow": false
+        },
+        {
+          "name": "look",
+          "overflow": false
+        }
+      ]
+    },
+    "lite-site-layouts": {
+      "checks": [
+        {
+          "layout": "essay",
+          "overflow": false
+        },
+        {
+          "layout": "ledger",
+          "overflow": false
+        },
+        {
+          "layout": "magazine",
+          "overflow": false
+        }
+      ],
+      "errors": []
+    },
+    "lite-reports": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "reading-finished",
+          "overflow": false
+        },
+        {
+          "name": "writing-finished",
+          "overflow": false
+        },
+        {
+          "name": "public-article",
+          "overflow": false
+        },
+        {
+          "name": "public-report",
+          "overflow": false
+        }
+      ]
+    }
+  }
+}

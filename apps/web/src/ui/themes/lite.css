@@ -1,5 +1,5 @@
 /* Lite student variant of the shared --mk-* tokens. Geometry stays in page CSS. */
-.lite-student {
+:is(.lite-student, body.lite-student-theme) {
   --mk-accent-100: var(--mk-theme-accent-100);
   --mk-accent-200: var(--mk-theme-accent-200);
   --mk-accent-300: var(--mk-theme-accent-300);
@@ -10,11 +10,14 @@
   --mk-accent-800: var(--mk-theme-accent-800);
 
   --mk-accent: var(--mk-accent-500);
+  --mk-on-accent: #ffffff;
   --mk-secondary: var(--mk-muted);
   --mk-faint: var(--mk-muted);
   --mk-input-border: var(--mk-border);
   --mk-shadow-xs: none;
   --mk-shadow-sm: none;
+  --mk-shadow-md: 0 12px 32px color-mix(in srgb, var(--mk-ink) 12%, transparent);
+  --mk-shadow-lg: 0 16px 40px color-mix(in srgb, var(--mk-ink) 15%, transparent);
   --mk-radius-sm: 9px;
   --mk-radius-md: 14px;
   --mk-radius-lg: 16px;
@@ -72,7 +75,7 @@
   --mk-font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-:root[data-theme="dark"] .lite-student {
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
   --mk-ink: #e6edf2;
   --mk-muted: #acbac9;
   --mk-paper: #19232b;
@@ -86,18 +89,28 @@
   --mk-accent-700: color-mix(in srgb, var(--mk-accent-500) 45%, white);
   --mk-accent-800: color-mix(in srgb, var(--mk-accent-500) 30%, white);
 }
-:root:not([data-theme="dark"]) .lite-student[data-background="white"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="white"] {
   --mk-paper: #ffffff;
 }
-:root:not([data-theme="dark"]) .lite-student[data-background="cream"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="cream"] {
   --mk-paper: #fbf8f0;
 }
-:root:not([data-theme="dark"]) .lite-student[data-background="blue"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="blue"] {
   --mk-paper: #f2f6fc;
 }
-:root:not([data-theme="dark"]) .lite-student[data-background="green"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="green"] {
   --mk-paper: #f2f8f4;
 }
-:root:not([data-theme="dark"]) .lite-student[data-background="slate"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="slate"] {
   --mk-paper: #f5f6f8;
+}
+
+/* Immersive exploration surfaces use the same cool family with a night canvas. */
+:is(.lite-student, body.lite-student-theme) {
+  --mk-explore-paper: #152a34;
+  --mk-explore-surface: #203a46;
+  --mk-explore-ink: #eef6f7;
+  --mk-explore-muted: #b0c5cb;
+  --mk-explore-accent: #8dcbd2;
+  --mk-explore-line: #3f606d;
 }

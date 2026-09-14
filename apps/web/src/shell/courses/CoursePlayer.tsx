@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CourseAsset, CoursePlayerPayload } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { useCompanionImage } from "@/ui/CompanionAppearance";
 import { useAccentHex } from "@/ui";
 import { SegmentTimeline, buildTimeline, pieceIdFor } from "./SegmentTimeline";
 import { AskPanel, type AskMessage } from "./AskPanel";
@@ -26,7 +27,8 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
   const [ordinal, setOrdinal] = useState(0);
   const [completed, setCompleted] = useState<number[]>([]);
 
-  const [askExpanded, setAskExpanded] = useState(true);
+  const studentAppearance = useCompanionImage();
+  const [askExpanded, setAskExpanded] = useState(() => !studentAppearance || window.matchMedia("(min-width: 701px)").matches);
   const [askMessages, setAskMessages] = useState<AskMessage[]>([]);
   const [askPending, setAskPending] = useState(false);
 

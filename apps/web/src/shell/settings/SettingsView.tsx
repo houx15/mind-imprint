@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import type { SessionStore } from "../session";
 import type { MeUser } from "../../api";
+import { useCompanionImage } from "../../ui/CompanionAppearance";
 import { useAccent } from "../../ui/accent";
 import { useBackground, BACKGROUND_PRESETS } from "../../ui/background";
 import { Card, Toggle, Pebble, Icon, Check } from "../../ui";
@@ -45,6 +46,7 @@ export function SettingsView({
   onLogout: () => void;
   user?: MeUser | null;
 }) {
+  const companionImage = useCompanionImage();
   const { id: accentId, setAccent, presets } = useAccent();
   const { id: backgroundId, setBackground } = useBackground();
   const [toggles, setToggles] = useState(TOGGLES_DEFAULT);
@@ -127,7 +129,7 @@ export function SettingsView({
                     className="relative flex h-11 w-11 items-center justify-center"
                     style={{ "--mk-accent-500": preset.scale[500] } as CSSProperties}
                   >
-                    <Pebble size={40} />
+                    {companionImage ? <span className="block h-9 w-9 rounded-full" style={{ background: preset.scale[500] }} /> : <Pebble size={36} />}
                     {selected && (
                       <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-mk-full bg-mk-ink text-white">
                         <Icon icon={Check} size={11} />

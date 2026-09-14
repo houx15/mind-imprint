@@ -1,3 +1,7 @@
+import learningTogether from "./home/assets/learning-together-v3.webp";
+import { GuestTheme } from "./learning/GuestTheme";
+import { CompanionAppearanceProvider } from "../../web/src/ui/CompanionAppearance";
+import "./learning/student-surfaces.css";
 import { LITE_ACCENT_PRESETS } from "../../web/src/ui/themes/lite";
 import "../../web/src/ui/themes/lite.css";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -199,16 +203,16 @@ export function LiteApp() {
     };
   }, []);
 
-  if (!booted) return <div className="h-full w-full bg-mk-paper" />;
+  if (!booted) return <GuestTheme><div className="h-full w-full bg-mk-paper" /></GuestTheme>;
 
   if (user === null) {
-    return <AuthScreen onAuthed={setUser} client={{ signin, signup }} />;
+    return <GuestTheme><AuthScreen illustration={learningTogether} onAuthed={setUser} client={{ signin, signup }} /></GuestTheme>;
   }
 
   const editionDecision = resolveEditionDecision("lite", user.school?.edition);
   if (editionDecision.kind !== "stay") {
     return (
-      <EditionRedirectNotice decision={editionDecision} appEdition="lite" />
+      <GuestTheme><EditionRedirectNotice decision={editionDecision} appEdition="lite" /></GuestTheme>
     );
   }
 
@@ -230,7 +234,9 @@ export function LiteApp() {
           void setBackground(id);
         }}
       >
-        <LiteShell user={user} onLogout={onLogout} />
+        <CompanionAppearanceProvider image={bookmark}>
+          <LiteShell user={user} onLogout={onLogout} />
+        </CompanionAppearanceProvider>
       </BackgroundProvider>
     </AccentProvider>
   );
@@ -241,6 +247,31 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   const palette = presets.find(p => p.id === accent) ?? presets[0]!;
   const themeStyle = Object.fromEntries(Object.entries(palette.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value])) as CSSProperties;
   const { id: background } = useBackground();
+  // Portals inherit the same student theme; restore the host on unmount.
+  useEffect(() => {
+    const body = document.body;
+    const hadClass = body.classList.contains("lite-student-theme");
+    body.classList.add("lite-student-theme");
+    return () => { if (!hadClass) body.classList.remove("lite-student-theme"); };
+  }, []);
+  useEffect(() => {
+    const body = document.body;
+    const previousBackground = body.getAttribute("data-background");
+    const previous = Object.keys(palette.scale).map(step => {
+      const key = `--mk-theme-accent-${step}`;
+      return [key, body.style.getPropertyValue(key)] as const;
+    });
+    body.dataset.background = background;
+    for (const [step, value] of Object.entries(palette.scale)) body.style.setProperty(`--mk-theme-accent-${step}`, value);
+    return () => {
+      if (previousBackground === null) body.removeAttribute("data-background");
+      else body.setAttribute("data-background", previousBackground);
+      for (const [key, value] of previous) {
+        if (value) body.style.setProperty(key, value);
+        else body.style.removeProperty(key);
+      }
+    };
+  }, [palette, background]);
   const [route, setRoute] = useState<LiteRoute>(() =>
     parseLiteRoute(window.location.pathname),
   );
@@ -342,7 +373,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
         </div>
       )}
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main data-student-page={route.tab} className="min-w-0 flex-1 overflow-y-auto">
         {route.tab === "home" ? (
           <LearningHome user={user} />
         ) : route.tab === "settings" ? (
@@ -375,11 +406,12 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           <CoursesHost
             slug={route.slug}
             onOpenCourse={(slug) => {
-              if (onCoursesPage())
-                navigate(liteRoutePath({ tab: "courses", slug }));
+              const path = liteRoutePath({ tab: "courses", slug });
+              if (onCoursesPage() && window.location.pathname !== path) navigate(path);
             }}
             onBackToList={() => {
-              if (onCoursesPage()) navigate(liteRoutePath({ tab: "courses" }));
+              const path = liteRoutePath({ tab: "courses" });
+              if (onCoursesPage() && window.location.pathname !== path) navigate(path);
             }}
             onImmersiveChange={setImmersive}
           />

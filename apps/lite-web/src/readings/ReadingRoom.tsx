@@ -1,3 +1,4 @@
+import { StudentCoachHeading } from "../learning/StudentCoachHeading";
 // 🚨 React 的 PointerEvent / KeyboardEvent 起了别名：不改名就会遮住同名的 DOM
 // 全局类型，而这个文件里有一个真正的 DOM `pointerdown` 监听器要用后者。
 import {
@@ -765,6 +766,7 @@ export function ReadingRoom({
             The section is second in the DOM as well as second on screen, so
             reading order and tab order agree with the layout. */}
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          <StudentCoachHeading label="阅读与思考" />
           {/* 印记 | 阅读成果。左边那一栏永远是文章，所以这两页在这里并列：
               一页是她和印记正在说的话，一页是这一篇已经攒下的东西。 */}
           <div className="mk-lite-coachtabs" role="tablist" aria-label="右栏视图">
