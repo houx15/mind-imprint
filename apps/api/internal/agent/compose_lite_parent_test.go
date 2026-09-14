@@ -88,6 +88,7 @@ func TestComposeLiteParentReportValidFirstReply(t *testing.T) {
 		"作品标题用《》，只有学生原话用「」。",
 		"数字一律用阿拉伯数字。",
 		"不做加减和单位换算，数字照抄给出的事实。",
+		"列举多条时不编号，每条单独一行。",
 	} {
 		if !strings.Contains(sys, want) {
 			t.Fatalf("system prompt lacks %q:\n%s", want, sys)
@@ -283,6 +284,35 @@ func TestComposeLiteParentReportTransportErrorNoRetry(t *testing.T) {
 	}
 	if prov.calls != 1 || len(attempts) != 1 || attempts[0].Err == nil || got != nil {
 		t.Fatalf("calls=%d attempts=%+v got=%+v", prov.calls, attempts, got)
+	}
+}
+
+// Ruling 9: a model that numbers the next items anyway still passes when the
+// facts carry no 1, 2 or 3, and the stored section keeps its numbering.
+func TestComposeLiteParentReportNumberedNextPasses(t *testing.T) {
+	f := liteparent.Facts{
+		StudentName: "林知遥", RangeStart: "2026-08-17", RangeEnd: "2026-09-13", Days: 28,
+		ActiveDays: 5, Minutes: 64, Turns: 40,
+		Keywords: []liteparent.Keyword{{Text: "海绵城市", Field: "society", FieldLabel: "社会与世界"}},
+	}
+	runs := regexp.MustCompile(`[0-9]+`).FindAllString(liteparent.FactsText(f), -1)
+	for _, d := range []string{"1", "2", "3"} {
+		if slices.Contains(runs, d) {
+			t.Fatalf("fixture facts text must not carry %s: %v", d, runs)
+		}
+	}
+	next := "1. 请和她聊一聊海绵城市。\n2. 请每周陪她读一篇文章。\n3. 请和她一起安排学习时间。"
+	sections := map[string]string{
+		"overview":  "林知遥这段时间活跃 5 天，学习 64 分钟，对话 40 轮。",
+		"interests": "兴趣树新增关键词「海绵城市」。",
+		"next":      next,
+	}
+	got, attempts, err := composeParent(gateway.NewSequenceStubProvider(liteReply(parentReply(t, sections))), f, classmates)
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("err=%v attempts=%d, want a first-attempt pass", err, len(attempts))
+	}
+	if got["next"] != next {
+		t.Fatalf("next = %q, want the model's text unchanged", got["next"])
 	}
 }
 

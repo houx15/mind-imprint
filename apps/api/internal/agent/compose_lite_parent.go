@@ -16,9 +16,10 @@ import (
 const liteParentSectionMax = 400
 
 // liteParentSystemPromptTemplate is the parent report system prompt. {sections}
-// is replaced with the comma-joined liteparent.SectionsWithFacts. The last
-// three sentences come from plan 4 Ruling 3 and plan 3 Ruling 16.
-const liteParentSystemPromptTemplate = `你在为一名学生的家长写学习报告，由老师审阅后发出。只使用给出的事实，不补充事实，不评价学生的人格。输出 JSON，键为 {sections}（只输出这些键），值为该部分的正文，每部分不超过 400 字。overview 概括这段时间做了什么；next 给出 1 到 3 条家长在家可以配合的具体做法。引用学生原话时用「」并逐字照抄给出的金句。不使用事实里没有的数字。不写其他学生的名字。说明文，不用比喻、抒情和套话。作品标题用《》，只有学生原话用「」。数字一律用阿拉伯数字。不做加减和单位换算，数字照抄给出的事实。`
+// is replaced with the comma-joined liteparent.SectionsWithFacts. The
+// sentences after 套话 come from plan 4 Ruling 3, plan 3 Ruling 16 and plan 4
+// Ruling 9.
+const liteParentSystemPromptTemplate = `你在为一名学生的家长写学习报告，由老师审阅后发出。只使用给出的事实，不补充事实，不评价学生的人格。输出 JSON，键为 {sections}（只输出这些键），值为该部分的正文，每部分不超过 400 字。overview 概括这段时间做了什么；next 给出 1 到 3 条家长在家可以配合的具体做法。引用学生原话时用「」并逐字照抄给出的金句。不使用事实里没有的数字。不写其他学生的名字。说明文，不用比喻、抒情和套话。作品标题用《》，只有学生原话用「」。数字一律用阿拉伯数字。不做加减和单位换算，数字照抄给出的事实。列举多条时不编号，每条单独一行。`
 
 func liteParentSystemPrompt(sections []string) string {
 	return strings.Replace(liteParentSystemPromptTemplate, "{sections}", strings.Join(sections, ","), 1)
@@ -85,11 +86,70 @@ func validateLiteParentReport(p map[string]string, f liteparent.Facts, sections 
 		SelfName:   f.StudentName,
 	}
 	// Each section is checked on its own so a quote mark opened in one section
-	// cannot pair with a close in the next.
+	// cannot pair with a close in the next. List numbering at the start of a
+	// line is not a fact and is removed for the check only; the stored section
+	// keeps it.
 	for _, k := range sections {
-		if err := liteweekly.CheckProse(p[k], nil, check); err != nil {
+		if err := liteweekly.CheckProse(stripListMarkers(p[k]), nil, check); err != nil {
 			return fmt.Errorf("%s: %w", k, err)
 		}
 	}
 	return nil
+}
+
+// stripListMarkers removes a list marker from the start of each line, after
+// optional spaces: 1–2 ASCII or full-width digits followed by . ． 、 ) or ）,
+// or the digits wrapped as (n) or （n）, plus the spaces after the marker.
+// Digits anywhere else stay: 完成 3 篇 keeps its 3, and a line starting 2026年
+// or 12月 is not a marker. A digit right after . or ． (1.5) means a number, not
+// a marker, so that line is left as it is.
+func stripListMarkers(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		rest := strings.TrimLeft(line, " \t　")
+		if after, ok := cutListMarker([]rune(rest)); ok {
+			lines[i] = strings.TrimLeft(string(after), " \t　")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// cutListMarker reports whether r starts with a list marker and returns the
+// runes after it.
+func cutListMarker(r []rune) ([]rune, bool) {
+	isDigit := func(c rune) bool { return (c >= '0' && c <= '9') || (c >= '０' && c <= '９') }
+	digits := func(from int) int { // count of 1–2 digits at from; 0 if none or more than 2
+		n := 0
+		for from+n < len(r) && isDigit(r[from+n]) {
+			n++
+		}
+		if n > 2 {
+			return 0
+		}
+		return n
+	}
+	if len(r) == 0 {
+		return nil, false
+	}
+	if r[0] == '(' || r[0] == '（' {
+		n := digits(1)
+		if n == 0 || 1+n >= len(r) || (r[1+n] != ')' && r[1+n] != '）') {
+			return nil, false
+		}
+		return r[2+n:], true
+	}
+	n := digits(0)
+	if n == 0 || n >= len(r) {
+		return nil, false
+	}
+	switch r[n] {
+	case '、', ')', '）':
+		return r[n+1:], true
+	case '.', '．':
+		if n+1 < len(r) && isDigit(r[n+1]) {
+			return nil, false
+		}
+		return r[n+1:], true
+	}
+	return nil, false
 }
