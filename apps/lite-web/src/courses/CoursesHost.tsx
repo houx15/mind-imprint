@@ -1,3 +1,4 @@
+import { LandingHeader } from "../learning/LandingHeader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { CoursesContainer, type CourseOpenTarget } from "@/shell/courses/CoursesContainer";
@@ -85,7 +86,7 @@ export function CoursesHost({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-mk-paper">
+    <div className="student-courses flex h-full min-h-0 flex-col bg-mk-paper">
       {!inCourse && (
         <div className="shrink-0 px-6 pt-5">
           <Segmented
@@ -107,6 +108,7 @@ export function CoursesHost({
           />
         ) : (
           <CoursesContainer
+            catalogHeader={<LandingHeader kind="reading" title="课程" description="学习思考方法，并在阅读、写作与项目中练习。" />}
             initialOpen={openTarget}
             onCourseConsumed={() => setOpenTarget(null)}
             onImmersiveChange={handleImmersive}

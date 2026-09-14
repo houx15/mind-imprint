@@ -1,3 +1,4 @@
+import { studentArtwork } from "../learning/StudentArtwork";
 import { useCallback, useEffect, useState } from "react";
 import { apiErrorText } from "../api/errorText";
 import { listMaterials, type Material } from "../api/materials";
@@ -211,8 +212,15 @@ function MaterialsList({
           {error}
         </p>
       )}
+      {!error && items.length > 0 && items.every(m => m.count === 0) && (
+        <div className="student-materials-empty">
+          <img src={studentArtwork.project} alt="" />
+          <p>暂无项目材料</p>
+          <span>完成工具后，便签、方案与成果将显示在这里。</span>
+        </div>
+      )}
       <div className="mt-2 space-y-1">
-        {items.map((m) => {
+        {items.filter(m => m.count > 0).map((m) => {
           const empty = m.count === 0;
           return (
             <button

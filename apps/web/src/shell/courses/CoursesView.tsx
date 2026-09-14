@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
 import { api } from "@/api";
 import { CourseCard, coursePct } from "@/catalog/CourseCard";
@@ -81,7 +81,7 @@ function SortToggle({ sort, onChange }: { sort: CourseSort; onChange: (s: Course
   );
 }
 
-export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
+export function CoursesView({ onOpenCourse, onRestartCourse, header }: { header?: ReactNode; onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   // Category filter: "all" is every course; a category slug narrows to that
   // category. A pure UI filter — no server round-trip. 铁律②: the only orders on
@@ -136,10 +136,10 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
-      <div style={{ padding: "44px 40px 60px" }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-0.01em" }}>
+      <div className="course-catalog-measure" style={{ padding: "44px 40px 60px" }}>
+        {header ?? <div style={{ fontSize: 28, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-0.01em" }}>
           <span style={{ color: "var(--mk-muted)" }}>课程：</span>系统地学会一种思考方式
-        </div>
+        </div>}
         {courses != null && courses.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (

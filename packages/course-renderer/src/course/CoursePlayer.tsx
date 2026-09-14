@@ -165,10 +165,8 @@ export function CoursePlayer({ document, definitionHash, adapters, studentId, se
   // Init once: restore (validated) or create the session, build the bus,
   // resolve Opening/Closing without a redundant generator call when the
   // session already carries them, and land on the right phase/position.
-  const initRan = useRef(false);
   useEffect(() => {
-    if (!course || initRan.current) return;
-    initRan.current = true;
+    if (!course) return;
     let cancelled = false;
 
     const placeholderScene = (): RuntimeSceneResult => ({

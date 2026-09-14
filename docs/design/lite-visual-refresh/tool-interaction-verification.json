@@ -1,0 +1,65 @@
+{
+  "scope": "local fixtures, no live services or published changes",
+  "interaction": {
+    "errors": [],
+    "checks": [
+      {
+        "name": "board selection 960",
+        "selected": 2
+      },
+      {
+        "name": "merge cancel 960",
+        "count": 2
+      },
+      {
+        "name": "structure targets 960",
+        "targets": 2,
+        "overflow": false
+      },
+      {
+        "name": "board selection 390",
+        "selected": 2
+      },
+      {
+        "name": "merge cancel 390",
+        "count": 2
+      },
+      {
+        "name": "structure targets 390",
+        "targets": 2,
+        "overflow": false
+      },
+      {
+        "name": "drag on scrolled canvas",
+        "payload": {
+          "x": 545,
+          "y": 110,
+          "dragged": true
+        }
+      }
+    ],
+    "requests": [
+      "/api/v1/pbl/projects/p1/note-links",
+      "/api/v1/pbl/projects/p1/notes",
+      "/api/v1/pbl/projects/p1/tree"
+    ]
+  },
+  "confirmation": {
+    "errors": [],
+    "checks": [
+      {
+        "name": "merge confirm",
+        "remaining": 1
+      },
+      {
+        "name": "place material",
+        "unassigned": 3
+      }
+    ],
+    "requests": [
+      "/api/v1/pbl/projects/p1/notes",
+      "/api/v1/pbl/projects/p1/tree"
+    ]
+  },
+  "checks": "644 tests, typecheck and production build passed"
+}

@@ -112,3 +112,16 @@ describe("accent theming", () => {
     expect(screen.getByText("probe").dataset.id).toBe("bamboo");
   });
 });
+
+// Theme injection must not change legacy consumers or drop any ramp step.
+it("applies a variant without mutating the legacy palette", () => {
+  const el = document.createElement("div");
+  const variant = ACCENT_PRESETS.map(p => ({ ...p, scale: { ...p.scale, 500: "#087f8c" } }));
+  applyAccent(el, "teal", variant);
+  expect(el.style.getPropertyValue("--mk-accent-500")).toBe("#087f8c");
+  for (const step of [50, 100, 200, 300, 400, 600, 700, 800]) {
+    expect(el.style.getPropertyValue(`--mk-accent-${step}`)).not.toBe("");
+  }
+  applyAccent(el, "teal");
+  expect(el.style.getPropertyValue("--mk-accent-500")).toBe("#1F9488");
+});

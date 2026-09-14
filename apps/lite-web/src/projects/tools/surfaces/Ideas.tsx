@@ -1,6 +1,8 @@
+import { SelectionTray } from "../board/SelectionTray";
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Timer, Combine } from "lucide-react";
+import { Plus, Timer } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   archiveNote,
@@ -60,6 +62,13 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [groupName, setGroupName] = useState("");
   const [left, setLeft] = useState(ROUND_SECONDS);
   const [error, setError] = useState<string | null>(null);
+  const [resultId, setResultId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => { setFeedback(""); setResultId(null); }, 3500);
+    return () => window.clearTimeout(timer);
+  }, [feedback, resultId]);
   const boardRef = useRef<HTMLDivElement>(null);
   // 🚨 座位号用 ref 同步地取。她连着敲三次回车，三次 add 拿到的是同一个
   // ideas.length，三张纸会摞在同一个位置上——Board.tsx 在 e2e 里撞出来过。
@@ -158,6 +167,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       const placed = await moveNote(projectId, made.id, b.x, b.y);
       await Promise.all([a, b].map((p) => archiveNote(projectId, p.id)));
       setIdeas((prev) => [...prev.filter((i) => i.id !== a.id && i.id !== b.id), placed]);
+      setResultId(placed.id);
+      setFeedback("已整合为一条想法");
       setChosen((prev) => prev.filter((x) => x !== a.id && x !== b.id));
       if (picked === a.id || picked === b.id) setPicked(null);
     } catch (err) {
@@ -176,6 +187,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setChosen([]);
       setGroupName("");
       setNaming(false);
+      setFeedback(`已归组 · ${name}`);
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -304,7 +316,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
 
       <div
         ref={boardRef}
-        className="relative mt-3 overflow-hidden rounded-mk-lg"
+        className="student-ideas-canvas relative mt-3 overflow-auto rounded-mk-lg"
+        data-dragging={!!drag.dragging || undefined}
         style={{
           height: canvasH,
           background: "var(--mk-surface)",
@@ -314,21 +327,23 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           touchAction: "none",
         }}
       >
+        {drag.origin && <div className="student-drag-origin" aria-hidden="true" style={{ left: drag.origin.x, top: drag.origin.y, width: NOTE_W, height: NOTE_H }} />}
         {lassos.map((l) => (
           <GroupLasso key={l.label} box={l.box} label={l.label} color={l.color} />
         ))}
 
         {ideas.length === 0 && (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-            板上还什么都没有。想到什么就写一条，先不管好不好。
-          </p>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.ideas} alt="" /><p>暂无想法。请在上方记录一个解决办法。</p></div>
         )}
 
         {ideas.map((n) => (
           <div
             key={n.id}
             ref={drag.itemRef(n.id)}
-            style={{ position: "absolute", left: n.x, top: n.y, width: NOTE_W }}
+            data-idea-id={n.id}
+            data-drop-target={drag.over === n.id || undefined}
+            data-result={resultId === n.id || undefined}
+            style={{ position: "absolute", left: n.x, top: n.y, width: NOTE_W, zIndex: drag.dragging === n.id ? 20 : drag.over === n.id ? 10 : undefined }}
           >
             <Sticky
               tone={picked === n.id ? DONE : tone("butter")}
@@ -336,7 +351,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               dragging={drag.dragging === n.id}
               selected={chosen.includes(n.id) || drag.over === n.id}
               onPointerDown={(e) => drag.start(n.id, { x: n.x, y: n.y }, e)}
-              style={{ minHeight: NOTE_H }}
+              style={{ minHeight: NOTE_H, opacity: 1, transform: drag.dragging === n.id ? "rotate(-3deg) scale(1.035)" : undefined }}
               right={
                 enough ? (
                   <button
@@ -357,44 +372,44 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             >
               {n.body}
             </Sticky>
+            {drag.over === n.id && <span className="student-drop-caption">松开预览整合 ↗</span>}
           </div>
         ))}
       </div>
+      <div className="student-canvas-feedback" role="status" aria-live="polite">
+        {drag.dragging ? (drag.over ? "松开后可预览两条想法的整合" : "拖到另一张便签可预览整合 · Esc 取消") : feedback || "拖动便签调整位置，点击选择想法"}
+      </div>
 
+      {ideas.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="定位想法">
+          {ideas.map((idea, i) => <button type="button" key={idea.id}
+            className="max-w-full truncate rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-secondary hover:border-mk-accent-300"
+            title={idea.body}
+            onClick={() => {
+              const card = Array.from(boardRef.current?.querySelectorAll<HTMLElement>("[data-idea-id]") ?? []).find(el => el.dataset.ideaId === idea.id);
+              card?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
+            }}>
+            {i + 1} · {idea.body.length > 22 ? idea.body.slice(0, 22) + "…" : idea.body} ↗
+          </button>)}
+        </div>
+      )}
       <p className="mt-2 text-center text-mk-small text-mk-faint">
         拖到一起，就能合并 · 点两张以上，可以圈成一堆
       </p>
 
-      {pair && (
-        <div
-          className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-mk-md px-3 py-2"
-          style={{ background: tone("peach").bg }}
-        >
-          <p className="flex items-center gap-1.5 text-mk-small" style={{ color: tone("peach").fg }}>
-            <Icon icon={Combine} size={14} />
-            把这两条合成一条？
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPair(null)}
-              className="rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1 text-mk-small text-mk-secondary"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => void merge()}
-              className="rounded-mk-full px-3 py-1 text-mk-small text-white"
-              style={{ background: tone("peach").solid }}
-            >
-              合并想法
-            </button>
-          </div>
+      {pair && <SelectionTray title="合并预览" items={ideas.filter(n => n.id === pair.a || n.id === pair.b)}>
+        <p className="text-mk-small text-mk-muted">确认后，两条想法将整合为一条。</p>
+        <div className="mt-3 flex justify-center gap-3">
+          <button type="button" className="student-tool-action" onClick={() => setPair(null)}>取消</button>
+          <button type="button" className="student-tool-action" onClick={() => void merge()}>合并想法 →</button>
         </div>
-      )}
+      </SelectionTray>}
 
-      {chosen.length >= 2 && (
+      {chosen.length > 0 && !pair && <SelectionTray title="已选想法" items={ideas.filter(n => chosen.includes(n.id))} onRemove={id => setChosen(prev => prev.filter(x => x !== id))}>
+        {chosen.length === 2 && <button type="button" className="student-tool-action" onClick={() => setPair({ a: chosen[0]!, b: chosen[1]! })}>整合这两条 →</button>}
+        {chosen.length === 1 && <p className="text-mk-small text-mk-muted">再选择一条，可预览合并；也可以继续添加想法。</p>}
+      </SelectionTray>}
+      {chosen.length >= 2 && !pair && (
         <div
           className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-mk-md px-3 py-2"
           style={{ background: "var(--mk-surface)" }}

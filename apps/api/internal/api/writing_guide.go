@@ -50,34 +50,18 @@ import (
 // is trying not to be.
 const writingGuideMaxQuestions = 4
 
-// writingGuideTeachingRules is Task 3's four-part "怎么说话" doctrine
-// (writing_plan.go's writingPlanSystem), copied verbatim rather than
-// re-derived: an engineer reading these tasks out of order must not find two
-// different versions of how 印记 is supposed to talk. Shared by the
-// single-block and batch guide prompts below so the two paths can never
-// drift apart on tone.
-//
-// 🔑 下面示范句里的「留个悬念、先抛一个问题、开门见山」是 methods.json 里逐字
-// 存在的三个 name（opening_suspense / opening_question / opening_direct）。任何
-// 写进提示词散文里的方法名都必须这样对得上
-// packages/contracts/vocab/methods.json——示范里出现一个库里没有的名字，就是在
-// 教模型造词，而下一段恰好在禁止它造词。2026-08-28 起 name 是学生读得懂的说法，
-// 正式名称（举例论证、让步……）存在 formal_name 里，散文里优先用前者。
-const writingGuideTeachingRules = `## 怎么说话（这条比什么都重要）
+// Shared presentation rules for single-block and batch guidance. Method names
+// must exist in the registry; per-field output contracts remain below.
+const writingGuideTeachingRules = `## 说明方式
 
-你是老师，不是问答机器。每次开口都要做到四件事：
-① 说清这件事为什么重要；② 说出真正的方法名（下面【可用的方法】里的，别自己造词）；
-③ 给她一个真的选择，她也可以不选；④ 主动提出可以举例子一起看。
-
-不要这样说：「有人会从一个具体场景切进去，有人直接抛个问题。你这篇你想怎么进？」
-要这样说：「对于一篇文章来说，有意思的开头非常重要。留个悬念、先抛一个问题、
-开门见山等，都是常见的方式。你想尝试哪一种？或者需要我给几个具体的案例我们
-一起来学习一下这几种方法吗？」
-
-说方法名的时候用【可用的方法】里括号外面那个说法（学生读得懂的那个）；括号里的
-正式名称是她问起「这在语文课上叫什么」时才拿出来的，别主动用它说话。
-
-一次仍然只问**一个**问题——「一次只问一个」说的是问题的数量，从来不是让你少说话。`
+说明当前步骤或方法的用途，直接回应学生的问题。她需要帮助时，给一两个适用方法
+并简明解释；不必每次都重复理由、方法、选择和邀请示范。
+使用【可用的方法】中的名称和 id，不造新词。专业词可以附短解释，例如
+「并列论证：用几条相互独立的理由支持同一主张」。
+普通对话最多提出一个需要学生回答的问题，信息足够时可以不问。
+本次若输出结构化的问题列表，按下面 questions 的数量契约生成供她选择的问题，
+每条只包含一个任务，不把列表当作要求她一次答完的问卷。
+指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。`
 
 // writingGuideQuestionRules is the content discipline for `questions`,
 // shared by the single-block and batch prompts for the same
@@ -87,7 +71,7 @@ const writingGuideQuestionRules = `关于问题本身：
 - 要**具体到能马上动笔**。「你的论点是什么？」太空；「你身边有没有哪个同学因为这件事吃过亏？」才有用。
 - 要贴着这一块的作用来问，不要每一块都问同样的话。
 - 要贴着她已经说过的话来问，用她提到过的人、事、场景，不要另起炉灶。
-- 一条一个问题，不要在一条里塞两问。
+- 每条只请求一项信息。例如「你准备使用哪份数据？」是一条问题。需要再问数据的适用范围时，另列一条；总数仍为 2–4 条。每条都让她只回答一件事。
 
 绝对禁止：
 - **不要写出任何可以直接放进她文章里的句子。** 不给论点、不给开头、不给例句、不给现成的段落。一个字都不行。

@@ -1,3 +1,5 @@
+import { SelectionTray } from "../board/SelectionTray";
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Icon } from "@/ui";
@@ -85,6 +87,9 @@ export function Board({
   const [draft, setDraft] = useState("");
   const [seen, setSeen] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanup.current?.(), []);
   // 她连出来的关系。矛盾那几条是这块板最要紧的产出。
   const [links, setLinks] = useState<NoteLink[]>([]);
 
@@ -219,7 +224,7 @@ export function Board({
   }
 
   function startDrag(note: Note, e: React.PointerEvent) {
-    if (editing) return;
+    if (editing || e.button !== 0 || dragCleanup.current) return;
     const board = boardRef.current;
     if (!board) return;
     const rect = board.getBoundingClientRect();
@@ -230,6 +235,8 @@ export function Board({
     let last = { x: note.x, y: note.y };
 
     const onMove = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientX-e.clientX)+Math.abs(ev.clientY-e.clientY)<5) return;
+      if (!moved) setDragging({ id: note.id, ...at });
       moved = true;
       const px = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
       // 坐标视图下上下各让开一条，便签不许压住「很要紧 / 关系不大」两个标签。
@@ -243,9 +250,22 @@ export function Board({
       last = { x, y };
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, x, y } : n)));
     };
-    const onUp = () => {
+    const detach = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("keydown", onKey);
+      dragCleanup.current = null;
+    };
+    const cancel = () => {
+      detach(); setDragging(null);
+      if (moved) setNotes(prev => prev.map(n => n.id === note.id ? { ...n, x: note.x, y: note.y } : n));
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") { ev.preventDefault(); cancel(); }
+    };
+    const onUp = () => {
+      detach(); setDragging(null);
       if (!moved) {
         setPicked((prev) =>
           prev.includes(note.id) ? prev.filter((x) => x !== note.id) : [...prev, note.id],
@@ -260,6 +280,9 @@ export function Board({
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("keydown", onKey);
+    dragCleanup.current = detach;
   }
 
   async function regroup(cluster: string) {
@@ -377,6 +400,7 @@ export function Board({
           touchAction: "none",
         }}
       >
+        {dragging && <div className="student-drag-origin" aria-hidden="true" style={{left:dragging.x,top:dragging.y,width:NOTE_W,height:NOTE_H}} />}
         {/* 坐标底。两条线 + 四个角的标签，压在便签下面。 */}
         {boardAxes && (
           <div className="pointer-events-none absolute inset-0">
@@ -436,9 +460,7 @@ export function Board({
         </svg>
 
         {notes.length === 0 && (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-            板上还什么都没有。先把你想到的一条一条贴上来。
-          </p>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.ideas} alt="" /><p>暂无便签。请在上方记录第一条材料。</p></div>
         )}
 
         {notes.map((n) => {
@@ -449,12 +471,16 @@ export function Board({
               key={n.id}
               onPointerDown={(e) => startDrag(n, e)}
               onDoubleClick={() => setEditing(n.id)}
-              className="group absolute select-none rounded-mk-md px-2.5 py-2 shadow-mk-xs"
+              data-selected={on || undefined}
+              className="student-sticky group absolute select-none rounded-mk-md px-2.5 py-2 shadow-mk-xs"
               style={{
                 left: toPx(n).x,
                 top: toPx(n).y,
                 width: NOTE_W,
                 minHeight: NOTE_H,
+                zIndex: dragging?.id === n.id ? 20 : undefined,
+                transform: dragging?.id === n.id ? "rotate(-3deg) scale(1.035)" : undefined,
+                boxShadow: dragging?.id === n.id ? "0 18px 30px -12px color-mix(in srgb,var(--mk-ink) 35%,transparent)" : undefined,
                 cursor: editing === n.id ? "text" : "grab",
                 background: `color-mix(in srgb, ${meta.hue} 14%, var(--mk-surface))`,
                 outline: on ? "2px solid var(--mk-accent-500)" : undefined,
@@ -509,8 +535,13 @@ export function Board({
           );
         })}
 
-        {picked.length > 0 && naming && (
-          <div className="absolute bottom-2 left-1/2 flex w-[86%] -translate-x-1/2 items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
+
+      </div>
+      </div>
+
+      <SelectionTray title="材料关系" items={notes.filter(n => picked.includes(n.id))} onRemove={id => setPicked(prev => prev.filter(x => x !== id))}>
+                {picked.length > 0 && naming && (
+          <div className="flex w-full items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
             <input
               autoFocus
               value={pileName}
@@ -548,7 +579,7 @@ export function Board({
             改成 inset-x + mx-auto 拿到整幅宽度，并允许换行；每个孩子
             nowrap + 不许收缩，宁可多占一行也不许再拆字。 */}
         {picked.length > 0 && !naming && (
-          <div className="absolute inset-x-2 bottom-2 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
+          <div className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
             <span className="shrink-0 whitespace-nowrap text-mk-small text-mk-secondary">
               选了 {picked.length} 张
             </span>
@@ -593,8 +624,7 @@ export function Board({
             </button>
           </div>
         )}
-      </div>
-      </div>
+      </SelectionTray>
 
       {/* 🚨 矛盾单独列出来，不只画成一根线。
           两条都是她亲眼看到的、却互相打架——真正的问题几乎都从那儿长出来，
@@ -663,7 +693,7 @@ export function Board({
           value={seen}
           onChange={(e) => setSeen(e.target.value)}
           rows={3}
-          placeholder="写下你看出来的东西"
+          placeholder="请记录分类后发现的共同点或差异"
           className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
       </div>

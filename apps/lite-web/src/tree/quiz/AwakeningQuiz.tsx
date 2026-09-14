@@ -1,3 +1,4 @@
+import bookmark from "../../home/assets/yinji-bookmark.webp";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import {
@@ -200,12 +201,7 @@ function TopBar({ step, onExit }: { step: Step; onExit: () => void }) {
 function Boot({ onNext }: { onNext: () => void }) {
   return (
     <div className="awk-in max-w-[640px] text-center">
-      <div className="awk-orbit mb-8">
-        <div className="awk-ring" />
-        <div className="awk-ring" />
-        <div className="awk-ring" />
-        <div className="awk-core" />
-      </div>
+      <img src={bookmark} alt="" className="mx-auto mb-8 h-40 w-32 object-contain" />
       <div className="awk-eyebrow">The Awakening Protocol</div>
       <h1 className="mt-2 text-[40px] font-bold leading-tight tracking-tight">觉醒协议</h1>
       <p className="mx-auto mt-4 max-w-[46ch] text-mk-body-lg leading-[1.9] text-[#c6d7e8]">
@@ -316,10 +312,7 @@ function PickNavigator({
             data-on={picked === n.name}
             onClick={() => onPick(n.name)}
           >
-            <span
-              className="mb-3 block h-1 w-10 rounded-full"
-              style={{ background: n.accent, boxShadow: `0 0 12px ${n.accent}` }}
-            />
+            <img src={bookmark} alt="" className="mb-4 h-16 w-14 object-contain" />
             <span className="awk-eyebrow" style={{ color: n.accent }}>
               {n.label}
             </span>

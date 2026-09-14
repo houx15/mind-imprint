@@ -28,7 +28,7 @@ import type { MeUser } from "../api/auth";
 export type SkySurface = "map" | "tree";
 
 const SWITCHES: { key: SkySurface; label: string; icon: typeof Telescope }[] = [
-  { key: "map", label: "今日探索地图", icon: Telescope },
+  { key: "map", label: "今日发现", icon: Telescope },
   { key: "tree", label: "我的兴趣树", icon: Sprout },
 ];
 
@@ -52,14 +52,14 @@ export function SkyTab({
 
           🚨 它跟着脚下那一屏换色（2026-09-12）。地图是夜、树是纸，一块写死的
           深色药丸摆在纸上，看起来是别的产品掉下来的一个控件。 */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-4">
+      <div className="student-sky-switch pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-4">
         <div
           className="pointer-events-auto flex items-center gap-1 rounded-mk-full p-1 backdrop-blur-md"
           style={
             night
-              ? { background: "rgba(18,15,20,.72)", border: "1px solid rgba(240,233,224,.16)" }
+              ? { background: "var(--mk-explore-surface)", border: "1px solid var(--mk-explore-line)" }
               : {
-                  background: "rgba(255,255,255,.82)",
+                  background: "var(--mk-surface)",
                   border: "1px solid var(--mk-border)",
                   boxShadow: "0 4px 16px rgba(51,48,46,.08)",
                 }
@@ -84,8 +84,8 @@ export function SkyTab({
                     : "focus-visible:ring-mk-accent-300",
                   night
                     ? active
-                      ? "bg-[rgba(245,239,231,.14)] font-semibold text-[#F5EFE7]"
-                      : "text-[#9A8E80] hover:text-[#C0B4A6]"
+                      ? "bg-[rgba(245,239,231,.14)] font-semibold text-[var(--mk-explore-ink)]"
+                      : "text-[var(--mk-explore-muted)] hover:text-[var(--mk-explore-muted)]"
                     : active
                       ? "bg-[rgba(51,48,46,.07)] font-semibold text-mk-ink"
                       : "text-mk-muted hover:text-mk-ink",

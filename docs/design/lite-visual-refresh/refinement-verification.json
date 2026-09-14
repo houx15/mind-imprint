@@ -1,0 +1,14 @@
+{
+  "main": "b6b18cd3",
+  "merge": "e19b4d46",
+  "scope": "local fixtures only; no production writes or live model calls",
+  "browser_logs": [
+    "reports",
+    "map light/dark + details + mobile",
+    "15 project tools desktop/mobile",
+    "text selection quote equality",
+    "board selection and mobile idea location"
+  ],
+  "tests": "644 Lite tests passed; 12 export tests passed; typecheck/build passed",
+  "limitations": "Tool iteration improves presentation and existing actions; a comprehensive new tool interaction model is not implemented."
+}

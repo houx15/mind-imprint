@@ -1,0 +1,330 @@
+apps/api/internal/news/select.go:81:const selectSystemPrompt = `你在为一个中学生挑今天值得知道的科学新闻。她 15-18 岁，
+apps/api/internal/news/select.go:119:// BuildSelectPrompt 拼出选星用的 system 与 user 两段，**并把真正写进 prompt 的
+apps/api/internal/news/select.go:130:func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
+apps/api/internal/pbl/siteref.go:71:const siteRefSystem = `你在帮一个中学生看别人的个人网站。他正在做自己的第一个个人
+apps/api/internal/pbl/siteref.go:103:	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+apps/api/internal/pbl/siteref.go:106:			{Role: gateway.RoleSystem, Content: siteRefSystem},
+apps/api/internal/routebench/report.go:33:	return class == gateway.ClassReview || class == gateway.ClassAssess
+apps/api/internal/pbl/lookback.go:78:const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
+apps/api/internal/pbl/lookback.go:158:			Role:    gateway.RoleSystem,
+apps/api/internal/pbl/lookback.go:169:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/pbl/benchcases.go:19:		Class: gateway.ClassDialogue,
+apps/api/internal/pbl/benchcases.go:26:				{Role: gateway.RoleSystem, Content: coachPrompt(benchTurnInput().Kind)},
+apps/api/internal/pbl/benchcases.go:45:		Class: gateway.ClassAssess,
+apps/api/internal/pbl/benchcases.go:50:				Role:    gateway.RoleSystem,
+apps/api/internal/api/placement.go:69:		if resolved, rok := a.route(r.Context(), gateway.ClassReflex); rok {
+apps/api/internal/api/evaluation_report.go:176:// a.routeFn(gateway.ClassAssess), calls the real report-generation agent, and records the
+apps/api/internal/api/search_guidance.go:62:		if resolved, rok := a.route(r.Context(), gateway.ClassCompose); rok {
+apps/api/internal/api/evidence_map.go:307:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassReview); rerr == nil {
+apps/api/internal/gateway/anthropic.go:54:		if m.Role == RoleSystem {
+apps/api/internal/gateway/catalog.go:33:	ClassReflex   = "reflex"   // one label or one routing choice; no free text
+apps/api/internal/gateway/catalog.go:34:	ClassDialogue = "dialogue" // a turn the student sees as it lands
+apps/api/internal/gateway/catalog.go:35:	ClassCompose  = "compose"  // a schema-shaped artifact from stated inputs
+apps/api/internal/gateway/catalog.go:36:	ClassReview   = "review"   // judges the student's work; being wrong costs
+apps/api/internal/gateway/catalog.go:37:	ClassAssess   = "assess"   // rubric 评估 / 回顾 / 周报 — never downgraded
+apps/api/internal/gateway/catalog.go:38:	ClassDigest   = "digest"   // long input, short output; compress, don't judge
+apps/api/internal/gateway/catalog.go:39:	// ClassDraw generates an image. It is the one class that does NOT drive the
+apps/api/internal/gateway/catalog.go:42:	ClassDraw     = "draw"
+apps/api/internal/gateway/catalog.go:49:	ClassReflex, ClassDialogue, ClassCompose,
+apps/api/internal/gateway/catalog.go:50:	ClassReview, ClassAssess, ClassDigest,
+apps/api/internal/gateway/catalog.go:51:	ClassDraw,
+apps/api/internal/gateway/catalog.go:59:	ClassReflex, ClassDialogue, ClassCompose,
+apps/api/internal/gateway/catalog.go:60:	ClassReview, ClassAssess, ClassDigest,
+apps/api/internal/gateway/catalog.go:61:	ClassDraw,
+apps/api/internal/gateway/catalog.go:75:	LaneChat:     ClassDialogue,
+apps/api/internal/gateway/catalog.go:76:	LaneFastChat: ClassReflex,
+apps/api/internal/gateway/catalog.go:77:	LaneEval:     ClassAssess,
+apps/api/internal/gateway/catalog.go:445:		if class == ClassDraw {
+apps/api/internal/gateway/catalog.go:459:		if class == ClassAssess && !m.Flagship {
+apps/api/internal/gateway/catalog.go:562:		if class == ClassAssess && !m.Flagship {
+apps/api/internal/gateway/catalog.go:663:		if class == ClassAssess && !m.Flagship {
+apps/api/internal/news/write.go:107:const writeSystemPrompt = `你在为一个 15-18 岁、读国际课程（IB / A-Level / AP）的中学生
+apps/api/internal/news/write.go:167:	system, user := BuildWritePrompt(it, ground)
+apps/api/internal/news/write.go:188:// BuildWritePrompt 拼出写一颗星用的两段。
+apps/api/internal/news/write.go:189:func BuildWritePrompt(it Item, ground string) (system, user string) {
+apps/api/internal/api/interest_harvest.go:87:	// gateway.Collect 对 nil provider 会 panic。这一路今天走不到（跑到这里时
+apps/api/internal/api/interest_harvest.go:93:	resolved, ok := a.route(ctx, gateway.ClassDigest)
+apps/api/internal/api/interest_harvest.go:98:	system, user := interest.BuildHarvestPrompt(kind, title, truncateRunes(body, harvestBodyRuneBudget))
+apps/api/internal/api/interest_harvest.go:99:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/interest_harvest.go:101:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/api/teacher_weekly.go:348:	resolved, rerr := a.routeE(ctx, gateway.ClassAssess)
+apps/api/internal/api/course_scene.go:109:	resolved, err := a.routeE(r.Context(), gateway.ClassCompose) // chaperone — narration is a light task, not the flagship evaluator
+apps/api/internal/agent/prompt.go:17:// placeholder filled by BuildSystemPrompt. Do not paraphrase or reformat — a
+apps/api/internal/agent/prompt.go:126:// BuildSystemPrompt fills the {{catalog}} placeholder in the 克制阶梯 template.
+apps/api/internal/agent/prompt.go:127:func BuildSystemPrompt(catalog []cards.Spec) string {
+apps/api/internal/pbl/coach.go:238:const coachSystem = `你是「印记」，在陪一个中学生做他自己的项目。
+apps/api/internal/pbl/coach.go:713:			{Role: gateway.RoleSystem, Content: coachPrompt(in.Kind)},
+apps/api/internal/pbl/coach.go:730:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/gateway/catalog_provider.go:138:		if m["role"] != RoleSystem {
+apps/api/internal/routebench/judge.go:21:const judgeSystem = `你在给一个教育产品的 AI 输出打分。这个产品的铁律是：
+apps/api/internal/routebench/judge.go:64:	jr, err := rn.Cat.Resolve(gateway.ClassAssess, rn.Cfg.JudgeModel, rn.Keys)
+apps/api/internal/routebench/judge.go:101:	res, err := gateway.Collect(cctx, rn.Provider, jr, gateway.ChatRequest{
+apps/api/internal/routebench/judge.go:104:			{Role: gateway.RoleSystem, Content: judgeSystem},
+apps/api/internal/api/reading_coach.go:47:const readingCoachSystem = `你是「印记」，正在**带着**一个中学生读一篇文章。你是领读的人，不是答疑的人。
+apps/api/internal/api/reading_coach.go:1394:	resolved, okResolve := a.route(turnCtx, gateway.ClassDialogue)
+apps/api/internal/api/reading_coach.go:1405:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/api/reading_coach.go:1409:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
+apps/api/internal/api/reading_coach.go:1473:		res, cerr = gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
+apps/api/internal/gateway/keyresolver.go:118:		ClassDialogue: cfg.ModelChat,
+apps/api/internal/gateway/keyresolver.go:119:		ClassReflex:   cfg.ModelFastChat,
+apps/api/internal/gateway/keyresolver.go:120:		ClassAssess:   cfg.ModelEval,
+apps/api/internal/api/pbl_look.go:56:	resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose)
+apps/api/internal/api/atom_report.go:382:const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写作，你要为这次学习写一份记录——
+apps/api/internal/api/atom_report.go:516:	resolved, ok := a.route(ctx, gateway.ClassAssess)
+apps/api/internal/api/atom_report.go:521:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/atom_report.go:523:			{Role: gateway.RoleSystem, Content: liteReportSystem},
+apps/api/internal/api/atom_report.go:1016:// generateReportProse routes to gateway.ClassAssess, and that class is
+apps/api/internal/agent/placement.go:36:const placementSystem = `你是一位 IB 研究导师。学生刚加进一篇文献。下面给你这篇文献的信息，和这个项目的若干【研究问题】（每个带一个 id）。请判断这篇文献最能支撑/回答哪一个问题。
+apps/api/internal/agent/placement.go:67:			{Role: gateway.RoleSystem, Content: placementSystem},
+apps/api/internal/agent/placement.go:81:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/evalbench/evaluator_single_prompt.go:115:			{Role: gateway.RoleSystem, Content: renderSinglePromptSystem(p.promptTemplate, p.contractSchema, p.contractExample)},
+apps/api/internal/api/interest_dig.go:168:	// ClassCompose：从已陈述的输入派生一个 schema 产物 —— 正是这件事。
+apps/api/internal/api/interest_dig.go:169:	resolved, ok := a.route(ctx, gateway.ClassCompose)
+apps/api/internal/api/interest_dig.go:173:	system, user := interest.BuildDigPrompt(kw.TextZh, kw.Note, evidences)
+apps/api/internal/api/interest_dig.go:174:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/interest_dig.go:176:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/pbl/look.go:45:const paletteSystem = `你在帮一个中学生给他自己的个人网站定配色。
+apps/api/internal/pbl/look.go:88:		res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+apps/api/internal/pbl/look.go:91:				{Role: gateway.RoleSystem, Content: paletteSystem},
+apps/api/internal/gateway/types.go:12:	RoleSystem    ChatRole = "system"
+apps/api/internal/pbl/persona.go:56:const personaSystem = `你在帮一个中学生想清楚：他的个人主页是给谁看的。
+apps/api/internal/pbl/persona.go:98:		res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+apps/api/internal/pbl/persona.go:101:				{Role: gateway.RoleSystem, Content: personaSystem},
+apps/api/internal/api/writing_comment.go:144:const writingCommentSystem = `你是「印记」，正在给学生已经写的文字提意见——可能是她正在写的一段，也可能是她写完的整篇稿子。你的任务只是给反馈，绝不是替她改：不要重写、不要润色、不要续写、不要给出可以直接复制粘贴替换的句子或段落。
+apps/api/internal/api/writing_comment.go:204:// gateway.Collect → recordLiteLLMCall → parse → validate → persist →
+apps/api/internal/api/writing_comment.go:251:	resolved, ok2 := a.route(turnCtx, gateway.ClassReview)
+apps/api/internal/api/writing_comment.go:258:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_comment.go:260:			{Role: gateway.RoleSystem, Content: writingCommentSystem},
+apps/api/internal/agent/exploration_review.go:45:const explorationReviewSystem = `你是一位严谨而务实的 IB 研究导师。学生已经搜集并标注了一批文献（每篇标了支持/反驳、关键论点、关键证据，并挂在某个子问题下）。请通读这批材料，帮学生理一理。
+apps/api/internal/agent/exploration_review.go:109:			{Role: gateway.RoleSystem, Content: explorationReviewSystem},
+apps/api/internal/agent/exploration_review.go:118:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/agent/reading_eval.go:92:			{Role: gateway.RoleSystem, Content: buildEvalPrompt(spec, dimension)},
+apps/api/internal/agent/reading_eval.go:99:	res, err := gateway.Collect(ctx, p, resolved, req)
+apps/api/internal/agent/search_guidance.go:36:const searchGuidanceSystem = `你是一位擅长文献检索的 IB 研究导师。学生在探索文献，请给出 2–3 个【检索方向】——每个是一个可以直接搜的关键词/词组，加一句话说明为什么这个方向值得搜（它能帮学生解决哪个子问题/补哪块证据）。
+apps/api/internal/agent/search_guidance.go:78:			{Role: gateway.RoleSystem, Content: searchGuidanceSystem},
+apps/api/internal/agent/search_guidance.go:87:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/api/writing_setup.go:135:const writingOpeningSystem = `你是「印记」，一个陪中学生写作的伙伴。学生刚刚打开一次新的写作，下面是她自己写下的题目和她说过的话。
+apps/api/internal/api/writing_setup.go:286:	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
+apps/api/internal/api/writing_setup.go:293:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_setup.go:295:			{Role: gateway.RoleSystem, Content: writingOpeningSystem},
+apps/api/internal/api/project_create.go:167:	res := agent.ComposeJourney(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), sk, prompt)
+apps/api/internal/agent/journey.go:47:			{Role: gateway.RoleSystem, Content: composePrompt(sk)},
+apps/api/internal/agent/journey.go:52:	res, cerr := gateway.Collect(ctx, provider, resolved, req)
+apps/api/internal/evalbench/collect.go:12:// collectEvalbench is intentionally stricter than gateway.Collect. Its policy
+apps/api/internal/api/evaluation_generate.go:120:	resolved, ok := a.route(ctx, gateway.ClassAssess)
+apps/api/internal/agent/compose_weekly.go:114:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/compose_weekly.go:116:			{Role: gateway.RoleSystem, Content: weeklySystemPrompt()},
+apps/api/internal/api/course.go:407:// answers once, guarded by 铁律①③ (agent.BuildCourseAskPrompt's guardrails —
+apps/api/internal/api/course.go:455:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue) // chaperone (mid-tier) — 降级 allowed, per agent-spec §5.3
+apps/api/internal/api/reading_lens.go:222:	groundResolver := a.routeFn(gateway.ClassCompose)
+apps/api/internal/api/reading_lens.go:225:		groundResolver = a.routeFn(gateway.ClassCompose)
+apps/api/internal/api/reading_lens.go:230:		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), spec, atomID.String(), blocks)
+apps/api/internal/api/reading_lens.go:356:		eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.routeFn(gateway.ClassReview), spec, dimension, studentSpan)
+apps/api/internal/api/card_reflect.go:89:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/agent/orchestrator.go:33:const orchestratorSystemPrompt = `你是「印记」，一个带着学生把研究项目做完的 agent（类似 Cowork 之于写代码）。你不替学生做：不替他定论、绝不代写正文。你在对的时刻把当下这一步的工作台配置好，然后叙述你配了什么、并只问一个下一步的问题。
+apps/api/internal/agent/orchestrator.go:368:	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: orchestratorSystemPrompt})
+apps/api/internal/agent/orchestrator.go:389:	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: def.SystemPrompt})
+apps/api/internal/agent/orchestrator.go:441:		res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/agent/orchestrator.go:506:		{Role: gateway.RoleSystem, Content: noteExtractPrompt},
+apps/api/internal/agent/orchestrator.go:509:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/agent/orchestrator.go:546:		res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/agent/orchestrator.go:588:		{Role: gateway.RoleSystem, Content: orchestratorOpeningPrompt},
+apps/api/internal/agent/orchestrator.go:591:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/api/coach.go:97:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/coach.go:167:		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
+apps/api/internal/api/coach.go:226:		if er, ok := a.route(r.Context(), gateway.ClassReview); ok {
+apps/api/internal/api/coach.go:706:	resolved, rerr := a.routeE(ctx, gateway.ClassReview)
+apps/api/internal/api/coach.go:854:	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/coach.go:950:	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/coach.go:988:		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
+apps/api/internal/api/coach.go:1123:	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/coach.go:1130:		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
+apps/api/internal/api/reading_questions.go:64:const readingQuestionsSystem = `你是"印记"。学生刚读完一篇文章，你要从这篇文章里"长"出几个
+apps/api/internal/api/reading_questions.go:328:	resolved, okResolve := a.route(qCtx, gateway.ClassCompose)
+apps/api/internal/api/reading_questions.go:334:	res, cerr := gateway.Collect(qCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/reading_questions.go:336:			{Role: gateway.RoleSystem, Content: readingQuestionsSystem},
+apps/api/internal/api/chat.go:212:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/reading_plan.go:43:const readingPlanSystem = `你是「印记」，要给一个中学生排出读这篇文章的**任务清单**。
+apps/api/internal/api/reading_plan.go:370:	resolved, okResolve := a.route(ctx, gateway.ClassCompose)
+apps/api/internal/api/reading_plan.go:375:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/reading_plan.go:377:			{Role: gateway.RoleSystem, Content: readingPlanSystem},
+apps/api/internal/agent/ai_use.go:35:const aiUseSeedSystem = `你在帮一个学生起草「我是怎么用 AI 的」自述——只是给一个初稿，学生会自己改写。依据下面这份客观交互记录，用第一人称写两段：
+apps/api/internal/agent/ai_use.go:62:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/ai_use.go:64:			{Role: gateway.RoleSystem, Content: aiUseSeedSystem},
+apps/api/internal/agent/question_card.go:36:const questionCardSystem = `你是「印记」提问卡里的引导子代理。学生刚拿到一个题目，还没有自己的想法就想直接让 AI 给方向。你的任务不是给答案，而是激活他自己的经验与疑问，最后帮他把一个【属于他自己的、更聚焦的研究问题】说出来。一次只问一个问题（铁律③），绝不替他写研究问题（铁律①）。
+apps/api/internal/agent/question_card.go:66:	msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleSystem, Content: sys})
+apps/api/internal/agent/question_card.go:90:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/api/proposal_annotations.go:49:	resolved, rerr := a.routeE(ctx, gateway.ClassReview)
+apps/api/internal/api/writing.go:340:	resolved, ok := a.route(r.Context(), gateway.ClassReview)
+apps/api/internal/agent/course_scene.go:73:			{Role: gateway.RoleSystem, Content: sceneSystemPrompt(in.Which)},
+apps/api/internal/agent/course_scene.go:78:	res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/api/reading_takeaway.go:205:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
+apps/api/internal/agent/reading_card_example.go:43:			{Role: gateway.RoleSystem, Content: buildCardExamplePrompt(spec)},
+apps/api/internal/agent/reading_card_example.go:59:		res, cerr := gateway.Collect(ctx, p, resolved, req)
+apps/api/internal/api/summoncard.go:203:	groundResolver := a.routeFn(gateway.ClassCompose)
+apps/api/internal/api/summoncard.go:206:		groundResolver = a.routeFn(gateway.ClassCompose)
+apps/api/internal/api/summoncard.go:211:		exampleAnchor, resolved, usage, exampleOK = agent.ProposeCardExample(r.Context(), a.d.Provider, a.routeFn(gateway.ClassCompose), spec, matID, blocks)
+apps/api/internal/api/reading_block.go:143:const readingBlockSystem = `你是「印记」，正在给一个中学生讲解她点开的**这一段**。
+apps/api/internal/api/reading_block.go:324:	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
+apps/api/internal/api/reading_block.go:331:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/reading_block.go:333:			{Role: gateway.RoleSystem, Content: readingBlockSystem + tool.Instruction + readingShapedSuffix[tool.Shape]},
+apps/api/internal/api/readeval.go:145:	eval, resolved, usage, _ := agent.EvaluateSelection(r.Context(), a.d.Provider, a.routeFn(gateway.ClassReview), spec, body.Dimension, studentSpan)
+apps/api/internal/evalbench/comparator.go:93:	req := gateway.ChatRequest{MaxTokens: 12000, DisableThinking: true, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: comparatorPrompt()}, {Role: gateway.RoleUser, Content: "人工 Gold EvaluationReport 的模型部分 JSON：\n" + string(goldJSON) + "\n\n候选 EvaluationReport 的模型部分 JSON：\n" + string(candidateJSON)}}}
+apps/api/internal/agent/project_summary.go:17:const returnSummarySystem = `你是「思维印记」的陪练。学生重新打开一个进行中的研究项目。根据下面的「项目当前状态」，用一段温和、简短的话（两到四句）帮他快速回到状态：他在做的是什么、进行到哪、下一步大概可以想什么。像一个记得他进度的陪练，不替他下结论，不布置命令式任务。只输出这段话本身，不要任何前缀、标签或格式。`
+apps/api/internal/agent/project_summary.go:29:			{Role: gateway.RoleSystem, Content: returnSummarySystem},
+apps/api/internal/agent/project_summary.go:33:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/api/benchcases.go:50:		Class: gateway.ClassDialogue,
+apps/api/internal/api/benchcases.go:54:				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang)},
+apps/api/internal/api/pbl_sites.go:102:	resolved, rerr := a.routeE(r.Context(), gateway.ClassDigest) // 长输入短输出
+apps/api/internal/agent/dig_query.go:18:const digQuerySystem = `你把学生的研究问题（任何语言）转成一个简短的英文关键词查询，用于在 OpenAlex 上检索学术文献。只输出查询词本身，不要引号、不要解释、不要写成完整句子；3-8 个词，抓住核心概念；把非英文的概念译成对应的标准英文学术术语。
+apps/api/internal/agent/dig_query.go:28:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/dig_query.go:30:			{Role: gateway.RoleSystem, Content: digQuerySystem},
+apps/api/internal/agent/draft_annotations.go:80:			{Role: gateway.RoleSystem, Content: draftAnnotationSystemFor(annotationDocNoun(in.Doc))},
+apps/api/internal/agent/draft_annotations.go:95:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/api/writing_compose.go:141:// FILE — does a.d.Provider, gateway.Collect, resolveEval or ChatResolver
+apps/api/internal/api/writing_compose.go:231:	resolved, ok := a.route(turnCtx, gateway.ClassReview)
+apps/api/internal/api/writing_compose.go:239:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_compose.go:241:			{Role: gateway.RoleSystem, Content: writingCommentSystem},
+apps/api/internal/api/interest_quiz.go:241:	// 没有 provider 就没有这次调用 —— gateway.Collect 会对 nil provider 直接
+apps/api/internal/api/interest_quiz.go:247:	resolved, ok := a.route(ctx, gateway.ClassDigest)
+apps/api/internal/api/interest_quiz.go:252:	system, user := att.BuildQuizPrompt()
+apps/api/internal/api/interest_quiz.go:253:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/interest_quiz.go:255:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/agent/chat_coach.go:63:			{Role: gateway.RoleSystem, Content: chatCoachPosturePrompt},
+apps/api/internal/agent/chat_coach.go:67:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/evalbench/report_markdown.go:678:func renderPromptLens(b *strings.Builder, lens evalreport.PromptLens) {
+apps/api/internal/agent/messages.go:46:	result := []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: opts.SystemPrompt}}
+apps/api/internal/agent/messages.go:90:			result = append(result, gateway.ChatMessage{Role: gateway.RoleSystem, Content: m.Content})
+apps/api/internal/api/proposal_track.go:133:	case gateway.ClassAssess, gateway.ClassReview:
+apps/api/internal/api/proposal_track.go:135:	case gateway.ClassReflex:
+apps/api/internal/api/proposal_track.go:168:	if class == gateway.ClassAssess {
+apps/api/internal/api/proposal_track.go:174:	if class != gateway.ClassDialogue {
+apps/api/internal/api/proposal_track.go:175:		if r, err := a.routeE(ctx, gateway.ClassDialogue); err == nil {
+apps/api/internal/api/proposal_track.go:268:	resolved, ok := a.route(ctx, gateway.ClassCompose)
+apps/api/internal/agent/evidence_saturation.go:43:const evidenceSaturationSystem = `你是一位严谨而鼓励的 IB 研究导师。学生正在为一个子问题搜集证据，建「证据地图」。请判断这个子问题的证据是否已经"饱和"——足以据此写出这条论点。
+apps/api/internal/agent/evidence_saturation.go:83:			{Role: gateway.RoleSystem, Content: evidenceSaturationSystem},
+apps/api/internal/agent/evidence_saturation.go:92:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/agent/review.go:192:			{Role: gateway.RoleSystem, Content: reviewSystemPrompt(voice, overBudget)},
+apps/api/internal/agent/review.go:200:		res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/api/spotcheck.go:89:	resolved, rerr := a.routeE(r.Context(), gateway.ClassReview)
+apps/api/internal/api/essay_statement.go:95:	resolved, ok := a.route(ctx, gateway.ClassCompose)
+apps/api/internal/api/essay_statement.go:262:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassReview); rerr == nil {
+apps/api/internal/api/projectcards.go:203:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/agent/benchcases.go:57:		Class: gateway.ClassReview,
+apps/api/internal/agent/benchcases.go:62:				{Role: gateway.RoleSystem, Content: frameworkReviewSystem},
+apps/api/internal/agent/benchcases.go:102:		Class: gateway.ClassDialogue,
+apps/api/internal/agent/benchcases.go:107:				{Role: gateway.RoleSystem, Content: projectCoachPosturePrompt},
+apps/api/internal/agent/benchcases.go:148:		Class: gateway.ClassReflex,
+apps/api/internal/agent/benchcases.go:153:				{Role: gateway.RoleSystem, Content: momentSystemPrompt},
+apps/api/internal/agent/benchcases.go:198:		Class: gateway.ClassCompose,
+apps/api/internal/agent/benchcases.go:204:				{Role: gateway.RoleSystem, Content: buildRouterPrompt(in)},
+apps/api/internal/agent/benchcases.go:260:		Class: gateway.ClassCompose,
+apps/api/internal/agent/benchcases.go:265:				{Role: gateway.RoleSystem, Content: searchGuidanceSystem},
+apps/api/internal/agent/benchcases.go:297:		Class: gateway.ClassDigest,
+apps/api/internal/agent/benchcases.go:302:				{Role: gateway.RoleSystem, Content: digestSystemPrompt},
+apps/api/internal/agent/benchcases.go:318:		Class: gateway.ClassDialogue,
+apps/api/internal/agent/benchcases.go:323:				{Role: gateway.RoleSystem, Content: coachPosturePrompt},
+apps/api/internal/agent/project_coach.go:69:			{Role: gateway.RoleSystem, Content: projectCoachPosturePrompt},
+apps/api/internal/agent/project_coach.go:73:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/api/pbl_personas.go:90:	resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose)
+apps/api/internal/interest/dig.go:64:const digSystemPrompt = `一个中学生的兴趣树上有一个关键词。下面给你这个词、我们对它的
+apps/api/internal/interest/dig.go:96:// BuildDigPrompt 拼出深挖用的 system 与 user 两段。
+apps/api/internal/interest/dig.go:101:func BuildDigPrompt(textZh, note string, evidences []string) (system, user string) {
+apps/api/internal/agent/course_coach.go:23:// BuildCourseAskPrompt returns the free-Q&A coach's system prompt: it names
+apps/api/internal/agent/course_coach.go:32:func BuildCourseAskPrompt(courseTitle, stepTitle, courseGoal, stepText string) string {
+apps/api/internal/agent/course_coach.go:44:// prompt (BuildCourseAskPrompt), sends the student's question as the sole
+apps/api/internal/agent/course_coach.go:55:			{Role: gateway.RoleSystem, Content: BuildCourseAskPrompt(courseTitle, stepTitle, courseGoal, stepText)},
+apps/api/internal/agent/course_coach.go:59:	res, err := gateway.Collect(ctx, prov, r, req)
+apps/api/internal/agent/spotcheck.go:121:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/spotcheck.go:123:			{Role: gateway.RoleSystem, Content: spotCheckSystemPrompt(station)},
+apps/api/internal/agent/proposal_guide.go:95:const guideGenSystem = `你是一位快节奏、温暖的 IB 写作陪练。学生正在写研究提案的某一部分。请只为这一部分生成一张「引导卡」，帮助学生自己写——你绝不替他写正文。
+apps/api/internal/agent/proposal_guide.go:155:			{Role: gateway.RoleSystem, Content: guideGenSystem},
+apps/api/internal/agent/proposal_guide.go:164:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/api/writing_deepen.go:45:const deepenSystem = writingGuideTeachingRules + `
+apps/api/internal/api/writing_deepen.go:303:	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: deepenSystem + "\n\n" + brief})
+apps/api/internal/api/writing_deepen.go:310:	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
+apps/api/internal/api/writing_deepen.go:317:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{Messages: messages})
+apps/api/internal/api/workspace_summary.go:113:	resolved, rerr := a.routeE(ctx, gateway.ClassDigest)
+apps/api/internal/api/studioturn.go:194:	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/studioturn.go:356:	gen := agent.NewAnchorGenerator(a.d.Provider, a.routeFn(gateway.ClassCompose))
+apps/api/internal/agent/anchors.go:38:// three live gateway.Collect call sites, agent/coach.go and agent/course.go
+apps/api/internal/agent/anchors.go:360:			{Role: gateway.RoleSystem, Content: buildAnchorPrompt(spec, level)},
+apps/api/internal/agent/anchors.go:365:	res, err := gateway.Collect(ctx, g.provider, resolved, req)
+apps/api/internal/interest/harvest.go:46:// 在 BuildHarvestPrompt 里拼进来，不写死在常量里 —— 词表改了 prompt 要跟着改，
+apps/api/internal/interest/harvest.go:48:const harvestSystemPromptHead = `你在读一个中学生刚刚完成的一件事，判断她正在关心
+apps/api/internal/interest/harvest.go:56:const harvestSystemPromptTail = `
+apps/api/internal/interest/harvest.go:73:// BuildHarvestPrompt 拼出采集用的 system 与 user 两段。
+apps/api/internal/interest/harvest.go:78:func BuildHarvestPrompt(kind, title, body string) (system, user string) {
+apps/api/internal/agent/exploration_guide.go:53:const explorationGuideSystem = `你在帮学生看清研究的森林，而不是替他做研究。指出下一个必要的方向或没接上的缺口，用一句话说明它填补什么。绝不替学生检索、绝不替他下结论、绝不替他判定某个来源的价值。最多给 3 条，每条是一个可追问的方向，不是一个答案。只输出 JSON：{"directions":[{"direction":"...","why":"..."}]}。`
+apps/api/internal/agent/exploration_guide.go:102:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/exploration_guide.go:104:			{Role: gateway.RoleSystem, Content: explorationGuideSystem},
+apps/api/internal/api/explore.go:450:	resolved, ok := a.route(ctx, gateway.ClassDigest)
+apps/api/internal/api/explore.go:474:	// 🚨 用 BuildSelectPrompt 交回来的那批候选去解析，**不是完整的 pool**：
+apps/api/internal/api/explore.go:476:	system, user, candidates := news.BuildSelectPrompt(pool)
+apps/api/internal/api/explore.go:477:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/explore.go:479:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/api/explore.go:597:		msgs := []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: system}}
+apps/api/internal/api/explore.go:601:		res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/exploration.go:628:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
+apps/api/internal/api/exploration.go:834:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil && resolved.Provider != "" {
+apps/api/internal/api/exploration.go:1386:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil && resolved.Provider != "" {
+apps/api/internal/api/workspace_plan_generate.go:45:const planGenSystem = `你是「印记」。学生刚把研究项目的「大框架」讨论清楚（目标/缘由/活动与时间/资源/可能的反例）——这是研究方向的框架，还不是正式提案。请据此拟一份可执行的完整项目计划。
+apps/api/internal/api/workspace_plan_generate.go:202:	resolved, ok := a.route(ctx, gateway.ClassCompose)
+apps/api/internal/api/workspace_plan_generate.go:228:	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/workspace_plan_generate.go:230:			{Role: gateway.RoleSystem, Content: planGenSystem},
+apps/api/internal/api/writing_plan.go:84:const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划**一篇文章。这一步不是写，是想清楚要写什么、按什么顺序写。
+apps/api/internal/api/writing_plan.go:546:	resolved, okResolve := a.route(turnCtx, gateway.ClassCompose)
+apps/api/internal/api/writing_plan.go:554:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_plan.go:556:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/api/ai_use.go:117:		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
+apps/api/internal/agent/moment.go:115:const momentSystemPrompt = `# 角色
+apps/api/internal/agent/moment.go:133://   - Usage is returned whenever gateway.Collect succeeded, INCLUDING when the
+apps/api/internal/agent/moment.go:153:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/moment.go:155:			{Role: gateway.RoleSystem, Content: momentSystemPrompt},
+apps/api/internal/interest/quiz.go:152:// BuildQuizPrompt 拼出这次作答的采集 prompt。
+apps/api/internal/interest/quiz.go:157:func (a Attempt) BuildQuizPrompt() (system, user string) {
+apps/api/internal/api/pbl_turn.go:123:	resolved, rok := a.route(r.Context(), gateway.ClassDialogue)
+apps/api/internal/api/writing_title.go:157:const writingTitleSystem = `你是「印记」。学生刚写完一篇文章，现在要给它起个名字。她原来那一栏里放的是她最开始随手写下的一句「我想写…」，那是给她自己看的备忘，不是标题。
+apps/api/internal/api/writing_title.go:219:// resolveEval → gateway.Collect → recordLiteLLMCall → parse → validate.
+apps/api/internal/api/writing_title.go:278:	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
+apps/api/internal/api/writing_title.go:285:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_title.go:287:			{Role: gateway.RoleSystem, Content: writingTitleSystem},
+apps/api/internal/api/projectcoach.go:164:	resolved, rerr := a.routeE(ctx, gateway.ClassDigest)
+apps/api/internal/agent/reportgen.go:58:			{Role: gateway.RoleSystem, Content: system},
+apps/api/internal/agent/reportgen.go:66:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/agent/reading_takeaway.go:59:const readingTakeawaySystem = `你是「思维印记」的陪读助手。学生刚读完一篇材料，下面是她自己已经确认的发现、可信度判断和关键引用。请只做两件事，且只能基于她已有的材料，绝不替她下新结论：
+apps/api/internal/agent/reading_takeaway.go:86:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/reading_takeaway.go:88:			{Role: gateway.RoleSystem, Content: readingTakeawaySystem},
+apps/api/internal/api/exploration_review.go:41:		if resolved, rok := a.route(r.Context(), gateway.ClassReview); rok {
+apps/api/internal/agent/digest.go:25:const digestSystemPrompt = `你在为一个学生的研究项目维护一份「会话记忆」。把下面这些较早的对话轮次，压进已有的记忆里：
+apps/api/internal/agent/digest.go:49:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/digest.go:51:			{Role: gateway.RoleSystem, Content: digestSystemPrompt},
+apps/api/internal/api/pbl_lookback.go:145:		resolved, rok := a.route(r.Context(), gateway.ClassAssess)
+apps/api/internal/api/pbl_draw.go:41:	resolved, err := a.routeE(ctx, gateway.ClassDraw)
+apps/api/internal/api/writing_guide.go:99:const writingGuideSystem = `你是「印记」。学生正在写一篇文章，现在停在其中**一块**上，不知道该写什么。
+apps/api/internal/api/writing_guide.go:119:const writingGuideBatchSystem = `你是「印记」。学生正在写一整篇文章，提纲已经搭好了。你要针对**每一块**说清这一块要为读者做成什么事，说出一两个真正能用上的方法名，再给她 2 到 4 个能帮她想下去的问题——一次性把整篇都想一遍，而不是等她卡在某一块才想。
+apps/api/internal/api/writing_guide.go:665:	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
+apps/api/internal/api/writing_guide.go:672:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_guide.go:674:			{Role: gateway.RoleSystem, Content: writingGuideSystem},
+apps/api/internal/api/writing_guide.go:812:	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
+apps/api/internal/api/writing_guide.go:819:	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+apps/api/internal/api/writing_guide.go:821:			{Role: gateway.RoleSystem, Content: writingGuideBatchSystem},
+apps/api/internal/api/question_card.go:79:	resolved, rok := a.route(r.Context(), gateway.ClassCompose)
+apps/api/internal/api/readturn.go:290:		d, resolved, usage, _ := agent.RouteReading(r.Context(), a.d.Provider, a.routeFn(gateway.ClassCompose), in)
+apps/api/internal/api/writing_turn.go:253:	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
+apps/api/internal/api/reading_turn.go:371:	raw, resolved, usage, rerr := agent.RouteReading(turnCtx, a.d.Provider, a.routeFn(gateway.ClassCompose), in)
+apps/api/internal/agent/claim_revision.go:34:const claimRevisionSystem = `你是一位严谨的 IB 研究导师。学生在写作阶段修改了一个子问题（论点）。请判断这是"措辞微调"还是"换成了一个全新的问题"。
+apps/api/internal/agent/claim_revision.go:69:			{Role: gateway.RoleSystem, Content: claimRevisionSystem},
+apps/api/internal/agent/claim_revision.go:78:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/agent/framework_review.go:39:const frameworkReviewSystem = `你是一位严谨而鼓励的 IB 导师。学生刚把研究框架的几件事聊清楚：目标、缘由、活动与时间、资源，以及可选的「可能的反例/张力」。请通读整份框架，判断它是否已经足够扎实、可以据此生成一份研究计划。
+apps/api/internal/agent/framework_review.go:70:			{Role: gateway.RoleSystem, Content: frameworkReviewSystem},
+apps/api/internal/agent/framework_review.go:79:		res, err := gateway.Collect(ctx, prov, resolved, req)
+apps/api/internal/agent/reading_router.go:82:			{Role: gateway.RoleSystem, Content: buildRouterPrompt(in)},
+apps/api/internal/agent/reading_router.go:106:		res, err := gateway.Collect(ctx, p, resolved, req)
+apps/api/internal/agent/edge_proposer.go:64:const edgeProposerSystem = `你在帮学生看清她自己提出的这些问题之间的关系，而不是替她决定答案或替她下结论。每个问题已经编号（从 1 开始）。找出问题之间真实存在的关系，每条关系只能用这五个固定标签之一描述：子问题、支持、反驳/张力、细化、依赖/前提——不要发明新标签，没有关系就不要硬凑。不要重复"已经存在的关系"里列出的连接。每条关系给一句话说明理由。只输出 JSON，不要任何其他文字：{"proposals":[{"from":<问题编号>,"to":<问题编号>,"label":"...","why":"..."}]}。`
+apps/api/internal/agent/edge_proposer.go:85:	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
+apps/api/internal/agent/edge_proposer.go:87:			{Role: gateway.RoleSystem, Content: edgeProposerSystem},
+apps/api/internal/agent/coach.go:31:// 成本" hard constraint — this is one of the three live gateway.Collect call
+apps/api/internal/agent/coach.go:33:// populated whenever gateway.Collect succeeded — including when enforcement
+apps/api/internal/agent/coach.go:45:			{Role: gateway.RoleSystem, Content: coachPosturePrompt},
+apps/api/internal/agent/coach.go:49:	res, err := gateway.Collect(ctx, prov, r, req)

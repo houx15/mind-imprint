@@ -1,3 +1,4 @@
+import { StudentCoachHeading } from "../learning/StudentCoachHeading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
@@ -225,7 +226,7 @@ export function PlanningView({
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-mk-paper">
+    <div className="student-planning-room flex h-full w-full flex-col bg-mk-paper">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-mk-border px-5 py-3">
         <div className="flex min-w-0 flex-col">
           <button type="button" onClick={onBack} className="w-fit text-mk-small text-mk-muted hover:text-mk-accent-700">
@@ -256,6 +257,7 @@ export function PlanningView({
 
       <div className={hasMap ? "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 flex-1 justify-center"}>
         <div className={hasMap ? "flex min-h-0 flex-col" : "flex min-h-0 w-full max-w-[720px] flex-col"}>
+          <div className="px-5 pt-4"><StudentCoachHeading label="写作构思" /></div>
           <ChatLog messages={chatMessages} thinking={sending || opening} className="mk-scroll min-h-0 flex-1 px-5 py-4" />
           {/*
             印记 判断这份计划够写了 → 屏幕上出现一条真的邀请。

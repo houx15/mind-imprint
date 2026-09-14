@@ -1,3 +1,4 @@
+import { StudentCoachHeading } from "../learning/StudentCoachHeading";
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Button } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
@@ -332,7 +333,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
   return (
     <div
-      className={`mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1180px]"}`}
+      className={`student-writing-room mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1180px]"}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
@@ -366,7 +367,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
+      <div className="student-writing-workspace grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         <div
           className={
             onPage
@@ -384,7 +385,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
+        <div className="student-coach-panel flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
+          <StudentCoachHeading />
           <ChatLog messages={chatMessages} thinking={sending || opening} className="min-h-0 flex-1" />
           <Composer
             value={draftText}

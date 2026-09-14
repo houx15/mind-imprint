@@ -136,18 +136,18 @@ export function NewsSheet({
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
           aria-label="关闭"
         >
-          <X size={18} strokeWidth={1.8} color="#C6B9AA" />
+          <X size={18} strokeWidth={1.8} color="var(--mk-explore-muted)" />
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         {/* ── 这条新闻 ─────────────────────────────────────────────────── */}
-        <h2 className="mt-3 text-mk-h1 leading-[1.45] text-[#F5EFE7]">{primary}</h2>
+        <h2 className="mt-3 text-mk-h1 leading-[1.45] text-[var(--mk-explore-ink)]">{primary}</h2>
         {secondary && secondary !== primary ? (
-          <p className="mt-1.5 text-mk-body leading-[1.6] text-[#9A8E80]">{secondary}</p>
+          <p className="mt-1.5 text-mk-body leading-[1.6] text-[var(--mk-explore-muted)]">{secondary}</p>
         ) : null}
         {item.summary ? (
-          <p className="mt-3 text-mk-body-lg leading-[1.9] text-[#D9CEC1]">{item.summary}</p>
+          <p className="mt-3 text-mk-body-lg leading-[1.9] text-[var(--mk-explore-ink)]">{item.summary}</p>
         ) : null}
 
         {/* ── 它想问你 ─────────────────────────────────────────────────── */}
@@ -159,7 +159,7 @@ export function NewsSheet({
           }}
         >
           <Sys tone="dark">它想问你</Sys>
-          <p className="mt-1.5 text-mk-h3 leading-[1.7] text-[#F5EFE7]">{item.hook}</p>
+          <p className="mt-1.5 text-mk-h3 leading-[1.7] text-[var(--mk-explore-ink)]">{item.hook}</p>
           {/*
             这个问题出自原文的哪一句。
             
@@ -170,7 +170,7 @@ export function NewsSheet({
           */}
           {item.evidence ? (
             <blockquote
-              className="mt-3 border-l-2 pl-3 text-mk-small leading-[1.8] text-[#C0B4A6]"
+              className="mt-3 border-l-2 pl-3 text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]"
               style={{ borderColor: `color-mix(in srgb, ${meta.hue} 50%, transparent)` }}
             >
               <Sys tone="dark">原文里的这句话</Sys>
@@ -183,12 +183,12 @@ export function NewsSheet({
         <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="inline-flex items-baseline gap-1.5">
             <Sys tone="dark">出处</Sys>
-            <span className="text-mk-small text-[#F0E9E0]">{item.source}</span>
+            <span className="text-mk-small text-[var(--mk-explore-ink)]">{item.source}</span>
           </span>
           {item.publishedAt ? (
             <span className="inline-flex items-baseline gap-1.5">
               <Sys tone="dark">发布</Sys>
-              <span className="font-mono text-mk-small text-[#F0E9E0]">
+              <span className="font-mono text-mk-small text-[var(--mk-explore-ink)]">
                 {item.publishedAt.slice(0, 10)}
               </span>
             </span>
@@ -200,8 +200,8 @@ export function NewsSheet({
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 inline-flex items-center gap-1.5 rounded-mk-full border px-4 py-2 text-mk-small
-                       text-[#F0E9E0] transition-colors hover:bg-[rgba(240,233,224,.1)]"
-            style={{ borderColor: "rgba(240,233,224,.28)" }}
+                       text-[var(--mk-explore-ink)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
+            style={{ borderColor: "var(--mk-explore-line)" }}
           >
             读原文
             <ExternalLink size={14} strokeWidth={1.8} />
@@ -216,11 +216,11 @@ export function NewsSheet({
               className="mt-2 rounded-mk-md p-4"
               style={{ border: "1px solid rgba(240,233,224,.14)", background: "rgba(240,233,224,.035)" }}
             >
-              <strong className="block text-mk-h3 text-[#F0E9E0]">{item.discipline.zh}</strong>
-              <span className="mt-0.5 block font-mono text-mk-small text-[#7C7166]">
+              <strong className="block text-mk-h3 text-[var(--mk-explore-ink)]">{item.discipline.zh}</strong>
+              <span className="mt-0.5 block font-mono text-mk-small text-[var(--mk-explore-muted)]">
                 {item.discipline.en}
               </span>
-              <p className="mt-2 text-mk-small leading-[1.8] text-[#C0B4A6]">{item.discipline.asks}</p>
+              <p className="mt-2 text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">{item.discipline.asks}</p>
             </div>
           </div>
         ) : null}
@@ -255,8 +255,8 @@ export function NewsSheet({
                 onClick={() => void readLater()}
                 disabled={busy !== null}
                 className="inline-flex items-center gap-2 rounded-mk-full border px-5 py-2.5 text-mk-body
-                           text-[#F0E9E0] transition-colors hover:bg-[rgba(240,233,224,.1)] disabled:opacity-45"
-                style={{ borderColor: "rgba(240,233,224,.28)" }}
+                           text-[var(--mk-explore-ink)] transition-colors hover:bg-[rgba(240,233,224,.1)] disabled:opacity-45"
+                style={{ borderColor: "var(--mk-explore-line)" }}
               >
                 {busy === "later" ? (
                   <>
@@ -273,7 +273,7 @@ export function NewsSheet({
             )}
           </div>
 
-          <p className="mt-2.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
+          <p className="mt-2.5 max-w-[52ch] text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
             {item.saved
               ? "这一篇已经在阅读室里了。「现在读」会直接打开它。"
               : "两个都会在阅读室里建这一篇；「现在读」还会另开一页放原文，让你把正文粘进来。读完之后，报告上会提出可以加进你树里的词。"}

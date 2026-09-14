@@ -1,0 +1,135 @@
+/* Lite student variant of the shared --mk-* tokens. Geometry stays in page CSS. */
+:is(.lite-student, body.lite-student-theme) {
+  --mk-accent-100: var(--mk-theme-accent-100);
+  --mk-accent-200: var(--mk-theme-accent-200);
+  --mk-accent-300: var(--mk-theme-accent-300);
+  --mk-accent-400: var(--mk-theme-accent-400);
+  --mk-accent-500: var(--mk-theme-accent-500);
+  --mk-accent-600: var(--mk-theme-accent-600);
+  --mk-accent-700: var(--mk-theme-accent-700);
+  --mk-accent-800: var(--mk-theme-accent-800);
+
+  --mk-accent: var(--mk-accent-500);
+  --mk-on-accent: #ffffff;
+  --mk-secondary: var(--mk-muted);
+  --mk-faint: var(--mk-muted);
+  --mk-input-border: var(--mk-border);
+  --mk-shadow-xs: none;
+  --mk-shadow-sm: none;
+  --mk-shadow-md: 0 12px 32px color-mix(in srgb, var(--mk-ink) 12%, transparent);
+  --mk-shadow-lg: 0 16px 40px color-mix(in srgb, var(--mk-ink) 15%, transparent);
+  --mk-radius-sm: 9px;
+  --mk-radius-md: 14px;
+  --mk-radius-lg: 16px;
+  --mk-radius-input: 12px;
+  --mk-radius-subtle: 10px;
+  font-family: var(--mk-font-family);
+  --mk-font-size-micro: 9px;
+  --mk-font-size-caption: 11px;
+  --mk-font-size-label: 12px;
+  --mk-font-size-small: 13px;
+  --mk-font-size-body: 14px;
+  --mk-font-size-intro: 15px;
+  --mk-font-size-body-lg: 16px;
+  --mk-font-size-card-title: 17px;
+  --mk-font-size-section: 18px;
+  --mk-font-size-section-mobile: 19px;
+  --mk-font-size-brand: 20px;
+  --mk-font-size-subtitle: 22px;
+  --mk-font-size-heading-mobile: 25px;
+  --mk-font-size-page-mobile: 29px;
+  --mk-font-size-page: 36px;
+  --mk-space-4: 4px;
+  --mk-space-5: 5px;
+  --mk-space-6: 6px;
+  --mk-space-7: 7px;
+  --mk-space-8: 8px;
+  --mk-space-9: 9px;
+  --mk-space-10: 10px;
+  --mk-space-12: 12px;
+  --mk-space-14: 14px;
+  --mk-space-16: 16px;
+  --mk-space-18: 18px;
+  --mk-space-20: 20px;
+  --mk-space-22: 22px;
+  --mk-space-24: 24px;
+  --mk-space-28: 28px;
+  --mk-space-30: 30px;
+  --mk-space-32: 32px;
+  --mk-space-36: 36px;
+  --mk-space-38: 38px;
+  --mk-space-40: 40px;
+  --mk-space-48: 48px;
+  --mk-space-64: 64px;
+
+  --mk-ink: #263342;
+  --mk-muted: #667587;
+  --mk-paper: #f7fafa;
+  --mk-surface: #fff;
+  --mk-border: #e3ebee;
+  --mk-accent-50: color-mix(
+    in srgb,
+    var(--mk-accent-500) 9%,
+    var(--mk-surface)
+  );
+  --mk-font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
+  --mk-ink: #e6edf2;
+  --mk-muted: #acbac9;
+  --mk-paper: #19232b;
+  --mk-surface: #24323c;
+  --mk-border: #354650;
+  --mk-accent-50: color-mix(
+    in srgb,
+    var(--mk-accent-500) 18%,
+    var(--mk-surface)
+  );
+  --mk-accent-700: color-mix(in srgb, var(--mk-accent-500) 45%, white);
+  --mk-accent-800: color-mix(in srgb, var(--mk-accent-500) 30%, white);
+}
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="white"] {
+  --mk-paper: #ffffff;
+}
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="cream"] {
+  --mk-paper: #fbf8f0;
+}
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="blue"] {
+  --mk-paper: #f2f6fc;
+}
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="green"] {
+  --mk-paper: #f2f8f4;
+}
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="slate"] {
+  --mk-paper: #f5f6f8;
+}
+
+/* Exploration follows the student light/dark appearance with dedicated contrast pairs. */
+:is(.lite-student, body.lite-student-theme) {
+  --mk-explore-paper: #f9fbfc;
+  --mk-explore-surface: #ffffff;
+  --mk-explore-ink: #243641;
+  --mk-explore-muted: #647580;
+  --mk-explore-accent: #317f8c;
+  --mk-explore-line: #d3e1e7;
+}
+
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
+  --mk-explore-paper: #10171d;
+  --mk-explore-surface: #1c2831;
+  --mk-explore-ink: #eef6f7;
+  --mk-explore-muted: #a9bdc7;
+  --mk-explore-accent: #8dcbd2;
+  --mk-explore-line: #3c515e;
+}
+
+/* The onboarding story retains its independently composed night setting. */
+.lite-student-theme .awk {
+  --mk-explore-paper: #152a34;
+  --mk-explore-surface: #203a46;
+  --mk-explore-ink: #eef6f7;
+  --mk-explore-muted: #b0c5cb;
+  --mk-explore-accent: #8dcbd2;
+  --mk-explore-line: #3f606d;
+}

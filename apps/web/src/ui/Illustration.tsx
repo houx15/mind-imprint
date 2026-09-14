@@ -1,3 +1,4 @@
+import { createContext, useContext, type ReactNode } from "react";
 import { Button } from "@/ui/Button";
 
 import bookLoverUrl from "../assets/illustrations/undraw_book-lover_m9n3.svg";
@@ -75,10 +76,16 @@ export interface IllustrationProps {
   alt?: string;
 }
 
+const IllustrationImages = createContext<Partial<Record<IllustrationName, string>>>({});
+export function IllustrationImagesProvider({ images, children }: { images: Partial<Record<IllustrationName, string>>; children: ReactNode }) {
+  return <IllustrationImages.Provider value={images}>{children}</IllustrationImages.Provider>;
+}
+
 export function Illustration({ name, tone, className, alt }: IllustrationProps) {
+  const images = useContext(IllustrationImages);
   return (
     <img
-      src={ILLUSTRATIONS[name]}
+      src={images[name] ?? ILLUSTRATIONS[name]}
       alt={alt ?? ""}
       data-tone={tone}
       className={["max-w-full", className].filter(Boolean).join(" ")}

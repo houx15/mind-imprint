@@ -43,7 +43,9 @@ export function Sticky({
   return (
     <div
       onPointerDown={onPointerDown}
-      className="group relative select-none rounded-mk-md px-3 py-2.5 shadow-mk-xs"
+      data-selected={selected || undefined}
+      data-dragging={dragging || undefined}
+      className="student-sticky group relative select-none rounded-mk-md px-3 py-2.5 shadow-mk-xs"
       style={{
         background: tone.bg,
         color: tone.fg,

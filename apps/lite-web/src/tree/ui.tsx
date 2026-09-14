@@ -39,7 +39,7 @@ export function Sys({
 }) {
   return (
     <span
-      className={cx("tree-mono", tone === "dark" ? "text-[#B6A99A]" : "text-mk-muted", className)}
+      className={cx("tree-mono", tone === "dark" ? "text-[var(--mk-explore-muted)]" : "text-mk-muted", className)}
     >
       {children}
     </span>
@@ -74,7 +74,7 @@ export function Hint({ text, tone = "light" }: { text: string; tone?: Tone }) {
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         style={{
           border: dark ? "1px solid rgba(240,233,224,.34)" : "1px solid var(--mk-input-border)",
-          color: dark ? "#B6A99A" : "var(--mk-muted)",
+          color: dark ? "var(--mk-explore-muted)" : "var(--mk-muted)",
         }}
       >
         ?
@@ -86,9 +86,9 @@ export function Hint({ text, tone = "light" }: { text: string; tone?: Tone }) {
                      text-mk-small font-normal normal-case leading-[1.75]"
           style={{
             letterSpacing: 0,
-            background: dark ? "rgba(28,23,19,.97)" : "var(--mk-surface)",
+            background: dark ? "var(--mk-explore-surface)" : "var(--mk-surface)",
             border: dark ? "1px solid rgba(240,233,224,.18)" : "1px solid var(--mk-border)",
-            color: dark ? "#DCD2C6" : "var(--mk-secondary)",
+            color: dark ? "var(--mk-explore-ink)" : "var(--mk-secondary)",
             boxShadow: dark ? "0 20px 46px rgba(0,0,0,.34)" : "0 20px 46px rgba(51,48,46,.16)",
           }}
         >
@@ -161,9 +161,9 @@ export function Drawer({
           className="tree-sheet-in relative flex h-full flex-col overflow-hidden"
           style={{
             width: `min(${width}px, 100vw)`,
-            background: dark ? "#1C1713" : "var(--tree-card)",
+            background: dark ? "var(--mk-explore-surface)" : "var(--tree-card)",
             borderLeft: dark ? "1px solid rgba(240,233,224,.14)" : "1px solid var(--tree-line)",
-            color: dark ? "#F0E9E0" : "var(--tree-ink)",
+            color: dark ? "var(--mk-explore-ink)" : "var(--tree-ink)",
             boxShadow: dark ? "none" : "-24px 0 60px rgba(51,48,46,.14)",
           }}
         >

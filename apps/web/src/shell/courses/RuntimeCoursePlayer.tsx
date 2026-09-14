@@ -5,6 +5,7 @@ import type { CourseRuntimeAdapters } from "@mind-imprint/course-runtime";
 import { collectAssetPaths } from "@mind-imprint/course-contract";
 import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
 import { api } from "@/api";
+import { useCompanionImage } from "@/ui/CompanionAppearance";
 import { useAccentHex } from "@/ui";
 import { AskPanel, type AskMessage } from "./AskPanel";
 import { CourseLoading } from "./CourseLoading";
@@ -82,7 +83,8 @@ export function RuntimeCoursePlayer({
   // ask bar (AskPanel + api.courseAsk) — the same helper the legacy player
   // gives students. The renderer stays chrome-agnostic; the host owns these.
   const [progress, setProgress] = useState<CourseProgress | null>(null);
-  const [askExpanded, setAskExpanded] = useState(true);
+  const studentAppearance = useCompanionImage();
+  const [askExpanded, setAskExpanded] = useState(() => !studentAppearance || window.matchMedia("(min-width: 701px)").matches);
   const [askMessages, setAskMessages] = useState<AskMessage[]>([]);
   const [askPending, setAskPending] = useState(false);
   const askSeqRef = useRef(0);

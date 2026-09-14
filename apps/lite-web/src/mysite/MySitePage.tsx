@@ -1,3 +1,4 @@
+import makers from "../home/assets/project-makers-v2.webp";
 import { useEffect, useState } from "react";
 import { ArrowRight, ExternalLink, Loader2, PencilLine } from "lucide-react";
 import { apiErrorText } from "../api/errorText";
@@ -66,10 +67,11 @@ export function MySitePage() {
   if (!site) {
     return (
       <div className="flex h-full items-center justify-center bg-mk-paper px-8">
-        <div className="w-full max-w-[560px] text-center">
-          <h1 className="text-mk-display text-mk-ink">你还没有主页。</h1>
+        <div className="student-site-empty w-full max-w-[560px] text-center">
+          <img src={makers} alt="" className="mx-auto mb-6 h-44 w-64 object-contain" />
+          <h1 className="text-mk-display text-mk-ink">创建个人主页</h1>
           <p className="mt-4 text-mk-body text-mk-secondary">
-            往后你读的、写的、做的都要有地方放，那个地方得先存在。
+            展示你的学习成果、兴趣与项目。印记会引导你完成主页内容。
           </p>
           <button
             type="button"

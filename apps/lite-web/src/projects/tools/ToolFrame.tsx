@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, Maximize2, Minimize2, X } from "lucide-react";
+import { ArrowRight, Maximize2, Minimize2, X } from "lucide-react";
 import { Icon } from "@/ui";
 import { useWidePane } from "./wide";
 
@@ -46,7 +46,7 @@ export function ToolFrame({
   const ready = !todo;
   const { wide, toggle } = useWidePane();
   return (
-    <div className="flex h-full flex-col">
+    <div className="student-tool-frame flex h-full flex-col">
       <header className="border-b border-mk-border px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -105,8 +105,8 @@ export function ToolFrame({
           className="flex w-full items-center justify-center gap-1.5 rounded-mk-full py-2 text-mk-body text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          <Icon icon={Check} size={15} />
           {finishLabel}
+          <Icon icon={ArrowRight} size={16} />
         </button>
         </div>
       </footer>

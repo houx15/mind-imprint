@@ -51,11 +51,11 @@
     },
     {
       "id": "point_parallel",
-      "name": "并排说几条",
+      "name": "并列论证",
       "formal_name": "并列",
       "applies_to": "body",
       "lang": "any",
-      "definition": "几条互不依赖的理由并排放。稳，但要小心几条一样重就没有高潮。",
+      "definition": "用几条相互独立的理由支持同一主张，并避免内容重复。",
       "examples": [
         { "topic": "图书馆延长开放", "text": "延长开放有三个理由：夜里的座位一直不够、住得远的人白天来不了、闭馆太早反而把人赶去了更吵的地方。" }
       ],
@@ -63,11 +63,11 @@
     },
     {
       "id": "point_progressive",
-      "name": "一层深一层",
+      "name": "递进论证",
       "formal_name": "递进",
       "applies_to": "body",
       "lang": "any",
-      "definition": "是什么 → 为什么 → 怎么办。后一层必须依赖前一层，否则它其实是并排说几条。",
+      "definition": "是什么 → 为什么 → 怎么办。后一层必须依赖前一层，否则它其实是并列论证。",
       "examples": [
         { "topic": "路灯改造", "text": "这条路晚上太暗；暗是因为灯距按二十年前的车流定的；所以要改的不是换灯泡，是重新算灯距。" }
       ],
@@ -75,7 +75,7 @@
     },
     {
       "id": "point_contrast",
-      "name": "比一比",
+      "name": "对比论证",
       "formal_name": "对比论证",
       "applies_to": "body",
       "lang": "any",

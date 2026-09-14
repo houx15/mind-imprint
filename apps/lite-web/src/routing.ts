@@ -18,6 +18,7 @@
 //    `parseLiteRoute` on load/popstate and `navigate` to push new paths.
 
 export type LiteRoute =
+  | { tab: "home" }
   // 探索 (今日新闻星图). 每天五颗星，从十二个科学源抓来、模型选出。排在阅读
   // 前面，因为它是那条链子的起点：找到 → 读 → 写 → 做。
   | { tab: "explore" }
@@ -81,40 +82,34 @@ export type LiteRoute =
   // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
   | { tab: "page"; token: string };
 
-/** Parse a browser pathname into a lite route.
- *
- * 🚨 **落地页是探索（今日新闻星图），不是阅读**（2026-09-03 改）。
- *
- * 原来 `/` 落在阅读室，因为那时探索地图还是原型、星图还是 mock 数据。现在它是
- * 真的：每天五颗从二十一个源里挑出来的星，每颗带一个她可以自己追问的问题。
- * **这才是每天回来看一眼的理由** —— 而阅读室是「我手头有一篇要读」时才去的
- * 地方，它是任务的入口，不是产品的入口。
- *
- * 导航顺序也因此说得通：探索（找到）→ 阅读 → 写作 → 项目 → 我的树（因此长出来）。
- *
- * 未知路径同样落到探索，所以一条过期或手敲错的 URL 永远不会死掉。容忍尾部斜杠
- * 与 `/index.html`；路径段会被 URL 解码。 */
+/** Root and index.html open the learning home. Unknown and malformed public
+ * paths retain the explore fallback; all learning deep links persist. */
 export function parseLiteRoute(pathname: string): LiteRoute {
   const cleaned = pathname
     .replace(/\/index\.html$/i, "/")
     .replace(/^\/+/, "")
     .replace(/\/+$/, "");
-  const segments = cleaned.length === 0 ? [] : cleaned.split("/").map(decodeSegment);
+  const segments =
+    cleaned.length === 0 ? [] : cleaned.split("/").map(decodeSegment);
   const [first, second, third] = segments;
 
   switch (first) {
-    // `/` 落在探索。星图当天生成失败时它有自己的空状态（说出后台原话 + 重试），
-    // 所以哪怕没出星图，落地页也不是一片莫名其妙的白。
     case undefined:
     case "":
-      return { tab: "explore" };
+      return { tab: "home" };
     case "readings":
       if (second === "library") return { tab: "readings", library: true };
-      return second ? { tab: "readings", readingId: second } : { tab: "readings" };
+      return second
+        ? { tab: "readings", readingId: second }
+        : { tab: "readings" };
     case "writings":
-      return second ? { tab: "writings", writingId: second } : { tab: "writings" };
+      return second
+        ? { tab: "writings", writingId: second }
+        : { tab: "writings" };
     case "projects":
-      return second ? { tab: "projects", projectId: second } : { tab: "projects" };
+      return second
+        ? { tab: "projects", projectId: second }
+        : { tab: "projects" };
     case "courses":
       return second ? { tab: "courses", slug: second } : { tab: "courses" };
     case "tree":
@@ -140,7 +135,11 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       // the token is a typo or a stale deep link and lands on the article,
       // which is the page the link was sent for. Never a dead end.
       if (!second) return { tab: "explore" };
-      return { tab: "share", token: second, view: third === "record" ? "record" : "article" };
+      return {
+        tab: "share",
+        token: second,
+        view: third === "record" ? "record" : "article",
+      };
     default:
       return { tab: "explore" };
   }
@@ -150,13 +149,21 @@ export function parseLiteRoute(pathname: string): LiteRoute {
  * on the routes it produces. */
 export function liteRoutePath(route: LiteRoute): string {
   switch (route.tab) {
+    case "home":
+      return "/";
     case "readings":
       if (route.library) return "/readings/library";
-      return route.readingId ? `/readings/${encodeSegment(route.readingId)}` : "/readings";
+      return route.readingId
+        ? `/readings/${encodeSegment(route.readingId)}`
+        : "/readings";
     case "writings":
-      return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
+      return route.writingId
+        ? `/writings/${encodeSegment(route.writingId)}`
+        : "/writings";
     case "projects":
-      return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
+      return route.projectId
+        ? `/projects/${encodeSegment(route.projectId)}`
+        : "/projects";
     case "courses":
       return route.slug ? `/courses/${encodeSegment(route.slug)}` : "/courses";
     case "tree":

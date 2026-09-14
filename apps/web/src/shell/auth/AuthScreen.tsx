@@ -29,9 +29,11 @@ function FieldLabel({ htmlFor, children }: { htmlFor: string; children: string }
 export function AuthScreen({
   onAuthed,
   client = api,
+  illustration,
 }: {
   onAuthed: (user: MeUser) => void;
   client?: AuthClient;
+  illustration?: string;
 }) {
   const [step, setStep] = useState<"login" | "register" | "bind">("login");
   const [email, setEmail] = useState("");
@@ -75,7 +77,7 @@ export function AuthScreen({
             <Pebble state="idle" size={36} />
             <span className="text-mk-h2 text-mk-ink">思维印记</span>
           </div>
-          <Illustration name="bookLover" className="h-[150px] w-[150px]" alt="" />
+          {illustration ? <img src={illustration} className="h-[180px] w-[240px] object-contain" alt="" /> : <Illustration name="bookLover" className="h-[150px] w-[150px]" alt="" />}
           <p className="text-mk-body text-mk-secondary">
             带上你手头真实的功课，我们陪你把思考往深处走一走。
           </p>

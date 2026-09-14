@@ -175,8 +175,8 @@ export const ACCENT_PRESETS: PresetTuple = [
 
 const ORDER = [50, 100, 200, 300, 400, 500, 600, 700, 800] as const;
 
-export function applyAccent(el: HTMLElement, id: AccentId): void {
-  const preset = ACCENT_PRESETS.find((p) => p.id === id) ?? ACCENT_PRESETS[0];
+export function applyAccent(el: HTMLElement, id: AccentId, presets: readonly AccentPreset[] = ACCENT_PRESETS): void {
+  const preset = presets.find((p) => p.id === id) ?? ACCENT_PRESETS[0];
   for (const step of ORDER) {
     el.style.setProperty(`--mk-accent-${step}`, preset.scale[step]);
   }
@@ -186,11 +186,13 @@ export function applyAccent(el: HTMLElement, id: AccentId): void {
 const STORAGE_KEY = "mk-accent";
 
 interface AccentContextValue {
+  presets: readonly AccentPreset[];
   id: AccentId;
   setAccent(id: AccentId): void;
 }
 
 const AccentContext = createContext<AccentContextValue>({
+  presets: ACCENT_PRESETS,
   id: "vermilion",
   setAccent() {},
 });
@@ -200,6 +202,8 @@ function isAccentId(value: unknown): value is AccentId {
 }
 
 export interface AccentProviderProps {
+  /** Theme variant; defaults preserve existing Pro and teacher palettes. */
+  presets?: readonly AccentPreset[];
   children: ReactNode;
   /**
    * Server-known accent (e.g. `MeUser.avatar_color`) to seed on mount, taking
@@ -218,7 +222,7 @@ export interface AccentProviderProps {
   onPersist?: (id: AccentId) => void | Promise<void>;
 }
 
-export function AccentProvider({ children, initialAccent, onPersist }: AccentProviderProps) {
+export function AccentProvider({ children, initialAccent, onPersist, presets = ACCENT_PRESETS }: AccentProviderProps) {
   const [id, setId] = useState<AccentId>("vermilion");
 
   useEffect(() => {
@@ -226,7 +230,7 @@ export function AccentProvider({ children, initialAccent, onPersist }: AccentPro
       ? initialAccent
       : ((localStorage.getItem(STORAGE_KEY) as AccentId | null) ?? "vermilion");
     setId(seed);
-    applyAccent(document.documentElement, seed);
+    applyAccent(document.documentElement, seed, presets);
     // Only ever run on mount: initialAccent is a one-time seed, not a
     // subscription — the provider owns `id` afterward via setAccent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,7 +238,7 @@ export function AccentProvider({ children, initialAccent, onPersist }: AccentPro
 
   const setAccent = (next: AccentId) => {
     setId(next);
-    applyAccent(document.documentElement, next);
+    applyAccent(document.documentElement, next, presets);
     localStorage.setItem(STORAGE_KEY, next);
     try {
       // onPersist may be sync (throw) or async (rejected Promise); swallow
@@ -246,7 +250,7 @@ export function AccentProvider({ children, initialAccent, onPersist }: AccentPro
     }
   };
 
-  return <AccentContext.Provider value={{ id, setAccent }}>{children}</AccentContext.Provider>;
+  return <AccentContext.Provider value={{ id, setAccent, presets }}>{children}</AccentContext.Provider>;
 }
 
 export const useAccent = (): AccentContextValue => useContext(AccentContext);
@@ -258,6 +262,6 @@ export const useAccent = (): AccentContextValue => useContext(AccentContext);
  * var everywhere else so the accent stays token-driven.
  */
 export function useAccentHex(): string {
-  const { id } = useAccent();
-  return (ACCENT_PRESETS.find((p) => p.id === id) ?? ACCENT_PRESETS[0]).scale[500];
+  const { id, presets } = useAccent();
+  return (presets.find((p) => p.id === id) ?? ACCENT_PRESETS[0]).scale[500];
 }

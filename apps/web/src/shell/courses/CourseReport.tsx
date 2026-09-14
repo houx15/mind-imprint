@@ -266,9 +266,9 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }} data-tour="course-report">
-      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "34px 40px 56px" }}>
+      <div className="course-report-measure" style={{ maxWidth: 1360, margin: "0 auto", padding: "34px 40px 56px" }}>
         {/* hero */}
-        <div style={{ background: "linear-gradient(135deg,var(--mk-accent-500) 0%,var(--mk-accent-600) 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(234,81,64,.20)" }}>
+        <div className="course-report-hero" style={{ background: "linear-gradient(135deg,var(--mk-accent-500) 0%,var(--mk-accent-600) 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(234,81,64,.20)" }}>
           <div style={{ flex: "none", width: 60, height: 60, borderRadius: 18, background: "rgba(255,255,255,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
           </div>
@@ -281,7 +281,7 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
 
         {/* two columns: left = cover + 关于这门课 + 你学到了什么; right = 本次学习
             overview + 我的答案 (逐题回看) + 学到的工具卡 */}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.9fr)", gap: 20, marginTop: 20, alignItems: "start" }}>
+        <div className="course-report-columns" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.9fr)", gap: 20, marginTop: 20, alignItems: "start" }}>
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
             {summary?.coverUrl ? (

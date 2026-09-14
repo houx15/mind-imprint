@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Inbox } from "lucide-react";
-import { Icon } from "@/ui";
 import { InboxPanel } from "./InboxPanel";
 import { useInbox } from "./useInbox";
 
 /**
- * 收件箱 in the rail, directly above 设置. It carries the rail's `mt-auto`, so
- * the two stay pinned together at the foot. The panel is portaled out of the
- * rail because the rail is `overflow-hidden` and would clip it.
+ * 收件箱 in the rail's foot, directly above 设置. It sits in a
+ * `learning-nav-links` group so it takes the same row style as the tabs and
+ * its label folds with theirs (learning.css hides `.learning-nav-links span`
+ * while the rail is folded). The unread dot is an `<i>`, not a `<span>`, for
+ * that reason: a span would be hidden along with the label.
+ *
+ * The panel is portaled out of the rail because the rail is `overflow: hidden`
+ * and would clip it.
  */
-export function InboxButton({ labelCls }: { labelCls: string }) {
+export function InboxButton() {
   const inbox = useInbox();
   const { reload, unread } = inbox;
   const [open, setOpen] = useState(false);
@@ -33,36 +37,31 @@ export function InboxButton({ labelCls }: { labelCls: string }) {
   }, []);
 
   return (
-    <>
+    <div className="learning-nav-links" style={{ marginBottom: "var(--mk-space-16)" }}>
       <button
         ref={buttonRef}
         type="button"
         aria-label={`收件箱，${unread} 条未读`}
         aria-haspopup="dialog"
         aria-expanded={open}
+        style={open ? { background: "var(--mk-accent-50)", color: "var(--mk-accent-500)" } : undefined}
         onClick={() => {
           if (!open) reload();
           setOpen(!open);
         }}
-        className={[
-          "mt-auto flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-          open ? "bg-white/15" : "hover:bg-white/10",
-        ].join(" ")}
       >
-        <span className="relative flex h-7 w-7 shrink-0 items-center justify-center">
-          <Icon icon={Inbox} size={22} className={open ? "text-white" : "text-white/70"} />
+        <i className="relative flex shrink-0 not-italic" aria-hidden="true">
+          <Inbox size={21} strokeWidth={1.7} />
           {unread > 0 && (
-            <span
-              aria-hidden="true"
-              className="absolute right-0.5 top-0.5 h-2 w-2 rounded-mk-full"
-              style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px #fff" }}
+            <i
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-mk-full"
+              style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px var(--mk-paper)" }}
             />
           )}
-        </span>
-        <span className={`${labelCls} ${open ? "font-semibold text-white" : "text-white/80"}`}>收件箱</span>
+        </i>
+        <span>收件箱</span>
       </button>
       {open && <InboxPanel inbox={inbox} anchor={buttonRef} onClose={close} />}
-    </>
+    </div>
   );
 }

@@ -69,18 +69,10 @@ func TestWritingPlanSystem_NamesOnlyRealMethods(t *testing.T) {
 	if n := len(bracketed(writingPlanSystem)); n < 3 {
 		t.Fatalf("found only %d 『』-quoted method names in writingPlanSystem — the prompt or the quoting convention changed, and this test is no longer checking anything", n)
 	}
-	// The 怎么说话 demonstration sentence names three openings unquoted; it is
-	// shared verbatim by the planning and guide prompts, so pin it in both.
-	for _, name := range []string{"留个悬念", "先抛一个问题", "开门见山"} {
-		if !known[name] {
-			t.Fatalf("the demonstration sentence names %q, which the library no longer has", name)
-		}
-		if !strings.Contains(writingPlanSystem, name) {
-			t.Errorf("writingPlanSystem lost the demonstration name %q", name)
-		}
-		if !strings.Contains(writingGuideTeachingRules, name) {
-			t.Errorf("writingGuideTeachingRules lost the demonstration name %q", name)
-		}
+	// Examples need not list a fixed menu on every turn. The selected
+	// professional term must still resolve through the shared vocabulary.
+	if !known["并列论证"] || !strings.Contains(writingGuideTeachingRules, "并列论证") {
+		t.Fatal("guide example must use a registered method name")
 	}
 	// The retired name must be gone everywhere, including the setup prompt.
 	for _, prompt := range []string{writingPlanSystem, writingGuideTeachingRules, writingOpeningSystem, writingGuideSystem, writingGuideBatchSystem} {

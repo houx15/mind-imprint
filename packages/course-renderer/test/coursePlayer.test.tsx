@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { CourseSession, SliceSessionState } from "@mind-imprint/course-contract";
@@ -98,6 +99,21 @@ function buildSeededAdapters(seed: CourseSession) {
 }
 
 describe("CoursePlayer end-to-end", () => {
+  // Async initialization must resume after StrictMode cancels the first effect.
+  // A once-only ref previously left real Vite browser sessions loading forever.
+  it("initializes a playable session after StrictMode effect replay", async () => {
+    const { adapters } = buildAdapters();
+    const onProgress = vi.fn();
+    render(<StrictMode><AudioEngineProvider value={new FakeAudioEngine()}>
+      <CoursePlayer document={staticCourseDocument} adapters={adapters}
+        studentId="student-1" onProgress={onProgress} />
+    </AudioEngineProvider></StrictMode>);
+    await userEvent.click(await screen.findByRole("button", { name: "一起开始吧" }));
+    await waitFor(() => expect(onProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ phase: "playing", sliceIndex: 0 }),
+    ));
+  });
+
   it("shows a visible loading surface (spinner + label) on first entry, not an empty white box", () => {
     const { adapters } = buildAdapters();
     const { container } = render(

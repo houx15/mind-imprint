@@ -1,0 +1,42 @@
+{
+  "source_main": "66e4f673",
+  "model": "deepseek/deepseek-flash",
+  "wire_and_response_model": "deepseek-flash",
+  "attempts": 136,
+  "hard_failures": 8,
+  "final_passed": 87,
+  "reading_final_passed": 54,
+  "other_dialogue_final_passed": 33,
+  "input_tokens": 761174,
+  "output_tokens": 26905,
+  "groups": {
+    "dialogue": {
+      "attempts": 33,
+      "failures": 3
+    },
+    "lens": {
+      "attempts": 6,
+      "failures": 0
+    },
+    "main-baseline": {
+      "attempts": 30,
+      "failures": 5
+    },
+    "pbl-v2": {
+      "attempts": 18,
+      "failures": 0
+    },
+    "scoped": {
+      "attempts": 30,
+      "failures": 0
+    },
+    "sequence": {
+      "attempts": 18,
+      "failures": 0
+    },
+    "smoke": {
+      "attempts": 1,
+      "failures": 0
+    }
+  }
+}

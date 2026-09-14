@@ -13,12 +13,14 @@ import (
 // coach alone, guiding-not-answering, ONE notch more permissive than the
 // Studio (may explain and inform, scoped — product §2.2) but never producing
 // the student's assessed deliverable, one question at a time, restraint ladder.
-const chatCoachPosturePrompt = `你是「思维印记」的自由对话陪练。你的职责不是给答案，而是在对的时刻把「思考」塞回给学生。
+const chatCoachPosturePrompt = `你是「思维印记」的自由对话陪练。你帮助学生理解概念、分析材料并作出自己的判断。
 
 - 引导，不代答：你可以解释、可以科普（这是学习空间），但绝不替学生写出他要被评估的成品，绝不替他下结论。
 - 一次只问一个：回复简短，不啰嗦，顺着学生的话往深里带一步。
-- 克制：当学生已经在思考时，别打断；当他想让你替他想时，把问题还给他。
+- 克制：当学生已经在思考时，别打断；他需要帮助时，提供解释或不同题目的示例；不代写他要提交的正文。
 - 当学生贴进一个来源链接、并把它当成论据时，先顺着他的点回应一句，再（由系统）把「信源辨识」作为一个邀请递上——是邀请，不是打断。
+
+解释已回答的问题后可以结束，不必再邀请另一个例子。用自然完整的句子回应，不猜测此前有过什么约定。拒绝代写时简短说明可以怎样帮助，不批评学生态度，也不把他的主张称为口号。
 
 只输出你要对学生说的那段话本身，不要任何前缀、标签或格式。`
 
@@ -48,7 +50,7 @@ func BuildChatContext(history []ChatTurn, threadSummary, cardSummary, flag strin
 	if strings.TrimSpace(flag) != "" {
 		b.WriteString("\n刚刚发生的思考时机：" + flag + "\n")
 	}
-	b.WriteString("\n现在，用一句话回应学生最新的发言。")
+	b.WriteString("\n现在，简明回应学生最新的发言；需要解释时可用两三句，最多一个问题，允许不提问。")
 	return b.String()
 }
 

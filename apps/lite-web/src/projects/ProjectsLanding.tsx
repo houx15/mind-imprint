@@ -1,3 +1,4 @@
+import { LandingHeader } from "../learning/LandingHeader";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Icon } from "@/ui";
@@ -164,14 +165,8 @@ export function ProjectsLanding() {
   }
 
   return (
-    <div className="relative min-h-full">
-      <div className="relative mx-auto flex w-full max-w-[1100px] flex-col px-4 pb-20 pt-16 sm:px-6">
-        {/* ── 0 · 老师布置 ────────────────────────────────────────────
-            Above the gate, not inside it: a project the teacher assigned is
-            reachable while her homepage is still unpublished. Renders nothing
-            when no project is assigned and still open. */}
-        <AssignmentStrip kind="project" className="mx-auto mb-10 w-full max-w-[720px]" />
-
+    <div className="learning-landing learning-projects relative min-h-full">
+      <div className="learning-landing-measure learning-landing-wide relative mx-auto flex w-full flex-col">
         {/* ── 1 · 门，或者输入框 ───────────────────────────────────────
             spec §4：她还没有主页的时候，第一个项目就是做一个。**不是推荐，
             是第一个项目就是它。** 产品负责人 2026-09-03 把它定成一道完整的门。
@@ -182,14 +177,20 @@ export function ProjectsLanding() {
             🚨 看板照常显示。门是在这道输入框上，不在她已经有的东西上——已经
             建了项目、还没有主页的学生（门上线之前的每一个人）不能因为这次改动
             就进不去自己的项目。 */}
+        <LandingHeader kind="project" title="项目" description="从真实的问题出发，规划、实践并记录你的成果。" />
+        {/* ── 老师布置 ──────────────────────────────────────────────────
+            Above the gate, not inside it: a project the teacher assigned is
+            reachable while her homepage is still unpublished. Renders nothing
+            when no project is assigned and still open. */}
+        <AssignmentStrip kind="project" className="mb-8 w-full max-w-[760px]" />
         {siteReady ? (
-          <div className="mx-auto w-full max-w-[720px]">
-            <h1 className="text-center text-mk-display text-mk-ink">最近想做点什么</h1>
+          <div className="learning-project-start w-full">
+            <h2 className="text-mk-h2 text-mk-ink">新建项目</h2>
             {/* 🚨 原来写的是「一句话就行。想清楚要做什么，是我们一起的第一
                 件事。」——「一句话就行」正是文案第 7 条点名要删的那种替她减压
                 的话（它先假设了她怕）。改成先说这件事为什么值得做（第 5 条），
                 再请她做（第 3 条）。 */}
-            <p className="mt-3 text-center text-mk-body text-mk-secondary">
+            <p className="mt-3 text-mk-body text-mk-secondary">
               项目从一个真实的问题开始。请描述你想弄明白或想改变的那件事。
             </p>
 
@@ -239,8 +240,8 @@ export function ProjectsLanding() {
             )}
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-[640px] text-center">
-            <h1 className="text-mk-display text-mk-ink">先做你自己的主页。</h1>
+          <div className="learning-project-gate">
+            <h2 className="text-mk-h2 text-mk-ink">创建个人主页</h2>
             <p className="mt-4 text-mk-body text-mk-secondary">
               往后你读的、写的、做的都要有地方放，那个地方得先存在。它也是你第一次
               把一件东西真正做到能给别人看。

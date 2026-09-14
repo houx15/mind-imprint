@@ -1,3 +1,4 @@
+import { studentArtwork } from "../learning/StudentArtwork";
 import { forwardRef } from "react";
 import type { LiteReport } from "@lite/api/reports";
 import { displayStat } from "./statLabels";
@@ -6,10 +7,10 @@ import { displayStat } from "./statLabels";
  * ReportPoster — the picture she can send someone, not a shrunk copy of
  * `ReportView`. The product owner's own words: "should not be verbose, but
  * be good looking … like lark meeting notes they would conclude some 金句
- * … with student's name and effort be noted." So the content is a fixed,
+ * … with student's name and effort be noted." So the content is a concise,
  * short list — her name, the title, the date, the stats as large numerals,
- * and up to three 金句 given real room — and nothing else: no kind label,
- * no brand mark, no share chrome, no 收获 list. Restraint is the point.
+ * and up to three 金句 given real room. Reading also includes the student's
+ * takeaway with attribution and grows vertically to fit its contents.
  *
  * ## Offscreen, not hidden — and the offset goes on the WRAPPER
  *
@@ -34,36 +35,25 @@ import { displayStat } from "./statLabels";
  *
  * html-to-image rasterizes through an SVG `<foreignObject>`, which never
  * loads a web font — it would fall back silently mid-export and the picture
- * would differ from whatever she previewed. `FONT_STACK` below is the
- * platform CJK stack only. Colours are explicit hex, copied from the same
- * `mk-*` macaron palette `apps/web/src/index.css` defines (so the poster
- * still reads as the same product), rather than `var(--mk-…)` custom
- * properties: this is a separate rasterization context from the page's own
- * cascade, and an explicit value removes a class of "did the variable
- * actually resolve at capture time" failure for no visible cost. This also
- * sidesteps the unrelated `mk-*`-as-Tailwind-alpha trap (`bg-mk-x/NN` emits
- * no CSS at all, since these are bare custom properties) by never going
- * through a Tailwind class for colour on this component at all.
+ * would differ from whatever she previewed. FONT_STACK uses system fonts.
+ * Colors inherit the student's shared design tokens from the themed body.
+ * html-to-image resolves their computed values before rasterization; the
+ * browser export check verifies both actual content and the resulting colors.
  */
 
+// Reading journals use content height so short records do not export a half-empty sheet.
+// Writing retains its fixed poster layout. All quoted/generated text keeps attribution.
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif';
 
-const INK = "#33302E";
-const MUTED = "#8A827A";
-const PAPER = "#FBF8F4";
+const INK = "var(--mk-ink)";
+const MUTED = "var(--mk-muted)";
+const PAPER = "var(--mk-paper)";
 
-/** Copied from `apps/web/src/index.css`'s `--mk-*` macaron tokens — see the
- *  file-level comment above for why these are hex literals, not `var()`. */
-const MACARON = [
-  { bg: "#FDE7D3", fg: "#9A5A22" }, // peach
-  { bg: "#E0F0EC", fg: "#177368" }, // lake
-  { bg: "#FCE7EB", fg: "#A63A50" }, // berry
-  { bg: "#E7F1DD", fg: "#4D6B3A" }, // matcha
-  { bg: "#F0EAF6", fg: "#5B4A80" }, // taro
-  { bg: "#FAF3DE", fg: "#8A6320" }, // butter
-  { bg: "#E6EEF9", fg: "#3C5A86" }, // mist
-] as const;
+/** Semantic report colors stay shared with the on-screen record. */
+const MACARON = ["peach", "lake", "berry", "matcha", "taro", "butter", "mist"].map(
+  tone => ({ bg: `var(--mk-${tone}-bg)`, fg: `var(--mk-${tone}-fg)` }),
+);
 
 /** How many stat tiles fit on one row of a 1080-wide picture. See the
  *  `slice` in the component for why exceeding it is not merely ugly. */
@@ -72,7 +62,7 @@ const MAX_POSTER_STATS = 4;
 function macaron(i: number) {
   // `i % MACARON.length` is always a valid index into a non-empty literal
   // array — the `?? MACARON[0]` only satisfies noUncheckedIndexedAccess.
-  return MACARON[i % MACARON.length] ?? MACARON[0];
+  return MACARON[i % MACARON.length] ?? MACARON[0]!;
 }
 
 /** Absolute date, matching `ReportView`'s own `formatDate` — this picture
@@ -92,13 +82,8 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     // of 0 is absence, not a fact worth putting in the picture she sends to
     // a parent. No row at all when nothing survives.
     //
-    // Capped at MAX_POSTER_STATS, unlike the page, which shows every one. The
-    // page can grow downwards; this is a fixed 1080×1440 box, and the server
-    // now sends seven reading stats — enough to wrap the strip onto a second
-    // row and push the 金句 off the bottom edge, silently, with `overflow:
-    // hidden` swallowing the evidence. The first four are the first four the
-    // server emits (time, volume, conversation, marks), which is the order
-    // that survives a crop best.
+    // Keep the exported summary to four stats, in the server's original order.
+    // The full report page continues to show every supplied stat.
     // Same client-side label resolution as the page — a stored report carries
     // whatever wording it was generated with (see statLabels.ts).
     const stats = report.stats
@@ -116,28 +101,26 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
         style={{
           position: "static",
           width: 1080,
-          height: 1440,
+          height: report.kind === "reading" ? "auto" : 1440,
           overflow: "hidden",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          gap: 44,
-          padding: 76,
-          // Layered radial washes over paper rather than a separate banner
-          // element: same warm light as the page's own hero, with zero effect
-          // on layout inside a box whose height is fixed and whose overflow is
-          // hidden. Explicit hex, no `var()` and no `color-mix()` — see the
-          // file comment on why this rasterization context takes literals.
-          background: `radial-gradient(90% 60% at 6% 0%, #FDE7D3 0%, rgba(253,231,211,0) 60%),
-            radial-gradient(80% 55% at 96% 4%, #E0F0EC 0%, rgba(224,240,236,0) 62%), ${PAPER}`,
+          gap: 32,
+          padding: 64,
+          background: PAPER,
           fontFamily: FONT_STACK,
         }}
       >
         <header style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 260 }}>
+            <span style={{ fontSize: 24, letterSpacing: 3, color: MUTED }}>{report.kind === "reading" ? "READING JOURNAL" : "WRITING JOURNAL"}</span>
+            <img src={report.kind === "reading" ? studentArtwork.keepsake : studentArtwork.writing} alt="" style={{ width: 340, height: 260, objectFit: "contain" }} />
+          </div>
           <h1
             style={{
               margin: 0,
-              fontSize: 58,
+              fontSize: 50,
               lineHeight: 1.35,
               fontWeight: 700,
               color: INK,
@@ -161,9 +144,10 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                   style={{
                     flex: "1 1 200px",
                     minWidth: 200,
-                    borderRadius: 28,
-                    background: bg,
-                    padding: "30px 34px",
+                    borderRadius: report.kind === "reading" ? 0 : 28,
+                    background: report.kind === "reading" ? "transparent" : bg,
+                    padding: report.kind === "reading" ? "24px 0" : "30px 34px",
+                    borderTop: report.kind === "reading" ? "1px solid var(--mk-border)" : undefined,
                     display: "flex",
                     flexDirection: "column",
                     gap: 8,
@@ -195,13 +179,19 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           </div>
         )}
 
+        {report.kind === "reading" && report.keep && <section style={{ padding: "30px 0", borderTop: "1px solid var(--mk-border)" }}>
+          <p style={{ fontSize: 22, color: MUTED, margin: "0 0 18px" }}>{report.keep.label}</p>
+          <p style={{ fontSize: 38, lineHeight: 1.65, color: INK, margin: 0 }}>{report.keep.text}</p>
+          <p style={{ fontSize: 20, color: MUTED, margin: "18px 0 0" }}>{report.keep.source === "student" ? report.studentName : "印记根据这次阅读整理"}</p>
+        </section>}
+
         {moments.length > 0 && (
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               gap: 26,
-              flex: 1,
+              flex: report.kind === "reading" ? "none" : 1,
               minHeight: 0,
             }}
           >
@@ -212,11 +202,12 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                   key={`${m.where}-${i}`}
                   style={{
                     margin: 0,
-                    flex: 1,
+                    flex: report.kind === "reading" ? "none" : 1,
                     minHeight: 0,
-                    borderRadius: 28,
-                    background: bg,
-                    padding: "34px 42px",
+                    borderRadius: report.kind === "reading" ? 0 : 28,
+                    background: report.kind === "reading" ? "transparent" : bg,
+                    padding: report.kind === "reading" ? "34px 0" : "34px 42px",
+                    borderTop: report.kind === "reading" ? "1px solid var(--mk-border)" : undefined,
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",

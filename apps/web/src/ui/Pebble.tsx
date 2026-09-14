@@ -1,3 +1,4 @@
+import { useCompanionImage } from "./CompanionAppearance";
 /**
  * 豆豆 Pebble — the AI role's character (design-system foundation, spec §14).
  *
@@ -31,6 +32,8 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 export function Pebble({ state = "idle", size = 28 }: PebbleProps) {
+  const image = useCompanionImage();
+  if (image) return <img src={image} alt="" aria-hidden="true" className={`mk-companion mk-companion--${state}`} width={size} height={size} style={{ width: size, height: size, objectFit: "contain", flexShrink: 0 }} />;
   const compact = size <= 28;
   const rx = compact ? 2.1 : 1.9;
   const ry = compact ? 2.7 : 2.5;

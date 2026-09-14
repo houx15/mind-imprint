@@ -1,3 +1,5 @@
+import { SelectionTray } from "../board/SelectionTray";
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Icon } from "@/ui";
@@ -341,9 +343,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           }}
         >
           {state.nodes.length === 0 && (
-            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-              还没有结构。印记给出提纲后，会在这里让你审核。
-            </p>
+            <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>结构待生成。印记给出提纲后，可在这里调整与审核。</p></div>
           )}
 
           {/* 连线。画在节点下面。 */}
@@ -380,6 +380,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                 key={n.id}
                 ref={measure}
                 data-node-id={n.id}
+                data-ready-to-place={Boolean(holding) || undefined}
                 onPointerDown={(e) => {
                   // 手上拿着一条材料时，点一块就是放进去——这一下比拖更稳，
                   // 尤其在这么小的画布上。
@@ -456,7 +457,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           <p className="mt-0.5 text-mk-small text-mk-muted">
             {holding
               ? "请点结构里的一块，把它放进去。"
-              : "请点一条材料，再点它该属于的那一块。剩下的就是这个结构没盖到的地方。"}
+              : "请选择一条材料，再选择对应的提纲节点。未归类的材料会保留在材料区。"}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {notes
@@ -469,7 +470,8 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                     key={n.id}
                     type="button"
                     onClick={() => setHolding(on ? null : n.id)}
-                    className="max-w-[220px] truncate rounded-mk-md px-2 py-1 text-mk-small"
+                    aria-pressed={on}
+                    className="student-material-choice rounded-mk-md px-3 py-2 text-mk-small"
                     style={{
                       background: `color-mix(in srgb, ${meta.hue} ${on ? 30 : 14}%, var(--mk-surface))`,
                       outline: on ? `2px solid ${meta.hue}` : undefined,
@@ -487,22 +489,26 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           </div>
         </div>
       )}
-      <p className="hidden">
-      </p>
+      {holding && <SelectionTray title="放入结构" items={notes.filter(n => n.id === holding)} onRemove={() => setHolding(null)}>
+        <div className="student-structure-targets">
+          {ordered.map(node => <button type="button" key={node.id} className="student-tool-action" onClick={() => void place(holding, node.id)}>放入「{node.title}」 →</button>)}
+          {!ordered.length && <p className="text-mk-small text-mk-muted">请先添加提纲节点。</p>}
+        </div>
+      </SelectionTray>}
 
       <div className="mt-2 flex items-end gap-2">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder={picked ? "在选中的那一块下面加一块" : "加一块"}
+          placeholder={picked ? "添加子节点" : "添加提纲节点"}
           className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
         <button
           type="button"
           onClick={() => void add()}
           disabled={!draft.trim()}
-          aria-label="加一块"
+          aria-label="添加提纲节点"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >

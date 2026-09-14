@@ -88,7 +88,7 @@ describe("signing in", () => {
     stubSignedIn("lite");
     render(<LiteApp />);
     await waitFor(() => expect(screen.getByLabelText("主导航")).toBeTruthy());
-    expect(screen.getByRole("tab", { name: /阅读/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "阅读" })).toBeTruthy();
   });
 });
 
@@ -142,7 +142,7 @@ describe("settings", () => {
 
     await waitFor(() => expect(screen.getByLabelText("主导航")).toBeTruthy());
     // Pro's real SettingsView, showing this student — not a lite copy of it.
-    await waitFor(() => expect(screen.getByText("小雨")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("小雨").length).toBeGreaterThan(0));
     // School and class arrive joined into one label ("启明中学 · 初二 3 班"),
     // so match the substring rather than the whole node.
     expect(screen.getByText(/启明中学/)).toBeTruthy();

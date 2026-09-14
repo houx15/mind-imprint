@@ -1,3 +1,4 @@
+import { LandingHeader } from "../learning/LandingHeader";
 import { useEffect, useMemo, useState } from "react";
 import { Library, ArrowRight, FileUp, Paperclip } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
@@ -12,18 +13,9 @@ import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
 
 /**
- * WritingsLanding — 写作 tab's front door. Same skeleton as ReadingsLanding
- * (Task 16), built fresh rather than imported: `Greeting`/`PaperBloom`/
- * `RecommendationTile` there are module-private (unexported), and the two
- * pages differ in the one place that matters — reading's box takes an
- * article (title + long body + upload), writing's box takes ONE sentence
- * that becomes both the title and the first turn of the conversation
- * (`createWriting`'s `idea`, writings.go). Forcing the reading form onto a
- * one-line "just start typing" box would be the second-worse choice the
- * brief warns about, so this is a deliberate second component that reuses
- * only what actually generalises: the `@/ui` primitives, the `.lite-glow`/
- * `.lite-ink-ring` CSS (index.css, shared across both landings), and the
- * exact page shape (notice bar → greeting → box → shelf → drawer).
+ * WritingsLanding — Lite writing entry. Presentation uses LandingHeader and
+ * the scoped entry-page palette. Writing creation, imports and history retain
+ * their existing API and navigation behavior.
  *
  * ONE BOX, NOT A FORM: there is no separate title field. Typing a sentence
  * and pressing 开始写作 (or Enter) starts the writing immediately — the
@@ -31,8 +23,6 @@ import { AssignmentStrip } from "../inbox/AssignmentStrip";
  * first atom_message), so nothing else needs to be filled in first.
  *
  * NOTE for the next task (verbatim, load-bearing e2e strings):
- *   - greeting: 「Hi，今天想写点什么」 (写 is its own <span> for the ink ring;
- *     match by the container's textContent, not a single text node)
  *   - box placeholder: 「说说你想写点什么，直接开始」
  *   - submit button label: 「开始写作」
  *   - history entry label: 「我的写作」
@@ -165,8 +155,8 @@ export function WritingsLanding() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden">
-      <div className="relative mx-auto flex w-full max-w-[760px] flex-col px-4 pb-20 pt-5 sm:px-6">
+    <div className="learning-landing relative min-h-full overflow-hidden">
+      <div className="learning-landing-measure relative mx-auto flex w-full flex-col">
         <div className="flex justify-end">
           <button
             type="button"
@@ -186,11 +176,11 @@ export function WritingsLanding() {
           </button>
         </div>
 
-        {/* Same slot as ReadingsLanding, now wired: teacher-assigned writings
-            sit ABOVE the unfinished line, and `AssignmentStrip` renders
-            nothing when none is assigned and still open. */}
-        <AssignmentStrip kind="writing" className="mt-6" />
-        <div className="flex min-h-[34px] justify-center pt-6">
+        {/* Same slot as ReadingsLanding: teacher-assigned writings sit ABOVE
+            the unfinished line, and `AssignmentStrip` renders nothing when
+            none is assigned and still open. */}
+        <AssignmentStrip kind="writing" className="learning-landing-notices" />
+        <div className="learning-landing-notices flex justify-start">
           {unfinishedCount > 0 && (
             <button
               type="button"
@@ -211,9 +201,9 @@ export function WritingsLanding() {
           )}
         </div>
 
-        <Greeting />
+        <LandingHeader kind="writing" title="写作" description="整理想法、组织论证，也可以带来已有文章寻求建议。" />
 
-        <div className="lite-glow mt-9">
+        <div className="learning-composer">
           <div className="flex flex-col gap-2 rounded-mk-lg border border-mk-border bg-mk-surface p-1.5 shadow-mk-sm">
             <textarea
               value={idea}
@@ -364,45 +354,6 @@ export function WritingsLanding() {
 }
 
 // ---------------------------------------------------------------------------
-
-/** 「Hi，今天想写点什么」 — same ink-circle language as ReadingsLanding's
- *  Greeting, a fresh mark around 写 rather than an import (module-private
- *  there, and the two shapes are different words on different geometry). */
-function Greeting() {
-  return (
-    <h1 className="mt-6 text-center text-[24px] font-normal leading-[1.3] tracking-tight text-mk-ink sm:text-[34px] lg:text-[40px]">
-      Hi，今天想
-      <InkCircledXie />
-      点什么
-    </h1>
-  );
-}
-
-function InkCircledXie() {
-  return (
-    <span className="relative inline-block px-[0.3em] align-baseline">
-      <span className="relative z-10 font-semibold">写</span>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 148 118"
-        fill="none"
-        className="pointer-events-none absolute left-1/2 top-[44%] z-0 h-[1.98em] w-[2.34em] -translate-x-1/2 -translate-y-1/2"
-        style={{ overflow: "visible" }}
-      >
-        <path
-          className="lite-ink-ring"
-          pathLength={1}
-          d="M30 84 C8 68, 8 34, 38 18 C68 2, 120 8, 134 34 C146 56, 128 88, 94 96 C66 103, 34 98, 22 82 C16 74, 20 96, 32 120"
-          stroke="var(--mk-accent-500)"
-          strokeWidth={4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.88}
-        />
-      </svg>
-    </span>
-  );
-}
 
 function Hairline() {
   return <span aria-hidden="true" className="h-px w-14 bg-mk-border" />;

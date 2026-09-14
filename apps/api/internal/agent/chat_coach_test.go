@@ -45,7 +45,7 @@ func TestBuildChatContextIncludesCompletedCardSummary(t *testing.T) {
 	want.WriteString("- 你：你为什么这么想？\n")
 	want.WriteString("\n此对话中已有的材料：" + threadSummary + "\n")
 	want.WriteString("\n刚刚发生的思考时机：" + flag + "\n")
-	want.WriteString("\n现在，用一句话回应学生最新的发言。")
+	want.WriteString("\n现在，简明回应学生最新的发言；需要解释时可用两三句，最多一个问题，允许不提问。")
 
 	if got := BuildChatContext(history, threadSummary, "", flag); got != want.String() {
 		t.Fatalf("cardSummary==\"\" must render byte-identical to the pre-Task-6 output:\nwant:\n%s\ngot:\n%s", want.String(), got)

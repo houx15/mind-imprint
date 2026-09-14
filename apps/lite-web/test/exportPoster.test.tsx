@@ -1,5 +1,5 @@
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { ReportPoster } from "@lite/reports/ReportPoster";
 import { exportPoster } from "@lite/reports/exportPoster";
 import { ReportPanel } from "@lite/reports/ReportPanel";
@@ -33,6 +33,14 @@ import type { LiteReport } from "@lite/api/reports";
  * silently) or a `finally` that leaks a container would surface here,
  * before Task 14's e2e.
  */
+
+// jsdom has no image decoder; actual pixels are checked in the browser export.
+const originalDecode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "decode");
+beforeAll(() => { Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn().mockResolvedValue(undefined) }); });
+afterAll(() => {
+  if (originalDecode) Object.defineProperty(HTMLImageElement.prototype, "decode", originalDecode);
+  else Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
+});
 
 const toPng = vi.fn();
 vi.mock("html-to-image", () => ({
@@ -364,6 +372,7 @@ describe("ReportPanel → 导出图片", () => {
       // detail.
       fireEvent.click(button);
 
+      await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
       resolveToPng("data:image/png;base64,stub");
       await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
       await screen.findByRole("button", { name: /^导出图片/ });

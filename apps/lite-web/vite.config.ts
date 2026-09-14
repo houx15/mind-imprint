@@ -10,6 +10,12 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
+      // Resolve workspace sources from this checkout, including isolated
+      // worktrees that reuse an installed node_modules directory.
+      ...["contracts", "course-contract", "course-runtime", "course-renderer"].map((name) => ({
+        find: new RegExp(`^@mind-imprint/${name}$`),
+        replacement: path.resolve(__dirname, `../../packages/${name}/src/index.ts`),
+      })),
       // 房间组件从 apps/web 源码引入，它们内部用 "@/…" 自引用 —— 这个别名必须
       // 解析到 web 的 src，否则一进阅读室就是一片解析失败。
       { find: /^@\//, replacement: webSrc + "/" },

@@ -1,0 +1,18 @@
+{
+  "source_files_scanned": 1176,
+  "chinese_source_lines": 19137,
+  "prompt_literal_candidates": 82,
+  "risk_literal_candidates": 100,
+  "by_surface": {
+    "apps/web": 252,
+    "apps/site-v2": 46,
+    "apps/peraspera": 58,
+    "apps/site": 64,
+    "apps/api": 441,
+    "apps/lite-web": 160,
+    "packages/course-renderer": 36,
+    "packages/course-contract": 20,
+    "packages/contracts": 90,
+    "packages/course-runtime": 9
+  }
+}

@@ -110,7 +110,7 @@ export function CourseDetail({ slug, onStart, onBack, onOpenCourse }: { slug: st
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "40px 40px 64px" }}>
+      <div className="course-detail-measure" style={{ maxWidth: 780, margin: "0 auto", padding: "40px 40px 64px" }}>
         <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "var(--mk-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← 返回课程</button>
         <div style={{ fontSize: 12, color: "var(--mk-muted)", fontWeight: 600, marginTop: 20 }}>{course.branch} · {course.step_count} 个任务 · {course.card_ids.length} 个工具 · {course.time_label}</div>
         <h1 style={{ fontSize: 30, fontWeight: 800, color: "var(--mk-ink)", lineHeight: 1.35, marginTop: 8, letterSpacing: "-0.01em" }}>{course.title}</h1>

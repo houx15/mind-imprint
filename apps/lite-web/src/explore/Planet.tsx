@@ -74,11 +74,11 @@ export function Planet({
   const meta = fieldById(item.field as FieldId);
   // 一个标记，按强度取一个：读完了 > 在阅读室 > 只是打开看过。
   const mark = finished
-    ? { label: "已读完", color: "#8FCFC1" }
+    ? { label: "已读完", color: "var(--mk-explore-accent)" }
     : kept
-      ? { label: "在阅读室", color: "#E4C36A" }
+      ? { label: "在阅读室", color: "var(--mk-explore-accent)" }
       : discovered
-        ? { label: "已浏览", color: "#9A8E80" }
+        ? { label: "已浏览", color: "var(--mk-explore-muted)" }
         : null;
   const showHook = hover && !dimmed;
   // The headline has to survive a 150px bubble on a short window as well as a
@@ -107,7 +107,7 @@ export function Planet({
         onFocus={enter}
         onBlur={leave}
         className="exp-planet group relative block cursor-pointer focus-visible:outline-none"
-        style={{ width: slot.size, height: slot.size }}
+        style={{ width: slot.size, height: slot.size, ["--planet-hue" as string]: meta.hue }}
         aria-label={`${item.titleZh} — ${meta.label}${discovered ? "，已浏览" : ""}`}
       >
         {/* the bubble */}
@@ -139,7 +139,7 @@ export function Planet({
         >
           <span
             className="exp-mono mb-1 flex items-center gap-1.5"
-            style={{ color: `color-mix(in srgb, ${meta.hue} 58%, #FFFFFF)` }}
+            style={{ color: `color-mix(in srgb, ${meta.hue} 45%, var(--mk-explore-ink))` }}
           >
             {lang === "zh" ? meta.label : meta.en}
           </span>
@@ -149,8 +149,8 @@ export function Planet({
               fontSize: titleSize,
               lineHeight: 1.45,
               fontWeight: discovered ? 700 : 600,
-              color: discovered ? "#FBF7F1" : "#D9CEC1",
-              textShadow: "0 1px 10px rgba(10,8,6,.8)",
+              color: "var(--mk-explore-ink)",
+              textShadow: "none",
               display: "-webkit-box",
               WebkitLineClamp: 4,
               WebkitBoxOrient: "vertical",
@@ -173,7 +173,7 @@ export function Planet({
         {mark ? (
           <span
             className="exp-mono absolute bottom-[6%] left-1/2 -translate-x-1/2 rounded-mk-full px-2 py-0.5"
-            style={{ background: "rgba(23,19,15,.62)", color: mark.color, letterSpacing: 0 }}
+            style={{ background: "var(--mk-explore-surface)", color: mark.color, letterSpacing: 0 }}
           >
             {mark.label}
           </span>
@@ -186,23 +186,23 @@ export function Planet({
             className="exp-in pointer-events-none absolute left-1/2 z-30 w-[300px] -translate-x-1/2 rounded-mk-lg p-4 text-left"
             style={{
               bottom: "calc(100% + 12px)",
-              background: "rgba(28,23,19,.95)",
-              border: "1px solid rgba(240,233,224,.18)",
-              boxShadow: "0 26px 60px rgba(0,0,0,.5)",
+              background: "var(--mk-explore-surface)",
+              border: "1px solid var(--mk-explore-line)",
+              boxShadow: "var(--mk-shadow-md)",
               backdropFilter: "blur(12px)",
             }}
           >
-            <span className="exp-mono block" style={{ color: "#8E8175" }}>
+            <span className="exp-mono block" style={{ color: "var(--mk-explore-muted)" }}>
               它想问你
             </span>
             <span
               className="mt-1.5 block text-mk-body-lg font-semibold leading-[1.6]"
-              style={{ color: "#F5EFE7" }}
+              style={{ color: "var(--mk-explore-ink)" }}
             >
               {item.hook}
             </span>
             {item.discipline ? (
-              <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "#9A8E80" }}>
+              <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "var(--mk-explore-muted)" }}>
                 {item.discipline.zh} · {item.discipline.asks}
               </span>
             ) : null}

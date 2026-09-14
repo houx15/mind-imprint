@@ -1,3 +1,4 @@
+import { GuestTheme } from "../learning/GuestTheme";
 import { useEffect, useState } from "react";
 import { getPublicReport, PublicReportNotFoundError, type LiteReport } from "@lite/api/reports";
 import { useAlive } from "@lite/shared/useAlive";
@@ -41,6 +42,10 @@ import { liteRoutePath, navigate, parseLiteRoute } from "@lite/routing";
  * response never lands anywhere.
  */
 export function PublicReportPage({ token, view }: { token: string; view: "article" | "record" }) {
+  return <GuestTheme><PublicReportContent token={token} view={view} /></GuestTheme>;
+}
+
+function PublicReportContent({ token, view }: { token: string; view: "article" | "record" }) {
   const [state, setState] = useState<"loading" | "done" | "not_found" | "failed">("loading");
   const [report, setReport] = useState<LiteReport | null>(null);
   const alive = useAlive();

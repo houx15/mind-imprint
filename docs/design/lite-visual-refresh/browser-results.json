@@ -1,0 +1,15 @@
+{
+  "overflow": false,
+  "writes": [
+    {
+      "path": "/api/v1/users/me/accent",
+      "body": "{\"accent\":\"indigo\"}"
+    },
+    {
+      "path": "/api/v1/users/me/accent",
+      "body": "{\"accent\":\"teal\"}"
+    }
+  ],
+  "errors": [],
+  "fixtureOnly": true
+}

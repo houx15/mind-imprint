@@ -23,6 +23,7 @@ import { toPng } from "html-to-image";
 export async function exportPoster(node: HTMLElement | null, filename: string): Promise<void> {
   if (!node) return;
   try {
+    await Promise.all(Array.from(node.querySelectorAll("img"), image => image.decode()));
     const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true });
     const a = document.createElement("a");
     a.href = dataUrl;

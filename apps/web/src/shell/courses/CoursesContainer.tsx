@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CoursesView } from "./CoursesView";
 import { CoursePlayer } from "./CoursePlayer";
 import { RuntimeCoursePlayer } from "./RuntimeCoursePlayer";
@@ -88,7 +88,7 @@ function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; stu
   return <CoursePlayer courseId={slug} onExit={onExit} onFinish={onFinish} />;
 }
 
-export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, studentId, onImmersiveChange, onActiveCourseChange, closeSignal, onCloseSignalConsumed }: { onGoPortal?: () => void; initialOpen?: CourseOpenTarget | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void;
+export function CoursesContainer({ catalogHeader, onGoPortal, initialOpen, onCourseConsumed, studentId, onImmersiveChange, onActiveCourseChange, closeSignal, onCloseSignalConsumed }: { catalogHeader?: ReactNode; onGoPortal?: () => void; initialOpen?: CourseOpenTarget | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void;
   /** Fired with the OPEN course's slug (detail / player / report), or null on
    * the grid — the shell mirrors it into the URL (`/courses/:slug`) so refresh,
    * copy-link, and Back/Forward land on the same course. Independent of
@@ -153,10 +153,28 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
   // above, this fires for DETAIL too (a browse page that still deserves a
   // `/courses/:slug` address). The grid reports null.
   const activeSlug = view.name === "grid" ? null : view.courseId;
+  const activeCourseCallback = useRef(onActiveCourseChange);
   useEffect(() => {
-    onActiveCourseChange?.(activeSlug);
-    return () => onActiveCourseChange?.(null);
-  }, [activeSlug, onActiveCourseChange]);
+    activeCourseCallback.current = onActiveCourseChange;
+  }, [onActiveCourseChange]);
+  useEffect(() => {
+    activeCourseCallback.current?.(activeSlug);
+  }, [activeSlug]);
+  // A new host callback is not a navigation event. In particular, reporting
+  // null during each callback cleanup sends Lite back to the catalog while
+  // its player is loading. Only clear the host when this container unmounts.
+  const courseHostMounted = useRef(false);
+  useEffect(() => {
+    courseHostMounted.current = true;
+    return () => {
+      courseHostMounted.current = false;
+      // StrictMode replays effects on mount. Wait for that replay before
+      // announcing an actual departure to a host that also updates the URL.
+      queueMicrotask(() => {
+        if (!courseHostMounted.current) activeCourseCallback.current?.(null);
+      });
+    };
+  }, []);
 
   // `closeSignal` deep-link: the shell bumps this nonce to return to the grid
   // (browser Back from `/courses/:slug` to `/courses`). Ref-guarded "only on
@@ -222,6 +240,7 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
   }
   return (
     <CoursesView
+      header={catalogHeader}
       onOpenCourse={(id) => setView({ name: "detail", courseId: id })}
       onRestartCourse={(id) => void restartAndPlay(id)}
     />

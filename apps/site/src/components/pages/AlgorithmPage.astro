@@ -82,7 +82,7 @@ const decoupled: [string, string, string, string, string, string][] = [
   ["决定", "Decide", "服务端", "server-side", "这一刻该不该把思考还回去，该还哪一张卡。整条克制阶梯都在服务端，前端改不动。", "Whether the thinking should go back to her this turn, and which card to send. The whole restraint ladder lives server-side, out of the client's reach."],
   ["递出", "Hand over", "summon_card", "summon_card", "决策与卡之间只有一个函数：summon_card(卡, 理由, 一句提示)。触发是自动的，打开由学生确认。", "One function connects the decision to the card: summon_card(card, reason, nudge). The trigger is automatic; opening it is her call."],
   ["执行", "Execute", "由学生完成", "by the student", "卡在她手上展开，她自己填。AI 不代填一个字段——这一步的执行者是人。", "The card opens in her hands and she fills it in. The AI completes not one field: the executor of this step is a person."],
-  ["回灌", "Feed back", "过程树 + 评估", "tree + assessment", "她填完的内容回到对话里继续被追问，同时长成过程树，成为评估那一刀的地基。", "What she wrote returns to the conversation to be questioned further, grows the process tree, and becomes the floor the assessment stands on."],
+  ["回灌", "Feed back", "过程树 + 评估", "tree + assessment", "学生提交的工具卡内容会用于后续对话，并记录在过程树中，作为过程评估的依据。", "Completed thinking cards inform the next conversation and are recorded in the process tree as evidence for assessment."],
 ];
 
 /* stage-by-stage: what the AI may and may not do */

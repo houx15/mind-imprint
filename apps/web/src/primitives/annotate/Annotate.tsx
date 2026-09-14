@@ -275,6 +275,7 @@ export function Annotate({
                 data-n={blockIndex + 1}
                 data-heading={heading ? "" : undefined}
                 data-core={core ? "" : undefined}
+                data-referenced={referenced ? "" : undefined}
                 role={heading ? "heading" : undefined}
                 aria-level={heading ? 2 : undefined}
                 onClick={

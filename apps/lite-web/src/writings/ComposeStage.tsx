@@ -8,6 +8,7 @@ import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
 import { registerPendingSave } from "./pendingSaves";
 import { NamePieceModal } from "./NamePieceModal";
+import { studentArtwork } from "../learning/StudentArtwork";
 import {
   composeWritingDraft,
   putWritingDraft,
@@ -581,7 +582,11 @@ function SnippetRail({
         </p>
       )}
       {written.length === 0 ? (
-        <p className="text-mk-body text-mk-muted">「段落」那一步还没有写好的段。写了以后会出现在这里，方便你对着改。</p>
+        <div className="py-5 text-center">
+          <img src={studentArtwork.writing} alt="" className="mx-auto mb-4 h-28 w-40 object-contain" />
+          <p className="text-mk-body text-mk-secondary">暂无段落原文</p>
+          <p className="mt-2 text-mk-small leading-relaxed text-mk-muted">在「段落」阶段写下的内容会显示在这里，供成稿时对照。</p>
+        </div>
       ) : (
         <ul className="flex list-none flex-col gap-3">
           {written.map((s) => (
