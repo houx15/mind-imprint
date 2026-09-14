@@ -38,7 +38,7 @@ type StudentWeek struct {
 	AssignmentsLate    int // due in week, done late
 	AssignmentsOverdue int // due in week, unfinished at week end
 
-	Stalled []Item // unfinished, last activity > 7 days before week end
+	Stalled []Item // unfinished at week end, no activity in the week's last 7 days
 
 	NewKeywords []string
 	Moments     []Moment
@@ -82,9 +82,9 @@ func Cards(s StudentWeek) (watch *Card, praise *Card) {
 	case len(s.Stalled) >= 1:
 		var evidence string
 		if len(s.Stalled) > 1 {
-			evidence = fmt.Sprintf("「%s」等 %d 项超过 7 天没有进展。", s.Stalled[0].Title, len(s.Stalled))
+			evidence = fmt.Sprintf("《%s》等 %d 项超过 7 天没有进展。", s.Stalled[0].Title, len(s.Stalled))
 		} else {
-			evidence = fmt.Sprintf("「%s」超过 7 天没有进展。", s.Stalled[0].Title)
+			evidence = fmt.Sprintf("《%s》超过 7 天没有进展。", s.Stalled[0].Title)
 		}
 		watch = &Card{
 			Kind:     "watch",

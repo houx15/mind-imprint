@@ -6,8 +6,9 @@
 --   reading / writing：status = 'finished'，完成时间取 finished_at；
 --   project：pbl_project.finished_at（第一次进入回顾或保留时写入）。
 --
--- 标题：老师布置的项目（assigned = true）的 idea 是老师的驱动问题，不作标题兜底。
--- 布置的写作题目在 writing.assigned_prompt，这里从不读它当作她的话。
+-- 标题：她的标题 → 项目名 → 她自己开的项目的 idea → 布置这一项的作业标题 → 种类名
+-- （阅读 / 写作 / 项目），永远不是空串。老师布置的项目（assigned = true）的 idea 是老师的
+-- 驱动问题，不作标题兜底。布置的写作题目在 writing.assigned_prompt，从不当作标题或金句。
 
 -- name: ListLiteWeekClassStudents :many
 -- 当前在班的学生（班内角色与账号角色都是 student），教师与管理员不在内。
@@ -47,11 +48,17 @@ WHERE u.id = ANY(sqlc.arg(user_ids)::uuid[]);
 -- name: ListLiteWeekFinished :many
 -- 这一周内完成的阅读、写作、项目，按完成时间排序。
 SELECT a.user_id, a.kind,
-       COALESCE(r.title, w.title, NULLIF(p.name, ''), CASE WHEN p.assigned THEN NULL ELSE p.idea END, '')::text AS title
+       COALESCE(
+         NULLIF(btrim(COALESCE(r.title, w.title, NULLIF(p.name, ''), CASE WHEN p.assigned THEN NULL ELSE p.idea END, '')), ''),
+         NULLIF(btrim(la.title), ''),
+         CASE a.kind WHEN 'reading' THEN '阅读' WHEN 'writing' THEN '写作' ELSE '项目' END
+       )::text AS title
 FROM atom a
 LEFT JOIN reading r ON r.atom_id = a.id
 LEFT JOIN writing w ON w.atom_id = a.id
 LEFT JOIN pbl_project p ON p.atom_id = a.id
+LEFT JOIN lite_assignment_recipient lr ON lr.atom_id = a.id
+LEFT JOIN lite_assignment la ON la.id = lr.assignment_id
 WHERE a.user_id = ANY(sqlc.arg(user_ids)::uuid[])
   AND (
     (a.kind = 'reading' AND r.status = 'finished' AND r.finished_at >= sqlc.arg(week_start)::timestamptz AND r.finished_at < sqlc.arg(week_end)::timestamptz)
@@ -75,26 +82,45 @@ WHERE a.class_id = sqlc.arg(class_id) AND a.archived_at IS NULL
   AND a.due_at >= sqlc.arg(week_start)::timestamptz AND a.due_at < sqlc.arg(week_end)::timestamptz;
 
 -- name: ListLiteWeekStalled :many
--- 到周末仍未完成、且 7 天以上没有动过的一项。已归档的项目不算。
--- 状态是 finished 但没有 finished_at 的旧数据按「早已完成」处理；项目沿用名单的
--- review/keeping 判定兜底 finished_at 之前的旧项目。
+-- 停滞：到周末仍未完成、在周末前 7 天之前就已创建、且周末前 7 天里没有任何活动
+-- （没有秒数 > 0 的日格，也没有她发的消息）。只看周末之前的数据，不看 atom.last_activity_at，
+-- 所以周末之后她再动这一项，也不会改写那一周的事实。
+-- 「到周末已完成」：阅读 / 写作 status = 'finished' 且完成时间早于周末（没有 finished_at 的旧数据
+-- 按早已完成）；项目 finished_at 早于周末，或没有 finished_at 但处于 review/keeping（旧项目）。
+-- 已归档的项目不算停滞；归档没有时间戳，所以任何已归档的项目都排除。
+-- 整个判定包在 COALESCE(…, false) 里：进行中的项目 finished_at 为 NULL，比较结果是 NULL，
+-- 不包的话 NOT(NULL) 会把这一行丢掉。
 SELECT a.user_id, a.kind,
-       COALESCE(r.title, w.title, NULLIF(p.name, ''), CASE WHEN p.assigned THEN NULL ELSE p.idea END, '')::text AS title
+       COALESCE(
+         NULLIF(btrim(COALESCE(r.title, w.title, NULLIF(p.name, ''), CASE WHEN p.assigned THEN NULL ELSE p.idea END, '')), ''),
+         NULLIF(btrim(la.title), ''),
+         CASE a.kind WHEN 'reading' THEN '阅读' WHEN 'writing' THEN '写作' ELSE '项目' END
+       )::text AS title
 FROM atom a
 LEFT JOIN reading r ON r.atom_id = a.id
 LEFT JOIN writing w ON w.atom_id = a.id
 LEFT JOIN pbl_project p ON p.atom_id = a.id
+LEFT JOIN lite_assignment_recipient lr ON lr.atom_id = a.id
+LEFT JOIN lite_assignment la ON la.id = lr.assignment_id
 WHERE a.user_id = ANY(sqlc.arg(user_ids)::uuid[])
   AND a.kind IN ('reading','writing','project')
-  AND a.created_at < sqlc.arg(week_end)::timestamptz
-  AND a.last_activity_at < sqlc.arg(week_end)::timestamptz - interval '7 days'
-  AND NOT (
-    (a.kind = 'reading' AND r.status = 'finished' AND (r.finished_at IS NULL OR r.finished_at < sqlc.arg(week_end)::timestamptz))
-    OR (a.kind = 'writing' AND w.status = 'finished' AND (w.finished_at IS NULL OR w.finished_at < sqlc.arg(week_end)::timestamptz))
-    OR (a.kind = 'project' AND (p.status = 'archived' OR p.finished_at < sqlc.arg(week_end)::timestamptz
-                               OR (p.finished_at IS NULL AND p.status IN ('review','keeping'))))
-  )
-ORDER BY a.last_activity_at, a.id;
+  AND a.created_at < sqlc.arg(week_end)::timestamptz - interval '7 days'
+  AND NOT COALESCE(CASE a.kind
+        WHEN 'reading' THEN r.status = 'finished' AND (r.finished_at IS NULL OR r.finished_at < sqlc.arg(week_end)::timestamptz)
+        WHEN 'writing' THEN w.status = 'finished' AND (w.finished_at IS NULL OR w.finished_at < sqlc.arg(week_end)::timestamptz)
+        WHEN 'project' THEN p.status = 'archived'
+                            OR COALESCE(p.finished_at < sqlc.arg(week_end)::timestamptz, false)
+                            OR (p.finished_at IS NULL AND p.status IN ('review','keeping'))
+      END, false)
+  AND NOT EXISTS (
+    SELECT 1 FROM atom_active_day d
+    WHERE d.atom_id = a.id AND d.seconds > 0
+      AND d.day >= sqlc.arg(week_end_day)::date - 7 AND d.day < sqlc.arg(week_end_day)::date)
+  AND NOT EXISTS (
+    SELECT 1 FROM atom_message m
+    WHERE m.atom_id = a.id AND m.role = 'student'
+      AND m.created_at >= sqlc.arg(week_end)::timestamptz - interval '7 days' AND m.created_at < sqlc.arg(week_end)::timestamptz)
+ORDER BY a.created_at, a.id;
 
 -- name: ListLiteWeekNewKeywords :many
 -- 这一周第一次出现在她树上的词（interest_keyword 里的词都是她认过的）。
@@ -108,8 +134,12 @@ ORDER BY k.first_seen_at, k.id;
 -- 这一周完成的阅读 / 写作的报告里的金句（atom_report 只有这两种）。金句在生成报告时
 -- 已逐字核对过是她的原话，这里原样取出；prose_pending = true 的报告文字还没生成，Go 侧跳过。
 -- assigned_prompt 只用来在 Go 侧剔除与老师题目重合的句子，从不作为金句。
-SELECT a.user_id,
-       COALESCE(r.title, w.title, '')::text AS title,
+SELECT a.id AS atom_id, a.user_id,
+       COALESCE(
+         NULLIF(btrim(COALESCE(r.title, w.title, '')), ''),
+         NULLIF(btrim(la.title), ''),
+         CASE a.kind WHEN 'reading' THEN '阅读' ELSE '写作' END
+       )::text AS title,
        COALESCE(ar.report -> 'moments', 'null'::jsonb)::jsonb AS moments,
        COALESCE((ar.report ->> 'prosePending')::boolean, false)::boolean AS prose_pending,
        w.assigned_prompt
@@ -117,6 +147,8 @@ FROM atom_report ar
 JOIN atom a ON a.id = ar.atom_id
 LEFT JOIN reading r ON r.atom_id = a.id
 LEFT JOIN writing w ON w.atom_id = a.id
+LEFT JOIN lite_assignment_recipient lr ON lr.atom_id = a.id
+LEFT JOIN lite_assignment la ON la.id = lr.assignment_id
 WHERE a.user_id = ANY(sqlc.arg(user_ids)::uuid[])
   AND (
     (a.kind = 'reading' AND r.status = 'finished' AND r.finished_at >= sqlc.arg(week_start)::timestamptz AND r.finished_at < sqlc.arg(week_end)::timestamptz)

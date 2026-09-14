@@ -40,14 +40,14 @@ func TestMoreActiveThreshold(t *testing.T) {
 
 func TestStalledEvidenceCountsExtra(t *testing.T) {
 	w, _ := Cards(StudentWeek{ActiveDays: 2, PrevActiveDays: 2, Stalled: []Item{{"writing", "一场雨"}, {"reading", "咖啡"}}})
-	if w.Code != "stalled" || w.Evidence != "「一场雨」等 2 项超过 7 天没有进展。" {
+	if w.Code != "stalled" || w.Evidence != "《一场雨》等 2 项超过 7 天没有进展。" {
 		t.Fatalf("%+v", w)
 	}
 }
 
 func TestStalledEvidenceSingleItem(t *testing.T) {
 	w, _ := Cards(StudentWeek{ActiveDays: 2, PrevActiveDays: 2, Stalled: []Item{{"writing", "一场雨"}}})
-	if w.Code != "stalled" || w.Evidence != "「一场雨」超过 7 天没有进展。" {
+	if w.Code != "stalled" || w.Evidence != "《一场雨》超过 7 天没有进展。" {
 		t.Fatalf("%+v", w)
 	}
 }

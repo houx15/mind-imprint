@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -177,7 +178,16 @@ func TestLiteWeeklyNoTeacherTextInMoments(t *testing.T) {
 	started := startAssignment(t, h, student, aid)
 	writing := uuid.MustParse(started.AtomID)
 	mustExec(t, pool, `UPDATE writing SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, writing, inWeek)
-	seedReport(t, pool, writing, "writing", `{"moments":[{"quote":"写一篇关于雨的记叙文","where":""},{"quote":"雨把街道洗亮了","where":""}]}`)
+	// Blank title: the title falls back to the assignment title 「雨」.
+	mustExec(t, pool, `UPDATE writing SET title = '' WHERE atom_id = $1`, writing)
+	// Prompt 写一篇关于雨的记叙文 (10 runes): equal → dropped; 9-rune substring →
+	// dropped; 7-rune substring and her short 「雨」 → kept.
+	seedReport(t, pool, writing, "writing", `{"moments":[`+
+		`{"quote":"写一篇关于雨的记叙文","where":""},`+
+		`{"quote":"一篇关于雨的记叙文","where":""},`+
+		`{"quote":"关于雨的记叙文","where":""},`+
+		`{"quote":"雨","where":""},`+
+		`{"quote":"雨把街道洗亮了","where":""}]}`)
 
 	pending := seedLiteReadingForUser(t, pool, studentID, "finished", 0)
 	mustExec(t, pool, `UPDATE reading SET finished_at = $2 WHERE atom_id = $1`, pending, inWeek)
@@ -197,15 +207,167 @@ func TestLiteWeeklyNoTeacherTextInMoments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Moments) != 1 || got.Moments[0].Quote != "雨把街道洗亮了" {
-		t.Fatalf("moments = %+v", got.Moments)
+	wantMoments := []liteweekly.Moment{{Quote: "关于雨的记叙文", ItemTitle: "雨"}, {Quote: "雨", ItemTitle: "雨"}, {Quote: "雨把街道洗亮了", ItemTitle: "雨"}}
+	if !reflect.DeepEqual(got.Moments, wantMoments) {
+		t.Fatalf("moments = %+v, want %+v", got.Moments, wantMoments)
 	}
-	if len(got.Finished) != 3 {
-		t.Fatalf("finished = %+v, want 3", got.Finished)
-	}
+	titles := map[string]string{}
 	for _, it := range got.Finished {
-		if it.Title == "老师的驱动问题" {
-			t.Fatalf("assigned project idea used as title: %+v", got.Finished)
+		titles[it.Kind] = it.Title
+	}
+	// The assigned project has no name and no recipient row: kind label, never
+	// the teacher's idea and never ''.
+	want := map[string]string{"writing": "雨", "reading": "Test reading", "project": "项目"}
+	if len(got.Finished) != 3 || !reflect.DeepEqual(titles, want) {
+		t.Fatalf("finished = %+v, want titles %v", got.Finished, want)
+	}
+}
+
+func seedOldReading(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, title string, created time.Time) uuid.UUID {
+	t.Helper()
+	id := seedLiteReadingForUser(t, pool, userID, "active", 0)
+	mustExec(t, pool, `UPDATE reading SET title = $2 WHERE atom_id = $1`, id, title)
+	mustExec(t, pool, `UPDATE atom SET created_at = $2 WHERE id = $1`, id, created)
+	return id
+}
+
+func seedOldWriting(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, title string, created time.Time) uuid.UUID {
+	t.Helper()
+	id := seedLiteWritingForUser(t, pool, userID, "active")
+	mustExec(t, pool, `UPDATE writing SET title = $2 WHERE atom_id = $1`, id, title)
+	mustExec(t, pool, `UPDATE atom SET created_at = $2 WHERE id = $1`, id, created)
+	return id
+}
+
+func seedWeekProject(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, name, status string, created time.Time) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	q := sqlc.New(pool)
+	at, err := q.CreateAtom(ctx, sqlc.CreateAtomParams{Kind: "project", UserID: userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.CreatePblProject(ctx, sqlc.CreatePblProjectParams{AtomID: at.ID, Idea: "她的想法", Kind: "investigation"}); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, pool, `UPDATE pbl_project SET name = $2, status = $3 WHERE atom_id = $1`, at.ID, name, status)
+	mustExec(t, pool, `UPDATE atom SET created_at = $2 WHERE id = $1`, at.ID, created)
+	return at.ID
+}
+
+// TestLiteWeeklyStalled: stalled is decided from data before week end — an
+// item unfinished at week end, created more than 7 days before it, with no
+// positive bucket and no student message in the week's last 7 days.
+func TestLiteWeeklyStalled(t *testing.T) {
+	_, pool, _, classIDStr, studentID := liteTeacherFixture(t)
+	ctx := context.Background()
+	ws, we := weeklyWindow()
+	before := ws.AddDate(0, 0, -3)
+
+	seedWeekProject(t, pool, studentID, "进行中的项目", "running", before)  // stalled
+	seedWeekProject(t, pool, studentID, "已归档的项目", "archived", before) // excluded
+	late := seedWeekProject(t, pool, studentID, "周末后完成的项目", "keeping", before)
+	mustExec(t, pool, `UPDATE pbl_project SET finished_at = $2 WHERE atom_id = $1`, late, we.Add(time.Hour)) // stalled
+	done := seedWeekProject(t, pool, studentID, "周中完成的项目", "keeping", before)
+	mustExec(t, pool, `UPDATE pbl_project SET finished_at = $2 WHERE atom_id = $1`, done, ws.AddDate(0, 0, 1)) // excluded
+
+	seedOldReading(t, pool, studentID, "周末后创建", we.Add(time.Hour))  // excluded
+	seedOldReading(t, pool, studentID, "本周创建", ws.AddDate(0, 0, 1)) // excluded
+	readLate := seedOldReading(t, pool, studentID, "周末后读完", before)
+	mustExec(t, pool, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, readLate, we.Add(2*time.Hour)) // stalled
+
+	after := seedOldWriting(t, pool, studentID, "周末后才动", before) // stalled
+	seedBucket(t, pool, after, we, 600)
+	seedAtomMessageAt(t, pool, after, we.Add(time.Hour))
+	mustExec(t, pool, `UPDATE atom SET last_activity_at = now() WHERE id = $1`, after)
+
+	msg := seedOldWriting(t, pool, studentID, "本周有消息", before) // excluded
+	seedAtomMessageAt(t, pool, msg, we.Add(-time.Second))
+	bucket := seedOldWriting(t, pool, studentID, "本周有时长", before) // excluded
+	seedBucket(t, pool, bucket, ws.AddDate(0, 0, 6), 60)
+	zero := seedOldWriting(t, pool, studentID, "零秒日格", before) // stalled
+	seedBucket(t, pool, zero, ws.AddDate(0, 0, 2), 0)
+
+	got, err := New(DepsForTest(pool)).LoadLiteStudentWeekForTest(ctx, uuid.MustParse(classIDStr), studentID, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotTitles := map[string]string{}
+	for _, it := range got.Stalled {
+		gotTitles[it.Title] = it.Kind
+	}
+	want := map[string]string{
+		"进行中的项目": "project", "周末后完成的项目": "project",
+		"周末后读完": "reading", "周末后才动": "writing", "零秒日格": "writing",
+	}
+	if len(got.Stalled) != len(want) || !reflect.DeepEqual(gotTitles, want) {
+		t.Fatalf("stalled = %+v, want %v", got.Stalled, want)
+	}
+}
+
+// TestLiteWeeklyFinishedBoundaryAndOddReports: finished exactly at week start
+// is in, exactly at week end is out; a report with null or missing moments
+// gives no moments; an unreadable moments value is skipped without failing.
+func TestLiteWeeklyFinishedBoundaryAndOddReports(t *testing.T) {
+	_, pool, _, classIDStr, studentID := liteTeacherFixture(t)
+	ctx := context.Background()
+	ws, we := weeklyWindow()
+
+	finishReading := func(title string, at time.Time, report string) {
+		t.Helper()
+		id := seedOldReading(t, pool, studentID, title, ws)
+		mustExec(t, pool, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, id, at)
+		seedReport(t, pool, id, "reading", report)
+	}
+	finishReading("周一零点", ws, `{"moments":null}`)
+	finishReading("下周一零点", we, `{"moments":[{"quote":"不该出现","where":""}]}`)
+	finishReading("坏报告", ws.AddDate(0, 0, 2), `{"moments":"oops"}`)
+	w := seedOldWriting(t, pool, studentID, "没有金句", ws)
+	mustExec(t, pool, `UPDATE writing SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, w, ws.AddDate(0, 0, 1))
+	seedReport(t, pool, w, "writing", `{"version":1}`)
+
+	got, err := New(DepsForTest(pool)).LoadLiteStudentWeekForTest(ctx, uuid.MustParse(classIDStr), studentID, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []liteweekly.Item{{Kind: "reading", Title: "周一零点"}, {Kind: "writing", Title: "没有金句"}, {Kind: "reading", Title: "坏报告"}}
+	if !reflect.DeepEqual(got.Finished, want) {
+		t.Fatalf("finished = %+v, want %+v", got.Finished, want)
+	}
+	if len(got.Moments) != 0 {
+		t.Fatalf("moments = %+v, want none", got.Moments)
+	}
+}
+
+// TestLiteWeeklyTwoStudentsNoCrossover: batched rows are grouped by user id.
+func TestLiteWeeklyTwoStudentsNoCrossover(t *testing.T) {
+	_, pool, _, classIDStr, first := liteTeacherFixture(t)
+	ctx := context.Background()
+	ws, _ := weeklyWindow()
+	second := createStudent(t, pool, SeedSchoolID, "lw-second@demo.local")
+	enrollStudent(t, pool, second, classIDStr)
+
+	prefix := map[uuid.UUID]string{first: "甲", second: "乙"}
+	for id, p := range prefix {
+		r := seedOldReading(t, pool, id, p+"读完", ws)
+		mustExec(t, pool, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, r, ws.AddDate(0, 0, 3))
+		seedReport(t, pool, r, "reading", `{"moments":[{"quote":"`+p+`的句子","where":""}]}`)
+		seedOldWriting(t, pool, id, p+"停滞", ws.AddDate(0, 0, -3))
+	}
+
+	weeks, err := New(DepsForTest(pool)).LoadLiteClassWeekForTest(ctx, uuid.MustParse(classIDStr), ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(weeks) != 2 {
+		t.Fatalf("weeks = %+v", weeks)
+	}
+	for _, s := range weeks {
+		p := prefix[uuid.MustParse(s.UserID)]
+		if !reflect.DeepEqual(s.Finished, []liteweekly.Item{{Kind: "reading", Title: p + "读完"}}) ||
+			!reflect.DeepEqual(s.Stalled, []liteweekly.Item{{Kind: "writing", Title: p + "停滞"}}) ||
+			!reflect.DeepEqual(s.Moments, []liteweekly.Moment{{Quote: p + "的句子", ItemTitle: p + "读完"}}) {
+			t.Fatalf("student %s = %+v", p, s)
 		}
 	}
 }

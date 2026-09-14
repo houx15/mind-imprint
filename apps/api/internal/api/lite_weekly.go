@@ -3,9 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -128,7 +129,7 @@ func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sq
 		}
 	}
 
-	stalled, err := q.ListLiteWeekStalled(ctx, sqlc.ListLiteWeekStalledParams{UserIds: ids, WeekEnd: we})
+	stalled, err := q.ListLiteWeekStalled(ctx, sqlc.ListLiteWeekStalledParams{UserIds: ids, WeekEnd: we, WeekEndDay: pgDate(we)})
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +160,9 @@ func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sq
 		}
 		ms, err := weekMoments(r.Moments, r.AssignedPrompt)
 		if err != nil {
-			return nil, fmt.Errorf("lite weekly: report moments for %s: %w", r.UserID, err)
+			// One unreadable stored report must not hide the whole class's week.
+			slog.Warn("lite weekly: unreadable report moments, skipped", "err", err, "atom_id", r.AtomID)
+			continue
 		}
 		for _, quote := range ms {
 			s.Moments = append(s.Moments, liteweekly.Moment{Quote: quote, ItemTitle: r.Title})
@@ -168,14 +171,24 @@ func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sq
 	return out, nil
 }
 
+// minPromptOverlapRunes is the shortest quote that is dropped for being part of
+// the teacher's assigned prompt. Shorter quotes (「雨」) are too likely to be her
+// own words that happen to share a word with the prompt.
+const minPromptOverlapRunes = 8
+
 // weekMoments reads a report's stored moments. The quotes were checked against
-// her own words when the report was built, so they are taken as-is; an empty
-// quote is skipped, and so is any quote that is part of the teacher's assigned
-// prompt, which is never her words.
+// her own words when the report was built, so they are taken as-is. An empty
+// quote is skipped. A quote is treated as the teacher's words and skipped when
+// it equals the assigned prompt, or when it is at least minPromptOverlapRunes
+// long and part of the prompt.
 func weekMoments(raw []byte, assignedPrompt *string) ([]string, error) {
 	var ms []reportMoment
 	if err := json.Unmarshal(raw, &ms); err != nil {
 		return nil, err
+	}
+	prompt := ""
+	if assignedPrompt != nil {
+		prompt = strings.TrimSpace(*assignedPrompt)
 	}
 	out := make([]string, 0, len(ms))
 	for _, m := range ms {
@@ -183,7 +196,7 @@ func weekMoments(raw []byte, assignedPrompt *string) ([]string, error) {
 		if q == "" {
 			continue
 		}
-		if assignedPrompt != nil && strings.Contains(*assignedPrompt, q) {
+		if prompt != "" && (q == prompt || (utf8.RuneCountInString(q) >= minPromptOverlapRunes && strings.Contains(prompt, q))) {
 			continue
 		}
 		out = append(out, m.Quote)
