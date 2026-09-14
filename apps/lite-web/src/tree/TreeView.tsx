@@ -72,7 +72,18 @@ import "./tree.css";
 /** 选中的是一片叶子（领域），还是一条根（学科）。 */
 type Pick = { kind: "leaf" | "discipline"; id: string };
 
-export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
+export function TreeView({
+  user,
+  live,
+  readOnly = false,
+}: {
+  user: MeUser;
+  live: LiveTree;
+  /** 教师看学生的树：拿掉一切会创建/改动学生数据的入口（兴趣测试、继续深挖、
+   *  空枝邀请），其余——枝、叶、根、成长轴、相关活动——照常渲染。默认
+   *  `false`，学生自己那面因此一字不变。 */
+  readOnly?: boolean;
+}) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
   // 回放拖到了哪一格，把它提升到全局只会让一个纯展示的选择跨页面存活。
@@ -96,6 +107,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   const all = live.keywords;
 
   // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
+  // 🚨 `readOnly`（教师视角）下这个 hook 仍然照常调用——hook 顺序不能因为一个
+  // prop 分支——只是它的结果被忽略：下面每处用到 `quizTaken` 的地方都先判
+  // `readOnly`，从不把它喂给 TreeState 或渲染那颗按钮。
   const quizTaken = useQuizTaken();
   const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
   // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
@@ -211,8 +225,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
         <div className="flex items-center gap-5">
           {/* 兴趣测试的常驻入口。树不空时也留着，因为**重做是再长几个词**
               （服务端给同一个词再添一条来源，强度上升），不是清空重来。
-              和空树上那条邀请一样，状态未知（null）时不显示。 */}
-          {quizTaken !== null ? (
+              和空树上那条邀请一样，状态未知（null）时不显示。
+              🚨 只读（教师）视角下整个入口收起——这是学生自己的测试。 */}
+          {!readOnly && quizTaken !== null ? (
             <button
               type="button"
               onClick={openQuiz}
@@ -262,7 +277,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             onBlur={() => setHoverField(null)}
             // 窄屏走的是这一行 chip，空枝邀请在这里也要能点开 —— 只给宽屏那一列
             // 加上，等于让小屏幕的学生永远碰不到这个入口。
-            onClick={() => (known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
+            // 🚨 只读（教师）视角不开这个邀请——见 readOnly 的整体说明。
+            onClick={() => (!readOnly && known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
             className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
                        transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300"
@@ -313,7 +329,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             status={live.status}
             error={live.error}
             onRetry={live.reload}
-            quizTaken={quizTaken}
+            quizTaken={readOnly ? null : quizTaken}
             onStartQuiz={openQuiz}
           />
 
@@ -362,7 +378,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                   onBlur={() => setHoverField(null)}
                   // 🚨 只有**空枝**可以点开。有词的枝上，那个数字自己说完了话；
                   // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
-                  onClick={() => (known && n === 0 ? setInviteField(f.id) : undefined)}
+                  // 只读（教师）视角不开这个邀请。
+                  onClick={() => (!readOnly && known && n === 0 ? setInviteField(f.id) : undefined)}
                   className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
                              duration-[120ms] hover:bg-[rgba(51,48,46,.04)] focus-visible:outline-none
                              focus-visible:ring-2 focus-visible:ring-mk-accent-300"
@@ -392,13 +409,17 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
         </ul>
       </div>
 
-      <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} />
-      <BranchInvite
-        field={inviteField}
-        onClose={() => setInviteField(null)}
-        onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
-        onQuiz={openQuiz}
-      />
+      <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} readOnly={readOnly} />
+      {/* 空枝邀请整个收起：`inviteField` 在只读视角下从不会被设成非 null（见上面
+          两处 onClick 的 `!readOnly` 守卫），这里再显式收起一次，两者互为保险。 */}
+      {!readOnly && (
+        <BranchInvite
+          field={inviteField}
+          onClose={() => setInviteField(null)}
+          onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
+          onQuiz={openQuiz}
+        />
+      )}
     </div>
   );
 }

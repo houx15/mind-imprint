@@ -28,7 +28,16 @@ import { liteRoutePath, navigate } from "../routing";
  * 在这个词上留下的原话现生成**的（`DigSection` → `GET /interest/keywords/:id/dig`），
  * 其中三颗能一键变成 lite 里一个真的房间。
  */
-export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: () => void }) {
+export function KeywordDrawer({
+  kw,
+  onClose,
+  readOnly = false,
+}: {
+  kw: Keyword | null;
+  onClose: () => void;
+  /** 教师视角：拿掉「继续深挖」——它会替学生创建阅读/写作/项目。默认 `false`。 */
+  readOnly?: boolean;
+}) {
   if (!kw) return null;
   const f = fieldById(kw.field);
   // 🚨 写**它是哪天第一次出现的**，不是成长轴上那一格的名字（2026-09-07）。
@@ -121,7 +130,7 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
         </ul>
 
         {/* ── 继续深挖 ─────────────────────────────────────────────────── */}
-        <DigSection keywordId={kw.id} />
+        {!readOnly && <DigSection keywordId={kw.id} />}
       </div>
     </Drawer>
   );

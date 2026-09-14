@@ -33,7 +33,17 @@ export interface LiveTree {
   reload: () => void;
 }
 
-export function useInterestTree(): LiveTree {
+/**
+ * `fetcher` defaults to the student's own tree (`fetchInterestTree`) so
+ * every existing caller is unaffected. The lite teacher end passes its own
+ * fetcher (`getStudentTree(classId, userId)`, wrapped through
+ * `fetchInterestTreeFrom`) to read a STUDENT's tree instead.
+ *
+ * 🚨 Pass an inline arrow and it must be memoised (`useCallback`): it sits
+ * in this hook's effect deps below, and a fresh function identity every
+ * render would refetch on every render.
+ */
+export function useInterestTree(fetcher: () => Promise<InterestTree> = fetchInterestTree): LiveTree {
   const [tree, setTree] = useState<InterestTree | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -43,7 +53,7 @@ export function useInterestTree(): LiveTree {
     let alive = true;
     setLoading(true);
     setError("");
-    fetchInterestTree()
+    fetcher()
       .then((t) => {
         if (alive) setTree(t);
       })
@@ -56,7 +66,7 @@ export function useInterestTree(): LiveTree {
     return () => {
       alive = false;
     };
-  }, [nonce]);
+  }, [nonce, fetcher]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
