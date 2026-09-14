@@ -140,14 +140,14 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	rec, err := qtx.GetLiteAssignmentRecipientForUpdate(ctx, sqlc.GetLiteAssignmentRecipientForUpdateParams{AssignmentID: aid, UserID: u.ID})
-	if err != nil {
-		writeNotFoundOr(w, r, err)
-		return
-	}
-	// FOR SHARE: a teacher PATCH takes FOR UPDATE on this row before counting
-	// started recipients, so it waits until this start has linked its item
-	// (or rolled back) and cannot change the payload the item is built from.
+	// Lock order, shared with patchLiteAssignment: the assignment row first,
+	// then the recipient row. The reverse order deadlocks against a PATCH that
+	// removes this recipient.
+	//
+	// FOR SHARE: a teacher PATCH takes FOR UPDATE on the assignment before it
+	// reads settings or counts started recipients, so it waits until this
+	// start has linked its item (or rolled back) and cannot change the payload
+	// the item is built from.
 	as, err := qtx.GetLiteAssignmentForShare(ctx, aid)
 	if err != nil {
 		writeNotFoundOr(w, r, err)
@@ -155,6 +155,11 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	}
 	if as.ArchivedAt.Valid {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	rec, err := qtx.GetLiteAssignmentRecipientForUpdate(ctx, sqlc.GetLiteAssignmentRecipientForUpdateParams{AssignmentID: aid, UserID: u.ID})
+	if err != nil {
+		writeNotFoundOr(w, r, err)
 		return
 	}
 

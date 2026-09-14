@@ -370,43 +370,25 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
-	params := sqlc.UpdateLiteAssignmentParams{
-		ID: as.ID, Title: as.Title, Instructions: as.Instructions,
-		DueAt: as.DueAt, Kind: as.Kind, Payload: as.Payload,
-	}
-	var err error
+	var newTitle *string
 	if req.Title != nil {
-		if params.Title, err = parseAssignmentTitle(*req.Title); err != nil {
-			httpx.WriteError(w, r, err)
-			return
-		}
-	}
-	if req.Instructions != nil {
-		params.Instructions = strings.TrimSpace(*req.Instructions)
-	}
-	if req.DueAt != nil {
-		if params.DueAt, err = parseAssignmentDueAt(*req.DueAt); err != nil {
-			httpx.WriteError(w, r, err)
-			return
-		}
-	}
-	settingsChanged := false
-	if req.Kind != nil || req.Payload != nil {
-		if req.Kind != nil {
-			params.Kind = *req.Kind
-		}
-		raw := json.RawMessage(as.Payload)
-		if req.Payload != nil {
-			raw = req.Payload
-		}
-		validated, err := liteassign.ValidatePayload(params.Kind, raw)
+		title, err := parseAssignmentTitle(*req.Title)
 		if err != nil {
-			httpx.WriteError(w, r, payloadErrorResponse(err))
+			httpx.WriteError(w, r, err)
 			return
 		}
-		params.Payload = validated
-		settingsChanged = params.Kind != as.Kind || !samePayload(validated, as.Payload)
+		newTitle = &title
 	}
+	var newDue *time.Time
+	if req.DueAt != nil {
+		due, err := parseAssignmentDueAt(*req.DueAt)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		newDue = &due
+	}
+	// class_id is never updated, so the unlocked read is enough for this check.
 	addIDs, err := a.assignmentRecipientIDs(ctx, as.ClassID, req.AddUserIDs)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -429,14 +411,53 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
-	// Lock the assignment first. A start in progress holds FOR SHARE on it
-	// until its item is linked, so the count below sees that recipient.
-	if _, err := qtx.GetLiteAssignmentForUpdate(ctx, as.ID); err != nil {
+	// Lock order, shared with startLiteAssignment: the assignment row first,
+	// then recipient rows. A start in progress holds FOR SHARE on the
+	// assignment until its item is linked, so this waits for it.
+	//
+	// Every decision below uses locked, never as: as was read before the lock
+	// and may be stale (another PATCH may have changed the settings since).
+	locked, err := qtx.GetLiteAssignmentForUpdate(ctx, as.ID)
+	if err != nil {
 		writeNotFoundOr(w, r, err)
 		return
 	}
+	if locked.ArchivedAt.Valid {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	params := sqlc.UpdateLiteAssignmentParams{
+		ID: locked.ID, Title: locked.Title, Instructions: locked.Instructions,
+		DueAt: locked.DueAt, Kind: locked.Kind, Payload: locked.Payload,
+	}
+	if newTitle != nil {
+		params.Title = *newTitle
+	}
+	if req.Instructions != nil {
+		params.Instructions = strings.TrimSpace(*req.Instructions)
+	}
+	if newDue != nil {
+		params.DueAt = *newDue
+	}
+	settingsChanged := false
+	if req.Kind != nil || req.Payload != nil {
+		if req.Kind != nil {
+			params.Kind = *req.Kind
+		}
+		raw := json.RawMessage(locked.Payload)
+		if req.Payload != nil {
+			raw = req.Payload
+		}
+		validated, err := liteassign.ValidatePayload(params.Kind, raw)
+		if err != nil {
+			httpx.WriteError(w, r, payloadErrorResponse(err))
+			return
+		}
+		params.Payload = validated
+		settingsChanged = params.Kind != locked.Kind || !samePayload(validated, locked.Payload)
+	}
 	if settingsChanged {
-		started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, as.ID)
+		started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, locked.ID)
 		if err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -447,7 +468,7 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, uid := range removeIDs {
-		key := sqlc.GetLiteAssignmentRecipientParams{AssignmentID: as.ID, UserID: uid}
+		key := sqlc.GetLiteAssignmentRecipientParams{AssignmentID: locked.ID, UserID: uid}
 		if _, err := qtx.GetLiteAssignmentRecipient(ctx, key); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				continue // not a recipient: nothing to remove
@@ -455,7 +476,7 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, err)
 			return
 		}
-		n, err := qtx.RemoveLiteAssignmentRecipient(ctx, sqlc.RemoveLiteAssignmentRecipientParams{AssignmentID: as.ID, UserID: uid})
+		n, err := qtx.RemoveLiteAssignmentRecipient(ctx, sqlc.RemoveLiteAssignmentRecipientParams{AssignmentID: locked.ID, UserID: uid})
 		if err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -466,7 +487,7 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, uid := range addIDs {
-		if err := qtx.AddLiteAssignmentRecipient(ctx, sqlc.AddLiteAssignmentRecipientParams{AssignmentID: as.ID, UserID: uid}); err != nil {
+		if err := qtx.AddLiteAssignmentRecipient(ctx, sqlc.AddLiteAssignmentRecipientParams{AssignmentID: locked.ID, UserID: uid}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}

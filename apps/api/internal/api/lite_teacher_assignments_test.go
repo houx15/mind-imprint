@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/gateway"
 )
@@ -212,6 +214,130 @@ func TestTeacherAssignmentPatchWaitsForStartInFlight(t *testing.T) {
 	_ = json.Unmarshal(rec.Body.Bytes(), &e)
 	if rec.Code != http.StatusConflict || e.Error.Code != "assignment_started" {
 		t.Fatalf("PATCH after start = %d body=%s, want 409 assignment_started", rec.Code, rec.Body)
+	}
+}
+
+// patchWhileTxHoldsLocks fires a PATCH while tx holds row locks, asserts it
+// is still waiting after 300 ms, commits tx and returns the PATCH response.
+func patchWhileTxHoldsLocks(t *testing.T, h http.Handler, teacher *http.Cookie, aid, body string, tx pgx.Tx) *httptest.ResponseRecorder {
+	t.Helper()
+	ctx := context.Background()
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+			bytes.NewBufferString(body)), teacher))
+		done <- rec
+	}()
+	select {
+	case rec := <-done:
+		t.Fatalf("PATCH returned %d while the locks were held: body=%s", rec.Code, rec.Body)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case rec := <-done:
+		return rec
+	case <-time.After(10 * time.Second):
+		t.Fatal("PATCH did not return after the locks were released")
+	}
+	return nil
+}
+
+// TestTeacherAssignmentPatchUsesLockedRow: a title-only PATCH whose loader
+// read the old settings must not write them back over settings committed
+// while it waited for the lock.
+func TestTeacherAssignmentPatchUsesLockedRow(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	var created struct {
+		Assignment struct {
+			ID string `json:"id"`
+		} `json:"assignment"`
+	}
+	assignJSON(t, h, teacher, "POST", "/api/v1/lite/teacher/classes/"+classID+"/assignments", writingAssignmentBody([]string{studentID.String()}), &created)
+	aid := created.Assignment.ID
+	ctx := context.Background()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id string
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM lite_assignment WHERE id=$1 FOR UPDATE`, aid).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE lite_assignment SET payload = '{"prompt":"写风","targetWords":700,"lang":"zh"}' WHERE id=$1`, aid); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE lite_assignment_recipient SET started_at = now() WHERE assignment_id = $1 AND user_id = $2`, aid, studentID); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := patchWhileTxHoldsLocks(t, h, teacher, aid, `{"title":"雨（改）"}`, tx)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("title PATCH = %d body=%s, want 200", rec.Code, rec.Body)
+	}
+	var title, prompt string
+	var target int
+	if err := pool.QueryRow(ctx,
+		`SELECT title, payload->>'prompt', (payload->>'targetWords')::int FROM lite_assignment WHERE id=$1`, aid).Scan(&title, &prompt, &target); err != nil {
+		t.Fatal(err)
+	}
+	if title != "雨（改）" || prompt != "写风" || target != 700 {
+		t.Fatalf("after PATCH: title=%q prompt=%q targetWords=%d, want 雨（改） 写风 700", title, prompt, target)
+	}
+}
+
+// TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock: a start holds the
+// assignment (FOR SHARE) then her recipient row (FOR UPDATE). A PATCH removing
+// her takes the assignment first, so it waits instead of deadlocking, then
+// refuses because she has started.
+func TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	var created struct {
+		Assignment struct {
+			ID string `json:"id"`
+		} `json:"assignment"`
+	}
+	assignJSON(t, h, teacher, "POST", "/api/v1/lite/teacher/classes/"+classID+"/assignments", writingAssignmentBody([]string{studentID.String()}), &created)
+	aid := created.Assignment.ID
+	ctx := context.Background()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id string
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM lite_assignment WHERE id=$1 FOR SHARE`, aid).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT user_id::text FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2 FOR UPDATE`, aid, studentID).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE lite_assignment_recipient SET started_at = now() WHERE assignment_id = $1 AND user_id = $2`, aid, studentID); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := patchWhileTxHoldsLocks(t, h, teacher, aid, `{"removeUserIds":["`+studentID.String()+`"]}`, tx)
+	var e struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	if rec.Code != http.StatusConflict || e.Error.Code != "assignment_started" {
+		t.Fatalf("remove during start = %d body=%s, want 409 assignment_started", rec.Code, rec.Body)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2`, aid, studentID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("recipient rows after refused removal = %d, want 1", n)
 	}
 }
 
