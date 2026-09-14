@@ -123,7 +123,6 @@ func TestTeacherAssignmentOtherTeacher404(t *testing.T) {
 }
 
 func TestTeacherAssignmentEditLocksAfterStart(t *testing.T) {
-	t.Skip("needs Task 5 start endpoint")
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
 	var created struct {
 		Assignment struct {
