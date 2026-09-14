@@ -159,7 +159,11 @@ func buildLookbackContext(in LookbackInput) string {
 	section("印记交给他、他判断过的东西", in.Artifacts)
 	section("上线之后他记下的事", in.Keeps)
 	if len(in.Steps)+len(in.Reframes)+len(in.Decisions)+len(in.Artifacts)+len(in.Keeps) == 0 {
-		b.WriteString("\n（这个项目留下的记录不多，就着他最初那句话问。）\n")
+		if in.Assigned {
+			b.WriteString("\n（这个项目留下的记录不多，就着老师布置的驱动问题问。）\n")
+		} else {
+			b.WriteString("\n（这个项目留下的记录不多，就着他最初那句话问。）\n")
+		}
 	}
 	return b.String()
 }

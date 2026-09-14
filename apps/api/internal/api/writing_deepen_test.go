@@ -50,6 +50,26 @@ func TestWritingTopicLine_AssignedPromptIsTheTeachers(t *testing.T) {
 	if out := buildWritingOpeningPrompt(own, nil); !strings.Contains(out, "题目/想法：雨") || strings.Contains(out, "老师") {
 		t.Errorf("her own writing's opening prompt changed:\n%s", out)
 	}
+
+	// The opening's system prompt frames the user message. For an assigned
+	// writing it must not tell 印记 the topic is hers and to restate it as what
+	// she wants to write; both replaced sentences must actually be found, or
+	// the replacer silently does nothing.
+	sys := writingOpeningSystemFor(wr)
+	for _, phrase := range []string{openingTopicOwn, openingRestateOwn} {
+		if !strings.Contains(writingOpeningSystem, phrase) {
+			t.Fatalf("writingOpeningSystem no longer contains %q; the assigned variant is not being built", phrase)
+		}
+		if strings.Contains(sys, phrase) {
+			t.Errorf("assigned opening system prompt still says %q", phrase)
+		}
+	}
+	if !strings.Contains(sys, "老师布置的题目") || strings.Contains(sys, "她自己写下的题目") {
+		t.Errorf("assigned opening system prompt does not call the topic the teacher's:\n%s", sys)
+	}
+	if writingOpeningSystemFor(own) != writingOpeningSystem {
+		t.Errorf("her own writing's opening system prompt changed")
+	}
 }
 
 // buildDeepenBrief carries the map and this block — asserted here. Its OTHER

@@ -150,6 +150,30 @@ const writingOpeningSystem = `你是「印记」，一个陪中学生写作的�
 
 直接说话，不要任何前缀或标题。`
 
+// The two sentences of writingOpeningSystem that call the topic hers, and what
+// replaces them when her teacher assigned the writing. The topic is then the
+// teacher's prompt, and restating it "用她自己的说法" as what she wants to write
+// would put the teacher's words in her mouth in the room's first turn.
+const (
+	openingTopicOwn        = "下面是她自己写下的题目和她说过的话。"
+	openingTopicAssigned   = "这篇写作是老师布置的：下面是老师布置的题目和她自己说过的话。"
+	openingRestateOwn      = "1. 用一句话把她想写的东西说回给她，让她确认你听懂了。用她自己的说法，不要换成更\"高级\"的表述。"
+	openingRestateAssigned = "1. 用一句话说明老师布置的题目要求写什么，并点明这是老师的要求，不要说成是她自己想写的。"
+)
+
+// writingOpeningSystemFor is writingOpeningSystem for this writing: unchanged
+// for a writing she opened herself, with the two sentences above swapped for
+// an assigned one.
+func writingOpeningSystemFor(wr sqlc.Writing) string {
+	if wr.AssignedPrompt == nil || strings.TrimSpace(*wr.AssignedPrompt) == "" {
+		return writingOpeningSystem
+	}
+	return strings.NewReplacer(
+		openingTopicOwn, openingTopicAssigned,
+		openingRestateOwn, openingRestateAssigned,
+	).Replace(writingOpeningSystem)
+}
+
 // buildWritingOpeningPrompt assembles what the coach sees: her title, the
 // settings she just chose, and everything she has said. AI turns are excluded
 // — on the opening path there are none by construction (the handler refuses
@@ -290,7 +314,7 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingOpeningSystem},
+			{Role: gateway.RoleSystem, Content: writingOpeningSystemFor(wr)},
 			{Role: gateway.RoleUser, Content: buildWritingOpeningPrompt(wr, msgs)},
 		},
 	})

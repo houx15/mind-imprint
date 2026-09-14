@@ -47,6 +47,11 @@ func TestBuildLookbackContext_AssignedProjectIsTheTeachersQuestion(t *testing.T)
 	if noBrief := buildLookbackContext(LookbackInput{Idea: "怎样让校园少用一次性杯子？", Assigned: true}); strings.Contains(noBrief, "老师补充说明") {
 		t.Errorf("empty brief still rendered:\n%s", noBrief)
 	}
+	// No records either: the fallback points at the teacher's question, not
+	// at "他最初那句话", which she never said.
+	if noRecords := buildLookbackContext(LookbackInput{Idea: "怎样让校园少用一次性杯子？", Assigned: true}); !strings.Contains(noRecords, "就着老师布置的驱动问题问") || strings.Contains(noRecords, "最初那句话") {
+		t.Errorf("assigned lookback with no records points at her words:\n%s", noRecords)
+	}
 
 	own := buildLookbackContext(LookbackInput{Name: "操场", Idea: "下课没人去操场"})
 	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
