@@ -88,7 +88,7 @@
       },
       "fields": [
         { "type": "single_choice", "key": "currency_verdict", "label": "时效性判断", "options": ["可信", "存疑", "不可信"] },
-        { "type": "textarea", "key": "currency_reason", "label": "一句话理由——你凭什么这么判断？", "rows": 2 }
+        { "type": "textarea", "key": "currency_reason", "label": "判断依据", "rows": 2 }
       ]
     },
     {
@@ -118,7 +118,7 @@
       },
       "fields": [
         { "type": "single_choice", "key": "authority_verdict", "label": "权威性判断", "options": ["可信", "存疑", "不可信"] },
-        { "type": "textarea", "key": "authority_reason", "label": "一句话理由——作者/机构凭什么有资格说这件事？", "rows": 2 }
+        { "type": "textarea", "key": "authority_reason", "label": "作者或机构的相关资历", "rows": 2 }
       ]
     },
     {

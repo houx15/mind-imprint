@@ -663,7 +663,7 @@ export function Board({
           value={seen}
           onChange={(e) => setSeen(e.target.value)}
           rows={3}
-          placeholder="写下你看出来的东西"
+          placeholder="请记录分类后发现的共同点或差异"
           className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
       </div>

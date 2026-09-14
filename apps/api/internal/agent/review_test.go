@@ -223,7 +223,7 @@ func TestReviewSystemPrompt_OverBudgetAppendsDeletionLens(t *testing.T) {
 	if base == over {
 		t.Fatal("overBudget must append a deletion-lens instruction")
 	}
-	if !strings.Contains(over, "删减") || !strings.Contains(over, "哪张表") {
+	if !strings.Contains(over, "删减") || !strings.Contains(over, "由学生决定") {
 		t.Fatalf("over-budget posture missing the deletion-lens frame: %s", over)
 	}
 }

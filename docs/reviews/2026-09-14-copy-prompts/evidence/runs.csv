@@ -1,0 +1,300 @@
+run,case,sample,selection,model,class,ms,input_tokens,output_tokens,validation_error
+baseline,TestClarityAgent/chat-concept,1,,dashscope/deepseek-v4-pro,dialogue,7,0,0,provider request failed
+baseline,TestClarityAgent/chat-concept,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/chat-concept,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/course-concept,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/course-concept,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/course-concept,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/executioner,1,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityAgent/executioner,2,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityAgent/executioner,3,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityAgent/project-help,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/project-help,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/project-help,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/project-no-ghostwriting,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/project-no-ghostwriting,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/project-no-ghostwriting,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityAgent/sceptic,1,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityAgent/sceptic,2,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityAgent/sceptic,3,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityPBL/concept,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/concept,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/concept,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/examples,1,,dashscope/deepseek-v4-pro,dialogue,2,0,0,provider request failed
+baseline,TestClarityPBL/examples,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/examples,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/plan,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/plan,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/plan,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/split,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/split,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityPBL/split,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,9,0,0,provider request failed
+baseline,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityWriting/comment,1,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityWriting/comment,2,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityWriting/comment,3,,dashscope/deepseek-v4-pro,review,0,0,0,provider request failed
+baseline,TestClarityWriting/guide,1,,dashscope/glm-5.3,compose,0,0,0,provider request failed
+baseline,TestClarityWriting/guide,2,,dashscope/glm-5.3,compose,0,0,0,provider request failed
+baseline,TestClarityWriting/guide,3,,dashscope/glm-5.3,compose,0,0,0,provider request failed
+baseline,TestClarityWriting/plan,1,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityWriting/plan,2,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline,TestClarityWriting/plan,3,,dashscope/deepseek-v4-pro,dialogue,0,0,0,provider request failed
+baseline-extended,TestClarityPBL/course,1,baseline,dashscope/deepseek-v4-pro,dialogue,5158,3684,210,
+baseline-extended,TestClarityPBL/course,2,baseline,dashscope/deepseek-v4-pro,dialogue,4694,3684,153,
+baseline-extended,TestClarityPBL/course,3,baseline,dashscope/deepseek-v4-pro,dialogue,4865,3684,169,
+baseline-extended,TestClarityPBL/observe,1,baseline,dashscope/deepseek-v4-pro,dialogue,7600,3632,270,
+baseline-extended,TestClarityPBL/observe,2,baseline,dashscope/deepseek-v4-pro,dialogue,4835,3632,147,missing observation checklist
+baseline-extended,TestClarityPBL/observe,3,baseline,dashscope/deepseek-v4-pro,dialogue,10298,3632,352,
+baseline-extended,TestClarityReading/done,1,,dashscope/deepseek-v4-pro,dialogue,7685,6180,281,
+baseline-extended,TestClarityReading/done,2,,dashscope/deepseek-v4-pro,dialogue,3096,6180,75,"advance = """", want ""done"""
+baseline-extended,TestClarityReading/done,3,,dashscope/deepseek-v4-pro,dialogue,3547,6180,96,
+baseline-extended,TestClarityReading/skip,1,,dashscope/deepseek-v4-pro,dialogue,3239,6149,84,
+baseline-extended,TestClarityReading/skip,2,,dashscope/deepseek-v4-pro,dialogue,1807,6149,30,
+baseline-extended,TestClarityReading/skip,3,,dashscope/deepseek-v4-pro,dialogue,2888,6149,77,
+baseline-extra,TestClarityLookback,1,baseline,dashscope/deepseek-v4-pro,assess,90033,793,4324,
+baseline-extra,TestClarityLookback,2,baseline,dashscope/deepseek-v4-pro,assess,167970,793,7809,
+baseline-extra,TestClarityLookback,3,baseline,dashscope/deepseek-v4-pro,assess,158343,793,7532,
+baseline-extra,TestClarityReport,1,baseline,dashscope/deepseek-v4-pro,assess,20625,312,915,
+baseline-extra,TestClarityReport,2,baseline,dashscope/deepseek-v4-pro,assess,23245,312,1129,
+baseline-extra,TestClarityReport,3,baseline,dashscope/deepseek-v4-pro,assess,19879,312,837,
+baseline-judge,TestClarityJudge/explanation,1,baseline,dashscope/deepseek-v4-pro,assess,11939,292,447,
+baseline-judge,TestClarityJudge/ghostwriting,1,baseline,dashscope/deepseek-v4-pro,assess,5194,308,216,
+baseline-judge,TestClarityJudge/premature-completion,1,baseline,dashscope/deepseek-v4-pro,assess,6120,288,264,
+baseline-live,TestClarityAgent/chat-concept,1,baseline,dashscope/deepseek-v4-pro,dialogue,1550,211,25,
+baseline-live,TestClarityAgent/chat-concept,2,baseline,dashscope/deepseek-v4-pro,dialogue,1206,211,18,
+baseline-live,TestClarityAgent/chat-concept,3,baseline,dashscope/deepseek-v4-pro,dialogue,1508,211,27,
+baseline-live,TestClarityAgent/course-concept,1,baseline,dashscope/deepseek-v4-pro,dialogue,1978,130,32,
+baseline-live,TestClarityAgent/course-concept,2,baseline,dashscope/deepseek-v4-pro,dialogue,2078,130,36,
+baseline-live,TestClarityAgent/course-concept,3,baseline,dashscope/deepseek-v4-pro,dialogue,2930,130,82,
+baseline-live,TestClarityAgent/executioner,1,baseline,dashscope/deepseek-v4-pro,review,8138,470,324,
+baseline-live,TestClarityAgent/executioner,2,baseline,dashscope/deepseek-v4-pro,review,14248,470,654,
+baseline-live,TestClarityAgent/executioner,3,baseline,dashscope/deepseek-v4-pro,review,17570,470,724,
+baseline-live,TestClarityAgent/project-help,1,baseline,dashscope/deepseek-v4-pro,dialogue,2085,418,31,
+baseline-live,TestClarityAgent/project-help,2,baseline,dashscope/deepseek-v4-pro,dialogue,1259,418,18,
+baseline-live,TestClarityAgent/project-help,3,baseline,dashscope/deepseek-v4-pro,dialogue,1988,418,40,
+baseline-live,TestClarityAgent/project-no-ghostwriting,1,baseline,dashscope/deepseek-v4-pro,dialogue,1898,410,28,
+baseline-live,TestClarityAgent/project-no-ghostwriting,2,baseline,dashscope/deepseek-v4-pro,dialogue,1968,410,41,
+baseline-live,TestClarityAgent/project-no-ghostwriting,3,baseline,dashscope/deepseek-v4-pro,dialogue,2170,410,30,
+baseline-live,TestClarityAgent/sceptic,1,baseline,dashscope/deepseek-v4-pro,review,11811,461,493,
+baseline-live,TestClarityAgent/sceptic,2,baseline,dashscope/deepseek-v4-pro,review,25707,461,1084,
+baseline-live,TestClarityAgent/sceptic,3,baseline,dashscope/deepseek-v4-pro,review,32859,461,1494,
+baseline-live,TestClarityPBL/concept,1,baseline,dashscope/deepseek-v4-pro,dialogue,3909,3623,103,
+baseline-live,TestClarityPBL/concept,2,baseline,dashscope/deepseek-v4-pro,dialogue,3759,3623,137,
+baseline-live,TestClarityPBL/concept,3,baseline,dashscope/deepseek-v4-pro,dialogue,3718,3623,111,
+baseline-live,TestClarityPBL/examples,1,baseline,dashscope/deepseek-v4-pro,dialogue,3699,4459,125,
+baseline-live,TestClarityPBL/examples,2,baseline,dashscope/deepseek-v4-pro,dialogue,4102,4459,136,
+baseline-live,TestClarityPBL/examples,3,baseline,dashscope/deepseek-v4-pro,dialogue,4079,4459,149,
+baseline-live,TestClarityPBL/plan,1,baseline,dashscope/deepseek-v4-pro,dialogue,4557,3662,139,missing requested plan
+baseline-live,TestClarityPBL/plan,2,baseline,dashscope/deepseek-v4-pro,dialogue,16907,3662,747,pbl: invalid character 'ç' after object key:value pair
+baseline-live,TestClarityPBL/plan,3,baseline,dashscope/deepseek-v4-pro,dialogue,23058,3662,1067,
+baseline-live,TestClarityPBL/split,1,baseline,dashscope/deepseek-v4-pro,dialogue,8940,3650,325,
+baseline-live,TestClarityPBL/split,2,baseline,dashscope/deepseek-v4-pro,dialogue,8187,3650,372,
+baseline-live,TestClarityPBL/split,3,baseline,dashscope/deepseek-v4-pro,dialogue,10120,3650,379,
+baseline-live,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,5864,6170,156,
+baseline-live,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,6315,6170,160,
+baseline-live,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,5901,6170,180,
+baseline-live,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,3352,6171,77,
+baseline-live,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,5056,6171,121,
+baseline-live,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,4448,6171,136,
+baseline-live,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,4570,6170,141,
+baseline-live,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4592,6170,142,
+baseline-live,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,7768,6170,247,
+baseline-live,TestClarityWriting/comment,1,baseline,dashscope/deepseek-v4-pro,review,31562,542,1281,
+baseline-live,TestClarityWriting/comment,2,baseline,dashscope/deepseek-v4-pro,review,13677,542,559,
+baseline-live,TestClarityWriting/comment,3,baseline,dashscope/deepseek-v4-pro,review,35081,542,1479,
+baseline-live,TestClarityWriting/guide,1,baseline,dashscope/glm-5.3,compose,2987,1027,146,
+baseline-live,TestClarityWriting/guide,2,baseline,dashscope/glm-5.3,compose,4390,1027,166,
+baseline-live,TestClarityWriting/guide,3,baseline,dashscope/glm-5.3,compose,2638,1027,111,
+baseline-live,TestClarityWriting/plan,1,baseline,dashscope/deepseek-v4-pro,dialogue,2687,2165,82,
+baseline-live,TestClarityWriting/plan,2,baseline,dashscope/deepseek-v4-pro,dialogue,3532,2165,76,
+baseline-live,TestClarityWriting/plan,3,baseline,dashscope/deepseek-v4-pro,dialogue,2287,2165,52,
+baseline-reading-valid,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,2872,6156,74,
+baseline-reading-valid,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,5334,6156,187,
+baseline-reading-valid,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,4418,6156,157,
+baseline-reading-valid,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,4730,6157,163,
+baseline-reading-valid,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,3049,6157,75,
+baseline-reading-valid,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,2529,6157,69,
+baseline-reading-valid,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,5282,6156,165,
+baseline-reading-valid,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4791,6156,128,
+baseline-reading-valid,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4200,6156,131,
+candidate-api-release,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,4053,6355,128,
+candidate-api-release,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,6566,6355,219,
+candidate-api-release,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,5760,6355,179,
+candidate-api-release,TestClarityReading/done,1,,dashscope/deepseek-v4-pro,dialogue,5007,6379,123,"advance = """", want ""done"""
+candidate-api-release,TestClarityReading/done,2,,dashscope/deepseek-v4-pro,dialogue,5539,6379,197,"advance = """", want ""done"""
+candidate-api-release,TestClarityReading/done,3,,dashscope/deepseek-v4-pro,dialogue,3510,6379,109,"advance = """", want ""done"""
+candidate-api-release,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,3625,6356,67,
+candidate-api-release,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,3267,6356,75,
+candidate-api-release,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,3540,6356,108,
+candidate-api-release,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,3577,6355,100,
+candidate-api-release,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4920,6355,136,
+candidate-api-release,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4418,6355,135,
+candidate-api-release,TestClarityReading/skip,1,,dashscope/deepseek-v4-pro,dialogue,3757,6348,89,
+candidate-api-release,TestClarityReading/skip,2,,dashscope/deepseek-v4-pro,dialogue,2878,6348,66,
+candidate-api-release,TestClarityReading/skip,3,,dashscope/deepseek-v4-pro,dialogue,2709,6348,63,
+candidate-feedback,TestClarityWriting/comment,1,candidate,dashscope/deepseek-v4-pro,review,13648,469,592,
+candidate-feedback,TestClarityWriting/comment,2,candidate,dashscope/deepseek-v4-pro,review,29721,469,1378,
+candidate-feedback,TestClarityWriting/comment,3,candidate,dashscope/deepseek-v4-pro,review,22301,469,955,
+candidate-feedback,TestClarityWriting/guide,1,candidate,dashscope/glm-5.3,compose,2129,983,103,
+candidate-feedback,TestClarityWriting/guide,2,candidate,dashscope/glm-5.3,compose,2595,983,127,
+candidate-feedback,TestClarityWriting/guide,3,candidate,dashscope/glm-5.3,compose,2758,983,117,
+candidate-final,TestClarityAgent/chat-concept,1,candidate,dashscope/deepseek-v4-pro,dialogue,3019,275,57,
+candidate-final,TestClarityAgent/chat-concept,2,candidate,dashscope/deepseek-v4-pro,dialogue,2433,275,67,
+candidate-final,TestClarityAgent/chat-concept,3,candidate,dashscope/deepseek-v4-pro,dialogue,3231,275,80,
+candidate-final,TestClarityAgent/course-concept,1,candidate,dashscope/deepseek-v4-pro,dialogue,2710,163,75,
+candidate-final,TestClarityAgent/course-concept,2,candidate,dashscope/deepseek-v4-pro,dialogue,3699,163,94,
+candidate-final,TestClarityAgent/course-concept,3,candidate,dashscope/deepseek-v4-pro,dialogue,3230,163,85,
+candidate-final,TestClarityAgent/executioner,1,candidate,dashscope/deepseek-v4-pro,review,13703,453,544,
+candidate-final,TestClarityAgent/executioner,2,candidate,dashscope/deepseek-v4-pro,review,14210,453,633,
+candidate-final,TestClarityAgent/executioner,3,candidate,dashscope/deepseek-v4-pro,review,29824,453,1266,
+candidate-final,TestClarityAgent/project-help,1,candidate,dashscope/deepseek-v4-pro,dialogue,5676,472,174,
+candidate-final,TestClarityAgent/project-help,2,candidate,dashscope/deepseek-v4-pro,dialogue,4249,472,143,
+candidate-final,TestClarityAgent/project-help,3,candidate,dashscope/deepseek-v4-pro,dialogue,3978,472,106,
+candidate-final,TestClarityAgent/project-no-ghostwriting,1,candidate,dashscope/deepseek-v4-pro,dialogue,2450,464,56,
+candidate-final,TestClarityAgent/project-no-ghostwriting,2,candidate,dashscope/deepseek-v4-pro,dialogue,2859,464,65,
+candidate-final,TestClarityAgent/project-no-ghostwriting,3,candidate,dashscope/deepseek-v4-pro,dialogue,1987,464,42,
+candidate-final,TestClarityAgent/sceptic,1,candidate,dashscope/deepseek-v4-pro,review,23131,452,967,
+candidate-final,TestClarityAgent/sceptic,2,candidate,dashscope/deepseek-v4-pro,review,30836,452,1354,
+candidate-final,TestClarityAgent/sceptic,3,candidate,dashscope/deepseek-v4-pro,review,35982,452,1509,
+candidate-final,TestClarityLookback,1,,dashscope/deepseek-v4-pro,assess,65619,789,3272,
+candidate-final,TestClarityLookback,2,,dashscope/deepseek-v4-pro,assess,110162,789,5383,
+candidate-final,TestClarityLookback,3,,dashscope/deepseek-v4-pro,assess,71059,789,3778,
+candidate-final,TestClarityPBL/concept,1,,dashscope/deepseek-v4-pro,dialogue,5346,3048,178,
+candidate-final,TestClarityPBL/concept,2,,dashscope/deepseek-v4-pro,dialogue,4499,3048,176,
+candidate-final,TestClarityPBL/concept,3,,dashscope/deepseek-v4-pro,dialogue,4865,3048,195,
+candidate-final,TestClarityPBL/examples,1,,dashscope/deepseek-v4-pro,dialogue,12191,3884,516,
+candidate-final,TestClarityPBL/examples,2,,dashscope/deepseek-v4-pro,dialogue,9616,3884,307,
+candidate-final,TestClarityPBL/examples,3,,dashscope/deepseek-v4-pro,dialogue,7839,3884,248,
+candidate-final,TestClarityPBL/plan,1,,dashscope/deepseek-v4-pro,dialogue,17350,3087,833,
+candidate-final,TestClarityPBL/plan,2,,dashscope/deepseek-v4-pro,dialogue,20529,3087,998,
+candidate-final,TestClarityPBL/plan,3,,dashscope/deepseek-v4-pro,dialogue,20427,3087,964,
+candidate-final,TestClarityPBL/split,1,,dashscope/deepseek-v4-pro,dialogue,7288,3075,287,pbl: coach produced no reply
+candidate-final,TestClarityPBL/split,2,,dashscope/deepseek-v4-pro,dialogue,7389,3075,309,
+candidate-final,TestClarityPBL/split,3,,dashscope/deepseek-v4-pro,dialogue,10591,3075,462,
+candidate-final,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,5699,6202,198,
+candidate-final,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,6445,6202,180,
+candidate-final,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,5247,6202,179,
+candidate-final,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,4494,6203,119,reading parse failed
+candidate-final,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,4734,6203,193,help or partial answer must not complete the exercise
+candidate-final,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,4221,6203,166,
+candidate-final,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,4520,6202,160,
+candidate-final,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4138,6202,134,
+candidate-final,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,5432,6202,246,
+candidate-final,TestClarityReport,1,candidate,dashscope/deepseek-v4-pro,assess,16364,367,793,
+candidate-final,TestClarityReport,2,candidate,dashscope/deepseek-v4-pro,assess,12779,367,606,
+candidate-final,TestClarityReport,3,candidate,dashscope/deepseek-v4-pro,assess,18850,367,914,
+candidate-final,TestClarityWriting/comment,1,,dashscope/deepseek-v4-pro,review,13760,364,632,
+candidate-final,TestClarityWriting/comment,2,,dashscope/deepseek-v4-pro,review,21259,364,872,
+candidate-final,TestClarityWriting/comment,3,,dashscope/deepseek-v4-pro,review,16020,364,720,
+candidate-final,TestClarityWriting/guide,1,,dashscope/glm-5.3,compose,2599,944,121,
+candidate-final,TestClarityWriting/guide,2,,dashscope/glm-5.3,compose,2328,944,109,
+candidate-final,TestClarityWriting/guide,3,,dashscope/glm-5.3,compose,2096,944,99,
+candidate-final,TestClarityWriting/plan,1,candidate,dashscope/deepseek-v4-pro,dialogue,3214,2080,113,
+candidate-final,TestClarityWriting/plan,2,candidate,dashscope/deepseek-v4-pro,dialogue,3961,2080,108,
+candidate-final,TestClarityWriting/plan,3,candidate,dashscope/deepseek-v4-pro,dialogue,3298,2080,122,
+candidate-guide-revised,TestClarityWriting/guide,1,,dashscope/glm-5.3,compose,1914,974,88,
+candidate-guide-revised,TestClarityWriting/guide,2,,dashscope/glm-5.3,compose,2155,974,120,
+candidate-guide-revised,TestClarityWriting/guide,3,,dashscope/glm-5.3,compose,2304,974,122,
+candidate-judge,TestClarityJudge/explanation,1,candidate,dashscope/deepseek-v4-pro,assess,8501,348,377,
+candidate-judge,TestClarityJudge/ghostwriting,1,candidate,dashscope/deepseek-v4-pro,assess,4667,364,148,
+candidate-judge,TestClarityJudge/premature-completion,1,candidate,dashscope/deepseek-v4-pro,assess,6223,344,258,
+candidate-pbl-revised,TestClarityLookback,1,candidate,dashscope/deepseek-v4-pro,assess,127341,838,6049,
+candidate-pbl-revised,TestClarityLookback,2,candidate,dashscope/deepseek-v4-pro,assess,111131,838,5634,
+candidate-pbl-revised,TestClarityLookback,3,candidate,dashscope/deepseek-v4-pro,assess,98941,838,4801,
+candidate-pbl-revised,TestClarityPBL/concept,1,candidate,dashscope/deepseek-v4-pro,dialogue,7299,3122,279,
+candidate-pbl-revised,TestClarityPBL/concept,2,candidate,dashscope/deepseek-v4-pro,dialogue,5749,3122,230,
+candidate-pbl-revised,TestClarityPBL/concept,3,candidate,dashscope/deepseek-v4-pro,dialogue,7026,3122,296,
+candidate-pbl-revised,TestClarityPBL/course,1,candidate,dashscope/deepseek-v4-pro,dialogue,5484,3183,194,
+candidate-pbl-revised,TestClarityPBL/course,2,candidate,dashscope/deepseek-v4-pro,dialogue,6370,3183,246,
+candidate-pbl-revised,TestClarityPBL/course,3,candidate,dashscope/deepseek-v4-pro,dialogue,4357,3183,139,
+candidate-pbl-revised,TestClarityPBL/examples,1,candidate,dashscope/deepseek-v4-pro,dialogue,9734,3958,323,
+candidate-pbl-revised,TestClarityPBL/examples,2,candidate,dashscope/deepseek-v4-pro,dialogue,7937,3958,247,
+candidate-pbl-revised,TestClarityPBL/examples,3,candidate,dashscope/deepseek-v4-pro,dialogue,11869,3958,507,
+candidate-pbl-revised,TestClarityPBL/observe,1,candidate,dashscope/deepseek-v4-pro,dialogue,10050,3131,419,
+candidate-pbl-revised,TestClarityPBL/observe,2,candidate,dashscope/deepseek-v4-pro,dialogue,7748,3131,330,
+candidate-pbl-revised,TestClarityPBL/observe,3,candidate,dashscope/deepseek-v4-pro,dialogue,8314,3131,318,
+candidate-pbl-revised,TestClarityPBL/plan,1,candidate,dashscope/deepseek-v4-pro,dialogue,18056,3161,806,
+candidate-pbl-revised,TestClarityPBL/plan,2,candidate,dashscope/deepseek-v4-pro,dialogue,21019,3161,941,
+candidate-pbl-revised,TestClarityPBL/plan,3,candidate,dashscope/deepseek-v4-pro,dialogue,22720,3161,1070,
+candidate-pbl-revised,TestClarityPBL/split,1,candidate,dashscope/deepseek-v4-pro,dialogue,8448,3149,360,
+candidate-pbl-revised,TestClarityPBL/split,2,candidate,dashscope/deepseek-v4-pro,dialogue,6318,3149,291,
+candidate-pbl-revised,TestClarityPBL/split,3,candidate,dashscope/deepseek-v4-pro,dialogue,6349,3149,281,
+candidate-reading-calibrated,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,4383,6591,136,
+candidate-reading-calibrated,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,5478,6591,165,
+candidate-reading-calibrated,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,4887,6591,127,
+candidate-reading-calibrated,TestClarityReading/done,1,,dashscope/deepseek-v4-pro,dialogue,4142,6615,110,
+candidate-reading-calibrated,TestClarityReading/done,2,,dashscope/deepseek-v4-pro,dialogue,4430,6615,118,"advance = """", want ""done"""
+candidate-reading-calibrated,TestClarityReading/done,3,,dashscope/deepseek-v4-pro,dialogue,3225,6615,81,"advance = """", want ""done"""
+candidate-reading-calibrated,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,3353,6592,81,
+candidate-reading-calibrated,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,4127,6592,108,
+candidate-reading-calibrated,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,3145,6592,82,
+candidate-reading-calibrated,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,3121,6591,124,
+candidate-reading-calibrated,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,3978,6591,151,
+candidate-reading-calibrated,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4298,6591,141,
+candidate-reading-calibrated,TestClarityReading/skip,1,,dashscope/deepseek-v4-pro,dialogue,1796,6584,35,
+candidate-reading-calibrated,TestClarityReading/skip,2,,dashscope/deepseek-v4-pro,dialogue,1568,6584,29,
+candidate-reading-calibrated,TestClarityReading/skip,3,,dashscope/deepseek-v4-pro,dialogue,1623,6584,29,
+candidate-reading-completion,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,6426,6422,199,
+candidate-reading-completion,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,4064,6422,103,
+candidate-reading-completion,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,5319,6422,165,
+candidate-reading-completion,TestClarityReading/done,1,,dashscope/deepseek-v4-pro,dialogue,4354,6446,110,"advance = """", want ""done"""
+candidate-reading-completion,TestClarityReading/done,2,,dashscope/deepseek-v4-pro,dialogue,3619,6446,74,
+candidate-reading-completion,TestClarityReading/done,3,,dashscope/deepseek-v4-pro,dialogue,3767,6446,84,
+candidate-reading-completion,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,4051,6423,121,
+candidate-reading-completion,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,3301,6423,67,
+candidate-reading-completion,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,2965,6423,74,
+candidate-reading-completion,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,4403,6422,156,
+candidate-reading-completion,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4908,6422,131,
+candidate-reading-completion,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4336,6422,130,
+candidate-reading-completion,TestClarityReading/skip,1,,dashscope/deepseek-v4-pro,dialogue,2979,6415,66,
+candidate-reading-completion,TestClarityReading/skip,2,,dashscope/deepseek-v4-pro,dialogue,3307,6415,62,
+candidate-reading-completion,TestClarityReading/skip,3,,dashscope/deepseek-v4-pro,dialogue,4048,6415,87,"advance = ""done"", want ""skipped"""
+candidate-reading-ordered,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,5637,6452,227,
+candidate-reading-ordered,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,5904,6452,195,
+candidate-reading-ordered,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,4830,6452,149,
+candidate-reading-ordered,TestClarityReading/done,1,,dashscope/deepseek-v4-pro,dialogue,3890,6476,93,
+candidate-reading-ordered,TestClarityReading/done,2,,dashscope/deepseek-v4-pro,dialogue,4051,6476,121,"advance = """", want ""done"""
+candidate-reading-ordered,TestClarityReading/done,3,,dashscope/deepseek-v4-pro,dialogue,4513,6476,130,
+candidate-reading-ordered,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,3220,6453,88,
+candidate-reading-ordered,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,3278,6453,90,
+candidate-reading-ordered,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,3978,6453,115,
+candidate-reading-ordered,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,4389,6452,143,
+candidate-reading-ordered,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,4276,6452,147,
+candidate-reading-ordered,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4709,6452,146,
+candidate-reading-ordered,TestClarityReading/skip,1,,dashscope/deepseek-v4-pro,dialogue,4049,6445,158,
+candidate-reading-ordered,TestClarityReading/skip,2,,dashscope/deepseek-v4-pro,dialogue,6089,6445,214,
+candidate-reading-ordered,TestClarityReading/skip,3,,dashscope/deepseek-v4-pro,dialogue,2958,6445,74,
+candidate-reading-revised,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,4163,6307,154,
+candidate-reading-revised,TestClarityReading/concept,2,,dashscope/deepseek-v4-pro,dialogue,3774,6307,108,
+candidate-reading-revised,TestClarityReading/concept,3,,dashscope/deepseek-v4-pro,dialogue,4347,6307,159,
+candidate-reading-revised,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,2580,6308,80,
+candidate-reading-revised,TestClarityReading/exercise,2,,dashscope/deepseek-v4-pro,dialogue,5047,6308,156,
+candidate-reading-revised,TestClarityReading/exercise,3,,dashscope/deepseek-v4-pro,dialogue,2899,6308,77,
+candidate-reading-revised,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,4584,6307,149,
+candidate-reading-revised,TestClarityReading/help,2,,dashscope/deepseek-v4-pro,dialogue,3564,6307,139,
+candidate-reading-revised,TestClarityReading/help,3,,dashscope/deepseek-v4-pro,dialogue,4499,6307,147,
+candidate-smoke,TestClarityAgent/chat-concept,1,,dashscope/deepseek-v4-pro,dialogue,2244,228,49,
+candidate-smoke,TestClarityAgent/course-concept,1,,dashscope/deepseek-v4-pro,dialogue,2543,163,72,
+candidate-smoke,TestClarityAgent/executioner,1,,dashscope/deepseek-v4-pro,review,24549,453,1030,
+candidate-smoke,TestClarityAgent/project-help,1,,dashscope/deepseek-v4-pro,dialogue,4707,425,165,
+candidate-smoke,TestClarityAgent/project-no-ghostwriting,1,,dashscope/deepseek-v4-pro,dialogue,3905,417,108,
+candidate-smoke,TestClarityAgent/sceptic,1,,dashscope/deepseek-v4-pro,review,11767,452,461,
+candidate-smoke,TestClarityPBL/concept,1,,dashscope/deepseek-v4-pro,dialogue,5549,3003,191,
+candidate-smoke,TestClarityPBL/examples,1,,dashscope/deepseek-v4-pro,dialogue,6149,3839,244,
+candidate-smoke,TestClarityPBL/plan,1,,dashscope/deepseek-v4-pro,dialogue,17507,3042,804,
+candidate-smoke,TestClarityPBL/split,1,,dashscope/deepseek-v4-pro,dialogue,8683,3030,338,
+candidate-smoke,TestClarityReading/concept,1,,dashscope/deepseek-v4-pro,dialogue,4365,6216,150,
+candidate-smoke,TestClarityReading/exercise,1,,dashscope/deepseek-v4-pro,dialogue,2936,6217,95,
+candidate-smoke,TestClarityReading/help,1,,dashscope/deepseek-v4-pro,dialogue,3698,6216,130,
+candidate-smoke,TestClarityWriting/comment,1,,dashscope/deepseek-v4-pro,review,9339,364,377,
+candidate-smoke,TestClarityWriting/guide,1,,dashscope/glm-5.3,compose,2224,944,115,
+candidate-smoke,TestClarityWriting/plan,1,,dashscope/deepseek-v4-pro,dialogue,3060,2073,96,
+network-check,TestClarityPBL/concept,1,,dashscope/deepseek-v4-pro,dialogue,3702,3623,111,

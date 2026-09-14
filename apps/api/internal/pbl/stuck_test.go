@@ -105,7 +105,7 @@ func TestAskedForHelp(t *testing.T) {
 			want:   true,
 		},
 		{
-			name:   "只看最后一句：她后来自己答了",
+			name: "只看最后一句：她后来自己答了",
 			recent: []Turn{
 				{Role: "student", Content: "举个例子"},
 				{Role: "ai", Content: "……"},
@@ -195,7 +195,7 @@ func TestCoachSystem_HasAWayOutWhenSheCannotAnswer(t *testing.T) {
 		// 🚨 「挑一个」和「都不是」必须写在同一个问句里。这一句是 2026-09-05
 		// 真模型实测逼出来的：上一版把出口写成「哪个更接近？都不是的话是什么？」，
 		// 模型照着写了两个问号，破铁律③。
-		"这三个里哪个最接近你想的，或者都不是？",
+		"哪类更接近你的用途，也可以提出其他读者？",
 		"服务端只认原话", // 🚨 例子不能变成替她填的答案：铁律① + GroundSiteDraft。
 	} {
 		if !strings.Contains(p, want) {

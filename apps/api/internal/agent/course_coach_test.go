@@ -29,7 +29,7 @@ func TestCourseAskPrompt(t *testing.T) {
 		"答案",                // ...and the answer
 		"不替他下结论",            // never conclude for the student
 		"不替他写作",             // never write for the student
-		"一次只问一个",            // one question at a time
+		"最多问一个",            // one question at a time
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("course ask prompt is missing %q:\n%s", want, got)
