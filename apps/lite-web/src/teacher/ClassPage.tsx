@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
-import { api, ApiError } from "@/api";
+import { api } from "@/api";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatMinutes } from "./format";
+import { errorText } from "./assignmentLogic";
 
 /**
  * ClassPage — the lite teacher end's one class: name + join code header,
@@ -109,14 +110,14 @@ export function ClassPage({
         setName(d.class.name);
         setJoinCode(d.class.join_code);
       })
-      .catch((e) => setHeaderError(e instanceof ApiError ? e.message : String(e)));
+      .catch((e) => setHeaderError(errorText(e)));
   }
 
   function loadRoster() {
     setRosterError(null);
     getRoster(classId)
       .then(setRoster)
-      .catch((e) => setRosterError(e instanceof ApiError ? e.message : String(e)));
+      .catch((e) => setRosterError(errorText(e)));
   }
 
   useEffect(() => {
@@ -136,7 +137,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setRenaming(false);
     } catch (e) {
-      setMutationError(`改名失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`改名失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -150,7 +151,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setConfirmRegen(false);
     } catch (e) {
-      setMutationError(`轮换失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`轮换失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -164,7 +165,7 @@ export function ClassPage({
       setConfirmRemove(null);
       loadRoster();
     } catch (e) {
-      setMutationError(`移出失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`移出失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -196,9 +197,9 @@ export function ClassPage({
         {headerError ? (
           <div className="mt-4 text-mk-small font-semibold text-mk-danger">
             加载失败：{headerError}{" "}
-            <span onClick={loadHeader} className="cursor-pointer underline">
+            <button type="button" onClick={loadHeader} className="cursor-pointer underline">
               重试
-            </span>
+            </button>
           </div>
         ) : name === null ? (
           <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
@@ -284,9 +285,9 @@ export function ClassPage({
           {rosterError ? (
             <div className="text-mk-small font-semibold text-mk-danger">
               加载失败：{rosterError}{" "}
-              <span onClick={loadRoster} className="cursor-pointer underline">
+              <button type="button" onClick={loadRoster} className="cursor-pointer underline">
                 重试
-              </span>
+              </button>
             </div>
           ) : sortedRoster === null ? (
             <div className="text-mk-body text-mk-muted">加载中…</div>
