@@ -489,6 +489,20 @@ type LiteAssignmentRecipient struct {
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
 }
 
+type LiteClassWeeklyProse struct {
+	ClassID   uuid.UUID   `json:"class_id"`
+	WeekStart pgtype.Date `json:"week_start"`
+	Body      []byte      `json:"body"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+type LiteStudentWeeklyProse struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	WeekStart pgtype.Date `json:"week_start"`
+	Body      []byte      `json:"body"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type LlmCall struct {
 	ID               uuid.UUID      `json:"id"`
 	UserID           uuid.UUID      `json:"user_id"`
