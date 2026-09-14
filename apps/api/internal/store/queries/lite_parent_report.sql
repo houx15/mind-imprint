@@ -51,7 +51,9 @@ SELECT * FROM lite_parent_report WHERE id = sqlc.arg(id);
 SELECT * FROM lite_parent_report WHERE id = sqlc.arg(id) FOR UPDATE;
 
 -- name: ListLiteParentReportsByStudent :many
-SELECT pr.id, pr.user_id, u.display_name AS student_name, pr.class_id,
+-- 名字取生成时冻结在 facts 里的快照，与报告页一致；快照为空时才用当前的 display_name。
+SELECT pr.id, pr.user_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
        pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
@@ -59,7 +61,9 @@ WHERE pr.user_id = sqlc.arg(user_id) AND pr.class_id = sqlc.arg(class_id)
 ORDER BY pr.created_at DESC, pr.id;
 
 -- name: ListLiteParentReportsByClass :many
-SELECT pr.id, pr.user_id, u.display_name AS student_name, pr.class_id,
+-- 名字规则同上。
+SELECT pr.id, pr.user_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
        pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
@@ -100,7 +104,9 @@ SET student_seen_at = COALESCE(student_seen_at, now())
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND status = 'published';
 
 -- name: ListStudentPublishedParentReports :many
-SELECT pr.id, pr.class_id, c.name AS class_name, pr.range_start, pr.range_end,
+-- 班级名取 facts 里的快照（与报告页一致），快照为空时才用 classes.name。
+SELECT pr.id, pr.class_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'className'), ''), c.name)::text AS class_name, pr.range_start, pr.range_end,
        pr.published_at, pr.student_seen_at
 FROM lite_parent_report pr
 JOIN classes c ON c.id = pr.class_id

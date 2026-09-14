@@ -194,7 +194,8 @@ func (q *Queries) GetStudentParentReport(ctx context.Context, arg GetStudentPare
 }
 
 const listLiteParentReportsByClass = `-- name: ListLiteParentReportsByClass :many
-SELECT pr.id, pr.user_id, u.display_name AS student_name, pr.class_id,
+SELECT pr.id, pr.user_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
        pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
@@ -215,6 +216,7 @@ type ListLiteParentReportsByClassRow struct {
 	CreatedAt   time.Time          `json:"created_at"`
 }
 
+// 名字规则同上。
 func (q *Queries) ListLiteParentReportsByClass(ctx context.Context, classID uuid.UUID) ([]ListLiteParentReportsByClassRow, error) {
 	rows, err := q.db.Query(ctx, listLiteParentReportsByClass, classID)
 	if err != nil {
@@ -247,7 +249,8 @@ func (q *Queries) ListLiteParentReportsByClass(ctx context.Context, classID uuid
 }
 
 const listLiteParentReportsByStudent = `-- name: ListLiteParentReportsByStudent :many
-SELECT pr.id, pr.user_id, u.display_name AS student_name, pr.class_id,
+SELECT pr.id, pr.user_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
        pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
@@ -273,6 +276,7 @@ type ListLiteParentReportsByStudentRow struct {
 	CreatedAt   time.Time          `json:"created_at"`
 }
 
+// 名字取生成时冻结在 facts 里的快照，与报告页一致；快照为空时才用当前的 display_name。
 func (q *Queries) ListLiteParentReportsByStudent(ctx context.Context, arg ListLiteParentReportsByStudentParams) ([]ListLiteParentReportsByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listLiteParentReportsByStudent, arg.UserID, arg.ClassID)
 	if err != nil {
@@ -305,7 +309,8 @@ func (q *Queries) ListLiteParentReportsByStudent(ctx context.Context, arg ListLi
 }
 
 const listStudentPublishedParentReports = `-- name: ListStudentPublishedParentReports :many
-SELECT pr.id, pr.class_id, c.name AS class_name, pr.range_start, pr.range_end,
+SELECT pr.id, pr.class_id,
+       COALESCE(NULLIF(btrim(pr.facts ->> 'className'), ''), c.name)::text AS class_name, pr.range_start, pr.range_end,
        pr.published_at, pr.student_seen_at
 FROM lite_parent_report pr
 JOIN classes c ON c.id = pr.class_id
@@ -323,6 +328,7 @@ type ListStudentPublishedParentReportsRow struct {
 	StudentSeenAt pgtype.Timestamptz `json:"student_seen_at"`
 }
 
+// 班级名取 facts 里的快照（与报告页一致），快照为空时才用 classes.name。
 func (q *Queries) ListStudentPublishedParentReports(ctx context.Context, userID uuid.UUID) ([]ListStudentPublishedParentReportsRow, error) {
 	rows, err := q.db.Query(ctx, listStudentPublishedParentReports, userID)
 	if err != nil {
