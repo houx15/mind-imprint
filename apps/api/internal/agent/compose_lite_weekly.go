@@ -252,13 +252,15 @@ func liteFlaggedStudents(students []liteweekly.StudentWeek, cards map[string][]l
 }
 
 // liteStudentFactsForCheck is the digit set for the student prose: the facts
-// text plus every card's evidence, because the prompt shows the model both
-// (a stalled card's "超过 7 天" carries a 7 the facts text may not).
+// text, every card's evidence and her name, because the prompt shows the
+// model all three (a stalled card's "超过 7 天" carries a 7 the facts text
+// may not; a display name such as 同学3 carries a 3).
 func liteStudentFactsForCheck(s liteweekly.StudentWeek, weekLabel string, cards []liteweekly.Card) string {
 	parts := []string{liteweekly.FactsText(s, weekLabel)}
 	for _, c := range cards {
 		parts = append(parts, c.Evidence)
 	}
+	parts = append(parts, s.Name)
 	return strings.Join(parts, "\n")
 }
 
@@ -296,6 +298,7 @@ func validateLiteStudentWeekly(p LiteStudentWeeklyProse, s liteweekly.StudentWee
 		Titles:       liteweekly.TitleCorpus(s),
 		FactsText:    liteStudentFactsForCheck(s, weekLabel, cards),
 		OtherNames:   otherNames,
+		SelfName:     s.Name,
 	}
 	// Each field is checked on its own so a quote mark opened in one field
 	// cannot pair with a close in the next.

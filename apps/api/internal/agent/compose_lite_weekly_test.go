@@ -431,6 +431,25 @@ func TestComposeLiteClassWeeklyRejectsUnmatchedCardKey(t *testing.T) {
 	}
 }
 
+// ---- final fix wave ----
+
+// Her display name can carry a digit the facts do not (同学8), and a
+// classmate's name can be part of hers (同学 in 同学8). Prose that names her
+// passes on the first attempt.
+func TestComposeLiteStudentWeeklyNameWithDigit(t *testing.T) {
+	s := liteChen()
+	s.Name = "同学8"
+	if strings.Contains(liteweekly.FactsText(s, liteWeekLabel), "8") {
+		t.Fatal("fixture facts text must not contain 8")
+	}
+	reply := `{"summary":"同学8该周活跃 2 天，对话 6 轮。","suggestions":[]}`
+	prov := gateway.NewSequenceStubProvider(liteReply(reply))
+	_, attempts, err := agent.ComposeLiteStudentWeekly(context.Background(), prov, liteResolved, s, liteWeekLabel, nil, []string{"同学", "林知遥"})
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("err=%v attempts=%d, want a first-attempt pass", err, len(attempts))
+	}
+}
+
 func TestComposeLiteStudentWeeklyParsesJSONInsideProse(t *testing.T) {
 	reply := "以下是总结：\n" + liteValidStudent + "\n以上。"
 	got, attempts, err := composeLin(gateway.NewSequenceStubProvider(liteReply(reply)))

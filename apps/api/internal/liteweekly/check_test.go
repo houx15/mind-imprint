@@ -51,6 +51,70 @@ func TestCheckProse(t *testing.T) {
 	}
 }
 
+// TestCheckProseNames: the other-names check runs on the text with verified
+// quote and title spans removed and with her own name removed.
+func TestCheckProseNames(t *testing.T) {
+	cases := []struct {
+		name   string
+		check  ProseCheck
+		text   string
+		wantOK bool
+	}{
+		{
+			name:   "classmate name inside her name",
+			check:  ProseCheck{FactsText: "活跃 3 天", OtherNames: []string{"王丽"}, SelfName: "王丽华"},
+			text:   "王丽华该周活跃 3 天，请王丽华继续保持。",
+			wantOK: true,
+		},
+		{
+			name:   "classmate name inside a verified title",
+			check:  ProseCheck{Titles: "一场小雨", FactsText: "活跃 3 天", OtherNames: []string{"小雨"}},
+			text:   "她读完了《一场小雨》。",
+			wantOK: true,
+		},
+		{
+			name:   "classmate name inside her verified quote",
+			check:  ProseCheck{Corpus: "我和小雨一起看雨", FactsText: "活跃 3 天", OtherNames: []string{"小雨"}},
+			text:   "她写下「我和小雨一起看雨」。",
+			wantOK: true,
+		},
+		{
+			name:   "classmate named outside any span",
+			check:  ProseCheck{Titles: "一场小雨", FactsText: "活跃 3 天", OtherNames: []string{"小雨"}},
+			text:   "她读完了《一场小雨》，可以和小雨一起讨论。",
+			wantOK: false,
+		},
+		{
+			name:   "classmate named next to her name",
+			check:  ProseCheck{FactsText: "活跃 3 天", OtherNames: []string{"王丽"}, SelfName: "王丽华"},
+			text:   "王丽华可以和王丽一起讨论。",
+			wantOK: false,
+		},
+		{
+			name:   "empty SelfName removes nothing",
+			check:  ProseCheck{FactsText: "活跃 3 天", OtherNames: []string{"王丽"}},
+			text:   "王丽华该周活跃 3 天。",
+			wantOK: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := CheckProse(tc.text, nil, tc.check)
+			if tc.wantOK && err != nil {
+				t.Fatalf("rejected: %v", err)
+			}
+			if !tc.wantOK {
+				if err == nil {
+					t.Fatal("accepted")
+				}
+				if !strings.Contains(err.Error(), "mentions other student") {
+					t.Fatalf("err = %v, want mentions other student", err)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckProseQuoteWithDigitsPasses(t *testing.T) {
 	c := ProseCheck{
 		Corpus:    "这次我考了 128 分",

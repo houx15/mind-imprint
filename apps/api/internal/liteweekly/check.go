@@ -14,6 +14,11 @@ type ProseCheck struct {
 	Titles       string // item titles: finished + stalled (see TitleCorpus)
 	FactsText    string
 	OtherNames   []string
+	// SelfName is the name of the student the prose is about. Every
+	// occurrence is removed before the other-names check, so a classmate
+	// whose name is part of hers (王丽 in 王丽华) does not fail prose that
+	// names her. Empty means nothing is removed.
+	SelfName string
 }
 
 var digitRunRe = regexp.MustCompile(`[0-9]+`)
@@ -178,8 +183,16 @@ func CheckProse(text string, codes []string, c ProseCheck) error {
 		}
 	}
 
+	// The name check reads the same cleaned text: a classmate's name inside
+	// her verified quote or inside a verified title is not the prose naming
+	// that classmate. Her own name is replaced with a newline rather than
+	// deleted, so the text on either side cannot join into another name.
+	named := string(cleaned)
+	if c.SelfName != "" {
+		named = strings.ReplaceAll(named, c.SelfName, "\n")
+	}
 	for _, name := range c.OtherNames {
-		if name != "" && strings.Contains(text, name) {
+		if name != "" && strings.Contains(named, name) {
 			return fmt.Errorf("mentions other student: %s", name)
 		}
 	}

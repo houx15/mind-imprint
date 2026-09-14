@@ -501,10 +501,13 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Every other student's name, so the prose cannot talk about them. A
-	// classmate with her exact name is left out: that name is hers to use.
+	// classmate whose name is part of hers (her exact name, or 王丽 for 王丽华)
+	// is left out: naming her would otherwise fail every attempt. A name
+	// inside a verified 《title》 or 「quote」 needs no skip here; CheckProse
+	// removes those spans before the name check.
 	others := make([]string, 0, len(members))
 	for _, m := range members {
-		if m.ID != userID && strings.TrimSpace(m.DisplayName) != "" && m.DisplayName != s.Name {
+		if m.ID != userID && strings.TrimSpace(m.DisplayName) != "" && !strings.Contains(s.Name, m.DisplayName) {
 			others = append(others, m.DisplayName)
 		}
 	}
