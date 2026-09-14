@@ -1,0 +1,197 @@
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/submitted-label-board
+2026/09/14 13:21:19 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 29.5.3
+  API Version: 1.46
+  Operating System: Docker Desktop
+  Total Memory: 7936 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/houyuxin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.34.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 187dd5dc6b7d947550e331ba86407cc29b02ca912efd3e7e162fa42f89485733
+  Test ProcessID: 3af55bc4-2fe9-47bb-b791-df5b8c894b46
+2026/09/14 13:21:19 🐳 Creating container for image testcontainers/ryuk:0.10.2
+2026/09/14 13:21:19 ✅ Container created: 354f9aa786b5
+2026/09/14 13:21:19 🐳 Starting container: 354f9aa786b5
+2026/09/14 13:21:19 ✅ Container started: 354f9aa786b5
+2026/09/14 13:21:19 ⏳ Waiting for container id 354f9aa786b5 image: testcontainers/ryuk:0.10.2. Waiting for: &{Port:8080/tcp timeout:<nil> PollInterval:100ms skipInternalCheck:false}
+2026/09/14 13:21:19 🔔 Container is ready: 354f9aa786b5
+2026/09/14 13:21:19 🐳 Creating container for image postgres:16-alpine
+2026/09/14 13:21:19 ✅ Container created: ae4188b1b14f
+2026/09/14 13:21:19 🐳 Starting container: ae4188b1b14f
+2026/09/14 13:21:19 ✅ Container started: ae4188b1b14f
+2026/09/14 13:21:19 ⏳ Waiting for container id ae4188b1b14f image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0x1aef8f5be168 Strategies:[0x1aef8f9dc750]}
+2026/09/14 13:21:20 🔔 Container is ready: ae4188b1b14f
+2026/09/14 13:21:20 OK   0001_init.sql (23.81ms)
+2026/09/14 13:21:20 OK   0002_seed.sql (2.87ms)
+2026/09/14 13:21:20 OK   0003_auth.sql (4.88ms)
+2026/09/14 13:21:20 OK   0004_seed_password.sql (882.29µs)
+2026/09/14 13:21:20 OK   0005_org.sql (3.11ms)
+2026/09/14 13:21:20 OK   0006_seed_admin.sql (2.41ms)
+2026/09/14 13:21:20 OK   0007_eval_async.sql (983.13µs)
+2026/09/14 13:21:20 OK   0008_eval_trigger.sql (2.03ms)
+2026/09/14 13:21:20 OK   0009_material.sql (2.2ms)
+2026/09/14 13:21:20 OK   0010_card_anchors.sql (825.92µs)
+2026/09/14 13:21:20 OK   0011_courses.sql (4.8ms)
+2026/09/14 13:21:20 OK   0012_seed_course.sql (1.47ms)
+2026/09/14 13:21:20 OK   0013_course_step_render.sql (1.55ms)
+2026/09/14 13:21:20 OK   0014_voice_tts_cache.sql (1.27ms)
+2026/09/14 13:21:20 OK   0015_message_source.sql (754.63µs)
+2026/09/14 13:21:20 OK   0016_refactor2_foundations.sql (21.71ms)
+2026/09/14 13:21:20 OK   0017_graph_node_open_type.sql (1.36ms)
+2026/09/14 13:21:20 OK   0018_seed_demo_project.sql (5.21ms)
+2026/09/14 13:21:20 OK   0019_llm_call_usage.sql (4.11ms)
+2026/09/14 13:21:20 OK   0020_material_source_log.sql (2.95ms)
+2026/09/14 13:21:20 OK   0021_assessment_project.sql (1.54ms)
+2026/09/14 13:21:20 OK   0022_chat_thread_scope.sql (3.05ms)
+2026/09/14 13:21:20 OK   0023_course_session_scope.sql (6.2ms)
+2026/09/14 13:21:20 OK   0024_session_assessment_scope.sql (3.28ms)
+2026/09/14 13:21:20 OK   0025_thread_assessment_scope.sql (3.14ms)
+2026/09/14 13:21:20 OK   0026_project_status_check.sql (787.5µs)
+2026/09/14 13:21:20 OK   0027_dualaxis_clean_slate.sql (937.13µs)
+2026/09/14 13:21:20 OK   0028_canonical_assessment_clean_slate.sql (709.5µs)
+2026/09/14 13:21:20 OK   0029_seed_teacher_class.sql (8.8ms)
+2026/09/14 13:21:20 OK   0030_seed_teacher_password.sql (733µs)
+2026/09/14 13:21:20 OK   0031_event_course_scope.sql (1.93ms)
+2026/09/14 13:21:20 OK   0032_student_evaluation_view.sql (1.12ms)
+2026/09/14 13:21:20 OK   0033_class_weekly_prose.sql (1.45ms)
+2026/09/14 13:21:20 OK   0034_seed_teacher_week.sql (3.25ms)
+2026/09/14 13:21:20 OK   0035_parent_report_prose.sql (1.36ms)
+2026/09/14 13:21:20 OK   0036_workspace_redesign.sql (11.2ms)
+2026/09/14 13:21:20 OK   0037_project_status_evaluating.sql (1.03ms)
+2026/09/14 13:21:20 OK   0038_continuous_session.sql (2.15ms)
+2026/09/14 13:21:20 OK   0039_reading_takeaway.sql (1.56ms)
+2026/09/14 13:21:20 OK   0040_exploration_lead.sql (2.49ms)
+2026/09/14 13:21:20 OK   0041_conversation_digest.sql (1.33ms)
+2026/09/14 13:21:20 OK   0042_project_ai_use.sql (1.36ms)
+2026/09/14 13:21:20 OK   0043_reading_note.sql (735.63µs)
+2026/09/14 13:21:20 OK   0044_snippet.sql (1.85ms)
+2026/09/14 13:21:20 OK   0045_snippet_section.sql (688.67µs)
+2026/09/14 13:21:20 OK   0046_exploration_lead_branch.sql (1.15ms)
+2026/09/14 13:21:20 OK   0047_user_card_theme.sql (800µs)
+2026/09/14 13:21:20 OK   0048_reference_abstract.sql (1.04ms)
+2026/09/14 13:21:20 OK   0049_project_writing_finished.sql (653.96µs)
+2026/09/14 13:21:20 OK   0050_course_v2.sql (10.48ms)
+2026/09/14 13:21:20 OK   0051_course_active_seconds.sql (825.13µs)
+2026/09/14 13:21:20 OK   0052_course_audio_manifest.sql (725.54µs)
+2026/09/14 13:21:20 OK   0053_reference_reading_status.sql (838.67µs)
+2026/09/14 13:21:20 OK   0054_question_edge.sql (2.49ms)
+2026/09/14 13:21:20 OK   0055_lead_origin_note.sql (908.96µs)
+2026/09/14 13:21:20 OK   0056_proposal_counterpoints.sql (735.58µs)
+2026/09/14 13:21:20 OK   0057_studio_state.sql (757.63µs)
+2026/09/14 13:21:20 OK   0058_project_cover.sql (699.96µs)
+2026/09/14 13:21:20 OK   0059_studio_started.sql (1.76ms)
+2026/09/14 13:21:20 OK   0060_chat_message_stage.sql (632.71µs)
+2026/09/14 13:21:20 OK   0061_writing_doc_kind.sql (3.65ms)
+2026/09/14 13:21:20 OK   0062_reference_evidence.sql (1.43ms)
+2026/09/14 13:21:20 OK   0063_revision_checkpoint.sql (1.82ms)
+2026/09/14 13:21:20 OK   0064_evaluation_report.sql (1.91ms)
+2026/09/14 13:21:20 OK   0065_drop_mirror_parent_prose.sql (2.43ms)
+2026/09/14 13:21:20 OK   0066_evaluation_report_status.sql (1.52ms)
+2026/09/14 13:21:20 OK   0067_truncate_weekly_prose_cache.sql (915.92µs)
+2026/09/14 13:21:20 OK   0068_citation.sql (1.87ms)
+2026/09/14 13:21:20 OK   0069_backfill_framework_finished.sql (1.01ms)
+2026/09/14 13:21:20 OK   0070_course_definition.sql (687.75µs)
+2026/09/14 13:21:20 OK   0071_course_session.sql (2.03ms)
+2026/09/14 13:21:20 OK   0072_course_status_cover.sql (906.88µs)
+2026/09/14 13:21:20 OK   0073_seed_demo_class_teacher.sql (799.54µs)
+2026/09/14 13:21:20 OK   0074_user_page_background.sql (819.42µs)
+2026/09/14 13:21:20 OK   0075_course_catalog_metadata.sql (752.21µs)
+2026/09/14 13:21:20 OK   0076_course_definition_step_count.sql (1.04ms)
+2026/09/14 13:21:20 OK   0077_course_session_attempts.sql (1.58ms)
+2026/09/14 13:21:20 OK   0078_seed_foreign_class.sql (1.22ms)
+2026/09/14 13:21:20 OK   0079_user_onboarded_at.sql (645.21µs)
+2026/09/14 13:21:20 OK   0080_feedback.sql (1.63ms)
+2026/09/14 13:21:20 OK   0081_project_is_demo.sql (763.63µs)
+2026/09/14 13:21:20 OK   0082_seed_demo_project_finished.sql (12.13ms)
+2026/09/14 13:21:20 OK   0083_seed_demo_essay_annotations.sql (1.04ms)
+2026/09/14 13:21:20 OK   0084_demo_studio_state_retrospective.sql (683.54µs)
+2026/09/14 13:21:20 OK   0085_demo_essay_newlines.sql (1.13ms)
+2026/09/14 13:21:20 OK   0086_demo_full_paper.sql (1.34ms)
+2026/09/14 13:21:20 OK   0087_demo_warren_depth_and_needs.sql (1.39ms)
+2026/09/14 13:21:20 OK   0088_demo_node_read_transition.sql (638.08µs)
+2026/09/14 13:21:20 OK   0089_demo_warren_full_second_layer.sql (973.58µs)
+2026/09/14 13:21:20 OK   0090_demo_proposal_track_guides.sql (1.8ms)
+2026/09/14 13:21:20 OK   0091_demo_reading_notes.sql (980.08µs)
+2026/09/14 13:21:20 OK   0092_atom_substrate.sql (9.52ms)
+2026/09/14 13:21:20 OK   0093_schools_edition.sql (843.21µs)
+2026/09/14 13:21:20 OK   0094_llm_call_atom.sql (1.43ms)
+2026/09/14 13:21:20 OK   0095_atom_card_anchors.sql (1.01ms)
+2026/09/14 13:21:20 OK   0096_atom_card_one_open.sql (803.04µs)
+2026/09/14 13:21:20 OK   0097_atom_card_origin.sql (781.21µs)
+2026/09/14 13:21:20 OK   0098_atom_last_activity.sql (1.08ms)
+2026/09/14 13:21:20 OK   0099_writing_tables.sql (4.93ms)
+2026/09/14 13:21:20 OK   0100_writing_structure.sql (1.94ms)
+2026/09/14 13:21:20 OK   0101_reading_plan.sql (3.36ms)
+2026/09/14 13:21:20 OK   0102_writing_room_deepening.sql (2.79ms)
+2026/09/14 13:21:20 OK   0103_reading_depth.sql (2.36ms)
+2026/09/14 13:21:20 OK   0104_reading_questions_at.sql (657.58µs)
+2026/09/14 13:21:20 OK   0105_lite_reports.sql (2.03ms)
+2026/09/14 13:21:20 OK   0106_coach_card_payload.sql (655.58µs)
+2026/09/14 13:21:20 OK   0107_atom_experience_rating.sql (748.79µs)
+2026/09/14 13:21:20 OK   0108_pbl_project.sql (2.84ms)
+2026/09/14 13:21:20 OK   0109_pbl_sessions_and_plan.sql (11.43ms)
+2026/09/14 13:21:20 OK   0110_pbl_artifacts_and_tools.sql (3.81ms)
+2026/09/14 13:21:20 OK   0111_pbl_method_layer.sql (18.65ms)
+2026/09/14 13:21:20 OK   0112_pbl_kind_is_hers.sql (959.54µs)
+2026/09/14 13:21:20 OK   0113_pbl_decision_is_a_choice.sql (1.05ms)
+2026/09/14 13:21:20 OK   0114_pbl_tree_positions.sql (945.58µs)
+2026/09/14 13:21:20 OK   0115_pbl_review_sections.sql (788µs)
+2026/09/14 13:21:20 OK   0116_interest_model.sql (4.86ms)
+2026/09/14 13:21:20 OK   0117_pbl_site.sql (2.19ms)
+2026/09/14 13:21:20 OK   0118_pbl_note_photo.sql (688.21µs)
+2026/09/14 13:21:20 OK   0119_interest_quiz.sql (1.95ms)
+2026/09/14 13:21:20 OK   0120_news_starmap.sql (3.47ms)
+2026/09/14 13:21:20 OK   0121_keyword_dig.sql (1.56ms)
+2026/09/14 13:21:20 OK   0122_pbl_board_axes.sql (730.42µs)
+2026/09/14 13:21:20 OK   0123_pbl_judgment_signals.sql (1.29ms)
+2026/09/14 13:21:20 OK   0124_pbl_mission_item.sql (1.86ms)
+2026/09/14 13:21:20 OK   0125_pbl_note_placed.sql (840.17µs)
+2026/09/14 13:21:20 OK   0126_pbl_note_link.sql (2.35ms)
+2026/09/14 13:21:20 OK   0127_pbl_keep_numbers.sql (2.01ms)
+2026/09/14 13:21:20 OK   0128_pbl_note_picked.sql (1.17ms)
+2026/09/14 13:21:20 OK   0129_pbl_site_ref.sql (1.96ms)
+2026/09/14 13:21:20 OK   0130_pbl_persona.sql (2.1ms)
+2026/09/14 13:21:20 OK   0131_pbl_site_look.sql (983.17µs)
+2026/09/14 13:21:20 OK   0132_pbl_note_reframe_slot.sql (728.25µs)
+2026/09/14 13:21:20 OK   0133_course_audience_and_pbl_course.sql (2.66ms)
+2026/09/14 13:21:20 OK   0134_interest_vocabulary.sql (4.58ms)
+2026/09/14 13:21:20 OK   0135_news_day_retry.sql (708.88µs)
+2026/09/14 13:21:20 OK   0136_pbl_tool_drop.sql (1.55ms)
+2026/09/14 13:21:20 OK   0137_interest_dismissal.sql (1.33ms)
+2026/09/14 13:21:20 OK   0138_news_saved_reading.sql (917µs)
+2026/09/14 13:21:20 OK   0139_drop_interest_dismissal.sql (1.38ms)
+2026/09/14 13:21:20 OK   0140_interest_proposal.sql (1.66ms)
+2026/09/14 13:21:20 OK   0141_news_planet_body.sql (877.25µs)
+2026/09/14 13:21:20 OK   0142_reading_library.sql (1.48ms)
+2026/09/14 13:21:20 OK   0143_reading_outline.sql (812.29µs)
+2026/09/14 13:21:20 OK   0144_reading_task_new_kinds.sql (1.13ms)
+2026/09/14 13:21:20 OK   0145_news_planet_evidence.sql (1.04ms)
+2026/09/14 13:21:20 OK   0146_writing_origin.sql (850.25µs)
+2026/09/14 13:21:20 OK   0147_writing_comment_source.sql (843µs)
+2026/09/14 13:21:20 goose: successfully migrated database to version: 147
+2026/09/14 13:21:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/text-is-not-board-submission
+2026/09/14 13:21:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/14 13:21:20 INFO reading coach: label step had no board, built one atom_id=37051727-001a-4e78-a4a1-d23e04743db0 options=4
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/unfinished-focus
+2026/09/14 13:21:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/stalled-focus
+2026/09/14 13:21:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/14 13:21:21 INFO reading coach: step stalled, advancing for her atom_id=236d60b2-25de-4f57-989c-2f6f53fc75e6 kind=focus_block
+=== RUN   TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/stalled-hunt-still-needs-pick
+2026/09/14 13:21:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+--- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules (1.90s)
+    --- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/submitted-label-board (1.59s)
+    --- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/text-is-not-board-submission (0.08s)
+    --- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/unfinished-focus (0.07s)
+    --- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/stalled-focus (0.09s)
+    --- PASS: TestReadingCoach_EmptyAdvanceStillRunsExistingProgressRules/stalled-hunt-still-needs-pick (0.08s)
+PASS
+2026/09/14 13:21:21 🐳 Stopping container: ae4188b1b14f
+2026/09/14 13:21:21 ✅ Container stopped: ae4188b1b14f
+2026/09/14 13:21:21 🐳 Terminating container: ae4188b1b14f
+2026/09/14 13:21:21 🚫 Container terminated: ae4188b1b14f
+ok  	mindimprint/api/internal/api	3.627s

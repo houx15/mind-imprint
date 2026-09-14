@@ -3,8 +3,10 @@
 package claritytest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,7 +48,11 @@ func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string)
 	if err != nil {
 		t.Fatal("no configured provider for requested class")
 	}
-	provider := gateway.NewMuxProvider(map[string]gateway.Provider{gateway.KindOpenAICompatible: gateway.NewCatalogProvider(&http.Client{Timeout: 3 * time.Minute}), gateway.KindAnthropic: gateway.NewAnthropicProvider(&http.Client{Timeout: 3 * time.Minute})})
+	if expected := os.Getenv("CLARITY_EXPECT_MODEL"); expected != "" && r.ModelID != expected {
+		t.Fatalf("resolved model %q does not match required %q", r.ModelID, expected)
+	}
+	wire := &modelTransport{}
+	provider := gateway.NewMuxProvider(map[string]gateway.Provider{gateway.KindOpenAICompatible: gateway.NewCatalogProvider(&http.Client{Timeout: 3 * time.Minute, Transport: wire}), gateway.KindAnthropic: gateway.NewAnthropicProvider(&http.Client{Timeout: 3 * time.Minute, Transport: wire})})
 	n := 1
 	if s := os.Getenv("CLARITY_SAMPLES"); s != "" {
 		n, err = strconv.Atoi(s)
@@ -73,6 +79,8 @@ func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string)
 		issue := ""
 		if callErr != nil {
 			issue = "provider request failed"
+		} else if os.Getenv("CLARITY_EXPECT_WIRE_MODEL") != "" && wire.model != os.Getenv("CLARITY_EXPECT_WIRE_MODEL") {
+			issue = "upstream response model does not match required model"
 		} else if check != nil {
 			if e := check(res.Text); e != nil {
 				issue = e.Error()
@@ -80,13 +88,14 @@ func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string)
 		}
 		record := struct {
 			Case, Class, Model          string
+			WireModel, ResponseModel    string
 			Sample                      int
 			Millis                      int64
 			Request                     gateway.ChatRequest
 			Text                        string
 			Usage                       gateway.ChatUsage
 			StopReason, ValidationError string
-		}{t.Name(), class, r.ModelID, i + 1, time.Since(start).Milliseconds(), req, res.Text, res.Usage, res.StopReason, issue}
+		}{t.Name(), class, r.ModelID, r.Model, wire.model, i + 1, time.Since(start).Milliseconds(), req, res.Text, res.Usage, res.StopReason, issue}
 		body, e := json.MarshalIndent(record, "", "  ")
 		if e != nil {
 			t.Fatal(e)
@@ -99,4 +108,32 @@ func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string)
 			t.Errorf("%s (visible output preserved in evidence)", issue)
 		}
 	}
+}
+
+// Capture only the upstream model name, never response reasoning or credentials.
+// Buffering affects streaming delivery in this test helper only, not the service.
+type modelTransport struct{ model string }
+
+func (m *modelTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.model = ""
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	for _, line := range bytes.Split(body, []byte("\n")) {
+		line = bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+		var envelope struct {
+			Model string `json:"model"`
+		}
+		if json.Unmarshal(line, &envelope) == nil && envelope.Model != "" {
+			m.model = envelope.Model
+		}
+	}
+	return resp, nil
 }

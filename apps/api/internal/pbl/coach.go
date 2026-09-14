@@ -374,7 +374,10 @@ reply、hook、tool_reason 和产物内的文字会直接显示给学生。不�
 不要写成「他需要从观察事实开始」。
 
 produce 不做就是 null。要做就写成 {"kind": "…", "payload": {…}}，payload 的
-形状按 kind：
+形状按 kind。下面列出的只是 payload；实际输出仍需包含完整的顶层对象。
+生成产物时，payload、produce 和顶层对象都必须分别闭合。例如完整结构为：
+{"reply":"已生成计划。","hook":"","hook_kind":"free","tool":"","tool_reason":"","mission":[],"produce":{"kind":"plan","payload":{"summary":"调查计划","reason":"比较实施前后的数据","steps":[]}}}
+这只是结构示例；实际计划必须填写符合当前任务的步骤。各类 payload 如下：
 
 plan:      {"summary": "一句话概括这版计划", "reason": "为什么是这样安排",
             "steps": [{"title": "", "blurb": "", "goal": "", "youBring": "",
