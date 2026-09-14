@@ -149,25 +149,35 @@ func (a *API) getLiteStudentPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// liteItemRow maps one reading/writing/project atom row to its DTO. Shared
-// with Task 5 (the class-level "recent items" view), so item-row shaping
-// lives in exactly one place.
-func liteItemRow(it sqlc.ListLiteStudentItemsRow) LiteItemRowDTO {
+// liteItemRowDTO builds the DTO from the fields ListLiteStudentItemsRow
+// (the student page's list) and GetLiteStudentItemRow (Task 5's item-detail
+// lookup) share — identical SELECT list, two generated row structs (sqlc
+// does not share row types across queries even when the columns match), so
+// the mapping itself lives in exactly one place and each caller only
+// destructures its own row type.
+func liteItemRowDTO(atomID uuid.UUID, kind, title, status string, level *int16, createdAt, lastActivityAt time.Time, activeSeconds, turns int32, finishedAt pgtype.Timestamptz) LiteItemRowDTO {
 	dto := LiteItemRowDTO{
-		AtomID: it.AtomID.String(), Kind: it.Kind, Title: it.Title, Status: it.Status,
-		Minutes: -1, Turns: it.Turns,
-		CreatedAt: it.CreatedAt.Format(time.RFC3339), LastActiveAt: it.LastActivityAt.Format(time.RFC3339),
+		AtomID: atomID.String(), Kind: kind, Title: title, Status: status,
+		Minutes: -1, Turns: turns,
+		CreatedAt: createdAt.Format(time.RFC3339), LastActiveAt: lastActivityAt.Format(time.RFC3339),
 	}
-	if it.ActiveSeconds > 0 {
-		dto.Minutes = secondsToMinutes(it.ActiveSeconds)
+	if activeSeconds > 0 {
+		dto.Minutes = secondsToMinutes(activeSeconds)
 	}
-	if it.Level != nil {
-		lvl := int32(*it.Level)
+	if level != nil {
+		lvl := int32(*level)
 		dto.Level = &lvl
 	}
-	if it.FinishedAt.Valid {
-		s := it.FinishedAt.Time.Format(time.RFC3339)
+	if finishedAt.Valid {
+		s := finishedAt.Time.Format(time.RFC3339)
 		dto.FinishedAt = &s
 	}
 	return dto
+}
+
+// liteItemRow maps one ListLiteStudentItemsRow (the student page's item
+// list) to its DTO via the shared mapper above.
+func liteItemRow(it sqlc.ListLiteStudentItemsRow) LiteItemRowDTO {
+	return liteItemRowDTO(it.AtomID, it.Kind, it.Title, it.Status, it.Level,
+		it.CreatedAt, it.LastActivityAt, it.ActiveSeconds, it.Turns, it.FinishedAt)
 }

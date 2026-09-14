@@ -83,3 +83,21 @@ LEFT JOIN writing w ON w.atom_id = a.id
 LEFT JOIN pbl_project p ON p.atom_id = a.id
 WHERE a.user_id = sqlc.arg(user_id) AND a.kind IN ('reading','writing','project')
 ORDER BY a.last_activity_at DESC;
+
+-- name: GetLiteStudentItem :one
+-- Same select as ListLiteStudentItems (same COALESCE/nullability notes —
+-- see its header comment), scoped to one atom by id for the item-detail
+-- endpoint. Still filtered to kind IN (...) and to user_id: a caller
+-- probing a chat-kind atom, or an atom belonging to someone else, gets the
+-- same "no rows" a teacher probing a cross-student atom gets.
+SELECT a.id AS atom_id, a.kind, a.created_at, a.last_activity_at, a.active_seconds,
+       COALESCE(r.title, w.title, NULLIF(p.name, ''), p.idea, '')::text AS title,
+       COALESCE(r.status, w.status, p.status, '')::text AS status,
+       r.library_tier AS level,
+       COALESCE(r.finished_at, w.finished_at) AS finished_at,
+       (SELECT count(*) FROM atom_message m WHERE m.atom_id = a.id AND m.role = 'student')::int AS turns
+FROM atom a
+LEFT JOIN reading r ON r.atom_id = a.id
+LEFT JOIN writing w ON w.atom_id = a.id
+LEFT JOIN pbl_project p ON p.atom_id = a.id
+WHERE a.user_id = sqlc.arg(user_id) AND a.id = sqlc.arg(atom_id) AND a.kind IN ('reading','writing','project');
