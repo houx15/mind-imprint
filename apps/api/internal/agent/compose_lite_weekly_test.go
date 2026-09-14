@@ -450,6 +450,36 @@ func TestComposeLiteStudentWeeklyNameWithDigit(t *testing.T) {
 	}
 }
 
+// A keyword with digits (5G) is listed as 「5G」, so a lead that copies it is
+// a verified span and its digit is not checked against the facts. The same
+// keyword written bare is a digit the class facts do not have.
+func TestComposeLiteClassWeeklyKeywordWithDigits(t *testing.T) {
+	s := liteweekly.StudentWeek{UserID: "u9", Name: "赵一", PrevActiveDays: 2, NewKeywords: []string{"5G"}}
+	cards := map[string][]liteweekly.Card{"u9": liteCardsOf(s)}
+	stats := liteweekly.ClassWeekStats{ClassSize: 1, AssignmentRate: -1}
+	facts := liteweekly.ClassFactsText("IBDP 一年级", liteWeekLabel, stats, []liteweekly.StudentWeek{s}, cards)
+	if strings.Contains(facts, "5") {
+		t.Fatalf("fixture class facts must not contain 5:\n%s", facts)
+	}
+	compose := func(lead string) (*gateway.SequenceStubProvider, []agent.Attempt, error) {
+		reply := `{"comment":"该周 0 名学生活跃。","cards":[{"userId":"u9","lead":"` + lead + `","action":"请线下了解她该周没有登录的原因。"}]}`
+		prov := gateway.NewSequenceStubProvider(liteReply(reply))
+		_, attempts, err := agent.ComposeLiteClassWeekly(context.Background(), prov, liteResolved, "IBDP 一年级", liteWeekLabel, stats, []liteweekly.StudentWeek{s}, cards, []string{"赵一"})
+		return prov, attempts, err
+	}
+
+	prov, attempts, err := compose("赵一的兴趣树新增「5G」。")
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("bracketed keyword: err=%v attempts=%d, want a first-attempt pass", err, len(attempts))
+	}
+	if user := prov.LastRequest.Messages[1].Content; !strings.Contains(user, "新关键词 「5G」") {
+		t.Fatalf("student list must bracket the keyword:\n%s", user)
+	}
+	if _, _, err := compose("赵一的兴趣树新增 5G。"); err == nil || !strings.Contains(err.Error(), "digit not in facts: 5") {
+		t.Fatalf("bare keyword: err=%v, want digit not in facts: 5", err)
+	}
+}
+
 func TestComposeLiteStudentWeeklyParsesJSONInsideProse(t *testing.T) {
 	reply := "以下是总结：\n" + liteValidStudent + "\n以上。"
 	got, attempts, err := composeLin(gateway.NewSequenceStubProvider(liteReply(reply)))

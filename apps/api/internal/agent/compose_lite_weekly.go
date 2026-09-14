@@ -65,7 +65,7 @@ const (
 	liteWeeklyMaxAttempts = 2
 )
 
-const liteStudentWeeklySystemPrompt = `你在给老师写一名学生上一周的学习总结。只使用给出的事实，不补充事实。输出 JSON {"summary":"","suggestions":[{"text":"","evidenceCode":""}]}。summary 不超过 150 字；suggestions 1 到 3 条，每条是老师下周可以做的一件具体的事，evidenceCode 必须是给出的卡片代码之一；没有卡片时 suggestions 为空数组。引用学生原话时用「」且逐字照抄给出的金句。作品标题用《》，只有学生原话用「」。不使用给出事实里没有的数字。不写其他学生的名字。说明文，不用比喻和抒情。`
+const liteStudentWeeklySystemPrompt = `你在给老师写一名学生上一周的学习总结。只使用给出的事实，不补充事实。输出 JSON {"summary":"","suggestions":[{"text":"","evidenceCode":""}]}。summary 不超过 150 字；suggestions 1 到 3 条，每条是老师下周可以做的一件具体的事，evidenceCode 必须是给出的卡片代码之一；没有卡片时 suggestions 为空数组。引用学生原话时用「」且逐字照抄给出的金句。作品标题用《》，只有学生原话用「」。不使用给出事实里没有的数字。不写其他学生的名字。说明文，不用比喻和抒情。数字一律用阿拉伯数字。不做加减和单位换算，数字照抄给出的事实。`
 
 const liteClassWeeklySystemPrompt = `你在给老师写一个班级上一周的学习总结。
 哪些学生需要写卡片、每张卡片的类别、标签和证据，已经由系统判定。你只负责措辞，不增加、不删除、不调换、不重新归类。
@@ -77,7 +77,9 @@ const liteClassWeeklySystemPrompt = `你在给老师写一个班级上一周的�
 5. 具体沟通在线下进行，不建议老师在平台上给学生发消息或打分。
 6. 引用学生原话时用「」且逐字照抄给出的金句。作品标题用《》，只有学生原话用「」。
 7. 说明文，不用比喻和抒情。
-8. 只输出 JSON：{"comment":"","cards":[{"userId":"","lead":"","action":""}]}`
+8. 只输出 JSON：{"comment":"","cards":[{"userId":"","lead":"","action":""}]}
+9. 数字一律用阿拉伯数字。
+10. 不做加减和单位换算，数字照抄给出的事实。`
 
 // liteRetryLine is the user turn appended before the second attempt.
 func liteRetryLine(err error) string {
@@ -193,8 +195,8 @@ func liteStudentWeeklyUserPrompt(s liteweekly.StudentWeek, weekLabel string, car
 
 // liteClassWeeklyUserPrompt is the class facts text followed by the flagged
 // students' IDs and the words the prose may quote: titles as 《》, her words
-// as 「」. IDs are kept out of the facts text so their digits do not widen the
-// digit check.
+// (金句 and new keywords) as 「」. IDs are kept out of the facts text so their
+// digits do not widen the digit check.
 func liteClassWeeklyUserPrompt(facts string, flagged []liteweekly.StudentWeek) string {
 	var b strings.Builder
 	b.WriteString(facts)
@@ -210,8 +212,10 @@ func liteClassWeeklyUserPrompt(facts string, flagged []liteweekly.StudentWeek) s
 		for _, it := range s.Stalled {
 			parts = append(parts, "停滞《"+it.Title+"》")
 		}
+		// Keywords are her words (in Corpus), bracketed so a keyword with
+		// digits (5G) copied into the prose is a verified span, not bare digits.
 		for _, k := range s.NewKeywords {
-			parts = append(parts, "新关键词 "+k)
+			parts = append(parts, "新关键词 「"+k+"」")
 		}
 		for _, m := range s.Moments {
 			parts = append(parts, "「"+m.Quote+"」（《"+m.ItemTitle+"》）")

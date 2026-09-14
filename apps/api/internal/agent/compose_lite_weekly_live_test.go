@@ -34,15 +34,20 @@ func liveLiteWeeklyModel(t *testing.T) (gateway.Provider, gateway.Resolved) {
 	if os.Getenv("LIVE_LLM") != "1" {
 		t.Skip("set LIVE_LLM=1 to run live prompt checks")
 	}
-	cfg := config.Config{
-		DashScopeKey:  os.Getenv("DASHSCOPE_API_KEY"),
-		DeepSeekKey:   os.Getenv("DEEPSEEK_API_KEY"),
-		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
-		ModelChat:     os.Getenv("MODEL_CHAT"),
-		ModelFastChat: os.Getenv("MODEL_FAST_CHAT"),
-		ModelEval:     os.Getenv("MODEL_EVAL"),
+	// The same path cmd/api takes: config.Load (every provider key, the legacy
+	// MODEL_CHAT / MODEL_FAST_CHAT / MODEL_EVAL aliases), then
+	// gateway.NewResolvers, which reads MODEL_ASSESS and the other per-class
+	// MODEL_<CLASS> variables itself. DATABASE_URL is required by config.Load
+	// but never used here, so a placeholder fills it when the environment has
+	// none.
+	if os.Getenv("DATABASE_URL") == "" {
+		t.Setenv("DATABASE_URL", "postgres://unused-by-live-weekly-test")
 	}
-	if cfg.DashScopeKey == "" && cfg.DeepSeekKey == "" && cfg.AnthropicKey == "" {
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if cfg.DashScopeKey == "" && cfg.DeepSeekKey == "" && cfg.AnthropicKey == "" && cfg.ZAIKey == "" {
 		t.Skip("no provider key in the environment")
 	}
 	rs, err := gateway.NewResolvers(cfg)
