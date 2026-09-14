@@ -23,7 +23,8 @@ type SortKey =
   | "turns"
   | "readingsDone"
   | "writingsDone"
-  | "projectsDone";
+  | "projectsDone"
+  | "overdueAssignments";
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "displayName", label: "学生" },
@@ -35,6 +36,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "readingsDone", label: "阅读" },
   { key: "writingsDone", label: "写作" },
   { key: "projectsDone", label: "项目" },
+  { key: "overdueAssignments", label: "逾期作业" },
 ];
 
 /** ISO timestamp → `M月D日`, or `—` when there is nothing to show. Lite's
@@ -68,6 +70,7 @@ export function ClassPage({
   role,
   onBack,
   onOpenStudent,
+  onNewAssignment,
 }: {
   classId: string;
   // Accepted for parity with pro's `ConsoleShell` wiring and future
@@ -76,6 +79,8 @@ export function ClassPage({
   role: string;
   onBack: () => void;
   onOpenStudent: (userId: string) => void;
+  /** 布置作业 in the header; opens the create form on this class. */
+  onNewAssignment?: () => void;
 }) {
   void role;
 
@@ -232,6 +237,11 @@ export function ClassPage({
                   </Button>
                 </>
               )}
+              {onNewAssignment && (
+                <Button variant="primary" size="sm" className="sm:ml-auto" onClick={onNewAssignment}>
+                  布置作业
+                </Button>
+              )}
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -286,7 +296,7 @@ export function ClassPage({
             </div>
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
-              <table className="w-full min-w-[900px] border-collapse">
+              <table className="w-full min-w-[980px] border-collapse">
                 <thead>
                   <tr>
                     {COLUMNS.map((col) => (
@@ -337,6 +347,14 @@ export function ClassPage({
                       </td>
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                         {s.projectsDone}/{s.projectsTotal}
+                      </td>
+                      <td
+                        className={
+                          "whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small tabular-nums " +
+                          (s.overdueAssignments > 0 ? "font-bold text-mk-danger" : "text-mk-ink")
+                        }
+                      >
+                        {s.overdueAssignments}
                       </td>
                       <td
                         className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-right text-mk-small"

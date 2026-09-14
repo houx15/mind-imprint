@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { LayoutGrid, Users, GraduationCap, UploadCloud } from "lucide-react";
+import { LayoutGrid, Users, GraduationCap, UploadCloud, ClipboardList } from "lucide-react";
 import { Icon, Pebble, Settings, type LucideIcon } from "@/ui";
 import { api } from "@/api";
 import { ClassesView } from "@/console/ClassesView";
@@ -14,6 +14,10 @@ import { resolveTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teac
 import { ClassPage } from "./ClassPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
+import { AssignmentsPage } from "./AssignmentsPage";
+import { AssignmentForm } from "./AssignmentForm";
+import { AssignmentDetailPage } from "./AssignmentDetailPage";
+import { writeLastClassId } from "./assignmentLogic";
 
 /**
  * LiteTeacherShell — the lite edition's teacher/admin shell. Same pattern as
@@ -34,11 +38,15 @@ const unusedSettingsSession = createSession({ storage: makeMemoryStorage() });
 
 type RailItem = { key: TeacherRoute["view"]; label: string; icon: LucideIcon };
 
-const TEACHER_ITEMS: RailItem[] = [{ key: "classes", label: "班级", icon: Users }];
+const TEACHER_ITEMS: RailItem[] = [
+  { key: "classes", label: "班级", icon: Users },
+  { key: "assignments", label: "布置", icon: ClipboardList },
+];
 
 const ADMIN_ITEMS: RailItem[] = [
   { key: "overview", label: "概览", icon: LayoutGrid },
   { key: "classes", label: "班级", icon: Users },
+  { key: "assignments", label: "布置", icon: ClipboardList },
   { key: "teachers", label: "教师", icon: GraduationCap },
   { key: "import", label: "导入", icon: UploadCloud },
 ];
@@ -128,7 +136,9 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
               route.view === key ||
               // 学生详情/单项详情在「班级」下面，班级那一格仍然是选中的。
               (key === "classes" &&
-                (route.view === "class" || route.view === "student" || route.view === "item"));
+                (route.view === "class" || route.view === "student" || route.view === "item")) ||
+              // 新建作业和作业详情在「布置」下面。
+              (key === "assignments" && (route.view === "assignmentNew" || route.view === "assignment"));
             return (
               <button
                 key={key}
@@ -185,6 +195,33 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             role={user.role}
             onBack={() => go({ view: "classes" })}
             onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
+            onNewAssignment={() => {
+              // `navigate` fires popstate and the route is re-parsed from the
+              // path, which has no class in it — so the form finds this class
+              // through the remembered choice, not through the route object.
+              writeLastClassId(route.classId);
+              go({ view: "assignmentNew", classId: route.classId });
+            }}
+          />
+        )}
+        {route.view === "assignments" && (
+          <AssignmentsPage
+            onNew={(classId) => go({ view: "assignmentNew", classId })}
+            onOpen={(assignmentId) => go({ view: "assignment", assignmentId })}
+          />
+        )}
+        {route.view === "assignmentNew" && (
+          <AssignmentForm
+            initialClassId={route.classId}
+            onBack={() => go({ view: "assignments" })}
+            onCreated={(assignmentId) => go({ view: "assignment", assignmentId })}
+          />
+        )}
+        {route.view === "assignment" && (
+          <AssignmentDetailPage
+            assignmentId={route.assignmentId}
+            onBack={() => go({ view: "assignments" })}
+            onOpenItem={(classId, userId, atomId) => go({ view: "item", classId, userId, atomId })}
           />
         )}
         {route.view === "student" && (

@@ -3,7 +3,15 @@ import { ArrowLeft } from "lucide-react";
 import { Icon } from "@/ui";
 import { api, ApiError } from "@/api";
 import type { MeUser } from "../api/auth";
-import { getStudentPage, getStudentTree, type ItemRow, type StudentPage as StudentPageData } from "../api/teacher";
+import {
+  getStudentPage,
+  getStudentTree,
+  type ItemRow,
+  type StudentAssignmentRow,
+  type StudentPage as StudentPageData,
+} from "../api/teacher";
+import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
+import { StatusChip } from "./AssignmentDetailPage";
 import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
 import { TreeView } from "../tree/TreeView";
 import { useInterestTree } from "../tree/useInterestTree";
@@ -138,6 +146,8 @@ export function StudentPage({
               <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
             </div>
 
+            <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
+
             <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
             <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
             <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
@@ -178,6 +188,57 @@ function shortDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+/** 她在这个班里的作业：状态标签 + 截止时间。开始过的（有 atomId）点开进单项页。 */
+function AssignmentSection({
+  rows,
+  onOpenItem,
+}: {
+  rows: StudentAssignmentRow[];
+  onOpenItem: (atomId: string) => void;
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="text-mk-h3 text-mk-ink">作业</h2>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-mk-small text-mk-muted">暂无作业</p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          {rows.map((row) => {
+            const label = row.statusLabel || STATUS_LABEL[row.status as AssignmentStatus] || row.status;
+            const body = (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-mk-small font-bold text-mk-ink">{row.title}</span>
+                  <StatusChip status={row.status} label={label} />
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
+                  <span>{kindLabel(row.kind)}</span>
+                  <span>截止时间 {row.dueAt ? formatDeadline(row.dueAt) : "—"}</span>
+                </div>
+              </>
+            );
+            const atomId = row.atomId;
+            return atomId ? (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => onOpenItem(atomId)}
+                className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              >
+                {body}
+              </button>
+            ) : (
+              <div key={row.id} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+                {body}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function ItemSection({
