@@ -13,6 +13,8 @@ func TestNormalizeExtraction(t *testing.T) {
 		{`{"prompt":"写一篇关于雨的记叙文","targetWords":800,"lang":"zh"}`, "写一篇关于雨的记叙文", 800, "zh", true},
 		{"```json\n{\"prompt\":\"Describe a storm\",\"targetWords\":300,\"lang\":\"en\"}\n```", "Describe a storm", 300, "en", true},
 		{`{"prompt":"写雨","targetWords":20,"lang":"zh"}`, "写雨", 50, "zh", true},
+		{`{"prompt":"写雨","targetWords":0,"lang":"zh"}`, "写雨", 0, "zh", true},
+		{`{"prompt":"写雨","targetWords":-5,"lang":"zh"}`, "写雨", 0, "zh", true},
 		{`{"prompt":"写雨","targetWords":999999,"lang":"zh"}`, "写雨", 10000, "zh", true},
 		{`{"prompt":"写雨","targetWords":null,"lang":"fr"}`, "写雨", 0, "zh", true},
 		{`{"prompt":"Describe a storm","lang":"fr"}`, "Describe a storm", 0, "en", true},

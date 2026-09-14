@@ -17,7 +17,7 @@ import (
 // form has. The prompt field keeps the teacher's own words: this call is a
 // compose step over text she already wrote, not a rewrite.
 const assignmentExtractSystem = `你从老师粘贴的一段作业说明里提取写作作业的三项设置。
-只输出 JSON：{"prompt":"","targetWords":0,"lang":"zh"}。
+只输出 JSON：{"prompt":"","targetWords":null,"lang":"zh"}。
 prompt：学生要写的题目或要求，保留老师的原话，不改写、不补充。
 targetWords：老师写明的字数；写的是范围取上限；没写就填 null。
 lang：作文要用的语言，中文填 zh，英文填 en。`
@@ -31,9 +31,11 @@ var (
 )
 
 // normalizeExtraction parses the model's reply and clamps it to what the
-// form accepts. Words are clamped to 50–10000; a language other than zh/en
-// falls back by script (any Han rune ⇒ zh, else en). An empty prompt or a
-// reply that is not JSON is not ok — the caller surfaces it, never fills in.
+// form accepts. A missing, zero or negative word count means the teacher gave
+// none and becomes nil; a positive count is clamped to 50–10000. A language
+// other than zh/en falls back by script (any Han rune ⇒ zh, else en). An empty
+// prompt or a reply that is not JSON is not ok — the caller surfaces it, never
+// fills in.
 func normalizeExtraction(raw string) (string, *int, string, bool) {
 	if m := extractFence.FindStringSubmatch(raw); m != nil {
 		raw = m[1]
@@ -51,7 +53,9 @@ func normalizeExtraction(raw string) (string, *int, string, bool) {
 		return "", nil, "", false
 	}
 	var words *int
-	if v.TargetWords != nil {
+	// The model may copy a 0 for "not given"; that must not become 50 words
+	// the teacher never wrote.
+	if v.TargetWords != nil && int(*v.TargetWords) > 0 {
 		n := int(*v.TargetWords)
 		if n < 50 {
 			n = 50
