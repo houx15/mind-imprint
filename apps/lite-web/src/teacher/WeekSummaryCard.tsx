@@ -9,7 +9,7 @@ import {
   type WeekCard,
 } from "../api/weekly";
 import { formatMinutes } from "./format";
-import { canGoNext, shiftWeek } from "./weekNav";
+import { canGoNext, shiftWeek, splitWeekTitle } from "./weekNav";
 import { useWeekly, type ProseState } from "./useWeekly";
 
 /**
@@ -37,6 +37,7 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
     <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
       <WeekHeader
         title={data?.title ?? null}
+        weekLabel={data?.weekLabel ?? ""}
         level="h2"
         onPrev={base ? () => w.goToWeek(shiftWeek(base, -7)) : undefined}
         onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
@@ -101,20 +102,25 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
 /** Title row with ‹ 上一周 / 下一周 ›. A missing handler disables the button. */
 export function WeekHeader({
   title,
+  weekLabel,
   level,
   onPrev,
   onNext,
 }: {
   title: string | null;
+  weekLabel: string;
   level: "h1" | "h2";
   onPrev?: () => void;
   onNext?: () => void;
 }) {
   const Heading = level;
+  // The week label stays on one line; a narrow screen wraps before it.
+  const { head, label } = splitWeekTitle(title ?? "", weekLabel);
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <Heading className={level === "h1" ? "text-mk-h1 tracking-tight text-mk-ink" : "text-mk-h3 text-mk-ink"}>
-        {title ?? ""}
+        {head}
+        {label && <span className="whitespace-nowrap">{label}</span>}
       </Heading>
       <div className="flex shrink-0 items-center gap-1.5">
         <IconButton icon={ChevronLeft} label="上一周" variant="secondary" size="sm" disabled={!onPrev} onClick={onPrev} />

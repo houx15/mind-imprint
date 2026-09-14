@@ -4,6 +4,7 @@ import { classCardProse, getClassWeekly, postClassWeeklyProse, type ClassWeekCar
 import { formatMinutes } from "./format";
 import { canGoNext, shiftWeek } from "./weekNav";
 import { useWeekly } from "./useWeekly";
+import { cardShowsProse } from "./classWeeklyLogic";
 import { CardTag, FactTile, GroupShell, LoadFailed, ProseStatus, WeekHeader } from "./WeekSummaryCard";
 
 /**
@@ -51,6 +52,7 @@ export function ClassWeeklyPage({
         <div className="mt-4">
           <WeekHeader
             title={data?.title ?? null}
+            weekLabel={data?.weekLabel ?? ""}
             level="h1"
             onPrev={base ? () => w.goToWeek(shiftWeek(base, -7)) : undefined}
             onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
@@ -64,7 +66,7 @@ export function ClassWeeklyPage({
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-3">
-              <FactTile label="本周活跃学生" value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
+              <FactTile label="活跃学生"value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
               <FactTile label="学习时长" value={formatMinutes(data.stats.minutes)} />
               <FactTile label="对话轮次" value={`${data.stats.turns} 轮`} />
               <FactTile label="完成项目数" value={`${data.stats.finished} 项`} />
@@ -84,8 +86,20 @@ export function ClassWeeklyPage({
             </section>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <StudentGroup title="值得表扬" cards={data.praise} prose={data.prose} onOpenStudent={onOpenStudent} />
-              <StudentGroup title="需要建议" cards={data.watch} prose={data.prose} onOpenStudent={onOpenStudent} />
+              <StudentGroup
+                title="值得表扬"
+                cards={data.praise}
+                prose={data.prose}
+                watchUserIds={new Set(data.watch.map((c) => c.userId))}
+                onOpenStudent={onOpenStudent}
+              />
+              <StudentGroup
+                title="需要建议"
+                cards={data.watch}
+                prose={data.prose}
+                watchUserIds={new Set(data.watch.map((c) => c.userId))}
+                onOpenStudent={onOpenStudent}
+              />
             </div>
           </>
         )}
@@ -98,17 +112,20 @@ function StudentGroup({
   title,
   cards,
   prose,
+  watchUserIds,
   onOpenStudent,
 }: {
   title: string;
   cards: ClassWeekCard[];
   prose: ClassWeeklyProse | null;
+  /** Students with a watch card: their lead and action go there only. */
+  watchUserIds: ReadonlySet<string>;
   onOpenStudent: (userId: string) => void;
 }) {
   return (
     <GroupShell title={title} empty={cards.length === 0}>
       {cards.map((c) => {
-        const written = classCardProse(prose, c.userId);
+        const written = cardShowsProse(c.kind, c.userId, watchUserIds) ? classCardProse(prose, c.userId) : null;
         return (
           <button
             key={`${c.userId}:${c.code}`}
