@@ -184,7 +184,7 @@ export function ClassPage({
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
+      <div className="mx-auto max-w-[1120px] px-4 pb-16 pt-8 sm:px-8">
         <button
           type="button"
           onClick={onBack}
