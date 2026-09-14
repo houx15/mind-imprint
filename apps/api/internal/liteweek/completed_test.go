@@ -20,6 +20,29 @@ func TestLatestCompleted(t *testing.T) {
 	}
 }
 
+// Sunday 23:59:59 Beijing is still inside the current week, so the latest
+// completed week is the one before it.
+func TestLatestCompletedSundayLastSecond(t *testing.T) {
+	now := time.Date(2026, 9, 13, 23, 59, 59, 0, Beijing)
+	want := time.Date(2026, 8, 31, 0, 0, 0, 0, Beijing)
+	if got := LatestCompleted(now); !got.Equal(want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+// An RFC3339 value with the Beijing offset names the same Monday 00:00 as
+// the date form.
+func TestParseWeekStartRFC3339Beijing(t *testing.T) {
+	now := time.Date(2026, 9, 16, 10, 0, 0, 0, Beijing)
+	got, err := ParseWeekStart("2026-08-31T00:00:00+08:00", now)
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if want := time.Date(2026, 8, 31, 0, 0, 0, 0, Beijing); !got.Equal(want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
 func TestParseWeekStart(t *testing.T) {
 	now := time.Date(2026, 9, 16, 10, 0, 0, 0, Beijing)
 	if got, err := ParseWeekStart("", now); err != nil || !got.Equal(LatestCompleted(now)) {
