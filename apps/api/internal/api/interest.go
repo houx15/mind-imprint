@@ -194,34 +194,39 @@ type interestFieldDTO struct {
 }
 
 // getInterestTree —— GET /api/v1/interest/tree
-//
-// 三张表各查一次，Go 侧按 keyword_id 分组。每个词发一次查询，会在一棵二十个词
-// 的树上变成四十次往返。
 func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 	u, ok := UserFromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
 		return
 	}
-	// **这是一次纯读。** 采集在后台队列里跑（interest_jobs.go）：完成时入队，
-	// 外加每两分钟一次扫尾。2026-09-04 之前这里挂着一次三到十秒的旗舰调用，
-	// 她盯着自己的树等它长出来。
-	ctx := r.Context()
+	// **这是一次纯读。** 采集在后台队列里跑（interest_jobs.go）。
+	tree, err := a.buildInterestTree(r.Context(), u.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, tree)
+}
 
-	keywords, err := a.d.Queries.ListInterestKeywords(ctx, u.ID)
+// buildInterestTree is the tree payload for one user. Shared by the
+// student's own GET /interest/tree and the teacher's read-only view of a
+// student (lite_teacher_tree.go).
+//
+// 三张表各查一次，Go 侧按 keyword_id 分组。每个词发一次查询，会在一棵二十个词
+// 的树上变成四十次往返。
+func (a *API) buildInterestTree(ctx context.Context, userID uuid.UUID) (map[string]any, error) {
+	keywords, err := a.d.Queries.ListInterestKeywords(ctx, userID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return nil, err
 	}
-	sources, err := a.d.Queries.ListKeywordSourcesForUser(ctx, u.ID)
+	sources, err := a.d.Queries.ListKeywordSourcesForUser(ctx, userID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return nil, err
 	}
-	edges, err := a.d.Queries.ListKeywordDisciplinesForUser(ctx, u.ID)
+	edges, err := a.d.Queries.ListKeywordDisciplinesForUser(ctx, userID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return nil, err
 	}
 
 	srcByKeyword := make(map[uuid.UUID][]interestSourceDTO, len(keywords))
@@ -273,10 +278,7 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"fields":   fields,
-		"keywords": out,
-	})
+	return map[string]any{"fields": fields, "keywords": out}, nil
 }
 
 // derefString 把可空的 interest_id 变成一个字符串。空的那种情况是迁移 0134

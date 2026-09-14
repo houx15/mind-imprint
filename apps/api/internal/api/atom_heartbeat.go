@@ -1,11 +1,17 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -38,6 +44,37 @@ func clampHeartbeatSeconds(n int32) int32 {
 		return heartbeatCeiling
 	}
 	return n
+}
+
+// recordHeartbeat adds one clamped heartbeat to the atom's running total and
+// to today's Beijing-date bucket, in one transaction so the two never
+// disagree. `now` is a parameter so the midnight split is testable.
+func (a *API) recordHeartbeat(ctx context.Context, atomID uuid.UUID, seconds int32, now time.Time) error {
+	secs := clampHeartbeatSeconds(seconds)
+	if secs == 0 {
+		// Adding 0 to the running total is a no-op, but upserting a 0-second
+		// bucket is not: bucket_count > 0 is what turns the roster's
+		// minutesThisWeek from "—" (never measured) into "0 分钟". A
+		// heartbeat that measured nothing must leave that state alone.
+		return nil
+	}
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	qtx := a.d.Queries.WithTx(tx)
+	if err := qtx.AddAtomActiveSeconds(ctx, sqlc.AddAtomActiveSecondsParams{ID: atomID, ActiveSeconds: secs}); err != nil {
+		return err
+	}
+	if err := qtx.AddAtomActiveDay(ctx, sqlc.AddAtomActiveDayParams{
+		AtomID:  atomID,
+		Day:     pgtype.Date{Time: liteweek.Day(now), Valid: true},
+		Seconds: secs,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // heartbeatAtom is the shared body behind POST /api/v1/readings/{id}/heartbeat
@@ -81,10 +118,7 @@ func (a *API) heartbeatAtom(w http.ResponseWriter, r *http.Request, kind string)
 		return
 	}
 
-	if err := a.d.Queries.AddAtomActiveSeconds(r.Context(), sqlc.AddAtomActiveSecondsParams{
-		ID:            at.ID,
-		ActiveSeconds: clampHeartbeatSeconds(req.Seconds),
-	}); err != nil {
+	if err := a.recordHeartbeat(r.Context(), at.ID, req.Seconds, time.Now()); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

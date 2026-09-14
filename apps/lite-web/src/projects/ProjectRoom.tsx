@@ -36,6 +36,7 @@ import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
 import { Says } from "./Says";
+import { useHeartbeat } from "../shared/useHeartbeat";
 
 /**
  * ProjectRoom — the workbench.
@@ -52,6 +53,12 @@ import { Says } from "./Says";
  */
 export function ProjectRoom({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
+  // 项目室的时长。只在项目载入且还没进入回顾/保留/归档时计时，与阅读、写作同一规则。
+  useHeartbeat(
+    "project",
+    projectId,
+    project !== null && !["review", "keeping", "archived"].includes(project.status),
+  );
   // 🚨 把工具铺开占满整个房间（产品负责人 2026-09-03：「需要拉出来，更充分的
   // 视觉空间」）。审核助手要她读一份文档，360px 那一栏读不下去。见 tools/wide.tsx。
   const [wideTool, setWideTool] = useState(false);

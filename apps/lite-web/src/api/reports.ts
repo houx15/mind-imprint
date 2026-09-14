@@ -16,6 +16,12 @@ import { API_BASE, ApiError, apiFetch } from "./client";
 
 export type AtomKind = "reading" | "writing";
 
+/** Everything a heartbeat can be posted for. Wider than `AtomKind`: reports
+ *  only exist for reading/writing, but the project room ticks the same clock
+ *  (see `heartbeatBase`/`sendHeartbeat` below and apps/api/internal/api/
+ *  pbl_heartbeat.go), so `sendHeartbeat` takes this instead of `AtomKind`. */
+export type HeartbeatKind = AtomKind | "project";
+
 export type ReportStat = { key: string; label: string; value: number; unit: string };
 export type ReportMoment = { quote: string; where: string };
 /** `reportKeep` — apps/api/internal/api/atom_report.go. The report's 我的收获
@@ -221,14 +227,21 @@ export async function getPublicReport(token: string): Promise<LiteReport> {
   return normalizeReport(body.report);
 }
 
+/** `kind` → the `{readings,writings,pbl/projects}` `{id}/heartbeat` root. */
+const heartbeatBase: Record<HeartbeatKind, string> = {
+  reading: "/api/v1/readings",
+  writing: "/api/v1/writings",
+  project: "/api/v1/pbl/projects",
+};
+
 /**
- * Posted every 60s while — and only while — the reading/writing room's tab
- * is visible. `seconds` is the client's own count of that interval; the
- * server clamps it server-side (see atom_heartbeat.go), so no clamping
- * happens here.
+ * Posted every 60s while — and only while — the reading/writing/project
+ * room's tab is visible. `seconds` is the client's own count of that
+ * interval; the server clamps it server-side (see atom_heartbeat.go /
+ * pbl_heartbeat.go), so no clamping happens here.
  */
-export async function sendHeartbeat(kind: AtomKind, id: string, seconds: number): Promise<void> {
-  await apiFetch<void>(`${atomBase(kind, id)}/heartbeat`, {
+export async function sendHeartbeat(kind: HeartbeatKind, id: string, seconds: number): Promise<void> {
+  await apiFetch<void>(`${heartbeatBase[kind]}/${encodeURIComponent(id)}/heartbeat`, {
     method: "POST",
     body: JSON.stringify({ seconds }),
   });

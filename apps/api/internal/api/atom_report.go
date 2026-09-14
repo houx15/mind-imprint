@@ -1049,6 +1049,16 @@ func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, title 
 // detachedModelCtx, reading_lens.go): once the model call is under way it
 // must run to completion even if she navigates away mid-call.
 func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, kind string) (sqlc.AtomReport, bool, error) {
+	return a.ensureAtomReportWith(ctx, userID, atomID, kind, true)
+}
+
+// ensureAtomReportWith is ensureAtomReport with phase 2 made optional.
+// allowProse=false runs phase 1 only: a missing report is still generated
+// and stored (no model call), but a stored report with prosePending is
+// returned as it is instead of paying for the prose on this request. The
+// lite teacher item GET uses that on its first load, so opening the page
+// never waits on the flagship call (lite_teacher_item.go).
+func (a *API) ensureAtomReportWith(ctx context.Context, userID, atomID uuid.UUID, kind string, allowProse bool) (sqlc.AtomReport, bool, error) {
 	finished, err := a.atomIsFinished(ctx, atomID, kind)
 	if err != nil {
 		return sqlc.AtomReport{}, false, err
@@ -1064,7 +1074,7 @@ func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, ki
 	// Cheap pre-check outside any transaction: after both phases have run
 	// this is the only cost, for every reopen, forever.
 	if row, err := a.d.Queries.GetAtomReport(ctx, atomID); err == nil {
-		if !reportProsePending(row.Report) {
+		if !allowProse || !reportProsePending(row.Report) {
 			return row, true, nil
 		}
 		// Phase 2. The deterministic half is already hers to read; this is

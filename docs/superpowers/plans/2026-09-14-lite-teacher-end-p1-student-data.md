@@ -986,7 +986,7 @@ git commit -m "feat(lite-teacher): 学生页 —— 阅读、写作、项目列�
 - Modify: `apps/api/internal/api/lite_teacher_routes.go`
 
 **Interfaces:**
-- Consumes: `authTeacherStudent`, `ensureAtomReport(ctx, userID, atomID, kind) (sqlc.AtomReport, bool, error)` (reading/writing only), `detachedModelCtx` (see `reading_lens.go`), existing sqlc queries: `GetAtom`, `GetReading`, `GetReadingSource`, `GetReadingTakeaway`, `ListAtomAnnotations`, `ListAtomCards`, `GetWriting`, `ListWritingOutline`, `ListWritingSnippets`, `GetWritingDraft`, `ListWritingComments`, `GetPblProject` (by project id — for items we have the atom id, so add `GetPblProjectByAtom` if no such query exists), `GetPblLivePlan`, `ListPblPlanSteps`, `ListPblTools`, `ListPblArtifacts`, `ListPblKeepEntries`, `ListPblCourseAssignments`, `GetPblSite`.
+- Consumes: `authTeacherStudent`, `ensureAtomReport(ctx, userID, atomID, kind) (sqlc.AtomReport, bool, error)` (reading/writing only), `detachedModelCtx` (see `reading_lens.go`), existing sqlc queries: `GetAtom`, `GetReading`, `GetReadingSource`, `GetReadingTakeaway`, `ListAtomAnnotations`, `ListAtomCards`, `GetWriting`, `ListWritingOutline`, `ListWritingSnippets`, `GetWritingDraft`, `ListWritingComments`, `GetPblProject` (takes the atom id — `pbl_project` has no `id` column, its primary key is `atom_id`; do not add a new lookup query), `GetPblLivePlan`, `ListPblPlanSteps`, `ListPblTools`, `ListPblArtifacts`, `ListPblKeepEntries`, `ListPblCourseAssignments`, `GetPblSite`.
 - Produces: `GET /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}` →
 
 ```json

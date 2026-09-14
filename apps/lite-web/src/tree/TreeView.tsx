@@ -23,6 +23,7 @@ import {
   threadPath,
 } from "./roots";
 import { KeywordDrawer } from "./KeywordDrawer";
+import { treeCopy } from "./treeCopy";
 import { useQuizTaken } from "./quiz/useQuizStatus";
 import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
@@ -72,7 +73,18 @@ import "./tree.css";
 /** 选中的是一片叶子（领域），还是一条根（学科）。 */
 type Pick = { kind: "leaf" | "discipline"; id: string };
 
-export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
+export function TreeView({
+  user,
+  live,
+  readOnly = false,
+}: {
+  user: MeUser;
+  live: LiveTree;
+  /** 教师看学生的树：拿掉一切会创建/改动学生数据的入口（兴趣测试、继续深挖、
+   *  空枝邀请），其余——枝、叶、根、成长轴、相关活动——照常渲染。默认
+   *  `false`，学生自己那面因此一字不变。 */
+  readOnly?: boolean;
+}) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
   // 回放拖到了哪一格，把它提升到全局只会让一个纯展示的选择跨页面存活。
@@ -96,6 +108,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   const all = live.keywords;
 
   // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
+  // 🚨 `readOnly`（教师视角）下这个 hook 仍然照常调用——hook 顺序不能因为一个
+  // prop 分支——只是它的结果被忽略：下面每处用到 `quizTaken` 的地方都先判
+  // `readOnly`，从不把它喂给 TreeState 或渲染那颗按钮。
   const quizTaken = useQuizTaken();
   const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
   // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
@@ -132,12 +147,14 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   // 从她的词自己的来源里数，按 (类型, id) 去重：一篇阅读长出三个词，它仍然是
   // 一件事。原来这里数的是 mock 书架的长度，那个数字和树上的词毫无关系。
   const outputs = outputCount(all);
+  // 学生那面是对她说的话（「你的」「我的」）；只读（教师）视角换成中性说法。
+  const copy = treeCopy(readOnly);
 
   return (
     <div className="tree-grove tree-motes relative min-h-full">
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
-          <Sys>我的兴趣树 · INTEREST TREE</Sys>
+          <Sys>{copy.header}</Sys>
           <h1 className="mt-1 text-mk-h1 text-mk-ink">
             {user.display_name}
             {user.classes[0] ? (
@@ -201,9 +218,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
           ) : (
             // 只在真的读到了「她还没有词」时才说这句。读取失败时说「你的树刚
             // 开始长」，是在替她断言一件我们并不知道的事。
-            known && (
+            known && copy.intro && (
               <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-mk-muted">
-                你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
+                {copy.intro}
               </p>
             )
           )}
@@ -211,8 +228,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
         <div className="flex items-center gap-5">
           {/* 兴趣测试的常驻入口。树不空时也留着，因为**重做是再长几个词**
               （服务端给同一个词再添一条来源，强度上升），不是清空重来。
-              和空树上那条邀请一样，状态未知（null）时不显示。 */}
-          {quizTaken !== null ? (
+              和空树上那条邀请一样，状态未知（null）时不显示。
+              🚨 只读（教师）视角下整个入口收起——这是学生自己的测试。 */}
+          {!readOnly && quizTaken !== null ? (
             <button
               type="button"
               onClick={openQuiz}
@@ -227,9 +245,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys>关键词</Sys>
-              <Hint
-                text="根据你读过、收藏过、写过、做过的东西自动生成的兴趣关键词。每一个都可以点开，看它到底是从哪几件事来的。"
-              />
+              <Hint text={copy.keywordsHint} />
             </span>
             <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? total : "—"}
@@ -239,9 +255,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys>成果数</Sys>
-              <Hint
-                text="你已经完成的阅读、写作和已发布项目的总数。没做完的不算——这个数字只数你真的做出来的东西。"
-              />
+              <Hint text={copy.outputsHint} />
             </span>
             <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? outputs : "—"}
@@ -262,7 +276,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             onBlur={() => setHoverField(null)}
             // 窄屏走的是这一行 chip，空枝邀请在这里也要能点开 —— 只给宽屏那一列
             // 加上，等于让小屏幕的学生永远碰不到这个入口。
-            onClick={() => (known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
+            // 🚨 只读（教师）视角不开这个邀请——见 readOnly 的整体说明。
+            onClick={() => (!readOnly && known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
             className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
                        transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300"
@@ -313,8 +328,9 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             status={live.status}
             error={live.error}
             onRetry={live.reload}
-            quizTaken={quizTaken}
+            quizTaken={readOnly ? null : quizTaken}
             onStartQuiz={openQuiz}
+            readOnly={readOnly}
           />
 
           {/* keyword beads */}
@@ -362,7 +378,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                   onBlur={() => setHoverField(null)}
                   // 🚨 只有**空枝**可以点开。有词的枝上，那个数字自己说完了话；
                   // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
-                  onClick={() => (known && n === 0 ? setInviteField(f.id) : undefined)}
+                  // 只读（教师）视角不开这个邀请。
+                  onClick={() => (!readOnly && known && n === 0 ? setInviteField(f.id) : undefined)}
                   className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
                              duration-[120ms] hover:bg-[rgba(51,48,46,.04)] focus-visible:outline-none
                              focus-visible:ring-2 focus-visible:ring-mk-accent-300"
@@ -392,13 +409,17 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
         </ul>
       </div>
 
-      <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} />
-      <BranchInvite
-        field={inviteField}
-        onClose={() => setInviteField(null)}
-        onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
-        onQuiz={openQuiz}
-      />
+      <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} readOnly={readOnly} />
+      {/* 空枝邀请整个收起：`inviteField` 在只读视角下从不会被设成非 null（见上面
+          两处 onClick 的 `!readOnly` 守卫），这里再显式收起一次，两者互为保险。 */}
+      {!readOnly && (
+        <BranchInvite
+          field={inviteField}
+          onClose={() => setInviteField(null)}
+          onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
+          onQuiz={openQuiz}
+        />
+      )}
     </div>
   );
 }
@@ -1054,6 +1075,7 @@ function TreeState({
   onRetry,
   quizTaken,
   onStartQuiz,
+  readOnly,
 }: {
   status: "loading" | "error" | "empty" | "ready";
   error: string;
@@ -1061,8 +1083,10 @@ function TreeState({
   /** null = 还不知道她做过没有。 */
   quizTaken: boolean | null;
   onStartQuiz: () => void;
+  readOnly: boolean;
 }) {
   if (status === "ready") return null;
+  const copy = treeCopy(readOnly);
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center px-6">
@@ -1077,12 +1101,10 @@ function TreeState({
         {status === "loading" && (
           <>
             <Sys>处理中 · GROWING</Sys>
-            <p className="mt-2 text-mk-body text-mk-ink">正在读取你的兴趣树</p>
+            <p className="mt-2 text-mk-body text-mk-ink">{copy.loadingTitle}</p>
             {/* 服务端会先把已完成、还没采过的阅读与写作补采一遍（最多三个，
                 并行），所以第一次打开可能要几秒。说出来，别让她以为卡住了。 */}
-            <p className="mt-1 text-mk-small text-mk-muted">
-              正在从你最近完成的阅读与写作里提取关键词，需要几秒。
-            </p>
+            <p className="mt-1 text-mk-small text-mk-muted">{copy.loadingDetail}</p>
           </>
         )}
 
@@ -1107,10 +1129,7 @@ function TreeState({
           <>
             <Sys>空 · NO KEYWORDS YET</Sys>
             <p className="mt-2 text-mk-body text-mk-ink">这棵树还没有关键词</p>
-            <p className="mt-1 text-mk-small text-mk-muted">
-              关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
-              它会长出来。
-            </p>
+            <p className="mt-1 text-mk-small text-mk-muted">{copy.emptyDetail}</p>
             {/* 🚨 空树上那条邀请。**只在明确知道她没做过时出现** —— 读不到
                 状态（null）时不显示，因为在一个上个月已经做过的学生面前每次
                 都闪一下「来做个测试」，比不显示糟。

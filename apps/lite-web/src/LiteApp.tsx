@@ -66,6 +66,7 @@ import { CoursesHost } from "./courses/CoursesHost";
 import { LearningHome, bookmark } from "./home/LearningHome";
 import "./home/learning.css";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
+import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
 
 /** Lite student shell. The learning home uses expanded navigation on wide
  * screens; workrooms retain a compact rail to preserve reading/writing space.
@@ -223,8 +224,8 @@ export function LiteApp() {
 
   return (
     <AccentProvider
-      presets={LITE_ACCENT_PRESETS}
-      initialAccent={initialLiteAccent(user.avatar_color)}
+      presets={user.role === "student" ? LITE_ACCENT_PRESETS : ACCENT_PRESETS}
+      initialAccent={user.role === "student" ? initialLiteAccent(user.avatar_color) : coerceAccent(user.avatar_color)}
       onPersist={(id) => {
         void setAccent(id);
       }}
@@ -235,9 +236,13 @@ export function LiteApp() {
           void setBackground(id);
         }}
       >
-        <StudentArtwork><CompanionAppearanceProvider image={bookmark}>
-          <LiteShell user={user} onLogout={onLogout} />
-        </CompanionAppearanceProvider></StudentArtwork>
+        {user.role === "teacher" || user.role === "admin" ? (
+          <LiteTeacherShell user={user} onLogout={onLogout} />
+        ) : (
+          <StudentArtwork><CompanionAppearanceProvider image={bookmark}>
+            <LiteShell user={user} onLogout={onLogout} />
+          </CompanionAppearanceProvider></StudentArtwork>
+        )}
       </BackgroundProvider>
     </AccentProvider>
   );

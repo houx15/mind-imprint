@@ -325,6 +325,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects", liteOnly(a.createPblProject))
 	mux.Handle("GET /api/v1/pbl/projects", liteOnly(a.listPblProjects))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}", liteOnly(a.patchPblProject))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/heartbeat", liteOnly(a.postPblHeartbeat))
 	// 深挖 / 思考模式。{sid} 是 session id。
 	mux.Handle("POST /api/v1/pbl/projects/{id}/sessions", liteOnly(a.openPblSession))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/sessions", liteOnly(a.listPblSessions))
@@ -526,6 +527,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/evaluation-report/{projectId}", teacherOrAdmin(a.getStudentEvaluationReport))
 	mux.Handle("GET /api/v1/classes/{id}/weekly-report", teacherOrAdmin(a.getClassWeeklyReport))
 	mux.Handle("POST /api/v1/classes/{id}/weekly-report/prose", teacherOrAdmin(a.postClassWeeklyProse))
+
+	a.registerLiteTeacherRoutes(mux)
 
 	return SessionAuth(a.d.Queries)(mux)
 }

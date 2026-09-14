@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -103,6 +104,17 @@ func outlineDTOFrom(o readingOutline, blocks []Block) *outlineDTO {
 	}
 }
 
+// isHTTPURL reports whether s parses as a URL with an http or https scheme
+// and a host. Anything else is refused by putReadingSourceLite.
+func isHTTPURL(s string) bool {
+	u, err := url.Parse(s)
+	if err != nil {
+		return false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	return (scheme == "http" || scheme == "https") && u.Host != ""
+}
+
 func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
@@ -125,6 +137,16 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	title := strings.TrimSpace(req.Title)
 	body := strings.TrimSpace(req.Text)
 	srcURL := strings.TrimSpace(req.URL)
+
+	// The URL is stored verbatim and later rendered as a link on the teacher's
+	// item page. Only http/https may be stored: a `javascript:` or `data:`
+	// URL there would run in the teacher's session. Checked before the
+	// early-return and the fetch below, so a rejected URL is never fetched
+	// or written.
+	if srcURL != "" && !isHTTPURL(srcURL) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_url", "请输入以 http 或 https 开头的链接", nil))
+		return
+	}
 
 	// 🚨 已经有正文了就别再抓一次。
 	//

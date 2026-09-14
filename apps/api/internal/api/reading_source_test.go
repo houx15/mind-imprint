@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,41 @@ func putSource(t *testing.T, h http.Handler, cookie *http.Cookie, id, text strin
 	h.ServeHTTP(rec, withCookie(
 		httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/source", strings.NewReader(string(body))), cookie))
 	return rec
+}
+
+// The source URL is rendered as a link on the teacher's item page, so only
+// http/https may be stored (final review F1). A javascript: URL is refused
+// before any fetch or write.
+func TestPutSource_RejectsNonHTTPURL(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	for _, u := range []string{"javascript:alert(1)", "data:text/html,<b>x</b>", "ftp://example.org/a"} {
+		body, _ := json.Marshal(map[string]string{"url": u, "text": "正文第一段。"})
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(
+			httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/source", strings.NewReader(string(body))), cookie))
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_url") {
+			t.Fatalf("PUT url=%q = %d body=%s, want 400 invalid_url", u, rec.Code, rec.Body)
+		}
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM reading_source WHERE atom_id = $1`, id).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("reading_source rows = %d, want 0 after refused URLs", n)
+	}
+
+	// An https URL with a pasted body is still accepted.
+	body, _ := json.Marshal(map[string]string{"url": "https://example.org/a", "text": "正文第一段。"})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(
+		httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/source", strings.NewReader(string(body))), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT https url = %d body=%s, want 200", rec.Code, rec.Body)
+	}
 }
 
 func TestPutSource_StoresAndSegments(t *testing.T) {
