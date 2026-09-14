@@ -15,6 +15,14 @@ func (a *API) LoadLiteParentFactsForTest(ctx context.Context, classID, userID, t
 	return a.loadLiteParentFacts(ctx, classID, userID, teacherID, start, end)
 }
 
+// SetLiteTeacherEntitlementForTest replaces the entitlement seam behind
+// requireTeacherEntitled and returns a function that restores it.
+func SetLiteTeacherEntitlementForTest(f func(context.Context, User) (bool, error)) (restore func()) {
+	prev := liteTeacherEntitlement
+	liteTeacherEntitlement = f
+	return func() { liteTeacherEntitlement = prev }
+}
+
 // LoadLiteParentOtherNamesForTest exposes loadLiteParentOtherNames.
 func (a *API) LoadLiteParentOtherNamesForTest(ctx context.Context, classID, userID uuid.UUID, selfName string) ([]string, error) {
 	return a.loadLiteParentOtherNames(ctx, classID, userID, selfName)

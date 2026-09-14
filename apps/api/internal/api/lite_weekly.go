@@ -255,10 +255,28 @@ func errWeekBeforeStart(message string) *httpx.APIError {
 // whether the week before ws is in range, i.e. whether its end (ws) is after
 // start.
 func liteWeekBound(ws, start time.Time) (hasPrev, inRange bool) {
-	if !ws.AddDate(0, 0, 7).After(start) {
+	if !liteEndsAfterStart(ws.AddDate(0, 0, 7), start) {
 		return false, false
 	}
 	return ws.After(start), true
+}
+
+// liteEndsAfterStart reports whether a period whose exclusive end is end
+// reaches past start. A period that ends at or before start has nothing of
+// hers in it. Shared by the weekly lower bound and the parent report range.
+func liteEndsAfterStart(end, start time.Time) bool {
+	return end.After(start)
+}
+
+// liteEnrollmentStart is when reporting on her starts in this class: the
+// created_at of her enrollment. The weekly student routes and the parent
+// report generate route both measure "joined" with it.
+func (a *API) liteEnrollmentStart(ctx context.Context, classID, userID uuid.UUID) (time.Time, error) {
+	enr, err := a.d.Queries.GetEnrollment(ctx, sqlc.GetEnrollmentParams{UserID: userID, ClassID: classID})
+	if err != nil {
+		return time.Time{}, err
+	}
+	return enr.CreatedAt, nil
 }
 
 // parseLiteStudentWeek is parseLiteWeek plus the lower bound of a student
@@ -269,12 +287,12 @@ func (a *API) parseLiteStudentWeek(w http.ResponseWriter, r *http.Request, class
 	if !ok {
 		return time.Time{}, false, false, false
 	}
-	enr, err := a.d.Queries.GetEnrollment(r.Context(), sqlc.GetEnrollmentParams{UserID: userID, ClassID: classID})
+	joined, err := a.liteEnrollmentStart(r.Context(), classID, userID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return time.Time{}, false, false, false
 	}
-	hasPrev, inRange := liteWeekBound(ws, enr.CreatedAt)
+	hasPrev, inRange := liteWeekBound(ws, joined)
 	if !inRange {
 		httpx.WriteError(w, r, errWeekBeforeStart(liteWeekBeforeEnrollment))
 		return time.Time{}, false, false, false
@@ -485,11 +503,16 @@ func (a *API) storedLiteClassProse(ctx context.Context, classID uuid.UUID, ws ti
 	return weeklyProseFromRow[agent.LiteClassWeeklyProse](row.Body, err)
 }
 
+// liteTeacherEntitlement is the seam requireTeacherEntitled calls. It is
+// HasEntitlement in production; tests swap it to prove a refusal comes
+// before any spend.
+var liteTeacherEntitlement = HasEntitlement
+
 // requireTeacherEntitled runs the HasEntitlement seam for the request user
 // before a model call. ok=false means the error is already written.
 func requireTeacherEntitled(w http.ResponseWriter, r *http.Request) (User, bool) {
 	u, _ := UserFromContext(r.Context())
-	entitled, err := HasEntitlement(r.Context(), u)
+	entitled, err := liteTeacherEntitlement(r.Context(), u)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return User{}, false
