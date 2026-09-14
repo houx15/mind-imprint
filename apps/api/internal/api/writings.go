@@ -29,8 +29,12 @@ type writingDTO struct {
 	// what the frontend gates that dialog on. Both are 0100 columns.
 	StructureKey string  `json:"structureKey"`
 	SetupAt      *string `json:"setupAt"`
-	Status       string  `json:"status"`
-	CreatedAt    string  `json:"createdAt"`
+	// Origin: "here" = 在这个房间里写的；"brought" = 她带进来的成稿。
+	// 界面据此说明结构和段落两步没有发生过，报告也据此说真话
+	// （见 0146_writing_origin.sql）。
+	Origin    string `json:"origin"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"createdAt"`
 	// UpdatedAt is writing.updated_at: rename / stage change / target-words
 	// only. It is NOT "when she last worked on this" — see LastActivityAt.
 	UpdatedAt string `json:"updatedAt"`
@@ -48,6 +52,7 @@ func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingD
 	out := writingDTO{
 		ID: wr.AtomID.String(), Title: wr.Title, Lang: wr.Lang, Stage: wr.Stage,
 		TargetWords: wr.TargetWords, StructureKey: wr.StructureKey, Status: wr.Status,
+		Origin:         wr.Origin,
 		CreatedAt:      createdAt.Format(time.RFC3339),
 		UpdatedAt:      wr.UpdatedAt.Format(time.RFC3339),
 		LastActivityAt: lastActivityAt.Format(time.RFC3339),
@@ -72,6 +77,13 @@ const (
 	writingListDefaultLimit = 50
 	writingListMaxLimit     = 200
 )
+
+// writingBroughtMaxRunes 是她能带进来的一篇稿子的长度上限。
+//
+// 按 rune 数。两万字比任何一篇中学作文都宽（IB 的 EE 四千词，中文四千字上下），
+// 但它是有界的：这篇稿子会整份进通篇审阅那一次调用的上文，而 lite 没有压缩层。
+// 超了就明确报错，不做静默截断——截掉一半再去评，评的是另一篇文章。
+const writingBroughtMaxRunes = 20000
 
 // writingListLimit reads `?limit=`, mirroring readingListLimit. Anything
 // missing, unparseable, or ≤0 takes the default.
@@ -146,6 +158,15 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Idea string `json:"idea"`
 		Lang string `json:"lang"`
+		// Body 是她**已经写完**带进来的那篇稿子（2026-09-11）。
+		//
+		// 产品负责人的原话：
+		//   > we also make students available to upload a written one to seek
+		//   > for advice
+		//
+		// 给了 Body，这一篇就直接落在 draft、来源记成 brought，
+		// 走成稿那一侧的通篇审阅——她要的是意见，不是从零开始。
+		Body string `json:"body"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
@@ -154,6 +175,12 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	idea := strings.TrimSpace(req.Idea)
 	if idea == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_idea", "先说说你想写点什么。", nil))
+		return
+	}
+	body := strings.TrimSpace(req.Body)
+	if len([]rune(body)) > writingBroughtMaxRunes {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("body_too_long",
+			"这篇太长了，超出了一次能处理的长度。", nil))
 		return
 	}
 	title := idea
@@ -193,6 +220,38 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	// 她带了一篇写完的进来。
+	if body != "" {
+		if _, err := qtx.UpsertWritingDraft(r.Context(), sqlc.UpsertWritingDraftParams{
+			AtomID: at.ID, Body: body,
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if err := qtx.MarkWritingBrought(r.Context(), at.ID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		// 🚨 正文**不进转录**。它只落在 writing_draft 里。
+		//
+		// 两个理由。一，转录是每一条下游提示词的共同材料（开场、结构、每一块
+		// 引导都读它），把一整篇作文塞进去会把每一次调用的上文顶爆，而 lite
+		// 没有压缩层。二，也是更要紧的：转录里的 student 行是「她在这个房间
+		// 里说过的话」，而这篇稿子是她在别处写完带进来的——混在一起，过程
+		// 评估就再也分不清哪些是这里发生的。
+		//
+		// 落一条 system 行记下这件事，和 stage 变更用的是同一种记法
+		// （writing_stage.go 的 "stage: a → b"）：它是一条结构性记录，
+		// 不是谁「说」的话。
+		if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
+			AtomID: at.ID, Seq: 2, Role: "system", Content: "origin: brought",
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+
 	if err := tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)
 		return

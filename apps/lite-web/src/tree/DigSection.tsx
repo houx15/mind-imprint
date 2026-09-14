@@ -90,13 +90,13 @@ export function DigSection({ keywordId }: { keywordId: string }) {
   return (
     <div className="mt-7">
       <div className="tree-scanline mb-5" />
-      <h3 className="text-mk-h3 text-[#EFE7DC]">继续深挖</h3>
-      <p className="mt-1 text-mk-small leading-[1.8] text-[#8E8175]">
+      <h3 className="text-mk-h3 text-mk-ink">继续深挖</h3>
+      <p className="mt-1 text-mk-small leading-[1.8] text-mk-muted">
         这四条是按你在这个词上写过的话生成的。点一个，它会带着这句话去到该去的地方。
       </p>
 
       {seeds === null && !error ? (
-        <p className="mt-4 flex items-center gap-2 text-mk-small text-[#8E8175]">
+        <p className="mt-4 flex items-center gap-2 text-mk-small text-mk-muted">
           <Loader2 size={14} className="animate-spin" />
           正在按你写过的话生成
         </p>
@@ -104,15 +104,15 @@ export function DigSection({ keywordId }: { keywordId: string }) {
 
       {/* 后台原话原样给出。空着比摆四个通用动词诚实。 */}
       {note ? (
-        <p className="mt-4 rounded-mk-md p-3 text-mk-small leading-[1.8] text-[#9A8E80]"
-           style={{ border: "1px solid rgba(240,233,224,.14)", background: "rgba(240,233,224,.035)" }}>
+        <p className="mt-4 rounded-mk-md p-3 text-mk-small leading-[1.8] text-mk-muted"
+           style={{ border: "1px solid var(--tree-line)", background: "var(--mk-paper)" }}>
           {note}
         </p>
       ) : null}
 
       {error ? (
-        <p className="mt-4 rounded-mk-md p-3 text-mk-small leading-[1.8] text-[#F0D5D9]"
-           style={{ background: "rgba(255,113,137,.12)", border: "1px solid rgba(255,113,137,.4)" }}>
+        <p className="mt-4 rounded-mk-md p-3 text-mk-small leading-[1.8] text-[#8E2B3E]"
+           style={{ background: "rgba(213,63,89,.08)", border: "1px solid rgba(213,63,89,.32)" }}>
           操作失败：{error}
         </p>
       ) : null}
@@ -129,15 +129,15 @@ export function DigSection({ keywordId }: { keywordId: string }) {
                 style={{
                   ["--i" as string]: i,
                   border: `1px solid color-mix(in srgb, ${meta.hue} 40%, transparent)`,
-                  background: `color-mix(in srgb, ${meta.hue} 11%, rgba(240,233,224,.03))`,
+                  background: `color-mix(in srgb, ${meta.hue} 8%, var(--tree-card))`,
                 }}
               >
                 <span className="tree-mono" style={{ color: meta.hue, letterSpacing: "0.1em" }}>
                   {meta.label}
                 </span>
-                <p className="mt-1.5 text-mk-body leading-[1.7] text-[#EDE4D9]">{s.text}</p>
+                <p className="mt-1.5 text-mk-body leading-[1.7] text-mk-ink">{s.text}</p>
                 {s.why ? (
-                  <p className="mt-1.5 text-mk-small leading-[1.7] text-[#8E8175]">{s.why}</p>
+                  <p className="mt-1.5 text-mk-small leading-[1.7] text-mk-muted">{s.why}</p>
                 ) : null}
 
                 {Icon ? (
@@ -146,7 +146,7 @@ export function DigSection({ keywordId }: { keywordId: string }) {
                     onClick={() => follow(s)}
                     disabled={busy !== null}
                     className="mt-3 inline-flex items-center gap-1.5 rounded-mk-full px-3.5 py-1.5 text-mk-small
-                               font-semibold text-[#17130F] transition hover:opacity-90 disabled:opacity-45"
+                               font-semibold text-white transition hover:opacity-90 disabled:opacity-45"
                     style={{ background: meta.hue }}
                   >
                     {busy === s.kind ? (
@@ -163,7 +163,7 @@ export function DigSection({ keywordId }: { keywordId: string }) {
                   </button>
                 ) : (
                   // 想一想没有按钮：它是一个拿着走的问题，不是一个任务。
-                  <p className="mt-2.5 flex items-center gap-1.5 text-mk-small text-[#7C7166]">
+                  <p className="mt-2.5 flex items-center gap-1.5 text-mk-small text-mk-faint">
                     <Sparkles size={12} strokeWidth={2} />
                     这一条不用点，带着它去读下一篇就好。
                   </p>
@@ -175,8 +175,8 @@ export function DigSection({ keywordId }: { keywordId: string }) {
       ) : null}
 
       {seeds && seeds.length > 0 ? (
-        <p className="mt-3 text-mk-small text-[#7C7166]">
-          <Sys tone="dark">说明</Sys>{" "}
+        <p className="mt-3 text-mk-small text-mk-faint">
+          <Sys>说明</Sys>{" "}
           点「去读 / 去写 / 开一个项目」会用这句话新建一个房间，并直接带你进去。
         </p>
       ) : null}

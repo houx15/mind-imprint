@@ -55,7 +55,7 @@ import { apiErrorText } from "../api/errorText";
  *   - greeting: 「Hi，今天要读点什么」 (读 is its own <span>, so match by
  *     the container's textContent, not by a single text node)
  *   - title input placeholder: 「给这次阅读起个名字（可留空）」 (unchanged)
- *   - body textarea placeholder: 「贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF」
+ *   - body textarea placeholder: 「贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT」
  *   - submit button label: 「开始阅读」 (unchanged)
  *   - upload button label: 「上传 DOCX / PDF」
  *   - history entry label: 「我的阅读」
@@ -276,7 +276,7 @@ export function ReadingsLanding() {
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF"
+              placeholder="贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT"
               disabled={starting}
               aria-label="文章正文或链接"
               className="min-h-[176px] w-full resize-none rounded-mk-sm bg-transparent px-3 pb-2 text-mk-body-lg text-mk-ink outline-none placeholder:text-[#B8ADA2] disabled:cursor-not-allowed"
@@ -284,10 +284,10 @@ export function ReadingsLanding() {
             <div className="flex items-center justify-between gap-3 px-1.5 pb-1">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200">
                 <Icon icon={Paperclip} size={15} />
-                上传 DOCX / PDF
+                上传 PDF / DOCX / TXT
                 <input
                   type="file"
-                  accept=".pdf,.docx"
+                  accept=".pdf,.docx,.txt,.md"
                   className="sr-only"
                   disabled={starting}
                   onChange={(e) => {

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Library, ArrowRight } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { Library, ArrowRight, FileUp, Paperclip } from "lucide-react";
+import { Button, Icon, Modal } from "@/ui";
 import { ApiError } from "../api/client";
-import { createWriting, listWritings, isWritingFinished, type Writing } from "../api/writings";
+import { createWriting, extractDocument, listWritings, isWritingFinished, type Writing } from "../api/writings";
 import { navigate, writingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
@@ -43,6 +43,13 @@ export function WritingsLanding() {
   const [idea, setIdea] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+
+  // 带一篇写好的进来：一个弹窗，两个框（这是什么 + 正文）。
+  const [bringOpen, setBringOpen] = useState(false);
+  const [bringTitle, setBringTitle] = useState("");
+  const [bringBody, setBringBody] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [bringFileError, setBringFileError] = useState<string | null>(null);
 
   const [history, setHistory] = useState<Writing[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -110,6 +117,52 @@ export function WritingsLanding() {
     void start(topic.idea, topic.lang);
   }
 
+  /**
+   * 上传一份文件，把里面的文字放进上面那个框。
+   *
+   * 🚨 取出来的文字**落进框里**，不直接建这一篇。她仍然看得见、改得动，
+   * 按「请印记看看」的时候才真的交出去 —— 上传只是省掉复制粘贴那一下，
+   * 不替她做决定。失败那一句原样来自服务端（扫描件和文件坏了是两回事）。
+   */
+  async function bringFile(file: File | undefined) {
+    if (!file || extracting) return;
+    setExtracting(true);
+    setBringFileError(null);
+    try {
+      const { title, text } = await extractDocument(file);
+      setBringBody((prev) => (prev.trim() ? prev + "\n\n" + text : text));
+      // 文件自带的标题只在她还没写标题的时候用 —— 她写过的不覆盖。
+      setBringTitle((prev) => prev.trim() || title.trim() || file.name.replace(/\.[^.]+$/, ""));
+    } catch (err) {
+      setBringFileError(apiErrorText(err));
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  /**
+   * 带一篇写好的进来。
+   *
+   * 和 `start` 走同一个接口，只是多给一个 body —— 服务端据此把这一篇直接放在
+   * 成稿那一步、来源记成 brought。这里不做任何「看起来像不像一篇文章」的判断：
+   * 她说这是她写完的，那就是。
+   */
+  async function bringIn() {
+    const body = bringBody.trim();
+    const title = bringTitle.trim() || body.slice(0, 40);
+    if (!body || starting) return;
+    setStarting(true);
+    setStartError(null);
+    try {
+      const { id } = await createWriting({ idea: title, body });
+      navigate(writingPath(id));
+    } catch (err) {
+      setStartError(apiErrorText(err));
+      setStarting(false);
+      setBringOpen(false);
+    }
+  }
+
   return (
     <div className="relative min-h-full overflow-hidden">
       <div className="relative mx-auto flex w-full max-w-[760px] flex-col px-4 pb-20 pt-5 sm:px-6">
@@ -173,7 +226,21 @@ export function WritingsLanding() {
               aria-label="想写点什么"
               className="min-h-[112px] w-full resize-none rounded-mk-sm bg-transparent px-3 pb-2 pt-2.5 text-mk-body-lg text-mk-ink outline-none placeholder:text-[#B8ADA2] disabled:cursor-not-allowed"
             />
-            <div className="flex items-center justify-end px-1.5 pb-1">
+            <div className="flex items-center justify-between px-1.5 pb-1">
+              {/* 带一篇写好的进来。
+                  产品负责人 2026-09-11：「we also make students available to
+                  upload a written one to seek for advice」。
+                  它和「开始写作」并排，不是藏在别处：写完了想要意见，
+                  和从零开始，是两件同样正当的事。 */}
+              <button
+                type="button"
+                onClick={() => setBringOpen(true)}
+                disabled={starting}
+                className="flex items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-secondary transition-colors hover:text-mk-accent-700 disabled:cursor-not-allowed"
+              >
+                <Icon icon={FileUp} size={14} />
+                带一篇写好的进来
+              </button>
               <Button onClick={() => void start(idea)} disabled={!idea.trim()} loading={starting}>
                 开始写作
               </Button>
@@ -210,6 +277,73 @@ export function WritingsLanding() {
           </div>
         </section>
       </div>
+
+      {/* 带一篇写好的进来。
+          两个框：这是什么（可以不填，不填就取正文开头）、正文。
+          🚨 没有第三个框问文体、也没有问语言 —— 语言在进房间之后那个 设定
+          弹窗里问，那是它本来的位置，在这儿再问一次只是多一道门。 */}
+      <Modal
+        open={bringOpen}
+        onClose={() => setBringOpen(false)}
+        title="带一篇写好的进来"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setBringOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={() => void bringIn()} disabled={!bringBody.trim()} loading={starting}>
+              请印记看看
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-mk-body text-mk-muted">
+            粘贴你已经写完的那一篇。印记会通篇看一遍，给你具体的意见。
+            结构和段落两步不会再走一遍。
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-mk-small text-mk-secondary">题目</span>
+            <input
+              value={bringTitle}
+              onChange={(e) => setBringTitle(e.target.value)}
+              placeholder="这一篇叫什么"
+              className="w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-mk-small text-mk-secondary">正文</span>
+            <textarea
+              value={bringBody}
+              onChange={(e) => setBringBody(e.target.value)}
+              placeholder="把你写好的文章粘贴到这里"
+              className="min-h-[220px] w-full resize-y rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent"
+            />
+          </label>
+          {/* 上传。走的是和阅读那边同一件工具（docextract），取出来的文字直接
+              落进上面那个框 —— 她仍然看得见、改得动，按「请印记看看」的时候才
+              真的交出去。 */}
+          <div className="flex items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200">
+              <Icon icon={Paperclip} size={15} />
+              上传 PDF / DOCX / TXT
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt,.md"
+                className="sr-only"
+                disabled={extracting || starting}
+                onChange={(e) => {
+                  void bringFile(e.target.files?.[0]);
+                  // 清掉，否则同一个文件选第二次不会再触发。
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {extracting && <span className="text-mk-small text-mk-muted">正在读取文件…</span>}
+            {bringFileError && <span className="text-mk-small text-mk-danger">{bringFileError}</span>}
+          </div>
+        </div>
+      </Modal>
 
       <WritingHistoryPanel
         open={panelOpen}

@@ -78,6 +78,34 @@ const (
 	starmapRetryCoolOff = 90 * time.Second
 )
 
+// studentZone 是学生所在的时区。
+//
+// 🚨 **写死东八区，不用 time.Local，也不靠 TZ 环境变量。** 两个理由：
+//
+//  1. api 跑在 distroless 镜像里，镜像里**没有 tzdata**，compose 里也没设 TZ。
+//     于是 `time.Local` 是 UTC —— 2026-09-10 在生产上量到的：星图的「今天」是
+//     一个 UTC 日，凌晨到早上八点之间，学生看到的仍然是昨天那五颗星，而地图上
+//     写着「今日探索地图」。一天一屏的产品，换屏的时刻不能是早上八点。
+//  2. 用固定偏移而不是 LoadLocation("Asia/Shanghai")：后者在没有 tzdata 的镜像
+//     里会失败，而失败的样子是悄悄退回 UTC —— 正是我们要修的那个 bug。
+//     东八区没有夏令时，固定偏移就是完整的答案。
+//
+// 这条产品线是中国的（迁移 0120 的注释：「学生和服务器都在东八区」）。将来真要
+// 跨时区，改的是「按谁的时区算」，不是这个常量。
+var studentZone = time.FixedZone("CST", 8*60*60)
+
+// starmapDay 把一个时刻折算成星图的「那一天」。
+//
+// 纯函数，因为这是这条路上唯一「读代码看不出对错」的判断：它判错的样子不是报错，
+// 是学生在早上七点看到昨天的新闻。
+func starmapDay(now time.Time) pgtype.Date {
+	d := now.In(studentZone)
+	return pgtype.Date{
+		Time:  time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC),
+		Valid: true,
+	}
+}
+
 // clipRunes 截一段模型输出，用来放进日志。
 //
 // 600 字够看出它是写跑题了还是被截断了，又不至于把一整屏候选新闻灌进日志。
@@ -194,8 +222,7 @@ func (a *API) getExploreToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	day := time.Now().In(time.Local)
-	dayOnly := pgtype.Date{Time: time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC), Valid: true}
+	dayOnly := starmapDay(time.Now())
 
 	// 生成用脱离请求生命周期的 context：她如果在等待时切走，已经花掉的抓取与
 	// 模型调用不该被取消 —— 星图照样出，下一个人（或者她自己）立刻就看得到。

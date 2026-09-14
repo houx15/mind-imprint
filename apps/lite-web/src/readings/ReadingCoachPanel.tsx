@@ -10,6 +10,7 @@ import { ApiError } from "../api/client";
 import {
   coachAnswerOf,
   coachCardOf,
+  replyIsIncomplete,
   postReadingCoachTurn,
   type ReadingLensDone,
   type ReadingTask,
@@ -368,6 +369,15 @@ export function ReadingCoachPanel({
         node: (
           <>
             <LiteChatMarkdown text={m.content} />
+            {/* 🚨 半句话本身不是错 —— 模型真的只发出来这么多，我们不替它补
+                （[[ai-errors-must-surface-never-fake]]）。错的是没有任何东西
+                告诉她这是半句：产品负责人 2026-09-12 报的那一幕是屏幕上只有
+                「对，调用数据是一个方向。**但」，她只能自己打一个「?」去问。 */}
+            {replyIsIncomplete(m) && (
+              <p className="mt-1.5 text-mk-caption text-mk-muted">
+                这条回复没有生成完整。请让印记接着说。
+              </p>
+            )}
             <ThinkingFold text={thinkingBySeq[m.seq] ?? ""} />
           </>
         ),
@@ -505,9 +515,12 @@ export function ReadingCoachPanel({
                 吗？」「是该点叉关掉还是再划一句？」—— 她把 ✕ 读成了「错」，
                 而屏幕上没有任何字说这些是什么、接下来该干什么。
                 在那之前这里只有一排光秃秃的引文。 */}
-            <span className="w-full text-mk-label text-mk-muted">
-              已引用 {slot.quotes.length} 处。可以直接发出，也可以再写一句话一起发。
-              不要的那一处点 ✕ 去掉。
+            {/* 🚨 这一行说的是「还没发出去」，不是「已经引用了」。
+                走查里她划了 82 次句子，只换来 9 轮对话 —— 她划完一句，看见引文
+                排在这儿，以为这就算交上去了；印记 没回应，她就再划一句、再划一句。
+                引文小块长得像**结果**，而它其实是**草稿**。 */}
+            <span className="w-full text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
+              划好了 {slot.quotes.length} 处，还没发出去 —— 点右边的按钮交给印记。
             </span>
             {slot.quotes.map((q) => (
               <span
@@ -541,7 +554,7 @@ export function ReadingCoachPanel({
               className="rounded-mk-full px-3 py-0.5 text-mk-label text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              发出这 {slot.quotes.length} 处
+              发出这 {slot.quotes.length} 处 →
             </button>
           </div>
         )}
@@ -583,6 +596,33 @@ export function ReadingCoachPanel({
           </div>
         )}
 
+        {/* 🚨 一副透镜开着的时候，这一栏是锁住的 —— 而在这之前，屏幕上说明这件
+            事的全部内容是输入框里一句灰色的 placeholder。模拟学生走查逐字报的：
+            「发送按钮按不动，我打不了字。」她盯着右边这一栏，而那副透镜在**左边
+            文章上**，她根本没往那边看。
+            一句明确的话 + 一颗把她送过去的按钮。 */}
+        {slot.lensOpen && (
+          <div
+            className="flex items-center justify-between gap-3 rounded-mk-md border px-3 py-2"
+            style={{
+              borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+              background: "color-mix(in srgb, var(--mk-accent-50) 70%, var(--mk-surface))",
+            }}
+          >
+            <span className="text-mk-small leading-relaxed text-mk-ink">
+              这一步要在文章里做：印记 给了你一副透镜，请在左边的文章里选出那一句。
+            </span>
+            <button
+              type="button"
+              onClick={() => slot.locateLens?.()}
+              className="shrink-0 rounded-mk-full px-3 py-1 text-mk-label text-white"
+              style={{ background: "var(--mk-accent-500)" }}
+            >
+              带我过去
+            </button>
+          </div>
+        )}
+
         <Composer
           value={draft}
           onChange={setDraft}
@@ -603,7 +643,13 @@ export function ReadingCoachPanel({
               ? "先完成文章里的这副透镜…"
               : finished
                 ? "读完了，还想聊点什么？"
-                : "读完这一步，跟印记说一声"
+                : // 🚨 上面那张卡片自己带一个输入框的时候，屏幕上就有**两个**能
+                  // 写字的地方，而它们长得一样。模拟学生走查逐字报的：
+                  //「另外输入框有两个，不知道该在哪个里面写东西。」
+                  // 所以卡片开着的时候，这一个明说自己是「别的」。
+                  cards.open?.card.type === "short_text"
+                  ? "想说卡片以外的事，写在这里"
+                  : "读完这一步，跟印记说一声"
           }
         />
 

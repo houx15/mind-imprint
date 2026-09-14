@@ -17,6 +17,8 @@ import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
 import { apiErrorText } from "../api/errorText";
+import { planShapeLine, planShapeOf } from "./planShape";
+import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -198,6 +200,19 @@ export function PlanningView({
     void mutate(keep.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
   }
 
+  /**
+   * 她把一个节点拖到另一个节点上：那一个连着它底下的东西，挂到这一个下面。
+   *
+   * 算新清单的是纯函数（outlineMove.ts），这里只负责落库。算不出来
+   *（拖到自己身上、拖进自己底下、超过深度上限）就**什么都不做** ——
+   * 一次非法的拖动不该变成一次让图变形的写入。
+   */
+  function moveNode(draggedId: string, targetId: string, mode: OutlineMoveMode) {
+    const next = moveOutlineNode(outline, draggedId, targetId, mode);
+    if (!next) return;
+    void mutate(next.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
+  }
+
   function editNode(id: string, text: string) {
     void mutate(
       outline
@@ -268,6 +283,13 @@ export function PlanningView({
                 <p className="text-mk-small leading-relaxed text-mk-ink">
                   这份思路已经够撑起一篇。开头与结尾可以等主体写出来之后再定。
                 </p>
+                {/* 🚨 它凭什么说够了 —— 把数出来的那几个数摆出来。
+                    产品负责人 2026-09-12 的原话：「AI 就判断已足以支撑一篇文章，
+                    **判断依据不清晰**。」原来这块绿框只有上面那一句，没有一个字
+                    说它数了什么，于是她既没法判断该不该信，也看不出自己还差什么。
+                    这一行只报事实（几条），「够不够」那条判据留在服务端，
+                    见 planShape.ts 里那段。 */}
+                <p className="text-mk-small text-mk-secondary">{planShapeLine(planShapeOf(outline))}</p>
                 <div className="flex justify-end">
                   <Button onClick={onDone} iconEnd={<Icon icon={ArrowRight} size={14} />}>
                     开始写作
@@ -303,10 +325,16 @@ export function PlanningView({
                 className="rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
-                点一条可以改，也能删
+                {/* 🚨 原来只说了改和删，没说**怎么加** —— 而这张图长什么样
+                    全靠她说。2026-09-13 第十四轮走查她的原话：「它问我有几条
+                    理由，但我不知道怎么把理由加到'你的思路'那个列表里去，
+                    那里只有一个删除按钮。」她在找一颗「＋」，而这里没有、
+                    也不该有：加一条的办法是跟印记说一句，它摆上去。
+                    那条路一直在，只是没有一个字讲过。 */}
+                想加一条，说给印记听；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
-            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} />
+            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />
           </aside>
         )}
       </div>

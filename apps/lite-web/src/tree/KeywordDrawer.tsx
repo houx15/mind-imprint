@@ -38,47 +38,47 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
   const bornLabel = kw.firstSeenAt ? kw.firstSeenAt.slice(0, 10) : "不知道";
 
   return (
-    <Drawer open onClose={onClose} width={560} label={kw.text}>
+    <Drawer open onClose={onClose} width={560} label={kw.text} tone="light">
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
               className="h-2.5 w-2.5 rounded-mk-full"
-              style={{ background: f.hue, boxShadow: `0 0 12px ${f.hue}` }}
+              style={{ background: f.hue }}
             />
-            <Sys tone="dark">{f.label} · KEYWORD</Sys>
+            <Sys>{f.label} · KEYWORD</Sys>
           </div>
-          <h2 className="mt-1.5 text-mk-h1 text-[#F5EFE7]">{kw.text}</h2>
-          <p className="mt-0.5 font-mono text-mk-small text-[#7C7166]">{kw.en}</p>
+          <h2 className="mt-1.5 text-mk-h1 text-mk-ink">{kw.text}</h2>
+          <p className="mt-0.5 font-mono text-mk-small text-mk-faint">{kw.en}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-mk-full p-2 transition-colors duration-[120ms] hover:bg-[rgba(240,233,224,.1)]
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+          className="rounded-mk-full p-2 transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300"
           aria-label="关闭"
         >
-          <X size={18} strokeWidth={1.8} color="#C6B9AA" />
+          <X size={18} strokeWidth={1.8} color="var(--tree-ink-3)" />
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys tone="dark">强度</Sys>
-            <span className="font-mono text-mk-small tabular-nums text-[#F0E9E0]">
+            <Sys>强度</Sys>
+            <span className="font-mono text-mk-small tabular-nums text-mk-ink">
               {kw.strength} / 5
             </span>
           </span>
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys tone="dark">来源</Sys>
-            <span className="font-mono text-mk-small tabular-nums text-[#F0E9E0]">
+            <Sys>来源</Sys>
+            <span className="font-mono text-mk-small tabular-nums text-mk-ink">
               {kw.sources.length}
             </span>
           </span>
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys tone="dark">第一次出现</Sys>
-            <span className="font-mono text-mk-small text-[#F0E9E0]">{bornLabel}</span>
+            <Sys>第一次出现</Sys>
+            <span className="font-mono text-mk-small text-mk-ink">{bornLabel}</span>
           </span>
         </div>
 
@@ -87,33 +87,33 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
           <div
             className="mt-5 rounded-mk-md p-4"
             style={{
-              background: `color-mix(in srgb, ${f.hue} 12%, rgba(240,233,224,.04))`,
-              border: `1px solid color-mix(in srgb, ${f.hue} 26%, transparent)`,
+              background: `color-mix(in srgb, ${f.hue} 8%, var(--tree-card))`,
+              border: `1px solid color-mix(in srgb, ${f.hue} 28%, transparent)`,
             }}
           >
-            <Sys tone="dark">摘要</Sys>
-            <p className="mt-1.5 text-mk-body-lg leading-[1.85] text-[#F0E9E0]">{kw.note}</p>
+            <Sys>摘要</Sys>
+            <p className="mt-1.5 text-mk-body-lg leading-[1.85] text-mk-ink">{kw.note}</p>
           </div>
         ) : null}
 
         {kw.shining ? (
           <div
             className="mt-4 rounded-mk-md p-4"
-            style={{ border: "1px solid rgba(201,150,43,.4)", background: "rgba(201,150,43,.1)" }}
+            style={{ border: "1px solid rgba(189,146,43,.4)", background: "rgba(189,146,43,.09)" }}
           >
             <div className="flex items-center gap-2">
-              <Sparkles size={15} strokeWidth={2} color="#E5B65A" />
-              <Sys tone="dark" className="!text-[#E5B65A]">
+              <Sparkles size={15} strokeWidth={2} color="#A8801F" />
+              <Sys className="!text-[#8A6A18]">
                 做得最好的一次 · {kw.shining.date}
               </Sys>
             </div>
-            <p className="mt-2 text-mk-h3 text-[#F5E7C8]">{kw.shining.title}</p>
-            <p className="mt-1.5 text-mk-body leading-[1.85] text-[#DBCBA6]">{kw.shining.body}</p>
+            <p className="mt-2 text-mk-h3 text-mk-ink">{kw.shining.title}</p>
+            <p className="mt-1.5 text-mk-body leading-[1.85] text-mk-secondary">{kw.shining.body}</p>
           </div>
         ) : null}
 
         {/* ── 相关活动 ─────────────────────────────────────────────────── */}
-        <h3 className="mt-7 text-mk-h3 text-[#EFE7DC]">相关活动</h3>
+        <h3 className="mt-7 text-mk-h3 text-mk-ink">相关活动</h3>
         <ul className="mt-3 space-y-2">
           {kw.sources.map((s) => (
             <SourceRow key={`${s.kind}-${s.id}`} source={s} onNavigate={onClose} />
@@ -172,34 +172,34 @@ function SourceRow({ source, onNavigate }: { source: KeywordSource; onNavigate: 
         }}
         className={cx(
           "w-full rounded-mk-md p-3 text-left transition-colors duration-[120ms] ease-mk",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]",
-          target ? "hover:bg-[rgba(240,233,224,.1)]" : "cursor-default",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300",
+          target ? "hover:bg-[rgba(51,48,46,.05)]" : "cursor-default",
         )}
-        style={{ border: "1px solid rgba(240,233,224,.13)", background: "rgba(240,233,224,.035)" }}
+        style={{ border: "1px solid var(--tree-line)", background: "var(--mk-paper)" }}
       >
         <span className="flex items-center gap-2">
           <span
             className="tree-mono rounded-mk-full px-2 py-0.5"
             style={{
-              background: `color-mix(in srgb, ${meta.hue} 26%, transparent)`,
-              color: "#E0D6C9",
+              background: `color-mix(in srgb, ${meta.hue} 16%, transparent)`,
+              color: `color-mix(in srgb, ${meta.hue} 72%, var(--tree-ink))`,
               letterSpacing: 0,
             }}
           >
             {meta.label}
           </span>
-          <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-[#F0E9E0]">
+          <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-mk-ink">
             {source.label}
           </span>
-          <span className="font-mono text-[11px] text-[#7C7166]">{source.date}</span>
+          <span className="font-mono text-[11px] text-mk-faint">{source.date}</span>
         </span>
         {source.evidence ? (
           <span
-            className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-[#C0B4A6]"
+            className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-mk-secondary"
             style={{ borderColor: meta.hue }}
           >
             「{source.evidence}」
-            <span className="mt-1 block not-italic text-[11px] text-[#7C7166]">你自己写的</span>
+            <span className="mt-1 block not-italic text-[11px] text-mk-faint">你自己写的</span>
           </span>
         ) : null}
       </button>

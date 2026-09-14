@@ -109,3 +109,28 @@ func TestGuideBatchEmptyButWellFormedIsNotAFailure(t *testing.T) {
 		t.Fatalf("凭空多出了 %d 块", len(guides))
 	}
 }
+
+// 🚨 带 ```json 围栏、而且断在半路的回复 —— 这一种在线上真的发生了，而救援
+// 一次都没救到过。
+//
+// `parseWritingGuideBatch` 会先把围栏剥掉存进 `c`，但救援那一行传的是**原始的
+// `text`**，于是 `salvageWritingGuideBatch` 第一个 token 读到反引号就 return
+// false，整批丢掉：她那一屏每一块都是空的，外加一个「后台错误：AI 响应错误」
+// 的弹窗挡在前面。2026-09-11 的模拟学生走查里中英两个学生各被挡了一次。
+//
+// 这条测试钉的是「救援拿到的是剥过壳的那份」。
+func TestGuideBatchSalvagesThroughACodeFence(t *testing.T) {
+	a, b, _, known := guideBatchIDs()
+	raw := "```json\n" + `{"blocks":[` +
+		`{"id":"` + a.String() + `","job":"立起你的主张","methodIds":[],"questions":["你最想让读者相信哪一句？"]},` +
+		`{"id":"` + b.String() + `","job":"给第一条理由找一个例子","methodIds":[],"questions":["你见过哪类工厂必须连着跑？"]},` +
+		`{"id":"33333333-3333-3333-3333-333333333333","job":"说清电池还能做什么","questions":["电网的波动`
+
+	guides, ok := parseWritingGuideBatch(raw, known)
+	if !ok {
+		t.Fatal("带围栏就救不回来了 —— 而围栏是模型最常见的那层壳")
+	}
+	if len(guides) != 2 {
+		t.Fatalf("留下了 %d 块，应该是写完了的那 2 块", len(guides))
+	}
+}

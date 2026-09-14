@@ -254,7 +254,11 @@ func TestValidateCoachCard(t *testing.T) {
 		}
 	})
 
-	t.Run("两头都不在边界上的片段被丢掉", func(t *testing.T) {
+	t.Run("两头都不在边界上的片段，贴回它自己那一句", func(t *testing.T) {
+		// 🚨 这一条以前是「整张卡丢掉」。改成贴回去的理由在 snapQuoteToArticle：
+		// 丢掉的代价她全担着 —— 屏幕上只剩一个输入框，而她不知道该打什么。
+		// 真正要守的不变量没有变：**最终上卡的那句话，一定是原文里一段
+		// 落在从句边界上的字面子串**。下面就是照着这条查的。
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
@@ -264,8 +268,20 @@ func TestValidateCoachCard(t *testing.T) {
 				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
 			},
 		}, blocks)
-		if got != nil {
-			t.Fatalf("expected nil (only 1 survivor), got %+v", got)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("这一句贴得回去，不该整张丢掉：%+v", got)
+		}
+		byID := map[string]string{}
+		for _, b := range blocks {
+			byID[b.ID] = b.Text
+		}
+		for _, o := range got.Options {
+			if o.Quote == "吸热、夜里" {
+				t.Errorf("半截片段原样上了卡片：%+v", got.Options)
+			}
+			if !coachCardQuoteIsClause(byID[o.BlockID], o.Quote) {
+				t.Errorf("上卡的这一句没落在从句边界上：%q", o.Quote)
+			}
 		}
 	})
 
@@ -1337,5 +1353,181 @@ func TestCardAnswerQuotesEveryPromptLine(t *testing.T) {
 	}
 	if stripQuotedLines(got) != "服气一半。" {
 		t.Fatalf("only her own words may survive stripQuotedLines, got %q", stripQuotedLines(got))
+	}
+}
+
+// 🚨 引文差一点点对不上，贴回原文那一句，而不是把整张卡丢掉。
+//
+// 实测那一幕：日志写「fewer than 2 options survived the article check」，
+// 她那边 印记 说「我们集中看第 2 段」然后什么都没给 ——
+// 「只有一个输入框，不知道该往里面打什么字」。
+func TestSnapQuoteToArticle(t *testing.T) {
+	body := "Aid groups said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified."
+	cases := []struct{ name, quote, want string }{
+		{
+			"少了收尾的句号",
+			"Aid groups said the blockade had made every delivery slower",
+			"Aid groups said the blockade had made every delivery slower.",
+		},
+		{
+			"从半句中间起头",
+			"the figure could not be independently verified",
+			"Officials cautioned that the figure could not be independently verified.",
+		},
+		{
+			"说的是别的句子 —— 宁可丢掉，也不要贴错一句让她去文章里找",
+			"完全无关的一句中文，和这一段没有任何关系。",
+			"",
+		},
+	}
+	for _, c := range cases {
+		if got := snapQuoteToArticle(body, c.quote); got != c.want {
+			t.Errorf("%s：snapQuoteToArticle(%q) = %q，想要 %q", c.name, c.quote, got, c.want)
+		}
+	}
+}
+
+func TestCardSurvivesANearMissQuote(t *testing.T) {
+	blocks := SplitBlocks("Aid groups said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段在讲别的事情，句子也够长，能上卡片。")
+	c := &coachCard{
+		Type:   coachCardChooseSpan,
+		Prompt: "哪一句更像主张？",
+		Options: []coachCardOption{
+			// 两句都差一点：一句少了句号，一句从半句中间起头。
+			// choose_span 的选项要来自不同段落（同段的一对没法靠扫读分辨）。
+			{BlockID: "b1", Quote: "Aid groups said the blockade had made every delivery slower"},
+			{BlockID: "b2", Quote: "第二段在讲别的事情，句子也够长"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("整张卡被丢掉了，理由 %q —— 两句都贴得回去", why)
+	}
+	byID := map[string]string{}
+	for _, b := range blocks {
+		byID[b.ID] = b.Text
+	}
+	for _, o := range got.Options {
+		if !strings.Contains(byID[o.BlockID], o.Quote) {
+			t.Errorf("贴回去之后这一句还是不在 %s 里：%q", o.BlockID, o.Quote)
+		}
+	}
+}
+
+// 🚨 教它换一种说法的时候，认「它是不是在指着一块板说话」的那张表要跟着换。
+//
+// 实测：上一条 prompt 教它改口说「把这几句各自放进它的角色里」（不要自己编
+// 格子名），而 cardPromiseWords 里一个字都没对上 —— 于是服务端没有补板，
+// 她看到的是那句话加上一片空白：「屏幕上看不到任何格子、板子或者可以拖拽的
+// 地方，我不知道该把句子放到哪里去。」
+func TestPromiseWordsCoverThePhrasingWeTeachIt(t *testing.T) {
+	for _, reply := range []string{
+		"现在把这几句各自放进它的角色里。",
+		"看看第 2 段这三句，各自放进哪个角色。",
+		"把它们归到各自的角色里。",
+	} {
+		if !replyPromisesACard(reply) {
+			t.Errorf("这是在指着一块板说话，没认出来：%q", reply)
+		}
+	}
+	// 只是提到「角色」不算 —— 讲解里常常出现这个词。
+	if replyPromisesACard("这一句在论证里的角色是证据。") {
+		t.Error("讲解里提到角色被误判成了在指板说话")
+	}
+}
+
+// 🚨 题目里另起一套格子名的，把题目换回标准那一句。
+//
+// 格子是闭表、由服务端填，但**题目**不是 —— 于是屏幕上是「把卡片放进
+// 『进不去/动不了/快撑不住了』三个格子」，而下面摆着的是主张/证据/限制/背景/
+// 对比。她逐字报的：「名字完全不一样，我不知道哪个对应哪个，没法往下做。」
+func TestLabelPromptInventsBins(t *testing.T) {
+	for prompt, want := range map[string]bool{
+		"把这几句放进「进不去/动不了/快撑不住了」三个格子":  true,
+		"放进进不去/动不了/快撑不住了":            true,
+		"这几句在作者的论证里各自扮演什么角色？":        false,
+		"把这几句各自放进它的角色里":              false,
+		// 闭表里的名字照说不算编。
+		"哪一句是「主张」，哪一句是「证据」？":         false,
+		"分成主张/证据两类":                  false,
+	} {
+		if got := labelPromptInventsBins(prompt); got != want {
+			t.Errorf("labelPromptInventsBins(%q) = %v，想要 %v", prompt, got, want)
+		}
+	}
+}
+
+func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
+	blocks := SplitBlocks("第一段这句话足够长，可以上板使用。\n\n第二段这句话也足够长，同样可以上板。")
+	c := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "把这几句放进「进不去/动不了/快撑不住了」三个格子",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段这句话足够长，可以上板使用。"},
+			{BlockID: "b2", Quote: "第二段这句话也足够长，同样可以上板。"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("不该丢卡，丢了她这一步什么都没有：%q", why)
+	}
+	if got.Prompt != coachLabelBoardPrompt {
+		t.Fatalf("题目没换回标准那一句：%q", got.Prompt)
+	}
+	// 格子仍然是闭表那五个。
+	if len(got.Labels) != len(coachCardRoleLabels) {
+		t.Fatalf("格子被改了：%+v", got.Labels)
+	}
+}
+
+// 🚨 题目就是那道题：不写怎么操作，也不写有几句。
+//
+// 产品负责人 2026-09-12 逐字指过这一张：「这三句各自在算账的哪一步？拖到角色
+// 各自里。」—— 板上只有两句，而且这不像一道题。
+func TestPromptTellsHerHowToDrag(t *testing.T) {
+	for prompt, want := range map[string]bool{
+		"这三句各自在算账的哪一步？拖到角色各自里。": true,
+		"把它们拖进对应的格子。":            true,
+		"分析下列句子，判断它们各自属于哪一类论证成分。": false,
+	} {
+		if got := promptTellsHerHowToDrag(prompt); got != want {
+			t.Errorf("promptTellsHerHowToDrag(%q) = %v，想要 %v", prompt, got, want)
+		}
+	}
+}
+
+func TestPromptCountMismatch(t *testing.T) {
+	// 说三句、板上两句 —— 她数得出来。
+	if !promptCountMismatch("这三句各自在算账的哪一步？", 2) {
+		t.Error("说了三句、只有两句，应该算对不上")
+	}
+	if promptCountMismatch("这三句各自在算账的哪一步？", 3) {
+		t.Error("数目对得上，不该判")
+	}
+	// 没写数目是对的写法。
+	if promptCountMismatch("分析下列句子，判断它们各自属于哪一类论证成分。", 2) {
+		t.Error("题目里没写数目，不该判")
+	}
+}
+
+func TestAwkwardLabelPromptGetsTheStandardOne(t *testing.T) {
+	blocks := SplitBlocks("第一段这句话足够长，可以上板使用。\n\n第二段这句话也足够长，同样可以上板。")
+	c := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "这三句各自在算账的哪一步？拖到角色各自里。",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段这句话足够长，可以上板使用。"},
+			{BlockID: "b2", Quote: "第二段这句话也足够长，同样可以上板。"},
+		},
+	}
+	got, why := validateCoachCardWhy(c, blocks)
+	if got == nil {
+		t.Fatalf("不该丢卡：%q", why)
+	}
+	if got.Prompt != coachLabelBoardPrompt {
+		t.Fatalf("题目没换成标准那一句：%q", got.Prompt)
 	}
 }

@@ -22,6 +22,7 @@ const COMMENT: Comment = {
     { text: "这个例子是过密，不是数量多。", quote: "两排树掘得密密麻麻" },
     { text: "这里的让步只是复述对方观点，没有正面回应。", quote: "有人会说这样成本更低" },
   ],
+  sourceText: "",
   createdAt: "2026-08-28T00:00:00Z",
 };
 

@@ -30,7 +30,12 @@ package api
 //
 // 中学写作的结构其实是两层，学生真正卡住的是第二层：
 //
-//   - 篇章骨架：立场式 / 起承转合 / 钩子式 / 记叙
+//   - 篇章骨架：总—分 / 总—分—总 / 立场式 / 起承转合 / 从一件事讲起
+//     🚨 2026-09-12：这一层原来**只在这条注释里**。下面那句「两层都写进系统
+//     提示词」是假的 —— 只有方法那一层进去了，骨架一个字都没有，于是 印记
+//     手上没有任何整篇结构的词，说不出「你这已经是总—分—总了」。
+//     产品负责人正是从产品那一头看见了这个洞（「增加"总—分""总—分—总"等结构
+//     模板」）。现在它真的在提示词里了，见「## 一整篇的骨架」。
 //   - 单个分论点怎么展开：并排说几条（并列）、一层深一层（递进）、比一比
 //     （对比论证）、举个例子（举例论证）、讲道理（道理论证）、先承认，再反驳
 //     （让步）、说清前因后果（因果）——括号里是 语文 课上的正式名称，学生看到
@@ -128,6 +133,32 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 她想去写了，就让她去写；或者她说「先这样」，就往下走。规划不是关卡。
 
+## 一整篇的骨架
+
+几种常见的摆法，**这是你自己的知识**：
+
+- 总—分：先用一段把主张说清楚，后面每一段各撑住它的一面。
+- 总—分—总：同上，最后再回到那句主张，把它说得比开头更准——不是重复一遍。
+- 立场式：开头表明立场，中间一条条讲理由，遇到反方的说法就承认再掉头。
+- 起承转合：从一件事起头，顺着说下去，中间拐一个弯，最后落到一个判断上。
+- 从一件事讲起：整篇围绕一件她亲历的事，论点长在事情里，不单独摆出来。
+
+这几个名字用在两个地方：
+
+1. **她已经摆出形状之后，顺口点一句这是什么**——「你这已经是总—分—总了：
+   开头那句主张，底下两条理由，最后你打算回到它」。名字落在她自己做出来的
+   东西上，记得最牢，和点方法名那条是同一个道理。
+2. **决定这一轮该问什么的时候，拿它当参照**——她的图已经是总—分，而她说想
+   让读者记住点什么，那么缺的就是最后那个"总"。
+
+🚨 **绝不要把这张表甩给她挑。** 不许问「你想用总—分还是总—分—总」，
+也不许在她还没说出主张的时候先让她选骨架。结构是从她说的话里长出来的，
+不是先挑一副再往里填——**让学生从一张写死的表里挑骨架，就是在让她填表**。
+一次最多点一个名字，而且只在她已经做出那个形状之后。
+
+🚨 这几个是**骨架**的名字，不是方法名。需要填 method 的地方（比如段落引导
+和意见里的 method 字段）一个都不许用它们。
+
 ## 怎么说话（这条比什么都重要）
 
 你是老师，不是问答机器。每次开口都要做到四件事：
@@ -159,7 +190,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 - parentId：父节点的 id，逐字取自下面【当前的图】里给出的 id。留空字符串＝加在最上层。
   最上层不止中心论点：开头、结尾也都是最上层的块，按它们在文章里的先后排。
 - text：**她自己的话的精简**，不超过 30 字。
-- role：一句大白话说这块是什么（「中心论点」「一条理由」「她自己的经历」「反方会说的话」）。不要用生僻术语。
+- role：一句大白话说这块是什么（「中心论点」「一条理由」「你见过的事」「反方会说的话」）。不要用生僻术语。
+  🚨 **role 是印在她屏幕上的小标题，是说给她听的，所以不能用「她」。**
+  这一段提示词全程用第三人称讲这个学生，于是它照着写出了「她自己的经历」
+  「她自己的材料」，而那几个字**原样印在图上那一块的抬头里**。
+  第三十九轮她当场问了出来：「第5块的小标题叫「她自己的材料」，为什么叫我「她」？」
+  写「你见过的事」「你自己的例子」，或者干脆不带人称（「一个例子」「一组数据」）。
 - ready：这份计划够不够开始写了。见下面那一节。
 
 ## ready：什么时候该请她去写
@@ -170,8 +206,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 ready 给 true，当下面几件事都成立：
 - 这篇要说的**那一句话**已经定下来了；
-- 支撑它的**分论点有两条以上**，而且不是同一条说了两遍；
-- 至少有一条底下挂着她自己的材料（一件她见过的事、一个例子、一组数据）。
+- **分论点的条数够了**，而且不是同一条说了两遍；
+- **她自己的材料的条数够了**（一件她见过的事、一个例子、一组数据）。
+
+🚨 这两个「够了」具体是几条，**不要自己拍**——下面【这份计划现在有什么】里
+逐条写着这篇篇幅下该有几条、现在有几条。一篇 800 字的短文和一篇 3000 字的论文
+要的骨架不一样，那个数字已经按篇幅算好了，照着它读。
 
 或者，她自己说想开始写了——**这时候直接给 true，一个字都不要劝**。
 
@@ -210,6 +250,16 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 	if wr.TargetWords != nil {
 		b.WriteString("（篇幅只用来判断要几条分论点，别追着她凑字数。）\n")
+	}
+
+	// 计划现在有什么、还缺什么，由服务端数出来当事实给它——不让它每轮从十六轮
+	// 对话里重新推一遍「她定下中心论点了吗」。见 writing_plan_state.go。
+	b.WriteString(writingPlanShapeOf(rows).promptBlock(writingPlanNeedOf(wr)))
+
+	// 她连着两轮等于没答 → 这一轮别再问了。**只在真的停滞时出现，不做常驻**
+	// （2026-09-05：常驻提示会把该做的事挤掉）。
+	if writingPlanStalled(msgs, studentText) {
+		b.WriteString(writingPlanStalledBlock)
 	}
 
 	b.WriteString("\n【当前的图】\n")
@@ -298,10 +348,11 @@ type writingPlanReply struct {
 	Ready bool `json:"ready"`
 }
 
-// parseWritingPlanReply decodes and clamps. Anything it cannot validate is
-// DROPPED rather than guessed at: an unparseable parentId would otherwise
-// silently reparent a node somewhere she never put it.
-func parseWritingPlanReply(text string) (writingPlanReply, bool) {
+// stripWritingPlanFence 把模型爱加的围栏和前后闲话去掉，留下那对大括号之间
+// 的东西。拆成一个函数是因为**救援那一路必须吃到和正解同一份字符串**——
+// 2026-09-11 的教训：段落引导那边的救援喂的是没去围栏的原文，于是带围栏的
+// 回复一次都没救到过，第一个 token 就不是 '{'。
+func stripWritingPlanFence(text string) string {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -317,9 +368,168 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
 		c = c[:j+1]
 	}
-	var got writingPlanReply
-	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
+	return strings.TrimSpace(c)
+}
+
+// salvageWritingPlanReply 从一份读不出来的回复里，把**她那句话**捞出来。
+//
+// # 为什么要捞
+//
+// 这一轮的钱已经花掉了，而整份 JSON 作废的代价不是「少一个节点」，是她眼前
+// 弹一个「model_unavailable」，这一轮说的话石沉大海。2026-09-11 线上走查里
+// 英文那个学生撞上一次，她的原话是「刚才报了个后台错误，不知道会不会影响发送」。
+//
+// 而**坏掉的地方几乎从来不是 reply**。实测到的两次都断在结构那一半：
+// 一次是 `"questions":[...}]}`（该收 `]` 的地方收了 `}`），一次是流式少送
+// 最后一个分片。那句陪练的话本身是完整的、可用的、已经付过钱的。
+// 见 [[model-json-half-arrived-2026-09-08]]、[[streaming-drops-last-chunk-2026-09-10]]。
+//
+// # 捞什么、不捞什么
+//
+//   - `reply` 捞。它是一句人话，自己就成立。
+//   - `add` 只收**在断点之前已经完整解出来**的那几个。半个节点宁可不要。
+//   - `ready` 捞不到就当 false —— 判「够了没有」本来就有 planLooksReady
+//     在兜底（结构判据），少模型这一票不会让她卡住。
+//
+// 🚨 这不是「编一句话糊弄她」。捞出来的每个字都是模型真的写的，
+// 一个字都不是我们补的；补出来的那种才是 [[ai-errors-must-surface-never-fake]]
+// 禁的事。捞不到 reply 就照旧报错。
+func salvageWritingPlanReply(s string) (writingPlanReply, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
 		return writingPlanReply{}, false
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return writingPlanReply{}, false
+	}
+	var got writingPlanReply
+	for {
+		key, kerr := dec.Token()
+		if kerr != nil {
+			break // 断在这里了，就用已经读到的那些
+		}
+		if d, isDelim := key.(json.Delim); isDelim && d == '}' {
+			break
+		}
+		name, isStr := key.(string)
+		if !isStr {
+			break
+		}
+		if !salvagePlanField(dec, name, &got) {
+			// 这个字段自己断了。后面的读不到了，但前面读到的
+			//（可能已经包含 reply）仍然算数。
+			break
+		}
+	}
+	return got, looksLikeAWholeSentence(got.Reply)
+}
+
+// looksLikeAWholeSentence 判断救出来的这句话像不像**说完了**。
+//
+// 🚨 这道关是 2026-09-12 补的，补的是**救援自己造成的回归**，而那个回归比它
+// 取代的错误更糟 —— 因为它不出声。
+//
+// 模型偶尔会在 JSON 字符串里写一个没转义的引号：
+//
+//	{"reply":"…一个是李浩然"同学那件事"，还有…","add":[…]}
+//
+// 整份 Unmarshal 失败，走到救援；救援把 reply 解到**第一个没转义的引号**为止，
+// 得到一个语法合法、语义半截的字符串，然后当成成功交了出去。第十五轮线上走查
+// 里她连着六步在说这件事（「印记的话没说完就断了，停在『后面』」），
+// 而日志上一条 unparseable 都没有。
+//
+// 判据是句末那个标点。一轮说完了的陪练发言几乎总是以终止标点收尾；
+// 被一个游离引号切断的字符串几乎从不。
+//
+// 🚨 方向是故意偏向报错的：宁可让她重发一次（她刚说的话还在输入框里），
+// 也不要把半句话当成印记说的话摆给她看 —— 她没法判断那是印记没说完，
+// 还是自己漏读了什么。这和 [[ai-errors-must-surface-never-fake]] 是同一条：
+// 半句话也是一种「看起来像真的」的假回答。
+func looksLikeAWholeSentence(reply string) bool {
+	t := strings.TrimSpace(reply)
+	if t == "" {
+		return false
+	}
+	// 收尾的引号/括号不算话说完了，但它后面那个标点算 —— 先把它们剥掉，
+	// 再看剩下的最后一个字符。「…那一句「浪费不是个别现象」」是说完了的。
+	t = strings.TrimRight(t, "」』）)\"'”’】》")
+	if t == "" {
+		// 整句就是一对引号，没别的 —— 当它没说完。
+		return false
+	}
+	last := []rune(t)[len([]rune(t))-1]
+	switch last {
+	case '。', '！', '？', '…', '.', '!', '?', '；', ';', '：', ':', '~', '～':
+		return true
+	}
+	return false
+}
+
+// salvagePlanField 读一个字段，返回「还能不能接着往下读」。
+func salvagePlanField(dec *json.Decoder, name string, got *writingPlanReply) bool {
+	switch name {
+	case "reply":
+		var v string
+		if err := dec.Decode(&v); err != nil {
+			return false
+		}
+		got.Reply = v
+		return true
+	case "ready":
+		var v bool
+		if err := dec.Decode(&v); err != nil {
+			return false
+		}
+		got.Ready = v
+		return true
+	case "add":
+		open, err := dec.Token()
+		if err != nil {
+			return false
+		}
+		if d, isDelim := open.(json.Delim); !isDelim || d != '[' {
+			return false
+		}
+		for dec.More() {
+			var item writingPlanAdd
+			if derr := dec.Decode(&item); derr != nil {
+				// 这一个断在半路，它和它后面的都当没给；数组也就没法
+				// 正常收尾，所以这一份到此为止。
+				return false
+			}
+			got.Add = append(got.Add, item)
+		}
+		// 吃掉收尾的 ']'。吃不到说明它根本没收尾。
+		if _, cerr := dec.Token(); cerr != nil {
+			return false
+		}
+		return true
+	default:
+		var skip json.RawMessage
+		return dec.Decode(&skip) == nil
+	}
+}
+
+// parseWritingPlanReply decodes and clamps. Anything it cannot validate is
+// DROPPED rather than guessed at: an unparseable parentId would otherwise
+// silently reparent a node somewhere she never put it.
+func parseWritingPlanReply(text string) (writingPlanReply, bool) {
+	c := stripWritingPlanFence(text)
+	var got writingPlanReply
+	if err := json.Unmarshal([]byte(c), &got); err != nil {
+		// 🚨 整份读不出来 ≠ 整份没到。见 salvageWritingPlanReply。
+		salvaged, ok := salvageWritingPlanReply(c)
+		if !ok {
+			return writingPlanReply{}, false
+		}
+		// 🚨 **救援要出声。** 它原来一声不响地成功，于是 2026-09-12 那个
+		// 「半句话」回归在线上跑了整整一轮都没被发现 —— 日志里一条
+		// unparseable 都没有，因为救援报告的是成功。
+		// 一行「这一轮是捡回来的」比事后翻数据库便宜得多。
+		slog.Warn("writing plan turn: reply salvaged from broken JSON",
+			"reply_bytes", len(c), "nodes_kept", len(salvaged.Add))
+		got = salvaged
 	}
 	got.Reply = strings.TrimSpace(got.Reply)
 	if got.Reply == "" {
@@ -374,22 +584,13 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 // thesis, landing), 1 = 分论点, 2 = 论据. Openings and closings are deliberately
 // NOT required — they are decided after the middle exists, so demanding them
 // would hold her at exactly the step this function exists to release.
-func planLooksReady(rows []sqlc.WritingOutline) bool {
-	var top, points, material int
-	for _, r := range rows {
-		if strings.TrimSpace(r.Text) == "" {
-			continue
-		}
-		switch r.Depth {
-		case 0:
-			top++
-		case 1:
-			points++
-		default:
-			material++
-		}
-	}
-	return top >= 1 && points >= 2 && material >= 1
+// 🚨 THE OTHER DIRECTION, 2026-09-11: this function is a FLOOR (the model is
+// too perfectionist to release her), and it needed a CEILING to match (a
+// student who says almost nothing never reaches the floor at all, so the
+// questions never stop). That half is writingPlanStalled — see
+// writing_plan_state.go, which also owns the shape counting below.
+func planLooksReady(wr sqlc.Writing, rows []sqlc.WritingOutline) bool {
+	return writingPlanShapeOf(rows).ready(writingPlanNeedOf(wr))
 }
 
 // rootInsertPosition decides where a NEW top-level (depth-0) node lands
@@ -566,15 +767,88 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseWritingPlanReply(res.Text)
 	if !okParse {
+		// 🚨 **把模型到底回了什么记下来。** 这一行原来只有 atom_id 和
+		// request_id —— 也就是「它坏了」，没有一个字说它怎么坏的。
+		// 2026-09-11 线上撞到一次，回头查日志，除了知道它发生过之外
+		// 什么都得不到。
+		//
+		// 两头都要：只有尾巴，分不清「断在最后一块、救援本该救回前面那些」
+		// 和「第一块就是坏的、救援什么都救不回才对」—— 这两种的修法相反。
+		// 长度和 stop_reason 一起看，才分得出「没写完」和「写完了但写坏了」
+		//（[[model-json-half-arrived-2026-09-08]]：finish_reason:"stop"
+		// 不等于写完了）。
 		slog.Warn("writing plan turn: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+			"reply_bytes", len(res.Text), "stop_reason", res.StopReason,
+			"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 220))
+
+		// 再要一次 —— 和段落引导那两条路同一个判断（writing_guide.go）。
+		// 这一类坏法（字符串里一个没转义的引号、数组收错括号）和她写了什么
+		// 无关，换一次采样几乎总能过；而这一轮的钱已经花掉了，直接报错等于
+		// 让她白等一次，还得自己把刚才那句话再说一遍。
+		//
+		// 一次，不是三次：她正同步等着。第二次还坏就老实报错。
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 != nil {
+			slog.Warn("writing plan turn: retry provider call failed", "err", cerr2,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		parsed, okParse = parseWritingPlanReply(res2.Text)
+		if !okParse {
+			slog.Warn("writing plan turn: retry also unparseable",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+				"reply_bytes", len(res2.Text), "stop_reason", res2.StopReason,
+				"reply_head", headRunes(res2.Text, 220), "reply_tail", tailRunes(res2.Text, 220))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		slog.Info("writing plan turn: retry parsed fine", "atom_id", at.ID)
 	}
 
 	byID := make(map[string]sqlc.WritingOutline, len(rows))
 	for _, row := range rows {
 		byID[row.ID.String()] = row
+	}
+
+	// 🚨 这一轮要是请她去写的那一轮，话里就不能还挂着一个问题。
+	// 见 writing_plan_invite.go 那一段（产品负责人 2026-09-12 带截图报的第一条）。
+	//
+	// 必须在落库**之前**判：回复是先写进 atom_message 再加节点的，等 live 有了
+	// 这几个节点，那句带问号的话已经存进对话里，改不动了。所以形状要连这一轮
+	// 还没落库的 add 一起算。
+	if writingPlanShapeWith(rows, byID, parsed.Add).ready(writingPlanNeedOf(wr)) && writingPlanReplyAsks(parsed.Reply) {
+		slog.Info("writing plan turn: invite turn still asked a question, retrying once",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		// assistant 那一轮用 parsed 重新序列化，不用 res.Text —— 上面解析失败
+		// 重试过的话，res.Text 是那份坏掉的，parsed 才是真正在用的这一份。
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingPlanInviteNudge},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && !writingPlanReplyAsks(p2.Reply) {
+				parsed = p2
+				parsed.Ready = true
+			} else {
+				// 两次都带问号，或者第二次读不出来：用第一份。一句带问号的好
+				// 教学，比扣下整轮让她什么都拿不到强 —— 同 firstGhostQuote 那条路。
+				slog.Warn("writing plan turn: invite retry still asked or unparseable", "atom_id", at.ID)
+			}
+		}
 	}
 
 	tx, err := a.d.Pool.Begin(turnCtx)
@@ -627,6 +901,21 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 			}
 			parent = &p
 		}
+		// 🚨 图上已经有这句话了，就不要再加一个。
+		//
+		// 这一路是**只加不改**的，所以重复的节点谁也删不掉，它会一直摆在那儿。
+		// 2026-09-11 线上走查里她就撞上了：「第五段的标签跟我第二段一模一样，
+		// 不知道是不是系统搞错了」—— 而提纲的每一块都会变成段落那一步的一个
+		// 写作格子，于是她要对着两个一模一样的标题各写一段。
+		//
+		// 模型这么干不是出错：她把同一件事又说了一遍，它就又记了一遍。
+		// 判据放在**文字**上而不是让模型自己记得，理由和 parentId 那条一样 ——
+		// 能在代码里验的，就别只写在提示词里。
+		if outlineHasText(live, node.Text) {
+			slog.Warn("writing plan turn: duplicate node text, dropped",
+				"atom_id", at.ID, "text", truncateRunes(node.Text, 40))
+			continue
+		}
 		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, parent, node.Text, node.Role)
 		if ierr != nil {
 			httpx.WriteError(w, r, ierr)
@@ -652,6 +941,17 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		// See writingPlanReply.Ready and planLooksReady: the one thing the
 		// planning room could never say before, which is 「这份计划够写了」.
 		// The structural floor is COMPUTED; the model can only add to it.
-		"ready": parsed.Ready || planLooksReady(live),
+		//
+		// 🚨 第三项（2026-09-11）：她连着两轮等于没答，而图上至少有了一块，
+		// 就也给 true。理由和前两项是同一个——「够了没有」不能只听模型的。
+		// 一个话很少的学生永远到不了那三条判据，于是那三条判据在她身上从
+		// 「一条线」变成了「一道关」，而这一步本来就不是关卡。
+		//
+		// 🚨 为什么要 `shape.Top >= 1` 这个下限：强制 ready 会把她送进段落，
+		// 而提纲为空的段落页是一页空白——那不是放她走，是把她扔了。
+		// 图上还什么都没有的时候，停止提问这件事只由 prompt 那一段来做
+		// （writingPlanStalledBlock：这一轮不要再问，告诉她可以先去写）。
+		"ready": parsed.Ready || planLooksReady(wr, live) ||
+			(writingPlanStalled(msgs, studentText) && writingPlanShapeOf(live).Top >= 1),
 	})
 }

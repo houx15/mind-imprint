@@ -64,6 +64,8 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     taught?: number;
     snag?: string;
     board?: boolean;
+    buttons?: string;
+    quotes?: string;
     done?: boolean;
     action?: ReadAction;
   };
@@ -115,8 +117,26 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     if (!(await p.count())) return `第${paragraph}段不存在`;
     await p.scrollIntoViewIfNeeded();
 
-    const lensOpen = await page.getByText("在文章里选出你要用来回答").isVisible().catch(() => false);
+    // 🚨 认透镜开没开，要认一件**不会因为改文案而消失的东西**。
+    //
+    // 这里原来匹配的是右栏那句提示的原文。那句话后来被改写了（「请在左边的
+    // 文章里选出那一句」），这一行就永远是 false —— 于是透镜开着的时候走查
+    // 走的是划选那条路，而透镜只认点击。实测：109 次划句子，引文数始终是 0，
+    // 她在最后 20 步里一遍遍地划、一句都没交出去。
+    //
+    // 「带我过去」那颗按钮只在透镜开着时存在，而按钮是功能不是措辞，比一句
+    // 提示稳得多。
+    const lensOpen = await page
+      .getByRole("button", { name: "带我过去" })
+      .isVisible()
+      .catch(() => false);
     if (lensOpen) {
+      // 🚨 这道门**不在这里替它点**。
+      //
+      // 第一版在这里自动点掉了「看懂示范，开始选句」，于是 印记 那段示范在模型
+      // 读到之前就被收走了 —— 她逐字报的：「前面说要先演示一遍给我看，结果
+      // 什么都没有……我连工具都不会用。」那段示范正是这一步要教的东西。
+      // 门留给它自己点（screen.ts 里会告诉它门在哪），示范因此一定被读过。
       // 透镜模式：点在那句话的中间。Annotate 按坐标去认是哪一句。
       const box = await p.evaluate((el, want) => {
         const text = el.textContent ?? "";
@@ -213,11 +233,21 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     note = sameFor >= 2 ? "上一步之后屏幕没有变化。" : undefined;
 
     const beat = await think({ screen, recent, note });
-    log.push({ step, ...beat, board: Boolean(screen.board) });
+    log.push({
+      step,
+      ...beat,
+      board: Boolean(screen.board),
+      // 🚨 把这一屏上的按钮也记下来。走查记录里只有她的转述时，
+      //「她为什么不点那个按钮」只能靠猜 —— 而按钮在不在是个事实。
+      buttons: screen.buttons.filter((b) => !b.disabled).map((b) => b.label).join(" | "),
+      quotes: (screen.text.match(/已引用 (\d+) 处/) ?? [])[1] ?? "",
+    });
     const a = beat.action;
+    const quoted = (screen.text.match(/已引用 (\d+) 处/) ?? [])[1];
     console.log(
       `[${step}] clarity=${beat.clarity} taught=${beat.taught} ${a.kind}` +
-        `${beat.snag ? ` · snag: ${beat.snag}` : ""}\n      读到：${beat.read}`,
+        `${quoted ? ` · 已引用${quoted}` : ""}${screen.board ? " · 有板" : ""}` +
+        `${beat.snag ? ` · snag: ${beat.snag}` : ""}`,
     );
 
     recent.push(`${a.kind}${a.kind === "say" ? "：" + a.text.slice(0, 40) : ""}`);
@@ -239,7 +269,17 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
         continue;
       }
       await box.fill(a.text);
-      await page.keyboard.press("Enter");
+      // 🚨 透镜那一步交东西的按钮不是「发送」，是「记下这条发现」。
+      //
+      // Enter 走的是发送那条路，而透镜开着的时候发送是锁住的 —— 于是她写的
+      // 字一次都没交出去。实测：170 步里打了 96 次字，只换来 8 轮对话，她在
+      // 最后二十步一直在重写同一段发现。
+      const record = page.getByRole("button", { name: "记下这条发现" });
+      if (await record.isVisible().catch(() => false)) {
+        await record.click({ timeout: 8000 }).catch(() => {});
+      } else {
+        await page.keyboard.press("Enter");
+      }
       await page.waitForTimeout(800);
       continue;
     }
@@ -263,7 +303,18 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
       continue;
     }
     if (a.kind === "place") {
-      const chip = page.locator(".mk-board__loose .mk-board__chip").nth(a.chip);
+      // 🚨 按**卡片上的字**去找，不按序号。
+      //
+      // 序号是 DOM 顺序，而一张卡片摆进格子之后它在 DOM 里就换了位置 ——
+      // 于是模型刚看到的那份编号当场作废：它说「把 3 号摆进去」，点到的是
+      // 另一张。实测那一幕是一张卡片在「主张」和「背景」之间来回换了 158 次，
+      // 而她嘴里一直说「还有三张没摆」—— 那三张她根本点不到。
+      //
+      // 字是她看得见的东西，也是这一屏发给她的那份清单上的东西，全程不变。
+      const want = screen.board?.chips[a.chip]?.text ?? "";
+      const chip = want
+        ? page.locator(".mk-board__chip", { hasText: want }).first()
+        : page.locator(".mk-board__chip").nth(a.chip);
       const bin = page.locator(".mk-board__bin").nth(a.bin);
       if (!(await chip.count()) || !(await bin.count())) {
         note = "板上没有那张卡片或那个格子。";

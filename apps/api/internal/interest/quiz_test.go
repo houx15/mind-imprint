@@ -136,12 +136,15 @@ func TestBuildQuizPromptCarriesHerOwnWords(t *testing.T) {
 	}.Clean()
 	system, user := a.BuildQuizPrompt()
 
-	// 同一段 system prompt —— 测试和阅读采集必须对「什么算一个好领域」有完全
-	// 相同的看法，否则同一棵树上会挂着两种质量的词。BuildHarvestPrompt 的
-	// system 与 kind 无关，所以直接比。
+	// 🚨 这里原来断言两条 system prompt **一字不差**，而那个断言正是那个 bug
+	// 本身：它把采集的「材料的话题不算」锁进了测试，于是模型把她自己的作答
+	// 当成材料丢掉，真模型 0/3 长出词（2026-09-11 实测）。
+	//
+	// 现在的规矩是「除了『怎么算选中』那一段，其余全部共用」，逐条断言在
+	// quiz_rules_test.go 里。这里只留一条最粗的：候选词表两边是同一份。
 	wantSystem, _ := BuildHarvestPrompt("reading", "", "")
-	if system != wantSystem {
-		t.Error("测试没有复用采集的 system prompt")
+	if !strings.Contains(system, "decision-making") || !strings.Contains(wantSystem, "decision-making") {
+		t.Error("两条 prompt 没有共用同一张候选词表")
 	}
 	if !strings.Contains(user, a.Reason) {
 		t.Error("她自己写的那段没有进 prompt —— evidence 就该从这里摘")

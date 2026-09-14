@@ -53,12 +53,32 @@ const harvestSystemPromptHead = `你在读一个中学生刚刚完成的一件�
 
 `
 
-const harvestSystemPromptTail = `
-怎么算选中一个领域：
+// 「怎么算选中一个领域」有两份，因为**处境不一样**。词表、字段要求、JSON 形状、
+// 解析器仍然共用一套 —— 分开的只有这一段判据。
+//
+// 🚨 2026-09-11 实测抓到的：兴趣测试原来整条 system prompt 都复用采集的，于是
+// 它把下面 harvestSelectionRules 那两条也带了过去。可那两条的核心是「材料的
+// 话题不算」，而**测试里根本没有材料**：她挑的那个作品、她写的那句理由，全都是
+// 她自己敲进去的。模型照着这条判据读，得出的结论是「她只是在描述一个角色」，
+// 于是返回空数组。
+//
+// 同一条真实作答（利威尔 / 「在关键时刻依然保持理智，做出自己的选择」），真模型
+// 各跑三次：复用采集判据 0/3 长出词，换成下面这份 3/3（decision-making，
+// evidence 是她的原话）。学生那边看到的差别是「这次没有长出关键词」和一个词。
+
+const harvestSelectionRules = `怎么算选中一个领域：
 - 她**自己写下的文字**里能找到根据。文章讲了什么不算，她说了什么才算。
 - 是她投入了注意力的方向，不是这篇材料的话题。一篇文章提到游戏，不等于她
-  对游戏感兴趣；她写下「抽卡明明知道是坑我还是想抽」才算。
+  对游戏感兴趣；她写下「抽卡明明知道是坑我还是想抽」才算。`
 
+const quizSelectionRules = `怎么算选中一个领域：
+- 她**自己挑了这个作品、并写下了理由**。她挑的东西和她给的理由，本身就是根据 ——
+  这里没有别人指定的材料，围栏里的每一个字都是她自己选择写下的。
+- 看她的理由**落在哪一层**：同一个角色，有人写他的处境，有人写他的选择，有人写
+  他的画风。她写的那一层就是她在关心的方向。
+- 作品名本身不是领域（《进击的巨人》不等于「动画」）；把她的**理由**落到表里。`
+
+const harvestSystemPromptTail = `
 字段要求：
 - id：**上表里的 id 原样照抄**，不要改写，不要翻译，不要自己发明。
 - note：一句话，对她说，讲这个领域在她身上是什么。不超过 40 字。
@@ -84,7 +104,7 @@ func BuildHarvestPrompt(kind, title, body string) (system, user string) {
 	if label == "" {
 		label = "她刚完成的一件事"
 	}
-	system = harvestSystemPromptHead + interests.PromptList() + harvestSystemPromptTail
+	system = harvestSystemPromptHead + interests.PromptList() + "\n" + harvestSelectionRules + harvestSystemPromptTail
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "下面是%s。\n\n标题：%s\n\n", label, strings.TrimSpace(title))

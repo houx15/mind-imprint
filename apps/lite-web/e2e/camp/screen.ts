@@ -16,7 +16,7 @@ export type Affordances = {
   /** 屏幕上所有看得见的字（innerText，按渲染顺序）。 */
   text: string;
   /** 能按的按钮，序号就是 `click` 动作里的 index。 */
-  buttons: { i: number; label: string; disabled: boolean }[];
+  buttons: { i: number; label: string; disabled: boolean; pressed: boolean }[];
   /** 能写字的地方。 */
   fields: { i: number; placeholder: string; value: string; kind: string }[];
   url: string;
@@ -46,9 +46,15 @@ export async function readScreen(page: Page): Promise<Affordances> {
         (els as HTMLButtonElement[]).map((e) => ({
           label: (e.innerText || e.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim(),
           disabled: e.disabled,
+          // 🚨 按下去的那些要说出来。真人看得见按钮高亮、看得见面板已经展开；
+          // 模型只拿得到文字。少了这一条，它会点开一个工具、在下一屏看到那个
+          // 按钮还在，于是再点一次把它关上 —— 一开一关，无穷无尽。
+          // 2026-09-11 实测：一条 160 步的走查里有 120 步就是这么来回的，
+          // 而那是**走查瞎**，不是产品坏。
+          pressed: e.getAttribute("aria-pressed") === "true",
         })),
       )
-      .catch(() => [] as { label: string; disabled: boolean }[])
+      .catch(() => [] as { label: string; disabled: boolean; pressed: boolean }[])
   ).map((b, i) => ({ i, ...b }));
 
   const fld = page.locator("input:visible, textarea:visible");
@@ -71,7 +77,11 @@ export async function readScreen(page: Page): Promise<Affordances> {
 export function renderScreen(a: Affordances): string {
   const bs = a.buttons.length
     ? a.buttons
-        .map((b) => `  [${b.i}] ${b.label || "（没有文字的按钮）"}${b.disabled ? "  ←按不动" : ""}`)
+        .map(
+          (b) =>
+            `  [${b.i}] ${b.label || "（没有文字的按钮）"}` +
+            `${b.pressed ? "  ←已经打开了，别再点它" : ""}${b.disabled ? "  ←按不动" : ""}`,
+        )
         .join("\n")
     : "  （一个按钮都没有）";
   // 🚨 输入框里的字要么给全，要么明说是省略的。

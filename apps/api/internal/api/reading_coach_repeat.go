@@ -46,14 +46,41 @@ import (
 // 管用），第三句就已经是「同一件事问第三遍」了。走查里那一串有七句。
 const coachStuckTurns = 3
 
+// coachStalledTurns —— 同一步上说到第几句就**强制往下走**。
+//
+// 6：提示已经给过了（第 3 句），又过了三轮她还在这一步。再耗下去没有第七种
+// 结果 —— 这正是通读那一步变成审问的那个形状，只是换了一步。
+//
+// 🚨 为什么这条必须是代码。prompt 里写着「她确实做完了就 advance」「一次说不通
+// 就换个说法」，而实测下来模型**极少主动推进**：一条 150 步的走查里八步只走完
+// 两步，每一步都在「再找一句」「再说说看」之间来回。她不是没做，是做了也不算数。
+//
+// 往下走不等于判她做完了 —— reading_task 上留的是 'done'，而她在这一步里说过
+// 的每一句话都在转写里，过程评估读的是那个（铁律④）。把她钉在原地才是真的
+// 丢东西：她会直接关掉页面。
+const coachStalledTurns = 6
+
 // coachStepStuck —— 当前这一步是不是已经问过 coachStuckTurns 轮还没动。
 //
 // tasks 必须按 position 升序（ListReadingTasks 就是这么给的），msgs 是这次
 // prompt 用的那段转写。
 func coachStepStuck(tasks []sqlc.ReadingTask, msgs []sqlc.AtomMessage) bool {
+	return coachTurnsOnCurrentStep(tasks, msgs) >= coachStuckTurns
+}
+
+// coachStepStalled —— 这一步耗得太久了，该由我们替她往下走。见 coachStalledTurns。
+func coachStepStalled(tasks []sqlc.ReadingTask, msgs []sqlc.AtomMessage) bool {
+	return coachTurnsOnCurrentStep(tasks, msgs) >= coachStalledTurns
+}
+
+// coachTurnsOnCurrentStep —— 当前这一步开始之后，印记 说过几句话。
+//
+// 「这一步开始的时刻」= 它前面那一步落定的时刻。它是第一步的话就没有这个时刻，
+// 从头数。
+func coachTurnsOnCurrentStep(tasks []sqlc.ReadingTask, msgs []sqlc.AtomMessage) int {
 	current := currentReadingTask(tasks)
 	if current == nil {
-		return false
+		return 0
 	}
 	// 这一步是什么时候变成「当前」的：它前面那一步落定的时刻。它是第一步的话
 	// 就没有这个时刻，从头数。
@@ -75,7 +102,7 @@ func coachStepStuck(tasks []sqlc.ReadingTask, msgs []sqlc.AtomMessage) bool {
 			said++
 		}
 	}
-	return said >= coachStuckTurns
+	return said
 }
 
 // coachStuckNudge 是卡住时加进 prompt 的那一节。

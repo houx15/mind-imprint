@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Layers, MessageSquareText, Check } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
+import { wordUnit } from "./wordUnit";
 import { ApiError } from "../api/client";
 import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
+import { registerPendingSave } from "./pendingSaves";
 import { NamePieceModal } from "./NamePieceModal";
 import {
   composeWritingDraft,
@@ -58,6 +60,8 @@ import { apiErrorText } from "../api/errorText";
 const AUTOSAVE_MS = 1500;
 
 export function ComposeStage({
+  origin,
+  lang,
   writingId,
   draft,
   snippets,
@@ -65,11 +69,16 @@ export function ComposeStage({
   onFinished,
   onRenamed,
 }: {
+  /** `"brought"` = 她带进来的成稿（0146）。这一页据此说明结构和段落两步没有
+   *  走过 —— 她看见那两步是空的，得知道为什么。 */
+  origin?: string;
   writingId: string;
   draft: WritingDraft;
   /** Her 段落 blocks, shown in the rail beside the page — there by default,
    *  not summoned. */
   snippets: WritingSnippet[];
+  /** 中文还是英文 —— 篇幅按「字」还是「词」说。见 wordUnit.ts。 */
+  lang: string;
   onDraftChange: (next: WritingDraft) => void;
   onFinished: (writing: Writing) => void;
   /** Lifted so the room header's `EditableTitle` shows the new name the
@@ -215,6 +224,23 @@ export function ComposeStage({
     clearPending();
     return save(bodyRef.current);
   }
+
+  /**
+   * 🚨 成稿这一页也有那个抢跑：她在正文里敲完就去问印记，防抖还没到，
+   * 陪练读的还是服务端那一版。
+   *
+   * 段落那一步上一轮已经堵上了（pendingSaves.ts），成稿这一页当时漏了 ——
+   * 第三十九轮中文那一路还在报同一件事：「成稿第三段明明已经有解释了，
+   * 印记还说我缺解释，不知道是不是它看的是旧版本。」
+   * flush 本来就有（失焦时用的那一个），差的只是把它登记出去。
+   */
+  useEffect(() => {
+    return registerPendingSave(async () => {
+      if (bodyRef.current === savedRef.current) return;
+      await flush();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function assemble() {
     // The textarea stays enabled while this is in flight (a disabled surface
@@ -401,6 +427,16 @@ export function ComposeStage({
         </p>
       )}
 
+      {/* 🚨 如实说这一篇是带进来的。
+          不是元数据洁癖：她会看到结构和段落两步是空的，得知道为什么；
+          而过程评估的全部意义就是分清哪些是她在这儿想出来的
+          —— 铁律① 最后半句说的就是「诚实介绍 AI 和人的分工」。 */}
+      {origin === "brought" && (
+        <p className="shrink-0 px-4 py-2 text-mk-small text-mk-muted">
+          这一篇是你带进来的。结构和段落两步没有走过，印记 只看这一份成稿。
+        </p>
+      )}
+
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="mk-scroll min-h-0 overflow-y-auto bg-mk-paper">
           <ProseSurface
@@ -413,8 +449,27 @@ export function ComposeStage({
         </div>
 
         <aside className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l">
-          {comment && <CommentPanel comment={comment} onTrace={setHighlight} />}
-          <SnippetRail snippets={snippets} />
+          {/* 🚨 这一块本来只传了 comment 和 onTrace —— 段落那一步早就会说
+              「这条是上一版」了，成稿这一步一直没接上，而**整稿意见更容易过期**：
+              她照着改的正是被引的那几句。2026-09-11 第八轮走查，两个学生一共
+              五步在说同一件事：
+
+                「印记的建议里还引用着『我站在收残台旁边数了一下』这些旧句子，
+                  但我正文里已经没有这些了」
+                「下面的材料卡片显示的还是我改之前的旧句子…我不知道该点哪个按钮
+                  把这些卡片消掉或者更新」
+
+              判据和存的那一版都是现成的，只差把它们接上。 */}
+          {comment && (
+            <CommentPanel
+              comment={comment}
+              onTrace={setHighlight}
+              currentText={body}
+              onRecheck={() => void review()}
+              rechecking={reviewing}
+            />
+          )}
+          <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
         </aside>
       </div>
 
@@ -455,7 +510,7 @@ export function ComposeStage({
       >
         <div className="flex flex-col gap-2">
           <p className="text-mk-body text-mk-ink">
-            现在这篇成稿有 {countWords(body)} 字。重新拼会用「段落」里的 {snippets.length} 段整个替换它，你在这一页上写的、改的都会没有，也找不回来。
+            现在这篇成稿有 {countWords(body)} {wordUnit(lang)}。重新拼会用「段落」里的 {snippets.length} 段整个替换它，你在这一页上写的、改的都会没有，也找不回来。
           </p>
           <p className="text-mk-small text-mk-muted">
             如果只是想补上刚改过的某一段，回「段落」改完再回来，把那几句自己贴进去，比整篇重拼稳妥。
@@ -490,20 +545,57 @@ export function ComposeStage({
  * Her paragraphs, beside the page. Read-only on purpose: 段落 is where they
  * are written, and a second editable copy of the same text is how the two
  * quietly disagree about which one is current.
+ *
+ * 🚨 只读拦不住那场误会 —— 它只是拦住了「两边都能改」。2026-09-11 第六轮
+ * 线上走查，一个学生六步都在问同一件事：
+ *
+ *   「成稿框里已经是改好的了，但下面段落卡片还是旧的错句子」
+ *   「有点搞不清到底以哪个为准」
+ *   「不知道要不要重新覆盖写一遍还是点哪个按钮提交」
+ *
+ * 她在成稿里改了语法，下面这些卡片当然还是原样 —— 它们本来就是「段落」那一步
+ * 的原文。**只读是对的，没说出口才是错的**：屏幕上摆着她同一段文字的两个版本，
+ * 而没有一个字讲过哪个算数。
+ *
+ * 所以这里现在直说：上面那块是这一篇的正文，下面这些是原文、不会跟着变。
+ * 她改过之后再加一句，免得她以为是自己哪一步没保存。
  */
-function SnippetRail({ snippets }: { snippets: WritingSnippet[] }) {
+function SnippetRail({
+  snippets,
+  edited,
+  lang,
+}: {
+  snippets: WritingSnippet[];
+  edited: boolean;
+  lang: string;
+}) {
   const written = snippets.filter((s) => s.text.trim() !== "").slice().sort((a, b) => a.position - b.position);
 
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-mk-small font-semibold text-mk-secondary">你的段落</h3>
+      {written.length > 0 && (
+        <p className="text-mk-small text-mk-muted">
+          这一篇的正文是上面那一块。下面是「段落」那一步写的原文，只读，不会跟着上面变。
+          {edited && "你在上面改过的字，下面这些段里不会出现。"}
+        </p>
+      )}
       {written.length === 0 ? (
         <p className="text-mk-body text-mk-muted">「段落」那一步还没有写好的段。写了以后会出现在这里，方便你对着改。</p>
       ) : (
         <ul className="flex list-none flex-col gap-3">
           {written.map((s) => (
             <li key={s.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-3">
-              <p className="text-mk-small text-mk-muted">{s.outlineHeading || "自由段落"}</p>
+              {/* 🚨 每一段各自多少字/词。她要按老师给的篇幅删，得知道删哪一段
+                  才有用 —— 2026-09-12 走查里她的原话是「我找不到每一段分别
+                  多少词的显示」，而那时她正对着一个 150 词的上限。
+                  上面那个总数只告诉她超了，没告诉她超在哪。 */}
+              <p className="flex items-baseline justify-between gap-2 text-mk-small text-mk-muted">
+                <span className="min-w-0 truncate">{s.outlineHeading || "自由段落"}</span>
+                <span className="shrink-0">
+                  {countWords(s.text)} {wordUnit(lang)}
+                </span>
+              </p>
               <p className="mt-1 whitespace-pre-wrap text-mk-body text-mk-ink">{s.text}</p>
             </li>
           ))}

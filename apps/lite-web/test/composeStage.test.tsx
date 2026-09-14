@@ -84,6 +84,7 @@ function renderStage(over: { draft?: WritingDraft; snippets?: WritingSnippet[] }
   const onRenamed = vi.fn();
   const utils = render(
     <ComposeStage
+      lang="zh"
       writingId={WID}
       draft={over.draft ?? draftOf("")}
       snippets={over.snippets ?? [SNIPPET]}

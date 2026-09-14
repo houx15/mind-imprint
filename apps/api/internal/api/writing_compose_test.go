@@ -104,8 +104,10 @@ type commentResp struct {
 }
 
 type writingResp struct {
-	ID         string  `json:"id"`
-	Stage      string  `json:"stage"`
+	ID    string `json:"id"`
+	Stage string `json:"stage"`
+	// Origin: "here" 在这儿写的 / "brought" 她带进来的（0146）。
+	Origin     string  `json:"origin"`
 	Status     string  `json:"status"`
 	FinishedAt *string `json:"finishedAt"`
 }
@@ -249,7 +251,11 @@ func TestWritingCompose_ThenPutDraftKeepsEditing(t *testing.T) {
 // the draft body itself is byte-for-byte unchanged afterward.
 func TestWritingReview_ReturnsCommentaryDoesNotModifyDraft(t *testing.T) {
 	draftText := "这是我写的第一段内容。"
-	reply := `{"summary":"结构清楚，但论证需要更具体的数据支撑。","points":[{"text":"这句话缺一个可核实的来源。","quote":"` + draftText + `"}]}`
+	// 2026-09-11：一条意见现在必须带 kind + symptom（闭表）+ action（一句祈使）。
+	// 少任何一样都会被 validateCommentPoints 整条丢掉，而那正是它该做的事。
+	reply := `{"summary":"结构清楚，但论证需要更具体的数据支撑。","points":[` +
+		`{"kind":"issue","symptom":"claim_without_evidence","text":"这句话缺一个可核实的来源。",` +
+		`"action":"在这句后面补一条你查到的数据，并写明它是从哪儿来的。","quote":"` + draftText + `"}]}`
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(reply))
 	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
 

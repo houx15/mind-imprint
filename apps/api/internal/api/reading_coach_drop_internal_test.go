@@ -151,6 +151,9 @@ func TestReplyPromisingACardWithNoCard(t *testing.T) {
 		"标注板还在屏幕上，四句话等着你。",
 		"下面这张卡片上有三句话。",
 		"把它们拖进对应的格子。",
+		// 🚨 线上实测漏掉过这一句：「拖进」不是「拖句子进去」的子串。
+		"我给你一块五格的板，让你把句子拖进去。",
+		"下面这块板有五个格子，你把三句话各自拖到该去的那一格。",
 	}
 	for _, r := range promises {
 		if !replyPromisesACard(r) {
@@ -177,11 +180,425 @@ func TestOrdinaryRepliesDoNotCountAsPromises(t *testing.T) {
 	}
 }
 
+func TestReplyCutOffMidSentence(t *testing.T) {
+	// 🚨 线上实测她看到的那一句，逐字：159 个字，断在「不是」上。
+	cut := []string{
+		"他们同样在讲封锁的后果，但说得更具体：不是",
+		"现在我们往下走，看第 8 段里作者是怎么",
+		"这一句的关键在于",
+	}
+	for _, r := range cut {
+		if !replyLooksCutOff(r) {
+			t.Errorf("没认出这是半句话：%q", r)
+		}
+	}
+}
+
+func TestWholeSentencesAreNotCutOff(t *testing.T) {
+	// 一张网如果把好好说完的话也判成断句，印记 每一轮都要被多问一次 ——
+	// 白烧一次旗舰调用，还会把对的那句换掉。
+	whole := []string{
+		"这一句选得准，它把总量和人均分开了。",
+		"你觉得作者为什么要在这里放一个数字？",
+		"先别看正文，只看标题！",
+		"在文章里点出最能撑住他观点的那一句（不用整段）。",
+		"作者说的是「可能」，不是「已经」。",
+		"往下走吧……",
+	}
+	for _, r := range whole {
+		if replyLooksCutOff(r) {
+			t.Errorf("误判成半句话：%q", r)
+		}
+	}
+}
+
+// 她屏幕上现在摆着的那张卡片，要原样给模型看。
+//
+// 🚨 模型只看得见自己说过的**话**，看不见随那句话发出去的 card —— 而那张卡有时
+// 根本不是它写的（标注论证那一步由服务端兜底摆板）。实测：它对着一块自己没见过
+// 的板说「把主张那张换成文章里某个人亲口说的话」，而板上四句全是叙述句，一句
+// 引语都没有，她照着做不到，当场卡死。
+func TestOpenCardIsShownToTheCoach(t *testing.T) {
+	card := &coachCard{
+		Type:   coachCardLabelRoles,
+		Prompt: "这几句各自在论证里扮演什么角色？",
+		Options: []coachCardOption{
+			{BlockID: "b1", Quote: "第一段那句话。"},
+			{BlockID: "b2", Quote: "第二段那句话。"},
+		},
+		Labels: coachCardRoleLabels,
+	}
+	blocks := []Block{{ID: "b1", Text: "第一段那句话。"}, {ID: "b2", Text: "第二段那句话。"}}
+	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(card, cardOK))}
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+
+	if !strings.Contains(prompt, "她屏幕上现在摆着这张卡片") {
+		t.Fatal("prompt 里没有那一节 —— 模型看不见自己递出去的东西")
+	}
+	for _, o := range card.Options {
+		if !strings.Contains(prompt, o.Quote) {
+			t.Errorf("板上这一句没给它看：%q", o.Quote)
+		}
+	}
+	if !strings.Contains(prompt, "只能要求她用板上真有的东西") {
+		t.Error("没告诉它别让她去找板上没有的东西")
+	}
+	// 段号要说出来 —— 它对她说话时只能说「第几段」。
+	if !strings.Contains(prompt, "第1段") {
+		t.Error("没标出这一句在第几段")
+	}
+}
+
+func TestAnsweredCardIsNotShownAgain(t *testing.T) {
+	// 她答过了，那一轮的作答本来就在转写里；再把卡片贴一遍只会让它重提旧事。
+	card := &coachCard{Type: coachCardShortText, Prompt: "说说看。"}
+	msgs := []sqlc.AtomMessage{
+		aiWithPayload(coachCardPayloadWithDrop(card, cardOK)),
+		{
+			Role:    "student",
+			Content: "我说完了。",
+			Payload: coachCardAnswerPayload(&coachCardAnswer{Type: coachCardShortText, Choice: "我说完了。"}),
+		},
+	}
+	if got := lastOpenCard(msgs); got != nil {
+		t.Fatalf("这张卡她已经答过了，不该再贴给模型：%+v", got)
+	}
+}
+
+func TestNoOpenCardOnAPlainTurn(t *testing.T) {
+	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第三段。"}}
+	if got := lastOpenCard(msgs); got != nil {
+		t.Fatalf("这一轮没有卡片：%+v", got)
+	}
+}
+
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
 	if strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
+	}
+}
+
+// 🚨 给了卡、但卡被校验刷掉的时候，要说**真正的**那个原因。
+//
+// 实测日志里出现过这么一行：「the reply promises a card but none was attached」，
+// 同一行里却印着那张卡的 type 和 prompt。真原因（句子不在原文里）被盖掉了，
+// 喂回给模型的修正话术也跟着说错，它下一轮只会照着错的方向改。
+func TestPromiseVerdictDoesNotMaskTheRealReason(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	// 话里指着一张卡片说，卡也真的给了 —— 但句子是它自己编的，不在原文里。
+	raw := `{"reply":"点下面这张卡片，把你的想法写下来。",
+	          "card":{"type":"choose_span","prompt":"哪一句更像主张？",
+	                  "options":[{"blockId":"b1","quote":"这句话原文里没有。"},
+	                             {"blockId":"b2","quote":"这句也没有。"}]}}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("这份 JSON 本身是好的，应该解析得出来")
+	}
+	if got.cardWhy == cardRejectPromised {
+		t.Fatal("真原因被「提了卡却没给」盖掉了 —— 卡是给了的")
+	}
+	if got.cardWhy == cardOK {
+		t.Fatal("原文里没有的句子应该被刷掉")
+	}
+}
+
+func TestPromiseVerdictStillFiresWhenNoCardCame(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	got, ok := parseReadingCoachReply(`{"reply":"点下面这张卡片，把你的想法写下来。"}`, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectPromised {
+		t.Fatalf("话里指着一张不存在的卡片，应该判 promised，拿到 %q", got.cardWhy)
+	}
+}
+
+// 🚨 讲完就停、什么也没请她做的那一轮，要被认出来。
+//
+// 实测她逐字报的：「它说完了 scramble 的意思，显示了 1/8，但没有告诉我下一步
+// 要做什么，发送按钮也是灰的，我不知道该继续等还是要点别的地方。」
+func TestDeadTurnIsCaught(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	dead := `{"reply":"scramble 在这里是「手忙脚乱地赶着做」的意思。它常用来写救援现场。"}`
+	got, ok := parseReadingCoachReply(dead, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("这一轮什么都没请她做，应该判 dead turn，拿到 %q", got.cardWhy)
+	}
+}
+
+func TestATurnThatAsksForSomethingIsFine(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	for _, reply := range []string{
+		`{"reply":"scramble 是「手忙脚乱地赶着做」。你觉得第 2 段里谁在 scramble？"}`,
+		`{"reply":"scramble 是「手忙脚乱地赶着做」。请在第 2 段里找出那个动作。"}`,
+		`{"reply":"这一段讲完了，请接着读第 3 段，读完告诉我它在回应上一段的哪一句。","advance":"done"}`,
+	} {
+		got, ok := parseReadingCoachReply(reply, blocks, "en", func(string) bool { return true })
+		if !ok {
+			t.Fatalf("解析失败：%s", reply)
+		}
+		if got.cardWhy == cardRejectDeadTurn {
+			t.Errorf("这一轮是有下文的，不该判 dead turn：%s", reply)
+		}
+	}
+}
+
+// 🚨 推进了一步不算给了她事做。
+//
+// 实测：「它说我选得准、推进到下一段了，但是下面没有任何新题目或者按钮让我
+// 继续，发送也按不动。」下一步要她先开口，而她手上没有任何东西可说。
+func TestAdvancingWithoutAnAskIsStillADeadTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	raw := `{"reply":"你选得准。我们进到下一段。","advance":"done"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("推进了但什么都没请她做，应该判 dead turn，拿到 %q", got.cardWhy)
+	}
+}
+
+// 🚨 递透镜的那一轮，话里要当着她的面把这套看法做一遍 —— 拿原文的一句。
+//
+// 实测她逐字报的：「它一直让我用一副『透镜』去拆句子，但从来没给我看过这副
+// 透镜是什么、怎么用。前面说要先演示一遍给我看，结果什么都没有。」
+// 以及：「我真的不懂这些词是什么意思，我只是个高中生。」
+//
+// 方法名照说（印记 要用真的方法名），但光有名字没有示范，那个名字对她就是
+// 一个生词。判据取能验的那一个：这一轮的话里有没有一段逐字来自落点段的原文。
+func TestLensTurnMustDemonstrateOnARealSentence(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	lensOK := func(string) bool { return true }
+
+	// 只说了方法名，没引原文 —— 空谈。
+	empty := `{"reply":"我们用传播学的角度看第 1 段，注意表达方式怎么影响判断。",
+	            "lens":"lens-communication","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(empty, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensRetry {
+		t.Fatal("这一轮没有示范，应该认出来")
+	}
+	// 🚨 透镜不能因此被丢掉 —— 丢了她就只剩几个生词而没有工具。
+	if got.Lens == "" {
+		t.Fatal("透镜被丢掉了；这一条只该让这一轮重来，不该丢东西")
+	}
+
+	// 引了原文那一句 —— 这才是示范。
+	demo := `{"reply":"看第 1 段这句：Officials cautioned that the figure could not be independently verified。cautioned 和 could not be verified 把这条数字的分量压下来了。",
+	           "lens":"lens-communication","focusBlock":"b1"}`
+	got2, ok2 := parseReadingCoachReply(demo, blocks, "en", lensOK)
+	if !ok2 {
+		t.Fatal("解析失败")
+	}
+	if got2.lensRetry {
+		t.Fatal("这一轮引了原句，是做过示范的")
+	}
+}
+
+// 🚨 一轮里递了透镜，话里却在说板 —— 她照着话去做，做不成。
+//
+// 铁律③ 一次只交给她一件事：透镜在的时候卡片会被丢掉，于是「把这句挪到证据
+// 那个格子里」指向的东西根本不存在。实测她逐字报的：「它让我把句子挪到『证据』
+// 那个格子里，但我现在看不到任何可以拖拽的板子或卡片，只有文本框。」
+func TestLensTurnThatTalksAboutABoardIsRetried(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	raw := `{"reply":"看第 1 段这句：Officials cautioned that the figure could not be independently verified。现在把它挪到「证据」那个格子里。",
+	          "lens":"lens-methods","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensRetry {
+		t.Fatal("递了透镜却在说板，应该重来一次")
+	}
+	if got.Lens == "" {
+		t.Fatal("透镜不该被丢掉 —— 这一条只让这一轮重来")
+	}
+}
+
+// 🚨 递透镜的那一轮，话不要以一个问句收尾。
+//
+// 透镜自己就是那句「请她做什么」。话里再抛一个问题，屏幕上就有了两件事，而
+// 它们要的动作不一样。实测她逐字报的：「我不知道到底是要我从第12段 pick 一句
+// 英文，还是在下面那个框里用中文写答案。」
+func TestLensTurnMustNotEndOnAQuestion(t *testing.T) {
+	blocks := SplitBlocks("The agency said the blockade had made every delivery slower. " +
+		"Officials cautioned that the figure could not be independently verified." +
+		"\n\n第二段讲了别的事情。")
+	lensOK := func(string) bool { return true }
+	quote := "Officials cautioned that the figure could not be independently verified"
+
+	asks := `{"reply":"看第 1 段这句：` + quote + `。cautioned 把这条数字的分量压下来了。你觉得哪个成本被漏掉了？",
+	           "lens":"lens-economics","focusBlock":"b1"}`
+	got, ok := parseReadingCoachReply(asks, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if !got.lensRetry {
+		t.Fatal("以问句收尾，应该重来一次")
+	}
+
+	hands := `{"reply":"看第 1 段这句：` + quote + `。cautioned 把这条数字的分量压下来了。现在换你，在文章别处找一句这样的。",
+	           "lens":"lens-economics","focusBlock":"b1"}`
+	got2, ok2 := parseReadingCoachReply(hands, blocks, "en", lensOK)
+	if !ok2 {
+		t.Fatal("解析失败")
+	}
+	if got2.lensRetry {
+		t.Fatalf("这一轮做了示范、用陈述句收尾，不该重来：%q", got2.lensRetryWhy)
+	}
+}
+
+func TestReplyEndsOnAQuestion(t *testing.T) {
+	for reply, want := range map[string]bool{
+		"你觉得哪个成本被漏掉了？":            true,
+		"Which cost is missing?":  true,
+		"现在换你，在文章别处找一句这样的。":       false,
+		// 中间的问号是讲解的一部分，不算。
+		"这句在问什么？它在说成本。现在换你找一句。": false,
+		// 收尾的引号不算数，要看引号前面那个字。
+		"他问的是「哪个成本被漏掉了？」":         true,
+	} {
+		if got := replyEndsOnAQuestion(reply); got != want {
+			t.Errorf("replyEndsOnAQuestion(%q) = %v，想要 %v", reply, got, want)
+		}
+	}
+}
+
+// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
+//
+// 实测她逐字报的：「它让我把发电机那句拖到限制格，但那句已经在限制格里了……
+// 屏幕上显示的摆放和它文字描述的矛盾了，我没法确定该怎么挪。」
+// 她摆完的结果原样在转写里，所以这是它没读，不是我们没给。
+func TestNoOpMoveIsCaught(t *testing.T) {
+	placed := map[string]string{
+		"The generator has fuel for three more days.": "限制",
+		"Cutting off fuel stopped the pumps.":         "证据",
+	}
+	if !replyAsksForANoOpMove("把 The generator has fuel for three more days 这句拖到「限制」那一格。", placed) {
+		t.Error("这是一条挪不动的指令，应该抓出来")
+	}
+	// 挪到**别的**格子是正常的教学动作。
+	if replyAsksForANoOpMove("把 The generator has fuel for three more days 这句拖到「证据」那一格。", placed) {
+		t.Error("挪到别的格子是正常的，不该拦")
+	}
+	// 🚨 肯定她摆得对，不是指令 —— 这一条最容易误伤。
+	if replyAsksForANoOpMove("你把 The generator has fuel for three more days 放在限制，这个判断很准。", placed) {
+		t.Error("误伤了一句肯定")
+	}
+	// 没有板的时候什么都不判。
+	if replyAsksForANoOpMove("把那句拖到限制。", nil) {
+		t.Error("没有摆放记录时不该判")
+	}
+}
+
+// 🚨 没有卡片的那一轮，断句也要判出来。
+//
+// 这道闸原来写的是 cardWhy == cardOK，而没有卡片的那一轮 cardWhy 是
+// cardRejectNoCard —— 加上它自己要求 Card == nil，两个条件永远不会同时成立，
+// 这道闸从写下来那天起一次都没响过。
+//
+// 线上逐字证据（atom 609f3910，2026-09-11）：「对，调查数据是一个方向。**但」，
+// payload 里 dropped 是空的。产品负责人报的第 1 条就是它。
+func TestCutOffIsCaughtOnACardlessTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	raw := `{"reply":"对，调查数据是一个方向。**但"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", func(string) bool { return true })
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectCutOff {
+		t.Fatalf("半句话没被判出来，cardWhy = %q", got.cardWhy)
+	}
+}
+
+// 🚨 「你先把全文读一遍」不是一件她在屏幕上交得出来的事。
+//
+// 实测她连着四轮说同一句：「它说『先通读一遍全文』，但我读完了不知道接下来要
+// 干嘛，没有下一步的按钮。」第五轮她放弃了，整条走查停在第 6 步。
+//
+// prompt 里早就写着「不要以『先通读全文，读完告诉我』收尾」，它照样这么收尾 ——
+// 写第三遍不如做成判据。
+func TestReadOnlyTurnIsADeadTurn(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	lensOK := func(string) bool { return true }
+
+	raw := `{"reply":"我们先通读一遍全文，读完跟我说一声。"}`
+	got, ok := parseReadingCoachReply(raw, blocks, "en", lensOK)
+	if !ok {
+		t.Fatal("解析失败")
+	}
+	if got.cardWhy != cardRejectDeadTurn {
+		t.Fatalf("只让她读、没有落点，应该判 dead turn，拿到 %q", got.cardWhy)
+	}
+}
+
+func TestReadingPlusSomethingToDoIsFine(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事。\n\n第二段说了另一件事。")
+	lensOK := func(string) bool { return true }
+	for _, reply := range []string{
+		// 读 + 一个她交得出来的动作。
+		`{"reply":"先通读一遍全文，然后在文章里划出你最不服气的那一句。"}`,
+		// 带着卡片说「先读一遍再点」是正常的 —— 那一轮她手上有东西。
+		`{"reply":"先通读一遍全文，再看下面这张卡。","card":{"type":"short_text","prompt":"读完之后，你最想问作者什么？"}}`,
+	} {
+		got, ok := parseReadingCoachReply(reply, blocks, "en", lensOK)
+		if !ok {
+			t.Fatalf("解析失败：%s", reply)
+		}
+		if got.cardWhy == cardRejectDeadTurn {
+			t.Errorf("这一轮她有东西可做，不该判 dead turn：%s", reply)
+		}
+	}
+}
+
+// 🚨 它说了有卡，她屏幕上就必须有卡。
+//
+// 产品负责人 2026-09-12 定的线：「不应该让用户有 bug 的感觉。要么不满足自己
+// 不调用，要么就是有兜底策略。」她逐字说过的那一幕是 印记 连着两轮道歉
+// 「卡没送到你手里」，她连着两轮回「没有卡啊」。
+func TestFallbackCardCannotBeRejected(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
+
+	// 兜底那张必须**过得了**校验 —— 它要是也能被驳回，就不叫兜底。
+	got := fallbackCardFor("哪一句最能说明援助进不去？")
+	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+		t.Fatalf("兜底卡被驳回了，理由 %q —— 那它就不是兜底", why)
+	}
+	if got.Type != coachCardPickInArticle {
+		t.Errorf("兜底只能是 pick_in_article（没有 options 就没有对不上原文这回事），拿到 %q", got.Type)
+	}
+	// 印记 自己那道题要留住 —— 她看到的是它问的话，不是我们编的。
+	if got.Prompt != "哪一句最能说明援助进不去？" {
+		t.Errorf("它自己那道题没留住：%q", got.Prompt)
+	}
+}
+
+func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
+	got := fallbackCardFor("")
+	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+		t.Fatalf("没有题目时的兜底也必须过得了校验，理由 %q", why)
+	}
+	if strings.TrimSpace(got.Prompt) == "" {
+		t.Error("兜底卡不能没有问题")
+	}
+	// 超长的那一道也不能原样塞回去 —— 它自己会被 promptLen 驳回。
+	long := strings.Repeat("很", 200)
+	if kept, _ := validateCoachCardWhy(fallbackCardFor(long), blocks); kept == nil {
+		t.Error("题目超长时应该换成中性那句，而不是把兜底也弄坏")
 	}
 }

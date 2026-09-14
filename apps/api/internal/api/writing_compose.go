@@ -236,33 +236,19 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingCommentSystem},
-			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她的整篇稿子", body)},
-		},
-	})
-
-	// Meter BEFORE any bail — a call that reached the provider cost money
-	// whatever happens to its reply, mirroring every other lite generate
-	// endpoint.
-	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "review", resolved, res.Usage)
-
-	if cerr != nil {
-		slog.Warn("writing review: provider call failed",
-			"err", cerr, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-	parsed, okParse := parseWritingComment(res.Text)
+	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
+	// collectWritingComment 里 —— 单段那一支走的是同一个函数。
+	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "review", resolved,
+		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues),
+		buildWritingCommentPrompt(wr, "她的整篇稿子", body),
+		"scope", "draft", "atom_id", at.ID,
+		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {
-		slog.Warn("writing review: reply unparseable or empty summary",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
 
-	points := validateCommentPoints(parsed.Points, body)
+	points := validateCommentPoints(parsed.Points, body, wr.Lang, writingDraftReviewMaxIssues)
 	payload, merr := json.Marshal(points)
 	if merr != nil {
 		slog.Warn("writing review: marshal points failed", "err", merr, "atom_id", at.ID)
@@ -272,9 +258,11 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	row, serr := a.d.Queries.CreateWritingComment(turnCtx, sqlc.CreateWritingCommentParams{
 		AtomID:    at.ID,
 		SnippetID: pgtype.UUID{Valid: false},
-		Scope:     "draft",
-		Summary:   strings.TrimSpace(parsed.Summary),
-		Points:    payload,
+		Scope:   "draft",
+		Summary: strings.TrimSpace(parsed.Summary),
+		Points:  payload,
+		// 同 commentOnSnippet：存它真的读过的那一版全文。
+		SourceText: body,
 	})
 	if serr != nil {
 		httpx.WriteError(w, r, serr)

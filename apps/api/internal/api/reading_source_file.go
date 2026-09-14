@@ -14,7 +14,9 @@ package api
 // upload path.
 
 import (
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -74,11 +76,12 @@ func (a *API) postReadingSourceFileLite(w http.ResponseWriter, r *http.Request) 
 
 	// Extension allowlist BEFORE reading the bytes: an unsupported type is
 	// rejected without ever pulling the file into memory.
-	ext := strings.ToLower(fileExt(header.Filename))
-	if ext != ".pdf" && ext != ".docx" {
-		// Same allowlist and message as pro's user_doc OSS scope (oss.go /
-		// ingest_file.go): only PDF and Word documents.
-		httpx.WriteError(w, r, httpx.ErrBadRequest("unsupported_type", "只支持 PDF 或 Word 文档。", nil))
+	// 🚨 认哪些格式，只在 docextract.Supported 里写一遍 —— 阅读和写作共用那一份，
+	// 否则两边的接受范围会慢慢分家（阅读收 pdf/docx、写作一个都不收，就是这么
+	// 来的）。产品负责人 2026-09-12：「make this a general tool」。
+	if !docextract.IsSupported(header.Filename) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("unsupported_type",
+			"只收这几种文件："+strings.Join(docextract.Supported, " / ")+"。", nil))
 		return
 	}
 
@@ -92,16 +95,18 @@ func (a *API) postReadingSourceFileLite(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var title, text string
-	if ext == ".pdf" {
-		title, text, err = docextract.PDF(data)
-	} else {
-		title, text, err = docextract.DOCX(data)
-	}
+	title, text, err := docextract.Any(header.Filename, data)
 	if err != nil {
-		// Extraction failed (corrupt / password-protected / unsupported
-		// internals) — 400 so the reading room can offer the paste fallback.
-		httpx.WriteError(w, r, httpx.ErrBadRequest("extract_failed", "这个文件没能解析出正文——直接把正文粘进来就能逐句共读。", nil))
+		// 🚨 把**具体**那一句给她。原来一律说「这个文件没能解析出正文」，而扫描件
+		// 根本不是解析失败 —— 文件没坏，它本来就没有文字层。说错的代价是她反复
+		// 换文件试。docextract.ErrText.Msg 就是给她看的那一句。
+		msg := "这个文件没能解析出正文——直接把正文粘进来就能逐句共读。"
+		var te *docextract.ErrText
+		if errors.As(err, &te) {
+			msg = te.Msg
+		}
+		slog.Info("reading source file: extract failed", "err", err, "name", header.Filename)
+		httpx.WriteError(w, r, httpx.ErrBadRequest("extract_failed", msg, nil))
 		return
 	}
 

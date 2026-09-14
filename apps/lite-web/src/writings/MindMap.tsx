@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Trash2 } from "lucide-react";
 import { Icon } from "@/ui";
 import type { WritingOutlineItem } from "../api/writingRoom";
+import { useMindMapDrag, type MindMapDrag } from "./useMindMapDrag";
+import type { OutlineMoveMode } from "./outlineMove";
 
 /**
  * MindMap — the canvas that grows on the right while she plans.
@@ -79,14 +81,21 @@ export function MindMap({
   justAdded,
   onRemove,
   onEdit,
+  onMove,
 }: {
   items: WritingOutlineItem[];
   justAdded: string[];
   /** Hers to delete — a planning turn can only ever add. */
   onRemove?: (id: string) => void;
   onEdit?: (id: string, text: string) => void;
+  /**
+   * 把一个节点挂到另一个节点底下。不给就不能拖（公开只读的地方）。
+   * 算新清单那一步是纯函数，见 outlineMove.ts。
+   */
+  onMove?: (draggedId: string, targetId: string, mode: OutlineMoveMode) => void;
 }) {
   const roots = useMemo(() => buildMindMap(items), [items]);
+  const drag = useMindMapDrag(onMove);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLDivElement>());
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -247,7 +256,7 @@ export function MindMap({
       <div className="relative flex min-h-full w-max items-center">
         <ul className="flex flex-col gap-4">
           {roots.map((node) => (
-            <Branch key={node.item.id} node={node} justAdded={justAdded} registerNode={registerNode} onRemove={onRemove} onEdit={onEdit} />
+            <Branch key={node.item.id} node={node} justAdded={justAdded} registerNode={registerNode} onRemove={onRemove} onEdit={onEdit} drag={drag} />
           ))}
         </ul>
       </div>
@@ -266,12 +275,14 @@ function Branch({
   registerNode,
   onRemove,
   onEdit,
+  drag,
 }: {
   node: MindMapNode;
   justAdded: string[];
   registerNode: (id: string, el: HTMLDivElement | null) => void;
   onRemove?: (id: string) => void;
   onEdit?: (id: string, text: string) => void;
+  drag: MindMapDrag;
 }) {
   const isNew = justAdded.includes(node.item.id);
   const isRoot = node.item.depth === 0;
@@ -311,6 +322,9 @@ function Branch({
     <li className={stackChildren ? "flex list-none flex-col gap-2.5" : "flex list-none items-center gap-7"}>
       <div
         ref={(el) => registerNode(node.item.id, el)}
+        /* 落点靠 elementFromPoint 找这个属性，同阅读室那两块板的 data-board-bin。 */
+        data-outline-node={node.item.id}
+        {...(drag.enabled ? drag.handlers(node.item.id) : {})}
         className={[
           "group/node relative flex shrink-0 items-start gap-2 rounded-mk-md border px-3 py-2 shadow-mk-xs",
           // Narrower the deeper it goes: three 240px columns cannot fit a side
@@ -319,6 +333,15 @@ function Branch({
           // plan is worse than a scroll.
           isRoot ? "max-w-[200px]" : node.item.depth === 1 ? "max-w-[210px]" : "max-w-[190px]",
           isNew ? "mk-node-new mk-node-flash" : "",
+          // 拖动中的三个状态。被拖的那张压暗、悬停的那张亮边，
+          // 其余不动 —— 整张图跟着闪会让她找不到自己拖的是哪一张。
+          // 🚨 光标要说出「这张卡能抓」。第三十五轮英文那一路第 8 步：
+          //「它说『拖一条到另一条上面』，但我看不到可以拖的东西」——
+          // 提示里写着能拖，而卡片上没有任何一处这么说。
+          //（走查那个学生只读得到文字和按钮，看不见光标；这一条是给真人改的。）
+          drag.enabled ? "touch-none select-none cursor-grab active:cursor-grabbing" : "",
+          drag.draggingId === node.item.id ? "opacity-50" : "",
+          drag.hoverId === node.item.id ? "mk-node-drop" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -346,6 +369,9 @@ function Branch({
             tabIndex={onEdit ? 0 : undefined}
             onClick={() => {
               if (!onEdit) return;
+              // 🚨 刚才那一下是拖，不是点。一次拖动几乎总是从字上起手，
+              // 不挡这一下的话，她每挪一个节点都会被问一次要不要改它的文字。
+              if (drag.justDragged()) return;
               const next = window.prompt("改一下这一条", node.item.text);
               if (next !== null && next.trim() && next.trim() !== node.item.text) onEdit(node.item.id, next.trim());
             }}
@@ -378,6 +404,7 @@ function Branch({
               registerNode={registerNode}
               onRemove={onRemove}
               onEdit={onEdit}
+              drag={drag}
             />
           ))}
         </ul>

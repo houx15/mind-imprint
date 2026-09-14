@@ -153,7 +153,35 @@ const (
 	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
 	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
 	cardRejectLensWon     cardReject = "a lens was given this turn, so the card was dropped (铁律③)"
+	cardRejectCutOff      cardReject = "the reply ends mid-sentence"
+	cardRejectDeadTurn    cardReject = "the turn hands her nothing to do"
 )
+
+// replyLooksCutOff —— 这句话像不像说到一半断掉了。
+//
+// 🚨 线上实测（2026-09-11 走查）她看到的：
+//
+//	「……他们同样在讲封锁的后果，但说得更具体：不是」
+//
+// 159 个字，就这么断在「不是」上。她读到的是半句话，当场不知道这一步要干嘛。
+// 我们这边不截断任何东西（max_tokens 是 16000），所以它是模型自己写出来的。
+//
+// 判据：**中文的一句话总要有个收尾**。句号、问号、叹号、引号、右括号都算收尾；
+// 冒号和逗号不算 —— 「现在点出那一句：」后面本该跟着一张卡片。
+//
+// 所以这条只在**没有附卡片、也没有透镜**的时候才判：真的带着卡片时，一个冒号
+// 收尾是完全正常的写法（卡片自己会把话说完）。
+func replyLooksCutOff(reply string) bool {
+	r := []rune(strings.TrimSpace(reply))
+	if len(r) == 0 {
+		return false
+	}
+	switch r[len(r)-1] {
+	case '。', '！', '？', '」', '』', '）', '…', '.', '!', '?', ')', '"', '\'', '~':
+		return false
+	}
+	return true
+}
 
 // cardFixIt —— 每一种理由对应的**怎么改**，中文，一句话。
 //
@@ -174,6 +202,11 @@ var cardFixIt = map[cardReject]string{
 		"label_roles / word_bank 五个之一。",
 	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
 		"她那边什么都没出现。要给就真的给，不给就别提。",
+	cardRejectCutOff: "你上一轮那句话断在半句上，她读到的是半截。" +
+		"这一轮把话说完整，句子要有收尾。",
+	cardRejectDeadTurn: "你上一轮讲完就停了，没有请她做任何事 —— 她屏幕上没有卡片、" +
+		"没有透镜，也没有一句话告诉她下一步。这一轮结尾要么给一张卡片，" +
+		"要么明确请她做一件事。",
 	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
 		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
 }
@@ -191,9 +224,22 @@ var cardFixIt = map[cardReject]string{
 //
 // 判据只认**明确指着一个可点对象**的说法。「选一句」「找一句」不算：
 // 那些话在没有卡片的时候也成立（她可以在正文里划选）。
+//
+// 🚨 这张表宁可宽一点。第一版写得太紧，漏掉了「五格的板让我拖句子进去」——
+// 「拖进」不是「拖句子进去」的子串，于是这一轮照样发了一句指着空气的话出去。
+// 漏判的代价是她卡死；误判的代价只是多问模型一次（见调用点那条重试）。
+// 所以「板」只要带上量词或「格」就算，「格子」本身也算 —— 那是板上格子的名字。
 var cardPromiseWords = []string{
-	"这张卡", "那张卡", "张卡片", "点这张", "点下面", "下面这张", "上面这张",
-	"标注板", "生词板", "这块板", "那块板", "拖到", "拖进",
+	// 卡片
+	"卡片", "这张卡", "那张卡", "点这张", "点下面", "下面这张", "上面这张",
+	// 板
+	"标注板", "生词板", "块板", "格的板", "格子",
+	// 动作
+	"拖到", "拖进", "拖句", "各自拖",
+	// 🚨 上一条 prompt 教它改口说「把这几句各自放进它的角色里」，而这张表里
+	// 一个字都没对上 —— 于是板一块都没建，她看到的是「放进它的角色里」加上
+	// 一片空白。教它换一种说法的时候，这张表要跟着换。
+	"放进", "各自放", "归到", "分到", "角色里", "哪个角色", "它的角色",
 }
 
 // replyPromisesACard —— 这句回复有没有在指着一张卡片。
@@ -270,8 +316,24 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 			continue
 		}
 		body, ok := byID[o.BlockID]
-		if !ok || !coachCardQuoteIsClause(body, q) {
+		if !ok {
 			continue
+		}
+		if !coachCardQuoteIsClause(body, q) {
+			// 🚨 对不上就**贴回原文里最像的那一句**，而不是整张卡丢掉。
+			//
+			// 模型抄原句时最常见的失手是差一点点：少一个逗号、把两句并成一句、
+			// 从半句中间起头。整张卡丢掉的代价她全担着 —— 实测那一幕是 印记
+			// 说「我们集中看第 2 段」然后什么都没给，她逐字报的是「只有一个
+			// 输入框，不知道该往里面打什么字」。
+			//
+			// 贴回去只会让卡片**更**忠于原文：落点段是它自己标的，最终上卡的
+			// 那句话逐字来自那一段，下面那道从句边界照常还要过一遍。
+			snapped := snapQuoteToArticle(body, q)
+			if snapped == "" || !coachCardQuoteIsClause(body, snapped) {
+				continue
+			}
+			q = snapped
 		}
 		// 按她**看得见的那句话**去重：同一句从两个段落各来一次，屏幕上就是
 		// 两个一模一样的选项，点哪个都没有区别。
@@ -324,6 +386,12 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	// 的后果，哪一句是原因？」），两次都被这条规则丢掉，而她屏幕上只看到 印记
 	// 在描述一块从来没出现过的板。日志里那两行写着
 	// 「every surviving option came from one paragraph」。
+	// 🚨 选项全来自同一段就丢掉这张卡 —— 扫一眼选项里的名词就能点，等于一个字
+	// 都没读懂。丢掉是对的，但**不能让这一轮空着**：调用点会立刻重来一次
+	// （见 reading_coach.go 那条重试），把「怎么改」当面交给它。
+	//
+	// 线上逐字证据（atom 609f3910，2026-09-11）seq 36 就是这么掉的，而当时没有
+	// 重试：接着 印记 连着两轮跟她道歉「卡没送到你手里」，她连着两轮回「没有卡啊」。
 	if c.Type == coachCardChooseSpan && !coachCardSpansBlocks(out) {
 		return nil, cardRejectOneBlock
 	}
@@ -332,6 +400,19 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉：
 		// 见 coachCardRoleLabels。
 		card.Labels = coachCardRoleLabels
+		// 🚨 题目里另起一套格子名的，把题目换成标准那一句。
+		//
+		// 格子被覆盖了，题目没有 —— 于是屏幕上是「把卡片放进『进不去/动不了/
+		// 快撑不住了』三个格子」，而下面摆着的是主张/证据/限制/背景/对比。
+		// 她逐字报的：「名字完全不一样，我不知道哪个对应哪个，没法往下做。」
+		//
+		// 覆盖而不是丢卡：格子本来就是我们的，这一句也是（兜底摆板时用的就是
+		// 它）。丢掉的话她这一步什么都没有。
+		if labelPromptInventsBins(card.Prompt) ||
+			promptTellsHerHowToDrag(card.Prompt) ||
+			promptCountMismatch(card.Prompt, len(card.Options)) {
+			card.Prompt = coachLabelBoardPrompt
+		}
 	}
 	return card, cardOK
 }
@@ -648,6 +729,15 @@ type coachMessagePayload struct {
 	// 存在消息的 payload 上而不是另开一张表：它属于**那一条回复**，
 	// 一起写、一起读、一起被删。
 	Dropped string `json:"dropped,omitempty"`
+	// Incomplete 表示这条回复**没说完**就交给她了。
+	//
+	// 🚨 断句的回复本来就会重来一次，但两次都断的时候我们仍然把第一次那句给她
+	// （不编、不改写它的话）。产品负责人 2026-09-12 逐字报的那一幕：屏幕上是
+	// 「对，调用数据是一个方向。**但」，然后就没有了，她只能自己打一个「?」去问。
+	//
+	// 半句话本身不是错 —— 错的是**没有任何东西告诉她这是半句**。所以这里只做
+	// 一件事：把「这条没说完」这个事实标在那条消息上，由界面照实说出来。
+	Incomplete bool `json:"incomplete,omitempty"`
 }
 
 // coachCardAnswer is her answer to a chat card: which card it was, what it
@@ -697,14 +787,211 @@ func coachCardPayload(c *coachCard) []byte {
 // coachCardPayloadWithDrop 同上，外加「这一轮那张卡为什么没发出去」。
 // 两个都空的时候不写 payload —— 大多数轮本来就是这样。
 func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
-	if c == nil && (why == cardOK || why == cardRejectNoCard) {
+	return coachCardPayloadFull(c, why, false)
+}
+
+// coachCardPayloadFull —— 同上，外加「这条回复没说完」这个事实。
+func coachCardPayloadFull(c *coachCard, why cardReject, incomplete bool) []byte {
+	if c == nil && !incomplete && (why == cardOK || why == cardRejectNoCard) {
 		return nil
 	}
-	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why)})
+	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why), Incomplete: incomplete})
 	if err != nil {
 		// A struct of strings cannot fail to marshal; if it somehow did, the
 		// turn is still hers — she loses the card, not the reply.
 		return nil
 	}
 	return b
+}
+
+// snapQuoteToArticle —— 把一句对不上的引文贴回这一段里最像的那句话。
+//
+// 判据是**这句引文里的字有多少落在那句话里**，不是反过来：模型常见的失手是把
+// 两句并成一句、或者从半句中间起头，那种情况下引文比真句子长。门槛定在七成，
+// 低于它就当它说的是别的句子，宁可丢掉 —— 贴错一句比没有卡片更糟，她会照着
+// 一句文章里没有的话去找。
+func snapQuoteToArticle(body, quote string) string {
+	want := quoteRuneSet(quote)
+	if len(want) == 0 {
+		return ""
+	}
+	best, bestScore := "", 0.0
+	for _, sent := range splitSentences(body) {
+		if utf8.RuneCountInString(sent) < coachCardMinQuoteRunes {
+			continue
+		}
+		have := quoteRuneSet(sent)
+		hit := 0
+		for r := range want {
+			if have[r] {
+				hit++
+			}
+		}
+		score := float64(hit) / float64(len(want))
+		if score > bestScore {
+			best, bestScore = strings.TrimSpace(sent), score
+		}
+	}
+	if bestScore < 0.7 {
+		return ""
+	}
+	return best
+}
+
+// quoteRuneSet —— 一句话里出现过哪些字，标点和空白不算。
+func quoteRuneSet(s string) map[rune]bool {
+	out := make(map[rune]bool, len(s))
+	for _, r := range strings.ToLower(s) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			out[r] = true
+		}
+	}
+	return out
+}
+
+// replyAsksForSomething —— 这一轮有没有请她做点什么。
+//
+// 🚨 一轮里既没有卡片、也没有透镜、又没有推进步骤，还不请她做任何事，那她
+// 屏幕上就只剩一句讲完的话和一个灰着的发送键。实测她逐字报的：
+// 「它说完了 scramble 的意思……但没有告诉我下一步要做什么，发送按钮也是灰的，
+// 我不知道该继续等还是要点别的地方。」
+//
+// 判据取最宽的那一个：一个问号，或者一个请她动手的词。宽是故意的 —— 这条要
+// 触发的是**真的什么都没说**的那一轮，不是去评判它问得好不好。
+func replyAsksForSomething(reply string) bool {
+	if strings.ContainsAny(reply, "？?") {
+		return true
+	}
+	for _, w := range replyAskWords {
+		if strings.Contains(reply, w) {
+			return true
+		}
+	}
+	return false
+}
+
+var replyAskWords = []string{
+	"请", "说说", "写下", "写一", "挑一", "选一", "找一", "找出", "标出", "圈出",
+	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
+	// 🚨 「划」是这个房间最核心的动作（在文章里划出一句），第一版这张表里**没有它** ——
+	// 于是「在文章里划出你最不服气的那一句」被判成「什么都没请她做」。
+	// 守着这条的是 TestReadingPlusSomethingToDoIsFine。
+	"划出", "划一", "划到", "标一",
+}
+
+// coachLabelBoardPrompt —— 标注板的标准题目。服务端兜底摆板时用它，模型把题目
+// 写坏时也换回它。
+//
+// 🚨 措辞是产品负责人 2026-09-12 定的。他看到的那一张写着
+// 「这三句各自在算账的哪一步？拖到角色各自里。」并指出两件事：数目对不上，
+// 而且这不像一道题。他给的样子是「分析下列句子，观察他们分别属于哪一类论证模式。」
+// —— 一句书面的分析题，**不写怎么拖**（怎么拖是界面的事，卡片下面那行字在说）。
+const coachLabelBoardPrompt = "分析下列句子，判断它们各自属于哪一类论证成分。"
+
+// labelPromptInventsBins —— 这道题目是不是另起了一套格子名。
+//
+// 格子是闭表（coachCardRoleLabels），由服务端填。模型有时在题目里自己编一套
+// （「进不去 / 动不了 / 快撑不住了」），而屏幕上的格子仍然是那五个。
+//
+// 判据看**题目里被引号框起来、或者用斜杠并列起来的短词**：那是它在点名格子。
+// 只要其中有一个不在闭表里，这套名字就是它自己编的。
+func labelPromptInventsBins(prompt string) bool {
+	for _, seg := range quotedSegments(prompt) {
+		for _, part := range splitBinCandidates(seg) {
+			if part != "" && !isRoleLabel(part) {
+				return true
+			}
+		}
+	}
+	// 没加引号也能并列：「放进进不去/动不了/快撑不住了」。
+	//
+	// 🚨 闭表里五个名字**都是两个字**，所以判据就取斜杠两边各两个字：
+	// 「分成主张/证据两类」两边是主张、证据，都在表里，是一句正常的话；
+	// 「放进进不去/动不了/……」左边是「不去」，不在表里，那就是它自己编的。
+	//
+	// 先按整句切斜杠的那一版在这里栽过：那样切出来的是「分成主张」和
+	// 「证据两类」，两个都不在表里，一句完全正常的话被判成编格子名。
+	r := []rune(prompt)
+	for i, c := range r {
+		if c != '/' {
+			continue
+		}
+		if i < 2 || i+2 >= len(r) {
+			return true
+		}
+		if !isRoleLabel(string(r[i-2:i])) || !isRoleLabel(string(r[i+1:i+3])) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRoleLabel(s string) bool {
+	s = strings.TrimSpace(s)
+	for _, l := range coachCardRoleLabels {
+		if s == l {
+			return true
+		}
+	}
+	return false
+}
+
+// quotedSegments —— 「」『』 里面的东西。
+func quotedSegments(s string) []string {
+	var out []string
+	for _, pair := range [][2]rune{{'「', '」'}, {'『', '』'}} {
+		r := []rune(s)
+		for i := 0; i < len(r); i++ {
+			if r[i] != pair[0] {
+				continue
+			}
+			for j := i + 1; j < len(r); j++ {
+				if r[j] == pair[1] {
+					out = append(out, string(r[i+1:j]))
+					i = j
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
+// splitBinCandidates —— 按并列的分隔符拆开，得到一串候选格子名。
+func splitBinCandidates(s string) []string {
+	f := func(r rune) bool {
+		return r == '/' || r == '、' || r == '｜' || r == '|'
+	}
+	parts := strings.FieldsFunc(s, f)
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
+}
+
+// promptTellsHerHowToDrag —— 题目里在讲怎么操作。
+//
+// 怎么拖、怎么点是**界面**的事（卡片下面那行字一直在说），题目要留给那道题。
+// 两边都写，出来的就是「这三句各自在算账的哪一步？拖到角色各自里。」这种句子。
+func promptTellsHerHowToDrag(prompt string) bool {
+	for _, w := range []string{"拖到", "拖进", "拖入", "拖下面", "拖过去", "点一句", "点格子", "放进格"} {
+		if strings.Contains(prompt, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// promptCountMismatch —— 题目里说了几句，和板上真有的对不上。
+//
+// 🚨 这是必然会发生的：模型先写题目再写选项，而选项要逐字核对原文，对不上的
+// 会被刷掉 —— 于是「这三句」剩下两句。产品负责人 2026-09-12 报的就是这一张。
+func promptCountMismatch(prompt string, n int) bool {
+	re := regexp.MustCompile(`([0-9]|[一二三四五六七八九十])\s*(句|个词|个句子)`)
+	for _, m := range re.FindAllStringSubmatch(prompt, -1) {
+		if said := parseChineseOrdinal(m[1]); said > 0 && said != n {
+			return true
+		}
+	}
+	return false
 }

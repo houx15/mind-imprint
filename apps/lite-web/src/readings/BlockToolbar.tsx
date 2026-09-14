@@ -217,6 +217,16 @@ export function BlockToolbar({
         <Pebble state={busyTool ? "thinking" : "idle"} size={26} />
       </span>
 
+      {/* 🚨 这四个字是模拟学生走查逼出来的。印记 说「接下来精读第 2 段」，服务端
+          把这一段的工具条弹了出来（翻译 / 关键单词 / 语法 / 把握度 / 写作解析 /
+          想一想 / 仿写，七个都在屏幕上），而她逐字报的是：
+          「屏幕上没有让我选句子的按钮……我不知道现在到底该干嘛。」
+          东西一直在，只是没有一个字说它是干什么的 —— 一排没有名字的按钮在她眼里
+          就是页面自带的装饰。 */}
+      <span className="shrink-0 whitespace-nowrap pr-1.5 text-mk-caption text-mk-muted">
+        拆开这一段
+      </span>
+
       <span aria-hidden="true" className="mr-0.5 h-5 w-px shrink-0 bg-mk-border" />
 
       {/* Only the chips scroll. 豆豆 and 关掉这一栏 stay pinned to the two

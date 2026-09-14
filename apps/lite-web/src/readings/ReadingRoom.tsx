@@ -27,6 +27,7 @@ import type {
 } from "../api/readingRoom";
 import type { ReadingFigure, ReadingOutline } from "../api/readings";
 import { ReadingOutlineCard } from "./ReadingOutlineCard";
+import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -168,6 +169,10 @@ export type ReadingCoachSlot = {
   quotes: { key: string; quote: string; blockId?: string }[];
   removeQuote: (key: string) => void;
   clearQuotes: () => void;
+  /** 文章上真的有一副敞开的透镜（而不只是「这一栏暂时锁住了」）。 */
+  lensOpen?: boolean;
+  /** 把她送到那副敞开的透镜跟前（滚到它挂着的那一段）。 */
+  locateLens?: () => void;
   /** A lens landed on the article from OUTSIDE this room's own turn/summon
    *  flow (印记 minting one mid-带读, via a different endpoint) — so the
    *  room's own card state has no way to have picked it up on its own. */
@@ -647,6 +652,9 @@ export function ReadingRoom({
                     />
                   )}
                   {leadFigure && <ArticleFigure figure={leadFigure} />}
+                  {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
+                      要回去找一个词」，不是开读前的那张地图。 */}
+                  <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
                 </header>
                 <Annotate
                   blocks={source.blocks}
@@ -801,12 +809,22 @@ export function ReadingRoom({
             initialMessages={coachMessages}
             slot={{
               locked: busyOrCarded,
+              // 🚨 「锁住了」和「文章上真的有一副透镜」不是一回事：一次还在飞
+              // 的请求也会锁住这一栏。面板那条「请到文章里选一句」只能挂在后者
+              // 上 —— 挂错的话，她会点「带我过去」然后发现屏幕纹丝不动
+              // （走查逐字报过这一条）。
+              lensOpen: Boolean(cardBlockId) && loop.status !== "idle",
               quotes: quoted,
               removeQuote: removeQuoted,
               clearQuotes: () => setQuoted([]),
               // Narrow re-check, not a reload: nothing here unmounts the
               // room, so her transcript/draft/scroll position survive.
               onCardSummoned: () => void loop.refetchOpenCard(),
+              // 透镜挂在哪一段，只有房间知道。面板锁住的时候那颗「带我过去」
+              // 按钮就调这个。
+              locateLens: () => {
+                if (cardBlockId) locateBlock(cardBlockId);
+              },
             }}
             onTasks={onTasks}
             onFocusBlock={focusBlock}

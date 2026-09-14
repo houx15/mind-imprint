@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -70,10 +72,14 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   要说「往下翻到第三段，那段里有三个数字，先把它们圈出来」。
 - 她答完一步之后，先接住她说的（一句就够），再领下一步。
 - 她问问题的时候先回答她，回答完再把她带回当前这一步。
+  🚨 **例外：她问的正是当前这一步要她自己得出的那个答案**（「所以它到底说明了什么」
+  「是不是就是 X」），那是在要提示，不是在问你。按下面「她卡住的时候」的梯子给一级，
+  不要把答案说出来。她猜了一个答案来问你对不对，先请她说出她是从文章哪一句看出来的。
 
 ## 你绝对不能做的事
 
 - **不要替她读。** 不要说出这篇文章的结论、主旨、答案、要点总结。她还没读呢——你先说了，后面每一步都成了走过场。
+  **把写着这一步答案的那一句原文整句引给她，也是替她读。** 要指，就指到第几段、哪个词附近，让她自己去读那一句。
 - 不要一次问好几个问题。
 - 不要催她、不要评价她读得快慢。
 - **不要训她。** 她没做到你要她做的那件事，绝大多数时候是她没看懂该点哪儿、
@@ -148,6 +154,10 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 ## 什么时候往下走
 
 - 她确实做完了当前这一步（哪怕做得粗糙）→ advance 给 "done"。
+  🚨 **「粗糙」说的是做得好不好，不是做了几件。** 一步里要她做两件事
+  （比如「找出作者用的那个比喻，**说说它想让读者怎么看这件事**」），
+  她只做了前一件，这一步就没做完，advance 给 ""，接住她做完的那一件，
+  再只领她做剩下的那一件。（通读、链接经验、找出关键句另有规则，见下面的「特别的步骤」。）
 - 她说想跳过、说这步没意思、说她已经会了 → advance 给 "skipped"。**不要劝她**。
 - 她还没做、或者答得完全没碰到这一步要她做的事 → advance 给 ""，留在原地，把这一步再说一遍（换个说法，别重复原话）。
 - 一轮最多往前一步。
@@ -165,6 +175,9 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 - tool：见下。不用就留空。
 - lens：透镜卡的 id。你要她**亲手做一遍某种分析**的时候用它，见下。不用就留空。
 - card：一张她可以直接点的卡片，见下。不发卡就整个省略这个键，或者给 null。
+- 🚨 **reply 里要换行，就写成 \n（一个反斜杠加 n），不要在引号里直接回车。**
+  分段、写短列表的时候最容易漏：引号里出现一个真的换行，整个 JSON 就作废，
+  她这一轮什么也收不到。
 
 ## 段落工具：你手上的教具
 
@@ -196,6 +209,23 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 %LENS%
 
 规矩：
+- 🚨 **方法名照说，但说完要跟一句白话。**
+  「传播学」「科学方法论」这些名字她要学，所以照说；但一个名字后面不跟一句
+  「它就是看……」，那个名字对她就只是一个生词。实测她逐字报的：
+  「它让我用传播学的角度分析……我真的不懂这些词是什么意思，我只是个高中生。」
+  说法是：先给名字，再一句白话，然后当场拿这一段的某一句做一遍。
+- 🚨 **先问自己：这篇文章撑得住这副透镜吗？**
+  挑透镜要看**这一篇有没有那种东西**，不是看哪副听起来更深。
+  实测出过这么一次：一篇讲打仗和救援物资的新闻，你召了「科学方法论」那副，
+  一遍遍要她找「样本不够、测量有偏差」的句子 —— 那篇文章里根本没有做实验。
+  她连着说了三遍「这篇没有这种句子」，越说越烦，而她是对的。
+  **她说文章里没有这种句子的时候，先信她**：回去看一眼，真没有就换一副，
+  或者干脆不用透镜，直接往下走。不要让她为一个不存在的东西找第四遍。
+- 🚨 **格子名不要自己编。** 标注板的格子永远是那五个（主张/证据/限制/背景/对比），
+  由服务端填。你在话里说「按因果链分成原因和结果两格」「分成正方反方」之类的，
+  她屏幕上出现的仍然是那五个格子 —— 于是她照着你的话去找，找不到，就以为板没出来。
+  实测她逐字报的：「它让我把第2段那三句话重新分类拖进格子里（因果链），但我屏幕上
+  根本没有出现那个分类的板子和卡片。」说板的时候就说「把这几句各自放进它的角色里」。
 - **给 lens 就必须同时给 focusBlock**，而且是你 reply 里刚讲的那一段。
   没有落点的透镜等于没有——她自己去透镜库点也是一样的东西。
 - 一轮最多一副。屏幕上已经开着一副的时候，不要再给。
@@ -272,6 +302,21 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   ⚠️ 这一条和下面那条同时守，不冲突：5W1H 管的是**问题的形式**（问的是内容），
   「不能有唯一正解」管的是**答案的空间**（站得住的答法有很多种）。
   「作者是如何让你相信这笔账划算的？」两条都满足。
+- 🚨 **给板的那一轮，不要把答案说出来。**
+  「第一句是主张，第二句是证据，你摆一下」—— 这样一说，这块板就只剩搬运了。
+  走查里她逐字说过：「既然它都直接告诉我答案了我就照着搬吧……」「其实我不太
+  分得清主张和证据的区别，但上面都告诉我答案了。」
+  她分不清这几个角色是**正常的**（英语课上不讲论证成分），格子底下已经各有一句
+  白话给她照着判断。你要做的是把板递出去，然后闭嘴等她摆完 —— 她摆错的那一张，
+  正是下一轮你要讲的那件事。摆之前讲，你就没有东西可讲了。
+- 🚨 **题目就是那道题：不写怎么操作，也不写有几句。**
+  怎么拖、怎么点，卡片下面那行字一直在说；你再写一遍，出来的就是
+  「这三句各自在算账的哪一步？拖到角色各自里。」这种句子 —— 产品负责人
+  2026-09-12 逐字指过这一张。
+  **数目更不要写。** 你先写题目再写选项，而选项要逐字核对原文，对不上的会被
+  刷掉 —— 于是「这三句」剩下两句，她数得出来。用「下列句子」，不要用「这三句」。
+  书面一点，像一道真的分析题：**「分析下列句子，判断它们各自属于哪一类论证成分。」**
+  而不是「这三句各自在算账的哪一步？」
 - **问题要问她的判断，不能有唯一正解。**「哪一句你读着最不服气」可以，
   「哪一句是作者的结论」不行——两个都逼她把几句都读一遍，但后一个是考试。
   我们不考她，她自己的想法才是这里最值钱的东西。
@@ -336,6 +381,10 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
 - **不要紧接着再给一块板或者一张卡片**（card 留空）。她刚动完手，
   马上又被塞一件，等于这次动手没有被看见。
 - 不要把她摆的东西再复述一遍。她刚摆完，她记得。
+- 🚨 **不要再让她动那块板。** 她一交上来，那块板就从屏幕上收走了 ——
+  「把这句挪到主张旁边」「再拖一张过去」这类话，她照着做的时候会发现屏幕上
+  什么都没有（实测她逐字说：「屏幕上没有板、没有卡片，也没有可以拖拽的地方」）。
+  想让她再摆一次，就重新发一块**新的**板；否则就用说的。
 
 ## 三种特别的步骤
 
@@ -797,6 +846,36 @@ func buildReadingCoachPrompt(
 		b.WriteString("（还没聊过。）\n")
 	}
 
+	// 🚨 她屏幕上现在摆着的那张卡片/板，原样给它看。
+	//
+	// 模型只看得见自己说过的**话**，看不见随那句话发出去的 card —— 而那张卡有时
+	// 根本不是它写的（标注论证那一步由服务端兜底摆板，见
+	// reading_coach_board_build.go）。于是它会对着一块自己没见过的板提要求：
+	// 实测「把主张那张换成文章里某个人亲口说的话」，而板上四句全是叙述句，
+	// 一句引语都没有 —— 她照着做不到，当场卡死。
+	//
+	// 递出去的东西要让它知道，这和「没送到要告诉它」是同一条闭环的两半。
+	if card := lastOpenCard(tail); card != nil {
+		b.WriteString("\n【她屏幕上现在摆着这张卡片，你看不到，所以照着它说话】\n")
+		b.WriteString("类型：" + card.Type + "　问题：" + card.Prompt + "\n")
+		for i, o := range card.Options {
+			ord, ok := readingPickOrdinal(blocks, o.BlockID)
+			where := ""
+			if ok {
+				where = "（第" + itoaSmall(ord) + "段）"
+			}
+			b.WriteString("  " + itoaSmall(i+1) + ". " + where + "「" + o.Quote + "」\n")
+		}
+		for i, w := range card.Words {
+			b.WriteString("  " + itoaSmall(i+1) + ". " + w.Term + "\n")
+		}
+		if len(card.Labels) > 0 {
+			b.WriteString("格子：" + strings.Join(card.Labels, " / ") + "\n")
+		}
+		b.WriteString("🚨 **只能要求她用板上真有的东西。** 板上没有的句子、没有的词，" +
+			"不要让她去找 —— 她手上只有上面这几样。\n")
+	}
+
 	// 🚨 上一轮那张卡片没发出去的话，当面告诉它为什么。
 	//
 	// 它自己发现不了：写完就交出去了，下一轮的上文里只有它说过的话。线上实测
@@ -878,6 +957,21 @@ func buildReadingCoachPrompt(
 	return b.String()
 }
 
+// answeredBoard —— 这一轮她交上来的是不是一块摆完了的板。
+//
+// 只认两块板的类型，且作答非空。她在输入框里打一句「我摆好了」不算：
+// 这条判据的全部价值就在于它认的是**动作**，不是一句声明。
+func answeredBoard(a *coachCardAnswer) bool {
+	if a == nil || strings.TrimSpace(a.Choice) == "" {
+		return false
+	}
+	switch strings.TrimSpace(a.Type) {
+	case coachCardLabelRoles, coachCardWordBank:
+		return true
+	}
+	return false
+}
+
 // dropReason —— 这一轮有什么东西没送到她屏幕上。卡片优先（它更具体）；
 // 卡片没问题的时候，透镜那条也要说。
 func (r readingCoachReply) dropReason() cardReject {
@@ -888,6 +982,82 @@ func (r readingCoachReply) dropReason() cardReject {
 		return cardReject(r.lensWhy)
 	}
 	return cardOK
+}
+
+// spokenParagraph —— 这句回复里提到的**最后一个**段号，换成段 id。
+//
+// 「第 5 段」是 印记 对她唯一的坐标说法（prompt 里明令不许说 b1/b2）。一句话里
+// 提到好几段时取最后一个：「第 2 段说了封锁，现在我们看第 5 段」—— 她要去的是
+// 第 5 段。段号不存在（它数错了）就当没说。
+func spokenParagraph(reply string, blocks []Block) string {
+	re := regexp.MustCompile(`第\s*([0-9]{1,2}|[一二三四五六七八九十]{1,3})\s*段`)
+	all := re.FindAllStringSubmatch(reply, -1)
+	for i := len(all) - 1; i >= 0; i-- {
+		n := parseChineseOrdinal(all[i][1])
+		if n >= 1 && n <= len(blocks) {
+			return blocks[n-1].ID
+		}
+	}
+	return ""
+}
+
+// parseChineseOrdinal —— 「5」或者「五」变成 5。超出两位就不认了（段号不会那么大）。
+func parseChineseOrdinal(s string) int {
+	if n, err := strconv.Atoi(s); err == nil {
+		return n
+	}
+	digits := map[rune]int{'一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+		'六': 6, '七': 7, '八': 8, '九': 9}
+	r := []rune(s)
+	switch {
+	case len(r) == 1 && r[0] == '十':
+		return 10
+	case len(r) == 1:
+		return digits[r[0]]
+	case len(r) == 2 && r[0] == '十': // 十一 … 十九
+		return 10 + digits[r[1]]
+	case len(r) == 2 && r[1] == '十': // 二十 … 九十
+		return digits[r[0]] * 10
+	case len(r) == 3 && r[1] == '十': // 二十一 …
+		return digits[r[0]]*10 + digits[r[2]]
+	}
+	return 0
+}
+
+// lastOpenCard —— 她屏幕上现在摆着的那张卡片（最后一条 印记 的话带的那张），
+// 她还没答的时候。答过了就不必再给模型看：那一轮的作答本来就在转写里。
+func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role == "student" {
+			// 她在这张卡之后说过话 —— 那就是答过了（或者这一轮不是卡片轮）。
+			if coachAnswerFromPayload(m.Payload) != nil {
+				return nil
+			}
+			continue
+		}
+		if m.Role != "ai" || len(m.Payload) == 0 {
+			continue
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(m.Payload, &p); err != nil {
+			return nil
+		}
+		return p.Card
+	}
+	return nil
+}
+
+// coachAnswerFromPayload —— 这条学生消息里有没有一次卡片作答。
+func coachAnswerFromPayload(raw []byte) *coachCardAnswer {
+	if len(raw) == 0 {
+		return nil
+	}
+	var p coachMessagePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil
+	}
+	return p.Answer
 }
 
 // lastDroppedCard —— 最后一条 印记 说的话里，那张卡片是不是被丢掉了；是的话
@@ -971,6 +1141,14 @@ type readingCoachReply struct {
 	cardWhy cardReject
 	// lensWhy 同理：这一轮那副透镜为什么没落到文章上。
 	lensWhy string
+	// askedPrompt：这一轮它本来想问的那道题（哪怕那张卡后来被丢掉了）。
+	// 兜底发卡时用它，这样她看到的仍然是 印记 问的那句话，不是我们编的。
+	askedPrompt string
+	// lensRetry：透镜递出去了，但这一轮的话配不上它 —— 没有当着她的面做一遍，
+	// 或者话里说的是另一件她此刻做不了的事（板）。
+	// 和上面两个不一样：它不导致任何东西被丢掉，只让这一轮重来一次。
+	lensRetry    bool
+	lensRetryWhy string
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -994,6 +1172,20 @@ func tailRunes(s string, n int) string {
 		return s
 	}
 	return "…" + string(r[len(r)-n:])
+}
+
+// headRunes returns the first n runes of s, for the same reason tailRunes
+// returns the last ones.
+//
+// 🚨 两头都要。一份读不出来的回复，只看尾巴分不出「前几块是好的、坏在最后一
+// 块」和「第一块就坏了」——而这两种的处置完全相反：前者该查救援那条路，
+// 后者该查提示词。2026-09-11 线上那一条只有尾巴，两种猜都成立。
+func headRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }
 
 // salvageCoachReply reads a coach reply key by key and keeps every field that
@@ -1096,10 +1288,10 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 		c = c[:j+1]
 	}
 	var got readingCoachReply
-	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
+	if err := json.Unmarshal([]byte(escapeRawControlInStrings(strings.TrimSpace(c))), &got); err != nil {
 		// 🚨 断在半路的回复，把已经到齐的那部分留下来。见 salvageCoachReply。
 		var ok bool
-		if got, ok = salvageCoachReply(whole); !ok {
+		if got, ok = salvageCoachReply(escapeRawControlInStrings(whole)); !ok {
 			// 🚨 最后一种：它压根没在写 JSON，直接说了人话。
 			//
 			// 2026-09-10 的模拟学生走查抓到的，日志里逐字记着：256 个字符、
@@ -1170,6 +1362,10 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if got.Card != nil {
 		cardType = got.Card.Type
 		cardPrompt = tailRunes(got.Card.Prompt, 60)
+		// 🚨 校验会把这张卡整个丢掉，而**她的那道题是好的** —— 坏的是选项
+		// （引文对不上原文、或者全来自同一段）。留住那句问题，兜底的时候还给她：
+		// 见 fallbackCardFor。
+		got.askedPrompt = strings.TrimSpace(got.Card.Prompt)
 	}
 	// A card whose options are not literally in the article is the one failure
 	// she could never detect herself — the whole reason to build the card is
@@ -1183,8 +1379,86 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 🚨 说了「点这张卡」却没给卡：对她来说和「卡片被丢掉」长得一模一样 ——
 	// 屏幕上一句指着空气的话。区别只在日志里干净得可怕（没有东西被丢掉，
 	// 是根本没有东西），所以这一条必须自己抓。
-	if got.Card == nil && replyPromisesACard(got.Reply) {
+	//
+	// 🚨 只在**它压根没给卡**的时候判这一条。给了卡但卡被上面那道校验刷掉，
+	// 真正的原因是那一条（句子不在原文里、选项只来自一段、问法被禁……），
+	// 在这里改写成「你提了卡却没给」就把真原因盖掉了 —— 日志和喂回去的
+	// 修正话术会一起说错，而喂错了它下一轮只会照着错的方向改。
+	// 实测那一幕：日志写着「提了卡片却没附」，同一行里却印着那张卡的 type
+	// 和 prompt；她那一步什么都没等到，屏幕上只有一句指着空气的话。
+	if got.Card == nil && got.cardWhy == cardRejectNoCard && replyPromisesACard(got.Reply) {
 		got.cardWhy = cardRejectPromised
+	}
+	// 🚨 断在半句上的回复也算这一轮坏了。她读到的是半截话，不知道该干嘛。
+	// 只在没卡片也没透镜的时候判 —— 带着卡片时用冒号收尾是正常写法。
+	//
+	// 🚨 这里原来写的是 `got.cardWhy == cardOK`，而**没有卡片的那一轮 cardWhy 是
+	// cardRejectNoCard**（见 validateCoachCardWhy）—— 于是这道闸只对「带着卡片的
+	// 回复」生效，而它的条件里又要求 Card == nil。两个条件永远不会同时成立，
+	// 这道闸从写下来那天起一次都没响过。
+	//
+	// 线上逐字证据（atom 609f3910，2026-09-11）：seq 3 是
+	// 「对，调查数据是一个方向。**但」，payload 里 dropped 是空的 —— 没有任何
+	// 东西被判失败，她只能自己打一个「?」去问。产品负责人报的第 1 条就是它。
+	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
+		got.Card == nil && got.Lens == "" && replyLooksCutOff(got.Reply) {
+		got.cardWhy = cardRejectCutOff
+	}
+	// 🚨 递透镜的那一轮，话里必须当着她的面把这套看法做一遍 —— 拿原文的一句。
+	//
+	// prompt 里早就写着「先在 reply 里挑出这一段里的某一句，当着她的面把这种
+	// 分析做一遍」，但没有任何东西验它。实测她逐字报的：
+	//   「它一直让我用一副『透镜』去拆句子，但从来没给我看过这副透镜是什么、
+	//     怎么用。前面说要先演示一遍给我看，结果什么都没有。」
+	//   「它让我用传播学的角度分析……我真的不懂这些词是什么意思，我只是个高中生。」
+	// 方法名照说（[[yinji-must-talk-like-a-teacher]]：要用真的方法名），
+	// 但光有名字没有示范，那个名字对她就是一个生词。
+	//
+	// 判据是能验的那一个：**这一轮的话里有没有一段逐字来自落点段的原文**。
+	// 示范一定引原句，空谈一定不引。
+	//
+	// 🚨 这一条**不丢透镜**。丢了她就只剩那几个生词而没有工具，比教得薄更糟。
+	// 走的是重来一次那条路：第二次带上示范就用第二次，仍然没有就照常把透镜给她。
+	if got.Lens != "" && got.lensWhy == "" && !replyQuotesBlock(got.Reply, blocks, got.FocusBlock) {
+		got.lensRetry = true
+		got.lensRetryWhy = "the lens turn never demonstrates the method on a real sentence"
+	}
+	// 🚨 一轮里递了透镜，话里却在说板 —— 她照着话去做，做不成。
+	//
+	// 铁律③ 一次只交给她一件事：透镜在的时候卡片会被丢掉（cardRejectLensWon），
+	// 于是「把这句挪到证据那个格子里」这句话指向的东西根本不存在。实测她逐字
+	// 报的：「它让我把句子挪到『证据』那个格子里，但我现在看不到任何可以拖拽的
+	// 板子或卡片，只有文本框。」
+	// 递哪件，话就只说哪件。这一轮重来一次。
+	if got.Lens != "" && got.lensWhy == "" && replyPromisesACard(got.Reply) {
+		got.lensRetry = true
+		got.lensRetryWhy = "the turn gives a lens but the words describe a board"
+	}
+	// 🚨 递透镜的那一轮，话不要以一个问句收尾。
+	//
+	// 透镜自己就是那句「请她做什么」：她要去文章里点一句。话里再抛一个问题，
+	// 屏幕上就有了两件事，而它们要的动作不一样 —— 一个要她点句子，一个要她
+	// 打字。实测她逐字报的：
+	//   「它让我用『经济学透镜』在第12段里找一句，看哪个成本被漏掉了。但它又说
+	//     『这一步要在文章里做』，我不知道到底是要我从第12段 pick 一句英文，
+	//     还是在下面那个框里用中文写答案。」
+	// 示范照做（上面那条），收尾用陈述句把手交给她。
+	if got.Lens != "" && got.lensWhy == "" && !got.lensRetry && replyEndsOnAQuestion(got.Reply) {
+		got.lensRetry = true
+		got.lensRetryWhy = "the lens turn ends on a question, which asks her to type instead of pick"
+	}
+	// 🚨 讲完就停、什么也没请她做的那一轮，也算这一轮坏了。
+	// 她屏幕上只剩一句讲完的话和一个灰着的发送键，而她不知道该等还是该点。
+	//
+	// 🚨 推进了一步**不算**给了她事做。第一版在这里加了 Advance == ""，于是
+	// 「你选得准，我们进到下一段」这种一句话的收尾照样溜过去 —— 而下一步要她
+	// 先开口，她手上却没有任何东西可说。实测她逐字报的：「它说我选得准、推进到
+	// 下一段了，但是下面没有任何新题目或者按钮让我继续，发送也按不动。」
+	// 推进和交给她一件事，是这一轮要同时做的两件事。
+	if (got.cardWhy == cardOK || got.cardWhy == cardRejectNoCard) &&
+		got.Card == nil && got.Lens == "" &&
+		(!replyAsksForSomething(got.Reply) || replyOnlyAsksHerToRead(got.Reply)) {
+		got.cardWhy = cardRejectDeadTurn
 	}
 	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
 		slog.Info("reading coach: card dropped", "why", string(got.cardWhy),
@@ -1444,6 +1718,61 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+	// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
+	//
+	// 她摆完的结果原样在转写里（「限制：」加上那一句），所以这是它没读，不是
+	// 我们没给。实测她逐字报的：「它让我把发电机那句拖到限制格，但那句已经在
+	// 限制格里了……屏幕上显示的摆放和它文字描述的矛盾了，我没法确定该怎么挪。」
+	//
+	// 判据要同时满足三件事，才不会误伤一句正常的肯定
+	// （「你把发电机那句放进限制，这个判断很准」是对的，不能拦）：
+	// 话里有一个「挪」的动词 + 提到了那一句 + 点了那一格的名字。
+	if okParse && replyAsksForANoOpMove(parsed.Reply, lastBoardPlacement(msgs)) {
+		parsed.lensRetry = true
+		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
+	}
+	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
+	// 再问一次。
+	//
+	// 这是模拟学生走查里唯一一个反复挡住整条链子的东西：印记 在话里说
+	// 「现在给你一张卡片」「用一张卡片收」，JSON 里却没有 card，她屏幕上什么都
+	// 没有 —— 于是她在那儿找卡片，找不到就 stuck。四条走查死在这上面。
+	//
+	// 把理由喂给下一轮是对的，但**救不了这一轮**：她这一轮看到的仍然是一句指着
+	// 空气的话，而她往往就在这一轮放弃了。所以在把它交给她之前先重来一次。
+	//
+	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
+	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
+	// 🚨 被校验刷掉的卡片也要立刻重来一次，不只是「说了卡却没给」那一种。
+	//
+	// 把理由留给下一轮，救不了这一轮：她这一轮看到的是 印记 说「我给你一张卡」
+	// 而屏幕上什么都没有。线上逐字证据（atom 609f3910，2026-09-11）：seq 36
+	// 的卡因为选项全来自同一段被丢掉，seq 42 的卡因为引文对不上被丢掉 ——
+	// 中间 印记 连着两轮道歉「卡没送到你手里」，她连着两轮回「没有卡啊」。
+	// 产品负责人报的第 5 条就是这两轮。
+	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
+		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry ||
+		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
+		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm) {
+		why := string(parsed.cardWhy)
+		if parsed.lensRetry {
+			why = parsed.lensRetryWhy
+		}
+		slog.Warn("reading coach: reply looks broken, retrying once",
+			"why", why,
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		if retryRes, retryErr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq); retryErr == nil {
+			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, retryRes.Usage)
+			// 只在第二次**确实更好**的时候采用它：解析得动，而且不再是一句空话。
+			// 否则留着第一次那份 —— 它至少是完整的一句话。
+			// 第二次只在**它确实更好**的时候采用：解析得动，而且没有被判失败。
+			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
+				!again.lensRetry &&
+				(again.cardWhy == cardOK || again.cardWhy == cardRejectNoCard) {
+				res, parsed = retryRes, again
+			}
+		}
+	}
 	if !okParse {
 		// 🚨 ASK ONCE MORE. Measured 2026-09-04 against the live model
 		// (TestLiveLensDoneReplyParses, 6 samples): **1 in 6 replies arrives
@@ -1534,6 +1863,71 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		seq++
 	}
+	// 🚨 走到「标注论证」这一步而模型没给板 —— 服务端自己摆一块。
+	//
+	// 这一步的**全部内容**就是那块板。而实测下来模型一遍遍在话里说「把这三句
+	// 拖到格子里」却不附 card：十条走查里这是唯一反复挡住整条链子的东西。
+	// 检测、重试、把理由喂回去，都只是降低概率，她还是会撞上「屏幕上根本没有板」。
+	//
+	// 这一步不需要模型来决定「有没有板」：读法库已经规定了它是标注论证
+	// （reading_routines.go：步骤由 routine 拥有）。挑哪几句仍然优先用它的判断，
+	// 它没给才用确定性的规则兜底 —— 和排读法那条链子是同一个分工。
+	//
+	// 🚨 兜底出来的那块板照样送进 validateCoachCard：它不是一条绕过校验的后门，
+	// 句子逐字来自正文，本来就过得了。
+	// 🚨 两种情况都要摆板：走到标注论证那一步，**或者**它嘴上说了板却没附。
+	//
+	// 后一种是实测反复出现的那一幕：她刚把板交上去（板随即从屏幕上收走），
+	// 印记 接着说「把这句挪到主张旁边」「再拖一张过去」，她照着做时屏幕上什么
+	// 都没有。prompt 里写了「想让她再摆一次就重新发一块新的板」，它不照做。
+	// 写了两版规矩都不管用之后，改成：它说了，我们就真的给她一块。
+	if cur := currentReadingTask(tasks); cur != nil && parsed.Card == nil && parsed.Lens == "" &&
+		(cur.Kind == string(taskLabel) || replyPromisesACard(parsed.Reply)) {
+		focus := parsed.FocusBlock
+		if focus == "" {
+			focus = cur.BlockID
+		}
+		// 🚨 它嘴上说的那一段才是她正在看的那一段。
+		//
+		// focusBlock 和这一步自带的 BlockID 经常都是空的，兜底就从第 1 段取句子
+		// —— 而 印记 那句话说的是「我们来摆第 5 段的这几句」。实测她逐字报的：
+		// 「它说让我摆第5段的句子，但板上给的卡片全是第1段的。」
+		//
+		// 它对她只会说「第几段」（prompt 里明令不许说 b1/b2），所以从回复里把那个
+		// 段号读回来，比任何字段都准。
+		if spoken := spokenParagraph(parsed.Reply, blocks); spoken != "" {
+			focus = spoken
+		}
+		if built := validateCoachCard(buildLabelBoardFromReply(blocks, focus, parsed.Reply), blocks); built != nil {
+			slog.Info("reading coach: label step had no board, built one",
+				"atom_id", at.ID, "options", len(built.Options))
+			parsed.Card = built
+			parsed.cardWhy = cardOK
+		}
+	}
+
+	// 🚨 最后一道兜底：**它说了有卡，她屏幕上就必须有卡。**
+	//
+	// 产品负责人 2026-09-12 定的那条线：「不应该让用户有 bug 的感觉。要么不满足
+	// 自己不调用，要么就是有兜底策略。」
+	//
+	// 到这里为止，一张卡可能已经被驳回两次（一次原始、一次重试），上面那块板也
+	// 可能没摆成（不是标注那一步、或者这篇文章挑不出句子）。再往下走，她看到的
+	// 就是 印记 说「我给你一张卡」而屏幕上什么都没有 —— 那正是她逐字说过的
+	// 「没有卡啊」。
+	//
+	// pick_in_article 是唯一**不可能被驳回**的形状：它没有 options，也就没有
+	// 「引文对不上原文」可言，只有一句问题加一次「你到文章里点一句」。
+	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
+	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
+	// 的时候才用那句中性的。
+	if parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
+		parsed.Card = fallbackCardFor(parsed.askedPrompt)
+		parsed.cardWhy = cardOK
+		slog.Info("reading coach: promised a card and had none, fell back to pick_in_article",
+			"atom_id", at.ID, "kept_prompt", parsed.askedPrompt != "")
+	}
+
 	// The card rides on the AI message's payload (0106), inside the same
 	// transaction as the words it came with — so a refresh can never show her
 	// the reply without the card it was written around.
@@ -1541,7 +1935,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: parsed.Reply,
 		// 卡片没发出去的时候，理由也一起存 —— 下一轮当面告诉它。见
 		// coachMessagePayload.Dropped。
-		Payload: coachCardPayloadWithDrop(parsed.Card, parsed.dropReason()),
+		// 🚨 两次都断的时候，这条半句话仍然会交给她（不编、不改写它的话）——
+		// 但要让界面说出「这条没说完」。产品负责人 2026-09-12：
+		// 「sometimes the AI response interrupts mid-stream without any notice」。
+		Payload: coachCardPayloadFull(parsed.Card, parsed.dropReason(),
+			replyLooksCutOff(parsed.Reply)),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -1556,6 +1954,60 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// whole point of that ruling.
 		if current.Kind == string(taskHunt) && advance == "done" && !hasHuntPickEvidence(picks, msgs, blocks) {
 			advance = ""
+		}
+		// 🚨 她把标注板摆完了，这一步就是做完了 —— 不由模型决定。
+		//
+		// 和上面那条 hunt 是同一件事的另一半：hunt 那条防的是「模型被说服了就
+		// 推进」，这条防的是「她真的做完了，模型却不推进」。
+		//
+		// 实测（2026-09-11 模拟学生走查）：她把三张卡片全摆进格子、提交，印记
+		// 回了一段很好的点评（「这三张贴得很干净……」），然后 advance 给了空 ——
+		// 这一步永远停在那儿。130 步只走完 8 步里的 3 步，卡的就是这里。
+		// prompt 里那一节明写着「这一步已经用这块板做完了，advance 给 done」，
+		// 而它不照做，所以改由代码兜底
+		// （[[prompt-output-must-be-verifiable-2026-09-03]]）。
+		//
+		// 这不是替她判对错：板上本来就没有对错，摆完这个动作本身就是这一步的
+		// 产出，和 hunt 要求「真的点一句」是同一种判据。
+		if current.Kind == string(taskLabel) && advance == "" && answeredBoard(req.CardAnswer) {
+			advance = "done"
+		}
+		// 🚨 一步耗满六轮，我们替她往下走。
+		//
+		// 实测下来模型**极少主动推进**：一条 150 步的走查里，八步只走完两步，
+		// 每一步都在「再找一句」「再说说看」之间来回。卡住提示（第 3 轮）给过
+		// 之后再等三轮，还不动就是不会动了 —— 这正是通读那一步变成审问的那个
+		// 形状，只是换了一步。
+		//
+		// 往下走**不等于**判她做完了：她在这一步里说过的每一句话都在转写里，
+		// 过程评估读的是那个（铁律④）。把她钉在原地才是真的丢东西 ——
+		// 她会直接关掉页面。
+		//
+		// hunt 那一步不在此列：它要的是「真的在文章里点一句」，而那个证据
+		// 上面已经单独判过了，替她推进会把这一步唯一的保证也抹掉。
+		if advance == "" && current.Kind != string(taskHunt) && coachStepStalled(tasks, msgs) {
+			// 🚨 透镜那一步耗满了，先把敞开的透镜撤掉再往下走。
+			//
+			// 不撤的话她根本走不掉：透镜开着时这一栏是锁住的，而「往下走」只改了
+			// 任务状态，屏幕上那副透镜还在，她还是只能对着它。
+			//
+			// 实测那一幕：印记 在一篇打仗救援的新闻上召了「科学方法论」的透镜，
+			// 一遍遍要她找「样本不够、测量有偏差」的句子。她连着说了三遍
+			// 「这篇根本没有做实验」，越说越烦 —— 而那样的句子确实不存在。
+			// 一副套不上这篇文章的透镜，硬耗下去只会把她耗走。
+			if current.Kind == string(taskLens) {
+				for _, c := range cardRows {
+					if c.Status == "proposed" || c.Status == "active" {
+						if _, err := qtx.UpdateAtomCardStatus(turnCtx, sqlc.UpdateAtomCardStatusParams{ID: c.ID, Status: "skipped"}); err != nil {
+							slog.Warn("reading coach: could not retire the stalled lens",
+								"err", err, "atom_id", at.ID)
+						}
+					}
+				}
+			}
+			slog.Info("reading coach: step stalled, advancing for her",
+				"atom_id", at.ID, "kind", current.Kind)
+			advance = "done"
 		}
 		if advance != "" {
 			if _, err := qtx.SetReadingTaskStatus(turnCtx, sqlc.SetReadingTaskStatusParams{
@@ -1643,4 +2095,211 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		resp["coachCard"] = parsed.Card
 	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+
+// replyQuotesBlock —— 这一轮的话里，有没有一段逐字来自那一段的原文。
+//
+// 用来判「它是真的做了一遍示范，还是只说了这套看法的名字」。示范一定引原句
+// （prompt 要求挑出那一段里的某一句当着她的面分析），空谈一定不引。
+//
+// 窗口沿用 replyMentionsSentence 那一套：中文八个字、英文二十个字母。
+func replyQuotesBlock(reply string, blocks []Block, blockID string) bool {
+	if reply == "" || blockID == "" {
+		return false
+	}
+	for _, b := range blocks {
+		if b.ID != blockID {
+			continue
+		}
+		for _, sent := range splitSentences(b.Text) {
+			if replyMentionsSentence(reply, sent) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// replyEndsOnAQuestion —— 这句话是不是以一个问句收尾。
+//
+// 只看**最后一句**：中间出现问号是正常的（「这句在问什么？它在说成本」这种
+// 自问自答是讲解的一部分），收尾那句才决定她接下来伸手去做什么。
+func replyEndsOnAQuestion(reply string) bool {
+	r := []rune(strings.TrimSpace(reply))
+	if len(r) == 0 {
+		return false
+	}
+	// 收尾的引号、括号不算数，往回找到真正的最后一个字。
+	for len(r) > 0 && strings.ContainsRune("」』）)\"'“”", r[len(r)-1]) {
+		r = r[:len(r)-1]
+	}
+	if len(r) == 0 {
+		return false
+	}
+	return r[len(r)-1] == '？' || r[len(r)-1] == '?'
+}
+
+// lastBoardPlacement —— 她最近一次摆完的板：每一句现在在哪一格。
+//
+// 读的是她那条消息里那份原样的作答（composeBoardAnswer 写的格式）：
+// 一行「格子名：」，下一行是那句原文。
+func lastBoardPlacement(msgs []sqlc.AtomMessage) map[string]string {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role != "student" {
+			continue
+		}
+		ans := coachAnswerFromPayload(m.Payload)
+		if ans == nil || ans.Type != coachCardLabelRoles {
+			continue
+		}
+		out := map[string]string{}
+		lines := strings.Split(ans.Choice, "\n")
+		for j := 0; j+1 < len(lines); j++ {
+			bin := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(lines[j]), "："))
+			if !isRoleLabel(bin) {
+				continue
+			}
+			if sent := strings.TrimSpace(lines[j+1]); sent != "" {
+				out[sent] = bin
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// coachMoveVerbs —— 「把它挪过去」的说法。
+var coachMoveVerbs = []string{"拖到", "拖进", "挪到", "挪进", "移到", "移进", "放进", "放到", "改放", "换到"}
+
+// replyAsksForANoOpMove —— 这句话是不是在让她把一张卡挪到它已经在的那一格。
+func replyAsksForANoOpMove(reply string, placed map[string]string) bool {
+	if reply == "" || len(placed) == 0 {
+		return false
+	}
+	moves := false
+	for _, v := range coachMoveVerbs {
+		if strings.Contains(reply, v) {
+			moves = true
+			break
+		}
+	}
+	if !moves {
+		return false
+	}
+	for sent, bin := range placed {
+		if strings.Contains(reply, bin) && replyMentionsSentence(reply, sent) {
+			return true
+		}
+	}
+	return false
+}
+
+// replyOnlyAsksHerToRead —— 这一轮的全部内容是「你先把全文读一遍」。
+//
+// 🚨 「请通读一遍全文」是一句**祈使句**，所以 replyAsksForSomething 认它是
+// 「请她做事了」—— 但读文章这件事**在屏幕上交不出来**：没有卡片可点、没有句子
+// 可划，她读完之后手里什么都没有，只能干等。实测她连着四轮说的是同一句：
+//
+//	「它说『先通读一遍全文』，但我读完了不知道接下来要干嘛，没有下一步的按钮。」
+//
+// 第五轮她放弃了。
+//
+// prompt 里早就写着「不要以『先通读全文，读完告诉我』收尾」，它照样这么收尾 ——
+// 按 [[prompt-twice-then-make-it-checkable-2026-09-12]]，写第三遍不如做成判据。
+//
+// 只在**没有卡片也没有透镜**的时候判：带着卡片说「先通读一遍再点」是正常的，
+// 那一轮她手上有东西。
+func replyOnlyAsksHerToRead(reply string) bool {
+	read := false
+	for _, w := range []string{"通读", "读一遍", "全文读", "读完全文", "先读一下全文"} {
+		if strings.Contains(reply, w) {
+			read = true
+			break
+		}
+	}
+	if !read {
+		return false
+	}
+	// 它在同一轮里还请她做了别的（划一句、写一句、挑一个）—— 那就有落点。
+	for _, w := range []string{"划", "挑一", "选一", "找出", "标出", "圈出", "写下", "写一"} {
+		if strings.Contains(reply, w) {
+			return false
+		}
+	}
+	return true
+}
+
+// fallbackCardFor —— 它说了有卡、而那张卡没能发出去时，兜底的那一张。
+//
+// 🚨 只可能是 pick_in_article：五种卡片里只有它**没有 options**，因此不存在
+// 「引文和原文对不上」这种驳回理由 —— 它一定发得出去。这正是兜底需要的性质。
+//
+// 问题优先用 印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
+// 本身是好的）。它连题都没写才用中性的那句。
+func fallbackCardFor(asked string) *coachCard {
+	prompt := strings.TrimSpace(asked)
+	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
+		prompt = "请在文章里点出你想说的那一句。"
+	}
+	return &coachCard{Type: coachCardPickInArticle, Prompt: prompt}
+}
+
+// escapeRawControlInStrings 把 JSON 字符串值里没转义的控制字符（换行、回车、
+// 制表符等）改写成合法的转义序列；字符串外面的内容一律不动。
+//
+// 🚨 2026-09-14 的 coachwalk 走查录到：模型在 reply 里分了两段，换行直接写进了
+// 字符串值 ——
+//
+//	{"reply":"第 6 段最后一句是：「……」⏎⏎这句话是整篇里最要紧的一处。…
+//
+// 严格的 JSON 不允许这样，json.Unmarshal 和 salvageCoachReply 用的 Decoder 都拒收，
+// 调用点只能再问一次，两次都这样就回 502。而这份回复本身是完整、可用的。
+// system prompt 要她分段、写短列表，原来却没说字符串里的换行要写成 \n ——
+// 所以这是 prompt 在要求一种 JSON 装不下的输出。prompt 已补上这一句；
+// 这里是那句话没被遵守时的保证。
+//
+// 字符串外面的换行是合法空白（缩进过的 JSON 里到处都是），必须原样保留。
+// 只处理控制字符：字符串里没转义的直双引号无法从外部判断，不在这里修。
+func escapeRawControlInStrings(s string) string {
+	const hex = "0123456789abcdef"
+	var b strings.Builder
+	b.Grow(len(s) + 16)
+	inStr, esc := false, false
+	for _, r := range s {
+		if !inStr {
+			if r == '"' {
+				inStr = true
+			}
+			b.WriteRune(r)
+			continue
+		}
+		if esc {
+			esc = false
+			b.WriteRune(r)
+			continue
+		}
+		switch {
+		case r == '\\':
+			esc = true
+			b.WriteRune(r)
+		case r == '"':
+			inStr = false
+			b.WriteRune(r)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r < 0x20:
+			b.WriteString(`\u00`)
+			b.WriteByte(hex[r>>4])
+			b.WriteByte(hex[r&0xf])
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

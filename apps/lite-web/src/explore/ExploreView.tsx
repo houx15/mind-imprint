@@ -126,15 +126,6 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
           <p className="mt-1 text-mk-h2 text-[#F5EFE7]">
             {live.day ? formatDay(live.day) : "今天"}
           </p>
-          <p className="mt-1.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
-            {/* 只在真的有线的时候才说有线。一句说明配一张没有线的图，比不写
-                这句更糟。 */}
-            {threads.length > 0
-              ? "五条今天值得知道的事。外圈是你树上的词，连线是它们和今天这五条的关系。"
-              : stars.length > 0
-                ? "五条今天值得知道的事。外圈是你树上的词。"
-                : "五条今天值得知道的事。把光标移上去，它会先问你一个问题。"}
-          </p>
         </div>
 
         <div className="flex items-center gap-3">

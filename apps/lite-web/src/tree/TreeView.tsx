@@ -28,25 +28,35 @@ import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
 
 /**
- * 我的兴趣树 · the keyword model, as a lit structure on a dark ground.
+ * 我的兴趣树 · the keyword model, drawn on the same paper as the rest of lite.
  *
- * ## The visual ruling, third pass (2026-08-31)
- * v1 was a literal cartoon tree (brown trunk, green candy pills). v2 replaced
- * it with a technical diagram on paper — correct, and cold. v3 keeps v2's
- * geometry and moves it onto its own night: **the structure GLOWS and the
- * keywords are translucent beads of light hanging on it.**
+ * ## The visual ruling, fourth pass (2026-09-12)
+ * v1 was a literal cartoon tree (brown trunk, green candy pills). v2 was a
+ * technical diagram on paper — correct, and cold. v3 kept v2's geometry and
+ * moved it onto its own night, which worked on its own terms but made this
+ * the one screen in lite that is not the product's paper: every other page is
+ * `--mk-paper` + white cards + the 朱砂 nav rail, and a student coming from
+ * the reading room landed on what looked like a different app. v4 keeps every
+ * line of v3's geometry and puts it back on that paper.
  *
- * Why it is still an SVG rather than a generated illustration: every bead is
+ * **What v4 changes is the instrument, not the drawing: 发光 becomes 落墨.**
+ * Branches are deeper, more saturated strokes of the same hue (the second set
+ * in `branchHues.css` — the night values are near-invisible on #FBF8F4), the
+ * bloom narrows to a thin bleed, and a keyword label is a white card with a
+ * hairline border, the same card language as everywhere else. Colours all come
+ * from the `--tree-*` block at the top of `tree.css`; nothing here should hold
+ * a hex.
+ *
+ * Why it is still an SVG rather than a generated illustration: every leaf is
  * placed by `pointOnBranch()` on the exact Bézier the SVG draws. A painted
- * tree has branches the maths knows nothing about, so the beads would float
+ * tree has branches the maths knows nothing about, so the leaves would float
  * beside twigs instead of hanging on them, and the whole claim — *this
  * picture IS your model* — would quietly become decoration. The picture has
- * to be the data structure. So the glow is built, not imported: luminous
- * gradient strokes, an SVG bloom filter, secondary twigs for density, and
- * motes of light rising through the canopy.
+ * to be the data structure.
  *
  * The 世界 map and this share one instrument in two directions: out there,
- * orbit rings around a sun; in here, growth rings around an origin.
+ * orbit rings around a sun; in here, growth rings around an origin. The map
+ * stays a night — it is the sky, and it is the half she has NOT walked.
  *
  * ## What the tree claims, and how it earns it
  * *This is a model of you, built from what you actually did.* Two things make
@@ -127,11 +137,11 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
     <div className="tree-grove tree-motes relative min-h-full">
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
-          <Sys tone="dark">我的兴趣树 · INTEREST TREE</Sys>
-          <h1 className="mt-1 text-mk-h1 text-[#F5EFE7]">
+          <Sys>我的兴趣树 · INTEREST TREE</Sys>
+          <h1 className="mt-1 text-mk-h1 text-mk-ink">
             {user.display_name}
             {user.classes[0] ? (
-              <span className="ml-2 text-mk-body font-normal text-[#9A8E80]">
+              <span className="ml-2 text-mk-body font-normal text-mk-muted">
                 {user.classes[0].name}
               </span>
             ) : null}
@@ -161,7 +171,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                       <span
                         className="h-2 w-2 transition-all duration-[200ms] ease-mk"
                         style={{
-                          background: active ? "var(--mk-accent-400)" : "rgba(240,233,224,.32)",
+                          background: active ? "var(--mk-accent-500)" : "var(--tree-ink-4)",
                           transform: active ? "rotate(45deg) scale(1.5)" : "rotate(45deg)",
                           boxShadow: active ? "0 0 12px var(--mk-accent-400)" : "none",
                         }}
@@ -169,7 +179,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                       <span
                         className={cx(
                           "whitespace-nowrap text-mk-small transition-colors duration-[160ms]",
-                          active ? "font-semibold text-[#F5EFE7]" : "text-[#8E8175]",
+                          active ? "font-semibold text-mk-ink" : "text-mk-muted",
                         )}
                       >
                         {st.label}
@@ -178,13 +188,13 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                     {i < liveStops.length - 1 ? (
                       <span
                         className="mb-5 h-px w-6 shrink-0"
-                        style={{ background: "rgba(240,233,224,.18)" }}
+                        style={{ background: "var(--tree-line-strong)" }}
                       />
                     ) : null}
                   </div>
                 );
               })}
-              <span className="mb-5 ml-3 text-mk-small text-[#8E8175]">
+              <span className="mb-5 ml-3 text-mk-small text-mk-muted">
                 {atStop === lastStop ? `${total} 个关键词` : `那时候 ${total} 个`}
               </span>
             </div>
@@ -192,7 +202,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             // 只在真的读到了「她还没有词」时才说这句。读取失败时说「你的树刚
             // 开始长」，是在替她断言一件我们并不知道的事。
             known && (
-              <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-[#8E8175]">
+              <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-mk-muted">
                 你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
               </p>
             )
@@ -207,35 +217,33 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
               type="button"
               onClick={openQuiz}
               className="rounded-full border px-3.5 py-1.5 text-mk-small transition-colors duration-[120ms]
-                         hover:bg-[rgba(240,233,224,.1)] focus-visible:outline-none
-                         focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-              style={{ borderColor: "rgba(85,230,255,.42)", color: "#9fdcf0" }}
+                         hover:bg-[rgba(51,48,46,.05)] focus-visible:outline-none
+                         focus-visible:ring-2 focus-visible:ring-mk-accent-300"
+              style={{ borderColor: "var(--mk-accent-300)", color: "var(--mk-accent-500)" }}
             >
               {quizTaken ? "再做一次兴趣测试" : "兴趣测试"}
             </button>
           ) : null}
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
-              <Sys tone="dark">关键词</Sys>
+              <Sys>关键词</Sys>
               <Hint
-                tone="dark"
                 text="根据你读过、收藏过、写过、做过的东西自动生成的兴趣关键词。每一个都可以点开，看它到底是从哪几件事来的。"
               />
             </span>
-            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">
+            <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? total : "—"}
             </span>
           </span>
-          <span className="h-8 w-px" style={{ background: "rgba(240,233,224,.2)" }} />
+          <span className="h-8 w-px" style={{ background: "var(--tree-line-strong)" }} />
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
-              <Sys tone="dark">成果数</Sys>
+              <Sys>成果数</Sys>
               <Hint
-                tone="dark"
                 text="你已经完成的阅读、写作和已发布项目的总数。没做完的不算——这个数字只数你真的做出来的东西。"
               />
             </span>
-            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">
+            <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? outputs : "—"}
             </span>
           </span>
@@ -256,17 +264,17 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
             // 加上，等于让小屏幕的学生永远碰不到这个入口。
             onClick={() => (known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
             className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
-                       transition-colors duration-[120ms] hover:bg-[rgba(240,233,224,.1)]
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-            style={{ border: "1px solid rgba(240,233,224,.16)", color: "#C0B4A6" }}
+                       transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300"
+            style={{ border: "1px solid var(--tree-line)", color: "var(--tree-ink-2)" }}
           >
             <span
               className="h-1.5 w-1.5 rotate-45"
-              style={{ background: f.hue, boxShadow: `0 0 8px ${f.hue}` }}
+              style={{ background: f.hue }}
             />
-            <span className="tree-mono text-[#7C7166]">{String(i + 1).padStart(2, "0")}</span>
+            <span className="tree-mono text-mk-faint">{String(i + 1).padStart(2, "0")}</span>
             {f.label}
-            <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+            <span className="font-mono text-[11px] tabular-nums text-mk-faint">
               {known ? countFor(f.id) : "—"}
             </span>
           </button>
@@ -338,7 +346,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
 
       {/* ── field index (floating column, xl and up) ─────────────────── */}
       <div className="pointer-events-auto absolute left-7 top-[200px] z-20 hidden w-[176px] xl:block">
-        <Sys tone="dark" className="mb-2 block">
+        <Sys className="mb-2 block">
           主枝 · INDEX
         </Sys>
         <ul>
@@ -356,24 +364,24 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                   // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
                   onClick={() => (known && n === 0 ? setInviteField(f.id) : undefined)}
                   className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
-                             duration-[120ms] hover:bg-[rgba(240,233,224,.07)] focus-visible:outline-none
-                             focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-                  style={{ borderColor: "rgba(240,233,224,.1)" }}
+                             duration-[120ms] hover:bg-[rgba(51,48,46,.04)] focus-visible:outline-none
+                             focus-visible:ring-2 focus-visible:ring-mk-accent-300"
+                  style={{ borderColor: "var(--tree-line)" }}
                 >
                   <span
                     className="h-1.5 w-1.5 shrink-0 rotate-45"
-                    style={{ background: f.hue, boxShadow: `0 0 8px ${f.hue}` }}
+                    style={{ background: f.hue }}
                   />
-                  <span className="tree-mono shrink-0 text-[#7C7166]">
+                  <span className="tree-mono shrink-0 text-mk-faint">
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-mk-small text-[#C0B4A6]">{f.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-mk-small text-mk-secondary">{f.label}</span>
                   {known && n === 0 ? (
                     <span className="shrink-0 text-[11px]" style={{ color: "var(--mk-accent-400)" }}>
                       还没有
                     </span>
                   ) : (
-                    <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+                    <span className="font-mono text-[11px] tabular-nums text-mk-faint">
                       {known ? n : "—"}
                     </span>
                   )}
@@ -489,21 +497,23 @@ function TreeSvg({
           );
         })}
         <linearGradient id="tree-spine" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%" stopColor="#FFE9CF" stopOpacity="0.5" />
-          <stop offset="55%" stopColor="#FFD9B0" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#FFD9B0" stopOpacity="0.05" />
+          <stop offset="0%" stopColor="var(--tree-trunk)" stopOpacity="0.78" />
+          <stop offset="52%" stopColor="var(--tree-trunk)" stopOpacity="0.34" />
+          <stop offset="100%" stopColor="var(--tree-trunk)" stopOpacity="0.06" />
         </linearGradient>
         <radialGradient id="tree-canopy" cx="50%" cy="46%" r="52%">
-          <stop offset="0%" stopColor="#FFC9A0" stopOpacity="0.16" />
-          <stop offset="60%" stopColor="#FFB98C" stopOpacity="0.05" />
-          <stop offset="100%" stopColor="#FFB98C" stopOpacity="0" />
+          <stop offset="0%" stopColor="#E8A87C" stopOpacity="0.11" />
+          <stop offset="60%" stopColor="#E8A87C" stopOpacity="0.035" />
+          <stop offset="100%" stopColor="#E8A87C" stopOpacity="0" />
         </radialGradient>
         {/* The bloom. `stdDeviation` is deliberately large: this is a halo
             around the strokes, not a soft edge on them. */}
+        {/* 🚨 纸上这层不能按夜里那个强度来。原来是 stdDeviation 7 再把模糊层
+            叠两遍 —— 在黑底上那是发光，在 #FBF8F4 上是把每一条彩线都糊出一圈
+            脏边。收到 3.5、只叠一层，读起来是墨在纸上洇开的那一点点边。 */}
         <filter id="tree-bloom" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="7" result="blur" />
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
           <feMerge>
-            <feMergeNode in="blur" />
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
@@ -532,14 +542,14 @@ function TreeSvg({
           cy="742"
           r={r}
           fill="none"
-          stroke="#F0E9E0"
-          strokeOpacity={0.1 - i * 0.018}
+          stroke="var(--tree-struct)"
+          strokeOpacity={0.26 - i * 0.045}
           strokeDasharray="2 7"
         />
       ))}
 
       {/* horizon + ticks */}
-      <line x1="90" y1="742" x2="910" y2="742" stroke="#F0E9E0" strokeOpacity="0.16" />
+      <line x1="90" y1="742" x2="910" y2="742" stroke="var(--tree-struct)" strokeOpacity="0.4" />
       {[...Array(21)].map((_, i) => (
         <line
           key={i}
@@ -547,8 +557,8 @@ function TreeSvg({
           y1="742"
           x2={100 + i * 40}
           y2={i % 5 === 0 ? 752 : 747}
-          stroke="#F0E9E0"
-          strokeOpacity="0.13"
+          stroke="var(--tree-struct)"
+          strokeOpacity="0.34"
         />
       ))}
 
@@ -659,7 +669,7 @@ function TreeSvg({
               fontSize="9.5"
               fontFamily="ui-monospace, SF Mono, monospace"
               letterSpacing="1.4"
-              fill="#7C7166"
+              fill="var(--tree-ink-4)"
             >
               {`FIELD ${String(idx + 1).padStart(2, "0")}`}
             </text>
@@ -669,7 +679,7 @@ function TreeSvg({
               textAnchor={left ? "end" : "start"}
               fontSize="12.5"
               fontWeight="600"
-              fill="#C0B4A6"
+              fill="var(--tree-ink-2)"
             >
               {f.label}
             </text>
@@ -690,12 +700,11 @@ function TreeSvg({
           "C 512 566, 514 660, 524 748 Z"
         }
         fill="url(#tree-spine)"
-        filter="url(#tree-bloom)"
       />
       <path
         d="M 500 748 C 497 640, 503 560, 500 470 C 498 400, 502 350, 500 292"
-        stroke="#FFF0DC"
-        strokeOpacity="0.4"
+        stroke="#FFFFFF"
+        strokeOpacity="0.5"
         strokeWidth="1"
         fill="none"
       />
@@ -708,7 +717,6 @@ function TreeSvg({
           strokeWidth="5"
           strokeLinecap="round"
           fill="none"
-          filter="url(#tree-bloom)"
         />
       ))}
 
@@ -721,8 +729,8 @@ function TreeSvg({
         y1={GROUND_Y}
         x2="960"
         y2={GROUND_Y}
-        stroke="#EFE7DC"
-        strokeOpacity="0.16"
+        stroke="var(--tree-struct)"
+        strokeOpacity="0.4"
         strokeWidth="1.5"
       />
       {FIELDS.map((f) => (
@@ -784,8 +792,8 @@ function TreeSvg({
                 textAnchor="middle"
                 fontSize="11"
                 fontWeight="500"
-                fill="#EFE7DC"
-                opacity="0.86"
+                fill="var(--tree-ink-2)"
+                opacity="0.9"
               >
                 {n.zh}
               </text>
@@ -818,7 +826,7 @@ function TreeSvg({
               strokeLinejoin="round"
               filter="url(#tree-bloom)"
             />
-            <path d={leaf.rib} fill="none" stroke="#0B0907" strokeWidth="1" opacity="0.42" />
+            <path d={leaf.rib} fill="none" stroke="var(--tree-rib)" strokeWidth="1" opacity="0.34" />
           </g>
         );
       })}
@@ -839,7 +847,7 @@ function TreeSvg({
       ))}
 
       {/* the origin */}
-      <circle cx="500" cy="742" r="17" fill="#0B0907" stroke="#F0E9E0" strokeOpacity="0.26" />
+      <circle cx="500" cy="742" r="17" fill="var(--tree-card)" stroke="var(--tree-struct)" strokeOpacity="0.5" />
       <circle cx="500" cy="742" r="4" fill="var(--mk-accent-400)" filter="url(#tree-bloom)" />
       <text
         x="500"
@@ -848,7 +856,10 @@ function TreeSvg({
         fontSize="9.5"
         fontFamily="ui-monospace, SF Mono, monospace"
         letterSpacing="1.4"
-        fill="#7C7166"
+        fill="var(--tree-ink-2)"
+        stroke="var(--mk-paper)"
+        strokeWidth="3"
+        paintOrder="stroke"
       >
         ORIGIN · 我
       </text>
@@ -987,7 +998,7 @@ function Bead({
         }}
         className={cx(
           "absolute whitespace-nowrap text-left transition-all duration-[160ms] ease-mk",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300",
           onClick ? "cursor-pointer" : "cursor-default",
         )}
         style={{
@@ -995,18 +1006,18 @@ function Bead({
           top: -17 * scale,
           [left ? "right" : "left"]: d / 2 + 8 * scale,
           borderRadius: 3,
-          background: hot ? "rgba(28,23,19,.97)" : "rgba(18,15,12,.62)",
+          background: hot ? "var(--tree-card)" : "rgba(255,255,255,.84)",
           border: hot
             ? `1px solid color-mix(in srgb, ${hue} 58%, transparent)`
-            : "1px solid rgba(240,233,224,.12)",
-          boxShadow: hot ? "0 18px 44px rgba(0,0,0,.6)" : "none",
+            : "1px solid var(--tree-line)",
+          boxShadow: hot ? "0 14px 32px rgba(51,48,46,.18)" : "0 1px 2px rgba(51,48,46,.05)",
           backdropFilter: "blur(3px)",
         }}
       >
         <span
           className="tree-mono block"
           style={{
-            color: fresh ? hue : "#8A7F72",
+            color: fresh ? hue : "var(--tree-ink-3)",
             fontSize: 9.5 * scale,
             letterSpacing: `${0.12 * scale}em`,
           }}
@@ -1018,7 +1029,7 @@ function Bead({
           style={{
             fontSize: (strength >= 4 ? 15 : 13.5) * scale,
             fontWeight: strength >= 4 ? 700 : 500,
-            color: strength >= 4 ? "#FBF5EC" : "#DCD2C6",
+            color: strength >= 4 ? "var(--tree-ink)" : "var(--tree-ink-2)",
           }}
         >
           {name}
@@ -1058,17 +1069,18 @@ function TreeState({
       <div
         className="max-w-[420px] rounded-[18px] border px-6 py-5 text-center backdrop-blur-sm"
         style={{
-          borderColor: "rgba(245,239,231,0.14)",
-          background: "rgba(20,16,12,0.72)",
+          borderColor: "var(--tree-line)",
+          background: "rgba(255,255,255,.9)",
+          boxShadow: "0 16px 40px rgba(51,48,46,.1)",
         }}
       >
         {status === "loading" && (
           <>
-            <Sys tone="dark">处理中 · GROWING</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">正在读取你的兴趣树</p>
+            <Sys>处理中 · GROWING</Sys>
+            <p className="mt-2 text-mk-body text-mk-ink">正在读取你的兴趣树</p>
             {/* 服务端会先把已完成、还没采过的阅读与写作补采一遍（最多三个，
                 并行），所以第一次打开可能要几秒。说出来，别让她以为卡住了。 */}
-            <p className="mt-1 text-mk-small text-[#9A8E80]">
+            <p className="mt-1 text-mk-small text-mk-muted">
               正在从你最近完成的阅读与写作里提取关键词，需要几秒。
             </p>
           </>
@@ -1076,15 +1088,15 @@ function TreeState({
 
         {status === "error" && (
           <>
-            <Sys tone="dark">读取失败 · ERROR</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">兴趣树读取失败</p>
+            <Sys>读取失败 · ERROR</Sys>
+            <p className="mt-2 text-mk-body text-mk-ink">兴趣树读取失败</p>
             {/* 后台原话原样给出：她和我们看到的是同一句（界面文案 §8）。 */}
-            <p className="mt-1 break-words text-mk-small text-[#9A8E80]">{error}</p>
+            <p className="mt-1 break-words text-mk-small text-mk-muted">{error}</p>
             <button
               type="button"
               onClick={onRetry}
-              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
-              style={{ borderColor: "rgba(245,239,231,0.3)" }}
+              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-mk-ink transition hover:opacity-80"
+              style={{ borderColor: "var(--tree-line-strong)" }}
             >
               重试
             </button>
@@ -1093,9 +1105,9 @@ function TreeState({
 
         {status === "empty" && (
           <>
-            <Sys tone="dark">空 · NO KEYWORDS YET</Sys>
-            <p className="mt-2 text-mk-body text-[#F5EFE7]">这棵树还没有关键词</p>
-            <p className="mt-1 text-mk-small text-[#9A8E80]">
+            <Sys>空 · NO KEYWORDS YET</Sys>
+            <p className="mt-2 text-mk-body text-mk-ink">这棵树还没有关键词</p>
+            <p className="mt-1 text-mk-small text-mk-muted">
               关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
               它会长出来。
             </p>
@@ -1105,15 +1117,15 @@ function TreeState({
                 这也是产品负责人要的那条：第一次看见这棵树时邀请她做测试。 */}
             {quizTaken === false ? (
               <>
-                <div className="my-4 h-px" style={{ background: "rgba(245,239,231,0.14)" }} />
-                <p className="text-mk-small leading-[1.8] text-[#C0B4A6]">
+                <div className="my-4 h-px" style={{ background: "var(--tree-line)" }} />
+                <p className="text-mk-small leading-[1.8] text-mk-secondary">
                   也可以先做一次兴趣测试，五分钟，树上会长出第一批词。
                 </p>
                 <button
                   type="button"
                   onClick={onStartQuiz}
-                  className="mt-3 rounded-full px-5 py-2 text-mk-body font-semibold text-[#04121d] transition hover:opacity-90"
-                  style={{ background: "linear-gradient(135deg,#55e6ff,#1ca5dc)" }}
+                  className="mt-3 rounded-full px-5 py-2 text-mk-body font-semibold text-white transition hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg,var(--mk-accent-400),var(--mk-accent-600))" }}
                 >
                   开始兴趣测试
                 </button>
@@ -1158,22 +1170,26 @@ function BranchInvite({
         aria-label="关闭"
         onClick={onClose}
         className="absolute inset-0 cursor-default"
-        style={{ background: "rgba(10,8,6,.62)" }}
+        style={{ background: "var(--tree-veil)" }}
       />
       <div
         className="tree-in relative w-full max-w-[460px] rounded-[18px] p-6"
-        style={{ background: "#1C1713", border: `1px solid color-mix(in srgb, ${f.hue} 38%, transparent)` }}
+        style={{
+          background: "var(--tree-card)",
+          border: `1px solid color-mix(in srgb, ${f.hue} 38%, transparent)`,
+          boxShadow: "0 24px 60px rgba(51,48,46,.16)",
+        }}
       >
         <div className="flex items-center gap-2">
           <span
             className="h-2.5 w-2.5 rotate-45"
-            style={{ background: f.hue, boxShadow: `0 0 12px ${f.hue}` }}
+            style={{ background: f.hue }}
           />
-          <Sys tone="dark">{f.en}</Sys>
+          <Sys>{f.en}</Sys>
         </div>
-        <h2 className="mt-1.5 text-mk-h2 text-[#F5EFE7]">你的树上还没有{f.label}这根枝</h2>
-        <p className="mt-3 text-mk-body leading-[1.9] text-[#C0B4A6]">{blurb}</p>
-        <p className="mt-3 text-mk-small leading-[1.85] text-[#8E8175]">
+        <h2 className="mt-1.5 text-mk-h2 text-mk-ink">你的树上还没有{f.label}这根枝</h2>
+        <p className="mt-3 text-mk-body leading-[1.9] text-mk-secondary">{blurb}</p>
+        <p className="mt-3 text-mk-small leading-[1.85] text-mk-muted">
           关键词只从你真的做完的事情上长出来，所以这根枝空着，只是说明你还没往这边走过。
         </p>
 
@@ -1181,7 +1197,7 @@ function BranchInvite({
           <button
             type="button"
             onClick={onExplore}
-            className="rounded-mk-full px-4 py-2 text-mk-small font-semibold text-[#17130F] transition hover:opacity-90"
+            className="rounded-mk-full px-4 py-2 text-mk-small font-semibold text-white transition hover:opacity-90"
             style={{ background: f.hue }}
           >
             去今日探索地图看看
@@ -1189,15 +1205,15 @@ function BranchInvite({
           <button
             type="button"
             onClick={onQuiz}
-            className="rounded-mk-full border px-4 py-2 text-mk-small text-[#F0E9E0] transition hover:opacity-80"
-            style={{ borderColor: "rgba(240,233,224,.3)" }}
+            className="rounded-mk-full border px-4 py-2 text-mk-small text-mk-ink transition hover:opacity-80"
+            style={{ borderColor: "var(--tree-line-strong)" }}
           >
             做一次兴趣测试
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-mk-full px-4 py-2 text-mk-small text-[#8E8175] transition hover:text-[#C0B4A6]"
+            className="rounded-mk-full px-4 py-2 text-mk-small text-mk-muted transition hover:text-mk-ink"
           >
             先不用
           </button>

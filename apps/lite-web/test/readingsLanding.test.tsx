@@ -126,7 +126,7 @@ describe("the paste box", () => {
     routes[key("PUT", "/api/v1/readings/new-1/source")] = { body: { title: "", sourceUrl: "", blocks: [] } };
     render(<ReadingsLanding />);
 
-    fireEvent.change(await screen.findByPlaceholderText("贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF"), {
+    fireEvent.change(await screen.findByPlaceholderText("贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT"), {
       target: { value: "夏天的傍晚，城市比郊区热\n\n原因不止一个。" },
     });
     fireEvent.click(screen.getByRole("button", { name: "开始阅读" }));
@@ -179,7 +179,7 @@ describe("the paste box", () => {
     fireEvent.change(await screen.findByPlaceholderText("给这次阅读起个名字（可留空）"), {
       target: { value: "老师发的材料" },
     });
-    const picker = screen.getByLabelText("上传 DOCX / PDF") as HTMLInputElement;
+    const picker = screen.getByLabelText("上传 PDF / DOCX / TXT") as HTMLInputElement;
     fireEvent.change(picker, {
       target: { files: [new File(["x"], "material.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })] },
     });
@@ -194,16 +194,26 @@ describe("the paste box", () => {
     routes[key("POST", "/api/v1/readings")] = { status: 201, body: { id: "new-5" } };
     routes[key("POST", "/api/v1/readings/new-5/source/file")] = {
       status: 400,
-      body: { error: { code: "unsupported_type", message: "只支持 PDF 或 Word 文档。" } },
+      body: { error: { code: "unsupported_type", message: "只收这几种文件：.pdf / .docx / .txt / .md。" } },
     };
     render(<ReadingsLanding />);
     await screen.findByRole("heading", { level: 1 });
 
-    fireEvent.change(screen.getByLabelText("上传 DOCX / PDF"), {
+    fireEvent.change(screen.getByLabelText("上传 PDF / DOCX / TXT"), {
       target: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
     });
     // 服务端说的那句话要原样到她眼前；外面裹了「后台错误：」，所以用包含匹配。
-    expect(await screen.findByText(/只支持 PDF 或 Word 文档。/)).toBeInTheDocument();
+    // 🚨 用包含匹配的函数，不用正则字面量：这句话里有斜杠（.pdf / .docx），
+    // 写进 /.../ 会把正则提前收尾。
+    // 祖先元素的 textContent 也包含这句话，所以 findByText 会命中好几个 ——
+    // 取最里面那一个。
+    expect(
+      (
+        await screen.findAllByText((_, el) =>
+          (el?.textContent ?? "").includes("只收这几种文件：.pdf / .docx / .txt / .md。"),
+        )
+      ).at(-1),
+    ).toBeInTheDocument();
   });
 });
 

@@ -92,6 +92,13 @@ RETURNING *;
 -- name: GetWritingDraft :one
 SELECT * FROM writing_draft WHERE atom_id = $1;
 
+-- name: MarkWritingBrought :exec
+-- 她带进来的一篇成稿：来源记成 brought，而且直接落在 draft ——
+-- 结构和段落两步对这一篇根本没有发生过，让它假装经过那两步是不诚实的。
+-- origin 为什么要存下来，见 0146_writing_origin.sql。
+UPDATE writing SET origin = 'brought', stage = 'draft', updated_at = now()
+WHERE atom_id = $1;
+
 -- name: RelinkWritingSnippetOutline :exec
 -- Re-attach one snippet to an outline row after ReplaceWritingOutline minted
 -- fresh ids. Called only with a NEW outline id whose TEXT matches the heading
@@ -140,8 +147,8 @@ RETURNING *;
 UPDATE writing_outline SET guide = $2 WHERE id = $1;
 
 -- name: CreateWritingComment :one
-INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points, source_text)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListWritingComments :many

@@ -20,6 +20,7 @@ import {
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingDraft,
+  type WritingBoardKind,
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
@@ -28,6 +29,7 @@ import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
+import { flushPendingSaves } from "./pendingSaves";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
@@ -211,16 +213,29 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     [state.phase, writingId],
   );
 
-  async function send() {
-    const text = draftText.trim();
-    if (!text || sending || state.phase !== "ready") return;
-    setDraftText("");
+  /**
+   * 说一句话，走房间那条对话。
+   *
+   * 2026-09-11 从 `send()` 里抽出来，因为多了第二个调用方：**一块板摆完之后，
+   * 摆的结果原样变成一条真的学生消息**，走的是和她自己打字完全同一条路
+   * （阅读室那两块板从第一天起就是这么接的，所以它们不需要第二套接线）。
+   *
+   * `board` 只是告诉服务端「这一条是摆完一块板产生的」，好让它在那一轮的
+   * 上文里加一句说明。消息本身仍然是她的话——她摆的就是她的判断。
+   */
+  async function say(text: string, board?: WritingBoardKind) {
+    const t = text.trim();
+    if (!t || sending || state.phase !== "ready") return;
     setSending(true);
     setRoomError(null);
-    const optimistic: LiteMessage = { seq: -1, role: "student", content: text, createdAt: "" };
+    const optimistic: LiteMessage = { seq: -1, role: "student", content: t, createdAt: "" };
     setState((s) => (s.phase === "ready" ? { ...s, messages: [...s.messages, optimistic] } : s));
     try {
-      const turn = await postWritingTurn(writingId, text);
+      // 🚨 先把她还没存下去的字存完，再问印记。
+      // 陪练读的是服务端那一份；她敲完直接发问的时候，防抖还没到，
+      // 于是它照着一份少了那句话的正文说「你缺 X」。见 pendingSaves.ts。
+      await flushPendingSaves();
+      const turn = await postWritingTurn(writingId, t, board);
       const reply = turn.reply.trim();
       if (reply) {
         setState((s) =>
@@ -230,9 +245,21 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     } catch (err) {
       setRoomError(apiErrorText(err));
       setState((s) => (s.phase === "ready" ? { ...s, messages: s.messages.filter((m) => m !== optimistic) } : s));
-      setDraftText(text);
+      throw err;
     } finally {
       setSending(false);
+    }
+  }
+
+  async function send() {
+    const text = draftText.trim();
+    if (!text || sending || state.phase !== "ready") return;
+    setDraftText("");
+    try {
+      await say(text);
+    } catch {
+      // 发不出去就把她打的字还给她——这条路原来就是这么做的。
+      setDraftText(text);
     }
   }
 
@@ -343,7 +370,14 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
               : "mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
           }
         >
-          <StagePanel state={state} writingId={writingId} setState={setState} onGoToStructure={() => void jumpStage("outline")} />
+          <StagePanel
+            state={state}
+            writingId={writingId}
+            setState={setState}
+            onGoToStructure={() => void jumpStage("outline")}
+            onGoToDraft={() => void jumpStage("draft")}
+            onSay={say}
+          />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
@@ -425,9 +459,16 @@ function LengthMeter({
       title="点一下改目标字数"
       className="rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
+      {/* 🚨 「/ 800」单摆在那儿，读起来是**配额**，不是目标。
+          2026-09-12 第二十八轮，中文那个学生停在这儿：
+            「正文框已经790/800字了，按它说的挪句子肯定会超字数限制，
+              不知道超了会怎样」
+          没有任何东西在拦她 —— 这个数是她自己在上面设的，框上没有 maxLength，
+          超了照样存。她把一个目标读成了一道门，然后不敢动。
+          补一个名词就够了：目标。多写不用问谁。 */}
       {writing.targetWords != null ? (
         <>
-          已写 <span className="font-semibold text-mk-ink">{written}</span> / {writing.targetWords}
+          已写 <span className="font-semibold text-mk-ink">{written}</span> / 目标 {writing.targetWords}
         </>
       ) : (
         <>已写 {written} · 定个目标</>
@@ -441,11 +482,17 @@ function StagePanel({
   writingId,
   setState,
   onGoToStructure,
+  onGoToDraft,
+  onSay,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
   onGoToStructure: () => void;
+  /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
+  onGoToDraft: () => void;
+  /** 一块板摆完了：把结果当成她说的一句话发出去。 */
+  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -456,13 +503,18 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          lang={writing.lang}
           onGoToStructure={onGoToStructure}
+          onGoToDraft={onGoToDraft}
+          onSay={onSay}
         />
       );
     case "draft":
     case "finished":
       return (
         <ComposeStage
+          origin={writing.origin}
+          lang={writing.lang}
           writingId={writingId}
           draft={draft}
           snippets={snippets}
@@ -489,7 +541,10 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          lang={writing.lang}
           onGoToStructure={onGoToStructure}
+          onGoToDraft={onGoToDraft}
+          onSay={onSay}
         />
       );
   }

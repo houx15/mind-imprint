@@ -139,8 +139,14 @@ func TestAddCallsKeepsInputAndOutputTotalsSeparate(t *testing.T) {
 	if totals.InputTokens == nil || totals.OutputTokens == nil || *totals.InputTokens != 20 || *totals.OutputTokens != 30 || totals.ReasoningTokens == nil || *totals.ReasoningTokens != 18 || totals.ContentTokens == nil || *totals.ContentTokens != 12 {
 		t.Fatalf("unexpected token totals: %#v", totals)
 	}
-	if totals.CostUSD == nil || totals.CostedCalls != 2 || totals.UnpricedCalls != 0 || totals.UsageMissing != 0 || *totals.CostUSD != 0.0000348 {
-		t.Fatalf("unexpected cost totals: %#v", totals)
+	// Derive the expectation from the catalog instead of pinning a literal: the
+	// RATE is data that vendors change, and a repriced row should land as a
+	// price change, not as a red test. What is worth holding is that the two
+	// calls are summed at the catalog rate — so compare with a tolerance, since
+	// summing floats call-by-call is not bit-identical to one multiplication.
+	wantCost, _ := gateway.EstimateCost("deepseek", "deepseek-v4-pro", 20, 30)
+	if totals.CostUSD == nil || totals.CostedCalls != 2 || totals.UnpricedCalls != 0 || totals.UsageMissing != 0 || !nearlyEqualUSD(*totals.CostUSD, wantCost) {
+		t.Fatalf("unexpected cost totals: %#v (want %v)", totals, wantCost)
 	}
 }
 
@@ -273,9 +279,23 @@ func TestSummaryCostIncludesFailedAttemptsAndRetries(t *testing.T) {
 		t.Fatalf("unexpected cost summary: %#v", variant)
 	}
 	perCall, _ := gateway.EstimateCost("deepseek", "deepseek-v4-pro", in, out)
-	if *variant.CandidateCostPerSuccessUSD != perCall*3 || *variant.TotalCostPerSuccessUSD != perCall*5 {
+	if !nearlyEqualUSD(*variant.CandidateCostPerSuccessUSD, perCall*3) || !nearlyEqualUSD(*variant.TotalCostPerSuccessUSD, perCall*5) {
 		t.Fatalf("cost must include failed/retried calls: %#v", variant)
 	}
+}
+
+// nearlyEqualUSD compares two dollar amounts without demanding bit-identical
+// floats. The summary adds one call at a time while the expectation multiplies,
+// and those two routes to the same money differ in the last bits — a difference
+// that says nothing about whether failed attempts were counted, which is what
+// these tests are actually about. A hundredth of a cent is far below any amount
+// a report renders.
+func nearlyEqualUSD(got, want float64) bool {
+	d := got - want
+	if d < 0 {
+		d = -d
+	}
+	return d < 1e-9
 }
 
 func TestComparisonRequiresFullMatrix(t *testing.T) {

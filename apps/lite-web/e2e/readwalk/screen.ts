@@ -20,8 +20,14 @@ import { readScreen as readBaseScreen, type Affordances } from "../camp/screen";
 export type ReadAffordances = Affordances & {
   /** 正文段落，按屏幕上的顺序编号（1 起）。给它划句子用。 */
   paragraphs: { n: number; text: string }[];
-  /** 板上还没摆的卡片，和可以摆进去的格子。没有板的时候两个都是空的。 */
-  board: { chips: { i: number; text: string }[]; bins: { i: number; name: string }[] } | null;
+  /** 板上的卡片（含已经摆进格子的那些，`in` 是它现在在哪一格）和所有格子。
+   *  没有板的时候是 null。
+   *  🚨 已经摆好的那些也要列出来：只列未摆的话，全部摆完之后 印记 让她「把某句
+   *  挪到主张那一格」就没有任何东西可点了 —— 走查逐字报过这一条。 */
+  board: {
+    chips: { i: number; text: string; in: string }[];
+    bins: { i: number; name: string }[];
+  } | null;
 };
 
 export async function readScreen(page: Page): Promise<ReadAffordances> {
@@ -41,10 +47,15 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
     ? {
         chips: (
           await page
-            .locator(".mk-board__loose .mk-board__chip")
-            .evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))
-            .catch(() => [] as string[])
-        ).map((text, i) => ({ i, text })),
+            .locator(".mk-board__chip")
+            .evaluateAll((els) =>
+              els.map((e) => ({
+                text: (e.textContent ?? "").trim(),
+                in: e.closest("[data-board-bin]")?.getAttribute("data-board-bin") ?? "",
+              })),
+            )
+            .catch(() => [] as { text: string; in: string }[])
+        ).map((c, i) => ({ i, ...c })),
         bins: (
           await page
             .locator(".mk-board__bin")
@@ -54,14 +65,58 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
       }
     : null;
 
-  return { ...base, paragraphs, board };
+  // 🚨 她划出来的句子排在输入框上面，**还没发出去**。走查里她一遍遍地划、
+  // 划完再划（82 次划、只换来 9 轮对话）—— 因为这一屏上没有任何东西告诉她
+  // 「你已经划好了，现在该发出去」。真人看得见那几个引文小块和那颗按钮；
+  // 模型只拿得到文字，所以这里明说。
+  // 透镜开着的时候这一栏是锁住的，那颗「发出这 N 处」并不存在 —— 这时候劝她
+  // 去点它，等于把她按在一个不存在的按钮上。
+  const lensOpen = base.buttons.some((b) => b.label === "带我过去");
+  const quoted = lensOpen ? undefined : (base.text.match(/已引用\s*(\d+)\s*处/) ?? [])[1];
+  const text0 = quoted
+    ? base.text +
+      `\n\n（系统提示：你已经划好了 ${quoted} 处引文，它们还**没有**发出去。` +
+      `要让印记看到，请点「发出这 ${quoted} 处」那颗按钮，或者在输入框里写一句话再发。` +
+      `不要反复划新的句子。）`
+    : base.text;
+
+  // 🚨 板摆满了就该交上去。她摆完四张卡片之后停住了：「我摆完卡片了但屏幕
+  // 没变化，不知道该点哪。」那颗按钮此刻刚变成可点的，但模型只拿得到文字。
+  // 🚨 透镜有三段：看示范 → 选一句 → 写下发现并交上去。走查一直漏掉第三段。
+  //
+  // 选完之后屏幕上出现「重新选一句 / 记下这条发现」，而模型只拿得到文字，看不出
+  // 「那一句已经收下了」。于是它以为自己还没选中，一遍遍地重选 —— 一条 170 步的
+  // 走查里划了 123 次，只换来 3 句话。
+  const lensDemo = base.buttons.some((b) => b.label === "看懂示范，开始选句");
+  const lensPicked = base.buttons.some((b) => b.label === "记下这条发现");
+  const allPlaced = board !== null && board.chips.length > 0 && board.chips.every((c) => c.in);
+  let text = text0;
+  if (allPlaced) {
+    text += `\n\n（系统提示：板上的卡片都摆好了，现在请点「摆好了」那颗按钮交上去。）`;
+  }
+  if (lensDemo) {
+    text +=
+      `\n\n（系统提示：印记 正在示范这副透镜怎么用，上面那段就是示范。` +
+      `读完它，再点「看懂示范，开始选句」—— 点之前在文章里选句子是不算数的。）`;
+  }
+  if (lensPicked) {
+    text +=
+      `\n\n（系统提示：你选的那一句已经收下了，不用再选。` +
+      `现在请在输入框里写下你用这副透镜看出了什么，然后点「记下这条发现」。）`;
+  }
+
+  return { ...base, text, paragraphs, board };
 }
 
 /** 给模型看的那一段。 */
 export function renderReadScreen(a: ReadAffordances): string {
   const bs = a.buttons.length
     ? a.buttons
-        .map((b) => `  [${b.i}] ${b.label || "（没有文字的按钮）"}${b.disabled ? "  ←按不动" : ""}`)
+        .map(
+          (b) =>
+            `  [${b.i}] ${b.label || "（没有文字的按钮）"}` +
+            `${b.pressed ? "  ←已经打开了，别再点它" : ""}${b.disabled ? "  ←按不动" : ""}`,
+        )
         .join("\n")
     : "  （一个按钮都没有）";
   const fs = a.fields.length
@@ -75,10 +130,12 @@ export function renderReadScreen(a: ReadAffordances): string {
   const boardBlock = a.board
     ? [
         ``,
-        `屏幕上有一块板。上面还没摆的卡片：`,
+        `屏幕上有一块板。板上的卡片：`,
         a.board.chips.length
-          ? a.board.chips.map((c) => `  [${c.i}] ${c.text}`).join("\n")
-          : "  （都摆好了）",
+          ? a.board.chips
+              .map((c) => `  [${c.i}] ${c.text}${c.in ? `  ←现在在「${c.in}」格，可以挪` : "  ←还没摆"}`)
+              .join("\n")
+          : "  （板上没有卡片）",
         `能摆进去的格子：`,
         a.board.bins.map((b) => `  [${b.i}] ${b.name}`).join("\n"),
       ].join("\n")

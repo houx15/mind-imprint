@@ -112,8 +112,31 @@ export type WritingDraft = { body: string; updatedAt: string | null };
  * quote does not appear literally in the source, so every point that reaches
  * the client is guaranteed traceable). `text` is why that sentence matters —
  * never a rewrite of it.
+ *
+ * 2026-09-11：一条意见从「一段话」变成「一件能做的事」。
+ * `kind` 分「已经用对的」和「要改的」；`action` 是一句祈使，说清她接下来要做
+ * 什么——服务端会把 action 为空的 issue 整条丢掉（writing_comment.go）。
+ * `layer` 是第几层（1 立意 / 2 材料 / 3 结构 / 4 字句），同一条回复里的 issue
+ * 一定同属一层：优先级在服务端就筛过了，这里不重筛。
+ * 老的评论行只有 text+quote，所以除了这两个字段以外都要当可能不存在来读。
  */
-export type CommentPoint = { text: string; quote: string };
+export type CommentPoint = {
+  kind?: "good" | "issue";
+  symptom?: string;
+  layer?: number;
+  method?: string;
+  text: string;
+  action?: string;
+  quote: string;
+};
+
+/** 四层在界面上的名字。服务端 writingLayerNames 的镜像。 */
+export const COMMENT_LAYER_NAMES: Record<number, string> = {
+  1: "立意",
+  2: "材料",
+  3: "结构",
+  4: "字句",
+};
 
 /**
  * 印记's structured critique of a piece of writing — writing_comment.go's
@@ -130,6 +153,13 @@ export type Comment = {
   summary: string;
   points: CommentPoint[];
   createdAt: string;
+  /**
+   * 写这条意见时印记读的那一版原文。
+   *
+   * 拿它回答一个 quote 回答不了的问题：**这一段在这条意见之后改过没有。**
+   * 空串 = 2026-09-11 之前存的老评论，不知道那一版长什么样。
+   */
+  sourceText: string;
 };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;
@@ -281,8 +311,25 @@ export async function getWritingBlockThread(id: string, outlineId: string): Prom
 
 // --- coach turn ---------------------------------------------------------
 
-export async function postWritingTurn(id: string, text: string): Promise<LiteTurn> {
-  return apiFetch<LiteTurn>(`${base(id)}/turn`, { method: "POST", body: JSON.stringify({ text }) });
+/**
+ * 一块板的种类。闭表，服务端 `writingBoardKinds` 的镜像——认不出来的值服务端
+ * 会当成没给，那一轮就退化成一条普通的学生消息（不报错：她摆的东西是真的，
+ * 少一句上下文也不该把这一轮弄丢）。
+ */
+export type WritingBoardKind = "role";
+
+/**
+ * 说一句话。
+ *
+ * `board` 只在这条消息是**摆完一块板**产生的时候给：服务端会据此在那一轮的
+ * 上文里加一句说明，好让 印记 知道她刚交了作业，而不是在闲聊。消息本身仍然
+ * 是她的话——她怎么摆就是她的判断。
+ */
+export async function postWritingTurn(id: string, text: string, board?: WritingBoardKind): Promise<LiteTurn> {
+  return apiFetch<LiteTurn>(`${base(id)}/turn`, {
+    method: "POST",
+    body: JSON.stringify(board ? { text, board } : { text }),
+  });
 }
 
 export async function listWritingMessages(id: string): Promise<LiteMessage[]> {

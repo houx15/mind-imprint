@@ -42,6 +42,32 @@ import { useRef, useState } from "react";
  * 服务端也不发。
  */
 
+/**
+ * 每个角色格子底下那一句白话。
+ *
+ * 🚨 写的是**这一句在文章里干什么**，不是给这个词下定义。「主张 = 作者要你
+ * 接受的那句话」她拿着就能去比对；「主张：作者的核心论点」只是把一个生词换成
+ * 另外两个。
+ *
+ * 🚨 **这一份是阅读室的，别当成全局的。** 它的每一句都站在「读别人写的东西」
+ * 这一侧说话 —— 「**作者**要你接受的那句话」。
+ *
+ * 而 `CoachBoard` 是两个房间共用的：写作室的 RoleBoard 也从这里进来
+ *（apps/lite-web/src/writings/RoleBoard.tsx），它的格子是
+ * 主张 / 证据 / 解释 / 让步 / 背景。那一侧**作者就是她自己**，同一句话摆过去
+ * 就是错的；而且「解释」「让步」两格在这张表里根本没有，板会半边有字半边没字。
+ *
+ * 所以这一份只当**默认值**，房间可以自己传一份（`binHints`）。
+ * 两个房间的格子本来就不是同一套词，共用一份表是让它们迟早互相踩的唯一原因。
+ */
+const BIN_HINT: Record<string, string> = {
+  主张: "作者要你接受的那句话",
+  证据: "拿来撑住主张的事实、数字或例子",
+  限制: "作者自己承认的那一点「但是」",
+  背景: "交代情况，不参与说服",
+  对比: "拿来比的另一面",
+};
+
 /** 一张待分类的卡片：它显示什么，以及回灌时它是谁。 */
 export type BoardItem = {
   /** 板内唯一。 */
@@ -59,12 +85,47 @@ export type BoardPlacement = Record<string, string>;
 // 拖 + 点，一套状态
 // ---------------------------------------------------------------------------
 
+/** 超过这么多像素才算「拖」，之内都算「点」。见 isDrag。 */
+export const DRAG_SLOP = 6;
+
+/**
+ * 这一下是「拖」还是「点」。
+ *
+ * 🚨 它是一个独立的纯函数，不是写在事件处理里的一行，因为**它是这块板上唯一
+ * 一处「读代码看不出对错」的逻辑**，而 jsdom 里没有 PointerEvent，事件那条路
+ * 根本测不了。
+ *
+ * 原来那一行写的是「动了就算拖」（`> 0`）。手指按下去总会动一两个像素，鼠标
+ * 也一样，于是绝大多数「点一下选中」都被当成一次拖动；而那次拖动的落点还在
+ * 原地（未分类那一堆的容器 `data-board-bin=""`），于是卡片被「放回」原处，
+ * 屏幕上什么都没发生。模拟学生走查里这块板出现了 52 步、她摆了 51 次，
+ * 四张卡片一张都没进格子 —— 看上去像她不会用，其实是那一行。
+ *
+ * 距离从**按下的那个点**算，不累加每一帧的位移：累加的话，慢慢挪一圈再回到
+ * 原处也会被算成拖了很远。
+ */
+export function isDrag(from: { x: number; y: number }, to: { x: number; y: number }): boolean {
+  return Math.hypot(to.x - from.x, to.y - from.y) > DRAG_SLOP;
+}
+
 /**
  * 一块板的公共行为：选中一张卡、把它放进一个格子、以及拖动时的落点判定。
  *
  * 落点是用 `elementFromPoint` 找的，而不是靠每个格子各挂一个 pointerenter：
  * 拖动过程中指针被 `setPointerCapture` 捕获在卡片上，格子收不到任何
  * pointer 事件 —— 不捕获的话，手指一离开卡片这次拖动就断了。
+ *
+ * 🚨 捕获还有第三个后果，比上面两个隐蔽：**接下来的 click 事件也会被改派给
+ * 捕获它的那个元素**，而不是手指底下那个。写作那边 2026-09-12 就是这么把
+ * 「点标题改名」弄坏的 —— 加了拖拽之后，click 全被卡片接走了，而 644 个单元
+ * 测试一路全绿（jsdom 没有真的指针捕获，它**不可能**看见这件事）。
+ *
+ * 这块板没被这一条咬到，但**不是因为运气**，是因为两条路各自不依赖 click：
+ *   拖    松手时 `onItemPointerUp` 用 elementFromPoint 找落点，不看 click。
+ *   点选  点卡片是一次完整的 down+up，捕获在 up 时就释放了；她接着点格子
+ *         是**另一次**手势，那时没有任何捕获，格子的 onClick 照常响。
+ * 所以那两条看着重复的路**都不能删**：删掉 pointerup 那条，拖拽就没有落点；
+ * 删掉格子的 onClick，一只手扶着手机的人就没法用点选。
  */
 function useBoard(initial: BoardPlacement = {}) {
   const [placed, setPlaced] = useState<BoardPlacement>(initial);
@@ -72,7 +133,24 @@ function useBoard(initial: BoardPlacement = {}) {
   const [hoverBin, setHoverBin] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  // 按下去的那个点，用来判断这到底是一次「点」还是一次「拖」。
+  const downAtRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
+  /**
+   * 🚨 正在被按住的是哪一张 —— **ref，不是 state**。
+   *
+   * 这里原来用的是上面那个 `dragging` state 来判断「这次 pointerup 属不属于
+   * 一次真的按下」。一次**快速点击**里 pointerdown 和 pointerup 落在同一个
+   * React 批次里：pointerup 的处理函数读到的还是上一次渲染的闭包，`dragging`
+   * 仍然是 null，于是它直接 return，这一下什么都没发生。
+   *
+   * 手指在触屏上的一次点按正正好就是这么快。所以「点一下选中」对真人基本上
+   * 是坏的 —— 改完拖动阈值之后，模拟学生又摆了 82 次，屏幕上仍然是
+   * 「现在一张都还没摆」。
+   *
+   * ref 在同一个事件循环里就是最新值，不等渲染。state 留着，它只负责画。
+   */
+  const draggingRef = useRef<string | null>(null);
 
   function binAt(x: number, y: number): string | null {
     const el = document.elementFromPoint(x, y);
@@ -80,8 +158,18 @@ function useBoard(initial: BoardPlacement = {}) {
     return bin ? bin.getAttribute("data-board-bin") : null;
   }
 
+  /**
+   * 🚨 每摆一次留一份上一步，给「撤销」用。
+   *
+   * 产品负责人 2026-09-12：「为阅读模块的标注板卡片及各类选项增加回退功能，
+   * 支持返回上一步重新选择。」摆错一张之前只能靠再摆一次盖过去，而她往往
+   * 记不清它原来在哪一格 —— 摆错就等于丢了一个信息。
+   */
+  const historyRef = useRef<BoardPlacement[]>([]);
+
   function place(itemId: string, bin: string | null) {
     setPlaced((prev) => {
+      historyRef.current.push(prev);
       const next = { ...prev };
       if (bin) next[itemId] = bin;
       else delete next[itemId];
@@ -89,34 +177,65 @@ function useBoard(initial: BoardPlacement = {}) {
     });
   }
 
+  /** 退回上一步。没有上一步就什么都不做。 */
+  function undo() {
+    const prev = historyRef.current.pop();
+    if (!prev) return;
+    setPlaced(prev);
+    setPicked(null);
+  }
+
+  function canUndo() {
+    return historyRef.current.length > 0;
+  }
+
   function onItemPointerDown(itemId: string, e: React.PointerEvent<HTMLElement>) {
     // 只接主键/单指。右键和第二根手指不该开始一次拖动。
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     movedRef.current = false;
+    downAtRef.current = { x: e.clientX, y: e.clientY };
+    draggingRef.current = itemId;
     setDragging(itemId);
     setGhost({ x: e.clientX, y: e.clientY });
   }
 
   function onItemPointerMove(e: React.PointerEvent<HTMLElement>) {
-    if (!dragging) return;
-    // 抖动不算拖动：手指按下去总会动几个像素，而一次「点」和一次「拖」的
-    // 区别全在这里 —— 没有这个阈值，点选那条路径永远走不到。
-    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 0) movedRef.current = true;
+    if (!draggingRef.current) return;
+    // 抖动不算拖动，门槛见 isDrag。
+    const from = downAtRef.current;
+    if (from && isDrag(from, { x: e.clientX, y: e.clientY })) movedRef.current = true;
     setGhost({ x: e.clientX, y: e.clientY });
     setHoverBin(binAt(e.clientX, e.clientY));
   }
 
   function onItemPointerUp(itemId: string, e: React.PointerEvent<HTMLElement>) {
-    if (!dragging) return;
+    if (draggingRef.current !== itemId) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     const bin = binAt(e.clientX, e.clientY);
+    draggingRef.current = null;
     setDragging(null);
     setGhost(null);
     setHoverBin(null);
     if (movedRef.current) {
       // 拖到格子外面松手 = 把它拿回来，不是把它丢进最近的格子。
       place(itemId, bin);
+      setPicked(null);
+      return;
+    }
+    downAtRef.current = null;
+    // 🚨 已经选中了**另一张**卡，而这一下点在某个**格子里**：
+    // 这是「把选中的那张放进这个格子」，不是「改选这一张」。
+    //
+    // 2026-09-11 写作面走查抓到的第三个「点选路径断掉」的毛病，和上面那两个
+    // （拖动阈值、dragging 读到上一次渲染）是各自独立的：
+    // 格子一旦有了一张卡，那张卡就占住了格子的中心，于是「点格子」这一下实际
+    // 点在卡片上，被 Chip 的 stopPropagation 吃掉，armed 的那张永远放不进去。
+    // 也就是说**点选这条路在格子非空之后就断了** —— 而它正是一只手扶着手机的
+    // 人唯一能用的那条路。拖那条路没事（binAt 用的是坐标），所以这个毛病在
+    // 鼠标上很难发现：标注板上四张卡，前两张进得去，第三张起就不动了。
+    if (picked && picked !== itemId && bin) {
+      place(picked, bin);
       setPicked(null);
       return;
     }
@@ -131,7 +250,7 @@ function useBoard(initial: BoardPlacement = {}) {
     setPicked(null);
   }
 
-  return { placed, picked, hoverBin, dragging, ghost, place, setPicked, onItemPointerDown, onItemPointerMove, onItemPointerUp, onBinClick };
+  return { placed, picked, hoverBin, dragging, ghost, place, undo, canUndo, setPicked, onItemPointerDown, onItemPointerMove, onItemPointerUp, onBinClick };
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +264,7 @@ export function CoachBoard({
   submitLabel,
   busy,
   onSubmit,
+  binHints,
 }: {
   items: BoardItem[];
   /** 格子的名字，按屏幕顺序。 */
@@ -154,7 +274,15 @@ export function CoachBoard({
   submitLabel: string;
   busy?: boolean;
   onSubmit: (placement: BoardPlacement) => void;
+  /**
+   * 每个格子底下那一句白话。不给就用阅读室那一份（BIN_HINT）。
+   *
+   * 🚨 房间自己传，因为那句话是**站在谁的位置上说的**：阅读室说「作者要你
+   * 接受的那句话」，写作室那一侧作者就是她自己。见 BIN_HINT 上面那段。
+   */
+  binHints?: Record<string, string>;
 }) {
+  const hints = binHints ?? BIN_HINT;
   const b = useBoard();
   const loose = items.filter((it) => !b.placed[it.id]);
   const done = loose.length === 0;
@@ -162,8 +290,12 @@ export function CoachBoard({
   return (
     <div className="mk-board">
       <div className="mk-board__loose" data-board-bin="">
+        {/* 🚨 摆完之后要说下一步是什么。
+            走查里她摆完四张卡片就停住了：「我摆完卡片了但屏幕没变化，不知道
+            该点哪。」—— 那颗按钮此刻刚从禁用变成可点，但屏幕上没有任何东西
+            把她指过去，而未分类那一格这时候是空的，看着像这块板已经交掉了。 */}
         <p className="mk-board__hint">
-          {loose.length > 0 ? itemLabel : "都摆好了。"}
+          {loose.length > 0 ? itemLabel : `都摆好了。请点下面的「${submitLabel}」。`}
         </p>
         <div className="mk-board__chips">
           {loose.map((it) => (
@@ -189,6 +321,13 @@ export function CoachBoard({
               className={`mk-board__bin${b.hoverBin === bin ? " is-over" : ""}${b.picked ? " is-armed" : ""}`}
             >
               <span className="mk-board__binname">{bin}</span>
+              {/* 🚨 格子名底下要有一句她能照着做的话。
+                  走查里同一条抱怨出现了十二次：「『主张』『证据』『限制』『对比』
+                  这几个词到底怎么分啊，英语课上没这么讲过，我只能瞎猜。」
+                  这五个词是她来这儿要学的（所以照说），但一个只有名字的格子
+                  对她就是一个生词 —— 她只能猜，或者照着 印记 说漏的答案搬。
+                  一句白话不是把题目做掉：她仍然得判断每一句在干什么。 */}
+              {hints[bin] && <span className="mk-board__binhint">{hints[bin]}</span>}
               <div className="mk-board__chips">
                 {inside.map((it) => (
                   <Chip
@@ -206,6 +345,16 @@ export function CoachBoard({
       </div>
 
       <div className="mk-board__foot">
+        {/* 退一步。摆错一张之前只能靠再摆一次盖过去，而她往往记不清它原来在
+            哪一格 —— 摆错就等于丢了一个信息。 */}
+        <button
+          type="button"
+          disabled={busy || !b.canUndo()}
+          onClick={b.undo}
+          className="mk-board__undo"
+        >
+          撤销上一步
+        </button>
         <button
           type="button"
           disabled={busy || !done}

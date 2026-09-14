@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardItems, composeBoardAnswer, type CoachCardSpec } from "@lite/readings/CoachCard";
+import { DRAG_SLOP, isDrag } from "@lite/readings/CoachBoards";
 
 /**
  * 板摆完之后变成的那段话。
@@ -85,5 +86,33 @@ describe("板摆完之后的那段话", () => {
     expect(boardItems(WORDS).map((i) => i.text)).toEqual(["scrambling", "delivered", "cautioned"]);
     // 三种老卡片没有任何可摆的东西 —— 不是崩，是空。
     expect(boardItems({ type: "short_text", prompt: "说说看" })).toEqual([]);
+  });
+});
+
+describe("这一下是点还是拖", () => {
+  it("手抖几个像素仍然是「点」", () => {
+    // 🚨 原来的判据是「动了就算拖」。手指按下去总会动一两个像素，于是几乎每次
+    // 「点一下选中」都被当成一次落在原地的拖动（落点还在未分类那一堆里），
+    // 卡片被放回去，屏幕上什么都没发生。模拟学生走查里这块板出现了 52 步、
+    // 她摆了 51 次，四张卡片一张都没进格子 —— 看上去像她不会用，其实是这一行。
+    for (const d of [0, 1, 2, 5, DRAG_SLOP]) {
+      expect(isDrag({ x: 100, y: 100 }, { x: 100 + d, y: 100 }), `位移 ${d}px 不该算拖`).toBe(false);
+    }
+  });
+
+  it("真的拖开了就是「拖」", () => {
+    expect(isDrag({ x: 100, y: 100 }, { x: 140, y: 100 })).toBe(true);
+    expect(isDrag({ x: 100, y: 100 }, { x: 100, y: 60 })).toBe(true);
+  });
+
+  it("算的是直线距离，不是横竖各自的位移", () => {
+    // 斜着挪 5 和 5，直线距离是 7.07，超过门槛。分别判 x、y 会漏掉这一种。
+    expect(isDrag({ x: 0, y: 0 }, { x: 5, y: 5 })).toBe(true);
+  });
+
+  it("绕一圈回到原处，仍然是「点」", () => {
+    // 距离从**按下的那个点**算，不累加每一帧的位移 —— 累加的话，慢慢挪一圈
+    // 再回到原处也会被算成拖了很远，而她手上什么都没发生。
+    expect(isDrag({ x: 100, y: 100 }, { x: 100, y: 100 })).toBe(false);
   });
 });
