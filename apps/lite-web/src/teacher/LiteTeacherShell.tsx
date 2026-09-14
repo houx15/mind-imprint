@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { LayoutGrid, Users, GraduationCap, UploadCloud } from "lucide-react";
 import { Icon, Pebble, Settings, type LucideIcon } from "@/ui";
 import { api } from "@/api";
@@ -10,7 +10,7 @@ import { SettingsView } from "@/shell/settings/SettingsView";
 import { createSession, makeMemoryStorage } from "@/shell/session";
 import { navigate } from "../routing";
 import type { MeUser } from "../api/auth";
-import { parseTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teacherRouting";
+import { resolveTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teacherRouting";
 import { ClassPage } from "./ClassPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
@@ -43,40 +43,53 @@ const ADMIN_ITEMS: RailItem[] = [
   { key: "import", label: "导入", icon: UploadCloud },
 ];
 
-/** The role-appropriate landing view — same split as pro `ConsoleShell`
- * (`role === "admin" ? "overview" : "classes"`). Only used for the BOOT
- * path (an unset/root pathname); an explicit path she navigated to (e.g.
- * `/classes`) is always honoured as typed. */
-function landingRoute(role: string): TeacherRoute {
-  return role === "admin" ? { view: "overview" } : { view: "classes" };
-}
-
-const ADMIN_ONLY_VIEWS: TeacherRoute["view"][] = ["overview", "teachers", "import"];
-
 export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
-  const [route, setRoute] = useState<TeacherRoute>(() => {
-    const path = window.location.pathname;
-    if (path === "/" || path === "") return landingRoute(user.role);
-    return parseTeacherRoute(path);
-  });
+  // `resolveTeacherRoute` (not `parseTeacherRoute`) is what decides what she
+  // is looking at: it folds an unrecognised path (root, a leftover student
+  // path, a typo) onto her role's landing tab, and sends a teacher away from
+  // an admin-only view. See its doc comment in `teacherRouting.ts` for why
+  // this has to be a distinct function from the raw parser.
+  const [route, setRoute] = useState<TeacherRoute>(() =>
+    resolveTeacherRoute(window.location.pathname, user.role),
+  );
 
-  useEffect(() => {
-    const onPop = () => setRoute(parseTeacherRoute(window.location.pathname));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const go = (r: TeacherRoute) => navigate(teacherRoutePath(r));
-
-  // A teacher (not admin) who lands on an admin-only view — by typing the
-  // URL, or a stale link — is sent to 班级 instead of shown a page she has
-  // no data for.
-  useEffect(() => {
-    if (user.role !== "admin" && ADMIN_ONLY_VIEWS.includes(route.view)) {
-      go({ view: "classes" });
+  // Reconcile the address bar with the BOOT resolution before the first
+  // paint (a layout effect, not a regular one, so there is no blank frame
+  // where the wrong view would have flashed). This runs once: if she lands
+  // on `/` as admin, the bar becomes `/overview` immediately, and if she
+  // signs in with a stale student path still showing (logout clears `user`
+  // without navigating), it becomes her landing route instead of staying on
+  // a path this shell can't render. Always `replaceState`, never
+  // `pushState` — this is a correction of the entry she's already on, not a
+  // new one, so it must not create a Back-button trap.
+  useLayoutEffect(() => {
+    const path = teacherRoutePath(route);
+    if (window.location.pathname !== path) {
+      window.history.replaceState(null, "", path);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.view, user.role]);
+  }, []);
+
+  useEffect(() => {
+    // Same resolver on Back/Forward: if popping lands her back on an
+    // admin-only path she can't see (or anywhere unrecognised), reconcile
+    // the URL with `replaceState` — synchronously, in the event handler
+    // itself, before `setRoute` — rather than routing the correction
+    // through `navigate`'s `pushState`, which is what trapped Back in the
+    // first place (pop → push → pop → push …).
+    const onPop = () => {
+      const resolved = resolveTeacherRoute(window.location.pathname, user.role);
+      const path = teacherRoutePath(resolved);
+      if (window.location.pathname !== path) {
+        window.history.replaceState(null, "", path);
+      }
+      setRoute(resolved);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [user.role]);
+
+  const go = (r: TeacherRoute) => navigate(teacherRoutePath(r));
 
   const railItems = user.role === "admin" ? ADMIN_ITEMS : TEACHER_ITEMS;
 
