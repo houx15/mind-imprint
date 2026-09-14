@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 import { liteRoutePath, parseLiteRoute, readingPath, writingPath } from "@lite/routing";
 
 describe("parseLiteRoute", () => {
-  // 🚨 落地页是**探索**，不是阅读（2026-09-03 改）。星图接上真数据之后，「每天
-  // 回来看一眼」的理由在探索这一屏，而阅读室是「我手头有一篇要读」时才去的地方。
-  it("lands on the explore map at the root", () =>
-    expect(parseLiteRoute("/")).toEqual({ tab: "explore" }));
+  // The learning home is additive; /explore and all workroom links remain valid.
+  it("lands on the learning home at the root", () =>
+    expect(parseLiteRoute("/")).toEqual({ tab: "home" }));
   it("tolerates index.html at the root", () =>
-    expect(parseLiteRoute("/index.html")).toEqual({ tab: "explore" }));
+    expect(parseLiteRoute("/index.html")).toEqual({ tab: "home" }));
   it("still opens the readings tab from its own path", () =>
     expect(parseLiteRoute("/readings")).toEqual({ tab: "readings" }));
   it("reads a reading id", () =>

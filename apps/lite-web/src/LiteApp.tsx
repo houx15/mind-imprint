@@ -1,17 +1,51 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Compass, GraduationCap, Globe, Hammer, PenLine } from "lucide-react";
-import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
+import {
+  House,
+  BookOpen,
+  Compass,
+  GraduationCap,
+  Globe,
+  Hammer,
+  PenLine,
+} from "lucide-react";
+import {
+  Settings,
+  useAccent,
+  ACCENT_PRESETS,
+  AccentProvider,
+  type AccentId,
+  type LucideIcon,
+} from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
 // reaches it.
-import { BACKGROUND_PRESETS, BackgroundProvider, type BackgroundId } from "@/ui/background";
+import {
+  BACKGROUND_PRESETS,
+  BackgroundProvider,
+  useBackground,
+  type BackgroundId,
+} from "@/ui/background";
 import { AuthScreen } from "@/shell/auth/AuthScreen";
 import { SettingsView } from "@/shell/settings/SettingsView";
 import { createSession, makeMemoryStorage } from "@/shell/session";
 import { resolveEditionDecision } from "@/shell/edition/editionRouting";
 import { EditionRedirectNotice } from "@/shell/edition/EditionRedirectNotice";
-import { liteRoutePath, navigate, parseLiteRoute, settingsPath, type LiteRoute } from "./routing";
-import { getMe, signin, signout, signup, setAccent, setBackground, type MeUser } from "./api/auth";
+import {
+  liteRoutePath,
+  navigate,
+  parseLiteRoute,
+  settingsPath,
+  type LiteRoute,
+} from "./routing";
+import {
+  getMe,
+  signin,
+  signout,
+  signup,
+  setAccent,
+  setBackground,
+  type MeUser,
+} from "./api/auth";
 import { ProjectRoom } from "./projects/ProjectRoom";
 import { ProjectsLanding } from "./projects/ProjectsLanding";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
@@ -22,45 +56,23 @@ import { WritingRoomHost } from "./writings/WritingRoomHost";
 import { SkyTab } from "./explore/SkyTab";
 import { MySitePage } from "./mysite/MySitePage";
 import { CoursesHost } from "./courses/CoursesHost";
+import { LearningHome, bookmark } from "./home/LearningHome";
+import "./home/learning.css";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 
-/**
- * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
- * 写作) that AUTO-FOLDS TO ICONS ONLY, matching the shape of the existing
- * frontend's `Nav` (apps/web/src/shell/Nav.tsx) rather than a Cowork-style
- * "switcher on top, session list below".
- *
- * Why (2026-08-26 product-owner decision, see AGENTS.md/task brief): Cowork's
- * session list serves PARALLEL work — many threads alive at once, so the
- * list itself is the workspace. Reading one article or drafting one piece is
- * a FOCUSED task — one thing in hand at a time — so the sidebar is
- * navigation, not workspace, and history stays on each tab's own landing
- * page (`ReadingsLanding`'s 过往的阅读), never in the sidebar.
- *
- * The fold is not cosmetic: the reading room's article, coach chat, and
- * paragraph-anchored cards all compete for horizontal space, so a folded
- * 64px icon rail gives that space back. It rests folded by default (matching
- * `Nav`'s collapsed-64px/hover-to-208px behavior via CSS only — no JS toggle
- * state) and only opens on hover/keyboard-focus, i.e. while the student is
- * choosing what to do.
- *
- * Routing: no router library. `parseLiteRoute`/`liteRoutePath` (./routing)
- * parse/format `window.location.pathname`; a `popstate` listener re-derives
- * the route on Back/Forward and on `navigate`'s synthetic dispatch.
- *
- * `/readings/:id` mounts `ReadingRoomHost` (Task 12), which mounts lite's OWN
- * `ReadingRoom` (`./readings/ReadingRoom`). It used to host pro's room under
- * `LITE_READING_CAPABILITIES`; that room forked into lite on 2026-08-29, so
- * the pro-only surfaces are no longer switched off by a capability object —
- * they are not in lite's file at all.
- * `/writings/:id` mounts `WritingRoomHost` (P3 Task 8) — writing has no
- * analogous standalone pro room to host (`WritingBlock`/`WorkspaceContainer`
- * are module-private and cannot mount independently — see the task brief's
- * 复用边界), so the writing room is assembled fresh out of the standalone
- * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
+/** Lite student shell. The learning home uses expanded navigation on wide
+ * screens; workrooms retain a compact rail to preserve reading/writing space.
+ * Auth, edition checks, immersive courses and room routes stay unchanged.
  */
 
-type LiteTab = "explore" | "readings" | "writings" | "projects" | "courses" | "mysite";
+type LiteTab =
+  | "home"
+  | "explore"
+  | "readings"
+  | "writings"
+  | "projects"
+  | "courses"
+  | "mysite";
 
 // 顺序本身在说一句话：**探索（找到）→ 读 → 写 → 做 → 课程 → 主页（东西放在
 // 那里）。**
@@ -70,6 +82,7 @@ type LiteTab = "explore" | "readings" | "writings" | "projects" | "courses" | "m
 // （`explore/SkyTab.tsx`）。腾出来的一格给了「我的主页」：主页发布之后她随时能
 // 回来改，而在这之前，回到那一页的路只有「项目室 → 主页项目 → 侧栏那一行」。
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
+  { key: "home", label: "首页", icon: House },
   { key: "explore", label: "探索", icon: Compass },
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
@@ -89,6 +102,8 @@ function tabPath(tab: LiteTab): string {
   // Explicit per tab rather than a cast: `LiteRoute` carries optional id
   // fields per tab, so a blanket `{ tab }` would not narrow.
   switch (tab) {
+    case "home":
+      return "/";
     case "readings":
       return liteRoutePath({ tab: "readings" });
     case "writings":
@@ -109,11 +124,28 @@ function tabPath(tab: LiteTab): string {
  * pro shell's identical helper — the presets are the shared source of truth,
  * so an unknown value degrades to the default rather than being applied raw. */
 function coerceAccent(value: string | null | undefined): AccentId | undefined {
-  return ACCENT_PRESETS.some((p) => p.id === value) ? (value as AccentId) : undefined;
+  return ACCENT_PRESETS.some((p) => p.id === value)
+    ? (value as AccentId)
+    : undefined;
 }
 
-function coerceBackground(value: string | null | undefined): BackgroundId | undefined {
-  return BACKGROUND_PRESETS.some((p) => p.id === value) ? (value as BackgroundId) : undefined;
+// Preserve a saved choice; only accounts without a preference get the new default.
+function initialLiteAccent(value: string | null | undefined): AccentId {
+  const saved = coerceAccent(value);
+  if (saved) return saved;
+  try {
+    return coerceAccent(localStorage.getItem("mk-accent")) ?? "teal";
+  } catch {
+    return "teal";
+  }
+}
+
+function coerceBackground(
+  value: string | null | undefined,
+): BackgroundId | undefined {
+  return BACKGROUND_PRESETS.some((p) => p.id === value)
+    ? (value as BackgroundId)
+    : undefined;
 }
 
 /** 地址栏当下是不是还停在课程页。用处见 `CoursesHost` 那两个回调上的注释。 */
@@ -173,7 +205,9 @@ export function LiteApp() {
 
   const editionDecision = resolveEditionDecision("lite", user.school?.edition);
   if (editionDecision.kind !== "stay") {
-    return <EditionRedirectNotice decision={editionDecision} appEdition="lite" />;
+    return (
+      <EditionRedirectNotice decision={editionDecision} appEdition="lite" />
+    );
   }
 
   function onLogout() {
@@ -182,7 +216,7 @@ export function LiteApp() {
 
   return (
     <AccentProvider
-      initialAccent={coerceAccent(user.avatar_color)}
+      initialAccent={initialLiteAccent(user.avatar_color)}
       onPersist={(id) => {
         void setAccent(id);
       }}
@@ -200,7 +234,11 @@ export function LiteApp() {
 }
 
 function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
-  const [route, setRoute] = useState<LiteRoute>(() => parseLiteRoute(window.location.pathname));
+  const { id: accent, setAccent: chooseAccent } = useAccent();
+  const { id: background } = useBackground();
+  const [route, setRoute] = useState<LiteRoute>(() =>
+    parseLiteRoute(window.location.pathname),
+  );
   // 课程播放器占满整页时收起导航轨。一门课是一段连续的叙事，旁边留一条
   // 「阅读 / 写作 / 项目」的轨会把它降级成一个开着的面板 —— 和觉醒协议满屏
   // 渲染是同一条理由。pro 的 shell 在同一个位置做同一件事。
@@ -213,12 +251,6 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
-
-  // Labels stay in the DOM always (opacity toggled, not conditionally
-  // rendered) so the reveal is a pure CSS transition — same trick as `Nav`.
-  const labelCls =
-    "whitespace-nowrap text-mk-body opacity-0 transition-opacity duration-200 ease-mk " +
-    "group-hover/nav:opacity-100 group-focus-within/nav:opacity-100 motion-reduce:transition-none";
 
   // 觉醒协议**满屏渲染，不带导航轨**。它是一个连续的七屏叙事，旁边杵着一条
   // 「阅读 / 写作 / 项目」的导航栏会把它降级成「一个开着的表单」——而这一屏的
@@ -237,93 +269,109 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink">
-      {/* `mk-lite-navslot` / `mk-lite-nav` exist only so `index.css` can fold
-          the rail to 48px below 560px — 64px is 17% of a 375px screen, spent
-          on two icons, on the same screen where the article and the coach
-          column are already out of room. Tailwind can't express it: the width
-          has to lose to `hover:w-[208px]`, and a media-query utility would sit
-          at the same specificity. */}
+    <div
+      className={cx(
+        "lite-student flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink",
+        route.tab === "home" && "lite-home-shell",
+      )}
+      data-accent={accent}
+      data-background={background}
+    >
       {!immersive && (
-      <div className="mk-lite-navslot relative z-30 w-[64px] shrink-0">
-        <nav
-          className={cx(
-            "mk-lite-nav group/nav absolute inset-y-0 left-0 flex w-[64px] flex-col gap-1 overflow-hidden p-3",
-            // Folded (64px) is the resting state; hover/keyboard-focus within
-            // the rail expands it to 208px and reveals labels. Purely CSS —
-            // there is no JS "expanded" state to keep in sync.
-            "transition-[width] duration-200 ease-mk hover:w-[208px] focus-within:w-[208px]",
-            "hover:shadow-mk-lg focus-within:shadow-mk-lg motion-reduce:transition-none",
-          )}
-          style={{ background: "linear-gradient(180deg, var(--mk-accent-500), var(--mk-accent-600))" }}
-          aria-label="主导航"
-        >
-          <div className="mb-3 flex items-center gap-3 px-1.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-mk-full bg-white shadow-mk-xs">
-              <Pebble size={18} />
-            </span>
-            <span className={cx(labelCls, "font-semibold text-white")}>思维印记 · 轻量版</span>
-          </div>
-
-          {TABS.map(({ key, label, icon }) => {
-            // 探索那一格在 `/tree` 上也是选中的：树住在它下面（SkyTab 的第二屏），
-            // 不高亮的话她切到树之后导航上没有任何一格是亮的。
-            const active = route.tab === key || (key === "explore" && route.tab === "tree");
-            return (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => navigate(tabPath(key))}
-                className={cx(
-                  "flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                  active ? "bg-white/15" : "hover:bg-white/10",
-                )}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                  <Icon icon={icon} size={22} className={active ? "text-white" : "text-white/70"} />
-                </span>
-                <span className={cx(labelCls, active ? "font-semibold text-white" : "text-white/80")}>
-                  {label}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* 设置 sits at the FOOT of the rail, not among the tabs: it is where
-              the account lives, not a third place to work. `mt-auto` pins it
-              below whatever tabs exist above. */}
-          <button
-            type="button"
-            onClick={() => navigate(settingsPath())}
-            aria-current={route.tab === "settings" ? "page" : undefined}
-            className={cx(
-              "mt-auto flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-              route.tab === "settings" ? "bg-white/15" : "hover:bg-white/10",
-            )}
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-              <Icon icon={Settings} size={22} className={route.tab === "settings" ? "text-white" : "text-white/70"} />
-            </span>
-            <span
-              className={cx(labelCls, route.tab === "settings" ? "font-semibold text-white" : "text-white/80")}
+        <div className="learning-nav-slot">
+          <nav className="learning-nav" aria-label="主导航">
+            <a
+              href="/"
+              className="learning-brand"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/");
+              }}
             >
-              设置
-            </span>
-          </button>
-        </nav>
-      </div>
+              <BookOpen size={29} />
+              <span>
+                思维印记<small>MIND IMPRINT</small>
+              </span>
+            </a>
+            <div className="learning-nav-links">
+              {TABS.map(({ key, label, icon: NavIcon }) => {
+                const active =
+                  route.tab === key ||
+                  (key === "explore" && route.tab === "tree");
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    aria-label={label}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => navigate(tabPath(key))}
+                  >
+                    <NavIcon size={21} strokeWidth={1.7} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="learning-nav-bottom">
+              <fieldset className="learning-swatches">
+                <legend>主题配色</legend>
+                {[
+                  "teal",
+                  "indigo",
+                  "violet",
+                  "rose",
+                  "vermilion",
+                  "bamboo",
+                  "clay",
+                  "tangerine",
+                ]
+                  .map((id) => ACCENT_PRESETS.find((p) => p.id === id)!)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      data-accent={p.id}
+                      aria-label={p.name}
+                      title={p.name}
+                      aria-pressed={accent === p.id}
+                      onClick={() => chooseAccent(p.id)}
+                    />
+                  ))}
+              </fieldset>
+              <button
+                className="learning-account"
+                type="button"
+                aria-label="设置"
+                aria-current={route.tab === "settings" ? "page" : undefined}
+                onClick={() => navigate(settingsPath())}
+              >
+                <img src={bookmark} alt="" />
+                <span>
+                  {user.display_name || "我的账号"}
+                  <small>账号与设置</small>
+                </span>
+                <Settings size={17} />
+              </button>
+            </div>
+          </nav>
+        </div>
       )}
 
       <main className="min-w-0 flex-1 overflow-y-auto">
-        {route.tab === "settings" ? (
-          <SettingsView session={unusedSettingsSession} user={user} onLogout={onLogout} />
+        {route.tab === "home" ? (
+          <LearningHome user={user} />
+        ) : route.tab === "settings" ? (
+          <SettingsView
+            session={unusedSettingsSession}
+            user={user}
+            onLogout={onLogout}
+          />
         ) : route.tab === "writings" ? (
           route.writingId ? (
-            <WritingRoomHost key={route.writingId} writingId={route.writingId} />
+            <WritingRoomHost
+              key={route.writingId}
+              writingId={route.writingId}
+            />
           ) : (
             <WritingsLanding />
           )
@@ -342,7 +390,8 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           <CoursesHost
             slug={route.slug}
             onOpenCourse={(slug) => {
-              if (onCoursesPage()) navigate(liteRoutePath({ tab: "courses", slug }));
+              if (onCoursesPage())
+                navigate(liteRoutePath({ tab: "courses", slug }));
             }}
             onBackToList={() => {
               if (onCoursesPage()) navigate(liteRoutePath({ tab: "courses" }));
@@ -356,7 +405,11 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             user={user}
             surface={route.tab === "tree" ? "tree" : "map"}
             onSwitch={(next) =>
-              navigate(liteRoutePath(next === "tree" ? { tab: "tree" } : { tab: "explore" }))
+              navigate(
+                liteRoutePath(
+                  next === "tree" ? { tab: "tree" } : { tab: "explore" },
+                ),
+              )
             }
           />
         ) : route.tab === "mysite" ? (
