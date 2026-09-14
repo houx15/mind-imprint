@@ -496,6 +496,24 @@ type LiteClassWeeklyProse struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type LiteParentReport struct {
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	ClassID       uuid.UUID          `json:"class_id"`
+	CreatedBy     uuid.UUID          `json:"created_by"`
+	RangeStart    pgtype.Date        `json:"range_start"`
+	RangeEnd      pgtype.Date        `json:"range_end"`
+	Facts         []byte             `json:"facts"`
+	Draft         []byte             `json:"draft"`
+	Body          []byte             `json:"body"`
+	Status        string             `json:"status"`
+	ShareToken    *string            `json:"share_token"`
+	PublishedAt   pgtype.Timestamptz `json:"published_at"`
+	StudentSeenAt pgtype.Timestamptz `json:"student_seen_at"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+}
+
 type LiteStudentWeeklyProse struct {
 	UserID    uuid.UUID   `json:"user_id"`
 	WeekStart pgtype.Date `json:"week_start"`
