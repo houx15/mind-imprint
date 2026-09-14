@@ -101,3 +101,33 @@ LEFT JOIN reading r ON r.atom_id = a.id
 LEFT JOIN writing w ON w.atom_id = a.id
 LEFT JOIN pbl_project p ON p.atom_id = a.id
 WHERE a.user_id = sqlc.arg(user_id) AND a.id = sqlc.arg(atom_id) AND a.kind IN ('reading','writing','project');
+
+-- name: ListLiteClassRecipientStates :many
+-- Every recipient row of the class's non-archived assignments — the raw
+-- ingredients for liteassign.Status, joined the same way as
+-- ListLiteAssignmentRecipients (lite_assignment.sql) but scoped by class_id
+-- instead of a list of assignment ids. Status itself is derived in Go
+-- (getLiteClassRoster), never stored, so overdueAssignments is a per-user
+-- count over these rows rather than a column here.
+SELECT r.user_id, r.started_at, a.due_at,
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+LEFT JOIN reading rd ON rd.atom_id = r.atom_id
+LEFT JOIN writing w ON w.atom_id = r.atom_id
+LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
+WHERE a.class_id = sqlc.arg(class_id) AND a.archived_at IS NULL;
+
+-- name: ListLiteStudentAssignments :many
+-- One student's assignments within one class, for the teacher's student
+-- page. Same COALESCE finished_at as ListLiteClassRecipientStates; status is
+-- derived in Go from started_at/finished_at/due_at, never stored.
+SELECT a.id, a.kind, a.title, a.due_at, r.atom_id, r.started_at,
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+LEFT JOIN reading rd ON rd.atom_id = r.atom_id
+LEFT JOIN writing w ON w.atom_id = r.atom_id
+LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
+WHERE a.class_id = sqlc.arg(class_id) AND r.user_id = sqlc.arg(user_id) AND a.archived_at IS NULL
+ORDER BY a.due_at DESC;
