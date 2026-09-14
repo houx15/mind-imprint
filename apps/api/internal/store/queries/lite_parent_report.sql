@@ -107,14 +107,6 @@ JOIN classes c ON c.id = pr.class_id
 WHERE pr.user_id = sqlc.arg(user_id) AND pr.status = 'published'
 ORDER BY pr.published_at DESC, pr.id;
 
--- name: ListClassStudentNames :many
--- 当前在班的学生姓名（班内角色与账号角色都是 student），用于检查报告文字没有提到其他同学。
-SELECT u.id, u.display_name
-FROM enrollments e
-JOIN users u ON u.id = e.user_id
-WHERE e.class_id = sqlc.arg(class_id) AND e.role_in_class = 'student' AND u.role = 'student'
-ORDER BY u.display_name, u.id;
-
 -- name: ParentRangeActivity :one
 -- 活跃天数：秒数 > 0 的日格 ∪ 她发消息的北京日期（与 ListLiteWeekActivity 同一个形状）。
 -- has_bucket_in_range = false 时 Go 侧把学习时长记为 -1（界面显示无记录）。

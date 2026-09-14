@@ -99,7 +99,7 @@ func TestFactsTextContainsEveryNumericField(t *testing.T) {
 	for _, want := range []string{
 		"共 28 天", "活跃 11 天", "学习 347 分钟", "对话 86 轮",
 		"到期作业 19 份", "按时完成作业 14 份", "逾期完成作业 3 份", "未完成作业 2 份",
-		"完成阅读 4 篇", "完成写作 5 篇", "完成项目 6 个", "新增关键词 7 个",
+		"完成阅读 4 篇", "完成写作 5 篇", "完成项目 6 个",
 		"8月17日", "9月13日",
 	} {
 		if !strings.Contains(txt, want) {
@@ -129,10 +129,52 @@ func TestFactsTextTitlesAndMoments(t *testing.T) {
 		Keywords: []Keyword{{Text: "海洋生态", Field: "science", FieldLabel: "科学与自然"}},
 	}
 	txt := FactsText(f)
-	for _, want := range []string{"《海洋塑料》（9月1日）", "「塑料不会消失，只会变小」（《海洋塑料》）", "新关键词 海洋生态（科学与自然）"} {
+	for _, want := range []string{"完成阅读《海洋塑料》", "「塑料不会消失，只会变小」（《海洋塑料》）", "新关键词 海洋生态（科学与自然）"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("facts text missing %q: %s", want, txt)
 		}
+	}
+}
+
+// The keyword list is capped at 12 by the query, so its length is not her
+// real count and must not appear as a number the prose check would accept.
+// Twenty keywords with no digits of their own: the text must have no 个
+// count line and no run "20" or "12".
+func TestFactsTextHasNoKeywordCount(t *testing.T) {
+	kws := make([]Keyword, 20)
+	for i := range kws {
+		kws[i] = Keyword{Text: "气候", Field: "science", FieldLabel: "科学与自然"}
+	}
+	txt := FactsText(Facts{RangeStart: "2026-08-03", RangeEnd: "2026-09-06", Days: 35, Minutes: 40, Keywords: kws})
+	if strings.Contains(txt, "关键词 20") || strings.Contains(txt, "新增关键词") {
+		t.Fatalf("facts text counts keywords: %s", txt)
+	}
+	for _, run := range []string{"20 ", "12"} {
+		if strings.Contains(txt, run) {
+			t.Fatalf("facts text carries %q from len(Keywords): %s", run, txt)
+		}
+	}
+	// 完成项目 N 个 is the only 个 line allowed.
+	if strings.Count(txt, "个") != 1 {
+		t.Fatalf("facts text has a 个 count line besides 完成项目: %s", txt)
+	}
+}
+
+// A finished item's date must not widen the allowed digits. Every other
+// value is chosen without the digit 5, so a "5" can only come from the
+// item's 2026-09-05 finish date.
+func TestFactsTextHasNoItemDates(t *testing.T) {
+	f := Facts{
+		RangeStart: "2026-08-03", RangeEnd: "2026-09-03", Days: 32,
+		ActiveDays: 9, Minutes: 60, Turns: 8,
+		Readings: []Item{{Kind: "reading", Title: "海洋塑料", FinishedAt: "2026-09-05"}},
+	}
+	txt := FactsText(f)
+	if strings.Contains(txt, "5") {
+		t.Fatalf("facts text carries the item finish date: %s", txt)
+	}
+	if !strings.Contains(txt, "完成阅读《海洋塑料》") {
+		t.Fatalf("facts text missing the item title: %s", txt)
 	}
 }
 

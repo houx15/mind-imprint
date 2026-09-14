@@ -145,10 +145,11 @@ func SectionsWithFacts(f Facts) []string {
 
 // FactsText renders every numeric field of f, the finished titles, keywords
 // and moments as plain Chinese sentences. It is both the allowed-digit set
-// for the prose check and, verbatim, part of the model prompt. The range
-// dates are written twice (2026-08-17 and 8月17日) so either spelling in the
-// prose matches a digit run here. Minutes == -1 is written as 无记录, never as
-// a number.
+// for the prose check and, verbatim, part of the model prompt, so it writes
+// no number that is not a fact: no keyword count (the keyword list is
+// capped) and no per-item finish date. The range dates are written twice
+// (2026-08-17 and 8月17日) so either spelling in the prose matches a digit
+// run here. Minutes == -1 is written as 无记录, never as a number.
 func FactsText(f Facts) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "日期 %s 至 %s（%s至%s），共 %d 天", f.RangeStart, f.RangeEnd, monthDay(f.RangeStart), monthDay(f.RangeEnd), f.Days)
@@ -172,18 +173,16 @@ func FactsText(f Facts) string {
 	fmt.Fprintf(&b, "；按时完成作业 %d 份", f.AssignmentsOnTime)
 	fmt.Fprintf(&b, "；逾期完成作业 %d 份", f.AssignmentsLate)
 	fmt.Fprintf(&b, "；未完成作业 %d 份", f.AssignmentsMissed)
-	fmt.Fprintf(&b, "；兴趣树新增关键词 %d 个", len(f.Keywords))
 
+	// Keywords are listed but not counted: the query keeps only the top 12,
+	// so len(f.Keywords) is not her real count. Item finish dates are not
+	// written either: every date here becomes an allowed digit run.
 	for _, group := range []struct {
 		label string
 		items []Item
 	}{{"完成阅读", f.Readings}, {"完成写作", f.Writings}, {"完成项目", f.Projects}} {
 		for _, it := range group.items {
-			if md := monthDay(it.FinishedAt); md != "" {
-				fmt.Fprintf(&b, "；%s《%s》（%s）", group.label, it.Title, md)
-			} else {
-				fmt.Fprintf(&b, "；%s《%s》", group.label, it.Title)
-			}
+			fmt.Fprintf(&b, "；%s《%s》", group.label, it.Title)
 		}
 	}
 	for _, k := range f.Keywords {

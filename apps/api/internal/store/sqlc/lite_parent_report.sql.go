@@ -193,40 +193,6 @@ func (q *Queries) GetStudentParentReport(ctx context.Context, arg GetStudentPare
 	return i, err
 }
 
-const listClassStudentNames = `-- name: ListClassStudentNames :many
-SELECT u.id, u.display_name
-FROM enrollments e
-JOIN users u ON u.id = e.user_id
-WHERE e.class_id = $1 AND e.role_in_class = 'student' AND u.role = 'student'
-ORDER BY u.display_name, u.id
-`
-
-type ListClassStudentNamesRow struct {
-	ID          uuid.UUID `json:"id"`
-	DisplayName string    `json:"display_name"`
-}
-
-// 当前在班的学生姓名（班内角色与账号角色都是 student），用于检查报告文字没有提到其他同学。
-func (q *Queries) ListClassStudentNames(ctx context.Context, classID uuid.UUID) ([]ListClassStudentNamesRow, error) {
-	rows, err := q.db.Query(ctx, listClassStudentNames, classID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListClassStudentNamesRow
-	for rows.Next() {
-		var i ListClassStudentNamesRow
-		if err := rows.Scan(&i.ID, &i.DisplayName); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLiteParentReportsByClass = `-- name: ListLiteParentReportsByClass :many
 SELECT pr.id, pr.user_id, u.display_name AS student_name, pr.class_id,
        pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
