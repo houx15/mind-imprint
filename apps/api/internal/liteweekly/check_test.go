@@ -1,6 +1,9 @@
 package liteweekly
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCheckProse(t *testing.T) {
 	c := ProseCheck{
@@ -10,10 +13,26 @@ func TestCheckProse(t *testing.T) {
 		FactsText:    "第 37 周（9.7–9.13） 活跃 3 天 学习 95 分钟 逾期 1 份",
 		OtherNames:   []string{"王小明"},
 	}
-	ok := "本周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。"
-	if err := CheckProse(ok, []string{"overdue"}, c); err != nil {
-		t.Fatalf("valid prose rejected: %v", err)
+
+	good := map[string]struct {
+		text  string
+		codes []string
+	}{
+		"valid prose": {
+			"本周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
+			[]string{"overdue"},
+		},
+		"nil codes skip the code check": {
+			"本周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
+			nil,
+		},
 	}
+	for name, g := range good {
+		if err := CheckProse(g.text, g.codes, c); err != nil {
+			t.Errorf("%s: rejected: %v", name, err)
+		}
+	}
+
 	bad := map[string]struct {
 		text  string
 		codes []string
@@ -93,5 +112,55 @@ func TestCheckProseNilCodesSkipsCodeCheck(t *testing.T) {
 	bad := "她写下「雨是天空的眼泪」。"
 	if err := CheckProse(bad, nil, c); err == nil {
 		t.Fatal("nil codes accepted a fabricated quote")
+	}
+}
+
+func TestCheckProseUnclosedQuoteFails(t *testing.T) {
+	c := ProseCheck{
+		Corpus:    "雨落在屋檐上像敲鼓",
+		FactsText: "第 1 周 活跃 3 天",
+	}
+	err := CheckProse("她写下「从未出现的内容", nil, c)
+	if err == nil {
+		t.Fatal("unclosed quote accepted")
+	}
+	if !strings.Contains(err.Error(), "unclosed quote") {
+		t.Fatalf("error = %v, want to contain %q", err, "unclosed quote")
+	}
+}
+
+func TestCheckProseUnclosedTitleFails(t *testing.T) {
+	c := ProseCheck{
+		Titles:    "一场雨",
+		FactsText: "第 1 周 活跃 3 天",
+	}
+	err := CheckProse("可以请她继续完成《一场雨", nil, c)
+	if err == nil {
+		t.Fatal("unclosed title accepted")
+	}
+	if !strings.Contains(err.Error(), "unclosed quote") {
+		t.Fatalf("error = %v, want to contain %q", err, "unclosed quote")
+	}
+}
+
+func TestCheckProseStrayClosingMarkFails(t *testing.T) {
+	c := ProseCheck{
+		FactsText: "第 1 周 活跃 3 天",
+	}
+	err := CheckProse("她写下雨落在屋檐上像敲鼓」。", nil, c)
+	if err == nil {
+		t.Fatal("stray closing mark accepted")
+	}
+	if !strings.Contains(err.Error(), "unmatched closing mark") {
+		t.Fatalf("error = %v, want to contain %q", err, "unmatched closing mark")
+	}
+}
+
+func TestCheckProseEmptyQuotePasses(t *testing.T) {
+	c := ProseCheck{
+		FactsText: "第 1 周 活跃 3 天",
+	}
+	if err := CheckProse("她写下「」，什么都没说。", nil, c); err != nil {
+		t.Fatalf("empty quote rejected: %v", err)
 	}
 }

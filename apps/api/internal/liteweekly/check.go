@@ -27,11 +27,40 @@ type span struct {
 	kind       string // "quote" | "title"
 }
 
+// maxFragmentRunes bounds how much of the surrounding text an unclosed- or
+// stray-mark error quotes back.
+const maxFragmentRunes = 20
+
+// headFragment returns runes, capped to its first maxFragmentRunes runes.
+func headFragment(runes []rune) string {
+	if len(runes) > maxFragmentRunes {
+		return string(runes[:maxFragmentRunes])
+	}
+	return string(runes)
+}
+
+// tailFragment returns runes, capped to its last maxFragmentRunes runes.
+func tailFragment(runes []rune) string {
+	if len(runes) > maxFragmentRunes {
+		return string(runes[len(runes)-maxFragmentRunes:])
+	}
+	return string(runes)
+}
+
 // extractSpans walks text (as runes) once, collecting every 「…」, “…” and
 // 《…》 span in source order. Straight ASCII quotes are not brackets here
 // and are left untouched, per Ruling 3: the student's own text contains
 // them, and pairing them would misjudge real quotes.
-func extractSpans(runes []rune) []span {
+//
+// Per Ruling 7: an opening mark with no matching close is an error
+// ("unclosed quote: <fragment>") rather than being silently skipped —
+// truncated model output looks exactly like an unclosed mark, and this
+// check exists to catch invented quotes. A closing mark with no opening
+// mark before it is likewise an error ("unmatched closing mark:
+// <fragment>"). Marks of a different family found while scanning for a
+// close stay literal content of the outer span (e.g. 「…《x》…」 is one
+// 「」 span), and an empty 「」 is allowed.
+func extractSpans(runes []rune) ([]span, error) {
 	var spans []span
 	i := 0
 	for i < len(runes) {
@@ -44,6 +73,8 @@ func extractSpans(runes []rune) []span {
 			closeCh, kind = '”', "quote"
 		case '《':
 			closeCh, kind = '》', "title"
+		case '」', '”', '》':
+			return nil, fmt.Errorf("unmatched closing mark: %s", tailFragment(runes[:i]))
 		default:
 			i++
 			continue
@@ -53,14 +84,12 @@ func extractSpans(runes []rune) []span {
 			j++
 		}
 		if j >= len(runes) {
-			// unmatched opening bracket: nothing to pair, move on.
-			i++
-			continue
+			return nil, fmt.Errorf("unclosed quote: %s", headFragment(runes[i:]))
 		}
 		spans = append(spans, span{start: i, end: j + 1, content: string(runes[i+1 : j]), kind: kind})
 		i = j + 1
 	}
-	return spans
+	return spans, nil
 }
 
 // normalizeDigits rewrites full-width digits ０-９ to ASCII 0-9, leaving
@@ -114,7 +143,10 @@ func CheckProse(text string, codes []string, c ProseCheck) error {
 	}
 
 	runes := []rune(text)
-	spans := extractSpans(runes)
+	spans, err := extractSpans(runes)
+	if err != nil {
+		return err
+	}
 
 	for _, sp := range spans {
 		switch sp.kind {
