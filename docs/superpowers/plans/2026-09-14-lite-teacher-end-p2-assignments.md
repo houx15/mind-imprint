@@ -500,7 +500,8 @@ Also append to `apps/api/internal/store/queries/pbl_project.sql` (additive):
 ```sql
 -- name: StampPblProjectFinished :exec
 -- 第一次进入回顾或保留时写入完成时间；之后再改状态不覆盖。
-UPDATE pbl_project SET finished_at = now() WHERE id = $1 AND finished_at IS NULL;
+-- pbl_project has no id column: its primary key is atom_id, which is also the project id in routes.
+UPDATE pbl_project SET finished_at = now() WHERE atom_id = $1 AND finished_at IS NULL;
 ```
 
 Run: `cd apps/api && make sqlc && go build ./...` and `CGO_ENABLED=0 go test ./internal/liteassign/ -timeout 120s`
@@ -1047,7 +1048,7 @@ git commit -m "feat(lite-teacher): 布置作业 —— 创建、列表、详情�
 - Produces:
   - `GET /api/v1/lite/inbox` → `{"items": []InboxItemDTO, "unread": int}`; `InboxItemDTO{Type:"assignment", ID, Kind, Title, Instructions, ClassName, DueAt string; Status, StatusLabel string; AtomID *string; Unread bool}`. (Plan 4 adds `Type:"parent_report"` items to the same list.)
   - `POST /api/v1/lite/assignments/{aid}/seen` → 204.
-  - `POST /api/v1/lite/assignments/{aid}/start` → `200 {"kind": "reading"|"writing"|"project", "atomId": string, "projectId": string|null}` (`projectId` is the `pbl_project.id` the project room route uses).
+  - `POST /api/v1/lite/assignments/{aid}/start` → `200 {"kind": "reading"|"writing"|"project", "atomId": string, "projectId": string|null}` (`projectId` is what the project room route `/projects/:id` uses; `pbl_project`'s primary key is `atom_id`, so for projects `projectId == atomId`).
   - `GET /api/v1/lite/assignments/for-atom/{atomId}` → `{"assignment": {"id","title","dueAt"} | null}`.
 
 - [ ] **Step 1: Failing tests**
