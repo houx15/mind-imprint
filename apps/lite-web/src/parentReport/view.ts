@@ -89,7 +89,8 @@ export function statTiles(f: ParentReportFacts): StatTile[] {
       parts: [
         { lead: "按时", n: `${f.assignmentsOnTime}` },
         { lead: "逾期完成", n: `${f.assignmentsLate}` },
-        { lead: "未完成", n: `${f.assignmentsMissed}` },
+        // assignmentsMissed counts work not finished by the range end.
+        { lead: "逾期未完成", n: `${f.assignmentsMissed}` },
       ],
     });
   }

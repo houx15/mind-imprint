@@ -71,7 +71,7 @@ describe("statTiles", () => {
         parts: [
           { lead: "按时", n: "3" },
           { lead: "逾期完成", n: "1" },
-          { lead: "未完成", n: "1" },
+          { lead: "逾期未完成", n: "1" },
         ],
       },
     ]);
