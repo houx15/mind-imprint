@@ -1,3 +1,4 @@
+import { LandingHeader } from "../learning/LandingHeader";
 import { useEffect, useMemo, useState } from "react";
 import { Paperclip, Library, ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
@@ -20,23 +21,7 @@ import { apiErrorText } from "../api/errorText";
 /**
  * ReadingsLanding — the lite edition's front door.
  *
- * DESIGN DIRECTION. Task 11 shipped this page as a form: a label, an input, a
- * textarea, a button. It worked and it read as scaffolding. What replaced it
- * is built around a single idea — 一句招呼，一个圈出来的字 — and everything
- * else on the page is kept quiet so that mark can carry it:
- *
- *  - **The greeting is the hero.** 「Hi，今天要读点什么」 set large and light,
- *    centered, with 读 circled in 朱砂 by a stroke that DRAWS ITSELF once on
- *    load and ends in a tail pointing down at the paste box. The gesture is
- *    圈点 — the red-pen circle a Chinese reader has been making in margins
- *    forever — so the page's one flourish comes from the subject's own world
- *    rather than from a gradient.
- *  - **The paste box breathes.** A blurred warm halo (`.lite-glow`, see
- *    src/index.css) that holds brighter while she types. Deliberately not the
- *    cyan/violet ring every AI product wears.
- *  - **One boldness, spent once.** Recommendation tiles, the history entry
- *    and the notice bar are all flat, hairline-quiet objects. The ink mark is
- *    the only thing on the page raising its voice.
+ * Presentation uses the shared Lite illustration header and scoped palette.
  *
  * THREE WAYS IN, ONE BOX. Paste a body, paste a link, or upload a DOCX/PDF —
  * all three land in the same reading through the same server-side storage
@@ -52,8 +37,6 @@ import { apiErrorText } from "../api/errorText";
  * the whole shelf at `/readings/library`.
  *
  * NOTE for Task 14 (verbatim, load-bearing e2e strings):
- *   - greeting: 「Hi，今天要读点什么」 (读 is its own <span>, so match by
- *     the container's textContent, not by a single text node)
  *   - title input placeholder: 「给这次阅读起个名字（可留空）」 (unchanged)
  *   - body textarea placeholder: 「贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT」
  *   - submit button label: 「开始阅读」 (unchanged)
@@ -206,13 +189,12 @@ export function ReadingsLanding() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden">
-      <PaperBloom />
+    <div className="learning-landing relative min-h-full overflow-hidden">
 
-      <div className="relative mx-auto flex w-full max-w-[760px] flex-col px-4 pb-20 pt-5 sm:px-6">
+      <div className="learning-landing-measure relative mx-auto flex w-full flex-col">
         {/* 页签在中间、我的阅读在右边。左边那一格是空的占位，它存在只为让页签
             真的落在页面中线上 —— 没有它，页签会被右边那个按钮推得偏左。 */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="learning-entry-toolbar flex items-center justify-between gap-3">
           <div className="hidden flex-1 sm:block" />
           <ReadingsTabs active="own" libraryCount={shelf?.articles.length} />
           <div className="flex flex-1 justify-end">
@@ -239,7 +221,7 @@ export function ReadingsLanding() {
             teacher-assigned tasks (with deadlines) join this same strip,
             ABOVE the unfinished line — the slot is here and deliberately
             unwired: nothing in this build produces a teacher task. */}
-        <div className="flex min-h-[34px] justify-center pt-6">
+        <div className="learning-landing-notices flex justify-start">
           {unfinishedCount > 0 && (
             <button
               type="button"
@@ -261,9 +243,9 @@ export function ReadingsLanding() {
           )}
         </div>
 
-        <Greeting />
+        <LandingHeader kind="reading" title="阅读" description="带来文章或链接，与印记一起理解内容、核查来源。" />
 
-        <div className="lite-glow mt-9">
+        <div className="learning-composer">
           <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-1.5 shadow-mk-sm">
             <input
               value={title}
@@ -371,77 +353,6 @@ export function ReadingsLanding() {
 // ---------------------------------------------------------------------------
 // The page's marks
 // ---------------------------------------------------------------------------
-
-/** A soft warm bloom behind the greeting. Not a decorative blob: it is what
- *  keeps the eye at the top of an otherwise very quiet page. Built with
- *  color-mix, because `bg-mk-accent/12` on a bare CSS variable emits nothing. */
-function PaperBloom() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[820px] -translate-x-1/2"
-      style={{
-        background:
-          "radial-gradient(50% 55% at 50% 32%, color-mix(in srgb, var(--mk-accent-500) 9%, transparent) 0%, transparent 100%)",
-      }}
-    />
-  );
-}
-
-/** 「Hi，今天要读点什么」 — the page's thesis, spoken by 豆豆.
- *
- *  Light weight at a display size, so a big line still reads as a question
- *  rather than a banner. The circled 读 is the only heavy element. */
-function Greeting() {
-  return (
-    <h1 className="mt-6 text-center text-[24px] font-normal leading-[1.3] tracking-tight text-mk-ink sm:text-[34px] lg:text-[40px]">
-      Hi，今天要
-      <InkCircledDu />
-      点什么
-    </h1>
-  );
-}
-
-/**
- * The signature: 读 with an ink ring around it.
- *
- * Hand-drawn, not geometric — the loop is an uneven egg, it OVERSHOOTS where
- * it closes (the pen crosses its own line, the way a real circle does), and
- * the overshoot keeps going into a tail that flicks down toward the paste
- * box. The gesture encodes the instruction: this word, then that box.
- *
- * Drawn as an SVG path rather than set in a handwriting face on purpose: a
- * Chinese display webfont is megabytes over the wire, and a badly-hinted one
- * would make the single most visible glyph on the page the worst-looking. The
- * character stays in the system face and typographically correct; the hand is
- * in the ink. `pathLength="1"` lets the draw-on animation (see index.css) use
- * an exact 1→0 dash offset instead of a measured constant.
- */
-function InkCircledDu() {
-  return (
-    <span className="relative inline-block px-[0.3em] align-baseline">
-      <span className="relative z-10 font-semibold">读</span>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 148 118"
-        fill="none"
-        className="pointer-events-none absolute left-1/2 top-[44%] z-0 h-[1.98em] w-[2.34em] -translate-x-1/2 -translate-y-1/2"
-        style={{ overflow: "visible" }}
-      >
-        <path
-          className="lite-ink-ring"
-          pathLength={1}
-          d="M32 88 C10 74, 6 38, 34 20 C64 2, 118 5, 134 32 C146 54, 130 87, 96 96 C68 103, 36 100, 24 85 C18 78, 21 98, 34 122"
-          stroke="var(--mk-accent-500)"
-          strokeWidth={4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={0.88}
-        />
-      </svg>
-    </span>
-  );
-}
 
 /** A small open book, drawn in two strokes. The second hand-drawn mark on the
  *  page, and it earns its place by doing a different job: it labels the

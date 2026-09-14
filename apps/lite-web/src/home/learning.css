@@ -673,3 +673,31 @@
 :root:not([data-theme="dark"]) .lite-student[data-background="slate"] {
   --learning-paper: #f5f6f8;
 }
+
+/* Hide labels fully while folded, rather than exposing clipped text. */
+.learning-nav:not(:hover):not(:focus-within) .learning-brand span,
+.learning-nav:not(:hover):not(:focus-within) .learning-nav-links span,
+.learning-nav:not(:hover):not(:focus-within) .learning-account span,
+.learning-nav:not(:hover):not(:focus-within) .learning-account > svg {
+  visibility: hidden;
+}
+@media (min-width: 1200px) {
+  .lite-home-shell
+    .learning-nav:not(:hover):not(:focus-within)
+    .learning-brand
+    span,
+  .lite-home-shell
+    .learning-nav:not(:hover):not(:focus-within)
+    .learning-nav-links
+    span,
+  .lite-home-shell
+    .learning-nav:not(:hover):not(:focus-within)
+    .learning-account
+    span,
+  .lite-home-shell
+    .learning-nav:not(:hover):not(:focus-within)
+    .learning-account
+    > svg {
+    visibility: visible;
+  }
+}

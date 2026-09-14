@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "url": "/readings",
+      "mobileOverflow": false
+    },
+    {
+      "url": "/writings",
+      "mobileOverflow": false
+    },
+    {
+      "url": "/projects",
+      "mobileOverflow": false
+    },
+    {
+      "url": "/readings/library",
+      "mobileOverflow": false
+    }
+  ],
+  "errors": [],
+  "writes": [
+    {
+      "path": "/api/v1/pbl/site/project",
+      "body": null
+    },
+    {
+      "path": "/api/v1/readings",
+      "body": "{\"title\":\"这是一段用于验证原有提交行为的正文。\",\"lang\":\"zh\"}"
+    }
+  ],
+  "fixtureOnly": true
+}

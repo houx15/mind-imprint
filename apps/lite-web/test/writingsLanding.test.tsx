@@ -69,14 +69,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("the greeting and its ink mark", () => {
-  it("greets her with 写 circled, not as a plain heading", async () => {
-    render(<WritingsLanding />);
-    const heading = await screen.findByRole("heading", { level: 1 });
-    expect(heading.textContent).toBe("Hi，今天想写点什么");
-    expect(heading.querySelector("path.lite-ink-ring")).not.toBeNull();
-  });
-});
+// Visual composition is verified in Chromium; keep behavior tests below.
 
 describe("the one box", () => {
   it("starts a writing from typed text and routes into it", async () => {

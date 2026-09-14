@@ -101,24 +101,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("the greeting and its ink mark", () => {
-  it("greets her with 读 circled, not as a plain heading", async () => {
-    render(<ReadingsLanding />);
-    const heading = await screen.findByRole("heading", { level: 1 });
-    // 读 is its own span so it can be circled — the LINE still has to read
-    // as one sentence.
-    expect(heading.textContent).toBe("Hi，今天要读点什么");
-    expect(heading.querySelector("path.lite-ink-ring")).not.toBeNull();
-    // pathLength=1 is what lets the draw-on animation use an exact 1→0 dash.
-    expect(heading.querySelector("path.lite-ink-ring")?.getAttribute("pathLength")).toBe("1");
-  });
-
-  it("wraps the paste box in the breathing halo", async () => {
-    const { container } = render(<ReadingsLanding />);
-    await screen.findByRole("heading", { level: 1 });
-    expect(container.querySelector(".lite-glow")).not.toBeNull();
-  });
-});
+// Visual composition is verified in Chromium; keep behavior tests below.
 
 describe("the paste box", () => {
   it("starts a reading from pasted body text, naming it from the first line", async () => {

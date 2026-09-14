@@ -272,7 +272,11 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     <div
       className={cx(
         "lite-student flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink",
-        route.tab === "home" && "lite-home-shell",
+        (route.tab === "home" ||
+          (route.tab === "readings" && !route.readingId) ||
+          (route.tab === "writings" && !route.writingId) ||
+          (route.tab === "projects" && !route.projectId)) &&
+          "lite-home-shell",
       )}
       data-accent={accent}
       data-background={background}

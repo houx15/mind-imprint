@@ -1,3 +1,4 @@
+import { LandingHeader } from "../learning/LandingHeader";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { navigate, readingPath } from "../routing";
@@ -81,18 +82,13 @@ export function ReadingLibraryPage() {
   }
 
   return (
-    <div className="mk-branch-hues min-h-full">
-      <div className="mx-auto w-full max-w-[1120px] px-4 pb-20 pt-5 sm:px-6">
+    <div className="learning-landing mk-branch-hues min-h-full">
+      <div className="learning-landing-measure learning-landing-wide mx-auto w-full">
         <div className="flex justify-center">
           <ReadingsTabs active="library" libraryCount={shelf?.articles.length} />
         </div>
 
-        <header className="mt-6">
-          <h1 className="text-[26px] font-semibold leading-tight text-mk-ink">分级阅读</h1>
-          <p className="mt-1.5 text-mk-small text-mk-secondary">
-            同一篇报道有五个难度版本。挑一个话题，再挑一档你现在读得动的。
-          </p>
-        </header>
+        <LandingHeader kind="reading" title="分级阅读" description="同一篇报道有五个难度版本。请选择话题和适合自己的阅读难度。" />
 
         <div className="mt-5 flex flex-col gap-3">
           <label className="relative block">
