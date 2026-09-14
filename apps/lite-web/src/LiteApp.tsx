@@ -24,6 +24,7 @@ import { MySitePage } from "./mysite/MySitePage";
 import { CoursesHost } from "./courses/CoursesHost";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
+import { InboxButton } from "./inbox/InboxButton";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -297,15 +298,17 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             );
           })}
 
-          {/* 设置 sits at the FOOT of the rail, not among the tabs: it is where
-              the account lives, not a third place to work. `mt-auto` pins it
-              below whatever tabs exist above. */}
+          {/* 收件箱 and 设置 sit at the FOOT of the rail, not among the tabs:
+              设置 is where the account lives, and 收件箱 is where teacher
+              assignments arrive — neither is a place to work. `mt-auto` on
+              the inbox button pins both below whatever tabs exist above. */}
+          <InboxButton labelCls={labelCls} />
           <button
             type="button"
             onClick={() => navigate(settingsPath())}
             aria-current={route.tab === "settings" ? "page" : undefined}
             className={cx(
-              "mt-auto flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
+              "flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
               route.tab === "settings" ? "bg-white/15" : "hover:bg-white/10",
             )}

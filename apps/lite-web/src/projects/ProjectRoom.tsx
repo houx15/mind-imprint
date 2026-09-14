@@ -37,6 +37,7 @@ import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
 import { Says } from "./Says";
 import { useHeartbeat } from "../shared/useHeartbeat";
+import { AssignmentLine } from "../inbox/AssignmentLine";
 
 /**
  * ProjectRoom — the workbench.
@@ -391,9 +392,13 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           >
             <Icon icon={ArrowLeft} size={18} />
           </button>
-          <span className="truncate text-mk-body font-semibold text-mk-ink">
-            {project ? projectTitle(project) : "项目"}
-          </span>
+          {/* `projectId` IS the atom id (`pbl_project`'s primary key). */}
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-mk-body font-semibold text-mk-ink">
+              {project ? projectTitle(project) : "项目"}
+            </span>
+            <AssignmentLine atomId={projectId} />
+          </div>
         </header>
 
         {trail.length > 0 && (

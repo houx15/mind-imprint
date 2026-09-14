@@ -9,6 +9,7 @@ import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
+import { AssignmentStrip } from "../inbox/AssignmentStrip";
 
 /**
  * WritingsLanding — 写作 tab's front door. Same skeleton as ReadingsLanding
@@ -185,8 +186,10 @@ export function WritingsLanding() {
           </button>
         </div>
 
-        {/* Same unwired slot as ReadingsLanding: P4's teacher-assigned tasks
-            join this strip, ABOVE the unfinished line. */}
+        {/* Same slot as ReadingsLanding, now wired: teacher-assigned writings
+            sit ABOVE the unfinished line, and `AssignmentStrip` renders
+            nothing when none is assigned and still open. */}
+        <AssignmentStrip kind="writing" className="mt-6" />
         <div className="flex min-h-[34px] justify-center pt-6">
           {unfinishedCount > 0 && (
             <button

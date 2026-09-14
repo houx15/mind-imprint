@@ -18,6 +18,7 @@ import { ProjectCard } from "./ProjectCard";
 import { useZoneDrag } from "./tools/board/useZoneDrag";
 import { DragGhost } from "./tools/board/DragGhost";
 import { apiErrorText } from "../api/errorText";
+import { AssignmentStrip } from "../inbox/AssignmentStrip";
 
 /**
  * ProjectsLanding — the 项目 tab's front door.
@@ -165,6 +166,12 @@ export function ProjectsLanding() {
   return (
     <div className="relative min-h-full">
       <div className="relative mx-auto flex w-full max-w-[1100px] flex-col px-4 pb-20 pt-16 sm:px-6">
+        {/* ── 0 · 老师布置 ────────────────────────────────────────────
+            Above the gate, not inside it: a project the teacher assigned is
+            reachable while her homepage is still unpublished. Renders nothing
+            when no project is assigned and still open. */}
+        <AssignmentStrip kind="project" className="mx-auto mb-10 w-full max-w-[720px]" />
+
         {/* ── 1 · 门，或者输入框 ───────────────────────────────────────
             spec §4：她还没有主页的时候，第一个项目就是做一个。**不是推荐，
             是第一个项目就是它。** 产品负责人 2026-09-03 把它定成一道完整的门。
