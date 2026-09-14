@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { LITE_ACCENT_PRESETS } from "../../web/src/ui/themes/lite";
+import "../../web/src/ui/themes/lite.css";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   House,
   BookOpen,
@@ -216,6 +218,7 @@ export function LiteApp() {
 
   return (
     <AccentProvider
+      presets={LITE_ACCENT_PRESETS}
       initialAccent={initialLiteAccent(user.avatar_color)}
       onPersist={(id) => {
         void setAccent(id);
@@ -234,7 +237,9 @@ export function LiteApp() {
 }
 
 function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
-  const { id: accent } = useAccent();
+  const { id: accent, presets } = useAccent();
+  const palette = presets.find(p => p.id === accent) ?? presets[0]!;
+  const themeStyle = Object.fromEntries(Object.entries(palette.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value])) as CSSProperties;
   const { id: background } = useBackground();
   const [route, setRoute] = useState<LiteRoute>(() =>
     parseLiteRoute(window.location.pathname),
@@ -278,6 +283,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           (route.tab === "projects" && !route.projectId)) &&
           "lite-home-shell",
       )}
+      style={themeStyle}
       data-accent={accent}
       data-background={background}
     >

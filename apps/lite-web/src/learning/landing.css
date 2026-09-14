@@ -1,49 +1,6 @@
-/* Scoped to Lite entry pages. Shared components inherit the local palette;
-   study rooms, public pages and Pro retain their own tokens. */
-.learning-landing {
-  --mk-paper: var(--learning-paper);
-  --mk-surface: var(--learning-surface);
-  --mk-ink: var(--learning-ink);
-  --mk-secondary: var(--learning-muted);
-  --mk-muted: var(--learning-muted);
-  --mk-faint: var(--learning-muted);
-  --mk-border: var(--learning-line);
-  --mk-input-border: var(--learning-line);
-  --mk-accent-50: var(--learning-soft);
-  --mk-accent-100: color-mix(
-    in srgb,
-    var(--learning-accent) 15%,
-    var(--learning-surface)
-  );
-  --mk-accent-200: color-mix(
-    in srgb,
-    var(--learning-accent) 28%,
-    var(--learning-surface)
-  );
-  --mk-accent-300: color-mix(
-    in srgb,
-    var(--learning-accent) 45%,
-    var(--learning-surface)
-  );
-  --mk-accent-400: color-mix(
-    in srgb,
-    var(--learning-accent) 75%,
-    var(--learning-surface)
-  );
-  --mk-accent-500: var(--learning-accent);
-  --mk-accent-600: color-mix(in srgb, var(--learning-accent) 88%, black);
-  --mk-accent-700: color-mix(in srgb, var(--learning-accent) 75%, black);
-  --mk-accent-800: color-mix(in srgb, var(--learning-accent) 62%, black);
-  --mk-accent: var(--mk-accent-500);
-  --mk-shadow-xs: none;
-  --mk-shadow-sm: none;
-  --mk-radius-lg: 16px;
-  background: var(--learning-paper);
-  color: var(--learning-ink);
-}
 .learning-landing-measure {
   max-width: 960px;
-  padding: 28px 38px 64px;
+  padding: var(--mk-space-28) var(--mk-space-38) var(--mk-space-64);
 }
 .learning-landing-wide {
   max-width: 1160px;
@@ -52,30 +9,30 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
+  gap: var(--mk-space-32);
   min-height: 215px;
-  padding: 18px 0 24px;
+  padding: var(--mk-space-18) 0 var(--mk-space-24);
 }
 .learning-landing-header > div {
   min-width: 0;
   max-width: 610px;
 }
 .learning-landing-kicker {
-  font-size: 12px;
-  color: var(--learning-accent);
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-accent-500);
   letter-spacing: 0.06em;
 }
 .learning-landing-header h1 {
-  font-size: 36px;
+  font-size: var(--mk-font-size-page);
   font-weight: 650;
   line-height: 1.3;
-  margin: 13px 0 14px;
+  margin: 13px 0 var(--mk-space-14);
   letter-spacing: -0.025em;
 }
 .learning-landing-header p {
-  font-size: 15px;
+  font-size: var(--mk-font-size-intro);
   line-height: 1.8;
-  color: var(--learning-muted);
+  color: var(--mk-muted);
 }
 .learning-landing-header > img {
   width: 230px;
@@ -84,25 +41,25 @@
   flex-shrink: 0;
 }
 .learning-landing-notices {
-  margin-top: 16px;
+  margin-top: var(--mk-space-16);
 }
 .learning-composer {
   margin-top: 0;
 }
 .learning-composer > div {
-  padding: 16px;
-  border: 1px solid var(--learning-line);
-  border-radius: 16px;
-  background: var(--learning-surface);
+  padding: var(--mk-space-16);
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
   box-shadow: none;
 }
 .learning-composer > div:focus-within {
-  border-color: var(--learning-accent);
-  box-shadow: 0 0 0 3px var(--learning-soft);
+  border-color: var(--mk-accent-500);
+  box-shadow: 0 0 0 3px var(--mk-accent-50);
 }
 .learning-landing textarea::placeholder,
 .learning-landing input::placeholder {
-  color: var(--learning-muted);
+  color: var(--mk-muted);
   opacity: 0.8;
 }
 .learning-landing textarea {
@@ -112,16 +69,16 @@
 .learning-landing a:focus-visible,
 .learning-landing input:focus-visible,
 .learning-landing textarea:focus-visible {
-  outline: 2px solid var(--learning-accent);
+  outline: 2px solid var(--mk-accent-500);
   outline-offset: 3px;
 }
 .learning-project-start > h2 {
   margin-top: 0;
 }
 .learning-project-gate {
-  background: var(--learning-surface);
-  border-radius: 16px;
-  padding: 28px 32px;
+  background: var(--mk-surface);
+  border-radius: var(--mk-radius-lg);
+  padding: var(--mk-space-28) var(--mk-space-32);
   max-width: 760px;
 }
 .learning-project-gate > p {
@@ -129,28 +86,25 @@
   line-height: 1.8;
 }
 .learning-project-gate > button {
-  margin-top: 22px;
-  border-radius: 9px;
+  margin-top: var(--mk-space-22);
+  border-radius: var(--mk-radius-sm);
 }
 .learning-project-start > div {
-  border-radius: 16px;
+  border-radius: var(--mk-radius-lg);
 }
 .learning-projects .learning-project-start button {
-  border-radius: 9px;
+  border-radius: var(--mk-radius-sm);
 }
-:root[data-theme="dark"] .learning-landing {
-  --mk-accent-700: color-mix(in srgb, var(--learning-accent) 45%, white);
-  --mk-accent-800: color-mix(in srgb, var(--learning-accent) 30%, white);
-}
+
 :root[data-theme="dark"] .learning-landing-kicker {
   color: var(--mk-accent-700);
 }
 @media (max-width: 700px) {
   .learning-landing-measure {
-    padding: 20px 20px 48px;
+    padding: var(--mk-space-20) var(--mk-space-20) var(--mk-space-48);
   }
   .learning-landing-header {
-    gap: 12px;
+    gap: var(--mk-space-12);
     min-height: 170px;
   }
   .learning-landing-header > img {
@@ -158,16 +112,16 @@
     height: 125px;
   }
   .learning-landing-header h1 {
-    font-size: 29px;
+    font-size: var(--mk-font-size-page-mobile);
   }
   .learning-landing-header p {
-    font-size: 13px;
+    font-size: var(--mk-font-size-small);
   }
   .learning-composer > div {
-    padding: 10px;
+    padding: var(--mk-space-10);
   }
   .learning-project-gate {
-    padding: 22px;
+    padding: var(--mk-space-22);
   }
 }
 @media (max-width: 400px) {
@@ -175,13 +129,13 @@
     width: 80px;
   }
   .learning-landing-measure {
-    padding-inline: 16px;
+    padding-inline: var(--mk-space-16);
   }
 }
 
 .learning-composer button:disabled {
-  background: var(--learning-line) !important;
-  color: var(--learning-muted) !important;
+  background: var(--mk-border) !important;
+  color: var(--mk-muted) !important;
 }
 
 .learning-composer button {
@@ -204,77 +158,77 @@
 /* Reading catalogue: quieter controls and editorial article hierarchy. */
 .learning-library .learning-landing-header {
   min-height: 166px;
-  padding: 12px 0 18px;
+  padding: var(--mk-space-12) 0 var(--mk-space-18);
 }
 .learning-library .learning-landing-header > img {
   width: 180px;
   height: 132px;
 }
 .learning-library .learning-landing-header h1 {
-  margin: 8px 0 10px;
+  margin: var(--mk-space-8) 0 var(--mk-space-10);
 }
 .reading-library-filters {
-  padding: 8px 0 18px;
-  border-bottom: 1px solid var(--learning-line);
+  padding: var(--mk-space-8) 0 var(--mk-space-18);
+  border-bottom: 1px solid var(--mk-border);
 }
 .reading-library-filters input {
   min-height: 44px;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: var(--mk-radius-input);
+  font-size: var(--mk-font-size-body);
 }
 .reading-filter-label {
   min-width: 60px;
-  font-size: 12px;
-  color: var(--learning-muted);
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
 }
 .reading-library-filters button,
 .reading-library-footer .text-mk-label {
-  font-size: 12px;
+  font-size: var(--mk-font-size-label);
   font-weight: 400;
   letter-spacing: normal;
   line-height: 1.6;
 }
 .reading-library-card {
-  border-radius: 14px;
+  border-radius: var(--mk-radius-md);
 }
 .reading-library-cover {
   height: 174px;
 }
 .reading-library-content {
-  padding: 18px;
+  padding: var(--mk-space-18);
 }
 .reading-library-content h3 {
-  font-size: 17px;
+  font-size: var(--mk-font-size-card-title);
   line-height: 1.5;
   font-weight: 600;
 }
 .reading-library-english {
-  font-size: 13px;
+  font-size: var(--mk-font-size-small);
   line-height: 1.55;
   font-weight: 400;
   letter-spacing: normal;
 }
 .reading-library-description {
-  margin-top: 4px;
-  font-size: 13px;
+  margin-top: var(--mk-space-4);
+  font-size: var(--mk-font-size-small);
   line-height: 1.8;
 }
 .reading-library-footer {
-  padding-top: 18px;
+  padding-top: var(--mk-space-18);
 }
 .learning-landing .reading-library-start {
   min-height: 36px;
-  border-radius: 9px;
+  border-radius: var(--mk-radius-sm);
 }
 .learning-landing .reading-library-change {
   min-height: 36px;
   border-color: transparent;
-  border-radius: 9px;
+  border-radius: var(--mk-radius-sm);
 }
 @media (max-width: 700px) {
   .learning-library .learning-landing-header {
     min-height: 156px;
-    gap: 8px;
+    gap: var(--mk-space-8);
   }
   .learning-library .learning-landing-header > img {
     width: 76px;
@@ -284,13 +238,13 @@
     height: 164px;
   }
   .reading-library-content {
-    padding: 16px;
+    padding: var(--mk-space-16);
   }
 }
 
 @media (max-width: 700px) {
   .reading-library-filters > div {
-    column-gap: 5px;
+    column-gap: var(--mk-space-5);
   }
   .reading-library-filters > div:nth-of-type(2) .reading-filter-label {
     flex-basis: 100%;
@@ -298,18 +252,18 @@
   }
   .reading-library-filters > div:nth-of-type(2) button {
     flex: 1;
-    padding-inline: 7px;
+    padding-inline: var(--mk-space-7);
   }
 }
 
 .learning-library .reading-library-filters input {
-  background: var(--learning-surface);
-  border-color: var(--learning-line);
-  color: var(--learning-ink);
+  background: var(--mk-surface);
+  border-color: var(--mk-border);
+  color: var(--mk-ink);
 }
 :root[data-theme="dark"] .reading-library-filters button {
-  border-color: var(--learning-line) !important;
-  color: var(--learning-muted) !important;
+  border-color: var(--mk-border) !important;
+  color: var(--mk-muted) !important;
 }
 :root[data-theme="dark"] .reading-library-filters button[aria-pressed="true"] {
   border-color: var(--mk-accent-700) !important;
@@ -317,8 +271,8 @@
 }
 :root[data-theme="dark"] .reading-library-content span[style],
 :root[data-theme="dark"] .reading-library-footer button[aria-pressed="true"] {
-  color: var(--learning-ink) !important;
+  color: var(--mk-ink) !important;
 }
 .learning-landing .reading-library-change {
-  color: var(--learning-muted);
+  color: var(--mk-muted);
 }

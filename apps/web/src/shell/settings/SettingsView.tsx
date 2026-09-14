@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import type { SessionStore } from "../session";
 import type { MeUser } from "../../api";
-import { useAccent, ACCENT_PRESETS } from "../../ui/accent";
+import { useAccent } from "../../ui/accent";
 import { useBackground, BACKGROUND_PRESETS } from "../../ui/background";
 import { Card, Toggle, Pebble, Icon, Check } from "../../ui";
 
@@ -45,7 +45,7 @@ export function SettingsView({
   onLogout: () => void;
   user?: MeUser | null;
 }) {
-  const { id: accentId, setAccent } = useAccent();
+  const { id: accentId, setAccent, presets } = useAccent();
   const { id: backgroundId, setBackground } = useBackground();
   const [toggles, setToggles] = useState(TOGGLES_DEFAULT);
 
@@ -107,7 +107,7 @@ export function SettingsView({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            {ACCENT_PRESETS.map((preset) => {
+            {presets.map((preset) => {
               const selected = preset.id === accentId;
               return (
                 <button

@@ -19,6 +19,43 @@
     {
       "settingsAccentChanged": true,
       "sidebarPickerAbsent": true
+    },
+    {
+      "paletteChecks": [
+        {
+          "name": "松石青",
+          "color": "#087f8c"
+        },
+        {
+          "name": "靛蓝",
+          "color": "#3f60ce"
+        },
+        {
+          "name": "紫棠",
+          "color": "#7952bd"
+        },
+        {
+          "name": "玫紫",
+          "color": "#b93e7a"
+        },
+        {
+          "name": "朱砂红",
+          "color": "#ce4b48"
+        },
+        {
+          "name": "竹青绿",
+          "color": "#2d855b"
+        },
+        {
+          "name": "陶土红",
+          "color": "#bb5340"
+        },
+        {
+          "name": "蜜柑橙",
+          "color": "#a96512"
+        }
+      ],
+      "reloadPreserved": true
     }
   ],
   "errors": [],
