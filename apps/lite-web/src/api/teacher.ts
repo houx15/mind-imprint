@@ -95,6 +95,8 @@ export interface ItemDetail {
   } | null;
   project: {
     idea: string;
+    /** true: `idea` is the driving question the teacher assigned. */
+    assigned: boolean;
     status: string;
     stepsDone: number;
     stepsTotal: number;
@@ -248,6 +250,7 @@ function normalizeProject(raw: unknown): NonNullable<ItemDetail["project"]> | nu
   const r = raw as Record<string, unknown>;
   return {
     idea: s(r.idea),
+    assigned: r.assigned === true,
     status: s(r.status),
     stepsDone: n(r.stepsDone),
     stepsTotal: n(r.stepsTotal),

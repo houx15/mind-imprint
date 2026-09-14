@@ -38,6 +38,7 @@ import { apiErrorText } from "../api/errorText";
 import { Says } from "./Says";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { AssignmentLine } from "../inbox/AssignmentLine";
+import { isAssignedProject } from "../api/projects";
 
 /**
  * ProjectRoom — the workbench.
@@ -143,7 +144,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         // 自己那句话出现两遍、三遍——2026-09-02 的手机截图上正是三遍。
         //
         // 和复盘那条竞态是同一回事，也用同一个办法：一个同步的 ref 闸。
-        if (msgs.length === 0 && mine?.idea.trim() && !seeded.current) {
+        //
+        // 老师布置的项目不补这一轮：idea 是老师写的驱动问题，不是她说的话。
+        // 页头上显示「驱动问题」，第一句由她自己写。判据是项目行上的
+        // assigned，不查作业：作业归档或查询失败都不会让这句话变成她说的。
+        if (msgs.length === 0 && mine && !isAssignedProject(mine) && mine.idea.trim() && !seeded.current) {
           seeded.current = true;
           setPending(mine.idea.trim());
           setThinking(true);
@@ -398,6 +403,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
               {project ? projectTitle(project) : "项目"}
             </span>
             <AssignmentLine atomId={projectId} />
+            {project && isAssignedProject(project) && project.idea.trim() && (
+              <span className="line-clamp-2 text-mk-small text-mk-muted" title={project.idea}>
+                驱动问题：{project.idea}
+              </span>
+            )}
           </div>
         </header>
 

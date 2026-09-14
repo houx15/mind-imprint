@@ -84,6 +84,21 @@ describe("normalizeItemDetail", () => {
     expect(detail.project?.courses).toEqual([]);
   });
 
+  // ItemPage labels `idea` 驱动问题（老师布置） on this flag. Only a real `true`
+  // may do that; anything else would label her own sentence as the teacher's.
+  it("reads project.assigned as a strict boolean", () => {
+    const base = {
+      item: { atomId: "a1", kind: "project", title: "t", status: "active", level: null, minutes: 0, turns: 0, createdAt: "", lastActiveAt: "", finishedAt: null },
+      reading: null,
+      writing: null,
+      report: null,
+      reportError: null,
+    };
+    expect(normalizeItemDetail({ ...base, project: { idea: "q", assigned: true } }).project?.assigned).toBe(true);
+    expect(normalizeItemDetail({ ...base, project: { idea: "q" } }).project?.assigned).toBe(false);
+    expect(normalizeItemDetail({ ...base, project: { idea: "q", assigned: "true" } }).project?.assigned).toBe(false);
+  });
+
   it("defaults a null reading/writing sub-object to null, and null arrays inside it to []", () => {
     const raw = {
       item: { atomId: "a1", kind: "reading", title: "t", status: "active", level: 1, minutes: 0, turns: 0, createdAt: "", lastActiveAt: "", finishedAt: null },

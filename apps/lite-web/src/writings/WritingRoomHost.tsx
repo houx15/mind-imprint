@@ -28,6 +28,7 @@ import { ReportPanel } from "../reports/ReportPanel";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
+import { AssignedPromptLine } from "./AssignedPromptLine";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { flushPendingSaves } from "./pendingSaves";
@@ -348,6 +349,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
           />
           <AssignmentLine atomId={writingId} className="mt-0.5 block text-mk-small text-mk-muted" />
+          <AssignedPromptLine writing={writing} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LengthMeter writing={writing} state={state} onChange={(n) => void changeTargetWords(n)} />
