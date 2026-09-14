@@ -152,7 +152,7 @@ func SectionsWithFacts(f Facts) []string {
 // run here. Minutes == -1 is written as 无记录, never as a number.
 func FactsText(f Facts) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "日期 %s 至 %s（%s至%s），共 %d 天", f.RangeStart, f.RangeEnd, monthDay(f.RangeStart), monthDay(f.RangeEnd), f.Days)
+	fmt.Fprintf(&b, "日期 %s 至 %s（%s至%s），共 %d 天", f.RangeStart, f.RangeEnd, MonthDay(f.RangeStart), MonthDay(f.RangeEnd), f.Days)
 	if f.StudentName != "" {
 		fmt.Fprintf(&b, "；学生 %s", f.StudentName)
 	}
@@ -198,8 +198,8 @@ func FactsText(f Facts) string {
 	return b.String()
 }
 
-// monthDay turns a YYYY-MM-DD date into M月D日. An unparseable date yields "".
-func monthDay(date string) string {
+// MonthDay turns a YYYY-MM-DD date into M月D日. An unparseable date yields "".
+func MonthDay(date string) string {
 	t, err := time.ParseInLocation(dateLayout, date, liteweek.Beijing)
 	if err != nil {
 		return ""

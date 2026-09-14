@@ -283,6 +283,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/seen", liteOnly(a.markLiteAssignmentSeen))
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/start", liteOnly(a.startLiteAssignment))
 	mux.Handle("GET /api/v1/lite/assignments/for-atom/{atomId}", liteOnly(a.getLiteAssignmentForAtom))
+	// 家长报告 · 学生这一侧：读她自己已发布的报告、标记已读。只看归属与发布状态，
+	// 不看是否仍在班。见 lite_parent_report_read.go。
+	mux.Handle("GET /api/v1/lite/parent-reports/{rid}", liteOnly(a.getStudentParentReport))
+	mux.Handle("POST /api/v1/lite/parent-reports/{rid}/seen", liteOnly(a.markStudentParentReportSeen))
 
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
 	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
@@ -466,6 +470,9 @@ func (a *API) Handler() http.Handler {
 	// link, and anyone with it — no login — can view her report. Do not wrap
 	// this in an auth gate; that would defeat the whole feature.
 	mux.Handle("GET /api/v1/public/reports/{token}", http.HandlerFunc(a.getPublicReport))
+	// 同样公开、无 session：老师发布的家长报告，家长凭链接打开；撤销后 404。
+	// 响应带 X-Robots-Tag: noindex。见 lite_parent_report_read.go。
+	mux.Handle("GET /api/v1/public/parent-reports/{token}", http.HandlerFunc(a.getPublicParentReport))
 	// 同样公开、同样无 session：她把自己的主页链接发给了谁，谁就能打开。响应
 	// 带 X-Robots-Tag: noindex（spec §15——她是未成年人，链接是给人的，不是给
 	// 搜索引擎的）。
