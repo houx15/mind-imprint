@@ -14,6 +14,12 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}", liteTeacher(a.getLiteTeacherItem))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/tree", liteTeacher(a.getLiteTeacherTree))
 
+	// Weekly summary. A GET never calls a model; only the POST …/prose does.
+	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/weekly", liteTeacher(a.getLiteStudentWeekly))
+	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/students/{userId}/weekly/prose", liteTeacher(a.postLiteStudentWeeklyProse))
+	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/weekly", liteTeacher(a.getLiteClassWeekly))
+	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/weekly/prose", liteTeacher(a.postLiteClassWeeklyProse))
+
 	// Assignments. POST …/assignments/extract and the {aid} routes differ by
 	// method, so the Go 1.22 mux registers them without a pattern conflict.
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/assignments", liteTeacher(a.createLiteAssignment))

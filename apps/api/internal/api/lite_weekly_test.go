@@ -2,7 +2,10 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/liteweekly"
 	"mindimprint/api/internal/store/sqlc"
@@ -369,5 +373,467 @@ func TestLiteWeeklyTwoStudentsNoCrossover(t *testing.T) {
 			!reflect.DeepEqual(s.Moments, []liteweekly.Moment{{Quote: p + "的句子", ItemTitle: p + "读完"}}) {
 			t.Fatalf("student %s = %+v", p, s)
 		}
+	}
+}
+
+// --- weekly endpoints --------------------------------------------------------
+
+type weeklyCardJSON struct {
+	Kind     string `json:"kind"`
+	Code     string `json:"code"`
+	Label    string `json:"label"`
+	Evidence string `json:"evidence"`
+	UserID   string `json:"userId"`
+	Name     string `json:"name"`
+}
+
+type studentWeeklyJSON struct {
+	WeekStart string `json:"weekStart"`
+	WeekLabel string `json:"weekLabel"`
+	Title     string `json:"title"`
+	IsLatest  bool   `json:"isLatest"`
+	Facts     struct {
+		ActiveDays         int      `json:"activeDays"`
+		Minutes            int      `json:"minutes"`
+		Turns              int      `json:"turns"`
+		AssignmentsOverdue int      `json:"assignmentsOverdue"`
+		NewKeywords        []string `json:"newKeywords"`
+		Moments            []struct {
+			Quote     string `json:"quote"`
+			ItemTitle string `json:"itemTitle"`
+		} `json:"moments"`
+	} `json:"facts"`
+	Cards []weeklyCardJSON `json:"cards"`
+	Prose *struct {
+		Summary     string `json:"summary"`
+		Suggestions []struct {
+			Text         string `json:"text"`
+			EvidenceCode string `json:"evidenceCode"`
+		} `json:"suggestions"`
+	} `json:"prose"`
+	ProseReady bool    `json:"proseReady"`
+	ProseError *string `json:"proseError"`
+}
+
+type classWeeklyJSON struct {
+	WeekStart string `json:"weekStart"`
+	WeekLabel string `json:"weekLabel"`
+	Title     string `json:"title"`
+	IsLatest  bool   `json:"isLatest"`
+	Stats     struct {
+		ClassSize      int `json:"classSize"`
+		ActiveStudents int `json:"activeStudents"`
+		Minutes        int `json:"minutes"`
+		Turns          int `json:"turns"`
+		Finished       int `json:"finished"`
+		AssignmentRate int `json:"assignmentRate"`
+	} `json:"stats"`
+	Praise []weeklyCardJSON `json:"praise"`
+	Watch  []weeklyCardJSON `json:"watch"`
+	Prose  *struct {
+		Comment string `json:"comment"`
+		Cards   []struct {
+			UserID string `json:"userId"`
+			Lead   string `json:"lead"`
+			Action string `json:"action"`
+		} `json:"cards"`
+	} `json:"prose"`
+	ProseReady bool    `json:"proseReady"`
+	ProseError *string `json:"proseError"`
+}
+
+func weeklyReply(text string) []gateway.StreamEvent {
+	return []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: text},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 50}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	}
+}
+
+func studentWeeklyPath(classID string, userID uuid.UUID) string {
+	return "/api/v1/lite/teacher/classes/" + classID + "/students/" + userID.String() + "/weekly"
+}
+
+func classWeeklyPath(classID string) string {
+	return "/api/v1/lite/teacher/classes/" + classID + "/weekly"
+}
+
+// weeklyDo sends one request and decodes a 200 body into out.
+func weeklyDo(t *testing.T, h http.Handler, c *http.Cookie, method, path string, out any) (int, string) {
+	t.Helper()
+	rec := doJSON(t, h, c, method, path, "")
+	if out != nil && rec.Code == http.StatusOK {
+		if err := json.Unmarshal(rec.Body.Bytes(), out); err != nil {
+			t.Fatalf("decode %s %s: %v body=%s", method, path, err, rec.Body)
+		}
+	}
+	return rec.Code, rec.Body.String()
+}
+
+// llmCallUsers returns the user_id of every llm_call row with this purpose.
+func llmCallUsers(t *testing.T, pool *pgxpool.Pool, purpose string) []uuid.UUID {
+	t.Helper()
+	rows, err := pool.Query(context.Background(), `SELECT user_id FROM llm_call WHERE purpose = $1`, purpose)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, id)
+	}
+	return out
+}
+
+func userIDByEmail(t *testing.T, pool *pgxpool.Pool, email string) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	if err := pool.QueryRow(context.Background(), `SELECT id FROM users WHERE email = $1`, email).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func weeklyCount(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(), sql, args...).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// seedWeeklyStudentWeek seeds the facts of TestLiteWeeklyStudentFacts in the
+// latest completed week: 3 active days, 20 minutes, 1 turn, a finished
+// 《Test reading》 with the moment 「雨落在屋檐上」, an overdue assignment, a
+// stalled 《Test writing》 and the keyword 金融. Cards: overdue (watch) and
+// new_interest (praise).
+func seedWeeklyStudentWeek(t *testing.T, h http.Handler, pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID) {
+	t.Helper()
+	ws, we := weeklyWindow()
+	reading := seedLiteReadingForUser(t, pool, studentID, "finished", 0)
+	mustExec(t, pool, `UPDATE reading SET finished_at = $2 WHERE atom_id = $1`, reading, ws.AddDate(0, 0, 2).Add(10*time.Hour))
+	seedBucket(t, pool, reading, ws, 600)
+	seedBucket(t, pool, reading, ws.AddDate(0, 0, 1), 600)
+	seedAtomMessageAt(t, pool, reading, ws.AddDate(0, 0, 3).Add(9*time.Hour))
+	seedReport(t, pool, reading, "reading", `{"version":1,"moments":[{"quote":"雨落在屋檐上","where":""}]}`)
+
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, aid, ws.AddDate(0, 0, 4))
+
+	writing := seedLiteWritingForUser(t, pool, studentID, "active")
+	mustExec(t, pool, `UPDATE atom SET created_at = $2 WHERE id = $1`, writing, we.AddDate(0, 0, -12))
+
+	seedWeekKeyword(t, pool, studentID, "金融", ws.AddDate(0, 0, 1).Add(8*time.Hour))
+}
+
+const weeklyValidStudentReply = `{"summary":"本周活跃 3 天，读完《Test reading》，写下「雨落在屋檐上」。有 1 份作业逾期。","suggestions":[{"text":"请她说明逾期的作业卡在哪一步。","evidenceCode":"overdue"},{"text":"请她讲一讲对金融的兴趣从哪里来。","evidenceCode":"new_interest"}]}`
+
+const weeklyFabricatedStudentReply = `{"summary":"她写下「雨是天空的眼泪」。","suggestions":[{"text":"请她说明逾期的作业卡在哪一步。","evidenceCode":"overdue"}]}`
+
+func TestLiteWeeklyStudentGetCallsNoModel(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	seedWeeklyStudentWeek(t, h, pool, teacher, classID, studentID)
+	ws, _ := weeklyWindow()
+
+	var got studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &got); code != http.StatusOK {
+		t.Fatalf("GET = %d body=%s", code, body)
+	}
+	if prov.Calls != 0 {
+		t.Fatalf("GET called the provider %d times", prov.Calls)
+	}
+	if got.ProseReady || got.Prose != nil {
+		t.Fatalf("GET prose = %+v ready=%v, want none", got.Prose, got.ProseReady)
+	}
+	label := liteweek.Label(ws)
+	if got.WeekStart != ws.In(liteweek.Beijing).Format("2006-01-02") || got.WeekLabel != label ||
+		got.Title != "上周表现总结 · "+label || !got.IsLatest {
+		t.Fatalf("week = %q %q %q latest=%v", got.WeekStart, got.WeekLabel, got.Title, got.IsLatest)
+	}
+	wantCards := []weeklyCardJSON{
+		{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "本周到期的作业中有 1 份未完成。"},
+		{Kind: "praise", Code: "new_interest", Label: "新的兴趣", Evidence: "兴趣树新增关键词：金融。"},
+	}
+	if !reflect.DeepEqual(got.Cards, wantCards) {
+		t.Fatalf("cards = %+v, want %+v", got.Cards, wantCards)
+	}
+	f := got.Facts
+	if f.ActiveDays != 3 || f.Minutes != 20 || f.Turns != 1 || f.AssignmentsOverdue != 1 ||
+		len(f.Moments) != 1 || f.Moments[0].Quote != "雨落在屋檐上" || f.Moments[0].ItemTitle != "Test reading" ||
+		!reflect.DeepEqual(f.NewKeywords, []string{"金融"}) {
+		t.Fatalf("facts = %+v", f)
+	}
+}
+
+func TestLiteWeeklyStudentProseStoredOnce(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	seedWeeklyStudentWeek(t, h, pool, teacher, classID, studentID)
+	teacherID := userIDByEmail(t, pool, "lt-teacher@demo.local")
+	path := studentWeeklyPath(classID, studentID) + "/prose"
+
+	var first studentWeeklyJSON
+	code, body := weeklyDo(t, h, teacher, "POST", path, &first)
+	if code != http.StatusOK {
+		t.Fatalf("POST = %d body=%s", code, body)
+	}
+	if first.Prose == nil || !strings.HasPrefix(first.Prose.Summary, "本周活跃 3 天") || !first.ProseReady || first.ProseError != nil {
+		t.Fatalf("POST prose = %+v ready=%v err=%v", first.Prose, first.ProseReady, first.ProseError)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &raw); err != nil || string(raw["proseError"]) != "null" {
+		t.Fatalf("proseError must be present and null: %s", body)
+	}
+	if prov.Calls != 1 {
+		t.Fatalf("provider calls = %d, want 1", prov.Calls)
+	}
+	if ids := llmCallUsers(t, pool, "lite_student_weekly"); len(ids) != 1 || ids[0] != teacherID {
+		t.Fatalf("llm_call users = %v, want [teacher %s]", ids, teacherID)
+	}
+
+	var second studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "POST", path, &second); code != http.StatusOK {
+		t.Fatalf("second POST = %d body=%s", code, body)
+	}
+	if prov.Calls != 1 {
+		t.Fatalf("second POST called the provider: calls = %d", prov.Calls)
+	}
+	if !reflect.DeepEqual(first.Prose, second.Prose) || second.ProseError != nil {
+		t.Fatalf("second prose = %+v, want %+v", second.Prose, first.Prose)
+	}
+	if n := len(llmCallUsers(t, pool, "lite_student_weekly")); n != 1 {
+		t.Fatalf("llm_call rows after second POST = %d, want 1", n)
+	}
+
+	var got studentWeeklyJSON
+	weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &got)
+	if !got.ProseReady || !reflect.DeepEqual(got.Prose, first.Prose) {
+		t.Fatalf("GET after POST prose = %+v ready=%v", got.Prose, got.ProseReady)
+	}
+}
+
+func TestLiteWeeklyStudentProseRejectedNotStored(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyFabricatedStudentReply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	seedWeeklyStudentWeek(t, h, pool, teacher, classID, studentID)
+
+	var got studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "POST", studentWeeklyPath(classID, studentID)+"/prose", &got); code != http.StatusOK {
+		t.Fatalf("POST = %d body=%s", code, body)
+	}
+	if got.Prose != nil || got.ProseReady || got.ProseError == nil || *got.ProseError == "" {
+		t.Fatalf("POST prose = %+v ready=%v err=%v, want null prose and an error", got.Prose, got.ProseReady, got.ProseError)
+	}
+	if prov.Calls != 2 {
+		t.Fatalf("provider calls = %d, want 2", prov.Calls)
+	}
+	if n := len(llmCallUsers(t, pool, "lite_student_weekly")); n != 2 {
+		t.Fatalf("llm_call rows = %d, want 2", n)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_student_weekly_prose WHERE user_id = $1`, studentID); n != 0 {
+		t.Fatalf("stored prose rows = %d, want 0", n)
+	}
+	var after studentWeeklyJSON
+	weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &after)
+	if after.ProseReady || after.Prose != nil {
+		t.Fatalf("GET after rejected POST prose = %+v", after.Prose)
+	}
+}
+
+// TestLiteWeeklyStudentProseStalledCardNoSevenInLabel: the only 7 the prose
+// may use is the one in the stalled card's evidence (超过 7 天没有进展).
+func TestLiteWeeklyStudentProseStalledCardNoSevenInLabel(t *testing.T) {
+	ws := liteweek.LatestCompleted(time.Now())
+	for strings.Contains(liteweek.Label(ws), "7") {
+		ws = ws.AddDate(0, 0, -7)
+	}
+	reply := `{"summary":"《雨水花园调查》超过 7 天没有进展。","suggestions":[{"text":"请她说明《雨水花园调查》超过 7 天没有进展的原因。","evidenceCode":"stalled"}]}`
+	prov := gateway.NewSequenceStubProvider(weeklyReply(reply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+
+	reading := seedLiteReadingForUser(t, pool, studentID, "active", 0)
+	seedBucket(t, pool, reading, ws.AddDate(0, 0, 2), 600)
+	seedOldWriting(t, pool, studentID, "雨水花园调查", ws.AddDate(0, 0, -3))
+
+	path := studentWeeklyPath(classID, studentID) + "/prose?weekStart=" + ws.In(liteweek.Beijing).Format("2006-01-02")
+	var got studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "POST", path, &got); code != http.StatusOK {
+		t.Fatalf("POST = %d body=%s", code, body)
+	}
+	want := []weeklyCardJSON{{Kind: "watch", Code: "stalled", Label: "进度停滞", Evidence: "《雨水花园调查》超过 7 天没有进展。"}}
+	if !reflect.DeepEqual(got.Cards, want) {
+		t.Fatalf("cards = %+v, want %+v", got.Cards, want)
+	}
+	if got.ProseError != nil || got.Prose == nil || prov.Calls != 1 {
+		t.Fatalf("prose = %+v err=%v calls=%d, want accepted on the first attempt", got.Prose, got.ProseError, prov.Calls)
+	}
+}
+
+func TestLiteWeeklyBadWeek(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	current := liteweek.WeekStart(time.Now()).Format("2006-01-02")
+	tuesday := liteweek.LatestCompleted(time.Now()).AddDate(0, 0, 1).Format("2006-01-02")
+
+	for _, week := range []string{current, tuesday, "not-a-date"} {
+		for _, tc := range []struct{ method, path string }{
+			{"GET", studentWeeklyPath(classID, studentID)},
+			{"POST", studentWeeklyPath(classID, studentID) + "/prose"},
+			{"GET", classWeeklyPath(classID)},
+			{"POST", classWeeklyPath(classID) + "/prose"},
+		} {
+			code, body := weeklyDo(t, h, teacher, tc.method, tc.path+"?weekStart="+week, nil)
+			if code != http.StatusBadRequest || !strings.Contains(body, `"invalid_week"`) || !strings.Contains(body, "请选择已经结束的一周") {
+				t.Fatalf("%s %s?weekStart=%s = %d %s, want 400 invalid_week", tc.method, tc.path, week, code, body)
+			}
+		}
+	}
+	if prov.Calls != 0 {
+		t.Fatalf("provider calls = %d, want 0", prov.Calls)
+	}
+}
+
+func TestLiteWeeklyAccess(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, pool, _, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	other := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "lw-other-teacher@demo.local"))
+	student := signInAs(t, pool, studentID)
+
+	for _, tc := range []struct{ method, path string }{
+		{"GET", studentWeeklyPath(classID, studentID)},
+		{"POST", studentWeeklyPath(classID, studentID) + "/prose"},
+		{"GET", classWeeklyPath(classID)},
+		{"POST", classWeeklyPath(classID) + "/prose"},
+	} {
+		if code, body := weeklyDo(t, h, other, tc.method, tc.path, nil); code != http.StatusNotFound {
+			t.Fatalf("other teacher %s %s = %d %s, want 404", tc.method, tc.path, code, body)
+		}
+		if code, body := weeklyDo(t, h, student, tc.method, tc.path, nil); code != http.StatusForbidden {
+			t.Fatalf("student %s %s = %d %s, want 403", tc.method, tc.path, code, body)
+		}
+	}
+	if prov.Calls != 0 {
+		t.Fatalf("provider calls = %d, want 0", prov.Calls)
+	}
+}
+
+func TestLiteWeeklyClassProseStoredOnce(t *testing.T) {
+	// The reply must carry the student's id, which exists only after the
+	// fixture has wired the provider in; the script is filled in afterwards.
+	prov := gateway.NewSequenceStubProvider()
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	reply := `{"comment":"本周 1 名学生有 1 份作业逾期，读完《Test reading》。","cards":[{"userId":"` + studentID.String() +
+		`","lead":"她读完《Test reading》，有 1 份作业逾期。","action":"请线下询问逾期作业卡在哪一步。"}]}`
+	*prov = *gateway.NewSequenceStubProvider(weeklyReply(reply))
+
+	seedWeeklyStudentWeek(t, h, pool, teacher, classID, studentID)
+	ws, _ := weeklyWindow()
+	teacherID := userIDByEmail(t, pool, "lt-teacher@demo.local")
+	var name string
+	if err := pool.QueryRow(context.Background(), `SELECT display_name FROM users WHERE id = $1`, studentID).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+
+	var before classWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &before); code != http.StatusOK {
+		t.Fatalf("GET = %d body=%s", code, body)
+	}
+	if prov.Calls != 0 || before.ProseReady || before.Prose != nil {
+		t.Fatalf("GET calls=%d prose=%+v", prov.Calls, before.Prose)
+	}
+	label := liteweek.Label(ws)
+	if before.Title != "上周班级周报 · "+label || !before.IsLatest || before.WeekLabel != label {
+		t.Fatalf("title = %q latest=%v", before.Title, before.IsLatest)
+	}
+	st := before.Stats
+	if st.ClassSize != 1 || st.ActiveStudents != 1 || st.Minutes != 20 || st.Turns != 1 || st.Finished != 1 || st.AssignmentRate != 0 {
+		t.Fatalf("stats = %+v", st)
+	}
+	sid := studentID.String()
+	wantWatch := []weeklyCardJSON{{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "本周到期的作业中有 1 份未完成。", UserID: sid, Name: name}}
+	wantPraise := []weeklyCardJSON{{Kind: "praise", Code: "new_interest", Label: "新的兴趣", Evidence: "兴趣树新增关键词：金融。", UserID: sid, Name: name}}
+	if !reflect.DeepEqual(before.Watch, wantWatch) || !reflect.DeepEqual(before.Praise, wantPraise) {
+		t.Fatalf("watch = %+v praise = %+v", before.Watch, before.Praise)
+	}
+
+	path := classWeeklyPath(classID) + "/prose"
+	var first classWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "POST", path, &first); code != http.StatusOK {
+		t.Fatalf("POST = %d body=%s", code, body)
+	}
+	if first.Prose == nil || first.ProseError != nil || len(first.Prose.Cards) != 1 || first.Prose.Cards[0].UserID != sid {
+		t.Fatalf("POST prose = %+v err=%v", first.Prose, first.ProseError)
+	}
+	if ids := llmCallUsers(t, pool, "lite_class_weekly"); len(ids) != 1 || ids[0] != teacherID {
+		t.Fatalf("llm_call users = %v, want [teacher]", ids)
+	}
+
+	var second classWeeklyJSON
+	weeklyDo(t, h, teacher, "POST", path, &second)
+	if prov.Calls != 1 || !reflect.DeepEqual(first.Prose, second.Prose) {
+		t.Fatalf("second POST calls=%d prose=%+v", prov.Calls, second.Prose)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_class_weekly_prose WHERE class_id = $1`, uuid.MustParse(classID)); n != 1 {
+		t.Fatalf("stored class prose rows = %d, want 1", n)
+	}
+	var after classWeeklyJSON
+	weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &after)
+	if !after.ProseReady || !reflect.DeepEqual(after.Prose, first.Prose) {
+		t.Fatalf("GET after POST prose = %+v", after.Prose)
+	}
+}
+
+func TestLiteWeeklyClassAssignmentRate(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	student := signInAs(t, pool, studentID)
+	ws, we := weeklyWindow()
+
+	var got classWeeklyJSON
+	weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &got)
+	if got.Stats.AssignmentRate != -1 {
+		t.Fatalf("assignmentRate with nothing due = %d, want -1", got.Stats.AssignmentRate)
+	}
+
+	done := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	started := startAssignment(t, h, student, done)
+	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, done, ws.AddDate(0, 0, 5))
+	mustExec(t, pool, `UPDATE writing SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, started.AtomID, ws.AddDate(0, 0, 2))
+
+	overdue := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	startAssignment(t, h, student, overdue)
+	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, overdue, we.AddDate(0, 0, -3))
+
+	got = classWeeklyJSON{}
+	weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &got)
+	if got.Stats.AssignmentRate != 50 {
+		t.Fatalf("assignmentRate with one done and one overdue = %d, want 50", got.Stats.AssignmentRate)
+	}
+}
+
+func TestLiteWeeklyPastWeekTitles(t *testing.T) {
+	h, _, teacher, classID, studentID := liteTeacherFixture(t)
+	past := liteweek.LatestCompleted(time.Now()).AddDate(0, 0, -7)
+	q := "?weekStart=" + past.In(liteweek.Beijing).Format("2006-01-02")
+	label := liteweek.Label(past)
+
+	var s studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID)+q, &s); code != http.StatusOK {
+		t.Fatalf("student GET = %d %s", code, body)
+	}
+	if s.Title != "表现总结 · "+label || s.IsLatest || s.WeekStart != past.In(liteweek.Beijing).Format("2006-01-02") {
+		t.Fatalf("student week = %q %q latest=%v", s.WeekStart, s.Title, s.IsLatest)
+	}
+	var c classWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID)+q, &c); code != http.StatusOK {
+		t.Fatalf("class GET = %d %s", code, body)
+	}
+	if c.Title != "班级周报 · "+label || c.IsLatest {
+		t.Fatalf("class week = %q latest=%v", c.Title, c.IsLatest)
 	}
 }
