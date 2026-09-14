@@ -9,6 +9,7 @@ import {
   suggestionLabel,
   classCardProse,
 } from "./weekly";
+import { weekBeforeStartMessage } from "./weekly";
 
 describe("normalizeStudentWeekly", () => {
   it("keeps the server's title and fills missing arrays and numbers", () => {
@@ -110,6 +111,17 @@ describe("normalizeClassWeeklyProse", () => {
   it("carries proseError", () => {
     const r = normalizeClassWeeklyProse({ prose: null, proseError: "agent: lite class weekly prose: rejected" });
     expect(r.proseError).toBe("agent: lite class weekly prose: rejected");
+  });
+});
+
+describe("weekBeforeStartMessage", () => {
+  it("returns the server message for week_before_start", () => {
+    const e = new ApiError("week_before_start", "该周早于学生加入班级的时间", 400);
+    expect(weekBeforeStartMessage(e)).toBe("该周早于学生加入班级的时间");
+  });
+  it("is null for any other error", () => {
+    expect(weekBeforeStartMessage(new ApiError("invalid_week", "请选择已经结束的一周", 400))).toBeNull();
+    expect(weekBeforeStartMessage(new Error("network"))).toBeNull();
   });
 });
 

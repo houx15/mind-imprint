@@ -36,7 +36,9 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
         onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
       />
 
-      {w.loadError ? (
+      {w.notStarted ? (
+        <p className="mt-3 text-mk-body text-mk-muted">{w.notStarted}</p>
+      ) : w.loadError ? (
         <LoadFailed message={w.loadError} onRetry={w.reload} />
       ) : data === null ? (
         <p className="mt-3 text-mk-body text-mk-muted">加载中…</p>

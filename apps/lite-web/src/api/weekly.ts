@@ -232,6 +232,13 @@ export function normalizeClassWeeklyProse(raw: Raw): ProseResult<ClassWeekly> {
  * envelope's `details` when it is a string: a routing failure's message is
  * only 「AI 响应错误」, and the part that says what failed
  * (`lite_student_weekly route: no LLM provider configured`) is in `details`. */
+/** The server's message when the week ended before the class was created or
+ * the student joined (400 `week_before_start`), else null. That answer is not
+ * a load failure: the page shows it as a plain line, with no 重试. */
+export function weekBeforeStartMessage(e: unknown): string | null {
+  return e instanceof ApiError && e.code === "week_before_start" ? e.message : null;
+}
+
 export function proseErrorText(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   const details = e instanceof ApiError && typeof e.details === "string" ? e.details.trim() : "";

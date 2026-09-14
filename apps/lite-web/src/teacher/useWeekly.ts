@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { proseErrorText, type ProseResult } from "../api/weekly";
+import { proseErrorText, weekBeforeStartMessage, type ProseResult } from "../api/weekly";
 import { useAlive } from "../shared/useAlive";
 import { errorText } from "./assignmentLogic";
 
@@ -47,6 +47,9 @@ export function useWeekly<T extends { weekStart: string; proseReady: boolean }>(
   const [weekStart, setWeekStart] = useState<string | null>(null);
   const [data, setData] = useState<T | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The server refuses a week that ended before the class was created or the
+  // student joined. That is not a failure to retry: shown as a plain line.
+  const [notStarted, setNotStarted] = useState<string | null>(null);
   const [prose, setProse] = useState<ProseState>(IDLE);
   const [nonce, setNonce] = useState(0);
 
@@ -87,6 +90,7 @@ export function useWeekly<T extends { weekStart: string; proseReady: boolean }>(
     shown.current = "";
     setData(null);
     setLoadError(null);
+    setNotStarted(null);
     setProse(IDLE);
     fns.current
       .load(weekStart)
@@ -103,7 +107,10 @@ export function useWeekly<T extends { weekStart: string; proseReady: boolean }>(
         requestProse(w.weekStart);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setLoadError(errorText(e));
+        if (cancelled) return;
+        const before = weekBeforeStartMessage(e);
+        if (before !== null) setNotStarted(before);
+        else setLoadError(errorText(e));
       });
     return () => {
       cancelled = true;
@@ -115,6 +122,7 @@ export function useWeekly<T extends { weekStart: string; proseReady: boolean }>(
   return {
     data,
     loadError,
+    notStarted,
     prose,
     /** The week the navigation steps from: the one shown, else the one asked for. */
     currentWeek: data?.weekStart ?? weekStart,

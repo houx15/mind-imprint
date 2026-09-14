@@ -58,7 +58,9 @@ export function ClassWeeklyPage({
           />
         </div>
 
-        {w.loadError ? (
+        {w.notStarted ? (
+          <p className="mt-4 text-mk-body text-mk-muted">{w.notStarted}</p>
+        ) : w.loadError ? (
           <LoadFailed message={w.loadError} onRetry={w.reload} />
         ) : data === null ? (
           <p className="mt-4 text-mk-body text-mk-muted">加载中…</p>
