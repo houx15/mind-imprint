@@ -88,7 +88,7 @@ import (
 // 「**我只做了两件事**：删掉两个情绪词，加一个和她无关的具体东西」。
 // 把「改写后的那句」换成「那两件事」，教学价值全留下，可粘贴的散文一个字都不给。
 // draft-review-kit 的编辑角色独立地收敛到同一个形状：意见必须是
-//「把第5段移到第3段前面」这种落在已有单位上的操作。
+// 「把第5段移到第3段前面」这种落在已有单位上的操作。
 //
 // 🚨 `Action` 为空的 point 会被整条丢掉。story-coach 给缺了这一步的回复起了
 // 名字：**"Diagnostic Without Return"**——
@@ -262,7 +262,7 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 //
 // master-writing `scoring-rubric.md`：
 //
-//	**对着文字说，别对着人说。说「这一句偷懒了」，不说「你偷懒了」。**
+//	**对着文字说，别对着人说。说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。**
 //
 // 🚨 这里**只认字面前缀**，不去判断一句话整体的语气——判断语气要猜，猜错会
 // 静默丢掉真反馈（这个文件顶上那段坦白说的就是这件事）。所以表很短，
@@ -270,7 +270,7 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 // 「把你这句里的两个形容词删掉」里的「你」后面跟的是「这句」，不在表里。
 //
 // 注意 Action 也要过这一关：一句祈使可以、而且应该对着她说
-//（「把这句里的两个情绪词删掉」），被禁的是评价她这个人。
+// （「把这句里的两个情绪词删掉」），被禁的是评价她这个人。
 // 🚨 「你真」不在表里，而且是被测试逼出来的：
 // 「把你这句里的『密密麻麻』换成**你真的**数过的那个数」是一句完全正当的祈使，
 // 它只是碰巧以「你真」开头。宁可漏判一句「你真笨」，也不能把一条真反馈静默吃掉
@@ -298,10 +298,8 @@ func personDirectedVerdict(s string) bool {
 // writing — one paragraph or the whole draft — with a one-line overall
 // judgment plus concrete points, each anchored to a real sentence.
 //
-// writingGuideTeachingRules (writing_guide.go) is Task 3's four-part "怎么说话"
-// doctrine, copied verbatim rather than re-derived: an engineer reading these
-// tasks out of order must not find two different versions of how 印记 is
-// supposed to talk.
+// Review uses evidence-focused feedback rather than the dialogue's invitations
+// to choose a method. It keeps the same exact-quote validation below.
 //
 // 逐字照抄，不要改标点 asks the model to do the validator's job for it — but
 // the validator, not this sentence, is what actually makes a fabricated
@@ -330,7 +328,7 @@ const (
 const writingCommentRules = `## 怎么说话
 
 - 你是老师，不是打分器。说清一件事为什么重要，用【可用的方法】里真正的方法名，别自己造词。
-- **对着文字说，别对着人说。** 说「这一句偷懒了」，不说「你偷懒了」。
+- **对着文字说，别对着人说。** 说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。
 - 不客套。「很有灵气」「写得不错，继续加油」说多了，你的肯定就不值钱了。
 - 不打分，不给等级。`
 
@@ -356,7 +354,7 @@ const writingCommentSystem = `你是「印记」，正在给学生已经写的�
 
 每条意见挂在她原文里**一句真实存在的话**上，而且必须给出下一步。
 
-- kind：`+"`issue`"+`（要改的）或 `+"`good`"+`（已经用对的）。
+- kind：` + "`issue`" + `（要改的）或 ` + "`good`" + `（已经用对的）。
 - quote：她原文里**逐字照抄**的一句话，包括标点，一个字都不能改。改了就整条作废。
 - symptom：issue 必填，取自上面那张表的 id。表里没有的 id 会让这条意见整条作废。
 - method：good 必填，取自【可用的方法】的 id——她刚才用对的是哪一个动作。
@@ -549,9 +547,9 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	row, serr := a.d.Queries.CreateWritingComment(turnCtx, sqlc.CreateWritingCommentParams{
 		AtomID:    at.ID,
 		SnippetID: pgtype.UUID{Bytes: snippet.ID, Valid: true},
-		Scope:   "block",
-		Summary: strings.TrimSpace(parsed.Summary),
-		Points:  payload,
+		Scope:     "block",
+		Summary:   strings.TrimSpace(parsed.Summary),
+		Points:    payload,
 		// 存的是**它真的读过的那一版**（服务端手上这一份），不是她此刻框里
 		// 的字：意见是对着这一版说的，比对也只能对着这一版。
 		SourceText: snippet.Text,

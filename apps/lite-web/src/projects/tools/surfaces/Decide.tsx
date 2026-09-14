@@ -206,14 +206,14 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   autoFocus
                   value={mineLabel}
                   onChange={(e) => setMineLabel(e.target.value)}
-                  placeholder="这条路叫什么"
+                  placeholder="方案名称"
                   className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
                 <input
                   value={mineWhy}
                   onChange={(e) => setMineWhy(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void addMine()}
-                  placeholder="它意味着什么"
+                  placeholder="方案说明"
                   className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
                 <div className="mt-2 flex gap-2">

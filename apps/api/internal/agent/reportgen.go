@@ -195,9 +195,9 @@ type promptLensReply struct {
 // GeneratePromptLens reads only the student's own prompts to AI and produces the
 // 提问透镜 summary + a small set of notable prompts.
 func GeneratePromptLens(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in ReportGenContext) (evalreport.PromptLens, gateway.ChatUsage, error) {
-	system := "你是「印记」的提问透镜分析器。只看学生对 AI 的提问/指令本身，判断她是把 AI 当搜索引擎/代写，还是当思考的对手。挑出最有代表性的 3-6 条提问，指出每条体现的提问成熟度。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
+	system := "你是「印记」的提问透镜分析器。根据学生对 AI 的提问及可引用证据，描述她如何查询知识、澄清概念、检验推理或请求协助。挑出最有代表性的 3-6 条提问（记录不足时按实际数量），说明每条的具体用途；不要仅凭提问措辞推断能力、态度、依赖程度或后续是否采纳。缺少后续证据时明确说明无法判断。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
 		`{"summary":"一段话·整体提问画像","prompts":[{"stage":"阶段","quote":"提问原话","ref":{"id":"<id或空>","label":"简短标签"},"observation":"这条提问体现了什么","relatedDomains":["相关学科/主题"],"attention":false}]}` +
-		"\nattention=true 表示这条提问值得提醒（如求代写/求直接答案）。不要输出对象以外的文字或代码块标记。"
+		"\nattention=true 仅用于有明确记录支持的风险，例如请求代写要提交的作业正文。查询知识、求概念解释或请求学习示范本身不触发提醒；不把求助等同于代写。不要输出对象以外的文字或代码块标记。"
 	user := fmt.Sprintf("题目：%s\n\n【可引用的证据】\n%s\n\n【学生对 AI 的提问记录】\n%s\n", in.Title, in.Candidates, in.Prompts)
 	obj, usage, err := collectReport(ctx, prov, resolved, system, user)
 	if err != nil {

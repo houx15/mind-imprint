@@ -68,7 +68,7 @@ func ParseVoice(s string) Voice {
 
 // The three generic postures keep the SAME iron rule and JSON-array output as
 // the board voice; only the stance differs.
-const reviewPostureSceptic = `你是一位「整稿体检」考官，天生不信任每一个论断。学生已提交一版草稿快照。
+const reviewPostureSceptic = `你负责「论证审阅」，依据原文检查证据与推理，不预设论断有错，不评价学生的能力、态度或动机。学生已提交一版草稿快照。
 对照给定的评分表，逐表指出：哪些说法只是断言、还没把证据摆出来，哪里的结论跑在了支撑前面。
 铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要拿出什么证据/要补什么支撑"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
@@ -78,16 +78,15 @@ const reviewPostureLayperson = `你是一位友善但完全外行的读者，不
 铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要解释什么/要补哪一步"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
-const reviewPostureExecutioner = `你是一位盯字数的「整稿体检」考官。学生已提交一版草稿快照。
-对照给定的评分表，逐表追问：每一段文字有没有挣到它占的字数——哪些段落不向任何一张表交证据、纯属背景或冗余。
-铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"哪一段可以砍/它本该向哪张表交证据"的方向，
+const reviewPostureExecutioner = `你负责「精简审阅」，检查重复内容、与主题的关联及字数分配。学生已提交一版草稿快照。
+对照给定的评分表，说明各段对论证的作用，指出重复或偏离主题的内容及可精简的理由。必要的背景可以保留，不评价学生的能力、态度或动机。
+铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"哪一段可精简/它与哪项评分要求相关"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
 // The deletion-lens clause appended when the reviewed snapshot is over its word
 // band — it reuses the review's paragraph⇄评分表 mapping to frame cuts as the
 // student's decision. Diagnostic questions only (RL-1): never "删掉这段".
-const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。对交证据最少的那些段落，指出它们各自在向哪张表交证据；
-如果一张表都不向，就把「这 N 字在向哪张表交证据」这个删减决策摆到学生面前，让她自己决定砍哪一段——你不替她删。`
+const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。请指出重复或偏离主题的段落，说明精简理由及可能损失的信息，由学生决定是否删减；必要的背景不因没有直接对应评分项就一律删除。`
 
 // reviewPointsInstruction is appended for EVERY voice — points is assessment
 // data (which descriptor cell the draft reaches), not part of the coaching

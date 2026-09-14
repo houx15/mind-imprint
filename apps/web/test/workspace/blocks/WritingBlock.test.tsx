@@ -512,16 +512,16 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(screen.queryByRole("button", { name: /论证构建卡/ })).toBeNull();
     expect(screen.getByText(/正文·检查/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "评审团" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "质疑者" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "论证审阅" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "门外汉" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "审判者" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "精简审阅" })).toBeInTheDocument();
   });
 
-  it("正文's 质疑者 examiner-voice button runs a whole-draft 体检 (item A)", async () => {
+  it("正文's 论证审阅 examiner-voice button runs a whole-draft 体检 (item A)", async () => {
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "正文" }));
-    // click 质疑者 in the persistent shelf, no scoped paragraph pinned
-    await userEvent.click(await screen.findByRole("button", { name: "质疑者" }));
+    // click 论证审阅 in the persistent shelf, no scoped paragraph pinned
+    await userEvent.click(await screen.findByRole("button", { name: "论证审阅" }));
     await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.stringContaining("我的草稿第一段"), "sceptic"));
     expect(await screen.findByText(/印记的整稿体检/)).toBeInTheDocument();
   });

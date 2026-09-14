@@ -354,14 +354,14 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                 autoFocus
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="这一件是做什么"
+                placeholder="子任务内容"
                 className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
               />
               <input
                 value={newWhy}
                 onChange={(e) => setNewWhy(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void addOne()}
-                placeholder="为什么这一件该有"
+                placeholder="设置原因"
                 className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
               />
               <div className="mt-2 flex gap-2">

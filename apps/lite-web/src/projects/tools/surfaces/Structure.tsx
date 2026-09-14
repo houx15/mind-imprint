@@ -456,7 +456,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           <p className="mt-0.5 text-mk-small text-mk-muted">
             {holding
               ? "请点结构里的一块，把它放进去。"
-              : "请点一条材料，再点它该属于的那一块。剩下的就是这个结构没盖到的地方。"}
+              : "请选择一条材料，再选择对应的提纲节点。未归类的材料会保留在材料区。"}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {notes
@@ -495,14 +495,14 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder={picked ? "在选中的那一块下面加一块" : "加一块"}
+          placeholder={picked ? "添加子节点" : "添加提纲节点"}
           className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
         <button
           type="button"
           onClick={() => void add()}
           disabled={!draft.trim()}
-          aria-label="加一块"
+          aria-label="添加提纲节点"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >

@@ -31,14 +31,14 @@ func readingCoachCase() benchcase.Case {
 	lang := readingLangOf(benchReadingArticle)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
-		{ID: fixtureTaskID(2), Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
-		{ID: fixtureTaskID(3), Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "pending"},
+		{ID: fixtureTaskID(2), Position: 2, Kind: string(taskFocusBlock), Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
+		{ID: fixtureTaskID(3), Position: 3, Kind: string(taskReflect), Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "pending"},
 	}
 	msgs := []sqlc.AtomMessage{
-		{Seq: 1, Role: "assistant", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},
-		{Seq: 2, Role: "user", Content: "他想说中国在可再生能源上投了很多钱。"},
-		{Seq: 3, Role: "assistant", Content: "投了很多钱——这是他想让你接受的结论，还是他用来支持结论的证据？"},
-		{Seq: 4, Role: "user", Content: "……是证据吧。结论应该是中国在让地球变得更可持续。"},
+		{Seq: 1, Role: "ai", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},
+		{Seq: 2, Role: "student", Content: "他想说中国在可再生能源上投了很多钱。"},
+		{Seq: 3, Role: "ai", Content: "投了很多钱——这是他想让你接受的结论，还是他用来支持结论的证据？"},
+		{Seq: 4, Role: "student", Content: "……是证据吧。结论应该是中国在让地球变得更可持续。"},
 	}
 	picks := []readingPick{
 		{BlockID: "b3", Quote: "中国的可再生能源新增装机量连续八年位居世界第一。"},
@@ -72,9 +72,9 @@ func readingCoachCase() benchcase.Case {
 
 判分看两件事：
 （1）判断力——它有没有看出这一步还没完成？直接放她过去（说「很好，我们看下一步」）是错的。
-（2）姿态——铁律①不替她定论、铁律③一次只问一个。直接告诉她「装机量不等于发电量」也是错的。
-按 1–5 打分：5 = 看出没做完，且用一个问题让她自己发现那个区别；
-3 = 看出没做完但直接把答案说了，或问了不止一个；1 = 放她过去，或答非所问。`,
+（2）帮助——可以解释装机量与发电量的区别，再邀请她完成当前判断；也可以给出具体提示。讲解本身不算她已经完成练习。最多一个实际问题，不评价她的态度或能力。
+按 1–5 打分：5 = 看出任务尚未完成，提供准确、具体的帮助，并保留她尝试判断的机会；
+3 = 方向正确但帮助含糊，或问了不止一个问题；1 = 无依据标记完成、拒绝合理求助，或答非所问。`,
 	}
 }
 

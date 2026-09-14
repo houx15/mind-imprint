@@ -1529,9 +1529,9 @@ const TEXT_EXT = [".md", ".txt", ".markdown"];
 // tone/lens on the server — never the rubric or the "never rewrite" rule.
 const VOICE_META: Record<ReviewVoice, { label: string; desc: string }> = {
   board: { label: "评审团", desc: "像考官那样全面权衡" },
-  sceptic: { label: "质疑者", desc: "专挑论证漏洞与反例" },
+  sceptic: { label: "论证审阅", desc: "检查证据、推理与反例" },
   layperson: { label: "门外汉", desc: "用常识追问你没交代的" },
-  executioner: { label: "审判者", desc: "只看能不能站得住" },
+  executioner: { label: "精简审阅", desc: "检查重复内容与字数分配" },
 };
 const VOICE_ORDER: ReviewVoice[] = ["board", "sceptic", "layperson", "executioner"];
 

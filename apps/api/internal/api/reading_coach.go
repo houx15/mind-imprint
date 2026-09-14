@@ -954,7 +954,34 @@ func buildReadingCoachPrompt(
 			"**不要再复述一遍**，也不要讲这篇文章的内容。" +
 			"直接领她进第一步，并且用一张卡片把她领进去。）\n")
 	}
+	b.WriteString(readingCurrentStepInstruction(tasks))
+
 	return b.String()
+}
+
+// Bind the generic teaching rules to the one active task. This is a prompt
+// projection only; it never settles state or invents a completion signal.
+func readingCurrentStepInstruction(tasks []sqlc.ReadingTask) string {
+	current := currentReadingTask(tasks)
+	if current == nil {
+		return "\n【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。\n"
+	}
+	rule := "按当前任务文字判断。学生已完成要求的各项内容，就给 done；只完成部分就留空并只提示缺少的那一项。不要添加第二个例子、更多证据或额外点击作为完成门槛。"
+	switch current.Kind {
+	case string(taskRead):
+		rule = "学生明确说读完了，或已回答本步的通读卡片，就给 done。认可后直接介绍清单里的下一步，不再加一道通读测验。"
+	case string(taskConnect):
+		rule = "学生已经表达自己的经历或联想，就给 done。尊重这段经历，不要求它符合文章的标准答案。"
+	case string(taskHunt):
+		rule = "只看【她在文章里点出来的句子】是否有真实选句。有选句就给 done，不要求它与你偏好的句子相同，也不要求再选一句。没有真实选句时留空并说明点击操作。"
+	case string(taskLabel):
+		rule = "已收到标注板的真实作答时，依据她的分类简短反馈并给 done；尚未提交时引导她使用标注板。普通文字说摆好了不能替代真实作答。"
+	case string(taskLens):
+		rule = "已收到【她刚做完一副透镜】时，反馈她的实际分析并给 done，不再要求她操作已完成的透镜；没有完成回传时按透镜步骤继续。"
+	}
+	return "\n【本轮推进判据】\n当前步骤：" + current.Kind + "；任务：" + current.Label + "。\n" +
+		"先检查学生是否明确要求跳过：如是，advance 必须为 skipped。否则：" + rule + "\n" +
+		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；reply 可以介绍下一步，但不能因介绍下一步而把 advance 留空。一次只推进当前一步。\n"
 }
 
 // answeredBoard —— 这一轮她交上来的是不是一块摆完了的板。
@@ -1882,7 +1909,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 都没有。prompt 里写了「想让她再摆一次就重新发一块新的板」，它不照做。
 	// 写了两版规矩都不管用之后，改成：它说了，我们就真的给她一块。
 	if cur := currentReadingTask(tasks); cur != nil && parsed.Card == nil && parsed.Lens == "" &&
-		(cur.Kind == string(taskLabel) || replyPromisesACard(parsed.Reply)) {
+		((cur.Kind == string(taskLabel) && !answeredBoard(req.CardAnswer)) || replyPromisesACard(parsed.Reply)) {
 		focus := parsed.FocusBlock
 		if focus == "" {
 			focus = cur.BlockID
@@ -1945,7 +1972,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if current := currentReadingTask(tasks); current != nil && parsed.Advance != "" {
+	if current := currentReadingTask(tasks); current != nil {
 		advance := parsed.Advance
 		// F3: a hunt step settling on "done" must be backed by an actual point,
 		// not an assertion the model was talked into accepting. "skipped" is

@@ -1,0 +1,127 @@
+{
+  "generated_at": "2026-09-14T04:55:36.596909+00:00",
+  "baseline_commit": "5f6a1965",
+  "branch": "codex/coach-copy-clarity",
+  "total_attempts": 299,
+  "successful_provider_calls": 251,
+  "network_failures": 48,
+  "retained": {
+    "baseline": {
+      "samples": 54,
+      "cases": 20,
+      "hard_validation_failures": [
+        "baseline-extended/TestClarityPBL-observe-2.json: missing observation checklist",
+        "baseline-live/TestClarityPBL-plan-1.json: missing requested plan",
+        "baseline-live/TestClarityPBL-plan-2.json: pbl: invalid character 'ç' after object key:value pair"
+      ],
+      "models": {
+        "dashscope/deepseek-v4-pro": 51,
+        "dashscope/glm-5.3": 3
+      }
+    },
+    "candidate": {
+      "samples": 54,
+      "cases": 20,
+      "hard_validation_failures": [],
+      "models": {
+        "dashscope/deepseek-v4-pro": 51,
+        "dashscope/glm-5.3": 3
+      }
+    }
+  },
+  "runs": {
+    "baseline": {
+      "samples": 48,
+      "recorded_failures": 48,
+      "selected": 0
+    },
+    "baseline-extended": {
+      "samples": 12,
+      "recorded_failures": 2,
+      "selected": 6
+    },
+    "baseline-extra": {
+      "samples": 6,
+      "recorded_failures": 0,
+      "selected": 6
+    },
+    "baseline-judge": {
+      "samples": 3,
+      "recorded_failures": 0,
+      "selected": 3
+    },
+    "baseline-live": {
+      "samples": 48,
+      "recorded_failures": 2,
+      "selected": 39
+    },
+    "baseline-reading-valid": {
+      "samples": 9,
+      "recorded_failures": 0,
+      "selected": 0
+    },
+    "candidate-api-release": {
+      "samples": 15,
+      "recorded_failures": 3,
+      "selected": 0
+    },
+    "candidate-feedback": {
+      "samples": 6,
+      "recorded_failures": 0,
+      "selected": 6
+    },
+    "candidate-final": {
+      "samples": 54,
+      "recorded_failures": 3,
+      "selected": 24
+    },
+    "candidate-guide-revised": {
+      "samples": 3,
+      "recorded_failures": 0,
+      "selected": 0
+    },
+    "candidate-judge": {
+      "samples": 3,
+      "recorded_failures": 0,
+      "selected": 3
+    },
+    "candidate-pbl-revised": {
+      "samples": 21,
+      "recorded_failures": 0,
+      "selected": 21
+    },
+    "candidate-reading-calibrated": {
+      "samples": 15,
+      "recorded_failures": 2,
+      "selected": 0
+    },
+    "candidate-reading-completion": {
+      "samples": 15,
+      "recorded_failures": 2,
+      "selected": 0
+    },
+    "candidate-reading-ordered": {
+      "samples": 15,
+      "recorded_failures": 1,
+      "selected": 0
+    },
+    "candidate-reading-revised": {
+      "samples": 9,
+      "recorded_failures": 0,
+      "selected": 0
+    },
+    "candidate-smoke": {
+      "samples": 16,
+      "recorded_failures": 0,
+      "selected": 0
+    },
+    "network-check": {
+      "samples": 1,
+      "recorded_failures": 0,
+      "selected": 0
+    }
+  },
+  "cost": "Not calculated: selected DashScope model prices are unpriced in repository catalog. Provider invoice remains authoritative.",
+  "seed": "Not set; provider sampling is stochastic.",
+  "reading": "Candidate not retained: final calibrated run had 2/15 advance errors. Original reading prompt unchanged."
+}

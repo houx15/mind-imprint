@@ -75,15 +75,15 @@ func TestCoachSystem_LimitIsOneQuestionNotOneAction(t *testing.T) {
 	if strings.Contains(coachSystem, "一轮最多做一件。") {
 		t.Error("旧的「一轮最多做一件」还在——它会把工具和它的产出永远分到两轮")
 	}
-	if !strings.Contains(coachSystem, "只问他一个问题") {
+	if !strings.Contains(coachSystem, "最多问他一个问题") {
 		t.Error("没写清楚一轮只问一个问题（铁律③）")
 	}
 	// 两个问题连着抛，她只答后一个。这条要硬。
-	if !strings.Contains(coachSystem, "只能出现一个问号") {
-		t.Error("没有那条硬规则：reply 里只能有一个问号")
+	if !strings.Contains(coachSystem, "允许没有问号") {
+		t.Error("未保留无需提问时直接执行的出口")
 	}
 	// 铁律③ 的另一半：真有多个要点就分点列出。
-	if !strings.Contains(coachSystem, "分点列出") {
+	if !strings.Contains(coachSystem, "短列表") {
 		t.Error("没给出「多个要点分点列出」这条出路（铁律③）")
 	}
 	// 工具和产出必须能同一轮一起给。
