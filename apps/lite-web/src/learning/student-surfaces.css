@@ -160,3 +160,52 @@
 
 .lite-student .mk-lite-room :is(.mk-reading-room__finalize-btn, .mk-reading-room__composer-send, .mk-finalize-panel__confirm, .mk-msg__avatar, .mk-msg--student .mk-msg__bubble, .mk-msg__lens button) { color: var(--mk-on-accent); }
 .lite-student .mk-lite-room :is(.mk-reading-room__offer, .mk-reading-room__quote-chip-x, .mk-reading-room__trace-btn):hover { color: var(--mk-on-accent); }
+
+/* Reading: reserve a true gutter; native text selection stays the primary affordance. */
+.lite-student .mk-lite-room .mk-reading-room__article-inner { padding-inline: 48px 32px; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner p[data-block-id] { cursor: text !important; margin-block: 20px; border-left-color: transparent !important; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner p[data-block-id]:not([data-referenced]):hover { background: transparent !important; border-left-color: transparent !important; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner [data-block-id]::before { left: -36px; width: 20px; top: 5px; font-size: 11px; opacity: .5; }
+.lite-student .mk-lite-room .student-selection-hint { font-family: var(--mk-font-family); font-size: 12px; line-height: 1.8; color: var(--mk-muted); margin: 14px 0 24px; }
+.lite-student .mk-lite-room .mk-reading-room__article-inner ::selection { background: var(--mk-accent-100); color: var(--mk-ink); }
+.student-materials-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 24px 12px; }
+.student-materials-empty img { width: 180px; height: 130px; object-fit: contain; }
+.student-materials-empty p { font-size: 14px; color: var(--mk-ink); font-weight: 600; }
+.student-materials-empty span { font-size: 12px; line-height: 1.8; max-width: 220px; color: var(--mk-muted); }
+.lite-student .mk-rp-hero { min-height: 310px; display: flex; align-items: center; }
+.student-report-art { position: absolute; right: 24px; bottom: 10px; width: 32%; height: 250px; object-fit: contain; }
+.student-report-heading { width: 66%; }
+@media (max-width: 700px) {
+  .lite-student .mk-lite-room .mk-reading-room__article-inner { padding-inline: 20px; }
+  .lite-student .mk-rp-hero { padding-top: 64px; padding-bottom: 180px; }
+  .student-report-heading { width: 100%; }
+  .student-report-art { height: 170px; width: 65%; right: 12px; bottom: 0; }
+}
+
+/* A paper atlas in daylight, a quiet constellation at night. */
+.lite-student .exp-sky { background: radial-gradient(ellipse at 40% 50%, color-mix(in srgb, var(--mk-explore-accent) 6%, transparent), transparent 70%), var(--mk-explore-paper); }
+.lite-student .exp-star-name { color: var(--mk-explore-muted); }
+.lite-student .exp-star:hover .exp-star-name { color: var(--mk-explore-ink); }
+.lite-student .exp-thread { stroke: var(--mk-explore-line); opacity: .7; }
+.lite-student .exp-thread-lit { stroke: var(--mk-explore-accent); opacity: 1; }
+.lite-student .exp-bubble { background: radial-gradient(circle at 30% 25%, var(--mk-explore-surface), color-mix(in srgb, var(--planet-hue) 14%, var(--mk-explore-surface))) !important; border-color: color-mix(in srgb, var(--planet-hue) 40%, var(--mk-explore-line)) !important; transition: background .2s, border-color .2s; }
+.lite-student .exp-planet:hover .exp-bubble, .lite-student .exp-planet:focus-visible .exp-bubble { border-color: var(--mk-explore-accent) !important; background: var(--mk-explore-surface) !important; }
+:root:not([data-theme="dark"]) .lite-student .exp-stars::before { background-image: radial-gradient(1px 1px at 50% 50%, var(--mk-explore-line) 80%, transparent); background-size: 28px 28px; opacity: .5; animation: none; }
+:root:not([data-theme="dark"]) .lite-student .exp-stars::after { display: none; }
+
+/* Small, consistent responses make the working objects feel manipulable. */
+.lite-student .student-sticky { border: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent); box-shadow: 0 3px 0 color-mix(in srgb, var(--mk-ink) 4%, transparent); transition: box-shadow .16s, outline-color .16s; }
+.lite-student .student-sticky:hover { box-shadow: 0 5px 12px color-mix(in srgb, var(--mk-ink) 12%, transparent); }
+.lite-student .student-sticky[data-selected] { box-shadow: 0 0 0 4px var(--mk-accent-50), 0 5px 12px color-mix(in srgb, var(--mk-ink) 10%, transparent); }
+.lite-student .student-sticky:active { cursor: grabbing; }
+.lite-student .student-tool-frame > footer > div { display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+.lite-student .student-tool-frame > footer p { margin: 0; flex: 1; line-height: 1.7; }
+.lite-student .student-tool-frame > footer button { width: auto; min-width: 110px; padding: 10px 18px; margin-left: auto; }
+.lite-student :is(.student-tool-frame, .student-tool-stage) > footer button svg { transition: transform .18s; }
+.lite-student :is(.student-tool-frame, .student-tool-stage) > footer button:enabled:hover svg { transform: translateX(3px); }
+.student-tool-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; pointer-events: none; }
+.student-tool-empty img { width: 170px; height: 120px; object-fit: contain; }
+.student-tool-empty p { max-width: 290px; font-size: 13px; line-height: 1.8; color: var(--mk-muted); }
+@media (prefers-reduced-motion: reduce) { .lite-student .student-sticky, .lite-student :is(.student-tool-frame, .student-tool-stage) > footer button svg { transition: none; } }
+
+.lite-student .mk-lite-room .mk-reading-room__article-inner p[data-referenced]:hover { background: var(--mk-accent-50) !important; border-left-color: transparent !important; }

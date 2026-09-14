@@ -1,3 +1,4 @@
+import { studentArtwork } from "../learning/StudentArtwork";
 import { forwardRef } from "react";
 import type { LiteReport } from "@lite/api/reports";
 import { displayStat } from "./statLabels";
@@ -108,17 +109,21 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          gap: 44,
-          padding: 76,
+          gap: 32,
+          padding: 64,
           background: PAPER,
           fontFamily: FONT_STACK,
         }}
       >
         <header style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 260 }}>
+            <span style={{ fontSize: 24, letterSpacing: 3, color: MUTED }}>{report.kind === "reading" ? "READING JOURNAL" : "WRITING JOURNAL"}</span>
+            <img src={studentArtwork[report.kind]} alt="" style={{ width: 340, height: 260, objectFit: "contain" }} />
+          </div>
           <h1
             style={{
               margin: 0,
-              fontSize: 58,
+              fontSize: 50,
               lineHeight: 1.35,
               fontWeight: 700,
               color: INK,

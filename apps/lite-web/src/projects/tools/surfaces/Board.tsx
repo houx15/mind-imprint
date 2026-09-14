@@ -1,3 +1,4 @@
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Icon } from "@/ui";
@@ -436,9 +437,7 @@ export function Board({
         </svg>
 
         {notes.length === 0 && (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-            板上还什么都没有。先把你想到的一条一条贴上来。
-          </p>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>暂无便签。请在上方记录第一条材料。</p></div>
         )}
 
         {notes.map((n) => {
@@ -449,7 +448,8 @@ export function Board({
               key={n.id}
               onPointerDown={(e) => startDrag(n, e)}
               onDoubleClick={() => setEditing(n.id)}
-              className="group absolute select-none rounded-mk-md px-2.5 py-2 shadow-mk-xs"
+              data-selected={on || undefined}
+              className="student-sticky group absolute select-none rounded-mk-md px-2.5 py-2 shadow-mk-xs"
               style={{
                 left: toPx(n).x,
                 top: toPx(n).y,

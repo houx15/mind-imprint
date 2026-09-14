@@ -76,7 +76,7 @@ export function Stage({
   const { wide, toggle } = useWidePane();
 
   return (
-    <div className="flex h-full flex-col" style={{ background: "var(--mk-paper)" }}>
+    <div className="student-tool-stage flex h-full flex-col" style={{ background: "var(--mk-paper)" }}>
       <header className="shrink-0 px-5 pb-3 pt-4 sm:px-7">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

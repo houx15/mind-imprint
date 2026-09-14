@@ -1,3 +1,4 @@
+import { studentArtwork } from "../learning/StudentArtwork";
 import type { LiteReport, ReportStat } from "@lite/api/reports";
 import { displayStat } from "./statLabels";
 
@@ -129,6 +130,7 @@ export function ReportView({
   return (
     <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
       <Hero
+        kind={report.kind}
         kindLabel={kindLabel}
         title={report.title}
         name={report.studentName}
@@ -222,12 +224,14 @@ function ProsePending({
  *  under it, over a slow-moving gradient. This is the part that gets
  *  screenshotted, so it carries the identity and nothing operational. */
 function Hero({
+  kind,
   kindLabel,
   title,
   name,
   date,
   actions,
 }: {
+  kind: "reading" | "writing";
   kindLabel: string;
   title: string;
   name: string;
@@ -236,9 +240,9 @@ function Hero({
 }) {
   return (
     <header className="mk-rp-hero mk-rp-rise relative overflow-hidden rounded-mk-lg px-6 py-9 sm:px-10 sm:py-12" style={rise(0)}>
-      <div className="mk-rp-hero__glow" aria-hidden="true" />
+      <img className="student-report-art" src={studentArtwork[kind]} alt="" />
       {actions && <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">{actions}</div>}
-      <div className="relative flex flex-col gap-4">
+      <div className="student-report-heading relative flex flex-col gap-4">
         <span className="mk-rp-chip w-fit rounded-mk-full px-3 py-1 text-mk-label">{kindLabel}</span>
         {/* No right inset needed: the icons sit ABOVE this line, level with the
             chip, in the hero's own top padding. */}

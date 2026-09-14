@@ -1,3 +1,4 @@
+import { StudentArtwork } from "./learning/StudentArtwork";
 import learningTogether from "./home/assets/learning-together-v3.webp";
 import { GuestTheme } from "./learning/GuestTheme";
 import { CompanionAppearanceProvider } from "../../web/src/ui/CompanionAppearance";
@@ -234,9 +235,9 @@ export function LiteApp() {
           void setBackground(id);
         }}
       >
-        <CompanionAppearanceProvider image={bookmark}>
+        <StudentArtwork><CompanionAppearanceProvider image={bookmark}>
           <LiteShell user={user} onLogout={onLogout} />
-        </CompanionAppearanceProvider>
+        </CompanionAppearanceProvider></StudentArtwork>
       </BackgroundProvider>
     </AccentProvider>
   );

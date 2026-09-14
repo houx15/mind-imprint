@@ -136,7 +136,7 @@ export function NewsSheet({
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
           aria-label="关闭"
         >
-          <X size={18} strokeWidth={1.8} color="#C6B9AA" />
+          <X size={18} strokeWidth={1.8} color="var(--mk-explore-muted)" />
         </button>
       </div>
 
@@ -147,7 +147,7 @@ export function NewsSheet({
           <p className="mt-1.5 text-mk-body leading-[1.6] text-[var(--mk-explore-muted)]">{secondary}</p>
         ) : null}
         {item.summary ? (
-          <p className="mt-3 text-mk-body-lg leading-[1.9] text-[#D9CEC1]">{item.summary}</p>
+          <p className="mt-3 text-mk-body-lg leading-[1.9] text-[var(--mk-explore-ink)]">{item.summary}</p>
         ) : null}
 
         {/* ── 它想问你 ─────────────────────────────────────────────────── */}
@@ -201,7 +201,7 @@ export function NewsSheet({
             rel="noopener noreferrer"
             className="mt-3 inline-flex items-center gap-1.5 rounded-mk-full border px-4 py-2 text-mk-small
                        text-[var(--mk-explore-ink)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
-            style={{ borderColor: "rgba(240,233,224,.28)" }}
+            style={{ borderColor: "var(--mk-explore-line)" }}
           >
             读原文
             <ExternalLink size={14} strokeWidth={1.8} />
@@ -217,7 +217,7 @@ export function NewsSheet({
               style={{ border: "1px solid rgba(240,233,224,.14)", background: "rgba(240,233,224,.035)" }}
             >
               <strong className="block text-mk-h3 text-[var(--mk-explore-ink)]">{item.discipline.zh}</strong>
-              <span className="mt-0.5 block font-mono text-mk-small text-[#7C7166]">
+              <span className="mt-0.5 block font-mono text-mk-small text-[var(--mk-explore-muted)]">
                 {item.discipline.en}
               </span>
               <p className="mt-2 text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">{item.discipline.asks}</p>
@@ -256,7 +256,7 @@ export function NewsSheet({
                 disabled={busy !== null}
                 className="inline-flex items-center gap-2 rounded-mk-full border px-5 py-2.5 text-mk-body
                            text-[var(--mk-explore-ink)] transition-colors hover:bg-[rgba(240,233,224,.1)] disabled:opacity-45"
-                style={{ borderColor: "rgba(240,233,224,.28)" }}
+                style={{ borderColor: "var(--mk-explore-line)" }}
               >
                 {busy === "later" ? (
                   <>

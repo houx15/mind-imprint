@@ -105,8 +105,27 @@
   --mk-paper: #f5f6f8;
 }
 
-/* Immersive exploration surfaces use the same cool family with a night canvas. */
+/* Exploration follows the student light/dark appearance with dedicated contrast pairs. */
 :is(.lite-student, body.lite-student-theme) {
+  --mk-explore-paper: #f9fbfc;
+  --mk-explore-surface: #ffffff;
+  --mk-explore-ink: #243641;
+  --mk-explore-muted: #647580;
+  --mk-explore-accent: #317f8c;
+  --mk-explore-line: #d3e1e7;
+}
+
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
+  --mk-explore-paper: #10171d;
+  --mk-explore-surface: #1c2831;
+  --mk-explore-ink: #eef6f7;
+  --mk-explore-muted: #a9bdc7;
+  --mk-explore-accent: #8dcbd2;
+  --mk-explore-line: #3c515e;
+}
+
+/* The onboarding story retains its independently composed night setting. */
+.lite-student-theme .awk {
   --mk-explore-paper: #152a34;
   --mk-explore-surface: #203a46;
   --mk-explore-ink: #eef6f7;

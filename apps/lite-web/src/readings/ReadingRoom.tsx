@@ -656,6 +656,7 @@ export function ReadingRoom({
                   {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
                       要回去找一个词」，不是开读前的那张地图。 */}
                   <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
+                  {loop.status === "idle" && <p className="student-selection-hint">划选文字可引用到对话 · 点击段落可打开整段工具</p>}
                 </header>
                 <Annotate
                   blocks={source.blocks}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Check, Maximize2, Minimize2, X } from "lucide-react";
+import { ArrowRight, Maximize2, Minimize2, X } from "lucide-react";
 import { Icon } from "@/ui";
 import { useWidePane } from "./wide";
 
@@ -105,8 +105,8 @@ export function ToolFrame({
           className="flex w-full items-center justify-center gap-1.5 rounded-mk-full py-2 text-mk-body text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          <Icon icon={Check} size={15} />
           {finishLabel}
+          <Icon icon={ArrowRight} size={16} />
         </button>
         </div>
       </footer>

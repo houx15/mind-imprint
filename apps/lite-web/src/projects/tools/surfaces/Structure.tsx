@@ -1,3 +1,4 @@
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Icon } from "@/ui";
@@ -341,9 +342,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           }}
         >
           {state.nodes.length === 0 && (
-            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-              还没有结构。印记给出提纲后，会在这里让你审核。
-            </p>
+            <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>结构待生成。印记给出提纲后，可在这里调整与审核。</p></div>
           )}
 
           {/* 连线。画在节点下面。 */}

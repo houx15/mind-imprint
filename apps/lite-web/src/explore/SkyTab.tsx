@@ -57,9 +57,9 @@ export function SkyTab({
           className="pointer-events-auto flex items-center gap-1 rounded-mk-full p-1 backdrop-blur-md"
           style={
             night
-              ? { background: "rgba(18,15,20,.72)", border: "1px solid rgba(240,233,224,.16)" }
+              ? { background: "var(--mk-explore-surface)", border: "1px solid var(--mk-explore-line)" }
               : {
-                  background: "rgba(255,255,255,.82)",
+                  background: "var(--mk-surface)",
                   border: "1px solid var(--mk-border)",
                   boxShadow: "0 4px 16px rgba(51,48,46,.08)",
                 }

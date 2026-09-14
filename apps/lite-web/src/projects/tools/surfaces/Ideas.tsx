@@ -1,3 +1,4 @@
+import { studentArtwork } from "../../../learning/StudentArtwork";
 import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Timer, Combine } from "lucide-react";
@@ -304,7 +305,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
 
       <div
         ref={boardRef}
-        className="relative mt-3 overflow-hidden rounded-mk-lg"
+        className="relative mt-3 overflow-auto rounded-mk-lg"
         style={{
           height: canvasH,
           background: "var(--mk-surface)",
@@ -319,15 +320,14 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         ))}
 
         {ideas.length === 0 && (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-            板上还什么都没有。想到什么就写一条，先不管好不好。
-          </p>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>暂无想法。请在上方记录一个解决办法。</p></div>
         )}
 
         {ideas.map((n) => (
           <div
             key={n.id}
             ref={drag.itemRef(n.id)}
+            data-idea-id={n.id}
             style={{ position: "absolute", left: n.x, top: n.y, width: NOTE_W }}
           >
             <Sticky
@@ -361,6 +361,19 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         ))}
       </div>
 
+      {ideas.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="定位想法">
+          {ideas.map((idea, i) => <button type="button" key={idea.id}
+            className="max-w-full truncate rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-secondary hover:border-mk-accent-300"
+            title={idea.body}
+            onClick={() => {
+              const card = Array.from(boardRef.current?.querySelectorAll<HTMLElement>("[data-idea-id]") ?? []).find(el => el.dataset.ideaId === idea.id);
+              card?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
+            }}>
+            {i + 1} · {idea.body.length > 22 ? idea.body.slice(0, 22) + "…" : idea.body} ↗
+          </button>)}
+        </div>
+      )}
       <p className="mt-2 text-center text-mk-small text-mk-faint">
         拖到一起，就能合并 · 点两张以上，可以圈成一堆
       </p>

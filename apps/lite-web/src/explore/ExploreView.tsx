@@ -134,7 +134,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             onClick={() => setLang((l) => (l === "zh" ? "en" : "zh"))}
             className="inline-flex items-center gap-1.5 rounded-mk-full border px-3 py-1.5 text-mk-small
                        text-[var(--mk-explore-muted)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
-            style={{ borderColor: "rgba(240,233,224,.22)" }}
+            style={{ borderColor: "var(--mk-explore-line)" }}
           >
             <Languages size={14} strokeWidth={1.8} />
             {lang === "zh" ? "中 / EN" : "EN / 中"}
@@ -153,7 +153,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             onClick={() => setNote((v) => !v)}
             aria-expanded={note}
             className="rounded-mk-full border p-2 text-[var(--mk-explore-muted)] transition-colors hover:bg-[rgba(240,233,224,.1)]"
-            style={{ borderColor: "rgba(240,233,224,.22)" }}
+            style={{ borderColor: "var(--mk-explore-line)" }}
             aria-label="这五条是怎么来的"
           >
             <Info size={15} strokeWidth={1.8} />
@@ -163,7 +163,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
 
       {note ? (
         <div className="relative z-20 mx-7 mt-3 rounded-mk-md p-4"
-             style={{ background: "rgba(23,19,15,.9)", border: "1px solid rgba(240,233,224,.18)" }}>
+             style={{ background: "var(--mk-explore-surface)", border: "1px solid var(--mk-explore-line)" }}>
           <Sys tone="dark">这五条是怎么来的</Sys>
           <p className="mt-1.5 text-mk-small leading-[1.85] text-[var(--mk-explore-muted)]">{SELECTION_NOTE}</p>
           <p className="mt-2 text-mk-small leading-[1.85] text-[var(--mk-explore-muted)]">{POLITICS_NOTE}</p>
@@ -292,7 +292,7 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
     <div className="absolute inset-0 z-30 flex items-center justify-center px-6">
       <div
         className="max-w-[440px] rounded-[18px] border px-6 py-5 text-center backdrop-blur-sm"
-        style={{ borderColor: "rgba(245,239,231,0.14)", background: "rgba(16,13,10,0.78)" }}
+        style={{ borderColor: "var(--mk-explore-line)", background: "var(--mk-explore-surface)" }}
       >
         {live.status === "loading" && (
           <>
@@ -315,7 +315,7 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
               type="button"
               onClick={live.reload}
               className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[var(--mk-explore-ink)] transition hover:opacity-80"
-              style={{ borderColor: "rgba(245,239,231,0.3)" }}
+              style={{ borderColor: "var(--mk-explore-line)" }}
             >
               重试
             </button>
@@ -370,7 +370,7 @@ function RetryLine({ retryAfter, onRetry }: { retryAfter: number; onRetry: () =>
       type="button"
       onClick={onRetry}
       className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[var(--mk-explore-ink)] transition hover:opacity-80"
-      style={{ borderColor: "rgba(245,239,231,0.3)" }}
+      style={{ borderColor: "var(--mk-explore-line)" }}
     >
       重试
     </button>
