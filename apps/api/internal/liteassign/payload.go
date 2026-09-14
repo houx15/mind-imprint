@@ -33,9 +33,20 @@ type ProjectPayload struct {
 }
 
 const (
-	maxPromptRunes = 2000
-	maxTextRunes   = 50000
+	maxPromptRunes       = 2000
+	maxTextRunes         = 50000
+	maxInstructionsRunes = 2000
 )
+
+// ValidateInstructions trims the teacher's 说明 and caps it at 2000 runes.
+// The student sees it in her inbox, so an unbounded field would crowd the list.
+func ValidateInstructions(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if utf8.RuneCountInString(s) > maxInstructionsRunes {
+		return "", perr("instructions_too_long", "说明不能超过 2000 字")
+	}
+	return s, nil
+}
 
 // isHTTPURL mirrors putReadingSourceLite's rule: only http/https may be
 // stored, since a javascript: or data: URL would be unsafe to open later.

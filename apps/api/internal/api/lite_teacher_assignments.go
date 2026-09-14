@@ -220,6 +220,11 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	instructions, err := liteassign.ValidateInstructions(req.Instructions)
+	if err != nil {
+		httpx.WriteError(w, r, payloadErrorResponse(err))
+		return
+	}
 	payload, err := liteassign.ValidatePayload(req.Kind, req.Payload)
 	if err != nil {
 		httpx.WriteError(w, r, payloadErrorResponse(err))
@@ -244,7 +249,7 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	qtx := a.d.Queries.WithTx(tx)
 	as, err := qtx.CreateLiteAssignment(ctx, sqlc.CreateLiteAssignmentParams{
 		ClassID: classID, CreatedBy: u.ID, Kind: req.Kind, Title: title,
-		Instructions: strings.TrimSpace(req.Instructions), Payload: payload, DueAt: due,
+		Instructions: instructions, Payload: payload, DueAt: due,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -379,6 +384,15 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		}
 		newTitle = &title
 	}
+	var newInstructions *string
+	if req.Instructions != nil {
+		instructions, err := liteassign.ValidateInstructions(*req.Instructions)
+		if err != nil {
+			httpx.WriteError(w, r, payloadErrorResponse(err))
+			return
+		}
+		newInstructions = &instructions
+	}
 	var newDue *time.Time
 	if req.DueAt != nil {
 		due, err := parseAssignmentDueAt(*req.DueAt)
@@ -433,8 +447,8 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	if newTitle != nil {
 		params.Title = *newTitle
 	}
-	if req.Instructions != nil {
-		params.Instructions = strings.TrimSpace(*req.Instructions)
+	if newInstructions != nil {
+		params.Instructions = *newInstructions
 	}
 	if newDue != nil {
 		params.DueAt = *newDue

@@ -3,6 +3,7 @@ package liteassign
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -39,6 +40,20 @@ func TestValidatePayload(t *testing.T) {
 		if !errors.As(err, &pe) || pe.Code != c.code {
 			t.Errorf("%s %s: got %v, want code %s", c.kind, c.raw, err, c.code)
 		}
+	}
+}
+
+// TestValidateInstructions: the cap counts runes, not bytes. 2000 Chinese
+// characters are 6000 bytes and must still pass.
+func TestValidateInstructions(t *testing.T) {
+	got, err := ValidateInstructions("  " + strings.Repeat("雨", 2000) + "  ")
+	if err != nil || got != strings.Repeat("雨", 2000) {
+		t.Fatalf("2000 runes: got len %d err %v, want trimmed and accepted", len([]rune(got)), err)
+	}
+	_, err = ValidateInstructions(strings.Repeat("雨", 2001))
+	var pe *PayloadError
+	if !errors.As(err, &pe) || pe.Code != "instructions_too_long" || pe.Message != "说明不能超过 2000 字" {
+		t.Fatalf("2001 runes: got %v, want instructions_too_long", err)
 	}
 }
 
