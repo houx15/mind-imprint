@@ -168,10 +168,13 @@ func CheckProse(text string, codes []string, c ProseCheck) error {
 
 	// Remove verified quote/title spans before extracting digits: a real
 	// quote of hers can contain digits that are not in FactsText.
+	// Each removed span leaves a newline behind, so the text on either side
+	// cannot join into a digit run or a name that was never written.
 	cleaned := make([]rune, 0, len(runes))
 	last := 0
 	for _, sp := range spans {
 		cleaned = append(cleaned, runes[last:sp.start]...)
+		cleaned = append(cleaned, '\n')
 		last = sp.end
 	}
 	cleaned = append(cleaned, runes[last:]...)
@@ -189,6 +192,13 @@ func CheckProse(text string, codes []string, c ProseCheck) error {
 	// deleted, so the text on either side cannot join into another name.
 	named := string(cleaned)
 	if c.SelfName != "" {
+		// A classmate whose name contains hers (her 王丽, classmate 王丽华)
+		// would vanish with her name, so those are checked first.
+		for _, name := range c.OtherNames {
+			if name != "" && strings.Contains(name, c.SelfName) && strings.Contains(named, name) {
+				return fmt.Errorf("mentions other student: %s", name)
+			}
+		}
 		named = strings.ReplaceAll(named, c.SelfName, "\n")
 	}
 	for _, name := range c.OtherNames {

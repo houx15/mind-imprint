@@ -96,6 +96,24 @@ func TestCheckProseNames(t *testing.T) {
 			text:   "王丽华该周活跃 3 天。",
 			wantOK: false,
 		},
+		{
+			name:   "classmate whose name contains hers",
+			check:  ProseCheck{FactsText: "活跃 3 天", OtherNames: []string{"王丽华"}, SelfName: "王丽"},
+			text:   "请王丽和王丽华一起讨论。",
+			wantOK: false,
+		},
+		{
+			name:   "her name alone with a classmate whose name contains hers",
+			check:  ProseCheck{FactsText: "活跃 3 天", OtherNames: []string{"王丽华"}, SelfName: "王丽"},
+			text:   "王丽该周活跃 3 天。",
+			wantOK: true,
+		},
+		{
+			name:   "text on either side of a removed span does not join into a name",
+			check:  ProseCheck{Titles: "一场", FactsText: "活跃 3 天", OtherNames: []string{"小雨"}},
+			text:   "小《一场》雨",
+			wantOK: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
