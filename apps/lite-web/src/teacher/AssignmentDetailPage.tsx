@@ -12,7 +12,7 @@ import { getLibraryShelf } from "../api/library";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
-import { Field, INPUT_CLS, SettingsFields, StudentChecklist } from "./AssignmentForm";
+import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
 import {
   buildPatchInput,
@@ -226,12 +226,21 @@ export function AssignmentDetailPage({
           <>
             {edit ? (
               <form
+                // noValidate: same reason as AssignmentForm — buildPatchInput's
+                // messages, not the browser's tooltips.
+                noValidate
                 className="mt-4 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-mk-xs sm:p-6"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void save();
                 }}
               >
+                {editable && (
+                  <KindField
+                    value={edit.settings.kind}
+                    onChange={(kind) => setEdit((d) => (d ? { ...d, settings: { ...d.settings, kind } } : d))}
+                  />
+                )}
                 <Field label="标题">
                   <input
                     value={edit.title}

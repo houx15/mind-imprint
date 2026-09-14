@@ -91,7 +91,13 @@ const SOURCE_OPTIONS: { value: ReadingSource; label: string }[] = [
   { value: "text", label: "正文" },
 ];
 
-/** Kind + kind-specific settings. Shared by this form and the detail page's
+/** 类型. Rendered by the form right after 班级 (and first in the detail page's
+ * edit), ahead of 标题 / 说明 / 截止时间, per the spec's field order. */
+export function KindField({ value, onChange }: { value: AssignmentKind; onChange: (kind: AssignmentKind) => void }) {
+  return <Segmented label="类型" options={KIND_OPTIONS} value={value} onChange={onChange} />;
+}
+
+/** The chosen kind's settings. Shared by this form and the detail page's
  * edit. `onChange` takes an updater so an extraction that returns after the
  * teacher kept typing does not overwrite the other fields with a stale copy. */
 export function SettingsFields({
@@ -104,8 +110,6 @@ export function SettingsFields({
   const set = (patch: Partial<SettingsDraft>) => onChange((d) => ({ ...d, ...patch }));
   return (
     <>
-      <Segmented label="类型" options={KIND_OPTIONS} value={value.kind} onChange={(kind) => set({ kind })} />
-
       {value.kind === "reading" && (
         <>
           <Segmented
@@ -378,6 +382,9 @@ export function AssignmentForm({
           <div className="mt-6 text-mk-body text-mk-muted">暂无班级</div>
         ) : (
           <form
+            // noValidate: the browser's own tooltips (type=url, number min)
+            // would block submit before buildCreateInput shows its message.
+            noValidate
             className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-mk-xs sm:p-6"
             onSubmit={(e) => {
               e.preventDefault();
@@ -401,6 +408,8 @@ export function AssignmentForm({
                 ))}
               </select>
             </Field>
+
+            <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
 
             <Field label="标题">
               <input
