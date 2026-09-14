@@ -10,4 +10,5 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 		return a.requireEdition("lite", RequireRole("teacher", "admin")(h))
 	}
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/roster", liteTeacher(a.getLiteClassRoster))
+	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}", liteTeacher(a.getLiteStudentPage))
 }

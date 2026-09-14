@@ -169,3 +169,46 @@ func TestLiteRosterProSchool404(t *testing.T) {
 		t.Fatalf("pro school = %d, want 404", code)
 	}
 }
+
+type liteItemRow struct {
+	AtomID  string `json:"atomId"`
+	Kind    string `json:"kind"`
+	Status  string `json:"status"`
+	Minutes int32  `json:"minutes"`
+	Turns   int32  `json:"turns"`
+}
+
+func TestLiteStudentPageListsItems(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	r := seedLiteReadingForUser(t, pool, studentID, "finished", 300)
+	seedAtomMessage(t, pool, r, "student", "x")
+	seedLiteWritingForUser(t, pool, studentID, "active")
+
+	var resp struct {
+		Student liteRosterRow `json:"student"`
+		Items   []liteItemRow `json:"items"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/students/"+studentID.String(), &resp); code != http.StatusOK {
+		t.Fatalf("student page = %d", code)
+	}
+	if resp.Student.ID != studentID.String() || len(resp.Items) != 2 {
+		t.Fatalf("resp = %+v", resp)
+	}
+	var reading *liteItemRow
+	for i := range resp.Items {
+		if resp.Items[i].AtomID == r.String() {
+			reading = &resp.Items[i]
+		}
+	}
+	if reading == nil || reading.Kind != "reading" || reading.Status != "finished" || reading.Minutes != 5 || reading.Turns != 1 {
+		t.Fatalf("reading row = %+v", reading)
+	}
+}
+
+func TestLiteStudentPageStudentOfOtherClass404(t *testing.T) {
+	h, pool, teacher, classID, _ := liteTeacherFixture(t)
+	stranger := createStudent(t, pool, SeedSchoolID, "lt-stranger@demo.local")
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/students/"+stranger.String(), nil); code != http.StatusNotFound {
+		t.Fatalf("stranger = %d, want 404", code)
+	}
+}

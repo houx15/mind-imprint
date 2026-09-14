@@ -101,3 +101,73 @@ func liteRosterRow(row sqlc.ListLiteClassRosterRow) LiteRosterRowDTO {
 	}
 	return dto
 }
+
+// LiteItemRowDTO is one reading/writing/project atom on the lite teacher
+// end's student page.
+type LiteItemRowDTO struct {
+	AtomID       string  `json:"atomId"`
+	Kind         string  `json:"kind"`
+	Title        string  `json:"title"`
+	Status       string  `json:"status"`
+	Level        *int32  `json:"level"`
+	Minutes      int32   `json:"minutes"` // -1 = no time recorded
+	Turns        int32   `json:"turns"`
+	CreatedAt    string  `json:"createdAt"`
+	LastActiveAt string  `json:"lastActiveAt"`
+	FinishedAt   *string `json:"finishedAt"`
+}
+
+// getLiteStudentPage handles
+// GET /api/v1/lite/teacher/classes/{id}/students/{userId}: one student's
+// header row (same shape as a roster row) + her reading/writing/project atoms.
+func (a *API) getLiteStudentPage(w http.ResponseWriter, r *http.Request) {
+	_, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	start, end := currentLiteWeek(time.Now())
+	head, err := a.d.Queries.GetLiteStudentRosterRow(ctx, sqlc.GetLiteStudentRosterRowParams{
+		UserID: userID, WeekStart: start, WeekEnd: end, WeekStartDay: pgDate(start), WeekEndDay: pgDate(end),
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rows, err := a.d.Queries.ListLiteStudentItems(ctx, userID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	items := make([]LiteItemRowDTO, 0, len(rows))
+	for _, it := range rows {
+		items = append(items, liteItemRow(it))
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"student": liteRosterRow(sqlc.ListLiteClassRosterRow(head)),
+		"items":   items,
+	})
+}
+
+// liteItemRow maps one reading/writing/project atom row to its DTO. Shared
+// with Task 5 (the class-level "recent items" view), so item-row shaping
+// lives in exactly one place.
+func liteItemRow(it sqlc.ListLiteStudentItemsRow) LiteItemRowDTO {
+	dto := LiteItemRowDTO{
+		AtomID: it.AtomID.String(), Kind: it.Kind, Title: it.Title, Status: it.Status,
+		Minutes: -1, Turns: it.Turns,
+		CreatedAt: it.CreatedAt.Format(time.RFC3339), LastActiveAt: it.LastActivityAt.Format(time.RFC3339),
+	}
+	if it.ActiveSeconds > 0 {
+		dto.Minutes = secondsToMinutes(it.ActiveSeconds)
+	}
+	if it.Level != nil {
+		lvl := int32(*it.Level)
+		dto.Level = &lvl
+	}
+	if it.FinishedAt.Valid {
+		s := it.FinishedAt.Time.Format(time.RFC3339)
+		dto.FinishedAt = &s
+	}
+	return dto
+}
