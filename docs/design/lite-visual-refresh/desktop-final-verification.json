@@ -1,0 +1,147 @@
+{
+  "scope": "Local browser fixtures, desktop 1512x1040 and laptop 1366x900; no production calls",
+  "runs": {
+    "desktop-pages": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "courses",
+          "overflow": false
+        },
+        {
+          "name": "course-detail",
+          "overflow": false
+        },
+        {
+          "name": "project-room",
+          "overflow": false
+        },
+        {
+          "name": "explore",
+          "overflow": false
+        },
+        {
+          "name": "tree",
+          "overflow": false
+        },
+        {
+          "name": "my-site-published",
+          "overflow": false
+        },
+        {
+          "name": "public-site",
+          "overflow": false
+        },
+        {
+          "name": "settings",
+          "overflow": false
+        },
+        {
+          "name": "login",
+          "overflow": false
+        }
+      ],
+      "requests": [
+        "/api/v1/auth/me",
+        "/api/v1/courses",
+        "/api/v1/cards/catalog",
+        "/api/v1/courses/evidence/progress",
+        "/api/v1/pbl/projects/p1/notes",
+        "/api/v1/pbl/projects/p1/reframes",
+        "/api/v1/pbl/projects/p1/artifacts",
+        "/api/v1/pbl/projects/p1/tree",
+        "/api/v1/pbl/projects/p1/decisions",
+        "/api/v1/pbl/projects/p1/courses",
+        "/api/v1/pbl/projects",
+        "/api/v1/pbl/projects/p1/sessions",
+        "/api/v1/pbl/projects/p1/plan",
+        "/api/v1/pbl/projects/p1/tools",
+        "/api/v1/pbl/projects/p1/thread",
+        "/api/v1/explore/today",
+        "/api/v1/interest/tree",
+        "/api/v1/interest/quiz",
+        "/api/v1/pbl/site",
+        "/api/v1/public/sites/preview"
+      ]
+    },
+    "desktop-rooms": {
+      "errors": [],
+      "checks": [
+        {
+          "name": "reading-room",
+          "overflow": false
+        },
+        {
+          "name": "writing-plan",
+          "overflow": false
+        },
+        {
+          "name": "writing-snippets",
+          "overflow": false
+        },
+        {
+          "name": "writing-draft",
+          "overflow": false
+        }
+      ],
+      "requests": [
+        "/api/v1/auth/me",
+        "/api/v1/readings/r1",
+        "/api/v1/readings/r1/source",
+        "/api/v1/readings/r1/annotations",
+        "/api/v1/readings/r1/messages",
+        "/api/v1/readings/r1/cards",
+        "/api/v1/readings/r1/plan",
+        "/api/v1/readings/r1/blocks/tools",
+        "/api/v1/readings/r1/blocks/notes",
+        "/api/v1/writings/w1",
+        "/api/v1/writings/w1/messages",
+        "/api/v1/writings/w1/outline",
+        "/api/v1/writings/w1/snippets",
+        "/api/v1/writings/w1/draft",
+        "/api/v1/writings/w1/guide",
+        "/api/v1/writings/w1/comments"
+      ]
+    },
+    "canvas": {
+      "checks": [
+        {
+          "name": "Escape restores original without writes",
+          "passed": true
+        },
+        {
+          "name": "Drop previews, confirmation highlights saved result",
+          "remaining": 1,
+          "writes": [
+            {
+              "method": "POST",
+              "path": "/api/v1/pbl/projects/p1/notes"
+            },
+            {
+              "method": "PATCH",
+              "path": "/api/v1/pbl/projects/p1/notes/merged"
+            },
+            {
+              "method": "DELETE",
+              "path": "/api/v1/pbl/projects/p1/notes/n2"
+            },
+            {
+              "method": "DELETE",
+              "path": "/api/v1/pbl/projects/p1/notes/n3"
+            }
+          ]
+        },
+        {
+          "name": "Board Escape restores position without writes",
+          "passed": true
+        }
+      ],
+      "errors": []
+    },
+    "quest-transitions": {
+      "doneFeedback": true,
+      "skipFeedback": true,
+      "actualStatesPreserved": true
+    }
+  }
+}

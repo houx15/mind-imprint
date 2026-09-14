@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * useCanvasDrag —— 在一块自由的板上挪一张纸，以及把一张纸放到另一张上。
@@ -16,6 +16,7 @@ import { useCallback, useRef, useState } from "react";
 export interface CanvasDragApi {
   /** 正在被拖的那张。null = 没人在拖。 */
   dragging: string | null;
+  origin: { x: number; y: number } | null;
   /** 拖过程中悬在哪张别的纸上（放上去 = 合并）。 */
   over: string | null;
   /** 纸的 onPointerDown。 */
@@ -48,9 +49,12 @@ export function useCanvasDrag(opts: {
 }): CanvasDragApi {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const cleanup = useRef<(() => void) | null>(null);
   const items = useRef(new Map<string, HTMLElement>());
   const cb = useRef(opts);
   cb.current = opts;
+  useEffect(() => () => cleanup.current?.(), []);
 
   const itemRef = useCallback(
     (id: string) => (el: HTMLElement | null) => {
@@ -63,6 +67,7 @@ export function useCanvasDrag(opts: {
   const start = useCallback(
     (id: string, at: { x: number; y: number }, e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      if (cleanup.current) return;
       const board = cb.current.boardRef.current;
       if (!board) return;
       const rect = board.getBoundingClientRect();
@@ -83,10 +88,9 @@ export function useCanvasDrag(opts: {
         return found;
       };
 
-      setDragging(id);
-
       const onMove = (ev: PointerEvent) => {
         if (!moved && Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) < 5) return;
+        if (!moved) { setDragging(id); setOrigin(at); }
         moved = true;
         const { width, height, boardHeight } = cb.current;
         const x = Math.max(0, Math.min(canvasWidth - width, ev.clientX - rect.left + board.scrollLeft - grabX));
@@ -96,12 +100,28 @@ export function useCanvasDrag(opts: {
         setOver(hitOther(ev.clientX, ev.clientY));
       };
 
-      const onUp = (ev: PointerEvent) => {
+      const detach = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
+        window.removeEventListener("pointercancel", onCancel);
+        window.removeEventListener("keydown", onKey);
+        cleanup.current = null;
+      };
+      const finish = () => {
+        detach();
         setDragging(null);
         setOver(null);
+        setOrigin(null);
+      };
+      const onCancel = () => {
+        finish();
+        if (moved) cb.current.onPreview(id, at.x, at.y);
+      };
+      const onKey = (ev: KeyboardEvent) => {
+        if (ev.key === "Escape") { ev.preventDefault(); onCancel(); }
+      };
+      const onUp = (ev: PointerEvent) => {
+        finish();
         if (!moved) {
           cb.current.onTap?.(id);
           return;
@@ -113,11 +133,13 @@ export function useCanvasDrag(opts: {
 
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
-      // 触屏上系统一接管手势只发 cancel 不发 up。漏了它，纸会一直粘在手上。
-      window.addEventListener("pointercancel", onUp);
+      // Cancellation restores the preview and never persists a move or merge.
+      window.addEventListener("pointercancel", onCancel);
+      window.addEventListener("keydown", onKey);
+      cleanup.current = detach;
     },
     [],
   );
 
-  return { dragging, over, start, itemRef };
+  return { dragging, origin, over, start, itemRef };
 }

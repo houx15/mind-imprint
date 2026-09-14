@@ -62,6 +62,13 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [groupName, setGroupName] = useState("");
   const [left, setLeft] = useState(ROUND_SECONDS);
   const [error, setError] = useState<string | null>(null);
+  const [resultId, setResultId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => { setFeedback(""); setResultId(null); }, 3500);
+    return () => window.clearTimeout(timer);
+  }, [feedback, resultId]);
   const boardRef = useRef<HTMLDivElement>(null);
   // 🚨 座位号用 ref 同步地取。她连着敲三次回车，三次 add 拿到的是同一个
   // ideas.length，三张纸会摞在同一个位置上——Board.tsx 在 e2e 里撞出来过。
@@ -160,6 +167,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       const placed = await moveNote(projectId, made.id, b.x, b.y);
       await Promise.all([a, b].map((p) => archiveNote(projectId, p.id)));
       setIdeas((prev) => [...prev.filter((i) => i.id !== a.id && i.id !== b.id), placed]);
+      setResultId(placed.id);
+      setFeedback("已整合为一条想法");
       setChosen((prev) => prev.filter((x) => x !== a.id && x !== b.id));
       if (picked === a.id || picked === b.id) setPicked(null);
     } catch (err) {
@@ -178,6 +187,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setChosen([]);
       setGroupName("");
       setNaming(false);
+      setFeedback(`已归组 · ${name}`);
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -306,7 +316,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
 
       <div
         ref={boardRef}
-        className="relative mt-3 overflow-auto rounded-mk-lg"
+        className="student-ideas-canvas relative mt-3 overflow-auto rounded-mk-lg"
+        data-dragging={!!drag.dragging || undefined}
         style={{
           height: canvasH,
           background: "var(--mk-surface)",
@@ -316,6 +327,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           touchAction: "none",
         }}
       >
+        {drag.origin && <div className="student-drag-origin" aria-hidden="true" style={{ left: drag.origin.x, top: drag.origin.y, width: NOTE_W, height: NOTE_H }} />}
         {lassos.map((l) => (
           <GroupLasso key={l.label} box={l.box} label={l.label} color={l.color} />
         ))}
@@ -329,7 +341,9 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             key={n.id}
             ref={drag.itemRef(n.id)}
             data-idea-id={n.id}
-            style={{ position: "absolute", left: n.x, top: n.y, width: NOTE_W }}
+            data-drop-target={drag.over === n.id || undefined}
+            data-result={resultId === n.id || undefined}
+            style={{ position: "absolute", left: n.x, top: n.y, width: NOTE_W, zIndex: drag.dragging === n.id ? 20 : drag.over === n.id ? 10 : undefined }}
           >
             <Sticky
               tone={picked === n.id ? DONE : tone("butter")}
@@ -337,7 +351,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               dragging={drag.dragging === n.id}
               selected={chosen.includes(n.id) || drag.over === n.id}
               onPointerDown={(e) => drag.start(n.id, { x: n.x, y: n.y }, e)}
-              style={{ minHeight: NOTE_H }}
+              style={{ minHeight: NOTE_H, opacity: 1, transform: drag.dragging === n.id ? "rotate(-3deg) scale(1.035)" : undefined }}
               right={
                 enough ? (
                   <button
@@ -358,8 +372,12 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             >
               {n.body}
             </Sticky>
+            {drag.over === n.id && <span className="student-drop-caption">松开预览整合 ↗</span>}
           </div>
         ))}
+      </div>
+      <div className="student-canvas-feedback" role="status" aria-live="polite">
+        {drag.dragging ? (drag.over ? "松开后可预览两条想法的整合" : "拖到另一张便签可预览整合 · Esc 取消") : feedback || "拖动便签调整位置，点击选择想法"}
       </div>
 
       {ideas.length > 0 && (

@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "name": "Escape restores original without writes",
+      "passed": true
+    },
+    {
+      "name": "Drop previews, confirmation highlights saved result",
+      "remaining": 1,
+      "writes": [
+        {
+          "method": "POST",
+          "path": "/api/v1/pbl/projects/p1/notes"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/v1/pbl/projects/p1/notes/merged"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/pbl/projects/p1/notes/n2"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/pbl/projects/p1/notes/n3"
+        }
+      ]
+    },
+    {
+      "name": "Board Escape restores position without writes",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

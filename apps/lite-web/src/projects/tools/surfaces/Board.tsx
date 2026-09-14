@@ -87,6 +87,9 @@ export function Board({
   const [draft, setDraft] = useState("");
   const [seen, setSeen] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanup.current?.(), []);
   // 她连出来的关系。矛盾那几条是这块板最要紧的产出。
   const [links, setLinks] = useState<NoteLink[]>([]);
 
@@ -221,7 +224,7 @@ export function Board({
   }
 
   function startDrag(note: Note, e: React.PointerEvent) {
-    if (editing) return;
+    if (editing || e.button !== 0 || dragCleanup.current) return;
     const board = boardRef.current;
     if (!board) return;
     const rect = board.getBoundingClientRect();
@@ -232,6 +235,8 @@ export function Board({
     let last = { x: note.x, y: note.y };
 
     const onMove = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientX-e.clientX)+Math.abs(ev.clientY-e.clientY)<5) return;
+      if (!moved) setDragging({ id: note.id, ...at });
       moved = true;
       const px = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
       // 坐标视图下上下各让开一条，便签不许压住「很要紧 / 关系不大」两个标签。
@@ -245,9 +250,22 @@ export function Board({
       last = { x, y };
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, x, y } : n)));
     };
-    const onUp = () => {
+    const detach = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("keydown", onKey);
+      dragCleanup.current = null;
+    };
+    const cancel = () => {
+      detach(); setDragging(null);
+      if (moved) setNotes(prev => prev.map(n => n.id === note.id ? { ...n, x: note.x, y: note.y } : n));
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") { ev.preventDefault(); cancel(); }
+    };
+    const onUp = () => {
+      detach(); setDragging(null);
       if (!moved) {
         setPicked((prev) =>
           prev.includes(note.id) ? prev.filter((x) => x !== note.id) : [...prev, note.id],
@@ -262,6 +280,9 @@ export function Board({
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("keydown", onKey);
+    dragCleanup.current = detach;
   }
 
   async function regroup(cluster: string) {
@@ -379,6 +400,7 @@ export function Board({
           touchAction: "none",
         }}
       >
+        {dragging && <div className="student-drag-origin" aria-hidden="true" style={{left:dragging.x,top:dragging.y,width:NOTE_W,height:NOTE_H}} />}
         {/* 坐标底。两条线 + 四个角的标签，压在便签下面。 */}
         {boardAxes && (
           <div className="pointer-events-none absolute inset-0">
@@ -456,6 +478,9 @@ export function Board({
                 top: toPx(n).y,
                 width: NOTE_W,
                 minHeight: NOTE_H,
+                zIndex: dragging?.id === n.id ? 20 : undefined,
+                transform: dragging?.id === n.id ? "rotate(-3deg) scale(1.035)" : undefined,
+                boxShadow: dragging?.id === n.id ? "0 18px 30px -12px color-mix(in srgb,var(--mk-ink) 35%,transparent)" : undefined,
                 cursor: editing === n.id ? "text" : "grab",
                 background: `color-mix(in srgb, ${meta.hue} 14%, var(--mk-surface))`,
                 outline: on ? "2px solid var(--mk-accent-500)" : undefined,

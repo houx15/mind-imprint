@@ -362,3 +362,13 @@
 @media(prefers-reduced-motion:reduce) { .reading-quest__path button { transition:none; } .reading-quest__transition { animation:none; } }
 
 .reading-quest__art { float: right; width: 116px; height: 88px; object-fit: contain; margin: 4px 14px 4px 12px; pointer-events: none; }
+
+/* Desktop canvas: expose the origin, destination, and actual saved result. */
+.student-drag-origin { position:absolute; border:2px dashed var(--mk-accent-300); border-radius:12px; background:var(--mk-accent-50); opacity:.55; pointer-events:none; }
+.student-ideas-canvas [data-drop-target] .student-sticky { outline:2px dashed var(--mk-accent-600) !important; outline-offset:6px !important; }
+.student-drop-caption { position:absolute; top:-30px; left:0; white-space:nowrap; border-radius:20px; padding:5px 10px; background:var(--mk-accent-700); color:var(--mk-on-accent); font-size:11px; pointer-events:none; }
+.student-ideas-canvas [data-dragging] { box-shadow:0 18px 30px -12px color-mix(in srgb,var(--mk-ink) 35%,transparent); }
+.student-canvas-feedback { min-height:32px; display:flex; align-items:center; justify-content:center; padding-top:6px; font-size:12px; color:var(--mk-accent-700); }
+.student-ideas-canvas [data-result] .student-sticky { animation:student-note-result .5s ease-out; outline:2px solid var(--mk-accent-500); outline-offset:4px; }
+@keyframes student-note-result { from { transform:translateY(-8px) scale(.94); } 60% { transform:translateY(0) scale(1.025); } to { transform:none; } }
+@media(prefers-reduced-motion:reduce) { .student-ideas-canvas [data-result] .student-sticky { animation:none; } }
