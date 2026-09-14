@@ -70,6 +70,7 @@ func (a *API) gatherPblLookback(r *http.Request, atomID uuid.UUID) (pbl.Lookback
 		return in, err
 	}
 	in.Idea, in.Name = p.Idea, p.Name
+	in.Assigned, in.AssignedBrief = p.Assigned, derefOr(p.AssignedBrief, "")
 
 	if v, verr := a.d.Queries.GetPblLivePlan(r.Context(), atomID); verr == nil {
 		if steps, serr := a.d.Queries.ListPblPlanSteps(r.Context(), v.ID); serr == nil {

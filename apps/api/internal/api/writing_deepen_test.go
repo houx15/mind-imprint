@@ -13,6 +13,45 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// TestWritingTopicLine_AssignedPromptIsTheTeachers: an assigned writing's topic
+// is the teacher's prompt. Every builder that opens with the topic carries it
+// labelled as the teacher's, none presents the assignment's title as her idea,
+// and the planning prompt does not claim she was the one who wanted to write
+// it. A writing she opened herself keeps the old lines.
+func TestWritingTopicLine_AssignedPromptIsTheTeachers(t *testing.T) {
+	prompt := "写一篇关于雨的记叙文，写出雨停之前的那一刻"
+	wr := sqlc.Writing{Title: "雨", Lang: "zh", AssignedPrompt: &prompt}
+	outline := []sqlc.WritingOutline{{Text: "雨停之前", Role: "中心论点"}}
+	built := map[string]string{
+		"opening": buildWritingOpeningPrompt(wr, nil),
+		"guide":   buildWritingGuidePrompt(wr, outline[0], outline, "", nil),
+		"batch":   buildWritingGuideBatchPrompt(wr, outline, nil, nil),
+		"coach":   buildWritingCoachProjection(wr, outline, nil, ""),
+		"deepen":  buildDeepenBrief(wr, outline, outline[0], "", nil),
+		"comment": buildWritingCommentPrompt(wr, "她的整篇稿子", "雨下了一整天。"),
+		"plan":    buildWritingPlanPrompt(wr, outline, nil, ""),
+	}
+	for name, out := range built {
+		if !strings.Contains(out, "老师布置的题目："+prompt) {
+			t.Errorf("%s prompt is missing the teacher's prompt line:\n%s", name, out)
+		}
+		if strings.Contains(out, "题目/想法：雨") {
+			t.Errorf("%s prompt presents the assignment's title as her idea:\n%s", name, out)
+		}
+	}
+	if strings.Contains(built["plan"], "她一开始说想写的是") {
+		t.Errorf("plan prompt says she chose the teacher's prompt:\n%s", built["plan"])
+	}
+
+	own := sqlc.Writing{Title: "雨", Lang: "zh"}
+	if out := buildWritingPlanPrompt(own, outline, nil, ""); !strings.Contains(out, "她一开始说想写的是：雨") {
+		t.Errorf("her own writing lost its opening line:\n%s", out)
+	}
+	if out := buildWritingOpeningPrompt(own, nil); !strings.Contains(out, "题目/想法：雨") || strings.Contains(out, "老师") {
+		t.Errorf("her own writing's opening prompt changed:\n%s", out)
+	}
+}
+
 // buildDeepenBrief carries the map and this block — asserted here. Its OTHER
 // half of the guarantee (that it does NOT carry the planning transcript) is
 // not testable at this function: buildDeepenBrief has no transcript

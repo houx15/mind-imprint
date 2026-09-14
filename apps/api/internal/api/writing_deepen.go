@@ -68,9 +68,7 @@ type deepenTurnDTO struct {
 // unused argument that could be added later. TestBuildDeepenBrief pins it.
 func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc.WritingOutline, snippetText string, guideQuestions []string) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 

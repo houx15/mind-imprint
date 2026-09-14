@@ -471,6 +471,7 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 
 	return map[string]any{
 		"idea":       proj.Idea,
+		"assigned":   proj.Assigned,
 		"status":     proj.Status,
 		"stepsDone":  stepsDone,
 		"stepsTotal": stepsTotal,

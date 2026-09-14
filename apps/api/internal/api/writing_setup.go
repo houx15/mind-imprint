@@ -157,9 +157,7 @@ const writingOpeningSystem = `你是「印记」，一个陪中学生写作的�
 // to continue a conversation rather than start one.
 func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目/想法：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	b.WriteString(writingLangLine(wr))
 	if wr.TargetWords != nil {
 		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))

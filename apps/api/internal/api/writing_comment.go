@@ -405,9 +405,7 @@ func buildWritingCommentSystem(lang string, maxIssues int) string {
 // so the model knows which zoom level it is looking at.
 func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标字数"))
 

@@ -26,15 +26,18 @@ import (
 // until she has named the project — and after she names it, that sentence is
 // still the only record of how she first put it.
 type pblProjectDTO struct {
-	ID             string `json:"id"`
-	Idea           string `json:"idea"`
-	Kind           string `json:"kind"`
-	Name           string `json:"name"`
-	CoverGround    string `json:"coverGround"`
-	CoverGlyph     string `json:"coverGlyph"`
-	Status         string `json:"status"`
+	ID          string `json:"id"`
+	Idea        string `json:"idea"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+	CoverGround string `json:"coverGround"`
+	CoverGlyph  string `json:"coverGlyph"`
+	Status      string `json:"status"`
 	// 便签板的坐标视图开着没有。
-	BoardAxes      bool   `json:"boardAxes"`
+	BoardAxes bool `json:"boardAxes"`
+	// Assigned: the project came from an assignment, so idea is the teacher's
+	// driving question. The room does not post it as her first turn.
+	Assigned       bool   `json:"assigned"`
 	CreatedAt      string `json:"createdAt"`
 	LastActivityAt string `json:"lastActivityAt"`
 	// 卡片上要显示"现在走到哪一步"。没有计划时 currentStep 是空串。
@@ -129,6 +132,7 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 			ID: p.AtomID.String(), Idea: p.Idea, Kind: p.Kind, Name: p.Name,
 			CoverGround: p.CoverGround, CoverGlyph: p.CoverGlyph, Status: p.Status,
 			BoardAxes:      p.BoardAxes,
+			Assigned:       p.Assigned,
 			CreatedAt:      p.AtomCreatedAt.Format(time.RFC3339),
 			LastActivityAt: p.LastActivityAt.Format(time.RFC3339),
 			CurrentStep:    p.CurrentStep,
@@ -237,6 +241,7 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 		ID: row.AtomID.String(), Idea: row.Idea, Kind: row.Kind, Name: row.Name,
 		CoverGround: row.CoverGround, CoverGlyph: row.CoverGlyph, Status: row.Status,
 		BoardAxes:      row.BoardAxes,
+		Assigned:       row.Assigned,
 		CreatedAt:      row.AtomCreatedAt.Format(time.RFC3339),
 		LastActivityAt: row.LastActivityAt.Format(time.RFC3339),
 	})

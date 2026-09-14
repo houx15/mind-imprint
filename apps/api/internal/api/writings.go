@@ -32,9 +32,13 @@ type writingDTO struct {
 	// Origin: "here" = 在这个房间里写的；"brought" = 她带进来的成稿。
 	// 界面据此说明结构和段落两步没有发生过，报告也据此说真话
 	// （见 0146_writing_origin.sql）。
-	Origin    string `json:"origin"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	Origin string `json:"origin"`
+	// AssignedPrompt is the teacher's prompt for a writing started from an
+	// assignment; null for her own writings. The room shows it labelled as the
+	// teacher's, never as something she said.
+	AssignedPrompt *string `json:"assignedPrompt"`
+	Status         string  `json:"status"`
+	CreatedAt      string  `json:"createdAt"`
 	// UpdatedAt is writing.updated_at: rename / stage change / target-words
 	// only. It is NOT "when she last worked on this" — see LastActivityAt.
 	UpdatedAt string `json:"updatedAt"`
@@ -53,6 +57,7 @@ func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingD
 		ID: wr.AtomID.String(), Title: wr.Title, Lang: wr.Lang, Stage: wr.Stage,
 		TargetWords: wr.TargetWords, StructureKey: wr.StructureKey, Status: wr.Status,
 		Origin:         wr.Origin,
+		AssignedPrompt: wr.AssignedPrompt,
 		CreatedAt:      createdAt.Format(time.RFC3339),
 		UpdatedAt:      wr.UpdatedAt.Format(time.RFC3339),
 		LastActivityAt: lastActivityAt.Format(time.RFC3339),

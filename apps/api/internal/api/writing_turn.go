@@ -118,9 +118,7 @@ type liteWritingTurnReq struct {
 // 落过字），这时以段落为准。
 func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet, draftBody string) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目/想法：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	// 🚨 The language rule reaches the MAIN coach chat here. It was missing
 	// entirely, which is why 印记 kept discussing an English piece as though
 	// every artifact it produced should be Chinese. See writing_lang.go.
