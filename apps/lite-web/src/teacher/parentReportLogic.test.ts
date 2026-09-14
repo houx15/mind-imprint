@@ -8,8 +8,24 @@ import {
   saveErrorText,
   sectionKeysToLabels,
   shareUrl,
+  showsNoDraftHint,
   statusLabel,
 } from "./parentReportLogic";
+
+// Ruling 18 D3: the hint covers a reload after a failed generate, when the
+// in-memory banner is gone; it never doubles the banner.
+describe("showsNoDraftHint", () => {
+  const blank = { overview: "", next: "  " };
+  it("shows for a draft with no model draft and a blank body", () => {
+    expect(showsNoDraftHint("draft", false, blank, null)).toBe(true);
+  });
+  it("hides once any section has text, a draft exists, a banner shows, or the report is published", () => {
+    expect(showsNoDraftHint("draft", false, { overview: "a", next: "" }, null)).toBe(false);
+    expect(showsNoDraftHint("draft", true, blank, null)).toBe(false);
+    expect(showsNoDraftHint("draft", false, blank, "草稿生成失败：x")).toBe(false);
+    expect(showsNoDraftHint("published", false, blank, null)).toBe(false);
+  });
+});
 
 // Ruling 13: a draftError can already be a whole failure line from the server
 // (「保存草稿失败：请求编号 …」). Prefixing it again reads 「草稿生成失败：保存草稿失败：…」.

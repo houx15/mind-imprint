@@ -24,6 +24,7 @@ import {
   saveErrorText,
   SECTION_MAX_RUNES,
   shareUrl,
+  showsNoDraftHint,
   statusLabel,
 } from "./parentReportLogic";
 
@@ -412,6 +413,9 @@ export function ParentReportEditor({
               >
                 {draftMessage}
               </div>
+            )}
+            {showsNoDraftHint(report.status, report.hasDraft, texts, draftMessage) && (
+              <p className="text-mk-small text-mk-muted">暂无草稿，请重新生成草稿</p>
             )}
             {sections.map((key) => {
               const text = texts[key] ?? "";

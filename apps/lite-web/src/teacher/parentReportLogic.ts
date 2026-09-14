@@ -62,6 +62,20 @@ export function isBodyBlank(body: Readonly<Record<string, string>>): boolean {
   return Object.values(body).every((v) => !v.trim());
 }
 
+/**
+ * Whether the editor shows 暂无草稿，请重新生成草稿: a draft report with no
+ * stored model draft, every section blank, and no draftError banner already
+ * saying why (after a reload the in-memory message is gone).
+ */
+export function showsNoDraftHint(
+  status: string,
+  hasDraft: boolean,
+  texts: Readonly<Record<string, string>>,
+  draftMessage: string | null,
+): boolean {
+  return status === "draft" && !hasDraft && isBodyBlank(texts) && !draftMessage;
+}
+
 export function statusLabel(status: string): string {
   return status === "published" ? "已发布" : "草稿";
 }
