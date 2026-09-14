@@ -1,7 +1,8 @@
+import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Timer, Combine } from "lucide-react";
+import { Plus, Timer } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   archiveNote,
@@ -378,36 +379,19 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         拖到一起，就能合并 · 点两张以上，可以圈成一堆
       </p>
 
-      {pair && (
-        <div
-          className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-mk-md px-3 py-2"
-          style={{ background: tone("peach").bg }}
-        >
-          <p className="flex items-center gap-1.5 text-mk-small" style={{ color: tone("peach").fg }}>
-            <Icon icon={Combine} size={14} />
-            把这两条合成一条？
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPair(null)}
-              className="rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1 text-mk-small text-mk-secondary"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => void merge()}
-              className="rounded-mk-full px-3 py-1 text-mk-small text-white"
-              style={{ background: tone("peach").solid }}
-            >
-              合并想法
-            </button>
-          </div>
+      {pair && <SelectionTray title="合并预览" items={ideas.filter(n => n.id === pair.a || n.id === pair.b)}>
+        <p className="text-mk-small text-mk-muted">确认后，两条想法将整合为一条。</p>
+        <div className="mt-3 flex justify-center gap-3">
+          <button type="button" className="student-tool-action" onClick={() => setPair(null)}>取消</button>
+          <button type="button" className="student-tool-action" onClick={() => void merge()}>合并想法 →</button>
         </div>
-      )}
+      </SelectionTray>}
 
-      {chosen.length >= 2 && (
+      {chosen.length > 0 && !pair && <SelectionTray title="已选想法" items={ideas.filter(n => chosen.includes(n.id))} onRemove={id => setChosen(prev => prev.filter(x => x !== id))}>
+        {chosen.length === 2 && <button type="button" className="student-tool-action" onClick={() => setPair({ a: chosen[0]!, b: chosen[1]! })}>整合这两条 →</button>}
+        {chosen.length === 1 && <p className="text-mk-small text-mk-muted">再选择一条，可预览合并；也可以继续添加想法。</p>}
+      </SelectionTray>}
+      {chosen.length >= 2 && !pair && (
         <div
           className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-mk-md px-3 py-2"
           style={{ background: "var(--mk-surface)" }}

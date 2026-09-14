@@ -1,3 +1,4 @@
+import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
@@ -379,6 +380,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                 key={n.id}
                 ref={measure}
                 data-node-id={n.id}
+                data-ready-to-place={Boolean(holding) || undefined}
                 onPointerDown={(e) => {
                   // 手上拿着一条材料时，点一块就是放进去——这一下比拖更稳，
                   // 尤其在这么小的画布上。
@@ -468,7 +470,8 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                     key={n.id}
                     type="button"
                     onClick={() => setHolding(on ? null : n.id)}
-                    className="max-w-[220px] truncate rounded-mk-md px-2 py-1 text-mk-small"
+                    aria-pressed={on}
+                    className="student-material-choice rounded-mk-md px-3 py-2 text-mk-small"
                     style={{
                       background: `color-mix(in srgb, ${meta.hue} ${on ? 30 : 14}%, var(--mk-surface))`,
                       outline: on ? `2px solid ${meta.hue}` : undefined,
@@ -486,8 +489,12 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           </div>
         </div>
       )}
-      <p className="hidden">
-      </p>
+      {holding && <SelectionTray title="放入结构" items={notes.filter(n => n.id === holding)} onRemove={() => setHolding(null)}>
+        <div className="student-structure-targets">
+          {ordered.map(node => <button type="button" key={node.id} className="student-tool-action" onClick={() => void place(holding, node.id)}>放入「{node.title}」 →</button>)}
+          {!ordered.length && <p className="text-mk-small text-mk-muted">请先添加提纲节点。</p>}
+        </div>
+      </SelectionTray>}
 
       <div className="mt-2 flex items-end gap-2">
         <input

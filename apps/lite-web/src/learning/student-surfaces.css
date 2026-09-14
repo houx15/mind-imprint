@@ -209,3 +209,23 @@
 @media (prefers-reduced-motion: reduce) { .lite-student .student-sticky, .lite-student :is(.student-tool-frame, .student-tool-stage) > footer button svg { transition: none; } }
 
 .lite-student .mk-lite-room .mk-reading-room__article-inner p[data-referenced]:hover { background: var(--mk-accent-50) !important; border-left-color: transparent !important; }
+
+.student-selection-tray { margin-top: 16px; padding: 18px; border: 1px solid var(--mk-accent-200); border-radius: 16px; background: var(--mk-surface); }
+.student-selection-tray > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--mk-ink); }
+.student-selection-tray > header > span { color: var(--mk-muted); font-size: 12px; }
+.student-selection-tray__items { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 10px; }
+.student-selection-tray__item { display: flex; align-items: flex-start; gap: 10px; padding: 14px; background: var(--mk-paper); border-radius: 10px; }
+.student-selection-tray__item p { flex: 1; min-width: 0; font-size: 13px; line-height: 1.8; color: var(--mk-ink); overflow-wrap: anywhere; }
+.student-selection-tray__item button { padding: 4px; color: var(--mk-muted); border-radius: 6px; }
+.student-selection-tray__item button:hover { background: var(--mk-accent-100); }
+.student-selection-tray__number { font-size: 11px; color: var(--mk-accent-600); line-height: 2; font-variant-numeric: tabular-nums; }
+.student-selection-tray__connector { display: flex; justify-content: center; padding: 8px; color: var(--mk-accent-500); }
+.student-selection-tray__actions { text-align: center; }
+.student-tool-action { display: inline-flex; padding: 9px 14px; border-radius: 12px; background: var(--mk-accent-50); color: var(--mk-accent-700); border: 1px solid var(--mk-accent-200); font-size: 13px; transition: background .15s; }
+.student-tool-action:hover { background: var(--mk-accent-100); }
+.student-structure-targets { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.student-material-choice { max-width: 100%; text-align: left; white-space: normal; line-height: 1.8; flex: 1 1 200px; }
+[data-node-id][data-ready-to-place] { outline: 2px dashed var(--mk-accent-300); outline-offset: 3px; }
+.student-selection-tray__actions > div { border: 0; box-shadow: none; }
+.student-selection-tray__actions button { min-height: 36px; }
+.student-selection-tray__actions input { min-height: 36px; }

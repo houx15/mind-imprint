@@ -1,3 +1,4 @@
+import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
@@ -509,8 +510,13 @@ export function Board({
           );
         })}
 
-        {picked.length > 0 && naming && (
-          <div className="absolute bottom-2 left-1/2 flex w-[86%] -translate-x-1/2 items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
+
+      </div>
+      </div>
+
+      <SelectionTray title="材料关系" items={notes.filter(n => picked.includes(n.id))} onRemove={id => setPicked(prev => prev.filter(x => x !== id))}>
+                {picked.length > 0 && naming && (
+          <div className="flex w-full items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
             <input
               autoFocus
               value={pileName}
@@ -548,7 +554,7 @@ export function Board({
             改成 inset-x + mx-auto 拿到整幅宽度，并允许换行；每个孩子
             nowrap + 不许收缩，宁可多占一行也不许再拆字。 */}
         {picked.length > 0 && !naming && (
-          <div className="absolute inset-x-2 bottom-2 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
+          <div className="mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
             <span className="shrink-0 whitespace-nowrap text-mk-small text-mk-secondary">
               选了 {picked.length} 张
             </span>
@@ -593,8 +599,7 @@ export function Board({
             </button>
           </div>
         )}
-      </div>
-      </div>
+      </SelectionTray>
 
       {/* 🚨 矛盾单独列出来，不只画成一根线。
           两条都是她亲眼看到的、却互相打架——真正的问题几乎都从那儿长出来，

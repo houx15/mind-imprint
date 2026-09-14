@@ -66,8 +66,9 @@ export function useCanvasDrag(opts: {
       const board = cb.current.boardRef.current;
       if (!board) return;
       const rect = board.getBoundingClientRect();
-      const grabX = e.clientX - rect.left - at.x;
-      const grabY = e.clientY - rect.top - at.y;
+      const grabX = e.clientX - rect.left + board.scrollLeft - at.x;
+      const grabY = e.clientY - rect.top + board.scrollTop - at.y;
+      const canvasWidth = Math.max(board.clientWidth, board.scrollWidth);
       let moved = false;
       let last = at;
 
@@ -88,8 +89,8 @@ export function useCanvasDrag(opts: {
         if (!moved && Math.abs(ev.clientX - e.clientX) + Math.abs(ev.clientY - e.clientY) < 5) return;
         moved = true;
         const { width, height, boardHeight } = cb.current;
-        const x = Math.max(0, Math.min(rect.width - width, ev.clientX - rect.left - grabX));
-        const y = Math.max(0, Math.min(boardHeight - height, ev.clientY - rect.top - grabY));
+        const x = Math.max(0, Math.min(canvasWidth - width, ev.clientX - rect.left + board.scrollLeft - grabX));
+        const y = Math.max(0, Math.min(boardHeight - height, ev.clientY - rect.top + board.scrollTop - grabY));
         last = { x, y };
         cb.current.onPreview(id, x, y);
         setOver(hitOther(ev.clientX, ev.clientY));
