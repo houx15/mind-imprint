@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -99,47 +98,11 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_idea", "先写一句你想做什么", nil))
 		return
 	}
-	if len([]rune(idea)) > maxPblIdeaRunes {
-		idea = string([]rune(idea)[:maxPblIdeaRunes])
-	}
 
-	// 🚨 建项目不再判类别，也不再调模型。
-	//
-	// 产品负责人 2026-09-02：「neither should we decide the category of a project
-	// then.」——她刚写下一句话，自己都还没想清楚要做什么；机器先替她归好类，
-	// 是把一个还没有答案的问题伪造成有答案。类别默认空着（迁移 0112），等她
-	// 自己定。
-	//
-	// 顺带修掉一个真 bug：原来这里的分类调用 MaxTokens=200，推理模型光是想事情
-	// 就超了，于是她建项目时经常直接撞上一句"接口错误"。现在这条路径一次模型
-	// 调用都没有，建项目不可能因为模型而失败。
-	kind := ""
-
-	// atom + pbl_project in ONE transaction: an atom with no project row is an
-	// identity nothing can render, exactly as in createReading.
-	tx, err := a.d.Pool.Begin(r.Context())
+	// The idea's rune cap, the empty category and the one transaction live in
+	// createPblProjectWithAtomFor.
+	at, p, err := a.createPblProjectWithAtomFor(r.Context(), u.ID, idea)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	qtx := a.d.Queries.WithTx(tx)
-
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "project", UserID: u.ID})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	p, err := qtx.CreatePblProject(r.Context(), sqlc.CreatePblProjectParams{
-		AtomID: at.ID, Idea: idea, Kind: kind,
-		// 先给个名字，她随时能改。整句原文顶在页头上会把房间挤没。
-		Name: pbl.DefaultProjectName(idea),
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

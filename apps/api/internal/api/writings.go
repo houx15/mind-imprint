@@ -183,15 +183,8 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 			"这篇太长了，超出了一次能处理的长度。", nil))
 		return
 	}
-	title := idea
-	if len([]rune(title)) > 200 {
-		title = string([]rune(title)[:200])
-	}
-	lang := strings.TrimSpace(req.Lang)
-	if lang != "zh" && lang != "en" {
-		lang = "zh"
-	}
-
+	// atom + writing + seq-1 message go through createWritingInTx, in this
+	// handler's own transaction, so the brought body below joins it.
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -200,23 +193,8 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "writing", UserID: u.ID})
+	atID, err := createWritingInTx(r.Context(), qtx, u.ID, idea, req.Lang)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := qtx.CreateWriting(r.Context(), sqlc.CreateWritingParams{
-		AtomID: at.ID, Title: title, Lang: lang,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	// seq=1 literal, not NextAtomMessageSeq: this atom_id was just minted
-	// inside this same transaction, so it is unconditionally the first
-	// message — no concurrent writer can have raced it.
-	if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
-		AtomID: at.ID, Seq: 1, Role: "student", Content: idea,
-	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -224,12 +202,12 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	// 她带了一篇写完的进来。
 	if body != "" {
 		if _, err := qtx.UpsertWritingDraft(r.Context(), sqlc.UpsertWritingDraftParams{
-			AtomID: at.ID, Body: body,
+			AtomID: atID, Body: body,
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
-		if err := qtx.MarkWritingBrought(r.Context(), at.ID); err != nil {
+		if err := qtx.MarkWritingBrought(r.Context(), atID); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
@@ -245,7 +223,7 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		// （writing_stage.go 的 "stage: a → b"）：它是一条结构性记录，
 		// 不是谁「说」的话。
 		if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
-			AtomID: at.ID, Seq: 2, Role: "system", Content: "origin: brought",
+			AtomID: atID, Seq: 2, Role: "system", Content: "origin: brought",
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -256,7 +234,7 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": at.ID.String()})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": atID.String()})
 }
 
 func (a *API) listWritings(w http.ResponseWriter, r *http.Request) {
