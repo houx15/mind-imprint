@@ -155,7 +155,10 @@ export function AssignmentsPage({
                           onOpen(a.id);
                         }
                       }}
-                      className="cursor-pointer hover:bg-mk-accent-50 focus-visible:bg-mk-accent-50 focus-visible:outline-none"
+                      // A keyboard focus needs more than the hover tint. Chrome
+                      // draws no box-shadow ring on a <tr>, so this uses an
+                      // inset outline instead.
+                      className="cursor-pointer hover:bg-mk-accent-50 focus-visible:bg-mk-accent-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--mk-accent-500)]"
                     >
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">
                         {kindLabel(a.kind)}
