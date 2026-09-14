@@ -31,6 +31,12 @@ type Atom struct {
 	InterestHarvestedAt pgtype.Timestamptz `json:"interest_harvested_at"`
 }
 
+type AtomActiveDay struct {
+	AtomID  uuid.UUID   `json:"atom_id"`
+	Day     pgtype.Date `json:"day"`
+	Seconds int32       `json:"seconds"`
+}
+
 type AtomAnnotation struct {
 	ID        uuid.UUID `json:"id"`
 	AtomID    uuid.UUID `json:"atom_id"`
