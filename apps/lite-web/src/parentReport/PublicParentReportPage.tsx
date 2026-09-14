@@ -9,6 +9,7 @@ import {
 import { GuestTheme } from "@lite/learning/GuestTheme";
 import { exportPoster } from "@lite/reports/exportPoster";
 import { useAlive } from "@lite/shared/useAlive";
+import { useNoIndex } from "@lite/shared/useNoIndex";
 import { errorMessage } from "@lite/inbox/inboxLogic";
 import { ParentReportPoster } from "./ParentReportPoster";
 import { ParentReportView } from "./ParentReportView";
@@ -27,6 +28,9 @@ import { ParentReportView } from "./ParentReportView";
  * once the report has loaded (see that file for the wrapper rule).
  */
 export function PublicParentReportPage({ token }: { token: string }) {
+  // She is a minor: the page carries noindex from mount to unmount, whatever
+  // the load outcome (the 404 page included).
+  useNoIndex();
   return (
     <GuestTheme>
       <PublicParentReportContent token={token} />

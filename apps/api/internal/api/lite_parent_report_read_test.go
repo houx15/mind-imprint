@@ -48,6 +48,18 @@ func getPublicParent(t *testing.T, h http.Handler, token string) *httptest.Respo
 	return rec
 }
 
+// wantPublicHeaders: every public parent page response, 404 included, is
+// noindex and never stored by a cache (Ruling 18 A).
+func wantPublicHeaders(t *testing.T, what string, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	if got := rec.Header().Get("X-Robots-Tag"); got != "noindex, nofollow, noarchive" {
+		t.Fatalf("%s: X-Robots-Tag = %q", what, got)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("%s: Cache-Control = %q", what, got)
+	}
+}
+
 // publishParent publishes a report and returns its share token.
 func publishParent(t *testing.T, h http.Handler, teacher *http.Cookie, id string) string {
 	t.Helper()
@@ -103,9 +115,7 @@ func TestLiteParentPublicPage(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("public GET = %d %s", rec.Code, rec.Body)
 	}
-	if got := rec.Header().Get("X-Robots-Tag"); got != "noindex, nofollow, noarchive" {
-		t.Fatalf("X-Robots-Tag = %q", got)
-	}
+	wantPublicHeaders(t, "200", rec)
 	raw := rec.Body.String()
 	for _, banned := range []string{`"id"`, `"shareToken"`, token, rep.ID, studentID.String(), `"draft"`, `"status"`} {
 		if strings.Contains(raw, banned) {
@@ -127,9 +137,11 @@ func TestLiteParentPublicPage(t *testing.T) {
 		t.Fatalf("public facts = %s", r.Facts)
 	}
 
-	if rec := getPublicParent(t, h, "0123456789abcdef0123456789abcdef"); rec.Code != http.StatusNotFound {
-		t.Fatalf("unknown token = %d", rec.Code)
+	unknown := getPublicParent(t, h, "0123456789abcdef0123456789abcdef")
+	if unknown.Code != http.StatusNotFound {
+		t.Fatalf("unknown token = %d", unknown.Code)
 	}
+	wantPublicHeaders(t, "404", unknown)
 
 	if code, body := parentDo(t, h, teacher, "DELETE", parentReportPath(rep.ID)+"/share", "", nil); code != http.StatusOK {
 		t.Fatalf("revoke = %d %s", code, body)
@@ -293,6 +305,48 @@ func TestLiteParentInbox(t *testing.T) {
 	unread, items = inboxRaw(t, h, student)
 	if unread != 0 || items[0]["id"] != aid || items[1]["id"] != newer.ID || items[2]["id"] != older.ID {
 		t.Fatalf("inbox all read = %d %v", unread, inboxOrder(items))
+	}
+}
+
+// TestLiteParentListsKeepSnapshotNames (Ruling 18 D1): after the class and
+// the student are renamed, her inbox item and both teacher lists still show
+// the names frozen into the facts, as the report page does.
+func TestLiteParentListsKeepSnapshotNames(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	student := signInAs(t, pool, studentID)
+	rep := generateParentReport(t, h, teacher, classID, studentID).Report
+	publishParent(t, h, teacher, rep.ID)
+
+	mustExec(t, pool, `UPDATE classes SET name = '改名后的班级' WHERE id = $1`, uuid.MustParse(classID))
+	mustExec(t, pool, `UPDATE users SET display_name = '改名后的学生' WHERE id = $1`, studentID)
+
+	var page publicParentResp
+	if code, body := parentDo(t, h, student, "GET", studentParentPath(rep.ID), "", &page); code != http.StatusOK ||
+		page.Report.ClassName != "Lite Class" || page.Report.StudentName != "林知遥" {
+		t.Fatalf("report page = %d %s", code, body)
+	}
+	_, items := inboxRaw(t, h, student)
+	if len(items) != 1 || items[0]["className"] != "Lite Class" {
+		t.Fatalf("inbox = %+v, want className Lite Class", items)
+	}
+	for _, path := range []string{parentReportsPath(classID, studentID), classParentReportsPath(classID)} {
+		var list parentListResp
+		if code, body := parentDo(t, h, teacher, "GET", path, "", &list); code != http.StatusOK ||
+			len(list.Reports) != 1 || list.Reports[0].StudentName != "林知遥" {
+			t.Fatalf("GET %s = %d %s, want studentName 林知遥", path, code, body)
+		}
+	}
+
+	// An empty snapshot name falls back to the live name.
+	mustExec(t, pool, `UPDATE lite_parent_report SET facts = facts || '{"studentName":"","className":" "}'::jsonb WHERE id = $1`, uuid.MustParse(rep.ID))
+	if _, items := inboxRaw(t, h, student); len(items) != 1 || items[0]["className"] != "改名后的班级" {
+		t.Fatalf("inbox with an empty snapshot = %+v", items)
+	}
+	var list parentListResp
+	if code, body := parentDo(t, h, teacher, "GET", classParentReportsPath(classID), "", &list); code != http.StatusOK ||
+		len(list.Reports) != 1 || list.Reports[0].StudentName != "改名后的学生" {
+		t.Fatalf("class list with an empty snapshot = %d %s", code, body)
 	}
 }
 

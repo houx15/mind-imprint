@@ -63,8 +63,10 @@ func newPublicParentReportDTO(row sqlc.LiteParentReport) (PublicParentReportDTO,
 // to NULL, so the lookup finds nothing).
 func (a *API) getPublicParentReport(w http.ResponseWriter, r *http.Request) {
 	// She is a minor and the link is for her family, not for search engines.
-	// The header is set before any outcome, 404 included.
+	// The headers are set before any outcome, 404 included. no-store keeps the
+	// page out of shared caches, so a revoke or an edit shows on the next load.
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+	w.Header().Set("Cache-Control", "no-store")
 	token := r.PathValue("token")
 	if token == "" {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))

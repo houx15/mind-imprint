@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getPublicSite } from "../api/site";
+import { useNoIndex } from "../shared/useNoIndex";
 import { BuiltSite } from "./BuiltSite";
 import { themeFor } from "./themes";
 import type { SiteContent, SiteLayout, SitePalette } from "./types";
@@ -23,16 +24,8 @@ export function PublicSitePage({ token }: { token: string }) {
     { kind: "loading" } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent } | { kind: "gone" }
   >({ kind: "loading" });
 
-  useEffect(() => {
-    // noindex 在挂载时加上，卸载时收回——它只属于这一个页面。
-    const meta = document.createElement("meta");
-    meta.name = "robots";
-    meta.content = "noindex, nofollow, noarchive";
-    document.head.appendChild(meta);
-    return () => {
-      meta.remove();
-    };
-  }, []);
+  // noindex 在挂载时加上，卸载时收回。它只属于这一个页面。
+  useNoIndex();
 
   useEffect(() => {
     let cancelled = false;
