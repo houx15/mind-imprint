@@ -28,7 +28,7 @@ func (q *Queries) CountPblProjectsByUser(ctx context.Context, userID uuid.UUID) 
 
 const createPblProject = `-- name: CreatePblProject :one
 
-INSERT INTO pbl_project (atom_id, idea, kind, name) VALUES ($1, $2, $3, $4) RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at
+INSERT INTO pbl_project (atom_id, idea, kind, name) VALUES ($1, $2, $3, $4) RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at, assigned, assigned_brief
 `
 
 type CreatePblProjectParams struct {
@@ -61,12 +61,14 @@ func (q *Queries) CreatePblProject(ctx context.Context, arg CreatePblProjectPara
 		&i.UpdatedAt,
 		&i.BoardAxes,
 		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 	)
 	return i, err
 }
 
 const getPblProject = `-- name: GetPblProject :one
-SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, a.user_id, a.created_at AS atom_created_at, a.last_activity_at
+SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, p.assigned, p.assigned_brief, a.user_id, a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p JOIN atom a ON a.id = p.atom_id
 WHERE p.atom_id = $1
 `
@@ -82,6 +84,8 @@ type GetPblProjectRow struct {
 	UpdatedAt      time.Time          `json:"updated_at"`
 	BoardAxes      bool               `json:"board_axes"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Assigned       bool               `json:"assigned"`
+	AssignedBrief  *string            `json:"assigned_brief"`
 	UserID         uuid.UUID          `json:"user_id"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
@@ -102,6 +106,8 @@ func (q *Queries) GetPblProject(ctx context.Context, atomID uuid.UUID) (GetPblPr
 		&i.UpdatedAt,
 		&i.BoardAxes,
 		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 		&i.UserID,
 		&i.AtomCreatedAt,
 		&i.LastActivityAt,
@@ -110,7 +116,7 @@ func (q *Queries) GetPblProject(ctx context.Context, atomID uuid.UUID) (GetPblPr
 }
 
 const listPblProjectsByUser = `-- name: ListPblProjectsByUser :many
-SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, a.created_at AS atom_created_at, a.last_activity_at,
+SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, p.assigned, p.assigned_brief, a.created_at AS atom_created_at, a.last_activity_at,
        -- 🚨 COALESCE 不能省：这几个都是 LEFT JOIN 出来的，项目还没有计划时是
        -- NULL，而 sqlc 只看 pbl_plan_step.title 的 NOT NULL，会生成成 string，
        -- 于是"还没有计划"这个最常见的情况一扫描就炸。
@@ -151,6 +157,8 @@ type ListPblProjectsByUserRow struct {
 	UpdatedAt      time.Time          `json:"updated_at"`
 	BoardAxes      bool               `json:"board_axes"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Assigned       bool               `json:"assigned"`
+	AssignedBrief  *string            `json:"assigned_brief"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 	CurrentStep    string             `json:"current_step"`
@@ -183,6 +191,8 @@ func (q *Queries) ListPblProjectsByUser(ctx context.Context, userID uuid.UUID) (
 			&i.UpdatedAt,
 			&i.BoardAxes,
 			&i.FinishedAt,
+			&i.Assigned,
+			&i.AssignedBrief,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 			&i.CurrentStep,
@@ -199,9 +209,24 @@ func (q *Queries) ListPblProjectsByUser(ctx context.Context, userID uuid.UUID) (
 	return items, nil
 }
 
+const markPblProjectAssigned = `-- name: MarkPblProjectAssigned :exec
+UPDATE pbl_project SET assigned = true, assigned_brief = $2 WHERE atom_id = $1
+`
+
+type MarkPblProjectAssignedParams struct {
+	AtomID        uuid.UUID `json:"atom_id"`
+	AssignedBrief *string   `json:"assigned_brief"`
+}
+
+// 老师布置的项目：idea 是老师的驱动问题，不是她的原话。建项目的同一个事务里写。
+func (q *Queries) MarkPblProjectAssigned(ctx context.Context, arg MarkPblProjectAssignedParams) error {
+	_, err := q.db.Exec(ctx, markPblProjectAssigned, arg.AtomID, arg.AssignedBrief)
+	return err
+}
+
 const setPblBoardAxes = `-- name: SetPblBoardAxes :one
 UPDATE pbl_project SET board_axes = $2, updated_at = now()
-WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at
+WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at, assigned, assigned_brief
 `
 
 type SetPblBoardAxesParams struct {
@@ -223,13 +248,15 @@ func (q *Queries) SetPblBoardAxes(ctx context.Context, arg SetPblBoardAxesParams
 		&i.UpdatedAt,
 		&i.BoardAxes,
 		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 	)
 	return i, err
 }
 
 const setPblProjectStatus = `-- name: SetPblProjectStatus :one
 UPDATE pbl_project SET status = $2, updated_at = now()
-WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at
+WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at, assigned, assigned_brief
 `
 
 type SetPblProjectStatusParams struct {
@@ -251,6 +278,8 @@ func (q *Queries) SetPblProjectStatus(ctx context.Context, arg SetPblProjectStat
 		&i.UpdatedAt,
 		&i.BoardAxes,
 		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 	)
 	return i, err
 }
@@ -268,7 +297,7 @@ func (q *Queries) StampPblProjectFinished(ctx context.Context, atomID uuid.UUID)
 
 const updatePblProjectMeta = `-- name: UpdatePblProjectMeta :one
 UPDATE pbl_project SET name = $2, cover_ground = $3, cover_glyph = $4, updated_at = now()
-WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at
+WHERE atom_id = $1 RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at, board_axes, finished_at, assigned, assigned_brief
 `
 
 type UpdatePblProjectMetaParams struct {
@@ -297,6 +326,8 @@ func (q *Queries) UpdatePblProjectMeta(ctx context.Context, arg UpdatePblProject
 		&i.UpdatedAt,
 		&i.BoardAxes,
 		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 	)
 	return i, err
 }

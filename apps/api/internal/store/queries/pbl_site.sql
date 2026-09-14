@@ -78,7 +78,7 @@ LIMIT 12;
 --
 -- 只取做完的（keeping）和在复盘的（review）。talking / running 是还没定型的
 -- 想法，把它们摆到主页上，等于替她对外宣布一件她自己都还没想清楚的事。
-SELECT a.id AS atom_id, p.name, p.idea, p.kind, p.status,
+SELECT a.id AS atom_id, p.name, p.idea, p.kind, p.status, p.assigned,
        a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p
 JOIN atom a ON a.id = p.atom_id

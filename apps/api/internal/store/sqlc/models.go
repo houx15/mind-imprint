@@ -766,16 +766,18 @@ type PblPlanVersion struct {
 }
 
 type PblProject struct {
-	AtomID      uuid.UUID          `json:"atom_id"`
-	Idea        string             `json:"idea"`
-	Kind        string             `json:"kind"`
-	Name        string             `json:"name"`
-	CoverGround string             `json:"cover_ground"`
-	CoverGlyph  string             `json:"cover_glyph"`
-	Status      string             `json:"status"`
-	UpdatedAt   time.Time          `json:"updated_at"`
-	BoardAxes   bool               `json:"board_axes"`
-	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+	AtomID        uuid.UUID          `json:"atom_id"`
+	Idea          string             `json:"idea"`
+	Kind          string             `json:"kind"`
+	Name          string             `json:"name"`
+	CoverGround   string             `json:"cover_ground"`
+	CoverGlyph    string             `json:"cover_glyph"`
+	Status        string             `json:"status"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+	BoardAxes     bool               `json:"board_axes"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	Assigned      bool               `json:"assigned"`
+	AssignedBrief *string            `json:"assigned_brief"`
 }
 
 type PblReframe struct {
@@ -1224,7 +1226,8 @@ type Writing struct {
 	StructureKey string             `json:"structure_key"`
 	SetupAt      pgtype.Timestamptz `json:"setup_at"`
 	// here = 在这个房间里写的；brought = 她带进来的成稿。报告据此说明哪几步没有发生过。
-	Origin string `json:"origin"`
+	Origin         string  `json:"origin"`
+	AssignedPrompt *string `json:"assigned_prompt"`
 }
 
 type WritingComment struct {

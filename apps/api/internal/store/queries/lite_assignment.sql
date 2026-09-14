@@ -83,6 +83,9 @@ LEFT JOIN reading rd ON rd.atom_id = r.atom_id
 LEFT JOIN writing w ON w.atom_id = r.atom_id
 LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
 WHERE r.user_id = $1 AND a.archived_at IS NULL
+  -- 她离开了这个班，这个班的作业就不再出现。
+  AND EXISTS (SELECT 1 FROM enrollments e
+              WHERE e.class_id = a.class_id AND e.user_id = r.user_id AND e.role_in_class = 'student')
 ORDER BY (r.seen_at IS NULL) DESC, a.due_at ASC;
 
 -- name: GetLiteAssignmentForAtom :one
