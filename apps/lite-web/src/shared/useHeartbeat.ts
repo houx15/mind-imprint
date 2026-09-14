@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { sendHeartbeat, type AtomKind } from "../api/reports";
+import { sendHeartbeat, type HeartbeatKind } from "../api/reports";
 
 /**
  * useHeartbeat — the client half of the end-of-session report's minute
- * count (server half: `POST /api/v1/{readings,writings}/{id}/heartbeat`,
- * clamped to 120s per call and ignored once the atom is finished).
+ * count (server half: `POST /api/v1/{readings,writings}/{id}/heartbeat` and
+ * `POST /api/v1/pbl/projects/{id}/heartbeat`, clamped to 120s per call and
+ * ignored once the atom is finished).
  *
  * Posts `{seconds: 60}` once every 60 seconds — comfortably under the
  * server's clamp, so a well-behaved tick never gets truncated — and ONLY
@@ -27,7 +28,7 @@ import { sendHeartbeat, type AtomKind } from "../api/reports";
  * feature: it must never surface an error to her, never retry-storm, and
  * never interrupt whatever she is doing in the room.
  */
-export function useHeartbeat(kind: AtomKind, atomId: string, enabled: boolean): void {
+export function useHeartbeat(kind: HeartbeatKind, atomId: string, enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
     const id = window.setInterval(() => {
