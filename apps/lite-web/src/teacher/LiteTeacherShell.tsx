@@ -12,6 +12,7 @@ import { navigate } from "../routing";
 import type { MeUser } from "../api/auth";
 import { resolveTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teacherRouting";
 import { ClassPage } from "./ClassPage";
+import { ClassWeeklyPage } from "./ClassWeeklyPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
 import { AssignmentsPage } from "./AssignmentsPage";
@@ -136,7 +137,10 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
               route.view === key ||
               // 学生详情/单项详情在「班级」下面，班级那一格仍然是选中的。
               (key === "classes" &&
-                (route.view === "class" || route.view === "student" || route.view === "item")) ||
+                (route.view === "class" ||
+                  route.view === "classWeekly" ||
+                  route.view === "student" ||
+                  route.view === "item")) ||
               // 新建作业和作业详情在「布置」下面。
               (key === "assignments" && (route.view === "assignmentNew" || route.view === "assignment"));
             return (
@@ -202,6 +206,15 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
               writeLastClassId(route.classId);
               go({ view: "assignmentNew", classId: route.classId });
             }}
+            onOpenWeekly={() => go({ view: "classWeekly", classId: route.classId })}
+          />
+        )}
+        {route.view === "classWeekly" && (
+          <ClassWeeklyPage
+            key={route.classId}
+            classId={route.classId}
+            onBack={() => go({ view: "class", classId: route.classId })}
+            onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
           />
         )}
         {route.view === "assignments" && (

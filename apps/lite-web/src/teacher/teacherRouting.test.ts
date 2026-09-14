@@ -10,6 +10,7 @@ import {
 const cases: [string, TeacherRoute][] = [
   ["/classes", { view: "classes" }],
   ["/classes/c1", { view: "class", classId: "c1" }],
+  ["/classes/c1/weekly", { view: "classWeekly", classId: "c1" }],
   ["/classes/c1/students/u1", { view: "student", classId: "c1", userId: "u1" }],
   ["/classes/c1/students/u1/items/a1", { view: "item", classId: "c1", userId: "u1", atomId: "a1" }],
   ["/settings", { view: "settings" }],
@@ -28,6 +29,18 @@ describe("teacher routing", () => {
     expect(parseTeacherRoute("/")).toEqual({ view: "classes" });
     expect(parseTeacherRoute("/readings/abc")).toEqual({ view: "classes" });
     expect(parseTeacherRoute("/classes/c1/students")).toEqual({ view: "class", classId: "c1" });
+  });
+
+  // `weekly` is a reserved segment after the class id, never a student id.
+  it("keeps the class weekly page apart from student routes", () => {
+    expect(parseTeacherRoute("/classes/c1/weekly")).toEqual({ view: "classWeekly", classId: "c1" });
+    expect(parseTeacherRoute("/classes/c1/weekly/")).toEqual({ view: "classWeekly", classId: "c1" });
+    expect(parseTeacherRoute("/classes/c1/students/u1")).toEqual({ view: "student", classId: "c1", userId: "u1" });
+    expect(parseTeacherRoute("/classes/c1/students/weekly")).toEqual({ view: "student", classId: "c1", userId: "weekly" });
+  });
+
+  it("resolves the class weekly page for a teacher", () => {
+    expect(resolveTeacherRoute("/classes/c1/weekly", "teacher")).toEqual({ view: "classWeekly", classId: "c1" });
   });
 });
 

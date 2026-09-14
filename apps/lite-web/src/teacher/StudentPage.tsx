@@ -13,6 +13,7 @@ import {
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { StatusChip } from "./AssignmentDetailPage";
 import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
+import { WeekSummaryCard } from "./WeekSummaryCard";
 import { TreeView } from "../tree/TreeView";
 import { useInterestTree } from "../tree/useInterestTree";
 
@@ -21,9 +22,8 @@ import { useInterestTree } from "../tree/useInterestTree";
  * already saw as a row in `ClassPage`, her reading/writing/project items,
  * and her interest tree — read-only (`TreeView`'s `readOnly`, Task 9).
  *
- * 上周表现总结 is deliberately NOT stubbed here — plan 3 adds that card, and
- * a placeholder that says 「下一版本提供」 would just be a promise this build
- * doesn't keep.
+ * 上周表现总结 (`WeekSummaryCard`, plan 3) sits between the stat tiles and
+ * the assignment and item lists. It owns its own loading, keyed by student.
  *
  * Async load hygiene: every fetch here carries a `cancelled` flag (the same
  * pattern `useInterestTree` uses) so a late response from the PREVIOUS
@@ -145,6 +145,8 @@ export function StudentPage({
               <StatTile label="写作" value={`${page.student.writingsDone}/${page.student.writingsTotal}`} />
               <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
             </div>
+
+            <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
 
             <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
 

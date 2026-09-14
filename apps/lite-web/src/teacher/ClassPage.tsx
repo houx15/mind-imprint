@@ -72,6 +72,7 @@ export function ClassPage({
   onBack,
   onOpenStudent,
   onNewAssignment,
+  onOpenWeekly,
 }: {
   classId: string;
   // Accepted for parity with pro's `ConsoleShell` wiring and future
@@ -82,6 +83,8 @@ export function ClassPage({
   onOpenStudent: (userId: string) => void;
   /** 布置作业 in the header; opens the create form on this class. */
   onNewAssignment?: () => void;
+  /** 周报 in the header, next to 布置作业; opens the class weekly page. */
+  onOpenWeekly?: () => void;
 }) {
   void role;
 
@@ -238,10 +241,19 @@ export function ClassPage({
                   </Button>
                 </>
               )}
-              {onNewAssignment && (
-                <Button variant="primary" size="sm" className="sm:ml-auto" onClick={onNewAssignment}>
-                  布置作业
-                </Button>
+              {(onOpenWeekly || onNewAssignment) && (
+                <div className="flex items-center gap-2 sm:ml-auto">
+                  {onOpenWeekly && (
+                    <Button variant="secondary" size="sm" onClick={onOpenWeekly}>
+                      周报
+                    </Button>
+                  )}
+                  {onNewAssignment && (
+                    <Button variant="primary" size="sm" onClick={onNewAssignment}>
+                      布置作业
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 

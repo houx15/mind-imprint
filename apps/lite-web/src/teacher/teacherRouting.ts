@@ -3,6 +3,9 @@
 export type TeacherRoute =
   | { view: "classes" }
   | { view: "class"; classId: string }
+  // `/classes/:classId/weekly`. `weekly` is a reserved segment after the class
+  // id; the week itself is page state, not part of the URL.
+  | { view: "classWeekly"; classId: string }
   | { view: "student"; classId: string; userId: string }
   | { view: "item"; classId: string; userId: string; atomId: string }
   | { view: "settings" }
@@ -39,6 +42,7 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
   }
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
+  if (seg[2] === "weekly") return { view: "classWeekly", classId };
   if (seg[2] !== "students" || !seg[3]) return { view: "class", classId };
   const userId = seg[3];
   if (seg[4] !== "items" || !seg[5]) return { view: "student", classId, userId };
@@ -116,6 +120,8 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return `/assignments/${enc(r.assignmentId)}`;
     case "class":
       return `/classes/${enc(r.classId)}`;
+    case "classWeekly":
+      return `/classes/${enc(r.classId)}/weekly`;
     case "student":
       return `/classes/${enc(r.classId)}/students/${enc(r.userId)}`;
     case "item":
