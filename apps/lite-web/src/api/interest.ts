@@ -125,6 +125,11 @@ export async function fetchInterestTree(): Promise<InterestTree> {
   return normalize(await apiFetch<RawTree>("/api/v1/interest/tree"));
 }
 
+/** 取任意一棵树的同一套整形。教师端看学生的树时用它，路径不同、形状相同。 */
+export async function fetchInterestTreeFrom(path: string): Promise<InterestTree> {
+  return normalize(await apiFetch<RawTree>(path));
+}
+
 /* ── 继续深挖 ───────────────────────────────────────────────────────────── */
 
 export type DigKind = "think" | "read" | "write" | "make";
