@@ -12,6 +12,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -28,8 +29,20 @@ type liteRosterRow struct {
 // liteTeacherFixture: a lite school, a teacher who owns a class, one enrolled student.
 func liteTeacherFixture(t *testing.T) (h http.Handler, pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID) {
 	t.Helper()
+	return liteTeacherFixtureWithProvider(t, nil)
+}
+
+// liteTeacherFixtureWithProvider is liteTeacherFixture with a scripted model
+// behind it — Task 5's item-detail report slice is the first lite teacher
+// endpoint that can reach the provider (via ensureAtomReport's phase 2), so
+// every other lite teacher test keeps passing nil.
+func liteTeacherFixtureWithProvider(t *testing.T, prov gateway.Provider) (h http.Handler, pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID) {
+	t.Helper()
 	pool = newAPITestPool(t)
-	h = New(Deps{Queries: sqlc.New(pool), Pool: pool, ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID}).Handler()
+	h = New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, Provider: prov,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
 	if _, err := pool.Exec(context.Background(), `UPDATE schools SET edition = 'lite'`); err != nil {
 		t.Fatal(err)
 	}

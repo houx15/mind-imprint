@@ -93,9 +93,19 @@ func (a *API) getLiteTeacherItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // liteTeacherReport returns the stored report's teacher-facing slice
-// (stats, moments, keep), generating it first when the item is finished and
-// no report exists yet (ensureAtomReport, atom_report.go). Unfinished atom
-// → (nil, nil), no generation, no model call.
+// (stats, moments, keep, prosePending), generating it first when the item
+// is finished and no report exists yet (ensureAtomReport, atom_report.go).
+// Unfinished atom → (nil, nil), no generation, no model call.
+//
+// One call to ensureAtomReport per request, same as the student-facing
+// report handler — the two-phase protocol (atom_report.go's file comment)
+// means a report can come back with `prosePending: true` and no `moments`
+// yet: phase 1 stores the deterministic half with no model call, and the
+// prose (moments/gains/keep-from-summary) is only generated on a LATER
+// request. This handler passes `prosePending` straight through rather than
+// looping or calling ensureAtomReport again inline, so the teacher client
+// re-fetches once (the same posture ReportPanel.tsx takes on the student
+// side) instead of this request paying for or waiting on a second phase.
 //
 // Takes the request rather than a bare context — see detachedModelCtx
 // (reading_lens.go): once the model call is under way it must run to
@@ -111,14 +121,18 @@ func (a *API) liteTeacherReport(r *http.Request, userID, atomID uuid.UUID, kind 
 		return nil, nil
 	}
 	var rep struct {
-		Stats   json.RawMessage `json:"stats"`
-		Moments json.RawMessage `json:"moments"`
-		Keep    json.RawMessage `json:"keep"`
+		Stats        json.RawMessage `json:"stats"`
+		Moments      json.RawMessage `json:"moments"`
+		Keep         json.RawMessage `json:"keep"`
+		ProsePending bool            `json:"prosePending"`
 	}
 	if err := json.Unmarshal(row.Report, &rep); err != nil {
 		return nil, err
 	}
-	return map[string]any{"stats": rep.Stats, "moments": rep.Moments, "keep": rep.Keep}, nil
+	return map[string]any{
+		"stats": rep.Stats, "moments": rep.Moments, "keep": rep.Keep,
+		"prosePending": rep.ProsePending,
+	}, nil
 }
 
 // notFoundIsNil turns a :one query's ErrNoRows into a nil pointer, for the
