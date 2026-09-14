@@ -169,7 +169,7 @@ export function StudentPage({
             <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
 
             <ParentReportSection
-              key={`${classId}:${userId}`}
+              key={`parent-reports:${classId}:${userId}`}
               classId={classId}
               userId={userId}
               onOpen={onOpenParentReport}
