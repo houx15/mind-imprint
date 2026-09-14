@@ -159,6 +159,10 @@ func TestLiteRosterNoBucketsIsMinusOne(t *testing.T) {
 	if resp.Roster[0].MinutesThisWeek != -1 {
 		t.Fatalf("minutesThisWeek = %d, want -1", resp.Roster[0].MinutesThisWeek)
 	}
+	// No atoms at all: total time is unknown too, not zero.
+	if resp.Roster[0].MinutesTotal != -1 {
+		t.Fatalf("minutesTotal = %d, want -1", resp.Roster[0].MinutesTotal)
+	}
 }
 
 func TestLiteRosterAuthz(t *testing.T) {

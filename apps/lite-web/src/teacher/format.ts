@@ -21,6 +21,12 @@ export function itemStatusLabel(kind: string, status: string): string {
   return STATUS[kind]?.[status] ?? status;
 }
 
+/** writing.lang is a code (`zh`/`en`); the teacher reads a language name. */
+export function langLabel(lang: string | null | undefined): string {
+  if (!lang) return "—";
+  return ({ zh: "中文", en: "英文" } as Record<string, string>)[lang] ?? lang;
+}
+
 export function kindLabel(kind: string): string {
   return ({ reading: "阅读", writing: "写作", project: "项目" } as Record<string, string>)[kind] ?? kind;
 }

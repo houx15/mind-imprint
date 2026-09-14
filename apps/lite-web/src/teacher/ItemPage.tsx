@@ -4,7 +4,7 @@ import { Icon } from "@/ui";
 import { ApiError } from "@/api";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, type ItemDetail } from "../api/teacher";
-import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
+import { formatMinutes, itemStatusLabel, kindLabel, langLabel } from "./format";
 import { displayStat } from "../reports/statLabels";
 import { useAlive } from "../shared/useAlive";
 
@@ -180,7 +180,8 @@ function ItemBody({
         <span>{itemStatusLabel(item.kind, item.status)}</span>
         <span>时长 {formatMinutes(item.minutes)}</span>
         <span>对话 {item.turns} 轮</span>
-        <span>{shortDate(item.finishedAt)}</span>
+        {/* 没完成的项目没有完成日期：不留一个没有标签的「—」。 */}
+        {item.finishedAt ? <span>完成于 {shortDate(item.finishedAt)}</span> : null}
       </p>
       <p className="mt-3 text-mk-small text-mk-muted">对话内容不向教师展示；以下为学生的产出。</p>
 
@@ -367,7 +368,7 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
 
       <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
         <span>目标字数 {targetWords && targetWords > 0 ? `${targetWords} 字` : "—"}</span>
-        <span>语言 {lang || "—"}</span>
+        <span>语言 {langLabel(lang)}</span>
         <span>结构 {structureKey || "—"}</span>
       </p>
 

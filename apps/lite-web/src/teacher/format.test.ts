@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
+import { formatMinutes, itemStatusLabel, kindLabel, langLabel } from "./format";
+
+describe("langLabel", () => {
+  it("names zh and en, dashes empty, passes unknown codes through", () => {
+    expect([langLabel("zh"), langLabel("en"), langLabel(""), langLabel("fr")]).toEqual(["中文", "英文", "—", "fr"]);
+  });
+});
 
 describe("formatMinutes", () => {
   it("shows a dash when no time was recorded", () => expect(formatMinutes(-1)).toBe("—"));

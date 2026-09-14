@@ -21,7 +21,7 @@ type LiteRosterRowDTO struct {
 	AvatarColor        string  `json:"avatarColor"`
 	LastActiveAt       *string `json:"lastActiveAt"`
 	ActiveDaysThisWeek int32   `json:"activeDaysThisWeek"`
-	MinutesTotal       int32   `json:"minutesTotal"`
+	MinutesTotal       int32   `json:"minutesTotal"`    // -1 = no time recorded at all
 	MinutesThisWeek    int32   `json:"minutesThisWeek"` // -1 = no time buckets recorded yet
 	Turns              int32   `json:"turns"`
 	ReadingsDone       int32   `json:"readingsDone"`
@@ -94,6 +94,11 @@ func liteRosterRow(row sqlc.ListLiteClassRosterRow) LiteRosterRowDTO {
 	}
 	if row.BucketCount > 0 {
 		dto.MinutesThisWeek = secondsToMinutes(row.SecondsThisWeek)
+	}
+	// Spec §4.5: no recorded time shows "—", never "0 分钟" — the same rule
+	// the item row applies to active_seconds = 0.
+	if row.SecondsTotal == 0 {
+		dto.MinutesTotal = -1
 	}
 	if !row.LastActiveAt.Equal(liteEpoch) {
 		s := row.LastActiveAt.Format(time.RFC3339)
