@@ -33,6 +33,13 @@ type Case struct {
 	// cannot be argued with. nil means this case has no structural contract.
 	Validate func(text string) error
 
+	// GoldCheck verifies an objective, case-specific semantic expectation. It is
+	// deliberately separate from Validate: a correct JSON reply may still make
+	// the wrong closed-set decision, and that is not a production-parser error.
+	// The workbench applies it to every structurally valid sample. Nil means the
+	// case has no objective gold answer and is assessed only by its Judge rubric.
+	GoldCheck func(text string) error
+
 	// Judge is the rubric handed to the judging model for the cases whose
 	// quality cannot be read off the structure — a chaperone turn is either
 	// well-pitched or it is not, and no parser can tell. Empty skips judging.

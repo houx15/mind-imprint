@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Framework ready prompt calibration. This replays only the four gold-labelled",
+    "framework-review cases after a prompt revision. The judge is deliberately",
+    "outside the candidate set; gold verdicts are checked on all three samples."
+  ],
+  "samples": 3,
+  "timeoutSeconds": 300,
+  "judgeModel": "dashscope/qwen3.7-max",
+  "caseFilter": ["review/framework-"],
+  "candidates": {
+    "review": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/glm-5.3",
+      "dashscope/glm-5.2"
+    ]
+  }
+}

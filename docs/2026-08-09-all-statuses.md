@@ -35,6 +35,7 @@
             - 资源: something students have already known or think are important for this paper. can be even more generally if they are not familiar currently
             - 可能的反例: some statements or evidence that may challenge the current question.
         - after all five are finished, read the whole framework, give some suggestions, and propose that it's time to generate a plan.
+        - **Framework ready 审阅（非阻塞）**：`ready` 只表示学生当前输入足以派生一份初步计划，AI 无需发明研究范围、主要证据方向或核心分析方法；不表示正式提案已经达标，也不决定能否生成计划。目标、活动、资源或它们与目标的整体连贯性有关键缺口时，必须判为 `false`；缘由只是占位语或与目标无关时也必须判为 `false`。反例缺失、跳过或尚未说明处理方式，不能单独判 `false`。资源可以只是可靠的来源类型或获取方向，不必已经列出具体论文；其余不足是后续优化项。审阅只依据学生已填内容，不补全缺失选择，也不做外部事实核查。
     - status change:
         - by clicking "generate plan", AI begins to generate plan, and would switch to plan management
 - 3.Project Management

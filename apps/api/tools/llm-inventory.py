@@ -6,7 +6,7 @@
 Then replace everything from "## 附录 A" to the end of the handbook with the output.
 
 Why a generator instead of a hand-written list: the handbook's value is that a
-colleague can trust it, and a 67-row table maintained by hand is wrong within a
+colleague can trust it, and a large table maintained by hand is wrong within a
 week. The description column is each function's OWN doc comment, so the doc stays
 true as long as the code comments do — and if a comment is missing, the table
 says "—" rather than inventing a description.
@@ -39,8 +39,9 @@ CLASS_ZH = {
     "Review": "判学生的成果，判错有代价",
     "Assess": "过程评估 / 回顾 / 周报，绝不降级",
     "Digest": "长输入短输出，压缩不判断",
+    "Draw": "生成一张图",
 }
-ORDER = ["Reflex", "Dialogue", "Compose", "Review", "Assess", "Digest"]
+ORDER = ["Reflex", "Dialogue", "Compose", "Review", "Assess", "Digest", "Draw"]
 
 
 def go_files():
@@ -92,7 +93,7 @@ for path in go_files():
 
 w = sys.stdout.write
 total = sum(len(v) for v in sites.values())
-w(f"## 附录 A · 全部 LLM 调用点（{total} 处，按档分组）\n")
+w(f"## 附录 A · 全部模型调用点（{total} 处，按档分组）\n")
 for cls in ORDER:
     rows = sorted(sites.get(cls, []))
     w(f"\n### `{cls.lower()}` — {CLASS_ZH[cls]}\n\n共 {len(rows)} 处。\n\n")

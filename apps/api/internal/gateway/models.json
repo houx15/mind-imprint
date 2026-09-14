@@ -433,7 +433,7 @@
       "label": "结构生成 — 从已陈述的输入派生一个 schema 形状的产物"
     },
     "review": {
-      "model": "dashscope/deepseek-v4-pro",
+      "model": "dashscope/glm-5.3",
       "tier": "flagship",
       "reasoning": "default",
       "latencyBudgetMs": 40000,

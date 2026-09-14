@@ -19,20 +19,6 @@ type Recommendation struct {
 	Rejected []string
 }
 
-// qualityFirst names the classes where being right matters more than being
-// cheap, so the winner is the highest scorer rather than the cheapest one
-// inside a band.
-//
-// 🚨 This distinction was missing from the first version and it produced a
-// visibly wrong answer on 2026-09-03: on `review`, every candidate scored 2,
-// so the band admitted all of them and the cheapest won — which was glm-5.3,
-// answering in 4.6s with ZERO reasoning tokens on a class whose entire purpose
-// is to reason. "Cheapest among equally mediocre" is the right rule for a
-// classifier and the wrong rule for a reviewer.
-func qualityFirst(class string) bool {
-	return class == gateway.ClassReview || class == gateway.ClassAssess
-}
-
 // Recommend picks a model per class under one rule, applied in order:
 //
 //  1. anything that failed a call, or whose output the production parser
@@ -100,6 +86,9 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			}
 			if v := r.ValidRate(); v >= 0 && v < 1 {
 				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: production parser rejected %.0f%% of outputs", r.CaseID, (1-v)*100))
+			}
+			if g := r.GoldRate(); g >= 0 && g < 1 {
+				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: gold expectation missed on %.0f%% of outputs", r.CaseID, (1-g)*100))
 			}
 			if r.Judge > 0 {
 				a.judgeSum += r.Judge
@@ -195,14 +184,17 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			return ok[i].a.out+ok[i].a.think < ok[j].a.out+ok[j].a.think
 		})
 		w := ok[0]
-		// On a class where being right dominates, a TIE is not evidence to move.
-		// Every candidate scoring the same 2 on `review` means the prompt is
-		// broken, not that the cheapest one earned the binding — and switching on
-		// cost there would hand a reasoning class to whichever model reasons
-		// least, which is how glm-5.3 (zero reasoning tokens) kept winning it.
-		if qualityFirst(class) {
+		keptIncumbentOnExactTie := false
+		// The incumbent is retained only when every deciding metric is exactly
+		// tied. Equal quality alone is not a tie: speed and then token count are
+		// explicit parts of the recommendation rule.
+		if spec, bound := cat.Lanes[class]; bound {
 			for _, c := range ok {
-				if c.id == cat.Lanes[class].Model && c.min == w.min && c.judge == w.judge {
+				if c.id == spec.Model &&
+					c.min == w.min && c.judge == w.judge &&
+					c.a.total == w.a.total &&
+					c.a.out+c.a.think == w.a.out+w.a.think {
+					keptIncumbentOnExactTie = c.id != w.id
 					w = c
 					break
 				}
@@ -210,8 +202,8 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 		}
 		why := fmt.Sprintf("结构 100%%，质量 %.1f（最差一项 %.0f），输出 %d tokens（其中推理 %d），p50 %s",
 			w.judge, w.min, w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
-		if qualityFirst(class) && w.id == cat.Lanes[class].Model && len(ok) > 1 {
-			why += "  · 与其他候选质量并列，没有换绑的依据，保持不变"
+		if keptIncumbentOnExactTie {
+			why += "  · 所有排序指标完全相同，保持现有绑定"
 		}
 		if w.a.judged == 0 {
 			why = fmt.Sprintf("结构 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
@@ -295,11 +287,11 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 		// 入 tokens is here because cost is (in x in_price + out x out_price), and a
 		// report that prints only the output half cannot be converted to money no
 		// matter what prices you later fill in.
-		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 结构 | 质量 | 备注 |\n")
-		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---|\n")
+		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 结构 | 任务命中 | 质量 | 备注 |\n")
+		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|\n")
 		for _, r := range rs {
 			if r.Skipped != "" {
-				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
+				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
 				continue
 			}
 			judge := "—"
@@ -310,11 +302,12 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 			if e := firstError(r); e != "" {
 				note = e + "  " + note
 			}
-			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s |\n",
+			gold := pct(r.GoldRate())
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s | %s |\n",
 				r.ModelID,
 				r.P50TTFT().Round(100*time.Millisecond),
 				r.P50Total().Round(100*time.Millisecond),
-				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ValidRate()), judge, note)
+				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ValidRate()), gold, judge, note)
 		}
 		b.WriteString("\n")
 	}
@@ -338,6 +331,11 @@ func firstError(r Result) string {
 	for _, s := range r.Samples {
 		if s.ValidErr != "" && s.ValidErr != "n/a" {
 			return "结构不合格：" + truncate(s.ValidErr, 200)
+		}
+	}
+	for _, s := range r.Samples {
+		if s.GoldErr != "" {
+			return "任务未命中：" + truncate(s.GoldErr, 200)
 		}
 	}
 	return ""

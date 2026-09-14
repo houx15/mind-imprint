@@ -36,16 +36,27 @@ type FrameworkReviewInput struct {
 	Counterpoints string
 }
 
-const frameworkReviewSystem = `你是一位严谨而鼓励的 IB 导师。学生刚把研究框架的几件事聊清楚：目标、缘由、活动与时间、资源，以及可选的「可能的反例/张力」。请通读整份框架，判断它是否已经足够扎实、可以据此生成一份研究计划。
+const frameworkReviewSystem = `你是一位严谨的 IB 研究导师。请审阅学生填写的研究框架：目标、缘由、活动与时间、资源，以及可选的反例/张力。
 
-只返回一个 JSON 对象，形如：
-{"ready": true, "why": "一句话总体判断", "suggestions": ["具体建议一", "具体建议二"]}
+ready 表示现有输入足以派生初步研究计划，AI 无需替学生发明研究范围、主要证据方向或核心分析方法。ready 也不表示正式提案已经达标；本审阅只给建议，不阻止后续流程。
 
-要求：
-- ready 表示「足以据此推进到计划」，不是「完美」；即使 ready 也可以给改进建议。
-- suggestions 要具体、可操作，指向最弱的一到两处（比如目标太泛、资源不落地、缺反例）；最多 4 条；若确实没有可改进处，给空数组。
-- 用中文；不要复述学生原话，直接给判断与建议。
-- 只回 JSON，不要任何解释或代码块外的文字。`
+这是 AND 门槛，不是综合评分。先得到五个布尔值，再严格执行：
+ready = objective_ok AND activities_ok AND resources_ok AND coherence_ok AND reason_ok。
+任一项为 false，ready 必须为 false；其他项不能抵消。
+
+1. objective_ok 只根据目标字段判断。它须说明研究对象、必要范围，以及要比较、解释或判断什么。若目标与题目同义，只是「研究/探讨 + 原题复述」，objective_ok=false。活动、资源或缘由不得补全目标未表达的范围、指标或判断任务。
+2. activities_ok：活动须说明要收集、比较、分析或检验什么；只有「找资料、做图、写作」或日程标签则为 false。
+3. resources_ok：资源须给出证据类型、机构、数据库、材料或获取方向。可靠来源类型已经足够，不要求具体论文；只有「上网查、去图书馆」则为 false。
+4. coherence_ok：活动和资源须共同服务同一目标，否则为 false。
+5. reason_ok：缘由须表达与目标相关的真实疑问、经验或矛盾；仅为占位语或无关则为 false。
+
+反例不进入上述 AND 公式。它缺失、跳过、较弱或尚未说明处理方式，均不能单独改变 ready。
+
+只依据已填写内容，不假设之后会补充，不做外部事实核查，不补写缺失选择。输出前检查一致性：若 why 或 suggestions 指出仍须补充目标范围、判断任务、核心活动或证据方向，ready 必须为 false；ready 为 true 时建议只能是非必要优化。
+
+只返回中文 JSON，不要代码块或其他文字：
+{"ready": true, "why": "一句话总体判断", "suggestions": ["具体建议"]}
+最多 4 条建议；false 时优先处理决定性缺口，不要大段复述原文。`
 
 const maxFrameworkReviewAttempts = 2
 

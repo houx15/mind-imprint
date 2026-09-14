@@ -52,7 +52,7 @@
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
 - **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估，绝不降级）/ `digest`（长输入短输出）/ `draw`（生成一张图）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
 - **换模型 = 改一个环境变量，不改代码；新增模型 / 新增 OpenAI 兼容厂商 = 改 `models.json`，不写 Go。** 每档一个变量（`MODEL_DIALOGUE` / `MODEL_COMPOSE` / …）指向目录里的 model id（如 `dashscope/qwen3.8-max`），只动一条、其余不变，测出来的速度与成本才可归因。旧的 `MODEL_CHAT` / `MODEL_FAST_CHAT` / `MODEL_EVAL` 仍作为别名生效（→ dialogue / reflex / assess）。写错 id、给 `assess` 指了非旗舰模型、或给一个要求关思考的档绑了停不下来思考的模型，**启动即失败**，不会悄悄跑一周。`api --print-models` 打印目录与当前绑定。
-- **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，测结构合法性 / 延迟 / token / 判官质量，输出一份推荐绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
+- **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，分开测生产解析、gold 任务命中和判官质量；硬门槛通过后按最差质量 → 平均质量 → 延迟 → token 排序，只有全部指标完全相同才保留现有绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
 - **🚨 `draw` 档不走对话口，它的端点是实测出来的，不是照文档推的。** 2026-09-04
   实测：聊天走的那个 DashScope maas 聚合口**画不了图**——`/images/generations`
   在两个主机上都是 404，尽管它的 `GET /models` 里就列着 `qwen-image-3.0`；
@@ -76,6 +76,7 @@
 - **课程摆给谁看，由 `course.audience` 决定，两个版本共用同一份课程库。** 一门课的受众是 `text[]`（今天的取值是 `lite` / `pro`，空数组 = 不限受众），词表在 `packages/contracts/src/course.ts` 与 `apps/api/internal/api/course_audience.go` 两处，**不写 DB CHECK**（同 `category` 的理由）。过滤在服务端做，目录和按 slug 读的每条路径都要过（`course.go` 与 `course_visibility.go`）——只藏目录，一条手敲的 URL 就绕过去了。前端不做受众判断。
 - **项目里能把学生送去上一课，且必须闭环。** 印记 `produce("course")` 只能从她这个版本看得见的课程库里挑（编出来的 slug 服务端丢掉），落一条 `pbl_course_assignment`；她在项目里的浮层上完课，写下「这一课对我的项目有什么用」，那句话经 `gatherPblCourseWork` 回灌给印记，印记接一轮。**新增任何一件会离开对话的工具，都要照这条走完「终点信号 + 产出回灌」，否则那件工具是项目外面的一件事。**
 - **涉及「写作项目」流程的实施 plan（立题/管理/阅读/写作/回顾各状态、其页面/卡片/AI 角色/状态转移），写完后必须先对照 `docs/2026-08-09-all-statuses.md` 的相关章节逐条校验一致性，再进入实现。** 该文档是写作全流程行为的单一真相源；plan 与它冲突时，以它为准（或显式回到用户确认）。同理，架构 spec 也以它为行为真相源。**不涉及写作项目流程的工作（如引导旅程、课程、图鉴、营销站等）不受此约束。**
+- **研究框架的 `ready` 是非阻塞审阅语义。** 权威定义见 `docs/2026-08-09-all-statuses.md` 的 Research framework：它判断现有输入能否派生初步计划，不是正式提案验收，也不得改变计划自动生成或状态流转。实现 `frameworkReviewSystem` 或其 benchmark 时，目标/活动/资源/整体连贯性关键缺口（以及占位或无关缘由）必须 `false`；反例缺失不可单独否决。
 
 ## 重构路线（已定稿，取代旧的「明确不做（本期）」）
 

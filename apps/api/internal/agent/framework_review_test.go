@@ -59,3 +59,40 @@ func TestReviewFramework_GarbageErrors(t *testing.T) {
 		t.Fatal("expected an error on an unparseable reply (caller degrades to no-verdict)")
 	}
 }
+
+func TestFrameworkReviewBenchCasesCarryStableGoldVerdicts(t *testing.T) {
+	wants := map[string]bool{
+		"review/framework-review":          false,
+		"review/framework-vague-objective": false,
+		"review/framework-minimum-ready":   true,
+		"review/framework-strong-ready":    true,
+	}
+	seen := map[string]bool{}
+	for _, c := range BenchCases() {
+		want, ok := wants[c.ID]
+		if !ok {
+			continue
+		}
+		seen[c.ID] = true
+		if c.GoldCheck == nil {
+			t.Fatalf("%s has no GoldCheck", c.ID)
+		}
+		text := `{"ready":false,"why":"x","suggestions":[]}`
+		if want {
+			text = `{"ready":true,"why":"x","suggestions":[]}`
+		}
+		if err := c.GoldCheck(text); err != nil {
+			t.Fatalf("%s rejects expected ready: %v", c.ID, err)
+		}
+		wrong := `{"ready":true,"why":"x","suggestions":[]}`
+		if want {
+			wrong = `{"ready":false,"why":"x","suggestions":[]}`
+		}
+		if err := c.GoldCheck(wrong); err == nil {
+			t.Fatalf("%s did not reject wrong ready", c.ID)
+		}
+	}
+	if len(seen) != len(wants) {
+		t.Fatalf("found gold cases %v, want %v", seen, wants)
+	}
+}

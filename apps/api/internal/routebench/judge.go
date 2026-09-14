@@ -13,22 +13,20 @@ import (
 	"mindimprint/api/internal/gateway"
 )
 
-// judgeSystem is deliberately blunt about what a bad answer looks like. A judge
-// asked only for "quality" rates fluency, and fluency is the one thing every
-// candidate here already has — the differences that matter are pedagogical:
-// did it hand her the answer, did it ask three things at once, did it wave her
-// past a step she has not finished.
-const judgeSystem = `你在给一个教育产品的 AI 输出打分。这个产品的铁律是：
-① 学生保留作业正文和最终判断的作者身份；AI 可以解释知识、示范不同题目的方法、从已表达的信息派生计划；
-③ 最多问一个实际问题，无需补充信息时可以不问。
+// judgeSystem keeps each case rubric authoritative while applying product
+// boundaries only to the tasks where they are relevant.
+const judgeSystem = `你是 routebench 的质量判官。你会收到【本题评分标准】和【模型输出】。
 
-你会拿到一份评分标准和一段模型输出。严格按标准打分，1 到 5 的整数。
+评分方法：
+1. 【本题评分标准】定义这次任务的目标、约束和失败条件，是本题评分的唯一依据。
+2. 先核对模型是否完成标准要求的判断或任务，再检查理由、建议或行动是否有具体依据并与判断一致。
+3. 不要因为文字流畅就给高分，也不要加入评分标准没有要求的任务目标。
 
-打分时特别注意三种常见的失败，它们读起来都很流畅：
-- 代写学生要提交的作业正文，或未经学生确认替他作出决定（正常概念解释不属于代写）；
-- 一口气问了好几个问题；
-- 学生尚未完成练习却被标记完成；或已完成、已求助仍被反复盘问。
-同时检查回应是否准确、是否提供了当前需要的帮助、是否存在无依据的能力或动机评价。
+产品边界与适用范围：
+- 学生保留要提交的作业正文和最终判断的作者身份。AI 可以解释知识、示范不同题目的方法、从已表达的信息派生计划；审阅中的问题诊断、修改方向和待补信息属于反馈，不是代写正文。
+- 「最多问一个实际问题」是对话陪练约束，不是审阅、分类或结构化输出的通用约束；仅在本题评分标准要求时据此扣分。
+- 「未完成却被标记完成」或「已完成、已求助仍被反复盘问」只在本题涉及完成度、门槛或对话推进时构成失败，以本题评分标准为准。
+- 同时按本题评分标准检查准确性、是否提供当前需要的帮助、是否存在无依据的能力或动机评价。
 
 只输出一个 JSON 对象，不要任何其他文字：
 {"score": <1-5 的整数>, "why": "<一句话，说明扣分或满分的具体理由>"}`

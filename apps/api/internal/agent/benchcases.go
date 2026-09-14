@@ -30,30 +30,98 @@ func BenchCases() []benchcase.Case {
 		coachTurnCase(),
 		writingCoachCase(),
 		frameworkReviewCase(),
+		frameworkVagueObjectiveCase(),
+		frameworkMinimumReadyCase(),
+		frameworkStrongReadyCase(),
 	}
 }
 
-// review — judging work the student has finished. The framework below is
-// deliberately half-good: the objective is measurable, but the resources are
-// hand-waved ("上网查") and the counterpoint is named without being engaged.
-// A reviewer that calls this ready is a reviewer that would wave every student
-// through, which is the failure this class exists to catch.
+// review — the four framework cases calibrate the reviewer against the ready
+// rubric. They intentionally share Phoebe's real topic so the model sees the
+// distinctions students actually make, rather than generic placeholder prose.
+// GoldCheck covers the closed boolean decision on every sample; Judge covers
+// the quality and restraint of why/suggestions.
 func frameworkReviewCase() benchcase.Case {
-	in := FrameworkReviewInput{
-		Title:         "中国是否让地球变得更可持续？",
-		Objective:     "比较中国 2005–2023 年可再生能源装机量与实际碳排放量的变化趋势，判断投入是否转化成了结果。",
-		Reason:        "我看到很多报道说中国可再生能源全球第一，但也看到中国是排放总量第一，想搞清楚这两件事怎么同时成立。",
-		Activities:    "第一周找数据，第二周做图，第三周写。",
-		Resources:     "上网查，还有学校图书馆。",
-		Counterpoints: "有人会说中国排放总量第一，所以不算可持续。",
-	}
+	return frameworkReviewBenchCase(
+		"review/framework-review",
+		FrameworkReviewInput{
+			Title:         "中国是否让地球变得更可持续？",
+			Objective:     "比较中国 2005–2023 年可再生能源装机量与实际碳排放量的变化趋势，判断投入是否转化成了结果。",
+			Reason:        "我看到很多报道说中国可再生能源全球第一，但也看到中国是排放总量第一，想搞清楚这两件事怎么同时成立。",
+			Activities:    "第一周找数据，第二周做图，第三周写。",
+			Resources:     "上网查，还有学校图书馆。",
+			Counterpoints: "有人会说中国排放总量第一，所以不算可持续。",
+		},
+		false,
+		`这份框架故意是半成品。目标和缘由足够明确；但活动只有日程，没有说明如何比较装机量和排放，资源只是「上网查、学校图书馆」，无法提供证据起点，整体也因此无法承接目标。反例已提出但尚未处理本身只是改进项。
+
+`,
+	)
+}
+
+func frameworkVagueObjectiveCase() benchcase.Case {
+	return frameworkReviewBenchCase(
+		"review/framework-vague-objective",
+		FrameworkReviewInput{
+			Title:         "中国是否让地球变得更可持续？",
+			Objective:     "研究中国是否让地球更可持续。",
+			Reason:        "我想弄清新闻里关于中国环保成就的说法是否站得住脚。",
+			Activities:    "收集中国新能源政策与排放数据，比较不同指标，再写出判断。",
+			Resources:     "国际能源机构的年度统计、全球碳排放数据和同行评审研究。",
+			Counterpoints: "有人认为能源转型的投入不能代表整体环境结果。",
+		},
+		false,
+		`目标只是复述题目，没有确定研究范围、指标或判断任务；即使活动和资源已有方向，AI 仍必须替学生选择核心研究问题。
+
+`,
+	)
+}
+
+func frameworkMinimumReadyCase() benchcase.Case {
+	return frameworkReviewBenchCase(
+		"review/framework-minimum-ready",
+		FrameworkReviewInput{
+			Title:      "中国是否让地球变得更可持续？",
+			Objective:  "比较中国 2005–2023 年可再生能源装机量与年度领土二氧化碳排放的变化，判断能源投入是否对应可观察的减排结果。",
+			Reason:     "我想理解「装机量最大」和「排放总量很高」为什么会同时成立。",
+			Activities: "收集两类年度数据，统一年份后画趋势图，比较变化是否一致，再分析指标各自不能说明什么。",
+			Resources:  "政府或国际机构发布的年度能源统计、全球碳排放数据，以及解释两类指标含义的同行评审研究。",
+		},
+		true,
+		`这是最低可用框架：目标、研究动作和证据类型已经相互承接，足以派生初步计划。资源尚未列出具体论文或数据库、反例为空都不是关键缺口；产品允许资源在此阶段保持概括，反例也可跳过。
+
+`,
+	)
+}
+
+func frameworkStrongReadyCase() benchcase.Case {
+	return frameworkReviewBenchCase(
+		"review/framework-strong-ready",
+		FrameworkReviewInput{
+			Title:         "中国是否让地球变得更可持续？",
+			Objective:     "比较中国 2005–2023 年可再生能源装机量、发电量与年度领土二氧化碳排放，判断能源转型的投入在多大程度上对应减排结果，并限定结论适用范围。",
+			Reason:        "我先前把装机量第一直接理解为中国更可持续，但发现这个结论可能把投入、实际发电和排放结果混在了一起。",
+			Activities:    "从 IRENA 与中国国家能源局收集装机量和发电量，从 Global Carbon Budget 获取年度领土排放；统一年份和单位后比较趋势，并查阅研究解释电力结构、需求增长与排放之间的关系。",
+			Resources:     "IRENA 年度能源统计、中国国家能源局公开数据、Global Carbon Budget，以及讨论中国能源转型和排放边界的同行评审研究。",
+			Counterpoints: "即使可再生能源增长，排放总量仍可能上升；我会比较两类趋势，并区分装机、发电和整体排放不能互相替代的边界。",
+		},
+		true,
+		`这是成熟的初步框架：研究目标、活动、资源和反例相互承接，已经可以直接派生计划。它不必被要求写成正式提案，也不需要再补充关键研究选择。
+
+`,
+	)
+}
+
+func frameworkReviewBenchCase(id string, in FrameworkReviewInput, wantReady bool, judge string) benchcase.Case {
 	var b strings.Builder
 	fmt.Fprintf(&b, "题目：%s\n", in.Title)
 	fmt.Fprintf(&b, "目标：%s\n缘由：%s\n活动与时间：%s\n资源：%s\n",
 		in.Objective, in.Reason, in.Activities, in.Resources)
-	fmt.Fprintf(&b, "可能的反例/张力：%s\n", in.Counterpoints)
+	if in.Counterpoints != "" {
+		fmt.Fprintf(&b, "可能的反例/张力：%s\n", in.Counterpoints)
+	}
 	return benchcase.Case{
-		ID:    "review/framework-review",
+		ID:    id,
 		Class: gateway.ClassReview,
 		Site:  "agent.ReviewFramework (POST /projects/{id}/coach)",
 		Request: gateway.ChatRequest{
@@ -67,16 +135,28 @@ func frameworkReviewCase() benchcase.Case {
 			_, err := parseFrameworkVerdict(text)
 			return err
 		},
-		Judge: `这是导师对一份研究框架的审阅。这份框架**故意是半成品**：
-目标是可量化的（装机量 vs 实际排放，年份明确），这一半是好的；
-但资源写的是「上网查，还有学校图书馆」——完全没落地；
-活动与时间是「第一周找数据，第二周做图，第三周写」——没有说清每一步判断什么；
-反例只是被点了名（「有人会说排放总量第一」），没有说打算怎么处理它。
+		GoldCheck: frameworkReadyGoldCheck(wantReady),
+		Judge:     judge + "\n\n" + frameworkReviewJudgeScale,
+	}
+}
 
-好的审阅要精确指出最弱的那一到两处，而且指的应该是资源/活动/反例处理这几项，
-不是笼统说「可以更具体」。
-按 1–5 打分：5 = 指出了具体哪一项弱、弱在哪，建议可操作；
-3 = 判断对但建议笼统；1 = 直接说 ready 且没指出任何弱处，或建议与这份框架无关。`,
+const frameworkReviewJudgeScale = `统一评分锚点：
+5 = ready 正确，理由指出决定性依据，建议具体且与 verdict 一致。
+4 = 判断正确且基本具体，仅有轻微遗漏。
+3 = 判断正确但理由或建议笼统。
+2 = 判断错误但识别到部分问题，或 verdict 与建议冲突。
+1 = 判断错误且遗漏核心问题或建议无关。`
+
+func frameworkReadyGoldCheck(want bool) func(string) error {
+	return func(text string) error {
+		v, err := parseFrameworkVerdict(text)
+		if err != nil {
+			return err
+		}
+		if v.Ready != want {
+			return fmt.Errorf("ready = %t, want %t", v.Ready, want)
+		}
+		return nil
 	}
 }
 

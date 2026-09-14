@@ -66,6 +66,8 @@ type Sample struct {
 	Text     string
 	Valid    bool
 	ValidErr string
+	Gold     bool
+	GoldErr  string
 	Err      string
 }
 
@@ -169,6 +171,29 @@ func (r Result) ValidRate() float64 {
 		}
 		n++
 		if s.Valid {
+			ok++
+		}
+	}
+	if n == 0 {
+		return -1
+	}
+	return float64(ok) / float64(n)
+}
+
+// GoldRate is the share of structurally valid outputs that met this case's
+// objective semantic expectation. Cases without GoldCheck report -1 (not
+// applicable), keeping a missing gold label distinct from a failed one.
+func (r Result) GoldRate() float64 {
+	ok, n := 0, 0
+	for _, s := range r.Samples {
+		if s.Err != "" || !s.Valid {
+			continue
+		}
+		if !s.Gold && s.GoldErr == "" {
+			continue // no GoldCheck on this case
+		}
+		n++
+		if s.Gold {
 			ok++
 		}
 	}
@@ -296,8 +321,8 @@ func (rn *Runner) runCell(ctx context.Context, c benchcase.Case, modelID string)
 		s := rn.once(ctx, resolved, c)
 		res.Samples = append(res.Samples, s)
 	}
-	rn.logf("  %-34s %-30s p50 %5s  out %4d (think %4d)  valid %s",
-		c.ID, modelID, res.P50Total().Round(100*time.Millisecond), res.MedOut(), res.MedReasoning(), pct(res.ValidRate()))
+	rn.logf("  %-34s %-30s p50 %5s  out %4d (think %4d)  valid %s  gold %s",
+		c.ID, modelID, res.P50Total().Round(100*time.Millisecond), res.MedOut(), res.MedReasoning(), pct(res.ValidRate()), pct(res.GoldRate()))
 	return res
 }
 
@@ -357,5 +382,12 @@ func (rn *Runner) once(ctx context.Context, r gateway.Resolved, c benchcase.Case
 		return s
 	}
 	s.Valid = true
+	if c.GoldCheck != nil {
+		if gerr := c.GoldCheck(s.Text); gerr != nil {
+			s.GoldErr = gerr.Error()
+			return s
+		}
+		s.Gold = true
+	}
 	return s
 }
