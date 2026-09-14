@@ -62,22 +62,22 @@ func Cards(s StudentWeek) (watch *Card, praise *Card) {
 		watch = &Card{
 			Kind:     "watch",
 			Code:     "never_used",
-			Label:    "本周未使用",
-			Evidence: fmt.Sprintf("本周 0 天有学习记录；上一周 %d 天。", s.PrevActiveDays),
+			Label:    "未使用",
+			Evidence: fmt.Sprintf("该周 0 天有学习记录；上一周 %d 天。", s.PrevActiveDays),
 		}
 	case s.AssignmentsOverdue >= 1:
 		watch = &Card{
 			Kind:     "watch",
 			Code:     "overdue",
 			Label:    "作业逾期",
-			Evidence: fmt.Sprintf("本周到期的作业中有 %d 份未完成。", s.AssignmentsOverdue),
+			Evidence: fmt.Sprintf("该周到期的作业中有 %d 份未完成。", s.AssignmentsOverdue),
 		}
 	case s.ActiveDays <= s.PrevActiveDays-2:
 		watch = &Card{
 			Kind:     "watch",
 			Code:     "dropped_off",
 			Label:    "活跃下降",
-			Evidence: fmt.Sprintf("活跃天数 上一周 %d 天 → 本周 %d 天。", s.PrevActiveDays, s.ActiveDays),
+			Evidence: fmt.Sprintf("活跃天数 上一周 %d 天 → 该周 %d 天。", s.PrevActiveDays, s.ActiveDays),
 		}
 	case len(s.Stalled) >= 1:
 		var evidence string
@@ -105,7 +105,7 @@ func Cards(s StudentWeek) (watch *Card, praise *Card) {
 			Kind:     "praise",
 			Code:     "finished_on_time",
 			Label:    "按时完成",
-			Evidence: fmt.Sprintf("本周到期的作业按时完成 %d 份。", s.AssignmentsDone),
+			Evidence: fmt.Sprintf("该周到期的作业按时完成 %d 份。", s.AssignmentsDone),
 		}
 	case len(s.NewKeywords) >= 1:
 		keywords := s.NewKeywords
@@ -123,7 +123,7 @@ func Cards(s StudentWeek) (watch *Card, praise *Card) {
 			Kind:     "praise",
 			Code:     "more_active",
 			Label:    "更加投入",
-			Evidence: fmt.Sprintf("活跃天数 上一周 %d 天 → 本周 %d 天。", s.PrevActiveDays, s.ActiveDays),
+			Evidence: fmt.Sprintf("活跃天数 上一周 %d 天 → 该周 %d 天。", s.PrevActiveDays, s.ActiveDays),
 		}
 	}
 

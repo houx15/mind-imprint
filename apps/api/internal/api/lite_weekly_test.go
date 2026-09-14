@@ -276,7 +276,7 @@ func TestLiteWeeklyStalled(t *testing.T) {
 	mustExec(t, pool, `UPDATE pbl_project SET finished_at = $2 WHERE atom_id = $1`, done, ws.AddDate(0, 0, 1)) // excluded
 
 	seedOldReading(t, pool, studentID, "周末后创建", we.Add(time.Hour))  // excluded
-	seedOldReading(t, pool, studentID, "本周创建", ws.AddDate(0, 0, 1)) // excluded
+	seedOldReading(t, pool, studentID, "该周创建", ws.AddDate(0, 0, 1)) // excluded
 	readLate := seedOldReading(t, pool, studentID, "周末后读完", before)
 	mustExec(t, pool, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, readLate, we.Add(2*time.Hour)) // stalled
 
@@ -285,9 +285,9 @@ func TestLiteWeeklyStalled(t *testing.T) {
 	seedAtomMessageAt(t, pool, after, we.Add(time.Hour))
 	mustExec(t, pool, `UPDATE atom SET last_activity_at = now() WHERE id = $1`, after)
 
-	msg := seedOldWriting(t, pool, studentID, "本周有消息", before) // excluded
+	msg := seedOldWriting(t, pool, studentID, "该周有消息", before) // excluded
 	seedAtomMessageAt(t, pool, msg, we.Add(-time.Second))
-	bucket := seedOldWriting(t, pool, studentID, "本周有时长", before) // excluded
+	bucket := seedOldWriting(t, pool, studentID, "该周有时长", before) // excluded
 	seedBucket(t, pool, bucket, ws.AddDate(0, 0, 6), 60)
 	zero := seedOldWriting(t, pool, studentID, "零秒日格", before) // stalled
 	seedBucket(t, pool, zero, ws.AddDate(0, 0, 2), 0)
@@ -531,7 +531,7 @@ func seedWeeklyStudentWeek(t *testing.T, h http.Handler, pool *pgxpool.Pool, tea
 	seedWeekKeyword(t, pool, studentID, "金融", ws.AddDate(0, 0, 1).Add(8*time.Hour))
 }
 
-const weeklyValidStudentReply = `{"summary":"本周活跃 3 天，读完《Test reading》，写下「雨落在屋檐上」。有 1 份作业逾期。","suggestions":[{"text":"请她说明逾期的作业卡在哪一步。","evidenceCode":"overdue"},{"text":"请她讲一讲对金融的兴趣从哪里来。","evidenceCode":"new_interest"}]}`
+const weeklyValidStudentReply = `{"summary":"该周活跃 3 天，读完《Test reading》，写下「雨落在屋檐上」。有 1 份作业逾期。","suggestions":[{"text":"请她说明逾期的作业卡在哪一步。","evidenceCode":"overdue"},{"text":"请她讲一讲对金融的兴趣从哪里来。","evidenceCode":"new_interest"}]}`
 
 const weeklyFabricatedStudentReply = `{"summary":"她写下「雨是天空的眼泪」。","suggestions":[{"text":"请她说明逾期的作业卡在哪一步。","evidenceCode":"overdue"}]}`
 
@@ -557,7 +557,7 @@ func TestLiteWeeklyStudentGetCallsNoModel(t *testing.T) {
 		t.Fatalf("week = %q %q %q latest=%v", got.WeekStart, got.WeekLabel, got.Title, got.IsLatest)
 	}
 	wantCards := []weeklyCardJSON{
-		{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "本周到期的作业中有 1 份未完成。"},
+		{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "该周到期的作业中有 1 份未完成。"},
 		{Kind: "praise", Code: "new_interest", Label: "新的兴趣", Evidence: "兴趣树新增关键词：金融。"},
 	}
 	if !reflect.DeepEqual(got.Cards, wantCards) {
@@ -583,7 +583,7 @@ func TestLiteWeeklyStudentProseStoredOnce(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("POST = %d body=%s", code, body)
 	}
-	if first.Prose == nil || !strings.HasPrefix(first.Prose.Summary, "本周活跃 3 天") || !first.ProseReady || first.ProseError != nil {
+	if first.Prose == nil || !strings.HasPrefix(first.Prose.Summary, "该周活跃 3 天") || !first.ProseReady || first.ProseError != nil {
 		t.Fatalf("POST prose = %+v ready=%v err=%v", first.Prose, first.ProseReady, first.ProseError)
 	}
 	var raw map[string]json.RawMessage
@@ -728,7 +728,7 @@ func TestLiteWeeklyClassProseStoredOnce(t *testing.T) {
 	// fixture has wired the provider in; the script is filled in afterwards.
 	prov := gateway.NewSequenceStubProvider()
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
-	reply := `{"comment":"本周 1 名学生有 1 份作业逾期，读完《Test reading》。","cards":[{"userId":"` + studentID.String() +
+	reply := `{"comment":"该周 1 名学生有 1 份作业逾期，读完《Test reading》。","cards":[{"userId":"` + studentID.String() +
 		`","lead":"她读完《Test reading》，有 1 份作业逾期。","action":"请线下询问逾期作业卡在哪一步。"}]}`
 	*prov = *gateway.NewSequenceStubProvider(weeklyReply(reply))
 
@@ -756,7 +756,7 @@ func TestLiteWeeklyClassProseStoredOnce(t *testing.T) {
 		t.Fatalf("stats = %+v", st)
 	}
 	sid := studentID.String()
-	wantWatch := []weeklyCardJSON{{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "本周到期的作业中有 1 份未完成。", UserID: sid, Name: name}}
+	wantWatch := []weeklyCardJSON{{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "该周到期的作业中有 1 份未完成。", UserID: sid, Name: name}}
 	wantPraise := []weeklyCardJSON{{Kind: "praise", Code: "new_interest", Label: "新的兴趣", Evidence: "兴趣树新增关键词：金融。", UserID: sid, Name: name}}
 	if !reflect.DeepEqual(before.Watch, wantWatch) || !reflect.DeepEqual(before.Praise, wantPraise) {
 		t.Fatalf("watch = %+v praise = %+v", before.Watch, before.Praise)

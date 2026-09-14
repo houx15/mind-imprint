@@ -21,7 +21,7 @@ func TestClassFactsTextCarriesEveryNumberAndEvidence(t *testing.T) {
 	}
 	cards := map[string][]Card{
 		"u1": {
-			{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "本周到期的作业中有 2 份未完成。"},
+			{Kind: "watch", Code: "overdue", Label: "作业逾期", Evidence: "该周到期的作业中有 2 份未完成。"},
 			{Kind: "praise", Code: "new_interest", Label: "新的兴趣", Evidence: "兴趣树新增关键词：海绵城市。"},
 		},
 		"u2": {
@@ -44,7 +44,7 @@ func TestClassFactsTextCarriesEveryNumberAndEvidence(t *testing.T) {
 	for _, want := range []string{
 		"IBDP 一年级", "9 月 1 日–9 月 7 日", "林知遥", "周子墨",
 		"作业逾期", "新的兴趣", "进度停滞", "值得表扬", "需要建议",
-		"本周到期的作业中有 2 份未完成。", "兴趣树新增关键词：海绵城市。", "《雨水花园调查报告》超过 7 天没有进展。",
+		"该周到期的作业中有 2 份未完成。", "兴趣树新增关键词：海绵城市。", "《雨水花园调查报告》超过 7 天没有进展。",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("facts text is missing %q:\n%s", want, out)

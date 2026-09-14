@@ -19,11 +19,11 @@ func TestCheckProse(t *testing.T) {
 		codes []string
 	}{
 		"valid prose": {
-			"本周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
+			"该周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
 			[]string{"overdue"},
 		},
 		"nil codes skip the code check": {
-			"本周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
+			"该周有 1 份作业逾期。她写下「雨落在屋檐上像敲鼓」，可以请她继续完成《一场雨》。",
 			nil,
 		},
 	}
@@ -37,10 +37,10 @@ func TestCheckProse(t *testing.T) {
 		text  string
 		codes []string
 	}{
-		"unknown code":     {"本周有 1 份作业逾期。", []string{"stalled"}},
+		"unknown code":     {"该周有 1 份作业逾期。", []string{"stalled"}},
 		"fabricated quote": {"她写下「雨是天空的眼泪」。", []string{"overdue"}},
 		"curly quote":      {"她说“我不想写”。", []string{"overdue"}},
-		"stray digit":      {"本周学习 120 分钟。", []string{"overdue"}},
+		"stray digit":      {"该周学习 120 分钟。", []string{"overdue"}},
 		"other student":    {"可以和王小明一起讨论。", []string{"overdue"}},
 		"title as quote":   {"她写下「一场雨」。", []string{"overdue"}},
 	}
@@ -131,7 +131,7 @@ func TestCheckProseFullWidthDigitsFail(t *testing.T) {
 		FactsText: "第 37 周 活跃 3 天",
 	}
 	// full-width "120" — not a run present in FactsText once normalised.
-	text := "本周学习了１２０分钟。"
+	text := "该周学习了１２０分钟。"
 	if err := CheckProse(text, nil, c); err == nil {
 		t.Fatal("full-width digit run accepted")
 	}
@@ -144,7 +144,7 @@ func TestCheckProseMinutesNoLeak(t *testing.T) {
 	c := ProseCheck{
 		FactsText: FactsText(StudentWeek{ActiveDays: 3, Minutes: -1}, "第 9 周"),
 	}
-	text := "本周学习了 1 分钟。"
+	text := "该周学习了 1 分钟。"
 	if err := CheckProse(text, nil, c); err == nil {
 		t.Fatal("stray minutes digit accepted despite Minutes == -1")
 	}

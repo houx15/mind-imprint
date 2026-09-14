@@ -62,7 +62,7 @@ func liteCardsOf(s liteweekly.StudentWeek) []liteweekly.Card {
 	return out
 }
 
-const liteValidStudent = `{"summary":"本周活跃 3 天，对话 14 轮，读完《城市里的雨水花园》，写下「雨水不是废水，是没被接住的资源」。有 1 份作业逾期。","suggestions":[{"text":"请她说明逾期作业卡在哪一步，并约定完成时间。","evidenceCode":"overdue"},{"text":"请她讲一讲海绵城市和她读的文章有什么关系。","evidenceCode":"new_interest"}]}`
+const liteValidStudent = `{"summary":"该周活跃 3 天，对话 14 轮，读完《城市里的雨水花园》，写下「雨水不是废水，是没被接住的资源」。有 1 份作业逾期。","suggestions":[{"text":"请她说明逾期作业卡在哪一步，并约定完成时间。","evidenceCode":"overdue"},{"text":"请她讲一讲海绵城市和她读的文章有什么关系。","evidenceCode":"new_interest"}]}`
 
 func composeLin(prov gateway.Provider) (agent.LiteStudentWeeklyProse, []agent.Attempt, error) {
 	s := liteLin()
@@ -104,7 +104,7 @@ func TestComposeLiteStudentWeeklyRetriesFabricatedQuote(t *testing.T) {
 	if attempts[1].Err != nil || attempts[1].Usage.OutputTokens != 50 {
 		t.Fatalf("second attempt = %+v", attempts[1])
 	}
-	if !strings.HasPrefix(got.Summary, "本周活跃 3 天") {
+	if !strings.HasPrefix(got.Summary, "该周活跃 3 天") {
 		t.Fatalf("want the second reply's prose, got %+v", got)
 	}
 	msgs := prov.LastRequest.Messages
@@ -165,10 +165,10 @@ func TestComposeLiteStudentWeeklyNoCards(t *testing.T) {
 		return attempts, err
 	}
 
-	if attempts, err := compose(`{"summary":"本周活跃 2 天，对话 6 轮。","suggestions":[]}`); err != nil || len(attempts) != 1 {
+	if attempts, err := compose(`{"summary":"该周活跃 2 天，对话 6 轮。","suggestions":[]}`); err != nil || len(attempts) != 1 {
 		t.Fatalf("empty suggestions with no cards: attempts=%d err=%v", len(attempts), err)
 	}
-	attempts, err := compose(`{"summary":"本周活跃 2 天。","suggestions":[{"text":"请继续保持。","evidenceCode":""}]}`)
+	attempts, err := compose(`{"summary":"该周活跃 2 天。","suggestions":[{"text":"请继续保持。","evidenceCode":""}]}`)
 	if err == nil || len(attempts) != 2 {
 		t.Fatalf("a suggestion without cards must fail twice: attempts=%d err=%v", len(attempts), err)
 	}
@@ -185,16 +185,16 @@ func TestComposeLiteStudentWeeklyRejects(t *testing.T) {
 	}{
 		{"title used as her quote", `{"summary":"她读完了「城市里的雨水花园」。","suggestions":` + sug + `}`, "quote not in corpus: 城市里的雨水花园"},
 		{"title not in her week", `{"summary":"她读完了《咖啡的历史》。","suggestions":` + sug + `}`, "title not in titles"},
-		{"digit not in facts", `{"summary":"本周对话 20 轮。","suggestions":` + sug + `}`, "digit not in facts: 20"},
+		{"digit not in facts", `{"summary":"该周对话 20 轮。","suggestions":` + sug + `}`, "digit not in facts: 20"},
 		{"other student named", `{"summary":"她和周子墨一起讨论了文章。","suggestions":` + sug + `}`, "mentions other student: 周子墨"},
-		{"code not among cards", `{"summary":"本周活跃 3 天。","suggestions":[{"text":"请跟进。","evidenceCode":"stalled"}]}`, "unknown evidence code: stalled"},
-		{"cards but no suggestions", `{"summary":"本周活跃 3 天。","suggestions":[]}`, "suggestions must have 1 to 3"},
-		{"four suggestions", `{"summary":"本周活跃 3 天。","suggestions":[{"text":"一","evidenceCode":"overdue"},{"text":"二","evidenceCode":"overdue"},{"text":"三","evidenceCode":"overdue"},{"text":"四","evidenceCode":"overdue"}]}`, "over the 3 limit"},
+		{"code not among cards", `{"summary":"该周活跃 3 天。","suggestions":[{"text":"请跟进。","evidenceCode":"stalled"}]}`, "unknown evidence code: stalled"},
+		{"cards but no suggestions", `{"summary":"该周活跃 3 天。","suggestions":[]}`, "suggestions must have 1 to 3"},
+		{"four suggestions", `{"summary":"该周活跃 3 天。","suggestions":[{"text":"一","evidenceCode":"overdue"},{"text":"二","evidenceCode":"overdue"},{"text":"三","evidenceCode":"overdue"},{"text":"四","evidenceCode":"overdue"}]}`, "over the 3 limit"},
 		{"summary over 150 characters", `{"summary":"` + strings.Repeat("很", 151) + `","suggestions":` + sug + `}`, "summary has 151 characters"},
-		{"suggestion over 120 characters", `{"summary":"本周活跃 3 天。","suggestions":[{"text":"` + strings.Repeat("很", 121) + `","evidenceCode":"overdue"}]}`, "suggestions[0].text has 121 characters"},
+		{"suggestion over 120 characters", `{"summary":"该周活跃 3 天。","suggestions":[{"text":"` + strings.Repeat("很", 121) + `","evidenceCode":"overdue"}]}`, "suggestions[0].text has 121 characters"},
 		{"empty summary", `{"summary":" ","suggestions":` + sug + `}`, "summary is empty"},
 		{"unclosed quote", `{"summary":"她写下「雨水不是废水","suggestions":` + sug + `}`, "unclosed quote"},
-		{"not JSON", `本周表现不错。`, "not valid JSON"},
+		{"not JSON", `该周表现不错。`, "not valid JSON"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -263,7 +263,7 @@ func composeClass(prov gateway.Provider) (agent.LiteClassWeeklyProse, []agent.At
 }
 
 const (
-	liteClassComment = `"comment":"本周 3 名学生都有学习记录，全班对话 24 轮，作业完成率 50%。"`
+	liteClassComment = `"comment":"该周 3 名学生都有学习记录，全班对话 24 轮，作业完成率 50%。"`
 	liteCardU1       = `{"userId":"u1","lead":"林知遥读完《城市里的雨水花园》，写下「雨水不是废水，是没被接住的资源」，有 1 份作业未完成。","action":"请线下问她逾期作业卡在哪一步。"}`
 	liteCardU2       = `{"userId":"u2","lead":"周子墨的《校园垃圾分类访谈》超过 7 天没有进展。","action":"请线下了解访谈遇到了什么困难。"}`
 	liteValidClass   = `{` + liteClassComment + `,"cards":[` + liteCardU1 + `,` + liteCardU2 + `]}`
@@ -347,7 +347,7 @@ func TestComposeLiteClassWeeklyRejects(t *testing.T) {
 	cases := []struct {
 		name, reply, want string
 	}{
-		{"unflagged student", `{` + liteClassComment + `,"cards":[` + liteCardU1 + `,` + liteCardU2 + `,{"userId":"u3","lead":"陈一本周活跃。","action":"请鼓励她。"}]}`, `userId "u3", which is not in the student list`},
+		{"unflagged student", `{` + liteClassComment + `,"cards":[` + liteCardU1 + `,` + liteCardU2 + `,{"userId":"u3","lead":"陈一该周活跃。","action":"请鼓励她。"}]}`, `userId "u3", which is not in the student list`},
 		{"repeated student", `{` + liteClassComment + `,"cards":[` + liteCardU1 + `,` + liteCardU1 + `,` + liteCardU2 + `]}`, "more than once"},
 		{"title used as her quote", `{` + liteClassComment + `,"cards":[` + liteCardU1 + `,{"userId":"u2","lead":"周子墨的「校园垃圾分类访谈」没有进展。","action":"请线下了解。"}]}`, "quote not in corpus: 校园垃圾分类访谈"},
 		{"digit not in facts", `{"comment":"全班对话 31 轮。","cards":[` + liteCardU1 + `,` + liteCardU2 + `]}`, "digit not in facts: 31"},
@@ -375,7 +375,7 @@ func TestComposeLiteClassWeeklyRejects(t *testing.T) {
 // With nobody flagged, cards must be empty and the name check stays off:
 // every student in the class may be named.
 func TestComposeLiteClassWeeklyNobodyFlagged(t *testing.T) {
-	reply := `{"comment":"林知遥、周子墨和陈一本周都有学习记录。","cards":[]}`
+	reply := `{"comment":"林知遥、周子墨和陈一该周都有学习记录。","cards":[]}`
 	_, attempts, err := agent.ComposeLiteClassWeekly(context.Background(), gateway.NewSequenceStubProvider(liteReply(reply)), liteResolved,
 		"IBDP 一年级", liteWeekLabel, liteStats, []liteweekly.StudentWeek{liteChen()}, map[string][]liteweekly.Card{}, []string{"林知遥", "周子墨", "陈一"})
 	if err != nil || len(attempts) != 1 {
@@ -408,7 +408,7 @@ func TestComposeLiteStudentWeeklyAllowsCardEvidenceDigits(t *testing.T) {
 func TestComposeLiteClassWeeklyAllowsCardEvidenceDigits(t *testing.T) {
 	students := []liteweekly.StudentWeek{liteZhou()}
 	cards := map[string][]liteweekly.Card{"u2": liteCardsOf(liteZhou())}
-	reply := `{"comment":"本周有 1 名学生的项目停滞。","cards":[` + liteCardU2 + `]}`
+	reply := `{"comment":"该周有 1 名学生的项目停滞。","cards":[` + liteCardU2 + `]}`
 	_, attempts, err := agent.ComposeLiteClassWeekly(context.Background(), gateway.NewSequenceStubProvider(liteReply(reply)), liteResolved,
 		"IBDP 一年级", "9 月 8 日–9 月 14 日", liteweekly.ClassWeekStats{ClassSize: 1, ActiveStudents: 1, Minutes: 20, Turns: 4, Finished: 0, AssignmentRate: -1}, students, cards, []string{"周子墨"})
 	if err != nil || len(attempts) != 1 {
@@ -453,7 +453,7 @@ func TestComposeLiteStudentWeeklyNameWithDigit(t *testing.T) {
 func TestComposeLiteStudentWeeklyParsesJSONInsideProse(t *testing.T) {
 	reply := "以下是总结：\n" + liteValidStudent + "\n以上。"
 	got, attempts, err := composeLin(gateway.NewSequenceStubProvider(liteReply(reply)))
-	if err != nil || len(attempts) != 1 || !strings.HasPrefix(got.Summary, "本周活跃 3 天") {
+	if err != nil || len(attempts) != 1 || !strings.HasPrefix(got.Summary, "该周活跃 3 天") {
 		t.Fatalf("err=%v attempts=%d prose=%+v", err, len(attempts), got)
 	}
 }

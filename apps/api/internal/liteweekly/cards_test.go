@@ -10,7 +10,7 @@ func TestNeverUsedSuppressesPraise(t *testing.T) {
 	if w == nil || w.Code != "never_used" || p != nil {
 		t.Fatalf("watch=%+v praise=%+v", w, p)
 	}
-	if w.Evidence != "本周 0 天有学习记录；上一周 4 天。" {
+	if w.Evidence != "该周 0 天有学习记录；上一周 4 天。" {
 		t.Fatalf("evidence = %q", w.Evidence)
 	}
 }
@@ -57,7 +57,7 @@ func TestDroppedOff(t *testing.T) {
 	if w == nil || w.Code != "dropped_off" {
 		t.Fatalf("watch = %+v", w)
 	}
-	if w.Evidence != "活跃天数 上一周 3 天 → 本周 1 天。" {
+	if w.Evidence != "活跃天数 上一周 3 天 → 该周 1 天。" {
 		t.Fatalf("evidence = %q", w.Evidence)
 	}
 }
@@ -67,7 +67,7 @@ func TestFinishedOnTime(t *testing.T) {
 	if p == nil || p.Code != "finished_on_time" {
 		t.Fatalf("praise = %+v", p)
 	}
-	if p.Evidence != "本周到期的作业按时完成 2 份。" {
+	if p.Evidence != "该周到期的作业按时完成 2 份。" {
 		t.Fatalf("evidence = %q", p.Evidence)
 	}
 }
