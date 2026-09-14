@@ -10,6 +10,14 @@ ON CONFLICT DO NOTHING;
 -- name: GetLiteAssignment :one
 SELECT * FROM lite_assignment WHERE id = $1;
 
+-- name: GetLiteAssignmentForShare :one
+-- 学生「开始」时读作业：挡住同一时刻教师改设置。
+SELECT * FROM lite_assignment WHERE id = $1 FOR SHARE;
+
+-- name: GetLiteAssignmentForUpdate :one
+-- 教师改作业时先锁住它，等进行中的「开始」落定后再数已开始的人数。
+SELECT * FROM lite_assignment WHERE id = $1 FOR UPDATE;
+
 -- name: ListLiteAssignmentsByClass :many
 -- 带每种状态的计数所需的原始列；状态在 Go 里推。
 SELECT a.*,

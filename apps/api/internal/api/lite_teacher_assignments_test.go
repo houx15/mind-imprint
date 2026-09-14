@@ -156,6 +156,65 @@ func TestTeacherAssignmentEditLocksAfterStart(t *testing.T) {
 	}
 }
 
+// TestTeacherAssignmentPatchWaitsForStartInFlight: a start holds FOR SHARE on
+// the assignment while it builds her item. A payload PATCH must wait for it,
+// then see the started recipient and refuse.
+func TestTeacherAssignmentPatchWaitsForStartInFlight(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	var created struct {
+		Assignment struct {
+			ID string `json:"id"`
+		} `json:"assignment"`
+	}
+	assignJSON(t, h, teacher, "POST", "/api/v1/lite/teacher/classes/"+classID+"/assignments", writingAssignmentBody([]string{studentID.String()}), &created)
+	aid := created.Assignment.ID
+	ctx := context.Background()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id string
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM lite_assignment WHERE id=$1 FOR SHARE`, aid).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE lite_assignment_recipient SET started_at = now() WHERE assignment_id = $1 AND user_id = $2`, aid, studentID); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+			bytes.NewBufferString(`{"payload":{"prompt":"写雪","targetWords":600,"lang":"zh"}}`)), teacher))
+		done <- rec
+	}()
+	select {
+	case rec := <-done:
+		t.Fatalf("PATCH returned %d while a start held the assignment: body=%s", rec.Code, rec.Body)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var rec *httptest.ResponseRecorder
+	select {
+	case rec = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("PATCH did not return after the start committed")
+	}
+	var e struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	if rec.Code != http.StatusConflict || e.Error.Code != "assignment_started" {
+		t.Fatalf("PATCH after start = %d body=%s, want 409 assignment_started", rec.Code, rec.Body)
+	}
+}
+
 // TestTeacherAssignmentPatchBeforeStart covers the PATCH paths that do not need
 // a started recipient: a payload change, adding and removing a recipient, and
 // the rejection codes.

@@ -139,6 +139,54 @@ func (q *Queries) GetLiteAssignmentForAtom(ctx context.Context, arg GetLiteAssig
 	return i, err
 }
 
+const getLiteAssignmentForShare = `-- name: GetLiteAssignmentForShare :one
+SELECT id, class_id, created_by, kind, title, instructions, payload, due_at, created_at, updated_at, archived_at FROM lite_assignment WHERE id = $1 FOR SHARE
+`
+
+// 学生「开始」时读作业：挡住同一时刻教师改设置。
+func (q *Queries) GetLiteAssignmentForShare(ctx context.Context, id uuid.UUID) (LiteAssignment, error) {
+	row := q.db.QueryRow(ctx, getLiteAssignmentForShare, id)
+	var i LiteAssignment
+	err := row.Scan(
+		&i.ID,
+		&i.ClassID,
+		&i.CreatedBy,
+		&i.Kind,
+		&i.Title,
+		&i.Instructions,
+		&i.Payload,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const getLiteAssignmentForUpdate = `-- name: GetLiteAssignmentForUpdate :one
+SELECT id, class_id, created_by, kind, title, instructions, payload, due_at, created_at, updated_at, archived_at FROM lite_assignment WHERE id = $1 FOR UPDATE
+`
+
+// 教师改作业时先锁住它，等进行中的「开始」落定后再数已开始的人数。
+func (q *Queries) GetLiteAssignmentForUpdate(ctx context.Context, id uuid.UUID) (LiteAssignment, error) {
+	row := q.db.QueryRow(ctx, getLiteAssignmentForUpdate, id)
+	var i LiteAssignment
+	err := row.Scan(
+		&i.ID,
+		&i.ClassID,
+		&i.CreatedBy,
+		&i.Kind,
+		&i.Title,
+		&i.Instructions,
+		&i.Payload,
+		&i.DueAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const getLiteAssignmentRecipient = `-- name: GetLiteAssignmentRecipient :one
 SELECT assignment_id, user_id, seen_at, atom_id, started_at FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2
 `

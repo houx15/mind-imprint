@@ -145,7 +145,10 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		writeNotFoundOr(w, r, err)
 		return
 	}
-	as, err := qtx.GetLiteAssignment(ctx, aid)
+	// FOR SHARE: a teacher PATCH takes FOR UPDATE on this row before counting
+	// started recipients, so it waits until this start has linked its item
+	// (or rolled back) and cannot change the payload the item is built from.
+	as, err := qtx.GetLiteAssignmentForShare(ctx, aid)
 	if err != nil {
 		writeNotFoundOr(w, r, err)
 		return
@@ -292,7 +295,7 @@ func startErrorResponse(err error, assignmentID uuid.UUID) error {
 		return httpx.ErrBadRequest("fetch_unavailable", "开始失败：暂时无法抓取链接", nil)
 	case errors.Is(err, errFetchFailed):
 		slog.Warn("lite assignment start: fetch failed", "err", err, "assignment_id", assignmentID.String())
-		return httpx.ErrBadRequest("fetch_failed", "开始失败：这个链接抓不到正文，请直接粘贴。", nil)
+		return httpx.ErrBadRequest("fetch_failed", "开始失败：链接无法读取正文，请告知老师更换阅读材料", nil)
 	case errors.Is(err, errMissingSourceText):
 		return httpx.ErrBadRequest("missing_text", "开始失败：文章没有正文", nil)
 	case errors.Is(err, errEmptyIdea):

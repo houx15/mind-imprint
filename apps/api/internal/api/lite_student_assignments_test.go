@@ -283,7 +283,7 @@ func TestStartReadingURLFetchFailedHidesCause(t *testing.T) {
 		} `json:"error"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &e)
-	if rec.Code != http.StatusBadRequest || e.Error.Code != "fetch_failed" || e.Error.Message != "开始失败：这个链接抓不到正文，请直接粘贴。" {
+	if rec.Code != http.StatusBadRequest || e.Error.Code != "fetch_failed" || e.Error.Message != "开始失败：链接无法读取正文，请告知老师更换阅读材料" {
 		t.Fatalf("fetch failure = %d body=%s", rec.Code, rec.Body)
 	}
 	if strings.Contains(rec.Body.String(), "simulated") {

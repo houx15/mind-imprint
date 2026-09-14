@@ -429,6 +429,12 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
+	// Lock the assignment first. A start in progress holds FOR SHARE on it
+	// until its item is linked, so the count below sees that recipient.
+	if _, err := qtx.GetLiteAssignmentForUpdate(ctx, as.ID); err != nil {
+		writeNotFoundOr(w, r, err)
+		return
+	}
 	if settingsChanged {
 		started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, as.ID)
 		if err != nil {
