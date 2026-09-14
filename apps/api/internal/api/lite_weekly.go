@@ -238,6 +238,65 @@ func errInvalidWeek() *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusBadRequest, Code: "invalid_week", Message: "请选择已经结束的一周"}
 }
 
+// The 400 messages for a week that ended at or before the reporting starts:
+// her enrollment in the class (student routes) or the class's creation
+// (class routes).
+const (
+	liteWeekBeforeEnrollment = "该周早于学生加入班级的时间"
+	liteWeekBeforeClass      = "该周早于班级创建的时间"
+)
+
+func errWeekBeforeStart(message string) *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusBadRequest, Code: "week_before_start", Message: message}
+}
+
+// liteWeekBound checks the week starting at ws against start. A week whose
+// end is at or before start is out of range (inRange false). hasPrev says
+// whether the week before ws is in range, i.e. whether its end (ws) is after
+// start.
+func liteWeekBound(ws, start time.Time) (hasPrev, inRange bool) {
+	if !ws.AddDate(0, 0, 7).After(start) {
+		return false, false
+	}
+	return ws.After(start), true
+}
+
+// parseLiteStudentWeek is parseLiteWeek plus the lower bound of a student
+// route: her enrollment in this class. ok=false means the error is already
+// written.
+func (a *API) parseLiteStudentWeek(w http.ResponseWriter, r *http.Request, classID, userID uuid.UUID) (ws time.Time, isLatest, hasPrev, ok bool) {
+	ws, isLatest, ok = parseLiteWeek(w, r)
+	if !ok {
+		return time.Time{}, false, false, false
+	}
+	enr, err := a.d.Queries.GetEnrollment(r.Context(), sqlc.GetEnrollmentParams{UserID: userID, ClassID: classID})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return time.Time{}, false, false, false
+	}
+	hasPrev, inRange := liteWeekBound(ws, enr.CreatedAt)
+	if !inRange {
+		httpx.WriteError(w, r, errWeekBeforeStart(liteWeekBeforeEnrollment))
+		return time.Time{}, false, false, false
+	}
+	return ws, isLatest, hasPrev, true
+}
+
+// parseLiteClassWeek is parseLiteWeek plus the lower bound of a class route:
+// the class's creation. ok=false means the error is already written.
+func parseLiteClassWeek(w http.ResponseWriter, r *http.Request, cls sqlc.Class) (ws time.Time, isLatest, hasPrev, ok bool) {
+	ws, isLatest, ok = parseLiteWeek(w, r)
+	if !ok {
+		return time.Time{}, false, false, false
+	}
+	hasPrev, inRange := liteWeekBound(ws, cls.CreatedAt)
+	if !inRange {
+		httpx.WriteError(w, r, errWeekBeforeStart(liteWeekBeforeClass))
+		return time.Time{}, false, false, false
+	}
+	return ws, isLatest, hasPrev, true
+}
+
 type liteWeekItemDTO struct {
 	Kind  string `json:"kind"`
 	Title string `json:"title"`
@@ -274,6 +333,8 @@ type liteStudentWeeklyDTO struct {
 	WeekLabel  string                        `json:"weekLabel"`
 	Title      string                        `json:"title"`
 	IsLatest   bool                          `json:"isLatest"`
+	HasPrev    bool                          `json:"hasPrev"` // the week before ended after her enrollment
+	Empty      bool                          `json:"empty"`   // liteweekly.IsEmptyWeek: no prose is generated
 	Facts      liteStudentWeekFactsDTO       `json:"facts"`
 	Cards      []liteWeekCardDTO             `json:"cards"`
 	Prose      *agent.LiteStudentWeeklyProse `json:"prose"`
@@ -305,6 +366,8 @@ type liteClassWeeklyDTO struct {
 	WeekLabel  string                      `json:"weekLabel"`
 	Title      string                      `json:"title"`
 	IsLatest   bool                        `json:"isLatest"`
+	HasPrev    bool                        `json:"hasPrev"` // the week before ended after the class was created
+	Empty      bool                        `json:"empty"`   // every student's week is empty, or no students: no prose is generated
 	Stats      liteClassWeekStatsDTO       `json:"stats"`
 	Praise     []liteClassWeekCardDTO      `json:"praise"`
 	Watch      []liteClassWeekCardDTO      `json:"watch"`
@@ -361,7 +424,7 @@ func liteWeekItemDTOs(items []liteweekly.Item) []liteWeekItemDTO {
 	return out
 }
 
-func liteStudentWeeklyView(s liteweekly.StudentWeek, ws time.Time, isLatest bool, prose *agent.LiteStudentWeeklyProse) liteStudentWeeklyDTO {
+func liteStudentWeeklyView(s liteweekly.StudentWeek, ws time.Time, isLatest, hasPrev bool, prose *agent.LiteStudentWeeklyProse) liteStudentWeeklyDTO {
 	label := liteweek.Label(ws)
 	title := "表现总结 · " + label
 	if isLatest {
@@ -382,6 +445,7 @@ func liteStudentWeeklyView(s liteweekly.StudentWeek, ws time.Time, isLatest bool
 	}
 	return liteStudentWeeklyDTO{
 		WeekStart: liteWeekStartString(ws), WeekLabel: label, Title: title, IsLatest: isLatest,
+		HasPrev: hasPrev, Empty: liteweekly.IsEmptyWeek(s),
 		Facts: liteStudentWeekFactsDTO{
 			ActiveDays: s.ActiveDays, Minutes: s.Minutes, Turns: s.Turns, PrevActiveDays: s.PrevActiveDays,
 			Finished:        liteWeekItemDTOs(s.Finished),
@@ -445,7 +509,7 @@ func (a *API) getLiteStudentWeekly(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ws, isLatest, ok := parseLiteWeek(w, r)
+	ws, isLatest, hasPrev, ok := a.parseLiteStudentWeek(w, r, classID, userID)
 	if !ok {
 		return
 	}
@@ -460,7 +524,7 @@ func (a *API) getLiteStudentWeekly(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyView(s, ws, isLatest, prose))
+	httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyView(s, ws, isLatest, hasPrev, prose))
 }
 
 // postLiteStudentWeeklyProse handles
@@ -474,7 +538,7 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	ws, isLatest, ok := parseLiteWeek(w, r)
+	ws, isLatest, hasPrev, ok := a.parseLiteStudentWeek(w, r, classID, userID)
 	if !ok {
 		return
 	}
@@ -484,19 +548,23 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 		httpx.WriteError(w, r, err)
 		return
 	}
-	var u User
-	if stored == nil {
-		if u, ok = requireTeacherEntitled(w, r); !ok {
-			return
-		}
-	}
 	s, members, err := a.loadLiteStudentWeekWithRoster(ctx, classID, userID, ws)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	if stored != nil {
-		httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, stored), nil})
+		httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, hasPrev, stored), nil})
+		return
+	}
+	// An empty week has nothing to summarise: no entitlement check, no model
+	// call, nothing stored. prose and proseError are both null.
+	if liteweekly.IsEmptyWeek(s) {
+		httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, hasPrev, nil), nil})
+		return
+	}
+	u, ok := requireTeacherEntitled(w, r)
+	if !ok {
 		return
 	}
 
@@ -526,7 +594,7 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 	if cerr != nil {
 		slog.Warn("lite student weekly prose: rejected", "err", cerr, "user_id", userID, "request_id", httpx.RequestIDFromContext(ctx))
 		msg := cerr.Error()
-		httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, nil), &msg})
+		httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, hasPrev, nil), &msg})
 		return
 	}
 	body, err := json.Marshal(prose)
@@ -537,6 +605,10 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 	if err := a.d.Queries.InsertLiteStudentWeeklyProse(mctx, sqlc.InsertLiteStudentWeeklyProseParams{
 		UserID: userID, WeekStart: pgDate(ws), Body: body,
 	}); err != nil {
+		// The model was paid for and its prose is lost; log enough to find the
+		// week again. The prose text itself is not logged.
+		slog.Error("lite student weekly prose: insert failed after compose", "err", err, "user_id", userID,
+			"week_start", liteWeekStartString(ws), "attempts", len(attempts), "request_id", httpx.RequestIDFromContext(ctx))
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -550,7 +622,7 @@ func (a *API) postLiteStudentWeeklyProse(w http.ResponseWriter, r *http.Request)
 	if saved == nil {
 		saved = &prose
 	}
-	httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, saved), nil})
+	httpx.WriteJSON(w, http.StatusOK, liteStudentWeeklyProseDTO{liteStudentWeeklyView(s, ws, isLatest, hasPrev, saved), nil})
 }
 
 // liteClassWeekStats totals the loaded weeks. AssignmentRate counts
@@ -602,7 +674,18 @@ func liteClassWeekCards(students []liteweekly.StudentWeek) (cards map[string][]l
 	return cards, praise, watch
 }
 
-func liteClassWeeklyView(ws time.Time, isLatest bool, stats liteweekly.ClassWeekStats, praise, watch []liteClassWeekCardDTO, prose *agent.LiteClassWeeklyProse) liteClassWeeklyDTO {
+// liteClassWeekEmpty reports whether the class's week has nothing in it:
+// every loaded student's week is empty, or the class has no students.
+func liteClassWeekEmpty(students []liteweekly.StudentWeek) bool {
+	for _, s := range students {
+		if !liteweekly.IsEmptyWeek(s) {
+			return false
+		}
+	}
+	return true
+}
+
+func liteClassWeeklyView(ws time.Time, isLatest, hasPrev, empty bool, stats liteweekly.ClassWeekStats, praise, watch []liteClassWeekCardDTO, prose *agent.LiteClassWeeklyProse) liteClassWeeklyDTO {
 	label := liteweek.Label(ws)
 	title := "班级周报 · " + label
 	if isLatest {
@@ -610,6 +693,7 @@ func liteClassWeeklyView(ws time.Time, isLatest bool, stats liteweekly.ClassWeek
 	}
 	return liteClassWeeklyDTO{
 		WeekStart: liteWeekStartString(ws), WeekLabel: label, Title: title, IsLatest: isLatest,
+		HasPrev: hasPrev, Empty: empty,
 		Stats: liteClassWeekStatsDTO{
 			ClassSize: stats.ClassSize, ActiveStudents: stats.ActiveStudents, Minutes: stats.Minutes,
 			Turns: stats.Turns, Finished: stats.Finished, AssignmentRate: stats.AssignmentRate,
@@ -641,7 +725,7 @@ func (a *API) getLiteClassWeekly(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ws, isLatest, ok := parseLiteWeek(w, r)
+	ws, isLatest, hasPrev, ok := parseLiteClassWeek(w, r, cls)
 	if !ok {
 		return
 	}
@@ -657,7 +741,7 @@ func (a *API) getLiteClassWeekly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, praise, watch := liteClassWeekCards(students)
-	httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyView(ws, isLatest, liteClassWeekStats(students), praise, watch, prose))
+	httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyView(ws, isLatest, hasPrev, liteClassWeekEmpty(students), liteClassWeekStats(students), praise, watch, prose))
 }
 
 // postLiteClassWeeklyProse handles
@@ -668,7 +752,7 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ws, isLatest, ok := parseLiteWeek(w, r)
+	ws, isLatest, hasPrev, ok := parseLiteClassWeek(w, r, cls)
 	if !ok {
 		return
 	}
@@ -678,12 +762,6 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	var u User
-	if stored == nil {
-		if u, ok = requireTeacherEntitled(w, r); !ok {
-			return
-		}
-	}
 	students, err := a.loadLiteClassWeek(ctx, cls.ID, ws)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -692,8 +770,19 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	// One stats value for the prompt, the digit check and the response.
 	stats := liteClassWeekStats(students)
 	cards, praise, watch := liteClassWeekCards(students)
+	empty := liteClassWeekEmpty(students)
 	if stored != nil {
-		httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, stats, praise, watch, stored), nil})
+		httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, hasPrev, empty, stats, praise, watch, stored), nil})
+		return
+	}
+	// Nothing happened in the class that week: no entitlement check, no model
+	// call, nothing stored. prose and proseError are both null.
+	if empty {
+		httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, hasPrev, empty, stats, praise, watch, nil), nil})
+		return
+	}
+	u, ok := requireTeacherEntitled(w, r)
+	if !ok {
 		return
 	}
 
@@ -716,7 +805,7 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	if cerr != nil {
 		slog.Warn("lite class weekly prose: rejected", "err", cerr, "class_id", cls.ID, "request_id", httpx.RequestIDFromContext(ctx))
 		msg := cerr.Error()
-		httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, stats, praise, watch, nil), &msg})
+		httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, hasPrev, empty, stats, praise, watch, nil), &msg})
 		return
 	}
 	body, err := json.Marshal(prose)
@@ -727,6 +816,10 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	if err := a.d.Queries.InsertLiteClassWeeklyProse(mctx, sqlc.InsertLiteClassWeeklyProseParams{
 		ClassID: cls.ID, WeekStart: pgDate(ws), Body: body,
 	}); err != nil {
+		// The model was paid for and its prose is lost; log enough to find the
+		// week again. The prose text itself is not logged.
+		slog.Error("lite class weekly prose: insert failed after compose", "err", err, "class_id", cls.ID,
+			"week_start", liteWeekStartString(ws), "attempts", len(attempts), "request_id", httpx.RequestIDFromContext(ctx))
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -738,5 +831,5 @@ func (a *API) postLiteClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	if saved == nil {
 		saved = &prose
 	}
-	httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, stats, praise, watch, saved), nil})
+	httpx.WriteJSON(w, http.StatusOK, liteClassWeeklyProseDTO{liteClassWeeklyView(ws, isLatest, hasPrev, empty, stats, praise, watch, saved), nil})
 }

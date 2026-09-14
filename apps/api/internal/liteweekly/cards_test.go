@@ -92,6 +92,32 @@ func TestNewInterestCapsAtThree(t *testing.T) {
 	}
 }
 
+func TestIsEmptyWeek(t *testing.T) {
+	cases := []struct {
+		name string
+		week StudentWeek
+		want bool
+	}{
+		{"nothing at all", StudentWeek{Minutes: -1}, true},
+		{"previous week activity only", StudentWeek{PrevActiveDays: 4}, true},
+		{"zero-minute buckets only", StudentWeek{Minutes: 0}, true},
+		{"active days", StudentWeek{ActiveDays: 1}, false},
+		{"turns only", StudentWeek{Turns: 2}, false},
+		{"finished only", StudentWeek{Finished: []Item{{"reading", "一场雨"}}}, false},
+		{"stalled only", StudentWeek{Stalled: []Item{{"writing", "咖啡"}}}, false},
+		{"new keyword only", StudentWeek{NewKeywords: []string{"金融"}}, false},
+		{"moment only", StudentWeek{Moments: []Moment{{Quote: "雨落在屋檐上", ItemTitle: "一场雨"}}}, false},
+		{"only an overdue assignment", StudentWeek{AssignmentsOverdue: 1}, false},
+		{"only a late assignment", StudentWeek{AssignmentsLate: 1}, false},
+		{"only an on-time assignment", StudentWeek{AssignmentsDone: 1}, false},
+	}
+	for _, tc := range cases {
+		if got := IsEmptyWeek(tc.week); got != tc.want {
+			t.Errorf("%s: IsEmptyWeek = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestFactsTextMinutesNoRecord(t *testing.T) {
 	ft := FactsText(StudentWeek{Minutes: -1}, "第 1 周")
 	if want := "学习时长 无记录"; !strings.Contains(ft, want) {

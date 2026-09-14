@@ -130,6 +130,18 @@ func Cards(s StudentWeek) (watch *Card, praise *Card) {
 	return watch, praise
 }
 
+// IsEmptyWeek reports whether a student's week has nothing in it: no
+// activity, nothing finished or stalled, no new keyword or 金句, and no
+// assignment due. It is decided once, on the server: an empty week gets no
+// prose request and no model call. Cards are not consulted, because
+// never_used fires on every week with ActiveDays == 0, empty or not.
+func IsEmptyWeek(s StudentWeek) bool {
+	return s.ActiveDays == 0 && s.Turns == 0 &&
+		len(s.Finished) == 0 && len(s.Stalled) == 0 &&
+		len(s.NewKeywords) == 0 && len(s.Moments) == 0 &&
+		s.AssignmentsDone+s.AssignmentsLate+s.AssignmentsOverdue == 0
+}
+
 // FactsText renders every numeric field of s, plus weekLabel, finished and
 // stalled titles, new keywords and moments, as plain Chinese sentences. It
 // is both the allowed-digit set for CheckProse and, verbatim, part of T4's

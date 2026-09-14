@@ -419,6 +419,8 @@ type studentWeeklyJSON struct {
 	WeekLabel string `json:"weekLabel"`
 	Title     string `json:"title"`
 	IsLatest  bool   `json:"isLatest"`
+	HasPrev   bool   `json:"hasPrev"`
+	Empty     bool   `json:"empty"`
 	Facts     struct {
 		ActiveDays         int      `json:"activeDays"`
 		Minutes            int      `json:"minutes"`
@@ -447,6 +449,8 @@ type classWeeklyJSON struct {
 	WeekLabel string `json:"weekLabel"`
 	Title     string `json:"title"`
 	IsLatest  bool   `json:"isLatest"`
+	HasPrev   bool   `json:"hasPrev"`
+	Empty     bool   `json:"empty"`
 	Stats     struct {
 		ClassSize      int `json:"classSize"`
 		ActiveStudents int `json:"activeStudents"`
@@ -541,6 +545,7 @@ func weeklyCount(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) int 
 // new_interest (praise).
 func seedWeeklyStudentWeek(t *testing.T, h http.Handler, pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID) {
 	t.Helper()
+	backdateWeeklyStart(t, pool, classID)
 	ws, we := weeklyWindow()
 	reading := seedLiteReadingForUser(t, pool, studentID, "finished", 0)
 	mustExec(t, pool, `UPDATE reading SET finished_at = $2 WHERE atom_id = $1`, reading, ws.AddDate(0, 0, 2).Add(10*time.Hour))
@@ -683,6 +688,7 @@ func TestLiteWeeklyStudentProseStalledCardNoSevenInLabel(t *testing.T) {
 	reply := `{"summary":"《雨水花园调查》超过 7 天没有进展。","suggestions":[{"text":"请她说明《雨水花园调查》超过 7 天没有进展的原因。","evidenceCode":"stalled"}]}`
 	prov := gateway.NewSequenceStubProvider(weeklyReply(reply))
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	backdateWeeklyStart(t, pool, classID)
 
 	reading := seedLiteReadingForUser(t, pool, studentID, "active", 0)
 	seedBucket(t, pool, reading, ws.AddDate(0, 0, 2), 600)
@@ -818,6 +824,7 @@ func TestLiteWeeklyClassProseStoredOnce(t *testing.T) {
 
 func TestLiteWeeklyClassAssignmentRate(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	backdateWeeklyStart(t, pool, classID)
 	student := signInAs(t, pool, studentID)
 	ws, we := weeklyWindow()
 
@@ -843,8 +850,161 @@ func TestLiteWeeklyClassAssignmentRate(t *testing.T) {
 	}
 }
 
+// backdateWeeklyStart moves the class's creation and every enrollment in it
+// 90 days back. liteTeacherFixture creates both now, so without it every
+// completed week is before the reporting starts and returns week_before_start.
+func backdateWeeklyStart(t *testing.T, pool *pgxpool.Pool, classID string) {
+	t.Helper()
+	mustExec(t, pool, `UPDATE classes SET created_at = now() - interval '90 days' WHERE id = $1`, classID)
+	mustExec(t, pool, `UPDATE enrollments SET created_at = now() - interval '90 days' WHERE class_id = $1`, classID)
+}
+
+// setWeeklyStart sets the class's creation and every enrollment in it to at.
+func setWeeklyStart(t *testing.T, pool *pgxpool.Pool, classID string, at time.Time) {
+	t.Helper()
+	mustExec(t, pool, `UPDATE classes SET created_at = $2 WHERE id = $1`, classID, at)
+	mustExec(t, pool, `UPDATE enrollments SET created_at = $2 WHERE class_id = $1`, classID, at)
+}
+
+// rawWeeklyFields decodes the top-level fields of a response body as raw JSON.
+func rawWeeklyFields(t *testing.T, body string) map[string]json.RawMessage {
+	t.Helper()
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	return raw
+}
+
+// TestLiteWeeklyWeekBeforeStart: a week that ended at or before her
+// enrollment (student routes) or the class's creation (class routes) is a
+// 400 on GET and POST alike, and hasPrev says whether the previous week is
+// still in range.
+func TestLiteWeeklyWeekBeforeStart(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	ws, _ := weeklyWindow()
+	weekQ := func(start time.Time) string {
+		return "?weekStart=" + start.In(liteweek.Beijing).Format("2006-01-02")
+	}
+	type route struct{ method, path, message string }
+	studentRoutes := []route{
+		{"GET", studentWeeklyPath(classID, studentID), "该周早于学生加入班级的时间"},
+		{"POST", studentWeeklyPath(classID, studentID) + "/prose", "该周早于学生加入班级的时间"},
+	}
+	classRoutes := []route{
+		{"GET", classWeeklyPath(classID), "该周早于班级创建的时间"},
+		{"POST", classWeeklyPath(classID) + "/prose", "该周早于班级创建的时间"},
+	}
+	wantBeforeStart := func(rt route, q string) {
+		t.Helper()
+		code, body := weeklyDo(t, h, teacher, rt.method, rt.path+q, nil)
+		if code != http.StatusBadRequest || !strings.Contains(body, `"week_before_start"`) || !strings.Contains(body, rt.message) {
+			t.Fatalf("%s %s%s = %d %s, want 400 week_before_start %s", rt.method, rt.path, q, code, body, rt.message)
+		}
+	}
+
+	// The fixture creates the class and enrolls her now: the latest completed
+	// week ended before both.
+	for _, rt := range append(append([]route{}, studentRoutes...), classRoutes...) {
+		wantBeforeStart(rt, "")
+		wantBeforeStart(rt, weekQ(ws))
+	}
+
+	// Class created and her enrollment exactly at the latest week's start: that
+	// week is in range, and the week before it ended at that moment, so it is not.
+	setWeeklyStart(t, pool, classID, ws)
+	var s studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &s); code != http.StatusOK || s.HasPrev {
+		t.Fatalf("student GET = %d hasPrev=%v %s, want 200 and no previous week", code, s.HasPrev, body)
+	}
+	var c classWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &c); code != http.StatusOK || c.HasPrev {
+		t.Fatalf("class GET = %d hasPrev=%v %s, want 200 and no previous week", code, c.HasPrev, body)
+	}
+	for _, rt := range append(append([]route{}, studentRoutes...), classRoutes...) {
+		wantBeforeStart(rt, weekQ(ws.AddDate(0, 0, -7)))
+	}
+
+	// One second earlier, the previous week is in range.
+	setWeeklyStart(t, pool, classID, ws.Add(-time.Second))
+	s, c = studentWeeklyJSON{}, classWeeklyJSON{}
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &s); code != http.StatusOK || !s.HasPrev {
+		t.Fatalf("student GET = %d hasPrev=%v %s, want 200 with a previous week", code, s.HasPrev, body)
+	}
+	if code, body := weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &c); code != http.StatusOK || !c.HasPrev {
+		t.Fatalf("class GET = %d hasPrev=%v %s, want 200 with a previous week", code, c.HasPrev, body)
+	}
+	s = studentWeeklyJSON{}
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID)+weekQ(ws.AddDate(0, 0, -7)), &s); code != http.StatusOK || s.HasPrev {
+		t.Fatalf("student GET previous week = %d hasPrev=%v %s, want 200 and no week before it", code, s.HasPrev, body)
+	}
+	if prov.Calls != 0 {
+		t.Fatalf("provider calls = %d, want 0", prov.Calls)
+	}
+}
+
+// TestLiteWeeklyEmptyWeekSpendsNothing: a week with nothing in it is marked
+// empty, and its POSTs return prose null and proseError null with no
+// entitlement check, no model call, no llm_call row and nothing stored.
+func TestLiteWeeklyEmptyWeekSpendsNothing(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(weeklyValidStudentReply))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	backdateWeeklyStart(t, pool, classID)
+
+	var sg studentWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &sg); code != http.StatusOK || !sg.Empty {
+		t.Fatalf("student GET = %d empty=%v %s, want an empty week", code, sg.Empty, body)
+	}
+	// never_used still fires on an empty week; the cards are sent as they are.
+	if len(sg.Cards) != 1 || sg.Cards[0].Code != "never_used" || sg.Cards[0].Label != "未使用" {
+		t.Fatalf("student cards = %+v, want never_used", sg.Cards)
+	}
+	var cg classWeeklyJSON
+	if code, body := weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &cg); code != http.StatusOK || !cg.Empty {
+		t.Fatalf("class GET = %d empty=%v %s, want an empty week", code, cg.Empty, body)
+	}
+
+	for _, path := range []string{studentWeeklyPath(classID, studentID) + "/prose", classWeeklyPath(classID) + "/prose"} {
+		code, body := weeklyDo(t, h, teacher, "POST", path, nil)
+		if code != http.StatusOK {
+			t.Fatalf("POST %s = %d %s", path, code, body)
+		}
+		raw := rawWeeklyFields(t, body)
+		if string(raw["prose"]) != "null" || string(raw["proseError"]) != "null" || string(raw["empty"]) != "true" || string(raw["proseReady"]) != "false" {
+			t.Fatalf("POST %s = %s, want prose null, proseError null, empty true", path, body)
+		}
+	}
+	if prov.Calls != 0 {
+		t.Fatalf("provider calls = %d, want 0", prov.Calls)
+	}
+	for _, purpose := range []string{"lite_student_weekly", "lite_class_weekly"} {
+		if n := len(llmCallUsers(t, pool, purpose)); n != 0 {
+			t.Fatalf("llm_call rows for %s = %d, want 0", purpose, n)
+		}
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_student_weekly_prose WHERE user_id = $1`, studentID); n != 0 {
+		t.Fatalf("stored student prose rows = %d, want 0", n)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_class_weekly_prose WHERE class_id = $1`, uuid.MustParse(classID)); n != 0 {
+		t.Fatalf("stored class prose rows = %d, want 0", n)
+	}
+
+	// One overdue assignment makes the week non-empty for her and for the class.
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	ws, _ := weeklyWindow()
+	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, aid, ws.AddDate(0, 0, 3))
+	sg, cg = studentWeeklyJSON{}, classWeeklyJSON{}
+	weeklyDo(t, h, teacher, "GET", studentWeeklyPath(classID, studentID), &sg)
+	weeklyDo(t, h, teacher, "GET", classWeeklyPath(classID), &cg)
+	if sg.Empty || cg.Empty {
+		t.Fatalf("with an overdue assignment: student empty=%v class empty=%v, want both false", sg.Empty, cg.Empty)
+	}
+}
+
 func TestLiteWeeklyPastWeekTitles(t *testing.T) {
-	h, _, teacher, classID, studentID := liteTeacherFixture(t)
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	backdateWeeklyStart(t, pool, classID)
 	past := liteweek.LatestCompleted(time.Now()).AddDate(0, 0, -7)
 	q := "?weekStart=" + past.In(liteweek.Beijing).Format("2006-01-02")
 	label := liteweek.Label(past)
