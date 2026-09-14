@@ -6,7 +6,7 @@ vi.mock("./client", () => ({
   })),
 }));
 
-import { getRoster, normalizeItemDetail } from "./teacher";
+import { getRoster, normalizeItemDetail, normalizeRosterRow, normalizeStudentPage } from "./teacher";
 
 describe("getRoster", () => {
   it("fills missing numeric fields with 0 and keeps -1", async () => {
@@ -15,6 +15,37 @@ describe("getRoster", () => {
     expect(row.minutesThisWeek).toBe(-1);
     expect(row.turns).toBe(0);
     expect(row.lastActiveAt).toBeNull();
+  });
+
+  it("defaults overdueAssignments to 0 when the field is missing", async () => {
+    const [row] = await getRoster("c1");
+    if (!row) throw new Error("expected a roster row");
+    expect(row.overdueAssignments).toBe(0);
+  });
+});
+
+describe("normalizeRosterRow", () => {
+  it("keeps a real overdueAssignments count", () => {
+    expect(normalizeRosterRow({ id: "u1", overdueAssignments: 3 }).overdueAssignments).toBe(3);
+  });
+});
+
+describe("normalizeStudentPage", () => {
+  it("defaults assignments to [] when the field is missing", () => {
+    const page = normalizeStudentPage({ student: { id: "u1" } });
+    expect(page.assignments).toEqual([]);
+  });
+
+  it("normalizes each assignment row", () => {
+    const page = normalizeStudentPage({
+      student: { id: "u1" },
+      assignments: [
+        { id: "a1", kind: "writing", title: "写一篇议论文", dueAt: "2026-09-20T14:00:00Z", status: "in_progress", statusLabel: "进行中", atomId: "atom1" },
+      ],
+    });
+    expect(page.assignments).toEqual([
+      { id: "a1", kind: "writing", title: "写一篇议论文", dueAt: "2026-09-20T14:00:00Z", status: "in_progress", statusLabel: "进行中", atomId: "atom1" },
+    ]);
   });
 });
 

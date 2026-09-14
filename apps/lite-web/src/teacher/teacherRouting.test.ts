@@ -16,6 +16,9 @@ const cases: [string, TeacherRoute][] = [
   ["/overview", { view: "overview" }],
   ["/teachers", { view: "teachers" }],
   ["/import", { view: "import" }],
+  ["/assignments", { view: "assignments" }],
+  ["/assignments/new", { view: "assignmentNew" }],
+  ["/assignments/a1", { view: "assignment", assignmentId: "a1" }],
 ];
 
 describe("teacher routing", () => {
@@ -60,5 +63,11 @@ describe("resolveTeacherRoute", () => {
     const expected = { view: "student", classId: "c1", userId: "u1" };
     expect(resolveTeacherRoute("/classes/c1/students/u1", "admin")).toEqual(expected);
     expect(resolveTeacherRoute("/classes/c1/students/u1", "teacher")).toEqual(expected);
+  });
+
+  it("keeps a teacher on the assignments routes instead of falling back to the landing route", () => {
+    expect(resolveTeacherRoute("/assignments", "teacher")).toEqual({ view: "assignments" });
+    expect(resolveTeacherRoute("/assignments/new", "teacher")).toEqual({ view: "assignmentNew" });
+    expect(resolveTeacherRoute("/assignments/a1", "teacher")).toEqual({ view: "assignment", assignmentId: "a1" });
   });
 });

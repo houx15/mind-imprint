@@ -8,7 +8,14 @@ export type TeacherRoute =
   | { view: "settings" }
   | { view: "overview" }
   | { view: "teachers" }
-  | { view: "import" };
+  | { view: "import" }
+  | { view: "assignments" }
+  // `classId` is never read from the URL (there is no `?class=` query): the
+  // form picks the class itself. It exists only for a same-tab navigation
+  // (e.g. "+ 布置作业" from inside a class) to pre-select one, so it stays
+  // optional and `teacherRoutePath` ignores it.
+  | { view: "assignmentNew"; classId?: string }
+  | { view: "assignment"; assignmentId: string };
 
 const dec = (s: string) => {
   try {
@@ -25,6 +32,11 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
   if (seg[0] === "overview") return { view: "overview" };
   if (seg[0] === "teachers") return { view: "teachers" };
   if (seg[0] === "import") return { view: "import" };
+  if (seg[0] === "assignments") {
+    if (!seg[1]) return { view: "assignments" };
+    if (seg[1] === "new") return { view: "assignmentNew" };
+    return { view: "assignment", assignmentId: seg[1] };
+  }
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
   if (seg[2] !== "students" || !seg[3]) return { view: "class", classId };
@@ -44,7 +56,14 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
 export function isTeacherPath(pathname: string): boolean {
   const seg = pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
   const first = seg[0];
-  return first === "classes" || first === "settings" || first === "overview" || first === "teachers" || first === "import";
+  return (
+    first === "classes" ||
+    first === "settings" ||
+    first === "overview" ||
+    first === "teachers" ||
+    first === "import" ||
+    first === "assignments"
+  );
 }
 
 /** The role-appropriate landing view — same split as pro `ConsoleShell`
@@ -89,6 +108,12 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return "/teachers";
     case "import":
       return "/import";
+    case "assignments":
+      return "/assignments";
+    case "assignmentNew":
+      return "/assignments/new";
+    case "assignment":
+      return `/assignments/${enc(r.assignmentId)}`;
     case "class":
       return `/classes/${enc(r.classId)}`;
     case "student":

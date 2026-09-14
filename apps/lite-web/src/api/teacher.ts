@@ -28,6 +28,22 @@ export interface RosterRow {
   writingsTotal: number;
   projectsDone: number;
   projectsTotal: number;
+  // Task 6 (lite_teacher_roster.go): how many of the class's assignments are
+  // `overdue` for this student. Additive to plan 1's RosterRow.
+  overdueAssignments: number;
+}
+
+// One assignment on the teacher's student page, in one class. Mirrors
+// `StudentAssignmentDTO` (apps/api/internal/api/lite_teacher_roster.go,
+// Task 6) — status is derived server-side, never stored.
+export interface StudentAssignmentRow {
+  id: string;
+  kind: string;
+  title: string;
+  dueAt: string;
+  status: string;
+  statusLabel: string;
+  atomId: string | null;
 }
 
 export interface ItemRow {
@@ -46,6 +62,8 @@ export interface ItemRow {
 export interface StudentPage {
   student: RosterRow;
   items: ItemRow[];
+  // Task 6: her assignments in this class. Additive to plan 1's StudentPage.
+  assignments: StudentAssignmentRow[];
 }
 
 export interface ReportSlice {
@@ -116,6 +134,27 @@ export function normalizeRosterRow(raw: Record<string, unknown>): RosterRow {
     writingsTotal: n(raw.writingsTotal),
     projectsDone: n(raw.projectsDone),
     projectsTotal: n(raw.projectsTotal),
+    overdueAssignments: n(raw.overdueAssignments),
+  };
+}
+
+export function normalizeStudentAssignmentRow(raw: Record<string, unknown>): StudentAssignmentRow {
+  return {
+    id: s(raw.id),
+    kind: s(raw.kind),
+    title: s(raw.title),
+    dueAt: s(raw.dueAt),
+    status: s(raw.status),
+    statusLabel: s(raw.statusLabel),
+    atomId: typeof raw.atomId === "string" ? raw.atomId : null,
+  };
+}
+
+export function normalizeStudentPage(raw: { student?: Record<string, unknown>; items?: ItemRow[]; assignments?: Record<string, unknown>[] }): StudentPage {
+  return {
+    student: normalizeRosterRow(raw.student ?? {}),
+    items: raw.items ?? [],
+    assignments: (raw.assignments ?? []).map(normalizeStudentAssignmentRow),
   };
 }
 
@@ -127,10 +166,10 @@ export async function getRoster(classId: string): Promise<RosterRow[]> {
 }
 
 export async function getStudentPage(classId: string, userId: string): Promise<StudentPage> {
-  const r = await apiFetch<{ student: Record<string, unknown>; items?: ItemRow[] }>(
+  const r = await apiFetch<{ student: Record<string, unknown>; items?: ItemRow[]; assignments?: Record<string, unknown>[] }>(
     `${base(classId)}/students/${encodeURIComponent(userId)}`,
   );
-  return { student: normalizeRosterRow(r.student ?? {}), items: r.items ?? [] };
+  return normalizeStudentPage(r);
 }
 
 /**
