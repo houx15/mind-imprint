@@ -382,3 +382,59 @@ func TestComposeLiteClassWeeklyNobodyFlagged(t *testing.T) {
 		t.Fatalf("err=%v attempts=%d", err, len(attempts))
 	}
 }
+
+// ---- fix round 1 ----
+
+// The prompt shows the card evidence, so digits in it must be allowed. The
+// week label has no 7, so the 7 in 超过 7 天没有进展 comes only from the card.
+func TestComposeLiteStudentWeeklyAllowsCardEvidenceDigits(t *testing.T) {
+	const label = "9 月 8 日–9 月 14 日"
+	s := liteZhou()
+	cards := liteCardsOf(s)
+	if len(cards) != 1 || cards[0].Code != "stalled" {
+		t.Fatalf("fixture must have one stalled card, got %+v", cards)
+	}
+	if strings.Contains(liteweekly.FactsText(s, label), "7") {
+		t.Fatal("fixture facts text must not contain 7")
+	}
+	reply := `{"summary":"《校园垃圾分类访谈》超过 7 天没有进展。","suggestions":[{"text":"请线下了解访谈超过 7 天没有进展的原因。","evidenceCode":"stalled"}]}`
+	prov := gateway.NewSequenceStubProvider(liteReply(reply))
+	_, attempts, err := agent.ComposeLiteStudentWeekly(context.Background(), prov, liteResolved, s, label, cards, []string{"林知遥"})
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("err=%v attempts=%d, want a first-attempt pass", err, len(attempts))
+	}
+}
+
+func TestComposeLiteClassWeeklyAllowsCardEvidenceDigits(t *testing.T) {
+	students := []liteweekly.StudentWeek{liteZhou()}
+	cards := map[string][]liteweekly.Card{"u2": liteCardsOf(liteZhou())}
+	reply := `{"comment":"本周有 1 名学生的项目停滞。","cards":[` + liteCardU2 + `]}`
+	_, attempts, err := agent.ComposeLiteClassWeekly(context.Background(), gateway.NewSequenceStubProvider(liteReply(reply)), liteResolved,
+		"IBDP 一年级", "9 月 8 日–9 月 14 日", liteweekly.ClassWeekStats{ClassSize: 1, ActiveStudents: 1, Minutes: 20, Turns: 4, Finished: 0, AssignmentRate: -1}, students, cards, []string{"周子墨"})
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("err=%v attempts=%d", err, len(attempts))
+	}
+}
+
+// A card for a student who is not in the roster cannot be written: it has
+// no name and no facts. The composer refuses before calling the model.
+func TestComposeLiteClassWeeklyRejectsUnmatchedCardKey(t *testing.T) {
+	students, cards := liteClassInputs()
+	cards["ghost"] = liteCardsOf(liteZhou())
+	prov := gateway.NewSequenceStubProvider(liteReply(liteValidClass))
+	_, attempts, err := agent.ComposeLiteClassWeekly(context.Background(), prov, liteResolved, "IBDP 一年级", liteWeekLabel, liteStats, students, cards, nil)
+	if err == nil || !strings.Contains(err.Error(), `"ghost"`) {
+		t.Fatalf("err = %v, want an error naming the unmatched key", err)
+	}
+	if prov.Calls != 0 || len(attempts) != 0 {
+		t.Fatalf("calls=%d attempts=%d, want no model call", prov.Calls, len(attempts))
+	}
+}
+
+func TestComposeLiteStudentWeeklyParsesJSONInsideProse(t *testing.T) {
+	reply := "以下是总结：\n" + liteValidStudent + "\n以上。"
+	got, attempts, err := composeLin(gateway.NewSequenceStubProvider(liteReply(reply)))
+	if err != nil || len(attempts) != 1 || !strings.HasPrefix(got.Summary, "本周活跃 3 天") {
+		t.Fatalf("err=%v attempts=%d prose=%+v", err, len(attempts), got)
+	}
+}

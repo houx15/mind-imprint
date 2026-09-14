@@ -70,7 +70,7 @@ const liteStudentWeeklySystemPrompt = `你在给老师写一名学生上一周�
 const liteClassWeeklySystemPrompt = `你在给老师写一个班级上一周的学习总结。
 哪些学生需要写卡片、每张卡片的类别、标签和证据，已经由系统判定。你只负责措辞，不增加、不删除、不调换、不重新归类。
 规则：
-1. 只使用给出的事实，不补充事实。不使用给出事实里没有的数字。不写学生名单以外的学生。
+1. 只使用给出的事实，不补充事实。不使用给出事实里没有的数字。
 2. comment 是全班的总结，不超过 300 字。
 3. cards 给学生名单里的每名学生写一条，且只写一条，userId 照抄名单里的 userId，不多写，不漏写；学生名单为无时 cards 为空数组。
 4. lead 用一句话说明这名学生上一周发生了什么，不超过 120 字；action 写老师线下可以怎么沟通（需要建议）或怎么鼓励（值得表扬），不超过 200 字。
@@ -112,7 +112,10 @@ func ComposeLiteStudentWeekly(ctx context.Context, prov gateway.Provider, r gate
 // decision visible at the call site.
 func ComposeLiteClassWeekly(ctx context.Context, prov gateway.Provider, r gateway.Resolved, className string, weekLabel string, stats liteweekly.ClassWeekStats, students []liteweekly.StudentWeek, cards map[string][]liteweekly.Card, allNames []string) (LiteClassWeeklyProse, []Attempt, error) {
 	_ = allNames
-	flagged := liteFlaggedStudents(students, cards)
+	flagged, err := liteFlaggedStudents(students, cards)
+	if err != nil {
+		return LiteClassWeeklyProse{}, nil, fmt.Errorf("agent: lite class weekly prose: %w", err)
+	}
 	facts := liteweekly.ClassFactsText(className, weekLabel, stats, flagged, cards)
 	msgs := []gateway.ChatMessage{
 		{Role: gateway.RoleSystem, Content: liteClassWeeklySystemPrompt},
@@ -219,10 +222,24 @@ func liteClassWeeklyUserPrompt(facts string, flagged []liteweekly.StudentWeek) s
 }
 
 // liteFlaggedStudents returns the students with at least one card, in
-// roster order. A cards key with no matching student is still flagged (the
-// model must write its card), with an empty name, after the roster, sorted
-// by ID.
-func liteFlaggedStudents(students []liteweekly.StudentWeek, cards map[string][]liteweekly.Card) []liteweekly.StudentWeek {
+// roster order. A cards key that matches no student is a caller error: the
+// card would have no name and no facts behind it.
+func liteFlaggedStudents(students []liteweekly.StudentWeek, cards map[string][]liteweekly.Card) ([]liteweekly.StudentWeek, error) {
+	known := make(map[string]bool, len(students))
+	for _, s := range students {
+		known[s.UserID] = true
+	}
+	var unmatched []string
+	for id := range cards {
+		if !known[id] {
+			unmatched = append(unmatched, id)
+		}
+	}
+	if len(unmatched) > 0 {
+		sort.Strings(unmatched)
+		return nil, fmt.Errorf("cards has userId %q, which matches no student", unmatched[0])
+	}
+
 	var flagged []liteweekly.StudentWeek
 	seen := map[string]bool{}
 	for _, s := range students {
@@ -231,17 +248,18 @@ func liteFlaggedStudents(students []liteweekly.StudentWeek, cards map[string][]l
 			seen[s.UserID] = true
 		}
 	}
-	var extra []string
-	for id, cs := range cards {
-		if len(cs) > 0 && !seen[id] {
-			extra = append(extra, id)
-		}
+	return flagged, nil
+}
+
+// liteStudentFactsForCheck is the digit set for the student prose: the facts
+// text plus every card's evidence, because the prompt shows the model both
+// (a stalled card's "超过 7 天" carries a 7 the facts text may not).
+func liteStudentFactsForCheck(s liteweekly.StudentWeek, weekLabel string, cards []liteweekly.Card) string {
+	parts := []string{liteweekly.FactsText(s, weekLabel)}
+	for _, c := range cards {
+		parts = append(parts, c.Evidence)
 	}
-	sort.Strings(extra)
-	for _, id := range extra {
-		flagged = append(flagged, liteweekly.StudentWeek{UserID: id})
-	}
-	return flagged
+	return strings.Join(parts, "\n")
 }
 
 func validateLiteStudentWeekly(p LiteStudentWeeklyProse, s liteweekly.StudentWeek, weekLabel string, cards []liteweekly.Card, otherNames []string) error {
@@ -276,7 +294,7 @@ func validateLiteStudentWeekly(p LiteStudentWeeklyProse, s liteweekly.StudentWee
 		AllowedCodes: allowed,
 		Corpus:       liteweekly.Corpus(s),
 		Titles:       liteweekly.TitleCorpus(s),
-		FactsText:    liteweekly.FactsText(s, weekLabel),
+		FactsText:    liteStudentFactsForCheck(s, weekLabel, cards),
 		OtherNames:   otherNames,
 	}
 	// Each field is checked on its own so a quote mark opened in one field
