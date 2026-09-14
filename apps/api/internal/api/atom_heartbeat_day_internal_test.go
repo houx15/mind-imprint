@@ -44,6 +44,33 @@ func newHeartbeatTestAtom(t *testing.T) (*API, *pgxpool.Pool, uuid.UUID) {
 	return a, pool, at.ID
 }
 
+// A heartbeat that measured nothing must not create a bucket: bucket_count > 0
+// is what turns the roster's "—" (never measured) into "0 分钟".
+func TestRecordHeartbeatZeroCreatesNoBucket(t *testing.T) {
+	a, pool, atomID := newHeartbeatTestAtom(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 14, 10, 0, 0, 0, liteweek.Beijing)
+	for _, s := range []int32{0, -30} {
+		if err := a.recordHeartbeat(ctx, atomID, s, now); err != nil {
+			t.Fatalf("recordHeartbeat(%d): %v", s, err)
+		}
+	}
+	var buckets int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM atom_active_day WHERE atom_id=$1`, atomID).Scan(&buckets); err != nil {
+		t.Fatal(err)
+	}
+	if buckets != 0 {
+		t.Fatalf("atom_active_day rows = %d, want 0 after zero/negative heartbeats", buckets)
+	}
+	var total int32
+	if err := pool.QueryRow(ctx, `SELECT active_seconds FROM atom WHERE id=$1`, atomID).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total != 0 {
+		t.Fatalf("atom.active_seconds = %d, want 0", total)
+	}
+}
+
 func TestRecordHeartbeatSplitsAcrossBeijingMidnight(t *testing.T) {
 	a, pool, atomID := newHeartbeatTestAtom(t)
 	ctx := context.Background()

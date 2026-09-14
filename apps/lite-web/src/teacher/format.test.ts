@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { formatMinutes, itemStatusLabel, kindLabel, langLabel } from "./format";
+import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
+
+// safeHttpUrl guards a student-controlled href on a teacher screen (React does
+// not block javascript: URLs). A regression here is invisible in the UI.
+describe("safeHttpUrl", () => {
+  it("keeps absolute http and https URLs", () => {
+    expect(safeHttpUrl("https://example.org/a?b=1")).toBe("https://example.org/a?b=1");
+    expect(safeHttpUrl("http://example.org")).toBe("http://example.org");
+  });
+  it("refuses other schemes", () => {
+    expect(safeHttpUrl("javascript:alert(1)")).toBeNull();
+    expect(safeHttpUrl("JavaScript:alert(1)")).toBeNull();
+    expect(safeHttpUrl("data:text/html,<script>alert(1)</script>")).toBeNull();
+  });
+  it("refuses relative, empty and garbage input", () => {
+    expect(safeHttpUrl("/p/abc")).toBeNull();
+    expect(safeHttpUrl("")).toBeNull();
+    expect(safeHttpUrl(null)).toBeNull();
+    expect(safeHttpUrl("not a url at all")).toBeNull();
+  });
+});
 
 describe("langLabel", () => {
   it("names zh and en, dashes empty, passes unknown codes through", () => {

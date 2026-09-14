@@ -82,7 +82,7 @@ func (a *API) getLiteTeacherItem(w http.ResponseWriter, r *http.Request) {
 	// Reading/writing only: a project has no atom_report row (its finish
 	// state and its review section are its own thing, not a lite report).
 	if at.Kind == "reading" || at.Kind == "writing" {
-		rep, rerr := a.liteTeacherReport(r, userID, atomID, at.Kind)
+		rep, rerr := a.liteTeacherReport(r, userID, atomID, at.Kind, r.URL.Query().Get("prose") == "1")
 		if rerr != nil {
 			resp["reportError"] = "报告生成失败：" + rerr.Error()
 		} else if rep != nil {
@@ -97,23 +97,33 @@ func (a *API) getLiteTeacherItem(w http.ResponseWriter, r *http.Request) {
 // is finished and no report exists yet (ensureAtomReport, atom_report.go).
 // Unfinished atom → (nil, nil), no generation, no model call.
 //
-// One call to ensureAtomReport per request, same as the student-facing
-// report handler — the two-phase protocol (atom_report.go's file comment)
-// means a report can come back with `prosePending: true` and no `moments`
-// yet: phase 1 stores the deterministic half with no model call, and the
-// prose (moments/gains/keep-from-summary) is only generated on a LATER
-// request. This handler passes `prosePending` straight through rather than
-// looping or calling ensureAtomReport again inline, so the teacher client
-// re-fetches once (the same posture ReportPanel.tsx takes on the student
-// side) instead of this request paying for or waiting on a second phase.
+// The two-phase protocol (atom_report.go's file comment) means a report can
+// come back with `prosePending: true` and no `moments` yet: phase 1 stores
+// the deterministic half with no model call, and the prose
+// (moments/gains/keep-from-summary) is only generated on a LATER request.
+//
+// 🚨 A plain GET never runs phase 2 (wantProse=false). A stored report that
+// still owes its prose would otherwise make the teacher's FIRST open wait on
+// the flagship call (up to liteModelWorkTimeout, 150s) before the page shows
+// anything. Only the client's one follow-up re-fetch sends `?prose=1`, and
+// that request is the one allowed to pay for the prose — after checking the
+// STUDENT's entitlement, since the tokens are spent on her report. Not
+// entitled → the stored report is returned as it is, with no error.
 //
 // Takes the request rather than a bare context — see detachedModelCtx
 // (reading_lens.go): once the model call is under way it must run to
 // completion even if the teacher navigates away mid-request.
-func (a *API) liteTeacherReport(r *http.Request, userID, atomID uuid.UUID, kind string) (map[string]any, error) {
+func (a *API) liteTeacherReport(r *http.Request, userID, atomID uuid.UUID, kind string, wantProse bool) (map[string]any, error) {
+	if wantProse {
+		entitled, err := a.studentEntitled(r.Context(), userID)
+		if err != nil {
+			return nil, err
+		}
+		wantProse = entitled
+	}
 	mctx, cancel := detachedModelCtx(r)
 	defer cancel()
-	row, ok, err := a.ensureAtomReport(mctx, userID, atomID, kind)
+	row, ok, err := a.ensureAtomReportWith(mctx, userID, atomID, kind, wantProse)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +143,18 @@ func (a *API) liteTeacherReport(r *http.Request, userID, atomID uuid.UUID, kind 
 		"stats": rep.Stats, "moments": rep.Moments, "keep": rep.Keep,
 		"prosePending": rep.ProsePending,
 	}, nil
+}
+
+// studentEntitled runs the HasEntitlement seam for the student whose report
+// a teacher is viewing. The student path checks the request user; here the
+// request user is the teacher, so the student row is loaded the same way
+// auth.go builds a User.
+func (a *API) studentEntitled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	row, err := a.d.Queries.GetUserByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return HasEntitlement(ctx, User{ID: row.ID, SchoolID: row.SchoolID, Role: row.Role, DisplayName: row.DisplayName})
 }
 
 // notFoundIsNil turns a :one query's ErrNoRows into a nil pointer, for the

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +14,7 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -147,6 +149,101 @@ func TestLiteRosterCountsLiteActivity(t *testing.T) {
 	r := resp.Roster[0]
 	if r.MinutesTotal != 10 || r.MinutesThisWeek != 2 || r.Turns != 2 || r.ReadingsDone != 1 || r.ReadingsTotal != 1 || r.WritingsTotal != 1 {
 		t.Fatalf("row = %+v", r)
+	}
+}
+
+// seedAtomMessageAt inserts one student atom_message with an explicit created_at.
+func seedAtomMessageAt(t *testing.T, pool *pgxpool.Pool, atomID uuid.UUID, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO atom_message (atom_id, seq, role, content, created_at) VALUES ($1, (SELECT COALESCE(max(seq),0)+1 FROM atom_message WHERE atom_id=$1), 'student', 'x', $2)`,
+		atomID, at); err != nil {
+		t.Fatalf("seedAtomMessageAt: %v", err)
+	}
+}
+
+func seedBucket(t *testing.T, pool *pgxpool.Pool, atomID uuid.UUID, day time.Time, seconds int) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO atom_active_day (atom_id, day, seconds) VALUES ($1, $2::date, $3)`,
+		atomID, day.Format("2006-01-02"), seconds); err != nil {
+		t.Fatalf("seedBucket: %v", err)
+	}
+}
+
+// TestLiteRosterActiveDaysAndCounts is final review M3: activeDaysThisWeek
+// (bucket days UNION student-message days, Beijing week), lastActiveAt, and
+// the done/total counts.
+func TestLiteRosterActiveDaysAndCounts(t *testing.T) {
+	h, pool, teacher, classID, active := liteTeacherFixture(t)
+	ctx := context.Background()
+	inactive := createStudent(t, pool, SeedSchoolID, "lt-inactive@demo.local")
+	enrollStudent(t, pool, inactive, classID)
+	boundary := createStudent(t, pool, SeedSchoolID, "lt-boundary@demo.local")
+	enrollStudent(t, pool, boundary, classID)
+
+	now := time.Now()
+	today := liteweek.Day(now)
+	weekStart := liteweek.WeekStart(now)
+	isMonday := today.Equal(weekStart)
+
+	reading := seedLiteReadingForUser(t, pool, active, "finished", 600)
+	seedBucket(t, pool, reading, today, 120)
+	wantDays := int32(1)
+	if !isMonday {
+		// An earlier day of this week, recorded twice (bucket + message): the
+		// UNION must count it once.
+		seedBucket(t, pool, reading, weekStart, 60)
+		seedAtomMessageAt(t, pool, reading, weekStart.Add(12*time.Hour))
+		wantDays = 2
+	} else {
+		// No earlier day this week: the same pair on last Sunday is not counted.
+		lastSunday := weekStart.AddDate(0, 0, -1)
+		seedBucket(t, pool, reading, lastSunday, 60)
+		seedAtomMessageAt(t, pool, reading, lastSunday.Add(12*time.Hour))
+	}
+	seedLiteWritingForUser(t, pool, active, "finished")
+	seedLiteWritingForUser(t, pool, active, "active")
+	project := seedLiteWebsiteProject(t, pool, active)
+	if _, err := pool.Exec(ctx, `UPDATE pbl_project SET status = 'keeping' WHERE atom_id = $1`, project); err != nil {
+		t.Fatal(err)
+	}
+
+	// Boundary student: a message at exactly Monday 00:00 Beijing counts,
+	// one at the previous Sunday 23:59:59 does not.
+	edge := seedLiteReadingForUser(t, pool, boundary, "active", 0)
+	seedAtomMessageAt(t, pool, edge, weekStart)
+	seedAtomMessageAt(t, pool, edge, weekStart.Add(-time.Second))
+
+	var resp struct {
+		Roster []LiteRosterRowDTO `json:"roster"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/roster", &resp); code != http.StatusOK {
+		t.Fatalf("roster = %d", code)
+	}
+	byID := map[string]LiteRosterRowDTO{}
+	for _, r := range resp.Roster {
+		byID[r.ID] = r
+	}
+
+	a := byID[active.String()]
+	if a.ActiveDaysThisWeek != wantDays {
+		t.Fatalf("activeDaysThisWeek = %d, want %d (monday=%v)", a.ActiveDaysThisWeek, wantDays, isMonday)
+	}
+	if a.LastActiveAt == nil {
+		t.Fatalf("lastActiveAt = nil for an active student")
+	}
+	if a.ReadingsDone != 1 || a.WritingsDone != 1 || a.WritingsTotal != 2 || a.ProjectsDone != 1 {
+		t.Fatalf("counts = %+v, want readingsDone 1, writingsDone 1, writingsTotal 2, projectsDone 1", a)
+	}
+
+	in := byID[inactive.String()]
+	if in.LastActiveAt != nil || in.ActiveDaysThisWeek != 0 {
+		t.Fatalf("inactive student = %+v, want lastActiveAt nil and 0 active days", in)
+	}
+
+	if b := byID[boundary.String()]; b.ActiveDaysThisWeek != 1 {
+		t.Fatalf("boundary activeDaysThisWeek = %d, want 1 (Monday 00:00 in, Sunday 23:59:59 out)", b.ActiveDaysThisWeek)
 	}
 }
 

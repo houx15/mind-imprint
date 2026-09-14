@@ -221,9 +221,19 @@ function normalizeProject(raw: unknown): NonNullable<ItemDetail["project"]> | nu
   };
 }
 
-export async function getItem(classId: string, userId: string, atomId: string): Promise<ItemDetail> {
+/**
+ * `prose: true` lets the server generate a report's pending prose on this
+ * request (a flagship model call). The first load must not pass it, so the
+ * page never waits on that call; only the page's one follow-up re-fetch does.
+ */
+export async function getItem(
+  classId: string,
+  userId: string,
+  atomId: string,
+  opts?: { prose?: boolean },
+): Promise<ItemDetail> {
   const r = await apiFetch<Record<string, unknown>>(
-    `${base(classId)}/students/${encodeURIComponent(userId)}/items/${encodeURIComponent(atomId)}`,
+    `${base(classId)}/students/${encodeURIComponent(userId)}/items/${encodeURIComponent(atomId)}${opts?.prose ? "?prose=1" : ""}`,
   );
   return normalizeItemDetail(r);
 }

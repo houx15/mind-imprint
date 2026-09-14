@@ -27,6 +27,23 @@ export function langLabel(lang: string | null | undefined): string {
   return ({ zh: "中文", en: "英文" } as Record<string, string>)[lang] ?? lang;
 }
 
+/**
+ * The URL a student pasted for her reading, if it is safe to render as a
+ * link on a teacher screen. React does not block `javascript:` hrefs, and the
+ * URL is student-controlled, so only an absolute http/https URL comes back;
+ * anything else (other schemes, relative paths, unparsable text) is `null`
+ * and the caller renders the text plainly.
+ */
+export function safeHttpUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "http:" || protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export function kindLabel(kind: string): string {
   return ({ reading: "阅读", writing: "写作", project: "项目" } as Record<string, string>)[kind] ?? kind;
 }

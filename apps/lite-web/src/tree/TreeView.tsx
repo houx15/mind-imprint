@@ -23,6 +23,7 @@ import {
   threadPath,
 } from "./roots";
 import { KeywordDrawer } from "./KeywordDrawer";
+import { treeCopy } from "./treeCopy";
 import { useQuizTaken } from "./quiz/useQuizStatus";
 import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
@@ -146,12 +147,14 @@ export function TreeView({
   // 从她的词自己的来源里数，按 (类型, id) 去重：一篇阅读长出三个词，它仍然是
   // 一件事。原来这里数的是 mock 书架的长度，那个数字和树上的词毫无关系。
   const outputs = outputCount(all);
+  // 学生那面是对她说的话（「你的」「我的」）；只读（教师）视角换成中性说法。
+  const copy = treeCopy(readOnly);
 
   return (
     <div className="tree-grove tree-motes relative min-h-full">
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
-          <Sys>我的兴趣树 · INTEREST TREE</Sys>
+          <Sys>{copy.header}</Sys>
           <h1 className="mt-1 text-mk-h1 text-mk-ink">
             {user.display_name}
             {user.classes[0] ? (
@@ -215,9 +218,9 @@ export function TreeView({
           ) : (
             // 只在真的读到了「她还没有词」时才说这句。读取失败时说「你的树刚
             // 开始长」，是在替她断言一件我们并不知道的事。
-            known && (
+            known && copy.intro && (
               <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-mk-muted">
-                你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
+                {copy.intro}
               </p>
             )
           )}
@@ -242,9 +245,7 @@ export function TreeView({
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys>关键词</Sys>
-              <Hint
-                text="根据你读过、收藏过、写过、做过的东西自动生成的兴趣关键词。每一个都可以点开，看它到底是从哪几件事来的。"
-              />
+              <Hint text={copy.keywordsHint} />
             </span>
             <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? total : "—"}
@@ -254,9 +255,7 @@ export function TreeView({
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys>成果数</Sys>
-              <Hint
-                text="你已经完成的阅读、写作和已发布项目的总数。没做完的不算——这个数字只数你真的做出来的东西。"
-              />
+              <Hint text={copy.outputsHint} />
             </span>
             <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
               {live.status === "ready" || live.status === "empty" ? outputs : "—"}
@@ -331,6 +330,7 @@ export function TreeView({
             onRetry={live.reload}
             quizTaken={readOnly ? null : quizTaken}
             onStartQuiz={openQuiz}
+            readOnly={readOnly}
           />
 
           {/* keyword beads */}
@@ -1075,6 +1075,7 @@ function TreeState({
   onRetry,
   quizTaken,
   onStartQuiz,
+  readOnly,
 }: {
   status: "loading" | "error" | "empty" | "ready";
   error: string;
@@ -1082,8 +1083,10 @@ function TreeState({
   /** null = 还不知道她做过没有。 */
   quizTaken: boolean | null;
   onStartQuiz: () => void;
+  readOnly: boolean;
 }) {
   if (status === "ready") return null;
+  const copy = treeCopy(readOnly);
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center px-6">
@@ -1098,12 +1101,10 @@ function TreeState({
         {status === "loading" && (
           <>
             <Sys>处理中 · GROWING</Sys>
-            <p className="mt-2 text-mk-body text-mk-ink">正在读取你的兴趣树</p>
+            <p className="mt-2 text-mk-body text-mk-ink">{copy.loadingTitle}</p>
             {/* 服务端会先把已完成、还没采过的阅读与写作补采一遍（最多三个，
                 并行），所以第一次打开可能要几秒。说出来，别让她以为卡住了。 */}
-            <p className="mt-1 text-mk-small text-mk-muted">
-              正在从你最近完成的阅读与写作里提取关键词，需要几秒。
-            </p>
+            <p className="mt-1 text-mk-small text-mk-muted">{copy.loadingDetail}</p>
           </>
         )}
 
@@ -1128,10 +1129,7 @@ function TreeState({
           <>
             <Sys>空 · NO KEYWORDS YET</Sys>
             <p className="mt-2 text-mk-body text-mk-ink">这棵树还没有关键词</p>
-            <p className="mt-1 text-mk-small text-mk-muted">
-              关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
-              它会长出来。
-            </p>
+            <p className="mt-1 text-mk-small text-mk-muted">{copy.emptyDetail}</p>
             {/* 🚨 空树上那条邀请。**只在明确知道她没做过时出现** —— 读不到
                 状态（null）时不显示，因为在一个上个月已经做过的学生面前每次
                 都闪一下「来做个测试」，比不显示糟。

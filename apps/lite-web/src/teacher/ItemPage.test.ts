@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { prosePendingLabel } from "./ItemPage";
+import { prosePendingLabel, showReadingTakeaway } from "./ItemPage";
+
+describe("showReadingTakeaway", () => {
+  it("hides the reading takeaway when the report already shows it as her own keep", () => {
+    expect(showReadingTakeaway("多看数据来源", { text: "多看数据来源", source: "student" })).toBe(false);
+    expect(showReadingTakeaway("多看数据来源 ", { text: "多看数据来源", source: "student" })).toBe(false);
+  });
+  it("shows it when the keep came from 印记 or says something else", () => {
+    expect(showReadingTakeaway("多看数据来源", { text: "多看数据来源", source: "coach" })).toBe(true);
+    expect(showReadingTakeaway("多看数据来源", { text: "另一句", source: "student" })).toBe(true);
+    expect(showReadingTakeaway("多看数据来源", null)).toBe(true);
+  });
+  it("shows nothing when there is no takeaway", () => {
+    expect(showReadingTakeaway("", null)).toBe(false);
+  });
+});
 
 describe("prosePendingLabel", () => {
   it("shows nothing once the prose is not pending", () => {

@@ -4,7 +4,7 @@ import { Icon } from "@/ui";
 import { ApiError } from "@/api";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, type ItemDetail } from "../api/teacher";
-import { formatMinutes, itemStatusLabel, kindLabel, langLabel } from "./format";
+import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
 import { displayStat } from "../reports/statLabels";
 import { useAlive } from "../shared/useAlive";
 
@@ -101,7 +101,8 @@ export function ItemPage({
     // 🚨 不在 cleanup 里 clearTimeout——见文件头注释，那正是会把这次重试在
     // StrictMode 下吞掉的组合。
     setTimeout(() => {
-      getItem(classId, userId, atomId)
+      // 只有这一次重取允许服务端生成报告文字；首次加载不带，页面不等模型。
+      getItem(classId, userId, atomId, { prose: true })
         .then((d) => {
           if (!alive.current) return;
           if (loadGen.current !== myGen) return; // 她已经换了项目/按过重试，这份回答过期了。
@@ -153,6 +154,17 @@ export function prosePendingLabel(pending: boolean, retried: boolean): string | 
   return retried ? "报告文字暂未生成" : "报告文字生成中";
 }
 
+/** 阅读区的「收获」要不要显示。报告里的收获就是学生自己写的这一句时
+ *  （`keep.source === "student"` 且文字相同），上面报告区已经显示过，这里不再重复。 */
+export function showReadingTakeaway(
+  takeaway: string | null | undefined,
+  keep: { text: string; source: string } | null | undefined,
+): boolean {
+  if (!takeaway) return false;
+  if (keep && keep.source === "student" && keep.text.trim() === takeaway.trim()) return false;
+  return true;
+}
+
 function shortDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -192,7 +204,7 @@ function ItemBody({
         retriedProse={retriedProse}
         proseError={proseError}
       />
-      <ReadingSection reading={detail.reading} />
+      <ReadingSection reading={detail.reading} keep={detail.report?.keep ?? null} />
       <WritingSection writing={detail.writing} />
       <ProjectSection project={detail.project} />
     </>
@@ -284,9 +296,16 @@ function ReportSection({
   );
 }
 
-function ReadingSection({ reading }: { reading: ItemDetail["reading"] }) {
+function ReadingSection({
+  reading,
+  keep,
+}: {
+  reading: ItemDetail["reading"];
+  keep: { text: string; source: string } | null;
+}) {
   if (!reading) return null;
   const { source, highlights, takeaway, lenses } = reading;
+  const sourceHref = safeHttpUrl(source?.url);
   return (
     <section className="mt-8">
       <h2 className="text-mk-h3 text-mk-ink">阅读</h2>
@@ -299,15 +318,13 @@ function ReadingSection({ reading }: { reading: ItemDetail["reading"] }) {
               {source.librarySlug}
               {source.level !== null ? ` · 第 ${source.level} 档` : ""}
             </>
-          ) : (
-            <a
-              href={source.url ?? undefined}
-              target="_blank"
-              rel="noreferrer"
-              className="text-mk-accent-700 underline"
-            >
+          ) : sourceHref ? (
+            <a href={sourceHref} target="_blank" rel="noreferrer" className="text-mk-accent-700 underline">
               {source.url}
             </a>
+          ) : (
+            // 不是 http/https 的地址不做成链接，只显示文字。
+            <span>{source.url}</span>
           )}
         </p>
       ) : null}
@@ -326,7 +343,7 @@ function ReadingSection({ reading }: { reading: ItemDetail["reading"] }) {
         </div>
       )}
 
-      {takeaway && (
+      {showReadingTakeaway(takeaway, keep) && (
         <div className="mt-4">
           <h3 className="text-mk-label text-mk-muted">收获</h3>
           <p className="mt-1.5 whitespace-pre-wrap text-mk-body text-mk-ink">{takeaway}</p>

@@ -3,6 +3,7 @@ import { fieldById } from "./geometry";
 import type { Keyword, KeywordSource } from "./types";
 import { Drawer, Sys, cx } from "./ui";
 import { DigSection } from "./DigSection";
+import { treeCopy } from "./treeCopy";
 import { liteRoutePath, navigate } from "../routing";
 
 /**
@@ -204,7 +205,7 @@ function SourceRow({
           style={{ borderColor: meta.hue }}
         >
           「{source.evidence}」
-          <span className="mt-1 block not-italic text-[11px] text-mk-faint">你自己写的</span>
+          <span className="mt-1 block not-italic text-[11px] text-mk-faint">{treeCopy(readOnly).evidenceLabel}</span>
         </span>
       ) : null}
     </>

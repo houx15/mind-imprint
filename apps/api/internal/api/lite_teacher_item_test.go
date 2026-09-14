@@ -141,7 +141,8 @@ func TestLiteItemDetailReportTwoPhase(t *testing.T) {
 			Moments      []json.RawMessage `json:"moments"`
 		} `json:"report"`
 	}
-	if code := getJSON(t, h, teacher, path, &second); code != http.StatusOK {
+	// Only the follow-up that asks for prose may run phase 2 (final review F2).
+	if code := getJSON(t, h, teacher, path+"?prose=1", &second); code != http.StatusOK {
 		t.Fatalf("second call = %d", code)
 	}
 	if second.Report.ProsePending {
@@ -149,6 +150,56 @@ func TestLiteItemDetailReportTwoPhase(t *testing.T) {
 	}
 	if second.Report.Moments == nil {
 		t.Fatalf("phase 2 must carry a moments array — resp=%+v", second)
+	}
+}
+
+// TestLiteItemDetailPlainGetNeverEnrichesProse is final review F2/F3: a
+// stored report that still owes its prose must not make a plain teacher GET
+// wait on (or pay for) the model call. Only `?prose=1` runs phase 2, and it
+// does so for an entitled student (HasEntitlement is stubbed true today).
+func TestLiteItemDetailPlainGetNeverEnrichesProse(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	ctx := context.Background()
+	atom := seedLiteReadingForUser(t, pool, studentID, "finished", 0)
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO reading_takeaway (atom_id, text) VALUES ($1, $2)`, atom,
+		"我觉得应该多看数据来源，而不是只看结论"); err != nil {
+		t.Fatal(err)
+	}
+	seedAtomMessage(t, pool, atom, "student", "我又想了想，数据来源要能查到出处，这样才可信。")
+	path := "/api/v1/lite/teacher/classes/" + classID + "/students/" + studentID.String() + "/items/" + atom.String()
+
+	type resp struct {
+		Report *struct {
+			ProsePending bool `json:"prosePending"`
+		} `json:"report"`
+		ReportError *string `json:"reportError"`
+	}
+
+	// First GET stores the phase-1 row; the next plain GET finds it pending.
+	for i := 0; i < 2; i++ {
+		var out resp
+		if code := getJSON(t, h, teacher, path, &out); code != http.StatusOK {
+			t.Fatalf("plain GET %d = %d", i, code)
+		}
+		if out.Report == nil || !out.Report.ProsePending || out.ReportError != nil {
+			t.Fatalf("plain GET %d: want a pending report and no error, got %+v", i, out)
+		}
+	}
+	if n := prov.count(); n != 0 {
+		t.Fatalf("provider called %d times by plain GETs, want 0", n)
+	}
+
+	var enriched resp
+	if code := getJSON(t, h, teacher, path+"?prose=1", &enriched); code != http.StatusOK {
+		t.Fatalf("prose GET = %d", code)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("provider called %d times by the prose GET, want 1", n)
+	}
+	if enriched.Report == nil || enriched.Report.ProsePending {
+		t.Fatalf("prose GET must clear prosePending for an entitled student, got %+v", enriched)
 	}
 }
 

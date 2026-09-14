@@ -51,6 +51,13 @@ func clampHeartbeatSeconds(n int32) int32 {
 // disagree. `now` is a parameter so the midnight split is testable.
 func (a *API) recordHeartbeat(ctx context.Context, atomID uuid.UUID, seconds int32, now time.Time) error {
 	secs := clampHeartbeatSeconds(seconds)
+	if secs == 0 {
+		// Adding 0 to the running total is a no-op, but upserting a 0-second
+		// bucket is not: bucket_count > 0 is what turns the roster's
+		// minutesThisWeek from "—" (never measured) into "0 分钟". A
+		// heartbeat that measured nothing must leave that state alone.
+		return nil
+	}
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		return err
