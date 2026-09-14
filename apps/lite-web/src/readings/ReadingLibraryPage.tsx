@@ -82,15 +82,15 @@ export function ReadingLibraryPage() {
   }
 
   return (
-    <div className="learning-landing mk-branch-hues min-h-full">
+    <div className="learning-landing learning-library mk-branch-hues min-h-full">
       <div className="learning-landing-measure learning-landing-wide mx-auto w-full">
         <div className="flex justify-center">
           <ReadingsTabs active="library" libraryCount={shelf?.articles.length} />
         </div>
 
-        <LandingHeader kind="reading" title="分级阅读" description="同一篇报道有五个难度版本。请选择话题和适合自己的阅读难度。" />
+        <LandingHeader kind="reading" title="分级阅读" description="每篇报道提供五个难度版本，可按学科和阅读难度选择。" />
 
-        <div className="mt-5 flex flex-col gap-3">
+        <div className="reading-library-filters flex flex-col gap-3">
           <label className="relative block">
             <span className="sr-only">搜索文章</span>
             <Search
@@ -108,6 +108,7 @@ export function ReadingLibraryPage() {
           </label>
 
           <div className="flex flex-wrap items-center gap-1.5">
+            <span className="reading-filter-label">学科</span>
             <FilterChip label="全部学科" active={field === ""} onPick={() => setField("")} />
             {(shelf?.fields ?? []).map((f) => (
               <FilterChip
@@ -121,7 +122,7 @@ export function ReadingLibraryPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="pr-1 text-mk-label text-mk-muted">默认难度</span>
+            <span className="reading-filter-label">阅读难度</span>
             {TIER_NAMES.map((name, i) => (
               <FilterChip key={name} label={name} active={tier === i + 1} onPick={() => setTier(i + 1)} />
             ))}

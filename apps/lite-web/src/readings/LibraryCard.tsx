@@ -49,7 +49,7 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
   // 现在它是一次明确的点击，不再是一次误触。
   const [tier, setTier] = useState(defaultTier);
   const [picking, setPicking] = useState(false);
-  const hue = fieldById(article.field as FieldId).hue;
+  const hue = "var(--mk-accent-500)";
   const level = article.levels.find((l) => l.tier === tier) ?? article.levels[1] ?? article.levels[0];
   // 她手上还开着的那一档（没有就是 0）。
   const openTier = (article.readingId && !article.finished ? article.readTier : 0) ?? 0;
@@ -57,18 +57,18 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
 
   return (
     <article
-      className="flex flex-col overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface shadow-mk-xs transition-shadow duration-[120ms] ease-mk hover:shadow-mk-sm"
+      className="reading-library-card flex flex-col overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface shadow-mk-xs transition-shadow duration-[120ms] ease-mk hover:shadow-mk-sm"
     >
       {article.coverUrl && (
         <img
           src={article.coverUrl}
           alt={article.zhTitle}
           loading="lazy"
-          className="h-[132px] w-full object-cover"
+          className="reading-library-cover w-full object-cover"
         />
       )}
 
-      <div className="flex flex-1 flex-col gap-2 px-4 pb-3 pt-3">
+      <div className="reading-library-content flex flex-1 flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-mk-body font-semibold leading-snug text-mk-ink">{article.zhTitle}</h3>
           {article.finished && (
@@ -78,8 +78,8 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
             </span>
           )}
         </div>
-        <p className="text-mk-label leading-snug text-mk-muted">{article.title}</p>
-        <p className="text-mk-small leading-relaxed text-mk-secondary">{article.reason}</p>
+        <p className="reading-library-english text-mk-muted">{article.title}</p>
+        <p className="reading-library-description text-mk-secondary">{article.reason}</p>
 
         <div className="mt-0.5 flex flex-wrap gap-1.5">
           {article.tags.map((t) => (
@@ -100,7 +100,7 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
           <p className="text-mk-label text-mk-muted">因为你关心{why.join("、")}</p>
         )}
 
-        <div className="mt-auto pt-2">
+        <div className="reading-library-footer mt-auto">
           {picking ? (
             <fieldset className="flex flex-col gap-2">
               <legend className="pb-1.5 text-mk-label text-mk-muted">选择难度</legend>
@@ -128,7 +128,7 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
                 }
                 onStart(article.slug, tier);
               }}
-              className="rounded-mk-full px-3.5 py-1.5 text-mk-small font-medium text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
+              className="reading-library-start rounded-mk-full px-3.5 py-1.5 text-mk-small font-medium text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
               style={{ background: `color-mix(in srgb, ${hue} 82%, black)` }}
             >
               {/* 🚨 不叫「开始阅读」：粘贴框那个提交按钮已经叫这个名字了，
@@ -138,7 +138,7 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
             <button
               type="button"
               onClick={() => setPicking((v) => !v)}
-              className="rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
+              className="reading-library-change rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
             >
               {picking ? "收起难度" : "换一档"}
             </button>

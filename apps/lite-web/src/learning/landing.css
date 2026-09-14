@@ -200,3 +200,125 @@
     margin-left: auto;
   }
 }
+
+/* Reading catalogue: quieter controls and editorial article hierarchy. */
+.learning-library .learning-landing-header {
+  min-height: 166px;
+  padding: 12px 0 18px;
+}
+.learning-library .learning-landing-header > img {
+  width: 180px;
+  height: 132px;
+}
+.learning-library .learning-landing-header h1 {
+  margin: 8px 0 10px;
+}
+.reading-library-filters {
+  padding: 8px 0 18px;
+  border-bottom: 1px solid var(--learning-line);
+}
+.reading-library-filters input {
+  min-height: 44px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.reading-filter-label {
+  min-width: 60px;
+  font-size: 12px;
+  color: var(--learning-muted);
+}
+.reading-library-filters button,
+.reading-library-footer .text-mk-label {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.6;
+}
+.reading-library-card {
+  border-radius: 14px;
+}
+.reading-library-cover {
+  height: 174px;
+}
+.reading-library-content {
+  padding: 18px;
+}
+.reading-library-content h3 {
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.reading-library-english {
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.reading-library-description {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.reading-library-footer {
+  padding-top: 18px;
+}
+.learning-landing .reading-library-start {
+  min-height: 36px;
+  border-radius: 9px;
+}
+.learning-landing .reading-library-change {
+  min-height: 36px;
+  border-color: transparent;
+  border-radius: 9px;
+}
+@media (max-width: 700px) {
+  .learning-library .learning-landing-header {
+    min-height: 156px;
+    gap: 8px;
+  }
+  .learning-library .learning-landing-header > img {
+    width: 76px;
+    height: 100px;
+  }
+  .reading-library-cover {
+    height: 164px;
+  }
+  .reading-library-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 700px) {
+  .reading-library-filters > div {
+    column-gap: 5px;
+  }
+  .reading-library-filters > div:nth-of-type(2) .reading-filter-label {
+    flex-basis: 100%;
+    margin-bottom: 2px;
+  }
+  .reading-library-filters > div:nth-of-type(2) button {
+    flex: 1;
+    padding-inline: 7px;
+  }
+}
+
+.learning-library .reading-library-filters input {
+  background: var(--learning-surface);
+  border-color: var(--learning-line);
+  color: var(--learning-ink);
+}
+:root[data-theme="dark"] .reading-library-filters button {
+  border-color: var(--learning-line) !important;
+  color: var(--learning-muted) !important;
+}
+:root[data-theme="dark"] .reading-library-filters button[aria-pressed="true"] {
+  border-color: var(--mk-accent-700) !important;
+  color: var(--mk-accent-700) !important;
+}
+:root[data-theme="dark"] .reading-library-content span[style],
+:root[data-theme="dark"] .reading-library-footer button[aria-pressed="true"] {
+  color: var(--learning-ink) !important;
+}
+.learning-landing .reading-library-change {
+  color: var(--learning-muted);
+}
