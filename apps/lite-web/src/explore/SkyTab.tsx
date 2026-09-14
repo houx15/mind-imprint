@@ -28,7 +28,7 @@ import type { MeUser } from "../api/auth";
 export type SkySurface = "map" | "tree";
 
 const SWITCHES: { key: SkySurface; label: string; icon: typeof Telescope }[] = [
-  { key: "map", label: "今日探索地图", icon: Telescope },
+  { key: "map", label: "今日发现", icon: Telescope },
   { key: "tree", label: "我的兴趣树", icon: Sprout },
 ];
 
@@ -52,7 +52,7 @@ export function SkyTab({
 
           🚨 它跟着脚下那一屏换色（2026-09-12）。地图是夜、树是纸，一块写死的
           深色药丸摆在纸上，看起来是别的产品掉下来的一个控件。 */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-4">
+      <div className="student-sky-switch pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-4">
         <div
           className="pointer-events-auto flex items-center gap-1 rounded-mk-full p-1 backdrop-blur-md"
           style={

@@ -438,7 +438,7 @@ export function Board({
         </svg>
 
         {notes.length === 0 && (
-          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>暂无便签。请在上方记录第一条材料。</p></div>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.ideas} alt="" /><p>暂无便签。请在上方记录第一条材料。</p></div>
         )}
 
         {notes.map((n) => {

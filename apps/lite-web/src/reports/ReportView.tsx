@@ -127,6 +127,24 @@ export function ReportView({
   // report already in the database. See statLabels.ts.
   const stats = report.stats.filter((stat) => stat.value !== 0).map((stat) => displayStat(stat, report.kind));
 
+  if (report.kind === "reading") return (
+    <article className="mk-rp mk-rp-measure student-reading-journal">
+      <header className="journal-masthead"><span>READING JOURNAL · 阅读手记</span><div>{actions}</div></header>
+      {sharePanel}
+      <div className="journal-cover">
+        <div><p className="journal-byline">{report.studentName} <span>／ {date}</span></p><h1>{report.title}</h1><p className="journal-caption">一次阅读的记录</p></div>
+        <img src={studentArtwork.keepsake} alt="" />
+      </div>
+      <StatStrip stats={stats} />
+      <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
+      <Moments moments={report.moments} />
+      <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Gains gains={report.gains} />
+      <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
+      <footer className="journal-colophon">{report.studentName} · 阅读手记 <span>{date}</span></footer>
+    </article>
+  );
+
   return (
     <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
       <Hero

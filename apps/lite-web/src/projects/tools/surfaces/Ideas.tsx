@@ -321,7 +321,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         ))}
 
         {ideas.length === 0 && (
-          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.project} alt="" /><p>暂无想法。请在上方记录一个解决办法。</p></div>
+          <div className="student-tool-empty absolute inset-0"><img src={studentArtwork.ideas} alt="" /><p>暂无想法。请在上方记录一个解决办法。</p></div>
         )}
 
         {ideas.map((n) => (

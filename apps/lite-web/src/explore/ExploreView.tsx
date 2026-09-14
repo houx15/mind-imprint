@@ -1,48 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { DiscoveryDesk } from "./DiscoveryDesk";
+import { useEffect, useMemo, useState } from "react";
 import { Info, Languages } from "lucide-react";
-import { fieldById } from "../tree/geometry";
 import { KeywordDrawer } from "../tree/KeywordDrawer";
-import { Sys, cx } from "../tree/ui";
+import { Sys } from "../tree/ui";
 import type { FieldId } from "../tree/types";
 import type { LiveTree } from "../tree/useInterestTree";
-import { useFitScale } from "../tree/useFitScale";
-import { Planet, type Lang } from "./Planet";
+import { type Lang } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
-import { PLANET_SLOTS, STAGE, type SkyPlanet, pickWords, placeWords, planetThreads } from "./skyLayout";
+import { type SkyPlanet, pickWords, placeWords, planetThreads } from "./skyLayout";
 import { useExploreToday } from "./useExploreToday";
 import "./explore.css";
 
-/**
- * 探索 · 今日新闻星图。
- *
- * ## 这一屏建立在五条规则上
- *
- * 1. **正好五颗，每颗是一条新闻。** 不是一个分类，不是一条信息流。五件今天
- *    值得知道的事，有排序。一个刷不完的列表会把「每天来看一眼」变成「每天在
- *    这里待着」。
- * 2. **一颗泡泡自己说出它是什么。** 标题就在玻璃里面。五个没有标签的圆圈是在
- *    要求学生盲点，而它「揭晓」的东西恰恰是本来就该先告诉她的。
- * 3. **被留在后面的是钩子。** 悬停一颗星球，升起的是这条新闻**向她提出的
- *    问题**。问题才是让一个十五岁的人凑近的东西。
- * 4. **省略要被说出来。** 政治与冲突在**抓取那一层**就被过滤掉（见
- *    `internal/news/filter.go`），右上角的 ⓘ 把这件事说全。一个被过滤过的集合
- *    如果摆成「全部」，那是用版面撒谎。
- * 5. **一颗星球的颜色 = 它属于树的哪根枝。** 两屏共用同一套七色，所以一颗蓝色
- *    的星球和树上那根蓝色的枝是同一件事。
- * 6. **外圈是她自己的词，不是我们的猜测**（2026-09-07）。上一版那圈是推荐词，
- *    和她的词长得一模一样、摆在同一个位置上，于是这张图同时在说两件事却没有
- *    任何东西把它们分开。现在外圈只有她树上已经有的词，五颗新闻星向它们连线：
- *    一条线的意思是「今天这条和你已经在意的这个词扎在同一门学问上」。点开一个
- *    词，打开的是树上那一屏的同一个抽屉。
- *
- * ## 从原型搬过来时改掉的三件事（2026-09-03）
- *
- * - **数据是真的。** 十二个源、抓取、去重、政治过滤、一次模型调用选五条 ——
- *   全在服务端（`internal/news` + `internal/api/explore.go`）。
- * - **按八个「领域」上色改成按七根主枝上色。** 原来那套分类只活在这一屏里。
- * - **日期轴去掉了。** 原型可以左右翻五天的 mock 数据；真数据现在只有今天。
- *   翻看历史是后面的事，摆一个只能停在今天的轴是一个骗人的控件。
- */
+/** Today's edition keeps server ranking, read/save state and keyword associations.
+ * The discovery desk previews stories; only opening details records "seen".
+ * Loading, failure and regeneration retain the existing API behavior. */
 
 const SELECTION_NOTE =
   "这五条是从十二个科学期刊与科普源（Nature、Quanta、arXiv、Phys.org、ScienceDaily 等）当天的" +
@@ -55,16 +26,9 @@ const POLITICS_NOTE =
 export function ExploreView({ tree }: { tree: LiveTree }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [openWord, setOpenWord] = useState<string | null>(null);
-  const [hotPlanet, setHotPlanet] = useState<string | null>(null);
-  const [hotWord, setHotWord] = useState<string | null>(null);
   const [seen, setSeen] = useState<string[]>([]);
   const [lang, setLang] = useState<Lang>("zh");
   const [note, setNote] = useState(false);
-  const fieldRef = useRef<HTMLDivElement>(null);
-  // 星球是固定像素，舞台会缩。没有这个，700px 高的窗口上 1 号星球的标题会压到
-  // 5 号身上。
-  const scale = useFitScale(fieldRef, 640, 0.58);
-
   const live = useExploreToday();
 
   // 外圈是**她树上已经有的词**。挑哪几个、摆在哪，全在 skyLayout 里算 ——
@@ -96,18 +60,6 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
   const threads = useMemo(() => planetThreads(skyPlanets, stars), [skyPlanets, stars]);
   const openKw = openWord ? (tree.keywords.find((k) => k.id === openWord) ?? null) : null;
 
-  // 悬停一颗星球，它连着的那几个词一起亮，其余压暗；悬停一个词，反过来。
-  // 静止时所有连线都很淡 —— 这一屏第一眼要读到的是「今天有五条」，不是一张网。
-  const focus = hotPlanet ?? hotWord;
-  const litWords = new Set<string>();
-  const litThreads = new Set<string>();
-  if (focus) {
-    for (const t of threads) {
-      if (t.planetId !== focus && t.to.id !== focus) continue;
-      litWords.add(t.to.id);
-      litThreads.add(`${t.planetId}-${t.to.id}`);
-    }
-  }
   const open = openId ? (live.planets.find((p) => p.id === openId) ?? null) : null;
   const lit = live.planets.filter((p) => seen.includes(p.id)).length;
   const known = live.status === "ready" || live.status === "empty";
@@ -118,11 +70,11 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
   }
 
   return (
-    <div className="exp-sky exp-stars relative flex min-h-full flex-col overflow-hidden">
+    <div className="exp-sky discovery-page relative flex min-h-full flex-col overflow-hidden">
       {/* ── 顶栏 ─────────────────────────────────────────────────────────── */}
       <header className="relative z-20 flex flex-wrap items-start justify-between gap-4 px-7 pt-5">
         <div className="min-w-0">
-          <Sys tone="dark">今日探索地图 · EXPLORATION MAP</Sys>
+          <Sys tone="dark">今日发现 · DAILY DISCOVERY</Sys>
           <p className="mt-1 text-mk-h2 text-[var(--mk-explore-ink)]">
             {live.day ? formatDay(live.day) : "今天"}
           </p>
@@ -170,98 +122,9 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
         </div>
       ) : null}
 
-      {/* ── 星图 ─────────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 px-7 pb-10 pt-4">
-        <div
-          ref={fieldRef}
-          className="relative mx-auto h-full w-full"
-          style={{ minHeight: "min(640px, calc(100vh - 260px))", maxWidth: 1180 }}
-        >
-          {/* 连线：一颗新闻星到她的一个词。坐标是百分比，所以 viewBox 也用百分比，
-              端点永远和星对齐。
-
-              🚨 `--hue` 直接用 `fieldById(...).hue`，**不要再包一层 `var()`** ——
-              那个值本身就是 `"var(--mk-lake)"`，包成 `var(var(--mk-lake))` 是无效
-              的，而无效的后果是整条线一声不响地不见了。 */}
-          {threads.length > 0 ? (
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              aria-hidden
-            >
-              {threads.map((t) => {
-                const key = `${t.planetId}-${t.to.id}`;
-                return (
-                  <line
-                    key={key}
-                    x1={(t.from.x / STAGE.w) * 100}
-                    y1={(t.from.y / STAGE.h) * 100}
-                    x2={t.to.xPct}
-                    y2={t.to.yPct}
-                    vectorEffect="non-scaling-stroke"
-                    strokeWidth={t.strength >= 2 ? 1.4 : 1}
-                    className={cx("exp-thread", litThreads.has(key) && "exp-thread-lit")}
-                    style={{ ["--hue" as string]: fieldById(t.to.field).hue }}
-                  />
-                );
-              })}
-            </svg>
-          ) : null}
-
-          {stars.map((star) => (
-            <button
-              key={star.id}
-              type="button"
-              onClick={() => setOpenWord(star.id)}
-              onMouseEnter={() => setHotWord(star.id)}
-              onMouseLeave={() => setHotWord(null)}
-              onFocus={() => setHotWord(star.id)}
-              onBlur={() => setHotWord(null)}
-              className={cx(
-                "exp-star",
-                star.drift,
-                focus && litWords.has(star.id) && "exp-star-lit",
-                focus && !litWords.has(star.id) && star.id !== focus && "exp-star-dim",
-              )}
-              style={
-                {
-                  left: `${star.xPct}%`,
-                  top: `${star.yPct}%`,
-                  "--hue": fieldById(star.field).hue,
-                } as React.CSSProperties
-              }
-            >
-              <span className="exp-star-dot" />
-              <span className="exp-star-name">{star.zh}</span>
-            </button>
-          ))}
-
-          <ExploreState live={live} />
-
-          {live.planets.map((p) => {
-            const slot = PLANET_SLOTS[p.rank] ?? PLANET_SLOTS[5]!;
-            return (
-              <Planet
-                key={p.id}
-                item={p}
-                lang={lang}
-                slot={{
-                  x: `${slot.xPct}%`,
-                  y: `${slot.yPct}%`,
-                  drift: slot.drift,
-                  size: Math.round(slot.size * scale),
-                }}
-                discovered={seen.includes(p.id)}
-                kept={p.saved}
-                finished={p.finished}
-                dimmed={false}
-                onOpen={() => onOpen(p.id)}
-                onHover={(on) => setHotPlanet(on ? p.id : null)}
-              />
-            );
-          })}
-        </div>
+      <div className="discovery-stage relative">
+        <ExploreState live={live} />
+        <DiscoveryDesk planets={live.planets} lang={lang} seen={seen} onOpen={onOpen} connections={threads} onWord={setOpenWord} />
       </div>
 
       <NewsSheet
@@ -386,4 +249,4 @@ function formatDay(day: string): string {
   return `${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${week}`;
 }
 
-export { cx };
+export { cx } from "../tree/ui";

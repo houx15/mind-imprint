@@ -7,10 +7,10 @@ import { displayStat } from "./statLabels";
  * ReportPoster — the picture she can send someone, not a shrunk copy of
  * `ReportView`. The product owner's own words: "should not be verbose, but
  * be good looking … like lark meeting notes they would conclude some 金句
- * … with student's name and effort be noted." So the content is a fixed,
+ * … with student's name and effort be noted." So the content is a concise,
  * short list — her name, the title, the date, the stats as large numerals,
- * and up to three 金句 given real room — and nothing else: no kind label,
- * no brand mark, no share chrome, no 收获 list. Restraint is the point.
+ * and up to three 金句 given real room. Reading also includes the student's
+ * takeaway with attribution and grows vertically to fit its contents.
  *
  * ## Offscreen, not hidden — and the offset goes on the WRAPPER
  *
@@ -41,6 +41,8 @@ import { displayStat } from "./statLabels";
  * browser export check verifies both actual content and the resulting colors.
  */
 
+// Reading journals use content height so short records do not export a half-empty sheet.
+// Writing retains its fixed poster layout. All quoted/generated text keeps attribution.
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif';
 
@@ -80,13 +82,8 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     // of 0 is absence, not a fact worth putting in the picture she sends to
     // a parent. No row at all when nothing survives.
     //
-    // Capped at MAX_POSTER_STATS, unlike the page, which shows every one. The
-    // page can grow downwards; this is a fixed 1080×1440 box, and the server
-    // now sends seven reading stats — enough to wrap the strip onto a second
-    // row and push the 金句 off the bottom edge, silently, with `overflow:
-    // hidden` swallowing the evidence. The first four are the first four the
-    // server emits (time, volume, conversation, marks), which is the order
-    // that survives a crop best.
+    // Keep the exported summary to four stats, in the server's original order.
+    // The full report page continues to show every supplied stat.
     // Same client-side label resolution as the page — a stored report carries
     // whatever wording it was generated with (see statLabels.ts).
     const stats = report.stats
@@ -104,7 +101,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
         style={{
           position: "static",
           width: 1080,
-          height: 1440,
+          height: report.kind === "reading" ? "auto" : 1440,
           overflow: "hidden",
           boxSizing: "border-box",
           display: "flex",
@@ -118,7 +115,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
         <header style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: 260 }}>
             <span style={{ fontSize: 24, letterSpacing: 3, color: MUTED }}>{report.kind === "reading" ? "READING JOURNAL" : "WRITING JOURNAL"}</span>
-            <img src={studentArtwork[report.kind]} alt="" style={{ width: 340, height: 260, objectFit: "contain" }} />
+            <img src={report.kind === "reading" ? studentArtwork.keepsake : studentArtwork.writing} alt="" style={{ width: 340, height: 260, objectFit: "contain" }} />
           </div>
           <h1
             style={{
@@ -147,9 +144,10 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                   style={{
                     flex: "1 1 200px",
                     minWidth: 200,
-                    borderRadius: 28,
-                    background: bg,
-                    padding: "30px 34px",
+                    borderRadius: report.kind === "reading" ? 0 : 28,
+                    background: report.kind === "reading" ? "transparent" : bg,
+                    padding: report.kind === "reading" ? "24px 0" : "30px 34px",
+                    borderTop: report.kind === "reading" ? "1px solid var(--mk-border)" : undefined,
                     display: "flex",
                     flexDirection: "column",
                     gap: 8,
@@ -181,13 +179,19 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           </div>
         )}
 
+        {report.kind === "reading" && report.keep && <section style={{ padding: "30px 0", borderTop: "1px solid var(--mk-border)" }}>
+          <p style={{ fontSize: 22, color: MUTED, margin: "0 0 18px" }}>{report.keep.label}</p>
+          <p style={{ fontSize: 38, lineHeight: 1.65, color: INK, margin: 0 }}>{report.keep.text}</p>
+          <p style={{ fontSize: 20, color: MUTED, margin: "18px 0 0" }}>{report.keep.source === "student" ? report.studentName : "印记根据这次阅读整理"}</p>
+        </section>}
+
         {moments.length > 0 && (
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               gap: 26,
-              flex: 1,
+              flex: report.kind === "reading" ? "none" : 1,
               minHeight: 0,
             }}
           >
@@ -198,11 +202,12 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                   key={`${m.where}-${i}`}
                   style={{
                     margin: 0,
-                    flex: 1,
+                    flex: report.kind === "reading" ? "none" : 1,
                     minHeight: 0,
-                    borderRadius: 28,
-                    background: bg,
-                    padding: "34px 42px",
+                    borderRadius: report.kind === "reading" ? 0 : 28,
+                    background: report.kind === "reading" ? "transparent" : bg,
+                    padding: report.kind === "reading" ? "34px 0" : "34px 42px",
+                    borderTop: report.kind === "reading" ? "1px solid var(--mk-border)" : undefined,
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",

@@ -803,7 +803,7 @@ export function ReadingRoom({
           {/* 我现在在第几步 — the present tense, always visible. The DIAL is the
               plan (every step, one hover away); this row is the one step she
               is on. Deliberately two surfaces, deliberately different jobs. */}
-          <StepIndicator tasks={tasks} />
+          <StepIndicator tasks={tasks} onLocate={locateBlock} />
           {/* ONE 印记. Same character, same `atom_message` table, one thread on
               screen instead of two. */}
           <ReadingCoachPanel
