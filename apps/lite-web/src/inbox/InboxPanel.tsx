@@ -131,7 +131,7 @@ export function InboxPanel({
                       <span
                         aria-label="未读"
                         className="h-2 w-2 shrink-0 rounded-mk-full"
-                        style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px #fff" }}
+                        style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px var(--mk-surface)" }}
                       />
                     )}
                     <span
