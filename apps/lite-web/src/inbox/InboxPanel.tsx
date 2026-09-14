@@ -140,6 +140,9 @@ export function InboxPanel({
                       {item.title}
                     </span>
                   </span>
+                  {item.instructions.trim() && (
+                    <span className="line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</span>
+                  )}
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mk-small text-mk-muted">
                     {item.className && <span>{item.className}</span>}
                     {item.dueAt && <span>截止 {formatDeadline(item.dueAt)}</span>}

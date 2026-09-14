@@ -59,6 +59,9 @@ export function AssignmentStrip({ kind, className = "" }: { kind: AssignmentKind
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-mk-body font-semibold text-mk-ink">{item.title}</p>
+              {item.instructions.trim() && (
+                <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</p>
+              )}
               {item.dueAt && (
                 <p className="mt-0.5 text-mk-small text-mk-muted">截止 {formatDeadline(item.dueAt)}</p>
               )}
