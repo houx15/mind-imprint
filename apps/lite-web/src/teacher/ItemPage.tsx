@@ -35,6 +35,18 @@ import { useAlive } from "../shared/useAlive";
  * already set and does not schedule a second one, and by the time the timer
  * actually fires (~3s later, long after the synthetic remount has settled)
  * `alive.current` is `true` again — so the one real retry always lands.
+ *
+ * 🚨 `alive.current` alone is not enough to gate that timer's result: this
+ * page has no `key`, so an item→item route change (or pressing 重试 inside
+ * the 3s window) keeps `ItemPage` mounted with the SAME component instance
+ * while `classId`/`userId`/`atomId` move on. A timer scheduled for the OLD
+ * item is still "alive" by every measure `alive.current` checks — the
+ * component never unmounted — so without a second guard its response would
+ * land on top of the NEW item's detail. `loadGen` is that second guard: the
+ * main load effect bumps it on every load (a prop change or a 重试 click),
+ * the timer captures the generation it was scheduled under, and it drops
+ * its result — never touching `detail` or `retriedProse` — the moment that
+ * number has moved on.
  */
 export function ItemPage({
   classId,
@@ -51,15 +63,24 @@ export function ItemPage({
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const [retriedProse, setRetriedProse] = useState(false);
+  const [proseError, setProseError] = useState<string | null>(null);
   const proseOnce = useRef(false);
+  // 每次真正的加载（换项目，或按了 重试）都往前走一格。定时器排上号的时候
+  // 记一份快照；等它真的响的时候，这个数如果已经变了，说明她已经离开了那个
+  // 项目（或者按过 重试），这份迟到的回答就只能被认成过期，绝不能落到
+  // `detail`/`retriedProse` 上盖住她现在正看着的那个项目。
+  const loadGen = useRef(0);
   const alive = useAlive();
 
   useEffect(() => {
     let cancelled = false;
+    // 每次真正的加载都往前走一格——见上面 `loadGen` 的注释。
+    loadGen.current += 1;
     proseOnce.current = false;
     setDetail(null);
     setError(null);
     setRetriedProse(false);
+    setProseError(null);
     getItem(classId, userId, atomId)
       .then((d) => {
         if (!cancelled) setDetail(d);
@@ -76,17 +97,22 @@ export function ItemPage({
     if (!detail?.report?.prosePending) return;
     if (proseOnce.current) return;
     proseOnce.current = true;
+    const myGen = loadGen.current;
     // 🚨 不在 cleanup 里 clearTimeout——见文件头注释，那正是会把这次重试在
     // StrictMode 下吞掉的组合。
     setTimeout(() => {
       getItem(classId, userId, atomId)
         .then((d) => {
           if (!alive.current) return;
+          if (loadGen.current !== myGen) return; // 她已经换了项目/按过重试，这份回答过期了。
           setDetail(d);
           setRetriedProse(true);
         })
-        .catch(() => {
-          if (alive.current) setRetriedProse(true);
+        .catch((e: unknown) => {
+          if (!alive.current) return;
+          if (loadGen.current !== myGen) return;
+          // 一次真的请求失败，不是「还没生成好」——两句话不能混着说。
+          setProseError(e instanceof ApiError ? e.message : String(e));
         });
     }, 3000);
   }, [detail, classId, userId, atomId, alive]);
@@ -113,7 +139,7 @@ export function ItemPage({
         ) : detail === null ? (
           <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
         ) : (
-          <ItemBody detail={detail} retriedProse={retriedProse} />
+          <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
         )}
       </div>
     </div>
@@ -134,7 +160,17 @@ function shortDate(iso: string | null): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-function ItemBody({ detail, retriedProse }: { detail: ItemDetail; retriedProse: boolean }) {
+function ItemBody({
+  detail,
+  retriedProse,
+  proseError,
+}: {
+  detail: ItemDetail;
+  retriedProse: boolean;
+  /** I5: a real request error re-fetching the prose — never rendered as the
+   *  「处理中」pending label, which would misreport a failure as a wait. */
+  proseError: string | null;
+}) {
   const { item } = detail;
   return (
     <>
@@ -153,6 +189,7 @@ function ItemBody({ detail, retriedProse }: { detail: ItemDetail; retriedProse: 
         reportError={detail.reportError}
         kind={item.kind === "writing" ? "writing" : "reading"}
         retriedProse={retriedProse}
+        proseError={proseError}
       />
       <ReadingSection reading={detail.reading} />
       <WritingSection writing={detail.writing} />
@@ -166,11 +203,13 @@ function ReportSection({
   reportError,
   kind,
   retriedProse,
+  proseError,
 }: {
   report: ItemDetail["report"];
   reportError: string | null;
   kind: AtomKind;
   retriedProse: boolean;
+  proseError: string | null;
 }) {
   if (reportError) {
     // 服务端已经把「报告生成失败：」拼进这句原话里了，原样显示，不再叠一层
@@ -231,11 +270,15 @@ function ReportSection({
         </div>
       )}
 
-      {pendingLabel && (
+      {proseError ? (
+        <p className="mt-3 text-mk-small font-semibold text-mk-danger" role="status" aria-live="polite">
+          报告加载失败：{proseError}
+        </p>
+      ) : pendingLabel ? (
         <p className="mt-3 text-mk-small text-mk-muted" role="status" aria-live="polite">
           {pendingLabel}
         </p>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -295,7 +338,8 @@ function ReadingSection({ reading }: { reading: ItemDetail["reading"] }) {
           <div className="mt-2 flex flex-col gap-2">
             {lenses.map((l, i) => (
               <div key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
-                <dl className="flex flex-col gap-1">
+                {l.title && <p className="text-mk-small font-bold text-mk-ink">{l.title}</p>}
+                <dl className={l.title ? "mt-1.5 flex flex-col gap-1" : "flex flex-col gap-1"}>
                   {Object.entries(l.fields)
                     .filter((entry): entry is [string, string] => typeof entry[1] === "string")
                     .map(([k, v]) => (
@@ -390,8 +434,9 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
 
 function ProjectSection({ project }: { project: ItemDetail["project"] }) {
   if (!project) return null;
-  // `steps` 在服务端为 null 表示「还没有落地计划」，按空列表处理。
-  const steps = project.steps ?? [];
+  // `steps` 服务端「还没有落地计划」时发 `null`——`normalizeItemDetail` 已经
+  // 把它收口成空数组（C1），这里不用再兜一次。
+  const { steps } = project;
 
   return (
     <section className="mt-8">

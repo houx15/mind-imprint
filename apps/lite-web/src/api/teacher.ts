@@ -61,7 +61,10 @@ export interface ItemDetail {
     source: { librarySlug: string | null; level: number | null; url: string | null } | null;
     highlights: { quote: string; note: string }[];
     takeaway: string | null;
-    lenses: { cardId: string; fields: Record<string, unknown> }[];
+    // 🚨 Go 端（`liteLensDTO`, lite_teacher_item.go）发的是 `{title, fields}`
+    // ——`title` 是卡 spec 的 name，线上没有 `cardId` 这个字段。这里的类型
+    // 原来写的是 `cardId`，是一个从没被任何真实响应喂到过的死字段。
+    lenses: { title: string; fields: Record<string, unknown> }[];
   } | null;
   writing: {
     targetWords: number | null;
@@ -77,7 +80,10 @@ export interface ItemDetail {
     status: string;
     stepsDone: number;
     stepsTotal: number;
-    steps: { title: string; status: string }[] | null;
+    // 🚨 服务端（`ListPblPlanSteps` 为空时 `version == nil`）发的是 `null`，
+    // 不是 `[]`——`normalizeItemDetail` 把它收口成空数组，这里就不再是
+    // nullable：调用方不用在每个读点自己写一次 `?? []`。
+    steps: { title: string; status: string }[];
     tools: { key: string; status: string; result: unknown }[];
     artifacts: { title: string; payload: unknown }[];
     keeps: { text: string }[];
@@ -90,6 +96,9 @@ export interface ItemDetail {
 
 const n = (v: unknown) => (typeof v === "number" ? v : 0);
 const s = (v: unknown) => (typeof v === "string" ? v : "");
+const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const obj = (v: unknown): Record<string, unknown> =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 
 export function normalizeRosterRow(raw: Record<string, unknown>): RosterRow {
   return {
@@ -124,10 +133,99 @@ export async function getStudentPage(classId: string, userId: string): Promise<S
   return { student: normalizeRosterRow(r.student ?? {}), items: r.items ?? [] };
 }
 
+/**
+ * normalizeItemDetail — guards every array/object field the server can send
+ * as `null` so `ItemPage` never has to null-check before `.length`, `.map`
+ * or `Object.entries` at each call site.
+ *
+ * This is a real, hit-on-every-load bug, not a defensive-programming
+ * exercise: `atom_report.go`'s `Moments`/`Stats`/`Keep` fields are all
+ * `json:",omitempty"`, and `liteTeacherReport` (lite_teacher_item.go)
+ * copies them straight through as `json.RawMessage` — a nil slice/map
+ * marshals to the JSON literal `null`, not `[]`/`{}`. So `report.moments`
+ * arrives `null` on EVERY phase-1 report (`prosePending: true`, i.e. the
+ * common case right after an item finishes), and `project.steps` arrives
+ * `null` whenever a project has no live plan version yet
+ * (`GetPblLivePlan` → `pgx.ErrNoRows` → `version == nil`, lite_teacher_item.go).
+ * The student-facing report already normalizes this exact shape of bug —
+ * see `normalizeReport` in `api/reports.ts` (`raw.moments ?? []`).
+ */
+export function normalizeItemDetail(raw: Record<string, unknown>): ItemDetail {
+  return {
+    item: (raw.item ?? {}) as ItemRow,
+    reading: normalizeReading(raw.reading),
+    writing: normalizeWriting(raw.writing),
+    project: normalizeProject(raw.project),
+    report: normalizeReportSlice(raw.report),
+    reportError: typeof raw.reportError === "string" ? raw.reportError : null,
+  };
+}
+
+function normalizeReportSlice(raw: unknown): ReportSlice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    stats: arr(r.stats),
+    moments: arr(r.moments),
+    keep: (r.keep ?? null) as ReportSlice["keep"],
+    prosePending: r.prosePending === true,
+  };
+}
+
+function normalizeReading(raw: unknown): NonNullable<ItemDetail["reading"]> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    source: (r.source ?? null) as NonNullable<ItemDetail["reading"]>["source"],
+    highlights: arr(r.highlights),
+    takeaway: typeof r.takeaway === "string" ? r.takeaway : null,
+    lenses: arr<Record<string, unknown>>(r.lenses).map((l) => ({
+      title: s(l.title),
+      fields: obj(l.fields),
+    })),
+  };
+}
+
+function normalizeWriting(raw: unknown): NonNullable<ItemDetail["writing"]> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    targetWords: typeof r.targetWords === "number" ? r.targetWords : null,
+    lang: s(r.lang),
+    structureKey: s(r.structureKey),
+    outline: arr(r.outline),
+    snippets: arr(r.snippets),
+    draft: typeof r.draft === "string" ? r.draft : null,
+    comments: arr<Record<string, unknown>>(r.comments).map((c) => ({
+      scope: s(c.scope),
+      summary: s(c.summary),
+      points: arr(c.points),
+    })),
+  };
+}
+
+function normalizeProject(raw: unknown): NonNullable<ItemDetail["project"]> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    idea: s(r.idea),
+    status: s(r.status),
+    stepsDone: n(r.stepsDone),
+    stepsTotal: n(r.stepsTotal),
+    steps: arr(r.steps),
+    tools: arr(r.tools),
+    artifacts: arr(r.artifacts),
+    keeps: arr(r.keeps),
+    courses: arr(r.courses),
+    siteToken: typeof r.siteToken === "string" ? r.siteToken : null,
+  };
+}
+
 export async function getItem(classId: string, userId: string, atomId: string): Promise<ItemDetail> {
-  return apiFetch<ItemDetail>(
+  const r = await apiFetch<Record<string, unknown>>(
     `${base(classId)}/students/${encodeURIComponent(userId)}/items/${encodeURIComponent(atomId)}`,
   );
+  return normalizeItemDetail(r);
 }
 
 export async function getStudentTree(classId: string, userId: string): Promise<InterestTree> {

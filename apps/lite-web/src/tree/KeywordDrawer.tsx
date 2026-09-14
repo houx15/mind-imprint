@@ -125,7 +125,7 @@ export function KeywordDrawer({
         <h3 className="mt-7 text-mk-h3 text-mk-ink">相关活动</h3>
         <ul className="mt-3 space-y-2">
           {kw.sources.map((s) => (
-            <SourceRow key={`${s.kind}-${s.id}`} source={s} onNavigate={onClose} />
+            <SourceRow key={`${s.kind}-${s.id}`} source={s} onNavigate={onClose} readOnly={readOnly} />
           ))}
         </ul>
 
@@ -165,9 +165,63 @@ function pathFor(source: KeywordSource): string | null {
   }
 }
 
-function SourceRow({ source, onNavigate }: { source: KeywordSource; onNavigate: () => void }) {
+function SourceRow({
+  source,
+  onNavigate,
+  readOnly,
+}: {
+  source: KeywordSource;
+  onNavigate: () => void;
+  /** 教师视角：这条路是学生自己那个 app 的路由（`/readings/:id` 等），在
+   *  教师端点了会落到一个教师壳不认识的地方——所以这里整行收成纯文字，
+   *  不给 `<button>`/`<a>`、不接 `navigate`、也不留悬停手型。 */
+  readOnly: boolean;
+}) {
   const meta = KIND_LABEL[source.kind];
-  const target = pathFor(source);
+  const target = readOnly ? null : pathFor(source);
+
+  const inner = (
+    <>
+      <span className="flex items-center gap-2">
+        <span
+          className="tree-mono rounded-mk-full px-2 py-0.5"
+          style={{
+            background: `color-mix(in srgb, ${meta.hue} 16%, transparent)`,
+            color: `color-mix(in srgb, ${meta.hue} 72%, var(--tree-ink))`,
+            letterSpacing: 0,
+          }}
+        >
+          {meta.label}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-mk-ink">
+          {source.label}
+        </span>
+        <span className="font-mono text-[11px] text-mk-faint">{source.date}</span>
+      </span>
+      {source.evidence ? (
+        <span
+          className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-mk-secondary"
+          style={{ borderColor: meta.hue }}
+        >
+          「{source.evidence}」
+          <span className="mt-1 block not-italic text-[11px] text-mk-faint">你自己写的</span>
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (readOnly) {
+    return (
+      <li>
+        <div
+          className="w-full rounded-mk-md p-3 text-left"
+          style={{ border: "1px solid var(--tree-line)", background: "var(--mk-paper)" }}
+        >
+          {inner}
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li>
@@ -186,31 +240,7 @@ function SourceRow({ source, onNavigate }: { source: KeywordSource; onNavigate: 
         )}
         style={{ border: "1px solid var(--tree-line)", background: "var(--mk-paper)" }}
       >
-        <span className="flex items-center gap-2">
-          <span
-            className="tree-mono rounded-mk-full px-2 py-0.5"
-            style={{
-              background: `color-mix(in srgb, ${meta.hue} 16%, transparent)`,
-              color: `color-mix(in srgb, ${meta.hue} 72%, var(--tree-ink))`,
-              letterSpacing: 0,
-            }}
-          >
-            {meta.label}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-mk-ink">
-            {source.label}
-          </span>
-          <span className="font-mono text-[11px] text-mk-faint">{source.date}</span>
-        </span>
-        {source.evidence ? (
-          <span
-            className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-mk-secondary"
-            style={{ borderColor: meta.hue }}
-          >
-            「{source.evidence}」
-            <span className="mt-1 block not-italic text-[11px] text-mk-faint">你自己写的</span>
-          </span>
-        ) : null}
+        {inner}
       </button>
     </li>
   );
