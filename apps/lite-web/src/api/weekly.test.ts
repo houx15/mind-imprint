@@ -6,7 +6,6 @@ import {
   normalizeClassWeeklyProse,
   normalizeStudentWeekly,
   normalizeStudentWeeklyProse,
-  studentWeekIsEmpty,
   suggestionLabel,
   classCardProse,
 } from "./weekly";
@@ -45,10 +44,10 @@ describe("normalizeStudentWeekly", () => {
 
   it("reads stored prose and treats a null suggestions list as empty", () => {
     const w = normalizeStudentWeekly({
-      prose: { summary: "本周读完《一场雨》。", suggestions: null },
+      prose: { summary: "该周读完《一场雨》。", suggestions: null },
       proseReady: true,
     });
-    expect(w.prose).toEqual({ summary: "本周读完《一场雨》。", suggestions: [] });
+    expect(w.prose).toEqual({ summary: "该周读完《一场雨》。", suggestions: [] });
     expect(w.proseReady).toBe(true);
   });
 
@@ -70,7 +69,7 @@ describe("normalizeStudentWeeklyProse", () => {
   });
 
   it("has no error when proseError is null or blank", () => {
-    const prose = { summary: "本周读完《一场雨》。", suggestions: [] };
+    const prose = { summary: "该周读完《一场雨》。", suggestions: [] };
     expect(normalizeStudentWeeklyProse({ prose, proseReady: true, proseError: null }).proseError).toBeNull();
     expect(normalizeStudentWeeklyProse({ prose, proseReady: true, proseError: "  " }).proseError).toBeNull();
   });
@@ -89,7 +88,7 @@ describe("normalizeClassWeekly", () => {
       isLatest: true,
       stats: { classSize: 2, activeStudents: 1, minutes: 20, turns: 3, finished: 1 },
       praise: null,
-      watch: [{ kind: "watch", code: "overdue", label: "作业逾期", evidence: "本周到期的作业中有 1 份未完成。", userId: "u1", name: "王思远" }],
+      watch: [{ kind: "watch", code: "overdue", label: "作业逾期", evidence: "该周到期的作业中有 1 份未完成。", userId: "u1", name: "王思远" }],
       prose: null,
     });
     expect(w.title).toBe("上周班级周报 · 第 37 周（9.7–9.13）");
@@ -97,7 +96,7 @@ describe("normalizeClassWeekly", () => {
     expect(w.stats.classSize).toBe(2);
     expect(w.praise).toEqual([]);
     expect(w.watch).toEqual([
-      { kind: "watch", code: "overdue", label: "作业逾期", evidence: "本周到期的作业中有 1 份未完成。", userId: "u1", name: "王思远" },
+      { kind: "watch", code: "overdue", label: "作业逾期", evidence: "该周到期的作业中有 1 份未完成。", userId: "u1", name: "王思远" },
     ]);
   });
 
@@ -125,14 +124,40 @@ describe("proseErrorText", () => {
   });
 });
 
-describe("studentWeekIsEmpty", () => {
-  const base = normalizeStudentWeekly({});
-  it("is empty with no cards and no activity", () => expect(studentWeekIsEmpty(base)).toBe(true));
-  it("is not empty with a card", () =>
-    expect(studentWeekIsEmpty({ ...base, cards: [{ kind: "watch", code: "never_used", label: "本周未使用", evidence: "" }] })).toBe(false));
-  it("is not empty with an overdue assignment", () =>
-    expect(studentWeekIsEmpty({ ...base, facts: { ...base.facts, assignmentsOverdue: 1 } })).toBe(false));
-  it("is not empty with turns only", () => expect(studentWeekIsEmpty({ ...base, facts: { ...base.facts, turns: 2 } })).toBe(false));
+// hasPrev and empty are decided on the server. The page disables 上一周 and
+// skips the prose POST on them, so a missing or non-boolean value must not
+// read as true.
+describe("hasPrev and empty", () => {
+  it("reads both flags on a student week and defaults them to false", () => {
+    const w = normalizeStudentWeekly({ hasPrev: true, empty: true });
+    expect([w.hasPrev, w.empty]).toEqual([true, true]);
+    const missing = normalizeStudentWeekly({});
+    expect([missing.hasPrev, missing.empty]).toEqual([false, false]);
+    const loose = normalizeStudentWeekly({ hasPrev: "true", empty: 1 });
+    expect([loose.hasPrev, loose.empty]).toEqual([false, false]);
+  });
+
+  it("reads both flags on a class week and defaults them to false", () => {
+    const w = normalizeClassWeekly({ hasPrev: true, empty: true });
+    expect([w.hasPrev, w.empty]).toEqual([true, true]);
+    const missing = normalizeClassWeekly({});
+    expect([missing.hasPrev, missing.empty]).toEqual([false, false]);
+  });
+
+  // An empty week's POST carries neither prose nor an error, by design: it is
+  // not the 没有返回总结 failure.
+  it("treats an empty week's POST without prose as no failure", () => {
+    const s = normalizeStudentWeeklyProse({ prose: null, proseError: null, empty: true });
+    expect(s.week.empty).toBe(true);
+    expect(s.proseError).toBeNull();
+    const c = normalizeClassWeeklyProse({ prose: null, proseError: null, empty: true });
+    expect(c.week.empty).toBe(true);
+    expect(c.proseError).toBeNull();
+  });
+
+  it("keeps a real proseError on an empty week", () => {
+    expect(normalizeStudentWeeklyProse({ prose: null, proseError: "x", empty: true }).proseError).toBe("x");
+  });
 });
 
 describe("suggestionLabel", () => {

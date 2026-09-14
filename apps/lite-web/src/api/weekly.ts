@@ -10,6 +10,11 @@
 //   non-200 and arrives as an ApiError from `apiFetch`.
 // - `title` is built by the server (上周表现总结 · … for the latest week) and
 //   rendered as is.
+// - `empty` and `hasPrev` are decided by the server. An empty week is never
+//   POSTed for; its POST (if one is sent) is a 200 with prose and proseError
+//   both null. A week that ended before she joined the class (or before the
+//   class was created) is a 400 `week_before_start`; `hasPrev` false keeps
+//   上一周 from asking for it.
 
 import { ApiError, apiFetch } from "./client";
 
@@ -54,6 +59,10 @@ export interface StudentWeekly {
   weekLabel: string;
   title: string;
   isLatest: boolean;
+  /** false: the week before ended before she joined the class; 上一周 is disabled. */
+  hasPrev: boolean;
+  /** Decided by the server (liteweekly.IsEmptyWeek). No prose is asked for. */
+  empty: boolean;
   facts: StudentWeekFacts;
   cards: WeekCard[];
   prose: StudentWeeklyProse | null;
@@ -90,6 +99,10 @@ export interface ClassWeekly {
   weekLabel: string;
   title: string;
   isLatest: boolean;
+  /** false: the week before ended before the class was created; 上一周 is disabled. */
+  hasPrev: boolean;
+  /** Every student's week is empty, or the class has no students. No prose is asked for. */
+  empty: boolean;
   stats: ClassWeekStats;
   praise: ClassWeekCard[];
   watch: ClassWeekCard[];
@@ -149,6 +162,8 @@ export function normalizeStudentWeekly(raw: Raw): StudentWeekly {
     weekLabel: s(raw.weekLabel),
     title: s(raw.title),
     isLatest: raw.isLatest === true,
+    hasPrev: raw.hasPrev === true,
+    empty: raw.empty === true,
     facts: {
       activeDays: n(f.activeDays),
       minutes: typeof f.minutes === "number" ? f.minutes : -1,
@@ -177,6 +192,8 @@ export function normalizeClassWeekly(raw: Raw): ClassWeekly {
     weekLabel: s(raw.weekLabel),
     title: s(raw.title),
     isLatest: raw.isLatest === true,
+    hasPrev: raw.hasPrev === true,
+    empty: raw.empty === true,
     stats: {
       classSize: n(st.classSize),
       activeStudents: n(st.activeStudents),
@@ -193,21 +210,22 @@ export function normalizeClassWeekly(raw: Raw): ClassWeekly {
 }
 
 /** The error text of a POST …/prose 200. A 200 that carries neither prose nor
- * an error still counts as a failure, so the page can offer 重试. */
-function proseErrorOf(raw: Raw, hasProse: boolean): string | null {
+ * an error still counts as a failure, so the page can offer 重试, except on an
+ * empty week, where the server generates no prose by design. */
+function proseErrorOf(raw: Raw, hasProse: boolean, empty: boolean): string | null {
   const e = typeof raw.proseError === "string" ? raw.proseError.trim() : "";
   if (e !== "") return e;
-  return hasProse ? null : "没有返回总结";
+  return hasProse || empty ? null : "没有返回总结";
 }
 
 export function normalizeStudentWeeklyProse(raw: Raw): ProseResult<StudentWeekly> {
   const week = normalizeStudentWeekly(raw);
-  return { week, proseError: proseErrorOf(raw, week.prose !== null) };
+  return { week, proseError: proseErrorOf(raw, week.prose !== null, week.empty) };
 }
 
 export function normalizeClassWeeklyProse(raw: Raw): ProseResult<ClassWeekly> {
   const week = normalizeClassWeekly(raw);
-  return { week, proseError: proseErrorOf(raw, week.prose !== null) };
+  return { week, proseError: proseErrorOf(raw, week.prose !== null, week.empty) };
 }
 
 /** The text after 总结生成失败： for a POST that threw. The message, plus the
@@ -218,22 +236,6 @@ export function proseErrorText(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   const details = e instanceof ApiError && typeof e.details === "string" ? e.details.trim() : "";
   return details ? `${msg}（${details}）` : msg;
-}
-
-/** No rule card and no activity of any kind: the page says 该周没有学习记录
- * and asks for no prose. */
-export function studentWeekIsEmpty(w: StudentWeekly): boolean {
-  const f = w.facts;
-  return (
-    w.cards.length === 0 &&
-    f.activeDays === 0 &&
-    f.turns === 0 &&
-    f.finished.length === 0 &&
-    f.assignmentsDone + f.assignmentsLate + f.assignmentsOverdue === 0 &&
-    f.stalled.length === 0 &&
-    f.newKeywords.length === 0 &&
-    f.moments.length === 0
-  );
 }
 
 /** The label of the card a suggestion rests on, or "" when no card has that code. */

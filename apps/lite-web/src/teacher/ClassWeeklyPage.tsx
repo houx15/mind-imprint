@@ -32,10 +32,9 @@ export function ClassWeeklyPage({
     scope: classId,
     load: (ws) => getClassWeekly(classId, ws),
     post: (ws) => postClassWeeklyProse(classId, ws),
-    wantsProse: () => true,
+    wantsProse: (week) => !week.empty,
   });
   const { data } = w;
-  const base = w.currentWeek;
 
   return (
     <div className="min-h-full">
@@ -54,7 +53,7 @@ export function ClassWeeklyPage({
             title={data?.title ?? null}
             weekLabel={data?.weekLabel ?? ""}
             level="h1"
-            onPrev={base ? () => w.goToWeek(shiftWeek(base, -7)) : undefined}
+            onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
             onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
           />
         </div>
@@ -66,7 +65,7 @@ export function ClassWeeklyPage({
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-3">
-              <FactTile label="活跃学生"value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
+              <FactTile label="活跃学生" value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
               <FactTile label="学习时长" value={formatMinutes(data.stats.minutes)} />
               <FactTile label="对话轮次" value={`${data.stats.turns} 轮`} />
               <FactTile label="完成项目数" value={`${data.stats.finished} 项`} />
@@ -80,6 +79,8 @@ export function ClassWeeklyPage({
               <h2 className="text-mk-h3 text-mk-ink">班级点评</h2>
               {data.prose ? (
                 <p className="mt-2 whitespace-pre-wrap text-mk-body text-mk-ink">{data.prose.comment}</p>
+              ) : data.empty ? (
+                <p className="mt-2 text-mk-body text-mk-muted">该周没有学习记录</p>
               ) : (
                 <ProseStatus state={w.prose} onRetry={w.retryProse} />
               )}

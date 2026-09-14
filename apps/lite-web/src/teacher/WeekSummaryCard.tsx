@@ -1,13 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IconButton } from "@/ui";
-import {
-  getStudentWeekly,
-  postStudentWeeklyProse,
-  studentWeekIsEmpty,
-  suggestionLabel,
-  type WeekCard,
-} from "../api/weekly";
+import { getStudentWeekly, postStudentWeeklyProse, suggestionLabel, type WeekCard } from "../api/weekly";
 import { formatMinutes } from "./format";
 import { canGoNext, shiftWeek, splitWeekTitle } from "./weekNav";
 import { useWeekly, type ProseState } from "./useWeekly";
@@ -28,10 +22,9 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
     scope: userId,
     load: (ws) => getStudentWeekly(classId, userId, ws),
     post: (ws) => postStudentWeeklyProse(classId, userId, ws),
-    wantsProse: (week) => !studentWeekIsEmpty(week),
+    wantsProse: (week) => !week.empty,
   });
   const { data } = w;
-  const base = w.currentWeek;
 
   return (
     <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
@@ -39,7 +32,7 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
         title={data?.title ?? null}
         weekLabel={data?.weekLabel ?? ""}
         level="h2"
-        onPrev={base ? () => w.goToWeek(shiftWeek(base, -7)) : undefined}
+        onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
         onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
       />
 
@@ -47,8 +40,6 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
         <LoadFailed message={w.loadError} onRetry={w.reload} />
       ) : data === null ? (
         <p className="mt-3 text-mk-body text-mk-muted">加载中…</p>
-      ) : studentWeekIsEmpty(data) ? (
-        <p className="mt-3 text-mk-body text-mk-muted">该周没有学习记录</p>
       ) : (
         <>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -89,6 +80,8 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
                   </>
                 )}
               </>
+            ) : data.empty ? (
+              <p className="mt-1.5 text-mk-body text-mk-muted">该周没有学习记录</p>
             ) : (
               <ProseStatus state={w.prose} onRetry={w.retryProse} />
             )}
