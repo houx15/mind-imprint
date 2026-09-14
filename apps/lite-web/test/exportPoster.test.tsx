@@ -36,7 +36,7 @@ import type { LiteReport } from "@lite/api/reports";
 
 // jsdom has no image decoder; actual pixels are checked in the browser export.
 const originalDecode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "decode");
-beforeAll(() => Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn().mockResolvedValue(undefined) }));
+beforeAll(() => { Object.defineProperty(HTMLImageElement.prototype, "decode", { configurable: true, value: vi.fn().mockResolvedValue(undefined) }); });
 afterAll(() => {
   if (originalDecode) Object.defineProperty(HTMLImageElement.prototype, "decode", originalDecode);
   else Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
