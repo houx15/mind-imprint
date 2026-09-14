@@ -11,6 +11,7 @@ package api
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -162,6 +163,50 @@ func TestCreateWritingForNilTargetWords(t *testing.T) {
 	w, err := a.d.Queries.GetWriting(ctx, id)
 	if err != nil || w.TargetWords != nil || w.Lang != "en" {
 		t.Fatalf("writing = %+v err=%v", w, err)
+	}
+}
+
+// TestAssignedWritingPromptStaysOutOfReportCorpus: a report's 金句 are labelled
+// as her own words and are picked only from buildWritingCorpus. An assigned
+// writing's prompt is the teacher's text. It used to be stored as her first
+// student message, which put it in that corpus. Now it lives on
+// writing.assigned_prompt and no message is written.
+func TestAssignedWritingPromptStaysOutOfReportCorpus(t *testing.T) {
+	a, pool := newCreateHelpersTestAPI(t)
+	ctx := context.Background()
+	prompt := "写一篇关于雨的记叙文，写出雨停之前的那一刻"
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	id, err := createAssignedWritingInTx(ctx, a.d.Queries.WithTx(tx), SeedUserID, "雨", prompt, "zh", 800)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	w, err := a.d.Queries.GetWriting(ctx, id)
+	if err != nil || w.Title != "雨" || w.AssignedPrompt == nil || *w.AssignedPrompt != prompt ||
+		w.TargetWords == nil || *w.TargetWords != 800 {
+		t.Fatalf("writing = %+v err=%v", w, err)
+	}
+	outline, err := a.d.Queries.ListWritingOutline(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msgs, err := a.writingAllMessages(ctx, a.d.Queries, id, outline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 0 {
+		t.Fatalf("messages after an assigned start = %+v, want none", msgs)
+	}
+	if corpus := buildWritingCorpus("", nil, outline, msgs); strings.Contains(corpus.Text, prompt) {
+		t.Fatalf("the teacher's prompt is in her report corpus: %q", corpus.Text)
 	}
 }
 

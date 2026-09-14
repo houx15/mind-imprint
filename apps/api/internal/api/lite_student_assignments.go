@@ -12,6 +12,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 	"unicode"
 
@@ -40,8 +41,8 @@ type InboxItemDTO struct {
 	Unread       bool    `json:"unread"`
 }
 
-// getLiteInbox handles GET /api/v1/lite/inbox. Archived assignments are left
-// out by the query.
+// getLiteInbox handles GET /api/v1/lite/inbox. Archived assignments, and those
+// of a class she is no longer enrolled in, are left out by the query.
 func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	rows, err := a.d.Queries.ListLiteInboxAssignments(r.Context(), u.ID)
@@ -105,18 +106,101 @@ func writeNotFoundOr(w http.ResponseWriter, r *http.Request, err error) {
 	httpx.WriteError(w, r, err)
 }
 
+// errAssignmentGone: the assignment is archived or deleted, or she is not (or
+// no longer) a recipient. Every one of these answers 404.
+var errAssignmentGone = errors.New("lite assignment archived, gone, or not hers")
+
+// startAfterPreflightHook runs between the unlocked preflight and the locked re-read; tests set it, production leaves it nil.
+var startAfterPreflightHook func()
+
+// lockAssignmentStart takes a start's locks: the assignment FOR SHARE, then her
+// recipient row FOR UPDATE, and returns both locked rows.
+//
+// The order is shared with patchLiteAssignment (assignment first, then
+// recipient rows). The reverse order deadlocks against a PATCH that removes
+// this recipient.
+//
+// FOR SHARE: a PATCH takes FOR UPDATE on the assignment before it reads
+// settings or counts started recipients, so it waits until this start has
+// linked her item (or rolled back) and cannot change the payload the item is
+// built from.
+//
+// A missing or archived assignment, or a missing recipient row, is
+// errAssignmentGone.
+func lockAssignmentStart(ctx context.Context, qtx *sqlc.Queries, assignmentID, userID uuid.UUID) (sqlc.LiteAssignment, sqlc.LiteAssignmentRecipient, error) {
+	as, err := qtx.GetLiteAssignmentForShare(ctx, assignmentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.LiteAssignment{}, sqlc.LiteAssignmentRecipient{}, errAssignmentGone
+	}
+	if err != nil {
+		return sqlc.LiteAssignment{}, sqlc.LiteAssignmentRecipient{}, err
+	}
+	if as.ArchivedAt.Valid {
+		return sqlc.LiteAssignment{}, sqlc.LiteAssignmentRecipient{}, errAssignmentGone
+	}
+	rec, err := qtx.GetLiteAssignmentRecipientForUpdate(ctx, sqlc.GetLiteAssignmentRecipientForUpdateParams{AssignmentID: assignmentID, UserID: userID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.LiteAssignment{}, sqlc.LiteAssignmentRecipient{}, errAssignmentGone
+	}
+	if err != nil {
+		return sqlc.LiteAssignment{}, sqlc.LiteAssignmentRecipient{}, err
+	}
+	return as, rec, nil
+}
+
 // startLiteAssignment handles POST /api/v1/lite/assignments/{aid}/start.
 //
-// Idempotent. The recipient row is locked FOR UPDATE first and the assignment
-// is read through the same transaction, so a second concurrent press waits
-// for the first to link its item and then returns that item. The item is
-// created through the helpers the student's own create buttons use; they
-// commit their own transactions while the lock is held.
+// Idempotent, and it holds at most one pooled connection at a time:
+//
+//  1. Preflight without a transaction or locks: 404 unless she is a current
+//     recipient of a live assignment in a class she is still enrolled in; an
+//     item she already started is returned as is.
+//  2. Network work (a link reading's fetch) before any transaction opens, so
+//     no lock is held while a page downloads.
+//  3. One transaction: lockAssignmentStart, then re-check. A concurrent start
+//     that already linked an item wins and its item is returned; a teacher
+//     edit that changed the settings since the preflight is 409.
+//  4. Her item is created, linked and started through that same transaction.
+//     A failure anywhere rolls all of it back: no orphan item.
 //
 // An assigned project skips the homepage gate.
 func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u, _ := UserFromContext(ctx)
+	aid, err := uuid.Parse(r.PathValue("aid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+
+	// 1. Preflight.
+	as, err := a.d.Queries.GetLiteAssignment(ctx, aid)
+	if err != nil {
+		writeNotFoundOr(w, r, err)
+		return
+	}
+	if as.ArchivedAt.Valid {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	rec, err := a.d.Queries.GetLiteAssignmentRecipient(ctx, sqlc.GetLiteAssignmentRecipientParams{AssignmentID: aid, UserID: u.ID})
+	if err != nil {
+		writeNotFoundOr(w, r, err)
+		return
+	}
+	enrolled, err := a.d.Queries.IsEnrolledStudent(ctx, sqlc.IsEnrolledStudentParams{ClassID: as.ClassID, UserID: u.ID})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !enrolled {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if rec.AtomID.Valid {
+		writeStartResponse(w, as.Kind, uuid.UUID(rec.AtomID.Bytes))
+		return
+	}
 	entitled, err := HasEntitlement(ctx, u)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -126,12 +210,18 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotEntitled())
 		return
 	}
-	aid, err := uuid.Parse(r.PathValue("aid"))
+
+	// 2. Network work.
+	article, err := a.fetchAssignedArticle(ctx, as)
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		httpx.WriteError(w, r, startErrorResponse(err, as.ID))
 		return
 	}
+	if startAfterPreflightHook != nil {
+		startAfterPreflightHook()
+	}
 
+	// 3. Lock and re-check.
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -140,39 +230,29 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	// Lock order, shared with patchLiteAssignment: the assignment row first,
-	// then the recipient row. The reverse order deadlocks against a PATCH that
-	// removes this recipient.
-	//
-	// FOR SHARE: a teacher PATCH takes FOR UPDATE on the assignment before it
-	// reads settings or counts started recipients, so it waits until this
-	// start has linked its item (or rolled back) and cannot change the payload
-	// the item is built from.
-	as, err := qtx.GetLiteAssignmentForShare(ctx, aid)
-	if err != nil {
-		writeNotFoundOr(w, r, err)
-		return
-	}
-	if as.ArchivedAt.Valid {
+	locked, lockedRec, err := lockAssignmentStart(ctx, qtx, aid, u.ID)
+	if errors.Is(err, errAssignmentGone) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
-	rec, err := qtx.GetLiteAssignmentRecipientForUpdate(ctx, sqlc.GetLiteAssignmentRecipientForUpdateParams{AssignmentID: aid, UserID: u.ID})
 	if err != nil {
-		writeNotFoundOr(w, r, err)
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if lockedRec.AtomID.Valid {
+		writeStartResponse(w, locked.Kind, uuid.UUID(lockedRec.AtomID.Bytes))
+		return
+	}
+	if locked.Kind != as.Kind || !samePayload(locked.Payload, as.Payload) {
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status: http.StatusConflict, Code: "assignment_changed",
+			Message: "开始失败：老师刚修改了这份作业，请重新开始",
+		})
 		return
 	}
 
-	if rec.AtomID.Valid {
-		if err := tx.Commit(ctx); err != nil {
-			httpx.WriteError(w, r, err)
-			return
-		}
-		writeStartResponse(w, as.Kind, uuid.UUID(rec.AtomID.Bytes))
-		return
-	}
-
-	atomID, err := a.createAssignedItem(ctx, tx, u.ID, as)
+	// 4. Create, link, commit.
+	atomID, err := a.createAssignedItemInTx(ctx, tx, qtx, u.ID, locked, article)
 	if err != nil {
 		httpx.WriteError(w, r, startErrorResponse(err, as.ID))
 		return
@@ -180,18 +260,16 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	if err := qtx.SetLiteAssignmentStarted(ctx, sqlc.SetLiteAssignmentStartedParams{
 		AssignmentID: aid, UserID: u.ID, AtomID: pgtype.UUID{Bytes: atomID, Valid: true},
 	}); err != nil {
-		slog.Warn("lite assignment start: item created but not linked",
-			"err", err, "assignment_id", aid.String(), "atom_id", atomID.String())
 		httpx.WriteError(w, r, err)
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
-		slog.Warn("lite assignment start: item created but link not committed",
-			"err", err, "assignment_id", aid.String(), "atom_id", atomID.String())
+		slog.Warn("lite assignment start: commit failed",
+			"err", err, "assignment_id", aid.String())
 		httpx.WriteError(w, r, err)
 		return
 	}
-	writeStartResponse(w, as.Kind, atomID)
+	writeStartResponse(w, locked.Kind, atomID)
 }
 
 // writeStartResponse: for a project, projectId is the atom id (pbl_project's
@@ -205,10 +283,40 @@ func writeStartResponse(w http.ResponseWriter, kind string, atomID uuid.UUID) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"kind": kind, "atomId": atomID.String(), "projectId": projectID})
 }
 
-// createAssignedItem creates her reading, writing or project from the stored
-// payload. tx is the start transaction holding the recipient lock; it is only
-// read from here.
-func (a *API) createAssignedItem(ctx context.Context, tx pgx.Tx, userID uuid.UUID, as sqlc.LiteAssignment) (uuid.UUID, error) {
+// assignedArticle is a link reading's article, fetched before the start
+// transaction opens.
+type assignedArticle struct {
+	title, lang, body, url string
+}
+
+// fetchAssignedArticle fetches a link reading's page. Every other assignment
+// needs no network work and returns nil.
+//
+// The title is left blank so the page's own title is used, and the language
+// comes from the fetched body: the assignment's title is the teacher's name for
+// the practice, not the article's.
+func (a *API) fetchAssignedArticle(ctx context.Context, as sqlc.LiteAssignment) (*assignedArticle, error) {
+	if as.Kind != "reading" {
+		return nil, nil
+	}
+	var p liteassign.ReadingPayload
+	if err := json.Unmarshal(as.Payload, &p); err != nil {
+		return nil, err
+	}
+	if p.Source != "url" {
+		return nil, nil
+	}
+	title, body, err := a.resolveReadingSource(ctx, "", p.URL, "")
+	if err != nil {
+		return nil, err
+	}
+	return &assignedArticle{title: title, lang: readingLangOf(body), body: body, url: p.URL}, nil
+}
+
+// createAssignedItemInTx creates her reading, writing or project from the
+// locked assignment, through the start transaction. article is the fetched
+// page for a link reading and nil otherwise.
+func (a *API) createAssignedItemInTx(ctx context.Context, tx pgx.Tx, qtx *sqlc.Queries, userID uuid.UUID, as sqlc.LiteAssignment, article *assignedArticle) (uuid.UUID, error) {
 	switch as.Kind {
 	case "reading":
 		var p liteassign.ReadingPayload
@@ -217,11 +325,19 @@ func (a *API) createAssignedItem(ctx context.Context, tx pgx.Tx, userID uuid.UUI
 		}
 		switch p.Source {
 		case "library":
-			return a.startAssignedLibraryReading(ctx, tx, userID, p)
+			return startAssignedLibraryReading(ctx, tx, qtx, userID, p)
 		case "url":
-			return a.createReadingWithSourceFor(ctx, userID, as.Title, langOf(as.Title), p.URL, "")
+			if article == nil {
+				return uuid.Nil, errors.New("lite assignment: link reading started without its fetched article")
+			}
+			return createReadingWithSourceInTx(ctx, qtx, userID, article.title, article.lang, article.url, article.body)
 		case "text":
-			return a.createReadingWithSourceFor(ctx, userID, as.Title, langOf(p.Text), "", p.Text)
+			// A non-blank text is never fetched, so this makes no network call.
+			title, body, err := a.resolveReadingSource(ctx, as.Title, "", p.Text)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			return createReadingWithSourceInTx(ctx, qtx, userID, title, langOf(body), "", body)
 		}
 		return uuid.Nil, errors.New("lite assignment: unknown reading source " + p.Source)
 	case "writing":
@@ -229,18 +345,13 @@ func (a *API) createAssignedItem(ctx context.Context, tx pgx.Tx, userID uuid.UUI
 		if err := json.Unmarshal(as.Payload, &p); err != nil {
 			return uuid.Nil, err
 		}
-		tw := int32(p.TargetWords)
-		return a.createWritingFor(ctx, userID, p.Prompt, p.Lang, &tw)
+		return createAssignedWritingInTx(ctx, qtx, userID, as.Title, p.Prompt, p.Lang, int32(p.TargetWords))
 	case "project":
 		var p liteassign.ProjectPayload
 		if err := json.Unmarshal(as.Payload, &p); err != nil {
 			return uuid.Nil, err
 		}
-		pr, err := a.createPblProjectFor(ctx, userID, p.DrivingQuestion)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		return pr.AtomID, nil
+		return createAssignedPblProjectInTx(ctx, qtx, userID, as.Title, p.DrivingQuestion, strings.TrimSpace(p.Description))
 	}
 	return uuid.Nil, errors.New("lite assignment: unknown kind " + as.Kind)
 }
@@ -250,18 +361,18 @@ func (a *API) createAssignedItem(ctx context.Context, tx pgx.Tx, userID uuid.UUI
 // reading of the same article and tier is reused, unless another assignment
 // already links it: recipient.atom_id is UNIQUE, and one item answers one
 // assignment.
-func (a *API) startAssignedLibraryReading(ctx context.Context, tx pgx.Tx, userID uuid.UUID, p liteassign.ReadingPayload) (uuid.UUID, error) {
+func startAssignedLibraryReading(ctx context.Context, tx pgx.Tx, qtx *sqlc.Queries, userID uuid.UUID, p liteassign.ReadingPayload) (uuid.UUID, error) {
 	var tier int
 	if p.Tier != nil {
 		tier = *p.Tier
 	} else {
-		suggested, err := a.suggestLibraryTierFor(ctx, userID)
+		suggested, err := suggestLibraryTierInTx(ctx, qtx, userID)
 		if err != nil {
 			return uuid.Nil, err
 		}
 		tier = suggested
 	}
-	id, resumed, err := a.createLibraryReadingFor(ctx, userID, p.Slug, tier)
+	id, resumed, err := createLibraryReadingInTx(ctx, qtx, userID, p.Slug, tier)
 	if err != nil || !resumed {
 		return id, err
 	}
@@ -273,7 +384,7 @@ func (a *API) startAssignedLibraryReading(ctx context.Context, tx pgx.Tx, userID
 	if !linked {
 		return id, nil
 	}
-	return a.createLibraryReadingFreshFor(ctx, userID, p.Slug, tier)
+	return createLibraryReadingFreshInTx(ctx, qtx, userID, p.Slug, tier)
 }
 
 // langOf is en when s has no Han character, zh otherwise.

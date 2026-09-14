@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	. "mindimprint/api/internal/api"
@@ -177,8 +178,7 @@ func TestTeacherAssignmentPatchWaitsForStartInFlight(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var id string
-	if err := tx.QueryRow(ctx, `SELECT id::text FROM lite_assignment WHERE id=$1 FOR SHARE`, aid).Scan(&id); err != nil {
+	if err := LockAssignmentStartForTest(ctx, tx, uuid.MustParse(aid), studentID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE lite_assignment_recipient SET started_at = now() WHERE assignment_id = $1 AND user_id = $2`, aid, studentID); err != nil {
@@ -291,10 +291,12 @@ func TestTeacherAssignmentPatchUsesLockedRow(t *testing.T) {
 	}
 }
 
-// TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock: a start holds the
-// assignment (FOR SHARE) then her recipient row (FOR UPDATE). A PATCH removing
-// her takes the assignment first, so it waits instead of deadlocking, then
-// refuses because she has started.
+// TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock: the test
+// transaction takes exactly the locks a real start takes, through the same
+// lockAssignmentStart a start calls (assignment FOR SHARE, then her recipient
+// row FOR UPDATE). A PATCH removing her takes the assignment first, so it waits
+// instead of deadlocking, then refuses because she has started. If either path
+// changed its lock order, this would deadlock or return early.
 func TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
 	var created struct {
@@ -311,11 +313,7 @@ func TestTeacherAssignmentRemoveRecipientDuringStartNoDeadlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var id string
-	if err := tx.QueryRow(ctx, `SELECT id::text FROM lite_assignment WHERE id=$1 FOR SHARE`, aid).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
-	if err := tx.QueryRow(ctx, `SELECT user_id::text FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2 FOR UPDATE`, aid, studentID).Scan(&id); err != nil {
+	if err := LockAssignmentStartForTest(ctx, tx, uuid.MustParse(aid), studentID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE lite_assignment_recipient SET started_at = now() WHERE assignment_id = $1 AND user_id = $2`, aid, studentID); err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/library"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -158,13 +160,29 @@ func TestStartIsIdempotentUnderConcurrency(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("writings created = %d, want 1", n)
 	}
+	// The title is the assignment's; the prompt is stored as the teacher's, on
+	// the writing itself, and never as a message of hers.
 	var title string
 	var target *int32
-	if err := pool.QueryRow(context.Background(), `SELECT title, target_words FROM writing WHERE atom_id=$1`, ids[0]).Scan(&title, &target); err != nil {
+	var prompt *string
+	if err := pool.QueryRow(context.Background(), `SELECT title, target_words, assigned_prompt FROM writing WHERE atom_id=$1`, ids[0]).Scan(&title, &target, &prompt); err != nil {
 		t.Fatal(err)
 	}
-	if title != "写一篇关于雨的记叙文" || target == nil || *target != 800 {
-		t.Fatalf("writing = %q target=%v", title, target)
+	if title != "雨" || target == nil || *target != 800 || prompt == nil || *prompt != "写一篇关于雨的记叙文" {
+		t.Fatalf("writing title=%q target=%v assigned_prompt=%v, want 雨 800 写一篇关于雨的记叙文", title, target, prompt)
+	}
+	var msgs int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM atom_message WHERE atom_id=$1`, ids[0]).Scan(&msgs); err != nil {
+		t.Fatal(err)
+	}
+	if msgs != 0 {
+		t.Fatalf("atom_message rows after an assigned writing start = %d, want 0", msgs)
+	}
+	var dto struct {
+		AssignedPrompt *string `json:"assignedPrompt"`
+	}
+	if code := getJSON(t, h, student, "/api/v1/writings/"+ids[0], &dto); code != http.StatusOK || dto.AssignedPrompt == nil || *dto.AssignedPrompt != "写一篇关于雨的记叙文" {
+		t.Fatalf("writing DTO = %d assignedPrompt=%v", code, dto.AssignedPrompt)
 	}
 }
 
@@ -177,7 +195,7 @@ func TestStartProjectBypassesHomepageGate(t *testing.T) {
 	}
 	aid := createAssignment(t, h, teacher, classID, map[string]any{
 		"kind": "project", "title": "杯子", "instructions": "",
-		"payload": map[string]any{"drivingQuestion": "怎样让校园少用一次性杯子？"},
+		"payload": map[string]any{"drivingQuestion": "怎样让校园少用一次性杯子？", "description": "先统计一周食堂用掉的杯子"},
 		"dueAt":   time.Now().Add(48 * time.Hour).Format(time.RFC3339),
 		"userIds": []string{studentID.String()},
 	})
@@ -185,12 +203,21 @@ func TestStartProjectBypassesHomepageGate(t *testing.T) {
 	if out.Kind != "project" || out.ProjectID == nil || *out.ProjectID != out.AtomID {
 		t.Fatalf("start project = %+v", out)
 	}
-	var idea string
-	if err := pool.QueryRow(context.Background(), `SELECT idea FROM pbl_project WHERE atom_id=$1`, out.AtomID).Scan(&idea); err != nil {
+	var idea, name string
+	var assigned bool
+	var brief *string
+	if err := pool.QueryRow(context.Background(), `SELECT idea, name, assigned, assigned_brief FROM pbl_project WHERE atom_id=$1`, out.AtomID).Scan(&idea, &name, &assigned, &brief); err != nil {
 		t.Fatal(err)
 	}
-	if idea != "怎样让校园少用一次性杯子？" {
-		t.Fatalf("project idea = %q", idea)
+	if idea != "怎样让校园少用一次性杯子？" || name != "杯子" || !assigned || brief == nil || *brief != "先统计一周食堂用掉的杯子" {
+		t.Fatalf("project idea=%q name=%q assigned=%v brief=%v", idea, name, assigned, brief)
+	}
+	var list []struct {
+		ID       string `json:"id"`
+		Assigned bool   `json:"assigned"`
+	}
+	if code := getJSON(t, h, student, "/api/v1/pbl/projects", &list); code != http.StatusOK || len(list) != 1 || list[0].ID != out.AtomID || !list[0].Assigned {
+		t.Fatalf("project list = %d %+v, want the assigned project", code, list)
 	}
 	if code := assignJSON(t, h, student, "POST", "/api/v1/pbl/projects", map[string]any{"idea": "y"}, nil); code != http.StatusConflict {
 		t.Fatalf("own project after assigned start = %d, want still 409", code)
@@ -290,6 +317,200 @@ func TestStartReadingURLFetchFailedHidesCause(t *testing.T) {
 		t.Fatalf("response leaked the fetcher error: %s", rec.Body)
 	}
 	assertNotStarted(t, pool, aid, studentID)
+}
+
+// enArticleFetcher serves one English article. It embeds errFetcher for the
+// Fetcher's other methods.
+type enArticleFetcher struct{ errFetcher }
+
+func (enArticleFetcher) FetchReadable(ctx context.Context, rawURL string) (string, string, *materialize.DOIMeta, error) {
+	return "Why the Rain Stays",
+		"The rain came in the night and stayed for eleven days.\n\nNobody in the town could remember a week like it.",
+		nil, nil
+}
+
+// TestStartReadingURLUsesFetchedTitleAndLang: the assignment's title is the
+// teacher's name for the practice. The article keeps the page's own title, and
+// its language comes from the page's text.
+func TestStartReadingURLUsesFetchedTitleAndLang(t *testing.T) {
+	_, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, Fetcher: enArticleFetcher{},
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("第三周阅读",
+		map[string]any{"source": "url", "url": "https://example.com/rain"}, []string{studentID.String()}))
+	out := startAssignment(t, h, signInAs(t, pool, studentID), aid)
+	var title, lang, srcTitle string
+	var srcURL *string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT r.title, r.lang, s.title, s.source_url FROM reading r JOIN reading_source s ON s.atom_id = r.atom_id WHERE r.atom_id=$1`,
+		out.AtomID).Scan(&title, &lang, &srcTitle, &srcURL); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Why the Rain Stays" || srcTitle != "Why the Rain Stays" || lang != "en" || srcURL == nil || *srcURL != "https://example.com/rain" {
+		t.Fatalf("reading title=%q source title=%q lang=%q url=%v", title, srcTitle, lang, srcURL)
+	}
+}
+
+// TestStartsOutnumberingThePool: a class pressing 开始 at once, with more starts
+// in flight than the pool has connections (18 starts, MaxConns 3). A start
+// holds at most one connection at a time, so every one finishes. A start that
+// kept its locked connection while a helper waited for a second one would
+// starve the pool and hang here.
+func TestStartsOutnumberingThePool(t *testing.T) {
+	_, pool, teacher, classID, firstStudent := liteTeacherFixture(t)
+	ctx := context.Background()
+	cfg, err := pgxpool.ParseConfig(pool.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.MaxConns = 3
+	small, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(small.Close)
+	h := New(Deps{
+		Queries: sqlc.New(small), Pool: small,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+
+	students := []uuid.UUID{firstStudent}
+	for i := 1; i < 6; i++ {
+		id := createStudent(t, pool, SeedSchoolID, fmt.Sprintf("as-burst-%d@demo.local", i))
+		enrollStudent(t, pool, id, classID)
+		students = append(students, id)
+	}
+	userIDs := make([]string, 0, len(students))
+	cookies := make([]*http.Cookie, 0, len(students))
+	for _, s := range students {
+		userIDs = append(userIDs, s.String())
+		cookies = append(cookies, signInAs(t, pool, s))
+	}
+	art := library.All()[0]
+	aids := []string{
+		createAssignment(t, h, teacher, classID, writingAssignmentBody(userIDs)),
+		createAssignment(t, h, teacher, classID, map[string]any{
+			"kind": "project", "title": "杯子", "instructions": "",
+			"payload": map[string]any{"drivingQuestion": "怎样让校园少用一次性杯子？"},
+			"dueAt":   time.Now().Add(48 * time.Hour).Format(time.RFC3339),
+			"userIds": userIDs,
+		}),
+		createAssignment(t, h, teacher, classID, readingAssignmentBody("库里一篇",
+			map[string]any{"source": "library", "slug": art.Slug, "tier": art.Levels[0].Tier}, userIDs)),
+	}
+
+	deadline, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	type result struct {
+		code int
+		body string
+	}
+	total := len(cookies) * len(aids)
+	results := make(chan result, total)
+	for _, c := range cookies {
+		for _, aid := range aids {
+			go func(c *http.Cookie, aid string) {
+				rec := httptest.NewRecorder()
+				req := withCookie(httptest.NewRequest("POST", "/api/v1/lite/assignments/"+aid+"/start", nil), c).WithContext(deadline)
+				h.ServeHTTP(rec, req)
+				results <- result{rec.Code, rec.Body.String()}
+			}(c, aid)
+		}
+	}
+	for i := 0; i < total; i++ {
+		select {
+		case res := <-results:
+			if res.code != http.StatusOK {
+				t.Errorf("start = %d body=%s", res.code, res.body)
+			}
+		case <-deadline.Done():
+			t.Fatalf("starts still waiting after 20s: %d of %d returned", i, total)
+		}
+	}
+	var linked int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM lite_assignment_recipient WHERE atom_id IS NOT NULL AND started_at IS NOT NULL AND assignment_id = ANY($1::uuid[])`,
+		aids).Scan(&linked); err != nil {
+		t.Fatal(err)
+	}
+	if linked != total {
+		t.Fatalf("started recipients = %d, want %d", linked, total)
+	}
+}
+
+// TestStartRefusesWhenAssignmentChangedAfterPreflight: the teacher's edit
+// commits after the start's unlocked preflight read the settings and before it
+// takes its locks. The start must not build her item from the settings it read
+// first. The seam is startAfterPreflightHook, which runs in exactly that window.
+func TestStartRefusesWhenAssignmentChangedAfterPreflight(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	student := signInAs(t, pool, studentID)
+	ctx := context.Background()
+
+	restore := SetStartAfterPreflightHookForTest(func() {
+		if _, err := pool.Exec(ctx,
+			`UPDATE lite_assignment SET payload = '{"prompt":"写雪","targetWords":600,"lang":"zh"}' WHERE id=$1`, aid); err != nil {
+			t.Error(err)
+		}
+	})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/lite/assignments/"+aid+"/start", nil), student))
+	restore()
+
+	var e struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	if rec.Code != http.StatusConflict || e.Error.Code != "assignment_changed" || e.Error.Message != "开始失败：老师刚修改了这份作业，请重新开始" {
+		t.Fatalf("start after a mid-start edit = %d body=%s, want 409 assignment_changed", rec.Code, rec.Body)
+	}
+	assertNotStarted(t, pool, aid, studentID)
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM atom WHERE user_id=$1 AND kind='writing'`, studentID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("writings after a refused start = %d, want 0", n)
+	}
+
+	// Pressing 开始 again builds her writing from the new settings.
+	started := startAssignment(t, h, student, aid)
+	var prompt *string
+	if err := pool.QueryRow(ctx, `SELECT assigned_prompt FROM writing WHERE atom_id=$1`, started.AtomID).Scan(&prompt); err != nil {
+		t.Fatal(err)
+	}
+	if prompt == nil || *prompt != "写雪" {
+		t.Fatalf("retried start assigned_prompt = %v, want 写雪", prompt)
+	}
+}
+
+// TestStartAndInboxRequireCurrentEnrollment: a student removed from the class
+// keeps her recipient row, but the assignment is no longer hers to start or to
+// see.
+func TestStartAndInboxRequireCurrentEnrollment(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	student := signInAs(t, pool, studentID)
+	if _, err := pool.Exec(context.Background(),
+		`DELETE FROM enrollments WHERE user_id=$1 AND class_id=$2`, studentID, classID); err != nil {
+		t.Fatal(err)
+	}
+	if code := assignJSON(t, h, student, "POST", "/api/v1/lite/assignments/"+aid+"/start", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("start after leaving the class = %d, want 404", code)
+	}
+	assertNotStarted(t, pool, aid, studentID)
+	var inbox struct {
+		Items []any `json:"items"`
+	}
+	if code := getJSON(t, h, student, "/api/v1/lite/inbox", &inbox); code != http.StatusOK || inbox.Items == nil || len(inbox.Items) != 0 {
+		t.Fatalf("inbox after leaving the class = %d %+v, want empty", code, inbox)
+	}
 }
 
 func assertNotStarted(t *testing.T, pool *pgxpool.Pool, aid string, studentID uuid.UUID) {
