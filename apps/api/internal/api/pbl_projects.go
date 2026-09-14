@@ -223,6 +223,13 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row.Status = p.Status
+		if s == "review" || s == "keeping" {
+			// 作业「按时 / 逾期」按这一刻算；只写第一次。
+			if err := a.d.Queries.StampPblProjectFinished(r.Context(), id); err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
+		}
 		// 走到复盘就算完成了，可以采兴趣了 —— 和 ListPendingHarvestAtoms 里对
 		// 「项目算完成」的判断保持同一套状态。见 interest_jobs.go。
 		if s == "review" || s == "keeping" || s == "archived" {
