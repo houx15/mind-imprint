@@ -7,6 +7,9 @@ const cases: [string, TeacherRoute][] = [
   ["/classes/c1/students/u1", { view: "student", classId: "c1", userId: "u1" }],
   ["/classes/c1/students/u1/items/a1", { view: "item", classId: "c1", userId: "u1", atomId: "a1" }],
   ["/settings", { view: "settings" }],
+  ["/overview", { view: "overview" }],
+  ["/teachers", { view: "teachers" }],
+  ["/import", { view: "import" }],
 ];
 
 describe("teacher routing", () => {

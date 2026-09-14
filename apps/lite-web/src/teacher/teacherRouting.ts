@@ -5,7 +5,10 @@ export type TeacherRoute =
   | { view: "class"; classId: string }
   | { view: "student"; classId: string; userId: string }
   | { view: "item"; classId: string; userId: string; atomId: string }
-  | { view: "settings" };
+  | { view: "settings" }
+  | { view: "overview" }
+  | { view: "teachers" }
+  | { view: "import" };
 
 const dec = (s: string) => {
   try {
@@ -19,6 +22,9 @@ const enc = encodeURIComponent;
 export function parseTeacherRoute(pathname: string): TeacherRoute {
   const seg = pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean).map(dec);
   if (seg[0] === "settings") return { view: "settings" };
+  if (seg[0] === "overview") return { view: "overview" };
+  if (seg[0] === "teachers") return { view: "teachers" };
+  if (seg[0] === "import") return { view: "import" };
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
   if (seg[2] !== "students" || !seg[3]) return { view: "class", classId };
@@ -33,6 +39,12 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return "/classes";
     case "settings":
       return "/settings";
+    case "overview":
+      return "/overview";
+    case "teachers":
+      return "/teachers";
+    case "import":
+      return "/import";
     case "class":
       return `/classes/${enc(r.classId)}`;
     case "student":

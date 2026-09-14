@@ -23,6 +23,7 @@ import { SkyTab } from "./explore/SkyTab";
 import { MySitePage } from "./mysite/MySitePage";
 import { CoursesHost } from "./courses/CoursesHost";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
+import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -193,7 +194,11 @@ export function LiteApp() {
           void setBackground(id);
         }}
       >
-        <LiteShell user={user} onLogout={onLogout} />
+        {user.role === "teacher" || user.role === "admin" ? (
+          <LiteTeacherShell user={user} onLogout={onLogout} />
+        ) : (
+          <LiteShell user={user} onLogout={onLogout} />
+        )}
       </BackgroundProvider>
     </AccentProvider>
   );
