@@ -598,6 +598,98 @@ func TestLiteParentReportRedraftPublishedDuringModelCall(t *testing.T) {
 	}
 }
 
+// TestLiteParentReportRedraftFillsBlankBody (fix round 1): a failed generate
+// leaves body NULL; an autosave of an empty section turns it into
+// {"overview":""}. A redraft without replaceBody must still fill that blank
+// body with the draft, so the report can be published.
+func TestLiteParentReportRedraftFillsBlankBody(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply("不是 JSON"), weeklyReply("不是 JSON"), weeklyReply(parentValidReply))
+	h, _, teacher, classID, studentID := parentFixture(t, prov)
+	got := generateParentReport(t, h, teacher, classID, studentID)
+	if got.DraftError == nil || got.Report.Body != nil {
+		t.Fatalf("generate = %+v err = %v, want a failed draft", got.Report, got.DraftError)
+	}
+	path := parentReportPath(got.Report.ID)
+
+	var patched parentReportResp
+	if code, body := parentDo(t, h, teacher, "PATCH", path, parentBodyJSON(t, map[string]string{"overview": ""}), &patched); code != http.StatusOK {
+		t.Fatalf("PATCH blank = %d %s", code, body)
+	}
+	if !reflect.DeepEqual(patched.Report.Body, map[string]string{"overview": ""}) {
+		t.Fatalf("body after blank PATCH = %v", patched.Report.Body)
+	}
+
+	var redrafted parentReportResp
+	if code, body := parentDo(t, h, teacher, "POST", path+"/redraft", `{"replaceBody":false}`, &redrafted); code != http.StatusOK || redrafted.DraftError != nil {
+		t.Fatalf("redraft = %d %s", code, body)
+	}
+	want := parentSectionsOf(t, parentValidReply)
+	if !reflect.DeepEqual(redrafted.Report.Draft, want) || !reflect.DeepEqual(redrafted.Report.Body, want) {
+		t.Fatalf("redraft: draft = %v body = %v, want both %v", redrafted.Report.Draft, redrafted.Report.Body, want)
+	}
+	if code, body := parentDo(t, h, teacher, "POST", path+"/publish", "", nil); code != http.StatusOK {
+		t.Fatalf("publish after redraft = %d %s", code, body)
+	}
+}
+
+// TestLiteParentReportGenerateStudentLeftMidCall (fix round 1): she is
+// removed while generate's model call runs. The row exists, so the answer is
+// 201 with the report (no draft) and the refusal in draftError.
+func TestLiteParentReportGenerateStudentLeftMidCall(t *testing.T) {
+	prov := &parentHookProvider{inner: gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))}
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	prov.before = func() {
+		mustExec(t, pool, `DELETE FROM enrollments WHERE user_id = $1 AND class_id = $2`, studentID, classID)
+	}
+
+	code, body := parentDo(t, h, teacher, "POST", parentReportsPath(classID, studentID), "", nil)
+	if code != http.StatusCreated {
+		t.Fatalf("generate = %d %s, want 201", code, body)
+	}
+	var got parentReportResp
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Report.ID == "" || got.DraftError == nil || *got.DraftError != "该学生已不在本班" || got.Report.Draft != nil || got.Report.Body != nil {
+		t.Fatalf("generate = %s, want the report id, no draft and draftError 该学生已不在本班", body)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_parent_report WHERE id = $1 AND draft IS NULL`, uuid.MustParse(got.Report.ID)); n != 1 {
+		t.Fatalf("stored rows without a draft = %d, want 1", n)
+	}
+	if n := len(llmCallUsers(t, pool, "lite_parent_report")); n != 1 {
+		t.Fatalf("llm_call rows = %d, want 1", n)
+	}
+}
+
+// TestLiteParentReportOtherSchoolAdmin (fix round 1): an admin of another
+// lite school gets 404 on a report of this school.
+func TestLiteParentReportOtherSchoolAdmin(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	rep := generateParentReport(t, h, teacher, classID, studentID).Report
+
+	otherSchool := seedSecondSchool(t, pool)
+	mustExec(t, pool, `UPDATE schools SET edition = 'lite' WHERE id = $1`, otherSchool)
+	adminID := createTeacher(t, pool, otherSchool, "lp-other-admin@other.local")
+	mustExec(t, pool, `UPDATE users SET role = 'admin' WHERE id = $1`, adminID)
+	admin := signInAs(t, pool, adminID)
+
+	for _, rt := range []struct{ method, path string }{
+		{"GET", parentReportPath(rep.ID)},
+		{"POST", parentReportPath(rep.ID) + "/publish"},
+		{"DELETE", parentReportPath(rep.ID) + "/share"},
+		{"GET", classParentReportsPath(classID)},
+	} {
+		code, body := parentDo(t, h, admin, rt.method, rt.path, "", nil)
+		wantParentError(t, "other-school admin "+rt.method+" "+rt.path, code, body, http.StatusNotFound, "not_found")
+	}
+	var after parentReportResp
+	parentDo(t, h, teacher, "GET", parentReportPath(rep.ID), "", &after)
+	if after.Report.Status != "draft" || after.Report.ShareToken != nil {
+		t.Fatalf("report after other-school admin = %+v, want an unpublished draft", after.Report)
+	}
+}
+
 // TestLiteParentReportOtherTeacher: another teacher gets 404 on every route,
 // a student gets 403, and nothing reaches the model.
 func TestLiteParentReportOtherTeacher(t *testing.T) {

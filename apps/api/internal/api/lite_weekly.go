@@ -289,7 +289,8 @@ func (a *API) parseLiteStudentWeek(w http.ResponseWriter, r *http.Request, class
 	}
 	joined, err := a.liteEnrollmentStart(r.Context(), classID, userID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
+		// Removed after authTeacherStudent: the same 404 it gives.
+		writeNotFoundOr(w, r, err)
 		return time.Time{}, false, false, false
 	}
 	hasPrev, inRange := liteWeekBound(ws, joined)

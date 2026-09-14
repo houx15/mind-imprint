@@ -283,6 +283,21 @@ func liteParentSections(raw []byte) (map[string]string, error) {
 	return m, nil
 }
 
+// liteParentBodyBlank reports whether a stored body has no section with
+// non-blank text: NULL, {}, or whitespace-only values.
+func liteParentBodyBlank(raw []byte) (bool, error) {
+	body, err := liteParentSections(raw)
+	if err != nil {
+		return false, err
+	}
+	for _, v := range body {
+		if strings.TrimSpace(v) != "" {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func newParentReportDTO(row sqlc.LiteParentReport) (ParentReportDTO, error) {
 	var f liteparent.Facts
 	if err := json.Unmarshal(row.Facts, &f); err != nil {
@@ -433,9 +448,20 @@ func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teac
 		if err := requireParentDraftable(ctx, q, locked); err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
+		// A body with no non-blank section (NULL, {}, or only whitespace, as an
+		// autosave of an empty textarea leaves it) takes the draft too; a body
+		// with any text of the teacher's is kept unless replaceBody.
+		fill := replaceBody
+		if !fill {
+			blank, err := liteParentBodyBlank(locked.Body)
+			if err != nil {
+				return sqlc.LiteParentReport{}, err
+			}
+			fill = blank
+		}
 		var out sqlc.LiteParentReport
 		var werr error
-		if replaceBody {
+		if fill {
 			out, werr = q.ReplaceLiteParentReportBody(ctx, sqlc.ReplaceLiteParentReportBodyParams{Draft: draft, ID: locked.ID})
 		} else {
 			out, werr = q.SetLiteParentReportDraft(ctx, sqlc.SetLiteParentReportDraftParams{Draft: draft, ID: locked.ID})
@@ -502,7 +528,8 @@ func (a *API) createLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	joined, err := a.liteEnrollmentStart(ctx, classID, userID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
+		// Removed after authTeacherStudent: the same 404 it gives.
+		writeNotFoundOr(w, r, err)
 		return
 	}
 	// A range that starts before she joined but ends after it is allowed.
@@ -546,10 +573,18 @@ func (a *API) createLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	row, draftError, err := a.composeLiteParentDraft(mctx, httpx.RequestIDFromContext(ctx), u.ID, resolved, created.ID, facts, others, false)
+	requestID := httpx.RequestIDFromContext(ctx)
+	row, draftError, err := a.composeLiteParentDraft(mctx, requestID, u.ID, resolved, created.ID, facts, others, false)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		// The row exists: answer 201 with it (its draft was not written) so the
+		// client has the id. composeLiteParentDraft has already logged the
+		// cause; a non-API error is not echoed, only the request id.
+		var apiErr *httpx.APIError
+		msg := "保存草稿失败：请求编号 " + requestID
+		if errors.As(err, &apiErr) {
+			msg = apiErr.Message
+		}
+		draftError = &msg
 	}
 	if draftError != nil {
 		row = created
@@ -759,16 +794,9 @@ func (a *API) publishLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		if err := requireParentStudentEnrolled(ctx, q, locked); err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
-		body, err := liteParentSections(locked.Body)
+		empty, err := liteParentBodyBlank(locked.Body)
 		if err != nil {
 			return sqlc.LiteParentReport{}, err
-		}
-		empty := true
-		for _, v := range body {
-			if strings.TrimSpace(v) != "" {
-				empty = false
-				break
-			}
 		}
 		if empty {
 			return sqlc.LiteParentReport{}, errParentReportEmpty()
