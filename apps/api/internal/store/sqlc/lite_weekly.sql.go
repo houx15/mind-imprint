@@ -181,16 +181,17 @@ JOIN lite_assignment a ON a.id = r.assignment_id
 LEFT JOIN reading rd ON rd.atom_id = r.atom_id
 LEFT JOIN writing w ON w.atom_id = r.atom_id
 LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
-WHERE a.class_id = $1 AND a.archived_at IS NULL
-  AND r.user_id = ANY($2::uuid[])
-  AND a.due_at >= $3::timestamptz AND a.due_at < $4::timestamptz
+WHERE a.class_id = $1
+  AND (a.archived_at IS NULL OR a.archived_at >= $2::timestamptz)
+  AND r.user_id = ANY($3::uuid[])
+  AND a.due_at >= $4::timestamptz AND a.due_at < $2::timestamptz
 `
 
 type ListLiteWeekAssignmentStatesParams struct {
 	ClassID   uuid.UUID   `json:"class_id"`
+	WeekEnd   time.Time   `json:"week_end"`
 	UserIds   []uuid.UUID `json:"user_ids"`
 	WeekStart time.Time   `json:"week_start"`
-	WeekEnd   time.Time   `json:"week_end"`
 }
 
 type ListLiteWeekAssignmentStatesRow struct {
@@ -200,14 +201,16 @@ type ListLiteWeekAssignmentStatesRow struct {
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
 }
 
-// 截止时间落在这一周的作业（本班、未归档）。finished_at 的取法与 ListLiteClassRecipientStates 一致；
+// 截止时间落在这一周的作业（本班、到周末仍未归档）。finished_at 的取法与 ListLiteClassRecipientStates 一致；
 // 状态在 Go 里用 liteassign.Status(…, now = week_end) 推出，周末之后才完成的记为已逾期。
+// 周末之后才归档的作业仍算在那一周：归档不改写已经结束的一周（那一周的总结文字只生成一次）。
+// 接受的偏差：老师事后改了 due_at，或把某名学生从收件人里移除，那一周的事实会跟着变，这里不追溯。
 func (q *Queries) ListLiteWeekAssignmentStates(ctx context.Context, arg ListLiteWeekAssignmentStatesParams) ([]ListLiteWeekAssignmentStatesRow, error) {
 	rows, err := q.db.Query(ctx, listLiteWeekAssignmentStates,
 		arg.ClassID,
+		arg.WeekEnd,
 		arg.UserIds,
 		arg.WeekStart,
-		arg.WeekEnd,
 	)
 	if err != nil {
 		return nil, err

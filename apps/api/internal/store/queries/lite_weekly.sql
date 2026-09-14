@@ -68,8 +68,10 @@ WHERE a.user_id = ANY(sqlc.arg(user_ids)::uuid[])
 ORDER BY COALESCE(r.finished_at, w.finished_at, p.finished_at), a.id;
 
 -- name: ListLiteWeekAssignmentStates :many
--- 截止时间落在这一周的作业（本班、未归档）。finished_at 的取法与 ListLiteClassRecipientStates 一致；
+-- 截止时间落在这一周的作业（本班、到周末仍未归档）。finished_at 的取法与 ListLiteClassRecipientStates 一致；
 -- 状态在 Go 里用 liteassign.Status(…, now = week_end) 推出，周末之后才完成的记为已逾期。
+-- 周末之后才归档的作业仍算在那一周：归档不改写已经结束的一周（那一周的总结文字只生成一次）。
+-- 接受的偏差：老师事后改了 due_at，或把某名学生从收件人里移除，那一周的事实会跟着变，这里不追溯。
 SELECT r.user_id, r.started_at, a.due_at,
        COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
 FROM lite_assignment_recipient r
@@ -77,7 +79,8 @@ JOIN lite_assignment a ON a.id = r.assignment_id
 LEFT JOIN reading rd ON rd.atom_id = r.atom_id
 LEFT JOIN writing w ON w.atom_id = r.atom_id
 LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
-WHERE a.class_id = sqlc.arg(class_id) AND a.archived_at IS NULL
+WHERE a.class_id = sqlc.arg(class_id)
+  AND (a.archived_at IS NULL OR a.archived_at >= sqlc.arg(week_end)::timestamptz)
   AND r.user_id = ANY(sqlc.arg(user_ids)::uuid[])
   AND a.due_at >= sqlc.arg(week_start)::timestamptz AND a.due_at < sqlc.arg(week_end)::timestamptz;
 

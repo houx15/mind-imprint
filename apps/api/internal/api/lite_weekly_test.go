@@ -167,6 +167,33 @@ func TestLiteWeeklyAssignmentStatesAtWeekEnd(t *testing.T) {
 	}
 }
 
+// TestLiteWeeklyArchivedAssignments: archiving does not rewrite a week that
+// has ended. An assignment due in the week, never started, and archived at or
+// after week end is still overdue for that week; one archived before week end
+// is not counted.
+func TestLiteWeeklyArchivedAssignments(t *testing.T) {
+	h, pool, teacher, classIDStr, studentID := liteTeacherFixture(t)
+	ctx := context.Background()
+	ws, we := weeklyWindow()
+
+	archive := func(at time.Time) {
+		t.Helper()
+		aid := createAssignment(t, h, teacher, classIDStr, writingAssignmentBody([]string{studentID.String()}))
+		mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2, archived_at = $3 WHERE id = $1`, aid, ws.AddDate(0, 0, 3), at)
+	}
+	archive(we.Add(time.Hour))  // archived after week end → overdue
+	archive(we)                 // archived exactly at week end → overdue
+	archive(we.Add(-time.Hour)) // archived before week end → not counted
+
+	got, err := New(DepsForTest(pool)).LoadLiteStudentWeekForTest(ctx, uuid.MustParse(classIDStr), studentID, ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.AssignmentsOverdue != 2 || got.AssignmentsDone != 0 || got.AssignmentsLate != 0 {
+		t.Fatalf("assignments = done %d late %d overdue %d, want 0/0/2", got.AssignmentsDone, got.AssignmentsLate, got.AssignmentsOverdue)
+	}
+}
+
 // TestLiteWeeklyNoTeacherTextInMoments: a report whose prose is still pending
 // contributes no moments, a quote that is the assigned prompt is dropped, and
 // an assigned project with no name never uses the teacher's idea as its title.
