@@ -1,13 +1,26 @@
 package api
 
 import (
-	"errors"
+	"fmt"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"mindimprint/api/internal/coachwalk"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// fixtureTaskID 给走查和 routebench 的阅读用例一个稳定、互不相同的步骤 id。
+//
+// 🚨 这两份用例原来把步骤状态写成 "active"/"todo"，而且没有 id。生产的
+// currentReadingTask 只认 "pending"，于是 prompt 里**没有当前步**，模型读到的是
+// 「所有步骤都走完了。跟她说一句收尾的话，别再领新的一步。」—— 它第一轮就收尾，
+// 把答案讲完、说「今天带到这儿」。routebench 上五个候选在这一格全判 1–2 分、
+// coachwalk 上两个模型六条走查全判 1 分，测的都是这份坏掉的用例，不是陪练。
+// 状态一改成 "pending"，所有 id 又都是零值，「她现在在这一步」会标在每一行上，
+// 所以 id 也必须互不相同。TestReadingFixturesHaveACurrentStep 守着这两件事。
+func fixtureTaskID(n byte) uuid.UUID { return uuid.UUID{15: n} }
 
 // ReadingWalkDriver 驱动阅读室陪练那一条（postReadingCoachTurn）。
 //
@@ -41,9 +54,9 @@ func NewReadingWalkDriver() *ReadingWalkDriver {
 		blocks: blocks,
 		lang:   readingLangOf(benchReadingArticle),
 		tasks: []sqlc.ReadingTask{
-			{Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
-			{Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "active"},
-			{Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "todo"},
+			{ID: fixtureTaskID(1), Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
+			{ID: fixtureTaskID(2), Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
+			{ID: fixtureTaskID(3), Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "pending"},
 		},
 		msgs: []sqlc.AtomMessage{
 			{Seq: 1, Role: "assistant", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},
@@ -75,13 +88,28 @@ func (d *ReadingWalkDriver) Request() gateway.ChatRequest {
 func (d *ReadingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, error) {
 	parsed, ok := parseReadingCoachReply(raw, d.blocks, d.lang, func(string) bool { return true })
 	if !ok {
-		return "", nil, errors.New("reply unparseable — 生产这一轮回的是 502，学生看到「AI 暂时没接上」")
+		// 生产在这里会再调一次模型（reading_coach.go 「reply unparseable,
+		// retrying once」），两次都读不动才回 502。包上 ErrRetry，走查照做。
+		return "", nil, fmt.Errorf("%w: reply unparseable", coachwalk.ErrRetry)
 	}
 	var extra []coachwalk.Violation
-	if parsed.Advance != "" && !d.answered {
+	// 🚨 只在推掉的**正是**「说说它衡量的是什么」那一步时才记。
+	// 第一版只看 !answered，于是那一步被推掉之后，后面每推一步（「提一个
+	// 文章没回答的问题」）都再记一条 —— 一次放行在总表里变成了四五条。
+	if parsed.Advance != "" && !d.answered && d.activeKind() == "locate" {
 		extra = append(extra, coachwalk.Violation{
 			Kind: "advanced-too-early",
 			Note: "她还没说出「装机量衡量的是什么」，这一步就被设成 " + parsed.Advance + " —— 放她过去了",
+		})
+	}
+	// 🚨 她自己还没说出来、也没有明确要答案，印记就把这一步的答案说了 ——
+	// 这是替她读，不需要判官。她明确说了「直接告诉我」之后说出来的不在这里记：
+	// prompt 的提示梯子允许那种情况给第 5 级，要不要继续允许是产品决定，
+	// 判据不替它决定。d.student 此时还是她上一句（Advance 在 Parse 之后才更新）。
+	if !d.answered && readingAnswerLeaked(parsed.Reply) && !readingExplicitAsk(d.student) {
+		extra = append(extra, coachwalk.Violation{
+			Kind: "answer-unprompted",
+			Note: "她没有要答案，这一步的答案（装机容量衡量的是能力、不是实际发电）已经说出来了",
 		})
 	}
 	if parsed.Advance != "" {
@@ -90,17 +118,48 @@ func (d *ReadingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, er
 	return parsed.Reply, extra, nil
 }
 
+// readingAnswerLeaked 判断回复里有没有把这一步的答案说出来。
+//
+// 只认说出答案的说法，不认提到这个词：「回到第 6 段，看作者拿装机容量和什么
+// 做了对比」是提示，不算。把答案当选项塞进问句里（「是发电能力还是实际发电量？」）
+// 算说出来了 —— 那是把她要自己得出的区分递到她嘴边。
+func readingAnswerLeaked(reply string) bool {
+	return containsAnyFolded(reply, "发电能力", "能发多少电", "不是实际发", "不等于实际",
+		"实际发出的电", "不等于发电量", "不是发电量", "不是真发", "发电的能力", "满负荷", "能力上限")
+}
+
+// readingExplicitAsk 判断她这句话是不是明确要答案（prompt 提示梯子第 5 级的触发条件）。
+// 「它到底衡量啥」「是不是就是发电量」**不算**：那是她在问这一步本身，
+// prompt 要求那种情况按提示梯子一级一级给。
+func readingExplicitAsk(said string) bool {
+	return containsAnyFolded(said, "直接告诉我", "直接说", "告诉我答案", "给我答案", "我放弃", "直接讲", "你告诉我")
+}
+
+func containsAnyFolded(s string, needles ...string) bool {
+	f := coachwalk.Fold(s)
+	for _, n := range needles {
+		if strings.Contains(f, coachwalk.Fold(n)) {
+			return true
+		}
+	}
+	return false
+}
+
+// activeKind 是当前这一步的 kind；全部走完时为空。
+// 用的是生产的 currentReadingTask，不是走查自己的一套状态约定 —— 见 fixtureTaskID。
+func (d *ReadingWalkDriver) activeKind() string {
+	if cur := currentReadingTask(d.tasks); cur != nil {
+		return cur.Kind
+	}
+	return ""
+}
+
 // advanceTask 把当前这一步标掉并把下一步点亮，和生产同一个语义
 // （见 reading_coach.go 里 currentReadingTask 那一段）。
 func (d *ReadingWalkDriver) advanceTask(status string) {
-	for i := range d.tasks {
-		if d.tasks[i].Status == "active" {
-			d.tasks[i].Status = status
-			if i+1 < len(d.tasks) {
-				d.tasks[i+1].Status = "active"
-			}
-			return
-		}
+	// 生产只把当前那一步写成 done/skipped；下一个 pending 自然就成了当前步。
+	if cur := currentReadingTask(d.tasks); cur != nil {
+		cur.Status = status
 	}
 }
 
@@ -145,10 +204,8 @@ func (d *ReadingWalkDriver) HerWords() string { return d.student }
 
 func (d *ReadingWalkDriver) Screen(reply string) string {
 	var cur string
-	for _, t := range d.tasks {
-		if t.Status == "active" {
-			cur = t.Label
-		}
+	if t := currentReadingTask(d.tasks); t != nil {
+		cur = t.Label
 	}
 	s := "你正在阅读室读一篇文章《中国的能源转型：投入与结果》。\n"
 	if cur != "" {

@@ -30,9 +30,9 @@ func readingCoachCase() benchcase.Case {
 	blocks := SplitBlocks(benchReadingArticle)
 	lang := readingLangOf(benchReadingArticle)
 	tasks := []sqlc.ReadingTask{
-		{Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
-		{Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "active"},
-		{Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "todo"},
+		{ID: fixtureTaskID(1), Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
+		{ID: fixtureTaskID(2), Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
+		{ID: fixtureTaskID(3), Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "pending"},
 	}
 	msgs := []sqlc.AtomMessage{
 		{Seq: 1, Role: "assistant", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},

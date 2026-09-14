@@ -5,7 +5,7 @@
 // 她说过的话、有没有把同一个问题换个说法再问一遍、她跳过一步的时候有没有放她过去。
 // 一个模型可以每一轮都单独好看，连起来读却是在原地绕。
 //
-// 这个包只放**和哪个陪练无关**的东西：循环、演学生的那一头、四条可验判据。
+// 这个包只放**和哪个陪练无关**的东西：循环、演学生的那一头、可验判据、延迟。
 // 每个陪练自己的 prompt 和解析器都是未导出的，所以每个 Driver 住在它自己的包里
 // （pbl / agent / api）——抄一份 prompt 出来就会漂移，而拿漂移的 prompt 测出来的
 // 结论读起来像证据，其实一文不值。
@@ -16,16 +16,35 @@ package coachwalk
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 
 	"mindimprint/api/internal/gateway"
 )
 
-// Call 打一次模型并把正文交回来。延迟和 token 由调用方在闭包里量，
-// 这样这个包不需要认识 provider 或 catalog。
-type Call func(ctx context.Context, req gateway.ChatRequest) (string, error)
+// CallResult 是一次模型调用交回来的东西。
+type CallResult struct {
+	Text string
+	// Ms 是这一次调用从发出到收完的毫秒数。陪练的回复是非流式收齐再解析的，
+	// 所以学生等的就是这个数，不是首字时间。
+	Ms  int64
+	Out int
+}
+
+// Call 打一次模型。延迟和 token 由调用方在闭包里量，这样这个包不需要认识
+// provider 或 catalog。
+type Call func(ctx context.Context, req gateway.ChatRequest) (CallResult, error)
+
+// ErrRetry 由 Driver.Parse 包起来返回，意思是「生产在这种情况下会再问一次」。
+//
+// 🚨 走查必须照生产的样子重试，否则记下的失败学生根本看不见。阅读室在回复读不动
+// 时会再调一次模型（reading_coach.go 里 "retrying once" 那一段），只有两次都
+// 读不动才回 502。第一版走查只调一次，于是把一次「生产会自己救回来」的失败
+// 记成了拦住上线的理由。
+var ErrRetry = errors.New("coachwalk: 生产会重试这一轮")
 
 // Driver 是某一个陪练在这条循环里的那一侧。
 //
@@ -38,7 +57,8 @@ type Driver interface {
 	Request() gateway.ChatRequest
 	// Parse 用**生产的**解析器读模型原文。返回学生会看到的那句话，
 	// 以及这一轮该记下的额外犯规（比如生产校验器拒收、过早放她过关）。
-	// err 不为 nil 表示生产环境这一轮会给学生弹一个错。
+	// err 不为 nil 表示这一轮学生拿不到回复；err 包着 ErrRetry 时，
+	// Run 会像生产那样再调一次模型。
 	Parse(raw string) (reply string, extra []Violation, err error)
 	// Advance 把这一轮接进状态，下一轮 Request() 就该反映它。
 	Advance(reply, studentSaid string)
@@ -63,6 +83,14 @@ type Turn struct {
 	Reply       string
 	ParseErr    string
 	StudentSaid string
+
+	// CoachMs 是这一轮学生从发出到拿到回复等了多久：**包括重试**。
+	// 重试她看不见，但她等得到。
+	CoachMs int64
+	// Retries 是这一轮生产会多调的次数。
+	Retries int
+	// OutTokens 是这一轮陪练所有调用的输出 token 合计。
+	OutTokens int
 
 	QuestionsInReply int
 	RepeatOf         int
@@ -149,19 +177,36 @@ func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, e
 	log := &Log{Site: d.Site()}
 
 	for n := 1; n <= turns; n++ {
-		raw, err := coach(ctx, d.Request())
+		t := Turn{N: n}
+		req := d.Request()
+		res, err := coach(ctx, req)
 		if err != nil {
 			return log, fmt.Errorf("%s 第 %d 轮陪练调用失败: %w", d.Site(), n, err)
 		}
-
-		t := Turn{N: n, CoachRaw: raw}
+		t.CoachRaw, t.CoachMs, t.OutTokens = res.Text, res.Ms, res.Out
 		// 先记下这一轮该比对的语料——Advance 之后它就变了。
 		hers := d.HerWords()
 
-		reply, extra, perr := d.Parse(raw)
+		reply, extra, perr := d.Parse(res.Text)
+		if perr != nil && errors.Is(perr, ErrRetry) {
+			// 照生产的样子再问一次，同一个请求。
+			t.Retries++
+			again, aerr := coach(ctx, req)
+			if aerr != nil {
+				perr = fmt.Errorf("重试调用失败，生产回 502: %v", aerr)
+			} else {
+				t.CoachRaw = again.Text
+				t.CoachMs += again.Ms
+				t.OutTokens += again.Out
+				reply, extra, perr = d.Parse(again.Text)
+				if perr != nil {
+					perr = fmt.Errorf("重试后仍读不动，生产回 502: %v", perr)
+				}
+			}
+		}
 		if perr != nil {
-			// 解析失败在生产里就是给学生弹一个错。记下来就停：后面几轮拿不到
-			// reply，续下去只是在编一条不存在的对话。
+			// 学生这一轮拿不到回复。记下来就停：后面几轮拿不到 reply，
+			// 续下去只是在编一条不存在的对话。
 			t.ParseErr = perr.Error()
 			log.Turns = append(log.Turns, t)
 			return log, nil
@@ -193,16 +238,66 @@ func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, e
 // 不给她 JSON、不给她 system prompt、不告诉她这个任务该走几步。她看不懂就说
 // 看不懂，那句「看不懂」就是我们要的结果——和 e2e/camp 的 brain.ts 同一个道理。
 func runStudent(ctx context.Context, call Call, persona, screen string) (string, error) {
-	return call(ctx, gateway.ChatRequest{
+	res, err := call(ctx, gateway.ChatRequest{
 		MaxTokens: 800,
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: persona},
 			{Role: gateway.RoleUser, Content: screen + "\n\n你这一轮说什么？"},
 		},
 	})
+	return res.Text, err
 }
 
-/* ── 四条可验判据 ────────────────────────────────────────────────────────── */
+/* ── 延迟 ────────────────────────────────────────────────────────────────── */
+
+// Latency 是一组走查里每一轮陪练延迟的分布（毫秒）。
+type Latency struct {
+	N             int
+	P50, P90, Max int64
+	Retries       int
+}
+
+// LatencyOf 汇总若干条走查的每轮延迟。解析失败的那一轮也算进去：
+// 她同样等了那么久，只是等来一个错。
+func LatencyOf(logs []*Log) Latency {
+	var ms []int64
+	var lat Latency
+	for _, l := range logs {
+		if l == nil {
+			continue
+		}
+		for _, t := range l.Turns {
+			ms = append(ms, t.CoachMs)
+			lat.Retries += t.Retries
+		}
+	}
+	lat.N = len(ms)
+	if lat.N == 0 {
+		return lat
+	}
+	sort.Slice(ms, func(i, j int) bool { return ms[i] < ms[j] })
+	lat.P50 = percentile(ms, 50)
+	lat.P90 = percentile(ms, 90)
+	lat.Max = ms[len(ms)-1]
+	return lat
+}
+
+// percentile 取最近秩：不插值，报出来的每个数都是某一轮真实等过的时间。
+func percentile(sorted []int64, p int) int64 {
+	if len(sorted) == 0 {
+		return 0
+	}
+	idx := (p*len(sorted) + 99) / 100 // ceil(p% × n)
+	if idx < 1 {
+		idx = 1
+	}
+	if idx > len(sorted) {
+		idx = len(sorted)
+	}
+	return sorted[idx-1]
+}
+
+/* ── 可验判据 ────────────────────────────────────────────────────────────── */
 
 // CountQuestions 数问号，中英文都算。
 func CountQuestions(s string) int {

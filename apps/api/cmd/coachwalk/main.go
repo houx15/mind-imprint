@@ -1,8 +1,9 @@
 // coachwalk —— 多轮陪练走查台。
 //
 // routebench 回答「这个模型这一轮答得好不好」。这件工具回答另一个问题：
-// **换了模型，陪练连起来还能用吗。** 它让另一家的模型演学生，和真的 prompt /
-// 真的解析器来回若干轮，然后数可验的犯规，最后请一个旗舰判官读整条对话。
+// **换了模型，陪练连起来还能用吗，以及每一轮她要等多久。** 它让另一家的模型演
+// 学生，和真的 prompt / 真的解析器来回若干轮（重试照生产的样子做），然后数可验的
+// 犯规，量每一轮陪练的延迟，最后请一个旗舰判官读整条对话。
 //
 // 走查四个陪练，每个有自己的 Driver（住在各自的包里，因为 prompt 和解析器都是
 // 未导出的）：阅读室、写作室、pro、PBL。
@@ -14,7 +15,7 @@
 //	DASHSCOPE_API_KEY=… DEEPSEEK_API_KEY=… go run ./cmd/coachwalk \
 //	  -models dashscope/deepseek-v4-pro,deepseek/deepseek-flash -turns 8 -out walk.md
 //
-//	# 只走一个陪练（名字见 -list）：
+//	# 只走某几个陪练：
 //	go run ./cmd/coachwalk -coaches reading,writing
 package main
 
@@ -55,7 +56,17 @@ var coaches = []coach{
 }
 
 // kinds 是总表里要分列的犯规类型。
-var kinds = []string{"parse", "advanced-too-early", "banned-phrasing", "multi-question", "question+hook", "repeat", "ungrounded"}
+var kinds = []string{"parse", "advanced-too-early", "answer-unprompted", "banned-phrasing", "multi-question", "question+hook", "repeat", "ungrounded"}
+
+// row 是一条走查的结果。
+type row struct {
+	coach, model string
+	rep          int
+	log          *coachwalk.Log
+	err          error
+	score        float64
+	why          string
+}
 
 func main() {
 	models := flag.String("models", "dashscope/deepseek-v4-pro,deepseek/deepseek-flash",
@@ -77,7 +88,7 @@ func main() {
 		fmt.Printf("陪练：%s\n", strings.Join(names(picked), ", "))
 		fmt.Printf("候选：%s\n", strings.Join(cands, ", "))
 		fmt.Printf("学生：%s\n判官：%s\n", *studentModel, *judgeModel)
-		fmt.Printf("调用量：%d 陪练 × %d 候选 × %d 条 × %d 轮 × 2（陪练+学生）= %d 次\n",
+		fmt.Printf("调用量：%d 陪练 × %d 候选 × %d 条 × %d 轮 × 2（陪练+学生）≈ %d 次（不含重试与判官）\n",
 			len(picked), len(cands), *repeats, *turns,
 			len(picked)*len(cands)*(*repeats)*(*turns)*2)
 		return
@@ -119,42 +130,32 @@ func main() {
 		die("判官模型: %v", err)
 	}
 
-	type run struct {
-		coach, model string
-		rep          int
-		log          *coachwalk.Log
-		err          error
-		ms           int64
-		score        float64
-		why          string
-	}
-	var runs []run
-
+	var rows []row
 	for _, c := range picked {
 		for _, m := range cands {
+			// 候选走 dialogue 档，拿到的就是这一档在生产里真正的约束（关思考）。
 			coachR, rerr := cat.Resolve(gateway.ClassDialogue, m, gateway.OSEnvKeyLookup)
 			if rerr != nil {
 				die("候选 %s: %v", m, rerr)
 			}
 			for rep := 1; rep <= *repeats; rep++ {
 				fmt.Fprintf(os.Stderr, "%-8s %-30s 第 %d 条…", c.name, m, rep)
-				start := time.Now()
 				lg, werr := coachwalk.Run(ctx, c.make(), callFn(prov, coachR), callFn(prov, student), *turns)
-				r := run{coach: c.name, model: m, rep: rep, log: lg, err: werr, ms: time.Since(start).Milliseconds()}
+				r := row{coach: c.name, model: m, rep: rep, log: lg, err: werr}
 				if lg != nil && len(lg.Turns) > 0 {
 					r.score, r.why = judgeWalk(ctx, prov, judge, c.judge, lg.Transcript())
 				}
-				runs = append(runs, r)
-				fmt.Fprintf(os.Stderr, " %d 轮，%d 处犯规，判官 %.0f\n",
-					len(lg.Turns), len(lg.Violations()), r.score)
+				rows = append(rows, r)
+				lat := coachwalk.LatencyOf([]*coachwalk.Log{lg})
+				fmt.Fprintf(os.Stderr, " %d 轮，%d 处犯规，每轮 p50 %.1fs，判官 %.0f\n",
+					len(lg.Turns), len(lg.Violations()), float64(lat.P50)/1000, r.score)
+				if werr != nil {
+					fmt.Fprintf(os.Stderr, "  🚨 %v\n", werr)
+				}
 			}
 		}
 	}
 
-	rows := make([]row, 0, len(runs))
-	for _, r := range runs {
-		rows = append(rows, row{r.coach, r.model, r.rep, r.log, r.score, r.why, r.ms})
-	}
 	md := report(rows, *turns, *repeats, *studentModel, *judgeModel, picked, cands)
 	fmt.Print(md)
 	if *out != "" {
@@ -165,85 +166,92 @@ func main() {
 	}
 }
 
-// row 是报告要用到的那几列。
-type row struct {
-	coach, model string
-	rep          int
-	log          *coachwalk.Log
-	score        float64
-	why          string
-	ms           int64
-}
-
 // report 渲染整份报告。
-func report(runs []row, turns, repeats int, studentModel, judgeModel string,
+func report(rows []row, turns, repeats int, studentModel, judgeModel string,
 	picked []coach, cands []string) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# coachwalk · 多轮陪练走查\n\n")
 	fmt.Fprintf(&b, "%s · 每条 %d 轮 × %d 条 · 学生 `%s` · 判官 `%s`\n\n",
 		time.Now().Format("2006-01-02 15:04"), turns, repeats, studentModel, judgeModel)
-	fmt.Fprintf(&b, "> **犯规那几列是数出来的，不是判官的印象。** `parse` = 生产解析器拒收（学生看到一个错）；\n")
-	fmt.Fprintf(&b, "> `advanced-too-early` = 她还没答上来就被放过去了；`banned-phrasing` = 生产校验器判定\n")
+	fmt.Fprintf(&b, "> **犯规那几列是数出来的，不是判官的印象。** `parse` = 重试之后仍读不动，生产回 502；\n")
+	fmt.Fprintf(&b, "> `advanced-too-early` = 她还没答上来就被放过去了；`answer-unprompted` = 她没要答案，这一步的答案已经被说出来了；`banned-phrasing` = 生产校验器判定\n")
 	fmt.Fprintf(&b, "> 这条回复替她写了；`multi-question` = 一轮两个问号；`repeat` = 和前面某轮高度重合；\n")
-	fmt.Fprintf(&b, "> `ungrounded` = 接不住她上一句的任何一段原文。\n\n")
+	fmt.Fprintf(&b, "> `ungrounded` = 接不住她说过/写下的任何一段原文。\n\n")
 
-	// 总表：每个陪练 × 每个候选一行，多条走查取合计与最差。
-	fmt.Fprintf(&b, "## 总表\n\n")
-	fmt.Fprintf(&b, "| 陪练 | 模型 | 犯规合计 | 最差一条 | 判官（每条） | %s | p50 |\n",
-		strings.Join(kinds, " | "))
-	fmt.Fprintf(&b, "|---|---|---:|---:|---|%s|---:|\n", strings.Repeat("---:|", len(kinds)))
+	byCell := func(c, m string) []row {
+		var out []row
+		for _, r := range rows {
+			if r.coach == c && r.model == m && r.log != nil {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
 
+	fmt.Fprintf(&b, "## 犯规\n\n")
+	fmt.Fprintf(&b, "| 陪练 | 模型 | 犯规合计 | 最差一条 | 判官（每条） | %s |\n", strings.Join(kinds, " | "))
+	fmt.Fprintf(&b, "|---|---|---:|---:|---|%s\n", strings.Repeat("---:|", len(kinds)))
 	for _, c := range picked {
 		for _, m := range cands {
+			cell := byCell(c.name, m)
+			if len(cell) == 0 {
+				continue
+			}
 			var total, worst int
 			var scores []string
-			var perKind = map[string]int{}
-			var msTotal int64
-			var n int
-			for _, r := range runs {
-				cn, mn, lg, sc, ms := r.coach, r.model, r.log, r.score, r.ms
-				if cn != c.name || mn != m || lg == nil {
-					continue
-				}
-				v := len(lg.Violations())
+			perKind := map[string]int{}
+			for _, r := range cell {
+				v := len(r.log.Violations())
 				total += v
 				if v > worst {
 					worst = v
 				}
 				for _, k := range kinds {
-					perKind[k] += lg.Count(k)
+					perKind[k] += r.log.Count(k)
 				}
-				scores = append(scores, fmt.Sprintf("%.0f", sc))
-				msTotal += ms
-				n++
-			}
-			if n == 0 {
-				continue
+				scores = append(scores, fmt.Sprintf("%.0f", r.score))
 			}
 			cells := make([]string, 0, len(kinds))
 			for _, k := range kinds {
-				cells = append(cells, fmt.Sprintf("%d", perKind[k]))
+				cells = append(cells, strconv.Itoa(perKind[k]))
 			}
-			fmt.Fprintf(&b, "| %s | `%s` | **%d** | %d | %s | %s | %.1fs |\n",
-				c.name, m, total, worst, strings.Join(scores, ", "),
-				strings.Join(cells, " | "), float64(msTotal)/float64(n)/1000)
+			fmt.Fprintf(&b, "| %s | `%s` | **%d** | %d | %s | %s |\n",
+				c.name, m, total, worst, strings.Join(scores, ", "), strings.Join(cells, " | "))
 		}
 	}
 	b.WriteString("\n")
 
-	// 逐条明细。
+	fmt.Fprintf(&b, "## 速度（每一轮她等多久，含生产会做的重试）\n\n")
+	fmt.Fprintf(&b, "| 陪练 | 模型 | 轮数 | p50 | p90 | 最慢 | 重试次数 |\n")
+	fmt.Fprintf(&b, "|---|---|---:|---:|---:|---:|---:|\n")
+	for _, c := range picked {
+		for _, m := range cands {
+			cell := byCell(c.name, m)
+			if len(cell) == 0 {
+				continue
+			}
+			logs := make([]*coachwalk.Log, 0, len(cell))
+			for _, r := range cell {
+				logs = append(logs, r.log)
+			}
+			lat := coachwalk.LatencyOf(logs)
+			fmt.Fprintf(&b, "| %s | `%s` | %d | %.1fs | %.1fs | %.1fs | %d |\n",
+				c.name, m, lat.N, float64(lat.P50)/1000, float64(lat.P90)/1000, float64(lat.Max)/1000, lat.Retries)
+		}
+	}
+	b.WriteString("\n")
+
 	for _, c := range picked {
 		fmt.Fprintf(&b, "## %s\n\n", c.name)
 		for _, m := range cands {
-			for _, r := range runs {
-				cn, mn, rep, lg, sc, why := r.coach, r.model, r.rep, r.log, r.score, r.why
-				if cn != c.name || mn != m || lg == nil {
-					continue
+			for _, r := range byCell(c.name, m) {
+				fmt.Fprintf(&b, "### `%s` · 第 %d 条 —— %s\n\n", m, r.rep, r.log.Site)
+				if r.err != nil {
+					fmt.Fprintf(&b, "🚨 走查中断：%v\n\n", r.err)
 				}
-				fmt.Fprintf(&b, "### `%s` · 第 %d 条 —— %s\n\n", m, rep, lg.Site)
-				fmt.Fprintf(&b, "判官 %.0f 分 —— %s\n\n", sc, why)
-				vs := lg.Violations()
+				fmt.Fprintf(&b, "判官 %.0f 分 —— %s\n\n", r.score, r.why)
+				vs := r.log.Violations()
 				if len(vs) == 0 {
 					b.WriteString("数出来的犯规：无。\n\n")
 				} else {
@@ -255,22 +263,25 @@ func report(runs []row, turns, repeats int, studentModel, judgeModel string,
 					b.WriteString("\n")
 				}
 				fmt.Fprintf(&b, "<details><summary>完整对话</summary>\n\n```\n%s```\n\n</details>\n\n",
-					lg.Transcript())
+					r.log.Transcript())
 			}
 		}
 	}
 	return b.String()
 }
 
+// callFn 把一个 provider + 一个已解析的模型包成 coachwalk.Call，并量这一次的耗时。
 func callFn(prov gateway.Provider, r gateway.Resolved) coachwalk.Call {
-	return func(ctx context.Context, req gateway.ChatRequest) (string, error) {
+	return func(ctx context.Context, req gateway.ChatRequest) (coachwalk.CallResult, error) {
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
+		start := time.Now()
 		res, err := gateway.Collect(cctx, prov, r, req)
+		ms := time.Since(start).Milliseconds()
 		if err != nil {
-			return "", err
+			return coachwalk.CallResult{Ms: ms}, err
 		}
-		return res.Text, nil
+		return coachwalk.CallResult{Text: res.Text, Ms: ms, Out: res.Usage.OutputTokens}, nil
 	}
 }
 

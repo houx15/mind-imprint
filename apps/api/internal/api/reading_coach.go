@@ -72,10 +72,14 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   要说「往下翻到第三段，那段里有三个数字，先把它们圈出来」。
 - 她答完一步之后，先接住她说的（一句就够），再领下一步。
 - 她问问题的时候先回答她，回答完再把她带回当前这一步。
+  🚨 **例外：她问的正是当前这一步要她自己得出的那个答案**（「所以它到底说明了什么」
+  「是不是就是 X」），那是在要提示，不是在问你。按下面「她卡住的时候」的梯子给一级，
+  不要把答案说出来。她猜了一个答案来问你对不对，先请她说出她是从文章哪一句看出来的。
 
 ## 你绝对不能做的事
 
 - **不要替她读。** 不要说出这篇文章的结论、主旨、答案、要点总结。她还没读呢——你先说了，后面每一步都成了走过场。
+  **把写着这一步答案的那一句原文整句引给她，也是替她读。** 要指，就指到第几段、哪个词附近，让她自己去读那一句。
 - 不要一次问好几个问题。
 - 不要催她、不要评价她读得快慢。
 - **不要训她。** 她没做到你要她做的那件事，绝大多数时候是她没看懂该点哪儿、
@@ -150,6 +154,10 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 ## 什么时候往下走
 
 - 她确实做完了当前这一步（哪怕做得粗糙）→ advance 给 "done"。
+  🚨 **「粗糙」说的是做得好不好，不是做了几件。** 一步里要她做两件事
+  （比如「找出作者用的那个比喻，**说说它想让读者怎么看这件事**」），
+  她只做了前一件，这一步就没做完，advance 给 ""，接住她做完的那一件，
+  再只领她做剩下的那一件。（通读、链接经验、找出关键句另有规则，见下面的「特别的步骤」。）
 - 她说想跳过、说这步没意思、说她已经会了 → advance 给 "skipped"。**不要劝她**。
 - 她还没做、或者答得完全没碰到这一步要她做的事 → advance 给 ""，留在原地，把这一步再说一遍（换个说法，别重复原话）。
 - 一轮最多往前一步。
@@ -167,6 +175,9 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 - tool：见下。不用就留空。
 - lens：透镜卡的 id。你要她**亲手做一遍某种分析**的时候用它，见下。不用就留空。
 - card：一张她可以直接点的卡片，见下。不发卡就整个省略这个键，或者给 null。
+- 🚨 **reply 里要换行，就写成 \n（一个反斜杠加 n），不要在引号里直接回车。**
+  分段、写短列表的时候最容易漏：引号里出现一个真的换行，整个 JSON 就作废，
+  她这一轮什么也收不到。
 
 ## 段落工具：你手上的教具
 
@@ -1277,10 +1288,10 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 		c = c[:j+1]
 	}
 	var got readingCoachReply
-	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
+	if err := json.Unmarshal([]byte(escapeRawControlInStrings(strings.TrimSpace(c))), &got); err != nil {
 		// 🚨 断在半路的回复，把已经到齐的那部分留下来。见 salvageCoachReply。
 		var ok bool
-		if got, ok = salvageCoachReply(whole); !ok {
+		if got, ok = salvageCoachReply(escapeRawControlInStrings(whole)); !ok {
 			// 🚨 最后一种：它压根没在写 JSON，直接说了人话。
 			//
 			// 2026-09-10 的模拟学生走查抓到的，日志里逐字记着：256 个字符、
@@ -2233,4 +2244,62 @@ func fallbackCardFor(asked string) *coachCard {
 		prompt = "请在文章里点出你想说的那一句。"
 	}
 	return &coachCard{Type: coachCardPickInArticle, Prompt: prompt}
+}
+
+// escapeRawControlInStrings 把 JSON 字符串值里没转义的控制字符（换行、回车、
+// 制表符等）改写成合法的转义序列；字符串外面的内容一律不动。
+//
+// 🚨 2026-09-14 的 coachwalk 走查录到：模型在 reply 里分了两段，换行直接写进了
+// 字符串值 ——
+//
+//	{"reply":"第 6 段最后一句是：「……」⏎⏎这句话是整篇里最要紧的一处。…
+//
+// 严格的 JSON 不允许这样，json.Unmarshal 和 salvageCoachReply 用的 Decoder 都拒收，
+// 调用点只能再问一次，两次都这样就回 502。而这份回复本身是完整、可用的。
+// system prompt 要她分段、写短列表，原来却没说字符串里的换行要写成 \n ——
+// 所以这是 prompt 在要求一种 JSON 装不下的输出。prompt 已补上这一句；
+// 这里是那句话没被遵守时的保证。
+//
+// 字符串外面的换行是合法空白（缩进过的 JSON 里到处都是），必须原样保留。
+// 只处理控制字符：字符串里没转义的直双引号无法从外部判断，不在这里修。
+func escapeRawControlInStrings(s string) string {
+	const hex = "0123456789abcdef"
+	var b strings.Builder
+	b.Grow(len(s) + 16)
+	inStr, esc := false, false
+	for _, r := range s {
+		if !inStr {
+			if r == '"' {
+				inStr = true
+			}
+			b.WriteRune(r)
+			continue
+		}
+		if esc {
+			esc = false
+			b.WriteRune(r)
+			continue
+		}
+		switch {
+		case r == '\\':
+			esc = true
+			b.WriteRune(r)
+		case r == '"':
+			inStr = false
+			b.WriteRune(r)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r < 0x20:
+			b.WriteString(`\u00`)
+			b.WriteByte(hex[r>>4])
+			b.WriteByte(hex[r&0xf])
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

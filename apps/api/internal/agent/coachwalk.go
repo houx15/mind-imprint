@@ -47,9 +47,32 @@ func (d *WritingWalkDriver) Request() gateway.ChatRequest {
 		MaxTokens: 2000,
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: projectCoachPosturePrompt},
-			{Role: gateway.RoleUser, Content: BuildProjectCoachContext(d.history, writingWalkProjection, "写作间")},
+			{Role: gateway.RoleUser, Content: BuildProjectCoachContext(windowWritingHistory(d.history), writingWalkProjection, "写作间")},
 		},
 	}
+}
+
+// writingWalkWindow 和 api.writingTurnsWindow 同一个数（12）。那个常量在 api 包里、
+// 未导出，这里只能照抄；两边不一致时，走查看到的上文就比生产多或少，
+// 「别原地打转」这条规矩在走查里成立、在生产里不成立（或者反过来）。
+const writingWalkWindow = 12
+
+// windowWritingHistory 照 buildWritingTurnHistory 的样子截上文：
+// 之前的消息只留最后 12 条，再接上她最新说的那一句。
+//
+// 🚨 走查必须看到和生产一样多的上文。给得多，陪练看起来更会「记得她说过什么」，
+// 而那份记性在生产里并不存在。
+func windowWritingHistory(h []ChatTurn) []ChatTurn {
+	if len(h) == 0 {
+		return h
+	}
+	prior, newest := h[:len(h)-1], h[len(h)-1]
+	if len(prior) > writingWalkWindow {
+		prior = prior[len(prior)-writingWalkWindow:]
+	}
+	out := make([]ChatTurn, 0, len(prior)+1)
+	out = append(out, prior...)
+	return append(out, newest)
 }
 
 func (d *WritingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, error) {
@@ -147,8 +170,10 @@ func NewProWalkDriver() *ProWalkDriver {
 			AnchorKind: "graph_node",
 			AnchorID:   "n2",
 			Criterion:  "D5",
-			Reason:     "从「装机量第一」直接推到「让地球更可持续」，中间的推理跳过了",
-			Level:      "I2",
+			// 生产的 CandidateMoves 给的就是这一句，而且没有冷却：主张一直缺证据，
+			// 这个候选每一轮学生发言都会再发一次。走查每轮都调陪练，是照着这个来的。
+			Reason: "claim has no supporting evidence",
+			Level:  "I2",
 		},
 		history: []ChatTurn{
 			{Role: "user", Content: "我这段想说中国的能源转型是有效的。"},
@@ -161,14 +186,24 @@ func (d *ProWalkDriver) Site() string {
 }
 
 func (d *ProWalkDriver) Request() gateway.ChatRequest {
+	h := d.history
+	if len(h) > proWalkHistoryLimit {
+		h = h[len(h)-proWalkHistoryLimit:]
+	}
 	return gateway.ChatRequest{
 		MaxTokens: 2000,
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: coachPosturePrompt},
-			{Role: gateway.RoleUser, Content: BuildCoachContext(d.g, d.c, d.history, nil)},
+			{Role: gateway.RoleUser, Content: BuildCoachContext(d.g, d.c, h, nil)},
 		},
 	}
 }
+
+// proWalkHistoryLimit 和 loop.go 里 LoadChatHistory(ctx, projectID, 12) 同一个数。
+// 生产那一份是她的聊天消息加上印记之前问过的问题，按时间排好后只留最后 12 条，
+// 所以印记看得见自己问过什么，「不要重问」这条规矩在生产里有东西可依。
+// 走查给得比 12 条多，陪练就会显得比生产里更记得住。
+const proWalkHistoryLimit = 12
 
 func (d *ProWalkDriver) Parse(raw string) (string, []coachwalk.Violation, error) {
 	// 生产在这里跑的是同一对校验器（见 coach.go 里 ProposeIntervention 的实现）。
