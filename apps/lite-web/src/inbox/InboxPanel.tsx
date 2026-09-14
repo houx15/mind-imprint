@@ -1,21 +1,21 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
 import { AssignmentStatusChip } from "./AssignmentStrip";
-import { assignmentItems, sortUnreadFirst } from "./inboxLogic";
+import { assignmentItems, INBOX_PANEL_WIDTH, inboxPanelLeft, sortUnreadFirst } from "./inboxLogic";
 import { openAssignment } from "./openAssignment";
 import type { InboxState } from "./useInbox";
 
 /**
  * The 收件箱 panel. Portaled to `document.body` because the rail it opens
- * from is `overflow-hidden`. The accent/background variables live on
- * `document.documentElement`, so the portal keeps them.
+ * from is `overflow: hidden`. The student theme is mirrored onto `body`
+ * (`lite-student-theme`), so the portal keeps the same tokens.
  *
- * Position: next to the folded rail (72px from the left) on a wide screen;
- * on a narrow one `left` shrinks so the 360px panel (capped at
- * `100vw - 32px`) always keeps a 16px margin on both sides.
+ * Position: just right of the rail's resting edge, measured from
+ * `.learning-nav-slot` (not the nav itself, which widens on hover). See
+ * `inboxPanelLeft` for the narrow-screen rule.
  *
  * Closes on Escape (focus returns to the button), a pointer-down outside the
  * panel and its button, and navigation (handled by `InboxButton`).
@@ -33,6 +33,14 @@ export function InboxPanel({
   const alive = useAlive();
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [left, setLeft] = useState(16);
+
+  // Measured before paint, so the panel never flashes at the fallback spot.
+  useLayoutEffect(() => {
+    const rail = anchor.current?.closest(".learning-nav-slot") ?? anchor.current;
+    const railRight = rail ? rail.getBoundingClientRect().right : 0;
+    setLeft(inboxPanelLeft(railRight, window.innerWidth));
+  }, [anchor]);
 
   useEffect(() => {
     panelRef.current?.focus();
@@ -77,9 +85,9 @@ export function InboxPanel({
       tabIndex={-1}
       className="fixed z-50 flex flex-col overflow-hidden rounded-mk-lg border border-mk-border bg-mk-surface text-mk-ink shadow-mk-lg outline-none"
       style={{
-        left: "clamp(16px, calc(100vw - 376px), 72px)",
+        left,
         bottom: 16,
-        width: 360,
+        width: INBOX_PANEL_WIDTH,
         maxWidth: "calc(100vw - 32px)",
         maxHeight: "calc(100vh - 32px)",
       }}

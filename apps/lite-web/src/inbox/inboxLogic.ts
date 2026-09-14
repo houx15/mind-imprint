@@ -41,6 +41,24 @@ export function sortUnreadFirst<T extends { unread: boolean }>(items: readonly T
   return [...items.filter((it) => it.unread), ...items.filter((it) => !it.unread)];
 }
 
+export const INBOX_PANEL_WIDTH = 360;
+const INBOX_PANEL_GAP = 8;
+const INBOX_PANEL_MARGIN = 16;
+
+/**
+ * The inbox panel's `left`, in px. It opens just right of the rail's resting
+ * edge (`railRight`), so it does not cover the rail foot or the button that
+ * opened it — the rail rests at 220px on a wide landing and 56–68px
+ * elsewhere, so a fixed offset cannot fit both. When the viewport is too
+ * narrow for that, it slides left and keeps a 16px margin on the right,
+ * and never goes past 16px on the left.
+ */
+export function inboxPanelLeft(railRight: number, viewportWidth: number): number {
+  const beside = railRight + INBOX_PANEL_GAP;
+  const lastFit = viewportWidth - INBOX_PANEL_WIDTH - INBOX_PANEL_MARGIN;
+  return Math.max(INBOX_PANEL_MARGIN, Math.min(beside, lastFit));
+}
+
 /** 开始 when there is nothing to go back to yet (never started, including an
  * overdue assignment she never opened); 继续 once a room exists. */
 export function startButtonLabel(item: Pick<AssignmentInboxItem, "status" | "atomId">): "开始" | "继续" {

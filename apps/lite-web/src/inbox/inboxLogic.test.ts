@@ -3,6 +3,7 @@ import type { AssignmentInboxItem, InboxItemDTO } from "../api/assignments";
 import { ApiError } from "../api/client";
 import {
   errorMessage,
+  inboxPanelLeft,
   openItemsForKind,
   sortUnreadFirst,
   startButtonLabel,
@@ -67,6 +68,17 @@ describe("sortUnreadFirst", () => {
         { id: "d", unread: true },
       ]).map((it) => it.id),
     ).toEqual(["b", "d", "a", "c"]));
+});
+
+// Why this is tested: the rail rests at 220px on a wide landing and 56–68px
+// elsewhere. A fixed offset covered the rail foot on the landing, and a
+// screenshot is the only other place that shows it.
+describe("inboxPanelLeft", () => {
+  it("opens beside a wide landing rail", () => expect(inboxPanelLeft(220, 1440)).toBe(228));
+  it("opens beside the folded rail", () => expect(inboxPanelLeft(68, 1440)).toBe(76));
+  it("slides left to keep a 16px right margin", () => expect(inboxPanelLeft(220, 500)).toBe(124));
+  it("never goes past the 16px left margin on a phone", () => expect(inboxPanelLeft(56, 400)).toBe(24));
+  it("clamps to 16px when the viewport is narrower than the panel", () => expect(inboxPanelLeft(56, 320)).toBe(16));
 });
 
 describe("startButtonLabel", () => {

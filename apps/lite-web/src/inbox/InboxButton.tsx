@@ -44,7 +44,10 @@ export function InboxButton() {
         aria-label={`收件箱，${unread} 条未读`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        style={open ? { background: "var(--mk-accent-50)", color: "var(--mk-accent-500)" } : undefined}
+        // accent-700, not the tabs' accent-500: lite.css lightens accent-700 in
+        // dark mode, and this inline colour cannot pick up learning.css's
+        // dark override for `[aria-current="page"]`.
+        style={open ? { background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" } : undefined}
         onClick={() => {
           if (!open) reload();
           setOpen(!open);
