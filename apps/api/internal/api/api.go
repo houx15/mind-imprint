@@ -528,5 +528,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/classes/{id}/weekly-report", teacherOrAdmin(a.getClassWeeklyReport))
 	mux.Handle("POST /api/v1/classes/{id}/weekly-report/prose", teacherOrAdmin(a.postClassWeeklyProse))
 
+	a.registerLiteTeacherRoutes(mux)
+
 	return SessionAuth(a.d.Queries)(mux)
 }
