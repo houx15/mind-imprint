@@ -480,7 +480,7 @@ func (q *Queries) ParentRangeAssignmentStates(ctx context.Context, arg ParentRan
 }
 
 const parentRangeFinished = `-- name: ParentRangeFinished :many
-SELECT a.kind,
+SELECT a.id AS atom_id, a.kind,
        COALESCE(
          NULLIF(btrim(COALESCE(r.title, w.title, NULLIF(p.name, ''), CASE WHEN p.assigned THEN NULL ELSE p.idea END, '')), ''),
          NULLIF(btrim(la.title), ''),
@@ -509,12 +509,14 @@ type ParentRangeFinishedParams struct {
 }
 
 type ParentRangeFinishedRow struct {
+	AtomID     uuid.UUID `json:"atom_id"`
 	Kind       string    `json:"kind"`
 	Title      string    `json:"title"`
 	FinishedAt time.Time `json:"finished_at"`
 }
 
 // 范围内完成的阅读、写作、项目，按完成时间排序。
+// atom_id 供 Go 侧为还没有报告的阅读 / 写作先生成报告（只跑第一阶段，不调用模型）。
 func (q *Queries) ParentRangeFinished(ctx context.Context, arg ParentRangeFinishedParams) ([]ParentRangeFinishedRow, error) {
 	rows, err := q.db.Query(ctx, parentRangeFinished, arg.UserID, arg.RangeStart, arg.RangeEnd)
 	if err != nil {
@@ -524,7 +526,12 @@ func (q *Queries) ParentRangeFinished(ctx context.Context, arg ParentRangeFinish
 	var items []ParentRangeFinishedRow
 	for rows.Next() {
 		var i ParentRangeFinishedRow
-		if err := rows.Scan(&i.Kind, &i.Title, &i.FinishedAt); err != nil {
+		if err := rows.Scan(
+			&i.AtomID,
+			&i.Kind,
+			&i.Title,
+			&i.FinishedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
