@@ -72,7 +72,6 @@ export function LearningHome({ user }: { user: MeUser }) {
       alive = false;
     };
   }, [retry]);
-  const first = recent?.[0];
   return (
     <div className="learning-home">
       <header className="learning-topline">
@@ -108,54 +107,43 @@ export function LearningHome({ user }: { user: MeUser }) {
               <p className="learning-loading" role="status">
                 正在加载学习记录…
               </p>
-            ) : first ? (
-              <>
-                <article className="learning-feature">
-                  <div className="learning-feature-art">
-                    <img
-                      src={first.kind === "项目" ? makers : curious}
-                      alt=""
-                    />
-                  </div>
-                  <div className="learning-feature-copy">
-                    <span className="learning-eyebrow">
-                      {first.kind} · {first.status}
-                    </span>
-                    <h3>{first.title}</h3>
-                    {first.detail && (
-                      <p className="learning-detail">
-                        当前步骤：{first.detail}
-                      </p>
-                    )}
-                    <button
-                      className="learning-primary"
-                      onClick={() => navigate(first.path)}
-                    >
-                      继续{first.kind}
-                      <ArrowRight size={17} />
-                    </button>
-                  </div>
-                </article>
-                {recent.length > 1 && (
-                  <div className="learning-recent">
-                    {recent.slice(1).map((item) => (
+            ) : recent.length > 0 ? (
+              <div className="learning-task-grid">
+                {recent.map((item) => (
+                  <article className="learning-task" key={item.key}>
+                    <div className="learning-task-art">
+                      <img
+                        src={
+                          item.kind === "项目"
+                            ? makers
+                            : item.kind === "写作"
+                              ? together
+                              : curious
+                        }
+                        alt=""
+                      />
+                    </div>
+                    <div className="learning-task-copy">
+                      <span className="learning-eyebrow">
+                        {item.kind} · {item.status}
+                      </span>
+                      <h3>{item.title}</h3>
+                      {item.detail && (
+                        <p className="learning-detail">
+                          当前步骤：{item.detail}
+                        </p>
+                      )}
                       <button
-                        key={item.key}
+                        className="learning-primary"
                         onClick={() => navigate(item.path)}
                       >
-                        <span className="learning-kind">{item.kind}</span>
-                        <span className="learning-recent-title">
-                          {item.title}
-                        </span>
-                        <span className="learning-recent-status">
-                          {item.status}
-                        </span>
-                        <ArrowRight size={16} />
+                        继续{item.kind}
+                        <ArrowRight size={17} />
                       </button>
-                    ))}
-                  </div>
-                )}
-              </>
+                    </div>
+                  </article>
+                ))}
+              </div>
             ) : errors.length === 0 ? (
               <div className="learning-empty">
                 <img src={curious} alt="" />

@@ -31,3 +31,9 @@
 生成提示词：
 
 > Create a single production illustration asset, transparent background PNG: the teal folded-paper bookmark AI character shown on the RIGHT of this reference homepage. Reference is identity/style reference. Isolate and faithfully redraw ONLY that same character: tall teal bookmark body with V cut at bottom, top right triangular folded paper corner, two charcoal oval eyes and tiny curved smile, thin charcoal bent arms resting on hips, two stick feet. Subtle flat editorial texture, minimal facets, NOT glossy 3D, no text, no UI, no logo, no decorations. Center character fully visible with generous transparent padding, square canvas 1024px, occupies 80% height. Calm friendly expression. Actual alpha transparency.
+
+## 首页反馈调整
+
+“继续学习”调整为 1–3 张相同层级的卡片，统一插画区、标题、状态和操作按钮；不再使用第一条大卡片、后两条列表的主次结构。保持现有最近活动排序和跳转。浏览器验证 1/2/3 张卡片、三列等宽、小屏、长标题、空状态、失败重试及配色切换，未发现页面异常或横向溢出；TypeScript 检查通过。
+
+教师布置作业后的首页优先展示留到作业功能就绪后迭代，本次未加入占位、模拟作业或优先级规则。
