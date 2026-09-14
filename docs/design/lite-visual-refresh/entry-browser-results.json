@@ -15,6 +15,10 @@
     {
       "url": "/readings/library",
       "mobileOverflow": false
+    },
+    {
+      "settingsAccentChanged": true,
+      "sidebarPickerAbsent": true
     }
   ],
   "errors": [],

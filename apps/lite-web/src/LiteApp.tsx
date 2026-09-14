@@ -234,7 +234,7 @@ export function LiteApp() {
 }
 
 function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
-  const { id: accent, setAccent: chooseAccent } = useAccent();
+  const { id: accent } = useAccent();
   const { id: background } = useBackground();
   const [route, setRoute] = useState<LiteRoute>(() =>
     parseLiteRoute(window.location.pathname),
@@ -317,31 +317,6 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
               })}
             </div>
             <div className="learning-nav-bottom">
-              <fieldset className="learning-swatches">
-                <legend>主题配色</legend>
-                {[
-                  "teal",
-                  "indigo",
-                  "violet",
-                  "rose",
-                  "vermilion",
-                  "bamboo",
-                  "clay",
-                  "tangerine",
-                ]
-                  .map((id) => ACCENT_PRESETS.find((p) => p.id === id)!)
-                  .map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      data-accent={p.id}
-                      aria-label={p.name}
-                      title={p.name}
-                      aria-pressed={accent === p.id}
-                      onClick={() => chooseAccent(p.id)}
-                    />
-                  ))}
-              </fieldset>
               <button
                 className="learning-account"
                 type="button"
