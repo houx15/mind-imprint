@@ -58,7 +58,6 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
   return (
     <article
       className="flex flex-col overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface shadow-mk-xs transition-shadow duration-[120ms] ease-mk hover:shadow-mk-sm"
-      style={{ borderTopColor: hue, borderTopWidth: 3 }}
     >
       {article.coverUrl && (
         <img
