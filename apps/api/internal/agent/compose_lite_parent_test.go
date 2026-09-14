@@ -322,3 +322,77 @@ func TestComposeLiteParentReportParsesFencedJSON(t *testing.T) {
 		t.Fatalf("err=%v attempts=%d", err, len(attempts))
 	}
 }
+
+// Ruling 18 C1: the digits of the class name are not facts. With class
+// 高一（3）班 and no count of 3, 完成 3 篇 fails; naming the class passes.
+func TestComposeLiteParentReportClassNameDigitsAreNotFacts(t *testing.T) {
+	f := parentFacts()
+	f.ClassName = "高一（3）班"
+	if runs := regexp.MustCompile(`[0-9]+`).FindAllString(liteparent.DigitFactsText(f), -1); slices.Contains(runs, "3") {
+		t.Fatalf("fixture must have no count of 3: %v", runs)
+	}
+	compose := func(overview string) error {
+		reply := parentReply(t, withSection(parentValidSections(), "overview", overview))
+		_, _, err := composeParent(gateway.NewSequenceStubProvider(liteReply(reply)), f, classmates)
+		return err
+	}
+	if err := compose("这段时间她完成 3 篇。"); err == nil || !strings.Contains(err.Error(), "overview: digit not in facts: 3") {
+		t.Fatalf("count from the class name: err=%v", err)
+	}
+	if err := compose("高一（3）班的林知遥活跃 5 天。"); err != nil {
+		t.Fatalf("naming the class must pass: %v", err)
+	}
+}
+
+// Ruling 18 C1: the digits of a title are not facts unless a count has them.
+func TestComposeLiteParentReportTitleDigitsAreNotFacts(t *testing.T) {
+	f := parentFacts()
+	f.Writings = append(f.Writings, liteparent.Item{Kind: "writing", Title: "第7课", FinishedAt: "2026-09-02"})
+	compose := func(f liteparent.Facts, overview string) error {
+		reply := parentReply(t, withSection(parentValidSections(), "overview", overview))
+		_, _, err := composeParent(gateway.NewSequenceStubProvider(liteReply(reply)), f, classmates)
+		return err
+	}
+	if err := compose(f, "她完成 7 篇，其中有《第7课》。"); err == nil || !strings.Contains(err.Error(), "overview: digit not in facts: 7") {
+		t.Fatalf("count from a title: err=%v", err)
+	}
+	f.ActiveDays = 7
+	if err := compose(f, "她活跃 7 天，完成了《第7课》。"); err != nil {
+		t.Fatalf("7 is a real count: %v", err)
+	}
+}
+
+// Ruling 18 C2: a Chinese-numeral count is rejected, and the retry line
+// carries the error.
+func TestComposeLiteParentReportChineseNumeralCount(t *testing.T) {
+	bad := parentReply(t, withSection(parentValidSections(), "overview", "这段时间她读了三篇文章。"))
+	prov := gateway.NewSequenceStubProvider(liteReply(bad))
+	_, attempts, err := composeParent(prov, parentFacts(), classmates)
+	if err == nil || !strings.Contains(err.Error(), "overview: chinese numeral count: 三篇") || len(attempts) != 2 {
+		t.Fatalf("err=%v attempts=%d", err, len(attempts))
+	}
+	msgs := prov.LastRequest.Messages
+	if last := msgs[len(msgs)-1].Content; !strings.Contains(last, "chinese numeral count: 三篇") {
+		t.Fatalf("retry line = %q", last)
+	}
+}
+
+// Ruling 18 C3: keys are trimmed and lowercased before validation and in the
+// returned sections.
+func TestComposeLiteParentReportNormalisesKeys(t *testing.T) {
+	sections := map[string]string{}
+	for k, v := range parentValidSections() {
+		sections[k] = v
+	}
+	sections["Overview "] = sections["overview"]
+	delete(sections, "overview")
+	sections[" NEXT"] = sections["next"]
+	delete(sections, "next")
+	got, attempts, err := composeParent(gateway.NewSequenceStubProvider(liteReply(parentReply(t, sections))), parentFacts(), classmates)
+	if err != nil || len(attempts) != 1 {
+		t.Fatalf("err=%v attempts=%d, want a first-attempt pass", err, len(attempts))
+	}
+	if !reflect.DeepEqual(got, parentValidSections()) {
+		t.Fatalf("sections = %+v", got)
+	}
+}

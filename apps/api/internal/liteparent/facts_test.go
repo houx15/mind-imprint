@@ -207,3 +207,48 @@ func TestCorporaAreSeparate(t *testing.T) {
 		t.Errorf("TitleCorpus = %q", titles)
 	}
 }
+
+// Ruling 18 C1: the digit text leaves out quotes, titles and the class name;
+// FactsText, which the model reads, keeps them.
+func TestDigitFactsText(t *testing.T) {
+	f := Facts{
+		StudentName: "林知遥", ClassName: "高一（3）班", RangeStart: "2026-08-17", RangeEnd: "2026-09-13", Days: 28,
+		ActiveDays: 5, Minutes: 64, Turns: 31,
+		Readings: []Item{{Kind: "reading", Title: "第7课", FinishedAt: "2026-08-20"}},
+		Moments:  []Moment{{Quote: "我读了46遍", ItemTitle: "第7课"}},
+	}
+	full := FactsText(f)
+	for _, s := range []string{"高一（3）班", "《第7课》", "「我读了46遍」"} {
+		if !strings.Contains(full, s) {
+			t.Fatalf("FactsText lacks %q: %s", s, full)
+		}
+	}
+	digits := DigitFactsText(f)
+	for _, s := range []string{"高一", "第7课", "46", "（3）"} {
+		if strings.Contains(digits, s) {
+			t.Fatalf("DigitFactsText carries %q: %s", s, digits)
+		}
+	}
+	for _, s := range []string{"2026-08-17", "活跃 5 天", "学习 64 分钟", "对话 31 轮", "完成阅读 1 篇"} {
+		if !strings.Contains(digits, s) {
+			t.Fatalf("DigitFactsText lacks %q: %s", s, digits)
+		}
+	}
+}
+
+// Ruling 18 B: a moment naming a classmate is dropped; names under 2 runes
+// are ignored.
+func TestDropMomentsNaming(t *testing.T) {
+	ms := []Moment{
+		{Quote: "我和王小明一起做实验", ItemTitle: "a"},
+		{Quote: "雨水不是废水", ItemTitle: "b"},
+		{Quote: "明天再读", ItemTitle: "c"},
+	}
+	got := DropMomentsNaming(ms, []string{"王小明", "明", ""})
+	if want := []Moment{ms[1], ms[2]}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("DropMomentsNaming = %+v, want %+v", got, want)
+	}
+	if got := DropMomentsNaming([]Moment{}, nil); got == nil || len(got) != 0 {
+		t.Fatalf("empty input must give an empty, non-nil list: %#v", got)
+	}
+}

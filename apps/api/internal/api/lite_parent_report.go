@@ -41,23 +41,31 @@ import (
 // calls it.
 //
 // The facts never carry chat text, writing.assigned_prompt or an assigned
-// project's idea.
-func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherID uuid.UUID, start, end time.Time) (liteparent.Facts, error) {
+// project's idea. A moment whose quote names a classmate is dropped here,
+// before the facts are frozen (plan 4 Ruling 18 B).
+//
+// It also returns the classmate names it filtered with, which are the same
+// otherNames the composer checks the prose against: one list, one source.
+func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherID uuid.UUID, start, end time.Time) (liteparent.Facts, []string, error) {
 	rs := start.In(liteweek.Beijing)
 	re := end.In(liteweek.Beijing).AddDate(0, 0, 1) // exclusive bound
 	q := a.d.Queries
 
 	cls, err := q.GetClassByID(ctx, classID)
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	student, err := q.GetUserByID(ctx, userID)
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	teacher, err := q.GetUserByID(ctx, teacherID)
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
+	}
+	others, err := a.loadLiteParentOtherNames(ctx, classID, userID, student.DisplayName)
+	if err != nil {
+		return liteparent.Facts{}, nil, err
 	}
 
 	f := liteparent.Facts{
@@ -79,7 +87,7 @@ func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherI
 		UserID: userID, StartDay: pgDate(rs), EndDay: pgDate(re), RangeStart: rs, RangeEnd: re,
 	})
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	f.ActiveDays = int(activity.ActiveDays)
 	f.Turns = int(activity.Turns)
@@ -89,7 +97,7 @@ func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherI
 
 	finished, err := q.ParentRangeFinished(ctx, sqlc.ParentRangeFinishedParams{UserID: userID, RangeStart: rs, RangeEnd: re})
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	noMoments := map[uuid.UUID]bool{}
 	for _, r := range finished {
@@ -111,7 +119,7 @@ func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherI
 
 	moments, err := q.ParentRangeMoments(ctx, sqlc.ParentRangeMomentsParams{UserID: userID, RangeStart: rs, RangeEnd: re})
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	for _, r := range moments {
 		if r.ProsePending || noMoments[r.AtomID] {
@@ -126,12 +134,13 @@ func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherI
 			f.Moments = append(f.Moments, liteparent.Moment{Quote: quote, ItemTitle: r.Title})
 		}
 	}
+	f.Moments = liteparent.DropMomentsNaming(f.Moments, others)
 
 	states, err := q.ParentRangeAssignmentStates(ctx, sqlc.ParentRangeAssignmentStatesParams{
 		ClassID: classID, UserID: userID, RangeStart: rs, RangeEnd: re,
 	})
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	for _, r := range states {
 		// Work finished after the range ended was still overdue at its end.
@@ -152,12 +161,12 @@ func (a *API) loadLiteParentFacts(ctx context.Context, classID, userID, teacherI
 
 	keywords, err := q.ParentRangeKeywords(ctx, sqlc.ParentRangeKeywordsParams{UserID: userID, RangeStart: rs, RangeEnd: re})
 	if err != nil {
-		return liteparent.Facts{}, err
+		return liteparent.Facts{}, nil, err
 	}
 	for _, r := range keywords {
 		f.Keywords = append(f.Keywords, liteparent.Keyword{Text: r.TextZh, Field: r.Field, FieldLabel: disciplines.FieldLabels[r.Field]})
 	}
-	return f, nil
+	return f, others, nil
 }
 
 // loadLiteParentOtherNames returns the display names of the class's other
@@ -542,12 +551,7 @@ func (a *API) createLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	facts, err := a.loadLiteParentFacts(ctx, classID, userID, u.ID, start, end)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	others, err := a.loadLiteParentOtherNames(ctx, classID, userID, facts.StudentName)
+	facts, others, err := a.loadLiteParentFacts(ctx, classID, userID, u.ID, start, end)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

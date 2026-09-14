@@ -12,7 +12,8 @@ import (
 // LoadLiteParentFactsForTest exposes loadLiteParentFacts to the api_test
 // package; Task 3's handlers are its production callers.
 func (a *API) LoadLiteParentFactsForTest(ctx context.Context, classID, userID, teacherID uuid.UUID, start, end time.Time) (liteparent.Facts, error) {
-	return a.loadLiteParentFacts(ctx, classID, userID, teacherID, start, end)
+	f, _, err := a.loadLiteParentFacts(ctx, classID, userID, teacherID, start, end)
+	return f, err
 }
 
 // SetLiteTeacherEntitlementForTest replaces the entitlement seam behind

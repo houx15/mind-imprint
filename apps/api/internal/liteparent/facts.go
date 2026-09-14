@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"mindimprint/api/internal/liteweek"
 )
@@ -196,6 +197,76 @@ func FactsText(f Facts) string {
 		fmt.Fprintf(&b, "；「%s」（《%s》）", m.Quote, m.ItemTitle)
 	}
 	return b.String()
+}
+
+// DigitFactsText is the allowed-digit text for the prose check: FactsText
+// with every 「…」 and 《…》 span removed and the class name replaced with a
+// newline. The check already removes verified quotes and titles from the
+// prose, so digits inside them never need to be allowed; allowing them would
+// let a count taken from a title (《第7课》) or a class name (高一（3）班) pass
+// as a fact. Each removal leaves a newline, so the text on either side cannot
+// join into a new digit run. FactsText itself, which the model reads, is
+// unchanged.
+func DigitFactsText(f Facts) string {
+	s := FactsText(f)
+	if f.ClassName != "" {
+		s = strings.ReplaceAll(s, f.ClassName, "\n")
+	}
+	return removeBracketSpans(s)
+}
+
+// removeBracketSpans replaces every 「…」 and 《…》 span, brackets included,
+// with a newline. An opening mark with no close is left as it is.
+func removeBracketSpans(s string) string {
+	var b strings.Builder
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		var closeCh rune
+		switch runes[i] {
+		case '「':
+			closeCh = '」'
+		case '《':
+			closeCh = '》'
+		default:
+			b.WriteRune(runes[i])
+			continue
+		}
+		j := i + 1
+		for j < len(runes) && runes[j] != closeCh {
+			j++
+		}
+		if j >= len(runes) {
+			b.WriteRune(runes[i])
+			continue
+		}
+		b.WriteRune('\n')
+		i = j
+	}
+	return b.String()
+}
+
+// DropMomentsNaming returns the moments whose quote names none of names. A
+// name shorter than 2 runes is ignored: one character matches too much
+// ordinary text. A 金句 is shown on the parent page and poster as it is, and
+// the prose check deliberately allows a classmate's name inside a verified
+// quote, so a quote that names a classmate must not enter the facts at all.
+func DropMomentsNaming(moments []Moment, names []string) []Moment {
+	out := make([]Moment, 0, len(moments))
+	for _, m := range moments {
+		if !namesAny(m.Quote, names) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func namesAny(s string, names []string) bool {
+	for _, n := range names {
+		if utf8.RuneCountInString(n) >= 2 && strings.Contains(s, n) {
+			return true
+		}
+	}
+	return false
 }
 
 // MonthDay turns a YYYY-MM-DD date into M月D日. An unparseable date yields "".

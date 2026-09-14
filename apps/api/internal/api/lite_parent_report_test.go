@@ -62,9 +62,12 @@ func TestLiteParentFacts(t *testing.T) {
 	lateAtom := uuid.MustParse(startAssignment(t, h, student, late).AtomID)
 	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, late, start.AddDate(0, 0, 2))
 	mustExec(t, pool, `UPDATE writing SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, lateAtom, start.AddDate(0, 0, 4))
+	// 我和王小明一起做实验 names an enrolled classmate: dropped before the
+	// facts are frozen (Ruling 18 B); 雨把街道洗亮了 names no one and stays.
 	seedReport(t, pool, lateAtom, "writing", `{"moments":[`+
 		`{"quote":"写一篇关于雨的记叙文","where":""},`+
 		`{"quote":"一篇关于雨的记叙文","where":""},`+
+		`{"quote":"我和王小明一起做实验","where":""},`+
 		`{"quote":"雨把街道洗亮了","where":""}]}`)
 
 	onTime := createAssignment(t, h, teacher, classIDStr, writingAssignmentBody([]string{studentID.String()}))
