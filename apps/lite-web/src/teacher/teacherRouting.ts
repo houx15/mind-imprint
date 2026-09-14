@@ -18,7 +18,12 @@ export type TeacherRoute =
   // (e.g. "+ 布置作业" from inside a class) to pre-select one, so it stays
   // optional and `teacherRoutePath` ignores it.
   | { view: "assignmentNew"; classId?: string }
-  | { view: "assignment"; assignmentId: string };
+  | { view: "assignment"; assignmentId: string }
+  // `/parent-reports` (one class's reports at a time) and
+  // `/parent-reports/:reportId` (the editor). Top-level rather than under a
+  // class: a report stays readable and revocable after its student leaves.
+  | { view: "parentReports" }
+  | { view: "parentReport"; reportId: string };
 
 const dec = (s: string) => {
   try {
@@ -39,6 +44,10 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
     if (!seg[1]) return { view: "assignments" };
     if (seg[1] === "new") return { view: "assignmentNew" };
     return { view: "assignment", assignmentId: seg[1] };
+  }
+  if (seg[0] === "parent-reports") {
+    if (!seg[1]) return { view: "parentReports" };
+    return { view: "parentReport", reportId: seg[1] };
   }
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
@@ -66,7 +75,8 @@ export function isTeacherPath(pathname: string): boolean {
     first === "overview" ||
     first === "teachers" ||
     first === "import" ||
-    first === "assignments"
+    first === "assignments" ||
+    first === "parent-reports"
   );
 }
 
@@ -118,6 +128,10 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return "/assignments/new";
     case "assignment":
       return `/assignments/${enc(r.assignmentId)}`;
+    case "parentReports":
+      return "/parent-reports";
+    case "parentReport":
+      return `/parent-reports/${enc(r.reportId)}`;
     case "class":
       return `/classes/${enc(r.classId)}`;
     case "classWeekly":

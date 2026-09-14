@@ -198,3 +198,142 @@ export async function getStudentParentReport(id: string): Promise<ParentReport> 
 export async function markParentReportSeen(id: string): Promise<void> {
   await apiFetch<void>(`/api/v1/lite/parent-reports/${encodeURIComponent(id)}/seen`, { method: "POST" });
 }
+
+// ── Teacher side (plan 4 T3) ────────────────────────────────────────────────
+//
+// Shapes verified against apps/api/internal/api/lite_parent_report.go
+// (`ParentReportDTO`, `ParentReportSummaryDTO`). The teacher DTO carries names
+// only inside `facts`; `normalizeParentReport` already falls back to them, so
+// the editor preview reads the same object the public page does.
+
+export type ParentReportStatus = "draft" | "published";
+
+export interface TeacherParentReport {
+  id: string;
+  studentId: string;
+  classId: string;
+  status: ParentReportStatus;
+  /** Null for a draft and after a revoke. */
+  shareToken: string | null;
+  /** Whether a draft has ever been stored (`draft` is null until then). */
+  hasDraft: boolean;
+  createdAt: string;
+  /** The report as the preview renders it; `body` is the stored body. */
+  view: ParentReport;
+}
+
+export interface ParentReportSummary {
+  id: string;
+  studentId: string;
+  studentName: string;
+  rangeStart: string;
+  rangeEnd: string;
+  status: ParentReportStatus;
+  publishedAt: string | null;
+  shared: boolean;
+  createdAt: string;
+}
+
+const reportStatus = (v: unknown): ParentReportStatus => (v === "published" ? "published" : "draft");
+const optString = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+
+export function normalizeTeacherParentReport(raw: unknown): TeacherParentReport {
+  const r = obj(raw);
+  return {
+    id: s(r.id),
+    studentId: s(r.studentId),
+    classId: s(r.classId),
+    status: reportStatus(r.status),
+    shareToken: optString(r.shareToken),
+    hasDraft: r.draft !== null && typeof r.draft === "object",
+    createdAt: s(r.createdAt),
+    view: normalizeParentReport(raw),
+  };
+}
+
+export function normalizeParentReportSummary(raw: unknown): ParentReportSummary {
+  const r = obj(raw);
+  return {
+    id: s(r.id),
+    studentId: s(r.studentId),
+    studentName: s(r.studentName),
+    rangeStart: s(r.rangeStart),
+    rangeEnd: s(r.rangeEnd),
+    status: reportStatus(r.status),
+    publishedAt: optString(r.publishedAt),
+    shared: r.shared === true,
+    createdAt: s(r.createdAt),
+  };
+}
+
+const TEACHER = "/api/v1/lite/teacher";
+const reportPath = (id: string) => `${TEACHER}/parent-reports/${encodeURIComponent(id)}`;
+const studentReportsPath = (classId: string, userId: string) =>
+  `${TEACHER}/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}/parent-reports`;
+
+/** A generate or redraft result. `draftError` is set when the report row
+ * exists but its draft could not be written. */
+export interface ParentReportDraftResult {
+  report: TeacherParentReport;
+  draftError: string | null;
+}
+
+function draftResult(r: { report?: unknown; draftError?: unknown }): ParentReportDraftResult {
+  return { report: normalizeTeacherParentReport(r.report), draftError: optString(r.draftError) };
+}
+
+/** `POST …/classes/{id}/students/{userId}/parent-reports` → 201. */
+export async function createParentReport(
+  classId: string,
+  userId: string,
+  range: { rangeStart: string; rangeEnd: string },
+): Promise<ParentReportDraftResult> {
+  const r = await apiFetch<{ report?: unknown; draftError?: unknown }>(studentReportsPath(classId, userId), {
+    method: "POST",
+    body: JSON.stringify(range),
+  });
+  return draftResult(r);
+}
+
+export async function listStudentParentReports(classId: string, userId: string): Promise<ParentReportSummary[]> {
+  const r = await apiFetch<{ reports?: unknown }>(studentReportsPath(classId, userId));
+  return list(r.reports).map(normalizeParentReportSummary);
+}
+
+export async function listClassParentReports(classId: string): Promise<ParentReportSummary[]> {
+  const r = await apiFetch<{ reports?: unknown }>(`${TEACHER}/classes/${encodeURIComponent(classId)}/parent-reports`);
+  return list(r.reports).map(normalizeParentReportSummary);
+}
+
+export async function getTeacherParentReport(id: string): Promise<TeacherParentReport> {
+  const r = await apiFetch<{ report?: unknown }>(reportPath(id));
+  return normalizeTeacherParentReport(r.report);
+}
+
+/** PATCH merges: only the section sent is changed, and `""` clears it. */
+export async function patchParentReportSection(id: string, key: string, text: string): Promise<TeacherParentReport> {
+  const r = await apiFetch<{ report?: unknown }>(reportPath(id), {
+    method: "PATCH",
+    body: JSON.stringify({ body: { [key]: text } }),
+  });
+  return normalizeTeacherParentReport(r.report);
+}
+
+export async function redraftParentReport(id: string, replaceBody: boolean): Promise<ParentReportDraftResult> {
+  const r = await apiFetch<{ report?: unknown; draftError?: unknown }>(`${reportPath(id)}/redraft`, {
+    method: "POST",
+    body: JSON.stringify({ replaceBody }),
+  });
+  return draftResult(r);
+}
+
+/** Publishes, or re-opens a revoked link (the server mints a new token). */
+export async function publishParentReport(id: string): Promise<TeacherParentReport> {
+  const r = await apiFetch<{ report?: unknown }>(`${reportPath(id)}/publish`, { method: "POST" });
+  return normalizeTeacherParentReport(r.report);
+}
+
+export async function revokeParentReportShare(id: string): Promise<TeacherParentReport> {
+  const r = await apiFetch<{ report?: unknown }>(`${reportPath(id)}/share`, { method: "DELETE" });
+  return normalizeTeacherParentReport(r.report);
+}

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { LayoutGrid, Users, GraduationCap, UploadCloud, ClipboardList } from "lucide-react";
+import { LayoutGrid, Users, GraduationCap, UploadCloud, ClipboardList, FileText } from "lucide-react";
 import { Icon, Pebble, Settings, type LucideIcon } from "@/ui";
 import { api } from "@/api";
 import { ClassesView } from "@/console/ClassesView";
@@ -18,6 +18,8 @@ import { ItemPage } from "./ItemPage";
 import { AssignmentsPage } from "./AssignmentsPage";
 import { AssignmentForm } from "./AssignmentForm";
 import { AssignmentDetailPage } from "./AssignmentDetailPage";
+import { ParentReportsPage } from "./ParentReportsPage";
+import { ParentReportEditor } from "./ParentReportEditor";
 import { writeLastClassId } from "./assignmentLogic";
 
 /**
@@ -42,12 +44,14 @@ type RailItem = { key: TeacherRoute["view"]; label: string; icon: LucideIcon };
 const TEACHER_ITEMS: RailItem[] = [
   { key: "classes", label: "班级", icon: Users },
   { key: "assignments", label: "布置", icon: ClipboardList },
+  { key: "parentReports", label: "家长报告", icon: FileText },
 ];
 
 const ADMIN_ITEMS: RailItem[] = [
   { key: "overview", label: "概览", icon: LayoutGrid },
   { key: "classes", label: "班级", icon: Users },
   { key: "assignments", label: "布置", icon: ClipboardList },
+  { key: "parentReports", label: "家长报告", icon: FileText },
   { key: "teachers", label: "教师", icon: GraduationCap },
   { key: "import", label: "导入", icon: UploadCloud },
 ];
@@ -142,7 +146,9 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
                   route.view === "student" ||
                   route.view === "item")) ||
               // 新建作业和作业详情在「布置」下面。
-              (key === "assignments" && (route.view === "assignmentNew" || route.view === "assignment"));
+              (key === "assignments" && (route.view === "assignmentNew" || route.view === "assignment")) ||
+              // 报告编辑页在「家长报告」下面。
+              (key === "parentReports" && route.view === "parentReport");
             return (
               <button
                 key={key}
@@ -237,12 +243,28 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             onOpenItem={(classId, userId, atomId) => go({ view: "item", classId, userId, atomId })}
           />
         )}
+        {route.view === "parentReports" && (
+          <ParentReportsPage onOpen={(reportId) => go({ view: "parentReport", reportId })} />
+        )}
+        {route.view === "parentReport" && (
+          <ParentReportEditor
+            key={route.reportId}
+            reportId={route.reportId}
+            onBack={(classId) => {
+              // The list opens on the remembered class; make that the
+              // report's class so 返回 lands next to the row she came from.
+              if (classId) writeLastClassId(classId);
+              go({ view: "parentReports" });
+            }}
+          />
+        )}
         {route.view === "student" && (
           <StudentPage
             classId={route.classId}
             userId={route.userId}
             onBack={() => go({ view: "class", classId: route.classId })}
             onOpenItem={(atomId) => go({ view: "item", classId: route.classId, userId: route.userId, atomId })}
+            onOpenParentReport={(reportId) => go({ view: "parentReport", reportId })}
           />
         )}
         {route.view === "item" && (

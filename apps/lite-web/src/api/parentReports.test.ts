@@ -1,5 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { normalizeParentReport } from "./parentReports";
+import { normalizeParentReport, normalizeParentReportSummary, normalizeTeacherParentReport } from "./parentReports";
+
+// The teacher DTO has names only inside facts, a null draft/body until one is
+// stored, and a null token for a draft or a revoked link.
+describe("normalizeTeacherParentReport", () => {
+  it("reads a fresh report whose draft failed", () => {
+    const r = normalizeTeacherParentReport({
+      id: "r1",
+      studentId: "u1",
+      classId: "c1",
+      rangeStart: "2026-08-17",
+      rangeEnd: "2026-09-13",
+      status: "draft",
+      facts: { studentName: "王思远", className: "高一（3）班", teacherName: "李老师" },
+      draft: null,
+      body: null,
+      sections: ["overview", "next"],
+      shareToken: null,
+      publishedAt: null,
+      createdAt: "2026-09-14T01:00:00Z",
+    });
+    expect(r.hasDraft).toBe(false);
+    expect(r.shareToken).toBeNull();
+    expect(r.view.studentName).toBe("王思远");
+    expect(r.view.teacherName).toBe("李老师");
+    expect(r.view.body).toEqual({});
+    expect(r.view.publishedAt).toBeNull();
+  });
+
+  it("reads a published report with its token, and an unknown status as draft", () => {
+    const r = normalizeTeacherParentReport({ id: "r1", status: "published", draft: { overview: "x" }, shareToken: "tok" });
+    expect(r.status).toBe("published");
+    expect(r.hasDraft).toBe(true);
+    expect(r.shareToken).toBe("tok");
+    expect(normalizeTeacherParentReport({ status: "weird" }).status).toBe("draft");
+  });
+
+  it("reads a summary row", () => {
+    const row = normalizeParentReportSummary({ id: "r1", studentName: "王思远", status: "published", shared: true });
+    expect(row.shared).toBe(true);
+    expect(row.publishedAt).toBeNull();
+    expect(normalizeParentReportSummary({ shared: "yes" }).shared).toBe(false);
+  });
+});
 
 describe("normalizeParentReport", () => {
   it("reads the public DTO, which has no id", () => {

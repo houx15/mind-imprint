@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Icon } from "@/ui";
+import { Button, Icon } from "@/ui";
 import { api, ApiError } from "@/api";
 import type { MeUser } from "../api/auth";
 import {
@@ -10,9 +10,14 @@ import {
   type StudentAssignmentRow,
   type StudentPage as StudentPageData,
 } from "../api/teacher";
+import { listStudentParentReports, type ParentReportSummary } from "../api/parentReports";
+import { publishedMonthDay, rangeLabel } from "../parentReport/range";
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { StatusChip } from "./AssignmentDetailPage";
+import { errorText, statusChipStyle } from "./assignmentLogic";
 import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
+import { GenerateParentReportDialog } from "./GenerateParentReportDialog";
+import { linkStateLabel, rememberDraftError, statusLabel } from "./parentReportLogic";
 import { WeekSummaryCard } from "./WeekSummaryCard";
 import { TreeView } from "../tree/TreeView";
 import { useInterestTree } from "../tree/useInterestTree";
@@ -25,6 +30,9 @@ import { useInterestTree } from "../tree/useInterestTree";
  * 上周表现总结 (`WeekSummaryCard`, plan 3) sits between the stat tiles and
  * the assignment and item lists. It owns its own loading, keyed by student.
  *
+ * 生成家长报告 (plan 4) sits in the header; this student's parent reports are
+ * listed below 作业. A created report opens in the editor.
+ *
  * Async load hygiene: every fetch here carries a `cancelled` flag (the same
  * pattern `useInterestTree` uses) so a late response from the PREVIOUS
  * student never lands after `classId`/`userId` has moved on, and every piece
@@ -36,15 +44,18 @@ export function StudentPage({
   userId,
   onBack,
   onOpenItem,
+  onOpenParentReport,
 }: {
   classId: string;
   userId: string;
   onBack: () => void;
   onOpenItem: (atomId: string) => void;
+  onOpenParentReport: (reportId: string) => void;
 }) {
   const [page, setPage] = useState<StudentPageData | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [pageNonce, setPageNonce] = useState(0);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +114,8 @@ export function StudentPage({
   const treeFetcher = useCallback(() => getStudentTree(classId, userId), [classId, userId]);
   const live = useInterestTree(treeFetcher);
 
+  const closeGenerate = useCallback(() => setGenerating(false), []);
+
   const readings = page?.items.filter((i) => i.kind === "reading") ?? [];
   const writings = page?.items.filter((i) => i.kind === "writing") ?? [];
   const projects = page?.items.filter((i) => i.kind === "project") ?? [];
@@ -134,7 +147,12 @@ export function StudentPage({
           <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
         ) : (
           <>
-            <h1 className="mt-4 text-mk-h1 tracking-tight text-mk-ink">{page.student.displayName}</h1>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <h1 className="text-mk-h1 tracking-tight text-mk-ink">{page.student.displayName}</h1>
+              <Button variant="primary" size="sm" className="sm:ml-auto" onClick={() => setGenerating(true)}>
+                生成家长报告
+              </Button>
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
@@ -149,6 +167,13 @@ export function StudentPage({
             <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
 
             <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
+
+            <ParentReportSection
+              key={`${classId}:${userId}`}
+              classId={classId}
+              userId={userId}
+              onOpen={onOpenParentReport}
+            />
 
             <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
             <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
@@ -168,6 +193,20 @@ export function StudentPage({
                 </div>
               )}
             </section>
+
+            {generating && (
+              <GenerateParentReportDialog
+                classId={classId}
+                userId={userId}
+                studentName={page.student.displayName}
+                onClose={closeGenerate}
+                onCreated={(reportId, draftError) => {
+                  rememberDraftError(reportId, draftError);
+                  setGenerating(false);
+                  onOpenParentReport(reportId);
+                }}
+              />
+            )}
           </>
         )}
       </div>
@@ -237,6 +276,81 @@ function AssignmentSection({
               </div>
             );
           })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** This student's parent reports in this class. Loads on its own, so a slow
+ * or failed list never holds up the rest of the page. */
+function ParentReportSection({
+  classId,
+  userId,
+  onOpen,
+}: {
+  classId: string;
+  userId: string;
+  onOpen: (reportId: string) => void;
+}) {
+  const [rows, setRows] = useState<ParentReportSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setError(null);
+    listStudentParentReports(classId, userId)
+      .then((list) => {
+        if (!cancelled) setRows(list);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(errorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [classId, userId, nonce]);
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-mk-h3 text-mk-ink">家长报告</h2>
+      {error ? (
+        <p className="mt-2 text-mk-small font-semibold text-mk-danger">
+          加载失败：{error}{" "}
+          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </p>
+      ) : rows === null ? (
+        <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-2 text-mk-small text-mk-muted">暂无家长报告</p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          {rows.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => onOpen(row.id)}
+              className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-mk-small font-bold text-mk-ink">{rangeLabel(row.rangeStart, row.rangeEnd) || "—"}</span>
+                <span
+                  className="rounded-mk-full px-2.5 py-0.5 text-mk-label font-bold"
+                  style={statusChipStyle(row.status === "published" ? "done" : "not_started")}
+                >
+                  {statusLabel(row.status)}
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
+                {row.status === "published" && <span>链接 {linkStateLabel(row.status, row.shared)}</span>}
+                <span>创建时间 {publishedMonthDay(row.createdAt) || "—"}</span>
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </section>
