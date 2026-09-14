@@ -79,12 +79,17 @@ export interface AssignmentInboxItem {
   unread: boolean;
 }
 
-// Plan 4 adds a second inbox item kind (a published parent report). Modeled
-// as a union now, on `type`, so the inbox list never has to widen its item
-// type again — only this branch grows.
+// A published parent report in her inbox (plan 4). It carries NONE of the
+// assignment fields (`kind`, `dueAt`, `status`, `statusLabel`, `atomId`,
+// `instructions`), so every consumer switches on `type` before reading them —
+// the union makes reading one without narrowing a compile error.
 export interface ParentReportInboxItem {
   type: "parent_report";
   id: string;
+  /** 家长报告（M月D日–M月D日）, built by the server. */
+  title: string;
+  className: string;
+  /** RFC3339. */
   publishedAt: string;
   unread: boolean;
 }
@@ -195,7 +200,14 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
 
 function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
   if (raw.type === "parent_report") {
-    return { type: "parent_report", id: s(raw.id), publishedAt: s(raw.publishedAt), unread: raw.unread === true };
+    return {
+      type: "parent_report",
+      id: s(raw.id),
+      title: s(raw.title),
+      className: s(raw.className),
+      publishedAt: s(raw.publishedAt),
+      unread: raw.unread === true,
+    };
   }
   return {
     type: "assignment",

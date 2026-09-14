@@ -22,6 +22,8 @@ const ROUTES: LiteRoute[] = [
   { tab: "tree" },
   { tab: "tree", quiz: true },
   { tab: "settings" },
+  { tab: "parentReport", id: "p-1" },
+  { tab: "parentReportPublic", token: "tok" },
 ];
 
 describe("lite routing", () => {

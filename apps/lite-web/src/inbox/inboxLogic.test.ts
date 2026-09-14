@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { AssignmentInboxItem, InboxItemDTO } from "../api/assignments";
+import type { AssignmentInboxItem, InboxItemDTO, ParentReportInboxItem } from "../api/assignments";
 import { ApiError } from "../api/client";
 import {
+  assignmentItems,
   errorMessage,
+  inboxChipLabel,
+  inboxTargetPath,
+  publishedLabel,
   inboxPanelLeft,
   openItemsForKind,
   sortUnreadFirst,
@@ -42,8 +46,32 @@ describe("errorMessage", () => {
   it("non-errors become empty", () => expect(errorMessage({ x: 1 })).toBe(""));
 });
 
+describe("mixed inbox items", () => {
+  const report: ParentReportInboxItem = {
+    type: "parent_report",
+    id: "r1",
+    title: "家长报告（8月17日–9月13日）",
+    className: "c",
+    publishedAt: "2026-09-13T16:30:00Z",
+    unread: true,
+  };
+  const items: InboxItemDTO[] = [item({ id: "a1", kind: "writing" }), report, item({ id: "a2", unread: true })];
+
+  it("assignmentItems keeps only assignments", () =>
+    expect(assignmentItems(items).map((it) => it.id)).toEqual(["a1", "a2"]));
+  it("sortUnreadFirst keeps both kinds", () =>
+    expect(sortUnreadFirst(items).map((it) => it.id)).toEqual(["r1", "a2", "a1"]));
+  it("chip for an assignment is its kind", () => expect(inboxChipLabel(item({ kind: "writing" }))).toBe("写作"));
+  it("chip for a report is 报告", () => expect(inboxChipLabel(report)).toBe("报告"));
+  // Beijing date: 16:30Z on the 13th is already the 14th for her.
+  it("report meta line names the Beijing publish date", () => expect(publishedLabel(report.publishedAt)).toBe("发布于 9月14日"));
+  it("no meta line for a missing date", () => expect(publishedLabel("")).toBe(""));
+  it("a report opens its own page", () => expect(inboxTargetPath(report)).toBe("/parent-reports/r1"));
+  it("an assignment has no page to open directly", () => expect(inboxTargetPath(item({}))).toBeNull());
+});
+
 describe("openItemsForKind", () => {
-  const report: InboxItemDTO = { type: "parent_report", id: "r", publishedAt: "", unread: true };
+  const report: InboxItemDTO = { type: "parent_report", id: "r", title: "", className: "", publishedAt: "", unread: true };
   const items: InboxItemDTO[] = [
     report,
     item({ id: "1", status: "not_started" }),

@@ -1,10 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import type { InboxItemDTO } from "../api/assignments";
+import { markParentReportSeen } from "../api/parentReports";
+import { navigate } from "../routing";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
-import { kindLabel } from "../teacher/format";
 import { AssignmentStatusChip } from "./AssignmentStrip";
-import { assignmentItems, INBOX_PANEL_WIDTH, inboxPanelLeft, sortUnreadFirst } from "./inboxLogic";
+import {
+  INBOX_PANEL_WIDTH,
+  inboxChipLabel,
+  inboxPanelLeft,
+  inboxTargetPath,
+  publishedLabel,
+  sortUnreadFirst,
+} from "./inboxLogic";
 import { openAssignment } from "./openAssignment";
 import type { InboxState } from "./useInbox";
 
@@ -19,6 +28,11 @@ import type { InboxState } from "./useInbox";
  *
  * Closes on Escape (focus returns to the button), a pointer-down outside the
  * panel and its button, and navigation (handled by `InboxButton`).
+ *
+ * Two kinds of row, told apart by `type` before any kind-specific field is
+ * read: an assignment (chip = its kind, 说明, 截止, status; opening starts it)
+ * and a published parent report (chip 报告, class, 发布于 M月D日; opening marks
+ * it seen and goes to its page). Order and unread come from the server.
  */
 export function InboxPanel({
   inbox,
@@ -64,13 +78,24 @@ export function InboxPanel({
     };
   }, [anchor, onClose]);
 
-  const items = sortUnreadFirst(assignmentItems(inbox.items));
+  const items = sortUnreadFirst(inbox.items);
 
-  async function open(id: string) {
-    const item = items.find((it) => it.id === id);
-    if (!item || openingId) return;
-    setOpeningId(id);
+  async function open(item: InboxItemDTO) {
+    if (openingId) return;
+    const key = rowKey(item);
+    setOpeningId(key);
     setStartError(null);
+    const path = inboxTargetPath(item);
+    if (path) {
+      // Seen before navigating, so the reload `InboxButton` runs on popstate
+      // already sees it. A failed seen call must not keep her off the page.
+      await markParentReportSeen(item.id).catch(() => undefined);
+      if (!alive.current) return;
+      setOpeningId(null);
+      navigate(path);
+      return;
+    }
+    if (item.type !== "assignment") return;
     const err = await openAssignment(item, inbox.reload);
     if (!alive.current) return;
     setOpeningId(null);
@@ -94,7 +119,7 @@ export function InboxPanel({
     >
       <div className="border-b border-mk-border px-4 py-3">
         <h2 className="text-mk-body font-semibold text-mk-ink">收件箱</h2>
-        <p className="mt-0.5 text-mk-small text-mk-muted">老师布置的作业会出现在这里。</p>
+        <p className="mt-0.5 text-mk-small text-mk-muted">老师布置的作业与发布的报告会出现在这里。</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -121,11 +146,11 @@ export function InboxPanel({
         {items.length > 0 && (
           <ul className="flex flex-col gap-1">
             {items.map((item) => (
-              <li key={item.id}>
+              <li key={rowKey(item)}>
                 <button
                   type="button"
                   disabled={openingId !== null}
-                  onClick={() => void open(item.id)}
+                  onClick={() => void open(item)}
                   className="flex w-full flex-col gap-1 rounded-mk-md px-2.5 py-2 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-paper disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
                 >
                   <span className="flex items-center gap-2">
@@ -133,7 +158,7 @@ export function InboxPanel({
                       className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label text-mk-accent-700"
                       style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
                     >
-                      {kindLabel(item.kind)}
+                      {inboxChipLabel(item)}
                     </span>
                     {item.unread && (
                       <span
@@ -148,19 +173,28 @@ export function InboxPanel({
                       {item.title}
                     </span>
                   </span>
-                  {item.instructions.trim() && (
+                  {item.type === "assignment" && item.instructions.trim() && (
                     <span className="line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</span>
                   )}
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mk-small text-mk-muted">
                     {item.className && <span>{item.className}</span>}
-                    {item.dueAt && <span>截止 {formatDeadline(item.dueAt)}</span>}
-                    <span className="ml-auto">
-                      {openingId === item.id ? (
-                        <span className="text-mk-small text-mk-muted">处理中</span>
-                      ) : (
-                        <AssignmentStatusChip status={item.status} label={item.statusLabel} />
-                      )}
-                    </span>
+                    {item.type === "assignment" ? (
+                      <>
+                        {item.dueAt && <span>截止 {formatDeadline(item.dueAt)}</span>}
+                        <span className="ml-auto">
+                          {openingId === rowKey(item) ? (
+                            <span className="text-mk-small text-mk-muted">处理中</span>
+                          ) : (
+                            <AssignmentStatusChip status={item.status} label={item.statusLabel} />
+                          )}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {publishedLabel(item.publishedAt) && <span>{publishedLabel(item.publishedAt)}</span>}
+                        {openingId === rowKey(item) && <span className="ml-auto">处理中</span>}
+                      </>
+                    )}
                   </span>
                 </button>
               </li>
@@ -177,4 +211,10 @@ export function InboxPanel({
     </div>,
     document.body,
   );
+}
+
+/** Assignment and report ids come from different tables; the row key keeps
+ * them apart. */
+function rowKey(item: InboxItemDTO): string {
+  return `${item.type}:${item.id}`;
 }

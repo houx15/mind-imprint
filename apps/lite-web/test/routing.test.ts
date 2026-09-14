@@ -63,6 +63,25 @@ describe("parseLiteRoute", () => {
       token: "abc",
     }));
 
+  // `/r/:token` — a published parent report, opened with no session. Same
+  // malformed-path rule as `/s` and `/p`.
+  it("reads a parent report token", () =>
+    expect(parseLiteRoute("/r/abc")).toEqual({ tab: "parentReportPublic", token: "abc" }));
+  it("does not treat a bare /r as a parent report route", () =>
+    expect(parseLiteRoute("/r")).toEqual({ tab: "explore" }));
+  it("round-trips a parent report link", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "parentReportPublic", token: "abc" }))).toEqual({
+      tab: "parentReportPublic",
+      token: "abc",
+    }));
+  // `/parent-reports/:id` — her own copy, signed in.
+  it("reads a student parent report id", () =>
+    expect(parseLiteRoute("/parent-reports/p1")).toEqual({ tab: "parentReport", id: "p1" }));
+  it("does not treat a bare /parent-reports as a report", () =>
+    expect(parseLiteRoute("/parent-reports")).toEqual({ tab: "explore" }));
+  it("round-trips a student parent report path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "parentReport", id: "p1" }))).toEqual({ tab: "parentReport", id: "p1" }));
+
   // 我的树 (兴趣树). It is a REAL lite route, not the `/eco/tree` prototype
   // path — a student reaches it from the rail, and the prototype's own switch
   // hard-navigates here. Pinned so a future edit to `parseLiteRoute` cannot

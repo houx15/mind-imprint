@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { LiteApp } from "./LiteApp";
 import { PublicReportPage } from "./reports/PublicReportPage";
 import { PublicSitePage } from "./site/PublicSitePage";
+import { PublicParentReportPage } from "./parentReport/PublicParentReportPage";
 import { parseLiteRoute } from "./routing";
 
 /**
@@ -35,6 +36,9 @@ export function rootElementFor(pathname: string): ReactElement {
   // `/p/:token` — 她的主页，访客那一面。第四个 disjoint app，理由和 `/s/` 完全
   // 一样：打开它的人没有 session，而且这一页上不该有任何属于这个产品的外壳。
   if (route.tab === "page") return <PublicSitePage token={route.token} />;
+  // `/r/:token` — a published parent report. Opened by a parent with no
+  // session, so the same reasoning as `/s/` and `/p/` applies.
+  if (route.tab === "parentReportPublic") return <PublicParentReportPage token={route.token} />;
 
   return route.tab === "share" ? (
     <PublicReportPage token={route.token} view={route.view} />
