@@ -11,7 +11,7 @@
 // - `title` is built by the server (上周表现总结 · … for the latest week) and
 //   rendered as is.
 
-import { apiFetch } from "./client";
+import { ApiError, apiFetch } from "./client";
 
 export interface WeekItem {
   kind: string;
@@ -208,6 +208,16 @@ export function normalizeStudentWeeklyProse(raw: Raw): ProseResult<StudentWeekly
 export function normalizeClassWeeklyProse(raw: Raw): ProseResult<ClassWeekly> {
   const week = normalizeClassWeekly(raw);
   return { week, proseError: proseErrorOf(raw, week.prose !== null) };
+}
+
+/** The text after 总结生成失败： for a POST that threw. The message, plus the
+ * envelope's `details` when it is a string: a routing failure's message is
+ * only 「AI 响应错误」, and the part that says what failed
+ * (`lite_student_weekly route: no LLM provider configured`) is in `details`. */
+export function proseErrorText(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  const details = e instanceof ApiError && typeof e.details === "string" ? e.details.trim() : "";
+  return details ? `${msg}（${details}）` : msg;
 }
 
 /** No rule card and no activity of any kind: the page says 该周没有学习记录

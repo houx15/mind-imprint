@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ProseResult } from "../api/weekly";
+import { proseErrorText, type ProseResult } from "../api/weekly";
 import { useAlive } from "../shared/useAlive";
 import { errorText } from "./assignmentLogic";
 
@@ -75,7 +75,7 @@ export function useWeekly<T extends { weekStart: string; proseReady: boolean }>(
         setProse(next);
       })
       .catch((e: unknown) => {
-        const next: ProseState = { status: "error", message: errorText(e) };
+        const next: ProseState = { status: "error", message: proseErrorText(e) };
         outcome.current.set(key, next);
         if (!alive.current || shown.current !== key) return;
         setProse(next);

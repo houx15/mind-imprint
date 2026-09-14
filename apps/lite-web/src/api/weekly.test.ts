@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { ApiError } from "./client";
 import {
+  proseErrorText,
   normalizeClassWeekly,
   normalizeClassWeeklyProse,
   normalizeStudentWeekly,
@@ -109,6 +111,17 @@ describe("normalizeClassWeeklyProse", () => {
   it("carries proseError", () => {
     const r = normalizeClassWeeklyProse({ prose: null, proseError: "agent: lite class weekly prose: rejected" });
     expect(r.proseError).toBe("agent: lite class weekly prose: rejected");
+  });
+});
+
+describe("proseErrorText", () => {
+  it("appends a string details to the message", () => {
+    const e = new ApiError("ai_dialogue_failed", "AI 响应错误", 502, "lite_student_weekly route: no LLM provider configured");
+    expect(proseErrorText(e)).toBe("AI 响应错误（lite_student_weekly route: no LLM provider configured）");
+  });
+  it("is the message alone without details", () => {
+    expect(proseErrorText(new ApiError("x", "AI 响应错误", 502))).toBe("AI 响应错误");
+    expect(proseErrorText(new TypeError("Failed to fetch"))).toBe("Failed to fetch");
   });
 });
 
