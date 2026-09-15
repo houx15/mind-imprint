@@ -31,17 +31,12 @@ func (a *API) getLiteTeacherItem(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	atomID, err := uuid.Parse(r.PathValue("atomId"))
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+	at, ok := a.loadTeacherOwnedAtom(w, r, userID)
+	if !ok {
 		return
 	}
+	atomID := at.ID
 	ctx := r.Context()
-	at, err := a.d.Queries.GetAtom(ctx, atomID)
-	if err != nil || at.UserID != userID {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return
-	}
 
 	row, err := a.liteTeacherItemRow(ctx, userID, atomID)
 	if err != nil {
@@ -91,6 +86,25 @@ func (a *API) getLiteTeacherItem(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+
+// loadTeacherOwnedAtom parses {atomId} and loads it, 404 when it does not
+// exist or is not this student's — the exact ownership check
+// getLiteTeacherItem needs before it can branch on at.Kind, and the one
+// getLiteTeacherWritingVersion (writing_versions.go's sibling below) reuses
+// rather than copying.
+func (a *API) loadTeacherOwnedAtom(w http.ResponseWriter, r *http.Request, userID uuid.UUID) (sqlc.Atom, bool) {
+	atomID, err := uuid.Parse(r.PathValue("atomId"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return sqlc.Atom{}, false
+	}
+	at, err := a.d.Queries.GetAtom(r.Context(), atomID)
+	if err != nil || at.UserID != userID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return sqlc.Atom{}, false
+	}
+	return at, true
 }
 
 // liteTeacherReport returns the stored report's teacher-facing slice
@@ -343,6 +357,15 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 		})
 	}
 
+	// Submitted versions (0153): summaries only, newest first, via the same
+	// helper the student's own versions list uses. revising mirrors
+	// writing.revising_at — a teacher looking at a submitted homework can
+	// tell whether she has reopened it for a new version.
+	versionRows, err := a.d.Queries.ListWritingVersions(ctx, atomID)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]any{
 		"targetWords":  targetWords,
 		"lang":         wr.Lang,
@@ -351,7 +374,40 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 		"snippets":     snippets,
 		"draft":        draftBody,
 		"comments":     comments,
+		"versions":     writingVersionSummaries(versionRows),
+		"revising":     wr.RevisingAt.Valid,
 	}, nil
+}
+
+// getLiteTeacherWritingVersion handles
+// GET /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}/versions/{n}.
+// Same gate as the item page: authTeacherStudent plus loadTeacherOwnedAtom,
+// and the atom must be this student's writing. A version is her submitted
+// text, never chat content.
+func (a *API) getLiteTeacherWritingVersion(w http.ResponseWriter, r *http.Request) {
+	_, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	at, ok := a.loadTeacherOwnedAtom(w, r, userID)
+	if !ok {
+		return
+	}
+	if at.Kind != "writing" {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	n, ok := versionNumber(r)
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	v, err := a.d.Queries.GetWritingVersion(r.Context(), sqlc.GetWritingVersionParams{AtomID: at.ID, Number: n})
+	if err != nil {
+		writeNotFoundOr(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, writingVersionDTOOf(v))
 }
 
 // --- project -------------------------------------------------------------

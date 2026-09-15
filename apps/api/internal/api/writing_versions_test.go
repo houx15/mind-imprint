@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -424,6 +425,116 @@ func TestWritingVersionDraftPutSerializesWithDiscard(t *testing.T) {
 	getJSON(t, h, student, base+"/draft", &draft)
 	if draft.Body != "第一版正文。" {
 		t.Fatalf("draft after discard = %q, want the restored version body, not the racing write", draft.Body)
+	}
+}
+
+type versionSummary struct {
+	Number      int    `json:"number"`
+	Title       string `json:"title"`
+	WordCount   int    `json:"wordCount"`
+	SubmittedAt string `json:"submittedAt"`
+}
+
+// Task 7: read endpoints. The student versions list and single-version read,
+// the for-atom return fields, and the teacher's item payload + version read.
+func TestWritingVersionReadEndpoints(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid, atomID, student := startWritingHomework(t, h, pool, teacher, classID, studentID)
+	base := "/api/v1/writings/" + atomID
+	if code := assignJSON(t, h, student, "POST", base+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("first finish = %d", code)
+	}
+	if code := assignJSON(t, h, student, "POST", base+"/revise", nil, nil); code != http.StatusOK {
+		t.Fatalf("revise = %d", code)
+	}
+	if code := assignJSON(t, h, student, "PUT", base+"/draft", map[string]any{"body": "雨下了一整夜。"}, nil); code != http.StatusOK {
+		t.Fatalf("draft while revising = %d", code)
+	}
+	if code := assignJSON(t, h, student, "POST", base+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("second finish = %d", code)
+	}
+
+	var list struct {
+		Versions   []versionSummary `json:"versions"`
+		Locked     bool             `json:"locked"`
+		LockReason *string          `json:"lockReason"`
+	}
+	if code := getJSON(t, h, student, base+"/versions", &list); code != http.StatusOK {
+		t.Fatalf("list = %d", code)
+	}
+	if len(list.Versions) != 2 || list.Versions[0].Number != 2 || list.Versions[1].Number != 1 || list.Locked || list.LockReason != nil {
+		t.Fatalf("list = %+v", list)
+	}
+
+	var v1 struct {
+		Number int    `json:"number"`
+		Body   string `json:"body"`
+	}
+	if code := getJSON(t, h, student, base+"/versions/1", &v1); code != http.StatusOK || v1.Number != 1 || v1.Body != "雨下了一整天。" {
+		t.Fatalf("v1 = %d %+v", code, v1)
+	}
+	for _, n := range []string{"3", "0", "x"} {
+		if code := getJSON(t, h, student, base+"/versions/"+n, nil); code != http.StatusNotFound {
+			t.Fatalf("version %s = %d, want 404", n, code)
+		}
+	}
+	other := signInAs(t, pool, createStudent(t, pool, SeedSchoolID, "ver-other@demo.local"))
+	if code := getJSON(t, h, other, base+"/versions", nil); code != http.StatusNotFound {
+		t.Fatalf("other student list = %d, want 404", code)
+	}
+
+	// Locked after the deadline: the list says so.
+	if _, err := pool.Exec(context.Background(), `UPDATE lite_assignment SET due_at = now() - interval '1 minute' WHERE id = $1`, aid); err != nil {
+		t.Fatal(err)
+	}
+	if code := getJSON(t, h, student, base+"/versions", &list); code != http.StatusOK {
+		t.Fatalf("locked list = %d", code)
+	}
+	if !list.Locked || list.LockReason == nil || *list.LockReason != "past_due" {
+		t.Fatalf("locked list = %+v", list)
+	}
+
+	// for-atom carries the return fields.
+	if _, err := pool.Exec(context.Background(), `UPDATE lite_assignment_recipient SET returned_at = now(), return_due_at = now() + interval '1 day', return_note = '补充论据' WHERE assignment_id = $1`, aid); err != nil {
+		t.Fatal(err)
+	}
+	var forAtom struct {
+		Assignment struct {
+			Kind        string  `json:"kind"`
+			ReturnedAt  *string `json:"returnedAt"`
+			ReturnDueAt *string `json:"returnDueAt"`
+			ReturnNote  *string `json:"returnNote"`
+			Resubmitted bool    `json:"resubmitted"`
+		} `json:"assignment"`
+	}
+	if code := getJSON(t, h, student, "/api/v1/lite/assignments/for-atom/"+atomID, &forAtom); code != http.StatusOK {
+		t.Fatalf("for-atom = %d", code)
+	}
+	if forAtom.Assignment.Kind != "writing" || forAtom.Assignment.ReturnedAt == nil || forAtom.Assignment.ReturnDueAt == nil ||
+		forAtom.Assignment.ReturnNote == nil || forAtom.Assignment.Resubmitted {
+		t.Fatalf("for-atom = %+v", forAtom.Assignment)
+	}
+
+	// Teacher: the item payload lists versions; the version route reads one.
+	itemBase := "/api/v1/lite/teacher/classes/" + classID + "/students/" + studentID.String() + "/items/" + atomID
+	var item struct {
+		Writing struct {
+			Versions []versionSummary `json:"versions"`
+			Revising bool             `json:"revising"`
+		} `json:"writing"`
+	}
+	if code := getJSON(t, h, teacher, itemBase, &item); code != http.StatusOK || len(item.Writing.Versions) != 2 || item.Writing.Revising {
+		t.Fatalf("teacher item = %d %+v", code, item.Writing)
+	}
+	var tv struct {
+		Body string `json:"body"`
+	}
+	if code := getJSON(t, h, teacher, itemBase+"/versions/2", &tv); code != http.StatusOK || tv.Body != "雨下了一整夜。" {
+		t.Fatalf("teacher v2 = %d %q", code, tv.Body)
+	}
+	otherTeacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "ver-other-teacher@demo.local"))
+	if code := getJSON(t, h, otherTeacher, itemBase+"/versions/2", nil); code != http.StatusNotFound {
+		t.Fatalf("other teacher version = %d, want 404", code)
 	}
 }
 

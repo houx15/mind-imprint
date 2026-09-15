@@ -453,6 +453,8 @@ func (a *API) getLiteAssignmentForAtom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignment": map[string]any{
-		"id": row.ID.String(), "title": row.Title, "dueAt": row.DueAt.Format(time.RFC3339),
+		"id": row.ID.String(), "kind": row.Kind, "title": row.Title, "dueAt": row.DueAt.Format(time.RFC3339),
+		"returnedAt": tsStringPtr(row.ReturnedAt), "returnDueAt": tsStringPtr(row.ReturnDueAt),
+		"returnNote": row.ReturnNote, "resubmitted": row.Resubmitted,
 	}})
 }

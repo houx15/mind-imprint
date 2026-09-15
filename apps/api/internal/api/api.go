@@ -454,6 +454,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/writings/{id}/finish", liteOnly(a.finishWritingAtom))
 	mux.Handle("POST /api/v1/writings/{id}/revise", liteOnly(a.reviseWriting))
 	mux.Handle("POST /api/v1/writings/{id}/revise/discard", liteOnly(a.discardWritingRevision))
+	mux.Handle("GET /api/v1/writings/{id}/versions", liteOnly(a.listWritingVersionsHandler))
+	mux.Handle("GET /api/v1/writings/{id}/versions/{n}", liteOnly(a.getWritingVersionHandler))
 	mux.Handle("POST /api/v1/writings/{id}/heartbeat", liteOnly(a.writingHeartbeat))
 	mux.Handle("GET /api/v1/writings/{id}/report", liteOnly(a.getAtomReportFor("writing")))
 	mux.Handle("POST /api/v1/writings/{id}/report/share", liteOnly(a.shareWritingReport()))

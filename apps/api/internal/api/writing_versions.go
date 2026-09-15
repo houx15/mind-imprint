@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -209,4 +210,106 @@ func (a *API) discardWritingRevision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(updated, at.CreatedAt, at.LastActivityAt))
+}
+
+// writingVersionSummaryDTO is one row of a versions list: no body, so a list
+// of many stays cheap. Shared by the student versions list and the teacher
+// item payload's writing.versions — the one place this shape is built.
+type writingVersionSummaryDTO struct {
+	Number      int32  `json:"number"`
+	Title       string `json:"title"`
+	WordCount   int32  `json:"wordCount"`
+	SubmittedAt string `json:"submittedAt"`
+}
+
+// writingVersionDTO is one version in full, for the single-version read.
+type writingVersionDTO struct {
+	writingVersionSummaryDTO
+	Body string `json:"body"`
+}
+
+// writingVersionSummaries never returns nil: an atom with no versions yet
+// answers "versions": [] rather than "versions": null.
+func writingVersionSummaries(rows []sqlc.ListWritingVersionsRow) []writingVersionSummaryDTO {
+	out := make([]writingVersionSummaryDTO, 0, len(rows))
+	for _, v := range rows {
+		out = append(out, writingVersionSummaryDTO{
+			Number: v.Number, Title: v.Title, WordCount: v.WordCount,
+			SubmittedAt: v.SubmittedAt.Format(time.RFC3339),
+		})
+	}
+	return out
+}
+
+func writingVersionDTOOf(v sqlc.WritingVersion) writingVersionDTO {
+	return writingVersionDTO{
+		writingVersionSummaryDTO: writingVersionSummaryDTO{
+			Number: v.Number, Title: v.Title, WordCount: v.WordCount,
+			SubmittedAt: v.SubmittedAt.Format(time.RFC3339),
+		},
+		Body: v.Body,
+	}
+}
+
+// versionNumber reads {n}; anything that is not a positive integer is 404 —
+// a bad path segment reads the same as a version that does not exist.
+func versionNumber(r *http.Request) (int32, bool) {
+	n, err := strconv.Atoi(r.PathValue("n"))
+	if err != nil || n < 1 || n > 1<<30 {
+		return 0, false
+	}
+	return int32(n), true
+}
+
+// listWritingVersionsHandler handles GET /api/v1/writings/{id}/versions:
+// every submitted version (summaries only, newest first) plus whether the
+// writing is currently locked — the same rule the write gate uses
+// (writingLockFacts + liteassign.Locked/LockReason), not a second copy of it.
+func (a *API) listWritingVersionsHandler(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedWritingAtom(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	rows, err := a.d.Queries.ListWritingVersions(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	facts, err := writingLockFacts(ctx, a.d.Queries, at.ID, at.UserID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	now := time.Now()
+	var reason *string
+	if s := liteassign.LockReason(facts, now); s != "" {
+		reason = &s
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"versions":   writingVersionSummaries(rows),
+		"locked":     liteassign.Locked(facts, now),
+		"lockReason": reason,
+	})
+}
+
+// getWritingVersionHandler handles GET /api/v1/writings/{id}/versions/{n}:
+// one submitted version in full, including its body. A version number that
+// does not exist (never submitted, or past the highest one) is 404.
+func (a *API) getWritingVersionHandler(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedWritingAtom(w, r)
+	if !ok {
+		return
+	}
+	n, ok := versionNumber(r)
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	v, err := a.d.Queries.GetWritingVersion(r.Context(), sqlc.GetWritingVersionParams{AtomID: at.ID, Number: n})
+	if err != nil {
+		writeNotFoundOr(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, writingVersionDTOOf(v))
 }
