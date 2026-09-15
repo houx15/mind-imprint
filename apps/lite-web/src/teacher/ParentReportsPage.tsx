@@ -107,7 +107,7 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
             <div className="text-mk-body text-mk-muted">暂无家长报告</div>
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
-              <table className="w-full min-w-[420px] border-collapse">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr>
                     {["学生", "日期范围", "创建时间"].map((h) => (

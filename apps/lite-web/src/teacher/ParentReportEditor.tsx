@@ -20,6 +20,7 @@ import { errorText, failText } from "./assignmentLogic";
 import {
   draftErrorText,
   errorCode,
+  EXPORT_BLOCKED_TEXT,
   exportBlockedReason,
   hiddenMentionText,
   isBodyBlank,
@@ -113,6 +114,9 @@ export function ParentReportEditor({
   function applyReport(r: TeacherParentReport) {
     reportRef.current = r;
     setReport(r);
+    // The blocked-export line is about the body as it was; once the last save
+    // shows no section quoting a hidden item, it no longer applies.
+    if (!exportBlockedReason(r)) setActionError((e) => (e === EXPORT_BLOCKED_TEXT ? null : e));
   }
 
   function replaceTexts(r: TeacherParentReport) {
