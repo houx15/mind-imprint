@@ -7,6 +7,7 @@ import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
 import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
+import { PersonalizedPicker } from "./PersonalizedPicker";
 import { RubricFields } from "./RubricFields";
 import { rubricDefaultNote } from "./rubricLogic";
 import { TeacherPage } from "./TeacherPage";
@@ -46,6 +47,7 @@ const SOURCE_OPTIONS: { value: ReadingSource; label: string }[] = [
   { value: "url", label: "链接" },
   { value: "text", label: "正文" },
   { value: "file", label: "上传文件" },
+  { value: "personalized", label: "个性化" },
 ];
 
 /** 类型. Rendered by the form right after 班级 (and first in the detail page's
@@ -61,11 +63,17 @@ export function SettingsFields({
   value,
   onChange,
   onExtractedTitle,
+  classId,
+  recipientIds,
 }: {
   value: SettingsDraft;
   onChange: (update: (d: SettingsDraft) => SettingsDraft) => void;
   /** Called with the uploaded document's title; the page fills 标题 only when it is empty. */
   onExtractedTitle?: (title: string) => void;
+  /** The class whose students the personalised preview covers. */
+  classId: string;
+  /** Checked recipients: the preview table and the saved picks keep only these. */
+  recipientIds: string[];
 }) {
   const set = (patch: Partial<SettingsDraft>) => onChange((d) => ({ ...d, ...patch }));
   return (
@@ -113,6 +121,9 @@ export function SettingsFields({
               }}
               onTextChange={(text) => set({ text })}
             />
+          )}
+          {value.readingSource === "personalized" && (
+            <PersonalizedPicker value={value} onChange={onChange} classId={classId} recipientIds={recipientIds} />
           )}
         </>
       )}
@@ -420,6 +431,8 @@ export function AssignmentForm({
             value={draft}
             onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))}
             onExtractedTitle={(title) => setDraft((d) => ({ ...d, title: fillTitleIfEmpty(d.title, title) }))}
+            classId={draft.classId}
+            recipientIds={draft.userIds}
           />
 
           <RecipientChecklist

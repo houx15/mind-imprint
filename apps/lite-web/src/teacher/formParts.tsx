@@ -23,6 +23,26 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+/** A pill toggle: an active or inactive choice among several, e.g. a
+ * difficulty level or a discipline filter. Shared by `LibraryPicker` and
+ * `PersonalizedPicker`. */
+export function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={
+        "rounded-mk-full border px-3 py-1.5 text-mk-small transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
+        (active ? "border-mk-accent font-bold text-mk-accent-700" : "border-mk-border text-mk-ink hover:bg-mk-accent-50")
+      }
+      style={active ? { background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" } : undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Segmented<T extends string>({
   label,
   options,

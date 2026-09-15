@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { getLibraryShelf, type LibraryArticle } from "../api/library";
 import { errorText, filterArticles, tierLabel } from "./assignmentLogic";
+import { Chip } from "./formParts";
 
 /**
  * LibraryPicker — choose one article from 分级阅读库 and a level for it.
@@ -100,34 +101,17 @@ export function LibraryPicker({
         <div>
           <div className="text-mk-label font-bold text-mk-muted">难度</div>
           <div className="mt-1.5 flex flex-wrap gap-2">
-            <LevelButton active={tier === null} onClick={() => onChange({ slug, tier: null })}>
+            <Chip active={tier === null} onClick={() => onChange({ slug, tier: null })}>
               {tierLabel(null)}
-            </LevelButton>
+            </Chip>
             {levels.map((lv) => (
-              <LevelButton key={lv.tier} active={tier === lv.tier} onClick={() => onChange({ slug, tier: lv.tier })}>
+              <Chip key={lv.tier} active={tier === lv.tier} onClick={() => onChange({ slug, tier: lv.tier })}>
                 {lv.name || tierLabel(lv.tier)}
-              </LevelButton>
+              </Chip>
             ))}
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function LevelButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={
-        "rounded-mk-full border px-3 py-1.5 text-mk-small transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
-        (active ? "border-mk-accent font-bold text-mk-accent-700" : "border-mk-border text-mk-ink hover:bg-mk-accent-50")
-      }
-      style={active ? { background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" } : undefined}
-    >
-      {children}
-    </button>
   );
 }

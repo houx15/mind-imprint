@@ -27,6 +27,7 @@ import {
   failText,
   fillTitleIfEmpty,
   isArchiveSuccess,
+  recipientReadingText,
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
@@ -242,6 +243,7 @@ export function AssignmentDetailPage({
   }
 
   const unassigned = roster ? unassignedStudents(roster, recipients) : null;
+  const personalized = assignment?.kind === "reading" && assignment.payload.source === "personalized";
 
   return (
     <TeacherPage>
@@ -311,6 +313,8 @@ export function AssignmentDetailPage({
                   value={edit.settings}
                   onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
                   onExtractedTitle={(title) => setEdit((d) => (d ? { ...d, title: fillTitleIfEmpty(d.title, title) } : d))}
+                  classId={assignment.classId}
+                  recipientIds={recipients.map((r) => r.userId)}
                 />
               ) : (
                 <>
@@ -406,7 +410,7 @@ export function AssignmentDetailPage({
                   <table className="w-full min-w-[600px] border-collapse">
                     <thead>
                       <tr>
-                        {["学生", "状态", "开始时间", "完成时间", "操作"].map((h) => (
+                        {["学生", ...(personalized ? ["文章"] : []), "状态", "开始时间", "完成时间", "操作"].map((h) => (
                           <th
                             key={h}
                             className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
@@ -422,6 +426,9 @@ export function AssignmentDetailPage({
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
                             {r.displayName}
                           </td>
+                          {personalized && (
+                            <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{recipientReadingText(r.reading)}</td>
+                          )}
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
                             <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
                           </td>
