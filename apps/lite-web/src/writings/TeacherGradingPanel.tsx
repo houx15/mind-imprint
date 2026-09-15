@@ -21,6 +21,8 @@ import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
  * keyed by version number; a grading whose version hasn't loaded yet (still
  * in flight) simply shows no "unmarked" flag until it has.
  */
+const EMPTY_SET: ReadonlySet<number> = new Set();
+
 export function TeacherGradingPanel({
   gradings,
   error,
@@ -45,9 +47,14 @@ export function TeacherGradingPanel({
       )}
       {gradings.map((g) => {
         const forLine = gradingVersionLine(g.versionNumber, shownVersion);
-        const body = bodies[g.versionNumber]?.body ?? "";
+        // The graded version's body is fetched separately (`FinishedWritingPage`'s
+        // preload effect) and can still be in flight on first render — until
+        // it lands, `quotes` are left undetermined rather than run against an
+        // empty string, which would falsely flag every quoted point as
+        // 未在正文中标出 for one render before the real text arrives.
+        const versionBody = bodies[g.versionNumber];
         const quotes = g.content.points.map((p) => p.quote);
-        const unmarked = new Set(unmarkedPointQuotes(quotes, quoteRanges(body, quotes)));
+        const unmarked = versionBody ? new Set(unmarkedPointQuotes(quotes, quoteRanges(versionBody.body, quotes))) : EMPTY_SET;
         return (
           <article key={g.id} className="flex flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-4">
             <div className="flex flex-wrap items-baseline gap-2">
