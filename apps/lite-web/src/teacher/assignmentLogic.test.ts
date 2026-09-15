@@ -37,6 +37,7 @@ import {
   type AssignmentDraft,
   type EditDraft,
   type PickRow,
+  type SettingsDraft,
 } from "./assignmentLogic";
 import { buildRubric, rubricDraftFromPayload, type RubricDraft } from "./rubricLogic";
 
@@ -456,10 +457,19 @@ describe("file and personalized settings", () => {
       tier: 4,
       picks: { u2: { slug: "nasa", tier: null } },
     });
-    expect(buildPayload({ ...d, disciplines: [], personalTier: null }, undefined)).toEqual({
+    expect(buildPayload({ ...d, disciplines: [], personalTier: null }, ["u1", "u2"])).toEqual({
       source: "personalized",
       picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
     });
+  });
+  // Promoted minor: a caller must always name the current recipient list for
+  // a personalized reading — an omitted `recipientIds` used to mean "send
+  // every pick unfiltered", which could resend a stale or new pick for a
+  // student who is not (or no longer) a recipient and get a server 400
+  // (pick_not_recipient).
+  it("requires recipientIds for a personalized reading rather than sending every pick unfiltered", () => {
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: [] };
+    expect(() => buildPayload(d)).toThrow();
   });
   it("reads a stored personalized payload back", () => {
     const d = settingsFromAssignment("reading", {
@@ -471,7 +481,10 @@ describe("file and personalized settings", () => {
     expect(d).toMatchObject({ readingSource: "personalized", disciplines: ["astronomy"], personalTier: 4, picks: null });
     expect(d.savedPicks).toEqual({ u1: { slug: "coral", tier: null } });
     expect(settingsSummary("reading", { source: "personalized", tier: 4, disciplines: ["a", "b"] })).toBe("个性化阅读 · 高阶 · 学科筛选 2 项");
-    expect(settingsSummary("reading", { source: "personalized" })).toBe("个性化阅读 · 按学生当前水平");
+    // Promoted minor: personalTierLabel, not tierLabel — null here means
+    // each student's own level (按学生水平), not the library source's
+    // fixed class-wide default (按学生当前水平).
+    expect(settingsSummary("reading", { source: "personalized" })).toBe("个性化阅读 · 按学生水平");
   });
 });
 
@@ -490,7 +503,7 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
   it("saves using the saved picks when the preview never loaded", () => {
     const settings = settingsFromAssignment("reading", { source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
     expect(settings.picks).toBeNull(); // the preview call never ran
-    const r = buildPatchInput(editOf(settings), true);
+    const r = buildPatchInput(editOf(settings), true, ["u1"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
   });
@@ -501,9 +514,23 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
     const kept = keptFromSaved(settings.savedPicks, articles);
     const merged = mergePickRows([preview({ userId: "u1" })], null, kept);
     const swapped = swapPick(merged, "u1", { slug: "nasa", tier: 5 }, articles);
-    const r = buildPatchInput(editOf({ ...settings, picks: swapped }), true);
+    const r = buildPatchInput(editOf({ ...settings, picks: swapped }), true, ["u1"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "nasa", tier: 5 } } });
+  });
+
+  // Fix round 1 (Important finding 1): the earlier skip only checked the
+  // CURRENT readingSource, so switching a stored library/url/text homework
+  // to personalized and saving before the preview loads (or after it fails)
+  // sent `{source:"personalized", picks:{}}` — every student then got an
+  // unseen automatic recommendation. Only a homework that was ALREADY
+  // personalized has saved picks to fall back to.
+  it("still waits for the preview when a stored library homework is switched to personalized", () => {
+    const stored = settingsFromAssignment("reading", { source: "library", slug: "coral" });
+    expect(stored.storedPersonalized).toBe(false);
+    const switched: SettingsDraft = { ...stored, readingSource: "personalized", picks: null };
+    const r = buildPatchInput(editOf(switched), true, ["u1"]);
+    expect(r).toEqual({ ok: false, error: "请等待推荐列表加载完成" });
   });
 });
 
@@ -513,8 +540,17 @@ describe("pick rows", () => {
   it("takes the preview and the chosen tier", () => {
     const rows = mergePickRows([preview()], 3, {});
     expect(rows[0]).toMatchObject({ slug: "coral", tier: 3, swapped: false, reason: "暂无兴趣数据，按难度推荐" });
-    expect(pickTierText(rows[0] as PickRow)).toBe("进阶");
-    expect(pickTierText({ ...(rows[0] as PickRow), tier: null, suggestedTier: 2 })).toBe("基础");
+    expect(pickTierText(rows[0] as PickRow, 3)).toBe("进阶");
+    expect(pickTierText({ ...(rows[0] as PickRow), tier: null, suggestedTier: 2 }, null)).toBe("基础");
+  });
+  // Fix round 1 (Important finding 2): a null pick tier resolves through the
+  // class-wide 难度 chip first, the same order the server's `pickedTier`
+  // uses — showing the suggested tier instead (the old `row.tier ??
+  // row.suggestedTier`) was wrong whenever a chip was set.
+  it("a null pick tier shows the class-wide chip before falling back to her suggested tier", () => {
+    const row: PickRow = { userId: "u1", name: "Phoebe", slug: "coral", title: "珊瑚", tier: null, suggestedTier: 2, reason: "", swapped: false };
+    expect(pickTierText(row, 4)).toBe("高阶");
+    expect(pickTierText(row, null)).toBe("基础");
   });
   it("a swap is kept when the preview is run again", () => {
     let rows = mergePickRows([preview()], null, {});
@@ -530,8 +566,27 @@ describe("pick rows", () => {
     expect(rows[0]).toMatchObject({ slug: "coral", swapped: false });
     expect(rows[1]).toMatchObject({ slug: "nasa", title: "NASA", tier: 2, swapped: true });
   });
+  // Fix round 1 (Important finding 3, plan-mandated): picks saved with
+  // tier: null, then the teacher raises the class-wide 难度 chip — the
+  // article recommendation is unchanged, so this must not read as 已更换.
+  it("a saved pick with the same article as the fresh preview is not a swap even if only its tier differs", () => {
+    const kept = keptFromSaved({ u1: { slug: "coral", tier: null } }, articles);
+    const rows = mergePickRows([preview({ userId: "u1", slug: "coral" })], 4, kept);
+    expect(rows[0]).toMatchObject({ slug: "coral", tier: null, swapped: false, reason: "暂无兴趣数据，按难度推荐" });
+  });
+  it("a saved pick for a different article is still shown as a swap", () => {
+    const kept = keptFromSaved({ u1: { slug: "nasa", tier: null } }, articles);
+    const rows = mergePickRows([preview({ userId: "u1", slug: "coral" })], 4, kept);
+    expect(rows[0]).toMatchObject({ slug: "nasa", title: "NASA", swapped: true, reason: "已更换" });
+  });
+  it("a session swap stays marked as a swap even after the class-wide tier changes", () => {
+    let rows = mergePickRows([preview({ userId: "u1" })], null, {});
+    rows = swapPick(rows, "u1", { slug: "nasa", tier: 5 }, articles);
+    const again = mergePickRows([preview({ userId: "u1" })], 4, keptFromRows(rows));
+    expect(again[0]).toMatchObject({ slug: "nasa", tier: 5, swapped: true, reason: "已更换" });
+  });
   it("a student who left the class is dropped", () => {
-    const rows = mergePickRows([preview({ userId: "u1" })], null, { gone: { slug: "nasa", title: "NASA", tier: null } });
+    const rows = mergePickRows([preview({ userId: "u1" })], null, { gone: { slug: "nasa", title: "NASA", tier: null, origin: "saved" } });
     expect(rows.map((r) => r.userId)).toEqual(["u1"]);
   });
   it("shows only checked recipients", () => {
