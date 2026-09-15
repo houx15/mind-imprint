@@ -151,6 +151,10 @@ func errAssignmentStarted(msg string) *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusConflict, Code: "assignment_started", Message: msg}
 }
 
+func errPickNotRecipient() error {
+	return httpx.ErrBadRequest("pick_not_recipient", "个性化名单中有学生不在这份作业的学生名单中", nil)
+}
+
 func parseAssignmentTitle(raw string) (string, error) {
 	title := strings.TrimSpace(raw)
 	if title == "" || utf8.RuneCountInString(title) > maxAssignmentTitleRunes {
@@ -275,6 +279,10 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	ids, err := a.assignmentRecipientIDs(ctx, classID, req.UserIDs)
 	if err != nil {
 		httpx.WriteError(w, r, err)
+		return
+	}
+	if liteassign.PicksOutside(payload, ids) {
+		httpx.WriteError(w, r, errPickNotRecipient())
 		return
 	}
 
@@ -564,6 +572,23 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	for _, uid := range addIDs {
 		if err := qtx.AddLiteAssignmentRecipient(ctx, sqlc.AddLiteAssignmentRecipientParams{AssignmentID: locked.ID, UserID: uid}); err != nil {
 			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	// Picks are checked against the recipient list this request leaves behind,
+	// so a teacher can add a student and her pick in one save.
+	if req.Payload != nil {
+		current, err := qtx.ListLiteAssignmentRecipients(ctx, []uuid.UUID{locked.ID})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		userIDs := make([]uuid.UUID, 0, len(current))
+		for _, rc := range current {
+			userIDs = append(userIDs, rc.UserID)
+		}
+		if liteassign.PicksOutside(params.Payload, userIDs) {
+			httpx.WriteError(w, r, errPickNotRecipient())
 			return
 		}
 	}

@@ -6,6 +6,7 @@ package api
 // library.StudentPick.Reason.
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/liteassign"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 type personalizedPreviewRowDTO struct {
@@ -87,4 +89,26 @@ func (a *API) previewLitePersonalizedReading(w http.ResponseWriter, r *http.Requ
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"rows": rows})
+}
+
+// personalizedTargetIn turns a personalized payload into the library reading
+// this student starts: her pick, or, when she has none (she was added after
+// the picks were saved), the recommendation computed now. A nil Tier leaves
+// the tier to startAssignedLibraryReading, which uses her suggested tier.
+func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID, p liteassign.ReadingPayload) (liteassign.ReadingPayload, error) {
+	if pick, ok := p.Picks[userID.String()]; ok {
+		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: pick.Tier}, nil
+	}
+	prof, err := libraryProfileIn(ctx, q, userID)
+	if err != nil {
+		return liteassign.ReadingPayload{}, err
+	}
+	if p.Tier != nil {
+		prof.Tier = *p.Tier
+	}
+	pick, ok := library.PickForStudent(library.All(), prof, p.Disciplines)
+	if !ok {
+		return liteassign.ReadingPayload{}, errLibraryArticleNotFound
+	}
+	return liteassign.ReadingPayload{Source: "library", Slug: pick.Article.Slug, Tier: p.Tier}, nil
 }

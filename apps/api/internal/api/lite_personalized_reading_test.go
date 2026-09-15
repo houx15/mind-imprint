@@ -143,3 +143,98 @@ func TestPersonalizedPreview(t *testing.T) {
 		t.Fatalf("student preview = %d, want refused", code)
 	}
 }
+
+func libraryReadingOf(t *testing.T, pool *pgxpool.Pool, atomID string) (string, int) {
+	t.Helper()
+	var slug string
+	var tier int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT library_slug, library_tier FROM reading WHERE atom_id = $1`, atomID).Scan(&slug, &tier); err != nil {
+		t.Fatalf("reading %s: %v", atomID, err)
+	}
+	return slug, tier
+}
+
+func personalizedPayload(filter []string, picks map[string]any) map[string]any {
+	p := map[string]any{"source": "personalized", "picks": picks}
+	if filter != nil {
+		p["disciplines"] = filter
+	}
+	return p
+}
+
+func TestPersonalizedPicksMustBeRecipients(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	s2 := createStudent(t, pool, SeedSchoolID, "pr-s2@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	slug := library.All()[0].Slug
+	path := "/api/v1/lite/teacher/classes/" + classID + "/assignments"
+
+	// s2 is enrolled but not a recipient.
+	body := readingAssignmentBody("个性化", personalizedPayload(nil, map[string]any{
+		s2.String(): map[string]any{"slug": slug},
+	}), []string{s1.String()})
+	if code, errCode := writeErrorCode(t, h, teacher, "POST", path, body); code != http.StatusBadRequest || errCode != "pick_not_recipient" {
+		t.Fatalf("create with a non-recipient pick = %d %s", code, errCode)
+	}
+
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": slug},
+	}), []string{s1.String()}))
+	withS2 := map[string]any{"payload": personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": slug}, s2.String(): map[string]any{"slug": slug},
+	})}
+	if code, errCode := writeErrorCode(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, withS2); code != http.StatusBadRequest || errCode != "pick_not_recipient" {
+		t.Fatalf("patch with a non-recipient pick = %d %s", code, errCode)
+	}
+	// Adding s2 in the same request makes the pick valid.
+	withS2["addUserIds"] = []string{s2.String()}
+	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, withS2, nil); code != http.StatusOK {
+		t.Fatalf("patch adding s2 with her pick = %d", code)
+	}
+	// An unknown article is refused by payload validation.
+	bad := readingAssignmentBody("个性化", personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": "no-such-article"},
+	}), []string{s1.String()})
+	if code, errCode := writeErrorCode(t, h, teacher, "POST", path, bad); code != http.StatusBadRequest || errCode != "invalid_pick_slug" {
+		t.Fatalf("unknown pick slug = %d %s", code, errCode)
+	}
+}
+
+func TestPersonalizedStart(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	s2 := createStudent(t, pool, SeedSchoolID, "ps-s2@demo.local")
+	s3 := createStudent(t, pool, SeedSchoolID, "ps-s3@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	enrollStudent(t, pool, s3, classID)
+	all := library.All()
+	filter := []string{all[len(all)-1].Disciplines[0]}
+
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", personalizedPayload(filter, map[string]any{
+		s1.String(): map[string]any{"slug": all[1].Slug, "tier": 4},
+		s2.String(): map[string]any{"slug": all[2].Slug, "tier": nil},
+	}), []string{s1.String(), s2.String()}))
+	// s3 joins after the picks were made: no pick.
+	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+		map[string]any{"addUserIds": []string{s3.String()}}, nil); code != http.StatusOK {
+		t.Fatalf("add s3 = %d", code)
+	}
+
+	out := startAssignment(t, h, signInAs(t, pool, s1), aid)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); out.Kind != "reading" || slug != all[1].Slug || tier != 4 {
+		t.Fatalf("s1 started %s tier %d, want %s tier 4", slug, tier, all[1].Slug)
+	}
+	out = startAssignment(t, h, signInAs(t, pool, s2), aid)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != all[2].Slug || tier != library.SuggestTier(0, 0) {
+		t.Fatalf("s2 started %s tier %d, want %s at her suggested tier", slug, tier, all[2].Slug)
+	}
+	want, _ := library.PickForStudent(all, library.Profile{Tier: library.SuggestTier(0, 0)}, filter)
+	out = startAssignment(t, h, signInAs(t, pool, s3), aid)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug || tier != library.SuggestTier(0, 0) {
+		t.Fatalf("s3 started %s tier %d, want the recommendation %s", slug, tier, want.Article.Slug)
+	}
+	// Starting again returns the same item.
+	if again := startAssignment(t, h, signInAs(t, pool, s3), aid); again.AtomID != out.AtomID {
+		t.Fatalf("repeat start = %s, want %s", again.AtomID, out.AtomID)
+	}
+}

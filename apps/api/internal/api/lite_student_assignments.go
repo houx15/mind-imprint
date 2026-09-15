@@ -348,6 +348,13 @@ func (a *API) createAssignedItemInTx(ctx context.Context, tx pgx.Tx, qtx *sqlc.Q
 		switch p.Source {
 		case "library":
 			return startAssignedLibraryReading(ctx, tx, qtx, userID, p)
+		case "personalized":
+			// Read through qtx: a start holds one pooled connection at a time.
+			target, err := personalizedTargetIn(ctx, qtx, userID, p)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			return startAssignedLibraryReading(ctx, tx, qtx, userID, target)
 		case "url":
 			if article == nil {
 				return uuid.Nil, errors.New("lite assignment: link reading started without its fetched article")
