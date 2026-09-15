@@ -3,7 +3,7 @@ import { getAssignmentForAtom, type AssignmentForAtom } from "../api/assignments
 import { formatDeadline } from "../shared/deadline";
 
 /**
- * 老师布置 · 截止 … — shown in a room whose atom was started from an
+ * 作业 · 截止 … — shown in a room whose atom was started from an
  * assignment. Renders nothing when the atom has no assignment or the lookup
  * fails: a room she opened herself must look exactly as it did before.
  *
@@ -29,5 +29,5 @@ export function AssignmentLine({ atomId, className = "text-mk-small text-mk-mute
   }, [atomId]);
 
   if (!assignment || !assignment.dueAt) return null;
-  return <span className={className}>老师布置 · 截止 {formatDeadline(assignment.dueAt)}</span>;
+  return <span className={className}>作业 · 截止 {formatDeadline(assignment.dueAt)}</span>;
 }

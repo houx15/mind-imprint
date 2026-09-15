@@ -123,7 +123,7 @@ export function WritingSetupModal({
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="比如：这是老师布置的作业、我已经有立场了、我想写我自己的一段经历……"
+            placeholder="比如：想写的角度、需要注意的地方……"
             aria-label="还想说点什么"
             className="min-h-[88px] w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
           />

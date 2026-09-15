@@ -460,7 +460,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
     <section className="mt-8">
       <h2 className="text-mk-h3 text-mk-ink">项目</h2>
 
-      {project.assigned && <p className="mt-2 text-mk-small text-mk-muted">驱动问题（老师布置）</p>}
+      {project.assigned && <p className="mt-2 text-mk-small text-mk-muted">驱动问题（作业）</p>}
       <p className={`${project.assigned ? "mt-0.5" : "mt-2"} text-mk-body text-mk-ink`}>{project.idea}</p>
       <p className="mt-1 text-mk-small text-mk-muted">
         进度 {project.stepsDone}/{project.stepsTotal}

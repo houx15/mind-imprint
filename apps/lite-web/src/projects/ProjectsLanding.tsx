@@ -178,7 +178,7 @@ export function ProjectsLanding() {
             建了项目、还没有主页的学生（门上线之前的每一个人）不能因为这次改动
             就进不去自己的项目。 */}
         <LandingHeader kind="project" title="项目" description="从真实的问题出发，规划、实践并记录你的成果。" />
-        {/* ── 老师布置 ──────────────────────────────────────────────────
+        {/* ── 作业 ──────────────────────────────────────────────────────
             Above the gate, not inside it: a project the teacher assigned is
             reachable while her homepage is still unpublished. Renders nothing
             when no project is assigned and still open. */}

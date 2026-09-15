@@ -97,7 +97,7 @@ export function InboxPanel({
     >
       <div className="border-b border-mk-border px-4 py-3">
         <h2 className="text-mk-body font-semibold text-mk-ink">收件箱</h2>
-        <p className="mt-0.5 text-mk-small text-mk-muted">老师布置的作业会出现在这里。</p>
+        <p className="mt-0.5 text-mk-small text-mk-muted">作业会出现在这里。</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">

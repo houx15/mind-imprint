@@ -84,7 +84,7 @@ describe("normalizeItemDetail", () => {
     expect(detail.project?.courses).toEqual([]);
   });
 
-  // ItemPage labels `idea` 驱动问题（老师布置） on this flag. Only a real `true`
+  // ItemPage labels `idea` 驱动问题（作业） on this flag. Only a real `true`
   // may do that; anything else would label her own sentence as the teacher's.
   it("reads project.assigned as a strict boolean", () => {
     const base = {

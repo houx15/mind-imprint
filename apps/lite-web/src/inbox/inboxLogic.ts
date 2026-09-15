@@ -1,4 +1,4 @@
-// inbox/inboxLogic.ts — pure rules behind the student inbox and the 老师布置
+// inbox/inboxLogic.ts — pure rules behind the student inbox and the 作业
 // strips. No React and no network, so each rule is testable on its own.
 
 import type { AssignmentInboxItem, AssignmentKind } from "../api/assignments";
@@ -25,7 +25,7 @@ export function errorMessage(err: unknown): string {
 
 const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress", "overdue"];
 
-/** What a landing's 老师布置 strip lists: this kind, and still open. */
+/** What a landing's 作业 strip lists: this kind, and still open. */
 export function openItemsForKind(items: readonly AssignmentInboxItem[], kind: AssignmentKind): AssignmentInboxItem[] {
   return items.filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
 }
