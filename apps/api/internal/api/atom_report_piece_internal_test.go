@@ -59,7 +59,7 @@ func TestMergeLiveWritingFieldsFillsPieceOnlyWhenMissing(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fields := decode(t, tc.stored)
-			mergeLiveWritingFields(fields, tc.draftBody, "t")
+			mergeLiveWritingFields(fields, tc.draftBody, "", "t")
 			if got := str(t, fields["piece"]); got != tc.want {
 				t.Fatalf("piece = %q, want %q", got, tc.want)
 			}
@@ -74,7 +74,7 @@ func TestMergeLiveWritingFieldsFillsPieceOnlyWhenMissing(t *testing.T) {
 func TestMergeLiveWritingFieldsAlwaysTakesTheLiveTitle(t *testing.T) {
 	fields := decode(t, `{"kind":"writing","title":"我想写一篇论证文，说说学校该不该允许学生课间用手机——我自己观察到…"}`)
 
-	changed := mergeLiveWritingFields(fields, "", "课间十分钟")
+	changed := mergeLiveWritingFields(fields, "", "", "课间十分钟")
 
 	if !changed {
 		t.Fatal("a renamed title must report a change")
@@ -89,7 +89,7 @@ func TestMergeLiveWritingFieldsAlwaysTakesTheLiveTitle(t *testing.T) {
 func TestMergeLiveWritingFieldsNeverBlanksTheTitle(t *testing.T) {
 	fields := decode(t, `{"kind":"writing","title":"转弯中的国家"}`)
 
-	if mergeLiveWritingFields(fields, "", "   ") {
+	if mergeLiveWritingFields(fields, "", "", "   ") {
 		t.Fatal("an empty live title must not count as a change")
 	}
 	if got := str(t, fields["title"]); got != "转弯中的国家" {
@@ -102,7 +102,7 @@ func TestMergeLiveWritingFieldsNeverBlanksTheTitle(t *testing.T) {
 func TestMergeLiveWritingFieldsIsANoOpWhenNothingDiffers(t *testing.T) {
 	fields := decode(t, `{"kind":"writing","title":"转弯中的国家","piece":"正文。"}`)
 
-	if mergeLiveWritingFields(fields, "正文。", "转弯中的国家") {
+	if mergeLiveWritingFields(fields, "正文。", "", "转弯中的国家") {
 		t.Fatal("identical live values must not report a change")
 	}
 }
@@ -116,7 +116,7 @@ func TestMergeLiveWritingFieldsTouchesNothingElse(t *testing.T) {
 	before := decode(t, stored)
 	after := decode(t, stored)
 
-	mergeLiveWritingFields(after, "正文。", "新标题")
+	mergeLiveWritingFields(after, "正文。", "", "新标题")
 
 	if len(after) != len(before)+1 { // +1 for the added piece
 		t.Fatalf("key count = %d, want %d", len(after), len(before)+1)
@@ -166,4 +166,35 @@ func str(t *testing.T, raw json.RawMessage) string {
 		t.Fatalf("not a string: %s", raw)
 	}
 	return s
+}
+
+// Once versions exist (0153), the piece is the latest submitted version:
+// she can edit after 完成, and the report must show what she submitted, not
+// what the report stored at generation time or her unsubmitted draft.
+func TestMergeLiveWritingFieldsLatestVersionWins(t *testing.T) {
+	cases := []struct {
+		name        string
+		stored      string
+		draftBody   string
+		versionBody string
+		want        string
+		wantChanged bool
+	}{
+		{"version replaces the stored piece", `{"kind":"writing","title":"t","piece":"第一版。"}`, "还没提交的修改。", "第二版。", "第二版。", true},
+		{"version fills a missing piece", `{"kind":"writing","title":"t"}`, "草稿。", "第一版。", "第一版。", true},
+		{"same text is not a change", `{"kind":"writing","title":"t","piece":"第二版。"}`, "", "第二版。", "第二版。", false},
+		{"blank version falls back to the old rule", `{"kind":"writing","title":"t","piece":"报告里存着的正文。"}`, "草稿。", "   ", "报告里存着的正文。", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := decode(t, tc.stored)
+			changed := mergeLiveWritingFields(fields, tc.draftBody, tc.versionBody, "t")
+			if got := str(t, fields["piece"]); got != tc.want {
+				t.Fatalf("piece = %q, want %q", got, tc.want)
+			}
+			if changed != tc.wantChanged {
+				t.Fatalf("changed = %v, want %v", changed, tc.wantChanged)
+			}
+		})
+	}
 }

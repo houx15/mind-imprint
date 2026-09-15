@@ -880,37 +880,42 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 // --- the generator (Task 5 depends on this exact signature) ---------------
 
-// reportWithPiece fills in a writing report's `piece` at SERVE time when the
-// stored blob does not carry one.
+// reportWithPiece refreshes a writing report's `piece` at SERVE time from
+// whatever is now the true text: the latest submitted version if one exists,
+// otherwise the draft when the stored blob has none at all.
 //
 // ## Why this has to exist
 //
 // A report is generated ONCE and stored as a JSON blob, then re-served
-// verbatim forever — and `piece` was added to that blob after reports already
-// existed. "No backfill, the section is simply absent" was fine while the
-// piece was one section at the foot of the page. It stopped being fine the
+// verbatim forever. `piece` was added to that blob after reports already
+// existed — "no backfill, the section is simply absent" was fine while the
+// piece was one section at the foot of the page, and stopped being fine the
 // moment the piece became THE PAGE: with no `piece`, `PublicReportPage` sees
-// `hasArticle === false` and opens the record, so every writing finished
-// before that deploy shares as a page of statistics with the article missing
-// entirely. Checked on production: 2 of 2 writing reports had no `piece`, i.e.
-// the article page was live and unreachable for every existing piece.
+// `hasArticle === false` and opens the record, so a writing finished before
+// that deploy shared as a page of statistics with the article missing
+// entirely. Checked on production: 2 of 2 writing reports had no `piece`.
+//
+// Since 0153 there is a second, ongoing reason: she can edit a finished
+// writing again and submit a new version, and the stored blob still holds
+// whatever text was current the moment the report was first generated. This
+// function is what keeps the report in step with her latest submission
+// instead of freezing on the first one.
 //
 // ## Why read-time rather than a backfill migration
 //
 // The same reasoning as `statLabels.ts` resolving stat wording on the client:
 // the blob is the RECORD of a generation, and anything derivable from data
-// that still exists should be derived rather than frozen. The draft is a live
-// row (`writing_draft`) that nothing rewrites after 完成这篇, so reading it
-// here yields exactly the text the generator would have stored — and it
-// self-heals every old report at once, with no migration to run and nothing
-// to re-run if it is added to again.
+// that still exists should be derived rather than frozen. The version and the
+// draft are both live rows nothing else needs migrating to read, so this
+// self-heals every old report at once and keeps tracking every new edit,
+// with no migration to run and nothing to re-run if it is added to again.
 //
 // ## Failure posture
 //
 // Every error path returns `stored` unchanged. A report that cannot be
 // hydrated must still be served: losing the article section is a smaller harm
 // than 500-ing on a link someone was sent. Nothing here can substitute the
-// wrong atom's prose either — the draft is looked up by this report's own
+// wrong atom's prose either — every lookup is keyed on this report's own
 // `atom_id`.
 // hasNonEmptyString reports whether the field is present AND decodes to a
 // string with something in it. A stored `""` (or `"   "`) counts as ABSENT:
@@ -935,10 +940,11 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 	if raw, ok := fields["kind"]; !ok || json.Unmarshal(raw, &kind) != nil || kind != "writing" {
 		return stored
 	}
-	// Both live rows, read unconditionally: the title is always needed (see
-	// mergeLiveWritingFields) and the draft is needed whenever the blob has no
-	// piece, which for now is every report that already existed. Two indexed
-	// single-row lookups on a page that is already one round trip.
+	// Three live rows, read unconditionally: the title is always needed (see
+	// mergeLiveWritingFields), the latest version is what `piece` should show
+	// whenever one exists, and the draft is the fallback for a writing with no
+	// version at all. Three indexed single-row lookups on a page that is
+	// already one round trip.
 	//
 	// A failed lookup is not an error here — it contributes nothing and the
 	// corresponding field keeps whatever the blob holds.
@@ -950,8 +956,12 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 	if wr, err := a.d.Queries.GetWriting(ctx, atomID); err == nil {
 		title = wr.Title
 	}
+	versionBody := ""
+	if v, err := a.d.Queries.GetLatestWritingVersion(ctx, atomID); err == nil {
+		versionBody = v.Body
+	}
 
-	if !mergeLiveWritingFields(fields, draftBody, title) {
+	if !mergeLiveWritingFields(fields, draftBody, versionBody, title) {
 		return stored
 	}
 	out, err := json.Marshal(fields)
@@ -961,14 +971,20 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 	return out
 }
 
-// mergeLiveWritingFields folds the live draft and title into a decoded report
-// blob, reporting whether anything changed. Split out from the I/O above so
-// the two rules — which differ, deliberately — can be tested without a
-// database.
+// mergeLiveWritingFields folds the live version, draft and title into a
+// decoded report blob, reporting whether anything changed. Split out from the
+// I/O above so the rules — which differ, deliberately — can be tested without
+// a database.
 //
-// **piece: only when missing.** A report generated after the field shipped is
-// authoritative, and reading the draft over it would make two sources of truth
-// for the same words. A stored `""` counts as missing.
+// **piece: the latest submitted version, when there is one.** Since 0153 she
+// can edit a finished writing again and submit a new version, so the report
+// must not keep showing what it happened to store at generation time. A
+// non-blank versionBody always wins, whether or not the blob already has a
+// piece — that is what makes a later edit and re-完成这篇 actually show up on
+// a report that was generated before it. Only when there is no version at all
+// (a writing predating 0153, before its backfill, or not yet finished) does
+// the older rule apply: the draft fills `piece` only when the blob has none,
+// and a stored `""` counts as missing.
 //
 // **title: always.** Here the live row IS the truth: she can still rename a
 // finished writing, and 给这篇起个名字 only asks at 完成这篇 — so a piece
@@ -979,10 +995,15 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 // lands a rename on the article, the report, the poster and the share link at
 // once.
 //
-// 🚨 Do not "tidy" these two into one rule. They are asymmetric on purpose.
-func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, title string) bool {
+// 🚨 Do not "tidy" these into one rule. They are asymmetric on purpose.
+func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, versionBody, title string) bool {
 	changed := false
-	if body := strings.TrimSpace(draftBody); body != "" && !hasNonEmptyString(fields, "piece") {
+	if body := strings.TrimSpace(versionBody); body != "" {
+		if encoded, err := json.Marshal(body); err == nil && !bytes.Equal(fields["piece"], encoded) {
+			fields["piece"] = encoded
+			changed = true
+		}
+	} else if body := strings.TrimSpace(draftBody); body != "" && !hasNonEmptyString(fields, "piece") {
 		if encoded, err := json.Marshal(body); err == nil {
 			fields["piece"] = encoded
 			changed = true
