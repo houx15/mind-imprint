@@ -499,6 +499,26 @@ type LiteClassWeeklyProse struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type LiteGrading struct {
+	ID            uuid.UUID          `json:"id"`
+	AtomID        uuid.UUID          `json:"atom_id"`
+	VersionID     uuid.UUID          `json:"version_id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	ClassID       uuid.UUID          `json:"class_id"`
+	AssignmentID  pgtype.UUID        `json:"assignment_id"`
+	Rubric        []byte             `json:"rubric"`
+	Status        string             `json:"status"`
+	Ai            []byte             `json:"ai"`
+	Content       []byte             `json:"content"`
+	Error         *string            `json:"error"`
+	RequestedBy   uuid.UUID          `json:"requested_by"`
+	ReviewedAt    pgtype.Timestamptz `json:"reviewed_at"`
+	SentAt        pgtype.Timestamptz `json:"sent_at"`
+	StudentSeenAt pgtype.Timestamptz `json:"student_seen_at"`
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+}
+
 type LiteParentReport struct {
 	ID         uuid.UUID   `json:"id"`
 	UserID     uuid.UUID   `json:"user_id"`
