@@ -384,6 +384,28 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Re-read the draft with the tx queries, under the row lock just taken
+	// above (GetWritingForUpdate), rather than reusing the pre-transaction
+	// read: an autosave (PUT /draft) can land between the missing_draft check
+	// and here. putWritingDraft takes the SAME GetWritingForUpdate lock before
+	// its own upsert (writeWritingDraftLocked, this file), so the two
+	// transactions serialize on the writing row: by the time this re-read
+	// runs, no PUT /draft can still be in flight for this atom, and none can
+	// land before this transaction commits. The version therefore equals what
+	// was in writing_draft at commit time.
+	//
+	// The blank check is repeated here for the same reason. An autosave of an
+	// empty body between the pre-check and the lock would otherwise become an
+	// empty version, and versions cannot be edited or deleted.
+	freshDraft, err := qtx.GetWritingDraft(ctx, at.ID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && strings.TrimSpace(freshDraft.Body) == "") {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_draft", "先完成初稿，再点完成。", nil))
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	if first {
 		if err := qtx.SetWritingFinished(ctx, at.ID); err != nil {
 			httpx.WriteError(w, r, err)
@@ -395,23 +417,6 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, err)
 			return
 		}
-	}
-	// Re-read the draft with the tx queries, under the row lock just taken
-	// above (GetWritingForUpdate), rather than reusing the pre-transaction
-	// read: an autosave (PUT /draft) can land between the missing_draft check
-	// and here. This alone would not be enough — putWritingDraft used to
-	// write outside any transaction, so an autosave could still commit
-	// between this re-read and tx.Commit below. It now takes the SAME
-	// GetWritingForUpdate lock before its own upsert (writeWritingDraftLocked,
-	// this file), so the two transactions serialize on the writing row: by
-	// the time this re-read runs, no PUT /draft can still be in flight for
-	// this atom, and none can land before this transaction commits. That is
-	// the actual guarantee — the version equals what was in writing_draft at
-	// commit time, not just "what was there a moment ago."
-	freshDraft, err := qtx.GetWritingDraft(ctx, at.ID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		httpx.WriteError(w, r, err)
-		return
 	}
 	if _, err := insertWritingVersion(ctx, qtx, at.ID, wr.Title, freshDraft.Body); err != nil {
 		httpx.WriteError(w, r, err)

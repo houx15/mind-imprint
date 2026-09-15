@@ -23,7 +23,7 @@ ALTER TABLE lite_assignment_recipient
   ADD COLUMN return_note   text CHECK (return_note IS NULL OR char_length(return_note) <= 500);
 
 -- 已完成的写作补第一版：当前草稿，提交时间取 finished_at。
--- 正则的第一段是单个 CJK 字符（agent.isCJK 的范围），第二段是一串非空白、非 CJK 字符。
+-- 正则的第一段是单个 CJK 字符（近似 agent.isCJK 的范围），第二段是一串非空白、非 CJK 字符。
 INSERT INTO writing_version (atom_id, number, title, body, word_count, submitted_at)
 SELECT w.atom_id, 1, w.title, COALESCE(d.body, ''),
        (SELECT count(*) FROM regexp_matches(

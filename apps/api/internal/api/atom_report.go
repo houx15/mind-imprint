@@ -917,6 +917,20 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 // than 500-ing on a link someone was sent. Nothing here can substitute the
 // wrong atom's prose either — every lookup is keyed on this report's own
 // `atom_id`.
+// writingPieceTitle is the title a report or share page shows next to the
+// piece. With a submitted version it is that version's title: a rename made
+// while revising is not submitted until 完成这篇, and the body shown beside it
+// is the version's body. Without a version (a writing predating 0153 before
+// its backfill, or finished in the deploy gap) the live title is all there is.
+// A blank version title also falls back to the live one rather than blanking
+// the headline.
+func writingPieceTitle(liveTitle, versionTitle string, hasVersion bool) string {
+	if hasVersion && strings.TrimSpace(versionTitle) != "" {
+		return versionTitle
+	}
+	return liveTitle
+}
+
 // hasNonEmptyString reports whether the field is present AND decodes to a
 // string with something in it. A stored `""` (or `"   "`) counts as ABSENT:
 // treating it as present is what would let a blank field pin itself forever.
@@ -952,14 +966,15 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 	if draft, err := a.d.Queries.GetWritingDraft(ctx, atomID); err == nil {
 		draftBody = draft.Body
 	}
-	title := ""
+	liveTitle := ""
 	if wr, err := a.d.Queries.GetWriting(ctx, atomID); err == nil {
-		title = wr.Title
+		liveTitle = wr.Title
 	}
-	versionBody := ""
+	versionBody, versionTitle, hasVersion := "", "", false
 	if v, err := a.d.Queries.GetLatestWritingVersion(ctx, atomID); err == nil {
-		versionBody = v.Body
+		versionBody, versionTitle, hasVersion = v.Body, v.Title, true
 	}
+	title := writingPieceTitle(liveTitle, versionTitle, hasVersion)
 
 	if !mergeLiveWritingFields(fields, draftBody, versionBody, title) {
 		return stored
@@ -986,14 +1001,12 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 // the older rule apply: the draft fills `piece` only when the blob has none,
 // and a stored `""` counts as missing.
 //
-// **title: always.** Here the live row IS the truth: she can still rename a
-// finished writing, and 给这篇起个名字 only asks at 完成这篇 — so a piece
-// finished before that flow shipped still carries her raw 「我想写：…」 sentence
-// in its blob, where a rename would never reach it. A live production example
-// was a shared article whose headline was six lines of note-to-self. PATCH
-// /writings/{id} writes that row and nothing else does, so refreshing from it
-// lands a rename on the article, the report, the poster and the share link at
-// once.
+// **title: always.** The caller passes writingPieceTitle's answer: the
+// latest version's title when a version exists, the live row's title
+// otherwise. A piece finished before 给这篇起个名字 shipped still carries her
+// raw 「我想写：…」 sentence in its blob, where a rename would never reach it
+// (a production example was a shared article whose headline was six lines of
+// note-to-self), so the stored blob's title is never kept over a live one.
 //
 // 🚨 Do not "tidy" these into one rule. They are asymmetric on purpose.
 func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, versionBody, title string) bool {

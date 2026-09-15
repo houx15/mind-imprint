@@ -156,6 +156,10 @@ func (a *API) reviseWriting(w http.ResponseWriter, r *http.Request) {
 // before the deadline stay in writing_draft until the teacher returns the
 // homework — discard is itself a write, so it must not be able to bypass the
 // lock it is trying to close.
+//
+// A finished writing with no version at all (finished by the old API while
+// the 0153 migration was already applied) has nothing to restore: discard
+// then only clears revisingAt and leaves the draft and title as they are.
 func (a *API) discardWritingRevision(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtomRow(w, r)
 	if !ok {
@@ -184,17 +188,21 @@ func (a *API) discardWritingRevision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	latest, err := qtx.GetLatestWritingVersion(ctx, at.ID)
-	if err != nil {
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		// No version to restore from; only revisingAt is cleared below.
+	case err != nil:
 		httpx.WriteError(w, r, err)
 		return
-	}
-	if _, err := qtx.UpsertWritingDraft(ctx, sqlc.UpsertWritingDraftParams{AtomID: at.ID, Body: latest.Body}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := qtx.RenameWriting(ctx, sqlc.RenameWritingParams{AtomID: at.ID, Title: latest.Title}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+	default:
+		if _, err := qtx.UpsertWritingDraft(ctx, sqlc.UpsertWritingDraftParams{AtomID: at.ID, Body: latest.Body}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if err := qtx.RenameWriting(ctx, sqlc.RenameWritingParams{AtomID: at.ID, Title: latest.Title}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 	}
 	if err := qtx.ClearWritingRevising(ctx, at.ID); err != nil {
 		httpx.WriteError(w, r, err)

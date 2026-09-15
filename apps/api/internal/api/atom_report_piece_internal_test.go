@@ -150,6 +150,28 @@ func TestReportWithPieceIgnoresAnythingThatIsNotAWriting(t *testing.T) {
 	}
 }
 
+// The title beside the piece is the submitted version's; a rename made while
+// revising only reaches the report after 完成这篇. No version (or a blank
+// version title) falls back to the live title.
+func TestWritingPieceTitle(t *testing.T) {
+	cases := []struct {
+		name, live, version string
+		hasVersion          bool
+		want                string
+	}{
+		{"version exists — its title wins over an unsubmitted rename", "修改中的标题", "雨", true, "雨"},
+		{"no version — live title", "雨", "", false, "雨"},
+		{"blank version title — live title", "雨", "  ", true, "雨"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := writingPieceTitle(tc.live, tc.version, tc.hasVersion); got != tc.want {
+				t.Fatalf("writingPieceTitle = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func decode(t *testing.T, s string) map[string]json.RawMessage {
 	t.Helper()
 	var fields map[string]json.RawMessage
