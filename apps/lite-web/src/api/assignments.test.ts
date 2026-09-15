@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExtractResult, normalizeInboxResponse } from "./assignments";
+import { normalizeAssignmentForAtom, normalizeExtractResult, normalizeInboxResponse, normalizeRecipientDTO } from "./assignments";
 
 function inboxItem(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -67,5 +67,49 @@ describe("normalizeExtractResult", () => {
   it("keeps a real targetWords number as-is", () => {
     const result = normalizeExtractResult({ prompt: "Write a short essay", targetWords: 800, lang: "en" });
     expect(result.targetWords).toBe(800);
+  });
+});
+
+describe("return fields", () => {
+  it("keeps returned and resubmitted statuses and the return columns on a recipient", () => {
+    const r = normalizeRecipientDTO({
+      userId: "u",
+      status: "returned",
+      statusLabel: "已退回",
+      returnedAt: "2026-09-15T10:00:00+08:00",
+      returnDueAt: "2026-09-18T22:00:00+08:00",
+      returnNote: "请补充第二段的论据",
+      versionCount: 2,
+    });
+    expect([r.status, r.returnedAt, r.returnDueAt, r.returnNote, r.versionCount]).toEqual([
+      "returned",
+      "2026-09-15T10:00:00+08:00",
+      "2026-09-18T22:00:00+08:00",
+      "请补充第二段的论据",
+      2,
+    ]);
+    expect(normalizeRecipientDTO({ status: "resubmitted" }).status).toBe("resubmitted");
+    expect(normalizeRecipientDTO({}).versionCount).toBe(0);
+  });
+
+  it("reads return fields on for-atom, with safe defaults from an older server", () => {
+    expect(normalizeAssignmentForAtom({ id: "a", title: "t", dueAt: "d" })).toEqual({
+      id: "a",
+      kind: "writing",
+      title: "t",
+      dueAt: "d",
+      returnedAt: null,
+      returnDueAt: null,
+      returnNote: null,
+      resubmitted: false,
+    });
+    expect(normalizeAssignmentForAtom({ id: "a", kind: "reading", returnedAt: "x", resubmitted: true })?.resubmitted).toBe(true);
+  });
+
+  it("carries the return deadline and note into inbox items", () => {
+    const { items } = normalizeInboxResponse({
+      items: [{ type: "assignment", id: "a", status: "returned", returnDueAt: "2026-09-18T22:00:00+08:00", returnNote: "n" }],
+    });
+    expect([items[0]?.status, items[0]?.returnDueAt, items[0]?.returnNote]).toEqual(["returned", "2026-09-18T22:00:00+08:00", "n"]);
   });
 });

@@ -48,6 +48,10 @@ function recipient(over: Partial<RecipientDTO> = {}): RecipientDTO {
     startedAt: null,
     finishedAt: null,
     seenAt: null,
+    returnedAt: null,
+    returnDueAt: null,
+    returnNote: null,
+    versionCount: 0,
     ...over,
   };
 }

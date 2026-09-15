@@ -232,7 +232,15 @@ export function toggleId(ids: string[], id: string): string[] {
 }
 
 /** Status columns on the assignment list, in the order a class moves through them. */
-export const STATUS_ORDER: readonly AssignmentStatus[] = ["not_started", "in_progress", "done", "done_late", "overdue"];
+export const STATUS_ORDER: readonly AssignmentStatus[] = [
+  "not_started",
+  "in_progress",
+  "done",
+  "done_late",
+  "overdue",
+  "returned",
+  "resubmitted",
+];
 
 const STATUS_HUE: Record<AssignmentStatus, string> = {
   not_started: "var(--mk-muted)",
@@ -240,6 +248,8 @@ const STATUS_HUE: Record<AssignmentStatus, string> = {
   done: "var(--mk-success)",
   done_late: "var(--mk-warning)",
   overdue: "var(--mk-danger)",
+  returned: "var(--mk-warning)",
+  resubmitted: "var(--mk-success)",
 };
 
 /** Chip colours for a status. `color-mix` because Tailwind alpha modifiers on

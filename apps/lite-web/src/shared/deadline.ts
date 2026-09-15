@@ -64,9 +64,16 @@ export function formatDeadline(iso: string): string {
   return `${month}月${day}日 ${hh}:${mi}`;
 }
 
-// The five wire statuses `liteassign.Status` (apps/api/internal/liteassign/status.go)
-// derives — never stored, always computed from started/finished/dueAt/now.
-export type AssignmentStatus = "not_started" | "in_progress" | "done" | "done_late" | "overdue";
+// The wire statuses `liteassign.StatusWithReturn` (apps/api/internal/liteassign/status.go)
+// derives — never stored, always computed from started/finished/dueAt/return/now.
+export type AssignmentStatus =
+  | "not_started"
+  | "in_progress"
+  | "done"
+  | "done_late"
+  | "overdue"
+  | "returned"
+  | "resubmitted";
 
 /** UI copy per AGENTS.md 界面文案 rule 4 (已/待/中 pairs, not folksy prose) —
  * kept in lockstep with `liteassign.StatusLabel` on the Go side. */
@@ -76,4 +83,6 @@ export const STATUS_LABEL: Record<AssignmentStatus, string> = {
   done: "已完成",
   done_late: "逾期完成",
   overdue: "已逾期",
+  returned: "已退回",
+  resubmitted: "已重新提交",
 };

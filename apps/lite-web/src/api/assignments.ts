@@ -63,6 +63,11 @@ export interface RecipientDTO {
   startedAt: string | null;
   finishedAt: string | null;
   seenAt: string | null;
+  /** Set when the teacher returned this writing (退回修改). */
+  returnedAt: string | null;
+  returnDueAt: string | null;
+  returnNote: string | null;
+  versionCount: number;
 }
 
 export interface AssignmentInboxItem {
@@ -77,6 +82,8 @@ export interface AssignmentInboxItem {
   statusLabel: string;
   atomId: string | null;
   unread: boolean;
+  returnDueAt: string | null;
+  returnNote: string | null;
 }
 
 // The inbox holds assignments only. Parent reports were delivered here once
@@ -91,8 +98,21 @@ export interface StartAssignmentResult {
 
 export interface AssignmentForAtom {
   id: string;
+  kind: AssignmentKind;
   title: string;
   dueAt: string;
+  /** Set when the teacher returned this writing (退回修改). */
+  returnedAt: string | null;
+  returnDueAt: string | null;
+  returnNote: string | null;
+  /** A version was submitted after the return. */
+  resubmitted: boolean;
+}
+
+export interface ReturnRecipientInput {
+  /** RFC3339, in the future. */
+  dueAt: string;
+  note?: string;
 }
 
 export interface ExtractResult {
@@ -128,8 +148,17 @@ const s = (v: unknown): string => (typeof v === "string" ? v : "");
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+const nullableString = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
-const KNOWN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress", "done", "done_late", "overdue"];
+const KNOWN_STATUSES: readonly AssignmentStatus[] = [
+  "not_started",
+  "in_progress",
+  "done",
+  "done_late",
+  "overdue",
+  "returned",
+  "resubmitted",
+];
 
 /** An unrecognised wire status (a future addition the client has not shipped
  * for yet) falls back to `not_started` rather than throwing or leaking a raw
@@ -182,6 +211,10 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
     startedAt: typeof raw.startedAt === "string" ? raw.startedAt : null,
     finishedAt: typeof raw.finishedAt === "string" ? raw.finishedAt : null,
     seenAt: typeof raw.seenAt === "string" ? raw.seenAt : null,
+    returnedAt: nullableString(raw.returnedAt),
+    returnDueAt: nullableString(raw.returnDueAt),
+    returnNote: nullableString(raw.returnNote),
+    versionCount: typeof raw.versionCount === "number" ? raw.versionCount : 0,
   };
 }
 
@@ -198,6 +231,8 @@ function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
     statusLabel: s(raw.statusLabel),
     atomId: typeof raw.atomId === "string" ? raw.atomId : null,
     unread: raw.unread === true,
+    returnDueAt: nullableString(raw.returnDueAt),
+    returnNote: nullableString(raw.returnNote),
   };
 }
 
@@ -239,10 +274,23 @@ export function normalizeStartResult(raw: unknown): StartAssignmentResult {
   return { kind: normalizeKind(r.kind), atomId: s(r.atomId), projectId: typeof r.projectId === "string" ? r.projectId : null };
 }
 
+/** `kind` defaults to `"writing"` here (not `normalizeKind`'s own `"reading"`
+ * default) because the only caller that needs it is a writing page and an
+ * older server omits the field entirely; an explicit but unrecognised kind
+ * still falls through to `normalizeKind`'s own default. */
 export function normalizeAssignmentForAtom(raw: unknown): AssignmentForAtom | null {
   const r = obj(raw);
   if (typeof r.id !== "string") return null;
-  return { id: r.id, title: s(r.title), dueAt: s(r.dueAt) };
+  return {
+    id: r.id,
+    kind: r.kind === undefined ? "writing" : normalizeKind(r.kind),
+    title: s(r.title),
+    dueAt: s(r.dueAt),
+    returnedAt: nullableString(r.returnedAt),
+    returnDueAt: nullableString(r.returnDueAt),
+    returnNote: nullableString(r.returnNote),
+    resubmitted: r.resubmitted === true,
+  };
 }
 
 // ---- teacher client ----
@@ -291,6 +339,15 @@ export async function patchAssignment(aid: string, patch: PatchAssignmentInput):
  */
 export async function archiveAssignment(aid: string): Promise<void> {
   await apiFetch<void>(`${teacherBase}/assignments/${encodeURIComponent(aid)}`, { method: "DELETE" });
+}
+
+/** 退回修改: POST …/assignments/{aid}/recipients/{userId}/return. */
+export async function returnRecipient(aid: string, userId: string, input: ReturnRecipientInput): Promise<RecipientDTO> {
+  const r = await apiFetch<{ recipient: unknown }>(
+    `${teacherBase}/assignments/${encodeURIComponent(aid)}/recipients/${encodeURIComponent(userId)}/return`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+  return normalizeRecipientDTO(obj(r.recipient));
 }
 
 export async function extractWritingFields(text: string): Promise<ExtractResult> {

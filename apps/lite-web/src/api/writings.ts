@@ -37,6 +37,9 @@ export interface Writing {
    *  readings.ts's `Reading.lastActivityAt` exactly. */
   lastActivityAt: string;
   finishedAt: string | null;
+  /** Set while she edits a finished writing again. `status` stays
+   *  "finished" the whole time (a homework stays 已提交). */
+  revisingAt?: string | null;
   /** `"here"` 在这个房间里写的 / `"brought"` 她带进来的成稿（0146）。
    *  界面据此说明结构和段落两步没有发生过。老的行读到 "here"。 */
   origin?: string;
@@ -63,8 +66,13 @@ export function isAssignedWriting(w: Pick<Writing, "assignedPrompt">): boolean {
 
 /** A writing is finished when the server says so — same both-fields
  *  tolerance as readings.ts's `isFinished`. */
-export function isWritingFinished(w: Writing): boolean {
+export function isWritingFinished(w: Pick<Writing, "status" | "finishedAt">): boolean {
   return w.status === "finished" || Boolean(w.finishedAt);
+}
+
+/** She reopened a finished writing to edit it. */
+export function isRevising(w: Pick<Writing, "revisingAt">): boolean {
+  return typeof w.revisingAt === "string" && w.revisingAt !== "";
 }
 
 /**
@@ -140,4 +148,63 @@ export async function extractDocument(file: File): Promise<{ title: string; text
     method: "POST",
     body: form,
   });
+}
+
+export interface WritingVersionSummary {
+  number: number;
+  title: string;
+  wordCount: number;
+  submittedAt: string;
+}
+
+export interface WritingVersion extends WritingVersionSummary {
+  body: string;
+}
+
+export interface WritingVersionList {
+  /** Newest first. */
+  versions: WritingVersionSummary[];
+  /** A submitted homework past its deadline: 修改 is refused (403 writing_locked). */
+  locked: boolean;
+  lockReason: string | null;
+}
+
+function normalizeVersionSummary(raw: unknown): WritingVersionSummary {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    number: typeof r.number === "number" ? r.number : 0,
+    title: typeof r.title === "string" ? r.title : "",
+    wordCount: typeof r.wordCount === "number" ? r.wordCount : 0,
+    submittedAt: typeof r.submittedAt === "string" ? r.submittedAt : "",
+  };
+}
+
+export function normalizeWritingVersionList(raw: unknown): WritingVersionList {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    versions: (Array.isArray(r.versions) ? r.versions : []).map(normalizeVersionSummary).filter((v) => v.number > 0),
+    locked: r.locked === true,
+    lockReason: typeof r.lockReason === "string" ? r.lockReason : null,
+  };
+}
+
+/** GET /api/v1/writings/{id}/versions */
+export async function listWritingVersions(id: string): Promise<WritingVersionList> {
+  return normalizeWritingVersionList(await apiFetch<unknown>(`/api/v1/writings/${encodeURIComponent(id)}/versions`));
+}
+
+/** GET /api/v1/writings/{id}/versions/{n} */
+export async function getWritingVersion(id: string, n: number): Promise<WritingVersion> {
+  const raw = await apiFetch<Record<string, unknown>>(`/api/v1/writings/${encodeURIComponent(id)}/versions/${n}`);
+  return { ...normalizeVersionSummary(raw), body: typeof raw.body === "string" ? raw.body : "" };
+}
+
+/** POST /api/v1/writings/{id}/revise — 修改. 403 writing_locked when locked. */
+export async function reviseWriting(id: string): Promise<Writing> {
+  return apiFetch<Writing>(`/api/v1/writings/${encodeURIComponent(id)}/revise`, { method: "POST" });
+}
+
+/** POST /api/v1/writings/{id}/revise/discard — 放弃修改. */
+export async function discardWritingRevision(id: string): Promise<Writing> {
+  return apiFetch<Writing>(`/api/v1/writings/${encodeURIComponent(id)}/revise/discard`, { method: "POST" });
 }

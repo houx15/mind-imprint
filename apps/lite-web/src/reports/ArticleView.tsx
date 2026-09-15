@@ -1,4 +1,5 @@
 import type { LiteReport } from "@lite/api/reports";
+import { splitParagraphs } from "./paragraphs";
 
 /**
  * ArticleView — her finished piece, presented as an article.
@@ -119,17 +120,6 @@ function Byline({ report }: { report: LiteReport }) {
         ))}
     </p>
   );
-}
-
-/** Blank-line-separated paragraphs, as real `<p>`s. `\r` is stripped because
- *  a draft can arrive from a Windows paste. Shared shape with the report
- *  page's own prose handling — kept here because this is now the only place
- *  the piece renders. */
-export function splitParagraphs(piece: string): string[] {
-  return piece
-    .split(/\n\s*\n/)
-    .map((p) => p.replace(/\r/g, "").trim())
-    .filter((p) => p !== "");
 }
 
 /** Absolute date, never 今天/昨天: this is read weeks later, and by people she

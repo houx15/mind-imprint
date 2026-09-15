@@ -23,6 +23,8 @@ function item(over: Partial<AssignmentInboxItem>): AssignmentInboxItem {
     statusLabel: "未开始",
     atomId: null,
     unread: false,
+    returnDueAt: null,
+    returnNote: null,
     ...over,
   };
 }
