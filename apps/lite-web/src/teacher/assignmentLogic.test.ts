@@ -212,9 +212,29 @@ describe("filterArticles", () => {
   });
 });
 
+// The text colours are pinned because their contrast was measured, not seen:
+// a chip that reads 3:1 in dark mode still passes every render assertion.
 describe("statusChipStyle", () => {
+  it("pins the text colour per status", () => {
+    const colors = Object.fromEntries(
+      (["not_started", "in_progress", "done", "done_late", "overdue"] as const).map((s) => [s, statusChipStyle(s).color]),
+    );
+    expect(colors).toEqual({
+      not_started: "color-mix(in srgb, var(--mk-muted) 40%, var(--mk-ink))",
+      in_progress: "var(--mk-accent-700)",
+      done: "color-mix(in srgb, var(--mk-success) 40%, var(--mk-ink))",
+      done_late: "color-mix(in srgb, var(--mk-warning) 40%, var(--mk-ink))",
+      overdue: "color-mix(in srgb, var(--mk-danger) 40%, var(--mk-ink))",
+    });
+  });
+
+  it("keeps the 14% tint of the status hue as the background", () => {
+    expect(statusChipStyle("in_progress").background).toBe("color-mix(in srgb, var(--mk-accent-500) 14%, var(--mk-surface))");
+    expect(statusChipStyle("overdue").background).toBe("color-mix(in srgb, var(--mk-danger) 14%, var(--mk-surface))");
+  });
+
   it("falls back to the muted tint for an unknown status", () => {
     expect(statusChipStyle("weird")).toEqual(statusChipStyle("not_started"));
-    expect(statusChipStyle("overdue").background).toContain("--mk-danger");
+    expect(statusChipStyle("toString")).toEqual(statusChipStyle("not_started"));
   });
 });

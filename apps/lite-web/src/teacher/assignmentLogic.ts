@@ -243,12 +243,23 @@ const STATUS_HUE: Record<AssignmentStatus, string> = {
 };
 
 /** Chip colours for a status. `color-mix` because Tailwind alpha modifiers on
- * `mk-*` tokens emit no CSS. An unknown status gets the muted tint. */
+ * `mk-*` tokens emit no CSS. An unknown status gets the muted tint.
+ *
+ * Text contrast is at least 4.5:1 on the 14% tint in the lite student theme
+ * and the pro theme, light and dark, for every accent preset (measured
+ * 2026-09-15). 进行中 uses `--mk-accent-700`, the step lite dark mode
+ * brightens; `--mk-accent-500` stayed at the preset in dark mode and read
+ * about 3.1–3.5:1. The other four have no stronger token, so their text is
+ * the hue mixed 40% into ink: at 78% 逾期完成 read 2.8:1 in light mode and
+ * 已逾期 4.2:1 in lite dark mode. */
 export function statusChipStyle(status: string): { background: string; color: string } {
-  const hue = STATUS_HUE[status as AssignmentStatus] ?? STATUS_HUE.not_started;
+  const key: AssignmentStatus = Object.prototype.hasOwnProperty.call(STATUS_HUE, status)
+    ? (status as AssignmentStatus)
+    : "not_started";
+  const hue = STATUS_HUE[key];
   return {
     background: `color-mix(in srgb, ${hue} 14%, var(--mk-surface))`,
-    color: `color-mix(in srgb, ${hue} 78%, var(--mk-ink))`,
+    color: key === "in_progress" ? "var(--mk-accent-700)" : `color-mix(in srgb, ${hue} 40%, var(--mk-ink))`,
   };
 }
 
