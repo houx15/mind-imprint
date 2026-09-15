@@ -30,15 +30,23 @@ function normalizeForMatch(s: string): string {
 
 /** `text` normalized the same way, plus `map[i]` = the original index of the
  *  normalized string's `i`-th character (every kept character is real text,
- *  so this only ever points at content, never at a stripped character). */
+ *  so this only ever points at content, never at a stripped character).
+ *
+ *  A character's lowercase form is not always one UTF-16 unit long — `"İ"`
+ *  (U+0130) lowercases to two (`"i"` + a combining dot above). Pushing only
+ *  one `map` entry per *original* character would leave `map` one entry
+ *  short of `norm`'s actual length from that point on, shifting every later
+ *  match's offsets by one. So this pushes one entry per unit of the
+ *  *lowered* output, all pointing at the same original index. */
 function normalizedTextMap(text: string): { norm: string; map: number[] } {
   let norm = "";
   const map: number[] = [];
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
     if (isStripped(ch)) continue;
-    norm += ch.toLowerCase();
-    map.push(i);
+    const lower = ch.toLowerCase();
+    norm += lower;
+    for (let k = 0; k < lower.length; k++) map.push(i);
   }
   return { norm, map };
 }
@@ -106,6 +114,25 @@ export function highlightSegments(text: string, ranges: readonly QuoteRange[]): 
     at = r.end;
   }
   if (at < text.length || out.length === 0) out.push({ text: text.slice(at), index: null });
+  return out;
+}
+
+/**
+ * Which of `quotes` (the same array passed to `quoteRanges`, so index `i`
+ * here lines up with a point's own index) got no highlight range — either
+ * because it wasn't found in the text at all, or because it only overlapped
+ * an earlier point's already-taken range. `quoteRanges` silently drops both
+ * cases (never a wrong range); this is how a point card finds out its own
+ * quote is one of them, to show 「未在正文中标出」 instead of nothing.
+ * A point with no quote at all (`null`/blank) is not "unmarked" — there is
+ * nothing for it to have missed.
+ */
+export function unmarkedPointQuotes(quotes: readonly (string | null)[], ranges: readonly QuoteRange[]): number[] {
+  const marked = new Set(ranges.map((r) => r.index));
+  const out: number[] = [];
+  quotes.forEach((q, i) => {
+    if (q && q.trim() !== "" && !marked.has(i)) out.push(i);
+  });
   return out;
 }
 

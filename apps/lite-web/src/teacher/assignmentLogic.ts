@@ -16,13 +16,12 @@ import type {
   PatchAssignmentInput,
   RecipientDTO,
   ReturnRecipientInput,
-  WritingAssignmentPayload,
 } from "../api/assignments";
 import type { LibraryArticle } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import { beijingInputToISO, type AssignmentStatus } from "../shared/deadline";
 import { safeHttpUrl } from "./format";
-import { buildRubric, rubricDraftFromPayload, sameRubricDraft, UNSET_RUBRIC_DRAFT, validateRubricDraft, type RubricDraft } from "./rubricLogic";
+import { buildRubric, rubricDraftFromPayload, sameRubricDraft, validateRubricDraft, type RubricDraft } from "./rubricLogic";
 
 export type ReadingSource = "library" | "url" | "text";
 
@@ -41,8 +40,12 @@ export interface SettingsDraft {
   lang: "zh" | "en";
   drivingQuestion: string;
   description: string;
-  /** Writing only. Editable after students start (sent as PATCH rubric). */
-  rubric: RubricDraft;
+  /** Writing only, and only once a homework exists: there is no rubric
+   *  editor on the create form (`buildPayload` never sends one), so this is
+   *  `null` there. Editing an existing writing homework seeds it from the
+   *  server's effective rubric (`rubricDraftFromPayload`); editable after
+   *  students start (sent as the PATCH's top-level `rubric`). */
+  rubric: RubricDraft | null;
 }
 
 export interface AssignmentDraft extends SettingsDraft {
@@ -66,7 +69,7 @@ export function emptySettings(kind: AssignmentKind = "reading"): SettingsDraft {
     lang: "zh",
     drivingQuestion: "",
     description: "",
-    rubric: UNSET_RUBRIC_DRAFT,
+    rubric: null,
   };
 }
 
@@ -135,8 +138,10 @@ export function validateSettings(d: SettingsDraft): string | null {
     if (!prompt) return "请填写写作题目";
     if (runes(prompt) > 2000) return "写作题目不能超过 2000 字";
     if (parseTargetWords(d.targetWords) === null) return "目标字数需在 1 到 100000 之间";
-    const rubric = validateRubricDraft(d.rubric);
-    if (rubric) return rubric;
+    if (d.rubric) {
+      const rubric = validateRubricDraft(d.rubric);
+      if (rubric) return rubric;
+    }
     return null;
   }
   const q = d.drivingQuestion.trim();
@@ -157,12 +162,12 @@ export function buildPayload(d: SettingsDraft): AssignmentPayload {
     return { source: "text", text: d.text.trim() };
   }
   if (d.kind === "writing") {
-    const payload: WritingAssignmentPayload = { prompt: d.prompt.trim(), targetWords: parseTargetWords(d.targetWords) ?? 0, lang: d.lang };
-    // Only when the teacher actually customized the rubric — an untouched
-    // draft leaves `rubric` out entirely so the server applies its own
-    // default for `lang` (this frontend keeps no copy of that default text).
-    if (!sameRubricDraft(d.rubric, UNSET_RUBRIC_DRAFT)) payload.rubric = buildRubric(d.rubric);
-    return payload;
+    // No `rubric` here, ever — there is no rubric editor on the create form
+    // (controller ruling), and a settings-editable PATCH's nested payload
+    // rubric is a no-op anyway: the server's `CarryRubric` step always
+    // carries the stored rubric over a resent payload. The only path that
+    // changes a rubric is `buildPatchInput`'s top-level `patch.rubric`.
+    return { prompt: d.prompt.trim(), targetWords: parseTargetWords(d.targetWords) ?? 0, lang: d.lang };
   }
   const description = d.description.trim();
   return description
@@ -206,11 +211,16 @@ export interface EditDraft {
   instructions: string;
   dueInput: string;
   settings: SettingsDraft;
-  /** Writing only: the rubric exactly as the server currently has it stored
-   *  (read via `rubricDraftFromPayload` off the loaded assignment), used
-   *  only to decide whether the patch needs to carry a new rubric at all —
-   *  see `buildPatchInput`. Omitted for a non-writing kind. */
-  originalRubric?: RubricDraft;
+  /** The rubric exactly as the server currently has it stored — the same
+   *  value `settings.rubric` was seeded from when edit mode was opened, kept
+   *  here as an unchanging snapshot so a later edit to `settings.rubric` can
+   *  be told apart from "still what the server has". Required (not
+   *  optional) so a caller cannot forget it: an omitted snapshot previously
+   *  meant "always send", which turned every title-only edit on an existing
+   *  writing homework into a rubric overwrite (fix round 1). `null` for a
+   *  non-writing kind, or a writing homework whose payload carried no
+   *  rubric (see `rubricDraftFromPayload`). */
+  originalRubric: RubricDraft | null;
 }
 
 /** The PATCH body for the detail page's edit. `kind`/`payload` are sent only
@@ -236,7 +246,7 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<
     patch.kind = e.settings.kind;
     patch.payload = buildPayload(e.settings);
   }
-  if (e.settings.kind === "writing") {
+  if (e.settings.kind === "writing" && e.settings.rubric) {
     const rubric = validateRubricDraft(e.settings.rubric);
     if (rubric) return { ok: false, error: rubric };
     if (!e.originalRubric || !sameRubricDraft(e.settings.rubric, e.originalRubric)) {

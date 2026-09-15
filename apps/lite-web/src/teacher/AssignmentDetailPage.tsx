@@ -300,11 +300,18 @@ export function AssignmentDetailPage({
               onEdit={() => {
                 setMessage(null);
                 setConfirmArchive(false);
+                // `originalRubric` is a snapshot taken here, once — it must
+                // not be re-derived from `settings.rubric` later, since that
+                // field changes as she edits the rubric fields; this is what
+                // buildPatchInput compares against to decide whether the
+                // rubric actually changed.
+                const settings = settingsFromAssignment(assignment.kind, assignment.payload);
                 setEdit({
                   title: assignment.title,
                   instructions: assignment.instructions,
                   dueInput: isoToBeijingInput(assignment.dueAt),
-                  settings: settingsFromAssignment(assignment.kind, assignment.payload),
+                  settings,
+                  originalRubric: settings.rubric,
                 });
               }}
               onArchive={() => {

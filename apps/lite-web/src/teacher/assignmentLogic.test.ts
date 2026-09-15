@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
-import type { RecipientDTO, WritingAssignmentPayload } from "../api/assignments";
+import type { RecipientDTO } from "../api/assignments";
 import type { LibraryArticle } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import {
@@ -24,7 +24,7 @@ import {
   type AssignmentDraft,
   type EditDraft,
 } from "./assignmentLogic";
-import { buildRubric, rubricDraftFromPayload, UNSET_RUBRIC_DRAFT, type RubricDraft } from "./rubricLogic";
+import { buildRubric, rubricDraftFromPayload, type RubricDraft } from "./rubricLogic";
 
 function draft(over: Partial<AssignmentDraft> = {}): AssignmentDraft {
   return {
@@ -113,15 +113,17 @@ describe("buildPayload", () => {
       url: "https://a.org",
     });
   });
-  // Ruling: no frontend copy of the Go default rubric names, so an
-  // untouched writing draft leaves `rubric` out entirely — the server
-  // applies its own default for `lang`. Only a customized rubric is sent.
-  it("leaves rubric out of a writing payload until the teacher customizes it", () => {
-    const untouched = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800" }) as WritingAssignmentPayload;
+  // Ruling: there is no rubric editor on a new homework's create form —
+  // buildPayload never sends a rubric for a writing homework, customized or
+  // not; the server always applies its own default for `lang` at creation,
+  // and a rubric only ever exists once the homework does (see
+  // `buildPatchInput rubric (writing only)` below).
+  it("never sends rubric for a writing homework — there is no create-time editor", () => {
+    const untouched = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800" });
     expect("rubric" in untouched).toBe(false);
     const customized: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "论证", note: "看证据" }], focus: "" };
-    const touched = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800", rubric: customized }) as WritingAssignmentPayload;
-    expect(touched.rubric).toEqual(buildRubric(customized));
+    const withRubricSet = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800", rubric: customized });
+    expect("rubric" in withRubricSet).toBe(false);
   });
 });
 
@@ -155,7 +157,7 @@ describe("buildCreateInput", () => {
 });
 
 describe("buildPatchInput", () => {
-  const edit = { title: "新标题", instructions: " ", dueInput: "2026-09-21T08:00", settings: emptySettings("project") };
+  const edit: EditDraft = { title: "新标题", instructions: " ", dueInput: "2026-09-21T08:00", settings: emptySettings("project"), originalRubric: null };
   it("leaves kind and payload out when settings are locked, even if the draft is invalid", () => {
     const r = buildPatchInput(edit, false);
     expect(r).toEqual({ ok: true, value: { title: "新标题", instructions: "", dueAt: "2026-09-21T08:00:00+08:00" } });
@@ -170,36 +172,49 @@ describe("buildPatchInput", () => {
 // Ruling: a title/due edit alone must never overwrite a homework's stored
 // rubric with whatever the draft happened to be initialized as — `rubric`
 // is sent only when it actually differs from what the server has.
+// `originalRubric` is required at the type level (fix round 1): a caller
+// cannot construct an `EditDraft` without it, unlike the earlier optional
+// field, which the real caller (AssignmentDetailPage.tsx) omitted, so every
+// writing PATCH silently sent `rubric`.
 describe("buildPatchInput rubric (writing only)", () => {
   const loaded = rubricDraftFromPayload({ rubric: { scale: "letter", dimensions: [{ name: "内容", note: "" }], focus: "" } });
-  const writingEdit = (rubric: RubricDraft): EditDraft => ({
+  const writingEdit = (rubric: RubricDraft, originalRubric: RubricDraft | null = loaded): EditDraft => ({
     title: "标题",
     instructions: "",
     dueInput: "2026-09-21T08:00",
     settings: { ...emptySettings("writing"), prompt: "p", targetWords: "800", rubric },
-    originalRubric: loaded,
+    originalRubric,
   });
-  it("omits rubric from the patch when it matches what the server has", () => {
-    const r = buildPatchInput(writingEdit(loaded), false);
+  it("omits rubric from the patch when the draft is unchanged", () => {
+    const r = buildPatchInput(writingEdit(loaded!), false);
     expect(r.ok).toBe(true);
     if (r.ok) expect("rubric" in r.value).toBe(false);
   });
-  it("sends rubric only when the teacher changed it", () => {
-    const changed: RubricDraft = { ...loaded, focus: "重点看论证" };
+  it("sends rubric when a dimension changed", () => {
+    const changed: RubricDraft = { ...loaded!, dimensions: [{ name: "论证", note: "" }] };
     const r = buildPatchInput(writingEdit(changed), false);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(changed));
   });
+  // Fix round 1: the previous JSON.stringify-based comparison would have
+  // read this as a change and sent a needless rubric PATCH.
+  it("treats the same dimension content built in a different key order as unchanged", () => {
+    const reordered: RubricDraft = { ...loaded!, dimensions: [{ note: loaded!.dimensions[0]!.note, name: loaded!.dimensions[0]!.name }] };
+    const r = buildPatchInput(writingEdit(reordered), false);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect("rubric" in r.value).toBe(false);
+  });
   it("also validates the rubric when settings are locked, since it stays editable", () => {
-    const invalid: RubricDraft = { ...loaded, dimensions: [] };
+    const invalid: RubricDraft = { ...loaded!, dimensions: [] };
     expect(buildPatchInput(writingEdit(invalid), false)).toEqual({ ok: false, error: "评分维度需有 1 到 6 项" });
   });
-  // Without an original to compare against, "changed" cannot be told apart
-  // from "loaded as-is" — the safer default is to send it rather than guess.
+  // Without an original to compare against (a writing homework whose
+  // payload carried no rubric — should not happen for a real one), the
+  // safer default is to send it rather than guess "unchanged".
   it("sends rubric when no original is known to compare against", () => {
-    const r = buildPatchInput({ ...writingEdit(UNSET_RUBRIC_DRAFT), originalRubric: undefined }, false);
+    const r = buildPatchInput(writingEdit(loaded!, null), false);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.rubric).toEqual(buildRubric(UNSET_RUBRIC_DRAFT));
+    if (r.ok) expect(r.value.rubric).toEqual(buildRubric(loaded!));
   });
 });
 

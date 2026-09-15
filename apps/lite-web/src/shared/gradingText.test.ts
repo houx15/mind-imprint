@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { highlightSegments, pickableSentences, quoteRanges } from "./gradingText";
+import { highlightSegments, pickableSentences, quoteRanges, unmarkedPointQuotes } from "./gradingText";
 
 const body = "学校后门那片空地一下雨就积水。去年秋天，我在那里摔过一跤。\n\n我读到城市里的雨水花园。";
 
@@ -41,6 +41,33 @@ describe("quoteRanges", () => {
   it("never returns a wrong range: an all-punctuation or absent quote finds nothing", () => {
     expect(quoteRanges(body, ["……", "？！"])).toEqual([]);
     expect(quoteRanges(body, ["完全不存在的一句话"])).toEqual([]);
+  });
+
+  // Fix round 1: "İ" (U+0130) lowercases to TWO UTF-16 units ("i" + a
+  // combining dot above). A map that pushed only one entry per original
+  // character shifted every later match's offsets by one.
+  it("keeps offsets aligned after a lowercase expansion (İ → two UTF-16 units)", () => {
+    const text = "İstanbul is great. 今天天气很好。";
+    const quote = "今天天气很好。";
+    expect(quoteRanges(text, [quote])).toEqual([{ start: text.indexOf("今天"), end: text.length, index: 0 }]);
+  });
+});
+
+describe("unmarkedPointQuotes", () => {
+  it("names the point whose quote only overlapped an earlier one", () => {
+    const quotes = ["去年秋天，我在那里", "我在那里摔过一跤。"];
+    expect(unmarkedPointQuotes(quotes, quoteRanges(body, quotes))).toEqual([1]);
+  });
+  it("names a point whose quote was never found", () => {
+    const quotes = ["完全不存在的一句话"];
+    expect(unmarkedPointQuotes(quotes, quoteRanges(body, quotes))).toEqual([0]);
+  });
+  it("does not flag a point with no quote at all", () => {
+    expect(unmarkedPointQuotes([null, "  "], [])).toEqual([]);
+  });
+  it("flags nothing once every quote got a range", () => {
+    const quotes = ["去年秋天，我在那里摔过一跤。"];
+    expect(unmarkedPointQuotes(quotes, quoteRanges(body, quotes))).toEqual([]);
   });
 });
 

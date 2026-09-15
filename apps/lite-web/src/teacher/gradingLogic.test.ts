@@ -77,16 +77,37 @@ describe("gradingContentReducer", () => {
     expect(c.overall.grade).toBe("A-");
     expect(c.dimensions[0]!.comment).toBe("材料具体。");
     expect(c.points[1]).toEqual({ kind: "issue", quote: "雨", text: "请注明数据来源。", action: "", source: "teacher" });
+    // points[0]'s action ("补充") is kept in memory across the switch to
+    // "good" — only contentForSave nulls a good point's action, at the
+    // save boundary, not the reducer (fix round 1: see the dedicated round
+    // trip test below).
     c = gradingContentReducer(c, { type: "pointKind", index: 0, value: "good" });
-    expect(c.points[0]!.action).toBeNull();
+    expect(c.points[0]!.kind).toBe("good");
     c = gradingContentReducer(c, { type: "deletePoint", index: 0 });
     expect(c.points.map((p) => p.text)).toEqual(["请注明数据来源。"]);
     expect(gradingContentReducer(c, { type: "load", content: start })).toBe(start);
+  });
+  // Fix round 1: switching issue → good → issue used to reset the action to
+  // "" on the good step, so a typed action was lost as soon as she toggled
+  // the point to "good" and back, even without ever clearing the field.
+  it("keeps a typed action across an issue → good → issue round trip", () => {
+    const start = content(); // points[0].action === "补充"
+    let c = gradingContentReducer(start, { type: "pointKind", index: 0, value: "good" });
+    expect(c.points[0]!.action).toBe("补充"); // untouched in memory, not yet nulled
+    c = gradingContentReducer(c, { type: "pointKind", index: 0, value: "issue" });
+    expect(c.points[0]!.action).toBe("补充"); // restored, not reset to ""
   });
   it("contentForSave trims and turns blank quote/action into null", () => {
     const c = content();
     c.points[0] = { kind: "issue", quote: "  ", text: " 说明 ", action: "", source: "teacher" };
     expect(contentForSave(c).points[0]).toEqual({ kind: "issue", quote: null, text: "说明", action: null, source: "teacher" });
+  });
+  // The reducer no longer nulls a good point's action; contentForSave is
+  // still the one place that must, since that's what the server receives.
+  it("contentForSave still nulls a good point's leftover in-memory action", () => {
+    const c = content();
+    c.points[0] = { kind: "good", quote: "雨", text: "开头有画面感", action: "补充", source: "teacher" };
+    expect(contentForSave(c).points[0]!.action).toBeNull();
   });
 });
 

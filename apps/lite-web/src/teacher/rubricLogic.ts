@@ -9,8 +9,16 @@
 // the same line (api/gradings.ts's `FALLBACK_RUBRIC`) — the server always
 // bakes the effective rubric into a real writing payload, so a frontend
 // default is both dead weight and a second source of truth waiting to drift
-// from the Go one. `UNSET_RUBRIC_DRAFT` below is this file's equivalent: a
-// generic, non-localized placeholder, never the real default text.
+// from the Go one.
+//
+// Controller ruling 2026-09-15 (fix round 1): there is no rubric editor on a
+// brand-new homework's create form at all — a new writing homework's create
+// payload simply never carries `rubric` (assignmentLogic.ts's `buildPayload`
+// leaves it out unconditionally), and the server applies its own default for
+// the homework's `lang`. `rubricDefaultNote` is the create form's stand-in
+// for a real editor. A rubric only ever exists as an editable draft once a
+// homework exists and its detail page is opened — seeded straight from the
+// server's effective rubric (`rubricDraftFromPayload`), never guessed.
 
 import { normalizeRubric, type Rubric, type RubricDimension } from "../api/gradings";
 
@@ -26,34 +34,39 @@ export function rubricDraftOf(r: Rubric): RubricDraft {
   return { scale: r.scale, max: r.scale === "points" ? String(r.max ?? "") : "", dimensions: r.dimensions.map((d) => ({ ...d })), focus: r.focus };
 }
 
-/**
- * Stands in for "no rubric yet" — the draft a brand-new writing homework's
- * form starts from, before any real rubric exists on the server, and the
- * fallback for a payload that carries none (should not happen for a real
- * writing homework; the server always bakes one in). A single generic
- * dimension, not `liteassign.DefaultRubric`'s actual zh/en text — see this
- * file's header. `buildPayload`/`buildPatchInput` (assignmentLogic.ts) read
- * a draft that still equals this as "the teacher hasn't customized it" and
- * leave `rubric` out of the request, so the server applies its own default
- * for the homework's language instead of this placeholder ever being sent.
- */
-export const UNSET_RUBRIC_DRAFT: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "总评", note: "" }], focus: "" };
-
-/** Structural equality — a `RubricDraft` is plain data, so this is enough to
- *  tell "the teacher touched it" from "still what it was loaded/initialized
- *  as", without caring which fields changed. */
+/** Structural equality, field by field — not `JSON.stringify` comparison,
+ *  which would treat two dimensions built with the same `name`/`note` in a
+ *  different key order as different drafts. `max` is compared only when
+ *  `scale` is "points" (its only meaning), so stale leftover text from a
+ *  scale that was since switched away from never reads as a real change. */
 export function sameRubricDraft(a: RubricDraft, b: RubricDraft): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a.scale !== b.scale) return false;
+  if (a.scale === "points" && a.max !== b.max) return false;
+  if (a.focus !== b.focus) return false;
+  if (a.dimensions.length !== b.dimensions.length) return false;
+  return a.dimensions.every((d, i) => d.name === b.dimensions[i]!.name && d.note === b.dimensions[i]!.note);
 }
 
-/** A stored writing homework's rubric draft. The server always bakes the
+/** A stored writing homework's rubric draft — the server always bakes the
  *  effective rubric (its own stored one, or its own default for the
  *  homework's language) into every writing payload it returns, so this reads
- *  straight off `payload.rubric` — `UNSET_RUBRIC_DRAFT` only if the payload
- *  carries none at all. */
-export function rubricDraftFromPayload(payload: Record<string, unknown>): RubricDraft {
+ *  straight off `payload.rubric`. `null` only if the payload carries none at
+ *  all (should not happen for a real writing homework; there is nothing
+ *  honest to show in its place, so callers must handle "no rubric loaded
+ *  yet" rather than being handed a guessed placeholder). */
+export function rubricDraftFromPayload(payload: Record<string, unknown>): RubricDraft | null {
   const r = normalizeRubric(payload.rubric);
-  return r ? rubricDraftOf(r) : UNSET_RUBRIC_DRAFT;
+  return r ? rubricDraftOf(r) : null;
+}
+
+/** The create form's note in place of a rubric editor — a new writing
+ *  homework always uses the server's own default for `lang`, which this
+ *  frontend keeps no copy of, so the note names the language, not the
+ *  actual dimension text. */
+export function rubricDefaultNote(lang: "zh" | "en"): string {
+  return lang === "en"
+    ? "评分标准：使用英文默认标准，创建后可在作业详情中调整"
+    : "评分标准：使用中文默认标准，创建后可在作业详情中调整";
 }
 
 const runes = (s: string): number => [...s].length;
@@ -82,17 +95,4 @@ export function buildRubric(d: RubricDraft): Rubric {
   return d.scale === "points"
     ? { scale: "points", max: Number(d.max.trim()), dimensions, focus: d.focus.trim() }
     : { scale: "letter", dimensions, focus: d.focus.trim() };
-}
-
-/**
- * Controller ruling 2026-09-15: a language switch never rewrites the rubric
- * text. This frontend keeps no copy of the Go default's per-language
- * dimension names (see this file's header), so it cannot honestly guess
- * what the other language's default would say — inventing text the server
- * never produced would be worse than leaving the draft alone. The draft —
- * whether it is still `UNSET_RUBRIC_DRAFT`, a rubric loaded from the server,
- * or something the teacher wrote — passes through unchanged either way.
- */
-export function rubricAfterLangChange(d: RubricDraft, from: "zh" | "en", to: "zh" | "en"): RubricDraft {
-  return from === to ? d : d;
 }

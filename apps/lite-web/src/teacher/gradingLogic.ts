@@ -127,8 +127,15 @@ export function gradingContentReducer(state: GradingContent, action: GradingActi
       return editDimension(state, action.index, { grade: action.value });
     case "dimensionComment":
       return editDimension(state, action.index, { comment: action.value });
-    case "pointKind":
-      return editPoint(state, action.index, action.value === "good" ? { kind: "good", action: null } : { kind: "issue", action: "" });
+    case "pointKind": {
+      // A "good" point's action is nulled at save time (`contentForSave`),
+      // not here — leaving whatever text she already typed untouched in
+      // memory means switching issue → good → issue restores it, instead of
+      // silently losing it to a reset "" (fix round 1).
+      if (action.value === "good") return editPoint(state, action.index, { kind: "good" });
+      const kept = state.points[action.index]?.action ?? "";
+      return editPoint(state, action.index, { kind: "issue", action: kept });
+    }
     case "pointQuote":
       return editPoint(state, action.index, { quote: action.value });
     case "pointText":

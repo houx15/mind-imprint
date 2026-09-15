@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRubric,
-  rubricAfterLangChange,
+  rubricDefaultNote,
   rubricDraftFromPayload,
   rubricDraftOf,
   sameRubricDraft,
-  UNSET_RUBRIC_DRAFT,
   validateRubricDraft,
   type RubricDraft,
 } from "./rubricLogic";
@@ -14,18 +13,18 @@ describe("rubric draft", () => {
   // Ruling: this frontend keeps no copy of liteassign.DefaultRubric's zh/en
   // dimension names — a real writing payload always carries its own
   // effective rubric, so `rubricDraftFromPayload` only ever falls back to
-  // the generic `UNSET_RUBRIC_DRAFT` placeholder, never a guessed default.
-  it("reads a stored rubric off a real payload, or the generic placeholder if it has none", () => {
+  // `null`, never a guessed default.
+  it("reads a stored rubric off a real payload, or null if it has none", () => {
     expect(rubricDraftFromPayload({ rubric: { scale: "points", max: 20, dimensions: [{ name: "论证", note: "" }], focus: "" } })).toEqual({
       scale: "points",
       max: "20",
       dimensions: [{ name: "论证", note: "" }],
       focus: "",
     });
-    expect(rubricDraftFromPayload({})).toEqual(UNSET_RUBRIC_DRAFT);
+    expect(rubricDraftFromPayload({})).toBeNull();
   });
   it("validates with the server's messages", () => {
-    const d = UNSET_RUBRIC_DRAFT;
+    const d: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "总评", note: "" }], focus: "" };
     expect(validateRubricDraft(d)).toBeNull();
     expect(validateRubricDraft({ ...d, scale: "points", max: "0" })).toBe("满分需在 1 到 100 之间");
     expect(validateRubricDraft({ ...d, dimensions: [] })).toBe("评分维度需有 1 到 6 项");
@@ -45,15 +44,16 @@ describe("rubric draft", () => {
     const r = { scale: "letter" as const, dimensions: [{ name: "内容", note: "看立意" }], focus: "重点看论证" };
     expect(buildRubric(rubricDraftOf(r))).toEqual(r);
   });
-  // Ruling: a language switch never rewrites the rubric text — this frontend
-  // has no honest way to produce the other language's default wording
-  // without hardcoding it, so the draft is left exactly as it is, whether
-  // that's the untouched placeholder, a loaded rubric, or an edited one.
-  it("never rewrites the rubric text on a language switch", () => {
-    expect(rubricAfterLangChange(UNSET_RUBRIC_DRAFT, "zh", "en")).toBe(UNSET_RUBRIC_DRAFT);
-    const loaded: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "内容", note: "看立意" }], focus: "" };
-    expect(rubricAfterLangChange(loaded, "zh", "en")).toBe(loaded);
-    expect(rubricAfterLangChange(loaded, "en", "en")).toBe(loaded);
+});
+
+describe("rubricDefaultNote", () => {
+  // Ruling: no rubric editor on a new homework — this note names which
+  // language's default the server will apply, not the default's own text
+  // (which this frontend keeps no copy of).
+  it("names the language the default will use", () => {
+    expect(rubricDefaultNote("zh")).toContain("中文");
+    expect(rubricDefaultNote("en")).toContain("英文");
+    expect(rubricDefaultNote("zh")).not.toBe(rubricDefaultNote("en"));
   });
 });
 
@@ -63,5 +63,19 @@ describe("sameRubricDraft", () => {
     const b: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "内容", note: "" }], focus: "" };
     expect(sameRubricDraft(a, b)).toBe(true);
     expect(sameRubricDraft(a, { ...a, focus: "重点看论证" })).toBe(false);
+  });
+  // Fix round 1: JSON.stringify comparison broke on this — a dimension
+  // object built with its fields in a different order stringifies
+  // differently even though it's the same data.
+  it("treats the same dimension content as equal regardless of key order", () => {
+    const a: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "内容", note: "看立意" }], focus: "" };
+    const bDimension = { note: "看立意", name: "内容" };
+    const b: RubricDraft = { scale: "letter", max: "", dimensions: [bDimension], focus: "" };
+    expect(sameRubricDraft(a, b)).toBe(true);
+  });
+  it("ignores a stale max left over from a different scale", () => {
+    const a: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "内容", note: "" }], focus: "" };
+    const b: RubricDraft = { scale: "letter", max: "20", dimensions: [{ name: "内容", note: "" }], focus: "" };
+    expect(sameRubricDraft(a, b)).toBe(true);
   });
 });
