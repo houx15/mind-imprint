@@ -159,10 +159,14 @@ func VisibleFacts(f Facts, h Hidden) Facts {
 // looks at each section in sections (the visible sections,
 // SectionsWithFacts(VisibleFacts(f, h))) and lists every hidden moment quote
 // and hidden keyword text, of at least 2 runes and present in f, that the
-// section's text contains. A section appears only with at least one mention;
-// its list has no duplicates and follows the hidden lists' order (moments,
-// then keywords). The map is never nil. The export is built on the client, so
-// this is how the editor learns a hidden 金句 is still quoted in the text.
+// section's text contains. A hidden moment is also listed, as its full quote,
+// when the section has a 「…」 or “…” span of at least 2 runes whose text is
+// part of that quote: the prose check accepts a fragment of a 金句, so a draft
+// can quote 「碳排放总量第一」 out of a longer moment. A section appears only
+// with at least one mention; its list has no duplicates and follows the
+// hidden lists' order (moments, then keywords). The map is never nil. The
+// export is built on the client, so this is how the editor learns a hidden
+// 金句 is still quoted in the text.
 func HiddenMentions(body map[string]string, sections []string, f Facts, h Hidden) map[string][]string {
 	out := map[string][]string{}
 	inFacts := make(map[string]bool, len(f.Moments)+len(f.Keywords))
@@ -172,29 +176,85 @@ func HiddenMentions(body map[string]string, sections []string, f Facts, h Hidden
 	for _, k := range f.Keywords {
 		inFacts[k.Text] = true
 	}
-	var texts []string
-	for _, list := range [][]string{h.Moments, h.Keywords} {
+	eligible := func(list []string) []string {
+		var kept []string
 		for _, s := range list {
 			if inFacts[s] && utf8.RuneCountInString(s) >= 2 {
-				texts = append(texts, s)
+				kept = append(kept, s)
 			}
 		}
+		return kept
 	}
+	moments, keywords := eligible(h.Moments), eligible(h.Keywords)
 	for _, sec := range sections {
 		text := body[sec]
 		if text == "" {
 			continue
 		}
+		spans := quoteSpans(text)
 		var found []string
 		seen := map[string]bool{}
-		for _, s := range texts {
-			if !seen[s] && strings.Contains(text, s) {
+		add := func(s string) {
+			if !seen[s] {
 				seen[s] = true
 				found = append(found, s)
 			}
 		}
+		for _, q := range moments {
+			if strings.Contains(text, q) || quotesPartOf(spans, q) {
+				add(q)
+			}
+		}
+		for _, w := range keywords {
+			if strings.Contains(text, w) {
+				add(w)
+			}
+		}
 		if len(found) > 0 {
 			out[sec] = found
+		}
+	}
+	return out
+}
+
+// quotesPartOf reports whether one of spans, of at least 2 runes, is part of
+// quote.
+func quotesPartOf(spans []string, quote string) bool {
+	for _, sp := range spans {
+		if utf8.RuneCountInString(sp) >= 2 && strings.Contains(quote, sp) {
+			return true
+		}
+	}
+	return false
+}
+
+// quoteSpans returns the text inside every closed 「…」 and “…” span of s.
+// Each family is scanned on its own, so a span nested in the other family
+// (「她说“碳排放”」) is found too. An opening mark with no close is skipped,
+// and a second opening mark of the same family before the close starts the
+// span again from there: this is the teacher's own text, and a stray mark must
+// not hide a real quote after it. liteweekly's span extraction treats the same
+// marks as an error, which is right for model output and wrong here.
+func quoteSpans(s string) []string {
+	runes := []rune(s)
+	var out []string
+	for _, pair := range [][2]rune{{'「', '」'}, {'“', '”'}} {
+		for i := 0; i < len(runes); i++ {
+			if runes[i] != pair[0] {
+				continue
+			}
+			j := i + 1
+			for j < len(runes) && runes[j] != pair[1] {
+				if runes[j] == pair[0] {
+					i = j
+				}
+				j++
+			}
+			if j >= len(runes) {
+				break
+			}
+			out = append(out, string(runes[i+1:j]))
+			i = j
 		}
 	}
 	return out

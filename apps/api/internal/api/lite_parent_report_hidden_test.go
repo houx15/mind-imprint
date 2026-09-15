@@ -288,6 +288,35 @@ func TestLiteParentReportHiddenMentions(t *testing.T) {
 	}
 }
 
+// TestLiteParentReportHiddenMentionsFragment (final fix A): a draft that
+// quotes only part of a 金句 passes the prose check. Hiding that moment
+// afterwards flags the section with the full quote, so the fragment cannot
+// reach the exported picture; editing the fragment out clears it.
+func TestLiteParentReportHiddenMentionsFragment(t *testing.T) {
+	const fragmentReply = `{"overview":"这段时间读完《城市里的雨水花园》，写下「不是废水」。","reading":"读完《城市里的雨水花园》。","next":"请和她聊一聊雨水花园。"}`
+	prov := gateway.NewSequenceStubProvider(weeklyReply(fragmentReply))
+	h, _, teacher, classID, studentID := parentFixture(t, prov)
+	gen := generateParentReport(t, h, teacher, classID, studentID)
+	if gen.DraftError != nil || !strings.Contains(gen.Report.Body["overview"], "「不是废水」") {
+		t.Fatalf("generated report must quote the fragment: draftError = %v body = %v", gen.DraftError, gen.Report.Body)
+	}
+	path := parentReportPath(gen.Report.ID)
+	mentions := func(body string) string {
+		t.Helper()
+		return string(rawWeeklyFields(t, string(rawWeeklyFields(t, body)["report"]))["hiddenMentions"])
+	}
+
+	code, body := parentDo(t, h, teacher, "PATCH", path, parentHiddenJSON(t, []string{"雨水不是废水"}, nil), nil)
+	if code != http.StatusOK || mentions(body) != `{"overview":["雨水不是废水"]}` {
+		t.Fatalf("PATCH hidden = %d, hiddenMentions = %s, want the full quote under overview", code, mentions(body))
+	}
+
+	code, body = parentDo(t, h, teacher, "PATCH", path, parentBodyJSON(t, map[string]string{"overview": "这段时间读完《城市里的雨水花园》。"}), nil)
+	if code != http.StatusOK || mentions(body) != `{}` {
+		t.Fatalf("PATCH body without the fragment = %d, hiddenMentions = %s, want {}", code, mentions(body))
+	}
+}
+
 // TestLiteParentReportHiddenStrictDecode (fix round 1): an unknown key inside
 // hidden is 400 invalid_hidden, never read as an empty set.
 func TestLiteParentReportHiddenStrictDecode(t *testing.T) {

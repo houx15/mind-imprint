@@ -386,6 +386,75 @@ func TestHiddenMentions(t *testing.T) {
 	}
 }
 
+// TestHiddenMentionsQuotedFragment (final fix A): the prose check accepts a
+// 「」 or “” quote that is only part of a 金句, so a quoted fragment of a
+// hidden moment is flagged too, listed as the full quote.
+func TestHiddenMentionsQuotedFragment(t *testing.T) {
+	f := Facts{
+		Readings: []Item{{Title: "中国与碳排放"}},
+		Moments:  []Moment{{Quote: "中国碳排放总量第一，但人均不高"}, {Quote: "光伏板装机量世界第一"}},
+		Keywords: []Keyword{{Text: "新能源"}},
+	}
+	sectionsFor := func(h Hidden) []string { return SectionsWithFacts(VisibleFacts(f, h)) }
+	for _, tc := range []struct {
+		name   string
+		body   map[string]string
+		hidden Hidden
+		want   map[string][]string
+	}{
+		{"「」 fragment of a hidden moment",
+			map[string]string{"overview": "她写下「碳排放总量第一」。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{"overview": {"中国碳排放总量第一，但人均不高"}}},
+		{"“” fragment of a hidden moment, listed once with a second fragment",
+			map[string]string{"reading": "她认为“人均不高”，又说“碳排放总量第一”。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{"reading": {"中国碳排放总量第一，但人均不高"}}},
+		{"fragment nested in the other quote family",
+			map[string]string{"next": "请回顾「她说“人均不高”那一段」。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{"next": {"中国碳排放总量第一，但人均不高"}}},
+		{"fragment of a visible moment is not flagged",
+			map[string]string{"overview": "她写下「装机量世界第一」。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{}},
+		{"1-rune span ignored",
+			map[string]string{"overview": "她只圈了一个「中」字。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{}},
+		{"unquoted fragment is not flagged",
+			map[string]string{"overview": "她注意到碳排放总量第一这件事。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{}},
+		{"unclosed mark does not hide a later span",
+			map[string]string{"overview": "「未闭合，后面是「人均不高」。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}},
+			map[string][]string{"overview": {"中国碳排放总量第一，但人均不高"}}},
+		// Every keyword hidden: interests is not a visible section.
+		{"span in a non-visible section ignored",
+			map[string]string{"interests": "她关注「人均不高」。"},
+			Hidden{Moments: []string{"中国碳排放总量第一，但人均不高"}, Keywords: []string{"新能源"}},
+			map[string][]string{}},
+		{"hidden-list order kept across whole and fragment matches",
+			map[string]string{"overview": "「装机量」之后，她写下「总量第一，但人均」。"},
+			Hidden{Moments: []string{"光伏板装机量世界第一", "中国碳排放总量第一，但人均不高"}},
+			map[string][]string{"overview": {"光伏板装机量世界第一", "中国碳排放总量第一，但人均不高"}}},
+		// Keywords keep the plain substring rule; a quoted part of a hidden
+		// keyword is not a fragment match.
+		{"keyword: quoted part not flagged",
+			map[string]string{"overview": "她提到「能源」。"},
+			Hidden{Keywords: []string{"新能源"}},
+			map[string][]string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := HiddenMentions(tc.body, sectionsFor(tc.hidden), f, tc.hidden)
+			if got == nil || !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("HiddenMentions = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestHiddenNormalize(t *testing.T) {
 	got := Hidden{Moments: []string{"b", "a", "b"}}.Normalize()
 	if !reflect.DeepEqual(got.Moments, []string{"b", "a"}) || got.Keywords == nil || len(got.Keywords) != 0 {
