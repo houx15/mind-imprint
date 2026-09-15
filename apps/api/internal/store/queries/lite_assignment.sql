@@ -27,10 +27,15 @@ WHERE a.class_id = $1 AND a.archived_at IS NULL
 ORDER BY a.due_at DESC;
 
 -- name: ListLiteAssignmentRecipients :many
--- 一份作业的每个学生，连同她那一项的完成时间。
+-- 一份作业的每个学生，连同她那一项的完成时间、退回信息和提交版本数。
+-- resubmitted：退回之后提交过新版本（returned_at 为 NULL 时比较结果为 NULL，EXISTS 为 false）。
 SELECT r.assignment_id, r.user_id, r.seen_at, r.atom_id, r.started_at,
+       r.returned_at, r.return_due_at, r.return_note,
        u.display_name, u.avatar_color,
-       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
+       COALESCE((SELECT count(*) FROM writing_version v WHERE v.atom_id = r.atom_id), 0)::int AS version_count,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN users u ON u.id = r.user_id
 LEFT JOIN reading rd ON rd.atom_id = r.atom_id
@@ -74,8 +79,11 @@ UPDATE lite_assignment SET archived_at = COALESCE(archived_at, now()), updated_a
 -- 她的作业，未读在前，其后按截止时间。
 SELECT a.id, a.kind, a.title, a.instructions, a.payload, a.due_at, a.created_at,
        r.seen_at, r.atom_id, r.started_at,
+       r.returned_at, r.return_due_at, r.return_note,
        c.name AS class_name,
-       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN lite_assignment a ON a.id = r.assignment_id
 JOIN classes c ON c.id = a.class_id
@@ -89,10 +97,21 @@ WHERE r.user_id = $1 AND a.archived_at IS NULL
 ORDER BY (r.seen_at IS NULL) DESC, a.due_at ASC;
 
 -- name: GetLiteAssignmentForAtom :one
-SELECT a.id, a.title, a.due_at
+-- 写作的锁定判断也读这一条：归档的作业不算。
+SELECT a.id, a.kind, a.title, a.due_at,
+       r.returned_at, r.return_due_at, r.return_note,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN lite_assignment a ON a.id = r.assignment_id
 WHERE r.atom_id = $1 AND r.user_id = $2 AND a.archived_at IS NULL;
 
 -- name: IsEnrolledStudent :one
 SELECT EXISTS (SELECT 1 FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'student')::bool;
+
+-- name: SetLiteAssignmentReturned :one
+-- 退回修改。再次退回时覆盖三列。
+UPDATE lite_assignment_recipient
+SET returned_at = now(), return_due_at = $3, return_note = $4
+WHERE assignment_id = $1 AND user_id = $2
+RETURNING *;

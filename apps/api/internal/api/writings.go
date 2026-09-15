@@ -254,8 +254,9 @@ func (a *API) listWritings(w http.ResponseWriter, r *http.Request) {
 		out = append(out, writingDTOOf(sqlc.Writing{
 			AtomID: row.AtomID, Title: row.Title, Lang: row.Lang, Stage: row.Stage,
 			TargetWords: row.TargetWords, StructureKey: row.StructureKey, SetupAt: row.SetupAt,
-			Status:    row.Status,
-			UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
+			Status:     row.Status,
+			UpdatedAt:  row.UpdatedAt, FinishedAt: row.FinishedAt,
+			RevisingAt: row.RevisingAt,
 		}, row.AtomCreatedAt, row.LastActivityAt))
 	}
 	// 我的写作 is a shelf, not an archive — same ordering + cut as listReadings

@@ -53,6 +53,19 @@ UPDATE writing SET assigned_prompt = $2 WHERE atom_id = $1;
 UPDATE writing SET status = 'finished', finished_at = now(), updated_at = now()
 WHERE atom_id = $1 AND status <> 'finished';
 
+-- name: GetWritingForUpdate :one
+-- 完成、放弃修改时先锁住这一行，版本号才不会重复。
+SELECT * FROM writing WHERE atom_id = $1 FOR UPDATE;
+
+-- name: SetWritingRevising :one
+-- 已在修改中时保留原来的时间。
+UPDATE writing SET revising_at = COALESCE(revising_at, now()), updated_at = now()
+WHERE atom_id = $1
+RETURNING *;
+
+-- name: ClearWritingRevising :exec
+UPDATE writing SET revising_at = NULL, updated_at = now() WHERE atom_id = $1;
+
 -- name: ReplaceWritingOutline :many
 -- Full replace, not a diff: the whole outline is written as one shape each
 -- PUT (学生可改 the derived outline wholesale), so delete-then-insert keeps

@@ -487,6 +487,9 @@ type LiteAssignmentRecipient struct {
 	SeenAt       pgtype.Timestamptz `json:"seen_at"`
 	AtomID       pgtype.UUID        `json:"atom_id"`
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote   *string            `json:"return_note"`
 }
 
 type LiteClassWeeklyProse struct {
@@ -1255,8 +1258,9 @@ type Writing struct {
 	StructureKey string             `json:"structure_key"`
 	SetupAt      pgtype.Timestamptz `json:"setup_at"`
 	// here = 在这个房间里写的；brought = 她带进来的成稿。报告据此说明哪几步没有发生过。
-	Origin         string  `json:"origin"`
-	AssignedPrompt *string `json:"assigned_prompt"`
+	Origin         string             `json:"origin"`
+	AssignedPrompt *string            `json:"assigned_prompt"`
+	RevisingAt     pgtype.Timestamptz `json:"revising_at"`
 }
 
 type WritingComment struct {
@@ -1301,4 +1305,14 @@ type WritingSnippet struct {
 	Position  int32       `json:"position"`
 	Text      string      `json:"text"`
 	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+type WritingVersion struct {
+	ID          uuid.UUID `json:"id"`
+	AtomID      uuid.UUID `json:"atom_id"`
+	Number      int32     `json:"number"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	WordCount   int32     `json:"word_count"`
+	SubmittedAt time.Time `json:"submitted_at"`
 }

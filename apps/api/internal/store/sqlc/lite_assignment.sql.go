@@ -115,7 +115,10 @@ func (q *Queries) GetLiteAssignment(ctx context.Context, id uuid.UUID) (LiteAssi
 }
 
 const getLiteAssignmentForAtom = `-- name: GetLiteAssignmentForAtom :one
-SELECT a.id, a.title, a.due_at
+SELECT a.id, a.kind, a.title, a.due_at,
+       r.returned_at, r.return_due_at, r.return_note,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN lite_assignment a ON a.id = r.assignment_id
 WHERE r.atom_id = $1 AND r.user_id = $2 AND a.archived_at IS NULL
@@ -127,15 +130,30 @@ type GetLiteAssignmentForAtomParams struct {
 }
 
 type GetLiteAssignmentForAtomRow struct {
-	ID    uuid.UUID `json:"id"`
-	Title string    `json:"title"`
-	DueAt time.Time `json:"due_at"`
+	ID          uuid.UUID          `json:"id"`
+	Kind        string             `json:"kind"`
+	Title       string             `json:"title"`
+	DueAt       time.Time          `json:"due_at"`
+	ReturnedAt  pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote  *string            `json:"return_note"`
+	Resubmitted bool               `json:"resubmitted"`
 }
 
+// 写作的锁定判断也读这一条：归档的作业不算。
 func (q *Queries) GetLiteAssignmentForAtom(ctx context.Context, arg GetLiteAssignmentForAtomParams) (GetLiteAssignmentForAtomRow, error) {
 	row := q.db.QueryRow(ctx, getLiteAssignmentForAtom, arg.AtomID, arg.UserID)
 	var i GetLiteAssignmentForAtomRow
-	err := row.Scan(&i.ID, &i.Title, &i.DueAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Title,
+		&i.DueAt,
+		&i.ReturnedAt,
+		&i.ReturnDueAt,
+		&i.ReturnNote,
+		&i.Resubmitted,
+	)
 	return i, err
 }
 
@@ -188,7 +206,7 @@ func (q *Queries) GetLiteAssignmentForUpdate(ctx context.Context, id uuid.UUID) 
 }
 
 const getLiteAssignmentRecipient = `-- name: GetLiteAssignmentRecipient :one
-SELECT assignment_id, user_id, seen_at, atom_id, started_at FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2
+SELECT assignment_id, user_id, seen_at, atom_id, started_at, returned_at, return_due_at, return_note FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2
 `
 
 type GetLiteAssignmentRecipientParams struct {
@@ -205,12 +223,15 @@ func (q *Queries) GetLiteAssignmentRecipient(ctx context.Context, arg GetLiteAss
 		&i.SeenAt,
 		&i.AtomID,
 		&i.StartedAt,
+		&i.ReturnedAt,
+		&i.ReturnDueAt,
+		&i.ReturnNote,
 	)
 	return i, err
 }
 
 const getLiteAssignmentRecipientForUpdate = `-- name: GetLiteAssignmentRecipientForUpdate :one
-SELECT assignment_id, user_id, seen_at, atom_id, started_at FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2 FOR UPDATE
+SELECT assignment_id, user_id, seen_at, atom_id, started_at, returned_at, return_due_at, return_note FROM lite_assignment_recipient WHERE assignment_id = $1 AND user_id = $2 FOR UPDATE
 `
 
 type GetLiteAssignmentRecipientForUpdateParams struct {
@@ -227,6 +248,9 @@ func (q *Queries) GetLiteAssignmentRecipientForUpdate(ctx context.Context, arg G
 		&i.SeenAt,
 		&i.AtomID,
 		&i.StartedAt,
+		&i.ReturnedAt,
+		&i.ReturnDueAt,
+		&i.ReturnNote,
 	)
 	return i, err
 }
@@ -249,8 +273,12 @@ func (q *Queries) IsEnrolledStudent(ctx context.Context, arg IsEnrolledStudentPa
 
 const listLiteAssignmentRecipients = `-- name: ListLiteAssignmentRecipients :many
 SELECT r.assignment_id, r.user_id, r.seen_at, r.atom_id, r.started_at,
+       r.returned_at, r.return_due_at, r.return_note,
        u.display_name, u.avatar_color,
-       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
+       COALESCE((SELECT count(*) FROM writing_version v WHERE v.atom_id = r.atom_id), 0)::int AS version_count,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN users u ON u.id = r.user_id
 LEFT JOIN reading rd ON rd.atom_id = r.atom_id
@@ -266,12 +294,18 @@ type ListLiteAssignmentRecipientsRow struct {
 	SeenAt       pgtype.Timestamptz `json:"seen_at"`
 	AtomID       pgtype.UUID        `json:"atom_id"`
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote   *string            `json:"return_note"`
 	DisplayName  string             `json:"display_name"`
 	AvatarColor  string             `json:"avatar_color"`
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	VersionCount int32              `json:"version_count"`
+	Resubmitted  bool               `json:"resubmitted"`
 }
 
-// 一份作业的每个学生，连同她那一项的完成时间。
+// 一份作业的每个学生，连同她那一项的完成时间、退回信息和提交版本数。
+// resubmitted：退回之后提交过新版本（returned_at 为 NULL 时比较结果为 NULL，EXISTS 为 false）。
 func (q *Queries) ListLiteAssignmentRecipients(ctx context.Context, assignmentIds []uuid.UUID) ([]ListLiteAssignmentRecipientsRow, error) {
 	rows, err := q.db.Query(ctx, listLiteAssignmentRecipients, assignmentIds)
 	if err != nil {
@@ -287,9 +321,14 @@ func (q *Queries) ListLiteAssignmentRecipients(ctx context.Context, assignmentId
 			&i.SeenAt,
 			&i.AtomID,
 			&i.StartedAt,
+			&i.ReturnedAt,
+			&i.ReturnDueAt,
+			&i.ReturnNote,
 			&i.DisplayName,
 			&i.AvatarColor,
 			&i.FinishedAt,
+			&i.VersionCount,
+			&i.Resubmitted,
 		); err != nil {
 			return nil, err
 		}
@@ -361,8 +400,11 @@ func (q *Queries) ListLiteAssignmentsByClass(ctx context.Context, classID uuid.U
 const listLiteInboxAssignments = `-- name: ListLiteInboxAssignments :many
 SELECT a.id, a.kind, a.title, a.instructions, a.payload, a.due_at, a.created_at,
        r.seen_at, r.atom_id, r.started_at,
+       r.returned_at, r.return_due_at, r.return_note,
        c.name AS class_name,
-       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
 JOIN lite_assignment a ON a.id = r.assignment_id
 JOIN classes c ON c.id = a.class_id
@@ -387,8 +429,12 @@ type ListLiteInboxAssignmentsRow struct {
 	SeenAt       pgtype.Timestamptz `json:"seen_at"`
 	AtomID       pgtype.UUID        `json:"atom_id"`
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote   *string            `json:"return_note"`
 	ClassName    string             `json:"class_name"`
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	Resubmitted  bool               `json:"resubmitted"`
 }
 
 // 她的作业，未读在前，其后按截止时间。
@@ -412,8 +458,12 @@ func (q *Queries) ListLiteInboxAssignments(ctx context.Context, userID uuid.UUID
 			&i.SeenAt,
 			&i.AtomID,
 			&i.StartedAt,
+			&i.ReturnedAt,
+			&i.ReturnDueAt,
+			&i.ReturnNote,
 			&i.ClassName,
 			&i.FinishedAt,
+			&i.Resubmitted,
 		); err != nil {
 			return nil, err
 		}
@@ -456,6 +506,42 @@ func (q *Queries) RemoveLiteAssignmentRecipient(ctx context.Context, arg RemoveL
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setLiteAssignmentReturned = `-- name: SetLiteAssignmentReturned :one
+UPDATE lite_assignment_recipient
+SET returned_at = now(), return_due_at = $3, return_note = $4
+WHERE assignment_id = $1 AND user_id = $2
+RETURNING assignment_id, user_id, seen_at, atom_id, started_at, returned_at, return_due_at, return_note
+`
+
+type SetLiteAssignmentReturnedParams struct {
+	AssignmentID uuid.UUID          `json:"assignment_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote   *string            `json:"return_note"`
+}
+
+// 退回修改。再次退回时覆盖三列。
+func (q *Queries) SetLiteAssignmentReturned(ctx context.Context, arg SetLiteAssignmentReturnedParams) (LiteAssignmentRecipient, error) {
+	row := q.db.QueryRow(ctx, setLiteAssignmentReturned,
+		arg.AssignmentID,
+		arg.UserID,
+		arg.ReturnDueAt,
+		arg.ReturnNote,
+	)
+	var i LiteAssignmentRecipient
+	err := row.Scan(
+		&i.AssignmentID,
+		&i.UserID,
+		&i.SeenAt,
+		&i.AtomID,
+		&i.StartedAt,
+		&i.ReturnedAt,
+		&i.ReturnDueAt,
+		&i.ReturnNote,
+	)
+	return i, err
 }
 
 const setLiteAssignmentStarted = `-- name: SetLiteAssignmentStarted :exec
