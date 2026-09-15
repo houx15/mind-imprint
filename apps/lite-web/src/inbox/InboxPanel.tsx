@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import type { InboxItemDTO } from "../api/assignments";
+import type { AssignmentInboxItem } from "../api/assignments";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
@@ -21,8 +21,10 @@ import type { InboxState } from "./useInbox";
  * Closes on Escape (focus returns to the button), a pointer-down outside the
  * panel and its button, and navigation (handled by `InboxButton`).
  *
- * Every row is an assignment: chip = its kind, 说明, 截止, status; opening starts
- * it. Order and unread come from the server.
+ * Every row here is an assignment: chip = its kind, 说明, 截止, status;
+ * opening starts it. Order and unread come from the server. Sent-grading
+ * rows also live in the inbox (`InboxItemDTO`'s `type: "grading"` member)
+ * but are not rendered by this panel yet — Task 14 adds that.
  */
 export function InboxPanel({
   inbox,
@@ -68,9 +70,9 @@ export function InboxPanel({
     };
   }, [anchor, onClose]);
 
-  const items = sortUnreadFirst(inbox.items);
+  const items = sortUnreadFirst(inbox.items.filter((it): it is AssignmentInboxItem => it.type === "assignment"));
 
-  async function open(item: InboxItemDTO) {
+  async function open(item: AssignmentInboxItem) {
     if (openingId) return;
     setOpeningId(item.id);
     setStartError(null);

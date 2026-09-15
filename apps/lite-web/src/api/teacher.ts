@@ -11,6 +11,7 @@
 //   with the student-facing tree instead of duplicated here.
 
 import { apiFetch } from "./client";
+import { normalizeGradingSummary, type GradingSummary } from "./gradings";
 import { fetchInterestTreeFrom, type InterestTree } from "./interest";
 import { normalizeVersionSummary, type WritingVersion, type WritingVersionSummary } from "./writings";
 
@@ -95,6 +96,8 @@ export interface ItemDetail {
     comments: { scope: string; summary: string; points: unknown[] }[];
     /** Submitted versions, newest first (0153). */
     versions: WritingVersionSummary[];
+    /** The latest version's 批改, or null. */
+    grading: GradingSummary | null;
     /** She reopened it with 修改 and has not submitted since. */
     revising: boolean;
   } | null;
@@ -250,6 +253,7 @@ function normalizeWriting(raw: unknown): NonNullable<ItemDetail["writing"]> | nu
     versions: arr(r.versions)
       .map(normalizeVersionSummary)
       .filter((v) => v.number > 0),
+    grading: normalizeGradingSummary(r.grading),
     revising: r.revising === true,
   };
 }

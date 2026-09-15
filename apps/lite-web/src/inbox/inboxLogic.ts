@@ -1,7 +1,7 @@
 // inbox/inboxLogic.ts — pure rules behind the student inbox and the 作业
 // strips. No React and no network, so each rule is testable on its own.
 
-import type { AssignmentInboxItem, AssignmentKind } from "../api/assignments";
+import type { AssignmentInboxItem, AssignmentKind, InboxItemDTO } from "../api/assignments";
 import type { AssignmentStatus } from "../shared/deadline";
 
 const START_PREFIX = "开始失败：";
@@ -27,9 +27,12 @@ const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress"
 
 /** What a landing's 作业 strip lists: this kind, and still open — a
  *  returned homework is open again until she resubmits (then it becomes
- *  `resubmitted`, which is not in this list). */
-export function openItemsForKind(items: readonly AssignmentInboxItem[], kind: AssignmentKind): AssignmentInboxItem[] {
-  return items.filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
+ *  `resubmitted`, which is not in this list). Grading inbox rows are never
+ *  listed here (they have no `kind`/`status` to filter on). */
+export function openItemsForKind(items: readonly InboxItemDTO[], kind: AssignmentKind): AssignmentInboxItem[] {
+  return items.filter(
+    (it): it is AssignmentInboxItem => it.type === "assignment" && it.kind === kind && OPEN_STATUSES.includes(it.status),
+  );
 }
 
 /** The deadline a strip row shows: the return deadline whenever the teacher

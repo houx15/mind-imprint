@@ -10,6 +10,7 @@
 
 import { apiFetch } from "./client";
 import type { AssignmentStatus } from "../shared/deadline";
+import type { Rubric } from "./gradings";
 
 export type AssignmentKind = "reading" | "writing" | "project";
 
@@ -27,6 +28,10 @@ export interface WritingAssignmentPayload {
   prompt: string;
   targetWords: number;
   lang: "zh" | "en";
+  /** The effective rubric (stored one, else the Go default for `lang`) — the
+   * server always bakes this in, so a writing homework's payload never omits
+   * it. See Task 1's DTO ruling. */
+  rubric?: Rubric;
 }
 
 export interface ProjectAssignmentPayload {
@@ -86,9 +91,20 @@ export interface AssignmentInboxItem {
   returnNote: string | null;
 }
 
-// The inbox holds assignments only. Parent reports were delivered here once
-// (plan 4); since 2026-09-15 a teacher exports them instead.
-export type InboxItemDTO = AssignmentInboxItem;
+/** A sent 批改 of one of her writings. */
+export interface GradingInboxItem {
+  type: "grading";
+  id: string;
+  atomId: string;
+  writingTitle: string;
+  sentAt: string;
+  unread: boolean;
+}
+
+// The inbox holds assignments and sent gradings. Parent reports were
+// delivered here once (plan 4); since 2026-09-15 a teacher exports them
+// instead.
+export type InboxItemDTO = AssignmentInboxItem | GradingInboxItem;
 
 export interface StartAssignmentResult {
   kind: AssignmentKind;
@@ -140,6 +156,8 @@ export interface PatchAssignmentInput {
   payload?: AssignmentPayload;
   addUserIds?: string[];
   removeUserIds?: string[];
+  /** Top-level; editable after students start. `null` resets to the default. */
+  rubric?: Rubric | null;
 }
 
 // ---- normalizers ----
@@ -218,7 +236,7 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
   };
 }
 
-function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
+function normalizeInboxItem(raw: Record<string, unknown>): AssignmentInboxItem {
   return {
     type: "assignment",
     id: s(raw.id),
@@ -236,19 +254,32 @@ function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
   };
 }
 
+function normalizeGradingInboxItem(raw: Record<string, unknown>): GradingInboxItem {
+  return {
+    type: "grading",
+    id: s(raw.id),
+    atomId: s(raw.atomId),
+    writingTitle: s(raw.writingTitle),
+    sentAt: s(raw.sentAt),
+    unread: raw.unread === true,
+  };
+}
+
 /** `unread` is the server's own count, but a client must not trust a field
  * that could be missing on an older/partial response: falling back to
  * counting `unread: true` items keeps the badge honest either way.
  *
- * Only `type: "assignment"` rows are kept. A server from before 2026-09-15
- * (version skew during a deploy) can still send `parent_report` rows; those
- * are dropped rather than coerced into assignments with no kind or status.
- * When a row was dropped the server's count may include it, so the badge
- * counts the kept rows instead. */
+ * Rows of type `assignment` and `grading` are kept; any other type (a
+ * `parent_report` row from a server before 2026-09-15) is dropped, and the
+ * badge then counts the kept rows. */
 export function normalizeInboxResponse(raw: unknown): { items: InboxItemDTO[]; unread: number } {
   const r = obj(raw);
   const rows = arr<unknown>(r.items).map(obj);
-  const items = rows.filter((it) => it.type === "assignment").map(normalizeInboxItem);
+  const items: InboxItemDTO[] = [];
+  for (const it of rows) {
+    if (it.type === "assignment") items.push(normalizeInboxItem(it));
+    else if (it.type === "grading") items.push(normalizeGradingInboxItem(it));
+  }
   const dropped = rows.length !== items.length;
   const unread = typeof r.unread === "number" && !dropped ? r.unread : items.filter((it) => it.unread).length;
   return { items, unread };

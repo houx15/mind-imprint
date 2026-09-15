@@ -37,7 +37,8 @@ describe("normalizeInboxResponse", () => {
     const raw = { items: [inboxItem({ status: "some_future_status" })], unread: 1 };
     const item = normalizeInboxResponse(raw).items[0];
     expect(item?.type).toBe("assignment");
-    expect(item?.status).toBe("not_started");
+    if (item?.type !== "assignment") throw new Error("expected an assignment item");
+    expect(item.status).toBe("not_started");
   });
 
   // A server from before the parent end was removed can still send report
@@ -55,6 +56,19 @@ describe("normalizeInboxResponse", () => {
     const result = normalizeInboxResponse(raw);
     expect(result.items.map((it) => it.id)).toEqual(["a1"]);
     expect(result.unread).toBe(0);
+  });
+
+  it("keeps sent grading rows next to assignments", () => {
+    const raw = {
+      items: [
+        inboxItem({ id: "a1", unread: false }),
+        { type: "grading", id: "g1", atomId: "w1", writingTitle: "雨水去哪儿了", sentAt: "2026-09-15T06:20:00Z", unread: true },
+      ],
+      unread: 1,
+    };
+    const result = normalizeInboxResponse(raw);
+    expect(result.items.map((it) => `${it.type}:${it.id}`)).toEqual(["assignment:a1", "grading:g1"]);
+    expect(result.unread).toBe(1);
   });
 });
 
@@ -110,6 +124,8 @@ describe("return fields", () => {
     const { items } = normalizeInboxResponse({
       items: [{ type: "assignment", id: "a", status: "returned", returnDueAt: "2026-09-18T22:00:00+08:00", returnNote: "n" }],
     });
-    expect([items[0]?.status, items[0]?.returnDueAt, items[0]?.returnNote]).toEqual(["returned", "2026-09-18T22:00:00+08:00", "n"]);
+    const item = items[0];
+    if (item?.type !== "assignment") throw new Error("expected an assignment item");
+    expect([item.status, item.returnDueAt, item.returnNote]).toEqual(["returned", "2026-09-18T22:00:00+08:00", "n"]);
   });
 });
