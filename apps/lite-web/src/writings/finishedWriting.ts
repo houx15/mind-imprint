@@ -148,3 +148,11 @@ export function isWritingLockedError(err: unknown): boolean {
 export function isWritingClosedError(err: unknown): boolean {
   return err instanceof ApiError && err.status === 403 && (err.code === "writing_locked" || err.code === "writing_finished");
 }
+
+/** Verbatim, on every sent 批改 the student reads. */
+export const AI_ATTRIBUTION = "由 AI 起草，老师审阅后发送";
+
+/** 「针对 v{n}」 when the grading is about a version other than the one on the page. */
+export function gradingVersionLine(gradingVersion: number, shownVersion: number | null): string | null {
+  return gradingVersion === shownVersion ? null : `针对 v${gradingVersion}`;
+}

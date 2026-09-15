@@ -16,11 +16,13 @@ import type {
   PatchAssignmentInput,
   RecipientDTO,
   ReturnRecipientInput,
+  WritingAssignmentPayload,
 } from "../api/assignments";
 import type { LibraryArticle } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import { beijingInputToISO, type AssignmentStatus } from "../shared/deadline";
 import { safeHttpUrl } from "./format";
+import { buildRubric, rubricDraftFromPayload, sameRubricDraft, UNSET_RUBRIC_DRAFT, validateRubricDraft, type RubricDraft } from "./rubricLogic";
 
 export type ReadingSource = "library" | "url" | "text";
 
@@ -39,6 +41,8 @@ export interface SettingsDraft {
   lang: "zh" | "en";
   drivingQuestion: string;
   description: string;
+  /** Writing only. Editable after students start (sent as PATCH rubric). */
+  rubric: RubricDraft;
 }
 
 export interface AssignmentDraft extends SettingsDraft {
@@ -62,6 +66,7 @@ export function emptySettings(kind: AssignmentKind = "reading"): SettingsDraft {
     lang: "zh",
     drivingQuestion: "",
     description: "",
+    rubric: UNSET_RUBRIC_DRAFT,
   };
 }
 
@@ -81,6 +86,7 @@ export function settingsFromAssignment(kind: AssignmentKind, payload: Record<str
     d.prompt = str(payload.prompt);
     d.targetWords = typeof payload.targetWords === "number" && payload.targetWords > 0 ? String(payload.targetWords) : "";
     d.lang = payload.lang === "en" ? "en" : "zh";
+    d.rubric = rubricDraftFromPayload(payload);
   } else {
     d.drivingQuestion = str(payload.drivingQuestion);
     d.description = str(payload.description);
@@ -129,6 +135,8 @@ export function validateSettings(d: SettingsDraft): string | null {
     if (!prompt) return "请填写写作题目";
     if (runes(prompt) > 2000) return "写作题目不能超过 2000 字";
     if (parseTargetWords(d.targetWords) === null) return "目标字数需在 1 到 100000 之间";
+    const rubric = validateRubricDraft(d.rubric);
+    if (rubric) return rubric;
     return null;
   }
   const q = d.drivingQuestion.trim();
@@ -149,7 +157,12 @@ export function buildPayload(d: SettingsDraft): AssignmentPayload {
     return { source: "text", text: d.text.trim() };
   }
   if (d.kind === "writing") {
-    return { prompt: d.prompt.trim(), targetWords: parseTargetWords(d.targetWords) ?? 0, lang: d.lang };
+    const payload: WritingAssignmentPayload = { prompt: d.prompt.trim(), targetWords: parseTargetWords(d.targetWords) ?? 0, lang: d.lang };
+    // Only when the teacher actually customized the rubric — an untouched
+    // draft leaves `rubric` out entirely so the server applies its own
+    // default for `lang` (this frontend keeps no copy of that default text).
+    if (!sameRubricDraft(d.rubric, UNSET_RUBRIC_DRAFT)) payload.rubric = buildRubric(d.rubric);
+    return payload;
   }
   const description = d.description.trim();
   return description
@@ -193,11 +206,22 @@ export interface EditDraft {
   instructions: string;
   dueInput: string;
   settings: SettingsDraft;
+  /** Writing only: the rubric exactly as the server currently has it stored
+   *  (read via `rubricDraftFromPayload` off the loaded assignment), used
+   *  only to decide whether the patch needs to carry a new rubric at all —
+   *  see `buildPatchInput`. Omitted for a non-writing kind. */
+  originalRubric?: RubricDraft;
 }
 
 /** The PATCH body for the detail page's edit. `kind`/`payload` are sent only
  * when the settings are editable (no recipient has started); the server
- * compares values, so resending unchanged settings is not a change. */
+ * compares values, so resending unchanged settings is not a change. The
+ * rubric is a separate, always-editable top-level field (`patch.rubric`):
+ * the server carries the stored rubric over any resent kind/payload
+ * regardless (`CarryRubric`), so it only ever changes through this field —
+ * and only when it actually changed, so a title-only edit on an older
+ * homework never overwrites a custom rubric with whatever the draft
+ * happened to be initialized as. */
 export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<PatchAssignmentInput> {
   const common = validateCommon(e.title, e.dueInput);
   if (common) return { ok: false, error: common };
@@ -211,6 +235,13 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<
     if (settings) return { ok: false, error: settings };
     patch.kind = e.settings.kind;
     patch.payload = buildPayload(e.settings);
+  }
+  if (e.settings.kind === "writing") {
+    const rubric = validateRubricDraft(e.settings.rubric);
+    if (rubric) return { ok: false, error: rubric };
+    if (!e.originalRubric || !sameRubricDraft(e.settings.rubric, e.originalRubric)) {
+      patch.rubric = buildRubric(e.settings.rubric);
+    }
   }
   return { ok: true, value: patch };
 }

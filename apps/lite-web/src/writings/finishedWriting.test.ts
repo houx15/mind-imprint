@@ -9,6 +9,7 @@ import {
   finishedBodyState,
   finishedChip,
   finishedHeadline,
+  gradingVersionLine,
   isReturnOpen,
   isWritingClosedError,
   isWritingLockedError,
@@ -164,4 +165,15 @@ describe("isWritingLockedError", () => {
   it("rejects writing_locked at a different status", () =>
     expect(isWritingLockedError(new ApiError("writing_locked", "已过截止时间，作业已锁定", 409))).toBe(false));
   it("rejects a non-ApiError", () => expect(isWritingLockedError(new Error("network down"))).toBe(false));
+});
+
+// Ruling: no test asserts AI_ATTRIBUTION's own text — that would only check
+// a constant equals its own literal, which AGENTS.md's logic-tests-only rule
+// bans.
+describe("gradingVersionLine", () => {
+  it("names the graded version only when the page shows another one", () => {
+    expect(gradingVersionLine(2, 2)).toBeNull();
+    expect(gradingVersionLine(1, 2)).toBe("针对 v1");
+    expect(gradingVersionLine(1, null)).toBe("针对 v1");
+  });
 });

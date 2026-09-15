@@ -1,0 +1,107 @@
+import { describe, expect, it } from "vitest";
+import type { GradingContent, GradingRow, Rubric } from "../api/gradings";
+import {
+  contentForSave,
+  gradeInScale,
+  gradingContentReducer,
+  gradingRowStatus,
+  reviewedDraftIds,
+  shouldPoll,
+  validateGradingContent,
+} from "./gradingLogic";
+
+const row = (over: Partial<GradingRow>): GradingRow => ({
+  userId: "u",
+  displayName: "Phoebe",
+  atomId: "a",
+  version: { number: 1, submittedAt: "2026-09-15T06:20:00Z" },
+  grading: null,
+  ...over,
+});
+const summary = (status: string, reviewedAt: string | null = null, error: string | null = null) =>
+  ({ id: "g", status, overallGrade: null, error, reviewedAt, sentAt: null }) as GradingRow["grading"];
+
+describe("gradingRowStatus", () => {
+  it("maps every server state to one row status", () => {
+    expect(gradingRowStatus(row({ version: null }))).toBe("not_submitted");
+    expect(gradingRowStatus(row({}))).toBe("pending");
+    expect(gradingRowStatus(row({ grading: summary("queued") }))).toBe("running");
+    expect(gradingRowStatus(row({ grading: summary("running") }))).toBe("running");
+    expect(gradingRowStatus(row({ grading: summary("draft") }))).toBe("draft");
+    expect(gradingRowStatus(row({ grading: summary("draft", "2026-09-15T07:00:00Z") }))).toBe("reviewed");
+    expect(gradingRowStatus(row({ grading: summary("sent", "2026-09-15T07:00:00Z") }))).toBe("sent");
+    expect(gradingRowStatus(row({ grading: summary("failed") }))).toBe("failed");
+  });
+  // Controller ruling: a failed REGRADE keeps the previous draft — the
+  // server hands this back as status "draft" (or "reviewed", if it had
+  // already been reviewed) with `error` still set, not as "failed". The row
+  // status reads as an ordinary draft/reviewed row; the error is read off
+  // `grading.error` directly (via `failureText`) so the editor stays open
+  // instead of being replaced by the dead-end 批改失败 state.
+  it("keeps a failed regrade's row as draft/reviewed, with the error still readable", () => {
+    const withError = row({ grading: summary("draft", null, "模型调用失败：超时") });
+    expect(gradingRowStatus(withError)).toBe("draft");
+    expect(withError.grading?.error).toBe("模型调用失败：超时");
+    const reviewedWithError = row({ grading: summary("draft", "2026-09-15T07:00:00Z", "模型调用失败：超时") });
+    expect(gradingRowStatus(reviewedWithError)).toBe("reviewed");
+    expect(reviewedWithError.grading?.error).toBe("模型调用失败：超时");
+  });
+  it("polls only while something is queued or running, and sends only reviewed drafts", () => {
+    expect(shouldPoll(["draft", "queued"])).toBe(true);
+    expect(shouldPoll(["draft", "failed", "sent"])).toBe(false);
+    const rows = [
+      row({ grading: { ...summary("draft", "t")!, id: "g1" } }),
+      row({ grading: { ...summary("draft")!, id: "g2" } }),
+      row({ grading: { ...summary("sent", "t")!, id: "g3" } }),
+    ];
+    expect(reviewedDraftIds(rows)).toEqual(["g1"]);
+  });
+});
+
+const letter: Rubric = { scale: "letter", dimensions: [{ name: "内容", note: "" }], focus: "" };
+const content = (): GradingContent => ({
+  overall: { grade: "B", comment: "x" },
+  dimensions: [{ name: "内容", grade: "B", comment: "" }],
+  points: [{ kind: "issue", quote: "雨", text: "说明", action: "补充", source: "ai" }],
+});
+
+describe("gradingContentReducer", () => {
+  it("edits, adds and deletes without mutating the input", () => {
+    const start = content();
+    let c = gradingContentReducer(start, { type: "overallGrade", value: "A-" });
+    c = gradingContentReducer(c, { type: "dimensionComment", index: 0, value: "材料具体。" });
+    c = gradingContentReducer(c, { type: "addPoint" });
+    c = gradingContentReducer(c, { type: "pointText", index: 1, value: "请注明数据来源。" });
+    c = gradingContentReducer(c, { type: "pointQuote", index: 1, value: "雨" });
+    expect(start.overall.grade).toBe("B");
+    expect(c.overall.grade).toBe("A-");
+    expect(c.dimensions[0]!.comment).toBe("材料具体。");
+    expect(c.points[1]).toEqual({ kind: "issue", quote: "雨", text: "请注明数据来源。", action: "", source: "teacher" });
+    c = gradingContentReducer(c, { type: "pointKind", index: 0, value: "good" });
+    expect(c.points[0]!.action).toBeNull();
+    c = gradingContentReducer(c, { type: "deletePoint", index: 0 });
+    expect(c.points.map((p) => p.text)).toEqual(["请注明数据来源。"]);
+    expect(gradingContentReducer(c, { type: "load", content: start })).toBe(start);
+  });
+  it("contentForSave trims and turns blank quote/action into null", () => {
+    const c = content();
+    c.points[0] = { kind: "issue", quote: "  ", text: " 说明 ", action: "", source: "teacher" };
+    expect(contentForSave(c).points[0]).toEqual({ kind: "issue", quote: null, text: "说明", action: null, source: "teacher" });
+  });
+});
+
+describe("validateGradingContent", () => {
+  it("checks grades against the scale and point texts", () => {
+    expect(validateGradingContent(content(), letter)).toBeNull();
+    const bad = content();
+    bad.overall.grade = "E";
+    expect(validateGradingContent(bad, letter)).toBe("总评的等级不在评分标准内：E");
+    const empty = content();
+    empty.points[0]!.text = " ";
+    expect(validateGradingContent(empty, letter)).toBe("第 1 条意见的说明为空");
+    const points: Rubric = { scale: "points", max: 20, dimensions: [{ name: "内容", note: "" }], focus: "" };
+    expect(gradeInScale(points, "20")).toBe(true);
+    expect(gradeInScale(points, "08")).toBe(false);
+    expect(gradeInScale(points, "21")).toBe(false);
+  });
+});
