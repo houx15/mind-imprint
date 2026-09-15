@@ -249,7 +249,7 @@ type parentSummaryJSON struct {
 
 // wantReportKeys is the teacher report DTO's exact key set: no publish or
 // share keys remain.
-var wantReportKeys = []string{"body", "classId", "createdAt", "draft", "facts", "hidden", "id", "rangeEnd", "rangeStart", "sections", "studentId", "updatedAt"}
+var wantReportKeys = []string{"body", "classId", "createdAt", "draft", "facts", "hidden", "hiddenMentions", "id", "rangeEnd", "rangeStart", "sections", "studentId", "updatedAt"}
 
 // wantSummaryKeys is a report list row's exact key set.
 var wantSummaryKeys = []string{"createdAt", "id", "rangeEnd", "rangeStart", "studentId", "studentName"}

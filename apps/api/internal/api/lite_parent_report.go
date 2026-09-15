@@ -246,8 +246,12 @@ type ParentReportDTO struct {
 	Draft      map[string]string `json:"draft"`
 	Body       map[string]string `json:"body"`
 	Sections   []string          `json:"sections"`
-	CreatedAt  string            `json:"createdAt"`
-	UpdatedAt  string            `json:"updatedAt"`
+	// HiddenMentions maps a visible section to the hidden quotes and keywords
+	// its body text still contains (liteparent.HiddenMentions). Never stored;
+	// always an object, {} when there are none.
+	HiddenMentions map[string][]string `json:"hiddenMentions"`
+	CreatedAt      string              `json:"createdAt"`
+	UpdatedAt      string              `json:"updatedAt"`
 }
 
 // ParentReportSummaryDTO is one row of a report list.
@@ -327,12 +331,14 @@ func newParentReportDTO(row sqlc.LiteParentReport) (ParentReportDTO, error) {
 	if err != nil {
 		return ParentReportDTO{}, err
 	}
+	sections := liteparent.SectionsWithFacts(liteparent.VisibleFacts(f, hidden))
 	return ParentReportDTO{
 		ID: row.ID.String(), StudentID: row.UserID.String(), ClassID: row.ClassID.String(),
 		RangeStart: liteParentDate(row.RangeStart), RangeEnd: liteParentDate(row.RangeEnd),
 		Facts: f, Hidden: hidden, Draft: draft, Body: body,
-		Sections:  liteparent.SectionsWithFacts(liteparent.VisibleFacts(f, hidden)),
-		CreatedAt: row.CreatedAt.Format(time.RFC3339), UpdatedAt: row.UpdatedAt.Format(time.RFC3339),
+		Sections:       sections,
+		HiddenMentions: liteparent.HiddenMentions(body, sections, f, hidden),
+		CreatedAt:      row.CreatedAt.Format(time.RFC3339), UpdatedAt: row.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -654,14 +660,31 @@ func (a *API) patchLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req struct {
-		Body   map[string]string  `json:"body"`
-		Hidden *liteparent.Hidden `json:"hidden"`
+	var raw struct {
+		Body   map[string]string `json:"body"`
+		Hidden json.RawMessage   `json:"hidden"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
+	// hidden is decoded strictly: a misspelt key ("moment") must be refused,
+	// not read as an empty set that clears what the teacher hid.
+	var reqHidden *liteparent.Hidden
+	if len(raw.Hidden) > 0 && string(raw.Hidden) != "null" {
+		dec := json.NewDecoder(strings.NewReader(string(raw.Hidden)))
+		dec.DisallowUnknownFields()
+		var h liteparent.Hidden
+		if err := dec.Decode(&h); err != nil {
+			httpx.WriteError(w, r, errParentInvalidHidden())
+			return
+		}
+		reqHidden = &h
+	}
+	req := struct {
+		Body   map[string]string
+		Hidden *liteparent.Hidden
+	}{raw.Body, reqHidden}
 	if req.Body == nil && req.Hidden == nil {
 		httpx.WriteError(w, r, errParentInvalidBody())
 		return

@@ -155,6 +155,51 @@ func VisibleFacts(f Facts, h Hidden) Facts {
 	return out
 }
 
+// HiddenMentions reports where the body still mentions a hidden item. It
+// looks at each section in sections (the visible sections,
+// SectionsWithFacts(VisibleFacts(f, h))) and lists every hidden moment quote
+// and hidden keyword text, of at least 2 runes and present in f, that the
+// section's text contains. A section appears only with at least one mention;
+// its list has no duplicates and follows the hidden lists' order (moments,
+// then keywords). The map is never nil. The export is built on the client, so
+// this is how the editor learns a hidden 金句 is still quoted in the text.
+func HiddenMentions(body map[string]string, sections []string, f Facts, h Hidden) map[string][]string {
+	out := map[string][]string{}
+	inFacts := make(map[string]bool, len(f.Moments)+len(f.Keywords))
+	for _, m := range f.Moments {
+		inFacts[m.Quote] = true
+	}
+	for _, k := range f.Keywords {
+		inFacts[k.Text] = true
+	}
+	var texts []string
+	for _, list := range [][]string{h.Moments, h.Keywords} {
+		for _, s := range list {
+			if inFacts[s] && utf8.RuneCountInString(s) >= 2 {
+				texts = append(texts, s)
+			}
+		}
+	}
+	for _, sec := range sections {
+		text := body[sec]
+		if text == "" {
+			continue
+		}
+		var found []string
+		seen := map[string]bool{}
+		for _, s := range texts {
+			if !seen[s] && strings.Contains(text, s) {
+				seen[s] = true
+				found = append(found, s)
+			}
+		}
+		if len(found) > 0 {
+			out[sec] = found
+		}
+	}
+	return out
+}
+
 // ErrBadRange is returned for a date range that cannot be reported on.
 var ErrBadRange = errors.New("liteparent: invalid date range")
 

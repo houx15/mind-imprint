@@ -219,8 +219,8 @@ func TestLiteParentReportRedraftHidesItems(t *testing.T) {
 	if code, body := parentDo(t, h, teacher, "POST", path+"/redraft", `{"replaceBody":true}`, &got); code != http.StatusOK {
 		t.Fatalf("redraft = %d %s", code, body)
 	}
-	if got.DraftError == nil {
-		t.Fatal("a draft quoting a hidden 金句 must be rejected")
+	if got.DraftError == nil || !strings.Contains(*got.DraftError, "quote not in corpus") {
+		t.Fatalf("draftError = %v, want the quote check to reject the hidden 金句", got.DraftError)
 	}
 	reqs := prov.take()
 	if len(reqs) != 2 || prov.inner.Calls != 3 || len(llmCallUsers(t, pool, "lite_parent_report")) != 3 {
@@ -252,6 +252,63 @@ func TestLiteParentReportRedraftHidesItems(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.Report.Draft, parentSectionsOf(t, parentPlainReply)) || got.Report.Body["interests"] != rep.Body["interests"] {
 		t.Fatalf("plain redraft: draft = %v body = %v", got.Report.Draft, got.Report.Body)
+	}
+}
+
+// TestLiteParentReportHiddenMentions (fix round 1): the body still quoting a
+// hidden 金句 is reported in hiddenMentions, per visible section, and the
+// entry goes away once the teacher edits the quote out.
+func TestLiteParentReportHiddenMentions(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, _, teacher, classID, studentID := parentFixture(t, prov)
+	gen := generateParentReport(t, h, teacher, classID, studentID)
+	if !strings.Contains(gen.Report.Body["overview"], "「雨水不是废水」") {
+		t.Fatalf("generated body must quote the moment: %v", gen.Report.Body)
+	}
+	path := parentReportPath(gen.Report.ID)
+	mentions := func(what, body string) string {
+		t.Helper()
+		return string(rawWeeklyFields(t, string(rawWeeklyFields(t, body)["report"]))["hiddenMentions"])
+	}
+	if _, body := parentDo(t, h, teacher, "GET", path, "", nil); mentions("GET", body) != `{}` {
+		t.Fatalf("hiddenMentions with nothing hidden = %s, want {}", mentions("GET", body))
+	}
+
+	code, body := parentDo(t, h, teacher, "PATCH", path, parentHiddenJSON(t, []string{"雨水不是废水"}, nil), nil)
+	if code != http.StatusOK || mentions("PATCH hidden", body) != `{"overview":["雨水不是废水"]}` {
+		t.Fatalf("PATCH hidden = %d, hiddenMentions = %s", code, mentions("PATCH hidden", body))
+	}
+	if _, body := parentDo(t, h, teacher, "GET", path, "", nil); mentions("GET", body) != `{"overview":["雨水不是废水"]}` {
+		t.Fatalf("GET hiddenMentions = %s", mentions("GET", body))
+	}
+
+	code, body = parentDo(t, h, teacher, "PATCH", path, parentBodyJSON(t, map[string]string{"overview": "这段时间读完《城市里的雨水花园》。"}), nil)
+	if code != http.StatusOK || mentions("PATCH body", body) != `{}` {
+		t.Fatalf("PATCH body without the quote = %d, hiddenMentions = %s, want {}", code, mentions("PATCH body", body))
+	}
+}
+
+// TestLiteParentReportHiddenStrictDecode (fix round 1): an unknown key inside
+// hidden is 400 invalid_hidden, never read as an empty set.
+func TestLiteParentReportHiddenStrictDecode(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	rep := generateParentReport(t, h, teacher, classID, studentID).Report
+	path := parentReportPath(rep.ID)
+	oneMoment := liteparent.Hidden{Moments: []string{"雨水不是废水"}, Keywords: []string{}}
+	if code, body := parentDo(t, h, teacher, "PATCH", path, parentHiddenJSON(t, []string{"雨水不是废水"}, nil), nil); code != http.StatusOK {
+		t.Fatalf("PATCH hidden = %d %s", code, body)
+	}
+	for _, tc := range []struct{ what, body string }{
+		{"misspelt key", `{"hidden":{"moment":["雨水不是废水"]}}`},
+		{"extra key", `{"hidden":{"moments":[],"keywords":[],"extra":1}}`},
+		{"not an object", `{"hidden":["雨水不是废水"]}`},
+	} {
+		code, body := parentDo(t, h, teacher, "PATCH", path, tc.body, nil)
+		wantParentError(t, "PATCH hidden "+tc.what, code, body, http.StatusBadRequest, "invalid_hidden")
+		if s := storedParentHidden(t, pool, rep.ID); !reflect.DeepEqual(s, oneMoment) {
+			t.Fatalf("%s: stored hidden = %+v, want %+v kept", tc.what, s, oneMoment)
+		}
 	}
 }
 

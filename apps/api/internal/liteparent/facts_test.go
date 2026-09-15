@@ -343,6 +343,49 @@ func TestUnknownHidden(t *testing.T) {
 	}
 }
 
+func TestHiddenMentions(t *testing.T) {
+	f := Facts{
+		Readings: []Item{{Title: "城市里的雨水花园"}},
+		Moments:  []Moment{{Quote: "雨水不是废水"}, {Quote: "雨把街道洗亮了"}},
+		Keywords: []Keyword{{Text: "海绵城市"}, {Text: "气候"}, {Text: "雨"}},
+	}
+	body := map[string]string{
+		"overview":  "她写下「雨水不是废水」，又写下「雨把街道洗亮了」，还写下「雨水不是废水」。",
+		"reading":   "读完《城市里的雨水花园》。",
+		"interests": "她关注海绵城市和气候，也写下「雨水不是废水」。",
+		"next":      "请和她聊一聊下雨天。",
+	}
+	sectionsFor := func(h Hidden) []string { return SectionsWithFacts(VisibleFacts(f, h)) }
+	for _, tc := range []struct {
+		name   string
+		hidden Hidden
+		want   map[string][]string
+	}{
+		{"nothing hidden", Hidden{}, map[string][]string{}},
+		{"hidden quote in overview", Hidden{Moments: []string{"雨水不是废水"}},
+			map[string][]string{"overview": {"雨水不是废水"}, "interests": {"雨水不是废水"}}},
+		{"hidden-list order, no duplicates", Hidden{Moments: []string{"雨把街道洗亮了", "雨水不是废水"}},
+			map[string][]string{"overview": {"雨把街道洗亮了", "雨水不是废水"}, "interests": {"雨水不是废水"}}},
+		// Every keyword hidden: interests is not a visible section, so the quote
+		// in it is not flagged; overview still is.
+		{"section not visible", Hidden{Moments: []string{"雨水不是废水"}, Keywords: []string{"海绵城市", "气候", "雨"}},
+			map[string][]string{"overview": {"雨水不是废水"}}},
+		{"one keyword of several", Hidden{Keywords: []string{"气候"}},
+			map[string][]string{"interests": {"气候"}}},
+		{"1-rune keyword ignored", Hidden{Keywords: []string{"雨"}}, map[string][]string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := HiddenMentions(body, sectionsFor(tc.hidden), f, tc.hidden)
+			if got == nil || !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("HiddenMentions = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+	if got := HiddenMentions(nil, SectionKeys, f, Hidden{Moments: []string{"雨水不是废水"}}); got == nil || len(got) != 0 {
+		t.Fatalf("nil body = %#v, want an empty non-nil map", got)
+	}
+}
+
 func TestHiddenNormalize(t *testing.T) {
 	got := Hidden{Moments: []string{"b", "a", "b"}}.Normalize()
 	if !reflect.DeepEqual(got.Moments, []string{"b", "a"}) || got.Keywords == nil || len(got.Keywords) != 0 {
