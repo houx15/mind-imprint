@@ -6,6 +6,7 @@ import { createAssignment, extractWritingFields, type AssignmentKind } from "../
 import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
 import { LibraryPicker } from "./LibraryPicker";
+import { TeacherPage } from "./TeacherPage";
 import {
   buildCreateInput,
   emptySettings,
@@ -355,113 +356,111 @@ export function AssignmentForm({
   }
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[760px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+    <TeacherPage width="narrow">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
+
+      <h1 className="teacher-page-title mt-4">布置作业</h1>
+      <p className="mt-2 text-mk-small text-mk-muted">学生会在收件箱和对应页面顶部看到这份作业。</p>
+
+      {classesError ? (
+        <div className="mt-6 text-mk-small font-semibold text-mk-danger">
+          加载失败：{classesError}{" "}
+          <button type="button" onClick={() => setClassesNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
+      ) : classes === null ? (
+        <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
+      ) : classes.length === 0 ? (
+        <div className="mt-6 text-mk-body text-mk-muted">暂无班级</div>
+      ) : (
+        <form
+          // noValidate: the browser's own tooltips (type=url, number min)
+          // would block submit before buildCreateInput shows its message.
+          noValidate
+          className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
         >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+          <Field label="班级">
+            <select
+              value={draft.classId}
+              onChange={(e) => {
+                const classId = e.target.value;
+                writeLastClassId(classId);
+                setDraft((d) => ({ ...d, classId }));
+              }}
+              className={INPUT_CLS}
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <h1 className="mt-4 text-mk-h1 tracking-tight text-mk-ink">布置作业</h1>
-        <p className="mt-2 text-mk-small text-mk-muted">学生会在收件箱和对应页面顶部看到这份作业。</p>
+          <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
 
-        {classesError ? (
-          <div className="mt-6 text-mk-small font-semibold text-mk-danger">
-            加载失败：{classesError}{" "}
-            <button type="button" onClick={() => setClassesNonce((n) => n + 1)} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
-        ) : classes === null ? (
-          <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
-        ) : classes.length === 0 ? (
-          <div className="mt-6 text-mk-body text-mk-muted">暂无班级</div>
-        ) : (
-          <form
-            // noValidate: the browser's own tooltips (type=url, number min)
-            // would block submit before buildCreateInput shows its message.
-            noValidate
-            className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-mk-xs sm:p-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit();
-            }}
-          >
-            <Field label="班级">
-              <select
-                value={draft.classId}
-                onChange={(e) => {
-                  const classId = e.target.value;
-                  writeLastClassId(classId);
-                  setDraft((d) => ({ ...d, classId }));
-                }}
-                className={INPUT_CLS}
-              >
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
-
-            <Field label="标题">
-              <input
-                value={draft.title}
-                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                maxLength={200}
-                className={INPUT_CLS}
-              />
-            </Field>
-
-            <Field label="说明">
-              <textarea
-                value={draft.instructions}
-                onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value }))}
-                rows={3}
-                className={INPUT_CLS}
-              />
-            </Field>
-
-            <Field label="截止时间（北京时间）">
-              <input
-                type="datetime-local"
-                value={draft.dueInput}
-                onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
-                className={INPUT_CLS}
-              />
-            </Field>
-
-            <SettingsFields value={draft} onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))} />
-
-            <RecipientChecklist
-              roster={roster}
-              error={rosterError}
-              onRetry={() => setRosterNonce((n) => n + 1)}
-              selected={draft.userIds}
-              onChange={(userIds) => setDraft((d) => ({ ...d, userIds }))}
+          <Field label="标题">
+            <input
+              value={draft.title}
+              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+              maxLength={200}
+              className={INPUT_CLS}
             />
+          </Field>
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
-              <Button type="submit" variant="primary" disabled={busy}>
-                {busy ? "发布中" : "发布作业"}
-              </Button>
-              {message && (
-                <span className="text-mk-small font-semibold text-mk-danger" role="alert">
-                  {message}
-                </span>
-              )}
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          <Field label="说明">
+            <textarea
+              value={draft.instructions}
+              onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value }))}
+              rows={3}
+              className={INPUT_CLS}
+            />
+          </Field>
+
+          <Field label="截止时间（北京时间）">
+            <input
+              type="datetime-local"
+              value={draft.dueInput}
+              onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
+              className={INPUT_CLS}
+            />
+          </Field>
+
+          <SettingsFields value={draft} onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))} />
+
+          <RecipientChecklist
+            roster={roster}
+            error={rosterError}
+            onRetry={() => setRosterNonce((n) => n + 1)}
+            selected={draft.userIds}
+            onChange={(userIds) => setDraft((d) => ({ ...d, userIds }))}
+          />
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
+            <Button type="submit" variant="primary" disabled={busy}>
+              {busy ? "发布中" : "发布作业"}
+            </Button>
+            {message && (
+              <span className="text-mk-small font-semibold text-mk-danger" role="alert">
+                {message}
+              </span>
+            )}
+          </div>
+        </form>
+      )}
+    </TeacherPage>
   );
 }
 

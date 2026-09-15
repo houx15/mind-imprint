@@ -1216,25 +1216,6 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
- * 导航栏 · 窄屏收窄（`.mk-lite-navslot` / `.mk-lite-nav`）
- *
- * The folded rail is 64px, which is 17% of a 375px screen spent on two icons
- * — and it is spent on the ONE screen (the reading room) whose article, coach
- * column and paragraph bar are already fighting over the width. Below 560px it
- * folds to 48px; the hover/focus expansion to 208px is untouched, because
- * `.hover\:w-\[208px\]:hover` is (0,2,0) and outranks these.
- * ------------------------------------------------------------------------- */
-@media (max-width: 560px) {
-  .mk-lite-navslot {
-    width: 48px;
-  }
-
-  .mk-lite-nav {
-    width: 48px;
-    padding: 8px;
-  }
-}
 
 /* ---------------------------------------------------------------------------
  * 完成这篇的确认框 + 报告底部的五颗星

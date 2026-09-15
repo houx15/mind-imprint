@@ -17,6 +17,7 @@ import { rangeLabel } from "../parentReport/range";
 import { posterFileName, SECTION_LABELS, toggleHidden, visibleFacts } from "../parentReport/view";
 import { exportPoster } from "../reports/exportPoster";
 import { errorText, failText } from "./assignmentLogic";
+import { TeacherPage } from "./TeacherPage";
 import {
   draftErrorText,
   errorCode,
@@ -315,21 +316,19 @@ export function ParentReportEditor({
 
   if (loadError || report === null) {
     return (
-      <div className="min-h-full">
-        <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
-          {backButton}
-          {loadError ? (
-            <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-              加载失败：{loadError}{" "}
-              <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-                重试
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-          )}
-        </div>
-      </div>
+      <TeacherPage width="full">
+        {backButton}
+        {loadError ? (
+          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+            加载失败：{loadError}{" "}
+            <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+              重试
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+        )}
+      </TeacherPage>
     );
   }
 
@@ -344,13 +343,13 @@ export function ParentReportEditor({
   };
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[1320px] px-4 pb-16 pt-8 sm:px-8">
+    <>
+      <TeacherPage width="full">
         {backButton}
 
-        <p className="mt-4 text-mk-label text-mk-muted">家长报告</p>
+        <p className="learning-landing-kicker mt-4">家长报告</p>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-mk-h1 tracking-tight text-mk-ink">{report.view.studentName || "—"}</h1>
+          <h1 className="teacher-page-title">{report.view.studentName || "—"}</h1>
           <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="secondary" size="sm" onClick={requestRedraft} disabled={anyBusy || studentLeft}>
               {busy === "redraft" ? "生成中" : "重新生成草稿"}
@@ -515,12 +514,12 @@ export function ParentReportEditor({
             </div>
           </aside>
         </div>
-      </div>
+      </TeacherPage>
 
       {/* Mounted only while an export runs. The offscreen offset lives on the
           poster's own wrapper, never on the node that is rasterized. */}
       {poster && <ParentReportPoster ref={posterRef} report={poster} />}
-    </div>
+    </>
   );
 }
 

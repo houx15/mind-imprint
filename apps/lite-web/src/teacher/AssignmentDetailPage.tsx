@@ -14,6 +14,7 @@ import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadl
 import { useAlive } from "../shared/useAlive";
 import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
+import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
   canEditSettings,
@@ -202,196 +203,194 @@ export function AssignmentDetailPage({
   const unassigned = roster ? unassignedStudents(roster, recipients) : null;
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+    <TeacherPage>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        {error ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{error}{" "}
-            <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
-        ) : assignment === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : (
-          <>
-            {edit ? (
-              <form
-                // noValidate: same reason as AssignmentForm — buildPatchInput's
-                // messages, not the browser's tooltips.
-                noValidate
-                className="mt-4 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-mk-xs sm:p-6"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void save();
-                }}
-              >
-                {editable && (
-                  <KindField
-                    value={edit.settings.kind}
-                    onChange={(kind) => setEdit((d) => (d ? { ...d, settings: { ...d.settings, kind } } : d))}
-                  />
+      {error ? (
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{error}{" "}
+          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
+      ) : assignment === null ? (
+        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+      ) : (
+        <>
+          {edit ? (
+            <form
+              // noValidate: same reason as AssignmentForm — buildPatchInput's
+              // messages, not the browser's tooltips.
+              noValidate
+              className="mt-4 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save();
+              }}
+            >
+              {editable && (
+                <KindField
+                  value={edit.settings.kind}
+                  onChange={(kind) => setEdit((d) => (d ? { ...d, settings: { ...d.settings, kind } } : d))}
+                />
+              )}
+              <Field label="标题">
+                <input
+                  value={edit.title}
+                  onChange={(e) => setEdit((d) => (d ? { ...d, title: e.target.value } : d))}
+                  maxLength={200}
+                  className={INPUT_CLS}
+                />
+              </Field>
+              <Field label="说明">
+                <textarea
+                  value={edit.instructions}
+                  onChange={(e) => setEdit((d) => (d ? { ...d, instructions: e.target.value } : d))}
+                  rows={3}
+                  className={INPUT_CLS}
+                />
+              </Field>
+              <Field label="截止时间（北京时间）">
+                <input
+                  type="datetime-local"
+                  value={edit.dueInput}
+                  onChange={(e) => setEdit((d) => (d ? { ...d, dueInput: e.target.value } : d))}
+                  className={INPUT_CLS}
+                />
+              </Field>
+              {editable ? (
+                <SettingsFields
+                  value={edit.settings}
+                  onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
+                />
+              ) : (
+                <p className="text-mk-small text-mk-muted">已有学生开始这份作业，类型和设置不能再修改</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
+                <Button type="submit" variant="primary" size="sm" disabled={busy}>
+                  保存
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEdit(null)} disabled={busy}>
+                  取消
+                </Button>
+                {message && (
+                  <span className="text-mk-small font-semibold text-mk-danger" role="alert">
+                    {message}
+                  </span>
                 )}
-                <Field label="标题">
-                  <input
-                    value={edit.title}
-                    onChange={(e) => setEdit((d) => (d ? { ...d, title: e.target.value } : d))}
-                    maxLength={200}
-                    className={INPUT_CLS}
-                  />
-                </Field>
-                <Field label="说明">
-                  <textarea
-                    value={edit.instructions}
-                    onChange={(e) => setEdit((d) => (d ? { ...d, instructions: e.target.value } : d))}
-                    rows={3}
-                    className={INPUT_CLS}
-                  />
-                </Field>
-                <Field label="截止时间（北京时间）">
-                  <input
-                    type="datetime-local"
-                    value={edit.dueInput}
-                    onChange={(e) => setEdit((d) => (d ? { ...d, dueInput: e.target.value } : d))}
-                    className={INPUT_CLS}
-                  />
-                </Field>
-                {editable ? (
-                  <SettingsFields
-                    value={edit.settings}
-                    onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
-                  />
-                ) : (
-                  <p className="text-mk-small text-mk-muted">已有学生开始这份作业，类型和设置不能再修改</p>
-                )}
-                <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
-                  <Button type="submit" variant="primary" size="sm" disabled={busy}>
-                    保存
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setEdit(null)} disabled={busy}>
-                    取消
-                  </Button>
-                  {message && (
-                    <span className="text-mk-small font-semibold text-mk-danger" role="alert">
-                      {message}
-                    </span>
-                  )}
-                </div>
-              </form>
+              </div>
+            </form>
+          ) : (
+            <AssignmentHeader
+              assignment={assignment}
+              articleTitle={articleTitle}
+              busy={busy}
+              confirmArchive={confirmArchive}
+              message={message}
+              onEdit={() => {
+                setMessage(null);
+                setConfirmArchive(false);
+                setEdit({
+                  title: assignment.title,
+                  instructions: assignment.instructions,
+                  dueInput: isoToBeijingInput(assignment.dueAt),
+                  settings: settingsFromAssignment(assignment.kind, assignment.payload),
+                });
+              }}
+              onArchive={() => {
+                setMessage(null);
+                setConfirmArchive(true);
+              }}
+              onConfirmArchive={() => void archive()}
+              onCancelArchive={() => setConfirmArchive(false)}
+            />
+          )}
+
+          <section className="mt-8">
+            <h2 className="text-mk-h3 text-mk-ink">学生</h2>
+            {recipients.length === 0 ? (
+              <p className="mt-2 text-mk-small text-mk-muted">暂无学生</p>
             ) : (
-              <AssignmentHeader
-                assignment={assignment}
-                articleTitle={articleTitle}
-                busy={busy}
-                confirmArchive={confirmArchive}
-                message={message}
-                onEdit={() => {
-                  setMessage(null);
-                  setConfirmArchive(false);
-                  setEdit({
-                    title: assignment.title,
-                    instructions: assignment.instructions,
-                    dueInput: isoToBeijingInput(assignment.dueAt),
-                    settings: settingsFromAssignment(assignment.kind, assignment.payload),
-                  });
-                }}
-                onArchive={() => {
-                  setMessage(null);
-                  setConfirmArchive(true);
-                }}
-                onConfirmArchive={() => void archive()}
-                onCancelArchive={() => setConfirmArchive(false)}
-              />
-            )}
-
-            <section className="mt-8">
-              <h2 className="text-mk-h3 text-mk-ink">学生</h2>
-              {recipients.length === 0 ? (
-                <p className="mt-2 text-mk-small text-mk-muted">暂无学生</p>
-              ) : (
-                <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
-                  <table className="w-full min-w-[600px] border-collapse">
-                    <thead>
-                      <tr>
-                        {["学生", "状态", "开始时间", "完成时间", "操作"].map((h) => (
-                          <th
-                            key={h}
-                            className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recipients.map((r) => (
-                        <tr key={r.userId}>
-                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                            {r.displayName}
-                          </td>
-                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
-                            <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
-                          </td>
-                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                            {r.startedAt ? formatDeadline(r.startedAt) : "—"}
-                          </td>
-                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                            {r.finishedAt ? formatDeadline(r.finishedAt) : "—"}
-                          </td>
-                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
-                            {r.atomId ? (
-                              <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
-                                查看
-                              </Button>
-                            ) : (
-                              <span className="text-mk-muted">—</span>
-                            )}
-                          </td>
-                        </tr>
+              <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
+                <table className="w-full min-w-[600px] border-collapse">
+                  <thead>
+                    <tr>
+                      {["学生", "状态", "开始时间", "完成时间", "操作"].map((h) => (
+                        <th
+                          key={h}
+                          className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
+                        >
+                          {h}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recipients.map((r) => (
+                      <tr key={r.userId}>
+                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
+                          {r.displayName}
+                        </td>
+                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
+                          <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
+                        </td>
+                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                          {r.startedAt ? formatDeadline(r.startedAt) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                          {r.finishedAt ? formatDeadline(r.finishedAt) : "—"}
+                        </td>
+                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
+                          {r.atomId ? (
+                            <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
+                              查看
+                            </Button>
+                          ) : (
+                            <span className="text-mk-muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
-            <section className="mt-8">
-              <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
-              {rosterError ? (
-                <div className="mt-2 text-mk-small font-semibold text-mk-danger">
-                  加载失败：{rosterError}{" "}
-                  <button type="button" onClick={() => setRosterNonce((n) => n + 1)} className="cursor-pointer underline">
-                    重试
-                  </button>
+          <section className="mt-8">
+            <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
+            {rosterError ? (
+              <div className="mt-2 text-mk-small font-semibold text-mk-danger">
+                加载失败：{rosterError}{" "}
+                <button type="button" onClick={() => setRosterNonce((n) => n + 1)} className="cursor-pointer underline">
+                  重试
+                </button>
+              </div>
+            ) : unassigned === null ? (
+              <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
+            ) : unassigned.length === 0 ? (
+              <p className="mt-2 text-mk-small text-mk-muted">暂无未布置的学生</p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />
+                <div>
+                  <Button variant="secondary" size="sm" onClick={() => void addStudents()} disabled={busy || toAdd.length === 0}>
+                    添加学生
+                  </Button>
                 </div>
-              ) : unassigned === null ? (
-                <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
-              ) : unassigned.length === 0 ? (
-                <p className="mt-2 text-mk-small text-mk-muted">暂无未布置的学生</p>
-              ) : (
-                <div className="mt-3 flex flex-col gap-3">
-                  <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />
-                  <div>
-                    <Button variant="secondary" size="sm" onClick={() => void addStudents()} disabled={busy || toAdd.length === 0}>
-                      添加学生
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
-    </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </TeacherPage>
   );
 }
 
@@ -432,9 +431,9 @@ function AssignmentHeader({
 
   return (
     <>
-      <p className="mt-4 text-mk-label text-mk-muted">{kindLabel(kind)}</p>
+      <p className="learning-landing-kicker mt-4">{kindLabel(kind)}</p>
       <div className="mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="text-mk-h1 tracking-tight text-mk-ink">{assignment.title}</h1>
+        <h1 className="teacher-page-title">{assignment.title}</h1>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <Button variant="secondary" size="sm" onClick={onEdit} disabled={busy}>
             修改
@@ -462,7 +461,7 @@ function AssignmentHeader({
         </div>
       )}
 
-      <dl className="mt-4 grid grid-cols-1 gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-mk-xs sm:grid-cols-[120px_1fr]">
+      <dl className="mt-4 grid grid-cols-1 gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:grid-cols-[120px_1fr]">
         <InfoRow label="截止时间">{formatDeadline(assignment.dueAt)}</InfoRow>
         <InfoRow label="设置">{settingsSummary(kind, payload, articleTitle)}</InfoRow>
         {kind === "reading" && settings.readingSource === "url" && (

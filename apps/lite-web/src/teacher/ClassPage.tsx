@@ -5,6 +5,7 @@ import { api } from "@/api";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatMinutes } from "./format";
 import { errorText } from "./assignmentLogic";
+import { TeacherPage } from "./TeacherPage";
 
 /**
  * ClassPage — the lite teacher end's one class: name + join code header,
@@ -186,217 +187,215 @@ export function ClassPage({
   const sortedRoster = roster ? sortRoster(roster, sortKey, sortDir) : null;
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[1120px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+    <TeacherPage width="wide">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        {headerError ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{headerError}{" "}
-            <button type="button" onClick={loadHeader} className="cursor-pointer underline">
+      {headerError ? (
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{headerError}{" "}
+          <button type="button" onClick={loadHeader} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
+      ) : name === null ? (
+        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+      ) : null}
+
+      {name !== null && (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {renaming ? (
+              <>
+                <input
+                  autoFocus
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  className="teacher-page-title min-w-0 max-w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                />
+                <Button variant="secondary" size="sm" onClick={() => void doRename()} disabled={busy}>
+                  保存
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setRenaming(false)}>
+                  取消
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="teacher-page-title">{name}</div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setDraftName(name);
+                    setRenaming(true);
+                  }}
+                >
+                  改名
+                </Button>
+              </>
+            )}
+            {(onOpenWeekly || onNewAssignment) && (
+              <div className="flex items-center gap-2 sm:ml-auto">
+                {onOpenWeekly && (
+                  <Button variant="secondary" size="sm" onClick={onOpenWeekly}>
+                    周报
+                  </Button>
+                )}
+                {onNewAssignment && (
+                  <Button variant="primary" size="sm" onClick={onNewAssignment}>
+                    布置作业
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span
+              className="rounded-mk-md px-3 py-1.5 text-mk-small font-bold text-mk-accent-700"
+              style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface))" }}
+            >
+              邀请码 {joinCode}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void navigator.clipboard?.writeText(joinCode ?? "")}
+            >
+              复制
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
+              轮换
+            </Button>
+            {confirmRegen && (
+              <span className="inline-flex items-center gap-2 text-mk-small font-semibold text-mk-danger">
+                轮换后旧邀请码立即失效，确定？
+                <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
+                  确认轮换
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
+                  取消
+                </Button>
+              </span>
+            )}
+          </div>
+
+          {mutationError && (
+            <div className="mt-3 text-mk-small font-semibold text-mk-danger">{mutationError}</div>
+          )}
+        </>
+      )}
+
+      <div className="mt-8">
+        {rosterError ? (
+          <div className="text-mk-small font-semibold text-mk-danger">
+            加载失败：{rosterError}{" "}
+            <button type="button" onClick={loadRoster} className="cursor-pointer underline">
               重试
             </button>
           </div>
-        ) : name === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : null}
-
-        {name !== null && (
-          <>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {renaming ? (
-                <>
-                  <input
-                    autoFocus
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    className="rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-h1 text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-                  />
-                  <Button variant="secondary" size="sm" onClick={() => void doRename()} disabled={busy}>
-                    保存
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setRenaming(false)}>
-                    取消
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div className="text-mk-h1 tracking-tight text-mk-ink">{name}</div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setDraftName(name);
-                      setRenaming(true);
-                    }}
-                  >
-                    改名
-                  </Button>
-                </>
-              )}
-              {(onOpenWeekly || onNewAssignment) && (
-                <div className="flex items-center gap-2 sm:ml-auto">
-                  {onOpenWeekly && (
-                    <Button variant="secondary" size="sm" onClick={onOpenWeekly}>
-                      周报
-                    </Button>
-                  )}
-                  {onNewAssignment && (
-                    <Button variant="primary" size="sm" onClick={onNewAssignment}>
-                      布置作业
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span
-                className="rounded-mk-md px-3 py-1.5 text-mk-small font-bold text-mk-accent-700"
-                style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface))" }}
-              >
-                邀请码 {joinCode}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void navigator.clipboard?.writeText(joinCode ?? "")}
-              >
-                复制
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
-                轮换
-              </Button>
-              {confirmRegen && (
-                <span className="inline-flex items-center gap-2 text-mk-small font-semibold text-mk-danger">
-                  轮换后旧邀请码立即失效，确定？
-                  <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
-                    确认轮换
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
-                    取消
-                  </Button>
-                </span>
-              )}
-            </div>
-
-            {mutationError && (
-              <div className="mt-3 text-mk-small font-semibold text-mk-danger">{mutationError}</div>
-            )}
-          </>
-        )}
-
-        <div className="mt-8">
-          {rosterError ? (
-            <div className="text-mk-small font-semibold text-mk-danger">
-              加载失败：{rosterError}{" "}
-              <button type="button" onClick={loadRoster} className="cursor-pointer underline">
-                重试
-              </button>
-            </div>
-          ) : sortedRoster === null ? (
-            <div className="text-mk-body text-mk-muted">加载中…</div>
-          ) : sortedRoster.length === 0 ? (
-            <div className="text-mk-body text-mk-muted">
-              暂无学生。请将邀请码 {joinCode ?? "—"} 发给学生。
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
-              <table className="w-full min-w-[980px] border-collapse">
-                <thead>
-                  <tr>
-                    {COLUMNS.map((col) => (
-                      <th
-                        key={col.key}
-                        onClick={() => onSort(col.key)}
-                        className="cursor-pointer whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
-                      >
-                        {col.label}
-                        {sortKey === col.key && (sortDir === "asc" ? " ↑" : " ↓")}
-                      </th>
-                    ))}
-                    <th className="border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted">
-                      操作
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRoster.map((s) => (
-                    <tr
-                      key={s.id}
-                      onClick={() => onOpenStudent(s.id)}
-                      className="cursor-pointer hover:bg-mk-accent-50"
+        ) : sortedRoster === null ? (
+          <div className="text-mk-body text-mk-muted">加载中…</div>
+        ) : sortedRoster.length === 0 ? (
+          <div className="text-mk-body text-mk-muted">
+            暂无学生。请将邀请码 {joinCode ?? "—"} 发给学生。
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
+            <table className="w-full min-w-[980px] border-collapse">
+              <thead>
+                <tr>
+                  {COLUMNS.map((col) => (
+                    <th
+                      key={col.key}
+                      onClick={() => onSort(col.key)}
+                      className="cursor-pointer whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
                     >
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                        {s.displayName}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {lastActiveLabel(s.lastActiveAt)}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {s.activeDaysThisWeek}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {formatMinutes(s.minutesThisWeek)}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {formatMinutes(s.minutesTotal)}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {s.turns}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {s.readingsDone}/{s.readingsTotal}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {s.writingsDone}/{s.writingsTotal}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {s.projectsDone}/{s.projectsTotal}
-                      </td>
-                      <td
-                        className={
-                          "whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small tabular-nums " +
-                          (s.overdueAssignments > 0 ? "font-bold text-mk-danger" : "text-mk-ink")
-                        }
-                      >
-                        {s.overdueAssignments}
-                      </td>
-                      <td
-                        className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-right text-mk-small"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {confirmRemove === s.id ? (
-                          <span className="inline-flex items-center gap-2 font-semibold text-mk-danger">
-                            移出后该学生将无法看到本班内容，确定？
-                            <Button variant="danger" size="sm" onClick={() => void doRemove(s.id)} disabled={busy}>
-                              确认移出
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
-                              取消
-                            </Button>
-                          </span>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(s.id)}>
-                            移出班级
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
+                      {col.label}
+                      {sortKey === col.key && (sortDir === "asc" ? " ↑" : " ↓")}
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  <th className="border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRoster.map((s) => (
+                  <tr
+                    key={s.id}
+                    onClick={() => onOpenStudent(s.id)}
+                    className="cursor-pointer hover:bg-mk-accent-50"
+                  >
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
+                      {s.displayName}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {lastActiveLabel(s.lastActiveAt)}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {s.activeDaysThisWeek}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {formatMinutes(s.minutesThisWeek)}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {formatMinutes(s.minutesTotal)}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {s.turns}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {s.readingsDone}/{s.readingsTotal}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {s.writingsDone}/{s.writingsTotal}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {s.projectsDone}/{s.projectsTotal}
+                    </td>
+                    <td
+                      className={
+                        "whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small tabular-nums " +
+                        (s.overdueAssignments > 0 ? "font-bold text-mk-danger" : "text-mk-ink")
+                      }
+                    >
+                      {s.overdueAssignments}
+                    </td>
+                    <td
+                      className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-right text-mk-small"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {confirmRemove === s.id ? (
+                        <span className="inline-flex items-center gap-2 font-semibold text-mk-danger">
+                          移出后该学生将无法看到本班内容，确定？
+                          <Button variant="danger" size="sm" onClick={() => void doRemove(s.id)} disabled={busy}>
+                            确认移出
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
+                            取消
+                          </Button>
+                        </span>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(s.id)}>
+                          移出班级
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-    </div>
+    </TeacherPage>
   );
 }

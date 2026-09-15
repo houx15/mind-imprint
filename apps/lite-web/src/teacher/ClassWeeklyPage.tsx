@@ -5,6 +5,7 @@ import { formatMinutes } from "./format";
 import { canGoNext, shiftWeek } from "./weekNav";
 import { useWeekly } from "./useWeekly";
 import { cardShowsProse } from "./classWeeklyLogic";
+import { TeacherPage } from "./TeacherPage";
 import { CardTag, FactTile, GroupShell, LoadFailed, ProseStatus, WeekHeader } from "./WeekSummaryCard";
 
 /**
@@ -37,77 +38,75 @@ export function ClassWeeklyPage({
   const { data } = w;
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[1120px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+    <TeacherPage width="wide">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        <div className="mt-4">
-          <WeekHeader
-            title={data?.title ?? null}
-            weekLabel={data?.weekLabel ?? ""}
-            level="h1"
-            onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
-            onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
-          />
-        </div>
-
-        {w.notStarted ? (
-          <p className="mt-4 text-mk-body text-mk-muted">{w.notStarted}</p>
-        ) : w.loadError ? (
-          <LoadFailed message={w.loadError} onRetry={w.reload} />
-        ) : data === null ? (
-          <p className="mt-4 text-mk-body text-mk-muted">加载中…</p>
-        ) : (
-          <>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <FactTile label="活跃学生" value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
-              <FactTile label="学习时长" value={formatMinutes(data.stats.minutes)} />
-              <FactTile label="对话轮次" value={`${data.stats.turns} 轮`} />
-              <FactTile label="完成项目数" value={`${data.stats.finished} 项`} />
-              <FactTile
-                label="作业完成率"
-                value={data.stats.assignmentRate < 0 ? "—" : `${data.stats.assignmentRate}%`}
-              />
-            </div>
-
-            <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
-              <h2 className="text-mk-h3 text-mk-ink">班级点评</h2>
-              {data.prose ? (
-                <p className="mt-2 whitespace-pre-wrap text-mk-body text-mk-ink">{data.prose.comment}</p>
-              ) : data.empty ? (
-                <p className="mt-2 text-mk-body text-mk-muted">该周没有学习记录</p>
-              ) : (
-                <ProseStatus state={w.prose} onRetry={w.retryProse} />
-              )}
-            </section>
-
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <StudentGroup
-                title="值得表扬"
-                cards={data.praise}
-                prose={data.prose}
-                watchUserIds={new Set(data.watch.map((c) => c.userId))}
-                onOpenStudent={onOpenStudent}
-              />
-              <StudentGroup
-                title="需要建议"
-                cards={data.watch}
-                prose={data.prose}
-                watchUserIds={new Set(data.watch.map((c) => c.userId))}
-                onOpenStudent={onOpenStudent}
-              />
-            </div>
-          </>
-        )}
+      <div className="mt-4">
+        <WeekHeader
+          title={data?.title ?? null}
+          weekLabel={data?.weekLabel ?? ""}
+          level="h1"
+          onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
+          onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
+        />
       </div>
-    </div>
+
+      {w.notStarted ? (
+        <p className="mt-4 text-mk-body text-mk-muted">{w.notStarted}</p>
+      ) : w.loadError ? (
+        <LoadFailed message={w.loadError} onRetry={w.reload} />
+      ) : data === null ? (
+        <p className="mt-4 text-mk-body text-mk-muted">加载中…</p>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <FactTile label="活跃学生" value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
+            <FactTile label="学习时长" value={formatMinutes(data.stats.minutes)} />
+            <FactTile label="对话轮次" value={`${data.stats.turns} 轮`} />
+            <FactTile label="完成项目数" value={`${data.stats.finished} 项`} />
+            <FactTile
+              label="作业完成率"
+              value={data.stats.assignmentRate < 0 ? "—" : `${data.stats.assignmentRate}%`}
+            />
+          </div>
+
+          <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
+            <h2 className="text-mk-h3 text-mk-ink">班级点评</h2>
+            {data.prose ? (
+              <p className="mt-2 whitespace-pre-wrap text-mk-body text-mk-ink">{data.prose.comment}</p>
+            ) : data.empty ? (
+              <p className="mt-2 text-mk-body text-mk-muted">该周没有学习记录</p>
+            ) : (
+              <ProseStatus state={w.prose} onRetry={w.retryProse} />
+            )}
+          </section>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <StudentGroup
+              title="值得表扬"
+              cards={data.praise}
+              prose={data.prose}
+              watchUserIds={new Set(data.watch.map((c) => c.userId))}
+              onOpenStudent={onOpenStudent}
+            />
+            <StudentGroup
+              title="需要建议"
+              cards={data.watch}
+              prose={data.prose}
+              watchUserIds={new Set(data.watch.map((c) => c.userId))}
+              onOpenStudent={onOpenStudent}
+            />
+          </div>
+        </>
+      )}
+    </TeacherPage>
   );
 }
 

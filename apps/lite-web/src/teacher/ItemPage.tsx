@@ -7,6 +7,7 @@ import { getItem, type ItemDetail } from "../api/teacher";
 import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
 import { displayStat } from "../reports/statLabels";
 import { useAlive } from "../shared/useAlive";
+import { TeacherPage } from "./TeacherPage";
 
 /**
  * ItemPage — one item (reading/writing/project), from the teacher's side.
@@ -119,31 +120,29 @@ export function ItemPage({
   }, [detail, classId, userId, atomId, alive]);
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[860px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+    <TeacherPage>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        {error ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{error}{" "}
-            <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
-        ) : detail === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : (
-          <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
-        )}
-      </div>
-    </div>
+      {error ? (
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{error}{" "}
+          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
+      ) : detail === null ? (
+        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+      ) : (
+        <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
+      )}
+    </TeacherPage>
   );
 }
 
@@ -186,8 +185,8 @@ function ItemBody({
   const { item } = detail;
   return (
     <>
-      <p className="mt-4 text-mk-label text-mk-muted">{kindLabel(item.kind)}</p>
-      <h1 className="mt-1 text-mk-h1 tracking-tight text-mk-ink">{item.title}</h1>
+      <p className="learning-landing-kicker mt-4">{kindLabel(item.kind)}</p>
+      <h1 className="teacher-page-title mt-1">{item.title}</h1>
       <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-muted">
         <span>{itemStatusLabel(item.kind, item.status)}</span>
         <span>时长 {formatMinutes(item.minutes)}</span>

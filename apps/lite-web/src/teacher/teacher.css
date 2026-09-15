@@ -1,0 +1,37 @@
+/* Teacher pages. Measures come from learning/landing.css; these are the extra widths and the heading type. */
+.learning-landing-measure.teacher-page--narrow {
+  max-width: 760px;
+}
+.learning-landing-measure.teacher-page--full {
+  max-width: 1320px;
+}
+
+/* Full-bleed band inside a teacher page (the interest tree): cancels the measure's side padding at each breakpoint. */
+.teacher-page-bleed {
+  margin-inline: calc(-1 * var(--mk-space-38));
+}
+@media (max-width: 700px) {
+  .teacher-page-bleed {
+    margin-inline: calc(-1 * var(--mk-space-20));
+  }
+}
+@media (max-width: 400px) {
+  .teacher-page-bleed {
+    margin-inline: calc(-1 * var(--mk-space-16));
+  }
+}
+
+/* Same type as the student landing headings (`.learning-landing-header h1`). */
+.teacher-page-title {
+  font-size: var(--mk-font-size-page);
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  color: var(--mk-ink);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .teacher-page-title {
+    font-size: var(--mk-font-size-page-mobile);
+  }
+}

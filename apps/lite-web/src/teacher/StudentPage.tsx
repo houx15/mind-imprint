@@ -18,6 +18,7 @@ import { errorText } from "./assignmentLogic";
 import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
 import { GenerateParentReportDialog } from "./GenerateParentReportDialog";
 import { rememberDraftError } from "./parentReportLogic";
+import { TeacherPage } from "./TeacherPage";
 import { WeekSummaryCard } from "./WeekSummaryCard";
 import { TreeView } from "../tree/TreeView";
 import { useInterestTree } from "../tree/useInterestTree";
@@ -121,96 +122,94 @@ export function StudentPage({
   const projects = page?.items.filter((i) => i.kind === "project") ?? [];
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回
-        </button>
+    <TeacherPage>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        {pageError ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{pageError}{" "}
-            <button
-              type="button"
-              onClick={() => setPageNonce((n) => n + 1)}
-              className="cursor-pointer underline"
-            >
-              重试
-            </button>
+      {pageError ? (
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{pageError}{" "}
+          <button
+            type="button"
+            onClick={() => setPageNonce((n) => n + 1)}
+            className="cursor-pointer underline"
+          >
+            重试
+          </button>
+        </div>
+      ) : page === null ? (
+        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h1 className="teacher-page-title">{page.student.displayName}</h1>
+            <Button variant="primary" size="sm" className="sm:ml-auto" onClick={() => setGenerating(true)}>
+              生成家长报告
+            </Button>
           </div>
-        ) : page === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : (
-          <>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <h1 className="text-mk-h1 tracking-tight text-mk-ink">{page.student.displayName}</h1>
-              <Button variant="primary" size="sm" className="sm:ml-auto" onClick={() => setGenerating(true)}>
-                生成家长报告
-              </Button>
-            </div>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
-              <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
-              <StatTile label="本周活跃天数" value={`${page.student.activeDaysThisWeek} 天`} />
-              <StatTile label="对话轮次" value={`${page.student.turns} 轮`} />
-              <StatTile label="阅读" value={`${page.student.readingsDone}/${page.student.readingsTotal}`} />
-              <StatTile label="写作" value={`${page.student.writingsDone}/${page.student.writingsTotal}`} />
-              <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
-            </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
+            <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
+            <StatTile label="本周活跃天数" value={`${page.student.activeDaysThisWeek} 天`} />
+            <StatTile label="对话轮次" value={`${page.student.turns} 轮`} />
+            <StatTile label="阅读" value={`${page.student.readingsDone}/${page.student.readingsTotal}`} />
+            <StatTile label="写作" value={`${page.student.writingsDone}/${page.student.writingsTotal}`} />
+            <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
+          </div>
 
-            <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
+          <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
 
-            <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
+          <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
 
-            <ParentReportSection
-              key={`parent-reports:${classId}:${userId}`}
+          <ParentReportSection
+            key={`parent-reports:${classId}:${userId}`}
+            classId={classId}
+            userId={userId}
+            onOpen={onOpenParentReport}
+          />
+
+          <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
+          <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
+          <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
+
+          <section className="mt-10">
+            <h2 className="text-mk-h3 text-mk-ink">兴趣树</h2>
+            {live.status === "loading" ? (
+              <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
+            ) : live.status === "error" ? (
+              <p className="mt-2 text-mk-small font-semibold text-mk-danger">兴趣树加载失败：{live.error}</p>
+            ) : live.status === "empty" ? (
+              <p className="mt-2 text-mk-body text-mk-muted">暂无兴趣关键词</p>
+            ) : (
+              <div className="teacher-page-bleed mt-2">
+                <TreeView user={studentUser} live={live} readOnly />
+              </div>
+            )}
+          </section>
+
+          {generating && (
+            <GenerateParentReportDialog
               classId={classId}
               userId={userId}
-              onOpen={onOpenParentReport}
+              studentName={page.student.displayName}
+              onClose={closeGenerate}
+              onCreated={(reportId, draftError) => {
+                rememberDraftError(reportId, draftError);
+                setGenerating(false);
+                onOpenParentReport(reportId);
+              }}
             />
-
-            <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
-            <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
-            <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
-
-            <section className="mt-10">
-              <h2 className="text-mk-h3 text-mk-ink">兴趣树</h2>
-              {live.status === "loading" ? (
-                <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
-              ) : live.status === "error" ? (
-                <p className="mt-2 text-mk-small font-semibold text-mk-danger">兴趣树加载失败：{live.error}</p>
-              ) : live.status === "empty" ? (
-                <p className="mt-2 text-mk-body text-mk-muted">暂无兴趣关键词</p>
-              ) : (
-                <div className="-mx-4 mt-2 sm:-mx-8">
-                  <TreeView user={studentUser} live={live} readOnly />
-                </div>
-              )}
-            </section>
-
-            {generating && (
-              <GenerateParentReportDialog
-                classId={classId}
-                userId={userId}
-                studentName={page.student.displayName}
-                onClose={closeGenerate}
-                onCreated={(reportId, draftError) => {
-                  rememberDraftError(reportId, draftError);
-                  setGenerating(false);
-                  onOpenParentReport(reportId);
-                }}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </>
+      )}
+    </TeacherPage>
   );
 }
 

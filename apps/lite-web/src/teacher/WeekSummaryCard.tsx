@@ -113,7 +113,7 @@ export function WeekHeader({
   const { head, label } = splitWeekTitle(title ?? "", weekLabel);
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <Heading className={level === "h1" ? "text-mk-h1 tracking-tight text-mk-ink" : "text-mk-h3 text-mk-ink"}>
+      <Heading className={level === "h1" ? "teacher-page-title" : "text-mk-h3 text-mk-ink"}>
         {head}
         {label && <span className="whitespace-nowrap">{label}</span>}
       </Heading>
