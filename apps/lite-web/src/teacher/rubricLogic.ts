@@ -69,6 +69,11 @@ export function rubricDefaultNote(lang: "zh" | "en"): string {
     : "评分标准：使用中文默认标准，创建后可在作业详情中调整";
 }
 
+/** 评分方式 label for the detail page's read-only rubric display. */
+export function rubricScaleLabel(d: RubricDraft): string {
+  return d.scale === "points" ? `分数（满分 ${d.max.trim() || "—"}）` : "等级";
+}
+
 const runes = (s: string): number => [...s].length;
 
 export function validateRubricDraft(d: RubricDraft): string | null {

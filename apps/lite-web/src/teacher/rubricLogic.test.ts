@@ -4,6 +4,7 @@ import {
   rubricDefaultNote,
   rubricDraftFromPayload,
   rubricDraftOf,
+  rubricScaleLabel,
   sameRubricDraft,
   validateRubricDraft,
   type RubricDraft,
@@ -54,6 +55,18 @@ describe("rubricDefaultNote", () => {
     expect(rubricDefaultNote("zh")).toContain("中文");
     expect(rubricDefaultNote("en")).toContain("英文");
     expect(rubricDefaultNote("zh")).not.toBe(rubricDefaultNote("en"));
+  });
+});
+
+describe("rubricScaleLabel", () => {
+  // Detail page read-only display: names the scale, and the max only when
+  // it is the scale's own meaning.
+  it("names letter scale plainly and points scale with its max", () => {
+    expect(rubricScaleLabel({ scale: "letter", max: "", dimensions: [], focus: "" })).toBe("等级");
+    expect(rubricScaleLabel({ scale: "points", max: "20", dimensions: [], focus: "" })).toBe("分数（满分 20）");
+  });
+  it("falls back to a placeholder for a blank max", () => {
+    expect(rubricScaleLabel({ scale: "points", max: "", dimensions: [], focus: "" })).toBe("分数（满分 —）");
   });
 });
 

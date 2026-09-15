@@ -6,6 +6,8 @@ import { createAssignment, extractWritingFields, type AssignmentKind } from "../
 import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
 import { LibraryPicker } from "./LibraryPicker";
+import { RubricFields } from "./RubricFields";
+import { rubricDefaultNote } from "./rubricLogic";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildCreateInput,
@@ -188,6 +190,14 @@ export function SettingsFields({
               onChange={(lang) => set({ lang })}
             />
           </div>
+          {value.rubric ? (
+            <RubricFields
+              value={value.rubric}
+              onChange={(update) => onChange((d) => (d.rubric ? { ...d, rubric: update(d.rubric) } : d))}
+            />
+          ) : (
+            <p className="text-mk-small text-mk-muted">{rubricDefaultNote(value.lang)}</p>
+          )}
         </>
       )}
 

@@ -15,6 +15,8 @@ import { useAlive } from "../shared/useAlive";
 import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
 import { ReturnDialog } from "./ReturnDialog";
+import { RubricFields } from "./RubricFields";
+import { rubricScaleLabel } from "./rubricLogic";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
@@ -274,7 +276,19 @@ export function AssignmentDetailPage({
                   onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
                 />
               ) : (
-                <p className="text-mk-small text-mk-muted">已有学生开始这份作业，类型和设置不能再修改</p>
+                <>
+                  <p className="text-mk-small text-mk-muted">已有学生开始这份作业，类型和设置不能再修改</p>
+                  {edit.settings.kind === "writing" && edit.settings.rubric && (
+                    <RubricFields
+                      value={edit.settings.rubric}
+                      onChange={(update) =>
+                        setEdit((d) =>
+                          d && d.settings.rubric ? { ...d, settings: { ...d.settings, rubric: update(d.settings.rubric) } } : d,
+                        )
+                      }
+                    />
+                  )}
+                </>
               )}
               <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
                 <Button type="submit" variant="primary" size="sm" disabled={busy}>
@@ -505,6 +519,14 @@ function AssignmentHeader({
           </InfoRow>
         )}
         {kind === "writing" && settings.prompt && <InfoRow label="题目">{settings.prompt}</InfoRow>}
+        {kind === "writing" && settings.rubric && (
+          <InfoRow label="评分标准">
+            {rubricScaleLabel(settings.rubric)} · {settings.rubric.dimensions.map((d) => d.name).join(" / ") || "—"}
+          </InfoRow>
+        )}
+        {kind === "writing" && settings.rubric && settings.rubric.focus.trim() && (
+          <InfoRow label="批改重点">{settings.rubric.focus}</InfoRow>
+        )}
         {kind === "project" && settings.drivingQuestion && <InfoRow label="驱动问题">{settings.drivingQuestion}</InfoRow>}
         {kind === "project" && settings.description && <InfoRow label="补充说明">{settings.description}</InfoRow>}
         {assignment.instructions && <InfoRow label="说明">{assignment.instructions}</InfoRow>}
