@@ -434,6 +434,47 @@ func TestLiteParentReportGenerate(t *testing.T) {
 	}
 }
 
+// TestLiteParentListsKeepSnapshotNames (restored in the final fix wave): after
+// the class and the student are renamed, both teacher lists still show the
+// student name frozen into the facts, and the report keeps its class and
+// student names. A blank snapshot name falls back to the live name. The list
+// rows carry no class name since publishing was removed.
+func TestLiteParentListsKeepSnapshotNames(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	rep := generateParentReport(t, h, teacher, classID, studentID).Report
+	if rep.Facts.ClassName != "Lite Class" || rep.Facts.StudentName != "林知遥" {
+		t.Fatalf("frozen names = %q %q", rep.Facts.ClassName, rep.Facts.StudentName)
+	}
+
+	mustExec(t, pool, `UPDATE classes SET name = '改名后的班级' WHERE id = $1`, uuid.MustParse(classID))
+	mustExec(t, pool, `UPDATE users SET display_name = '改名后的学生' WHERE id = $1`, studentID)
+
+	var one parentReportResp
+	if code, body := parentDo(t, h, teacher, "GET", parentReportPath(rep.ID), "", &one); code != http.StatusOK ||
+		one.Report.Facts.ClassName != "Lite Class" || one.Report.Facts.StudentName != "林知遥" {
+		t.Fatalf("report after rename = %d %s", code, body)
+	}
+	paths := []string{parentReportsPath(classID, studentID), classParentReportsPath(classID)}
+	for _, path := range paths {
+		var list parentListResp
+		if code, body := parentDo(t, h, teacher, "GET", path, "", &list); code != http.StatusOK ||
+			len(list.Reports) != 1 || list.Reports[0].StudentName != "林知遥" {
+			t.Fatalf("GET %s after rename = %d %s, want studentName 林知遥", path, code, body)
+		}
+	}
+
+	// A blank (whitespace-only) snapshot name falls back to the live name.
+	mustExec(t, pool, `UPDATE lite_parent_report SET facts = facts || '{"studentName":" "}'::jsonb WHERE id = $1`, uuid.MustParse(rep.ID))
+	for _, path := range paths {
+		var list parentListResp
+		if code, body := parentDo(t, h, teacher, "GET", path, "", &list); code != http.StatusOK ||
+			len(list.Reports) != 1 || list.Reports[0].StudentName != "改名后的学生" {
+			t.Fatalf("GET %s with a blank snapshot = %d %s, want studentName 改名后的学生", path, code, body)
+		}
+	}
+}
+
 // TestLiteParentReportGenerateRejected: a reply that fails twice still leaves
 // the report row with its facts; draft and body are null, draftError says why,
 // and both attempts are recorded.
