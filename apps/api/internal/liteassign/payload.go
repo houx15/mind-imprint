@@ -22,9 +22,10 @@ type ReadingPayload struct {
 }
 
 type WritingPayload struct {
-	Prompt      string `json:"prompt"`
-	TargetWords int    `json:"targetWords"`
-	Lang        string `json:"lang"`
+	Prompt      string  `json:"prompt"`
+	TargetWords int     `json:"targetWords"`
+	Lang        string  `json:"lang"`
+	Rubric      *Rubric `json:"rubric,omitempty"`
 }
 
 type ProjectPayload struct {
@@ -112,6 +113,13 @@ func ValidatePayload(kind string, raw json.RawMessage) (json.RawMessage, error) 
 		}
 		if p.Lang != "zh" && p.Lang != "en" {
 			return nil, perr("invalid_lang", "语言只能是中文或英文")
+		}
+		if p.Rubric != nil {
+			r, err := ValidateRubric(*p.Rubric)
+			if err != nil {
+				return nil, err
+			}
+			p.Rubric = &r
 		}
 		return json.Marshal(p)
 	case "project":

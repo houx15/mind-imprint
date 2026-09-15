@@ -91,9 +91,30 @@ func uuidStringPtr(u pgtype.UUID) *string {
 func newAssignmentDTO(as sqlc.LiteAssignment) AssignmentDTO {
 	return AssignmentDTO{
 		ID: as.ID.String(), ClassID: as.ClassID.String(), Kind: as.Kind,
-		Title: as.Title, Instructions: as.Instructions, Payload: json.RawMessage(as.Payload),
-		DueAt: as.DueAt.Format(time.RFC3339), CreatedAt: as.CreatedAt.Format(time.RFC3339),
+		Title: as.Title, Instructions: as.Instructions,
+		Payload: withEffectiveRubric(as.Kind, json.RawMessage(as.Payload)),
+		DueAt:   as.DueAt.Format(time.RFC3339), CreatedAt: as.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+// withEffectiveRubric bakes the rubric a writing homework is graded with —
+// the stored one, or the default for its lang — into the payload the teacher
+// end reads. Every place this package shapes a teacher assignment payload
+// goes through newAssignmentDTO, so the frontend never has to know the Go
+// default rubric names and notes.
+func withEffectiveRubric(kind string, payload json.RawMessage) json.RawMessage {
+	if kind != "writing" {
+		return payload
+	}
+	raw, err := json.Marshal(liteassign.EffectiveRubric(payload))
+	if err != nil {
+		return payload
+	}
+	withRubric, err := liteassign.ApplyRubric(payload, raw)
+	if err != nil {
+		return payload
+	}
+	return withRubric
 }
 
 // returnOf turns a recipient's return columns into liteassign's input; nil
@@ -386,6 +407,7 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		DueAt         *string         `json:"dueAt"`
 		Kind          *string         `json:"kind"`
 		Payload       json.RawMessage `json:"payload"`
+		Rubric        json.RawMessage `json:"rubric"`
 		AddUserIDs    []string        `json:"addUserIds"`
 		RemoveUserIDs []string        `json:"removeUserIds"`
 	}
@@ -485,8 +507,29 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, payloadErrorResponse(err))
 			return
 		}
+		// The rubric changes only through req.Rubric. Carrying the stored one
+		// keeps a resent form from counting as a settings change.
+		if params.Kind == "writing" && locked.Kind == "writing" {
+			if validated, err = liteassign.CarryRubric(validated, locked.Payload); err != nil {
+				httpx.WriteError(w, r, payloadErrorResponse(err))
+				return
+			}
+		}
 		params.Payload = validated
 		settingsChanged = params.Kind != locked.Kind || !samePayload(validated, locked.Payload)
+	}
+	// The rubric stays editable after students start: gradings keep their own copy.
+	if req.Rubric != nil {
+		if params.Kind != "writing" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("rubric_not_writing", "只有写作作业可以设置评分标准", nil))
+			return
+		}
+		withRubric, err := liteassign.ApplyRubric(params.Payload, req.Rubric)
+		if err != nil {
+			httpx.WriteError(w, r, payloadErrorResponse(err))
+			return
+		}
+		params.Payload = withRubric
 	}
 	if settingsChanged {
 		started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, locked.ID)
