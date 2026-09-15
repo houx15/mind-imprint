@@ -183,11 +183,16 @@ func StartHarvestQueue(ctx context.Context, pool *pgxpool.Pool, a *API) (*river.
 	if err := RegisterHarvestWorkers(workers, a); err != nil {
 		return nil, err
 	}
+	if err := RegisterLiteGradingWorker(workers, a); err != nil {
+		return nil, err
+	}
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		// 四个并发。每个 worker 里是一次旗舰调用，所以这个数字既是吞吐也是
-		// 同时在飞的模型请求数；扫尾一轮最多入队 60 个，四个一批慢慢消化，
-		// 好过一次把六十个请求全甩给网关。
-		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
+		// AI 批改有自己的队列，四十人的班一次批改不会挡住采集。两个 worker：
+		// 同时最多两次批改在跑模型。
+		Queues: map[string]river.QueueConfig{
+			river.QueueDefault: {MaxWorkers: 4},
+			liteGradingQueue:   {MaxWorkers: 2},
+		},
 		Workers:      workers,
 		PeriodicJobs: []*river.PeriodicJob{HarvestPeriodicJob()},
 	})
