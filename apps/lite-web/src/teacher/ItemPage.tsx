@@ -201,6 +201,18 @@ function ItemBody({
       </p>
       <p className="mt-3 text-mk-small text-mk-muted">对话内容不向教师展示；以下为学生的产出。</p>
 
+      {detail.writing && (
+        <section className="teacher-record-section teacher-writing-original" aria-labelledby="writing-original-heading">
+          <h2 id="writing-original-heading" className="text-mk-h3 text-mk-ink">写作原文</h2>
+          <p className="mt-1 text-mk-small text-mk-muted">学生当前保存的正文</p>
+          {detail.writing.draft?.trim() ? (
+            <article className="teacher-writing-manuscript">{detail.writing.draft}</article>
+          ) : (
+            <p className="mt-5 text-mk-body text-mk-muted">学生尚未保存写作正文</p>
+          )}
+        </section>
+      )}
+
       <ReportSection
         report={detail.report}
         reportError={detail.reportError}
@@ -361,10 +373,10 @@ function ReadingSection({
 
 function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
   if (!writing) return null;
-  const { targetWords, lang, structureKey, outline, snippets, draft, comments } = writing;
+  const { targetWords, lang, structureKey, outline, snippets, comments } = writing;
   return (
     <section className="teacher-record-section">
-      <h2 className="text-mk-h3 text-mk-ink">写作</h2>
+      <h2 className="text-mk-h3 text-mk-ink">写作过程</h2>
 
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
         <span>目标字数 {targetWords && targetWords > 0 ? `${targetWords} ${lang === "en" ? "词" : "字"}` : "—"}</span>
@@ -396,13 +408,6 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {draft && (
-        <div className="mt-4">
-          <h3 className="text-mk-label text-mk-muted">成稿</h3>
-          <p className="mt-1.5 whitespace-pre-wrap text-mk-body text-mk-ink">{draft}</p>
         </div>
       )}
 

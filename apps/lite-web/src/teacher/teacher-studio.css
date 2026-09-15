@@ -193,3 +193,13 @@
 .teacher-day-segments>span[data-active=true] { background:var(--mk-accent-500); }
 @media(max-width:1000px){.teacher-learning-snapshot:not(.is-compact){grid-template-columns:130px 1fr;gap:24px}.teacher-activity-chart{grid-column:1/-1}.teacher-student-snapshot{gap:24px}}
 .teacher-student-page .teacher-stat-strip { grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+.lite-teacher .teacher-writing-manuscript {
+  margin-top: 24px;
+  max-width: 48em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--mk-ink);
+  font-size: 16px;
+  line-height: 1.95;
+}

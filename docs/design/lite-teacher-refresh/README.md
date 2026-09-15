@@ -34,3 +34,9 @@ Type checking, 698 existing tests, production build and browser activity-filter 
 `ReportVisualSummary` now serves student reports, their public view and exported posters, and teacher reports. It separates time/words/dialogue metrics from activity-count bars and keeps source attribution intact. Both poster types grow with content and retain all nonzero statistics. `ProjectProgressVisual` serves teacher project records and the student plan; the student retains its interactive step rows and approval actions. No API or process-state changes.
 
 697 tests in 72 files passed. One obsolete CSS-class layout test was removed; real Chromium screenshots cover the layout instead. Type checking and the production build passed. Browser checks rendered both student reports, expanded a project step, and downloaded and visually inspected actual reading/writing PNGs. Teacher navigation and chart-filter checks were repeated.
+
+### 教师查看写作原文
+
+将已有接口返回的 `writing.draft` 提到写作成果页报告之前，命名为「写作原文」，说明为学生当前保存的正文；原文保持完整文本与换行，不再藏在提纲和片段后的「成稿」中。无正文时明确提示尚未保存，提纲、片段和 AI 批注保留在「写作过程」。接口和权限不变。
+
+验证：TypeScript 检查通过；真实 Chromium 使用模拟接口核对全文一致、原文可见、空正文提示与无浏览器错误，更新 writing.png 和 writing-details.png。
