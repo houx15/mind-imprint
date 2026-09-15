@@ -360,6 +360,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
         onDone={() => void jumpStage("snippets")}
         onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
+        onLocked={reload}
       />
     );
   }
