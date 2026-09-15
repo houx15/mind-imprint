@@ -138,8 +138,11 @@ export function ParentReportView({ report }: { report: ParentReport }) {
 
 /** The `mk-rp-stats` strip with the same tile treatment as `ReportView`. A
  * tile can hold several numbers (学习时长, 作业): each number keeps its unit on
- * one line, and the numbers wrap between themselves. The 作业 tile spans two
- * grid columns so its three numbers have room. */
+ * one line, and the numbers wrap between themselves. The 作业 tile takes a
+ * whole row (`1 / -1`) so its three numbers have room. `span 2` left an empty
+ * cell whenever a row had only one column free, because grid rows do not
+ * backfill. Only this report does it; `.mk-rp-stats` is shared with the
+ * student reports and stays as it is. */
 function StatTiles({ tiles }: { tiles: StatTile[] }) {
   return (
     <section className="mk-rp-stats" aria-label="数据">
@@ -149,7 +152,7 @@ function StatTiles({ tiles }: { tiles: StatTile[] }) {
           <div
             key={tile.key}
             className="mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5"
-            style={{ background: bg, ...rise(i + 1), ...(tile.key === "assignments" ? { gridColumn: "span 2" } : {}) }}
+            style={{ background: bg, ...rise(i + 1), ...(tile.key === "assignments" ? { gridColumn: "1 / -1" } : {}) }}
           >
             <span
               className="mk-rp-stat__value text-mk-report-stat"
