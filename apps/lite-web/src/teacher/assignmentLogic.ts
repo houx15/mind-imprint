@@ -256,10 +256,18 @@ export function statusChipStyle(status: string): { background: string; color: st
   const key: AssignmentStatus = Object.prototype.hasOwnProperty.call(STATUS_HUE, status)
     ? (status as AssignmentStatus)
     : "not_started";
-  const hue = STATUS_HUE[key];
+  const tint = tintedChipStyle(STATUS_HUE[key]);
+  return key === "in_progress" ? { ...tint, color: "var(--mk-accent-700)" } : tint;
+}
+
+/** A chip tinted with `hue`: 14% of the hue over the surface, text the hue
+ * mixed 40% into ink, which keeps success, warning and danger text at or above
+ * 4.5:1 in both lite themes. Shared by the status chips and the weekly card
+ * tags. */
+export function tintedChipStyle(hue: string): { background: string; color: string } {
   return {
     background: `color-mix(in srgb, ${hue} 14%, var(--mk-surface))`,
-    color: key === "in_progress" ? "var(--mk-accent-700)" : `color-mix(in srgb, ${hue} 40%, var(--mk-ink))`,
+    color: `color-mix(in srgb, ${hue} 40%, var(--mk-ink))`,
   };
 }
 

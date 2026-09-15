@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IconButton } from "@/ui";
 import { getStudentWeekly, postStudentWeeklyProse, suggestionLabel, type WeekCard } from "../api/weekly";
+import { tintedChipStyle } from "./assignmentLogic";
 import { formatMinutes } from "./format";
 import { canGoNext, shiftWeek, splitWeekTitle } from "./weekNav";
 import { useWeekly, type ProseState } from "./useWeekly";
@@ -171,14 +172,12 @@ export function FactTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Tint for a rule card's label chip: praise green, watch amber. `color-mix`
- * because Tailwind alpha modifiers on `mk-*` tokens emit no CSS. */
+/** Tint for a rule card's label chip: praise green, watch amber, with the same
+ * mix as the status chips. `color-mix` because Tailwind alpha modifiers on
+ * `mk-*` tokens emit no CSS. At 78% hue the text read 3.34:1 (praise) and
+ * 2.76:1 (watch) in lite light mode; at 40% it reads 5.97:1 and 5.46:1. */
 export function cardTagStyle(kind: string): { background: string; color: string } {
-  const hue = kind === "praise" ? "var(--mk-success)" : "var(--mk-warning)";
-  return {
-    background: `color-mix(in srgb, ${hue} 14%, var(--mk-surface))`,
-    color: `color-mix(in srgb, ${hue} 78%, var(--mk-ink))`,
-  };
+  return tintedChipStyle(kind === "praise" ? "var(--mk-success)" : "var(--mk-warning)");
 }
 
 export function CardTag({ kind, label }: { kind: string; label: string }) {
