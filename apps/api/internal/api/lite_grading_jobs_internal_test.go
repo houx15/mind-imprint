@@ -128,7 +128,7 @@ func TestRunLiteGradingFirstGradingSuccessWritesDraft(t *testing.T) {
 
 	prov := gateway.NewSequenceStubProvider(runTestScript(runTestValid))
 	a := newTestAPIForLiteGrading(f.pool, prov)
-	a.runLiteGrading(context.Background(), g.ID)
+	a.runLiteGrading(context.Background(), LiteGradingArgs{GradingID: g.ID})
 
 	got, err := f.q.GetLiteGrading(context.Background(), g.ID)
 	if err != nil {
@@ -157,7 +157,7 @@ func TestRunLiteGradingFailedRegradeKeepsPreviousDraft(t *testing.T) {
 	g := f.createGrading(t)
 
 	firstProv := gateway.NewSequenceStubProvider(runTestScript(runTestValid))
-	newTestAPIForLiteGrading(f.pool, firstProv).runLiteGrading(context.Background(), g.ID)
+	newTestAPIForLiteGrading(f.pool, firstProv).runLiteGrading(context.Background(), LiteGradingArgs{GradingID: g.ID})
 
 	before, err := f.q.GetLiteGrading(context.Background(), g.ID)
 	if err != nil || before.Status != "draft" {
@@ -179,7 +179,7 @@ func TestRunLiteGradingFailedRegradeKeepsPreviousDraft(t *testing.T) {
 
 	// The regrade's reply is unparseable on both attempts.
 	badProv := gateway.NewSequenceStubProvider(runTestScript("抱歉，我无法批改。"))
-	newTestAPIForLiteGrading(f.pool, badProv).runLiteGrading(context.Background(), g.ID)
+	newTestAPIForLiteGrading(f.pool, badProv).runLiteGrading(context.Background(), LiteGradingArgs{GradingID: g.ID})
 
 	after, err := f.q.GetLiteGrading(context.Background(), g.ID)
 	if err != nil {
@@ -241,7 +241,7 @@ func TestRunLiteGradingFinalWriteSurvivesCancelledContext(t *testing.T) {
 	prov := &cancelAfterStreamProvider{inner: gateway.NewSequenceStubProvider(runTestScript(runTestValid)), cancel: cancel}
 	a := newTestAPIForLiteGrading(f.pool, prov)
 
-	a.runLiteGrading(ctx, g.ID)
+	a.runLiteGrading(ctx, LiteGradingArgs{GradingID: g.ID})
 
 	if ctx.Err() == nil {
 		t.Fatal("test setup: ctx should already be cancelled by the time runLiteGrading returns")
@@ -283,7 +283,7 @@ func TestRunLiteGradingRejectsPersonJudgingReplyThroughTheWorker(t *testing.T) {
 
 	prov := gateway.NewSequenceStubProvider(runTestScript(runTestPersonJudging))
 	a := newTestAPIForLiteGrading(f.pool, prov)
-	a.runLiteGrading(context.Background(), g.ID)
+	a.runLiteGrading(context.Background(), LiteGradingArgs{GradingID: g.ID})
 
 	got, err := f.q.GetLiteGrading(context.Background(), g.ID)
 	if err != nil {

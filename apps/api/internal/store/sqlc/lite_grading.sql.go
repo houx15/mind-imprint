@@ -362,6 +362,43 @@ func (q *Queries) ListSentLiteGradingsForAtom(ctx context.Context, atomID uuid.U
 	return items, nil
 }
 
+const liteTeacherSeesStudent = `-- name: LiteTeacherSeesStudent :one
+SELECT EXISTS (
+  SELECT 1
+  FROM enrollments s
+  JOIN classes c ON c.id = s.class_id
+  WHERE s.user_id = $1 AND s.role_in_class = 'student'
+    AND (
+      EXISTS (
+        SELECT 1 FROM enrollments t
+        WHERE t.class_id = s.class_id AND t.user_id = $2 AND t.role_in_class = 'teacher'
+      )
+      OR ($3::bool AND c.school_id = $4::uuid)
+    )
+)::bool
+`
+
+type LiteTeacherSeesStudentParams struct {
+	StudentID      uuid.UUID `json:"student_id"`
+	CallerID       uuid.UUID `json:"caller_id"`
+	CallerIsAdmin  bool      `json:"caller_is_admin"`
+	CallerSchoolID uuid.UUID `json:"caller_school_id"`
+}
+
+// 调用者是否教这名学生当前所在的某个班（学生身份）；学校管理员看本校班级里的学生。
+// 用于不属于任何作业的批改的可见性。
+func (q *Queries) LiteTeacherSeesStudent(ctx context.Context, arg LiteTeacherSeesStudentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, liteTeacherSeesStudent,
+		arg.StudentID,
+		arg.CallerID,
+		arg.CallerIsAdmin,
+		arg.CallerSchoolID,
+	)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const markLiteGradingSeen = `-- name: MarkLiteGradingSeen :execrows
 UPDATE lite_grading SET student_seen_at = COALESCE(student_seen_at, now())
 WHERE id = $1 AND user_id = $2 AND status = 'sent'
@@ -398,20 +435,26 @@ func (q *Queries) MarkStaleLiteGradingsFailed(ctx context.Context, ids []uuid.UU
 
 const requeueLiteGrading = `-- name: RequeueLiteGrading :one
 UPDATE lite_grading
-SET status = 'queued', error = NULL, rubric = $2, requested_by = $3, updated_at = now()
-WHERE id = $1 AND status IN ('draft', 'failed')
+SET status = 'queued', error = NULL,
+    rubric = CASE WHEN content IS NULL THEN $1::jsonb ELSE rubric END,
+    requested_by = $2, updated_at = now()
+WHERE id = $3 AND status IN ('draft', 'failed')
 RETURNING id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at
 `
 
 type RequeueLiteGradingParams struct {
-	ID          uuid.UUID `json:"id"`
 	Rubric      []byte    `json:"rubric"`
 	RequestedBy uuid.UUID `json:"requested_by"`
+	ID          uuid.UUID `json:"id"`
 }
 
-// 重新批改：草稿或失败的行回到排队，评分标准换成当前的。已发送的行不重新批改。
+// 重新批改：草稿或失败的行回到排队。已发送的行不重新批改。
+// 已有内容的行不在这里改 rubric：批改失败时这一行退回 draft 并保留旧内容，
+// rubric 必须仍是描述旧内容的那一份，否则老师保存时维度对不上。新的评分标准
+// 随任务参数传给 worker，批改成功时由 SetLiteGradingDraft 与内容一起写入。
+// 没有内容的行（第一次批改失败）直接换成新的评分标准。
 func (q *Queries) RequeueLiteGrading(ctx context.Context, arg RequeueLiteGradingParams) (LiteGrading, error) {
-	row := q.db.QueryRow(ctx, requeueLiteGrading, arg.ID, arg.Rubric, arg.RequestedBy)
+	row := q.db.QueryRow(ctx, requeueLiteGrading, arg.Rubric, arg.RequestedBy, arg.ID)
 	var i LiteGrading
 	err := row.Scan(
 		&i.ID,
@@ -497,18 +540,22 @@ func (q *Queries) SendReviewedLiteGradings(ctx context.Context, arg SendReviewed
 const setLiteGradingDraft = `-- name: SetLiteGradingDraft :execrows
 UPDATE lite_grading
 SET status = 'draft', ai = $1, content = $1,
+    rubric = COALESCE($2::jsonb, rubric),
     reviewed_at = NULL, error = NULL, updated_at = now()
-WHERE id = $2 AND status = 'running'
+WHERE id = $3 AND status = 'running'
 `
 
 type SetLiteGradingDraftParams struct {
 	Result []byte    `json:"result"`
+	Rubric []byte    `json:"rubric"`
 	ID     uuid.UUID `json:"id"`
 }
 
-// 批改成功：ai 与 content 都是这次的结果；之前的审阅作废。
+// 批改成功：ai 与 content 都是这次的结果；之前的审阅作废。rubric 写成这次批改
+// 用的评分标准，与 content 一起更新（重新批改排队时不改 rubric，见 RequeueLiteGrading）。
+// rubric 为 NULL 时保留原值。
 func (q *Queries) SetLiteGradingDraft(ctx context.Context, arg SetLiteGradingDraftParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setLiteGradingDraft, arg.Result, arg.ID)
+	result, err := q.db.Exec(ctx, setLiteGradingDraft, arg.Result, arg.Rubric, arg.ID)
 	if err != nil {
 		return 0, err
 	}

@@ -29,8 +29,15 @@ const (
 	liteGradingJobTimeout = 6 * time.Minute
 )
 
+// LiteGradingArgs carries the rubric to grade with. A regrade of a row that
+// already has content does not change the row's rubric at queue time
+// (RequeueLiteGrading): if the regrade fails, the row returns to draft with
+// its previous content, and that content must still match the row's rubric.
+// The worker grades with Rubric and writes it with the new content. A job
+// queued without Rubric (before this field existed) grades with the row's.
 type LiteGradingArgs struct {
-	GradingID uuid.UUID `json:"grading_id"`
+	GradingID uuid.UUID       `json:"grading_id"`
+	Rubric    json.RawMessage `json:"rubric,omitempty"`
 }
 
 func (LiteGradingArgs) Kind() string { return "lite_grading" }
@@ -51,7 +58,7 @@ func (w *LiteGradingWorker) Timeout(*river.Job[LiteGradingArgs]) time.Duration {
 // Work always reports success: the outcome, including a failure, is written
 // on the grading row, and river must not retry.
 func (w *LiteGradingWorker) Work(ctx context.Context, job *river.Job[LiteGradingArgs]) error {
-	w.API.runLiteGrading(ctx, job.Args.GradingID)
+	w.API.runLiteGrading(ctx, job.Args)
 	return nil
 }
 
@@ -74,10 +81,16 @@ func (a *API) failLiteGrading(ctx context.Context, id uuid.UUID, msg string) {
 	}
 }
 
+// liteGradingReplyLogRunes caps the model reply written to the server log on
+// a final failure.
+const liteGradingReplyLogRunes = 2000
+
 // runLiteGrading claims a queued row, grades its version and writes the
-// result: draft with ai = content, or failed with the reasons. A row that is
-// no longer queued (regraded, or already claimed) is left alone.
-func (a *API) runLiteGrading(ctx context.Context, id uuid.UUID) {
+// result: draft with ai = content and the rubric it was graded with, or
+// failed with the reasons. A row that is no longer queued (regraded, or
+// already claimed) is left alone.
+func (a *API) runLiteGrading(ctx context.Context, args LiteGradingArgs) {
+	id := args.GradingID
 	g, err := a.d.Queries.ClaimLiteGrading(ctx, id)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -101,8 +114,12 @@ func (a *API) runLiteGrading(ctx context.Context, id uuid.UUID) {
 		a.failLiteGrading(ctx, id, "服务器内部错误")
 		return
 	}
+	rubricJSON := []byte(args.Rubric)
+	if len(rubricJSON) == 0 {
+		rubricJSON = g.Rubric
+	}
 	var rubric liteassign.Rubric
-	if err := json.Unmarshal(g.Rubric, &rubric); err != nil {
+	if err := json.Unmarshal(rubricJSON, &rubric); err != nil {
 		slog.Warn("lite grading: rubric", "err", err, "grading_id", id)
 		a.failLiteGrading(ctx, id, "服务器内部错误")
 		return
@@ -116,15 +133,24 @@ func (a *API) runLiteGrading(ctx context.Context, id uuid.UUID) {
 	// ctx is cancelled the instant the model replies — same reasoning as the
 	// final write below, and llm_call is itself a terminal record of money
 	// already spent, not something a cancelled ctx should get to drop.
-	content, reasons, attempts := gradeWithRetry(ctx, a.d.Provider, resolved, liteGradingInput(src, rubric), func(u gateway.ChatUsage) {
+	out := gradeWithRetry(ctx, a.d.Provider, resolved, liteGradingInput(src, rubric), func(u gateway.ChatUsage) {
 		a.recordLiteLLMCall(context.WithoutCancel(ctx), g.UserID, g.AtomID, liteGradingPurpose, resolved, u)
 	})
-	if len(reasons) > 0 {
-		slog.Info("lite grading: failed", "grading_id", id, "attempts", attempts, "reasons", litegrade.JoinReasons(reasons))
-		a.failLiteGrading(ctx, id, litegrade.JoinReasons(reasons))
+	if len(out.Reasons) > 0 {
+		// The reply and the parse error go to the server log only, so a
+		// failure seen online can be diagnosed. Neither contains a secret:
+		// the reply is model output, the error is encoding/json's message.
+		parseErr := ""
+		if out.ParseErr != nil {
+			parseErr = out.ParseErr.Error()
+		}
+		slog.Warn("lite grading: failed", "grading_id", id, "attempts", out.Attempts,
+			"reasons", litegrade.JoinReasons(out.Reasons), "parse_err", parseErr,
+			"reply", truncateRunes(out.LastReply, liteGradingReplyLogRunes))
+		a.failLiteGrading(ctx, id, litegrade.JoinReasons(out.Reasons))
 		return
 	}
-	result, err := json.Marshal(content)
+	result, err := json.Marshal(out.Content)
 	if err != nil {
 		a.failLiteGrading(ctx, id, "服务器内部错误")
 		return
@@ -132,7 +158,7 @@ func (a *API) runLiteGrading(ctx context.Context, id uuid.UUID) {
 	// context.WithoutCancel: the same reasoning as failLiteGrading above — the
 	// row is already running, a successful grading must not be lost to a
 	// cancelled ctx.
-	if _, err := a.d.Queries.SetLiteGradingDraft(context.WithoutCancel(ctx), sqlc.SetLiteGradingDraftParams{ID: id, Result: result}); err != nil {
+	if _, err := a.d.Queries.SetLiteGradingDraft(context.WithoutCancel(ctx), sqlc.SetLiteGradingDraftParams{ID: id, Result: result, Rubric: rubricJSON}); err != nil {
 		slog.Warn("lite grading: store draft", "err", err, "grading_id", id)
 	}
 }

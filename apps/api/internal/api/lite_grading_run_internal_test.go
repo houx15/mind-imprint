@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -35,11 +36,11 @@ func runTestInput() litegrade.Input {
 func TestGradeWithRetryFirstReplyPasses(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(runTestScript(runTestValid))
 	calls := 0
-	c, reasons, attempts := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
-	if len(reasons) != 0 || attempts != 1 || prov.Calls != 1 || calls != 1 {
-		t.Fatalf("reasons=%v attempts=%d calls=%d metered=%d", reasons, attempts, prov.Calls, calls)
+	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
+	if len(out.Reasons) != 0 || out.Attempts != 1 || prov.Calls != 1 || calls != 1 {
+		t.Fatalf("reasons=%v attempts=%d calls=%d metered=%d", out.Reasons, out.Attempts, prov.Calls, calls)
 	}
-	if c.Overall.Grade != "B+" || c.Points[0].Source != litegrade.SourceAI {
+	if c := out.Content; c.Overall.Grade != "B+" || c.Points[0].Source != litegrade.SourceAI {
 		t.Fatalf("content = %+v", c)
 	}
 }
@@ -48,9 +49,9 @@ func TestGradeWithRetryCarriesReasonsIntoTheRetry(t *testing.T) {
 	bad := strings.Replace(runTestValid, `"quote":"去年秋天，我在那里摔过一跤。"`, `"quote":"去年冬天，我在那里摔过一跤。"`, 1)
 	prov := gateway.NewSequenceStubProvider(runTestScript(bad), runTestScript(runTestValid))
 	calls := 0
-	_, reasons, attempts := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
-	if len(reasons) != 0 || attempts != 2 || calls != 2 {
-		t.Fatalf("reasons=%v attempts=%d metered=%d", reasons, attempts, calls)
+	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
+	if len(out.Reasons) != 0 || out.Attempts != 2 || calls != 2 {
+		t.Fatalf("reasons=%v attempts=%d metered=%d", out.Reasons, out.Attempts, calls)
 	}
 	msgs := prov.LastRequest.Messages
 	last := msgs[len(msgs)-1]
@@ -65,9 +66,27 @@ func TestGradeWithRetryCarriesReasonsIntoTheRetry(t *testing.T) {
 func TestGradeWithRetryGivesUpAfterTwo(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(runTestScript("抱歉，我无法批改。"))
 	calls := 0
-	_, reasons, attempts := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
-	if attempts != 2 || prov.Calls != 2 || calls != 2 || len(reasons) != 1 || reasons[0].Code != litegrade.ReasonUnparseable {
-		t.Fatalf("reasons=%v attempts=%d calls=%d metered=%d", reasons, attempts, prov.Calls, calls)
+	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) { calls++ })
+	if out.Attempts != 2 || prov.Calls != 2 || calls != 2 || len(out.Reasons) != 1 || out.Reasons[0].Code != litegrade.ReasonUnparseable {
+		t.Fatalf("reasons=%v attempts=%d calls=%d metered=%d", out.Reasons, out.Attempts, prov.Calls, calls)
+	}
+}
+
+// FB-5: a final failure reports the last reply and the JSON error, so the
+// worker can log why the reply was rejected.
+func TestGradeWithRetryReportsLastReplyAndParseError(t *testing.T) {
+	first := `{"overall": {"grade": "B"}, "dimensions": 3}`
+	last := `{"overall": {"grade": "B", "comment": "x"}, "points": "none"}`
+	prov := gateway.NewSequenceStubProvider(runTestScript(first), runTestScript(last))
+	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) {})
+	if len(out.Reasons) != 1 || out.Reasons[0].Code != litegrade.ReasonUnparseable {
+		t.Fatalf("reasons = %v", out.Reasons)
+	}
+	if out.LastReply != last {
+		t.Fatalf("last reply = %q, want the second attempt's reply", out.LastReply)
+	}
+	if !errors.Is(out.ParseErr, litegrade.ErrUnparseable) || !strings.Contains(out.ParseErr.Error(), "points") {
+		t.Fatalf("parse err = %v, want ErrUnparseable carrying the json error about points", out.ParseErr)
 	}
 }
 

@@ -753,6 +753,148 @@ func TestLiteGradingTeacherRoutesAreOwned(t *testing.T) {
 	}
 }
 
+// gradingPointsReply passes litegrade.Check against gradingBody and
+// gradingPointsRubric.
+const gradingPointsReply = `{"overall":{"grade":"15","comment":"用「去年秋天，我在那里摔过一跤。」引出问题。"},
+"dimensions":[{"name":"论证","grade":"14","comment":"问题来自亲身经历。"}],
+"points":[{"kind":"good","quote":"去年秋天，我在那里摔过一跤。","text":"用具体经历引出问题。","action":null},
+{"kind":"issue","quote":"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。","text":"材料与后门空地之间没有说明联系。","action":"在这句后面写一句说明雨水花园和后门空地的关系。"},
+{"kind":"issue","quote":"学校后门那片空地一下雨就积水。","text":"积水的程度没有数据。","action":"补充一次积水的深度或持续时间。"}]}`
+
+var gradingPointsRubric = liteassign.Rubric{
+	Scale: "points", Max: 20,
+	Dimensions: []liteassign.RubricDimension{{Name: "论证", Note: "重点看论证是否清楚"}},
+	Focus:      "重点看论证",
+}
+
+// TestLiteGradingRegradeAfterRubricChange (FB-1): the homework's rubric is
+// changed after a draft exists. A regrade that fails keeps the old content
+// and the rubric that describes it, so the teacher can still save that
+// draft. A regrade that succeeds stores the new rubric with the new content.
+func TestLiteGradingRegradeAfterRubricChange(t *testing.T) {
+	f := newGradingFixture(t, gradingValidReply, gradingBadReply, gradingBadReply, gradingPointsReply)
+	aid, _, _ := f.submit(t)
+	f.queueAll(t, aid, false)
+	f.runJobs(t)
+	gid := f.rows(t, aid)[0].Grading.ID
+	path := "/api/v1/lite/teacher/gradings/" + gid
+
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, map[string]any{"rubric": gradingPointsRubric}, nil); code != http.StatusOK {
+		t.Fatalf("patch rubric = %d", code)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", path+"/regrade", nil); code != http.StatusOK {
+		t.Fatalf("regrade = %d %s", code, ec)
+	}
+	f.runJobs(t)
+
+	g := f.grading(t, gid)
+	if g.Status != "draft" || g.Error == nil {
+		t.Fatalf("after failed regrade = %+v, want draft with an error", g)
+	}
+	var kept liteassign.Rubric
+	if err := json.Unmarshal(g.Rubric, &kept); err != nil || !reflect.DeepEqual(kept, liteassign.DefaultRubric("zh")) {
+		t.Fatalf("rubric after failed regrade = %s err=%v, want the zh default the content was graded with", g.Rubric, err)
+	}
+	teacherPoint := []map[string]any{{"kind": "issue", "quote": nil, "text": "第二段请补充数据来源。", "action": nil, "source": "teacher"}}
+	if rec := doJSON(t, f.h, f.teacher, "PATCH", path, mustJSON(t, map[string]any{"content": gradingContent("B", teacherPoint)})); rec.Code != http.StatusOK {
+		t.Fatalf("save the kept draft = %d %s", rec.Code, rec.Body)
+	}
+
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", path+"/regrade", nil); code != http.StatusOK {
+		t.Fatalf("second regrade = %d %s", code, ec)
+	}
+	f.runJobs(t)
+	g = f.grading(t, gid)
+	if g.Status != "draft" || g.Error != nil || !strings.Contains(string(g.Content), `"15"`) {
+		t.Fatalf("after successful regrade = %+v %s", g, g.Content)
+	}
+	var stored liteassign.Rubric
+	if err := json.Unmarshal(g.Rubric, &stored); err != nil || !reflect.DeepEqual(stored, gradingPointsRubric) {
+		t.Fatalf("rubric after successful regrade = %s err=%v, want the homework's new rubric", g.Rubric, err)
+	}
+}
+
+// TestLiteGradingVisibleAcrossTheStudentsClasses (FB-2): the student is in
+// two classes with different teachers. A grading of a writing she brought in
+// herself is visible to the teacher of either class; a homework grading only
+// to the teacher of the homework's class.
+func TestLiteGradingVisibleAcrossTheStudentsClasses(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, hwAtom, student := f.submit(t)
+	f.queueAll(t, aid, false)
+	hwGid := f.rows(t, aid)[0].Grading.ID
+
+	own := newBroughtWriting(t, f.h, student, gradingBody)
+	if code := assignJSON(t, f.h, student, "POST", "/api/v1/writings/"+own+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish own writing = %d", code)
+	}
+	var resp struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	ownSingle := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + own + "/gradings"
+	if code := assignJSON(t, f.h, f.teacher, "POST", ownSingle, nil, &resp); code != http.StatusOK {
+		t.Fatalf("grade own writing = %d", code)
+	}
+	ownGid := resp.Grading.ID
+
+	second := signInAs(t, f.pool, createTeacher(t, f.pool, SeedSchoolID, "gr-second-teacher@demo.local"))
+	secondClass := createClassViaAPI(t, f.h, second, "Second Class")
+	enrollStudent(t, f.pool, f.studentID, secondClass)
+	itemBase := "/api/v1/lite/teacher/classes/" + secondClass + "/students/" + f.studentID.String() + "/items/"
+	itemGrading := func(atomID string) *gradingSummaryView {
+		t.Helper()
+		var item struct {
+			Writing struct {
+				Grading *gradingSummaryView `json:"grading"`
+			} `json:"writing"`
+		}
+		if code := getJSON(t, f.h, second, itemBase+atomID, &item); code != http.StatusOK {
+			t.Fatalf("item %s = %d", atomID, code)
+		}
+		return item.Writing.Grading
+	}
+
+	// Her own writing: the second teacher opens it and sees it on the item page.
+	if code, ec := writeErrorCode(t, f.h, second, "GET", "/api/v1/lite/teacher/gradings/"+ownGid, nil); code != http.StatusOK {
+		t.Fatalf("second teacher GET own-writing grading = %d %s, want 200", code, ec)
+	}
+	if g := itemGrading(own); g == nil || g.ID != ownGid || g.Status != "queued" {
+		t.Fatalf("item page grading for own writing = %+v, want %s queued", g, ownGid)
+	}
+	if code, ec := writeErrorCode(t, f.h, second, "POST", itemBase+own+"/gradings", nil); code != http.StatusConflict || ec != "grading_in_progress" {
+		t.Fatalf("second teacher POST on own writing = %d %s, want 409 grading_in_progress", code, ec)
+	}
+
+	// The homework of the first class: 404, hidden, and not requeued.
+	if code, _ := writeErrorCode(t, f.h, second, "GET", "/api/v1/lite/teacher/gradings/"+hwGid, nil); code != http.StatusNotFound {
+		t.Fatalf("second teacher GET homework grading = %d, want 404", code)
+	}
+	if g := itemGrading(hwAtom); g != nil {
+		t.Fatalf("item page grading for another class's homework = %+v, want hidden", g)
+	}
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET status = 'failed', error = 'x' WHERE id = $1`, hwGid); err != nil {
+		t.Fatal(err)
+	}
+	if code, _ := writeErrorCode(t, f.h, second, "POST", itemBase+hwAtom+"/gradings", nil); code != http.StatusNotFound {
+		t.Fatalf("second teacher POST on homework = %d, want 404", code)
+	}
+	var status string
+	if err := f.pool.QueryRow(context.Background(), `SELECT status FROM lite_grading WHERE id = $1`, hwGid).Scan(&status); err != nil || status != "failed" {
+		t.Fatalf("homework row status = %q err=%v, want still failed", status, err)
+	}
+	// The first teacher still has both.
+	for _, gid := range []string{hwGid, ownGid} {
+		if code, _ := writeErrorCode(t, f.h, f.teacher, "GET", "/api/v1/lite/teacher/gradings/"+gid, nil); code != http.StatusOK {
+			t.Fatalf("first teacher GET %s = %d", gid, code)
+		}
+	}
+}
+
+type gradingSummaryView struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
 func TestLiteGradingRejectsReadingHomework(t *testing.T) {
 	f := newGradingFixture(t)
 	reading := createAssignment(t, f.h, f.teacher, f.classID, readingAssignmentBody("读", map[string]any{"source": "text", "text": "一段正文。"}, []string{f.studentID.String()}))

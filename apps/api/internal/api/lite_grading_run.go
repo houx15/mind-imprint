@@ -40,38 +40,52 @@ func liteGradingInput(src sqlc.GetLiteGradingSourceRow, rubric liteassign.Rubric
 	}
 }
 
+// gradeOutcome is what gradeWithRetry reports. Reasons is empty on success.
+// On failure LastReply and ParseErr describe the last attempt, for the
+// server log: LastReply is empty when that attempt's call itself failed, and
+// ParseErr is nil unless that attempt's reply could not be parsed.
+type gradeOutcome struct {
+	Content   litegrade.Content
+	Reasons   []litegrade.Reason
+	Attempts  int
+	LastReply string
+	ParseErr  error
+}
+
 // gradeWithRetry makes at most two model calls. A reply that fails Check is
 // sent back with the reasons (and the rejected reply, so the model can fix
 // it); a failed call is retried with the same messages. record is called for
 // every call, because a call costs money whatever its reply.
-func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in litegrade.Input, record func(gateway.ChatUsage)) (litegrade.Content, []litegrade.Reason, int) {
+func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in litegrade.Input, record func(gateway.ChatUsage)) gradeOutcome {
 	msgs := []gateway.ChatMessage{
 		{Role: gateway.RoleSystem, Content: litegrade.SystemPrompt(in)},
 		{Role: gateway.RoleUser, Content: litegrade.UserPrompt(in)},
 	}
-	var reasons []litegrade.Reason
+	out := gradeOutcome{Attempts: liteGradingAttempts}
 	for attempt := 1; attempt <= liteGradingAttempts; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, liteGradingCallTimeout)
 		res, err := gateway.Collect(callCtx, prov, resolved, gateway.ChatRequest{Messages: msgs})
 		cancel()
 		record(res.Usage)
+		out.LastReply, out.ParseErr = res.Text, nil
 		if err != nil {
-			reasons = []litegrade.Reason{{Code: litegrade.ReasonModelCall, Detail: err.Error()}}
+			out.Reasons = []litegrade.Reason{{Code: litegrade.ReasonModelCall, Detail: err.Error()}}
 			continue
 		}
 		content, perr := litegrade.Parse(res.Text)
 		if perr != nil {
-			reasons = []litegrade.Reason{{Code: litegrade.ReasonUnparseable}}
+			out.ParseErr = perr
+			out.Reasons = []litegrade.Reason{{Code: litegrade.ReasonUnparseable}}
 		} else {
 			content = litegrade.NormalizeAI(content, in.Rubric)
-			if reasons = litegrade.Check(content, in); len(reasons) == 0 {
-				return content, nil, attempt
+			if out.Reasons = litegrade.Check(content, in); len(out.Reasons) == 0 {
+				return gradeOutcome{Content: content, Attempts: attempt, LastReply: res.Text}
 			}
 		}
 		msgs = append(msgs,
 			gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
-			gateway.ChatMessage{Role: gateway.RoleUser, Content: litegrade.RetryNudge(reasons)},
+			gateway.ChatMessage{Role: gateway.RoleUser, Content: litegrade.RetryNudge(out.Reasons)},
 		)
 	}
-	return litegrade.Content{}, reasons, liteGradingAttempts
+	return out
 }

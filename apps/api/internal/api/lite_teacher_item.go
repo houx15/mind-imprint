@@ -367,6 +367,8 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 	}
 
 	// The latest version's 批改, for the item page's 批改 button and status.
+	// Hidden when the caller may not open it (gradingVisible): a homework
+	// grading from a class she does not teach.
 	var grading *gradingSummaryDTO
 	if len(versionRows) > 0 {
 		g, err := notFoundIsNil(a.d.Queries.GetLiteGradingByVersion(ctx, versionRows[0].ID))
@@ -374,8 +376,14 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 			return nil, err
 		}
 		if g != nil {
-			s := gradingSummaryOf(*g)
-			grading = &s
+			visible, err := a.gradingVisible(ctx, *g)
+			if err != nil {
+				return nil, err
+			}
+			if visible {
+				s := gradingSummaryOf(*g)
+				grading = &s
+			}
 		}
 	}
 

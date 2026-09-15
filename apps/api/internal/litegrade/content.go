@@ -6,6 +6,7 @@ package litegrade
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"mindimprint/api/internal/liteassign"
@@ -67,6 +68,8 @@ type Input struct {
 var ErrUnparseable = errors.New("litegrade: reply is not the JSON object asked for")
 
 // Parse reads the outermost {...} of a reply, which also strips code fences.
+// Every error is ErrUnparseable (errors.Is); a JSON decode error also carries
+// encoding/json's message, for the server log.
 func Parse(text string) (Content, error) {
 	start, end := strings.Index(text, "{"), strings.LastIndex(text, "}")
 	if start < 0 || end <= start {
@@ -74,7 +77,7 @@ func Parse(text string) (Content, error) {
 	}
 	var c Content
 	if err := json.Unmarshal([]byte(text[start:end+1]), &c); err != nil {
-		return Content{}, ErrUnparseable
+		return Content{}, fmt.Errorf("%w: %v", ErrUnparseable, err)
 	}
 	return c, nil
 }

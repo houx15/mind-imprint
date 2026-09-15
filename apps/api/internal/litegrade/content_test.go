@@ -2,6 +2,7 @@ package litegrade
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/liteassign"
@@ -17,6 +18,10 @@ func TestParse(t *testing.T) {
 		if _, err := Parse(s); !errors.Is(err, ErrUnparseable) {
 			t.Errorf("Parse(%q) err = %v, want ErrUnparseable", s, err)
 		}
+	}
+	// A decode error keeps encoding/json's message for the server log.
+	if _, err := Parse(`{"overall": 3}`); !errors.Is(err, ErrUnparseable) || !strings.Contains(err.Error(), "cannot unmarshal") {
+		t.Errorf("decode error = %v, want ErrUnparseable with the json message", err)
 	}
 }
 

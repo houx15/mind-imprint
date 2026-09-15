@@ -254,6 +254,55 @@ func TestSetLiteGradingDraft_ClearsError(t *testing.T) {
 	assertJSONEqual(t, got.Content, result, "content")
 }
 
+// TestRequeueLiteGrading_KeepsRubricOfRowWithContent (FB-1): a regrade must
+// not change the rubric of a row that already has content, because a failed
+// regrade returns that row to draft with the old content, which the old
+// rubric describes. A row with no content takes the new rubric at once.
+// SetLiteGradingDraft then writes the rubric it was graded with.
+func TestRequeueLiteGrading_KeepsRubricOfRowWithContent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pool := newStoreTestPool(t)
+	q := sqlc.New(pool)
+	newRubric := []byte(`{"scale":"points","max":20,"dimensions":[{"name":"论证","note":""}],"focus":""}`)
+
+	atomA, versionA := seedLiteGradingWriting(t, ctx, pool)
+	prev := []byte(`{"overall":{"grade":"B","comment":"旧的一版"}}`)
+	withContent := seedLiteGradingRow(t, ctx, pool, versionA, atomA, "draft", prev, prev, nil, nil)
+	got, err := q.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: withContent, Rubric: newRubric, RequestedBy: seededStudentID})
+	if err != nil {
+		t.Fatalf("RequeueLiteGrading(with content): %v", err)
+	}
+	if got.Status != "queued" {
+		t.Fatalf("status = %q, want queued", got.Status)
+	}
+	assertJSONEqual(t, got.Rubric, []byte(`{}`), "rubric of a row with content")
+
+	atomB, versionB := seedLiteGradingWriting(t, ctx, pool)
+	noContent := seedLiteGradingRow(t, ctx, pool, versionB, atomB, "failed", nil, nil, ptr("第一次失败"), nil)
+	got, err = q.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: noContent, Rubric: newRubric, RequestedBy: seededStudentID})
+	if err != nil {
+		t.Fatalf("RequeueLiteGrading(no content): %v", err)
+	}
+	assertJSONEqual(t, got.Rubric, newRubric, "rubric of a row without content")
+
+	if _, err := pool.Exec(ctx, `UPDATE lite_grading SET status = 'running' WHERE id = $1`, withContent); err != nil {
+		t.Fatalf("mark running: %v", err)
+	}
+	result := []byte(`{"overall":{"grade":"15","comment":"新的一版"}}`)
+	if _, err := q.SetLiteGradingDraft(ctx, sqlc.SetLiteGradingDraftParams{ID: withContent, Result: result, Rubric: newRubric}); err != nil {
+		t.Fatalf("SetLiteGradingDraft: %v", err)
+	}
+	row, err := q.GetLiteGrading(ctx, withContent)
+	if err != nil {
+		t.Fatalf("GetLiteGrading: %v", err)
+	}
+	assertJSONEqual(t, row.Rubric, newRubric, "rubric after a successful regrade")
+	assertJSONEqual(t, row.Content, result, "content after a successful regrade")
+}
+
 // TestUpdateLiteGradingContent_ClearsError pins that a teacher's save clears
 // any error left over from a previous failed regrade on the same row (the
 // teacher is looking at the draft that ruling kept editable).

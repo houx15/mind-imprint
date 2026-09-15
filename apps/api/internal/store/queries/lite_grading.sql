@@ -38,9 +38,12 @@ WHERE id = $1 AND status = 'queued'
 RETURNING *;
 
 -- name: SetLiteGradingDraft :execrows
--- 批改成功：ai 与 content 都是这次的结果；之前的审阅作废。
+-- 批改成功：ai 与 content 都是这次的结果；之前的审阅作废。rubric 写成这次批改
+-- 用的评分标准，与 content 一起更新（重新批改排队时不改 rubric，见 RequeueLiteGrading）。
+-- rubric 为 NULL 时保留原值。
 UPDATE lite_grading
 SET status = 'draft', ai = sqlc.arg(result), content = sqlc.arg(result),
+    rubric = COALESCE(sqlc.narg(rubric)::jsonb, rubric),
     reviewed_at = NULL, error = NULL, updated_at = now()
 WHERE id = sqlc.arg(id) AND status = 'running';
 
@@ -54,11 +57,34 @@ SET status = CASE WHEN content IS NOT NULL THEN 'draft' ELSE 'failed' END,
 WHERE id = sqlc.arg(id) AND status IN ('queued', 'running');
 
 -- name: RequeueLiteGrading :one
--- 重新批改：草稿或失败的行回到排队，评分标准换成当前的。已发送的行不重新批改。
+-- 重新批改：草稿或失败的行回到排队。已发送的行不重新批改。
+-- 已有内容的行不在这里改 rubric：批改失败时这一行退回 draft 并保留旧内容，
+-- rubric 必须仍是描述旧内容的那一份，否则老师保存时维度对不上。新的评分标准
+-- 随任务参数传给 worker，批改成功时由 SetLiteGradingDraft 与内容一起写入。
+-- 没有内容的行（第一次批改失败）直接换成新的评分标准。
 UPDATE lite_grading
-SET status = 'queued', error = NULL, rubric = $2, requested_by = $3, updated_at = now()
-WHERE id = $1 AND status IN ('draft', 'failed')
+SET status = 'queued', error = NULL,
+    rubric = CASE WHEN content IS NULL THEN sqlc.arg(rubric)::jsonb ELSE rubric END,
+    requested_by = sqlc.arg(requested_by), updated_at = now()
+WHERE id = sqlc.arg(id) AND status IN ('draft', 'failed')
 RETURNING *;
+
+-- name: LiteTeacherSeesStudent :one
+-- 调用者是否教这名学生当前所在的某个班（学生身份）；学校管理员看本校班级里的学生。
+-- 用于不属于任何作业的批改的可见性。
+SELECT EXISTS (
+  SELECT 1
+  FROM enrollments s
+  JOIN classes c ON c.id = s.class_id
+  WHERE s.user_id = sqlc.arg(student_id) AND s.role_in_class = 'student'
+    AND (
+      EXISTS (
+        SELECT 1 FROM enrollments t
+        WHERE t.class_id = s.class_id AND t.user_id = sqlc.arg(caller_id) AND t.role_in_class = 'teacher'
+      )
+      OR (sqlc.arg(caller_is_admin)::bool AND c.school_id = sqlc.arg(caller_school_id)::uuid)
+    )
+)::bool;
 
 -- name: MarkStaleLiteGradingsFailed :exec
 -- 任务只跑一次（MaxAttempts 1），超时 6 分钟。进程在批改中途退出时这一行会停在 running，

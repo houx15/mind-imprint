@@ -169,8 +169,12 @@ func (a *API) sweptGrading(ctx context.Context, g sqlc.LiteGrading) (sqlc.LiteGr
 // closes that window — either both commit, or neither does, and fn's row
 // change is rolled back along with the missing job.
 //
+// rubric is the rubric the job grades with. It travels in the job args
+// because RequeueLiteGrading leaves the row's rubric unchanged on a row that
+// already has content (see LiteGradingArgs).
+//
 // The caller must have already checked a.d.River != nil.
-func (a *API) enqueueLiteGradingTx(ctx context.Context, fn func(qtx *sqlc.Queries) (sqlc.LiteGrading, error)) (sqlc.LiteGrading, error) {
+func (a *API) enqueueLiteGradingTx(ctx context.Context, rubric []byte, fn func(qtx *sqlc.Queries) (sqlc.LiteGrading, error)) (sqlc.LiteGrading, error) {
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		return sqlc.LiteGrading{}, err
@@ -180,7 +184,7 @@ func (a *API) enqueueLiteGradingTx(ctx context.Context, fn func(qtx *sqlc.Querie
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
-	if _, err := a.d.River.InsertTx(ctx, tx, LiteGradingArgs{GradingID: g.ID}, nil); err != nil {
+	if _, err := a.d.River.InsertTx(ctx, tx, LiteGradingArgs{GradingID: g.ID, Rubric: rubric}, nil); err != nil {
 		return sqlc.LiteGrading{}, errGradingEnqueueFailed(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -189,8 +193,50 @@ func (a *API) enqueueLiteGradingTx(ctx context.Context, fn func(qtx *sqlc.Querie
 	return g, nil
 }
 
-// loadTeacherGrading loads {gid}: the caller teaches the grading's class and
-// the student is still a student in it. Anything else is 404.
+// teachesEnrolledStudent reports whether the caller teaches classID (or is
+// its school's admin, as assertTeacherOwnsClass allows) and studentID is
+// currently a student in it.
+func (a *API) teachesEnrolledStudent(ctx context.Context, classID, studentID uuid.UUID) (bool, error) {
+	if _, err := a.assertTeacherOwnsClass(ctx, classID); err != nil {
+		var apiErr *httpx.APIError
+		if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+	return a.d.Queries.IsEnrolledStudent(ctx, sqlc.IsEnrolledStudentParams{ClassID: classID, UserID: studentID})
+}
+
+// gradingVisible is the one visibility rule for a grading row, used by the
+// {gid} routes, the single-writing POST and the item page's summary. A
+// student can be in several classes, and the row's class_id is only the
+// class it was first requested from, so the rule does not read class_id:
+//   - homework (assignment_id set): the caller teaches the assignment's class
+//     and the student is still a student there. Homework belongs to its class.
+//   - her own writing (assignment_id NULL): the caller teaches a class in
+//     which the student is currently a student. Teachers see her work.
+func (a *API) gradingVisible(ctx context.Context, g sqlc.LiteGrading) (bool, error) {
+	u, ok := UserFromContext(ctx)
+	if !ok {
+		return false, nil
+	}
+	if g.AssignmentID.Valid {
+		as, err := a.d.Queries.GetLiteAssignment(ctx, uuid.UUID(g.AssignmentID.Bytes))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return a.teachesEnrolledStudent(ctx, as.ClassID, g.UserID)
+	}
+	return a.d.Queries.LiteTeacherSeesStudent(ctx, sqlc.LiteTeacherSeesStudentParams{
+		StudentID: g.UserID, CallerID: u.ID, CallerIsAdmin: u.Role == "admin", CallerSchoolID: u.SchoolID,
+	})
+}
+
+// loadTeacherGrading loads {gid} when gradingVisible allows it. Anything else
+// is 404.
 func (a *API) loadTeacherGrading(w http.ResponseWriter, r *http.Request) (sqlc.LiteGrading, bool) {
 	ctx := r.Context()
 	gid, err := uuid.Parse(r.PathValue("gid"))
@@ -203,16 +249,12 @@ func (a *API) loadTeacherGrading(w http.ResponseWriter, r *http.Request) (sqlc.L
 		writeNotFoundOr(w, r, err)
 		return sqlc.LiteGrading{}, false
 	}
-	if _, err := a.assertTeacherOwnsClass(ctx, g.ClassID); err != nil {
-		httpx.WriteError(w, r, err)
-		return sqlc.LiteGrading{}, false
-	}
-	enrolled, err := a.d.Queries.IsEnrolledStudent(ctx, sqlc.IsEnrolledStudentParams{ClassID: g.ClassID, UserID: g.UserID})
+	visible, err := a.gradingVisible(ctx, g)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return sqlc.LiteGrading{}, false
 	}
-	if !enrolled {
+	if !visible {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return sqlc.LiteGrading{}, false
 	}
@@ -419,11 +461,11 @@ func (a *API) queueLiteAssignmentGradings(w http.ResponseWriter, r *http.Request
 			if !req.RetryFailed || existing.Status != "failed" {
 				continue
 			}
-			_, err = a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+			_, err = a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
 				return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: existing.ID, Rubric: rubric, RequestedBy: u.ID})
 			})
 		} else {
-			_, err = a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+			_, err = a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
 				return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
 					AtomID: v.AtomID, VersionID: v.ID, UserID: rc.UserID, ClassID: as.ClassID,
 					AssignmentID: pgtype.UUID{Bytes: as.ID, Valid: true}, Rubric: rubric, RequestedBy: u.ID,
@@ -482,7 +524,7 @@ func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requested
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
-	rq, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+	rq, err := a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
 		return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -498,8 +540,17 @@ func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requested
 // sent is 409 grading_sent, queued/running is 409 grading_in_progress, and
 // only a failed row (never graded — no content to lose) is quietly requeued.
 // Sweeps a stale `running` row first, same reasoning as requeueOrRefuse.
+// A row the caller may not see (gradingVisible) is 404, before any of that:
+// it is neither reported nor requeued.
 func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, requestedBy uuid.UUID) (sqlc.LiteGrading, error) {
-	g, err := a.sweptGrading(ctx, g)
+	visible, err := a.gradingVisible(ctx, g)
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	if !visible {
+		return sqlc.LiteGrading{}, httpx.ErrNotFound("资源不存在")
+	}
+	g, err = a.sweptGrading(ctx, g)
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
@@ -515,7 +566,7 @@ func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, reque
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
-	rq, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+	rq, err := a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
 		return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -562,7 +613,27 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	g, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+	// Homework belongs to its class (gradingVisible): a teacher who reached
+	// this writing through another class of hers cannot grade it, and the row
+	// records the assignment's class, not the class in the URL.
+	if assignmentID.Valid {
+		as, err := a.d.Queries.GetLiteAssignment(ctx, uuid.UUID(assignmentID.Bytes))
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		ok, err := a.teachesEnrolledStudent(ctx, as.ClassID, userID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if !ok {
+			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+			return
+		}
+		classID = as.ClassID
+	}
+	g, err := a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
 		return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
 			AtomID: at.ID, VersionID: latest.ID, UserID: userID, ClassID: classID,
 			AssignmentID: assignmentID, Rubric: rubric, RequestedBy: u.ID,

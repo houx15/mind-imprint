@@ -54,12 +54,13 @@ func TestLiveLiteGrading(t *testing.T) {
 				Number: 1, Title: "食堂浪费", Body: tc.body, Lang: tc.lang, AssignedPrompt: &prompt,
 			}, liteassign.DefaultRubric(tc.lang))
 
-			content, reasons, attempts := gradeWithRetry(ctx, prov, resolved, in, func(u gateway.ChatUsage) {
+			out := gradeWithRetry(ctx, prov, resolved, in, func(u gateway.ChatUsage) {
 				t.Logf("call: in=%d out=%d", u.InputTokens, u.OutputTokens)
 			})
+			content, reasons, attempts := out.Content, out.Reasons, out.Attempts
 			t.Logf("attempts = %d", attempts)
 			if len(reasons) > 0 {
-				t.Fatalf("grading failed after %d attempts: %s", attempts, litegrade.JoinReasons(reasons))
+				t.Fatalf("grading failed after %d attempts: %s (parse error: %v; last reply: %s)", attempts, litegrade.JoinReasons(reasons), out.ParseErr, out.LastReply)
 			}
 			if rs := litegrade.Check(content, in); len(rs) > 0 {
 				t.Fatalf("returned content does not pass Check: %s", litegrade.JoinReasons(rs))

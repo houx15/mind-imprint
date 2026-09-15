@@ -206,15 +206,16 @@ func main() {
 	})
 	apiHandler := theAPI.Handler()
 
-	// 兴趣采集的后台队列。**起不来就只 log**：队列是可降级的子系统（采集慢一
-	// 点、树晚一会儿长），不是正确性不变量；为它拒绝启动会让整个接口下线。
-	// EnqueueHarvest 对 nil client 是一次安静的空操作，扫尾也就不跑，其余照常。
+	// 后台任务队列：兴趣采集与 lite AI 批改共用这一个 river client。**起不来就
+	// 只 log**：队列是可降级的子系统，不是正确性不变量；为它拒绝启动会让整个接口
+	// 下线。EnqueueHarvest 对 nil client 是一次安静的空操作，扫尾也就不跑；批改的
+	// 入队接口返回 503 grading_queue_unavailable，其余照常。
 	riverClient, rerr := api.StartHarvestQueue(ctx, pool, theAPI)
 	if rerr != nil {
-		slog.Error("interest harvest queue failed to start; harvesting is off", "err", rerr)
+		slog.Error("job queue failed to start; interest harvesting and AI grading are off", "err", rerr)
 	} else {
 		theAPI.AttachRiver(riverClient)
-		slog.Info("interest harvest queue started")
+		slog.Info("job queue started (interest harvesting, AI grading)")
 	}
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
