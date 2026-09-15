@@ -6,7 +6,7 @@ import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
-import { getWriting, isWritingFinished, type Writing } from "../api/writings";
+import { getWriting, isAssignedWriting, isWritingFinished, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import {
@@ -427,6 +427,22 @@ function LengthMeter({
     if (body) return countWords(body);
     return state.snippets.reduce((n, s) => n + countWords(s.text), 0);
   }, [state.draft.body, state.snippets]);
+
+  // An assigned writing's target is the teacher's: shown, never edited here
+  // (the server answers 409 assigned_target_locked).
+  if (isAssignedWriting(writing)) {
+    return (
+      <span className="rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-small text-mk-secondary">
+        {writing.targetWords != null ? (
+          <>
+            已写 <span className="font-semibold text-mk-ink">{written}</span> / 目标 {writing.targetWords}
+          </>
+        ) : (
+          <>已写 {written}</>
+        )}
+      </span>
+    );
+  }
 
   function commit() {
     const n = Number(value.trim());

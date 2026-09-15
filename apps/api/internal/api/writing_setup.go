@@ -59,18 +59,29 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if req.Lang != "zh" && req.Lang != "en" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_lang", "语言只能是中文或英文。", nil))
+	// An assigned writing's language and target are the teacher's (owner,
+	// 2026-09-15): the body's lang and targetWords are ignored and the stored
+	// values kept. The stamp and the note are saved as for her own writing.
+	cur, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
 		return
 	}
-	var tw *int32
-	if req.TargetWords != nil {
-		if *req.TargetWords < minTargetWords || *req.TargetWords > maxTargetWords {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_target_words", "目标字数需在 1 到 100000 之间。", nil))
+	lang, tw := cur.Lang, cur.TargetWords
+	if !writingIsAssigned(cur) {
+		if req.Lang != "zh" && req.Lang != "en" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_lang", "语言只能是中文或英文。", nil))
 			return
 		}
-		v := int32(*req.TargetWords)
-		tw = &v
+		lang, tw = req.Lang, nil
+		if req.TargetWords != nil {
+			if *req.TargetWords < minTargetWords || *req.TargetWords > maxTargetWords {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_target_words", "目标字数需在 1 到 100000 之间。", nil))
+				return
+			}
+			v := int32(*req.TargetWords)
+			tw = &v
+		}
 	}
 	note := strings.TrimSpace(req.Note)
 	if len([]rune(note)) > writingSetupNoteMaxRunes {
@@ -90,7 +101,7 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 	qtx := a.d.Queries.WithTx(tx)
 
 	wr, err := qtx.SetWritingSetup(r.Context(), sqlc.SetWritingSetupParams{
-		AtomID: at.ID, Lang: req.Lang, TargetWords: tw,
+		AtomID: at.ID, Lang: lang, TargetWords: tw,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -165,13 +176,20 @@ const (
 // for a writing she opened herself, with the two sentences above swapped for
 // an assigned one.
 func writingOpeningSystemFor(wr sqlc.Writing) string {
-	if wr.AssignedPrompt == nil || strings.TrimSpace(*wr.AssignedPrompt) == "" {
+	if !writingIsAssigned(wr) {
 		return writingOpeningSystem
 	}
 	return strings.NewReplacer(
 		openingTopicOwn, openingTopicAssigned,
 		openingRestateOwn, openingRestateAssigned,
 	).Replace(writingOpeningSystem)
+}
+
+// writingIsAssigned: the writing was started from a teacher's assignment. Its
+// topic, language and target are the teacher's. A blank prompt counts as none,
+// the same rule as the client's isAssignedWriting.
+func writingIsAssigned(wr sqlc.Writing) bool {
+	return wr.AssignedPrompt != nil && strings.TrimSpace(*wr.AssignedPrompt) != ""
 }
 
 // buildWritingOpeningPrompt assembles what the coach sees: her title, the

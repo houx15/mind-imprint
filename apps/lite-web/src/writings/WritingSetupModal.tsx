@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/ui";
 import { ApiError } from "../api/client";
 import { setWritingSetup } from "../api/writingRoom";
-import type { Writing } from "../api/writings";
+import { isAssignedWriting, type Writing } from "../api/writings";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -20,6 +20,11 @@ import { apiErrorText } from "../api/errorText";
  * — length is never a precondition), and 跳过 dismisses the whole thing with
  * the language defaulted. The one thing it always does is stamp `setupAt`, so
  * it asks once and never again.
+ *
+ * On an assigned writing the language and target are the teacher's (owner,
+ * 2026-09-15): they are shown read-only, and the server keeps its stored
+ * values whatever this dialog sends. The note box and the stamp work as for
+ * her own writing.
  */
 
 const LANGS: { value: "zh" | "en"; label: string; hint: string }[] = [
@@ -34,6 +39,7 @@ export function WritingSetupModal({
   writing: Writing;
   onDone: (next: Writing) => void;
 }) {
+  const assigned = isAssignedWriting(writing);
   const [lang, setLang] = useState<"zh" | "en">(writing.lang === "en" ? "en" : "zh");
   const [words, setWords] = useState(writing.targetWords != null ? String(writing.targetWords) : "");
   const [note, setNote] = useState("");
@@ -46,7 +52,8 @@ export function WritingSetupModal({
     // one", not as an error to scold her with. The field is optional; the
     // only wrong outcome would be blocking her over it.
     const n = Number(words.trim());
-    const targetWords = words.trim() !== "" && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    const typed = words.trim() !== "" && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    const targetWords = assigned ? writing.targetWords : typed;
     setSaving(true);
     setError(null);
     try {
@@ -71,52 +78,68 @@ export function WritingSetupModal({
       >
         <div className="flex flex-col gap-1.5">
           <h2 className="text-mk-h2 text-mk-ink">开始之前</h2>
-          <p className="text-mk-small text-mk-muted">都可以之后再改，现在随便填。</p>
+          {!assigned && <p className="text-mk-small text-mk-muted">都可以之后再改，现在随便填。</p>}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <span className="text-mk-small text-mk-secondary">这篇用什么语言写？</span>
-          <div className="grid grid-cols-2 gap-2">
-            {LANGS.map((l) => {
-              const on = lang === l.value;
-              return (
-                <button
-                  key={l.value}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setLang(l.value)}
-                  className="flex flex-col items-start gap-0.5 rounded-mk-sm border px-3 py-2.5 text-left transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-                  style={
-                    on
-                      ? { borderColor: "var(--mk-accent-500)", background: "var(--mk-accent-50)" }
-                      : { borderColor: "var(--mk-border)", background: "var(--mk-paper)" }
-                  }
-                >
-                  <span className="text-mk-body font-semibold" style={{ color: on ? "var(--mk-accent-700)" : "var(--mk-ink)" }}>
-                    {l.label}
-                  </span>
-                  <span className="text-mk-small text-mk-muted">{l.hint}</span>
-                </button>
-              );
-            })}
+        {assigned ? (
+          <div className="flex flex-col gap-2">
+            <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5">
+              <dt className="text-mk-small text-mk-secondary">语言</dt>
+              <dd className="text-mk-body font-semibold text-mk-ink">{lang === "en" ? "英文" : "中文"}</dd>
+              <dt className="text-mk-small text-mk-secondary">目标字数</dt>
+              <dd className="text-mk-body font-semibold text-mk-ink">
+                {writing.targetWords != null ? `${writing.targetWords} ${lang === "en" ? "词" : "字"}` : "—"}
+              </dd>
+            </dl>
+            <span className="text-mk-small text-mk-muted">作业要求由老师设定</span>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-2">
+              <span className="text-mk-small text-mk-secondary">这篇用什么语言写？</span>
+              <div className="grid grid-cols-2 gap-2">
+                {LANGS.map((l) => {
+                  const on = lang === l.value;
+                  return (
+                    <button
+                      key={l.value}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setLang(l.value)}
+                      className="flex flex-col items-start gap-0.5 rounded-mk-sm border px-3 py-2.5 text-left transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                      style={
+                        on
+                          ? { borderColor: "var(--mk-accent-500)", background: "var(--mk-accent-50)" }
+                          : { borderColor: "var(--mk-border)", background: "var(--mk-paper)" }
+                      }
+                    >
+                      <span className="text-mk-body font-semibold" style={{ color: on ? "var(--mk-accent-700)" : "var(--mk-ink)" }}>
+                        {l.label}
+                      </span>
+                      <span className="text-mk-small text-mk-muted">{l.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        <div className="flex flex-col gap-2">
-          <span className="text-mk-small text-mk-secondary">大概写多长？（可以不填）</span>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              value={words}
-              onChange={(e) => setWords(e.target.value)}
-              placeholder={lang === "en" ? "e.g. 500" : "比如 800"}
-              aria-label="目标字数"
-              className="w-32 rounded-mk-xs border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-            />
-            <span className="text-mk-small text-mk-muted">{lang === "en" ? "words" : "字"}</span>
-          </div>
-        </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-mk-small text-mk-secondary">大概写多长？（可以不填）</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={words}
+                  onChange={(e) => setWords(e.target.value)}
+                  placeholder={lang === "en" ? "e.g. 500" : "比如 800"}
+                  aria-label="目标字数"
+                  className="w-32 rounded-mk-xs border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                />
+                <span className="text-mk-small text-mk-muted">{lang === "en" ? "words" : "字"}</span>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="flex flex-col gap-2">
           <span className="text-mk-small text-mk-secondary">还想说点什么？</span>

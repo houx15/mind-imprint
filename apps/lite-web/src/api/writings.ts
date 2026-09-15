@@ -53,6 +53,14 @@ export function assignedPromptOf(w: Pick<Writing, "assignedPrompt">): string | n
   return prompt ? prompt : null;
 }
 
+/** Whether the writing was started from a teacher's assignment. Its language
+ *  and target are then the teacher's: the setup dialog shows them read-only
+ *  and the room's length meter cannot change the target. Same rule as the
+ *  server's `writingIsAssigned`: a blank prompt is not an assignment. */
+export function isAssignedWriting(w: Pick<Writing, "assignedPrompt">): boolean {
+  return assignedPromptOf(w) !== null;
+}
+
 /** A writing is finished when the server says so — same both-fields
  *  tolerance as readings.ts's `isFinished`. */
 export function isWritingFinished(w: Writing): boolean {

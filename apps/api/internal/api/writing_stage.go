@@ -132,9 +132,21 @@ func (a *API) setWritingStage(w http.ResponseWriter, r *http.Request) {
 // setWritingTargetWords is PUT /api/v1/writings/{id}/target-words. No stage
 // check, no stage side effect — see the file comment: length is never a
 // precondition for anything, at any stage.
+//
+// An assigned writing's target is the teacher's (owner, 2026-09-15), so it is
+// 409 assigned_target_locked there, whatever the body says.
 func (a *API) setWritingTargetWords(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
+		return
+	}
+	cur, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if writingIsAssigned(cur) {
+		httpx.WriteError(w, r, &httpx.APIError{Status: http.StatusConflict, Code: "assigned_target_locked", Message: "作业的字数要求由老师设定"})
 		return
 	}
 	var req struct {
