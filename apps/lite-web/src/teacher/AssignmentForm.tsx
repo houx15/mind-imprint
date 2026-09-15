@@ -1,19 +1,22 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api, type ClassSummary } from "@/api";
 import { createAssignment, extractWritingFields, type AssignmentKind } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
+import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
 import { RubricFields } from "./RubricFields";
 import { rubricDefaultNote } from "./rubricLogic";
 import { TeacherPage } from "./TeacherPage";
+import { UploadSourceField } from "./UploadSourceField";
 import {
   buildCreateInput,
   emptySettings,
   errorText,
   failText,
+  fillTitleIfEmpty,
   pickClassId,
   readLastClassId,
   toggleId,
@@ -32,56 +35,6 @@ import {
  * (assignmentLogic.ts); this file only holds state and renders.
  */
 
-export const INPUT_CLS =
-  "w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200";
-
-export function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-mk-label font-bold text-mk-muted">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-export function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-mk-label font-bold text-mk-muted">{label}</span>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
-        {options.map((o) => {
-          const active = o.value === value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(o.value)}
-              className={
-                "rounded-mk-md border px-4 py-2 text-mk-small transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
-                (active ? "border-mk-accent font-bold text-mk-accent-700" : "border-mk-border bg-mk-surface text-mk-ink hover:bg-mk-accent-50")
-              }
-              style={active ? { background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" } : undefined}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 const KIND_OPTIONS: { value: AssignmentKind; label: string }[] = [
   { value: "reading", label: "阅读" },
   { value: "writing", label: "写作" },
@@ -92,6 +45,7 @@ const SOURCE_OPTIONS: { value: ReadingSource; label: string }[] = [
   { value: "library", label: "分级阅读库" },
   { value: "url", label: "链接" },
   { value: "text", label: "正文" },
+  { value: "file", label: "上传文件" },
 ];
 
 /** 类型. Rendered by the form right after 班级 (and first in the detail page's
@@ -106,9 +60,12 @@ export function KindField({ value, onChange }: { value: AssignmentKind; onChange
 export function SettingsFields({
   value,
   onChange,
+  onExtractedTitle,
 }: {
   value: SettingsDraft;
   onChange: (update: (d: SettingsDraft) => SettingsDraft) => void;
+  /** Called with the uploaded document's title; the page fills 标题 only when it is empty. */
+  onExtractedTitle?: (title: string) => void;
 }) {
   const set = (patch: Partial<SettingsDraft>) => onChange((d) => ({ ...d, ...patch }));
   return (
@@ -145,6 +102,17 @@ export function SettingsFields({
                 className={INPUT_CLS}
               />
             </Field>
+          )}
+          {value.readingSource === "file" && (
+            <UploadSourceField
+              text={value.text}
+              fileName={value.fileName}
+              onExtracted={(r) => {
+                onChange((d) => ({ ...d, text: r.text, fileName: r.fileName }));
+                onExtractedTitle?.(r.title);
+              }}
+              onTextChange={(text) => set({ text })}
+            />
           )}
         </>
       )}
@@ -448,7 +416,11 @@ export function AssignmentForm({
             />
           </Field>
 
-          <SettingsFields value={draft} onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))} />
+          <SettingsFields
+            value={draft}
+            onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))}
+            onExtractedTitle={(title) => setDraft((d) => ({ ...d, title: fillTitleIfEmpty(d.title, title) }))}
+          />
 
           <RecipientChecklist
             roster={roster}

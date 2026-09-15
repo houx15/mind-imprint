@@ -1,6 +1,6 @@
 import { Button } from "@/ui";
 import type { RubricDimension } from "../api/gradings";
-import { Field, INPUT_CLS, Segmented } from "./AssignmentForm";
+import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { rubricDimensionLabel, type RubricDraft } from "./rubricLogic";
 
 const MAX_DIMENSIONS = 6;

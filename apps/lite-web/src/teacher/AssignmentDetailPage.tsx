@@ -12,8 +12,9 @@ import { getLibraryShelf } from "../api/library";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
-import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
+import { KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
+import { Field, INPUT_CLS } from "./formParts";
 import { GradingTab } from "./GradingTab";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
@@ -24,6 +25,7 @@ import {
   canEditSettings,
   errorText,
   failText,
+  fillTitleIfEmpty,
   isArchiveSuccess,
   settingsFromAssignment,
   settingsSummary,
@@ -308,6 +310,7 @@ export function AssignmentDetailPage({
                 <SettingsFields
                   value={edit.settings}
                   onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
+                  onExtractedTitle={(title) => setEdit((d) => (d ? { ...d, title: fillTitleIfEmpty(d.title, title) } : d))}
                 />
               ) : (
                 <>

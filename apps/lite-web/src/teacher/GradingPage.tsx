@@ -16,7 +16,7 @@ import { formatDeadline } from "../shared/deadline";
 import { highlightSegments, MARK_STYLE, pickableSentences, PIECE_CLS, quoteRanges, unmarkedPointQuotes } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText } from "./assignmentLogic";
-import { INPUT_CLS } from "./AssignmentForm";
+import { INPUT_CLS } from "./formParts";
 import {
   contentForSave,
   failureText,

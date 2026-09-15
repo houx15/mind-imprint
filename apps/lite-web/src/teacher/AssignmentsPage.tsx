@@ -5,7 +5,7 @@ import { listAssignments, type AssignmentSummaryDTO } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL } from "../shared/deadline";
 import { kindLabel } from "./format";
 import { TeacherPage } from "./TeacherPage";
-import { errorText, pickClassId, readLastClassId, STATUS_ORDER, writeLastClassId } from "./assignmentLogic";
+import { assignmentFileName, errorText, pickClassId, readLastClassId, STATUS_ORDER, writeLastClassId } from "./assignmentLogic";
 
 /**
  * AssignmentsPage — `/assignments`: one class's assignments with a count per
@@ -163,7 +163,12 @@ export function AssignmentsPage({
                     <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">
                       {kindLabel(a.kind)}
                     </td>
-                    <td className="border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">{a.title}</td>
+                    <td className="border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
+                      {a.title}
+                      {assignmentFileName(a) && (
+                        <span className="mt-0.5 block break-all font-normal text-mk-muted">{assignmentFileName(a)}</span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                       {formatDeadline(a.dueAt)}
                     </td>
