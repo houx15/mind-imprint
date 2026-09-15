@@ -7,6 +7,7 @@ import {
   buildCreateInput,
   buildPatchInput,
   buildPayload,
+  buildReturnInput,
   canEditSettings,
   emptySettings,
   failText,
@@ -213,6 +214,28 @@ describe("filterArticles", () => {
     expect(filterArticles(list, "coral").map((a) => a.slug)).toEqual(["a"]);
     expect(filterArticles(list, "太阳").map((a) => a.slug)).toEqual(["b"]);
     expect(filterArticles(list, " ").length).toBe(2);
+  });
+});
+
+describe("buildReturnInput", () => {
+  const now = Date.parse("2026-09-15T10:00:00+08:00");
+
+  it("rejects a missing or malformed time", () => {
+    expect(buildReturnInput("", "", now)).toEqual({ ok: false, error: "请填写新的截止时间" });
+    expect(buildReturnInput("2026-09-18", "", now)).toEqual({ ok: false, error: "请填写新的截止时间" });
+  });
+  it("rejects a time that is not after now", () =>
+    expect(buildReturnInput("2026-09-15T10:00", "", now)).toEqual({ ok: false, error: "新的截止时间需要晚于现在" }));
+  it("rejects a note over 500 characters", () =>
+    expect(buildReturnInput("2026-09-18T22:00", "字".repeat(501), now)).toEqual({ ok: false, error: "退回说明不超过 500 字" }));
+  it("accepts exactly 500 characters", () =>
+    expect(buildReturnInput("2026-09-18T22:00", "字".repeat(500), now).ok).toBe(true));
+  it("reads the input as Beijing time, trims the note and drops an empty one", () => {
+    expect(buildReturnInput("2026-09-18T22:00", "  请补充第二段的论据 ", now)).toEqual({
+      ok: true,
+      value: { dueAt: "2026-09-18T22:00:00+08:00", note: "请补充第二段的论据" },
+    });
+    expect(buildReturnInput("2026-09-18T22:00", "   ", now)).toEqual({ ok: true, value: { dueAt: "2026-09-18T22:00:00+08:00" } });
   });
 });
 

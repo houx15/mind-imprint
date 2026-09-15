@@ -15,6 +15,7 @@ import type {
   CreateAssignmentInput,
   PatchAssignmentInput,
   RecipientDTO,
+  ReturnRecipientInput,
 } from "../api/assignments";
 import type { LibraryArticle } from "../api/library";
 import type { RosterRow } from "../api/teacher";
@@ -212,6 +213,18 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<
     patch.payload = buildPayload(e.settings);
   }
   return { ok: true, value: patch };
+}
+
+const MAX_RETURN_NOTE = 500;
+
+/** 退回修改 request body. Messages match lite_teacher_return.go. */
+export function buildReturnInput(dueInput: string, note: string, nowMs: number): Built<ReturnRecipientInput> {
+  const dueAt = beijingInputToISO(dueInput);
+  if (!dueAt) return { ok: false, error: "请填写新的截止时间" };
+  if (Date.parse(dueAt) <= nowMs) return { ok: false, error: "新的截止时间需要晚于现在" };
+  const trimmed = note.trim();
+  if (Array.from(trimmed).length > MAX_RETURN_NOTE) return { ok: false, error: "退回说明不超过 500 字" };
+  return { ok: true, value: trimmed ? { dueAt, note: trimmed } : { dueAt } };
 }
 
 /** Kind and payload stay editable while no recipient has started — the same

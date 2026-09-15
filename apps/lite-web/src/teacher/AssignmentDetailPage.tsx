@@ -14,6 +14,7 @@ import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadl
 import { useAlive } from "../shared/useAlive";
 import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
+import { ReturnDialog } from "./ReturnDialog";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
@@ -59,6 +60,7 @@ export function AssignmentDetailPage({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [returning, setReturning] = useState<RecipientDTO | null>(null);
 
   const alive = useAlive();
   const aidRef = useRef(assignmentId);
@@ -72,6 +74,7 @@ export function AssignmentDetailPage({
     setConfirmArchive(false);
     setMessage(null);
     setBusy(false);
+    setReturning(null);
   }, [assignmentId]);
 
   useEffect(() => {
@@ -348,13 +351,20 @@ export function AssignmentDetailPage({
                           {r.finishedAt ? formatDeadline(r.finishedAt) : "—"}
                         </td>
                         <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
-                          {r.atomId ? (
-                            <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
-                              查看
-                            </Button>
-                          ) : (
-                            <span className="text-mk-muted">—</span>
-                          )}
+                          <div className="flex items-center gap-3">
+                            {r.atomId ? (
+                              <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
+                                查看
+                              </Button>
+                            ) : (
+                              <span className="text-mk-muted">—</span>
+                            )}
+                            {assignment.kind === "writing" && r.versionCount > 0 && (
+                              <Button variant="link" size="sm" onClick={() => setReturning(r)}>
+                                退回修改
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -389,6 +399,18 @@ export function AssignmentDetailPage({
             )}
           </section>
         </>
+      )}
+
+      {returning && assignment && (
+        <ReturnDialog
+          assignmentId={assignment.id}
+          recipient={returning}
+          onClose={() => setReturning(null)}
+          onReturned={() => {
+            setReturning(null);
+            setNonce((n) => n + 1);
+          }}
+        />
       )}
     </TeacherPage>
   );
