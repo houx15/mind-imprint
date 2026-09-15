@@ -315,6 +315,78 @@ func TestCheckStillRejectsALongCurlyQuoteRewrite(t *testing.T) {
 	}
 }
 
+// --- Controller ruling 2026-09-15, fix round 2: a catalog symptom name
+// quoted with “” (not just 「」 — mainland zh models favour “”) was still
+// being rejected when it normalized to 8+ runes, because only length gated
+// the check, not catalog membership. Also: a Point.Quote that is nothing
+// but punctuation ("……", "?!") normalized to "" and matched every body
+// trivially — fixed to report ReasonQuoteMissing instead.
+
+func zhSymptomCatalog() string {
+	return "【第 1 层 · 立意】\n" +
+		"- topic_without_question（只有主题，没有问题）：材料围绕一个大词堆积；读完不知道你想说的是哪一件事。\n" +
+		"- evidence_not_explained（举了例子，没有解释）：例子摆在那里就过去了，没有一句话说清它凭什么支持你的判断。\n"
+}
+
+func enSymptomCatalog() string {
+	return "【第 1 层 · 立意】\n" +
+		"- task_instruction_coverage（没有回答题目问的那件事）：题目要求的动作有一半没做，或者答的是另一个范围。\n" +
+		"【第 3 层 · 结构】\n" +
+		"- paragraph_function_order（句子的角色和顺序乱了）：一段里主张、证据、解释的先后颠倒。\n"
+}
+
+func TestCheckAcceptsCatalogSymptomNameInCurlyQuotes(t *testing.T) {
+	// The reviewer's exact probe: 属于"只有主题，没有问题" — a zh catalog
+	// name quoted with “”, normalizing to 8 runes (at the MinRunes floor,
+	// so the length skip alone doesn't save it; the catalog check does).
+	c, in := validContent(), testInput()
+	in.SymptomCatalog = zhSymptomCatalog()
+	c.Points[1].Text = "属于“只有主题，没有问题”。"
+	rs := Check(c, in)
+	if hasCode(rs, ReasonQuotationNotInBody) {
+		t.Fatalf("a catalog symptom name in “” was rejected: %v", codes(rs))
+	}
+}
+
+func TestCheckAcceptsEnCatalogLabelInCornerQuotes(t *testing.T) {
+	c, in := validContent(), testInput()
+	in.SymptomCatalog = enSymptomCatalog()
+	c.Points[1].Text = "属于「没有回答题目问的那件事」的问题。" // 11 runes
+	rs := Check(c, in)
+	if hasCode(rs, ReasonQuotationNotInBody) {
+		t.Fatalf("an en-catalog label in 「」 was rejected: %v", codes(rs))
+	}
+}
+
+func TestCheckStillRejectsAnInventedQuotationNotInTheCatalog(t *testing.T) {
+	// The catalog is present (so this isn't passing merely because there is
+	// no catalog to check against) but the quoted text names nothing in it.
+	c, in := validContent(), testInput()
+	in.SymptomCatalog = zhSymptomCatalog()
+	c.Points[1].Text = "没有回应「这句话是彻底编造出来的内容」。" // not in body, prompt, or catalog
+	rs := Check(c, in)
+	if !hasCode(rs, ReasonQuotationNotInBody) {
+		t.Fatalf("an invented quotation absent from the catalog should still be rejected: %v", codes(rs))
+	}
+}
+
+func TestCheckPunctuationOnlyQuoteIsMissingNotAccepted(t *testing.T) {
+	cases := []string{"……", "?!", "。。。"}
+	for _, q := range cases {
+		t.Run(q, func(t *testing.T) {
+			c, in := validContent(), testInput()
+			c.Points[0].Quote = sp(q)
+			rs := Check(c, in)
+			if !hasCode(rs, ReasonQuoteMissing) {
+				t.Fatalf("a punctuation-only quote should read as missing: %v", codes(rs))
+			}
+			if hasCode(rs, ReasonQuoteNotInBody) {
+				t.Fatalf("a punctuation-only quote should not be reported as merely not-in-body: %v", codes(rs))
+			}
+		})
+	}
+}
+
 func TestCheckLanguageThresholdBoundary(t *testing.T) {
 	// languageThreshold is 0.6: prose that is exactly 60% Han passes, prose
 	// that is 50% Han (just under) is rejected. Only the overall comment is

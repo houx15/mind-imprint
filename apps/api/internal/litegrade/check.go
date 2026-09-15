@@ -111,7 +111,8 @@ const languageThreshold = 0.6
 // being a match of her body once normalized — or, if not, of the assigned
 // prompt (ReasonQuoteMissing, ReasonQuoteNotInBody, ReasonQuotationNotInBody,
 // ReasonQuoteFromPrompt; see package quotematch for what "normalized" means
-// and why a short quotation isn't checked at all), sentences that judge her
+// and textReasons for why a short quotation, or one naming a symptom from
+// Input.SymptomCatalog, isn't checked at all), sentences that judge her
 // instead of her writing (ReasonPersonJudging, only for the phrases
 // PersonJudging recognises), and the feedback being mostly written in the
 // writing's language (ReasonLanguageMismatch, an approximate character-ratio
@@ -208,10 +209,14 @@ func shapeReasons(c Content, in Input) []Reason {
 }
 
 // textReasons checks one piece of the model's prose: present (when required),
-// every long-enough 「」/『』/“” quotation hers, and not about her as a person.
-// A quotation shorter than quotematch.MinRunes is skipped — it's usually a
-// term or a symptom-catalog name (「让步」「只有主题」), not a copied
-// sentence, and checking it against her body produces false positives.
+// every long-enough 「」/『』/“” quotation hers or a catalog name, and not
+// about her as a person. A quotation shorter than quotematch.MinRunes is
+// skipped outright — it's usually a term (「让步」), not a copied sentence,
+// and checking it against her body produces false positives. A longer one
+// that names a symptom from the catalog (「只有主题，没有问题」, 「没有回答
+// 题目问的那件事」 — the prompt tells the model it may use these, and asks
+// it not to wrap them in quotes, but mainland models do it anyway) is
+// likewise let through: see cp.reason.
 func textReasons(where, s string, in Input, cp corpus, required bool) []Reason {
 	var rs []Reason
 	if strings.TrimSpace(s) == "" {
@@ -221,8 +226,12 @@ func textReasons(where, s string, in Input, cp corpus, required bool) []Reason {
 		return rs
 	}
 	for _, span := range quotematch.ExtractQuotedSpans(s) {
-		if len([]rune(quotematch.Normalize(span))) < quotematch.MinRunes {
+		n := quotematch.Normalize(span)
+		if len([]rune(n)) < quotematch.MinRunes {
 			continue
+		}
+		if cp.normCatalog != "" && strings.Contains(cp.normCatalog, n) {
+			continue // names a symptom from the catalog, not a claim to be quoting her
 		}
 		if r := cp.reason(where, span, ReasonQuotationNotInBody); r != nil {
 			rs = append(rs, *r)
@@ -234,34 +243,45 @@ func textReasons(where, s string, in Input, cp corpus, required bool) []Reason {
 	return rs
 }
 
-// corpus is her body and the teacher's assigned prompt, normalized once so
-// every quote check in one Check/CheckTeacherEdit call reuses the same
-// normalization instead of repeating it per quote.
+// corpus is her body, the teacher's assigned prompt and the rendered symptom
+// catalog, normalized once so every quote check in one Check/CheckTeacherEdit
+// call reuses the same normalization instead of repeating it per quote.
 type corpus struct {
-	normBody   string
-	normPrompt string
-	hasPrompt  bool
+	normBody    string
+	normPrompt  string
+	hasPrompt   bool
+	normCatalog string
 }
 
 func newCorpus(in Input) corpus {
 	return corpus{
-		normBody:   quotematch.Normalize(in.Body),
-		normPrompt: quotematch.Normalize(in.AssignedPrompt),
-		hasPrompt:  in.AssignedPrompt != "",
+		normBody:    quotematch.Normalize(in.Body),
+		normPrompt:  quotematch.Normalize(in.AssignedPrompt),
+		hasPrompt:   in.AssignedPrompt != "",
+		normCatalog: quotematch.Normalize(in.SymptomCatalog),
 	}
 }
 
 // reason: nil when q is part of her body once both sides are normalized —
 // so a half-width comma, a trailing 。, or a quote that spans a paragraph
-// break in the source no longer causes a false rejection. Text found only
-// in the teacher's assigned prompt gets its own reason: the teacher's words
-// are never hers, however exactly they're copied.
+// break in the source no longer causes a false rejection. A quote that
+// normalizes to nothing (all punctuation, e.g. "……" or "?!") is not "found"
+// by that same Contains check — every string contains the empty string —
+// so it's caught first and reported as missing rather than accepted. Text
+// found only in the teacher's assigned prompt gets its own reason: the
+// teacher's words are never hers, however exactly they're copied. This is
+// used for Point.Quote (always required to be hers) as well as for a 「」
+// quotation in prose (via textReasons, which checks the symptom catalog
+// first and never reaches here for a name from it).
 func (cp corpus) reason(where, q string, notInBody string) *Reason {
 	q = strings.TrimSpace(q)
 	if q == "" {
 		return nil
 	}
 	n := quotematch.Normalize(q)
+	if n == "" {
+		return &Reason{Code: ReasonQuoteMissing, Where: where}
+	}
 	if strings.Contains(cp.normBody, n) {
 		return nil
 	}
