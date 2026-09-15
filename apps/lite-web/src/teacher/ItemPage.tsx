@@ -12,6 +12,7 @@ import { displayStat } from "../reports/statLabels";
 import { OutputRecord } from "./OutputRecord";
 import { lensFieldLabels } from "./outputSummary";
 import { useAlive } from "../shared/useAlive";
+import { TeacherPage } from "./TeacherPage";
 
 /**
  * ItemPage — one item (reading/writing/project), from the teacher's side.
@@ -124,31 +125,29 @@ export function ItemPage({
   }, [detail, classId, userId, atomId, alive]);
 
   return (
-    <div className="min-h-full">
-      <div className="teacher-page teacher-record">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回学习档案
-        </button>
+    <TeacherPage>
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={ArrowLeft} size={15} />
+        返回
+      </button>
 
-        {error ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{error}{" "}
-            <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
-        ) : detail === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : (
-          <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
-        )}
-      </div>
-    </div>
+      {error ? (
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{error}{" "}
+          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
+      ) : detail === null ? (
+        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+      ) : (
+        <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
+      )}
+    </TeacherPage>
   );
 }
 
@@ -458,7 +457,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
     <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">项目</h2>
 
-      <p className="mt-2 text-mk-body text-mk-ink">{project.idea}</p>
+      <p className="mt-2 text-mk-body text-mk-ink">{project.assigned && <span className="block text-mk-small text-mk-muted">驱动问题（作业）</span>}{project.idea}</p>
       <ProjectProgressVisual steps={steps} done={project.stepsDone} total={project.stepsTotal} />
 
       {project.tools.length > 0 && (

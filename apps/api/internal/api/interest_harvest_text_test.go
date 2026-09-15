@@ -88,6 +88,40 @@ func TestGatherHarvestText_ReadsWhatSheSaidToTheCoach(t *testing.T) {
 	}
 }
 
+// mkProjectWithIdea 建一个属于种子学生的项目。assigned=true 时 idea 是老师布置的
+// 驱动问题。
+func mkProjectWithIdea(t *testing.T, pool *pgxpool.Pool, idea string, assigned bool) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	if err := pool.QueryRow(t.Context(),
+		`INSERT INTO atom (kind, user_id) VALUES ('project', $1) RETURNING id`,
+		SeedUserID).Scan(&id); err != nil {
+		t.Fatalf("insert atom: %v", err)
+	}
+	if _, err := pool.Exec(t.Context(),
+		`INSERT INTO pbl_project (atom_id, idea, kind, name, assigned) VALUES ($1, $2, '', '杯子', $3)`,
+		id, idea, assigned); err != nil {
+		t.Fatalf("insert pbl_project: %v", err)
+	}
+	return id
+}
+
+// 老师布置的驱动问题不是她的立题。采进去，树上长出来的就是老师的词。
+func TestGatherHarvestText_SkipsAssignedProjectIdea(t *testing.T) {
+	pool := NewTestDB(t)
+	a := New(Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false})
+
+	teachers := "怎样让校园少用一次性杯子？"
+	if _, body := a.gatherHarvestText(t.Context(), mkProjectWithIdea(t, pool, teachers, true), "project"); strings.Contains(body, teachers) {
+		t.Errorf("老师布置的驱动问题被当成她的立题采进去了：\n%s", body)
+	}
+
+	hers := "我想让食堂的剩饭少一半"
+	if _, body := a.gatherHarvestText(t.Context(), mkProjectWithIdea(t, pool, hers, false), "project"); !strings.Contains(body, hers) {
+		t.Errorf("她自己的立题没进去：\n%s", body)
+	}
+}
+
 // 她一个字都没说过的阅读仍然采不到东西 —— 这是对的，不要为了让上面那条过去
 // 就把正文喂进来。喂正文采出来的是文章的词，不是她的词。
 func TestGatherHarvestText_SilentReadingStaysEmpty(t *testing.T) {

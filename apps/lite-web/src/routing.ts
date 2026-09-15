@@ -81,6 +81,10 @@ export type LiteRoute =
   // 为什么是 `/p/` 而不是 `/s/`：这两条链接是两种东西。`/s/` 是一次阅读或写作
   // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
   | { tab: "page"; token: string };
+// 2026-09-15: `/r/:token` (a parent report's public link) and
+// `/parent-reports/:id` (the student's copy) are gone. There is no parent end:
+// the teacher exports the report as a picture. Both paths now fall through to
+// the explore fallback like any unknown path.
 
 /** Root and index.html open the learning home. Unknown and malformed public
  * paths retain the explore fallback; all learning deep links persist. */

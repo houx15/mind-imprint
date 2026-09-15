@@ -277,6 +277,13 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/library", liteOnly(a.getLibraryShelf))
 	mux.Handle("POST /api/v1/library/{slug}/levels/{tier}", liteOnly(a.startLibraryReading))
 
+	// 轻量版（lite edition）· 学生这一侧的作业：收件箱、已读、开始、按 atom 反查。
+	// 见 lite_student_assignments.go。
+	mux.Handle("GET /api/v1/lite/inbox", liteOnly(a.getLiteInbox))
+	mux.Handle("POST /api/v1/lite/assignments/{aid}/seen", liteOnly(a.markLiteAssignmentSeen))
+	mux.Handle("POST /api/v1/lite/assignments/{aid}/start", liteOnly(a.startLiteAssignment))
+	mux.Handle("GET /api/v1/lite/assignments/for-atom/{atomId}", liteOnly(a.getLiteAssignmentForAtom))
+
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
 	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))

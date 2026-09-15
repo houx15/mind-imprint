@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/liteassign"
 	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -30,6 +32,7 @@ type LiteRosterRowDTO struct {
 	WritingsTotal      int32   `json:"writingsTotal"`
 	ProjectsDone       int32   `json:"projectsDone"`
 	ProjectsTotal      int32   `json:"projectsTotal"`
+	OverdueAssignments int32   `json:"overdueAssignments"`
 }
 
 // currentLiteWeek is [Monday 00:00 Beijing, next Monday) around now.
@@ -62,11 +65,36 @@ func (a *API) getLiteClassRoster(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	overdue, err := a.overdueAssignmentsByUser(r.Context(), classID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	out := make([]LiteRosterRowDTO, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, liteRosterRow(row))
+		dto := liteRosterRow(row)
+		dto.OverdueAssignments = overdue[row.ID]
+		out = append(out, dto)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"roster": out})
+}
+
+// overdueAssignmentsByUser counts, per student, how many of the class's
+// non-archived assignments are currently "overdue" — derived in Go from
+// liteassign.Status, never stored.
+func (a *API) overdueAssignmentsByUser(ctx context.Context, classID uuid.UUID) (map[uuid.UUID]int32, error) {
+	states, err := a.d.Queries.ListLiteClassRecipientStates(ctx, classID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	counts := make(map[uuid.UUID]int32, len(states))
+	for _, s := range states {
+		if liteassign.Status(s.StartedAt.Valid, tsPtr(s.FinishedAt), s.DueAt, now) == "overdue" {
+			counts[s.UserID]++
+		}
+	}
+	return counts, nil
 }
 
 // liteEpoch is the SQL sentinel ('epoch'::timestamptz, 1970-01-01 UTC) the
@@ -124,9 +152,10 @@ type LiteItemRowDTO struct {
 
 // getLiteStudentPage handles
 // GET /api/v1/lite/teacher/classes/{id}/students/{userId}: one student's
-// header row (same shape as a roster row) + her reading/writing/project atoms.
+// header row (same shape as a roster row) + her reading/writing/project atoms
+// + her assignments in this class.
 func (a *API) getLiteStudentPage(w http.ResponseWriter, r *http.Request) {
-	_, userID, ok := a.authTeacherStudent(w, r)
+	classID, userID, ok := a.authTeacherStudent(w, r)
 	if !ok {
 		return
 	}
@@ -148,10 +177,42 @@ func (a *API) getLiteStudentPage(w http.ResponseWriter, r *http.Request) {
 	for _, it := range rows {
 		items = append(items, liteItemRow(it))
 	}
+	asRows, err := a.d.Queries.ListLiteStudentAssignments(ctx, sqlc.ListLiteStudentAssignmentsParams{ClassID: classID, UserID: userID})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	now := time.Now()
+	assignments := make([]StudentAssignmentDTO, 0, len(asRows))
+	for _, as := range asRows {
+		assignments = append(assignments, studentAssignmentRow(as, now))
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"student": liteRosterRow(sqlc.ListLiteClassRosterRow(head)),
-		"items":   items,
+		"student":     liteRosterRow(sqlc.ListLiteClassRosterRow(head)),
+		"items":       items,
+		"assignments": assignments,
 	})
+}
+
+// StudentAssignmentDTO is one assignment on the teacher's student page, in
+// one class. Status is derived, never stored — same liteassign.Status the
+// inbox and roster use. Nothing here reads atom_message.
+type StudentAssignmentDTO struct {
+	ID          string  `json:"id"`
+	Kind        string  `json:"kind"`
+	Title       string  `json:"title"`
+	DueAt       string  `json:"dueAt"`
+	Status      string  `json:"status"`
+	StatusLabel string  `json:"statusLabel"`
+	AtomID      *string `json:"atomId"`
+}
+
+func studentAssignmentRow(row sqlc.ListLiteStudentAssignmentsRow, now time.Time) StudentAssignmentDTO {
+	status := liteassign.Status(row.StartedAt.Valid, tsPtr(row.FinishedAt), row.DueAt, now)
+	return StudentAssignmentDTO{
+		ID: row.ID.String(), Kind: row.Kind, Title: row.Title, DueAt: row.DueAt.Format(time.RFC3339),
+		Status: status, StatusLabel: liteassign.StatusLabel(status), AtomID: uuidStringPtr(row.AtomID),
+	}
 }
 
 // liteItemRowDTO builds the DTO from the fields ListLiteStudentItemsRow

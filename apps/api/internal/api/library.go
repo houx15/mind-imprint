@@ -24,6 +24,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -32,7 +33,6 @@ import (
 	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/library"
-	"mindimprint/api/internal/store/sqlc"
 )
 
 // 书架上推荐几篇。四是原来那个写死的书架的长度，也是一屏放得下、不用滚的数量。
@@ -101,25 +101,16 @@ func (a *API) getLibraryShelf(w http.ResponseWriter, r *http.Request) {
 		finished bool
 	}
 	read := make(map[string]readRow, len(rows))
-	finishedTop, abandonedTop := 0, 0
 	for _, row := range rows {
 		if _, seen := read[row.LibrarySlug]; !seen {
 			read[row.LibrarySlug] = readRow{row.AtomID, int(row.LibraryTier), row.Status == "finished"}
-		}
-		tier := int(row.LibraryTier)
-		if row.Status == "finished" {
-			if tier > finishedTop {
-				finishedTop = tier
-			}
-		} else if tier > abandonedTop {
-			abandonedTop = tier
 		}
 	}
 
 	profile := library.Profile{
 		Disciplines: a.interestDisciplines(r),
 		ReadSlugs:   make(map[string]bool, len(read)),
-		Tier:        library.SuggestTier(finishedTop, abandonedTop),
+		Tier:        suggestLibraryTierFromRows(rows),
 	}
 	for slug := range read {
 		profile.ReadSlugs[slug] = true
@@ -242,9 +233,10 @@ func (a *API) startLibraryReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The slug is checked before the tier is parsed, as it always was: an
+	// unknown article with a non-numeric tier is a 404, not a 400.
 	slug := r.PathValue("slug")
-	art, ok := library.BySlug(slug)
-	if !ok {
+	if _, ok := library.BySlug(slug); !ok {
 		httpx.WriteError(w, r, httpx.ErrNotFound("这篇文章不在阅读库里"))
 		return
 	}
@@ -253,70 +245,24 @@ func (a *API) startLibraryReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "难度档位要是一个数字", nil))
 		return
 	}
-	lvl, ok := art.LevelAt(tier)
-	if !ok {
+
+	id, resumed, err := a.createLibraryReadingFor(r.Context(), u.ID, slug, tier)
+	switch {
+	case errors.Is(err, errLibraryArticleNotFound):
+		httpx.WriteError(w, r, httpx.ErrNotFound("这篇文章不在阅读库里"))
+		return
+	case errors.Is(err, errLibraryTierInvalid):
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "这篇文章没有这一档", nil))
 		return
-	}
-
-	existing, err := a.d.Queries.ListLibraryReadingsByUser(r.Context(), u.ID)
-	if err != nil {
+	case err != nil:
 		httpx.WriteError(w, r, err)
 		return
 	}
-	for _, row := range existing {
-		if row.LibrarySlug == slug && int(row.LibraryTier) == tier && row.Status != "finished" {
-			httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": row.AtomID.String(), "resumed": true})
-			return
-		}
-	}
-
-	figures, err := json.Marshal(lvl.Figures)
-	if err != nil {
-		httpx.WriteError(w, r, err)
+	if resumed {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": id.String(), "resumed": true})
 		return
 	}
-	headings, err := json.Marshal(lvl.Headings)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-
-	tx, err := a.d.Pool.Begin(r.Context())
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	qtx := a.d.Queries.WithTx(tx)
-
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "reading", UserID: u.ID})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	// 阅读的名字用中文标题：我的阅读那一列里，二十条英文长标题分不出彼此。
-	if _, err := qtx.CreateLibraryReading(r.Context(), sqlc.CreateLibraryReadingParams{
-		AtomID: at.ID, Title: art.ZhTitle, Lang: art.Lang,
-		LibrarySlug: slug, LibraryTier: int16(tier),
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := qtx.UpsertLibraryReadingSource(r.Context(), sqlc.UpsertLibraryReadingSourceParams{
-		AtomID: at.ID, Title: lvl.Title, Body: lvl.Body,
-		// 库里的文章没有可以打开的原文链接 —— 它们是我们自己排好的版本。
-		// 与其给一条打不开的链接，不如不给。
-		SourceUrl: nil, Figures: figures, Headings: headings,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": at.ID.String()})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": id.String()})
 }
 
 // figureDTO 是正文里的一张图，链接已经签好。

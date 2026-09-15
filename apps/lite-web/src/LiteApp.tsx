@@ -5,7 +5,7 @@ import { CompanionAppearanceProvider } from "../../web/src/ui/CompanionAppearanc
 import "./learning/student-surfaces.css";
 import { LITE_ACCENT_PRESETS } from "../../web/src/ui/themes/lite";
 import "../../web/src/ui/themes/lite.css";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import {
   House,
   BookOpen,
@@ -15,23 +15,18 @@ import {
   Hammer,
   PenLine,
 } from "lucide-react";
-import {
-  Settings,
-  useAccent,
-  ACCENT_PRESETS,
-  AccentProvider,
-  type AccentId,
-  type LucideIcon,
-} from "@/ui";
+import { AccentProvider, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
 // reaches it.
 import {
   BACKGROUND_PRESETS,
   BackgroundProvider,
-  useBackground,
   type BackgroundId,
 } from "@/ui/background";
+import { initialLiteAccent } from "./shared/liteAccent";
+import { useLiteTheme } from "./shared/useLiteTheme";
+import { LearningAccountButton, LearningRail } from "./shared/LearningRail";
 import { AuthScreen } from "@/shell/auth/AuthScreen";
 import { SettingsView } from "@/shell/settings/SettingsView";
 import { createSession, makeMemoryStorage } from "@/shell/session";
@@ -67,6 +62,7 @@ import { LearningHome, bookmark } from "./home/LearningHome";
 import "./home/learning.css";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
+import { InboxButton } from "./inbox/InboxButton";
 
 /** Lite student shell. The learning home uses expanded navigation on wide
  * screens; workrooms retain a compact rail to preserve reading/writing space.
@@ -124,27 +120,6 @@ function tabPath(tab: LiteTab): string {
       return liteRoutePath({ tab: "explore" });
     case "mysite":
       return liteRoutePath({ tab: "mysite" });
-  }
-}
-
-/** Coerce the server's avatar_color into a known accent preset id (else
- * undefined, so AccentProvider falls back to its own default). Mirrors the
- * pro shell's identical helper — the presets are the shared source of truth,
- * so an unknown value degrades to the default rather than being applied raw. */
-function coerceAccent(value: string | null | undefined): AccentId | undefined {
-  return ACCENT_PRESETS.some((p) => p.id === value)
-    ? (value as AccentId)
-    : undefined;
-}
-
-// Preserve a saved choice; only accounts without a preference get the new default.
-function initialLiteAccent(value: string | null | undefined): AccentId {
-  const saved = coerceAccent(value);
-  if (saved) return saved;
-  try {
-    return coerceAccent(localStorage.getItem("mk-accent")) ?? "teal";
-  } catch {
-    return "teal";
   }
 }
 
@@ -223,9 +198,11 @@ export function LiteApp() {
   }
 
   return (
+    // Students and teachers share the lite presets: both shells mount in the
+    // lite theme scope (`useLiteTheme`), and SettingsView offers `presets`.
     <AccentProvider
       presets={LITE_ACCENT_PRESETS}
-      initialAccent={initialLiteAccent(user.avatar_color)}
+      initialAccent={initialLiteAccent(user.avatar_color, () => localStorage.getItem("mk-accent"))}
       onPersist={(id) => {
         void setAccent(id);
       }}
@@ -249,35 +226,8 @@ export function LiteApp() {
 }
 
 function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
-  const { id: accent, presets } = useAccent();
-  const palette = presets.find(p => p.id === accent) ?? presets[0]!;
-  const themeStyle = Object.fromEntries(Object.entries(palette.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value])) as CSSProperties;
-  const { id: background } = useBackground();
-  // Portals inherit the same student theme; restore the host on unmount.
-  useEffect(() => {
-    const body = document.body;
-    const hadClass = body.classList.contains("lite-student-theme");
-    body.classList.add("lite-student-theme");
-    return () => { if (!hadClass) body.classList.remove("lite-student-theme"); };
-  }, []);
-  useEffect(() => {
-    const body = document.body;
-    const previousBackground = body.getAttribute("data-background");
-    const previous = Object.keys(palette.scale).map(step => {
-      const key = `--mk-theme-accent-${step}`;
-      return [key, body.style.getPropertyValue(key)] as const;
-    });
-    body.dataset.background = background;
-    for (const [step, value] of Object.entries(palette.scale)) body.style.setProperty(`--mk-theme-accent-${step}`, value);
-    return () => {
-      if (previousBackground === null) body.removeAttribute("data-background");
-      else body.setAttribute("data-background", previousBackground);
-      for (const [key, value] of previous) {
-        if (value) body.style.setProperty(key, value);
-        else body.style.removeProperty(key);
-      }
-    };
-  }, [palette, background]);
+  // Portals inherit the same lite theme; see `useLiteTheme`.
+  const { accent, background, themeStyle } = useLiteTheme();
   const [route, setRoute] = useState<LiteRoute>(() =>
     parseLiteRoute(window.location.pathname),
   );
@@ -325,58 +275,29 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
       data-background={background}
     >
       {!immersive && (
-        <div className="learning-nav-slot">
-          <nav className="learning-nav" aria-label="主导航">
-            <a
-              href="/"
-              className="learning-brand"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/");
-              }}
-            >
-              <BookOpen size={29} />
-              <span>
-                思维印记<small>MIND IMPRINT</small>
-              </span>
-            </a>
-            <div className="learning-nav-links">
-              {TABS.map(({ key, label, icon: NavIcon }) => {
-                const active =
-                  route.tab === key ||
-                  (key === "explore" && route.tab === "tree");
-                return (
-                  <button
-                    type="button"
-                    key={key}
-                    aria-label={label}
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => navigate(tabPath(key))}
-                  >
-                    <NavIcon size={21} strokeWidth={1.7} />
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="learning-nav-bottom">
-              <button
-                className="learning-account"
-                type="button"
-                aria-label="设置"
-                aria-current={route.tab === "settings" ? "page" : undefined}
-                onClick={() => navigate(settingsPath())}
-              >
-                <img src={bookmark} alt="" />
-                <span>
-                  {user.display_name || "我的账号"}
-                  <small>账号与设置</small>
-                </span>
-                <Settings size={17} />
-              </button>
-            </div>
-          </nav>
-        </div>
+        <LearningRail
+          links={TABS.map(({ key, label, icon }) => ({
+            key,
+            label,
+            icon,
+            active: route.tab === key || (key === "explore" && route.tab === "tree"),
+            onSelect: () => navigate(tabPath(key)),
+          }))}
+          footer={
+            <>
+              {/* 收件箱 sits directly above 设置 at the foot of the rail:
+                  teacher assignments arrive there, and neither is a place to
+                  work, so neither belongs among the tabs. */}
+              <InboxButton />
+              <LearningAccountButton
+                name={user.display_name}
+                image={bookmark}
+                active={route.tab === "settings"}
+                onSelect={() => navigate(settingsPath())}
+              />
+            </>
+          }
+        />
       )}
 
       <main data-student-page={route.tab} className="min-w-0 flex-1 overflow-y-auto">

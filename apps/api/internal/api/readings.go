@@ -260,36 +260,19 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
-	title := strings.TrimSpace(req.Title)
-	if title == "" {
-		title = "未命名阅读"
-	}
-	if len([]rune(title)) > 200 {
-		title = string([]rune(title)[:200])
-	}
-	lang := strings.TrimSpace(req.Lang)
-	if lang != "zh" && lang != "en" {
-		lang = "zh"
-	}
+	title := readingTitle(req.Title)
+	lang := liteLang(req.Lang)
 
-	// atom + reading in ONE transaction: an atom with no reading row would be
-	// an identity nothing can render.
+	// atom + reading in ONE transaction (see createReadingInTx).
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
-	qtx := a.d.Queries.WithTx(tx)
 
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "reading", UserID: u.ID})
+	id, err := createReadingInTx(r.Context(), a.d.Queries.WithTx(tx), u.ID, title, lang)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := qtx.CreateReading(r.Context(), sqlc.CreateReadingParams{
-		AtomID: at.ID, Title: title, Lang: lang,
-	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -297,7 +280,7 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": at.ID.String()})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": id.String()})
 }
 
 func (a *API) listReadings(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,56 @@
+/* Teacher pages. Measures come from learning/landing.css; these are the extra widths and the heading type. */
+.learning-landing-measure.teacher-page--narrow {
+  max-width: 760px;
+}
+.learning-landing-measure.teacher-page--full {
+  max-width: 1320px;
+}
+
+/* Full-bleed band inside a teacher page (the interest tree): cancels the measure's side padding at each breakpoint. */
+.teacher-page-bleed {
+  margin-inline: calc(-1 * var(--mk-space-38));
+}
+@media (max-width: 700px) {
+  .teacher-page-bleed {
+    margin-inline: calc(-1 * var(--mk-space-20));
+  }
+}
+@media (max-width: 400px) {
+  .teacher-page-bleed {
+    margin-inline: calc(-1 * var(--mk-space-16));
+  }
+}
+
+/* `Button`/`IconButton` (apps/web) paint a disabled button with a light-theme hex
+ * (`disabled:bg-[#F0E9E1]`) that no token reaches, so in dark mode it shows as a
+ * cream square. The teacher shell gives it the lite disabled treatment instead
+ * (the same colours as `.learning-composer button:disabled`). */
+:root[data-theme="dark"] .lite-teacher button:disabled[class*="disabled:bg-[#F0E9E1]"] {
+  background: var(--mk-border);
+  border-color: var(--mk-border);
+  color: var(--mk-muted);
+}
+
+/* Pro's SettingsView cards: flat with a hairline, as on the student settings page
+ * (`learning/student-surfaces.css`, `[data-student-page="settings"] .shadow-mk-sm`).
+ * `Card` renders `Surface level="md"`, and lite keeps `--mk-shadow-md` as a real
+ * shadow, so `.shadow-mk-md` is flattened too. */
+.lite-teacher [data-teacher-page="settings"] :is(.shadow-mk-sm, .shadow-mk-md) {
+  box-shadow: none;
+  border: 1px solid var(--mk-border);
+}
+
+/* Same type as the student landing headings (`.learning-landing-header h1`). */
+.teacher-page-title {
+  font-size: var(--mk-font-size-page);
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  color: var(--mk-ink);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .teacher-page-title {
+    font-size: var(--mk-font-size-page-mobile);
+  }
+}

@@ -3,9 +3,10 @@ import { StudioEmpty, StudioHeading } from "./StudioArtwork";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
-import { api, ApiError } from "@/api";
+import { api } from "@/api";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatMinutes } from "./format";
+import { errorText } from "./assignmentLogic";
 
 /**
  * ClassPage — the lite teacher end's one class: name + join code header,
@@ -25,7 +26,8 @@ type SortKey =
   | "turns"
   | "readingsDone"
   | "writingsDone"
-  | "projectsDone";
+  | "projectsDone"
+  | "overdueAssignments";
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "displayName", label: "学生" },
@@ -37,6 +39,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "readingsDone", label: "阅读" },
   { key: "writingsDone", label: "写作" },
   { key: "projectsDone", label: "项目" },
+  { key: "overdueAssignments", label: "逾期作业" },
 ];
 
 /** ISO timestamp → `M月D日`, or `—` when there is nothing to show. Lite's
@@ -70,6 +73,8 @@ export function ClassPage({
   role,
   onBack,
   onOpenStudent,
+  onNewAssignment,
+  onOpenWeekly,
 }: {
   classId: string;
   // Accepted for parity with pro's `ConsoleShell` wiring and future
@@ -78,6 +83,10 @@ export function ClassPage({
   role: string;
   onBack: () => void;
   onOpenStudent: (userId: string) => void;
+  /** 布置作业 in the header; opens the create form on this class. */
+  onNewAssignment?: () => void;
+  /** 周报 in the header, next to 布置作业; opens the class weekly page. */
+  onOpenWeekly?: () => void;
 }) {
   void role;
 
@@ -109,14 +118,14 @@ export function ClassPage({
         setName(d.class.name);
         setJoinCode(d.class.join_code);
       })
-      .catch((e) => setHeaderError(e instanceof ApiError ? e.message : String(e)));
+      .catch((e) => setHeaderError(errorText(e)));
   }
 
   function loadRoster() {
     setRosterError(null);
     getRoster(classId)
       .then(setRoster)
-      .catch((e) => setRosterError(e instanceof ApiError ? e.message : String(e)));
+      .catch((e) => setRosterError(errorText(e)));
   }
 
   useEffect(() => {
@@ -136,7 +145,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setRenaming(false);
     } catch (e) {
-      setMutationError(`修改班级名称失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`修改班级名称失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -151,7 +160,7 @@ export function ClassPage({
       setCopied(false);
       setConfirmRegen(false);
     } catch (e) {
-      setMutationError(`更换邀请码失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`更换邀请码失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -165,7 +174,7 @@ export function ClassPage({
       setConfirmRemove(null);
       loadRoster();
     } catch (e) {
-      setMutationError(`移出失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`移出失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -209,6 +218,8 @@ export function ClassPage({
           <>
             <StudioHeading label="CLASS OVERVIEW · 班级概览" title={name} />
             <div className="teacher-class-actions">
+              {onOpenWeekly && <Button variant="secondary" size="sm" onClick={onOpenWeekly}>周报</Button>}
+              {onNewAssignment && <Button variant="primary" size="sm" onClick={onNewAssignment}>布置作业</Button>}
               {renaming ? (
                 <>
                   <input
@@ -347,6 +358,7 @@ export function ClassPage({
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                         {s.projectsDone}/{s.projectsTotal}
                       </td>
+                      <td className={"whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small " + (s.overdueAssignments > 0 ? "text-mk-danger font-bold" : "text-mk-ink")}>{s.overdueAssignments}</td>
                       <td
                         className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-right text-mk-small"
                         onClick={(e) => e.stopPropagation()}

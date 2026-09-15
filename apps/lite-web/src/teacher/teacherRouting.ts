@@ -3,12 +3,27 @@
 export type TeacherRoute =
   | { view: "classes" }
   | { view: "class"; classId: string }
+  // `/classes/:classId/weekly`. `weekly` is a reserved segment after the class
+  // id; the week itself is page state, not part of the URL.
+  | { view: "classWeekly"; classId: string }
   | { view: "student"; classId: string; userId: string }
   | { view: "item"; classId: string; userId: string; atomId: string }
   | { view: "settings" }
   | { view: "overview" }
   | { view: "teachers" }
-  | { view: "import" };
+  | { view: "import" }
+  | { view: "assignments" }
+  // `classId` is never read from the URL (there is no `?class=` query): the
+  // form picks the class itself. It exists only for a same-tab navigation
+  // (e.g. "+ 布置作业" from inside a class) to pre-select one, so it stays
+  // optional and `teacherRoutePath` ignores it.
+  | { view: "assignmentNew"; classId?: string }
+  | { view: "assignment"; assignmentId: string }
+  // `/parent-reports` (one class's reports at a time) and
+  // `/parent-reports/:reportId` (the editor). Top-level rather than under a
+  // class: a report stays readable and revocable after its student leaves.
+  | { view: "parentReports" }
+  | { view: "parentReport"; reportId: string };
 
 const dec = (s: string) => {
   try {
@@ -25,8 +40,18 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
   if (seg[0] === "overview") return { view: "overview" };
   if (seg[0] === "teachers") return { view: "teachers" };
   if (seg[0] === "import") return { view: "import" };
+  if (seg[0] === "assignments") {
+    if (!seg[1]) return { view: "assignments" };
+    if (seg[1] === "new") return { view: "assignmentNew" };
+    return { view: "assignment", assignmentId: seg[1] };
+  }
+  if (seg[0] === "parent-reports") {
+    if (!seg[1]) return { view: "parentReports" };
+    return { view: "parentReport", reportId: seg[1] };
+  }
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
+  if (seg[2] === "weekly") return { view: "classWeekly", classId };
   if (seg[2] !== "students" || !seg[3]) return { view: "class", classId };
   const userId = seg[3];
   if (seg[4] !== "items" || !seg[5]) return { view: "student", classId, userId };
@@ -44,7 +69,15 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
 export function isTeacherPath(pathname: string): boolean {
   const seg = pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
   const first = seg[0];
-  return first === "classes" || first === "settings" || first === "overview" || first === "teachers" || first === "import";
+  return (
+    first === "classes" ||
+    first === "settings" ||
+    first === "overview" ||
+    first === "teachers" ||
+    first === "import" ||
+    first === "assignments" ||
+    first === "parent-reports"
+  );
 }
 
 /** The role-appropriate landing view — same split as pro `ConsoleShell`
@@ -89,8 +122,20 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return "/teachers";
     case "import":
       return "/import";
+    case "assignments":
+      return "/assignments";
+    case "assignmentNew":
+      return "/assignments/new";
+    case "assignment":
+      return `/assignments/${enc(r.assignmentId)}`;
+    case "parentReports":
+      return "/parent-reports";
+    case "parentReport":
+      return `/parent-reports/${enc(r.reportId)}`;
     case "class":
       return `/classes/${enc(r.classId)}`;
+    case "classWeekly":
+      return `/classes/${enc(r.classId)}/weekly`;
     case "student":
       return `/classes/${enc(r.classId)}/students/${enc(r.userId)}`;
     case "item":

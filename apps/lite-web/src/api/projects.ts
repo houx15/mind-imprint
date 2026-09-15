@@ -79,6 +79,15 @@ export interface Project {
   currentStep: string;
   stepsDone: number;
   stepsTotal: number;
+  /** The project came from an assignment: `idea` is the teacher's driving
+   *  question, not her words. Missing (an older server) = her own project. */
+  assigned?: boolean;
+}
+
+/** Whether `idea` is the teacher's driving question. The room uses this to
+ *  decide not to post `idea` as her first turn. Only an explicit `true` counts. */
+export function isAssignedProject(p: Pick<Project, "assigned">): boolean {
+  return p.assigned === true;
 }
 
 export function listProjects(): Promise<Project[]> {

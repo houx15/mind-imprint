@@ -228,9 +228,9 @@ ready 给 true 的那一轮，reply 里要做两件事：说一句这份计划�
 // point at a parent) plus the windowed conversation.
 func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []sqlc.AtomMessage, studentText string) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("她一开始说想写的是：" + t + "\n")
-	}
+	// An assigned writing's topic is the teacher's prompt; 她一开始说想写的是 would
+	// put it in her mouth. See writingTopicLine.
+	b.WriteString(writingTopicLine(wr, "她一开始说想写的是："))
 	// 🚨 This used to be 「这篇用英文写（但你和她用中文讨论）」 — which had the
 	// coaching/content split right but never said that the OUTLINE NODES are
 	// content. An English piece therefore grew a Chinese mind map, because the

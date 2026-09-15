@@ -27,8 +27,15 @@ type Turn struct {
 // CoachInput is everything the turn reads. Assembled by the caller from rows;
 // plain values so the prompt building is testable without a database.
 type CoachInput struct {
-	// Idea is her own opening sentence, kept verbatim.
+	// Idea is her own opening sentence, kept verbatim — unless Assigned, when
+	// it is the driving question her teacher assigned.
 	Idea string
+	// Assigned: the project came from an assignment, so Idea is the teacher's
+	// text and must not be introduced as something she said.
+	Assigned bool
+	// AssignedBrief is the teacher's 补充说明 for an assigned project; empty
+	// when there is none.
+	AssignedBrief string
 	// Kind is the project type 印记 judged.
 	Kind string
 	// Steps is the live plan, if there is one. Empty before she approves.
@@ -444,7 +451,7 @@ func produceCatalogue(kind string) string {
 // buildCoachContext renders the project state the turn reasons over.
 func buildCoachContext(in CoachInput) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "他一开始是这么说的：%s\n", strings.TrimSpace(in.Idea))
+	writeProjectOrigin(&b, in.Idea, in.Assigned, in.AssignedBrief)
 	if in.Kind != "" {
 		fmt.Fprintf(&b, "项目类型：%s\n", in.Kind)
 	}

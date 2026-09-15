@@ -32,9 +32,13 @@ type writingDTO struct {
 	// Origin: "here" = 在这个房间里写的；"brought" = 她带进来的成稿。
 	// 界面据此说明结构和段落两步没有发生过，报告也据此说真话
 	// （见 0146_writing_origin.sql）。
-	Origin    string `json:"origin"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	Origin string `json:"origin"`
+	// AssignedPrompt is the teacher's prompt for a writing started from an
+	// assignment; null for her own writings. The room shows it labelled as the
+	// teacher's, never as something she said.
+	AssignedPrompt *string `json:"assignedPrompt"`
+	Status         string  `json:"status"`
+	CreatedAt      string  `json:"createdAt"`
 	// UpdatedAt is writing.updated_at: rename / stage change / target-words
 	// only. It is NOT "when she last worked on this" — see LastActivityAt.
 	UpdatedAt string `json:"updatedAt"`
@@ -53,6 +57,7 @@ func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingD
 		ID: wr.AtomID.String(), Title: wr.Title, Lang: wr.Lang, Stage: wr.Stage,
 		TargetWords: wr.TargetWords, StructureKey: wr.StructureKey, Status: wr.Status,
 		Origin:         wr.Origin,
+		AssignedPrompt: wr.AssignedPrompt,
 		CreatedAt:      createdAt.Format(time.RFC3339),
 		UpdatedAt:      wr.UpdatedAt.Format(time.RFC3339),
 		LastActivityAt: lastActivityAt.Format(time.RFC3339),
@@ -183,15 +188,8 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 			"这篇太长了，超出了一次能处理的长度。", nil))
 		return
 	}
-	title := idea
-	if len([]rune(title)) > 200 {
-		title = string([]rune(title)[:200])
-	}
-	lang := strings.TrimSpace(req.Lang)
-	if lang != "zh" && lang != "en" {
-		lang = "zh"
-	}
-
+	// atom + writing + seq-1 message go through createWritingInTx, in this
+	// handler's own transaction, so the brought body below joins it.
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -200,23 +198,8 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "writing", UserID: u.ID})
+	atID, err := createWritingInTx(r.Context(), qtx, u.ID, idea, req.Lang)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := qtx.CreateWriting(r.Context(), sqlc.CreateWritingParams{
-		AtomID: at.ID, Title: title, Lang: lang,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	// seq=1 literal, not NextAtomMessageSeq: this atom_id was just minted
-	// inside this same transaction, so it is unconditionally the first
-	// message — no concurrent writer can have raced it.
-	if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
-		AtomID: at.ID, Seq: 1, Role: "student", Content: idea,
-	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -224,12 +207,12 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	// 她带了一篇写完的进来。
 	if body != "" {
 		if _, err := qtx.UpsertWritingDraft(r.Context(), sqlc.UpsertWritingDraftParams{
-			AtomID: at.ID, Body: body,
+			AtomID: atID, Body: body,
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
-		if err := qtx.MarkWritingBrought(r.Context(), at.ID); err != nil {
+		if err := qtx.MarkWritingBrought(r.Context(), atID); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
@@ -245,7 +228,7 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		// （writing_stage.go 的 "stage: a → b"）：它是一条结构性记录，
 		// 不是谁「说」的话。
 		if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
-			AtomID: at.ID, Seq: 2, Role: "system", Content: "origin: brought",
+			AtomID: atID, Seq: 2, Role: "system", Content: "origin: brought",
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -256,7 +239,7 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": at.ID.String()})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": atID.String()})
 }
 
 func (a *API) listWritings(w http.ResponseWriter, r *http.Request) {

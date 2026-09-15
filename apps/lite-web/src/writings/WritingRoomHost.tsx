@@ -6,7 +6,7 @@ import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
-import { getWriting, isWritingFinished, type Writing } from "../api/writings";
+import { getWriting, isAssignedWriting, isWritingFinished, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import {
@@ -28,6 +28,8 @@ import { liteRoutePath, navigate } from "../routing";
 import { ReportPanel } from "../reports/ReportPanel";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
+import { AssignmentLine } from "../inbox/AssignmentLine";
+import { AssignedPromptLine } from "./AssignedPromptLine";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { flushPendingSaves } from "./pendingSaves";
@@ -347,6 +349,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             title={writing.title}
             onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
           />
+          <AssignmentLine atomId={writingId} className="mt-0.5 block text-mk-small text-mk-muted" />
+          <AssignedPromptLine writing={writing} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LengthMeter writing={writing} state={state} onChange={(n) => void changeTargetWords(n)} />
@@ -423,6 +427,22 @@ function LengthMeter({
     if (body) return countWords(body);
     return state.snippets.reduce((n, s) => n + countWords(s.text), 0);
   }, [state.draft.body, state.snippets]);
+
+  // An assigned writing's target is the teacher's: shown, never edited here
+  // (the server answers 409 assigned_target_locked).
+  if (isAssignedWriting(writing)) {
+    return (
+      <span className="rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-small text-mk-secondary">
+        {writing.targetWords != null ? (
+          <>
+            已写 <span className="font-semibold text-mk-ink">{written}</span> / 目标 {writing.targetWords}
+          </>
+        ) : (
+          <>已写 {written}</>
+        )}
+      </span>
+    );
+  }
 
   function commit() {
     const n = Number(value.trim());

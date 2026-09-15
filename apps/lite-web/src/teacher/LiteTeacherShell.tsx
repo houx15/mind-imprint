@@ -3,9 +3,8 @@ import "./teacher-studio.css";
 import { useBackground } from "@/ui/background";
 import { StudentArtwork, studentArtwork } from "../learning/StudentArtwork";
 import { CompanionAppearanceProvider } from "@/ui/CompanionAppearance";
-import { bookmark } from "../home/LearningHome";
 import { useEffect, useLayoutEffect, useState, useRef, type CSSProperties } from "react";
-import { LayoutGrid, Users, GraduationCap, UploadCloud } from "lucide-react";
+import { LayoutGrid, Users, GraduationCap, UploadCloud, ClipboardList, FileText } from "lucide-react";
 import { Icon, Settings, useAccent, type LucideIcon } from "@/ui";
 import { api } from "@/api";
 import { ClassesView } from "@/console/ClassesView";
@@ -16,10 +15,20 @@ import { SettingsView } from "@/shell/settings/SettingsView";
 import { createSession, makeMemoryStorage } from "@/shell/session";
 import { navigate } from "../routing";
 import type { MeUser } from "../api/auth";
+import bookmark from "../home/assets/yinji-bookmark.webp";
 import { resolveTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teacherRouting";
+import { isTeacherRailActive, teacherRailItems, type TeacherRailKey } from "./teacherRail";
 import { ClassPage } from "./ClassPage";
+import { ClassWeeklyPage } from "./ClassWeeklyPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
+import { AssignmentsPage } from "./AssignmentsPage";
+import { AssignmentForm } from "./AssignmentForm";
+import { AssignmentDetailPage } from "./AssignmentDetailPage";
+import { ParentReportsPage } from "./ParentReportsPage";
+import { ParentReportEditor } from "./ParentReportEditor";
+import { writeLastClassId } from "./assignmentLogic";
+import "./teacher.css";
 
 /** Lite teaching studio. Routing and teacher data remain independent of student views. */
 
@@ -28,16 +37,14 @@ import { ItemPage } from "./ItemPage";
 // unusedSettingsSession.
 const unusedSettingsSession = createSession({ storage: makeMemoryStorage() });
 
-type RailItem = { key: TeacherRoute["view"]; label: string; icon: LucideIcon };
-
-const TEACHER_ITEMS: RailItem[] = [{ key: "classes", label: "班级", icon: Users }];
-
-const ADMIN_ITEMS: RailItem[] = [
-  { key: "overview", label: "概览", icon: LayoutGrid },
-  { key: "classes", label: "班级", icon: Users },
-  { key: "teachers", label: "教师", icon: GraduationCap },
-  { key: "import", label: "导入", icon: UploadCloud },
-];
+const RAIL_ICONS: Record<TeacherRailKey, LucideIcon> = {
+  overview: LayoutGrid,
+  classes: Users,
+  assignments: ClipboardList,
+  parentReports: FileText,
+  teachers: GraduationCap,
+  import: UploadCloud,
+};
 
 export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   const { id: accent, presets } = useAccent();
@@ -101,7 +108,8 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
     // the URL with `replaceState` — synchronously, in the event handler
     // itself, before `setRoute` — rather than routing the correction
     // through `navigate`'s `pushState`, which is what trapped Back in the
-    // first place (pop → push → pop → push …).
+    // first place (pop → push → pop → push …). The rail's brand link
+    // navigates to `/`, which this folds onto her landing tab.
     const onPop = () => {
       const resolved = resolveTeacherRoute(window.location.pathname, user.role);
       const path = teacherRoutePath(resolved);
@@ -119,7 +127,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
 
   const go = (r: TeacherRoute) => navigate(teacherRoutePath(r));
 
-  const railItems = user.role === "admin" ? ADMIN_ITEMS : TEACHER_ITEMS;
+  const railItems = teacherRailItems(user.role).map(item => ({ ...item, icon: RAIL_ICONS[item.key] }));
 
   return (
     <StudentArtwork><CompanionAppearanceProvider image={bookmark}>
@@ -130,7 +138,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
         </button>
         <p className="teacher-nav-label">TEACHER STUDIO</p>
         {railItems.map(({ key, label, icon }) => {
-          const active = route.view === key || (key === "classes" && ["class", "student", "item"].includes(route.view));
+          const active = isTeacherRailActive(key, route);
           return <button key={key} className="teacher-nav-item" aria-current={active ? "page" : undefined}
             onClick={() => go({ view: key } as TeacherRoute)}><Icon icon={icon} size={19} /><span>{label}</span><span className="teacher-nav-arrow" aria-hidden="true">↗</span></button>;
         })}
@@ -139,7 +147,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
           <button className="teacher-nav-item" onClick={() => go({ view: "settings" })} aria-current={route.view === "settings" ? "page" : undefined}><Icon icon={Settings} size={19} />设置</button>
         </div>
       </nav>
-      <main className="teacher-main" ref={mainRef}>
+      <main className="teacher-main" data-teacher-page={route.view} ref={mainRef}>
         {route.view === "classes" && (
           <ClassesView renderClassPreview={classId => <ClassPreview classId={classId} />} studioArtwork={studentArtwork.writing} client={api} role={user.role} onOpenClass={(classId) => go({ view: "class", classId })} />
         )}
@@ -150,6 +158,57 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             role={user.role}
             onBack={() => go({ view: "classes" })}
             onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
+            onNewAssignment={() => {
+              // `navigate` fires popstate and the route is re-parsed from the
+              // path, which has no class in it — so the form finds this class
+              // through the remembered choice, not through the route object.
+              writeLastClassId(route.classId);
+              go({ view: "assignmentNew", classId: route.classId });
+            }}
+            onOpenWeekly={() => go({ view: "classWeekly", classId: route.classId })}
+          />
+        )}
+        {route.view === "classWeekly" && (
+          <ClassWeeklyPage
+            key={route.classId}
+            classId={route.classId}
+            onBack={() => go({ view: "class", classId: route.classId })}
+            onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
+          />
+        )}
+        {route.view === "assignments" && (
+          <AssignmentsPage
+            onNew={(classId) => go({ view: "assignmentNew", classId })}
+            onOpen={(assignmentId) => go({ view: "assignment", assignmentId })}
+          />
+        )}
+        {route.view === "assignmentNew" && (
+          <AssignmentForm
+            initialClassId={route.classId}
+            onBack={() => go({ view: "assignments" })}
+            onCreated={(assignmentId) => go({ view: "assignment", assignmentId })}
+          />
+        )}
+        {route.view === "assignment" && (
+          <AssignmentDetailPage
+            assignmentId={route.assignmentId}
+            onBack={() => go({ view: "assignments" })}
+            onOpenItem={(classId, userId, atomId) => go({ view: "item", classId, userId, atomId })}
+          />
+        )}
+        {route.view === "parentReports" && (
+          <ParentReportsPage onOpen={(reportId) => go({ view: "parentReport", reportId })} />
+        )}
+        {route.view === "parentReport" && (
+          <ParentReportEditor
+            key={route.reportId}
+            reportId={route.reportId}
+            onBack={(classId) => {
+              // The list opens on the remembered class; make that the
+              // report's class so 返回 lands next to the row she came from.
+              if (classId) writeLastClassId(classId);
+              go({ view: "parentReports" });
+            }}
           />
         )}
         {route.view === "student" && (
@@ -158,6 +217,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             userId={route.userId}
             onBack={() => go({ view: "class", classId: route.classId })}
             onOpenItem={(atomId) => go({ view: "item", classId: route.classId, userId: route.userId, atomId })}
+            onOpenParentReport={(reportId) => go({ view: "parentReport", reportId })}
           />
         )}
         {route.view === "item" && (

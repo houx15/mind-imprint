@@ -51,13 +51,17 @@ func IsReviewSection(s string) bool {
 
 // LookbackInput 是印记写这些问题时能看见的东西：全是这个项目真发生过的事。
 type LookbackInput struct {
-	Idea      string
-	Name      string
-	Steps     []string
-	Reframes  []string
-	Decisions []string
-	Artifacts []string
-	Keeps     []string
+	Idea string
+	// Assigned and AssignedBrief: see CoachInput. An assigned project's Idea is
+	// the teacher's driving question, not her words.
+	Assigned      bool
+	AssignedBrief string
+	Name          string
+	Steps         []string
+	Reframes      []string
+	Decisions     []string
+	Artifacts     []string
+	Keeps         []string
 }
 
 // LookbackQuestion 是一段里的一问。
@@ -115,12 +119,28 @@ func lookbackSectionList() string {
 	return b.String()
 }
 
+// writeProjectOrigin writes where the project started, shared by the coach and
+// the lookback. Her own project opens with the sentence she wrote. An assigned
+// one opens with the teacher's driving question, labelled as the teacher's,
+// and the teacher's 补充说明 when there is one: teacher text is shown to 印记
+// but never introduced as something she said.
+func writeProjectOrigin(b *strings.Builder, idea string, assigned bool, brief string) {
+	if !assigned {
+		fmt.Fprintf(b, "他一开始是这么说的：%s\n", strings.TrimSpace(idea))
+		return
+	}
+	fmt.Fprintf(b, "老师布置的驱动问题：%s\n", strings.TrimSpace(idea))
+	if s := strings.TrimSpace(brief); s != "" {
+		fmt.Fprintf(b, "老师补充说明：%s\n", s)
+	}
+}
+
 func buildLookbackContext(in LookbackInput) string {
 	var b strings.Builder
 	if strings.TrimSpace(in.Name) != "" {
 		fmt.Fprintf(&b, "项目：%s\n", in.Name)
 	}
-	fmt.Fprintf(&b, "他一开始是这么说的：%s\n", strings.TrimSpace(in.Idea))
+	writeProjectOrigin(&b, in.Idea, in.Assigned, in.AssignedBrief)
 	section := func(title string, xs []string) {
 		if len(xs) == 0 {
 			return
@@ -138,7 +158,11 @@ func buildLookbackContext(in LookbackInput) string {
 	section("印记交给他、他判断过的东西", in.Artifacts)
 	section("上线之后他记下的事", in.Keeps)
 	if len(in.Steps)+len(in.Reframes)+len(in.Decisions)+len(in.Artifacts)+len(in.Keeps) == 0 {
-		b.WriteString("\n（这个项目留下的记录不多，就着他最初那句话问。）\n")
+		if in.Assigned {
+			b.WriteString("\n（这个项目留下的记录不多，就着老师布置的驱动问题问。）\n")
+		} else {
+			b.WriteString("\n（这个项目留下的记录不多，就着他最初那句话问。）\n")
+		}
 	}
 	return b.String()
 }
