@@ -62,7 +62,7 @@ func TestTeacherCreatesAndListsAssignment(t *testing.T) {
 		} `json:"assignments"`
 	}
 	getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &list)
-	if len(list.Assignments) != 1 || list.Assignments[0].Counts["not_started"] != 1 || len(list.Assignments[0].Counts) != 5 {
+	if len(list.Assignments) != 1 || list.Assignments[0].Counts["not_started"] != 1 || len(list.Assignments[0].Counts) != 7 {
 		t.Fatalf("list = %+v", list)
 	}
 

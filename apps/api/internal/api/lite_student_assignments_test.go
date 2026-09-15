@@ -146,7 +146,7 @@ func TestInboxOnlyAssignmentsWithPlan2Keys(t *testing.T) {
 	if out.Unread != 1 || len(out.Items) != 1 || out.Items[0]["type"] != "assignment" || out.Items[0]["id"] != aid {
 		t.Fatalf("inbox = %d %+v, want only the assignment", out.Unread, out.Items)
 	}
-	wantAssignKeys := []string{"atomId", "className", "dueAt", "id", "instructions", "kind", "status", "statusLabel", "title", "type", "unread"}
+	wantAssignKeys := []string{"atomId", "className", "dueAt", "id", "instructions", "kind", "returnDueAt", "returnNote", "status", "statusLabel", "title", "type", "unread"}
 	if got := keysOf(out.Items[0]); !reflect.DeepEqual(got, wantAssignKeys) {
 		t.Fatalf("assignment keys = %v, want %v", got, wantAssignKeys)
 	}

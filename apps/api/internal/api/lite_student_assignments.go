@@ -41,6 +41,9 @@ type InboxItemDTO struct {
 	StatusLabel  string  `json:"statusLabel"`
 	AtomID       *string `json:"atomId"`
 	Unread       bool    `json:"unread"`
+	// Set when the teacher returned this writing homework (0153).
+	ReturnDueAt *string `json:"returnDueAt"`
+	ReturnNote  *string `json:"returnNote"`
 }
 
 // getLiteInbox handles GET /api/v1/lite/inbox. Archived assignments, and those
@@ -58,7 +61,8 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 	items := make([]InboxItemDTO, 0, len(rows))
 	unread := 0
 	for _, row := range rows {
-		status := liteassign.Status(row.StartedAt.Valid, tsPtr(row.FinishedAt), row.DueAt, now)
+		status := liteassign.StatusWithReturn(row.StartedAt.Valid, tsPtr(row.FinishedAt), row.DueAt, now,
+			returnOf(row.ReturnedAt, row.ReturnDueAt, row.Resubmitted))
 		if !row.SeenAt.Valid {
 			unread++
 		}
@@ -67,6 +71,7 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 			Instructions: row.Instructions, ClassName: row.ClassName, DueAt: row.DueAt.Format(time.RFC3339),
 			Status: status, StatusLabel: liteassign.StatusLabel(status),
 			AtomID: uuidStringPtr(row.AtomID), Unread: !row.SeenAt.Valid,
+			ReturnDueAt: tsStringPtr(row.ReturnDueAt), ReturnNote: row.ReturnNote,
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items, "unread": unread})

@@ -49,10 +49,15 @@ type RecipientDTO struct {
 	StartedAt   *string `json:"startedAt"`
 	FinishedAt  *string `json:"finishedAt"`
 	SeenAt      *string `json:"seenAt"`
+	// Return fields are set once the teacher has returned the writing (0153).
+	ReturnedAt   *string `json:"returnedAt"`
+	ReturnDueAt  *string `json:"returnDueAt"`
+	ReturnNote   *string `json:"returnNote"`
+	VersionCount int     `json:"versionCount"`
 }
 
-// assignmentStatuses are the five wire statuses liteassign.Status returns.
-var assignmentStatuses = []string{"not_started", "in_progress", "done", "done_late", "overdue"}
+// assignmentStatuses are the wire statuses liteassign.StatusWithReturn returns.
+var assignmentStatuses = []string{"not_started", "in_progress", "done", "done_late", "overdue", "returned", "resubmitted"}
 
 const maxAssignmentTitleRunes = 200
 
@@ -91,13 +96,25 @@ func newAssignmentDTO(as sqlc.LiteAssignment) AssignmentDTO {
 	}
 }
 
+// returnOf turns a recipient's return columns into liteassign's input; nil
+// when the teacher never returned it.
+func returnOf(returnedAt, returnDueAt pgtype.Timestamptz, resubmitted bool) *liteassign.Return {
+	if !returnedAt.Valid || !returnDueAt.Valid {
+		return nil
+	}
+	return &liteassign.Return{DueAt: returnDueAt.Time, Resubmitted: resubmitted}
+}
+
 func newRecipientDTO(row sqlc.ListLiteAssignmentRecipientsRow, dueAt, now time.Time) RecipientDTO {
-	status := liteassign.Status(row.StartedAt.Valid, tsPtr(row.FinishedAt), dueAt, now)
+	status := liteassign.StatusWithReturn(row.StartedAt.Valid, tsPtr(row.FinishedAt), dueAt, now,
+		returnOf(row.ReturnedAt, row.ReturnDueAt, row.Resubmitted))
 	return RecipientDTO{
 		UserID: row.UserID.String(), DisplayName: row.DisplayName, AvatarColor: row.AvatarColor,
 		Status: status, StatusLabel: liteassign.StatusLabel(status),
 		AtomID: uuidStringPtr(row.AtomID), StartedAt: tsStringPtr(row.StartedAt),
 		FinishedAt: tsStringPtr(row.FinishedAt), SeenAt: tsStringPtr(row.SeenAt),
+		ReturnedAt: tsStringPtr(row.ReturnedAt), ReturnDueAt: tsStringPtr(row.ReturnDueAt),
+		ReturnNote: row.ReturnNote, VersionCount: int(row.VersionCount),
 	}
 }
 
@@ -315,7 +332,8 @@ func (a *API) listLiteAssignments(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				continue
 			}
-			status := liteassign.Status(rc.StartedAt.Valid, tsPtr(rc.FinishedAt), rows[i].DueAt, now)
+			status := liteassign.StatusWithReturn(rc.StartedAt.Valid, tsPtr(rc.FinishedAt), rows[i].DueAt, now,
+				returnOf(rc.ReturnedAt, rc.ReturnDueAt, rc.Resubmitted))
 			out[i].Counts[status]++
 		}
 	}
