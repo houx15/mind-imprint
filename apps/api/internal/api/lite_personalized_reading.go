@@ -91,6 +91,17 @@ func (a *API) previewLitePersonalizedReading(w http.ResponseWriter, r *http.Requ
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"rows": rows})
 }
 
+// pickedTier is the tier fallback shared by a start and by the teacher
+// detail: a pick's own tier, else the homework's class-wide tier, else nil
+// (her own level — a start resolves that further to her suggested tier;
+// the detail leaves it null).
+func pickedTier(pickTier, classTier *int) *int {
+	if pickTier != nil {
+		return pickTier
+	}
+	return classTier
+}
+
 // personalizedTargetIn turns a personalized payload into the library reading
 // this student starts: her pick, or, when she has none (she was added after
 // the picks were saved), the recommendation computed now. Tier order is the
@@ -99,11 +110,7 @@ func (a *API) previewLitePersonalizedReading(w http.ResponseWriter, r *http.Requ
 // startAssignedLibraryReading.
 func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID, p liteassign.ReadingPayload) (liteassign.ReadingPayload, error) {
 	if pick, ok := p.Picks[userID.String()]; ok {
-		tier := pick.Tier
-		if tier == nil {
-			tier = p.Tier
-		}
-		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: tier}, nil
+		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: pickedTier(pick.Tier, p.Tier)}, nil
 	}
 	prof, err := libraryProfileIn(ctx, q, userID)
 	if err != nil {
@@ -121,8 +128,9 @@ func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID
 
 // RecipientReadingDTO is one student's article on a personalized reading
 // homework. State: started (her reading's slug and tier), picked (the saved
-// pick; a nil Tier means her level at start) or pending (no pick yet; the
-// article is chosen when she starts).
+// pick, tier resolved through pickedTier — nil means her own level, not a
+// class-wide or per-pick tier) or pending (no pick yet; the article is
+// chosen when she starts).
 type RecipientReadingDTO struct {
 	Slug  string `json:"slug"`
 	Title string `json:"title"`
@@ -159,7 +167,7 @@ func (a *API) personalizedRecipientReadings(ctx context.Context, kind string, pa
 			continue
 		}
 		if pick, ok := p.Picks[row.UserID.String()]; ok {
-			out[row.UserID] = &RecipientReadingDTO{Slug: pick.Slug, Title: libraryTitle(pick.Slug, pick.Slug), Tier: pick.Tier, State: "picked"}
+			out[row.UserID] = &RecipientReadingDTO{Slug: pick.Slug, Title: libraryTitle(pick.Slug, pick.Slug), Tier: pickedTier(pick.Tier, p.Tier), State: "picked"}
 			continue
 		}
 		out[row.UserID] = &RecipientReadingDTO{State: "pending"}

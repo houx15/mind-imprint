@@ -421,3 +421,61 @@ func TestPersonalizedDetailShowsEachArticle(t *testing.T) {
 		t.Fatalf("other teacher detail = %d, want 404", code)
 	}
 }
+
+// TestPersonalizedDetailPickedTierFallsBackToClassTier: a picked recipient's
+// open tier (pick.Tier == nil) resolves the same way the detail shows it as
+// the way she'll actually start (personalizedTargetIn) — the homework's
+// class-wide tier when one is set, else null (her own level).
+func TestPersonalizedDetailPickedTierFallsBackToClassTier(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	all := library.All()
+
+	// With a class-wide tier: an open pick shows that tier, not null.
+	withClassTier := createAssignment(t, h, teacher, classID, readingAssignmentBody("班级难度", map[string]any{
+		"source": "personalized",
+		"tier":   3,
+		"picks": map[string]any{
+			s1.String(): map[string]any{"slug": all[0].Slug, "tier": nil},
+		},
+	}, []string{s1.String()}))
+
+	type reading struct {
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+		Tier  *int   `json:"tier"`
+		State string `json:"state"`
+	}
+	var detail struct {
+		Recipients []struct {
+			UserID  string   `json:"userId"`
+			Reading *reading `json:"reading"`
+		} `json:"recipients"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+withClassTier, &detail); code != http.StatusOK {
+		t.Fatalf("detail = %d", code)
+	}
+	r := detail.Recipients[0].Reading
+	if r == nil || r.State != "picked" || r.Tier == nil || *r.Tier != 3 {
+		t.Fatalf("picked reading = %+v, want tier 3 (the class-wide tier)", r)
+	}
+
+	// Without a class-wide tier: the same open pick shows tier null (her own level).
+	s2 := createStudent(t, pool, SeedSchoolID, "pd-s4@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	noClassTier := createAssignment(t, h, teacher, classID, readingAssignmentBody("无班级难度", personalizedPayload(nil, map[string]any{
+		s2.String(): map[string]any{"slug": all[0].Slug, "tier": nil},
+	}), []string{s2.String()}))
+	var detail2 struct {
+		Recipients []struct {
+			UserID  string   `json:"userId"`
+			Reading *reading `json:"reading"`
+		} `json:"recipients"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+noClassTier, &detail2); code != http.StatusOK {
+		t.Fatalf("detail2 = %d", code)
+	}
+	r2 := detail2.Recipients[0].Reading
+	if r2 == nil || r2.State != "picked" || r2.Tier != nil {
+		t.Fatalf("picked reading (no class tier) = %+v, want tier null", r2)
+	}
+}
