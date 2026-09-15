@@ -1,3 +1,4 @@
+import { StudioEmpty, StudioHeading } from "./StudioArtwork";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Icon } from "@/ui";
@@ -101,14 +102,14 @@ export function StudentPage({
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
+      <div className="teacher-page teacher-student-page">
         <button
           type="button"
           onClick={onBack}
           className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         >
           <Icon icon={ArrowLeft} size={15} />
-          返回
+          返回学生名单
         </button>
 
         {pageError ? (
@@ -126,9 +127,9 @@ export function StudentPage({
           <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
         ) : (
           <>
-            <h1 className="mt-4 text-mk-h1 tracking-tight text-mk-ink">{page.student.displayName}</h1>
+            <StudioHeading label={`${className ?? "学生"} · 学习档案`} title={page.student.displayName} kind="reading" />
 
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="teacher-stat-strip">
               <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
               <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
               <StatTile label="本周活跃天数" value={`${page.student.activeDaysThisWeek} 天`} />
@@ -149,9 +150,9 @@ export function StudentPage({
               ) : live.status === "error" ? (
                 <p className="mt-2 text-mk-small font-semibold text-mk-danger">兴趣树加载失败：{live.error}</p>
               ) : live.status === "empty" ? (
-                <p className="mt-2 text-mk-body text-mk-muted">暂无兴趣关键词</p>
+                <StudioEmpty kind="discovery">暂无兴趣关键词</StudioEmpty>
               ) : (
-                <div className="-mx-4 mt-2 sm:-mx-8">
+                <div className="teacher-tree">
                   <TreeView user={studentUser} live={live} readOnly />
                 </div>
               )}
@@ -165,7 +166,7 @@ export function StudentPage({
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[104px] rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2.5">
+    <div className="teacher-stat">
       <div className="text-mk-h3 tabular-nums text-mk-ink">{value}</div>
       <div className="mt-0.5 text-mk-label text-mk-muted">{label}</div>
     </div>
@@ -190,10 +191,10 @@ function ItemSection({
   onOpenItem: (atomId: string) => void;
 }) {
   return (
-    <section className="mt-8">
-      <h2 className="text-mk-h3 text-mk-ink">{kindLabel(kind)}</h2>
+    <section className="teacher-item-section">
+      <div className="teacher-item-label"><h2>{kindLabel(kind)}</h2><p>{rows.length} 项学习记录</p><span aria-hidden="true">↘</span></div>
       {rows.length === 0 ? (
-        <p className="mt-2 text-mk-small text-mk-muted">暂无{kindLabel(kind)}记录</p>
+        <StudioEmpty kind={kind}>暂无{kindLabel(kind)}记录</StudioEmpty>
       ) : (
         <div className="mt-2 flex flex-col gap-2">
           {rows.map((row) => (
@@ -201,11 +202,11 @@ function ItemSection({
               key={row.atomId}
               type="button"
               onClick={() => onOpenItem(row.atomId)}
-              className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              className="teacher-item-row"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-mk-small font-bold text-mk-ink">{row.title}</span>
-                <span className="text-mk-small text-mk-muted">{itemStatusLabel(row.kind, row.status)}</span>
+                <span className="text-mk-small text-mk-muted">{itemStatusLabel(row.kind, row.status)} <span aria-hidden="true">↗</span></span>
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
                 <span>时长 {formatMinutes(row.minutes)}</span>

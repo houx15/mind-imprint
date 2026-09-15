@@ -1,3 +1,4 @@
+import { StudioHeading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Icon } from "@/ui";
@@ -120,14 +121,14 @@ export function ItemPage({
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto max-w-[860px] px-4 pb-16 pt-8 sm:px-8">
+      <div className="teacher-page teacher-record">
         <button
           type="button"
           onClick={onBack}
           className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         >
           <Icon icon={ArrowLeft} size={15} />
-          返回
+          返回学习档案
         </button>
 
         {error ? (
@@ -186,8 +187,7 @@ function ItemBody({
   const { item } = detail;
   return (
     <>
-      <p className="mt-4 text-mk-label text-mk-muted">{kindLabel(item.kind)}</p>
-      <h1 className="mt-1 text-mk-h1 tracking-tight text-mk-ink">{item.title}</h1>
+      <StudioHeading label={`${kindLabel(item.kind)} · 学习成果`} title={item.title} kind={item.kind === "reading" ? "keepsake" : item.kind} />
       <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-muted">
         <span>{itemStatusLabel(item.kind, item.status)}</span>
         <span>时长 {formatMinutes(item.minutes)}</span>
@@ -228,7 +228,7 @@ function ReportSection({
     // 服务端已经把「报告生成失败：」拼进这句原话里了，原样显示，不再叠一层
     // 前缀（AGENTS.md 界面文案 §8 的「后台原话」原则）。
     return (
-      <section className="mt-8">
+      <section className="teacher-record-section">
         <h2 className="text-mk-h3 text-mk-ink">报告</h2>
         <p className="mt-2 text-mk-small font-semibold text-mk-danger">{reportError}</p>
       </section>
@@ -242,13 +242,13 @@ function ReportSection({
   const pendingLabel = prosePendingLabel(report.prosePending, retriedProse);
 
   return (
-    <section className="mt-8">
+    <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">报告</h2>
 
       {stats.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="teacher-stat-strip">
           {stats.map((s) => (
-            <div key={s.key} className="min-w-[104px] rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2.5">
+            <div key={s.key} className="teacher-stat">
               <div className="text-mk-h3 tabular-nums text-mk-ink">
                 {s.value.toLocaleString("zh-CN")}
                 {s.unit}
@@ -264,7 +264,7 @@ function ReportSection({
           <h3 className="text-mk-label text-mk-muted">学生原话</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {report.moments.map((m, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small italic text-mk-ink">「{m.quote}」</p>
                 <p className="mt-1 text-mk-small text-mk-muted">来自：{m.where}</p>
               </li>
@@ -274,7 +274,7 @@ function ReportSection({
       )}
 
       {report.keep && (
-        <div className="mt-4 rounded-mk-md border border-mk-border bg-mk-surface p-4">
+        <div className="teacher-takeaway">
           <h3 className="text-mk-label text-mk-muted">收获</h3>
           <p className="mt-1.5 whitespace-pre-wrap text-mk-body text-mk-ink">{report.keep.text}</p>
           <p className="mt-2 text-mk-small text-mk-muted">
@@ -307,7 +307,7 @@ function ReadingSection({
   const { source, highlights, takeaway, lenses } = reading;
   const sourceHref = safeHttpUrl(source?.url);
   return (
-    <section className="mt-8">
+    <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">阅读</h2>
 
       {source && (source.librarySlug || source.url) ? (
@@ -334,7 +334,7 @@ function ReadingSection({
           <h3 className="text-mk-label text-mk-muted">划线与笔记</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {highlights.map((h, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small italic text-mk-muted">「{h.quote}」</p>
                 {h.note && <p className="mt-1 text-mk-small text-mk-ink">{h.note}</p>}
               </li>
@@ -355,7 +355,7 @@ function ReadingSection({
           <h3 className="text-mk-label text-mk-muted">阅读透镜</h3>
           <div className="mt-2 flex flex-col gap-2">
             {lenses.map((l, i) => (
-              <div key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <div key={i} className="teacher-evidence">
                 {l.title && <p className="text-mk-small font-bold text-mk-ink">{l.title}</p>}
                 <dl className={l.title ? "mt-1.5 flex flex-col gap-1" : "flex flex-col gap-1"}>
                   {Object.entries(l.fields)
@@ -380,7 +380,7 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
   if (!writing) return null;
   const { targetWords, lang, structureKey, outline, snippets, draft, comments } = writing;
   return (
-    <section className="mt-8">
+    <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">写作</h2>
 
       <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
@@ -408,7 +408,7 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
           <h3 className="text-mk-label text-mk-muted">片段</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {snippets.map((s, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3 text-mk-small text-mk-ink">
+              <li key={i} className="teacher-evidence text-mk-small text-mk-ink">
                 {s.text}
               </li>
             ))}
@@ -428,7 +428,7 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
           <h3 className="text-mk-label text-mk-muted">AI 批注</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {comments.map((c, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small text-mk-ink">{c.summary}</p>
                 {Array.isArray(c.points) && c.points.some((p) => typeof p === "string") ? (
                   <ul className="mt-1.5 list-disc pl-4">
@@ -457,7 +457,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
   const { steps } = project;
 
   return (
-    <section className="mt-8">
+    <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">项目</h2>
 
       <p className="mt-2 text-mk-body text-mk-ink">{project.idea}</p>
@@ -482,14 +482,12 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
           <h3 className="text-mk-label text-mk-muted">工具产出</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {project.tools.map((t, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small font-bold text-mk-ink">{t.key}</p>
                 {typeof t.result === "string" ? (
                   <p className="mt-1 text-mk-small text-mk-ink">{t.result}</p>
                 ) : (
-                  <pre className="mt-1 overflow-x-auto text-mk-small text-mk-muted">
-                    {JSON.stringify(t.result, null, 2)}
-                  </pre>
+                  <OutputValue value={t.result} />
                 )}
               </li>
             ))}
@@ -502,14 +500,12 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
           <h3 className="text-mk-label text-mk-muted">成果</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {project.artifacts.map((a, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small font-bold text-mk-ink">{a.title}</p>
                 {typeof a.payload === "string" ? (
                   <p className="mt-1 text-mk-small text-mk-ink">{a.payload}</p>
                 ) : (
-                  <pre className="mt-1 overflow-x-auto text-mk-small text-mk-muted">
-                    {JSON.stringify(a.payload, null, 2)}
-                  </pre>
+                  <OutputValue value={a.payload} />
                 )}
               </li>
             ))}
@@ -535,7 +531,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
           <h3 className="text-mk-label text-mk-muted">课程</h3>
           <ul className="mt-2 flex flex-col gap-2">
             {project.courses.map((c, i) => (
-              <li key={i} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <li key={i} className="teacher-evidence">
                 <p className="text-mk-small font-bold text-mk-ink">{c.slug}</p>
                 <p className="mt-1 text-mk-small text-mk-ink">{c.why}</p>
                 <p className="mt-1 text-mk-small text-mk-muted">{c.takeaway}</p>
@@ -559,4 +555,12 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
       )}
     </section>
   );
+}
+
+/** Read-only structured output: preserve every field without displaying JSON syntax. */
+function OutputValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined) return <span className="text-mk-muted">—</span>;
+  if (Array.isArray(value)) return value.length ? <ul className="teacher-output-list">{value.map((entry, i) => <li key={i}><OutputValue value={entry} /></li>)}</ul> : <span className="text-mk-muted">—</span>;
+  if (typeof value === "object") return <dl className="teacher-output-fields">{Object.entries(value).map(([key, entry]) => <div key={key}><dt>{key}</dt><dd><OutputValue value={entry} /></dd></div>)}</dl>;
+  return <span className="whitespace-pre-wrap">{typeof value === "boolean" ? (value ? "是" : "否") : String(value)}</span>;
 }

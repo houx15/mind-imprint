@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ApiClient, ClassSummary, Teacher } from "../api";
 import { ApiError } from "../api";
 import { shortDate } from "./time";
@@ -10,7 +10,12 @@ export function ClassesView({
   client,
   role,
   onOpenClass,
+  studioArtwork,
+  renderClassPreview,
 }: {
+  /** Optional Lite studio presentation; Pro keeps its existing layout. */
+  studioArtwork?: string;
+  renderClassPreview?: (classId: string) => ReactNode;
   client: Client;
   role: string;
   onOpenClass: (id: string) => void;
@@ -68,11 +73,12 @@ export function ClassesView({
   const adminNoTeachers = isAdmin && teachers != null && teachers.length === 0;
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+    <div className={studioArtwork ? "teacher-classes" : undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {studioArtwork && <header className="teacher-hero"><div><p className="teacher-eyebrow">TEACHING & LEARNING</p><h1>了解学生的学习过程</h1><p>查看班级中的学习记录、思考过程与成果。</p></div><img src={studioArtwork} alt="" /></header>}
+        <div className={studioArtwork ? "teacher-section-heading" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-.01em" }}>
-            {isTeacher ? "我的班级" : "全校班级"}
+            {isTeacher ? "我的班级" : "全校班级"}{studioArtwork && classes && <small className="teacher-count">{classes.length}</small>}
           </div>
           {canCreate && !creating && (
             <Button onClick={openCreate}>+ 新建班级</Button>
@@ -120,15 +126,18 @@ export function ClassesView({
         )}
 
         {classes && classes.length === 0 && !creating && (
-          <div style={{ marginTop: 28, color: "var(--mk-muted)", fontSize: 14.5, lineHeight: 1.7 }}>
+          <div className={studioArtwork ? "teacher-empty" : undefined} style={{ marginTop: 28, color: "var(--mk-muted)", fontSize: 14.5, lineHeight: 1.7 }}>
+            {studioArtwork && <img src={studioArtwork} alt="" />}
             {isTeacher ? "还没有班级，点「+ 新建班级」创建第一个。" : "本校暂无班级。"}
           </div>
         )}
 
+        {!classes && !error && <p role="status" style={{ marginTop: 24, color: "var(--mk-muted)" }}>加载中…</p>}
         {classes && classes.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 24 }}>
-            {classes.map((c) => (
+          <div className={studioArtwork ? "teacher-class-grid" : undefined} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 24 }}>
+            {classes.map((c, index) => (
               <Surface
+                className={studioArtwork ? "teacher-class-card" : undefined}
                 key={c.id}
                 as="div"
                 level="md"
@@ -139,8 +148,10 @@ export function ClassesView({
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenClass(c.id); } }}
                 style={{ padding: "18px 20px", cursor: "pointer" }}
               >
+                {studioArtwork && <div className="teacher-card-index"><span>CLASS {String(index + 1).padStart(2, "0")}</span><span aria-hidden="true">↗</span></div>}
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--mk-ink)", lineHeight: 1.45 }}>{c.name}</div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+                {renderClassPreview?.(c.id)}
+                <div className={studioArtwork ? "teacher-class-meta" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
                   <span style={{ fontSize: 12.5, color: "var(--mk-muted)", fontWeight: 600 }}>邀请码 {c.join_code}</span>
                   <span style={{ fontSize: 12, color: "var(--mk-faint)", fontWeight: 500 }}>创建于 {shortDate(c.created_at)}</span>
                 </div>

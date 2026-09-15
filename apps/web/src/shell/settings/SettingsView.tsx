@@ -41,7 +41,9 @@ export function SettingsView({
   session: _session,
   onLogout,
   user = null,
+  teachingStudio = false,
 }: {
+  teachingStudio?: boolean;
   session: SessionStore;
   onLogout: () => void;
   user?: MeUser | null;
@@ -60,7 +62,7 @@ export function SettingsView({
     : null;
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-mk-paper">
+    <div className={cx("h-full w-full overflow-y-auto bg-mk-paper", teachingStudio && "teacher-settings")}>
       <div className="mx-auto max-w-[680px] px-10 py-10 pb-16">
         <h1 className="text-mk-h1 text-mk-ink">设置</h1>
 
@@ -101,9 +103,9 @@ export function SettingsView({
           <div className="flex items-center gap-4">
             <Pebble size={56} />
             <div className="min-w-0 flex-1">
-              <div className="text-mk-h3 text-mk-ink">你的陪练 · 印记</div>
+              <div className="text-mk-h3 text-mk-ink">{teachingStudio ? "工作室配色" : "你的陪练 · 印记"}</div>
               <div className="mt-1 text-mk-body text-mk-muted">
-                它克制、安静，一次只问你一个问题。选一个你看着舒服的颜色。
+                {teachingStudio ? "选择教学工作室的主题色。" : "它克制、安静，一次只问你一个问题。选一个你看着舒服的颜色。"}
               </div>
             </div>
           </div>
@@ -190,6 +192,7 @@ export function SettingsView({
         </Card>
 
         {/* === 其他 === */}
+        {!teachingStudio && <>
         <SectionLabel>其他</SectionLabel>
         <Card className="overflow-hidden">
           {toggles.map((t, i) => (
@@ -208,6 +211,8 @@ export function SettingsView({
             </div>
           ))}
         </Card>
+
+        </>}
 
         {/* === 退出登录 === */}
         <button

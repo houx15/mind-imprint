@@ -1,3 +1,4 @@
+import { StudioEmpty, StudioHeading } from "./StudioArtwork";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
@@ -93,6 +94,8 @@ export function ClassPage({
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
+  const [query, setQuery] = useState("");
+  const [copied, setCopied] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("displayName");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -143,6 +146,7 @@ export function ClassPage({
     try {
       const updated = await api.regenerateJoinCode(classId);
       setJoinCode(updated.join_code);
+      setCopied(false);
       setConfirmRegen(false);
     } catch (e) {
       setMutationError(`轮换失败：${e instanceof ApiError ? e.message : String(e)}`);
@@ -174,26 +178,26 @@ export function ClassPage({
     }
   }
 
-  const sortedRoster = roster ? sortRoster(roster, sortKey, sortDir) : null;
+  const sortedRoster = roster ? sortRoster(roster.filter(s => s.displayName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sortKey, sortDir) : null;
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto max-w-[980px] px-4 pb-16 pt-8 sm:px-8">
+      <div className="teacher-page teacher-class-page">
         <button
           type="button"
           onClick={onBack}
           className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         >
           <Icon icon={ArrowLeft} size={15} />
-          返回
+          返回班级
         </button>
 
         {headerError ? (
           <div className="mt-4 text-mk-small font-semibold text-mk-danger">
             加载失败：{headerError}{" "}
-            <span onClick={loadHeader} className="cursor-pointer underline">
+            <button type="button" onClick={loadHeader} className="cursor-pointer underline">
               重试
-            </span>
+            </button>
           </div>
         ) : name === null ? (
           <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
@@ -201,11 +205,13 @@ export function ClassPage({
 
         {name !== null && (
           <>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <StudioHeading label="CLASS OVERVIEW · 班级概览" title={name} />
+            <div className="teacher-class-actions">
               {renaming ? (
                 <>
                   <input
                     autoFocus
+                    aria-label="班级名称"
                     value={draftName}
                     onChange={(e) => setDraftName(e.target.value)}
                     className="rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-h1 text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
@@ -219,7 +225,7 @@ export function ClassPage({
                 </>
               ) : (
                 <>
-                  <div className="text-mk-h1 tracking-tight text-mk-ink">{name}</div>
+
                   <Button
                     variant="secondary"
                     size="sm"
@@ -234,7 +240,7 @@ export function ClassPage({
               )}
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="teacher-invite flex flex-wrap items-center gap-2">
               <span
                 className="rounded-mk-md px-3 py-1.5 text-mk-small font-bold text-mk-accent-700"
                 style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface))" }}
@@ -244,9 +250,9 @@ export function ClassPage({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => void navigator.clipboard?.writeText(joinCode ?? "")}
+                onClick={async () => { try { await navigator.clipboard.writeText(joinCode ?? ""); setCopied(true); } catch (e) { setMutationError(`复制失败：${String(e)}`); } }}
               >
-                复制
+                {copied ? "已复制" : "复制邀请码"}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
                 轮换
@@ -270,20 +276,20 @@ export function ClassPage({
           </>
         )}
 
-        <div className="mt-8">
+        <div className="teacher-roster-section">
+          <div className="teacher-section-heading"><div><h2>学生名单 <small className="teacher-count">{roster?.length ?? "—"}</small></h2><p>阅读、写作与项目显示「已完成 / 总数」。</p></div><input className="teacher-search" type="search" aria-label="搜索学生" placeholder="搜索学生姓名" value={query} onChange={e => setQuery(e.target.value)} /></div>
+          {confirmRemove && <div className="teacher-confirm" role="alert"><p>确认移出「{roster?.find(s => s.id === confirmRemove)?.displayName}」？移出后该学生将无法看到本班内容。</p><Button variant="danger" size="sm" disabled={busy} onClick={() => void doRemove(confirmRemove)}>确认移出</Button><Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button></div>}
           {rosterError ? (
             <div className="text-mk-small font-semibold text-mk-danger">
               加载失败：{rosterError}{" "}
-              <span onClick={loadRoster} className="cursor-pointer underline">
+              <button type="button" onClick={loadRoster} className="cursor-pointer underline">
                 重试
-              </span>
+              </button>
             </div>
           ) : sortedRoster === null ? (
             <div className="text-mk-body text-mk-muted">加载中…</div>
           ) : sortedRoster.length === 0 ? (
-            <div className="text-mk-body text-mk-muted">
-              暂无学生。请将邀请码 {joinCode ?? "—"} 发给学生。
-            </div>
+            <StudioEmpty>{query.trim() ? "未找到匹配的学生，请修改搜索条件。" : `暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}</StudioEmpty>
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
               <table className="w-full min-w-[900px] border-collapse">
@@ -292,11 +298,10 @@ export function ClassPage({
                     {COLUMNS.map((col) => (
                       <th
                         key={col.key}
-                        onClick={() => onSort(col.key)}
+                        aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                         className="cursor-pointer whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
                       >
-                        {col.label}
-                        {sortKey === col.key && (sortDir === "asc" ? " ↑" : " ↓")}
+                        <button type="button" onClick={() => onSort(col.key)}>{col.label}{sortKey === col.key && (sortDir === "asc" ? " ↑" : " ↓")}</button>
                       </th>
                     ))}
                     <th className="border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted">
@@ -312,7 +317,7 @@ export function ClassPage({
                       className="cursor-pointer hover:bg-mk-accent-50"
                     >
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                        {s.displayName}
+                        <button className="teacher-student-link" onClick={e => { e.stopPropagation(); onOpenStudent(s.id); }}><span className="teacher-avatar">{Array.from(s.displayName)[0]}</span>{s.displayName}<span aria-hidden="true">↗</span></button>
                       </td>
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                         {lastActiveLabel(s.lastActiveAt)}
@@ -342,21 +347,7 @@ export function ClassPage({
                         className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-right text-mk-small"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {confirmRemove === s.id ? (
-                          <span className="inline-flex items-center gap-2 font-semibold text-mk-danger">
-                            移出后该学生将无法看到本班内容，确定？
-                            <Button variant="danger" size="sm" onClick={() => void doRemove(s.id)} disabled={busy}>
-                              确认移出
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
-                              取消
-                            </Button>
-                          </span>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(s.id)}>
-                            移出班级
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(s.id)}>移出班级</Button>
                       </td>
                     </tr>
                   ))}

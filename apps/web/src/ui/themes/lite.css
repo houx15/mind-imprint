@@ -1,5 +1,5 @@
-/* Lite student variant of the shared --mk-* tokens. Geometry stays in page CSS. */
-:is(.lite-student, body.lite-student-theme) {
+/* Lite variant of the shared --mk-* tokens. Geometry stays in page CSS. */
+:is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme) {
   --mk-accent-100: var(--mk-theme-accent-100);
   --mk-accent-200: var(--mk-theme-accent-200);
   --mk-accent-300: var(--mk-theme-accent-300);
@@ -75,7 +75,7 @@
   --mk-font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme) {
   --mk-ink: #e6edf2;
   --mk-muted: #acbac9;
   --mk-paper: #19232b;
@@ -89,24 +89,24 @@
   --mk-accent-700: color-mix(in srgb, var(--mk-accent-500) 45%, white);
   --mk-accent-800: color-mix(in srgb, var(--mk-accent-500) 30%, white);
 }
-:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="white"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme)[data-background="white"] {
   --mk-paper: #ffffff;
 }
-:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="cream"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme)[data-background="cream"] {
   --mk-paper: #fbf8f0;
 }
-:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="blue"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme)[data-background="blue"] {
   --mk-paper: #f2f6fc;
 }
-:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="green"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme)[data-background="green"] {
   --mk-paper: #f2f8f4;
 }
-:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme)[data-background="slate"] {
+:root:not([data-theme="dark"]) :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme)[data-background="slate"] {
   --mk-paper: #f5f6f8;
 }
 
 /* Exploration follows the student light/dark appearance with dedicated contrast pairs. */
-:is(.lite-student, body.lite-student-theme) {
+:is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme) {
   --mk-explore-paper: #f9fbfc;
   --mk-explore-surface: #ffffff;
   --mk-explore-ink: #243641;
@@ -115,7 +115,7 @@
   --mk-explore-line: #d3e1e7;
 }
 
-:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme) {
+:root[data-theme="dark"] :is(.lite-student, body.lite-student-theme, .lite-teacher, body.lite-teacher-theme) {
   --mk-explore-paper: #10171d;
   --mk-explore-surface: #1c2831;
   --mk-explore-ink: #eef6f7;

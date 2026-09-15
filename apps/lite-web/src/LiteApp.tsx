@@ -224,8 +224,8 @@ export function LiteApp() {
 
   return (
     <AccentProvider
-      presets={user.role === "student" ? LITE_ACCENT_PRESETS : ACCENT_PRESETS}
-      initialAccent={user.role === "student" ? initialLiteAccent(user.avatar_color) : coerceAccent(user.avatar_color)}
+      presets={LITE_ACCENT_PRESETS}
+      initialAccent={initialLiteAccent(user.avatar_color)}
       onPersist={(id) => {
         void setAccent(id);
       }}

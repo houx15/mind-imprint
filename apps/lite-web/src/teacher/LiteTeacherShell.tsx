@@ -1,6 +1,12 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { ClassPreview } from "./ClassPreview";
+import "./teacher-studio.css";
+import { useBackground } from "@/ui/background";
+import { StudentArtwork, studentArtwork } from "../learning/StudentArtwork";
+import { CompanionAppearanceProvider } from "@/ui/CompanionAppearance";
+import { bookmark } from "../home/LearningHome";
+import { useEffect, useLayoutEffect, useState, useRef, type CSSProperties } from "react";
 import { LayoutGrid, Users, GraduationCap, UploadCloud } from "lucide-react";
-import { Icon, Pebble, Settings, type LucideIcon } from "@/ui";
+import { Icon, Settings, useAccent, type LucideIcon } from "@/ui";
 import { api } from "@/api";
 import { ClassesView } from "@/console/ClassesView";
 import { OverviewView } from "@/console/OverviewView";
@@ -15,17 +21,7 @@ import { ClassPage } from "./ClassPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
 
-/**
- * LiteTeacherShell — the lite edition's teacher/admin shell. Same pattern as
- * pro's `AppShell` → `ConsoleShell`: a role branch in `LiteApp.tsx` sends
- * teachers and admins here instead of into the student-facing `LiteShell`.
- *
- * Rail markup (`mk-lite-navslot`/`mk-lite-nav`, `labelCls`, the 设置 button
- * pinned with `mt-auto`) is copied from `LiteShell` in `LiteApp.tsx` so the
- * two shells look identical — this is deliberate duplication, not a shared
- * component, for the same reason `LiteShell` itself does not import from
- * pro's `Nav`: the two rails evolve on their own schedules.
- */
+/** Lite teaching studio. Routing and teacher data remain independent of student views. */
 
 // SettingsView requires a pro SessionStore; lite's auth state lives in
 // LiteApp, so this one is never read. Same construction as LiteApp.tsx's
@@ -44,6 +40,35 @@ const ADMIN_ITEMS: RailItem[] = [
 ];
 
 export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
+  const { id: accent, presets } = useAccent();
+  const palette = presets.find(p => p.id === accent) ?? presets[0]!;
+  const themeStyle = Object.fromEntries(Object.entries(palette.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value])) as CSSProperties;
+  const { id: background } = useBackground();
+  // Portals inherit the same Lite theme; restore the host on unmount.
+  useEffect(() => {
+    const body = document.body;
+    const hadClass = body.classList.contains("lite-teacher-theme");
+    body.classList.add("lite-teacher-theme");
+    return () => { if (!hadClass) body.classList.remove("lite-teacher-theme"); };
+  }, []);
+  useEffect(() => {
+    const body = document.body;
+    const previousBackground = body.getAttribute("data-background");
+    const previous = Object.keys(palette.scale).map(step => {
+      const key = `--mk-theme-accent-${step}`;
+      return [key, body.style.getPropertyValue(key)] as const;
+    });
+    body.dataset.background = background;
+    for (const [step, value] of Object.entries(palette.scale)) body.style.setProperty(`--mk-theme-accent-${step}`, value);
+    return () => {
+      if (previousBackground === null) body.removeAttribute("data-background");
+      else body.setAttribute("data-background", previousBackground);
+      for (const [key, value] of previous) {
+        if (value) body.style.setProperty(key, value);
+        else body.style.removeProperty(key);
+      }
+    };
+  }, [palette, background]);
   // `resolveTeacherRoute` (not `parseTeacherRoute`) is what decides what she
   // is looking at: it folds an unrecognised path (root, a leftover student
   // path, a typo) onto her role's landing tab, and sends a teacher away from
@@ -89,98 +114,38 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
     return () => window.removeEventListener("popstate", onPop);
   }, [user.role]);
 
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); }, [route]);
+
   const go = (r: TeacherRoute) => navigate(teacherRoutePath(r));
 
   const railItems = user.role === "admin" ? ADMIN_ITEMS : TEACHER_ITEMS;
 
-  // Labels stay in the DOM always (opacity toggled, not conditionally
-  // rendered) so the reveal is a pure CSS transition — same trick as `Nav`
-  // / `LiteShell`.
-  const labelCls =
-    "whitespace-nowrap text-mk-body opacity-0 transition-opacity duration-200 ease-mk " +
-    "group-hover/nav:opacity-100 group-focus-within/nav:opacity-100 motion-reduce:transition-none";
-
-  function cx(...parts: Array<string | false | null | undefined>): string {
-    return parts.filter(Boolean).join(" ");
-  }
-
   return (
-    <div className="flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink">
-      <div className="mk-lite-navslot relative z-30 w-[64px] shrink-0">
-        <nav
-          className={cx(
-            "mk-lite-nav group/nav absolute inset-y-0 left-0 flex w-[64px] flex-col gap-1 overflow-hidden p-3",
-            "transition-[width] duration-200 ease-mk hover:w-[208px] focus-within:w-[208px]",
-            "hover:shadow-mk-lg focus-within:shadow-mk-lg motion-reduce:transition-none",
-          )}
-          style={{ background: "linear-gradient(180deg, var(--mk-accent-500), var(--mk-accent-600))" }}
-          aria-label="主导航"
-        >
-          <div className="mb-3 flex items-center gap-3 px-1.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-mk-full bg-white shadow-mk-xs">
-              <Pebble size={18} />
-            </span>
-            <span className={cx(labelCls, "font-semibold text-white")}>思维印记 · 轻量版</span>
-          </div>
-
-          {railItems.map(({ key, label, icon }) => {
-            const active =
-              route.view === key ||
-              // 学生详情/单项详情在「班级」下面，班级那一格仍然是选中的。
-              (key === "classes" &&
-                (route.view === "class" || route.view === "student" || route.view === "item"));
-            return (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => go(key === "classes" ? { view: "classes" } : ({ view: key } as TeacherRoute))}
-                className={cx(
-                  "flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                  active ? "bg-white/15" : "hover:bg-white/10",
-                )}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                  <Icon icon={icon} size={22} className={active ? "text-white" : "text-white/70"} />
-                </span>
-                <span className={cx(labelCls, active ? "font-semibold text-white" : "text-white/80")}>
-                  {label}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* 设置 sits at the FOOT of the rail, not among the tabs: it is where
-              the account lives, not a third place to work. `mt-auto` pins it
-              below whatever tabs exist above. */}
-          <button
-            type="button"
-            onClick={() => go({ view: "settings" })}
-            aria-current={route.view === "settings" ? "page" : undefined}
-            className={cx(
-              "mt-auto flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-              route.view === "settings" ? "bg-white/15" : "hover:bg-white/10",
-            )}
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-              <Icon icon={Settings} size={22} className={route.view === "settings" ? "text-white" : "text-white/70"} />
-            </span>
-            <span className={cx(labelCls, route.view === "settings" ? "font-semibold text-white" : "text-white/80")}>
-              设置
-            </span>
-          </button>
-        </nav>
-      </div>
-
-      <main className="min-w-0 flex-1 overflow-y-auto">
+    <StudentArtwork><CompanionAppearanceProvider image={bookmark}>
+    <div className="lite-teacher teacher-studio" style={themeStyle} data-background={background}>
+      <nav className="teacher-nav" aria-label="主导航">
+        <button className="teacher-brand" onClick={() => go({ view: user.role === "admin" ? "overview" : "classes" })}>
+          <img src={bookmark} alt="" /><span>思维印记<small>教学工作室</small></span>
+        </button>
+        <p className="teacher-nav-label">TEACHER STUDIO</p>
+        {railItems.map(({ key, label, icon }) => {
+          const active = route.view === key || (key === "classes" && ["class", "student", "item"].includes(route.view));
+          return <button key={key} className="teacher-nav-item" aria-current={active ? "page" : undefined}
+            onClick={() => go({ view: key } as TeacherRoute)}><Icon icon={icon} size={19} /><span>{label}</span><span className="teacher-nav-arrow" aria-hidden="true">↗</span></button>;
+        })}
+        <div className="teacher-nav-footer">
+          <div className="teacher-account"><span className="teacher-avatar">{Array.from(user.display_name)[0]}</span><div>{user.display_name}<small>{user.school.name}</small></div></div>
+          <button className="teacher-nav-item" onClick={() => go({ view: "settings" })} aria-current={route.view === "settings" ? "page" : undefined}><Icon icon={Settings} size={19} />设置</button>
+        </div>
+      </nav>
+      <main className="teacher-main" ref={mainRef}>
         {route.view === "classes" && (
-          <ClassesView client={api} role={user.role} onOpenClass={(classId) => go({ view: "class", classId })} />
+          <ClassesView renderClassPreview={classId => <ClassPreview classId={classId} />} studioArtwork={studentArtwork.writing} client={api} role={user.role} onOpenClass={(classId) => go({ view: "class", classId })} />
         )}
         {route.view === "class" && (
           <ClassPage
+            key={route.classId}
             classId={route.classId}
             role={user.role}
             onBack={() => go({ view: "classes" })}
@@ -207,9 +172,10 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
         {route.view === "teachers" && user.role === "admin" && <TeachersView client={api} />}
         {route.view === "import" && user.role === "admin" && <ImportView client={api} />}
         {route.view === "settings" && (
-          <SettingsView session={unusedSettingsSession} user={user} onLogout={onLogout} />
+          <SettingsView teachingStudio session={unusedSettingsSession} user={user} onLogout={onLogout} />
         )}
       </main>
     </div>
+    </CompanionAppearanceProvider></StudentArtwork>
   );
 }
