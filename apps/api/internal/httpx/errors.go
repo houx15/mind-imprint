@@ -91,6 +91,14 @@ func ErrWritingFinished() *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "writing_finished", Message: "这篇写作已完成，内容不能再修改。"}
 }
 
+// ErrWritingLocked — 403 for a write to a submitted writing homework whose
+// effective deadline has passed (liteassign.Locked). A separate code from
+// writing_finished: the student cannot unlock it herself, only the teacher
+// can, by returning the homework.
+func ErrWritingLocked() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "writing_locked", Message: "已过截止时间，作业已锁定"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }

@@ -50,6 +50,9 @@ type writingDTO struct {
 	// hour spent drafting moved neither updated_at nor created_at.
 	LastActivityAt string  `json:"lastActivityAt"`
 	FinishedAt     *string `json:"finishedAt"`
+	// RevisingAt is set while she edits a finished writing again (0153).
+	// The status stays "finished" the whole time.
+	RevisingAt *string `json:"revisingAt"`
 }
 
 func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingDTO {
@@ -69,6 +72,10 @@ func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingD
 	if wr.FinishedAt.Valid {
 		s := wr.FinishedAt.Time.Format(time.RFC3339)
 		out.FinishedAt = &s
+	}
+	if wr.RevisingAt.Valid {
+		s := wr.RevisingAt.Time.Format(time.RFC3339)
+		out.RevisingAt = &s
 	}
 	return out
 }

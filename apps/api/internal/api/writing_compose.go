@@ -298,12 +298,19 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 // already pins that independence at the store layer. Coupling them here
 // would defeat that guarantee at the API layer even though the store layer
 // holds it.
+//
+// Versions (0153): the first finish sets status and finished_at (which still
+// decides 按时 / 逾期) and adds version 1. A finish while revising clears
+// revising_at and adds the next version; it is refused with writing_locked
+// when the homework's effective deadline has passed. A finish on a finished
+// writing that is not being revised is a no-op 200, as before.
 func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtomRow(w, r)
 	if !ok {
 		return
 	}
-	draft, err := a.d.Queries.GetWritingDraft(r.Context(), at.ID)
+	ctx := r.Context()
+	draft, err := a.d.Queries.GetWritingDraft(ctx, at.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, err)
 		return
@@ -312,15 +319,59 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_draft", "先完成初稿，再点完成。", nil))
 		return
 	}
-	if err := a.d.Queries.SetWritingFinished(r.Context(), at.ID); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	a.EnqueueHarvest(r.Context(), at.ID) // 见 interest_jobs.go
-	wr, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+
+	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	wr, err := qtx.GetWritingForUpdate(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	first := wr.Status != "finished"
+	revising := wr.RevisingAt.Valid
+	if !first && !revising {
+		httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
+		return
+	}
+	if revising {
+		if err := refuseIfWritingLocked(ctx, qtx, at.ID, at.UserID, time.Now()); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	if first {
+		if err := qtx.SetWritingFinished(ctx, at.ID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	if revising {
+		if err := qtx.ClearWritingRevising(ctx, at.ID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	if _, err := insertWritingVersion(ctx, qtx, at.ID, wr.Title, draft.Body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if first {
+		a.EnqueueHarvest(ctx, at.ID) // 见 interest_jobs.go
+	}
+	updated, err := a.d.Queries.GetWriting(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(updated, at.CreatedAt, at.LastActivityAt))
 }
