@@ -238,7 +238,18 @@ Branch: `worktree-lite-teacher-end`. Four plans, built in order: student data, a
 
 ---
 
-## 5. Open product questions for the owner
+## 5. Product questions (owner answers, 2026-09-15)
+
+The owner answered these on 2026-09-15. The follow-up work is in section 7.
+
+- **Hiding a 金句 or keyword:** yes, a teacher can hide one. Built.
+- **Parent end:** there isn't one. Publish, the public link and delivery to the student's inbox are removed. The teacher exports an image and sends it herself.
+- **Assigned writing target:** the student must not change it. It is now locked on the server and in the client.
+- **"No title suggestions":** this meant that the writing room's title suggestions read her first message, and an assigned writing has none. The owner's related idea, a recommendation library of readings, writing prompts and projects for teachers to assign, is not built.
+- **Copy:** 老师布置 is renamed 作业 in the UI. The 进行中 chip is fixed; every status now meets 4.5:1 contrast in all themes. The odd tile gap is fixed.
+- **UI:** follow main's refreshed lite look. The teacher pages are being restyled.
+
+The original questions, kept for history:
 
 - **Assigned writing setup modal lets the student change the teacher's target.** The teacher still sees the actual target on her side, but the student-facing modal placeholder reads 「比如：这是老师布置的作业……」 and the field is editable. (Plan 2, Ruling P2-15.)
 - **An assigned writing gets no title suggestions.** Because starting an assigned writing no longer posts the teacher's prompt as a first student message, the suggestion feature that used that message has nothing to work from. (Plan 2, final fix wave concern.)
@@ -249,6 +260,36 @@ Branch: `worktree-lite-teacher-end`. Four plans, built in order: student data, a
 - **The parent report tile grid leaves gaps when the tile count is odd.** Cosmetic, not fixed. (Plan 4, Ruling 15 / Task 5 minor.)
 
 ---
+
+## 7. Owner follow-ups (2026-09-15)
+
+The plan is at `docs/superpowers/plans/2026-09-15-lite-teacher-followups.md`. It has four tasks. Each was reviewed and fixed where needed, and each was checked by walking it in a browser.
+
+- **Task 1: backend, export-only reports and hidden items.** Migration 0152 drops `status`, `share_token`, `published_at` and `student_seen_at`, and adds `hidden jsonb`.
+  - Removed: the publish, revoke, public, student-read and seen routes, and parent-report items in the student inbox. Assignment inbox JSON is still identical to plan 2.
+  - `liteparent.VisibleFacts` feeds the DTO sections, PATCH validation and redraft. A hidden item never reaches the model prompt or the quote check.
+  - `hiddenMentions` reports visible sections whose text still quotes a hidden item.
+  - `hidden` is decoded strictly.
+- **Task 2: frontend.** The public and student report pages, the report rows in the inbox, and the nginx `/r/` block are deleted.
+  - The editor has 导出图片 and a 隐藏/显示 toggle on each 金句 and keyword.
+  - Export is blocked with 导出失败：正文仍引用已隐藏的内容，请先修改 while hidden text is still quoted.
+  - All writes go through one serial queue, which fixed a deadlock found in review.
+  - Export saves everything, re-fetches a server snapshot, and renders the poster only from that snapshot. This fixed a privacy leak found in review.
+- **Task 3: small fixes.**
+  - The 作业 rename covers the strip, the room line, the inbox, the ItemPage label, the teacher rail and the setup placeholder. Go prompt text keeps 老师布置.
+  - Status chip contrast is at least 5.4:1 everywhere.
+  - Parent report tiles fill each row with no gaps, using a parent-only class.
+  - Assigned writing target and language are locked. `/setup` keeps the stored values, and `/target-words` returns 409 `assigned_target_locked`.
+- **Task 4: teacher pages follow the refreshed lite look.** In progress when this section was written. See the final summary.
+
+Deferred minors from the follow-ups:
+- A redraft uses the hidden set from before its model call.
+- A redraft that replaces the body while every keyword is hidden drops the stored interests text.
+- `savableSectionKeys` is unused.
+- The `posterReportFrom` test is circular.
+- `runExport` has no catch around the flushSync render.
+- WritingSetupModal keeps unused state in the assigned branch.
+- The teacher-list snapshot-name test was deleted.
 
 ## 6. Pending verification before deploy
 
@@ -262,6 +303,8 @@ Branch: `worktree-lite-teacher-end`. Four plans, built in order: student data, a
 - 这两周 is the risk that matters most: it is the obvious way to describe a 14-day range. If the model rewrites it as `2 周` and 2 is not an allowed digit, both attempts fail and the teacher gets 草稿生成失败.
 - Run `LIVE_LLM=1 go test ./internal/agent -run TestLiveLiteParent` at least 3 times with the production env, and judge by the worst run.
 - If drafts fail on this wording, narrow the regex: exclude a numeral preceded by 这/那 or by 第.
+
+**Deploy note for migration 0152:** sqlc lists columns explicitly, so the old API binary selects `status` from `lite_parent_report`. Parent report routes will return errors in the short window between running migration 0152 and swapping in the new API container. They are teacher-only and low-traffic. Deploy the migration and the container together, and try not to generate reports in that window.
 
 **Before real parents see a report:**
 - Time a real generate end to end. It is synchronous: facts, then up to 2 flagship attempts, within nginx's 300s limit.
