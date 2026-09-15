@@ -74,6 +74,15 @@ export function rubricScaleLabel(d: RubricDraft): string {
   return d.scale === "points" ? `分数（满分 ${d.max.trim() || "—"}）` : "等级";
 }
 
+/** Names one dimension for its 删除 button's `aria-label` — every button in
+ *  the repeated row otherwise reads as bare "删除" to a screen reader, with
+ *  no way to tell which dimension it removes. Falls back to its position
+ *  (1-based) while the teacher has not typed a name yet. */
+export function rubricDimensionLabel(name: string, index: number): string {
+  const trimmed = name.trim();
+  return `删除「${trimmed || `维度 ${index + 1}`}」`;
+}
+
 const runes = (s: string): number => [...s].length;
 
 export function validateRubricDraft(d: RubricDraft): string | null {

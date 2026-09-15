@@ -1,7 +1,7 @@
 import { Button } from "@/ui";
 import type { RubricDimension } from "../api/gradings";
 import { Field, INPUT_CLS, Segmented } from "./AssignmentForm";
-import type { RubricDraft } from "./rubricLogic";
+import { rubricDimensionLabel, type RubricDraft } from "./rubricLogic";
 
 const MAX_DIMENSIONS = 6;
 
@@ -67,6 +67,7 @@ export function RubricFields({
             <Button
               variant="ghost"
               size="sm"
+              aria-label={rubricDimensionLabel(dim.name, i)}
               disabled={value.dimensions.length <= 1}
               onClick={() => onChange((d) => ({ ...d, dimensions: d.dimensions.filter((_, j) => j !== i) }))}
             >

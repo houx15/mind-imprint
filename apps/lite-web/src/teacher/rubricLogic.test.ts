@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRubric,
   rubricDefaultNote,
+  rubricDimensionLabel,
   rubricDraftFromPayload,
   rubricDraftOf,
   rubricScaleLabel,
@@ -67,6 +68,19 @@ describe("rubricScaleLabel", () => {
   });
   it("falls back to a placeholder for a blank max", () => {
     expect(rubricScaleLabel({ scale: "points", max: "", dimensions: [], focus: "" })).toBe("分数（满分 —）");
+  });
+});
+
+describe("rubricDimensionLabel", () => {
+  // Each 删除 button in the repeated dimension list needs an aria-label
+  // that names which dimension it removes — plain "删除" repeated across
+  // rows is indistinguishable to a screen reader.
+  it("names the dimension when it has a name", () => {
+    expect(rubricDimensionLabel("内容", 0)).toBe("删除「内容」");
+  });
+  it("falls back to its 1-based position while unnamed", () => {
+    expect(rubricDimensionLabel("", 2)).toBe("删除「维度 3」");
+    expect(rubricDimensionLabel("   ", 2)).toBe("删除「维度 3」");
   });
 });
 
