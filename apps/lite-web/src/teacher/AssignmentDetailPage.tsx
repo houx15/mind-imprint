@@ -176,15 +176,23 @@ export function AssignmentDetailPage({
 
   async function save() {
     if (!edit || busy) return;
-    const built = buildPatchInput(edit, editable);
-    if (!built.ok) {
-      setMessage(built.error);
-      return;
-    }
     const aid = assignmentId;
     setBusy(true);
     setMessage(null);
     try {
+      // Inside the try/catch (fix round 2): buildPatchInput's recipientIds
+      // is a required parameter now, but any future build error here still
+      // has to surface as a message and reset `busy`, the same as a failed
+      // request — not throw uncaught past this function.
+      const built = buildPatchInput(
+        edit,
+        editable,
+        recipients.map((r) => r.userId),
+      );
+      if (!built.ok) {
+        setMessage(built.error);
+        return;
+      }
       await patchAssignment(aid, built.value);
       if (!current(aid)) return;
       setEdit(null);

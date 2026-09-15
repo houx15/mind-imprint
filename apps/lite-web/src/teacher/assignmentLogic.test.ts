@@ -117,14 +117,17 @@ describe("parseTargetWords", () => {
 });
 
 describe("buildPayload", () => {
+  // recipientIds is a required parameter (fix round 2) but only the
+  // personalized branch reads it — these non-personalized calls pass `[]`
+  // since the value is irrelevant to them.
   it("omits tier when the student's current level is used", () => {
-    const p = buildPayload({ ...emptySettings("reading"), slug: "coral", tier: null });
+    const p = buildPayload({ ...emptySettings("reading"), slug: "coral", tier: null }, []);
     expect(p).toEqual({ source: "library", slug: "coral" });
     expect("tier" in p).toBe(false);
-    expect(buildPayload({ ...emptySettings("reading"), slug: "coral", tier: 3 })).toEqual({ source: "library", slug: "coral", tier: 3 });
+    expect(buildPayload({ ...emptySettings("reading"), slug: "coral", tier: 3 }, [])).toEqual({ source: "library", slug: "coral", tier: 3 });
   });
   it("sends only the chosen source's field", () => {
-    expect(buildPayload({ ...emptySettings("reading"), readingSource: "url", slug: "left", url: "https://a.org" })).toEqual({
+    expect(buildPayload({ ...emptySettings("reading"), readingSource: "url", slug: "left", url: "https://a.org" }, [])).toEqual({
       source: "url",
       url: "https://a.org",
     });
@@ -135,10 +138,10 @@ describe("buildPayload", () => {
   // and a rubric only ever exists once the homework does (see
   // `buildPatchInput rubric (writing only)` below).
   it("never sends rubric for a writing homework — there is no create-time editor", () => {
-    const untouched = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800" });
+    const untouched = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800" }, []);
     expect("rubric" in untouched).toBe(false);
     const customized: RubricDraft = { scale: "letter", max: "", dimensions: [{ name: "论证", note: "看证据" }], focus: "" };
-    const withRubricSet = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800", rubric: customized });
+    const withRubricSet = buildPayload({ ...emptySettings("writing"), prompt: "题", targetWords: "800", rubric: customized }, []);
     expect("rubric" in withRubricSet).toBe(false);
   });
 });
@@ -146,7 +149,7 @@ describe("buildPayload", () => {
 describe("settingsFromAssignment", () => {
   it("round-trips a writing payload through the draft", () => {
     const payload = { prompt: "题目", targetWords: 800, lang: "en" };
-    expect(buildPayload(settingsFromAssignment("writing", payload))).toEqual(payload);
+    expect(buildPayload(settingsFromAssignment("writing", payload), [])).toEqual(payload);
   });
   it("leaves a missing word count empty, never 0", () => {
     expect(settingsFromAssignment("writing", { prompt: "p", lang: "zh" }).targetWords).toBe("");
@@ -175,12 +178,12 @@ describe("buildCreateInput", () => {
 describe("buildPatchInput", () => {
   const edit: EditDraft = { title: "新标题", instructions: " ", dueInput: "2026-09-21T08:00", settings: emptySettings("project"), originalRubric: null };
   it("leaves kind and payload out when settings are locked, even if the draft is invalid", () => {
-    const r = buildPatchInput(edit, false);
+    const r = buildPatchInput(edit, false, []);
     expect(r).toEqual({ ok: true, value: { title: "新标题", instructions: "", dueAt: "2026-09-21T08:00:00+08:00" } });
   });
   it("validates and sends settings when editable", () => {
-    expect(buildPatchInput(edit, true)).toEqual({ ok: false, error: "请填写驱动问题" });
-    const r = buildPatchInput({ ...edit, settings: { ...edit.settings, drivingQuestion: "问题" } }, true);
+    expect(buildPatchInput(edit, true, [])).toEqual({ ok: false, error: "请填写驱动问题" });
+    const r = buildPatchInput({ ...edit, settings: { ...edit.settings, drivingQuestion: "问题" } }, true, []);
     expect(r.ok && r.value.kind).toBe("project");
   });
 });
@@ -202,13 +205,13 @@ describe("buildPatchInput rubric (writing only)", () => {
     originalRubric,
   });
   it("omits rubric from the patch when the draft is unchanged", () => {
-    const r = buildPatchInput(writingEdit(loaded!), false);
+    const r = buildPatchInput(writingEdit(loaded!), false, []);
     expect(r.ok).toBe(true);
     if (r.ok) expect("rubric" in r.value).toBe(false);
   });
   it("sends rubric when a dimension changed", () => {
     const changed: RubricDraft = { ...loaded!, dimensions: [{ name: "论证", note: "" }] };
-    const r = buildPatchInput(writingEdit(changed), false);
+    const r = buildPatchInput(writingEdit(changed), false, []);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(changed));
   });
@@ -216,19 +219,19 @@ describe("buildPatchInput rubric (writing only)", () => {
   // read this as a change and sent a needless rubric PATCH.
   it("treats the same dimension content built in a different key order as unchanged", () => {
     const reordered: RubricDraft = { ...loaded!, dimensions: [{ note: loaded!.dimensions[0]!.note, name: loaded!.dimensions[0]!.name }] };
-    const r = buildPatchInput(writingEdit(reordered), false);
+    const r = buildPatchInput(writingEdit(reordered), false, []);
     expect(r.ok).toBe(true);
     if (r.ok) expect("rubric" in r.value).toBe(false);
   });
   it("also validates the rubric when settings are locked, since it stays editable", () => {
     const invalid: RubricDraft = { ...loaded!, dimensions: [] };
-    expect(buildPatchInput(writingEdit(invalid), false)).toEqual({ ok: false, error: "评分维度需有 1 到 6 项" });
+    expect(buildPatchInput(writingEdit(invalid), false, [])).toEqual({ ok: false, error: "评分维度需有 1 到 6 项" });
   });
   // Without an original to compare against (a writing homework whose
   // payload carried no rubric — should not happen for a real one), the
   // safer default is to send it rather than guess "unchanged".
   it("sends rubric when no original is known to compare against", () => {
-    const r = buildPatchInput(writingEdit(loaded!, null), false);
+    const r = buildPatchInput(writingEdit(loaded!, null), false, []);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(loaded!));
   });
@@ -410,9 +413,9 @@ describe("file and personalized settings", () => {
   it("builds a text payload with the file name from the upload tab", () => {
     const d = { ...emptySettings("reading"), readingSource: "file" as const, text: " 正文 ", fileName: "rain.pdf" };
     expect(validateSettings(d)).toBeNull();
-    expect(buildPayload(d)).toEqual({ source: "text", text: "正文", fileName: "rain.pdf" });
+    expect(buildPayload(d, [])).toEqual({ source: "text", text: "正文", fileName: "rain.pdf" });
     expect(validateSettings({ ...d, text: "" })).toBe("请上传文件");
-    expect(buildPayload({ ...d, readingSource: "text" })).toEqual({ source: "text", text: "正文" });
+    expect(buildPayload({ ...d, readingSource: "text" }, [])).toEqual({ source: "text", text: "正文" });
   });
   // Controller ruling 1: a stray body from another tab must not let the
   // upload tab publish without a file — she'd see "上传文件" in the tab but
@@ -462,14 +465,23 @@ describe("file and personalized settings", () => {
       picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
     });
   });
-  // Promoted minor: a caller must always name the current recipient list for
-  // a personalized reading — an omitted `recipientIds` used to mean "send
-  // every pick unfiltered", which could resend a stale or new pick for a
-  // student who is not (or no longer) a recipient and get a server 400
-  // (pick_not_recipient).
-  it("requires recipientIds for a personalized reading rather than sending every pick unfiltered", () => {
-    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: [] };
-    expect(() => buildPayload(d)).toThrow();
+  // Fix round 2: `recipientIds` is now a required, typed parameter (not an
+  // optional one with a runtime throw — the one production caller of
+  // buildPatchInput did not know to satisfy an optional-with-throw contract
+  // and would have thrown uncaught on every settings-editable personalized
+  // save). These tests exercise it explicitly rather than asserting a throw.
+  it("keeps only the named recipients' picks — an empty recipientIds sends none", () => {
+    const rows = mergePickRows([preview({ userId: "u1" })], null, {});
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows };
+    expect(buildPayload(d, [])).toEqual({ source: "personalized", picks: {} });
+  });
+  it("sends every pick when recipientIds names them all", () => {
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2", slug: "nasa" })], null, {});
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows };
+    expect(buildPayload(d, ["u1", "u2"])).toEqual({
+      source: "personalized",
+      picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
+    });
   });
   it("reads a stored personalized payload back", () => {
     const d = settingsFromAssignment("reading", {

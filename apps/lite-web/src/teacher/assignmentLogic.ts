@@ -249,24 +249,26 @@ export function validateSettings(d: SettingsDraft): string | null {
  * with no chosen level leaves `tier` out, which the server reads as "use the
  * student's current level".
  *
- * For a `personalized` reading, `recipientIds` is required — a caller must
- * pass exactly the current recipient list — and only those ids' picks are
- * sent, never `undefined` (which would send every pick unfiltered, letting a
- * stale or new pick for a non-recipient reach the server and 400
- * `pick_not_recipient`). A PATCH's `payload` field, when present, replaces
- * the stored payload wholesale: leaving a removed recipient's id out of
- * `picks` here is what *deletes* her stale pick from storage, not something
- * the server quietly preserves on its own. */
-export function buildPayload(d: SettingsDraft, recipientIds?: string[]): AssignmentPayload {
+ * `recipientIds` is a required parameter (the type system enforces it — fix
+ * round 2: an earlier version made it optional with a runtime throw, which
+ * the one production caller of `buildPatchInput` did not know to satisfy and
+ * would have thrown uncaught on every save of a settings-editable
+ * personalized homework). Only the `personalized` reading branch below
+ * actually reads it; every other kind/source ignores it. For a
+ * `personalized` reading, only those ids' picks are sent — a PATCH's
+ * `payload` field, when present, replaces the stored payload wholesale, so
+ * leaving a removed recipient's id out of `picks` here is what *deletes* her
+ * stale pick from storage, not something the server quietly preserves on its
+ * own; naming the current recipients exactly also keeps a stale or new pick
+ * for a non-recipient from reaching the server and 400ing
+ * (`pick_not_recipient`). */
+export function buildPayload(d: SettingsDraft, recipientIds: string[]): AssignmentPayload {
   if (d.kind === "reading") {
     if (d.readingSource === "library") {
       return d.tier === null ? { source: "library", slug: d.slug.trim() } : { source: "library", slug: d.slug.trim(), tier: d.tier };
     }
     if (d.readingSource === "url") return { source: "url", url: d.url.trim() };
     if (d.readingSource === "personalized") {
-      if (!recipientIds) {
-        throw new Error("buildPayload: a personalized reading payload requires recipientIds");
-      }
       const keep = new Set(recipientIds);
       const picks: Record<string, PersonalPick> = {};
       // `d.picks` is null when the preview has not loaded (or failed) while
@@ -364,9 +366,11 @@ export interface EditDraft {
  * regardless (`CarryRubric`), so it only ever changes through this field —
  * and only when it actually changed, so a title-only edit on an older
  * homework never overwrites a custom rubric with whatever the draft
- * happened to be initialized as. `recipientIds` is required when the
- * settings are editable and the reading is personalized — see `buildPayload`. */
-export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipientIds?: string[]): Built<PatchAssignmentInput> {
+ * happened to be initialized as. `recipientIds` is a required parameter,
+ * forwarded to `buildPayload` — only its personalized-reading branch reads
+ * it, but every caller must name the current recipients (see `buildPayload`'s
+ * doc comment for why an optional-with-throw version was rejected). */
+export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipientIds: string[]): Built<PatchAssignmentInput> {
   const common = validateCommon(e.title, e.dueInput);
   if (common) return { ok: false, error: common };
   const patch: PatchAssignmentInput = {
