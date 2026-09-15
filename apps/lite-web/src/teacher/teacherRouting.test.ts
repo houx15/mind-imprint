@@ -52,6 +52,18 @@ describe("teacher routing", () => {
     expect(isTeacherPath("/gradings/g-1")).toBe(true);
     expect(parseTeacherRoute("/gradings")).toEqual({ view: "classes" });
   });
+
+  // 返回 from the grading view carries a hint back to the 批改 tab
+  // (`?tab=grading`) instead of always landing on the default 学生 tab.
+  it("carries the 批改-tab hint on the assignment route, and ignores it when absent", () => {
+    expect(parseTeacherRoute("/assignments/a1?tab=grading")).toEqual({ view: "assignment", assignmentId: "a1", tab: "grading" });
+    expect(teacherRoutePath({ view: "assignment", assignmentId: "a1", tab: "grading" })).toBe("/assignments/a1?tab=grading");
+    expect(parseTeacherRoute("/assignments/a1")).toEqual({ view: "assignment", assignmentId: "a1" });
+    expect(teacherRoutePath({ view: "assignment", assignmentId: "a1" })).toBe("/assignments/a1");
+    // An unrecognised query value is not the grading hint.
+    expect(parseTeacherRoute("/assignments/a1?tab=students")).toEqual({ view: "assignment", assignmentId: "a1" });
+    expect(isTeacherPath("/assignments/a1?tab=grading")).toBe(true);
+  });
 });
 
 describe("landingRoute", () => {

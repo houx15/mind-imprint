@@ -4,6 +4,7 @@ import {
   contentForSave,
   gradeInScale,
   gradingContentReducer,
+  gradingPointLabel,
   gradingRowStatus,
   queueResultText,
   reviewedDraftIds,
@@ -131,6 +132,13 @@ describe("sendResultText", () => {
   it("reports a clean send, and explains a skip rather than leaving a bare number", () => {
     expect(sendResultText({ sent: 4, skipped: 0 })).toBe("已发送 4 份");
     expect(sendResultText({ sent: 3, skipped: 1 })).toBe("已发送 3 份，跳过 1 份（批改状态已变化或学生已不在班级）");
+  });
+});
+
+describe("gradingPointLabel", () => {
+  it("names a point's control by its 1-based position", () => {
+    expect(gradingPointLabel(0, "删除")).toBe("意见 1 删除");
+    expect(gradingPointLabel(2, "修改建议")).toBe("意见 3 修改建议");
   });
 });
 

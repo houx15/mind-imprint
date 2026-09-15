@@ -22,45 +22,59 @@ import {
 
 /**
  * 批改 tab of a writing homework: one row per student. Polls every 5s while
- * any row is queued or running, stops as soon as none are (and on unmount,
- * via the interval effect's own cleanup).
+ * any row is queued or running.
+ *
+ * Polling is a self-scheduling chain, not a fixed-tick `setInterval`: each
+ * tick's `listAssignmentGradings` call only reschedules the NEXT tick after
+ * it settles (success or error), so a response slower than 5s is never
+ * discarded by a new request starting on top of it, and two requests are
+ * never in flight at once. It stops on its own once no row is queued/
+ * running, and the effect's cleanup (assignmentId change, or unmount)
+ * always clears the pending timer.
  */
 export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: string; onOpenGrading: (gradingId: string) => void }) {
   const alive = useAlive();
   const [rows, setRows] = useState<GradingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // `message` is a result line (queued/sent counts, role="status"); a
+  // thrown 批改失败/发送失败 goes in `actionError` instead (role="alert",
+  // danger styling) so the two don't read as the same kind of line.
   const [message, setMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    listAssignmentGradings(assignmentId)
-      .then((r) => {
+    let timer: number | undefined;
+
+    async function load() {
+      try {
+        const r = await listAssignmentGradings(assignmentId);
         if (cancelled) return;
         setRows(r);
         setError(null);
-      })
-      .catch((e: unknown) => {
+        if (shouldPoll(r.map((row) => row.grading?.status ?? ""))) {
+          timer = window.setTimeout(() => void load(), POLL_MS);
+        }
+      } catch (e) {
         if (!cancelled) setError(errorText(e));
-      });
+      }
+    }
+
+    void load();
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [assignmentId, nonce]);
-
-  const polling = rows !== null && shouldPoll(rows.map((r) => r.grading?.status ?? ""));
-  useEffect(() => {
-    if (!polling) return;
-    const timer = window.setInterval(() => setNonce((n) => n + 1), POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [polling]);
 
   async function queue(retryFailed: boolean) {
     if (busy) return;
     setBusy(true);
     setMessage(null);
+    setActionError(null);
     try {
       const r = await queueAssignmentGradings(assignmentId, retryFailed);
       if (alive.current) setMessage(queueResultText(r));
@@ -69,7 +83,7 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
       // and 503 grading_enqueue_failed (every eligible recipient's enqueue
       // rolled back) — an AI/backend failure must surface, never a silent
       // no-op (controller ruling).
-      if (alive.current) setMessage(failText("批改", e));
+      if (alive.current) setActionError(failText("批改", e));
     } finally {
       if (alive.current) {
         setBusy(false);
@@ -84,11 +98,12 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
     if (busy || reviewed.length === 0) return;
     setBusy(true);
     setMessage(null);
+    setActionError(null);
     try {
       const r = await sendReviewedGradings(assignmentId, reviewed);
       if (alive.current) setMessage(sendResultText(r));
     } catch (e) {
-      if (alive.current) setMessage(failText("发送", e));
+      if (alive.current) setActionError(failText("发送", e));
     } finally {
       if (alive.current) {
         setBusy(false);
@@ -127,6 +142,11 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
       {message && (
         <p role="status" className="break-words text-mk-small font-semibold text-mk-ink">
           {message}
+        </p>
+      )}
+      {actionError && (
+        <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">
+          {actionError}
         </p>
       )}
       {confirmSend && (

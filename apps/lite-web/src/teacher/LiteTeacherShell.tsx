@@ -29,6 +29,7 @@ import { GradingPage } from "./GradingPage";
 import { ParentReportsPage } from "./ParentReportsPage";
 import { ParentReportEditor } from "./ParentReportEditor";
 import { writeLastClassId } from "./assignmentLogic";
+import { LEAVE_UNSAVED_CONFIRM } from "./gradingLogic";
 import "./teacher.css";
 
 /** Lite teaching studio. Routing and teacher data remain independent of student views. */
@@ -81,10 +82,27 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
   // is looking at: it folds an unrecognised path (root, a leftover student
   // path, a typo) onto her role's landing tab, and sends a teacher away from
   // an admin-only view. See its doc comment in `teacherRouting.ts` for why
-  // this has to be a distinct function from the raw parser.
-  const [route, setRoute] = useState<TeacherRoute>(() =>
-    resolveTeacherRoute(window.location.pathname, user.role),
-  );
+  // this has to be a distinct function from the raw parser. The assignment
+  // route's `?tab=grading` hint lives in `window.location.search`, so every
+  // read of the address bar below carries pathname + search together, not
+  // pathname alone.
+  const fullPath = () => window.location.pathname + window.location.search;
+  const [route, setRoute] = useState<TeacherRoute>(() => resolveTeacherRoute(fullPath(), user.role));
+
+  // Mirror `route` into a ref for the popstate handler and `go` below: both
+  // read the CURRENT route synchronously from an event handler, not a
+  // value captured when their effect/closure was created (the popstate
+  // effect only re-runs on `[user.role]`, so `route` inside it would
+  // otherwise be frozen at whatever it was on mount). Same idiom as
+  // `AssignmentDetailPage`'s `aidRef`.
+  const routeRef = useRef(route);
+  routeRef.current = route;
+
+  // Whether `GradingPage` currently has unsaved edits — set via its
+  // `onDirtyChange` prop below. A ref, not state: `go`/the popstate handler
+  // need to read it synchronously inside a click/pop handler, and a state
+  // update here would not itself need to trigger a re-render of this shell.
+  const dirtyGradingRef = useRef(false);
 
   // Reconcile the address bar with the BOOT resolution before the first
   // paint (a layout effect, not a regular one, so there is no blank frame
@@ -97,7 +115,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
   // new one, so it must not create a Back-button trap.
   useLayoutEffect(() => {
     const path = teacherRoutePath(route);
-    if (window.location.pathname !== path) {
+    if (fullPath() !== path) {
       window.history.replaceState(null, "", path);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,10 +129,29 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
     // through `navigate`'s `pushState`, which is what trapped Back in the
     // first place (pop → push → pop → push …). The rail's brand link
     // navigates to `/`, which this folds onto her landing tab.
+    //
+    // Unsaved-edits guard: if she is leaving the grading view (to a
+    // different view, or to a different `gradingId`) with `dirtyGradingRef`
+    // set, confirm first. The browser has already changed the URL by the
+    // time `popstate` fires, so a cancel pushes the grading URL straight
+    // back onto the stack (undoing the Back) instead of trying to prevent
+    // the pop itself, which the History API has no hook for.
     const onPop = () => {
-      const resolved = resolveTeacherRoute(window.location.pathname, user.role);
+      const resolved = resolveTeacherRoute(fullPath(), user.role);
+      const cur = routeRef.current;
+      if (
+        dirtyGradingRef.current &&
+        cur.view === "grading" &&
+        (resolved.view !== "grading" || resolved.gradingId !== cur.gradingId)
+      ) {
+        if (!window.confirm(LEAVE_UNSAVED_CONFIRM)) {
+          window.history.pushState(null, "", teacherRoutePath(cur));
+          return;
+        }
+        dirtyGradingRef.current = false;
+      }
       const path = teacherRoutePath(resolved);
-      if (window.location.pathname !== path) {
+      if (fullPath() !== path) {
         window.history.replaceState(null, "", path);
       }
       setRoute(resolved);
@@ -126,7 +163,22 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); }, [route]);
 
-  const go = (r: TeacherRoute) => navigate(teacherRoutePath(r));
+  // Cross-component navigation guard (rail links, the brand link, any other
+  // `go()` call): `GradingPage`'s own 返回 button has its own inline confirm
+  // (the lite teacher UI's existing pattern — see `confirmRegrade`/
+  // `confirmArchive` elsewhere) for leaving through ITS OWN button; this is
+  // the one for leaving through something GradingPage does not own. A
+  // second, styled confirm surface for an arbitrary navigation initiated
+  // outside the page is more machinery than this warrants, so `window.
+  // confirm` here — acceptable per the ruling when nothing else already
+  // reaches this case.
+  const go = (r: TeacherRoute) => {
+    if (dirtyGradingRef.current && route.view === "grading") {
+      if (!window.confirm(LEAVE_UNSAVED_CONFIRM)) return;
+      dirtyGradingRef.current = false;
+    }
+    navigate(teacherRoutePath(r));
+  };
 
   const railItems = teacherRailItems(user.role).map(item => ({ ...item, icon: RAIL_ICONS[item.key] }));
 
@@ -193,6 +245,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
         {route.view === "assignment" && (
           <AssignmentDetailPage
             assignmentId={route.assignmentId}
+            initialTab={route.tab}
             onBack={() => go({ view: "assignments" })}
             onOpenItem={(classId, userId, atomId) => go({ view: "item", classId, userId, atomId })}
             onOpenGrading={(gradingId) => go({ view: "grading", gradingId })}
@@ -202,9 +255,12 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
           <GradingPage
             key={route.gradingId}
             gradingId={route.gradingId}
+            onDirtyChange={(dirty) => {
+              dirtyGradingRef.current = dirty;
+            }}
             onBack={(g) =>
               g?.assignmentId
-                ? go({ view: "assignment", assignmentId: g.assignmentId })
+                ? go({ view: "assignment", assignmentId: g.assignmentId, tab: "grading" })
                 : g
                   ? go({ view: "item", classId: g.classId, userId: g.userId, atomId: g.atomId })
                   : go({ view: "assignments" })

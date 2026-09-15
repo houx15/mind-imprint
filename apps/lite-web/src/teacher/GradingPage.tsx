@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { getAssignment, type RecipientDTO } from "../api/assignments";
@@ -21,6 +21,8 @@ import {
   contentForSave,
   failureText,
   gradingContentReducer,
+  gradingPointLabel,
+  LEAVE_UNSAVED_CONFIRM,
   POLL_MS,
   REGRADE_CONFIRM,
   shouldPoll,
@@ -39,7 +41,19 @@ const EMPTY: GradingContent = { overall: { grade: "", comment: "" }, dimensions:
  * teacher point picks its quote, the left side lists her sentences as
  * buttons.
  */
-export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: (g: TeacherGrading | null) => void }) {
+export function GradingPage({
+  gradingId,
+  onBack,
+  onDirtyChange,
+}: {
+  gradingId: string;
+  onBack: (g: TeacherGrading | null) => void;
+  /** Reports unsaved-edit state up to the shell, which needs it
+   *  synchronously (inside a click/popstate handler, not a render) to guard
+   *  navigation that does not go through this page's own 返回 button — rail
+   *  links, the brand link, browser Back. */
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const alive = useAlive();
   const [grading, setGrading] = useState<TeacherGrading | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -48,9 +62,37 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmRegrade, setConfirmRegrade] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
   const [returning, setReturning] = useState<RecipientDTO | null>(null);
   const [nonce, setNonce] = useState(0);
+
+  // Mirrors `dirty` for the poll path below, which must always read the
+  // CURRENT value even though its effect only re-runs on [gradingId, nonce]
+  // (fix round 1: reading `dirty` directly there captured whatever it was
+  // when the effect was created, not the latest keystroke, so a poll could
+  // silently overwrite her typing after her first edit).
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+    // `onDirtyChange` is a setter into the shell's ref, not a value this
+    // effect should re-run for on every shell render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty]);
+
+  // Closing or reloading the tab bypasses every in-app guard below.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   function apply(g: TeacherGrading, replaceContent: boolean) {
     setGrading(g);
@@ -60,35 +102,44 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
     }
   }
 
+  // Polling is a self-scheduling chain, not a fixed-tick `setInterval`:
+  // `getGrading` only reschedules the NEXT tick after it settles (success
+  // or error), so a response slower than 5s is never discarded by a new
+  // request starting on top of it, and two requests are never in flight at
+  // once. It stops on its own once the row is no longer queued/running.
   useEffect(() => {
     let cancelled = false;
-    getGrading(gradingId)
-      .then((g) => {
+    let timer: number | undefined;
+
+    async function load() {
+      try {
+        const g = await getGrading(gradingId);
         if (cancelled) return;
         setLoadError(null);
         // A poll must not overwrite what she is typing.
-        apply(g, !dirty);
-      })
-      .catch((e: unknown) => {
+        apply(g, !dirtyRef.current);
+        if (shouldPoll([g.status])) {
+          timer = window.setTimeout(() => void load(), POLL_MS);
+        }
+      } catch (e) {
         if (!cancelled) setLoadError(errorText(e));
-      });
+      }
+    }
+
+    void load();
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
-    // `dirty` is read at fetch time on purpose; it must not trigger a refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradingId, nonce]);
-
-  const polling = grading !== null && shouldPoll([grading.status]);
-  useEffect(() => {
-    if (!polling) return;
-    const timer = window.setInterval(() => setNonce((n) => n + 1), POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [polling]);
 
   const edit = (action: Parameters<typeof dispatch>[0]) => {
     dispatch(action);
     setDirty(true);
+    // A point picking its quote is identified by index; deleting a point
+    // shifts every later index, so a picker left open across a delete would
+    // silently attach its pick to a DIFFERENT point.
+    if (action.type === "deletePoint") setPicking(null);
   };
 
   const ranges = useMemo(() => (grading ? quoteRanges(grading.body, content.points.map((p) => p.quote)) : []), [grading, content.points]);
@@ -133,7 +184,10 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
   const back = (
     <button
       type="button"
-      onClick={() => onBack(grading)}
+      onClick={() => {
+        if (dirty) setConfirmLeave(true);
+        else onBack(grading);
+      }}
       className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
       <Icon icon={ArrowLeft} size={15} />
@@ -141,11 +195,39 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
     </button>
   );
 
+  const leaveConfirmBanner = confirmLeave && (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-mk-small font-semibold text-mk-danger">
+      {LEAVE_UNSAVED_CONFIRM}
+      <Button
+        variant="danger"
+        size="sm"
+        onClick={() => {
+          setConfirmLeave(false);
+          // The shell's own `go()` reads its dirty ref synchronously, before
+          // this page has a chance to unmount — reset it here so leaving
+          // does not also trip its cross-component confirm a second time.
+          onDirtyChange?.(false);
+          onBack(grading);
+        }}
+      >
+        确认离开
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setConfirmLeave(false)}>
+        取消
+      </Button>
+    </div>
+  );
+
   if (loadError) {
     return (
       <TeacherPage>
         {back}
-        <p className="mt-4 text-mk-small font-semibold text-mk-danger">加载失败：{loadError}</p>
+        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
+          加载失败：{loadError}{" "}
+          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
+            重试
+          </button>
+        </div>
       </TeacherPage>
     );
   }
@@ -168,6 +250,7 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
   return (
     <TeacherPage width="wide">
       {back}
+      {leaveConfirmBanner}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <h1 className="teacher-page-title">
           {grading.displayName} · {grading.title}
@@ -253,7 +336,7 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
                 {grading.status === "sent" ? "保存并发送" : "保存"}
               </Button>
             )}
-            {editable && grading.status === "draft" && (
+            {editable && grading.status === "draft" && !grading.reviewedAt && (
               <Button variant="secondary" size="sm" disabled={busy} onClick={() => void run("审阅", () => (dirty ? saveContent() : patchGrading(gradingId)))}>
                 标记已审阅
               </Button>
@@ -265,7 +348,14 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
                 disabled={busy}
                 onClick={() =>
                   void run("发送", async () => {
-                    if (dirty) await saveContent();
+                    if (dirty) {
+                      // Apply the PATCH result now — if `sendGrading` then
+                      // fails, the page must show the already-saved content
+                      // (reviewedAt set, no stale `dirty`), not the state
+                      // from before this save.
+                      const saved = await saveContent();
+                      if (alive.current) apply(saved, true);
+                    }
                     return sendGrading(gradingId);
                   })
                 }
@@ -278,7 +368,16 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
                 variant="secondary"
                 size="sm"
                 disabled={busy}
-                onClick={() => (grading.status === "draft" ? setConfirmRegrade(true) : void run("重新批改", () => regradeGrading(gradingId)))}
+                onClick={() => {
+                  // A picker left open across a regrade would apply its
+                  // pick to whatever content lands after the regrade
+                  // completes, not the point she was actually looking at.
+                  setPicking(null);
+                  // Only a row with content to lose needs the confirm — a
+                  // `failed` row (no content) has nothing to overwrite.
+                  if (grading.content !== null) setConfirmRegrade(true);
+                  else void run("重新批改", () => regradeGrading(gradingId));
+                }}
               >
                 重新批改
               </Button>
@@ -298,6 +397,7 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
                 disabled={busy}
                 onClick={() => {
                   setConfirmRegrade(false);
+                  setPicking(null);
                   void run("重新批改", () => regradeGrading(gradingId));
                 }}
               >
@@ -317,7 +417,15 @@ export function GradingPage({ gradingId, onBack }: { gradingId: string; onBack: 
       </div>
 
       {returning && grading.assignmentId && (
-        <ReturnDialog assignmentId={grading.assignmentId} recipient={returning} onClose={() => setReturning(null)} onReturned={() => setReturning(null)} />
+        <ReturnDialog
+          assignmentId={grading.assignmentId}
+          recipient={returning}
+          onClose={() => setReturning(null)}
+          onReturned={() => {
+            setReturning(null);
+            setNonce((n) => n + 1);
+          }}
+        />
       )}
     </TeacherPage>
   );
@@ -382,12 +490,17 @@ function GradingEditor({
         {content.points.map((p, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <select aria-label="类型" value={p.kind} onChange={(e) => onEdit({ type: "pointKind", index: i, value: e.target.value === "good" ? "good" : "issue" })} className={`${INPUT_CLS} w-24`}>
+              <select
+                aria-label={gradingPointLabel(i, "类型")}
+                value={p.kind}
+                onChange={(e) => onEdit({ type: "pointKind", index: i, value: e.target.value === "good" ? "good" : "issue" })}
+                className={`${INPUT_CLS} w-24`}
+              >
                 <option value="good">优点</option>
                 <option value="issue">问题</option>
               </select>
               <span className="text-mk-label text-mk-muted">{p.source === "ai" ? "AI" : "老师"}</span>
-              <Button variant="ghost" size="sm" onClick={() => onEdit({ type: "deletePoint", index: i })}>
+              <Button variant="ghost" size="sm" aria-label={gradingPointLabel(i, "删除")} onClick={() => onEdit({ type: "deletePoint", index: i })}>
                 删除
               </Button>
             </div>
@@ -400,19 +513,37 @@ function GradingEditor({
               ) : (
                 <span className="text-mk-muted">—</span>
               )}
-              <Button variant="link" size="sm" onClick={() => onPickQuote(i)}>
+              <Button variant="link" size="sm" aria-label={gradingPointLabel(i, "选择引文")} onClick={() => onPickQuote(i)}>
                 选择引文
               </Button>
               {p.quote && (
-                <Button variant="link" size="sm" onClick={() => onEdit({ type: "pointQuote", index: i, value: null })}>
+                <Button
+                  variant="link"
+                  size="sm"
+                  aria-label={gradingPointLabel(i, "清除引文")}
+                  onClick={() => onEdit({ type: "pointQuote", index: i, value: null })}
+                >
                   清除
                 </Button>
               )}
             </div>
             {p.quote && unmarked.has(i) && <p className="text-mk-small text-mk-danger">未在正文中标出</p>}
-            <textarea aria-label="说明" rows={2} value={p.text} onChange={(e) => onEdit({ type: "pointText", index: i, value: e.target.value })} className={INPUT_CLS} />
+            <textarea
+              aria-label={gradingPointLabel(i, "说明")}
+              rows={2}
+              value={p.text}
+              onChange={(e) => onEdit({ type: "pointText", index: i, value: e.target.value })}
+              className={INPUT_CLS}
+            />
             {p.kind === "issue" && (
-              <textarea aria-label="修改建议" placeholder="修改建议" rows={2} value={p.action ?? ""} onChange={(e) => onEdit({ type: "pointAction", index: i, value: e.target.value })} className={INPUT_CLS} />
+              <textarea
+                aria-label={gradingPointLabel(i, "修改建议")}
+                placeholder="修改建议"
+                rows={2}
+                value={p.action ?? ""}
+                onChange={(e) => onEdit({ type: "pointAction", index: i, value: e.target.value })}
+                className={INPUT_CLS}
+              />
             )}
           </div>
         ))}

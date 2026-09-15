@@ -18,7 +18,12 @@ export type TeacherRoute =
   // (e.g. "+ 布置作业" from inside a class) to pre-select one, so it stays
   // optional and `teacherRoutePath` ignores it.
   | { view: "assignmentNew"; classId?: string }
-  | { view: "assignment"; assignmentId: string }
+  // `?tab=grading` carries which tab she was on back through a round trip to
+  // `/gradings/:gid` and back (返回 from the grading view lands her on 批改,
+  // not the default 学生) — a query string, not a path segment, since it is
+  // presentation state on top of the same underlying page, the same reason
+  // the class weekly page's selected week is NOT in the URL either.
+  | { view: "assignment"; assignmentId: string; tab?: "grading" }
   // `/parent-reports` (one class's reports at a time) and
   // `/parent-reports/:reportId` (the editor). Top-level rather than under a
   // class: a report stays readable and revocable after its student leaves.
@@ -37,7 +42,14 @@ const dec = (s: string) => {
 const enc = encodeURIComponent;
 
 export function parseTeacherRoute(pathname: string): TeacherRoute {
-  const seg = pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean).map(dec);
+  // Split off a query string before segmenting — only the assignment route
+  // reads one (`?tab=grading`); every other branch works on `rawPath` alone
+  // exactly as before, so a stray/unknown query elsewhere is silently
+  // ignored rather than corrupting the last path segment.
+  const qIndex = pathname.indexOf("?");
+  const rawPath = qIndex < 0 ? pathname : pathname.slice(0, qIndex);
+  const rawSearch = qIndex < 0 ? "" : pathname.slice(qIndex + 1);
+  const seg = rawPath.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean).map(dec);
   if (seg[0] === "settings") return { view: "settings" };
   if (seg[0] === "overview") return { view: "overview" };
   if (seg[0] === "teachers") return { view: "teachers" };
@@ -45,7 +57,8 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
   if (seg[0] === "assignments") {
     if (!seg[1]) return { view: "assignments" };
     if (seg[1] === "new") return { view: "assignmentNew" };
-    return { view: "assignment", assignmentId: seg[1] };
+    const tab = new URLSearchParams(rawSearch).get("tab");
+    return tab === "grading" ? { view: "assignment", assignmentId: seg[1], tab: "grading" } : { view: "assignment", assignmentId: seg[1] };
   }
   if (seg[0] === "parent-reports") {
     if (!seg[1]) return { view: "parentReports" };
@@ -131,7 +144,7 @@ export function teacherRoutePath(r: TeacherRoute): string {
     case "assignmentNew":
       return "/assignments/new";
     case "assignment":
-      return `/assignments/${enc(r.assignmentId)}`;
+      return r.tab === "grading" ? `/assignments/${enc(r.assignmentId)}?tab=grading` : `/assignments/${enc(r.assignmentId)}`;
     case "parentReports":
       return "/parent-reports";
     case "parentReport":

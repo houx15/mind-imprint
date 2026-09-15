@@ -48,11 +48,20 @@ import {
  */
 export function AssignmentDetailPage({
   assignmentId,
+  initialTab,
   onBack,
   onOpenItem,
   onOpenGrading,
 }: {
   assignmentId: string;
+  /** From the route's `?tab=grading` — set when she arrived via 返回 from
+   *  the grading view, so she lands back on 批改 rather than the default
+   *  学生. Read only once, as the tab state's initial value: switching tabs
+   *  by hand afterward is never overridden, and navigating to a DIFFERENT
+   *  assignment while this instance stays mounted resets to 学生 regardless
+   *  (this page always remounts fresh coming back from the grading view, so
+   *  that reset path and this prop do not interact in practice). */
+  initialTab?: "grading";
   onBack: () => void;
   onOpenItem: (classId: string, userId: string, atomId: string) => void;
   onOpenGrading: (gradingId: string) => void;
@@ -66,7 +75,7 @@ export function AssignmentDetailPage({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [returning, setReturning] = useState<RecipientDTO | null>(null);
-  const [tab, setTab] = useState<"students" | "grading">("students");
+  const [tab, setTab] = useState<"students" | "grading">(initialTab ?? "students");
 
   const alive = useAlive();
   const aidRef = useRef(assignmentId);

@@ -84,6 +84,23 @@ export function pendingCount(rows: readonly GradingRow[]): number {
 
 export const REGRADE_CONFIRM = "重新批改会覆盖当前修改";
 
+/** Shown before leaving the grading view with unsaved edits — both the
+ *  page's own inline 返回 confirm and the shell's cross-component navigation
+ *  guard (rail links, browser back) use this exact text, so the two guards
+ *  read as one behaviour rather than two differently-worded prompts. */
+export const LEAVE_UNSAVED_CONFIRM = "有未保存的修改，确定要离开吗？";
+
+/**
+ * Names one point's repeated controls (删除/选择引文/清除, 类型/说明/修改建议)
+ * for their `aria-label`s — every point card renders the same control names,
+ * which read identically to a screen reader across every point. Positional,
+ * not quoted, since (unlike a rubric dimension) a point has no name of its
+ * own to quote — same idea as rubricLogic's `rubricDimensionLabel`.
+ */
+export function gradingPointLabel(index: number, field: string): string {
+  return `意见 ${index + 1} ${field}`;
+}
+
 export function failureText(error: string | null): string {
   return `批改失败：${error ?? "没有更多信息"}`;
 }
