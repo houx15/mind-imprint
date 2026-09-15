@@ -1,3 +1,4 @@
+import { ProjectProgressVisual } from "./ProjectProgressVisual";
 import { apiErrorText } from "../api/errorText";
 import { useState } from "react";
 import {
@@ -63,7 +64,8 @@ export function PlanPanel({
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <ol className="flex flex-col gap-3">
+        <ProjectProgressVisual steps={plan.steps} showSteps={false} />
+        <ol className="project-plan-steps flex flex-col gap-3">
           {plan.steps.map((s) => (
             <StepRow key={s.id} step={s} />
           ))}
@@ -97,13 +99,13 @@ function StepRow({ step }: { step: PlanStep }) {
   const done = step.status === "done";
 
   return (
-    <li className="rounded-mk-md border border-mk-border bg-mk-surface">
+    <li data-status={step.status} className="rounded-mk-md border border-mk-border bg-mk-surface">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
       >
-        <span className="mt-0.5 text-mk-label text-mk-faint">{step.ordinal}</span>
+        <span className="project-plan-marker">{done ? "✓" : step.ordinal}</span>
         <span className="flex-1">
           <span className={done ? "text-mk-body text-mk-muted line-through" : "text-mk-body text-mk-ink"}>
             {step.title}

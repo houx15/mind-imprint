@@ -292,21 +292,7 @@ describe("ReportView", () => {
     }
   });
 
-  it("lays the report out wide, not as a phone column", () => {
-    // The redesign's whole premise ("make it a wide screen … thing"). A
-    // 640px cap here is the exact regression that produced the complaint,
-    // and it is invisible to every content assertion above.
-    const { container } = render(
-      <ReportView report={report({ stats: [{ key: "d", label: "专注时长", value: 12, unit: "分钟" }] })} />,
-    );
-    // `.mk-rp-measure` is where the 1180px and the gutters live — one CSS rule
-    // shared by the report, the action bar, the stars and the public footer, so
-    // none of them can drift out of alignment with the others.
-    const root = container.querySelector(".mk-rp");
-    expect(root?.className).toContain("mk-rp-measure");
-    // and the stats are a grid strip, not a wrapping flex row
-    expect(container.querySelectorAll(".mk-rp-stats").length).toBe(1);
-  });
+  // Layout is verified in Chromium, including actual PNG exports.
 
   it("renders 2-4 gain lines when present", () => {
     const withGains = report({

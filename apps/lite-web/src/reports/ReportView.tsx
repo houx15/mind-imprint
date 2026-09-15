@@ -1,5 +1,6 @@
+import { ReportVisualSummary } from "./ReportVisualSummary";
 import { studentArtwork } from "../learning/StudentArtwork";
-import type { LiteReport, ReportStat } from "@lite/api/reports";
+import type { LiteReport } from "@lite/api/reports";
 import { displayStat } from "./statLabels";
 
 /**
@@ -135,7 +136,7 @@ export function ReportView({
         <div><p className="journal-byline">{report.studentName} <span>／ {date}</span></p><h1>{report.title}</h1><p className="journal-caption">一次阅读的记录</p></div>
         <img src={studentArtwork.keepsake} alt="" />
       </div>
-      <StatStrip stats={stats} />
+      <ReportVisualSummary stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
@@ -157,7 +158,7 @@ export function ReportView({
       />
       {sharePanel}
       <BackToArticle onBack={onBackToArticle} />
-      <StatStrip stats={stats} />
+      <ReportVisualSummary stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
@@ -271,38 +272,6 @@ function Hero({
         </p>
       </div>
     </header>
-  );
-}
-
-/** The wide band of numerals. `auto-fit` rather than a breakpoint ladder: the
- *  same rule lays seven tiles across a laptop and two across a phone, and it
- *  keeps working when a report carries three stats or nine. */
-function StatStrip({ stats }: { stats: ReportStat[] }) {
-  if (stats.length === 0) return null;
-  return (
-    <section className="mk-rp-stats" aria-label="这次的数据">
-      {stats.map((stat, i) => {
-        const { bg, fg } = macaron(i);
-        return (
-          <div
-            key={stat.key}
-            className="mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5"
-            style={{ background: bg, ...rise(i + 1) }}
-          >
-            {/* `.mk-rp-stat__value` is the baseline flex row that keeps a
-                four-digit value and its unit on one line; the SIZE comes from
-                the `mk-report-stat` token, not from that class. */}
-            <span className="mk-rp-stat__value text-mk-report-stat" style={{ color: fg }}>
-              {stat.value.toLocaleString("zh-CN")}
-              {stat.unit && <span className="text-mk-h3">{stat.unit}</span>}
-            </span>
-            <span className="mt-2 block text-mk-label" style={{ color: fg }}>
-              {stat.label}
-            </span>
-          </div>
-        );
-      })}
-    </section>
   );
 }
 

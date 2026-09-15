@@ -1,3 +1,5 @@
+import { ReportVisualSummary } from "../reports/ReportVisualSummary";
+import { ProjectProgressVisual } from "../projects/ProjectProgressVisual";
 import { StudioHeading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -247,19 +249,7 @@ function ReportSection({
     <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">报告</h2>
 
-      {stats.length > 0 && (
-        <div className="teacher-stat-strip">
-          {stats.map((s) => (
-            <div key={s.key} className="teacher-stat">
-              <div className="text-mk-h3 tabular-nums text-mk-ink">
-                {s.value.toLocaleString("zh-CN")}
-                {s.unit}
-              </div>
-              <div className="mt-0.5 text-mk-label text-mk-muted">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <ReportVisualSummary stats={stats} />
 
       {report.moments.length > 0 && (
         <div className="mt-4">
@@ -454,21 +444,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
       <h2 className="text-mk-h3 text-mk-ink">项目</h2>
 
       <p className="mt-2 text-mk-body text-mk-ink">{project.idea}</p>
-      <p className="mt-1 text-mk-small text-mk-muted">
-        已完成 {project.stepsDone} / 共 {project.stepsTotal} 个步骤
-      </p>
-
-      {steps.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-1">
-          {steps.map((s, i) => (
-            <li key={i} className="text-mk-small text-mk-ink">
-              <span className="text-mk-muted">{s.status === "done" ? "已完成" : s.status === "skipped" ? "已跳过" : "待完成"}</span>
-              {" · "}
-              {s.title}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ProjectProgressVisual steps={steps} done={project.stepsDone} total={project.stepsTotal} />
 
       {project.tools.length > 0 && (
         <div className="mt-4">

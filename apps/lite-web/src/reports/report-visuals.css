@@ -1,0 +1,45 @@
+.report-visual-summary { display:flex; flex-wrap:wrap; gap:24px; padding:24px 0; border-block:1px solid var(--mk-border); margin:20px 0 28px; }
+.report-metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr)); flex:1 1 260px; gap:16px; align-content:center; }
+.report-metric { padding:18px; border-radius:14px; background:var(--mk-accent-50); }
+.report-metric svg { color:var(--mk-accent-700); margin-bottom:14px; }
+.report-metric strong { font-size:34px; font-weight:650; letter-spacing:-.04em; line-height:1.2; color:var(--mk-ink); }
+.report-metric span { font-size:11px; margin-left:5px; color:var(--mk-muted); }
+.report-metric p { font-size:12px; color:var(--mk-muted); margin-top:8px; }
+.report-activity { flex:1.1 1 280px; min-width:0; padding:6px 0; }
+.report-activity header { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:16px; }
+.report-activity h3 { font-size:13px!important; font-weight:650; color:var(--mk-ink)!important; margin:0!important; }
+.report-activity header>span,.report-activity>p { font-size:10px; color:var(--mk-muted); }
+.report-activity>p { margin-top:12px; }
+.report-activity-row { margin-top:12px; }
+.report-activity-row>div:first-child { display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--mk-ink); margin-bottom:6px; }
+.report-activity-row strong { font-weight:600; }
+.report-activity-row small { font-size:10px; font-weight:400; color:var(--mk-muted); }
+.report-activity-track { height:10px; border-radius:6px; overflow:hidden; background:var(--mk-border); }
+.report-activity-track>span { display:block; height:100%; border-radius:6px; background:var(--activity-color); }
+.project-progress-visual { padding:20px; margin:16px 0; border:1px solid var(--mk-border); border-radius:16px; background:var(--mk-surface); color:var(--mk-ink); }
+.project-progress-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.project-progress-heading>div>span { display:block; font-size:11px; color:var(--mk-muted); }
+.project-progress-heading strong { font-size:34px; line-height:1.5; font-weight:650; letter-spacing:-.04em; }
+.project-progress-heading small { font-size:15px; }
+.project-progress-heading p { font-size:11px; color:var(--mk-muted); }
+.project-progress-track { height:9px; background:var(--mk-border); border-radius:7px; overflow:hidden; margin:12px 0 24px; }
+.project-progress-track>span { display:block; height:100%; background:var(--mk-accent-500); border-radius:7px; }
+.project-progress-path { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:18px 12px; list-style:none; padding:0; margin:0; }
+.project-progress-path li { display:flex; gap:10px; align-items:flex-start; }
+.project-progress-path li>span { flex-shrink:0; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--mk-paper); border:1px solid var(--mk-border); font-size:11px; color:var(--mk-muted); }
+.project-progress-path li[data-status=done]>span { background:var(--mk-accent-500); color:white; border-color:var(--mk-accent-500); }
+.project-progress-path strong { display:block; font-size:12px; font-weight:550; overflow-wrap:anywhere; }
+.project-progress-path small { display:block; font-size:10px; color:var(--mk-muted); margin-top:4px; }
+.project-plan-steps .project-plan-marker { display:flex; align-items:center; justify-content:center; width:28px; height:28px; flex-shrink:0; border:1px solid var(--mk-border); border-radius:50%; color:var(--mk-muted); background:var(--mk-paper); font-size:11px; }
+.project-plan-steps li[data-status=done] .project-plan-marker { background:var(--mk-accent-500); color:white; border-color:var(--mk-accent-500); }
+.report-poster-visual .report-visual-summary { margin:0; padding:20px 0; }
+.report-poster-visual .report-metric strong { font-size:44px; }
+.report-poster-visual .report-metric p,.report-poster-visual .report-activity-row>div:first-child { font-size:18px; }
+.report-poster-visual .report-activity h3 { font-size:18px!important; }
+.report-poster-visual .report-activity-track { height:14px; }
+
+.report-metric { padding:16px 12px; }
+.report-metric>div { display:flex; align-items:baseline; gap:4px; white-space:nowrap; }
+.report-metric strong { font-size:28px; }
+.report-metric span { margin-left:0; }
+.report-poster-visual .report-metric strong { font-size:36px; }

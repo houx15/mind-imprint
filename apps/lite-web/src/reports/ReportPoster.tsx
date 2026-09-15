@@ -1,3 +1,4 @@
+import { ReportVisualSummary } from "./ReportVisualSummary";
 import { studentArtwork } from "../learning/StudentArtwork";
 import { forwardRef } from "react";
 import type { LiteReport } from "@lite/api/reports";
@@ -41,8 +42,7 @@ import { displayStat } from "./statLabels";
  * browser export check verifies both actual content and the resulting colors.
  */
 
-// Reading journals use content height so short records do not export a half-empty sheet.
-// Writing retains its fixed poster layout. All quoted/generated text keeps attribution.
+// Both journals grow with their contents. All quoted/generated text keeps attribution.
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif';
 
@@ -54,10 +54,6 @@ const PAPER = "var(--mk-paper)";
 const MACARON = ["peach", "lake", "berry", "matcha", "taro", "butter", "mist"].map(
   tone => ({ bg: `var(--mk-${tone}-bg)`, fg: `var(--mk-${tone}-fg)` }),
 );
-
-/** How many stat tiles fit on one row of a 1080-wide picture. See the
- *  `slice` in the component for why exceeding it is not merely ugly. */
-const MAX_POSTER_STATS = 4;
 
 function macaron(i: number) {
   // `i % MACARON.length` is always a valid index into a non-empty literal
@@ -82,13 +78,12 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     // of 0 is absence, not a fact worth putting in the picture she sends to
     // a parent. No row at all when nothing survives.
     //
-    // Keep the exported summary to four stats, in the server's original order.
+    // Keep all recorded statistics; the image grows to fit the visual summary.
     // The full report page continues to show every supplied stat.
     // Same client-side label resolution as the page — a stored report carries
     // whatever wording it was generated with (see statLabels.ts).
     const stats = report.stats
       .filter((stat) => stat.value !== 0)
-      .slice(0, MAX_POSTER_STATS)
       .map((stat) => displayStat(stat, report.kind));
 
     return (
@@ -101,7 +96,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
         style={{
           position: "static",
           width: 1080,
-          height: report.kind === "reading" ? "auto" : 1440,
+          height: "auto",
           overflow: "hidden",
           boxSizing: "border-box",
           display: "flex",
@@ -134,55 +129,12 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           </p>
         </header>
 
-        {stats.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 22 }}>
-            {stats.map((stat, i) => {
-              const { bg, fg } = macaron(i);
-              return (
-                <div
-                  key={stat.key}
-                  style={{
-                    flex: "1 1 200px",
-                    minWidth: 200,
-                    borderRadius: report.kind === "reading" ? 0 : 28,
-                    background: report.kind === "reading" ? "transparent" : bg,
-                    padding: report.kind === "reading" ? "24px 0" : "30px 34px",
-                    borderTop: report.kind === "reading" ? "1px solid var(--mk-border)" : undefined,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  {/* Baseline flex with nowrap, and grouped digits — the same
-                      two fixes the page's own tiles needed. Without them
-                      「3428 字」 rendered as a bare 3428 with 字 dropped onto a
-                      second line, reading as two unrelated facts stacked. */}
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: 4,
-                      flexWrap: "nowrap",
-                      fontSize: 54,
-                      lineHeight: 1,
-                      fontWeight: 700,
-                      color: fg,
-                    }}
-                  >
-                    {stat.value.toLocaleString("zh-CN")}
-                    {stat.unit && <span style={{ fontSize: 26, fontWeight: 500 }}>{stat.unit}</span>}
-                  </span>
-                  <span style={{ fontSize: 24, color: fg }}>{stat.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="report-poster-visual"><ReportVisualSummary stats={stats} /></div>
 
-        {report.kind === "reading" && report.keep && <section style={{ padding: "30px 0", borderTop: "1px solid var(--mk-border)" }}>
+        {report.keep && <section style={{ padding: "30px 0", borderTop: "1px solid var(--mk-border)" }}>
           <p style={{ fontSize: 22, color: MUTED, margin: "0 0 18px" }}>{report.keep.label}</p>
           <p style={{ fontSize: 38, lineHeight: 1.65, color: INK, margin: 0 }}>{report.keep.text}</p>
-          <p style={{ fontSize: 20, color: MUTED, margin: "18px 0 0" }}>{report.keep.source === "student" ? report.studentName : "印记根据这次阅读整理"}</p>
+          <p style={{ fontSize: 20, color: MUTED, margin: "18px 0 0" }}>{report.keep.source === "student" ? report.studentName : `印记根据这次${report.kind === "reading" ? "阅读" : "写作"}整理`}</p>
         </section>}
 
         {moments.length > 0 && (
@@ -191,7 +143,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
               display: "flex",
               flexDirection: "column",
               gap: 26,
-              flex: report.kind === "reading" ? "none" : 1,
+              flex: "none",
               minHeight: 0,
             }}
           >
@@ -202,7 +154,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                   key={`${m.where}-${i}`}
                   style={{
                     margin: 0,
-                    flex: report.kind === "reading" ? "none" : 1,
+                    flex: "none",
                     minHeight: 0,
                     borderRadius: report.kind === "reading" ? 0 : 28,
                     background: report.kind === "reading" ? "transparent" : bg,
