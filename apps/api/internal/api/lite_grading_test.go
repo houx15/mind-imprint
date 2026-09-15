@@ -441,6 +441,22 @@ func TestLiteGradingRegradeEnqueueFailureKeepsDraft(t *testing.T) {
 	}
 }
 
+// TestLiteGradingSingleWritingRefusesExistingDraft: the single-writing POST
+// must not silently overwrite an existing draft — only the explicit regrade
+// route, which the UI puts behind a confirm, may do that.
+func TestLiteGradingSingleWritingRefusesExistingDraft(t *testing.T) {
+	f := newGradingFixture(t, gradingValidReply)
+	_, atomID, _ := f.submit(t)
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, nil); code != http.StatusOK {
+		t.Fatalf("single = %d", code)
+	}
+	f.runJobs(t)
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", single, nil); code != http.StatusConflict || ec != "grading_exists" {
+		t.Fatalf("single on an existing draft = %d %s, want 409 grading_exists", code, ec)
+	}
+}
+
 // TestLiteGradingExcludesStudentWhoLeftTheClass: a recipient row survives
 // unenrollment (lite_assignment_recipient is not cleaned up), so both the
 // list and 一键AI批改 must filter her out by current enrollment — she is no

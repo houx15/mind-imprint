@@ -33,6 +33,10 @@ func errGradingInProgress() *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusConflict, Code: "grading_in_progress", Message: "批改中"}
 }
 
+func errGradingExists() *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusConflict, Code: "grading_exists", Message: "这一版已有批改草稿，请使用「重新批改」"}
+}
+
 func errNotWritingForGrading() *httpx.APIError {
 	return httpx.ErrBadRequest("not_writing_assignment", "只有写作作业可以批改", nil)
 }
@@ -398,9 +402,37 @@ func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requested
 	return rq, err
 }
 
+// queueOrRefuseSingle applies the single-writing POST's rules to an existing
+// row for the version, which are stricter than regrade's: a draft is a
+// 409 grading_exists (the teacher must go through the explicit regrade route,
+// which the UI puts behind the 「重新批改会覆盖当前修改」 confirm, to overwrite it),
+// sent is 409 grading_sent, queued/running is 409 grading_in_progress, and
+// only a failed row (never graded — no content to lose) is quietly requeued.
+func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, requestedBy uuid.UUID) (sqlc.LiteGrading, error) {
+	switch g.Status {
+	case "sent":
+		return sqlc.LiteGrading{}, errGradingSent()
+	case "draft":
+		return sqlc.LiteGrading{}, errGradingExists()
+	case "queued", "running":
+		return sqlc.LiteGrading{}, errGradingInProgress()
+	}
+	rubric, _, err := a.gradingRubricFor(ctx, g.AtomID, g.UserID)
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	rq, err := a.d.Queries.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sqlc.LiteGrading{}, errGradingInProgress()
+	}
+	return rq, err
+}
+
 // queueLiteWritingGrading handles
 // POST /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}/gradings:
-// grade one writing's latest version (create the row, or requeue a draft/failed one).
+// grade one writing's latest version — create the row, or quietly requeue a
+// failed one that never produced content. A draft or sent row is 409: only
+// the explicit regrade route may overwrite an existing draft.
 func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	classID, userID, ok := a.authTeacherStudent(w, r)
@@ -444,7 +476,7 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, gerr)
 			return
 		}
-		g, err = a.requeueOrRefuse(ctx, existing, u.ID)
+		g, err = a.queueOrRefuseSingle(ctx, existing, u.ID)
 	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
