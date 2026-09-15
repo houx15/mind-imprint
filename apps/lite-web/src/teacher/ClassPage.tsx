@@ -131,7 +131,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setRenaming(false);
     } catch (e) {
-      setMutationError(`改名失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`修改班级名称失败：${e instanceof ApiError ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -145,7 +145,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setConfirmRegen(false);
     } catch (e) {
-      setMutationError(`轮换失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`更换邀请码失败：${e instanceof ApiError ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -228,7 +228,7 @@ export function ClassPage({
                       setRenaming(true);
                     }}
                   >
-                    改名
+                    修改名称
                   </Button>
                 </>
               )}
@@ -249,13 +249,13 @@ export function ClassPage({
                 复制
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
-                轮换
+                更换邀请码
               </Button>
               {confirmRegen && (
                 <span className="inline-flex items-center gap-2 text-mk-small font-semibold text-mk-danger">
-                  轮换后旧邀请码立即失效，确定？
+                  更换后，旧邀请码将立即失效。是否继续？
                   <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
-                    确认轮换
+                    确认更换
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
                     取消
@@ -271,6 +271,7 @@ export function ClassPage({
         )}
 
         <div className="mt-8">
+          <p className="mt-3 mb-3 text-mk-small text-mk-muted">阅读、写作和项目的数量均为「已完成 / 总数」；时长仅统计在平台内的学习活动。</p>
           {rosterError ? (
             <div className="text-mk-small font-semibold text-mk-danger">
               加载失败：{rosterError}{" "}
@@ -344,7 +345,7 @@ export function ClassPage({
                       >
                         {confirmRemove === s.id ? (
                           <span className="inline-flex items-center gap-2 font-semibold text-mk-danger">
-                            移出后该学生将无法看到本班内容，确定？
+                            移出后，该学生将无法查看本班内容。是否继续？
                             <Button variant="danger" size="sm" onClick={() => void doRemove(s.id)} disabled={busy}>
                               确认移出
                             </Button>

@@ -28,7 +28,7 @@ export function StepIndicator({ tasks, onLocate }: { tasks: ReadingTask[]; onLoc
   return <section className="mk-stepnow reading-quest" aria-label="阅读任务">
     <div className="reading-quest__heading" role="status" aria-live="polite">
       <span className="reading-quest__emblem" aria-hidden="true">{current ? String(index+1).padStart(2,"0") : <Flag size={23}/>}</span>
-      <div><span className="reading-quest__position">{current ? `第 ${index+1} 步 / 共 ${tasks.length} 步` : `带读走完了 · 共 ${tasks.length} 步`}</span>
+      <div><span className="reading-quest__position">{current ? `第 ${index+1} 步 / 共 ${tasks.length} 步` : `本轮阅读引导已结束 · 共 ${tasks.length} 步`}</span>
         {current && <p key={current.id} className="mk-stepnow__label">{current.label}</p>}
       </div>
       {current?.blockId && onLocate && <button className="reading-quest__locate" type="button" onClick={()=>onLocate(current.blockId)}><MapPin size={14}/>定位原文</button>}

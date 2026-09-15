@@ -1,0 +1,42 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> @mind-imprint/lite-web@0.0.0 build /private/tmp/mind-imprint-copy-0915/apps/lite-web
+> vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 2605 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                             0.39 kB │ gzip:   0.30 kB
+dist/assets/undraw_message-sent_iyz6-BZIs3AxH.svg           4.34 kB │ gzip:   1.73 kB
+dist/assets/undraw_deep-work_muov-UPeDHtuk.svg              4.83 kB │ gzip:   1.96 kB
+dist/assets/undraw_loading_3kqt-QR_qaJnm.svg                7.25 kB │ gzip:   2.96 kB
+dist/assets/sitting-8-DAW8jVlN.svg                          8.94 kB │ gzip:   3.60 kB
+dist/assets/standing-20-C6VblV39.svg                        9.81 kB │ gzip:   4.01 kB
+dist/assets/sitting-6-DaC9s9bO.svg                          9.88 kB │ gzip:   4.13 kB
+dist/assets/sitting-5-1S6mXsWR.svg                         11.70 kB │ gzip:   4.91 kB
+dist/assets/sitting-2-DINW3XSV.svg                         11.70 kB │ gzip:   4.96 kB
+dist/assets/undraw_questions_52ic-CxFZvi9k.svg             12.30 kB │ gzip:   4.77 kB
+dist/assets/undraw_specs_2nnl-DnrVANbU.svg                 13.67 kB │ gzip:   4.81 kB
+dist/assets/undraw_book-lover_m9n3-BIRYKrf5.svg            14.21 kB │ gzip:   4.54 kB
+dist/assets/sitting-4-DY6JXmjz.svg                         15.22 kB │ gzip:   6.66 kB
+dist/assets/undraw_project-completed_ug9i-Chf0xkbg.svg     15.49 kB │ gzip:   3.53 kB
+dist/assets/undraw_notebook_8ihb-CRXJospn.svg              15.59 kB │ gzip:   5.58 kB
+dist/assets/undraw_mcp-server_7kvc-BXlTIhBr.svg            36.22 kB │ gzip:   9.65 kB
+dist/assets/curious-learner-v2-DA0O4xrg.webp               91.87 kB
+dist/assets/yinji-bookmark-D8eVOoa2.webp                   96.92 kB
+dist/assets/learning-together-v3-CEl5YtrR.webp            103.82 kB
+dist/assets/project-makers-v2-DQgsUDQF.webp               104.14 kB
+dist/assets/reading-quest-D33VSG0v.webp                   352.75 kB
+dist/assets/reading-keepsake-Cu2ONvhQ.webp                371.22 kB
+dist/assets/discovery-observatory-D4j9qk9T.webp           402.03 kB
+dist/assets/ideas-workbench-B4EBUdGw.webp                 481.47 kB
+dist/assets/index-F9DlbvyT.css                            217.20 kB │ gzip:  39.74 kB
+dist/assets/index-CokVKh3W.js                           1,355.20 kB │ gzip: 462.28 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.60s

@@ -168,7 +168,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       await Promise.all([a, b].map((p) => archiveNote(projectId, p.id)));
       setIdeas((prev) => [...prev.filter((i) => i.id !== a.id && i.id !== b.id), placed]);
       setResultId(placed.id);
-      setFeedback("已整合为一条想法");
+      setFeedback("已合并为一条想法");
       setChosen((prev) => prev.filter((x) => x !== a.id && x !== b.id));
       if (picked === a.id || picked === b.id) setPicked(null);
     } catch (err) {
@@ -187,7 +187,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setChosen([]);
       setGroupName("");
       setNaming(false);
-      setFeedback(`已归组 · ${name}`);
+      setFeedback(`已添加到分组： ${name}`);
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -372,12 +372,12 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             >
               {n.body}
             </Sticky>
-            {drag.over === n.id && <span className="student-drop-caption">松开预览整合 ↗</span>}
+            {drag.over === n.id && <span className="student-drop-caption">松开查看合并预览</span>}
           </div>
         ))}
       </div>
       <div className="student-canvas-feedback" role="status" aria-live="polite">
-        {drag.dragging ? (drag.over ? "松开后可预览两条想法的整合" : "拖到另一张便签可预览整合 · Esc 取消") : feedback || "拖动便签调整位置，点击选择想法"}
+        {drag.dragging ? (drag.over ? "松开后可预览两条想法的合并结果" : "拖到另一张便签可预览合并结果；按 Esc 取消") : feedback || "拖动便签调整位置，点击选择想法"}
       </div>
 
       {ideas.length > 0 && (
@@ -398,7 +398,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       </p>
 
       {pair && <SelectionTray title="合并预览" items={ideas.filter(n => n.id === pair.a || n.id === pair.b)}>
-        <p className="text-mk-small text-mk-muted">确认后，两条想法将整合为一条。</p>
+        <p className="text-mk-small text-mk-muted">确认后，两条想法将合并为一条。</p>
         <div className="mt-3 flex justify-center gap-3">
           <button type="button" className="student-tool-action" onClick={() => setPair(null)}>取消</button>
           <button type="button" className="student-tool-action" onClick={() => void merge()}>合并想法 →</button>
@@ -406,7 +406,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       </SelectionTray>}
 
       {chosen.length > 0 && !pair && <SelectionTray title="已选想法" items={ideas.filter(n => chosen.includes(n.id))} onRemove={id => setChosen(prev => prev.filter(x => x !== id))}>
-        {chosen.length === 2 && <button type="button" className="student-tool-action" onClick={() => setPair({ a: chosen[0]!, b: chosen[1]! })}>整合这两条 →</button>}
+        {chosen.length === 2 && <button type="button" className="student-tool-action" onClick={() => setPair({ a: chosen[0]!, b: chosen[1]! })}>合并这两条 →</button>}
         {chosen.length === 1 && <p className="text-mk-small text-mk-muted">再选择一条，可预览合并；也可以继续添加想法。</p>}
       </SelectionTray>}
       {chosen.length >= 2 && !pair && (

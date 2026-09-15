@@ -82,7 +82,7 @@ describe("StepIndicator", () => {
 
     expect(screen.queryByText(/第 \d+ 步/)).toBeNull();
     for (const t of finished) expect(screen.queryByText(t.label)).toBeNull();
-    expect(screen.getByText(/带读走完了/)).toBeTruthy();
+    expect(screen.getByText(/本轮阅读引导已结束/)).toBeTruthy();
     expect(screen.getByText(/共 4 步/)).toBeTruthy();
   });
 

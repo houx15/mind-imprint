@@ -84,7 +84,7 @@ export interface ItemDetail {
     // 不是 `[]`——`normalizeItemDetail` 把它收口成空数组，这里就不再是
     // nullable：调用方不用在每个读点自己写一次 `?? []`。
     steps: { title: string; status: string }[];
-    tools: { key: string; status: string; result: unknown }[];
+    tools: { key: string; label?: string; status: string; result: unknown }[];
     artifacts: { title: string; payload: unknown }[];
     keeps: { text: string }[];
     courses: { slug: string; why: string; takeaway: string; finishedAt: string | null }[];

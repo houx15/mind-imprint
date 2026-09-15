@@ -138,6 +138,7 @@ export function StudentPage({
               <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
             </div>
 
+            <p className="mt-3 mb-3 text-mk-small text-mk-muted">阅读、写作和项目的数量均为「已完成 / 总数」；时长仅统计在平台内的学习活动。</p>
             <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
             <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
             <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
