@@ -1342,6 +1342,30 @@
   }
 }
 
+/* Parent report only (ParentReportView). Wrapping rows whose tiles grow to the
+ * row's width, with the grid's breakpoints: two per row on a phone, 162px
+ * minimum above it. A grid leaves an empty cell whenever the full-row 作业
+ * tile follows a row with a free column; rows that grow never do. */
+.mk-rp-stats.mk-rp-stats--fill {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.mk-rp-stats--fill > .mk-rp-stat {
+  flex: 1 1 calc(50% - 6px);
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .mk-rp-stats--fill > .mk-rp-stat {
+    flex-basis: 162px;
+  }
+}
+
+.mk-rp-stats--fill > .mk-rp-stat.mk-rp-stat--full {
+  flex-basis: 100%;
+}
+
 .mk-rp-stat {
   border: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent);
   transition: transform 220ms cubic-bezier(.2, 0, 0, 1), box-shadow 220ms cubic-bezier(.2, 0, 0, 1);

@@ -139,20 +139,24 @@ export function ParentReportView({ report }: { report: ParentReport }) {
 /** The `mk-rp-stats` strip with the same tile treatment as `ReportView`. A
  * tile can hold several numbers (学习时长, 作业): each number keeps its unit on
  * one line, and the numbers wrap between themselves. The 作业 tile takes a
- * whole row (`1 / -1`) so its three numbers have room. `span 2` left an empty
- * cell whenever a row had only one column free, because grid rows do not
- * backfill. Only this report does it; `.mk-rp-stats` is shared with the
- * student reports and stays as it is. */
+ * whole row so its three numbers have room.
+ *
+ * `mk-rp-stats--fill` (index.css) lays the strip out as wrapping rows whose
+ * tiles grow to the row's width, so no row ends in an empty cell. A grid could
+ * not: `span 2` and `1 / -1` both move to a new row when the row before has a
+ * free column, and leave that column empty (measured 2026-09-15 with 3, 4 and
+ * 5 tiles before 作业). Only this report uses it; the student reports keep
+ * `.mk-rp-stats` as it is. */
 function StatTiles({ tiles }: { tiles: StatTile[] }) {
   return (
-    <section className="mk-rp-stats" aria-label="数据">
+    <section className="mk-rp-stats mk-rp-stats--fill" aria-label="数据">
       {tiles.map((tile, i) => {
         const { bg, fg } = macaron(i);
         return (
           <div
             key={tile.key}
-            className="mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5"
-            style={{ background: bg, ...rise(i + 1), ...(tile.key === "assignments" ? { gridColumn: "1 / -1" } : {}) }}
+            className={`mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5${tile.key === "assignments" ? " mk-rp-stat--full" : ""}`}
+            style={{ background: bg, ...rise(i + 1) }}
           >
             <span
               className="mk-rp-stat__value text-mk-report-stat"
