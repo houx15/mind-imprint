@@ -60,7 +60,7 @@ export function UploadSourceField({
       <p className="text-mk-small text-mk-muted">
         支持 PDF、Word（.docx）、TXT、Markdown，不超过 30 MB。PDF 中的图片不会保留；扫描版 PDF 没有文字，无法提取。
       </p>
-      {busy && <p className="text-mk-small text-mk-muted">提取中</p>}
+      {busy && <p className="text-mk-small text-mk-muted">处理中</p>}
       {error && (
         <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">
           {error}

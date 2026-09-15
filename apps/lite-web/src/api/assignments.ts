@@ -233,7 +233,7 @@ function normalizeKind(raw: unknown): AssignmentKind {
   return raw === "writing" || raw === "project" ? raw : "reading";
 }
 
-const tierOrNull = (v: unknown): number | null =>
+export const tierOrNull = (v: unknown): number | null =>
   typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 5 ? v : null;
 
 /** An unrecognised `state` (a server from before this shipped, or a future

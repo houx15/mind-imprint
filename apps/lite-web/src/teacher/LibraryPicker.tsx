@@ -11,17 +11,21 @@ import { Chip } from "./formParts";
  * the shelf's recommendations and default tier are computed for the caller,
  * who here is the teacher, so they mean nothing for her students.
  *
- * `tier === null` is 按学生当前水平: the payload leaves `tier` out and the
- * server picks each student's level when she starts.
+ * `tier === null` leaves `tier` out of the payload, so the server picks the
+ * level when she starts — 按学生水平, unless `nullLabel` names a different
+ * rule the caller wants shown for that same choice (个性化阅读's 更换 dialog
+ * passes 按作业难度 when the homework has its own class-wide chip).
  */
 export function LibraryPicker({
   slug,
   tier,
   onChange,
+  nullLabel = tierLabel(null),
 }: {
   slug: string;
   tier: number | null;
   onChange: (next: { slug: string; tier: number | null }) => void;
+  nullLabel?: string;
 }) {
   const [articles, setArticles] = useState<LibraryArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +88,7 @@ export function LibraryPicker({
                 role="option"
                 aria-selected={active}
                 // A different article may not have the chosen level, so a new
-                // choice starts from 按学生当前水平.
+                // choice starts from a null tier.
                 onClick={() => onChange({ slug: a.slug, tier: active ? tier : null })}
                 className="block w-full border-b border-mk-border px-3 py-2.5 text-left last:border-b-0 hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mk-accent-200"
                 style={active ? { background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" } : undefined}
@@ -102,7 +106,7 @@ export function LibraryPicker({
           <div className="text-mk-label font-bold text-mk-muted">难度</div>
           <div className="mt-1.5 flex flex-wrap gap-2">
             <Chip active={tier === null} onClick={() => onChange({ slug, tier: null })}>
-              {tierLabel(null)}
+              {nullLabel}
             </Chip>
             {levels.map((lv) => (
               <Chip key={lv.tier} active={tier === lv.tier} onClick={() => onChange({ slug, tier: lv.tier })}>

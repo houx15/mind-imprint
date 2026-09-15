@@ -183,10 +183,8 @@ export function AssignmentDetailPage({
     setBusy(true);
     setMessage(null);
     try {
-      // Inside the try/catch (fix round 2): buildPatchInput's recipientIds
-      // is a required parameter now, but any future build error here still
-      // has to surface as a message and reset `busy`, the same as a failed
-      // request — not throw uncaught past this function.
+      // A build error here must surface as a message and reset `busy`, the
+      // same as a failed request — not throw uncaught past this function.
       const built = buildPatchInput(
         edit,
         editable,

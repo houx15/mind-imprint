@@ -9,6 +9,7 @@
 // catches the problem.
 
 import { ApiError } from "../api/client";
+import { tierOrNull } from "../api/assignments";
 import type {
   AssignmentKind,
   AssignmentPayload,
@@ -50,10 +51,9 @@ export interface KeptPick {
   title: string;
   tier: number | null;
   /** Where this came from: a value already on the server ("saved") or a
-   * swap made in this editing session ("swapped"). `mergePickRows` only
-   * treats a same-article "saved" pick as unswapped when just its tier
-   * differs from the class-wide chip — a session swap is always shown as a
-   * swap, regardless of slug. */
+   * swap made in this editing session ("swapped"). `mergePickRows` treats a
+   * same-article "saved" pick as unswapped, keeping its own tier; a session
+   * swap is always shown as a swap, regardless of slug. */
   origin: "saved" | "swapped";
 }
 
@@ -143,7 +143,7 @@ function savedPicksOf(raw: unknown): Record<string, PersonalPick> {
   for (const [uid, v] of Object.entries(raw as Record<string, unknown>)) {
     const p = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
     if (typeof p.slug !== "string" || !p.slug) continue;
-    out[uid] = { slug: p.slug, tier: typeof p.tier === "number" ? p.tier : null };
+    out[uid] = { slug: p.slug, tier: tierOrNull(p.tier) };
   }
   return out;
 }
@@ -223,7 +223,10 @@ export function validateSettings(d: SettingsDraft): string | null {
       // silently as "uploaded" content.
       if (d.readingSource === "file" && !d.fileName.trim()) return "请上传文件";
       const text = d.text.trim();
-      if (!text) return d.readingSource === "file" ? "请上传文件" : "请粘贴文章正文";
+      // A file name is already required above, so reaching here on the
+      // upload tab means she cleared the extracted text, not that she never
+      // uploaded — the message must tell those two apart.
+      if (!text) return d.readingSource === "file" ? "请填写文章正文" : "请粘贴文章正文";
       if (runes(text) > 50000) return "文章正文不能超过 50000 字";
     }
     return null;
@@ -249,19 +252,12 @@ export function validateSettings(d: SettingsDraft): string | null {
  * with no chosen level leaves `tier` out, which the server reads as "use the
  * student's current level".
  *
- * `recipientIds` is a required parameter (the type system enforces it — fix
- * round 2: an earlier version made it optional with a runtime throw, which
- * the one production caller of `buildPatchInput` did not know to satisfy and
- * would have thrown uncaught on every save of a settings-editable
- * personalized homework). Only the `personalized` reading branch below
- * actually reads it; every other kind/source ignores it. For a
- * `personalized` reading, only those ids' picks are sent — a PATCH's
- * `payload` field, when present, replaces the stored payload wholesale, so
- * leaving a removed recipient's id out of `picks` here is what *deletes* her
- * stale pick from storage, not something the server quietly preserves on its
- * own; naming the current recipients exactly also keeps a stale or new pick
- * for a non-recipient from reaching the server and 400ing
- * (`pick_not_recipient`). */
+ * `recipientIds` names the assignment's current recipients; only the
+ * `personalized` reading branch reads it, sending picks for those ids only.
+ * A PATCH's `payload` field replaces the stored payload wholesale, so an id
+ * left out of `picks` here deletes that student's pick, and naming exactly
+ * the current recipients keeps a stale or new pick for a non-recipient from
+ * reaching the server and 400ing (`pick_not_recipient`). */
 export function buildPayload(d: SettingsDraft, recipientIds: string[]): AssignmentPayload {
   if (d.kind === "reading") {
     if (d.readingSource === "library") {
@@ -271,10 +267,9 @@ export function buildPayload(d: SettingsDraft, recipientIds: string[]): Assignme
     if (d.readingSource === "personalized") {
       const keep = new Set(recipientIds);
       const picks: Record<string, PersonalPick> = {};
-      // `d.picks` is null when the preview has not loaded (or failed) while
-      // editing — controller ruling 2: fall back to what is already stored
-      // rather than losing it, so a title-only save on an unstarted
-      // personalized homework still works without the preview.
+      // `d.picks` is null while the preview has not loaded (or failed): fall
+      // back to the picks already stored, so a title-only save on an
+      // unstarted personalized homework still works without the preview.
       if (d.picks) {
         for (const row of d.picks) {
           if (keep.has(row.userId)) picks[row.userId] = { slug: row.slug, tier: row.tier };
@@ -297,11 +292,11 @@ export function buildPayload(d: SettingsDraft, recipientIds: string[]): Assignme
       : { source: "text", text: d.text.trim() };
   }
   if (d.kind === "writing") {
-    // No `rubric` here, ever — there is no rubric editor on the create form
-    // (controller ruling), and a settings-editable PATCH's nested payload
-    // rubric is a no-op anyway: the server's `CarryRubric` step always
-    // carries the stored rubric over a resent payload. The only path that
-    // changes a rubric is `buildPatchInput`'s top-level `patch.rubric`.
+    // No `rubric` here, ever: there is no rubric editor on the create form,
+    // and a settings-editable PATCH's nested payload rubric is a no-op
+    // anyway — the server's `CarryRubric` step always carries the stored
+    // rubric over a resent payload. Only `buildPatchInput`'s top-level
+    // `patch.rubric` changes a rubric.
     return { prompt: d.prompt.trim(), targetWords: parseTargetWords(d.targetWords) ?? 0, lang: d.lang };
   }
   const description = d.description.trim();
@@ -312,13 +307,11 @@ export function buildPayload(d: SettingsDraft, recipientIds: string[]): Assignme
 
 /** The create form's 班级 selector changed to `classId`: any personalized-
  * reading `picks` on the draft belong to the OLD class's students, so they
- * must go back to `null` — otherwise `validateSettings` passes on the stale
- * rows (they are still non-null) while class B's preview is loading or has
- * failed, and 发布 filters every stale row out against the new roster and
- * sends `{picks: {}}` (fix round 1 of Task 6 exists to block exactly this
- * for the edit page; this is the same bug on the create form). `disciplines`
- * and `personalTier` are a class-independent filter, not tied to one
- * class's students, so they are kept as-is. */
+ * must go back to `null`. Otherwise `validateSettings` passes on the stale
+ * rows while class B's preview is loading or has failed, and 发布 filters
+ * every stale row out against the new roster and sends `{picks: {}}`.
+ * `disciplines` and `personalTier` are a class-independent filter, not tied
+ * to one class's students, so they are kept as-is. */
 export function draftOnClassChange(d: AssignmentDraft, classId: string): AssignmentDraft {
   return { ...d, classId, picks: null };
 }
@@ -362,12 +355,12 @@ export interface EditDraft {
   /** The rubric exactly as the server currently has it stored — the same
    *  value `settings.rubric` was seeded from when edit mode was opened, kept
    *  here as an unchanging snapshot so a later edit to `settings.rubric` can
-   *  be told apart from "still what the server has". Required (not
-   *  optional) so a caller cannot forget it: an omitted snapshot previously
-   *  meant "always send", which turned every title-only edit on an existing
-   *  writing homework into a rubric overwrite (fix round 1). `null` for a
-   *  non-writing kind, or a writing homework whose payload carried no
-   *  rubric (see `rubricDraftFromPayload`). */
+   *  be told apart from "still what the server has". Required, not
+   *  optional: a missing snapshot must never be read as "always send",
+   *  which would turn a title-only edit on an existing writing homework
+   *  into a rubric overwrite. `null` for a non-writing kind, or a writing
+   *  homework whose payload carried no rubric (see
+   *  `rubricDraftFromPayload`). */
   originalRubric: RubricDraft | null;
 }
 
@@ -379,10 +372,9 @@ export interface EditDraft {
  * regardless (`CarryRubric`), so it only ever changes through this field —
  * and only when it actually changed, so a title-only edit on an older
  * homework never overwrites a custom rubric with whatever the draft
- * happened to be initialized as. `recipientIds` is a required parameter,
- * forwarded to `buildPayload` — only its personalized-reading branch reads
- * it, but every caller must name the current recipients (see `buildPayload`'s
- * doc comment for why an optional-with-throw version was rejected). */
+ * happened to be initialized as. `recipientIds` is forwarded to
+ * `buildPayload`, which every caller must give the current recipients (see
+ * `buildPayload`'s doc comment). */
 export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipientIds: string[]): Built<PatchAssignmentInput> {
   const common = validateCommon(e.title, e.dueInput);
   if (common) return { ok: false, error: common };
@@ -392,16 +384,16 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipie
     dueAt: beijingInputToISO(e.dueInput) ?? "",
   };
   if (settingsEditable) {
-    // Controller ruling 2: editing a homework that was ALREADY personalized
-    // has stored picks to fall back to, so its preview not having loaded (or
-    // having failed) is not "invalid" the way a brand new one would be —
-    // `buildPayload` falls back to `savedPicks`, so the wait-for-preview
-    // check is skipped here. `storedPersonalized` is required, not just
-    // "readingSource is personalized now": switching a stored library/url/
-    // text homework to personalized in this same edit has no saved picks at
-    // all, so it must still wait like a brand new one (fix round 1 — the
-    // earlier, broader skip let that case save `{picks: {}}`, an unseen
-    // automatic recommendation for every student).
+    // A homework that was ALREADY personalized has stored picks to fall
+    // back to, so its preview not having loaded (or having failed) is not
+    // "invalid" the way a brand new one would be — `buildPayload` falls back
+    // to `savedPicks`, so the wait-for-preview check is skipped here.
+    // `storedPersonalized` must be checked, not just "readingSource is
+    // personalized now": switching a stored library/url/text homework to
+    // personalized in this same edit has no saved picks at all, so it must
+    // still wait like a brand new one — otherwise the save would silently
+    // send `{picks: {}}`, an unseen automatic recommendation for every
+    // student.
     const waitingOnPreview =
       e.settings.kind === "reading" &&
       e.settings.readingSource === "personalized" &&
@@ -505,18 +497,11 @@ export function tintedChipStyle(hue: string): { background: string; color: strin
 
 const TIER_NAMES = ["入门", "基础", "进阶", "高阶", "原文"];
 
+/** A null tier always means her own level, on a library reading's fixed
+ * default and on a personalized pick alike. */
 export function tierLabel(tier: number | null): string {
-  if (tier === null) return "按学生当前水平";
+  if (tier === null) return "按学生水平";
   return TIER_NAMES[tier - 1] ?? `第 ${tier} 档`;
-}
-
-/** The tier label for one student's personalized-reading pick or recipient
- * row: null means her own level, shown as 「按学生水平」. Distinct from
- * `tierLabel(null)`'s 「按学生当前水平」, which describes a class-wide
- * setting (the personalized homework's own tier filter, a library reading's
- * tier) rather than one student's resolved article. */
-export function personalTierLabel(tier: number | null): string {
-  return tier === null ? "按学生水平" : tierLabel(tier);
 }
 
 export type ExtractOutcome = { ok: true; text: string; fileName: string; title: string } | { ok: false; error: string };
@@ -540,16 +525,16 @@ export function fillTitleIfEmpty(current: string, candidate: string): string {
   return current.trim() ? current : candidate;
 }
 
-/** Preview rows → pick rows. A kept pick from an earlier saved payload
- * (`origin: "saved"`) that still names the same article as the fresh
- * preview is NOT shown as a swap even when its tier differs from the
- * class-wide chip — only the article choice makes it a swap; her stored
- * tier is kept as-is rather than silently replaced by the chip (fix round
- * 1: a saved pick with `tier: null`, previewed again after raising the
- * chip, used to flip every row to 已更换 on a tier difference alone). A kept
- * pick made by swapping in THIS session (`origin: "swapped"`) always shows
- * as a swap, regardless of slug — that is a real teacher choice. Students
- * not in the preview (no longer enrolled) are dropped. */
+/** Preview rows → pick rows. Every row starts with `tier: null`, so an
+ * unswapped row always follows the class-wide 难度 chip when it is shown or
+ * sent (`pickTierText`, the server's `pickedTier`) instead of freezing
+ * whatever the chip read the moment the preview ran. A kept pick from an
+ * earlier saved payload (`origin: "saved"`) that still names the same
+ * article as the fresh preview keeps its own stored tier instead — only the
+ * article choice makes it a swap. A kept pick made by swapping in THIS
+ * session (`origin: "swapped"`) always shows as a swap, regardless of slug —
+ * that is a real teacher choice. Students not in the preview (no longer
+ * enrolled) are dropped. */
 export function mergePickRows(preview: PreviewRow[], personalTier: number | null, kept: Record<string, KeptPick>): PickRow[] {
   return preview.map((r) => {
     const base: PickRow = {
@@ -557,7 +542,7 @@ export function mergePickRows(preview: PreviewRow[], personalTier: number | null
       name: r.name,
       slug: r.slug,
       title: r.title,
-      tier: personalTier,
+      tier: null,
       suggestedTier: r.suggestedTier,
       reason: r.reason,
       swapped: false,
@@ -598,14 +583,17 @@ export function visiblePickRows(rows: PickRow[], recipientIds: string[]): PickRo
   return rows.filter((r) => keep.has(r.userId));
 }
 
-/** The tier a row would actually be sent at (and — once picked — the tier
- * she starts at): her own pick's tier, else the class-wide 难度 chip
- * (`personalTier`), else her suggested tier — the same order the server's
- * `pickedTier` resolves a null pick tier in. A bare `row.tier ?? row.
- * suggestedTier` skipped the middle step and showed her suggested level even
- * with a class-wide tier set (fix round 1). */
+/** The tier text for one picked row — and, once picked, the tier she
+ * actually starts at: her own pick's tier if set, else the class-wide 难度
+ * chip (`personalTier`), the same order the server's `pickedTier` resolves a
+ * null pick tier in. With neither set, this names today's estimate rather
+ * than stating it as fact — 「按学生水平（进阶）」 — since her real tier is
+ * only resolved when she starts. */
 export function pickTierText(row: PickRow, personalTier: number | null): string {
-  return tierLabel(row.tier ?? personalTier ?? row.suggestedTier);
+  if (row.tier !== null) return tierLabel(row.tier);
+  if (personalTier !== null) return tierLabel(personalTier);
+  if (row.suggestedTier) return `按学生水平（${tierLabel(row.suggestedTier)}）`;
+  return tierLabel(null);
 }
 
 /** Discipline tags that appear on library articles, each once, in library order. */
@@ -626,7 +614,7 @@ export function disciplineOptions(articles: LibraryArticle[]): LibraryTag[] {
 export function recipientReadingText(reading: RecipientReading | null): string {
   if (!reading) return "—";
   if (reading.state === "pending") return "待推荐";
-  return `${reading.title || reading.slug} · ${personalTierLabel(reading.tier)}`;
+  return `${reading.title || reading.slug} · ${tierLabel(reading.tier)}`;
 }
 
 export function assignmentFileName(a: { kind: AssignmentKind; payload: Record<string, unknown> }): string | null {
@@ -652,10 +640,7 @@ export function settingsSummary(kind: AssignmentKind, payload: Record<string, un
     if (d.readingSource === "url") return "链接";
     if (d.readingSource === "file") return `上传文件 · ${d.fileName} · ${runes(d.text)} 字`;
     if (d.readingSource === "personalized") {
-      // personalTierLabel, not tierLabel: null here means each student's
-      // own level, shown as 按学生水平 — the library source's null (a fixed
-      // class-wide default) keeps tierLabel's 按学生当前水平 above.
-      const parts = ["个性化阅读", personalTierLabel(d.personalTier)];
+      const parts = ["个性化阅读", tierLabel(d.personalTier)];
       if (d.disciplines.length) parts.push(`学科筛选 ${d.disciplines.length} 项`);
       return parts.join(" · ");
     }
@@ -679,7 +664,7 @@ export function failText(verb: string, e: unknown): string {
 }
 
 /** After a confirmed archive, 404 also means archived: a repeat DELETE on an
- * archived assignment is not found (controller Ruling P2-4). */
+ * already-archived assignment is treated as success, not a failure. */
 export function isArchiveSuccess(e: unknown): boolean {
   return e instanceof ApiError && e.status === 404;
 }

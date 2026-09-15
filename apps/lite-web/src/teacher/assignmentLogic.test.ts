@@ -118,9 +118,8 @@ describe("parseTargetWords", () => {
 });
 
 describe("buildPayload", () => {
-  // recipientIds is a required parameter (fix round 2) but only the
-  // personalized branch reads it — these non-personalized calls pass `[]`
-  // since the value is irrelevant to them.
+  // Only the personalized branch reads recipientIds — these non-personalized
+  // calls pass `[]` since the value is irrelevant to them.
   it("omits tier when the student's current level is used", () => {
     const p = buildPayload({ ...emptySettings("reading"), slug: "coral", tier: null }, []);
     expect(p).toEqual({ source: "library", slug: "coral" });
@@ -189,13 +188,11 @@ describe("buildPatchInput", () => {
   });
 });
 
-// Ruling: a title/due edit alone must never overwrite a homework's stored
-// rubric with whatever the draft happened to be initialized as — `rubric`
-// is sent only when it actually differs from what the server has.
-// `originalRubric` is required at the type level (fix round 1): a caller
-// cannot construct an `EditDraft` without it, unlike the earlier optional
-// field, which the real caller (AssignmentDetailPage.tsx) omitted, so every
-// writing PATCH silently sent `rubric`.
+// A title/due edit alone must never overwrite a homework's stored rubric
+// with whatever the draft happened to be initialized as — `rubric` is sent
+// only when it actually differs from what the server has. `originalRubric`
+// is required at the type level: a caller cannot construct an `EditDraft`
+// without it.
 describe("buildPatchInput rubric (writing only)", () => {
   const loaded = rubricDraftFromPayload({ rubric: { scale: "letter", dimensions: [{ name: "内容", note: "" }], focus: "" } });
   const writingEdit = (rubric: RubricDraft, originalRubric: RubricDraft | null = loaded): EditDraft => ({
@@ -216,8 +213,7 @@ describe("buildPatchInput rubric (writing only)", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(changed));
   });
-  // Fix round 1: the previous JSON.stringify-based comparison would have
-  // read this as a change and sent a needless rubric PATCH.
+  // A key-order difference alone must not read as a rubric change.
   it("treats the same dimension content built in a different key order as unchanged", () => {
     const reordered: RubricDraft = { ...loaded!, dimensions: [{ note: loaded!.dimensions[0]!.note, name: loaded!.dimensions[0]!.name }] };
     const r = buildPatchInput(writingEdit(reordered), false, []);
@@ -313,7 +309,7 @@ describe("draftOnClassChange", () => {
 
 describe("tierLabel / settingsSummary", () => {
   it("names tiers and summarises settings", () => {
-    expect(tierLabel(null)).toBe("按学生当前水平");
+    expect(tierLabel(null)).toBe("按学生水平");
     expect(tierLabel(5)).toBe("原文");
     expect(settingsSummary("writing", { prompt: "p", targetWords: 800, lang: "zh" })).toBe("目标字数 800 · 中文");
     expect(settingsSummary("reading", { source: "library", slug: "coral", tier: 3 }, "Coral reefs")).toBe("分级阅读库 · Coral reefs · 进阶");
@@ -433,13 +429,15 @@ describe("file and personalized settings", () => {
     const d = { ...emptySettings("reading"), readingSource: "file" as const, text: " 正文 ", fileName: "rain.pdf" };
     expect(validateSettings(d)).toBeNull();
     expect(buildPayload(d, [])).toEqual({ source: "text", text: "正文", fileName: "rain.pdf" });
-    expect(validateSettings({ ...d, text: "" })).toBe("请上传文件");
+    // A file was already uploaded: clearing the text asks her to fill it
+    // back in, not to upload a file she already has.
+    expect(validateSettings({ ...d, text: "" })).toBe("请填写文章正文");
     expect(buildPayload({ ...d, readingSource: "text" }, [])).toEqual({ source: "text", text: "正文" });
   });
-  // Controller ruling 1: a stray body from another tab must not let the
-  // upload tab publish without a file — she'd see "上传文件" in the tab but
-  // the saved homework would actually be whatever text happened to be typed
-  // into a different tab first.
+  // A stray body left over from another tab must not let the upload tab
+  // publish without a file — she'd see 上传文件 on the tab but the saved
+  // homework would actually be whatever text was typed into a different tab
+  // first.
   it("fails without a file even when a text body carried over from another tab", () => {
     const d = { ...emptySettings("reading"), readingSource: "file" as const, text: "正文", fileName: "" };
     expect(validateSettings(d)).toBe("请上传文件");
@@ -456,8 +454,8 @@ describe("file and personalized settings", () => {
     expect(validateSettings(d)).toBe("请等待推荐列表加载完成");
     expect(validateSettings({ ...d, picks: [] })).toBeNull();
   });
-  // Controller ruling 2, "new homework" leg: buildCreateInput has no stored
-  // payload to fall back to, so it still waits for the preview.
+  // buildCreateInput has no stored payload to fall back to, so a brand new
+  // personalized homework still waits for the preview.
   it("still blocks creating a brand new personalized homework while the preview is loading", () => {
     const d: AssignmentDraft = {
       ...emptySettings("reading"),
@@ -484,11 +482,8 @@ describe("file and personalized settings", () => {
       picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
     });
   });
-  // Fix round 2: `recipientIds` is now a required, typed parameter (not an
-  // optional one with a runtime throw — the one production caller of
-  // buildPatchInput did not know to satisfy an optional-with-throw contract
-  // and would have thrown uncaught on every settings-editable personalized
-  // save). These tests exercise it explicitly rather than asserting a throw.
+  // recipientIds is a required, typed parameter: these tests exercise it
+  // explicitly.
   it("keeps only the named recipients' picks — an empty recipientIds sends none", () => {
     const rows = mergePickRows([preview({ userId: "u1" })], null, {});
     const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows };
@@ -512,16 +507,33 @@ describe("file and personalized settings", () => {
     expect(d).toMatchObject({ readingSource: "personalized", disciplines: ["astronomy"], personalTier: 4, picks: null });
     expect(d.savedPicks).toEqual({ u1: { slug: "coral", tier: null } });
     expect(settingsSummary("reading", { source: "personalized", tier: 4, disciplines: ["a", "b"] })).toBe("个性化阅读 · 高阶 · 学科筛选 2 项");
-    // Promoted minor: personalTierLabel, not tierLabel — null here means
-    // each student's own level (按学生水平), not the library source's
-    // fixed class-wide default (按学生当前水平).
     expect(settingsSummary("reading", { source: "personalized" })).toBe("个性化阅读 · 按学生水平");
+  });
+  // A hand-edited or stale stored payload could carry any number as a pick's
+  // tier — only 1..5 whole numbers survive the read, everything else reads
+  // as her own level.
+  it("range-checks a saved pick's tier", () => {
+    const d = settingsFromAssignment("reading", {
+      source: "personalized",
+      picks: {
+        u1: { slug: "coral", tier: 9 },
+        u2: { slug: "coral", tier: 0 },
+        u3: { slug: "coral", tier: 2.5 },
+        u4: { slug: "coral", tier: 3 },
+      },
+    });
+    expect(d.savedPicks).toEqual({
+      u1: { slug: "coral", tier: null },
+      u2: { slug: "coral", tier: null },
+      u3: { slug: "coral", tier: null },
+      u4: { slug: "coral", tier: 3 },
+    });
   });
 });
 
-// Controller ruling 2: editing an unstarted personalized homework must not
-// be blocked by the "wait for the preview" message when the preview never
-// loaded (or failed) — there is already a stored payload to fall back to.
+// Editing an unstarted personalized homework must not be blocked by the
+// "wait for the preview" message when the preview never loaded (or failed)
+// — there is already a stored payload to fall back to.
 describe("buildPatchInput on a personalized reading whose preview has not loaded", () => {
   const editOf = (settings: ReturnType<typeof settingsFromAssignment>): EditDraft => ({
     title: "标题",
@@ -550,12 +562,10 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
     if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "nasa", tier: 5 } } });
   });
 
-  // Fix round 1 (Important finding 1): the earlier skip only checked the
-  // CURRENT readingSource, so switching a stored library/url/text homework
-  // to personalized and saving before the preview loads (or after it fails)
-  // sent `{source:"personalized", picks:{}}` — every student then got an
-  // unseen automatic recommendation. Only a homework that was ALREADY
-  // personalized has saved picks to fall back to.
+  // Switching a stored library/url/text homework to personalized and saving
+  // before the preview loads (or after it fails) must still wait — it has
+  // no saved picks to fall back to, unlike a homework that was ALREADY
+  // personalized.
   it("still waits for the preview when a stored library homework is switched to personalized", () => {
     const stored = settingsFromAssignment("reading", { source: "library", slug: "coral" });
     expect(stored.storedPersonalized).toBe(false);
@@ -568,21 +578,47 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
 describe("pick rows", () => {
   const articles = [article("coral", "珊瑚", ["biology"]), article("nasa", "NASA", ["astronomy", "biology"])];
 
-  it("takes the preview and the chosen tier", () => {
+  it("a fresh preview row always starts with a null tier, following the chip", () => {
     const rows = mergePickRows([preview()], 3, {});
-    expect(rows[0]).toMatchObject({ slug: "coral", tier: 3, swapped: false, reason: "暂无兴趣数据，按难度推荐" });
+    expect(rows[0]).toMatchObject({ slug: "coral", tier: null, swapped: false, reason: "暂无兴趣数据，按难度推荐" });
     expect(pickTierText(rows[0] as PickRow, 3)).toBe("进阶");
-    expect(pickTierText({ ...(rows[0] as PickRow), tier: null, suggestedTier: 2 }, null)).toBe("基础");
+    expect(pickTierText({ ...(rows[0] as PickRow), tier: null, suggestedTier: 2 }, null)).toBe("按学生水平（基础）");
   });
-  // Fix round 1 (Important finding 2): a null pick tier resolves through the
-  // class-wide 难度 chip first, the same order the server's `pickedTier`
-  // uses — showing the suggested tier instead (the old `row.tier ??
-  // row.suggestedTier`) was wrong whenever a chip was set.
-  it("a null pick tier shows the class-wide chip before falling back to her suggested tier", () => {
+  // A null pick tier resolves through the class-wide 难度 chip first, the
+  // same order the server's `pickedTier` uses; with neither set, the
+  // estimate names her suggested tier rather than stating it as fact.
+  it("a null pick tier shows the class-wide chip before naming her suggested tier as an estimate", () => {
     const row: PickRow = { userId: "u1", name: "Phoebe", slug: "coral", title: "珊瑚", tier: null, suggestedTier: 2, reason: "", swapped: false };
     expect(pickTierText(row, 4)).toBe("高阶");
-    expect(pickTierText(row, null)).toBe("基础");
+    expect(pickTierText(row, null)).toBe("按学生水平（基础）");
   });
+
+  // I1: the class-wide 难度 chip must drive where an unswapped row starts,
+  // on every chip change — not just the one the preview happened to run at.
+  it("(a) a create with chip 高阶 saves rows with a null tier and the top-level chip", () => {
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2", slug: "nasa" })], 4, {});
+    expect(rows.every((r) => r.tier === null)).toBe(true);
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows, personalTier: 4 };
+    expect(buildPayload(d, ["u1", "u2"])).toEqual({
+      source: "personalized",
+      tier: 4,
+      picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
+    });
+  });
+  it("(b) changing the chip from 高阶 to 按学生水平 keeps rows null and drops the top-level tier", () => {
+    let rows = mergePickRows([preview({ userId: "u1" })], 4, {});
+    rows = mergePickRows([preview({ userId: "u1" })], null, keptFromRows(rows));
+    expect(rows[0]).toMatchObject({ tier: null });
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows, personalTier: null };
+    expect(buildPayload(d, ["u1"])).toEqual({ source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
+  });
+  it("(c) a swapped row keeps its chosen tier through a chip change", () => {
+    let rows = mergePickRows([preview({ userId: "u1" })], 4, {});
+    rows = swapPick(rows, "u1", { slug: "nasa", tier: 5 }, articles);
+    const again = mergePickRows([preview({ userId: "u1" })], null, keptFromRows(rows));
+    expect(again[0]).toMatchObject({ slug: "nasa", tier: 5, swapped: true });
+  });
+
   it("a swap is kept when the preview is run again", () => {
     let rows = mergePickRows([preview()], null, {});
     rows = swapPick(rows, "u1", { slug: "nasa", tier: 5 }, articles);
@@ -597,9 +633,9 @@ describe("pick rows", () => {
     expect(rows[0]).toMatchObject({ slug: "coral", swapped: false });
     expect(rows[1]).toMatchObject({ slug: "nasa", title: "NASA", tier: 2, swapped: true });
   });
-  // Fix round 1 (Important finding 3, plan-mandated): picks saved with
-  // tier: null, then the teacher raises the class-wide 难度 chip — the
-  // article recommendation is unchanged, so this must not read as 已更换.
+  // Picks saved with tier: null keep following the class-wide chip even
+  // after it changes, since the article recommendation is unchanged — this
+  // must not read as 已更换.
   it("a saved pick with the same article as the fresh preview is not a swap even if only its tier differs", () => {
     const kept = keptFromSaved({ u1: { slug: "coral", tier: null } }, articles);
     const rows = mergePickRows([preview({ userId: "u1", slug: "coral" })], 4, kept);
@@ -627,9 +663,7 @@ describe("pick rows", () => {
   it("lists each discipline tag once, in library order", () => {
     expect(disciplineOptions(articles).map((t) => t.id)).toEqual(["biology", "astronomy"]);
   });
-  // Controller ruling 3: a detail/preview tier of null means her own level,
-  // shown as 「按学生水平」 — distinct from tierLabel(null)'s
-  // 「按学生当前水平」, which is a class-wide setting's own summary text.
+  // A recipient's tier of null means her own level, shown as 「按学生水平」.
   it("describes a recipient's article", () => {
     expect(recipientReadingText({ slug: "coral", title: "珊瑚", tier: 3, state: "started" })).toBe("珊瑚 · 进阶");
     expect(recipientReadingText({ slug: "coral", title: "", tier: null, state: "picked" })).toBe("coral · 按学生水平");

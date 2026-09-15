@@ -11,9 +11,9 @@ import {
   keptFromRows,
   keptFromSaved,
   mergePickRows,
-  personalTierLabel,
   pickTierText,
   swapPick,
+  tierLabel,
   toggleId,
   visiblePickRows,
   type PickRow,
@@ -118,7 +118,7 @@ export function PersonalizedPicker({
         <div className="flex flex-wrap gap-2" role="group" aria-label="难度">
           {[null, 1, 2, 3, 4, 5].map((t) => (
             <Chip key={t ?? "auto"} active={tier === t} onClick={() => onChange((d) => ({ ...d, personalTier: t }))}>
-              {personalTierLabel(t)}
+              {tierLabel(t)}
             </Chip>
           ))}
         </div>
@@ -180,6 +180,7 @@ export function PersonalizedPicker({
       {swapping && (
         <SwapDialog
           row={swapping}
+          personalTier={value.personalTier}
           onClose={() => setSwapping(null)}
           onConfirm={(next) => {
             const userId = swapping.userId;
@@ -194,10 +195,12 @@ export function PersonalizedPicker({
 
 function SwapDialog({
   row,
+  personalTier,
   onClose,
   onConfirm,
 }: {
   row: PickRow;
+  personalTier: number | null;
   onClose: () => void;
   onConfirm: (next: { slug: string; tier: number | null }) => void;
 }) {
@@ -245,7 +248,12 @@ function SwapDialog({
           </h2>
           <p className="text-mk-small text-mk-muted">{row.name}</p>
         </div>
-        <LibraryPicker slug={choice.slug} tier={choice.tier} onChange={setChoice} />
+        <LibraryPicker
+          slug={choice.slug}
+          tier={choice.tier}
+          onChange={setChoice}
+          nullLabel={personalTier !== null ? "按作业难度" : undefined}
+        />
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onClose}>
             取消
