@@ -1,6 +1,7 @@
 {
   "errors": [],
   "checks": [
+    "activity chart filters roster",
     "search filters students",
     "sort button works",
     "removal confirmation opens and cancels",

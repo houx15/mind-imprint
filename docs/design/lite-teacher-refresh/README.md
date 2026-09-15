@@ -22,3 +22,9 @@ Branch: `codex/lite-teacher-visual`. Latest local main `10f065d6` was merged in 
 - Screenshots and browser checks use fixture accounts and records, not production student data. Backend authorization and production deployment were not exercised in this UI task.
 
 Open `review.html` for the visual review. `verification.json` records browser checks.
+
+## Data visualization iteration
+
+Class cards and class pages now visualize weekly active share and completed/total learning counts. The class activity histogram groups students by 0–7 active days and filters the roster when clicked. Student profiles visualize active-day count and reading/writing/project completion, replacing duplicated numeric tiles. No date-by-date activity or trend is inferred from aggregate data. Charts expose text descriptions and keyboard-operable filters.
+
+Type checking, 698 existing tests, production build and browser activity-filter checks passed. Screenshots use varied fixture classes.

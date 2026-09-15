@@ -1,3 +1,4 @@
+import { LearningSnapshot } from "./LearningSnapshot";
 import { StudioEmpty, StudioHeading } from "./StudioArtwork";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -94,6 +95,7 @@ export function ClassPage({
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
+  const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("displayName");
@@ -178,7 +180,7 @@ export function ClassPage({
     }
   }
 
-  const sortedRoster = roster ? sortRoster(roster.filter(s => s.displayName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sortKey, sortDir) : null;
+  const sortedRoster = roster ? sortRoster(roster.filter(s => (selectedDays === null || s.activeDaysThisWeek === selectedDays) && s.displayName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sortKey, sortDir) : null;
 
   return (
     <div className="min-h-full">
@@ -276,8 +278,10 @@ export function ClassPage({
           </>
         )}
 
+        {roster && <LearningSnapshot rows={roster} selectedDays={selectedDays} onSelectDays={setSelectedDays} />}
         <div className="teacher-roster-section">
           <div className="teacher-section-heading"><div><h2>学生名单 <small className="teacher-count">{roster?.length ?? "—"}</small></h2><p>阅读、写作和项目均为「已完成 / 总数」；时长仅统计平台内的学习活动。</p></div><input className="teacher-search" type="search" aria-label="搜索学生" placeholder="搜索学生姓名" value={query} onChange={e => setQuery(e.target.value)} /></div>
+          {selectedDays !== null && <button className="teacher-filter-chip" onClick={() => setSelectedDays(null)}>本周活跃 {selectedDays} 天 · 清除筛选 ×</button>}
           {confirmRemove && <div className="teacher-confirm" role="alert"><p>确认移出「{roster?.find(s => s.id === confirmRemove)?.displayName}」？移出后，该学生将无法查看本班内容。</p><Button variant="danger" size="sm" disabled={busy} onClick={() => void doRemove(confirmRemove)}>确认移出</Button><Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button></div>}
           {rosterError ? (
             <div className="text-mk-small font-semibold text-mk-danger">
@@ -289,7 +293,7 @@ export function ClassPage({
           ) : sortedRoster === null ? (
             <div className="text-mk-body text-mk-muted">加载中…</div>
           ) : sortedRoster.length === 0 ? (
-            <StudioEmpty>{query.trim() ? "未找到匹配的学生，请修改搜索条件。" : `暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}</StudioEmpty>
+            <StudioEmpty>{query.trim() || selectedDays !== null ? "未找到匹配的学生，请修改搜索条件。" : `暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}</StudioEmpty>
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
               <table className="w-full min-w-[900px] border-collapse">

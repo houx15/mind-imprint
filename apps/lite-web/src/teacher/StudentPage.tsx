@@ -1,3 +1,4 @@
+import { StudentLearningSnapshot } from "./LearningSnapshot";
 import { StudioEmpty, StudioHeading } from "./StudioArtwork";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -132,13 +133,10 @@ export function StudentPage({
             <div className="teacher-stat-strip">
               <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
               <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
-              <StatTile label="本周活跃天数" value={`${page.student.activeDaysThisWeek} 天`} />
               <StatTile label="对话轮次" value={`${page.student.turns} 轮`} />
-              <StatTile label="阅读" value={`${page.student.readingsDone}/${page.student.readingsTotal}`} />
-              <StatTile label="写作" value={`${page.student.writingsDone}/${page.student.writingsTotal}`} />
-              <StatTile label="项目" value={`${page.student.projectsDone}/${page.student.projectsTotal}`} />
             </div>
 
+            <StudentLearningSnapshot student={page.student} />
             <p className="mt-3 mb-3 text-mk-small text-mk-muted">阅读、写作和项目的数量均为「已完成 / 总数」；时长仅统计在平台内的学习活动。</p>
             <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
             <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />

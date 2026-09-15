@@ -1,3 +1,4 @@
+import { LearningSnapshot } from "./LearningSnapshot";
 import { useEffect, useRef, useState } from "react";
 import { getRoster, type RosterRow } from "../api/teacher";
 
@@ -24,11 +25,7 @@ export function ClassPreview({ classId }: { classId: string }) {
     .sort((a, b) => (b.lastActiveAt ?? "").localeCompare(a.lastActiveAt ?? "")).slice(0, 3);
   return <div className="teacher-class-preview" ref={container}>
     {error ? <p className="teacher-preview-error">概况加载失败：{error}</p> : rows === null ? <p className="teacher-preview-loading">学习概况加载中…</p> : <>
-      <dl className="teacher-preview-stats">
-        <div><dd>{rows.length}</dd><dt>学生</dt></div>
-        <div><dd>{rows.filter(row => row.activeDaysThisWeek > 0).length}</dd><dt>本周活跃</dt></div>
-        <div><dd>{rows.reduce((sum, row) => sum + row.readingsDone + row.writingsDone + row.projectsDone, 0)}</dd><dt>累计完成</dt></div>
-      </dl>
+      <LearningSnapshot rows={rows} compact />
       <div className="teacher-preview-recent"><p>近期活跃学生</p>{recent.length ? recent.map(row => <div key={row.id}><span className="teacher-avatar">{Array.from(row.displayName)[0]}</span><span>{row.displayName}</span><small>本周 {row.activeDaysThisWeek} 天</small></div>) : <p className="teacher-preview-empty">{rows.length ? "暂无活跃记录" : "请通过邀请码邀请学生加入"}</p>}</div>
     </>}
   </div>;
