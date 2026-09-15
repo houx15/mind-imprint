@@ -14,16 +14,42 @@ import type {
   AssignmentPayload,
   CreateAssignmentInput,
   PatchAssignmentInput,
+  PersonalPick,
+  PreviewRow,
   RecipientDTO,
+  RecipientReading,
   ReturnRecipientInput,
 } from "../api/assignments";
-import type { LibraryArticle } from "../api/library";
+import type { LibraryArticle, LibraryTag } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import { beijingInputToISO, type AssignmentStatus } from "../shared/deadline";
 import { safeHttpUrl } from "./format";
 import { buildRubric, rubricDraftFromPayload, sameRubricDraft, validateRubricDraft, type RubricDraft } from "./rubricLogic";
 
-export type ReadingSource = "library" | "url" | "text";
+export type ReadingSource = "library" | "url" | "text" | "file" | "personalized";
+
+/** One row of the personalized-reading picks table: the preview's
+ * recommendation, or a swap the teacher made. */
+export interface PickRow {
+  userId: string;
+  name: string;
+  slug: string;
+  title: string;
+  /** The tier saved with the pick; null = her level at start. */
+  tier: number | null;
+  suggestedTier: number;
+  reason: string;
+  /** The teacher chose this article; a new preview keeps it. */
+  swapped: boolean;
+}
+
+/** A swap, or a saved pick being edited, carried across a fresh preview run
+ * (`mergePickRows`'s `kept` argument). */
+export interface KeptPick {
+  slug: string;
+  title: string;
+  tier: number | null;
+}
 
 /** The kind-specific part of an assignment — shared by the create form and
  * the detail page's settings edit. `targetWords` is the raw input string so
@@ -46,6 +72,20 @@ export interface SettingsDraft {
    *  server's effective rubric (`rubricDraftFromPayload`); editable after
    *  students start (sent as the PATCH's top-level `rubric`). */
   rubric: RubricDraft | null;
+  /** Upload-tab only; set once a document has been extracted. */
+  fileName: string;
+  /** Personalized reading only: the class-wide discipline filter. */
+  disciplines: string[];
+  /** Personalized reading only: the class-wide tier override; null = each
+   *  student's own level. */
+  personalTier: number | null;
+  /** Personalized reading only: the picks table, null while the preview has
+   *  not loaded (or failed) — distinct from `[]`, an empty class. */
+  picks: PickRow[] | null;
+  /** Personalized reading only: the picks exactly as the server has them
+   *  stored, read back by `settingsFromAssignment` — the fallback source
+   *  when `picks` is null (see `buildPayload`). */
+  savedPicks: Record<string, PersonalPick>;
 }
 
 export interface AssignmentDraft extends SettingsDraft {
@@ -70,21 +110,52 @@ export function emptySettings(kind: AssignmentKind = "reading"): SettingsDraft {
     drivingQuestion: "",
     description: "",
     rubric: null,
+    fileName: "",
+    disciplines: [],
+    personalTier: null,
+    picks: null,
+    savedPicks: {},
   };
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const cutRunes = (s: string, n: number): string => [...s].slice(0, n).join("");
+
+/** A stored personalized payload's `picks` → the wire-shaped record, dropping
+ * any malformed entry rather than throwing on an old/hand-edited payload. */
+function savedPicksOf(raw: unknown): Record<string, PersonalPick> {
+  const out: Record<string, PersonalPick> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [uid, v] of Object.entries(raw as Record<string, unknown>)) {
+    const p = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+    if (typeof p.slug !== "string" || !p.slug) continue;
+    out[uid] = { slug: p.slug, tier: typeof p.tier === "number" ? p.tier : null };
+  }
+  return out;
+}
+
+const titleOf = (a: LibraryArticle | undefined, slug: string): string => (a ? a.zhTitle || a.title : "") || slug;
 
 /** A stored assignment's kind + payload → an editable draft. */
 export function settingsFromAssignment(kind: AssignmentKind, payload: Record<string, unknown>): SettingsDraft {
   const d = emptySettings(kind);
   if (kind === "reading") {
     const source = payload.source;
-    d.readingSource = source === "url" || source === "text" ? source : "library";
+    d.readingSource = source === "url" || source === "text" || source === "personalized" ? source : "library";
     d.slug = str(payload.slug);
     d.tier = typeof payload.tier === "number" ? payload.tier : null;
     d.url = str(payload.url);
     d.text = str(payload.text);
+    d.fileName = str(payload.fileName);
+    // A stored `text` source with a file name came from the upload tab —
+    // reopen it there, not on the plain-paste tab.
+    if (d.readingSource === "text" && d.fileName) d.readingSource = "file";
+    if (d.readingSource === "personalized") {
+      d.disciplines = Array.isArray(payload.disciplines) ? payload.disciplines.filter((x): x is string => typeof x === "string") : [];
+      d.personalTier = d.tier;
+      d.tier = null;
+      d.savedPicks = savedPicksOf(payload.picks);
+    }
   } else if (kind === "writing") {
     d.prompt = str(payload.prompt);
     d.targetWords = typeof payload.targetWords === "number" && payload.targetWords > 0 ? String(payload.targetWords) : "";
@@ -126,9 +197,15 @@ export function validateSettings(d: SettingsDraft): string | null {
       if (d.tier !== null && (d.tier < 1 || d.tier > 5)) return "难度档位需在 1 到 5 之间";
     } else if (d.readingSource === "url") {
       if (!isHttpUrlWithHost(d.url)) return "请输入以 http 或 https 开头的链接";
+    } else if (d.readingSource === "personalized") {
+      if (d.picks === null) return "请等待推荐列表加载完成";
     } else {
+      // Ruling: the upload tab needs an actual extracted file, not just any
+      // text — a stray body left over from the paste tab must not publish
+      // silently as "uploaded" content.
+      if (d.readingSource === "file" && !d.fileName.trim()) return "请上传文件";
       const text = d.text.trim();
-      if (!text) return "请粘贴文章正文";
+      if (!text) return d.readingSource === "file" ? "请上传文件" : "请粘贴文章正文";
       if (runes(text) > 50000) return "文章正文不能超过 50000 字";
     }
     return null;
@@ -152,14 +229,43 @@ export function validateSettings(d: SettingsDraft): string | null {
 
 /** The payload for a draft that passed `validateSettings`. A library reading
  * with no chosen level leaves `tier` out, which the server reads as "use the
- * student's current level". */
-export function buildPayload(d: SettingsDraft): AssignmentPayload {
+ * student's current level". `recipientIds`, when given, keeps only the picks
+ * for students still on the homework — a removed recipient's pick is simply
+ * not resent (the server keeps whatever it already had stored for her, per
+ * Ruling 1 of the plan's Task 4). */
+export function buildPayload(d: SettingsDraft, recipientIds?: string[]): AssignmentPayload {
   if (d.kind === "reading") {
     if (d.readingSource === "library") {
       return d.tier === null ? { source: "library", slug: d.slug.trim() } : { source: "library", slug: d.slug.trim(), tier: d.tier };
     }
     if (d.readingSource === "url") return { source: "url", url: d.url.trim() };
-    return { source: "text", text: d.text.trim() };
+    if (d.readingSource === "personalized") {
+      const keep = recipientIds ? new Set(recipientIds) : null;
+      const picks: Record<string, PersonalPick> = {};
+      // `d.picks` is null when the preview has not loaded (or failed) while
+      // editing — controller ruling 2: fall back to what is already stored
+      // rather than losing it, so a title-only save on an unstarted
+      // personalized homework still works without the preview.
+      if (d.picks) {
+        for (const row of d.picks) {
+          if (!keep || keep.has(row.userId)) picks[row.userId] = { slug: row.slug, tier: row.tier };
+        }
+      } else {
+        for (const [uid, p] of Object.entries(d.savedPicks)) {
+          if (!keep || keep.has(uid)) picks[uid] = p;
+        }
+      }
+      return {
+        source: "personalized",
+        ...(d.disciplines.length ? { disciplines: d.disciplines } : {}),
+        ...(d.personalTier !== null ? { tier: d.personalTier } : {}),
+        picks,
+      };
+    }
+    const fileName = d.fileName.trim();
+    return d.readingSource === "file" && fileName
+      ? { source: "text", text: d.text.trim(), fileName }
+      : { source: "text", text: d.text.trim() };
   }
   if (d.kind === "writing") {
     // No `rubric` here, ever — there is no rubric editor on the create form
@@ -199,7 +305,7 @@ export function buildCreateInput(d: AssignmentDraft): Built<CreateAssignmentInpu
       kind: d.kind,
       title: d.title.trim(),
       ...(instructions ? { instructions } : {}),
-      payload: buildPayload(d),
+      payload: buildPayload(d, d.userIds),
       dueAt: beijingInputToISO(d.dueInput) ?? "",
       userIds: d.userIds,
     },
@@ -232,7 +338,7 @@ export interface EditDraft {
  * and only when it actually changed, so a title-only edit on an older
  * homework never overwrites a custom rubric with whatever the draft
  * happened to be initialized as. */
-export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<PatchAssignmentInput> {
+export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipientIds?: string[]): Built<PatchAssignmentInput> {
   const common = validateCommon(e.title, e.dueInput);
   if (common) return { ok: false, error: common };
   const patch: PatchAssignmentInput = {
@@ -241,10 +347,19 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean): Built<
     dueAt: beijingInputToISO(e.dueInput) ?? "",
   };
   if (settingsEditable) {
-    const settings = validateSettings(e.settings);
-    if (settings) return { ok: false, error: settings };
+    // Controller ruling 2: an edit is always on an existing homework, so a
+    // personalized reading whose preview has not loaded (or failed) is not
+    // "invalid" the way a brand new one would be — `buildPayload` falls
+    // back to the stored picks, so the normal wait-for-preview check is
+    // skipped here (it still applies to `buildCreateInput`, which has
+    // nothing stored to fall back to).
+    const waitingOnPreview = e.settings.kind === "reading" && e.settings.readingSource === "personalized" && e.settings.picks === null;
+    if (!waitingOnPreview) {
+      const settings = validateSettings(e.settings);
+      if (settings) return { ok: false, error: settings };
+    }
     patch.kind = e.settings.kind;
-    patch.payload = buildPayload(e.settings);
+    patch.payload = buildPayload(e.settings, recipientIds);
   }
   if (e.settings.kind === "writing" && e.settings.rubric) {
     const rubric = validateRubricDraft(e.settings.rubric);
@@ -342,6 +457,115 @@ export function tierLabel(tier: number | null): string {
   return TIER_NAMES[tier - 1] ?? `第 ${tier} 档`;
 }
 
+/** The tier label for one student's personalized-reading pick or recipient
+ * row: null means her own level, shown as 「按学生水平」. Distinct from
+ * `tierLabel(null)`'s 「按学生当前水平」, which describes a class-wide
+ * setting (the personalized homework's own tier filter, a library reading's
+ * tier) rather than one student's resolved article. */
+export function personalTierLabel(tier: number | null): string {
+  return tier === null ? "按学生水平" : tierLabel(tier);
+}
+
+export type ExtractOutcome = { ok: true; text: string; fileName: string; title: string } | { ok: false; error: string };
+
+/** A `/documents/extract` result → the text source. The 50000-character cap
+ * is the server's; checking it here names the problem before 发布. */
+export function readExtractResult(result: { title: string; text: string }, fileName: string): ExtractOutcome {
+  const text = result.text.trim();
+  if (!text) return { ok: false, error: "提取失败：文件中没有读到文字" };
+  if (runes(text) > 50000) return { ok: false, error: "提取失败：正文超过 50000 字" };
+  const name = cutRunes(fileName.trim(), 200);
+  const stem = name.replace(/\.[^.]+$/, "");
+  return { ok: true, text, fileName: name, title: cutRunes(result.title.trim() || stem, 200) };
+}
+
+export function extractedCountText(text: string): string {
+  return `已提取 ${runes(text.trim())} 字`;
+}
+
+export function fillTitleIfEmpty(current: string, candidate: string): string {
+  return current.trim() ? current : candidate;
+}
+
+/** Preview rows → pick rows. A kept pick (a swap, or a saved pick being
+ * edited) replaces the preview's article unless it is the same article and
+ * tier. Students not in the preview (no longer enrolled) are dropped. */
+export function mergePickRows(preview: PreviewRow[], personalTier: number | null, kept: Record<string, KeptPick>): PickRow[] {
+  return preview.map((r) => {
+    const base: PickRow = {
+      userId: r.userId,
+      name: r.name,
+      slug: r.slug,
+      title: r.title,
+      tier: personalTier,
+      suggestedTier: r.suggestedTier,
+      reason: r.reason,
+      swapped: false,
+    };
+    const k = kept[r.userId];
+    if (!k || (k.slug === base.slug && k.tier === base.tier)) return base;
+    return { ...base, slug: k.slug, title: k.title, tier: k.tier, reason: "已更换", swapped: true };
+  });
+}
+
+export function keptFromRows(rows: PickRow[] | null): Record<string, KeptPick> {
+  const out: Record<string, KeptPick> = {};
+  for (const r of rows ?? []) if (r.swapped) out[r.userId] = { slug: r.slug, title: r.title, tier: r.tier };
+  return out;
+}
+
+export function keptFromSaved(saved: Record<string, PersonalPick>, articles: LibraryArticle[]): Record<string, KeptPick> {
+  const out: Record<string, KeptPick> = {};
+  for (const [uid, p] of Object.entries(saved)) {
+    out[uid] = { slug: p.slug, title: titleOf(articles.find((a) => a.slug === p.slug), p.slug), tier: p.tier };
+  }
+  return out;
+}
+
+export function swapPick(rows: PickRow[], userId: string, next: { slug: string; tier: number | null }, articles: LibraryArticle[]): PickRow[] {
+  return rows.map((r) =>
+    r.userId === userId
+      ? { ...r, slug: next.slug, title: titleOf(articles.find((a) => a.slug === next.slug), next.slug), tier: next.tier, reason: "已更换", swapped: true }
+      : r,
+  );
+}
+
+export function visiblePickRows(rows: PickRow[], recipientIds: string[]): PickRow[] {
+  const keep = new Set(recipientIds);
+  return rows.filter((r) => keep.has(r.userId));
+}
+
+export function pickTierText(row: PickRow): string {
+  return tierLabel(row.tier ?? row.suggestedTier);
+}
+
+/** Discipline tags that appear on library articles, each once, in library order. */
+export function disciplineOptions(articles: LibraryArticle[]): LibraryTag[] {
+  const seen = new Set<string>();
+  const out: LibraryTag[] = [];
+  for (const a of articles) {
+    for (const t of Array.isArray(a.tags) ? a.tags : []) {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+  }
+  return out;
+}
+
+export function recipientReadingText(reading: RecipientReading | null): string {
+  if (!reading) return "—";
+  if (reading.state === "pending") return "待推荐";
+  return `${reading.title || reading.slug} · ${personalTierLabel(reading.tier)}`;
+}
+
+export function assignmentFileName(a: { kind: AssignmentKind; payload: Record<string, unknown> }): string | null {
+  if (a.kind !== "reading" || a.payload.source !== "text") return null;
+  const name = str(a.payload.fileName).trim();
+  return name || null;
+}
+
 /** Title-substring search over the shelf (English or Chinese title). */
 export function filterArticles(articles: LibraryArticle[], query: string): LibraryArticle[] {
   const q = query.trim().toLowerCase();
@@ -357,6 +581,12 @@ export function settingsSummary(kind: AssignmentKind, payload: Record<string, un
   if (kind === "reading") {
     if (d.readingSource === "library") return ["分级阅读库", articleTitle || d.slug || "—", tierLabel(d.tier)].join(" · ");
     if (d.readingSource === "url") return "链接";
+    if (d.readingSource === "file") return `上传文件 · ${d.fileName} · ${runes(d.text)} 字`;
+    if (d.readingSource === "personalized") {
+      const parts = ["个性化阅读", tierLabel(d.personalTier)];
+      if (d.disciplines.length) parts.push(`学科筛选 ${d.disciplines.length} 项`);
+      return parts.join(" · ");
+    }
     return `正文 · ${runes(d.text)} 字`;
   }
   if (kind === "writing") {

@@ -1,12 +1,16 @@
 // api/assignments.ts — lite teacher assignment CRUD + extraction, and the
 // student-side inbox/seen/start/for-atom clients. Field names below are
-// verified against the Go handlers (Tasks 4-6), not guessed from the plan:
+// verified against the Go handlers (Tasks 1, 3-6), not guessed from the plan:
 //
 // - `apps/api/internal/api/lite_teacher_assignments.go`: AssignmentDTO,
 //   AssignmentSummaryDTO, RecipientDTO, create/list/get/patch/archive.
 // - `apps/api/internal/api/lite_assignment_extract.go`: extract.
 // - `apps/api/internal/api/lite_student_assignments.go`: InboxItemDTO,
 //   inbox/seen/start/for-atom.
+// - `apps/api/internal/api/lite_personalized_reading.go`: preview,
+//   RecipientReadingDTO.
+// - `apps/api/internal/liteassign/payload.go`: ReadingPayload's `fileName`
+//   /`disciplines`/`picks` and PersonalPick.
 
 import { apiFetch } from "./client";
 import type { AssignmentStatus } from "../shared/deadline";
@@ -16,12 +20,24 @@ export type AssignmentKind = "reading" | "writing" | "project";
 
 // ---- payload shapes (mirrors apps/api/internal/liteassign/payload.go) ----
 
+/** One student's article, confirmed by the teacher on a personalized reading
+ * homework (liteassign.PersonalPick). */
+export interface PersonalPick {
+  slug: string;
+  /** null: the student's own level when she starts. */
+  tier: number | null;
+}
+
 export interface ReadingAssignmentPayload {
-  source: "library" | "url" | "text";
+  source: "library" | "url" | "text" | "personalized";
   slug?: string;
   tier?: number | null;
   url?: string;
   text?: string;
+  /** Set when the text came from an uploaded document. */
+  fileName?: string;
+  disciplines?: string[];
+  picks?: Record<string, PersonalPick>;
 }
 
 export interface WritingAssignmentPayload {
@@ -58,6 +74,17 @@ export interface AssignmentSummaryDTO extends AssignmentDTO {
   counts: Record<AssignmentStatus, number>;
 }
 
+/** One student's article on a personalized reading homework
+ * (lite_personalized_reading.go RecipientReadingDTO). `tier: null` in
+ * `picked` means her own level, not a computed suggestion — never look one
+ * up to display in its place. */
+export interface RecipientReading {
+  slug: string;
+  title: string;
+  tier: number | null;
+  state: "started" | "picked" | "pending";
+}
+
 export interface RecipientDTO {
   userId: string;
   displayName: string;
@@ -73,6 +100,21 @@ export interface RecipientDTO {
   returnDueAt: string | null;
   returnNote: string | null;
   versionCount: number;
+  /** This student's article on a personalized reading homework; null on any
+   * other homework. */
+  reading: RecipientReading | null;
+}
+
+/** One row of POST …/classes/{id}/personalized-reading/preview
+ * (personalizedPreviewRowDTO). */
+export interface PreviewRow {
+  userId: string;
+  name: string;
+  slug: string;
+  title: string;
+  tier: number;
+  suggestedTier: number;
+  reason: string;
 }
 
 export interface AssignmentInboxItem {
@@ -191,6 +233,39 @@ function normalizeKind(raw: unknown): AssignmentKind {
   return raw === "writing" || raw === "project" ? raw : "reading";
 }
 
+const tierOrNull = (v: unknown): number | null =>
+  typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 5 ? v : null;
+
+/** An unrecognised `state` (a server from before this shipped, or a future
+ * value) is treated the same as no reading at all. */
+export function normalizeRecipientReading(raw: unknown): RecipientReading | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = obj(raw);
+  if (r.state !== "started" && r.state !== "picked" && r.state !== "pending") return null;
+  return { slug: s(r.slug), title: s(r.title), tier: tierOrNull(r.tier), state: r.state };
+}
+
+/** Rows without a student or a picked article are dropped; a tier outside
+ * 1..5 falls back to the suggested tier (which itself defaults to 2 when
+ * malformed) rather than showing a nonsense difficulty. */
+export function normalizePreviewRows(raw: unknown): PreviewRow[] {
+  return arr<unknown>(obj(raw).rows)
+    .map(obj)
+    .filter((r) => s(r.userId) !== "" && s(r.slug) !== "")
+    .map((r) => {
+      const suggestedTier = tierOrNull(r.suggestedTier) ?? 2;
+      return {
+        userId: s(r.userId),
+        name: s(r.name),
+        slug: s(r.slug),
+        title: s(r.title),
+        tier: tierOrNull(r.tier) ?? suggestedTier,
+        suggestedTier,
+        reason: s(r.reason),
+      };
+    });
+}
+
 export function normalizeAssignmentDTO(raw: Record<string, unknown>): AssignmentDTO {
   return {
     id: s(raw.id),
@@ -233,6 +308,7 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
     returnDueAt: nullableString(raw.returnDueAt),
     returnNote: nullableString(raw.returnNote),
     versionCount: typeof raw.versionCount === "number" ? raw.versionCount : 0,
+    reading: normalizeRecipientReading(raw.reading),
   };
 }
 
@@ -387,6 +463,25 @@ export async function extractWritingFields(text: string): Promise<ExtractResult>
     body: JSON.stringify({ text }),
   });
   return normalizeExtractResult(r);
+}
+
+/** POST …/classes/{id}/personalized-reading/preview: one row per enrolled
+ * student, the article she'd be picked for right now under the given
+ * filter. An empty `disciplines` and a null `tier` are left out of the
+ * body — the server reads their absence as "no filter"/"her own level". */
+export async function previewPersonalizedReading(
+  classId: string,
+  input: { disciplines: string[]; tier: number | null },
+): Promise<PreviewRow[]> {
+  const body = {
+    ...(input.disciplines.length ? { disciplines: input.disciplines } : {}),
+    ...(input.tier !== null ? { tier: input.tier } : {}),
+  };
+  const r = await apiFetch<unknown>(
+    `${teacherBase}/classes/${encodeURIComponent(classId)}/personalized-reading/preview`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  return normalizePreviewRows(r);
 }
 
 // ---- student client ----

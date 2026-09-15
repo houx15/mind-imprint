@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAssignmentForAtom, normalizeExtractResult, normalizeInboxResponse, normalizeRecipientDTO } from "./assignments";
+import {
+  normalizeAssignmentForAtom,
+  normalizeExtractResult,
+  normalizeInboxResponse,
+  normalizePreviewRows,
+  normalizeRecipientDTO,
+} from "./assignments";
 
 function inboxItem(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -127,5 +133,42 @@ describe("return fields", () => {
     const item = items[0];
     if (item?.type !== "assignment") throw new Error("expected an assignment item");
     expect([item.status, item.returnDueAt, item.returnNote]).toEqual(["returned", "2026-09-18T22:00:00+08:00", "n"]);
+  });
+});
+
+describe("normalizeRecipientDTO reading", () => {
+  const base = { userId: "u1", displayName: "Phoebe", status: "not_started" };
+  it("is null when the server sends none or an unknown state", () => {
+    expect(normalizeRecipientDTO(base).reading).toBeNull();
+    expect(normalizeRecipientDTO({ ...base, reading: { slug: "a", state: "later" } }).reading).toBeNull();
+  });
+  it("keeps a picked article with an open tier", () => {
+    expect(normalizeRecipientDTO({ ...base, reading: { slug: "coral", title: "珊瑚", tier: null, state: "picked" } }).reading).toEqual({
+      slug: "coral",
+      title: "珊瑚",
+      tier: null,
+      state: "picked",
+    });
+  });
+  it("drops a tier outside 1..5", () => {
+    expect(normalizeRecipientDTO({ ...base, reading: { slug: "coral", title: "珊瑚", tier: 9, state: "started" } }).reading?.tier).toBeNull();
+  });
+});
+
+describe("normalizePreviewRows", () => {
+  it("drops rows without a student or an article and repairs the tier", () => {
+    const rows = normalizePreviewRows({
+      rows: [
+        { userId: "u1", name: "Phoebe", slug: "coral", title: "珊瑚", tier: 3, suggestedTier: 2, reason: "暂无兴趣数据，按难度推荐" },
+        { userId: "u2", name: "林知遥", slug: "", title: "", tier: 3, suggestedTier: 2, reason: "" },
+        { name: "no id", slug: "x" },
+        { userId: "u3", name: "王", slug: "nasa", title: "NASA", tier: 0, suggestedTier: 4, reason: "" },
+      ],
+    });
+    expect(rows.map((r) => r.userId)).toEqual(["u1", "u3"]);
+    expect(rows[1]).toMatchObject({ tier: 4, suggestedTier: 4 });
+  });
+  it("is empty for a malformed body", () => {
+    expect(normalizePreviewRows(null)).toEqual([]);
   });
 });

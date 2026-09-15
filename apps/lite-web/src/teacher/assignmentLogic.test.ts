@@ -1,29 +1,42 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
-import type { RecipientDTO } from "../api/assignments";
+import type { PreviewRow, RecipientDTO } from "../api/assignments";
 import type { LibraryArticle } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import {
+  assignmentFileName,
   buildCreateInput,
   buildPatchInput,
   buildPayload,
   buildReturnInput,
   canEditSettings,
+  disciplineOptions,
   emptySettings,
+  extractedCountText,
   failText,
+  fillTitleIfEmpty,
   filterArticles,
   isArchiveSuccess,
+  keptFromRows,
+  keptFromSaved,
+  mergePickRows,
   parseTargetWords,
   pickClassId,
+  pickTierText,
+  readExtractResult,
+  recipientReadingText,
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
+  swapPick,
   tabAfterAssignmentChange,
   tierLabel,
   unassignedStudents,
   validateSettings,
+  visiblePickRows,
   type AssignmentDraft,
   type EditDraft,
+  type PickRow,
 } from "./assignmentLogic";
 import { buildRubric, rubricDraftFromPayload, type RubricDraft } from "./rubricLogic";
 
@@ -56,6 +69,7 @@ function recipient(over: Partial<RecipientDTO> = {}): RecipientDTO {
     returnDueAt: null,
     returnNote: null,
     versionCount: 0,
+    reading: null,
     ...over,
   };
 }
@@ -342,5 +356,198 @@ describe("statusChipStyle", () => {
   it("falls back to the muted tint for an unknown status", () => {
     expect(statusChipStyle("weird")).toEqual(statusChipStyle("not_started"));
     expect(statusChipStyle("toString")).toEqual(statusChipStyle("not_started"));
+  });
+});
+
+function article(slug: string, zhTitle: string, tags: string[] = []): LibraryArticle {
+  return {
+    slug,
+    title: slug,
+    zhTitle,
+    reason: "",
+    field: "science",
+    tags: tags.map((id) => ({ id, zh: `学科${id}`, field: "science" })),
+    coverUrl: "",
+    levels: [],
+    finished: false,
+  };
+}
+
+function preview(over: Partial<PreviewRow> = {}): PreviewRow {
+  return { userId: "u1", name: "Phoebe", slug: "coral", title: "珊瑚", tier: 2, suggestedTier: 2, reason: "暂无兴趣数据，按难度推荐", ...over };
+}
+
+describe("readExtractResult", () => {
+  it("keeps the trimmed text, the file name and a title", () => {
+    expect(readExtractResult({ title: "雨水花园", text: "  正文  " }, "rain.pdf")).toEqual({ ok: true, text: "正文", fileName: "rain.pdf", title: "雨水花园" });
+  });
+  it("uses the file name without its extension when the document has no title", () => {
+    const r = readExtractResult({ title: "", text: "x" }, "校园积水调查.docx");
+    expect(r.ok && r.title).toBe("校园积水调查");
+  });
+  it("refuses more than 50000 characters, counting characters not bytes", () => {
+    expect(readExtractResult({ title: "", text: "雨".repeat(50000) }, "a.txt").ok).toBe(true);
+    expect(readExtractResult({ title: "", text: "雨".repeat(50001) }, "a.txt")).toEqual({ ok: false, error: "提取失败：正文超过 50000 字" });
+  });
+  it("caps the file name at 200 characters", () => {
+    const r = readExtractResult({ title: "t", text: "x" }, `${"名".repeat(250)}.pdf`);
+    expect(r.ok && [...r.fileName].length).toBe(200);
+  });
+  it("counts the extracted characters", () => {
+    expect(extractedCountText(" 你好 ")).toBe("已提取 2 字");
+  });
+  it("fills the title only when it is empty", () => {
+    expect(fillTitleIfEmpty("  ", "雨水花园")).toBe("雨水花园");
+    expect(fillTitleIfEmpty("第三周阅读", "雨水花园")).toBe("第三周阅读");
+  });
+  it("refuses when nothing came back at all", () => {
+    expect(readExtractResult({ title: "", text: "   " }, "scan.pdf")).toEqual({ ok: false, error: "提取失败：文件中没有读到文字" });
+  });
+});
+
+describe("file and personalized settings", () => {
+  it("builds a text payload with the file name from the upload tab", () => {
+    const d = { ...emptySettings("reading"), readingSource: "file" as const, text: " 正文 ", fileName: "rain.pdf" };
+    expect(validateSettings(d)).toBeNull();
+    expect(buildPayload(d)).toEqual({ source: "text", text: "正文", fileName: "rain.pdf" });
+    expect(validateSettings({ ...d, text: "" })).toBe("请上传文件");
+    expect(buildPayload({ ...d, readingSource: "text" })).toEqual({ source: "text", text: "正文" });
+  });
+  // Controller ruling 1: a stray body from another tab must not let the
+  // upload tab publish without a file — she'd see "上传文件" in the tab but
+  // the saved homework would actually be whatever text happened to be typed
+  // into a different tab first.
+  it("fails without a file even when a text body carried over from another tab", () => {
+    const d = { ...emptySettings("reading"), readingSource: "file" as const, text: "正文", fileName: "" };
+    expect(validateSettings(d)).toBe("请上传文件");
+  });
+  it("reopens a stored text with a file name on the upload tab", () => {
+    const d = settingsFromAssignment("reading", { source: "text", text: "正文", fileName: "rain.pdf" });
+    expect(d.readingSource).toBe("file");
+    expect(settingsSummary("reading", { source: "text", text: "正文", fileName: "rain.pdf" })).toBe("上传文件 · rain.pdf · 2 字");
+    expect(assignmentFileName({ kind: "reading", payload: { source: "text", text: "x", fileName: "rain.pdf" } })).toBe("rain.pdf");
+    expect(assignmentFileName({ kind: "reading", payload: { source: "text", text: "x" } })).toBeNull();
+  });
+  it("waits for the preview before a personalized homework can be saved", () => {
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const };
+    expect(validateSettings(d)).toBe("请等待推荐列表加载完成");
+    expect(validateSettings({ ...d, picks: [] })).toBeNull();
+  });
+  // Controller ruling 2, "new homework" leg: buildCreateInput has no stored
+  // payload to fall back to, so it still waits for the preview.
+  it("still blocks creating a brand new personalized homework while the preview is loading", () => {
+    const d: AssignmentDraft = {
+      ...emptySettings("reading"),
+      readingSource: "personalized",
+      classId: "c1",
+      title: "个性化阅读",
+      instructions: "",
+      dueInput: "2026-09-20T22:00",
+      userIds: ["u1"],
+    };
+    expect(buildCreateInput(d)).toEqual({ ok: false, error: "请等待推荐列表加载完成" });
+  });
+  it("sends picks for recipients only, the filter and the tier when set", () => {
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2", slug: "nasa", title: "NASA" })], null, {});
+    const d = { ...emptySettings("reading"), readingSource: "personalized" as const, picks: rows, disciplines: ["astronomy"], personalTier: 4 };
+    expect(buildPayload(d, ["u2"])).toEqual({
+      source: "personalized",
+      disciplines: ["astronomy"],
+      tier: 4,
+      picks: { u2: { slug: "nasa", tier: null } },
+    });
+    expect(buildPayload({ ...d, disciplines: [], personalTier: null }, undefined)).toEqual({
+      source: "personalized",
+      picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: null } },
+    });
+  });
+  it("reads a stored personalized payload back", () => {
+    const d = settingsFromAssignment("reading", {
+      source: "personalized",
+      disciplines: ["astronomy", 3],
+      tier: 4,
+      picks: { u1: { slug: "coral", tier: null }, u2: { slug: 7 } },
+    });
+    expect(d).toMatchObject({ readingSource: "personalized", disciplines: ["astronomy"], personalTier: 4, picks: null });
+    expect(d.savedPicks).toEqual({ u1: { slug: "coral", tier: null } });
+    expect(settingsSummary("reading", { source: "personalized", tier: 4, disciplines: ["a", "b"] })).toBe("个性化阅读 · 高阶 · 学科筛选 2 项");
+    expect(settingsSummary("reading", { source: "personalized" })).toBe("个性化阅读 · 按学生当前水平");
+  });
+});
+
+// Controller ruling 2: editing an unstarted personalized homework must not
+// be blocked by the "wait for the preview" message when the preview never
+// loaded (or failed) — there is already a stored payload to fall back to.
+describe("buildPatchInput on a personalized reading whose preview has not loaded", () => {
+  const editOf = (settings: ReturnType<typeof settingsFromAssignment>): EditDraft => ({
+    title: "标题",
+    instructions: "",
+    dueInput: "2026-09-21T08:00",
+    settings,
+    originalRubric: null,
+  });
+
+  it("saves using the saved picks when the preview never loaded", () => {
+    const settings = settingsFromAssignment("reading", { source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
+    expect(settings.picks).toBeNull(); // the preview call never ran
+    const r = buildPatchInput(editOf(settings), true);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
+  });
+
+  it("saves the merged picks once the preview loaded and she swapped one", () => {
+    const settings = settingsFromAssignment("reading", { source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
+    const articles = [article("coral", "珊瑚"), article("nasa", "NASA")];
+    const kept = keptFromSaved(settings.savedPicks, articles);
+    const merged = mergePickRows([preview({ userId: "u1" })], null, kept);
+    const swapped = swapPick(merged, "u1", { slug: "nasa", tier: 5 }, articles);
+    const r = buildPatchInput(editOf({ ...settings, picks: swapped }), true);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "nasa", tier: 5 } } });
+  });
+});
+
+describe("pick rows", () => {
+  const articles = [article("coral", "珊瑚", ["biology"]), article("nasa", "NASA", ["astronomy", "biology"])];
+
+  it("takes the preview and the chosen tier", () => {
+    const rows = mergePickRows([preview()], 3, {});
+    expect(rows[0]).toMatchObject({ slug: "coral", tier: 3, swapped: false, reason: "暂无兴趣数据，按难度推荐" });
+    expect(pickTierText(rows[0] as PickRow)).toBe("进阶");
+    expect(pickTierText({ ...(rows[0] as PickRow), tier: null, suggestedTier: 2 })).toBe("基础");
+  });
+  it("a swap is kept when the preview is run again", () => {
+    let rows = mergePickRows([preview()], null, {});
+    rows = swapPick(rows, "u1", { slug: "nasa", tier: 5 }, articles);
+    expect(rows[0]).toMatchObject({ slug: "nasa", title: "NASA", tier: 5, reason: "已更换", swapped: true });
+    const again = mergePickRows([preview({ slug: "coral" }), preview({ userId: "u9" })], null, keptFromRows(rows));
+    expect(again[0]).toMatchObject({ slug: "nasa", tier: 5, swapped: true });
+    expect(again[1]).toMatchObject({ userId: "u9", swapped: false });
+  });
+  it("a saved pick that matches the new preview is not marked as swapped", () => {
+    const kept = keptFromSaved({ u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: 2 } }, articles);
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2" })], null, kept);
+    expect(rows[0]).toMatchObject({ slug: "coral", swapped: false });
+    expect(rows[1]).toMatchObject({ slug: "nasa", title: "NASA", tier: 2, swapped: true });
+  });
+  it("a student who left the class is dropped", () => {
+    const rows = mergePickRows([preview({ userId: "u1" })], null, { gone: { slug: "nasa", title: "NASA", tier: null } });
+    expect(rows.map((r) => r.userId)).toEqual(["u1"]);
+  });
+  it("shows only checked recipients", () => {
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2" })], null, {});
+    expect(visiblePickRows(rows, ["u2"]).map((r) => r.userId)).toEqual(["u2"]);
+  });
+  it("lists each discipline tag once, in library order", () => {
+    expect(disciplineOptions(articles).map((t) => t.id)).toEqual(["biology", "astronomy"]);
+  });
+  // Controller ruling 3: a detail/preview tier of null means her own level,
+  // shown as 「按学生水平」 — distinct from tierLabel(null)'s
+  // 「按学生当前水平」, which is a class-wide setting's own summary text.
+  it("describes a recipient's article", () => {
+    expect(recipientReadingText({ slug: "coral", title: "珊瑚", tier: 3, state: "started" })).toBe("珊瑚 · 进阶");
+    expect(recipientReadingText({ slug: "coral", title: "", tier: null, state: "picked" })).toBe("coral · 按学生水平");
+    expect(recipientReadingText({ slug: "", title: "", tier: null, state: "pending" })).toBe("待推荐");
+    expect(recipientReadingText(null)).toBe("—");
   });
 });
