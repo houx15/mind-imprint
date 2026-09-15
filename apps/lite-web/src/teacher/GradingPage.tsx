@@ -486,10 +486,8 @@ function GradingEditor({
         <h2 className="text-mk-small font-bold text-mk-ink">维度</h2>
         {content.dimensions.map((d, i) => (
           <div key={d.name} className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 text-mk-small text-mk-ink">{d.name}</span>
-              <GradeInput rubric={rubric} label={`${d.name}等级`} value={d.grade} onChange={(v) => onEdit({ type: "dimensionGrade", index: i, value: v })} />
-            </div>
+            <h3 className="text-mk-small font-semibold text-mk-ink">{d.name}</h3>
+            <GradeInput rubric={rubric} label={`${d.name}等级`} value={d.grade} onChange={(v) => onEdit({ type: "dimensionGrade", index: i, value: v })} />
             <textarea aria-label={`${d.name}评语`} rows={2} value={d.comment} onChange={(e) => onEdit({ type: "dimensionComment", index: i, value: e.target.value })} className={INPUT_CLS} />
           </div>
         ))}

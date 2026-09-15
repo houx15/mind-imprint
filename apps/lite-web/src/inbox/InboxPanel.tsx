@@ -6,6 +6,7 @@ import { navigate, writingPath } from "../routing";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
+import { notifyGradingsChanged } from "../writings/gradingsChanged";
 import { AssignmentStatusChip } from "./AssignmentStrip";
 import { INBOX_PANEL_WIDTH, inboxPanelLeft, sortUnreadFirst } from "./inboxLogic";
 import { openAssignment } from "./openAssignment";
@@ -92,6 +93,9 @@ export function InboxPanel({
         await markGradingSeen(item.id).catch(() => undefined);
         inbox.reload();
         onClose(false);
+        // navigate() does nothing when this writing's page is already open,
+        // so the page is also told to fetch its gradings again.
+        notifyGradingsChanged(item.atomId);
         navigate(writingPath(item.atomId));
       } finally {
         // Navigating away closes the panel, which usually unmounts it before

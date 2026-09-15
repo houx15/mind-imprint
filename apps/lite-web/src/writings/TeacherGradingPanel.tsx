@@ -10,15 +10,13 @@ import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
  * placeholder — when there are none (controller ruling 1).
  *
  * A point's quote is a button: clicking it switches the left column to that
- * grading's version and highlights the sentence there (`FinishedWritingPage`'s
- * `onQuote`, given this grading's full quote list and the clicked point's
- * index — not just that one quote's text — so the sentence it highlights is
- * the exact same one `determinedUnmarkedQuotes` below decided was marked,
- * not a second, possibly-different match against that quote in isolation).
- * A quote that would not actually highlight in that version's text — not
- * found, or only overlapping another point's already-taken span — also
- * shows 「未在正文中标出」 underneath, the same rule the teacher's own
- * `GradingPage` editor uses. That check needs the graded version's own
+ * grading's version and highlights that quote there (`FinishedWritingPage`'s
+ * `onQuote`, which highlights the clicked quote on its own with
+ * `rangeForQuote`, so two points quoting overlapping sentences both
+ * highlight). A quote that is not found in that version's text shows
+ * 「未在正文中标出」 underneath (`determinedUnmarkedQuotes`: not found only;
+ * the teacher's `GradingPage` editor also flags overlaps, because the
+ * teacher can pick a different sentence). That check needs the graded version's own
  * body, not whatever version is currently on screen — `bodies` is
  * `FinishedWritingPage`'s version cache, keyed by version number; a grading
  * whose version hasn't loaded (or failed to load) shows no "unmarked" flag

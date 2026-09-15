@@ -7,7 +7,7 @@ import { getWritingVersion, listWritingVersions, type Writing, type WritingVersi
 import { ReportPanel } from "../reports/ReportPanel";
 import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
-import { highlightSegments, MARK_STYLE, PIECE_CLS, quoteRanges } from "../shared/gradingText";
+import { highlightSegments, MARK_STYLE, PIECE_CLS, rangeForQuote } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { tintedChipStyle } from "../teacher/assignmentLogic";
 import {
@@ -24,16 +24,15 @@ import {
   versionsToPreload,
   type AssignmentLoadState,
 } from "./finishedWriting";
+import { GRADINGS_CHANGED_EVENT, gradingsChangedAtom } from "./gradingsChanged";
 import { TeacherGradingPanel } from "./TeacherGradingPanel";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
 /**
- * A point's quote, picked from `TeacherGradingPanel`. Carries the whole
- * grading's quote list (not just this one point's text) and which index is
- * hers, so `VersionText` runs the exact same `quoteRanges` call
- * (`determinedUnmarkedQuotes` in `TeacherGradingPanel` uses the same
- * function) and picks that point's own occurrence — not a second, possibly
- * different match found by searching for that one quote in isolation.
+ * A point's quote, picked from `TeacherGradingPanel`: the grading's quote
+ * list and the clicked point's index. `VersionText` highlights
+ * `quotes[index]` on its own (`rangeForQuote`), so a quote that overlaps
+ * another point's quote still highlights.
  * `nonce` exists only so clicking the SAME quote again still re-scrolls:
  * without it, an identical `{version, quotes, index}` would look unchanged
  * to `VersionText`'s scroll effect.
@@ -92,6 +91,7 @@ export function FinishedWritingPage({
   const [gradingsError, setGradingsError] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<QuoteHighlight | null>(null);
   const highlightNonce = useRef(0);
+  const [gradingsReload, setGradingsReload] = useState(0);
 
   useEffect(() => {
     setList(null);
@@ -133,17 +133,37 @@ export function FinishedWritingPage({
         setAssignmentState("failed");
         setAssignmentError(apiErrorText(e));
       });
-    // Fetched fresh on every load, no stale cache — a grading re-sent after
-    // the teacher edits it shows the updated content the next time this
-    // page opens (controller ruling 3).
+  }, [writing.id, alive]);
+
+  // The inbox fires GRADINGS_CHANGED_EVENT when she opens a grading of the
+  // writing already on screen: navigate() does nothing for the same path.
+  useEffect(() => {
+    function onChanged(e: Event) {
+      if (gradingsChangedAtom(e) === writing.id) setGradingsReload((n) => n + 1);
+    }
+    window.addEventListener(GRADINGS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(GRADINGS_CHANGED_EVENT, onChanged);
+  }, [writing.id]);
+
+  // Fetched fresh on every load, no stale cache — a grading re-sent after
+  // the teacher edits it shows the updated content the next time this page
+  // opens (controller ruling 3), or when the inbox event above arrives.
+  // `current` drops a reply that belongs to an earlier writing or an earlier
+  // reload.
+  useEffect(() => {
+    let current = true;
+    setGradingsError(null);
     listWritingGradings(writing.id)
       .then((g) => {
-        if (alive.current) setGradings(g);
+        if (current && alive.current) setGradings(g);
       })
       .catch((e: unknown) => {
-        if (alive.current) setGradingsError(apiErrorText(e));
+        if (current && alive.current) setGradingsError(apiErrorText(e));
       });
-  }, [writing.id, alive]);
+    return () => {
+      current = false;
+    };
+  }, [writing.id, gradingsReload, alive]);
 
   const latest = list?.versions[0]?.number ?? null;
 
@@ -377,12 +397,10 @@ const DEL_STYLE: CSSProperties = {
  * this `!diff &&` guard is a second line of defense, not the mechanism that
  * keeps them apart.
  *
- * The highlighted range is found by running `quoteRanges` over the
- * grading's WHOLE quote list (`highlight.quotes`), the same call
- * `determinedUnmarkedQuotes` makes, then picking `highlight.index`'s own
- * range out of it — never by searching for the one clicked quote in
- * isolation, which could resolve a repeated sentence or an overlap
- * differently than the unmarked check did.
+ * The highlighted range is the clicked quote's own first occurrence
+ * (`rangeForQuote`), found without regard to the grading's other quotes, so
+ * a quote that overlaps another point's quote still highlights. It is null
+ * exactly when `determinedUnmarkedQuotes` flags that quote as not found.
  */
 function VersionText({
   version,
@@ -404,8 +422,8 @@ function VersionText({
   }, [highlight?.nonce, version?.number]);
   if (!version) return <p className="text-mk-body text-mk-muted">加载中…</p>;
   if (!diff && highlight) {
-    const ranges = quoteRanges(version.body, highlight.quotes).filter((r) => r.index === highlight.index);
-    const segments = highlightSegments(version.body, ranges);
+    const range = rangeForQuote(version.body, highlight.quotes[highlight.index] ?? null, highlight.index);
+    const segments = highlightSegments(version.body, range ? [range] : []);
     return (
       <div className={PIECE_CLS}>
         {segments.map((seg, i) =>

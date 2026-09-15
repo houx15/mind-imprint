@@ -3,7 +3,6 @@ import { Button } from "@/ui";
 import { listAssignmentGradings, queueAssignmentGradings, sendReviewedGradings, type GradingRow } from "../api/gradings";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
-import { AI_ATTRIBUTION } from "../writings/finishedWriting";
 import { errorText, failText, tintedChipStyle } from "./assignmentLogic";
 import {
   failedCount,
@@ -127,7 +126,6 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
 
   return (
     <section className="mt-4 flex flex-col gap-3">
-      <p className="text-mk-small text-mk-muted">{AI_ATTRIBUTION}</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" size="sm" onClick={() => void queue(false)} disabled={busy || pendingCount(rows) === 0}>
           一键AI批改
