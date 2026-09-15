@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { prosePendingLabel, showReadingTakeaway } from "./ItemPage";
+import { prosePendingLabel, showReadingTakeaway, teacherManuscript } from "./ItemPage";
+
+describe("teacherManuscript", () => {
+  const v = (number: number) => ({ number, title: "雨", wordCount: 12, submittedAt: "2026-09-15T06:20:00Z" });
+  it("shows the latest submitted version when versions exist", () =>
+    expect(teacherManuscript({ versions: [v(2), v(1)], revising: false, draft: "还没提交的修改" })).toEqual({
+      kind: "version",
+      version: v(2),
+      revising: false,
+    }));
+  // While she revises, the draft is unsubmitted: the teacher still reads the
+  // latest version, labelled 修改中.
+  it("keeps the version and flags revising", () =>
+    expect(teacherManuscript({ versions: [v(1)], revising: true, draft: "还没提交的修改" })).toEqual({
+      kind: "version",
+      version: v(1),
+      revising: true,
+    }));
+  it("falls back to the draft when there is no version", () =>
+    expect(teacherManuscript({ versions: [], revising: false, draft: "草稿" })).toEqual({ kind: "draft", draft: "草稿" }));
+  it("treats a missing draft as empty", () =>
+    expect(teacherManuscript({ versions: [], revising: false, draft: null })).toEqual({ kind: "draft", draft: "" }));
+});
 
 describe("showReadingTakeaway", () => {
   it("hides the reading takeaway when the report already shows it as her own keep", () => {

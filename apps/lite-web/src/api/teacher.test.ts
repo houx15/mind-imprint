@@ -99,6 +99,30 @@ describe("normalizeItemDetail", () => {
     expect(normalizeItemDetail({ ...base, project: { idea: "q", assigned: "true" } }).project?.assigned).toBe(false);
   });
 
+  it("reads writing.versions and writing.revising, defaulting to [] and false", () => {
+    const base = {
+      item: { atomId: "a1", kind: "writing", title: "t", status: "finished", level: null, minutes: 0, turns: 0, createdAt: "", lastActiveAt: "", finishedAt: null },
+      reading: null,
+      project: null,
+      report: null,
+      reportError: null,
+    };
+    const withVersions = normalizeItemDetail({
+      ...base,
+      writing: {
+        draft: "d",
+        revising: true,
+        versions: [{ number: 2, title: "雨", wordCount: 12, submittedAt: "2026-09-15T06:20:00Z" }, { number: 0 }],
+      },
+    });
+    expect(withVersions.writing?.versions).toEqual([{ number: 2, title: "雨", wordCount: 12, submittedAt: "2026-09-15T06:20:00Z" }]);
+    expect(withVersions.writing?.revising).toBe(true);
+
+    const older = normalizeItemDetail({ ...base, writing: { draft: "d", versions: null, revising: "yes" } });
+    expect(older.writing?.versions).toEqual([]);
+    expect(older.writing?.revising).toBe(false);
+  });
+
   it("defaults a null reading/writing sub-object to null, and null arrays inside it to []", () => {
     const raw = {
       item: { atomId: "a1", kind: "reading", title: "t", status: "active", level: 1, minutes: 0, turns: 0, createdAt: "", lastActiveAt: "", finishedAt: null },

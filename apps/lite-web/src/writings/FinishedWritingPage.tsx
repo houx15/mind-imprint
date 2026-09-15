@@ -8,7 +8,19 @@ import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { tintedChipStyle } from "../teacher/assignmentLogic";
-import { chipHue, chipToShow, effectiveDueAt, isReturnOpen, LOCKED_TEXT, returnedLine, versionLine, type AssignmentLoadState } from "./finishedWriting";
+import {
+  chipHue,
+  chipToShow,
+  effectiveDueAt,
+  finishedBodyState,
+  finishedHeadline,
+  isReturnOpen,
+  LOCKED_TEXT,
+  NO_VERSION_TEXT,
+  returnedLine,
+  versionLine,
+  type AssignmentLoadState,
+} from "./finishedWriting";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
 /**
@@ -130,6 +142,12 @@ export function FinishedWritingPage({
   }
 
   const selectedSummary = list?.versions.find((v) => v.number === selected) ?? null;
+  const bodyState = finishedBodyState({
+    listLoaded: list !== null,
+    versionCount: list?.versions.length ?? 0,
+    loadError,
+    bodyLoaded: shown !== undefined,
+  });
 
   return (
     <div className="flex w-full flex-col pb-14">
@@ -157,14 +175,15 @@ export function FinishedWritingPage({
             加载失败：{assignmentError}
           </p>
         )}
-        <h1 className="font-mk-piece text-mk-report-title text-mk-ink">{writing.title}</h1>
+        <h1 className="font-mk-piece text-mk-report-title text-mk-ink">{finishedHeadline(writing.title, list?.versions ?? null)}</h1>
         {assignment && (
           <p className="text-mk-small text-mk-muted">
             作业 · {assignment.title} · 截止 {formatDeadline(effectiveDueAt(assignment))}
           </p>
         )}
+        {/* A state, not an error: muted, like the chip beside it. */}
         {locked && (
-          <p role="status" className="text-mk-small font-semibold text-mk-danger">
+          <p role="status" className="text-mk-small font-semibold text-mk-muted">
             {LOCKED_TEXT}
           </p>
         )}
@@ -189,7 +208,11 @@ export function FinishedWritingPage({
             {selectedSummary && selected !== latest && (
               <p className="mb-4 text-mk-small text-mk-muted">{versionLine(selectedSummary, writing.lang)}</p>
             )}
-            <VersionText version={shown} diff={diff} />
+            {bodyState === "no_versions" ? (
+              <p className="text-mk-body text-mk-muted">{NO_VERSION_TEXT}</p>
+            ) : bodyState === "error" ? null : (
+              <VersionText version={shown} diff={diff} />
+            )}
           </article>
 
           <aside className="flex min-w-0 flex-col gap-3">

@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/ui";
 import { apiErrorText } from "../api/errorText";
-import { discardWritingRevision, listWritingVersions } from "../api/writings";
+import { discardWritingRevision, listWritingVersions, type WritingVersionList } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { discardConfirmText, isWritingLockedError, revisingStripText } from "./finishedWriting";
 
 /**
- * RevisingStrip — shown in the writing room while she edits a finished
- * writing. Names the version already submitted and offers 放弃修改, which
- * restores the draft and title from that version after one confirmation.
+ * RevisingStrip — shown in the writing room (and on 结构) while she edits a
+ * finished writing. Names the version already submitted and offers 放弃修改,
+ * which restores the draft and title from that version after one
+ * confirmation. A finished writing with no version (finished by the old API
+ * during the 0153 deploy) still gets the strip: 放弃修改 then only ends
+ * revising.
  *
  * `onDiscarded` doubles as the reload trigger for the locked edge case: the
  * deadline can pass while she is looking at the confirmation dialog, and the
@@ -18,16 +21,16 @@ import { discardConfirmText, isWritingLockedError, revisingStripText } from "./f
  */
 export function RevisingStrip({ writingId, onDiscarded }: { writingId: string; onDiscarded: () => void }) {
   const alive = useAlive();
-  const [latest, setLatest] = useState<number | null>(null);
+  const [list, setList] = useState<WritingVersionList | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLatest(null);
+    setList(null);
     listWritingVersions(writingId)
       .then((l) => {
-        if (alive.current) setLatest(l.versions[0]?.number ?? null);
+        if (alive.current) setList(l);
       })
       .catch((e: unknown) => {
         if (alive.current) setError(`加载失败：${apiErrorText(e)}`);
@@ -51,12 +54,13 @@ export function RevisingStrip({ writingId, onDiscarded }: { writingId: string; o
     }
   }
 
-  if (latest === null && !error) return null;
+  if (list === null && !error) return null;
+  const latest = list?.versions[0]?.number ?? null;
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-mk-md border border-mk-border bg-mk-surface px-4 py-2.5 text-mk-small text-mk-ink">
-      {latest !== null && <span className="font-semibold">{revisingStripText(latest)}</span>}
-      {latest !== null && (
+      {list !== null && <span className="font-semibold">{revisingStripText(latest)}</span>}
+      {list !== null && (
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           {confirming ? (
             <>

@@ -12,6 +12,7 @@
 
 import { apiFetch } from "./client";
 import { fetchInterestTreeFrom, type InterestTree } from "./interest";
+import { normalizeVersionSummary, type WritingVersion, type WritingVersionSummary } from "./writings";
 
 export interface RosterRow {
   id: string;
@@ -92,6 +93,10 @@ export interface ItemDetail {
     snippets: { position: number; text: string }[];
     draft: string | null;
     comments: { scope: string; summary: string; points: unknown[] }[];
+    /** Submitted versions, newest first (0153). */
+    versions: WritingVersionSummary[];
+    /** She reopened it with 修改 and has not submitted since. */
+    revising: boolean;
   } | null;
   project: {
     idea: string;
@@ -242,6 +247,10 @@ function normalizeWriting(raw: unknown): NonNullable<ItemDetail["writing"]> | nu
       summary: s(c.summary),
       points: arr(c.points),
     })),
+    versions: arr(r.versions)
+      .map(normalizeVersionSummary)
+      .filter((v) => v.number > 0),
+    revising: r.revising === true,
   };
 }
 
@@ -278,6 +287,14 @@ export async function getItem(
     `${base(classId)}/students/${encodeURIComponent(userId)}/items/${encodeURIComponent(atomId)}${opts?.prose ? "?prose=1" : ""}`,
   );
   return normalizeItemDetail(r);
+}
+
+/** GET …/items/{atomId}/versions/{n} — one submitted version of her writing, in full. */
+export async function getItemVersion(classId: string, userId: string, atomId: string, n: number): Promise<WritingVersion> {
+  const raw = await apiFetch<Record<string, unknown>>(
+    `${base(classId)}/students/${encodeURIComponent(userId)}/items/${encodeURIComponent(atomId)}/versions/${n}`,
+  );
+  return { ...normalizeVersionSummary(raw), body: typeof raw.body === "string" ? raw.body : "" };
 }
 
 export async function getStudentTree(classId: string, userId: string): Promise<InterestTree> {

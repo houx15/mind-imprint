@@ -6,7 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import { Icon } from "@/ui";
 import { ApiError } from "@/api";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
-import { getItem, type ItemDetail } from "../api/teacher";
+import { getItem, getItemVersion, type ItemDetail } from "../api/teacher";
+import type { WritingVersion, WritingVersionSummary } from "../api/writings";
+import { tintedChipStyle } from "./assignmentLogic";
+import { versionLine } from "../writings/finishedWriting";
 import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
 import { displayStat } from "../reports/statLabels";
 import { OutputRecord } from "./OutputRecord";
@@ -145,7 +148,7 @@ export function ItemPage({
       ) : detail === null ? (
         <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
       ) : (
-        <ItemBody detail={detail} retriedProse={retriedProse} proseError={proseError} />
+        <ItemBody classId={classId} userId={userId} detail={detail} retriedProse={retriedProse} proseError={proseError} />
       )}
     </TeacherPage>
   );
@@ -169,6 +172,24 @@ export function showReadingTakeaway(
   return true;
 }
 
+/** What 写作原文 shows the teacher. Once she has submitted, the latest
+ *  version: her draft may hold unsubmitted edits (she is revising, or a
+ *  revision was cut off by the deadline), which are not the homework. The
+ *  draft is shown only when nothing was ever submitted. */
+export type TeacherManuscript =
+  | { kind: "version"; version: WritingVersionSummary; revising: boolean }
+  | { kind: "draft"; draft: string };
+
+export function teacherManuscript(writing: {
+  versions: readonly WritingVersionSummary[];
+  revising: boolean;
+  draft: string | null;
+}): TeacherManuscript {
+  const latest = writing.versions[0];
+  if (latest) return { kind: "version", version: latest, revising: writing.revising };
+  return { kind: "draft", draft: writing.draft ?? "" };
+}
+
 function shortDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -177,10 +198,14 @@ function shortDate(iso: string | null): string {
 }
 
 function ItemBody({
+  classId,
+  userId,
   detail,
   retriedProse,
   proseError,
 }: {
+  classId: string;
+  userId: string;
   detail: ItemDetail;
   retriedProse: boolean;
   /** I5: a real request error re-fetching the prose — never rendered as the
@@ -209,15 +234,7 @@ function ItemBody({
         </nav>
       )}
       {detail.writing && showOriginal && (
-        <section className="teacher-record-section teacher-writing-original" aria-labelledby="writing-original-heading">
-          <h2 id="writing-original-heading" className="text-mk-h3 text-mk-ink">写作原文</h2>
-          <p className="mt-1 text-mk-small text-mk-muted">学生当前保存的正文</p>
-          {detail.writing.draft?.trim() ? (
-            <article className="teacher-writing-manuscript">{detail.writing.draft}</article>
-          ) : (
-            <p className="mt-5 text-mk-body text-mk-muted">学生尚未保存写作正文</p>
-          )}
-        </section>
+        <WritingManuscript classId={classId} userId={userId} atomId={item.atomId} writing={detail.writing} />
       )}
 
       {(!detail.writing || !showOriginal) && <>
@@ -233,6 +250,76 @@ function ItemBody({
       <ProjectSection project={detail.project} />
       </>}
     </>
+  );
+}
+
+/** 写作原文: her latest submitted version (fetched on open), or her draft
+ *  when nothing was ever submitted — see `teacherManuscript`. */
+function WritingManuscript({
+  classId,
+  userId,
+  atomId,
+  writing,
+}: {
+  classId: string;
+  userId: string;
+  atomId: string;
+  writing: NonNullable<ItemDetail["writing"]>;
+}) {
+  const source = teacherManuscript(writing);
+  const n = source.kind === "version" ? source.version.number : null;
+  const [body, setBody] = useState<WritingVersion | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (n === null) return;
+    let cancelled = false;
+    setBody(null);
+    setError(null);
+    getItemVersion(classId, userId, atomId, n)
+      .then((v) => {
+        if (!cancelled) setBody(v);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(e instanceof ApiError ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [classId, userId, atomId, n]);
+
+  return (
+    <section className="teacher-record-section teacher-writing-original" aria-labelledby="writing-original-heading">
+      <h2 id="writing-original-heading" className="text-mk-h3 text-mk-ink">写作原文</h2>
+      {source.kind === "version" ? (
+        <>
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-mk-small text-mk-muted">
+            <span>已提交的最新版本 · {versionLine(source.version, writing.lang)}</span>
+            {source.revising && (
+              <span className="rounded-mk-full px-2 py-0.5 text-mk-label font-semibold" style={tintedChipStyle("var(--mk-warning)")}>
+                修改中
+              </span>
+            )}
+          </p>
+          {error ? (
+            <p className="mt-5 text-mk-small font-semibold text-mk-danger">加载失败：{error}</p>
+          ) : body === null ? (
+            <p className="mt-5 text-mk-body text-mk-muted">加载中…</p>
+          ) : (
+            <article className="teacher-writing-manuscript">{body.body}</article>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mt-1 text-mk-small text-mk-muted">学生当前保存的正文</p>
+          {source.draft.trim() ? (
+            <article className="teacher-writing-manuscript">{source.draft}</article>
+          ) : (
+            <p className="mt-5 text-mk-body text-mk-muted">学生尚未保存写作正文</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

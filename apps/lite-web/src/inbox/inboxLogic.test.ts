@@ -90,11 +90,13 @@ describe("returned homework on the strip", () => {
   it("does not list a resubmitted writing", () =>
     expect(openItemsForKind([item({ kind: "writing", status: "resubmitted", atomId: "x" })], "writing")).toEqual([]));
   it("shows the return deadline for a returned item", () =>
-    expect(stripDueAt({ status: "returned", dueAt: "2026-09-10T14:00:00Z", returnDueAt: "2026-09-18T14:00:00Z" })).toBe(
-      "2026-09-18T14:00:00Z",
-    ));
-  it("shows the assignment deadline otherwise", () =>
-    expect(stripDueAt({ status: "in_progress", dueAt: "2026-09-10T14:00:00Z", returnDueAt: null })).toBe("2026-09-10T14:00:00Z"));
+    expect(stripDueAt({ dueAt: "2026-09-10T14:00:00Z", returnDueAt: "2026-09-18T14:00:00Z" })).toBe("2026-09-18T14:00:00Z"));
+  // Past return_due_at with no new version the status is `overdue`, and the
+  // deadline she missed is the return deadline, not the original one.
+  it("keeps the return deadline once a returned item is overdue", () =>
+    expect(stripDueAt({ dueAt: "2026-09-10T14:00:00Z", returnDueAt: "2026-09-18T14:00:00Z" })).toBe("2026-09-18T14:00:00Z"));
+  it("shows the assignment deadline when never returned", () =>
+    expect(stripDueAt({ dueAt: "2026-09-10T14:00:00Z", returnDueAt: null })).toBe("2026-09-10T14:00:00Z"));
 });
 
 describe("startButtonLabel", () => {

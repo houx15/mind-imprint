@@ -73,15 +73,48 @@ export function versionLine(v: WritingVersionSummary, lang: string): string {
 /** Controller ruling: the locked page's sentence, verbatim. */
 export const LOCKED_TEXT = "已过截止时间，作业已锁定";
 
+/** The finished page's body when the writing has no submitted version (it
+ *  was finished by the old API during the 0153 deploy). 修改 then 完成这篇
+ *  creates version 1. */
+export const NO_VERSION_TEXT = "暂无提交版本。请点击「修改」，修改完成后点击「完成这篇」提交。";
+
 /** The revising strip's copy — names the version already submitted and the
- *  room's real button (完成这篇, not the generic 完成). */
-export function revisingStripText(n: number): string {
+ *  room's real button (完成这篇, not the generic 完成). `null` = no version
+ *  exists yet, so there is no version number to name. */
+export function revisingStripText(n: number | null): string {
+  if (n === null) return "修改完成后请点击「完成这篇」提交";
   return `已提交 v${n} · 修改完成后请再次点击「完成这篇」提交新版本`;
 }
 
-/** What 放弃修改 restores, said before she confirms it. */
-export function discardConfirmText(n: number): string {
+/** What 放弃修改 does, said before she confirms it. With no version there is
+ *  nothing to restore: the server only ends revising. */
+export function discardConfirmText(n: number | null): string {
+  if (n === null) return "将退出修改，正文与标题保持不变";
   return `正文与标题将恢复为 v${n}`;
+}
+
+/** The finished page's headline: the latest version's title. A rename made
+ *  while revising is not submitted until 完成这篇, and the body shown under
+ *  the headline is the version's. The live title is used while the list
+ *  loads, when there is no version, or when the version title is blank. */
+export function finishedHeadline(liveTitle: string, versions: readonly WritingVersionSummary[] | null): string {
+  const t = versions?.[0]?.title ?? "";
+  return t.trim() !== "" ? t : liveTitle;
+}
+
+/** What the finished page's left column shows. */
+export type FinishedBodyState = "loading" | "error" | "no_versions" | "ready";
+
+export function finishedBodyState(input: {
+  listLoaded: boolean;
+  versionCount: number;
+  loadError: string | null;
+  bodyLoaded: boolean;
+}): FinishedBodyState {
+  if (input.loadError !== null) return "error";
+  if (!input.listLoaded) return "loading";
+  if (input.versionCount === 0) return "no_versions";
+  return input.bodyLoaded ? "ready" : "loading";
 }
 
 /** The 已退回 block's headline: the return, and the deadline it carries. */
@@ -98,12 +131,20 @@ export function showFinishedPage(w: Pick<Writing, "status" | "finishedAt" | "rev
 /**
  * Whether a thrown value is the server refusing a room write because the
  * writing is locked (403 `writing_locked` — the deadline passed while she
- * was revising). WritingRoomHost uses this to tell "she typed something
- * invalid" apart from "the ground moved under her": only the latter should
- * reload the room into the locked finished page instead of just showing an
- * error banner she would dismiss and keep typing into a room that can no
- * longer save anything.
+ * was revising). An ordinary input error is shown as a message; this one
+ * means no write can succeed any more, so the room reloads into the locked
+ * finished page instead.
  */
 export function isWritingLockedError(err: unknown): boolean {
   return err instanceof ApiError && err.status === 403 && err.code === "writing_locked";
+}
+
+/**
+ * Whether a thrown value means the room is out of date: 403 `writing_locked`
+ * (deadline passed while revising) or 403 `writing_finished` (no longer
+ * revising, e.g. 完成这篇 or 放弃修改 in another tab). Both refuse every
+ * retry the same way, so the room reloads instead of showing the message.
+ */
+export function isWritingClosedError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 403 && (err.code === "writing_locked" || err.code === "writing_finished");
 }

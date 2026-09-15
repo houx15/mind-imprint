@@ -4,10 +4,15 @@ import { ApiError } from "../api/client";
 import type { Writing } from "../api/writings";
 import {
   chipToShow,
+  discardConfirmText,
   effectiveDueAt,
+  finishedBodyState,
   finishedChip,
+  finishedHeadline,
   isReturnOpen,
+  isWritingClosedError,
   isWritingLockedError,
+  revisingStripText,
   returnedLine,
   showFinishedPage,
   stageAfterRevise,
@@ -104,6 +109,51 @@ describe("showFinishedPage", () => {
     expect(showFinishedPage({ ...finished, revisingAt: "2026-09-15T07:00:00Z" }, true)).toBe(true));
   it("never shows it for an open writing", () =>
     expect(showFinishedPage({ status: "active", finishedAt: null, revisingAt: null }, false)).toBe(false));
+});
+
+describe("isWritingClosedError", () => {
+  it("covers writing_locked and writing_finished at 403", () => {
+    expect(isWritingClosedError(new ApiError("writing_locked", "已过截止时间，作业已锁定", 403))).toBe(true);
+    expect(isWritingClosedError(new ApiError("writing_finished", "这篇已经完成", 403))).toBe(true);
+  });
+  it("rejects other codes and statuses", () => {
+    expect(isWritingClosedError(new ApiError("writing_finished", "这篇已经完成", 409))).toBe(false);
+    expect(isWritingClosedError(new ApiError("bad_request", "x", 403))).toBe(false);
+    expect(isWritingClosedError(new Error("network down"))).toBe(false);
+  });
+});
+
+describe("revising strip copy with no version", () => {
+  it("names the submitted version when there is one", () => {
+    expect(revisingStripText(2)).toBe("已提交 v2 · 修改完成后请再次点击「完成这篇」提交新版本");
+    expect(discardConfirmText(2)).toBe("正文与标题将恢复为 v2");
+  });
+  it("does not name a version when none exists", () => {
+    expect(revisingStripText(null)).toBe("修改完成后请点击「完成这篇」提交");
+    expect(discardConfirmText(null)).toBe("将退出修改，正文与标题保持不变");
+  });
+});
+
+describe("finishedHeadline", () => {
+  const v = (number: number, title: string) => ({ number, title, wordCount: 1, submittedAt: "2026-09-15T06:20:00Z" });
+  it("uses the latest version's title over an unsubmitted rename", () =>
+    expect(finishedHeadline("修改中的标题", [v(2, "雨"), v(1, "旧标题")])).toBe("雨"));
+  it("uses the live title while the list is loading", () => expect(finishedHeadline("雨", null)).toBe("雨"));
+  it("uses the live title when there is no version", () => expect(finishedHeadline("雨", [])).toBe("雨"));
+  it("uses the live title when the version title is blank", () => expect(finishedHeadline("雨", [v(1, "  ")])).toBe("雨"));
+});
+
+describe("finishedBodyState", () => {
+  const base = { listLoaded: true, versionCount: 1, loadError: null, bodyLoaded: true };
+  it("is loading until the list arrives", () => expect(finishedBodyState({ ...base, listLoaded: false, bodyLoaded: false })).toBe("loading"));
+  // A writing finished by the old API during the deploy has no version: the
+  // body would otherwise wait forever for a version that does not exist.
+  it("is no_versions once an empty list arrives", () =>
+    expect(finishedBodyState({ ...base, versionCount: 0, bodyLoaded: false })).toBe("no_versions"));
+  it("is loading while the selected body is fetched", () => expect(finishedBodyState({ ...base, bodyLoaded: false })).toBe("loading"));
+  it("is ready once the body is in", () => expect(finishedBodyState(base)).toBe("ready"));
+  it("is error when a request failed", () =>
+    expect(finishedBodyState({ ...base, listLoaded: false, bodyLoaded: false, loadError: "网络错误" })).toBe("error"));
 });
 
 describe("isWritingLockedError", () => {

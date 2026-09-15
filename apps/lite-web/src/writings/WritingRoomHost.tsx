@@ -34,7 +34,8 @@ import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
 import { FinishedWritingPage } from "./FinishedWritingPage";
-import { isWritingLockedError, showFinishedPage, stageAfterRevise } from "./finishedWriting";
+import { isWritingClosedError, showFinishedPage, stageAfterRevise } from "./finishedWriting";
+import { coachOpeningNeeded } from "./openingRule";
 import { RevisingStrip } from "./RevisingStrip";
 
 /**
@@ -109,8 +110,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         const writing = await getWriting(writingId);
         if (isWritingFinished(writing)) {
           // Revising but past the deadline: the room would refuse every
-          // write, so the page shows the latest version instead.
-          const locked = isRevising(writing) ? ((await listWritingVersions(writingId).catch(() => null))?.locked ?? false) : false;
+          // write, so the page shows the latest version instead. A failed
+          // versions lookup is a load error, not "not locked": opening the
+          // room on a guess would send a write on mount, get 403, reload and
+          // repeat.
+          const locked = isRevising(writing) ? (await listWritingVersions(writingId)).locked : false;
           if (showFinishedPage(writing, locked)) {
             if (!cancelled) setState({ phase: "finished", writing });
             return;
@@ -127,7 +131,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         if (cancelled) return;
         setState({
           phase: "error",
-          message: apiErrorText(err),
+          message: `加载失败：${apiErrorText(err)}`,
         });
       }
     })();
@@ -153,11 +157,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   // one charge and one stored message either way; the damage is purely that
   // she is greeted twice, which is exactly the thing the opening exists to
   // avoid feeling like.
+  //
+  // Also NOT for a finished writing reopened with 修改 (`coachOpeningNeeded`,
+  // openingRule.ts): it already has a draft and a submitted version, and the
+  // opening endpoint would make a model call for a greeting that restarts the
+  // conversation.
   const openingNeeded =
-    state.phase === "ready" &&
-    state.writing.stage !== "outline" &&
-    state.writing.setupAt !== null &&
-    !state.messages.some((m) => m.role === "ai");
+    state.phase === "ready" && state.writing.stage !== "outline" && coachOpeningNeeded(state.writing, state.messages);
 
   /**
    * Once per writing, and the answer always lands.
@@ -222,7 +228,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         // is refused the same way, so reload straight into the locked
         // finished page rather than leave her stuck in a room that cannot
         // save anything.
-        if (isWritingLockedError(err)) {
+        if (isWritingClosedError(err)) {
           reload();
           return;
         }
@@ -265,7 +271,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       // Same reasoning as `jumpStage`: past the deadline, reload straight
       // to the locked page rather than roll the message back into a room
       // that would just refuse the retry too.
-      if (isWritingLockedError(err)) {
+      if (isWritingClosedError(err)) {
         reload();
         return;
       }
@@ -295,7 +301,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       const wr = await setWritingTargetWords(writingId, next);
       setState((s) => (s.phase === "ready" ? { ...s, writing: wr } : s));
     } catch (err) {
-      if (isWritingLockedError(err)) {
+      if (isWritingClosedError(err)) {
         reload();
         return;
       }
@@ -361,6 +367,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         onDone={() => void jumpStage("snippets")}
         onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
         onLocked={reload}
+        banner={isRevising(writing) ? <RevisingStrip writingId={writingId} onDiscarded={reload} /> : null}
       />
     );
   }

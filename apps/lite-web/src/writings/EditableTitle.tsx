@@ -31,10 +31,10 @@ export function EditableTitle({
   /** Lifted so the rest of the room (header, list, finished screen) sees the
    *  new title immediately rather than at the next load. */
   onRenamed?: (next: Writing) => void;
-  /** The deadline passed while she was mid-rename: reload the room into the
-   *  locked finished page instead of showing a raw 403 on a piece she can no
-   *  longer edit. Left `undefined` where a rename can never actually be
-   *  locked (结构's `PlanningView`, before the writing has any version). */
+  /** The rename was refused because the room is out of date (403
+   *  writing_locked or writing_finished, see `writeErrors.ts`): reload the
+   *  room instead of showing a raw 403. Every room surface passes it, 结构's
+   *  `PlanningView` included, because she can return to 结构 while revising. */
   onLocked?: () => void;
 }) {
   const [editing, setEditing] = useState(false);

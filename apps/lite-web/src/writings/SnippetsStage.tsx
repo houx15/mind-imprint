@@ -279,9 +279,14 @@ export function SnippetsStage({
   const freePositions = snippets.map((s) => s.position).filter((p) => p >= FREE_POSITION_BASE);
   const nextFreePosition = freePositions.length === 0 ? FREE_POSITION_BASE : Math.max(...freePositions) + 1;
 
+  const [addError, setAddError] = useState<string | null>(null);
   async function addFreeParagraph() {
-    const saved = await putWritingSnippet(writingId, { position: nextFreePosition, text: "" }).catch(() => null);
-    if (saved) onSnippetsChange(saved);
+    setAddError(null);
+    try {
+      onSnippetsChange(await putWritingSnippet(writingId, { position: nextFreePosition, text: "" }));
+    } catch (err) {
+      handleWriteError(err, onLocked, (message) => setAddError(`添加失败：${message}`));
+    }
   }
 
   return (
@@ -389,6 +394,11 @@ export function SnippetsStage({
       >
         <Icon icon={Plus} size={14} /> 加一段
       </button>
+      {addError && (
+        <p role="alert" className="break-words text-mk-small text-mk-danger">
+          {addError}
+        </p>
+      )}
 
       {deepen && (
         <DeepenDrawer
@@ -396,6 +406,7 @@ export function SnippetsStage({
           outlineId={deepen.outlineId}
           heading={deepen.heading}
           onClose={() => setDeepen(null)}
+          onLocked={onLocked}
         />
       )}
     </div>

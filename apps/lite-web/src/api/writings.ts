@@ -169,7 +169,7 @@ export interface WritingVersionList {
   lockReason: string | null;
 }
 
-function normalizeVersionSummary(raw: unknown): WritingVersionSummary {
+export function normalizeVersionSummary(raw: unknown): WritingVersionSummary {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
     number: typeof r.number === "number" ? r.number : 0,

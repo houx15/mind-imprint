@@ -1,29 +1,24 @@
-// writings/writeErrors.ts — the one-line landing spot every write catch in
-// the room reaches for.
+// writings/writeErrors.ts — the shared catch for every write in the writing
+// room.
 //
-// Past a homework's deadline the server refuses every write the same way
-// (403 writing_locked) no matter which endpoint asked — a draft autosave, a
-// snippet save, a rename, 请印记看看, 完成这篇, all of it. Each catch block
-// across ComposeStage/SnippetsStage/EditableTitle used to just show
-// whatever the server said, which for a lock error reads as an ordinary
-// mistake she could retry — she cannot, and retrying teaches her nothing.
-// `handleWriteError` makes the same choice everywhere: reload past it
-// (`onLocked`, which WritingRoomHost wires to its `reload`, landing her on
-// the locked finished page that already explains why) when the error IS the
-// lock, otherwise keep showing the server's own words as before.
+// Two server refusals mean the room is out of date rather than that her input
+// was wrong:
+//   - 403 writing_locked: the homework deadline passed while she was revising.
+//   - 403 writing_finished: the writing is no longer being revised, for
+//     example because 完成这篇 or 放弃修改 was pressed in another tab.
+// A retry fails the same way, so `handleWriteError` calls `onLocked`
+// (WritingRoomHost wires it to `reload`), which re-reads the writing and opens
+// the finished page. Any other error is shown with the server's own message.
 //
-// `onLocked` is optional: a caller with no reachable lock path (PlanningView
-// writes only ever happen before a writing has been finished once, and
-// `locked` requires at least one version — see `isRevising`/`showFinishedPage`
-// in `finishedWriting.ts` — so a 结构-stage write can never actually hit this)
-// can simply not pass it, and every call here falls through to `setError`
-// exactly as before.
+// Every room surface passes `onLocked`, 结构 (PlanningView) included: she can
+// jump back to 结构 while revising, so its writes can get either refusal. A
+// caller without `onLocked` gets the message shown instead.
 import { apiErrorText } from "../api/errorText";
-import { isWritingLockedError } from "./finishedWriting";
+import { isWritingClosedError } from "./finishedWriting";
 
 export function handleWriteError(err: unknown, onLocked: (() => void) | undefined, setError: (message: string) => void): void {
-  if (isWritingLockedError(err)) {
-    onLocked?.();
+  if (onLocked && isWritingClosedError(err)) {
+    onLocked();
     return;
   }
   setError(apiErrorText(err));

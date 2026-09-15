@@ -32,9 +32,11 @@ export function openItemsForKind(items: readonly AssignmentInboxItem[], kind: As
   return items.filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
 }
 
-/** The deadline a strip row shows: the return deadline once returned. */
-export function stripDueAt(item: Pick<AssignmentInboxItem, "status" | "dueAt" | "returnDueAt">): string {
-  return item.status === "returned" && item.returnDueAt ? item.returnDueAt : item.dueAt;
+/** The deadline a strip row shows: the return deadline whenever the teacher
+ *  has returned it. That includes a return whose deadline has passed: the
+ *  status is then `overdue`, and the deadline she missed is the return one. */
+export function stripDueAt(item: Pick<AssignmentInboxItem, "dueAt" | "returnDueAt">): string {
+  return item.returnDueAt ? item.returnDueAt : item.dueAt;
 }
 
 /** Unread first; the server's order is kept inside each group. */

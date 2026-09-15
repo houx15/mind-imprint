@@ -1,5 +1,5 @@
 import { StudentCoachHeading } from "../learning/StudentCoachHeading";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
@@ -21,6 +21,7 @@ import { MindMap } from "./MindMap";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
 import { handleWriteError } from "./writeErrors";
+import { coachOpeningNeeded } from "./openingRule";
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -56,6 +57,7 @@ export function PlanningView({
   onDone,
   onBack,
   onLocked,
+  banner,
 }: {
   writing: Writing;
   messages: LiteMessage[];
@@ -73,6 +75,9 @@ export function PlanningView({
    *  the room into the locked finished page instead of showing a raw error
    *  on a piece she can no longer edit. */
   onLocked?: () => void;
+  /** Shown under the header: the revising strip while she edits a finished
+   *  writing from 结构 (spec A2). */
+  banner?: ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -92,7 +97,7 @@ export function PlanningView({
    * 印记 opens. Same idempotent endpoint the room uses — calling it twice
    * replays rather than greeting her again, so a refresh mid-flight is free.
    */
-  const openingNeeded = writing.setupAt !== null && !messages.some((m) => m.role === "ai");
+  const openingNeeded = coachOpeningNeeded(writing, messages);
   /**
    * Fire once per writing, and apply the answer unless she has really left.
    *
@@ -250,6 +255,8 @@ export function PlanningView({
           </Button>
         </div>
       </header>
+
+      {banner && <div className="shrink-0 px-5 pt-3">{banner}</div>}
 
       {error && (
         <div role="alert" className="shrink-0 px-5 py-2 text-mk-small text-mk-danger" style={{ background: "var(--mk-danger-bg)" }}>

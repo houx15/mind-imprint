@@ -4,10 +4,9 @@ import { Icon } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
-import { ApiError } from "../api/client";
 import { getWritingBlockThread, postWritingBlockDeepen } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
-import { apiErrorText } from "../api/errorText";
+import { handleWriteError } from "./writeErrors";
 
 /**
  * DeepenDrawer — 深入一层, the side conversation about ONE block.
@@ -45,6 +44,7 @@ export function DeepenDrawer({
   outlineId,
   heading,
   onClose,
+  onLocked,
 }: {
   writingId: string;
   outlineId: string;
@@ -53,6 +53,9 @@ export function DeepenDrawer({
    *  scoped conversation that doesn't say what it is scoped to is confusing. */
   heading: string;
   onClose: () => void;
+  /** A turn was refused because the room is out of date (403 writing_locked
+   *  or writing_finished): reload the room instead of showing the 403. */
+  onLocked?: () => void;
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +126,8 @@ export function DeepenDrawer({
       // Her turn IS persisted server-side before the model is ever called
       // (writing_deepen.go), so rolling the bubble back locally would show
       // her something the reload will contradict. Keep it, say what failed.
-      setError(apiErrorText(err));
+      // A refusal because the room is out of date reloads the room instead.
+      handleWriteError(err, onLocked, setError);
     } finally {
       setSending(false);
     }
