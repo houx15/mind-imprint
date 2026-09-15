@@ -310,6 +310,19 @@ export function buildPayload(d: SettingsDraft, recipientIds: string[]): Assignme
     : { drivingQuestion: d.drivingQuestion.trim() };
 }
 
+/** The create form's 班级 selector changed to `classId`: any personalized-
+ * reading `picks` on the draft belong to the OLD class's students, so they
+ * must go back to `null` — otherwise `validateSettings` passes on the stale
+ * rows (they are still non-null) while class B's preview is loading or has
+ * failed, and 发布 filters every stale row out against the new roster and
+ * sends `{picks: {}}` (fix round 1 of Task 6 exists to block exactly this
+ * for the edit page; this is the same bug on the create form). `disciplines`
+ * and `personalTier` are a class-independent filter, not tied to one
+ * class's students, so they are kept as-is. */
+export function draftOnClassChange(d: AssignmentDraft, classId: string): AssignmentDraft {
+  return { ...d, classId, picks: null };
+}
+
 function validateCommon(title: string, dueInput: string): string | null {
   const t = title.trim();
   if (!t || runes(t) > 200) return "请填写作业标题，不超过 200 字";

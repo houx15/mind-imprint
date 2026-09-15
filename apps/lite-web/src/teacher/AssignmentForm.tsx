@@ -14,6 +14,7 @@ import { TeacherPage } from "./TeacherPage";
 import { UploadSourceField } from "./UploadSourceField";
 import {
   buildCreateInput,
+  draftOnClassChange,
   emptySettings,
   errorText,
   failText,
@@ -386,7 +387,7 @@ export function AssignmentForm({
               onChange={(e) => {
                 const classId = e.target.value;
                 writeLastClassId(classId);
-                setDraft((d) => ({ ...d, classId }));
+                setDraft((d) => draftOnClassChange(d, classId));
               }}
               className={INPUT_CLS}
             >

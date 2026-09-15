@@ -11,6 +11,7 @@ import {
   buildReturnInput,
   canEditSettings,
   disciplineOptions,
+  draftOnClassChange,
   emptySettings,
   extractedCountText,
   failText,
@@ -289,6 +290,24 @@ describe("pickClassId", () => {
     expect(pickClassId(["a", "b"], "gone", "b")).toBe("b");
     expect(pickClassId(["a", "b"], null, "gone")).toBe("a");
     expect(pickClassId([], "a", "a")).toBe("");
+  });
+});
+
+describe("draftOnClassChange", () => {
+  it("clears picks (stale rows belong to the old class) and keeps the class-wide filter", () => {
+    const d = draft({
+      ...emptySettings("reading"),
+      classId: "c1",
+      readingSource: "personalized",
+      disciplines: ["science"],
+      personalTier: 3,
+      picks: [{ userId: "u1", name: "甲", slug: "coral", title: "Coral reefs", tier: null, suggestedTier: 2, reason: "兴趣相关：科学", swapped: false }],
+    });
+    const next = draftOnClassChange(d, "c2");
+    expect(next.classId).toBe("c2");
+    expect(next.picks).toBeNull();
+    expect(next.disciplines).toEqual(["science"]);
+    expect(next.personalTier).toBe(3);
   });
 });
 

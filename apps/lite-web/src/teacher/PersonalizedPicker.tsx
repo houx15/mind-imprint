@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/ui";
 import { previewPersonalizedReading } from "../api/assignments";
 import { getLibraryShelf, type LibraryArticle } from "../api/library";
@@ -25,8 +26,6 @@ import {
  *
  * The preview runs again when the filter or the class changes; rows the
  * teacher swapped, and picks saved on this homework, are kept (mergePickRows).
- * Classes are inlined rather than imported from AssignmentForm, which imports
- * this file.
  */
 export function PersonalizedPicker({
   value,
@@ -125,17 +124,25 @@ export function PersonalizedPicker({
         </div>
       </div>
 
-      {error ? (
+      {error && (
         <div className="text-mk-small font-semibold text-mk-danger">
           加载失败：{error}{" "}
           <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
             重试
           </button>
         </div>
-      ) : !classId ? (
-        <div className="text-mk-small text-mk-muted">请选择班级</div>
-      ) : rows === null ? (
-        <div className="text-mk-small text-mk-muted">加载中…</div>
+      )}
+      {/* What she sees below must match what 发布/保存 would send: a failed
+          preview keeps showing the rows from before the failure (still what
+          `buildPayload` reads from `value.picks`) instead of hiding them
+          behind the error. Only with no rows yet (nothing loaded before the
+          failure) does the error stand alone. */}
+      {rows === null ? (
+        error ? null : !classId ? (
+          <div className="text-mk-small text-mk-muted">请选择班级</div>
+        ) : (
+          <div className="text-mk-small text-mk-muted">加载中…</div>
+        )
       ) : rows.length === 0 ? (
         <div className="text-mk-small text-mk-muted">暂无学生</div>
       ) : (
@@ -195,6 +202,7 @@ function SwapDialog({
   onConfirm: (next: { slug: string; tier: number | null }) => void;
 }) {
   const [choice, setChoice] = useState<{ slug: string; tier: number | null }>({ slug: row.slug, tier: row.tier });
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -204,7 +212,18 @@ function SwapDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Moves focus into the dialog on open — no focus trap, just a starting
+  // point so keyboard use does not stay behind it on the page underneath.
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  // Rendered through a portal, outside the create/edit `<form>` in the DOM:
+  // this dialog contains LibraryPicker's `<input type="search">`, and while
+  // it was a plain child of that form, Enter in the search box triggered the
+  // form's own implicit submit — publishing or saving the homework instead
+  // of doing nothing in this dialog.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "color-mix(in srgb, var(--mk-ink) 42%, transparent)" }}
@@ -213,10 +232,12 @@ function SwapDialog({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="swap-dialog-title"
-        className="flex max-h-full w-full max-w-[640px] flex-col gap-5 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg"
+        tabIndex={-1}
+        className="flex max-h-full w-full max-w-[640px] flex-col gap-5 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg outline-none"
       >
         <div className="flex flex-col gap-1.5">
           <h2 id="swap-dialog-title" className="text-mk-h2 text-mk-ink">
@@ -234,6 +255,7 @@ function SwapDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
