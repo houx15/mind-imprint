@@ -2,8 +2,13 @@ package api
 
 // lite_grading_live_test.go — AI 批改 against the real review model.
 //
-//	set -a; . .deploy-local/env.prod; set +a
-//	LIVE_LLM=1 go test ./internal/api -run TestLiveLiteGrading -v -count=1
+// Run from apps/api (this command's working directory matters — the env
+// file is sourced by absolute path so it does not depend on it):
+//
+//	set -a; . /Users/houyuxin/08Coding/mind-imprint/.deploy-local/env.prod; set +a
+//	LIVE_LLM=1 CGO_ENABLED=0 go test ./internal/api -run TestLiveLiteGrading -v -count=1
+//
+// apps/api/.env.local (also non-empty DASHSCOPE_API_KEY) works the same way.
 //
 // The stub tests only prove Check reads JSON written by hand. This test
 // proves the real model, given the real prompt, returns a grading that
