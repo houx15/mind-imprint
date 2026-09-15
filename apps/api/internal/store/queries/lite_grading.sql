@@ -90,11 +90,16 @@ WHERE id = $1 AND status IN ('draft', 'sent') AND content IS NOT NULL
 RETURNING *;
 
 -- name: SendReviewedLiteGradings :execrows
--- 发送全部已审阅：只发这份作业里已审阅的草稿。
-UPDATE lite_grading
+-- 发送全部已审阅：只发这份作业里已审阅的草稿，且学生仍在班里
+-- （离班学生的草稿即便已审阅也不发送——她已经不是这个老师的学生了）。
+UPDATE lite_grading g
 SET status = 'sent', sent_at = now(), student_seen_at = NULL, updated_at = now()
-WHERE assignment_id = sqlc.arg(assignment_id) AND id = ANY(sqlc.arg(ids)::uuid[])
-  AND status = 'draft' AND reviewed_at IS NOT NULL AND content IS NOT NULL;
+WHERE g.assignment_id = sqlc.arg(assignment_id) AND g.id = ANY(sqlc.arg(ids)::uuid[])
+  AND g.status = 'draft' AND g.reviewed_at IS NOT NULL AND g.content IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM enrollments e
+    WHERE e.class_id = g.class_id AND e.user_id = g.user_id AND e.role_in_class = 'student'
+  );
 
 -- name: ListSentLiteGradingsForAtom :many
 -- 学生读的批改：只有已发送的行。

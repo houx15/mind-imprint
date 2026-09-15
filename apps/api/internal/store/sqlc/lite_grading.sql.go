@@ -468,10 +468,14 @@ func (q *Queries) SendLiteGrading(ctx context.Context, id uuid.UUID) (LiteGradin
 }
 
 const sendReviewedLiteGradings = `-- name: SendReviewedLiteGradings :execrows
-UPDATE lite_grading
+UPDATE lite_grading g
 SET status = 'sent', sent_at = now(), student_seen_at = NULL, updated_at = now()
-WHERE assignment_id = $1 AND id = ANY($2::uuid[])
-  AND status = 'draft' AND reviewed_at IS NOT NULL AND content IS NOT NULL
+WHERE g.assignment_id = $1 AND g.id = ANY($2::uuid[])
+  AND g.status = 'draft' AND g.reviewed_at IS NOT NULL AND g.content IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM enrollments e
+    WHERE e.class_id = g.class_id AND e.user_id = g.user_id AND e.role_in_class = 'student'
+  )
 `
 
 type SendReviewedLiteGradingsParams struct {
@@ -479,7 +483,8 @@ type SendReviewedLiteGradingsParams struct {
 	Ids          []uuid.UUID `json:"ids"`
 }
 
-// 发送全部已审阅：只发这份作业里已审阅的草稿。
+// 发送全部已审阅：只发这份作业里已审阅的草稿，且学生仍在班里
+// （离班学生的草稿即便已审阅也不发送——她已经不是这个老师的学生了）。
 func (q *Queries) SendReviewedLiteGradings(ctx context.Context, arg SendReviewedLiteGradingsParams) (int64, error) {
 	result, err := q.db.Exec(ctx, sendReviewedLiteGradings, arg.AssignmentID, arg.Ids)
 	if err != nil {

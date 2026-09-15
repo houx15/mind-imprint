@@ -762,3 +762,213 @@ func TestLiteGradingRejectsReadingHomework(t *testing.T) {
 		}
 	}
 }
+
+func gradingContent(grade string, points []map[string]any) map[string]any {
+	return map[string]any{
+		"overall": map[string]any{"grade": grade, "comment": "第二段请补充数据来源。"},
+		"dimensions": []map[string]any{
+			{"name": "内容", "grade": "B", "comment": ""}, {"name": "结构", "grade": "B", "comment": ""},
+			{"name": "语言", "grade": "B", "comment": ""}, {"name": "书写规范", "grade": "B", "comment": ""},
+		},
+		"points": points,
+	}
+}
+
+func TestLiteGradingPatchAndSend(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, _, _ := f.submit(t)
+	f.queueAll(t, aid, false)
+	gid := f.rows(t, aid)[0].Grading.ID
+	path := "/api/v1/lite/teacher/gradings/" + gid
+
+	// Queued: not editable, not sendable.
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "PATCH", path, map[string]any{}); code != http.StatusConflict || ec != "grading_not_editable" {
+		t.Fatalf("patch queued = %d %s", code, ec)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", path+"/send", nil); code != http.StatusConflict || ec != "grading_not_sendable" {
+		t.Fatalf("send queued = %d %s", code, ec)
+	}
+	f.runJobs(t)
+
+	teacherPoint := []map[string]any{{"kind": "issue", "quote": nil, "text": "第二段请补充数据来源。", "action": nil, "source": "teacher"}}
+	rec := doJSON(t, f.h, f.teacher, "PATCH", path, mustJSON(t, map[string]any{"content": gradingContent("E", teacherPoint)}))
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_grading") || !strings.Contains(rec.Body.String(), "总评的等级不在评分标准内：E") {
+		t.Fatalf("bad grade = %d %s", rec.Code, rec.Body)
+	}
+	notHers := []map[string]any{{"kind": "issue", "quote": "雨一直下。", "text": "说明", "action": nil, "source": "teacher"}}
+	rec = doJSON(t, f.h, f.teacher, "PATCH", path, mustJSON(t, map[string]any{"content": gradingContent("B", notHers)}))
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "引文不在正文中") {
+		t.Fatalf("teacher quote not hers = %d %s", rec.Code, rec.Body)
+	}
+
+	var resp struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", path, map[string]any{"content": gradingContent("B", teacherPoint)}, &resp); code != http.StatusOK {
+		t.Fatalf("patch = %d", code)
+	}
+	if resp.Grading.ReviewedAt == nil || resp.Grading.Status != "draft" || !strings.Contains(string(resp.Grading.Content), `"source":"teacher"`) {
+		t.Fatalf("patched = %+v %s", resp.Grading, resp.Grading.Content)
+	}
+	var ai []byte
+	if err := f.pool.QueryRow(context.Background(), `SELECT ai FROM lite_grading WHERE id = $1`, gid).Scan(&ai); err != nil || !strings.Contains(string(ai), `"B+"`) {
+		t.Fatalf("ai must not change on a teacher edit: %s err=%v", ai, err)
+	}
+
+	if code := assignJSON(t, f.h, f.teacher, "POST", path+"/send", nil, &resp); code != http.StatusOK || resp.Grading.Status != "sent" || resp.Grading.SentAt == nil {
+		t.Fatalf("send = %d %+v", code, resp.Grading)
+	}
+	// Regrading a sent row is refused (Task 5); editing it is allowed and re-sends.
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET student_seen_at = now() WHERE id = $1`, gid); err != nil {
+		t.Fatal(err)
+	}
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", path, map[string]any{"content": gradingContent("A-", teacherPoint)}, &resp); code != http.StatusOK || resp.Grading.Status != "sent" || resp.Grading.StudentSeenAt != nil {
+		t.Fatalf("edit sent = %d %+v", code, resp.Grading)
+	}
+
+	// Failed rows are not editable.
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET status = 'failed' WHERE id = $1`, gid); err != nil {
+		t.Fatal(err)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "PATCH", path, map[string]any{}); code != http.StatusConflict || ec != "grading_not_editable" {
+		t.Fatalf("patch failed row = %d %s", code, ec)
+	}
+}
+
+func TestLiteGradingSendAllReviewed(t *testing.T) {
+	f := newGradingFixture(t)
+	s2 := createStudent(t, f.pool, SeedSchoolID, "gr-s2@demo.local")
+	s3 := createStudent(t, f.pool, SeedSchoolID, "gr-s3@demo.local")
+	enrollStudent(t, f.pool, s2, f.classID)
+	enrollStudent(t, f.pool, s3, f.classID)
+	ids := []uuid.UUID{f.studentID, s2, s3}
+	idStrings := []string{f.studentID.String(), s2.String(), s3.String()}
+	aid := createAssignment(t, f.h, f.teacher, f.classID, writingAssignmentBody(idStrings))
+	for _, uid := range ids {
+		c := signInAs(t, f.pool, uid)
+		atomID := startAssignment(t, f.h, c, aid).AtomID
+		if code := assignJSON(t, f.h, c, "PUT", "/api/v1/writings/"+atomID+"/draft", map[string]any{"body": gradingBody}, nil); code != http.StatusOK {
+			t.Fatalf("draft = %d", code)
+		}
+		if code := assignJSON(t, f.h, c, "POST", "/api/v1/writings/"+atomID+"/finish", nil, nil); code != http.StatusOK {
+			t.Fatalf("finish = %d", code)
+		}
+	}
+	if n := f.queueAll(t, aid, false); n != 3 {
+		t.Fatalf("queued = %d", n)
+	}
+	f.runJobs(t)
+	rows := f.rows(t, aid)
+	gids := make([]string, 0, 3)
+	for _, r := range rows {
+		gids = append(gids, r.Grading.ID)
+	}
+	// Mark one reviewed (PATCH with no content).
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", "/api/v1/lite/teacher/gradings/"+gids[0], map[string]any{}, nil); code != http.StatusOK {
+		t.Fatalf("mark reviewed = %d", code)
+	}
+	var resp struct {
+		Sent int `json:"sent"`
+	}
+	sendAll := "/api/v1/lite/teacher/assignments/" + aid + "/gradings/send"
+	if code := assignJSON(t, f.h, f.teacher, "POST", sendAll, map[string]any{"ids": gids}, &resp); code != http.StatusOK || resp.Sent != 1 {
+		t.Fatalf("send all = %d sent=%d, want 1", code, resp.Sent)
+	}
+	statuses := map[string]string{}
+	for _, r := range f.rows(t, aid) {
+		statuses[r.Grading.ID] = r.Grading.Status
+	}
+	if statuses[gids[0]] != "sent" || statuses[gids[1]] != "draft" || statuses[gids[2]] != "draft" {
+		t.Fatalf("statuses = %v", statuses)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", sendAll, map[string]any{"ids": []string{"x"}}); code != http.StatusBadRequest || ec != "invalid_ids" {
+		t.Fatalf("bad ids = %d %s", code, ec)
+	}
+
+	other := signInAs(t, f.pool, createTeacher(t, f.pool, SeedSchoolID, "gr-other2@demo.local"))
+	for _, p := range []struct{ method, path string }{
+		{"PATCH", "/api/v1/lite/teacher/gradings/" + gids[1]},
+		{"POST", "/api/v1/lite/teacher/gradings/" + gids[1] + "/send"},
+		{"POST", sendAll},
+	} {
+		if code, _ := writeErrorCode(t, f.h, other, p.method, p.path, map[string]any{"ids": gids}); code != http.StatusNotFound {
+			t.Errorf("other teacher %s %s = %d, want 404", p.method, p.path, code)
+		}
+	}
+}
+
+// TestLiteGradingSendAllSkipsDepartedStudent — controller ruling 3: a listed
+// id whose student has left the class is skipped even if her draft is
+// otherwise reviewed and belongs to this assignment; the response's
+// "skipped" count says so instead of silently sending everything else and
+// dropping the mismatch, or sending a row for a student who is no longer
+// this teacher's to grade.
+func TestLiteGradingSendAllSkipsDepartedStudent(t *testing.T) {
+	f := newGradingFixture(t)
+	s2 := createStudent(t, f.pool, SeedSchoolID, "gr-s4@demo.local")
+	enrollStudent(t, f.pool, s2, f.classID)
+	idStrings := []string{f.studentID.String(), s2.String()}
+	aid := createAssignment(t, f.h, f.teacher, f.classID, writingAssignmentBody(idStrings))
+	for _, uid := range []uuid.UUID{f.studentID, s2} {
+		c := signInAs(t, f.pool, uid)
+		atomID := startAssignment(t, f.h, c, aid).AtomID
+		if code := assignJSON(t, f.h, c, "PUT", "/api/v1/writings/"+atomID+"/draft", map[string]any{"body": gradingBody}, nil); code != http.StatusOK {
+			t.Fatalf("draft = %d", code)
+		}
+		if code := assignJSON(t, f.h, c, "POST", "/api/v1/writings/"+atomID+"/finish", nil, nil); code != http.StatusOK {
+			t.Fatalf("finish = %d", code)
+		}
+	}
+	if n := f.queueAll(t, aid, false); n != 2 {
+		t.Fatalf("queued = %d", n)
+	}
+	f.runJobs(t)
+	byUser := map[string]string{}
+	for _, r := range f.rows(t, aid) {
+		byUser[r.UserID] = r.Grading.ID
+	}
+	gids := []string{byUser[f.studentID.String()], byUser[s2.String()]}
+	// Both reviewed (PATCH with no content).
+	for _, gid := range gids {
+		if code := assignJSON(t, f.h, f.teacher, "PATCH", "/api/v1/lite/teacher/gradings/"+gid, map[string]any{}, nil); code != http.StatusOK {
+			t.Fatalf("mark reviewed = %d", code)
+		}
+	}
+	// s2 leaves the class after her draft was reviewed.
+	if _, err := f.pool.Exec(context.Background(), `DELETE FROM enrollments WHERE user_id = $1 AND class_id = $2`, s2, f.classID); err != nil {
+		t.Fatal(err)
+	}
+	var resp struct {
+		Sent    int `json:"sent"`
+		Skipped int `json:"skipped"`
+	}
+	sendAll := "/api/v1/lite/teacher/assignments/" + aid + "/gradings/send"
+	if code := assignJSON(t, f.h, f.teacher, "POST", sendAll, map[string]any{"ids": gids}, &resp); code != http.StatusOK || resp.Sent != 1 || resp.Skipped != 1 {
+		t.Fatalf("send all = %d %+v, want sent=1 skipped=1", code, resp)
+	}
+	// The departed student's row is no longer listed at all (Task 5 ruling 2
+	// filters the list to enrolled students), so read her row straight from
+	// the DB to confirm it was skipped, not sent.
+	gradingStatus := func(gid string) string {
+		var s string
+		if err := f.pool.QueryRow(context.Background(), `SELECT status FROM lite_grading WHERE id = $1`, gid).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	if s := gradingStatus(byUser[f.studentID.String()]); s != "sent" {
+		t.Fatalf("still-enrolled student not sent: %s", s)
+	}
+	if s := gradingStatus(byUser[s2.String()]); s != "draft" {
+		t.Fatalf("departed student's reviewed draft was sent: %s", s)
+	}
+}
+
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}

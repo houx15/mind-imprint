@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/liteassign"
+	"mindimprint/api/internal/litegrade"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -617,4 +619,121 @@ func (a *API) getLiteGrading(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.teacherGradingResponse(w, r, g)
+}
+
+// patchLiteGrading handles PATCH /api/v1/lite/teacher/gradings/{gid}.
+// With content: a shape check (litegrade.CheckTeacherEdit), then save. Without
+// content: 标记已审阅. Either way reviewed_at is set. Editing a sent row
+// re-sends it. ai is never changed.
+func (a *API) patchLiteGrading(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	g, ok := a.loadTeacherGrading(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
+		return
+	}
+	var content []byte
+	if req.Content != nil && strings.TrimSpace(string(req.Content)) != "null" {
+		var c litegrade.Content
+		if err := json.Unmarshal(req.Content, &c); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容格式错误", nil))
+			return
+		}
+		var rubric liteassign.Rubric
+		if err := json.Unmarshal(g.Rubric, &rubric); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		src, err := a.d.Queries.GetLiteGradingSource(ctx, g.VersionID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		in := liteGradingInput(src, rubric)
+		c = litegrade.NormalizeTeacher(c, rubric)
+		if rs := litegrade.CheckTeacherEdit(c, in); len(rs) > 0 {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容有误："+litegrade.JoinReasons(rs), nil))
+			return
+		}
+		if content, err = json.Marshal(c); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	updated, err := a.d.Queries.UpdateLiteGradingContent(ctx, sqlc.UpdateLiteGradingContentParams{ID: g.ID, Content: content})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, &httpx.APIError{Status: http.StatusConflict, Code: "grading_not_editable", Message: "批改中或批改失败时不能修改"})
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	a.teacherGradingResponse(w, r, updated)
+}
+
+func errGradingNotSendable() *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusConflict, Code: "grading_not_sendable", Message: "只有草稿或已发送的批改可以发送"}
+}
+
+// sendLiteGrading handles POST /api/v1/lite/teacher/gradings/{gid}/send.
+func (a *API) sendLiteGrading(w http.ResponseWriter, r *http.Request) {
+	g, ok := a.loadTeacherGrading(w, r)
+	if !ok {
+		return
+	}
+	sent, err := a.d.Queries.SendLiteGrading(r.Context(), g.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, errGradingNotSendable())
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	a.teacherGradingResponse(w, r, sent)
+}
+
+// sendLiteAssignmentGradings handles POST /api/v1/lite/teacher/assignments/{aid}/gradings/send
+// (发送全部已审阅). A listed id is sent only if it is a draft of this
+// assignment, reviewed, AND its student is still enrolled in the class
+// (SendReviewedLiteGradings' query checks all four); anything else —
+// including a departed student's otherwise-reviewed draft — is skipped, not
+// an error. The response reports both counts so a partial send is never
+// silently indistinguishable from "everything sent".
+func (a *API) sendLiteAssignmentGradings(w http.ResponseWriter, r *http.Request) {
+	as, ok := a.loadTeacherAssignment(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(req.IDs))
+	for _, s := range req.IDs {
+		id, err := uuid.Parse(strings.TrimSpace(s))
+		if err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_ids", "批改编号格式错误", nil))
+			return
+		}
+		ids = append(ids, id)
+	}
+	n, err := a.d.Queries.SendReviewedLiteGradings(r.Context(), sqlc.SendReviewedLiteGradingsParams{
+		AssignmentID: pgtype.UUID{Bytes: as.ID, Valid: true}, Ids: ids,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"sent": n, "skipped": int64(len(ids)) - n})
 }
