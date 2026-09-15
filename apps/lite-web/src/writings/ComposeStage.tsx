@@ -3,7 +3,6 @@ import { Layers, MessageSquareText, Check } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { wordUnit } from "./wordUnit";
-import { ApiError } from "../api/client";
 import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
 import { registerPendingSave } from "./pendingSaves";
@@ -21,7 +20,7 @@ import {
   type WritingSnippet,
 } from "../api/writingRoom";
 import { renameWriting, type Writing } from "../api/writings";
-import { apiErrorText } from "../api/errorText";
+import { handleWriteError } from "./writeErrors";
 
 /**
  * ComposeStage — 成稿, as a page rather than a box.
@@ -69,6 +68,7 @@ export function ComposeStage({
   onDraftChange,
   onFinished,
   onRenamed,
+  onLocked,
 }: {
   /** `"brought"` = 她带进来的成稿（0146）。这一页据此说明结构和段落两步没有
    *  走过 —— 她看见那两步是空的，得知道为什么。 */
@@ -85,6 +85,10 @@ export function ComposeStage({
   /** Lifted so the room header's `EditableTitle` shows the new name the
    *  moment she settles on one at 完成这篇, rather than at the next load. */
   onRenamed?: (writing: Writing) => void;
+  /** The deadline passed while she was mid-edit: every write below reloads
+   *  the room into the locked finished page instead of showing a raw error
+   *  on a page that can no longer save anything. */
+  onLocked?: () => void;
 }) {
   const [body, setBody] = useState(draft.body);
   const [composing, setComposing] = useState(false);
@@ -204,7 +208,7 @@ export function ComposeStage({
       return true;
     } catch (err) {
       savedRef.current = previous;
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
       return false;
     } finally {
       setSaving(false);
@@ -265,7 +269,7 @@ export function ComposeStage({
       setHighlight(null);
       onDraftChange(next);
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
     } finally {
       setComposing(false);
     }
@@ -293,7 +297,7 @@ export function ComposeStage({
       setComment(await reviewWritingDraft(writingId));
       setHighlight(null);
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
     } finally {
       setReviewing(false);
     }
@@ -343,7 +347,7 @@ export function ComposeStage({
       }
       await doFinish();
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
       setFinishing(false);
     }
   }
@@ -357,7 +361,7 @@ export function ComposeStage({
     try {
       onFinished(await finishWriting(writingId));
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
       setFinishing(false);
     }
   }
@@ -375,7 +379,7 @@ export function ComposeStage({
     try {
       onRenamed?.(await renameWriting(writingId, title));
     } catch (err) {
-      setNameError(apiErrorText(err));
+      handleWriteError(err, onLocked, setNameError);
       setNaming(false);
       return;
     }

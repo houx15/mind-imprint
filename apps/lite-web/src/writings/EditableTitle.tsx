@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "../api/client";
 import { renameWriting, type Writing } from "../api/writings";
-import { apiErrorText } from "../api/errorText";
+import { handleWriteError } from "./writeErrors";
 
 /**
  * EditableTitle — the h1, as something she owns.
@@ -25,12 +24,18 @@ export function EditableTitle({
   writingId,
   title,
   onRenamed,
+  onLocked,
 }: {
   writingId: string;
   title: string;
   /** Lifted so the rest of the room (header, list, finished screen) sees the
    *  new title immediately rather than at the next load. */
   onRenamed?: (next: Writing) => void;
+  /** The deadline passed while she was mid-rename: reload the room into the
+   *  locked finished page instead of showing a raw 403 on a piece she can no
+   *  longer edit. Left `undefined` where a rename can never actually be
+   *  locked (结构's `PlanningView`, before the writing has any version). */
+  onLocked?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
@@ -69,7 +74,7 @@ export function EditableTitle({
       onRenamed?.(saved);
     } catch (err) {
       setValue(title);
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
     }
   }
 

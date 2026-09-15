@@ -3,15 +3,14 @@ import { Plus, HelpCircle, Eye, LayoutGrid } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { wordUnit } from "./wordUnit";
-import { ApiError } from "../api/client";
 import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
-import { apiErrorText } from "../api/errorText";
 import { registerPendingSave } from "./pendingSaves";
+import { handleWriteError } from "./writeErrors";
 import {
   putWritingSnippet,
   guideWritingBlock,
@@ -142,6 +141,7 @@ export function SnippetsStage({
   onGoToStructure,
   onGoToDraft,
   onSay,
+  onLocked,
 }: {
   writingId: string;
   outline: WritingOutlineItem[];
@@ -156,6 +156,10 @@ export function SnippetsStage({
   onGoToStructure: () => void;
   /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
   onGoToDraft: () => void;
+  /** The deadline passed while she was mid-edit: every write below (and in
+   *  each `SnippetBlock`) reloads the room into the locked finished page
+   *  instead of showing a raw error on a page that can no longer save. */
+  onLocked?: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
 
@@ -217,12 +221,12 @@ export function SnippetsStage({
       .catch((err: unknown) => {
         // Surfaced, never masked: 「卡住了？」 still works per block, and
         // saying so is more useful than a page that silently teaches nothing.
-        if (alive.current) setBatchError(apiErrorText(err));
+        if (alive.current) handleWriteError(err, onLocked, setBatchError);
       })
       .finally(() => {
         if (alive.current) setBatching(false);
       });
-  }, [needsBatch, writingId, alive]);
+  }, [needsBatch, writingId, alive, onLocked]);
 
   /** Which block, if any, has 深入一层 open. */
   const [deepen, setDeepen] = useState<{ outlineId: string; heading: string } | null>(null);
@@ -346,6 +350,7 @@ export function SnippetsStage({
               boardKey={`${oid ?? "free"}-${slot.position}`}
               openBoardFor={openBoardFor}
               onBoardOpen={setOpenBoardFor}
+              onLocked={onLocked}
             />
           );
         })}
@@ -411,6 +416,7 @@ function SnippetBlock({
   openBoardFor,
   onBoardOpen,
   lang,
+  onLocked,
 }: {
   writingId: string;
   slot: Slot;
@@ -430,6 +436,9 @@ function SnippetBlock({
   lang: string;
   openBoardFor: string | null;
   onBoardOpen: (key: string | null) => void;
+  /** The deadline passed while she was mid-edit: every write below reloads
+   *  the room into the locked finished page. */
+  onLocked?: () => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
@@ -560,7 +569,7 @@ function SnippetBlock({
         saved.find((s) => (slot.outlineId ? s.outlineId === slot.outlineId : s.position === slot.position)) ?? null
       );
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
       return null;
     } finally {
       setSaving(false);
@@ -587,7 +596,7 @@ function SnippetBlock({
       if (!row) return; // save() already surfaced why.
       onCommented(await commentOnWritingSnippet(writingId, row.id));
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
     } finally {
       setCommenting(false);
     }
@@ -628,7 +637,7 @@ function SnippetBlock({
       onGuide(await guideWritingBlock(writingId, slot.outlineId));
       setCollapsed(false);
     } catch (err) {
-      setError(apiErrorText(err));
+      handleWriteError(err, onLocked, setError);
     } finally {
       setGuiding(false);
     }

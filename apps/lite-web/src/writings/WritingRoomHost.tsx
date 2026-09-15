@@ -386,6 +386,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             writingId={writingId}
             title={writing.title}
             onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
+            onLocked={reload}
           />
           <AssignmentLine atomId={writingId} className="mt-0.5 block text-mk-small text-mk-muted" />
           <AssignedPromptLine writing={writing} />
@@ -422,6 +423,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             onGoToStructure={() => void jumpStage("outline")}
             onGoToDraft={() => void jumpStage("draft")}
             onSay={say}
+            onLocked={reload}
           />
         </div>
 
@@ -546,6 +548,7 @@ function StagePanel({
   onGoToStructure,
   onGoToDraft,
   onSay,
+  onLocked,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
@@ -555,6 +558,9 @@ function StagePanel({
   onGoToDraft: () => void;
   /** 一块板摆完了：把结果当成她说的一句话发出去。 */
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
+  /** The deadline passed mid-edit: every write inside 段落/成稿 reloads the
+   *  room into the locked finished page — see `writeErrors.ts`. */
+  onLocked: () => void;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -569,6 +575,7 @@ function StagePanel({
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}
+          onLocked={onLocked}
         />
       );
     case "draft":
@@ -586,6 +593,7 @@ function StagePanel({
           // EditableTitle must see it immediately — the same lift PlanningView
           // and the room header already do for a rename typed in place.
           onRenamed={(w) => setState((s) => (s.phase === "ready" ? { ...s, writing: w } : s))}
+          onLocked={onLocked}
         />
       );
     // 'outline' (结构) never reaches here: it takes the WHOLE screen as
@@ -602,6 +610,7 @@ function StagePanel({
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}
+          onLocked={onLocked}
         />
       );
   }
