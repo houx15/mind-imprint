@@ -98,6 +98,42 @@ func PicksOutside(payload json.RawMessage, recipients []uuid.UUID) bool {
 	return false
 }
 
+// PicksOutsideChanged is PicksOutside for a PATCH: it only refuses a pick
+// that is new, or whose slug or tier changed from old, and whose user is not
+// one of recipients. A pick left exactly as it was in old is not re-checked,
+// so removing a recipient's pick from the recipient list never blocks a save
+// that leaves her stale pick untouched — her pick stays in the stored
+// payload rather than being stripped or refused.
+func PicksOutsideChanged(payload, old json.RawMessage, recipients []uuid.UUID) bool {
+	var p ReadingPayload
+	if json.Unmarshal(payload, &p) != nil || p.Source != "personalized" {
+		return false
+	}
+	var prior ReadingPayload
+	_ = json.Unmarshal(old, &prior) // old may be a different kind; a failed parse just means "nothing there before"
+	in := make(map[string]bool, len(recipients))
+	for _, id := range recipients {
+		in[id.String()] = true
+	}
+	for uid, pick := range p.Picks {
+		if in[uid] {
+			continue
+		}
+		if was, ok := prior.Picks[uid]; ok && was.Slug == pick.Slug && sameTier(was.Tier, pick.Tier) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func sameTier(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
 // ValidateInstructions trims the teacher's 说明 and caps it at 2000 runes.
 // The student sees it in her inbox, so an unbounded field would crowd the list.
 func ValidateInstructions(s string) (string, error) {

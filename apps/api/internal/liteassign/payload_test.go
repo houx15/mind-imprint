@@ -170,6 +170,47 @@ func TestPicksOutside(t *testing.T) {
 	}
 }
 
+func TestPicksOutsideChanged(t *testing.T) {
+	a, b := uuid.New(), uuid.New()
+	slug := library.All()[0].Slug
+	other := library.All()[1].Slug
+	old, err := ValidatePayload("reading", json.RawMessage(
+		`{"source":"personalized","picks":{"`+a.String()+`":{"slug":"`+slug+`"},"`+b.String()+`":{"slug":"`+slug+`"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// b was removed from the recipient list, but her pick in the resent
+	// payload is byte-for-byte the same as old: not re-checked, so this is
+	// not refused even though b is no longer a recipient.
+	if PicksOutsideChanged(old, old, []uuid.UUID{a}) {
+		t.Fatal("b's pick is unchanged from old, want false even though b is not a recipient")
+	}
+	// b's pick changed (a different slug): now it is checked, and b is not a
+	// recipient, so this is refused.
+	changed, err := ValidatePayload("reading", json.RawMessage(
+		`{"source":"personalized","picks":{"`+a.String()+`":{"slug":"`+slug+`"},"`+b.String()+`":{"slug":"`+other+`"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !PicksOutsideChanged(changed, old, []uuid.UUID{a}) {
+		t.Fatal("b's pick changed and b is not a recipient, want true")
+	}
+	// A brand new pick for a non-recipient is always checked.
+	c := uuid.New()
+	withNew, err := ValidatePayload("reading", json.RawMessage(
+		`{"source":"personalized","picks":{"`+a.String()+`":{"slug":"`+slug+`"},"`+c.String()+`":{"slug":"`+slug+`"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !PicksOutsideChanged(withNew, old, []uuid.UUID{a}) {
+		t.Fatal("c is a brand new pick and is not a recipient, want true")
+	}
+	// Every pick still present and unchanged, and covered by recipients: false.
+	if PicksOutsideChanged(old, old, []uuid.UUID{a, b}) {
+		t.Fatal("every pick user is a recipient, want false")
+	}
+}
+
 // TestReadingPersonalizedPickKeyCollision: two pick keys that normalise to
 // the same user id (differing only by letter case) must be rejected rather
 // than letting Go's map iteration order silently pick a survivor.

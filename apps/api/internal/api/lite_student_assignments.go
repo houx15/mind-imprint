@@ -349,7 +349,8 @@ func (a *API) createAssignedItemInTx(ctx context.Context, tx pgx.Tx, qtx *sqlc.Q
 		case "library":
 			return startAssignedLibraryReading(ctx, tx, qtx, userID, p)
 		case "personalized":
-			// Read through qtx: a start holds one pooled connection at a time.
+			// The recommendation is computed through qtx, so it happens
+			// under the recipient row lock this transaction holds.
 			target, err := personalizedTargetIn(ctx, qtx, userID, p)
 			if err != nil {
 				return uuid.Nil, err

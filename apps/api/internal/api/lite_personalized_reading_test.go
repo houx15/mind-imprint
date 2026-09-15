@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"testing"
@@ -208,7 +209,38 @@ func TestPersonalizedStart(t *testing.T) {
 	enrollStudent(t, pool, s2, classID)
 	enrollStudent(t, pool, s3, classID)
 	all := library.All()
-	filter := []string{all[len(all)-1].Disciplines[0]}
+	// A student with no interest data and no read history recommends
+	// articles[0] first (Recommend keeps library order when every score is
+	// zero) — that is "base", the unfiltered pick. The filter must name a
+	// discipline base does not carry, so the filtered recommendation for s3
+	// below is provably a different article, not one that happens to match
+	// with or without the filter.
+	base, _ := library.PickForStudent(all, library.Profile{Tier: library.SuggestTier(0, 0)}, nil)
+	var filter []string
+	for _, art := range all {
+		shared := false
+		for _, d := range art.Disciplines {
+			for _, bd := range base.Article.Disciplines {
+				if d == bd {
+					shared = true
+				}
+			}
+		}
+		if !shared {
+			filter = []string{art.Disciplines[0]}
+			break
+		}
+	}
+	if filter == nil {
+		t.Fatal("no article in the library carries a discipline outside base's own — cannot build a discriminating filter")
+	}
+	want := func() library.StudentPick {
+		p, _ := library.PickForStudent(all, library.Profile{Tier: library.SuggestTier(0, 0)}, filter)
+		return p
+	}()
+	if want.Article.Slug == base.Article.Slug {
+		t.Fatalf("filter %v did not change the picked article (%s); the filter is not discriminating", filter, base.Article.Slug)
+	}
 
 	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", personalizedPayload(filter, map[string]any{
 		s1.String(): map[string]any{"slug": all[1].Slug, "tier": 4},
@@ -228,13 +260,106 @@ func TestPersonalizedStart(t *testing.T) {
 	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != all[2].Slug || tier != library.SuggestTier(0, 0) {
 		t.Fatalf("s2 started %s tier %d, want %s at her suggested tier", slug, tier, all[2].Slug)
 	}
-	want, _ := library.PickForStudent(all, library.Profile{Tier: library.SuggestTier(0, 0)}, filter)
 	out = startAssignment(t, h, signInAs(t, pool, s3), aid)
-	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug || tier != library.SuggestTier(0, 0) {
-		t.Fatalf("s3 started %s tier %d, want the recommendation %s", slug, tier, want.Article.Slug)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug || slug == base.Article.Slug || tier != library.SuggestTier(0, 0) {
+		t.Fatalf("s3 started %s tier %d, want the filtered recommendation %s (not the unfiltered %s)", slug, tier, want.Article.Slug, base.Article.Slug)
 	}
 	// Starting again returns the same item.
 	if again := startAssignment(t, h, signInAs(t, pool, s3), aid); again.AtomID != out.AtomID {
 		t.Fatalf("repeat start = %s, want %s", again.AtomID, out.AtomID)
+	}
+}
+
+// TestPersonalizedStartUsesClassTier: a student's pick with no tier of its
+// own, and a student with no pick at all, both fall back to the homework's
+// class-wide tier before falling back further to her own suggested tier.
+func TestPersonalizedStartUsesClassTier(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	s2 := createStudent(t, pool, SeedSchoolID, "pt-s2@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	all := library.All()
+
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("班级难度", map[string]any{
+		"source": "personalized",
+		"tier":   3,
+		"picks": map[string]any{
+			s1.String(): map[string]any{"slug": all[0].Slug, "tier": nil},
+		},
+	}, []string{s1.String(), s2.String()}))
+
+	// s1's pick leaves her tier open: falls back to the class-wide tier (3),
+	// not her suggested tier (2, cold start).
+	out := startAssignment(t, h, signInAs(t, pool, s1), aid)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != all[0].Slug || tier != 3 {
+		t.Fatalf("s1 started %s tier %d, want %s tier 3", slug, tier, all[0].Slug)
+	}
+
+	// s2 has no pick at all: the recommendation also uses the class-wide tier.
+	want, _ := library.PickForStudent(all, library.Profile{Tier: 3}, nil)
+	out = startAssignment(t, h, signInAs(t, pool, s2), aid)
+	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug || tier != 3 {
+		t.Fatalf("s2 started %s tier %d, want the recommendation %s at tier 3", slug, tier, want.Article.Slug)
+	}
+}
+
+// TestPersonalizedPatchKeepsRemovedRecipientsPick covers Ruling 1: a removed
+// recipient's pick stays in the stored payload. Only a pick that is new or
+// has changed since the stored payload is checked against the recipient list
+// a PATCH leaves behind; a pick resent unchanged for a student who was just
+// removed is not refused, and does not block a later save either.
+func TestPersonalizedPatchKeepsRemovedRecipientsPick(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	s2 := createStudent(t, pool, SeedSchoolID, "pk-s2@demo.local")
+	s3 := createStudent(t, pool, SeedSchoolID, "pk-s3@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	enrollStudent(t, pool, s3, classID)
+	slug := library.All()[0].Slug
+
+	payload := personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": slug},
+		s2.String(): map[string]any{"slug": slug},
+	})
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", payload, []string{s1.String(), s2.String()}))
+
+	// Removing s2 while resending the identical payload: her pick is
+	// unchanged, so it is not re-checked against the new recipient list, and
+	// the save succeeds instead of 400-ing and rolling back the removal.
+	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+		map[string]any{"payload": payload, "removeUserIds": []string{s2.String()}}, nil); code != http.StatusOK {
+		t.Fatalf("patch removing s2 with the same payload = %d", code)
+	}
+	var got struct {
+		Assignment struct {
+			Payload json.RawMessage `json:"payload"`
+		} `json:"assignment"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &got); code != http.StatusOK {
+		t.Fatalf("get assignment = %d", code)
+	}
+	var storedPayload struct {
+		Picks map[string]any `json:"picks"`
+	}
+	if err := json.Unmarshal(got.Assignment.Payload, &storedPayload); err != nil {
+		t.Fatalf("decode stored payload: %v", err)
+	}
+	if _, ok := storedPayload.Picks[s2.String()]; !ok {
+		t.Fatalf("stored picks = %+v, want s2's pick to remain (Ruling 1)", storedPayload.Picks)
+	}
+
+	// A later save that still resends the same payload (e.g. a title-only
+	// edit from the form) also succeeds: s2's stale pick does not keep
+	// blocking every future save.
+	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+		map[string]any{"title": "新标题", "payload": payload}, nil); code != http.StatusOK {
+		t.Fatalf("title-only patch resending the same payload = %d", code)
+	}
+
+	// A brand new pick for a student who is not a recipient is still refused.
+	withNewPick := map[string]any{"payload": personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": slug},
+		s3.String(): map[string]any{"slug": slug},
+	})}
+	if code, errCode := writeErrorCode(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, withNewPick); code != http.StatusBadRequest || errCode != "pick_not_recipient" {
+		t.Fatalf("patch adding a new pick for a non-recipient = %d %s", code, errCode)
 	}
 }

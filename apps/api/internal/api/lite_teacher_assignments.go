@@ -575,8 +575,10 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Picks are checked against the recipient list this request leaves behind,
-	// so a teacher can add a student and her pick in one save.
+	// A new or changed pick is checked against the recipient list this request
+	// leaves behind, so a teacher can add a student and her pick in one save.
+	// A pick unchanged from the stored payload is not re-checked: a removed
+	// recipient's pick stays stored, and does not block a later save.
 	if req.Payload != nil {
 		current, err := qtx.ListLiteAssignmentRecipients(ctx, []uuid.UUID{locked.ID})
 		if err != nil {
@@ -587,7 +589,7 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		for _, rc := range current {
 			userIDs = append(userIDs, rc.UserID)
 		}
-		if liteassign.PicksOutside(params.Payload, userIDs) {
+		if liteassign.PicksOutsideChanged(params.Payload, locked.Payload, userIDs) {
 			httpx.WriteError(w, r, errPickNotRecipient())
 			return
 		}

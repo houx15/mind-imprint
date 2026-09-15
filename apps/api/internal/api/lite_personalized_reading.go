@@ -93,11 +93,17 @@ func (a *API) previewLitePersonalizedReading(w http.ResponseWriter, r *http.Requ
 
 // personalizedTargetIn turns a personalized payload into the library reading
 // this student starts: her pick, or, when she has none (she was added after
-// the picks were saved), the recommendation computed now. A nil Tier leaves
-// the tier to startAssignedLibraryReading, which uses her suggested tier.
+// the picks were saved), the recommendation computed now. Tier order is the
+// same on both branches — the pick's own tier, else the homework's class-wide
+// tier, else (a nil Tier here) her suggested tier, left to
+// startAssignedLibraryReading.
 func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID, p liteassign.ReadingPayload) (liteassign.ReadingPayload, error) {
 	if pick, ok := p.Picks[userID.String()]; ok {
-		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: pick.Tier}, nil
+		tier := pick.Tier
+		if tier == nil {
+			tier = p.Tier
+		}
+		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: tier}, nil
 	}
 	prof, err := libraryProfileIn(ctx, q, userID)
 	if err != nil {
