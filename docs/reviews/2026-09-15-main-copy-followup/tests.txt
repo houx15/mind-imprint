@@ -1,0 +1,86 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> @mind-imprint/lite-web@0.0.0 test /private/tmp/mind-imprint-copy-0915/apps/lite-web
+> vitest run -- src/teacher src/tree/treeCopy.test.ts test/stepIndicator.test.tsx
+
+
+ RUN  v1.6.1 /private/tmp/mind-imprint-copy-0915/apps/lite-web
+
+ ✓ test/coachCard.test.tsx  (39 tests) 151ms
+ ✓ test/snippetsStage.test.tsx  (18 tests) 377ms
+ ✓ test/readingsLanding.test.tsx  (20 tests) 746ms
+ ✓ test/composeStage.test.tsx  (24 tests) 815ms
+ ✓ test/exportPoster.test.tsx  (12 tests) 379ms
+ ✓ test/reportView.test.tsx  (19 tests) 280ms
+ ✓ test/readingRoomNarrow.test.tsx  (19 tests) 262ms
+ ✓ test/coachCardWiring.test.tsx  (20 tests) 669ms
+ ✓ test/readingRoomHost.test.tsx  (18 tests) 443ms
+ ✓ src/explore/skyLayout.test.ts  (16 tests) 30ms
+ ✓ src/tree/liveTree.test.ts  (26 tests) 13ms
+ ✓ test/writingRoomHost.test.tsx  (25 tests) 1044ms
+ ✓ test/readingPlanDial.test.tsx  (15 tests) 215ms
+ ✓ src/tree/roots.test.ts  (10 tests) 94ms
+ ✓ test/guideBox.test.tsx  (13 tests) 391ms
+ ✓ test/reportsApi.test.ts  (11 tests) 7ms
+ ✓ test/routing.test.ts  (28 tests) 7ms
+ ✓ test/reportPanel.test.tsx  (7 tests) 193ms
+ ✓ test/stepIndicator.test.tsx  (8 tests) 79ms
+ ✓ test/coachPicks.test.tsx  (5 tests) 159ms
+ ✓ test/writingsLanding.test.tsx  (14 tests) 624ms
+ ✓ src/api/lookback.test.ts  (13 tests) 5ms
+ ✓ test/readingRoomCapabilities.test.tsx  (5 tests) 190ms
+ ✓ test/coachBoards.test.ts  (9 tests) 8ms
+ ✓ src/api/review.test.ts  (12 tests) 5ms
+ ✓ test/articleView.test.tsx  (8 tests) 108ms
+ ✓ test/sharePanel.test.tsx  (6 tests) 187ms
+ ✓ test/readingQuestions.test.tsx  (6 tests) 144ms
+ ✓ test/mindMap.test.tsx  (5 tests) 107ms
+ ✓ src/tree/quiz/content.test.ts  (16 tests) 7ms
+ ✓ test/writingSentences.test.ts  (15 tests) 4ms
+ ✓ src/writings/outlineMove.test.ts  (10 tests) 2ms
+ ✓ test/liteChatMarkdown.test.tsx  (5 tests) 50ms
+ ✓ src/api/tree.test.ts  (11 tests) 3ms
+ ✓ test/planReadyInvite.test.tsx  (3 tests) 332ms
+ ✓ test/lensDoneRefeed.test.tsx  (5 tests) 93ms
+ ✓ src/site/no-ui-kit.test.ts  (4 tests) 3ms
+ ✓ test/useHeartbeat.test.tsx  (4 tests) 25ms
+ ✓ test/coachCardOf.test.ts  (5 tests) 5ms
+ ✓ test/experienceStars.test.tsx  (4 tests) 185ms
+ ✓ test/publicReport.test.tsx  (3 tests) 60ms
+ ✓ test/statLabels.test.ts  (5 tests) 2ms
+ ✓ test/liteAppAuth.test.tsx  (7 tests) 284ms
+ ✓ test/readingFinishPrompt.test.tsx  (4 tests) 134ms
+ ✓ src/api/decide.test.ts  (8 tests) 4ms
+ ✓ src/api/teacher.test.ts  (3 tests) 4ms
+ ✓ src/api/projects.test.ts  (7 tests) 5ms
+ ✓ src/teacher/teacherRouting.test.ts  (24 tests) 3ms
+ ✓ test/commentPanel.test.tsx  (5 tests) 167ms
+ ✓ src/projects/covers.test.ts  (9 tests) 7ms
+ ✓ src/projects/Says.test.ts  (7 tests) 5ms
+ ✓ test/readingOutcomes.test.ts  (3 tests) 3ms
+ ✓ src/api/notes.test.ts  (3 tests) 3ms
+ ✓ src/api/projectRoom.test.ts  (8 tests) 3ms
+ ✓ src/api/split.test.ts  (8 tests) 2ms
+ ✓ src/writings/commentStale.test.ts  (7 tests) 3ms
+ ✓ src/home/recentLearning.test.ts  (3 tests) 5ms
+ ✓ src/teacher/format.test.ts  (13 tests) 6ms
+ ✓ src/api/errorText.test.ts  (5 tests) 2ms
+ ✓ test/blockToolsAutoRun.test.tsx  (3 tests) 92ms
+ ✓ test/proseSurface.test.tsx  (3 tests) 38ms
+ ✓ src/shared/theme.test.ts  (5 tests) 5ms
+ ✓ src/teacher/outputSummary.test.ts  (6 tests) 22ms
+ ✓ src/api/reframe.test.ts  (5 tests) 3ms
+ ✓ src/shared/tone.test.ts  (4 tests) 4ms
+ ✓ src/writings/planShape.test.ts  (3 tests) 2ms
+ ✓ src/routing.test.ts  (4 tests) 4ms
+ ✓ test/markdownTable.test.ts  (5 tests) 4ms
+ ✓ src/writings/roleBinHint.test.ts  (3 tests) 5ms
+ ✓ src/tree/treeCopy.test.ts  (2 tests) 2ms
+ ✓ src/writings/wordUnit.test.ts  (4 tests) 2ms
+ ✓ src/teacher/ItemPage.test.ts  (6 tests) 1ms
+
+ Test Files  72 passed (72)
+      Tests  698 passed (698)
+   Start at  12:54:52
+   Duration  8.14s (transform 3.73s, setup 4.29s, collect 20.23s, tests 9.33s, environment 25.21s, prepare 5.28s)
+

@@ -160,7 +160,7 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "loading" && (
           <>
             <Sys tone="dark">处理中 · BUILDING</Sys>
-            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">正在生成今天的星图</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">正在生成今日发现</p>
             {/* 第一个打开的人触发一次抓取（十二个源）加一次模型调用。说出来，
                 别让她以为卡住了。 */}
             <p className="mt-1 text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
@@ -172,7 +172,7 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "error" && (
           <>
             <Sys tone="dark">读取失败 · ERROR</Sys>
-            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">星图读取失败</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">今日发现加载失败</p>
             <p className="mt-1 break-words text-mk-small text-[var(--mk-explore-muted)]">{live.error}</p>
             <button
               type="button"
@@ -188,7 +188,7 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
         {live.status === "empty" && (
           <>
             <Sys tone="dark">空 · NO STARMAP TODAY</Sys>
-            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">今天没有星图</p>
+            <p className="mt-2 text-mk-body text-[var(--mk-explore-ink)]">今天暂无发现内容</p>
             {/* 后台原话原样给出。空着比摆一张昨天的诚实。 */}
             <p className="mt-1 break-words text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
               {live.note || "今天还没有生成。"}
@@ -222,7 +222,7 @@ function RetryLine({ retryAfter, onRetry }: { retryAfter: number; onRetry: () =>
 
   if (retryAfter < 0) {
     return (
-      <p className="mt-3 text-mk-small text-[var(--mk-explore-muted)]">今天已经试过多次，不再重试。明天会重新生成。</p>
+      <p className="mt-3 text-mk-small text-[var(--mk-explore-muted)]">今日重试次数已用完，请明天再试。</p>
     );
   }
   if (left > 0) {

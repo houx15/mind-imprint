@@ -1,0 +1,5 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> @mind-imprint/lite-web@0.0.0 typecheck /private/tmp/mind-imprint-copy-0915/apps/lite-web
+> tsc --noEmit
+

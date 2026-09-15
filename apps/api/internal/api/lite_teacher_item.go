@@ -12,6 +12,7 @@ import (
 
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -361,6 +362,7 @@ type litePlanStepDTO struct {
 }
 
 type liteToolDTO struct {
+	Label  string          `json:"label"`
 	Key    string          `json:"key"`
 	Status string          `json:"status"`
 	Result json.RawMessage `json:"result"`
@@ -423,7 +425,11 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 	}
 	tools := make([]liteToolDTO, 0, len(toolRows))
 	for _, tl := range toolRows {
-		tools = append(tools, liteToolDTO{Key: tl.Tool, Status: tl.Status, Result: json.RawMessage(tl.Result)})
+		label := tl.Tool
+		if spec, ok := pbl.LookupTool(tl.Tool); ok {
+			label = spec.Label
+		}
+		tools = append(tools, liteToolDTO{Label: label, Key: tl.Tool, Status: tl.Status, Result: json.RawMessage(tl.Result)})
 	}
 
 	artifactRows, err := a.d.Queries.ListPblArtifacts(ctx, atomID)

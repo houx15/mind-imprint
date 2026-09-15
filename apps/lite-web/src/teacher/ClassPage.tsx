@@ -134,7 +134,7 @@ export function ClassPage({
       setJoinCode(updated.join_code);
       setRenaming(false);
     } catch (e) {
-      setMutationError(`改名失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`修改班级名称失败：${e instanceof ApiError ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -149,7 +149,7 @@ export function ClassPage({
       setCopied(false);
       setConfirmRegen(false);
     } catch (e) {
-      setMutationError(`轮换失败：${e instanceof ApiError ? e.message : String(e)}`);
+      setMutationError(`更换邀请码失败：${e instanceof ApiError ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -234,7 +234,7 @@ export function ClassPage({
                       setRenaming(true);
                     }}
                   >
-                    改名
+                    修改名称
                   </Button>
                 </>
               )}
@@ -255,13 +255,13 @@ export function ClassPage({
                 {copied ? "已复制" : "复制邀请码"}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
-                轮换
+                更换邀请码
               </Button>
               {confirmRegen && (
                 <span className="inline-flex items-center gap-2 text-mk-small font-semibold text-mk-danger">
-                  轮换后旧邀请码立即失效，确定？
+                  更换后，旧邀请码将立即失效。是否继续？
                   <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
-                    确认轮换
+                    确认更换
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
                     取消
@@ -277,8 +277,8 @@ export function ClassPage({
         )}
 
         <div className="teacher-roster-section">
-          <div className="teacher-section-heading"><div><h2>学生名单 <small className="teacher-count">{roster?.length ?? "—"}</small></h2><p>阅读、写作与项目显示「已完成 / 总数」。</p></div><input className="teacher-search" type="search" aria-label="搜索学生" placeholder="搜索学生姓名" value={query} onChange={e => setQuery(e.target.value)} /></div>
-          {confirmRemove && <div className="teacher-confirm" role="alert"><p>确认移出「{roster?.find(s => s.id === confirmRemove)?.displayName}」？移出后该学生将无法看到本班内容。</p><Button variant="danger" size="sm" disabled={busy} onClick={() => void doRemove(confirmRemove)}>确认移出</Button><Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button></div>}
+          <div className="teacher-section-heading"><div><h2>学生名单 <small className="teacher-count">{roster?.length ?? "—"}</small></h2><p>阅读、写作和项目均为「已完成 / 总数」；时长仅统计平台内的学习活动。</p></div><input className="teacher-search" type="search" aria-label="搜索学生" placeholder="搜索学生姓名" value={query} onChange={e => setQuery(e.target.value)} /></div>
+          {confirmRemove && <div className="teacher-confirm" role="alert"><p>确认移出「{roster?.find(s => s.id === confirmRemove)?.displayName}」？移出后，该学生将无法查看本班内容。</p><Button variant="danger" size="sm" disabled={busy} onClick={() => void doRemove(confirmRemove)}>确认移出</Button><Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button></div>}
           {rosterError ? (
             <div className="text-mk-small font-semibold text-mk-danger">
               加载失败：{rosterError}{" "}

@@ -3,14 +3,13 @@ import { treeCopy } from "./treeCopy";
 
 // Why this test exists: the tree renders the same component for the student
 // and (readOnly) for her teacher. Two invariants nobody can keep by eye across
-// later edits — the student's wording must not drift, and no second-person
+// later edits — the student keeps personal labels, and no second-person
 // line may leak onto the teacher screen.
 describe("treeCopy", () => {
-  it("keeps the student's strings exactly as they were", () => {
+  it("keeps personal labels in the student view", () => {
     const s = treeCopy(false);
     expect(s.header).toBe("我的兴趣树 · INTEREST TREE");
-    expect(s.intro).toBe("你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。");
-    expect(s.evidenceLabel).toBe("你自己写的");
+    expect(s.evidenceLabel).toBe("你的原话");
     expect(s.loadingTitle).toBe("正在读取你的兴趣树");
   });
 

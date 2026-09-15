@@ -492,7 +492,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       {holding && <SelectionTray title="放入结构" items={notes.filter(n => n.id === holding)} onRemove={() => setHolding(null)}>
         <div className="student-structure-targets">
           {ordered.map(node => <button type="button" key={node.id} className="student-tool-action" onClick={() => void place(holding, node.id)}>放入「{node.title}」 →</button>)}
-          {!ordered.length && <p className="text-mk-small text-mk-muted">请先添加提纲节点。</p>}
+          {!ordered.length && <p className="text-mk-small text-mk-muted">请先添加提纲条目。</p>}
         </div>
       </SelectionTray>}
 

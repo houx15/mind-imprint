@@ -7,6 +7,8 @@ import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, type ItemDetail } from "../api/teacher";
 import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
 import { displayStat } from "../reports/statLabels";
+import { OutputRecord } from "./OutputRecord";
+import { lensFieldLabels } from "./outputSummary";
 import { useAlive } from "../shared/useAlive";
 
 /**
@@ -315,8 +317,8 @@ function ReadingSection({
           来源：
           {source.librarySlug ? (
             <>
-              {source.librarySlug}
-              {source.level !== null ? ` · 第 ${source.level} 档` : ""}
+              分级阅读文章
+              {source.level !== null ? ` · 阅读难度 ${source.level} 级` : ""}
             </>
           ) : sourceHref ? (
             <a href={sourceHref} target="_blank" rel="noreferrer" className="text-mk-accent-700 underline">
@@ -357,16 +359,7 @@ function ReadingSection({
             {lenses.map((l, i) => (
               <div key={i} className="teacher-evidence">
                 {l.title && <p className="text-mk-small font-bold text-mk-ink">{l.title}</p>}
-                <dl className={l.title ? "mt-1.5 flex flex-col gap-1" : "flex flex-col gap-1"}>
-                  {Object.entries(l.fields)
-                    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-                    .map(([k, v]) => (
-                      <div key={k} className="flex flex-wrap gap-2 text-mk-small">
-                        <dt className="text-mk-muted">{k}</dt>
-                        <dd className="text-mk-ink">{v}</dd>
-                      </div>
-                    ))}
-                </dl>
+                <OutputRecord value={l.fields} labels={lensFieldLabels(l.title)} />
               </div>
             ))}
           </div>
@@ -383,11 +376,11 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
     <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">写作</h2>
 
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
-        <span>目标字数 {targetWords && targetWords > 0 ? `${targetWords} 字` : "—"}</span>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
+        <span>目标字数 {targetWords && targetWords > 0 ? `${targetWords} ${lang === "en" ? "词" : "字"}` : "—"}</span>
         <span>语言 {langLabel(lang)}</span>
-        <span>结构 {structureKey || "—"}</span>
-      </p>
+        {structureKey && <details><summary className="cursor-pointer">查看历史结构标识</summary>{structureKey}</details>}
+      </div>
 
       {outline.length > 0 && (
         <div className="mt-4">
@@ -462,7 +455,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
 
       <p className="mt-2 text-mk-body text-mk-ink">{project.idea}</p>
       <p className="mt-1 text-mk-small text-mk-muted">
-        进度 {project.stepsDone}/{project.stepsTotal}
+        已完成 {project.stepsDone} / 共 {project.stepsTotal} 个步骤
       </p>
 
       {steps.length > 0 && (
@@ -483,12 +476,8 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
           <ul className="mt-2 flex flex-col gap-2">
             {project.tools.map((t, i) => (
               <li key={i} className="teacher-evidence">
-                <p className="text-mk-small font-bold text-mk-ink">{t.key}</p>
-                {typeof t.result === "string" ? (
-                  <p className="mt-1 text-mk-small text-mk-ink">{t.result}</p>
-                ) : (
-                  <OutputValue value={t.result} />
-                )}
+                <p className="text-mk-small font-bold text-mk-ink">{t.label || t.key}</p>
+                <OutputRecord value={t.result} />
               </li>
             ))}
           </ul>
@@ -502,11 +491,7 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
             {project.artifacts.map((a, i) => (
               <li key={i} className="teacher-evidence">
                 <p className="text-mk-small font-bold text-mk-ink">{a.title}</p>
-                {typeof a.payload === "string" ? (
-                  <p className="mt-1 text-mk-small text-mk-ink">{a.payload}</p>
-                ) : (
-                  <OutputValue value={a.payload} />
-                )}
+                <OutputRecord value={a.payload} />
               </li>
             ))}
           </ul>
@@ -532,7 +517,8 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
           <ul className="mt-2 flex flex-col gap-2">
             {project.courses.map((c, i) => (
               <li key={i} className="teacher-evidence">
-                <p className="text-mk-small font-bold text-mk-ink">{c.slug}</p>
+                <p className="text-mk-small font-bold text-mk-ink">课程学习记录</p>
+                <details className="text-mk-small text-mk-muted"><summary className="cursor-pointer">查看课程标识</summary>{c.slug}</details>
                 <p className="mt-1 text-mk-small text-mk-ink">{c.why}</p>
                 <p className="mt-1 text-mk-small text-mk-muted">{c.takeaway}</p>
               </li>
@@ -555,12 +541,4 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
       )}
     </section>
   );
-}
-
-/** Read-only structured output: preserve every field without displaying JSON syntax. */
-function OutputValue({ value }: { value: unknown }) {
-  if (value === null || value === undefined) return <span className="text-mk-muted">—</span>;
-  if (Array.isArray(value)) return value.length ? <ul className="teacher-output-list">{value.map((entry, i) => <li key={i}><OutputValue value={entry} /></li>)}</ul> : <span className="text-mk-muted">—</span>;
-  if (typeof value === "object") return <dl className="teacher-output-fields">{Object.entries(value).map(([key, entry]) => <div key={key}><dt>{key}</dt><dd><OutputValue value={entry} /></dd></div>)}</dl>;
-  return <span className="whitespace-pre-wrap">{typeof value === "boolean" ? (value ? "是" : "否") : String(value)}</span>;
 }
