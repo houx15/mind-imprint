@@ -54,6 +54,8 @@ type RecipientDTO struct {
 	ReturnDueAt  *string `json:"returnDueAt"`
 	ReturnNote   *string `json:"returnNote"`
 	VersionCount int     `json:"versionCount"`
+	// Reading is this student's article on a personalized reading homework; nil otherwise.
+	Reading *RecipientReadingDTO `json:"reading"`
 }
 
 // assignmentStatuses are the wire statuses liteassign.StatusWithReturn returns.
@@ -380,10 +382,17 @@ func (a *API) getLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	readings, err := a.personalizedRecipientReadings(r.Context(), as.Kind, json.RawMessage(as.Payload), rows)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	now := time.Now()
 	recipients := make([]RecipientDTO, 0, len(rows))
 	for _, row := range rows {
-		recipients = append(recipients, newRecipientDTO(row, as.DueAt, now))
+		dto := newRecipientDTO(row, as.DueAt, now)
+		dto.Reading = readings[row.UserID]
+		recipients = append(recipients, dto)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignment": newAssignmentDTO(as), "recipients": recipients})
 }

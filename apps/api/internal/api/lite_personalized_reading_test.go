@@ -363,3 +363,61 @@ func TestPersonalizedPatchKeepsRemovedRecipientsPick(t *testing.T) {
 		t.Fatalf("patch adding a new pick for a non-recipient = %d %s", code, errCode)
 	}
 }
+
+func TestPersonalizedDetailShowsEachArticle(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	s2 := createStudent(t, pool, SeedSchoolID, "pd-s2@demo.local")
+	s3 := createStudent(t, pool, SeedSchoolID, "pd-s3@demo.local")
+	enrollStudent(t, pool, s2, classID)
+	enrollStudent(t, pool, s3, classID)
+	all := library.All()
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": all[1].Slug, "tier": 4},
+		s2.String(): map[string]any{"slug": all[2].Slug, "tier": nil},
+	}), []string{s1.String(), s2.String(), s3.String()}))
+	startAssignment(t, h, signInAs(t, pool, s1), aid)
+
+	type reading struct {
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+		Tier  *int   `json:"tier"`
+		State string `json:"state"`
+	}
+	var detail struct {
+		Recipients []struct {
+			UserID  string   `json:"userId"`
+			Reading *reading `json:"reading"`
+		} `json:"recipients"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK {
+		t.Fatalf("detail = %d", code)
+	}
+	got := map[string]*reading{}
+	for _, rc := range detail.Recipients {
+		got[rc.UserID] = rc.Reading
+	}
+	if r := got[s1.String()]; r == nil || r.State != "started" || r.Slug != all[1].Slug || r.Title != all[1].ZhTitle || r.Tier == nil || *r.Tier != 4 {
+		t.Fatalf("s1 reading = %+v, want started %s tier 4", r, all[1].Slug)
+	}
+	if r := got[s2.String()]; r == nil || r.State != "picked" || r.Slug != all[2].Slug || r.Title != all[2].ZhTitle || r.Tier != nil {
+		t.Fatalf("s2 reading = %+v, want picked %s with an open tier", r, all[2].Slug)
+	}
+	if r := got[s3.String()]; r == nil || r.State != "pending" || r.Slug != "" || r.Tier != nil {
+		t.Fatalf("s3 reading = %+v, want pending", r)
+	}
+
+	// Other homework kinds carry reading: null.
+	wid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{s1.String()}))
+	var raw struct {
+		Recipients []map[string]any `json:"recipients"`
+	}
+	getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+wid, &raw)
+	if v, ok := raw.Recipients[0]["reading"]; !ok || v != nil {
+		t.Fatalf("writing recipient reading = %v (present %v), want null", v, ok)
+	}
+
+	other := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "pd-other@demo.local"))
+	if code := getJSON(t, h, other, "/api/v1/lite/teacher/assignments/"+aid, nil); code != http.StatusNotFound {
+		t.Fatalf("other teacher detail = %d, want 404", code)
+	}
+}

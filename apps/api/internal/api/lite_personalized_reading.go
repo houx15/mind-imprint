@@ -118,3 +118,51 @@ func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID
 	}
 	return liteassign.ReadingPayload{Source: "library", Slug: pick.Article.Slug, Tier: p.Tier}, nil
 }
+
+// RecipientReadingDTO is one student's article on a personalized reading
+// homework. State: started (her reading's slug and tier), picked (the saved
+// pick; a nil Tier means her level at start) or pending (no pick yet; the
+// article is chosen when she starts).
+type RecipientReadingDTO struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
+	Tier  *int   `json:"tier"`
+	State string `json:"state"`
+}
+
+func libraryTitle(slug, fallback string) string {
+	if art, ok := library.BySlug(slug); ok {
+		return art.ZhTitle
+	}
+	return fallback
+}
+
+// personalizedRecipientReadings maps each recipient to her article. It returns
+// nil for any payload that is not a personalized reading.
+func (a *API) personalizedRecipientReadings(ctx context.Context, kind string, payload json.RawMessage, rows []sqlc.ListLiteAssignmentRecipientsRow) (map[uuid.UUID]*RecipientReadingDTO, error) {
+	if kind != "reading" {
+		return nil, nil
+	}
+	var p liteassign.ReadingPayload
+	if err := json.Unmarshal(payload, &p); err != nil || p.Source != "personalized" {
+		return nil, nil
+	}
+	out := make(map[uuid.UUID]*RecipientReadingDTO, len(rows))
+	for _, row := range rows {
+		if row.AtomID.Valid {
+			rd, err := a.d.Queries.GetReading(ctx, uuid.UUID(row.AtomID.Bytes))
+			if err != nil {
+				return nil, err
+			}
+			tier := int(rd.LibraryTier)
+			out[row.UserID] = &RecipientReadingDTO{Slug: rd.LibrarySlug, Title: libraryTitle(rd.LibrarySlug, rd.Title), Tier: &tier, State: "started"}
+			continue
+		}
+		if pick, ok := p.Picks[row.UserID.String()]; ok {
+			out[row.UserID] = &RecipientReadingDTO{Slug: pick.Slug, Title: libraryTitle(pick.Slug, pick.Slug), Tier: pick.Tier, State: "picked"}
+			continue
+		}
+		out[row.UserID] = &RecipientReadingDTO{State: "pending"}
+	}
+	return out, nil
+}
