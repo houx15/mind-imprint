@@ -96,7 +96,7 @@ export function GenerateParentReportDialog({
             生成家长报告
           </h2>
           <p className="text-mk-small text-mk-muted">{studentName}</p>
-          <p className="text-mk-small text-mk-secondary">报告会汇总所选日期内的学习数据，并由 AI 起草文字；发布前可以修改。</p>
+          <p className="text-mk-small text-mk-secondary">报告会汇总所选日期内的学习数据，并由 AI 起草文字；导出前可以修改。</p>
         </div>
 
         <div className="flex flex-col gap-2">

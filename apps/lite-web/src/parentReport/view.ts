@@ -3,8 +3,50 @@
 // Both renderings read these, so the page and the exported picture cannot
 // disagree about what is in the report.
 
-import type { ParentReportFacts, ParentReportKeyword } from "../api/parentReports";
+import type { ParentReportFacts, ParentReportHidden, ParentReportKeyword } from "../api/parentReports";
 import { formatMinutes } from "../teacher/format";
+import { publishedMonthDay } from "./range";
+
+/**
+ * The facts without the items the teacher hid: a moment whose `quote`, or a
+ * keyword whose `text`, EXACTLY equals a hidden entry. Same rule as
+ * `liteparent.VisibleFacts`, so the preview and the poster show what the server
+ * composes from. A substring is not a match. The input is not modified.
+ */
+export function visibleFacts(facts: ParentReportFacts, hidden: ParentReportHidden): ParentReportFacts {
+  const moments = new Set(hidden.moments);
+  const keywords = new Set(hidden.keywords);
+  return {
+    ...facts,
+    moments: facts.moments.filter((m) => !moments.has(m.quote)),
+    keywords: facts.keywords.filter((k) => !keywords.has(k.text)),
+  };
+}
+
+/** The hidden set with `text` toggled in one list: removed when present,
+ * appended when not. The other list is kept as it is. */
+export function toggleHidden(
+  hidden: ParentReportHidden,
+  list: keyof ParentReportHidden,
+  text: string,
+): ParentReportHidden {
+  const current = hidden[list];
+  const next = current.includes(text) ? current.filter((t) => t !== text) : [...current, text];
+  return { ...hidden, [list]: next };
+}
+
+/** `由 {teacherName} 撰写 · {M月D日}` from the report's `createdAt` (Beijing).
+ * Without a parsable date the date part is left out. */
+export function bylineText(teacherName: string, createdAt: string): string {
+  const day = publishedMonthDay(createdAt);
+  return `由 ${teacherName} 撰写${day ? ` · ${day}` : ""}`;
+}
+
+/** `学习报告-{studentName}.png`, or `学习报告.png` without a name. */
+export function posterFileName(studentName: string): string {
+  const name = studentName.trim();
+  return name ? `学习报告-${name}.png` : "学习报告.png";
+}
 
 /** Same labels as `liteparent.SectionLabels`. */
 export const SECTION_LABELS: Record<string, string> = {
@@ -24,9 +66,10 @@ export interface VisibleSection {
 
 /**
  * The sections to render, in the server's order. A section whose body is
- * blank after trim is dropped: publishing only refuses a report where EVERY
- * section is empty, and PATCH can clear a single one with "". A key with no
- * known label is dropped too.
+ * blank after trim is dropped: PATCH can clear a single one with "", and a
+ * heading with nothing under it must not render. A key with no known label is
+ * dropped too. Only keys in `sections` render, so a stored `interests` text
+ * stays out while every keyword is hidden.
  */
 export function visibleSections(
   sections: readonly string[],

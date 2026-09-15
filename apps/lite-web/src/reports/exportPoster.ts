@@ -17,11 +17,12 @@ import { toPng } from "html-to-image";
  * later in the same tab can't quietly serve a stale cached asset.
  *
  * Never throws into the caller: a failed export is a picture she doesn't
- * get, not a broken room around her. `ReportPanel` treats this call as
- * fire-and-forget beyond its own loading state.
+ * get, not a broken room around her. It resolves to null on success and to
+ * the failure's message otherwise, so a caller that shows failures (the
+ * parent report editor, `导出失败：{message}`) can; `ReportPanel` ignores it.
  */
-export async function exportPoster(node: HTMLElement | null, filename: string): Promise<void> {
-  if (!node) return;
+export async function exportPoster(node: HTMLElement | null, filename: string): Promise<string | null> {
+  if (!node) return "图片未生成";
   try {
     await Promise.all(Array.from(node.querySelectorAll("img"), image => image.decode()));
     const dataUrl = await toPng(node, { pixelRatio: 2, cacheBust: true });
@@ -31,7 +32,10 @@ export async function exportPoster(node: HTMLElement | null, filename: string): 
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  } catch {
-    /* exporting a picture should never break the room around it */
+    return null;
+  } catch (e) {
+    // Exporting a picture should never break the room around it.
+    if (e instanceof Error && e.message) return e.message;
+    return typeof e === "string" && e ? e : "没有更多信息";
   }
 }

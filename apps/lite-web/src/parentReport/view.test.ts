@@ -1,13 +1,83 @@
 import { describe, expect, it } from "vitest";
 import { emptyFacts, type ParentReportFacts } from "../api/parentReports";
-import { keywordGroups, minutesParts, statTiles, visibleSections } from "./view";
+import {
+  bylineText,
+  keywordGroups,
+  minutesParts,
+  posterFileName,
+  statTiles,
+  toggleHidden,
+  visibleFacts,
+  visibleSections,
+} from "./view";
 
 function facts(over: Partial<ParentReportFacts> = {}): ParentReportFacts {
   return { ...emptyFacts(), ...over };
 }
 
+// The preview and the exported picture read these facts. A hidden 金句 that
+// still shows up there is sent to parents.
+describe("visibleFacts", () => {
+  const full = facts({
+    moments: [
+      { quote: "雨水不是废水", itemTitle: "一场雨" },
+      { quote: "碳排放总量第一，不等于人均排放第一", itemTitle: "中国是否让地球变得更可持续？" },
+    ],
+    keywords: [
+      { text: "天气", field: "science", fieldLabel: "科学" },
+      { text: "碳排放", field: "science", fieldLabel: "科学" },
+    ],
+  });
+
+  it("keeps everything when nothing is hidden", () =>
+    expect(visibleFacts(full, { moments: [], keywords: [] })).toEqual(full));
+
+  it("drops a moment by exact quote and a keyword by exact text", () => {
+    const v = visibleFacts(full, { moments: ["雨水不是废水"], keywords: ["碳排放"] });
+    expect(v.moments.map((m) => m.quote)).toEqual(["碳排放总量第一，不等于人均排放第一"]);
+    expect(v.keywords.map((k) => k.text)).toEqual(["天气"]);
+  });
+
+  it("ignores substrings, unknown entries and the wrong list", () => {
+    const v = visibleFacts(full, { moments: ["雨水", "天气"], keywords: ["雨水不是废水", "碳"] });
+    expect(v.moments).toHaveLength(2);
+    expect(v.keywords).toHaveLength(2);
+  });
+
+  it("does not modify its input", () => {
+    visibleFacts(full, { moments: ["雨水不是废水"], keywords: ["天气"] });
+    expect(full.moments).toHaveLength(2);
+    expect(full.keywords).toHaveLength(2);
+  });
+});
+
+// A toggle sends the WHOLE set (PATCH replaces it), so the other list must survive.
+describe("toggleHidden", () => {
+  const hidden = { moments: ["a"], keywords: ["k"] };
+  it("hides an item and keeps the other list", () =>
+    expect(toggleHidden(hidden, "moments", "b")).toEqual({ moments: ["a", "b"], keywords: ["k"] }));
+  it("shows a hidden item again", () =>
+    expect(toggleHidden(hidden, "keywords", "k")).toEqual({ moments: ["a"], keywords: [] }));
+  it("does not modify its input", () => {
+    toggleHidden(hidden, "moments", "a");
+    expect(hidden).toEqual({ moments: ["a"], keywords: ["k"] });
+  });
+});
+
+describe("bylineText", () => {
+  // Beijing date: 16:30Z on the 13th is already the 14th.
+  it("names the author and the Beijing creation date", () =>
+    expect(bylineText("李老师", "2026-09-13T16:30:00Z")).toBe("由 李老师 撰写 · 9月14日"));
+  it("leaves the date out when it cannot be read", () => expect(bylineText("李老师", "")).toBe("由 李老师 撰写"));
+});
+
+describe("posterFileName", () => {
+  it("uses the student's name", () => expect(posterFileName(" 王思远 ")).toBe("学习报告-王思远.png"));
+  it("falls back without a name", () => expect(posterFileName("  ")).toBe("学习报告.png"));
+});
+
 describe("visibleSections", () => {
-  // A published body can still have an empty section: PATCH clears one with
+  // A body can still have an empty section: PATCH clears one with
   // "". A heading with nothing under it must never render.
   it("drops sections whose body is blank after trim", () =>
     expect(

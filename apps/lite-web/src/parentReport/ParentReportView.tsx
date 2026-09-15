@@ -1,15 +1,15 @@
-import type { ReactNode } from "react";
 import type { ParentReport } from "@lite/api/parentReports";
 import { Hero, macaron, rise, SectionTitle } from "@lite/reports/ReportView";
-import { monthDay, publishedMonthDay, rangeLabel } from "./range";
-import { finishedLists, keywordGroups, statTiles, visibleSections, type StatTile } from "./view";
+import { monthDay, rangeLabel } from "./range";
+import { bylineText, finishedLists, keywordGroups, statTiles, visibleSections, type StatTile } from "./view";
 
 /**
- * ParentReportView — a published parent report, presentational only.
+ * ParentReportView — the teacher editor's preview of a parent report,
+ * presentational only. The caller passes the VISIBLE facts (`visibleFacts`),
+ * so a hidden 金句 or keyword never reaches this component.
  *
- * Same page as the refreshed public reading/writing report (`ReportView`): the
- * `mk-rp` measure, its hero band, section titles, stat strip and quote cards,
- * so a parent who has opened both links sees one product.
+ * Same page as the refreshed reading/writing report (`ReportView`): the
+ * `mk-rp` measure, its hero band, section titles, stat strip and quote cards.
  *
  * Whose words are whose:
  * - Each section's text is the TEACHER's report text. It carries the section
@@ -21,27 +21,14 @@ import { finishedLists, keywordGroups, statTiles, visibleSections, type StatTile
  * Every block renders only when it has content; a section whose body is blank
  * is dropped by `visibleSections` (see its comment).
  */
-export function ParentReportView({
-  report,
-  variant,
-  actions,
-}: {
-  report: ParentReport;
-  variant: "public" | "student" | "teacherPreview";
-  /** Icon buttons in the hero's upper-right corner (保存为图片). */
-  actions?: ReactNode;
-}) {
+export function ParentReportView({ report }: { report: ParentReport }) {
   const { facts } = report;
   const sections = visibleSections(report.sections, report.body);
   const tiles = statTiles(facts);
   const lists = finishedLists(facts);
   const groups = keywordGroups(facts.keywords);
   const moments = facts.moments.filter((m) => m.quote.trim());
-  const published = report.publishedAt ? publishedMonthDay(report.publishedAt) : "";
-  const byline =
-    variant === "teacherPreview" && !report.publishedAt
-      ? `${report.teacherName} · 待发布`
-      : `由 ${report.teacherName} 发布${published ? ` · ${published}` : ""}`;
+  const byline = bylineText(report.teacherName, report.createdAt);
 
   return (
     <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
@@ -51,7 +38,6 @@ export function ParentReportView({
         title="学习报告"
         name={report.studentName}
         date={rangeLabel(report.rangeStart, report.rangeEnd)}
-        actions={actions}
       />
 
       {tiles.length > 0 && <StatTiles tiles={tiles} />}

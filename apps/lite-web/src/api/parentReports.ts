@@ -1,19 +1,25 @@
-// api/parentReports.ts — a published parent report, read by a parent (public
-// link, no session) and by the student herself.
+// api/parentReports.ts — the teacher's parent reports. There is no parent end:
+// a teacher generates a report, edits it and exports it as a picture that she
+// sends to parents herself. Nothing here is public and the student never
+// receives it.
 //
-// Shapes verified against apps/api/internal/api/lite_parent_report_read.go
-// (`PublicParentReportDTO`, `StudentParentReportDTO`) and
-// apps/api/internal/liteparent/facts.go (`Facts`):
+// Shapes verified against apps/api/internal/api/lite_parent_report.go
+// (`ParentReportDTO`, `ParentReportSummaryDTO`) and
+// apps/api/internal/liteparent/facts.go (`Facts`, `Hidden`, `HiddenMentions`):
 //
-// - The public DTO has no id, no share token and no draft.
-// - The student DTO is the same object plus `id`.
-// - Student, class and teacher names come from the facts frozen at generate
-//   time, so the top-level names always equal `facts.*Name`.
+// - The teacher DTO carries names only inside `facts`, frozen at generate.
+// - `facts` is the FULL frozen facts, hidden items included, so the editor can
+//   list every 金句 and keyword with a toggle. The preview and the poster filter
+//   them with `visibleFacts` (parentReport/view.ts).
+// - `sections` is computed from the VISIBLE facts: with every keyword hidden,
+//   `interests` is absent while `body.interests` may still hold text.
+// - `hiddenMentions` names the visible sections whose stored body still quotes
+//   a hidden 金句 or keyword.
 //
-// Neither payload carries chat text. 金句 (`facts.moments`) are her own
-// sentences; `body` is the teacher's text.
+// No payload carries chat text. 金句 (`facts.moments`) are her own sentences;
+// `body` is the teacher's text.
 
-import { API_BASE, ApiError, apiFetch } from "./client";
+import { apiFetch } from "./client";
 
 export interface ParentReportItem {
   kind: string;
@@ -55,16 +61,15 @@ export interface ParentReportFacts {
   keywords: ParentReportKeyword[];
 }
 
+/** What the view and the poster render. */
 export interface ParentReport {
-  /** Present on the student route only. */
-  id: string | null;
   studentName: string;
   className: string;
   teacherName: string;
   rangeStart: string;
   rangeEnd: string;
-  /** RFC3339; null only for a teacher preview of an unpublished report. */
-  publishedAt: string | null;
+  /** RFC3339; the byline date. */
+  createdAt: string;
   facts: ParentReportFacts;
   /** Section keys in display order (`liteparent.SectionsWithFacts`). */
   sections: string[];
@@ -72,11 +77,19 @@ export interface ParentReport {
   body: Record<string, string>;
 }
 
+/** Hidden items, addressed by exact text: a moment by `quote`, a keyword by
+ * `text`. */
+export interface ParentReportHidden {
+  moments: string[];
+  keywords: string[];
+}
+
 const s = (v: unknown): string => (typeof v === "string" ? v : "");
 const n = (v: unknown, fallback = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.map(obj) : []);
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
 export function emptyFacts(): ParentReportFacts {
   return {
@@ -129,8 +142,8 @@ export function normalizeFacts(raw: unknown): ParentReportFacts {
   };
 }
 
-/** Reads either DTO. Top-level names fall back to the frozen facts, so the
- * teacher DTO (which carries names only inside `facts`) reads the same way. */
+/** Reads the report part of the teacher DTO. Top-level names fall back to the
+ * frozen facts, which is where the teacher DTO carries them. */
 export function normalizeParentReport(raw: unknown): ParentReport {
   const r = obj(raw);
   const facts = normalizeFacts(r.facts);
@@ -139,86 +152,44 @@ export function normalizeParentReport(raw: unknown): ParentReport {
     if (typeof value === "string") body[key] = value;
   }
   return {
-    id: typeof r.id === "string" ? r.id : null,
     studentName: s(r.studentName) || facts.studentName,
     className: s(r.className) || facts.className,
     teacherName: s(r.teacherName) || facts.teacherName,
     rangeStart: s(r.rangeStart) || facts.rangeStart,
     rangeEnd: s(r.rangeEnd) || facts.rangeEnd,
-    publishedAt: typeof r.publishedAt === "string" && r.publishedAt ? r.publishedAt : null,
+    createdAt: s(r.createdAt),
     facts,
-    sections: Array.isArray(r.sections) ? r.sections.filter((k): k is string => typeof k === "string") : [],
+    sections: strings(r.sections),
     body,
   };
 }
 
-/** Thrown for an unknown or revoked link, so the page can tell it apart from
- * a network failure. */
-export class ParentReportNotFoundError extends Error {
-  constructor() {
-    super("parent_report_not_found");
-    this.name = "ParentReportNotFoundError";
+export function normalizeHidden(raw: unknown): ParentReportHidden {
+  const h = obj(raw);
+  return { moments: strings(h.moments), keywords: strings(h.keywords) };
+}
+
+/** `{section: [text]}`. A non-list value and an empty list are dropped, so a
+ * key present means that section has at least one mention. */
+export function normalizeHiddenMentions(raw: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(obj(raw))) {
+    const texts = strings(value);
+    if (texts.length > 0) out[key] = texts;
   }
+  return out;
 }
-
-/**
- * `GET /api/v1/public/parent-reports/{token}`, from a page with no session.
- * Not `apiFetch`: that sends `credentials:"include"`, and this request must
- * carry no cookie. A 404 raises `ParentReportNotFoundError`; any other failure
- * raises an `ApiError` or the network error, with its message.
- */
-export async function getPublicParentReport(token: string): Promise<ParentReport> {
-  const res = await fetch(`${API_BASE}/api/v1/public/parent-reports/${encodeURIComponent(token)}`, {
-    credentials: "omit",
-  });
-  if (res.status === 404) throw new ParentReportNotFoundError();
-  if (!res.ok) {
-    let code = "internal_error";
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      code = body?.error?.code ?? code;
-      message = body?.error?.message ?? message;
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new ApiError(code, message, res.status);
-  }
-  const body = (await res.json()) as { report?: unknown };
-  return normalizeParentReport(body.report);
-}
-
-/** `GET /api/v1/lite/parent-reports/{id}` — her own published report. */
-export async function getStudentParentReport(id: string): Promise<ParentReport> {
-  const r = await apiFetch<{ report?: unknown }>(`/api/v1/lite/parent-reports/${encodeURIComponent(id)}`);
-  return normalizeParentReport(r.report);
-}
-
-/** `POST …/seen` — 204. Callers ignore a failure. */
-export async function markParentReportSeen(id: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/lite/parent-reports/${encodeURIComponent(id)}/seen`, { method: "POST" });
-}
-
-// ── Teacher side (plan 4 T3) ────────────────────────────────────────────────
-//
-// Shapes verified against apps/api/internal/api/lite_parent_report.go
-// (`ParentReportDTO`, `ParentReportSummaryDTO`). The teacher DTO carries names
-// only inside `facts`; `normalizeParentReport` already falls back to them, so
-// the editor preview reads the same object the public page does.
-
-export type ParentReportStatus = "draft" | "published";
 
 export interface TeacherParentReport {
   id: string;
   studentId: string;
   classId: string;
-  status: ParentReportStatus;
-  /** Null for a draft and after a revoke. */
-  shareToken: string | null;
   /** Whether a draft has ever been stored (`draft` is null until then). */
   hasDraft: boolean;
   createdAt: string;
-  /** The report as the preview renders it; `body` is the stored body. */
+  hidden: ParentReportHidden;
+  hiddenMentions: Record<string, string[]>;
+  /** The report with the FULL facts and the stored body. */
   view: ParentReport;
 }
 
@@ -228,13 +199,9 @@ export interface ParentReportSummary {
   studentName: string;
   rangeStart: string;
   rangeEnd: string;
-  status: ParentReportStatus;
-  publishedAt: string | null;
-  shared: boolean;
   createdAt: string;
 }
 
-const reportStatus = (v: unknown): ParentReportStatus => (v === "published" ? "published" : "draft");
 const optString = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 
 export function normalizeTeacherParentReport(raw: unknown): TeacherParentReport {
@@ -243,10 +210,10 @@ export function normalizeTeacherParentReport(raw: unknown): TeacherParentReport 
     id: s(r.id),
     studentId: s(r.studentId),
     classId: s(r.classId),
-    status: reportStatus(r.status),
-    shareToken: optString(r.shareToken),
     hasDraft: r.draft !== null && typeof r.draft === "object",
     createdAt: s(r.createdAt),
+    hidden: normalizeHidden(r.hidden),
+    hiddenMentions: normalizeHiddenMentions(r.hiddenMentions),
     view: normalizeParentReport(raw),
   };
 }
@@ -259,9 +226,6 @@ export function normalizeParentReportSummary(raw: unknown): ParentReportSummary 
     studentName: s(r.studentName),
     rangeStart: s(r.rangeStart),
     rangeEnd: s(r.rangeEnd),
-    status: reportStatus(r.status),
-    publishedAt: optString(r.publishedAt),
-    shared: r.shared === true,
     createdAt: s(r.createdAt),
   };
 }
@@ -310,11 +274,21 @@ export async function getTeacherParentReport(id: string): Promise<TeacherParentR
   return normalizeTeacherParentReport(r.report);
 }
 
-/** PATCH merges: only the section sent is changed, and `""` clears it. */
+/** PATCH merges: only the section sent is changed, and `""` clears it. The key
+ * must be in the report's current `sections` (400 `invalid_section`). */
 export async function patchParentReportSection(id: string, key: string, text: string): Promise<TeacherParentReport> {
   const r = await apiFetch<{ report?: unknown }>(reportPath(id), {
     method: "PATCH",
     body: JSON.stringify({ body: { [key]: text } }),
+  });
+  return normalizeTeacherParentReport(r.report);
+}
+
+/** PATCH `hidden`: the object replaces the whole stored set, so send all of it. */
+export async function patchParentReportHidden(id: string, hidden: ParentReportHidden): Promise<TeacherParentReport> {
+  const r = await apiFetch<{ report?: unknown }>(reportPath(id), {
+    method: "PATCH",
+    body: JSON.stringify({ hidden: { moments: hidden.moments, keywords: hidden.keywords } }),
   });
   return normalizeTeacherParentReport(r.report);
 }
@@ -325,15 +299,4 @@ export async function redraftParentReport(id: string, replaceBody: boolean): Pro
     body: JSON.stringify({ replaceBody }),
   });
   return draftResult(r);
-}
-
-/** Publishes, or re-opens a revoked link (the server mints a new token). */
-export async function publishParentReport(id: string): Promise<TeacherParentReport> {
-  const r = await apiFetch<{ report?: unknown }>(`${reportPath(id)}/publish`, { method: "POST" });
-  return normalizeTeacherParentReport(r.report);
-}
-
-export async function revokeParentReportShare(id: string): Promise<TeacherParentReport> {
-  const r = await apiFetch<{ report?: unknown }>(`${reportPath(id)}/share`, { method: "DELETE" });
-  return normalizeTeacherParentReport(r.report);
 }

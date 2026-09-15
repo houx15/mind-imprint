@@ -80,14 +80,11 @@ export type LiteRoute =
   //
   // 为什么是 `/p/` 而不是 `/s/`：这两条链接是两种东西。`/s/` 是一次阅读或写作
   // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
-  | { tab: "page"; token: string }
-  // `/r/:token` — a published parent report, opened by a parent with no
-  // session. Like `/s/` and `/p/` it never goes through `LiteApp`:
-  // `rootElementFor.tsx` mounts `PublicParentReportPage` directly.
-  | { tab: "parentReportPublic"; token: string }
-  // `/parent-reports/:id` — the same report, read by the student herself
-  // (signed in, from 收件箱). Inside `LiteApp`, no rail tab is active.
-  | { tab: "parentReport"; id: string };
+  | { tab: "page"; token: string };
+// 2026-09-15: `/r/:token` (a parent report's public link) and
+// `/parent-reports/:id` (the student's copy) are gone. There is no parent end:
+// the teacher exports the report as a picture. Both paths now fall through to
+// the explore fallback like any unknown path.
 
 /** Root and index.html open the learning home. Unknown and malformed public
  * paths retain the explore fallback; all learning deep links persist. */
@@ -132,13 +129,6 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       // 造出一个 token 为空的路由。
       if (!second) return { tab: "explore" };
       return { tab: "page", token: second };
-    case "r":
-      // Same rule as `/s` and `/p`: no token, nothing to fetch.
-      if (!second) return { tab: "explore" };
-      return { tab: "parentReportPublic", token: second };
-    case "parent-reports":
-      if (!second) return { tab: "explore" };
-      return { tab: "parentReport", id: second };
     case "s":
       // A malformed `/s` with no token is not a share route — it has nothing
       // to fetch — so it falls through to the default landing surface like
@@ -190,10 +180,6 @@ export function liteRoutePath(route: LiteRoute): string {
       return "/settings";
     case "page":
       return `/p/${encodeSegment(route.token)}`;
-    case "parentReportPublic":
-      return `/r/${encodeSegment(route.token)}`;
-    case "parentReport":
-      return `/parent-reports/${encodeSegment(route.id)}`;
     case "share":
       return route.view === "record"
         ? `/s/${encodeSegment(route.token)}/record`

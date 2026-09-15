@@ -14,10 +14,10 @@ import { listStudentParentReports, type ParentReportSummary } from "../api/paren
 import { publishedMonthDay, rangeLabel } from "../parentReport/range";
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { StatusChip } from "./AssignmentDetailPage";
-import { errorText, statusChipStyle } from "./assignmentLogic";
+import { errorText } from "./assignmentLogic";
 import { formatMinutes, itemStatusLabel, kindLabel } from "./format";
 import { GenerateParentReportDialog } from "./GenerateParentReportDialog";
-import { linkStateLabel, rememberDraftError, statusLabel } from "./parentReportLogic";
+import { rememberDraftError } from "./parentReportLogic";
 import { WeekSummaryCard } from "./WeekSummaryCard";
 import { TreeView } from "../tree/TreeView";
 import { useInterestTree } from "../tree/useInterestTree";
@@ -336,17 +336,8 @@ function ParentReportSection({
               onClick={() => onOpen(row.id)}
               className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-mk-small font-bold text-mk-ink">{rangeLabel(row.rangeStart, row.rangeEnd) || "—"}</span>
-                <span
-                  className="rounded-mk-full px-2.5 py-0.5 text-mk-label font-bold"
-                  style={statusChipStyle(row.status === "published" ? "done" : "not_started")}
-                >
-                  {statusLabel(row.status)}
-                </span>
-              </div>
+              <div className="text-mk-small font-bold text-mk-ink">{rangeLabel(row.rangeStart, row.rangeEnd) || "—"}</div>
               <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
-                {row.status === "published" && <span>链接 {linkStateLabel(row.status, row.shared)}</span>}
                 <span>创建时间 {publishedMonthDay(row.createdAt) || "—"}</span>
               </div>
             </button>

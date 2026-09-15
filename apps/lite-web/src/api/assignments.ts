@@ -79,22 +79,9 @@ export interface AssignmentInboxItem {
   unread: boolean;
 }
 
-// A published parent report in her inbox (plan 4). It carries NONE of the
-// assignment fields (`kind`, `dueAt`, `status`, `statusLabel`, `atomId`,
-// `instructions`), so every consumer switches on `type` before reading them —
-// the union makes reading one without narrowing a compile error.
-export interface ParentReportInboxItem {
-  type: "parent_report";
-  id: string;
-  /** 家长报告（M月D日–M月D日）, built by the server. */
-  title: string;
-  className: string;
-  /** RFC3339. */
-  publishedAt: string;
-  unread: boolean;
-}
-
-export type InboxItemDTO = AssignmentInboxItem | ParentReportInboxItem;
+// The inbox holds assignments only. Parent reports were delivered here once
+// (plan 4); since 2026-09-15 a teacher exports them instead.
+export type InboxItemDTO = AssignmentInboxItem;
 
 export interface StartAssignmentResult {
   kind: AssignmentKind;
@@ -199,16 +186,6 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
 }
 
 function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
-  if (raw.type === "parent_report") {
-    return {
-      type: "parent_report",
-      id: s(raw.id),
-      title: s(raw.title),
-      className: s(raw.className),
-      publishedAt: s(raw.publishedAt),
-      unread: raw.unread === true,
-    };
-  }
   return {
     type: "assignment",
     id: s(raw.id),

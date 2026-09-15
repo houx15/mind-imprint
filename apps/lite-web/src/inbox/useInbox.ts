@@ -3,18 +3,6 @@ import { getInbox, type InboxItemDTO } from "../api/assignments";
 import { useAlive } from "../shared/useAlive";
 import { errorMessage } from "./inboxLogic";
 
-const INBOX_RELOAD_EVENT = "lite-inbox-reload";
-
-/**
- * Ask every mounted inbox to refetch. Each `useInbox` call holds its own
- * state (the rail button, a landing strip), so a page that changes what the
- * inbox shows — a report page marking itself seen — cannot reach their
- * `reload` directly.
- */
-export function requestInboxReload(): void {
-  window.dispatchEvent(new Event(INBOX_RELOAD_EVENT));
-}
-
 export interface InboxState {
   items: InboxItemDTO[];
   unread: number;
@@ -59,10 +47,8 @@ export function useInbox(): InboxState {
   useEffect(() => {
     reload();
     window.addEventListener("focus", reload);
-    window.addEventListener(INBOX_RELOAD_EVENT, reload);
     return () => {
       window.removeEventListener("focus", reload);
-      window.removeEventListener(INBOX_RELOAD_EVENT, reload);
     };
   }, [reload]);
 

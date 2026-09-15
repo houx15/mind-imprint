@@ -22,8 +22,6 @@ const ROUTES: LiteRoute[] = [
   { tab: "tree" },
   { tab: "tree", quiz: true },
   { tab: "settings" },
-  { tab: "parentReport", id: "p-1" },
-  { tab: "parentReportPublic", token: "tok" },
 ];
 
 describe("lite routing", () => {
@@ -48,5 +46,4 @@ describe("lite routing", () => {
 
   it("keeps an unknown path on 探索", () => {
     expect(parseLiteRoute("/nope")).toEqual({ tab: "explore" });
-  });
-});
+  });});

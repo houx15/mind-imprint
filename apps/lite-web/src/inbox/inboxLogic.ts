@@ -1,11 +1,8 @@
 // inbox/inboxLogic.ts — pure rules behind the student inbox and the 老师布置
 // strips. No React and no network, so each rule is testable on its own.
 
-import type { AssignmentInboxItem, AssignmentKind, InboxItemDTO } from "../api/assignments";
-import { publishedMonthDay } from "../parentReport/range";
-import { liteRoutePath } from "../routing";
+import type { AssignmentInboxItem, AssignmentKind } from "../api/assignments";
 import type { AssignmentStatus } from "../shared/deadline";
-import { kindLabel } from "../teacher/format";
 
 const START_PREFIX = "开始失败：";
 
@@ -26,34 +23,11 @@ export function errorMessage(err: unknown): string {
   return typeof err === "string" ? err : "";
 }
 
-/** Only assignment items. The 老师布置 strips use this: a parent report has no
- * kind, status or room to start. */
-export function assignmentItems(items: readonly InboxItemDTO[]): AssignmentInboxItem[] {
-  return items.filter((it): it is AssignmentInboxItem => it.type === "assignment");
-}
-
-/** The chip at the start of an inbox row. */
-export function inboxChipLabel(item: InboxItemDTO): string {
-  return item.type === "parent_report" ? "报告" : kindLabel(item.kind);
-}
-
-/** A report row's meta line: `发布于 M月D日` (Beijing). Empty without a date. */
-export function publishedLabel(publishedAt: string): string {
-  const day = publishedMonthDay(publishedAt);
-  return day ? `发布于 ${day}` : "";
-}
-
-/** Where a row goes without a start call: a report opens its page. An
- * assignment goes through `openAssignment` instead, so it has none. */
-export function inboxTargetPath(item: InboxItemDTO): string | null {
-  return item.type === "parent_report" ? liteRoutePath({ tab: "parentReport", id: item.id }) : null;
-}
-
 const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress", "overdue"];
 
 /** What a landing's 老师布置 strip lists: this kind, and still open. */
-export function openItemsForKind(items: readonly InboxItemDTO[], kind: AssignmentKind): AssignmentInboxItem[] {
-  return assignmentItems(items).filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
+export function openItemsForKind(items: readonly AssignmentInboxItem[], kind: AssignmentKind): AssignmentInboxItem[] {
+  return items.filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
 }
 
 /** Unread first; the server's order is kept inside each group. */

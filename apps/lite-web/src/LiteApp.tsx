@@ -68,7 +68,6 @@ import "./home/learning.css";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
 import { InboxButton } from "./inbox/InboxButton";
-import { StudentParentReportPage } from "./parentReport/StudentParentReportPage";
 
 /** Lite student shell. The learning home uses expanded navigation on wide
  * screens; workrooms retain a compact rail to preserve reading/writing space.
@@ -449,9 +448,6 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <ProjectsLanding />
           )
-        ) : route.tab === "parentReport" ? (
-          // 老师发布的家长报告，她自己看的那一份（从收件箱进来）。
-          <StudentParentReportPage key={route.id} id={route.id} />
         ) : route.tab === "readings" && route.library ? (
           // 分级阅读库。同一条 tab 下的一屏（`/readings/library`），所以左侧
           // 导航栏仍然停在「阅读」上。

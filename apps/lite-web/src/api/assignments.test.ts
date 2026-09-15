@@ -37,40 +37,7 @@ describe("normalizeInboxResponse", () => {
     const raw = { items: [inboxItem({ status: "some_future_status" })], unread: 1 };
     const item = normalizeInboxResponse(raw).items[0];
     expect(item?.type).toBe("assignment");
-    if (item?.type === "assignment") {
-      expect(item.status).toBe("not_started");
-    }
-  });
-});
-
-describe("normalizeInboxResponse · parent reports", () => {
-  // A report item has none of the assignment fields (T4's wire shape), so it
-  // must never be read through the assignment branch.
-  it("reads a report item by its type", () => {
-    const raw = {
-      items: [
-        inboxItem({ id: "a1", unread: false }),
-        {
-          type: "parent_report",
-          id: "r1",
-          title: "家长报告（8月17日–9月13日）",
-          className: "初三 1 班",
-          publishedAt: "2026-09-14T02:00:00Z",
-          unread: true,
-        },
-      ],
-      unread: 1,
-    };
-    const [assignment, report] = normalizeInboxResponse(raw).items;
-    expect(assignment?.type).toBe("assignment");
-    expect(report).toEqual({
-      type: "parent_report",
-      id: "r1",
-      title: "家长报告（8月17日–9月13日）",
-      className: "初三 1 班",
-      publishedAt: "2026-09-14T02:00:00Z",
-      unread: true,
-    });
+    expect(item?.status).toBe("not_started");
   });
 });
 

@@ -1,10 +1,12 @@
 import { forwardRef } from "react";
 import type { ParentReport } from "@lite/api/parentReports";
-import { publishedMonthDay, rangeLabel } from "./range";
-import { statTiles, visibleSections } from "./view";
+import { rangeLabel } from "./range";
+import { bylineText, statTiles, visibleSections } from "./view";
 
 /**
- * ParentReportPoster — the picture a parent saves from `/r/:token`.
+ * ParentReportPoster — the picture a teacher exports from the parent report
+ * editor (导出图片) and sends to parents herself. The editor passes the VISIBLE
+ * facts and the current body, and mounts this only while an export runs.
  *
  * ## Offscreen, and the offset goes on the WRAPPER
  *
@@ -17,7 +19,7 @@ import { statTiles, visibleSections } from "./view";
  *
  * ## Explicit hex colours and system fonts
  *
- * The page it is exported from follows the viewer's theme, and a parent in
+ * The page it is exported from follows the viewer's theme, and a teacher in
  * dark mode must still get the same light picture. So every colour here is a
  * literal (the lite light palette and the macaron `-bg`/`-fg` pairs), never a
  * `var(--mk-…)`. A `<foreignObject>` never loads a web font, so the stack is
@@ -63,7 +65,6 @@ export const ParentReportPoster = forwardRef<HTMLDivElement, { report: ParentRep
   const tiles = statTiles(report.facts);
   const moments = report.facts.moments.filter((m) => m.quote.trim()).slice(0, MAX_POSTER_MOMENTS);
   const range = rangeLabel(report.rangeStart, report.rangeEnd);
-  const published = report.publishedAt ? publishedMonthDay(report.publishedAt) : "";
 
   return (
     // The wrapper holds the offscreen offset; the poster below is static and
@@ -176,9 +177,7 @@ export const ParentReportPoster = forwardRef<HTMLDivElement, { report: ParentRep
             color: MUTED,
           }}
         >
-          <span>
-            由 {report.teacherName} 发布{published ? ` · ${published}` : ""}
-          </span>
+          <span>{bylineText(report.teacherName, report.createdAt)}</span>
           <span>思维印记</span>
         </footer>
       </div>

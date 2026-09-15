@@ -2,29 +2,58 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
 import {
   draftErrorText,
+  EXPORT_BLOCKED_TEXT,
+  exportBlockedReason,
   generateErrorPlacement,
+  hiddenMentionText,
   isBodyBlank,
-  linkStateLabel,
   saveErrorText,
+  savableSectionKeys,
   sectionKeysToLabels,
-  shareUrl,
   showsNoDraftHint,
-  statusLabel,
 } from "./parentReportLogic";
 
 // Ruling 18 D3: the hint covers a reload after a failed generate, when the
 // in-memory banner is gone; it never doubles the banner.
 describe("showsNoDraftHint", () => {
   const blank = { overview: "", next: "  " };
-  it("shows for a draft with no model draft and a blank body", () => {
-    expect(showsNoDraftHint("draft", false, blank, null)).toBe(true);
+  it("shows with no model draft and a blank body", () => {
+    expect(showsNoDraftHint(false, blank, null)).toBe(true);
   });
-  it("hides once any section has text, a draft exists, a banner shows, or the report is published", () => {
-    expect(showsNoDraftHint("draft", false, { overview: "a", next: "" }, null)).toBe(false);
-    expect(showsNoDraftHint("draft", true, blank, null)).toBe(false);
-    expect(showsNoDraftHint("draft", false, blank, "草稿生成失败：x")).toBe(false);
-    expect(showsNoDraftHint("published", false, blank, null)).toBe(false);
+  it("hides once any section has text, a draft exists, or a banner shows", () => {
+    expect(showsNoDraftHint(false, { overview: "a", next: "" }, null)).toBe(false);
+    expect(showsNoDraftHint(true, blank, null)).toBe(false);
+    expect(showsNoDraftHint(false, blank, "草稿生成失败：x")).toBe(false);
   });
+});
+
+// Follow-ups Ruling 2: a picture that still quotes a hidden item must not be made.
+describe("exportBlockedReason", () => {
+  it("allows the export with no mentions", () => expect(exportBlockedReason({ hiddenMentions: {} })).toBeNull());
+  it("blocks while any section still quotes a hidden item", () =>
+    expect(exportBlockedReason({ hiddenMentions: { overview: ["雨水不是废水"] } })).toBe(EXPORT_BLOCKED_TEXT));
+  it("ignores an empty list", () => expect(exportBlockedReason({ hiddenMentions: { overview: [] } })).toBeNull());
+  it("reads as a failure line", () => expect(EXPORT_BLOCKED_TEXT).toBe("导出失败：正文仍引用已隐藏的内容，请先修改"));
+});
+
+describe("hiddenMentionText", () => {
+  it("joins the quoted items with 、", () =>
+    expect(hiddenMentionText(["雨水不是废水", "天气"])).toBe("这一段仍引用了已隐藏的内容：雨水不是废水、天气，请修改"));
+});
+
+// PATCH rejects a body key not in `sections` (400 invalid_section), which is
+// what `interests` is while every keyword is hidden.
+describe("savableSectionKeys", () => {
+  it("keeps only keys the report currently has", () =>
+    expect(savableSectionKeys(["overview", "next"], { overview: "a", interests: "b", next: "" })).toEqual([
+      "overview",
+      "next",
+    ]));
+  it("sends interests again once it is back in sections", () =>
+    expect(savableSectionKeys(["overview", "interests"], { overview: "a", interests: "b" })).toEqual([
+      "overview",
+      "interests",
+    ]));
 });
 
 // Ruling 13: a draftError can already be a whole failure line from the server
@@ -86,20 +115,5 @@ describe("isBodyBlank", () => {
     expect(isBodyBlank({})).toBe(true);
     expect(isBodyBlank({ overview: "", next: " \n " })).toBe(true);
     expect(isBodyBlank({ overview: "", next: "建议" })).toBe(false);
-  });
-});
-
-describe("labels", () => {
-  it("names status and link state", () => {
-    expect(statusLabel("draft")).toBe("草稿");
-    expect(statusLabel("published")).toBe("已发布");
-    expect(linkStateLabel("draft", false)).toBe("—");
-    expect(linkStateLabel("published", true)).toBe("已开启");
-    expect(linkStateLabel("published", false)).toBe("已撤销");
-  });
-
-  it("builds the share link from the app origin", () => {
-    expect(shareUrl("https://mind-web.uni-robot.cn", "abc")).toBe("https://mind-web.uni-robot.cn/r/abc");
-    expect(shareUrl("http://localhost:5174/", "a b")).toBe("http://localhost:5174/r/a%20b");
   });
 });

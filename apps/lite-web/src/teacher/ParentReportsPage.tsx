@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { api, type ClassSummary } from "@/api";
 import { listClassParentReports, type ParentReportSummary } from "../api/parentReports";
 import { publishedMonthDay, rangeLabel } from "../parentReport/range";
-import { errorText, pickClassId, readLastClassId, statusChipStyle, writeLastClassId } from "./assignmentLogic";
-import { linkStateLabel, statusLabel } from "./parentReportLogic";
+import { errorText, pickClassId, readLastClassId, writeLastClassId } from "./assignmentLogic";
 
 /**
  * ParentReportsPage — `/parent-reports`: one class's parent reports, newest
  * first as the server sends them. Reports of students who have left the class
- * are included, so their links can still be revoked. The class choice is the
- * same remembered choice the assignment pages use.
+ * are included, so they can still be edited and exported. The class choice is
+ * the same remembered choice the assignment pages use.
  */
 export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => void }) {
   const [classes, setClasses] = useState<ClassSummary[] | null>(null);
@@ -108,10 +107,10 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
             <div className="text-mk-body text-mk-muted">暂无家长报告</div>
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
-              <table className="w-full min-w-[640px] border-collapse">
+              <table className="w-full min-w-[420px] border-collapse">
                 <thead>
                   <tr>
-                    {["学生", "日期范围", "状态", "链接", "创建时间"].map((h) => (
+                    {["学生", "日期范围", "创建时间"].map((h) => (
                       <th
                         key={h}
                         className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
@@ -142,17 +141,6 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
                       </td>
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                         {rangeLabel(r.rangeStart, r.rangeEnd) || "—"}
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
-                        <span
-                          className="rounded-mk-full px-2.5 py-0.5 text-mk-label font-bold"
-                          style={statusChipStyle(r.status === "published" ? "done" : "not_started")}
-                        >
-                          {statusLabel(r.status)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                        {linkStateLabel(r.status, r.shared)}
                       </td>
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">
                         {publishedMonthDay(r.createdAt) || "—"}

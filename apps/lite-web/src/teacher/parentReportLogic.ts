@@ -63,32 +63,47 @@ export function isBodyBlank(body: Readonly<Record<string, string>>): boolean {
 }
 
 /**
- * Whether the editor shows 暂无草稿，请重新生成草稿: a draft report with no
- * stored model draft, every section blank, and no draftError banner already
- * saying why (after a reload the in-memory message is gone).
+ * Whether the editor shows 暂无草稿，请重新生成草稿: no stored model draft,
+ * every section blank, and no draftError banner already saying why (after a
+ * reload the in-memory message is gone).
  */
 export function showsNoDraftHint(
-  status: string,
   hasDraft: boolean,
   texts: Readonly<Record<string, string>>,
   draftMessage: string | null,
 ): boolean {
-  return status === "draft" && !hasDraft && isBodyBlank(texts) && !draftMessage;
+  return !hasDraft && isBodyBlank(texts) && !draftMessage;
 }
 
-export function statusLabel(status: string): string {
-  return status === "published" ? "已发布" : "草稿";
+/** The line above a section whose stored text still quotes a hidden 金句 or
+ * keyword (`hiddenMentions`). */
+export function hiddenMentionText(texts: readonly string[]): string {
+  return `这一段仍引用了已隐藏的内容：${texts.join("、")}，请修改`;
 }
 
-/** 链接 column: only a published report has a link to speak of. */
-export function linkStateLabel(status: string, shared: boolean): string {
-  if (status !== "published") return "—";
-  return shared ? "已开启" : "已撤销";
+export const EXPORT_BLOCKED_TEXT = "导出失败：正文仍引用已隐藏的内容，请先修改";
+
+/**
+ * Why 导出图片 must not run, or null when it may. A picture that still quotes
+ * a hidden item would hand parents exactly what the teacher chose to keep out,
+ * so any section listed in `hiddenMentions` blocks the export. The editor calls
+ * this on the report returned by the LAST save, after flushing pending saves.
+ */
+export function exportBlockedReason(report: { hiddenMentions: Readonly<Record<string, readonly string[]>> }): string | null {
+  const blocked = Object.values(report.hiddenMentions).some((texts) => texts.length > 0);
+  return blocked ? EXPORT_BLOCKED_TEXT : null;
 }
 
-/** The parent link: this app's origin plus `/r/{token}`. */
-export function shareUrl(origin: string, token: string): string {
-  return `${origin.replace(/\/+$/, "")}/r/${encodeURIComponent(token)}`;
+/**
+ * The section keys a save may send: those in the report's current `sections`.
+ * While every keyword is hidden `interests` is not there, and PATCH rejects it
+ * (400 `invalid_section`); its local text is kept, not sent.
+ */
+export function savableSectionKeys(
+  sections: readonly string[],
+  texts: Readonly<Record<string, string>>,
+): string[] {
+  return Object.keys(texts).filter((key) => sections.includes(key));
 }
 
 // A generate that returned 201 with a `draftError` navigates to the editor,
