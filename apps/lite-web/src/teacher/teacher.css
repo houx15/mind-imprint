@@ -21,6 +21,16 @@
   }
 }
 
+/* `Button`/`IconButton` (apps/web) paint a disabled button with a light-theme hex
+ * (`disabled:bg-[#F0E9E1]`) that no token reaches, so in dark mode it shows as a
+ * cream square. The teacher shell gives it the lite disabled treatment instead
+ * (the same colours as `.learning-composer button:disabled`). */
+:root[data-theme="dark"] .lite-teacher button:disabled[class*="disabled:bg-[#F0E9E1]"] {
+  background: var(--mk-border);
+  border-color: var(--mk-border);
+  color: var(--mk-muted);
+}
+
 /* Same type as the student landing headings (`.learning-landing-header h1`). */
 .teacher-page-title {
   font-size: var(--mk-font-size-page);
