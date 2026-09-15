@@ -440,9 +440,8 @@ export async function patchAssignment(aid: string, patch: PatchAssignmentInput):
 
 /**
  * Resolves on 204. A repeat archive call on an already-archived assignment
- * 404s (controller Ruling P2-4, Task 4 review) and that surfaces here as a
- * thrown `ApiError` — Task 8's UI decides whether a 404 right after a
- * confirmed archive should read as success.
+ * 404s and throws `ApiError`; the caller decides whether a 404 right after a
+ * confirmed archive reads as success.
  */
 export async function archiveAssignment(aid: string): Promise<void> {
   await apiFetch<void>(`${teacherBase}/assignments/${encodeURIComponent(aid)}`, { method: "DELETE" });

@@ -85,8 +85,8 @@ func TestLibraryShelfStillRecommendsFromHerInterests(t *testing.T) {
 }
 
 // TestLibraryShelfExcludesOpenedArticles pins profileFromRows, the helper
-// shared by the shelf and libraryProfileIn (M3): an article she has already
-// opened must still be excluded from her recommendations after the refactor.
+// shared by the shelf and libraryProfileIn: an article she has already opened
+// is excluded from her recommendations.
 func TestLibraryShelfExcludesOpenedArticles(t *testing.T) {
 	h, pool, _, _, studentID := liteTeacherFixture(t)
 	all := library.All()
@@ -354,8 +354,8 @@ func TestPersonalizedStartFallsBackWhenPickedArticleLeftTheLibrary(t *testing.T)
 	}
 }
 
-// TestPersonalizedPatchKeepsRemovedRecipientsPick covers Ruling 1: a removed
-// recipient's pick stays in the stored payload. Only a pick that is new or
+// TestPersonalizedPatchKeepsRemovedRecipientsPick: a removed recipient's pick
+// stays in the stored payload. Only a pick that is new or
 // has changed since the stored payload is checked against the recipient list
 // a PATCH leaves behind; a pick resent unchanged for a student who was just
 // removed is not refused, and does not block a later save either.
@@ -395,7 +395,7 @@ func TestPersonalizedPatchKeepsRemovedRecipientsPick(t *testing.T) {
 		t.Fatalf("decode stored payload: %v", err)
 	}
 	if _, ok := storedPayload.Picks[s2.String()]; !ok {
-		t.Fatalf("stored picks = %+v, want s2's pick to remain (Ruling 1)", storedPayload.Picks)
+		t.Fatalf("stored picks = %+v, want s2's pick to remain after her removal", storedPayload.Picks)
 	}
 
 	// A later save that still resends the same payload (e.g. a title-only

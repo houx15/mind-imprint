@@ -218,9 +218,8 @@ export function validateSettings(d: SettingsDraft): string | null {
     } else if (d.readingSource === "personalized") {
       if (d.picks === null) return "请等待推荐列表加载完成";
     } else {
-      // Ruling: the upload tab needs an actual extracted file, not just any
-      // text — a stray body left over from the paste tab must not publish
-      // silently as "uploaded" content.
+      // The upload tab needs an extracted file: text left over from the paste
+      // tab must not publish as uploaded content.
       if (d.readingSource === "file" && !d.fileName.trim()) return "请上传文件";
       const text = d.text.trim();
       // A file name is already required above, so reaching here on the
