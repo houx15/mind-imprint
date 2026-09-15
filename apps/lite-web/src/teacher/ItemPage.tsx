@@ -189,6 +189,8 @@ function ItemBody({
   proseError: string | null;
 }) {
   const { item } = detail;
+  const [documentView, setDocumentView] = useState<{ id: string; original: boolean } | null>(null);
+  const showOriginal = documentView?.id === item.atomId && documentView.original;
   return (
     <>
       <StudioHeading label={`${kindLabel(item.kind)} · 学习成果`} title={item.title} kind={item.kind === "reading" ? "keepsake" : item.kind} />
@@ -202,6 +204,12 @@ function ItemBody({
       <p className="mt-3 text-mk-small text-mk-muted">对话内容不向教师展示；以下为学生的产出。</p>
 
       {detail.writing && (
+        <nav className="teacher-writing-views" aria-label="写作成果视图">
+          <button type="button" aria-pressed={!showOriginal} onClick={() => setDocumentView({ id: item.atomId, original: false })}>报告与过程</button>
+          <button type="button" aria-pressed={!!showOriginal} onClick={() => setDocumentView({ id: item.atomId, original: true })}>写作原文</button>
+        </nav>
+      )}
+      {detail.writing && showOriginal && (
         <section className="teacher-record-section teacher-writing-original" aria-labelledby="writing-original-heading">
           <h2 id="writing-original-heading" className="text-mk-h3 text-mk-ink">写作原文</h2>
           <p className="mt-1 text-mk-small text-mk-muted">学生当前保存的正文</p>
@@ -213,6 +221,7 @@ function ItemBody({
         </section>
       )}
 
+      {(!detail.writing || !showOriginal) && <>
       <ReportSection
         report={detail.report}
         reportError={detail.reportError}
@@ -223,6 +232,7 @@ function ItemBody({
       <ReadingSection reading={detail.reading} keep={detail.report?.keep ?? null} />
       <WritingSection writing={detail.writing} />
       <ProjectSection project={detail.project} />
+      </>}
     </>
   );
 }

@@ -40,3 +40,7 @@ Type checking, 698 existing tests, production build and browser activity-filter 
 将已有接口返回的 `writing.draft` 提到写作成果页报告之前，命名为「写作原文」，说明为学生当前保存的正文；原文保持完整文本与换行，不再藏在提纲和片段后的「成稿」中。无正文时明确提示尚未保存，提纲、片段和 AI 批注保留在「写作过程」。接口和权限不变。
 
 验证：TypeScript 检查通过；真实 Chromium 使用模拟接口核对全文一致、原文可见、空正文提示与无浏览器错误，更新 writing.png 和 writing-details.png。
+
+### 长篇写作原文阅读
+
+写作成果改为「报告与过程 / 写作原文」两个独立视图，默认报告，全文独立阅读并保留换行；顶部切换入口随滚动保持可用。替代上一次将原文直接放在报告之前的布局。真实 Chromium 用 24 段模拟正文验证完整内容、视图切换及空正文状态，类型检查通过；writing-original.png 为长文阅读预览。
