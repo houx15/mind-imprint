@@ -297,6 +297,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             userId={route.userId}
             atomId={route.atomId}
             onBack={() => go({ view: "student", classId: route.classId, userId: route.userId })}
+            onOpenGrading={(gradingId) => go({ view: "grading", gradingId })}
           />
         )}
         {route.view === "overview" && user.role === "admin" && <OverviewView client={api} />}

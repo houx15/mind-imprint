@@ -3,12 +3,14 @@ import { ProjectProgressVisual } from "../projects/ProjectProgressVisual";
 import { StudioHeading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Icon } from "@/ui";
+import { Button, Icon } from "@/ui";
 import { ApiError } from "@/api";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, getItemVersion, type ItemDetail } from "../api/teacher";
 import type { WritingVersion, WritingVersionSummary } from "../api/writings";
-import { tintedChipStyle } from "./assignmentLogic";
+import { queueWritingGrading, type GradingSummary } from "../api/gradings";
+import { failText, tintedChipStyle } from "./assignmentLogic";
+import { GRADING_STATUS_LABEL, gradingRowStatus, gradingStatusHue } from "./gradingLogic";
 import { versionLine } from "../writings/finishedWriting";
 import { formatMinutes, itemStatusLabel, kindLabel, langLabel, safeHttpUrl } from "./format";
 import { displayStat } from "../reports/statLabels";
@@ -62,11 +64,13 @@ export function ItemPage({
   userId,
   atomId,
   onBack,
+  onOpenGrading,
 }: {
   classId: string;
   userId: string;
   atomId: string;
   onBack: () => void;
+  onOpenGrading: (gradingId: string) => void;
 }) {
   const [detail, setDetail] = useState<ItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +152,15 @@ export function ItemPage({
       ) : detail === null ? (
         <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
       ) : (
-        <ItemBody classId={classId} userId={userId} detail={detail} retriedProse={retriedProse} proseError={proseError} />
+        <ItemBody
+          classId={classId}
+          userId={userId}
+          atomId={atomId}
+          detail={detail}
+          retriedProse={retriedProse}
+          proseError={proseError}
+          onOpenGrading={onOpenGrading}
+        />
       )}
     </TeacherPage>
   );
@@ -159,6 +171,47 @@ export function ItemPage({
 export function prosePendingLabel(pending: boolean, retried: boolean): string | null {
   if (!pending) return null;
   return retried ? "报告文字暂未生成" : "报告文字生成中";
+}
+
+export interface CommentPointLine {
+  kind: "good" | "issue" | "note";
+  text: string;
+  action: string | null;
+  quote: string | null;
+}
+
+/** 印记's comment points in both stored shapes: an old string, or the
+ *  {kind, text, action, quote} object writing_comment.go writes today
+ *  (spec B5's bug — the page used to render only string points, so a real
+ *  object point's quote/action/text never showed at all). */
+export function commentPointLines(points: unknown[]): CommentPointLine[] {
+  const out: CommentPointLine[] = [];
+  for (const p of points) {
+    if (typeof p === "string") {
+      if (p.trim()) out.push({ kind: "note", text: p, action: null, quote: null });
+      continue;
+    }
+    if (!p || typeof p !== "object") continue;
+    const r = p as Record<string, unknown>;
+    const text = typeof r.text === "string" ? r.text.trim() : "";
+    if (!text) continue;
+    out.push({
+      kind: r.kind === "good" ? "good" : "issue",
+      text,
+      action: typeof r.action === "string" && r.action.trim() ? r.action : null,
+      quote: typeof r.quote === "string" && r.quote.trim() ? r.quote : null,
+    });
+  }
+  return out;
+}
+
+/** Whether the item page shows no 批改 control ("none" — nothing submitted
+ *  yet), an "AI 批改" button ("grade" — submitted, no grading started), or a
+ *  link that opens the existing one ("open" — never a second control that
+ *  could start a competing/overwriting grading). */
+export function itemGradingAction(versionCount: number, grading: GradingSummary | null): "none" | "grade" | "open" {
+  if (grading) return "open";
+  return versionCount > 0 ? "grade" : "none";
 }
 
 /** 阅读区的「收获」要不要显示。报告里的收获就是学生自己写的这一句时
@@ -200,17 +253,21 @@ function shortDate(iso: string | null): string {
 function ItemBody({
   classId,
   userId,
+  atomId,
   detail,
   retriedProse,
   proseError,
+  onOpenGrading,
 }: {
   classId: string;
   userId: string;
+  atomId: string;
   detail: ItemDetail;
   retriedProse: boolean;
   /** I5: a real request error re-fetching the prose — never rendered as the
    *  「处理中」pending label, which would misreport a failure as a wait. */
   proseError: string | null;
+  onOpenGrading: (gradingId: string) => void;
 }) {
   const { item } = detail;
   const [documentView, setDocumentView] = useState<{ id: string; original: boolean } | null>(null);
@@ -234,7 +291,7 @@ function ItemBody({
         </nav>
       )}
       {detail.writing && showOriginal && (
-        <WritingManuscript classId={classId} userId={userId} atomId={item.atomId} writing={detail.writing} />
+        <WritingManuscript classId={classId} userId={userId} atomId={atomId} writing={detail.writing} onOpenGrading={onOpenGrading} />
       )}
 
       {(!detail.writing || !showOriginal) && <>
@@ -254,22 +311,29 @@ function ItemBody({
 }
 
 /** 写作原文: her latest submitted version (fetched on open), or her draft
- *  when nothing was ever submitted — see `teacherManuscript`. */
+ *  when nothing was ever submitted — see `teacherManuscript`. Also where the
+ *  批改 control and version list live (controller ruling — not inside
+ *  报告与过程, which is process data, not the manuscript itself). */
 function WritingManuscript({
   classId,
   userId,
   atomId,
   writing,
+  onOpenGrading,
 }: {
   classId: string;
   userId: string;
   atomId: string;
   writing: NonNullable<ItemDetail["writing"]>;
+  onOpenGrading: (gradingId: string) => void;
 }) {
   const source = teacherManuscript(writing);
   const n = source.kind === "version" ? source.version.number : null;
   const [body, setBody] = useState<WritingVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const alive = useAlive();
+  const [busy, setBusy] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (n === null) return;
@@ -288,6 +352,40 @@ function WritingManuscript({
     };
   }, [classId, userId, atomId, n]);
 
+  const action = itemGradingAction(writing.versions.length, writing.grading);
+  const rowStatus = writing.grading ? gradingRowStatus({ version: writing.versions[0] ?? null, grading: writing.grading }) : null;
+
+  async function grade() {
+    if (busy) return;
+    setBusy(true);
+    setGradeError(null);
+    try {
+      const g = await queueWritingGrading(classId, userId, atomId);
+      if (alive.current) onOpenGrading(g.id);
+    } catch (e) {
+      // A 409 means a draft/sent/in-flight row already exists for this
+      // version — created after this page's own load (another tab, or a
+      // regrade started elsewhere). Never overwrite it silently: refetch to
+      // find its id and open THAT one, rather than just reporting an error.
+      if (e instanceof ApiError && (e.code === "grading_exists" || e.code === "grading_in_progress")) {
+        try {
+          const fresh = await getItem(classId, userId, atomId);
+          const gid = fresh.writing?.grading?.id ?? null;
+          if (alive.current) {
+            if (gid) onOpenGrading(gid);
+            else setGradeError(failText("批改", e));
+          }
+        } catch (e2) {
+          if (alive.current) setGradeError(failText("批改", e2));
+        }
+      } else if (alive.current) {
+        setGradeError(failText("批改", e));
+      }
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  }
+
   return (
     <section className="teacher-record-section teacher-writing-original" aria-labelledby="writing-original-heading">
       <h2 id="writing-original-heading" className="text-mk-h3 text-mk-ink">写作原文</h2>
@@ -301,6 +399,46 @@ function WritingManuscript({
               </span>
             )}
           </p>
+
+          {writing.versions.length > 1 && (
+            <div className="mt-3">
+              <h3 className="text-mk-label text-mk-muted">版本</h3>
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {writing.versions.map((v) => (
+                  <li key={v.number} className="text-mk-small text-mk-ink">
+                    {versionLine(v, writing.lang)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {action === "grade" && (
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void grade()}>
+                AI 批改
+              </Button>
+            )}
+            {action === "open" && writing.grading && rowStatus && (
+              <>
+                <span
+                  className="inline-block whitespace-nowrap rounded-mk-full px-2.5 py-0.5 text-mk-small font-bold"
+                  style={tintedChipStyle(gradingStatusHue(rowStatus))}
+                >
+                  {GRADING_STATUS_LABEL[rowStatus]}
+                </span>
+                <Button variant="link" size="sm" onClick={() => onOpenGrading(writing.grading!.id)}>
+                  查看批改
+                </Button>
+              </>
+            )}
+            {gradeError && (
+              <span role="alert" className="text-mk-small font-semibold text-mk-danger">
+                {gradeError}
+              </span>
+            )}
+          </div>
+
           {error ? (
             <p className="mt-5 text-mk-small font-semibold text-mk-danger">加载失败：{error}</p>
           ) : body === null ? (
@@ -514,17 +652,18 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
             {comments.map((c, i) => (
               <li key={i} className="teacher-evidence">
                 <p className="text-mk-small text-mk-ink">{c.summary}</p>
-                {Array.isArray(c.points) && c.points.some((p) => typeof p === "string") ? (
-                  <ul className="mt-1.5 list-disc pl-4">
-                    {c.points
-                      .filter((p): p is string => typeof p === "string")
-                      .map((p, j) => (
-                        <li key={j} className="text-mk-small text-mk-muted">
-                          {p}
-                        </li>
-                      ))}
+                {commentPointLines(c.points).length > 0 && (
+                  <ul className="mt-1.5 flex flex-col gap-1.5">
+                    {commentPointLines(c.points).map((p, j) => (
+                      <li key={j} className="text-mk-small text-mk-ink">
+                        {p.kind !== "note" && <span className="text-mk-muted">{p.kind === "good" ? "优点：" : "问题："}</span>}
+                        {p.quote && <span className="text-mk-muted">「{p.quote}」 </span>}
+                        {p.text}
+                        {p.action && <span className="block text-mk-muted">修改建议：{p.action}</span>}
+                      </li>
+                    ))}
                   </ul>
-                ) : null}
+                )}
               </li>
             ))}
           </ul>
