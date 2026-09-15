@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,4 +73,116 @@ func insertWritingVersion(ctx context.Context, q *sqlc.Queries, atomID uuid.UUID
 		AtomID: atomID, Number: n, Title: title, Body: body,
 		WordCount: int32(agent.CountWords(body)),
 	})
+}
+
+// writingWriteGate is the writing branch of loadOwnedAtom's write gate. An
+// open writing accepts writes as always. A finished writing accepts writes
+// only while she is revising it, and only through refuseIfWritingLocked —
+// the one place the lock rule lives (see that function's comment).
+func (a *API) writingWriteGate(ctx context.Context, at sqlc.Atom) error {
+	wr, err := a.d.Queries.GetWriting(ctx, at.ID)
+	if err != nil {
+		return err
+	}
+	if wr.Status != "finished" {
+		return nil
+	}
+	if !wr.RevisingAt.Valid {
+		return httpx.ErrWritingFinished()
+	}
+	return refuseIfWritingLocked(ctx, a.d.Queries, at.ID, at.UserID, time.Now())
+}
+
+// reviseWriting is POST /api/v1/writings/{id}/revise (修改): reopen a
+// finished writing for editing. Status stays "finished" the whole time, so a
+// homework this belongs to stays 已提交 — only revisingAt changes, which is
+// what writingWriteGate and the lock check key off of.
+func (a *API) reviseWriting(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedWritingAtomRow(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	wr, err := a.d.Queries.GetWriting(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if wr.Status != "finished" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("writing_not_finished", "这篇写作还没有提交", nil))
+		return
+	}
+	if err := refuseIfWritingLocked(ctx, a.d.Queries, at.ID, at.UserID, time.Now()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	updated, err := a.d.Queries.SetWritingRevising(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(updated, at.CreatedAt, at.LastActivityAt))
+}
+
+// discardWritingRevision is POST /api/v1/writings/{id}/revise/discard
+// (放弃修改): the draft body and the title go back to the latest submitted
+// version and revisingAt is cleared, so writingWriteGate closes writes again.
+// A no-op 200 when she is not revising. Refused when locked, so edits made
+// before the deadline stay in writing_draft until the teacher returns the
+// homework — discard is itself a write, so it must not be able to bypass the
+// lock it is trying to close.
+func (a *API) discardWritingRevision(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedWritingAtomRow(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	wr, err := qtx.GetWritingForUpdate(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !wr.RevisingAt.Valid {
+		httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
+		return
+	}
+	if err := refuseIfWritingLocked(ctx, qtx, at.ID, at.UserID, time.Now()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	latest, err := qtx.GetLatestWritingVersion(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := qtx.UpsertWritingDraft(ctx, sqlc.UpsertWritingDraftParams{AtomID: at.ID, Body: latest.Body}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := qtx.RenameWriting(ctx, sqlc.RenameWritingParams{AtomID: at.ID, Title: latest.Title}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := qtx.ClearWritingRevising(ctx, at.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	updated, err := a.d.Queries.GetWriting(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(updated, at.CreatedAt, at.LastActivityAt))
 }

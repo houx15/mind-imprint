@@ -106,7 +106,8 @@ func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt, lastActiv
 //
 // Every non-GET request against an atom that is already *finished* is
 // additionally refused with the kind's own 403 (reading_finished /
-// writing_finished — see atomFinishedError): 铁律④ makes the process record
+// writing_finished — see atomFinishedError; a writing being revised is the
+// exception, see atomWriteGate): 铁律④ makes the process record
 // evidence a report is generated from, and a raw API call — or a tab that
 // had the room open before the atom finished — must not be able to keep
 // writing to it after the client-side read-only view says otherwise. 403,
@@ -129,16 +130,11 @@ func (a *API) loadOwnedAtom(w http.ResponseWriter, r *http.Request, kind string)
 		return sqlc.Atom{}, false
 	}
 	if r.Method != http.MethodGet {
-		finished, err := a.atomIsFinished(r.Context(), at.ID, kind)
-		if err != nil {
+		if err := a.atomWriteGate(r.Context(), at, kind); err != nil {
 			httpx.WriteError(w, r, err)
 			return sqlc.Atom{}, false
 		}
-		if finished {
-			httpx.WriteError(w, r, atomFinishedError(kind))
-			return sqlc.Atom{}, false
-		}
-		// AFTER the finished gate: a refused write is not activity.
+		// AFTER the write gate: a refused write is not activity.
 		// Best-effort — an activity timestamp must never be the reason a
 		// student's actual work fails. The returned row replaces `at` so a
 		// handler that answers with a DTO reports the fresh value rather
@@ -174,6 +170,24 @@ func (a *API) loadOwnedAtomRow(w http.ResponseWriter, r *http.Request, kind stri
 		return sqlc.Atom{}, false
 	}
 	return at, true
+}
+
+// atomWriteGate decides whether a non-GET request may write to the atom.
+// Reading: refused once finished. Writing: see writingWriteGate
+// (writing_versions.go) — a finished writing accepts writes while she
+// revises it, unless the homework is locked (403 writing_locked).
+func (a *API) atomWriteGate(ctx context.Context, at sqlc.Atom, kind string) error {
+	if kind == "writing" {
+		return a.writingWriteGate(ctx, at)
+	}
+	finished, err := a.atomIsFinished(ctx, at.ID, kind)
+	if err != nil {
+		return err
+	}
+	if finished {
+		return atomFinishedError(kind)
+	}
+	return nil
 }
 
 // atomIsFinished answers "is this atom already finished?" per kind. Each

@@ -357,7 +357,17 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, err := insertWritingVersion(ctx, qtx, at.ID, wr.Title, draft.Body); err != nil {
+	// Re-read the draft with the tx queries, under the row lock just taken
+	// above (GetWritingForUpdate), rather than reusing the pre-transaction
+	// read: an autosave (PUT /draft) can land between the missing_draft check
+	// and here, and the version must equal what she actually submitted, not
+	// a stale snapshot from before the race.
+	freshDraft, err := qtx.GetWritingDraft(ctx, at.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := insertWritingVersion(ctx, qtx, at.ID, wr.Title, freshDraft.Body); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
