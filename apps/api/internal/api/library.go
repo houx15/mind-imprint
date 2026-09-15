@@ -111,14 +111,7 @@ func (a *API) getLibraryShelf(w http.ResponseWriter, r *http.Request) {
 
 	// A read error leaves her interests empty, as before: the shelf must still open.
 	interests, _ := interestDisciplinesIn(r.Context(), a.d.Queries, u.ID)
-	profile := library.Profile{
-		Disciplines: interests,
-		ReadSlugs:   make(map[string]bool, len(read)),
-		Tier:        suggestLibraryTierFromRows(rows),
-	}
-	for slug := range read {
-		profile.ReadSlugs[slug] = true
-	}
+	profile := profileFromRows(rows, interests)
 
 	articles := library.All()
 	out := libraryShelfDTO{
@@ -212,11 +205,18 @@ func libraryProfileIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID) (l
 	if err != nil {
 		return library.Profile{}, err
 	}
+	return profileFromRows(rows, interests), nil
+}
+
+// profileFromRows builds a recommender Profile from a student's library
+// reading rows and her interest strengths, shared by the shelf and
+// libraryProfileIn so the two never derive ReadSlugs or Tier differently.
+func profileFromRows(rows []sqlc.ListLibraryReadingsByUserRow, interests map[string]float64) library.Profile {
 	read := make(map[string]bool, len(rows))
 	for _, row := range rows {
 		read[row.LibrarySlug] = true
 	}
-	return library.Profile{Disciplines: interests, ReadSlugs: read, Tier: suggestLibraryTierFromRows(rows)}, nil
+	return library.Profile{Disciplines: interests, ReadSlugs: read, Tier: suggestLibraryTierFromRows(rows)}
 }
 
 // signObject 给一个私有桶里的对象签一条能读的链接。签不出来（OSS 没配、

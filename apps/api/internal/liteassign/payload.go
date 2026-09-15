@@ -60,6 +60,15 @@ const (
 
 func validTier(t *int) bool { return t == nil || (*t >= 1 && *t <= 5) }
 
+// hasLevel reports whether art has the given tier — checked separately from
+// validTier's 1..5 range so a future article published with fewer levels
+// still rejects a pick at publish time, not at her start (picks lock once
+// anyone starts, so she could not recover from a bad one then).
+func hasLevel(art library.Article, tier int) bool {
+	_, ok := art.LevelAt(tier)
+	return ok
+}
+
 // ValidateDisciplines trims, drops blanks and duplicates, and refuses an id
 // that is not in the discipline table.
 func ValidateDisciplines(ids []string) ([]string, error) {
@@ -214,11 +223,15 @@ func ValidatePayload(kind string, raw json.RawMessage) (json.RawMessage, error) 
 					return nil, perr("invalid_pick_user", "个性化名单中有重复的学生")
 				}
 				pick.Slug = strings.TrimSpace(pick.Slug)
-				if _, ok := library.BySlug(pick.Slug); !ok {
+				art, ok := library.BySlug(pick.Slug)
+				if !ok {
 					return nil, perr("invalid_pick_slug", "文章不在阅读库里："+pick.Slug)
 				}
 				if !validTier(pick.Tier) {
 					return nil, perr("invalid_tier", "难度档位需在 1 到 5 之间")
+				}
+				if pick.Tier != nil && !hasLevel(art, *pick.Tier) {
+					return nil, perr("invalid_pick_tier", "这篇文章没有这一档")
 				}
 				picks[canonical] = pick
 			}

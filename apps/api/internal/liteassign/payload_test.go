@@ -151,6 +151,20 @@ func TestReadingPersonalized(t *testing.T) {
 	}
 }
 
+// TestHasLevel checks the pick-tier gate directly: every article in the
+// embedded library has 5 levels today (library.validate enforces it), so a
+// real ValidatePayload call can never hit the "missing level" branch — this
+// pins hasLevel against a fake article with fewer levels instead.
+func TestHasLevel(t *testing.T) {
+	art := library.Article{Levels: []library.Level{{Tier: 1}, {Tier: 2}, {Tier: 3}}}
+	if !hasLevel(art, 2) {
+		t.Fatal("tier 2 exists on this article")
+	}
+	if hasLevel(art, 4) {
+		t.Fatal("tier 4 does not exist on this article")
+	}
+}
+
 func TestPicksOutside(t *testing.T) {
 	a, b, c := uuid.New(), uuid.New(), uuid.New()
 	slug := library.All()[0].Slug

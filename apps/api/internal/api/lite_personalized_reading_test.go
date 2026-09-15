@@ -84,6 +84,31 @@ func TestLibraryShelfStillRecommendsFromHerInterests(t *testing.T) {
 	}
 }
 
+// TestLibraryShelfExcludesOpenedArticles pins profileFromRows, the helper
+// shared by the shelf and libraryProfileIn (M3): an article she has already
+// opened must still be excluded from her recommendations after the refactor.
+func TestLibraryShelfExcludesOpenedArticles(t *testing.T) {
+	h, pool, _, _, studentID := liteTeacherFixture(t)
+	all := library.All()
+	c := signInAs(t, pool, studentID)
+	if code := assignJSON(t, h, c, "POST", "/api/v1/library/"+all[0].Slug+"/levels/2", nil, nil); code != http.StatusCreated {
+		t.Fatalf("open an article = %d", code)
+	}
+	var shelf struct {
+		Recommended []struct {
+			Slug string `json:"slug"`
+		} `json:"recommended"`
+	}
+	if code := getJSON(t, h, c, "/api/v1/library", &shelf); code != http.StatusOK {
+		t.Fatalf("shelf = %d", code)
+	}
+	for _, rec := range shelf.Recommended {
+		if rec.Slug == all[0].Slug {
+			t.Fatalf("recommended = %+v, want the opened article %s excluded", shelf.Recommended, all[0].Slug)
+		}
+	}
+}
+
 func TestPersonalizedPreview(t *testing.T) {
 	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
 	s2 := createStudent(t, pool, SeedSchoolID, "pp-s2@demo.local")
@@ -299,6 +324,33 @@ func TestPersonalizedStartUsesClassTier(t *testing.T) {
 	out = startAssignment(t, h, signInAs(t, pool, s2), aid)
 	if slug, tier := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug || tier != 3 {
 		t.Fatalf("s2 started %s tier %d, want the recommendation %s at tier 3", slug, tier, want.Article.Slug)
+	}
+}
+
+// TestPersonalizedStartFallsBackWhenPickedArticleLeftTheLibrary covers M2:
+// the library is embedded and changes only on a deploy, but a student whose
+// saved pick names an article that is gone must still get a recommendation
+// at start, the same as a student who never had a pick — not a dead end.
+// PATCH refuses an unknown slug at save time, so the only way to reach this
+// state is to edit the stored payload directly.
+func TestPersonalizedStartFallsBackWhenPickedArticleLeftTheLibrary(t *testing.T) {
+	h, pool, teacher, classID, s1 := liteTeacherFixture(t)
+	all := library.All()
+
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", personalizedPayload(nil, map[string]any{
+		s1.String(): map[string]any{"slug": all[0].Slug},
+	}), []string{s1.String()}))
+
+	path := []string{"picks", s1.String(), "slug"}
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE lite_assignment SET payload = jsonb_set(payload, $2, '"ghost-article"'::jsonb) WHERE id = $1`, aid, path); err != nil {
+		t.Fatalf("rewrite stored pick: %v", err)
+	}
+
+	want, _ := library.PickForStudent(all, library.Profile{Tier: library.SuggestTier(0, 0)}, nil)
+	out := startAssignment(t, h, signInAs(t, pool, s1), aid)
+	if slug, _ := libraryReadingOf(t, pool, out.AtomID); slug != want.Article.Slug {
+		t.Fatalf("started %s, want the fallback recommendation %s", slug, want.Article.Slug)
 	}
 }
 

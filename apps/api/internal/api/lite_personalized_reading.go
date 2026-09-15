@@ -104,13 +104,15 @@ func pickedTier(pickTier, classTier *int) *int {
 
 // personalizedTargetIn turns a personalized payload into the library reading
 // this student starts: her pick, or, when she has none (she was added after
-// the picks were saved), the recommendation computed now. Tier order is the
-// same on both branches — the pick's own tier, else the homework's class-wide
-// tier, else (a nil Tier here) her suggested tier, left to
-// startAssignedLibraryReading.
+// the picks were saved) or her pick's article has since left the library,
+// the recommendation computed now. Tier order is the same on both branches —
+// the pick's own tier, else the homework's class-wide tier, else (a nil Tier
+// here) her suggested tier, left to startAssignedLibraryReading.
 func personalizedTargetIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID, p liteassign.ReadingPayload) (liteassign.ReadingPayload, error) {
 	if pick, ok := p.Picks[userID.String()]; ok {
-		return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: pickedTier(pick.Tier, p.Tier)}, nil
+		if _, exists := library.BySlug(pick.Slug); exists {
+			return liteassign.ReadingPayload{Source: "library", Slug: pick.Slug, Tier: pickedTier(pick.Tier, p.Tier)}, nil
+		}
 	}
 	prof, err := libraryProfileIn(ctx, q, userID)
 	if err != nil {
