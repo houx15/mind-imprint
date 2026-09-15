@@ -280,7 +280,19 @@ The plan is at `docs/superpowers/plans/2026-09-15-lite-teacher-followups.md`. It
   - Status chip contrast is at least 5.4:1 everywhere.
   - Parent report tiles fill each row with no gaps, using a parent-only class.
   - Assigned writing target and language are locked. `/setup` keeps the stored values, and `/target-words` returns 409 `assigned_target_locked`.
-- **Task 4: teacher pages follow the refreshed lite look.** In progress when this section was written. See the final summary.
+- **Task 4: teacher pages follow the refreshed lite look.** Done. The teacher shell now sits inside the lite theme scope, so teachers get the lite tokens and blue-grey dark mode. Nothing in `apps/web` changed. Other details:
+  - Teachers use the lite accent presets; a stored non-lite accent falls back to teal.
+  - The student and teacher shells share one paper rail component.
+  - A `TeacherPage` wrapper uses the landing widths.
+  - In dark mode, disabled buttons no longer show as cream squares.
+- **Final whole-branch review: With fixes; one fix wave; re-review Ready to push.**
+  - A 「」 fragment of a hidden 金句 is now flagged, and export is blocked until it is edited out.
+  - Weekly praise and watch tags reach at least 5.4:1 contrast in light mode.
+  - The hidden-content warning reaches at least 5.0:1.
+  - Teacher settings cards are flat.
+  - An export error shows 导出失败.
+  - The teacher-list snapshot-name test is restored.
+- **Pushed.** Everything went to `origin/main` as a fast-forward, after checking that main had not moved, migration 0152 was free, only the four intended files were deleted, and `apps/web` was untouched.
 
 Deferred minors from the follow-ups:
 - A redraft uses the hidden set from before its model call.
