@@ -8,7 +8,7 @@ import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { tintedChipStyle } from "../teacher/assignmentLogic";
-import { chipHue, effectiveDueAt, finishedChip, versionLine } from "./finishedWriting";
+import { chipHue, chipToShow, effectiveDueAt, versionLine, type AssignmentLoadState } from "./finishedWriting";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
 /**
@@ -47,6 +47,8 @@ export function FinishedWritingPage({
   const alive = useAlive();
   const [list, setList] = useState<WritingVersionList | null>(null);
   const [assignment, setAssignment] = useState<AssignmentForAtom | null>(null);
+  const [assignmentState, setAssignmentState] = useState<AssignmentLoadState>("loading");
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bodies, setBodies] = useState<Record<number, WritingVersion>>({});
   const requested = useRef<Set<number>>(new Set());
@@ -63,6 +65,9 @@ export function FinishedWritingPage({
     requested.current = new Set();
     setSelected(null);
     setCompare(false);
+    setAssignment(null);
+    setAssignmentState("loading");
+    setAssignmentError(null);
     listWritingVersions(writing.id)
       .then((l) => {
         if (!alive.current) return;
@@ -72,12 +77,20 @@ export function FinishedWritingPage({
       .catch((e: unknown) => {
         if (alive.current) setLoadError(apiErrorText(e));
       });
+    // `getAssignmentForAtom` resolves `null` on a genuine 200 for a writing
+    // that is not homework — that is NOT the same thing as a thrown error
+    // (network, 500, auth), so a failure must never be folded into "not
+    // homework" (`chipToShow` refuses to guess a chip until this settles).
     getAssignmentForAtom(writing.id)
       .then((a) => {
-        if (alive.current) setAssignment(a);
+        if (!alive.current) return;
+        setAssignment(a);
+        setAssignmentState("loaded");
       })
-      .catch(() => {
-        if (alive.current) setAssignment(null);
+      .catch((e: unknown) => {
+        if (!alive.current) return;
+        setAssignmentState("failed");
+        setAssignmentError(apiErrorText(e));
       });
   }, [writing.id, alive]);
 
@@ -105,7 +118,7 @@ export function FinishedWritingPage({
   );
 
   const locked = list?.locked ?? false;
-  const chip = finishedChip({ assignment, locked });
+  const chip = chipToShow(assignmentState, { assignment, locked });
 
   async function revise() {
     if (revising) return;
@@ -129,9 +142,11 @@ export function FinishedWritingPage({
           <Button variant="secondary" onClick={onBack}>
             回到写作
           </Button>
-          <span className="rounded-mk-full px-2.5 py-1 text-mk-label font-semibold" style={tintedChipStyle(chipHue(chip))}>
-            {chip}
-          </span>
+          {chip && (
+            <span className="rounded-mk-full px-2.5 py-1 text-mk-label font-semibold" style={tintedChipStyle(chipHue(chip))}>
+              {chip}
+            </span>
+          )}
           <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button variant="secondary" onClick={() => void revise()} disabled={revising || list === null}>
               修改
@@ -141,6 +156,11 @@ export function FinishedWritingPage({
             </Button>
           </div>
         </div>
+        {assignmentError && (
+          <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">
+            加载失败：{assignmentError}
+          </p>
+        )}
         <h1 className="font-mk-piece text-mk-report-title text-mk-ink">{writing.title}</h1>
         {assignment && (
           <p className="text-mk-small text-mk-muted">

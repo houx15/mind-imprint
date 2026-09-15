@@ -79,6 +79,12 @@ function emptyRoutes(over: Partial<Record<string, unknown>> = {}): Record<string
     [key("GET", base("/comments"))]: { body: { comments: [] } },
     // 印记 speaks first, in both faces of the room.
     [key("POST", base("/opening"))]: { body: { reply: "先说说你自己更倾向哪一边？", generated: true } },
+    // FinishedWritingPage's for-atom lookup: `{assignment: null}` is the
+    // real "not homework" 200, not a stand-in for an unregistered route —
+    // without it a real fetch failure and "no homework" look identical, and
+    // the chip stays hidden (Task 10 fix round 1: a thrown error must never
+    // be folded into "not homework").
+    [key("GET", `/api/v1/lite/assignments/for-atom/${WID}`)]: { body: { assignment: null } },
   };
 }
 
@@ -266,20 +272,15 @@ describe("loading the room", () => {
   // (Task 10, FinishedWritingPage): the title there is a plain heading, not
   // an inline EditableTitle — she renames it by pressing 修改, which reopens
   // the room (see WritingRoomHost's `onRevise`), where the title IS
-  // EditableTitle again (covered by "the title is hers" below). The old
-  // click-to-rename-in-place test this comment used to describe tested a
-  // panel that no longer exists.
-  it("shows the finished title as plain text, not an inline rename", async () => {
-    routes[key("GET", base(""))] = {
-      body: writing({ status: "finished", finishedAt: "2026-08-25T00:00:00Z", title: "我想写一篇关于课间用手机的论证文，因为…" }),
-    };
-    routes[key("GET", base("/draft"))] = { body: { body: "这是我的成稿。", updatedAt: "2026-08-25T00:00:00Z" } };
-    render(<WritingRoomHost writingId={WID} />);
-
-    await screen.findByText("已完成");
-    expect(screen.getByRole("heading", { name: "我想写一篇关于课间用手机的论证文，因为…" })).toBeTruthy();
-    expect(screen.queryByRole("textbox")).toBeNull();
-  });
+  // EditableTitle again (covered by "the title is hers" below).
+  //
+  // There is deliberately no component test here for the finished → 修改 →
+  // rename path itself (fix round 1 removed one: a heading-present /
+  // no-textbox assertion is a negative rendering check, not a behaviour
+  // test, and AGENTS.md bans that class of test). The server already
+  // refuses a rename on a finished, non-revising writing (Task 4's Go gate
+  // tests); the full finished → 修改 → rename flow is checked by Task 13's
+  // browser walk instead.
 });
 
 describe("the stage map — a MAP, not a gate", () => {

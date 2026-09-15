@@ -35,6 +35,7 @@ import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
 import { FinishedWritingPage } from "./FinishedWritingPage";
+import { stageAfterRevise } from "./finishedWriting";
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -292,8 +293,9 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           // for a writing that was finished on the 结构 stage — otherwise
           // reload() would land her in PlanningView's full-screen 结构
           // conversation instead of the room the revising strip lives in.
-          if (revised.stage === "outline") {
-            await setWritingStage(writingId, "draft");
+          const nextStage = stageAfterRevise(revised.stage);
+          if (nextStage) {
+            await setWritingStage(writingId, nextStage);
           }
           reload();
         }}

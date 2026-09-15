@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AssignmentForAtom } from "../api/assignments";
-import { effectiveDueAt, finishedChip, isReturnOpen, versionLine } from "./finishedWriting";
+import { chipToShow, effectiveDueAt, finishedChip, isReturnOpen, stageAfterRevise, versionLine } from "./finishedWriting";
 
 function homework(over: Partial<AssignmentForAtom> = {}): AssignmentForAtom {
   return {
@@ -57,4 +57,22 @@ describe("versionLine", () => {
     expect(versionLine({ number: 1, title: "t", wordCount: 240, submittedAt: "2026-09-15T06:20:00Z" }, "en")).toBe(
       "v1 · 9月15日 14:20 · 240 词",
     ));
+});
+
+describe("chipToShow", () => {
+  it("shows nothing while the assignment lookup is loading", () =>
+    expect(chipToShow("loading", { assignment: null, locked: false })).toBeNull());
+  it("shows nothing when the lookup failed — never guesses 已完成", () =>
+    expect(chipToShow("failed", { assignment: homework(), locked: false })).toBeNull());
+  it("defers to finishedChip once loaded", () => {
+    expect(chipToShow("loaded", { assignment: null, locked: false })).toBe("已完成");
+    expect(chipToShow("loaded", { assignment: homework(), locked: true })).toBe("已锁定");
+  });
+});
+
+describe("stageAfterRevise", () => {
+  it("forces 结构 onto 成稿 so 修改 opens the write view", () => expect(stageAfterRevise("outline")).toBe("draft"));
+  it("leaves 段落 alone", () => expect(stageAfterRevise("snippets")).toBeNull());
+  it("leaves 成稿 alone", () => expect(stageAfterRevise("draft")).toBeNull());
+  it("leaves an unrecognised stage alone", () => expect(stageAfterRevise("finished")).toBeNull());
 });
