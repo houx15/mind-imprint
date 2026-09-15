@@ -17,7 +17,7 @@ const createLiteParentReport = `-- name: CreateLiteParentReport :one
 
 INSERT INTO lite_parent_report (user_id, class_id, created_by, range_start, range_end, facts)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
+RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden
 `
 
 type CreateLiteParentReportParams struct {
@@ -65,18 +65,15 @@ func (q *Queries) CreateLiteParentReport(ctx context.Context, arg CreateLitePare
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
 
 const getLiteParentReport = `-- name: GetLiteParentReport :one
-SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at FROM lite_parent_report WHERE id = $1
+SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden FROM lite_parent_report WHERE id = $1
 `
 
 func (q *Queries) GetLiteParentReport(ctx context.Context, id uuid.UUID) (LiteParentReport, error) {
@@ -92,47 +89,15 @@ func (q *Queries) GetLiteParentReport(ctx context.Context, id uuid.UUID) (LitePa
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getLiteParentReportByToken = `-- name: GetLiteParentReportByToken :one
-SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at FROM lite_parent_report
-WHERE share_token = $1::text AND status = 'published'
-`
-
-// 公开路由唯一读的那一条。share_token = NULL 永远不成立，撤销后的报告读不到。
-func (q *Queries) GetLiteParentReportByToken(ctx context.Context, shareToken string) (LiteParentReport, error) {
-	row := q.db.QueryRow(ctx, getLiteParentReportByToken, shareToken)
-	var i LiteParentReport
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.ClassID,
-		&i.CreatedBy,
-		&i.RangeStart,
-		&i.RangeEnd,
-		&i.Facts,
-		&i.Draft,
-		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
 
 const getLiteParentReportForUpdate = `-- name: GetLiteParentReportForUpdate :one
-SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at FROM lite_parent_report WHERE id = $1 FOR UPDATE
+SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden FROM lite_parent_report WHERE id = $1 FOR UPDATE
 `
 
 // 所有改动报告的路由先用这一条锁住报告行。
@@ -149,46 +114,9 @@ func (q *Queries) GetLiteParentReportForUpdate(ctx context.Context, id uuid.UUID
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getStudentParentReport = `-- name: GetStudentParentReport :one
-SELECT id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at FROM lite_parent_report
-WHERE id = $1 AND user_id = $2 AND status = 'published'
-`
-
-type GetStudentParentReportParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-// 学生读自己的报告：只看归属与发布状态，不看是否仍在班（离开班级后报告仍是她的）。
-func (q *Queries) GetStudentParentReport(ctx context.Context, arg GetStudentParentReportParams) (LiteParentReport, error) {
-	row := q.db.QueryRow(ctx, getStudentParentReport, arg.ID, arg.UserID)
-	var i LiteParentReport
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.ClassID,
-		&i.CreatedBy,
-		&i.RangeStart,
-		&i.RangeEnd,
-		&i.Facts,
-		&i.Draft,
-		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
@@ -196,7 +124,7 @@ func (q *Queries) GetStudentParentReport(ctx context.Context, arg GetStudentPare
 const listLiteParentReportsByClass = `-- name: ListLiteParentReportsByClass :many
 SELECT pr.id, pr.user_id,
        COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
-       pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
+       pr.range_start, pr.range_end, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
 WHERE pr.class_id = $1
@@ -204,16 +132,13 @@ ORDER BY pr.created_at DESC, pr.id
 `
 
 type ListLiteParentReportsByClassRow struct {
-	ID          uuid.UUID          `json:"id"`
-	UserID      uuid.UUID          `json:"user_id"`
-	StudentName string             `json:"student_name"`
-	ClassID     uuid.UUID          `json:"class_id"`
-	RangeStart  pgtype.Date        `json:"range_start"`
-	RangeEnd    pgtype.Date        `json:"range_end"`
-	Status      string             `json:"status"`
-	ShareToken  *string            `json:"share_token"`
-	PublishedAt pgtype.Timestamptz `json:"published_at"`
-	CreatedAt   time.Time          `json:"created_at"`
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	StudentName string      `json:"student_name"`
+	ClassID     uuid.UUID   `json:"class_id"`
+	RangeStart  pgtype.Date `json:"range_start"`
+	RangeEnd    pgtype.Date `json:"range_end"`
+	CreatedAt   time.Time   `json:"created_at"`
 }
 
 // 名字规则同上。
@@ -233,9 +158,6 @@ func (q *Queries) ListLiteParentReportsByClass(ctx context.Context, classID uuid
 			&i.ClassID,
 			&i.RangeStart,
 			&i.RangeEnd,
-			&i.Status,
-			&i.ShareToken,
-			&i.PublishedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -251,7 +173,7 @@ func (q *Queries) ListLiteParentReportsByClass(ctx context.Context, classID uuid
 const listLiteParentReportsByStudent = `-- name: ListLiteParentReportsByStudent :many
 SELECT pr.id, pr.user_id,
        COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
-       pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
+       pr.range_start, pr.range_end, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
 WHERE pr.user_id = $1 AND pr.class_id = $2
@@ -264,16 +186,13 @@ type ListLiteParentReportsByStudentParams struct {
 }
 
 type ListLiteParentReportsByStudentRow struct {
-	ID          uuid.UUID          `json:"id"`
-	UserID      uuid.UUID          `json:"user_id"`
-	StudentName string             `json:"student_name"`
-	ClassID     uuid.UUID          `json:"class_id"`
-	RangeStart  pgtype.Date        `json:"range_start"`
-	RangeEnd    pgtype.Date        `json:"range_end"`
-	Status      string             `json:"status"`
-	ShareToken  *string            `json:"share_token"`
-	PublishedAt pgtype.Timestamptz `json:"published_at"`
-	CreatedAt   time.Time          `json:"created_at"`
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	StudentName string      `json:"student_name"`
+	ClassID     uuid.UUID   `json:"class_id"`
+	RangeStart  pgtype.Date `json:"range_start"`
+	RangeEnd    pgtype.Date `json:"range_end"`
+	CreatedAt   time.Time   `json:"created_at"`
 }
 
 // 名字取生成时冻结在 facts 里的快照，与报告页一致；快照为空时才用当前的 display_name。
@@ -293,9 +212,6 @@ func (q *Queries) ListLiteParentReportsByStudent(ctx context.Context, arg ListLi
 			&i.ClassID,
 			&i.RangeStart,
 			&i.RangeEnd,
-			&i.Status,
-			&i.ShareToken,
-			&i.PublishedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -306,71 +222,6 @@ func (q *Queries) ListLiteParentReportsByStudent(ctx context.Context, arg ListLi
 		return nil, err
 	}
 	return items, nil
-}
-
-const listStudentPublishedParentReports = `-- name: ListStudentPublishedParentReports :many
-SELECT pr.id, pr.class_id,
-       COALESCE(NULLIF(btrim(pr.facts ->> 'className'), ''), c.name)::text AS class_name, pr.range_start, pr.range_end,
-       pr.published_at, pr.student_seen_at
-FROM lite_parent_report pr
-JOIN classes c ON c.id = pr.class_id
-WHERE pr.user_id = $1 AND pr.status = 'published'
-ORDER BY pr.published_at DESC, pr.id
-`
-
-type ListStudentPublishedParentReportsRow struct {
-	ID            uuid.UUID          `json:"id"`
-	ClassID       uuid.UUID          `json:"class_id"`
-	ClassName     string             `json:"class_name"`
-	RangeStart    pgtype.Date        `json:"range_start"`
-	RangeEnd      pgtype.Date        `json:"range_end"`
-	PublishedAt   pgtype.Timestamptz `json:"published_at"`
-	StudentSeenAt pgtype.Timestamptz `json:"student_seen_at"`
-}
-
-// 班级名取 facts 里的快照（与报告页一致），快照为空时才用 classes.name。
-func (q *Queries) ListStudentPublishedParentReports(ctx context.Context, userID uuid.UUID) ([]ListStudentPublishedParentReportsRow, error) {
-	rows, err := q.db.Query(ctx, listStudentPublishedParentReports, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListStudentPublishedParentReportsRow
-	for rows.Next() {
-		var i ListStudentPublishedParentReportsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ClassID,
-			&i.ClassName,
-			&i.RangeStart,
-			&i.RangeEnd,
-			&i.PublishedAt,
-			&i.StudentSeenAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const markParentReportSeen = `-- name: MarkParentReportSeen :exec
-UPDATE lite_parent_report
-SET student_seen_at = COALESCE(student_seen_at, now())
-WHERE id = $1 AND user_id = $2 AND status = 'published'
-`
-
-type MarkParentReportSeenParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) MarkParentReportSeen(ctx context.Context, arg MarkParentReportSeenParams) error {
-	_, err := q.db.Exec(ctx, markParentReportSeen, arg.ID, arg.UserID)
-	return err
 }
 
 const parentRangeActivity = `-- name: ParentRangeActivity :one
@@ -656,53 +507,13 @@ func (q *Queries) ParentRangeMoments(ctx context.Context, arg ParentRangeMoments
 	return items, nil
 }
 
-const publishLiteParentReport = `-- name: PublishLiteParentReport :one
-UPDATE lite_parent_report
-SET status = 'published',
-    share_token = COALESCE(share_token, $1::text),
-    published_at = COALESCE(published_at, now()),
-    updated_at = now()
-WHERE id = $2
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
-`
-
-type PublishLiteParentReportParams struct {
-	ShareToken string    `json:"share_token"`
-	ID         uuid.UUID `json:"id"`
-}
-
-// 已有链接时保留原链接；撤销（share_token 置空）之后再发布，COALESCE 取新传入的链接。
-// published_at 记第一次发布的时刻。
-func (q *Queries) PublishLiteParentReport(ctx context.Context, arg PublishLiteParentReportParams) (LiteParentReport, error) {
-	row := q.db.QueryRow(ctx, publishLiteParentReport, arg.ShareToken, arg.ID)
-	var i LiteParentReport
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.ClassID,
-		&i.CreatedBy,
-		&i.RangeStart,
-		&i.RangeEnd,
-		&i.Facts,
-		&i.Draft,
-		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const replaceLiteParentReportBody = `-- name: ReplaceLiteParentReportBody :one
 UPDATE lite_parent_report
 SET draft = $1::jsonb,
     body = $1::jsonb,
     updated_at = now()
-WHERE id = $2 AND status = 'draft'
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
+WHERE id = $2
+RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden
 `
 
 type ReplaceLiteParentReportBodyParams struct {
@@ -724,43 +535,9 @@ func (q *Queries) ReplaceLiteParentReportBody(ctx context.Context, arg ReplaceLi
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const revokeLiteParentReportShare = `-- name: RevokeLiteParentReportShare :one
-UPDATE lite_parent_report
-SET share_token = NULL, updated_at = now()
-WHERE id = $1
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
-`
-
-// 撤销链接：公开页下一次请求即 404。报告仍是已发布，学生在应用内仍可查看。
-func (q *Queries) RevokeLiteParentReportShare(ctx context.Context, id uuid.UUID) (LiteParentReport, error) {
-	row := q.db.QueryRow(ctx, revokeLiteParentReportShare, id)
-	var i LiteParentReport
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.ClassID,
-		&i.CreatedBy,
-		&i.RangeStart,
-		&i.RangeEnd,
-		&i.Facts,
-		&i.Draft,
-		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
@@ -770,8 +547,8 @@ UPDATE lite_parent_report
 SET draft = $1::jsonb,
     body = COALESCE(body, $1::jsonb),
     updated_at = now()
-WHERE id = $2 AND status = 'draft'
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
+WHERE id = $2
+RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden
 `
 
 type SetLiteParentReportDraftParams struct {
@@ -780,7 +557,6 @@ type SetLiteParentReportDraftParams struct {
 }
 
 // 写入模型草稿。body 只在还是 NULL 时取草稿（第一次生成），老师改过的文字不被覆盖。
-// 已发布的报告不再改草稿：status 条件与调用方加锁后的检查一致。
 func (q *Queries) SetLiteParentReportDraft(ctx context.Context, arg SetLiteParentReportDraftParams) (LiteParentReport, error) {
 	row := q.db.QueryRow(ctx, setLiteParentReportDraft, arg.Draft, arg.ID)
 	var i LiteParentReport
@@ -794,31 +570,30 @@ func (q *Queries) SetLiteParentReportDraft(ctx context.Context, arg SetLiteParen
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
 
-const updateLiteParentReportBody = `-- name: UpdateLiteParentReportBody :one
+const updateLiteParentReportEdit = `-- name: UpdateLiteParentReportEdit :one
 UPDATE lite_parent_report
-SET body = $1::jsonb, updated_at = now()
-WHERE id = $2
-RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, status, share_token, published_at, student_seen_at, created_at, updated_at
+SET body = $1::jsonb, hidden = $2::jsonb, updated_at = now()
+WHERE id = $3
+RETURNING id, user_id, class_id, created_by, range_start, range_end, facts, draft, body, created_at, updated_at, hidden
 `
 
-type UpdateLiteParentReportBodyParams struct {
-	Body []byte    `json:"body"`
-	ID   uuid.UUID `json:"id"`
+type UpdateLiteParentReportEditParams struct {
+	Body   []byte    `json:"body"`
+	Hidden []byte    `json:"hidden"`
+	ID     uuid.UUID `json:"id"`
 }
 
-// 老师编辑文字。发布之后也可以改，公开页立即显示改后的文字。
-func (q *Queries) UpdateLiteParentReportBody(ctx context.Context, arg UpdateLiteParentReportBodyParams) (LiteParentReport, error) {
-	row := q.db.QueryRow(ctx, updateLiteParentReportBody, arg.Body, arg.ID)
+// 老师编辑：body 与 hidden 一起写。调用方传入合并后的 body（没有改 body 时传原值，可以是 NULL）
+// 和完整的 hidden。
+func (q *Queries) UpdateLiteParentReportEdit(ctx context.Context, arg UpdateLiteParentReportEditParams) (LiteParentReport, error) {
+	row := q.db.QueryRow(ctx, updateLiteParentReportEdit, arg.Body, arg.Hidden, arg.ID)
 	var i LiteParentReport
 	err := row.Scan(
 		&i.ID,
@@ -830,12 +605,9 @@ func (q *Queries) UpdateLiteParentReportBody(ctx context.Context, arg UpdateLite
 		&i.Facts,
 		&i.Draft,
 		&i.Body,
-		&i.Status,
-		&i.ShareToken,
-		&i.PublishedAt,
-		&i.StudentSeenAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }

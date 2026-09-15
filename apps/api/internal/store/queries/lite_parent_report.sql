@@ -19,12 +19,11 @@ RETURNING *;
 
 -- name: SetLiteParentReportDraft :one
 -- 写入模型草稿。body 只在还是 NULL 时取草稿（第一次生成），老师改过的文字不被覆盖。
--- 已发布的报告不再改草稿：status 条件与调用方加锁后的检查一致。
 UPDATE lite_parent_report
 SET draft = sqlc.arg(draft)::jsonb,
     body = COALESCE(body, sqlc.arg(draft)::jsonb),
     updated_at = now()
-WHERE id = sqlc.arg(id) AND status = 'draft'
+WHERE id = sqlc.arg(id)
 RETURNING *;
 
 -- name: ReplaceLiteParentReportBody :one
@@ -33,13 +32,14 @@ UPDATE lite_parent_report
 SET draft = sqlc.arg(draft)::jsonb,
     body = sqlc.arg(draft)::jsonb,
     updated_at = now()
-WHERE id = sqlc.arg(id) AND status = 'draft'
+WHERE id = sqlc.arg(id)
 RETURNING *;
 
--- name: UpdateLiteParentReportBody :one
--- 老师编辑文字。发布之后也可以改，公开页立即显示改后的文字。
+-- name: UpdateLiteParentReportEdit :one
+-- 老师编辑：body 与 hidden 一起写。调用方传入合并后的 body（没有改 body 时传原值，可以是 NULL）
+-- 和完整的 hidden。
 UPDATE lite_parent_report
-SET body = sqlc.arg(body)::jsonb, updated_at = now()
+SET body = sqlc.narg(body)::jsonb, hidden = sqlc.arg(hidden)::jsonb, updated_at = now()
 WHERE id = sqlc.arg(id)
 RETURNING *;
 
@@ -54,7 +54,7 @@ SELECT * FROM lite_parent_report WHERE id = sqlc.arg(id) FOR UPDATE;
 -- 名字取生成时冻结在 facts 里的快照，与报告页一致；快照为空时才用当前的 display_name。
 SELECT pr.id, pr.user_id,
        COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
-       pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
+       pr.range_start, pr.range_end, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
 WHERE pr.user_id = sqlc.arg(user_id) AND pr.class_id = sqlc.arg(class_id)
@@ -64,54 +64,11 @@ ORDER BY pr.created_at DESC, pr.id;
 -- 名字规则同上。
 SELECT pr.id, pr.user_id,
        COALESCE(NULLIF(btrim(pr.facts ->> 'studentName'), ''), u.display_name)::text AS student_name, pr.class_id,
-       pr.range_start, pr.range_end, pr.status, pr.share_token, pr.published_at, pr.created_at
+       pr.range_start, pr.range_end, pr.created_at
 FROM lite_parent_report pr
 JOIN users u ON u.id = pr.user_id
 WHERE pr.class_id = sqlc.arg(class_id)
 ORDER BY pr.created_at DESC, pr.id;
-
--- name: PublishLiteParentReport :one
--- 已有链接时保留原链接；撤销（share_token 置空）之后再发布，COALESCE 取新传入的链接。
--- published_at 记第一次发布的时刻。
-UPDATE lite_parent_report
-SET status = 'published',
-    share_token = COALESCE(share_token, sqlc.arg(share_token)::text),
-    published_at = COALESCE(published_at, now()),
-    updated_at = now()
-WHERE id = sqlc.arg(id)
-RETURNING *;
-
--- name: RevokeLiteParentReportShare :one
--- 撤销链接：公开页下一次请求即 404。报告仍是已发布，学生在应用内仍可查看。
-UPDATE lite_parent_report
-SET share_token = NULL, updated_at = now()
-WHERE id = sqlc.arg(id)
-RETURNING *;
-
--- name: GetLiteParentReportByToken :one
--- 公开路由唯一读的那一条。share_token = NULL 永远不成立，撤销后的报告读不到。
-SELECT * FROM lite_parent_report
-WHERE share_token = sqlc.arg(share_token)::text AND status = 'published';
-
--- name: GetStudentParentReport :one
--- 学生读自己的报告：只看归属与发布状态，不看是否仍在班（离开班级后报告仍是她的）。
-SELECT * FROM lite_parent_report
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND status = 'published';
-
--- name: MarkParentReportSeen :exec
-UPDATE lite_parent_report
-SET student_seen_at = COALESCE(student_seen_at, now())
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND status = 'published';
-
--- name: ListStudentPublishedParentReports :many
--- 班级名取 facts 里的快照（与报告页一致），快照为空时才用 classes.name。
-SELECT pr.id, pr.class_id,
-       COALESCE(NULLIF(btrim(pr.facts ->> 'className'), ''), c.name)::text AS class_name, pr.range_start, pr.range_end,
-       pr.published_at, pr.student_seen_at
-FROM lite_parent_report pr
-JOIN classes c ON c.id = pr.class_id
-WHERE pr.user_id = sqlc.arg(user_id) AND pr.status = 'published'
-ORDER BY pr.published_at DESC, pr.id;
 
 -- name: ParentRangeActivity :one
 -- 活跃天数：秒数 > 0 的日格 ∪ 她发消息的北京日期（与 ListLiteWeekActivity 同一个形状）。

@@ -236,6 +236,120 @@ func TestDigitFactsText(t *testing.T) {
 	}
 }
 
+// VisibleFacts drops hidden moments by exact quote and hidden keywords by exact
+// text, keeps every other field, and ignores an entry that matches nothing.
+// Whether an entry is allowed at all is UnknownHidden's job (PATCH refuses
+// it); the pure filter only filters.
+func TestVisibleFacts(t *testing.T) {
+	base := Facts{
+		StudentName: "林知遥", Days: 28, ActiveDays: 5,
+		Readings: []Item{{Kind: "reading", Title: "城市里的雨水花园"}},
+		Moments: []Moment{
+			{Quote: "雨水不是废水", ItemTitle: "城市里的雨水花园"},
+			{Quote: "雨把街道洗亮了", ItemTitle: "一场雨"},
+		},
+		Keywords: []Keyword{
+			{Text: "海绵城市", Field: "society", FieldLabel: "社会"},
+			{Text: "气候", Field: "science", FieldLabel: "科学与自然"},
+		},
+	}
+	quotes := func(f Facts) []string {
+		out := []string{}
+		for _, m := range f.Moments {
+			out = append(out, m.Quote)
+		}
+		return out
+	}
+	words := func(f Facts) []string {
+		out := []string{}
+		for _, k := range f.Keywords {
+			out = append(out, k.Text)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		name         string
+		hidden       Hidden
+		wantQuotes   []string
+		wantWords    []string
+		wantSections []string
+	}{
+		{"nothing hidden", Hidden{}, []string{"雨水不是废水", "雨把街道洗亮了"}, []string{"海绵城市", "气候"},
+			[]string{"overview", "reading", "interests", "next"}},
+		{"one moment hidden", Hidden{Moments: []string{"雨水不是废水"}}, []string{"雨把街道洗亮了"}, []string{"海绵城市", "气候"},
+			[]string{"overview", "reading", "interests", "next"}},
+		{"a keyword hidden", Hidden{Keywords: []string{"气候"}}, []string{"雨水不是废水", "雨把街道洗亮了"}, []string{"海绵城市"},
+			[]string{"overview", "reading", "interests", "next"}},
+		{"all keywords hidden", Hidden{Keywords: []string{"海绵城市", "气候"}}, []string{"雨水不是废水", "雨把街道洗亮了"}, []string{},
+			[]string{"overview", "reading", "next"}},
+		// A quote is matched exactly: a substring, a keyword text in the
+		// moments list, and an unknown text all match nothing.
+		{"unknown text ignored", Hidden{Moments: []string{"雨水", "海绵城市", "编造的话"}, Keywords: []string{"雨水不是废水"}},
+			[]string{"雨水不是废水", "雨把街道洗亮了"}, []string{"海绵城市", "气候"},
+			[]string{"overview", "reading", "interests", "next"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := VisibleFacts(base, tc.hidden)
+			if !reflect.DeepEqual(quotes(got), tc.wantQuotes) || !reflect.DeepEqual(words(got), tc.wantWords) {
+				t.Fatalf("visible = %v %v, want %v %v", quotes(got), words(got), tc.wantQuotes, tc.wantWords)
+			}
+			if got.Moments == nil || got.Keywords == nil {
+				t.Fatalf("lists must be non-nil: %#v", got)
+			}
+			if got.StudentName != base.StudentName || got.Days != base.Days || !reflect.DeepEqual(got.Readings, base.Readings) {
+				t.Fatalf("other fields changed: %+v", got)
+			}
+			if s := SectionsWithFacts(got); !reflect.DeepEqual(s, tc.wantSections) {
+				t.Fatalf("sections = %v, want %v", s, tc.wantSections)
+			}
+		})
+	}
+	// The input is not modified.
+	if len(base.Moments) != 2 || len(base.Keywords) != 2 {
+		t.Fatalf("VisibleFacts modified its input: %+v", base)
+	}
+	// FactsText and Corpus of the visible facts leave a hidden quote and
+	// keyword out.
+	v := VisibleFacts(base, Hidden{Moments: []string{"雨水不是废水"}, Keywords: []string{"气候"}})
+	for _, s := range []string{FactsText(v), Corpus(v), DigitFactsText(v)} {
+		if strings.Contains(s, "雨水不是废水") || strings.Contains(s, "气候") {
+			t.Fatalf("visible text carries a hidden item: %s", s)
+		}
+	}
+}
+
+func TestUnknownHidden(t *testing.T) {
+	f := Facts{
+		Moments:  []Moment{{Quote: "雨水不是废水"}},
+		Keywords: []Keyword{{Text: "海绵城市"}},
+	}
+	for _, tc := range []struct {
+		name   string
+		hidden Hidden
+		want   string
+		ok     bool
+	}{
+		{"empty", Hidden{}, "", false},
+		{"known", Hidden{Moments: []string{"雨水不是废水"}, Keywords: []string{"海绵城市"}}, "", false},
+		{"unknown moment", Hidden{Moments: []string{"编造的话"}}, "编造的话", true},
+		{"substring of a quote", Hidden{Moments: []string{"雨水"}}, "雨水", true},
+		{"keyword text as a moment", Hidden{Moments: []string{"海绵城市"}}, "海绵城市", true},
+		{"quote as a keyword", Hidden{Keywords: []string{"雨水不是废水"}}, "雨水不是废水", true},
+	} {
+		got, ok := UnknownHidden(f, tc.hidden)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("%s: UnknownHidden = %q %v, want %q %v", tc.name, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestHiddenNormalize(t *testing.T) {
+	got := Hidden{Moments: []string{"b", "a", "b"}}.Normalize()
+	if !reflect.DeepEqual(got.Moments, []string{"b", "a"}) || got.Keywords == nil || len(got.Keywords) != 0 {
+		t.Fatalf("Normalize = %#v", got)
+	}
+}
+
 // Ruling 18 B: a moment naming a classmate is dropped; names under 2 runes
 // are ignored.
 func TestDropMomentsNaming(t *testing.T) {

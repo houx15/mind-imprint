@@ -31,13 +31,12 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 
 	// Parent reports. Only the generate POST loads facts (which may create
 	// phase-1 student reports); only generate and redraft call a model. Every
-	// mutating {rid} route locks the report row.
+	// mutating {rid} route locks the report row. There is no parent end: the
+	// teacher exports the report and sends it herself.
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/students/{userId}/parent-reports", liteTeacher(a.createLiteParentReport))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/parent-reports", liteTeacher(a.listLiteStudentParentReports))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/parent-reports", liteTeacher(a.listLiteClassParentReports))
 	mux.Handle("GET /api/v1/lite/teacher/parent-reports/{rid}", liteTeacher(a.getLiteParentReport))
 	mux.Handle("PATCH /api/v1/lite/teacher/parent-reports/{rid}", liteTeacher(a.patchLiteParentReport))
 	mux.Handle("POST /api/v1/lite/teacher/parent-reports/{rid}/redraft", liteTeacher(a.redraftLiteParentReport))
-	mux.Handle("POST /api/v1/lite/teacher/parent-reports/{rid}/publish", liteTeacher(a.publishLiteParentReport))
-	mux.Handle("DELETE /api/v1/lite/teacher/parent-reports/{rid}/share", liteTeacher(a.revokeLiteParentReportShare))
 }

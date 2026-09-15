@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -220,21 +219,18 @@ const (
 )
 
 type parentReportJSON struct {
-	ID            string            `json:"id"`
-	StudentID     string            `json:"studentId"`
-	ClassID       string            `json:"classId"`
-	RangeStart    string            `json:"rangeStart"`
-	RangeEnd      string            `json:"rangeEnd"`
-	Status        string            `json:"status"`
-	Facts         liteparent.Facts  `json:"facts"`
-	Draft         map[string]string `json:"draft"`
-	Body          map[string]string `json:"body"`
-	Sections      []string          `json:"sections"`
-	ShareToken    *string           `json:"shareToken"`
-	PublishedAt   *string           `json:"publishedAt"`
-	StudentSeenAt *string           `json:"studentSeenAt"`
-	CreatedAt     string            `json:"createdAt"`
-	UpdatedAt     string            `json:"updatedAt"`
+	ID         string            `json:"id"`
+	StudentID  string            `json:"studentId"`
+	ClassID    string            `json:"classId"`
+	RangeStart string            `json:"rangeStart"`
+	RangeEnd   string            `json:"rangeEnd"`
+	Facts      liteparent.Facts  `json:"facts"`
+	Hidden     liteparent.Hidden `json:"hidden"`
+	Draft      map[string]string `json:"draft"`
+	Body       map[string]string `json:"body"`
+	Sections   []string          `json:"sections"`
+	CreatedAt  string            `json:"createdAt"`
+	UpdatedAt  string            `json:"updatedAt"`
 }
 
 type parentReportResp struct {
@@ -243,16 +239,20 @@ type parentReportResp struct {
 }
 
 type parentSummaryJSON struct {
-	ID          string  `json:"id"`
-	StudentID   string  `json:"studentId"`
-	StudentName string  `json:"studentName"`
-	RangeStart  string  `json:"rangeStart"`
-	RangeEnd    string  `json:"rangeEnd"`
-	Status      string  `json:"status"`
-	PublishedAt *string `json:"publishedAt"`
-	Shared      bool    `json:"shared"`
-	CreatedAt   string  `json:"createdAt"`
+	ID          string `json:"id"`
+	StudentID   string `json:"studentId"`
+	StudentName string `json:"studentName"`
+	RangeStart  string `json:"rangeStart"`
+	RangeEnd    string `json:"rangeEnd"`
+	CreatedAt   string `json:"createdAt"`
 }
+
+// wantReportKeys is the teacher report DTO's exact key set: no publish or
+// share keys remain.
+var wantReportKeys = []string{"body", "classId", "createdAt", "draft", "facts", "hidden", "id", "rangeEnd", "rangeStart", "sections", "studentId", "updatedAt"}
+
+// wantSummaryKeys is a report list row's exact key set.
+var wantSummaryKeys = []string{"createdAt", "id", "rangeEnd", "rangeStart", "studentId", "studentName"}
 
 type parentListResp struct {
 	Reports []parentSummaryJSON `json:"reports"`
@@ -379,9 +379,17 @@ func TestLiteParentReportGenerate(t *testing.T) {
 	}
 	rep := got.Report
 	wantStart, wantEnd := liteparent.DefaultRange(time.Now())
-	if rep.Status != "draft" || rep.RangeStart != wantStart || rep.RangeEnd != wantEnd ||
-		rep.StudentID != studentID.String() || rep.ClassID != classID || rep.ShareToken != nil || rep.PublishedAt != nil {
-		t.Fatalf("report = %+v, want a draft over %s..%s", rep, wantStart, wantEnd)
+	if rep.RangeStart != wantStart || rep.RangeEnd != wantEnd ||
+		rep.StudentID != studentID.String() || rep.ClassID != classID {
+		t.Fatalf("report = %+v, want a report over %s..%s", rep, wantStart, wantEnd)
+	}
+	reportRaw := rawWeeklyFields(t, string(rawWeeklyFields(t, body)["report"]))
+	if got := keysOfRaw(reportRaw); !reflect.DeepEqual(got, wantReportKeys) {
+		t.Fatalf("report keys = %v, want %v", got, wantReportKeys)
+	}
+	// Generate starts with nothing hidden, written as two empty arrays.
+	if string(reportRaw["hidden"]) != `{"moments":[],"keywords":[]}` {
+		t.Fatalf("hidden = %s, want empty arrays", reportRaw["hidden"])
 	}
 	f := rep.Facts
 	if f.StudentName != "林知遥" || len(f.Readings) != 1 || f.Readings[0].Title != "城市里的雨水花园" ||
@@ -412,16 +420,23 @@ func TestLiteParentReportGenerate(t *testing.T) {
 			t.Fatalf("GET %s = %d %s", path, code, body)
 		}
 		wantRow := parentSummaryJSON{ID: rep.ID, StudentID: studentID.String(), StudentName: "林知遥",
-			RangeStart: wantStart, RangeEnd: wantEnd, Status: "draft", CreatedAt: rep.CreatedAt}
+			RangeStart: wantStart, RangeEnd: wantEnd, CreatedAt: rep.CreatedAt}
 		if len(list.Reports) != 1 || list.Reports[0] != wantRow {
 			t.Fatalf("GET %s reports = %+v, want [%+v]", path, list.Reports, wantRow)
+		}
+		var rawList struct {
+			Reports []map[string]any `json:"reports"`
+		}
+		parentDo(t, h, teacher, "GET", path, "", &rawList)
+		if got := keysOf(rawList.Reports[0]); !reflect.DeepEqual(got, wantSummaryKeys) {
+			t.Fatalf("GET %s row keys = %v, want %v", path, got, wantSummaryKeys)
 		}
 	}
 }
 
 // TestLiteParentReportGenerateRejected: a reply that fails twice still leaves
 // the report row with its facts; draft and body are null, draftError says why,
-// both attempts are recorded, and the empty report cannot be published.
+// and both attempts are recorded.
 func TestLiteParentReportGenerateRejected(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(weeklyReply("不是 JSON"))
 	h, pool, teacher, classID, studentID := parentFixture(t, prov)
@@ -450,8 +465,6 @@ func TestLiteParentReportGenerateRejected(t *testing.T) {
 	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_parent_report WHERE user_id = $1`, studentID); n != 1 {
 		t.Fatalf("report rows = %d, want 1", n)
 	}
-	code, body = parentDo(t, h, teacher, "POST", parentReportPath(got.Report.ID)+"/publish", "", nil)
-	wantParentError(t, "publish with no body", code, body, http.StatusConflict, "report_empty")
 }
 
 // TestLiteParentReportEditAndRedraft: PATCH validates keys against the
@@ -517,94 +530,10 @@ func TestLiteParentReportEditAndRedraft(t *testing.T) {
 	}
 }
 
-// TestLiteParentReportPublishAndRevoke: publish mints a 32-hex token and
-// keeps it on a second publish; redraft is refused once published, edits are
-// not; revoke clears the token and a later publish mints a new one.
-func TestLiteParentReportPublishAndRevoke(t *testing.T) {
-	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
-	h, pool, teacher, classID, studentID := parentFixture(t, prov)
-	rep := generateParentReport(t, h, teacher, classID, studentID).Report
-	path := parentReportPath(rep.ID)
-	hex32 := regexp.MustCompile(`^[0-9a-f]{32}$`)
-
-	var pub parentReportResp
-	if code, body := parentDo(t, h, teacher, "POST", path+"/publish", "", &pub); code != http.StatusOK {
-		t.Fatalf("publish = %d %s", code, body)
-	}
-	if pub.Report.Status != "published" || pub.Report.ShareToken == nil || !hex32.MatchString(*pub.Report.ShareToken) || pub.Report.PublishedAt == nil {
-		t.Fatalf("published report = %+v", pub.Report)
-	}
-	token := *pub.Report.ShareToken
-
-	var again parentReportResp
-	parentDo(t, h, teacher, "POST", path+"/publish", "", &again)
-	if again.Report.ShareToken == nil || *again.Report.ShareToken != token || *again.Report.PublishedAt != *pub.Report.PublishedAt {
-		t.Fatalf("second publish = %+v, want token %s kept", again.Report, token)
-	}
-
-	code, body := parentDo(t, h, teacher, "POST", path+"/redraft", `{"replaceBody":true}`, nil)
-	wantParentError(t, "redraft after publish", code, body, http.StatusConflict, "already_published")
-	if !strings.Contains(body, "报告已发布，不能重新生成草稿") || prov.Calls != 1 {
-		t.Fatalf("redraft after publish = %s, calls = %d, want the message and no model call", body, prov.Calls)
-	}
-	var edited parentReportResp
-	if code, body := parentDo(t, h, teacher, "PATCH", path, parentBodyJSON(t, map[string]string{"next": "请和她一起读一篇新文章。"}), &edited); code != http.StatusOK {
-		t.Fatalf("PATCH after publish = %d %s", code, body)
-	}
-
-	var list parentListResp
-	parentDo(t, h, teacher, "GET", classParentReportsPath(classID), "", &list)
-	if len(list.Reports) != 1 || !list.Reports[0].Shared || list.Reports[0].Status != "published" || list.Reports[0].PublishedAt == nil {
-		t.Fatalf("class list after publish = %+v", list.Reports)
-	}
-
-	var revoked parentReportResp
-	if code, body := parentDo(t, h, teacher, "DELETE", path+"/share", "", &revoked); code != http.StatusOK {
-		t.Fatalf("revoke = %d %s", code, body)
-	}
-	if revoked.Report.ShareToken != nil || revoked.Report.Status != "published" {
-		t.Fatalf("revoked report = %+v, want no token and still published", revoked.Report)
-	}
-	if n := weeklyCount(t, pool, `SELECT count(*) FROM lite_parent_report WHERE id = $1 AND share_token IS NULL`, uuid.MustParse(rep.ID)); n != 1 {
-		t.Fatalf("stored share_token must be NULL after revoke")
-	}
-
-	var reopened parentReportResp
-	parentDo(t, h, teacher, "POST", path+"/publish", "", &reopened)
-	if reopened.Report.ShareToken == nil || !hex32.MatchString(*reopened.Report.ShareToken) || *reopened.Report.ShareToken == token {
-		t.Fatalf("publish after revoke token = %v, want a new token (old %s)", reopened.Report.ShareToken, token)
-	}
-}
-
-// TestLiteParentReportRedraftPublishedDuringModelCall: the report is
-// published while redraft's model call runs. The second lock refuses the
-// write with 409 already_published; the attempt is still recorded and the
-// stored draft is unchanged.
-func TestLiteParentReportRedraftPublishedDuringModelCall(t *testing.T) {
-	prov := &parentHookProvider{inner: gateway.NewSequenceStubProvider(weeklyReply(parentValidReply), weeklyReply(parentSecondReply))}
-	h, pool, teacher, classID, studentID := parentFixture(t, prov)
-	rep := generateParentReport(t, h, teacher, classID, studentID).Report
-
-	prov.before = func() {
-		mustExec(t, pool, `UPDATE lite_parent_report SET status = 'published', published_at = now() WHERE id = $1`, uuid.MustParse(rep.ID))
-	}
-	code, body := parentDo(t, h, teacher, "POST", parentReportPath(rep.ID)+"/redraft", `{"replaceBody":true}`, nil)
-	wantParentError(t, "redraft published mid-call", code, body, http.StatusConflict, "already_published")
-	if prov.inner.Calls != 2 || len(llmCallUsers(t, pool, "lite_parent_report")) != 2 {
-		t.Fatalf("provider calls = %d, want 2 with both recorded", prov.inner.Calls)
-	}
-	prov.before = nil
-	var after parentReportResp
-	parentDo(t, h, teacher, "GET", parentReportPath(rep.ID), "", &after)
-	if !reflect.DeepEqual(after.Report.Draft, rep.Draft) || !reflect.DeepEqual(after.Report.Body, rep.Body) {
-		t.Fatalf("draft after the refused write = %v body = %v, want unchanged", after.Report.Draft, after.Report.Body)
-	}
-}
-
 // TestLiteParentReportRedraftFillsBlankBody (fix round 1): a failed generate
 // leaves body NULL; an autosave of an empty section turns it into
 // {"overview":""}. A redraft without replaceBody must still fill that blank
-// body with the draft, so the report can be published.
+// body with the draft.
 func TestLiteParentReportRedraftFillsBlankBody(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(weeklyReply("不是 JSON"), weeklyReply("不是 JSON"), weeklyReply(parentValidReply))
 	h, _, teacher, classID, studentID := parentFixture(t, prov)
@@ -629,9 +558,6 @@ func TestLiteParentReportRedraftFillsBlankBody(t *testing.T) {
 	want := parentSectionsOf(t, parentValidReply)
 	if !reflect.DeepEqual(redrafted.Report.Draft, want) || !reflect.DeepEqual(redrafted.Report.Body, want) {
 		t.Fatalf("redraft: draft = %v body = %v, want both %v", redrafted.Report.Draft, redrafted.Report.Body, want)
-	}
-	if code, body := parentDo(t, h, teacher, "POST", path+"/publish", "", nil); code != http.StatusOK {
-		t.Fatalf("publish after redraft = %d %s", code, body)
 	}
 }
 
@@ -677,19 +603,18 @@ func TestLiteParentReportOtherSchoolAdmin(t *testing.T) {
 	mustExec(t, pool, `UPDATE users SET role = 'admin' WHERE id = $1`, adminID)
 	admin := signInAs(t, pool, adminID)
 
-	for _, rt := range []struct{ method, path string }{
-		{"GET", parentReportPath(rep.ID)},
-		{"POST", parentReportPath(rep.ID) + "/publish"},
-		{"DELETE", parentReportPath(rep.ID) + "/share"},
-		{"GET", classParentReportsPath(classID)},
+	for _, rt := range []struct{ method, path, body string }{
+		{"GET", parentReportPath(rep.ID), ""},
+		{"PATCH", parentReportPath(rep.ID), `{"hidden":{"moments":["雨水不是废水"],"keywords":[]}}`},
+		{"GET", classParentReportsPath(classID), ""},
 	} {
-		code, body := parentDo(t, h, admin, rt.method, rt.path, "", nil)
+		code, body := parentDo(t, h, admin, rt.method, rt.path, rt.body, nil)
 		wantParentError(t, "other-school admin "+rt.method+" "+rt.path, code, body, http.StatusNotFound, "not_found")
 	}
 	var after parentReportResp
 	parentDo(t, h, teacher, "GET", parentReportPath(rep.ID), "", &after)
-	if after.Report.Status != "draft" || after.Report.ShareToken != nil {
-		t.Fatalf("report after other-school admin = %+v, want an unpublished draft", after.Report)
+	if len(after.Report.Hidden.Moments) != 0 || !reflect.DeepEqual(after.Report.Body, rep.Body) {
+		t.Fatalf("report after other-school admin = %+v, want unchanged", after.Report)
 	}
 }
 
@@ -705,9 +630,8 @@ func TestLiteParentReportOtherTeacher(t *testing.T) {
 	routes := []struct{ method, path, body string }{
 		{"GET", parentReportPath(rep.ID), ""},
 		{"PATCH", parentReportPath(rep.ID), parentBodyJSON(t, map[string]string{"overview": "改写"})},
+		{"PATCH", parentReportPath(rep.ID), `{"hidden":{"moments":["雨水不是废水"],"keywords":[]}}`},
 		{"POST", parentReportPath(rep.ID) + "/redraft", `{"replaceBody":true}`},
-		{"POST", parentReportPath(rep.ID) + "/publish", ""},
-		{"DELETE", parentReportPath(rep.ID) + "/share", ""},
 		{"POST", parentReportsPath(classID, studentID), ""},
 		{"GET", parentReportsPath(classID, studentID), ""},
 		{"GET", classParentReportsPath(classID), ""},
@@ -728,13 +652,13 @@ func TestLiteParentReportOtherTeacher(t *testing.T) {
 	}
 	var after parentReportResp
 	parentDo(t, h, teacher, "GET", parentReportPath(rep.ID), "", &after)
-	if after.Report.Status != "draft" || !reflect.DeepEqual(after.Report.Body, rep.Body) {
+	if len(after.Report.Hidden.Moments) != 0 || !reflect.DeepEqual(after.Report.Body, rep.Body) {
 		t.Fatalf("report after other teacher = %+v, want unchanged", after.Report)
 	}
 }
 
 // TestLiteParentReportStudentLeft (Ruling 5): after she leaves the class the
-// teacher can still read, edit and revoke; publish and redraft answer 409
+// teacher can still read and edit (body and hidden); redraft answers 409
 // student_left; generate for her is 404.
 func TestLiteParentReportStudentLeft(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
@@ -749,20 +673,15 @@ func TestLiteParentReportStudentLeft(t *testing.T) {
 	if code, body := parentDo(t, h, teacher, "PATCH", path, parentBodyJSON(t, map[string]string{"overview": "改写"}), nil); code != http.StatusOK {
 		t.Fatalf("PATCH after she left = %d %s", code, body)
 	}
-	if code, body := parentDo(t, h, teacher, "DELETE", path+"/share", "", nil); code != http.StatusOK {
-		t.Fatalf("revoke after she left = %d %s", code, body)
+	if code, body := parentDo(t, h, teacher, "PATCH", path, `{"hidden":{"moments":["雨水不是废水"],"keywords":[]}}`, nil); code != http.StatusOK {
+		t.Fatalf("PATCH hidden after she left = %d %s", code, body)
 	}
-	for _, rt := range []struct{ what, path, body string }{
-		{"publish", path + "/publish", ""},
-		{"redraft", path + "/redraft", `{"replaceBody":true}`},
-	} {
-		code, body := parentDo(t, h, teacher, "POST", rt.path, rt.body, nil)
-		wantParentError(t, rt.what+" after she left", code, body, http.StatusConflict, "student_left")
-		if !strings.Contains(body, "该学生已不在本班") {
-			t.Fatalf("%s message = %s", rt.what, body)
-		}
+	code, body := parentDo(t, h, teacher, "POST", path+"/redraft", `{"replaceBody":true}`, nil)
+	wantParentError(t, "redraft after she left", code, body, http.StatusConflict, "student_left")
+	if !strings.Contains(body, "该学生已不在本班") {
+		t.Fatalf("redraft message = %s", body)
 	}
-	code, body := parentDo(t, h, teacher, "POST", parentReportsPath(classID, studentID), "", nil)
+	code, body = parentDo(t, h, teacher, "POST", parentReportsPath(classID, studentID), "", nil)
 	wantParentError(t, "generate after she left", code, body, http.StatusNotFound, "not_found")
 	var list parentListResp
 	if code, body := parentDo(t, h, teacher, "GET", classParentReportsPath(classID), "", &list); code != http.StatusOK || len(list.Reports) != 1 {

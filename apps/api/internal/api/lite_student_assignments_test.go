@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
@@ -119,6 +121,37 @@ func TestInboxShowsUnreadThenSeen(t *testing.T) {
 	other := createStudent(t, pool, SeedSchoolID, "as-seen-other@demo.local")
 	if code := assignJSON(t, h, signInAs(t, pool, other), "POST", "/api/v1/lite/assignments/"+aid+"/seen", nil, nil); code != http.StatusNotFound {
 		t.Fatalf("non-recipient seen = %d, want 404", code)
+	}
+}
+
+// TestInboxOnlyAssignmentsWithPlan2Keys: the inbox lists only assignments,
+// even when parent reports exist for her (there is no parent report delivery
+// to the student). An assignment item keeps plan 2's key set exactly: an
+// unstarted assignment with no instructions still carries "instructions" and
+// "atomId".
+func TestInboxOnlyAssignmentsWithPlan2Keys(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(weeklyReply(parentValidReply))
+	h, pool, teacher, classID, studentID := parentFixture(t, prov)
+	student := signInAs(t, pool, studentID)
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	generateParentReport(t, h, teacher, classID, studentID)
+
+	var out struct {
+		Items  []map[string]any `json:"items"`
+		Unread int              `json:"unread"`
+	}
+	if code := getJSON(t, h, student, "/api/v1/lite/inbox", &out); code != http.StatusOK {
+		t.Fatalf("inbox = %d", code)
+	}
+	if out.Unread != 1 || len(out.Items) != 1 || out.Items[0]["type"] != "assignment" || out.Items[0]["id"] != aid {
+		t.Fatalf("inbox = %d %+v, want only the assignment", out.Unread, out.Items)
+	}
+	wantAssignKeys := []string{"atomId", "className", "dueAt", "id", "instructions", "kind", "status", "statusLabel", "title", "type", "unread"}
+	if got := keysOf(out.Items[0]); !reflect.DeepEqual(got, wantAssignKeys) {
+		t.Fatalf("assignment keys = %v, want %v", got, wantAssignKeys)
+	}
+	if out.Items[0]["instructions"] != "" || out.Items[0]["atomId"] != nil || out.Items[0]["kind"] != "writing" || out.Items[0]["status"] != "not_started" {
+		t.Fatalf("assignment item = %+v", out.Items[0])
 	}
 }
 

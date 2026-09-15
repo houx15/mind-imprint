@@ -12,7 +12,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -26,35 +25,11 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-const (
-	inboxTypeAssignment   = "assignment"
-	inboxTypeParentReport = "parent_report"
-)
-
-// InboxItemDTO is one entry in the student's inbox: an assignment or a
-// published parent report, told apart by Type. Kind, Instructions, DueAt,
-// Status, StatusLabel and AtomID belong to assignments; PublishedAt belongs to
-// reports. A report item omits the assignment keys.
+// InboxItemDTO is one entry in the student's inbox. Type is "assignment", the
+// only kind of item. Every key is always present: an assignment with no
+// instructions still has "instructions", and one she has not started has
+// "atomId": null.
 type InboxItemDTO struct {
-	Type         string  `json:"type"`
-	ID           string  `json:"id"`
-	Kind         string  `json:"kind,omitempty"`
-	Title        string  `json:"title"`
-	Instructions string  `json:"instructions,omitempty"`
-	ClassName    string  `json:"className"`
-	DueAt        string  `json:"dueAt,omitempty"`
-	Status       string  `json:"status,omitempty"`
-	StatusLabel  string  `json:"statusLabel,omitempty"`
-	AtomID       *string `json:"atomId,omitempty"`
-	Unread       bool    `json:"unread"`
-	PublishedAt  *string `json:"publishedAt,omitempty"`
-}
-
-// inboxAssignmentJSON is an assignment item's wire shape exactly as plan 2
-// shipped it. With omitempty alone, an assignment with no instructions would
-// lose "instructions" and one she has not started would lose "atomId"; a
-// client written against plan 2 reads both keys.
-type inboxAssignmentJSON struct {
 	Type         string  `json:"type"`
 	ID           string  `json:"id"`
 	Kind         string  `json:"kind"`
@@ -68,51 +43,9 @@ type inboxAssignmentJSON struct {
 	Unread       bool    `json:"unread"`
 }
 
-// MarshalJSON writes an assignment item in plan 2's shape and any other item
-// with the omitempty tags above.
-func (it InboxItemDTO) MarshalJSON() ([]byte, error) {
-	if it.Type == inboxTypeAssignment {
-		return json.Marshal(inboxAssignmentJSON{
-			Type: it.Type, ID: it.ID, Kind: it.Kind, Title: it.Title, Instructions: it.Instructions,
-			ClassName: it.ClassName, DueAt: it.DueAt, Status: it.Status, StatusLabel: it.StatusLabel,
-			AtomID: it.AtomID, Unread: it.Unread,
-		})
-	}
-	type plain InboxItemDTO
-	return json.Marshal(plain(it))
-}
-
-// inboxEntry is an inbox item with the time it sorts by: due for an
-// assignment, published for a report.
-type inboxEntry struct {
-	item      InboxItemDTO
-	due       time.Time
-	published time.Time
-}
-
-// sortInbox orders the inbox: unread first; within each group assignments by
-// due date, then reports by published_at DESC. Ties keep query order.
-func sortInbox(entries []inboxEntry) {
-	sort.SliceStable(entries, func(i, j int) bool {
-		a, b := entries[i], entries[j]
-		if a.item.Unread != b.item.Unread {
-			return a.item.Unread
-		}
-		aReport, bReport := a.item.Type == inboxTypeParentReport, b.item.Type == inboxTypeParentReport
-		if aReport != bReport {
-			return bReport
-		}
-		if aReport {
-			return a.published.After(b.published)
-		}
-		return a.due.Before(b.due)
-	})
-}
-
 // getLiteInbox handles GET /api/v1/lite/inbox. Archived assignments, and those
-// of a class she is no longer enrolled in, are left out by the query. Her
-// published parent reports are listed whether or not she is still enrolled
-// (plan 4 Ruling 4). unread counts both kinds.
+// of a class she is no longer enrolled in, are left out by the query, which
+// also orders the list: unread first, then by due date.
 func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u, _ := UserFromContext(ctx)
@@ -121,36 +54,20 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	reports, err := a.d.Queries.ListStudentPublishedParentReports(ctx, u.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
 	now := time.Now()
-	entries := make([]inboxEntry, 0, len(rows)+len(reports))
+	items := make([]InboxItemDTO, 0, len(rows))
+	unread := 0
 	for _, row := range rows {
 		status := liteassign.Status(row.StartedAt.Valid, tsPtr(row.FinishedAt), row.DueAt, now)
-		entries = append(entries, inboxEntry{
-			item: InboxItemDTO{
-				Type: inboxTypeAssignment, ID: row.ID.String(), Kind: row.Kind, Title: row.Title,
-				Instructions: row.Instructions, ClassName: row.ClassName, DueAt: row.DueAt.Format(time.RFC3339),
-				Status: status, StatusLabel: liteassign.StatusLabel(status),
-				AtomID: uuidStringPtr(row.AtomID), Unread: !row.SeenAt.Valid,
-			},
-			due: row.DueAt,
-		})
-	}
-	for _, rep := range reports {
-		entries = append(entries, parentReportInboxEntry(rep))
-	}
-	sortInbox(entries)
-	items := make([]InboxItemDTO, 0, len(entries))
-	unread := 0
-	for _, e := range entries {
-		if e.item.Unread {
+		if !row.SeenAt.Valid {
 			unread++
 		}
-		items = append(items, e.item)
+		items = append(items, InboxItemDTO{
+			Type: "assignment", ID: row.ID.String(), Kind: row.Kind, Title: row.Title,
+			Instructions: row.Instructions, ClassName: row.ClassName, DueAt: row.DueAt.Format(time.RFC3339),
+			Status: status, StatusLabel: liteassign.StatusLabel(status),
+			AtomID: uuidStringPtr(row.AtomID), Unread: !row.SeenAt.Valid,
+		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items, "unread": unread})
 }

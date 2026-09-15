@@ -74,6 +74,87 @@ type Facts struct {
 	Keywords          []Keyword `json:"keywords"`
 }
 
+// Hidden is what a teacher has hidden from a report, addressed by text: a
+// moment by its exact quote, a keyword by its exact text. It is stored in
+// lite_parent_report.hidden. Moments and Keywords are never nil once
+// normalised.
+type Hidden struct {
+	Moments  []string `json:"moments"`
+	Keywords []string `json:"keywords"`
+}
+
+// Normalize returns h with both lists non-nil and duplicates removed, keeping
+// the first occurrence's order.
+func (h Hidden) Normalize() Hidden {
+	return Hidden{Moments: dedupe(h.Moments), Keywords: dedupe(h.Keywords)}
+}
+
+func dedupe(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]bool, len(in))
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// UnknownHidden returns the first entry of h that is not in f: a moment entry
+// that equals no moment quote, or a keyword entry that equals no keyword text.
+// ok is false when every entry is in f.
+func UnknownHidden(f Facts, h Hidden) (entry string, ok bool) {
+	quotes := make(map[string]bool, len(f.Moments))
+	for _, m := range f.Moments {
+		quotes[m.Quote] = true
+	}
+	for _, q := range h.Moments {
+		if !quotes[q] {
+			return q, true
+		}
+	}
+	words := make(map[string]bool, len(f.Keywords))
+	for _, k := range f.Keywords {
+		words[k.Text] = true
+	}
+	for _, w := range h.Keywords {
+		if !words[w] {
+			return w, true
+		}
+	}
+	return "", false
+}
+
+// VisibleFacts returns a copy of f without the hidden moments (matched by
+// exact quote) and keywords (matched by exact text). An entry that matches
+// nothing is ignored. Every other field, counts included, is unchanged. The
+// returned Moments and Keywords are new slices, never nil.
+func VisibleFacts(f Facts, h Hidden) Facts {
+	hiddenQuotes := make(map[string]bool, len(h.Moments))
+	for _, q := range h.Moments {
+		hiddenQuotes[q] = true
+	}
+	hiddenWords := make(map[string]bool, len(h.Keywords))
+	for _, w := range h.Keywords {
+		hiddenWords[w] = true
+	}
+	out := f
+	out.Moments = make([]Moment, 0, len(f.Moments))
+	for _, m := range f.Moments {
+		if !hiddenQuotes[m.Quote] {
+			out.Moments = append(out.Moments, m)
+		}
+	}
+	out.Keywords = make([]Keyword, 0, len(f.Keywords))
+	for _, k := range f.Keywords {
+		if !hiddenWords[k.Text] {
+			out.Keywords = append(out.Keywords, k)
+		}
+	}
+	return out
+}
+
 // ErrBadRange is returned for a date range that cannot be reported on.
 var ErrBadRange = errors.New("liteparent: invalid date range")
 

@@ -13,7 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
@@ -211,16 +210,12 @@ func errParentRangeBeforeStart() *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusBadRequest, Code: "range_before_start", Message: "该时间段早于学生加入班级的时间"}
 }
 
-func errParentAlreadyPublished() *httpx.APIError {
-	return &httpx.APIError{Status: http.StatusConflict, Code: "already_published", Message: "报告已发布，不能重新生成草稿"}
-}
-
 func errParentStudentLeft() *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusConflict, Code: "student_left", Message: "该学生已不在本班"}
 }
 
-func errParentReportEmpty() *httpx.APIError {
-	return &httpx.APIError{Status: http.StatusConflict, Code: "report_empty", Message: "请先生成或填写报告内容"}
+func errParentInvalidHidden() *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusBadRequest, Code: "invalid_hidden", Message: "要隐藏的内容不在这份报告里"}
 }
 
 func errParentInvalidBody() *httpx.APIError {
@@ -236,37 +231,33 @@ func errParentSectionTooLong(key string) *httpx.APIError {
 }
 
 // ParentReportDTO is one parent report as the teacher sees it. Draft and Body
-// are null until a draft is stored. Sections are the section keys the frozen
-// facts support, in display order.
+// are null until a draft is stored. Facts are the full frozen facts, hidden
+// items included, so the editor can list them with a toggle; Hidden says which
+// are hidden. Sections are the section keys the visible facts support, in
+// display order. TeacherName (in facts) and CreatedAt make the byline.
 type ParentReportDTO struct {
-	ID            string            `json:"id"`
-	StudentID     string            `json:"studentId"`
-	ClassID       string            `json:"classId"`
-	RangeStart    string            `json:"rangeStart"`
-	RangeEnd      string            `json:"rangeEnd"`
-	Status        string            `json:"status"`
-	Facts         liteparent.Facts  `json:"facts"`
-	Draft         map[string]string `json:"draft"`
-	Body          map[string]string `json:"body"`
-	Sections      []string          `json:"sections"`
-	ShareToken    *string           `json:"shareToken"`
-	PublishedAt   *string           `json:"publishedAt"`
-	StudentSeenAt *string           `json:"studentSeenAt"`
-	CreatedAt     string            `json:"createdAt"`
-	UpdatedAt     string            `json:"updatedAt"`
+	ID         string            `json:"id"`
+	StudentID  string            `json:"studentId"`
+	ClassID    string            `json:"classId"`
+	RangeStart string            `json:"rangeStart"`
+	RangeEnd   string            `json:"rangeEnd"`
+	Facts      liteparent.Facts  `json:"facts"`
+	Hidden     liteparent.Hidden `json:"hidden"`
+	Draft      map[string]string `json:"draft"`
+	Body       map[string]string `json:"body"`
+	Sections   []string          `json:"sections"`
+	CreatedAt  string            `json:"createdAt"`
+	UpdatedAt  string            `json:"updatedAt"`
 }
 
 // ParentReportSummaryDTO is one row of a report list.
 type ParentReportSummaryDTO struct {
-	ID          string  `json:"id"`
-	StudentID   string  `json:"studentId"`
-	StudentName string  `json:"studentName"`
-	RangeStart  string  `json:"rangeStart"`
-	RangeEnd    string  `json:"rangeEnd"`
-	Status      string  `json:"status"`
-	PublishedAt *string `json:"publishedAt"`
-	Shared      bool    `json:"shared"`
-	CreatedAt   string  `json:"createdAt"`
+	ID          string `json:"id"`
+	StudentID   string `json:"studentId"`
+	StudentName string `json:"studentName"`
+	RangeStart  string `json:"rangeStart"`
+	RangeEnd    string `json:"rangeEnd"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 type parentReportResponse struct {
@@ -307,9 +298,25 @@ func liteParentBodyBlank(raw []byte) (bool, error) {
 	return true, nil
 }
 
+// liteParentHidden decodes a stored hidden set ('{}' by default) with both
+// lists non-nil and de-duplicated.
+func liteParentHidden(raw []byte) (liteparent.Hidden, error) {
+	var h liteparent.Hidden
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &h); err != nil {
+			return liteparent.Hidden{}, err
+		}
+	}
+	return h.Normalize(), nil
+}
+
 func newParentReportDTO(row sqlc.LiteParentReport) (ParentReportDTO, error) {
 	var f liteparent.Facts
 	if err := json.Unmarshal(row.Facts, &f); err != nil {
+		return ParentReportDTO{}, err
+	}
+	hidden, err := liteParentHidden(row.Hidden)
+	if err != nil {
 		return ParentReportDTO{}, err
 	}
 	draft, err := liteParentSections(row.Draft)
@@ -323,9 +330,8 @@ func newParentReportDTO(row sqlc.LiteParentReport) (ParentReportDTO, error) {
 	return ParentReportDTO{
 		ID: row.ID.String(), StudentID: row.UserID.String(), ClassID: row.ClassID.String(),
 		RangeStart: liteParentDate(row.RangeStart), RangeEnd: liteParentDate(row.RangeEnd),
-		Status: row.Status, Facts: f, Draft: draft, Body: body,
-		Sections:   liteparent.SectionsWithFacts(f),
-		ShareToken: row.ShareToken, PublishedAt: tsStringPtr(row.PublishedAt), StudentSeenAt: tsStringPtr(row.StudentSeenAt),
+		Facts: f, Hidden: hidden, Draft: draft, Body: body,
+		Sections:  liteparent.SectionsWithFacts(liteparent.VisibleFacts(f, hidden)),
 		CreatedAt: row.CreatedAt.Format(time.RFC3339), UpdatedAt: row.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
@@ -334,7 +340,6 @@ func newParentReportSummaryDTO(row sqlc.ListLiteParentReportsByClassRow) ParentR
 	return ParentReportSummaryDTO{
 		ID: row.ID.String(), StudentID: row.UserID.String(), StudentName: row.StudentName,
 		RangeStart: liteParentDate(row.RangeStart), RangeEnd: liteParentDate(row.RangeEnd),
-		Status: row.Status, PublishedAt: tsStringPtr(row.PublishedAt), Shared: row.ShareToken != nil,
 		CreatedAt: row.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -367,7 +372,7 @@ func decodeLiteParentRequest(w http.ResponseWriter, r *http.Request, v any) bool
 // loadTeacherParentReport parses {rid}, loads the report and checks the
 // caller teaches its class. Any failure is 404. It does not require the
 // student to still be in the class (plan 4 Ruling 5): a teacher must be able
-// to read, edit and revoke after she leaves.
+// to read, edit and export after she leaves.
 func (a *API) loadTeacherParentReport(w http.ResponseWriter, r *http.Request) (sqlc.LiteParentReport, bool) {
 	rid, err := uuid.Parse(r.PathValue("rid"))
 	if err != nil {
@@ -423,22 +428,14 @@ func requireParentStudentEnrolled(ctx context.Context, q *sqlc.Queries, locked s
 	return nil
 }
 
-// requireParentDraftable is the check made under each lock before a draft is
-// written: the report is still a draft and she is still in the class.
-func requireParentDraftable(ctx context.Context, q *sqlc.Queries, locked sqlc.LiteParentReport) error {
-	if locked.Status != "draft" {
-		return errParentAlreadyPublished()
-	}
-	return requireParentStudentEnrolled(ctx, q, locked)
-}
-
 // composeLiteParentDraft drafts the sections from facts and records every
-// attempt under the teacher. No lock is held during the model call. A rejected
-// draft returns draftError and writes nothing. An accepted draft is written
-// under a fresh row lock that re-checks requireParentDraftable; a report
-// published in the meantime is 409 already_published and the draft is
-// discarded. replaceBody overwrites the teacher's body; otherwise the body
-// takes the draft only while it is still NULL.
+// attempt under the teacher. facts are the visible facts: a hidden 金句 or
+// keyword is neither in the prompt nor accepted by the quote check. No lock is
+// held during the model call. A rejected draft returns draftError and writes
+// nothing. An accepted draft is written under a fresh row lock that re-checks
+// requireParentStudentEnrolled; if she left in the meantime it is 409
+// student_left and the draft is discarded. replaceBody overwrites the
+// teacher's body; otherwise the body takes the draft only while it is blank.
 func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teacherID uuid.UUID, resolved gateway.Resolved, reportID uuid.UUID, facts liteparent.Facts, others []string, replaceBody bool) (sqlc.LiteParentReport, *string, error) {
 	sections, attempts, cerr := agent.ComposeLiteParentReport(ctx, a.d.Provider, resolved, facts, others)
 	for _, at := range attempts {
@@ -454,7 +451,7 @@ func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teac
 		return sqlc.LiteParentReport{}, nil, err
 	}
 	row, err := a.withLockedParentReport(ctx, reportID, func(q *sqlc.Queries, locked sqlc.LiteParentReport) (sqlc.LiteParentReport, error) {
-		if err := requireParentDraftable(ctx, q, locked); err != nil {
+		if err := requireParentStudentEnrolled(ctx, q, locked); err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
 		// A body with no non-blank section (NULL, {}, or only whitespace, as an
@@ -468,18 +465,10 @@ func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teac
 			}
 			fill = blank
 		}
-		var out sqlc.LiteParentReport
-		var werr error
 		if fill {
-			out, werr = q.ReplaceLiteParentReportBody(ctx, sqlc.ReplaceLiteParentReportBodyParams{Draft: draft, ID: locked.ID})
-		} else {
-			out, werr = q.SetLiteParentReportDraft(ctx, sqlc.SetLiteParentReportDraftParams{Draft: draft, ID: locked.ID})
+			return q.ReplaceLiteParentReportBody(ctx, sqlc.ReplaceLiteParentReportBodyParams{Draft: draft, ID: locked.ID})
 		}
-		// Both writes match only status = 'draft'.
-		if errors.Is(werr, pgx.ErrNoRows) {
-			return sqlc.LiteParentReport{}, errParentAlreadyPublished()
-		}
-		return out, werr
+		return q.SetLiteParentReportDraft(ctx, sqlc.SetLiteParentReportDraftParams{Draft: draft, ID: locked.ID})
 	})
 	if err != nil {
 		// The model was paid for and its draft is lost. The draft text is not logged.
@@ -647,22 +636,33 @@ func (a *API) getLiteParentReport(w http.ResponseWriter, r *http.Request) {
 }
 
 // patchLiteParentReport handles PATCH /api/v1/lite/teacher/parent-reports/{rid}
-// with {"body": {key: text}}. The given sections are merged into the stored
-// body; a section left out keeps its text. Keys must be sections the frozen
-// facts support. Edits are allowed after publishing and after she leaves.
+// with {"body": {key: text}?, "hidden": {"moments": [quote…], "keywords":
+// [text…]}?}. At least one of the two is required.
+//
+//   - body: the given sections are merged into the stored body; a section left
+//     out keeps its text. Keys must be sections the visible facts support
+//     (after this request's hidden set is applied).
+//   - hidden: replaces the stored set (send the whole object); duplicates are
+//     dropped. Every entry must equal a moment quote or keyword text in the
+//     frozen facts, or the request is 400 invalid_hidden. Left out, the stored
+//     set is kept.
+//
+// Hiding every keyword removes interests from sections; its stored body text
+// is kept. Edits are allowed after she leaves the class.
 func (a *API) patchLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	rep, ok := a.loadTeacherParentReport(w, r)
 	if !ok {
 		return
 	}
 	var req struct {
-		Body map[string]string `json:"body"`
+		Body   map[string]string  `json:"body"`
+		Hidden *liteparent.Hidden `json:"hidden"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
-	if req.Body == nil {
+	if req.Body == nil && req.Hidden == nil {
 		httpx.WriteError(w, r, errParentInvalidBody())
 		return
 	}
@@ -678,8 +678,18 @@ func (a *API) patchLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(locked.Facts, &facts); err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
+		hidden, err := liteParentHidden(locked.Hidden)
+		if err != nil {
+			return sqlc.LiteParentReport{}, err
+		}
+		if req.Hidden != nil {
+			hidden = req.Hidden.Normalize()
+			if _, unknown := liteparent.UnknownHidden(facts, hidden); unknown {
+				return sqlc.LiteParentReport{}, errParentInvalidHidden()
+			}
+		}
 		allowed := map[string]bool{}
-		for _, k := range liteparent.SectionsWithFacts(facts) {
+		for _, k := range liteparent.SectionsWithFacts(liteparent.VisibleFacts(facts, hidden)) {
 			allowed[k] = true
 		}
 		for _, k := range keys {
@@ -690,21 +700,27 @@ func (a *API) patchLiteParentReport(w http.ResponseWriter, r *http.Request) {
 				return sqlc.LiteParentReport{}, errParentSectionTooLong(k)
 			}
 		}
-		body, err := liteParentSections(locked.Body)
+		rawBody := locked.Body
+		if req.Body != nil {
+			body, err := liteParentSections(locked.Body)
+			if err != nil {
+				return sqlc.LiteParentReport{}, err
+			}
+			if body == nil {
+				body = map[string]string{}
+			}
+			for _, k := range keys {
+				body[k] = req.Body[k]
+			}
+			if rawBody, err = json.Marshal(body); err != nil {
+				return sqlc.LiteParentReport{}, err
+			}
+		}
+		rawHidden, err := json.Marshal(hidden)
 		if err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
-		if body == nil {
-			body = map[string]string{}
-		}
-		for _, k := range keys {
-			body[k] = req.Body[k]
-		}
-		raw, err := json.Marshal(body)
-		if err != nil {
-			return sqlc.LiteParentReport{}, err
-		}
-		return q.UpdateLiteParentReportBody(ctx, sqlc.UpdateLiteParentReportBodyParams{Body: raw, ID: locked.ID})
+		return q.UpdateLiteParentReportEdit(ctx, sqlc.UpdateLiteParentReportEditParams{Body: rawBody, Hidden: rawHidden, ID: locked.ID})
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -717,9 +733,11 @@ func (a *API) patchLiteParentReport(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/lite/teacher/parent-reports/{rid}/redraft with
 // {"replaceBody": bool}.
 //
-// Lock → check draft and enrolled → commit → entitlement → model (no lock
-// held) → lock again → check again → write. It drafts from the facts frozen
-// on the row and never reloads them (plan 4 Ruling 10).
+// Lock → check enrolled → commit → entitlement → model (no lock held) → lock
+// again → check again → write. It drafts from the facts frozen on the row and
+// never reloads them (plan 4 Ruling 10), with the items hidden at the first
+// lock left out (liteparent.VisibleFacts): a hidden 金句 or keyword is not in
+// the prompt, and a draft quoting one fails the quote check.
 func (a *API) redraftLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	rep, ok := a.loadTeacherParentReport(w, r)
 	if !ok {
@@ -733,7 +751,7 @@ func (a *API) redraftLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	locked, err := a.withLockedParentReport(ctx, rep.ID, func(q *sqlc.Queries, locked sqlc.LiteParentReport) (sqlc.LiteParentReport, error) {
-		if err := requireParentDraftable(ctx, q, locked); err != nil {
+		if err := requireParentStudentEnrolled(ctx, q, locked); err != nil {
 			return sqlc.LiteParentReport{}, err
 		}
 		return locked, nil
@@ -746,11 +764,17 @@ func (a *API) redraftLiteParentReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var facts liteparent.Facts
-	if err := json.Unmarshal(locked.Facts, &facts); err != nil {
+	var frozen liteparent.Facts
+	if err := json.Unmarshal(locked.Facts, &frozen); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	hidden, err := liteParentHidden(locked.Hidden)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	facts := liteparent.VisibleFacts(frozen, hidden)
 	others, err := a.loadLiteParentOtherNames(ctx, locked.ClassID, locked.UserID, facts.StudentName)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -777,58 +801,4 @@ func (a *API) redraftLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeParentReport(w, r, http.StatusOK, row, true, draftError)
-}
-
-// publishLiteParentReport handles
-// POST /api/v1/lite/teacher/parent-reports/{rid}/publish. Idempotent: an
-// existing share token is kept; after a revoke a new one is minted. Refused
-// when she has left the class or the body is empty.
-func (a *API) publishLiteParentReport(w http.ResponseWriter, r *http.Request) {
-	rep, ok := a.loadTeacherParentReport(w, r)
-	if !ok {
-		return
-	}
-	token, err := newShareToken()
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	ctx := r.Context()
-	row, err := a.withLockedParentReport(ctx, rep.ID, func(q *sqlc.Queries, locked sqlc.LiteParentReport) (sqlc.LiteParentReport, error) {
-		if err := requireParentStudentEnrolled(ctx, q, locked); err != nil {
-			return sqlc.LiteParentReport{}, err
-		}
-		empty, err := liteParentBodyBlank(locked.Body)
-		if err != nil {
-			return sqlc.LiteParentReport{}, err
-		}
-		if empty {
-			return sqlc.LiteParentReport{}, errParentReportEmpty()
-		}
-		return q.PublishLiteParentReport(ctx, sqlc.PublishLiteParentReportParams{ShareToken: token, ID: locked.ID})
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	writeParentReport(w, r, http.StatusOK, row, false, nil)
-}
-
-// revokeLiteParentReportShare handles
-// DELETE /api/v1/lite/teacher/parent-reports/{rid}/share. The token becomes
-// NULL; the report stays published. Allowed after she leaves the class.
-func (a *API) revokeLiteParentReportShare(w http.ResponseWriter, r *http.Request) {
-	rep, ok := a.loadTeacherParentReport(w, r)
-	if !ok {
-		return
-	}
-	ctx := r.Context()
-	row, err := a.withLockedParentReport(ctx, rep.ID, func(q *sqlc.Queries, locked sqlc.LiteParentReport) (sqlc.LiteParentReport, error) {
-		return q.RevokeLiteParentReportShare(ctx, locked.ID)
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	writeParentReport(w, r, http.StatusOK, row, false, nil)
 }
