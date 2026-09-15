@@ -118,12 +118,12 @@ describe("queueResultText", () => {
     expect(queueResultText({ queued: 3, failed: 0, error: null })).toBe("已加入批改队列：3 份");
     expect(queueResultText({ queued: 0, failed: 0, error: null })).toBe("没有待批改的作业");
     expect(queueResultText({ queued: 2, failed: 1, error: "入队失败：connection refused" })).toBe(
-      "已加入批改队列：2 份；入队失败：1 份，入队失败：connection refused",
+      "已加入批改队列：2 份；入队失败 1 份（入队失败：connection refused）",
     );
     // A queue-all where every eligible recipient failed is a 503, not this
     // 200 shape (the caller never calls this with queued:0, failed>0 in
     // practice) — but the helper still degrades sensibly if it did.
-    expect(queueResultText({ queued: 0, failed: 2, error: "入队失败：queue down" })).toBe("入队失败：2 份，入队失败：queue down");
+    expect(queueResultText({ queued: 0, failed: 2, error: "入队失败：queue down" })).toBe("入队失败 2 份（入队失败：queue down）");
   });
 });
 

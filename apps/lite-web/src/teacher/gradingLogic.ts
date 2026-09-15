@@ -108,7 +108,10 @@ export function queuedText(n: number): string {
 export function queueResultText(r: QueueGradingsResult): string {
   const parts: string[] = [];
   if (r.queued > 0) parts.push(queuedText(r.queued));
-  if (r.failed > 0) parts.push(`入队失败：${r.failed} 份${r.error ? `，${r.error}` : ""}`);
+  // `r.error` already reads "入队失败：{backend text}" (set server-side); shown
+  // parenthesized after the count instead of re-wrapped in a second
+  // "入队失败：" prefix.
+  if (r.failed > 0) parts.push(`入队失败 ${r.failed} 份${r.error ? `（${r.error}）` : ""}`);
   return parts.length > 0 ? parts.join("；") : queuedText(0);
 }
 
