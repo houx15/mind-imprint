@@ -31,6 +31,14 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/lite/teacher/assignments/extract", liteTeacher(a.extractLiteAssignment))
 	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/recipients/{userId}/return", liteTeacher(a.returnLiteAssignmentRecipient))
 
+	// AI 批改. No route calls a model: the queue routes insert river jobs and
+	// the worker makes the calls.
+	mux.Handle("GET /api/v1/lite/teacher/assignments/{aid}/gradings", liteTeacher(a.listLiteAssignmentGradings))
+	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/gradings", liteTeacher(a.queueLiteAssignmentGradings))
+	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}/gradings", liteTeacher(a.queueLiteWritingGrading))
+	mux.Handle("GET /api/v1/lite/teacher/gradings/{gid}", liteTeacher(a.getLiteGrading))
+	mux.Handle("POST /api/v1/lite/teacher/gradings/{gid}/regrade", liteTeacher(a.regradeLiteGrading))
+
 	// Parent reports. Only the generate POST loads facts (which may create
 	// phase-1 student reports); only generate and redraft call a model. Every
 	// mutating {rid} route locks the report row. There is no parent end: the
