@@ -14,6 +14,7 @@ import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadl
 import { useAlive } from "../shared/useAlive";
 import { Field, INPUT_CLS, KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
+import { GradingTab } from "./GradingTab";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
 import { rubricScaleLabel } from "./rubricLogic";
@@ -49,10 +50,12 @@ export function AssignmentDetailPage({
   assignmentId,
   onBack,
   onOpenItem,
+  onOpenGrading,
 }: {
   assignmentId: string;
   onBack: () => void;
   onOpenItem: (classId: string, userId: string, atomId: string) => void;
+  onOpenGrading: (gradingId: string) => void;
 }) {
   const [data, setData] = useState<{ assignment: AssignmentDTO; recipients: RecipientDTO[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export function AssignmentDetailPage({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [returning, setReturning] = useState<RecipientDTO | null>(null);
+  const [tab, setTab] = useState<"students" | "grading">("students");
 
   const alive = useAlive();
   const aidRef = useRef(assignmentId);
@@ -77,6 +81,7 @@ export function AssignmentDetailPage({
     setMessage(null);
     setBusy(false);
     setReturning(null);
+    setTab("students");
   }, [assignmentId]);
 
   useEffect(() => {
@@ -337,88 +342,113 @@ export function AssignmentDetailPage({
             />
           )}
 
-          <section className="mt-8">
-            <h2 className="text-mk-h3 text-mk-ink">学生</h2>
-            {recipients.length === 0 ? (
-              <p className="mt-2 text-mk-small text-mk-muted">暂无学生</p>
-            ) : (
-              <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
-                <table className="w-full min-w-[600px] border-collapse">
-                  <thead>
-                    <tr>
-                      {["学生", "状态", "开始时间", "完成时间", "操作"].map((h) => (
-                        <th
-                          key={h}
-                          className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recipients.map((r) => (
-                      <tr key={r.userId}>
-                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                          {r.displayName}
-                        </td>
-                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
-                          <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
-                        </td>
-                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                          {r.startedAt ? formatDeadline(r.startedAt) : "—"}
-                        </td>
-                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                          {r.finishedAt ? formatDeadline(r.finishedAt) : "—"}
-                        </td>
-                        <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
-                          <div className="flex items-center gap-3">
-                            {r.atomId ? (
-                              <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
-                                查看
-                              </Button>
-                            ) : (
-                              <span className="text-mk-muted">—</span>
-                            )}
-                            {assignment.kind === "writing" && r.versionCount > 0 && (
-                              <Button variant="link" size="sm" onClick={() => setReturning(r)}>
-                                退回修改
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="mt-8">
-            <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
-            {rosterError ? (
-              <div className="mt-2 text-mk-small font-semibold text-mk-danger">
-                加载失败：{rosterError}{" "}
-                <button type="button" onClick={() => setRosterNonce((n) => n + 1)} className="cursor-pointer underline">
-                  重试
+          {assignment.kind === "writing" && (
+            <div role="tablist" aria-label="作业视图" className="mt-8 flex gap-2 border-b border-mk-border">
+              {(["students", "grading"] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === key}
+                  onClick={() => setTab(key)}
+                  className={
+                    "-mb-px border-b-2 px-3 py-2 text-mk-small transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 " +
+                    (tab === key ? "border-mk-accent font-bold text-mk-accent-700" : "border-transparent text-mk-muted hover:text-mk-ink")
+                  }
+                >
+                  {key === "students" ? "学生" : "批改"}
                 </button>
-              </div>
-            ) : unassigned === null ? (
-              <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
-            ) : unassigned.length === 0 ? (
-              <p className="mt-2 text-mk-small text-mk-muted">暂无未布置的学生</p>
-            ) : (
-              <div className="mt-3 flex flex-col gap-3">
-                <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />
-                <div>
-                  <Button variant="secondary" size="sm" onClick={() => void addStudents()} disabled={busy || toAdd.length === 0}>
-                    添加学生
-                  </Button>
+              ))}
+            </div>
+          )}
+          {assignment.kind === "writing" && tab === "grading" ? (
+            <GradingTab assignmentId={assignment.id} onOpenGrading={onOpenGrading} />
+          ) : (
+            <>
+            <section className="mt-8">
+              <h2 className="text-mk-h3 text-mk-ink">学生</h2>
+              {recipients.length === 0 ? (
+                <p className="mt-2 text-mk-small text-mk-muted">暂无学生</p>
+              ) : (
+                <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
+                  <table className="w-full min-w-[600px] border-collapse">
+                    <thead>
+                      <tr>
+                        {["学生", "状态", "开始时间", "完成时间", "操作"].map((h) => (
+                          <th
+                            key={h}
+                            className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recipients.map((r) => (
+                        <tr key={r.userId}>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
+                            {r.displayName}
+                          </td>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
+                            <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
+                          </td>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                            {r.startedAt ? formatDeadline(r.startedAt) : "—"}
+                          </td>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                            {r.finishedAt ? formatDeadline(r.finishedAt) : "—"}
+                          </td>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
+                            <div className="flex items-center gap-3">
+                              {r.atomId ? (
+                                <Button variant="link" size="sm" onClick={() => onOpenItem(assignment.classId, r.userId, r.atomId ?? "")}>
+                                  查看
+                                </Button>
+                              ) : (
+                                <span className="text-mk-muted">—</span>
+                              )}
+                              {assignment.kind === "writing" && r.versionCount > 0 && (
+                                <Button variant="link" size="sm" onClick={() => setReturning(r)}>
+                                  退回修改
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+
+            <section className="mt-8">
+              <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
+              {rosterError ? (
+                <div className="mt-2 text-mk-small font-semibold text-mk-danger">
+                  加载失败：{rosterError}{" "}
+                  <button type="button" onClick={() => setRosterNonce((n) => n + 1)} className="cursor-pointer underline">
+                    重试
+                  </button>
+                </div>
+              ) : unassigned === null ? (
+                <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
+              ) : unassigned.length === 0 ? (
+                <p className="mt-2 text-mk-small text-mk-muted">暂无未布置的学生</p>
+              ) : (
+                <div className="mt-3 flex flex-col gap-3">
+                  <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />
+                  <div>
+                    <Button variant="secondary" size="sm" onClick={() => void addStudents()} disabled={busy || toAdd.length === 0}>
+                      添加学生
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+            </>
+          )}
         </>
       )}
 

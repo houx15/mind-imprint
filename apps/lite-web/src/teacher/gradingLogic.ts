@@ -1,6 +1,15 @@
 // teacher/gradingLogic.ts — pure rules behind the 批改 tab and the grading view.
 
-import { LETTER_GRADES, type GradingContent, type GradingPoint, type GradingRow, type PointKind, type Rubric } from "../api/gradings";
+import {
+  LETTER_GRADES,
+  type GradingContent,
+  type GradingPoint,
+  type GradingRow,
+  type PointKind,
+  type QueueGradingsResult,
+  type Rubric,
+  type SendGradingsResult,
+} from "../api/gradings";
 
 export const POLL_MS = 5000;
 
@@ -85,6 +94,30 @@ export function sendAllConfirmText(n: number): string {
 
 export function queuedText(n: number): string {
   return n > 0 ? `已加入批改队列：${n} 份` : "没有待批改的作业";
+}
+
+/**
+ * 一键AI批改's 200 result, as a single line: `queued`/`failed`/`error` from
+ * the server (controller ruling — never a silent no-op). When some or all
+ * eligible recipients' enqueue attempts rolled back, the failure count and
+ * the server's own `入队失败：…` message are shown alongside whatever did
+ * queue. A 503 `grading_enqueue_failed` (every recipient failed) is a
+ * different code path — the caller shows that thrown error's message
+ * instead of calling this.
+ */
+export function queueResultText(r: QueueGradingsResult): string {
+  const parts: string[] = [];
+  if (r.queued > 0) parts.push(queuedText(r.queued));
+  if (r.failed > 0) parts.push(`入队失败：${r.failed} 份${r.error ? `，${r.error}` : ""}`);
+  return parts.length > 0 ? parts.join("；") : queuedText(0);
+}
+
+/** 发送全部已审阅's result, as a single line. `skipped` (a row's status
+ * changed under her, or its student left the class, between opening the
+ * confirm and the request landing) is explained, not left as a bare number. */
+export function sendResultText(r: SendGradingsResult): string {
+  if (r.skipped === 0) return `已发送 ${r.sent} 份`;
+  return `已发送 ${r.sent} 份，跳过 ${r.skipped} 份（批改状态已变化或学生已不在班级）`;
 }
 
 /** Same rule as liteassign.GradeInScale. */

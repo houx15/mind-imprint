@@ -36,7 +36,9 @@ export function isTeacherRailActive(key: TeacherRailKey, route: TeacherRoute): b
         route.view === "item"
       );
     case "assignments":
-      return route.view === "assignments" || route.view === "assignmentNew" || route.view === "assignment";
+      return (
+        route.view === "assignments" || route.view === "assignmentNew" || route.view === "assignment" || route.view === "grading"
+      );
     case "parentReports":
       return route.view === "parentReports" || route.view === "parentReport";
     default:

@@ -23,7 +23,9 @@ export type TeacherRoute =
   // `/parent-reports/:reportId` (the editor). Top-level rather than under a
   // class: a report stays readable and revocable after its student leaves.
   | { view: "parentReports" }
-  | { view: "parentReport"; reportId: string };
+  | { view: "parentReport"; reportId: string }
+  // /gradings/:gid — one AI 批改, from a homework's 批改 tab or a student's item page.
+  | { view: "grading"; gradingId: string };
 
 const dec = (s: string) => {
   try {
@@ -49,6 +51,7 @@ export function parseTeacherRoute(pathname: string): TeacherRoute {
     if (!seg[1]) return { view: "parentReports" };
     return { view: "parentReport", reportId: seg[1] };
   }
+  if (seg[0] === "gradings" && seg[1]) return { view: "grading", gradingId: seg[1] };
   if (seg[0] !== "classes" || !seg[1]) return { view: "classes" };
   const classId = seg[1];
   if (seg[2] === "weekly") return { view: "classWeekly", classId };
@@ -76,7 +79,8 @@ export function isTeacherPath(pathname: string): boolean {
     first === "teachers" ||
     first === "import" ||
     first === "assignments" ||
-    first === "parent-reports"
+    first === "parent-reports" ||
+    first === "gradings"
   );
 }
 
@@ -132,6 +136,8 @@ export function teacherRoutePath(r: TeacherRoute): string {
       return "/parent-reports";
     case "parentReport":
       return `/parent-reports/${enc(r.reportId)}`;
+    case "grading":
+      return `/gradings/${enc(r.gradingId)}`;
     case "class":
       return `/classes/${enc(r.classId)}`;
     case "classWeekly":

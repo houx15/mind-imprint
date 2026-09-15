@@ -25,6 +25,7 @@ import { ItemPage } from "./ItemPage";
 import { AssignmentsPage } from "./AssignmentsPage";
 import { AssignmentForm } from "./AssignmentForm";
 import { AssignmentDetailPage } from "./AssignmentDetailPage";
+import { GradingPage } from "./GradingPage";
 import { ParentReportsPage } from "./ParentReportsPage";
 import { ParentReportEditor } from "./ParentReportEditor";
 import { writeLastClassId } from "./assignmentLogic";
@@ -194,6 +195,20 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             assignmentId={route.assignmentId}
             onBack={() => go({ view: "assignments" })}
             onOpenItem={(classId, userId, atomId) => go({ view: "item", classId, userId, atomId })}
+            onOpenGrading={(gradingId) => go({ view: "grading", gradingId })}
+          />
+        )}
+        {route.view === "grading" && (
+          <GradingPage
+            key={route.gradingId}
+            gradingId={route.gradingId}
+            onBack={(g) =>
+              g?.assignmentId
+                ? go({ view: "assignment", assignmentId: g.assignmentId })
+                : g
+                  ? go({ view: "item", classId: g.classId, userId: g.userId, atomId: g.atomId })
+                  : go({ view: "assignments" })
+            }
           />
         )}
         {route.view === "parentReports" && (

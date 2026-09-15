@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTeacherPath,
   landingRoute,
   parseTeacherRoute,
   resolveTeacherRoute,
@@ -43,6 +44,13 @@ describe("teacher routing", () => {
 
   it("resolves the class weekly page for a teacher", () => {
     expect(resolveTeacherRoute("/classes/c1/weekly", "teacher")).toEqual({ view: "classWeekly", classId: "c1" });
+  });
+
+  it("round-trips the grading view", () => {
+    expect(parseTeacherRoute("/gradings/g-1")).toEqual({ view: "grading", gradingId: "g-1" });
+    expect(teacherRoutePath({ view: "grading", gradingId: "g-1" })).toBe("/gradings/g-1");
+    expect(isTeacherPath("/gradings/g-1")).toBe(true);
+    expect(parseTeacherRoute("/gradings")).toEqual({ view: "classes" });
   });
 });
 

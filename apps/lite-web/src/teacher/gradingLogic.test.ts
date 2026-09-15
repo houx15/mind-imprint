@@ -5,7 +5,9 @@ import {
   gradeInScale,
   gradingContentReducer,
   gradingRowStatus,
+  queueResultText,
   reviewedDraftIds,
+  sendResultText,
   shouldPoll,
   validateGradingContent,
 } from "./gradingLogic";
@@ -108,6 +110,27 @@ describe("gradingContentReducer", () => {
     const c = content();
     c.points[0] = { kind: "good", quote: "雨", text: "开头有画面感", action: "补充", source: "teacher" };
     expect(contentForSave(c).points[0]!.action).toBeNull();
+  });
+});
+
+describe("queueResultText", () => {
+  it("reports queued-only, failed-only and mixed results, always surfacing the backend error", () => {
+    expect(queueResultText({ queued: 3, failed: 0, error: null })).toBe("已加入批改队列：3 份");
+    expect(queueResultText({ queued: 0, failed: 0, error: null })).toBe("没有待批改的作业");
+    expect(queueResultText({ queued: 2, failed: 1, error: "入队失败：connection refused" })).toBe(
+      "已加入批改队列：2 份；入队失败：1 份，入队失败：connection refused",
+    );
+    // A queue-all where every eligible recipient failed is a 503, not this
+    // 200 shape (the caller never calls this with queued:0, failed>0 in
+    // practice) — but the helper still degrades sensibly if it did.
+    expect(queueResultText({ queued: 0, failed: 2, error: "入队失败：queue down" })).toBe("入队失败：2 份，入队失败：queue down");
+  });
+});
+
+describe("sendResultText", () => {
+  it("reports a clean send, and explains a skip rather than leaving a bare number", () => {
+    expect(sendResultText({ sent: 4, skipped: 0 })).toBe("已发送 4 份");
+    expect(sendResultText({ sent: 3, skipped: 1 })).toBe("已发送 3 份，跳过 1 份（批改状态已变化或学生已不在班级）");
   });
 });
 
