@@ -5,6 +5,11 @@ import (
 	"net/url"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/disciplines"
+	"mindimprint/api/internal/library"
 )
 
 type PayloadError struct{ Code, Message string }
@@ -19,6 +24,19 @@ type ReadingPayload struct {
 	Tier   *int   `json:"tier,omitempty"`
 	URL    string `json:"url,omitempty"`
 	Text   string `json:"text,omitempty"`
+	// FileName is set when the teacher uploaded a document for a text source.
+	FileName string `json:"fileName,omitempty"`
+	// Disciplines and Picks belong to the personalized source. Picks is keyed
+	// by the student's user id; a student with no pick is recommended at start.
+	Disciplines []string                `json:"disciplines,omitempty"`
+	Picks       map[string]PersonalPick `json:"picks,omitempty"`
+}
+
+// PersonalPick is the article the teacher confirmed for one student. A nil
+// Tier means the student's suggested tier when she starts.
+type PersonalPick struct {
+	Slug string `json:"slug"`
+	Tier *int   `json:"tier"`
 }
 
 type WritingPayload struct {
@@ -37,7 +55,48 @@ const (
 	maxPromptRunes       = 2000
 	maxTextRunes         = 50000
 	maxInstructionsRunes = 2000
+	maxFileNameRunes     = 200
 )
+
+func validTier(t *int) bool { return t == nil || (*t >= 1 && *t <= 5) }
+
+// ValidateDisciplines trims, drops blanks and duplicates, and refuses an id
+// that is not in the discipline table.
+func ValidateDisciplines(ids []string) ([]string, error) {
+	out := make([]string, 0, len(ids))
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		if _, ok := disciplines.ByID(id); !ok {
+			return nil, perr("invalid_discipline", "学科不在学科表中："+id)
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+// PicksOutside reports whether a personalized payload picks an article for a
+// user who is not one of recipients. Other payloads have no picks.
+func PicksOutside(payload json.RawMessage, recipients []uuid.UUID) bool {
+	var p ReadingPayload
+	if json.Unmarshal(payload, &p) != nil || p.Source != "personalized" {
+		return false
+	}
+	in := make(map[string]bool, len(recipients))
+	for _, id := range recipients {
+		in[id.String()] = true
+	}
+	for uid := range p.Picks {
+		if !in[uid] {
+			return true
+		}
+	}
+	return false
+}
 
 // ValidateInstructions trims the teacher's 说明 and caps it at 2000 runes.
 // The student sees it in her inbox, so an unbounded field would crowd the list.
@@ -70,20 +129,21 @@ func ValidatePayload(kind string, raw json.RawMessage) (json.RawMessage, error) 
 			return nil, perr("invalid_payload", "作业设置格式错误")
 		}
 		p.Slug, p.URL, p.Text = strings.TrimSpace(p.Slug), strings.TrimSpace(p.URL), strings.TrimSpace(p.Text)
+		p.FileName = strings.TrimSpace(p.FileName)
 		switch p.Source {
 		case "library":
 			if p.Slug == "" {
 				return nil, perr("invalid_slug", "请选择一篇文章")
 			}
-			if p.Tier != nil && (*p.Tier < 1 || *p.Tier > 5) {
+			if !validTier(p.Tier) {
 				return nil, perr("invalid_tier", "难度档位需在 1 到 5 之间")
 			}
-			p.URL, p.Text = "", ""
+			p.URL, p.Text, p.FileName, p.Disciplines, p.Picks = "", "", "", nil, nil
 		case "url":
 			if !isHTTPURL(p.URL) {
 				return nil, perr("invalid_url", "请输入以 http 或 https 开头的链接")
 			}
-			p.Slug, p.Tier, p.Text = "", nil, ""
+			p.Slug, p.Tier, p.Text, p.FileName, p.Disciplines, p.Picks = "", nil, "", "", nil, nil
 		case "text":
 			if p.Text == "" {
 				return nil, perr("empty_text", "请粘贴文章正文")
@@ -91,9 +151,45 @@ func ValidatePayload(kind string, raw json.RawMessage) (json.RawMessage, error) 
 			if utf8.RuneCountInString(p.Text) > maxTextRunes {
 				return nil, perr("text_too_long", "文章正文不能超过 50000 字")
 			}
-			p.Slug, p.Tier, p.URL = "", nil, ""
+			if utf8.RuneCountInString(p.FileName) > maxFileNameRunes {
+				return nil, perr("file_name_too_long", "文件名不能超过 200 字")
+			}
+			p.Slug, p.Tier, p.URL, p.Disciplines, p.Picks = "", nil, "", nil, nil
+		case "personalized":
+			if !validTier(p.Tier) {
+				return nil, perr("invalid_tier", "难度档位需在 1 到 5 之间")
+			}
+			ds, err := ValidateDisciplines(p.Disciplines)
+			if err != nil {
+				return nil, err
+			}
+			p.Disciplines = ds
+			picks := make(map[string]PersonalPick, len(p.Picks))
+			for key, pick := range p.Picks {
+				uid, err := uuid.Parse(strings.TrimSpace(key))
+				if err != nil {
+					return nil, perr("invalid_pick_user", "个性化名单中的学生无效")
+				}
+				canonical := uid.String()
+				if _, exists := picks[canonical]; exists {
+					// Two source keys (e.g. differing only by letter case)
+					// normalised to the same user id. Reject rather than let
+					// map iteration order pick a silent winner.
+					return nil, perr("invalid_pick_user", "个性化名单中有重复的学生")
+				}
+				pick.Slug = strings.TrimSpace(pick.Slug)
+				if _, ok := library.BySlug(pick.Slug); !ok {
+					return nil, perr("invalid_pick_slug", "文章不在阅读库里："+pick.Slug)
+				}
+				if !validTier(pick.Tier) {
+					return nil, perr("invalid_tier", "难度档位需在 1 到 5 之间")
+				}
+				picks[canonical] = pick
+			}
+			p.Picks = picks
+			p.Slug, p.URL, p.Text, p.FileName = "", "", "", ""
 		default:
-			return nil, perr("invalid_source", "阅读来源只能是分级阅读库、链接或正文")
+			return nil, perr("invalid_source", "阅读来源只能是分级阅读库、链接、正文或个性化阅读")
 		}
 		return json.Marshal(p)
 	case "writing":
