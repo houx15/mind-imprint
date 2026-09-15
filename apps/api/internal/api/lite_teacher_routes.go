@@ -28,6 +28,7 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("PATCH /api/v1/lite/teacher/assignments/{aid}", liteTeacher(a.patchLiteAssignment))
 	mux.Handle("DELETE /api/v1/lite/teacher/assignments/{aid}", liteTeacher(a.archiveLiteAssignment))
 	mux.Handle("POST /api/v1/lite/teacher/assignments/extract", liteTeacher(a.extractLiteAssignment))
+	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/recipients/{userId}/return", liteTeacher(a.returnLiteAssignmentRecipient))
 
 	// Parent reports. Only the generate POST loads facts (which may create
 	// phase-1 student reports); only generate and redraft call a model. Every
