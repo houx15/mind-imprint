@@ -3,7 +3,7 @@ import type { AssignmentKind } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { statusChipStyle } from "../teacher/assignmentLogic";
-import { openItemsForKind, startButtonLabel } from "./inboxLogic";
+import { openItemsForKind, startButtonLabel, stripDueAt } from "./inboxLogic";
 import { openAssignment } from "./openAssignment";
 import { useInbox } from "./useInbox";
 
@@ -20,10 +20,10 @@ export function AssignmentStatusChip({ status, label }: { status: AssignmentStat
 }
 
 /**
- * 作业 on a landing: this kind's open assignments (未开始 / 进行中 / 已逾期).
- * Renders nothing when there are none, so a student with no assignments sees
- * the landing exactly as before. `className` carries the outer spacing, so
- * the hidden strip leaves no margin behind.
+ * 作业 on a landing: this kind's open assignments (未开始 / 进行中 / 已逾期 /
+ * 已退回). Renders nothing when there are none, so a student with no
+ * assignments sees the landing exactly as before. `className` carries the
+ * outer spacing, so the hidden strip leaves no margin behind.
  */
 export function AssignmentStrip({ kind, className = "" }: { kind: AssignmentKind; className?: string }) {
   const inbox = useInbox();
@@ -63,7 +63,10 @@ export function AssignmentStrip({ kind, className = "" }: { kind: AssignmentKind
                 <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</p>
               )}
               {item.dueAt && (
-                <p className="mt-0.5 text-mk-small text-mk-muted">截止 {formatDeadline(item.dueAt)}</p>
+                <p className="mt-0.5 text-mk-small text-mk-muted">截止 {formatDeadline(stripDueAt(item))}</p>
+              )}
+              {item.status === "returned" && item.returnNote && (
+                <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-secondary">退回说明：{item.returnNote}</p>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">

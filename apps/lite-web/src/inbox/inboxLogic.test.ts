@@ -8,6 +8,7 @@ import {
   sortUnreadFirst,
   startButtonLabel,
   startErrorText,
+  stripDueAt,
 } from "./inboxLogic";
 
 function item(over: Partial<AssignmentInboxItem>): AssignmentInboxItem {
@@ -79,6 +80,21 @@ describe("inboxPanelLeft", () => {
   it("slides left to keep a 16px right margin", () => expect(inboxPanelLeft(220, 500)).toBe(124));
   it("never goes past the 16px left margin on a phone", () => expect(inboxPanelLeft(56, 400)).toBe(24));
   it("clamps to 16px when the viewport is narrower than the panel", () => expect(inboxPanelLeft(56, 320)).toBe(16));
+});
+
+describe("returned homework on the strip", () => {
+  it("lists a returned writing as open", () =>
+    expect(openItemsForKind([item({ id: "r", kind: "writing", status: "returned", atomId: "x" })], "writing").map((i) => i.id)).toEqual(
+      ["r"],
+    ));
+  it("does not list a resubmitted writing", () =>
+    expect(openItemsForKind([item({ kind: "writing", status: "resubmitted", atomId: "x" })], "writing")).toEqual([]));
+  it("shows the return deadline for a returned item", () =>
+    expect(stripDueAt({ status: "returned", dueAt: "2026-09-10T14:00:00Z", returnDueAt: "2026-09-18T14:00:00Z" })).toBe(
+      "2026-09-18T14:00:00Z",
+    ));
+  it("shows the assignment deadline otherwise", () =>
+    expect(stripDueAt({ status: "in_progress", dueAt: "2026-09-10T14:00:00Z", returnDueAt: null })).toBe("2026-09-10T14:00:00Z"));
 });
 
 describe("startButtonLabel", () => {

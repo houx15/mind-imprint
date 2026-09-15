@@ -8,31 +8,27 @@ import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { tintedChipStyle } from "../teacher/assignmentLogic";
-import { chipHue, chipToShow, effectiveDueAt, versionLine, type AssignmentLoadState } from "./finishedWriting";
+import { chipHue, chipToShow, effectiveDueAt, isReturnOpen, LOCKED_TEXT, returnedLine, versionLine, type AssignmentLoadState } from "./finishedWriting";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
 /**
- * FinishedWritingPage — `/writings/:id` once a writing is finished and not
- * being revised.
+ * FinishedWritingPage — `/writings/:id` once a writing is finished and
+ * either not being revised, or revising but locked (past its deadline, so
+ * the room could not save anything anyway — `showFinishedPage` in
+ * `WritingRoomHost`'s load effect decides which of the two this is).
  *
- * Header: title, chip, homework line, 修改 and 报告. Left column (44rem):
- * the version being viewed, the latest by default. Right rail: 版本, and
- * 与当前版本对比 when an older version is selected. Below 1024px the rail
- * follows the text in one column. 报告 swaps the columns for ReportPanel.
+ * Header: title, chip, homework line, locked/returned line, 修改 and 报告.
+ * Left column (44rem): the version being viewed, the latest by default.
+ * Right rail: 版本, and 与当前版本对比 when an older version is selected.
+ * Below 1024px the rail follows the text in one column. 报告 swaps the
+ * columns for ReportPanel.
  *
- * Task 11 hook-in: `revise()` below already opens the compose/write view via
- * `onRevise` (WritingRoomHost's `reload()` re-runs the load effect, and
- * `isRevising(writing)` then routes it to the "ready" phase in the `draft`
- * stage — see the ruling note on `onRevise`'s prop doc). Task 11 adds the
- * revising strip and 放弃修改 INSIDE that write view (ComposeStage /
- * WritingRoomHost), not here — this page's only job for a revising writing
- * is to not be shown at all, which the host's `isWritingFinished(writing) &&
- * !isRevising(writing)` guard already ensures. The locked state (chip
- * `已锁定` already renders here) additionally needs 修改 to explain the 403
- * `writing_locked` the button will always get; that copy work is Task 11's,
- * not this file's — this page's `revise()` already surfaces whatever error
- * `onRevise` throws via `actionError`, so the hook is a copy change, not a
- * structural one.
+ * `revise()` opens the compose/write view via `onRevise` (WritingRoomHost's
+ * `reload()` re-runs the load effect; `isRevising(writing)` and `showFinishedPage`
+ * then route it to the "ready" phase's `RevisingStrip` unless it is locked).
+ * 修改 is disabled while `locked` — clicking it would always get 403
+ * `writing_locked` — and the locked line explains why in the same words the
+ * room shows if she somehow still tries.
  */
 export function FinishedWritingPage({
   writing,
@@ -148,7 +144,7 @@ export function FinishedWritingPage({
             </span>
           )}
           <div className="flex flex-wrap gap-2 sm:ml-auto">
-            <Button variant="secondary" onClick={() => void revise()} disabled={revising || list === null}>
+            <Button variant="secondary" onClick={() => void revise()} disabled={locked || revising || list === null}>
               修改
             </Button>
             <Button variant={showReport ? "primary" : "secondary"} onClick={() => setShowReport((v) => !v)}>
@@ -166,6 +162,17 @@ export function FinishedWritingPage({
           <p className="text-mk-small text-mk-muted">
             作业 · {assignment.title} · 截止 {formatDeadline(effectiveDueAt(assignment))}
           </p>
+        )}
+        {locked && (
+          <p role="status" className="text-mk-small font-semibold text-mk-danger">
+            {LOCKED_TEXT}
+          </p>
+        )}
+        {assignment && !locked && isReturnOpen(assignment) && (
+          <div className="flex flex-col gap-1 rounded-mk-md border border-mk-border bg-mk-surface px-4 py-3 text-mk-small">
+            <p className="font-semibold text-mk-ink">{returnedLine(assignment)}</p>
+            {assignment.returnNote && <p className="whitespace-pre-wrap text-mk-secondary">退回说明：{assignment.returnNote}</p>}
+          </div>
         )}
         {actionError && (
           <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">

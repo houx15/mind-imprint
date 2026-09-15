@@ -4,8 +4,7 @@ import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
-import { ApiError } from "../api/client";
-import { getWriting, isAssignedWriting, isRevising, isWritingFinished, reviseWriting, type Writing } from "../api/writings";
+import { getWriting, isAssignedWriting, isRevising, isWritingFinished, listWritingVersions, reviseWriting, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import {
@@ -35,7 +34,8 @@ import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
 import { FinishedWritingPage } from "./FinishedWritingPage";
-import { stageAfterRevise } from "./finishedWriting";
+import { isWritingLockedError, showFinishedPage, stageAfterRevise } from "./finishedWriting";
+import { RevisingStrip } from "./RevisingStrip";
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -65,7 +65,7 @@ import { stageAfterRevise } from "./finishedWriting";
 type LoadState =
   | { phase: "loading" }
   | { phase: "error"; message: string }
-  | { phase: "finished"; writing: Writing; draft: WritingDraft }
+  | { phase: "finished"; writing: Writing }
   | {
       phase: "ready";
       writing: Writing;
@@ -107,10 +107,14 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     void (async () => {
       try {
         const writing = await getWriting(writingId);
-        if (isWritingFinished(writing) && !isRevising(writing)) {
-          const draft = await getWritingDraft(writingId).catch(() => EMPTY_DRAFT);
-          if (!cancelled) setState({ phase: "finished", writing, draft });
-          return;
+        if (isWritingFinished(writing)) {
+          // Revising but past the deadline: the room would refuse every
+          // write, so the page shows the latest version instead.
+          const locked = isRevising(writing) ? ((await listWritingVersions(writingId).catch(() => null))?.locked ?? false) : false;
+          if (showFinishedPage(writing, locked)) {
+            if (!cancelled) setState({ phase: "finished", writing });
+            return;
+          }
         }
         const [messages, outline, snippets, draft] = await Promise.all([
           listWritingMessages(writingId).catch(() => [] as LiteMessage[]),
@@ -214,10 +218,18 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         const next = await setWritingStage(writingId, stage);
         setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s));
       } catch (err) {
+        // The deadline passed while she was revising: every write from here
+        // is refused the same way, so reload straight into the locked
+        // finished page rather than leave her stuck in a room that cannot
+        // save anything.
+        if (isWritingLockedError(err)) {
+          reload();
+          return;
+        }
         setRoomError(apiErrorText(err));
       }
     },
-    [state.phase, writingId],
+    [state.phase, writingId, reload],
   );
 
   /**
@@ -250,6 +262,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         );
       }
     } catch (err) {
+      // Same reasoning as `jumpStage`: past the deadline, reload straight
+      // to the locked page rather than roll the message back into a room
+      // that would just refuse the retry too.
+      if (isWritingLockedError(err)) {
+        reload();
+        return;
+      }
       setRoomError(apiErrorText(err));
       setState((s) => (s.phase === "ready" ? { ...s, messages: s.messages.filter((m) => m !== optimistic) } : s));
       throw err;
@@ -276,6 +295,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       const wr = await setWritingTargetWords(writingId, next);
       setState((s) => (s.phase === "ready" ? { ...s, writing: wr } : s));
     } catch (err) {
+      if (isWritingLockedError(err)) {
+        reload();
+        return;
+      }
       setRoomError(apiErrorText(err));
     }
   }
@@ -372,6 +395,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           <StageMap stage={writing.stage} onJump={(s) => void jumpStage(s)} />
         </div>
       </header>
+
+      {isRevising(writing) && <RevisingStrip writingId={writingId} onDiscarded={reload} />}
 
       {roomError && (
         <div role="alert" className="rounded-mk-sm px-3 py-2 text-mk-small text-mk-danger" style={{ background: "var(--mk-danger-bg)" }}>
@@ -556,12 +581,7 @@ function StagePanel({
           draft={draft}
           snippets={snippets}
           onDraftChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, draft: next } : s))}
-          // Functional, not `state.draft`: 完成这篇 flushes the autosave first,
-          // and a captured `state` from an older render would freeze the
-          // finished screen on the body as it stood BEFORE that last save.
-          onFinished={(w) =>
-            setState((s) => ({ phase: "finished", writing: w, draft: s.phase === "ready" ? s.draft : EMPTY_DRAFT }))
-          }
+          onFinished={(w) => setState({ phase: "finished", writing: w })}
           // Naming the piece at 完成这篇 renames it for real, so the header's
           // EditableTitle must see it immediately — the same lift PlanningView
           // and the room header already do for a rename typed in place.

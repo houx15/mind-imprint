@@ -23,11 +23,18 @@ export function errorMessage(err: unknown): string {
   return typeof err === "string" ? err : "";
 }
 
-const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress", "overdue"];
+const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress", "overdue", "returned"];
 
-/** What a landing's 作业 strip lists: this kind, and still open. */
+/** What a landing's 作业 strip lists: this kind, and still open — a
+ *  returned homework is open again until she resubmits (then it becomes
+ *  `resubmitted`, which is not in this list). */
 export function openItemsForKind(items: readonly AssignmentInboxItem[], kind: AssignmentKind): AssignmentInboxItem[] {
   return items.filter((it) => it.kind === kind && OPEN_STATUSES.includes(it.status));
+}
+
+/** The deadline a strip row shows: the return deadline once returned. */
+export function stripDueAt(item: Pick<AssignmentInboxItem, "status" | "dueAt" | "returnDueAt">): string {
+  return item.status === "returned" && item.returnDueAt ? item.returnDueAt : item.dueAt;
 }
 
 /** Unread first; the server's order is kept inside each group. */
