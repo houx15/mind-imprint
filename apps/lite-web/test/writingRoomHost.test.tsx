@@ -262,27 +262,23 @@ describe("loading the room", () => {
     expect(screen.queryByText("这是我的成稿。")).toBeNull();
   });
 
-  // Renaming stays available AFTER finishing, and that is deliberate:
-  // 给这篇起个名字 only asks at 完成这篇, so every piece finished before that
-  // flow shipped still carries her raw 「我想写：…」 sentence — as the headline
-  // of a page she can hand to anyone. Production had exactly that.
-  it("still lets her rename a finished piece", async () => {
+  // Renaming a finished piece moved with the 2026-09-15 wide finished page
+  // (Task 10, FinishedWritingPage): the title there is a plain heading, not
+  // an inline EditableTitle — she renames it by pressing 修改, which reopens
+  // the room (see WritingRoomHost's `onRevise`), where the title IS
+  // EditableTitle again (covered by "the title is hers" below). The old
+  // click-to-rename-in-place test this comment used to describe tested a
+  // panel that no longer exists.
+  it("shows the finished title as plain text, not an inline rename", async () => {
     routes[key("GET", base(""))] = {
       body: writing({ status: "finished", finishedAt: "2026-08-25T00:00:00Z", title: "我想写一篇关于课间用手机的论证文，因为…" }),
     };
     routes[key("GET", base("/draft"))] = { body: { body: "这是我的成稿。", updatedAt: "2026-08-25T00:00:00Z" } };
-    routes[key("PATCH", `/api/v1/writings/${WID}`)] = { body: writing({ status: "finished", title: "课间十分钟" }) };
     render(<WritingRoomHost writingId={WID} />);
 
     await screen.findByText("已完成");
-    fireEvent.click(screen.getByText("我想写一篇关于课间用手机的论证文，因为…"));
-    const box = screen.getByRole("textbox") as HTMLInputElement;
-    fireEvent.change(box, { target: { value: "课间十分钟" } });
-    fireEvent.blur(box);
-
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "课间十分钟" }),
-    );
+    expect(screen.getByRole("heading", { name: "我想写一篇关于课间用手机的论证文，因为…" })).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 });
 

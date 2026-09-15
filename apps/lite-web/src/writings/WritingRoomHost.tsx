@@ -1,12 +1,11 @@
 import { StudentCoachHeading } from "../learning/StudentCoachHeading";
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Button } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
-import { getWriting, isAssignedWriting, isWritingFinished, type Writing } from "../api/writings";
+import { getWriting, isAssignedWriting, isRevising, isWritingFinished, reviseWriting, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import {
@@ -25,7 +24,6 @@ import {
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
-import { ReportPanel } from "../reports/ReportPanel";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
@@ -36,6 +34,7 @@ import { flushPendingSaves } from "./pendingSaves";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
+import { FinishedWritingPage } from "./FinishedWritingPage";
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -91,6 +90,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
    * 印记's problem.
    */
   const [opening, setOpening] = useState(false);
+  // Bumped to re-run the load effect after 修改/放弃修改 change whether the
+  // writing is revising, without touching `writingId` itself.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   // The report's minute count. `state.phase === "ready"` is exactly "loaded
   // and not finished" — a finished writing takes the "finished" phase below,
@@ -103,7 +106,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     void (async () => {
       try {
         const writing = await getWriting(writingId);
-        if (isWritingFinished(writing)) {
+        if (isWritingFinished(writing) && !isRevising(writing)) {
           const draft = await getWritingDraft(writingId).catch(() => EMPTY_DRAFT);
           if (!cancelled) setState({ phase: "finished", writing, draft });
           return;
@@ -126,7 +129,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [writingId]);
+  }, [writingId, reloadNonce]);
 
   /**
    * The coach's opening line. Fired once setup is done and the transcript
@@ -280,10 +283,20 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   if (state.phase === "error") return <Centered>{state.message}</Centered>;
   if (state.phase === "finished") {
     return (
-      <FinishedWritingPanel
+      <FinishedWritingPage
         writing={state.writing}
         onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
-        onRenamed={(w) => setState((s) => (s.phase === "finished" ? { ...s, writing: w } : s))}
+        onRevise={async () => {
+          const revised = await reviseWriting(writingId);
+          // Controller ruling: 修改 always opens the compose/write view, even
+          // for a writing that was finished on the 结构 stage — otherwise
+          // reload() would land her in PlanningView's full-screen 结构
+          // conversation instead of the room the revising strip lives in.
+          if (revised.stage === "outline") {
+            await setWritingStage(writingId, "draft");
+          }
+          reload();
+        }}
       />
     );
   }
@@ -576,56 +589,6 @@ function Centered({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <p className="text-mk-body text-mk-muted">{children}</p>
-    </div>
-  );
-}
-
-/**
- * FinishedWritingPanel — the terminal view, mirroring readings/
- * ReadingRoomHost's `FinishedReadingPanel`: read-only by construction (no
- * coach input, no stage map, nothing that could change a finished piece),
- * showing the one thing the writing produced — her finished draft, then the
- * end-of-session report below it via `ReportPanel`.
- */
-function FinishedWritingPanel({
-  writing,
-  onBack,
-  onRenamed,
-}: {
-  writing: Writing;
-  onBack: () => void;
-  onRenamed: (next: Writing) => void;
-}) {
-  return (
-    // Same shape as FinishedReadingPanel — read its comment for why the title
-    // and the wide report are not both wrapped in a 680px column any more.
-    <div className="flex w-full flex-col pb-14">
-      <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-8">
-        <Button variant="secondary" onClick={onBack}>
-          回到写作
-        </Button>
-        <span
-          className="rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
-          style={{ background: "var(--mk-success-bg)" }}
-        >
-          已完成
-        </span>
-        {/* Still renameable after finishing, and that is not a leftover.
-            给这篇起个名字 only asks at 完成这篇, so every piece finished before
-            that flow shipped is still carrying her raw 「我想写：…」 sentence —
-            and it is now the headline of a page she can hand to anyone. The
-            server refreshes a report's title from this row on every read
-            (`reportWithPiece`), so a rename here reaches the article, the
-            report and the share link at once. */}
-        <EditableTitle writingId={writing.id} title={writing.title} onRenamed={onRenamed} />
-      </div>
-
-      {/* The piece itself is the FIRST page `ReportPanel` shows now
-          (`ArticleView`), set as an article. There used to be a second copy
-          of the draft below the report, in a bordered card — that is exactly
-          the shape 「don't use card for articles」 rejected, and it is now
-          redundant as well as wrong, so it is gone. */}
-      <ReportPanel kind="writing" atomId={writing.id} />
     </div>
   );
 }
