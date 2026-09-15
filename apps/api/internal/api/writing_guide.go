@@ -140,9 +140,7 @@ func writingGuideAppliesTo(role string) string {
 // position.
 func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, siblings []sqlc.WritingOutline, existing string, msgs []sqlc.AtomMessage) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目/想法：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
@@ -222,9 +220,7 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 // language filter (vocab.ForLang) still applies: it is not a position.
 func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline, textByBlock map[uuid.UUID]string, msgs []sqlc.AtomMessage) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目/想法：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 

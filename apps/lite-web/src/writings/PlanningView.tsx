@@ -16,6 +16,8 @@ import type { LiteMessage } from "../api/readingRoom";
 import type { Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
+import { AssignmentLine } from "../inbox/AssignmentLine";
+import { AssignedPromptLine } from "./AssignedPromptLine";
 import { MindMap } from "./MindMap";
 import { apiErrorText } from "../api/errorText";
 import { planShapeLine, planShapeOf } from "./planShape";
@@ -231,6 +233,10 @@ export function PlanningView({
             ← 我的写作
           </button>
           <EditableTitle writingId={writing.id} title={writing.title} onRenamed={onRenamed} />
+          {/* Same line as the room header: an assigned writing starts here,
+              in 结构, so the deadline has to show before she reaches 去写. */}
+          <AssignmentLine atomId={writing.id} className="mt-0.5 block text-mk-small text-mk-muted" />
+          <AssignedPromptLine writing={writing} />
         </div>
         <div className="flex items-center gap-3">
           <span className="text-mk-small text-mk-muted">先想清楚，再动笔</span>

@@ -119,24 +119,27 @@ func (q *Queries) GetPblSiteByShareToken(ctx context.Context, shareToken *string
 }
 
 const getPblWebsiteProjectByUser = `-- name: GetPblWebsiteProjectByUser :one
-SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, a.created_at AS atom_created_at, a.last_activity_at
+SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, p.assigned, p.assigned_brief, a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p JOIN atom a ON a.id = p.atom_id
 WHERE a.user_id = $1 AND a.kind = 'project' AND p.kind = 'website'
 ORDER BY a.created_at ASC LIMIT 1
 `
 
 type GetPblWebsiteProjectByUserRow struct {
-	AtomID         uuid.UUID `json:"atom_id"`
-	Idea           string    `json:"idea"`
-	Kind           string    `json:"kind"`
-	Name           string    `json:"name"`
-	CoverGround    string    `json:"cover_ground"`
-	CoverGlyph     string    `json:"cover_glyph"`
-	Status         string    `json:"status"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	BoardAxes      bool      `json:"board_axes"`
-	AtomCreatedAt  time.Time `json:"atom_created_at"`
-	LastActivityAt time.Time `json:"last_activity_at"`
+	AtomID         uuid.UUID          `json:"atom_id"`
+	Idea           string             `json:"idea"`
+	Kind           string             `json:"kind"`
+	Name           string             `json:"name"`
+	CoverGround    string             `json:"cover_ground"`
+	CoverGlyph     string             `json:"cover_glyph"`
+	Status         string             `json:"status"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	BoardAxes      bool               `json:"board_axes"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Assigned       bool               `json:"assigned"`
+	AssignedBrief  *string            `json:"assigned_brief"`
+	AtomCreatedAt  time.Time          `json:"atom_created_at"`
+	LastActivityAt time.Time          `json:"last_activity_at"`
 }
 
 // 她的主页项目。spec §4 的门槛靠它回答「她是不是已经有一个了」——建第二个主页
@@ -154,6 +157,9 @@ func (q *Queries) GetPblWebsiteProjectByUser(ctx context.Context, userID uuid.UU
 		&i.Status,
 		&i.UpdatedAt,
 		&i.BoardAxes,
+		&i.FinishedAt,
+		&i.Assigned,
+		&i.AssignedBrief,
 		&i.AtomCreatedAt,
 		&i.LastActivityAt,
 	)
@@ -161,7 +167,7 @@ func (q *Queries) GetPblWebsiteProjectByUser(ctx context.Context, userID uuid.UU
 }
 
 const listSiteProjectsByUser = `-- name: ListSiteProjectsByUser :many
-SELECT a.id AS atom_id, p.name, p.idea, p.kind, p.status,
+SELECT a.id AS atom_id, p.name, p.idea, p.kind, p.status, p.assigned,
        a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p
 JOIN atom a ON a.id = p.atom_id
@@ -178,6 +184,7 @@ type ListSiteProjectsByUserRow struct {
 	Idea           string    `json:"idea"`
 	Kind           string    `json:"kind"`
 	Status         string    `json:"status"`
+	Assigned       bool      `json:"assigned"`
 	AtomCreatedAt  time.Time `json:"atom_created_at"`
 	LastActivityAt time.Time `json:"last_activity_at"`
 }
@@ -203,6 +210,7 @@ func (q *Queries) ListSiteProjectsByUser(ctx context.Context, userID uuid.UUID) 
 			&i.Idea,
 			&i.Kind,
 			&i.Status,
+			&i.Assigned,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 		); err != nil {

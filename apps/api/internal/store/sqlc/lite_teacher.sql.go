@@ -152,6 +152,55 @@ func (q *Queries) GetLiteStudentRosterRow(ctx context.Context, arg GetLiteStuden
 	return i, err
 }
 
+const listLiteClassRecipientStates = `-- name: ListLiteClassRecipientStates :many
+SELECT r.user_id, r.started_at, a.due_at,
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+LEFT JOIN reading rd ON rd.atom_id = r.atom_id
+LEFT JOIN writing w ON w.atom_id = r.atom_id
+LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
+WHERE a.class_id = $1 AND a.archived_at IS NULL
+`
+
+type ListLiteClassRecipientStatesRow struct {
+	UserID     uuid.UUID          `json:"user_id"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	DueAt      time.Time          `json:"due_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
+// Every recipient row of the class's non-archived assignments — the raw
+// ingredients for liteassign.Status, joined the same way as
+// ListLiteAssignmentRecipients (lite_assignment.sql) but scoped by class_id
+// instead of a list of assignment ids. Status itself is derived in Go
+// (getLiteClassRoster), never stored, so overdueAssignments is a per-user
+// count over these rows rather than a column here.
+func (q *Queries) ListLiteClassRecipientStates(ctx context.Context, classID uuid.UUID) ([]ListLiteClassRecipientStatesRow, error) {
+	rows, err := q.db.Query(ctx, listLiteClassRecipientStates, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLiteClassRecipientStatesRow
+	for rows.Next() {
+		var i ListLiteClassRecipientStatesRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.StartedAt,
+			&i.DueAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiteClassRoster = `-- name: ListLiteClassRoster :many
 
 SELECT u.id, u.display_name, u.avatar_color,
@@ -248,6 +297,64 @@ func (q *Queries) ListLiteClassRoster(ctx context.Context, arg ListLiteClassRost
 			&i.WritingsTotal,
 			&i.ProjectsDone,
 			&i.ProjectsTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiteStudentAssignments = `-- name: ListLiteStudentAssignments :many
+SELECT a.id, a.kind, a.title, a.due_at, r.atom_id, r.started_at,
+       COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+LEFT JOIN reading rd ON rd.atom_id = r.atom_id
+LEFT JOIN writing w ON w.atom_id = r.atom_id
+LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
+WHERE a.class_id = $1 AND r.user_id = $2 AND a.archived_at IS NULL
+ORDER BY a.due_at DESC
+`
+
+type ListLiteStudentAssignmentsParams struct {
+	ClassID uuid.UUID `json:"class_id"`
+	UserID  uuid.UUID `json:"user_id"`
+}
+
+type ListLiteStudentAssignmentsRow struct {
+	ID         uuid.UUID          `json:"id"`
+	Kind       string             `json:"kind"`
+	Title      string             `json:"title"`
+	DueAt      time.Time          `json:"due_at"`
+	AtomID     pgtype.UUID        `json:"atom_id"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
+// One student's assignments within one class, for the teacher's student
+// page. Same COALESCE finished_at as ListLiteClassRecipientStates; status is
+// derived in Go from started_at/finished_at/due_at, never stored.
+func (q *Queries) ListLiteStudentAssignments(ctx context.Context, arg ListLiteStudentAssignmentsParams) ([]ListLiteStudentAssignmentsRow, error) {
+	rows, err := q.db.Query(ctx, listLiteStudentAssignments, arg.ClassID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLiteStudentAssignmentsRow
+	for rows.Next() {
+		var i ListLiteStudentAssignmentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Title,
+			&i.DueAt,
+			&i.AtomID,
+			&i.StartedAt,
+			&i.FinishedAt,
 		); err != nil {
 			return nil, err
 		}

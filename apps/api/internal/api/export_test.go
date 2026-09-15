@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mindimprint/api/internal/agent"
@@ -103,6 +104,22 @@ func IsAdminForTest(ctx context.Context) bool {
 // BOTH kinds the loader already supports, not just the one with a route.
 func (a *API) LoadOwnedAtomForTest(w http.ResponseWriter, r *http.Request, kind string) (sqlc.Atom, bool) {
 	return a.loadOwnedAtom(w, r, kind)
+}
+
+// LockAssignmentStartForTest takes a start's locks (lockAssignmentStart)
+// through tx, so the no-deadlock test holds exactly the locks a real start
+// holds instead of replaying the lock order in its own SQL.
+func LockAssignmentStartForTest(ctx context.Context, tx pgx.Tx, assignmentID, userID uuid.UUID) error {
+	_, _, err := lockAssignmentStart(ctx, sqlc.New(tx), assignmentID, userID)
+	return err
+}
+
+// SetStartAfterPreflightHookForTest sets startAfterPreflightHook, which runs
+// after a start's unlocked preflight and fetch and before its transaction. It
+// returns a function that clears it again.
+func SetStartAfterPreflightHookForTest(f func()) (restore func()) {
+	startAfterPreflightHook = f
+	return func() { startAfterPreflightHook = nil }
 }
 
 // ReadingRoutineKindsForTest — 某一套读法的步骤 kind，按顺序。

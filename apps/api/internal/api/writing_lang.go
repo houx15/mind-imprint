@@ -119,6 +119,27 @@ func writingLengthLine(wr sqlc.Writing, label string) string {
 	return b.String()
 }
 
+// writingTopicLine is the topic line every writing-room prompt opens with.
+//
+// For a writing her teacher assigned, the topic is the teacher's prompt and it
+// is labelled as the teacher's: 老师布置的题目：…. The title is not printed
+// then, because it is the assignment's name, not something she said, and the
+// prompt was never stored as her message.
+//
+// Otherwise the title goes out under label, the builder's own word for it
+// (题目/想法：, 题目：, 她一开始说想写的是：), exactly as before.
+func writingTopicLine(wr sqlc.Writing, label string) string {
+	if wr.AssignedPrompt != nil {
+		if p := strings.TrimSpace(*wr.AssignedPrompt); p != "" {
+			return "老师布置的题目：" + p + "\n"
+		}
+	}
+	if t := strings.TrimSpace(wr.Title); t != "" {
+		return label + t + "\n"
+	}
+	return ""
+}
+
 // writingLangLine states the piece's language AND what follows from it — the
 // split described in this file's comment: 印记 keeps coaching in Chinese, but
 // every string that becomes part of her piece is in the piece's language.

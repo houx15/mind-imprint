@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   groupByStatus,
+  isAssignedProject,
   projectTitle,
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
@@ -61,6 +62,19 @@ describe("projectTitle", () => {
   it("falls back to her own sentence, never to a placeholder", () => {
     expect(projectTitle(p("a"))).toBe("我想弄明白我们学校的剩饭到底去哪了");
     expect(projectTitle(p("a", { name: "   " }))).toBe("我想弄明白我们学校的剩饭到底去哪了");
+  });
+});
+
+// isAssignedProject gates the room's auto-posted first turn: true would post
+// nothing, false would post `idea` as her words.
+describe("isAssignedProject", () => {
+  it("is true only when the server says assigned", () => {
+    expect(isAssignedProject(p("a", { assigned: true }))).toBe(true);
+    expect(isAssignedProject(p("a", { assigned: false }))).toBe(false);
+  });
+
+  it("treats a missing flag as her own project", () => {
+    expect(isAssignedProject(p("a"))).toBe(false);
   });
 });
 

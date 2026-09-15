@@ -63,3 +63,12 @@ WHERE atom_id = $1 RETURNING *;
 -- name: SetPblProjectStatus :one
 UPDATE pbl_project SET status = $2, updated_at = now()
 WHERE atom_id = $1 RETURNING *;
+
+-- name: MarkPblProjectAssigned :exec
+-- 老师布置的项目：idea 是老师的驱动问题，不是她的原话。建项目的同一个事务里写。
+UPDATE pbl_project SET assigned = true, assigned_brief = $2 WHERE atom_id = $1;
+
+-- name: StampPblProjectFinished :exec
+-- 第一次进入回顾或保留时写入完成时间；之后再改状态不覆盖。
+-- pbl_project has no id column: its primary key is atom_id, which is also the project id in routes.
+UPDATE pbl_project SET finished_at = now() WHERE atom_id = $1 AND finished_at IS NULL;

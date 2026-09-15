@@ -70,7 +70,7 @@ const MACARON = [
   { bg: "var(--mk-mist-bg)", fg: "var(--mk-mist-fg)" },
 ] as const;
 
-function macaron(i: number) {
+export function macaron(i: number) {
   // `i % MACARON.length` is always a valid index into a non-empty literal
   // array — the `?? MACARON[0]` only satisfies noUncheckedIndexedAccess.
   return MACARON[i % MACARON.length] ?? MACARON[0];
@@ -87,7 +87,7 @@ function formatDate(iso: string): string {
 /** Entrance stagger. Each animated block reads `--i` off its own style and
  *  multiplies it into its delay (see `.mk-rp-rise` in index.css), so a long
  *  report cascades in instead of popping as one slab. */
-function rise(i: number): React.CSSProperties {
+export function rise(i: number): React.CSSProperties {
   return { ["--i" as string]: i } as React.CSSProperties;
 }
 
@@ -240,8 +240,9 @@ function ProsePending({
 
 /** The band across the top: the title at display size, her name and the date
  *  under it, over a slow-moving gradient. This is the part that gets
- *  screenshotted, so it carries the identity and nothing operational. */
-function Hero({
+ *  screenshotted, so it carries the identity and nothing operational.
+ *  Exported for `parentReport/ParentReportView`, which uses the same band. */
+export function Hero({
   kind,
   kindLabel,
   title,
@@ -249,7 +250,7 @@ function Hero({
   date,
   actions,
 }: {
-  kind: "reading" | "writing";
+  kind: keyof typeof studentArtwork;
   kindLabel: string;
   title: string;
   name: string;
@@ -524,7 +525,7 @@ function BackToArticle({ onBack }: { onBack?: () => void }) {
 
 /** One section heading, rendered as a real `<h2>` with a hairline running off
  *  to the right — the page's only repeated chrome. */
-function SectionTitle({ children }: { children: React.ReactNode }) {
+export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="mk-rp-title flex items-center gap-3 text-mk-label text-mk-faint">
       <span>{children}</span>

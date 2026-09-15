@@ -15,7 +15,7 @@ import (
 
 const createWriting = `-- name: CreateWriting :one
 
-INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
+INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt
 `
 
 type CreateWritingParams struct {
@@ -44,6 +44,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		&i.StructureKey,
 		&i.SetupAt,
 		&i.Origin,
+		&i.AssignedPrompt,
 	)
 	return i, err
 }
@@ -110,7 +111,7 @@ func (q *Queries) GetLatestWritingDraftComment(ctx context.Context, atomID uuid.
 }
 
 const getWriting = `-- name: GetWriting :one
-SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin FROM writing WHERE atom_id = $1
+SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt FROM writing WHERE atom_id = $1
 `
 
 func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, error) {
@@ -128,6 +129,7 @@ func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, er
 		&i.StructureKey,
 		&i.SetupAt,
 		&i.Origin,
+		&i.AssignedPrompt,
 	)
 	return i, err
 }
@@ -282,7 +284,7 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, w.origin, a.created_at AS atom_created_at, a.last_activity_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, w.origin, w.assigned_prompt, a.created_at AS atom_created_at, a.last_activity_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
@@ -301,6 +303,7 @@ type ListWritingsByUserRow struct {
 	StructureKey   string             `json:"structure_key"`
 	SetupAt        pgtype.Timestamptz `json:"setup_at"`
 	Origin         string             `json:"origin"`
+	AssignedPrompt *string            `json:"assigned_prompt"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 }
@@ -336,6 +339,7 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.StructureKey,
 			&i.SetupAt,
 			&i.Origin,
+			&i.AssignedPrompt,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 		); err != nil {
@@ -459,6 +463,21 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 	return items, nil
 }
 
+const setWritingAssignedPrompt = `-- name: SetWritingAssignedPrompt :exec
+UPDATE writing SET assigned_prompt = $2 WHERE atom_id = $1
+`
+
+type SetWritingAssignedPromptParams struct {
+	AtomID         uuid.UUID `json:"atom_id"`
+	AssignedPrompt *string   `json:"assigned_prompt"`
+}
+
+// 老师布置的题目存在这里，不作为她的第一条消息。建写作的同一个事务里写。
+func (q *Queries) SetWritingAssignedPrompt(ctx context.Context, arg SetWritingAssignedPromptParams) error {
+	_, err := q.db.Exec(ctx, setWritingAssignedPrompt, arg.AtomID, arg.AssignedPrompt)
+	return err
+}
+
 const setWritingFinished = `-- name: SetWritingFinished :exec
 UPDATE writing SET status = 'finished', finished_at = now(), updated_at = now()
 WHERE atom_id = $1 AND status <> 'finished'
@@ -493,7 +512,7 @@ const setWritingSetup = `-- name: SetWritingSetup :one
 UPDATE writing
 SET lang = $2, target_words = $3, setup_at = now(), updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt
 `
 
 type SetWritingSetupParams struct {
@@ -521,12 +540,13 @@ func (q *Queries) SetWritingSetup(ctx context.Context, arg SetWritingSetupParams
 		&i.StructureKey,
 		&i.SetupAt,
 		&i.Origin,
+		&i.AssignedPrompt,
 	)
 	return i, err
 }
 
 const setWritingStage = `-- name: SetWritingStage :one
-UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
+UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt
 `
 
 type SetWritingStageParams struct {
@@ -552,6 +572,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 		&i.StructureKey,
 		&i.SetupAt,
 		&i.Origin,
+		&i.AssignedPrompt,
 	)
 	return i, err
 }
@@ -559,7 +580,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 const setWritingStructure = `-- name: SetWritingStructure :one
 UPDATE writing SET structure_key = $2, updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt
 `
 
 type SetWritingStructureParams struct {
@@ -584,6 +605,7 @@ func (q *Queries) SetWritingStructure(ctx context.Context, arg SetWritingStructu
 		&i.StructureKey,
 		&i.SetupAt,
 		&i.Origin,
+		&i.AssignedPrompt,
 	)
 	return i, err
 }

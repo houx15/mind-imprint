@@ -319,6 +319,76 @@ func TestLiteStudentPageListsItems(t *testing.T) {
 	}
 }
 
+// TestLiteRosterOverdueAssignments is Task 6: an unstarted assignment whose
+// deadline has passed counts as overdue on the roster row, and shows
+// status "overdue" on the student page's assignment list.
+func TestLiteRosterOverdueAssignments(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE lite_assignment SET due_at = now() - interval '1 hour' WHERE id = $1`, aid); err != nil {
+		t.Fatal(err)
+	}
+
+	var roster struct {
+		Roster []LiteRosterRowDTO `json:"roster"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/roster", &roster); code != http.StatusOK {
+		t.Fatalf("roster = %d", code)
+	}
+	if len(roster.Roster) != 1 || roster.Roster[0].OverdueAssignments != 1 {
+		t.Fatalf("roster = %+v", roster.Roster)
+	}
+
+	var page struct {
+		Assignments []StudentAssignmentDTO `json:"assignments"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/students/"+studentID.String(), &page); code != http.StatusOK {
+		t.Fatalf("student page = %d", code)
+	}
+	if len(page.Assignments) != 1 || page.Assignments[0].ID != aid ||
+		page.Assignments[0].Status != "overdue" || page.Assignments[0].StatusLabel == "" {
+		t.Fatalf("assignments = %+v", page.Assignments)
+	}
+}
+
+// TestLiteRosterOverdueExcludesFinishedLate: an assignment finished after its
+// deadline is "done_late", not "overdue" — it must not count.
+func TestLiteRosterOverdueExcludesFinishedLate(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	student := signInAs(t, pool, studentID)
+	started := startAssignment(t, h, student, aid)
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE lite_assignment SET due_at = now() - interval '1 hour' WHERE id = $1`, aid); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE writing SET status = 'finished', finished_at = now() WHERE atom_id = $1`, started.AtomID); err != nil {
+		t.Fatal(err)
+	}
+
+	var roster struct {
+		Roster []LiteRosterRowDTO `json:"roster"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/roster", &roster); code != http.StatusOK {
+		t.Fatalf("roster = %d", code)
+	}
+	if roster.Roster[0].OverdueAssignments != 0 {
+		t.Fatalf("overdueAssignments = %d, want 0 (finished late)", roster.Roster[0].OverdueAssignments)
+	}
+
+	var page struct {
+		Assignments []StudentAssignmentDTO `json:"assignments"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/students/"+studentID.String(), &page); code != http.StatusOK {
+		t.Fatalf("student page = %d", code)
+	}
+	if len(page.Assignments) != 1 || page.Assignments[0].Status != "done_late" {
+		t.Fatalf("assignments = %+v", page.Assignments)
+	}
+}
+
 func TestLiteStudentPageStudentOfOtherClass404(t *testing.T) {
 	h, pool, teacher, classID, _ := liteTeacherFixture(t)
 	stranger := createStudent(t, pool, SeedSchoolID, "lt-stranger@demo.local")

@@ -39,6 +39,10 @@ UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING *
 -- name: SetWritingTargetWords :exec
 UPDATE writing SET target_words = $2, updated_at = now() WHERE atom_id = $1;
 
+-- name: SetWritingAssignedPrompt :exec
+-- 老师布置的题目存在这里，不作为她的第一条消息。建写作的同一个事务里写。
+UPDATE writing SET assigned_prompt = $2 WHERE atom_id = $1;
+
 -- name: SetWritingFinished :exec
 -- Guarded on status, like SetReadingFinished: a second /finish is a genuine
 -- no-op so finished_at never drifts after the fact (铁律④ makes it evidence).

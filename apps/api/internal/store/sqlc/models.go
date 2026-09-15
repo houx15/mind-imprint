@@ -467,6 +467,57 @@ type KeywordSourceV1Archive struct {
 	HappenedAt time.Time   `json:"happened_at"`
 }
 
+type LiteAssignment struct {
+	ID           uuid.UUID          `json:"id"`
+	ClassID      uuid.UUID          `json:"class_id"`
+	CreatedBy    uuid.UUID          `json:"created_by"`
+	Kind         string             `json:"kind"`
+	Title        string             `json:"title"`
+	Instructions string             `json:"instructions"`
+	Payload      []byte             `json:"payload"`
+	DueAt        time.Time          `json:"due_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+	ArchivedAt   pgtype.Timestamptz `json:"archived_at"`
+}
+
+type LiteAssignmentRecipient struct {
+	AssignmentID uuid.UUID          `json:"assignment_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	SeenAt       pgtype.Timestamptz `json:"seen_at"`
+	AtomID       pgtype.UUID        `json:"atom_id"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+}
+
+type LiteClassWeeklyProse struct {
+	ClassID   uuid.UUID   `json:"class_id"`
+	WeekStart pgtype.Date `json:"week_start"`
+	Body      []byte      `json:"body"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+type LiteParentReport struct {
+	ID         uuid.UUID   `json:"id"`
+	UserID     uuid.UUID   `json:"user_id"`
+	ClassID    uuid.UUID   `json:"class_id"`
+	CreatedBy  uuid.UUID   `json:"created_by"`
+	RangeStart pgtype.Date `json:"range_start"`
+	RangeEnd   pgtype.Date `json:"range_end"`
+	Facts      []byte      `json:"facts"`
+	Draft      []byte      `json:"draft"`
+	Body       []byte      `json:"body"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
+	Hidden     []byte      `json:"hidden"`
+}
+
+type LiteStudentWeeklyProse struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	WeekStart pgtype.Date `json:"week_start"`
+	Body      []byte      `json:"body"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type LlmCall struct {
 	ID               uuid.UUID      `json:"id"`
 	UserID           uuid.UUID      `json:"user_id"`
@@ -744,15 +795,18 @@ type PblPlanVersion struct {
 }
 
 type PblProject struct {
-	AtomID      uuid.UUID `json:"atom_id"`
-	Idea        string    `json:"idea"`
-	Kind        string    `json:"kind"`
-	Name        string    `json:"name"`
-	CoverGround string    `json:"cover_ground"`
-	CoverGlyph  string    `json:"cover_glyph"`
-	Status      string    `json:"status"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	BoardAxes   bool      `json:"board_axes"`
+	AtomID        uuid.UUID          `json:"atom_id"`
+	Idea          string             `json:"idea"`
+	Kind          string             `json:"kind"`
+	Name          string             `json:"name"`
+	CoverGround   string             `json:"cover_ground"`
+	CoverGlyph    string             `json:"cover_glyph"`
+	Status        string             `json:"status"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+	BoardAxes     bool               `json:"board_axes"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	Assigned      bool               `json:"assigned"`
+	AssignedBrief *string            `json:"assigned_brief"`
 }
 
 type PblReframe struct {
@@ -1201,7 +1255,8 @@ type Writing struct {
 	StructureKey string             `json:"structure_key"`
 	SetupAt      pgtype.Timestamptz `json:"setup_at"`
 	// here = 在这个房间里写的；brought = 她带进来的成稿。报告据此说明哪几步没有发生过。
-	Origin string `json:"origin"`
+	Origin         string  `json:"origin"`
+	AssignedPrompt *string `json:"assigned_prompt"`
 }
 
 type WritingComment struct {

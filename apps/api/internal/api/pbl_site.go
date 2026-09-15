@@ -120,8 +120,9 @@ func (a *API) loadSiteContent(r *http.Request, userID uuid.UUID, name string, ro
 	}
 	for _, p := range projects {
 		// 名字空着就用她当初写下的那句话——那仍然是她自己的说法。
+		// 老师布置的项目，idea 是老师的驱动问题，不是她的说法：只用名字。
 		title := strings.TrimSpace(p.Name)
-		if title == "" {
+		if title == "" && !p.Assigned {
 			title = firstLine(p.Idea)
 		}
 		kind := "做过的"

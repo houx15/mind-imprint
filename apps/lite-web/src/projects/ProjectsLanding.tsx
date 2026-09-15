@@ -19,6 +19,7 @@ import { ProjectCard } from "./ProjectCard";
 import { useZoneDrag } from "./tools/board/useZoneDrag";
 import { DragGhost } from "./tools/board/DragGhost";
 import { apiErrorText } from "../api/errorText";
+import { AssignmentStrip } from "../inbox/AssignmentStrip";
 
 /**
  * ProjectsLanding — the 项目 tab's front door.
@@ -177,6 +178,11 @@ export function ProjectsLanding() {
             建了项目、还没有主页的学生（门上线之前的每一个人）不能因为这次改动
             就进不去自己的项目。 */}
         <LandingHeader kind="project" title="项目" description="从真实的问题出发，规划、实践并记录你的成果。" />
+        {/* ── 作业 ──────────────────────────────────────────────────────
+            Above the gate, not inside it: a project the teacher assigned is
+            reachable while her homepage is still unpublished. Renders nothing
+            when no project is assigned and still open. */}
+        <AssignmentStrip kind="project" className="mb-8 w-full max-w-[760px]" />
         {siteReady ? (
           <div className="learning-project-start w-full">
             <h2 className="text-mk-h2 text-mk-ink">新建项目</h2>

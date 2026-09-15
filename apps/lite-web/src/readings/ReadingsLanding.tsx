@@ -17,6 +17,7 @@ import { LibraryCard } from "./LibraryCard";
 import { ReadingHistoryPanel, isFinished, type ReadingFilter } from "./ReadingHistoryPanel";
 import { ReadingsTabs } from "./ReadingsTabs";
 import { apiErrorText } from "../api/errorText";
+import { AssignmentStrip } from "../inbox/AssignmentStrip";
 
 /**
  * ReadingsLanding — the lite edition's front door.
@@ -217,10 +218,11 @@ export function ReadingsLanding() {
           </div>
         </div>
 
-        {/* NOTICES. Today the only notice is her own unfinished work. P4's
-            teacher-assigned tasks (with deadlines) join this same strip,
-            ABOVE the unfinished line — the slot is here and deliberately
-            unwired: nothing in this build produces a teacher task. */}
+        {/* NOTICES. Teacher-assigned readings (with deadlines) sit ABOVE her
+            own unfinished line. `AssignmentStrip` renders nothing when no
+            reading is assigned and still open, so the page is unchanged for a
+            student without assignments. */}
+        <AssignmentStrip kind="reading" className="learning-landing-notices" />
         <div className="learning-landing-notices flex justify-start">
           {unfinishedCount > 0 && (
             <button

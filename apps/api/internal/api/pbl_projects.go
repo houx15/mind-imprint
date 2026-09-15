@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -27,15 +26,18 @@ import (
 // until she has named the project — and after she names it, that sentence is
 // still the only record of how she first put it.
 type pblProjectDTO struct {
-	ID             string `json:"id"`
-	Idea           string `json:"idea"`
-	Kind           string `json:"kind"`
-	Name           string `json:"name"`
-	CoverGround    string `json:"coverGround"`
-	CoverGlyph     string `json:"coverGlyph"`
-	Status         string `json:"status"`
+	ID          string `json:"id"`
+	Idea        string `json:"idea"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+	CoverGround string `json:"coverGround"`
+	CoverGlyph  string `json:"coverGlyph"`
+	Status      string `json:"status"`
 	// 便签板的坐标视图开着没有。
-	BoardAxes      bool   `json:"boardAxes"`
+	BoardAxes bool `json:"boardAxes"`
+	// Assigned: the project came from an assignment, so idea is the teacher's
+	// driving question. The room does not post it as her first turn.
+	Assigned       bool   `json:"assigned"`
 	CreatedAt      string `json:"createdAt"`
 	LastActivityAt string `json:"lastActivityAt"`
 	// 卡片上要显示"现在走到哪一步"。没有计划时 currentStep 是空串。
@@ -99,47 +101,11 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_idea", "先写一句你想做什么", nil))
 		return
 	}
-	if len([]rune(idea)) > maxPblIdeaRunes {
-		idea = string([]rune(idea)[:maxPblIdeaRunes])
-	}
 
-	// 🚨 建项目不再判类别，也不再调模型。
-	//
-	// 产品负责人 2026-09-02：「neither should we decide the category of a project
-	// then.」——她刚写下一句话，自己都还没想清楚要做什么；机器先替她归好类，
-	// 是把一个还没有答案的问题伪造成有答案。类别默认空着（迁移 0112），等她
-	// 自己定。
-	//
-	// 顺带修掉一个真 bug：原来这里的分类调用 MaxTokens=200，推理模型光是想事情
-	// 就超了，于是她建项目时经常直接撞上一句"接口错误"。现在这条路径一次模型
-	// 调用都没有，建项目不可能因为模型而失败。
-	kind := ""
-
-	// atom + pbl_project in ONE transaction: an atom with no project row is an
-	// identity nothing can render, exactly as in createReading.
-	tx, err := a.d.Pool.Begin(r.Context())
+	// The idea's rune cap, the empty category and the one transaction live in
+	// createPblProjectWithAtomFor.
+	at, p, err := a.createPblProjectWithAtomFor(r.Context(), u.ID, idea)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	qtx := a.d.Queries.WithTx(tx)
-
-	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "project", UserID: u.ID})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	p, err := qtx.CreatePblProject(r.Context(), sqlc.CreatePblProjectParams{
-		AtomID: at.ID, Idea: idea, Kind: kind,
-		// 先给个名字，她随时能改。整句原文顶在页头上会把房间挤没。
-		Name: pbl.DefaultProjectName(idea),
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -166,6 +132,7 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 			ID: p.AtomID.String(), Idea: p.Idea, Kind: p.Kind, Name: p.Name,
 			CoverGround: p.CoverGround, CoverGlyph: p.CoverGlyph, Status: p.Status,
 			BoardAxes:      p.BoardAxes,
+			Assigned:       p.Assigned,
 			CreatedAt:      p.AtomCreatedAt.Format(time.RFC3339),
 			LastActivityAt: p.LastActivityAt.Format(time.RFC3339),
 			CurrentStep:    p.CurrentStep,
@@ -223,6 +190,13 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row.Status = p.Status
+		if s == "review" || s == "keeping" {
+			// 作业「按时 / 逾期」按这一刻算；只写第一次。
+			if err := a.d.Queries.StampPblProjectFinished(r.Context(), id); err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
+		}
 		// 走到复盘就算完成了，可以采兴趣了 —— 和 ListPendingHarvestAtoms 里对
 		// 「项目算完成」的判断保持同一套状态。见 interest_jobs.go。
 		if s == "review" || s == "keeping" || s == "archived" {
@@ -267,6 +241,7 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 		ID: row.AtomID.String(), Idea: row.Idea, Kind: row.Kind, Name: row.Name,
 		CoverGround: row.CoverGround, CoverGlyph: row.CoverGlyph, Status: row.Status,
 		BoardAxes:      row.BoardAxes,
+		Assigned:       row.Assigned,
 		CreatedAt:      row.AtomCreatedAt.Format(time.RFC3339),
 		LastActivityAt: row.LastActivityAt.Format(time.RFC3339),
 	})

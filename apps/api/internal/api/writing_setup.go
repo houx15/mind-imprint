@@ -59,18 +59,29 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if req.Lang != "zh" && req.Lang != "en" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_lang", "语言只能是中文或英文。", nil))
+	// An assigned writing's language and target are the teacher's (owner,
+	// 2026-09-15): the body's lang and targetWords are ignored and the stored
+	// values kept. The stamp and the note are saved as for her own writing.
+	cur, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
 		return
 	}
-	var tw *int32
-	if req.TargetWords != nil {
-		if *req.TargetWords < minTargetWords || *req.TargetWords > maxTargetWords {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_target_words", "目标字数需在 1 到 100000 之间。", nil))
+	lang, tw := cur.Lang, cur.TargetWords
+	if !writingIsAssigned(cur) {
+		if req.Lang != "zh" && req.Lang != "en" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_lang", "语言只能是中文或英文。", nil))
 			return
 		}
-		v := int32(*req.TargetWords)
-		tw = &v
+		lang, tw = req.Lang, nil
+		if req.TargetWords != nil {
+			if *req.TargetWords < minTargetWords || *req.TargetWords > maxTargetWords {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_target_words", "目标字数需在 1 到 100000 之间。", nil))
+				return
+			}
+			v := int32(*req.TargetWords)
+			tw = &v
+		}
 	}
 	note := strings.TrimSpace(req.Note)
 	if len([]rune(note)) > writingSetupNoteMaxRunes {
@@ -90,7 +101,7 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 	qtx := a.d.Queries.WithTx(tx)
 
 	wr, err := qtx.SetWritingSetup(r.Context(), sqlc.SetWritingSetupParams{
-		AtomID: at.ID, Lang: req.Lang, TargetWords: tw,
+		AtomID: at.ID, Lang: lang, TargetWords: tw,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -150,6 +161,37 @@ const writingOpeningSystem = `你是「印记」，一个陪中学生写作的�
 
 直接说话，不要任何前缀或标题。`
 
+// The two sentences of writingOpeningSystem that call the topic hers, and what
+// replaces them when her teacher assigned the writing. The topic is then the
+// teacher's prompt, and restating it "用她自己的说法" as what she wants to write
+// would put the teacher's words in her mouth in the room's first turn.
+const (
+	openingTopicOwn        = "下面是她自己写下的题目和她说过的话。"
+	openingTopicAssigned   = "这篇写作是老师布置的：下面是老师布置的题目和她自己说过的话。"
+	openingRestateOwn      = "1. 用一句话把她想写的东西说回给她，让她确认你听懂了。用她自己的说法，不要换成更\"高级\"的表述。"
+	openingRestateAssigned = "1. 用一句话说明老师布置的题目要求写什么，并点明这是老师的要求，不要说成是她自己想写的。"
+)
+
+// writingOpeningSystemFor is writingOpeningSystem for this writing: unchanged
+// for a writing she opened herself, with the two sentences above swapped for
+// an assigned one.
+func writingOpeningSystemFor(wr sqlc.Writing) string {
+	if !writingIsAssigned(wr) {
+		return writingOpeningSystem
+	}
+	return strings.NewReplacer(
+		openingTopicOwn, openingTopicAssigned,
+		openingRestateOwn, openingRestateAssigned,
+	).Replace(writingOpeningSystem)
+}
+
+// writingIsAssigned: the writing was started from a teacher's assignment. Its
+// topic, language and target are the teacher's. A blank prompt counts as none,
+// the same rule as the client's isAssignedWriting.
+func writingIsAssigned(wr sqlc.Writing) bool {
+	return wr.AssignedPrompt != nil && strings.TrimSpace(*wr.AssignedPrompt) != ""
+}
+
 // buildWritingOpeningPrompt assembles what the coach sees: her title, the
 // settings she just chose, and everything she has said. AI turns are excluded
 // — on the opening path there are none by construction (the handler refuses
@@ -157,9 +199,7 @@ const writingOpeningSystem = `你是「印记」，一个陪中学生写作的�
 // to continue a conversation rather than start one.
 func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string {
 	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目/想法：" + t + "\n")
-	}
+	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	b.WriteString(writingLangLine(wr))
 	if wr.TargetWords != nil {
 		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))
@@ -292,7 +332,7 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingOpeningSystem},
+			{Role: gateway.RoleSystem, Content: writingOpeningSystemFor(wr)},
 			{Role: gateway.RoleUser, Content: buildWritingOpeningPrompt(wr, msgs)},
 		},
 	})

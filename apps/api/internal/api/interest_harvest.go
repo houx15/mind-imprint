@@ -257,7 +257,9 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 	case "project":
 		if p, err := a.d.Queries.GetPblProject(ctx, atomID); err == nil {
 			title = p.Name
-			if s := strings.TrimSpace(p.Idea); s != "" {
+			// An assigned project's idea is the teacher's driving question: harvesting
+			// it would grow her tree from words she never wrote.
+			if s := strings.TrimSpace(p.Idea); s != "" && !p.Assigned {
 				fmt.Fprintf(&b, "她的立题：\n%s\n\n", s)
 			}
 		}

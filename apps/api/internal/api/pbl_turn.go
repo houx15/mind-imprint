@@ -316,6 +316,7 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 	}
 	in := pbl.CoachInput{
 		Idea: p.Idea, Kind: p.Kind,
+		Assigned: p.Assigned, AssignedBrief: derefOr(p.AssignedBrief, ""),
 		SessionKind: sessionKind, SessionQuestion: sessionQuestion,
 	}
 	// 🚨 她在工具里做出来的东西，每一轮都要重新交给印记（见 pbl_refeed.go）。

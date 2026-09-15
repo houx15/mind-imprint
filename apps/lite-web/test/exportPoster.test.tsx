@@ -109,7 +109,7 @@ describe("exportPoster", () => {
       .spyOn(document, "createElement")
       .mockImplementation((tag: string) => (tag === "a" ? anchor : realCreateElement(tag)));
 
-    await exportPoster(node, "中国是否让地球变得更可持续？.png");
+    await expect(exportPoster(node, "中国是否让地球变得更可持续？.png")).resolves.toBeNull();
 
     // called with the poster NODE ITSELF — no wrapper — and pixelRatio 2.
     expect(toPng).toHaveBeenCalledTimes(1);
@@ -124,15 +124,17 @@ describe("exportPoster", () => {
     document.body.removeChild(node);
   });
 
+  // It resolves to the failure's message instead of throwing, so the parent
+  // report editor can show 导出失败：{message} (follow-ups R3).
   it("never throws when the rasterizer rejects — a failed export must not break the room", async () => {
     toPng.mockRejectedValue(new Error("rasterize failed"));
     const node = document.createElement("div");
 
-    await expect(exportPoster(node, "标题.png")).resolves.toBeUndefined();
+    await expect(exportPoster(node, "标题.png")).resolves.toBe("rasterize failed");
   });
 
-  it("does nothing when handed no node", async () => {
-    await expect(exportPoster(null, "标题.png")).resolves.toBeUndefined();
+  it("does nothing when handed no node, and says so", async () => {
+    await expect(exportPoster(null, "标题.png")).resolves.toBe("图片未生成");
     expect(toPng).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,25 @@ export interface Writing {
   /** `"here"` 在这个房间里写的 / `"brought"` 她带进来的成稿（0146）。
    *  界面据此说明结构和段落两步没有发生过。老的行读到 "here"。 */
   origin?: string;
+  /** The teacher's prompt for a writing started from an assignment; null (or
+   *  missing, from an older server) for a writing she opened herself. It is the
+   *  teacher's text: the room shows it labelled 题目, never as her message. */
+  assignedPrompt?: string | null;
+}
+
+/** The teacher's prompt to show in the room, or null. A blank prompt counts as
+ *  none, so the room never renders an empty 题目 line. */
+export function assignedPromptOf(w: Pick<Writing, "assignedPrompt">): string | null {
+  const prompt = typeof w.assignedPrompt === "string" ? w.assignedPrompt.trim() : "";
+  return prompt ? prompt : null;
+}
+
+/** Whether the writing was started from a teacher's assignment. Its language
+ *  and target are then the teacher's: the setup dialog shows them read-only
+ *  and the room's length meter cannot change the target. Same rule as the
+ *  server's `writingIsAssigned`: a blank prompt is not an assignment. */
+export function isAssignedWriting(w: Pick<Writing, "assignedPrompt">): boolean {
+  return assignedPromptOf(w) !== null;
 }
 
 /** A writing is finished when the server says so — same both-fields

@@ -63,6 +63,17 @@ describe("parseLiteRoute", () => {
       token: "abc",
     }));
 
+  // `/r/:token` and `/parent-reports/:id` were removed on 2026-09-15 (there is
+  // no parent end). An old link, bare or with a token, lands on 探索.
+  it("sends a removed parent report link to explore", () => {
+    expect(parseLiteRoute("/r/abc")).toEqual({ tab: "explore" });
+    expect(parseLiteRoute("/r")).toEqual({ tab: "explore" });
+  });
+  it("sends a removed student parent report path to explore", () => {
+    expect(parseLiteRoute("/parent-reports/p1")).toEqual({ tab: "explore" });
+    expect(parseLiteRoute("/parent-reports")).toEqual({ tab: "explore" });
+  });
+
   // 我的树 (兴趣树). It is a REAL lite route, not the `/eco/tree` prototype
   // path — a student reaches it from the rail, and the prototype's own switch
   // hard-navigates here. Pinned so a future edit to `parseLiteRoute` cannot

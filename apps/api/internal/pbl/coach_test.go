@@ -5,6 +5,60 @@ import (
 	"testing"
 )
 
+// An assigned project's idea is the teacher's driving question. 印记 sees it,
+// labelled as the teacher's, with the teacher's 补充说明; it is never
+// introduced as something she said. Her own project keeps the old line.
+func TestBuildCoachContext_AssignedProjectIsTheTeachersQuestion(t *testing.T) {
+	assigned := buildCoachContext(CoachInput{
+		Idea: "怎样让校园少用一次性杯子？", Assigned: true, AssignedBrief: "先统计一周食堂用掉的杯子",
+	})
+	for _, want := range []string{"老师布置的驱动问题：怎样让校园少用一次性杯子？", "老师补充说明：先统计一周食堂用掉的杯子"} {
+		if !strings.Contains(assigned, want) {
+			t.Errorf("assigned context is missing %q:\n%s", want, assigned)
+		}
+	}
+	if strings.Contains(assigned, "他一开始是这么说的") {
+		t.Errorf("assigned context introduces the teacher's question as her words:\n%s", assigned)
+	}
+
+	own := buildCoachContext(CoachInput{Idea: "下课没人去操场"})
+	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
+		t.Errorf("her own project lost its opening line:\n%s", own)
+	}
+	if strings.Contains(own, "老师") {
+		t.Errorf("her own project mentions a teacher:\n%s", own)
+	}
+}
+
+// Same rule in the lookback, which quotes the opening back to her.
+func TestBuildLookbackContext_AssignedProjectIsTheTeachersQuestion(t *testing.T) {
+	assigned := buildLookbackContext(LookbackInput{
+		Name: "杯子", Idea: "怎样让校园少用一次性杯子？", Assigned: true, AssignedBrief: "先统计一周食堂用掉的杯子",
+	})
+	for _, want := range []string{"老师布置的驱动问题：怎样让校园少用一次性杯子？", "老师补充说明：先统计一周食堂用掉的杯子"} {
+		if !strings.Contains(assigned, want) {
+			t.Errorf("assigned lookback is missing %q:\n%s", want, assigned)
+		}
+	}
+	if strings.Contains(assigned, "他一开始是这么说的") {
+		t.Errorf("assigned lookback introduces the teacher's question as her words:\n%s", assigned)
+	}
+	// No brief: no 补充说明 line at all, not an empty one.
+	if noBrief := buildLookbackContext(LookbackInput{Idea: "怎样让校园少用一次性杯子？", Assigned: true}); strings.Contains(noBrief, "老师补充说明") {
+		t.Errorf("empty brief still rendered:\n%s", noBrief)
+	}
+	// No records either: the fallback points at the teacher's question, not
+	// at "他最初那句话", which she never said.
+	if noRecords := buildLookbackContext(LookbackInput{Idea: "怎样让校园少用一次性杯子？", Assigned: true}); !strings.Contains(noRecords, "就着老师布置的驱动问题问") || strings.Contains(noRecords, "最初那句话") {
+		t.Errorf("assigned lookback with no records points at her words:\n%s", noRecords)
+	}
+
+	own := buildLookbackContext(LookbackInput{Name: "操场", Idea: "下课没人去操场"})
+	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
+		t.Errorf("her own project lost its opening line:\n%s", own)
+	}
+}
+
 func TestParseCoachOutput(t *testing.T) {
 	cases := []struct {
 		name     string

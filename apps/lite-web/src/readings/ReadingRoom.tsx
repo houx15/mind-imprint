@@ -33,6 +33,7 @@ import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
 import { StepIndicator } from "./StepIndicator";
+import { AssignmentLine } from "../inbox/AssignmentLine";
 
 /**
  * ReadingRoom (lite) — lite's OWN reading room.
@@ -626,6 +627,9 @@ export function ReadingRoom({
                   <h2>{source.title}</h2>
                   <div className="mk-reading-room__article-meta">
                     {source.origin && <span>来源 · {source.origin}</span>}
+                    {/* Inherits the meta row's size and colour; renders
+                        nothing unless this reading came from an assignment. */}
+                    <AssignmentLine atomId={readingId} className="" />
                     <span>{source.blocks.length} 段 · 课堂讨论材料</span>
                   </div>
                   {/* 打开原文: an honest external link to the source. The
