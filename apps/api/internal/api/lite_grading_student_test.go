@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -58,7 +59,9 @@ func TestStudentSeesOnlySentGradings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var inbox inboxView
-	getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox)
+	if code := getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox); code != http.StatusOK {
+		t.Fatalf("inbox = %d", code)
+	}
 	for _, it := range inbox.Items {
 		if it.Type == "grading" {
 			t.Fatalf("unsent grading in the inbox: %+v", it)
@@ -87,7 +90,9 @@ func TestStudentSeesOnlySentGradings(t *testing.T) {
 
 	// Inbox: one unread grading item; the assignment was seen when she started it.
 	inbox = inboxView{}
-	getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox)
+	if code := getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox); code != http.StatusOK {
+		t.Fatalf("inbox = %d", code)
+	}
 	var grading *struct {
 		Type         string `json:"type"`
 		ID           string `json:"id"`
@@ -104,11 +109,34 @@ func TestStudentSeesOnlySentGradings(t *testing.T) {
 	if grading == nil || grading.ID != gid || grading.AtomID != atomID || !grading.Unread || grading.SentAt == "" || grading.WritingTitle == "" || inbox.Unread != 1 {
 		t.Fatalf("inbox = %+v", inbox)
 	}
+
+	// Ruling 3: the grading item's raw JSON key set is exactly the six
+	// documented keys — a struct decode alone would silently swallow a
+	// leaked field (error/content/status/...), so check the map directly.
+	var rawInbox struct {
+		Items []map[string]any `json:"items"`
+	}
+	if code := getJSON(t, f.h, student, "/api/v1/lite/inbox", &rawInbox); code != http.StatusOK {
+		t.Fatalf("raw inbox = %d", code)
+	}
+	var gradingKeys []string
+	for _, it := range rawInbox.Items {
+		if it["type"] == "grading" {
+			gradingKeys = keysOf(it)
+		}
+	}
+	wantGradingKeys := []string{"atomId", "id", "sentAt", "type", "unread", "writingTitle"}
+	if !reflect.DeepEqual(gradingKeys, wantGradingKeys) {
+		t.Fatalf("grading item keys = %v, want %v", gradingKeys, wantGradingKeys)
+	}
+
 	if code := assignJSON(t, f.h, student, "POST", "/api/v1/lite/inbox/gradings/"+gid+"/seen", nil, nil); code != http.StatusNoContent {
 		t.Fatalf("seen = %d", code)
 	}
 	inbox = inboxView{}
-	getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox)
+	if code := getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox); code != http.StatusOK {
+		t.Fatalf("inbox = %d", code)
+	}
 	if inbox.Unread != 0 {
 		t.Fatalf("after seen unread = %d", inbox.Unread)
 	}
@@ -118,7 +146,9 @@ func TestStudentSeesOnlySentGradings(t *testing.T) {
 		t.Fatalf("re-save = %d", code)
 	}
 	inbox = inboxView{}
-	getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox)
+	if code := getJSON(t, f.h, student, "/api/v1/lite/inbox", &inbox); code != http.StatusOK {
+		t.Fatalf("inbox = %d", code)
+	}
 	if inbox.Unread != 1 {
 		t.Fatalf("after re-send unread = %d, want 1", inbox.Unread)
 	}
@@ -146,6 +176,25 @@ func TestStudentSeesOnlySentGradings(t *testing.T) {
 	}
 	if item.Writing.Grading == nil || item.Writing.Grading.ID != gid || item.Writing.Grading.Status != "sent" {
 		t.Fatalf("item grading = %+v", item.Writing.Grading)
+	}
+}
+
+// TestMarkUnsentGradingSeenIs404: a grading that is hers but not yet sent —
+// queued, then draft — 404s the same as one that isn't hers at all. There is
+// nothing for her to mark read before the teacher sends it.
+func TestMarkUnsentGradingSeenIs404(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, _, student := f.submit(t)
+	if got := f.queueAll(t, aid, false); got != 1 {
+		t.Fatalf("queueAll = %d", got)
+	}
+	gid := f.rows(t, aid)[0].Grading.ID
+	if code, ec := writeErrorCode(t, f.h, student, "POST", "/api/v1/lite/inbox/gradings/"+gid+"/seen", nil); code != http.StatusNotFound {
+		t.Fatalf("queued seen = %d %s", code, ec)
+	}
+	f.runJobs(t)
+	if code, ec := writeErrorCode(t, f.h, student, "POST", "/api/v1/lite/inbox/gradings/"+gid+"/seen", nil); code != http.StatusNotFound {
+		t.Fatalf("draft seen = %d %s", code, ec)
 	}
 }
 

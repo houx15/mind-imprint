@@ -279,7 +279,7 @@ SELECT g.id, g.atom_id, g.sent_at, g.student_seen_at, w.title
 FROM lite_grading g
 JOIN writing w ON w.atom_id = g.atom_id
 WHERE g.user_id = $1 AND g.status = 'sent'
-ORDER BY g.sent_at DESC
+ORDER BY g.sent_at DESC, g.id DESC
 `
 
 type ListLiteInboxGradingsRow struct {
@@ -290,6 +290,7 @@ type ListLiteInboxGradingsRow struct {
 	Title         string             `json:"title"`
 }
 
+// g.id 是 sent_at 相同时（发送全部已审阅一次发出多行）的次序打散。
 func (q *Queries) ListLiteInboxGradings(ctx context.Context, userID uuid.UUID) ([]ListLiteInboxGradingsRow, error) {
 	rows, err := q.db.Query(ctx, listLiteInboxGradings, userID)
 	if err != nil {

@@ -110,11 +110,12 @@ WHERE g.atom_id = $1 AND g.status = 'sent'
 ORDER BY v.number DESC;
 
 -- name: ListLiteInboxGradings :many
+-- g.id 是 sent_at 相同时（发送全部已审阅一次发出多行）的次序打散。
 SELECT g.id, g.atom_id, g.sent_at, g.student_seen_at, w.title
 FROM lite_grading g
 JOIN writing w ON w.atom_id = g.atom_id
 WHERE g.user_id = $1 AND g.status = 'sent'
-ORDER BY g.sent_at DESC;
+ORDER BY g.sent_at DESC, g.id DESC;
 
 -- name: MarkLiteGradingSeen :execrows
 UPDATE lite_grading SET student_seen_at = COALESCE(student_seen_at, now())
