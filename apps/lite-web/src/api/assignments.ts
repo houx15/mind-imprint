@@ -203,11 +203,19 @@ function normalizeInboxItem(raw: Record<string, unknown>): InboxItemDTO {
 
 /** `unread` is the server's own count, but a client must not trust a field
  * that could be missing on an older/partial response: falling back to
- * counting `unread: true` items keeps the badge honest either way. */
+ * counting `unread: true` items keeps the badge honest either way.
+ *
+ * Only `type: "assignment"` rows are kept. A server from before 2026-09-15
+ * (version skew during a deploy) can still send `parent_report` rows; those
+ * are dropped rather than coerced into assignments with no kind or status.
+ * When a row was dropped the server's count may include it, so the badge
+ * counts the kept rows instead. */
 export function normalizeInboxResponse(raw: unknown): { items: InboxItemDTO[]; unread: number } {
   const r = obj(raw);
-  const items = arr<unknown>(r.items).map((it) => normalizeInboxItem(obj(it)));
-  const unread = typeof r.unread === "number" ? r.unread : items.filter((it) => it.unread).length;
+  const rows = arr<unknown>(r.items).map(obj);
+  const items = rows.filter((it) => it.type === "assignment").map(normalizeInboxItem);
+  const dropped = rows.length !== items.length;
+  const unread = typeof r.unread === "number" && !dropped ? r.unread : items.filter((it) => it.unread).length;
   return { items, unread };
 }
 

@@ -39,6 +39,23 @@ describe("normalizeInboxResponse", () => {
     expect(item?.type).toBe("assignment");
     expect(item?.status).toBe("not_started");
   });
+
+  // A server from before the parent end was removed can still send report
+  // rows during a deploy. Coerced, one would show as a 阅读 assignment with
+  // no due date that starts nothing.
+  it("drops rows that are not assignments, and counts unread from the rows kept", () => {
+    const raw = {
+      items: [
+        inboxItem({ id: "a1", unread: false }),
+        { type: "parent_report", id: "r1", title: "家长报告（8月17日–9月13日）", className: "初三 1 班", unread: true },
+        { id: "x1", unread: true },
+      ],
+      unread: 2,
+    };
+    const result = normalizeInboxResponse(raw);
+    expect(result.items.map((it) => it.id)).toEqual(["a1"]);
+    expect(result.unread).toBe(0);
+  });
 });
 
 describe("normalizeExtractResult", () => {

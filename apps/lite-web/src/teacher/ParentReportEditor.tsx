@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button, Icon } from "@/ui";
@@ -24,14 +24,15 @@ import {
   exportBlockedReason,
   hiddenMentionText,
   isBodyBlank,
+  posterReportFrom,
   recalledDraftError,
   rememberDraftError,
   runeCount,
-  savableSectionKeys,
   saveErrorText,
   SECTION_MAX_RUNES,
   showsNoDraftHint,
 } from "./parentReportLogic";
+import { createSerialQueue } from "./serialQueue";
 
 type SectionState = { kind: "saving" } | { kind: "saved" } | { kind: "error"; text: string };
 type Action = "redraft" | "export";
@@ -48,24 +49,32 @@ function bodyOf(r: TeacherParentReport): Record<string, string> {
  * the text being typed and to the visible facts. There is no parent end: the
  * teacher exports the report (导出图片) and sends it herself.
  *
+ * ## One write lane
+ *
+ * Every request that changes or reads back the report after load — a section
+ * save, a hide toggle, a redraft, the export snapshot — goes through ONE
+ * serial queue (`createSerialQueue`). Each starts after the previous settled,
+ * so responses are applied strictly in request order and a stale response can
+ * never overwrite a newer one. (Two chains that waited on each other
+ * deadlocked: fix round 1.) A task never awaits a task it enqueues.
+ *
  * Autosave: a section is saved on blur, and only that section is sent (PATCH
- * merges, so a stale local copy of another section can never overwrite it).
- * Saves of one section run one after another, so the last text typed is the
- * last one stored. A section is sent only while it is in the report's
- * `sections`: with every keyword hidden `interests` is not, PATCH would reject
- * it, and its local text is kept for when a keyword is shown again.
+ * merges). The task reads `textsRef` and the report's `sections` when it RUNS:
+ * a key not in `sections` (e.g. `interests` while every keyword is hidden) is
+ * not sent, and its local text is kept for when a keyword is shown again.
  *
- * Hidden items: a toggle PATCHes the whole `hidden` set and applies the
- * response, so `sections`, `hidden` and `hiddenMentions` all come from the
- * server. Toggles and section saves are serialised (a toggle waits for pending
- * saves; a save waits for a pending toggle), so an older response never lands
- * after a newer one and a save never races a section disappearing.
+ * Hidden items: a toggle PATCHes the whole `hidden` set, built from the latest
+ * applied report when the task runs, and applies the response, so `sections`,
+ * `hidden` and `hiddenMentions` all come from the server.
  *
- * Export: saves every changed section and waits for a pending toggle, then
- * reads `hiddenMentions` from the latest response. While any section still
- * quotes a hidden item the export stops with `EXPORT_BLOCKED_TEXT`, and the
- * poster is never mounted. Otherwise the poster is mounted offscreen for the
- * duration of the export only.
+ * ## Export
+ *
+ * While exporting, the textareas and toggles are disabled. Every changed
+ * section is saved through the lane; any failure blocks the export. Then a
+ * fresh GET, also through the lane, gives the snapshot. If it still quotes a
+ * hidden item the export stops with `EXPORT_BLOCKED_TEXT` and the poster is
+ * never mounted. Otherwise the poster is built ONLY from that snapshot
+ * (`posterReportFrom`) and mounted offscreen for the duration of the export.
  *
  * - 重新生成草稿. A body with text asks first and replaces it; a blank body is
  *   redrafted without asking (the server fills it).
@@ -88,8 +97,7 @@ export function ParentReportEditor({
   const [texts, setTexts] = useState<Record<string, string>>({});
   const textsRef = useRef<Record<string, string>>({});
   const savedRef = useRef<Record<string, string>>({});
-  const saveChain = useRef(new Map<string, Promise<boolean>>());
-  const hiddenChain = useRef<Promise<unknown>>(Promise.resolve());
+  const queue = useRef(createSerialQueue());
   const [sectionState, setSectionState] = useState<Record<string, SectionState>>({});
 
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
@@ -114,7 +122,7 @@ export function ParentReportEditor({
   function applyReport(r: TeacherParentReport) {
     reportRef.current = r;
     setReport(r);
-    // The blocked-export line is about the body as it was; once the last save
+    // The blocked-export line is about the body as it was; once a response
     // shows no section quoting a hidden item, it no longer applies.
     if (!exportBlockedReason(r)) setActionError((e) => (e === EXPORT_BLOCKED_TEXT ? null : e));
   }
@@ -154,14 +162,13 @@ export function ParentReportEditor({
     setTexts(textsRef.current);
   }
 
+  /** One section save. Runs inside the lane; reads everything when it runs. */
   async function storeSection(key: string): Promise<boolean> {
-    // Read at execution: the section may have left `sections` while this save
-    // waited behind a toggle. Its local text stays; there is nothing to send.
     const sections = reportRef.current?.view.sections ?? [];
     if (!sections.includes(key)) return true;
     const text = textsRef.current[key] ?? "";
     if (text === (savedRef.current[key] ?? "")) return true;
-    setSectionState((s) => ({ ...s, [key]: { kind: "saving" } }));
+    if (alive.current) setSectionState((s) => ({ ...s, [key]: { kind: "saving" } }));
     try {
       const r = await patchParentReportSection(reportId, key, text);
       if (!alive.current) return false;
@@ -177,17 +184,14 @@ export function ParentReportEditor({
   }
 
   function saveSection(key: string): Promise<boolean> {
-    const previous = saveChain.current.get(key) ?? Promise.resolve(true);
-    const next = previous.then(() => hiddenChain.current.then(() => storeSection(key)));
-    saveChain.current.set(key, next);
-    return next;
+    return queue.current.enqueue(() => storeSection(key));
   }
 
+  /** Enqueues a save for every local section and waits for all of them. The
+   * saves are the newest tasks in the lane, so once they settle every write
+   * made before them has landed too. */
   async function saveAll(): Promise<boolean> {
-    // A toggle still running can change `sections`; wait for it first.
-    await hiddenChain.current;
-    const sections = reportRef.current?.view.sections ?? [];
-    const results = await Promise.all(savableSectionKeys(sections, textsRef.current).map((key) => saveSection(key)));
+    const results = await Promise.all(Object.keys(textsRef.current).map((key) => saveSection(key)));
     return results.every(Boolean);
   }
 
@@ -197,11 +201,10 @@ export function ParentReportEditor({
     setHiddenBusy(true);
     setHiddenError(null);
     const hiding = !current.hidden[list].includes(text);
-    const run = (async () => {
-      // A blur save of a section that is about to disappear must land first.
-      await Promise.allSettled([...saveChain.current.values()]);
-      const latest = reportRef.current ?? current;
-      try {
+    void queue.current
+      .enqueue(async () => {
+        // Built from the latest applied report, after every earlier write.
+        const latest = reportRef.current ?? current;
         const r = await patchParentReportHidden(reportId, toggleHidden(latest.hidden, list, text));
         if (!alive.current) return;
         applyReport(r);
@@ -220,13 +223,13 @@ export function ParentReportEditor({
           textsRef.current = nextTexts;
           setTexts(nextTexts);
         }
-      } catch (e) {
+      })
+      .catch((e: unknown) => {
         if (alive.current) setHiddenError(failText(hiding ? "隐藏" : "显示", e));
-      } finally {
+      })
+      .finally(() => {
         if (alive.current) setHiddenBusy(false);
-      }
-    })();
-    hiddenChain.current = run;
+      });
   }
 
   function noteRefusal(e: unknown) {
@@ -244,9 +247,8 @@ export function ParentReportEditor({
     setBusy("redraft");
     setActionError(null);
     try {
-      // A save or toggle still on its way must not land after the new draft.
-      await Promise.allSettled([...saveChain.current.values(), hiddenChain.current]);
-      const result = await redraftParentReport(reportId, replaceBody);
+      // In the lane: a save or toggle made before it lands first.
+      const result = await queue.current.enqueue(() => redraftParentReport(reportId, replaceBody));
       if (!alive.current) return;
       applyReport(result.report);
       replaceTexts(result.report);
@@ -268,25 +270,28 @@ export function ParentReportEditor({
     try {
       const saved = await saveAll();
       if (!alive.current) return;
-      const latest = reportRef.current;
-      if (!saved || !latest) {
+      if (!saved) {
         setActionError("导出失败：部分内容保存失败");
         return;
       }
-      const blocked = exportBlockedReason(latest);
+      let snapshot: TeacherParentReport;
+      try {
+        snapshot = await queue.current.enqueue(() => getTeacherParentReport(reportId));
+      } catch (e) {
+        if (alive.current) setActionError(failText("导出", e));
+        return;
+      }
+      if (!alive.current) return;
+      applyReport(snapshot);
+      const blocked = exportBlockedReason(snapshot);
       if (blocked) {
         setActionError(blocked);
         return;
       }
-      // Mounted synchronously so the ref is set before rasterizing.
-      flushSync(() =>
-        setPoster({
-          ...latest.view,
-          facts: visibleFacts(latest.view.facts, latest.hidden),
-          body: { ...textsRef.current },
-        }),
-      );
-      const failure = await exportPoster(posterRef.current, posterFileName(latest.view.studentName));
+      // Mounted synchronously so the ref is set before rasterizing. Built from
+      // the snapshot alone, never from local text.
+      flushSync(() => setPoster(posterReportFrom(snapshot)));
+      const failure = await exportPoster(posterRef.current, posterFileName(snapshot.view.studentName));
       if (!alive.current) return;
       if (failure) setActionError(`导出失败：${failure}`);
     } finally {
@@ -382,7 +387,7 @@ export function ParentReportEditor({
 
         <div className="mt-6 grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-5">
-            {draftMessage && <DangerNote>{draftMessage}</DangerNote>}
+            {draftMessage && <DangerNote role="alert">{draftMessage}</DangerNote>}
             {showsNoDraftHint(report.hasDraft, texts, draftMessage) && (
               <p className="text-mk-small text-mk-muted">暂无草稿，请重新生成草稿</p>
             )}
@@ -396,12 +401,14 @@ export function ParentReportEditor({
                   <label htmlFor={`parent-report-${key}`} className="text-mk-small font-bold text-mk-ink">
                     {SECTION_LABELS[key]}
                   </label>
-                  {mentions && mentions.length > 0 && <DangerNote>{hiddenMentionText(mentions)}</DangerNote>}
+                  {mentions && mentions.length > 0 && (
+                    <DangerNote role="status">{hiddenMentionText(mentions)}</DangerNote>
+                  )}
                   <textarea
                     id={`parent-report-${key}`}
                     value={text}
                     rows={6}
-                    disabled={busy === "redraft"}
+                    disabled={anyBusy}
                     onChange={(e) => editText(key, e.target.value)}
                     onBlur={() => void saveSection(key)}
                     className="w-full resize-y rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:text-mk-muted"
@@ -459,7 +466,7 @@ export function ParentReportEditor({
                             </span>
                             <ToggleButton
                               hidden={isHidden}
-                              disabled={hiddenBusy || busy !== null}
+                              disabled={hiddenBusy || anyBusy}
                               onClick={() => toggle("moments", m.quote)}
                             />
                           </li>
@@ -488,7 +495,7 @@ export function ParentReportEditor({
                             </span>
                             <ToggleButton
                               hidden={isHidden}
-                              disabled={hiddenBusy || busy !== null}
+                              disabled={hiddenBusy || anyBusy}
                               onClick={() => toggle("keywords", k.text)}
                             />
                           </li>
@@ -517,8 +524,9 @@ export function ParentReportEditor({
   );
 }
 
-/** A failure line with a muted danger tint. No left colour bar. */
-function DangerNote({ children }: { children: React.ReactNode }) {
+/** A line with a muted danger tint. No left colour bar. `role` is `alert` for
+ * a failure, `status` for a standing note such as a hidden-item mention. */
+function DangerNote({ children, role }: { children: ReactNode; role: "alert" | "status" }) {
   return (
     <div
       className="break-words rounded-mk-md border px-3 py-2 text-mk-small font-semibold text-mk-danger"
@@ -526,7 +534,7 @@ function DangerNote({ children }: { children: React.ReactNode }) {
         borderColor: "color-mix(in srgb, var(--mk-danger) 30%, var(--mk-border))",
         background: "color-mix(in srgb, var(--mk-danger) 6%, var(--mk-surface))",
       }}
-      role="alert"
+      role={role}
     >
       {children}
     </div>

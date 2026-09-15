@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
+import { emptyFacts, type TeacherParentReport } from "../api/parentReports";
+import { posterReportFrom } from "./parentReportLogic";
 import {
   draftErrorText,
   EXPORT_BLOCKED_TEXT,
@@ -12,6 +14,69 @@ import {
   sectionKeysToLabels,
   showsNoDraftHint,
 } from "./parentReportLogic";
+
+// Fix round 1: the export once checked one snapshot and rasterized another,
+// which could put a hidden 金句 into the PNG. The picture is built from the
+// server snapshot alone.
+describe("posterReportFrom", () => {
+  const snapshot: TeacherParentReport = {
+    id: "r1",
+    studentId: "u1",
+    classId: "c1",
+    hasDraft: true,
+    createdAt: "2026-09-14T02:00:00Z",
+    hidden: { moments: ["雨落在屋檐上像敲鼓"], keywords: ["记叙文"] },
+    hiddenMentions: {},
+    view: {
+      studentName: "王思远",
+      className: "高一（3）班",
+      teacherName: "李老师",
+      rangeStart: "2026-08-17",
+      rangeEnd: "2026-09-13",
+      createdAt: "2026-09-14T02:00:00Z",
+      facts: {
+        ...emptyFacts(),
+        moments: [
+          { quote: "雨落在屋檐上像敲鼓", itemTitle: "一场雨" },
+          { quote: "这两个数要分开看", itemTitle: "中国是否让地球变得更可持续？" },
+        ],
+        keywords: [
+          { text: "天气", field: "science", fieldLabel: "科学" },
+          { text: "记叙文", field: "humanities", fieldLabel: "人文" },
+        ],
+      },
+      // Every keyword but one is visible, yet `interests` is not listed: its
+      // stored text must stay out.
+      sections: ["overview", "next"],
+      body: { overview: "服务端存的概述", interests: "不在 sections 里的兴趣", next: "建议" },
+    },
+  };
+
+  it("keeps only the snapshot's sections", () => {
+    const poster = posterReportFrom(snapshot);
+    expect(poster.body).toEqual({ overview: "服务端存的概述", next: "建议" });
+    expect(poster.sections).toEqual(["overview", "next"]);
+  });
+
+  it("drops hidden moments and keywords", () => {
+    const poster = posterReportFrom(snapshot);
+    expect(poster.facts.moments.map((m) => m.quote)).toEqual(["这两个数要分开看"]);
+    expect(poster.facts.keywords.map((k) => k.text)).toEqual(["天气"]);
+  });
+
+  it("takes the body from the snapshot, whatever local text the caller has", () => {
+    const local = { overview: "导出时刚打的字「雨落在屋檐上像敲鼓」", next: "建议" };
+    const poster = posterReportFrom({ ...snapshot, view: { ...snapshot.view } });
+    expect(poster.body.overview).toBe("服务端存的概述");
+    expect(poster.body.overview).not.toBe(local.overview);
+  });
+
+  it("does not modify the snapshot", () => {
+    posterReportFrom(snapshot);
+    expect(snapshot.view.facts.moments).toHaveLength(2);
+    expect(Object.keys(snapshot.view.body)).toEqual(["overview", "interests", "next"]);
+  });
+});
 
 // Ruling 18 D3: the hint covers a reload after a failed generate, when the
 // in-memory banner is gone; it never doubles the banner.

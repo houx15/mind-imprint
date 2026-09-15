@@ -5,8 +5,26 @@
 // Messages come from apps/api/internal/api/lite_parent_report.go (plan 4 T3).
 
 import { ApiError } from "../api/client";
-import { SECTION_LABELS } from "../parentReport/view";
+import type { ParentReport, TeacherParentReport } from "../api/parentReports";
+import { SECTION_LABELS, visibleFacts } from "../parentReport/view";
 import { errorText } from "./assignmentLogic";
+
+/**
+ * What goes into the exported picture, decided from ONE server snapshot (the
+ * GET made after every save has landed): its stored body restricted to its
+ * `sections`, and its facts without the hidden items. Never local textarea
+ * text and never an earlier response — the snapshot is the body the server
+ * checked `hiddenMentions` against, so the check and the picture agree.
+ */
+export function posterReportFrom(snapshot: TeacherParentReport): ParentReport {
+  const { view } = snapshot;
+  const body: Record<string, string> = {};
+  for (const key of view.sections) {
+    const text = view.body[key];
+    if (typeof text === "string") body[key] = text;
+  }
+  return { ...view, facts: visibleFacts(view.facts, snapshot.hidden), body };
+}
 
 /** Longest section the server accepts, in runes (`section_too_long`). */
 export const SECTION_MAX_RUNES = 2000;

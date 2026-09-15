@@ -46,4 +46,5 @@ describe("lite routing", () => {
 
   it("keeps an unknown path on 探索", () => {
     expect(parseLiteRoute("/nope")).toEqual({ tab: "explore" });
-  });});
+  });
+});
