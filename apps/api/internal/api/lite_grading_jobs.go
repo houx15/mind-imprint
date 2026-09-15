@@ -124,8 +124,12 @@ func (a *API) runLiteGrading(ctx context.Context, id uuid.UUID) {
 		a.failLiteGrading(ctx, id, "模型不可用："+err.Error())
 		return
 	}
+	// context.WithoutCancel here too: a billed call must be metered even if
+	// ctx is cancelled the instant the model replies — same reasoning as the
+	// final write below, and llm_call is itself a terminal record of money
+	// already spent, not something a cancelled ctx should get to drop.
 	content, reasons, attempts := gradeWithRetry(ctx, a.d.Provider, resolved, liteGradingInput(src, rubric), func(u gateway.ChatUsage) {
-		a.recordLiteLLMCall(ctx, g.UserID, g.AtomID, liteGradingPurpose, resolved, u)
+		a.recordLiteLLMCall(context.WithoutCancel(ctx), g.UserID, g.AtomID, liteGradingPurpose, resolved, u)
 	})
 	if len(reasons) > 0 {
 		slog.Info("lite grading: failed", "grading_id", id, "attempts", attempts, "reasons", litegrade.JoinReasons(reasons))

@@ -253,6 +253,17 @@ func TestRunLiteGradingFinalWriteSurvivesCancelledContext(t *testing.T) {
 	if got.Status != "draft" || got.Content == nil {
 		t.Fatalf("a cancelled ctx must not stop the final write: status=%s content=%s", got.Status, got.Content)
 	}
+	// A cancelled ctx must not stop metering either: this call cost money.
+	var llmCalls int
+	if err := f.pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM llm_call WHERE user_id = $1 AND atom_id = $2 AND purpose = $3`,
+		f.studentID, f.atomID, liteGradingPurpose,
+	).Scan(&llmCalls); err != nil {
+		t.Fatalf("count llm_call: %v", err)
+	}
+	if llmCalls != 1 {
+		t.Fatalf("llm_call rows for this grading = %d, want 1 (a cancelled ctx must not drop metering of a billed call)", llmCalls)
+	}
 }
 
 // Controller ruling 3: the worker must always set Input.PersonJudging. This
