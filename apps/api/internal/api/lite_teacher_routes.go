@@ -30,6 +30,7 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/v1/lite/teacher/assignments/{aid}", liteTeacher(a.archiveLiteAssignment))
 	mux.Handle("POST /api/v1/lite/teacher/assignments/extract", liteTeacher(a.extractLiteAssignment))
 	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/recipients/{userId}/return", liteTeacher(a.returnLiteAssignmentRecipient))
+	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/personalized-reading/preview", liteTeacher(a.previewLitePersonalizedReading))
 
 	// AI 批改. No route calls a model: the queue routes insert river jobs and
 	// the worker makes the calls.

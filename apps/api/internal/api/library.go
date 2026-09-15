@@ -23,6 +23,7 @@ package api
 // 空串，前端不渲染这张图，其余部分照常。一篇读不了的文章比一个白屏好。
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -33,6 +34,7 @@ import (
 	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/library"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // 书架上推荐几篇。四是原来那个写死的书架的长度，也是一屏放得下、不用滚的数量。
@@ -107,8 +109,10 @@ func (a *API) getLibraryShelf(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A read error leaves her interests empty, as before: the shelf must still open.
+	interests, _ := interestDisciplinesIn(r.Context(), a.d.Queries, u.ID)
 	profile := library.Profile{
-		Disciplines: a.interestDisciplines(r),
+		Disciplines: interests,
 		ReadSlugs:   make(map[string]bool, len(read)),
 		Tier:        suggestLibraryTierFromRows(rows),
 	}
@@ -172,36 +176,47 @@ func (a *API) libraryTags(ids []string) []libraryTagDTO {
 	return out
 }
 
-// interestDisciplines 把她的兴趣树折成「学科 → 强度」。
+// interestDisciplinesIn folds her interest tree into discipline → strength.
 //
-// 强度 = 词的 strength（1..5，按证据条数算出来的）× 这条词→学科连线的置信度。
-// 一个词连到两门学科时两门都加，因为那条连线本来就说「这个词同时属于这两门」。
-//
-// 读不出来时返回空表而不是报错：树还没长出来的学生（刚注册、还没读完过任何
-// 东西）本来就是空表，而那时候书架依然要能打开。
-func (a *API) interestDisciplines(r *http.Request) map[string]float64 {
-	keywords, err := a.d.Queries.ListInterestKeywords(r.Context(), mustUser(r).ID)
+// Strength = the keyword's strength (1..5) × the keyword→discipline edge's
+// confidence. A keyword linked to two disciplines adds to both.
+func interestDisciplinesIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID) (map[string]float64, error) {
+	keywords, err := q.ListInterestKeywords(ctx, userID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	strength := make(map[uuid.UUID]float64, len(keywords))
 	for _, k := range keywords {
 		strength[k.ID] = float64(k.Strength)
 	}
-	edges, err := a.d.Queries.ListKeywordDisciplinesForUser(r.Context(), mustUser(r).ID)
+	edges, err := q.ListKeywordDisciplinesForUser(ctx, userID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	out := make(map[string]float64, len(edges))
 	for _, e := range edges {
 		out[e.DisciplineID] += strength[e.KeywordID] * float64(e.Confidence)
 	}
-	return out
+	return out, nil
 }
 
-func mustUser(r *http.Request) User {
-	u, _ := UserFromContext(r.Context())
-	return u
+// libraryProfileIn is everything the recommender needs about one student:
+// her interests, every article she has opened, and her suggested tier. q may
+// be a transaction's queries, so a start reads it on its own connection.
+func libraryProfileIn(ctx context.Context, q *sqlc.Queries, userID uuid.UUID) (library.Profile, error) {
+	rows, err := q.ListLibraryReadingsByUser(ctx, userID)
+	if err != nil {
+		return library.Profile{}, err
+	}
+	interests, err := interestDisciplinesIn(ctx, q, userID)
+	if err != nil {
+		return library.Profile{}, err
+	}
+	read := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		read[row.LibrarySlug] = true
+	}
+	return library.Profile{Disciplines: interests, ReadSlugs: read, Tier: suggestLibraryTierFromRows(rows)}, nil
 }
 
 // signObject 给一个私有桶里的对象签一条能读的链接。签不出来（OSS 没配、
