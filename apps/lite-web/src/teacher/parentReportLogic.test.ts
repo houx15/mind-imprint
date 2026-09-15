@@ -10,7 +10,6 @@ import {
   hiddenMentionText,
   isBodyBlank,
   saveErrorText,
-  savableSectionKeys,
   sectionKeysToLabels,
   showsNoDraftHint,
 } from "./parentReportLogic";
@@ -104,21 +103,6 @@ describe("exportBlockedReason", () => {
 describe("hiddenMentionText", () => {
   it("joins the quoted items with 、", () =>
     expect(hiddenMentionText(["雨水不是废水", "天气"])).toBe("这一段仍引用了已隐藏的内容：雨水不是废水、天气，请修改"));
-});
-
-// PATCH rejects a body key not in `sections` (400 invalid_section), which is
-// what `interests` is while every keyword is hidden.
-describe("savableSectionKeys", () => {
-  it("keeps only keys the report currently has", () =>
-    expect(savableSectionKeys(["overview", "next"], { overview: "a", interests: "b", next: "" })).toEqual([
-      "overview",
-      "next",
-    ]));
-  it("sends interests again once it is back in sections", () =>
-    expect(savableSectionKeys(["overview", "interests"], { overview: "a", interests: "b" })).toEqual([
-      "overview",
-      "interests",
-    ]));
 });
 
 // Ruling 13: a draftError can already be a whole failure line from the server

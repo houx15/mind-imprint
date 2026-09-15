@@ -31,6 +31,15 @@
   color: var(--mk-muted);
 }
 
+/* Pro's SettingsView cards: flat with a hairline, as on the student settings page
+ * (`learning/student-surfaces.css`, `[data-student-page="settings"] .shadow-mk-sm`).
+ * `Card` renders `Surface level="md"`, and lite keeps `--mk-shadow-md` as a real
+ * shadow, so `.shadow-mk-md` is flattened too. */
+.lite-teacher [data-teacher-page="settings"] :is(.shadow-mk-sm, .shadow-mk-md) {
+  box-shadow: none;
+  border: 1px solid var(--mk-border);
+}
+
 /* Same type as the student landing headings (`.learning-landing-header h1`). */
 .teacher-page-title {
   font-size: var(--mk-font-size-page);

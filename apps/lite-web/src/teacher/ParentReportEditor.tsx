@@ -295,6 +295,10 @@ export function ParentReportEditor({
       const failure = await exportPoster(posterRef.current, posterFileName(snapshot.view.studentName));
       if (!alive.current) return;
       if (failure) setActionError(`导出失败：${failure}`);
+    } catch (e) {
+      // A save flush or the render threw: say so instead of leaving an
+      // unhandled rejection behind a button that just stops spinning.
+      if (alive.current) setActionError(`导出失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
       if (alive.current) {
         setPoster(null);
@@ -524,12 +528,15 @@ export function ParentReportEditor({
 }
 
 /** A line with a muted danger tint. No left colour bar. `role` is `alert` for
- * a failure, `status` for a standing note such as a hidden-item mention. */
+ * a failure, `status` for a standing note such as a hidden-item mention.
+ * Plain `--mk-danger` on this tint reads 4.05:1 (lite light) and 3.69:1 (lite
+ * dark); mixed 70% into ink it reads 5.84:1 and 5.00:1. */
 function DangerNote({ children, role }: { children: ReactNode; role: "alert" | "status" }) {
   return (
     <div
-      className="break-words rounded-mk-md border px-3 py-2 text-mk-small font-semibold text-mk-danger"
+      className="break-words rounded-mk-md border px-3 py-2 text-mk-small font-semibold"
       style={{
+        color: "color-mix(in srgb, var(--mk-danger) 70%, var(--mk-ink))",
         borderColor: "color-mix(in srgb, var(--mk-danger) 30%, var(--mk-border))",
         background: "color-mix(in srgb, var(--mk-danger) 6%, var(--mk-surface))",
       }}

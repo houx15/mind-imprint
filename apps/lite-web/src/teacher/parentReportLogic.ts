@@ -112,18 +112,6 @@ export function exportBlockedReason(report: { hiddenMentions: Readonly<Record<st
   return blocked ? EXPORT_BLOCKED_TEXT : null;
 }
 
-/**
- * The section keys a save may send: those in the report's current `sections`.
- * While every keyword is hidden `interests` is not there, and PATCH rejects it
- * (400 `invalid_section`); its local text is kept, not sent.
- */
-export function savableSectionKeys(
-  sections: readonly string[],
-  texts: Readonly<Record<string, string>>,
-): string[] {
-  return Object.keys(texts).filter((key) => sections.includes(key));
-}
-
 // A generate that returned 201 with a `draftError` navigates to the editor,
 // which reloads the report by id and no longer has the response. The message
 // is handed over here, in memory. It is not deleted on read, so React's
