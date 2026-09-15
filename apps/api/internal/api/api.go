@@ -280,6 +280,7 @@ func (a *API) Handler() http.Handler {
 	// 轻量版（lite edition）· 学生这一侧的作业：收件箱、已读、开始、按 atom 反查。
 	// 见 lite_student_assignments.go。
 	mux.Handle("GET /api/v1/lite/inbox", liteOnly(a.getLiteInbox))
+	mux.Handle("POST /api/v1/lite/inbox/gradings/{gid}/seen", liteOnly(a.markLiteGradingSeen))
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/seen", liteOnly(a.markLiteAssignmentSeen))
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/start", liteOnly(a.startLiteAssignment))
 	mux.Handle("GET /api/v1/lite/assignments/for-atom/{atomId}", liteOnly(a.getLiteAssignmentForAtom))
@@ -456,6 +457,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/writings/{id}/revise/discard", liteOnly(a.discardWritingRevision))
 	mux.Handle("GET /api/v1/writings/{id}/versions", liteOnly(a.listWritingVersionsHandler))
 	mux.Handle("GET /api/v1/writings/{id}/versions/{n}", liteOnly(a.getWritingVersionHandler))
+	mux.Handle("GET /api/v1/writings/{id}/gradings", liteOnly(a.listWritingGradingsHandler))
 	mux.Handle("POST /api/v1/writings/{id}/heartbeat", liteOnly(a.writingHeartbeat))
 	mux.Handle("GET /api/v1/writings/{id}/report", liteOnly(a.getAtomReportFor("writing")))
 	mux.Handle("POST /api/v1/writings/{id}/report/share", liteOnly(a.shareWritingReport()))

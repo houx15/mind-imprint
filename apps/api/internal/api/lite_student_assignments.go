@@ -25,10 +25,10 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// InboxItemDTO is one entry in the student's inbox. Type is "assignment", the
-// only kind of item. Every key is always present: an assignment with no
-// instructions still has "instructions", and one she has not started has
-// "atomId": null.
+// InboxItemDTO is one assignment in the student's inbox (Type "assignment");
+// sent gradings are InboxGradingDTO (lite_student_gradings.go). Every key is
+// always present: an assignment with no instructions still has
+// "instructions", and one she has not started has "atomId": null.
 type InboxItemDTO struct {
 	Type         string  `json:"type"`
 	ID           string  `json:"id"`
@@ -58,7 +58,7 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	items := make([]InboxItemDTO, 0, len(rows))
+	items := make([]any, 0, len(rows))
 	unread := 0
 	for _, row := range rows {
 		status := liteassign.StatusWithReturn(row.StartedAt.Valid, tsPtr(row.FinishedAt), row.DueAt, now,
@@ -74,6 +74,19 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 			ReturnDueAt: tsStringPtr(row.ReturnDueAt), ReturnNote: row.ReturnNote,
 		})
 	}
+
+	// Sent 批改 of her writings follow the assignments, newest first.
+	gradingRows, err := a.d.Queries.ListLiteInboxGradings(ctx, u.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	gradingItems, gradingUnread := inboxGradingItems(gradingRows)
+	for _, it := range gradingItems {
+		items = append(items, it)
+	}
+	unread += gradingUnread
+
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items, "unread": unread})
 }
 

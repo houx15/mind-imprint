@@ -366,6 +366,19 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 		return nil, err
 	}
 
+	// The latest version's 批改, for the item page's 批改 button and status.
+	var grading *gradingSummaryDTO
+	if len(versionRows) > 0 {
+		g, err := notFoundIsNil(a.d.Queries.GetLiteGradingByVersion(ctx, versionRows[0].ID))
+		if err != nil {
+			return nil, err
+		}
+		if g != nil {
+			s := gradingSummaryOf(*g)
+			grading = &s
+		}
+	}
+
 	return map[string]any{
 		"targetWords":  targetWords,
 		"lang":         wr.Lang,
@@ -376,6 +389,7 @@ func (a *API) liteTeacherWriting(ctx context.Context, atomID uuid.UUID) (map[str
 		"comments":     comments,
 		"versions":     writingVersionSummaries(versionRows),
 		"revising":     wr.RevisingAt.Valid,
+		"grading":      grading,
 	}, nil
 }
 
