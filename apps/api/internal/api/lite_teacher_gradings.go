@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -35,6 +36,18 @@ func errGradingInProgress() *httpx.APIError {
 
 func errGradingExists() *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusConflict, Code: "grading_exists", Message: "这一版已有批改草稿，请使用「重新批改」"}
+}
+
+// errGradingEnqueueFailedCode marks an error as an enqueue-time failure from
+// enqueueLiteGradingTx (the job insert failed inside the row's transaction,
+// which was then rolled back — the row change never happened). Callers that
+// can retry later (queue-all) check this code to skip quietly instead of
+// aborting the whole request; callers that cannot (single-writing POST,
+// regrade) surface it to the teacher as-is.
+const errGradingEnqueueFailedCode = "grading_enqueue_failed"
+
+func errGradingEnqueueFailed(err error) *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusServiceUnavailable, Code: errGradingEnqueueFailedCode, Message: "入队失败：" + err.Error()}
 }
 
 func errNotWritingForGrading() *httpx.APIError {
@@ -121,6 +134,50 @@ func (a *API) markStaleGradings(ctx context.Context, rows []sqlc.LiteGrading) (b
 		return false, nil
 	}
 	return true, a.d.Queries.MarkStaleLiteGradingsFailed(ctx, running)
+}
+
+// sweptGrading re-reads g if it is stuck `running` past the 15-minute
+// timeout, so a stale row does not block a regrade/single-writing POST with
+// a false 「批改中」 until someone happens to GET it first (the read routes
+// already swept; the write routes below did not).
+func (a *API) sweptGrading(ctx context.Context, g sqlc.LiteGrading) (sqlc.LiteGrading, error) {
+	again, err := a.markStaleGradings(ctx, []sqlc.LiteGrading{g})
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	if !again {
+		return g, nil
+	}
+	return a.d.Queries.GetLiteGrading(ctx, g.ID)
+}
+
+// enqueueLiteGradingTx runs fn — a row create/requeue bound to a transaction
+// — and the river job insert in the SAME Postgres transaction, so a
+// committed queued row always has its job: if the process dies between "row
+// written" and "job inserted", there used to be a window where the row sat
+// queued forever (MarkStaleLiteGradingsFailed ignores queued rows, and every
+// route above treats queued as 「批改中」). Wrapping both in one transaction
+// closes that window — either both commit, or neither does, and fn's row
+// change is rolled back along with the missing job.
+//
+// The caller must have already checked a.d.River != nil.
+func (a *API) enqueueLiteGradingTx(ctx context.Context, fn func(qtx *sqlc.Queries) (sqlc.LiteGrading, error)) (sqlc.LiteGrading, error) {
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	g, err := fn(a.d.Queries.WithTx(tx))
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	if _, err := a.d.River.InsertTx(ctx, tx, LiteGradingArgs{GradingID: g.ID}, nil); err != nil {
+		return sqlc.LiteGrading{}, errGradingEnqueueFailed(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	return g, nil
 }
 
 // loadTeacherGrading loads {gid}: the caller teaches the grading's class and
@@ -347,44 +404,49 @@ func (a *API) queueLiteAssignmentGradings(w http.ResponseWriter, r *http.Request
 		if !ok {
 			continue
 		}
-		var id uuid.UUID
+		var err error
 		if existing, has := gradings[v.ID]; has {
 			if !req.RetryFailed || existing.Status != "failed" {
 				continue
 			}
-			g, err := a.d.Queries.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: existing.ID, Rubric: rubric, RequestedBy: u.ID})
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			if err != nil {
-				httpx.WriteError(w, r, err)
-				return
-			}
-			id = g.ID
-		} else {
-			g, err := a.d.Queries.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
-				AtomID: v.AtomID, VersionID: v.ID, UserID: rc.UserID, ClassID: as.ClassID,
-				AssignmentID: pgtype.UUID{Bytes: as.ID, Valid: true}, Rubric: rubric, RequestedBy: u.ID,
+			_, err = a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+				return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: existing.ID, Rubric: rubric, RequestedBy: u.ID})
 			})
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue // a concurrent request created it
-			}
-			if err != nil {
-				httpx.WriteError(w, r, err)
-				return
-			}
-			id = g.ID
+		} else {
+			_, err = a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+				return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
+					AtomID: v.AtomID, VersionID: v.ID, UserID: rc.UserID, ClassID: as.ClassID,
+					AssignmentID: pgtype.UUID{Bytes: as.ID, Valid: true}, Rubric: rubric, RequestedBy: u.ID,
+				})
+			})
 		}
-		if a.enqueueLiteGrading(ctx, id) {
-			queued++
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue // a concurrent request already changed this version's row
 		}
+		if apiErr, ok := err.(*httpx.APIError); ok && apiErr.Code == errGradingEnqueueFailedCode {
+			// The row change rolled back with the failed job insert — nothing
+			// was left behind to mark failed. The next 一键AI批改 retries her.
+			slog.Warn("lite grading: queue-all enqueue failed", "err", apiErr.Message, "user_id", rc.UserID.String())
+			continue
+		}
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		queued++
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"queued": queued})
 }
 
 // requeueOrRefuse applies the regrade rules to an existing row: sent is never
-// regraded, queued/running is already in progress, draft/failed goes back to the queue.
+// regraded, queued/running is already in progress, draft/failed goes back to
+// the queue. Sweeps a stale `running` row first, so a regrade that crashed
+// 15+ minutes ago does not read as still-in-progress (Task 5 review ruling 4).
 func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requestedBy uuid.UUID) (sqlc.LiteGrading, error) {
+	g, err := a.sweptGrading(ctx, g)
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
 	switch g.Status {
 	case "sent":
 		return sqlc.LiteGrading{}, errGradingSent()
@@ -395,7 +457,9 @@ func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requested
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
-	rq, err := a.d.Queries.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
+	rq, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+		return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sqlc.LiteGrading{}, errGradingInProgress()
 	}
@@ -408,7 +472,12 @@ func (a *API) requeueOrRefuse(ctx context.Context, g sqlc.LiteGrading, requested
 // which the UI puts behind the 「重新批改会覆盖当前修改」 confirm, to overwrite it),
 // sent is 409 grading_sent, queued/running is 409 grading_in_progress, and
 // only a failed row (never graded — no content to lose) is quietly requeued.
+// Sweeps a stale `running` row first, same reasoning as requeueOrRefuse.
 func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, requestedBy uuid.UUID) (sqlc.LiteGrading, error) {
+	g, err := a.sweptGrading(ctx, g)
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
 	switch g.Status {
 	case "sent":
 		return sqlc.LiteGrading{}, errGradingSent()
@@ -421,7 +490,9 @@ func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, reque
 	if err != nil {
 		return sqlc.LiteGrading{}, err
 	}
-	rq, err := a.d.Queries.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
+	rq, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+		return qtx.RequeueLiteGrading(ctx, sqlc.RequeueLiteGradingParams{ID: g.ID, Rubric: rubric, RequestedBy: requestedBy})
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sqlc.LiteGrading{}, errGradingInProgress()
 	}
@@ -466,9 +537,11 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	g, err := a.d.Queries.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
-		AtomID: at.ID, VersionID: latest.ID, UserID: userID, ClassID: classID,
-		AssignmentID: assignmentID, Rubric: rubric, RequestedBy: u.ID,
+	g, err := a.enqueueLiteGradingTx(ctx, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+		return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
+			AtomID: at.ID, VersionID: latest.ID, UserID: userID, ClassID: classID,
+			AssignmentID: assignmentID, Rubric: rubric, RequestedBy: u.ID,
+		})
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		existing, gerr := a.d.Queries.GetLiteGradingByVersion(ctx, latest.ID)
@@ -479,11 +552,6 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		g, err = a.queueOrRefuseSingle(ctx, existing, u.ID)
 	}
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	a.enqueueLiteGrading(ctx, g.ID)
-	if g, err = a.d.Queries.GetLiteGrading(ctx, g.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -504,11 +572,6 @@ func (a *API) regradeLiteGrading(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(ctx)
 	rq, err := a.requeueOrRefuse(ctx, g, u.ID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	a.enqueueLiteGrading(ctx, rq.ID)
-	if rq, err = a.d.Queries.GetLiteGrading(ctx, rq.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

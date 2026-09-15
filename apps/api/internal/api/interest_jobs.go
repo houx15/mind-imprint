@@ -75,8 +75,15 @@ func (SweepHarvestArgs) Kind() string { return "interest_harvest_sweep" }
 // 是接口而不是 *river.Client，因为**测试里它就是 nil**：internal/api 的测试不起
 // 队列，而 EnqueueHarvest 在那种情况下必须是一次安静的空操作，不是一次 panic。
 // 同 Deps.Provider == nil 的那几处 —— 那不是防御性代码，是走得到的分支。
+//
+// InsertTx 让入队能加入调用方已经开好的那个 Postgres 事务：批改那条链子
+// （lite_teacher_gradings.go 的 enqueueLiteGradingTx）靠它把「行的创建/回到排队」
+// 和「任务入队」绑进同一次提交 —— 进程在两步之间崩掉，事务要么两者都没发生，
+// 不会剩下一行排队中却没有任务的行。*river.Client[pgx.Tx]（StartHarvestQueue
+// 的返回类型）本来就有这个方法，这里只是把它写进接缝。
 type JobEnqueuer interface {
 	Insert(ctx context.Context, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error)
+	InsertTx(ctx context.Context, tx pgx.Tx, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
 // EnqueueHarvest 在她完成一件事之后，请后台去采一次。

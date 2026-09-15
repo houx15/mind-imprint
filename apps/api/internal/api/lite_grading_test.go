@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -17,6 +19,7 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/liteassign"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -40,6 +43,22 @@ type fakeEnqueuer struct {
 }
 
 func (f *fakeEnqueuer) Insert(_ context.Context, args river.JobArgs, _ *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail != nil {
+		return nil, f.fail
+	}
+	if a, ok := args.(LiteGradingArgs); ok {
+		f.args = append(f.args, a)
+	}
+	return &rivertype.JobInsertResult{Job: &rivertype.JobRow{}}, nil
+}
+
+// InsertTx: the fake does not itself persist anything transactionally (it
+// has no river_job table to roll back), but the caller's real Postgres tx
+// around it still rolls back the row change when this returns an error —
+// that is the behavior TestLiteGradingRegradeEnqueueFailureRollsBack pins.
+func (f *fakeEnqueuer) InsertTx(_ context.Context, _ pgx.Tx, args river.JobArgs, _ *river.InsertOpts) (*rivertype.JobInsertResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fail != nil {
@@ -149,6 +168,8 @@ type teacherGradingView struct {
 	VersionNumber       int             `json:"versionNumber"`
 	LatestVersionNumber int             `json:"latestVersionNumber"`
 	Body                string          `json:"body"`
+	Lang                string          `json:"lang"`
+	Rubric              json.RawMessage `json:"rubric"`
 	Status              string          `json:"status"`
 	Content             json.RawMessage `json:"content"`
 	Error               *string         `json:"error"`
@@ -370,9 +391,13 @@ func TestLiteGradingQueueUnavailableAndEnqueueFailure(t *testing.T) {
 	if n := f.queueAll(t, aid2, false); n != 0 {
 		t.Fatalf("queued with a failing queue = %d", n)
 	}
+	// The row create and the job insert are one Postgres transaction (Task 5
+	// review ruling 3): a failed insert rolls the row create back too, so
+	// nothing is left behind — no "failed" row a teacher could puzzle over.
+	// The next 一键AI批改 retries her from scratch.
 	r := f.rows(t, aid2)[0]
-	if r.Grading == nil || r.Grading.Status != "failed" || r.Grading.Error == nil || *r.Grading.Error != "入队失败：connection refused" {
-		t.Fatalf("enqueue failure = %+v", r.Grading)
+	if r.Grading != nil {
+		t.Fatalf("row after a rolled-back enqueue = %+v, want none", r.Grading)
 	}
 }
 
@@ -411,10 +436,14 @@ func TestLiteGradingStaleRunningWithContentKeepsDraft(t *testing.T) {
 	}
 }
 
-// TestLiteGradingRegradeEnqueueFailureKeepsDraft: a regrade whose job insert
-// fails (queue down mid-request) must not lose the previous draft — the row
-// returns to draft with the queue error, never failed, since content exists.
-func TestLiteGradingRegradeEnqueueFailureKeepsDraft(t *testing.T) {
+// TestLiteGradingRegradeEnqueueFailureRollsBack: a regrade whose job insert
+// fails (queue down mid-request) rolls the whole transaction back — the row
+// change (RequeueLiteGrading) never happened, so the row is exactly the
+// draft it was before, and the route answers an error instead of a 200 with
+// a fabricated row (Task 5 review ruling 3: the row requeue and the job
+// insert are one Postgres transaction, so a committed queued row always has
+// its job — there is no longer a half-succeeded "queued but no job" state).
+func TestLiteGradingRegradeEnqueueFailureRollsBack(t *testing.T) {
 	f := newGradingFixture(t, gradingValidReply)
 	_, atomID, _ := f.submit(t)
 	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
@@ -433,11 +462,13 @@ func TestLiteGradingRegradeEnqueueFailureKeepsDraft(t *testing.T) {
 
 	f.enq.fail = errors.New("connection refused")
 	regrade := "/api/v1/lite/teacher/gradings/" + gid + "/regrade"
-	if code := assignJSON(t, f.h, f.teacher, "POST", regrade, nil, &resp); code != http.StatusOK {
-		t.Fatalf("regrade = %d", code)
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", regrade, nil); code != http.StatusServiceUnavailable || ec != "grading_enqueue_failed" {
+		t.Fatalf("regrade with a failing queue = %d %s, want 503 grading_enqueue_failed", code, ec)
 	}
-	if resp.Grading.Status != "draft" || resp.Grading.Error == nil || *resp.Grading.Error != "入队失败：connection refused" || !strings.Contains(string(resp.Grading.Content), `"B+"`) {
-		t.Fatalf("regrade enqueue failure = %+v %s", resp.Grading, resp.Grading.Content)
+
+	after := f.grading(t, gid)
+	if after.Status != "draft" || after.Error != nil || string(after.Content) != string(before.Content) {
+		t.Fatalf("row after a rolled-back regrade = %+v, want unchanged from %+v", after, before)
 	}
 }
 
@@ -454,6 +485,131 @@ func TestLiteGradingSingleWritingRefusesExistingDraft(t *testing.T) {
 	f.runJobs(t)
 	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", single, nil); code != http.StatusConflict || ec != "grading_exists" {
 		t.Fatalf("single on an existing draft = %d %s, want 409 grading_exists", code, ec)
+	}
+}
+
+// TestLiteGradingRegradeSweepsStaleRunningBeforeRefusing: a row stuck
+// `running` for 20+ minutes must not read as 「批改中」 forever just because
+// nobody happened to GET it first — regrade itself sweeps it before checking
+// status (Task 5 review promoted minor / ruling 4).
+func TestLiteGradingRegradeSweepsStaleRunningBeforeRefusing(t *testing.T) {
+	f := newGradingFixture(t, gradingValidReply)
+	_, atomID, _ := f.submit(t)
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	var resp struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK {
+		t.Fatalf("single = %d", code)
+	}
+	gid := resp.Grading.ID
+	f.runJobs(t)
+	// A regrade that got stuck 20 minutes ago: still `running`, content kept
+	// from the last successful grading — nobody has GET the row since.
+	regrade := "/api/v1/lite/teacher/gradings/" + gid + "/regrade"
+	if code := assignJSON(t, f.h, f.teacher, "POST", regrade, nil, &resp); code != http.StatusOK || resp.Grading.Status != "queued" {
+		t.Fatalf("first regrade = %d %+v", code, resp.Grading)
+	}
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET status = 'running', updated_at = now() - interval '20 minutes' WHERE id = $1`, gid); err != nil {
+		t.Fatal(err)
+	}
+	// Regrade again, straight away — no GET in between to sweep it first.
+	if code := assignJSON(t, f.h, f.teacher, "POST", regrade, nil, &resp); code != http.StatusOK || resp.Grading.Status != "queued" {
+		t.Fatalf("regrade on a stale running row = %d %+v, want it to proceed (swept first)", code, resp.Grading)
+	}
+}
+
+// TestLiteGradingQueueUsesHomeworkRubric: a homework with a custom rubric
+// (points scale, not the zh default) is queued through 一键AI批改, and the
+// stored lite_grading.rubric is that homework's EffectiveRubric, not the
+// default (Task 5 review ruling 1a).
+func TestLiteGradingQueueUsesHomeworkRubric(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, _, _ := f.submit(t)
+	points := map[string]any{
+		"scale": "points", "max": 20,
+		"dimensions": []map[string]any{{"name": "论证", "note": "重点看论证是否清楚"}},
+		"focus":      "重点看论证",
+	}
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, map[string]any{"rubric": points}, nil); code != http.StatusOK {
+		t.Fatalf("patch rubric = %d", code)
+	}
+	if n := f.queueAll(t, aid, false); n != 1 {
+		t.Fatalf("queued = %d, want 1", n)
+	}
+	gid := f.rows(t, aid)[0].Grading.ID
+	var stored []byte
+	if err := f.pool.QueryRow(context.Background(), `SELECT rubric FROM lite_grading WHERE id = $1`, gid).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	var got liteassign.Rubric
+	if err := json.Unmarshal(stored, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := liteassign.Rubric{
+		Scale: "points", Max: 20,
+		Dimensions: []liteassign.RubricDimension{{Name: "论证", Note: "重点看论证是否清楚"}},
+		Focus:      "重点看论证",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("stored rubric = %+v, want %+v", got, want)
+	}
+}
+
+// TestLiteGradingSingleWritingUsesDefaultRubricForNonHomework: a writing she
+// brought in herself (not assigned) graded through the single-writing route
+// stores DefaultRubric(lang), and its assignmentId is null (Task 5 review
+// ruling 1b).
+func TestLiteGradingSingleWritingUsesDefaultRubricForNonHomework(t *testing.T) {
+	f := newGradingFixture(t)
+	student := signInAs(t, f.pool, f.studentID)
+	atomID := newBroughtWriting(t, f.h, student, "我读了 NASA 的报告，数据是 2024 年的。")
+	if code := assignJSON(t, f.h, student, "POST", "/api/v1/writings/"+atomID+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish = %d", code)
+	}
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	var resp struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK {
+		t.Fatalf("single = %d", code)
+	}
+	if resp.Grading.AssignmentID != nil {
+		t.Fatalf("assignmentId = %v, want nil for a non-homework writing", *resp.Grading.AssignmentID)
+	}
+	var got liteassign.Rubric
+	if err := json.Unmarshal(resp.Grading.Rubric, &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := liteassign.DefaultRubric("zh"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("rubric = %+v, want the zh default %+v", got, want)
+	}
+}
+
+// TestLiteGradingListSweepsStaleRunning: the list route (used by the
+// assignment's grading table) must sweep a stale `running` row too, not only
+// the single-row GET — otherwise a crashed job shows 批改中 forever there
+// (Task 5 review ruling 2/5).
+func TestLiteGradingListSweepsStaleRunning(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, _, _ := f.submit(t)
+	f.queueAll(t, aid, false)
+	gid := f.rows(t, aid)[0].Grading.ID
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET status = 'running', updated_at = now() - interval '20 minutes' WHERE id = $1`, gid); err != nil {
+		t.Fatal(err)
+	}
+	rows := f.rows(t, aid)
+	var found bool
+	for _, r := range rows {
+		if r.Grading != nil && r.Grading.ID == gid {
+			found = true
+			if r.Grading.Status != "failed" || r.Grading.Error == nil {
+				t.Fatalf("swept row via list = %+v, want failed with the timeout error", r.Grading)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("gid missing from the list: %+v", rows)
 	}
 }
 

@@ -59,18 +59,6 @@ func RegisterLiteGradingWorker(w *river.Workers, a *API) error {
 	return river.AddWorkerSafely(w, &LiteGradingWorker{API: a})
 }
 
-// enqueueLiteGrading inserts the job for a queued row. A failed insert marks
-// the row failed with the queue's error, so the teacher reads
-// 「批改失败：入队失败：…」 instead of a row that stays 批改中.
-// Callers check a.d.River != nil first.
-func (a *API) enqueueLiteGrading(ctx context.Context, id uuid.UUID) bool {
-	if _, err := a.d.River.Insert(ctx, LiteGradingArgs{GradingID: id}, nil); err != nil {
-		a.failLiteGrading(ctx, id, "入队失败："+err.Error())
-		return false
-	}
-	return true
-}
-
 // failLiteGrading writes the outcome of a failed attempt: a first grading
 // with no prior content ends up failed, a failed regrade returns to draft
 // with its previous ai/content kept (SetLiteGradingFailed's CASE, Task 3) —
