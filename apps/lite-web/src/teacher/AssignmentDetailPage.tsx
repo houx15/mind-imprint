@@ -28,6 +28,7 @@ import {
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
+  tabAfterAssignmentChange,
   toggleId,
   unassignedStudents,
   type EditDraft,
@@ -56,11 +57,14 @@ export function AssignmentDetailPage({
   assignmentId: string;
   /** From the route's `?tab=grading` — set when she arrived via 返回 from
    *  the grading view, so she lands back on 批改 rather than the default
-   *  学生. Read only once, as the tab state's initial value: switching tabs
-   *  by hand afterward is never overridden, and navigating to a DIFFERENT
-   *  assignment while this instance stays mounted resets to 学生 regardless
-   *  (this page always remounts fresh coming back from the grading view, so
-   *  that reset path and this prop do not interact in practice). */
+   *  学生. Read once, as the tab state's initial value; the reset effect
+   *  below must NOT also reset it back to 学生 on that same first run (see
+   *  `tabAfterAssignmentChange` — the effect runs after every mount, not
+   *  only after a genuine assignment switch, and the fix-round-1 version of
+   *  this component unconditionally called `setTab("students")` there,
+   *  overwriting `initialTab` one tick after the initial render). Switching
+   *  tabs by hand afterward is never overridden; navigating to a DIFFERENT
+   *  assignment while this instance stays mounted still resets to 学生. */
   initialTab?: "grading";
   onBack: () => void;
   onOpenItem: (classId: string, userId: string, atomId: string) => void;
@@ -82,6 +86,13 @@ export function AssignmentDetailPage({
   aidRef.current = assignmentId;
   const current = (aid: string) => alive.current && aidRef.current === aid;
 
+  // Tracks the PREVIOUS `assignmentId` across renders, so the reset effect
+  // below (which also runs on the very first mount, not only on a genuine
+  // switch) can tell the two apart — see `tabAfterAssignmentChange`.
+  // Starts equal to the current id on purpose: the first run must see "no
+  // change" and leave `tab` (seeded from `initialTab`) alone.
+  const prevAssignmentIdRef = useRef(assignmentId);
+
   // A mutation for the previous assignment skips its own `finally` once
   // `current(aid)` is false, so the new assignment starts un-busy here.
   useEffect(() => {
@@ -90,7 +101,8 @@ export function AssignmentDetailPage({
     setMessage(null);
     setBusy(false);
     setReturning(null);
-    setTab("students");
+    setTab((t) => tabAfterAssignmentChange(prevAssignmentIdRef.current, assignmentId, t));
+    prevAssignmentIdRef.current = assignmentId;
   }, [assignmentId]);
 
   useEffect(() => {

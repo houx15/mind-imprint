@@ -154,7 +154,16 @@ export function GradingPage({
     setMessage(null);
     try {
       const g = await task();
-      if (alive.current) apply(g, true);
+      if (alive.current) {
+        apply(g, true);
+        // A regrade (or anything else `run` drives) can hand back a row
+        // that is now queued/running — the poll chain only reschedules
+        // itself from INSIDE its own effect (fix round 1), so nothing
+        // restarts it on its own once it has already stopped. Bumping
+        // `nonce` re-runs that effect; its existing cleanup (`cancelled` +
+        // `clearTimeout`) means this can never leave two chains running.
+        if (shouldPoll([g.status])) setNonce((n) => n + 1);
+      }
     } catch (e) {
       if (alive.current) setMessage(failText(verb, e));
     } finally {
@@ -222,6 +231,7 @@ export function GradingPage({
     return (
       <TeacherPage>
         {back}
+        {leaveConfirmBanner}
         <div className="mt-4 text-mk-small font-semibold text-mk-danger">
           加载失败：{loadError}{" "}
           <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">

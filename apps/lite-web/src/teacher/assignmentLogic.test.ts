@@ -18,6 +18,7 @@ import {
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
+  tabAfterAssignmentChange,
   tierLabel,
   unassignedStudents,
   validateSettings,
@@ -246,6 +247,21 @@ describe("isArchiveSuccess", () => {
     expect(isArchiveSuccess(new ApiError("not_found", "资源不存在", 404))).toBe(true);
     expect(isArchiveSuccess(new ApiError("forbidden", "无权限", 403))).toBe(false);
     expect(isArchiveSuccess(new Error("network"))).toBe(false);
+  });
+});
+
+describe("tabAfterAssignmentChange", () => {
+  // The reset effect this backs runs on every mount too, not only a real
+  // switch — the first run (prevId === nextId, since the ref starts equal
+  // to the current id) must leave whatever tab `?tab=grading` seeded alone,
+  // or a fresh page load lands her on 学生 no matter what the URL asked for.
+  it("keeps the current tab when the id has not actually changed", () => {
+    expect(tabAfterAssignmentChange("a1", "a1", "grading")).toBe("grading");
+    expect(tabAfterAssignmentChange("a1", "a1", "students")).toBe("students");
+  });
+  it("resets to 学生 on a genuine switch to a different assignment", () => {
+    expect(tabAfterAssignmentChange("a1", "a2", "grading")).toBe("students");
+    expect(tabAfterAssignmentChange("a1", "a2", "students")).toBe("students");
   });
 });
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { coursePath, liteRoutePath, parseLiteRoute, type LiteRoute } from "./routing";
+import { afterEach, describe, expect, it } from "vitest";
+import { coursePath, liteRoutePath, navigate, parseLiteRoute, type LiteRoute } from "./routing";
 
 /**
  * routing.test.ts —— parse/format 这一对必须互为逆。
@@ -46,5 +46,44 @@ describe("lite routing", () => {
 
   it("keeps an unknown path on 探索", () => {
     expect(parseLiteRoute("/nope")).toEqual({ tab: "explore" });
+  });
+});
+
+describe("navigate", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  // The lite teacher shell's assignment route carries a `?tab=grading`
+  // query hint on top of the same pathname — `navigate`'s no-op guard used
+  // to compare `pathname` alone, so moving between two paths that differ
+  // ONLY by that query silently did nothing (no pushState, no popstate),
+  // which read as "返回 is broken" even though the route object was correct.
+  it("navigates when only the query string differs from the current location", () => {
+    window.history.replaceState(null, "", "/assignments/a1?tab=grading");
+    let pops = 0;
+    const onPop = () => pops++;
+    window.addEventListener("popstate", onPop);
+    try {
+      navigate("/assignments/a1");
+      expect(window.location.pathname + window.location.search).toBe("/assignments/a1");
+      expect(pops).toBe(1);
+    } finally {
+      window.removeEventListener("popstate", onPop);
+    }
+  });
+
+  it("is a no-op when the target is byte-for-byte the current location, query included", () => {
+    window.history.replaceState(null, "", "/assignments/a1?tab=grading");
+    let pops = 0;
+    const onPop = () => pops++;
+    window.addEventListener("popstate", onPop);
+    try {
+      navigate("/assignments/a1?tab=grading");
+      expect(window.location.pathname + window.location.search).toBe("/assignments/a1?tab=grading");
+      expect(pops).toBe(0);
+    } finally {
+      window.removeEventListener("popstate", onPop);
+    }
   });
 });

@@ -382,6 +382,24 @@ export function isArchiveSuccess(e: unknown): boolean {
   return e instanceof ApiError && e.status === 404;
 }
 
+/**
+ * `AssignmentDetailPage`'s 学生/批改 tab after `assignmentId` potentially
+ * changes. The page's reset effect runs on every mount too — not only after
+ * a genuine switch to a different assignment — so it must tell the two
+ * apart: the FIRST run (mount) leaves `currentTab` untouched (that is what
+ * lets `?tab=grading`'s `initialTab` actually land her on 批改, instead of
+ * being overwritten one tick after the initial render); a real switch
+ * (`prevId !== nextId`) always resets to 学生, since a fresh assignment has
+ * no reason to inherit whatever tab the previous one happened to be on.
+ */
+export function tabAfterAssignmentChange(
+  prevId: string,
+  nextId: string,
+  currentTab: "students" | "grading",
+): "students" | "grading" {
+  return prevId === nextId ? currentTab : "students";
+}
+
 /** Which class a page opens on: an explicit choice, else the remembered one,
  * else the first — each only if it is still one of her classes. */
 export function pickClassId(classIds: string[], preferred?: string | null, remembered?: string | null): string {

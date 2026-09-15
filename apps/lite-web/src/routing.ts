@@ -222,12 +222,16 @@ export function coursePath(slug: string): string {
 }
 
 /** Push a new root-relative path onto the History stack and dispatch a
- * synthetic `popstate` so listeners (LiteApp) re-derive the route — matching
- * how a real Back/Forward navigation notifies them. A no-op if `path` is
- * already the current pathname (avoids piling up duplicate history entries
- * or firing a redundant popstate on repeat calls). */
+ * synthetic `popstate` so listeners (LiteApp, LiteTeacherShell) re-derive
+ * the route — matching how a real Back/Forward navigation notifies them.
+ * A no-op if `path` is already the current location (avoids piling up
+ * duplicate history entries or firing a redundant popstate on repeat
+ * calls) — compared against `pathname + search`, not `pathname` alone, so
+ * a path that only differs by its query string (the lite teacher shell's
+ * `?tab=grading` hint) is never mistaken for "nowhere to go" and silently
+ * dropped. */
 export function navigate(path: string): void {
-  if (window.location.pathname === path) return;
+  if (window.location.pathname + window.location.search === path) return;
   window.history.pushState(null, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
