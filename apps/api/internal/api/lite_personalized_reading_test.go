@@ -411,7 +411,12 @@ func TestPersonalizedDetailShowsEachArticle(t *testing.T) {
 	var raw struct {
 		Recipients []map[string]any `json:"recipients"`
 	}
-	getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+wid, &raw)
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+wid, &raw); code != http.StatusOK {
+		t.Fatalf("writing detail = %d", code)
+	}
+	if len(raw.Recipients) == 0 {
+		t.Fatalf("writing detail recipients = %+v, want at least one", raw.Recipients)
+	}
 	if v, ok := raw.Recipients[0]["reading"]; !ok || v != nil {
 		t.Fatalf("writing recipient reading = %v (present %v), want null", v, ok)
 	}
