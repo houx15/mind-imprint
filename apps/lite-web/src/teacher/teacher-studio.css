@@ -92,11 +92,6 @@
 .teacher-stat { min-width:0; }
 .teacher-settings>div { max-width:840px; }
 .teacher-settings .shadow-mk-md { box-shadow:none; }
-.teacher-output-fields { display:grid; gap:14px; margin-top:14px; font-size:13px; }
-.teacher-output-fields>div { display:grid; grid-template-columns:minmax(90px,1fr) minmax(0,4fr); gap:16px; }
-.teacher-output-fields dt { color:var(--mk-muted); overflow-wrap:anywhere; }
-.teacher-output-fields dd { min-width:0; line-height:1.8; }
-.teacher-output-list { list-style:disc; padding-left:18px; font-size:13px; line-height:1.8; }
 @media (max-width:1150px) { .teacher-student-page .teacher-stat-strip { grid-template-columns:repeat(4,1fr); row-gap:24px; } .teacher-student-page .teacher-stat:nth-child(5) { padding-left:0; } }
 :root[data-theme=dark] .teacher-studio :is(.teacher-count,.teacher-avatar,.teacher-nav-item[aria-current=page]) { background:var(--mk-accent-50); color:var(--mk-accent-700); }
 .teacher-studio .teacher-class-card { border-color:var(--mk-border); }
@@ -146,3 +141,9 @@
 .teacher-record-section { margin-top:26px; padding-top:22px; }
 @media(max-width:1000px) { .teacher-nav { padding-inline:24px; gap:12px; } .teacher-account small { display:none; } .teacher-class-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; } }
 @media(max-width:760px) { .teacher-nav { height:70px; padding:10px 16px; } .teacher-brand span { display:block; } .teacher-nav-item { font-size:13px; padding:9px; } .teacher-account { display:none; } .teacher-nav-footer { gap:0; } .teacher-class-grid { grid-template-columns:1fr!important; } .teacher-page,.teacher-classes>div { padding-inline:20px!important; } .teacher-item-section { grid-template-columns:1fr; } }
+
+.teacher-page.teacher-record { max-width:1040px!important; }
+.teacher-record-section .teacher-evidence { font-size:14px; }
+.teacher-roster-section td { font-size:13px; }
+.teacher-roster-section th { font-size:12px; }
+.teacher-preview-recent>div { font-size:13px; }

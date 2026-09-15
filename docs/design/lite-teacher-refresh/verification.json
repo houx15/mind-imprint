@@ -1,0 +1,21 @@
+{
+  "errors": [],
+  "checks": [
+    "search filters students",
+    "sort button works",
+    "removal confirmation opens and cancels",
+    "teacher pages render",
+    "settings renders",
+    "empty states render",
+    "theme selection updates",
+    "create class posts name",
+    "rename updates heading",
+    "clipboard feedback",
+    "regenerate updates code",
+    "remove refreshes roster",
+    "roster error retries",
+    "report pending makes exactly one prose followup",
+    "1280 and 1440 desktop",
+    "admin routes render"
+  ]
+}
