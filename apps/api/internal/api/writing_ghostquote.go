@@ -3,6 +3,7 @@ package api
 import (
 	"strings"
 
+	"mindimprint/api/internal/quotematch"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -46,7 +47,10 @@ import (
 //
 // 判错的方向：宁可放过，不可误伤。误判一次会让一条本来好的回复被重试
 // （花钱、让她多等），而漏掉一次只是维持现状。
-const writingGhostQuoteMinRunes = 8
+//
+// 归一化、8 rune 下限、只认「」『』“” 这三条判据现在是 internal/quotematch
+// 的实现——AI 批改（litegrade）引她正文那一路要认同一条判据，这里不再
+// 重复一份。
 
 // 🚨 **「她写的」和「她说的」要分开，不能揉成一份语料。**
 //
@@ -75,7 +79,7 @@ func writingWrittenCorpus(snippets []sqlc.WritingSnippet, draftBody string) stri
 		b.WriteString("\n")
 	}
 	b.WriteString(draftBody)
-	return normalizeQuoteText(b.String())
+	return quotematch.Normalize(b.String())
 }
 
 // writingSaidCorpus 是她**在对话里说过**的话。
@@ -89,7 +93,7 @@ func writingSaidCorpus(msgs []sqlc.AtomMessage) string {
 			b.WriteString("\n")
 		}
 	}
-	return normalizeQuoteText(b.String())
+	return quotematch.Normalize(b.String())
 }
 
 // writingQuoteCorpus 两份合起来 —— 「哪儿都没有」用它判。
@@ -97,27 +101,11 @@ func writingQuoteCorpus(snippets []sqlc.WritingSnippet, draftBody string, msgs [
 	return writingWrittenCorpus(snippets, draftBody) + writingSaidCorpus(msgs)
 }
 
-// normalizeQuoteText 抹掉空白和常见句读再比 —— 模型复述一句话时最常变的就是
-// 句末那个标点，为这个判它幻引是误伤。
-func normalizeQuoteText(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch r {
-		case ' ', '\t', '\n', '\r', '　',
-			'。', '，', '、', '；', '：', '！', '？', '…',
-			'.', ',', ';', ':', '!', '?':
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return strings.ToLower(b.String())
-}
-
 // firstGhostQuote 返回回复里第一句「她根本没写过」的引文。没有就返回 ""。
 func firstGhostQuote(reply, corpus string) string {
-	for _, q := range extractQuotedSpans(reply) {
-		n := normalizeQuoteText(q)
-		if len([]rune(n)) < writingGhostQuoteMinRunes {
+	for _, q := range quotematch.ExtractQuotedSpans(reply) {
+		n := quotematch.Normalize(q)
+		if len([]rune(n)) < quotematch.MinRunes {
 			continue
 		}
 		if !strings.Contains(corpus, n) {
@@ -125,46 +113,4 @@ func firstGhostQuote(reply, corpus string) string {
 		}
 	}
 	return ""
-}
-
-// extractQuotedSpans 把成对引号里的内容取出来。
-//
-// 只认成对的：落单的引号（英文撇号、她正文里的缩写）取不出东西来，正好。
-func extractQuotedSpans(s string) []string {
-	pairs := []struct{ open, close rune }{
-		{'「', '」'},
-		{'『', '』'},
-		{'“', '”'},
-	}
-	var out []string
-	for _, p := range pairs {
-		rs := []rune(s)
-		for i := 0; i < len(rs); i++ {
-			if rs[i] != p.open {
-				continue
-			}
-			for j := i + 1; j < len(rs); j++ {
-				if rs[j] == p.close {
-					out = append(out, string(rs[i+1:j]))
-					i = j
-					break
-				}
-			}
-		}
-	}
-	// 🚨 **英文直双引号不认。**
-	//
-	// 它没有方向，只能「成对地数」，而她的正文里本来就有它 ——
-	// 2026-09-12 第二十五轮那个英文学生写的就是 `By "more" I mean two things`。
-	// 印记复述这句话时，成对数下来切出来的是 `more`、或者跨句拼起来的一段，
-	// 两者都不在语料里，于是一句**她真的写过**的话会被判成幻引。
-	//
-	// 那条重试会告诉印记「这句在她正文里找不到」，而印记接着就会告诉**她**
-	// 这句不存在 —— 正是这一轮她撞上的那种伤：
-	// 「印记非说正文里没有我加的句子，但我看框[0]里面明明就在最后一句写着呢」。
-	//（那一次的真凶是截断，不是这里；但这条路能造出一模一样的伤，先堵上。）
-	//
-	// 印记跟她说话用的是中文，引她的句子用的是「」—— 上面那三对够了。
-	// 少抓几个，好过把她写过的话说成没写过。
-	return out
 }

@@ -46,7 +46,7 @@ const writingRepeatMaxReported = 5
 // writingRepeatedPhrases 找出反复出现的说法，按「出现次数 × 长度」排序。
 //
 // 中文按 rune 切滑动窗口，英文按词。两边都先把空白和标点抹掉再比 ——
-// 同一句话第二次出现时，最常变的就是句末那个标点（同 normalizeQuoteText 的理由）。
+// 同一句话第二次出现时，最常变的就是句末那个标点（同 quotematch.Normalize 的理由）。
 func writingRepeatedPhrases(text, lang string) []writingRepeat {
 	if lang == langEnglish {
 		return repeatedWordRuns(text)

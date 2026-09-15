@@ -239,16 +239,79 @@ func TestCheckLanguageMismatchEnWritingChineseFeedback(t *testing.T) {
 }
 
 func TestCheckLanguageQuotesExcludedFromCount(t *testing.T) {
-	// A single Chinese quote inside an otherwise-English sentence must not
-	// count toward "mostly Han": the quote is hers, the sentence around it
-	// is the model's own prose and that prose is what the check judges. Only
-	// the overall comment is set, so it is the sole contributor to the count.
-	c := Content{Overall: Overall{
-		Comment: "The line 「去年秋天，我在那里摔过一跤。」 opens with a concrete moment, written up in " + englishFiller(10) + ".",
-	}}
-	rs := Check(c, testInput())
-	if !hasCode(rs, ReasonLanguageMismatch) {
-		t.Fatalf("a Chinese quote inside English prose still failed to trip the check: %v", codes(rs))
+	// Her body contains a long English sentence (a quoted source, say); a zh
+	// comment quotes that sentence in 「」 and adds a short Chinese remark.
+	// Counting the quote would make English win and reject a comment that is
+	// otherwise entirely in Chinese; stripping the quote first is the only
+	// way this passes. (This is what distinguishes this test from a case
+	// that would pass either way: without quotematch.StripQuotedSpans in
+	// languageReason, this fails — see the fix report for the RED run.)
+	englishQuote := "Rainwater gardens reduce flooding by capturing runoff before it reaches the drains"
+	in := testInput()
+	in.Body = "学校后门那片空地一下雨就积水。" + englishQuote
+	c := Content{Overall: Overall{Comment: "「" + englishQuote + "」这点很好。"}}
+	rs := Check(c, in)
+	if hasCode(rs, ReasonLanguageMismatch) {
+		t.Fatalf("a long quoted sentence of hers should not count toward the model's own prose: %v", codes(rs))
+	}
+}
+
+// --- Controller ruling 2026-09-15, fix round 1: the quote and 「」 checks
+// were too strict for real model output. A term or a symptom-catalog name
+// in 「」, or a quote that differs from her body only by punctuation width,
+// an extra 。, or the paragraph break the model didn't retype, must not fail
+// the whole grading; a genuinely invented quotation still must.
+
+func TestCheckAcceptsShortQuotedTermsAndSymptomNames(t *testing.T) {
+	cases := []struct{ name, text string }{
+		{"a term", "缺少「让步」段落。"},
+		{"a symptom-catalog name", "属于「立意不清」的问题。"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, in := validContent(), testInput()
+			c.Points[1].Text = tc.text
+			rs := Check(c, in)
+			if hasCode(rs, ReasonQuotationNotInBody) {
+				t.Fatalf("a short quoted span should be skipped, not checked: %v", codes(rs))
+			}
+		})
+	}
+}
+
+func TestCheckAcceptsQuotesThatDifferOnlyByNormalizedPunctuationOrSpacing(t *testing.T) {
+	cases := []struct{ name, quote string }{
+		{"half-width comma instead of full-width", "去年秋天,我在那里摔过一跤。"},
+		{"an extra trailing 。", "去年秋天，我在那里摔过一跤。。"},
+		{"spans the paragraph break in the source", "去年秋天，我在那里摔过一跤。我读到城市里的雨水花园"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, in := validContent(), testInput()
+			c.Points[0].Quote = sp(tc.quote)
+			rs := Check(c, in)
+			if hasCode(rs, ReasonQuoteNotInBody) {
+				t.Fatalf("a quote that is hers once normalized was rejected: %v", codes(rs))
+			}
+		})
+	}
+}
+
+func TestCheckStillRejectsAGenuinelyInventedQuotation(t *testing.T) {
+	c, in := validContent(), testInput()
+	c.Points[1].Text = "没有回应「这句话是彻底编造出来的内容」。" // 13 runes, in neither body nor prompt
+	rs := Check(c, in)
+	if !hasCode(rs, ReasonQuotationNotInBody) {
+		t.Fatalf("an invented long quotation should still be rejected: %v", codes(rs))
+	}
+}
+
+func TestCheckStillRejectsALongCurlyQuoteRewrite(t *testing.T) {
+	c, in := validContent(), testInput()
+	c.Points[1].Text = "这句话应该改成“这也是彻底编造出来的一句话”。" // 13 runes, curly quotes, invented
+	rs := Check(c, in)
+	if !hasCode(rs, ReasonQuotationNotInBody) {
+		t.Fatalf("a long invented “” rewrite should still be rejected: %v", codes(rs))
 	}
 }
 

@@ -10,12 +10,14 @@ import (
 // systemTemplate is the instructions sent with every 批改 call. Check (see
 // check.go) verifies only some of what it asks for: the grade scale, the
 // rubric's dimension names, the point count and the good/issue mix, a
-// required action on every issue, every quote and every 「」 quotation being
-// hers (or, failing that, the teacher's prompt, which gets its own reason),
-// sentences that judge her instead of her writing (only the phrases
-// PersonJudging recognises), and the feedback being mostly written in the
-// writing's language. "不要重写、不要润色、不要续写" and "不写客套话" below
-// are prompt-only — there is no code check for either.
+// required action on every issue, every quote and every long-enough 「」
+// quotation being hers once normalized (or, failing that, the teacher's
+// prompt, which gets its own reason — a short quotation, a term or a
+// symptom-catalog name, isn't checked at all), sentences that judge her
+// instead of her writing (only the phrases PersonJudging recognises), and
+// the feedback being mostly written in the writing's language. "不要重写、
+// 不要润色、不要续写" and "不写客套话" below are prompt-only — there is no
+// code check for either.
 const systemTemplate = `你在为一位写作老师起草批改。学生已经提交了这篇作文，老师会审阅、修改你的批改，再发给学生。
 
 你只给反馈，绝不替学生改：不要重写、不要润色、不要续写，不要给出可以直接替换原文的句子。
@@ -40,6 +42,7 @@ const systemTemplate = `你在为一位写作老师起草批改。学生已经�
 - 在 comment、text、action 里提到她写的话，一律用「」括起来，并且逐字照抄正文。
 - 作业题目是老师写的，不是她写的，不要用「」引用题目。
 - 「」里只能是她正文里原有的文字。
+- 术语和毛病名称不要放进「」——「」只用来逐字引她正文里的一句话。
 
 ## 语气
 
