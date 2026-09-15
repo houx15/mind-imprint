@@ -40,6 +40,12 @@ type fakeEnqueuer struct {
 	mu   sync.Mutex
 	args []LiteGradingArgs
 	fail error
+	// failFirstN, when set, fails only the first N InsertTx calls (then
+	// succeeds) — for testing a queue-all batch where some recipients'
+	// enqueues fail and others don't. txCalls counts InsertTx calls only,
+	// separate from Insert (interest harvest also shares this fake).
+	failFirstN int
+	txCalls    int
 }
 
 func (f *fakeEnqueuer) Insert(_ context.Context, args river.JobArgs, _ *river.InsertOpts) (*rivertype.JobInsertResult, error) {
@@ -61,8 +67,12 @@ func (f *fakeEnqueuer) Insert(_ context.Context, args river.JobArgs, _ *river.In
 func (f *fakeEnqueuer) InsertTx(_ context.Context, _ pgx.Tx, args river.JobArgs, _ *river.InsertOpts) (*rivertype.JobInsertResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.txCalls++
 	if f.fail != nil {
 		return nil, f.fail
+	}
+	if f.failFirstN > 0 && f.txCalls <= f.failFirstN {
+		return nil, errors.New("connection refused")
 	}
 	if a, ok := args.(LiteGradingArgs); ok {
 		f.args = append(f.args, a)
@@ -200,15 +210,27 @@ func (f *gradingFixture) grading(t *testing.T, gid string) teacherGradingView {
 	return resp.Grading
 }
 
-func (f *gradingFixture) queueAll(t *testing.T, aid string, retryFailed bool) int {
+// queueAllResp is the queue-all route's full response: queued/failed counts
+// plus the first backend error text when failed > 0 (never silently lost —
+// AI/backend errors must surface, per AGENTS.md).
+type queueAllResp struct {
+	Queued int     `json:"queued"`
+	Failed int     `json:"failed"`
+	Error  *string `json:"error"`
+}
+
+func (f *gradingFixture) queueAllFull(t *testing.T, aid string, retryFailed bool) queueAllResp {
 	t.Helper()
-	var resp struct {
-		Queued int `json:"queued"`
-	}
+	var resp queueAllResp
 	if code := assignJSON(t, f.h, f.teacher, "POST", "/api/v1/lite/teacher/assignments/"+aid+"/gradings", map[string]any{"retryFailed": retryFailed}, &resp); code != http.StatusOK {
 		t.Fatalf("queue = %d", code)
 	}
-	return resp.Queued
+	return resp
+}
+
+func (f *gradingFixture) queueAll(t *testing.T, aid string, retryFailed bool) int {
+	t.Helper()
+	return f.queueAllFull(t, aid, retryFailed).Queued
 }
 
 func countGradingCalls(t *testing.T, pool *pgxpool.Pool) int {
@@ -385,19 +407,54 @@ func TestLiteGradingQueueUnavailableAndEnqueueFailure(t *testing.T) {
 		t.Fatalf("no queue = %d %s", code, ec)
 	}
 
+	// Every recipient's enqueue fails (queue down mid-request): queue-all
+	// answers 503 grading_enqueue_failed instead of a fake 200 {"queued":0}
+	// that would read as "nothing to grade" (Task 5 review round 2, ruling
+	// b: m > 0 and n == 0).
 	f := newGradingFixture(t)
 	f.enq.fail = errors.New("connection refused")
 	aid2, _, _ := f.submit(t)
-	if n := f.queueAll(t, aid2, false); n != 0 {
-		t.Fatalf("queued with a failing queue = %d", n)
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", "/api/v1/lite/teacher/assignments/"+aid2+"/gradings", map[string]any{"retryFailed": false}); code != http.StatusServiceUnavailable || ec != "grading_enqueue_failed" {
+		t.Fatalf("all recipients fail = %d %s, want 503 grading_enqueue_failed", code, ec)
 	}
 	// The row create and the job insert are one Postgres transaction (Task 5
-	// review ruling 3): a failed insert rolls the row create back too, so
-	// nothing is left behind — no "failed" row a teacher could puzzle over.
-	// The next 一键AI批改 retries her from scratch.
+	// review round 1 ruling 3): a failed insert rolls the row create back
+	// too, so nothing is left behind — no "failed" row a teacher could
+	// puzzle over. The next 一键AI批改 retries her from scratch.
 	r := f.rows(t, aid2)[0]
 	if r.Grading != nil {
 		t.Fatalf("row after a rolled-back enqueue = %+v, want none", r.Grading)
+	}
+}
+
+// TestLiteGradingQueueAllPartialFailureReportsCounts: when only some
+// recipients' enqueues fail, queue-all still answers 200 (the ones that
+// succeeded really did queue), but reports how many failed and why — never
+// silently drops the failure the way a bare {"queued": n} would (Task 5
+// review round 2, ruling a).
+func TestLiteGradingQueueAllPartialFailureReportsCounts(t *testing.T) {
+	f := newGradingFixture(t, gradingValidReply)
+	aid, _, _ := f.submit(t)
+	other := createStudent(t, f.pool, SeedSchoolID, "gr-other-student@demo.local")
+	enrollStudent(t, f.pool, other, f.classID)
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid, map[string]any{"addUserIds": []string{other.String()}}, nil); code != http.StatusOK {
+		t.Fatalf("add recipient = %d", code)
+	}
+	otherStudent := signInAs(t, f.pool, other)
+	atomID2 := startAssignment(t, f.h, otherStudent, aid).AtomID
+	if code := assignJSON(t, f.h, otherStudent, "PUT", "/api/v1/writings/"+atomID2+"/draft", map[string]any{"body": gradingBody}, nil); code != http.StatusOK {
+		t.Fatalf("draft2 = %d", code)
+	}
+	if code := assignJSON(t, f.h, otherStudent, "POST", "/api/v1/writings/"+atomID2+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish2 = %d", code)
+	}
+
+	// Both recipients are now eligible; the first enqueue attempted fails,
+	// the second succeeds.
+	f.enq.failFirstN = 1
+	resp := f.queueAllFull(t, aid, false)
+	if resp.Queued != 1 || resp.Failed != 1 || resp.Error == nil || !strings.Contains(*resp.Error, "入队失败：connection refused") {
+		t.Fatalf("partial failure response = %+v", resp)
 	}
 }
 
@@ -516,6 +573,32 @@ func TestLiteGradingRegradeSweepsStaleRunningBeforeRefusing(t *testing.T) {
 	// Regrade again, straight away — no GET in between to sweep it first.
 	if code := assignJSON(t, f.h, f.teacher, "POST", regrade, nil, &resp); code != http.StatusOK || resp.Grading.Status != "queued" {
 		t.Fatalf("regrade on a stale running row = %d %+v, want it to proceed (swept first)", code, resp.Grading)
+	}
+}
+
+// TestLiteGradingSingleWritingSweepsStaleRunningBeforeRefusing: the same
+// sweep-before-check as regrade, but through the single-writing POST route,
+// and for a FIRST grading that got stuck (no content yet, not a regrade) —
+// it must proceed, not read as 「批改中」 forever (Task 5 review round 2,
+// small gap).
+func TestLiteGradingSingleWritingSweepsStaleRunningBeforeRefusing(t *testing.T) {
+	f := newGradingFixture(t, gradingValidReply)
+	_, atomID, _ := f.submit(t)
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	var resp struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK {
+		t.Fatalf("single = %d", code)
+	}
+	gid := resp.Grading.ID
+	// A first grading that got stuck 20 minutes ago, before any model reply
+	// ever landed — no content, not a regrade. Nobody has GET the row since.
+	if _, err := f.pool.Exec(context.Background(), `UPDATE lite_grading SET status = 'running', updated_at = now() - interval '20 minutes' WHERE id = $1`, gid); err != nil {
+		t.Fatal(err)
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK || resp.Grading.Status != "queued" {
+		t.Fatalf("single on a stale running row (no content) = %d %+v, want it to proceed (swept first)", code, resp.Grading)
 	}
 }
 

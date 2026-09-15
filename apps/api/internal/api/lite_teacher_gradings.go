@@ -47,7 +47,14 @@ func errGradingExists() *httpx.APIError {
 const errGradingEnqueueFailedCode = "grading_enqueue_failed"
 
 func errGradingEnqueueFailed(err error) *httpx.APIError {
-	return &httpx.APIError{Status: http.StatusServiceUnavailable, Code: errGradingEnqueueFailedCode, Message: "入队失败：" + err.Error()}
+	return errGradingEnqueueFailedMsg("入队失败：" + err.Error())
+}
+
+// errGradingEnqueueFailedMsg builds the same error from an already-formatted
+// message — queue-all's all-recipients-failed response reuses the first
+// recipient's message verbatim rather than re-wrapping it.
+func errGradingEnqueueFailedMsg(msg string) *httpx.APIError {
+	return &httpx.APIError{Status: http.StatusServiceUnavailable, Code: errGradingEnqueueFailedCode, Message: msg}
 }
 
 func errNotWritingForGrading() *httpx.APIError {
@@ -395,7 +402,8 @@ func (a *API) queueLiteAssignmentGradings(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, r, err)
 		return
 	}
-	queued := 0
+	queued, failed := 0, 0
+	var firstFailure string
 	for _, rc := range recipients {
 		if !rc.AtomID.Valid {
 			continue
@@ -425,8 +433,15 @@ func (a *API) queueLiteAssignmentGradings(w http.ResponseWriter, r *http.Request
 		}
 		if apiErr, ok := err.(*httpx.APIError); ok && apiErr.Code == errGradingEnqueueFailedCode {
 			// The row change rolled back with the failed job insert — nothing
-			// was left behind to mark failed. The next 一键AI批改 retries her.
+			// was left behind to mark failed. Surface it in the response
+			// (AI/backend errors must reach the teacher, never fail silently)
+			// instead of only logging it: a systematic failure (queue down
+			// after a deploy) must not read as "nothing to grade".
 			slog.Warn("lite grading: queue-all enqueue failed", "err", apiErr.Message, "user_id", rc.UserID.String())
+			failed++
+			if firstFailure == "" {
+				firstFailure = apiErr.Message
+			}
 			continue
 		}
 		if err != nil {
@@ -435,7 +450,15 @@ func (a *API) queueLiteAssignmentGradings(w http.ResponseWriter, r *http.Request
 		}
 		queued++
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"queued": queued})
+	if failed > 0 && queued == 0 {
+		httpx.WriteError(w, r, errGradingEnqueueFailedMsg(firstFailure))
+		return
+	}
+	var errField any
+	if failed > 0 {
+		errField = firstFailure
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"queued": queued, "failed": failed, "error": errField})
 }
 
 // requeueOrRefuse applies the regrade rules to an existing row: sent is never
