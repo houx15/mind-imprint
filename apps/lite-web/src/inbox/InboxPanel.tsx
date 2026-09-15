@@ -78,20 +78,29 @@ export function InboxPanel({
 
   async function open(item: InboxItemDTO) {
     if (openingId) return;
+    setOpeningId(item.id);
     if (item.type === "grading") {
-      // A failed seen-call must not block getting to the writing — but it
-      // must not vanish without a trace either: `inbox.reload()` re-fetches
-      // the true state, so a mark that actually failed server-side still
-      // shows this row unread the next time the inbox opens, the same
-      // "errors surface through a refetch, not a swallowed catch" pattern
-      // `openAssignment` already uses for its own seen call.
-      await markGradingSeen(item.id).catch(() => undefined);
-      inbox.reload();
-      onClose(false);
-      navigate(writingPath(item.atomId));
+      try {
+        // A failed seen-call must not block getting to the writing — but it
+        // must not vanish without a trace either. Unlike `openAssignment`'s
+        // own seen call (`markSeen(...).catch(() => undefined)`, which
+        // swallows a failure completely with no compensating reload of its
+        // own), this one reloads the inbox unconditionally right after: if
+        // the mark really failed server-side, this row still shows unread
+        // the next time the inbox opens — a real, durable signal instead of
+        // a silently lost one.
+        await markGradingSeen(item.id).catch(() => undefined);
+        inbox.reload();
+        onClose(false);
+        navigate(writingPath(item.atomId));
+      } finally {
+        // Navigating away closes the panel, which usually unmounts it before
+        // this runs — but not always (`onClose`/`navigate` don't guarantee
+        // a synchronous unmount), so this still checks `alive`.
+        if (alive.current) setOpeningId(null);
+      }
       return;
     }
-    setOpeningId(item.id);
     setStartError(null);
     const err = await openAssignment(item, inbox.reload);
     if (!alive.current) return;

@@ -1,7 +1,7 @@
 import type { StudentGrading } from "../api/gradings";
 import type { WritingVersion } from "../api/writings";
 import { formatDeadline } from "../shared/deadline";
-import { quoteRanges, unmarkedPointQuotes } from "../shared/gradingText";
+import { determinedUnmarkedQuotes } from "../shared/gradingText";
 import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
 
 /**
@@ -11,15 +11,18 @@ import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
  *
  * A point's quote is a button: clicking it switches the left column to that
  * grading's version and highlights the sentence there (`FinishedWritingPage`'s
- * `onQuote`). A quote that would not actually highlight in that version's
- * text — not found, or only overlapping another point's already-taken span —
- * also shows 「未在正文中标出」 underneath, the same rule and the same
- * `unmarkedPointQuotes` helper the teacher's own `GradingPage` editor uses,
- * so a point never silently looks fine when it isn't backed by real text.
- * That check needs the graded version's own body, not whatever version is
- * currently on screen — `bodies` is `FinishedWritingPage`'s version cache,
- * keyed by version number; a grading whose version hasn't loaded yet (still
- * in flight) simply shows no "unmarked" flag until it has.
+ * `onQuote`, given this grading's full quote list and the clicked point's
+ * index — not just that one quote's text — so the sentence it highlights is
+ * the exact same one `determinedUnmarkedQuotes` below decided was marked,
+ * not a second, possibly-different match against that quote in isolation).
+ * A quote that would not actually highlight in that version's text — not
+ * found, or only overlapping another point's already-taken span — also
+ * shows 「未在正文中标出」 underneath, the same rule the teacher's own
+ * `GradingPage` editor uses. That check needs the graded version's own
+ * body, not whatever version is currently on screen — `bodies` is
+ * `FinishedWritingPage`'s version cache, keyed by version number; a grading
+ * whose version hasn't loaded (or failed to load) shows no "unmarked" flag
+ * until it has (`determinedUnmarkedQuotes` returns `null` for both).
  */
 const EMPTY_SET: ReadonlySet<number> = new Set();
 
@@ -34,7 +37,7 @@ export function TeacherGradingPanel({
   error: string | null;
   shownVersion: number | null;
   bodies: Record<number, WritingVersion>;
-  onQuote: (versionNumber: number, quote: string) => void;
+  onQuote: (versionNumber: number, quotes: readonly (string | null)[], index: number) => void;
 }) {
   if (!error && gradings.length === 0) return null;
   return (
@@ -47,14 +50,8 @@ export function TeacherGradingPanel({
       )}
       {gradings.map((g) => {
         const forLine = gradingVersionLine(g.versionNumber, shownVersion);
-        // The graded version's body is fetched separately (`FinishedWritingPage`'s
-        // preload effect) and can still be in flight on first render — until
-        // it lands, `quotes` are left undetermined rather than run against an
-        // empty string, which would falsely flag every quoted point as
-        // 未在正文中标出 for one render before the real text arrives.
-        const versionBody = bodies[g.versionNumber];
         const quotes = g.content.points.map((p) => p.quote);
-        const unmarked = versionBody ? new Set(unmarkedPointQuotes(quotes, quoteRanges(versionBody.body, quotes))) : EMPTY_SET;
+        const unmarked = determinedUnmarkedQuotes(bodies[g.versionNumber]?.body, quotes) ?? EMPTY_SET;
         return (
           <article key={g.id} className="flex flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-4">
             <div className="flex flex-wrap items-baseline gap-2">
@@ -85,7 +82,7 @@ export function TeacherGradingPanel({
                     {p.quote && (
                       <button
                         type="button"
-                        onClick={() => onQuote(g.versionNumber, p.quote ?? "")}
+                        onClick={() => onQuote(g.versionNumber, quotes, i)}
                         className="text-left text-mk-secondary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
                       >
                         「{p.quote}」

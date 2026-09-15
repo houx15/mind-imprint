@@ -156,3 +156,26 @@ export const AI_ATTRIBUTION = "由 AI 起草，老师审阅后发送";
 export function gradingVersionLine(gradingVersion: number, shownVersion: number | null): string | null {
   return gradingVersion === shownVersion ? null : `针对 v${gradingVersion}`;
 }
+
+/**
+ * Which version numbers `FinishedWritingPage`'s body cache still needs to
+ * fetch: the version on screen, the latest, and every version a sent 批改
+ * grades (its points' quotes need to be checked against that version's own
+ * text, not whatever happens to be on screen) — minus whatever has already
+ * been requested. "Already requested" covers both a version whose body has
+ * already loaded and one whose fetch is still in flight; a version whose
+ * fetch FAILED is the caller's job to remove from that set again (so it
+ * shows back up here and gets retried), not this function's.
+ */
+export function versionsToPreload(
+  selected: number | null,
+  latest: number | null,
+  gradedVersions: readonly number[],
+  alreadyRequested: ReadonlySet<number>,
+): number[] {
+  const need = new Set<number>();
+  if (selected !== null) need.add(selected);
+  if (latest !== null) need.add(latest);
+  for (const v of gradedVersions) need.add(v);
+  return [...need].filter((n) => !alreadyRequested.has(n));
+}

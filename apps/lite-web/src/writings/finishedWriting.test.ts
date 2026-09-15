@@ -18,6 +18,7 @@ import {
   showFinishedPage,
   stageAfterRevise,
   versionLine,
+  versionsToPreload,
 } from "./finishedWriting";
 
 function homework(over: Partial<AssignmentForAtom> = {}): AssignmentForAtom {
@@ -175,5 +176,21 @@ describe("gradingVersionLine", () => {
     expect(gradingVersionLine(2, 2)).toBeNull();
     expect(gradingVersionLine(1, 2)).toBe("针对 v1");
     expect(gradingVersionLine(1, null)).toBe("针对 v1");
+  });
+});
+
+describe("versionsToPreload", () => {
+  it("needs the selected, the latest and every graded version, deduplicated", () => {
+    expect(versionsToPreload(3, 4, [4, 5], new Set())).toEqual([3, 4, 5]);
+  });
+  it("excludes anything already requested (in flight or already loaded)", () => {
+    expect(versionsToPreload(3, 4, [4, 5], new Set([3, 4]))).toEqual([5]);
+  });
+  it("needs nothing once everything is already requested", () => {
+    expect(versionsToPreload(3, 4, [4, 5], new Set([3, 4, 5]))).toEqual([]);
+  });
+  it("tolerates no selection yet and no graded versions", () => {
+    expect(versionsToPreload(null, 4, [], new Set())).toEqual([4]);
+    expect(versionsToPreload(null, null, [], new Set())).toEqual([]);
   });
 });

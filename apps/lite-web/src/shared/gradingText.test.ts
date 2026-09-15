@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { highlightSegments, pickableSentences, quoteRanges, unmarkedPointQuotes } from "./gradingText";
+import { determinedUnmarkedQuotes, highlightSegments, pickableSentences, quoteRanges, unmarkedPointQuotes } from "./gradingText";
 
 const body = "学校后门那片空地一下雨就积水。去年秋天，我在那里摔过一跤。\n\n我读到城市里的雨水花园。";
 
@@ -68,6 +68,22 @@ describe("unmarkedPointQuotes", () => {
   it("flags nothing once every quote got a range", () => {
     const quotes = ["去年秋天，我在那里摔过一跤。"];
     expect(unmarkedPointQuotes(quotes, quoteRanges(body, quotes))).toEqual([]);
+  });
+});
+
+describe("determinedUnmarkedQuotes", () => {
+  it("is undetermined (null) when the body has not loaded yet", () => {
+    expect(determinedUnmarkedQuotes(undefined, ["去年秋天，我在那里摔过一跤。"])).toBeNull();
+  });
+  it("is undetermined (null) when the body's preload failed — same input as not loaded, by design (see the doc comment: there is no separate 'failed' value at this layer)", () => {
+    expect(determinedUnmarkedQuotes(undefined, ["完全不存在的一句话"])).toBeNull();
+  });
+  it("flags the same points unmarkedPointQuotes would, once the body is known", () => {
+    const quotes = ["去年秋天，我在那里", "我在那里摔过一跤。"];
+    expect(determinedUnmarkedQuotes(body, quotes)).toEqual(new Set([1]));
+  });
+  it("flags nothing once every quote got a range", () => {
+    expect(determinedUnmarkedQuotes(body, ["去年秋天，我在那里摔过一跤。"])).toEqual(new Set());
   });
 });
 

@@ -21,10 +21,29 @@ import {
   NO_VERSION_TEXT,
   returnedLine,
   versionLine,
+  versionsToPreload,
   type AssignmentLoadState,
 } from "./finishedWriting";
 import { TeacherGradingPanel } from "./TeacherGradingPanel";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
+
+/**
+ * A point's quote, picked from `TeacherGradingPanel`. Carries the whole
+ * grading's quote list (not just this one point's text) and which index is
+ * hers, so `VersionText` runs the exact same `quoteRanges` call
+ * (`determinedUnmarkedQuotes` in `TeacherGradingPanel` uses the same
+ * function) and picks that point's own occurrence — not a second, possibly
+ * different match found by searching for that one quote in isolation.
+ * `nonce` exists only so clicking the SAME quote again still re-scrolls:
+ * without it, an identical `{version, quotes, index}` would look unchanged
+ * to `VersionText`'s scroll effect.
+ */
+interface QuoteHighlight {
+  version: number;
+  quotes: readonly (string | null)[];
+  index: number;
+  nonce: number;
+}
 
 /**
  * FinishedWritingPage — `/writings/:id` once a writing is finished and
@@ -71,7 +90,8 @@ export function FinishedWritingPage({
   const [actionError, setActionError] = useState<string | null>(null);
   const [gradings, setGradings] = useState<StudentGrading[]>([]);
   const [gradingsError, setGradingsError] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<{ version: number; quote: string } | null>(null);
+  const [highlight, setHighlight] = useState<QuoteHighlight | null>(null);
+  const highlightNonce = useRef(0);
 
   useEffect(() => {
     setList(null);
@@ -90,7 +110,10 @@ export function FinishedWritingPage({
       .then((l) => {
         if (!alive.current) return;
         setList(l);
-        setSelected(l.versions[0]?.number ?? null);
+        // A quote click can land before this resolves (gradings load
+        // concurrently with the version list) and already pick a version to
+        // show — don't stomp her choice with the default latest.
+        setSelected((s) => (s !== null ? s : (l.versions[0]?.number ?? null)));
       })
       .catch((e: unknown) => {
         if (alive.current) setLoadError(apiErrorText(e));
@@ -124,25 +147,42 @@ export function FinishedWritingPage({
 
   const latest = list?.versions[0]?.number ?? null;
 
+  // Read inside the preload effect's `.catch` (below), which fires later
+  // and asynchronously — must see the CURRENT `selected`/`latest`, not
+  // whatever they were when that particular fetch started.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const latestRef = useRef(latest);
+  latestRef.current = latest;
+
   useEffect(() => {
     // Also fetches every graded version's body, not only the one on screen:
     // the 老师批改 panel needs each grading's own text to tell whether a
     // point's quote actually highlights there, and preloading it here means
     // clicking a quote switches version instantly instead of triggering a
     // fresh fetch on top of the switch.
-    const need = new Set<number>();
-    if (selected !== null) need.add(selected);
-    if (latest !== null) need.add(latest);
-    for (const g of gradings) need.add(g.versionNumber);
-    for (const n of need) {
-      if (requested.current.has(n)) continue;
+    const gradedVersions = gradings.map((g) => g.versionNumber);
+    for (const n of versionsToPreload(selected, latest, gradedVersions, requested.current)) {
       requested.current.add(n);
       getWritingVersion(writing.id, n)
         .then((v) => {
           if (alive.current) setBodies((b) => ({ ...b, [n]: v }));
         })
         .catch((e: unknown) => {
-          if (alive.current) setLoadError(apiErrorText(e));
+          if (!alive.current) return;
+          // Retryable: remove it so a later need — reselecting this
+          // version, or a quote click that lands on it — tries again
+          // instead of giving up on it forever.
+          requested.current.delete(n);
+          // Only a failure of the body she is actually looking at may use
+          // the page-wide error. A background preload failure for some
+          // OTHER graded version must not make the page she IS reading
+          // look broken (`finishedBodyState` reads `loadError` and blanks
+          // the article for ANY non-null value, regardless of which
+          // version it was about).
+          if (n === selectedRef.current || n === latestRef.current) {
+            setLoadError(apiErrorText(e));
+          }
         });
     }
   }, [selected, latest, gradings, writing.id, alive]);
@@ -240,11 +280,7 @@ export function FinishedWritingPage({
             {bodyState === "no_versions" ? (
               <p className="text-mk-body text-mk-muted">{NO_VERSION_TEXT}</p>
             ) : bodyState === "error" ? null : (
-              <VersionText
-                version={shown}
-                diff={diff}
-                highlight={highlight && highlight.version === selected ? highlight.quote : null}
-              />
+              <VersionText version={shown} diff={diff} highlight={highlight && highlight.version === selected ? highlight : null} />
             )}
           </article>
 
@@ -277,7 +313,21 @@ export function FinishedWritingPage({
             </ul>
             {selected !== null && latest !== null && selected !== latest && (
               <div className="flex flex-col gap-2">
-                <Button variant={compare ? "primary" : "secondary"} size="sm" onClick={() => setCompare((c) => !c)}>
+                <Button
+                  variant={compare ? "primary" : "secondary"}
+                  size="sm"
+                  onClick={() =>
+                    setCompare((c) => {
+                      const next = !c;
+                      // Turning compare ON must not leave a highlight from
+                      // an earlier quote click sitting underneath it —
+                      // otherwise turning compare back OFF would bring that
+                      // stale highlight back instead of the plain text.
+                      if (next) setHighlight(null);
+                      return next;
+                    })
+                  }
+                >
                   与当前版本对比
                 </Button>
                 {compare && (
@@ -293,10 +343,11 @@ export function FinishedWritingPage({
               error={gradingsError}
               shownVersion={selected}
               bodies={bodies}
-              onQuote={(version, quote) => {
+              onQuote={(version, quotes, index) => {
                 setSelected(version);
                 setCompare(false);
-                setHighlight({ version, quote });
+                highlightNonce.current += 1;
+                setHighlight({ version, quotes, index, nonce: highlightNonce.current });
               }}
             />
           </aside>
@@ -317,11 +368,21 @@ const DEL_STYLE: CSSProperties = {
 };
 
 /**
- * `highlight` is a quote text from a 老师批改 point (`TeacherGradingPanel`'s
- * `onQuote`) — set whenever the version being shown is the one that quote
- * was picked against. Takes priority over `diff`: a quote click always
- * clears `compare` first (see the aside), so the two never coexist for the
- * same render.
+ * `highlight` names a point's quote from a 老师批改 card
+ * (`TeacherGradingPanel`'s `onQuote`), already filtered by the caller to
+ * only the version being shown (`highlight.version === selected`). `diff`
+ * takes priority over it, never the other way around: a quote click always
+ * clears `compare` first, and turning `compare` on clears `highlight` (see
+ * the aside), so in practice the two never coexist for the same render —
+ * this `!diff &&` guard is a second line of defense, not the mechanism that
+ * keeps them apart.
+ *
+ * The highlighted range is found by running `quoteRanges` over the
+ * grading's WHOLE quote list (`highlight.quotes`), the same call
+ * `determinedUnmarkedQuotes` makes, then picking `highlight.index`'s own
+ * range out of it — never by searching for the one clicked quote in
+ * isolation, which could resolve a repeated sentence or an overlap
+ * differently than the unmarked check did.
  */
 function VersionText({
   version,
@@ -330,15 +391,21 @@ function VersionText({
 }: {
   version: WritingVersion | undefined;
   diff: ParagraphDiff[] | null;
-  highlight: string | null;
+  highlight: { quotes: readonly (string | null)[]; index: number; nonce: number } | null;
 }) {
   const markRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     markRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [highlight, version?.number]);
+    // `highlight?.nonce` (not the `highlight` object itself, and not
+    // `.index`/`.quotes` alone) so clicking the SAME quote again still
+    // re-scrolls — an identical {quotes, index} would otherwise look
+    // unchanged to this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlight?.nonce, version?.number]);
   if (!version) return <p className="text-mk-body text-mk-muted">加载中…</p>;
   if (!diff && highlight) {
-    const segments = highlightSegments(version.body, quoteRanges(version.body, [highlight]));
+    const ranges = quoteRanges(version.body, highlight.quotes).filter((r) => r.index === highlight.index);
+    const segments = highlightSegments(version.body, ranges);
     return (
       <div className={PIECE_CLS}>
         {segments.map((seg, i) =>

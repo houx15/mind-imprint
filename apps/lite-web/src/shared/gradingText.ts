@@ -136,6 +136,26 @@ export function unmarkedPointQuotes(quotes: readonly (string | null)[], ranges: 
   return out;
 }
 
+/**
+ * Which of `quotes` should show 「未在正文中标出」 — or `null` when that
+ * cannot be determined yet, because the graded version's body has not
+ * loaded. A caller whose body fetch FAILED passes `undefined` here too
+ * (there is no separate "failed" value: `FinishedWritingPage` never
+ * populates its body cache for a failed fetch, so "not loaded" and "failed
+ * to load" are the same input at this layer) — both must read as
+ * undetermined, never as "nothing is marked." Treating a missing body as
+ * "all clear" would falsely flag every quoted point for one render before
+ * the real text arrives, or keep flagging them forever after a background
+ * preload failure that has nothing to do with whether her quotes are real.
+ */
+export function determinedUnmarkedQuotes(
+  body: string | undefined,
+  quotes: readonly (string | null)[],
+): ReadonlySet<number> | null {
+  if (body === undefined) return null;
+  return new Set(unmarkedPointQuotes(quotes, quoteRanges(body, quotes)));
+}
+
 /** Sentences a teacher can pick as a point's quote. Only exact substrings are
  *  offered, because the server refuses any other quote. */
 export function pickableSentences(text: string): string[] {
