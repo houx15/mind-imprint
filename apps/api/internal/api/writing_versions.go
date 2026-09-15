@@ -75,22 +75,46 @@ func insertWritingVersion(ctx context.Context, q *sqlc.Queries, atomID uuid.UUID
 	})
 }
 
-// writingWriteGate is the writing branch of loadOwnedAtom's write gate. An
-// open writing accepts writes as always. A finished writing accepts writes
-// only while she is revising it, and only through refuseIfWritingLocked —
-// the one place the lock rule lives (see that function's comment).
-func (a *API) writingWriteGate(ctx context.Context, at sqlc.Atom) error {
-	wr, err := a.d.Queries.GetWriting(ctx, at.ID)
-	if err != nil {
-		return err
-	}
+// writingWriteGateForRow is the finished/revising/lock rule itself, evaluated
+// against a writing row the caller already has: open → nil; finished, not
+// revising → writing_finished; finished, revising → refuseIfWritingLocked
+// (the one place the lock rule lives). Two shapes call this:
+//
+//   - writingWriteGate (below) — loadOwnedAtom's fast pre-check, reading
+//     with a.d.Queries (no lock, not in any transaction). It exists to fail
+//     obviously-closed writes early and to gate the last_activity_at touch;
+//     it is NOT the authority for anything that also writes writing_draft.
+//   - putWritingDraft / composeWritingDraft — the authority. Both re-run
+//     this gate against a row taken with GetWritingForUpdate inside their
+//     own transaction, immediately before the writing_draft upsert, using
+//     the SAME tx's queries for the lock check. That is what actually
+//     closes the race the pre-check cannot: without it, an upsert whose
+//     pre-check ran while she was still revising could still commit AFTER a
+//     concurrent discardWritingRevision or finishWritingAtom transaction had
+//     already restored/replaced writing_draft and cleared revising_at,
+//     silently reviving text she had just discarded (or superseding a fresh
+//     version with a stale one). Taking GetWritingForUpdate first makes the
+//     gate check and the write serialize with discard/finish's own
+//     GetWritingForUpdate on the same row.
+func writingWriteGateForRow(ctx context.Context, q *sqlc.Queries, wr sqlc.Writing, ownerID uuid.UUID) error {
 	if wr.Status != "finished" {
 		return nil
 	}
 	if !wr.RevisingAt.Valid {
 		return httpx.ErrWritingFinished()
 	}
-	return refuseIfWritingLocked(ctx, a.d.Queries, at.ID, at.UserID, time.Now())
+	return refuseIfWritingLocked(ctx, q, wr.AtomID, ownerID, time.Now())
+}
+
+// writingWriteGate is the writing branch of loadOwnedAtom's write gate — see
+// writingWriteGateForRow's comment for why this is a fast pre-check, not the
+// authority, for any handler that itself writes writing_draft.
+func (a *API) writingWriteGate(ctx context.Context, at sqlc.Atom) error {
+	wr, err := a.d.Queries.GetWriting(ctx, at.ID)
+	if err != nil {
+		return err
+	}
+	return writingWriteGateForRow(ctx, a.d.Queries, wr, at.UserID)
 }
 
 // reviseWriting is POST /api/v1/writings/{id}/revise (修改): reopen a

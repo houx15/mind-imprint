@@ -91,6 +91,14 @@ func (a *API) getWritingDraft(w http.ResponseWriter, r *http.Request) {
 // like a title, so no whitespace normalization is imposed on it. No
 // entitlement gate — no model call, no spend, same reasoning as
 // putEditBuffer/putWritingSnippets/putWritingOutline.
+//
+// loadOwnedWritingAtom's gate is only a fast pre-check here (see
+// writingWriteGateForRow's comment): this handler is one of the two that
+// actually write writing_draft outside the finish/discard transactions, so
+// it re-takes the row lock (GetWritingForUpdate) and re-runs the gate inside
+// its OWN transaction, immediately before the upsert, so this write
+// serializes with a concurrent discardWritingRevision or finishWritingAtom
+// rather than racing to land after one of them.
 func (a *API) putWritingDraft(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
@@ -103,14 +111,44 @@ func (a *API) putWritingDraft(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	row, err := a.d.Queries.UpsertWritingDraft(r.Context(), sqlc.UpsertWritingDraftParams{
-		AtomID: at.ID, Body: body.Body,
-	})
+	row, err := a.writeWritingDraftLocked(r.Context(), at, body.Body)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, toWritingDraftDTO(row))
+}
+
+// writeWritingDraftLocked is putWritingDraft's and composeWritingDraft's
+// shared transactional core: GetWritingForUpdate (the row lock) →
+// writingWriteGateForRow (the authoritative finished/revising/lock check,
+// evaluated under that lock) → the writing_draft upsert, all in one
+// transaction. See writingWriteGateForRow's comment for why this — and not
+// loadOwnedWritingAtom's pre-check alone — is what actually closes the race
+// with discardWritingRevision/finishWritingAtom.
+func (a *API) writeWritingDraftLocked(ctx context.Context, at sqlc.Atom, body string) (sqlc.WritingDraft, error) {
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return sqlc.WritingDraft{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	wr, err := qtx.GetWritingForUpdate(ctx, at.ID)
+	if err != nil {
+		return sqlc.WritingDraft{}, err
+	}
+	if err := writingWriteGateForRow(ctx, qtx, wr, at.UserID); err != nil {
+		return sqlc.WritingDraft{}, err
+	}
+	row, err := qtx.UpsertWritingDraft(ctx, sqlc.UpsertWritingDraftParams{AtomID: at.ID, Body: body})
+	if err != nil {
+		return sqlc.WritingDraft{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return sqlc.WritingDraft{}, err
+	}
+	return row, nil
 }
 
 // composeSnippetsIntoDraft is the mechanical assembly itself, kept pure and
@@ -157,9 +195,10 @@ func (a *API) composeWritingDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body := composeSnippetsIntoDraft(snippets)
-	row, err := a.d.Queries.UpsertWritingDraft(r.Context(), sqlc.UpsertWritingDraftParams{
-		AtomID: at.ID, Body: body,
-	})
+	// See writeWritingDraftLocked's comment (putWritingDraft, this file) —
+	// this handler is the other direct writer of writing_draft outside the
+	// finish/discard transactions, so it goes through the same locked path.
+	row, err := a.writeWritingDraftLocked(r.Context(), at, body)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -360,8 +399,15 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 	// Re-read the draft with the tx queries, under the row lock just taken
 	// above (GetWritingForUpdate), rather than reusing the pre-transaction
 	// read: an autosave (PUT /draft) can land between the missing_draft check
-	// and here, and the version must equal what she actually submitted, not
-	// a stale snapshot from before the race.
+	// and here. This alone would not be enough — putWritingDraft used to
+	// write outside any transaction, so an autosave could still commit
+	// between this re-read and tx.Commit below. It now takes the SAME
+	// GetWritingForUpdate lock before its own upsert (writeWritingDraftLocked,
+	// this file), so the two transactions serialize on the writing row: by
+	// the time this re-read runs, no PUT /draft can still be in flight for
+	// this atom, and none can land before this transaction commits. That is
+	// the actual guarantee — the version equals what was in writing_draft at
+	// commit time, not just "what was there a moment ago."
 	freshDraft, err := qtx.GetWritingDraft(ctx, at.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, err)

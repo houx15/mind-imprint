@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mindimprint/api/internal/store/sqlc"
 )
 
 type versionRow struct {
@@ -310,6 +312,118 @@ func TestWritingVersionRefinishUsesEditedDraft(t *testing.T) {
 	}
 	if got[1].Number != 2 || got[1].Body != "第二版正文，改过了。" {
 		t.Fatalf("version 2 = %+v, want the edited body", got[1])
+	}
+}
+
+// TestWritingVersionDraftPutSerializesWithDiscard pins the fix-round-1
+// finding: PUT /draft must not be able to commit between discard's restore
+// and discard's own commit. It reproduces exactly that ordering — not with
+// a sleep-and-hope race, but by holding the SAME row lock
+// (GetWritingForUpdate, "FOR UPDATE") discardWritingRevision takes, in a
+// transaction this test controls directly, and proving a concurrent PUT
+// /draft genuinely blocks on it at the database level (Postgres, not a
+// goroutine scheduling accident) until that transaction commits.
+//
+// The one inherently timing-based part is the "still blocked" check midway
+// through — bounded by a generous 500ms against a lock wait that has no
+// legitimate way to resolve early, so it is not expected to be flaky. The
+// assertion that actually proves the fix is fully deterministic: it runs
+// only after the discard transaction has committed, and checks that the
+// concurrent PUT (a) was refused 403 writing_finished (not a stale success)
+// and (b) never got to overwrite the restored draft.
+func TestWritingVersionDraftPutSerializesWithDiscard(t *testing.T) {
+	h, pool, _, _, studentID := liteTeacherFixture(t)
+	student := signInAs(t, pool, studentID)
+	id := newBroughtWriting(t, h, student, "第一版正文。")
+	atomID := uuid.MustParse(id)
+	base := "/api/v1/writings/" + id
+
+	if code := assignJSON(t, h, student, "POST", base+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish = %d", code)
+	}
+	if code := assignJSON(t, h, student, "POST", base+"/revise", nil, nil); code != http.StatusOK {
+		t.Fatalf("revise = %d", code)
+	}
+	// A legitimate edit while revising, BEFORE the discard-in-flight window
+	// below — this is what discard is about to overwrite.
+	if code := assignJSON(t, h, student, "PUT", base+"/draft", map[string]any{"body": "修改中，还没保存的版本。"}, nil); code != http.StatusOK {
+		t.Fatalf("draft while revising = %d", code)
+	}
+
+	ctx := context.Background()
+	q := sqlc.New(pool)
+
+	// Hold the exact lock discardWritingRevision takes, in a transaction this
+	// test controls, so it can pause discard's effect mid-flight.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin discard tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op once committed below
+	qtx := q.WithTx(tx)
+	wr, err := qtx.GetWritingForUpdate(ctx, atomID)
+	if err != nil {
+		t.Fatalf("GetWritingForUpdate: %v", err)
+	}
+	if !wr.RevisingAt.Valid {
+		t.Fatalf("not revising: %+v", wr)
+	}
+
+	// A PUT /draft racing the discard: its own GetWritingForUpdate must block
+	// on the row lock this test's transaction is holding.
+	type raceResult struct {
+		code int
+		ec   string
+	}
+	done := make(chan raceResult, 1)
+	go func() {
+		code, ec := writeErrorCode(t, h, student, "PUT", base+"/draft", map[string]any{"body": "赛跑写入，不该落地。"})
+		done <- raceResult{code, ec}
+	}()
+
+	select {
+	case <-done:
+		t.Fatalf("PUT /draft returned before the discard transaction (holding the row lock) committed — the write is not serializing with discard")
+	case <-time.After(500 * time.Millisecond):
+		// Still blocked on the lock, as it must be.
+	}
+
+	// Now perform discard's own effect — restore the draft and title from
+	// the latest version, clear revising_at — and commit, releasing the lock
+	// the racing PUT is waiting on.
+	latest, err := qtx.GetLatestWritingVersion(ctx, atomID)
+	if err != nil {
+		t.Fatalf("GetLatestWritingVersion: %v", err)
+	}
+	if _, err := qtx.UpsertWritingDraft(ctx, sqlc.UpsertWritingDraftParams{AtomID: atomID, Body: latest.Body}); err != nil {
+		t.Fatalf("restore draft: %v", err)
+	}
+	if err := qtx.RenameWriting(ctx, sqlc.RenameWritingParams{AtomID: atomID, Title: latest.Title}); err != nil {
+		t.Fatalf("restore title: %v", err)
+	}
+	if err := qtx.ClearWritingRevising(ctx, atomID); err != nil {
+		t.Fatalf("clear revising: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit discard tx: %v", err)
+	}
+
+	var race raceResult
+	select {
+	case race = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("PUT /draft never returned after the discard transaction committed")
+	}
+	if race.code != http.StatusForbidden || race.ec != "writing_finished" {
+		t.Fatalf("racing PUT /draft = %d %s, want 403 writing_finished (discard's restore must win)", race.code, race.ec)
+	}
+
+	var draft struct {
+		Body string `json:"body"`
+	}
+	getJSON(t, h, student, base+"/draft", &draft)
+	if draft.Body != "第一版正文。" {
+		t.Fatalf("draft after discard = %q, want the restored version body, not the racing write", draft.Body)
 	}
 }
 
