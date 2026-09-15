@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import type { AssignmentInboxItem } from "../api/assignments";
+import type { AssignmentInboxItem, GradingInboxItem, InboxItemDTO } from "../api/assignments";
+import { markGradingSeen } from "../api/gradings";
+import { navigate, writingPath } from "../routing";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
@@ -21,10 +23,12 @@ import type { InboxState } from "./useInbox";
  * Closes on Escape (focus returns to the button), a pointer-down outside the
  * panel and its button, and navigation (handled by `InboxButton`).
  *
- * Every row here is an assignment: chip = its kind, 说明, 截止, status;
- * opening starts it. Order and unread come from the server. Sent-grading
- * rows also live in the inbox (`InboxItemDTO`'s `type: "grading"` member)
- * but are not rendered by this panel yet — Task 14 adds that.
+ * Two kinds of row (`InboxItemDTO`'s union): an assignment (chip = its kind,
+ * 说明, 截止, status; opening starts it) and a sent 批改 of one of her
+ * writings (chip = 批改, the writing's title, when it was sent; opening
+ * marks it seen and takes her straight to that writing's finished page,
+ * where `TeacherGradingPanel` renders it). Order and unread come from the
+ * server for both.
  */
 export function InboxPanel({
   inbox,
@@ -70,10 +74,23 @@ export function InboxPanel({
     };
   }, [anchor, onClose]);
 
-  const items = sortUnreadFirst(inbox.items.filter((it): it is AssignmentInboxItem => it.type === "assignment"));
+  const items = sortUnreadFirst(inbox.items);
 
-  async function open(item: AssignmentInboxItem) {
+  async function open(item: InboxItemDTO) {
     if (openingId) return;
+    if (item.type === "grading") {
+      // A failed seen-call must not block getting to the writing — but it
+      // must not vanish without a trace either: `inbox.reload()` re-fetches
+      // the true state, so a mark that actually failed server-side still
+      // shows this row unread the next time the inbox opens, the same
+      // "errors surface through a refetch, not a swallowed catch" pattern
+      // `openAssignment` already uses for its own seen call.
+      await markGradingSeen(item.id).catch(() => undefined);
+      inbox.reload();
+      onClose(false);
+      navigate(writingPath(item.atomId));
+      return;
+    }
     setOpeningId(item.id);
     setStartError(null);
     const err = await openAssignment(item, inbox.reload);
@@ -99,7 +116,7 @@ export function InboxPanel({
     >
       <div className="border-b border-mk-border px-4 py-3">
         <h2 className="text-mk-body font-semibold text-mk-ink">收件箱</h2>
-        <p className="mt-0.5 text-mk-small text-mk-muted">作业会出现在这里。</p>
+        <p className="mt-0.5 text-mk-small text-mk-muted">作业和老师批改会出现在这里。</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -126,47 +143,18 @@ export function InboxPanel({
         {items.length > 0 && (
           <ul className="flex flex-col gap-1">
             {items.map((item) => (
-              <li key={item.id}>
+              <li key={`${item.type}:${item.id}`}>
                 <button
                   type="button"
                   disabled={openingId !== null}
                   onClick={() => void open(item)}
                   className="flex w-full flex-col gap-1 rounded-mk-md px-2.5 py-2 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-paper disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label text-mk-accent-700"
-                      style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
-                    >
-                      {kindLabel(item.kind)}
-                    </span>
-                    {item.unread && (
-                      <span
-                        aria-label="未读"
-                        className="h-2 w-2 shrink-0 rounded-mk-full"
-                        style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px var(--mk-surface)" }}
-                      />
-                    )}
-                    <span
-                      className={`min-w-0 flex-1 truncate text-mk-body text-mk-ink ${item.unread ? "font-semibold" : ""}`}
-                    >
-                      {item.title}
-                    </span>
-                  </span>
-                  {item.instructions.trim() && (
-                    <span className="line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</span>
+                  {item.type === "grading" ? (
+                    <GradingRowBody item={item} />
+                  ) : (
+                    <AssignmentRowBody item={item} opening={openingId === item.id} />
                   )}
-                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mk-small text-mk-muted">
-                    {item.className && <span>{item.className}</span>}
-                    {item.dueAt && <span>截止 {formatDeadline(item.dueAt)}</span>}
-                    <span className="ml-auto">
-                      {openingId === item.id ? (
-                        <span className="text-mk-small text-mk-muted">处理中</span>
-                      ) : (
-                        <AssignmentStatusChip status={item.status} label={item.statusLabel} />
-                      )}
-                    </span>
-                  </span>
                 </button>
               </li>
             ))}
@@ -181,5 +169,68 @@ export function InboxPanel({
       )}
     </div>,
     document.body,
+  );
+}
+
+function AssignmentRowBody({ item, opening }: { item: AssignmentInboxItem; opening: boolean }) {
+  return (
+    <>
+      <span className="flex items-center gap-2">
+        <span
+          className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label text-mk-accent-700"
+          style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
+        >
+          {kindLabel(item.kind)}
+        </span>
+        {item.unread && (
+          <span
+            aria-label="未读"
+            className="h-2 w-2 shrink-0 rounded-mk-full"
+            style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px var(--mk-surface)" }}
+          />
+        )}
+        <span className={`min-w-0 flex-1 truncate text-mk-body text-mk-ink ${item.unread ? "font-semibold" : ""}`}>
+          {item.title}
+        </span>
+      </span>
+      {item.instructions.trim() && <span className="line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</span>}
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mk-small text-mk-muted">
+        {item.className && <span>{item.className}</span>}
+        {item.dueAt && <span>截止 {formatDeadline(item.dueAt)}</span>}
+        <span className="ml-auto">
+          {opening ? (
+            <span className="text-mk-small text-mk-muted">处理中</span>
+          ) : (
+            <AssignmentStatusChip status={item.status} label={item.statusLabel} />
+          )}
+        </span>
+      </span>
+    </>
+  );
+}
+
+function GradingRowBody({ item }: { item: GradingInboxItem }) {
+  return (
+    <>
+      <span className="flex items-center gap-2">
+        <span
+          className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label text-mk-accent-700"
+          style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
+        >
+          批改
+        </span>
+        {item.unread && (
+          <span
+            aria-label="未读"
+            className="h-2 w-2 shrink-0 rounded-mk-full"
+            style={{ background: "var(--mk-danger)", boxShadow: "0 0 0 2px var(--mk-surface)" }}
+          />
+        )}
+        <span className={`min-w-0 flex-1 truncate text-mk-body text-mk-ink ${item.unread ? "font-semibold" : ""}`}>
+          {item.writingTitle}
+        </span>
+      </span>
+      <span className="text-mk-small text-mk-muted">发送于 {formatDeadline(item.sentAt)}</span>
+    </>
   );
 }

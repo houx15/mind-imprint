@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { Button } from "@/ui";
 import { getAssignmentForAtom, type AssignmentForAtom } from "../api/assignments";
 import { apiErrorText } from "../api/errorText";
+import { listWritingGradings, type StudentGrading } from "../api/gradings";
 import { getWritingVersion, listWritingVersions, type Writing, type WritingVersion, type WritingVersionList } from "../api/writings";
 import { ReportPanel } from "../reports/ReportPanel";
 import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
+import { highlightSegments, MARK_STYLE, PIECE_CLS, quoteRanges } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { tintedChipStyle } from "../teacher/assignmentLogic";
 import {
@@ -21,6 +23,7 @@ import {
   versionLine,
   type AssignmentLoadState,
 } from "./finishedWriting";
+import { TeacherGradingPanel } from "./TeacherGradingPanel";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
 /**
@@ -31,9 +34,10 @@ import { diffVersions, type ParagraphDiff } from "./versionDiff";
  *
  * Header: title, chip, homework line, locked/returned line, 修改 and 报告.
  * Left column (44rem): the version being viewed, the latest by default.
- * Right rail: 版本, and 与当前版本对比 when an older version is selected.
- * Below 1024px the rail follows the text in one column. 报告 swaps the
- * columns for ReportPanel.
+ * Right rail: 版本, 老师批改 (absent when the teacher has sent none — see
+ * `TeacherGradingPanel`), and 与当前版本对比 when an older version is
+ * selected. Below 1024px the rail follows the text in one column. 报告 swaps
+ * the columns for ReportPanel.
  *
  * `revise()` opens the compose/write view via `onRevise` (WritingRoomHost's
  * `reload()` re-runs the load effect; `isRevising(writing)` and `showFinishedPage`
@@ -65,6 +69,9 @@ export function FinishedWritingPage({
   const [showReport, setShowReport] = useState(false);
   const [revising, setRevising] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [gradings, setGradings] = useState<StudentGrading[]>([]);
+  const [gradingsError, setGradingsError] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<{ version: number; quote: string } | null>(null);
 
   useEffect(() => {
     setList(null);
@@ -76,6 +83,9 @@ export function FinishedWritingPage({
     setAssignment(null);
     setAssignmentState("loading");
     setAssignmentError(null);
+    setGradings([]);
+    setGradingsError(null);
+    setHighlight(null);
     listWritingVersions(writing.id)
       .then((l) => {
         if (!alive.current) return;
@@ -100,13 +110,32 @@ export function FinishedWritingPage({
         setAssignmentState("failed");
         setAssignmentError(apiErrorText(e));
       });
+    // Fetched fresh on every load, no stale cache — a grading re-sent after
+    // the teacher edits it shows the updated content the next time this
+    // page opens (controller ruling 3).
+    listWritingGradings(writing.id)
+      .then((g) => {
+        if (alive.current) setGradings(g);
+      })
+      .catch((e: unknown) => {
+        if (alive.current) setGradingsError(apiErrorText(e));
+      });
   }, [writing.id, alive]);
 
   const latest = list?.versions[0]?.number ?? null;
 
   useEffect(() => {
-    for (const n of [selected, latest]) {
-      if (n === null || requested.current.has(n)) continue;
+    // Also fetches every graded version's body, not only the one on screen:
+    // the 老师批改 panel needs each grading's own text to tell whether a
+    // point's quote actually highlights there, and preloading it here means
+    // clicking a quote switches version instantly instead of triggering a
+    // fresh fetch on top of the switch.
+    const need = new Set<number>();
+    if (selected !== null) need.add(selected);
+    if (latest !== null) need.add(latest);
+    for (const g of gradings) need.add(g.versionNumber);
+    for (const n of need) {
+      if (requested.current.has(n)) continue;
       requested.current.add(n);
       getWritingVersion(writing.id, n)
         .then((v) => {
@@ -116,7 +145,7 @@ export function FinishedWritingPage({
           if (alive.current) setLoadError(apiErrorText(e));
         });
     }
-  }, [selected, latest, writing.id, alive]);
+  }, [selected, latest, gradings, writing.id, alive]);
 
   const shown = selected !== null ? bodies[selected] : undefined;
   const latestBody = latest !== null ? bodies[latest] : undefined;
@@ -211,7 +240,11 @@ export function FinishedWritingPage({
             {bodyState === "no_versions" ? (
               <p className="text-mk-body text-mk-muted">{NO_VERSION_TEXT}</p>
             ) : bodyState === "error" ? null : (
-              <VersionText version={shown} diff={diff} />
+              <VersionText
+                version={shown}
+                diff={diff}
+                highlight={highlight && highlight.version === selected ? highlight.quote : null}
+              />
             )}
           </article>
 
@@ -232,6 +265,7 @@ export function FinishedWritingPage({
                     onClick={() => {
                       setSelected(v.number);
                       if (v.number === latest) setCompare(false);
+                      setHighlight(null);
                     }}
                     className="w-full rounded-mk-sm px-3 py-2 text-left text-mk-small text-mk-ink transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
                     style={v.number === selected ? SELECTED_STYLE : undefined}
@@ -254,6 +288,17 @@ export function FinishedWritingPage({
                 )}
               </div>
             )}
+            <TeacherGradingPanel
+              gradings={gradings}
+              error={gradingsError}
+              shownVersion={selected}
+              bodies={bodies}
+              onQuote={(version, quote) => {
+                setSelected(version);
+                setCompare(false);
+                setHighlight({ version, quote });
+              }}
+            />
           </aside>
         </div>
       )}
@@ -270,10 +315,44 @@ const DEL_STYLE: CSSProperties = {
   background: "color-mix(in srgb, var(--mk-danger) 14%, transparent)",
   textDecoration: "line-through",
 };
-const PIECE_CLS = "whitespace-pre-wrap font-mk-piece text-mk-report-piece text-mk-ink";
 
-function VersionText({ version, diff }: { version: WritingVersion | undefined; diff: ParagraphDiff[] | null }) {
+/**
+ * `highlight` is a quote text from a 老师批改 point (`TeacherGradingPanel`'s
+ * `onQuote`) — set whenever the version being shown is the one that quote
+ * was picked against. Takes priority over `diff`: a quote click always
+ * clears `compare` first (see the aside), so the two never coexist for the
+ * same render.
+ */
+function VersionText({
+  version,
+  diff,
+  highlight,
+}: {
+  version: WritingVersion | undefined;
+  diff: ParagraphDiff[] | null;
+  highlight: string | null;
+}) {
+  const markRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    markRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlight, version?.number]);
   if (!version) return <p className="text-mk-body text-mk-muted">加载中…</p>;
+  if (!diff && highlight) {
+    const segments = highlightSegments(version.body, quoteRanges(version.body, [highlight]));
+    return (
+      <div className={PIECE_CLS}>
+        {segments.map((seg, i) =>
+          seg.index === null ? (
+            <span key={i}>{seg.text}</span>
+          ) : (
+            <mark key={i} ref={markRef} style={MARK_STYLE}>
+              {seg.text}
+            </mark>
+          ),
+        )}
+      </div>
+    );
+  }
   if (diff) {
     return (
       <div className="flex flex-col gap-6">
