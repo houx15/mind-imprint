@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,61 +17,36 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// lite_teacher_workspace.go — 教师工作台的一轮：左边对话，右边的作业卡由工具写。
+// lite_teacher_workspace.go — 教师工作台的一轮：左边对话，右边的画布由工具写。
 //
 // This is the only teacher route that calls a model synchronously. It runs a
-// bounded tool loop on the dialogue tier: the model may reach for the six
-// tools in liteworkspace.AssignmentTools, the server executes them and feeds
-// the results back inside the same turn, and the loop stops after
+// bounded tool loop on the dialogue tier: the model may reach for the tools
+// the page's surface offers (liteWorkspaceSurface), the server executes them
+// and feeds the results back inside the same turn, and the loop stops after
 // liteworkspace.ToolLoopMax MODEL CALLS — one of which has to be the call that
 // answers, so the tool budget is one less than that number.
 //
-// 🚨 教师可见性边界：没有一个工具读学生与印记的对话记录。The tools here reach
-// the roster, the assignment rows behind it and the embedded reading library —
-// atom_message is not queried from this file, and a tool added later must keep
-// it that way.
+// This file is the part every surface shares: decoding, ownership, history
+// bounding, metering, the loop, the §6 name and head-count checks, slug
+// replacement and option clamping. A surface supplies only its tools, its
+// prompt, its tool execution and its grounding inputs. The assignment surface
+// is in lite_teacher_workspace_assignment.go.
+//
+// 🚨 教师可见性边界：没有一个工具读学生与印记的对话记录。The tools reach the
+// roster, the assignment rows behind it and the embedded reading library —
+// atom_message is not queried from these files, and a tool or surface added
+// later must keep it that way.
 
 // liteTeacherWorkspacePurpose is the llm_call purpose for every model call a
 // workspace turn makes, including the ones inside the tool loop.
 const liteTeacherWorkspacePurpose = "lite_teacher_workspace"
 
-// liteWorkspaceSearchLimit bounds what search_library hands the model. Eight
-// articles is what §5.1 specifies; the whole catalogue would crowd out the
-// transcript and buy nothing — she is choosing one.
-const liteWorkspaceSearchLimit = 8
-
-// liteWorkspaceMaxInstructionsRunes bounds the instructions a tool writes into
-// the card. It is liteassign's own cap (maxInstructionsRunes, unexported, in
-// liteassign/payload.go), which ValidateInstructions enforces at publish.
-//
-// The title has a DIFFERENT and much smaller cap: maxAssignmentTitleRunes
-// (200, in lite_teacher_assignments.go), enforced by parseAssignmentTitle.
-// One shared cap would let a tool write a 2000-rune title that the card
-// displays and the publish endpoint then rejects with 「请填写作业标题，不超过
-// 200 字」 — a failure at the last step, over a value we handed her ourselves.
-const liteWorkspaceMaxInstructionsRunes = 2000
-
-// liteWorkspaceMaxTextRunes is set_material's "text" source cap. It is
-// liteassign's own cap (maxTextRunes, unexported, in liteassign/payload.go),
-// which the traditional form's validateSettings enforces client-side and
-// ValidatePayload enforces again at publish — the same number, so a tool
-// writing a longer text would pass the card and fail at the last step.
-const liteWorkspaceMaxTextRunes = 50000
-
-// liteWorkspaceMinTextRunes is set_material's "text" source floor. Nothing
-// this short is a reading material — it is the model settling for a
-// fragment ("这篇" or a headline) rather than telling the teacher it could
-// not find the article in what she typed. There is no matching floor on the
-// traditional form: she pastes an article by hand and would notice an empty
-// box, but a tool result silently writing three words onto the card would
-// not be noticed the same way.
-const liteWorkspaceMinTextRunes = 20
-
-// liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: only
-// the assignment surface exists, and the other two arrive with D2/D3.
+// liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: it
+// belongs to the parentReport surface, which arrives with D3.
 type liteWorkspaceTurnRequest struct {
 	Surface  string               `json:"surface"`
 	ClassID  string               `json:"classId"`
+	ReportID string               `json:"reportId"`
 	Artifact json.RawMessage      `json:"artifact"`
 	Turns    []liteworkspace.Turn `json:"turns"`
 	Text     string               `json:"text"`
@@ -104,19 +78,61 @@ type liteWorkspaceCardDTO struct {
 	Rows any    `json:"rows"`
 }
 
-// liteWorkspaceArtifact is the part of the assignment draft the model is shown.
-// The draft carries more (rubric, personalized picks, saved picks), and none of
-// it is the model's to read or write — projecting here keeps the prompt bounded
-// and keeps a field the model cannot change out of its sight.
-type liteWorkspaceArtifact struct {
-	Kind          string   `json:"kind"`
-	Title         string   `json:"title"`
-	Instructions  string   `json:"instructions"`
-	DueInput      string   `json:"dueInput"`
-	ReadingSource string   `json:"readingSource"`
-	Slug          string   `json:"slug"`
-	Tier          *int     `json:"tier"`
-	UserIDs       []string `json:"userIds"`
+// liteWorkspaceSurface is what one page of the workspace contributes to a
+// turn. Everything else — metering, the loop bound, the §6 checks, slug
+// replacement, option clamping — belongs to the shared handler, so a new
+// surface cannot skip any of it.
+//
+// A surface value lives for one turn. The handler builds it after the
+// ownership check, calls begin once, then system and tools, then execute for
+// every tool call the model makes, and reads the rest after the loop.
+type liteWorkspaceSurface interface {
+	// begin applies what the request itself carries before the model runs
+	// (the assignment surface: the article on an option she tapped) and
+	// returns a note appended to her turn, or "".
+	begin(req liteWorkspaceTurnRequest) string
+	// system is the whole system message, including the canvas as it stands
+	// after begin.
+	system() string
+	tools() []gateway.ChatTool
+	// execute runs one tool call and returns the tool result the model reads.
+	// A bad argument is a tool result, never a failed turn.
+	execute(tc gateway.ToolCall) string
+	// ended reports whether a tool ended the turn during the last round, and
+	// with which reply and options. The loop checks it after every round.
+	ended() (reply string, choices []liteworkspace.Choice, done bool)
+	// checkedParts is every string this turn puts in front of the teacher,
+	// one per field, for the §6 checks. reply and choices are the loop's
+	// output; the surface adds what its tools wrote.
+	checkedParts(reply string, choices []liteworkspace.Choice) []string
+	// groundedNames and groundedCounts are what this turn's tools returned:
+	// the tool half of the §6 evidence. The handler adds her own words and
+	// the roster size.
+	groundedNames() []string
+	groundedCounts() []int
+	// result is what goes back to the canvas: the fields a tool wrote and the
+	// tool results the panel renders. Either may be nil.
+	result() (patch map[string]any, cards []liteWorkspaceCardDTO)
+}
+
+// liteWorkspaceSurfaceOpen reports whether a surface is served yet. home and
+// parentReport (§5.2, §5.3) carry different tools and a different canvas, so
+// accepting their names before their surfaces exist would answer with the
+// wrong tool set rather than say no.
+func liteWorkspaceSurfaceOpen(surface string) bool {
+	switch surface {
+	case "assignment":
+		return true
+	}
+	return false
+}
+
+// newLiteWorkspaceSurface builds the surface req.Surface names, for one turn.
+// The handler has already checked liteWorkspaceSurfaceOpen, so every name that
+// reaches here has a case; home and parentReport add theirs with D2/D3.
+func (a *API) newLiteWorkspaceSurface(mctx context.Context, cls sqlc.Class, roster []liteworkspace.Student, req liteWorkspaceTurnRequest, typed string) liteWorkspaceSurface {
+	// "assignment" is the only open surface, so this is not a switch yet.
+	return a.newLiteWorkspaceAssignment(mctx, cls, roster, req.Artifact, typed)
 }
 
 // authTeacherClassFromBody is authTeacherClass for a route whose class id
@@ -159,10 +175,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
-	// Only the assignment surface exists. home and parentReport (§5.2, §5.3)
-	// carry different tools and a different artifact, so accepting their names
-	// here would answer with the wrong tool set rather than say no.
-	if req.Surface != "assignment" {
+	if !liteWorkspaceSurfaceOpen(req.Surface) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_surface", "该工作台尚未开放："+req.Surface, nil))
 		return
 	}
@@ -214,33 +227,10 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// The card's kind decides which cells exist, so the run has to know it
-	// before any tool writes one. A card with no kind yet is a reading card:
-	// that is what the client's own empty draft is (assignmentLogic's
-	// emptySettings), and a first turn must not be told it cannot set a
-	// material.
-	card := liteWorkspaceParseArtifact(req.Artifact)
-	run := &liteWorkspaceRun{
-		roster: roster, kind: card.Kind, typed: typed,
-		materialSet: card.Slug != "" || card.ReadingSource == "personalized" || card.ReadingSource == "text",
-		// Lazy: most turns never call recommend_articles, and loading every
-		// enrolled student's profile eagerly would pay a class-of-30's worth
-		// of DB round trips (see loadGroupProfiles) on every turn regardless.
-		// mctx (not ctx) so this load survives the same way the model call
-		// does if she navigates away mid-turn.
-		groupProfilesLoad: func() ([]library.Profile, error) {
-			return classLibraryProfiles(mctx, a.d.Queries, cls.ID)
-		},
-	}
-	if run.kind == "" {
-		run.kind = "reading"
-	}
-	// An option she tapped that carried an article sets the material before the
-	// model runs, through the same setMaterial every other path uses. The model
-	// is then told it is done rather than asked to do it: the old route was
-	// three model calls — search for its own choice id, fail, search again —
-	// and this one is none.
-	chosen := liteWorkspaceChosenArticle(run, req)
+	surface := a.newLiteWorkspaceSurface(mctx, cls, roster, req, typed)
+	// Whatever the request itself carries is applied before the model runs,
+	// so the canvas the model reads below is the canvas as it stands NOW.
+	chosen := surface.begin(req)
 
 	// req.Turns is HISTORY ONLY — the client never puts the current turn in
 	// it (threadLogic.ts's beginTurn sends it separately as Text/ChoiceID),
@@ -251,14 +241,9 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// through Text/ChoiceID, not through `turns` — a pasted article's
 	// set_material call grounds against it.
 	turns := liteworkspace.TruncateHistory(liteworkspace.TrimTurns(req.Turns))
-	// run.patch is passed so the card the model reads is the card as it stands
-	// NOW, including what tapping an option just wrote. Showing it the pre-turn
-	// card instead put the note 「材料已经设成这一篇了」 next to a card whose
-	// material cell was empty, and it believed the cell: every run re-set the
-	// material by hand, which is the round trip the option payload removes.
-	msgs := liteWorkspaceMessages(cls.Name, roster, req.Artifact, run.patch, turns, said+chosen)
+	msgs := liteWorkspaceMessages(surface.system(), turns, said+chosen)
 
-	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, u.ID, resolved, msgs, run)
+	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, u.ID, resolved, msgs, surface)
 	if aerr != nil {
 		httpx.WriteError(w, r, aerr)
 		return
@@ -268,14 +253,14 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// fabricated name's source IS the model's earlier words, so feeding them
 	// back as evidence would launder exactly the failure this check exists to
 	// catch (§6).
-	grounded := append([]string{}, run.namesReturned...)
+	grounded := append([]string{}, surface.groundedNames()...)
 	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, typed)...)
 
 	choices = liteworkspace.ClampChoices(choices)
 	// The name check reads every field as one blob. It compares whole names, so
 	// a name cannot be assembled out of the end of one field and the start of
 	// the next, and joining costs nothing.
-	parts := liteWorkspaceCheckedParts(reply, choices, run.patch)
+	parts := surface.checkedParts(reply, choices)
 	if bad := liteworkspace.UngroundedNames(
 		strings.Join(parts, "\n"), liteWorkspaceRosterNames(roster), grounded,
 	); len(bad) > 0 {
@@ -294,7 +279,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// matching, so any separator a join could use dissolves, and a 说明 ending
 	// 「难度 3」 beside a label starting 「人工智能方向」 became a claim about
 	// 3 people that neither field made.
-	countGrounds := liteWorkspaceGroundedCounts(run, turns, typed)
+	countGrounds := liteWorkspaceGroundedCounts(surface.groundedCounts(), len(roster), turns, typed)
 	for _, part := range parts {
 		if bad := liteworkspace.UngroundedCounts(part, countGrounds); len(bad) > 0 {
 			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
@@ -318,11 +303,10 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// An empty patch and an empty card list go out as {} and [], not null: the
 	// client walks both on every turn, and a null would make "no tool wrote
 	// anything" a separate case at every call site.
-	patch := run.patch
+	patch, cards := surface.result()
 	if patch == nil {
 		patch = map[string]any{}
 	}
-	cards := run.cards
 	if cards == nil {
 		cards = []liteWorkspaceCardDTO{}
 	}
@@ -455,46 +439,6 @@ func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []lite
 	return out
 }
 
-// liteWorkspaceParseArtifact projects the draft the client sent onto the part
-// of it this endpoint reads. An absent or unparseable artifact is the zero
-// value, not an error: a first turn has no card yet.
-func liteWorkspaceParseArtifact(raw json.RawMessage) liteWorkspaceArtifact {
-	var art liteWorkspaceArtifact
-	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &art)
-	}
-	return art
-}
-
-// liteWorkspaceChosenArticle applies the article an option carried, when she
-// tapped one, and returns the line telling the model it is already done.
-//
-// It runs through run.setMaterial rather than writing the patch itself: what
-// "the material is this article" means to the card must have one implementation,
-// or the tool path and the click path drift apart over a field the class reads.
-// An unknown slug is ignored in silence — the tool result goes nowhere here,
-// and a click is not a turn the teacher can be shown an error for.
-func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequest) string {
-	slug := strings.TrimSpace(req.ChoiceSlug)
-	if slug == "" || strings.TrimSpace(req.Text) != "" {
-		return ""
-	}
-	art, found := library.BySlug(slug)
-	if !found {
-		return ""
-	}
-	// 🚨 Not a back door. The same kind guard as the tool path: a writing card
-	// has no material row, so applying it here would put the article exactly
-	// where the browser pass found it — nowhere — while the note below told the
-	// model it had landed. The note says what really happened either way.
-	if run.kind != "reading" {
-		return "\n（她点的这个选项是库里的《" + art.Title + "》，但现在这份作业是" + run.kind +
-			"，没有阅读材料这一栏，所以材料没有设上。要用这篇就先把类型设成 reading，再设材料。）"
-	}
-	run.setMaterial(map[string]any{"source": "library", "slug": art.Slug})
-	return "\n（她点的这个选项对应库里的《" + art.Title + "》，材料已经设成这一篇了，不用再查一次。）"
-}
-
 // liteWorkspaceGroundedCounts is every number a reply may state as a count of
 // people: what a tool counted this turn, the size of the class, and the head
 // counts the teacher stated herself.
@@ -511,9 +455,9 @@ func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequ
 // class of twelve. The case this side exists for still passes — she types
 // 「发给 3 名学生」, the reply says 「三人」 — because that is a head count in both
 // shapes.
-func liteWorkspaceGroundedCounts(run *liteWorkspaceRun, turns []liteworkspace.Turn, typed string) []int {
-	out := append([]int{}, run.countsReturned...)
-	out = append(out, len(run.roster))
+func liteWorkspaceGroundedCounts(fromTools []int, rosterSize int, turns []liteworkspace.Turn, typed string) []int {
+	out := append([]int{}, fromTools...)
+	out = append(out, rosterSize)
 	out = append(out, liteworkspace.StatedCounts(typed)...)
 	for _, t := range turns {
 		if t.Role == "teacher" {
@@ -531,21 +475,9 @@ func liteWorkspaceJoinInts(ns []int) string {
 	return strings.Join(parts, "、")
 }
 
-// liteWorkspaceMessages builds the prompt: one system message carrying the
-// rules plus the card as it stands, then the trimmed transcript, then what she
-// just said.
-//
-// The card state goes in because she can edit any cell while a turn is in
-// flight. A model that cannot see the card describes changes it did not make.
-func liteWorkspaceMessages(className string, roster []liteworkspace.Student, artifact json.RawMessage, applied map[string]any, turns []liteworkspace.Turn, said string) []gateway.ChatMessage {
-	system := liteworkspace.AssignmentSystem(liteworkspace.SystemContext{
-		ClassName:    className,
-		TodayBeijing: time.Now().In(liteworkspace.BeijingOffset).Format("2006-01-02"),
-		StudentCount: len(roster),
-	})
-	if card := liteWorkspaceCardState(artifact, applied); card != "" {
-		system += "\n\n## 作业卡现在的内容\n\n" + card
-	}
+// liteWorkspaceMessages builds the prompt: the surface's system message, then
+// the trimmed transcript, then what she just said.
+func liteWorkspaceMessages(system string, turns []liteworkspace.Turn, said string) []gateway.ChatMessage {
 	msgs := make([]gateway.ChatMessage, 0, len(turns)+2)
 	msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleSystem, Content: system})
 	for _, t := range turns {
@@ -556,59 +488,6 @@ func liteWorkspaceMessages(className string, roster []liteworkspace.Student, art
 		msgs = append(msgs, gateway.ChatMessage{Role: role, Content: t.Text})
 	}
 	return append(msgs, gateway.ChatMessage{Role: gateway.RoleUser, Content: said})
-}
-
-// liteWorkspaceCardState renders the card's filled cells. An unparseable or
-// absent artifact renders nothing: a first turn has no card yet, and that is
-// not an error.
-//
-// applied is what this turn already wrote before the model ran — today, the
-// article she tapped. It is overlaid by marshalling it back over the parsed
-// artifact rather than by copying field by field: json.Unmarshal only touches
-// the keys that are present, and the patch's keys are the artifact's own tags,
-// so a field added to either side is covered without anyone editing this.
-func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string {
-	if len(raw) == 0 && len(applied) == 0 {
-		return ""
-	}
-	art := liteWorkspaceParseArtifact(raw)
-	if len(applied) > 0 {
-		if b, err := json.Marshal(applied); err == nil {
-			_ = json.Unmarshal(b, &art)
-		}
-	}
-	var lines []string
-	add := func(label, value string) {
-		if strings.TrimSpace(value) != "" {
-			lines = append(lines, "- "+label+"："+value)
-		}
-	}
-	// Chinese words only, never a wire value: this text goes straight into
-	// the model's system prompt, and the model repeats what it reads. A raw
-	// "reading" or a raw slug here is how a teacher used to see
-	// 「材料来源：library」 in the AI's own reply (spec §12.1).
-	add("类型", liteworkspace.KindLabel(art.Kind))
-	add("标题", art.Title)
-	add("说明", art.Instructions)
-	add("截止时间", art.DueInput)
-	add("材料来源", liteworkspace.SourceLabel(art.ReadingSource))
-	if art.Slug != "" {
-		if found, ok := library.BySlug(art.Slug); ok {
-			add("文章", "《"+found.ZhTitle+"》")
-		} else {
-			add("文章", "未找到")
-		}
-	}
-	if art.Tier != nil {
-		add("难度", liteworkspace.TierLabel(art.Tier))
-	}
-	if n := len(art.UserIDs); n > 0 {
-		add("已选学生", fmt.Sprintf("%d 名", n))
-	}
-	if len(lines) == 0 {
-		return "（还是空的）"
-	}
-	return strings.Join(lines, "\n")
 }
 
 // liteWorkspaceDeslugged is the backstop half of spec §12.1's rule 3.
@@ -649,83 +528,11 @@ func (a *API) liteWorkspaceChoiceArticle(slug string) *liteworkspace.ChoiceArtic
 	}
 }
 
-// liteWorkspaceRun accumulates what one turn's tools produced.
-type liteWorkspaceRun struct {
-	roster []liteworkspace.Student
-	// groupProfilesLoad fetches every enrolled student's library.Profile
-	// (classLibraryProfiles, bound to this turn's ctx/queries/class id at
-	// construction). It is called at most once per turn, lazily, from
-	// loadGroupProfiles — never eagerly here, because most turns never call
-	// recommend_articles, and a class of 30 costs roughly ninety DB round
-	// trips to build (ListLiteWeekClassStudents + three queries per student
-	// inside libraryProfileIn) for a tool most turns do not reach for. It is
-	// also swapped out in tests to count and to fail on demand.
-	groupProfilesLoad func() ([]library.Profile, error)
-	// groupProfiles/groupProfilesErr/groupProfilesLoaded memoise
-	// groupProfilesLoad's one call: a turn may call recommend_articles more
-	// than once (the model retrying a bad discipline filter, say), and the
-	// second call must not pay for the fetch — or repeat a transient
-	// failure — again.
-	groupProfiles       []library.Profile
-	groupProfilesErr    error
-	groupProfilesLoaded bool
-	// kind is the card's homework type as it stands: seeded from the artifact,
-	// updated when set_fields writes it. It decides which cells the card has,
-	// so set_material reads it before writing a material into a card that has
-	// nowhere to show one.
-	kind string
-	// typed is what the TEACHER typed this turn (trimmed), before a click's
-	// choiceId is folded in — the only text set_material's "text" source may
-	// be a substring of. Never her earlier turns, never the model's words: a
-	// substring check against anything wider would let the model copy a
-	// sentence out of its own prior reply and pass it off as her paste.
-	typed string
-	// materialSet is whether the card has a reading material right now,
-	// seeded from the artifact and kept current by the tools. readingSource
-	// alone cannot answer it: the client's empty draft already carries
-	// "library" with no article behind it.
-	materialSet bool
-	// patch holds only the draft fields a tool actually wrote. The client
-	// applies it field by field and drops the ones she edited meanwhile
-	// (§4.5), which only works if an untouched field is absent, not zero.
-	patch map[string]any
-	cards []liteWorkspaceCardDTO
-	// namesReturned is what list_students handed back this turn — the evidence
-	// side of the grounding check.
-	namesReturned []string
-	// countsReturned is how many students each tool counted this turn. It is
-	// the evidence side of the head-count check: a reply may state a number a
-	// tool produced, and nothing else.
-	countsReturned []int
-	// question and choices are set by ask_choice, which ends the turn.
-	question string
-	choices  []liteworkspace.Choice
-	asked    bool
-}
-
-func (run *liteWorkspaceRun) write(field string, value any) {
-	if run.patch == nil {
-		run.patch = map[string]any{}
-	}
-	run.patch[field] = value
-}
-
-// loadGroupProfiles runs groupProfilesLoad the first time recommend_articles
-// is called this turn — success or failure alike is cached, so a second call
-// in the same turn reads it back instead of hitting the database again.
-func (run *liteWorkspaceRun) loadGroupProfiles() ([]library.Profile, error) {
-	if !run.groupProfilesLoaded {
-		run.groupProfiles, run.groupProfilesErr = run.groupProfilesLoad()
-		run.groupProfilesLoaded = true
-	}
-	return run.groupProfiles, run.groupProfilesErr
-}
-
 // runLiteWorkspaceLoop runs the bounded tool loop and returns the reply the
 // teacher sees. Every model call inside it is metered, including a call that
 // produced nothing usable — it was paid for either way.
-func (a *API) runLiteWorkspaceLoop(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, msgs []gateway.ChatMessage, run *liteWorkspaceRun) (string, []liteworkspace.Choice, *httpx.APIError) {
-	tools := liteworkspace.AssignmentTools()
+func (a *API) runLiteWorkspaceLoop(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, msgs []gateway.ChatMessage, surface liteWorkspaceSurface) (string, []liteworkspace.Choice, *httpx.APIError) {
+	tools := surface.tools()
 	for i := 0; i < liteworkspace.ToolLoopMax; i++ {
 		res, err := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs, Tools: tools})
 		a.recordLiteLLMCall(ctx, userID, uuid.Nil, liteTeacherWorkspacePurpose, resolved, res.Usage)
@@ -745,41 +552,16 @@ func (a *API) runLiteWorkspaceLoop(ctx context.Context, userID uuid.UUID, resolv
 		})
 		for _, tc := range res.ToolCalls {
 			msgs = append(msgs, gateway.ChatMessage{
-				Role: gateway.RoleTool, ToolCallID: tc.ID, Content: run.execute(tc),
+				Role: gateway.RoleTool, ToolCallID: tc.ID, Content: surface.execute(tc),
 			})
 		}
-		if run.asked {
-			// ask_choice ends the turn: the question IS the reply.
-			return run.question, run.choices, nil
+		if reply, choices, done := surface.ended(); done {
+			// A tool that ends the turn (ask_choice) supplies the reply: the
+			// question IS the reply.
+			return reply, choices, nil
 		}
 	}
 	return "", nil, errLiteWorkspaceTurn("工具调用次数超出上限")
-}
-
-// execute runs one tool call and returns the tool result the model reads next.
-//
-// A bad argument comes back as a tool result, not as a failed turn: the model
-// minted it and can fix it on the next round, and liteworkspace.ToolLoopMax
-// bounds how long it may keep trying. A failure the model cannot fix (a model
-// or transport failure) ends the turn instead.
-func (run *liteWorkspaceRun) execute(tc gateway.ToolCall) string {
-	switch tc.Name {
-	case "set_fields":
-		return run.setFields(tc.Args)
-	case "search_library":
-		return run.searchLibrary(tc.Args)
-	case "set_material":
-		return run.setMaterial(tc.Args)
-	case "recommend_articles":
-		return run.recommendArticles(tc.Args)
-	case "list_students":
-		return run.listStudents(tc.Args)
-	case "set_recipients":
-		return run.setRecipients(tc.Args)
-	case "ask_choice":
-		return run.askChoice(tc.Args)
-	}
-	return liteWorkspaceToolError("没有这个工具：" + tc.Name)
 }
 
 func liteWorkspaceToolError(msg string) string {
@@ -845,358 +627,4 @@ func liteWorkspaceClampRunes(s string, max int) string {
 		return s
 	}
 	return string(r[:max])
-}
-
-func (run *liteWorkspaceRun) setFields(args map[string]any) string {
-	written := make([]string, 0, 4)
-	cleared := false
-	if kind, ok := toolString(args, "kind"); ok && kind != "" {
-		switch kind {
-		case "reading", "writing", "project":
-			// 🚨 A card must never be left in a state it cannot render. Only a
-			// reading homework has a material row, so turning one into a
-			// writing homework has to take the material with it — otherwise
-			// the article stays in the draft where nothing shows it, the model
-			// goes on describing it, and she publishes a writing task whose
-			// article silently is not there. That is the exact state the
-			// browser pass photographed.
-			//
-			// Blocked-and-told is not an option here: there is no tool for
-			// clearing a material, so refusing would leave the model with an
-			// instruction it cannot carry out. Clearing and SAYING SO leaves
-			// her a coherent card and the model something true to tell her.
-			if kind != "reading" && run.materialSet {
-				run.write("readingSource", "library")
-				run.write("slug", "")
-				run.write("tier", nil)
-				run.write("text", "")
-				run.materialSet = false
-				cleared = true
-			}
-			run.write("kind", kind)
-			run.kind = kind
-			written = append(written, "kind")
-		default:
-			return liteWorkspaceToolError("作业种类只能是 reading、writing 或 project，收到：" + kind)
-		}
-	}
-	if title, ok := toolString(args, "title"); ok && title != "" {
-		run.write("title", liteWorkspaceClampRunes(title, maxAssignmentTitleRunes))
-		written = append(written, "title")
-	}
-	if ins, ok := toolString(args, "instructions"); ok && ins != "" {
-		run.write("instructions", liteWorkspaceClampRunes(ins, liteWorkspaceMaxInstructionsRunes))
-		written = append(written, "instructions")
-	}
-	if due, ok := toolString(args, "dueAt"); ok && due != "" {
-		// Parsed only to reject a relative phrase. What the card holds is the
-		// Beijing wall-clock string the datetime input reads back, so the
-		// instant is never converted twice.
-		if _, err := liteworkspace.BeijingWallToUTC(due); err != nil {
-			return liteWorkspaceToolError(err.Error() + "，请按 2006-01-02T15:04 写出北京时间的绝对时刻")
-		}
-		run.write("dueInput", due)
-		written = append(written, "dueAt")
-	}
-	if len(written) == 0 {
-		return liteWorkspaceToolError("没有给出任何字段")
-	}
-	out := map[string]any{"written": written}
-	if cleared {
-		out["note"] = "类型不是 reading 了，作业卡上没有阅读材料这一栏，原来选的文章已经清掉。" +
-			"跟老师说清楚这件事，不要再提那篇文章；她要保留文章就把类型改回 reading"
-	}
-	return liteWorkspaceToolOK(out)
-}
-
-func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
-	query, _ := toolString(args, "query")
-	tier, _ := toolInt(args, "tier")
-	if tier < 0 || tier > 5 {
-		return liteWorkspaceToolError("难度档需在 1 到 5 之间，0 表示不限")
-	}
-	arts := liteworkspace.SearchLibrary(library.All(), query, toolStrings(args, "disciplines"), tier, liteWorkspaceSearchLimit)
-	rows := make([]map[string]any, 0, len(arts))
-	for _, art := range arts {
-		tiers := make([]int, 0, len(art.Levels))
-		for _, l := range art.Levels {
-			tiers = append(tiers, l.Tier)
-		}
-		rows = append(rows, map[string]any{
-			"slug": art.Slug, "title": art.Title, "zhTitle": art.ZhTitle,
-			"disciplines": art.Disciplines, "tiers": tiers,
-		})
-	}
-	return liteWorkspaceToolOK(map[string]any{"articles": rows})
-}
-
-// errLiteWorkspaceWrongKind is the tool result for setting a material on a card
-// that has no place to put one.
-//
-// 🚨 This is the defect the browser pass found and the live tests could not:
-// the model set kind=writing, searched the library, and told the teacher
-// 「材料：已选「美国气候队」这篇报道」 — while the card, which renders the
-// material row only for a reading homework, showed nothing. Her students would
-// have received a writing task with no article after she was told one was
-// chosen. The claim was in prose; the truth was in a cell she could not see.
-//
-// The remedy is in the message because the model demonstrably acts on a tool
-// error that names one: that is how it recovered from every invented slug.
-func errLiteWorkspaceWrongKind(kind string) string {
-	label := liteworkspace.KindLabel(kind)
-	return liteWorkspaceToolError(label + "作业没有阅读材料这一栏，材料设不上去。" +
-		"请先用 set_fields 把类型设成 reading，再设材料；如果这次确实是" + label + "作业，就别提材料，也不要跟老师说已经选好了文章")
-}
-
-func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
-	if run.kind != "reading" {
-		return errLiteWorkspaceWrongKind(run.kind)
-	}
-	source, _ := toolString(args, "source")
-	switch source {
-	case "library":
-		slug, _ := toolString(args, "slug")
-		art, found := library.BySlug(slug)
-		if !found {
-			// Name the requirement, not just the failure. The slug is nearly
-			// always a guess derived from the title; a message that only says
-			// 「不在库里」 invites another guess, which is two more model calls.
-			return liteWorkspaceToolError("文章不在阅读库里：" + slug +
-				"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼。请先用 search_library 查，再把结果里的 slug 填进来")
-		}
-		run.write("readingSource", "library")
-		run.write("slug", art.Slug)
-		// A prior turn may have set a "text" material; switching to a library
-		// article must take it with it, or the draft still carries a 50000-rune
-		// paste under a field nothing shows anymore (see the kind-change
-		// clearing block in setFields for the same rule).
-		run.write("text", "")
-		run.materialSet = true
-		if tier, ok := toolInt(args, "tier"); ok {
-			if _, has := art.LevelAt(tier); !has {
-				return liteWorkspaceToolError("这篇文章没有这一档")
-			}
-			run.write("tier", tier)
-		}
-		return liteWorkspaceToolOK(map[string]any{"slug": art.Slug, "title": art.Title})
-	case "personalized":
-		// 🚨 The patch only. Who reads what is computed by the existing
-		// personalized-reading preview endpoint, and a second implementation
-		// here would be a second answer to the same question.
-		run.write("readingSource", "personalized")
-		// Same reason as the text case below: a prior library or text pick
-		// must not survive alongside "个性化" in the card state, or it reads
-		// 「材料来源：个性化」 next to 「文章：《X》」 for an article nobody chose
-		// for personalized reading.
-		run.write("slug", "")
-		run.write("tier", nil)
-		run.write("text", "")
-		run.materialSet = true
-		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
-	case "text":
-		// 铁律①: this is the tool that can turn "AI writes the reading
-		// material" into a live bug, so the check is not "does this look like
-		// an article" — it is a literal substring test against run.typed,
-		// which is the teacher's own typed text THIS turn (never an earlier
-		// turn, never the model's words; see the field's comment). A model
-		// that summarised, translated or invented the text fails here, on
-		// the same turn, with a message it can act on.
-		text, _ := toolString(args, "text")
-		runes := len([]rune(text))
-		if text == "" {
-			return liteWorkspaceToolError("请给出正文")
-		}
-		if runes < liteWorkspaceMinTextRunes {
-			return liteWorkspaceToolError(fmt.Sprintf("正文太短：至少需要 %d 字，这不像一篇完整的材料", liteWorkspaceMinTextRunes))
-		}
-		if runes > liteWorkspaceMaxTextRunes {
-			return liteWorkspaceToolError("文章正文不能超过 50000 字")
-		}
-		if !strings.Contains(run.typed, text) {
-			return liteWorkspaceToolError("正文必须来自老师贴进来的内容")
-		}
-		run.write("readingSource", "text")
-		run.write("text", text)
-		// A prior library or personalized pick must not linger next to it —
-		// same reason the personalized case above clears slug/tier.
-		run.write("slug", "")
-		run.write("tier", nil)
-		run.materialSet = true
-		return liteWorkspaceToolOK(map[string]any{"source": "text"})
-	}
-	return liteWorkspaceToolError("材料来源只能是 library、personalized 或 text，收到：" + source)
-}
-
-// liteWorkspaceRecommendLimit is fixed, not model-controlled — §12.2 (F.3)
-// bounds a class-wide recommendation to as many articles as fit a card
-// without her having to scroll a list to compare them.
-const liteWorkspaceRecommendLimit = 6
-
-// recommendArticles loads the class's profiles on first use (see
-// loadGroupProfiles), then is pure computation: the optional disciplines
-// filter narrows the candidate articles the same way search_library's does,
-// before library.RecommendForGroup scores what is left.
-//
-// A load failure comes back as a tool result, not a failed turn — the same
-// posture every other tool error here takes: the model can tell her the
-// recommendation is not available and carry on with the rest of the card.
-func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
-	profiles, err := run.loadGroupProfiles()
-	if err != nil {
-		return liteWorkspaceToolError("班级的阅读画像加载失败：" + err.Error())
-	}
-	arts := library.All()
-	if want := toolStrings(args, "disciplines"); len(want) > 0 {
-		wantSet := make(map[string]bool, len(want))
-		for _, id := range want {
-			wantSet[id] = true
-		}
-		filtered := make([]library.Article, 0, len(arts))
-		for _, a := range arts {
-			for _, id := range a.Disciplines {
-				if wantSet[id] {
-					filtered = append(filtered, a)
-					break
-				}
-			}
-		}
-		arts = filtered
-	}
-	recs := library.RecommendForGroup(arts, profiles, liteWorkspaceRecommendLimit)
-	rows := make([]map[string]any, 0, len(recs))
-	for _, rec := range recs {
-		rows = append(rows, map[string]any{
-			"slug": rec.Article.Slug, "zhTitle": rec.Article.ZhTitle,
-			"why": libraryWhyZh(rec.Why), "readCount": rec.ReadCount,
-		})
-	}
-	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "articles", Rows: rows})
-	return liteWorkspaceToolOK(map[string]any{"articles": rows, "tier": library.GroupTier(profiles)})
-}
-
-func (run *liteWorkspaceRun) listStudents(args map[string]any) string {
-	raw, _ := toolString(args, "filter")
-	filter, ok := liteworkspace.ParseStudentFilter(raw)
-	if !ok {
-		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet")
-	}
-	rows := liteworkspace.FilterStudents(run.roster, filter)
-	out := make([]map[string]any, 0, len(rows))
-	for _, s := range rows {
-		out = append(out, map[string]any{"id": s.ID, "name": s.Name})
-		run.namesReturned = append(run.namesReturned, s.Name)
-	}
-	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
-	run.countsReturned = append(run.countsReturned, len(out))
-	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
-}
-
-func (run *liteWorkspaceRun) setRecipients(args map[string]any) string {
-	rawFilter, hasFilter := toolString(args, "filter")
-	explicit := toolStrings(args, "userIds")
-	if hasFilter && rawFilter != "" && len(explicit) > 0 {
-		return liteWorkspaceToolError("filter 和 userIds 只能给一个：按条件发就只给 filter，指定人就只给 userIds")
-	}
-	if hasFilter && rawFilter != "" {
-		return run.recipientsByFilter(rawFilter)
-	}
-
-	known := make(map[string]bool, len(run.roster))
-	for _, s := range run.roster {
-		known[s.ID] = true
-	}
-	ids := make([]string, 0, len(run.roster))
-	seen := make(map[string]bool, len(run.roster))
-	for _, id := range explicit {
-		if !known[id] {
-			// Name the shape, not just the miss. 「all」 arrived here as a user
-			// id once, and a message that only says 「不在班里」 invites another
-			// guess — which costs two more model calls in a turn budgeted for
-			// six.
-			return liteWorkspaceToolError("这个学生不在班里：" + id +
-				"。userIds 必须是 list_students 返回的 id，原样复制；要发给一整类学生就改用 filter")
-		}
-		if !seen[id] {
-			seen[id] = true
-			ids = append(ids, id)
-		}
-	}
-	if len(ids) == 0 {
-		return liteWorkspaceToolError("请至少选择一名学生，或者给一个 filter")
-	}
-	run.recorded(ids)
-	return liteWorkspaceToolOK(map[string]any{"count": len(ids)})
-}
-
-// recipientsByFilter resolves a closed-set condition straight to recipients.
-// It goes through the same ParseStudentFilter and FilterStudents that
-// list_students uses, so 「本周未活跃」 cannot come to mean one thing when she
-// looks at the list and another when the assignment goes out.
-//
-// It also puts the matched students on the canvas, exactly as list_students
-// does: she is about to send homework to a group she named by condition, and
-// she should see who that turned out to be without asking.
-func (run *liteWorkspaceRun) recipientsByFilter(raw string) string {
-	filter, ok := liteworkspace.ParseStudentFilter(raw)
-	if !ok {
-		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet")
-	}
-	rows := liteworkspace.FilterStudents(run.roster, filter)
-	if len(rows) == 0 {
-		return liteWorkspaceToolError("这个条件下现在没有学生：" + raw + "，换一个条件，或者直接给 userIds")
-	}
-	ids := make([]string, 0, len(rows))
-	for _, s := range rows {
-		ids = append(ids, s.ID)
-		run.namesReturned = append(run.namesReturned, s.Name)
-	}
-	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
-	run.recorded(ids)
-	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "count": len(ids)})
-}
-
-// recorded writes the recipients and remembers how many there are. The count
-// is evidence: a reply may state a number the tools produced, and only that.
-func (run *liteWorkspaceRun) recorded(ids []string) {
-	run.write("userIds", ids)
-	run.countsReturned = append(run.countsReturned, len(ids))
-}
-
-func (run *liteWorkspaceRun) askChoice(args map[string]any) string {
-	question, _ := toolString(args, "question")
-	if question == "" {
-		return liteWorkspaceToolError("没有给出问题")
-	}
-	raw, _ := args["options"].([]any)
-	choices := make([]liteworkspace.Choice, 0, len(raw))
-	for _, item := range raw {
-		obj, isObject := item.(map[string]any)
-		if !isObject {
-			continue
-		}
-		id, _ := toolString(obj, "id")
-		label, _ := toolString(obj, "label")
-		if id == "" || label == "" {
-			continue
-		}
-		choice := liteworkspace.Choice{ID: id, Label: label}
-		// A slug is checked HERE, while the turn still has budget. The point
-		// of the field is that "use this article" survives to the next turn;
-		// a slug that is not in the catalogue would not survive anything, and
-		// finding that out two turns later is what this field exists to stop.
-		if slug, given := toolString(obj, "slug"); given && slug != "" {
-			art, found := library.BySlug(slug)
-			if !found {
-				return liteWorkspaceToolError("选项 " + id + " 的 slug 不在阅读库里：" + slug +
-					"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼")
-			}
-			choice.Slug = art.Slug
-		}
-		choices = append(choices, choice)
-	}
-	if len(choices) < 2 {
-		return liteWorkspaceToolError("请给出 2 到 4 个选项")
-	}
-	run.question, run.choices, run.asked = question, choices, true
-	return liteWorkspaceToolOK(map[string]any{"options": len(choices)})
 }
