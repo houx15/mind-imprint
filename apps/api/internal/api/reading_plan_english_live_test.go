@@ -26,7 +26,7 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 	blocks := liveEnglishBlocks()
 	prompt := buildReadingPlanPrompt("en", "Is skipping breakfast a moral failure?", blocks)
 
-	bad := 0
+	bad, noOutline, noGist, noParts := 0, 0, 0, 0
 	for i := 0; i < 6; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
@@ -51,9 +51,48 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 		if len(positions) == 0 {
 			t.Errorf("sample %d: routine produced no usable steps", i)
 		}
+
+		// 导读（2026-09-16 加了 gist 和 parts）。它和读法清单同一次调用产出，
+		// 所以在这里一起验 —— 它**过不了校验是静默的**：屏幕上少一张卡片，
+		// 日志里一行 info，而通读那一步会退回没有台阶的那一种。
+		out, okOutline := validateOutline(plan.outline(), blocks)
+		if !okOutline {
+			noOutline++
+			t.Logf("sample %d: 导读被整份丢掉 —— oneLine=%q gist=%q load=%d",
+				i, plan.OneLine, plan.Gist, len(plan.Load))
+			continue
+		}
+		t.Logf("sample %d 导读 — 在问=%q", i, out.OneLine)
+		t.Logf("           中心思想=%q", out.Gist)
+		t.Logf("           结构=%q 核心段=%d", out.Shape, len(out.coreBlockIDs(blocks)))
+		if out.Gist == "" {
+			noGist++
+			t.Logf("sample %d: 没有中心思想 —— 她一进来看到的还是只有问题没有答案", i)
+		}
+		if len(out.Parts) == 0 {
+			noParts++
+			t.Logf("sample %d: 切法没留下来 —— 通读那一步没有台阶。模型给的是 %+v", i, plan.Parts)
+			continue
+		}
+		for _, pt := range out.Parts {
+			t.Logf("           · %s（%s–%s）%s", pt.Title, pt.From, pt.To, pt.Does)
+		}
 	}
-	t.Logf("RESULT: %d/6 rejected", bad)
+	t.Logf("RESULT: %d/6 rejected · 导读没了 %d/6 · 没有中心思想 %d/6 · 没有切法 %d/6",
+		bad, noOutline, noGist, noParts)
 	if bad > 0 {
 		t.Errorf("%d/6 English plans unparseable — 「开始」按下去是 502", bad)
+	}
+	// 🚨 这三条是**这一轮新 prompt 的实测门槛**，不是可选的。一份没有中心思想
+	// 或者没有切法的导读不会报错，它只是少了半张卡片和整条通读的台阶 ——
+	// 而那正是 2026-09-16 那次走查要修的东西。半数以上拿不到就是 prompt 没写对。
+	if noOutline*2 > 6 {
+		t.Errorf("%d/6 的导读整份作废 —— 她一进阅读室看不到地图", noOutline)
+	}
+	if noGist*2 > 6 {
+		t.Errorf("%d/6 没有中心思想 —— 没读过这篇的学生还是跟不上", noGist)
+	}
+	if noParts*2 > 6 {
+		t.Errorf("%d/6 没有切法 —— 通读又变回「读完告诉我一声」", noParts)
 	}
 }
