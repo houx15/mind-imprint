@@ -93,7 +93,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
    * 印记's problem.
    */
   const [opening, setOpening] = useState(false);
-  // A teacher grading's quote, clicked in `RoomTeacherFeedback`: threaded
+  // A teacher grading's quote, clicked in `RoomTeacherFeedback`: `text` is
+  // already the RESOLVED substring of the draft (`draftQuoteMatch`, not the
+  // teacher's raw quote — see that function's doc comment for why that
+  // distinction matters to `ProseSurface`'s literal highlighter). Threaded
   // down to `ComposeStage`'s `pendingHighlight`, which highlights and
   // scrolls to it in the draft. A fresh object on every click, even a repeat
   // click on the same quote, so `ComposeStage`'s effect always re-fires.
@@ -433,11 +436,15 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             two-column width it stays in the left column, beside (never
             over) 印记's rail. */}
         <div className="flex min-h-0 flex-col gap-3">
+          {/* `min-h-[280px]` (2026-09-17, review round 1): the 老师批改 panel
+              below can grow up to `min(320px, 33vh)` when open, on a short
+              viewport that would otherwise be enough to squeeze the editor
+              down to nothing. This floor keeps it usable regardless. */}
           <div
             className={
               onPage
-                ? "min-h-0 flex-1 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
-                : "mk-scroll min-h-0 flex-1 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
+                ? "min-h-[280px] flex-1 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
+                : "mk-scroll min-h-[280px] flex-1 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
             }
           >
             <StagePanel
@@ -451,11 +458,19 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
               pendingHighlight={draftHighlight}
             />
           </div>
-          <RoomTeacherFeedback
-            writingId={writingId}
-            draftBody={state.draft.body}
-            onQuote={(quote) => setDraftHighlight({ text: quote })}
-          />
+          {/* Only mounted once the essay has been finished at least once
+              (`isWritingFinished` — `status` stays "finished" for the whole
+              time she's revising, per `Writing.revisingAt`'s own doc
+              comment) — a brand-new essay can have no sent grading, so this
+              avoids firing `listWritingGradings` on every room load. */}
+          {isWritingFinished(writing) && (
+            <RoomTeacherFeedback
+              writingId={writingId}
+              stage={writing.stage}
+              draftBody={state.draft.body}
+              onQuote={(matchedText) => setDraftHighlight({ text: matchedText })}
+            />
+          )}
         </div>
 
         <div className="student-coach-panel flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">

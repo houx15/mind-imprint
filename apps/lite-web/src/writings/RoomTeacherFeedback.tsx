@@ -3,7 +3,7 @@ import { Button } from "@/ui";
 import { apiErrorText } from "../api/errorText";
 import { listWritingGradings, type StudentGrading } from "../api/gradings";
 import { useAlive } from "../shared/useAlive";
-import { quoteFoundInDraft } from "./draftQuote";
+import { draftQuoteMatch, quoteClickableInRoom } from "./draftQuote";
 import { TeacherGradingPanel } from "./TeacherGradingPanel";
 
 /**
@@ -18,31 +18,46 @@ import { TeacherGradingPanel } from "./TeacherGradingPanel";
  * draft.
  *
  * A quote here is clickable only when it can still be found in the CURRENT
- * DRAFT (`quoteFoundInDraft` — the same normalising match the finished
- * page's highlight uses), not the frozen submitted version the grading was
- * written against: she opened 修改 precisely because that text may already
- * differ. A quote she has since rewritten renders as plain text instead of a
- * dead button (`TeacherGradingPanel`'s `clickable` gate). `bodies={{}}`
+ * DRAFT AND the room is actually showing 成稿 right now
+ * (`quoteClickableInRoom` — `stage === "draft"`; 段落/结构 have no single
+ * draft surface to scroll a highlight into), not the frozen submitted
+ * version the grading was written against: she opened 修改 precisely
+ * because that text may already differ. A quote she has since rewritten (or
+ * one she'd have to leave this stage to reach) renders as plain text instead
+ * of a dead button (`TeacherGradingPanel`'s `clickable` gate). `bodies={{}}`
  * deliberately suppresses the finished page's separate "未在正文中标出"
  * label — that check is about the GRADED version's own text and does not
  * apply here; whether a quote is worth clicking is already communicated by
  * whether it is a button at all.
  *
+ * A click hands `onQuote` the ACTUAL matched substring of `draftBody`
+ * (`draftQuoteMatch`), not the teacher's raw quote text — see that
+ * function's doc comment: `ProseSurface`'s highlight is a literal
+ * `text.indexOf`, and a teacher's quote is routinely not byte-for-byte
+ * identical to the draft even when it normalising-matches.
+ *
  * Hidden entirely (renders nothing) under the same rule `TeacherGradingPanel`
- * itself already uses: no error and no sent gradings.
+ * itself already uses: no error and no sent gradings. The caller additionally
+ * only mounts this at all once the essay has been finished once
+ * (`isWritingFinished`) — a brand-new essay can have no sent grading, so
+ * there is nothing here worth an unconditional fetch for.
  */
 export function RoomTeacherFeedback({
   writingId,
+  stage,
   draftBody,
   onQuote,
 }: {
   writingId: string;
+  /** `writing.stage` — only 成稿 (`"draft"`) has a draft surface to jump a
+   *  quote into; see `quoteClickableInRoom`. */
+  stage: string;
   /** The live draft to match quotes against, not any submitted version —
    *  `WritingRoomHost`'s own `state.draft.body`. */
   draftBody: string;
-  /** A clickable quote was picked: scroll it into view (and highlight it,
-   *  where the room already has a way to) in the draft. */
-  onQuote: (quote: string) => void;
+  /** A clickable quote was picked: the matched substring of `draftBody` to
+   *  scroll to (and highlight, where the room already has a way to). */
+  onQuote: (matchedText: string) => void;
 }) {
   const alive = useAlive();
   const [gradings, setGradings] = useState<StudentGrading[]>([]);
@@ -96,7 +111,7 @@ export function RoomTeacherFeedback({
             </Button>
           </div>
         ) : (
-          <div className="mk-scroll max-h-80 overflow-y-auto">
+          <div className="mk-scroll max-h-[min(320px,33vh)] overflow-y-auto">
             <TeacherGradingPanel
               gradings={gradings}
               error={null}
@@ -105,9 +120,10 @@ export function RoomTeacherFeedback({
               heading={false}
               onQuote={(_version, quotes, index) => {
                 const quote = quotes[index];
-                if (quote) onQuote(quote);
+                const match = quote ? draftQuoteMatch(draftBody, quote) : null;
+                if (match) onQuote(match);
               }}
-              clickable={(quote) => quoteFoundInDraft(draftBody, quote)}
+              clickable={(quote) => quoteClickableInRoom(stage, draftBody, quote)}
             />
           </div>
         ))}

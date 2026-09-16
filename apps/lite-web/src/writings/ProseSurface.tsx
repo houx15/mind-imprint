@@ -36,8 +36,13 @@ export const PROSE_TYPOGRAPHY = Object.freeze({
  * Splits `text` on the first occurrence of `highlight` (a literal substring,
  * never a regex/markup match) into [before, match, after]. Returns null when
  * there is no highlight, or it isn't found — callers render the plain text.
+ *
+ * Exported so `draftQuote.test.ts` can pin, together, that a quote the room
+ * marks "clickable" (a normalising match) actually highlights here (a
+ * literal one) — the disagreement between the two is exactly the bug
+ * `draftQuoteMatch`'s doc comment describes.
  */
-function splitOnHighlight(
+export function splitOnHighlight(
   text: string,
   highlight: string | null | undefined,
 ): [string, string, string] | null {
