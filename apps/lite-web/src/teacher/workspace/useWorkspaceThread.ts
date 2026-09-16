@@ -42,7 +42,11 @@ export interface WorkspaceThreadOptions<A extends object> {
    *  the one it was sent under. */
   scopeOf: (artifact: A) => string;
   /** Sends one turn. `artifact` is the snapshot taken when the turn started;
-   *  `turns` is already windowed (`trimTurns`) and includes this turn. */
+   *  `turns` is HISTORY ONLY — already windowed (`trimTurns`) and capped
+   *  (`truncateHistory`), never including this turn. `input` carries the
+   *  current turn; the caller sends it as `text`/`choiceId`, not inside
+   *  `turns` (I-1, 2026-09-16 review — putting it in both doubled it in the
+   *  model's messages). */
   post: (req: { artifact: A; turns: Turn[]; input: ThreadInput }) => Promise<ThreadReply<A>>;
   /** The error line for a failed turn, e.g. `failText("对话", e)`. */
   describeError: (e: unknown) => string;

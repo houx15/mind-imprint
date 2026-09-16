@@ -515,10 +515,21 @@ func TestWorkspaceTurnSetsMaterialWithoutPickingPerStudent(t *testing.T) {
 	if out.Cards == nil {
 		t.Fatalf("cards decoded as null; the client walks it every turn and it must be []")
 	}
-	for _, k := range []string{"picks", "savedPicks", "slug"} {
+	for _, k := range []string{"picks", "savedPicks"} {
 		if _, present := out.Patch[k]; present {
 			t.Fatalf("patch computed %q here; that belongs to the preview endpoint: %+v", k, out.Patch)
 		}
+	}
+	// slug/tier ARE in the patch — cleared to their zero value, not computed.
+	// A prior library pick must not linger next to 「材料来源：个性化」 in the
+	// card state (M-2); that is different from "picks belongs to the preview
+	// endpoint", which is about who reads what, not about clearing what came
+	// before.
+	if out.Patch["slug"] != "" {
+		t.Fatalf("patch[slug] = %v, want cleared to \"\"", out.Patch["slug"])
+	}
+	if tier, wrote := out.Patch["tier"]; !wrote || tier != nil {
+		t.Fatalf("patch[tier] = %v (wrote=%v), want cleared to nil", tier, wrote)
 	}
 }
 
@@ -1056,20 +1067,116 @@ func TestWorkspaceTurnSetsPastedTextPastSection6Checks(t *testing.T) {
 	}
 }
 
-// TestWorkspaceTurnRejectsInventedPastedText — the same tool call, but the
-// "text" argument is not a substring of anything she typed this turn. The
-// model wrote (or summarised) it, which 铁律① forbids for material the
-// student ends up reading.
+// TestWorkspaceTurnRejectsInventedPastedText — the "text" argument is not a
+// substring of anything she typed this turn. The model wrote (or
+// summarised) it, which 铁律① forbids for material the student ends up
+// reading. The stub's SECOND script is a plain-text reply (not the same
+// tool call again) so the turn ends on the model recovering from the tool
+// error — with only one script, SequenceStubProvider replays the same
+// tool call forever and the turn would fail on "工具调用次数超出上限"
+// instead, which proves nothing about set_material's own rejection.
 func TestWorkspaceTurnRejectsInventedPastedText(t *testing.T) {
 	argsJSON, _ := json.Marshal(map[string]string{
 		"source": "text", "text": "中国是全球最大的碳排放国，但也是可再生能源投资的领先者。",
 	})
-	prov := gateway.NewSequenceStubProvider(wsToolCall("set_material", string(argsJSON)))
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", string(argsJSON)),
+		wsText("这段不是您这一轮贴的原文，我没法把它设成材料。"),
+	)
 	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
 
 	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周读一篇关于气候的报道"))
-	if rec.Code < 400 {
-		t.Fatalf("invented pasted text = %d, want a failure; body=%s", rec.Code, rec.Body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("model recovering after a rejected tool call = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, wrote := out.Patch["text"]; wrote {
+		t.Fatalf("invented pasted text reached the patch anyway: %v", out.Patch)
+	}
+	if len(prov.Requests) < 2 {
+		t.Fatalf("model was called %d times, want at least 2 — the tool error has to reach it for a second call", len(prov.Requests))
+	}
+	var sawError bool
+	for _, m := range prov.Requests[1].Messages {
+		if m.Role == gateway.RoleTool && strings.Contains(m.Content, "正文必须来自老师贴进来的内容") {
+			sawError = true
+		}
+	}
+	if !sawError {
+		t.Fatal("the substring-grounding tool error never reached the model's second call")
+	}
+}
+
+// TestWorkspaceTurnAcceptsAPasteCutMidNumber — M-4: the §6 exemption for the
+// patch's "text" field is not about names and numbers in general — typed
+// (what she pasted this turn) already grounds those. It matters for a
+// substring that starts mid-number: typed states 「1200人」, and the model's
+// (real, contiguous) substring starts at 「200人」. Without the exemption,
+// StatedCounts would read 200 as a head count nobody stated and nothing
+// this turn grounds (typed's own count list has 1200, not 200) — a false
+// rejection of content already proven honest by the substring check.
+func TestWorkspaceTurnAcceptsAPasteCutMidNumber(t *testing.T) {
+	typed := "这是今天的报道：根据最新统计，全校已有1200人参加了这项环保活动，反响非常热烈，大家都很兴奋。"
+	cutMidNumber := "200人参加了这项环保活动，反响非常热烈，大家都很兴奋。"
+	if !strings.Contains(typed, cutMidNumber) {
+		t.Fatal("test setup: cutMidNumber must be a real substring of typed")
+	}
+	if n := len([]rune(cutMidNumber)); n < 20 { // liteWorkspaceMinTextRunes, unexported — kept as a literal here
+		t.Fatalf("test setup: cutMidNumber is %d runes, want at least 20 so the length floor does not mask this test", n)
+	}
+	argsJSON, _ := json.Marshal(map[string]string{"source": "text", "text": cutMidNumber})
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", string(argsJSON)),
+		wsText("材料已经设成她贴的这段正文了。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": typed,
+		"artifact": map[string]any{"kind": "reading", "title": "", "dueInput": ""},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a paste cut mid-number = %d, want 200 (the exemption covers it); body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["text"] != cutMidNumber {
+		t.Fatalf("patch[text] = %v, want the substring verbatim", out.Patch["text"])
+	}
+}
+
+// TestWorkspaceTurnSendsCurrentTextExactlyOnce — I-1: the client's `turns`
+// is history only (the current turn travels as `text`), and the server must
+// not append it a second time on top of `said`. A pasted article would
+// otherwise double its own token count on every loop round.
+func TestWorkspaceTurnSendsCurrentTextExactlyOnce(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	current := "这周读一读这篇报道，讲的是可再生能源投资增长的情况。"
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": current,
+		"artifact": map[string]any{"kind": "reading", "title": "", "dueInput": ""},
+		"turns": []map[string]string{
+			{"role": "teacher", "text": "上一轮说的话"},
+			{"role": "ai", "text": "上一轮的回复"},
+		},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	if len(prov.Requests) == 0 {
+		t.Fatal("the model was never called")
+	}
+	count := 0
+	for _, m := range prov.Requests[0].Messages {
+		if strings.Contains(m.Content, current) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("the current turn's text appeared %d times in the model's messages, want exactly 1", count)
 	}
 }
 

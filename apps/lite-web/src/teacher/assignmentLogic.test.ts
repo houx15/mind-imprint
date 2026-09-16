@@ -40,12 +40,14 @@ import {
   unassignedStudents,
   validateSettings,
   visiblePickRows,
+  workspaceArtifactPayload,
   type AssignmentDraft,
   type EditDraft,
   type PickRow,
   type SettingsDraft,
 } from "./assignmentLogic";
 import { buildRubric, rubricDraftFromPayload, type RubricDraft } from "./rubricLogic";
+import { trimTurns, truncateHistory, TURNS_WINDOW, HISTORY_TEXT_CAP, type Turn } from "./workspace/workspaceLogic";
 
 function draft(over: Partial<AssignmentDraft> = {}): AssignmentDraft {
   return {
@@ -317,7 +319,13 @@ describe("draftOnClassChange", () => {
 // render. These three fields are the same ones the server's set_fields clears
 // on the same transition.
 describe("draftOnKindChange", () => {
-  const reading = draft({ ...emptySettings("reading"), readingSource: "library", slug: "coral", tier: 3 });
+  const reading = draft({
+    ...emptySettings("reading"),
+    readingSource: "library",
+    slug: "coral",
+    tier: 3,
+    text: "一段之前贴过的正文",
+  });
 
   it("takes the material with it when leaving 阅读", () => {
     const next = draftOnKindChange(reading, "writing");
@@ -325,6 +333,9 @@ describe("draftOnKindChange", () => {
     expect(next.slug).toBe("");
     expect(next.readingSource).toBe("library");
     expect(next.tier).toBeNull();
+    // M-1: matches the server's set_fields, which also clears "text" on the
+    // same transition — a pasted-article material must not linger either.
+    expect(next.text).toBe("");
   });
 
   it("clears the material for 项目 too", () => {
@@ -340,6 +351,63 @@ describe("draftOnKindChange", () => {
   it("leaves the other cells alone", () => {
     const next = draftOnKindChange(draft({ ...emptySettings("reading"), title: "气候作业" }), "writing");
     expect(next.title).toBe("气候作业");
+  });
+});
+
+// I-2 (2026-09-16 review): the workspace turn endpoint's `liteWorkspaceArtifact`
+// only reads eight fields; the request body must carry only those, never the
+// whole draft, or a material already on the card (a 50000-rune paste) travels
+// again on every later turn.
+describe("workspaceArtifactPayload", () => {
+  it("carries only the fields the server's liteWorkspaceArtifact reads", () => {
+    const d = draft({
+      readingSource: "text",
+      text: "气".repeat(50000), // a large field the payload must NOT carry
+      slug: "",
+      tier: 2,
+      picks: [{ userId: "u1", name: "A", slug: "s", title: "T", tier: null, suggestedTier: 2, reason: "", swapped: false }],
+      savedPicks: { u1: { slug: "s", tier: null } },
+    });
+    const payload = workspaceArtifactPayload(d);
+    expect(payload).toEqual({
+      kind: d.kind,
+      title: d.title,
+      instructions: d.instructions,
+      dueInput: d.dueInput,
+      readingSource: d.readingSource,
+      slug: d.slug,
+      tier: d.tier,
+      userIds: d.userIds,
+    });
+    expect(Object.keys(payload)).not.toContain("text");
+    expect(Object.keys(payload)).not.toContain("picks");
+    expect(Object.keys(payload)).not.toContain("savedPicks");
+  });
+
+  // The actual measurement the review asked for: a draft already holding a
+  // 50000-CJK-rune article, a NEW 50000-rune paste as this turn's message,
+  // and a full TURNS_WINDOW of history at the per-turn cap — the shape a
+  // real "replace the article" turn has. Asserted with the same
+  // TextEncoder byte count the request body will actually be sent as.
+  it("keeps the full workspace turn body under the 256KB request cap", () => {
+    const articleAlreadyOnCard = "气".repeat(50000);
+    const d = draft({ readingSource: "text", text: articleAlreadyOnCard, slug: "", tier: null });
+
+    const history: Turn[] = Array.from({ length: TURNS_WINDOW + 4 }, (_, i) => ({
+      role: i % 2 === 0 ? ("teacher" as const) : ("ai" as const),
+      text: "气".repeat(HISTORY_TEXT_CAP + 200), // over cap, so truncation actually does work
+    }));
+    const newPaste = "气".repeat(50000);
+
+    const body = {
+      surface: "assignment",
+      classId: d.classId,
+      artifact: workspaceArtifactPayload(d),
+      turns: truncateHistory(trimTurns(history)),
+      text: "这周读这段：" + newPaste,
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(body)).length;
+    expect(bytes).toBeLessThan(256 * 1024);
   });
 });
 

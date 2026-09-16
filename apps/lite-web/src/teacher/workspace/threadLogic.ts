@@ -69,11 +69,14 @@ export function shouldRestore(composer: string): boolean {
   return composer.trim() === "";
 }
 
-/** Starts a turn. Returns null while another turn is in flight. `wireTurns`
- *  is the windowed history to send (`trimTurns`, then `truncateHistory` so
- *  every turn but this one is capped — the just-typed turn travels whole,
- *  which matters when it is a pasted article set_material must match
- *  substring for substring), including the new turn.
+/** Starts a turn. Returns null while another turn is in flight.
+ *
+ *  `wireTurns` is HISTORY ONLY — `state.turns` as it was BEFORE this turn,
+ *  windowed (`trimTurns`) and capped (`truncateHistory`, every item, no
+ *  exception). The current turn is never in it: it travels once, as
+ *  `ThreadInput` (the caller sends it as `text`/`choiceId`). Putting it in
+ *  both places doubled it in the model's messages — every loop round, for
+ *  every turn — and this is the fix (I-1, 2026-09-16 review).
  *
  *  If the composer still holds exactly this sentence (a failed sentence was
  *  restored and she pressed 重试 instead of 发送), it is cleared so the same
@@ -85,12 +88,13 @@ export function beginTurn<K extends PropertyKey>(
 ): { state: ThreadState<K>; pending: PendingTurn; wireTurns: Turn[] } | null {
   if (state.busy) return null;
   const text = inputText(input);
+  const wireTurns = truncateHistory(trimTurns(state.turns));
   const turns = [...state.turns, { role: "teacher" as const, text }];
   const composer = "text" in input && state.composer.trim() === input.text.trim() ? "" : state.composer;
   return {
     state: { ...state, turns, busy: true, error: null, kept: [], failed: null, composer },
     pending: { gen: state.gen, scope, index: turns.length - 1, text },
-    wireTurns: truncateHistory(trimTurns(turns)),
+    wireTurns,
   };
 }
 

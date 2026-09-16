@@ -109,6 +109,39 @@ export interface AssignmentDraft extends SettingsDraft {
   userIds: string[];
 }
 
+/** The fields the workspace turn endpoint's `liteWorkspaceArtifact` actually
+ * reads (apps/api/internal/api/lite_teacher_workspace.go's `artifact`
+ * struct) — never the whole draft. Sending the whole draft put a
+ * 50000-rune pasted-text material back on the wire on every later turn,
+ * just because it lives on the same draft object (I-2, 2026-09-16 review):
+ * the server ignores JSON fields it does not declare, but the bytes still
+ * cross the network before it gets the chance to. Built as an explicit
+ * object, not a spread of the draft, so a future large field on the draft
+ * cannot leak onto this wire the same way. */
+export interface WorkspaceArtifactPayload {
+  kind: AssignmentKind;
+  title: string;
+  instructions: string;
+  dueInput: string;
+  readingSource: ReadingSource;
+  slug: string;
+  tier: number | null;
+  userIds: string[];
+}
+
+export function workspaceArtifactPayload(d: AssignmentDraft): WorkspaceArtifactPayload {
+  return {
+    kind: d.kind,
+    title: d.title,
+    instructions: d.instructions,
+    dueInput: d.dueInput,
+    readingSource: d.readingSource,
+    slug: d.slug,
+    tier: d.tier,
+    userIds: d.userIds,
+  };
+}
+
 export function emptySettings(kind: AssignmentKind = "reading"): SettingsDraft {
   return {
     kind,
@@ -327,7 +360,7 @@ export function draftOnClassChange(d: AssignmentDraft, classId: string): Assignm
  * rather than through a tool does not make it a different state. */
 export function draftOnKindChange<T extends SettingsDraft>(d: T, kind: AssignmentKind): T {
   if (kind === "reading") return { ...d, kind };
-  return { ...d, kind, readingSource: "library", slug: "", tier: null };
+  return { ...d, kind, readingSource: "library", slug: "", tier: null, text: "" };
 }
 
 function validateCommon(title: string, dueInput: string): string | null {

@@ -33,37 +33,35 @@ describe("a successful turn", () => {
     expect(b.kept).toEqual(["dueInput"]);
   });
 
-  it("sends only the last TURNS_WINDOW turns, including the new one", () => {
+  // I-1 (2026-09-16 review): wireTurns is HISTORY ONLY — the current turn
+  // travels once, as ThreadInput, never inside this array. Putting it in
+  // both places doubled it in the model's messages.
+  it("sends only the last TURNS_WINDOW HISTORY turns, never the current one", () => {
     let s = initialThread<Key>();
     for (let i = 0; i < 6; i++) {
       const r = started(s, `第${i}句`);
       s = settleSuccess(r.state, r.pending, "class-a", reply());
     }
     const r = started(s, "最后一句");
-    expect(r.state.turns).toHaveLength(13);
+    expect(r.state.turns).toHaveLength(13); // on-screen: history + her new bubble
     expect(r.wireTurns).toHaveLength(TURNS_WINDOW);
-    expect(r.wireTurns[TURNS_WINDOW - 1]).toEqual({ role: "teacher", text: "最后一句" });
+    expect(r.wireTurns.some((t) => t.text === "最后一句")).toBe(false);
   });
 
-  // F7: an older turn is capped so a stray long one does not blow up the
-  // prompt, but the CURRENT turn — the one that may be a pasted article
-  // set_material needs whole — must reach the wire untouched.
-  it("caps an older turn's text but sends the current one whole", () => {
+  // F7 + I-1: every history turn is capped, with no "last turn" exception —
+  // there is no current turn in this array to except.
+  it("caps every history turn; the current turn never appears in wireTurns", () => {
     const long = "气".repeat(HISTORY_TEXT_CAP + 500);
     let s = initialThread<Key>();
     const first = started(s, long);
     s = settleSuccess(first.state, first.pending, "class-a", reply());
-    const second = started(s, "继续");
-    s = settleSuccess(second.state, second.pending, "class-a", reply());
 
     const r = started(s, "最后一句：" + long);
-    const older = r.wireTurns.find((t) => t.role === "teacher" && t.text.startsWith("气"));
-    expect(older).toBeDefined();
-    expect([...older!.text]).toHaveLength(HISTORY_TEXT_CAP + 1); // +1 for "…"
-    expect(older!.text.endsWith("…")).toBe(true);
-
-    const current = r.wireTurns[r.wireTurns.length - 1]!;
-    expect(current.text).toBe("最后一句：" + long);
+    const historyTurn = r.wireTurns.find((t) => t.role === "teacher");
+    expect(historyTurn).toBeDefined();
+    expect([...historyTurn!.text]).toHaveLength(HISTORY_TEXT_CAP + 1); // +1 for "…"
+    expect(historyTurn!.text.endsWith("…")).toBe(true);
+    expect(r.wireTurns.some((t) => t.text.startsWith("最后一句"))).toBe(false);
   });
 
   it("clamps choices", () => {

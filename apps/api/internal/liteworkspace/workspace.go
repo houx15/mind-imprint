@@ -401,26 +401,24 @@ func TrimTurns(in []Turn) []Turn {
 	return in[len(in)-TurnsWindow:]
 }
 
-// HistoryTextCapRunes bounds a HISTORY turn's text — every turn but the
-// last, which is what she just sent and must reach the model whole (a
-// pasted article set_material grounds against it, substring for substring).
-// Must equal threadLogic.ts's HISTORY_TEXT_CAP: the client already
-// truncates before sending, but this runs again server-side because the
-// server never trusts that it did.
+// HistoryTextCapRunes bounds a HISTORY turn's text. Turns is HISTORY ONLY —
+// the current turn travels as Text/ChoiceID on the request, never inside
+// Turns, so every item this bounds is, by contract, an older turn. Must
+// equal threadLogic.ts's HISTORY_TEXT_CAP: the client already truncates
+// before sending, but this runs again server-side because the server never
+// trusts that it did.
 const HistoryTextCapRunes = 1000
 
-// TruncateHistory caps every turn but the last to HistoryTextCapRunes
-// runes, ending a cut string with 「…」. The last turn — the one just sent
-// — is returned unchanged. Call this AFTER TrimTurns: the window bounds how
-// many turns travel, this bounds how long each older one is.
+// TruncateHistory caps every turn to HistoryTextCapRunes runes, ending a cut
+// string with 「…」. Call this AFTER TrimTurns: the window bounds how many
+// turns travel, this bounds how long each one is.
 func TruncateHistory(turns []Turn) []Turn {
 	if len(turns) == 0 {
 		return turns
 	}
 	out := make([]Turn, len(turns))
-	copy(out, turns)
-	for i := 0; i < len(out)-1; i++ {
-		out[i].Text = truncateHistoryText(out[i].Text)
+	for i, t := range turns {
+		out[i] = Turn{Role: t.Role, Text: truncateHistoryText(t.Text)}
 	}
 	return out
 }

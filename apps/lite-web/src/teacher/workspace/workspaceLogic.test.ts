@@ -86,7 +86,10 @@ describe("truncateHistoryText", () => {
 });
 
 describe("truncateHistory", () => {
-  it("caps every turn but the last", () => {
+  // truncateHistory only ever sees HISTORY — the caller (threadLogic.ts's
+  // beginTurn) sends the current turn separately — so there is no "last
+  // turn" exception: every item is capped, including the last one here.
+  it("caps every turn, including the last", () => {
     const long = "气".repeat(HISTORY_TEXT_CAP + 500);
     const turns: Turn[] = [
       { role: "teacher", text: long },
@@ -94,7 +97,7 @@ describe("truncateHistory", () => {
       { role: "teacher", text: long },
     ];
     const got = truncateHistory(turns);
-    expect(got[2]!.text).toBe(long); // the current turn: untouched
+    expect(got[2]!.text).toBe(truncateHistoryText(long));
     expect(got[1]!.text).toBe("短的回复");
     expect(got[0]!.text).toBe(truncateHistoryText(long));
   });

@@ -130,10 +130,10 @@ func TestTrimTurnsKeepsTheMostRecent(t *testing.T) {
 	}
 }
 
-// TestTruncateHistoryCapsEveryTurnButTheLast — an older turn is cut and
-// marked with 「…」; the last turn is what she just sent and must survive
-// whole, since a pasted article set_material grounds against it.
-func TestTruncateHistoryCapsEveryTurnButTheLast(t *testing.T) {
+// TestTruncateHistoryCapsEveryTurn — Turns is HISTORY ONLY (the current
+// turn travels as Text/ChoiceID, never inside Turns — see the field's
+// contract), so there is no "last turn" exception: every item gets capped.
+func TestTruncateHistoryCapsEveryTurn(t *testing.T) {
 	long := strings.Repeat("气", HistoryTextCapRunes+500)
 	in := []Turn{
 		{Role: "teacher", Text: long},
@@ -141,16 +141,15 @@ func TestTruncateHistoryCapsEveryTurnButTheLast(t *testing.T) {
 		{Role: "teacher", Text: long},
 	}
 	got := TruncateHistory(in)
-	if got[2].Text != long {
-		t.Fatalf("the last turn must be untouched, got %d runes", len([]rune(got[2].Text)))
-	}
 	if got[1].Text != "短的回复" {
-		t.Fatalf("a short older turn must not be touched: %q", got[1].Text)
+		t.Fatalf("a short turn must not be touched: %q", got[1].Text)
 	}
 	wantCut := string([]rune(long)[:HistoryTextCapRunes]) + "…"
-	if got[0].Text != wantCut {
-		t.Fatalf("a long older turn must be cut to %d runes ending in 「…」, got %d runes",
-			HistoryTextCapRunes, len([]rune(got[0].Text)))
+	for _, i := range []int{0, 2} {
+		if got[i].Text != wantCut {
+			t.Fatalf("turn %d must be cut to %d runes ending in 「…」, got %d runes",
+				i, HistoryTextCapRunes, len([]rune(got[i].Text)))
+		}
 	}
 	if len(in[0].Text) == 0 || in[0].Text != long {
 		t.Fatal("TruncateHistory must not mutate its input")

@@ -28,6 +28,7 @@ import {
   readAssignmentMode,
   readLastClassId,
   toggleId,
+  workspaceArtifactPayload,
   writeAssignmentMode,
   writeLastClassId,
   type AssignmentDraft,
@@ -285,7 +286,10 @@ export function AssignmentForm({
       postWorkspaceTurn({
         surface: "assignment",
         classId: artifact.classId,
-        artifact,
+        // Only the fields the endpoint reads (I-2) — never the whole draft,
+        // which can carry a 50000-rune pasted-text material that has
+        // nothing to do with what the model needs to see.
+        artifact: workspaceArtifactPayload(artifact),
         turns,
         ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
       }).then((res) => ({ ...res, patch: res.patch as Partial<AssignmentDraft> })),

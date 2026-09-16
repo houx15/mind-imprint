@@ -247,3 +247,73 @@ func TestLiteWorkspaceSetMaterialTextRejectedOnAWritingCard(t *testing.T) {
 		t.Fatalf("patch = %v, want unchanged (nil) on a writing card", run.patch)
 	}
 }
+
+// TestLiteWorkspaceSetMaterialTextRejectsTooShort — M-3: a fragment is not a
+// reading material. The typed text is deliberately longer than the pasted
+// fragment (and really contains it) so this isolates the length floor from
+// the substring check — a too-short text that also failed substring would
+// prove nothing about the floor.
+func TestLiteWorkspaceSetMaterialTextRejectsTooShort(t *testing.T) {
+	run := &liteWorkspaceRun{kind: "reading", typed: "这段太短了不能当材料，我再说详细一点"}
+
+	got := run.setMaterial(map[string]any{"source": "text", "text": "这段太短了"}) // 5 runes, a real substring
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode tool result: %v — %s", err, got)
+	}
+	if decoded.OK || !strings.Contains(decoded.Error, "太短") {
+		t.Fatalf("tool result = %+v, want a too-short error", decoded)
+	}
+	if run.patch != nil {
+		t.Fatalf("patch = %v, want unchanged (nil) for a fragment", run.patch)
+	}
+}
+
+// TestLiteWorkspaceSetMaterialTextClearsSlugAndTier — M-2: a text material
+// must not leave a prior library pick sitting in the patch, or the card
+// state ends up saying 「材料来源：正文」 next to 「文章：《X》」 for an article
+// nobody chose as the text source.
+func TestLiteWorkspaceSetMaterialTextClearsSlugAndTier(t *testing.T) {
+	pasted := "中国的可再生能源投资去年增长了百分之四十，NASA 的最新数据也印证了这一点。"
+	run := &liteWorkspaceRun{kind: "reading", typed: "这段正文：" + pasted, materialSet: true}
+
+	got := run.setMaterial(map[string]any{"source": "text", "text": pasted})
+	var decoded struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil || !decoded.OK {
+		t.Fatalf("tool result = %s, want ok=true", got)
+	}
+	if run.patch["slug"] != "" {
+		t.Fatalf("patch[slug] = %v, want cleared to \"\"", run.patch["slug"])
+	}
+	if tier, wrote := run.patch["tier"]; !wrote || tier != nil {
+		t.Fatalf("patch[tier] = %v (wrote=%v), want cleared to nil", tier, wrote)
+	}
+}
+
+// TestLiteWorkspaceSetMaterialPersonalizedClearsSlugAndTier — the same gap,
+// same fix, for the personalized source.
+func TestLiteWorkspaceSetMaterialPersonalizedClearsSlugAndTier(t *testing.T) {
+	run := &liteWorkspaceRun{kind: "reading", materialSet: true}
+
+	got := run.setMaterial(map[string]any{"source": "personalized"})
+	var decoded struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil || !decoded.OK {
+		t.Fatalf("tool result = %s, want ok=true", got)
+	}
+	if run.patch["slug"] != "" {
+		t.Fatalf("patch[slug] = %v, want cleared to \"\"", run.patch["slug"])
+	}
+	if tier, wrote := run.patch["tier"]; !wrote || tier != nil {
+		t.Fatalf("patch[tier] = %v (wrote=%v), want cleared to nil", tier, wrote)
+	}
+	if run.patch["text"] != "" {
+		t.Fatalf("patch[text] = %v, want cleared to \"\"", run.patch["text"])
+	}
+}

@@ -59,6 +59,15 @@ const liteWorkspaceMaxInstructionsRunes = 2000
 // writing a longer text would pass the card and fail at the last step.
 const liteWorkspaceMaxTextRunes = 50000
 
+// liteWorkspaceMinTextRunes is set_material's "text" source floor. Nothing
+// this short is a reading material — it is the model settling for a
+// fragment ("这篇" or a headline) rather than telling the teacher it could
+// not find the article in what she typed. There is no matching floor on the
+// traditional form: she pastes an article by hand and would notice an empty
+// box, but a tool result silently writing three words onto the card would
+// not be noticed the same way.
+const liteWorkspaceMinTextRunes = 20
+
 // liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: only
 // the assignment surface exists, and the other two arrive with D2/D3.
 type liteWorkspaceTurnRequest struct {
@@ -233,11 +242,14 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// and this one is none.
 	chosen := liteWorkspaceChosenArticle(run, req)
 
-	// TruncateHistory runs here even though threadLogic.ts already truncates
-	// before sending: this is a server, and a server never trusts that a
-	// client did its own bounding. Only the current turn (said, below) needs
-	// to reach the model whole — a pasted article's set_material call grounds
-	// against it, not against anything in `turns`.
+	// req.Turns is HISTORY ONLY — the client never puts the current turn in
+	// it (threadLogic.ts's beginTurn sends it separately as Text/ChoiceID),
+	// so every item here is capped without exception. TruncateHistory runs
+	// here even though the client already truncates before sending: this is
+	// a server, and a server never trusts that a client did its own
+	// bounding. The current turn (said, below) reaches the model whole
+	// through Text/ChoiceID, not through `turns` — a pasted article's
+	// set_material call grounds against it.
 	turns := liteworkspace.TruncateHistory(liteworkspace.TrimTurns(req.Turns))
 	// run.patch is passed so the card the model reads is the card as it stands
 	// NOW, including what tapping an option just wrote. Showing it the pre-turn
@@ -377,13 +389,21 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 // fields are two sentences; only the name check, which compares whole names,
 // can safely read them as one blob.
 //
-// The "text" field is the one deliberate exception: set_material's text
-// source already went through a stronger check than either §6 check gives —
-// run.setMaterial refused it unless it is a literal substring of what the
-// teacher typed THIS turn. A pasted news article is full of real names and
-// real numbers that have nothing to do with the roster; scanning it with the
-// name/count detectors would fail almost every one of them, and for content
-// that is proven to be hers verbatim, not the model's.
+// The "text" field is the one deliberate exception, and the reason is NOT
+// "an article has a lot of names and numbers" — typed (what she pasted this
+// turn) already grounds those: liteWorkspaceNamesTeacherTyped and
+// liteWorkspaceGroundedCounts both read typed, and every roster name or
+// stated count inside "text" is inside typed too, because run.setMaterial
+// already proved "text" is a literal substring of it. The real reason is
+// narrower: the count check does not see the SUBSTRING RELATIONSHIP, only
+// the digits in front of it. A cut can start mid-number — typed says
+// 「1200人」, the model's substring starts at 「200人」, still a real
+// substring — and StatedCounts(text) then reads a head count (200) that was
+// never stated by anyone and is not in typed's own count list (1200). That
+// is not a fabrication; it is where the paste happened to be cut. Checking
+// "text" against §6 would fail a turn over content already proven honest,
+// so it is not checked at all.
+
 func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) []string {
 	out := []string{reply}
 	for _, c := range choices {
@@ -946,6 +966,11 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		}
 		run.write("readingSource", "library")
 		run.write("slug", art.Slug)
+		// A prior turn may have set a "text" material; switching to a library
+		// article must take it with it, or the draft still carries a 50000-rune
+		// paste under a field nothing shows anymore (see the kind-change
+		// clearing block in setFields for the same rule).
+		run.write("text", "")
 		run.materialSet = true
 		if tier, ok := toolInt(args, "tier"); ok {
 			if _, has := art.LevelAt(tier); !has {
@@ -959,6 +984,13 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		// personalized-reading preview endpoint, and a second implementation
 		// here would be a second answer to the same question.
 		run.write("readingSource", "personalized")
+		// Same reason as the text case below: a prior library or text pick
+		// must not survive alongside "个性化" in the card state, or it reads
+		// 「材料来源：个性化」 next to 「文章：《X》」 for an article nobody chose
+		// for personalized reading.
+		run.write("slug", "")
+		run.write("tier", nil)
+		run.write("text", "")
 		run.materialSet = true
 		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
 	case "text":
@@ -970,10 +1002,14 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		// that summarised, translated or invented the text fails here, on
 		// the same turn, with a message it can act on.
 		text, _ := toolString(args, "text")
+		runes := len([]rune(text))
 		if text == "" {
 			return liteWorkspaceToolError("请给出正文")
 		}
-		if len([]rune(text)) > liteWorkspaceMaxTextRunes {
+		if runes < liteWorkspaceMinTextRunes {
+			return liteWorkspaceToolError(fmt.Sprintf("正文太短：至少需要 %d 字，这不像一篇完整的材料", liteWorkspaceMinTextRunes))
+		}
+		if runes > liteWorkspaceMaxTextRunes {
 			return liteWorkspaceToolError("文章正文不能超过 50000 字")
 		}
 		if !strings.Contains(run.typed, text) {
@@ -981,6 +1017,10 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		}
 		run.write("readingSource", "text")
 		run.write("text", text)
+		// A prior library or personalized pick must not linger next to it —
+		// same reason the personalized case above clears slug/tier.
+		run.write("slug", "")
+		run.write("tier", nil)
 		run.materialSet = true
 		return liteWorkspaceToolOK(map[string]any{"source": "text"})
 	}
