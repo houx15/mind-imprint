@@ -668,14 +668,40 @@ export function pickArticle(
 
 /**
  * The part of the full grid shown before 显示全部. A selected article past
- * the cut is appended, so the chosen card is always on screen.
+ * the cut is moved to the front (and the page stays `limit` long), so the
+ * chosen card is the first thing she sees. One already inside the page keeps
+ * its place, so a click does not make the card jump.
  */
 export function pageArticles(list: LibraryArticle[], limit: number, selectedSlug: string): LibraryArticle[] {
   if (list.length <= limit) return list;
   const head = list.slice(0, limit);
   if (!selectedSlug || head.some((a) => a.slug === selectedSlug)) return head;
   const selected = list.find((a) => a.slug === selectedSlug);
-  return selected ? [...head, selected] : head;
+  return selected ? [selected, ...head.slice(0, limit - 1)] : head;
+}
+
+/**
+ * The discipline filter chips: tags ordered by how many articles carry them
+ * (ties keep library order). Collapsed, only the first `limit` show, plus any
+ * chosen tag past the cut so an active filter is never hidden; `hidden`
+ * counts the rest for the 更多 chip.
+ */
+export function disciplineChips(
+  articles: LibraryArticle[],
+  opts: { limit: number; expanded: boolean; chosen: string[] },
+): { shown: LibraryTag[]; hidden: number } {
+  const counts = new Map<string, number>();
+  for (const a of articles) {
+    for (const t of Array.isArray(a.tags) ? a.tags : []) counts.set(t.id, (counts.get(t.id) ?? 0) + 1);
+  }
+  const ordered = disciplineOptions(articles)
+    .map((t, i) => ({ t, i }))
+    .sort((x, y) => (counts.get(y.t.id) ?? 0) - (counts.get(x.t.id) ?? 0) || x.i - y.i)
+    .map((x) => x.t);
+  if (opts.expanded || ordered.length <= opts.limit) return { shown: ordered, hidden: 0 };
+  const chosen = new Set(opts.chosen);
+  const shown = ordered.filter((t, i) => i < opts.limit || chosen.has(t.id));
+  return { shown, hidden: ordered.length - shown.length };
 }
 
 /** One-line settings summary for the detail header, e.g. `目标字数 800 · 中文`.

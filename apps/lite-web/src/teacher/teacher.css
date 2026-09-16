@@ -57,56 +57,70 @@
 
 /* LibraryPicker (分级阅读库, teacher side). The picker sits in a card inside a
  * two-column workspace and in the 更换文章 dialog, so its row and grid follow
- * the picker's own width (a size container), not the viewport. */
+ * the picker's own width (a size container), not the viewport.
+ *
+ * 🚨 Layout lengths below are literal px, not `var(--mk-space-*)`. The spacing
+ * tokens are defined only inside the lite theme scope (`.lite-teacher`,
+ * `body.lite-teacher-theme`, apps/web/src/ui/themes/lite.css); outside it a
+ * `calc()` over them is invalid at computed-value time, `flex-basis` falls
+ * back to `auto`, and each row card grows to the unwrapped width of its
+ * English title (one ~600px card at a 720px canvas). */
 .teacher-library-picker {
   container-type: inline-size;
 }
-/* 为这个班推荐: one horizontal row. Narrow: most of a card plus the edge of the
- * next, to show the row scrolls. From 520px: three cards. From 760px: four. */
+/* 为这个班推荐: one horizontal row. Narrow (phone): most of a card plus the
+ * edge of the next, to show the row scrolls. From 480px: three cards.
+ * From 760px: four. */
 .teacher-pick-row {
   display: flex;
-  gap: var(--mk-space-12);
+  gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
-  padding: 2px 2px var(--mk-space-6);
+  padding: 2px 2px 6px;
 }
 .teacher-pick-row > * {
   flex: 0 0 74%;
+  min-width: 0;
   scroll-snap-align: start;
 }
-@container (min-width: 520px) {
+@container (min-width: 480px) {
   .teacher-pick-row > * {
-    flex-basis: calc((100% - 2 * var(--mk-space-12)) / 3);
+    flex-basis: calc((100% - 24px) / 3);
   }
 }
 @container (min-width: 760px) {
   .teacher-pick-row > * {
-    flex-basis: calc((100% - 3 * var(--mk-space-12)) / 4);
+    flex-basis: calc((100% - 36px) / 4);
   }
 }
-/* 全部文章: as many 160px+ columns as fit (two at 360px, three at ~560px). */
+/* 全部文章: as many 160px+ columns as fit (two at 360px, four at 720px). */
 .teacher-pick-grid {
   display: grid;
-  gap: var(--mk-space-12);
+  gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   padding: 2px;
+}
+.teacher-pick-grid > * {
+  min-width: 0;
 }
 @container (min-width: 900px) {
   .teacher-pick-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-/* Smaller than the student shelf's card: the teacher compares many at once. */
+/* The cover follows the card's width, so a row card and a grid card of the
+ * same width look the same; landing.css gives the student card a fixed height. */
 .teacher-pick-card .reading-library-cover {
-  height: 112px;
+  height: auto;
+  aspect-ratio: 16 / 9;
 }
 .teacher-pick-card .reading-library-content {
-  padding: var(--mk-space-12) var(--mk-space-12) var(--mk-space-14);
-  gap: var(--mk-space-6);
+  padding: 12px 12px 14px;
+  gap: 6px;
 }
 .teacher-pick-card .reading-library-content h3 {
-  font-size: var(--mk-font-size-body);
+  font-size: var(--mk-font-size-body, 14px);
   line-height: 1.45;
 }
 .teacher-pick-card .reading-library-description {

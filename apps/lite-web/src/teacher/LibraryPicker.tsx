@@ -4,7 +4,7 @@ import { getLibraryShelf, type LibraryArticle } from "../api/library";
 import { getClassRecommendations, type ClassRecommendations } from "../api/teacherLibrary";
 import { ArticleCardBody } from "../readings/ArticleCardBody";
 import {
-  disciplineOptions,
+  disciplineChips,
   errorText,
   filterArticles,
   filterByDisciplines,
@@ -20,6 +20,8 @@ import "./teacher.css";
 /** Cards shown in the full grid before 显示全部 (divides into 2, 3 and 4 columns). */
 const GRID_PAGE = 12;
 const RECOMMEND_LIMIT = 8;
+/** Discipline chips shown before 更多. */
+const CHIP_LIMIT = 8;
 
 /**
  * LibraryPicker — choose one article from 分级阅读库 and a level for it.
@@ -64,6 +66,7 @@ export function LibraryPicker({
   const [query, setQuery] = useState("");
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [allChips, setAllChips] = useState(false);
 
   const [recs, setRecs] = useState<ClassRecommendations | null>(null);
   const [recError, setRecError] = useState<string | null>(null);
@@ -107,7 +110,7 @@ export function LibraryPicker({
     articles?.find((a) => a.slug === slug) ?? recs?.articles.find((a) => a.slug === slug) ?? null;
   const levels = selected && Array.isArray(selected.levels) ? selected.levels : [];
 
-  const options = articles ? disciplineOptions(articles) : [];
+  const chips = disciplineChips(articles ?? [], { limit: CHIP_LIMIT, expanded: allChips, chosen: disciplines });
   const filtering = query.trim() !== "" || disciplines.length > 0;
   const matched = articles ? filterByDisciplines(filterArticles(articles, query), disciplines) : [];
   const shown = expanded || filtering ? matched : pageArticles(matched, GRID_PAGE, slug);
@@ -188,12 +191,12 @@ export function LibraryPicker({
               aria-label="按标题搜索"
               className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
             />
-            {options.length > 0 && (
+            {chips.shown.length > 0 && (
               <div className="flex flex-wrap gap-2" role="group" aria-label="学科筛选">
                 <Chip active={disciplines.length === 0} onClick={() => setDisciplines([])}>
                   全部学科
                 </Chip>
-                {options.map((t) => (
+                {chips.shown.map((t) => (
                   <Chip
                     key={t.id}
                     active={disciplines.includes(t.id)}
@@ -204,6 +207,16 @@ export function LibraryPicker({
                     {t.zh}
                   </Chip>
                 ))}
+                {(chips.hidden > 0 || allChips) && (
+                  <button
+                    type="button"
+                    aria-expanded={allChips}
+                    onClick={() => setAllChips((v) => !v)}
+                    className="rounded-mk-full px-3 py-1.5 text-mk-small text-mk-muted underline decoration-mk-border underline-offset-2 transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                  >
+                    {allChips ? "收起" : `更多（${chips.hidden}）`}
+                  </button>
+                )}
               </div>
             )}
 

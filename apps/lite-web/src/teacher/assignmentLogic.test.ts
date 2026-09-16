@@ -10,6 +10,7 @@ import {
   buildPayload,
   buildReturnInput,
   canEditSettings,
+  disciplineChips,
   disciplineOptions,
   draftOnClassChange,
   draftOnKindChange,
@@ -741,12 +742,31 @@ describe("library picker selection", () => {
     expect(filterByDisciplines(list, []).map((a) => a.slug)).toEqual(["a", "b", "c", "d"]);
     expect(filterByDisciplines(list, ["physics", "astronomy"]).map((a) => a.slug)).toEqual(["b", "c"]);
   });
-  it("keeps the selected article on screen when it is past the cut", () => {
+  it("puts a selected article past the cut first, keeping the page length", () => {
     const list = ["a", "b", "c", "d", "e"].map((s) => art(s));
-    expect(pageArticles(list, 2, "").map((a) => a.slug)).toEqual(["a", "b"]);
-    expect(pageArticles(list, 2, "b").map((a) => a.slug)).toEqual(["a", "b"]);
-    expect(pageArticles(list, 2, "e").map((a) => a.slug)).toEqual(["a", "b", "e"]);
-    expect(pageArticles(list, 2, "gone").map((a) => a.slug)).toEqual(["a", "b"]);
+    expect(pageArticles(list, 3, "").map((a) => a.slug)).toEqual(["a", "b", "c"]);
+    expect(pageArticles(list, 3, "e").map((a) => a.slug)).toEqual(["e", "a", "b"]);
+    expect(pageArticles(list, 3, "gone").map((a) => a.slug)).toEqual(["a", "b", "c"]);
     expect(pageArticles(list, 9, "e")).toBe(list);
+  });
+  it("leaves a selected article inside the page where it is", () => {
+    const list = ["a", "b", "c", "d", "e"].map((s) => art(s));
+    expect(pageArticles(list, 3, "b").map((a) => a.slug)).toEqual(["a", "b", "c"]);
+  });
+  it("orders discipline chips by article count, ties in library order", () => {
+    const list = [art("1", ["hist"]), art("2", ["bio", "phys"]), art("3", ["phys"]), art("4", ["phys", "bio"]), art("5", ["art"])];
+    const all = disciplineChips(list, { limit: 9, expanded: false, chosen: [] });
+    expect(all.shown.map((t) => t.id)).toEqual(["phys", "bio", "hist", "art"]);
+    expect(all.hidden).toBe(0);
+  });
+  it("collapses the chips to the most common, keeping a chosen one visible", () => {
+    const list = [art("1", ["hist"]), art("2", ["bio", "phys"]), art("3", ["phys"]), art("4", ["phys", "bio"]), art("5", ["art"])];
+    const collapsed = disciplineChips(list, { limit: 2, expanded: false, chosen: [] });
+    expect(collapsed.shown.map((t) => t.id)).toEqual(["phys", "bio"]);
+    expect(collapsed.hidden).toBe(2);
+    const withChosen = disciplineChips(list, { limit: 2, expanded: false, chosen: ["art"] });
+    expect(withChosen.shown.map((t) => t.id)).toEqual(["phys", "bio", "art"]);
+    expect(withChosen.hidden).toBe(1);
+    expect(disciplineChips(list, { limit: 2, expanded: true, chosen: [] }).shown).toHaveLength(4);
   });
 });
