@@ -75,12 +75,13 @@ type AtomMessage struct {
 }
 
 type AtomReport struct {
-	AtomID     uuid.UUID          `json:"atom_id"`
-	Kind       string             `json:"kind"`
-	Report     []byte             `json:"report"`
-	ShareToken *string            `json:"share_token"`
-	SharedAt   pgtype.Timestamptz `json:"shared_at"`
-	CreatedAt  time.Time          `json:"created_at"`
+	AtomID            uuid.UUID          `json:"atom_id"`
+	Kind              string             `json:"kind"`
+	Report            []byte             `json:"report"`
+	ShareToken        *string            `json:"share_token"`
+	SharedAt          pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt         time.Time          `json:"created_at"`
+	IncludeTranscript bool               `json:"include_transcript"`
 }
 
 type CardCompetence struct {

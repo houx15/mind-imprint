@@ -16,11 +16,26 @@ package api
 //  2. Revocation is immediate and total: setting share_token back to NULL
 //     (SetAtomReportShare, Task 1) means the public route finds nothing on
 //     the very next request — no cache, no grace period.
-//  3. The payload is the report and nothing else: no account, no
-//     transcript, no article, no draft body, no ids that address anything
-//     else she owns. A public endpoint that leaks one extra field leaks it
-//     to everyone, forever — resist any temptation to "just include a bit
-//     more context" on the public route.
+//  3. The payload is the report, plus ONLY what she herself asked to add.
+//     No account, no ids that address anything else she owns, never the
+//     article's full body. A public endpoint that leaks one extra field
+//     leaks it to everyone, forever — resist any temptation to "just
+//     include a bit more context" on the public route.
+//
+//     🚨 这一条在 2026-09-16 改过，原文是「the report and nothing else: no
+//     account, **no transcript**, no article, no draft body」。改它的是产品
+//     负责人的决定，不是实现方便：她要学生能公开自己的记录，并在被问到对话
+//     记录时选了「她可以单独勾选公开」（而不是「跟报告一起公开」）。
+//
+//     所以现在多出来的只有一件事，而且它由她自己按：`include_transcript`
+//     （迁移 0174）。它默认 false、撤销分享时归 false、只影响 transcript 这
+//     一个键。**旧规矩剩下的部分一个字没松**：token 仍然不可猜、撤销仍然立刻
+//     生效、正文全文仍然永远不在这里（报告上那一节只有不超过 200 字的摘录，
+//     见 reportExcerptCap）。
+//
+//     留着这段历史是故意的：一段和代码相反的注释比没有注释更危险，而一段
+//     记着「这里曾经是另一条规矩、是谁在哪一天改的」的注释，是下一个人判断
+//     能不能再放宽一寸时唯一的依据。
 //
 // The share/revoke endpoints reuse ensureAtomReport (atom_report.go, Task
 // 4) as the ONE generator — this file never re-derives a report.
@@ -30,7 +45,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -72,6 +89,50 @@ func publicShareURL(r *http.Request, corsOrigins []string, token string) string 
 		origin = scheme + "://" + r.Host
 	}
 	return strings.TrimRight(origin, "/") + "/s/" + token
+}
+
+// publicTranscriptLine —— 公开出去的那份对话里的一条。
+//
+// 🚨 `Who` 永远在，永远不省略。这是公开页上唯一同时印着她的话和印记的话的
+// 地方，不标就是把印记的话记在她名下。
+type publicTranscriptLine struct {
+	Who  string `json:"who"` // "student" | "coach"
+	Text string `json:"text"`
+}
+
+// publicTranscriptOf 把存下来的消息摊成公开的那一份。system 那种记账消息不是
+// 任何人说的话，空白消息也不是 —— 两者都不出现。
+//
+// 不截断：她自己写的字一个都不切（2026-09-12）。
+func publicTranscriptOf(msgs []sqlc.AtomMessage) []publicTranscriptLine {
+	sorted := append([]sqlc.AtomMessage(nil), msgs...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Seq < sorted[j].Seq })
+	out := make([]publicTranscriptLine, 0, len(sorted))
+	for _, m := range sorted {
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
+		switch m.Role {
+		case "student":
+			out = append(out, publicTranscriptLine{Who: "student", Text: m.Content})
+		case "ai":
+			out = append(out, publicTranscriptLine{Who: "coach", Text: m.Content})
+		}
+	}
+	return out
+}
+
+// publicReportBody 拼出公开负载的字节。
+//
+// transcript 为 nil 时**连键都不出现** —— 不是空数组。空数组在前端是「有这
+// 件事，只是这次没有」，缺席才是「她没公开对话」。一条测试断在字节上守着
+// 这个区别。
+func publicReportBody(report []byte, transcript []publicTranscriptLine) ([]byte, error) {
+	payload := map[string]any{"report": json.RawMessage(report)}
+	if len(transcript) > 0 {
+		payload["transcript"] = transcript
+	}
+	return json.Marshal(payload)
 }
 
 // shareAtomReportFor is the shared body behind POST /api/v1/readings/{id}/report/share
@@ -116,10 +177,21 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 			return
 		}
 
+		// 对话是否一起公开。请求体可以整个没有（老客户端、以及「只是想要
+		// 一条链接」那一次），那就是 false —— 默认什么都不多公开。
+		//
+		// 已经分享过的报告再 POST 一次，走的是同一条路：token 原样带回，
+		// 只有这一位跟着她当时勾的状态更新。重新发一个 token 会悄悄弄坏
+		// 她已经发出去的链接。
+		var body struct {
+			IncludeTranscript bool `json:"includeTranscript"`
+		}
+		if r.Body != nil {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+		}
+
 		token := ""
 		if row.ShareToken != nil && *row.ShareToken != "" {
-			// Already shared — hand back the SAME link rather than minting
-			// a second one (see file/func comment).
 			token = *row.ShareToken
 		} else {
 			token, err = newShareToken()
@@ -127,17 +199,18 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 				httpx.WriteError(w, r, err)
 				return
 			}
-			if _, err := a.d.Queries.SetAtomReportShare(ctx, sqlc.SetAtomReportShareParams{
-				AtomID: at.ID, ShareToken: &token,
-			}); err != nil {
-				httpx.WriteError(w, r, err)
-				return
-			}
+		}
+		if _, err := a.d.Queries.SetAtomReportShare(ctx, sqlc.SetAtomReportShareParams{
+			AtomID: at.ID, ShareToken: &token, IncludeTranscript: body.IncludeTranscript,
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
 		}
 
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
-			"token": token,
-			"url":   publicShareURL(r, a.d.CORSOrigins, token),
+			"token":             token,
+			"url":               publicShareURL(r, a.d.CORSOrigins, token),
+			"includeTranscript": body.IncludeTranscript,
 		})
 	}
 }
@@ -155,8 +228,11 @@ func (a *API) revokeAtomShareFor(kind string) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		// IncludeTranscript: false 在这里是多余的（那条语句在 share_token 为
+		// NULL 时自己会把它写成 false，见 atom.sql），写出来是为了让「撤销
+		// 把两件事一起收回」在调用点上也看得见。
 		if _, err := a.d.Queries.SetAtomReportShare(r.Context(), sqlc.SetAtomReportShareParams{
-			AtomID: at.ID, ShareToken: nil,
+			AtomID: at.ID, ShareToken: nil, IncludeTranscript: false,
 		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteError(w, r, err)
 			return
@@ -206,7 +282,24 @@ func (a *API) getPublicReport(w http.ResponseWriter, r *http.Request) {
 	// it, or render a "still working" state that never resolves. Keeping the
 	// public key set exactly what it was before the split is also what
 	// TestPublicPayloadCarriesNothingExtra is for.
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"report": json.RawMessage(stripProseBookkeeping(a.reportWithPiece(r.Context(), row.AtomID, row.Report))),
-	})
+	// 她勾了才取，没勾连查都不查 —— 一条不该出现在负载里的数据，最好的状态
+	// 是它根本没被读出来过。
+	var transcript []publicTranscriptLine
+	if row.IncludeTranscript {
+		msgs, mErr := a.d.Queries.ListAtomMessages(r.Context(), row.AtomID)
+		if mErr != nil {
+			// 取不到对话不该让这条链接整个打不开：她公开的主要是那份报告。
+			slog.Warn("public report: could not load the transcript she shared", "err", mErr, "atom_id", row.AtomID)
+		} else {
+			transcript = publicTranscriptOf(msgs)
+		}
+	}
+	body, err := publicReportBody(stripProseBookkeeping(a.reportWithPiece(r.Context(), row.AtomID, row.Report)), transcript)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
 }

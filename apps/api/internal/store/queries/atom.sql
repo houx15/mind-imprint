@@ -149,9 +149,13 @@ RETURNING *;
 -- parameter $1") even though the SET target above pins the same $1 to text —
 -- reproduced directly against postgres:16 with a plain PREPARE (no explicit
 -- param types), the exact shape pgx's Parse step uses.
+--
+-- 2026-09-16：多写一位 include_transcript。撤销（share_token 置 NULL）时它跟着
+-- 归 false —— 撤掉再重开的链接不该继承上一次的公开范围，见迁移 0174。
 UPDATE atom_report
 SET share_token = sqlc.narg(share_token),
-    shared_at = CASE WHEN sqlc.narg(share_token)::text IS NULL THEN NULL ELSE now() END
+    shared_at = CASE WHEN sqlc.narg(share_token)::text IS NULL THEN NULL ELSE now() END,
+    include_transcript = CASE WHEN sqlc.narg(share_token)::text IS NULL THEN false ELSE sqlc.arg(include_transcript) END
 WHERE atom_id = sqlc.arg(atom_id)
 RETURNING *;
 
