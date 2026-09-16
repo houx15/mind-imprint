@@ -56,6 +56,35 @@ func TestUngroundedNames(t *testing.T) {
 	}
 }
 
+// TestUngroundedNamesOverFlagsOverlappingNames pins the direction the check
+// errs when one classmate's name is a prefix of another's. The comparison is
+// exact-match on the grounded side and substring on the roster side, so an
+// overlap can only ADD a flag, never remove one: a fabricated name can never
+// be laundered by a grounded classmate whose name contains it.
+//
+// The cost is a false positive — naming 林知遥, who was returned, also flags
+// 林知, who was not. That fails the turn with a visible error, which is the
+// side to be wrong on: the other direction renders a fabricated name to a
+// teacher as fact.
+func TestUngroundedNamesOverFlagsOverlappingNames(t *testing.T) {
+	roster := []string{"林知", "林知遥"}
+
+	got := UngroundedNames("林知遥这周还没有写作。", roster, []string{"林知遥"})
+	if len(got) != 1 || got[0] != "林知" {
+		t.Fatalf("got %v, want [林知] — the shorter name is flagged, not silently allowed", got)
+	}
+
+	// The load-bearing direction: 林知遥 was never returned and never typed,
+	// and the grounded 林知 must not cover for it.
+	got = UngroundedNames("林知遥这周还没有写作。", roster, []string{"林知"})
+	for _, n := range got {
+		if n == "林知遥" {
+			return
+		}
+	}
+	t.Fatalf("got %v, want 林知遥 flagged — a fabricated name must not pass because a classmate's name is a prefix of it", got)
+}
+
 func TestBeijingWallToUTC(t *testing.T) {
 	got, err := BeijingWallToUTC("2026-09-20T18:00")
 	if err != nil {

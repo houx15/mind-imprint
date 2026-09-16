@@ -1,0 +1,401 @@
+package api_test
+
+// lite_teacher_workspace_test.go — 教师工作台的一轮。
+//
+// What these tests hold down is the turn's failure behaviour, not its prose:
+// a turn that cannot finish must fail visibly, a reply that names a student
+// nobody looked up must not reach the teacher, and every model call inside
+// the loop must leave a row we can bill.
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/liteworkspace"
+)
+
+type workspaceTurnJSON struct {
+	Reply   string                 `json:"reply"`
+	Choices []liteworkspace.Choice `json:"choices"`
+	Patch   map[string]any         `json:"patch"`
+	Cards   []struct {
+		Kind string           `json:"kind"`
+		Rows []map[string]any `json:"rows"`
+	} `json:"cards"`
+}
+
+// wsToolCall scripts one model turn that reaches for a tool. The stub provider
+// only implements Stream, so the arguments travel as ArgsJSON — the same shape
+// a real OpenAI-compatible channel streams.
+func wsToolCall(name, argsJSON string) []gateway.StreamEvent {
+	return []gateway.StreamEvent{
+		{Kind: gateway.EventToolUse, ToolUse: &gateway.StreamToolUse{ID: "call_" + name, Name: name, ArgsJSON: argsJSON}},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 20}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopToolCall},
+	}
+}
+
+// wsText scripts one model turn that answers in prose and stops.
+func wsText(text string) []gateway.StreamEvent {
+	return []gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: text},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 100, OutputTokens: 20}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	}
+}
+
+func postWorkspaceTurn(t *testing.T, h http.Handler, cookie *http.Cookie, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/lite/teacher/workspace/turn", strings.NewReader(body))
+	if cookie != nil {
+		req = withCookie(req, cookie)
+	}
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func decodeWorkspaceTurn(t *testing.T, rec *httptest.ResponseRecorder) workspaceTurnJSON {
+	t.Helper()
+	var out workspaceTurnJSON
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode workspace turn: %v — body=%s", err, rec.Body)
+	}
+	return out
+}
+
+// renameLiteStudent gives a seeded student a real name. The grounding check
+// compares roster names against the reply, so the fixture's "S <email>" would
+// make every assertion about a name vacuous.
+func renameLiteStudent(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, name string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET display_name = $2 WHERE id = $1`, userID, name); err != nil {
+		t.Fatalf("rename student: %v", err)
+	}
+}
+
+func workspaceTurnBody(classID, text string) string {
+	b, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": text,
+		"artifact": map[string]any{"kind": "reading", "title": "", "dueInput": ""},
+	})
+	return string(b)
+}
+
+// TestWorkspaceTurnRejectsOutsiders — the route spends tokens and reads a
+// class roster, so it must be closed to everyone but the teacher of that class.
+func TestWorkspaceTurnRejectsOutsiders(t *testing.T) {
+	h, pool, _, classID, studentID := liteTeacherFixtureWithProvider(t, writingTextStubProvider("好的。"))
+
+	if rec := postWorkspaceTurn(t, h, nil, workspaceTurnBody(classID, "布置阅读作业")); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("signed out = %d, want 401; body=%s", rec.Code, rec.Body)
+	}
+
+	student := signInAs(t, pool, studentID)
+	if rec := postWorkspaceTurn(t, h, student, workspaceTurnBody(classID, "布置阅读作业")); rec.Code != http.StatusForbidden {
+		t.Fatalf("student = %d, want 403; body=%s", rec.Code, rec.Body)
+	}
+
+	// A teacher who does not teach this class gets not-found, the same answer
+	// every other lite teacher route gives, so the class id cannot be probed.
+	other := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "ws-other@demo.local"))
+	if rec := postWorkspaceTurn(t, h, other, workspaceTurnBody(classID, "布置阅读作业")); rec.Code != http.StatusNotFound {
+		t.Fatalf("other teacher = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnRejectsUnknownSurface — home and parentReport carry other
+// tools and another artifact. Answering them with the assignment tool set
+// would be worse than refusing.
+func TestWorkspaceTurnRejectsUnknownSurface(t *testing.T) {
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, writingTextStubProvider("好的。"))
+	body, _ := json.Marshal(map[string]any{"surface": "home", "classId": classID, "text": "这个班怎么样"})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("surface=home = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnFailsWhenToolLoopExhausted — the model keeps calling tools
+// and never answers. The turn fails with the real cause; it must not truncate
+// to whatever the last round happened to produce.
+func TestWorkspaceTurnFailsWhenToolLoopExhausted(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("set_fields", `{"title":"气候变化议论文"}`))
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	before := countAllLLMCalls(t, pool)
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "帮我布置这周的作业"))
+	if rec.Code < 400 {
+		t.Fatalf("exhausted tool loop = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "工具调用次数超出上限") {
+		t.Fatalf("body does not say why the turn failed: %s", rec.Body)
+	}
+
+	if prov.Calls != liteworkspace.ToolLoopMax {
+		t.Fatalf("made %d model calls, want exactly %d — the cap is the cap", prov.Calls, liteworkspace.ToolLoopMax)
+	}
+	// Every one of those calls was paid for, including the last one that
+	// produced nothing usable.
+	if n := countAllLLMCalls(t, pool) - before; n != liteworkspace.ToolLoopMax {
+		t.Fatalf("recorded %d llm_call rows for %d model calls", n, liteworkspace.ToolLoopMax)
+	}
+}
+
+// TestWorkspaceTurnRejectsUngroundedName — §6's one structural check. The
+// model names a student without anything having looked her up, so the turn
+// fails and the reply is never rendered.
+func TestWorkspaceTurnRejectsUngroundedName(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("林知遥这周没有写作，先给她单独布置。"))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周布置什么好"))
+	if rec.Code < 400 {
+		t.Fatalf("ungrounded name = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+	if strings.Contains(rec.Body.String(), "先给她单独布置") {
+		t.Fatalf("the rejected reply was rendered anyway: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnRejectsNameFromItsOwnEarlierTurn — the grounding evidence
+// is what the tools returned plus what the TEACHER typed. A name that only
+// ever appeared in the model's own earlier turn is not evidence: that is where
+// a fabrication comes from, so accepting it would launder the fabrication one
+// turn later.
+func TestWorkspaceTurnRejectsNameFromItsOwnEarlierTurn(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("那就按林知遥的情况来定。"))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "那就这么办",
+		"turns": []map[string]string{
+			{"role": "teacher", "text": "这周布置什么好"},
+			{"role": "ai", "text": "林知遥这周没有写作。"},
+		},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code < 400 {
+		t.Fatalf("name carried over from an AI turn = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnAcceptsNameTheTeacherTyped — the other side of the same
+// rule. She may talk about a student by name, and the reply may answer her in
+// those words without any tool call.
+func TestWorkspaceTurnAcceptsNameTheTeacherTyped(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，这份作业只发给林知遥。"))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "只发给林知遥",
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("name the teacher typed = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnAcceptsNameATooLReturned — a name list_students handed back
+// this turn is evidence, and the card carries the rows the panel renders.
+func TestWorkspaceTurnAcceptsNameAToolReturned(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_students", `{"filter":"no_writing_yet"}`),
+		wsText("名单上的学生这周还没有写作，先给林知遥布置。"),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "谁这周还没写作"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("grounded name = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if len(out.Cards) != 1 || out.Cards[0].Kind != "students" {
+		t.Fatalf("cards = %+v, want one students card", out.Cards)
+	}
+	if len(out.Cards[0].Rows) != 1 || out.Cards[0].Rows[0]["name"] != "林知遥" {
+		t.Fatalf("students card rows = %+v", out.Cards[0].Rows)
+	}
+}
+
+// TestWorkspaceTurnClampsChoices — the panel renders one row of buttons. More
+// than four is a row that wraps, and a blank label is a button that says
+// nothing, so both are dropped before the reply leaves the server.
+func TestWorkspaceTurnClampsChoices(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("ask_choice", `{"question":"这次偏重哪一块？","options":[
+		{"id":"structure","label":"论证结构"},
+		{"id":"blank","label":"   "},
+		{"id":"evidence","label":"证据使用"},
+		{"id":"language","label":"语言表达"},
+		{"id":"length","label":"篇幅"},
+		{"id":"genre","label":"体裁"}
+	]}`))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "布置一份写作作业"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ask_choice = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Reply != "这次偏重哪一块？" {
+		t.Fatalf("reply = %q, want the question ask_choice asked", out.Reply)
+	}
+	if len(out.Choices) != liteworkspace.MaxChoices {
+		t.Fatalf("got %d choices, want %d", len(out.Choices), liteworkspace.MaxChoices)
+	}
+	for _, c := range out.Choices {
+		if strings.TrimSpace(c.Label) == "" {
+			t.Fatalf("a blank label reached the panel: %+v", out.Choices)
+		}
+	}
+	// ask_choice ends the turn: the model is not called again after it.
+	if prov.Calls != 1 {
+		t.Fatalf("made %d model calls after ask_choice, want 1", prov.Calls)
+	}
+}
+
+// TestWorkspaceTurnMetersOnDialogue — the workspace runs on the dialogue tier.
+// Nothing here judges a student's work, so the flagship tier would be money
+// spent for no reason.
+func TestWorkspaceTurnMetersOnDialogue(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，先定题目。"))
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	if rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "帮我布置作业")); rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	var purpose, model, tier, surface string
+	var prompt, completion int
+	err := pool.QueryRow(context.Background(),
+		`SELECT purpose, model, tier, surface, prompt_tokens, completion_tokens FROM llm_call ORDER BY created_at DESC LIMIT 1`,
+	).Scan(&purpose, &model, &tier, &surface, &prompt, &completion)
+	if err != nil {
+		t.Fatalf("read llm_call: %v", err)
+	}
+	if purpose != "lite_teacher_workspace" || surface != "lite" {
+		t.Fatalf("llm_call purpose=%q surface=%q", purpose, surface)
+	}
+	// fakeResolver serves the chat lane (dialogue) and fakeEvalResolver the
+	// flagship one (assess); the model name is what tells them apart.
+	if model != "deepseek-chat" || tier != "chaperone" {
+		t.Fatalf("llm_call model=%q tier=%q — the turn resolved the wrong capability class", model, tier)
+	}
+	if prompt != 100 || completion != 20 {
+		t.Fatalf("llm_call tokens = %d/%d, want the usage the call reported", prompt, completion)
+	}
+}
+
+// TestWorkspaceTurnPatchesOnlyWhatToolsWrote — the client applies the patch
+// field by field and keeps whatever the teacher edited meanwhile, which only
+// works if a field no tool touched is absent rather than blank.
+func TestWorkspaceTurnPatchesOnlyWhatToolsWrote(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"kind":"writing","title":"中国是否让地球变得更可持续？","dueAt":"2026-09-18T18:00"}`),
+		wsText("题目和截止时间已经填好，说明还需要你补一句。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周写一篇议论文，周五交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set_fields = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["kind"] != "writing" || out.Patch["title"] != "中国是否让地球变得更可持续？" {
+		t.Fatalf("patch = %+v", out.Patch)
+	}
+	// The card holds Beijing wall-clock text, the same shape the datetime
+	// input reads back — converted once, at publish.
+	if out.Patch["dueInput"] != "2026-09-18T18:00" {
+		t.Fatalf("patch dueInput = %v, want the wall-clock string", out.Patch["dueInput"])
+	}
+	if _, present := out.Patch["instructions"]; present {
+		t.Fatalf("patch carries a field no tool wrote: %+v", out.Patch)
+	}
+}
+
+// TestWorkspaceTurnRefusesARelativeDeadline — 周五 is not an instant. The
+// model is told today's Beijing date and resolves it itself; a relative phrase
+// comes back as a tool error it can fix, and the turn still finishes.
+func TestWorkspaceTurnRefusesARelativeDeadline(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"dueAt":"周五下午"}`),
+		wsText("截止时间我再确认一下。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "周五交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, present := out.Patch["dueInput"]; present {
+		t.Fatalf("a relative phrase was written to the card: %+v", out.Patch)
+	}
+}
+
+// TestWorkspaceTurnSetsMaterialWithoutPickingPerStudent — personalized reading
+// writes the patch and stops. Who reads what is the personalized-reading
+// preview endpoint's answer, and a second one here would be a second source of
+// truth for the same question.
+func TestWorkspaceTurnSetsMaterialWithoutPickingPerStudent(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", `{"source":"personalized"}`),
+		wsText("材料已设为个性化阅读。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "每个人读不一样的"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set_material = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["readingSource"] != "personalized" {
+		t.Fatalf("patch = %+v, want readingSource personalized", out.Patch)
+	}
+	if out.Cards == nil {
+		t.Fatalf("cards decoded as null; the client walks it every turn and it must be []")
+	}
+	for _, k := range []string{"picks", "savedPicks", "slug"} {
+		if _, present := out.Patch[k]; present {
+			t.Fatalf("patch computed %q here; that belongs to the preview endpoint: %+v", k, out.Patch)
+		}
+	}
+}
+
+// TestWorkspaceTurnFailsWhenTheModelSaysNothing — an empty reply must not
+// render as an empty bubble she would answer into. That is the dead-terminal
+// bug: she keeps typing at a turn that already failed.
+func TestWorkspaceTurnFailsWhenTheModelSaysNothing(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText(""))
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	before := countAllLLMCalls(t, pool)
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "帮我布置作业"))
+	if rec.Code < 400 {
+		t.Fatalf("empty reply = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	// The call still cost tokens, so it is still on the bill.
+	if n := countAllLLMCalls(t, pool) - before; n != 1 {
+		t.Fatalf("recorded %d llm_call rows for a call that produced nothing, want 1", n)
+	}
+}

@@ -32,6 +32,12 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/recipients/{userId}/return", liteTeacher(a.returnLiteAssignmentRecipient))
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/personalized-reading/preview", liteTeacher(a.previewLitePersonalizedReading))
 
+	// 教师工作台. The exception to the two comments around it: this is the one
+	// teacher route that calls a model synchronously — one turn plus at most
+	// liteworkspace.ToolLoopMax tool round-trips, on the dialogue tier. The
+	// class id travels in the body, not the path.
+	mux.Handle("POST /api/v1/lite/teacher/workspace/turn", liteTeacher(a.postLiteTeacherWorkspaceTurn))
+
 	// AI 批改. No route calls a model: the queue routes insert river jobs and
 	// the worker makes the calls.
 	mux.Handle("GET /api/v1/lite/teacher/assignments/{aid}/gradings", liteTeacher(a.listLiteAssignmentGradings))

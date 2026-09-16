@@ -42,10 +42,15 @@ func AssignmentSystem(c SystemContext) string {
 	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount)
 }
 
-// AssignmentTools declares the tools the teacher-workspace model may call for
-// one assignment-building turn. Every enum here must match a closed set this
-// package already parses — an enum value ParseStudentFilter or a sibling
-// parser rejects turns a schema into a call we discard.
+// AssignmentTools returns the six tool schemas the model may call while
+// building one homework card: set_fields, search_library, set_material,
+// list_students, set_recipients, ask_choice.
+//
+// list_students' filter enum must stay identical to the values
+// ParseStudentFilter accepts. The schema is the only thing telling the model
+// which filters exist; a value listed here that the parser rejects produces a
+// tool call the server discards, which costs a round of the tool loop and
+// tells the model nothing about why.
 func AssignmentTools() []gateway.ChatTool {
 	return []gateway.ChatTool{
 		{

@@ -1,0 +1,630 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/library"
+	"mindimprint/api/internal/liteworkspace"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// lite_teacher_workspace.go — 教师工作台的一轮：左边对话，右边的作业卡由工具写。
+//
+// This is the only teacher route that calls a model synchronously. It runs a
+// bounded tool loop on the dialogue tier: the model may reach for the six
+// tools in liteworkspace.AssignmentTools, the server executes them and feeds
+// the results back inside the same turn, and the loop stops at
+// liteworkspace.ToolLoopMax round-trips.
+//
+// 🚨 教师可见性边界：没有一个工具读学生与印记的对话记录。The tools here reach
+// the roster, the assignment rows behind it and the embedded reading library —
+// atom_message is not queried from this file, and a tool added later must keep
+// it that way.
+
+// liteTeacherWorkspacePurpose is the llm_call purpose for every model call a
+// workspace turn makes, including the ones inside the tool loop.
+const liteTeacherWorkspacePurpose = "lite_teacher_workspace"
+
+// liteWorkspaceSearchLimit bounds what search_library hands the model. Eight
+// articles is what §5.1 specifies; the whole catalogue would crowd out the
+// transcript and buy nothing — she is choosing one.
+const liteWorkspaceSearchLimit = 8
+
+// liteWorkspaceMaxTextRunes bounds one field the model writes into the card.
+// It mirrors liteassign's own instruction cap, so a tool cannot write a value
+// the publish endpoint would then reject.
+const liteWorkspaceMaxTextRunes = 2000
+
+// liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: only
+// the assignment surface exists, and the other two arrive with D2/D3.
+type liteWorkspaceTurnRequest struct {
+	Surface  string               `json:"surface"`
+	ClassID  string               `json:"classId"`
+	Artifact json.RawMessage      `json:"artifact"`
+	Turns    []liteworkspace.Turn `json:"turns"`
+	Text     string               `json:"text"`
+	ChoiceID string               `json:"choiceId"`
+}
+
+// liteWorkspaceTurnDTO is §4.4's response. patch carries only the fields a
+// tool actually wrote; cards carry tool results the panel renders directly,
+// which is how numbers and names reach the teacher without passing through
+// the model's prose (§6).
+type liteWorkspaceTurnDTO struct {
+	Reply   string                 `json:"reply"`
+	Choices []liteworkspace.Choice `json:"choices"`
+	Patch   map[string]any         `json:"patch"`
+	Cards   []liteWorkspaceCardDTO `json:"cards"`
+}
+
+// liteWorkspaceCardDTO is one tool result on the canvas. kind is "students"
+// today; D2 adds more.
+type liteWorkspaceCardDTO struct {
+	Kind string `json:"kind"`
+	Rows any    `json:"rows"`
+}
+
+// liteWorkspaceArtifact is the part of the assignment draft the model is shown.
+// The draft carries more (rubric, personalized picks, saved picks), and none of
+// it is the model's to read or write — projecting here keeps the prompt bounded
+// and keeps a field the model cannot change out of its sight.
+type liteWorkspaceArtifact struct {
+	Kind          string   `json:"kind"`
+	Title         string   `json:"title"`
+	Instructions  string   `json:"instructions"`
+	DueInput      string   `json:"dueInput"`
+	ReadingSource string   `json:"readingSource"`
+	Slug          string   `json:"slug"`
+	Tier          *int     `json:"tier"`
+	UserIDs       []string `json:"userIds"`
+}
+
+// authTeacherClassFromBody is authTeacherClass for a route whose class id
+// travels in the request body rather than in the path. Same ownership query,
+// same not-found answer for a class the caller does not teach.
+//
+// A sibling rather than a parameter on authTeacherClass: that helper reads
+// r.PathValue("id") and four shipped routes depend on it.
+func (a *API) authTeacherClassFromBody(w http.ResponseWriter, r *http.Request, raw string) (sqlc.Class, bool) {
+	classID, err := uuid.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return sqlc.Class{}, false
+	}
+	cls, err := a.assertTeacherOwnsClass(r.Context(), classID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return sqlc.Class{}, false
+	}
+	return cls, true
+}
+
+// errLiteWorkspaceTurn is the visible failure of one workspace turn. 动词+失败
+// plus the real cause — never a plausible sentence standing in for a reply
+// that did not happen.
+func errLiteWorkspaceTurn(reason string) *httpx.APIError {
+	return &httpx.APIError{
+		Status: http.StatusBadGateway, Code: "ai_dialogue_failed", Message: "对话失败：" + reason,
+	}
+}
+
+// postLiteTeacherWorkspaceTurn handles POST /api/v1/lite/teacher/workspace/turn.
+func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Request) {
+	var req liteWorkspaceTurnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
+		return
+	}
+	// Only the assignment surface exists. home and parentReport (§5.2, §5.3)
+	// carry different tools and a different artifact, so accepting their names
+	// here would answer with the wrong tool set rather than say no.
+	if req.Surface != "assignment" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_surface", "该工作台尚未开放："+req.Surface, nil))
+		return
+	}
+	cls, ok := a.authTeacherClassFromBody(w, r, req.ClassID)
+	if !ok {
+		return
+	}
+	said := strings.TrimSpace(req.Text)
+	if said == "" {
+		// A choice she clicked is her turn too. The id is one the model minted
+		// in its own ask_choice call, so it reads it back as its own option.
+		said = strings.TrimSpace(req.ChoiceID)
+	}
+	if said == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入", nil))
+		return
+	}
+	if a.d.Provider == nil {
+		httpx.WriteError(w, r, errLiteWorkspaceTurn("未配置模型通道"))
+		return
+	}
+	u, ok := requireTeacherEntitled(w, r)
+	if !ok {
+		return
+	}
+
+	ctx := r.Context()
+	roster, err := a.liteWorkspaceRoster(ctx, cls.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	mctx, cancel := detachedModelCtx(r)
+	defer cancel()
+	resolved, err := a.routeE(mctx, gateway.ClassDialogue)
+	if err != nil {
+		httpx.WriteError(w, r, errLiteWorkspaceTurn(err.Error()))
+		return
+	}
+
+	turns := liteworkspace.TrimTurns(req.Turns)
+	msgs := liteWorkspaceMessages(cls.Name, roster, req.Artifact, turns, said)
+
+	run := &liteWorkspaceRun{roster: roster}
+	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, u.ID, resolved, msgs, run)
+	if aerr != nil {
+		httpx.WriteError(w, r, aerr)
+		return
+	}
+
+	// 🚨 grounded excludes the model's own earlier turns on purpose. A
+	// fabricated name's source IS the model's earlier words, so feeding them
+	// back as evidence would launder exactly the failure this check exists to
+	// catch (§6).
+	grounded := append([]string{}, run.namesReturned...)
+	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, said)...)
+
+	choices = liteworkspace.ClampChoices(choices)
+	// Both the prose and the button labels are rendered to the teacher, so a
+	// name fabricated into a button is checked the same way as one in the reply.
+	rendered := reply
+	for _, c := range choices {
+		rendered += "\n" + c.Label
+	}
+	if bad := liteworkspace.UngroundedNames(rendered, liteWorkspaceRosterNames(roster), grounded); len(bad) > 0 {
+		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
+		return
+	}
+
+	// An empty patch and an empty card list go out as {} and [], not null: the
+	// client walks both on every turn, and a null would make "no tool wrote
+	// anything" a separate case at every call site.
+	patch := run.patch
+	if patch == nil {
+		patch = map[string]any{}
+	}
+	cards := run.cards
+	if cards == nil {
+		cards = []liteWorkspaceCardDTO{}
+	}
+	httpx.WriteJSON(w, http.StatusOK, liteWorkspaceTurnDTO{
+		Reply: reply, Choices: choices, Patch: patch, Cards: cards,
+	})
+}
+
+// liteWorkspaceRoster loads the class roster in the shape the closed-set
+// filters read. It goes through the same two queries the roster endpoint uses,
+// so a filter can never disagree with the list the teacher is looking at.
+func (a *API) liteWorkspaceRoster(ctx context.Context, classID uuid.UUID) ([]liteworkspace.Student, error) {
+	start, end := currentLiteWeek(time.Now())
+	rows, err := a.d.Queries.ListLiteClassRoster(ctx, sqlc.ListLiteClassRosterParams{
+		ClassID: classID, WeekStart: start, WeekEnd: end,
+		WeekStartDay: pgDate(start), WeekEndDay: pgDate(end),
+	})
+	if err != nil {
+		return nil, err
+	}
+	overdue, err := a.overdueAssignmentsByUser(ctx, classID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]liteworkspace.Student, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, liteworkspace.Student{
+			ID:                 row.ID.String(),
+			Name:               row.DisplayName,
+			ActiveDaysThisWeek: int(row.ActiveDaysThisWeek),
+			OverdueAssignments: int(overdue[row.ID]),
+			WritingsDone:       int(row.WritingsDone),
+		})
+	}
+	return out, nil
+}
+
+func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
+	out := make([]string, 0, len(roster))
+	for _, s := range roster {
+		out = append(out, s.Name)
+	}
+	return out
+}
+
+// liteWorkspaceNamesTeacherTyped returns the roster names the TEACHER wrote,
+// this turn or earlier in the thread. Her own words are evidence; the model's
+// are not, so ai turns are skipped here.
+func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []liteworkspace.Turn, said string) []string {
+	var b strings.Builder
+	b.WriteString(said)
+	for _, t := range turns {
+		if t.Role == "teacher" {
+			b.WriteString("\n")
+			b.WriteString(t.Text)
+		}
+	}
+	hers := b.String()
+	var out []string
+	for _, s := range roster {
+		if s.Name != "" && strings.Contains(hers, s.Name) {
+			out = append(out, s.Name)
+		}
+	}
+	return out
+}
+
+// liteWorkspaceMessages builds the prompt: one system message carrying the
+// rules plus the card as it stands, then the trimmed transcript, then what she
+// just said.
+//
+// The card state goes in because she can edit any cell while a turn is in
+// flight. A model that cannot see the card describes changes it did not make.
+func liteWorkspaceMessages(className string, roster []liteworkspace.Student, artifact json.RawMessage, turns []liteworkspace.Turn, said string) []gateway.ChatMessage {
+	system := liteworkspace.AssignmentSystem(liteworkspace.SystemContext{
+		ClassName:    className,
+		TodayBeijing: time.Now().In(liteworkspace.BeijingOffset).Format("2006-01-02"),
+		StudentCount: len(roster),
+	})
+	if card := liteWorkspaceCardState(artifact); card != "" {
+		system += "\n\n## 作业卡现在的内容\n\n" + card
+	}
+	msgs := make([]gateway.ChatMessage, 0, len(turns)+2)
+	msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleSystem, Content: system})
+	for _, t := range turns {
+		role := gateway.RoleUser
+		if t.Role == "ai" {
+			role = gateway.RoleAssistant
+		}
+		msgs = append(msgs, gateway.ChatMessage{Role: role, Content: t.Text})
+	}
+	return append(msgs, gateway.ChatMessage{Role: gateway.RoleUser, Content: said})
+}
+
+// liteWorkspaceCardState renders the card's filled cells. An unparseable or
+// absent artifact renders nothing: a first turn has no card yet, and that is
+// not an error.
+func liteWorkspaceCardState(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var art liteWorkspaceArtifact
+	if err := json.Unmarshal(raw, &art); err != nil {
+		return ""
+	}
+	var lines []string
+	add := func(label, value string) {
+		if strings.TrimSpace(value) != "" {
+			lines = append(lines, "- "+label+"："+value)
+		}
+	}
+	add("种类", art.Kind)
+	add("标题", art.Title)
+	add("说明", art.Instructions)
+	add("截止时间", art.DueInput)
+	add("材料来源", art.ReadingSource)
+	add("文章 slug", art.Slug)
+	if art.Tier != nil {
+		add("难度档", fmt.Sprint(*art.Tier))
+	}
+	if n := len(art.UserIDs); n > 0 {
+		add("已选学生", fmt.Sprintf("%d 名", n))
+	}
+	if len(lines) == 0 {
+		return "（还是空的）"
+	}
+	return strings.Join(lines, "\n")
+}
+
+// liteWorkspaceRun accumulates what one turn's tools produced.
+type liteWorkspaceRun struct {
+	roster []liteworkspace.Student
+	// patch holds only the draft fields a tool actually wrote. The client
+	// applies it field by field and drops the ones she edited meanwhile
+	// (§4.5), which only works if an untouched field is absent, not zero.
+	patch map[string]any
+	cards []liteWorkspaceCardDTO
+	// namesReturned is what list_students handed back this turn — the evidence
+	// side of the grounding check.
+	namesReturned []string
+	// question and choices are set by ask_choice, which ends the turn.
+	question string
+	choices  []liteworkspace.Choice
+	asked    bool
+}
+
+func (run *liteWorkspaceRun) write(field string, value any) {
+	if run.patch == nil {
+		run.patch = map[string]any{}
+	}
+	run.patch[field] = value
+}
+
+// runLiteWorkspaceLoop runs the bounded tool loop and returns the reply the
+// teacher sees. Every model call inside it is metered, including a call that
+// produced nothing usable — it was paid for either way.
+func (a *API) runLiteWorkspaceLoop(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, msgs []gateway.ChatMessage, run *liteWorkspaceRun) (string, []liteworkspace.Choice, *httpx.APIError) {
+	tools := liteworkspace.AssignmentTools()
+	for i := 0; i < liteworkspace.ToolLoopMax; i++ {
+		res, err := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs, Tools: tools})
+		a.recordLiteLLMCall(ctx, userID, uuid.Nil, liteTeacherWorkspacePurpose, resolved, res.Usage)
+		if err != nil {
+			return "", nil, errLiteWorkspaceTurn(err.Error())
+		}
+		if len(res.ToolCalls) == 0 {
+			// A stop with neither tools nor text is a dead turn. Say so rather
+			// than render an empty bubble she would answer into.
+			if strings.TrimSpace(res.Text) == "" {
+				return "", nil, errLiteWorkspaceTurn("模型没有返回内容")
+			}
+			return res.Text, nil, nil
+		}
+		msgs = append(msgs, gateway.ChatMessage{
+			Role: gateway.RoleAssistant, Content: res.Text, ToolCalls: res.ToolCalls,
+		})
+		for _, tc := range res.ToolCalls {
+			msgs = append(msgs, gateway.ChatMessage{
+				Role: gateway.RoleTool, ToolCallID: tc.ID, Content: run.execute(tc),
+			})
+		}
+		if run.asked {
+			// ask_choice ends the turn: the question IS the reply.
+			return run.question, run.choices, nil
+		}
+	}
+	return "", nil, errLiteWorkspaceTurn("工具调用次数超出上限")
+}
+
+// execute runs one tool call and returns the tool result the model reads next.
+//
+// A bad argument comes back as a tool result, not as a failed turn: the model
+// minted it and can fix it on the next round, and liteworkspace.ToolLoopMax
+// bounds how long it may keep trying. A failure the model cannot fix (a model
+// or transport failure) ends the turn instead.
+func (run *liteWorkspaceRun) execute(tc gateway.ToolCall) string {
+	switch tc.Name {
+	case "set_fields":
+		return run.setFields(tc.Args)
+	case "search_library":
+		return run.searchLibrary(tc.Args)
+	case "set_material":
+		return run.setMaterial(tc.Args)
+	case "list_students":
+		return run.listStudents(tc.Args)
+	case "set_recipients":
+		return run.setRecipients(tc.Args)
+	case "ask_choice":
+		return run.askChoice(tc.Args)
+	}
+	return liteWorkspaceToolError("没有这个工具：" + tc.Name)
+}
+
+func liteWorkspaceToolError(msg string) string {
+	b, _ := json.Marshal(map[string]any{"ok": false, "error": msg})
+	return string(b)
+}
+
+func liteWorkspaceToolOK(v map[string]any) string {
+	if v == nil {
+		v = map[string]any{}
+	}
+	v["ok"] = true
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// toolString reads a string argument, trimmed. ok=false when the key is absent
+// or holds another type.
+func toolString(args map[string]any, key string) (string, bool) {
+	v, present := args[key]
+	if !present {
+		return "", false
+	}
+	s, isString := v.(string)
+	if !isString {
+		return "", false
+	}
+	return strings.TrimSpace(s), true
+}
+
+// toolInt reads a number argument. JSON numbers arrive as float64.
+func toolInt(args map[string]any, key string) (int, bool) {
+	v, present := args[key]
+	if !present {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case int:
+		return n, true
+	}
+	return 0, false
+}
+
+func toolStrings(args map[string]any, key string) []string {
+	raw, _ := args[key].([]any)
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, strings.TrimSpace(s))
+		}
+	}
+	return out
+}
+
+func liteWorkspaceClampRunes(s string) string {
+	r := []rune(s)
+	if len(r) <= liteWorkspaceMaxTextRunes {
+		return s
+	}
+	return string(r[:liteWorkspaceMaxTextRunes])
+}
+
+func (run *liteWorkspaceRun) setFields(args map[string]any) string {
+	written := make([]string, 0, 4)
+	if kind, ok := toolString(args, "kind"); ok && kind != "" {
+		switch kind {
+		case "reading", "writing", "project":
+			run.write("kind", kind)
+			written = append(written, "kind")
+		default:
+			return liteWorkspaceToolError("作业种类只能是 reading、writing 或 project，收到：" + kind)
+		}
+	}
+	if title, ok := toolString(args, "title"); ok && title != "" {
+		run.write("title", liteWorkspaceClampRunes(title))
+		written = append(written, "title")
+	}
+	if ins, ok := toolString(args, "instructions"); ok && ins != "" {
+		run.write("instructions", liteWorkspaceClampRunes(ins))
+		written = append(written, "instructions")
+	}
+	if due, ok := toolString(args, "dueAt"); ok && due != "" {
+		// Parsed only to reject a relative phrase. What the card holds is the
+		// Beijing wall-clock string the datetime input reads back, so the
+		// instant is never converted twice.
+		if _, err := liteworkspace.BeijingWallToUTC(due); err != nil {
+			return liteWorkspaceToolError(err.Error() + "，请按 2006-01-02T15:04 写出北京时间的绝对时刻")
+		}
+		run.write("dueInput", due)
+		written = append(written, "dueAt")
+	}
+	if len(written) == 0 {
+		return liteWorkspaceToolError("没有给出任何字段")
+	}
+	return liteWorkspaceToolOK(map[string]any{"written": written})
+}
+
+func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
+	query, _ := toolString(args, "query")
+	tier, _ := toolInt(args, "tier")
+	if tier < 0 || tier > 5 {
+		return liteWorkspaceToolError("难度档需在 1 到 5 之间，0 表示不限")
+	}
+	arts := liteworkspace.SearchLibrary(library.All(), query, toolStrings(args, "disciplines"), tier, liteWorkspaceSearchLimit)
+	rows := make([]map[string]any, 0, len(arts))
+	for _, art := range arts {
+		tiers := make([]int, 0, len(art.Levels))
+		for _, l := range art.Levels {
+			tiers = append(tiers, l.Tier)
+		}
+		rows = append(rows, map[string]any{
+			"slug": art.Slug, "title": art.Title, "zhTitle": art.ZhTitle,
+			"disciplines": art.Disciplines, "tiers": tiers,
+		})
+	}
+	return liteWorkspaceToolOK(map[string]any{"articles": rows})
+}
+
+func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
+	source, _ := toolString(args, "source")
+	switch source {
+	case "library":
+		slug, _ := toolString(args, "slug")
+		art, found := library.BySlug(slug)
+		if !found {
+			return liteWorkspaceToolError("文章不在阅读库里：" + slug + "，请先用 search_library 查")
+		}
+		run.write("readingSource", "library")
+		run.write("slug", art.Slug)
+		if tier, ok := toolInt(args, "tier"); ok {
+			if _, has := art.LevelAt(tier); !has {
+				return liteWorkspaceToolError("这篇文章没有这一档")
+			}
+			run.write("tier", tier)
+		}
+		return liteWorkspaceToolOK(map[string]any{"slug": art.Slug, "title": art.Title})
+	case "personalized":
+		// 🚨 The patch only. Who reads what is computed by the existing
+		// personalized-reading preview endpoint, and a second implementation
+		// here would be a second answer to the same question.
+		run.write("readingSource", "personalized")
+		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
+	}
+	return liteWorkspaceToolError("材料来源只能是 library 或 personalized，收到：" + source)
+}
+
+func (run *liteWorkspaceRun) listStudents(args map[string]any) string {
+	raw, _ := toolString(args, "filter")
+	filter, ok := liteworkspace.ParseStudentFilter(raw)
+	if !ok {
+		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet")
+	}
+	rows := liteworkspace.FilterStudents(run.roster, filter)
+	out := make([]map[string]any, 0, len(rows))
+	for _, s := range rows {
+		out = append(out, map[string]any{"id": s.ID, "name": s.Name})
+		run.namesReturned = append(run.namesReturned, s.Name)
+	}
+	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
+	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
+}
+
+func (run *liteWorkspaceRun) setRecipients(args map[string]any) string {
+	known := make(map[string]bool, len(run.roster))
+	for _, s := range run.roster {
+		known[s.ID] = true
+	}
+	ids := make([]string, 0, len(run.roster))
+	seen := make(map[string]bool, len(run.roster))
+	for _, id := range toolStrings(args, "userIds") {
+		if !known[id] {
+			return liteWorkspaceToolError("这个学生不在班里：" + id)
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return liteWorkspaceToolError("请至少选择一名学生")
+	}
+	run.write("userIds", ids)
+	return liteWorkspaceToolOK(map[string]any{"count": len(ids)})
+}
+
+func (run *liteWorkspaceRun) askChoice(args map[string]any) string {
+	question, _ := toolString(args, "question")
+	if question == "" {
+		return liteWorkspaceToolError("没有给出问题")
+	}
+	raw, _ := args["options"].([]any)
+	choices := make([]liteworkspace.Choice, 0, len(raw))
+	for _, item := range raw {
+		obj, isObject := item.(map[string]any)
+		if !isObject {
+			continue
+		}
+		id, _ := toolString(obj, "id")
+		label, _ := toolString(obj, "label")
+		if id == "" || label == "" {
+			continue
+		}
+		choices = append(choices, liteworkspace.Choice{ID: id, Label: label})
+	}
+	if len(choices) < 2 {
+		return liteWorkspaceToolError("请给出 2 到 4 个选项")
+	}
+	run.question, run.choices, run.asked = question, choices, true
+	return liteWorkspaceToolOK(map[string]any{"options": len(choices)})
+}
