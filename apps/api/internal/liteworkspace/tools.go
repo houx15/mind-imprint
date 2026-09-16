@@ -36,8 +36,8 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
   老师说「周五」，你按上面的今天算出是哪一天，自己写成绝对时刻。
 - 材料只能从分级阅读库里选（先 search_library 再 set_material），
   或者设成个性化阅读，或者老师这一轮消息里贴了正文——这时候用
-  set_material{source:"text", text:"..."}，text 必须逐字照抄她这一轮贴的内容，
-  一个字都不能改、不能自己写或概括，也不能用她更早几轮贴过的文章。不要编造文章标题。
+  set_material{source:"text", startAnchor:"...", endAnchor:"..."}，两个锚点分别是
+  那段正文开头和结尾约 15 个字，从她这一轮的消息里原样复制；不能用她更早几轮贴过的文章。不要编造文章标题。
 - 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
 - **提到文章标题或作业标题时，把标题放进《》里**（比如《美国气候队》），不要不加符号地写出来。
 - 你改不了的事不要说你改了。`
@@ -150,13 +150,23 @@ func AssignmentTools() []gateway.ChatTool {
 						"type":        "integer",
 						"description": "文章的难度档，可留空。",
 					},
-					// 铁律①：这里绝不是让模型写文章。text 必须是老师这一轮消息里
-					// 已经出现过的原文，服务端会逐字核对——不是这一轮贴的、或者
-					// 被改写过、概括过、自己续写过，这次调用都会被拒绝。
-					"text": map[string]any{
+					// 铁律①: the model never writes the material. It gives two
+					// anchors and the server cuts the passage out of the teacher's
+					// own message (AnchoredSpan), storing her characters. Copying
+					// the whole article was dropped: the model rewrote “” as " in
+					// every live call, and a 3,000-rune copy costs minutes of
+					// output per attempt.
+					"startAnchor": map[string]any{
 						"type": "string",
-						"description": "source 为 text 时必填：老师这一轮消息里贴的文章正文，逐字照抄，" +
-							"一个字都不能改、不能概括、不能自己写。不是这一轮贴的内容就不要用这个来源。",
+						"description": "source 为 text 时必填：老师这一轮消息里那段正文开头的约 15 个字（至少 8 个字），原样复制。" +
+							"系统会从这里开始，截取到 endAnchor 结束处（两个锚点都包含在内），存下老师原来的文字，你不需要复制整篇。" +
+							"锚点只给系统定位用，不是给老师看的内容，不要写进回复。不是这一轮贴的内容就不要用这个来源。",
+					},
+					"endAnchor": map[string]any{
+						"type": "string",
+						"description": "source 为 text 时必填：同一段正文结尾的约 15 个字（至少 8 个字），原样复制，必须在 startAnchor 之后。" +
+							"同一句话在正文里出现多次时，系统取 startAnchor 之后第一次出现的位置。" +
+							"锚点只给系统定位用，不要写进回复。",
 					},
 				},
 				"required": []string{"source"},
@@ -282,7 +292,7 @@ const homeSystemTemplate = `你在帮一位老师了解她的一个班：回答�
 
 - **不要在回复里写学生人数、学生姓名，也不要复述作业各状态的人数。** 它们会显示在
   卡片上，由系统查出来。你要指代的时候就说「这些学生」「名单上的学生」「这份作业」。
-- **提到作业标题时，把标题放进《》或「」里**（比如《3 人小组汇报》），不要不加符号地写出来。
+- **提到作业标题时，把标题放进《》或「」里**（比如《小组汇报》），不要不加符号地写出来。
 - 你改不了的事不要说你改了。`
 
 // HomeSystem renders the system prompt the home workspace turn loop sends

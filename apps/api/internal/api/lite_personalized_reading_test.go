@@ -631,8 +631,8 @@ func TestPersonalizedPickLocksPerStudent(t *testing.T) {
 		"remove A": payload(3, []string{d}, "", all[1].Slug),
 	} {
 		code, errCode, msg := patchErr(t, h, teacher, path, map[string]any{"payload": body})
-		if code != http.StatusConflict || errCode != "assignment_started" || !strings.Contains(msg, nameA) {
-			t.Errorf("%s = %d %s %q, want 409 assignment_started naming %q", name, code, errCode, msg, nameA)
+		if code != http.StatusConflict || errCode != "assignment_started" || !strings.HasPrefix(msg, nameA+"已开始") {
+			t.Errorf("%s = %d %s %q, want 409 assignment_started starting %q", name, code, errCode, msg, nameA+"已开始")
 		}
 	}
 	// Everything but the picks stays locked.
@@ -651,6 +651,16 @@ func TestPersonalizedPickLocksPerStudent(t *testing.T) {
 	// No refused request changed the stored payload.
 	if now := storedPayload(); !jsonEqual(now, before) {
 		t.Fatalf("stored payload = %s, want %s", now, before)
+	}
+
+	// A started student with a blank name is still blocked, and the message
+	// does not start with an empty name.
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET display_name = '' WHERE id = $1`, sa); err != nil {
+		t.Fatal(err)
+	}
+	code, errCode, msg := patchErr(t, h, teacher, path, map[string]any{"payload": payload(3, []string{d}, all[1].Slug, all[1].Slug)})
+	if code != http.StatusConflict || errCode != "assignment_started" || !strings.HasPrefix(msg, "有学生已开始") {
+		t.Fatalf("blank-name started student = %d %s %q, want 409 starting 有学生已开始", code, errCode, msg)
 	}
 }
 

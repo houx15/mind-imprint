@@ -31,7 +31,7 @@ func TestLabels(t *testing.T) {
 // TestLabelsMatchTheWebTables pins the Go label tables to the source text of
 // the three tables the teacher actually looks at: KIND_OPTIONS/SOURCE_OPTIONS
 // in labels.ts (the single copy shared by AssignmentForm.tsx and
-// StudentViewPreview.tsx as of Task 6's fix round) and TIER_NAMES in
+// StudentViewPreview.tsx) and TIER_NAMES in
 // assignmentLogic.ts. A word changed on one side without the other would
 // otherwise only show up as a teacher pointing out that the AI's card summary
 // and the form disagree.

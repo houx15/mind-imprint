@@ -523,7 +523,7 @@ func TestWorkspaceTurnSetsMaterialWithoutPickingPerStudent(t *testing.T) {
 	}
 	// slug/tier ARE in the patch — cleared to their zero value, not computed.
 	// A prior library pick must not linger next to 「材料来源：个性化」 in the
-	// card state (M-2); that is different from "picks belongs to the preview
+	// card state; that is different from "picks belongs to the preview
 	// endpoint", which is about who reads what, not about clearing what came
 	// before.
 	if out.Patch["slug"] != "" {
@@ -743,7 +743,7 @@ func TestWorkspaceAskChoiceCarriesASlug(t *testing.T) {
 }
 
 // TestWorkspaceAskChoiceEnrichesArticleCard — an option carrying a slug comes
-// back with the catalogue fields a card needs (Task 4). The option that is
+// back with the catalogue fields a card needs. The option that is
 // not about an article must carry no card at all, and the label — built from
 // the model's own words — still has to pass §6, same as before this field
 // existed.
@@ -1032,16 +1032,17 @@ func TestWorkspaceChoiceSlugIgnoresAnUnknownArticle(t *testing.T) {
 	}
 }
 
-// TestWorkspaceTurnSetsPastedTextPastSection6Checks — F7: a teacher-pasted
+// TestWorkspaceTurnSetsPastedTextPastSection6Checks — a teacher-pasted
 // paragraph is full of real names and numbers with nothing to do with the
 // roster. It must reach the card without tripping §6's name/count checks —
-// set_material's text case already proved it verbatim (a substring of what
-// she typed this turn), so liteWorkspaceCheckedParts skips the "text" patch
-// field on purpose.
+// set_material's text case stores a span of her own typed text, so
+// liteWorkspaceCheckedParts skips the "text" patch field on purpose.
 func TestWorkspaceTurnSetsPastedTextPastSection6Checks(t *testing.T) {
 	pasted := "2024年，中国的可再生能源投资达到了8900亿美元，" +
 		"国际能源署负责人法提赫·比罗尔说，这一数字超过了此前七个国家的总和。"
-	argsJSON, err := json.Marshal(map[string]string{"source": "text", "text": pasted})
+	argsJSON, err := json.Marshal(map[string]string{
+		"source": "text", "startAnchor": "2024年，中国的可再生能源", "endAnchor": "超过了此前七个国家的总和。",
+	})
 	if err != nil {
 		t.Fatalf("marshal set_material args: %v", err)
 	}
@@ -1068,17 +1069,17 @@ func TestWorkspaceTurnSetsPastedTextPastSection6Checks(t *testing.T) {
 	}
 }
 
-// TestWorkspaceTurnRejectsInventedPastedText — the "text" argument is not a
-// substring of anything she typed this turn. The model wrote (or
-// summarised) it, which 铁律① forbids for material the student ends up
-// reading. The stub's SECOND script is a plain-text reply (not the same
-// tool call again) so the turn ends on the model recovering from the tool
-// error — with only one script, SequenceStubProvider replays the same
+// TestWorkspaceTurnRejectsInventedPastedText — the anchors point at text
+// that is not in anything she typed this turn: the model wrote (or
+// summarised) the passage, which 铁律① forbids for material the student
+// ends up reading. The stub's SECOND script is a plain-text reply (not the
+// same tool call again) so the turn ends on the model recovering from the
+// tool error — with only one script, SequenceStubProvider replays the same
 // tool call forever and the turn would fail on "工具调用次数超出上限"
 // instead, which proves nothing about set_material's own rejection.
 func TestWorkspaceTurnRejectsInventedPastedText(t *testing.T) {
 	argsJSON, _ := json.Marshal(map[string]string{
-		"source": "text", "text": "中国是全球最大的碳排放国，但也是可再生能源投资的领先者。",
+		"source": "text", "startAnchor": "中国是全球最大的碳排放国", "endAnchor": "可再生能源投资的领先者。",
 	})
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_material", string(argsJSON)),
@@ -1099,20 +1100,20 @@ func TestWorkspaceTurnRejectsInventedPastedText(t *testing.T) {
 	}
 	var sawError bool
 	for _, m := range prov.Requests[1].Messages {
-		if m.Role == gateway.RoleTool && strings.Contains(m.Content, "正文必须来自老师贴进来的内容") {
+		if m.Role == gateway.RoleTool && strings.Contains(m.Content, "startAnchor 在老师这一轮的消息里找不到") {
 			sawError = true
 		}
 	}
 	if !sawError {
-		t.Fatal("the substring-grounding tool error never reached the model's second call")
+		t.Fatal("the anchor-not-found tool error never reached the model's second call")
 	}
 }
 
-// TestWorkspaceTurnAcceptsAPasteCutMidNumber — M-4: the §6 exemption for the
+// TestWorkspaceTurnAcceptsAPasteCutMidNumber — the §6 exemption for the
 // patch's "text" field is not about names and numbers in general — typed
 // (what she pasted this turn) already grounds those. It matters for a
-// substring that starts mid-number: typed states 「1200人」, and the model's
-// (real, contiguous) substring starts at 「200人」. Without the exemption,
+// span that starts mid-number: typed states 「1200人」, and the model's
+// start anchor begins at 「200人」. Without the exemption,
 // StatedCounts would read 200 as a head count nobody stated and nothing
 // this turn grounds (typed's own count list has 1200, not 200) — a false
 // rejection of content already proven honest by the substring check.
@@ -1125,7 +1126,9 @@ func TestWorkspaceTurnAcceptsAPasteCutMidNumber(t *testing.T) {
 	if n := len([]rune(cutMidNumber)); n < 20 { // liteWorkspaceMinTextRunes, unexported — kept as a literal here
 		t.Fatalf("test setup: cutMidNumber is %d runes, want at least 20 so the length floor does not mask this test", n)
 	}
-	argsJSON, _ := json.Marshal(map[string]string{"source": "text", "text": cutMidNumber})
+	argsJSON, _ := json.Marshal(map[string]string{
+		"source": "text", "startAnchor": "200人参加了这项环保", "endAnchor": "反响非常热烈，大家都很兴奋。",
+	})
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_material", string(argsJSON)),
 		wsText("材料已经设成她贴的这段正文了。"),
@@ -1146,7 +1149,7 @@ func TestWorkspaceTurnAcceptsAPasteCutMidNumber(t *testing.T) {
 	}
 }
 
-// TestWorkspaceTurnSendsCurrentTextExactlyOnce — I-1: the client's `turns`
+// TestWorkspaceTurnSendsCurrentTextExactlyOnce — the client's `turns`
 // is history only (the current turn travels as `text`), and the server must
 // not append it a second time on top of `said`. A pasted article would
 // otherwise double its own token count on every loop round.
@@ -1219,5 +1222,106 @@ func TestWorkspaceTurnTruncatesHistoryServerSide(t *testing.T) {
 	}
 	if !strings.HasSuffix(historyMsg, "…") {
 		t.Fatalf("a truncated history turn must end in 「…」, got %q", historyMsg)
+	}
+}
+
+// TestWorkspaceTurnPastedTextKeepsHerCurlyQuotes — the model sends its
+// anchors with straight quotes where she typed “”, as deepseek-v4-pro did in
+// every call of the 2026-09-17 live run. The anchors still match, and the
+// card gets her passage with her own quotes.
+func TestWorkspaceTurnPastedTextKeepsHerCurlyQuotes(t *testing.T) {
+	passage := "一位负责维护的工人说：“铺的时候大家都很积极，后来没人管，效果就慢慢没了。”" +
+		"所以，一座城市能不能真正“吸水”，还取决于有没有人长期维护。"
+	argsJSON, _ := json.Marshal(map[string]string{
+		"source": "text", "startAnchor": `一位负责维护的工人说："铺的`, "endAnchor": `真正"吸水"，还取决于有没有人长期维护。`,
+	})
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", string(argsJSON)),
+		wsText("材料已经设成您贴的这段正文。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这次的阅读材料就用我贴的这段：\n\n"+passage))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["readingSource"] != "text" {
+		t.Fatalf("patch[readingSource] = %v, want text", out.Patch["readingSource"])
+	}
+	if out.Patch["text"] != passage {
+		t.Fatalf("patch[text] = %q, want her passage with its curly quotes", out.Patch["text"])
+	}
+}
+
+// readCountFixture is a three-student class where two students have opened
+// the article the class recommendation ranks first. Three, not two, so the
+// class size cannot ground 「2 人」 by itself.
+func readCountFixture(t *testing.T, reply string, read bool) *httptest.ResponseRecorder {
+	t.Helper()
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("recommend_articles", `{}`),
+		wsText(reply),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	second := createStudent(t, pool, SeedSchoolID, "lt-read-2@demo.local")
+	enrollStudent(t, pool, second, classID)
+	third := createStudent(t, pool, SeedSchoolID, "lt-read-3@demo.local")
+	enrollStudent(t, pool, third, classID)
+
+	var before libraryGroupRecommendedResp
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/library/recommended?limit=6", &before); code != http.StatusOK || len(before.Articles) == 0 {
+		t.Fatalf("recommended = %d %+v", code, before)
+	}
+	slug := before.Articles[0].Slug
+	if read {
+		art, _ := library.BySlug(slug)
+		tier := art.Levels[0].Tier
+		for _, id := range []uuid.UUID{studentID, second} {
+			path := fmt.Sprintf("/api/v1/library/%s/levels/%d", slug, tier)
+			if code := assignJSON(t, h, signInAs(t, pool, id), "POST", path, nil, nil); code != http.StatusCreated {
+				t.Fatalf("open an article = %d", code)
+			}
+		}
+	}
+	var after libraryGroupRecommendedResp
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/library/recommended?limit=6", &after); code != http.StatusOK {
+		t.Fatalf("recommended = %d", code)
+	}
+	want := 0
+	if read {
+		want = 2
+	}
+	var found bool
+	for _, a := range after.Articles {
+		if a.Slug == slug {
+			found = true
+			if a.ReadCount != want {
+				t.Fatalf("test setup: readCount = %d, want %d", a.ReadCount, want)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("test setup: %s is no longer recommended: %+v", slug, after.Articles)
+	}
+	return postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "reading", "帮我推荐一篇文章"))
+}
+
+// TestWorkspaceReadCountGroundsTheReply — recommend_articles returns how many
+// students already read each article, so a reply repeating that number is
+// grounded.
+func TestWorkspaceReadCountGroundsTheReply(t *testing.T) {
+	rec := readCountFixture(t, "《推荐的这篇》已有 2 人读过。", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reply stating a returned read count = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceReadCountZeroGroundsNothing — the same reply after a
+// recommendation nobody has read is an ungrounded head count.
+func TestWorkspaceReadCountZeroGroundsNothing(t *testing.T) {
+	rec := readCountFixture(t, "《推荐的这篇》已有 2 人读过。", false)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("reply stating an unreturned read count = %d, want 502; body=%s", rec.Code, rec.Body)
 	}
 }

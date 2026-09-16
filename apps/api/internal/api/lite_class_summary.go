@@ -122,10 +122,17 @@ const liteClassSummaryMaxAttempts = 2
 // class roster (for the name check's closed set); the facts the model reads
 // are THIS, in-progress week's — the same week the card above it (§12.5)
 // already shows.
+//
+// Everything here, the week load included, runs on the detached model
+// context. This function is the single-flight computation: other requests
+// for the same key wait on its result, so it must not fail because the
+// first requester navigated away.
 func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sqlc.Class, roster []liteworkspace.Student) (liteClassSummaryEntry, error) {
-	ctx := r.Context()
+	mctx, cancel := detachedModelCtx(r)
+	defer cancel()
+
 	ws := liteweek.WeekStart(time.Now())
-	students, err := a.loadLiteClassWeek(ctx, cls.ID, ws)
+	students, err := a.loadLiteClassWeek(mctx, cls.ID, ws)
 	if err != nil {
 		return liteClassSummaryEntry{}, err
 	}
@@ -134,8 +141,6 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 	prompt, names, counts := liteClassSummaryFacts(cls, liteweek.Label(ws), stats, praise, watch)
 	rosterNames := liteWorkspaceRosterNames(roster)
 
-	mctx, cancel := detachedModelCtx(r)
-	defer cancel()
 	resolved, rerr := a.routeE(mctx, gateway.ClassDigest)
 	if rerr != nil {
 		return liteClassSummaryEntry{}, errLiteClassSummary(rerr.Error())

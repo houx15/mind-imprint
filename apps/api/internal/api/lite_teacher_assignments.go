@@ -448,15 +448,25 @@ func checkSettingsChangeAllowed(ctx context.Context, qtx *sqlc.Queries, locked s
 			startedNames[row.UserID.String()] = row.DisplayName
 		}
 	}
+	// A started student with a blank display name is still a blocked change.
+	// She is left out of the name list, and when nobody in the list has a
+	// name the message says 有学生 instead of starting with nothing.
 	var names []string
+	blocked := false
 	for _, uid := range changed {
 		if name, ok := startedNames[uid]; ok {
-			names = append(names, name)
+			blocked = true
+			if name = strings.TrimSpace(name); name != "" {
+				names = append(names, name)
+			}
 		}
 	}
 	if len(names) > 0 {
 		sort.Strings(names)
-		return errAssignmentStarted(strings.Join(names, "、") + " 已开始这份作业，其文章不能再更换")
+		return errAssignmentStarted(strings.Join(names, "、") + "已开始这份作业，其文章不能再更换")
+	}
+	if blocked {
+		return errAssignmentStarted("有学生已开始这份作业，其文章不能再更换")
 	}
 	return nil
 }

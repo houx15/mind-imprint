@@ -332,7 +332,7 @@ func TestUngroundedCounts(t *testing.T) {
 }
 
 // TestStatedCountsOnLiveReplies pins sentences a real model wrote in the
-// 2026-09-17 live runs (Task 17). Each one passed its turn only because the
+// 2026-09-17 live runs. Each one passed its turn only because the
 // count it stated was grounded, so a green run says nothing about whether the
 // detector saw the count at all. These sentences say it did: if a later change
 // stops reading 「3人中仅有2人」 as two counts, a class summary stating a wrong

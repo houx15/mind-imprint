@@ -136,7 +136,8 @@ type liteWorkspaceSurface interface {
 	// 数字+人/位/名/个 shape with NOTHING to do with a student head count
 	// (「3 人小组汇报」), but is only safe to blank where the model actually
 	// wrote it QUOTED (「」/《》/“”/"…"): the quote is the model following the
-	// system prompt's own instruction to wrap a title that way (fix #4 below),
+	// system prompt's own instruction to wrap a title that way, and the
+	// tools hand titles back already wrapped in 《》 for the same reason,
 	// so an occurrence wrapped like that IS the title, not prose that merely
 	// shares its characters. See liteWorkspaceBlankQuotedSpans.
 	//
@@ -675,15 +676,17 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 // turn) already grounds those: liteWorkspaceNamesTeacherTyped and
 // liteWorkspaceGroundedCounts both read typed, and every roster name or
 // stated count inside "text" is inside typed too, because run.setMaterial
-// already proved "text" is a literal substring of it. The real reason is
+// stores only a span of typed's own runes (liteworkspace.AnchoredSpan cuts
+// it out between the model's two anchors; the model never supplies the
+// words). So "text" is a literal substring of typed. The real reason is
 // narrower: the count check does not see the SUBSTRING RELATIONSHIP, only
 // the digits in front of it. A cut can start mid-number — typed says
-// 「1200人」, the model's substring starts at 「200人」, still a real
-// substring — and StatedCounts(text) then reads a head count (200) that was
-// never stated by anyone and is not in typed's own count list (1200). That
-// is not a fabrication; it is where the paste happened to be cut. Checking
-// "text" against §6 would fail a turn over content already proven honest,
-// so it is not checked at all.
+// 「1200人」, the start anchor begins at 「200人」, and the span is still a
+// real substring — and StatedCounts(text) then reads a head count (200)
+// that was never stated by anyone and is not in typed's own count list
+// (1200). That is not a fabrication; it is where the passage happened to be
+// cut. Checking "text" against §6 would fail a turn over content that is
+// her own words, so it is not checked at all.
 
 func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) ([]string, error) {
 	out := []string{reply}
@@ -716,8 +719,8 @@ func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, pat
 	}
 	for _, k := range slices.Sorted(maps.Keys(normalised)) {
 		// Top level only. A nested key named "text" (a parent report's
-		// section, say) is not the pasted article that setMaterial proved
-		// verbatim, so it is checked like everything else.
+		// section, say) is not the passage setMaterial cut from her own
+		// text, so it is checked like everything else.
 		if k == "text" {
 			continue
 		}

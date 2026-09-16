@@ -30,7 +30,7 @@ func (a *API) newLiteWorkspaceHome(mctx context.Context, cls sqlc.Class, roster 
 		className: cls.Name, classID: cls.ID.String(), roster: roster, typed: typed,
 		snapshotLoad: func() (liteweekly.ClassWeekStats, []liteClassWeekCardDTO, []liteClassWeekCardDTO, error) {
 			// Same week the class card above this chat already shows (§12.5
-			// item 1 and Task 12): the CURRENT, in-progress Beijing week, not
+			// item 1): the CURRENT, in-progress Beijing week, not
 			// the last completed one.
 			students, err := a.loadLiteClassWeek(mctx, cls.ID, liteweek.WeekStart(time.Now()))
 			if err != nil {
@@ -281,7 +281,7 @@ func (run *liteWorkspaceHome) listAssignments() string {
 		}
 		run.titlesReturned = append(run.titlesReturned, as.Title)
 		modelRows = append(modelRows, map[string]any{
-			// title is handed back already wrapped in 《》 (fix #4, round 2):
+			// title is handed back already wrapped in 《》:
 			// the output-format contract the count check's blanking depends
 			// on (verbatimQuotedSpans), not a separate instruction the model
 			// has to remember to apply itself. The card's own rows (below)
@@ -335,7 +335,7 @@ func (run *liteWorkspaceHome) openPage(args map[string]any) string {
 		}
 		run.titlesReturned = append(run.titlesReturned, title)
 		id := assignmentID
-		// Label is 《标题》, not the bare title (fix #4, round 2): the label
+		// Label is 《标题》, not the bare title: the label
 		// travels through extraParts() into the count check exactly like the
 		// reply does, and only a QUOTED occurrence of a title is blanked —
 		// so an unquoted label would defeat the very check it has to pass.

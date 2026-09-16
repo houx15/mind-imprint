@@ -618,7 +618,7 @@ func toolOrder(tools []gateway.ToolCall) []string {
 }
 
 // ---------------------------------------------------------------------------
-// Round two (Task 17): the home, parent report and assignment surfaces and the
+// The home, parent report and assignment surfaces and the
 // class summary, each run wsLiveRuns times against the real model.
 //
 //	LIVE_LLM=1 CGO_ENABLED=0 go test ./internal/api -run 'TestLive(WorkspaceRound2|ClassSummary)' -v -count=1 -timeout 1800s

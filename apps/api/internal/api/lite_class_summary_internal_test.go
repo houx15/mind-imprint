@@ -74,7 +74,7 @@ func TestLiteClassSummaryCacheKeyRosterFingerprint(t *testing.T) {
 	}
 }
 
-// TestLiteClassSummaryStorePanicRecovers pins round 1's finding: a panic
+// TestLiteClassSummaryStorePanicRecovers pins the panic path: a panic
 // inside fn used to skip close(f.done) and delete(s.inflight, key), so every
 // later request for that key blocked forever. It must instead: (1) hand the
 // caller that started the flight an error, (2) release a concurrent waiter

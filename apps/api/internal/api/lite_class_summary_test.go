@@ -218,7 +218,7 @@ func TestClassSummaryRosterChangeRecomputes(t *testing.T) {
 	}
 }
 
-// TestClassSummaryGroundingRetrySucceeds — round 1 fix: a grounding failure
+// TestClassSummaryGroundingRetrySucceeds — a grounding failure
 // gets ONE retry inside the same request, not an immediate 502. First reply
 // names a real, uncarded classmate (ungrounded); the retry's reply is clean:
 // the request succeeds with the SECOND reply, and both attempts are metered.
@@ -288,7 +288,7 @@ func TestClassSummaryGroundingRetryBothFail(t *testing.T) {
 	}
 }
 
-// TestClassSummaryAssignmentRateNotGroundingEvidence — round 1 fix: the
+// TestClassSummaryAssignmentRateNotGroundingEvidence — the
 // completion RATE must never ground a head count. Measured before the fix:
 // grounded counts [30,10,5,42] (42 = AssignmentRate) let 「本周有 42 位学生
 // 完成了写作练习」 through — 42 was a percentage, not a student count.
@@ -315,7 +315,7 @@ func TestClassSummaryAssignmentRateNotGroundingEvidence(t *testing.T) {
 	}
 }
 
-// TestClassSummaryReadsCurrentWeek — round 1 fix: the summary must read the
+// TestClassSummaryReadsCurrentWeek — the summary must read the
 // SAME week the card above it already shows (§12.5, "和卡片用同一批数据，不
 // 另取") — the current, in-progress Beijing week, not the last completed one.
 // Pinned by inspecting the actual prompt sent to the model
@@ -389,5 +389,42 @@ func TestClassSummaryMetersOnDigest(t *testing.T) {
 	}
 	if prompt != 100 || completion != 50 {
 		t.Fatalf("llm_call tokens = %d/%d, want the usage the call reported", prompt, completion)
+	}
+}
+
+// TestClassSummaryComputationIgnoresTheFirstRequesterCancelling — the
+// summary is computed once per key and every concurrent request for that key
+// waits on the result. The computation runs on the first request's
+// goroutine, so if it read that request's context, a teacher who navigated
+// away would fail the summary for everyone waiting on it. A request whose
+// context is already cancelled must still produce the summary.
+func TestClassSummaryComputationIgnoresTheFirstRequesterCancelling(t *testing.T) {
+	pool := newAPITestPool(t)
+	route := func(string) gateway.KeyResolver {
+		return func(context.Context) (gateway.Resolved, error) {
+			return gateway.Resolved{Provider: "deepseek", Model: "deepseek-chat", Tier: gateway.ClassDigest}, nil
+		}
+	}
+	a := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, Route: route, SpecByID: cards.ByID,
+		Provider: gateway.NewStubProvider(weeklyReply("这周班级整体参与平稳，暂无需要特别关注的学生。")),
+	})
+	h := a.Handler()
+	if _, err := pool.Exec(context.Background(), `UPDATE schools SET edition = 'lite'`); err != nil {
+		t.Fatal(err)
+	}
+	teacherID := createTeacher(t, pool, SeedSchoolID, "cs-cancel-teacher@demo.local")
+	classID := createClassViaAPI(t, h, signInAs(t, pool, teacherID), "Lite Summary Cancel Class")
+	enrollStudent(t, pool, createStudent(t, pool, SeedSchoolID, "cs-cancel-student@demo.local"), classID)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := httptest.NewRequest("POST", summaryPath(classID), nil).WithContext(ctx)
+	summary, err := a.ComposeLiteClassSummaryForTest(r, teacherID, uuid.MustParse(classID))
+	if err != nil {
+		t.Fatalf("summary with a cancelled first requester failed: %v", err)
+	}
+	if summary == "" {
+		t.Fatal("empty summary")
 	}
 }

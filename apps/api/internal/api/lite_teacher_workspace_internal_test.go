@@ -155,14 +155,16 @@ func TestLiteWorkspaceRecommendArticlesLoadErrorIsAToolError(t *testing.T) {
 	}
 }
 
-// TestLiteWorkspaceSetMaterialTextAcceptsAVerbatimSubstring — F7's success
-// case: the model copies a paragraph out of what the teacher typed this
-// turn, unchanged.
-func TestLiteWorkspaceSetMaterialTextAcceptsAVerbatimSubstring(t *testing.T) {
+// TestLiteWorkspaceSetMaterialTextStoresTheAnchoredPassage — the success
+// case: the model names the paragraph by its first and last words, and the
+// card gets the paragraph as she typed it.
+func TestLiteWorkspaceSetMaterialTextStoresTheAnchoredPassage(t *testing.T) {
 	pasted := "中国的可再生能源投资去年增长了百分之四十，NASA 的最新数据也印证了这一点。"
 	run := &liteWorkspaceRun{kind: "reading", typed: "这周读一读这篇报道：" + pasted}
 
-	got := run.setMaterial(map[string]any{"source": "text", "text": pasted})
+	got := run.setMaterial(map[string]any{
+		"source": "text", "startAnchor": "中国的可再生能源投资", "endAnchor": "的最新数据也印证了这一点。",
+	})
 	var decoded struct {
 		OK bool `json:"ok"`
 	}
@@ -180,14 +182,14 @@ func TestLiteWorkspaceSetMaterialTextAcceptsAVerbatimSubstring(t *testing.T) {
 	}
 }
 
-// TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote — F7's core rule:
-// text that is not a substring of what she typed THIS turn is refused, and
-// the patch is left untouched.
+// TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote — the core rule:
+// anchors that are not in what she typed THIS turn are refused, the error
+// names the anchor that was not found, and the patch is left untouched.
 func TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote(t *testing.T) {
 	run := &liteWorkspaceRun{kind: "reading", typed: "这周读一篇关于气候的报道。"}
 
 	got := run.setMaterial(map[string]any{
-		"source": "text", "text": "中国是全球最大的碳排放国，但也是可再生能源投资的领先者。",
+		"source": "text", "startAnchor": "中国是全球最大的碳排放国", "endAnchor": "可再生能源投资的领先者。",
 	})
 	var decoded struct {
 		OK    bool   `json:"ok"`
@@ -196,8 +198,8 @@ func TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
 		t.Fatalf("decode tool result: %v — %s", err, got)
 	}
-	if decoded.OK || !strings.Contains(decoded.Error, "正文必须来自老师贴进来的内容") {
-		t.Fatalf("tool result = %+v, want the substring-grounding error", decoded)
+	if decoded.OK || !strings.Contains(decoded.Error, "startAnchor 在老师这一轮的消息里找不到") {
+		t.Fatalf("tool result = %+v, want the start-anchor-not-found error", decoded)
 	}
 	if run.patch != nil {
 		t.Fatalf("patch = %v, want unchanged (nil) after a rejected text", run.patch)
@@ -208,10 +210,12 @@ func TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote(t *testing.T) {
 // cap validateSettings enforces on the traditional form's 正文 field
 // (assignmentLogic.ts), so a tool-written text never fails only at publish.
 func TestLiteWorkspaceSetMaterialTextRejectsOverTheCap(t *testing.T) {
-	long := strings.Repeat("气", liteWorkspaceMaxTextRunes+1)
+	long := "开头第一句话就在这里" + strings.Repeat("气", liteWorkspaceMaxTextRunes) + "结尾最后一句话在这里"
 	run := &liteWorkspaceRun{kind: "reading", typed: long}
 
-	got := run.setMaterial(map[string]any{"source": "text", "text": long})
+	got := run.setMaterial(map[string]any{
+		"source": "text", "startAnchor": "开头第一句话就在这里", "endAnchor": "结尾最后一句话在这里",
+	})
 	var decoded struct {
 		OK    bool   `json:"ok"`
 		Error string `json:"error"`
@@ -232,7 +236,7 @@ func TestLiteWorkspaceSetMaterialTextRejectsOverTheCap(t *testing.T) {
 func TestLiteWorkspaceSetMaterialTextRejectedOnAWritingCard(t *testing.T) {
 	run := &liteWorkspaceRun{kind: "writing", typed: "这段正文照抄"}
 
-	got := run.setMaterial(map[string]any{"source": "text", "text": "这段正文照抄"})
+	got := run.setMaterial(map[string]any{"source": "text", "startAnchor": "这段正文照抄", "endAnchor": "这段正文照抄"})
 	var decoded struct {
 		OK    bool   `json:"ok"`
 		Error string `json:"error"`
@@ -248,15 +252,15 @@ func TestLiteWorkspaceSetMaterialTextRejectedOnAWritingCard(t *testing.T) {
 	}
 }
 
-// TestLiteWorkspaceSetMaterialTextRejectsTooShort — M-3: a fragment is not a
-// reading material. The typed text is deliberately longer than the pasted
-// fragment (and really contains it) so this isolates the length floor from
-// the substring check — a too-short text that also failed substring would
-// prove nothing about the floor.
+// TestLiteWorkspaceSetMaterialTextRejectsTooShort — a fragment is not a
+// reading material. Both anchors are really in what she typed, so this
+// isolates the length floor on the span (10 runes) from the anchor lookup.
 func TestLiteWorkspaceSetMaterialTextRejectsTooShort(t *testing.T) {
 	run := &liteWorkspaceRun{kind: "reading", typed: "这段太短了不能当材料，我再说详细一点"}
 
-	got := run.setMaterial(map[string]any{"source": "text", "text": "这段太短了"}) // 5 runes, a real substring
+	got := run.setMaterial(map[string]any{
+		"source": "text", "startAnchor": "这段太短了不能当", "endAnchor": "太短了不能当材料",
+	})
 	var decoded struct {
 		OK    bool   `json:"ok"`
 		Error string `json:"error"`
@@ -264,15 +268,15 @@ func TestLiteWorkspaceSetMaterialTextRejectsTooShort(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
 		t.Fatalf("decode tool result: %v — %s", err, got)
 	}
-	if decoded.OK || !strings.Contains(decoded.Error, "太短") {
-		t.Fatalf("tool result = %+v, want a too-short error", decoded)
+	if decoded.OK || !strings.Contains(decoded.Error, "只有 10 字，至少需要 20 字") {
+		t.Fatalf("tool result = %+v, want the span-too-short error", decoded)
 	}
 	if run.patch != nil {
 		t.Fatalf("patch = %v, want unchanged (nil) for a fragment", run.patch)
 	}
 }
 
-// TestLiteWorkspaceSetMaterialTextClearsSlugAndTier — M-2: a text material
+// TestLiteWorkspaceSetMaterialTextClearsSlugAndTier — a text material
 // must not leave a prior library pick sitting in the patch, or the card
 // state ends up saying 「材料来源：正文」 next to 「文章：《X》」 for an article
 // nobody chose as the text source.
@@ -280,7 +284,9 @@ func TestLiteWorkspaceSetMaterialTextClearsSlugAndTier(t *testing.T) {
 	pasted := "中国的可再生能源投资去年增长了百分之四十，NASA 的最新数据也印证了这一点。"
 	run := &liteWorkspaceRun{kind: "reading", typed: "这段正文：" + pasted, materialSet: true}
 
-	got := run.setMaterial(map[string]any{"source": "text", "text": pasted})
+	got := run.setMaterial(map[string]any{
+		"source": "text", "startAnchor": "中国的可再生能源投资", "endAnchor": "的最新数据也印证了这一点。",
+	})
 	var decoded struct {
 		OK bool `json:"ok"`
 	}
@@ -315,5 +321,58 @@ func TestLiteWorkspaceSetMaterialPersonalizedClearsSlugAndTier(t *testing.T) {
 	}
 	if run.patch["text"] != "" {
 		t.Fatalf("patch[text] = %v, want cleared to \"\"", run.patch["text"])
+	}
+}
+
+// TestLiteWorkspaceModelNotesCarryNoWireValues — what the model reads about
+// an article she tapped, and set_material's library result, name the kind
+// and the article in Chinese (§12.1). A raw kind or an English title in
+// these strings is what the model repeats back to her.
+func TestLiteWorkspaceModelNotesCarryNoWireValues(t *testing.T) {
+	var art library.Article
+	for _, a := range library.All() {
+		if a.Title != "" && a.ZhTitle != "" && !strings.Contains(a.ZhTitle, a.Title) {
+			art = a
+			break
+		}
+	}
+	if art.Slug == "" {
+		t.Fatal("test setup: no article with distinct English and Chinese titles")
+	}
+	req := liteWorkspaceTurnRequest{ChoiceSlug: art.Slug}
+
+	for _, kind := range []string{"writing", "project"} {
+		run := &liteWorkspaceRun{kind: kind}
+		note := liteWorkspaceChosenArticle(run, req)
+		if note == "" {
+			t.Fatalf("kind %s: no note", kind)
+		}
+		for _, wire := range []string{kind, "reading", art.Title, art.Slug} {
+			if strings.Contains(note, wire) {
+				t.Fatalf("kind %s: note %q carries %q", kind, note, wire)
+			}
+		}
+		if !strings.Contains(note, "《"+art.ZhTitle+"》") {
+			t.Fatalf("kind %s: note %q does not name the Chinese title", kind, note)
+		}
+	}
+
+	run := &liteWorkspaceRun{kind: "reading"}
+	note := liteWorkspaceChosenArticle(run, req)
+	for _, wire := range []string{"reading", "library", art.Title, art.Slug} {
+		if strings.Contains(note, wire) {
+			t.Fatalf("reading note %q carries %q", note, wire)
+		}
+	}
+	if !strings.Contains(note, "《"+art.ZhTitle+"》") {
+		t.Fatalf("reading note %q does not name the Chinese title", note)
+	}
+
+	got := (&liteWorkspaceRun{kind: "reading"}).setMaterial(map[string]any{"source": "library", "slug": art.Slug})
+	if strings.Contains(got, art.Title) {
+		t.Fatalf("set_material result %s carries the English title %q", got, art.Title)
+	}
+	if !strings.Contains(got, art.ZhTitle) {
+		t.Fatalf("set_material result %s does not carry the Chinese title", got)
 	}
 }

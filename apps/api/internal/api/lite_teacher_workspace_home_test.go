@@ -300,7 +300,7 @@ func TestWorkspaceHomeOpenPageSetsNavigate(t *testing.T) {
 		)
 		h := newHandler(prov)
 		nav := requireNavigate(t, postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "带我去看那份作业")))
-		// Label is 《标题》, not the bare title (round 2 fix #4): quoted so it
+		// Label is 《标题》, not the bare title: quoted so it
 		// passes the count check's quote-anchored title blanking on its own.
 		if nav.View != "assignment" || nav.ClassID != classID || nav.Label != "《阅读理解练习》" {
 			t.Fatalf("navigate = %+v", nav)
@@ -407,8 +407,8 @@ func TestWorkspaceHomeClassSnapshotNoWireValues(t *testing.T) {
 	}
 }
 
-// TestWorkspaceHomeUnrelatedHeadCountNearATitleFails — the reviewer's exact
-// repro of the round-1 hole: grounding a title's OWN digits used to free
+// TestWorkspaceHomeUnrelatedHeadCountNearATitleFails — an earlier version
+// had this hole: grounding a title's OWN digits used to free
 // that digit to justify ANY claim in the turn, not only a claim about the
 // title itself. A 1-student class, an assignment titled 「3 人小组汇报」, the
 // model calls list_assignments and then states an UNRELATED head count that
@@ -508,8 +508,8 @@ func TestWorkspaceHomeBlankingDoesNotWeakenNameCheck(t *testing.T) {
 	}
 }
 
-// TestWorkspaceHomeUnquotedTitleDigitsStillFail — round 2's measured bypass:
-// blanking ANY occurrence of a title (round 1's implementation) let a title
+// TestWorkspaceHomeUnquotedTitleDigitsStillFail — a measured bypass:
+// blanking ANY occurrence of a title (an earlier implementation) let a title
 // exactly 「3人」 make that digit invisible EVERYWHERE in the turn, not only
 // where the title itself was named. An UNQUOTED claim sharing the title's
 // digits — 「3人没有交作业，请督促。」, which does not name the assignment at
@@ -549,7 +549,7 @@ func TestWorkspaceHomeQuotedTitleDigitsPass(t *testing.T) {
 	}
 }
 
-// TestWorkspaceHomeUnquotedTitleDoesNotFuseFragments — round 2's measured
+// TestWorkspaceHomeUnquotedTitleDoesNotFuseFragments — a measured
 // fusion case: an assignment titled 「汇报」 sits, UNQUOTED, between a digit
 // and a counter word — 「3汇报人没交。」. Quote-anchored title blanking never
 // touches an unquoted occurrence, so "汇报" is never removed and "3" and "人"

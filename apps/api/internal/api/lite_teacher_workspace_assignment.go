@@ -44,10 +44,10 @@ const liteWorkspaceMaxInstructionsRunes = 2000
 // writing a longer text would pass the card and fail at the last step.
 const liteWorkspaceMaxTextRunes = 50000
 
-// liteWorkspaceMinTextRunes is set_material's "text" source floor. Nothing
-// this short is a reading material — it is the model settling for a
-// fragment ("这篇" or a headline) rather than telling the teacher it could
-// not find the article in what she typed. There is no matching floor on the
+// liteWorkspaceMinTextRunes is set_material's "text" source floor, applied to
+// the passage between the two anchors. Nothing this short is a reading
+// material — it is the model pointing at a fragment (a headline, or anchors
+// taken from one sentence) rather than at the article she pasted. There is no matching floor on the
 // traditional form: she pastes an article by hand and would notice an empty
 // box, but a tool result silently writing three words onto the card would
 // not be noticed the same way.
@@ -100,12 +100,16 @@ func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequ
 	// has no material row, so applying it here would put the article exactly
 	// where the browser pass found it — nowhere — while the note below told the
 	// model it had landed. The note says what really happened either way.
+	//
+	// Chinese words only (§12.1): this note is appended to her turn, and the
+	// model repeats what it reads, so a raw kind or an English title here
+	// ends up in the reply.
 	if run.kind != "reading" {
-		return "\n（她点的这个选项是库里的《" + art.Title + "》，但现在这份作业是" + run.kind +
-			"，没有阅读材料这一栏，所以材料没有设上。要用这篇就先把类型设成 reading，再设材料。）"
+		return "\n（她点的这个选项是库里的《" + art.ZhTitle + "》，但现在这份作业是" + liteworkspace.KindLabel(run.kind) +
+			"作业，没有阅读材料这一栏，所以材料没有设上。要用这篇就先把类型设成阅读，再设材料。）"
 	}
 	run.setMaterial(map[string]any{"source": "library", "slug": art.Slug})
-	return "\n（她点的这个选项对应库里的《" + art.Title + "》，材料已经设成这一篇了，不用再查一次。）"
+	return "\n（她点的这个选项对应库里的《" + art.ZhTitle + "》，材料已经设成这一篇了，不用再查一次。）"
 }
 
 // liteWorkspaceCardState renders the card's filled cells. An unparseable or
@@ -300,10 +304,10 @@ type liteWorkspaceRun struct {
 	// nowhere to show one.
 	kind string
 	// typed is what the TEACHER typed this turn (trimmed), before a click's
-	// choiceId is folded in — the only text set_material's "text" source may
-	// be a substring of. Never her earlier turns, never the model's words: a
-	// substring check against anything wider would let the model copy a
-	// sentence out of its own prior reply and pass it off as her paste.
+	// choiceId is folded in — the only text set_material's "text" source cuts
+	// its passage from. Never her earlier turns, never the model's words:
+	// anchoring against anything wider would let the model point at a
+	// sentence in its own prior reply and pass it off as her paste.
 	typed string
 	// materialSet is whether the card has a reading material right now,
 	// seeded from the artifact and kept current by the tools. readingSource
@@ -453,7 +457,7 @@ func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
 			tiers = append(tiers, l.Tier)
 		}
 		rows = append(rows, map[string]any{
-			// zhTitle is handed back already wrapped in 《》 (fix #4, round 2):
+			// zhTitle is handed back already wrapped in 《》:
 			// this is the output-format contract the count check's blanking
 			// depends on (verbatimQuotedSpans), not a separate instruction the
 			// model has to remember to apply itself.
@@ -514,7 +518,7 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 			}
 			run.write("tier", tier)
 		}
-		return liteWorkspaceToolOK(map[string]any{"slug": art.Slug, "title": art.Title})
+		return liteWorkspaceToolOK(map[string]any{"slug": art.Slug, "zhTitle": "《" + art.ZhTitle + "》"})
 	case "personalized":
 		// 🚨 The patch only. Who reads what is computed by the existing
 		// personalized-reading preview endpoint, and a second implementation
@@ -530,26 +534,26 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		run.materialSet = true
 		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
 	case "text":
-		// 铁律①: this is the tool that can turn "AI writes the reading
-		// material" into a live bug, so the check is not "does this look like
-		// an article" — it is a literal substring test against run.typed,
-		// which is the teacher's own typed text THIS turn (never an earlier
-		// turn, never the model's words; see the field's comment). A model
-		// that summarised, translated or invented the text fails here, on
-		// the same turn, with a message it can act on.
-		text, _ := toolString(args, "text")
-		runes := len([]rune(text))
-		if text == "" {
-			return liteWorkspaceToolError("请给出正文")
+		// 铁律①: the model never supplies the material's words. It names the
+		// passage by two anchors copied from the teacher's message, and
+		// liteworkspace.AnchoredSpan cuts the passage out of run.typed, her
+		// own text THIS turn (never an earlier turn, never the model's words;
+		// see the field's comment). What is stored is her runes, so a model
+		// that invented or summarised a passage has nothing to point at, and
+		// a model that turned “” into " still lands on her original text.
+		startAnchor, _ := toolString(args, "startAnchor")
+		endAnchor, _ := toolString(args, "endAnchor")
+		text, err := liteworkspace.AnchoredSpan(run.typed, startAnchor, endAnchor)
+		if err != nil {
+			return liteWorkspaceToolError(err.Error())
 		}
+		runes := len([]rune(text))
 		if runes < liteWorkspaceMinTextRunes {
-			return liteWorkspaceToolError(fmt.Sprintf("正文太短：至少需要 %d 字，这不像一篇完整的材料", liteWorkspaceMinTextRunes))
+			return liteWorkspaceToolError(fmt.Sprintf("两个锚点之间的正文只有 %d 字，至少需要 %d 字，这不像一篇完整的材料。"+
+				"请确认 startAnchor 取的是正文开头、endAnchor 取的是正文结尾", runes, liteWorkspaceMinTextRunes))
 		}
 		if runes > liteWorkspaceMaxTextRunes {
-			return liteWorkspaceToolError("文章正文不能超过 50000 字")
-		}
-		if !strings.Contains(run.typed, text) {
-			return liteWorkspaceToolError("正文必须来自老师贴进来的内容")
+			return liteWorkspaceToolError(fmt.Sprintf("两个锚点之间的正文有 %d 字，文章正文不能超过 50000 字", runes))
 		}
 		run.write("readingSource", "text")
 		run.write("text", text)
@@ -558,7 +562,7 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		run.write("slug", "")
 		run.write("tier", nil)
 		run.materialSet = true
-		return liteWorkspaceToolOK(map[string]any{"source": "text"})
+		return liteWorkspaceToolOK(map[string]any{"source": "text", "runes": runes})
 	}
 	return liteWorkspaceToolError("材料来源只能是 library、personalized 或 text，收到：" + source)
 }
@@ -601,8 +605,8 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 	recs := library.RecommendForGroup(arts, profiles, liteWorkspaceRecommendLimit)
 	// rows is the CARD's data (unwrapped — the panel renders zhTitle itself,
 	// same shape as every other article card). modelRows is the separate
-	// projection the MODEL reads, with zhTitle already wrapped in 《》 (fix
-	// #4, round 2): the two must differ here, unlike search_library (which
+	// projection the MODEL reads, with zhTitle already wrapped in 《》
+	// (see verbatimQuotedSpans): the two must differ here, unlike search_library (which
 	// has no card), because this tool's rows feed both.
 	rows := make([]map[string]any, 0, len(recs))
 	modelRows := make([]map[string]any, 0, len(recs))
@@ -617,6 +621,13 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 			"why": why, "readCount": rec.ReadCount,
 		})
 		run.titlesReturned = append(run.titlesReturned, rec.Article.ZhTitle)
+		// A read count is a head count the model may repeat
+		// (「已有 2 人读过」), so it grounds the count check like any other
+		// tool-counted number. Only counts above zero are added: an article
+		// nobody has read gives the reply no head count to state.
+		if rec.ReadCount > 0 {
+			run.countsReturned = append(run.countsReturned, rec.ReadCount)
+		}
 	}
 	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "articles", Rows: rows})
 	return liteWorkspaceToolOK(map[string]any{"articles": modelRows, "tier": library.GroupTier(profiles)})

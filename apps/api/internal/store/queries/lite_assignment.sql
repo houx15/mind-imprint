@@ -113,7 +113,7 @@ WHERE r.atom_id = $1 AND r.user_id = $2 AND a.archived_at IS NULL;
 SELECT EXISTS (SELECT 1 FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'student')::bool;
 
 -- name: SetLiteAssignmentReturned :one
--- 退回修改。再次退回时覆盖三列。同时清空 seen_at，使这份作业在学生收件箱里
+-- 退回修改。再次退回时覆盖四列，其中 seen_at 清空，使这份作业在学生收件箱里
 -- 重新计入未读；她此前可能已经打开过它，退回是需要她重新看到的新事件。
 UPDATE lite_assignment_recipient
 SET returned_at = now(), return_due_at = $3, return_note = $4, seen_at = NULL
