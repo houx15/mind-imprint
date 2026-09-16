@@ -47,6 +47,19 @@ export type ReportLensNote = { lens: string; quote: string; finding: string };
  *  string — that distinction is R4's whole point. Reading-kind only. */
 export type ReportNote = { quote: string; note: string };
 
+/** `reportTurningPoint` — apps/api/internal/api/atom_report.go. 对话里的一处
+ *  转折：她说的那一句、印记接的那一句，加上模型写的一句「这里发生了什么」。
+ *
+ *  🚨 `student` 和 `coach` 是服务端按编号从 atom_message 里逐字取出来的，
+ *  模型碰不到它们 —— 它只回了一个编号和 `why`。所以这两句永远是真说过的话。
+ *  渲染时两句必须各自标明是谁说的：这是报告上唯一同时印着她的话和印记的话的
+ *  地方，混在一起就是把印记的话记在她名下。 */
+export type ReportTurningPoint = { turn: number; why: string; student: string; coach: string };
+
+/** `reportArticle` — apps/api/internal/api/atom_report.go. 阅读专属。
+ *  `excerpt` 是**一段摘录**，服务端封了 200 字，永远不是全文。 */
+export type ReportArticle = { sourceUrl: string; host: string; excerpt: string };
+
 /** `liteReportDTO` — apps/api/internal/api/atom_report.go. */
 export type LiteReport = {
   version: 1;
@@ -69,6 +82,10 @@ export type LiteReport = {
   gains: string[];
   lensNotes: ReportLensNote[];
   notes: ReportNote[];
+  /** 对话里的转折。空数组 = 这次没挑出来（或这份报告早于这个字段）。 */
+  turningPoints: ReportTurningPoint[];
+  /** 我读的这篇。写作报告永远是 null。 */
+  article: ReportArticle | null;
   /** The finished piece, in full, HER OWN words — writing-kind only, and
    *  `""` on a writing report generated before the field existed (no
    *  backfill, same as `notes`/`lensNotes`). This is what makes a scanned
@@ -97,10 +114,21 @@ export type LiteReport = {
  *  they may be absent (a report generated before `notes` existed lacks it). */
 type RawLiteReport = Omit<
   LiteReport,
-  "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece" | "prosePending" | "ordinal"
+  | "moments"
+  | "gains"
+  | "lensNotes"
+  | "notes"
+  | "keep"
+  | "piece"
+  | "prosePending"
+  | "ordinal"
+  | "turningPoints"
+  | "article"
 > & {
   prosePending?: boolean;
   ordinal?: number;
+  turningPoints?: ReportTurningPoint[];
+  article?: ReportArticle | null;
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
@@ -118,6 +146,8 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     notes: raw.notes ?? [],
     piece: raw.piece ?? "",
     ordinal: raw.ordinal ?? 0,
+    turningPoints: raw.turningPoints ?? [],
+    article: raw.article ?? null,
     prosePending: raw.prosePending ?? false,
     // See `ReportKeep`: a keep with no source predates the field and can only
     // have been her own takeaway.

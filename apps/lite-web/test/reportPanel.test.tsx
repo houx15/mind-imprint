@@ -54,6 +54,8 @@ const REPORT: LiteReport = {
   studentName: "Phoebe",
   finishedAt: "2026-08-29T03:00:00Z",
   ordinal: 8,
+  turningPoints: [],
+  article: null,
   stats: [{ key: "focusMinutes", label: "专注时长", value: 12, unit: "分钟" }],
   moments: [],
   keep: null,

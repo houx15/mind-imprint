@@ -99,8 +99,13 @@ export function ReportView({
   onBackToArticle,
   proseStuck = false,
   onRetryProse,
+  viewer = "owner",
 }: {
   report: LiteReport;
+  /** 谁在看这一页。`owner` 是她自己（开场那句说「我」，转折里她那一半标「我」），
+   *  `guest` 是拿着分享链接打开它的人（两处都改用她的名字）。
+   *  `PublicReportPage` 传 `guest`；房间里不传，默认就是她自己。 */
+  viewer?: "owner" | "guest";
   /** 那一次自动补请求已经回来了，而金句还是没有。见 ProsePending。 */
   proseStuck?: boolean;
   /** 她按「再看一次」时再问一次。不给就不显示那颗按钮（公开分享页）。 */
@@ -133,12 +138,21 @@ export function ReportView({
       <header className="journal-masthead"><span>READING JOURNAL · 阅读手记</span><div>{actions}</div></header>
       {sharePanel}
       <div className="journal-cover">
-        <div><p className="journal-byline">{report.studentName} <span>／ {date}</span></p><h1>{report.title}</h1><p className="journal-caption">一次阅读的记录</p></div>
+        <div>
+          <p className="journal-byline">{report.studentName} <span>／ {date}</span></p>
+          <Opening ordinal={report.ordinal} name={report.studentName} viewer={viewer} kind={report.kind} />
+          <h1>{report.title}</h1>
+        </div>
         <img src={studentArtwork.keepsake} alt="" />
       </div>
+      {/* 数据带紧跟着标题，整幅宽。放进封面那一栏里试过：那条栅格是 auto-fit
+          的，挤进半幅宽之后 7 个数字会折成两行并留下一块空洞。她给的参照是
+          「大标题，然后一条总数据」—— 这样就是那个顺序，而且不会折。 */}
       <ReportVisualSummary stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
+      <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
+      <ArticleEntry article={report.article} title={report.title} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
@@ -157,10 +171,12 @@ export function ReportView({
         actions={actions}
       />
       {sharePanel}
+      <Opening ordinal={report.ordinal} name={report.studentName} viewer={viewer} kind={report.kind} />
       <BackToArticle onBack={onBackToArticle} />
       <ReportVisualSummary stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
+      <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
@@ -332,6 +348,124 @@ function Moments({ moments }: { moments: LiteReport["moments"] }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+/**
+ * 开场那一句。
+ *
+ * 产品负责人 2026-09-16 给的参照就是这一句：「这是我和 xx 一起阅读的第 x 篇
+ * 文章！」。在这之前这一页的标题是**文章的标题**，于是它读起来像那篇文章的
+ * 页面，而不像她的记录 —— 一页没有身份的报告，没人会想发出去。
+ *
+ * `ordinal` 为 0 = 这份报告早于那个字段（服务端 omitempty），整句不渲染：
+ * 「第 0 篇」比不渲染糟得多。
+ *
+ * 人称按谁在看：她自己看是「我」，访客看到的是她的名字。服务端存的是数字
+ * 不是句子，就是为了让这一句能在两种语境下各说各的（见 api/reports.ts 的
+ * `ordinal`）。
+ *
+ * 感叹号留着 —— 完成一篇是规则 9 说的那种「真正的节点」，而且这是她的原话。
+ */
+function Opening({
+  ordinal,
+  name,
+  viewer,
+  kind,
+}: {
+  ordinal: number;
+  name: string;
+  viewer: "owner" | "guest";
+  kind: LiteReport["kind"];
+}) {
+  if (ordinal <= 0) return null;
+  const who = viewer === "owner" ? "我" : name;
+  const verb = kind === "reading" ? "一起读的第" : "一起写的第";
+  return (
+    <p className="text-mk-h3" style={{ color: "var(--mk-accent-700)" }}>
+      这是{who}和印记{verb} {ordinal} 篇文章！
+    </p>
+  );
+}
+
+/**
+ * 对话里的转折 — 这一版报告上唯一真正新的**内容**。
+ *
+ * 在这之前，一次 12 轮的对话在这一页上就是一个数字「12」。她做过的最值得看的
+ * 那部分（她问出关键问题、她改主意、印记指出她读错了而她接住了）一个字都没有。
+ *
+ * 🚨 两句话必须各自标明是谁说的。这是这份报告上唯一同时印着她的话和印记的话
+ * 的一节 —— 混在一起就是把印记的话记在她名下。服务端那一侧同样守着这条：
+ * 正文是按编号从 atom_message 里逐字取的，模型只写了 `why`。
+ */
+function TurningPoints({
+  points,
+  name,
+  viewer,
+}: {
+  points: LiteReport["turningPoints"];
+  name: string;
+  viewer: "owner" | "guest";
+}) {
+  if (points.length === 0) return null;
+  const me = viewer === "owner" ? "我" : name;
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionTitle>对话里的转折</SectionTitle>
+      <div className="flex flex-col gap-3">
+        {points.map((p, i) => {
+          const { bg, fg } = macaron(i + 1);
+          return (
+            <div
+              key={p.turn}
+              className="mk-rp-rise overflow-hidden rounded-mk-lg px-6 py-6"
+              style={{ background: bg, ...rise(i + 4) }}
+            >
+              <p className="text-mk-label" style={{ color: fg }}>
+                {p.why}
+              </p>
+              <p className="mt-4 text-mk-label text-mk-faint">{me}</p>
+              <p className="mt-1 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{p.student}</p>
+              {p.coach && (
+                <>
+                  <p className="mt-4 text-mk-label text-mk-faint">印记</p>
+                  <p className="mt-1 whitespace-pre-wrap text-mk-body text-mk-secondary">{p.coach}</p>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * 我读的这篇 — 拿到分享链接的人凭这一块知道她读的是什么。
+ *
+ * 🚨 `excerpt` 是**一段摘录**，服务端封了 200 字。这一页不放全文：分级阅读库
+ * 是第三方素材，报告是她的记录不是一次转载。她自己那一面要看全文，走完成页的
+ * 「原文」那一格（要登录、要归属）。
+ */
+function ArticleEntry({ article, title }: { article: LiteReport["article"]; title: string }) {
+  if (!article) return null;
+  return (
+    <section className="mk-rp-card rounded-mk-lg p-5">
+      <h2 className="text-mk-label text-mk-faint">我读的这篇</h2>
+      <p className="mt-2 text-mk-h3 text-mk-ink">{title}</p>
+      {article.excerpt && <p className="mt-2 text-mk-body text-mk-muted">{article.excerpt}</p>}
+      {article.sourceUrl && (
+        <a
+          className="mt-3 inline-block text-mk-small underline"
+          style={{ color: "var(--mk-accent-700)" }}
+          href={article.sourceUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          原文{article.host ? ` · ${article.host}` : ""}
+        </a>
+      )}
     </section>
   );
 }

@@ -20,6 +20,8 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     studentName: "Phoebe",
     finishedAt: "2026-08-20T09:30:00Z",
     ordinal: 8,
+    turningPoints: [],
+    article: null,
     stats: [],
     moments: [],
     keep: null,
