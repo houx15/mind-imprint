@@ -38,8 +38,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -200,6 +202,10 @@ type liteReportDTO struct {
 	// generated before this existed re-serves without it, and the section is
 	// simply absent.
 	Piece string `json:"piece,omitempty"`
+	// TurningPoints —— 对话里的转折。正文逐字来自 atom_message，模型只挑了
+	// 编号（见 reportTurningPoint）。和 LensNotes/Notes 一样不做回填：早于这个
+	// 字段的报告重新服出来时就是没有这一节，客户端当它不存在而不是空。
+	TurningPoints []reportTurningPoint `json:"turningPoints,omitempty"`
 	// ProsePending says the DETERMINISTIC half of this report is stored and
 	// serveable, and the one model call (moments / gains / summary) has not
 	// run yet. The client renders everything else immediately and asks again;
@@ -224,6 +230,125 @@ type liteReportDTO struct {
 	// a finished report carries neither flag. Declared here anyway so the
 	// field is discoverable from the shape rather than only from the patcher.
 	ProseClaimedAt string `json:"proseClaimedAt,omitempty"`
+}
+
+// --- 转折时刻：模型只回编号 ------------------------------------------------
+
+// reportTurningPoint 是对话里的一处转折：她说的那一句、印记接的那一句，外加
+// 模型写的一句「这里发生了什么」。
+//
+// 🚨 **模型唯一能写的字是 Why。** Student 与 Coach 是服务端按编号从
+// atom_message 里逐字取出来的，模型碰不到它们。
+//
+// 为什么非这样不可：让模型引对话原话，它就会引她没说过的句子。2026-09-12 已经
+// 为这件事栽过一次（印记在对话里引她没写过的话，她的原话是「我不知道该听它的
+// 还是按我现在的正文来」），那一次的结论是**把规矩写成可验的判据**。这里更进
+// 一步：编号对不上就整条丢掉，于是「引错」结构上不存在，连验都不用验。
+//
+// 改这一段之前先想清楚你是不是在把「让模型直接给正文」偷偷放回来。
+type reportTurningPoint struct {
+	Turn    int    `json:"turn"`
+	Why     string `json:"why"`
+	Student string `json:"student"`
+	Coach   string `json:"coach,omitempty"`
+}
+
+// turnPair 是一次来回：她的一条，加紧跟着的第一条印记回复（可能没有）。
+type turnPair struct {
+	Student string
+	Coach   string
+}
+
+// modelTurnPick 是模型被允许回的全部形状 —— 一个编号加一句话，没有正文。
+type modelTurnPick struct {
+	Turn int    `json:"turn"`
+	Why  string `json:"why"`
+}
+
+// numberedTurns 把一段对话摊成「她说一句、印记接一句」的序列，编号从 1 开始。
+//
+// 只按她的发言编号，而不是给每条消息一个号：这样「第 N 轮」永远指着她说的
+// 那一句，模型挑到的也永远是一次她参与的来回。system 那种记账消息不参与
+// 编号 —— 它不是任何人说的话。
+//
+// 她说完没等回复就走了，那一轮仍然算一轮：她说的话不会因为没人接就不存在。
+func numberedTurns(msgs []sqlc.AtomMessage) []turnPair {
+	sorted := append([]sqlc.AtomMessage(nil), msgs...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Seq < sorted[j].Seq })
+	var pairs []turnPair
+	for i := 0; i < len(sorted); i++ {
+		if sorted[i].Role != "student" || strings.TrimSpace(sorted[i].Content) == "" {
+			continue
+		}
+		p := turnPair{Student: sorted[i].Content}
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].Role == "student" {
+				break
+			}
+			if sorted[j].Role == "ai" && strings.TrimSpace(sorted[j].Content) != "" {
+				p.Coach = sorted[j].Content
+				break
+			}
+		}
+		pairs = append(pairs, p)
+	}
+	return pairs
+}
+
+// turnPromptCap 是**喂给模型**的每条上限。
+//
+// 🚨 只截 prompt 里的那一份。渲染到报告上的永远是库里的完整原文 —— 2026-09-12
+// 她自己写的字被切到 400，她跟印记说了三次「我的字被截断了」，然后重打了整段。
+// 看不见就是没有。
+const turnPromptCap = 300
+
+// maxTurningPoints —— 报告上的一块，不是一份逐字记录。那份记录在「对话」
+// 那一格里。
+const maxTurningPoints = 3
+
+func buildTurnsBlock(pairs []turnPair) string {
+	var b strings.Builder
+	for i, p := range pairs {
+		fmt.Fprintf(&b, "%d. 她：%s\n", i+1, capRunes(p.Student, turnPromptCap))
+		if p.Coach != "" {
+			fmt.Fprintf(&b, "   你：%s\n", capRunes(p.Coach, turnPromptCap))
+		}
+	}
+	return b.String()
+}
+
+func capRunes(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n]) + "…"
+}
+
+// resolveTurningPoints 把模型挑的编号换成行里的原文。越界、重复、没写理由的
+// 全部丢掉，最多留 maxTurningPoints 条。
+//
+// 丢掉是静默的，而且是对的：这一节可有可无，报告永远不因为它失败（见文件头
+// 「a report must never be blocked on prose」）。
+func resolveTurningPoints(picks []modelTurnPick, pairs []turnPair) []reportTurningPoint {
+	seen := make(map[int]bool, len(picks))
+	var out []reportTurningPoint
+	for _, p := range picks {
+		if p.Turn < 1 || p.Turn > len(pairs) || seen[p.Turn] {
+			continue
+		}
+		why := strings.TrimSpace(p.Why)
+		if why == "" {
+			continue
+		}
+		seen[p.Turn] = true
+		pair := pairs[p.Turn-1]
+		out = append(out, reportTurningPoint{Turn: p.Turn, Why: why, Student: pair.Student, Coach: pair.Coach})
+		if len(out) == maxTurningPoints {
+			break
+		}
+	}
+	return out
 }
 
 // --- validation (R4) -----------------------------------------------------
@@ -402,7 +527,10 @@ const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写�
 给你的材料是她自己写下的所有文字：她的收获、她的批注、她和你聊天时说的话、她
 记下的笔记或写的段落。除了这些材料里的原句，别的话都不算她说的。
 
-你要做三件事：
+另外给你一份【对话记录】，它**只用来挑编号**：里面的句子不算她写下的材料，
+不要从那里引句子。
+
+你要做四件事：
 
 1. moments：从材料里挑出最多 3 句她自己的原话——**逐字复制**，不要改写、不要
    翻译、不要加标点、不要把两句拼成一句。配一句极短的说明，交代这是她在做什么
@@ -424,8 +552,14 @@ const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写�
    要打分、不要和别人比。**不要和 gains 里的句子重复**——gains 是几条并列的、
    短的事实，summary 是一段有转折、有结论的话。材料太薄写不出来就留空字符串。
 
+4. turningPoints：从【对话记录】里挑出最多 3 处**转折**——她改了主意的那一处、
+   她问出关键问题的那一处、你指出她读错了而她接住了的那一处。**只回编号**，
+   不要回正文：{"turn": 编号, "why": "这里发生了什么"}。编号必须是【对话记录】
+   里真实出现过的那个数字。why 写一句话，说清楚**这一处为什么是转折**，不要
+   复述她说了什么——她的原话会照原样印在旁边。挑不出来就给空数组，不要硬凑。
+
 只输出一个 JSON 对象：
-{"moments":[{"quote":"...","where":"..."}],"gains":["你...","你..."],"summary":"你..."}
+{"moments":[{"quote":"...","where":"..."}],"gains":["你...","你..."],"summary":"你...","turningPoints":[{"turn":3,"why":"..."}]}
 
 不要输出对象以外的任何文字或代码块标记。`
 
@@ -433,7 +567,10 @@ const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写�
 // moments from: corpus.Text, exactly as report_facts.go assembled it (her
 // own words only, in fragment order). Nothing from the article, nothing
 // AI-authored, is reachable here — see report_facts.go's file comment.
-func buildReportPrompt(kind, title string, corpus reportCorpus) string {
+// `turns` 是编号过的对话，只用来挑编号 —— 它**不进 corpus**，所以它里面的
+// 句子仍然无法成为金句：validateMoments 验的是 corpus.Text，而那里面只有她
+// 自己写下的材料。这是 R4 那道墙没有被这次改动碰到的原因。
+func buildReportPrompt(kind, title, turns string, corpus reportCorpus) string {
 	var b strings.Builder
 	b.WriteString("类型：")
 	if kind == "writing" {
@@ -448,6 +585,11 @@ func buildReportPrompt(kind, title string, corpus reportCorpus) string {
 	b.WriteString("\n【她自己写下的材料】\n")
 	b.WriteString(corpus.Text)
 	b.WriteString("\n")
+	if strings.TrimSpace(turns) != "" {
+		b.WriteString("\n【对话记录（只用来挑编号，不要从这里引句子）】\n")
+		b.WriteString(turns)
+		b.WriteString("\n")
+	}
 	return b.String()
 }
 
@@ -455,6 +597,8 @@ type reportModelReply struct {
 	Moments []reportMoment `json:"moments"`
 	Gains   []string       `json:"gains"`
 	Summary string         `json:"summary"`
+	// 编号，不是正文。见 reportTurningPoint。
+	TurningPoints []modelTurnPick `json:"turningPoints"`
 }
 
 // parseReportReply decodes the model's JSON object, tolerating the same
@@ -512,6 +656,8 @@ type reportProse struct {
 	// Summary is the 我的收获 paragraph, used ONLY when she left no takeaway
 	// of her own — see buildReadingReportDTO.
 	Summary string
+	// TurningPoints 的正文来自行，不来自模型 —— 见 reportTurningPoint。
+	TurningPoints []reportTurningPoint
 }
 
 // generateReportProse is the ONE flagship call this whole file makes: it asks
@@ -519,7 +665,7 @@ type reportProse struct {
 // not three calls for three fields) and is best-effort throughout — every
 // failure path returns the zero value rather than an error, because a report
 // is never blocked on prose (see the file comment).
-func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID, kind, title string, corpus reportCorpus) reportProse {
+func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID, kind, title string, corpus reportCorpus, pairs []turnPair) reportProse {
 	if strings.TrimSpace(corpus.Text) == "" {
 		// Nothing of hers to quote or reflect on — a real, if rare, state
 		// (a reading finished on takeaway alone, with no notes/chat/cards).
@@ -537,7 +683,7 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: liteReportSystem},
-			{Role: gateway.RoleUser, Content: buildReportPrompt(kind, title, corpus)},
+			{Role: gateway.RoleUser, Content: buildReportPrompt(kind, title, buildTurnsBlock(pairs), corpus)},
 		},
 	})
 	a.recordLiteLLMCall(ctx, userID, atomID, "lite_report", resolved, res.Usage)
@@ -553,9 +699,10 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 		return reportProse{Retryable: true}
 	}
 	return reportProse{
-		Moments: validateMoments(reply.Moments, corpus.Text),
-		Gains:   cleanGains(reply.Gains),
-		Summary: cleanKeepSummary(reply.Summary),
+		Moments:       validateMoments(reply.Moments, corpus.Text),
+		Gains:         cleanGains(reply.Gains),
+		Summary:       cleanKeepSummary(reply.Summary),
+		TurningPoints: resolveTurningPoints(reply.TurningPoints, pairs),
 	}
 }
 
@@ -751,7 +898,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	// on top of it, and it must never be what she waits for.
 	var prose reportProse
 	if wantProse {
-		prose = a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
+		prose = a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus, numberedTurns(msgs))
 	}
 	// The builder owns ProsePending, so phase 1 and phase 2 can never disagree
 	// about it: phase 1 never asked (so the prose is still owed), and phase 2
@@ -784,7 +931,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	return liteReportDTO{
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
-		LensNotes: lensNotes, Notes: buildReadingNotes(notes),
+		LensNotes: lensNotes, Notes: buildReadingNotes(notes), TurningPoints: prose.TurningPoints,
 		ProsePending: prosePending,
 	}, nil
 }
@@ -879,7 +1026,7 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	// See buildReadingReportDTO's twin comment: phase 1 stores without prose.
 	var prose reportProse
 	if wantProse {
-		prose = a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
+		prose = a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus, numberedTurns(msgs))
 	}
 	// The builder owns ProsePending, so phase 1 and phase 2 can never disagree
 	// about it: phase 1 never asked (so the prose is still owed), and phase 2
@@ -906,8 +1053,9 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
 		// See `Piece`. Trimmed so a draft of nothing but whitespace stores as
 		// "" and the section is absent rather than an empty bordered slab.
-		Piece:        strings.TrimSpace(draft.Body),
-		ProsePending: prosePending,
+		Piece:         strings.TrimSpace(draft.Body),
+		TurningPoints: prose.TurningPoints,
+		ProsePending:  prosePending,
 	}, nil
 }
 

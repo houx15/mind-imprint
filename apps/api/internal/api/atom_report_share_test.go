@@ -184,10 +184,24 @@ func TestPublicPayloadCarriesNothingExtra(t *testing.T) {
 	// the report's `omitempty` sections (moments, gains, lensNotes, notes)
 	// appear or not depending on how thin the fixture session is, and pinning
 	// the count made adding a legitimate report field look like a leak.
+	//
+	// 2026-09-16 加进来的三个键，每一个都要说清楚为什么它可以出现在一条谁都
+	// 能打开的链接上：
+	//
+	//   ordinal       她完成过多少篇。一个计数，指不到任何别的东西；这一页上
+	//                 本来就印着她的名字和日期，它不比那两样更能identify她。
+	//   turningPoints 对话里的两三处转折，逐条标明谁说的。这一节里有印记说的
+	//                 话 —— 这不是新口子：`keep.source == "coach"` 的那段
+	//                 我的收获早就是印记写的，也早就印在公开页上，同样标了来源。
+	//                 **完整的对话仍然不在这里**，那是另一件事，由
+	//                 include_transcript 那一位单独管，默认关。
+	//   article       标题、来源站点、一段不超过 200 字的摘录。**绝不是全文**
+	//                 —— 报告是她的记录，不是一次转载（见 reportExcerptCap）。
 	allowed := map[string]bool{
 		"version": true, "kind": true, "title": true, "studentName": true,
 		"finishedAt": true, "stats": true, "moments": true, "keep": true,
 		"gains": true, "lensNotes": true, "notes": true,
+		"ordinal": true, "turningPoints": true, "article": true,
 	}
 	got := keysOf(report)
 	for _, k := range got {

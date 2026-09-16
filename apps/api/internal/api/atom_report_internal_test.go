@@ -6,6 +6,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -263,6 +264,115 @@ func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
 		if strings.Contains(liteReportSystem, banned) {
 			t.Errorf("liteReportSystem must not model third-person reference as an example, found %q", banned)
 		}
+	}
+}
+
+// 转折时刻这一节的全部安全性都压在这条测试上：**正文必须来自行，不来自模型**。
+// 模型只回编号，服务端拿编号去 atom_message 里取原话。所以「引了她没说过的
+// 句子」这件事在这里是结构上不可能的，不是被验出来的。
+func TestResolveTurningPointsTakesItsTextFromTheRowsNotTheModel(t *testing.T) {
+	pairs := numberedTurns([]sqlc.AtomMessage{
+		{Seq: 1, Role: "student", Content: "我觉得人均排放更能说明责任。"},
+		{Seq: 2, Role: "ai", Content: "那总量还重要吗？"},
+		{Seq: 3, Role: "system", Content: "工具已了结"},
+		{Seq: 4, Role: "student", Content: "重要，但它们回答的是两个问题。"},
+		{Seq: 5, Role: "ai", Content: "把这句写进结论试试。"},
+	})
+	if len(pairs) != 2 {
+		t.Fatalf("numbered %d turns, want 2: %+v", len(pairs), pairs)
+	}
+
+	got := resolveTurningPoints([]modelTurnPick{
+		{Turn: 2, Why: "她在这里把两个问题分开了"},
+		{Turn: 2, Why: "重复的编号"},
+		{Turn: 9, Why: "越界"},
+		{Turn: 0, Why: "编号从 1 开始"},
+		{Turn: 1, Why: "   "},
+	}, pairs)
+
+	if len(got) != 1 {
+		t.Fatalf("kept %d, want 1: %+v", len(got), got)
+	}
+	if got[0].Student != "重要，但它们回答的是两个问题。" || got[0].Coach != "把这句写进结论试试。" {
+		t.Errorf("text did not come from the rows verbatim: %+v", got[0])
+	}
+	if got[0].Why != "她在这里把两个问题分开了" {
+		t.Errorf("why: %q", got[0].Why)
+	}
+}
+
+// 最多三条。模型给十条也只留三条 —— 这一节是报告上的一块，不是一份逐字记录，
+// 那份记录在「对话」那一格里。
+func TestResolveTurningPointsKeepsAtMostThree(t *testing.T) {
+	var msgs []sqlc.AtomMessage
+	var picks []modelTurnPick
+	for i := 1; i <= 10; i++ {
+		msgs = append(msgs,
+			sqlc.AtomMessage{Seq: int32(i * 2), Role: "student", Content: "她的第" + strconv.Itoa(i) + "句"},
+			sqlc.AtomMessage{Seq: int32(i*2 + 1), Role: "ai", Content: "印记接的第" + strconv.Itoa(i) + "句"},
+		)
+		picks = append(picks, modelTurnPick{Turn: i, Why: "理由"})
+	}
+	if got := resolveTurningPoints(picks, numberedTurns(msgs)); len(got) != 3 {
+		t.Fatalf("kept %d, want 3", len(got))
+	}
+}
+
+// 她说完没等到回复就走了，这一轮仍然算一轮 —— 她说的那句话不会因为没人接就
+// 不存在。Coach 为空，渲染时那一半不显示。
+func TestNumberedTurnsKeepsHerLastWordWithNoReply(t *testing.T) {
+	pairs := numberedTurns([]sqlc.AtomMessage{
+		{Seq: 1, Role: "student", Content: "我想再想想。"},
+	})
+	if len(pairs) != 1 || pairs[0].Coach != "" {
+		t.Fatalf("pairs: %+v", pairs)
+	}
+}
+
+func TestTurnsBlockNumbersHerTurnsAndSaysWhoSpoke(t *testing.T) {
+	block := buildTurnsBlock(numberedTurns([]sqlc.AtomMessage{
+		{Seq: 1, Role: "student", Content: "我觉得人均排放更重要。"},
+		{Seq: 2, Role: "ai", Content: "为什么？"},
+	}))
+	for _, want := range []string{"1.", "她：", "你："} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("block does not read as a numbered transcript (missing %q):\n%s", want, block)
+		}
+	}
+}
+
+// 🚨 喂给模型的那一份可以截断（它只是用来挑编号的），**渲染出来的那一份
+// 永远不截断**。2026-09-12：她自己写的字被切到 400，她跟印记说了三次
+// 「我的字被截断了」然后重打了整段。
+func TestTurnPromptIsCappedButTheStoredTextIsNot(t *testing.T) {
+	long := strings.Repeat("我", 900)
+	msgs := []sqlc.AtomMessage{
+		{Seq: 1, Role: "student", Content: long},
+		{Seq: 2, Role: "ai", Content: "嗯。"},
+	}
+	pairs := numberedTurns(msgs)
+
+	block := buildTurnsBlock(pairs)
+	if len([]rune(block)) > turnPromptCap+120 {
+		t.Errorf("the prompt copy should be capped, got %d runes", len([]rune(block)))
+	}
+
+	got := resolveTurningPoints([]modelTurnPick{{Turn: 1, Why: "这里"}}, pairs)
+	if len(got) != 1 {
+		t.Fatalf("kept %d", len(got))
+	}
+	if got[0].Student != long {
+		t.Errorf("her own words were truncated on the way to the report: %d runes, want %d", len([]rune(got[0].Student)), len([]rune(long)))
+	}
+}
+
+func TestParseReportReplyReadsTurningPoints(t *testing.T) {
+	reply, ok := parseReportReply(`{"moments":[],"gains":[],"summary":"","turningPoints":[{"turn":3,"why":"她改了主意"}]}`)
+	if !ok {
+		t.Fatal("did not parse")
+	}
+	if len(reply.TurningPoints) != 1 || reply.TurningPoints[0].Turn != 3 {
+		t.Fatalf("turningPoints: %+v", reply.TurningPoints)
 	}
 }
 
