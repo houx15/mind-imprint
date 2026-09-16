@@ -134,12 +134,13 @@ type liteWorkspaceHome struct {
 	// filter's size).
 	countsReturned []int
 	// titlesReturned is every assignment title a tool handed back this turn
-	// (list_assignments, open_page{target:assignment}) — the verbatimSpans
-	// half of the head-count check. A title such as 「3 人小组汇报」 is
-	// catalogue/teacher data, not a model claim, but its digits still sit
-	// inside text §6 checks (the reply, a choice label, the navigate label);
-	// see verbatimSpans' comment on lite_teacher_workspace.go for why its
-	// digits are blanked from checked text rather than grounded as counts.
+	// (list_assignments, open_page{target:assignment}) —
+	// verbatimQuotedSpans' half of the head-count check. A title such as
+	// 「3 人小组汇报」 is catalogue/teacher data, not a model claim, but its
+	// digits still sit inside text §6 checks (the reply, a choice label, the
+	// navigate label); see verbatimQuotedSpans' comment on
+	// lite_teacher_workspace.go for why its digits are blanked — ONLY where
+	// quoted — from checked text rather than grounded as counts.
 	titlesReturned []string
 	// question and choices are set by ask_choice, which ends the turn.
 	question string
@@ -149,10 +150,15 @@ type liteWorkspaceHome struct {
 	nav *liteWorkspaceNavigateDTO
 }
 
-// verbatimSpans is the class name plus every assignment title a tool handed
-// back this turn.
-func (run *liteWorkspaceHome) verbatimSpans() []string {
-	return append([]string{run.className}, run.titlesReturned...)
+// verbatimQuotedSpans is every assignment title a tool handed back this turn.
+func (run *liteWorkspaceHome) verbatimQuotedSpans() []string {
+	return run.titlesReturned
+}
+
+// verbatimClassName is the class name (blanked unquoted — see the interface
+// method's comment).
+func (run *liteWorkspaceHome) verbatimClassName() string {
+	return run.className
 }
 
 // snapshot runs snapshotLoad the first time class_snapshot is called this
@@ -264,7 +270,12 @@ func (run *liteWorkspaceHome) listAssignments() string {
 		}
 		run.titlesReturned = append(run.titlesReturned, as.Title)
 		modelRows = append(modelRows, map[string]any{
-			"id": as.ID, "kind": liteworkspace.KindLabel(as.Kind), "title": as.Title,
+			// title is handed back already wrapped in 《》 (fix #4, round 2):
+			// the output-format contract the count check's blanking depends
+			// on (verbatimQuotedSpans), not a separate instruction the model
+			// has to remember to apply itself. The card's own rows (below)
+			// stay unwrapped — the panel renders the title itself.
+			"id": as.ID, "kind": liteworkspace.KindLabel(as.Kind), "title": "《" + as.Title + "》",
 			"dueAt": as.DueAt, "counts": counts,
 		})
 	}
@@ -313,7 +324,11 @@ func (run *liteWorkspaceHome) openPage(args map[string]any) string {
 		}
 		run.titlesReturned = append(run.titlesReturned, title)
 		id := assignmentID
-		run.nav = &liteWorkspaceNavigateDTO{View: "assignment", ClassID: run.classID, AssignmentID: &id, Label: title}
+		// Label is 《标题》, not the bare title (fix #4, round 2): the label
+		// travels through extraParts() into the count check exactly like the
+		// reply does, and only a QUOTED occurrence of a title is blanked —
+		// so an unquoted label would defeat the very check it has to pass.
+		run.nav = &liteWorkspaceNavigateDTO{View: "assignment", ClassID: run.classID, AssignmentID: &id, Label: "《" + title + "》"}
 	case "parentReports":
 		run.nav = &liteWorkspaceNavigateDTO{View: "parentReports", ClassID: run.classID, Label: "家长报告"}
 	default:

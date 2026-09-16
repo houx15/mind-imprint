@@ -269,6 +269,34 @@ func StatedCounts(text string) []int {
 	return out
 }
 
+// IsPureHeadCount reports whether s, once its whitespace is stripped, IS a
+// single head-count shape (数字+人/位/名/个+noun) covering the WHOLE string —
+// nothing before it, nothing after it.
+//
+// This guards the one legitimate case of blanking an unquoted class name
+// (workspace.go's verbatimClassName / lite_teacher_workspace.go's
+// liteWorkspaceBlankUnquoted): 「三年级3人实验班」 contains a head-count shape
+// as PART of an otherwise ordinary name and should still be blanked so
+// naming her own class does not fail a turn. A name that IS nothing but the
+// shape — no realistic admin would create one, but nothing stops it — has
+// nothing left once blanked, so blanking it would remove the only thing
+// there ever was to check; that edge case is left alone and still checked.
+func IsPureHeadCount(s string) bool {
+	r := []rune(stripSpace(s))
+	if len(r) == 0 {
+		return false
+	}
+	_, width, ok := readNumber(r)
+	if !ok {
+		return false
+	}
+	w := personCounterWidth(r, width)
+	if w == 0 {
+		return false
+	}
+	return width+w == len(r)
+}
+
 // UngroundedCounts returns the head counts a text states that this turn's tools
 // never returned and the teacher never wrote.
 //

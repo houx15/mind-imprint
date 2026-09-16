@@ -300,7 +300,9 @@ func TestWorkspaceHomeOpenPageSetsNavigate(t *testing.T) {
 		)
 		h := newHandler(prov)
 		nav := requireNavigate(t, postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "带我去看那份作业")))
-		if nav.View != "assignment" || nav.ClassID != classID || nav.Label != "阅读理解练习" {
+		// Label is 《标题》, not the bare title (round 2 fix #4): quoted so it
+		// passes the count check's quote-anchored title blanking on its own.
+		if nav.View != "assignment" || nav.ClassID != classID || nav.Label != "《阅读理解练习》" {
 			t.Fatalf("navigate = %+v", nav)
 		}
 		if nav.AssignmentID == nil || *nav.AssignmentID != aid {
@@ -503,6 +505,83 @@ func TestWorkspaceHomeBlankingDoesNotWeakenNameCheck(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "林知遥") {
 		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceHomeUnquotedTitleDigitsStillFail — round 2's measured bypass:
+// blanking ANY occurrence of a title (round 1's implementation) let a title
+// exactly 「3人」 make that digit invisible EVERYWHERE in the turn, not only
+// where the title itself was named. An UNQUOTED claim sharing the title's
+// digits — 「3人没有交作业，请督促。」, which does not name the assignment at
+// all — must still fail: only a QUOTED occurrence of a title is blanked.
+func TestWorkspaceHomeUnquotedTitleDigitsStillFail(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("3人没有交作业，请督促。"),
+	)
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	createHomeAssignment(t, h, teacher, classID, "3人", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code < 400 {
+		t.Fatalf("an UNQUOTED claim sharing a title's exact digits = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "3") {
+		t.Fatalf("the error does not name the offending count: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceHomeQuotedTitleDigitsPass — the other side of the same fix: a
+// title exactly 「3人」, QUOTED, still passes — quoting is how the model names
+// the title rather than stating an unrelated count, and the check has to
+// tell the two apart.
+func TestWorkspaceHomeQuotedTitleDigitsPass(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("「3人」这份作业还没有人交，请督促。"),
+	)
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	createHomeAssignment(t, h, teacher, classID, "3人", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a QUOTED title that is itself a count shape = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceHomeUnquotedTitleDoesNotFuseFragments — round 2's measured
+// fusion case: an assignment titled 「汇报」 sits, UNQUOTED, between a digit
+// and a counter word — 「3汇报人没交。」. Quote-anchored title blanking never
+// touches an unquoted occurrence, so "汇报" is never removed and "3" and "人"
+// never become adjacent; this must pass with no phantom count.
+func TestWorkspaceHomeUnquotedTitleDoesNotFuseFragments(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("3汇报人没交。"),
+	)
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	createHomeAssignment(t, h, teacher, classID, "汇报", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("an unquoted title sitting between a digit and a counter word = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceHomeClassNameThatIsPurelyACountShapeStaysChecked — the guard
+// on the class-name half of blanking: a class named EXACTLY 「3人」 (nothing
+// else in the name) is not blanked at all, so a reply naming her own class
+// still states an unrelated-looking head count and is still checked — the
+// one case where blanking would have removed real information rather than a
+// false alarm.
+func TestWorkspaceHomeClassNameThatIsPurelyACountShapeStaysChecked(t *testing.T) {
+	_, teacher, classID, _, newHandler := liteHomeFixtureIDs(t, "3人")
+	prov := gateway.NewSequenceStubProvider(wsText("「3人」这周挺活跃的。"))
+	h := newHandler(prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这个班这周怎么样"))
+	if rec.Code < 400 {
+		t.Fatalf("a class name that IS a pure count shape = %d, want a failure; body=%s", rec.Code, rec.Body)
 	}
 }
 

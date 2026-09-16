@@ -131,38 +131,97 @@ type liteWorkspaceSurface interface {
 	// is omitempty on the wire — her assignment turns keep the exact response
 	// shape they had before D2.
 	navigate() *liteWorkspaceNavigateDTO
-	// verbatimSpans is catalogue/teacher text this turn's tools handed back
-	// (an article or assignment title) plus the class name — text that
-	// legitimately contains a 数字+人/位/名/个 shape with NOTHING to do with a
-	// student head count (「3 人小组汇报」, 「高一（3）班」), but is only safe
-	// where it actually, verbatim, appears: the handler blanks every
-	// occurrence of each span before the count check runs, so an unrelated
-	// claim that happens to share a digit with a title nearby is still
-	// caught.
+	// verbatimQuotedSpans is catalogue text this turn's tools handed back — an
+	// article or assignment title — that may legitimately contain a
+	// 数字+人/位/名/个 shape with NOTHING to do with a student head count
+	// (「3 人小组汇报」), but is only safe to blank where the model actually
+	// wrote it QUOTED (「」/《》/“”/"…"): the quote is the model following the
+	// system prompt's own instruction to wrap a title that way (fix #4 below),
+	// so an occurrence wrapped like that IS the title, not prose that merely
+	// shares its characters. See liteWorkspaceBlankQuotedSpans.
 	//
-	// 🚨 This replaced grounding a title's OWN digits as head counts (adding
-	// them to groundedCounts). That made every reply in the turn free to
-	// state that digit as a headcount claim about ANYTHING — reproduced: a
-	// 1-student class, an assignment titled 「3 人小组汇报」, the model calls
-	// list_assignments and replies 「有 3 位学生逾期。」, a claim the title
-	// never made and no tool counted, and it passed. Blanking only protects
-	// the span itself, not the digit everywhere it appears.
-	verbatimSpans() []string
+	// 🚨 An earlier version blanked ANY occurrence, quoted or not, which
+	// reintroduced the bypass this whole mechanism exists to close: an
+	// assignment titled exactly 「3人」 made the digit invisible to the count
+	// check EVERYWHERE in the turn, so 「3人没有交作业，请督促。」 — a claim the
+	// title never made — passed too. Quote-anchoring means an unquoted
+	// occurrence is still checked; only 「「3人」还没有人开始」 — where 「3人」
+	// visibly names the title — is exempt.
+	verbatimQuotedSpans() []string
+	// verbatimClassName is the class name, blanked UNQUOTED wherever it
+	// occurs — matching compose_lite_parent.go's own rule for the same field:
+	// an admin-created class name (「高一（3）班」) is never written in quotes
+	// by a teacher or by the model, so requiring quotes here would never
+	// blank it. "" when the surface has no class in scope (should not happen
+	// today — every surface resolves one).
+	//
+	// 🚨 Not blanked at all when liteworkspace.IsPureHeadCount(name) — a class
+	// name that is NOTHING BUT the shape (no realistic admin would create
+	// one, but nothing stops it) would have nothing left to check once
+	// blanked, which is the one case where blanking removes real information
+	// rather than a false alarm.
+	verbatimClassName() string
 }
 
-// liteWorkspaceBlankSpans blanks every occurrence of each span in text,
-// longest spans first — a title that itself contains another span (an
-// assignment title containing the class name) is replaced wholesale, so the
-// shorter span's own replacement pass never has a partial match left to find.
-// Each match becomes a newline, not "": the count check reads across field
-// boundaries by whitespace alone (liteWorkspaceCheckedParts' comment on why
-// fields are never joined with nothing between them), and a title that ended
-// mid-word must not fuse with whatever follows it.
+// liteWorkspaceBlankSeparator replaces a blanked span (a quoted title, or an
+// unquoted class name). It is deliberately NOT whitespace: StatedCounts
+// strips whitespace before it scans, so a newline does not stop a digit on
+// one side of a removed span from reading as adjacent to a counter word on
+// the other. Measured: blanking an unquoted 「汇报」 out of 「3汇报人没交。」
+// with "\n" left 「3\n人没交」, which StatedCounts strips back down to
+// 「3人没交」 — a phantom head count neither side of the sentence stated. The
+// separator is also not a digit, a CJK numeral or a counter word itself, so
+// it cannot supply either half of a count shape on its own.
+const liteWorkspaceBlankSeparator = "／"
+
+// liteWorkspaceTitleQuotes are the marks that make a title-shaped span safe
+// to blank: the system prompt tells the model to wrap a title one of these
+// ways, so a span found wrapped in one IS the model following that contract,
+// not prose that happens to share the title's characters. Each pair's open
+// and close may be the same rune (straight ASCII quotes, "…").
+var liteWorkspaceTitleQuotes = []struct{ open, close string }{
+	{"「", "」"},
+	{"《", "》"},
+	{"“", "”"},
+	{"\"", "\""},
+}
+
+// liteWorkspaceBlankQuotedSpans blanks each span in spans, but ONLY where it
+// appears wrapped in one of liteWorkspaceTitleQuotes — the quote marks are
+// removed together with it, replaced as one unit by
+// liteWorkspaceBlankSeparator. An UNQUOTED occurrence of the same text is
+// left exactly as it is and still runs through the count check: that is what
+// stops a title that happens to spell a head count (「3人」) from being usable
+// to launder an unrelated, unquoted claim (「3人没有交作业」).
 //
-// Only the count check reads blanked text. The name check runs on the
-// ORIGINAL text — a real roster name is still every bit as ungrounded when it
-// sits next to, or even inside, a blanked span.
-func liteWorkspaceBlankSpans(text string, spans []string) string {
+// Longest spans first, so a title that is a literal prefix of another's does
+// not leave a stray closing quote once the longer one's own quoted form is
+// removed.
+func liteWorkspaceBlankQuotedSpans(text string, spans []string) string {
+	for _, s := range liteWorkspaceDedupeLongestFirst(spans) {
+		for _, q := range liteWorkspaceTitleQuotes {
+			text = strings.ReplaceAll(text, q.open+s+q.close, liteWorkspaceBlankSeparator)
+		}
+	}
+	return text
+}
+
+// liteWorkspaceBlankUnquoted blanks every occurrence of span in text,
+// unquoted. Used only for the class name — see verbatimClassName's comment
+// for why it is exempt from the quote requirement every title span has.
+func liteWorkspaceBlankUnquoted(text, span string) string {
+	span = strings.TrimSpace(span)
+	if span == "" || liteworkspace.IsPureHeadCount(span) {
+		return text
+	}
+	return strings.ReplaceAll(text, span, liteWorkspaceBlankSeparator)
+}
+
+// liteWorkspaceDedupeLongestFirst trims, drops blanks and duplicates, and
+// sorts longest-first: a span that itself contains another span (one title a
+// literal prefix of another) is handled wholesale before the shorter one's
+// own pass runs, so there is no partial match left over to mis-blank.
+func liteWorkspaceDedupeLongestFirst(spans []string) []string {
 	seen := make(map[string]bool, len(spans))
 	clean := make([]string, 0, len(spans))
 	for _, s := range spans {
@@ -174,10 +233,7 @@ func liteWorkspaceBlankSpans(text string, spans []string) string {
 		clean = append(clean, s)
 	}
 	slices.SortFunc(clean, func(a, b string) int { return len(b) - len(a) })
-	for _, s := range clean {
-		text = strings.ReplaceAll(text, s, "\n")
-	}
-	return text
+	return clean
 }
 
 // liteWorkspaceNavigateDTO is the page open_page offered this turn (§12.5
@@ -433,14 +489,17 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// 「难度 3」 beside a label starting 「人工智能方向」 became a claim about
 	// 3 people that neither field made.
 	//
-	// Each part is blanked of this turn's verbatim spans (a title, the class
-	// name) BEFORE the count check runs — never grounded as digits, which
-	// would free that digit to justify an unrelated claim anywhere else in
-	// the same turn. See liteWorkspaceBlankSpans and verbatimSpans' comment.
+	// Each part is blanked of this turn's verbatim spans BEFORE the count
+	// check runs — never grounded as digits, which would free that digit to
+	// justify an unrelated claim anywhere else in the same turn. A title is
+	// blanked only where the model wrote it QUOTED (verbatimQuotedSpans'
+	// comment); the class name is blanked unquoted (verbatimClassName's).
 	countGrounds := liteWorkspaceGroundedCounts(surface.groundedCounts(), len(roster), turns, typed)
-	spans := surface.verbatimSpans()
+	quotedSpans := surface.verbatimQuotedSpans()
+	className := surface.verbatimClassName()
 	for _, part := range parts {
-		checked := liteWorkspaceBlankSpans(part, spans)
+		checked := liteWorkspaceBlankQuotedSpans(part, quotedSpans)
+		checked = liteWorkspaceBlankUnquoted(checked, className)
 		if bad := liteworkspace.UngroundedCounts(checked, countGrounds); len(bad) > 0 {
 			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
 			return

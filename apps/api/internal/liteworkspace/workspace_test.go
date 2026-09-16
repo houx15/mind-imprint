@@ -295,6 +295,26 @@ func TestStatedCounts(t *testing.T) {
 	}
 }
 
+func TestIsPureHeadCount(t *testing.T) {
+	for _, tc := range []struct {
+		s    string
+		want bool
+	}{
+		{"3人", true},
+		{"3 人", true}, // whitespace stripped first, same as StatedCounts
+		{"三人", true},
+		{"三年级3人实验班", false}, // the shape is only PART of the name
+		{"3人实验班", false},    // trailing text after the shape
+		{"高一（3）班", false},   // no counter word at all — StatedCounts finds nothing
+		{"", false},
+		{"实验班", false},
+	} {
+		if got := IsPureHeadCount(tc.s); got != tc.want {
+			t.Errorf("IsPureHeadCount(%q) = %v, want %v", tc.s, got, tc.want)
+		}
+	}
+}
+
 // TestUngroundedCounts — a count the tools returned is hers to be told; one
 // nobody produced is the failure §6 exists to stop.
 func TestUngroundedCounts(t *testing.T) {

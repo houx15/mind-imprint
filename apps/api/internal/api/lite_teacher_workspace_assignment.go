@@ -243,12 +243,19 @@ func (run *liteWorkspaceRun) result() (map[string]any, []liteWorkspaceCardDTO) {
 // navigate is nil: the assignment surface has no open_page tool.
 func (run *liteWorkspaceRun) navigate() *liteWorkspaceNavigateDTO { return nil }
 
-// verbatimSpans is the class name plus every article Chinese title a tool
-// handed back this turn (search_library, recommend_articles, set_material) —
-// the only titles the model was ever told to name in its reply (系统 prompt:
-// 「介绍文章时用书名号里的中文标题」).
-func (run *liteWorkspaceRun) verbatimSpans() []string {
-	return append([]string{run.className}, run.titlesReturned...)
+// verbatimQuotedSpans is every article Chinese title a tool handed back this
+// turn (search_library, recommend_articles, set_material) — the only titles
+// the model was ever told to name in its reply (系统 prompt: 「介绍文章时用书
+// 名号里的中文标题」), and now handed back already wrapped in 《》 (see the
+// tool result comments).
+func (run *liteWorkspaceRun) verbatimQuotedSpans() []string {
+	return run.titlesReturned
+}
+
+// verbatimClassName is the class name (blanked unquoted — see the interface
+// method's comment).
+func (run *liteWorkspaceRun) verbatimClassName() string {
+	return run.className
 }
 
 // liteWorkspaceRun is the assignment surface: it accumulates what one turn's
@@ -305,8 +312,9 @@ type liteWorkspaceRun struct {
 	// tool produced, and nothing else.
 	countsReturned []int
 	// titlesReturned is every article's Chinese title search_library,
-	// recommend_articles or set_material handed back this turn — the
-	// verbatimSpans half of the head-count check (see that method's comment).
+	// recommend_articles or set_material handed back this turn —
+	// verbatimQuotedSpans' half of the head-count check (see that method's
+	// comment).
 	titlesReturned []string
 	// question and choices are set by ask_choice, which ends the turn.
 	question string
@@ -434,7 +442,11 @@ func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
 			tiers = append(tiers, l.Tier)
 		}
 		rows = append(rows, map[string]any{
-			"slug": art.Slug, "title": art.Title, "zhTitle": art.ZhTitle,
+			// zhTitle is handed back already wrapped in 《》 (fix #4, round 2):
+			// this is the output-format contract the count check's blanking
+			// depends on (verbatimQuotedSpans), not a separate instruction the
+			// model has to remember to apply itself.
+			"slug": art.Slug, "title": art.Title, "zhTitle": "《" + art.ZhTitle + "》",
 			"disciplines": art.Disciplines, "tiers": tiers,
 		})
 		run.titlesReturned = append(run.titlesReturned, art.ZhTitle)
@@ -576,16 +588,27 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 		arts = filtered
 	}
 	recs := library.RecommendForGroup(arts, profiles, liteWorkspaceRecommendLimit)
+	// rows is the CARD's data (unwrapped — the panel renders zhTitle itself,
+	// same shape as every other article card). modelRows is the separate
+	// projection the MODEL reads, with zhTitle already wrapped in 《》 (fix
+	// #4, round 2): the two must differ here, unlike search_library (which
+	// has no card), because this tool's rows feed both.
 	rows := make([]map[string]any, 0, len(recs))
+	modelRows := make([]map[string]any, 0, len(recs))
 	for _, rec := range recs {
+		why := libraryWhyZh(rec.Why)
 		rows = append(rows, map[string]any{
 			"slug": rec.Article.Slug, "zhTitle": rec.Article.ZhTitle,
-			"why": libraryWhyZh(rec.Why), "readCount": rec.ReadCount,
+			"why": why, "readCount": rec.ReadCount,
+		})
+		modelRows = append(modelRows, map[string]any{
+			"slug": rec.Article.Slug, "zhTitle": "《" + rec.Article.ZhTitle + "》",
+			"why": why, "readCount": rec.ReadCount,
 		})
 		run.titlesReturned = append(run.titlesReturned, rec.Article.ZhTitle)
 	}
 	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "articles", Rows: rows})
-	return liteWorkspaceToolOK(map[string]any{"articles": rows, "tier": library.GroupTier(profiles)})
+	return liteWorkspaceToolOK(map[string]any{"articles": modelRows, "tier": library.GroupTier(profiles)})
 }
 
 func (run *liteWorkspaceRun) listStudents(args map[string]any) string {

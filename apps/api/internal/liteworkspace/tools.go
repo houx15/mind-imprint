@@ -37,6 +37,7 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
   set_material{source:"text", text:"..."}，text 必须逐字照抄她这一轮贴的内容，
   一个字都不能改、不能自己写或概括，也不能用她更早几轮贴过的文章。不要编造文章标题。
 - 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
+- **提到文章标题或作业标题时，把标题放进《》里**（比如《美国气候队》），不要不加符号地写出来。
 - 你改不了的事不要说你改了。`
 
 // AssignmentSystem renders the system prompt the teacher workspace turn
@@ -279,6 +280,7 @@ const homeSystemTemplate = `你在帮一位老师了解她的一个班：回答�
 
 - **不要在回复里写学生人数、学生姓名，也不要复述作业各状态的人数。** 它们会显示在
   卡片上，由系统查出来。你要指代的时候就说「这些学生」「名单上的学生」「这份作业」。
+- **提到作业标题时，把标题放进《》或「」里**（比如《3 人小组汇报》），不要不加符号地写出来。
 - 你改不了的事不要说你改了。`
 
 // HomeSystem renders the system prompt the home workspace turn loop sends
