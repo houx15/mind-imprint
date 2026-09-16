@@ -25,8 +25,11 @@ import { apiErrorText } from "../api/errorText";
  *
  * 她不点就不取：一次多余的请求也没有。
  */
-export function ReadingArticle({ atomId }: { atomId: string }) {
-  const [open, setOpen] = useState(false);
+export function ReadingArticle({ atomId, defaultOpen = false }: { atomId: string; defaultOpen?: boolean }) {
+  // `defaultOpen` 是给完成页那一格用的：在一个叫「原文」的页签底下还要她先按
+  // 一颗「再看一遍这篇文章」，是让她为同一件事点两次。折叠那一版留着 —— 它
+  // 本来是摆在报告里的形态。
+  const [open, setOpen] = useState(defaultOpen);
   const [source, setSource] = useState<ReadingSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const alive = useAlive();
@@ -58,13 +61,15 @@ export function ReadingArticle({ atomId }: { atomId: string }) {
     <section className="mk-rp-section">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-mk-body-lg font-semibold text-mk-ink">{source?.title ?? "这篇文章"}</h3>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="shrink-0 rounded-mk-full border border-mk-border px-3 py-1 text-mk-small text-mk-secondary"
-        >
-          收起
-        </button>
+        {!defaultOpen && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="shrink-0 rounded-mk-full border border-mk-border px-3 py-1 text-mk-small text-mk-secondary"
+          >
+            收起
+          </button>
+        )}
       </div>
       {error && <p className="mt-2 text-mk-small text-mk-danger">{error}</p>}
       {!source && !error && <p className="mt-2 text-mk-small text-mk-muted">正在取这篇文章…</p>}

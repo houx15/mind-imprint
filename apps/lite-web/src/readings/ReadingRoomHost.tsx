@@ -32,6 +32,9 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
+import { FinishedTabs, type FinishedTab } from "../reports/FinishedTabs";
+import { TranscriptView } from "../reports/TranscriptView";
+import { ReadingArticle } from "../reports/ReadingArticle";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { ReadingQuestions } from "./ReadingQuestions";
 import { liteRoutePath, navigate } from "../routing";
@@ -327,10 +330,17 @@ function Centered({ children }: { children: React.ReactNode }) {
  *
  * READ-ONLY BY CONSTRUCTION. There is no room here, so there is no way to
  * summon another lens, write another note, or re-finish it: the state is
- * terminal and the surface has nothing that could change it. What she gets
- * instead is the report, which now leads the page and carries its own wide
- * hero (title, her name, the date) — so this panel deliberately keeps only a
- * thin bar above it: back, the 已完成 chip, the day.
+ * terminal and the surface has nothing that could change it.
+ *
+ * 2026-09-16：这一页从「只有报告」变成三格 —— **报告 · 对话 · 原文**。
+ * 只读这一条一个字没变，三格都守着它：`TranscriptView` 里没有输入框也没有
+ * 重试发送，`ReadingArticle` 在这里不标注不划句。产品负责人的原话是
+ * 「they cannot go back to view their chat history. but we want that student
+ * can view all history.」—— 缺的从来不是数据（`GET /readings/{id}/messages`
+ * 一直都在），是没有任何界面去读它。
+ *
+ * 报告那一格仍然领着这一页并带着自己的宽 hero（标题、她的名字、日期），
+ * 所以上面那条横条仍然只有：返回、已完成、日期、页签。
  *
  * Two blocks that used to live here are gone on purpose, and both were
  * duplicates of the report rather than losses:
@@ -358,6 +368,8 @@ function FinishedReadingPanel({
   onBack: () => void;
 }) {
   const day = shortDay(reading.finishedAt ?? reading.updatedAt);
+  // 默认停在报告：她刚完成时想看的是结果。回看是她第二次来才要的东西。
+  const [tab, setTab] = useState<FinishedTab>("report");
   return (
     <div className="flex w-full flex-col pb-14">
       <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-8">
@@ -377,6 +389,30 @@ function FinishedReadingPanel({
         <span className="min-w-0 truncate text-mk-small text-mk-muted">{reading.title}</span>
       </div>
 
+      <div className="mk-rp-measure pt-5">
+        <FinishedTabs
+          tabs={[
+            { id: "report", label: "报告" },
+            { id: "transcript", label: "对话" },
+            { id: "source", label: "原文" },
+          ]}
+          active={tab}
+          onPick={setTab}
+        />
+      </div>
+
+      {/* 🚨 报告那一格用 `hidden` 藏，不用条件渲染拆掉。`ReportPanel` 在
+          `prosePending` 时会自己补发一次请求，而那一次请求**真的在等一个旗舰
+          调用**；每切一次页签就卸载重挂，等于每切一次就再买一次那通调用。
+          另外两格是纯读，拆掉重挂只是多一次 GET，所以照常条件渲染。 */}
+      {tab === "transcript" && <TranscriptView kind="reading" atomId={reading.id} />}
+      {tab === "source" && (
+        <div className="mk-rp-measure py-8">
+          <ReadingArticle atomId={reading.id} defaultOpen />
+        </div>
+      )}
+
+      <div hidden={tab !== "report"}>
       <ReportPanel
         kind="reading"
         atomId={reading.id}
@@ -397,6 +433,7 @@ function FinishedReadingPanel({
 
       <div className="mk-rp-measure">
         <ReadingQuestions readingId={reading.id} />
+      </div>
       </div>
     </div>
   );
