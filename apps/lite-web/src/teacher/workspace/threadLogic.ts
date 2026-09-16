@@ -93,17 +93,30 @@ export function isPendingCurrent<K extends PropertyKey>(
   return isCurrentTurn({ gen: pending.gen, classId: pending.scope }, { gen: state.gen, classId: scopeNow });
 }
 
-/** A response arrived. A stale one returns `state` unchanged (same object),
- *  including `busy`: after a reset, `busy` belongs to whatever the new
- *  generation is doing. `kept` is computed by the caller with `applyPatch`
- *  against the live artifact. */
+/** The transition for a response that is not current.
+ *
+ *  - Older generation: `state` unchanged (same object), including `busy`.
+ *    A reset already cleared that conversation, and `busy` now belongs to
+ *    whatever the new generation is doing.
+ *  - Same generation, different scope: the scope moved without anyone
+ *    calling `reset()`. The conversation on screen belongs to the old scope
+ *    and this turn is the one holding `busy`, so leaving `state` unchanged
+ *    would keep `busy` true until remount. It is treated as the reset that
+ *    should have happened — the transition a class change uses — which drops
+ *    the old scope's turns, clears `busy`, and bumps the generation. */
+export function settleStale<K extends PropertyKey>(state: ThreadState<K>, pending: PendingTurn): ThreadState<K> {
+  return pending.gen === state.gen ? resetThread(state) : state;
+}
+
+/** A response arrived. A stale one goes through `settleStale`. `kept` is
+ *  computed by the caller with `applyPatch` against the live artifact. */
 export function settleSuccess<K extends PropertyKey>(
   state: ThreadState<K>,
   pending: PendingTurn,
   scopeNow: string,
   res: { reply: string; choices: Choice[]; cards: WorkspaceCard[]; kept: K[] },
 ): ThreadState<K> {
-  if (!isPendingCurrent(state, pending, scopeNow)) return state;
+  if (!isPendingCurrent(state, pending, scopeNow)) return settleStale(state, pending);
   return {
     ...state,
     turns: [...state.turns, { role: "ai", text: res.reply }],
@@ -115,7 +128,7 @@ export function settleSuccess<K extends PropertyKey>(
   };
 }
 
-/** A request failed. A stale failure returns `state` unchanged. A current one
+/** A request failed. A stale failure goes through `settleStale`. A current one
  *  removes her optimistic bubble (`rollbackTurn`), records `input` for 重试,
  *  and puts her sentence back into the composer if the composer is empty. */
 export function settleFailure<K extends PropertyKey>(
@@ -125,7 +138,7 @@ export function settleFailure<K extends PropertyKey>(
   input: ThreadInput,
   message: string,
 ): ThreadState<K> {
-  if (!isPendingCurrent(state, pending, scopeNow)) return state;
+  if (!isPendingCurrent(state, pending, scopeNow)) return settleStale(state, pending);
   const restore = "text" in input && shouldRestore(state.composer);
   return {
     ...state,

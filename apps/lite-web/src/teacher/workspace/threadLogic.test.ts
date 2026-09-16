@@ -140,10 +140,21 @@ describe("stale responses", () => {
     expect(b.turns).toEqual([{ role: "teacher", text: "二" }]);
   });
 
-  it("drops a response whose scope changed (A to B) without a reset", () => {
+  // 班级在没有 reset() 的情况下变了：旧回复不能落地，busy 也不能一直是 true。
+  it("resets the thread when the scope changed (A to B) without a reset", () => {
     const a = started(initialThread<Key>(), "一", "class-a");
-    expect(settleSuccess(a.state, a.pending, "class-b", reply())).toBe(a.state);
-    expect(settleFailure(a.state, a.pending, "class-b", { text: "一" }, "x")).toBe(a.state);
+    for (const b of [
+      settleSuccess(a.state, a.pending, "class-b", reply(["title"])),
+      settleFailure(a.state, a.pending, "class-b", { text: "一" }, "对话失败"),
+    ]) {
+      expect(b.busy).toBe(false);
+      expect(b.turns).toEqual([]);
+      expect(b.error).toBeNull();
+      expect(b.failed).toBeNull();
+      expect(b.kept).toEqual([]);
+      expect(b.gen).toBe(a.state.gen + 1);
+      expect(beginTurn(b, { text: "二" }, "class-b")).not.toBeNull();
+    }
   });
 
   it("drops a response after A to B to A (same scope, newer generation)", () => {

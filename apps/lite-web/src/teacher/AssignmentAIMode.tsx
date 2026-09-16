@@ -142,7 +142,7 @@ export function AssignmentAIMode({
       onSend={(text) => thread.run({ text })}
       onChoose={(choiceId) => {
         const choice = choices.find((c) => c.id === choiceId);
-        thread.run({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
+        return thread.run({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
       }}
       composer={thread.composer}
       onComposerChange={thread.setComposer}

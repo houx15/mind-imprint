@@ -29,11 +29,13 @@ export interface WorkspacePanelProps {
    *  under the LAST turn, and only while it is 印记's — a choice row belongs
    *  to the message that offered it, not to whatever she said after. */
   choices: Choice[];
-  onSend: (text: string) => void;
-  onChoose: (choiceId: string) => void;
+  /** Both return whether the turn was accepted (`WorkspaceThread.run`). */
+  onSend: (text: string) => boolean;
+  onChoose: (choiceId: string) => boolean;
   /** The composer's text, controlled by the caller (`useWorkspaceThread`
    *  holds it so it survives this panel unmounting, and so a failed sentence
-   *  can be written back into it). */
+   *  can be written back into it). The caller clears it when it accepts a
+   *  send of the same text. */
   composer: string;
   onComposerChange: (text: string) => void;
   /** Sends the last failed input again. The caller holds that input: it has
@@ -74,17 +76,17 @@ export function WorkspacePanel({
   function handleSend() {
     const text = composer.trim();
     if (!text || busy) return;
-    onComposerChange("");
+    // The composer is not cleared here: the caller clears it when it accepts
+    // the turn (`beginTurn`), so a refused send keeps her text.
     // Typing past an offered choice counts as having answered it too — the
-    // row belongs to a question that is now moot either way.
-    setAnsweredKey(choicesKey);
-    onSend(text);
+    // row belongs to a question that is now moot either way. Only an
+    // accepted send answers it.
+    if (onSend(text)) setAnsweredKey(choicesKey);
   }
 
   function handleChoose(choice: Choice) {
     if (busy) return;
-    setAnsweredKey(choicesKey);
-    onChoose(choice.id);
+    if (onChoose(choice.id)) setAnsweredKey(choicesKey);
   }
 
   const endRef = useRef<HTMLDivElement | null>(null);

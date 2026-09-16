@@ -8,6 +8,7 @@ import {
   resetThread,
   setComposer,
   settleFailure,
+  settleStale,
   settleSuccess,
   type ThreadInput,
   type ThreadState,
@@ -62,8 +63,9 @@ export interface WorkspaceThread<A extends object> {
   setComposer: (text: string) => void;
   /** The input of the last failed turn in this conversation, or null. */
   failed: ThreadInput | null;
-  /** Sends one turn. Ignored while `busy`. */
-  run: (input: ThreadInput) => void;
+  /** Sends one turn. Returns false (and changes nothing) while a turn is in
+   *  flight. On acceptance, a composer holding exactly this text is cleared. */
+  run: (input: ThreadInput) => boolean;
   /** Sends `failed` again. No-op when there is none or a turn is in flight. */
   retry: () => void;
   /** Clears the conversation. Any turn in flight is dropped when it lands. */
@@ -82,7 +84,9 @@ export interface WorkspaceThread<A extends object> {
  *   field she edited meanwhile is kept (reported in `kept`);
  * - a response is applied only if the generation and scope it was sent under
  *   are still current — this holds for failures too; `reset()` bumps the
- *   generation;
+ *   generation. A scope change that did not go through `reset()` resets the
+ *   thread when the in-flight response lands (`settleStale`), so `busy` is
+ *   never stuck; callers should still call `reset()` on every scope change;
  * - a current failure removes her optimistic bubble (`rollbackTurn`), sets
  *   `error` and `failed`, and puts a typed sentence back into an empty
  *   composer;
@@ -112,7 +116,7 @@ export function useWorkspaceThread<A extends object>(opts: WorkspaceThreadOption
       const o = optsRef.current;
       const snapshot = o.artifact;
       const started = beginTurn(ref.current, input, o.scopeOf(snapshot));
-      if (!started) return;
+      if (!started) return false;
       commit(started.state);
       const { pending } = started;
       o.post({ artifact: snapshot, turns: started.wireTurns, input }).then(
@@ -120,7 +124,13 @@ export function useWorkspaceThread<A extends object>(opts: WorkspaceThreadOption
           if (!alive.current) return;
           const live = optsRef.current;
           const scopeNow = live.scopeOf(live.artifact);
-          if (!isPendingCurrent(ref.current, pending, scopeNow)) return;
+          // Checked before `setArtifact`: a stale patch must never reach the
+          // artifact. `settleStale` still runs, so a same-generation scope
+          // change releases `busy`.
+          if (!isPendingCurrent(ref.current, pending, scopeNow)) {
+            commit(settleStale(ref.current, pending));
+            return;
+          }
           const { next, kept } = applyPatch(live.artifact, snapshot, res.patch);
           live.setArtifact(next);
           commit(settleSuccess(ref.current, pending, scopeNow, { ...res, kept }));
@@ -132,6 +142,7 @@ export function useWorkspaceThread<A extends object>(opts: WorkspaceThreadOption
           commit(settleFailure(ref.current, pending, scopeNow, input, live.describeError(e)));
         },
       );
+      return true;
     },
     [alive, commit],
   );

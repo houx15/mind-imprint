@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api, type ClassSummary } from "@/api";
@@ -318,10 +318,21 @@ export function AssignmentForm({
    * effect on `draft.classId` below. The AI mode's `<select>` stays enabled
    * while a turn is in flight; the generation check is what makes that safe. */
   function changeClass(classId: string) {
-    thread.reset();
     writeLastClassId(classId);
+    switchClass(classId);
+  }
+
+  /** `changeClass` without remembering the class: used when the page, not
+   * she, replaces the class (the class-list effect below). */
+  function switchClass(classId: string) {
+    thread.reset();
     setDraft((d) => draftOnClassChange(d, classId));
   }
+
+  // The class id as of this render, for the class-list effect: it runs in a
+  // `.then` and must know whether a class was already set.
+  const classIdRef = useRef(draft.classId);
+  classIdRef.current = draft.classId;
 
   const [roster, setRoster] = useState<RosterRow[] | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
@@ -345,7 +356,12 @@ export function AssignmentForm({
           initialClassId,
           readLastClassId(),
         );
-        setDraft((d) => ({ ...d, classId }));
+        // First load (no class yet, so no conversation): set it directly.
+        // Replacing a class she already had (e.g. `initialClassId` changed,
+        // or 重试 after a list error) goes through `switchClass`, so the
+        // conversation resets and a turn in flight is dropped.
+        if (classIdRef.current && classIdRef.current !== classId) switchClass(classId);
+        else setDraft((d) => ({ ...d, classId }));
       })
       .catch((e: unknown) => {
         if (!cancelled) setClassesError(errorText(e));
