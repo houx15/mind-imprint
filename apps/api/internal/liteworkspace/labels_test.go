@@ -29,27 +29,28 @@ func TestLabels(t *testing.T) {
 }
 
 // TestLabelsMatchTheWebTables pins the Go label tables to the source text of
-// the three tables the teacher actually looks at:
-// KIND_OPTIONS/SOURCE_OPTIONS in AssignmentForm.tsx and TIER_NAMES in
+// the three tables the teacher actually looks at: KIND_OPTIONS/SOURCE_OPTIONS
+// in labels.ts (the single copy shared by AssignmentForm.tsx and
+// StudentViewPreview.tsx as of Task 6's fix round) and TIER_NAMES in
 // assignmentLogic.ts. A word changed on one side without the other would
 // otherwise only show up as a teacher pointing out that the AI's card summary
 // and the form disagree.
 func TestLabelsMatchTheWebTables(t *testing.T) {
-	form, err := os.ReadFile("../../../lite-web/src/teacher/AssignmentForm.tsx")
+	labels, err := os.ReadFile("../../../lite-web/src/teacher/labels.ts")
 	if err != nil {
-		t.Fatalf("read AssignmentForm.tsx: %v", err)
+		t.Fatalf("read labels.ts: %v", err)
 	}
-	formSrc := string(form)
+	labelsSrc := string(labels)
 	for value, label := range kindLabels {
 		want := `value: "` + value + `", label: "` + label + `"`
-		if !strings.Contains(formSrc, want) {
-			t.Fatalf("AssignmentForm.tsx no longer has %q — KindLabel(%q) drifted from KIND_OPTIONS", want, value)
+		if !strings.Contains(labelsSrc, want) {
+			t.Fatalf("labels.ts no longer has %q — KindLabel(%q) drifted from KIND_OPTIONS", want, value)
 		}
 	}
 	for value, label := range sourceLabels {
 		want := `value: "` + value + `", label: "` + label + `"`
-		if !strings.Contains(formSrc, want) {
-			t.Fatalf("AssignmentForm.tsx no longer has %q — SourceLabel(%q) drifted from SOURCE_OPTIONS", want, value)
+		if !strings.Contains(labelsSrc, want) {
+			t.Fatalf("labels.ts no longer has %q — SourceLabel(%q) drifted from SOURCE_OPTIONS", want, value)
 		}
 	}
 

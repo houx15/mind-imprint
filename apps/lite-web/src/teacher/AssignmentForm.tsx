@@ -9,6 +9,7 @@ import { postWorkspaceTurn } from "../api/teacherWorkspace";
 import { AssignmentAIMode } from "./AssignmentAIMode";
 import { useWorkspaceThread } from "./workspace/useWorkspaceThread";
 import { Field, INPUT_CLS, Segmented } from "./formParts";
+import { KIND_OPTIONS, SOURCE_OPTIONS } from "./labels";
 import { LibraryPicker } from "./LibraryPicker";
 import { PersonalizedPicker } from "./PersonalizedPicker";
 import { RubricFields } from "./RubricFields";
@@ -31,7 +32,6 @@ import {
   writeLastClassId,
   type AssignmentDraft,
   type AssignmentMode,
-  type ReadingSource,
   type SettingsDraft,
 } from "./assignmentLogic";
 
@@ -44,23 +44,9 @@ import {
  * (assignmentLogic.ts); this file only holds state and renders.
  */
 
-const KIND_OPTIONS: { value: AssignmentKind; label: string }[] = [
-  { value: "reading", label: "阅读" },
-  { value: "writing", label: "写作" },
-  { value: "project", label: "项目" },
-];
-
 const MODE_OPTIONS: { value: AssignmentMode; label: string }[] = [
   { value: "traditional", label: "传统" },
   { value: "ai", label: "AI" },
-];
-
-const SOURCE_OPTIONS: { value: ReadingSource; label: string }[] = [
-  { value: "library", label: "分级阅读库" },
-  { value: "url", label: "链接" },
-  { value: "text", label: "正文" },
-  { value: "file", label: "上传文件" },
-  { value: "personalized", label: "个性化" },
 ];
 
 /** 类型. Rendered by the form right after 班级 (and first in the detail page's

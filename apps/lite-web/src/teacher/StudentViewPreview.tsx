@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ClassSummary } from "@/api";
-import type { AssignmentKind } from "../api/assignments";
 import { AssignmentStatusChip } from "../inbox/AssignmentStrip";
 import { beijingInputToISO, formatDeadline, STATUS_LABEL } from "../shared/deadline";
 import type { AssignmentDraft } from "./assignmentLogic";
+import { KIND_OPTIONS } from "./labels";
 
 // teacher/StudentViewPreview.tsx — 「学生看到的样子」: a collapsed preview at
 // the bottom of the AI-mode homework card (Task 6), showing how the draft
@@ -14,15 +14,13 @@ import type { AssignmentDraft } from "./assignmentLogic";
 // rather than filled with placeholders. Status is fixed 未开始, since a
 // draft has never been started.
 //
-// Kind labels are duplicated from `AssignmentForm.tsx`'s `KIND_OPTIONS`
-// (阅读/写作/项目) rather than imported, to avoid adding a third leg to the
-// existing AssignmentForm↔AssignmentAIMode import cycle; keep the two in
-// sync if a kind's Chinese label ever changes.
-const KIND_LABEL: Record<AssignmentKind, string> = {
-  reading: "阅读",
-  writing: "写作",
-  project: "项目",
-};
+// Kind label comes from `labels.ts`'s `KIND_OPTIONS` — the same table
+// `AssignmentForm.tsx` uses for its 类型 selector, and the one
+// `labels_test.go`'s `TestLabelsMatchTheWebTables` pins on the Go side.
+
+function kindLabel(kind: AssignmentDraft["kind"]): string {
+  return KIND_OPTIONS.find((o) => o.value === kind)?.label ?? kind;
+}
 
 export interface StudentPreviewItem {
   kindLabel: string;
@@ -42,7 +40,7 @@ export interface StudentPreviewItem {
 export function draftPreviewItem(draft: AssignmentDraft, classes: ClassSummary[]): StudentPreviewItem {
   const iso = beijingInputToISO(draft.dueInput);
   return {
-    kindLabel: KIND_LABEL[draft.kind],
+    kindLabel: kindLabel(draft.kind),
     title: draft.title.trim() || "未填写标题",
     instructions: draft.instructions.trim(),
     dueLabel: iso ? formatDeadline(iso) : null,
