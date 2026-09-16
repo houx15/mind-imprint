@@ -1,6 +1,11 @@
 import { GuestTheme } from "../learning/GuestTheme";
 import { useEffect, useState } from "react";
-import { getPublicReport, PublicReportNotFoundError, type LiteReport } from "@lite/api/reports";
+import {
+  getPublicReport,
+  PublicReportNotFoundError,
+  type PublicReport,
+  type PublicTranscriptLine,
+} from "@lite/api/reports";
 import { useAlive } from "@lite/shared/useAlive";
 import { ReportView } from "./ReportView";
 import { ArticleView } from "./ArticleView";
@@ -47,7 +52,7 @@ export function PublicReportPage({ token, view }: { token: string; view: "articl
 
 function PublicReportContent({ token, view }: { token: string; view: "article" | "record" }) {
   const [state, setState] = useState<"loading" | "done" | "not_found" | "failed">("loading");
-  const [report, setReport] = useState<LiteReport | null>(null);
+  const [payload, setPayload] = useState<PublicReport | null>(null);
   const alive = useAlive();
 
   /**
@@ -79,11 +84,11 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
 
   useEffect(() => {
     setState("loading");
-    setReport(null);
+    setPayload(null);
     getPublicReport(token)
-      .then((r) => {
+      .then((p) => {
         if (!alive.current) return;
-        setReport(r);
+        setPayload(p);
         setState("done");
       })
       .catch((err) => {
@@ -92,7 +97,8 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
       });
   }, [token, alive]);
 
-  if (state === "done" && report) {
+  if (state === "done" && payload) {
+    const report = payload.report;
     // Two REAL pages behind one link. `/s/:token` is her article; appending
     // `/record` opens 这一篇是怎么写出来的. Navigation is a genuine pushState
     // (routing.ts's `navigate`), so a reader can send either page on, and the
@@ -113,6 +119,7 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
       ) : (
         <ReportView
           report={report}
+          viewer="guest"
           onBackToArticle={
             hasArticle
               ? () => navigate(liteRoutePath({ tab: "share", token, view: "article" }))
@@ -120,9 +127,16 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
           }
         />
       );
+    // 对话只有在她勾过的时候才会跟着负载回来（服务端没勾连键都不发），所以
+    // 这里不需要再判一次「该不该显示」—— 有就是她要给人看的。
+    const transcript =
+      currentView !== "article" && payload.transcript.length > 0 ? (
+        <PublicTranscript lines={payload.transcript} name={report.studentName} />
+      ) : null;
     return (
       <div className="min-h-full w-full bg-mk-paper">
         {body}
+        {transcript}
         <footer className="mk-rp-measure pb-10 text-mk-small text-mk-faint">
           来自思维印记
         </footer>
@@ -141,6 +155,38 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
   // "loading" — no spinner copy of its own; a blank paper background is
   // enough for the brief instant before the fetch resolves.
   return <div className="min-h-full w-full bg-mk-paper" />;
+}
+
+/**
+ * 她公开出来的那段对话。
+ *
+ * 只在她勾过「公开我和印记的对话」时存在（迁移 0174，默认关，停止分享时一起
+ * 收回）。🚨 每条都标明是谁说的，而且访客那一面用的是**她的名字**而不是
+ * 「我」—— 看这一页的人不是她。
+ */
+function PublicTranscript({ lines, name }: { lines: PublicTranscriptLine[]; name: string }) {
+  return (
+    <section className="mk-rp-measure flex flex-col gap-4 pb-10">
+      <h2 className="text-mk-label text-mk-faint">这次的完整对话</h2>
+      {lines.map((line, i) => (
+        <div
+          key={i}
+          className={line.who === "student" ? "flex flex-col items-end gap-1" : "flex flex-col items-start gap-1"}
+        >
+          <span className="text-mk-label text-mk-faint">{line.who === "student" ? name : "印记"}</span>
+          <div
+            className="max-w-[46rem] rounded-mk-lg px-5 py-4 text-mk-body text-mk-ink"
+            style={{
+              background: line.who === "student" ? "var(--mk-accent-50)" : "var(--mk-surface)",
+              border: line.who === "student" ? "none" : "1px solid var(--mk-border)",
+            }}
+          >
+            <p className="whitespace-pre-wrap">{line.text}</p>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
 }
 
 /** One plain sentence, centered, with no error chrome — used for both the

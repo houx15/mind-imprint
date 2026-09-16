@@ -134,7 +134,10 @@ describe("getPublicReport", () => {
   it("calls /api/v1/public/reports/{token} with no credentials", async () => {
     routes[key("GET", "/api/v1/public/reports/tok-1")] = { body: { report: REPORT } };
     const result = await getPublicReport("tok-1");
-    expect(result).toEqual(REPORT);
+    // 负载现在是 { report, transcript }。她没勾「公开我和印记的对话」时，
+    // 服务端连 transcript 这个键都不发 —— 客户端把它补成空数组，于是
+    // 「她没公开对话」和「公开了但一句话都没有」在这里是同一种渲染。
+    expect(result).toEqual({ report: REPORT, transcript: [] });
     expect(calls[0]).toMatchObject({ method: "GET", url: "/api/v1/public/reports/tok-1" });
     // Must not ask the browser to attach a session cookie it does not have.
     expect(calls[0]!.credentials).toBe("omit");

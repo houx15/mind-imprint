@@ -65,7 +65,9 @@ describe("SharePanel", () => {
     const img = screen.getByRole("img", { name: /二维码/ }) as HTMLImageElement;
     expect(img.src).toBe("data:image/png;base64,QR(https://mind-lite.example/s/abc123)");
 
-    expect(shareReport).toHaveBeenCalledWith("reading", "atom-1");
+    // 第三个参数是她勾的那一位。默认不勾 —— 「不选就什么都没多公开」
+    // 这件事在这里是能断的。
+    expect(shareReport).toHaveBeenCalledWith("reading", "atom-1", { includeTranscript: false });
   });
 
   it("停止分享 removes the link and the QR", async () => {
@@ -110,7 +112,7 @@ describe("SharePanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "生成分享链接" }));
     await screen.findByDisplayValue("https://mind-lite.example/s/tok-w");
-    expect(shareReport).toHaveBeenCalledWith("writing", "atom-9");
+    expect(shareReport).toHaveBeenCalledWith("writing", "atom-9", { includeTranscript: false });
 
     fireEvent.click(screen.getByRole("button", { name: "停止分享" }));
     await waitFor(() => expect(unshareReport).toHaveBeenCalledWith("writing", "atom-9"));

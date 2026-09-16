@@ -1725,6 +1725,10 @@ func (a *API) getAtomReportFor(kind string) http.HandlerFunc {
 			"report":     json.RawMessage(a.reportWithPiece(ctx, at.ID, row.Report)),
 			"shared":     shared,
 			"shareToken": row.ShareToken,
+			// 同 F2 的道理，只是换了一个开关：她上次勾没勾「公开对话」。不带
+			// 这一位，那个勾选框每次重新打开都从「没勾」开始，于是一个**当前
+			// 为真**的状态在屏幕上显示成假 —— 这正是 shareToken 当初踩过的坑。
+			"includeTranscript": row.IncludeTranscript,
 			// The star she gave this reading's EXPERIENCE (0107), so the
 			// scorer at the foot of the report comes back filled in rather
 			// than asking her again every time she opens it. `null` when she

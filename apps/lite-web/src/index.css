@@ -1576,6 +1576,22 @@
   cursor: not-allowed;
 }
 
+/* 带字的那一颗（分享）。`place-items:center` 在 grid 下会把图标和文字摞成两行，
+ * 所以这里换回 inline-flex，并且宽度交给内容。 */
+.mk-rp-action--labelled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 0 12px;
+}
+
+.mk-rp-action__label {
+  font-size: var(--mk-text-small, 13px);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* The share panel is open — the icon stays lit so the open panel below has a
  * visible owner. */
 .mk-rp-action--on {

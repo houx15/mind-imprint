@@ -85,6 +85,9 @@ export function ReportPanel({
   const [proseStuck, setProseStuck] = useState(false);
   const [proseRetrying, setProseRetrying] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
+  // 她上次勾没勾「公开我和印记的对话」。和 shareToken 一样从服务端读回来，
+  // 理由见 SharePanel 里 F2 那一段。
+  const [withTranscript, setWithTranscript] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
@@ -143,6 +146,7 @@ export function ReportPanel({
         if (!alive.current) return;
         setReport(env.report);
         setShareToken(env.shareToken);
+        setWithTranscript(env.includeTranscript);
         setRating(env.rating);
         setState(env.report ? "done" : "quiet");
         /**
@@ -224,6 +228,7 @@ export function ReportPanel({
         kind={kind}
         atomId={atomId}
         initialShareToken={shareToken}
+        initialIncludeTranscript={withTranscript}
         // Keeps the share icon's "already published" dot honest after a mint
         // or a revoke, and keeps `initialShareToken` valid across the
         // unmount/remount this toggle causes — without giving two components

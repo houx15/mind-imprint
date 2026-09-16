@@ -65,10 +65,15 @@ export function SharePanel({
   kind,
   atomId,
   initialShareToken = null,
+  initialIncludeTranscript = false,
   onSharedChange,
 }: {
   kind: AtomKind;
   atomId: string;
+  /** 她上次勾没勾「公开我和印记的对话」。和 `initialShareToken` 同一个道理
+   *  （见上面 F2 那一段）：不从服务端读回来，这个框每次重开都从「没勾」开始，
+   *  于是一个当前为真的状态在屏幕上显示成假。 */
+  initialIncludeTranscript?: boolean;
   /** F2: a token already minted server-side, e.g. from a previous sitting —
    *  when present, the panel starts at {phase:"on"} instead of "off". */
   initialShareToken?: string | null;
@@ -95,6 +100,7 @@ export function SharePanel({
   );
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [withTranscript, setWithTranscript] = useState(initialIncludeTranscript);
 
   // Mount-only: fill in the QR image for a share that was ALREADY live when
   // this panel mounted (initialShareToken). handleShare below generates its
@@ -121,7 +127,7 @@ export function SharePanel({
     setError(null);
     setState({ phase: "sharing" });
     try {
-      const { token } = await shareReport(kind, atomId);
+      const { token } = await shareReport(kind, atomId, { includeTranscript: withTranscript });
       const url = buildShareUrl(token);
       let qr: string | null = null;
       try {
@@ -149,6 +155,21 @@ export function SharePanel({
     } catch (err) {
       setState({ phase: "on", url: state.url, qr: state.qr });
       setError(apiErrorText(err));
+    }
+  }
+
+  /** 勾选框。乐观改一次，失败就**改回去**并说出后台原话 —— 一个显示成已勾
+   *  而服务端是未勾的框，是在她面前撒谎，而且撒的正是隐私范围的谎。 */
+  async function handleTranscript(next: boolean) {
+    if (state.phase !== "on") return;
+    const before = withTranscript;
+    setWithTranscript(next);
+    setError(null);
+    try {
+      await shareReport(kind, atomId, { includeTranscript: next });
+    } catch (err) {
+      setWithTranscript(before);
+      setError(`设置失败：${apiErrorText(err)}`);
     }
   }
 
@@ -185,6 +206,25 @@ export function SharePanel({
             {copied ? "已复制" : "复制"}
           </button>
         </div>
+
+        {/* 对话是不是也公开 —— 她自己勾，默认不勾。产品负责人 2026-09-16 选的
+            就是这一档（而不是「跟报告一起公开」）。说明写的是这一勾**实际会
+            发生什么**，不是一段同意书套话。 */}
+        <label className="flex items-start gap-2 text-mk-small text-mk-secondary">
+          <input
+            type="checkbox"
+            checked={withTranscript}
+            disabled={state.phase === "unsharing"}
+            onChange={(e) => void handleTranscript(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            公开我和印记的对话
+            <span className="block text-mk-faint">
+              勾选之后，拿到这个链接的人能读到这次完整的对话。停止分享时一起收回。
+            </span>
+          </span>
+        </label>
 
         {state.qr && (
           <img

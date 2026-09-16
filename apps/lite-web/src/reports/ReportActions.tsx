@@ -24,6 +24,12 @@ import { Icon } from "@/ui";
  * `shared` drives a small live dot on the share icon: a report that is
  * ALREADY published needs to say so at a glance, because the state she cannot
  * see is the one that matters.
+ *
+ * 🚨 2026-09-16：分享那一颗从「只有图标」改成**带字**的。这条改动推翻的是上面
+ * 那句 "small icons on the right upper corner" 的一半 —— 那也是产品负责人定的，
+ * 但她这次说得更晚也更直接：报告「cannot ignite my willing of sharing」，而发
+ * 出去这件事在屏幕上得先认出一个图标。导出仍然是图标：它不是这一页要请她做的
+ * 那件事。
  */
 export function ReportActions({
   exporting,
@@ -58,9 +64,10 @@ export function ReportActions({
         aria-expanded={shareOpen}
         aria-label={shared ? "分享链接，已经在分享中" : "分享链接"}
         title={shared ? "分享链接（正在分享）" : "分享链接"}
-        className={`mk-rp-action ${shareOpen ? "mk-rp-action--on" : ""}`}
+        className={`mk-rp-action mk-rp-action--labelled ${shareOpen ? "mk-rp-action--on" : ""}`}
       >
         <Icon icon={Link2} size={17} />
+        <span className="mk-rp-action__label">分享</span>
         {shared && <span className="mk-rp-action__dot" aria-hidden="true" />}
       </button>
     </div>

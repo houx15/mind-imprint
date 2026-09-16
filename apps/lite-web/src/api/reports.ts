@@ -172,6 +172,7 @@ type RawReportEnvelope = {
   report: RawLiteReport | null;
   shared?: boolean;
   shareToken?: string | null;
+  includeTranscript?: boolean;
   /** 她给这次体验打的星（1–5），没打过就是 null。绝不会是 0——「没说」和
    *  「给了最低分」必须分得开。 */
   rating?: number | null;
@@ -183,6 +184,10 @@ type RawReportEnvelope = {
 export type ReportEnvelope = {
   report: LiteReport | null;
   shareToken: string | null;
+  /** 她上次有没有勾「公开我和印记的对话」。和 `shareToken` 同一个道理：不从
+   *  服务端读回来，这个勾选框每次重开都从「没勾」开始，于是一个当前为真的
+   *  状态在屏幕上显示成假。 */
+  includeTranscript: boolean;
   /** The star she already gave, so the scorer at the foot of the report opens
    *  filled in instead of asking her again every time. */
   rating: number | null;
@@ -204,13 +209,25 @@ export async function getReportEnvelope(kind: AtomKind, id: string): Promise<Rep
   return {
     report: raw.report ? normalizeReport(raw.report) : null,
     shareToken: raw.shareToken ?? null,
+    includeTranscript: raw.includeTranscript ?? false,
     rating: raw.rating ?? null,
   };
 }
 
-/** Mints (or, on a report already shared, re-returns) the public share link. */
-export async function shareReport(kind: AtomKind, id: string): Promise<{ token: string; url: string }> {
-  return apiFetch<{ token: string; url: string }>(`${atomBase(kind, id)}/report/share`, { method: "POST" });
+/** Mints (or, on a report already shared, re-returns) the public share link.
+ *
+ *  `includeTranscript` 是她自己勾的那一位：对话要不要跟着这条链接一起公开。
+ *  默认 false。对一条**已经存在**的链接再调一次只更新这一位 —— token 不变，
+ *  因为重新发一个会悄悄弄坏她已经发出去的那条。 */
+export async function shareReport(
+  kind: AtomKind,
+  id: string,
+  opts: { includeTranscript?: boolean } = {},
+): Promise<{ token: string; url: string; includeTranscript: boolean }> {
+  return apiFetch<{ token: string; url: string; includeTranscript: boolean }>(
+    `${atomBase(kind, id)}/report/share`,
+    { method: "POST", body: JSON.stringify({ includeTranscript: opts.includeTranscript ?? false }) },
+  );
 }
 
 /** Idempotent: revoking a report that was never shared is still a success. */
@@ -242,7 +259,14 @@ export class PublicReportNotFoundError extends Error {
  * the caller tells them apart with `instanceof`, never by string-matching a
  * message.
  */
-export async function getPublicReport(token: string): Promise<LiteReport> {
+export type PublicTranscriptLine = { who: "student" | "coach"; text: string };
+
+/** 公开页拿到的东西：报告，外加她**勾选过**才会有的那份对话。
+ *  没勾的时候服务端连 `transcript` 这个键都不发（不是空数组），所以这里
+ *  `?? []` 之后的空数组就是「她没公开对话」。 */
+export type PublicReport = { report: LiteReport; transcript: PublicTranscriptLine[] };
+
+export async function getPublicReport(token: string): Promise<PublicReport> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/v1/public/reports/${encodeURIComponent(token)}`, {
@@ -264,8 +288,8 @@ export async function getPublicReport(token: string): Promise<LiteReport> {
     }
     throw new ApiError("internal_error", message, res.status);
   }
-  const body = (await res.json()) as { report: RawLiteReport };
-  return normalizeReport(body.report);
+  const body = (await res.json()) as { report: RawLiteReport; transcript?: PublicTranscriptLine[] };
+  return { report: normalizeReport(body.report), transcript: body.transcript ?? [] };
 }
 
 /** `kind` → the `{readings,writings,pbl/projects}` `{id}/heartbeat` root. */
