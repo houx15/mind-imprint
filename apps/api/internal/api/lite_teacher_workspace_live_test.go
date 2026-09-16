@@ -20,8 +20,11 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,11 +32,16 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/library"
+	"mindimprint/api/internal/liteparent"
+	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/liteworkspace"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -87,6 +95,15 @@ type wsLiveCall struct {
 	Text  string
 	Tools []gateway.ToolCall
 	Err   error
+	// ToolResults are the tool-role messages this call was sent: the answers to
+	// the previous call's tool calls. A rejected revise_section or a failed
+	// set_material is only readable here.
+	ToolResults []string
+	Usage       gateway.ChatUsage
+	Took        time.Duration
+	// Prompt is the last user message the call was sent: for the class
+	// summary, the facts the model was given.
+	Prompt string
 }
 
 // wsLiveRecorder wraps the real provider and keeps one entry per model call.
@@ -107,9 +124,25 @@ func (r *wsLiveRecorder) Stream(ctx context.Context, res gateway.Resolved, req g
 }
 
 func (r *wsLiveRecorder) Complete(ctx context.Context, res gateway.Resolved, req gateway.ChatRequest) (gateway.ChatResult, error) {
+	var results []string
+	for i := len(req.Messages) - 1; i >= 0 && req.Messages[i].Role == gateway.RoleTool; i-- {
+		results = append([]string{req.Messages[i].Content}, results...)
+	}
+	var prompt string
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		if req.Messages[i].Role == gateway.RoleUser {
+			prompt = req.Messages[i].Content
+			break
+		}
+	}
+	start := time.Now()
 	out, err := gateway.Collect(ctx, r.inner, res, req)
+	took := time.Since(start)
 	r.mu.Lock()
-	r.calls = append(r.calls, wsLiveCall{Text: out.Text, Tools: out.ToolCalls, Err: err})
+	r.calls = append(r.calls, wsLiveCall{
+		Text: out.Text, Tools: out.ToolCalls, Err: err,
+		ToolResults: results, Usage: out.Usage, Took: took, Prompt: prompt,
+	})
 	r.mu.Unlock()
 	return out, err
 }
@@ -170,6 +203,14 @@ func liveWorkspaceModel(t *testing.T) (gateway.Provider, func(string) gateway.Ke
 // names a grounding check can see.
 func liveWorkspaceFixture(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver) (http.Handler, *http.Cookie, string) {
 	t.Helper()
+	h, _, teacher, classID := liveWorkspaceFixturePool(t, prov, route)
+	return h, teacher, classID
+}
+
+// liveWorkspaceFixturePool is liveWorkspaceFixture that also hands back the
+// pool, for a scenario that seeds activity for the roster.
+func liveWorkspaceFixturePool(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver) (http.Handler, *pgxpool.Pool, *http.Cookie, string) {
+	t.Helper()
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool, Provider: prov,
@@ -185,7 +226,7 @@ func liveWorkspaceFixture(t *testing.T, prov gateway.Provider, route func(string
 		enrollStudent(t, pool, id, classID)
 		renameLiteStudent(t, pool, id, s.name)
 	}
-	return h, teacher, classID
+	return h, pool, teacher, classID
 }
 
 // wsLiveHeadCount reports head-count phrasings the reply states.
@@ -265,6 +306,15 @@ func wsLiveLogCalls(t *testing.T, calls []wsLiveCall) {
 	t.Helper()
 	t.Logf("model calls this turn: %d (budget %d)", len(calls), liteworkspace.ToolLoopMax)
 	for i, c := range calls {
+		reasoning := 0
+		if c.Usage.ReasoningTokens != nil {
+			reasoning = *c.Usage.ReasoningTokens
+		}
+		t.Logf("  call %d usage in=%d out=%d reasoning=%d took=%.1fs",
+			i+1, c.Usage.InputTokens, c.Usage.OutputTokens, reasoning, c.Took.Seconds())
+		for _, r := range c.ToolResults {
+			t.Logf("  call %d was sent tool result: %s", i+1, r)
+		}
 		for _, tc := range c.Tools {
 			args, _ := json.Marshal(tc.Args)
 			t.Logf("  call %d tool %s %s", i+1, tc.Name, args)
@@ -563,6 +613,579 @@ func toolOrder(tools []gateway.ToolCall) []string {
 	out := make([]string, 0, len(tools))
 	for _, tc := range tools {
 		out = append(out, tc.Name)
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+// Round two (Task 17): the home, parent report and assignment surfaces and the
+// class summary, each run wsLiveRuns times against the real model.
+//
+//	LIVE_LLM=1 CGO_ENABLED=0 go test ./internal/api -run 'TestLive(WorkspaceRound2|ClassSummary)' -v -count=1 -timeout 1800s
+//
+// Every assertion logs one line starting with RESULT, so a run can be read as
+// a table: grep RESULT on the -v output. A failed hard assertion also fails
+// the run. A soft one logs WARN and does not: it records something worth
+// reading (the model needed the retry, it used a different filter) that the
+// product itself allows.
+// ---------------------------------------------------------------------------
+
+// wsLiveRuns is how many times each scenario runs. One run says little about a
+// model that answers differently each time.
+const wsLiveRuns = 3
+
+func wsLiveVerdict(t *testing.T, scenario string, run int, name string, ok, soft bool, detail string) {
+	t.Helper()
+	v := "PASS"
+	switch {
+	case !ok && soft:
+		v = "WARN"
+	case !ok:
+		v = "FAIL"
+	}
+	t.Logf("RESULT | %s | run %d | %s | %s | %s", scenario, run, name, v, detail)
+	if !ok && !soft {
+		t.Errorf("%s run %d: %s: %s", scenario, run, name, detail)
+	}
+}
+
+// wsLiveWireWordPattern matches the English wire values of a card cell that
+// must never reach the teacher (§12.1): the kind and source enums.
+var wsLiveWireWordPattern = regexp.MustCompile(`(?i)\b(reading|writing|project|library|personalized|classWeekly|parentReports|assignmentNew)\b`)
+
+// wsLiveSlugShape is a hyphenated lower-case word that starts with a letter.
+// liteworkspace's own slugPattern also matches 2026-09-18, which every reply
+// with a due date contains; starting with a letter keeps dates out.
+var wsLiveSlugShape = regexp.MustCompile(`[a-z][a-z0-9]*(?:-[a-z0-9]+)+`)
+
+// wsLiveWireWords returns every wire value and slug-shaped word in text, and
+// every real catalogue slug it contains in any shape.
+func wsLiveWireWords(text string) []string {
+	var bad []string
+	bad = append(bad, wsLiveWireWordPattern.FindAllString(text, -1)...)
+	bad = append(bad, wsLiveSlugShape.FindAllString(text, -1)...)
+	for _, a := range library.All() {
+		if a.Slug != "" && strings.Contains(text, a.Slug) && !slices.Contains(bad, a.Slug) {
+			bad = append(bad, a.Slug)
+		}
+	}
+	return bad
+}
+
+// wsLiveTurn is the workspace response with every field a scenario reads,
+// navigate included (workspaceTurnJSON predates it).
+type wsLiveTurn struct {
+	Reply    string                 `json:"reply"`
+	Choices  []liteworkspace.Choice `json:"choices"`
+	Patch    map[string]any         `json:"patch"`
+	Cards    []wsLiveCard           `json:"cards"`
+	Navigate *struct {
+		View         string  `json:"view"`
+		ClassID      string  `json:"classId"`
+		UserID       *string `json:"userId"`
+		AssignmentID *string `json:"assignmentId"`
+		Label        string  `json:"label"`
+	} `json:"navigate"`
+}
+
+type wsLiveCard struct {
+	Kind string          `json:"kind"`
+	Rows json.RawMessage `json:"rows"`
+}
+
+// wsLivePost sends one workspace turn and logs everything the model did in it.
+func wsLivePost(t *testing.T, h http.Handler, teacher *http.Cookie, rec *wsLiveRecorder, req map[string]any) (int, string, wsLiveTurn, []wsLiveCall) {
+	t.Helper()
+	before := rec.mark()
+	body, _ := json.Marshal(req)
+	start := time.Now()
+	res := postWorkspaceTurn(t, h, teacher, string(body))
+	took := time.Since(start)
+	calls := rec.since(before)
+	t.Logf("--- %v turn: text=%q choiceId=%q choiceSlug=%q → HTTP %d in %.1fs",
+		req["surface"], req["text"], req["choiceId"], req["choiceSlug"], res.Code, took.Seconds())
+	wsLiveLogCalls(t, calls)
+	t.Logf("  response body: %s", res.Body.String())
+	var out wsLiveTurn
+	if res.Code == http.StatusOK {
+		if err := json.Unmarshal(res.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode turn: %v — %s", err, res.Body.String())
+		}
+	}
+	return res.Code, res.Body.String(), out, calls
+}
+
+func wsLiveToolArgs(calls []wsLiveCall, name string) []map[string]any {
+	var out []map[string]any
+	for _, c := range calls {
+		for _, tc := range c.Tools {
+			if tc.Name == name {
+				out = append(out, tc.Args)
+			}
+		}
+	}
+	return out
+}
+
+func wsLiveUsage(calls []wsLiveCall) string {
+	in, out := 0, 0
+	var took time.Duration
+	for _, c := range calls {
+		in += c.Usage.InputTokens
+		out += c.Usage.OutputTokens
+		took += c.Took
+	}
+	return fmt.Sprintf("calls=%d in=%d out=%d model_time=%.1fs", len(calls), in, out, took.Seconds())
+}
+
+// TestLiveWorkspaceRound2AssignmentRecommends — scenario 1. She asks for a
+// reading homework and leaves the article to the AI.
+func TestLiveWorkspaceRound2AssignmentRecommends(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) { liveAssignmentRecommendRun(t, prov, route, run) })
+	}
+}
+
+const wsLiveRecommendOpening = "给这个班布置一篇阅读作业，下周三交，文章你帮我挑"
+
+func liveAssignmentRecommendRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, run int) {
+	const sc = "1-assignment-recommend"
+	rec := &wsLiveRecorder{inner: prov}
+	h, teacher, classID := liveWorkspaceFixture(t, rec, route)
+	artifact := map[string]any{"kind": "reading"}
+	var turns []liteworkspace.Turn
+	var all []wsLiveCall
+	var texts []string // every reply and option label she saw
+	var offered []liteworkspace.Choice
+	var recommended []string // zhTitles recommend_articles put on the canvas
+	said, clicked := wsLiveRecommendOpening, liteworkspace.Choice{}
+	for turn := 1; turn <= 3; turn++ {
+		req := map[string]any{
+			"surface": "assignment", "classId": classID, "artifact": artifact,
+			"turns": turns, "text": said, "choiceId": clicked.ID, "choiceSlug": clicked.Slug,
+		}
+		code, body, out, calls := wsLivePost(t, h, teacher, rec, req)
+		all = append(all, calls...)
+		wsLiveVerdict(t, sc, run, fmt.Sprintf("turn %d HTTP 200", turn), code == http.StatusOK, false, body)
+		if code != http.StatusOK {
+			break
+		}
+		for k, v := range out.Patch {
+			artifact[k] = v
+		}
+		texts = append(texts, out.Reply)
+		for _, c := range out.Choices {
+			texts = append(texts, c.Label)
+		}
+		offered = append(offered, out.Choices...)
+		for _, card := range out.Cards {
+			if card.Kind != "articles" {
+				continue
+			}
+			var rows []struct {
+				ZhTitle string `json:"zhTitle"`
+			}
+			_ = json.Unmarshal(card.Rows, &rows)
+			for _, r := range rows {
+				recommended = append(recommended, r.ZhTitle)
+			}
+		}
+		herTurn := said
+		if herTurn == "" {
+			herTurn = clicked.ID
+		}
+		turns = append(turns, liteworkspace.Turn{Role: "teacher", Text: herTurn}, liteworkspace.Turn{Role: "ai", Text: out.Reply})
+		recommendedYet := len(wsLiveToolArgs(all, "recommend_articles")) > 0
+		if recommendedYet || len(out.Choices) == 0 {
+			break
+		}
+		said, clicked = "", out.Choices[0]
+	}
+
+	var wire []string
+	for _, s := range texts {
+		wire = append(wire, wsLiveWireWords(s)...)
+	}
+	wsLiveVerdict(t, sc, run, "no wire value or slug in replies and labels", len(wire) == 0, false,
+		fmt.Sprintf("found %v in %q", wire, texts))
+
+	wsLiveVerdict(t, sc, run, "recommend_articles used", len(wsLiveToolArgs(all, "recommend_articles")) > 0, false,
+		fmt.Sprintf("tools %v", wsLiveAllTools(all)))
+
+	slugged, missing := 0, []string{}
+	for _, c := range offered {
+		if c.Slug == "" {
+			continue
+		}
+		slugged++
+		if c.Article == nil || c.Article.Slug != c.Slug || c.Article.ZhTitle == "" {
+			missing = append(missing, c.ID)
+		}
+	}
+	wsLiveVerdict(t, sc, run, "every option with an article carries article", len(missing) == 0, false,
+		fmt.Sprintf("%d options with a slug, %d without article %v", slugged, len(missing), missing))
+
+	// An option whose label names a recommended article but carries no slug is
+	// a button that cannot set the article it names.
+	var unslugged []string
+	for _, c := range offered {
+		for _, title := range recommended {
+			if title != "" && strings.Contains(c.Label, title) && c.Slug == "" {
+				unslugged = append(unslugged, c.Label)
+			}
+		}
+	}
+	wsLiveVerdict(t, sc, run, "options naming a recommended article carry its slug", len(unslugged) == 0, false,
+		fmt.Sprintf("recommended %v; unslugged %v; options %+v", recommended, unslugged, offered))
+	wsLiveVerdict(t, sc, run, "article options offered (observation)", slugged > 0, true,
+		fmt.Sprintf("%d of %d options carry an article", slugged, len(offered)))
+	t.Logf("USAGE | %s | run %d | %s", sc, run, wsLiveUsage(all))
+}
+
+func wsLiveAllTools(calls []wsLiveCall) []string {
+	var out []string
+	for _, c := range calls {
+		out = append(out, toolOrder(c.Tools)...)
+	}
+	return out
+}
+
+// wsLivePastedPassage is original text written for this test: long enough to
+// be a real reading material, with digits and a quote so a model that
+// "tidies" it is visible.
+const wsLivePastedPassage = `北京的很多新建小区开始铺透水砖。雨水落到透水砖上，会穿过砖缝和下面的碎石层，慢慢渗进土里，而不是全部流进下水道。` +
+	`有研究人员在一个试点小区测了三年，发现暴雨时路面积水的时间比普通路面短了一半左右。` +
+	`不过透水砖也有问题：砖缝容易被泥沙堵住，每年需要用高压水枪清理 2 次，否则几年后就和普通路面差不多了。` +
+	`一位负责维护的工人说：“铺的时候大家都很积极，后来没人管，效果就慢慢没了。”` +
+	`所以，一座城市能不能真正“吸水”，不只取决于用了什么材料，还取决于有没有人长期维护。`
+
+// TestLiveWorkspaceRound2AssignmentPastedText — scenario 2. She pastes a
+// passage and asks for it to be the material.
+func TestLiveWorkspaceRound2AssignmentPastedText(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) {
+			const sc = "2-assignment-pasted-text"
+			rec := &wsLiveRecorder{inner: prov}
+			h, teacher, classID := liveWorkspaceFixture(t, rec, route)
+			said := "这次的阅读材料就用我贴的这段，请把它设为材料：\n\n" + wsLivePastedPassage
+			code, body, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
+				"surface": "assignment", "classId": classID,
+				"artifact": map[string]any{"kind": "reading"}, "text": said,
+			})
+			wsLiveVerdict(t, sc, run, "HTTP 200", code == http.StatusOK, false, body)
+			source, _ := out.Patch["readingSource"].(string)
+			wsLiveVerdict(t, sc, run, "readingSource is text", source == "text", false,
+				fmt.Sprintf("patch=%v; set_material args %v", out.Patch, wsLiveToolArgs(calls, "set_material")))
+			text, _ := out.Patch["text"].(string)
+			wsLiveVerdict(t, sc, run, "text is her passage verbatim", text == wsLivePastedPassage, false,
+				fmt.Sprintf("got %d runes, want %d; got %q", len([]rune(text)), len([]rune(wsLivePastedPassage)), text))
+			wire := wsLiveWireWords(out.Reply)
+			for _, c := range out.Choices {
+				wire = append(wire, wsLiveWireWords(c.Label)...)
+			}
+			wsLiveVerdict(t, sc, run, "no wire value or slug in reply and labels", len(wire) == 0, false,
+				fmt.Sprintf("found %v in %q", wire, out.Reply))
+			t.Logf("USAGE | %s | run %d | %s", sc, run, wsLiveUsage(calls))
+		})
+	}
+}
+
+// TestLiveWorkspaceRound2Home — scenario 3. One of three students is active
+// this week, so 「这周谁还没动」 has an answer of two, not the class size.
+func TestLiveWorkspaceRound2Home(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) { liveHomeRun(t, prov, route, run) })
+	}
+}
+
+func liveHomeRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, run int) {
+	const sc = "3-home"
+	rec := &wsLiveRecorder{inner: prov}
+	h, pool, teacher, classID := liveWorkspaceFixturePool(t, rec, route)
+	active := userIDByEmail(t, pool, liveWorkspaceRoster[0].email)
+	atom := seedLiteReadingForUser(t, pool, active, "active", 600)
+	seedBucket(t, pool, atom, liteweek.Day(time.Now()), 600)
+
+	rosterNames := make([]string, 0, len(liveWorkspaceRoster))
+	for _, s := range liveWorkspaceRoster {
+		rosterNames = append(rosterNames, s.name)
+	}
+
+	const first = "这周谁还没动"
+	code, body, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
+		"surface": "home", "classId": classID, "text": first,
+	})
+	wsLiveVerdict(t, sc, run, "turn 1 HTTP 200 (server §6 passed)", code == http.StatusOK, false, body)
+
+	listed := wsLiveToolArgs(calls, "list_students")
+	wsLiveVerdict(t, sc, run, "turn 1 list_students used", len(listed) > 0, false,
+		fmt.Sprintf("tools %v", wsLiveAllTools(calls)))
+	inactiveFilter := false
+	for _, a := range listed {
+		if a["filter"] == "inactive_this_week" {
+			inactiveFilter = true
+		}
+	}
+	wsLiveVerdict(t, sc, run, "turn 1 filter inactive_this_week (observation)", inactiveFilter, true,
+		fmt.Sprintf("list_students args %v", listed))
+
+	// The same evidence the server uses, rebuilt here from what the canvas
+	// received: the names and sizes of the student lists, plus the class size.
+	var grounded []string
+	counts := []int{len(liveWorkspaceRoster)}
+	for _, card := range out.Cards {
+		if card.Kind != "students" {
+			continue
+		}
+		var rows []struct {
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal(card.Rows, &rows)
+		counts = append(counts, len(rows))
+		for _, r := range rows {
+			grounded = append(grounded, r.Name)
+		}
+	}
+	badNames := liteworkspace.UngroundedNames(out.Reply, rosterNames, grounded)
+	badCounts := liteworkspace.UngroundedCounts(out.Reply, counts)
+	wsLiveVerdict(t, sc, run, "turn 1 reply has no ungrounded name or count",
+		len(badNames) == 0 && len(badCounts) == 0, false,
+		fmt.Sprintf("names %v counts %v (grounded %v %v); reply %q", badNames, badCounts, grounded, counts, out.Reply))
+
+	// The prompt's own rule is stricter: no name and no head count at all.
+	var named []string
+	for _, n := range rosterNames {
+		if strings.Contains(wsLiveStripSpaces(out.Reply), n) {
+			named = append(named, n)
+		}
+	}
+	heads := append(wsLiveHeadCount(out.Reply, 2), wsLiveHeadCount(out.Reply, 3)...)
+	stated := liteworkspace.StatedCounts(out.Reply)
+	wsLiveVerdict(t, sc, run, "turn 1 reply names nobody and states no count (prompt rule)",
+		len(named) == 0 && len(heads) == 0 && len(stated) == 0, true,
+		fmt.Sprintf("names %v head counts %v stated %v; reply %q", named, heads, stated, out.Reply))
+	wire := wsLiveWireWords(out.Reply)
+	wsLiveVerdict(t, sc, run, "turn 1 no wire value in reply", len(wire) == 0, false, fmt.Sprintf("%v in %q", wire, out.Reply))
+
+	turns := []liteworkspace.Turn{{Role: "teacher", Text: first}, {Role: "ai", Text: out.Reply}}
+	code2, body2, out2, calls2 := wsLivePost(t, h, teacher, rec, map[string]any{
+		"surface": "home", "classId": classID, "text": "带我去看周报", "turns": turns,
+	})
+	wsLiveVerdict(t, sc, run, "turn 2 HTTP 200", code2 == http.StatusOK, false, body2)
+	view := ""
+	if out2.Navigate != nil {
+		view = out2.Navigate.View
+	}
+	wsLiveVerdict(t, sc, run, "turn 2 navigate offered", out2.Navigate != nil, false,
+		fmt.Sprintf("navigate view %q; open_page args %v; tools %v", view, wsLiveToolArgs(calls2, "open_page"), wsLiveAllTools(calls2)))
+	wsLiveVerdict(t, sc, run, "turn 2 navigate is classWeekly", view == "classWeekly", false, fmt.Sprintf("view %q", view))
+	wire2 := wsLiveWireWords(out2.Reply)
+	wsLiveVerdict(t, sc, run, "turn 2 no wire value in reply", len(wire2) == 0, false, fmt.Sprintf("%v in %q", wire2, out2.Reply))
+	t.Logf("USAGE | %s | run %d | turn1 %s | turn2 %s", sc, run, wsLiveUsage(calls), wsLiveUsage(calls2))
+}
+
+// TestLiveWorkspaceRound2ParentReport — scenario 4. A report is drafted by the
+// real route (itself a live check of the draft path), then she asks for the
+// reading section to be more specific.
+func TestLiveWorkspaceRound2ParentReport(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) { liveParentReportRun(t, prov, route, run) })
+	}
+}
+
+// liveParentReportClassmate is on the roster and must never appear in her
+// report.
+const liveParentReportClassmate = "罗屿"
+
+func liveParentReportRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, run int) {
+	const sc = "4-parent-report"
+	rec := &wsLiveRecorder{inner: prov}
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, Provider: rec, Route: route, SpecByID: cards.ByID,
+	}).Handler()
+	mustExec(t, pool, `UPDATE schools SET edition = 'lite'`)
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "pr-live-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "高一（2）班 · 阅读写作")
+	student := createStudent(t, pool, SeedSchoolID, "pr-live-student@demo.local")
+	enrollStudent(t, pool, student, classID)
+	renameLiteStudent(t, pool, student, "陈书宁")
+	mate := createStudent(t, pool, SeedSchoolID, "pr-live-mate@demo.local")
+	enrollStudent(t, pool, mate, classID)
+	renameLiteStudent(t, pool, mate, liveParentReportClassmate)
+	backdateWeeklyStart(t, pool, classID)
+
+	// Two finished readings in the default range, each with a moment, reading
+	// time on three days, and a new keyword: enough for a reading section with
+	// something specific to say.
+	today := liteweek.Day(time.Now())
+	first := seedParentReading(t, pool, student, true)
+	seedBucket(t, pool, first, today.AddDate(0, 0, -3), 1500)
+	seedBucket(t, pool, first, today.AddDate(0, 0, -4), 900)
+	second := seedLiteReadingForUser(t, pool, student, "finished", 0)
+	mustExec(t, pool, `UPDATE reading SET title = '透水砖能让城市吸水吗', finished_at = $2 WHERE atom_id = $1`,
+		second, today.AddDate(0, 0, -5).Add(9*time.Hour))
+	seedReport(t, pool, second, "reading", `{"version":1,"moments":[{"quote":"砖缝被堵住以后就没用了","where":""}]}`)
+	seedBucket(t, pool, second, today.AddDate(0, 0, -5), 1200)
+	seedWeekKeyword(t, pool, student, "海绵城市", today.AddDate(0, 0, -3).Add(8*time.Hour))
+
+	before := rec.mark()
+	start := time.Now()
+	var gen parentReportResp
+	code, body := parentDo(t, h, teacher, "POST", parentReportsPath(classID, student), "", &gen)
+	genCalls := rec.since(before)
+	t.Logf("--- generate report → HTTP %d in %.1fs", code, time.Since(start).Seconds())
+	wsLiveLogCalls(t, genCalls)
+	t.Logf("  response body: %s", body)
+	if code != http.StatusCreated {
+		wsLiveVerdict(t, sc, run, "report generated (fixture)", false, false, body)
+		return
+	}
+	rep := gen.Report
+	draftErr := ""
+	if gen.DraftError != nil {
+		draftErr = *gen.DraftError
+	}
+	wsLiveVerdict(t, sc, run, "draft accepted (fixture)", gen.DraftError == nil, true, "draftError "+draftErr)
+	wsLiveVerdict(t, sc, run, "report has a reading section (fixture)", slices.Contains(rep.Sections, "reading"), false,
+		fmt.Sprintf("sections %v", rep.Sections))
+
+	bodyNow := rep.Body
+	if bodyNow == nil {
+		bodyNow = map[string]string{}
+	}
+	code2, body2, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
+		"surface": "parentReport", "reportId": rep.ID, "text": "把阅读那段写得具体一点",
+		"artifact": map[string]any{"body": bodyNow},
+	})
+	wsLiveVerdict(t, sc, run, "turn HTTP 200 (server §6 passed)", code2 == http.StatusOK, false, body2)
+
+	var rejected []string
+	for _, c := range calls {
+		for _, r := range c.ToolResults {
+			if strings.Contains(r, `"ok":false`) {
+				rejected = append(rejected, r)
+			}
+		}
+	}
+	t.Logf("revise_section attempts %d, rejected %d: %v", len(wsLiveToolArgs(calls, "revise_section")), len(rejected), rejected)
+
+	patchBody, _ := out.Patch["body"].(map[string]any)
+	reading, _ := patchBody["reading"].(string)
+	wsLiveVerdict(t, sc, run, "patch carries body.reading", strings.TrimSpace(reading) != "", false,
+		fmt.Sprintf("patch %v; tools %v", out.Patch, wsLiveAllTools(calls)))
+
+	facts := liteparent.VisibleFacts(rep.Facts, rep.Hidden)
+	checkErr := agent.CheckLiteParentSections(map[string]string{"reading": reading}, []string{"reading"}, facts,
+		[]string{liveParentReportClassmate})
+	wsLiveVerdict(t, sc, run, "body.reading passes CheckLiteParentSections", reading != "" && checkErr == nil, false,
+		fmt.Sprintf("err %v; text %q", checkErr, reading))
+
+	keys := make([]string, 0, len(patchBody))
+	for k := range patchBody {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	wsLiveVerdict(t, sc, run, "only the reading section revised", len(keys) == 1 && keys[0] == "reading", false,
+		fmt.Sprintf("revised %v", keys))
+	wsLiveVerdict(t, sc, run, "reading text changed (observation)", reading != "" && reading != bodyNow["reading"], true,
+		fmt.Sprintf("before %d runes %q; after %d runes", len([]rune(bodyNow["reading"])), bodyNow["reading"], len([]rune(reading))))
+	wire := wsLiveWireWords(out.Reply)
+	wsLiveVerdict(t, sc, run, "no section key or wire value in reply", len(wire) == 0, false, fmt.Sprintf("%v in %q", wire, out.Reply))
+	t.Logf("USAGE | %s | run %d | generate %s | turn %s", sc, run, wsLiveUsage(genCalls), wsLiveUsage(calls))
+}
+
+// TestLiveClassSummary — scenario 5. Three students: one earns a praise card
+// (a new keyword), one a watch card (no activity), one neither.
+func TestLiveClassSummary(t *testing.T) {
+	prov, route, _ := liveWorkspaceModel(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	digest, err := route(gateway.ClassDigest)(ctx)
+	if err != nil {
+		t.Fatalf("class %s has no model here: %v", gateway.ClassDigest, err)
+	}
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDigest, digest.Provider, digest.Model)
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) { liveClassSummaryRun(t, prov, route, run) })
+	}
+}
+
+var wsLiveSummaryCount = regexp.MustCompile(`(班级人数|本周活跃学生数|完成项数)：(\d+)`)
+
+func liveClassSummaryRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, run int) {
+	const sc = "5-class-summary"
+	rec := &wsLiveRecorder{inner: prov}
+	h, pool, teacher, classID := liveWorkspaceFixturePool(t, rec, route)
+	now := time.Now()
+	praised := userIDByEmail(t, pool, liveWorkspaceRoster[0].email)
+	a := seedLiteReadingForUser(t, pool, praised, "active", 900)
+	seedBucket(t, pool, a, liteweek.Day(now), 900)
+	seedWeekKeyword(t, pool, praised, "海绵城市", now.Add(-time.Minute))
+	quiet := userIDByEmail(t, pool, liveWorkspaceRoster[2].email)
+	b := seedLiteReadingForUser(t, pool, quiet, "active", 300)
+	seedBucket(t, pool, b, liteweek.Day(now), 300)
+	// liveWorkspaceRoster[1] has no activity at all: a never_used watch card.
+
+	start := time.Now()
+	res := doJSON(t, h, teacher, "POST", summaryPath(classID), "")
+	calls := rec.since(0)
+	t.Logf("--- class summary → HTTP %d in %.1fs", res.Code, time.Since(start).Seconds())
+	wsLiveLogCalls(t, calls)
+	t.Logf("  response body: %s", res.Body.String())
+	prompt := ""
+	if len(calls) > 0 {
+		prompt = calls[0].Prompt
+	}
+	t.Logf("  facts the model was given:\n%s", prompt)
+
+	wsLiveVerdict(t, sc, run, "fixture: praise and watch names in the facts",
+		strings.Contains(prompt, liveWorkspaceRoster[0].name) && strings.Contains(prompt, liveWorkspaceRoster[1].name) &&
+			!strings.Contains(prompt, liveWorkspaceRoster[2].name), false, "see facts above")
+
+	wsLiveVerdict(t, sc, run, "HTTP 200 (server §6 passed)", res.Code == http.StatusOK, false, res.Body.String())
+	var out classSummaryJSON
+	if res.Code == http.StatusOK {
+		_ = json.Unmarshal(res.Body.Bytes(), &out)
+	}
+	wsLiveVerdict(t, sc, run, "not served from cache", !out.Cached, false, res.Body.String())
+	wsLiveVerdict(t, sc, run, "first attempt passed, no retry (observation)", len(calls) == 1, true,
+		fmt.Sprintf("%d model calls; texts %q", len(calls), wsLiveTexts(calls)))
+
+	rosterNames := make([]string, 0, len(liveWorkspaceRoster))
+	var grounded []string
+	for _, s := range liveWorkspaceRoster {
+		rosterNames = append(rosterNames, s.name)
+		if strings.Contains(prompt, s.name) {
+			grounded = append(grounded, s.name)
+		}
+	}
+	var counts []int
+	for _, m := range wsLiveSummaryCount.FindAllStringSubmatch(prompt, -1) {
+		n, _ := strconv.Atoi(m[2])
+		counts = append(counts, n)
+	}
+	badNames := liteworkspace.UngroundedNames(out.Summary, rosterNames, grounded)
+	badCounts := liteworkspace.UngroundedCounts(out.Summary, counts)
+	wsLiveVerdict(t, sc, run, "§6 re-check: names and counts grounded",
+		out.Summary != "" && len(badNames) == 0 && len(badCounts) == 0, false,
+		fmt.Sprintf("names %v counts %v (grounded %v %v); summary %q", badNames, badCounts, grounded, counts, out.Summary))
+	wsLiveVerdict(t, sc, run, "no exclamation mark", !strings.ContainsAny(out.Summary, "!！"), false, out.Summary)
+	t.Logf("USAGE | %s | run %d | %s", sc, run, wsLiveUsage(calls))
+}
+
+func wsLiveTexts(calls []wsLiveCall) []string {
+	out := make([]string, 0, len(calls))
+	for _, c := range calls {
+		out = append(out, c.Text)
 	}
 	return out
 }

@@ -331,6 +331,41 @@ func TestUngroundedCounts(t *testing.T) {
 	}
 }
 
+// TestStatedCountsOnLiveReplies pins sentences a real model wrote in the
+// 2026-09-17 live runs (Task 17). Each one passed its turn only because the
+// count it stated was grounded, so a green run says nothing about whether the
+// detector saw the count at all. These sentences say it did: if a later change
+// stops reading 「3人中仅有2人」 as two counts, a class summary stating a wrong
+// head count in that shape would pass unchecked.
+//
+// The 篇 sentences are from the parent report's reading section: a count of
+// articles is not a head count and must stay out.
+func TestStatedCountsOnLiveReplies(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want []int
+	}{
+		// home surface, 「这周谁还没动」
+		{"名单上有两位同学这周还没动静。要看看他们的学习页，还是先拉一份本周整体报告？", []int{2}},
+		// class summary
+		{"本周全班3人中仅有2人活跃，整体参与度偏低；", []int{3, 2}},
+		{"本周班级整体参与度较低，3人中仅2人有活跃记录。", []int{3, 2}},
+		{"本周无到期作业，班级整体参与度较低，仅有2名学生有活跃记录。", []int{2}},
+		// parent report, reading section
+		{"陈书宁阅读了《透水砖能让城市吸水吗》和《城市里的雨水花园》2篇文章。", nil},
+		{"通过这2篇阅读，陈书宁接触了社会与世界领域的关键词海绵城市。", nil},
+	} {
+		if got := StatedCounts(tc.text); !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("StatedCounts(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+	// The same summary sentence against a class of four: both numbers need
+	// evidence, and only the one the facts carry passes.
+	if bad := UngroundedCounts("本周全班3人中仅有2人活跃", []int{4, 2}); !reflect.DeepEqual(bad, []int{3}) {
+		t.Errorf("UngroundedCounts = %v, want [3]", bad)
+	}
+}
+
 // TestStudentCarriesNoProse pins the field set of the roster row this package
 // hands to the model and to the workspace card.
 //
