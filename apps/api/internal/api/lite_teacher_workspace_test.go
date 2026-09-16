@@ -570,6 +570,31 @@ func TestWorkspaceTurnAcceptsTheClassSize(t *testing.T) {
 	}
 }
 
+// TestWorkspaceTurnDoesNotAssembleACountAcrossFields — 🚨 the count check runs
+// field by field, never on the joined blob.
+//
+// It strips whitespace before matching, so any separator a join could put
+// between two fields dissolves. Here the question ends 「难度 3」 and the option
+// id the model minted starts 「人工智能」; joined they read as 「3 人」, a claim
+// about three people that neither field makes. Measured: StatedCounts of the
+// joined string is [3], and of either field on its own is empty.
+//
+// A Chinese option id is the realistic shape, not a contrivance — the id is the
+// model's own string, which is why TestWorkspaceTurnRejectsUngroundedNameInAnOptionID
+// exists one screen up.
+func TestWorkspaceTurnDoesNotAssembleACountAcrossFields(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("ask_choice", `{"question":"好的，材料定在难度 3","options":[
+		{"id":"人工智能方向","label":"人工智能"},
+		{"id":"climate","label":"气候方向"}
+	]}`))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "挑个方向"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a count assembled out of two fields = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
 // enrollMoreLiteStudents grows the fixture class past one student, so a test
 // about a head count has a number to look for that is not 1.
 func enrollMoreLiteStudents(t *testing.T, pool *pgxpool.Pool, classID string, n int) {

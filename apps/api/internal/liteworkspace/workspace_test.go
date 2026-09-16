@@ -218,7 +218,6 @@ func TestStatedCounts(t *testing.T) {
 		{"这份作业发给 3 个学生", []int{3}},
 		{"有 3 个同学还没交", []int{3}},
 		{"这三个孩子还没写", []int{3}},
-		{"名单上 12 个人", []int{12}},
 
 		// 🚨 Everything below carries digits and none of it is a head count.
 		// A general digit detector fails every one of these turns.
@@ -227,6 +226,16 @@ func TestStatedCounts(t *testing.T) {
 		{"不少于 800 字", nil},
 		{"给你 2 个选项", nil},
 		{"给你三个方向", nil},
+
+		// 🚨 个人 is not a counted form. 人 is a morpheme before it is a word,
+		// so counting it fired on every one of these — ordinary sentences
+		// about an article, and exactly what the model writes into a 说明.
+		// The cost is that 「12 个人」 goes unread; that is the cheaper side.
+		{"文中有 3 个人物，请分析他们的关系", nil},
+		{"两个人称视角对比", nil},
+		{"两个人工智能相关的话题", nil},
+		{"一个人也没有交", nil},
+		{"给你 2 个人选", nil},
 
 		// 名单 and 位置 are different words that happen to start with a
 		// counter. Whitespace is stripped before matching, which puts the 18

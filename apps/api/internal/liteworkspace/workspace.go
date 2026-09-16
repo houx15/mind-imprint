@@ -121,8 +121,11 @@ func FilterStudents(rows []Student, f StudentFilter) []Student {
 // returned plus what the teacher herself wrote; it deliberately excludes the
 // model's own earlier turns, since those are where a fabrication comes from.
 //
-// Only names are checked, never digits: an article title or a year would make
-// a digit check fire on correct output.
+// This function checks names only. Counts are checked separately, by
+// UngroundedCounts, and on a much narrower shape: a number immediately followed
+// by a counter word for people. That is not the general digit check this
+// comment used to rule out — an article title, a year, a tier and a word count
+// all carry digits and none of them reaches that shape.
 func UngroundedNames(reply string, roster, grounded []string) []string {
 	ok := make(map[string]bool, len(grounded))
 	for _, g := range grounded {
@@ -150,9 +153,17 @@ func UngroundedNames(reply string, roster, grounded []string) []string {
 // 个 on its own does not. 「两个选项」「3 个字段」「一个办法」 are not head counts,
 // and a check that fired on them would fail turns for saying nothing wrong. It
 // counts only when the thing counted is spelled out right behind it —
-// 个学生 / 个同学 / 个孩子 / 个人. Those four are exactly the forms the live
-// detector in lite_teacher_workspace_live_test.go reads, and leaving them out
-// of the guard let a live run pass while production shipped 「3 个学生」.
+// 个学生 / 个同学 / 个孩子. Those three are exactly the forms the live detector
+// in lite_teacher_workspace_live_test.go reads, and leaving them out of the
+// guard let a live run pass while production shipped 「3 个学生」.
+//
+// 🚨 个人 is NOT one of them, though it names people and 「12 个人」 is a real
+// head count. 人 is a morpheme before it is a word: 人物, 人称, 人工智能, 人选
+// all start with it, so 个人 fires on 「文中有 3 个人物」 and 「两个人称视角对比」
+// — ordinary sentences about an article, and the kind of sentence that lands in
+// a 说明 the model writes into the card. A word boundary does not rescue it
+// either; that variant was measured and still loses cases. Missing 「12 个人」 is
+// much cheaper than failing a turn over 人物.
 //
 // 名 and 位 are rejected when the next rune turns them into a different word:
 // 名单 and 位置. Whitespace is stripped before this runs, so
@@ -190,8 +201,9 @@ func personCounterWidth(r []rune, at int) int {
 	return 0
 }
 
-// personNouns are the nouns that turn 个 into a head-count counter.
-var personNouns = [][]rune{[]rune("学生"), []rune("同学"), []rune("孩子"), {'人'}}
+// personNouns are the nouns that turn 个 into a head-count counter. 人 is
+// deliberately absent — see personCounterWidth.
+var personNouns = [][]rune{[]rune("学生"), []rune("同学"), []rune("孩子")}
 
 func hasPrefixRunes(r, prefix []rune) bool {
 	if len(r) < len(prefix) {

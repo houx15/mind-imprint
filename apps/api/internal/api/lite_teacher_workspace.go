@@ -240,9 +240,12 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, typed)...)
 
 	choices = liteworkspace.ClampChoices(choices)
-	checked := liteWorkspaceCheckedText(reply, choices, run.patch)
+	// The name check reads every field as one blob. It compares whole names, so
+	// a name cannot be assembled out of the end of one field and the start of
+	// the next, and joining costs nothing.
+	parts := liteWorkspaceCheckedParts(reply, choices, run.patch)
 	if bad := liteworkspace.UngroundedNames(
-		checked, liteWorkspaceRosterNames(roster), grounded,
+		strings.Join(parts, "\n"), liteWorkspaceRosterNames(roster), grounded,
 	); len(bad) > 0 {
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
 		return
@@ -254,9 +257,17 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// with no tool having counted anything. A wrong number about her own class
 	// is the failure this section exists to prevent, so it fails the turn the
 	// way a fabricated name does.
-	if bad := liteworkspace.UngroundedCounts(checked, liteWorkspaceGroundedCounts(run, turns, typed)); len(bad) > 0 {
-		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
-		return
+	//
+	// 🚨 Field by field, never joined. UngroundedCounts strips whitespace before
+	// matching, so any separator a join could use dissolves, and a 说明 ending
+	// 「难度 3」 beside a label starting 「人工智能方向」 became a claim about
+	// 3 people that neither field made.
+	countGrounds := liteWorkspaceGroundedCounts(run, turns, typed)
+	for _, part := range parts {
+		if bad := liteworkspace.UngroundedCounts(part, countGrounds); len(bad) > 0 {
+			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
+			return
+		}
 	}
 
 	// An empty patch and an empty card list go out as {} and [], not null: the
@@ -312,8 +323,8 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 	return out
 }
 
-// liteWorkspaceCheckedText is everything this turn puts in front of the
-// teacher, joined for one name check.
+// liteWorkspaceCheckedParts is everything this turn puts in front of the
+// teacher, ONE STRING PER FIELD.
 //
 // That is the reply, the button labels AND their ids, and every string the
 // patch carries. The patch matters most: a name written into the card's title
@@ -325,34 +336,31 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 // closed-set fields (kind, readingSource, slug, dueInput, user ids) cannot
 // carry a classmate's name anyway, and checking everything means a tool added
 // later is covered without anyone having to remember this function.
-func liteWorkspaceCheckedText(reply string, choices []liteworkspace.Choice, patch map[string]any) string {
-	var b strings.Builder
-	b.WriteString(reply)
+//
+// 🚨 The fields stay separate because the count check strips whitespace before
+// it matches, which dissolves any separator a join could put between them. A
+// 说明 ending 「难度 3」 next to a label starting 「人工智能方向」 read as a claim
+// about 3 people, and nothing on either side said anything of the kind. Two
+// fields are two sentences; only the name check, which compares whole names,
+// can safely read them as one blob.
+func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) []string {
+	out := []string{reply}
 	for _, c := range choices {
-		b.WriteString("\n")
-		b.WriteString(c.ID)
-		b.WriteString("\n")
-		b.WriteString(c.Label)
 		// The slug is checked too. It is validated against the catalogue
 		// before it gets here, so it cannot carry a fabricated name today —
 		// but it travels to the client and back like the id does, and a field
 		// that is exempt from the check is a field someone will later widen.
-		b.WriteString("\n")
-		b.WriteString(c.Slug)
+		out = append(out, c.ID, c.Label, c.Slug)
 	}
 	for _, v := range patch {
 		switch value := v.(type) {
 		case string:
-			b.WriteString("\n")
-			b.WriteString(value)
+			out = append(out, value)
 		case []string:
-			for _, s := range value {
-				b.WriteString("\n")
-				b.WriteString(s)
-			}
+			out = append(out, value...)
 		}
 	}
-	return b.String()
+	return out
 }
 
 // liteWorkspaceNamesTeacherTyped returns the roster names the TEACHER wrote,
@@ -361,7 +369,7 @@ func liteWorkspaceCheckedText(reply string, choices []liteworkspace.Choice, patc
 //
 // The teacher turns in `turns` are client-supplied and could in principle
 // carry a string the model minted (a clicked option). That door is shut on the
-// way out instead: liteWorkspaceCheckedText checks option ids and labels
+// way out instead: liteWorkspaceCheckedParts checks option ids and labels
 // before they leave the server, so a fabricated name never reaches the client
 // to be echoed back.
 func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []liteworkspace.Turn, typed string) []string {
