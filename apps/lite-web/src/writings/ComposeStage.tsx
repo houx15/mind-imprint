@@ -69,6 +69,7 @@ export function ComposeStage({
   onFinished,
   onRenamed,
   onLocked,
+  pendingHighlight,
 }: {
   /** `"brought"` = 她带进来的成稿（0146）。这一页据此说明结构和段落两步没有
    *  走过 —— 她看见那两步是空的，得知道为什么。 */
@@ -89,6 +90,15 @@ export function ComposeStage({
    *  the room into the locked finished page instead of showing a raw error
    *  on a page that can no longer save anything. */
   onLocked?: () => void;
+  /**
+   * A teacher grading's quote clicked in the room's 老师批改 panel
+   * (`RoomTeacherFeedback`, 2026-09-17): highlight it here exactly the way
+   * `CommentPanel`'s `onTrace` already does, via the same `highlight` state
+   * and `ProseSurface`. A fresh object every click — including a repeat
+   * click on the identical quote — so the effect below always re-fires and
+   * re-scrolls.
+   */
+  pendingHighlight?: { text: string } | null;
 }) {
   const [body, setBody] = useState(draft.body);
   const [composing, setComposing] = useState(false);
@@ -138,6 +148,10 @@ export function ComposeStage({
   }, [draft.body]);
 
   useEffect(() => () => clearPending(), []);
+
+  useEffect(() => {
+    if (pendingHighlight) setHighlight(pendingHighlight.text);
+  }, [pendingHighlight]);
 
   // The last stored critique, so a comment survives navigating away and back.
   // Newest first, and only the whole-draft scope — per-paragraph comments

@@ -21,6 +21,18 @@ import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
  * `FinishedWritingPage`'s version cache, keyed by version number; a grading
  * whose version hasn't loaded (or failed to load) shows no "unmarked" flag
  * until it has (`determinedUnmarkedQuotes` returns `null` for both).
+ *
+ * `onQuote`/`clickable`/`heading` (2026-09-17, Task 10): the writing room
+ * reuses this same panel while she revises, where clicking a quote must jump
+ * into the CURRENT DRAFT rather than a submitted version, and the room's own
+ * collapsible wrapper already carries the 「老师批改」 label. `onQuote` is
+ * optional so a caller with no jump target at all (none needed here yet, but
+ * keeps the type honest) still renders plain quotes; `clickable` lets a
+ * caller gate which quotes get a button without touching `unmarked` (still
+ * computed from `bodies`, which the room leaves empty — it has no submitted
+ * version to check a quote against, so "未在正文中标出" never applies there).
+ * Both default to FinishedWritingPage's exact original behaviour: `onQuote`
+ * always called, every quote clickable.
  */
 const EMPTY_SET: ReadonlySet<number> = new Set();
 
@@ -30,17 +42,26 @@ export function TeacherGradingPanel({
   shownVersion,
   bodies,
   onQuote,
+  clickable,
+  heading = true,
 }: {
   gradings: StudentGrading[];
   error: string | null;
   shownVersion: number | null;
   bodies: Record<number, WritingVersion>;
-  onQuote: (versionNumber: number, quotes: readonly (string | null)[], index: number) => void;
+  onQuote?: (versionNumber: number, quotes: readonly (string | null)[], index: number) => void;
+  /** Whether a point's quote gets a clickable button. Omit to make every
+   *  quote clickable (as long as `onQuote` is given) — FinishedWritingPage's
+   *  original rule. */
+  clickable?: (quote: string, versionNumber: number, index: number) => boolean;
+  /** Set false to omit the internal 「老师批改」 heading — for a caller (the
+   *  writing room) whose own collapsible wrapper already labels it. */
+  heading?: boolean;
 }) {
   if (!error && gradings.length === 0) return null;
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-mk-small font-semibold text-mk-secondary">老师批改</h2>
+      {heading && <h2 className="text-mk-small font-semibold text-mk-secondary">老师批改</h2>}
       {error && (
         <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">
           加载失败：{error}
@@ -77,7 +98,7 @@ export function TeacherGradingPanel({
                 {g.content.points.map((p, i) => (
                   <li key={i} className="flex flex-col gap-1 text-mk-small">
                     <span className="text-mk-label font-bold text-mk-muted">{p.kind === "good" ? "优点" : "问题"}</span>
-                    {p.quote && (
+                    {p.quote && onQuote && (!clickable || clickable(p.quote, g.versionNumber, i)) ? (
                       <button
                         type="button"
                         onClick={() => onQuote(g.versionNumber, quotes, i)}
@@ -85,6 +106,8 @@ export function TeacherGradingPanel({
                       >
                         「{p.quote}」
                       </button>
+                    ) : (
+                      p.quote && <span className="text-left text-mk-secondary">「{p.quote}」</span>
                     )}
                     {p.quote && unmarked.has(i) && <span className="text-mk-label text-mk-danger">未在正文中标出</span>}
                     <span className="text-mk-ink">{p.text}</span>

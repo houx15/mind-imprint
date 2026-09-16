@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * ProseSurface — the writing page.
@@ -64,6 +64,7 @@ export function ProseSurface({
   placeholder?: string;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLElement | null>(null);
 
   // Keep the mirrored layer scrolling with the textarea, or the highlight
   // detaches the moment the draft grows past one screen.
@@ -75,6 +76,15 @@ export function ProseSurface({
   }
 
   const parts = splitOnHighlight(value, highlight);
+
+  // A new highlight scrolls itself into view — a click on a comment's quote,
+  // or (2026-09-17) on a teacher grading's quote in the room, should not
+  // require her to go hunting for where in a long draft it landed.
+  // `scrollIntoView` is guarded, not assumed: jsdom (this component's own
+  // tests) has no layout engine and does not implement it at all.
+  useEffect(() => {
+    markRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [highlight]);
 
   return (
     <div className="relative max-w-[68ch] mx-auto bg-mk-paper">
@@ -96,6 +106,7 @@ export function ProseSurface({
           <>
             {parts[0]}
             <mark
+              ref={markRef}
               style={{
                 background: "color-mix(in srgb, var(--mk-accent-500) 25%, transparent)",
                 color: "inherit",

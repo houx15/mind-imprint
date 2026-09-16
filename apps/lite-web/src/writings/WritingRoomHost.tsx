@@ -37,6 +37,7 @@ import { FinishedWritingPage } from "./FinishedWritingPage";
 import { isWritingClosedError, showFinishedPage, stageAfterRevise } from "./finishedWriting";
 import { coachOpeningNeeded } from "./openingRule";
 import { RevisingStrip } from "./RevisingStrip";
+import { RoomTeacherFeedback } from "./RoomTeacherFeedback";
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -92,6 +93,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
    * 印记's problem.
    */
   const [opening, setOpening] = useState(false);
+  // A teacher grading's quote, clicked in `RoomTeacherFeedback`: threaded
+  // down to `ComposeStage`'s `pendingHighlight`, which highlights and
+  // scrolls to it in the draft. A fresh object on every click, even a repeat
+  // click on the same quote, so `ComposeStage`'s effect always re-fires.
+  const [draftHighlight, setDraftHighlight] = useState<{ text: string } | null>(null);
   // Bumped to re-run the load effect after 修改/放弃修改 change whether the
   // writing is revising, without touching `writingId` itself.
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -417,21 +423,38 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       )}
 
       <div className="student-writing-workspace grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
-        <div
-          className={
-            onPage
-              ? "min-h-0 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
-              : "mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
-          }
-        >
-          <StagePanel
-            state={state}
+        {/* Wrapped in its own flex column, not a bare cell: 老师批改 sits
+            BELOW the stage content here, inside the same left-hand slot the
+            editor already owns — never inside the 380px coach column on the
+            right (`student-coach-panel`, untouched below), and never on top
+            of either. At `grid-cols-1` (narrow) the two stack, so 老师批改
+            lands directly under the draft/段落 content and above the coach
+            panel — exactly "below the draft" on narrow screens; at the wide
+            two-column width it stays in the left column, beside (never
+            over) 印记's rail. */}
+        <div className="flex min-h-0 flex-col gap-3">
+          <div
+            className={
+              onPage
+                ? "min-h-0 flex-1 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
+                : "mk-scroll min-h-0 flex-1 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
+            }
+          >
+            <StagePanel
+              state={state}
+              writingId={writingId}
+              setState={setState}
+              onGoToStructure={() => void jumpStage("outline")}
+              onGoToDraft={() => void jumpStage("draft")}
+              onSay={say}
+              onLocked={reload}
+              pendingHighlight={draftHighlight}
+            />
+          </div>
+          <RoomTeacherFeedback
             writingId={writingId}
-            setState={setState}
-            onGoToStructure={() => void jumpStage("outline")}
-            onGoToDraft={() => void jumpStage("draft")}
-            onSay={say}
-            onLocked={reload}
+            draftBody={state.draft.body}
+            onQuote={(quote) => setDraftHighlight({ text: quote })}
           />
         </div>
 
@@ -557,6 +580,7 @@ function StagePanel({
   onGoToDraft,
   onSay,
   onLocked,
+  pendingHighlight,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
@@ -569,6 +593,10 @@ function StagePanel({
   /** The deadline passed mid-edit: every write inside 段落/成稿 reloads the
    *  room into the locked finished page — see `writeErrors.ts`. */
   onLocked: () => void;
+  /** A teacher grading's quote clicked in `RoomTeacherFeedback`: only
+   *  `ComposeStage` (成稿) can highlight it — 段落 has no single draft
+   *  surface to point into. */
+  pendingHighlight?: { text: string } | null;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -602,6 +630,7 @@ function StagePanel({
           // and the room header already do for a rename typed in place.
           onRenamed={(w) => setState((s) => (s.phase === "ready" ? { ...s, writing: w } : s))}
           onLocked={onLocked}
+          pendingHighlight={pendingHighlight}
         />
       );
     // 'outline' (结构) never reaches here: it takes the WHOLE screen as
