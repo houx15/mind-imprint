@@ -17,35 +17,36 @@ export interface NavigateTarget {
 }
 
 /**
- * `navigate` → the route its button opens, or null (no button).
+ * `navigate` → the route its button opens, or undefined (no button).
  *
- * Dropped: an unknown view, an empty label, a class other than the page's
- * own, and `student`/`assignment` without the id they need. The server
- * already validates all of this; this is the client not trusting a shape it
- * did not build.
+ * Dropped: anything that is not a well-formed offer (`asNavigate`), an
+ * unknown view, a class other than the page's own, and `student`/`assignment`
+ * without the id they need. The server already validates all of this; this
+ * is the client not trusting a shape it did not build. Never throws.
  */
-export function navigateRoute(nav: WorkspaceNavigate | undefined, pageClassId: string): NavigateTarget | null {
-  if (!nav || !nav.label.trim() || nav.classId !== pageClassId || !pageClassId) return null;
+export function navigateRoute(nav: unknown, pageClassId: string): NavigateTarget | undefined {
+  const offer = asNavigate(nav);
+  if (!offer || !pageClassId || offer.classId !== pageClassId) return undefined;
   const classId = pageClassId;
-  let route: TeacherRoute | null = null;
-  switch (nav.view) {
+  let route: TeacherRoute | undefined;
+  switch (offer.view) {
     case "classWeekly":
       route = { view: "classWeekly", classId };
       break;
     case "student":
-      route = nav.userId ? { view: "student", classId, userId: nav.userId } : null;
+      route = offer.userId ? { view: "student", classId, userId: offer.userId } : undefined;
       break;
     case "assignmentNew":
       route = { view: "assignmentNew", classId };
       break;
     case "assignment":
-      route = nav.assignmentId ? { view: "assignment", assignmentId: nav.assignmentId } : null;
+      route = offer.assignmentId ? { view: "assignment", assignmentId: offer.assignmentId } : undefined;
       break;
     case "parentReports":
       route = { view: "parentReports" };
       break;
   }
-  return route ? { route, label: nav.label, classId } : null;
+  return route ? { route, label: offer.label, classId } : undefined;
 }
 
 /**
@@ -60,14 +61,40 @@ export function withNavigateCard(cards: WorkspaceCard[], nav: WorkspaceNavigate 
   return nav ? [...cards, { kind: NAVIGATE_CARD_KIND, rows: nav }] : cards;
 }
 
-/** The page offer carried by `withNavigateCard`, if any. */
-export function navigateOf(cards: WorkspaceCard[]): WorkspaceNavigate | undefined {
-  const card = cards.find((c) => c.kind === NAVIGATE_CARD_KIND);
-  return card ? (card.rows as WorkspaceNavigate) : undefined;
+/** The page offer carried by `withNavigateCard`, if any: the LAST card of
+ *  that kind (the one appended), and only when its rows are a well-formed
+ *  offer. Never throws. */
+export function navigateOf(cards: unknown): WorkspaceNavigate | undefined {
+  if (!Array.isArray(cards)) return undefined;
+  for (let i = cards.length - 1; i >= 0; i--) {
+    const card: unknown = cards[i];
+    if (isObj(card) && card.kind === NAVIGATE_CARD_KIND) return asNavigate(card.rows);
+  }
+  return undefined;
 }
 
 type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => !!v && typeof v === "object" && !Array.isArray(v);
+
+/** `v` as an offer, or undefined: a plain object whose `view`, `classId` and
+ *  non-blank `label` are strings, and whose `userId`/`assignmentId` are
+ *  strings when present. */
+function asNavigate(v: unknown): WorkspaceNavigate | undefined {
+  if (!isObj(v)) return undefined;
+  const { view, classId, label, userId, assignmentId } = v;
+  if (typeof view !== "string" || typeof classId !== "string" || typeof label !== "string" || !label.trim()) {
+    return undefined;
+  }
+  if (userId !== undefined && typeof userId !== "string") return undefined;
+  if (assignmentId !== undefined && typeof assignmentId !== "string") return undefined;
+  return {
+    view,
+    classId,
+    label,
+    ...(userId ? { userId } : {}),
+    ...(assignmentId ? { assignmentId } : {}),
+  };
+}
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
 export interface StudentCardRow {

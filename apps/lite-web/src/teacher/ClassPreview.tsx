@@ -64,6 +64,8 @@ export function ClassPreview({ classId, onOpenChat }: { classId: string; onOpenC
   };
   const retry = (e: MouseEvent) => { e.stopPropagation(); loadSummary(); };
 
+  // Idle (the card has not come into view yet): the line is blank, keeping
+  // its height, since no request has started.
   const recent = [...(rows ?? [])].filter(row => row.lastActiveAt)
     .sort((a, b) => (b.lastActiveAt ?? "").localeCompare(a.lastActiveAt ?? "")).slice(0, 3);
   return <div className="teacher-class-preview" ref={container}>
@@ -72,7 +74,7 @@ export function ClassPreview({ classId, onOpenChat }: { classId: string; onOpenC
       {summary.status === "failed" ? <>
         <p role="alert">{summary.message}</p>
         <button type="button" className="teacher-class-summary-retry" onClick={retry} onKeyDown={e => e.stopPropagation()}>重试</button>
-      </> : <p>{summary.status === "ready" ? summary.text : "摘要生成中"}</p>}
+      </> : <p>{summary.status === "ready" ? summary.text : summary.status === "loading" ? "摘要生成中" : " "}</p>}
       <span className="teacher-class-summary-link">进入班级对话 ↗</span>
     </div>
     {error ? <p className="teacher-preview-error">概况加载失败：{error}</p> : rows === null ? <p className="teacher-preview-loading">学习概况加载中…</p> : <>

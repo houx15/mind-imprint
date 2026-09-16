@@ -30,12 +30,24 @@ describe("navigateRoute", () => {
     ["an empty label", nav({ label: "  " })],
     ["another class", nav({ classId: "c2" })],
   ])("drops %s", (_, input) => {
-    expect(navigateRoute(input, "c1")).toBeNull();
+    expect(navigateRoute(input, "c1")).toBeUndefined();
+  });
+
+  it.each([
+    ["null", null],
+    ["an array", [nav({})]],
+    ["a string", "classWeekly"],
+    ["a missing label", { view: "classWeekly", classId: "c1" }],
+    ["a non-string label", { view: "classWeekly", classId: "c1", label: 3 }],
+    ["a non-string userId", { view: "student", classId: "c1", label: "x", userId: 7 }],
+  ])("drops %s without throwing", (_, input) => {
+    expect(() => navigateRoute(input, "c1")).not.toThrow();
+    expect(navigateRoute(input, "c1")).toBeUndefined();
   });
 
   it("drops a wire offer whose ids are not strings", () => {
     const raw = normalizeNavigate({ view: "student", classId: "c1", label: "x", userId: 7 as unknown as string });
-    expect(navigateRoute(raw, "c1")).toBeNull();
+    expect(navigateRoute(raw, "c1")).toBeUndefined();
   });
 });
 
@@ -45,7 +57,36 @@ describe("navigate card", () => {
     const offer = nav({});
     const cards = withNavigateCard([tool], offer);
     expect(cards).toEqual([tool, { kind: NAVIGATE_CARD_KIND, rows: offer }]);
-    expect(navigateOf(cards)).toBe(offer);
+    expect(navigateOf(cards)).toEqual(offer);
+  });
+
+  it.each([
+    ["rows missing label", { view: "classWeekly", classId: "c1" }],
+    ["rows with a non-string label", { view: "classWeekly", classId: "c1", label: ["x"] }],
+    ["rows = null", null],
+    ["rows = array", [nav({})]],
+  ])("finds no offer in %s, and no route, without throwing", (_, rows) => {
+    const cards = [{ kind: NAVIGATE_CARD_KIND, rows }];
+    expect(() => navigateRoute(navigateOf(cards), "c1")).not.toThrow();
+    expect(navigateOf(cards)).toBeUndefined();
+    expect(navigateRoute(navigateOf(cards), "c1")).toBeUndefined();
+  });
+
+  it("takes the last card of the navigate kind", () => {
+    const first = nav({ label: "本周报告" });
+    const last = nav({ view: "parentReports", label: "家长报告" });
+    const cards = [
+      { kind: NAVIGATE_CARD_KIND, rows: first },
+      { kind: "students", rows: [] },
+      { kind: NAVIGATE_CARD_KIND, rows: last },
+    ];
+    expect(navigateOf(cards)).toEqual(last);
+    expect(navigateRoute(navigateOf(cards), "c1")?.route).toEqual({ view: "parentReports" });
+  });
+
+  it("ignores a card list that is not an array, and malformed cards", () => {
+    expect(navigateOf(null)).toBeUndefined();
+    expect(navigateOf([null, "x", { kind: NAVIGATE_CARD_KIND }])).toBeUndefined();
   });
 
   it("adds nothing without an offer", () => {
