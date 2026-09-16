@@ -270,6 +270,15 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Slug replacement runs AFTER both §6 checks, never before: those checks
+	// have to see the model's own words, and a slug the model invented (one
+	// that library.BySlug cannot find) is left exactly as it is written, which
+	// is what makes it visible to a human reading the failure later.
+	reply = liteWorkspaceDeslugged(reply)
+	for i := range choices {
+		choices[i].Label = liteWorkspaceDeslugged(choices[i].Label)
+	}
+
 	// An empty patch and an empty card list go out as {} and [], not null: the
 	// client walks both on every turn, and a null would make "no tool wrote
 	// anything" a separate case at every call site.
@@ -519,14 +528,24 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 			lines = append(lines, "- "+label+"："+value)
 		}
 	}
-	add("种类", art.Kind)
+	// Chinese words only, never a wire value: this text goes straight into
+	// the model's system prompt, and the model repeats what it reads. A raw
+	// "reading" or a raw slug here is how a teacher used to see
+	// 「材料来源：library」 in the AI's own reply (spec §12.1).
+	add("类型", liteworkspace.KindLabel(art.Kind))
 	add("标题", art.Title)
 	add("说明", art.Instructions)
 	add("截止时间", art.DueInput)
-	add("材料来源", art.ReadingSource)
-	add("文章 slug", art.Slug)
+	add("材料来源", liteworkspace.SourceLabel(art.ReadingSource))
+	if art.Slug != "" {
+		if found, ok := library.BySlug(art.Slug); ok {
+			add("文章", "《"+found.ZhTitle+"》")
+		} else {
+			add("文章", "未找到")
+		}
+	}
 	if art.Tier != nil {
-		add("难度档", fmt.Sprint(*art.Tier))
+		add("难度", liteworkspace.TierLabel(art.Tier))
 	}
 	if n := len(art.UserIDs); n > 0 {
 		add("已选学生", fmt.Sprintf("%d 名", n))
@@ -535,6 +554,22 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 		return "（还是空的）"
 	}
 	return strings.Join(lines, "\n")
+}
+
+// liteWorkspaceDeslugged is the backstop half of spec §12.1's rule 3.
+// liteWorkspaceCardState already keeps slugs out of what the model reads, so
+// this only catches a slug a tool result put in the model's hands this turn
+// (search_library and set_material's arguments and results are wire values)
+// and the model then echoed into its own words. Any word this does not
+// recognise as a real slug — including an invented one — is left as it is.
+func liteWorkspaceDeslugged(text string) string {
+	return liteworkspace.ReplaceSlugs(text, func(slug string) (string, bool) {
+		art, ok := library.BySlug(slug)
+		if !ok {
+			return "", false
+		}
+		return art.ZhTitle, true
+	})
 }
 
 // liteWorkspaceRun accumulates what one turn's tools produced.
@@ -794,10 +829,7 @@ func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
 // The remedy is in the message because the model demonstrably acts on a tool
 // error that names one: that is how it recovered from every invented slug.
 func errLiteWorkspaceWrongKind(kind string) string {
-	label := map[string]string{"writing": "写作", "project": "项目"}[kind]
-	if label == "" {
-		label = kind
-	}
+	label := liteworkspace.KindLabel(kind)
 	return liteWorkspaceToolError(label + "作业没有阅读材料这一栏，材料设不上去。" +
 		"请先用 set_fields 把类型设成 reading，再设材料；如果这次确实是" + label + "作业，就别提材料，也不要跟老师说已经选好了文章")
 }

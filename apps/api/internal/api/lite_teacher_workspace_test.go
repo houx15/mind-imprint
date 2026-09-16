@@ -796,6 +796,32 @@ func TestWorkspaceSetMaterialAllowsAReadingCard(t *testing.T) {
 	}
 }
 
+// TestWorkspaceReplyDeslugsAnArticle — spec §12.1's backstop. The card state
+// already keeps slugs out of what the model reads, but the model still holds
+// one after set_material's own tool result hands it back (that result is a
+// wire value on purpose — it is what the next tool call needs). If the model
+// echoes the slug into its prose anyway, the teacher must see the article's
+// title, never the slug.
+func TestWorkspaceReplyDeslugsAnArticle(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", `{"source":"library","slug":"biden-creates-climate-corps"}`),
+		wsText("材料已经选好了 biden-creates-climate-corps 这篇。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "reading", "读一篇气候的报道"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if strings.Contains(out.Reply, "biden-creates-climate-corps") {
+		t.Fatalf("reply still carries the raw slug: %q", out.Reply)
+	}
+	if want := "材料已经选好了 《美国气候队》 这篇。"; out.Reply != want {
+		t.Fatalf("reply = %q, want %q", out.Reply, want)
+	}
+}
+
 // TestWorkspaceSetMaterialFollowsAKindSetThisTurn — set_fields switching the
 // card to reading must open the material row immediately, in the same turn.
 // This is the recovery path the tool error points at; if it did not work, the

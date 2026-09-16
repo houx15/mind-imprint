@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -34,5 +35,54 @@ func TestLiteWorkspaceClampsToWhatPublishAccepts(t *testing.T) {
 	if maxAssignmentTitleRunes >= liteWorkspaceMaxInstructionsRunes {
 		t.Fatalf("title cap %d is no longer smaller than the instructions cap %d",
 			maxAssignmentTitleRunes, liteWorkspaceMaxInstructionsRunes)
+	}
+}
+
+// TestLiteWorkspaceCardStateIsAllChinese pins spec §12.1: the text that goes
+// into the model's system prompt must carry only the words the teacher
+// already knows from the assignment form, never a wire value. Production once
+// put 「种类：reading」「材料来源：library」「文章 slug：biden-creates-climate-corps」
+// in front of the model, and it read them back to her.
+func TestLiteWorkspaceCardStateIsAllChinese(t *testing.T) {
+	tier := 3
+	raw, err := json.Marshal(liteWorkspaceArtifact{
+		Kind:          "reading",
+		Title:         "美国气候队",
+		ReadingSource: "library",
+		Slug:          "biden-creates-climate-corps",
+		Tier:          &tier,
+	})
+	if err != nil {
+		t.Fatalf("marshal artifact: %v", err)
+	}
+	got := liteWorkspaceCardState(raw, nil)
+
+	for _, wire := range []string{"reading", "library", "biden-creates-climate-corps"} {
+		if strings.Contains(got, wire) {
+			t.Fatalf("card state still carries the wire value %q: %q", wire, got)
+		}
+	}
+	for _, chinese := range []string{"类型：阅读", "材料来源：分级阅读库", "文章：《美国气候队》", "难度：进阶"} {
+		if !strings.Contains(got, chinese) {
+			t.Fatalf("card state = %q, want it to contain %q", got, chinese)
+		}
+	}
+}
+
+// TestLiteWorkspaceCardStateUnknownSlug — an article the catalogue does not
+// carry must not fall back to showing the slug: the teacher would see the
+// same raw value the lookup was added to hide.
+func TestLiteWorkspaceCardStateUnknownSlug(t *testing.T) {
+	raw, err := json.Marshal(liteWorkspaceArtifact{Kind: "reading", ReadingSource: "library", Slug: "not-a-real-article"})
+	if err != nil {
+		t.Fatalf("marshal artifact: %v", err)
+	}
+	got := liteWorkspaceCardState(raw, nil)
+
+	if strings.Contains(got, "not-a-real-article") {
+		t.Fatalf("card state leaked an unknown slug: %q", got)
+	}
+	if !strings.Contains(got, "文章：未找到") {
+		t.Fatalf("card state = %q, want 文章：未找到", got)
 	}
 }
