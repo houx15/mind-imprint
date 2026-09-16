@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/ui";
 import { type ClassSummary } from "@/api";
 import { createAssignment } from "../api/assignments";
@@ -7,6 +7,7 @@ import type { RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
 import {
   buildCreateInput,
+  draftOnClassChange,
   failText,
   fillTitleIfEmpty,
   writeLastClassId,
@@ -107,6 +108,14 @@ export function AssignmentAIMode({
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
 
+  // `runTurn` closes over `draft` at the render that created it — reading
+  // that same binding after the `await` would give back whatever it was at
+  // send time, not what she has now, so `current` in `applyPatch` would
+  // always equal `snapshot` and `kept` could never fire. `draftRef` is kept
+  // current on every render so the continuation can read the real "now".
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
   async function runTurn(input: { text: string } | { choiceId: string; label: string }) {
     if (busy) return;
     const teacherText = "text" in input ? input.text : input.label;
@@ -122,27 +131,58 @@ export function AssignmentAIMode({
     try {
       const res = await postWorkspaceTurn({
         surface: "assignment",
-        classId: draft.classId,
-        artifact: draft,
+        classId: snapshot.classId,
+        artifact: snapshot,
         // The window is the only thing bounding prompt growth — the full
         // conversation still shows in the panel, only the request is capped.
         turns: trimTurns(nextTurns),
         ...("text" in input ? { text: input.text } : { choiceId: input.choiceId }),
       });
       if (!alive.current) return;
-      const { next, kept: keptFields } = applyPatch(draft, snapshot, res.patch as Partial<AssignmentDraft>);
+      if (draftRef.current.classId !== snapshot.classId) {
+        // She switched class while this turn was in flight. The request was
+        // scoped to the class she had when she sent it (the server reads
+        // `classId` per turn); a class change already cleared the
+        // conversation on screen, so this reply and patch belong to a class
+        // that is no longer showing and must not land on the new one.
+        return;
+      }
+      const { next, kept: keptFields } = applyPatch(draftRef.current, snapshot, res.patch as Partial<AssignmentDraft>);
       setDraft(next);
       setKept(keptFields);
       setChoices(clampChoices(res.choices));
       setCards(res.cards);
       setTurns((t) => [...t, { role: "ai" as const, text: res.reply }]);
     } catch (e) {
-      // The server already prefixes its own message with 「对话失败：」;
-      // `failText` recognizes that prefix and does not double it.
-      if (alive.current) setError(failText("对话", e));
+      // A failure for a turn whose class she has since left is not worth
+      // surfacing — the conversation about that class is already gone.
+      if (alive.current && draftRef.current.classId === snapshot.classId) {
+        // The server already prefixes its own message with 「对话失败：」;
+        // `failText` recognizes that prefix and does not double it.
+        setError(failText("对话", e));
+      }
     } finally {
       if (alive.current) setBusy(false);
     }
+  }
+
+  /** She picked a different class. Must go through `draftOnClassChange` —
+   * setting `classId` directly would leave the old class's personalised-
+   * reading `picks` attached, which can publish `{picks:{}}` built for a
+   * different class (the bug that fix already exists to prevent). The
+   * roster refetch + recipient reset already happen from `AssignmentForm`'s
+   * effect on `draft.classId`, unconditional on mode. The conversation and
+   * any pending choices/cards/kept-note are cleared here: the server scopes
+   * each turn to `classId`, so a turn from the old class must not carry into
+   * the new class's roster. */
+  function onClassChange(classId: string) {
+    writeLastClassId(classId);
+    setDraft((d) => draftOnClassChange(d, classId));
+    setTurns([]);
+    setChoices([]);
+    setCards([]);
+    setKept([]);
+    setError(null);
   }
 
   async function publish() {
@@ -167,7 +207,6 @@ export function AssignmentAIMode({
     }
   }
 
-  const className = classes.find((c) => c.id === draft.classId)?.name ?? "";
   const keptText = kept.length > 0 ? `${keptLabels(kept)} 已保留你的修改` : null;
 
   return (
@@ -183,7 +222,16 @@ export function AssignmentAIMode({
       }}
     >
       <div className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
-        {className && <p className="text-mk-small text-mk-muted">班级：{className}</p>}
+        <Field label="班级">
+          <select value={draft.classId} onChange={(e) => onClassChange(e.target.value)} className={INPUT_CLS}>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
         {keptText && (
           <p className="text-mk-small font-semibold text-mk-accent-700" role="status">
             {keptText}
