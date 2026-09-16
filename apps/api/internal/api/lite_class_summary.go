@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -24,13 +25,18 @@ import (
 // (§12.5)。一个 POST，因为它调模型：本仓库的约定是 GET 绝不调模型（见
 // lite_teacher_routes.go 里 weekly 那一段的注释）。
 //
-// 输入是 loadLiteClassWeek / liteClassWeekStats / liteClassWeekCards 已经算好
-// 的上一个完整周的数据 —— 和 GET …/weekly 用的同一批，不新增查询。
+// 输入是 loadLiteClassWeek / liteClassWeekStats / liteClassWeekCards 算出的
+// 「当前这个进行中的北京周」—— 和卡片（LearningSnapshot 走的 getRoster →
+// currentLiteWeek）用的同一周，§12.5「和卡片用同一批数据，不另取」；不是 GET
+// …/weekly 默认给的上一个已完整周。不新增查询：这三个函数本来就不假设 weekStart
+// 落在过去，作业状态、停滞项这些字段本就按「到 weekEnd 为止」算，一个还没走到的
+// weekEnd 读到的就是「到现在为止」。
 //
 // §6 的两条校验在摘要被缓存或返回之前跑：姓名按花名册校验（只有出现在 praise/
 // watch 名单里的学生才算有依据），人数按「数字+人/位/名」的形状校验（依据是
-// 喂给模型的统计数字）。校验不过是 502「摘要生成失败：{原因}」，不缓存，也绝不
-// 用一句兜底话代替。
+// 喂给模型的统计数字，不含百分比——见 liteClassSummaryFacts 的注释）。校验不过重试
+// 一次（同一轮对话里追加一句「上一次未通过校验」），仍不过才是 502「摘要生成
+// 失败：{原因}」，不缓存，也绝不用一句兜底话代替。
 //
 // 缓存是进程内的，键是「班级 + 北京日期 + 花名册指纹」；§10 不新增表，重启后
 // 缓存清空，下一次请求重算，这是可以接受的代价。
@@ -101,16 +107,24 @@ func (a *API) postLiteClassSummary(w http.ResponseWriter, r *http.Request) {
 // exclamation marks outside a real milestone (this is neither).
 const liteClassSummarySystemPrompt = `你在给老师写一句摘要，显示在班级列表的班级卡片上方，帮她判断这周要不要点进去看这个班。
 只使用下面给出的事实，不补充事实；不使用给出事实里没有的数字；不写给出的学生名单之外的姓名。
-写一到三句话，说这个班上一周最值得老师注意的事：整体参与情况，或者哪些学生值得表扬、哪些需要关注。
+写一到三句话，说这个班这周（进行中）最值得老师注意的事：整体参与情况，或者哪些学生值得表扬、哪些需要关注。
 说明文，不用比喻，不用感叹号，不写标题，不写称呼，只输出摘要正文本身。`
 
-// composeLiteClassSummary runs one model call and validates it against §6
-// before returning. roster is the CURRENT class roster (for the name check's
-// closed set); the facts the model reads are the last completed week's, the
-// same ones GET …/weekly assembles.
+// liteClassSummaryMaxAttempts is the first call plus one retry — mirrors
+// agent.composeLiteWeekly's retry budget. Only a §6 grounding failure spends
+// the retry; a transport error or an empty reply returns immediately, because
+// retrying a dead provider call buys nothing and would still be billed for
+// the same outage.
+const liteClassSummaryMaxAttempts = 2
+
+// composeLiteClassSummary runs at most liteClassSummaryMaxAttempts model
+// calls and validates each against §6 before returning. roster is the CURRENT
+// class roster (for the name check's closed set); the facts the model reads
+// are THIS, in-progress week's — the same week the card above it (§12.5)
+// already shows.
 func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sqlc.Class, roster []liteworkspace.Student) (liteClassSummaryEntry, error) {
 	ctx := r.Context()
-	ws := liteweek.LatestCompleted(time.Now())
+	ws := liteweek.WeekStart(time.Now())
 	students, err := a.loadLiteClassWeek(ctx, cls.ID, ws)
 	if err != nil {
 		return liteClassSummaryEntry{}, err
@@ -118,6 +132,7 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 	stats := liteClassWeekStats(students)
 	_, praise, watch := liteClassWeekCards(students)
 	prompt, names, counts := liteClassSummaryFacts(cls, liteweek.Label(ws), stats, praise, watch)
+	rosterNames := liteWorkspaceRosterNames(roster)
 
 	mctx, cancel := detachedModelCtx(r)
 	defer cancel()
@@ -130,26 +145,42 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 		{Role: gateway.RoleSystem, Content: liteClassSummarySystemPrompt},
 		{Role: gateway.RoleUser, Content: prompt},
 	}
-	res, cerr := gateway.Collect(mctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs})
-	// Metered whether or not the call produced anything usable — it was paid
-	// for either way.
-	a.recordLiteLLMCall(mctx, userID, uuid.Nil, liteClassSummaryPurpose, resolved, res.Usage)
-	if cerr != nil {
-		return liteClassSummaryEntry{}, errLiteClassSummary(cerr.Error())
-	}
-	summary := strings.TrimSpace(res.Text)
-	if summary == "" {
-		return liteClassSummaryEntry{}, errLiteClassSummary("模型没有返回内容")
-	}
 
-	if bad := liteworkspace.UngroundedNames(summary, liteWorkspaceRosterNames(roster), names); len(bad) > 0 {
-		return liteClassSummaryEntry{}, errLiteClassSummary("摘要里出现了本轮没有依据的学生姓名：" + strings.Join(bad, "、"))
-	}
-	if bad := liteworkspace.UngroundedCounts(summary, counts); len(bad) > 0 {
-		return liteClassSummaryEntry{}, errLiteClassSummary("摘要里出现了本轮没有依据的人数：" + liteWorkspaceJoinInts(bad))
-	}
+	var groundErr error
+	for attempt := 0; attempt < liteClassSummaryMaxAttempts; attempt++ {
+		res, cerr := gateway.Collect(mctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs})
+		// Metered whether or not the call produced anything usable — every
+		// attempt, including a rejected one, was paid for.
+		a.recordLiteLLMCall(mctx, userID, uuid.Nil, liteClassSummaryPurpose, resolved, res.Usage)
+		if cerr != nil {
+			// A transport failure is never retried.
+			return liteClassSummaryEntry{}, errLiteClassSummary(cerr.Error())
+		}
+		summary := strings.TrimSpace(res.Text)
+		if summary == "" {
+			return liteClassSummaryEntry{}, errLiteClassSummary("模型没有返回内容")
+		}
 
-	return liteClassSummaryEntry{Summary: summary, GeneratedAt: time.Now()}, nil
+		var reason string
+		if bad := liteworkspace.UngroundedNames(summary, rosterNames, names); len(bad) > 0 {
+			reason = "摘要里出现了本轮没有依据的学生姓名：" + strings.Join(bad, "、")
+		} else if bad := liteworkspace.UngroundedCounts(summary, counts); len(bad) > 0 {
+			reason = "摘要里出现了本轮没有依据的人数：" + liteWorkspaceJoinInts(bad)
+		}
+		if reason == "" {
+			return liteClassSummaryEntry{Summary: summary, GeneratedAt: time.Now()}, nil
+		}
+
+		groundErr = errLiteClassSummary(reason)
+		if attempt == liteClassSummaryMaxAttempts-1 {
+			break
+		}
+		msgs = append(msgs,
+			gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
+			gateway.ChatMessage{Role: gateway.RoleUser, Content: "上一次输出未通过校验：" + reason + "。请重新输出，只用给出的事实，不要写没有依据的姓名或人数。"},
+		)
+	}
+	return liteClassSummaryEntry{}, groundErr
 }
 
 // liteClassSummaryFacts builds the user turn AND, in the same pass, the two
@@ -168,9 +199,15 @@ func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.Cl
 	counts = append(counts, stats.ActiveStudents)
 	fmt.Fprintf(&b, "完成项数：%d\n", stats.Finished)
 	counts = append(counts, stats.Finished)
+	// AssignmentRate is NOT added to counts: it is a percentage, not a head
+	// count, and a bare number sitting in the grounded set laundered any reply
+	// that happened to restate it followed by 人/位/名 — measured: grounded
+	// [30,10,5,42] let 「本周有 42 位学生完成了写作练习」 through, where 42 was
+	// the RATE, not a student count. Nothing legitimate is lost: 「N%」 never
+	// matches UngroundedCounts's number-plus-person-counter shape, so the rate
+	// was never valid evidence for a head count in the first place.
 	if stats.AssignmentRate >= 0 {
 		fmt.Fprintf(&b, "作业按时完成率：%d%%\n", stats.AssignmentRate)
-		counts = append(counts, stats.AssignmentRate)
 	} else {
 		b.WriteString("作业按时完成率：本周无到期作业\n")
 	}
@@ -290,7 +327,7 @@ func (s *liteClassSummaryStore) resolve(key string, fn func() (liteClassSummaryE
 	s.inflight[key] = f
 	s.mu.Unlock()
 
-	entry, err := fn()
+	entry, err := s.runGuarded(fn)
 	f.entry, f.err = entry, err
 	close(f.done)
 
@@ -301,6 +338,24 @@ func (s *liteClassSummaryStore) resolve(key string, fn func() (liteClassSummaryE
 	}
 	s.mu.Unlock()
 	return entry, false, err
+}
+
+// runGuarded runs fn and turns a panic into an error. Without this, a panic
+// inside fn (the model client, a nil-pointer bug, anything) would unwind
+// straight out of resolve and skip BOTH close(f.done) and
+// delete(s.inflight, key) above — every other request for the same class and
+// day would then block on <-f.done forever, and the key could never be
+// recomputed again until the process restarted. net/http recovers a panic
+// per request so the crash itself would stay invisible; the stuck key would
+// not.
+func (s *liteClassSummaryStore) runGuarded(fn func() (liteClassSummaryEntry, error)) (entry liteClassSummaryEntry, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			slog.Error("lite class summary: compose panicked", "panic", p)
+			err = fmt.Errorf("摘要计算发生内部错误：%v", p)
+		}
+	}()
+	return fn()
 }
 
 // put stores entry under key and evicts the oldest entry once the store is

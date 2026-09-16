@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,6 +22,7 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/liteweek"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -73,6 +75,37 @@ func postSummary(t *testing.T, h http.Handler, c *http.Cookie, classID string) (
 		}
 	}
 	return rec.Code, out, rec.Body.String()
+}
+
+// addUncardedStudent enrolls a second, real roster student who gets NO
+// praise/watch card this (current, in-progress) week: exactly one active day
+// today, no assignments, no keywords, no stalled items — Cards() returns
+// nil, nil for her. She is exactly the case UngroundedNames exists to catch:
+// a real classmate the model was never handed as evidence.
+func addUncardedStudent(t *testing.T, pool *pgxpool.Pool, classID, email, name string) uuid.UUID {
+	t.Helper()
+	id := createStudent(t, pool, SeedSchoolID, email)
+	enrollStudent(t, pool, id, classID)
+	renameLiteStudent(t, pool, id, name)
+	q := sqlc.New(pool)
+	atom, err := q.CreateAtom(context.Background(), sqlc.CreateAtomParams{Kind: "reading", UserID: id})
+	if err != nil {
+		t.Fatalf("addUncardedStudent: create atom: %v", err)
+	}
+	mustExec(t, pool, `INSERT INTO atom_active_day (atom_id, day, seconds) VALUES ($1, $2, 60)`,
+		atom.ID, liteweek.Day(time.Now()))
+	return id
+}
+
+// lastUserPrompt reads the content of the last message a StubProvider
+// received — the facts liteClassSummaryFacts built for that call.
+func lastUserPrompt(t *testing.T, prov *gateway.StubProvider) string {
+	t.Helper()
+	msgs := prov.LastRequest.Messages
+	if len(msgs) == 0 {
+		t.Fatal("provider never received a request")
+	}
+	return msgs[len(msgs)-1].Content
 }
 
 // TestClassSummaryRejectsOutsiders — 401 signed out, 403 a student, 404 a
@@ -185,53 +218,135 @@ func TestClassSummaryRosterChangeRecomputes(t *testing.T) {
 	}
 }
 
-// TestClassSummaryUngroundedNameFails — the model names a real classmate who
-// was never handed to it as evidence (no praise/watch card that week): 502,
-// and the failure is not cached — a following call tries the model again.
-func TestClassSummaryUngroundedNameFails(t *testing.T) {
+// TestClassSummaryGroundingRetrySucceeds — round 1 fix: a grounding failure
+// gets ONE retry inside the same request, not an immediate 502. First reply
+// names a real, uncarded classmate (ungrounded); the retry's reply is clean:
+// the request succeeds with the SECOND reply, and both attempts are metered.
+func TestClassSummaryGroundingRetrySucceeds(t *testing.T) {
+	const cleanReply = "这周班级整体参与平稳，暂无需要特别关注的学生。"
 	prov := gateway.NewSequenceStubProvider(
 		weeklyReply("建议老师联系林知遥，了解她这周的学习情况。"),
-		weeklyReply("这周班级整体参与平稳，暂无需要特别关注的学生。"),
+		weeklyReply(cleanReply),
 	)
 	h, pool, teacher, classID, _ := liteClassSummaryFixture(t, prov)
+	addUncardedStudent(t, pool, classID, "cs-uncarded@demo.local", "林知遥")
 
-	// The fixture's own student gets the default "never_used" watch card
-	// (zero activity in the last completed week) — grounded. second gets
-	// exactly one active day in that same week and nothing else, so Cards()
-	// returns nil, nil for her: she has NO card, but she IS a real roster
-	// student.
-	second := createStudent(t, pool, SeedSchoolID, "cs-uncarded@demo.local")
-	enrollStudent(t, pool, second, classID)
-	renameLiteStudent(t, pool, second, "林知遥")
-
-	ws, _ := weeklyWindow()
-	q := sqlc.New(pool)
-	atom, err := q.CreateAtom(context.Background(), sqlc.CreateAtomParams{Kind: "reading", UserID: second})
-	if err != nil {
-		t.Fatalf("create atom: %v", err)
+	code, out, body := postSummary(t, h, teacher, classID)
+	if code != http.StatusOK {
+		t.Fatalf("summary = %d, want 200 (the retry should have produced a clean reply); body=%s", code, body)
 	}
-	mustExec(t, pool, `INSERT INTO atom_active_day (atom_id, day, seconds) VALUES ($1, $2, 60)`,
-		atom.ID, ws.AddDate(0, 0, 1))
+	if out.Summary != cleanReply {
+		t.Fatalf("summary = %q, want the retry's (second, grounded) reply %q", out.Summary, cleanReply)
+	}
+	if out.Cached {
+		t.Fatalf("a freshly computed summary reported cached=true; body=%s", body)
+	}
+	if prov.Calls != 2 {
+		t.Fatalf("model called %d times, want 2 (one rejected attempt + one retry)", prov.Calls)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM llm_call WHERE purpose = $1`, "lite_class_summary"); n != 2 {
+		t.Fatalf("llm_call rows = %d, want 2 (both attempts must be metered)", n)
+	}
+}
+
+// TestClassSummaryGroundingRetryBothFail — both the original attempt and the
+// retry name the same uncarded classmate: 502, two metered calls, and the
+// rejection is not cached — a following request re-runs the model rather than
+// replaying a stored failure.
+func TestClassSummaryGroundingRetryBothFail(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		weeklyReply("建议老师联系林知遥，了解她这周的学习情况。"),
+		weeklyReply("请老师也关注一下林知遥这周的状态。"),
+	)
+	h, pool, teacher, classID, _ := liteClassSummaryFixture(t, prov)
+	addUncardedStudent(t, pool, classID, "cs-uncarded@demo.local", "林知遥")
 
 	code, _, body := postSummary(t, h, teacher, classID)
 	if code != http.StatusBadGateway {
-		t.Fatalf("summary with an ungrounded name = %d, want 502; body=%s", code, body)
+		t.Fatalf("summary with two ungrounded replies = %d, want 502; body=%s", code, body)
 	}
 	if !strings.Contains(body, "摘要生成失败") {
 		t.Fatalf("error body does not read 「摘要生成失败」: %s", body)
 	}
-
-	// Not cached: the next call re-runs the model (a well-behaved reply this
-	// time) and succeeds.
-	code2, out2, body2 := postSummary(t, h, teacher, classID)
-	if code2 != http.StatusOK {
-		t.Fatalf("retry after a rejected summary = %d, want 200; body=%s", code2, body2)
-	}
-	if out2.Cached {
-		t.Fatalf("retry after a rejected summary reported cached=true; body=%s", body2)
-	}
 	if prov.Calls != 2 {
-		t.Fatalf("model called %d times, want 2 (the failed attempt must not have been cached)", prov.Calls)
+		t.Fatalf("model called %d times, want 2 (the retry must still have run)", prov.Calls)
+	}
+	if n := weeklyCount(t, pool, `SELECT count(*) FROM llm_call WHERE purpose = $1`, "lite_class_summary"); n != 2 {
+		t.Fatalf("llm_call rows = %d, want 2", n)
+	}
+
+	// Not cached: a following request calls the model again.
+	// SequenceStubProvider clamps to its last script once exhausted, so this
+	// replays the same ungrounded reply and 502s again — the point is that
+	// Calls keeps climbing, proving the rejected result was never stored.
+	code2, _, body2 := postSummary(t, h, teacher, classID)
+	if code2 != http.StatusBadGateway {
+		t.Fatalf("second request = %d, want 502 again; body=%s", code2, body2)
+	}
+	if prov.Calls <= 2 {
+		t.Fatalf("model called %d times after a second request, want more than 2 (the rejected result must not have been cached)", prov.Calls)
+	}
+}
+
+// TestClassSummaryAssignmentRateNotGroundingEvidence — round 1 fix: the
+// completion RATE must never ground a head count. Measured before the fix:
+// grounded counts [30,10,5,42] (42 = AssignmentRate) let 「本周有 42 位学生
+// 完成了写作练习」 through — 42 was a percentage, not a student count.
+// Reproduced with a rate of 100 (one assignment due, one done on time, class
+// size 1): nothing but the (now-excluded) rate would ever have grounded a
+// "100 位学生" claim in a one-student class.
+func TestClassSummaryAssignmentRateNotGroundingEvidence(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteClassSummaryFixture(t,
+		gateway.NewStubProvider(weeklyReply("本周有 100 位学生完成了写作练习。")))
+	student := signInAs(t, pool, studentID)
+	ws := liteweek.WeekStart(time.Now())
+
+	aid := createAssignment(t, h, teacher, classID, writingAssignmentBody([]string{studentID.String()}))
+	started := startAssignment(t, h, student, aid)
+	mustExec(t, pool, `UPDATE lite_assignment SET due_at = $2 WHERE id = $1`, aid, ws.AddDate(0, 0, 5))
+	mustExec(t, pool, `UPDATE writing SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, started.AtomID, time.Now())
+
+	code, _, body := postSummary(t, h, teacher, classID)
+	if code != http.StatusBadGateway {
+		t.Fatalf("summary laundering the assignment rate as a head count = %d, want 502; body=%s", code, body)
+	}
+	if !strings.Contains(body, "摘要生成失败") {
+		t.Fatalf("error body does not read 「摘要生成失败」: %s", body)
+	}
+}
+
+// TestClassSummaryReadsCurrentWeek — round 1 fix: the summary must read the
+// SAME week the card above it already shows (§12.5, "和卡片用同一批数据，不
+// 另取") — the current, in-progress Beijing week, not the last completed one.
+// Pinned by inspecting the actual prompt sent to the model
+// (StubProvider.LastRequest): an item finished only in the last completed
+// week must not count toward this week's facts; an item finished today must.
+func TestClassSummaryReadsCurrentWeek(t *testing.T) {
+	// Case A: finished only last week.
+	provA := gateway.NewStubProvider(weeklyReply("这周班级整体参与平稳，暂无需要特别关注的学生。"))
+	hA, poolA, teacherA, classIDA, studentIDA := liteClassSummaryFixture(t, provA)
+	lastWs, _ := weeklyWindow()
+	rA := seedOldReading(t, poolA, studentIDA, "上周读完", lastWs)
+	mustExec(t, poolA, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, rA, lastWs.AddDate(0, 0, 2))
+
+	if code, _, body := postSummary(t, hA, teacherA, classIDA); code != http.StatusOK {
+		t.Fatalf("summary = %d, want 200; body=%s", code, body)
+	}
+	if promptA := lastUserPrompt(t, provA); strings.Contains(promptA, "完成项数：1") {
+		t.Fatalf("an item finished only last week counted toward this week's facts:\n%s", promptA)
+	}
+
+	// Case B: finished today (this, in-progress week).
+	provB := gateway.NewStubProvider(weeklyReply("这周班级整体参与平稳，暂无需要特别关注的学生。"))
+	hB, poolB, teacherB, classIDB, studentIDB := liteClassSummaryFixture(t, provB)
+	rB := seedOldReading(t, poolB, studentIDB, "这周读完", liteweek.WeekStart(time.Now()))
+	mustExec(t, poolB, `UPDATE reading SET status = 'finished', finished_at = $2 WHERE atom_id = $1`, rB, time.Now())
+
+	if code, _, body := postSummary(t, hB, teacherB, classIDB); code != http.StatusOK {
+		t.Fatalf("summary = %d, want 200; body=%s", code, body)
+	}
+	if promptB := lastUserPrompt(t, provB); !strings.Contains(promptB, "完成项数：1") {
+		t.Fatalf("an item finished this week did not appear in the facts:\n%s", promptB)
 	}
 }
 

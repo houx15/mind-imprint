@@ -73,3 +73,56 @@ func TestLiteClassSummaryCacheKeyRosterFingerprint(t *testing.T) {
 		t.Fatalf("row order changed the key: %q vs %q", keyA, keyReordered)
 	}
 }
+
+// TestLiteClassSummaryStorePanicRecovers pins round 1's finding: a panic
+// inside fn used to skip close(f.done) and delete(s.inflight, key), so every
+// later request for that key blocked forever. It must instead: (1) hand the
+// caller that started the flight an error, (2) release a concurrent waiter
+// that joined the SAME flight with an error too, and (3) let a later call for
+// the same key run fn again rather than staying stuck.
+func TestLiteClassSummaryStorePanicRecovers(t *testing.T) {
+	s := newLiteClassSummaryStore(4)
+	const key = "k"
+
+	// A concurrent caller for the same key, launched only once the panicking
+	// call is actually under way (so it is guaranteed to JOIN the in-flight
+	// computation, not start its own).
+	started := make(chan struct{})
+	waiterErr := make(chan error, 1)
+	go func() {
+		<-started
+		_, _, err := s.resolve(key, func() (liteClassSummaryEntry, error) {
+			t.Error("a concurrent waiter must join the in-flight call, not run fn itself")
+			return liteClassSummaryEntry{}, nil
+		})
+		waiterErr <- err
+	}()
+
+	_, _, err := s.resolve(key, func() (liteClassSummaryEntry, error) {
+		close(started)
+		panic("boom")
+	})
+	if err == nil {
+		t.Fatal("resolve returned a nil error for a panicking fn")
+	}
+
+	select {
+	case werr := <-waiterErr:
+		if werr == nil {
+			t.Fatal("the waiter joined the panicking flight but got a nil error")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the waiter never returned — the panic left the key stuck")
+	}
+
+	// The key must not be permanently in-flight, and a panic must never be
+	// cached: a later call for the same key runs fn again.
+	calls := 0
+	entry, cached, err2 := s.resolve(key, func() (liteClassSummaryEntry, error) {
+		calls++
+		return liteClassSummaryEntry{Summary: "ok"}, nil
+	})
+	if err2 != nil || cached || calls != 1 || entry.Summary != "ok" {
+		t.Fatalf("call after a panic: entry=%+v cached=%v err=%v calls=%d", entry, cached, err2, calls)
+	}
+}
