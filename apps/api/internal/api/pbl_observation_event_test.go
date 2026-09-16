@@ -62,7 +62,14 @@ func TestObservationSubmissionKeepsTaskOpenAndUsesReceipt(t *testing.T) {
 }
 
 func TestExplicitObservationEndDoesNotReplaySubmission(t *testing.T) {
-	provider := gateway.NewSequenceStubProvider(evidenceScript(`{"reply":"开始"}`), evidenceScript(`{"reply":"本次任务已结束，下一步需要确定要验证的问题"}`))
+	// 🚨 结束观察那一轮**也会过一次证据核对**，所以脚本要三条，不是两条 ——
+	// 少的那一条不会报「脚本用完了」，它会让核对连着两次解析失败，整轮变成
+	// ai_dialogue_failed。上面那条用例（第 13 行）给的就是三条。
+	provider := gateway.NewSequenceStubProvider(
+		evidenceScript(`{"reply":"开始"}`),
+		evidenceScript(`{"reply":"本次任务已结束，下一步需要确定要验证的问题"}`),
+		evidenceScript(`{"supported":true,"issues":[]}`),
+	)
 	h, c, _, pool := liteHandlerWithProvider(t, provider)
 	pid := newProjectViaAPI(t, h, c)
 	base := "/api/v1/pbl/projects/" + pid
