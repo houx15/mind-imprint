@@ -4,6 +4,7 @@ import { Button, Pebble } from "@/ui";
 import { LiteChatMarkdown } from "../../readings/LiteChatMarkdown";
 import { TeacherPage } from "../TeacherPage";
 import { ChoiceArticleCard } from "./ChoiceArticleCard";
+import { splitChoices } from "./workspaceLogic";
 import type { Choice, Turn } from "./workspaceLogic";
 
 // teacher/workspace/WorkspacePanel.tsx — the shell every teacher workspace
@@ -110,30 +111,44 @@ export function WorkspacePanel({ turns, busy, error, choices, onSend, onChoose, 
               ),
             )}
 
-            {showChoices && (
-              // Column-first, not flex-wrap: an article card wants its full
-              // width, and a plain option beside one would either crowd it
-              // or be forced to the same width for no reason. Every choice
-              // gets its own row; a plain option just doesn't stretch to fill
-              // it (`self-start`).
-              <div className="flex flex-col gap-2 pl-8">
-                {choices.map((c) =>
-                  c.article ? (
-                    <ChoiceArticleCard key={c.id} article={c.article} disabled={busy} onClick={() => handleChoose(c)} />
-                  ) : (
-                    <button
-                      key={c.id}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleChoose(c)}
-                      className="self-start rounded-mk-full border border-mk-accent-200 bg-mk-accent-50 px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-100 disabled:opacity-50"
-                    >
-                      {c.label}
-                    </button>
-                  ),
-                )}
-              </div>
-            )}
+            {showChoices && (() => {
+              const { cards, pills } = splitChoices(choices);
+              return (
+                // Article cards stack (full width, one per row); plain
+                // options stay the compact wrapping pill row that shipped
+                // before Task 4 — that task only turned ARTICLE options into
+                // cards, not every option into a form field.
+                <div className="flex flex-col gap-2 pl-8">
+                  {cards.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {cards.map((c) => (
+                        <ChoiceArticleCard
+                          key={c.id}
+                          article={c.article!}
+                          disabled={busy}
+                          onClick={() => handleChoose(c)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {pills.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {pills.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleChoose(c)}
+                          className="rounded-mk-full border border-mk-accent-200 bg-mk-accent-50 px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-100 disabled:opacity-50"
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {busy && (
               <div className="flex items-start justify-start gap-2" aria-label="处理中">

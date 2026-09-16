@@ -101,6 +101,21 @@ export function clampChoices(choices: Choice[]): Choice[] {
   return out;
 }
 
+/** Splits one `ask_choice` reply's options into the two blocks the panel
+ *  renders: article options as stacked cards, plain options as a wrapping
+ *  pill row (the compact row that shipped before Task 4 — the spec only
+ *  turned ARTICLE options into cards, not every option into a form field).
+ *  Order within each group is preserved from `choices`; `cards` always comes
+ *  first because a card is the taller, more deliberate pick. */
+export function splitChoices(choices: Choice[]): { cards: Choice[]; pills: Choice[] } {
+  const cards: Choice[] = [];
+  const pills: Choice[] = [];
+  for (const c of choices) {
+    (c.article ? cards : pills).push(c);
+  }
+  return { cards, pills };
+}
+
 /** Removes the optimistic teacher turn a failed round trip left on screen.
  *
  * A turn is appended before the request goes out so her sentence appears

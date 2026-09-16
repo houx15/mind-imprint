@@ -4,9 +4,11 @@ import {
   clampChoices,
   isCurrentTurn,
   rollbackTurn,
+  splitChoices,
   trimTurns,
   TURNS_WINDOW,
   MAX_CHOICES,
+  type Choice,
   type Turn,
 } from "./workspaceLogic";
 
@@ -129,5 +131,42 @@ describe("clampChoices", () => {
     ]);
     expect(got).toHaveLength(MAX_CHOICES);
     expect(got.every((c) => c.label.trim() !== "")).toBe(true);
+  });
+});
+
+describe("splitChoices", () => {
+  const article = { slug: "s", zhTitle: "标题", reason: "理由" };
+
+  it("puts every option in pills when none carries an article", () => {
+    const choices: Choice[] = [
+      { id: "1", label: "论证结构" },
+      { id: "2", label: "证据使用" },
+      { id: "3", label: "语言表达" },
+    ];
+    const { cards, pills } = splitChoices(choices);
+    expect(cards).toEqual([]);
+    expect(pills).toEqual(choices);
+  });
+
+  it("puts every option in cards when all carry an article", () => {
+    const choices: Choice[] = [
+      { id: "a", label: "美国气候队", slug: "s1", article: { ...article, slug: "s1" } },
+      { id: "b", label: "珊瑚礁", slug: "s2", article: { ...article, slug: "s2" } },
+    ];
+    const { cards, pills } = splitChoices(choices);
+    expect(pills).toEqual([]);
+    expect(cards).toEqual(choices);
+  });
+
+  it("splits a mixed list and preserves order within each group", () => {
+    const choices: Choice[] = [
+      { id: "1", label: "论证结构" },
+      { id: "a", label: "美国气候队", slug: "s1", article: { ...article, slug: "s1" } },
+      { id: "2", label: "证据使用" },
+      { id: "b", label: "珊瑚礁", slug: "s2", article: { ...article, slug: "s2" } },
+    ];
+    const { cards, pills } = splitChoices(choices);
+    expect(cards.map((c) => c.id)).toEqual(["a", "b"]);
+    expect(pills.map((c) => c.id)).toEqual(["1", "2"]);
   });
 });
