@@ -197,6 +197,107 @@ func TestWorkspaceTurnRejectsNameFromItsOwnEarlierTurn(t *testing.T) {
 	}
 }
 
+// TestWorkspaceTurnRejectsUngroundedNameInThePatch — the reply is not the only
+// thing the teacher reads. A name written into the card's instructions reaches
+// her, and then reaches her whole class on publish, so it has to clear the
+// same check the prose does.
+func TestWorkspaceTurnRejectsUngroundedNameInThePatch(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"instructions":"这周的作业参考林知遥上次那篇。"}`),
+		wsText("说明已经写好了。"),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周布置什么好"))
+	if rec.Code < 400 {
+		t.Fatalf("fabricated name in the card = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+	if strings.Contains(rec.Body.String(), "参考林知遥上次那篇") {
+		t.Fatalf("the rejected card text was returned anyway: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnRejectsUngroundedNameInAnOptionID — an option id is a string
+// the model writes, and the client sends it back as her next turn. Left
+// unchecked it is a second door into the card: mint {id:"林知遥-alone"}, she
+// clicks, and the name arrives looking like something she typed.
+func TestWorkspaceTurnRejectsUngroundedNameInAnOptionID(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("ask_choice", `{"question":"发给谁？","options":[
+		{"id":"林知遥-alone","label":"单独布置"},
+		{"id":"whole-class","label":"全班"}
+	]}`))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周布置什么好"))
+	if rec.Code < 400 {
+		t.Fatalf("fabricated name in an option id = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnDoesNotGroundAChoiceID — the other half of the same door.
+// Even if an option id carrying a name somehow reached the client, clicking it
+// must not make that name evidence: the id is the model's own string, and only
+// what she typed counts as hers.
+func TestWorkspaceTurnDoesNotGroundAChoiceID(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，那就只发给林知遥。"))
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "choiceId": "林知遥-alone",
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code < 400 {
+		t.Fatalf("name laundered through a choice id = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnClampsTitleToWhatPublishAccepts — the title and the
+// instructions have different caps (200 and 2000). One shared cap would let a
+// tool write a title the card displays and the publish endpoint then rejects,
+// which is a failure at the last step over a value we handed her ourselves.
+func TestWorkspaceTurnClampsTitleToWhatPublishAccepts(t *testing.T) {
+	long := strings.Repeat("气", 900)
+	args, _ := json.Marshal(map[string]any{"title": long, "instructions": long})
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", string(args)),
+		wsText("标题和说明已经填好。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "帮我起个标题"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set_fields = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+
+	title, _ := out.Patch["title"].(string)
+	if n := len([]rune(title)); n != 200 {
+		t.Fatalf("title is %d runes; parseAssignmentTitle rejects anything over 200", n)
+	}
+	// That the clamped value is one publish actually accepts is asserted
+	// against parseAssignmentTitle itself in
+	// lite_teacher_workspace_internal_test.go, which can reach it.
+
+	// The instructions keep their own, larger cap — clamping them to the title
+	// limit would silently throw away most of what the model wrote.
+	ins, _ := out.Patch["instructions"].(string)
+	if n := len([]rune(ins)); n != 900 {
+		t.Fatalf("instructions are %d runes, want the 900 written (cap is 2000)", n)
+	}
+}
+
 // TestWorkspaceTurnAcceptsNameTheTeacherTyped — the other side of the same
 // rule. She may talk about a student by name, and the reply may answer her in
 // those words without any tool call.

@@ -151,3 +151,86 @@ func TestCompleteTurnsStreamOff(t *testing.T) {
 		t.Fatalf("请求里的 stream = %v，必须是 false", gotStream)
 	}
 }
+
+// toolArgsUpstream 是一个回一次工具调用的假上游，参数按 argsJSON 原样给。
+// 与 stream_toolargs_test.go 的 toolCallUpstream 分开：那个的参数是写死的。
+func toolArgsUpstream(t *testing.T, argsJSON string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"index":0,"message":{"content":"","tool_calls":[
+			{"id":"call_1","type":"function","function":{"name":"set_fields","arguments":`+quote(argsJSON)+`}}
+		]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":7}}`)
+	}))
+}
+
+// TestCompleteCarriesToolArguments —— 非流式这一路也要把参数解出来。
+//
+// 两条路必须给调用方一模一样的东西：只测流式那一边，换一条通道（或者上游打开
+// Policy.StreamDropsTail）就会让工具循环拿到一个「被调用了但没有参数」的调用，
+// 而没有任何字段说参数丢了。
+func TestCompleteCarriesToolArguments(t *testing.T) {
+	srv := toolArgsUpstream(t, `{"title":"气候变化议论文","dueAt":"2026-09-18T18:00"}`)
+	defer srv.Close()
+
+	p := NewCatalogProvider(srv.Client())
+	res, err := p.Complete(context.Background(), testResolved(srv.URL), ChatRequest{
+		Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if len(res.ToolCalls) != 1 {
+		t.Fatalf("拿到 %d 个工具调用，want 1", len(res.ToolCalls))
+	}
+	tc := res.ToolCalls[0]
+	if tc.ID != "call_1" || tc.Name != "set_fields" {
+		t.Fatalf("工具调用 = %+v", tc)
+	}
+	if tc.Args["title"] != "气候变化议论文" || tc.Args["dueAt"] != "2026-09-18T18:00" {
+		t.Fatalf("参数 = %+v", tc.Args)
+	}
+	if res.StopReason != StopToolCall {
+		t.Fatalf("stop reason = %q，want tool_call", res.StopReason)
+	}
+}
+
+// TestCompleteKeepsAToolCallWithUnparseableArguments —— 参数串坏掉的时候，调用
+// 本身不能跟着丢：调用方还得知道模型伸手要的是哪个工具，才能把「缺哪个参数」
+// 回给它。
+func TestCompleteKeepsAToolCallWithUnparseableArguments(t *testing.T) {
+	srv := toolArgsUpstream(t, `{"title":"气候`)
+	defer srv.Close()
+
+	p := NewCatalogProvider(srv.Client())
+	res, err := p.Complete(context.Background(), testResolved(srv.URL), ChatRequest{
+		Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if len(res.ToolCalls) != 1 || res.ToolCalls[0].Name != "set_fields" {
+		t.Fatalf("工具调用 = %+v，want 调用留着、参数为空", res.ToolCalls)
+	}
+	if len(res.ToolCalls[0].Args) != 0 {
+		t.Fatalf("参数 = %+v，want 空", res.ToolCalls[0].Args)
+	}
+}
+
+// TestSerializeToolCallWithoutArgumentsSendsAnEmptyObject —— 没有参数的工具调用
+// 发回去的时候写 "{}"，不是 "null"。走得到：decodeToolArgs 对空参数与解析失败
+// 都给 nil，而工具循环下一轮要把这条 assistant 消息原样带回去，有的厂商在这个
+// 位置直接拒收 "null"。
+func TestSerializeToolCallWithoutArgumentsSendsAnEmptyObject(t *testing.T) {
+	out := openAISerializeMessage(ChatMessage{
+		Role: RoleAssistant, ToolCalls: []ToolCall{{ID: "call_1", Name: "set_fields"}},
+	})
+	calls, _ := out["tool_calls"].([]map[string]any)
+	if len(calls) != 1 {
+		t.Fatalf("tool_calls = %+v", out["tool_calls"])
+	}
+	fn, _ := calls[0]["function"].(map[string]any)
+	if got := fn["arguments"]; got != "{}" {
+		t.Fatalf("arguments = %q，want \"{}\"", got)
+	}
+}

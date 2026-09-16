@@ -20,11 +20,21 @@ func openAISerializeMessage(m ChatMessage) map[string]any {
 	if m.Role == RoleAssistant && len(m.ToolCalls) > 0 {
 		calls := make([]map[string]any, len(m.ToolCalls))
 		for i, c := range m.ToolCalls {
-			args, _ := json.Marshal(c.Args)
+			// 🚨 A nil map marshals to "null", and some providers reject that
+			// where an arguments object is expected. A call with no arguments
+			// goes on the wire as "{}". This is reachable: decodeToolArgs hands
+			// back nil for empty or unparseable arguments, and a tool loop
+			// replays that same call to the model on its next round.
+			args := "{}"
+			if len(c.Args) > 0 {
+				if b, err := json.Marshal(c.Args); err == nil {
+					args = string(b)
+				}
+			}
 			calls[i] = map[string]any{
 				"id":       c.ID,
 				"type":     "function",
-				"function": map[string]any{"name": c.Name, "arguments": string(args)},
+				"function": map[string]any{"name": c.Name, "arguments": args},
 			}
 		}
 		var content any

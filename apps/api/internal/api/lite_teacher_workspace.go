@@ -22,8 +22,9 @@ import (
 // This is the only teacher route that calls a model synchronously. It runs a
 // bounded tool loop on the dialogue tier: the model may reach for the six
 // tools in liteworkspace.AssignmentTools, the server executes them and feeds
-// the results back inside the same turn, and the loop stops at
-// liteworkspace.ToolLoopMax round-trips.
+// the results back inside the same turn, and the loop stops after
+// liteworkspace.ToolLoopMax MODEL CALLS — one of which has to be the call that
+// answers, so the tool budget is one less than that number.
 //
 // 🚨 教师可见性边界：没有一个工具读学生与印记的对话记录。The tools here reach
 // the roster, the assignment rows behind it and the embedded reading library —
@@ -39,10 +40,16 @@ const liteTeacherWorkspacePurpose = "lite_teacher_workspace"
 // transcript and buy nothing — she is choosing one.
 const liteWorkspaceSearchLimit = 8
 
-// liteWorkspaceMaxTextRunes bounds one field the model writes into the card.
-// It mirrors liteassign's own instruction cap, so a tool cannot write a value
-// the publish endpoint would then reject.
-const liteWorkspaceMaxTextRunes = 2000
+// liteWorkspaceMaxInstructionsRunes bounds the instructions a tool writes into
+// the card. It is liteassign's own cap (maxInstructionsRunes, unexported, in
+// liteassign/payload.go), which ValidateInstructions enforces at publish.
+//
+// The title has a DIFFERENT and much smaller cap: maxAssignmentTitleRunes
+// (200, in lite_teacher_assignments.go), enforced by parseAssignmentTitle.
+// One shared cap would let a tool write a 2000-rune title that the card
+// displays and the publish endpoint then rejects with 「请填写作业标题，不超过
+// 200 字」 — a failure at the last step, over a value we handed her ourselves.
+const liteWorkspaceMaxInstructionsRunes = 2000
 
 // liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: only
 // the assignment surface exists, and the other two arrive with D2/D3.
@@ -135,10 +142,16 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	said := strings.TrimSpace(req.Text)
+	// typed is what she wrote herself. It is the only part of this request that
+	// counts as evidence for the name check below.
+	typed := strings.TrimSpace(req.Text)
+	said := typed
 	if said == "" {
-		// A choice she clicked is her turn too. The id is one the model minted
-		// in its own ask_choice call, so it reads it back as its own option.
+		// A choice she clicked is her turn too, and the model needs to know
+		// which one. 🚨 The id is the MODEL's own string, so it goes to the
+		// model but never into the evidence: a model that had minted
+		// {id: "林知遥-alone"} would otherwise get that name grounded the moment
+		// she clicked the button, which is laundering by another route.
 		said = strings.TrimSpace(req.ChoiceID)
 	}
 	if said == "" {
@@ -165,6 +178,10 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	defer cancel()
 	resolved, err := a.routeE(mctx, gateway.ClassDialogue)
 	if err != nil {
+		// The cause goes out, not a bare 500. A routing failure is a
+		// misconfigured model binding, and 「服务器内部错误」 would send whoever
+		// is on call reading logs to learn what this line already knows. No
+		// key reaches this string: Resolved carries the key, the error does not.
 		httpx.WriteError(w, r, errLiteWorkspaceTurn(err.Error()))
 		return
 	}
@@ -184,16 +201,12 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// back as evidence would launder exactly the failure this check exists to
 	// catch (§6).
 	grounded := append([]string{}, run.namesReturned...)
-	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, said)...)
+	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, typed)...)
 
 	choices = liteworkspace.ClampChoices(choices)
-	// Both the prose and the button labels are rendered to the teacher, so a
-	// name fabricated into a button is checked the same way as one in the reply.
-	rendered := reply
-	for _, c := range choices {
-		rendered += "\n" + c.Label
-	}
-	if bad := liteworkspace.UngroundedNames(rendered, liteWorkspaceRosterNames(roster), grounded); len(bad) > 0 {
+	if bad := liteworkspace.UngroundedNames(
+		liteWorkspaceCheckedText(reply, choices, run.patch), liteWorkspaceRosterNames(roster), grounded,
+	); len(bad) > 0 {
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
 		return
 	}
@@ -251,12 +264,55 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 	return out
 }
 
+// liteWorkspaceCheckedText is everything this turn puts in front of the
+// teacher, joined for one name check.
+//
+// That is the reply, the button labels AND their ids, and every string the
+// patch carries. The patch matters most: a name written into the card's title
+// or instructions is read by the teacher and then read by her whole class on
+// publish, and it would pass a check that only looked at the reply. The button
+// ids matter because the client sends the id back as her next turn.
+//
+// Every string in the patch is checked, not a named list of prose fields: the
+// closed-set fields (kind, readingSource, slug, dueInput, user ids) cannot
+// carry a classmate's name anyway, and checking everything means a tool added
+// later is covered without anyone having to remember this function.
+func liteWorkspaceCheckedText(reply string, choices []liteworkspace.Choice, patch map[string]any) string {
+	var b strings.Builder
+	b.WriteString(reply)
+	for _, c := range choices {
+		b.WriteString("\n")
+		b.WriteString(c.ID)
+		b.WriteString("\n")
+		b.WriteString(c.Label)
+	}
+	for _, v := range patch {
+		switch value := v.(type) {
+		case string:
+			b.WriteString("\n")
+			b.WriteString(value)
+		case []string:
+			for _, s := range value {
+				b.WriteString("\n")
+				b.WriteString(s)
+			}
+		}
+	}
+	return b.String()
+}
+
 // liteWorkspaceNamesTeacherTyped returns the roster names the TEACHER wrote,
 // this turn or earlier in the thread. Her own words are evidence; the model's
 // are not, so ai turns are skipped here.
-func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []liteworkspace.Turn, said string) []string {
+//
+// The teacher turns in `turns` are client-supplied and could in principle
+// carry a string the model minted (a clicked option). That door is shut on the
+// way out instead: liteWorkspaceCheckedText checks option ids and labels
+// before they leave the server, so a fabricated name never reaches the client
+// to be echoed back.
+func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []liteworkspace.Turn, typed string) []string {
 	var b strings.Builder
-	b.WriteString(said)
+	b.WriteString(typed)
 	for _, t := range turns {
 		if t.Role == "teacher" {
 			b.WriteString("\n")
@@ -472,12 +528,15 @@ func toolStrings(args map[string]any, key string) []string {
 	return out
 }
 
-func liteWorkspaceClampRunes(s string) string {
+// liteWorkspaceClampRunes truncates to max runes. Each caller passes the cap
+// that the publish endpoint enforces for THAT field — the two differ by an
+// order of magnitude.
+func liteWorkspaceClampRunes(s string, max int) string {
 	r := []rune(s)
-	if len(r) <= liteWorkspaceMaxTextRunes {
+	if len(r) <= max {
 		return s
 	}
-	return string(r[:liteWorkspaceMaxTextRunes])
+	return string(r[:max])
 }
 
 func (run *liteWorkspaceRun) setFields(args map[string]any) string {
@@ -492,11 +551,11 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 		}
 	}
 	if title, ok := toolString(args, "title"); ok && title != "" {
-		run.write("title", liteWorkspaceClampRunes(title))
+		run.write("title", liteWorkspaceClampRunes(title, maxAssignmentTitleRunes))
 		written = append(written, "title")
 	}
 	if ins, ok := toolString(args, "instructions"); ok && ins != "" {
-		run.write("instructions", liteWorkspaceClampRunes(ins))
+		run.write("instructions", liteWorkspaceClampRunes(ins, liteWorkspaceMaxInstructionsRunes))
 		written = append(written, "instructions")
 	}
 	if due, ok := toolString(args, "dueAt"); ok && due != "" {

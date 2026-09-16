@@ -16,9 +16,16 @@ import (
 // layer, so this window is the only thing bounding prompt growth.
 const TurnsWindow = 8
 
-// ToolLoopMax bounds tool round-trips inside one turn. Hitting it fails the
-// turn with a visible error rather than truncating silently.
-const ToolLoopMax = 4
+// ToolLoopMax bounds one turn's MODEL CALLS, not its tool round-trips. The
+// last call has to be the one that answers, so the tool budget is ToolLoopMax
+// minus one. Read the budget that way before lowering this number.
+//
+// 6 covers the realistic opening turn — list the students, search the library,
+// set the material, set the fields, then ask a choice — with a call to spare
+// for a tool the model has to retry after a bad argument. Hitting the cap
+// fails the whole turn in the teacher's face, so the budget is set where a
+// normal turn does not reach it.
+const ToolLoopMax = 6
 
 // MaxChoices bounds the option buttons a reply may carry.
 const MaxChoices = 4
