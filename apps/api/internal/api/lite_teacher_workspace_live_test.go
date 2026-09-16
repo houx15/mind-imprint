@@ -315,7 +315,11 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 	rec := &wsLiveRecorder{inner: prov}
 	h, teacher, classID := liveWorkspaceFixture(t, rec, route)
 
-	artifact := map[string]any{}
+	// The card starts where the real one starts: AssignmentForm opens on
+	// emptySettings("reading"). A harness that sent a blank artifact would let
+	// the server default the kind on its own and would not be testing the card
+	// the teacher actually has in front of her.
+	artifact := map[string]any{"kind": "reading"}
 	var turns []liteworkspace.Turn
 	var tools []gateway.ToolCall
 	var choices []liteworkspace.Choice
@@ -417,6 +421,32 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 		if _, ok := library.BySlug(slug); !ok {
 			t.Errorf("slug %q is not in the catalogue", slug)
 		}
+	}
+
+	// 6. The card can actually hold what the conversation put on it.
+	//
+	// 🚨 This is the one no earlier assertion could see, because it is not
+	// about the prose or the tools but about the CARD. A browser pass caught
+	// the model setting kind=writing, searching the library and announcing
+	// 「材料：已选「美国气候队」这篇报道」 — while the card renders the material
+	// row only for a reading homework, so the article was nowhere, the article
+	// button did nothing, and publishing would have sent a writing task with no
+	// article to a class that had been told one was chosen.
+	//
+	// Both openings say 读一篇…的报道. A homework that ends up without a
+	// material, or with one on a card that cannot show it, has dropped half of
+	// what she asked for.
+	kind, _ := artifact["kind"].(string)
+	source, _ := artifact["readingSource"].(string)
+	if source != "" && kind != "reading" {
+		t.Errorf("the card carries a material (%s) on a %q homework, where nothing renders it: %v",
+			source, kind, artifact)
+	}
+	if source == "" {
+		t.Errorf("she asked for a reading and the card ends with no material at all: %v", artifact)
+	}
+	if kind != "reading" {
+		t.Errorf("she asked for a reading and the card ends as kind %q: %v", kind, artifact)
 	}
 
 	// 2. An absolute Beijing wall-clock due time, not 周五.

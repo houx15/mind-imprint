@@ -14,7 +14,7 @@ import {
   type AssignmentDraft,
 } from "./assignmentLogic";
 import { Field, INPUT_CLS } from "./formParts";
-import { RecipientChecklist, SettingsFields } from "./AssignmentForm";
+import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm";
 import { applyPatch, clampChoices, isCurrentTurn, trimTurns, type Choice, type Turn } from "./workspace/workspaceLogic";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
@@ -250,6 +250,16 @@ export function AssignmentAIMode({
             ))}
           </select>
         </Field>
+
+        {/* 类型 sits where the traditional form puts it — after 班级, before
+            标题 — so the two modes read the same way. It is the same KindField,
+            not a second one: a divergent copy is how the two modes would come
+            to disagree about what a homework can be.
+
+            Without it this card had no way to correct a type the conversation
+            had got wrong, and the type decides which cells exist below: switch
+            a writing card to 阅读 and SettingsFields renders the material row. */}
+        <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
 
         {keptText && (
           <p className="text-mk-small font-semibold text-mk-accent-700" role="status">

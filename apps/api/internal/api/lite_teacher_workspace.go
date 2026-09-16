@@ -194,7 +194,19 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	run := &liteWorkspaceRun{roster: roster}
+	// The card's kind decides which cells exist, so the run has to know it
+	// before any tool writes one. A card with no kind yet is a reading card:
+	// that is what the client's own empty draft is (assignmentLogic's
+	// emptySettings), and a first turn must not be told it cannot set a
+	// material.
+	card := liteWorkspaceParseArtifact(req.Artifact)
+	run := &liteWorkspaceRun{
+		roster: roster, kind: card.Kind,
+		materialSet: card.Slug != "" || card.ReadingSource == "personalized",
+	}
+	if run.kind == "" {
+		run.kind = "reading"
+	}
 	// An option she tapped that carried an article sets the material before the
 	// model runs, through the same setMaterial every other path uses. The model
 	// is then told it is done rather than asked to do it: the old route was
@@ -367,6 +379,17 @@ func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []lite
 	return out
 }
 
+// liteWorkspaceParseArtifact projects the draft the client sent onto the part
+// of it this endpoint reads. An absent or unparseable artifact is the zero
+// value, not an error: a first turn has no card yet.
+func liteWorkspaceParseArtifact(raw json.RawMessage) liteWorkspaceArtifact {
+	var art liteWorkspaceArtifact
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &art)
+	}
+	return art
+}
+
 // liteWorkspaceChosenArticle applies the article an option carried, when she
 // tapped one, and returns the line telling the model it is already done.
 //
@@ -383,6 +406,14 @@ func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequ
 	art, found := library.BySlug(slug)
 	if !found {
 		return ""
+	}
+	// 🚨 Not a back door. The same kind guard as the tool path: a writing card
+	// has no material row, so applying it here would put the article exactly
+	// where the browser pass found it — nowhere — while the note below told the
+	// model it had landed. The note says what really happened either way.
+	if run.kind != "reading" {
+		return "\n（她点的这个选项是库里的《" + art.Title + "》，但现在这份作业是" + run.kind +
+			"，没有阅读材料这一栏，所以材料没有设上。要用这篇就先把类型设成 reading，再设材料。）"
 	}
 	run.setMaterial(map[string]any{"source": "library", "slug": art.Slug})
 	return "\n（她点的这个选项对应库里的《" + art.Title + "》，材料已经设成这一篇了，不用再查一次。）"
@@ -453,12 +484,7 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 	if len(raw) == 0 && len(applied) == 0 {
 		return ""
 	}
-	var art liteWorkspaceArtifact
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &art); err != nil {
-			return ""
-		}
-	}
+	art := liteWorkspaceParseArtifact(raw)
 	if len(applied) > 0 {
 		if b, err := json.Marshal(applied); err == nil {
 			_ = json.Unmarshal(b, &art)
@@ -491,6 +517,16 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 // liteWorkspaceRun accumulates what one turn's tools produced.
 type liteWorkspaceRun struct {
 	roster []liteworkspace.Student
+	// kind is the card's homework type as it stands: seeded from the artifact,
+	// updated when set_fields writes it. It decides which cells the card has,
+	// so set_material reads it before writing a material into a card that has
+	// nowhere to show one.
+	kind string
+	// materialSet is whether the card has a reading material right now,
+	// seeded from the artifact and kept current by the tools. readingSource
+	// alone cannot answer it: the client's empty draft already carries
+	// "library" with no article behind it.
+	materialSet bool
 	// patch holds only the draft fields a tool actually wrote. The client
 	// applies it field by field and drops the ones she edited meanwhile
 	// (§4.5), which only works if an untouched field is absent, not zero.
@@ -642,10 +678,31 @@ func liteWorkspaceClampRunes(s string, max int) string {
 
 func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 	written := make([]string, 0, 4)
+	cleared := false
 	if kind, ok := toolString(args, "kind"); ok && kind != "" {
 		switch kind {
 		case "reading", "writing", "project":
+			// 🚨 A card must never be left in a state it cannot render. Only a
+			// reading homework has a material row, so turning one into a
+			// writing homework has to take the material with it — otherwise
+			// the article stays in the draft where nothing shows it, the model
+			// goes on describing it, and she publishes a writing task whose
+			// article silently is not there. That is the exact state the
+			// browser pass photographed.
+			//
+			// Blocked-and-told is not an option here: there is no tool for
+			// clearing a material, so refusing would leave the model with an
+			// instruction it cannot carry out. Clearing and SAYING SO leaves
+			// her a coherent card and the model something true to tell her.
+			if kind != "reading" && run.materialSet {
+				run.write("readingSource", "library")
+				run.write("slug", "")
+				run.write("tier", nil)
+				run.materialSet = false
+				cleared = true
+			}
 			run.write("kind", kind)
+			run.kind = kind
 			written = append(written, "kind")
 		default:
 			return liteWorkspaceToolError("作业种类只能是 reading、writing 或 project，收到：" + kind)
@@ -672,7 +729,12 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 	if len(written) == 0 {
 		return liteWorkspaceToolError("没有给出任何字段")
 	}
-	return liteWorkspaceToolOK(map[string]any{"written": written})
+	out := map[string]any{"written": written}
+	if cleared {
+		out["note"] = "类型不是 reading 了，作业卡上没有阅读材料这一栏，原来选的文章已经清掉。" +
+			"跟老师说清楚这件事，不要再提那篇文章；她要保留文章就把类型改回 reading"
+	}
+	return liteWorkspaceToolOK(out)
 }
 
 func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
@@ -696,7 +758,31 @@ func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
 	return liteWorkspaceToolOK(map[string]any{"articles": rows})
 }
 
+// errLiteWorkspaceWrongKind is the tool result for setting a material on a card
+// that has no place to put one.
+//
+// 🚨 This is the defect the browser pass found and the live tests could not:
+// the model set kind=writing, searched the library, and told the teacher
+// 「材料：已选「美国气候队」这篇报道」 — while the card, which renders the
+// material row only for a reading homework, showed nothing. Her students would
+// have received a writing task with no article after she was told one was
+// chosen. The claim was in prose; the truth was in a cell she could not see.
+//
+// The remedy is in the message because the model demonstrably acts on a tool
+// error that names one: that is how it recovered from every invented slug.
+func errLiteWorkspaceWrongKind(kind string) string {
+	label := map[string]string{"writing": "写作", "project": "项目"}[kind]
+	if label == "" {
+		label = kind
+	}
+	return liteWorkspaceToolError(label + "作业没有阅读材料这一栏，材料设不上去。" +
+		"请先用 set_fields 把类型设成 reading，再设材料；如果这次确实是" + label + "作业，就别提材料，也不要跟老师说已经选好了文章")
+}
+
 func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
+	if run.kind != "reading" {
+		return errLiteWorkspaceWrongKind(run.kind)
+	}
 	source, _ := toolString(args, "source")
 	switch source {
 	case "library":
@@ -711,6 +797,7 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		}
 		run.write("readingSource", "library")
 		run.write("slug", art.Slug)
+		run.materialSet = true
 		if tier, ok := toolInt(args, "tier"); ok {
 			if _, has := art.LevelAt(tier); !has {
 				return liteWorkspaceToolError("这篇文章没有这一档")
@@ -723,6 +810,7 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		// personalized-reading preview endpoint, and a second implementation
 		// here would be a second answer to the same question.
 		run.write("readingSource", "personalized")
+		run.materialSet = true
 		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
 	}
 	return liteWorkspaceToolError("材料来源只能是 library 或 personalized，收到：" + source)

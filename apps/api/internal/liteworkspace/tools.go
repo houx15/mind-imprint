@@ -59,10 +59,20 @@ func AssignmentTools() []gateway.ChatTool {
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					// 🚨 The read-then-write case has to resolve one way, in the
+					// contract, not by the model's mood. 「读一篇报道，写一篇
+					// 议论文」 names two activities and the card holds one kind,
+					// and only reading has a material row — so a homework that
+					// carries an article is a reading homework and the writing
+					// requirement lives in instructions. Without this sentence
+					// the model picked writing, attached the article anyway,
+					// and told her it was chosen while the card showed nothing.
 					"kind": map[string]any{
-						"type":        "string",
-						"enum":        []string{"reading", "writing", "project"},
-						"description": "作业种类：reading（阅读）、writing（写作）、project（项目）。",
+						"type": "string",
+						"enum": []string{"reading", "writing", "project"},
+						"description": "作业种类：reading（阅读，作业带一篇阅读材料）、writing（写作，没有阅读材料这一栏）、project（项目）。" +
+							"老师说「读一篇…再写一篇」这种读写结合的作业，选 reading，把写的要求写进 instructions。" +
+							"只有 reading 能设材料；改成 writing 或 project 会把已经选好的文章清掉。",
 					},
 					"title": map[string]any{
 						"type":        "string",

@@ -668,6 +668,168 @@ func TestWorkspaceChoiceSlugSetsTheMaterial(t *testing.T) {
 	}
 }
 
+// workspaceTurnBodyOfKind is workspaceTurnBody with the card's type set, which
+// is what decides whether the card has a material row at all.
+func workspaceTurnBodyOfKind(classID, kind, text string) string {
+	b, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": text,
+		"artifact": map[string]any{"kind": kind, "title": "", "dueInput": ""},
+	})
+	return string(b)
+}
+
+// TestWorkspaceSetMaterialRefusesAWritingCard — the defect the browser pass
+// found and no live assertion could see. The model set kind=writing, searched
+// the library and told her 「材料：已选「美国气候队」这篇报道」, while the card —
+// which renders the material row only for a reading homework — showed nothing.
+// She would have published a writing task with no article after being told one
+// was chosen.
+//
+// The material must not be written, and the tool error must name the remedy:
+// the model recovers from an error that says what to do, and ignores one that
+// only says no.
+func TestWorkspaceSetMaterialRefusesAWritingCard(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", `{"source":"library","slug":"biden-creates-climate-corps"}`),
+		wsText("这份作业是写作，没有阅读材料。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "writing", "写一篇议论文"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a bad argument must come back as a tool result, not a failed turn: %d %s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, wrote := out.Patch["slug"]; wrote {
+		t.Fatalf("an article was attached to a writing card, where it cannot be shown: %v", out.Patch)
+	}
+	if _, wrote := out.Patch["readingSource"]; wrote {
+		t.Fatalf("a reading source was written onto a writing card: %v", out.Patch)
+	}
+}
+
+// TestWorkspaceSetMaterialAllowsAReadingCard — the guard reads the card, it
+// does not ban the tool.
+func TestWorkspaceSetMaterialAllowsAReadingCard(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", `{"source":"library","slug":"biden-creates-climate-corps"}`),
+		wsText("材料已定。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "reading", "读一篇气候的报道"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set_material on a reading card = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["slug"] != "biden-creates-climate-corps" {
+		t.Fatalf("patch = %v, want the article set", out.Patch)
+	}
+}
+
+// TestWorkspaceSetMaterialFollowsAKindSetThisTurn — set_fields switching the
+// card to reading must open the material row immediately, in the same turn.
+// This is the recovery path the tool error points at; if it did not work, the
+// error would be advice the model cannot take.
+func TestWorkspaceSetMaterialFollowsAKindSetThisTurn(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"kind":"reading"}`),
+		wsToolCall("set_material", `{"source":"library","slug":"biden-creates-climate-corps"}`),
+		wsText("类型改成阅读，材料已定。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "writing", "改成读一篇报道"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("kind then material = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["kind"] != "reading" || out.Patch["slug"] != "biden-creates-climate-corps" {
+		t.Fatalf("patch = %v, want both the kind and the article", out.Patch)
+	}
+}
+
+// TestWorkspaceSetFieldsClearsAMaterialItIsHiding — the other direction of the
+// same fault, and the one a live run found my first guard missing: the material
+// was set in one turn and the kind switched in the NEXT, so a check scoped to
+// one turn never saw them together.
+//
+// The card must never hold what it cannot render. Switching away from reading
+// clears the material, and the tool result says so, because the alternative —
+// refusing — leaves the model an instruction it has no tool to carry out.
+func TestWorkspaceSetFieldsClearsAMaterialItIsHiding(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"kind":"writing"}`),
+		wsText("改成写作了，原来那篇文章已经清掉。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	// The card already carries an article, from an earlier turn.
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "改成写作作业吧",
+		"artifact": map[string]any{
+			"kind": "reading", "readingSource": "library", "slug": "biden-creates-climate-corps",
+		},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["kind"] != "writing" {
+		t.Fatalf("patch = %v, want the kind she asked for", out.Patch)
+	}
+	if out.Patch["slug"] != "" {
+		t.Fatalf("patch = %v, want the hidden article cleared, not left where nothing renders it", out.Patch)
+	}
+}
+
+// TestWorkspaceSetFieldsKeepsAMaterialOnAReadingCard — the clearing is narrow.
+// Rewriting other fields on a reading card must leave its article alone.
+func TestWorkspaceSetFieldsKeepsAMaterialOnAReadingCard(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"title":"气候变化阅读","kind":"reading"}`),
+		wsText("标题写好了。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "标题起一个",
+		"artifact": map[string]any{
+			"kind": "reading", "readingSource": "library", "slug": "biden-creates-climate-corps",
+		},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, cleared := out.Patch["slug"]; cleared {
+		t.Fatalf("patch = %v, want the article left alone on a reading card", out.Patch)
+	}
+}
+
+// TestWorkspaceChoiceSlugRefusesAWritingCard — the tapped-option path is not a
+// back door into the same broken state.
+func TestWorkspaceChoiceSlugRefusesAWritingCard(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("这份作业是写作，先把类型改成阅读才能用这篇。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID,
+		"artifact": map[string]any{"kind": "writing"},
+		"choiceId": "use-this", "choiceSlug": "biden-creates-climate-corps",
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("tapping an article on a writing card = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, wrote := out.Patch["slug"]; wrote {
+		t.Fatalf("the tapped article was attached to a writing card: %v", out.Patch)
+	}
+}
+
 // TestWorkspaceChoiceSlugIgnoresAnUnknownArticle — the field is client-supplied
 // and therefore trusted for nothing. An id that is not in the catalogue writes
 // nothing; the turn still runs.
