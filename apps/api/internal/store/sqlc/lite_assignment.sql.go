@@ -535,7 +535,7 @@ func (q *Queries) RemoveLiteAssignmentRecipient(ctx context.Context, arg RemoveL
 
 const setLiteAssignmentReturned = `-- name: SetLiteAssignmentReturned :one
 UPDATE lite_assignment_recipient
-SET returned_at = now(), return_due_at = $3, return_note = $4
+SET returned_at = now(), return_due_at = $3, return_note = $4, seen_at = NULL
 WHERE assignment_id = $1 AND user_id = $2
 RETURNING assignment_id, user_id, seen_at, atom_id, started_at, returned_at, return_due_at, return_note
 `
@@ -547,7 +547,8 @@ type SetLiteAssignmentReturnedParams struct {
 	ReturnNote   *string            `json:"return_note"`
 }
 
-// 退回修改。再次退回时覆盖三列。
+// 退回修改。再次退回时覆盖三列。同时清空 seen_at，使这份作业在学生收件箱里
+// 重新计入未读；她此前可能已经打开过它，退回是需要她重新看到的新事件。
 func (q *Queries) SetLiteAssignmentReturned(ctx context.Context, arg SetLiteAssignmentReturnedParams) (LiteAssignmentRecipient, error) {
 	row := q.db.QueryRow(ctx, setLiteAssignmentReturned,
 		arg.AssignmentID,

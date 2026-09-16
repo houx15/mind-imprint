@@ -453,6 +453,13 @@ describe("buildReturnInput", () => {
     });
     expect(buildReturnInput("2026-09-18T22:00", "   ", now)).toEqual({ ok: true, value: { dueAt: "2026-09-18T22:00:00+08:00" } });
   });
+  it("accepts a new deadline earlier than the original assignment due date, as long as it is after now", () => {
+    // The original assignment due date is 2026-09-25; this return deadline
+    // (2026-09-16) is earlier than that but still after `now` (2026-09-15).
+    // buildReturnInput never compares against the original due date at all —
+    // only against now — so a teacher may shorten the schedule on a return.
+    expect(buildReturnInput("2026-09-16T09:00", "", now).ok).toBe(true);
+  });
 });
 
 // The text colours are pinned because their contrast was measured, not seen:

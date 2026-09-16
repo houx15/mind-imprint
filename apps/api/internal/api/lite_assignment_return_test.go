@@ -155,6 +155,83 @@ func TestReturnWritingHomework(t *testing.T) {
 	}
 }
 
+type unreadInboxItem struct {
+	ID     string `json:"id"`
+	Unread bool   `json:"unread"`
+	Status string `json:"status"`
+}
+
+type unreadInboxResp struct {
+	Items  []unreadInboxItem `json:"items"`
+	Unread int               `json:"unread"`
+}
+
+// A returned homework the student already opened once must resurface as
+// unread — she has no other signal that the teacher sent it back.
+func TestReturnMakesSeenAssignmentUnreadAgain(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid, atomID, student := startWritingHomework(t, h, pool, teacher, classID, studentID)
+	if code := assignJSON(t, h, student, "POST", "/api/v1/writings/"+atomID+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish = %d", code)
+	}
+	// She already opened it — seen_at is set, and the inbox agrees.
+	if code := assignJSON(t, h, student, "POST", "/api/v1/lite/assignments/"+aid+"/seen", nil, nil); code != http.StatusNoContent {
+		t.Fatalf("seen = %d", code)
+	}
+	var before unreadInboxResp
+	getJSON(t, h, student, "/api/v1/lite/inbox", &before)
+	if len(before.Items) != 1 || before.Items[0].Unread || before.Unread != 0 {
+		t.Fatalf("inbox before return = %+v", before)
+	}
+
+	future := time.Now().Add(72 * time.Hour).Format(time.RFC3339)
+	if code := assignJSON(t, h, teacher, "POST", returnPath(aid, studentID.String()), map[string]any{"dueAt": future}, nil); code != http.StatusOK {
+		t.Fatalf("return = %d", code)
+	}
+
+	var after unreadInboxResp
+	getJSON(t, h, student, "/api/v1/lite/inbox", &after)
+	if len(after.Items) != 1 || !after.Items[0].Unread || after.Items[0].Status != "returned" {
+		t.Fatalf("inbox after return = %+v", after)
+	}
+	if after.Unread != before.Unread+1 {
+		t.Fatalf("unread count = %d, want %d", after.Unread, before.Unread+1)
+	}
+
+	// Opening it again marks it seen once more.
+	if code := assignJSON(t, h, student, "POST", "/api/v1/lite/assignments/"+aid+"/seen", nil, nil); code != http.StatusNoContent {
+		t.Fatalf("seen after return = %d", code)
+	}
+	var seenAgain unreadInboxResp
+	getJSON(t, h, student, "/api/v1/lite/inbox", &seenAgain)
+	if len(seenAgain.Items) != 1 || seenAgain.Items[0].Unread || seenAgain.Unread != before.Unread {
+		t.Fatalf("inbox after re-seen = %+v", seenAgain)
+	}
+}
+
+// A teacher may set the new return deadline earlier than the original
+// assignment deadline, as long as it is still after now — 退回修改 gives
+// the student less time than the original schedule, not always more.
+func TestReturnDueAtMayBeEarlierThanOriginalDueAt(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid, atomID, student := startWritingHomework(t, h, pool, teacher, classID, studentID)
+	if code := assignJSON(t, h, student, "POST", "/api/v1/writings/"+atomID+"/finish", nil, nil); code != http.StatusOK {
+		t.Fatalf("finish = %d", code)
+	}
+	// The fixture's original due date is now + 48h; ask for now + 24h, which
+	// is earlier than the original deadline but still in the future.
+	earlier := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+	var resp struct {
+		Recipient recipientView `json:"recipient"`
+	}
+	if code := assignJSON(t, h, teacher, "POST", returnPath(aid, studentID.String()), map[string]any{"dueAt": earlier}, &resp); code != http.StatusOK {
+		t.Fatalf("return with earlier-than-original due date = %d", code)
+	}
+	if resp.Recipient.ReturnDueAt == nil {
+		t.Fatalf("return response = %+v", resp.Recipient)
+	}
+}
+
 func TestReturnRefusals(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
 	future := time.Now().Add(72 * time.Hour).Format(time.RFC3339)
