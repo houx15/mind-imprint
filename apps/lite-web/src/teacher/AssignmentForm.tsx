@@ -5,6 +5,7 @@ import { api, type ClassSummary } from "@/api";
 import { createAssignment, extractWritingFields, type AssignmentKind } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
+import { AssignmentAIMode } from "./AssignmentAIMode";
 import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
 import { PersonalizedPicker } from "./PersonalizedPicker";
@@ -21,10 +22,13 @@ import {
   failText,
   fillTitleIfEmpty,
   pickClassId,
+  readAssignmentMode,
   readLastClassId,
   toggleId,
+  writeAssignmentMode,
   writeLastClassId,
   type AssignmentDraft,
+  type AssignmentMode,
   type ReadingSource,
   type SettingsDraft,
 } from "./assignmentLogic";
@@ -42,6 +46,11 @@ const KIND_OPTIONS: { value: AssignmentKind; label: string }[] = [
   { value: "reading", label: "阅读" },
   { value: "writing", label: "写作" },
   { value: "project", label: "项目" },
+];
+
+const MODE_OPTIONS: { value: AssignmentMode; label: string }[] = [
+  { value: "traditional", label: "传统" },
+  { value: "ai", label: "AI" },
 ];
 
 const SOURCE_OPTIONS: { value: ReadingSource; label: string }[] = [
@@ -257,10 +266,18 @@ export function AssignmentForm({
   onBack: () => void;
   onCreated: (assignmentId: string) => void;
 }) {
+  const [mode, setModeState] = useState<AssignmentMode>(() => readAssignmentMode());
+  function setMode(next: AssignmentMode) {
+    writeAssignmentMode(next);
+    setModeState(next);
+  }
+
   const [classes, setClasses] = useState<ClassSummary[] | null>(null);
   const [classesError, setClassesError] = useState<string | null>(null);
   const [classesNonce, setClassesNonce] = useState(0);
 
+  // Shared by both modes — switching `mode` never touches `draft`, so
+  // whatever she typed on either side survives the toggle.
   const [draft, setDraft] = useState<AssignmentDraft>(() => ({
     ...emptySettings("reading"),
     classId: "",
@@ -360,6 +377,10 @@ export function AssignmentForm({
       <h1 className="teacher-page-title mt-4">布置作业</h1>
       <p className="mt-2 text-mk-small text-mk-muted">学生会在收件箱和对应页面顶部看到这份作业。</p>
 
+      <div className="mt-4">
+        <Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+      </div>
+
       {classesError ? (
         <div className="mt-6 text-mk-small font-semibold text-mk-danger">
           加载失败：{classesError}{" "}
@@ -371,6 +392,16 @@ export function AssignmentForm({
         <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
       ) : classes.length === 0 ? (
         <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
+      ) : mode === "ai" ? (
+        <AssignmentAIMode
+          draft={draft}
+          setDraft={setDraft}
+          classes={classes}
+          roster={roster}
+          rosterError={rosterError}
+          onRosterRetry={() => setRosterNonce((n) => n + 1)}
+          onCreated={onCreated}
+        />
       ) : (
         <form
           // noValidate: the browser's own tooltips (type=url, number min)
@@ -461,7 +492,7 @@ export function AssignmentForm({
   );
 }
 
-function RecipientChecklist({
+export function RecipientChecklist({
   roster,
   error,
   onRetry,

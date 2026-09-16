@@ -23,6 +23,24 @@ describe("applyPatch", () => {
     const cur = { title: "甲", dueInput: "" };
     expect(applyPatch(cur, cur, {}).next).toEqual(cur);
   });
+
+  // 花名册重新拉一次会造出一份新数组，但学生没有变——不能被误判成老师改过。
+  it("treats a rebuilt-but-equal array as unedited", () => {
+    const snapshot = { userIds: ["a", "b", "c"] };
+    const current = { userIds: [...snapshot.userIds] }; // same students, new array identity
+    const { next, kept } = applyPatch(current, snapshot, { userIds: ["a", "b"] });
+    expect(next.userIds).toEqual(["a", "b"]);
+    expect(kept).toEqual([]);
+  });
+
+  // 老师在这一轮里真的勾掉了一个学生：这份修改必须留住，不能被 AI 的名单覆盖。
+  it("treats a genuinely changed array as edited and keeps it", () => {
+    const snapshot = { userIds: ["a", "b", "c"] };
+    const current = { userIds: ["a", "b"] }; // she unchecked "c"
+    const { next, kept } = applyPatch(current, snapshot, { userIds: ["a", "b", "c", "d"] });
+    expect(next.userIds).toEqual(["a", "b"]);
+    expect(kept).toEqual(["userIds"]);
+  });
 });
 
 describe("trimTurns", () => {

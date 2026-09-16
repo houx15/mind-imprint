@@ -24,6 +24,23 @@ export interface Choice {
   label: string;
 }
 
+/** `current[key] !== snapshot[key]` is reference equality, which is wrong
+ * for an array field like `userIds`: a rebuild with no real edit (e.g. a
+ * fresh `[...roster]`) looks changed, and an in-place mutation looks
+ * unchanged (see the "never mutate in place" rule at the call sites — this
+ * function cannot see through a mutation, it can only compare values). When
+ * both sides are arrays, compare length and elements instead of identity. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+
 /** A turn takes several seconds; the teacher can edit the card while it is in
  * flight. `snapshot` is the draft as it was when the turn started, `current`
  * is the draft now. For each key the patch names: if the teacher changed it
@@ -38,7 +55,7 @@ export function applyPatch<T extends object>(
   const next = { ...current };
   const kept: (keyof T)[] = [];
   for (const key of Object.keys(patch) as (keyof T)[]) {
-    if (current[key] !== snapshot[key]) {
+    if (!sameValue(current[key], snapshot[key])) {
       kept.push(key);
       continue;
     }

@@ -711,3 +711,25 @@ export function writeLastClassId(classId: string): void {
     /* storage blocked: the page still works, it just forgets */
   }
 }
+
+export type AssignmentMode = "traditional" | "ai";
+
+const ASSIGNMENT_MODE_KEY = "lite.teacher.assignmentMode";
+
+/** The create page's last chosen mode; a teacher with no record yet gets
+ * "ai", not the plain form. */
+export function readAssignmentMode(): AssignmentMode {
+  try {
+    return window.localStorage.getItem(ASSIGNMENT_MODE_KEY) === "traditional" ? "traditional" : "ai";
+  } catch {
+    return "ai";
+  }
+}
+
+export function writeAssignmentMode(mode: AssignmentMode): void {
+  try {
+    window.localStorage.setItem(ASSIGNMENT_MODE_KEY, mode);
+  } catch {
+    /* storage blocked: the page still works, it just forgets */
+  }
+}
