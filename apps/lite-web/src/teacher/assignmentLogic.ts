@@ -315,6 +315,21 @@ export function draftOnClassChange(d: AssignmentDraft, classId: string): Assignm
   return { ...d, classId, picks: null };
 }
 
+/** 类型 changed to `kind`. Only a reading homework has a material row, so
+ * leaving 阅读 takes the chosen article with it — the same three fields the
+ * server's `set_fields` clears on the same transition
+ * (apps/api/internal/api/lite_teacher_workspace.go).
+ *
+ * The AI mode needs this because the card it holds is sent back to the model as
+ * card state on the next turn: a draft that says 「种类：writing」 beside
+ * 「文章 slug：…」 shows the model a card that cannot exist, which is the state
+ * the server guard exists to prevent. Arriving through her own 类型 control
+ * rather than through a tool does not make it a different state. */
+export function draftOnKindChange<T extends SettingsDraft>(d: T, kind: AssignmentKind): T {
+  if (kind === "reading") return { ...d, kind };
+  return { ...d, kind, readingSource: "library", slug: "", tier: null };
+}
+
 function validateCommon(title: string, dueInput: string): string | null {
   const t = title.trim();
   if (!t || runes(t) > 200) return "请填写作业标题，不超过 200 字";

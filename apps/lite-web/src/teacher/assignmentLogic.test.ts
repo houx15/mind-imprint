@@ -12,6 +12,7 @@ import {
   canEditSettings,
   disciplineOptions,
   draftOnClassChange,
+  draftOnKindChange,
   emptySettings,
   extractedCountText,
   failText,
@@ -304,6 +305,37 @@ describe("draftOnClassChange", () => {
     expect(next.picks).toBeNull();
     expect(next.disciplines).toEqual(["science"]);
     expect(next.personalTier).toBe(3);
+  });
+});
+
+// The card the AI mode holds is what the next turn shows the model, so a draft
+// that says 「种类：writing」 beside a chosen article shows it a card that cannot
+// render. These three fields are the same ones the server's set_fields clears
+// on the same transition.
+describe("draftOnKindChange", () => {
+  const reading = draft({ ...emptySettings("reading"), readingSource: "library", slug: "coral", tier: 3 });
+
+  it("takes the material with it when leaving 阅读", () => {
+    const next = draftOnKindChange(reading, "writing");
+    expect(next.kind).toBe("writing");
+    expect(next.slug).toBe("");
+    expect(next.readingSource).toBe("library");
+    expect(next.tier).toBeNull();
+  });
+
+  it("clears the material for 项目 too", () => {
+    expect(draftOnKindChange(reading, "project").slug).toBe("");
+  });
+
+  it("keeps the material when the kind is still 阅读", () => {
+    const next = draftOnKindChange(reading, "reading");
+    expect(next.slug).toBe("coral");
+    expect(next.tier).toBe(3);
+  });
+
+  it("leaves the other cells alone", () => {
+    const next = draftOnKindChange(draft({ ...emptySettings("reading"), title: "气候作业" }), "writing");
+    expect(next.title).toBe("气候作业");
   });
 });
 

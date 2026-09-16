@@ -87,6 +87,26 @@ export function clampChoices(choices: Choice[]): Choice[] {
   return out;
 }
 
+/** Removes the optimistic teacher turn a failed round trip left on screen.
+ *
+ * A turn is appended before the request goes out so her sentence appears
+ * immediately. When the request fails, 重试 sends it again and appends a second
+ * copy — she saw her own sentence twice and the server received it twice, once
+ * in `turns` and once as `text`. Rolling back on failure is what makes 重试 an
+ * ordinary send.
+ *
+ * It removes a turn only when the one at `index` is still the last turn, is
+ * hers, and still carries the text that was sent. Any other shape means the
+ * conversation moved on (a class change clears it; the generation counter at
+ * the call site already refuses a reply from an abandoned session) and the turn
+ * at that index is no longer the one this failure is about. */
+export function rollbackTurn(turns: Turn[], index: number, text: string): Turn[] {
+  if (index !== turns.length - 1) return turns;
+  const last = turns[index];
+  if (!last || last.role !== "teacher" || last.text !== text) return turns;
+  return turns.slice(0, index);
+}
+
 /** Identifies which session and class a turn was sent under. `classId`
  * alone is not enough to tell a turn's response is still wanted: a teacher
  * can switch class A → B → A while a turn for A is in flight, and the

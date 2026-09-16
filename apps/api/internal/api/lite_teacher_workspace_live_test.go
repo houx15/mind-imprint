@@ -50,12 +50,18 @@ var liveWorkspaceRoster = []struct{ email, name string }{
 // the article is decided, and the due date is relative so the model has to
 // resolve it against today's Beijing date itself.
 //
-// They differ in one thing only — whether search_library can answer the topic.
-// The catalogue's single climate article is titled 美国气候队, and SearchLibrary
-// matches a substring of the title, so the query a teacher writes for the first
-// scenario ("气候变化") returns nothing. Running both separates a model that
-// cannot follow the tool rules from a search that cannot serve the topic; with
-// only the first, every failure reads like the model's.
+// They differ in one thing only — how the topic reaches the article. The
+// catalogue's single climate article is titled 美国气候队 and carries no 气候变化
+// in any headline, so the first scenario's query reaches it only through the
+// discipline table, where 气候变化 is an alias of climate-ocean. The second is a
+// plain headline match. Running both separates a model that cannot follow the
+// tool rules from a search that cannot serve the topic; with only one of them,
+// every failure reads like the model's.
+//
+// The first scenario used to return nothing at all, because the search matched
+// a title substring only — the cliff between 「气候」 and 「气候变化」 that a
+// teacher cannot tell apart. SearchLibrary now searches what an article is
+// about, so both scenarios are expected to find the article.
 //
 // followUps are the teacher's next answers, sent one at a time while the card
 // still has no material. The model asks before it commits an article, so
@@ -65,12 +71,12 @@ var liveWorkspaceScenarios = []struct {
 	followUps     []string
 }{
 	{
-		"catalogue-misses",
+		"topic-via-discipline",
 		"这周读一篇气候变化的报道，写一篇议论文，周五交",
 		[]string{"从阅读库里挑一篇跟气候有关的报道", "就用这篇，定下来"},
 	},
 	{
-		"catalogue-hits",
+		"topic-in-headline",
 		"这周读一篇亚运会的报道，写一篇议论文，周五交",
 		[]string{"就用你找到的那篇，定下来", "确认，就这篇"},
 	},
@@ -498,6 +504,10 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 // 「个性化阅读，各找一篇」 is 10; a label that carries a whole article title runs
 // past 15. Nothing in product code enforces this — the prompt asks for 名词或
 // 短动宾 and this is the number that reads it back.
+//
+// 🚨 So this is a canary, not a guard. The whole file is skipped unless
+// LIVE_LLM=1, which means a green CI says nothing about label length: the only
+// thing that ever checks it is a human running this test against a real model.
 const liveWorkspaceMaxLabelRunes = 15
 
 // liveWorkspaceMaxTurns bounds the scripted teacher. A card that still has no

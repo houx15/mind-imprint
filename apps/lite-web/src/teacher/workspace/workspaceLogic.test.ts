@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { applyPatch, clampChoices, isCurrentTurn, trimTurns, TURNS_WINDOW, MAX_CHOICES } from "./workspaceLogic";
+import {
+  applyPatch,
+  clampChoices,
+  isCurrentTurn,
+  rollbackTurn,
+  trimTurns,
+  TURNS_WINDOW,
+  MAX_CHOICES,
+  type Turn,
+} from "./workspaceLogic";
 
 describe("applyPatch", () => {
   // 一轮在飞的时候老师改了截止时间：patch 不能把她的修改抹掉。
@@ -69,6 +78,46 @@ describe("isCurrentTurn", () => {
 
   it("is stale when only the class has moved", () => {
     expect(isCurrentTurn({ gen: 1, classId: "A" }, { gen: 1, classId: "B" })).toBe(false);
+  });
+});
+
+describe("rollbackTurn", () => {
+  const sent: Turn = { role: "teacher", text: "这周读一篇气候变化的报道" };
+
+  it("removes the optimistic turn a failed request left behind", () => {
+    const turns: Turn[] = [{ role: "ai", text: "好的" }, sent];
+    expect(rollbackTurn(turns, 1, sent.text)).toEqual([{ role: "ai", text: "好的" }]);
+  });
+
+  // The failure this pins: 重试 re-enters the same send and appends again. With
+  // the rollback, the retry starts from a list that no longer holds the first
+  // copy, so she reads her sentence once and the server receives it once.
+  it("leaves one copy after a failure and a retry", () => {
+    const afterFailure = rollbackTurn([sent], 0, sent.text);
+    expect([...afterFailure, sent]).toEqual([sent]);
+  });
+
+  it("keeps a turn that is no longer the last one", () => {
+    const turns: Turn[] = [sent, { role: "ai", text: "好的" }];
+    expect(rollbackTurn(turns, 0, sent.text)).toEqual(turns);
+  });
+
+  // A class change clears the conversation and bumps the generation counter.
+  // If a stale failure ever reached here, the index would point at another
+  // sitting's turn, and removing it would delete a sentence she did send.
+  it("keeps a turn that no longer says what was sent", () => {
+    const other: Turn[] = [{ role: "teacher", text: "换一个班" }];
+    expect(rollbackTurn(other, 0, sent.text)).toEqual(other);
+  });
+
+  it("keeps an AI turn at that index", () => {
+    const turns: Turn[] = [{ role: "ai", text: sent.text }];
+    expect(rollbackTurn(turns, 0, sent.text)).toEqual(turns);
+  });
+
+  it("is the identity on an out-of-range index", () => {
+    expect(rollbackTurn([], 0, sent.text)).toEqual([]);
+    expect(rollbackTurn([sent], 5, sent.text)).toEqual([sent]);
   });
 });
 

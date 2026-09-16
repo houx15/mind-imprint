@@ -136,7 +136,7 @@ export function AssignmentsPage({
               },
             }}
           >
-            这个班级还没有作业。
+            暂无作业。
           </StudioEmpty>
         ) : (
           <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">

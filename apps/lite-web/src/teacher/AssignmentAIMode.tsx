@@ -8,6 +8,7 @@ import { useAlive } from "../shared/useAlive";
 import {
   buildCreateInput,
   draftOnClassChange,
+  draftOnKindChange,
   failText,
   fillTitleIfEmpty,
   writeLastClassId,
@@ -15,7 +16,15 @@ import {
 } from "./assignmentLogic";
 import { Field, INPUT_CLS } from "./formParts";
 import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm";
-import { applyPatch, clampChoices, isCurrentTurn, trimTurns, type Choice, type Turn } from "./workspace/workspaceLogic";
+import {
+  applyPatch,
+  clampChoices,
+  isCurrentTurn,
+  rollbackTurn,
+  trimTurns,
+  type Choice,
+  type Turn,
+} from "./workspace/workspaceLogic";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
 // teacher/AssignmentAIMode.tsx — the AI mode of 布置作业: the homework card
@@ -169,6 +178,14 @@ export function AssignmentAIMode({
       // A failure for a turn whose session she has since left is not worth
       // surfacing — the conversation it belongs to is already gone.
       if (alive.current && isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
+        // Her sentence goes back off screen before the error goes up. 重试
+        // re-enters this function and appends it again, so without the
+        // rollback she read her own sentence twice and the server received it
+        // twice — once in `turns`, once as `text`. `rollbackTurn` removes it
+        // only while it is still the last turn and still says what was sent;
+        // `isCurrentTurn` above has already refused a failure from a session
+        // she has left, so this cannot reach another generation's turn.
+        setTurns((t) => rollbackTurn(t, nextTurns.length - 1, teacherText));
         // The server already prefixes its own message with 「对话失败：」;
         // `failText` recognizes that prefix and does not double it.
         setError(failText("对话", e));
@@ -258,8 +275,14 @@ export function AssignmentAIMode({
 
             Without it this card had no way to correct a type the conversation
             had got wrong, and the type decides which cells exist below: switch
-            a writing card to 阅读 and SettingsFields renders the material row. */}
-        <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
+            a writing card to 阅读 and SettingsFields renders the material row.
+
+            It goes through `draftOnKindChange` because the card she edits is
+            the card the next turn shows the model. Setting `kind` alone left a
+            chosen article on a writing draft, where nothing renders it — the
+            same contradictory state the server's `set_fields` clears, arriving
+            through her control instead of a tool's. */}
+        <KindField value={draft.kind} onChange={(kind) => setDraft((d) => draftOnKindChange(d, kind))} />
 
         {keptText && (
           <p className="text-mk-small font-semibold text-mk-accent-700" role="status">

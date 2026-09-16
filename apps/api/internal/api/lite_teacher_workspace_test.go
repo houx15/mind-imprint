@@ -10,6 +10,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -533,6 +534,49 @@ func TestWorkspaceTurnAcceptsACountAToolReturned(t *testing.T) {
 	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "班里有谁"))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("a count list_students returned = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnDoesNotGroundACountInADate — 🚨 the evidence side used to
+// read every integer the teacher typed, which made this sentence ground 1 (一篇)
+// and 5 (周五). A reply inventing 「发给全班 5 人」 then walked straight through
+// the check that exists to stop exactly that. Her side reads head counts now,
+// the same shape the reply is checked with.
+func TestWorkspaceTurnDoesNotGroundACountInADate(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，发给全班 5 人。"))
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	enrollMoreLiteStudents(t, pool, classID, 2)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周读一篇气候变化的报道，周五交"))
+	if rec.Code < 400 {
+		t.Fatalf("a count read out of 周五 = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "5") {
+		t.Fatalf("the error does not name the offending count: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnAcceptsTheClassSize — the system prompt's first line hands
+// the model 「共 N 名学生」. A reply repeating that number is repeating data we
+// supplied, so failing the turn would punish the model for being right.
+func TestWorkspaceTurnAcceptsTheClassSize(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，这份作业发给全班 3 人。"))
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	enrollMoreLiteStudents(t, pool, classID, 2)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周布置什么好"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the class size the prompt states = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// enrollMoreLiteStudents grows the fixture class past one student, so a test
+// about a head count has a number to look for that is not 1.
+func enrollMoreLiteStudents(t *testing.T, pool *pgxpool.Pool, classID string, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		id := createStudent(t, pool, SeedSchoolID, fmt.Sprintf("lt-extra-%d@demo.local", i))
+		enrollStudent(t, pool, id, classID)
 	}
 }
 

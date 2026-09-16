@@ -1,6 +1,8 @@
 package liteworkspace
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -210,12 +212,28 @@ func TestStatedCounts(t *testing.T) {
 		{"二十三名学生已完成", []int{23}},
 		{"十人未开始", []int{10}},
 
+		// 个 with the noun spelled out behind it. The live detector has read
+		// these three forms since it was written; the guard did not, so a live
+		// run could come back clean while production shipped the count.
+		{"这份作业发给 3 个学生", []int{3}},
+		{"有 3 个同学还没交", []int{3}},
+		{"这三个孩子还没写", []int{3}},
+		{"名单上 12 个人", []int{12}},
+
 		// 🚨 Everything below carries digits and none of it is a head count.
 		// A general digit detector fails every one of these turns.
 		{"截止时间定在 2026-09-18T18:00", nil},
 		{"难度 3 档，1 到 5 都有", nil},
 		{"不少于 800 字", nil},
 		{"给你 2 个选项", nil},
+		{"给你三个方向", nil},
+
+		// 名单 and 位置 are different words that happen to start with a
+		// counter. Whitespace is stripped before matching, which puts the 18
+		// of a date straight against 名 — and the system prompt tells the model
+		// to write 「名单上的学生」, so this fired on following instructions.
+		{"截止 2026-09-18 名单如下", nil},
+		{"排在前 3 位置的", nil},
 		{"第一位交的同学", nil},
 		{"第 3 名是谁不重要", nil},
 		{"库里找到 7 篇气候相关的文章", nil},
@@ -251,30 +269,28 @@ func TestUngroundedCounts(t *testing.T) {
 	}
 }
 
-// TestNumbersInReadsWhatSheTyped — her own numbers are evidence, in whatever
-// shape the reply later echoes them.
-func TestNumbersInReadsWhatSheTyped(t *testing.T) {
-	// 5 is in here because 周五 carries 五. That is the right way for this side
-	// to err: it is the evidence half, and a number she wrote grounds a reply
-	// that echoes it, exactly as a name she typed does. Being generous here
-	// costs a rare miss; being strict would fail her turn over her own words.
-	got := NumbersIn("发给 3 名学生，周五 18:00 交")
-	want := map[int]bool{0: true, 3: true, 5: true, 18: true}
-	for _, n := range got {
-		if !want[n] {
-			t.Fatalf("NumbersIn read %d out of %v, which she did not write", n, got)
-		}
+// TestStudentCarriesNoProse pins the field set of the roster row this package
+// hands to the model and to the workspace card.
+//
+// The teacher-visibility rule is: a teacher sees everything her student
+// produced EXCEPT the student's conversation with the AI coach. Every field
+// below is a name or a tally. A field added later that carries prose — a note,
+// a draft, a coach turn — would travel into the assignment prompt and onto the
+// canvas without anyone deciding it should, and today only a comment and a
+// reviewer stand between here and that. This test is the thing that fails.
+//
+// Adding a field is allowed. Editing this list on purpose, after checking the
+// new field is not prose the student wrote to the coach, is the whole ritual.
+func TestStudentCarriesNoProse(t *testing.T) {
+	want := []string{"ActiveDaysThisWeek", "ID", "Name", "OverdueAssignments", "WritingsDone"}
+	rt := reflect.TypeOf(Student{})
+	got := make([]string, 0, rt.NumField())
+	for i := 0; i < rt.NumField(); i++ {
+		got = append(got, rt.Field(i).Name)
 	}
-	for _, need := range []int{3, 18} {
-		found := false
-		for _, n := range got {
-			if n == need {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("NumbersIn = %v, missing the %d she typed", got, need)
-		}
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("liteworkspace.Student fields = %v, want %v", got, want)
 	}
 }
 

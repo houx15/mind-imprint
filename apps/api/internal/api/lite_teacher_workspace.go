@@ -135,7 +135,11 @@ func errLiteWorkspaceTurn(reason string) *httpx.APIError {
 // postLiteTeacherWorkspaceTurn handles POST /api/v1/lite/teacher/workspace/turn.
 func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Request) {
 	var req liteWorkspaceTurnRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// The body is capped like every other model-adjacent route in this package.
+	// artifact.instructions and turns[].text are teacher-supplied and go
+	// straight into a metered prompt, so an unbounded body is an unbounded
+	// bill as well as unbounded memory.
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
@@ -420,17 +424,28 @@ func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequ
 }
 
 // liteWorkspaceGroundedCounts is every number a reply may state as a count of
-// people: what a tool counted this turn, and what the teacher wrote herself.
+// people: what a tool counted this turn, the size of the class, and the head
+// counts the teacher stated herself.
 //
-// Her numbers count in whatever shape she wrote them, because the reply will
-// echo them in whatever shape it likes — she types 「发给 3 名学生」 and the reply
-// says 「三人」, and that is her number coming back, not a fabrication.
+// The roster size is in here because the system prompt hands it to the model in
+// its first line (「共 %d 名学生」). A reply that says 「全班 12 人」 for a class of
+// twelve is repeating data we supplied, and failing that turn would punish the
+// model for being right.
+//
+// Her side is read with StatedCounts, the same head-count shape the reply is
+// checked with, NOT every integer she typed. Reading every integer measured out
+// as far too generous: 「这周读一篇气候变化的报道，周五交」 grounded 1 (一篇) and
+// 5 (周五), so a reply inventing 「发给全班 5 人」 walked through the check for a
+// class of twelve. The case this side exists for still passes — she types
+// 「发给 3 名学生」, the reply says 「三人」 — because that is a head count in both
+// shapes.
 func liteWorkspaceGroundedCounts(run *liteWorkspaceRun, turns []liteworkspace.Turn, typed string) []int {
 	out := append([]int{}, run.countsReturned...)
-	out = append(out, liteworkspace.NumbersIn(typed)...)
+	out = append(out, len(run.roster))
+	out = append(out, liteworkspace.StatedCounts(typed)...)
 	for _, t := range turns {
 		if t.Role == "teacher" {
-			out = append(out, liteworkspace.NumbersIn(t.Text)...)
+			out = append(out, liteworkspace.StatedCounts(t.Text)...)
 		}
 	}
 	return out

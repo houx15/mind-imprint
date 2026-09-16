@@ -141,17 +141,74 @@ func UngroundedNames(reply string, roster, grounded []string) []string {
 	return bad
 }
 
-// personCounter reports whether r is a counter word that makes the number
-// before it a count of PEOPLE.
+// personCounterWidth reports how many runes of a counter word start at r[at],
+// when the word there makes the number before it a count of PEOPLE. 0 means it
+// is not such a word.
 //
-// 个 is deliberately not one. 「两个选项」「3 个字段」「一个办法」 are not head
-// counts, and a check that fired on them would fail turns for saying nothing
-// wrong. 人 / 位 / 名 after a number count people in this reply or count
-// nothing.
-func personCounter(r rune) bool { return r == '人' || r == '位' || r == '名' }
+// 人 / 位 / 名 after a number count people in this reply or count nothing.
+//
+// 个 on its own does not. 「两个选项」「3 个字段」「一个办法」 are not head counts,
+// and a check that fired on them would fail turns for saying nothing wrong. It
+// counts only when the thing counted is spelled out right behind it —
+// 个学生 / 个同学 / 个孩子 / 个人. Those four are exactly the forms the live
+// detector in lite_teacher_workspace_live_test.go reads, and leaving them out
+// of the guard let a live run pass while production shipped 「3 个学生」.
+//
+// 名 and 位 are rejected when the next rune turns them into a different word:
+// 名单 and 位置. Whitespace is stripped before this runs, so
+// 「截止 2026-09-18 名单如下」 puts 18 straight against 名 — and the system prompt
+// itself tells the model to write 「名单上的学生」, so this false positive would
+// fail turns for following instructions.
+func personCounterWidth(r []rune, at int) int {
+	if at >= len(r) {
+		return 0
+	}
+	next := rune(0)
+	if at+1 < len(r) {
+		next = r[at+1]
+	}
+	switch r[at] {
+	case '人':
+		return 1
+	case '名':
+		if next == '单' {
+			return 0
+		}
+		return 1
+	case '位':
+		if next == '置' {
+			return 0
+		}
+		return 1
+	case '个':
+		for _, w := range personNouns {
+			if hasPrefixRunes(r[at+1:], w) {
+				return 1 + len(w)
+			}
+		}
+	}
+	return 0
+}
+
+// personNouns are the nouns that turn 个 into a head-count counter.
+var personNouns = [][]rune{[]rune("学生"), []rune("同学"), []rune("孩子"), {'人'}}
+
+func hasPrefixRunes(r, prefix []rune) bool {
+	if len(r) < len(prefix) {
+		return false
+	}
+	for i, c := range prefix {
+		if r[i] != c {
+			return false
+		}
+	}
+	return true
+}
 
 // StatedCounts returns every head count a text states: a number, written in
-// digits or Chinese numerals, immediately followed by 人, 位 or 名.
+// digits or Chinese numerals, immediately followed by a counter word that
+// counts people — 人, 位, 名, or 个 with the noun spelled out behind it
+// (个学生 / 个同学 / 个孩子 / 个人).
 //
 // 🚨 Narrow on purpose. This is NOT a digit detector. A year, a tier, a word
 // count, a date and an ordinal all carry digits and none of them is a claim
@@ -174,8 +231,10 @@ func StatedCounts(text string) []int {
 			continue
 		}
 		end := i + width
-		if end < len(r) && personCounter(r[end]) && (i == 0 || r[i-1] != '第') {
+		if w := personCounterWidth(r, end); w > 0 && (i == 0 || r[i-1] != '第') {
 			out = append(out, n)
+			i = end + w
+			continue
 		}
 		i = end
 	}
@@ -205,25 +264,6 @@ func UngroundedCounts(text string, grounded []int) []int {
 	}
 	sort.Ints(bad)
 	return bad
-}
-
-// NumbersIn returns every integer a text writes in digits, plus every head
-// count it states in Chinese numerals. It is the evidence side of
-// UngroundedCounts, read over what the TEACHER wrote: a number she typed is
-// hers to have typed, in whatever shape the reply later echoes it.
-func NumbersIn(text string) []int {
-	r := []rune(stripSpace(text))
-	var out []int
-	for i := 0; i < len(r); {
-		n, width, ok := readNumber(r[i:])
-		if !ok {
-			i++
-			continue
-		}
-		out = append(out, n)
-		i += width
-	}
-	return out
 }
 
 // readNumber reads one number off the front of r, in digits or in Chinese
