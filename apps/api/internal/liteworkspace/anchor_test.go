@@ -89,7 +89,8 @@ func TestAnchoredSpanShortPassageAnchorsOverlap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AnchoredSpan: %v", err)
 	}
-	if got != "甲乙丙丁戊己庚辛壬癸子丑" {
+	// The closing 。 directly after the end anchor is part of the passage.
+	if got != "甲乙丙丁戊己庚辛壬癸子丑。" {
 		t.Fatalf("span = %q", got)
 	}
 }
@@ -142,5 +143,44 @@ func TestAnchoredSpanRuneIndicesWithMixedWidth(t *testing.T) {
 	}
 	if !strings.Contains(typed, got) {
 		t.Fatal("span must be a literal substring of what she typed")
+	}
+}
+
+// The 2026-09-17 live rerun: a passage ending on ” lost the quote in 3 of 3
+// runs, because the model's end anchor stopped at 。.
+func TestAnchoredSpanKeepsTheClosingQuote(t *testing.T) {
+	passage := `记者问她怎么看。她说：“我们只是想把账算明白。”`
+	typed := "请把这段设为材料：\n" + passage
+	got, err := AnchoredSpan(typed, "记者问她怎么看。她说", "我们只是想把账算明白")
+	if err != nil {
+		t.Fatalf("AnchoredSpan: %v", err)
+	}
+	if got != passage {
+		t.Fatalf("span = %q, want %q", got, passage)
+	}
+}
+
+func TestAnchoredSpanKeepsTheOpeningQuote(t *testing.T) {
+	passage := `“透水砖不是万能的，”一位工程师说，“维护比铺设更难。”`
+	typed := "材料如下\n" + passage + "\n周五交"
+	got, err := AnchoredSpan(typed, "透水砖不是万能的，", "一位工程师说，“维护比铺设更难")
+	if err != nil {
+		t.Fatalf("AnchoredSpan: %v", err)
+	}
+	if got != passage {
+		t.Fatalf("span = %q, want %q", got, passage)
+	}
+}
+
+// ASCII quotes are ambiguous and are not taken, and nothing past the closing
+// marks is taken either.
+func TestAnchoredSpanWidensOnlyOverPunctuation(t *testing.T) {
+	typed := `前言"城市排水系统需要长期维护"。后面是老师自己的话`
+	got, err := AnchoredSpan(typed, "城市排水系统需要", "系统需要长期维护")
+	if err != nil {
+		t.Fatalf("AnchoredSpan: %v", err)
+	}
+	if got != "城市排水系统需要长期维护" {
+		t.Fatalf("span = %q", got)
 	}
 }

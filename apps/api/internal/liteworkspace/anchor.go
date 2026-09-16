@@ -132,5 +132,29 @@ func AnchoredSpan(typed, startAnchor, endAnchor string) (string, error) {
 		}
 		return "", fmt.Errorf("endAnchor 在老师这一轮的消息里找不到：%s。请从她贴的正文结尾原样复制一段，不要改字、不要补标点；也可以换成结尾处更短的一段（不少于 %d 字）", endAnchor, MinAnchorRunes)
 	}
-	return string(orig[start : end+len(ea)]), nil
+	from, to := widenToPunctuation(orig, start, end+len(ea))
+	return string(orig[from:to]), nil
+}
+
+// openingMarks and closingMarks are the punctuation a passage may begin or end
+// on. The model's anchors stop short of them: in the 2026-09-17 live rerun
+// (a 2,977-rune passage ending on ”), the end anchor ended at 。 in 3 of 3
+// runs and the stored passage lost its closing quote. ASCII " and ' are left
+// out: whether one opens or closes cannot be told from the rune alone.
+const (
+	openingMarks = "“‘「『（(【《〝"
+	closingMarks = "”’」』）)】》〞。！？!?…；;"
+)
+
+// widenToPunctuation extends [from, to) over opening marks directly before it
+// and closing marks directly after it. The result is still a run of the
+// teacher's own runes.
+func widenToPunctuation(rs []rune, from, to int) (int, int) {
+	for from > 0 && strings.ContainsRune(openingMarks, rs[from-1]) {
+		from--
+	}
+	for to < len(rs) && strings.ContainsRune(closingMarks, rs[to]) {
+		to++
+	}
+	return from, to
 }
