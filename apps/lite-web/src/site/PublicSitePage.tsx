@@ -1,6 +1,6 @@
 import { ProcessComparison, type ComparisonText } from "./ProcessComparison";
 import { useEffect, useState } from "react";
-import { getPublicSite, publicCodeSiteURL } from "../api/site";
+import { getPublicSite, publicCodeSiteURL, type PublishedWork } from "../api/site";
 import { useNoIndex } from "../shared/useNoIndex";
 import { BuiltSite } from "./BuiltSite";
 import { themeFor } from "./themes";
@@ -22,7 +22,7 @@ import type { SiteContent, SiteLayout, SitePalette } from "./types";
  */
 export function PublicSitePage({ token }: { token: string }) {
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent } | { kind: "gone" }
+    { kind: "loading" } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null; works: PublishedWork[] } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works: PublishedWork[] } | { kind: "gone" }
   >({ kind: "loading" });
 
   // noindex 在挂载时加上，卸载时收回。它只属于这一个页面。
@@ -33,8 +33,8 @@ export function PublicSitePage({ token }: { token: string }) {
     getPublicSite(token)
       .then((res) => {
         if (cancelled) return;
-        if (res.generated) { setState({kind:"generated",renderKey:res.renderKey,comparison:res.comparison}); document.title="个人主页"; return; }
-        setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content });
+        if (res.generated) { setState({kind:"generated",renderKey:res.renderKey,comparison:res.comparison,works:res.works ?? []}); document.title="个人主页"; return; }
+        setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content, works: res.works ?? [] });
         if (res.content.name) document.title = res.content.name;
       })
       // 撤销过的链接和从来不存在的链接，在服务端就是同一个 404；这里也必须是
@@ -72,15 +72,74 @@ export function PublicSitePage({ token }: { token: string }) {
     );
   }
 
-  if(state.kind==="generated") return <>{state.comparison&&<nav aria-label="主页内容" style={{padding:"12px 24px",background:"#f4f0e6",display:"flex",gap:24}}><a href="#site-work">作品</a><a href="#process-comparison">修改过程</a></nav>}<iframe id="site-work" title="个人主页" src={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" style={{display:"block",width:"100%",height:"100dvh",border:0}}/>{state.comparison&&<ProcessComparison comparison={state.comparison} source={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`}/>}</>;
+  if(state.kind==="generated") return <>{state.comparison&&<nav aria-label="主页内容" style={{padding:"12px 24px",background:"#f4f0e6",display:"flex",gap:24}}><a href="#site-work">作品</a><a href="#process-comparison">修改过程</a></nav>}<iframe id="site-work" title="个人主页" src={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" style={{display:"block",width:"100%",height:"100dvh",border:0}}/><PublishedWorks works={state.works}/>{state.comparison&&<ProcessComparison comparison={state.comparison} source={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`}/>}</>;
 
   return (
-    <BuiltSite
-      site={state.content}
-      layout={state.layout}
-      palette={state.palette}
-      heroUrl={state.heroUrl}
-      editing={false}
-    />
+    <>
+      <BuiltSite
+        site={state.content}
+        layout={state.layout}
+        palette={state.palette}
+        heroUrl={state.heroUrl}
+        editing={false}
+      />
+      <PublishedWorks works={state.works} />
+    </>
+  );
+}
+
+/**
+ * 她发布过的作品，每一条点得开。
+ *
+ * 🚨 **做在 iframe 外面。** 她生成的那个站挂在 `sandbox="allow-scripts"` 下，
+ * 里面的链接根本跳不动（沙箱既没开弹窗也没开顶层跳转）。为了让一行链接能用
+ * 去放宽一个渲染模型生成 HTML 的沙箱，是拿安全换样式。同一个文件里已经有
+ * 先例：`ProcessComparison` 也挂在 iframe 外面。
+ *
+ * 只列**已发布**的（服务端只发这些）。她完成过但没公开的东西不在这里 ——
+ * 完成和公开是两件事。
+ *
+ * 一件都没有就整块不渲染：一个写着「暂无作品」的空标题，比没有这一块糟。
+ *
+ * 样式全是行内的，不碰一个 `mk-*` token —— `site/` 里的每个文件都受
+ * `site/no-ui-kit.test.ts` 管：她的网站不许长得像做出它的那个产品。
+ */
+function PublishedWorks({ works }: { works: PublishedWork[] }) {
+  if (works.length === 0) return null;
+  const theme = themeFor("essay");
+  return (
+    <section
+      style={{
+        background: theme.paper,
+        color: theme.ink,
+        padding: "48px 24px",
+        fontFamily: '"Noto Serif SC","Songti SC",Georgia,serif',
+      }}
+    >
+      <div style={{ margin: "0 auto", maxWidth: 720 }}>
+        <h2 style={{ fontSize: 15, letterSpacing: "0.08em", opacity: 0.6, marginBottom: 16 }}>作品</h2>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          {works.map((w) => (
+            <li key={w.publicPath}>
+              <a
+                href={w.publicPath}
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 12,
+                  color: "inherit",
+                  textDecoration: "none",
+                  borderBottom: `1px solid ${theme.ink}22`,
+                  paddingBottom: 12,
+                }}
+              >
+                <span style={{ fontSize: 13, opacity: 0.55, flexShrink: 0 }}>{w.kind}</span>
+                <span style={{ fontSize: 18, lineHeight: 1.6 }}>{w.title}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }

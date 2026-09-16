@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -54,6 +55,10 @@ type pblSiteDTO struct {
 	Published bool            `json:"published"`
 	URL       string          `json:"url"`
 	ProjectID string          `json:"projectId"`
+	// Works 是她已经发布出去的那些作品，和访客在 `/p/:token` 上看到的是同一
+	// 份。她自己这一页据此回答「我公开了哪些东西」—— 在这之前，那件事只能靠
+	// 一篇一篇打开报告去看分享面板。
+	Works []publishedWork `json:"works"`
 }
 
 const (
@@ -62,6 +67,17 @@ const (
 )
 
 /* ── 组装 ─────────────────────────────────────────────────────────────── */
+
+// publicWorkPath —— 一件作品自己的公开链接。空 token = 她没发布过，空串。
+//
+// 「有 share_token 就是已发布」是这一版的定义（2026-09-16）：发布不需要自己的
+// 一张表，一篇成稿有没有公开链接就是它公不公开。
+func publicWorkPath(shareToken string) string {
+	if strings.TrimSpace(shareToken) == "" {
+		return ""
+	}
+	return "/s/" + shareToken
+}
 
 // loadSiteContent 把她真实的行读出来，和她写的字合成一页。
 //
@@ -221,6 +237,7 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 		Missing:        pbl.SiteMissing(content),
 		PublishMissing: pbl.SitePublishMissing(content, sitePalette(row)),
 		Published:      row.ShareToken != nil && *row.ShareToken != "",
+		Works:          a.publishedWorksOf(r, u.ID),
 	}
 	if dto.Missing == nil {
 		dto.Missing = []string{}
@@ -626,7 +643,18 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Only the published snapshot's explicitly selected process text is exposed.
-		httpx.WriteJSON(w, 200, map[string]any{"generated": true, "renderKey": publicationRenderKey(publication.VersionID), "comparison": comparisonSummary(version.Brief)})
+		//
+		// 🚨 `works` 要在这一支里也发一遍。她发布过的作品列表**不在**那个
+		// iframe 里 —— 那个站挂在 `sandbox="allow-scripts"` 下，里面的链接根本
+		// 跳不动（沙箱既没开弹窗，也没开顶层跳转）。为了让一行链接能用去放宽
+		// 一个渲染模型生成 HTML 的沙箱，是拿安全换样式；所以作品区做在 iframe
+		// 外面，由 PublicSitePage 原生渲染。
+		httpx.WriteJSON(w, 200, map[string]any{
+			"generated":  true,
+			"renderKey":  publicationRenderKey(publication.VersionID),
+			"comparison": comparisonSummary(version.Brief),
+			"works":      a.publishedWorksOf(r, row.UserID),
+		})
 		return
 	} else if !errors.Is(pubErr, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, pubErr)
@@ -666,7 +694,49 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 		"palette": palette,
 		"heroUrl": a.signedOrEmpty(site.HeroKey),
 		"content": content,
+		// 同 generated 那一支：作品区在 BuiltSite 外面原生渲染，所以这里也发
+		// 一份。BuiltSite 自己受 `site/no-ui-kit` 那条规矩管（她的网站不许长得
+		// 像做出它的那个产品），把链接塞进它反而要为那条规矩开一个例外。
+		"works": a.publishedWorksOf(r, row.UserID),
 	})
+}
+
+// publishedWork —— 她发布过的一件作品，摆在 `/p/:token` 上那一块里。
+type publishedWork struct {
+	Title      string `json:"title"`
+	Kind       string `json:"kind"` // "文章" | "在读"
+	PublicPath string `json:"publicPath"`
+}
+
+// publishedWorksOf 只收**已发布**的那些（有 share_token）。
+//
+// 主页上原来那两张列表（她完成过什么）一个字没动 —— 完成和公开是两件事，这一块
+// 只说后者：它的每一条都点得开，因为每一条背后真的有一条她自己开出来的链接。
+//
+// 读不出来不该让整个主页打不开：作品区是这一页上的一块，不是这一页。
+func (a *API) publishedWorksOf(r *http.Request, userID uuid.UUID) []publishedWork {
+	out := []publishedWork{}
+	writings, err := a.d.Queries.ListSiteWritingsByUser(r.Context(), userID)
+	if err != nil {
+		slog.Warn("public site: could not list her published writings", "err", err, "user_id", userID)
+		return out
+	}
+	readings, err := a.d.Queries.ListSiteReadingsByUser(r.Context(), userID)
+	if err != nil {
+		slog.Warn("public site: could not list her published readings", "err", err, "user_id", userID)
+		readings = nil
+	}
+	for _, w := range writings {
+		if p := publicWorkPath(w.ShareToken); p != "" {
+			out = append(out, publishedWork{Title: w.Title, Kind: "文章", PublicPath: p})
+		}
+	}
+	for _, rd := range readings {
+		if p := publicWorkPath(rd.ShareToken); p != "" {
+			out = append(out, publishedWork{Title: rd.Title, Kind: "在读", PublicPath: p})
+		}
+	}
+	return out
 }
 
 /* ── spec §4 的那道门 ─────────────────────────────────────────────────── */

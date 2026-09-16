@@ -51,22 +51,30 @@ WHERE s.share_token = $1 AND s.share_token IS NOT NULL;
 -- name: ListSiteWritingsByUser :many
 -- 她真正写完的文章。字数取草稿正文的字符数——中文里字符数就是字数，而且它是
 -- 真的，不是估的。没写完的不上主页：主页是给陌生人看的，不是她的工作台。
+-- 2026-09-16：多带一个 share_token。**有 token 就是已发布** —— 发布这件事不
+-- 需要自己的一张表，一篇成稿有没有公开链接，就是它公不公开。LEFT JOIN：没生成
+-- 过报告的那些行照常出现在列表里，只是没有链接。
 SELECT a.id AS atom_id, w.title, w.finished_at,
-       COALESCE(char_length(d.body), 0)::int AS words
+       COALESCE(char_length(d.body), 0)::int AS words,
+       COALESCE(rep.share_token, '')::text AS share_token
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 LEFT JOIN writing_draft d ON d.atom_id = w.atom_id
+LEFT JOIN atom_report rep ON rep.atom_id = a.id
 WHERE a.user_id = $1 AND a.kind = 'writing' AND w.status = 'finished'
 ORDER BY w.finished_at DESC NULLS LAST
 LIMIT 12;
 
 -- name: ListSiteReadingsByUser :many
 -- 她读完的东西。source_url 可能没有（她直接粘的正文），所以是 LEFT JOIN + 空串。
+-- share_token 同 ListSiteWritingsByUser：有就是已发布。
 SELECT a.id AS atom_id, r.title, r.finished_at,
-       COALESCE(s.source_url, '')::text AS source_url
+       COALESCE(s.source_url, '')::text AS source_url,
+       COALESCE(rep.share_token, '')::text AS share_token
 FROM reading r
 JOIN atom a ON a.id = r.atom_id
 LEFT JOIN reading_source s ON s.atom_id = r.atom_id
+LEFT JOIN atom_report rep ON rep.atom_id = a.id
 WHERE a.user_id = $1 AND a.kind = 'reading' AND r.status = 'finished'
 ORDER BY r.finished_at DESC NULLS LAST
 LIMIT 12;

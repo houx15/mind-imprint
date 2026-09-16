@@ -275,6 +275,14 @@ func TestPublicSite_PayloadCarriesNothingExtra(t *testing.T) {
 		"content": true, "layout": true,
 		// 第三关：她定的配色和她生成的头图，都是这一页要拿来渲染的。
 		"palette": true, "heroUrl": true,
+		// 2026-09-16：她**已经发布出去**的那些作品，每条是标题 + 类型 +
+		// `/s/<token>`。里面的 token 全都是她自己开出来的公开链接 —— 这一块
+		// 只是把它们摆在一起，没有公开任何原本不公开的东西。没发布的那些
+		// 一条都不在（publishedWorksOf 只收有 token 的）。
+		//
+		// 🚨 这一块里的 token 和**主页自己的** token 是两回事，下面那组 leak
+		// 检查里的 tokenOf(url) 仍然必须查不到。
+		"works": true,
 	}
 	keys := make([]string, 0, len(out))
 	for k := range out {

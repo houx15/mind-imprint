@@ -2,9 +2,44 @@ import makers from "../home/assets/project-makers-v2.webp";
 import { useEffect, useState } from "react";
 import { ArrowRight, ExternalLink, Loader2, PencilLine } from "lucide-react";
 import { apiErrorText } from "../api/errorText";
-import { getSite, startSiteProject, type SiteState } from "../api/site";
+import { getSite, startSiteProject, type PublishedWork, type SiteState } from "../api/site";
 import { navigate, projectPath } from "../routing";
 import { BuiltSite } from "../site/BuiltSite";
+
+/**
+ * 她公开出去的那些作品，列在她自己这一页的底下。
+ *
+ * 这一块回答的是「我公开了哪些东西」。在这之前那件事只能靠一篇一篇打开报告去
+ * 看分享面板 —— 一个她管不住的状态，等于一个她不知道自己有没有公开的状态。
+ *
+ * **发布/停止发布不在这里做。** 那一颗按钮属于作品自己的分享面板
+ * （`SharePanel`），这里只给一条通往它的路。两个地方各存一份「现在到底公开
+ * 没公开」的状态机，早晚会说两句不一样的话，而这件事上说错话的代价是隐私。
+ *
+ * 一件都没有就整块不渲染：一个写着「暂无」的空标题比没有这一块糟。
+ */
+function PublishedWorks({ works }: { works: PublishedWork[] }) {
+  if (works.length === 0) return null;
+  return (
+    <section className="border-t border-mk-line px-7 py-6">
+      <h2 className="text-mk-label text-mk-faint">已发布的作品</h2>
+      <ul className="mt-3 flex flex-col gap-2">
+        {works.map((w) => (
+          <li key={w.publicPath}>
+            <a
+              href={w.publicPath}
+              className="flex items-baseline gap-3 text-mk-body text-mk-ink hover:text-mk-accent-700"
+            >
+              <span className="shrink-0 text-mk-small text-mk-muted">{w.kind}</span>
+              <span className="min-w-0 truncate">{w.title}</span>
+              <ExternalLink size={13} className="shrink-0 text-mk-faint" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /**
  * `/site` —— 她自己的主页，她自己那一面。
@@ -156,6 +191,7 @@ export function MySitePage() {
           palette={site.palette}
           heroUrl={site.heroUrl}
         />
+        <PublishedWorks works={site.works ?? []} />
       </div>
     </div>
   );

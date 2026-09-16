@@ -30,6 +30,8 @@ export interface SiteState {
   url: string;
   /** 建起它的那个主页项目。 */
   projectId: string;
+  /** 她已经发布出去的作品，和访客在 `/p/:token` 上看到的是同一份。 */
+  works?: PublishedWork[];
 }
 
 export function getSite(): Promise<SiteState> {
@@ -86,9 +88,20 @@ export function startSiteProject(): Promise<{ id: string }> {
 }
 
 /** 访客那一面。没有 session 也能读——这是整个轻量版第二个这样的端点。 */
+/** 她发布过的一件作品。`publicPath` 是相对路径（`/s/<token>`）—— 绝对地址由
+ *  浏览器用自己的 origin 拼，理由见 SharePanel。 */
+export interface PublishedWork {
+  title: string;
+  kind: string;
+  publicPath: string;
+}
+
 export function getPublicSite(
   token: string,
-): Promise<{generated: true; renderKey: string; comparison?: {feedback:string;observation:string}|null} | {generated?: false; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent }> {
+): Promise<
+  | {generated: true; renderKey: string; comparison?: {feedback:string;observation:string}|null; works?: PublishedWork[]}
+  | {generated?: false; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works?: PublishedWork[] }
+> {
   return apiFetch(`/api/v1/public/sites/${encodeURIComponent(token)}`);
 }
 
