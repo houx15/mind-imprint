@@ -228,9 +228,9 @@ func (run *liteWorkspaceRun) ended() (string, []liteworkspace.Choice, bool) {
 	return run.question, run.choices, run.asked
 }
 
-func (run *liteWorkspaceRun) checkedParts(reply string, choices []liteworkspace.Choice) []string {
-	return liteWorkspaceCheckedParts(reply, choices, run.patch)
-}
+// extraParts is nil: everything the assignment surface shows the teacher is
+// the reply, an option or a patch value, which the handler checks itself.
+func (run *liteWorkspaceRun) extraParts() []string { return nil }
 
 func (run *liteWorkspaceRun) groundedNames() []string { return run.namesReturned }
 

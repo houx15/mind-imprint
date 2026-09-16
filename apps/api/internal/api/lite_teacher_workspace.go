@@ -84,8 +84,9 @@ type liteWorkspaceCardDTO struct {
 // surface cannot skip any of it.
 //
 // A surface value lives for one turn. The handler builds it after the
-// ownership check, calls begin once, then system and tools, then execute for
-// every tool call the model makes, and reads the rest after the loop.
+// ownership check and before the model is routed, calls begin once, then
+// system and tools, then execute for every tool call the model makes, and
+// reads the rest after the loop.
 type liteWorkspaceSurface interface {
 	// begin applies what the request itself carries before the model runs
 	// (the assignment surface: the article on an option she tapped) and
@@ -101,13 +102,19 @@ type liteWorkspaceSurface interface {
 	// ended reports whether a tool ended the turn during the last round, and
 	// with which reply and options. The loop checks it after every round.
 	ended() (reply string, choices []liteworkspace.Choice, done bool)
-	// checkedParts is every string this turn puts in front of the teacher,
-	// one per field, for the §6 checks. reply and choices are the loop's
-	// output; the surface adds what its tools wrote.
-	checkedParts(reply string, choices []liteworkspace.Choice) []string
+	// extraParts is anything this turn shows the teacher that is neither the
+	// reply, an option nor a patch value — those three the handler checks
+	// itself (liteWorkspaceCheckedParts). One string per field. nil when the
+	// surface shows nothing else.
+	extraParts() []string
 	// groundedNames and groundedCounts are what this turn's tools returned:
 	// the tool half of the §6 evidence. The handler adds her own words and
 	// the roster size.
+	//
+	// 🚨 A surface whose subject is one student (the parent report) must
+	// return that student's name from groundedNames on every turn. The name
+	// check treats every roster name as needing evidence, so without it every
+	// reply that names her fails.
 	groundedNames() []string
 	groundedCounts() []int
 	// result is what goes back to the canvas: the fields a tool wrote and the
@@ -115,45 +122,93 @@ type liteWorkspaceSurface interface {
 	result() (patch map[string]any, cards []liteWorkspaceCardDTO)
 }
 
-// liteWorkspaceSurfaceOpen reports whether a surface is served yet. home and
-// parentReport (§5.2, §5.3) carry different tools and a different canvas, so
-// accepting their names before their surfaces exist would answer with the
-// wrong tool set rather than say no.
-func liteWorkspaceSurfaceOpen(surface string) bool {
-	switch surface {
-	case "assignment":
-		return true
-	}
-	return false
+// liteWorkspaceSubject is what the ownership check loaded for a turn: the
+// class the turn is about, plus the surface's own row where it has one. The
+// roster is loaded from class, whichever surface resolved it.
+type liteWorkspaceSubject struct {
+	class sqlc.Class
+	// report is the parent report a parentReport turn revises. Zero for
+	// every other surface. Task 15 sets it in liteWorkspaceSubjectFromReport.
+	report sqlc.LiteParentReport
 }
 
-// newLiteWorkspaceSurface builds the surface req.Surface names, for one turn.
-// The handler has already checked liteWorkspaceSurfaceOpen, so every name that
-// reaches here has a case; home and parentReport add theirs with D2/D3.
-func (a *API) newLiteWorkspaceSurface(mctx context.Context, cls sqlc.Class, roster []liteworkspace.Student, req liteWorkspaceTurnRequest, typed string) liteWorkspaceSurface {
-	// "assignment" is the only open surface, so this is not a switch yet.
-	return a.newLiteWorkspaceAssignment(mctx, cls, roster, req.Artifact, typed)
+// liteWorkspaceSurfaceInput is what a surface constructor receives.
+type liteWorkspaceSurfaceInput struct {
+	// mctx is the detached model context: a load a surface defers (the
+	// assignment surface's group profiles) must survive her navigating away,
+	// the same way the model call does.
+	mctx    context.Context
+	subject liteWorkspaceSubject
+	roster  []liteworkspace.Student
+	req     liteWorkspaceTurnRequest
+	// typed is what she typed this turn, trimmed.
+	typed string
 }
 
-// authTeacherClassFromBody is authTeacherClass for a route whose class id
-// travels in the request body rather than in the path. Same ownership query,
-// same not-found answer for a class the caller does not teach.
+// liteWorkspaceSurfaceSpec is one entry of liteWorkspaceSurfaces.
+//
+// resolve is the ownership check. It returns an error the handler writes as
+// it is, so a not-found answer must be httpx.ErrNotFound or pgx.ErrNoRows.
+//
+// build may fail. The handler calls it before routing the model, so a failed
+// build costs no model call and writes no llm_call row.
+type liteWorkspaceSurfaceSpec struct {
+	resolve func(a *API, ctx context.Context, req liteWorkspaceTurnRequest) (liteWorkspaceSubject, error)
+	build   func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error)
+}
+
+// liteWorkspaceSurfaces is every surface the workspace turn serves. A name
+// that is not a key here answers 400 unknown_surface: home and parentReport
+// (§5.2, §5.3) carry different tools and a different canvas, so accepting
+// their names before their surfaces exist would answer with the wrong tool
+// set rather than say no.
+//
+// Task 13 adds "home" (resolve: liteWorkspaceSubjectFromClass). Task 15 adds
+// "parentReport" with resolve: liteWorkspaceSubjectFromReport.
+//
+// Read-only after init. Tests register extra entries only from init (see
+// lite_teacher_workspace_export_test.go), never while a request runs.
+var liteWorkspaceSurfaces = map[string]liteWorkspaceSurfaceSpec{
+	"assignment": {
+		resolve: liteWorkspaceSubjectFromClass,
+		build: func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error) {
+			return a.newLiteWorkspaceAssignment(in.mctx, in.subject.class, in.roster, in.req.Artifact, in.typed), nil
+		},
+	},
+}
+
+// liteWorkspaceSubjectFromClass resolves a surface whose class id travels in
+// the request body. Same ownership query as authTeacherClass, and the same
+// not-found answer for a malformed id or a class the caller does not teach.
 //
 // A sibling rather than a parameter on authTeacherClass: that helper reads
 // r.PathValue("id") and four shipped routes depend on it.
-func (a *API) authTeacherClassFromBody(w http.ResponseWriter, r *http.Request, raw string) (sqlc.Class, bool) {
-	classID, err := uuid.Parse(strings.TrimSpace(raw))
+func liteWorkspaceSubjectFromClass(a *API, ctx context.Context, req liteWorkspaceTurnRequest) (liteWorkspaceSubject, error) {
+	classID, err := uuid.Parse(strings.TrimSpace(req.ClassID))
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return sqlc.Class{}, false
+		return liteWorkspaceSubject{}, httpx.ErrNotFound("资源不存在")
 	}
-	cls, err := a.assertTeacherOwnsClass(r.Context(), classID)
+	cls, err := a.assertTeacherOwnsClass(ctx, classID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return sqlc.Class{}, false
+		return liteWorkspaceSubject{}, err
 	}
-	return cls, true
+	return liteWorkspaceSubject{class: cls}, nil
 }
+
+// Task 15 plugs in here: liteWorkspaceSubjectFromReport, shaped like
+// loadTeacherParentReport (lite_parent_report.go) but reading the id from the
+// body and returning errors instead of writing them:
+//
+//	rid, err := uuid.Parse(strings.TrimSpace(req.ReportID))
+//	if err != nil { return liteWorkspaceSubject{}, httpx.ErrNotFound("资源不存在") }
+//	rep, err := a.d.Queries.GetLiteParentReport(ctx, rid)
+//	if err != nil { return liteWorkspaceSubject{}, err } // ErrNoRows is written as 404
+//	cls, err := a.assertTeacherOwnsClass(ctx, rep.ClassID)
+//	if err != nil { return liteWorkspaceSubject{}, err }
+//	return liteWorkspaceSubject{class: cls, report: rep}, nil
+//
+// req.ClassID is ignored for that surface: the class comes from the report
+// row, so the roster the §6 checks read is the report's class.
 
 // errLiteWorkspaceTurn is the visible failure of one workspace turn. 动词+失败
 // plus the real cause — never a plausible sentence standing in for a reply
@@ -175,12 +230,14 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
-	if !liteWorkspaceSurfaceOpen(req.Surface) {
+	spec, open := liteWorkspaceSurfaces[req.Surface]
+	if !open {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_surface", "该工作台尚未开放："+req.Surface, nil))
 		return
 	}
-	cls, ok := a.authTeacherClassFromBody(w, r, req.ClassID)
-	if !ok {
+	subject, err := spec.resolve(a, r.Context(), req)
+	if err != nil {
+		httpx.WriteError(w, r, err)
 		return
 	}
 	// typed is what she wrote herself. It is the only part of this request that
@@ -209,7 +266,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	}
 
 	ctx := r.Context()
-	roster, err := a.liteWorkspaceRoster(ctx, cls.ID)
+	roster, err := a.liteWorkspaceRoster(ctx, subject.class.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -217,6 +274,15 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 
 	mctx, cancel := detachedModelCtx(r)
 	defer cancel()
+	// Built before the model is routed: a surface that cannot be built costs
+	// no model call and writes no llm_call row.
+	surface, err := spec.build(a, liteWorkspaceSurfaceInput{
+		mctx: mctx, subject: subject, roster: roster, req: req, typed: typed,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	resolved, err := a.routeE(mctx, gateway.ClassDialogue)
 	if err != nil {
 		// The cause goes out, not a bare 500. A routing failure is a
@@ -227,7 +293,6 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	surface := a.newLiteWorkspaceSurface(mctx, cls, roster, req, typed)
 	// Whatever the request itself carries is applied before the model runs,
 	// so the canvas the model reads below is the canvas as it stands NOW.
 	chosen := surface.begin(req)
@@ -253,6 +318,10 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// fabricated name's source IS the model's earlier words, so feeding them
 	// back as evidence would launder exactly the failure this check exists to
 	// catch (§6).
+	//
+	// The tool half comes from the surface. A surface whose subject is one
+	// student (the parent report) returns her name from groundedNames, or
+	// every reply that names her fails here.
 	grounded := append([]string{}, surface.groundedNames()...)
 	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, typed)...)
 
@@ -260,7 +329,9 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// The name check reads every field as one blob. It compares whole names, so
 	// a name cannot be assembled out of the end of one field and the start of
 	// the next, and joining costs nothing.
-	parts := surface.checkedParts(reply, choices)
+	patch, cards := surface.result()
+	parts := liteWorkspaceCheckedParts(reply, choices, patch)
+	parts = append(parts, surface.extraParts()...)
 	if bad := liteworkspace.UngroundedNames(
 		strings.Join(parts, "\n"), liteWorkspaceRosterNames(roster), grounded,
 	); len(bad) > 0 {
@@ -303,7 +374,6 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// An empty patch and an empty card list go out as {} and [], not null: the
 	// client walks both on every turn, and a null would make "no tool wrote
 	// anything" a separate case at every call site.
-	patch, cards := surface.result()
 	if patch == nil {
 		patch = map[string]any{}
 	}
@@ -398,14 +468,39 @@ func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, pat
 		out = append(out, c.ID, c.Label, c.Slug)
 	}
 	for k, v := range patch {
+		// Top level only. A nested key named "text" (a parent report's
+		// section, say) is not the pasted article that setMaterial proved
+		// verbatim, so it is checked like everything else.
 		if k == "text" {
 			continue
 		}
-		switch value := v.(type) {
-		case string:
-			out = append(out, value)
-		case []string:
-			out = append(out, value...)
+		out = liteWorkspacePatchStrings(out, v)
+	}
+	return out
+}
+
+// liteWorkspacePatchStrings appends every string leaf under v, one part per
+// leaf, walking maps and slices to any depth. A parent report's patch is
+// {"body": {"<section>": "<text>"}}; a walk that stopped at the top level
+// would let revised report text skip both §6 checks. Each leaf stays its own
+// part so the head-count check still reads field by field.
+func liteWorkspacePatchStrings(out []string, v any) []string {
+	switch value := v.(type) {
+	case string:
+		out = append(out, value)
+	case []string:
+		out = append(out, value...)
+	case map[string]string:
+		for _, s := range value {
+			out = append(out, s)
+		}
+	case []any:
+		for _, item := range value {
+			out = liteWorkspacePatchStrings(out, item)
+		}
+	case map[string]any:
+		for _, item := range value {
+			out = liteWorkspacePatchStrings(out, item)
 		}
 	}
 	return out

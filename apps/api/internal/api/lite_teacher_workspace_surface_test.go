@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	. "mindimprint/api/internal/api"
 )
 
 func TestWorkspaceTurnRefusesSurfacesNotOpenYet(t *testing.T) {
@@ -41,6 +43,36 @@ func TestWorkspaceTurnRefusesSurfacesNotOpenYet(t *testing.T) {
 	}
 
 	// A refused surface is refused before any model call, so nothing is billed.
+	var calls int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM llm_call`).Scan(&calls); err != nil {
+		t.Fatalf("count llm_call: %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("llm_call rows = %d, want 0", calls)
+	}
+}
+
+// TestWorkspaceTurnWritesASurfaceBuildFailureBeforeTheModel — a surface that
+// cannot be built answers with its own error, after the ownership check and
+// before any model call, so nothing is billed.
+func TestWorkspaceTurnWritesASurfaceBuildFailureBeforeTheModel(t *testing.T) {
+	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, writingTextStubProvider("好的。"))
+	body, _ := json.Marshal(map[string]any{
+		"surface": LiteWorkspaceBrokenSurfaceForTest, "classId": classID, "text": "布置作业",
+	})
+
+	// Ownership still comes first: a teacher of another class gets 404, not
+	// the build error.
+	other := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "ws-broken-other@demo.local"))
+	if rec := postWorkspaceTurn(t, h, other, string(body)); rec.Code != http.StatusNotFound {
+		t.Fatalf("other teacher = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "surface_unavailable") {
+		t.Fatalf("status = %d body = %s, want 409 surface_unavailable", rec.Code, rec.Body)
+	}
+
 	var calls int
 	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM llm_call`).Scan(&calls); err != nil {
 		t.Fatalf("count llm_call: %v", err)
