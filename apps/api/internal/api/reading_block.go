@@ -55,6 +55,116 @@ const readingBlockContextRunes = 1200
 var readingShapedSuffix = map[string]string{
 	"questions": "\n\n只输出一个 JSON 对象：{\"questions\":[\"...\",\"...\"]}。每条都必须以问号结尾。不要输出对象以外的任何文字或代码块标记。",
 	"imitate":   "\n\n只输出一个 JSON 对象：{\"move\":\"这一段在写法上做了什么，一句话\",\"tryThis\":[\"一个可以用同样写法去写的话题\",\"另一个\"]}。\n\n**绝对不要写出任何一段示范文字。** 你只说写法和话题，段落由她自己写。tryThis 里每一条是一个话题或情境，不是一句范文。不要输出对象以外的任何文字或代码块标记。",
+	"words": "\n\n只输出一个 JSON 对象：" +
+		`{"words":[{"term":"","pos":"","meaning":"","note":"","example":"","exampleZh":""}]}` + "\n\n" +
+		"- term：这个词**在这一段里的原样**，一个字母都不许改 —— 不要还原成原形、不要改大小写、" +
+		"不要把词组拆开。**系统会拿它回段落里逐字核对，对不上的整张卡片丢掉。**\n" +
+		"- pos：词性，用中文（名词 / 动词 / 形容词 / 副词 / 介词短语 / 动词短语 …）。\n" +
+		"- meaning：它**在这一句里**的意思，一句中文，不超过 20 字。不是词典里的第一条释义。\n" +
+		"- note：为什么这个词值得学 —— 它的词根、它和近义词的差别、它常和哪些词搭配、" +
+		"或者它在这里的用法特别在哪。两句以内。\n" +
+		"- example：一个**新造的**英文例句，用上这个词，不要抄原文那一句。一行，不超过 20 个词。\n" +
+		"- exampleZh：上面那句的中文翻译。\n" +
+		"不要输出对象以外的任何文字或代码块标记。",
+}
+
+// readingWord 是一张词卡。
+//
+// 🚨 Term 是**这一段里的原样**，不是词典形。荧光笔就是拿它回正文里找的：
+// 还原成原形的 term（scrambling → scramble）在正文里一个字都找不到，那个词
+// 就标不出来。所以 parseWordCards 拿 term 回段落里逐字核对，核不上的丢掉 ——
+// 这条判据同时守着两件事：卡片说的是这一段里真有的词，以及荧光笔一定落得下去。
+type readingWord struct {
+	Term      string `json:"term"`
+	Pos       string `json:"pos"`
+	Meaning   string `json:"meaning"`
+	Note      string `json:"note"`
+	Example   string `json:"example"`
+	ExampleZh string `json:"exampleZh"`
+}
+
+// readingWordsMax 是一段最多留几张词卡。
+//
+// 五张：prompt 要的是 3–5 个，而「真正值得学的」本来就没那么多。多出来的那些
+// 十有八九是模型在凑数（最长的那几个词），留着只会让她把注意力花在词典干的事上。
+const readingWordsMax = 5
+
+// parseWordCards 读关键单词那份回话，并丢掉一切核对不上的。
+//
+// 丢弃规则：
+//
+//  1. term 为空 → 丢。
+//  2. **term 在这一段里找不到 → 丢。** 大小写不敏感地找（模型很爱把句首那个词
+//     还原成小写），但找到之后用的是**段落里的那一份写法**，因为荧光笔要按它
+//     去标。
+//  3. meaning 为空 → 丢。一张只有词没有意思的卡片，她不必点开就知道没用。
+//  4. 同一个词重复 → 只留第一张。
+//  5. 一张都不剩 → 整件工具算失败，绝不返回一组空卡片。
+func parseWordCards(body, paragraph string) ([]readingWord, bool) {
+	var got struct {
+		Words []readingWord `json:"words"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		return nil, false
+	}
+	lowerPara := strings.ToLower(paragraph)
+	out := make([]readingWord, 0, readingWordsMax)
+	seen := map[string]bool{}
+	for _, w := range got.Words {
+		term := strings.TrimSpace(w.Term)
+		meaning := strings.TrimSpace(w.Meaning)
+		if term == "" || meaning == "" {
+			continue
+		}
+		i := strings.Index(lowerPara, strings.ToLower(term))
+		if i < 0 {
+			// 这个词不在这一段里。卡片说的就不是这一段，荧光笔也无处可落。
+			continue
+		}
+		// 用段落里的那一份写法 —— 荧光笔按它去标，两边必须是同一串字符。
+		term = paragraph[i : i+len(term)]
+		key := strings.ToLower(term)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, readingWord{
+			Term: term, Pos: strings.TrimSpace(w.Pos), Meaning: meaning,
+			Note:      strings.TrimSpace(w.Note),
+			Example:   strings.TrimSpace(w.Example),
+			ExampleZh: strings.TrimSpace(w.ExampleZh),
+		})
+		if len(out) == readingWordsMax {
+			break
+		}
+	}
+	return out, len(out) > 0
+}
+
+// wordCardsAsProse 把一组词卡写成 body 那一列里的纯文字。
+//
+// 🚨 它不是拿来渲染的（界面渲染的是卡片本身）。它存在是为了让这一行在任何一个
+// **不带解析器**的地方仍然读得懂 —— 日后的报告、教师端、一次 psql 查。一行
+// 只有 JSON 的记录在那些地方就是一段乱码。
+func wordCardsAsProse(words []readingWord) string {
+	var b strings.Builder
+	for _, w := range words {
+		b.WriteString("- **" + w.Term + "**")
+		if w.Pos != "" {
+			b.WriteString("（" + w.Pos + "）")
+		}
+		b.WriteString(" " + w.Meaning + "\n")
+		if w.Note != "" {
+			b.WriteString("  " + w.Note + "\n")
+		}
+		if w.Example != "" {
+			b.WriteString("  " + w.Example + "\n")
+		}
+		if w.ExampleZh != "" {
+			b.WriteString("  " + w.ExampleZh + "\n")
+		}
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // parseShapedBlockReply turns a structured reply into the markdown the panel
@@ -64,7 +174,10 @@ var readingShapedSuffix = map[string]string{
 // same filter the writing room's guiding box uses, for the same reason: a
 // declarative sentence slipped into the list is a sentence she could paste,
 // which is exactly what these two shapes exist to make impossible.
-func parseShapedBlockReply(shape, text string) (string, bool) {
+// sliceBlockJSON 把模型回话里那个 JSON 对象切出来。模型很爱在前后加一句
+// 「好的，这是结果：」或者用 ```json 围起来 —— 与其在每个 prompt 里再劝一次
+// （劝告不可验），不如在解析这一侧把这件事变成不重要的。
+func sliceBlockJSON(text string) string {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -80,7 +193,11 @@ func parseShapedBlockReply(shape, text string) (string, bool) {
 	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
 		c = c[:j+1]
 	}
-	c = strings.TrimSpace(c)
+	return strings.TrimSpace(c)
+}
+
+func parseShapedBlockReply(shape, text string) (string, bool) {
+	c := sliceBlockJSON(text)
 
 	switch shape {
 	case "questions":
@@ -152,10 +269,19 @@ const readingBlockSystem = `你是「印记」，正在给一个中学生讲解�
 
 这一次要做的是：`
 
-func buildReadingBlockPrompt(title string, blocks []Block, idx int) string {
+// sentence 非空时，讲的是这一段里的**那一句**（语法那件工具）。段落仍然给，
+// 因为一个代词指的是谁、一个省略省掉了什么，只有把上一句读了才说得清 ——
+// 但要讲的是哪一句必须写死，否则模型会顺手把整段都讲一遍。
+func buildReadingBlockPrompt(title string, blocks []Block, idx int, sentence string) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(title); t != "" {
 		b.WriteString("文章标题：" + t + "\n")
+	}
+	if sentence != "" {
+		b.WriteString("\n【要讲解的这一句】\n" + sentence + "\n")
+		b.WriteString("\n【它所在的那一段（只作参考，不要讲解整段）】\n" +
+			strings.TrimSpace(blocks[idx].Text) + "\n")
+		return b.String()
 	}
 	b.WriteString("\n【要讲解的这一段】\n" + strings.TrimSpace(blocks[idx].Text) + "\n")
 
@@ -213,9 +339,44 @@ func (a *API) listReadingBlockTools(w http.ResponseWriter, r *http.Request) {
 	tools := readingBlockToolsFor(lang)
 	out := make([]map[string]string, 0, len(tools))
 	for _, t := range tools {
-		out = append(out, map[string]string{"id": t.ID, "label": t.Label})
+		// subject 要发出去：界面凭它决定「点这件工具之后先请她点一句，还是
+		// 直接开讲」。写死在前端会和服务端漂开 —— 和这个端点本来就存在的理由
+		// 是同一条。
+		out = append(out, map[string]string{
+			"id": t.ID, "label": t.Label, "subject": t.Subject,
+		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"lang": lang, "tools": out})
+}
+
+// blockNoteDTO 是一份已经开过的讲解。
+type blockNoteDTO struct {
+	BlockID string `json:"blockId"`
+	Tool    string `json:"tool"`
+	Body    string `json:"body"`
+	// Subject 是「讲的是哪一句」。空串 = 整段。
+	Subject string `json:"subject,omitempty"`
+	// Words 是关键单词那件工具的词卡。别的工具没有这一项。
+	Words []readingWord `json:"words,omitempty"`
+}
+
+// blockNoteDTOFrom 把一行 reading_block_note 变成发出去的那份。
+//
+// data 那一列读不动就当它没有：一份坏掉的 JSON 不该让整个阅读室打不开，而
+// body 那一段文字仍然是可读的（wordCardsAsProse 存的就是它）。
+func blockNoteDTOFrom(row sqlc.ReadingBlockNote) blockNoteDTO {
+	dto := blockNoteDTO{
+		BlockID: row.BlockID, Tool: row.Tool, Body: row.Body, Subject: row.Subject,
+	}
+	if len(row.Data) > 0 {
+		var payload struct {
+			Words []readingWord `json:"words"`
+		}
+		if err := json.Unmarshal(row.Data, &payload); err == nil {
+			dto.Words = payload.Words
+		}
+	}
+	return dto
 }
 
 // listReadingBlockNotes is GET /api/v1/readings/{id}/blocks/notes — every
@@ -231,18 +392,22 @@ func (a *API) listReadingBlockNotes(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	out := make([]map[string]string, 0, len(rows))
+	out := make([]blockNoteDTO, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, map[string]string{"blockId": row.BlockID, "tool": row.Tool, "body": row.Body})
+		out = append(out, blockNoteDTOFrom(row))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"notes": out})
 }
 
 // explainReadingBlock is POST /api/v1/readings/{id}/blocks/{bid}/explain.
 //
-// Cached by (blockId, tool): a replay costs nothing and returns instantly, so
-// the entitlement gate and the model call are both SKIPPED on that path —
-// gating a replay would charge her for reading something she already has.
+// Cached by (blockId, tool, subject): a replay costs nothing and returns
+// instantly, so the entitlement gate and the model call are both SKIPPED on
+// that path — gating a replay would charge her for reading something she
+// already has.
+//
+// subject 是「讲的是哪一句」，只有语法那件工具用（2026-09-16）。其余工具永远
+// 传空串，于是缓存键和改这件事之前完全一样。
 func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
@@ -251,6 +416,9 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	blockID := r.PathValue("bid")
 	var req struct {
 		Tool string `json:"tool"`
+		// Sentence 是她在这一段里点的那一句。只有 Subject == "sentence" 的
+		// 工具要它；服务端会拿它回段落里逐字核对。
+		Sentence string `json:"sentence"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
@@ -261,13 +429,24 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_tool", "这不是可用的段落工具。", nil))
 		return
 	}
+	sentence := strings.TrimSpace(req.Sentence)
+	if tool.Subject != "sentence" {
+		// 别的工具讲的是整段。带了句子也当没带 —— 否则同一段会按她随手划到
+		// 哪儿缓存出好几份一模一样的讲解。
+		sentence = ""
+	} else if sentence == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_sentence", "请先在这一段里点一个句子。", nil))
+		return
+	}
 
 	// Replay first — before the entitlement gate, before any model call.
 	if row, err := a.d.Queries.GetReadingBlockNote(r.Context(), sqlc.GetReadingBlockNoteParams{
-		AtomID: at.ID, BlockID: blockID, Tool: tool.ID,
+		AtomID: at.ID, BlockID: blockID, Tool: tool.ID, Subject: sentence,
 	}); err == nil {
+		dto := blockNoteDTOFrom(row)
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
-			"blockId": blockID, "tool": tool.ID, "body": row.Body, "cached": true,
+			"blockId": dto.BlockID, "tool": dto.Tool, "body": dto.Body,
+			"subject": dto.Subject, "words": dto.Words, "cached": true,
 		})
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -290,6 +469,13 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	if idx < 0 {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	// 🚨 她点的那一句必须真的在这一段里。前端是按 segmentSentences 切出来的，
+	// 所以正常情况下一定对得上；这条挡的是没有界面的调用 —— 一个编出来的句子
+	// 会让模型去讲一句这篇文章里不存在的话，而她看到的讲解一个字都验不了。
+	if sentence != "" && !strings.Contains(blocks[idx].Text, sentence) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("sentence_not_in_block", "这句话不在这一段里。", nil))
 		return
 	}
 	// A tool from the other language set is a mis-click, not a preference:
@@ -331,12 +517,34 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: readingBlockSystem + tool.Instruction + readingShapedSuffix[tool.Shape]},
-			{Role: gateway.RoleUser, Content: buildReadingBlockPrompt(src.Title, blocks, idx)},
+			{Role: gateway.RoleUser, Content: buildReadingBlockPrompt(src.Title, blocks, idx, sentence)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, res.Usage)
 	body := strings.TrimSpace(res.Text)
-	if cerr == nil && body != "" && tool.Shape != "prose" {
+	var words []readingWord
+	var data []byte
+	switch {
+	case cerr != nil || body == "":
+		// 下面那道统一的失败分支会处理。
+	case tool.Shape == "words":
+		// 🚨 每个 term 都要回这一段里逐字核对。核不上的丢光了，这件工具就算
+		// 失败 —— 绝不返回一组空卡片，也绝不把原始回话当散文渲染出去：
+		// 一张指着这一段里没有的词的卡片，荧光笔无处可落，讲解也验不了。
+		got, okWords := parseWordCards(sliceBlockJSON(body), blocks[idx].Text)
+		if !okWords {
+			slog.Warn("reading block explain: no word card survived the verbatim check",
+				"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		words = got
+		// body 存的是这组卡片的纯文字形态。见 wordCardsAsProse。
+		body = wordCardsAsProse(words)
+		if encoded, merr := json.Marshal(map[string]any{"words": words}); merr == nil {
+			data = encoded
+		}
+	case tool.Shape != "prose":
 		shaped, okShape := parseShapedBlockReply(tool.Shape, body)
 		if !okShape {
 			// A shaped reply that will not parse is a FAILURE, never rendered
@@ -358,6 +566,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := a.d.Queries.InsertReadingBlockNote(turnCtx, sqlc.InsertReadingBlockNoteParams{
 		AtomID: at.ID, BlockID: blockID, Tool: tool.ID, Body: body,
+		Data: data, Subject: sentence,
 	}); err != nil {
 		// Failing to CACHE must not cost her the explanation she just paid
 		// for — it is already in hand, so serve it and let the next click pay
@@ -365,6 +574,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("reading block explain: cache write failed", "err", err, "atom_id", at.ID)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"blockId": blockID, "tool": tool.ID, "body": body, "cached": false,
+		"blockId": blockID, "tool": tool.ID, "body": body,
+		"subject": sentence, "words": words, "cached": false,
 	})
 }

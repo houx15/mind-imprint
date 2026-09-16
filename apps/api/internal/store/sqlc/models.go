@@ -1080,6 +1080,10 @@ type ReadingBlockNote struct {
 	Tool      string    `json:"tool"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
+	// 结构化产物（关键单词的词卡数组等）。NULL = 这个工具只产出 body 那段文字。
+	Data []byte `json:"data"`
+	// 这份讲解针对的是哪一句（逐字抄自段落）。空串 = 整段。
+	Subject string `json:"subject"`
 }
 
 type ReadingBrief struct {

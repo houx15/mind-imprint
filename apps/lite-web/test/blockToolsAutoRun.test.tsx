@@ -38,6 +38,7 @@ function mount(autoTool: string | null, onConsumed = vi.fn()) {
     <BlockToolsPanel
       readingId="r1"
       blockId="b2"
+      blockText="The tide turned. Six hours of work went backwards."
       anchorEl={paragraph}
       pointerX={200}
       tools={TOOLS}
@@ -60,7 +61,7 @@ afterEach(cleanup);
 describe("BlockToolsPanel auto-run", () => {
   it("runs the tool 印记 chose, without her pressing anything", async () => {
     const consumed = mount("imitate");
-    await waitFor(() => expect(explain).toHaveBeenCalledWith("r1", "b2", "imitate"));
+    await waitFor(() => expect(explain).toHaveBeenCalledWith("r1", "b2", "imitate", ""));
     await waitFor(() => expect(consumed).toHaveBeenCalled());
     expect(explain).toHaveBeenCalledTimes(1);
   });

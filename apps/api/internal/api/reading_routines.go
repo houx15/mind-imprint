@@ -254,10 +254,24 @@ type readingBlockTool struct {
 	//   "imitate"   — a named move plus situations to try it on. There is
 	//                 deliberately NO FIELD for a sample paragraph, so the
 	//                 model has nowhere to put one even if it wants to.
+	//   "words"     — 一组词卡（词 / 词性 / 在这句里的意思 / 讲解 / 例句）。
+	//                 每个 term 都要回段落里逐字核对，核不上的丢掉 —— 那次核对
+	//                 正是荧光笔能落在正文上的全部依据。
 	//
-	// The last two are 铁律① enforced by output TYPE rather than by asking the
-	// model to behave — the same trick the writing room's guiding box uses.
+	// questions / imitate 是 铁律① 由**输出类型**守着，而不是靠劝模型收敛 ——
+	// 和写作室那个引导框同一个招。
 	Shape string `json:"shape"`
+	// Subject 说这件工具讲的是哪一级：空 = 整段，"sentence" = 她点的那一句。
+	//
+	// 语法 2026-09-16 改成按句子讲。产品负责人的原话：
+	//
+	//	> 语法 - we should teach grammar in a sentence level. namely, we ask
+	//	> student to select a sentence, and we teach that. currently we only
+	//	> have paragraph level which is strange.
+	//
+	// 这一位同时决定三件事：界面先请她点一句、prompt 里给的是那一句、缓存的键
+	// 把那一句算进去。
+	Subject string `json:"subject,omitempty"`
 }
 
 // 铁律 CHECK. These are EXPLANATORY, and that is why they are safe: 铁律①
@@ -274,12 +288,18 @@ var readingBlockTools = []readingBlockTool{
 		Instruction: "把这一段忠实地翻译成中文。不要意译到走样，也不要逐字硬译到读不通。只给译文。",
 	},
 	{
-		Shape: "prose", ID: "vocabulary", Label: "关键单词", Lang: "en",
-		Instruction: "挑出这一段里**真正值得学**的 3–5 个词（不是最长的，是最有用的、在这里意思特别的）。每个词给：词 — 在这句里的意思 — 一个短例子。不要把整段的词都列出来，那是词典干的事。",
+		// 2026-09-16：从一段散文改成一组词卡。散文没法变成卡片，更没法回到正文
+		// 里把那个词标出来 —— 要标，就得知道**哪几个字**是那个词。
+		Shape: "words", ID: "vocabulary", Label: "关键单词", Lang: "en",
+		Instruction: "挑出这一段里**真正值得学**的 3–5 个词（不是最长的，是最有用的、在这里意思特别的）。" +
+			"不要把整段的词都列出来，那是词典干的事；也不要挑初中就学过的。",
 	},
 	{
-		Shape: "prose", ID: "grammar", Label: "语法", Lang: "en",
-		Instruction: "指出这一段里让人读不懂的那 1–2 个句子结构（长从句、倒装、插入语、非谓语……）。把那个句子摘出来，说清楚它的主干是什么、修饰的部分挂在哪。只讲让人卡住的，不要通篇语法课。",
+		// 2026-09-16：按句子讲，不再讲整段。见 readingBlockTool.Subject。
+		Shape: "prose", ID: "grammar", Label: "语法", Lang: "en", Subject: "sentence",
+		Instruction: "把这一句的结构拆给她看：先说清主干（谁 + 做什么），再说每一块修饰挂在哪、修饰的是哪个词。" +
+			"句子里有从句、倒装、插入语、非谓语、省略的，点出它的名字并说清它在这里起什么作用。" +
+			"最后用一句话把这一句的意思说出来。只讲这一句，不要扩展到整段。",
 	},
 	{
 		Shape: "prose", ID: "hedge", Label: "把握度", Lang: "en",

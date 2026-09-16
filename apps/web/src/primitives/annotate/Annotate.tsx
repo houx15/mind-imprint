@@ -2,6 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import type { AnnotateState } from "@mind-imprint/contracts";
 import { parseMarkdownTable } from "./markdownTable";
 import { segmentBlock } from "./segment";
+import { splitByKeywords } from "./keywords";
 import { selectionToSpan, pointToRuneOffset, type CreatedSpan } from "./selection";
 import { segmentSentences, sentenceAtOffset } from "./sentences";
 
@@ -50,6 +51,21 @@ export type AnnotateProps = {
    * existed when it is not supplied, and pro never passes it.
    */
   coreBlockIds?: string[];
+  /**
+   * 荧光笔：每一段里要标出来的关键词，`blockId → terms`（轻量版的关键单词，
+   * 见 `apps/lite-web/src/readings/WordCards.tsx`）。
+   *
+   * 服务端已经保证每个词逐字出现在它那一段里，所以这里只做逐字查找，不猜。
+   * 标出来的是 `<span data-kw>`，**不是 `<mark>`** —— `<mark>` 在这个组件里
+   * 已经是「一条标注」的意思，两者混在一起，她点一个关键词会以为自己点开了
+   * 一条批注。样式由轻量版自己的 CSS 给。
+   *
+   * 🚨 切出来的段落拼回去逐字等于原文：标注的锚点是这一段文本里的偏移，
+   * 正文里多一个或少一个字符，之前存下来的每一条标注就都错位了。
+   *
+   * 不传时输出与这个 prop 存在之前逐字节相同，pro 从不传它。
+   */
+  keywordTerms?: Record<string, string[]>;
   /**
    * "Click a sentence to reference it" (引用原文). When supplied AND
    * `selectMode` is null (i.e. NOT in evidence-pick mode), each block
@@ -107,6 +123,7 @@ export function Annotate({
   renderAfterBlock,
   headingBlockIds,
   coreBlockIds,
+  keywordTerms,
   onReferenceBlock,
   onReferenceSelection,
   referencedBlockIds,
@@ -307,7 +324,26 @@ export function Annotate({
               >
                 {runs.map((run, i) => {
                   if (run.spanId == null) {
-                    return <span key={i}>{run.text}</span>;
+                    // 荧光笔只落在**没有标注**的那些段落上。一段文字同时是
+                    // 一条标注又是一个关键词时，标注赢 —— 标注是她自己（或
+                    // 印记）在这篇文章上做过的事，关键词只是一个词表。
+                    const terms = keywordTerms?.[block.id];
+                    if (!terms || terms.length === 0) {
+                      return <span key={i}>{run.text}</span>;
+                    }
+                    return (
+                      <span key={i}>
+                        {splitByKeywords(run.text, terms).map((kw, j) =>
+                          kw.term == null ? (
+                            <span key={j}>{kw.text}</span>
+                          ) : (
+                            <span key={j} data-kw="">
+                              {kw.text}
+                            </span>
+                          ),
+                        )}
+                      </span>
+                    );
                   }
                   const tone = AUTHOR_MARK_STYLE[run.author ?? "ai"];
                   const active = run.spanId === activeSpanId;

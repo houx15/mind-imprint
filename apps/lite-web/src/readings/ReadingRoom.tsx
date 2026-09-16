@@ -395,6 +395,26 @@ export function ReadingRoom({
 
   const busyOrCarded = loop.busy || loop.status !== "idle";
 
+  /**
+   * 荧光笔要标的词，`blockId → terms`。
+   *
+   * 她在哪一段开过「关键单词」，那一段的那几个词就一直标着 —— 关掉那张讲解卡
+   * 也不消失。理由是她开这件工具的目的就是记住这几个词，而记住是靠**再读到
+   * 它的时候认出来**，不是靠盯着一张卡片。
+   *
+   * term 是服务端拿回段落里逐字核对过的那一份写法，所以这里直接用，不猜。
+   */
+  const keywordTerms = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const note of blockNotes) {
+      if (!note.words || note.words.length === 0) continue;
+      const terms = note.words.map((w) => w.term).filter(Boolean);
+      if (terms.length === 0) continue;
+      out[note.blockId] = [...(out[note.blockId] ?? []), ...terms];
+    }
+    return out;
+  }, [blockNotes]);
+
   // 段落工具. The paragraph whose tool bar is open, together with what the bar
   // pins itself to: the paragraph element, and the x her pointer went down at.
   const [blockAnchor, setBlockAnchor] = useState<{ id: string; el: HTMLElement; x: number } | null>(null);
@@ -676,6 +696,7 @@ export function ReadingRoom({
                   blocks={source.blocks}
                   headingBlockIds={headingBlockIds}
                   coreBlockIds={outline?.core}
+                  keywordTerms={keywordTerms}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
                   onSelectSpan={setActiveSpanId}
@@ -724,6 +745,9 @@ export function ReadingRoom({
                         <BlockToolsPanel
                           readingId={readingId}
                           blockId={blockId}
+                          blockText={
+                            source.blocks.find((b) => b.id === blockId)?.text ?? ""
+                          }
                           anchorEl={blockAnchor.el}
                           pointerX={blockAnchor.x}
                           tools={blockTools}

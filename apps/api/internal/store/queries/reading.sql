@@ -102,15 +102,19 @@ SET status = $3,
 WHERE atom_id = $1 AND id = $2
 RETURNING *;
 
+-- subject 是「讲的是哪一句」，空串 = 整段（迁移 0157）。语法那一件按句子讲，
+-- 所以同一段里可以有好几份；其余工具永远传空串，重放照旧命中同一行。
 -- name: GetReadingBlockNote :one
-SELECT * FROM reading_block_note WHERE atom_id = $1 AND block_id = $2 AND tool = $3;
+SELECT * FROM reading_block_note
+WHERE atom_id = $1 AND block_id = $2 AND tool = $3 AND subject = $4;
 
 -- name: InsertReadingBlockNote :one
 -- ON CONFLICT DO UPDATE 而不是 DO NOTHING：并发两次点同一个工具时，两边都要
 -- 拿到一行回来，否则输的那一边会看到「成功了但没有内容」。
-INSERT INTO reading_block_note (atom_id, block_id, tool, body)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (atom_id, block_id, tool) DO UPDATE SET body = EXCLUDED.body
+INSERT INTO reading_block_note (atom_id, block_id, tool, body, data, subject)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (atom_id, block_id, tool, subject) DO UPDATE
+  SET body = EXCLUDED.body, data = EXCLUDED.data
 RETURNING *;
 
 -- name: ListReadingBlockNotes :many

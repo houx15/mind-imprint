@@ -539,7 +539,18 @@ export async function setReadingTaskStatus(
   );
 }
 
-export type ReadingBlockTool = { id: string; label: string };
+export type ReadingBlockTool = {
+  id: string;
+  label: string;
+  /**
+   * 这件工具讲的是哪一级：`""` = 整段，`"sentence"` = 她点的那一句。
+   *
+   * 语法 2026-09-16 改成按句子讲，所以点它之后先请她在这一段里点一句，再发
+   * 请求。服务端发这一位而不是让前端写死，理由和这个端点本来就存在的理由是
+   * 同一条：写死会和服务端漂开。
+   */
+  subject?: string;
+};
 
 /** Which tools exist depends on the ARTICLE's language. Fetched rather than
  *  hardcoded so the buttons she sees and the ids the server accepts cannot
@@ -551,7 +562,34 @@ export async function listReadingBlockTools(id: string): Promise<{ lang: string;
   return { lang: raw.lang ?? "zh", tools: raw.tools ?? [] };
 }
 
-export type ReadingBlockNote = { blockId: string; tool: string; body: string };
+/**
+ * 一张词卡。关键单词那件工具的产物（2026-09-16）。
+ *
+ * 🚨 `term` 是**这一段里的原样**，服务端已经拿它回段落里逐字核对过 ——
+ * 核不上的卡片根本不会发过来。这正是荧光笔敢直接拿它去正文里找的依据。
+ */
+export type ReadingWord = {
+  term: string;
+  /** 词性，中文。 */
+  pos: string;
+  /** 它在这一句里的意思，不是词典里的第一条。 */
+  meaning: string;
+  /** 为什么这个词值得学：词根、近义词的差别、常见搭配。 */
+  note: string;
+  /** 一个新造的例句，不是原文那一句。 */
+  example: string;
+  exampleZh: string;
+};
+
+export type ReadingBlockNote = {
+  blockId: string;
+  tool: string;
+  body: string;
+  /** 讲的是哪一句。空 = 整段。只有语法那件工具非空。 */
+  subject?: string;
+  /** 词卡。只有关键单词那件工具有。 */
+  words?: ReadingWord[];
+};
 
 /** Everything she has already opened, so a reload restores it instead of
  *  making her pay for it twice. */
@@ -562,16 +600,20 @@ export async function listReadingBlockNotes(id: string): Promise<ReadingBlockNot
   return raw.notes ?? [];
 }
 
-/** Explain ONE paragraph with ONE tool. Cached server-side by (blockId, tool),
- *  so a second call is instant and free. */
+/** Explain ONE paragraph with ONE tool. Cached server-side by
+ *  (blockId, tool, sentence), so a second call is instant and free.
+ *
+ *  `sentence` 只有 `subject === "sentence"` 的工具要传（语法）。服务端会拿它
+ *  回这一段里逐字核对，对不上就是 400。 */
 export async function explainReadingBlock(
   id: string,
   blockId: string,
   tool: string,
+  sentence?: string,
 ): Promise<ReadingBlockNote & { cached: boolean }> {
   return apiFetch<ReadingBlockNote & { cached: boolean }>(
     `/api/v1/readings/${encodeURIComponent(id)}/blocks/${encodeURIComponent(blockId)}/explain`,
-    { method: "POST", body: JSON.stringify({ tool }) },
+    { method: "POST", body: JSON.stringify({ tool, sentence: sentence ?? "" }) },
   );
 }
 

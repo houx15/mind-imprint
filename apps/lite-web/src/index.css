@@ -1893,6 +1893,180 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * 关键单词：荧光笔 + 词卡（`WordCards`、annotate 的 splitByKeywords）
+ *
+ * 产品负责人 2026-09-16：
+ *
+ *   > can we highlight the keywords in the original paper? with 荧光笔 feeling?
+ *   > besides, please, let's make the words like a set of cards. for each word,
+ *   > we have 词性, meaning. explanation, example sentences.
+ *
+ * 荧光笔用 `[data-kw]` 而不是 `<mark>`：`<mark>` 在阅读室里已经是「一条标注」
+ * 的意思（可点、会打开一张卡片），两者混在一起她会以为关键词也点得开。
+ *
+ * 要的是马克笔那种「涂过一道」的感觉，所以是一条压在字底下的横杠（linear-
+ * gradient 画的，只占行高的下半截），不是一整块底色 —— 一整块底色会盖住字，
+ * 而且连着几个词标出来就成了一片。
+ * ------------------------------------------------------------------------ */
+
+[data-kw] {
+  /* 🚨 mk token 是裸 CSS 变量，Tailwind 的 alpha 语法在它们上面一个字节都不出，
+     所以这里用 color-mix（memory: tailwind-mk-token-alpha-trap）。 */
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--mk-butter) 62%, transparent) 0,
+    color-mix(in srgb, var(--mk-butter) 62%, transparent) 0.55em,
+    transparent 0.55em
+  );
+  border-radius: 2px;
+  /* 一笔涂得比字略宽一点，像真的用马克笔划过。padding 不能用上下方向的 ——
+     它会把行高撑开，而正文的行距是读起来舒服的关键。 */
+  padding: 0 1px;
+  font-weight: 500;
+}
+
+.mk-word-cards {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* 两列只在放得下的时候出现。一张词卡里有四行字，挤到 200px 宽就没法读了。 */
+@media (min-width: 900px) {
+  .mk-word-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mk-word-card {
+  padding: 11px 13px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-surface);
+}
+
+.mk-word-card__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 5px;
+}
+.mk-word-card__term {
+  font-size: 15.5px;
+  font-weight: 650;
+  color: var(--mk-ink);
+  /* 卡片上的词和正文里被标出来的是同一个词，所以给它同一道笔。 */
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--mk-butter) 62%, transparent) 0,
+    color-mix(in srgb, var(--mk-butter) 62%, transparent) 0.5em,
+    transparent 0.5em
+  );
+}
+.mk-word-card__pos {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mk-accent-50, color-mix(in srgb, var(--mk-accent-500) 8%, var(--mk-paper)));
+  color: var(--mk-accent-700);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.mk-word-card__meaning {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--mk-ink);
+}
+.mk-word-card__note {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--mk-muted);
+}
+.mk-word-card__example {
+  margin: 7px 0 0;
+  padding-top: 7px;
+  border-top: 1px dashed var(--mk-border);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.mk-word-card__example-en {
+  display: block;
+  color: var(--mk-secondary);
+  font-style: italic;
+}
+.mk-word-card__example-zh {
+  display: block;
+  margin-top: 2px;
+  color: var(--mk-faint);
+}
+
+/* ---------------------------------------------------------------------------
+ * 请她点一个句子（`BlockToolsPanel` 的 picking 那一屏）
+ *
+ * 语法 2026-09-16 改成讲一句话。摆的是这一段切出来的真句子，不是一个输入框 ——
+ * 要讲的那一句本来就在她眼前，让她重打一遍是多余的。
+ * ------------------------------------------------------------------------ */
+
+.mk-sentence-pick {
+  margin-top: 8px;
+  padding: 11px 13px;
+  border: 1px dashed var(--mk-accent-200);
+  border-radius: var(--mk-radius-md, 12px);
+  background: color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-paper));
+}
+.mk-sentence-pick__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mk-sentence-pick__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mk-sentence-pick__item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+  font-size: 13.5px;
+  line-height: 1.7;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.mk-sentence-pick__item:hover:not(:disabled) {
+  border-color: var(--mk-accent-500);
+  background: color-mix(in srgb, var(--mk-accent-500) 6%, var(--mk-surface));
+}
+.mk-sentence-pick__item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 一份讲解讲的是哪一句。她可能已经往下读了两段 —— 不说清楚，她得自己回去找。 */
+.mk-block-note__subject {
+  margin: 0 0 8px;
+  padding-left: 9px;
+  border-left: 2px solid var(--mk-accent-200);
+  color: var(--mk-muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* ---------------------------------------------------------------------------
  * 只有摘要的那一篇（`ExcerptOnlyNotice`）
  *
  * 从探索地图点开一条新闻、三条取正文的路都没走通时，正文区里放的是两三句话的
