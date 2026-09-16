@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -408,6 +409,47 @@ func samePayload(a, b []byte) bool {
 	return reflect.DeepEqual(va, vb)
 }
 
+// checkSettingsChangeAllowed decides whether a kind/payload change may be
+// saved. With nobody started, any change may. Once a student has started,
+// only a personalized pick change is allowed, and only for students who have
+// not started: a pick is read when she starts, so it can change until then.
+// It must run inside the transaction that holds the assignment FOR UPDATE,
+// so a start cannot land between this read and the write.
+func checkSettingsChangeAllowed(ctx context.Context, qtx *sqlc.Queries, locked sqlc.LiteAssignment, kind string, payload json.RawMessage) error {
+	started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, locked.ID)
+	if err != nil {
+		return err
+	}
+	if started == 0 {
+		return nil
+	}
+	changed, onlyPicks := liteassign.PickOnlyChange(kind, locked.Kind, payload, locked.Payload)
+	if !onlyPicks {
+		return errAssignmentStarted("已有学生开始这份作业，类型和设置不能再修改")
+	}
+	rows, err := qtx.ListLiteAssignmentRecipients(ctx, []uuid.UUID{locked.ID})
+	if err != nil {
+		return err
+	}
+	startedNames := make(map[string]string, len(rows))
+	for _, row := range rows {
+		if row.StartedAt.Valid || row.AtomID.Valid {
+			startedNames[row.UserID.String()] = row.DisplayName
+		}
+	}
+	var names []string
+	for _, uid := range changed {
+		if name, ok := startedNames[uid]; ok {
+			names = append(names, name)
+		}
+	}
+	if len(names) > 0 {
+		sort.Strings(names)
+		return errAssignmentStarted(strings.Join(names, "、") + " 已开始这份作业，其文章不能再更换")
+	}
+	return nil
+}
+
 // patchLiteAssignment handles PATCH /api/v1/lite/teacher/assignments/{aid}.
 // Title, instructions and deadline stay editable. Kind and payload are locked
 // once any recipient has started, and a started recipient cannot be removed.
@@ -549,13 +591,8 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		params.Payload = withRubric
 	}
 	if settingsChanged {
-		started, err := qtx.CountStartedLiteAssignmentRecipients(ctx, locked.ID)
-		if err != nil {
+		if err := checkSettingsChangeAllowed(ctx, qtx, locked, params.Kind, params.Payload); err != nil {
 			httpx.WriteError(w, r, err)
-			return
-		}
-		if started > 0 {
-			httpx.WriteError(w, r, errAssignmentStarted("已有学生开始这份作业，类型和设置不能再修改"))
 			return
 		}
 	}

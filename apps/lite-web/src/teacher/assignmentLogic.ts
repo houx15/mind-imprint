@@ -17,6 +17,7 @@ import type {
   PatchAssignmentInput,
   PersonalPick,
   PreviewRow,
+  ReadingAssignmentPayload,
   RecipientDTO,
   RecipientReading,
   ReturnRecipientInput,
@@ -411,9 +412,23 @@ export interface EditDraft {
   originalRubric: RubricDraft | null;
 }
 
-/** The PATCH body for the detail page's edit. `kind`/`payload` are sent only
- * when the settings are editable (no recipient has started); the server
- * compares values, so resending unchanged settings is not a change. The
+/** How much of the kind/payload the detail page may change: "all" before any
+ * recipient starts; "picks" once someone has started on a homework that was
+ * already personalized (only unstarted students' picks); "none" otherwise.
+ * The server applies the same rule (`checkSettingsChangeAllowed`). */
+export type SettingsAccess = "all" | "picks" | "none";
+
+export function settingsAccess(recipients: RecipientDTO[], stored: SettingsDraft): SettingsAccess {
+  if (canEditSettings(recipients)) return "all";
+  return stored.kind === "reading" && stored.storedPersonalized ? "picks" : "none";
+}
+
+/** The PATCH body for the detail page's edit. `kind`/`payload` are sent in
+ * full only when `access` is "all"; the server compares values, so resending
+ * unchanged settings is not a change. With "picks", only `payload` is sent,
+ * and every started student's pick is put back exactly as stored
+ * (`startedIds`), so the only differences the server sees are picks for
+ * students who have not started. With "none", neither is sent. The
  * rubric is a separate, always-editable top-level field (`patch.rubric`):
  * the server carries the stored rubric over any resent kind/payload
  * regardless (`CarryRubric`), so it only ever changes through this field —
@@ -422,7 +437,12 @@ export interface EditDraft {
  * happened to be initialized as. `recipientIds` is forwarded to
  * `buildPayload`, which every caller must give the current recipients (see
  * `buildPayload`'s doc comment). */
-export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipientIds: string[]): Built<PatchAssignmentInput> {
+export function buildPatchInput(
+  e: EditDraft,
+  access: SettingsAccess,
+  recipientIds: string[],
+  startedIds: string[] = [],
+): Built<PatchAssignmentInput> {
   const common = validateCommon(e.title, e.dueInput);
   if (common) return { ok: false, error: common };
   const patch: PatchAssignmentInput = {
@@ -430,7 +450,21 @@ export function buildPatchInput(e: EditDraft, settingsEditable: boolean, recipie
     instructions: e.instructions.trim(),
     dueAt: beijingInputToISO(e.dueInput) ?? "",
   };
-  if (settingsEditable) {
+  if (access === "picks") {
+    const d = e.settings;
+    // No preview loaded means no pick was swapped: nothing to send.
+    if (d.kind === "reading" && d.readingSource === "personalized" && d.storedPersonalized && d.picks !== null) {
+      const payload = buildPayload(d, recipientIds) as ReadingAssignmentPayload;
+      const picks = { ...(payload.picks ?? {}) };
+      for (const uid of startedIds) {
+        const saved = d.savedPicks[uid];
+        if (saved) picks[uid] = saved;
+        else delete picks[uid];
+      }
+      patch.payload = { ...payload, picks };
+    }
+  }
+  if (access === "all") {
     // A homework that was ALREADY personalized has stored picks to fall
     // back to, so its preview not having loaded (or having failed) is not
     // "invalid" the way a brand new one would be — `buildPayload` falls back
@@ -475,11 +509,25 @@ export function buildReturnInput(dueInput: string, note: string, nowMs: number):
   return { ok: true, value: trimmed ? { dueAt, note: trimmed } : { dueAt } };
 }
 
+/** Whether this recipient has started (an item linked or a start time set).
+ * Status alone is not enough: an unstarted recipient past the deadline reads
+ * 已逾期, not 未开始. */
+export function recipientStarted(r: RecipientDTO): boolean {
+  return r.atomId !== null || r.startedAt !== null;
+}
+
 /** Kind and payload stay editable while no recipient has started — the same
- * rule the server enforces (an item linked = started). Status alone is not
- * enough: an unstarted recipient past the deadline reads 已逾期, not 未开始. */
+ * rule the server enforces. */
 export function canEditSettings(recipients: RecipientDTO[]): boolean {
-  return recipients.every((r) => r.atomId === null && r.startedAt === null);
+  return !recipients.some(recipientStarted);
+}
+
+/** A personalized pick can change until that student starts. A user who is
+ * not a recipient (the create form, or a student not yet added) has not
+ * started. */
+export function canSwapPick(recipients: RecipientDTO[], userId: string): boolean {
+  const r = recipients.find((x) => x.userId === userId);
+  return !r || !recipientStarted(r);
 }
 
 /** Class students who are not yet recipients, in roster order. */

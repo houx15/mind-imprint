@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/ui";
-import { previewPersonalizedReading } from "../api/assignments";
+import { previewPersonalizedReading, type RecipientDTO } from "../api/assignments";
 import { getLibraryShelf, type LibraryArticle } from "../api/library";
 import { Chip } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
 import {
+  canSwapPick,
   disciplineOptions,
   errorText,
   keptFromRows,
@@ -32,11 +33,19 @@ export function PersonalizedPicker({
   onChange,
   classId,
   recipientIds,
+  recipients = [],
+  picksOnly = false,
 }: {
   value: SettingsDraft;
   onChange: (update: (d: SettingsDraft) => SettingsDraft) => void;
   classId: string;
   recipientIds: string[];
+  /** The homework's recipients, when it exists: a started student's row is
+   *  locked and shows the article she is reading. */
+  recipients?: RecipientDTO[];
+  /** Someone has started: the filter and class tier are read-only, and only
+   *  unstarted students' rows can be swapped. */
+  picksOnly?: boolean;
 }) {
   const [articles, setArticles] = useState<LibraryArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +104,7 @@ export function PersonalizedPicker({
 
   return (
     <div className="flex flex-col gap-4">
-      {options.length > 0 && (
+      {!picksOnly && options.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className="text-mk-label font-bold text-mk-muted">学科筛选</span>
           <div className="flex flex-wrap gap-2" role="group" aria-label="学科筛选">
@@ -113,16 +122,18 @@ export function PersonalizedPicker({
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-mk-label font-bold text-mk-muted">难度</span>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="难度">
-          {[null, 1, 2, 3, 4, 5].map((t) => (
-            <Chip key={t ?? "auto"} active={tier === t} onClick={() => onChange((d) => ({ ...d, personalTier: t }))}>
-              {tierLabel(t)}
-            </Chip>
-          ))}
+      {!picksOnly && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-mk-label font-bold text-mk-muted">难度</span>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="难度">
+            {[null, 1, 2, 3, 4, 5].map((t) => (
+              <Chip key={t ?? "auto"} active={tier === t} onClick={() => onChange((d) => ({ ...d, personalTier: t }))}>
+                {tierLabel(t)}
+              </Chip>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="text-mk-small font-semibold text-mk-danger">
@@ -158,19 +169,33 @@ export function PersonalizedPicker({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.userId}>
-                  <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">{r.name}</td>
-                  <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{r.title}</td>
-                  <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{pickTierText(r, value.personalTier)}</td>
-                  <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">{r.reason}</td>
-                  <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
-                    <Button variant="link" size="sm" onClick={() => setSwapping(r)}>
-                      更换
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const swappable = canSwapPick(recipients, r.userId);
+                // A started row shows the article she is actually reading,
+                // which a fresh preview may not match.
+                const reading = swappable ? null : recipients.find((x) => x.userId === r.userId)?.reading;
+                const actual = reading && reading.state === "started" ? reading : null;
+                return (
+                  <tr key={r.userId}>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">{r.name}</td>
+                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {actual ? actual.title || actual.slug : r.title}
+                    </td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                      {actual ? tierLabel(actual.tier) : pickTierText(r, value.personalTier)}
+                    </td>
+                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">{r.reason}</td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
+                      <div className="flex items-center gap-3">
+                        {!swappable && <span className="font-bold text-mk-muted">已开始</span>}
+                        <Button variant="link" size="sm" onClick={() => setSwapping(r)} disabled={!swappable}>
+                          更换
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -63,7 +63,7 @@ func validTier(t *int) bool { return t == nil || (*t >= 1 && *t <= 5) }
 // hasLevel reports whether art has the given tier — checked separately from
 // validTier's 1..5 range so a future article published with fewer levels
 // still rejects a pick at publish time, not at her start (picks lock once
-// anyone starts, so she could not recover from a bad one then).
+// she starts, so she could not recover from a bad one then).
 func hasLevel(art library.Article, tier int) bool {
 	_, ok := art.LevelAt(tier)
 	return ok
@@ -134,6 +134,54 @@ func PicksOutsideChanged(payload, old json.RawMessage, recipients []uuid.UUID) b
 		return true
 	}
 	return false
+}
+
+// PickOnlyChange reports whether going from (oldKind, old) to (kind, payload)
+// changes nothing but personalized picks, and if so, which users' picks were
+// added, removed or modified. Both payloads must be validated. Once a
+// student has started, a PATCH is allowed only when onlyPicks is true and
+// none of the changed users has started.
+func PickOnlyChange(kind, oldKind string, payload, old json.RawMessage) (changed []string, onlyPicks bool) {
+	if kind != "reading" || oldKind != "reading" {
+		return nil, false
+	}
+	var p, prior ReadingPayload
+	if json.Unmarshal(payload, &p) != nil || json.Unmarshal(old, &prior) != nil {
+		return nil, false
+	}
+	if p.Source != "personalized" || prior.Source != "personalized" {
+		return nil, false
+	}
+	if !sameTier(p.Tier, prior.Tier) || !sameStrings(p.Disciplines, prior.Disciplines) {
+		return nil, false
+	}
+	if p.Slug != prior.Slug || p.URL != prior.URL || p.Text != prior.Text || p.FileName != prior.FileName {
+		return nil, false
+	}
+	for uid, pick := range p.Picks {
+		was, ok := prior.Picks[uid]
+		if !ok || was.Slug != pick.Slug || !sameTier(was.Tier, pick.Tier) {
+			changed = append(changed, uid)
+		}
+	}
+	for uid := range prior.Picks {
+		if _, ok := p.Picks[uid]; !ok {
+			changed = append(changed, uid)
+		}
+	}
+	return changed, true
+}
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func sameTier(a, b *int) bool {

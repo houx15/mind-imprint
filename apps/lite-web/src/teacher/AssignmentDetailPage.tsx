@@ -16,6 +16,7 @@ import { KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
 import { Field, INPUT_CLS } from "./formParts";
 import { GradingTab } from "./GradingTab";
+import { PersonalizedPicker } from "./PersonalizedPicker";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
 import { rubricScaleLabel } from "./rubricLogic";
@@ -23,12 +24,13 @@ import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
-  canEditSettings,
   errorText,
   failText,
   fillTitleIfEmpty,
   isArchiveSuccess,
   recipientReadingText,
+  recipientStarted,
+  settingsAccess,
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
@@ -127,7 +129,8 @@ export function AssignmentDetailPage({
 
   const assignment = data?.assignment ?? null;
   const recipients = data?.recipients ?? [];
-  const editable = canEditSettings(recipients);
+  const access = assignment ? settingsAccess(recipients, settingsFromAssignment(assignment.kind, assignment.payload)) : "none";
+  const editable = access === "all";
 
   // Library article title for the summary. Decorative: on failure the
   // summary shows the slug, which still identifies the article.
@@ -188,8 +191,9 @@ export function AssignmentDetailPage({
       // same as a failed request — not throw uncaught past this function.
       const built = buildPatchInput(
         edit,
-        editable,
+        access,
         recipients.map((r) => r.userId),
+        recipients.filter(recipientStarted).map((r) => r.userId),
       );
       if (!built.ok) {
         setMessage(built.error);
@@ -315,6 +319,18 @@ export function AssignmentDetailPage({
                   classId={assignment.classId}
                   recipientIds={recipients.map((r) => r.userId)}
                 />
+              ) : access === "picks" ? (
+                <>
+                  <p className="text-mk-small text-mk-muted">已有学生开始这份作业，只能更换未开始学生的文章</p>
+                  <PersonalizedPicker
+                    value={edit.settings}
+                    onChange={(update) => setEdit((d) => (d ? { ...d, settings: update(d.settings) } : d))}
+                    classId={assignment.classId}
+                    recipientIds={recipients.map((r) => r.userId)}
+                    recipients={recipients}
+                    picksOnly
+                  />
+                </>
               ) : (
                 <>
                   <p className="text-mk-small text-mk-muted">已有学生开始这份作业，类型和设置不能再修改</p>

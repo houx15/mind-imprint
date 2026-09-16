@@ -1,10 +1,14 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -535,4 +539,125 @@ func TestPersonalizedDetailPickedTierFallsBackToClassTier(t *testing.T) {
 	if r2 == nil || r2.State != "picked" || r2.Tier != nil {
 		t.Fatalf("picked reading (no class tier) = %+v, want tier null", r2)
 	}
+}
+
+// patchErr sends a PATCH and returns the status, error code and message.
+func patchErr(t *testing.T, h http.Handler, c *http.Cookie, path string, body any) (int, string, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	_ = json.NewEncoder(&buf).Encode(body)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PATCH", path, &buf), c))
+	var env struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &env)
+	return rec.Code, env.Error.Code, env.Error.Message
+}
+
+// TestPersonalizedPickLocksPerStudent: once A has started, B's pick can still
+// change; A's pick cannot, and nothing else in the settings can.
+func TestPersonalizedPickLocksPerStudent(t *testing.T) {
+	h, pool, teacher, classID, sa := liteTeacherFixture(t)
+	sb := createStudent(t, pool, SeedSchoolID, "pl-sb@demo.local")
+	enrollStudent(t, pool, sb, classID)
+	all := library.All()
+	d := all[0].Disciplines[0]
+	payload := func(tier any, ds []string, pa, pb string) map[string]any {
+		picks := map[string]any{}
+		if pa != "" {
+			picks[sa.String()] = map[string]any{"slug": pa}
+		}
+		if pb != "" {
+			picks[sb.String()] = map[string]any{"slug": pb}
+		}
+		p := personalizedPayload(ds, picks)
+		if tier != nil {
+			p["tier"] = tier
+		}
+		return p
+	}
+	start := payload(3, []string{d}, all[0].Slug, all[0].Slug)
+
+	// Nobody started: any settings change is saved.
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("个性化", start, []string{sa.String(), sb.String()}))
+	path := "/api/v1/lite/teacher/assignments/" + aid
+	if code := assignJSON(t, h, teacher, "PATCH", path, map[string]any{"payload": payload(2, nil, all[0].Slug, all[0].Slug)}, nil); code != http.StatusOK {
+		t.Fatalf("pre-start settings change = %d, want 200", code)
+	}
+	if code := assignJSON(t, h, teacher, "PATCH", path, map[string]any{"payload": start}, nil); code != http.StatusOK {
+		t.Fatalf("restore settings = %d, want 200", code)
+	}
+
+	startAssignment(t, h, signInAs(t, pool, sa), aid)
+	var nameA string
+	if err := pool.QueryRow(context.Background(), `SELECT display_name FROM users WHERE id = $1`, sa).Scan(&nameA); err != nil {
+		t.Fatal(err)
+	}
+
+	// B has not started: her pick changes.
+	if code := assignJSON(t, h, teacher, "PATCH", path, map[string]any{"payload": payload(3, []string{d}, all[0].Slug, all[1].Slug)}, nil); code != http.StatusOK {
+		t.Fatalf("change B's pick = %d, want 200", code)
+	}
+	var got struct {
+		Assignment struct {
+			Payload struct {
+				Picks map[string]struct {
+					Slug string `json:"slug"`
+				} `json:"picks"`
+			} `json:"payload"`
+		} `json:"assignment"`
+	}
+	getJSON(t, h, teacher, path, &got)
+	if p := got.Assignment.Payload.Picks; p[sb.String()].Slug != all[1].Slug || p[sa.String()].Slug != all[0].Slug {
+		t.Fatalf("picks after B's change = %+v", p)
+	}
+	storedPayload := func() json.RawMessage {
+		t.Helper()
+		var p json.RawMessage
+		if err := pool.QueryRow(context.Background(), `SELECT payload FROM lite_assignment WHERE id = $1`, aid).Scan(&p); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	before := storedPayload()
+
+	// A has started: changing or removing her pick names her.
+	for name, body := range map[string]map[string]any{
+		"change A": payload(3, []string{d}, all[1].Slug, all[1].Slug),
+		"remove A": payload(3, []string{d}, "", all[1].Slug),
+	} {
+		code, errCode, msg := patchErr(t, h, teacher, path, map[string]any{"payload": body})
+		if code != http.StatusConflict || errCode != "assignment_started" || !strings.Contains(msg, nameA) {
+			t.Errorf("%s = %d %s %q, want 409 assignment_started naming %q", name, code, errCode, msg, nameA)
+		}
+	}
+	// Everything but the picks stays locked.
+	for name, body := range map[string]map[string]any{
+		"class tier":  {"payload": payload(4, []string{d}, all[0].Slug, all[1].Slug)},
+		"disciplines": {"payload": payload(3, nil, all[0].Slug, all[1].Slug)},
+		"source":      {"payload": map[string]any{"source": "library", "slug": all[0].Slug}},
+		"kind":        {"kind": "writing", "payload": map[string]any{"prompt": "写雨", "targetWords": 600, "lang": "zh"}},
+		"B and tier":  {"payload": payload(4, []string{d}, all[0].Slug, all[2].Slug)},
+	} {
+		code, errCode, _ := patchErr(t, h, teacher, path, body)
+		if code != http.StatusConflict || errCode != "assignment_started" {
+			t.Errorf("%s = %d %s, want 409 assignment_started", name, code, errCode)
+		}
+	}
+	// No refused request changed the stored payload.
+	if now := storedPayload(); !jsonEqual(now, before) {
+		t.Fatalf("stored payload = %s, want %s", now, before)
+	}
+}
+
+func jsonEqual(a, b []byte) bool {
+	var va, vb any
+	if json.Unmarshal(a, &va) != nil || json.Unmarshal(b, &vb) != nil {
+		return false
+	}
+	return reflect.DeepEqual(va, vb)
 }

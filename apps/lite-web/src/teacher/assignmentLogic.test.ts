@@ -10,6 +10,9 @@ import {
   buildPayload,
   buildReturnInput,
   canEditSettings,
+  canSwapPick,
+  recipientStarted,
+  settingsAccess,
   disciplineChips,
   disciplineOptions,
   draftOnClassChange,
@@ -185,12 +188,12 @@ describe("buildCreateInput", () => {
 describe("buildPatchInput", () => {
   const edit: EditDraft = { title: "新标题", instructions: " ", dueInput: "2026-09-21T08:00", settings: emptySettings("project"), originalRubric: null };
   it("leaves kind and payload out when settings are locked, even if the draft is invalid", () => {
-    const r = buildPatchInput(edit, false, []);
+    const r = buildPatchInput(edit, "none", []);
     expect(r).toEqual({ ok: true, value: { title: "新标题", instructions: "", dueAt: "2026-09-21T08:00:00+08:00" } });
   });
   it("validates and sends settings when editable", () => {
-    expect(buildPatchInput(edit, true, [])).toEqual({ ok: false, error: "请填写驱动问题" });
-    const r = buildPatchInput({ ...edit, settings: { ...edit.settings, drivingQuestion: "问题" } }, true, []);
+    expect(buildPatchInput(edit, "all", [])).toEqual({ ok: false, error: "请填写驱动问题" });
+    const r = buildPatchInput({ ...edit, settings: { ...edit.settings, drivingQuestion: "问题" } }, "all", []);
     expect(r.ok && r.value.kind).toBe("project");
   });
 });
@@ -210,32 +213,32 @@ describe("buildPatchInput rubric (writing only)", () => {
     originalRubric,
   });
   it("omits rubric from the patch when the draft is unchanged", () => {
-    const r = buildPatchInput(writingEdit(loaded!), false, []);
+    const r = buildPatchInput(writingEdit(loaded!), "none", []);
     expect(r.ok).toBe(true);
     if (r.ok) expect("rubric" in r.value).toBe(false);
   });
   it("sends rubric when a dimension changed", () => {
     const changed: RubricDraft = { ...loaded!, dimensions: [{ name: "论证", note: "" }] };
-    const r = buildPatchInput(writingEdit(changed), false, []);
+    const r = buildPatchInput(writingEdit(changed), "none", []);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(changed));
   });
   // A key-order difference alone must not read as a rubric change.
   it("treats the same dimension content built in a different key order as unchanged", () => {
     const reordered: RubricDraft = { ...loaded!, dimensions: [{ note: loaded!.dimensions[0]!.note, name: loaded!.dimensions[0]!.name }] };
-    const r = buildPatchInput(writingEdit(reordered), false, []);
+    const r = buildPatchInput(writingEdit(reordered), "none", []);
     expect(r.ok).toBe(true);
     if (r.ok) expect("rubric" in r.value).toBe(false);
   });
   it("also validates the rubric when settings are locked, since it stays editable", () => {
     const invalid: RubricDraft = { ...loaded!, dimensions: [] };
-    expect(buildPatchInput(writingEdit(invalid), false, [])).toEqual({ ok: false, error: "评分维度需有 1 到 6 项" });
+    expect(buildPatchInput(writingEdit(invalid), "none", [])).toEqual({ ok: false, error: "评分维度需有 1 到 6 项" });
   });
   // Without an original to compare against (a writing homework whose
   // payload carried no rubric — should not happen for a real one), the
   // safer default is to send it rather than guess "unchanged".
   it("sends rubric when no original is known to compare against", () => {
-    const r = buildPatchInput(writingEdit(loaded!, null), false, []);
+    const r = buildPatchInput(writingEdit(loaded!, null), "none", []);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.rubric).toEqual(buildRubric(loaded!));
   });
@@ -657,7 +660,7 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
   it("saves using the saved picks when the preview never loaded", () => {
     const settings = settingsFromAssignment("reading", { source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
     expect(settings.picks).toBeNull(); // the preview call never ran
-    const r = buildPatchInput(editOf(settings), true, ["u1"]);
+    const r = buildPatchInput(editOf(settings), "all", ["u1"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "coral", tier: null } } });
   });
@@ -668,7 +671,7 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
     const kept = keptFromSaved(settings.savedPicks, articles);
     const merged = mergePickRows([preview({ userId: "u1" })], null, kept);
     const swapped = swapPick(merged, "u1", { slug: "nasa", tier: 5 }, articles);
-    const r = buildPatchInput(editOf({ ...settings, picks: swapped }), true, ["u1"]);
+    const r = buildPatchInput(editOf({ ...settings, picks: swapped }), "all", ["u1"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.payload).toEqual({ source: "personalized", picks: { u1: { slug: "nasa", tier: 5 } } });
   });
@@ -681,8 +684,83 @@ describe("buildPatchInput on a personalized reading whose preview has not loaded
     const stored = settingsFromAssignment("reading", { source: "library", slug: "coral" });
     expect(stored.storedPersonalized).toBe(false);
     const switched: SettingsDraft = { ...stored, readingSource: "personalized", picks: null };
-    const r = buildPatchInput(editOf(switched), true, ["u1"]);
+    const r = buildPatchInput(editOf(switched), "all", ["u1"]);
     expect(r).toEqual({ ok: false, error: "请等待推荐列表加载完成" });
+  });
+});
+
+// Once one student has started, a personalized homework still lets the
+// teacher change the picks of students who have not (G2). The server
+// refuses any other difference, so the patch must carry nothing else.
+describe("per-student pick lock", () => {
+  const started = recipient({ userId: "u1", atomId: "a1", startedAt: "2026-09-15T00:00:00Z", status: "in_progress" });
+  const waiting = recipient({ userId: "u2", status: "overdue", statusLabel: "已逾期" });
+
+  it("recipientStarted reads the item or the start time, not the status", () => {
+    expect(recipientStarted(started)).toBe(true);
+    expect(recipientStarted(waiting)).toBe(false);
+    expect(recipientStarted(recipient({ startedAt: "2026-09-15T00:00:00Z" }))).toBe(true);
+    expect(recipientStarted(recipient({ atomId: "a1" }))).toBe(true);
+  });
+
+  it("canSwapPick locks only the student who started", () => {
+    expect(canSwapPick([started, waiting], "u1")).toBe(false);
+    expect(canSwapPick([started, waiting], "u2")).toBe(true);
+    expect(canSwapPick([started], "u9")).toBe(true);
+    expect(canEditSettings([started, waiting])).toBe(false);
+  });
+
+  it("settingsAccess allows picks only on a homework stored as personalized", () => {
+    const personalized = settingsFromAssignment("reading", { source: "personalized", picks: {} });
+    const library = settingsFromAssignment("reading", { source: "library", slug: "coral" });
+    expect(settingsAccess([waiting], personalized)).toBe("all");
+    expect(settingsAccess([started, waiting], personalized)).toBe("picks");
+    expect(settingsAccess([started, waiting], library)).toBe("none");
+    expect(settingsAccess([started], settingsFromAssignment("writing", { prompt: "p", targetWords: 800, lang: "zh" }))).toBe("none");
+  });
+
+  const stored = settingsFromAssignment("reading", {
+    source: "personalized",
+    tier: 3,
+    disciplines: ["biology"],
+    picks: { u1: { slug: "coral", tier: null }, u2: { slug: "coral", tier: 2 } },
+  });
+  const articles = [article("coral", "珊瑚"), article("nasa", "NASA")];
+  const edit = (settings: SettingsDraft): EditDraft => ({ title: "标题", instructions: "", dueInput: "2026-09-21T08:00", settings, originalRubric: null });
+
+  it("sends only the payload, with u2's swap and u1's pick as stored", () => {
+    // The preview recommends nasa for u1; she has started on coral, so the
+    // table row would read nasa, and the patch must still carry coral.
+    const merged = mergePickRows([preview({ userId: "u1", slug: "nasa", title: "NASA" }), preview({ userId: "u2" })], 3, {});
+    const swapped = swapPick(merged, "u2", { slug: "nasa", tier: 4 }, articles);
+    const r = buildPatchInput(edit({ ...stored, picks: swapped }), "picks", ["u1", "u2"], ["u1"]);
+    expect(r).toEqual({
+      ok: true,
+      value: {
+        title: "标题",
+        instructions: "",
+        dueAt: "2026-09-21T08:00:00+08:00",
+        payload: {
+          source: "personalized",
+          disciplines: ["biology"],
+          tier: 3,
+          picks: { u1: { slug: "coral", tier: null }, u2: { slug: "nasa", tier: 4 } },
+        },
+      },
+    });
+  });
+
+  it("leaves out a started student who had no stored pick", () => {
+    const noPick = settingsFromAssignment("reading", { source: "personalized", picks: { u2: { slug: "coral", tier: null } } });
+    const rows = mergePickRows([preview({ userId: "u1" }), preview({ userId: "u2" })], null, keptFromSaved(noPick.savedPicks, articles));
+    const r = buildPatchInput(edit({ ...noPick, picks: rows }), "picks", ["u1", "u2"], ["u1"]);
+    expect(r.ok && r.value.payload).toEqual({ source: "personalized", picks: { u2: { slug: "coral", tier: null } } });
+  });
+
+  it("sends no payload before the preview loads", () => {
+    const r = buildPatchInput(edit(stored), "picks", ["u1", "u2"], ["u1"]);
+    expect(r.ok && "payload" in r.value).toBe(false);
+    expect(r.ok && "kind" in r.value).toBe(false);
   });
 });
 

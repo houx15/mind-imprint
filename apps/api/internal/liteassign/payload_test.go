@@ -239,3 +239,55 @@ func TestReadingPersonalizedPickKeyCollision(t *testing.T) {
 		t.Fatalf("colliding pick keys: got %v, want invalid_pick_user", err)
 	}
 }
+
+func TestPickOnlyChange(t *testing.T) {
+	a, b, c := uuid.New().String(), uuid.New().String(), uuid.New().String()
+	all := library.All()
+	s0, s1 := all[0].Slug, all[1].Slug
+	d := all[0].Disciplines[0]
+	v := func(raw string) json.RawMessage {
+		t.Helper()
+		out, err := ValidatePayload("reading", json.RawMessage(raw))
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		return out
+	}
+	pa := `"` + a + `":{"slug":"` + s0 + `"}`
+	pb := `"` + b + `":{"slug":"` + s0 + `","tier":2}`
+	base := v(`{"source":"personalized","tier":3,"disciplines":["` + d + `"],"picks":{` + pa + `,` + pb + `}}`)
+
+	cases := []struct {
+		name      string
+		kind      string
+		payload   json.RawMessage
+		wantOnly  bool
+		wantUsers []string
+	}{
+		{"unchanged", "reading", base, true, nil},
+		{"b slug", "reading", v(`{"source":"personalized","tier":3,"disciplines":["` + d + `"],"picks":{` + pa + `,"` + b + `":{"slug":"` + s1 + `","tier":2}}}`), true, []string{b}},
+		{"b tier", "reading", v(`{"source":"personalized","tier":3,"disciplines":["` + d + `"],"picks":{` + pa + `,"` + b + `":{"slug":"` + s0 + `"}}}`), true, []string{b}},
+		{"c added", "reading", v(`{"source":"personalized","tier":3,"disciplines":["` + d + `"],"picks":{` + pa + `,` + pb + `,"` + c + `":{"slug":"` + s1 + `"}}}`), true, []string{c}},
+		{"a removed", "reading", v(`{"source":"personalized","tier":3,"disciplines":["` + d + `"],"picks":{` + pb + `}}`), true, []string{a}},
+		{"class tier", "reading", v(`{"source":"personalized","tier":4,"disciplines":["` + d + `"],"picks":{` + pa + `,` + pb + `}}`), false, nil},
+		{"class tier cleared", "reading", v(`{"source":"personalized","disciplines":["` + d + `"],"picks":{` + pa + `,` + pb + `}}`), false, nil},
+		{"disciplines", "reading", v(`{"source":"personalized","tier":3,"picks":{` + pa + `,` + pb + `}}`), false, nil},
+		{"source", "reading", v(`{"source":"library","slug":"` + s0 + `"}`), false, nil},
+		{"kind", "project", json.RawMessage(`{"drivingQuestion":"问","description":""}`), false, nil},
+	}
+	for _, tc := range cases {
+		got, only := PickOnlyChange(tc.kind, "reading", tc.payload, base)
+		if only != tc.wantOnly {
+			t.Errorf("%s: onlyPicks = %v, want %v", tc.name, only, tc.wantOnly)
+			continue
+		}
+		if strings.Join(got, ",") != strings.Join(tc.wantUsers, ",") {
+			t.Errorf("%s: changed = %v, want %v", tc.name, got, tc.wantUsers)
+		}
+	}
+	// A stored payload that is not personalized never allows a pick-only change.
+	lib := v(`{"source":"library","slug":"` + s0 + `"}`)
+	if _, only := PickOnlyChange("reading", "reading", base, lib); only {
+		t.Error("library -> personalized: onlyPicks = true, want false")
+	}
+}
