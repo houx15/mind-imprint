@@ -116,17 +116,16 @@ func TestWorkspaceTurnRejectsOutsiders(t *testing.T) {
 	}
 }
 
-// TestWorkspaceTurnRejectsUnknownSurface — parentReport (D3, not open yet)
-// carries other tools and another artifact. Answering it with the
-// assignment tool set would be worse than refusing. home opened in D2; see
-// TestWorkspaceTurnRefusesSurfacesNotOpenYet for the fuller table of
-// not-yet-open surfaces.
+// TestWorkspaceTurnRejectsUnknownSurface — a surface name is matched exactly.
+// "parentreport" is not "parentReport": answering it with some other
+// surface's tool set would be worse than refusing. See
+// TestWorkspaceTurnRefusesUnknownSurfaces for the fuller table.
 func TestWorkspaceTurnRejectsUnknownSurface(t *testing.T) {
 	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, writingTextStubProvider("好的。"))
-	body, _ := json.Marshal(map[string]any{"surface": "parentReport", "classId": classID, "text": "改一下第一段"})
+	body, _ := json.Marshal(map[string]any{"surface": "parentreport", "classId": classID, "text": "改一下第一段"})
 	rec := postWorkspaceTurn(t, h, teacher, string(body))
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("surface=parentReport = %d, want 400; body=%s", rec.Code, rec.Body)
+		t.Fatalf("surface=parentreport = %d, want 400; body=%s", rec.Code, rec.Body)
 	}
 }
 

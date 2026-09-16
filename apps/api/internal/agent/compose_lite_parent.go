@@ -81,6 +81,19 @@ func validateLiteParentReport(p map[string]string, f liteparent.Facts, sections 
 			return fmt.Errorf("section %s has %d characters, over the %d limit", k, n, liteParentSectionMax)
 		}
 	}
+	return CheckLiteParentSections(p, sections, f, otherNames)
+}
+
+// CheckLiteParentSections runs the prose checks on each section in sections,
+// reading its text from p: quotes and titles come from the facts, digits come
+// from the facts, no Chinese-numeral counts, no classmate's name. It does not
+// check keys or lengths. Drafting (validateLiteParentReport) and the teacher
+// workspace's revise_section both call it, so a revised section passes the
+// same checks a drafted one does.
+//
+// f is the facts the text may use (the visible facts); otherNames are the
+// student's classmates. The error starts with the failing section's key.
+func CheckLiteParentSections(p map[string]string, sections []string, f liteparent.Facts, otherNames []string) error {
 	// The digit set is the counts and dates the prompt shows the model, plus
 	// her name: liteparent.DigitFactsText, which leaves out the digits inside
 	// quotes, titles and the class name (plan 4 Ruling 18 C). The system

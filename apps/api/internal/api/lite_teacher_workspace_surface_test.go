@@ -1,9 +1,8 @@
 package api_test
 
 // lite_teacher_workspace_surface_test.go — which surfaces the workspace turn
-// serves. home and parentReport get their own tools and canvas in D2/D3; until
-// each lands, a turn naming it must be refused rather than answered with the
-// assignment tool set. Delete a row here in the task that opens that surface.
+// serves. A turn naming no surface, or one that has no entry, must be refused
+// rather than answered with another surface's tool set.
 
 import (
 	"encoding/json"
@@ -14,7 +13,7 @@ import (
 	. "mindimprint/api/internal/api"
 )
 
-func TestWorkspaceTurnRefusesSurfacesNotOpenYet(t *testing.T) {
+func TestWorkspaceTurnRefusesUnknownSurfaces(t *testing.T) {
 	h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, writingTextStubProvider("好的。"))
 
 	cases := []struct {
@@ -23,10 +22,6 @@ func TestWorkspaceTurnRefusesSurfacesNotOpenYet(t *testing.T) {
 	}{
 		{"missing", map[string]any{"classId": classID, "text": "布置作业"}},
 		{"unknown", map[string]any{"surface": "gradebook", "classId": classID, "text": "布置作业"}},
-		{"parentReport", map[string]any{
-			"surface": "parentReport", "classId": classID,
-			"reportId": "00000000-0000-0000-0000-000000000001", "text": "改一下第一段",
-		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

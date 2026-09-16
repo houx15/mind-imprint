@@ -43,8 +43,8 @@ import (
 // workspace turn makes, including the ones inside the tool loop.
 const liteTeacherWorkspacePurpose = "lite_teacher_workspace"
 
-// liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: it
-// belongs to the parentReport surface, which arrives with D3.
+// liteWorkspaceTurnRequest is §4.4's request. reportId is read only by the
+// parentReport surface; classId by the other two.
 type liteWorkspaceTurnRequest struct {
 	Surface  string               `json:"surface"`
 	ClassID  string               `json:"classId"`
@@ -256,7 +256,7 @@ type liteWorkspaceNavigateDTO struct {
 type liteWorkspaceSubject struct {
 	class sqlc.Class
 	// report is the parent report a parentReport turn revises. Zero for
-	// every other surface. Task 15 sets it in liteWorkspaceSubjectFromReport.
+	// every other surface. liteWorkspaceSubjectFromReport sets it.
 	report sqlc.LiteParentReport
 }
 
@@ -286,13 +286,9 @@ type liteWorkspaceSurfaceSpec struct {
 }
 
 // liteWorkspaceSurfaces is every surface the workspace turn serves. A name
-// that is not a key here answers 400 unknown_surface: home and parentReport
-// (§5.2, §5.3) carry different tools and a different canvas, so accepting
-// their names before their surfaces exist would answer with the wrong tool
-// set rather than say no.
-//
-// Task 13 adds "home" (resolve: liteWorkspaceSubjectFromClass). Task 15 adds
-// "parentReport" with resolve: liteWorkspaceSubjectFromReport.
+// that is not a key here answers 400 unknown_surface: each surface carries
+// its own tools and canvas, so a name without an entry is refused rather than
+// answered with another surface's tool set.
 //
 // Read-only after init. Tests register extra entries only from init (see
 // lite_teacher_workspace_export_test.go), never while a request runs.
@@ -307,6 +303,12 @@ var liteWorkspaceSurfaces = map[string]liteWorkspaceSurfaceSpec{
 		resolve: liteWorkspaceSubjectFromClass,
 		build: func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error) {
 			return a.newLiteWorkspaceHome(in.mctx, in.subject.class, in.roster, in.typed), nil
+		},
+	},
+	"parentReport": {
+		resolve: liteWorkspaceSubjectFromReport,
+		build: func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error) {
+			return a.newLiteWorkspaceReport(in)
 		},
 	},
 }
@@ -329,20 +331,10 @@ func liteWorkspaceSubjectFromClass(a *API, ctx context.Context, req liteWorkspac
 	return liteWorkspaceSubject{class: cls}, nil
 }
 
-// Task 15 plugs in here: liteWorkspaceSubjectFromReport, shaped like
-// loadTeacherParentReport (lite_parent_report.go) but reading the id from the
-// body and returning errors instead of writing them:
-//
-//	rid, err := uuid.Parse(strings.TrimSpace(req.ReportID))
-//	if err != nil { return liteWorkspaceSubject{}, httpx.ErrNotFound("资源不存在") }
-//	rep, err := a.d.Queries.GetLiteParentReport(ctx, rid)
-//	if err != nil { return liteWorkspaceSubject{}, err } // ErrNoRows is written as 404
-//	cls, err := a.assertTeacherOwnsClass(ctx, rep.ClassID)
-//	if err != nil { return liteWorkspaceSubject{}, err }
-//	return liteWorkspaceSubject{class: cls, report: rep}, nil
-//
-// req.ClassID is ignored for that surface: the class comes from the report
-// row, so the roster the §6 checks read is the report's class.
+// The parentReport surface resolves with liteWorkspaceSubjectFromReport
+// (lite_teacher_workspace_report.go), which reads the report id from the body
+// and ignores req.ClassID: the class comes from the report row, so the roster
+// the §6 checks read is the report's class.
 
 // errLiteWorkspaceTurn is the visible failure of one workspace turn. 动词+失败
 // plus the real cause — never a plausible sentence standing in for a reply

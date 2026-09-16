@@ -2,8 +2,10 @@ package liteworkspace
 
 import (
 	"fmt"
+	"strings"
 
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/liteparent"
 )
 
 // SystemContext is what the assignment prompt needs to know that the tools
@@ -352,36 +354,136 @@ func HomeTools() []gateway.ChatTool {
 				"required": []string{"target"},
 			},
 		},
+		plainAskChoiceTool(),
+	}
+}
+
+// plainAskChoiceTool is ask_choice without the article slug field: the home
+// and parent report surfaces offer options that are never an article.
+func plainAskChoiceTool() gateway.ChatTool {
+	return gateway.ChatTool{
+		Name:        "ask_choice",
+		Description: "结束这一轮，给老师 2 到 4 个按钮选，而不是问一个开放式问题。",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"question": map[string]any{
+					"type":        "string",
+					"description": "要问的问题，一句话。",
+				},
+				"options": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"id": map[string]any{
+								"type":        "string",
+								"description": "这个选项的标识，你自己取。",
+							},
+							"label": map[string]any{
+								"type": "string",
+							},
+						},
+						"required": []string{"id", "label"},
+					},
+					"description": "2 到 4 个选项，超过 4 个会被截断。",
+				},
+			},
+			"required": []string{"question", "options"},
+		},
+	}
+}
+
+// ReportSystemContext is what the parent report prompt needs to know that the
+// tools cannot tell it. Canvas is the report as it stands (section headings in
+// Chinese, current text, visible facts), rendered by the caller.
+type ReportSystemContext struct {
+	TodayBeijing string // "2006-01-02"
+	ClassName    string
+	StudentName  string
+	Canvas       string
+}
+
+// ReviseSectionMaxRunes is revise_section's cap on one section. It equals the
+// report editor's own cap (liteParentBodySectionMax in
+// apps/api/internal/api/lite_parent_report.go), which the PATCH that saves the
+// section enforces; a longer text would pass the tool and fail at save.
+const ReviseSectionMaxRunes = 2000
+
+const reportSystemTemplate = `你在帮一位老师修改一份给家长的学习报告。报告由系统根据学生的学习记录生成，老师审阅后发给家长。
+
+现在是北京时间 %s。班级是%s。这份报告写的是%s。
+
+## 你怎么做
+
+- 老师说要改哪一段、怎么改，你就调用 revise_section，写出改好的整段。只改老师要改的段落。
+- 改好的段落会显示在右边的报告里，不要在回复里整段复述，说明改了哪一段即可。
+- 老师没说清楚改哪一段或怎么改时，用 ask_choice 给 2 到 4 个选项。一轮只问一个问题。
+- 说话要短。不超过 120 个字。
+
+## 硬规矩（revise_section 会逐条检查，不通过会返回错误，按错误重写后再调用）
+
+- 只使用下面「可用的事实」里的内容，不补充事实，不评价学生的人格。
+- 引用学生原话时用「」，逐字照抄事实里的原话。作品标题用《》，只有学生原话用「」。
+- 数字一律用阿拉伯数字，只用事实里出现的数字，照抄，不做加减和单位换算。
+- 不写其他学生的名字。
+- 说明文，不用比喻、抒情和套话。列举多条时不编号，每条单独一行。
+- 提到段落时用段落标题（如「阅读」「下一步建议」）。
+- 你改不了的事不要说你改了。
+
+%s`
+
+// ReportSystem renders the system prompt the parent report workspace turn
+// loop sends ahead of the transcript (§5.3, §12.6).
+func ReportSystem(c ReportSystemContext) string {
+	return fmt.Sprintf(reportSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentName, c.Canvas)
+}
+
+// reportSectionEnumText lists every section key with its heading, in
+// liteparent.SectionKeys order. It reads liteparent.SectionLabels, so the
+// tool description holds no second copy of the table.
+func reportSectionEnumText() string {
+	parts := make([]string, 0, len(liteparent.SectionKeys))
+	for _, k := range liteparent.SectionKeys {
+		parts = append(parts, k+"（"+liteparent.SectionLabels[k]+"）")
+	}
+	return strings.Join(parts, "、")
+}
+
+// ReportTools returns the two tool schemas the model may call while revising
+// a parent report: revise_section and ask_choice.
+//
+// section's enum is every key; which of them this report shows is checked
+// when the tool runs, because it depends on the report's visible facts.
+func ReportTools() []gateway.ChatTool {
+	enum := make([]any, 0, len(liteparent.SectionKeys))
+	for _, k := range liteparent.SectionKeys {
+		enum = append(enum, k)
+	}
+	return []gateway.ChatTool{
 		{
-			Name:        "ask_choice",
-			Description: "结束这一轮，给老师 2 到 4 个按钮选，而不是问一个开放式问题。",
+			Name: "revise_section",
+			Description: "把报告的一个段落替换成改写后的整段文字。改写按生成报告时的规则检查：" +
+				"引文和作品标题必须出自事实，数字必须出自事实，不能出现其他学生的名字。" +
+				"不通过时返回错误，按错误改好后再调用。写入的是右边编辑器里的内容，老师还可以再改。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"question": map[string]any{
-						"type":        "string",
-						"description": "要问的问题，一句话。",
+					"section": map[string]any{
+						"type": "string",
+						"enum": enum,
+						"description": "要改写的段落：" + reportSectionEnumText() +
+							"。只能是「报告现在的内容」里列出的段落。" +
+							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说段落标题。",
 					},
-					"options": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"id": map[string]any{
-									"type":        "string",
-									"description": "这个选项的标识，你自己取。",
-								},
-								"label": map[string]any{
-									"type": "string",
-								},
-							},
-							"required": []string{"id", "label"},
-						},
-						"description": "2 到 4 个选项，超过 4 个会被截断。",
+					"text": map[string]any{
+						"type":        "string",
+						"description": fmt.Sprintf("改写后的整段正文，不超过 %d 字，不带段落标题。", ReviseSectionMaxRunes),
 					},
 				},
-				"required": []string{"question", "options"},
+				"required": []string{"section", "text"},
 			},
 		},
+		plainAskChoiceTool(),
 	}
 }
