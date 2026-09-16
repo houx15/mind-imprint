@@ -1,6 +1,6 @@
 import { LearningSnapshot } from "./LearningSnapshot";
 import { StudioEmpty, StudioHeading } from "./StudioArtwork";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api } from "@/api";
@@ -107,8 +107,28 @@ export function ClassPage({
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
+  const [emptyStateCopied, setEmptyStateCopied] = useState(false);
+  const emptyStateCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("displayName");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  useEffect(() => {
+    return () => {
+      if (emptyStateCopyTimer.current) clearTimeout(emptyStateCopyTimer.current);
+    };
+  }, []);
+
+  async function copyJoinCodeFromEmptyState() {
+    if (!joinCode) return;
+    try {
+      await navigator.clipboard.writeText(joinCode);
+      setEmptyStateCopied(true);
+      if (emptyStateCopyTimer.current) clearTimeout(emptyStateCopyTimer.current);
+      emptyStateCopyTimer.current = setTimeout(() => setEmptyStateCopied(false), 2000);
+    } catch (e) {
+      setMutationError(`复制失败：${errorText(e)}`);
+    }
+  }
 
   function loadHeader() {
     setHeaderError(null);
@@ -309,7 +329,11 @@ export function ClassPage({
             ) : (
               <StudioEmpty
                 kind="quest"
-                action={joinCode ? { label: "复制邀请码", onClick: () => void navigator.clipboard.writeText(joinCode) } : undefined}
+                action={
+                  joinCode
+                    ? { label: emptyStateCopied ? "已复制" : "复制邀请码", onClick: () => void copyJoinCodeFromEmptyState() }
+                    : undefined
+                }
               >
                 {`暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}
               </StudioEmpty>

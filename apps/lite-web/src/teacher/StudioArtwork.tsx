@@ -1,4 +1,4 @@
-import { Button } from "@/ui/Button";
+import { Button } from "@/ui";
 import { studentArtwork } from "../learning/StudentArtwork";
 
 /** 教师端的空状态：插图 + 一句话 + 可选的一颗按钮。

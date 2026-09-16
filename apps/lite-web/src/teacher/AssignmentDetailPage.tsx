@@ -19,6 +19,7 @@ import { GradingTab } from "./GradingTab";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
 import { rubricScaleLabel } from "./rubricLogic";
+import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
@@ -399,10 +400,10 @@ export function AssignmentDetailPage({
             <GradingTab assignmentId={assignment.id} onOpenGrading={onOpenGrading} />
           ) : (
             <>
-            <section className="mt-8">
+            <section className="mt-8 teacher-compact-empty">
               <h2 className="text-mk-h3 text-mk-ink">学生</h2>
               {recipients.length === 0 ? (
-                <p className="mt-2 text-mk-small text-mk-muted">暂无学生</p>
+                <StudioEmpty kind="quest">暂无学生</StudioEmpty>
               ) : (
                 <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
                   <table className="w-full min-w-[600px] border-collapse">
@@ -460,7 +461,7 @@ export function AssignmentDetailPage({
               )}
             </section>
 
-            <section className="mt-8">
+            <section className="mt-8 teacher-compact-empty">
               <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
               {rosterError ? (
                 <div className="mt-2 text-mk-small font-semibold text-mk-danger">
@@ -472,7 +473,7 @@ export function AssignmentDetailPage({
               ) : unassigned === null ? (
                 <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
               ) : unassigned.length === 0 ? (
-                <p className="mt-2 text-mk-small text-mk-muted">暂无未布置的学生</p>
+                <StudioEmpty kind="discovery">暂无未布置的学生</StudioEmpty>
               ) : (
                 <div className="mt-3 flex flex-col gap-3">
                   <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />

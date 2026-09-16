@@ -178,7 +178,7 @@ export function StudentPage({
           <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
           <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
 
-          <section className="mt-10">
+          <section className="mt-10 teacher-compact-empty">
             <h2 className="text-mk-h3 text-mk-ink">兴趣树</h2>
             {live.status === "loading" ? (
               <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
@@ -238,7 +238,7 @@ function AssignmentSection({
   onOpenItem: (atomId: string) => void;
 }) {
   return (
-    <section className="mt-8">
+    <section className="mt-8 teacher-compact-empty">
       <h2 className="text-mk-h3 text-mk-ink">作业</h2>
       {rows.length === 0 ? (
         <StudioEmpty kind="writing">暂无作业</StudioEmpty>
@@ -312,7 +312,7 @@ function ParentReportSection({
   }, [classId, userId, nonce]);
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 teacher-compact-empty">
       <h2 className="text-mk-h3 text-mk-ink">家长报告</h2>
       {error ? (
         <p className="mt-2 text-mk-small font-semibold text-mk-danger">
