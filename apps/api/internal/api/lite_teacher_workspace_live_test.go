@@ -861,36 +861,251 @@ const wsLivePastedPassage = `北京的很多新建小区开始铺透水砖。雨
 	`一位负责维护的工人说：“铺的时候大家都很积极，后来没人管，效果就慢慢没了。”` +
 	`所以，一座城市能不能真正“吸水”，不只取决于用了什么材料，还取决于有没有人长期维护。`
 
+// wsLiveLongPassage is original text written for this test: a news-style
+// report of about 3,000 runes, in paragraphs, with “” and ‘’ in several
+// places. It is the length of a real article a teacher pastes, which is the
+// case the anchor contract exists for: the model names the passage by two
+// anchors instead of copying it back out.
+//
+// It ends on a quoted sentence, so the end anchor has to cover a closing ”.
+// The first version ended on plain prose, and in all three runs neither anchor
+// contained a quote, so the quote folding was never exercised.
+const wsLiveLongPassage = `据市住房和城乡建设委员会发布的数据，截至今年8月底，本市老旧小区加装电梯累计完成3127部，另有846部正在施工。这些电梯主要分布在上世纪八九十年代建成的多层住宅中，楼房普遍为五至六层，原设计没有电梯。按照市里的规划，到2027年底，符合条件的老旧小区要“应装尽装”，全市目标是新增电梯5000部左右。
+
+加装电梯的需求主要来自老年居民。市老龄工作委员会办公室的调查显示，在被调查的老旧小区中，60岁以上居民占常住人口的比例平均为31.4%，其中住在四层及以上的老年人中，有近四成表示“每周下楼不超过两次”。一位居住在五层的78岁居民说：“腿不好以后，上下楼一趟要歇三次，买菜都要等孩子周末回来。”
+
+从流程上看，加装电梯需要经过意见征询、方案设计、规划公示、施工许可、竣工验收等环节。根据现行规定，申请加装电梯须经本单元专有部分面积占比三分之二以上的业主参与表决，并经参与表决专有部分面积四分之三以上的业主同意。满足这一条件后，街道和区住建部门才会受理后续申请。
+
+在实际推进中，最难的环节往往是意见征询。住在一层和二层的居民使用电梯的需求较低，却可能受到采光、噪声和隐私方面的影响，因此反对意见多集中在低楼层。某街道负责这项工作的干部介绍，他们所在的街道共有126个单元提出过加装申请，其中有41个单元因低层住户不同意而暂停。“不是大家不讲理，而是每一户的处境确实不一样，”这位干部说，“我们要做的是把各方的顾虑一条一条摆出来谈。”
+
+费用分担是另一个焦点。一部电梯的建设成本通常在60万元到80万元之间，包括土建、设备和管线改移等费用。按照本市的补贴政策，市、区两级财政对每部电梯给予最高不超过24万元的补贴，其余部分由业主共同承担。多数小区采用“楼层越高、出资越多”的方式分摊，一层住户通常不出资，六层住户的出资额一般在8万元至12万元之间。
+
+一些小区在分摊方案之外，还设计了补偿办法。朝阳路社区的一个单元约定，高层住户每年向一层和二层住户支付一定的“影响补偿”，并由加装电梯的业主小组统一记账、定期公开。该单元的一位楼门长说，方案讨论了三个多月，前后改了五稿，最后全部12户都签了字。她说：“大家最关心的不是钱多钱少，而是账目清不清楚。”
+
+运行维护同样需要提前安排。电梯投入使用后，每年的维保、年检、电费和保险合计约1.5万元至2万元。根据市场监管部门的要求，电梯必须明确“使用管理人”，负责日常管理和安全责任。目前常见的做法有三种：由业主自行组成管理小组，委托物业公司管理，或者交由电梯企业提供“建设加运维”的一揽子服务。
+
+在没有物业的老旧小区，使用管理人的落实更为困难。市消费者协会今年上半年收到的相关投诉中，有相当一部分涉及“电梯停运后找不到人维修”。一位投诉人反映，所在单元的电梯因门机故障停运了19天，业主之间对维修费用由谁先垫付意见不一，维保公司则表示合同已经到期。
+
+为解决这些问题，部分区开始试行新的做法。东城区从去年起推行“一梯一档”，为每部加装电梯建立电子档案，记录出资、维保、故障和费用收支情况，居民可以通过手机查询。西城区则尝试引入“以租代建”模式：由企业出资建设并负责运维，居民按月或按次缴纳使用费，年限一般为15年，期满后电梯产权移交给业主。
+
+对于“以租代建”，居民的看法并不一致。支持者认为，这种方式降低了一次性出资的门槛，也避免了维保无人负责的情况。反对者则担心，长期累计的使用费可能超过自行建设的成本，而且合同期内的收费标准存在调整的可能。某高校城市规划专业的一位教授在接受采访时表示：“选择哪种模式，关键在于合同中是否写明了‘收费上限’‘退出条件’和‘设备更新责任’这几项内容。”
+
+在技术层面，加装电梯也面临限制。部分老楼的楼道狭窄，地下管线复杂，电梯井道只能建在楼外，并通过连廊与住户相连。有的楼可以实现“平层入户”，有的只能停在楼梯的半层平台，居民仍需走半层楼梯。市建筑设计研究院的工程师介绍，平层入户方案的造价通常要高出15%至20%，而且对楼前空间的要求更高。
+
+业内人士指出，加装电梯的推进速度，与社区协商机制是否成熟直接相关。在已完成加装的单元中，有相当比例是在居委会、业主代表和设计单位共同参与下，经过多轮讨论才达成一致的。一位参与过多个项目的社区工作者说：“很多单元的分歧不在电梯本身，而在于谁来牵头、谁来记账、出了问题找谁。这些事先说清楚了，后面就顺利得多。”
+
+市住建委相关负责人表示，下一步将修订加装电梯的工作指引，重点明确低层住户权益的保障措施、使用管理人的确定办法以及维保资金的筹集方式，并计划在年底前公布征求意见稿。对于已经停工或停运的项目，各区将逐一登记，按照‘一梯一策’的原则分类处理，相关进展将在区政府网站上定期公布。
+
+在资金筹集方面，本市去年起允许业主提取住房公积金用于支付加装电梯中个人承担的费用。据市住房公积金管理中心统计，今年1月至8月，共有2316名缴存人办理了此类提取，提取金额合计1.37亿元，人均约5.9万元。办理时需要提交加装电梯的施工许可文件、出资协议和付款凭证，由单元内每户分别申请。管理中心的工作人员表示，部分申请人因出资协议上缺少全体出资人签字而被退回，建议居民在签订协议时一并确认材料是否齐全。此外，部分银行推出了面向加装电梯的专项消费贷款，额度一般不超过20万元，期限最长5年，但需要借款人单独提出申请并通过审核。市金融监管部门提醒，居民在选择这类贷款时，应当核实实际年化利率和提前还款条件，不要轻信“零利息”“免审核”一类的宣传，也不要把贷款资金交给个人代为保管。
+
+施工期间对居民生活的影响也是协商中经常被提到的内容。一部电梯从基础开挖到安装完成，工期一般为两至三个月，其间需要临时改动楼门出入口，部分管线要停用或迁移。某区住建部门要求施工单位在开工前张贴“施工告知书”，写明工期、作业时间、临时通道位置和联系电话，并规定晚上8点至次日早上7点不得进行产生噪声的作业。一位居民在社区议事会上提出，施工期间楼门口的临时通道没有照明，老年人夜间出入不便，施工单位随后加装了临时灯具。
+
+其他城市的做法也为本市提供了参照。广州较早开始推进老旧小区加装电梯，在表决规则和低层住户补偿方面积累了较多案例；杭州把加装电梯纳入老旧小区综合改造，与外墙、管网改造同时设计、同时施工，减少了重复开挖；上海则在部分街区试行“成片加装”，由街道统一招标，同一片区内多个单元使用同一家企业，以降低单部电梯的造价和后期维保成本。有研究人员指出，各地做法的共同点是由基层组织承担协调职责，并且把费用、维保和责任划分写进书面协议。
+
+记者在走访中还注意到，一些居民对电梯的使用方式有不同意见。有的单元规定电梯只刷卡使用，未出资的住户需要另外缴费才能乘坐；有的单元则允许所有住户免费使用，理由是“一楼住户让出了楼前空间”。对于探亲访友的外来人员、快递和外卖配送人员能否使用电梯，各单元的规定也不一样。社区工作人员建议，这类规则应当在电梯投入使用前写进单元公约，并在楼门口公示，避免日后产生纠纷。
+
+对于未来的工作，市住建委相关负责人在发布会上说：“加装电梯不是装完就结束了，后面十几年的运行、维护和更新，同样需要居民、企业和政府一起把责任分清楚、把账算明白。”`
+
 // TestLiveWorkspaceRound2AssignmentPastedText — scenario 2. She pastes a
-// passage and asks for it to be the material.
+// short passage and asks for it to be the material.
 func TestLiveWorkspaceRound2AssignmentPastedText(t *testing.T) {
 	prov, route, resolved := liveWorkspaceModel(t)
 	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
 	for run := 1; run <= wsLiveRuns; run++ {
 		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) {
-			const sc = "2-assignment-pasted-text"
-			rec := &wsLiveRecorder{inner: prov}
-			h, teacher, classID := liveWorkspaceFixture(t, rec, route)
-			said := "这次的阅读材料就用我贴的这段，请把它设为材料：\n\n" + wsLivePastedPassage
-			code, body, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
-				"surface": "assignment", "classId": classID,
-				"artifact": map[string]any{"kind": "reading"}, "text": said,
-			})
-			wsLiveVerdict(t, sc, run, "HTTP 200", code == http.StatusOK, false, body)
-			source, _ := out.Patch["readingSource"].(string)
-			wsLiveVerdict(t, sc, run, "readingSource is text", source == "text", false,
-				fmt.Sprintf("patch=%v; set_material args %v", out.Patch, wsLiveToolArgs(calls, "set_material")))
-			text, _ := out.Patch["text"].(string)
-			wsLiveVerdict(t, sc, run, "text is her passage verbatim", text == wsLivePastedPassage, false,
-				fmt.Sprintf("got %d runes, want %d; got %q", len([]rune(text)), len([]rune(wsLivePastedPassage)), text))
-			wire := wsLiveWireWords(out.Reply)
-			for _, c := range out.Choices {
-				wire = append(wire, wsLiveWireWords(c.Label)...)
-			}
-			wsLiveVerdict(t, sc, run, "no wire value or slug in reply and labels", len(wire) == 0, false,
-				fmt.Sprintf("found %v in %q", wire, out.Reply))
-			t.Logf("USAGE | %s | run %d | %s", sc, run, wsLiveUsage(calls))
+			livePastedTextRun(t, prov, route, "2-assignment-pasted-text", run,
+				"这次的阅读材料就用我贴的这段，请把它设为材料：\n\n", wsLivePastedPassage)
 		})
+	}
+}
+
+// TestLiveWorkspaceRound2AssignmentPastedLongText — scenario 2b. The same ask
+// with a 3,000-rune news report, the length a real pasted article has.
+func TestLiveWorkspaceRound2AssignmentPastedLongText(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	t.Logf("passage: %d runes", len([]rune(wsLiveLongPassage)))
+	for run := 1; run <= wsLiveRuns; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) {
+			livePastedTextRun(t, prov, route, "2b-assignment-pasted-long-text", run,
+				"这篇报道作为本周的阅读材料，请设为材料：\n\n", wsLiveLongPassage)
+		})
+	}
+}
+
+// livePastedTextRun sends one turn: her instruction line, then the passage.
+//
+// Under the anchor contract the model sends set_material{source:"text",
+// startAnchor, endAnchor} and the server stores her runes between them. So the
+// card must hold the passage exactly as she pasted it, curly quotes included,
+// even when the model folded them in its anchors.
+func livePastedTextRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, sc string, run int, instruction, passage string) {
+	rec := &wsLiveRecorder{inner: prov}
+	h, teacher, classID := liveWorkspaceFixture(t, rec, route)
+	said := instruction + passage
+	start := time.Now()
+	code, body, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
+		"surface": "assignment", "classId": classID,
+		"artifact": map[string]any{"kind": "reading"}, "text": said,
+	})
+	took := time.Since(start)
+	wsLiveVerdict(t, sc, run, "HTTP 200", code == http.StatusOK, false, body)
+
+	attempts := wsLiveToolArgs(calls, "set_material")
+	var rejected, accepted []string
+	// A call's ToolResults answer the previous call's tool calls, in order.
+	for i := 1; i < len(calls); i++ {
+		for j, r := range calls[i].ToolResults {
+			if j >= len(calls[i-1].Tools) || calls[i-1].Tools[j].Name != "set_material" {
+				continue
+			}
+			if strings.Contains(r, `"ok":false`) {
+				rejected = append(rejected, r)
+			} else {
+				accepted = append(accepted, r)
+			}
+		}
+	}
+	for i, a := range attempts {
+		sa, _ := a["startAnchor"].(string)
+		ea, _ := a["endAnchor"].(string)
+		_, hasText := a["text"]
+		t.Logf("ANCHOR | %s | run %d | attempt %d | source=%v start=%q (curly=%v) end=%q (curly=%v) legacyTextArg=%v",
+			sc, run, i+1, a["source"], sa, wsLiveHasCurly(sa), ea, wsLiveHasCurly(ea), hasText)
+	}
+	t.Logf("set_material attempts %d, accepted %d, rejected %d: %v", len(attempts), len(accepted), len(rejected), rejected)
+
+	source, _ := out.Patch["readingSource"].(string)
+	wsLiveVerdict(t, sc, run, "readingSource is text", source == "text", false,
+		fmt.Sprintf("patch keys %v; set_material args %v", wsLiveKeys(out.Patch), attempts))
+	text, _ := out.Patch["text"].(string)
+	detail := fmt.Sprintf("got %d runes, want %d", len([]rune(text)), len([]rune(passage)))
+	if text != passage {
+		detail += "; " + wsLiveFirstDiff(text, passage)
+	}
+	wsLiveVerdict(t, sc, run, "text is her passage verbatim", text == passage, false, detail)
+	wsLiveVerdict(t, sc, run, "stored text keeps her curly quotes",
+		text != "" && wsLiveCurlyCount(text) == wsLiveCurlyCount(passage) && !strings.ContainsAny(text, `"'`), false,
+		fmt.Sprintf("curly quotes stored %d, pasted %d", wsLiveCurlyCount(text), wsLiveCurlyCount(passage)))
+	wsLiveVerdict(t, sc, run, "first set_material accepted, no retry (observation)",
+		len(attempts) == 1 && len(rejected) == 0, true,
+		fmt.Sprintf("%d attempts, %d rejected", len(attempts), len(rejected)))
+
+	// The old failure: the reply says the material is set while the card
+	// holds none. It is only a failure when the claim is false.
+	claims := wsLiveClaimsMaterialSet(out.Reply)
+	wsLiveVerdict(t, sc, run, "reply claims a material only when the card holds one",
+		!claims || source == "text", false,
+		fmt.Sprintf("claims=%v source=%q reply %q", claims, source, out.Reply))
+
+	wire := wsLiveWireWords(out.Reply)
+	for _, c := range out.Choices {
+		wire = append(wire, wsLiveWireWords(c.Label)...)
+	}
+	wsLiveVerdict(t, sc, run, "no wire value or slug in reply and labels", len(wire) == 0, false,
+		fmt.Sprintf("found %v in %q", wire, out.Reply))
+	// An anchor is for the server only; the tool description says so.
+	var leaked []string
+	for _, a := range attempts {
+		for _, k := range []string{"startAnchor", "endAnchor"} {
+			if v, _ := a[k].(string); v != "" && strings.Contains(out.Reply, v) {
+				leaked = append(leaked, v)
+			}
+		}
+	}
+	wsLiveVerdict(t, sc, run, "no anchor quoted in reply (observation)", len(leaked) == 0, true,
+		fmt.Sprintf("anchors in reply %v", leaked))
+
+	t.Logf("REPLY | %s | run %d | %q | choices %+v", sc, run, out.Reply, out.Choices)
+	for i, c := range calls {
+		t.Logf("CALL | %s | run %d | call %d | took=%.1fs in=%d out=%d tools=%v",
+			sc, run, i+1, c.Took.Seconds(), c.Usage.InputTokens, c.Usage.OutputTokens, toolOrder(c.Tools))
+	}
+	t.Logf("USAGE | %s | run %d | turn=%.1fs | %s", sc, run, took.Seconds(), wsLiveUsage(calls))
+}
+
+// wsLiveClaimSet matches a sentence that says the material has been set: 「已把…
+// 设为阅读材料」 or 「材料已设为…」. A sentence carrying a negation or a failure
+// word is not a claim (wsLiveClaimsMaterialSet drops it).
+var wsLiveClaimSet = regexp.MustCompile(`已(经)?[^。！？\n]{0,40}(设为|设置为|设成|设置成|定为|作为)[^。！？\n]{0,12}材料|材料[^。！？\n]{0,6}已(经)?(设|定|选|更新|替换|填)`)
+
+var wsLiveClaimNegation = regexp.MustCompile(`没|未|无法|不能|失败|拒绝|不了|尝试`)
+
+// wsLiveClaimsMaterialSet reports whether reply tells her the material is set.
+//
+// The negation is looked for in the whole sentence, not only in the matched
+// span: in 「已尝试把这段设为材料，但系统提示失败。」 the failure word comes
+// after the match.
+func wsLiveClaimsMaterialSet(reply string) bool {
+	for _, sentence := range regexp.MustCompile(`[。！？\n]`).Split(wsLiveStripSpaces(reply), -1) {
+		if wsLiveClaimSet.MatchString(sentence) && !wsLiveClaimNegation.MatchString(sentence) {
+			return true
+		}
+	}
+	return false
+}
+
+func wsLiveHasCurly(s string) bool { return strings.ContainsAny(s, "“”‘’") }
+
+func wsLiveCurlyCount(s string) int {
+	n := 0
+	for _, r := range s {
+		switch r {
+		case '“', '”', '‘', '’':
+			n++
+		}
+	}
+	return n
+}
+
+// wsLiveFirstDiff names where got first departs from want, with a little
+// context on each side, so a wrong cut reads without dumping 3,000 runes.
+func wsLiveFirstDiff(got, want string) string {
+	g, w := []rune(got), []rune(want)
+	i := 0
+	for i < len(g) && i < len(w) && g[i] == w[i] {
+		i++
+	}
+	clip := func(rs []rune, at int) string {
+		lo, hi := max(at-15, 0), min(at+15, len(rs))
+		return string(rs[lo:hi])
+	}
+	tail := func(rs []rune) string { return string(rs[max(len(rs)-20, 0):]) }
+	return fmt.Sprintf("first difference at rune %d: got …%q… want …%q…; got starts %q ends %q",
+		i, clip(g, i), clip(w, i), string(g[:min(20, len(g))]), tail(g))
+}
+
+func wsLiveKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+// TestWsLiveClaimsMaterialSet pins the detector for the old scenario 2
+// failure. It is not gated. The positive cases are the two false claims the
+// 2026-09-17 live run produced after a rejected set_material; the first
+// negative is the honest reply from the same run.
+func TestWsLiveClaimsMaterialSet(t *testing.T) {
+	for _, tc := range []struct {
+		reply string
+		want  bool
+	}{
+		{"材料已设为您贴的这段关于透水砖的正文。", true},
+		{"已把您贴的这段关于透水砖的文章设为阅读材料。请问截止时间是哪天？", true},
+		{"已将您贴的报道设置为本次阅读材料。", true},
+		{"阅读材料已设置好，接下来请确定截止时间。", true},
+		{"抱歉，系统连续三次拒绝了这段材料，提示正文必须来自您贴进来的内容。这可能是因为我在复制时引号格式或其他字符发生了细微变化。", false},
+		{"材料还没有设置成功，请再贴一次。", false},
+		{"我没能把这段设为材料。", false},
+		{"已尝试把这段设为材料，但系统提示失败。", false},
+		{"请问这次作业有标题吗？", false},
+	} {
+		if got := wsLiveClaimsMaterialSet(tc.reply); got != tc.want {
+			t.Errorf("wsLiveClaimsMaterialSet(%q) = %v, want %v", tc.reply, got, tc.want)
+		}
 	}
 }
 
