@@ -108,12 +108,13 @@ export interface ItemDetail {
     status: string;
     stepsDone: number;
     stepsTotal: number;
+    pendingPlan: { version: number; summary: string; steps: string[] } | null;
     // 🚨 服务端（`ListPblPlanSteps` 为空时 `version == nil`）发的是 `null`，
     // 不是 `[]`——`normalizeItemDetail` 把它收口成空数组，这里就不再是
     // nullable：调用方不用在每个读点自己写一次 `?? []`。
     steps: { title: string; status: string }[];
     tools: { key: string; label?: string; status: string; result: unknown }[];
-    artifacts: { title: string; payload: unknown }[];
+    artifacts: { id?: string; createdAt?: string; verdict?: string; why?: string; title: string; payload: unknown }[];
     keeps: { text: string }[];
     courses: { slug: string; why: string; takeaway: string; finishedAt: string | null }[];
     siteToken: string | null;
@@ -267,6 +268,11 @@ function normalizeProject(raw: unknown): NonNullable<ItemDetail["project"]> | nu
     status: s(r.status),
     stepsDone: n(r.stepsDone),
     stepsTotal: n(r.stepsTotal),
+    pendingPlan: r.pendingPlan && typeof r.pendingPlan === "object" ? {
+      version: n(obj(r.pendingPlan).version),
+      summary: s(obj(r.pendingPlan).summary),
+      steps: arr<unknown>(obj(r.pendingPlan).steps).filter((v): v is string => typeof v === "string"),
+    } : null,
     steps: arr(r.steps),
     tools: arr(r.tools),
     artifacts: arr(r.artifacts),

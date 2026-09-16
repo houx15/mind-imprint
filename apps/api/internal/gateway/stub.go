@@ -39,6 +39,7 @@ type SequenceStubProvider struct {
 	scripts     [][]StreamEvent
 	Calls       int
 	LastRequest ChatRequest
+	Requests    []ChatRequest
 }
 
 // NewSequenceStubProvider returns a provider that emits scripts[0] on the first
@@ -49,6 +50,7 @@ func NewSequenceStubProvider(scripts ...[]StreamEvent) *SequenceStubProvider {
 
 func (s *SequenceStubProvider) Stream(ctx context.Context, _ Resolved, req ChatRequest) (<-chan StreamEvent, error) {
 	s.LastRequest = req
+	s.Requests = append(s.Requests, req)
 	i := s.Calls
 	if i >= len(s.scripts) {
 		i = len(s.scripts) - 1

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { StructuredSite } from "./StructuredSite";
 import { Essay } from "./Essay";
 import { Ledger } from "./Ledger";
 import { Magazine } from "./Magazine";
@@ -58,6 +59,6 @@ export function BuiltSite({
   // including the student's navigation rail beside the published site.
   const props = { site, theme: themeFor(layout, palette), narrow: narrow ?? autoNarrow, editing, heroUrl };
   return <div ref={container} style={{ width: "100%", minWidth: 0 }}>
-    {layout === "ledger" ? <Ledger {...props} /> : layout === "magazine" ? <Magazine {...props} /> : <Essay {...props} />}
+    {site.sections?.length ? <StructuredSite {...props} layout={layout} /> : layout === "ledger" ? <Ledger {...props} /> : layout === "magazine" ? <Magazine {...props} /> : <Essay {...props} />}
   </div>;
 }

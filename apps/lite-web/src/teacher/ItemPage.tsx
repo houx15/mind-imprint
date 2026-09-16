@@ -685,6 +685,17 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
 
       <p className="mt-2 text-mk-body text-mk-ink">{project.assigned && <span className="block text-mk-small text-mk-muted">驱动问题（作业）</span>}{project.idea}</p>
       <ProjectProgressVisual steps={steps} done={project.stepsDone} total={project.stepsTotal} />
+      <p className="mt-1 text-mk-small text-mk-muted">{project.stepsTotal > 0 ? `已确认计划：已完成 ${project.stepsDone} / 共 ${project.stepsTotal} 个步骤` : "尚无已确认计划"}</p>
+
+      {project.pendingPlan && (
+        <div className="mt-4 rounded-mk-md border border-mk-border bg-mk-surface p-4">
+          <h3 className="text-mk-label text-mk-ink">待学生确认的计划 · v{project.pendingPlan.version}</h3>
+          <p className="mt-2 whitespace-pre-wrap text-mk-small text-mk-ink">{project.pendingPlan.summary}</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-mk-small text-mk-ink">
+            {project.pendingPlan.steps.map((title, index) => <li key={index}>{title}</li>)}
+          </ol>
+        </div>
+      )}
 
       {project.tools.length > 0 && (
         <div className="mt-4">
@@ -704,10 +715,15 @@ function ProjectSection({ project }: { project: ItemDetail["project"] }) {
         <div className="mt-4">
           <h3 className="text-mk-label text-mk-muted">成果</h3>
           <ul className="mt-2 flex flex-col gap-2">
-            {project.artifacts.map((a, i) => (
-              <li key={i} className="teacher-evidence">
+            {[...project.artifacts].reverse().map((a, i) => (
+              <li key={a.id ?? i} className="teacher-evidence">
                 <p className="text-mk-small font-bold text-mk-ink">{a.title}</p>
-                <OutputRecord value={a.payload} />
+                <p className="mt-1 text-mk-small text-mk-muted">{{pending:"待学生审核",kept:"学生审核通过",revise:"学生要求修改",dropped:"学生要求重做"}[a.verdict ?? ""] ?? "审核状态未提供"}{a.createdAt ? ` · ${new Date(a.createdAt).toLocaleString("zh-CN")}` : ""}</p>
+                {a.why && <p className="mt-2 whitespace-pre-wrap text-mk-small text-mk-ink">审核理由：{a.why}</p>}
+                <details className="mt-3 text-mk-small">
+                  <summary className="cursor-pointer text-mk-secondary">查看成果内容</summary>
+                  <div className="mt-2"><OutputRecord value={a.payload} markdown /></div>
+                </details>
               </li>
             ))}
           </ul>

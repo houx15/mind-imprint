@@ -60,6 +60,7 @@ export function kindLabel(kind: string): string {
 }
 
 export interface Project {
+  planPending?: boolean;
   id: string;
   /** Her own opening sentence, stored verbatim. Shown on the kanban card until
    *  she names the project, and kept afterwards — it is the only record of how

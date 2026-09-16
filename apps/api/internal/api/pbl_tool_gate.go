@@ -56,8 +56,9 @@ func (a *API) pblToolHasContent(ctx context.Context, atomID uuid.UUID, tool stri
 		if err != nil {
 			return false
 		}
+		superseded := supersededArtifactIDs(rows)
 		for _, x := range rows {
-			if x.Verdict == nil {
+			if x.Verdict == nil && !superseded[x.ID] {
 				return true
 			}
 		}

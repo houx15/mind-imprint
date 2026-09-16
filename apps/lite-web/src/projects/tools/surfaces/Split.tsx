@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { Says, errorMarkdown } from "../../Says";
+import { useEffect, useRef, useState } from "react";
+import { beforeNavigate } from "../../../routing";
 import { getMe } from "../../../api/auth";
 import { apiErrorText } from "../../../api/errorText";
 import { getPlan, type PlanStep } from "../../../api/projectRoom";
@@ -123,10 +125,25 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newWhy, setNewWhy] = useState("");
+  const saving = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => beforeNavigate(async () => {
+    if (saving.current) throw new Error("分工正在保存中");
+  }), []);
+  const beginSave = () => {
+    if (saving.current || loading) return false;
+    saving.current = true;
+    setBusy(true);
+    setError(null);
+    return true;
+  };
+  const endSave = () => { saving.current = false; setBusy(false); };
 
   /** 补一件印记漏掉的。归属默认给她自己——她想起来的，通常也是她要做的。 */
   async function addOne() {
     if (!stepId || !newTitle.trim() || !newWhy.trim()) return;
+    if (!beginSave()) return;
     try {
       const got = await addSubstep(projectId, stepId, {
         title: newTitle.trim(), owner: "student", reason: newWhy.trim(),
@@ -137,12 +154,15 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setNewWhy("");
     } catch (err) {
       setError(apiErrorText(err));
+    } finally {
+      endSave();
     }
   }
 
   /** 把这一格改判给另一个人。理由是硬的：服务端拒绝没有理由的改动。 */
   async function move() {
     if (!moving || !why.trim()) return;
+    if (!beginSave()) return;
     try {
       const got = await reassign(projectId, moving.id, moving.owner, why.trim());
       setSubs((prev) => prev.map((x) => (x.id === got.id ? got : x)));
@@ -150,50 +170,70 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setWhy("");
     } catch (err) {
       setError(apiErrorText(err));
+    } finally {
+      endSave();
     }
   }
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
         const { plan } = await getPlan(projectId);
         const all = plan?.steps ?? [];
+        const candidates = all.filter(s => s.status !== "done" && s.status !== "cancelled");
+        const proposals = await Promise.all(candidates.map(async step => ({
+          step, subs: await listSubsteps(projectId, step.id),
+        })));
+        if (cancelled) return;
         setSteps(all);
-        const live = all.find((s) => s.status !== "done" && s.status !== "cancelled");
+        const live = proposals.find(p => p.subs.some(s => !s.confirmedAt))?.step ??
+          proposals.find(p => p.subs.length > 0)?.step ?? candidates[0];
         setStepId(live?.id ?? all[0]?.id ?? null);
       } catch (err) {
-        setError(apiErrorText(err));
+        if (!cancelled) setError(apiErrorText(err));
       }
       // 名字拿不到就退回「你」——一个标签不该把整块界面拖垮。
       try {
         const u = await getMe();
-        if (u.display_name.trim()) setMe(u.display_name.trim());
+        if (!cancelled && u.display_name.trim()) setMe(u.display_name.trim());
       } catch {
         /* 保持「你」 */
       }
     })();
+    return () => { cancelled = true; };
   }, [projectId]);
 
-  const reload = useCallback(async () => {
-    if (!stepId) return;
-    setSubs(await listSubsteps(projectId, stepId));
-  }, [projectId, stepId]);
-
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    setSubs([]);
+    setLoading(true);
+    if (stepId) {
+      void listSubsteps(projectId, stepId)
+        .then(rows => { if (!cancelled) setSubs(rows); })
+        .catch(err => { if (!cancelled) setError(apiErrorText(err)); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    } else {
+      setLoading(false);
+    }
+    return () => { cancelled = true; };
+  }, [projectId, stepId]);
 
   const step = steps.find((s) => s.id === stepId) ?? null;
   const share = shareOfWork(subs);
 
   async function confirmAll() {
+    if (!stepId || subs.length === 0 || moving || adding || !beginSave()) return;
     try {
       for (const s of subs.filter((x) => !x.confirmedAt)) {
-        await confirmSubstep(projectId, s.id);
+        const confirmed = await confirmSubstep(projectId, s.id);
+        setSubs(previous => previous.map(item => item.id === confirmed.id ? confirmed : item));
       }
       onFinish({ stepId, mine: share.total - share.yinji, total: share.total }, "");
     } catch (err) {
       setError(apiErrorText(err));
+    } finally {
+      endSave();
     }
   }
 
@@ -202,17 +242,19 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       title={tool.label}
       task="你和 AI 的分工"
       why={tool.reason}
-      todo={subs.length === 0 ? "无分工" : ""}
+      todo={loading ? "正在读取分工" : moving || adding ? "请完成或取消当前编辑" : subs.length === 0 ? "无分工" : ""}
+      busy={busy || loading}
       finishLabel="方案无误，开始执行"
       onFinish={() => void confirmAll()}
-      onClose={onClose}
+      onClose={() => { if (!saving.current) onClose(); }}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
+      <fieldset disabled={busy || loading} className="min-w-0">
       {steps.length > 1 && (
         <div className="mb-3 flex flex-wrap gap-1">
           {steps.map((s) => (
@@ -398,6 +440,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           </p>
         </>
       )}
+      </fieldset>
     </ToolFrame>
   );
 }

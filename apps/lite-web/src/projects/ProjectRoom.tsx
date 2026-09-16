@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { ArrowLeft, CornerDownRight, Send } from "lucide-react";
 import { Icon, Pebble } from "@/ui";
 import { ApiError } from "../api/client";
@@ -25,17 +26,21 @@ import {
 import {
   acceptTool,
   listTools,
+  toolsForSession,
   resolveTool,
+  summonTool,
+  SELF_OPENED,
   type ToolInstance,
 } from "../api/tools";
-import { navigate } from "../routing";
+import { navigate, flushNavigationGuards } from "../routing";
 import { WorkPanel } from "./WorkPanel";
+import { DiscussionSource } from "./DiscussionSource";
 import { setBoardAxes } from "../api/projects";
 import { PaneResizer } from "./PaneResizer";
 import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
-import { Says } from "./Says";
+import { Says, errorMarkdown } from "./Says";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { AssignmentLine } from "../inbox/AssignmentLine";
 import { isAssignedProject } from "../api/projects";
@@ -64,6 +69,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   // 🚨 把工具铺开占满整个房间（产品负责人 2026-09-03：「需要拉出来，更充分的
   // 视觉空间」）。审核助手要她读一份文档，360px 那一栏读不下去。见 tools/wide.tsx。
   const [wideTool, setWideTool] = useState(false);
+  const [showMobileWork, setShowMobileWork] = useState(false);
   // 右栏宽度她自己拖（「adjustable like in cowork」）。见 usePaneWidth.ts。
   const { width: paneWidth, setWidth: setPaneWidth, desktop } = usePaneWidth();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -71,6 +77,15 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const [plan, setPlan] = useState<PlanState>({ plan: null, pending: [] });
   const [tools, setTools] = useState<ToolInstance[]>([]);
   const [openTool, setOpenTool] = useState<string | null>(null);
+  const panelTransition = useRef(false);
+  async function afterDraftSave(action: () => void) {
+    if (panelTransition.current) return;
+    panelTransition.current = true;
+    try { await flushNavigationGuards(); action(); }
+    catch { setShowMobileWork(true); } // The mounted editor owns save-error recovery.
+    finally { panelTransition.current = false; }
+  }
+
   const [activeSession, setActiveSession] = useState<string | null>(null);
   // 开场那一轮发过没有。见下面 seeded.current 那一处。
   const seeded = useRef(false);
@@ -85,6 +100,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   // 只有三个点在转。先在本地把它显示出来。
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedTurn, setFailedTurn] = useState<Parameters<typeof postTurn> | null>(null);
 
   const trail = useMemo(() => sessionTrail(sessions, activeSession), [sessions, activeSession]);
   const current = trail.at(-1) ?? null;
@@ -127,6 +143,9 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         setTools(ts);
         const msgs = await getThread(projectId);
         if (cancelled) return;
+        // Boot loads the project thread; a retained development/reused view
+        // must not label those messages as a previously selected discussion.
+        setActiveSession(null);
         setThread(msgs);
 
         // 🚨 她在大输入框里写的那句话，就是她对印记说的第一句话。
@@ -153,10 +172,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           setPending(mine.idea.trim());
           setThinking(true);
           try {
-            await postTurn(projectId, mine.idea.trim());
+            await requestTurn(projectId, mine.idea.trim());
+            const [nextThread, nextTools, nextPlan] = await Promise.all([
+              getThread(projectId), listTools(projectId), getPlan(projectId),
+            ]);
             if (cancelled) return;
-            setThread(await getThread(projectId));
-            setTools(await listTools(projectId));
+            setThread(nextThread);
+            setTools(nextTools);
+            setPlan(nextPlan);
           } catch (err) {
             if (!cancelled) setError(apiErrorText(err));
           } finally {
@@ -176,15 +199,40 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     };
   }, [projectId, refreshThread]);
 
+  async function requestTurn(...request: Parameters<typeof postTurn>) {
+    setFailedTurn(null);
+    try { return await postTurn(...request); }
+    catch (err) {
+      // Only a confirmed model failure is safe to repeat. A network failure
+      // could have happened after saving, so it does not get a retry action.
+      if (err instanceof ApiError && err.status === 502 && err.code === "ai_dialogue_failed") setFailedTurn(request);
+      throw err;
+    }
+  }
+
+  async function retryFailedTurn() {
+    if (!failedTurn || busy || current?.closedAt || failedTurn[0] !== projectId || (failedTurn[2] ?? null) !== activeSession) return;
+    const request = failedTurn;
+    setBusy(true); setThinking(true); setPending(request[1] || null); setError(null);
+    try {
+      await requestTurn(...request);
+      if (draft.trim() === request[1]) setDraft("");
+      await refreshThread(activeSession);
+      setTools(await listTools(projectId));
+      setPlan(await getPlan(projectId));
+    } catch (err) { setError(apiErrorText(err)); }
+    finally { setBusy(false); setThinking(false); setPending(null); }
+  }
+
   async function send() {
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text || busy || current?.closedAt) return;
     setBusy(true);
     setThinking(true);
     setPending(text);
     setError(null);
     try {
-      const res = await postTurn(projectId, text, activeSession ?? undefined);
+      const res = await requestTurn(projectId, text, activeSession ?? undefined);
       setDraft("");
       await refreshThread(activeSession);
       // 工具列表无条件拉一遍，那张邀请卡才会出现在对话末尾。
@@ -226,7 +274,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       // 话，是这条支线刚开，印记要接住她上面说的那件事，把这一层要看什么讲
       // 清楚。让她一进来面对一个空房间，等于把"深挖"变成了又一个输入框。
       setThinking(true);
-      await postTurn(projectId, "", s.id);
+      await requestTurn(projectId, "", s.id);
       await refreshThread(s.id);
     } catch (err) {
       setError(apiErrorText(err));
@@ -243,31 +291,47 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
    * 「问问这一句」和长期迭代的「深入讨论」都是服务端在一个请求里连支线一起
    * 建好的，前端要做的只是把她带过去。
    */
-  async function enterSession(sessionId: string) {
+  async function enterSession(sessionId: string): Promise<boolean> {
+    try { await flushNavigationGuards(); } catch { return false; }
     setBusy(true);
     setError(null);
+    let opened = false;
     try {
-      // 支线是服务端刚建的，本地这份列表里还没有它，面包屑会找不到路。
-      setSessions(await listSessions(projectId));
+      // Load first: a failed request must not pair a new session with old messages.
+      const [available, existing] = await Promise.all([listSessions(projectId), getThread(projectId, sessionId)]);
+      setSessions(available);
       setActiveSession(sessionId);
-      // 面板让开：她要去聊了，不是还在填这一屏。
+      setThread(existing);
       setOpenTool(null);
-      await refreshThread(sessionId);
-      setThinking(true);
-      await postTurn(projectId, "", sessionId);
-      await refreshThread(sessionId);
+      setShowMobileWork(false);
+      opened = true;
+      // Reopening an existing discussion must not generate another opening.
+      if (existing.length === 0) {
+        setThinking(true);
+        await requestTurn(projectId, "", sessionId);
+        await refreshThread(sessionId);
+      }
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
       setBusy(false);
       setThinking(false);
     }
+    return opened;
   }
 
   async function goTo(sessionId: string | null) {
-    setActiveSession(sessionId);
+    try { await flushNavigationGuards(); } catch { return; }
+    setBusy(true);
     setError(null);
-    await refreshThread(sessionId);
+    try {
+      const messages = await getThread(projectId, sessionId ?? undefined);
+      setActiveSession(sessionId);
+      setThread(messages);
+      setOpenTool(null);
+      setShowMobileWork(false);
+    } catch (err) { setError(apiErrorText(err)); }
+    finally { setBusy(false); }
   }
 
   async function finish(takeaway: string, field: string | null) {
@@ -293,8 +357,23 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   }
 
   async function onApprove(versionId: string) {
-    await approvePlan(projectId, versionId);
-    setPlan(await getPlan(projectId));
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await approvePlan(projectId, versionId);
+      setPlan(await getPlan(projectId));
+      setThinking(true);
+      await requestTurn(projectId, "");
+      await refreshThread(activeSession);
+      setTools(await listTools(projectId));
+      setPlan(await getPlan(projectId));
+    } catch (err) {
+      setError(apiErrorText(err));
+    } finally {
+      setBusy(false);
+      setThinking(false);
+    }
   }
 
   /* ── 工具 ─────────────────────────────────────────────────────────────
@@ -304,6 +383,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
    */
 
   async function openToolInstance(t: ToolInstance) {
+    try { await flushNavigationGuards(); } catch { return; }
     setBusy(true);
     setError(null);
     try {
@@ -348,13 +428,15 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     try {
       // note 只放她自己写下的那句话，一个字不改。剩下的（贴了几张便签、分了
       // 几块）印记自己去看，不用我们替她讲一遍。
-      const got = await resolveTool(projectId, t.id, { status: "done", result, note: note.trim() });
+      const revision = t.tool === "observe" && result && typeof result === "object" && "observationRevision" in result ? result.observationRevision : undefined;
+      const observation = typeof revision === "number" ? {toolId: t.id, revision} : undefined;
+      const got = observation ? t : await resolveTool(projectId, t.id, { status: "done", result, note: note.trim() });
       setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
       setOpenTool(null);
       await refreshThread(activeSession);
       // 空文本的一轮：她没说话，是刚做完一件事，印记该接一句。
       setThinking(true);
-      await postTurn(projectId, "", activeSession ?? undefined);
+      await requestTurn(projectId, "", activeSession ?? undefined, observation ? undefined : got.id, observation);
       await refreshThread(activeSession);
       // 🚨 印记在这一轮递的工具也要拉一遍。
       //
@@ -377,10 +459,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   }
 
   // 刚递出来、她还没表态的。
-  const invites = tools.filter((t) => t.status === "summoned");
+  const discussionTools = toolsForSession(tools, current?.id ?? null);
+  const invites = discussionTools.filter((t) => t.status === "summoned");
   // 她答应了、人出门去做的那几件。留在对话里她当初答应的那个位置，因为那就是
   // 她记得的地方；右侧面板不为它单开一档（产品负责人 2026-09-02）。
-  const away = tools.filter((t) => t.kind === "world" && t.status === "accepted");
+  const away = discussionTools.filter((t) => t.kind === "world" && t.status === "accepted");
 
   return (
     // relative：铺开的工具面板贴着**房间**铺开，不是贴着整个视口——
@@ -409,6 +492,8 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
               </span>
             )}
           </div>
+          <button type="button" className="ml-auto shrink-0 rounded-lg border border-mk-border px-3 py-2 text-mk-small lg:hidden" onClick={() => setShowMobileWork(true)}>计划与材料</button>
+
         </header>
 
         {trail.length > 0 && (
@@ -417,12 +502,23 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
+            {current?.kind === "keeping" && <DiscussionSource key={current.id} projectId={projectId} session={current} />}
             {thread.length === 0 && !thinking && (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
                 <Pebble state="idle" size={44} />
                 {/* 印记永远先开口（D1），所以这一屏只在那一轮没成功时才出现。
                     上面的红字会说明原因，这里不再假装是在邀请她开始。 */}
-                <p className="text-mk-body text-mk-secondary">对话还没有开始</p>
+                {project && isAssignedProject(project) ? <>
+                  <h2 className="text-mk-body font-semibold text-mk-ink">开始项目</h2>
+                  <p className="text-mk-small text-mk-secondary">请选择当前需要的帮助，或直接输入想法。选择后可以修改再发送。</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[
+                      ["理解问题", "我想先理解老师布置的问题，请帮我明确需要弄清楚什么。"],
+                      ["设计调研", "我想设计一次观察或访谈，请结合老师的要求帮我确定从哪里开始。"],
+                      ["讨论想法", "我已经有一些想法，想先讨论它是否可行。"],
+                    ].map(([label, text]) => <button key={label} type="button" className="rounded-lg border border-mk-border bg-mk-surface px-4 py-3 text-mk-small" onClick={() => setDraft(text!)}>{label}</button>)}
+                  </div>
+                </> : <p className="text-mk-body text-mk-secondary">对话还没有开始</p>}
               </div>
             )}
             {thread.map((m) => (
@@ -443,11 +539,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
                 <span className="mt-0.5 shrink-0">
                   <Pebble state="thinking" size={24} />
                 </span>
-                <div className="inline-flex items-center gap-1 rounded-[4px_13px_13px_13px] bg-mk-surface px-4 py-3 shadow-mk-xs">
-                  <span className="mk-think-dot" />
-                  <span className="mk-think-dot [animation-delay:0.15s]" />
-                  <span className="mk-think-dot [animation-delay:0.3s]" />
-                </div>
+                <RequestWait />
               </div>
             )}
 
@@ -458,7 +550,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
                 projectId={projectId}
                 tool={t}
                 busy={busy}
-                onBack={() => setOpenTool(t.id)}
+                onBack={() => void afterDraftSave(() => setOpenTool(t.id))}
               />
             ))}
             {invites.map((t) => (
@@ -470,6 +562,37 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
                 onDecline={(note) => void declineToolInstance(t, note)}
               />
             ))}
+            {discussionTools.filter(t => t.kind !== "world" && t.status === "accepted" && t.id !== openTool).map(t => (
+              <button key={t.id} type="button" onClick={() => void afterDraftSave(() => setOpenTool(t.id))} className="mt-3 block rounded-mk-lg border border-mk-border bg-mk-surface px-4 py-3 text-mk-body font-semibold text-mk-accent-500">
+                继续：{t.label}
+              </button>
+            ))}
+            {!current && tools.some(t => t.tool === "persona" && t.status === "done") && !tools.some(t => t.tool === "creative" && (t.status === "accepted" || t.status === "summoned")) && (
+              <button type="button" disabled={busy} className="mt-3 block rounded-mk-lg border border-mk-border px-4 py-3 text-mk-body text-mk-accent-500" onClick={async () => {
+                setBusy(true); setError(null);
+                try {
+                  await flushNavigationGuards();
+                  const offered = await summonTool(projectId, { tool: "creative", reason: SELF_OPENED });
+                  const accepted = await acceptTool(projectId, offered.id);
+                  setTools(prev => [...prev.filter(t => t.id !== accepted.id), accepted]);
+                  setWideTool(true); setOpenTool(accepted.id);
+                } catch (err) { setError(apiErrorText(err)); }
+                finally { setBusy(false); }
+              }}>构思主页风格与意象</button>
+            )}
+            {!current && tools.some(t => t.tool === "persona" && t.status === "done") && !tools.some(t => t.tool === "persona" && (t.status === "accepted" || t.status === "summoned")) && (
+              <button type="button" disabled={busy} className="mt-3 block rounded-mk-lg border border-mk-border px-4 py-3 text-mk-body text-mk-accent-500" onClick={async () => {
+                setBusy(true); setError(null);
+                try {
+                  await flushNavigationGuards();
+                  const offered = await summonTool(projectId, { tool: "persona", reason: SELF_OPENED });
+                  const accepted = await acceptTool(projectId, offered.id);
+                  setTools(prev => [...prev.filter(t => t.id !== accepted.id), accepted]);
+                  setWideTool(true); setOpenTool(accepted.id);
+                } catch (err) { setError(apiErrorText(err)); }
+                finally { setBusy(false); }
+              }}>查看与修改人物板</button>
+            )}
           </div>
         </div>
 
@@ -483,13 +606,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         )}
 
         <footer className="border-t border-mk-border px-5 py-3">
+          {current?.closedAt && (
+            <p className="mb-2 text-mk-small text-mk-muted">讨论已结束，结论已返回上一级。请返回项目继续。</p>
+          )}
           {error && (
-            <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-              {error}
-            </p>
+            <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+              <Says content={errorMarkdown(error)} />
+              {failedTurn && failedTurn[0] === projectId && (failedTurn[2] ?? null) === activeSession && !current?.closedAt && <button type="button" disabled={busy} onClick={() => void retryFailedTurn()} className="mt-2 rounded-full border border-mk-border px-3 py-1.5 text-mk-ink disabled:opacity-40">重试生成</button>}
+            </div>
           )}
           <div className="mx-auto flex max-w-[640px] items-end gap-2">
-            <textarea
+            <GrowingTextarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               // 🚨 回车原来只是插一个换行：她打完一句按回车，什么也没发生，
@@ -501,14 +628,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
                 }
               }}
               rows={2}
-              disabled={busy}
-              placeholder="请输入"
+              disabled={busy || Boolean(current?.closedAt)}
+              placeholder={current?.closedAt ? "讨论已结束" : "请输入"}
               className="flex-1 resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
             />
             <button
               type="button"
               onClick={() => void send()}
-              disabled={!draft.trim() || busy}
+              disabled={!draft.trim() || busy || Boolean(current?.closedAt)}
               aria-label="发送"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
               style={{ background: "var(--mk-accent-500)" }}
@@ -527,7 +654,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           现在窄屏是一层浮层（工具打开时才铺上来），宽屏还是右边那一栏。 */}
       <aside
         className={`${
-          openTool
+          (openTool || showMobileWork)
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
         } shrink-0 border-mk-border lg:z-auto lg:block lg:border-l ${
@@ -553,12 +680,13 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             aside 在「铺开」那一档要用 lg:fixed，而 Tailwind 生成的顺序里
             relative 排在 fixed 后面——给 aside 加 lg:relative 会反过来把
             lg:fixed 压掉，铺开就失效了。包一层就没有这个冲突。 */}
-        <div className="relative h-full">
+        <div className="relative flex h-full flex-col">
+          {!openTool && <header className="shrink-0 border-b border-mk-border p-3 lg:hidden"><button type="button" className="rounded-lg border border-mk-border px-3 py-2" onClick={() => void afterDraftSave(() => setShowMobileWork(false))}>返回项目对话</button></header>}
           {/* 拖这条缝改宽度。铺开的时候没有缝可拖——那时候它已经占满了。 */}
           {!(openTool && wideTool) && (
             <PaneResizer onResize={setPaneWidth} onDoubleClick={() => setPaneWidth(PANE_DEFAULT)} />
           )}
-          <WorkPanel
+          <div className="min-h-0 flex-1"><WorkPanel
           projectId={projectId}
           projectKind={project?.kind ?? ""}
           boardAxes={project?.boardAxes ?? false}
@@ -581,14 +709,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             // 焦点确实转移了：这一刻她在动手摆一块板，不在跟印记说话。默认给
             // 那一栏 360px、等她自己发现右上角有个按钮，等于把每件工具的第一眼
             // 都放在一条比手机还窄的柱子里。要说话时按一下就还原。
-            setWideTool(Boolean(id));
-            setOpenTool(id);
+            void afterDraftSave(() => { setWideTool(Boolean(id)); setOpenTool(id); });
           }}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
-          onOpenSession={(sid) => void enterSession(sid)}
+          onOpenSession={enterSession}
           onResolve={onResolve}
             onApprove={onApprove}
             onOpenMaterial={(t) => {
+              void afterDraftSave(() => {
               // 放进列表（已经在里面就替换），再选中。同步做完，右栏立刻有东西。
               setTools((prev) => {
                 const has = prev.some((x) => x.id === t.id);
@@ -601,12 +729,30 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
               // 拍到的就是这一张。
               setWideTool(true);
               setOpenTool(t.id);
+              });
             }}
-          />
+          /></div>
         </div>
       </aside>
     </div>
   );
+}
+
+/** Show elapsed waiting, without inventing server-side progress or an ETA. */
+function RequestWait() {
+  const [startedAt] = useState(Date.now);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+  return <div className="rounded-[4px_13px_13px_13px] bg-mk-surface px-4 py-3 shadow-mk-xs">
+    <div className="flex items-center gap-2 text-mk-small text-mk-secondary">
+      <span className="mk-think-dot" aria-hidden="true" />
+      <span>处理中 · {seconds} 秒</span>
+    </div>
+    {seconds >= 30 && <p role="status" className="mt-2 text-mk-small text-mk-muted">本次处理耗时较长，结果返回后会自动显示。</p>}
+  </div>;
 }
 
 function Breadcrumb({ trail, onGo }: { trail: Session[]; onGo: (id: string | null) => void }) {
@@ -646,7 +792,7 @@ function Message({
     return (
       <div className="flex items-start gap-2 rounded-mk-md bg-mk-paper px-3 py-2">
         <Icon icon={CornerDownRight} size={14} className="mt-0.5 text-mk-faint" />
-        <p className="text-mk-small text-mk-secondary">{m.content}</p>
+        <div className="min-w-0 text-mk-small text-mk-secondary"><Says content={m.content.includes("失败") ? errorMarkdown(m.content) : m.content} /></div>
       </div>
     );
   }

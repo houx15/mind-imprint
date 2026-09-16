@@ -1,5 +1,11 @@
-import { apiFetch } from "./client";
+import { API_BASE, apiFetch } from "./client";
 import type { SiteContent, SiteDraft, SiteLayout, SitePalette } from "../site/types";
+
+export function putSiteSectionImage(key: string, objectKey: string): Promise<SiteState> {
+  return apiFetch(`/api/v1/pbl/site/sections/${encodeURIComponent(key)}/image`, {
+    method: "PUT", body: JSON.stringify({ objectKey }),
+  });
+}
 
 /**
  * api/site.ts — 她的主页那一组端点。形状照着
@@ -17,7 +23,9 @@ export interface SiteState {
   content: SiteContent;
   /** 还缺哪些她自己的字。非空时发布会被服务端拒掉。 */
   missing: string[];
+  publishMissing?: string[];
   published: boolean;
+  publishedVersionId?: string;
   /** 已发布时的公开链接；没发布时是空串。 */
   url: string;
   /** 建起它的那个主页项目。 */
@@ -28,10 +36,10 @@ export function getSite(): Promise<SiteState> {
   return apiFetch<SiteState>("/api/v1/pbl/site");
 }
 
-export function putSiteContent(draft: SiteDraft): Promise<SiteState> {
+export function putSiteContent(draft: SiteDraft, expectedDraft?: SiteDraft): Promise<SiteState> {
   return apiFetch<SiteState>("/api/v1/pbl/site/content", {
     method: "PUT",
-    body: JSON.stringify(draft),
+    body: JSON.stringify({ ...draft, expectedDraft }),
   });
 }
 
@@ -64,8 +72,8 @@ export function clearSiteHero(): Promise<SiteState> {
   return apiFetch<SiteState>("/api/v1/pbl/site/hero", { method: "DELETE" });
 }
 
-export function publishSite(): Promise<{ url: string; published: boolean }> {
-  return apiFetch("/api/v1/pbl/site/publish", { method: "POST" });
+export function publishSite(versionId?: string): Promise<{ url: string; published: boolean }> {
+  return apiFetch("/api/v1/pbl/site/publish", { method: "POST", body: JSON.stringify({versionId}) });
 }
 
 export function revokeSite(): Promise<void> {
@@ -80,6 +88,12 @@ export function startSiteProject(): Promise<{ id: string }> {
 /** 访客那一面。没有 session 也能读——这是整个轻量版第二个这样的端点。 */
 export function getPublicSite(
   token: string,
-): Promise<{ layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent }> {
+): Promise<{generated: true; renderKey: string; comparison?: {feedback:string;observation:string}|null} | {generated?: false; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent }> {
   return apiFetch(`/api/v1/public/sites/${encodeURIComponent(token)}`);
 }
+
+export function applySiteStructure(projectId: string): Promise<SiteState> {
+ return apiFetch<SiteState>(`/api/v1/pbl/projects/${projectId}/site-structure`, { method: "POST" });
+}
+
+export const publicCodeSiteURL=(token:string)=>`${API_BASE}/api/v1/public/sites/${encodeURIComponent(token)}/render`;

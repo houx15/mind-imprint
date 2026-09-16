@@ -225,15 +225,93 @@ export function coursePath(slug: string): string {
  * synthetic `popstate` so listeners (LiteApp, LiteTeacherShell) re-derive
  * the route — matching how a real Back/Forward navigation notifies them.
  * A no-op if `path` is already the current location (avoids piling up
- * duplicate history entries or firing a redundant popstate on repeat
- * calls) — compared against `pathname + search`, not `pathname` alone, so
- * a path that only differs by its query string (the lite teacher shell's
- * `?tab=grading` hint) is never mistaken for "nowhere to go" and silently
- * dropped. */
+ * duplicate history entries or firing a redundant popstate on repeat calls).
+ *
+ * 🚨 **比的是 `pathname + search`，不是 `pathname`。** 只差一个查询串的地址
+ * （教师端那个 `?tab=grading`）用 pathname 比会被判成「哪儿也没去」，然后被
+ * 静默丢掉。见 currentLocation。
+ *
+ * 🚨 这一段是两条线合起来的（2026-09-16）：导航守卫那一套来自 PBL 那条线，
+ * 「带查询串比较」来自已经上线的教师端那一条。合的时候**守卫里的每一处比较
+ * 都要跟着换成带查询串的那种** —— 只换 navigate 开头那一个，
+ * `?tab=grading` 仍然进不了 history。 */
+const navigationGuards = new Set<() => Promise<void>>();
+let navigationRequest = 0;
+let committedPath: string | undefined;
+const historyIndexKey = "__liteHistoryIndex";
+
+/** 当前地址，带查询串。导航里所有「到了没有」的判断都走它。 */
+function currentLocation(): string {
+  return window.location.pathname + window.location.search;
+}
+
+export function flushNavigationGuards(): Promise<void> {
+  return Promise.all([...navigationGuards].map((save) => Promise.resolve().then(save))).then(() => {});
+}
+
+/** Keep the editor mounted until a browser history traversal has saved it. */
+export function listenForNavigation(onChange: () => void): () => void {
+  let index: number = window.history.state?.[historyIndexKey] ?? 0;
+  let path = window.location.pathname + window.location.search + window.location.hash;
+  let state = { ...window.history.state, [historyIndexKey]: index };
+  window.history.replaceState(state, "", path);
+  committedPath = currentLocation();
+  let restoring: number | null = null;
+  const accept = () => {
+    index = window.history.state?.[historyIndexKey] ?? 0;
+    path = window.location.pathname + window.location.search + window.location.hash;
+    state = { ...window.history.state, [historyIndexKey]: index };
+    window.history.replaceState(state, "", path);
+    committedPath = currentLocation();
+    onChange();
+  };
+  const onPop = () => {
+    const targetIndex = window.history.state?.[historyIndexKey];
+    if (restoring !== null && targetIndex === restoring) { restoring = null; return; }
+    const request = ++navigationRequest;
+    if (navigationGuards.size === 0) { accept(); return; }
+    void flushNavigationGuards().then(() => {
+      if (request === navigationRequest) accept();
+    }).catch(() => {
+      if (request !== navigationRequest) return;
+      if (typeof targetIndex === "number" && targetIndex !== index) {
+        restoring = index;
+        window.history.go(index - targetIndex);
+      } else {
+        // Older history entries may predate index tagging. Keep the visible
+        // editor and URL together without guessing a traversal direction.
+        window.history.replaceState(state, "", path);
+      }
+    });
+  };
+  window.addEventListener("popstate", onPop);
+  return () => { navigationRequest++; window.removeEventListener("popstate", onPop); };
+}
+
+/** Register an active editor's save operation. Rejection keeps its inputs mounted. */
+export function beforeNavigate(save: () => Promise<void>): () => void {
+  navigationGuards.add(save);
+  return () => { navigationGuards.delete(save); };
+}
+
 export function navigate(path: string): void {
-  if (window.location.pathname + window.location.search === path) return;
-  window.history.pushState(null, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  const request = ++navigationRequest;
+  // 🚨 `committedPath` 只有在装了 listenForNavigation 之后才有值。合并这两条线
+  // 的时候（2026-09-16）这里一度写成 `&& committedPath === path`，于是**没装
+  // 监听的那些页面**（教师端就是）永远不满足这一条，「已经在这儿了」的 no-op
+  // 整个失效，每点一次都多一条 history。没装监听就退回「地址一样就是没动」。
+  const settled = committedPath === undefined || committedPath === path;
+  if (currentLocation() === path && settled) return;
+  const commit = () => {
+    if (request !== navigationRequest) return;
+    if (currentLocation() !== path) {
+      const index = (window.history.state?.[historyIndexKey] ?? 0) + 1;
+      window.history.pushState({ [historyIndexKey]: index }, "", path);
+    }
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+  if (navigationGuards.size === 0) { commit(); return; }
+  void flushNavigationGuards().then(commit).catch(() => { /* The editor displays its save error. */ });
 }
 
 function encodeSegment(value: string): string {

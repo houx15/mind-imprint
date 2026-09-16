@@ -24,9 +24,27 @@ WHERE d.id = $1;
 -- flip 是「什么情况会让你改主意」。这一列 0111 就加了，0113 把界面撤掉之后一直
 -- 空着——而它是复盘阶段唯一能回头对照的东西：当初写下的那个条件，后来发生了没有。
 UPDATE pbl_decision
-SET choice = $2, why = $3, why_not = $4, flip = $5, settled_at = now()
-WHERE id = $1 AND settled_at IS NULL
+SET choice = $2, why = $3, why_not = $4, flip = $5, settled_at = now(),
+    draft = '{}'::jsonb, draft_revision = draft_revision + 1
+WHERE id = $1 AND settled_at IS NULL AND content_version = $6
 RETURNING *;
+
+-- name: LockPblDecisionForRevision :one
+SELECT * FROM pbl_decision WHERE id = $1 FOR UPDATE;
+
+-- name: RevisePblDecision :exec
+UPDATE pbl_decision SET subject = $2, content_version = content_version + 1,
+  revision_history = revision_history || $3::jsonb
+WHERE id = $1;
+
+-- name: RevisePblDecisionOption :exec
+UPDATE pbl_decision_option SET label = $2, description = $3 WHERE id = $1;
+
+-- name: SavePblDecisionDraft :one
+UPDATE pbl_decision
+SET draft = $2, draft_revision = draft_revision + 1
+WHERE id = $1 AND draft_revision = $3 AND settled_at IS NULL
+RETURNING draft, draft_revision;
 
 -- ── 选项 ───────────────────────────────────────────────────────────────
 

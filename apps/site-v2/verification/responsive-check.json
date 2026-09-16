@@ -1,0 +1,92 @@
+[
+  {
+    "route": "/",
+    "lang": "en",
+    "pageWidth": 1280,
+    "viewport": 1280
+  },
+  {
+    "route": "/schools/",
+    "lang": "en",
+    "pageWidth": 1280,
+    "viewport": 1280
+  },
+  {
+    "route": "/product/projects/",
+    "lang": "en",
+    "pageWidth": 1280,
+    "viewport": 1280
+  },
+  {
+    "route": "/product/explore/",
+    "lang": "en",
+    "pageWidth": 1280,
+    "viewport": 1280
+  },
+  {
+    "route": "/zh/",
+    "lang": "zh-CN",
+    "pageWidth": 1280,
+    "viewport": 1280
+  },
+  {
+    "route": "/",
+    "lang": "en",
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  {
+    "route": "/schools/",
+    "lang": "en",
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  {
+    "route": "/product/projects/",
+    "lang": "en",
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  {
+    "route": "/product/explore/",
+    "lang": "en",
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  {
+    "route": "/zh/",
+    "lang": "zh-CN",
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  {
+    "route": "/",
+    "lang": "en",
+    "pageWidth": 320,
+    "viewport": 320
+  },
+  {
+    "route": "/schools/",
+    "lang": "en",
+    "pageWidth": 320,
+    "viewport": 320
+  },
+  {
+    "route": "/product/projects/",
+    "lang": "en",
+    "pageWidth": 320,
+    "viewport": 320
+  },
+  {
+    "route": "/product/explore/",
+    "lang": "en",
+    "pageWidth": 320,
+    "viewport": 320
+  },
+  {
+    "route": "/zh/",
+    "lang": "zh-CN",
+    "pageWidth": 320,
+    "viewport": 320
+  }
+]

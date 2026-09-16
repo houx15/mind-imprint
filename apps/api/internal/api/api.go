@@ -319,7 +319,9 @@ func (a *API) Handler() http.Handler {
 	// S5 · 她的主页。/pbl/site 在 /pbl/projects 之前注册，因为它是 §4 那道门
 	// 的另一半：projects 拒绝的时候，这里是唯一走得通的路。
 	mux.Handle("GET /api/v1/pbl/site", liteOnly(a.getPblSite))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/site-structure", liteOnly(a.applyPblSiteStructure))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
+	mux.Handle("PUT /api/v1/pbl/site/sections/{key}/image", liteOnly(a.putPblSiteSectionImage))
 	// 第三关：风格 + 配色 + 头图。取代了旧的 PUT /pbl/site/layout（那一条要她
 	// 写一句理由才落定，是 SiteStudio 那个表单里的一格）。
 	mux.Handle("PUT /api/v1/pbl/site/look", liteOnly(a.putPblSiteLook))
@@ -350,15 +352,30 @@ func (a *API) Handler() http.Handler {
 	// 成果：交出来要说清楚猜了什么、哪里不对；落地要说得出理由。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.listPblArtifacts))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.handOverPblArtifact))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/artifacts/{aid}/text", liteOnly(a.editPblArtifactText))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/settle", liteOnly(a.settlePblArtifact))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/refresh-site", liteOnly(a.refreshPblSiteReview))
 	// 工具：端点留着，交互延后（spec §13）。
 	// 主页项目第一关：她的页面给谁看。见 internal/api/pbl_personas.go。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/personas", liteOnly(a.listPblPersonas))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/code-versions", liteOnly(a.listPblCodeVersions))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/code-versions", liteOnly(a.generatePblHeroCode))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/code-versions/{version}/preview", liteOnly(a.previewPblCodeVersion))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/creative-direction", liteOnly(a.getPblCreativeDirection))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/creative-direction", liteOnly(a.savePblCreativeDirection))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/creative-direction/motifs", liteOnly(a.suggestPblCreativeMotifs))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/creative-direction/hero-prompt", liteOnly(a.refinePblHeroPrompt))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/audience-board", liteOnly(a.getPblAudienceDocument))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/audience-board", liteOnly(a.savePblAudienceDocument))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/audience-board/confirm", liteOnly(a.confirmPblAudienceDocument))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/audience-board/summary", liteOnly(a.summarizePblAudienceDocument))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/personas", liteOnly(a.createPblPersona))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/generate", liteOnly(a.generatePblPersonas))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/{pid}/portrait", liteOnly(a.drawPblPersonaPortrait))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/{pid}/choose", liteOnly(a.choosePblPersona))
 	// 主页项目第二关：她自己找到的那几个个人网站。见 internal/api/pbl_sites.go。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/sites", liteOnly(a.listPblSiteRefs))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/sites/bookmark", liteOnly(a.bookmarkPblSiteRef))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/sites", liteOnly(a.addPblSiteRef))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/sites/{sid}", liteOnly(a.setPblSiteRefSaid))
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/sites/{sid}", liteOnly(a.deletePblSiteRef))
@@ -376,8 +393,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/note-links/{lid}", liteOnly(a.deletePblNoteLink))
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/lookback", liteOnly(a.getPblLookback))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/lookback/regenerate", liteOnly(a.getPblLookback))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/lookback/{lid}", liteOnly(a.answerPblLookback))
 
+	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts/{aid}/trial-draft", liteOnly(a.getPblArtifactTrialDraft))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/artifacts/{aid}/trial-draft", liteOnly(a.savePblArtifactTrialDraft))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/trial-draft/submit", liteOnly(a.submitPblArtifactTrialDraft))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/keep", liteOnly(a.listPblKeepEntries))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/keep", liteOnly(a.createPblKeepEntry))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/keep/{kid}/session", liteOnly(a.openPblKeepSession))
@@ -401,6 +422,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/options", liteOnly(a.addPblDecisionOption))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/rank", liteOnly(a.rankPblDecisionOptions))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/settle", liteOnly(a.settlePblDecision))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/decisions/{did}/draft", liteOnly(a.getPblDecisionDraft))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/decisions/{did}/draft", liteOnly(a.savePblDecisionDraft))
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts/{aid}/review", liteOnly(a.getPblReview))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/review", liteOnly(a.createPblReviewPlan))
@@ -420,8 +443,12 @@ func (a *API) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/tools/{tid}/observation-draft", liteOnly(a.getPblObservationDraft))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/tools/{tid}/observation-draft", liteOnly(a.savePblObservationDraft))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/observation-draft/submit", liteOnly(a.submitPblObservationDraft))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools/{tid}/mission", liteOnly(a.listPblMission))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/mission/{mid}", liteOnly(a.tickPblMissionItem))
+	mux.Handle("PUT /api/v1/pbl/projects/{id}/mission/{mid}", liteOnly(a.editPblMissionItem))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/accept", liteOnly(a.acceptPblTool))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/resolve", liteOnly(a.resolvePblTool))
 
@@ -475,6 +502,7 @@ func (a *API) Handler() http.Handler {
 	// 同样公开、同样无 session：她把自己的主页链接发给了谁，谁就能打开。响应
 	// 带 X-Robots-Tag: noindex（spec §15——她是未成年人，链接是给人的，不是给
 	// 搜索引擎的）。
+	mux.Handle("GET /api/v1/public/sites/{token}/render", http.HandlerFunc(a.renderPublicCodeSite))
 	mux.Handle("GET /api/v1/public/sites/{token}", http.HandlerFunc(a.getPublicSite))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))

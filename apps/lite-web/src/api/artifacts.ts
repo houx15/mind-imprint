@@ -7,6 +7,8 @@ const base = (id: string) => `/api/v1/pbl/projects/${id}`;
 export type ArtifactKind = "options" | "draft" | "spec" | "image" | "site" | "html";
 
 export interface Artifact {
+  superseded?: boolean;
+	stale?: boolean;
   id: string;
   kind: ArtifactKind;
   title: string;
@@ -26,6 +28,16 @@ export function listArtifacts(projectId: string): Promise<Artifact[]> {
   return apiFetch<Artifact[]>(`${base(projectId)}/artifacts`);
 }
 
+export function editArtifactText(projectId: string, artifactId: string, body: string): Promise<Artifact> {
+  return apiFetch<Artifact>(`${base(projectId)}/artifacts/${artifactId}/text`, {
+    method: "PUT", body: JSON.stringify({body}),
+  });
+}
+
+export function refreshSiteReview(projectId: string, artifactId: string): Promise<Artifact[]> {
+  return apiFetch<Artifact[]>(`${base(projectId)}/artifacts/${artifactId}/refresh-site`, { method: "POST" });
+}
+
 export function settleArtifact(
   projectId: string,
   artifactId: string,
@@ -40,10 +52,10 @@ export function settleArtifact(
 
 /** 读得出字的那几种。图片和网站直接看，没有句子可划。 */
 export function isDocument(a: Artifact): boolean {
-  return a.kind === "draft" || a.kind === "spec" || a.kind === "options";
+  return a.kind === "draft" || a.kind === "spec" || a.kind === "options" || (a.kind === "site" && Boolean(a.payload.body));
 }
 
 /** 还没定的，最新的排最前——审阅默认审她手边这一件。 */
 export function pendingArtifacts(all: Artifact[]): Artifact[] {
-  return all.filter((a) => !a.settledAt).slice().reverse();
+  return all.filter((a) => !a.settledAt && !a.superseded).slice().reverse();
 }

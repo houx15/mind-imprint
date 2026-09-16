@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "../../Says";
 import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { apiErrorText } from "../../../api/errorText";
@@ -268,9 +269,9 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       onClose={onClose}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       <div className="flex items-end gap-2">

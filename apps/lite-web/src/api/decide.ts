@@ -5,6 +5,30 @@ import { toneAt, type Tone } from "../shared/tone";
 
 const base = (id: string) => `/api/v1/pbl/projects/${id}`;
 
+export interface DecisionDraft {
+	contentVersion: number;
+  choiceId: string;
+  why: string;
+  dropped: Record<string, string>;
+  flip: string;
+  adding: boolean;
+  mineLabel: string;
+  mineWhy: string;
+}
+export interface DecisionDraftState {
+  draft: Partial<DecisionDraft>;
+  revision: number;
+  settled: boolean;
+}
+export function getDecisionDraft(projectId: string, decisionId: string): Promise<DecisionDraftState> {
+  return apiFetch(`${base(projectId)}/decisions/${decisionId}/draft`);
+}
+export function saveDecisionDraft(projectId: string, decisionId: string, draft: DecisionDraft, revision: number): Promise<DecisionDraftState> {
+  return apiFetch(`${base(projectId)}/decisions/${decisionId}/draft`, {
+    method: "PUT", body: JSON.stringify({ draft, revision }),
+  });
+}
+
 /**
  * 一个待选项。**印记提的**——这件工具出现的时刻，正是 AI 抛出几条路让她定。
  * 所以卡片上有标题，也有一段说明：光一个标题，她判断不了。
@@ -21,6 +45,8 @@ export interface DecisionOption {
 }
 
 export interface Decision {
+	contentVersion: number;
+	revisionHistory: { version: number; subject: string; reason: string; options: DecisionOption[] }[];
   id: string;
   subject: string;
   choice: string;
@@ -90,7 +116,7 @@ export function rankOptions(
 export function settleDecision(
   projectId: string,
   decisionId: string,
-  body: { choice: string; why: string; whyNot: string; flip?: string },
+  body: { choice: string; why: string; whyNot: string; flip?: string; contentVersion?: number },
 ): Promise<Decision> {
   return apiFetch<Decision>(`${base(projectId)}/decisions/${decisionId}/settle`, {
     method: "POST",

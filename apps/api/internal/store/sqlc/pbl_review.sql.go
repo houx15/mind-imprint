@@ -65,7 +65,7 @@ func (q *Queries) AnswerPblReviewMark(ctx context.Context, arg AnswerPblReviewMa
 }
 
 const answerPblReviewPrompt = `-- name: AnswerPblReviewPrompt :one
-UPDATE pbl_review SET answer = $2, stance = $3 WHERE id = $1 RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance
+UPDATE pbl_review SET answer = $2, stance = $3 WHERE id = $1 RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance, revision
 `
 
 type AnswerPblReviewPromptParams struct {
@@ -90,6 +90,7 @@ func (q *Queries) AnswerPblReviewPrompt(ctx context.Context, arg AnswerPblReview
 		&i.CreatedAt,
 		&i.Section,
 		&i.Stance,
+		&i.Revision,
 	)
 	return i, err
 }
@@ -177,9 +178,9 @@ func (q *Queries) CreatePblReviewMark(ctx context.Context, arg CreatePblReviewMa
 
 const createPblReviewPrompt = `-- name: CreatePblReviewPrompt :one
 
-INSERT INTO pbl_review (atom_id, prompt, section, anchor_kind, anchor_ref, ordinal)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance
+INSERT INTO pbl_review (atom_id, prompt, section, anchor_kind, anchor_ref, ordinal, revision)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance, revision
 `
 
 type CreatePblReviewPromptParams struct {
@@ -189,6 +190,7 @@ type CreatePblReviewPromptParams struct {
 	AnchorKind string    `json:"anchor_kind"`
 	AnchorRef  string    `json:"anchor_ref"`
 	Ordinal    int32     `json:"ordinal"`
+	Revision   int32     `json:"revision"`
 }
 
 // ── 阶段六：复盘 ───────────────────────────────────────────────────────
@@ -200,6 +202,7 @@ func (q *Queries) CreatePblReviewPrompt(ctx context.Context, arg CreatePblReview
 		arg.AnchorKind,
 		arg.AnchorRef,
 		arg.Ordinal,
+		arg.Revision,
 	)
 	var i PblReview
 	err := row.Scan(
@@ -213,6 +216,7 @@ func (q *Queries) CreatePblReviewPrompt(ctx context.Context, arg CreatePblReview
 		&i.CreatedAt,
 		&i.Section,
 		&i.Stance,
+		&i.Revision,
 	)
 	return i, err
 }
@@ -299,7 +303,7 @@ func (q *Queries) GetPblReviewMark(ctx context.Context, id uuid.UUID) (GetPblRev
 }
 
 const getPblReviewPrompt = `-- name: GetPblReviewPrompt :one
-SELECT p.id, p.atom_id, p.prompt, p.anchor_kind, p.anchor_ref, p.answer, p.ordinal, p.created_at, p.section, p.stance, a.user_id
+SELECT p.id, p.atom_id, p.prompt, p.anchor_kind, p.anchor_ref, p.answer, p.ordinal, p.created_at, p.section, p.stance, p.revision, a.user_id
 FROM pbl_review p JOIN atom a ON a.id = p.atom_id
 WHERE p.id = $1
 `
@@ -315,6 +319,7 @@ type GetPblReviewPromptRow struct {
 	CreatedAt  time.Time `json:"created_at"`
 	Section    string    `json:"section"`
 	Stance     string    `json:"stance"`
+	Revision   int32     `json:"revision"`
 	UserID     uuid.UUID `json:"user_id"`
 }
 
@@ -332,6 +337,7 @@ func (q *Queries) GetPblReviewPrompt(ctx context.Context, id uuid.UUID) (GetPblR
 		&i.CreatedAt,
 		&i.Section,
 		&i.Stance,
+		&i.Revision,
 		&i.UserID,
 	)
 	return i, err
@@ -433,7 +439,7 @@ func (q *Queries) ListPblReviewMarks(ctx context.Context, artifactID uuid.UUID) 
 }
 
 const listPblReviewPrompts = `-- name: ListPblReviewPrompts :many
-SELECT id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance FROM pbl_review WHERE atom_id = $1 ORDER BY ordinal, created_at
+SELECT id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance, revision FROM pbl_review WHERE atom_id = $1 ORDER BY revision, ordinal, created_at
 `
 
 func (q *Queries) ListPblReviewPrompts(ctx context.Context, atomID uuid.UUID) ([]PblReview, error) {
@@ -456,6 +462,7 @@ func (q *Queries) ListPblReviewPrompts(ctx context.Context, atomID uuid.UUID) ([
 			&i.CreatedAt,
 			&i.Section,
 			&i.Stance,
+			&i.Revision,
 		); err != nil {
 			return nil, err
 		}

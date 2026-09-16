@@ -22,3 +22,11 @@ DELETE FROM pbl_site_ref WHERE id = $2 AND atom_id = $1;
 
 -- name: CountPblSiteRefs :one
 SELECT count(*) FROM pbl_site_ref WHERE atom_id = $1;
+
+-- name: BookmarkPblSiteRef :one
+-- Save a link without fetching or inferring anything about its contents.
+-- Re-collecting an existing link preserves both the student's note and AI analysis.
+INSERT INTO pbl_site_ref (atom_id, url, title, what, structure, best)
+VALUES ($1, $2, '', '', '', '')
+ON CONFLICT (atom_id, url) DO UPDATE SET url = EXCLUDED.url
+RETURNING *;

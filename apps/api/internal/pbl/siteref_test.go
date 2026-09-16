@@ -13,7 +13,6 @@ func TestNormalizeSiteURL_FoldsTheSameSite(t *testing.T) {
 		"https://example.com",
 		"https://example.com/",
 		"  https://EXAMPLE.com/  ",
-		"https://example.com/#about",
 	} {
 		got, err := NormalizeSiteURL(raw)
 		if err != nil {
@@ -82,5 +81,63 @@ func TestParseSiteRefCard_RefusesAHalfCard(t *testing.T) {
 		if _, err := ParseSiteRefCard(raw); err == nil {
 			t.Errorf("%q 应该被拒", raw)
 		}
+	}
+}
+
+func TestSiteRef_RejectsLoadingPageClassification(t *testing.T) {
+	if _, err := ParseSiteRefCard(`{"readable":false,"reason":"Preparing the page...","what":"加载提示","structure":"标题和加载提示","best":"简洁"}`); err == nil {
+		t.Fatal("loading page accepted")
+	}
+}
+
+func TestSiteRefEvidence_RequiresActualSource(t *testing.T) {
+	yes, no := true, false
+	body := "林的摄影记录\n校园树木：观察叶片的变化。"
+	for _, tc := range []struct {
+		name  string
+		card  SiteRefCard
+		valid bool
+	}{
+		{"source quote", SiteRefCard{Readable: &yes, Evidence: []string{"校园树木：观察叶片的变化。"}}, true},
+		{"whitespace", SiteRefCard{Readable: &yes, Evidence: []string{"林的摄影记录 校园树木：观察叶片的变化。"}}, true},
+		{"invented quote", SiteRefCard{Readable: &yes, Evidence: []string{"用红色背景展示摄影作品"}}, false},
+		{"missing classification", SiteRefCard{Evidence: []string{"林的摄影记录"}}, false},
+		{"unreadable", SiteRefCard{Readable: &no, Evidence: []string{"林的摄影记录"}}, false},
+		{"missing evidence", SiteRefCard{Readable: &yes}, false},
+		{"empty evidence", SiteRefCard{Readable: &yes, Evidence: []string{" "}}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateSiteRefEvidence(tc.card, body)
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%v err=%v", tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestSiteRefEvidence_QuoteGlyphsDoNotChangeWords(t *testing.T) {
+	yes := true
+	body := `I’m documenting learning. An “ultraintelligent machine” is not a current result.`
+	for _, tc := range []struct {
+		quote string
+		valid bool
+	}{
+		{`I'm documenting learning.`, true},
+		{`An 'ultraintelligent machine' is not a current result.`, true},
+		{`An 'ultraintelligent machine' is a current result.`, false},
+		{`An 'ultraintelligent machine' ... current result.`, false},
+		{`Im documenting learning.`, false},
+	} {
+		err := ValidateSiteRefEvidence(SiteRefCard{Readable: &yes, Evidence: []string{tc.quote}}, body)
+		if (err == nil) != tc.valid {
+			t.Fatalf("quote=%q err=%v", tc.quote, err)
+		}
+	}
+}
+
+func TestNormalizeSiteURL_PreservesSelectedEffect(t *testing.T) {
+	got, err := NormalizeSiteURL("https://example.com/demos?mode=touch#plant-growth")
+	if err != nil || got != "https://example.com/demos?mode=touch#plant-growth" {
+		t.Fatalf("effect selection lost: %q %v", got, err)
 	}
 }

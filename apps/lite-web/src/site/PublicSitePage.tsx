@@ -1,5 +1,6 @@
+import { ProcessComparison, type ComparisonText } from "./ProcessComparison";
 import { useEffect, useState } from "react";
-import { getPublicSite } from "../api/site";
+import { getPublicSite, publicCodeSiteURL } from "../api/site";
 import { useNoIndex } from "../shared/useNoIndex";
 import { BuiltSite } from "./BuiltSite";
 import { themeFor } from "./themes";
@@ -21,7 +22,7 @@ import type { SiteContent, SiteLayout, SitePalette } from "./types";
  */
 export function PublicSitePage({ token }: { token: string }) {
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent } | { kind: "gone" }
+    { kind: "loading" } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent } | { kind: "gone" }
   >({ kind: "loading" });
 
   // noindex 在挂载时加上，卸载时收回。它只属于这一个页面。
@@ -32,6 +33,7 @@ export function PublicSitePage({ token }: { token: string }) {
     getPublicSite(token)
       .then((res) => {
         if (cancelled) return;
+        if (res.generated) { setState({kind:"generated",renderKey:res.renderKey,comparison:res.comparison}); document.title="个人主页"; return; }
         setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content });
         if (res.content.name) document.title = res.content.name;
       })
@@ -69,6 +71,8 @@ export function PublicSitePage({ token }: { token: string }) {
       </div>
     );
   }
+
+  if(state.kind==="generated") return <>{state.comparison&&<nav aria-label="主页内容" style={{padding:"12px 24px",background:"#f4f0e6",display:"flex",gap:24}}><a href="#site-work">作品</a><a href="#process-comparison">修改过程</a></nav>}<iframe id="site-work" title="个人主页" src={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" style={{display:"block",width:"100%",height:"100dvh",border:0}}/>{state.comparison&&<ProcessComparison comparison={state.comparison} source={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`}/>}</>;
 
   return (
     <BuiltSite

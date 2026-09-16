@@ -1,0 +1,11 @@
+---
+import {t,type Lang} from '../config';const {kind,lang}=Astro.props as {kind:string;lang:Lang};
+---
+<div class={`feature-art art-${kind}`} aria-hidden="true">
+{kind==='explore'&&<><svg viewBox="0 0 300 150"><path d="M55 110 140 70 236 35M140 70l75 62M140 70 93 19" stroke="currentColor" fill="none"/><circle cx="140" cy="70" r="22" fill="currentColor"/><circle cx="55" cy="110" r="8"/><circle cx="236" cy="35" r="14"/><circle cx="215" cy="132" r="7"/><circle cx="93" cy="19" r="6"/></svg><span class="art-tag">{t(lang,['一个兴趣，多种可能','One interest. New possibilities.'])}</span></>}
+{kind==='reading'&&<div class="mini-page"><b>{t(lang,['这条证据支持什么？','What does this evidence support?'])}</b><i></i><i class="highlight"></i><i></i><span class="margin-note">{t(lang,['检查原始来源','Check the original source'])}</span></div>}
+{kind==='writing'&&<div class="argument-mini"><span>{t(lang,['论点','Claim'])}</span><div class="argument-line"></div><span>{t(lang,['证据','Evidence'])}</span><span>{t(lang,['解释','Reasoning'])}</span><small>{t(lang,['学生撰写 · AI 提供反馈','Student writing · AI feedback'])}</small></div>}
+{kind==='projects'&&<div class="project-mini"><span>01 <b>{t(lang,['明确问题','Define'])}</b><em>✓</em></span><span>02 <b>{t(lang,['调查与设计','Investigate'])}</b><em>↗</em></span><span>03 <b>{t(lang,['审核与制作','Review'])}</b><em>○</em></span></div>}
+{kind==='courses'&&<div class="course-mini"><div class="course-card-back"></div><div class="course-card-front"><span>01 / THINKING TOOLS</span><strong>CRAAP</strong><small>{t(lang,['这份来源，可信吗？','Can you trust this source?'])}</small></div></div>}
+{kind==='assessment'&&<div class="assessment-mini"><div><span>{t(lang,['思考深度','Depth of thinking'])}</span><i><b style="width:74%"></b></i></div><div><span>{t(lang,['学习自主性','Learner autonomy'])}</span><i><b style="width:56%"></b></i></div><small>{t(lang,['分别描述，结合过程解读','Separate dimensions. Evidence in context.'])}</small></div>}
+</div>

@@ -1,12 +1,64 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/google/uuid"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestPblPlan_RevisedProposalVisibleBeforeItTakesEffect(t *testing.T) {
+	h, c, q, _ := liteHandlerWithProvider(t, nil)
+	pid := seedApprovedPlan(t, h, c)
+	checkPending := func(want bool) {
+		t.Helper()
+		rec := siteReq(t, h, c, "GET", "/api/v1/pbl/projects", "")
+		var projects []map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &projects); err != nil {
+			t.Fatal(err)
+		}
+		for _, project := range projects {
+			if project["id"] == pid {
+				if project["planPending"] != want {
+					t.Fatalf("pending=%v want %v", project["planPending"], want)
+				}
+				return
+			}
+		}
+		t.Fatal("project missing from list")
+	}
+	checkPending(false)
+	at := uuid.MustParse(pid)
+	old, err := q.GetPblLivePlan(context.Background(), at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := pblPost(t, h, c, "/api/v1/pbl/projects/"+pid+"/plan", `{"summary":"先观察再访谈","reason":"学生没有时间连续观察三天","steps":[{"title":"午餐时段观察","decide":"哪些剩餐值得继续调查"}]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatal(rec.Body)
+	}
+	checkPending(true)
+	shown := pblGetPlan(t, h, c, pid)["plan"].(map[string]any)
+	if shown["summary"] != "先观察再访谈" || shown["approvedAt"] != nil {
+		t.Fatalf("new proposal hidden or prematurely approved: %+v", shown)
+	}
+	live, err := q.GetPblLivePlan(context.Background(), at)
+	if err != nil || live.ID != old.ID {
+		t.Fatal("unapproved revision replaced active plan")
+	}
+	rec = pblPost(t, h, c, "/api/v1/pbl/projects/"+pid+"/plan/approve", `{"versionId":"`+shown["versionId"].(string)+`"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatal(rec.Body)
+	}
+	live, err = q.GetPblLivePlan(context.Background(), at)
+	checkPending(false)
+	if err != nil || live.Summary != "先观察再访谈" {
+		t.Fatal("approved revision did not take effect")
+	}
+}
 
 func pblPost(t *testing.T, h http.Handler, c *http.Cookie, url, body string) *httptest.ResponseRecorder {
 	t.Helper()

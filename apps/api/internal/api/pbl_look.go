@@ -145,6 +145,9 @@ func (a *API) chosenPersonaKeywords(r *http.Request, atomID uuid.UUID) ([]string
 	if err != nil {
 		return nil, "", err
 	}
+	kept := []string{}
+	feelings := []string{}
+	seen := map[string]bool{}
 	for _, p := range rows {
 		if !p.Chosen {
 			continue
@@ -153,13 +156,15 @@ func (a *API) chosenPersonaKeywords(r *http.Request, atomID uuid.UUID) ([]string
 		if len(p.Keywords) > 0 {
 			_ = json.Unmarshal(p.Keywords, &kws)
 		}
-		kept := make([]string, 0, len(kws))
 		for _, k := range kws {
-			if t := strings.TrimSpace(k); t != "" {
+			if t := strings.TrimSpace(k); t != "" && !seen[t] {
 				kept = append(kept, t)
+				seen[t] = true
 			}
 		}
-		return kept, p.Feeling, nil
+		if strings.TrimSpace(p.Feeling) != "" {
+			feelings = append(feelings, p.Label+"："+p.Feeling)
+		}
 	}
-	return nil, "", nil
+	return kept, strings.Join(feelings, "；"), nil
 }

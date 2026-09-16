@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -39,7 +40,9 @@ import (
 
 // pblSiteDTO 是她自己那一侧看到的东西：页面本身、她的草稿、还缺什么、发布状态。
 type pblSiteDTO struct {
-	Layout string `json:"layout"`
+	PublishMissing     []string `json:"publishMissing"`
+	PublishedVersionID string   `json:"publishedVersionId,omitempty"`
+	Layout             string   `json:"layout"`
 	// Palette 是第三关她定下的配色。零值（三个颜色都空）= 还没定，渲染端用
 	// 版式自带的那一套。
 	Palette pbl.Palette `json:"palette"`
@@ -137,7 +140,15 @@ func (a *API) loadSiteContent(r *http.Request, userID uuid.UUID, name string, ro
 			Kind:    kind,
 		})
 	}
-	return pbl.BuildSite(in), nil
+	content := pbl.BuildSite(in)
+	for i := range content.Sections {
+		section := &content.Sections[i]
+		section.ImageURL = ""
+		if ownSiteImage(userID, section.ImageKey) {
+			section.ImageURL = a.signedOrEmpty(section.ImageKey)
+		}
+	}
+	return content, nil
 }
 
 // hostOf 把来源网址收成一个域名。整条 URL 印在她的主页上是一行噪音，而域名是
@@ -202,13 +213,14 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 		_ = json.Unmarshal(row.Content, &draft)
 	}
 	dto := pblSiteDTO{
-		Layout:    row.Layout,
-		Palette:   sitePalette(row),
-		HeroURL:   a.signedOrEmpty(row.HeroKey),
-		Draft:     normalizeDraft(draft),
-		Content:   content,
-		Missing:   pbl.SiteMissing(content),
-		Published: row.ShareToken != nil && *row.ShareToken != "",
+		Layout:         row.Layout,
+		Palette:        sitePalette(row),
+		HeroURL:        a.signedOrEmpty(row.HeroKey),
+		Draft:          normalizeDraft(draft),
+		Content:        content,
+		Missing:        pbl.SiteMissing(content),
+		PublishMissing: pbl.SitePublishMissing(content, sitePalette(row)),
+		Published:      row.ShareToken != nil && *row.ShareToken != "",
 	}
 	if dto.Missing == nil {
 		dto.Missing = []string{}
@@ -218,6 +230,12 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 	}
 	if row.AtomID.Valid {
 		dto.ProjectID = uuid.UUID(row.AtomID.Bytes).String()
+	}
+	publication, publicationErr := a.d.Queries.GetPblSitePublication(r.Context(), u.ID)
+	if publicationErr == nil {
+		dto.PublishedVersionID = publication.VersionID.String()
+	} else if !errors.Is(publicationErr, pgx.ErrNoRows) {
+		return dto, publicationErr
 	}
 	return dto, nil
 }
@@ -293,14 +311,24 @@ func (a *API) getPblSite(w http.ResponseWriter, r *http.Request) {
 // 一次提交就是一版。
 func (a *API) putPblSiteContent(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
-	var draft pbl.SiteDraft
-	if err := json.NewDecoder(r.Body).Decode(&draft); err != nil {
+	var input struct {
+		pbl.SiteDraft
+		ExpectedDraft *pbl.SiteDraft `json:"expectedDraft"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
-	draft = clampDraft(draft)
+	draft := clampDraft(input.SiteDraft)
+	for _, section := range draft.Sections {
+		if section.ImageKey != "" && !ownSiteImage(u.ID, section.ImageKey) {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片不属于当前账号", nil))
+			return
+		}
+	}
 
-	if _, err := a.ensureSite(r, u.ID); err != nil {
+	site, err := a.ensureSite(r, u.ID)
+	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -309,9 +337,53 @@ func (a *API) putPblSiteContent(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	row, err := a.d.Queries.SetPblSiteContent(r.Context(),
-		sqlc.SetPblSiteContentParams{UserID: u.ID, Content: blob})
+	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	q := a.d.Queries.WithTx(tx)
+	if site.AtomID.Valid {
+		if _, err = q.LockAtom(r.Context(), uuid.UUID(site.AtomID.Bytes)); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	// Check and write under the same row lock, including against coach updates.
+	var currentJSON []byte
+	if err = tx.QueryRow(r.Context(), "SELECT content FROM pbl_site WHERE user_id=$1 FOR UPDATE", u.ID).Scan(&currentJSON); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if input.ExpectedDraft != nil {
+		var current pbl.SiteDraft
+		if err = json.Unmarshal(currentJSON, &current); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if !reflect.DeepEqual(clampDraft(current), clampDraft(*input.ExpectedDraft)) {
+			httpx.WriteError(w, r, httpx.ErrConflict("主页内容已在其他位置修改，请读取最新内容后重试。"))
+			return
+		}
+	}
+	if input.ExpectedDraft != nil && site.AtomID.Valid {
+		if err = syncEditedSiteSections(r.Context(), q, u.ID, uuid.UUID(site.AtomID.Bytes), *input.ExpectedDraft, &draft); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		blob, err = json.Marshal(draft)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	row, err := q.SetPblSiteContent(r.Context(), sqlc.SetPblSiteContentParams{UserID: u.ID, Content: blob})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -353,6 +425,29 @@ func clampDraft(d pbl.SiteDraft) pbl.SiteDraft {
 			blurbs[k] = s
 		}
 	}
+	sections := []pbl.SiteSection{}
+	seen := map[string]bool{}
+	for _, section := range d.Sections {
+		if len(sections) >= 60 {
+			break
+		}
+		section.Key = cut(section.Key)
+		section.Title = cut(section.Title)
+		section.Body = cut(section.Body)
+		section.ImageURL = ""
+		if section.Key == "" || seen[section.Key] {
+			continue
+		}
+		if section.Depth < 0 {
+			section.Depth = 0
+		}
+		if section.Depth > 5 {
+			section.Depth = 5
+		}
+		seen[section.Key] = true
+		sections = append(sections, section)
+	}
+	d.Sections = sections
 	d.Blurbs = blurbs
 	return d
 }
@@ -426,6 +521,26 @@ func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var input struct {
+		VersionID string `json:"versionId"`
+	}
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input); err != nil {
+			httpx.WriteError(w, r, errBadJSON(err))
+			return
+		}
+	}
+	if input.VersionID != "" {
+		a.publishPblCodeSite(w, r, input.VersionID)
+		return
+	}
+	if _, err := a.d.Queries.GetPblSitePublication(r.Context(), u.ID); err == nil {
+		httpx.WriteError(w, r, httpx.ErrConflict("请明确选择要发布的主页版本"))
+		return
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	row, err := a.ensureSite(r, u.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -437,23 +552,8 @@ func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 🚨 门槛一：页面上得有她自己的字。
-	if missing := pbl.SiteMissing(content); len(missing) > 0 {
-		httpx.WriteError(w, r, httpx.ErrConflict(
-			"这一页还缺你自己写的：" + strings.Join(missing, "、") + "。发出去的是你的主页，得先有你说的话。"))
-		return
-	}
-	// 门槛二：调子得是她定的。
-	//
-	// 🚨 这里原来查的是 `layout_why`——她为版式写下的那一句理由。那一格随
-	// SiteStudio 一起退役了（2026-09-04），而这道闸留着，于是页面上每一个字都齐了
-	// 也发不出去，报错还指着一个界面上已经不存在的输入框。浏览器 walk 抓到的。
-	//
-	// 换成查配色：第三关她挑的那一组，是从她第一关的关键词派生出来的，理由印在
-	// 每一组底下。这仍然是「没有判断就不落定」，只是那个判断换成了一次她看得见
-	// 效果的选择。
-	if !pbl.ValidPalette(sitePalette(row)) {
-		httpx.WriteError(w, r, httpx.ErrConflict("请先在「视觉基调」里定下配色和风格。"))
+	if missing := pbl.SitePublishMissing(content, sitePalette(row)); len(missing) > 0 {
+		httpx.WriteError(w, r, httpx.ErrConflict("上线前需要完成："+strings.Join(missing, "、")))
 		return
 	}
 
@@ -505,6 +605,7 @@ func (a *API) revokePblSite(w http.ResponseWriter, r *http.Request) {
 // 她其他任何东西的句柄。不要往这里加字段——公开端点多漏一个字段，就是对所有人
 // 永远地漏。
 func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	token := r.PathValue("token")
 	if token == "" {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
@@ -513,6 +614,22 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 	row, err := a.d.Queries.GetPblSiteByShareToken(r.Context(), &token)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404，不带细节
+		return
+	}
+
+	if publication, pubErr := a.d.Queries.GetPblSitePublication(r.Context(), row.UserID); pubErr == nil {
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+		w.Header().Set("Cache-Control", "no-store")
+		version, err := a.d.Queries.GetPblCodeVersion(r.Context(), sqlc.GetPblCodeVersionParams{AtomID: publication.AtomID, ID: publication.VersionID})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		// Only the published snapshot's explicitly selected process text is exposed.
+		httpx.WriteJSON(w, 200, map[string]any{"generated": true, "renderKey": publicationRenderKey(publication.VersionID), "comparison": comparisonSummary(version.Brief)})
+		return
+	} else if !errors.Is(pubErr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, pubErr)
 		return
 	}
 
@@ -589,7 +706,7 @@ func (a *API) siteGateOpen(r *http.Request, userID uuid.UUID) (bool, error) {
 // 是一份真的任务清单，并且仍然要自己审一遍才开始（「请审核计划并确认，或提出
 // 修改意见」）。approvePblPlan 那一刀仍然在她手里，项目也仍然要她批了才 running。
 //
-// 幂等由调用点保证：主页项目一个人只有一个，已存在就早早返回，走不到这里。
+// 调用点持有锁，并仅在项目没有计划版本时播种；已有计划保持原样。
 func seedWebsiteRoutine(ctx context.Context, qtx *sqlc.Queries, atomID uuid.UUID) error {
 	v, err := qtx.CreatePblPlanVersion(ctx, sqlc.CreatePblPlanVersionParams{
 		AtomID: atomID, Version: 1,
@@ -624,7 +741,42 @@ func (a *API) startPblSiteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existing, err := a.d.Queries.GetPblWebsiteProjectByUser(r.Context(), u.ID); err == nil {
+	// atom + 项目 + 主页行，一个事务。缺任何一半都是一个渲染不出来的状态。
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	if _, err := qtx.LockPblSiteOwner(r.Context(), u.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if existing, err := qtx.GetPblWebsiteProjectByUser(r.Context(), u.ID); err == nil {
+		if _, err := qtx.LockAtom(r.Context(), existing.AtomID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		next, err := qtx.NextPblPlanVersion(r.Context(), existing.AtomID)
+		if err == nil && next == 1 {
+			err = seedWebsiteRoutine(r.Context(), qtx, existing.AtomID)
+		}
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if _, err := qtx.EnsurePblSite(r.Context(), sqlc.EnsurePblSiteParams{
+			UserID: u.ID, AtomID: pgtype.UUID{Bytes: existing.AtomID, Valid: true},
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 		httpx.WriteJSON(w, http.StatusOK, pblProjectDTO{
 			ID: existing.AtomID.String(), Idea: existing.Idea, Kind: existing.Kind,
 			Name: existing.Name, CoverGround: existing.CoverGround, CoverGlyph: existing.CoverGlyph,
@@ -637,15 +789,6 @@ func (a *API) startPblSiteProject(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-
-	// atom + 项目 + 主页行，一个事务。缺任何一半都是一个渲染不出来的状态。
-	tx, err := a.d.Pool.Begin(r.Context())
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
-	qtx := a.d.Queries.WithTx(tx)
 
 	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "project", UserID: u.ID})
 	if err != nil {

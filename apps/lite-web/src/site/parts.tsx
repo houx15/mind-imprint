@@ -1,3 +1,4 @@
+import { readableText } from "./readableText";
 import type { SiteContent, SiteTheme } from "./types";
 
 /**
@@ -32,6 +33,10 @@ export const MONO = {
  *  CSS 变量，`text-[var(--st-ink)]/60` 一行 CSS 都不会生成。 */
 export function mix(amount: number): string {
   return `color-mix(in srgb, var(--st-ink) ${Math.round(amount * 100)}%, var(--st-paper))`;
+}
+
+export function textMix(amount: number): string {
+  return `color-mix(in srgb, var(--st-readable-ink) max(${Math.round(amount * 100)}%, var(--st-text-minimum)), var(--st-paper))`;
 }
 
 /** 同上，但透明——给压在淡底上的线用。 */
@@ -199,6 +204,7 @@ export function Ground({
   theme: SiteTheme;
   children: React.ReactNode;
 }) {
+  const text = readableText(theme.ink, theme.paper);
   return (
     <div
       className="mk-site min-h-full"
@@ -206,9 +212,11 @@ export function Ground({
         {
           "--st-paper": theme.paper,
           "--st-ink": theme.ink,
+          "--st-readable-ink": text.ink,
+          "--st-text-minimum": `${text.minimum}%`,
           "--st-accent": theme.accent,
           background: theme.paper,
-          color: theme.ink,
+          color: text.ink,
           fontFamily: theme.font,
         } as React.CSSProperties
       }
@@ -231,7 +239,7 @@ export function Blank({ what, editing }: { what: string; editing: boolean }) {
   return (
     <span
       className="text-[12px]"
-      style={{ ...MONO, color: mix(0.38), border: `1px dashed ${hair(0.24)}`, padding: "1px 6px" }}
+      style={{ ...MONO, color: textMix(0.38), border: `1px dashed ${hair(0.24)}`, padding: "1px 6px" }}
     >
       {what}
     </span>

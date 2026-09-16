@@ -1,15 +1,6 @@
 package api
 
-// pbl_sites.go — 主页项目第二关：她自己找到的那几个个人网站。
-//
-// 产品负责人 2026-09-03：「collect data about the websites they love. let them
-// search, and give AI the urls.」
-//
-// 这一关她**一个字都不打**：搜索在她自己的浏览器里（我们没有比浏览器更好的
-// 搜索），她把网址粘进来，服务端去读那一页，印记回一张卡。三张之后这一关才开。
-//
-// 读页面用的是读书房用了很久的那条路（materialize.FetchReadable）——它自带
-// SSRF 防护、重定向上限和正文抽取。这一关没有新造一条抓取链路。
+// pbl_sites.go — optional inspiration links, student observations and separate text analysis.
 
 import (
 	"encoding/json"
@@ -106,6 +97,10 @@ func (a *API) addPblSiteRef(w http.ResponseWriter, r *http.Request) {
 	}
 	card, usage, cerr := pbl.ReadSiteRef(r.Context(), a.d.Provider, resolved, title, text)
 	a.recordLiteLLMCall(r.Context(), u.ID, atomID, "pbl_site_ref", resolved, usage)
+	if errors.Is(cerr, pbl.ErrSiteRefEvidence) && r.Context().Err() == nil {
+		card, usage, cerr = pbl.ReadSiteRef(r.Context(), a.d.Provider, resolved, title, text, true)
+		a.recordLiteLLMCall(r.Context(), u.ID, atomID, "pbl_site_ref_retry", resolved, usage)
+	}
 	if cerr != nil {
 		slog.Warn("pbl sites: could not read that page", "err", cerr, "url", url,
 			"request_id", httpx.RequestIDFromContext(r.Context()))
@@ -170,4 +165,32 @@ func (a *API) deletePblSiteRef(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Bookmarking does not fetch the URL, call a model or assert that it was viewed.
+func (a *API) bookmarkPblSiteRef(w http.ResponseWriter, r *http.Request) {
+	atom, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		URL string `json:"url"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 10000))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	url, err := pbl.NormalizeSiteURL(req.URL)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_url", "保存失败：网址无效", nil))
+		return
+	}
+	row, err := a.d.Queries.BookmarkPblSiteRef(r.Context(), sqlc.BookmarkPblSiteRefParams{AtomID: atom, Url: url})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, toPblSiteRefDTO(row))
 }

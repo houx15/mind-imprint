@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -56,8 +58,10 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Text      string `json:"text"`
-		SessionID string `json:"sessionId"`
+		Text            string                 `json:"text"`
+		CompletedToolID string                 `json:"completedToolId"`
+		SessionID       string                 `json:"sessionId"`
+		Observation     *observationSubmission `json:"observation"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -67,10 +71,19 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	// 允许，但只在对话里已经有东西的时候——对着一个空房间凭空说一句，是印记
 	// 在自言自语。
 	studentText := strings.TrimSpace(req.Text)
+	if req.Observation != nil && (studentText != "" || req.CompletedToolID != "") {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("ambiguous_observation_event", "提交记录与结束任务不能同时触发", nil))
+		return
+	}
+	reviewSource, sourceErr := a.completedPblReviewSource(r, atomID, req.CompletedToolID)
+	if sourceErr != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_tool_completion", sourceErr.Error(), nil))
+		return
+	}
 
 	// Which thread is this? NULL = the project's main thread.
 	var scope pgtype.UUID
-	var sessionKind, sessionQuestion string
+	var sessionKind, sessionQuestion, sessionAnchor string
 	if raw := strings.TrimSpace(req.SessionID); raw != "" {
 		sid, perr := uuid.Parse(raw)
 		if perr != nil {
@@ -88,23 +101,55 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		scope = pgtype.UUID{Bytes: sid, Valid: true}
 		sessionKind, sessionQuestion = s.Kind, s.Question
+		sessionAnchor = s.AnchorRef
 	}
 
+	observationEvent, eventErr := a.observationSubmissionEvent(r, atomID, scope, req.Observation)
+	if eventErr != nil {
+		httpx.WriteError(w, r, httpx.ErrConflict(eventErr.Error()))
+		return
+	}
 	in, err := a.buildPblCoachInput(r, atomID, scope, sessionKind, sessionQuestion)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	if sessionKind == "keeping" {
+		kid, parseErr := uuid.Parse(sessionAnchor)
+		if parseErr != nil {
+			httpx.WriteError(w, r, httpx.ErrNotFound("迭代记录不存在"))
+			return
+		}
+		entry, entryErr := a.d.Queries.GetPblKeepEntry(r.Context(), kid)
+		if entryErr != nil || entry.AtomID != atomID {
+			httpx.WriteError(w, r, httpx.ErrNotFound("迭代记录不存在"))
+			return
+		}
+		in.ToolWork = append(in.ToolWork, "当前迭代讨论只针对这条已保存记录（类型："+entry.Kind+"）："+entry.Body+
+			"。从这条记录继续，不要要求学生再次打开长期迭代或重复记录。想法和计划不能当成已经发生的反馈；尚未验证时，帮助设计下一次验证。")
+	}
 	// 这一轮是不是"开场那一轮"：进来的时候这条线上还一句话都没有。
 	// 下面拿到锁之后要用它再确认一次（见 openingRaced）。
-	opening := len(in.Recent) == 0
-	if studentText != "" {
+	opening := false
+	if len(in.Recent) == 0 {
+		count, countErr := a.d.Queries.CountPblThreadMessages(r.Context(), sqlc.CountPblThreadMessagesParams{AtomID: atomID, SessionID: scope})
+		if countErr != nil {
+			httpx.WriteError(w, r, countErr)
+			return
+		}
+		opening = count == 0
+	}
+	if observationEvent != "" {
+		in.JustHappened = observationEvent
+	} else if studentText != "" {
 		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
-	} else if len(in.Recent) > 0 {
+	} else if sessionKind == "keeping" {
+		in.JustHappened = "学生打开了一条已保存的迭代记录，开始单独讨论该记录。请以当前记录为准，不要重复主线最后一次工具邀请。"
+	} else if len(in.Recent) > 0 || req.CompletedToolID != "" {
 		// 🚨 她没打字，是刚做完一件工具回来。不说清楚"刚发生了什么"，这一轮的
 		// 上文就以印记自己的话结尾，模型会把那句话原样再说一遍，并且把她刚做完
 		// 的工具再递一次（2026-09-02 线上实测）。
-		in.JustHappened = a.lastPblToolEvent(r, atomID)
+		in.JustHappened = a.lastPblToolEvent(r, atomID, req.CompletedToolID)
 	}
 	// 🚨 她连着答不上来的次数，服务端数，每一轮都算。
 	//
@@ -114,7 +159,7 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	in.Stuck = pbl.StuckRun(in.Recent)
 	in.AskedForHelp = pbl.AskedForHelp(in.Recent)
 
-	if studentText == "" && len(in.Recent) == 0 && !scope.Valid {
+	if studentText == "" && len(in.Recent) == 0 && !scope.Valid && req.CompletedToolID == "" && req.Observation == nil {
 		// 支线里允许空文本：印记要为这条支线开个头，而它的上文来自主线。
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入内容", nil))
 		return
@@ -125,7 +170,9 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
+	started := time.Now()
 	out, usage, cerr := pbl.Coach(r.Context(), a.d.Provider, resolved, in)
+	slog.Info("pbl model stage", "stage", "dialogue", "duration_ms", time.Since(started).Milliseconds(), "request_id", httpx.RequestIDFromContext(r.Context()), "failed", cerr != nil)
 	// Meter before any bail — a call that yielded nothing still cost money.
 	a.recordLiteLLMCall(r.Context(), u.ID, atomID, "pbl_turn", resolved, usage)
 	if cerr != nil {
@@ -138,6 +185,12 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		// 原来传的是 "model_unavailable" 这种机器码，等于什么都没说——
 		// 2026-09-02 那五个 503 就是这样被藏了一下午。
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed(cerr.Error()))
+		return
+	}
+
+	out, err = a.guardPblEvidence(r, atomID, in, out, resolved)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed(err.Error()))
 		return
 	}
 
@@ -228,6 +281,23 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	// 🚨 递失败不让这一轮失败。她该看见的是印记刚说的话；一件没递成的工具，
 	// 下一轮还可以再递。
 	dto := pblTurnDTO{Reply: out.Reply, Hook: out.Hook, HookKind: out.HookKind}
+	if out.MissionTarget != "" {
+		if err := a.revisePblMission(r.Context(), atomID, out.MissionTarget, out.Mission, in.MissionVersions); err != nil {
+			failurePayload, _ := json.Marshal(map[string]any{"kind": "mission_failure", "originalReply": out.Reply})
+			failureReply := "本轮操作未完成，请查看下方错误信息。"
+			if updateErr := a.replacePblFailedReply(r, atomID, aiSeq, failureReply, failurePayload); updateErr != nil {
+				httpx.WriteError(w, r, updateErr)
+				return
+			}
+			dto.Reply, dto.Hook, dto.HookKind = failureReply, "", ""
+			// A co-produced document may depend on the proposed task changes.
+			// Do not save that document after rejecting its task revision.
+			out.Produce, out.Tool, out.ToolReason = nil, "", ""
+			a.appendPblStatus(r, atomID, scope, "观察清单更新失败："+err.Error())
+		} else {
+			a.appendPblStatus(r, atomID, scope, "观察清单已更新，原任务记录已保留。")
+		}
+	}
 
 	// 印记这一轮做出来的东西：一份计划、一个要她拿主意的选择、一份交给她审的
 	// 成果、某一步的分工、一份结构（见 pbl_produce.go）。
@@ -236,10 +306,47 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	// 回话已经写进去了，产出没落上是我们的问题，不该把她那一轮也拖没。下一轮
 	// 印记还可以再做一次。
 	if out.Produce != nil {
-		if perr := a.applyPblProduce(r.Context(), atomID, scope, out.Produce); perr != nil {
+		bindPblReviewRevision(out.Produce, reviewSource)
+		if perr := a.applyPblProduce(r.Context(), atomID, scope, out.Produce, in.DecisionVersions); perr != nil {
+			// Model prose precedes execution. Preserve it for audit, but never
+			// display its success claim after the operation actually failed.
+			failurePayload, _ := json.Marshal(map[string]any{"kind": "produce_failure", "originalReply": out.Reply, "produceKind": out.Produce.Kind})
+			failureReply := "本轮操作未完成，请查看下方错误信息。"
+			if updateErr := a.replacePblFailedReply(r, atomID, aiSeq, failureReply, failurePayload); updateErr != nil {
+				httpx.WriteError(w, r, updateErr)
+				return
+			}
+			dto.Reply, dto.Hook, dto.HookKind = failureReply, "", ""
+			out.Tool, out.ToolReason = "", ""
 			slog.Warn("pbl turn: 印记 made something we could not record",
 				"err", perr, "atom_id", atomID, "kind", out.Produce.Kind,
 				"request_id", httpx.RequestIDFromContext(r.Context()))
+			if out.Produce.Kind == "site_content" {
+				a.appendPblStatus(r, atomID, scope, "主页更新失败："+perr.Error())
+			} else if out.Produce.Kind == "plan" {
+				a.appendPblStatus(r, atomID, scope, "计划保存失败："+perr.Error())
+			} else if out.Produce.Kind == "artifact" {
+				a.appendPblStatus(r, atomID, scope, "成果保存失败："+perr.Error())
+			} else {
+				a.appendPblStatus(r, atomID, scope, "操作失败："+perr.Error())
+			}
+		} else if out.Produce.Kind == "plan" {
+			a.appendPblStatus(r, atomID, scope, "计划已保存，请在计划面板审核并确认。")
+		} else if out.Produce.Kind == "site_content" {
+			if site, err := a.d.Queries.GetPblSite(r.Context(), u.ID); err == nil {
+				var draft pbl.SiteDraft
+				if json.Unmarshal(site.Content, &draft) == nil {
+					filled := 0
+					for _, section := range draft.Sections {
+						if strings.TrimSpace(section.Body) != "" {
+							filled++
+						}
+					}
+					if len(draft.Sections) > 0 {
+						a.appendPblStatus(r, atomID, scope, fmt.Sprintf("主页已保存：%d 个模块已有正文，共 %d 个模块。", filled, len(draft.Sections)))
+					}
+				}
+			}
 		}
 	}
 
@@ -319,8 +426,17 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 		Assigned: p.Assigned, AssignedBrief: derefOr(p.AssignedBrief, ""),
 		SessionKind: sessionKind, SessionQuestion: sessionQuestion,
 	}
+	if in.Assigned {
+		in.AssignedBrief, err = a.pblAssignmentBrief(r, atomID, in.AssignedBrief)
+		if err != nil {
+			return in, err
+		}
+	}
 	// 🚨 她在工具里做出来的东西，每一轮都要重新交给印记（见 pbl_refeed.go）。
 	a.attachPblToolWork(r, atomID, &in)
+	if err := a.attachPblMissionVersions(r, atomID, &in); err != nil {
+		return in, err
+	}
 
 	// The live plan, if she has approved one.
 	if v, err := a.d.Queries.GetPblLivePlan(r.Context(), atomID); err == nil {
@@ -343,7 +459,9 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 		// 产品负责人 2026-09-02：「system should gives AI a context about this
 		// branch first so that we can guide student」。所以把主线最后几轮一起
 		// 带上，印记才说得出"你刚才说 X，我们单独看看这一点"。
-		if err == nil && len(rows) == 0 {
+		// Iteration discussions already have their selected record as the
+		// anchor. Old main-thread requests must not become their opening task.
+		if err == nil && len(rows) == 0 && sessionKind != "keeping" {
 			if parent, perr := a.d.Queries.ListPblMainThread(r.Context(), atomID); perr == nil {
 				rows = parent
 			}
@@ -357,7 +475,14 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 			})
 			if werr == nil {
 				for _, s := range wbs {
-					if t := strings.TrimSpace(s.Takeaway); t != "" {
+					t := strings.TrimSpace(s.Takeaway)
+					if t == "" {
+						var fields map[string]string
+						if json.Unmarshal(s.Writeback, &fields) == nil {
+							t = summariseWriteBack(fields)
+						}
+					}
+					if t != "" {
 						in.WriteBacks = append(in.WriteBacks, t)
 					}
 				}
@@ -377,4 +502,16 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 		in.Recent = append(in.Recent, pbl.Turn{Role: m.Role, Content: m.Content})
 	}
 	return in, nil
+}
+
+func (a *API) replacePblFailedReply(r *http.Request, atomID uuid.UUID, seq int32, content string, payload []byte) error {
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(r.Context())
+	if _, err = tx.Exec(r.Context(), `UPDATE atom_message SET content=$3, payload=$4 WHERE atom_id=$1 AND seq=$2 AND role='ai'`, atomID, seq, content, payload); err != nil {
+		return err
+	}
+	return tx.Commit(r.Context())
 }

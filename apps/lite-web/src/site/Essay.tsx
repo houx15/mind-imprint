@@ -1,4 +1,4 @@
-import { Blank, Ground, MONO, Plate, cx, hair, mix, type LayoutProps } from "./parts";
+import { Blank, Ground, MONO, Plate, cx, hair, textMix, type LayoutProps } from "./parts";
 
 /**
  * 方案 A · 一句话开场 — 长页 · 无导航 · 很空.
@@ -32,7 +32,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
         {/* 报头：一行小字，没有导航。这里放她的名字，不是一个我们编的域名。 */}
         <div
           className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 pt-8 pb-16 text-[11px] tracking-[0.16em]"
-          style={{ ...MONO, color: mix(0.45) }}
+          style={{ ...MONO, color: textMix(0.45) }}
         >
           <span>{site.name}</span>
           {site.updated ? <span>最后更新 {site.updated}</span> : null}
@@ -52,7 +52,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                 {site.name}
               </p>
               {site.role ? (
-                <p className="mt-1.5 text-[14px]" style={{ color: mix(0.55) }}>
+                <p className="mt-1.5 text-[14px]" style={{ color: textMix(0.55) }}>
                   {site.role}
                 </p>
               ) : (
@@ -63,7 +63,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
               {site.lead ? (
                 <p
                   className={cx("mt-6 max-w-[40em]", narrow ? "text-[15px]" : "text-[17px]")}
-                  style={{ lineHeight: 2.05, color: mix(0.8) }}
+                  style={{ lineHeight: 2.05, color: textMix(0.8) }}
                 >
                   {site.lead}
                 </p>
@@ -94,11 +94,11 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                     >
                       <dt
                         className="w-14 shrink-0 text-[11px] tracking-[0.14em]"
-                        style={{ color: mix(0.45) }}
+                        style={{ color: textMix(0.45) }}
                       >
                         {row.label}
                       </dt>
-                      <dd className="text-[12.5px]" style={{ lineHeight: 1.7, color: mix(0.75) }}>
+                      <dd className="text-[12.5px]" style={{ lineHeight: 1.7, color: textMix(0.75) }}>
                         {row.value}
                       </dd>
                     </div>
@@ -125,7 +125,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                   {p.blurb ? (
                     <p
                       className={cx("mt-2.5", narrow ? "text-[15px]" : "text-[16px]")}
-                      style={{ lineHeight: 1.95, color: mix(0.72) }}
+                      style={{ lineHeight: 1.95, color: textMix(0.72) }}
                     >
                       {p.blurb}
                     </p>
@@ -136,7 +136,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                   )}
                   <p
                     className="mt-3 text-[11.5px] tracking-[0.08em]"
-                    style={{ ...MONO, color: mix(0.42) }}
+                    style={{ ...MONO, color: textMix(0.42) }}
                   >
                     {[p.date, p.kind, p.words ? `${p.words} 字` : ""].filter(Boolean).join(" · ")}
                   </p>
@@ -155,7 +155,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                   <Plate plate={p.plate} height={narrow ? 170 : 260} radius={2} />
                   <p
                     className="mt-5 text-[11.5px] tracking-[0.1em]"
-                    style={{ ...MONO, color: mix(0.45) }}
+                    style={{ ...MONO, color: textMix(0.45) }}
                   >
                     {[p.year, p.kind].filter(Boolean).join(" · ")}
                   </p>
@@ -165,7 +165,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                   {p.blurb ? (
                     <p
                       className={cx("mt-3 max-w-[42em]", narrow ? "text-[15px]" : "text-[16px]")}
-                      style={{ lineHeight: 2, color: mix(0.76) }}
+                      style={{ lineHeight: 2, color: textMix(0.76) }}
                     >
                       {p.blurb}
                     </p>
@@ -188,7 +188,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                 <p
                   key={para.slice(0, 12)}
                   className={cx("mb-6", narrow ? "text-[15px]" : "text-[16.5px]")}
-                  style={{ lineHeight: 2.15, color: mix(0.84) }}
+                  style={{ lineHeight: 2.15, color: textMix(0.84) }}
                 >
                   {para}
                 </p>
@@ -200,7 +200,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                       <span className="text-[11px]" style={{ ...MONO, color: "var(--st-accent)" }}>
                         现在
                       </span>
-                      <span style={{ color: mix(0.72) }}>{n}</span>
+                      <span style={{ color: textMix(0.72) }}>{n}</span>
                     </li>
                   ))}
                 </ul>
@@ -220,14 +220,14 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                     {r.source ? (
                       <span
                         className="ml-3 text-[11px] font-normal tracking-[0.08em]"
-                        style={{ ...MONO, color: mix(0.42) }}
+                        style={{ ...MONO, color: textMix(0.42) }}
                       >
                         {r.source}
                       </span>
                     ) : null}
                   </p>
                   {r.takeaway ? (
-                    <p className="mt-2 text-[15px]" style={{ lineHeight: 1.95, color: mix(0.68) }}>
+                    <p className="mt-2 text-[15px]" style={{ lineHeight: 1.95, color: textMix(0.68) }}>
                       {r.takeaway}
                     </p>
                   ) : null}
@@ -241,7 +241,7 @@ export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
           className={cx("mt-28 pt-6", narrow ? "pb-16" : "pb-24")}
           style={{ borderTop: `1px solid ${hair(0.16)}` }}
         >
-          <p className="text-[11px] tracking-[0.14em]" style={{ ...MONO, color: mix(0.4) }}>
+          <p className="text-[11px] tracking-[0.14em]" style={{ ...MONO, color: textMix(0.4) }}>
             © {new Date().getFullYear()} {site.name} · 用 思维印记 搭建
           </p>
         </footer>
@@ -261,7 +261,7 @@ function Head({ children, n }: { children: React.ReactNode; n?: number }) {
         {children}
       </h2>
       {n ? (
-        <span className="text-[11px]" style={{ ...MONO, color: mix(0.35) }}>
+        <span className="text-[11px]" style={{ ...MONO, color: textMix(0.35) }}>
           {n}
         </span>
       ) : null}

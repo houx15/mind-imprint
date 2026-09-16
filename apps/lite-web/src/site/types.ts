@@ -75,7 +75,10 @@ export interface SiteRead {
   takeaway: string;
 }
 
+export interface SiteSection { key: string; title: string; depth: number; body: string; imageKey?: string; imageUrl?: string; }
+
 export interface SiteContent {
+  sections?: SiteSection[];
   name: string;
   role: string;
   headline: string;
@@ -97,6 +100,7 @@ export interface SiteContent {
 
 /** 她写的那份草稿——存进 pbl_site.content 的东西。 */
 export interface SiteDraft {
+  sections?: SiteSection[];
   role: string;
   headline: string;
   lead: string;

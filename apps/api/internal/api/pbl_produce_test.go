@@ -2,9 +2,72 @@ package api_test
 
 import (
 	"encoding/json"
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/pbl"
 	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 )
+
+func checkedPlanCoach(raw string) gateway.Provider {
+	return gateway.NewSequenceStubProvider(evidenceScript(raw), evidenceScript(`{"supported":true,"issues":[]}`))
+}
+
+func TestPblProduce_FoldoutPersistsPanelsAndDerivedReviewBody(t *testing.T) {
+	layout := pbl.PrintLayout{Format: "a4-accordion-six"}
+	for _, title := range []string{"封面", "厨房", "客厅", "卫生间", "待验证清单", "封底"} {
+		layout.Panels = append(layout.Panels, pbl.PrintPanel{Title: title, Body: "规则待核对"})
+	}
+	payload, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "body": "不应保存的第二份正文", "printLayout": layout})
+	prov := gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(payload))), evidenceScript(`{"supported":true,"issues":[]}`))
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+	turnProducing(t, h, cookie, pid)
+	if prov.Calls != 2 {
+		t.Fatalf("new foldout must be checked before saving, calls=%d", prov.Calls)
+	}
+	var checked struct {
+		Candidate struct{ ArtifactToSave struct{ Body string } }
+	}
+	if err := json.Unmarshal([]byte(prov.Requests[1].Messages[1].Content), &checked); err != nil {
+		t.Fatal(err)
+	}
+	if checked.Candidate.ArtifactToSave.Body != layout.Markdown() {
+		t.Fatal("reviewer must see the derived body that will actually be saved")
+	}
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	var artifacts []struct {
+		ID      string `json:"id"`
+		Payload struct {
+			Body        string          `json:"body"`
+			PrintLayout pbl.PrintLayout `json:"printLayout"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 1 || artifacts[0].Payload.Body != layout.Markdown() || artifacts[0].Payload.PrintLayout.Validate() != nil {
+		t.Fatalf("foldout content lost or diverged: %s", rec.Body)
+	}
+	edit, _ := json.Marshal(map[string]any{"kind": "draft", "baseArtifactId": artifacts[0].ID, "edits": []pbl.TextEdit{{Old: "待验证清单", New: "候选物品"}}})
+	*prov = *gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(edit))), evidenceScript(`{"supported":true,"issues":[]}`))
+	turnProducing(t, h, cookie, pid)
+	rec = pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 2 || prov.Calls != 2 {
+		t.Fatalf("revision missing: %s", rec.Body)
+	}
+	expected, err := layout.ApplyEdits([]pbl.TextEdit{{Old: "待验证清单", New: "候选物品"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(artifacts[0].Payload.PrintLayout, layout) || !reflect.DeepEqual(artifacts[1].Payload.PrintLayout, expected) || artifacts[1].Payload.Body != expected.Markdown() {
+		t.Fatal("panel revision diverged or changed original")
+	}
+}
 
 // pbl_produce_test.go —— 印记做出来的东西，要真的出现在她的界面上。
 //
@@ -35,7 +98,7 @@ func turnProducing(t *testing.T, h http.Handler, c *http.Cookie, pid string) {
 
 // 计划：每个学生一进项目看到的就是这一块。没有生产者时它永远写着「计划待生成」。
 func TestPblProduce_PlanReachesThePanel(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(coachProducing("plan", `{
+	h, cookie, _, _ := liteHandlerWithProvider(t, checkedPlanCoach(coachProducing("plan", `{
 	  "summary":"先弄清楚剩饭到底有多少，再想怎么少",
 	  "reason":"你现在说的都是猜的",
 	  "steps":[
@@ -73,7 +136,7 @@ func TestPblProduce_PlanReachesThePanel(t *testing.T) {
 // 🚨 每一步都要说清楚她判断什么。一步她什么都不用判断，就是一步不该占她时间
 // 的步骤——一份空心的计划宁可不落，也不能悄悄放进去。
 func TestPblProduce_PlanWithoutADecisionIsRefused(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(coachProducing("plan", `{
+	h, cookie, _, _ := liteHandlerWithProvider(t, checkedPlanCoach(coachProducing("plan", `{
 	  "summary":"随便走走","steps":[{"title":"先做点什么","decide":""}]}`)))
 	pid := newProjectViaAPI(t, h, cookie)
 	// 这一轮本身要照常成功：她该看见印记说的话，产出落不下不是她的事。
@@ -91,7 +154,7 @@ func TestPblProduce_PlanWithoutADecisionIsRefused(t *testing.T) {
 
 // 决定：理性决策那一屏在这之前永远是「暂时没有需要决策的内容」。
 func TestPblProduce_DecisionReachesHer(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(coachProducing("decision", `{
+	h, cookie, _, _ := liteHandlerWithProvider(t, checkedPlanCoach(coachProducing("decision", `{
 	  "subject":"先跟谁说这件事",
 	  "options":[
 	    {"label":"先给食堂","description":"只有他们能真的把菜量改了"},
@@ -124,7 +187,7 @@ func TestPblProduce_DecisionReachesHer(t *testing.T) {
 
 // 🚨 一个选项的"选择"不是选择。
 func TestPblProduce_DecisionNeedsTwoOptions(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(coachProducing("decision", `{
+	h, cookie, _, _ := liteHandlerWithProvider(t, checkedPlanCoach(coachProducing("decision", `{
 	  "subject":"要不要做","options":[{"label":"做"}]}`)))
 	pid := newProjectViaAPI(t, h, cookie)
 	turnProducing(t, h, cookie, pid)
@@ -226,21 +289,133 @@ func TestPblProduce_StructureReachesTheMindMap(t *testing.T) {
 	}
 }
 
-// 认不出的 kind 当作没做。半个产出比没有产出更糟：界面会为它腾出位置，
-// 然后摆一块空白。
-func TestPblProduce_UnknownKindIsIgnoredAndTheTurnStillLands(t *testing.T) {
+// Unknown operations must be repaired or rejected, never silently discarded
+// while saving a reply that may claim the action was completed.
+func TestPblProduce_UnknownKindIsRejectedBeforePersistence(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(
 		`{"reply":"我们接着说。","produce":{"kind":"随便","payload":{"x":1}}}`))
 	pid := newProjectViaAPI(t, h, cookie)
 	rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/turn", `{"text":"好"}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("一个认不出的产出把她那一轮拖没了：%d %s", rec.Code, rec.Body)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("invalid operation was not rejected: %d %s", rec.Code, rec.Body)
 	}
-	var dto struct {
-		Reply string `json:"reply"`
+	thread := siteReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/thread", "")
+	var messages []json.RawMessage
+	if err := json.Unmarshal(thread.Body.Bytes(), &messages); err != nil {
+		t.Fatal(err)
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &dto)
-	if dto.Reply == "" {
-		t.Fatalf("她没收到印记的回话：%s", rec.Body)
+	if len(messages) != 0 {
+		t.Fatalf("unexecuted action persisted as a successful turn: %s", thread.Body)
+	}
+}
+
+func TestPblProduce_PaperPersistsGeometryAndDerivedReviewBody(t *testing.T) {
+	layout := pbl.PaperLayout{Format: "a4-portrait", Title: "纸面原型", Notice: "未观察、未验证", Elements: []pbl.PaperElement{{Kind: "rect", X: 12, Y: 35, Width: 60, Height: 30}, {Kind: "text", X: 15, Y: 40, Width: 50, Height: 6, FontSize: 4, Text: "实际尺寸待测量"}}}
+	payload, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "body": "不应保存的第二份正文", "paperLayout": layout})
+	prov := gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(payload))), evidenceScript(`{"supported":true,"issues":[]}`))
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+	turnProducing(t, h, cookie, pid)
+	if prov.Calls != 2 {
+		t.Fatalf("new paper must be checked before saving, calls=%d", prov.Calls)
+	}
+	var checked struct {
+		Candidate struct{ ArtifactToSave struct{ Body string } }
+	}
+	if err := json.Unmarshal([]byte(prov.Requests[1].Messages[1].Content), &checked); err != nil {
+		t.Fatal(err)
+	}
+	if checked.Candidate.ArtifactToSave.Body != layout.Markdown() {
+		t.Fatal("reviewer must see the paper body that will actually be saved")
+	}
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	var artifacts []struct {
+		ID      string `json:"id"`
+		Payload struct {
+			Body        string          `json:"body"`
+			PaperLayout pbl.PaperLayout `json:"paperLayout"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 1 || artifacts[0].Payload.Body != layout.Markdown() || artifacts[0].Payload.PaperLayout.Validate() != nil {
+		t.Fatalf("paper content lost or diverged: %s", rec.Body)
+	}
+	old := layout.Elements[1]
+	changed := old
+	changed.X = 18
+	edit, _ := json.Marshal(map[string]any{"kind": "draft", "baseArtifactId": artifacts[0].ID, "paperEdits": []pbl.PaperEdit{{Old: old, New: changed}}})
+	*prov = *gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(edit))), evidenceScript(`{"supported":true,"issues":[]}`))
+	turnProducing(t, h, cookie, pid)
+	rec = pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	expected, _ := layout.ApplyEdits([]pbl.PaperEdit{{Old: old, New: changed}})
+	if len(artifacts) != 2 || !reflect.DeepEqual(artifacts[0].Payload.PaperLayout, layout) || !reflect.DeepEqual(artifacts[1].Payload.PaperLayout, expected) {
+		t.Fatalf("partial paper edit lost geometry or source: %s", rec.Body)
+	}
+
+}
+
+func TestPblProduce_PaperRepairsInvalidLayoutBeforeSaving(t *testing.T) {
+	layout := pbl.PaperLayout{Format: "a4-portrait", Title: "纸面原型", Notice: "未观察、未验证", Elements: []pbl.PaperElement{{Kind: "rect", X: 12, Y: 35, Width: 60, Height: 30}, {Kind: "text", X: 15, Y: 40, Width: 50, Height: 6, FontSize: 4, Text: "实际尺寸待测量"}}}
+	payload, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "body": "不应保存的第二份正文", "paperLayout": layout})
+	invalid := layout
+	invalid.Elements = append([]pbl.PaperElement(nil), layout.Elements...)
+	invalid.Elements[1].Y = 275
+	bad, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "paperLayout": invalid})
+	prov := gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(bad))), evidenceScript(coachProducing("artifact", string(payload))), evidenceScript(`{"supported":true,"issues":[]}`))
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+	turnProducing(t, h, cookie, pid)
+	if prov.Calls != 3 {
+		t.Fatalf("expected validation repair then evidence check; calls=%d", prov.Calls)
+	}
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	var artifacts []struct {
+		ID      string `json:"id"`
+		Payload struct {
+			Body        string          `json:"body"`
+			PaperLayout pbl.PaperLayout `json:"paperLayout"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 1 || artifacts[0].Payload.Body != layout.Markdown() || artifacts[0].Payload.PaperLayout.Validate() != nil {
+		t.Fatalf("paper content lost or diverged: %s", rec.Body)
+	}
+}
+
+func TestPblProduce_PaperRepairDoesNotMixEditFormats(t *testing.T) {
+	layout := pbl.PaperLayout{Format: "a4-portrait", Title: "纸面原型", Notice: "未观察、未验证", Elements: []pbl.PaperElement{{Kind: "rect", X: 12, Y: 35, Width: 60, Height: 30}, {Kind: "text", X: 15, Y: 40, Width: 50, Height: 6, FontSize: 4, Text: "实际尺寸待测量"}}}
+	payload, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "body": "不应保存的第二份正文", "paperLayout": layout})
+	bad, _ := json.Marshal(map[string]any{"kind": "draft", "title": "空白原型", "paperLayout": layout, "baseArtifactId": "obsolete-source", "edits": []pbl.TextEdit{}})
+	prov := gateway.NewSequenceStubProvider(evidenceScript(coachProducing("artifact", string(bad))), evidenceScript(coachProducing("artifact", string(payload))), evidenceScript(`{"supported":true,"issues":[]}`))
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+	turnProducing(t, h, cookie, pid)
+	if prov.Calls != 3 {
+		t.Fatalf("expected validation repair then evidence check; calls=%d", prov.Calls)
+	}
+	repairPrompt := prov.Requests[1].Messages[1].Content
+	if !strings.Contains(repairPrompt, "删除这两个字段") || !strings.Contains(repairPrompt, "obsolete-source") || strings.Contains(repairPrompt, "成果局部修改无法应用") {
+		t.Fatalf("repair lost candidate or mixed edit instructions: %s", repairPrompt)
+	}
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/artifacts", "")
+	var artifacts []struct {
+		ID      string `json:"id"`
+		Payload struct {
+			Body        string          `json:"body"`
+			PaperLayout pbl.PaperLayout `json:"paperLayout"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 1 || artifacts[0].Payload.Body != layout.Markdown() || artifacts[0].Payload.PaperLayout.Validate() != nil {
+		t.Fatalf("paper content lost or diverged: %s", rec.Body)
 	}
 }

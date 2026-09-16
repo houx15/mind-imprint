@@ -105,11 +105,13 @@ func TestPblRefeed_StructureReachesTheCoach(t *testing.T) {
 // 原来只回灌了「通过 / 打回」和一句理由——她认认真真答完四处，印记只知道
 // "她点了通过"。
 func TestPblRefeed_HerReviewAnswersReachTheCoach(t *testing.T) {
-	prov := pblStub(`{"reply":"我写了一版。","hook":"","hook_kind":"",
+	prov := gateway.NewSequenceStubProvider(evidenceScript(`{"reply":"我写了一版。","hook":"","hook_kind":"",
 		  "produce":{"kind":"artifact","payload":{
 		    "kind":"draft","title":"接龙文案","body":"大家好，我们班要办义卖。",
 		    "marks":[{"part":"开头","quote":"大家好，我们班要办义卖。",
-		              "question":"这一句说清楚钱去哪了吗？"}]}}}`)
+		              "question":"这一句说清楚钱去哪了吗？"}]}}}`),
+		evidenceScript(`{"reply":"我会按你的审阅意见修改。"}`),
+		evidenceScript(`{"supported":true,"issues":[]}`))
 	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
 	pid := newProjectViaAPI(t, h, cookie)
 
@@ -148,7 +150,11 @@ func TestPblRefeed_HerReviewAnswersReachTheCoach(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("turn 2 = %d; body=%s", rec.Code, rec.Body)
 	}
-	ctx := lastUserText(prov)
+	if len(prov.Requests) != 3 {
+		t.Fatalf("expected initial draft, revision, evidence check; got %d", len(prov.Requests))
+	}
+	rawContext, _ := json.Marshal(prov.Requests[1])
+	ctx := string(rawContext)
 	if !strings.Contains(ctx, "流浪动物救助站") {
 		t.Fatalf("她审出来的判断没回到印记那里——环没闭上：\n%s", ctx)
 	}
@@ -164,11 +170,13 @@ func TestPblRefeed_HerReviewAnswersReachTheCoach(t *testing.T) {
 // 界面补上了，这条测试守住后半截：改完之后，印记的上文里要认得出这件事。
 // 铁律④——她把 AI 的活要回来，是这个产品最该记住的一种信号。
 func TestPblRefeed_HerReassignmentReachesTheCoach(t *testing.T) {
-	prov := pblStub(`{"reply":"这一步分一下。","hook":"","hook_kind":"",
+	prov := gateway.NewSequenceStubProvider(evidenceScript(`{"reply":"这一步分一下。","hook":"","hook_kind":"",
 		  "produce":{"kind":"plan","payload":{"summary":"三天试一次",
 		    "reason":"先小范围试","steps":[{"title":"起草文案","blurb":"",
 		    "goal":"","youBring":"","iBring":"","decide":"文案里哪一句最要紧",
-		    "thenBring":""}]}}}`)
+		    "thenBring":""}]}}}`),
+		evidenceScript(`{"supported":true,"issues":[]}`),
+		evidenceScript(`{"reply":"你来写，我帮你检查。"}`))
 	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
 	pid := newProjectViaAPI(t, h, cookie)
 
@@ -228,7 +236,8 @@ func TestPblRefeed_HerReassignmentReachesTheCoach(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("turn 2 = %d; body=%s", rec.Code, rec.Body)
 	}
-	ctx := lastUserText(prov)
+	rawContext, _ := json.Marshal(prov.LastRequest)
+	ctx := string(rawContext)
 	if !strings.Contains(ctx, "这一步的分工") {
 		t.Fatalf("分工没回到印记那里——环没闭上：\n%s", ctx)
 	}

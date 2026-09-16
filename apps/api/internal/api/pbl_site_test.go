@@ -1,10 +1,12 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -391,5 +393,123 @@ func TestGetSite_ListsAreNeverNull(t *testing.T) {
 	}
 	if strings.Contains(body, `"blurbs":null`) {
 		t.Errorf("blurbs 是 null：%s", body)
+	}
+}
+
+// Reproduce pre-routine accounts without changing their existing project or page.
+func TestSiteProject_RepairsLegacyState(t *testing.T) {
+	for _, missingSite := range []bool{true, false} {
+		t.Run(map[bool]string{true: "missing site", false: "missing association"}[missingSite], func(t *testing.T) {
+			h, c, _, pool := liteHandler(t)
+			first := siteReq(t, h, c, "POST", "/api/v1/pbl/site/project", "")
+			id := decodePblProject(t, first)["id"].(string)
+			ctx := context.Background()
+			if _, err := pool.Exec(ctx, `DELETE FROM pbl_plan_version WHERE atom_id=$1`, id); err != nil {
+				t.Fatal(err)
+			}
+			if missingSite {
+				if _, err := pool.Exec(ctx, `DELETE FROM pbl_site WHERE atom_id=$1`, id); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if _, err := pool.Exec(ctx, `UPDATE pbl_site SET atom_id=NULL, content='{"headline":"keep my words"}' WHERE atom_id=$1`, id); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i := 0; i < 2; i++ {
+				rec := siteReq(t, h, c, "POST", "/api/v1/pbl/site/project", "")
+				if rec.Code != http.StatusOK || decodePblProject(t, rec)["id"] != id {
+					t.Fatalf("resume: %d %s", rec.Code, rec.Body)
+				}
+			}
+			var versions, steps, sites int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM pbl_plan_version WHERE atom_id=$1`, id).Scan(&versions); err != nil {
+				t.Fatal(err)
+			}
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM pbl_plan_step WHERE version_id IN (SELECT id FROM pbl_plan_version WHERE atom_id=$1)`, id).Scan(&steps); err != nil {
+				t.Fatal(err)
+			}
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM pbl_site WHERE atom_id=$1`, id).Scan(&sites); err != nil {
+				t.Fatal(err)
+			}
+			if versions != 1 || steps != 5 || sites != 1 {
+				t.Fatalf("versions=%d steps=%d sites=%d", versions, steps, sites)
+			}
+			if !missingSite {
+				var headline string
+				if err := pool.QueryRow(ctx, `SELECT content->>'headline' FROM pbl_site WHERE atom_id=$1`, id).Scan(&headline); err != nil {
+					t.Fatal(err)
+				}
+				if headline != "keep my words" {
+					t.Fatal("lost existing content")
+				}
+			}
+		})
+	}
+}
+
+func TestSiteProject_PreservesCanonicalProjectAndPlan(t *testing.T) {
+	h, c, _, pool := liteHandler(t)
+	id := decodePblProject(t, siteReq(t, h, c, "POST", "/api/v1/pbl/site/project", ""))["id"].(string)
+	ctx := context.Background()
+	// An older unrelated website must not replace the explicitly associated homepage.
+	_, err := pool.Exec(ctx, `WITH older AS (
+ INSERT INTO atom (kind,user_id,created_at) SELECT 'project',user_id,created_at-interval '1 day' FROM atom WHERE id=$1 RETURNING id
+ ) INSERT INTO pbl_project(atom_id,idea,kind,name) SELECT id,'legacy idea','website','legacy' FROM older`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `UPDATE pbl_plan_version SET summary='student plan', approved_at=now() WHERE atom_id=$1`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := siteReq(t, h, c, "POST", "/api/v1/pbl/site/project", "")
+	if rec.Code != http.StatusOK || decodePblProject(t, rec)["id"] != id {
+		t.Fatalf("wrong homepage: %s", rec.Body)
+	}
+	var summary string
+	if err := pool.QueryRow(ctx, `SELECT summary FROM pbl_plan_version WHERE atom_id=$1`, id).Scan(&summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary != "student plan" {
+		t.Fatal("replaced existing plan")
+	}
+}
+
+func TestSiteProject_ConcurrentStartsShareOneProject(t *testing.T) {
+	h, c, _, pool := liteHandler(t)
+	const requests = 6
+	results := make(chan *httptest.ResponseRecorder, requests)
+	var wg sync.WaitGroup
+	for i := 0; i < requests; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); results <- siteReq(t, h, c, "POST", "/api/v1/pbl/site/project", "") }()
+	}
+	wg.Wait()
+	close(results)
+	id := ""
+	created := 0
+	for rec := range results {
+		if rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+			t.Fatalf("start: %d %s", rec.Code, rec.Body)
+		}
+		if rec.Code == http.StatusCreated {
+			created++
+		}
+		got := decodePblProject(t, rec)["id"].(string)
+		if id != "" && got != id {
+			t.Fatalf("duplicate project: %s != %s", got, id)
+		}
+		id = got
+	}
+	if created != 1 {
+		t.Fatalf("created=%d, want one", created)
+	}
+	var plans int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM pbl_plan_version WHERE atom_id=$1`, id).Scan(&plans); err != nil {
+		t.Fatal(err)
+	}
+	if plans != 1 {
+		t.Fatalf("plans=%d", plans)
 	}
 }

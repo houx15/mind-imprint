@@ -11,6 +11,37 @@ import (
 	"github.com/google/uuid"
 )
 
+const bookmarkPblSiteRef = `-- name: BookmarkPblSiteRef :one
+INSERT INTO pbl_site_ref (atom_id, url, title, what, structure, best)
+VALUES ($1, $2, '', '', '', '')
+ON CONFLICT (atom_id, url) DO UPDATE SET url = EXCLUDED.url
+RETURNING id, atom_id, url, title, what, structure, best, she_said, created_at
+`
+
+type BookmarkPblSiteRefParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	Url    string    `json:"url"`
+}
+
+// Save a link without fetching or inferring anything about its contents.
+// Re-collecting an existing link preserves both the student's note and AI analysis.
+func (q *Queries) BookmarkPblSiteRef(ctx context.Context, arg BookmarkPblSiteRefParams) (PblSiteRef, error) {
+	row := q.db.QueryRow(ctx, bookmarkPblSiteRef, arg.AtomID, arg.Url)
+	var i PblSiteRef
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Url,
+		&i.Title,
+		&i.What,
+		&i.Structure,
+		&i.Best,
+		&i.SheSaid,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const countPblSiteRefs = `-- name: CountPblSiteRefs :one
 SELECT count(*) FROM pbl_site_ref WHERE atom_id = $1
 `

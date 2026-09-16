@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "./Says";
 import { LandingHeader } from "../learning/LandingHeader";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
@@ -20,6 +21,8 @@ import { useZoneDrag } from "./tools/board/useZoneDrag";
 import { DragGhost } from "./tools/board/DragGhost";
 import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
+import createHomepageIllustration from "../learning/assets/ideas-workbench.webp";
+
 
 /**
  * ProjectsLanding — the 项目 tab's front door.
@@ -55,6 +58,9 @@ export function ProjectsLanding() {
   const [loadError, setLoadError] = useState<string | null>(null);
   // spec §4 的门：她的主页发布之前，这里给的是主页那一扇门，不是自由输入框。
   const [site, setSite] = useState<SiteState | null>(null);
+  const [siteLoading, setSiteLoading] = useState(true);
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const [siteAttempt, setSiteAttempt] = useState(0);
   const [opening, setOpening] = useState(false);
 
   /**
@@ -104,15 +110,23 @@ export function ProjectsLanding() {
 
   useEffect(() => {
     let cancelled = false;
+    setSiteLoading(true);
+    setSiteError(null);
     getSite()
       .then((s) => {
         if (!cancelled) setSite(s);
       })
-      .catch(() => {
-        // 读不到主页状态时按「门关着」处理。反过来（默认门开着）会让她建出一个
-        // 服务端一定会拒掉的项目，那是一次白写的输入。
-        if (!cancelled) setSite(null);
+      .catch((err) => {
+        if (!cancelled) setSiteError(apiErrorText(err));
+      })
+      .finally(() => {
+        if (!cancelled) setSiteLoading(false);
       });
+    return () => { cancelled = true; };
+  }, [siteAttempt]);
+
+  useEffect(() => {
+    let cancelled = false;
     listProjects()
       .then((rows) => {
         if (!cancelled) setProjects(rows);
@@ -183,7 +197,15 @@ export function ProjectsLanding() {
             reachable while her homepage is still unpublished. Renders nothing
             when no project is assigned and still open. */}
         <AssignmentStrip kind="project" className="mb-8 w-full max-w-[760px]" />
-        {siteReady ? (
+        {siteLoading ? (
+          <p className="mt-6 text-mk-body text-mk-secondary" role="status">正在加载项目入口…</p>
+        ) : siteError ? (
+          <div className="learning-project-gate">
+            <div role="alert" className="text-mk-body text-mk-secondary"><Says content={errorMarkdown(`读取主页状态失败：${siteError}`)} /></div>
+            <button type="button" className="mt-4 text-mk-body font-semibold text-mk-accent-500" onClick={() => setSiteAttempt((n) => n + 1)}>重新加载</button>
+          </div>
+        ) : siteReady ? (
+
           <div className="learning-project-start w-full">
             <h2 className="text-mk-h2 text-mk-ink">新建项目</h2>
             {/* 🚨 原来写的是「一句话就行。想清楚要做什么，是我们一起的第一
@@ -234,18 +256,20 @@ export function ProjectsLanding() {
             </div>
 
             {error && (
-              <p className="mt-3 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
-                {error}
-              </p>
+              <div className="mt-3 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
+                <Says content={errorMarkdown(error)} />
+              </div>
             )}
           </div>
         ) : (
-          <div className="learning-project-gate">
-            <h2 className="text-mk-h2 text-mk-ink">创建个人主页</h2>
+          <div className="learning-project-gate learning-project-gate-illustrated">
+            <div className="learning-project-gate-copy">
+            <p className="text-mk-small text-mk-muted">第一个项目</p>
+            <h2 className="mt-2 text-mk-h2 text-mk-ink">创建个人主页</h2>
             <p className="mt-4 text-mk-body text-mk-secondary">
-              往后你读的、写的、做的都要有地方放，那个地方得先存在。它也是你第一次
-              把一件东西真正做到能给别人看。
+              用一页网站向你选择的读者介绍兴趣或作品。你决定给谁看、展示什么、怎样邀请对方参与；印记协助整理结构、设计页面和执行修改。
             </p>
+            <p className="mt-3 text-mk-body text-mk-secondary">从确定读者开始，自由描述喜欢的感觉，构思并试用第一幕，再介绍自己与展示作品。</p>
             <button
               type="button"
               disabled={opening}
@@ -263,27 +287,29 @@ export function ProjectsLanding() {
               className="mt-8 inline-flex items-center justify-center gap-1.5 rounded-mk-full px-5 py-2.5 text-mk-body font-semibold text-white disabled:opacity-40"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              {site?.projectId ? "接着做我的主页" : "开始做我的主页"}
+              {site?.projectId ? "继续制作主页" : "开始制作主页"}
               <Icon icon={ArrowRight} size={15} />
             </button>
 
             <p className="mt-6 text-mk-small text-mk-muted">
-              做完发布之后，这里就能开别的项目了。
+              主页发布后可创建其他项目。发布前可以预览和修改，并由你决定是否公开。
             </p>
 
             {error && (
-              <p className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-                {error}
-              </p>
+              <div className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+                <Says content={errorMarkdown(error)} />
+              </div>
             )}
+            </div>
+            <img className="learning-project-gate-art" src={createHomepageIllustration} alt="" />
           </div>
         )}
 
         {/* ── 2 · the board ───────────────────────────────────────────── */}
         {loadError && (
-          <p className="mt-10 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
-            {loadError}
-          </p>
+          <div className="mt-10 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
+            <Says content={errorMarkdown(loadError)} />
+          </div>
         )}
 
         {projects !== null && projects.length > 0 && (

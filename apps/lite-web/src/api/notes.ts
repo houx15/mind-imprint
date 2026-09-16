@@ -89,7 +89,7 @@ export const NOTE_KIND_HINTS: Record<NoteKind, { placeholder: string; how: strin
   },
   question: {
     placeholder: "为什么只有中午排队，晚上不排？",
-    how: "观察后仍无法回答的问题。",
+    how: "准备观察时或观察后仍需探索的问题。",
   },
   idea: {
     placeholder: "在门口贴一张排队人数的牌子",

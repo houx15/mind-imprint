@@ -12,7 +12,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 	"unicode"
 
@@ -381,7 +380,7 @@ func (a *API) createAssignedItemInTx(ctx context.Context, tx pgx.Tx, qtx *sqlc.Q
 		if err := json.Unmarshal(as.Payload, &p); err != nil {
 			return uuid.Nil, err
 		}
-		return createAssignedPblProjectInTx(ctx, qtx, userID, as.Title, p.DrivingQuestion, strings.TrimSpace(p.Description))
+		return createAssignedPblProjectInTx(ctx, qtx, userID, as.Title, p.DrivingQuestion, combinePblAssignmentBrief(p.Description, as.Instructions))
 	}
 	return uuid.Nil, errors.New("lite assignment: unknown kind " + as.Kind)
 }
@@ -474,8 +473,12 @@ func (a *API) getLiteAssignmentForAtom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignment": map[string]any{
+		// 🚨 两条线的并集（2026-09-16）：退回修改那几个字段来自已经上线的教师端，
+		// instructions 来自作业材料那条线。少任何一边都会让对面那个功能在这一个
+		// 端点上静默失效 —— 前端读不到的字段就是不存在。
 		"id": row.ID.String(), "kind": row.Kind, "title": row.Title, "dueAt": row.DueAt.Format(time.RFC3339),
 		"returnedAt": tsStringPtr(row.ReturnedAt), "returnDueAt": tsStringPtr(row.ReturnDueAt),
 		"returnNote": row.ReturnNote, "resubmitted": row.Resubmitted,
+		"instructions": row.Instructions,
 	}})
 }

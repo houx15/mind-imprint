@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "../../Says";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HelpCircle, Heart, Lightbulb, Search, User } from "lucide-react";
 import { Icon } from "@/ui";
@@ -328,9 +329,9 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       busy={busy}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       {previous && (

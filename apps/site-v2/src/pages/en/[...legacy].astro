@@ -1,0 +1,8 @@
+---
+import { features } from '../../data/features';
+import { path } from '../../config';
+export function getStaticPaths() {
+  return ['', 'product', 'schools', 'resources', 'editions', 'about', ...features.map(f => `product/${f.id}`)].map(slug => ({params:{legacy:slug || undefined}, props:{destination:path('en',slug)}}));
+}
+return Astro.redirect(Astro.props.destination, 301);
+---

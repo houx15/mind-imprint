@@ -204,3 +204,43 @@ shared source, no drift, no fetch.
 The SPA origin is allowed explicitly (`rs/cors`, exact origin, `credentials: true`)
 so the session cookie flows. In production the SPA and API are served under the same
 registrable domain to keep SameSite=Lax effective.
+
+## PBL artifact trial drafts (2026-09-15)
+
+All three endpoints use the normal Lite session and check ownership of both project and artifact. A same-user artifact under a different project path is also rejected with 404. No endpoint calls a model.
+
+- `GET /pbl/projects/{id}/artifacts/{aid}/trial-draft`: returns `{document, revision}`. Missing row returns an empty draft at revision 0 without creating feedback.
+- `PUT /pbl/projects/{id}/artifacts/{aid}/trial-draft`: accepts `{document, revision}`. Document fields: `mode` (`self` / `other` / `not_tested`), `version`, `task`, `expected`, `actual`, `next`; text fields allow unfinished content and are capped at 1500 Unicode code points each. Saves increment revision. Stale revision returns 409 without replacing the saved document.
+- `POST /pbl/projects/{id}/artifacts/{aid}/trial-draft/submit`: accepts `{revision}`. Requires version, task, expected, plus actual for a claimed test. Creates one keep entry and clears the draft in one transaction. Untested input becomes thought/change; tested input becomes feedback/observe. Untested output never reuses a hidden actual result. Returns `{entry, draft}`. A retry of the latest submitted revision returns the same entry and the current draft; it does not erase a later autosave. Older or conflicting revisions return 409.
+
+Drafts do not enter the coach, evidence checker, feedback history, or completion claims. Only explicit submission produces a keep entry; opening its discussion remains a separate action. The browser autosaves after 400 ms, drains pending writes before supported navigation/closing/version switching, shows unsaved status and prevents refresh without the browser's unsaved-changes warning. Conflict recovery compares local and saved drafts before choosing which to retain.
+
+### Optional PBL inspiration bookmarks (2026-09-15)
+
+`POST /pbl/projects/{id}/sites/bookmark` accepts `{url}` and saves a normalized HTTP(S) link after checking project ownership. It does not fetch the URL or call a model; title/analysis remain empty for a new bookmark. Re-collecting the same URL preserves its student judgment and any existing AI analysis. Query parameters and fragments are retained because interactive examples can use them to select a specific effect. A bookmark makes no claim that its destination exists, was viewed, or was tested.
+
+The existing `POST /pbl/projects/{id}/sites` remains the separate, explicitly requested AI text-analysis path. Failed extraction leaves a previously saved bookmark and student note intact. Its prompt accepts useful content from tutorials, interactive-demo descriptions, art/science pages or personal websites, and requires quoted textual evidence; it cannot claim to have seen or operated visual effects. Student observations remain distinct from AI analysis in refeed. The UI allows zero references and keeps the optional inspiration entry available before the first bookmark.
+
+### Versioned creative homepage publication (2026-09-15)
+
+`POST /pbl/site/publish` accepts optional `{versionId}`. A supplied version must belong to the user's homepage project, contain saved student page content (process notes alone are insufficient), preserve that content in its HTML, and match the currently retained trial version with a nonempty observation. Publication writes the selected version pointer and share token in one transaction; creative direction is locked before the site, matching generation's lock order. An existing share token is retained during updates. New private versions and content edits never change the selected published version.
+
+`GET /pbl/projects/{id}/code-versions` returns version metadata plus `publicationMissing`, without exposing brief JSON in the list. These reasons inform the publish screen before the action; the POST independently enforces them. `GET /pbl/site` includes the owner's `publishedVersionId` when available. Legacy template-only publication remains for projects without a version publication; omission of a version after publishing a generated version is rejected rather than silently switching back to a template.
+
+Creation direction may opt into `includeComparison` only with `includeProcess` and a retained trial. Content composition resolves that trial's parent within the same project before calling the model, then stores `processComparison` (`beforeVersionId`, `afterVersionId`, `feedback`, `observation`) in the immutable code-version brief. A trial without a parent returns `400 missing_comparison_parent` without a model call. Ordinary revisions inherit their base version's comparison snapshot; later edits to the creative draft do not change an existing version. This snapshot does not itself grant public access to either historical version. The student-facing opt-in is shown with the retained process. Owner version metadata and published site metadata expose only selected comparison text; public metadata also gives an opaque render key for the publication (no internal version IDs). Rendering accepts `comparison=before|after` resolved exclusively from that root version and verifies the actual parent relationship within the same project. Public rendering optionally takes `publication=<expected-render-key>` and rejects a changed publication instead of mixing versions. Both sides use unchanged code-preview isolation headers and the active site share token; revoking the token disables both. No arbitrary history-ID public route is added.
+
+For a generated publication, anonymous `GET /public/sites/{token}` returns only `{generated:true}`. `GET /public/sites/{token}/render` resolves the active share token and immutable version, renders its owned image asset using the same isolated renderer as private previews, and sends CSP sandbox, no-store and noindex headers. It never returns private version IDs, prompts, trial records or other draft metadata. `DELETE /pbl/site/publish` removes the active token, making both public routes inaccessible; previously loaded browser content cannot be remotely erased. The version pointer remains available to the owner for explicit re-publication.
+
+### PBL 观察草稿（2026-09-15）
+
+`GET/PUT /api/v1/pbl/projects/{id}/tools/{tid}/observation-draft` 读取或保存 `{document: [{kind,body,imageKey,from?}], revision}`。只允许当前用户项目的 observe 工具；图片 key 必须归属当前账号。PUT 使用 revision 乐观锁，冲突返回409。未提交草稿不进入便签或教练上下文。
+
+`POST .../observation-draft/submit` 接收 `{revision}`，在事务中将非空记录生成 student 便签并清空草稿，返回 `{notes,draft}`。同一 submitted revision 的重复请求返回原便签结果，不重复创建；新的草稿不被旧提交重试清空。
+
+观察清单读取返回每项的 `supersededAt`，非空表示历史任务。勾选历史项返回409。教练通过 `mission_target`（本轮上下文中的当前项目未结束observe工具ID）加完整 `mission` 调用现有清单修订，可与计划同轮产出。服务端保留生成前快照并在事务内比较，期间发生勾选或修订则拒绝覆盖，在对话中报告失败；不接受模型提供的版本号。前端在教练回合结束后重新读取清单，历史任务独立折叠展示。
+
+`POST /pbl/projects/{id}/turn` 的 `observation:{toolId,revision}` 表示讨论该工具刚提交的一批记录，不结束工具。不能与text或completedToolId同时发送；校验工具为当前项目/当前讨论的accepted观察工具，并与服务端submitted_revision匹配。只读取持久化回执正文，陈旧回执或错误归属返回409。观察界面“提交记录并讨论”使用此事件，明确“结束本次观察”才走已有工具完成流程；未提交正文须先提交，草稿与便签不因结束被删除。
+
+### 学生直接编辑观察任务
+
+`PUT /api/v1/pbl/projects/{id}/mission/{mid}` 接收 `{prompt, version}`。version为清单GET返回的只读行指纹，prompt为1至2000字。仅限本人项目中未结束观察工具的当前任务；项目与任务归属不匹配返回404，历史任务、过期指纹或工具结束返回409。成功返回包含历史的完整任务数组，字段增加version与editedByStudent。只修订指定项并保留旧记录，不调用模型，不标记任务已完成。后续教练请求读取学生修改后的任务及来源。

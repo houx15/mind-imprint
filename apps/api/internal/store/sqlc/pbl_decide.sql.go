@@ -18,7 +18,7 @@ const createPblDecision = `-- name: CreatePblDecision :one
 
 INSERT INTO pbl_decision (atom_id, session_id, subject, choice, why, gave_up)
 VALUES ($1, $2, $3, '', '', '')
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not, draft, draft_revision, content_version, revision_history
 `
 
 type CreatePblDecisionParams struct {
@@ -49,6 +49,10 @@ func (q *Queries) CreatePblDecision(ctx context.Context, arg CreatePblDecisionPa
 		&i.Flip,
 		&i.SettledAt,
 		&i.WhyNot,
+		&i.Draft,
+		&i.DraftRevision,
+		&i.ContentVersion,
+		&i.RevisionHistory,
 	)
 	return i, err
 }
@@ -137,24 +141,28 @@ func (q *Queries) DeletePblDecisionCriterion(ctx context.Context, id uuid.UUID) 
 }
 
 const getPblDecision = `-- name: GetPblDecision :one
-SELECT d.id, d.atom_id, d.session_id, d.subject, d.choice, d.why, d.gave_up, d.created_at, d.flip, d.settled_at, d.why_not, a.user_id
+SELECT d.id, d.atom_id, d.session_id, d.subject, d.choice, d.why, d.gave_up, d.created_at, d.flip, d.settled_at, d.why_not, d.draft, d.draft_revision, d.content_version, d.revision_history, a.user_id
 FROM pbl_decision d JOIN atom a ON a.id = d.atom_id
 WHERE d.id = $1
 `
 
 type GetPblDecisionRow struct {
-	ID        uuid.UUID          `json:"id"`
-	AtomID    uuid.UUID          `json:"atom_id"`
-	SessionID pgtype.UUID        `json:"session_id"`
-	Subject   string             `json:"subject"`
-	Choice    string             `json:"choice"`
-	Why       string             `json:"why"`
-	GaveUp    string             `json:"gave_up"`
-	CreatedAt time.Time          `json:"created_at"`
-	Flip      string             `json:"flip"`
-	SettledAt pgtype.Timestamptz `json:"settled_at"`
-	WhyNot    string             `json:"why_not"`
-	UserID    uuid.UUID          `json:"user_id"`
+	ID              uuid.UUID          `json:"id"`
+	AtomID          uuid.UUID          `json:"atom_id"`
+	SessionID       pgtype.UUID        `json:"session_id"`
+	Subject         string             `json:"subject"`
+	Choice          string             `json:"choice"`
+	Why             string             `json:"why"`
+	GaveUp          string             `json:"gave_up"`
+	CreatedAt       time.Time          `json:"created_at"`
+	Flip            string             `json:"flip"`
+	SettledAt       pgtype.Timestamptz `json:"settled_at"`
+	WhyNot          string             `json:"why_not"`
+	Draft           []byte             `json:"draft"`
+	DraftRevision   int32              `json:"draft_revision"`
+	ContentVersion  int32              `json:"content_version"`
+	RevisionHistory []byte             `json:"revision_history"`
+	UserID          uuid.UUID          `json:"user_id"`
 }
 
 func (q *Queries) GetPblDecision(ctx context.Context, id uuid.UUID) (GetPblDecisionRow, error) {
@@ -172,6 +180,10 @@ func (q *Queries) GetPblDecision(ctx context.Context, id uuid.UUID) (GetPblDecis
 		&i.Flip,
 		&i.SettledAt,
 		&i.WhyNot,
+		&i.Draft,
+		&i.DraftRevision,
+		&i.ContentVersion,
+		&i.RevisionHistory,
 		&i.UserID,
 	)
 	return i, err
@@ -325,6 +337,33 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 	return items, nil
 }
 
+const lockPblDecisionForRevision = `-- name: LockPblDecisionForRevision :one
+SELECT id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not, draft, draft_revision, content_version, revision_history FROM pbl_decision WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockPblDecisionForRevision(ctx context.Context, id uuid.UUID) (PblDecision, error) {
+	row := q.db.QueryRow(ctx, lockPblDecisionForRevision, id)
+	var i PblDecision
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.SessionID,
+		&i.Subject,
+		&i.Choice,
+		&i.Why,
+		&i.GaveUp,
+		&i.CreatedAt,
+		&i.Flip,
+		&i.SettledAt,
+		&i.WhyNot,
+		&i.Draft,
+		&i.DraftRevision,
+		&i.ContentVersion,
+		&i.RevisionHistory,
+	)
+	return i, err
+}
+
 const rankPblDecisionOption = `-- name: RankPblDecisionOption :one
 UPDATE pbl_decision_option SET student_rank = $2 WHERE id = $1 RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at, description, student_rank
 `
@@ -353,19 +392,78 @@ func (q *Queries) RankPblDecisionOption(ctx context.Context, arg RankPblDecision
 	return i, err
 }
 
+const revisePblDecision = `-- name: RevisePblDecision :exec
+UPDATE pbl_decision SET subject = $2, content_version = content_version + 1,
+  revision_history = revision_history || $3::jsonb
+WHERE id = $1
+`
+
+type RevisePblDecisionParams struct {
+	ID      uuid.UUID `json:"id"`
+	Subject string    `json:"subject"`
+	Column3 []byte    `json:"column_3"`
+}
+
+func (q *Queries) RevisePblDecision(ctx context.Context, arg RevisePblDecisionParams) error {
+	_, err := q.db.Exec(ctx, revisePblDecision, arg.ID, arg.Subject, arg.Column3)
+	return err
+}
+
+const revisePblDecisionOption = `-- name: RevisePblDecisionOption :exec
+UPDATE pbl_decision_option SET label = $2, description = $3 WHERE id = $1
+`
+
+type RevisePblDecisionOptionParams struct {
+	ID          uuid.UUID `json:"id"`
+	Label       string    `json:"label"`
+	Description string    `json:"description"`
+}
+
+func (q *Queries) RevisePblDecisionOption(ctx context.Context, arg RevisePblDecisionOptionParams) error {
+	_, err := q.db.Exec(ctx, revisePblDecisionOption, arg.ID, arg.Label, arg.Description)
+	return err
+}
+
+const savePblDecisionDraft = `-- name: SavePblDecisionDraft :one
+UPDATE pbl_decision
+SET draft = $2, draft_revision = draft_revision + 1
+WHERE id = $1 AND draft_revision = $3 AND settled_at IS NULL
+RETURNING draft, draft_revision
+`
+
+type SavePblDecisionDraftParams struct {
+	ID            uuid.UUID `json:"id"`
+	Draft         []byte    `json:"draft"`
+	DraftRevision int32     `json:"draft_revision"`
+}
+
+type SavePblDecisionDraftRow struct {
+	Draft         []byte `json:"draft"`
+	DraftRevision int32  `json:"draft_revision"`
+}
+
+func (q *Queries) SavePblDecisionDraft(ctx context.Context, arg SavePblDecisionDraftParams) (SavePblDecisionDraftRow, error) {
+	row := q.db.QueryRow(ctx, savePblDecisionDraft, arg.ID, arg.Draft, arg.DraftRevision)
+	var i SavePblDecisionDraftRow
+	err := row.Scan(&i.Draft, &i.DraftRevision)
+	return i, err
+}
+
 const settlePblDecision = `-- name: SettlePblDecision :one
 UPDATE pbl_decision
-SET choice = $2, why = $3, why_not = $4, flip = $5, settled_at = now()
-WHERE id = $1 AND settled_at IS NULL
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
+SET choice = $2, why = $3, why_not = $4, flip = $5, settled_at = now(),
+    draft = '{}'::jsonb, draft_revision = draft_revision + 1
+WHERE id = $1 AND settled_at IS NULL AND content_version = $6
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not, draft, draft_revision, content_version, revision_history
 `
 
 type SettlePblDecisionParams struct {
-	ID     uuid.UUID `json:"id"`
-	Choice string    `json:"choice"`
-	Why    string    `json:"why"`
-	WhyNot string    `json:"why_not"`
-	Flip   string    `json:"flip"`
+	ID             uuid.UUID `json:"id"`
+	Choice         string    `json:"choice"`
+	Why            string    `json:"why"`
+	WhyNot         string    `json:"why_not"`
+	Flip           string    `json:"flip"`
+	ContentVersion int32     `json:"content_version"`
 }
 
 // choice / why / why_not 三样由 Go 校验非空后才到这里。
@@ -380,6 +478,7 @@ func (q *Queries) SettlePblDecision(ctx context.Context, arg SettlePblDecisionPa
 		arg.Why,
 		arg.WhyNot,
 		arg.Flip,
+		arg.ContentVersion,
 	)
 	var i PblDecision
 	err := row.Scan(
@@ -394,6 +493,10 @@ func (q *Queries) SettlePblDecision(ctx context.Context, arg SettlePblDecisionPa
 		&i.Flip,
 		&i.SettledAt,
 		&i.WhyNot,
+		&i.Draft,
+		&i.DraftRevision,
+		&i.ContentVersion,
+		&i.RevisionHistory,
 	)
 	return i, err
 }

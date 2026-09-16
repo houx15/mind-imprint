@@ -115,7 +115,7 @@ func (q *Queries) GetLiteAssignment(ctx context.Context, id uuid.UUID) (LiteAssi
 }
 
 const getLiteAssignmentForAtom = `-- name: GetLiteAssignmentForAtom :one
-SELECT a.id, a.kind, a.title, a.due_at,
+SELECT a.id, a.kind, a.title, a.due_at, a.instructions,
        r.returned_at, r.return_due_at, r.return_note,
        EXISTS (SELECT 1 FROM writing_version v
                WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
@@ -130,14 +130,15 @@ type GetLiteAssignmentForAtomParams struct {
 }
 
 type GetLiteAssignmentForAtomRow struct {
-	ID          uuid.UUID          `json:"id"`
-	Kind        string             `json:"kind"`
-	Title       string             `json:"title"`
-	DueAt       time.Time          `json:"due_at"`
-	ReturnedAt  pgtype.Timestamptz `json:"returned_at"`
-	ReturnDueAt pgtype.Timestamptz `json:"return_due_at"`
-	ReturnNote  *string            `json:"return_note"`
-	Resubmitted bool               `json:"resubmitted"`
+	ID           uuid.UUID          `json:"id"`
+	Kind         string             `json:"kind"`
+	Title        string             `json:"title"`
+	DueAt        time.Time          `json:"due_at"`
+	Instructions string             `json:"instructions"`
+	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote   *string            `json:"return_note"`
+	Resubmitted  bool               `json:"resubmitted"`
 }
 
 // 写作的锁定判断也读这一条：归档的作业不算。
@@ -149,6 +150,7 @@ func (q *Queries) GetLiteAssignmentForAtom(ctx context.Context, arg GetLiteAssig
 		&i.Kind,
 		&i.Title,
 		&i.DueAt,
+		&i.Instructions,
 		&i.ReturnedAt,
 		&i.ReturnDueAt,
 		&i.ReturnNote,
@@ -253,6 +255,26 @@ func (q *Queries) GetLiteAssignmentRecipientForUpdate(ctx context.Context, arg G
 		&i.ReturnNote,
 	)
 	return i, err
+}
+
+const getPblAssignmentInstructions = `-- name: GetPblAssignmentInstructions :one
+SELECT a.instructions
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+WHERE r.atom_id = $1 AND r.user_id = $2 AND a.kind = 'project'
+`
+
+type GetPblAssignmentInstructionsParams struct {
+	AtomID pgtype.UUID `json:"atom_id"`
+	UserID uuid.UUID   `json:"user_id"`
+}
+
+// Archived assignments still describe the constraints of an existing project.
+func (q *Queries) GetPblAssignmentInstructions(ctx context.Context, arg GetPblAssignmentInstructionsParams) (string, error) {
+	row := q.db.QueryRow(ctx, getPblAssignmentInstructions, arg.AtomID, arg.UserID)
+	var instructions string
+	err := row.Scan(&instructions)
+	return instructions, err
 }
 
 const isEnrolledStudent = `-- name: IsEnrolledStudent :one

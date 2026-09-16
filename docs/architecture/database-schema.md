@@ -294,3 +294,23 @@ a redundant denormalized store.
   day one (honoring the invariant before P2's real signup).
 - P2 adds `email_verification_tokens`, `sessions`, and the join-code signup flow.
 - `river` creates its own job tables via its migration tooling in P4.
+
+### `pbl_artifact_trial_draft` (migration 0162)
+
+One unfinished trial draft per artifact. `artifact_id` is the PK/FK to `pbl_artifact` with cascade deletion; project/user ownership derives through the artifact and atom. `document` is typed JSONB validated at the API boundary; `revision` and `updated_at` support optimistic autosave. `submitted_revision` and `submitted_entry_id` (FK to `pbl_keep_entry`) retain the latest successful submission receipt so a lost-response retry does not duplicate feedback or overwrite newer draft input. Submission creates the keep entry and resets document/revision atomically; autosave is conditional on revision. This table is deliberately excluded from model context and feedback/evaluation sources.
+
+### Creative homepage publication (migrations 0163–0164)
+
+`pbl_site_publication`: one row per site owner (`user_id` PK), with `atom_id`, `version_id`, and `published_at`. A composite FK to `pbl_code_version(atom_id,id)` binds the exact immutable version. A composite FK to `pbl_site(user_id,atom_id)` prevents associating another user's project. Active public access remains controlled by `pbl_site.share_token`; revocation retains the private version pointer but disables public reads. Publishing/updating the pointer and share token is atomic. No generated code or image data is duplicated in this table.
+
+### pbl_observation_draft（migration 0165）
+
+按 `tool_id` 外键隔离未提交观察记录。`document` 为记录数组，`revision` 用于乐观锁；`submitted_revision` 和 `submitted_notes` 保留最近提交回执，提交与清空在同一事务中完成。`updated_at` 记录保存时间。草稿不是证据来源，不参与教练回灌。
+
+### 观察清单修订（migration 0166）
+
+`pbl_mission_item.superseded_at` 标记已被修订的历史任务；原id、正文、勾选时间均保留。修订在工具行锁下，核对生成前服务端快照后，将原清单标为历史并创建新版任务。旧任务不计入当前待办且不可再勾选。观察草稿与提交回执不修改，历史勾选不会自动变成新版完成。
+
+### 学生直接编辑观察任务（migration 0167）
+
+`pbl_mission_item.edited_by_student` 默认false，学生直接修改时新行设为true，供界面与教练区分来源。单项编辑在同一工具行锁中校验当前行的完整版本指纹，归档旧行并插入同ordinal的新行；新行done_at为空，其他任务不变。内容相同不创建历史。指纹包含勾选、历史与来源状态，过期请求返回409；不改变观察记录或已提交便签。

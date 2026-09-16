@@ -85,8 +85,8 @@ func TestPblDecision_NeedsBothWhyAndWhyNot(t *testing.T) {
 
 	// 一个决定只定一次。
 	if rec := pblPost(t, h, cookie, settle,
-		`{"choice":"先发班群","why":"x","whyNot":"y"}`); rec.Code != http.StatusBadRequest {
-		t.Fatalf("second settle = %d, want 400", rec.Code)
+		`{"choice":"先发班群","why":"x","whyNot":"y"}`); rec.Code != http.StatusConflict {
+		t.Fatalf("second settle = %d, want 409", rec.Code)
 	}
 }
 

@@ -98,7 +98,10 @@ ORDER BY (r.seen_at IS NULL) DESC, a.due_at ASC;
 
 -- name: GetLiteAssignmentForAtom :one
 -- 写作的锁定判断也读这一条：归档的作业不算。
-SELECT a.id, a.kind, a.title, a.due_at,
+-- 🚨 选出来的列是两条线的并集（2026-09-16）：退回修改那几列来自已经上线的
+-- 教师端，instructions 来自作业材料那条线。少一列，对面那个功能就在这一个
+-- 端点上静默失效。
+SELECT a.id, a.kind, a.title, a.due_at, a.instructions,
        r.returned_at, r.return_due_at, r.return_note,
        EXISTS (SELECT 1 FROM writing_version v
                WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
@@ -115,3 +118,10 @@ UPDATE lite_assignment_recipient
 SET returned_at = now(), return_due_at = $3, return_note = $4
 WHERE assignment_id = $1 AND user_id = $2
 RETURNING *;
+
+-- name: GetPblAssignmentInstructions :one
+-- Archived assignments still describe the constraints of an existing project.
+SELECT a.instructions
+FROM lite_assignment_recipient r
+JOIN lite_assignment a ON a.id = r.assignment_id
+WHERE r.atom_id = $1 AND r.user_id = $2 AND a.kind = 'project';

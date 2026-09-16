@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -313,5 +314,73 @@ func TestLiteItemDetailProjectSiteTokenNilWhenUnpublished(t *testing.T) {
 	}
 	if resp.Project.SiteToken != nil {
 		t.Fatalf("siteToken = %q, want nil for an unpublished site", *resp.Project.SiteToken)
+	}
+}
+
+// Pending proposals must be visible without counting their steps as approved work.
+func TestLiteItemDetailPendingPlanPreservesApprovedProgress(t *testing.T) {
+	for _, approved := range []bool{false, true} {
+		t.Run(fmt.Sprint(approved), func(t *testing.T) {
+			h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+			ctx := context.Background()
+			q := sqlc.New(pool)
+			atomID := seedLiteWebsiteProject(t, pool, studentID)
+			if approved {
+				v, err := q.CreatePblPlanVersion(ctx, sqlc.CreatePblPlanVersionParams{AtomID: atomID, Version: 1, Summary: "已确认", DecidedBy: "student"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = q.ApprovePblPlanVersion(ctx, v.ID); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = q.CreatePblPlanStep(ctx, sqlc.CreatePblPlanStepParams{VersionID: v.ID, Ordinal: 1, Title: "已完成的访谈", Status: "done"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			proposal, err := q.CreatePblPlanVersion(ctx, sqlc.CreatePblPlanVersionParams{AtomID: atomID, Version: 2, Summary: "比较两种方法", DecidedBy: "ai"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = q.CreatePblPlanStep(ctx, sqlc.CreatePblPlanStepParams{VersionID: proposal.ID, Ordinal: 1, Title: "讨论方法", Status: "tentative"}); err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Project struct {
+					StepsDone   int `json:"stepsDone"`
+					StepsTotal  int `json:"stepsTotal"`
+					PendingPlan *struct {
+						Version int      `json:"version"`
+						Summary string   `json:"summary"`
+						Steps   []string `json:"steps"`
+					} `json:"pendingPlan"`
+				} `json:"project"`
+			}
+			path := "/api/v1/lite/teacher/classes/" + classID + "/students/" + studentID.String() + "/items/" + atomID.String()
+			if code := getJSON(t, h, teacher, path, &response); code != http.StatusOK {
+				t.Fatalf("status %d", code)
+			}
+			want := 0
+			if approved {
+				want = 1
+			}
+			if response.Project.StepsDone != want || response.Project.StepsTotal != want {
+				t.Fatalf("proposal changed progress: %+v", response.Project)
+			}
+			pending := response.Project.PendingPlan
+			if pending == nil || pending.Version != 2 || pending.Summary != "比较两种方法" || len(pending.Steps) != 1 || pending.Steps[0] != "讨论方法" {
+				t.Fatalf("missing proposal: %+v", pending)
+			}
+			if _, err = q.ApprovePblPlanVersion(ctx, proposal.ID); err != nil {
+				t.Fatal(err)
+			}
+			// Decode into a fresh value to test the API's explicit null transition.
+			response.Project.PendingPlan = nil
+			if code := getJSON(t, h, teacher, path, &response); code != http.StatusOK {
+				t.Fatalf("status %d", code)
+			}
+			if response.Project.PendingPlan != nil || response.Project.StepsDone != 0 || response.Project.StepsTotal != 1 {
+				t.Fatalf("approval not reflected: %+v", response.Project)
+			}
+		})
 	}
 }

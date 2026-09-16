@@ -86,7 +86,17 @@ type SiteRead struct {
 }
 
 // SiteContent — 渲染端拿到的全部东西。三个版式都是它的纯函数。
+type SiteSection struct {
+	ImageKey string `json:"imageKey,omitempty"`
+	ImageURL string `json:"imageUrl,omitempty"`
+	Key      string `json:"key"`
+	Title    string `json:"title"`
+	Depth    int    `json:"depth"`
+	Body     string `json:"body"`
+}
+
 type SiteContent struct {
+	Sections []SiteSection `json:"sections,omitempty"`
 	Name     string        `json:"name"`
 	Role     string        `json:"role"`
 	Headline string        `json:"headline"`
@@ -112,15 +122,16 @@ type SiteContent struct {
 // 三张列表不在这里：它们每次渲染时从真实的行里现拼。存快照等于存一份会过期的
 // 副本，而主页最不该做的事就是与她真做过的事对不上。
 type SiteDraft struct {
-	Role     string   `json:"role"`
-	Headline string   `json:"headline"`
-	Lead     string   `json:"lead"`
-	Now      string   `json:"now"`
-	Motto    []string `json:"motto"`
-	Tags     []string `json:"tags"`
-	About    []string `json:"about"`
-	NowList  []string `json:"nowList"`
-	Contact  string   `json:"contact"`
+	Sections []SiteSection `json:"sections,omitempty"`
+	Role     string        `json:"role"`
+	Headline string        `json:"headline"`
+	Lead     string        `json:"lead"`
+	Now      string        `json:"now"`
+	Motto    []string      `json:"motto"`
+	Tags     []string      `json:"tags"`
+	About    []string      `json:"about"`
+	NowList  []string      `json:"nowList"`
+	Contact  string        `json:"contact"`
 	// 每条作品 / 文章 / 在读，她自己写的那一句，按稳定 id 存。
 	Blurbs map[string]string `json:"blurbs"`
 }
@@ -279,6 +290,7 @@ func BuildSite(in SiteInput) SiteContent {
 	}
 
 	return SiteContent{
+		Sections: d.Sections,
 		Name:     strings.TrimSpace(in.DisplayName),
 		Role:     strings.TrimSpace(d.Role),
 		Headline: strings.TrimSpace(d.Headline),
@@ -344,7 +356,20 @@ func SiteMissing(c SiteContent) []string {
 	if c.Role == "" {
 		out = append(out, "名字底下那行你是谁")
 	}
-	if len(c.About) == 0 {
+	if len(c.Sections) > 0 {
+		filled := false
+		for _, section := range c.Sections {
+			if strings.TrimSpace(section.Body) != "" {
+				filled = true
+			}
+		}
+		if !filled {
+			out = append(out, "主页模块的正文")
+		}
+	}
+	// A confirmed outline holds the student's own introduction/content in
+	// sections. Do not require a duplicate paragraph above that outline.
+	if len(c.Sections) == 0 && len(c.About) == 0 {
 		out = append(out, "关于你自己的那段话")
 	}
 	return out
@@ -361,4 +386,16 @@ func IsSiteLayout(s string) bool {
 		}
 	}
 	return false
+}
+
+// SitePublishMissing is shared by the preview and publishing endpoint.
+func SitePublishMissing(content SiteContent, palette Palette) []string {
+	missing := SiteMissing(content)
+	if !ValidPalette(palette) {
+		missing = append(missing, "请在视觉基调中确认配色和风格")
+	}
+	if missing == nil {
+		return []string{}
+	}
+	return missing
 }

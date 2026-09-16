@@ -6,12 +6,8 @@ import { resolveCover } from "./covers";
  *
  * 产品负责人 2026-09-02：卡片要更大，带上名字、日期、当前这一步、最近更新。
  *
- * 上面写的是**这个项目现在停在哪**，不是它完成了百分之几。没有进度条、没有
- * 百分比、没有连续天数——一块给项目互相打分的板，会把"我在做什么"变成"我哪个
- * 落后了"，而这正是铁律②要挡住的那种压力。
- *
- * 「第 2 步 / 共 4 步」是位置，不是分数：她要知道自己走到哪儿了，不需要被提醒
- * 还差多少。
+ * 当前步骤由服务端返回；已完成数是实际完成的数量，不能加一推断当前位置。
+ * 学生可以先发布原型，再补充内容或复盘，步骤不一定按顺序完成。
  */
 
 /** 「今天」「昨天」「3 天前」——具体到年月日对她没有意义。 */
@@ -80,18 +76,19 @@ export function ProjectCard({
 
       {/* 现在停在哪 */}
       <div className="rounded-mk-md bg-mk-paper px-3 py-2">
+        {project.planPending && <p className="text-mk-small text-mk-ink">计划待确认</p>}
         {step ? (
           <>
             <p className="truncate text-mk-small text-mk-ink">{step}</p>
             <p className="mt-0.5 text-mk-small text-mk-muted">
-              第 {project.stepsDone + 1} 步 / 共 {project.stepsTotal} 步
+              已完成 {project.stepsDone} / {project.stepsTotal} 步
             </p>
           </>
-        ) : (
+        ) : !project.planPending ? (
           <p className="text-mk-small text-mk-muted">
-            {project.stepsTotal > 0 ? "计划里的事都做完了" : "还没有计划，你们还在聊"}
+            {project.stepsTotal > 0 ? "计划步骤已完成" : "尚未制定计划"}
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-mk-small text-mk-muted">

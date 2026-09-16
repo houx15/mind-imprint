@@ -5,6 +5,7 @@ import { Course } from "./surfaces/Course";
 import { Decide } from "./surfaces/Decide";
 import { Ideas } from "./surfaces/Ideas";
 import { Keep } from "./surfaces/Keep";
+import { CreativeDirection } from "./surfaces/CreativeDirection";
 import { Look } from "./surfaces/Look";
 import { Lookback } from "./surfaces/Lookback";
 import { Observe } from "./surfaces/Observe";
@@ -47,7 +48,8 @@ export const TOOL_TASKS: Record<string, string> = {
   keep: "持续观察成果落地后的反馈，进一步迭代你的成果！",
   // 主页项目那几件。见 apps/api/internal/pbl/website.go 的五关路线。
   persona: "想清楚这一页给谁看，再定下几个关键词",
-  sites: "找三个你真的喜欢的个人网站，看看它们是怎么做的",
+  sites: "可选：探索画面与互动效果，记录灵感",
+  creative: "描述喜欢的感觉，一起构思主页意象",
   look: "挑一组配色和一个风格，需要的话生成一张头图",
   ship: "看一遍这一页，确认之后放出去",
 };
@@ -81,6 +83,7 @@ export interface ToolSurfaceProps {
  * 每一刀往这里加一行，改的是自己的界面文件，不动别人的。
  */
 export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
+  creative: CreativeDirection,
   observe: Observe,
   board: Board,
   reframe: Reframe,

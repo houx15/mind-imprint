@@ -30,6 +30,13 @@ func TestWebsiteRoutine_EveryStepNamesWhatSheDecides(t *testing.T) {
 	}
 }
 
+func TestWebsiteRoutineOffersStyleImmediatelyAfterAudience(t *testing.T) {
+	steps := WebsiteRoutine()
+	if steps[0].Tool != "persona" || steps[1].Tool != "creative" || steps[2].Tool != "structure" {
+		t.Fatal("homepage onboarding no longer follows audience, creative exploration, content structure")
+	}
+}
+
 // 路线里点名的工具必须真的在工具箱里。
 //
 // 🚨 少了这条，改一次工具名就会让 prompt 指着一件不存在的工具——而这类错不会
@@ -53,7 +60,7 @@ func TestCoachPrompt_WebsiteGetsTheRoutineInsteadOfTheGenericMoments(t *testing.
 
 	for _, want := range []string{
 		"我想让谁，看见我的什么？", // 驱动问题
-		"【五关，以及每一关配哪件工具】",
+		"【创作流程】",
 		"persona", "sites", "look", // 这个项目独有的三件
 		"site_content", // 这个项目独有的产出
 	} {
@@ -71,7 +78,7 @@ func TestCoachPrompt_WebsiteGetsTheRoutineInsteadOfTheGenericMoments(t *testing.
 // 通用提示里那句禁令（「不要说你能查资料、做图、写网站」）在主页项目里必须放开，
 // 否则印记会拒绝做它其实做得到的事。但放开的边界要能验：多放开一样，学生就会
 // 收到一句它兑现不了的承诺，而那是这条禁令一开始存在的原因。
-func TestCoachPrompt_WebsiteGrantsExactlyThreeExtraAbilities(t *testing.T) {
+func TestCoachPrompt_WebsiteStatesImplementedCapabilities(t *testing.T) {
 	p := coachPrompt("website")
 
 	for _, want := range []string{"读他贴进来的网址", "生成图", "把他的页面渲染出来"} {
@@ -83,23 +90,22 @@ func TestCoachPrompt_WebsiteGrantsExactlyThreeExtraAbilities(t *testing.T) {
 		t.Error("主页项目里还留着通用那条禁令，印记会拒绝做它其实做得到的事")
 	}
 	// 边界仍然在：放开的三样之外，那句话还得说。
-	if !strings.Contains(p, "别说你还能做别的") {
+	if !strings.Contains(p, "后续私有草稿修改不会自动更新公开页面") {
 		t.Error("主页项目放开了三样，但没有把边界重新划上")
 	}
 }
 
-// 别的项目一个字都不该变。
-//
-// 主页项目是唯一一个换 prompt 的项目。一个讲课间垃圾的项目里冒出「受众画像」，
-// 或者印记在那儿说自己会做图，都是这次改动漏出去的证据。
-func TestCoachPrompt_OtherProjectsAreUntouched(t *testing.T) {
+// 普通项目允许外部制作指导，但不能获得主页专用接口或虚构执行状态。
+func TestCoachPrompt_OtherProjectsGuideExternalCreation(t *testing.T) {
 	p := coachPrompt("")
 
 	if !strings.Contains(p, "【什么时候递哪一件】") {
 		t.Error("普通项目丢了「什么时候递哪一件」")
 	}
-	if !strings.Contains(p, "也不要说你能查资料、做图、写网站") {
-		t.Error("普通项目丢了那条禁令——印记会开始承诺它做不到的事")
+	for _, required := range []string{"外部coding agent", "带回预览、截图或试用记录", "不能把指导搜索说成已经完成搜索"} {
+		if !strings.Contains(p, required) {
+			t.Errorf("普通项目缺少制作指导边界：%s", required)
+		}
 	}
 	for _, leaked := range []string{"persona", "sites", "site_content", "【五关"} {
 		if strings.Contains(p, leaked) {
@@ -168,5 +174,12 @@ func TestGroundSiteDraft_NeverLetsTheModelSetContact(t *testing.T) {
 	got, _ := GroundSiteDraft(SiteDraft{Contact: "me@example.com"}, own)
 	if got.Contact != "" {
 		t.Errorf("联系方式这一格模型永远不许写，实际 %q", got.Contact)
+	}
+}
+
+func TestGroundSiteSections_OnlyStudentTextCanBecomeBody(t *testing.T) {
+	got, dropped := GroundSiteDraft(SiteDraft{Sections: []SiteSection{{Key: "a", Title: "AI标题", Body: "我观察了这棵树。"}, {Key: "b", Body: "请写一段邀请说明"}}}, "我观察了这棵树。")
+	if len(got.Sections) != 1 || got.Sections[0].Key != "a" || got.Sections[0].Title != "" || len(dropped) != 1 {
+		t.Fatalf("got=%+v dropped=%v", got.Sections, dropped)
 	}
 }

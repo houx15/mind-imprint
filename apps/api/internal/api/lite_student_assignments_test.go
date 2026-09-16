@@ -666,3 +666,52 @@ func TestAssignedWritingFinishStatus(t *testing.T) {
 		t.Fatalf("late finish status = %q, want done_late", got)
 	}
 }
+
+func TestAssignedPblRetainsTeacherInstructionsInProjectAndCoach(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("legacy=%v", legacy), func(t *testing.T) {
+			prov := gateway.NewSequenceStubProvider(evidenceScript(`{"reply":"请先选择一个观察地点。"}`), evidenceScript(`{"supported":true,"issues":[]}`))
+			h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+			instructions := "只有两节课，每节45分钟；预算为零；最后展示一张有实际记录的海报。"
+			description := "关注学校食堂的一次性杯子。"
+			aid := createAssignment(t, h, teacher, classID, map[string]any{
+				"kind": "project", "title": "减少一次性杯子", "instructions": instructions,
+				"payload": map[string]any{"drivingQuestion": "怎样让校园少用一次性杯子？", "description": description},
+				"dueAt":   time.Now().Add(14 * 24 * time.Hour).Format(time.RFC3339), "userIds": []string{studentID.String()},
+			})
+			student := signInAs(t, pool, studentID)
+			started := startAssignment(t, h, student, aid)
+			var brief string
+			if err := pool.QueryRow(t.Context(), `SELECT assigned_brief FROM pbl_project WHERE atom_id=$1`, started.AtomID).Scan(&brief); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(brief, instructions) || !strings.Contains(brief, description) {
+				t.Fatal("incomplete assignment snapshot", brief)
+			}
+			if legacy {
+				if _, err := pool.Exec(t.Context(), `UPDATE pbl_project SET assigned_brief=$2 WHERE atom_id=$1`, started.AtomID, description); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var room struct{ Assignment struct{ Instructions string } }
+			getJSON(t, h, student, "/api/v1/lite/assignments/for-atom/"+started.AtomID, &room)
+			if room.Assignment.Instructions != instructions {
+				t.Fatalf("room instructions lost: %+v", room)
+			}
+			rec := siteReq(t, h, student, "POST", "/api/v1/pbl/projects/"+started.AtomID+"/turn", `{"text":"我还没有观察过，先从哪里开始？"}`)
+			if rec.Code != 200 {
+				t.Fatal(rec.Body)
+			}
+			if len(prov.Requests) != 2 {
+				t.Fatalf("unexpected calls %d", len(prov.Requests))
+			}
+			var contextText strings.Builder
+			for _, message := range prov.Requests[0].Messages {
+				contextText.WriteString(message.Content)
+			}
+			if strings.Count(contextText.String(), instructions) != 1 || !strings.Contains(contextText.String(), description) || !strings.Contains(contextText.String(), "老师布置的驱动问题：") {
+				t.Fatal("incomplete or duplicated teacher context", contextText.String())
+			}
+		})
+	}
+}

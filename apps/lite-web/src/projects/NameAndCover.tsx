@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "./Says";
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import { kindLabel, updateProject, type Project } from "../api/projects";
@@ -132,9 +133,9 @@ export function NameAndCover({
         </div>
 
         {error && (
-          <p className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-            {error}
-          </p>
+          <div className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+            <Says content={errorMarkdown(error)} />
+          </div>
         )}
 
         <div className="mt-6 flex items-center justify-end gap-3">

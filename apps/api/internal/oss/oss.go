@@ -151,6 +151,26 @@ func (s *Service) GetObject(ctx context.Context, key string) ([]byte, error) {
 	return data, nil
 }
 
+// GetObjectLimited bounds image preview reads and honors request cancellation.
+func (s *Service) GetObjectLimited(ctx context.Context, key string, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("oss: invalid download limit")
+	}
+	rc, err := s.origin.GetObject(key, alioss.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(io.LimitReader(rc, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("oss: object exceeds download limit")
+	}
+	return data, nil
+}
+
 // putObjectOptions builds the alioss.Option slice for PutObject, omitting the
 // Content-Type option when contentType is empty. Factored out as a pure
 // helper so the branch is unit-testable without a network call.

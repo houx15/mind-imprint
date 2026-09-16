@@ -1,6 +1,8 @@
 package pbl
 
 import (
+	"context"
+	"mindimprint/api/internal/gateway"
 	"strings"
 	"testing"
 )
@@ -56,6 +58,33 @@ func TestBuildLookbackContext_AssignedProjectIsTheTeachersQuestion(t *testing.T)
 	own := buildLookbackContext(LookbackInput{Name: "操场", Idea: "下课没人去操场"})
 	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
 		t.Errorf("her own project lost its opening line:\n%s", own)
+	}
+}
+
+func TestCoachRepairsContractAndCountsBothCalls(t *testing.T) {
+	script := func(text string) []gateway.StreamEvent {
+		return []gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: text},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 20}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		}
+	}
+	provider := gateway.NewSequenceStubProvider(
+		script(`{"reply":"计划已生成","plan":{"steps":[]}}`),
+		script(`{"reply":"请检查计划","produce":{"kind":"plan","payload":{"steps":[{"title":"观察","decide":"记录什么"}]}}}`),
+	)
+	out, usage, err := Coach(context.Background(), provider, gateway.Resolved{}, CoachInput{Idea: "食堂剩餐"})
+	if err != nil || out.Produce == nil || out.Produce.Kind != "plan" {
+		t.Fatalf("repair failed: %+v %v", out, err)
+	}
+	if usage.InputTokens != 20 || usage.OutputTokens != 40 {
+		t.Fatalf("retry usage lost: %+v", usage)
+
+	}
+	for _, request := range provider.Requests {
+		if request.ResponseFormat != gateway.ResponseFormatJSONObject {
+			t.Fatal("initial or repair request lost JSON output constraint")
+		}
 	}
 }
 
@@ -119,6 +148,41 @@ func TestParseCoachOutput(t *testing.T) {
 	}
 }
 
+func TestCoachRejectsSilentlyLostActions(t *testing.T) {
+	for _, raw := range []string{
+		`{"reply":"计划已生成","plan":{"steps":[]}}`,
+		`{"reply":"计划已生成","produce":{"kind":"plan","payload":null}}`,
+		`{"reply":"成果已生成","produce":{"kind":"unknown","payload":{}}}`,
+	} {
+		if _, err := parseCoachOutput(raw); err == nil {
+			t.Fatalf("accepted a reply while losing its action: %s", raw)
+		}
+	}
+}
+
+// Envelope failures must be distinguishable so the model can repair the
+// operation without discarding it or mistaking an artifact subtype for a tool.
+func TestCoachProduceEnvelopeDiagnostics(t *testing.T) {
+	for _, tc := range []struct{ produce, diagnostic string }{
+		{`{"kind":"draft","payload":{}}`, "payload.kind"},
+		{`{"kind":"artifact"}`, "produce.payload缺失"},
+		{`{"kind":"artifact","payload":null}`, "produce.payload缺失"},
+		{`{"kind":"artifact","payload":[]}`, "必须是JSON对象"},
+		{`{"kind":"artifact","payload":"{}"}`, "必须是JSON对象"},
+	} {
+		_, err := parseCoachOutput(`{"reply":"请检查成果","produce":` + tc.produce + `}`)
+		if err == nil || !strings.Contains(err.Error(), tc.diagnostic) {
+			t.Fatalf("produce %s: expected %s, got %v", tc.produce, tc.diagnostic, err)
+		}
+	}
+	for _, item := range ProduceKinds {
+		out, err := parseCoachOutput(`{"reply":"请检查成果","produce":{"kind":"` + item.Kind + `","payload":{}}}`)
+		if err != nil || out.Produce == nil || out.Produce.Kind != item.Kind {
+			t.Fatalf("registered operation %s rejected: %v", item.Kind, err)
+		}
+	}
+}
+
 // Inside a session the prompt must say so, and must tell 印记 not to hang
 // another hook — nesting a dig inside a dig inside a dig is how a student
 // loses the thread.
@@ -172,5 +236,95 @@ func TestBuildCoachContext_NoPlanYet(t *testing.T) {
 	ctx := buildCoachContext(CoachInput{Idea: "剩饭"})
 	if !strings.Contains(ctx, "还没有计划") {
 		t.Fatalf("context does not say there is no plan yet:\n%s", ctx)
+	}
+}
+
+func TestCoachRejectsLeakedEnvelopeInsteadOfPretendingToSave(t *testing.T) {
+	bad := `{"reply":"这两条我写进了计划里。\"mission\":[]}"}`
+	if _, err := parseCoachOutput(bad); err == nil {
+		t.Fatal("leaked control tail accepted")
+	}
+	if _, err := parseCoachOutput(`{"reply":"第一段"}{"reply":"第二段"}`); err == nil {
+		t.Fatal("second JSON envelope silently ignored")
+	}
+	// Naming a field in an explanation is not the misplaced envelope suffix.
+	if _, err := parseCoachOutput(`{"reply":"字段名是 mission，它表示观察清单。"}`); err != nil {
+		t.Fatal(err)
+	}
+	script := func(raw string) []gateway.StreamEvent {
+		return []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone, StopReason: gateway.StopStop}}
+	}
+	provider := gateway.NewSequenceStubProvider(script(bad), script(`{"reply":"请检查修订计划。","produce":{"kind":"plan","payload":{"steps":[{"title":"记录实际样本数","decide":"样本能支持哪些结论"}]}}}`))
+	out, _, err := Coach(context.Background(), provider, gateway.Resolved{}, CoachInput{Idea: "社区指引"})
+	if err != nil || out.Produce == nil || out.Produce.Kind != "plan" || provider.Calls != 2 {
+		t.Fatalf("repair did not produce plan: %+v %v calls=%d", out, err, provider.Calls)
+	}
+}
+
+func TestIterationOpeningCannotMutateProjectArtifacts(t *testing.T) {
+	script := func(raw string) []gateway.StreamEvent {
+		return []gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: raw}, {Kind: gateway.EventDone, StopReason: gateway.StopStop}}
+	}
+	provider := gateway.NewSequenceStubProvider(script(`{"reply":"已重写计划","produce":{"kind":"plan","payload":{"steps":[]}}}`), script(`{"reply":"这条记录尚未测试。你准备怎样判断筛选问题能否被理解？"}`))
+	out, _, err := Coach(context.Background(), provider, gateway.Resolved{}, CoachInput{SessionKind: "keeping", ToolWork: []string{"所选记录：尚未试问，没有参与者"}})
+	if err != nil || out.Produce != nil || provider.Calls != 2 {
+		t.Fatalf("unexpected opening: %+v %v calls=%d", out, err, provider.Calls)
+	}
+	if strings.Contains(out.Reply, "已重写") {
+		t.Fatal("rejected mutation claim escaped")
+	}
+}
+
+func TestCoachMisnestedArtifactReportsExactRepairLevel(t *testing.T) {
+	for _, tc := range []struct{ raw, want string }{
+		{`{"reply":"已修改","title":"卡片","body":"内容"}`, "顶层字段title位置错误"},
+		{`{"reply":"已修改","produce":{"kind":"artifact","title":"卡片","payload":{}}}`, "produce.title位置错误"},
+	} {
+		_, err := parseCoachOutput(tc.raw)
+		if err == nil || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "produce.payload") {
+			t.Fatalf("wrong diagnostic: %v", err)
+		}
+	}
+	if _, err := parseCoachOutput(`{"reply":"已修改","produce":{"kind":"artifact","payload":{"kind":"draft","title":"卡片","body":"内容"}}}`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCoachRetriesLengthStopEvenWithValidJSON(t *testing.T) {
+	script := func(body string, stop gateway.StopReason) []gateway.StreamEvent {
+		return []gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: body},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 20}},
+			{Kind: gateway.EventDone, StopReason: stop},
+		}
+	}
+	provider := gateway.NewSequenceStubProvider(
+		script(`{"reply":"不应该替你把"}`, gateway.StopLength),
+		script(`{"reply":"请记录实际结果，找到、未找到或不确定都可以。"}`, gateway.StopStop),
+	)
+	out, usage, err := Coach(context.Background(), provider, gateway.Resolved{}, CoachInput{Idea: "图书角"})
+	if err != nil || out.Reply != "请记录实际结果，找到、未找到或不确定都可以。" {
+		t.Fatalf("truncated result escaped: %+v %v", out, err)
+	}
+	if provider.Calls != 2 || usage.InputTokens != 20 || usage.OutputTokens != 40 {
+		t.Fatalf("calls or usage lost: %d %+v", provider.Calls, usage)
+	}
+	if !strings.Contains(provider.Requests[1].Messages[len(provider.Requests[1].Messages)-1].Content, "输出长度限制") {
+		t.Fatal("repair missing truncation reason")
+	}
+}
+
+func TestCurrentRequestRemainsDistinctFromHistoricalToolWork(t *testing.T) {
+	in := CoachInput{Recent: []Turn{{Role: "student", Content: "请修改实际清单"}}, ToolWork: []string{"历史问题：没有候选书怎么办"}}
+	ctx := buildCoachContext(in)
+	current := strings.LastIndex(ctx, "请修改实际清单")
+	history := strings.LastIndex(ctx, "历史问题：没有候选书怎么办")
+	if current <= history {
+		t.Fatal("current request is obscured by historical tool work")
+	}
+	in.JustHappened = "本轮结束观察任务"
+	ctx = buildCoachContext(in)
+	if strings.Contains(ctx, "【本轮学生请求】") || !strings.Contains(ctx, "本轮结束观察任务") {
+		t.Fatal("tool completion reactivated a historical student request")
 	}
 }

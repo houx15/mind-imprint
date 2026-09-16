@@ -1,3 +1,5 @@
+> **2026-09-11：线上已切换至 V2。当前发布方式见 [site-v2.md](site-v2.md)。下文为旧站部署记录，请勿用旧脚本发布 V2。**
+
 # 营销站部署 · mind.uni-robot.cn
 
 > `apps/site`（Astro 静态站）。**与学生端完全分开部署**：独立 checkout、独立

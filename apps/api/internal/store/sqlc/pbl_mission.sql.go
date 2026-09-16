@@ -17,7 +17,7 @@ const createPblMissionItem = `-- name: CreatePblMissionItem :one
 
 INSERT INTO pbl_mission_item (tool_id, prompt, want_kind, ordinal)
 VALUES ($1, $2, $3, $4)
-RETURNING id, tool_id, prompt, want_kind, ordinal, done_at, created_at
+RETURNING id, tool_id, prompt, want_kind, ordinal, done_at, created_at, superseded_at, edited_by_student
 `
 
 type CreatePblMissionItemParams struct {
@@ -44,12 +44,49 @@ func (q *Queries) CreatePblMissionItem(ctx context.Context, arg CreatePblMission
 		&i.Ordinal,
 		&i.DoneAt,
 		&i.CreatedAt,
+		&i.SupersededAt,
+		&i.EditedByStudent,
+	)
+	return i, err
+}
+
+const createStudentPblMissionItem = `-- name: CreateStudentPblMissionItem :one
+INSERT INTO pbl_mission_item (tool_id, prompt, want_kind, ordinal, edited_by_student)
+VALUES ($1, $2, $3, $4, true)
+RETURNING id, tool_id, prompt, want_kind, ordinal, done_at, created_at, superseded_at, edited_by_student
+`
+
+type CreateStudentPblMissionItemParams struct {
+	ToolID   uuid.UUID `json:"tool_id"`
+	Prompt   string    `json:"prompt"`
+	WantKind string    `json:"want_kind"`
+	Ordinal  int32     `json:"ordinal"`
+}
+
+func (q *Queries) CreateStudentPblMissionItem(ctx context.Context, arg CreateStudentPblMissionItemParams) (PblMissionItem, error) {
+	row := q.db.QueryRow(ctx, createStudentPblMissionItem,
+		arg.ToolID,
+		arg.Prompt,
+		arg.WantKind,
+		arg.Ordinal,
+	)
+	var i PblMissionItem
+	err := row.Scan(
+		&i.ID,
+		&i.ToolID,
+		&i.Prompt,
+		&i.WantKind,
+		&i.Ordinal,
+		&i.DoneAt,
+		&i.CreatedAt,
+		&i.SupersededAt,
+		&i.EditedByStudent,
 	)
 	return i, err
 }
 
 const getPblMissionItem = `-- name: GetPblMissionItem :one
-SELECT m.id, m.tool_id, m.prompt, m.want_kind, m.ordinal, m.done_at, m.created_at, a.user_id
+SELECT m.id, m.tool_id, m.prompt, m.want_kind, m.ordinal, m.done_at, m.created_at, m.superseded_at, m.edited_by_student, a.user_id
 FROM pbl_mission_item m
 JOIN pbl_tool_instance t ON t.id = m.tool_id
 JOIN atom a ON a.id = t.atom_id
@@ -57,14 +94,16 @@ WHERE m.id = $1
 `
 
 type GetPblMissionItemRow struct {
-	ID        uuid.UUID          `json:"id"`
-	ToolID    uuid.UUID          `json:"tool_id"`
-	Prompt    string             `json:"prompt"`
-	WantKind  string             `json:"want_kind"`
-	Ordinal   int32              `json:"ordinal"`
-	DoneAt    pgtype.Timestamptz `json:"done_at"`
-	CreatedAt time.Time          `json:"created_at"`
-	UserID    uuid.UUID          `json:"user_id"`
+	ID              uuid.UUID          `json:"id"`
+	ToolID          uuid.UUID          `json:"tool_id"`
+	Prompt          string             `json:"prompt"`
+	WantKind        string             `json:"want_kind"`
+	Ordinal         int32              `json:"ordinal"`
+	DoneAt          pgtype.Timestamptz `json:"done_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	SupersededAt    pgtype.Timestamptz `json:"superseded_at"`
+	EditedByStudent bool               `json:"edited_by_student"`
+	UserID          uuid.UUID          `json:"user_id"`
 }
 
 // 归属一路查到人：清单挂在工具上，工具挂在项目上，项目挂在她身上。
@@ -79,13 +118,15 @@ func (q *Queries) GetPblMissionItem(ctx context.Context, id uuid.UUID) (GetPblMi
 		&i.Ordinal,
 		&i.DoneAt,
 		&i.CreatedAt,
+		&i.SupersededAt,
+		&i.EditedByStudent,
 		&i.UserID,
 	)
 	return i, err
 }
 
 const listPblMissionItems = `-- name: ListPblMissionItems :many
-SELECT id, tool_id, prompt, want_kind, ordinal, done_at, created_at FROM pbl_mission_item WHERE tool_id = $1 ORDER BY ordinal, created_at
+SELECT id, tool_id, prompt, want_kind, ordinal, done_at, created_at, superseded_at, edited_by_student FROM pbl_mission_item WHERE tool_id = $1 ORDER BY ordinal, created_at
 `
 
 func (q *Queries) ListPblMissionItems(ctx context.Context, toolID uuid.UUID) ([]PblMissionItem, error) {
@@ -105,6 +146,8 @@ func (q *Queries) ListPblMissionItems(ctx context.Context, toolID uuid.UUID) ([]
 			&i.Ordinal,
 			&i.DoneAt,
 			&i.CreatedAt,
+			&i.SupersededAt,
+			&i.EditedByStudent,
 		); err != nil {
 			return nil, err
 		}
@@ -117,7 +160,7 @@ func (q *Queries) ListPblMissionItems(ctx context.Context, toolID uuid.UUID) ([]
 }
 
 const listPblMissionItemsByAtom = `-- name: ListPblMissionItemsByAtom :many
-SELECT m.id, m.tool_id, m.prompt, m.want_kind, m.ordinal, m.done_at, m.created_at
+SELECT m.id, m.tool_id, m.prompt, m.want_kind, m.ordinal, m.done_at, m.created_at, m.superseded_at, m.edited_by_student
 FROM pbl_mission_item m
 JOIN pbl_tool_instance t ON t.id = m.tool_id
 WHERE t.atom_id = $1
@@ -142,6 +185,8 @@ func (q *Queries) ListPblMissionItemsByAtom(ctx context.Context, atomID uuid.UUI
 			&i.Ordinal,
 			&i.DoneAt,
 			&i.CreatedAt,
+			&i.SupersededAt,
+			&i.EditedByStudent,
 		); err != nil {
 			return nil, err
 		}
@@ -153,8 +198,50 @@ func (q *Queries) ListPblMissionItemsByAtom(ctx context.Context, atomID uuid.UUI
 	return items, nil
 }
 
+const lockPblMissionTool = `-- name: LockPblMissionTool :one
+SELECT id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note FROM pbl_tool_instance WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockPblMissionTool(ctx context.Context, id uuid.UUID) (PblToolInstance, error) {
+	row := q.db.QueryRow(ctx, lockPblMissionTool, id)
+	var i PblToolInstance
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.SessionID,
+		&i.Tool,
+		&i.Reason,
+		&i.Result,
+		&i.Status,
+		&i.CreatedAt,
+		&i.Kind,
+		&i.AcceptedAt,
+		&i.ResolvedAt,
+		&i.StudentNote,
+	)
+	return i, err
+}
+
+const supersedePblMissionItem = `-- name: SupersedePblMissionItem :exec
+UPDATE pbl_mission_item SET superseded_at = now() WHERE id = $1 AND superseded_at IS NULL
+`
+
+func (q *Queries) SupersedePblMissionItem(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, supersedePblMissionItem, id)
+	return err
+}
+
+const supersedePblMissionItems = `-- name: SupersedePblMissionItems :exec
+UPDATE pbl_mission_item SET superseded_at = now() WHERE tool_id = $1 AND superseded_at IS NULL
+`
+
+func (q *Queries) SupersedePblMissionItems(ctx context.Context, toolID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, supersedePblMissionItems, toolID)
+	return err
+}
+
 const tickPblMissionItem = `-- name: TickPblMissionItem :one
-UPDATE pbl_mission_item SET done_at = $2 WHERE id = $1 RETURNING id, tool_id, prompt, want_kind, ordinal, done_at, created_at
+UPDATE pbl_mission_item SET done_at = $2 WHERE id = $1 AND superseded_at IS NULL RETURNING id, tool_id, prompt, want_kind, ordinal, done_at, created_at, superseded_at, edited_by_student
 `
 
 type TickPblMissionItemParams struct {
@@ -174,6 +261,8 @@ func (q *Queries) TickPblMissionItem(ctx context.Context, arg TickPblMissionItem
 		&i.Ordinal,
 		&i.DoneAt,
 		&i.CreatedAt,
+		&i.SupersededAt,
+		&i.EditedByStudent,
 	)
 	return i, err
 }

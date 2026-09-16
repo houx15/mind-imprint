@@ -1,0 +1,142 @@
+[
+  {
+    "name": "MagicSchool",
+    "color": "rgb(255, 255, 255)",
+    "fontFamily": "Jokker, Arial, sans-serif",
+    "fontSize": "64px",
+    "fontWeight": "600",
+    "letterSpacing": "normal",
+    "lineHeight": "73.6px",
+    "text": "\n  The #1 AI\n  platform for\n  Schools\n",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Toddle",
+    "color": "rgb(0, 0, 0)",
+    "fontFamily": "avenir_next_worldbold, Verdana",
+    "fontSize": "56px",
+    "fontWeight": "400",
+    "letterSpacing": "normal",
+    "lineHeight": "64px",
+    "text": "Teacher-built. AI-powered.\nMore than an LMS.",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "SchoolAI",
+    "color": "rgb(11, 18, 28)",
+    "fontFamily": "generalSans, \"generalSans Fallback\", sans-serif",
+    "fontSize": "81px",
+    "fontWeight": "500",
+    "letterSpacing": "-1.91008px",
+    "lineHeight": "88px",
+    "text": "AI that helps your teachers reach every student",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Khan Academy",
+    "color": "rgb(21, 21, 33)",
+    "fontFamily": "\"Plus Jakarta Sans\", \"Noto Sans\", sans-serif",
+    "fontSize": "42px",
+    "fontWeight": "700",
+    "letterSpacing": "normal",
+    "lineHeight": "46.2px",
+    "text": "Turn big learning goals into real results.",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Khanmigo",
+    "color": "rgb(0, 0, 0)",
+    "fontFamily": "Lato, sans-serif",
+    "fontSize": "48px",
+    "fontWeight": "400",
+    "letterSpacing": "normal",
+    "lineHeight": "52px",
+    "text": "Khanmigo is your always-available",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Kognity",
+    "color": "rgb(255, 255, 255)",
+    "fontFamily": "ff-meta-serif-web-pro, serif",
+    "fontSize": "48px",
+    "fontWeight": "700",
+    "letterSpacing": "normal",
+    "lineHeight": "60px",
+    "text": "More than a textbook. Comprehensive resource. Built-in assessment.",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "ManageBac+",
+    "color": "rgb(55, 2, 60)",
+    "fontFamily": "\"Nunito Sans\"",
+    "fontSize": "64px",
+    "fontWeight": "700",
+    "letterSpacing": "normal",
+    "lineHeight": "73.6px",
+    "text": "Discover our Next-Generation Platform",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Brilliant",
+    "color": "rgb(0, 0, 0)",
+    "fontFamily": "\"CoFo Robert\", sans-serif",
+    "fontSize": "76px",
+    "fontWeight": "500",
+    "letterSpacing": "-1.4px",
+    "lineHeight": "79.8px",
+    "text": "Your personal tutor for math and coding",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Newsela",
+    "color": "rgb(51, 51, 51)",
+    "fontFamily": "Circularstd, sans-serif",
+    "fontSize": "36px",
+    "fontWeight": "700",
+    "letterSpacing": "normal",
+    "lineHeight": "54px",
+    "text": "Accelerate student growth through the power of connected instruction, assessment, and data.",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "Diffit",
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "Poppins",
+    "fontSize": "62.08px",
+    "fontWeight": "500",
+    "letterSpacing": "-1.2416px",
+    "lineHeight": "76.4826px",
+    "text": "We help teachers do their best work",
+    "viewport": [
+      1280,
+      720
+    ]
+  }
+]

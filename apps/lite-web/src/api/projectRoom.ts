@@ -48,16 +48,16 @@ export interface TurnResult {
   toolId?: string;
 }
 
-export function postTurn(projectId: string, text: string, sessionId?: string): Promise<TurnResult> {
+export function postTurn(projectId: string, text: string, sessionId?: string, completedToolId?: string, observation?: {toolId: string; revision: number}): Promise<TurnResult> {
   return apiFetch<TurnResult>(`${base(projectId)}/turn`, {
     method: "POST",
-    body: JSON.stringify({ text, sessionId: sessionId ?? "" }),
+    body: JSON.stringify({ text, sessionId: sessionId ?? "", completedToolId, observation }),
   });
 }
 
 /* ── sessions ───────────────────────────────────────────────────────────── */
 
-export const SESSION_KINDS = ["free", "observation", "reframe", "brainstorm", "plan_check"] as const;
+export const SESSION_KINDS = ["free", "observation", "reframe", "brainstorm", "plan_check", "review", "keeping"] as const;
 export type SessionKind = (typeof SESSION_KINDS)[number];
 
 export const SESSION_KIND_LABELS: Record<SessionKind, string> = {
@@ -66,6 +66,8 @@ export const SESSION_KIND_LABELS: Record<SessionKind, string> = {
   reframe: "重新看这个问题",
   brainstorm: "多想几种做法",
   plan_check: "一起看计划",
+  review: "成果审阅",
+  keeping: "迭代讨论",
 };
 
 export interface Session {
@@ -118,6 +120,8 @@ export const SESSION_REQUIRED_FIELD: Record<SessionKind, string | null> = {
   reframe: "frame",
   brainstorm: "next_bet",
   plan_check: "resolution",
+  review: null,
+  keeping: "reading",
 };
 
 export const SESSION_WRITEBACK_PROMPT: Record<SessionKind, string> = {
@@ -126,6 +130,8 @@ export const SESSION_WRITEBACK_PROMPT: Record<SessionKind, string> = {
   reframe: "现在这个问题，你会怎么重新说一遍？",
   brainstorm: "下一步先试哪个？",
   plan_check: "你决定怎么办？",
+  review: "请记录审阅结论",
+  keeping: "请记录你的判断和下一步，区分已验证的发现与待验证的想法",
 };
 
 /* ── plan ───────────────────────────────────────────────────────────────── */
@@ -162,6 +168,7 @@ export interface PlanStep {
   decide: string;
   thenBring: string;
   status: StepStatus;
+  progress?: "todo" | "doing" | "done";
 }
 
 export interface Plan {

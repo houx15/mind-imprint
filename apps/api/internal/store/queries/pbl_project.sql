@@ -24,7 +24,9 @@ SELECT p.*, a.created_at AS atom_created_at, a.last_activity_at,
        -- 于是"还没有计划"这个最常见的情况一扫描就炸。
        COALESCE(step.title, '')::text AS current_step,
        COALESCE(done.n, 0)::int AS steps_done,
-       COALESCE(total.n, 0)::int AS steps_total
+       COALESCE(total.n, 0)::int AS steps_total,
+       COALESCE((SELECT v.approved_at IS NULL FROM pbl_plan_version v
+                 WHERE v.atom_id=p.atom_id ORDER BY v.version DESC LIMIT 1), false)::boolean AS plan_pending
 FROM pbl_project p
 JOIN atom a ON a.id = p.atom_id
 LEFT JOIN LATERAL (

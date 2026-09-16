@@ -62,7 +62,7 @@ func TestPblTurn_ToolThatWouldOpenBlankIsNotOffered(t *testing.T) {
 // 闸判的是"她点进去有没有东西"，不是"模型说它做了没有"——所以顺序要紧：
 // applyPblProduce 先落库，闸再问库。
 func TestPblTurn_ToolArrivesWhenItsContentArrivesWithIt(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(
+	h, cookie, _, _ := liteHandlerWithProvider(t, checkedPlanCoach(
 		`{"reply":"两条路，你来定。","hook":"","hook_kind":"",
 		  "tool":"decide","tool_reason":"你现在有两条路，先摊开看看",
 		  "produce":{"kind":"decision","payload":{

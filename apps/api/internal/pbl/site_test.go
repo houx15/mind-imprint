@@ -72,6 +72,21 @@ func TestSiteMissingBlocksAnEmptyPage(t *testing.T) {
 
 // 她把三样都写了，就能发——即使一件作品、一篇文章都还没有。刚开始的人本来就
 // 没有作品，那不该是拦住她发布的理由。
+func TestSiteMissingUsesStructuredBodyWithoutDuplicateAbout(t *testing.T) {
+	c := SiteContent{Name: "测试学生", Headline: "我的练习", Role: "辩论初学者", Sections: []SiteSection{{Key: "intro", Title: "简短介绍", Body: "我在练习比较不同观点。"}}}
+	if got := SiteMissing(c); len(got) != 0 {
+		t.Fatalf("filled outline requires duplicate introduction: %v", got)
+	}
+	c.Sections[0].Body = ""
+	if got := SiteMissing(c); len(got) != 1 || got[0] != "主页模块的正文" {
+		t.Fatalf("empty outline must remain blocked: %v", got)
+	}
+	c.Sections = nil
+	if got := SiteMissing(c); len(got) != 1 || got[0] != "关于你自己的那段话" {
+		t.Fatalf("legacy layout still needs its body: %v", got)
+	}
+}
+
 func TestSiteMissingAllowsAPageWithNoWorkYet(t *testing.T) {
 	c := BuildSite(SiteInput{
 		DisplayName: "侯知遥",
@@ -83,6 +98,23 @@ func TestSiteMissingAllowsAPageWithNoWorkYet(t *testing.T) {
 	})
 	if m := SiteMissing(c); len(m) != 0 {
 		t.Fatalf("三样都写了还是发不出去：%v", m)
+	}
+}
+
+func TestSitePublishMissingIncludesUnsavedVisualChoice(t *testing.T) {
+	c := BuildSite(SiteInput{DisplayName: "测试学生", Draft: SiteDraft{
+		Headline: "观察校园树木", Role: "摄影社同学", About: []string{"这是虚构测试。"},
+	}})
+	if missing := SitePublishMissing(c, Palette{}); len(missing) != 1 {
+		t.Fatalf("complete text with no palette: %v", missing)
+	}
+	palette := Palette{Paper: "#ffffff", Ink: "#111111", Accent: "#336633"}
+	if missing := SitePublishMissing(c, palette); missing == nil || len(missing) != 0 {
+		t.Fatalf("complete page must return an empty list: %v", missing)
+	}
+	c.Sections = []SiteSection{{Key: "observation", Title: "观察"}}
+	if missing := SitePublishMissing(c, palette); len(missing) != 1 || missing[0] != "主页模块的正文" {
+		t.Fatalf("palette must not waive missing section content: %v", missing)
 	}
 }
 

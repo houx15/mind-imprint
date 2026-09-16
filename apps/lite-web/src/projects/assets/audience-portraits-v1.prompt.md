@@ -1,0 +1,7 @@
+# 人物板角色插画
+
+2026-09-15，内置 imagegen。参考 curious-learner-v2.webp，沿用 docs/design/lite-visual-refresh/illustration-generation.md 模板。原始生成文件 exec-deb92031-f922-420a-8d3b-cf1d94ea3e10.png 保留于生图目录。项目资产 audience-portraits-v1.png，真实 alpha 已验证，四象限通过 CSS 分别展示，不改变生成内容。
+
+## 最终提示词
+
+Create a companion illustration to this exact reference for the same website. Match its very simple flat graphic style, dot eyes, tiny simple faces, oversized rounded clothes, cheerful expression and flat blue/lavender/teal/yellow colors. New scene: a precisely aligned 2 by 2 sprite sheet of FOUR separate friendly waist-up character portraits, one centered inside each equal quadrant. Top left: a parent, adult with short hair and teal sweater. Top right: a teacher, adult with round glasses and lavender sweater holding one yellow notebook. Bottom left: a teenage classmate with blue oversized hoodie. Bottom right: a new visitor, friendly young adult with yellow sweater waving hello. Each portrait occupies only the middle 65 percent of its own quadrant with generous transparent padding and no overlap. Entire composition compact with generous transparent margin. No typography whatsoever. No detailed scene, no realistic facial detail, no watercolor. Transparent PNG background. No glow or backdrop. Same simplicity as reference. Exactly four portraits. Do not draw grid lines or frames. Crisp flat filled silhouettes. No shadows or gradients. Square image.

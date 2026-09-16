@@ -1,36 +1,23 @@
+import { ProcessComparison } from "../../../site/ProcessComparison";
+import { Says, errorMarkdown } from "../../Says";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, Link2, Monitor, RefreshCw, Smartphone } from "lucide-react";
 import QRCode from "qrcode";
 import { Icon } from "@/ui";
 import { getSite, publishSite, revokeSite, type SiteState } from "../../../api/site";
+import { listCodeVersions, codePreviewURL, type CodeVersion } from "../../../api/codeVersions";
+import { getCreativeDirection } from "../../../api/creativeDirection";
 import { apiErrorText } from "../../../api/errorText";
 import { BuiltSite } from "../../../site/BuiltSite";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
 
-/**
- * Ship —— 第五关的最后一下：看这一页，然后上线。
- *
- * ## 这里没有一个输入框，这是设计
- *
- * 产品负责人 2026-09-03 否掉的就是那九个带 label 的输入框（"don't let students
- * enter forms"）。她的字不在这里敲——她在对话里回答印记的问题，印记把她的原话
- * 摆到页面上（`site_content` 产出 + `GroundSiteDraft` 那道闸）。这一屏只做三件
- * 她要**判断**的事：看这一页、看还缺什么、决定要不要放出去。
- *
- * ## 预览就是真页面
- *
- * `BuiltSite` 是公开页 `/p/:token` 用的同一个组件。做一份「示意图」等于又造一个
- * 迟早会和真页面走散的东西——她照着示意图点了上线，别人看到的却是另一页。
- *
- * ## 缺什么由服务端说
- *
- * `missing` 来自 `pbl.SiteMissing`：页面上没有她自己的字就发不出去。前端不自己
- * 判一遍——两处判断迟早会有一处说「可以发」而另一处拒绝，而她看到的是一个按了
- * 没反应的按钮。
- */
+// Publish a reviewed version; subsequent drafts remain private until explicitly published.
 export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
   const [state, setState] = useState<SiteState | null>(null);
+  const [versions,setVersions]=useState<CodeVersion[]>([]);
+  const [selected,setSelected]=useState("");
+  const [versionError,setVersionError]=useState("");
   const [narrow, setNarrow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,7 +26,16 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
 
   const load = useCallback(async () => {
     try {
-      setState(await getSite());
+      const site=await getSite(); setState(site);
+      if(site.projectId) {
+       try {
+        const rows=await listCodeVersions(site.projectId); setVersions(rows??[]);setVersionError("");
+        if(rows?.length) {
+         const direction=await getCreativeDirection(site.projectId);
+         setSelected(previous=>rows.some(v=>v.id===previous)?previous:direction.document.trial?.versionId||site.publishedVersionId||rows[0]!.id);
+        }
+       } catch(err) {setVersionError(apiErrorText(err));}
+      }
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -117,29 +113,28 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
         onClose={onClose}
       >
         <div className="p-4">
-          {error ? (
-            <p className="text-mk-small" style={{ color: "var(--mk-danger)" }}>
-              {error}
-            </p>
+        {error ? (
+            <div className="text-mk-small" style={{ color: "var(--mk-danger)" }}><Says content={errorMarkdown(error)} /></div>
           ) : null}
         </div>
       </ToolFrame>
     );
   }
 
-  const missing = state.missing ?? [];
+  const missing = versionError ? ["作品版本读取失败，请刷新预览"] : selected ? versions.find(v=>v.id===selected)?.publicationMissing ?? ["正在读取版本发布条件"] : state.publishMissing ?? state.missing ?? [];
+  const selectedPublished=state.published&&(!selected||selected===state.publishedVersionId);
   return (
     <ToolFrame
       title="上线"
-      task={state.published ? "这一页已经在线上。请确认无误" : "请查看这一页，确认之后放出去"}
+      task={selectedPublished ? "所选版本已发布，请确认无误" : "请检查所选版本，确认后发布"}
       why={tool.reason}
       // 还缺她自己的字的时候，「完成」不给按——服务端也拦着（发布会被拒），
       // 这里只是把话说在前面。
-      todo={missing.length ? `还缺 ${missing.length} 处你自己的话` : ""}
+      todo={missing.length ? `${missing.length} 项待完成` : !selectedPublished ? "所选版本尚未发布" : ""}
       onFinish={() =>
         onFinish(
-          { published: state.published, url: state.url },
-          state.published ? `主页已上线：${state.url}` : "看过这一页了，还没放出去",
+          { published: selectedPublished, url: selectedPublished?state.url:"" },
+          selectedPublished ? `主页所选版本已上线：${state.url}` : "所选版本尚未发布",
         )
       }
       onClose={onClose}
@@ -148,7 +143,7 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b border-mk-border px-4 py-2.5">
           <span className="text-mk-label text-mk-secondary">
-            {state.published ? "已上线" : "待上线"}
+            {selectedPublished ? "所选版本已上线" : "所选版本待上线"}
           </span>
           <div className="flex-1" />
           <button
@@ -179,15 +174,15 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
           </button>
         </div>
 
+          {versions.length>0&&<section className="space-y-2 border-b border-mk-border p-4"><label className="block text-mk-small">发布版本<select value={selected} disabled={busy} onChange={e=>setSelected(e.target.value)} className="ml-3 rounded border border-mk-border p-2">{versions.map(v=><option key={v.id} value={v.id}>{new Date(v.created_at).toLocaleString()}{v.id===state.publishedVersionId?" · 当前发布版本":""}</option>)}</select></label><p className="text-mk-small text-mk-secondary">请核对所选版本的内容与交互。发布需要有该版本的试用判断；可在创作构思中查看或补充。后续草稿修改不会自动更新公开页面。</p></section>}
+        {versionError&&<div role="alert" className="p-4 text-mk-danger"><Says content={errorMarkdown(`读取作品版本失败：${versionError}`)} /></div>}
         {error ? (
-          <p className="px-4 pt-3 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-            {error}
-          </p>
+          <div className="px-4 pt-3 text-mk-small" style={{ color: "var(--mk-danger)" }}><Says content={errorMarkdown(error)} /></div>
         ) : null}
 
         {missing.length ? (
           <div className="mx-4 mt-3 rounded-mk-lg border border-mk-border p-3">
-            <h3 className="text-mk-label text-mk-secondary">还缺你自己的话</h3>
+            <h3 className="text-mk-label text-mk-secondary">上线前需要完成</h3>
             <ul className="mt-1.5 space-y-1">
               {missing.map((m) => (
                 <li key={m} className="text-mk-small text-mk-secondary">
@@ -198,7 +193,7 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
             {/* 🚨 不给输入框。缺的那几处回对话里说给印记，它摆上去——这一屏
                 是判断的地方，不是填空的地方。 */}
             <p className="mt-2 text-mk-small text-mk-muted">
-              请回到对话，把这几处讲给印记，它会放到页面上。
+              {selected?"请返回创作构思，将已保存内容加入选定版本，并记录试用判断。":"请补充主页内容并确认视觉方案。"}
             </p>
           </div>
         ) : null}
@@ -211,14 +206,15 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
             {/* 🚨 narrow 要传下去。它是 prop 而不是媒体查询：`md:` 读到的是
                 真实视口，会把 390px 的手机框排成桌面版——恰好在她检查手机效果
                 的那一刻排错。见 BuiltSite 的文件头。 */}
-            <BuiltSite
+            {selected?<iframe title="待发布主页预览" src={codePreviewURL(state.projectId,selected)} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" className="h-[650px] w-full border-0"/>:<BuiltSite
               site={state.content}
               layout={state.layout}
               palette={state.palette}
               heroUrl={state.heroUrl}
               narrow={narrow}
               editing
-            />
+            />}
+            {selected&&versions.find(v=>v.id===selected)?.comparison&&<ProcessComparison comparison={versions.find(v=>v.id===selected)!.comparison!} source={codePreviewURL(state.projectId,selected)}/>}
           </div>
         </div>
 
@@ -265,6 +261,7 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
               >
                 撤回链接
               </button>
+              {selected&&selected!==state.publishedVersionId&&<button disabled={busy||missing.length>0} onClick={()=>void act(()=>publishSite(selected))} className="rounded-full border border-mk-border px-4 py-2 disabled:opacity-40">更新为所选版本</button>}
             </>
           ) : (
             <>
@@ -275,7 +272,7 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
               <button
                 type="button"
                 disabled={busy || missing.length > 0}
-                onClick={() => void act(publishSite)}
+                onClick={() => void act(()=>publishSite(selected||undefined))}
                 className="flex items-center gap-1.5 rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white disabled:opacity-40"
                 style={{ background: "var(--mk-accent-500)" }}
               >

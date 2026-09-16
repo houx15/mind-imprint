@@ -254,7 +254,7 @@ func (a *API) closePblSession(w http.ResponseWriter, r *http.Request) {
 // ALSO write a sentence would be asking the same thing twice.
 func summariseWriteBack(fields map[string]string) string {
 	parts := make([]string, 0, len(fields))
-	for _, k := range []string{"frame", "next_bet", "observation", "resolution", "reason"} {
+	for _, k := range []string{"frame", "next_bet", "observation", "resolution", "reason", "reading"} {
 		if v := strings.TrimSpace(fields[k]); v != "" {
 			parts = append(parts, v)
 		}

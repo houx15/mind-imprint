@@ -1,4 +1,4 @@
-import { Banner, Blank, Ground, MONO, Plate, cx, hair, mix, type LayoutProps } from "./parts";
+import { Banner, Blank, Ground, MONO, Plate, cx, hair, mix, textMix, type LayoutProps } from "./parts";
 
 /**
  * 方案 C · 一个作品打头 — 图先行 · 强对比.
@@ -63,7 +63,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
           <span
             key={n}
             className="text-[14px]"
-            style={{ color: i === 0 ? "var(--st-accent)" : mix(0.6) }}
+            style={{ color: i === 0 ? "var(--st-accent)" : textMix(0.6) }}
           >
             {n}
           </span>
@@ -88,7 +88,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
           {site.lead ? (
             <p
               className={cx("mt-3", narrow ? "text-[15px]" : "text-[16px]")}
-              style={{ lineHeight: 1.95, color: mix(0.7) }}
+              style={{ lineHeight: 1.95, color: textMix(0.7) }}
             >
               {site.lead}
             </p>
@@ -106,7 +106,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
                     {p.title}
                   </h3>
                   {p.blurb ? (
-                    <p className="mt-2 text-[15px]" style={{ lineHeight: 1.9, color: mix(0.68) }}>
+                    <p className="mt-2 text-[15px]" style={{ lineHeight: 1.9, color: textMix(0.68) }}>
                       {p.blurb}
                     </p>
                   ) : (
@@ -118,7 +118,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
                     className="mt-4 flex flex-wrap items-center justify-between gap-2 pt-3"
                     style={{ borderTop: `1px solid ${hair(0.1)}` }}
                   >
-                    <span className="text-[11.5px]" style={{ ...MONO, color: mix(0.42) }}>
+                    <span className="text-[11.5px]" style={{ ...MONO, color: textMix(0.42) }}>
                       {[p.date, p.kind, p.words ? `${p.words} 字` : ""].filter(Boolean).join(" · ")}
                     </span>
                   </div>
@@ -142,13 +142,13 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
                     <Plate plate={p.plate} height={narrow ? 140 : 160} radius={4} />
                     <p
                       className="mt-3 text-[11.5px] tracking-[0.08em]"
-                      style={{ ...MONO, color: mix(0.42) }}
+                      style={{ ...MONO, color: textMix(0.42) }}
                     >
                       {[p.year, p.kind].filter(Boolean).join(" · ")}
                     </p>
                     <h4 className="mt-1.5 text-[17px] font-bold">{p.title}</h4>
                     {p.blurb ? (
-                      <p className="mt-2 text-[14px]" style={{ lineHeight: 1.85, color: mix(0.66) }}>
+                      <p className="mt-2 text-[14px]" style={{ lineHeight: 1.85, color: textMix(0.66) }}>
                         {p.blurb}
                       </p>
                     ) : (
@@ -180,7 +180,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
               </span>
               <p className="mt-3 text-[16px] font-semibold">{site.name}</p>
               {site.role ? (
-                <p className="mt-1 text-[12.5px]" style={{ lineHeight: 1.7, color: mix(0.55) }}>
+                <p className="mt-1 text-[12.5px]" style={{ lineHeight: 1.7, color: textMix(0.55) }}>
                   {site.role}
                 </p>
               ) : (
@@ -204,7 +204,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
             <Box title="标签">
               <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {site.tags.map((t, i) => (
-                  <span key={t} style={{ color: mix(0.68), fontSize: [15, 13, 14, 12, 13, 12][i % 6] }}>
+                  <span key={t} style={{ color: textMix(0.68), fontSize: [15, 13, 14, 12, 13, 12][i % 6] }}>
                     {t}
                   </span>
                 ))}
@@ -222,8 +222,8 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
                   key={row.label}
                   className="flex items-baseline justify-between py-1.5 text-[13px]"
                 >
-                  <span style={{ color: mix(0.55) }}>{row.label}</span>
-                  <span style={{ color: mix(0.75) }}>{row.value}</span>
+                  <span style={{ color: textMix(0.55) }}>{row.label}</span>
+                  <span style={{ color: textMix(0.75) }}>{row.value}</span>
                 </div>
               ))}
             </Box>
@@ -232,7 +232,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
           {site.nowList.length ? (
             <Box title="现在">
               {site.nowList.map((n) => (
-                <p key={n} className="py-1 text-[13px]" style={{ lineHeight: 1.8, color: mix(0.66) }}>
+                <p key={n} className="py-1 text-[13px]" style={{ lineHeight: 1.8, color: textMix(0.66) }}>
                   {n}
                 </p>
               ))}
@@ -243,11 +243,11 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
             <Box title="在读">
               {site.reads.map((r) => (
                 <div key={r.id} className="py-1.5">
-                  <p className="text-[13px]" style={{ lineHeight: 1.7, color: mix(0.75) }}>
+                  <p className="text-[13px]" style={{ lineHeight: 1.7, color: textMix(0.75) }}>
                     {r.title}
                   </p>
                   {r.source ? (
-                    <p className="text-[11.5px]" style={{ ...MONO, color: mix(0.4) }}>
+                    <p className="text-[11.5px]" style={{ ...MONO, color: textMix(0.4) }}>
                       {r.source}
                     </p>
                   ) : null}
@@ -274,7 +274,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
               <p
                 key={para.slice(0, 12)}
                 className="mb-4 text-[15px]"
-                style={{ lineHeight: 2, color: mix(0.8) }}
+                style={{ lineHeight: 2, color: textMix(0.8) }}
               >
                 {para}
               </p>
@@ -285,7 +285,7 @@ export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps)
 
       <footer
         className="px-6 py-8 text-center text-[11.5px]"
-        style={{ ...MONO, color: mix(0.4), borderTop: `1px solid ${hair(0.12)}` }}
+        style={{ ...MONO, color: textMix(0.4), borderTop: `1px solid ${hair(0.12)}` }}
       >
         © {new Date().getFullYear()} {site.name} · 用 思维印记 搭建
       </footer>
@@ -302,7 +302,7 @@ function Box({ title, children }: { title?: string; children: React.ReactNode })
       {title ? (
         <p
           className="mb-2 pb-2 text-[12px] tracking-[0.16em]"
-          style={{ ...MONO, color: mix(0.5), borderBottom: `1px solid ${hair(0.1)}` }}
+          style={{ ...MONO, color: textMix(0.5), borderBottom: `1px solid ${hair(0.1)}` }}
         >
           {title}
         </p>

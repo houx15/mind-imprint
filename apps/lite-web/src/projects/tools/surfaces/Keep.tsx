@@ -1,5 +1,6 @@
+import { Says, errorMarkdown } from "../../Says";
 import { apiErrorText } from "../../../api/errorText";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Plus } from "lucide-react";
 import { Icon } from "@/ui";
 import {
@@ -43,7 +44,7 @@ export function Keep({
   onClose,
 }: ToolSurfaceProps) {
   const [entries, setEntries] = useState<KeepEntry[]>([]);
-  const [kind, setKind] = useState<KeepKind>("stat");
+  const [kind, setKind] = useState<KeepKind>("feedback");
   const [stage, setStage] = useState<KeepStage>("observe");
   const [draft, setDraft] = useState("");
   const [metric, setMetric] = useState<string | null>(null);
@@ -53,13 +54,15 @@ export function Keep({
   // 改一件事时的预期。空着也能提交：不写预测也是一次改动（铁律④）。
   const [expect, setExpect] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const reload = useCallback(async () => {
     setEntries(await listKeepEntries(projectId));
   }, [projectId]);
 
   useEffect(() => {
-    void reload();
+    void reload().catch((err) => setError(`加载失败：${apiErrorText(err)}`));
   }, [reload]);
 
   const at = keepStage(entries);
@@ -70,8 +73,10 @@ export function Keep({
 
   async function add() {
     const body = draft.trim();
-    if (!body) return;
-    setDraft("");
+    if (!body || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
     try {
       const made = await addKeepEntry(projectId, {
         kind, body, stage,
@@ -81,11 +86,15 @@ export function Keep({
         expect: expect.trim(),
       });
       setEntries((prev) => [made, ...prev]);
+      setDraft("");
       setNum("");
       setUnit("");
       setExpect("");
     } catch (err) {
-      setError(apiErrorText(err));
+      setError(`记录失败：${apiErrorText(err)}`);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
 
@@ -122,15 +131,17 @@ export function Keep({
       title={tool.label}
       task="收集数据 - 思考原因 - 进行优化，是产品不断变好的关键"
       why={tool.reason}
-      todo={entries.length === 0 ? "记录关于产品的实际反馈 / 使用情况" : ""}
+      todo={entries.length === 0 ? "记录反馈、数据或想法" : ""}
       finishLabel="完成"
-      onFinish={() => onFinish({ entries: entries.length }, "")}
+      onFinish={() => { if (!savingRef.current) onFinish({ entries: entries.length }, ""); }}
       onClose={onClose}
+      busy={saving}
     >
+      <fieldset disabled={saving} className="min-w-0">
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       {/* 🚨 先说清这件事为什么值得做，再请她交数据（产品负责人 2026-09-02：
@@ -145,6 +156,21 @@ export function Keep({
           把你观察到的带回来，我们一起看它说明了什么。
         </p>
       </div>
+
+      {entries.length === 0 && (
+        <div className="mt-3 rounded-mk-md border border-mk-border px-3 py-2.5">
+          <p className="text-mk-small font-medium text-mk-ink">首次反馈</p>
+          <p className="mt-1 text-mk-small text-mk-secondary">
+            真实使用中的困难能帮助你确定修改方向。请邀请一位目标用户试用成果，记录他想做什么、实际做了什么，以及遇到的困难。
+          </p>
+          <p className="mt-1 text-mk-small text-mk-secondary">
+            尚未测试时，可以收起工具，取得反馈后再回来记录。收起不会将本次任务标记为已完成。
+          </p>
+          <button type="button" onClick={onClose} className="mt-2 text-mk-small text-mk-accent-500">
+            收起，稍后记录
+          </button>
+        </div>
+      )}
 
       {/* 🚨 圈数。迭代的意思是重复——一张勾一次就完的清单不是迭代。
           走完一轮（记下一条「产品迭代」）就多一圈，让"又转了一圈"这件事看得见。 */}
@@ -291,8 +317,8 @@ export function Keep({
           <button
             type="button"
             onClick={() => void add()}
-            disabled={!draft.trim()}
-            aria-label="添加"
+            disabled={!draft.trim() || saving}
+            aria-label={saving ? "保存中" : "添加"}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
             style={{ background: "var(--mk-accent-500)" }}
           >
@@ -380,6 +406,9 @@ export function Keep({
                 </div>
               )}
               <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-mk-small text-mk-secondary">
+                  {KEEP_KINDS.find((k) => k.kind === e.kind)?.label}
+                </span>
                 <span className="text-mk-small text-mk-faint">{meta?.label}</span>
                 <button
                   type="button"
@@ -388,13 +417,14 @@ export function Keep({
                   style={{ color: "var(--mk-accent-500)" }}
                 >
                   <Icon icon={MessageCircle} size={12} />
-                  {e.sessionId ? "继续讨论" : "深入讨论"}
+                  {e.sessionId ? "查看讨论" : "深入讨论"}
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+      </fieldset>
     </ToolFrame>
   );
 }

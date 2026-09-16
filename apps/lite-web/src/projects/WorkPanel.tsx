@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "./Says";
 import { studentArtwork } from "../learning/StudentArtwork";
 import { useCallback, useEffect, useState } from "react";
 import { apiErrorText } from "../api/errorText";
@@ -9,6 +10,7 @@ import { PlanPanel } from "./PlanPanel";
 import { TOOL_TASKS, surfaceFor, type ToolSurfaceProps } from "./tools/registry";
 import { ToolFrame } from "./tools/ToolFrame";
 import { WidePaneProvider } from "./tools/wide";
+import { ArtifactLibrary } from "./ArtifactLibrary";
 
 /**
  * WorkPanel —— 右边这一栏。
@@ -51,7 +53,7 @@ export function WorkPanel({
   onSelectTool: (id: string | null) => void;
   onFinishTool: (tool: ToolInstance, result: unknown, summary: string) => void;
   /** 工具把她送进一条支线（服务端已经开好）。 */
-  onOpenSession: (sessionId: string) => void;
+  onOpenSession: (sessionId: string) => Promise<boolean>;
   /** 材料清单开了一件工具：房间把它放进列表并选中。 */
   onOpenMaterial: (tool: ToolInstance) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
@@ -68,6 +70,16 @@ export function WorkPanel({
   // 🚨 打开的可以是任何一件已接受的工具，包括出门回来要汇报的那件——所以这里
   // 查的是全部 tools，不是 openThinking。少了这一句，「我回来了」按下去没反应。
   const active = tools.find((t) => t.id === openTool && t.status === "accepted") ?? null;
+  const [showArtifacts, setShowArtifacts] = useState(false);
+  useEffect(() => setShowArtifacts(false), [projectId, openTool]);
+
+  async function openReview() {
+    const existing = tools.find(t => t.tool === "review" && (t.status === "accepted" || t.status === "summoned"));
+    const offered = existing ?? await summonTool(projectId, {tool: "review", reason: SELF_OPENED});
+    const opened = offered.status === "accepted" ? offered : await acceptTool(projectId, offered.id);
+    onOpenMaterial(opened);
+    setShowArtifacts(false);
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -78,7 +90,7 @@ export function WorkPanel({
           原来那排标签页既占地方，又让"我现在在哪儿"变成一个要她自己维护的
           状态；而且工具一多就横向滚动，当前那个还常常滚出视野。 */}
       <div className="min-h-0 flex-1">
-        {active ? (
+        {showArtifacts ? <ArtifactLibrary projectId={projectId} busy={busy} onClose={() => setShowArtifacts(false)} onReview={openReview} onOpenSession={id => { void onOpenSession(id).then(opened => { if (opened) setShowArtifacts(false); }); }} /> : active ? (
           <WidePaneProvider value={{ wide, toggle: onToggleWide }}>
             <ToolSurface
               projectId={projectId}
@@ -102,6 +114,7 @@ export function WorkPanel({
                 pending={plan.pending}
                 onResolve={onResolve}
                 onApprove={onApprove}
+                busy={busy}
               />
             </div>
 
@@ -135,6 +148,7 @@ export function WorkPanel({
               projectKind={projectKind}
               tools={tools}
               onOpen={onOpenMaterial}
+              onArtifacts={() => setShowArtifacts(true)}
             />
           </div>
         )}
@@ -155,12 +169,14 @@ function MaterialsList({
   projectKind,
   tools,
   onOpen,
+  onArtifacts,
 }: {
   projectId: string;
   projectKind: string;
   tools: Tool[];
   /** 开这件工具：把它交给房间，房间负责放进列表并选中。 */
   onOpen: (tool: Tool) => void;
+  onArtifacts: () => void;
 }) {
   const [items, setItems] = useState<Material[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +197,8 @@ function MaterialsList({
   async function open(m: Material) {
     // 🚨 空的那几行不开。点进去看到「暂时没有需要决策的内容」，和印记递一件
     // 点开是空的工具是同一种挫败——只不过这次是她自己撞上去的。
-    if (m.count === 0) return;
+    if (m.count === 0 && !m.availableWhenEmpty) return;
+    if (m.tool === "review") { onArtifacts(); return; }
     // 已经开着的那件优先，不要给同一件工具再造一张卡。
     const live = tools.find((t) => t.tool === m.tool && t.status === "accepted");
     if (live) {
@@ -208,11 +225,11 @@ function MaterialsList({
     <div className="border-t border-mk-border px-4 py-3">
       <p className="text-mk-small font-semibold text-mk-ink">材料</p>
       {error && (
-        <p className="mt-1 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mt-1 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
-      {!error && items.length > 0 && items.every(m => m.count === 0) && (
+      {!error && items.length > 0 && items.every(m => m.count === 0 && !m.availableWhenEmpty) && (
         <div className="student-materials-empty">
           <img src={studentArtwork.project} alt="" />
           <p>暂无项目材料</p>
@@ -220,8 +237,8 @@ function MaterialsList({
         </div>
       )}
       <div className="mt-2 space-y-1">
-        {items.filter(m => m.count > 0).map((m) => {
-          const empty = m.count === 0;
+        {items.filter(m => m.count > 0 || m.availableWhenEmpty).map((m) => {
+          const empty = m.count === 0 && !m.availableWhenEmpty;
           return (
             <button
               key={m.tool}

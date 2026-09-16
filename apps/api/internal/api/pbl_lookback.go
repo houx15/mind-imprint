@@ -39,7 +39,8 @@ var pblStances = map[string]bool{
 }
 
 type pblLookbackDTO struct {
-	ID string `json:"id"`
+	Revision int32  `json:"revision"`
+	ID       string `json:"id"`
 	// 六段之一：what / how / moment / praise / improve / with_ai。
 	Section string `json:"section"`
 	Prompt  string `json:"prompt"`
@@ -54,7 +55,8 @@ type pblLookbackDTO struct {
 
 func toPblLookbackDTO(p sqlc.PblReview) pblLookbackDTO {
 	return pblLookbackDTO{
-		ID: p.ID.String(), Section: p.Section, Prompt: p.Prompt,
+		Revision: p.Revision,
+		ID:       p.ID.String(), Section: p.Section, Prompt: p.Prompt,
 		Answer: p.Answer, Evidence: p.AnchorRef, Stance: p.Stance, Ordinal: p.Ordinal,
 	}
 }
@@ -69,13 +71,64 @@ func (a *API) gatherPblLookback(r *http.Request, atomID uuid.UUID) (pbl.Lookback
 	if err != nil {
 		return in, err
 	}
-	in.Idea, in.Name = p.Idea, p.Name
+	in.Idea, in.Name, in.Kind = p.Idea, p.Name, p.Kind
 	in.Assigned, in.AssignedBrief = p.Assigned, derefOr(p.AssignedBrief, "")
+	if in.Assigned {
+		in.AssignedBrief, err = a.pblAssignmentBrief(r, atomID, in.AssignedBrief)
+		if err != nil {
+			return in, err
+		}
+	}
+
+	personas, err := a.d.Queries.ListPblPersonas(r.Context(), atomID)
+	if err != nil {
+		return in, err
+	}
+	for _, persona := range personas {
+		if persona.Chosen {
+			in.Process = append(in.Process, "已选择的受众："+persona.Label+"；展示目标："+persona.Wants)
+		}
+	}
+	refs, err := a.d.Queries.ListPblSiteRefs(r.Context(), atomID)
+	if err != nil {
+		return in, err
+	}
+	for _, ref := range refs {
+		if strings.TrimSpace(ref.SheSaid) != "" {
+			in.Process = append(in.Process, "学生对参考网站的取舍："+ref.SheSaid)
+		}
+	}
+	messages, err := a.d.Queries.ListPblMainThread(r.Context(), atomID)
+	if err != nil {
+		return in, err
+	}
+	// Keep recent authored evidence bounded; never treat AI success prose as an
+	// executed action. Tool/system receipts and student words remain labelled.
+	var recent []string
+	for _, message := range messages {
+		if message.Role == "student" || message.Role == "system" {
+			recent = append(recent, message.Role+"原始记录："+message.Content)
+		}
+	}
+	if len(recent) > 30 {
+		recent = recent[len(recent)-30:]
+	}
+	in.Process = append(in.Process, recent...)
 
 	if v, verr := a.d.Queries.GetPblLivePlan(r.Context(), atomID); verr == nil {
 		if steps, serr := a.d.Queries.ListPblPlanSteps(r.Context(), v.ID); serr == nil {
+			plan := pblPlanDTO{}
 			for _, st := range steps {
-				in.Steps = append(in.Steps, st.Title+"（"+st.Status+"）")
+				plan.Steps = append(plan.Steps, toPblStepDTO(st))
+			}
+			a.attachHomepageProgress(r, atomID, &plan)
+			for _, st := range plan.Steps {
+				status := map[string]string{"todo": "待开始", "doing": "进行中", "done": "已完成"}[st.Progress]
+				if status != "" {
+					in.Steps = append(in.Steps, st.Title+"（"+status+"）")
+				} else {
+					in.Steps = append(in.Steps, st.Title)
+				}
 			}
 		}
 	}
@@ -136,7 +189,14 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 	}
 	// 🚨 只生成一次。再生成一遍会把她答过的冲掉，而复盘本来就是隔几天回来
 	// 慢慢写的。
-	if len(existing) == 0 {
+	regenerate := r.Method == http.MethodPost
+	if len(existing) == 0 || regenerate {
+		var baseRevision int32
+		for _, p := range existing {
+			if p.Revision > baseRevision {
+				baseRevision = p.Revision
+			}
+		}
 		u, _ := UserFromContext(r.Context())
 		in, gerr := a.gatherPblLookback(r, atomID)
 		if gerr != nil {
@@ -181,16 +241,24 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, aerr)
 			return
 		}
-		if len(again) > 0 {
+		var latestRevision int32
+		for _, p := range again {
+			if p.Revision > latestRevision {
+				latestRevision = p.Revision
+			}
+		}
+		if latestRevision > baseRevision || (!regenerate && len(again) > 0) {
 			existing = again
 		} else {
+			existing = again
 			for i, q := range qs {
 				row, cerr := qtx.CreatePblReviewPrompt(r.Context(), sqlc.CreatePblReviewPromptParams{
-					AtomID: atomID, Prompt: q.Prompt, Section: q.Section,
+					Revision: baseRevision + 1,
+					AtomID:   atomID, Prompt: q.Prompt, Section: q.Section,
 					// 🚨 这一问是冲着哪件事去的。原来这里恒是 free/""——两列白摆着，
 					// 而复盘因此变回了一张放到任何项目上都成立的感想表。
 					AnchorKind: anchorKindOf(q.Evidence), AnchorRef: q.Evidence,
-					Ordinal:    int32(i),
+					Ordinal: int32(i),
 				})
 				if cerr != nil {
 					httpx.WriteError(w, r, cerr)
@@ -227,7 +295,7 @@ func (a *API) answerPblLookback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Answer string `json:"answer"`
+		Answer *string `json:"answer"`
 		// 现在还这么想吗：still / changed / unclear。空 = 她没表态。
 		Stance *string `json:"stance"`
 	}
@@ -246,8 +314,12 @@ func (a *API) answerPblLookback(w http.ResponseWriter, r *http.Request) {
 		}
 		stance = s
 	}
+	answer := row.Answer
+	if req.Answer != nil {
+		answer = strings.TrimSpace(*req.Answer)
+	}
 	out, err := a.d.Queries.AnswerPblReviewPrompt(r.Context(), sqlc.AnswerPblReviewPromptParams{
-		ID: lid, Answer: strings.TrimSpace(req.Answer), Stance: stance,
+		ID: lid, Answer: answer, Stance: stance,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

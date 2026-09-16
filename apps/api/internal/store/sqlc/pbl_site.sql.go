@@ -122,7 +122,7 @@ const getPblWebsiteProjectByUser = `-- name: GetPblWebsiteProjectByUser :one
 SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.status, p.updated_at, p.board_axes, p.finished_at, p.assigned, p.assigned_brief, a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p JOIN atom a ON a.id = p.atom_id
 WHERE a.user_id = $1 AND a.kind = 'project' AND p.kind = 'website'
-ORDER BY a.created_at ASC LIMIT 1
+ORDER BY EXISTS (SELECT 1 FROM pbl_site s WHERE s.user_id = a.user_id AND s.atom_id = p.atom_id) DESC, a.created_at ASC, a.id ASC LIMIT 1
 `
 
 type GetPblWebsiteProjectByUserRow struct {
@@ -315,6 +315,17 @@ func (q *Queries) ListSiteWritingsByUser(ctx context.Context, userID uuid.UUID) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockPblSiteOwner = `-- name: LockPblSiteOwner :one
+SELECT id FROM users WHERE id = $1 FOR UPDATE
+`
+
+// Serialize starts even before the site exists. Use inside a transaction.
+func (q *Queries) LockPblSiteOwner(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockPblSiteOwner, id)
+	err := row.Scan(&id)
+	return id, err
 }
 
 const setPblSiteContent = `-- name: SetPblSiteContent :one

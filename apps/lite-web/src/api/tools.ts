@@ -12,6 +12,8 @@ export type ToolStatus = "summoned" | "accepted" | "declined" | "done";
 
 export interface ToolInstance {
   id: string;
+  /** Missing or null means the main project discussion. */
+  sessionId?: string | null;
   /** 工具名。自由字符串——工具箱是开放的。 */
   tool: string;
   kind: ToolKind;
@@ -25,6 +27,10 @@ export interface ToolInstance {
   acceptedAt: string | null;
   resolvedAt: string | null;
   createdAt: string;
+}
+
+export function toolsForSession(tools: ToolInstance[], sessionId: string | null): ToolInstance[] {
+  return tools.filter(tool => (tool.sessionId ?? null) === sessionId);
 }
 
 export function listTools(projectId: string): Promise<ToolInstance[]> {

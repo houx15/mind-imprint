@@ -1,0 +1,5 @@
+---
+import {t,path,demoUrl,type Lang} from '../config';import Icon from './Icon.astro';
+const {lang='zh'}=Astro.props as {lang:Lang};
+---
+<section class="closing"><div class="wrap closing-inner"><div><span class="eyebrow">THE NEXT CHAPTER OF LEARNING</span><h2>{t(lang,['让 AI 参与学习，\n让思考属于学生。','Bring AI into learning.\nKeep students thinking.'])}</h2><p>{t(lang,['从一段阅读、一次写作或一个项目开始，了解思维印记如何支持你的教学。','Start with a reading, a piece of writing or a project. See how Mind Imprint can support your teaching.'])}</p><div class="actions"><a class="button light" href={path(lang,'schools')}>{t(lang,['学校与教师','For schools & educators'])}<Icon name="arrow"/></a><a class="text-link inverse" href={demoUrl}>{t(lang,['体验产品','Try the product'])}<Icon name="arrow"/></a></div></div><div class="closing-art" aria-hidden="true"><span class="orbit-ring"></span><span class="orbit-ring two"></span><span class="orbit-dot"></span><Icon name="mark"/></div></div></section>

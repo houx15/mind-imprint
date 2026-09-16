@@ -34,10 +34,10 @@ var pblKeepStages = map[string]bool{
 }
 
 type pblKeepDTO struct {
-	ID        string  `json:"id"`
-	Kind      string  `json:"kind"`
-	Body      string  `json:"body"`
-	Stage     string  `json:"stage"`
+	ID    string `json:"id"`
+	Kind  string `json:"kind"`
+	Body  string `json:"body"`
+	Stage string `json:"stage"`
 	// 一个数字、它的单位，和上一次是多少。数字的意思在变化里。
 	Metric string   `json:"metric"`
 	Value  *float64 `json:"value"`
@@ -178,6 +178,12 @@ func (a *API) openPblKeepSession(w http.ResponseWriter, r *http.Request) {
 	// 而它是这一层的题目、会当标题显示——产品负责人 2026-09-02 在文案表上标了
 	// 「didn't understand this」。
 	question := "这条反馈说明了什么"
+	switch entry.Kind {
+	case "thought":
+		question = "这个想法可以怎样验证"
+	case "stat":
+		question = "这条数据能支持什么判断"
+	}
 	sess, err := a.d.Queries.CreatePblSession(r.Context(), sqlc.CreatePblSessionParams{
 		AtomID: atomID, Kind: "keeping", ParentID: pgtype.UUID{}, Depth: 0,
 		AnchorKind: "free", AnchorRef: entry.ID.String(), Question: question,

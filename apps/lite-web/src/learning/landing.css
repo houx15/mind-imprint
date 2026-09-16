@@ -81,13 +81,28 @@
   padding: var(--mk-space-28) var(--mk-space-32);
   max-width: 760px;
 }
-.learning-project-gate > p {
+.learning-project-gate-illustrated {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  max-width: 960px;
+}
+.learning-project-gate > p,
+.learning-project-gate-copy > p {
   max-width: 620px;
   line-height: 1.8;
 }
-.learning-project-gate > button {
+.learning-project-gate > button,
+.learning-project-gate-copy > button {
   margin-top: var(--mk-space-22);
   border-radius: var(--mk-radius-sm);
+}
+.learning-project-gate-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 .learning-project-start > div {
   border-radius: var(--mk-radius-lg);
@@ -122,6 +137,13 @@
   }
   .learning-project-gate {
     padding: var(--mk-space-22);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .learning-project-gate-art {
+    grid-row: 1;
+    max-width: 240px;
+    justify-self: center;
   }
 }
 @media (max-width: 400px) {

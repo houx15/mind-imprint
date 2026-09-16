@@ -122,7 +122,9 @@ SELECT p.atom_id, p.idea, p.kind, p.name, p.cover_ground, p.cover_glyph, p.statu
        -- 于是"还没有计划"这个最常见的情况一扫描就炸。
        COALESCE(step.title, '')::text AS current_step,
        COALESCE(done.n, 0)::int AS steps_done,
-       COALESCE(total.n, 0)::int AS steps_total
+       COALESCE(total.n, 0)::int AS steps_total,
+       COALESCE((SELECT v.approved_at IS NULL FROM pbl_plan_version v
+                 WHERE v.atom_id=p.atom_id ORDER BY v.version DESC LIMIT 1), false)::boolean AS plan_pending
 FROM pbl_project p
 JOIN atom a ON a.id = p.atom_id
 LEFT JOIN LATERAL (
@@ -164,6 +166,7 @@ type ListPblProjectsByUserRow struct {
 	CurrentStep    string             `json:"current_step"`
 	StepsDone      int32              `json:"steps_done"`
 	StepsTotal     int32              `json:"steps_total"`
+	PlanPending    bool               `json:"plan_pending"`
 }
 
 // 看板一次读全部：一个学生的项目是十几个的量级，不分页。按最近活跃降序，
@@ -198,6 +201,7 @@ func (q *Queries) ListPblProjectsByUser(ctx context.Context, userID uuid.UUID) (
 			&i.CurrentStep,
 			&i.StepsDone,
 			&i.StepsTotal,
+			&i.PlanPending,
 		); err != nil {
 			return nil, err
 		}

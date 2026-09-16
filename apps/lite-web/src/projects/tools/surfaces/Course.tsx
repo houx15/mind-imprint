@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "../../Says";
 import { useCallback, useEffect, useState } from "react";
 import { Clock, GraduationCap, Layers, Play } from "lucide-react";
 import { Icon } from "@/ui";
@@ -104,9 +105,9 @@ export function Course({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         busy={busy}
       >
         {error && (
-          <p className="mb-3 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-            {error}
-          </p>
+          <div className="mb-3 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+            <Says content={errorMarkdown(error)} />
+          </div>
         )}
 
         {courses.length === 0 && (

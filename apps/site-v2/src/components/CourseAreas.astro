@@ -1,0 +1,5 @@
+---
+import {courseAreas} from '../data/courseAreas';import {t,path,type Lang} from '../config';import Icon from './Icon.astro';
+const {lang}=Astro.props as {lang:Lang};
+---
+<section class="section wrap" id="course-areas"><div class="section-head"><div><span class="eyebrow">A CURRICULUM FOR THINKING AND PARTICIPATING</span><h2>{t(lang,['七个课程板块，\n对应真实的教育问题。','Seven curriculum areas.\nQuestions that matter in the classroom.'])}</h2></div><p>{t(lang,['围绕 AI、信息、历史、媒体、数据与自我展开。每个板块都有具体的学习情境、思维方法与课程，供教育工作者结合教学任务选择。','Explore AI, information, history, media, data and the self. Each area connects learning situations, thinking methods and courses that educators can use within their teaching.'])}</p></div><div class="curriculum-grid">{courseAreas.map((area,i)=><a href={path(lang,`courses/${area.id}`)} class="curriculum-card"><span class="eyebrow">0{i+1}</span><h3>{t(lang,area.name)}</h3><h4>{t(lang,area.question)}</h4><p>{t(lang,area.intro)}</p><span class="text-link">{t(lang,['探索课程板块','Explore this curriculum area'])}<Icon name="arrow"/></span></a>)}</div></section>

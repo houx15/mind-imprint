@@ -10,10 +10,14 @@ package api
 // 返回一个我们自己的 key。存进库的永远是那个 key。
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"time"
@@ -47,23 +51,27 @@ func (a *API) drawAndStore(
 		drawer = gateway.NewHTTPDrawer()
 	}
 	out, err := drawer.Draw(ctx, resolved, gateway.DrawRequest{Prompt: prompt})
+
+	// Record every attempted draw, including provider errors. A row records the
+	// attempt; the routing price catalog determines whether a cost can be estimated.
+	a.recordLiteLLMCall(ctx, userID, atomID, "pbl_draw_"+purpose, resolved, gateway.ChatUsage{})
 	if err != nil {
 		return "", err
 	}
-
-	// 🚨 计费：画图不走 ChatUsage（没有 token），但它**要钱**。按一次调用记一行，
-	// 不然组织成本汇总里这一块是零，而它其实是这个项目里最贵的一次调用。
-	a.recordLiteLLMCall(ctx, userID, atomID, "pbl_draw_"+purpose, resolved, gateway.ChatUsage{})
 
 	blob, err := fetchGeneratedImage(ctx, out.URL)
 	if err != nil {
 		return "", err
 	}
-	key, err := generatedImageKey(userID, purpose)
+	contentType, extension, err := generatedImageFormat(blob)
 	if err != nil {
 		return "", err
 	}
-	if err := a.d.OSS.PutObject(ctx, key, "image/png", blob); err != nil {
+	key, err := generatedImageKey(userID, purpose, extension)
+	if err != nil {
+		return "", err
+	}
+	if err := a.d.OSS.PutObject(ctx, key, contentType, blob); err != nil {
 		return "", err
 	}
 	return key, nil
@@ -106,13 +114,13 @@ func fetchGeneratedImage(ctx context.Context, url string) ([]byte, error) {
 //
 // 走 users/<uid>/ 前缀，和她上传的图同一个作用域（oss.go · ossKnownPrefixes），
 // 所以 resolve-url 那道闸不用为它开口子。
-func generatedImageKey(userID uuid.UUID, purpose string) (string, error) {
+func generatedImageKey(userID uuid.UUID, purpose, extension string) (string, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("users/%s/generated/%s-%s.png",
-		userID.String(), purpose, hex.EncodeToString(b[:])), nil
+	return fmt.Sprintf("users/%s/generated/%s-%s.%s",
+		userID.String(), purpose, hex.EncodeToString(b[:]), extension), nil
 }
 
 // signedOrEmpty 把 object key 变成她那边能显示的地址。签不出来就给空串——
@@ -126,4 +134,27 @@ func (a *API) signedOrEmpty(key string) string {
 		return ""
 	}
 	return url
+}
+
+// Inspect bytes rather than trusting an upstream Content-Type or filename.
+// Limit decoded size before decoding so a small compressed file cannot allocate
+// an arbitrarily large image. Decode also rejects truncated pixel data.
+func generatedImageFormat(blob []byte) (string, string, error) {
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(blob))
+	if err != nil {
+		return "", "", fmt.Errorf("pbl draw: generated file is not a supported PNG or JPEG image: %w", err)
+	}
+	if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 8192 || cfg.Height > 8192 || int64(cfg.Width)*int64(cfg.Height) > 16000000 {
+		return "", "", fmt.Errorf("pbl draw: generated image dimensions exceed the 16-megapixel limit")
+	}
+	if format != "png" && format != "jpeg" {
+		return "", "", fmt.Errorf("pbl draw: unsupported image format %q", format)
+	}
+	if _, _, err := image.Decode(bytes.NewReader(blob)); err != nil {
+		return "", "", fmt.Errorf("pbl draw: generated image is incomplete or invalid: %w", err)
+	}
+	if format == "jpeg" {
+		return "image/jpeg", "jpg", nil
+	}
+	return "image/png", "png", nil
 }

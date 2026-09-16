@@ -447,8 +447,12 @@ type liteToolDTO struct {
 }
 
 type liteArtifactDTO struct {
-	Title   string          `json:"title"`
-	Payload json.RawMessage `json:"payload"`
+	ID        uuid.UUID       `json:"id"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Verdict   string          `json:"verdict"`
+	Why       string          `json:"why"`
+	Title     string          `json:"title"`
+	Payload   json.RawMessage `json:"payload"`
 }
 
 type liteKeepDTO struct {
@@ -497,6 +501,24 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 		}
 	}
 
+	// A proposal is visible work, but must not replace approved execution progress.
+	shown, err := notFoundIsNil(a.d.Queries.GetPblShownPlan(ctx, atomID))
+	if err != nil {
+		return nil, err
+	}
+	var pendingPlan any
+	if shown != nil && !shown.ApprovedAt.Valid {
+		rows, err := a.d.Queries.ListPblPlanSteps(ctx, shown.ID)
+		if err != nil {
+			return nil, err
+		}
+		titles := make([]string, 0, len(rows))
+		for _, step := range rows {
+			titles = append(titles, step.Title)
+		}
+		pendingPlan = map[string]any{"version": shown.Version, "summary": shown.Summary, "steps": titles}
+	}
+
 	toolRows, err := a.d.Queries.ListPblTools(ctx, atomID)
 	if err != nil {
 		return nil, err
@@ -507,7 +529,14 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 		if spec, ok := pbl.LookupTool(tl.Tool); ok {
 			label = spec.Label
 		}
-		tools = append(tools, liteToolDTO{Label: label, Key: tl.Tool, Status: tl.Status, Result: json.RawMessage(tl.Result)})
+		result := json.RawMessage(tl.Result)
+		if tl.Tool == "creative" {
+			result = json.RawMessage(creativeContext(tl.Result))
+			if len(result) == 0 {
+				result = json.RawMessage("null")
+			}
+		}
+		tools = append(tools, liteToolDTO{Label: label, Key: tl.Tool, Status: tl.Status, Result: result})
 	}
 
 	artifactRows, err := a.d.Queries.ListPblArtifacts(ctx, atomID)
@@ -516,7 +545,11 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 	}
 	artifacts := make([]liteArtifactDTO, 0, len(artifactRows))
 	for _, ar := range artifactRows {
-		artifacts = append(artifacts, liteArtifactDTO{Title: ar.Title, Payload: json.RawMessage(ar.Payload)})
+		verdict, why := "pending", ""
+		if ar.SettledAt.Valid && ar.Verdict != nil {
+			verdict, why = *ar.Verdict, ar.Why
+		}
+		artifacts = append(artifacts, liteArtifactDTO{ID: ar.ID, CreatedAt: ar.CreatedAt, Verdict: verdict, Why: why, Title: ar.Title, Payload: json.RawMessage(ar.Payload)})
 	}
 
 	keepRows, err := a.d.Queries.ListPblKeepEntries(ctx, atomID)
@@ -554,16 +587,17 @@ func (a *API) liteTeacherProject(ctx context.Context, userID, atomID uuid.UUID) 
 	}
 
 	return map[string]any{
-		"idea":       proj.Idea,
-		"assigned":   proj.Assigned,
-		"status":     proj.Status,
-		"stepsDone":  stepsDone,
-		"stepsTotal": stepsTotal,
-		"steps":      steps,
-		"tools":      tools,
-		"artifacts":  artifacts,
-		"keeps":      keeps,
-		"courses":    courses,
-		"siteToken":  siteToken,
+		"idea":        proj.Idea,
+		"assigned":    proj.Assigned,
+		"status":      proj.Status,
+		"stepsDone":   stepsDone,
+		"stepsTotal":  stepsTotal,
+		"pendingPlan": pendingPlan,
+		"steps":       steps,
+		"tools":       tools,
+		"artifacts":   artifacts,
+		"keeps":       keeps,
+		"courses":     courses,
+		"siteToken":   siteToken,
 	}, nil
 }

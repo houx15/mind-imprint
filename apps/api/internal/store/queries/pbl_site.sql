@@ -94,4 +94,8 @@ LIMIT 12;
 SELECT p.*, a.created_at AS atom_created_at, a.last_activity_at
 FROM pbl_project p JOIN atom a ON a.id = p.atom_id
 WHERE a.user_id = $1 AND a.kind = 'project' AND p.kind = 'website'
-ORDER BY a.created_at ASC LIMIT 1;
+ORDER BY EXISTS (SELECT 1 FROM pbl_site s WHERE s.user_id = a.user_id AND s.atom_id = p.atom_id) DESC, a.created_at ASC, a.id ASC LIMIT 1;
+
+-- name: LockPblSiteOwner :one
+-- Serialize starts even before the site exists. Use inside a transaction.
+SELECT id FROM users WHERE id = $1 FOR UPDATE;

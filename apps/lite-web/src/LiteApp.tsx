@@ -1,4 +1,6 @@
 import { StudentArtwork } from "./learning/StudentArtwork";
+import { ApiError } from "./api/client";
+import { apiErrorText } from "./api/errorText";
 import learningTogether from "./home/assets/learning-together-v3.webp";
 import { GuestTheme } from "./learning/GuestTheme";
 import { CompanionAppearanceProvider } from "../../web/src/ui/CompanionAppearance";
@@ -35,6 +37,7 @@ import { EditionRedirectNotice } from "@/shell/edition/EditionRedirectNotice";
 import {
   liteRoutePath,
   navigate,
+  listenForNavigation,
   parseLiteRoute,
   settingsPath,
   type LiteRoute,
@@ -158,18 +161,22 @@ const unusedSettingsSession = createSession({ storage: makeMemoryStorage() });
 export function LiteApp() {
   const [booted, setBooted] = useState(false);
   const [user, setUser] = useState<MeUser | null>(null);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [bootAttempt, setBootAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     async function boot() {
+      setBooted(false);
+      setBootError(null);
       try {
         const me = await getMe();
         if (!cancelled) setUser(me);
-      } catch {
-        // No live session — fall through to the auth screen. Any other
-        // failure looks the same from here and has the same right answer:
-        // ask them to sign in.
-        if (!cancelled) setUser(null);
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError && err.status === 401) setUser(null);
+          else setBootError(apiErrorText(err));
+        }
       } finally {
         if (!cancelled) setBooted(true);
       }
@@ -178,9 +185,16 @@ export function LiteApp() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [bootAttempt]);
 
   if (!booted) return <GuestTheme><div className="h-full w-full bg-mk-paper" /></GuestTheme>;
+
+  if (bootError) {
+    return <GuestTheme><div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-mk-ink">
+      <p role="alert">读取账号状态失败：{bootError}</p>
+      <button type="button" className="rounded-mk-full bg-mk-accent-500 px-5 py-2.5 text-white" onClick={() => setBootAttempt((n) => n + 1)}>重新加载</button>
+    </div></GuestTheme>;
+  }
 
   if (user === null) {
     return <GuestTheme><AuthScreen illustration={learningTogether} onAuthed={setUser} client={{ signin, signup }} /></GuestTheme>;
@@ -240,8 +254,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     function onPopState() {
       setRoute(parseLiteRoute(window.location.pathname));
     }
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    return listenForNavigation(onPopState);
   }, []);
 
   // 觉醒协议**满屏渲染，不带导航轨**。它是一个连续的七屏叙事，旁边杵着一条

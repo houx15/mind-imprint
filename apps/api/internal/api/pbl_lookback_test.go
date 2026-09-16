@@ -10,10 +10,11 @@ import (
 )
 
 type lookbackOut struct {
-	ID      string `json:"id"`
-	Section string `json:"section"`
-	Prompt  string `json:"prompt"`
-	Answer  string `json:"answer"`
+	Revision int32  `json:"revision"`
+	ID       string `json:"id"`
+	Section  string `json:"section"`
+	Prompt   string `json:"prompt"`
+	Answer   string `json:"answer"`
 }
 
 func decodeLookback(t *testing.T, rec *httptest.ResponseRecorder) []lookbackOut {
@@ -184,5 +185,121 @@ func TestPblKeep_RejectsJunk(t *testing.T) {
 	if rec := pblPost(t, h, cookie, url,
 		`{"kind":"thought","body":"也许该换个标题","stage":"什么阶段"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("unknown stage = %d, want 201", rec.Code)
+	}
+}
+
+func TestPblLookback_RegenerationPreservesEarlierAnswers(t *testing.T) {
+	h, c, _, _ := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[{"section":"what","prompt":"你实际做了什么？"}]}`))
+	id := newProjectViaAPI(t, h, c)
+	path := "/api/v1/pbl/projects/" + id + "/lookback"
+	first := decodeLookback(t, pblReq(t, h, c, "GET", path, ""))
+	if len(first) != 1 || first[0].Revision != 1 {
+		t.Fatalf("first revision: %+v", first)
+	}
+	rec := pblReq(t, h, c, "PATCH", path+"/"+first[0].ID, `{"answer":"我修正了一个错误判断"}`)
+	if rec.Code != 200 {
+		t.Fatal(rec.Body)
+	}
+	second := decodeLookback(t, pblReq(t, h, c, "POST", path+"/regenerate", ""))
+	if len(second) != 2 || second[0].ID != first[0].ID || second[0].Answer != "我修正了一个错误判断" || second[1].Revision != 2 || second[1].Answer != "" {
+		t.Fatalf("history or new revision wrong: %+v", second)
+	}
+	after := decodeLookback(t, pblReq(t, h, c, "GET", path, ""))
+	if len(after) != 2 || after[1].ID != second[1].ID {
+		t.Fatalf("GET generated again: %+v", after)
+	}
+}
+
+func TestPblLookback_StanceUpdatePreservesAnswer(t *testing.T) {
+	h, c, _, _ := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[{"section":"what","prompt":"你实际做了什么？"}]}`))
+	id := newProjectViaAPI(t, h, c)
+	path := "/api/v1/pbl/projects/" + id + "/lookback"
+	first := decodeLookback(t, pblReq(t, h, c, "GET", path, ""))
+	target := path + "/" + first[0].ID
+	if rec := pblReq(t, h, c, "PATCH", target, `{"answer":"我的最新回答"}`); rec.Code != 200 {
+		t.Fatal(rec.Body)
+	}
+	rec := pblReq(t, h, c, "PATCH", target, `{"stance":"changed"}`)
+	var got struct{ Answer, Stance string }
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Answer != "我的最新回答" || got.Stance != "changed" {
+		t.Fatalf("stance overwrote answer: %s", rec.Body)
+	}
+	rec = pblReq(t, h, c, "PATCH", target, `{"answer":""}`)
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Answer != "" || got.Stance != "changed" {
+		t.Fatalf("explicit clear or stance preservation failed: %s", rec.Body)
+	}
+}
+
+// A thought is not field feedback, and its discussion must accept the same
+// reading field the client sends when the student closes the loop.
+func TestPblKeep_ThoughtDiscussionCanClose(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	pid := newProjectViaAPI(t, h, cookie)
+	base := "/api/v1/pbl/projects/" + pid
+	rec := pblPost(t, h, cookie, base+"/keep", `{"kind":"thought","body":"还没有访谈，准备请读者试用","stage":"observe"}`)
+	var entry struct {
+		ID string `json:"id"`
+	}
+	if rec.Code != http.StatusCreated {
+		t.Fatal(rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &entry); err != nil {
+		t.Fatal(err)
+	}
+	rec = pblPost(t, h, cookie, base+"/keep/"+entry.ID+"/session", "")
+	var opened struct {
+		SessionID string `json:"sessionId"`
+	}
+	if rec.Code != http.StatusCreated {
+		t.Fatal(rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &opened); err != nil {
+		t.Fatal(err)
+	}
+	rec = pblReq(t, h, cookie, "GET", base+"/sessions", "")
+	var sessions []struct {
+		ID       string `json:"id"`
+		Question string `json:"question"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &sessions); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, s := range sessions {
+		if s.ID == opened.SessionID {
+			found = true
+			if s.Question != "这个想法可以怎样验证" {
+				t.Fatalf("thought question = %q", s.Question)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing session")
+	}
+	rec = pblPost(t, h, cookie, base+"/sessions/"+opened.SessionID+"/close", `{"writeBack":{"reading":"尚无反馈；下一步请读者试用并记录原话。"}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("close = %d: %s", rec.Code, rec.Body)
+	}
+	rec = pblReq(t, h, cookie, "GET", base+"/thread", "")
+	var thread []struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &thread); err != nil {
+		t.Fatal(err)
+	}
+	found = false
+	for _, message := range thread {
+		if message.Content == "尚无反馈；下一步请读者试用并记录原话。" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("iteration conclusion missing from main thread: %s", rec.Body)
 	}
 }

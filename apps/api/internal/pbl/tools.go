@@ -1,6 +1,9 @@
 package pbl
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // tools.go —— 工具箱。
 //
@@ -84,9 +87,10 @@ var registry = map[string]Tool{
 	// 主页项目那三件。都没有 Needs：它们自己会去生成第一屏的内容（受众候选、
 	// 站点分析、配色与头图），所以不需要印记同一轮先做一份东西。这也正是它们
 	// 不会变成表单的原因——她打开就有东西可判。
-	"persona": {Name: "persona", Kind: KindThinking, Label: "受众画像", Only: "website"},
-	"sites":   {Name: "sites", Kind: KindThinking, Label: "站点采集", Only: "website"},
-	"look":    {Name: "look", Kind: KindThinking, Label: "视觉基调", Only: "website"},
+	"creative": {Name: "creative", Kind: KindThinking, Label: "主页创作构思", Only: "website"},
+	"persona":  {Name: "persona", Kind: KindThinking, Label: "受众画像", Only: "website"},
+	"sites":    {Name: "sites", Kind: KindThinking, Label: "灵感采集", Only: "website"},
+	"look":     {Name: "look", Kind: KindThinking, Label: "视觉基调", Only: "website"},
 	// 上线那一下。她随时可以自己打开它——发布不是终点（spec §4：项目发布后
 	// 进 keeping，她随时能回来改）。
 	"ship": {Name: "ship", Kind: KindThinking, Label: "上线", Only: "website"},
@@ -129,16 +133,17 @@ func WaitsForStudent(kind string) bool { return kind == KindWorld }
 
 // ToolNames 给决策层的目录用，顺序固定，方便快照测试。
 func ToolNames() []string {
-	return []string{
-		"observe", "board", "reframe", "ideas", "review",
-		"decide", "structure", "split", "course", "lookback", "keep",
-		"persona", "sites", "look", "ship",
+	names := make([]string, 0, len(registry))
+	for name := range registry {
+		names = append(names, name)
 	}
+	sort.Strings(names)
+	return names
 }
 
 // DefaultProjectName —— 刚建出来的项目先有个名字。
 //
-// 产品负责人 2026-09-02：「we should let students modify the project'''s title
+// 产品负责人 2026-09-02：「we should let students modify the project”'s title
 // when the question is fully defined. or we by default gives one.」
 //
 // 取她那句话的第一小节（到第一个标点为止），最多 14 个字。整句原文太长，顶在

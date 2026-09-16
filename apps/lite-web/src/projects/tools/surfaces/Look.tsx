@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { Says, errorMarkdown } from "../../Says";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ImageOff, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Icon } from "@/ui";
 import {
@@ -10,11 +11,14 @@ import {
   type SiteState,
 } from "../../../api/site";
 import { apiErrorText } from "../../../api/errorText";
+import { listPersonas, type Persona } from "../../../api/personas";
 import { BuiltSite } from "../../../site/BuiltSite";
 import { SITE_LAYOUTS } from "../../../site/themes";
 import type { SiteLayout, SitePalette } from "../../../site/types";
 import { ToolFrame } from "../ToolFrame";
+import { SiteImages } from "./SiteImages";
 import type { ToolSurfaceProps } from "../registry";
+import "./look.css";
 
 /**
  * Look —— 主页项目第三关：给网站定调子。
@@ -38,7 +42,8 @@ import type { ToolSurfaceProps } from "../registry";
  *
  * 挑配色、挑风格、要不要头图，三件都是判断。
  */
-export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
+export function Look({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+  const [audience, setAudience] = useState<Persona[]>([]);
   const [site, setSite] = useState<SiteState | null>(null);
   const [palettes, setPalettes] = useState<SitePalette[]>([]);
   const [pickedPalette, setPickedPalette] = useState<SitePalette | null>(null);
@@ -46,6 +51,15 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
   const [busy, setBusy] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preview = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPersonas(projectId).then(rows => {
+      if (!cancelled) setAudience(rows.filter(row => row.chosen));
+    }).catch(err => { if (!cancelled) setError(apiErrorText(err)); });
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,32 +104,44 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
   );
 
   const settled = Boolean(site?.palette?.paper);
+  const confirmed = settled && site?.layout === layout &&
+    pickedPalette !== null && site?.palette !== null &&
+    (["label", "why", "paper", "ink", "accent"] as const).every(
+      key => site?.palette?.[key] === pickedPalette[key],
+    );
+  const layouts = site?.content.sections?.length ? SITE_LAYOUTS.map(style => ({ ...style,
+    name: style.id === "ledger" ? "编号目录" : style.id === "magazine" ? "分区展示" : "留白长页",
+    tag: style.id === "ledger" ? "紧凑 · 编号目录" : style.id === "magazine" ? "分区 · 强调色" : "长页 · 留白",
+    bullets: style.id === "ledger" ? ["模块按顺序编号，内容紧凑排列。", "保留你确认的标题和层级。"] :
+      style.id === "magazine" ? ["主模块以强调色分隔，层次清晰。", "保留你确认的标题和层级。"] :
+      ["标题与段落之间保留较多空白。", "保留你确认的标题和层级。"],
+  })) : SITE_LAYOUTS;
 
   return (
     <ToolFrame
       title="视觉基调"
       task="请挑一组配色和一个风格"
       why={tool.reason}
-      todo={pickedPalette ? "" : "还没有定下配色"}
+      todo={confirmed ? "" : pickedPalette ? "请确认配色和风格" : "请选择配色"}
       onFinish={() =>
         onFinish(
           { layout, palette: site?.palette ?? null, hasHero: Boolean(site?.heroUrl) },
           site?.palette?.label
             ? `她定下的调子是「${site.palette.label}」，风格是${
-                SITE_LAYOUTS.find((l) => l.id === layout)?.name ?? layout
+                layouts.find((l) => l.id === layout)?.name ?? layout
               }`
             : "她还没定调子",
         )
       }
       onClose={onClose}
-      busy={busy}
+      busy={busy || drawing}
     >
-      <div className="flex h-full min-h-0 flex-col lg:flex-row">
+      <div className="look-surface"><div className="look-comparison">
         {/* 左：她做判断的地方 */}
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 lg:max-w-[420px]">
+        <div className="min-w-0 px-2 py-3">
           <div className="flex items-center gap-2">
             <span className="text-mk-label text-mk-secondary">
-              {settled ? "已确定" : "待确定"}
+              {confirmed ? "已确定" : "待确定"}
             </span>
             <div className="flex-1" />
             <button
@@ -129,17 +155,28 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
             </button>
           </div>
 
+          <button type="button" className="look-preview-link mt-3 text-mk-small text-mk-secondary underline" onClick={() => preview.current?.scrollIntoView({ block: "start", behavior: "smooth" })}>查看当前方案预览</button>
           {error ? (
-            <p className="mt-3 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-              {error}
-            </p>
+            <div className="mt-3 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+              <Says content={errorMarkdown(error)} />
+            </div>
           ) : null}
+
+          {audience.length > 0 && <details className="mt-4 rounded-mk-lg border border-mk-border p-3">
+            <summary className="cursor-pointer text-mk-label font-semibold text-mk-secondary">设计依据 · {audience.length}类读者</summary>
+            {audience.map(reader => <dl key={reader.id} className="mt-3 space-y-2 border-t border-mk-border pt-3 text-mk-small">
+              <div><dt className="text-mk-muted">读者</dt><dd>{reader.label}</dd></div>
+              <div><dt className="text-mk-muted">展示目标</dt><dd>{reader.wants}</dd></div>
+              <div><dt className="text-mk-muted">关键词</dt><dd>{reader.keywords.join("、")}</dd></div>
+            </dl>)}
+            <p className="mt-2 text-mk-small text-mk-secondary">请结合读者和展示目标比较方案，点击后可在预览中查看效果。</p>
+          </details>}
 
           {/* 配色。每一组底下写着它为什么配她那几个关键词。 */}
           <h3 className="mt-4 text-mk-label text-mk-secondary">配色</h3>
           {palettes.length === 0 ? (
             <p className="mt-1 text-mk-small text-mk-muted">
-              配色从你在「受众画像」里留下的关键词派生。
+              请比较不同配色的预览效果。人物板的内容关键词用于提供参考，不代表你已选定视觉风格。
             </p>
           ) : null}
           <div className="mt-2 space-y-2">
@@ -152,6 +189,7 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
                   // 配色的名字是模型每次现起的（「旧纸」「工作台」…），按文字找
                   // 必然不稳。这一格是一个**位置**，和 DropField 的 testId 同理。
                   data-testid="palette-option"
+                  aria-pressed={on}
                   onClick={() => setPickedPalette(p)}
                   className="w-full rounded-mk-lg border p-3 text-left"
                   style={{ borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)" }}
@@ -177,12 +215,13 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
           {/* 风格 = 版式。三个真正不一样的页面。 */}
           <h3 className="mt-5 text-mk-label text-mk-secondary">风格</h3>
           <div className="mt-2 space-y-2">
-            {SITE_LAYOUTS.map((l) => {
+            {layouts.map((l) => {
               const on = layout === l.id;
               return (
                 <button
                   key={l.id}
                   type="button"
+                  aria-pressed={on}
                   onClick={() => setLayout(l.id)}
                   className="w-full rounded-mk-lg border p-3 text-left"
                   style={{ borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)" }}
@@ -203,6 +242,7 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
             })}
           </div>
 
+          {site && <SiteImages site={site} onChange={setSite} onBusy={setDrawing} />}
           {/* 头图。不要，也是一个完整的选择。 */}
           <h3 className="mt-5 text-mk-label text-mk-secondary">头图</h3>
           <p className="mt-1 text-mk-small text-mk-muted">
@@ -257,9 +297,12 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
 
         {/* 右：她挑什么就看见什么。预览用的是公开页那一个组件。 */}
         <div
-          className="min-h-0 flex-1 overflow-auto border-t border-mk-border p-4 lg:border-l lg:border-t-0"
+          ref={preview}
+          className="look-preview min-w-0 rounded-mk-lg border border-mk-border p-3"
           style={{ background: "var(--mk-paper)" }}
         >
+          <h3 className="mb-2 text-mk-label font-semibold text-mk-secondary">当前方案预览</h3>
+          <p className="mb-3 text-mk-small text-mk-muted">请比较文字是否清楚、内容是否容易找到。预览随选择更新。</p>
           {site ? (
             <div className="overflow-hidden rounded-mk-lg border border-mk-border">
               <BuiltSite
@@ -272,7 +315,7 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
             </div>
           ) : null}
         </div>
-      </div>
+      </div></div>
     </ToolFrame>
   );
 }

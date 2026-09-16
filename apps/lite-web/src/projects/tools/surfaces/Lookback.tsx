@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "../../Says";
 import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
@@ -7,6 +8,7 @@ import {
   answerLookback,
   bySection,
   getLookback,
+  regenerateLookback,
   lookbackTodo,
   sectionProgress,
   setStance,
@@ -31,11 +33,32 @@ import type { ToolSurfaceProps } from "../registry";
  * 做决定时写下那一句的意义，到这里才兑现。
  */
 export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
-  const [prompts, setPrompts] = useState<LookbackPrompt[]>([]);
+  const [allPrompts, setPrompts] = useState<LookbackPrompt[]>([]);
+  const [regenerating, setRegenerating] = useState(false);
+  const revision = Math.max(1, ...allPrompts.map((p) => p.revision ?? 1));
+  const prompts = allPrompts.filter((p) => (p.revision ?? 1) === revision);
+  const history = allPrompts.filter((p) => (p.revision ?? 1) < revision);
   const [error, setError] = useState<string | null>(null);
   // 🚨 只拉一次。StrictMode 会把挂载跑两遍，两次 GET 都会触发一次生成——问题
   // 翻倍不说，钱也白花一份。服务端另有一道锁兜底，但常见的这一种在这里就该拦住。
   const asked = useRef(false);
+  const writes = useRef(Promise.resolve());
+  const failedWrites = useRef(new Map<string, unknown>());
+  const [finishing, setFinishing] = useState(false);
+
+  function enqueue(id: string, write: () => Promise<LookbackPrompt>) {
+    writes.current = writes.current.then(async () => {
+      try {
+        const got = await write();
+        setPrompts((prev) => prev.map((p) => p.id === got.id ? got : p));
+        failedWrites.current.delete(id);
+      } catch (err) {
+        failedWrites.current.set(id, err);
+        setError(apiErrorText(err));
+      }
+    });
+    return writes.current;
+  }
 
   const reload = useCallback(async () => {
     if (asked.current) return;
@@ -52,41 +75,72 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
   }, [reload]);
 
   async function pickStance(p: LookbackPrompt, key: string) {
-    try {
-      const got = await setStance(projectId, p.id, p.stance === key ? "" : (key as never), p.answer);
-      setPrompts((prev) => prev.map((x) => (x.id === got.id ? got : x)));
-    } catch (err) {
-      setError(apiErrorText(err));
-    }
+    await enqueue(p.id + ":stance", () => setStance(projectId, p.id, p.stance === key ? "" : (key as never)));
   }
 
   async function save(id: string, answer: string) {
-    try {
-      const got = await answerLookback(projectId, id, answer);
-      setPrompts((prev) => prev.map((p) => (p.id === got.id ? got : p)));
-    } catch (err) {
-      setError(apiErrorText(err));
-    }
+    await enqueue(id + ":answer", () => answerLookback(projectId, id, answer));
   }
 
   const answered = prompts.filter((p) => p.answer.trim()).length;
+
+  async function regenerate() {
+    if (regenerating) return;
+    setRegenerating(true);
+    setError(null);
+    try {
+      await writes.current;
+      if (failedWrites.current.size) throw failedWrites.current.values().next().value;
+      setPrompts(await regenerateLookback(projectId));
+    }
+    catch (err) { setError(apiErrorText(err)); }
+    finally { setRegenerating(false); }
+  }
+
+  async function finish() {
+    if (finishing || regenerating) return;
+    setFinishing(true);
+    setError(null);
+    try {
+      await writes.current;
+      if (failedWrites.current.size) throw failedWrites.current.values().next().value;
+      const saved = await getLookback(projectId);
+      setPrompts(saved);
+      const latest = Math.max(1, ...saved.map(p => p.revision ?? 1));
+      const current = saved.filter(p => (p.revision ?? 1) === latest);
+      const missing = lookbackTodo(current);
+      if (missing) throw new Error(missing);
+      onFinish({ answered: current.filter(p => p.answer.trim()).length, revision: latest }, "");
+    } catch (err) { setError(apiErrorText(err)); }
+    finally { setFinishing(false); }
+  }
 
   return (
     <ToolFrame
       title={tool.label}
       task="回顾项目落地全流程"
       why={tool.reason}
+      busy={regenerating || finishing}
       todo={lookbackTodo(prompts)}
       finishLabel="完成"
-      onFinish={() =>
-        onFinish({ answered }, "")
-      }
+      onFinish={() => void finish()}
       onClose={onClose}
     >
+      {allPrompts.length > 0 && <div className="mb-4 rounded-mk-md border border-mk-border p-3">
+        <p className="text-mk-small text-mk-muted">当前为第 {revision} 版。问题与项目记录不符时，可以重新生成；旧问题与回答将保留。</p>
+        <button disabled={regenerating} onClick={() => void regenerate()} className="mt-2 rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small disabled:opacity-40">{regenerating ? "正在重新生成复盘问题" : "重新生成复盘问题"}</button>
+      </div>}
+      {history.length > 0 && <details className="mb-4 text-mk-small">
+        <summary className="cursor-pointer">历史复盘（{revision - 1} 版）</summary>
+        {history.map((p) => <div key={p.id} className="mt-2 border-b border-mk-border pb-2">
+          <p>第 {p.revision ?? 1} 版 · {p.prompt}</p>
+          <p className="text-mk-muted">{p.answer || "未回答"}</p>
+        </div>)}
+      </details>}
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       {/* 🚨 这一步要两三分钟（印记要读完整个项目，走的是绝不降级的旗舰档）。
@@ -125,7 +179,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
           走到"我学到了什么"。
           🚨 每段一个颜色和一条色轨（产品负责人 2026-09-03：「colorful」）。
           原来六段共用同一号灰字，读下来是一张长表，看不出自己在哪一段。 */}
-      <div className="space-y-5">
+      <fieldset disabled={regenerating || finishing} className="space-y-5 min-w-0">
         {bySection(prompts).map((g) => {
           const at = sectionProgress(g.prompts);
           return (
@@ -165,7 +219,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
             </section>
           );
         })}
-      </div>
+      </fieldset>
     </ToolFrame>
   );
 }
@@ -212,7 +266,7 @@ function PromptRow({
           className="mb-1.5 rounded-mk-sm px-2 py-1 text-mk-small"
           style={{ background: "var(--mk-paper)", color: "var(--mk-secondary)" }}
         >
-          当时你写的是：{prompt.evidence}
+          相关项目记录：{prompt.evidence}
         </p>
       )}
 

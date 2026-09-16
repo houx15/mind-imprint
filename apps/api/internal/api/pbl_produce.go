@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
@@ -44,13 +45,13 @@ var (
 
 // applyPblProduce 把印记做出来的东西落库。调用点在这一轮提交之后。
 func (a *API) applyPblProduce(
-	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, p *pbl.Produced,
+	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, p *pbl.Produced, versions map[string]int32,
 ) error {
 	switch p.Kind {
 	case "plan":
 		return a.producePlan(ctx, atomID, p.Payload)
 	case "decision":
-		return a.produceDecision(ctx, atomID, scope, p.Payload)
+		return a.produceDecision(ctx, atomID, scope, p.Payload, versions)
 	case "artifact":
 		return a.produceArtifact(ctx, atomID, scope, p.Payload)
 	case "substeps":
@@ -64,26 +65,6 @@ func (a *API) applyPblProduce(
 		return a.produceCourse(ctx, atomID, scope, p.Payload)
 	}
 	return fmt.Errorf("pbl: unknown produce kind %q", p.Kind)
-}
-
-// pblSiteURL 是这个主页项目对应的那一页的公开地址，还没发布就返回空串。
-//
-// 和 publicSiteURL 的区别只有一个：那一个从请求头里推 origin，这一个手上没有
-// 请求（produce 发生在一轮对话的尾巴上），所以只用配置里的 CORS 源。推不出来
-// 就返回空串，让调用方照常退回——宁可不落这份成果，也不要给她一个点不开的链接。
-func (a *API) pblSiteURL(ctx context.Context, atomID uuid.UUID) string {
-	p, err := a.d.Queries.GetPblProject(ctx, atomID)
-	if err != nil {
-		return ""
-	}
-	row, err := a.d.Queries.GetPblSite(ctx, p.UserID)
-	if err != nil || row.ShareToken == nil || *row.ShareToken == "" {
-		return ""
-	}
-	if len(a.d.CORSOrigins) == 0 {
-		return ""
-	}
-	return strings.TrimRight(a.d.CORSOrigins[0], "/") + "/p/" + *row.ShareToken
 }
 
 /* ── 主页内容 ─────────────────────────────────────────────────────────── */
@@ -125,30 +106,66 @@ func (a *API) produceSiteContent(ctx context.Context, atomID uuid.UUID, raw json
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return err
 	}
+	var edit struct {
+		RemoveSectionKeys []string `json:"removeSectionKeys"`
+	}
+	if err := json.Unmarshal(raw, &edit); err != nil {
+		return err
+	}
 	own, err := a.studentOwnWords(ctx, atomID)
 	if err != nil {
 		return err
 	}
 	grounded, dropped := pbl.GroundSiteDraft(clampDraft(in), own)
+	// A confirmed outline contains AI planning instructions. It is not authored
+	// page copy; section bodies may quote conversation and student review answers.
+	conversation, err := a.studentWords(ctx, atomID, false)
+	if err != nil {
+		return err
+	}
+	sectionDraft, sectionDropped := pbl.GroundSiteDraft(pbl.SiteDraft{Sections: clampDraft(in).Sections}, conversation)
+	if len(sectionDropped) > 0 {
+		return fmt.Errorf("模块正文无法核对到学生原文，未保存本次修改：\n\n%s", string([]rune(sectionDropped[0])[:min(180, len([]rune(sectionDropped[0])))]))
+	}
+	grounded.Sections = sectionDraft.Sections
+	dropped = append(dropped, sectionDropped...)
 	if len(dropped) > 0 {
 		slog.Warn("pbl: site_content dropped lines she never said",
 			"atom", atomID, "dropped", len(dropped), "first", dropped[0])
 	}
 
-	row, err := a.d.Queries.GetPblSite(ctx, u.ID)
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := a.d.Queries.WithTx(tx)
+	if _, err := q.LockAtom(ctx, atomID); err != nil {
+		return err
+	}
+	row, err := q.GetPblSite(ctx, u.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
+	}
+	if err == nil && row.AtomID.Valid && uuid.UUID(row.AtomID.Bytes) != atomID {
+		return errors.New("pbl: homepage belongs to another project")
 	}
 	var current pbl.SiteDraft
 	if len(row.Content) > 0 {
 		_ = json.Unmarshal(row.Content, &current)
 	}
 	merged := mergeSiteDraft(current, grounded)
-	if siteDraftEmpty(merged) {
+	if len(edit.RemoveSectionKeys) > 0 {
+		merged, err = removeSiteSections(ctx, q, u.ID, atomID, merged, edit.RemoveSectionKeys)
+		if err != nil {
+			return err
+		}
+	}
+	if siteDraftEmpty(merged) && len(edit.RemoveSectionKeys) == 0 {
 		return fmt.Errorf("pbl: site_content grounded to nothing (%d lines dropped)", len(dropped))
 	}
 
-	if _, err := a.d.Queries.EnsurePblSite(ctx, sqlc.EnsurePblSiteParams{
+	if _, err := q.EnsurePblSite(ctx, sqlc.EnsurePblSiteParams{
 		UserID: u.ID, AtomID: pgtype.UUID{Bytes: atomID, Valid: true},
 	}); err != nil {
 		return err
@@ -157,9 +174,12 @@ func (a *API) produceSiteContent(ctx context.Context, atomID uuid.UUID, raw json
 	if err != nil {
 		return err
 	}
-	_, err = a.d.Queries.SetPblSiteContent(ctx,
+	_, err = q.SetPblSiteContent(ctx,
 		sqlc.SetPblSiteContentParams{UserID: u.ID, Content: blob})
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // studentOwnWords 是她在这个项目里**自己敲进去的全部文字**，`GroundSiteDraft`
@@ -169,6 +189,10 @@ func (a *API) produceSiteContent(ctx context.Context, atomID uuid.UUID, raw json
 // 「你在那儿说的话不算」。工具里的产出（便签、结构、审核意见）也算她的话——
 // 那些同样是她敲的，而且第二、三关的东西主要落在那里。
 func (a *API) studentOwnWords(ctx context.Context, atomID uuid.UUID) (string, error) {
+	return a.studentWords(ctx, atomID, true)
+}
+
+func (a *API) studentWords(ctx context.Context, atomID uuid.UUID, includeToolResults bool) (string, error) {
 	var b strings.Builder
 	add := func(role, content string) {
 		if role == "student" && strings.TrimSpace(content) != "" {
@@ -200,6 +224,58 @@ func (a *API) studentOwnWords(ctx context.Context, atomID uuid.UUID) (string, er
 			add(m.Role, m.Content)
 		}
 	}
+	// Review answers are authored by the student, unlike the AI questions,
+	// quoted artifact text, or accepted outline stored alongside them.
+	artifacts, err := a.d.Queries.ListPblArtifacts(ctx, atomID)
+	if err != nil {
+		return "", err
+	}
+	for _, artifact := range artifacts {
+		marks, err := a.d.Queries.ListPblReviewMarks(ctx, artifact.ID)
+		if err != nil {
+			return "", err
+		}
+		for _, mark := range marks {
+			add("student", mark.Answer)
+		}
+		dimensions, err := a.d.Queries.ListPblReviewDimensions(ctx, artifact.ID)
+		if err != nil {
+			return "", err
+		}
+		for _, dimension := range dimensions {
+			add("student", dimension.Answer)
+		}
+	}
+	// Reuse original student inputs from creative work; generated prompts and
+	// HTML are not evidence that the student authored that page copy.
+	creative, creativeErr := a.d.Queries.GetPblCreativeDirection(ctx, atomID)
+	if creativeErr != nil && !errors.Is(creativeErr, pgx.ErrNoRows) {
+		return "", creativeErr
+	}
+	if creativeErr == nil {
+		var doc pbl.CreativeDirection
+		if err := json.Unmarshal(creative.Document, &doc); err != nil {
+			return "", err
+		}
+		add("student", doc.Feeling)
+		if doc.Hero != nil {
+			add("student", doc.Hero.Scene)
+			add("student", doc.Hero.Action)
+		}
+		if doc.Trial != nil {
+			add("student", "保留这一版的理由\n"+doc.Trial.Observation)
+		}
+	}
+	versions, err := a.d.Queries.ListPblCodeVersions(ctx, atomID)
+	if err != nil {
+		return "", err
+	}
+	for _, version := range versions {
+		add("student", "修改意见\n"+version.Feedback)
+	}
+	if !includeToolResults {
+		return b.String(), nil
+	}
 	tools, err := a.d.Queries.ListPblTools(ctx, atomID)
 	if err != nil {
 		return "", err
@@ -208,7 +284,11 @@ func (a *API) studentOwnWords(ctx context.Context, atomID uuid.UUID) (string, er
 		if len(t.Result) > 0 {
 			// 工具结果的形状每件不同，所以这里不解析，整块 JSON 当语料——
 			// 逐字包含只需要她那些字出现过，键名多出来不影响判断。
-			b.Write(t.Result)
+			if t.Tool == "creative" {
+				b.WriteString(creativeContext(t.Result))
+			} else {
+				b.Write(t.Result)
+			}
 			b.WriteString("\n")
 		}
 		if strings.TrimSpace(t.StudentNote) != "" {
@@ -246,6 +326,14 @@ func mergeSiteDraft(current, next pbl.SiteDraft) pbl.SiteDraft {
 		Contact: current.Contact,
 		Blurbs:  map[string]string{},
 	}
+	out.Sections = append([]pbl.SiteSection(nil), current.Sections...)
+	for i := range out.Sections {
+		for _, section := range next.Sections {
+			if section.Key == out.Sections[i].Key && strings.TrimSpace(section.Body) != "" {
+				out.Sections[i].Body = section.Body
+			}
+		}
+	}
 	for k, v := range current.Blurbs {
 		out.Blurbs[k] = v
 	}
@@ -259,6 +347,11 @@ func mergeSiteDraft(current, next pbl.SiteDraft) pbl.SiteDraft {
 
 // siteDraftEmpty 报告这一份草稿里她一个字都没有。
 func siteDraftEmpty(d pbl.SiteDraft) bool {
+	for _, section := range d.Sections {
+		if strings.TrimSpace(section.Body) != "" {
+			return false
+		}
+	}
 	if strings.TrimSpace(d.Role+d.Headline+d.Lead+d.Now+d.Contact) != "" {
 		return false
 	}
@@ -337,17 +430,23 @@ func (a *API) producePlan(ctx context.Context, atomID uuid.UUID, raw json.RawMes
 /* ── 要她拿主意的选择 ──────────────────────────────────────────────────── */
 
 func (a *API) produceDecision(
-	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, raw json.RawMessage,
+	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, raw json.RawMessage, versions map[string]int32,
 ) error {
 	var in struct {
-		Subject string `json:"subject"`
-		Options []struct {
+		DecisionID string `json:"decisionId"`
+		Reason     string `json:"reason"`
+		Subject    string `json:"subject"`
+		Options    []struct {
+			ID          string `json:"id"`
 			Label       string `json:"label"`
 			Description string `json:"description"`
 		} `json:"options"`
 	}
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return err
+	}
+	if in.DecisionID != "" {
+		return a.reviseDecision(ctx, atomID, scope, raw, versions)
 	}
 	subject := strings.TrimSpace(in.Subject)
 	if subject == "" {
@@ -393,12 +492,19 @@ func (a *API) produceArtifact(
 	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, raw json.RawMessage,
 ) error {
 	var in struct {
-		Kind    string   `json:"kind"`
-		Title   string   `json:"title"`
-		Body    string   `json:"body"`
-		URL     string   `json:"url"`
-		Guessed []string `json:"guessed"`
-		Admits  []string `json:"admits"`
+		BaseArtifactID     string           `json:"baseArtifactId"`
+		ReplacesArtifactID string           `json:"replacesArtifactId"`
+		SiteContent        json.RawMessage  `json:"siteContent"`
+		Edits              []pbl.TextEdit   `json:"edits"`
+		Kind               string           `json:"kind"`
+		Title              string           `json:"title"`
+		Body               string           `json:"body"`
+		PrintLayout        *pbl.PrintLayout `json:"printLayout"`
+		PaperLayout        *pbl.PaperLayout `json:"paperLayout"`
+		PaperEdits         []pbl.PaperEdit  `json:"paperEdits"`
+		URL                string           `json:"url"`
+		Guessed            []string         `json:"guessed"`
+		Admits             []string         `json:"admits"`
 		// 🚨 交东西的同时说清楚每一部分该看什么。
 		//
 		// createPblReviewPlan 那个端点的注释写的就是「印记交东西时，连着说清楚
@@ -428,20 +534,89 @@ func (a *API) produceArtifact(
 		return fmt.Errorf("pbl: unknown artifact kind %q", kind)
 	}
 	body, url := strings.TrimSpace(in.Body), strings.TrimSpace(in.URL)
-	// 🚨 主页那份成果的网址由服务端补，印记补不出来。
-	//
-	// 这里原来是一个死结：主页路线写着「artifact 一起给（kind 用 "site"）」，
-	// payload 说明写着「body：正文，site 时留空」，而这一行又要求 body 和 url 至少
-	// 有一个——可印记**从来没拿到过她那一页的网址**（回灌里只有「还差这几处」，
-	// 没有链接）。于是它照着路线做出来的 site 成果两个字段都是空的，这里退回，
-	// 成果没落库，审核那件工具就被闸撤掉，再回到路线的第五步，无限循环。
-	// 2026-09-05 journey-1 连着六轮卡在这儿。
-	//
-	// 网址是服务端的事实，不是模型该猜的东西，所以在这里补。补不出来（她还没
-	// 发布）就仍然退回——那时候确实没有可看的东西。
-	if kind == "site" && body == "" && url == "" {
-		if u := a.pblSiteURL(ctx, atomID); u != "" {
-			url = u
+	if in.PaperLayout != nil {
+		if (kind != "draft" && kind != "spec") || in.PrintLayout != nil || in.BaseArtifactID != "" || len(in.Edits) > 0 || len(in.PaperEdits) > 0 {
+			return errors.New("图形纸面成果须为独立文档；修订请提供replacesArtifactId与完整paperLayout")
+		}
+		if err := in.PaperLayout.Validate(); err != nil {
+			return err
+		}
+		body = in.PaperLayout.Markdown()
+	}
+	if in.PrintLayout != nil {
+		if kind != "draft" && kind != "spec" {
+			return errors.New("折页必须是文档成果")
+		}
+		if in.BaseArtifactID != "" || len(in.Edits) > 0 || len(in.PaperEdits) > 0 {
+			return errors.New("折页修改请提交完整分面内容")
+		}
+		if err := in.PrintLayout.Validate(); err != nil {
+			return err
+		}
+		body = in.PrintLayout.Markdown()
+	}
+	if in.BaseArtifactID != "" || len(in.Edits) > 0 || len(in.PaperEdits) > 0 {
+		if body != "" || url != "" {
+			return errors.New("局部修改不能同时提交整份正文或网址")
+		}
+		resolved, err := a.materializeArtifactEdits(ctx, atomID, kind, in.BaseArtifactID, in.Edits, in.Guessed, in.Admits, in.PaperEdits...)
+		if err != nil {
+			return err
+		}
+		body, in.PrintLayout, in.PaperLayout = resolved.Body, resolved.PrintLayout, resolved.PaperLayout
+		in.Title, in.Guessed, in.Admits = resolved.Title, resolved.Guessed, resolved.Admits
+	}
+	var siteRevision string
+	if kind == "site" {
+		if len(in.SiteContent) > 0 && string(in.SiteContent) != "null" {
+			if err := a.produceSiteContent(ctx, atomID, in.SiteContent); err != nil {
+				return fmt.Errorf("主页正文保存失败：%w", err)
+			}
+		}
+		// Review the saved draft before publication. A public link cannot be
+		// the prerequisite for the review that authorizes publishing it.
+		u, ok := UserFromContext(ctx)
+		if !ok {
+			return errors.New("pbl: site review requires an owner")
+		}
+		row, err := a.d.Queries.GetPblSite(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if !row.AtomID.Valid || uuid.UUID(row.AtomID.Bytes) != atomID {
+			return errors.New("pbl: site does not belong to this project")
+		}
+		request := (&http.Request{}).WithContext(ctx)
+		content, err := a.loadSiteContent(request, u.ID, u.DisplayName, row)
+		if err != nil {
+			return err
+		}
+		siteRevision = siteReviewRevision(row)
+		parts := []string{content.Name, content.Headline, content.Role, content.Lead}
+		parts = append(parts, content.About...)
+		for _, section := range content.Sections {
+			parts = append(parts, section.Title, section.Body)
+		}
+		if len(content.Sections) == 0 {
+			parts = append(parts, content.Now)
+			parts = append(parts, content.NowList...)
+			parts = append(parts, content.Motto...)
+			for _, item := range content.Projects {
+				parts = append(parts, item.Title, item.Blurb)
+			}
+			for _, item := range content.Posts {
+				parts = append(parts, item.Title, item.Blurb)
+			}
+			for _, item := range content.Reads {
+				parts = append(parts, item.Title, item.Takeaway)
+			}
+		}
+		parts = append(parts, content.Email)
+		body = strings.TrimSpace(strings.Join(parts, "\n\n"))
+		if len(a.d.CORSOrigins) > 0 {
+			url = strings.TrimRight(a.d.CORSOrigins[0], "/") + "/site"
+		} else {
+			url = "/site"
 		}
 	}
 	if body == "" && url == "" {
@@ -449,7 +624,49 @@ func (a *API) produceArtifact(
 		// 对它下判断。
 		return errors.New("pbl: artifact has neither body nor url")
 	}
-	payload, err := json.Marshal(map[string]string{"body": body, "url": url})
+	payloadFields := map[string]any{"body": body, "url": url}
+	if in.ReplacesArtifactID != "" {
+		if in.BaseArtifactID != "" || len(in.Edits) > 0 || url != "" || (kind != "draft" && kind != "spec" && kind != "options") {
+			return errors.New("整体修订必须提交文档正文，不能混用局部修改或网址")
+		}
+		id, err := uuid.Parse(in.ReplacesArtifactID)
+		if err != nil {
+			return errors.New("整体修订缺少有效的原成果")
+		}
+		original, err := a.d.Queries.GetPblArtifact(ctx, id)
+		if err != nil || original.AtomID != atomID || original.Kind != kind {
+			return errors.New("原成果不属于当前项目或类型不一致")
+		}
+		var prior struct {
+			Body string `json:"body"`
+		}
+		if err := json.Unmarshal(original.Payload, &prior); err != nil {
+			return err
+		}
+		if strings.TrimSpace(prior.Body) == "" {
+			return errors.New("原成果没有可比较的正文")
+		}
+		// Snapshot the actual stored source, never a model-authored before text.
+		payloadFields["replacesArtifactId"] = original.ID.String()
+		payloadFields["previousBody"] = prior.Body
+		payloadFields["previousTitle"] = original.Title
+		payloadFields["revisionRequest"] = original.Why
+	}
+
+	if in.PrintLayout != nil {
+		payloadFields["printLayout"] = in.PrintLayout
+	}
+	if in.PaperLayout != nil {
+		payloadFields["paperLayout"] = in.PaperLayout
+	}
+	if siteRevision != "" {
+		payloadFields["siteRevision"] = siteRevision
+	}
+	if in.BaseArtifactID != "" {
+		payloadFields["baseArtifactId"] = in.BaseArtifactID
+		payloadFields["edits"] = in.Edits
+	}
+	payload, err := json.Marshal(payloadFields)
 	if err != nil {
 		return err
 	}
@@ -462,11 +679,15 @@ func (a *API) produceArtifact(
 	if err != nil {
 		return err
 	}
-	art, err := a.d.Queries.CreatePblArtifact(ctx, sqlc.CreatePblArtifactParams{
+	source := in.BaseArtifactID
+	if source == "" {
+		source = in.ReplacesArtifactID
+	}
+	art, err := a.createPblArtifactVersion(ctx, sqlc.CreatePblArtifactParams{
 		AtomID: atomID, SessionID: scope, Kind: kind,
 		Title: strings.TrimSpace(in.Title), Payload: payload,
 		Guessed: guessed, Admits: admits,
-	})
+	}, source)
 	if err != nil {
 		return err
 	}
@@ -478,7 +699,7 @@ func (a *API) produceArtifact(
 	var ord int32
 	for _, m := range in.Marks {
 		q := strings.TrimSpace(m.Question)
-		if q == "" {
+		if q == "" || (kind == "site" && (strings.TrimSpace(m.Quote) == "" || !strings.Contains(body, strings.TrimSpace(m.Quote)))) {
 			continue
 		}
 		if _, merr := a.d.Queries.CreatePblReviewMark(ctx, sqlc.CreatePblReviewMarkParams{

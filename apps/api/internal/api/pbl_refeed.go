@@ -2,6 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"sort"
 	"strconv"
@@ -31,10 +34,9 @@ import (
 
 // gatherPblToolWork 收集这个项目里她已经做出来的东西。
 //
-// 只收**定下来的**：确认过的改写、挑定的方案、判过的成果、settle 过的决定。
-// 半路上的草稿不进——那些还在变，喂给印记只会让它对着一个她自己都还没想好的
-// 说法发挥。
-func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles map[string]string) []string {
+// 学生判断只收已提交的内容。已展示的待定候选也带上，标明它们不是学生结论，
+// 让印记能够回应学生对当前卡片的质疑；尚未提交的个人草稿仍不进入上下文。
+func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles map[string]string, versions map[string]int32) []string {
 	ctx := r.Context()
 	var out []string
 	add := func(s string) {
@@ -59,22 +61,85 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	if u, ok := UserFromContext(ctx); ok {
 		if row, err := a.ensureSite(r, u.ID); err == nil &&
 			row.AtomID.Valid && uuid.UUID(row.AtomID.Bytes) == atomID {
+			if personas, err := a.d.Queries.ListPblPersonas(ctx, atomID); err == nil {
+				count := 0
+				for _, persona := range personas {
+					if persona.Chosen {
+						count++
+					}
+				}
+				if count > 0 {
+					add(fmt.Sprintf("已确认人物板：%d类读者。偏好来源为学生判断。", count))
+				}
+			}
+			if creative, err := a.d.Queries.GetPblCreativeDirection(ctx, atomID); err == nil {
+				if context := creativeContext(creative.Document); context != "" {
+					add("当前自由创作方向及试用判断：" + context)
+				}
+			}
+			if versions, err := a.d.Queries.ListPblCodeVersions(ctx, atomID); err == nil && len(versions) > 0 {
+				summaries := make([]map[string]any, 0, len(versions))
+				for _, version := range versions {
+					var brief struct {
+						Hero  *pbl.HeroBrief   `json:"hero"`
+						Image *heroImageAsset  `json:"heroImage"`
+						Page  *pbl.SiteContent `json:"pageContent"`
+					}
+					if json.Unmarshal(version.Brief, &brief) != nil {
+						continue
+					}
+					mode := "unknown"
+					if brief.Hero != nil {
+						mode = brief.Hero.Mode
+					}
+					summaries = append(summaries, map[string]any{"id": version.ID, "createdAt": version.CreatedAt, "feedback": version.Feedback, "parentVersionId": version.ParentVersionID, "mode": mode, "hasImage": brief.Image != nil, "includesSavedContent": brief.Page != nil})
+				}
+				summary, _ := json.Marshal(summaries)
+				add("主页生成版本（从新到旧；图片存在不代表画面已被分析，加入内容不代表已通过试用）：" + string(summary))
+			}
+			if row.ShareToken != nil && *row.ShareToken != "" {
+				if publication, err := a.d.Queries.GetPblSitePublication(ctx, u.ID); err == nil {
+					add("主页当前已公开的生成版本：" + publication.VersionID.String() + "。其他生成版本仍为私有草稿；继续编辑不会自动更新公开版本。")
+				} else if errors.Is(err, pgx.ErrNoRows) {
+					add("当前公开的是旧模板主页；生成版本尚未发布。")
+				} else {
+					add("公开版本读取失败，不能确定当前发布的是哪个版本。")
+				}
+			} else {
+				add("主页当前未公开或已撤回；已有生成版本仅供私有预览。")
+			}
 			if content, cerr := a.loadSiteContent(r, u.ID, u.DisplayName, row); cerr == nil {
+				add("当前编辑中的主页文字（尚未自动合入已有生成版本或生成版公开页）。首屏：" + content.Headline + "；身份：" + content.Role + "；介绍：" + strings.Join(content.About, "\n"))
+				if pbl.ValidPalette(sitePalette(row)) {
+					add("旧模板页面的视觉选择已保存，配色：" + sitePalette(row).Label + "；布局：" + row.Layout + "。该配置属于模板页面，与自由创作代码版本分别保存。")
+				}
+				if strings.TrimSpace(row.HeroKey) == "" {
+					add("旧模板未设置头图；生成版本是否有图片以各版本hasImage为准。没有图片不代表生成失败，不得虚构画面内容。")
+				}
+				if len(content.Sections) > 0 {
+					visible := append([]pbl.SiteSection(nil), content.Sections...)
+					for i := range visible {
+						if visible[i].ImageKey != "" {
+							add("模块「" + visible[i].Title + "」已由学生上传图片。尚未分析图片内容，不得猜测画面。")
+						}
+						visible[i].ImageKey, visible[i].ImageURL = "", ""
+					}
+					sections, _ := json.Marshal(visible)
+					add("当前已保存的主页模块完整清单（key用于填写正文；title只是标题，不是学生正文）：" + string(sections))
+					add("本清单是当前编辑内容，优先于历史对话、旧审核和旧结构；已有生成版本和生成版公开页使用各自的内容快照，不能声称本次编辑已同步到它们。未列出的模块当前不存在，不得称其为空模块或要求再次移除。审核问题、审核要点、存疑说明都只能针对本清单及上面的当前首屏；引用旧对话仅用于说明学生先前的选择，不得当作页面现状。")
+				}
 				if missing := pbl.SiteMissing(content); len(missing) > 0 {
-					add("她的主页上还差这几处：" + strings.Join(missing, "、") +
-						"。放上去的每一句必须是她**说过的原话**，逐字照抄——" +
+					add("旧模板文字完整性检查还缺：" + strings.Join(missing, "、") +
+						"。这不是生成版本的发布条件，不要为了旧模板要求学生填写无关字段。保存的每一句必须是她**说过的原话**，逐字照抄——" +
 						"改写过的句子会被丢掉，页面上不会有任何变化。")
 				} else {
-					add("她的主页该有的几处都填上了，可以让她看一遍再决定要不要上线。")
+					add("主页基本文字已保存，可以生成site成果并递review，审核无需先发布。仍有空正文的模块时明确指出，不得称所有模块已完成；不要让她重新提供已保存的原话。")
 				}
 			}
 		}
 	}
 
-	// 主页项目第一关：她留下的那个读者，和她留下的关键词。
-	//
-	// 这一关的产出是后面每一关的输入（结构对着关键词检查、配色从关键词派生），
-	// 所以它必须回到印记那儿——不然第三关它会重新问一遍「你想给谁看」。
+	// 回传已选读者与人物板，供后续内容和呈现决策使用，避免重复询问。
 	if ps, err := a.d.Queries.ListPblPersonas(ctx, atomID); err == nil {
 		for _, p := range ps {
 			if !p.Chosen {
@@ -85,7 +150,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				line += "（" + p.WhyKnows + "）"
 			}
 			if strings.TrimSpace(p.Wants) != "" {
-				line += "；他想看到：" + p.Wants
+				line += "；人物板记录（学生判断）：" + p.Wants
 			}
 			if strings.TrimSpace(p.Feeling) != "" {
 				line += "；这一页该给他的感觉：" + p.Feeling
@@ -113,16 +178,16 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	// 读出来的东西当成她的判断复述给她听。
 	if refs, err := a.d.Queries.ListPblSiteRefs(ctx, atomID); err == nil {
 		for _, s := range refs {
-			line := "她贴了一个她喜欢的站：" + s.Title + "（" + s.Url + "）"
+			line := "已收藏的灵感链接（不代表已浏览或试用，也不代表学生认同AI分析）：" + s.Title + "（" + s.Url + "）"
 			if strings.TrimSpace(s.Structure) != "" {
-				line += "；它的结构是：" + s.Structure
+				line += "；AI根据网页正文分析的组织方式（未验证视觉或交互）：" + s.Structure
 			}
 			if strings.TrimSpace(s.Best) != "" {
-				line += "；最值得学的一处：" + s.Best
+				line += "；AI提出的参考做法：" + s.Best
 			}
 			add(line)
 			if t := strings.TrimSpace(s.SheSaid); t != "" {
-				add("她自己说这一站：" + t)
+				add("学生记录的观察或设计取舍（未经系统独立验证）：" + t)
 			}
 		}
 	}
@@ -189,8 +254,8 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			byKind[n.Kind] = append(byKind[n.Kind], body)
 		}
 		for _, k := range []struct{ kind, label string }{
-			{"observation", "她在板上记的实际观察"},
-			{"quote", "她记下的别人的原话"},
+			{"observation", "学生归类为观察的记录（未核验，真实性以正文限定为准）"},
+			{"quote", "学生归类为他人原话的记录（未核验来源）"},
 			{"assumption", "她自己标出来的推论"},
 			{"question", "她提出的问题"},
 			{"idea", "她想到的点子"},
@@ -205,6 +270,15 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	if ds, err := a.d.Queries.ListPblDecisions(ctx, atomID); err == nil {
 		for _, d := range ds {
 			if !d.SettledAt.Valid {
+				versions[d.ID.String()] = d.ContentVersion
+				// Presented options are shared project material. Private draft reasons
+				// remain excluded until the student confirms the decision.
+				add(fmt.Sprintf("待定决策「%s」（ID=%s，version=%d）：尚未确认，以下是已展示的候选，不代表学生认可或真实观察。", d.Subject, d.ID, d.ContentVersion))
+				if options, err := a.d.Queries.ListPblDecisionOptions(ctx, d.ID); err == nil {
+					for _, option := range options {
+						add("候选「" + option.Label + "」（ID=" + option.ID.String() + "，作者=" + option.Author + "）：" + option.Description)
+					}
+				}
 				continue
 			}
 			line := "关于「" + d.Subject + "」，她选了「" + d.Choice + "」，因为" + d.Why
@@ -255,6 +329,21 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 
 	// 她判过的成果。退回去的那些尤其重要——那是她自己的判断力在起作用。
 	if as, err := a.d.Queries.ListPblArtifacts(ctx, atomID); err == nil {
+		if len(as) > 0 {
+			latest := as[len(as)-1]
+			status := "待审核，尚未通过"
+			if latest.SettledAt.Valid && latest.Verdict != nil {
+				status = map[string]string{"kept": "审核通过", "revise": "要求修改，尚未通过", "dropped": "要求重做，尚未通过"}[*latest.Verdict]
+			}
+			add("当前最新成果审核状态：ID=" + latest.ID.String() + "；" + status + "。旧版的修改意见或完成审核工具均不代表此版通过。")
+			add("当前最新成果原文（局部修改使用baseArtifactId，整体重做使用replacesArtifactId；都使用此ID，不根据历史回复重构）：ID=" + latest.ID.String() + "；kind=" + latest.Kind + "；title=" + latest.Title + "；payload=" + currentArtifactSource(latest.Payload, latest.Guessed, latest.Admits))
+			var layout struct {
+				PaperLayout *pbl.PaperLayout `json:"paperLayout"`
+			}
+			if json.Unmarshal(latest.Payload, &layout) == nil && layout.PaperLayout != nil {
+				add("当前成果是paperLayout图形纸面原型。body是派生文字记录，不能用文字edits修改它。修改页面文字或位置时，produce.kind=artifact，payload包含kind=" + latest.Kind + "、baseArtifactId=" + latest.ID.String() + "和paperEdits；每项old复制上方elements中的完整原元素，new提供修改后的完整元素。长句须分行并检查空间；若局部元素替换无法容纳，提供replacesArtifactId与完整paperLayout。仅回复修改说明不会保存任何变更。")
+			}
+		}
 		word := map[string]string{"kept": "通过了", "revise": "要求修改", "dropped": "打回重做"}
 		for _, x := range as {
 			if x.Verdict == nil {
@@ -426,6 +515,12 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 
 	// 🚨 复盘里她写下的答案。整件项目最后的那层意思就在这儿，不回灌等于白写。
 	if ps, err := a.d.Queries.ListPblReviewPrompts(ctx, atomID); err == nil {
+		var latestRevision int32
+		for _, p := range ps {
+			if p.Revision > latestRevision {
+				latestRevision = p.Revision
+			}
+		}
 		// 🚨 「现在还这么想吗」比答案本身更要紧：她说「当时没想清楚」，印记
 		// 下一轮就该问那一处到底哪儿没想清楚。
 		stance := map[string]string{
@@ -440,6 +535,13 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				continue
 			}
 			line := "复盘时她对「" + strings.TrimSpace(x.Prompt) + "」"
+			if latestRevision > 1 {
+				label := "当前复盘"
+				if x.Revision < latestRevision {
+					label = "历史复盘"
+				}
+				line = label + "第" + strconv.Itoa(int(x.Revision)) + "版：" + line
+			}
 			if st != "" {
 				line += "：" + st
 			}
@@ -458,12 +560,19 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	if ms, err := a.d.Queries.ListPblMissionItemsByAtom(ctx, atomID); err == nil && len(ms) > 0 {
 		var missed []string
 		for _, m := range ms {
+			if m.SupersededAt.Valid {
+				continue
+			}
 			if !m.DoneAt.Valid {
-				missed = append(missed, strings.TrimSpace(m.Prompt))
+				prompt := strings.TrimSpace(m.Prompt)
+				if m.EditedByStudent {
+					prompt = "学生修改的任务：" + prompt
+				}
+				missed = append(missed, prompt)
 			}
 		}
 		if len(missed) > 0 {
-			add("出门清单上她没做到的：" + strings.Join(missed, "；"))
+			add("观察任务尚未标记完成（不等于学生已经外出失败；请结合本次记录判断）：" + strings.Join(missed, "；"))
 		}
 	}
 
@@ -480,7 +589,10 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {
-			line := "上线之后她记下：" + strings.TrimSpace(k.Body)
+			line := "上线之后她记下（类型：" + k.Kind + "；阶段：" + k.Stage + "）：" + strings.TrimSpace(k.Body)
+			if k.Kind == "thought" {
+				line += "。这是学生的想法，不自动代表已经取得现场反馈或验证结果。"
+			}
 			// 🚨 带上变化，不只带数值。一个数字本身不说明任何事——「23」是多
 			// 还是少，只有和上一次比才知道。
 			if v := numericToFloat(k.Value); v != nil && strings.TrimSpace(k.Metric) != "" {
@@ -529,8 +641,9 @@ func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.Coach
 	courses, _ := a.listCoursesForCaller(r.Context())
 	titles := courseTitlesBySlug(courses)
 
-	in.ToolWork = a.gatherPblToolWork(r, atomID, titles)
-	in.ToolsUsed, in.ToolsOffered = a.pblToolState(r, atomID)
+	in.DecisionVersions = make(map[string]int32)
+	in.ToolWork = a.gatherPblToolWork(r, atomID, titles, in.DecisionVersions)
+	in.ToolsUsed, in.ToolsOffered, in.ToolsDeclined = a.pblToolState(r, atomID)
 	// 🚨 上一轮被闸撤掉的那件工具。这是回灌里最容易漏的一条：闸做了正确的事，
 	// 结果没有回到对话里，于是印记接着说一件屏幕上不存在的东西。
 	in.ToolDropped = a.pblDroppedToolNote(r, atomID)
@@ -550,10 +663,10 @@ func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.Coach
 //
 // 已经 done 的优先：一件既做过又有新一张挂着的工具，对印记来说"做过了"是更
 // 要紧的那条信息。
-func (a *API) pblToolState(r *http.Request, atomID uuid.UUID) (used, offered []string) {
+func (a *API) pblToolState(r *http.Request, atomID uuid.UUID) (used, offered, declined []string) {
 	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
 	if err != nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	label := func(name string) string {
 		if def, ok := pbl.LookupTool(name); ok {
@@ -570,13 +683,20 @@ func (a *API) pblToolState(r *http.Request, atomID uuid.UUID) (used, offered []s
 	}
 	open := map[string]bool{}
 	for _, t := range rows {
-		if t.Status == "done" || t.Status == "skipped" || done[t.Tool] || open[t.Tool] {
+		if t.Status == "declined" {
+			note := strings.TrimSpace(t.StudentNote)
+			if note == "" {
+				note = "未填写原因"
+			}
+			declined = append(declined, label(t.Tool)+"："+note)
+		}
+		if (t.Status != "summoned" && t.Status != "accepted") || done[t.Tool] || open[t.Tool] {
 			continue
 		}
 		open[t.Tool] = true
 		offered = append(offered, label(t.Tool))
 	}
-	return used, offered
+	return used, offered, declined
 }
 
 // pblToolAlreadyOnHerScreen 说的是：这件工具已经递过、她还没做完吗。
@@ -589,7 +709,7 @@ func (a *API) pblToolAlreadyOnHerScreen(r *http.Request, atomID uuid.UUID, tool 
 		return false
 	}
 	for _, t := range rows {
-		if t.Tool == tool && t.Status != "done" && t.Status != "skipped" {
+		if t.Tool == tool && (t.Status == "summoned" || t.Status == "accepted") {
 			return true
 		}
 	}
@@ -600,7 +720,11 @@ func (a *API) pblToolAlreadyOnHerScreen(r *http.Request, atomID uuid.UUID, tool 
 //
 // 只说工具名和**她自己写下的那句话**。她在工具里产出的完整内容已经由
 // gatherPblToolWork 送进去了，这里不重复。
-func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID) string {
+func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID, completedID ...string) string {
+	explicit := ""
+	if len(completedID) > 0 {
+		explicit = strings.TrimSpace(completedID[0])
+	}
 	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
 	if err != nil {
 		return ""
@@ -608,12 +732,16 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID) string {
 	var last *sqlc.PblToolInstance
 	for i := range rows {
 		t := rows[i]
-		if t.Status != "done" || !t.ResolvedAt.Valid {
+		if t.Status != "done" || !t.ResolvedAt.Valid || (explicit != "" && t.ID.String() != explicit) {
 			continue
 		}
 		if last == nil || t.ResolvedAt.Time.After(last.ResolvedAt.Time) {
 			last = &rows[i]
 		}
+	}
+	if plan, err := a.d.Queries.GetPblLivePlan(r.Context(), atomID); err == nil && explicit == "" && plan.ApprovedAt.Valid &&
+		(last == nil || plan.ApprovedAt.Time.After(last.ResolvedAt.Time)) {
+		return "学生已确认计划《" + plan.Summary + "》。请依据当前生效计划推进下一步，不要重复请求确认。"
 	}
 	if last == nil {
 		return ""
@@ -623,6 +751,66 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID) string {
 		label = def.Label
 	}
 	line := "她做完了「" + label + "」"
+	if last.Tool == "board" {
+		line += "。这是思考板完成后的回流，板上已保存便签及其类型见工具产出。请先回应已写内容，再推进一个相关问题；不要重新回答历史的打开工具请求，不要否认工具已使用，也不要要求重写已有记录。推论仍是假设，完成操作不证明已去现场、已验证或已掌握方法"
+	}
+	if last.Tool == "ship" {
+		line += "。本轮是上线工具完成后的回流，请依据当前发布状态说明结果并引导收集反馈。历史对话中的正文修改请求不是本轮新指令，不要自动重做历史修改；需要修改时先让学生提出本次目标"
+	}
+	if last.Tool == "observe" {
+		var result struct {
+			EndObservation bool `json:"endObservation"`
+		}
+		_ = json.Unmarshal(last.Result, &result)
+		if result.EndObservation {
+			return "学生明确结束了本次观察任务，任务卡已收起，已有记录保留。这不是刚提交一批新记录，也不证明已外出或已获得数据。请依据实际记录简要说明当前已知与未知，再帮助学生决定下一步；不要把上次提交的问题当成新问题重复回答，不要继续催做已结束的清单，也不要把提出问题或结束任务当成已经掌握方法的证据。"
+		}
+		line += "。完成记录操作不代表已外出或已完成调查；先回应本次提交的问题或记录，不自动恢复历史制作请求"
+		if draft, err := a.d.Queries.GetPblObservationDraft(r.Context(), last.ID); err == nil && draft.SubmittedRevision != nil {
+			var submitted []pblNoteDTO
+			if json.Unmarshal(draft.SubmittedNotes, &submitted) == nil {
+				for _, note := range submitted {
+					line += "；本次提交（类型：" + note.Kind + "）：" + note.Body
+				}
+			}
+		}
+	}
+	if last.Tool == "review" {
+		// Tool completion is not approval. Read the actual artifact verdict,
+		// rather than trusting the client-supplied result's verdict field.
+		var result struct {
+			ArtifactID string `json:"artifactId"`
+		}
+		if json.Unmarshal(last.Result, &result) == nil {
+			if id, err := uuid.Parse(result.ArtifactID); err == nil {
+				if artifact, err := a.d.Queries.GetPblArtifact(r.Context(), id); err == nil && artifact.AtomID == atomID && artifact.Verdict != nil {
+					switch *artifact.Verdict {
+					case "revise", "dropped":
+						line = "她完成了审核操作，但未通过成果，要求修改或重做《" + artifact.Title + "》。必须先处理以下意见，不能推进上线或声称修改已完成"
+					case "kept":
+						line = "她审核通过了《" + artifact.Title + "》"
+					}
+					if artifact.Why != "" {
+						line += "；理由：" + artifact.Why
+					}
+					if marks, err := a.d.Queries.ListPblReviewMarks(r.Context(), id); err == nil {
+						for _, m := range marks {
+							if strings.TrimSpace(m.Answer) != "" {
+								line += "；对「" + m.Quote + "」的意见：" + m.Answer
+							}
+						}
+					}
+					if dimensions, err := a.d.Queries.ListPblReviewDimensions(r.Context(), id); err == nil {
+						for _, d := range dimensions {
+							if strings.TrimSpace(d.Answer) != "" {
+								line += "；关于「" + d.Prompt + "」：" + d.Answer
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	if note := strings.TrimSpace(last.StudentNote); note != "" {
 		line += "，她写下的是：" + note
 	}

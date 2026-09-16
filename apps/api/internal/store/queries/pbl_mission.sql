@@ -18,7 +18,21 @@ WHERE m.id = $1;
 
 -- name: TickPblMissionItem :one
 -- 她在现场点掉一条。再点一下是取消——现场点错了不该没法反悔。
-UPDATE pbl_mission_item SET done_at = $2 WHERE id = $1 RETURNING *;
+UPDATE pbl_mission_item SET done_at = $2 WHERE id = $1 AND superseded_at IS NULL RETURNING *;
+
+-- name: LockPblMissionTool :one
+SELECT * FROM pbl_tool_instance WHERE id = $1 FOR UPDATE;
+
+-- name: SupersedePblMissionItems :exec
+UPDATE pbl_mission_item SET superseded_at = now() WHERE tool_id = $1 AND superseded_at IS NULL;
+
+-- name: SupersedePblMissionItem :exec
+UPDATE pbl_mission_item SET superseded_at = now() WHERE id = $1 AND superseded_at IS NULL;
+
+-- name: CreateStudentPblMissionItem :one
+INSERT INTO pbl_mission_item (tool_id, prompt, want_kind, ordinal, edited_by_student)
+VALUES ($1, $2, $3, $4, true)
+RETURNING *;
 
 -- name: ListPblMissionItemsByAtom :many
 -- 这个项目所有出门趟次的清单，回灌用：没做到的那几条要说给印记听。

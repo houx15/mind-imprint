@@ -232,17 +232,11 @@ func (q *Queries) GetPblPlanStep(ctx context.Context, id uuid.UUID) (GetPblPlanS
 const getPblShownPlan = `-- name: GetPblShownPlan :one
 SELECT id, atom_id, version, summary, reason, decided_by, approved_at, created_at FROM pbl_plan_version
 WHERE atom_id = $1
-ORDER BY (approved_at IS NOT NULL) DESC, version DESC
+ORDER BY version DESC
 LIMIT 1
 `
 
-// 面板上该显示的那一版：优先已批准的最新一版；一版都没批准过就显示最新的
-// 提案，让她能看见、能审、能按下确认。
-//
-// 🚨 只有 GetPblLivePlan 的时候，印记提的计划是**看不见**的：她批准之前它不是
-// 「当前计划」，而面板只问当前计划，于是那一版停在库里，她永远等在「计划待
-// 生成」上，也就永远没有机会批准它。看得见和生效是两件事——生效仍然只认
-// approved_at（spec §12.5），这条查询只管让她看见。
+// 展示最新提案，包括已有生效版本之后的新提案。执行仍只读 GetPblLivePlan。
 func (q *Queries) GetPblShownPlan(ctx context.Context, atomID uuid.UUID) (PblPlanVersion, error) {
 	row := q.db.QueryRow(ctx, getPblShownPlan, atomID)
 	var i PblPlanVersion
@@ -260,7 +254,7 @@ func (q *Queries) GetPblShownPlan(ctx context.Context, atomID uuid.UUID) (PblPla
 }
 
 const listPblDecisions = `-- name: ListPblDecisions :many
-SELECT id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not FROM pbl_decision WHERE atom_id = $1 ORDER BY created_at
+SELECT id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not, draft, draft_revision, content_version, revision_history FROM pbl_decision WHERE atom_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListPblDecisions(ctx context.Context, atomID uuid.UUID) ([]PblDecision, error) {
@@ -284,6 +278,10 @@ func (q *Queries) ListPblDecisions(ctx context.Context, atomID uuid.UUID) ([]Pbl
 			&i.Flip,
 			&i.SettledAt,
 			&i.WhyNot,
+			&i.Draft,
+			&i.DraftRevision,
+			&i.ContentVersion,
+			&i.RevisionHistory,
 		); err != nil {
 			return nil, err
 		}
@@ -420,7 +418,7 @@ const recordPblDecision = `-- name: RecordPblDecision :one
 
 INSERT INTO pbl_decision (atom_id, session_id, subject, choice, why, gave_up)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not, draft, draft_revision, content_version, revision_history
 `
 
 type RecordPblDecisionParams struct {
@@ -455,6 +453,10 @@ func (q *Queries) RecordPblDecision(ctx context.Context, arg RecordPblDecisionPa
 		&i.Flip,
 		&i.SettledAt,
 		&i.WhyNot,
+		&i.Draft,
+		&i.DraftRevision,
+		&i.ContentVersion,
+		&i.RevisionHistory,
 	)
 	return i, err
 }

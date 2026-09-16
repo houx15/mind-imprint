@@ -1,3 +1,4 @@
+import { Says, errorMarkdown } from "../../Says";
 import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -83,8 +84,9 @@ export function Board({
   onClose,
 }: ToolSurfaceProps) {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [kind, setKind] = useState<NoteKind>("observation");
+  const [kind, setKind] = useState<NoteKind | null>(null);
   const [draft, setDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [seen, setSeen] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -155,7 +157,8 @@ export function Board({
 
   async function add() {
     const body = draft.trim();
-    if (!body) return;
+    if (!body || !kind || savingNote) return;
+    setSavingNote(true);
     setDraft("");
     try {
       const seat = seatRef.current++;
@@ -166,6 +169,8 @@ export function Board({
       setNotes((prev) => [...prev, placed]);
     } catch (err) {
       setError(apiErrorText(err));
+    } finally {
+      setSavingNote(false);
     }
   }
 
@@ -322,37 +327,39 @@ export function Board({
   }
 
   const clusters = [...new Set(notes.map((n) => n.cluster.trim()).filter(Boolean))];
-  const grouped = notes.filter((n) => n.cluster.trim()).length;
-  const todo =
-    notes.length < 3
-      ? `再贴 ${3 - notes.length} 张`
-      : grouped === 0
-        ? "把有关系的几张挪到一起，归成一堆"
-        : seen.trim()
-          ? ""
-          : "一句你看出来的东西";
+  // The board supports a single prediction as well as grouping many notes.
+  // Quantity and clustering describe student work; they are not completion gates.
+  const todo = draft.trim()
+    ? "请添加正在输入的便签，或清空输入"
+    : notes.length === 0
+      ? "请添加一条记录"
+      : "";
 
   return (
     <ToolFrame
       title={tool.label}
-      task="把看到的、听到的、猜的、想问的贴上来，再把有关系的挪到一起"
+      task="请记录当前想法；需要比较时，可移动、分类或连接便签"
       why={tool.reason}
       todo={todo}
+      busy={savingNote}
+      finishLabel="完成并讨论"
       onFinish={() => onFinish({ noteCount: notes.length, clusters }, seen.trim())}
       onClose={onClose}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
-      <div className="flex flex-wrap gap-1">
+      <p className="mb-2 text-mk-small text-mk-secondary">请标明记录类型。预测与猜测请选择「我的推论」。</p>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="记录类型">
         {NOTE_KINDS.map((k) => (
           <button
             key={k.kind}
             type="button"
             onClick={() => setKind(k.kind)}
+            aria-pressed={kind === k.kind}
             className="rounded-mk-full px-2.5 py-1 text-mk-small"
             style={
               kind === k.kind
@@ -378,7 +385,7 @@ export function Board({
         <button
           type="button"
           onClick={() => void add()}
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || !kind || savingNote}
           aria-label="贴上去"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
@@ -688,12 +695,12 @@ export function Board({
       )}
 
       <div className="mt-4 border-t border-mk-border pt-3">
-        <label className="text-mk-small text-mk-secondary">这些摆在一起，你看出什么了？</label>
+        <label className="text-mk-small text-mk-secondary">补充思考（选填）</label>
         <textarea
           value={seen}
           onChange={(e) => setSeen(e.target.value)}
           rows={3}
-          placeholder="请记录分类后发现的共同点或差异"
+          placeholder="请记录发现的联系、差异或待确认的问题"
           className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
       </div>

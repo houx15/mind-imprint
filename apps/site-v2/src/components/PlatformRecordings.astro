@@ -1,0 +1,5 @@
+---
+import {t,type Lang} from '../config';import ProductVideo from './ProductVideo.astro';const {lang}=Astro.props as {lang:Lang};
+const clips=[['home/product-course-v1',['互动课程','Interactive courses']],['home/product-coach-v1',['AI 陪练','AI-guided learning']],['home/product-evaluation-v1',['过程评估','Process assessment']]] as const;
+---
+<section class="section wrap" id="product-recordings"><div class="section-head"><div><span class="eyebrow">SEE THE PRODUCT AT WORK</span><h2>{t(lang,['看看学生怎样使用。','See how students use it.'])}</h2></div><p>{t(lang,['查看实际产品录屏：从课程参与，到与 AI 讨论，再到回顾学习过程。','Watch product recordings of course participation, work with AI and reflection on the learning process.'])}</p></div><div class="recording-accordion">{clips.map(([clip,title],i)=><details open={i===0}><summary>{t(lang,title)} <span>+</span></summary><ProductVideo lang={lang} clip={clip} title={title}/></details>)}</div></section>

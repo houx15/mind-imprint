@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+// Current source records must follow historical AI claims while a tool-return
+// event remains last. Otherwise a stale conclusion can eclipse its evidence.
+func TestCurrentEvidenceFollowsHistoricalClaims(t *testing.T) {
+	ctx := buildCoachContext(CoachInput{
+		Recent:       []Turn{{Role: "ai", Content: "旧结论：公告栏不是主要渠道"}},
+		ToolWork:     []string{"【虚构测试记录，未实地观察】公告栏十分钟没有信息"},
+		JustHappened: "完成观察记录",
+	})
+	history := strings.Index(ctx, "旧结论：公告栏不是主要渠道")
+	evidence := strings.Index(ctx, "【虚构测试记录，未实地观察】")
+	event := strings.Index(ctx, "【她刚做完这件事】")
+	if history < 0 || evidence <= history || event <= evidence {
+		t.Fatalf("source ordering lost: %s", ctx)
+	}
+}
+
 // 🚨 她在工具里做出来的东西，必须每一轮都回到印记眼前。
 //
 // 2026-09-02 查出来的：CoachInput 里根本没有装这些的地方，而 system 行又在
@@ -30,11 +46,8 @@ func TestBuildCoachContext_CarriesHerToolWork(t *testing.T) {
 			t.Fatalf("她做的东西没进 prompt，缺：%s\n---\n%s", want, ctx)
 		}
 	}
-	// 光把句子塞进去还不够——得告诉印记这些是她的原话、要指着具体一句说，
-	// 否则它只会回一句「你做得很好」。
-	if !strings.Contains(ctx, "指着其中具体的一句说") {
-		t.Fatalf("没告诉印记该怎么用这些句子：\n%s", ctx)
-	}
+	// Current-turn precedence is tested separately: carrying historical records
+	// must not force the coach to answer an old question instead of the new one.
 }
 
 // 一件都没做的时候不要凭空多一段。空标题会让印记以为自己漏看了什么。

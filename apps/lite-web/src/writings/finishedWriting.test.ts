@@ -27,6 +27,9 @@ function homework(over: Partial<AssignmentForAtom> = {}): AssignmentForAtom {
     kind: "writing",
     title: "雨",
     dueAt: "2026-09-20T14:00:00Z",
+    // 作业说明。这几条用例一条都不看它，但它是 AssignmentForAtom 上的必填字段
+    // （2026-09-16 两条线合并时加的），所以这里给一个空串而不是让类型塌掉。
+    instructions: "",
     returnedAt: null,
     returnDueAt: null,
     returnNote: null,

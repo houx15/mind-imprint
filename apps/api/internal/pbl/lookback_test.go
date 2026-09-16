@@ -79,3 +79,16 @@ func TestParseLookback_StripsTheBulletTheModelCopiedAlong(t *testing.T) {
 		t.Fatalf("削过头了：%q", qs[0].Evidence)
 	}
 }
+
+func TestLookbackContextKeepsProcessEvidenceAndNeutralQuestionOrigin(t *testing.T) {
+	in := LookbackInput{Kind: "website", Idea: "我想让谁看见什么？", Process: []string{"学生对参考网站的取舍：不用专业术语当入口。", "system原始记录：主页更新失败", "student原始记录：这个例子是虚构的。"}}
+	got := buildLookbackContext(in)
+	for _, source := range in.Process {
+		if !strings.Contains(got, source) {
+			t.Fatalf("process evidence absent: %s", got)
+		}
+	}
+	if strings.Contains(got, "他一开始是这么说的") || strings.Contains(got, "留下的记录不多") {
+		t.Fatalf("misattributed or ignored process: %s", got)
+	}
+}

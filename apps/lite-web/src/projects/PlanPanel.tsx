@@ -1,10 +1,11 @@
+import { Says, errorMarkdown } from "./Says";
+import { executionStatus, executionLabel } from "./stepProgress";
 import { ProjectProgressVisual } from "./ProjectProgressVisual";
 import { apiErrorText } from "../api/errorText";
 import { useState } from "react";
 import {
   PLAN_DECISIONS,
   PLAN_RESOLUTION_LABELS,
-  STEP_STATUS_LABELS,
   WAITING_STATUSES,
   type PendingChange,
   type Plan,
@@ -25,11 +26,13 @@ export function PlanPanel({
   pending,
   onResolve,
   onApprove,
+  busy = false,
 }: {
   plan: Plan | null;
   pending: PendingChange[];
   onResolve: (id: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
+  busy?: boolean;
 }) {
   // Plan Check takes the panel over rather than popping up. A popup says
   // "dismiss me"; this is a decision, and it should read like one.
@@ -61,6 +64,7 @@ export function PlanPanel({
           <span className="text-mk-label text-mk-faint">v0.{plan.version}</span>
         </div>
         {plan.summary && <p className="mt-1 text-mk-small text-mk-secondary">{plan.summary}</p>}
+        {plan.reason && <p className="mt-3 text-mk-small text-mk-secondary"><span className="font-semibold">{plan.version > 1 ? "调整原因" : "安排依据"}：</span>{plan.reason}</p>}
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -78,11 +82,12 @@ export function PlanPanel({
           <p className="text-mk-small text-mk-secondary">请审核计划并确认，或提出修改意见</p>
           <button
             type="button"
+            disabled={busy}
             onClick={() => void onApprove(plan.versionId)}
-            className="mt-3 w-full rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white"
+            className="mt-3 w-full rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white disabled:opacity-40"
             style={{ background: "var(--mk-accent-500)" }}
           >
-            审核完成，开始！
+            {busy ? "处理中…" : "确认计划"}
           </button>
         </footer>
       )}
@@ -95,11 +100,12 @@ function StepRow({ step }: { step: PlanStep }) {
   // The two waiting states are the reason the vocabulary has seven entries:
   // they let the plan say WHY nothing is moving. They must not look like the
   // others.
-  const waiting = WAITING_STATUSES.includes(step.status);
-  const done = step.status === "done";
+  const status = executionStatus(step);
+  const waiting = status === "doing" || (!step.progress && WAITING_STATUSES.includes(step.status));
+  const done = status === "done";
 
   return (
-    <li data-status={step.status} className="rounded-mk-md border border-mk-border bg-mk-surface">
+    <li data-status={status} className="rounded-mk-md border border-mk-border bg-mk-surface">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -111,25 +117,28 @@ function StepRow({ step }: { step: PlanStep }) {
             {step.title}
           </span>
           <span
-            className="ml-2 rounded-mk-full px-1.5 py-0.5 text-mk-label"
+            className="ml-2 inline-block whitespace-nowrap rounded-mk-full px-1.5 py-0.5 text-mk-label"
             style={
               waiting
                 ? { background: "var(--mk-warning-bg)", color: "var(--mk-warning)" }
                 : { background: "var(--mk-paper)", color: "var(--mk-muted)" }
             }
           >
-            {STEP_STATUS_LABELS[step.status] ?? step.status}
+            {executionLabel(step)}
           </span>
         </span>
       </button>
 
       {open && (
         <div className="border-t border-mk-border px-3 py-3 text-mk-small">
-          {step.goal && <Line label="内容" value={step.goal} />}
+          {step.blurb && <Line label="安排" value={step.blurb} />}
+          {step.goal && <Line label="目标" value={step.goal} />}
           {/* 谁做这件事用人名标签表示，不用「印记做 / 你做」当行首标签——
               标签是给东西命名的，「印记做」是在替它讲话（AGENTS.md §界面文案 0）。 */}
           {step.iBring && <Owned who="印记" value={step.iBring} />}
           {step.youBring && <Owned who="你" value={step.youBring} />}
+          {step.decide && <Line label="判断" value={step.decide} />}
+          {step.thenBring && <Line label="产出" value={step.thenBring} />}
         </div>
       )}
     </li>
@@ -250,9 +259,9 @@ function PlanCheck({
           className="mt-4 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
         {error && (
-          <p className="mt-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-            {error}
-          </p>
+          <div className="mt-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+            <Says content={errorMarkdown(error)} />
+          </div>
         )}
       </div>
 

@@ -31,6 +31,7 @@ type pblStepDTO struct {
 	Decide    string `json:"decide"`
 	ThenBring string `json:"thenBring"`
 	Status    string `json:"status"`
+	Progress  string `json:"progress,omitempty"`
 }
 
 type pblPlanDTO struct {
@@ -98,6 +99,7 @@ func (a *API) getPblPlan(w http.ResponseWriter, r *http.Request) {
 	for _, s := range steps {
 		out.Steps = append(out.Steps, toPblStepDTO(s))
 	}
+	a.attachHomepageProgress(r, atomID, &out)
 
 	pending, err := a.d.Queries.ListPblOpenChanges(r.Context(), atomID)
 	if err != nil {

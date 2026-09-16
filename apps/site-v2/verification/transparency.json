@@ -1,0 +1,70 @@
+[
+  {
+    "source": "exec-1f6d5391-976d-4e6f-937f-cad9d363b602.png",
+    "png": "apps/site-v2/assets/v2/learning-together-v3.png",
+    "webp": "apps/site-v2/public/media/v2/learning-together-v3.webp",
+    "background_rgb": [
+      245.0,
+      242.0,
+      230.0
+    ],
+    "size": [
+      1536,
+      1024
+    ],
+    "transparent_pixels": 883257,
+    "partial_pixels": 10164,
+    "opaque_pixels": 679443
+  },
+  {
+    "source": "exec-26a529e8-ec6a-4f5a-afdf-3737f689697b.png",
+    "png": "apps/site-v2/assets/v2/project-makers-v2.png",
+    "webp": "apps/site-v2/public/media/v2/project-makers-v2.webp",
+    "background_rgb": [
+      246.0,
+      244.0,
+      233.0
+    ],
+    "size": [
+      1536,
+      1024
+    ],
+    "transparent_pixels": 951522,
+    "partial_pixels": 10361,
+    "opaque_pixels": 610981
+  },
+  {
+    "source": "exec-49ec6d97-5696-43af-a9af-fabf9c8248ab.png",
+    "png": "apps/site-v2/assets/v2/teacher-dialogue-v2.png",
+    "webp": "apps/site-v2/public/media/v2/teacher-dialogue-v2.webp",
+    "background_rgb": [
+      246.0,
+      244.0,
+      234.0
+    ],
+    "size": [
+      1536,
+      1024
+    ],
+    "transparent_pixels": 957584,
+    "partial_pixels": 10335,
+    "opaque_pixels": 604945
+  },
+  {
+    "source": "exec-21064c5b-58a4-4966-8f5e-68c1f93fbfa4.png",
+    "png": "apps/site-v2/assets/v2/curious-learner-v2.png",
+    "webp": "apps/site-v2/public/media/v2/curious-learner-v2.webp",
+    "background_rgb": [
+      245.0,
+      243.0,
+      231.0
+    ],
+    "size": [
+      1536,
+      1024
+    ],
+    "transparent_pixels": 957015,
+    "partial_pixels": 9827,
+    "opaque_pixels": 606022
+  }
+]

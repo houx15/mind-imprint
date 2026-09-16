@@ -668,6 +668,33 @@ type PblArtifact struct {
 	CreatedAt time.Time          `json:"created_at"`
 }
 
+type PblArtifactTrialDraft struct {
+	ArtifactID        uuid.UUID   `json:"artifact_id"`
+	Document          []byte      `json:"document"`
+	Revision          int32       `json:"revision"`
+	SubmittedRevision *int32      `json:"submitted_revision"`
+	SubmittedEntryID  pgtype.UUID `json:"submitted_entry_id"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+}
+
+type PblAudienceDocument struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Document  []byte    `json:"document"`
+	Revision  int32     `json:"revision"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type PblCodeVersion struct {
+	ID              uuid.UUID   `json:"id"`
+	AtomID          uuid.UUID   `json:"atom_id"`
+	BriefRevision   int32       `json:"brief_revision"`
+	Brief           []byte      `json:"brief"`
+	Html            string      `json:"html"`
+	CreatedAt       time.Time   `json:"created_at"`
+	ParentVersionID pgtype.UUID `json:"parent_version_id"`
+	Feedback        string      `json:"feedback"`
+}
+
 type PblCourseAssignment struct {
 	ID         uuid.UUID          `json:"id"`
 	AtomID     uuid.UUID          `json:"atom_id"`
@@ -679,18 +706,29 @@ type PblCourseAssignment struct {
 	CreatedAt  time.Time          `json:"created_at"`
 }
 
+type PblCreativeDirection struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Document  []byte    `json:"document"`
+	Revision  int32     `json:"revision"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type PblDecision struct {
-	ID        uuid.UUID          `json:"id"`
-	AtomID    uuid.UUID          `json:"atom_id"`
-	SessionID pgtype.UUID        `json:"session_id"`
-	Subject   string             `json:"subject"`
-	Choice    string             `json:"choice"`
-	Why       string             `json:"why"`
-	GaveUp    string             `json:"gave_up"`
-	CreatedAt time.Time          `json:"created_at"`
-	Flip      string             `json:"flip"`
-	SettledAt pgtype.Timestamptz `json:"settled_at"`
-	WhyNot    string             `json:"why_not"`
+	ID              uuid.UUID          `json:"id"`
+	AtomID          uuid.UUID          `json:"atom_id"`
+	SessionID       pgtype.UUID        `json:"session_id"`
+	Subject         string             `json:"subject"`
+	Choice          string             `json:"choice"`
+	Why             string             `json:"why"`
+	GaveUp          string             `json:"gave_up"`
+	CreatedAt       time.Time          `json:"created_at"`
+	Flip            string             `json:"flip"`
+	SettledAt       pgtype.Timestamptz `json:"settled_at"`
+	WhyNot          string             `json:"why_not"`
+	Draft           []byte             `json:"draft"`
+	DraftRevision   int32              `json:"draft_revision"`
+	ContentVersion  int32              `json:"content_version"`
+	RevisionHistory []byte             `json:"revision_history"`
 }
 
 type PblDecisionCriterion struct {
@@ -732,13 +770,15 @@ type PblKeepEntry struct {
 }
 
 type PblMissionItem struct {
-	ID        uuid.UUID          `json:"id"`
-	ToolID    uuid.UUID          `json:"tool_id"`
-	Prompt    string             `json:"prompt"`
-	WantKind  string             `json:"want_kind"`
-	Ordinal   int32              `json:"ordinal"`
-	DoneAt    pgtype.Timestamptz `json:"done_at"`
-	CreatedAt time.Time          `json:"created_at"`
+	ID              uuid.UUID          `json:"id"`
+	ToolID          uuid.UUID          `json:"tool_id"`
+	Prompt          string             `json:"prompt"`
+	WantKind        string             `json:"want_kind"`
+	Ordinal         int32              `json:"ordinal"`
+	DoneAt          pgtype.Timestamptz `json:"done_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	SupersededAt    pgtype.Timestamptz `json:"superseded_at"`
+	EditedByStudent bool               `json:"edited_by_student"`
 }
 
 type PblNote struct {
@@ -768,6 +808,15 @@ type PblNoteLink struct {
 	ToID      uuid.UUID `json:"to_id"`
 	Relation  string    `json:"relation"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type PblObservationDraft struct {
+	ToolID            uuid.UUID `json:"tool_id"`
+	Document          []byte    `json:"document"`
+	Revision          int32     `json:"revision"`
+	SubmittedRevision *int32    `json:"submitted_revision"`
+	SubmittedNotes    []byte    `json:"submitted_notes"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type PblPendingChange struct {
@@ -859,6 +908,7 @@ type PblReview struct {
 	CreatedAt  time.Time `json:"created_at"`
 	Section    string    `json:"section"`
 	Stance     string    `json:"stance"`
+	Revision   int32     `json:"revision"`
 }
 
 type PblReviewDimension struct {
@@ -911,6 +961,13 @@ type PblSite struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 	Palette     []byte             `json:"palette"`
 	HeroKey     string             `json:"hero_key"`
+}
+
+type PblSitePublication struct {
+	UserID      uuid.UUID `json:"user_id"`
+	AtomID      uuid.UUID `json:"atom_id"`
+	VersionID   uuid.UUID `json:"version_id"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 type PblSiteRef struct {

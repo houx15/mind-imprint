@@ -1,3 +1,5 @@
+import { Says, errorMarkdown } from "../../Says";
+import { applySiteStructure } from "../../../api/site";
 import { SelectionTray } from "../board/SelectionTray";
 import { studentArtwork } from "../../../learning/StudentArtwork";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,11 +49,12 @@ const MIN_W = 320;
 const MIN_H = 240;
 const PAD = 16;
 
-export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+export function Structure({ projectId, projectKind, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [state, setState] = useState<TreeState>({ tree: "main", nodes: [], checks: [] });
   const [picked, setPicked] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   // 她自己攒下来的材料。放进节点的、和放不进去的。
@@ -314,17 +317,25 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
   return (
     <ToolFrame
       title={tool.label}
-      task="从完整性、连贯性等角度审查整体结构是否合理"
+      task={projectKind === "website" ? "请审查结构，确认后将按此顺序生成主页模块" : "从完整性、连贯性等角度审查整体结构是否合理"}
       why={tool.reason}
       todo={treeTodo(state)}
       finishLabel="没有问题"
-      onFinish={() => onFinish({ nodes: state.nodes.length, outline: fullText() }, "")}
+      busy={applying}
+      onFinish={async () => {
+        setApplying(true); setError(null);
+        try {
+          if (projectKind === "website") await applySiteStructure(projectId);
+          onFinish({ nodes: state.nodes.length, outline: fullText() }, "");
+        } catch (err) { setError(apiErrorText(err)); }
+        finally { setApplying(false); }
+      }}
       onClose={onClose}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       {/* 图。横向可滚——一张摊得开的图比一列挤住的字有用。 */}

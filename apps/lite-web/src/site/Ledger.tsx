@@ -1,4 +1,4 @@
-import { Blank, Ground, MONO, cx, hair, mix, type LayoutProps } from "./parts";
+import { Blank, Ground, MONO, cx, hair, textMix, type LayoutProps } from "./parts";
 
 /**
  * 方案 B · 索引式 — 密 · 像一份档案柜.
@@ -65,7 +65,7 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
               {site.name}
             </p>
             {site.role ? (
-              <p className="text-[11px] tracking-[0.14em]" style={{ color: mix(0.42) }}>
+              <p className="text-[11px] tracking-[0.14em]" style={{ color: textMix(0.42) }}>
                 {site.role}
               </p>
             ) : (
@@ -87,12 +87,12 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
             </p>
           )}
           {site.lead ? (
-            <p className="mt-3 text-[13px]" style={{ lineHeight: 1.85, color: mix(0.62) }}>
+            <p className="mt-3 text-[13px]" style={{ lineHeight: 1.85, color: textMix(0.62) }}>
               {site.lead}
             </p>
           ) : null}
           {site.now || site.email ? (
-            <p className="mt-3 text-[13px]" style={{ color: mix(0.5) }}>
+            <p className="mt-3 text-[13px]" style={{ color: textMix(0.5) }}>
               {site.now ? `现在：${site.now}` : ""}
               {site.email ? (
                 <>
@@ -117,7 +117,7 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
               >
                 <span
                   className="shrink-0 text-[12px]"
-                  style={{ color: mix(0.45), width: narrow ? undefined : 82 }}
+                  style={{ color: textMix(0.45), width: narrow ? undefined : 82 }}
                 >
                   {r.when || "—"}
                 </span>
@@ -132,7 +132,7 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
                   {r.blurb ? (
                     <span
                       className="mt-1 block text-[12.5px]"
-                      style={{ lineHeight: 1.75, color: mix(0.58) }}
+                      style={{ lineHeight: 1.75, color: textMix(0.58) }}
                     >
                       {r.blurb}
                     </span>
@@ -157,13 +157,13 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
               <p
                 key={para.slice(0, 12)}
                 className="mt-4 text-[13px]"
-                style={{ lineHeight: 1.95, color: mix(0.78) }}
+                style={{ lineHeight: 1.95, color: textMix(0.78) }}
               >
                 {para}
               </p>
             ))}
             {site.nowList.length ? (
-              <p className="mt-4 text-[13px]" style={{ lineHeight: 1.95, color: mix(0.55) }}>
+              <p className="mt-4 text-[13px]" style={{ lineHeight: 1.95, color: textMix(0.55) }}>
                 {site.nowList.join("　")}
               </p>
             ) : null}
@@ -174,7 +174,7 @@ export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
           className="mt-14 flex flex-wrap gap-x-6 gap-y-1 pt-4 text-[11px]"
           style={{
             ...MONO,
-            color: mix(0.38),
+            color: textMix(0.38),
             lineHeight: 1.9,
             borderTop: `1px solid ${hair(0.14)}`,
           }}

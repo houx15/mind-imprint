@@ -1,0 +1,14 @@
+---
+import {asset,t,type Lang,type Copy} from '../config';
+const {lang,clip,title,description}=Astro.props as {lang:Lang;clip:string;title:Copy;description?:Copy};
+---
+<figure class="product-video"><div class="figure-bar"><span>{t(lang,title)}</span><span>{t(lang,['产品录屏','PRODUCT RECORDING'])}</span></div><video data-viewport-play controls muted loop playsinline preload="none" poster={asset(`${clip}-poster.webp`)} aria-label={t(lang,title)}><source src={asset(`${clip}.mp4`)} type="video/mp4"/><a href={asset(`${clip}.mp4`)}>{t(lang,['打开视频','Open video'])}</a></video><figcaption>{description&&<p>{t(lang,description)}</p>}{t(lang,['录屏展示已有产品体验；界面语言与当前版本可能有所不同。','Recorded product experience; interface language and appearance may differ from the current release.'])}</figcaption></figure>
+<script>
+const videos=Array.from(document.querySelectorAll<HTMLVideoElement>('video[data-viewport-play]'));
+const visible=new Set<HTMLVideoElement>();
+const motion=matchMedia('(prefers-reduced-motion: reduce)');
+const sync=(video:HTMLVideoElement)=>{if(visible.has(video)&&!document.hidden&&!motion.matches){video.muted=true;void video.play().catch(()=>{});}else video.pause();};
+const observer=new IntersectionObserver(entries=>{for(const entry of entries){const video=entry.target as HTMLVideoElement;if(entry.isIntersecting&&entry.intersectionRatio>=.35)visible.add(video);else visible.delete(video);sync(video);}},{threshold:[0,.35]});
+for(const video of videos)observer.observe(video);
+document.addEventListener('visibilitychange',()=>videos.forEach(sync));motion.addEventListener('change',()=>videos.forEach(sync));
+</script>

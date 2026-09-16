@@ -20,9 +20,6 @@ export interface SiteRef {
   sheSaid: string;
 }
 
-/** 第二关要几个站才算够。和服务端 pbl.SiteRefsWanted 是同一个数。 */
-export const SITE_REFS_WANTED = 3;
-
 const base = (id: string) => `/api/v1/pbl/projects/${id}/sites`;
 
 export function listSiteRefs(projectId: string): Promise<SiteRef[]> {
@@ -46,4 +43,9 @@ export function setSiteRefSaid(projectId: string, id: string, sheSaid: string): 
 
 export function deleteSiteRef(projectId: string, id: string): Promise<void> {
   return apiFetch<void>(`${base(projectId)}/${id}`, { method: "DELETE" });
+}
+
+/** Saving a link makes no claim about its contents or whether anyone viewed it. */
+export function bookmarkSiteRef(projectId: string, url: string): Promise<SiteRef> {
+  return apiFetch<SiteRef>(`${base(projectId)}/bookmark`, {method:"POST", body:JSON.stringify({url})});
 }

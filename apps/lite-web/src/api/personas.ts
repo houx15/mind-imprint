@@ -54,3 +54,8 @@ export function choosePersona(
     body: JSON.stringify({ keywords }),
   });
 }
+
+/** Student-defined reader; confirmation and selection are one transaction. */
+export function createPersona(projectId: string, input: { label: string; wants: string; keywords: string[] }): Promise<Persona> {
+  return apiFetch<Persona>(base(projectId), { method: "POST", body: JSON.stringify(input) });
+}

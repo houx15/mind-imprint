@@ -51,6 +51,12 @@ describe("sessionTrail", () => {
 // These sweeps guard the same invariant from the client side: a value the
 // server can legitimately send, with no label here, renders as blank chrome.
 describe("vocabularies are complete", () => {
+  it("can write back the server-created review and keeping sessions", () => {
+    expect(SESSION_KINDS).toContain("review");
+    expect(SESSION_KINDS).toContain("keeping");
+    expect(SESSION_REQUIRED_FIELD.keeping).toBe("reading");
+    expect(SESSION_REQUIRED_FIELD.review).toBeNull();
+  });
   it("labels every session kind and gives each a write-back prompt", () => {
     for (const k of SESSION_KINDS) {
       expect(SESSION_KIND_LABELS[k]).toBeTruthy();

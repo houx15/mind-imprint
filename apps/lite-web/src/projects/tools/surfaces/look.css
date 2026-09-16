@@ -1,0 +1,9 @@
+/* Use available tool width, including the resizable side pane, not viewport width. */
+.look-surface { container-type: inline-size; }
+.look-comparison { display: grid; gap: 16px; align-items: start; }
+.look-preview { scroll-margin-top: 16px; }
+@container (min-width: 700px) {
+  .look-preview-link { display: none; }
+  .look-comparison { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .look-preview { position: sticky; top: 0; max-height: 70dvh; overflow: auto; }
+}

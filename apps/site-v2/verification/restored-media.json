@@ -1,0 +1,102 @@
+[
+  {
+    "key": "courses/ifs-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "courses/ifs-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "courses/sift-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "courses/sift-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "courses/craap-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "courses/craap-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "case/02-proposal-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "case/02-proposal-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "case/03-research-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "case/03-research-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "case/06-writing-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "case/06-writing-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "case/07-evaluation-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "case/07-evaluation-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "home/product-course-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "home/product-course-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "home/product-coach-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "home/product-coach-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  },
+  {
+    "key": "home/product-evaluation-v1.mp4",
+    "status": 200,
+    "type": "video/mp4"
+  },
+  {
+    "key": "home/product-evaluation-v1-poster.webp",
+    "status": 200,
+    "type": "image/webp"
+  }
+]

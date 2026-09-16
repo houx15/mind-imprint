@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Says, errorMarkdown } from "../../Says";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquareQuote } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   isDocument,
   listArtifacts,
   pendingArtifacts,
+  refreshSiteReview,
   settleArtifact,
   type Artifact,
 } from "../../../api/artifacts";
@@ -13,7 +15,6 @@ import {
   answerMark,
   askAbout,
   getReview,
-  splitByMarks,
   type ReviewMark,
   type ReviewPlan,
   splitIntoParts,
@@ -22,6 +23,10 @@ import {
   spotProblem,
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
+import { ReviewMarkdown } from "./ReviewMarkdown";
+import { PaperPreview } from "../../PaperPreview";
+import { FoldoutPreview } from "../../FoldoutPreview";
+import { ArtifactChanges } from "../../ArtifactChanges";
 import { useWidePane } from "../wide";
 import { DONE, TODO, tone } from "../../../shared/tone";
 import { Progress } from "../../../shared/Progress";
@@ -59,6 +64,10 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   const [revealed, setRevealed] = useState(false);
   const [verdictWhy, setVerdictWhy] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const finishingRef = useRef(false);
+  const writes = useRef(Promise.resolve());
+  const failedWrites = useRef(new Map<string, unknown>());
 
   const pending = pendingArtifacts(artifacts);
   const artifact = pending.find((a) => a.id === pickedId) ?? pending[0] ?? null;
@@ -98,36 +107,78 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
     }
   }
 
-  async function saveMark(id: string, answer: string) {
-    try {
-      const got = await answerMark(projectId, id, answer);
-      setPlan((p) => ({ ...p, marks: p.marks.map((m) => (m.id === got.id ? got : m)) }));
-    } catch (err) {
-      setError(apiErrorText(err));
-    }
+  function enqueueAnswer(id: string, save: () => Promise<void>) {
+    // Serialize edits so an older response cannot overwrite a newer answer.
+    writes.current = writes.current.then(async () => {
+      try {
+        await save();
+        failedWrites.current.delete(id);
+      } catch (err) {
+        failedWrites.current.set(id, err);
+        setError(apiErrorText(err));
+      }
+    });
+    return writes.current;
   }
 
-  async function saveDimension(id: string, answer: string) {
-    try {
+  function saveMark(id: string, answer: string) {
+    return enqueueAnswer(id, async () => {
+      const got = await answerMark(projectId, id, answer);
+      setPlan((p) => ({ ...p, marks: p.marks.map((m) => (m.id === got.id ? got : m)) }));
+    });
+  }
+
+  function saveDimension(id: string, answer: string) {
+    return enqueueAnswer(id, async () => {
       const got = await answerDimension(projectId, id, answer);
       setPlan((p) => ({
         ...p,
         dimensions: p.dimensions.map((d) => (d.id === got.id ? got : d)),
       }));
-    } catch (err) {
-      setError(apiErrorText(err));
-    }
+    });
   }
 
   async function finish(verdict: "kept" | "revise" | "dropped") {
-    if (!artifact) return;
+    if (!artifact || finishingRef.current) return;
+    finishingRef.current = true;
+    setFinishing(true);
+    setError(null);
     try {
+      // Blur saves the answer first. Preserve the student's explicit verdict:
+      // answering a review question does not itself request a revision.
+      await writes.current;
+      if (failedWrites.current.size) throw failedWrites.current.values().next().value;
+      const saved = await getReview(projectId, artifact.id);
+      setPlan(saved);
       await settleArtifact(projectId, artifact.id, verdict, verdictWhy.trim());
       // 她写的结论就是她的话，原样带走。
       onFinish({ artifactId: artifact.id, verdict }, verdictWhy.trim());
     } catch (err) {
       setError(apiErrorText(err));
+    } finally {
+      finishingRef.current = false;
+      setFinishing(false);
     }
+  }
+
+  async function refreshCurrentSite() {
+    if (!artifact || finishingRef.current) return;
+    finishingRef.current = true;
+    setFinishing(true);
+    setError(null);
+    try {
+      await writes.current;
+      if (failedWrites.current.size) throw failedWrites.current.values().next().value;
+      const all = await refreshSiteReview(projectId, artifact.id);
+      setArtifacts(all);
+      setPickedId(pendingArtifacts(all).find((a) => a.kind === "site" && !a.stale)?.id ?? null);
+      setPlan({ marks: [], dimensions: [] });
+      setVerdictWhy("");
+      setSelection("");
+      setSpotting("");
+      setOpenMark(null);
+    } catch (err) { setError(apiErrorText(err)); }
+    finally { finishingRef.current = false; setFinishing(false); }
   }
 
   const paragraphs = useMemo(
@@ -139,8 +190,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   /**
    * 她有没有留下意见。
    *
-   * 产品负责人 2026-09-02：留了意见，结论就只有一个——执行修改；没留意见，才谈
-   * 得上审核通过或者重新执行。所以这一行决定底下出现哪几个按钮。
+   * 回答可能是确认无问题，也可能提出修改；是否修改由学生明确选择。
    */
   const hasComments =
     plan.marks.some((m) => m.answer.trim()) ||
@@ -158,10 +208,12 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
    * 通过本身就是她的判断，不需要再打一行字来证明；打回重做要给方向，那道门槛
    * 在下面那个按钮上（disabled={!verdictWhy.trim()}），不该再拦一次整个工具。
    */
-  const todo = artifact ? "" : "暂时没有需要审核的内容";
+  const todo = artifact?.stale ? "主页已更新，请刷新审核" : artifact ? "" : "暂时没有需要审核的内容";
   const { wide } = useWidePane();
   // 划出来的句子在正文里的编号，1 开始。正文里的角标和下面那条问题靠它对上。
-  const parts = useMemo(() => splitIntoParts(paragraphs, plan.marks), [paragraphs, plan.marks]);
+  const visibleMarks = useMemo(() => revealed ? plan.marks : plan.marks.filter((m) => m.mine), [revealed, plan.marks]);
+  const aiMarkCount = plan.marks.filter((m) => !m.mine).length;
+  const parts = useMemo(() => splitIntoParts(paragraphs, visibleMarks), [paragraphs, visibleMarks]);
 
   // 她自己找出来的那几处（question 是那句固定标签）。
   const mySpots = useMemo(
@@ -211,48 +263,9 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
     return { done: all.filter((x) => x.answer.trim() !== "").length, total: all.length };
   }, [plan.marks, plan.dimensions]);
 
-  /** 一段正文，划出来的地方高亮 + 角标。分段渲染和整篇渲染共用这一段。 */
   function renderParagraphs(list: string[]) {
-    return list.map((text, i) => (
-      <p
-        key={i}
-        className={
-          wide ? "text-mk-body leading-[1.9] text-mk-ink" : "text-mk-small leading-relaxed text-mk-ink"
-        }
-      >
-        {splitByMarks(text, plan.marks).map((seg, j) =>
-          seg.mark ? (
-            <mark
-              key={j}
-              onClick={() => setOpenMark(openMark === seg.mark!.id ? null : seg.mark!.id)}
-              className="cursor-pointer rounded-mk-sm px-0.5"
-              style={{
-                background: seg.mark.answer.trim()
-                  ? DONE.bg
-                  : TODO.bg,
-                color: "var(--mk-ink)",
-                boxShadow: seg.mark.answer.trim()
-                  ? `inset 0 -2px 0 ${DONE.solid}`
-                  : `inset 0 -2px 0 ${TODO.solid}`,
-              }}
-            >
-              {seg.text}
-              <sup
-                className="ml-0.5 rounded-mk-full px-1 text-[10px] font-semibold"
-                style={{
-                  background: seg.mark.answer.trim() ? DONE.solid : TODO.solid,
-                  color: "var(--mk-surface)",
-                }}
-              >
-                {markNo.get(seg.mark.id) ?? "?"}
-              </sup>
-            </mark>
-          ) : (
-            <span key={j}>{seg.text}</span>
-          ),
-        )}
-      </p>
-    ));
+    return <ReviewMarkdown text={list.join("\n\n")} marks={visibleMarks}
+      onOpen={(id) => setOpenMark(openMark === id ? null : id)} />;
   }
 
   const markNo = useMemo(
@@ -266,15 +279,22 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
       task="参考审核框架，进行深度审核"
       why={tool.reason}
       todo={todo}
-      finishLabel={hasComments ? "执行修改" : "审核通过"}
-      onFinish={() => void finish(hasComments ? "revise" : "kept")}
+      finishLabel="审核通过"
+      onFinish={() => void finish("kept")}
       onClose={onClose}
+      busy={finishing}
     >
+      <fieldset disabled={finishing} className="min-w-0">
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
+
+      {artifact?.stale && <div className="mb-3 rounded-mk-md border border-mk-border p-3">
+        <p className="text-mk-small text-mk-ink">主页已更新，下方是旧版审核。请刷新后检查当前页面，旧意见将保留在原版本中。</p>
+        <button type="button" onClick={() => void refreshCurrentSite()} className="mt-2 rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small">刷新审核</button>
+      </div>}
 
       {!artifact && (
         <p className="text-mk-small text-mk-muted">暂时没有需要审核的内容</p>
@@ -289,6 +309,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                   key={a.id}
                   type="button"
                   onClick={() => setPickedId(a.id)}
+                  aria-pressed={a.id === artifact.id}
                   className="rounded-mk-full px-2.5 py-1 text-mk-small"
                   style={
                     a.id === artifact.id
@@ -296,11 +317,15 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                       : { color: "var(--mk-secondary)", border: "1px solid var(--mk-border)" }
                   }
                 >
-                  {a.title || "未命名"}
+                  {a.title || "未命名"} · {new Date(a.createdAt).toLocaleString()}{a.stale ? "（已过期）" : ""}
                 </button>
               ))}
             </div>
           )}
+
+          <ArtifactChanges artifact={artifact} showMetadata={revealed} previousArtifact={artifacts.find(a => a.id === (artifact.payload.baseArtifactId ?? artifact.payload.replacesArtifactId))} />
+          <PaperPreview key={`paper-${artifact.id}`} artifact={artifact} />
+          <FoldoutPreview key={artifact.id} artifact={artifact} />
 
           {/* 🚨 审了几处，一眼看得见。
               产品负责人 2026-09-03：「gamification, interaction!」——审一份文档
@@ -338,13 +363,13 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               审一份东西最省力的走法是从头读到尾然后点通过。把顺序倒过来——先让
               她找，再对答案——「你找出了印记自己都没提的一处」这个时刻才可能发生，
               而那正是铁律①要的：她判断 AI。 */}
-          {!revealed && (artifact.admits.length > 0 || artifact.guessed.length > 0) && (
+          {!revealed && (aiMarkCount > 0 || artifact.admits.length > 0 || artifact.guessed.length > 0) && (
             <div className="mb-4 rounded-mk-md px-3 py-2.5" style={{ background: tone("mist").bg }}>
               <p className="text-mk-small font-semibold" style={{ color: tone("mist").fg }}>
                 自查
               </p>
               <p className="mt-0.5 text-mk-small text-mk-ink">
-                印记标注了 {artifact.admits.length} 处存疑内容，暂未显示。
+                印记的标注与自查说明暂未显示。
                 请先自行审核：在正文中选中句子，标出你认为有问题的地方。
               </p>
               <div className="mt-2 flex items-center gap-2">
@@ -364,7 +389,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           {revealed && mySpots.length > 0 && (
             <div className="mb-3 rounded-mk-md px-3 py-2.5" style={{ background: DONE.bg }}>
               <p className="text-mk-small font-semibold" style={{ color: DONE.fg }}>
-                你标出 {mySpots.length} 处 · 印记标注 {artifact.admits.length} 处
+                你标出 {mySpots.length} 处 · 印记标注 {aiMarkCount} 处
               </p>
               <p className="mt-0.5 text-mk-small text-mk-ink">
                 请对照两份标注。你标出而印记未提及的内容，需要向印记确认。
@@ -394,6 +419,11 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               presenting a large text」。一整篇铺在那里，她能做的只有从头划到尾
               ——那是"读过了"，不是"审过了"。每一部分自带「这一部分要看什么」，
               以及落在这一部分里的问题，就地答。 */}
+          {artifact.kind === "site" && artifact.payload.url && (
+            <a href={artifact.payload.url} target="_blank" rel="noreferrer" className="mb-3 block text-mk-small underline">
+              查看当前主页预览
+            </a>
+          )}
           {isDocument(artifact) ? (
             <div
               onMouseUp={() => setSelection(window.getSelection()?.toString() ?? "")}
@@ -558,7 +588,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               🚨 文档已经把每条问题摆在它所属的那一部分里了，这里不能再列一遍
               ——同一个问题出现两次，她答哪一个都不知道。图片和网站没有可以内联
               的正文，问题只能集中列在这里。 */}
-          {!isDocument(artifact) && plan.marks.length > 0 && (
+          {!isDocument(artifact) && visibleMarks.length > 0 && (
             <div className="mt-5 space-y-2 border-t border-mk-border pt-4">
               <div className="flex items-center gap-2">
                 <span className="h-3.5 w-1 rounded-mk-full" style={{ background: TODO.solid }} />
@@ -567,7 +597,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                   {plan.marks.length}）
                 </p>
               </div>
-              {plan.marks.map((m) => (
+              {visibleMarks.map((m) => (
                 <MarkRow
                   key={m.id}
                   no={markNo.get(m.id) ?? 0}
@@ -591,7 +621,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                 <p className="text-mk-body font-semibold text-mk-ink">审核要点</p>
               </div>
               <p className="text-mk-small text-mk-muted">
-                审这份东西非看不可的几个方面。答完其中任何一条，结论就是「执行修改」。
+                请记录检查结果；有问题时说明修改要求，没有问题时说明判断依据。
               </p>
               {plan.dimensions.map((d) => (
                 <div key={d.id} className="rounded-mk-md border border-mk-border px-3 py-2">
@@ -606,9 +636,10 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           {/* 结论。三档的门槛不一样，见 pbl_artifacts.go 里那段注释。 */}
           <div className="mt-4 border-t border-mk-border pt-3">
             {hasComments ? (
-              <p className="text-mk-small text-mk-muted">
-                你已留下修改意见。请点击「执行修改」。
-              </p>
+              <>
+                <p className="text-mk-small text-mk-muted">审核记录已保存。需要修改时请执行修改；确认没有问题时可以审核通过。</p>
+                <button type="button" onClick={() => void finish("revise")} className="mt-2 w-full rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary">执行修改</button>
+              </>
             ) : (
               <>
                 <p className="text-mk-small text-mk-muted">
@@ -639,6 +670,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           </div>
         </>
       )}
+      </fieldset>
     </ToolFrame>
   );
 }
@@ -754,4 +786,3 @@ function AnswerBox({ value, onSave }: { value: string; onSave: (v: string) => vo
     />
   );
 }
-

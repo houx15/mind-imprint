@@ -108,6 +108,10 @@ func (a *API) generatePblPersonas(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
+	if _, err := qtx.LockAtom(r.Context(), atomID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 
 	if err := qtx.DeletePblPersonasByAtom(r.Context(), atomID); err != nil {
 		httpx.WriteError(w, r, err)
@@ -224,6 +228,10 @@ func (a *API) choosePblPersona(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
+	if _, err := qtx.LockAtom(r.Context(), atomID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 
 	// 🚨 先清再置：唯一索引 pbl_persona_one_chosen 不允许两个同时为真。
 	if err := qtx.ClearPblPersonaChosen(r.Context(), atomID); err != nil {
@@ -287,4 +295,68 @@ func (a *API) studentMaterialFor(r *http.Request, userID, atomID uuid.UUID) (str
 		b.WriteString("她自己说过：\n" + t + "\n")
 	}
 	return b.String(), nil
+}
+
+// createPblPersona lets a student define the reader without model suggestions.
+// This also works for the first project, before any reading or writing exists.
+func (a *API) createPblPersona(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	var in pbl.PersonaCandidate
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	in.Label = strings.TrimSpace(in.Label)
+	in.Wants = strings.TrimSpace(in.Wants)
+	keywords := []string{}
+	seen := map[string]bool{}
+	for _, word := range in.Keywords {
+		word = strings.TrimSpace(word)
+		if word != "" && !seen[word] {
+			keywords = append(keywords, word)
+			seen[word] = true
+		}
+		if len([]rune(word)) > 40 {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_persona", "保存失败：关键词不能超过40字", nil))
+			return
+		}
+	}
+	if in.Label == "" || in.Wants == "" || len([]rune(in.Label)) > 100 || len([]rune(in.Wants)) > 1000 || len(keywords) < 1 || len(keywords) > 6 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_persona", "保存失败：请填写读者、展示内容和1至6个关键词", nil))
+		return
+	}
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	q := a.d.Queries.WithTx(tx)
+	if _, err = q.LockAtom(r.Context(), atomID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	kw, _ := json.Marshal(keywords)
+	row, err := q.CreatePblPersona(r.Context(), sqlc.CreatePblPersonaParams{AtomID: atomID, Label: in.Label, Wants: in.Wants, Feeling: strings.Join(keywords, "、"), Keywords: kw})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err = q.ClearPblPersonaChosen(r.Context(), atomID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	row, err = q.ChoosePblPersona(r.Context(), sqlc.ChoosePblPersonaParams{AtomID: atomID, ID: row.ID})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, a.toPblPersonaDTO(row))
 }

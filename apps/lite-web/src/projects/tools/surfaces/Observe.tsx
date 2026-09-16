@@ -1,11 +1,12 @@
+import { GrowingTextarea } from "../../../shared/GrowingTextarea";
+import { Says, errorMarkdown } from "../../Says";
 import { apiErrorText } from "../../../api/errorText";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, Plus, X } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   NOTE_KINDS,
   NOTE_KIND_HINTS,
-  createNotes,
   listNotes,
   moveNote,
   noteKindMeta,
@@ -13,7 +14,8 @@ import {
 } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
 import { boardSpot } from "../boardLayout";
-import { uploadUserImage } from "../../../api/oss";
+import { useObservationDraft } from "../../useObservationDraft";
+import { uploadUserImage, resolveUrl } from "../../../api/oss";
 import { listMission, type MissionItem } from "../../../api/mission";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -43,7 +45,22 @@ interface Brought {
 }
 
 export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
-  const [items, setItems] = useState<Brought[]>([{ kind: "observation", body: "", imageKey: "", preview: "" }]);
+  const draft = useObservationDraft(projectId, tool.id);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const items: Brought[] = (draft.document.length ? draft.document : [{kind: "observation" as const, body: "", imageKey: ""}]).map(row => ({...row, preview: previews[row.imageKey] || ""}));
+  const latestItems = useRef(items); latestItems.current = items;
+  const setItems = (update: (rows: Brought[]) => Brought[]) => {
+    const next = update(latestItems.current); latestItems.current = next;
+    draft.change(next.map(({preview: _preview, ...row}) => row));
+  };
+  useEffect(() => {
+    let live = true;
+    for (const row of draft.document) if (row.imageKey && !previews[row.imageKey]) {
+      void resolveUrl(row.imageKey).then(url => {if(live) setPreviews(old=>({...old,[row.imageKey]:url}));}).catch(()=>{});
+    }
+    return ()=>{live=false};
+  }, [draft.document, previews]);
   const [error, setError] = useState<string | null>(null);
   // 正在上传的是第几条。同时只让传一张——她一条一条填，不需要并发。
   const [uploading, setUploading] = useState<number | null>(null);
@@ -51,6 +68,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   const [mission, setMission] = useState<MissionItem[]>([]);
 
   useEffect(() => {
+    if (!draft.loaded) return;
     let alive = true;
     void listMission(projectId, tool.id)
       .then((ms) => {
@@ -59,7 +77,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         // 🚨 只把**点掉的**那几条变成底稿。没做到的那几条不该在这里冒出一个
         // 空框等她补——她没做到就是没做到，那件事由印记接着问（回灌里有）。
         const seeded = ms
-          .filter((m) => m.doneAt)
+          .filter((m) => m.doneAt && !m.supersededAt)
           .map((m) => ({
             kind: (m.wantKind || "observation") as NoteKind,
             body: "",
@@ -67,7 +85,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
             preview: "",
             from: m.prompt,
           }));
-        if (seeded.length > 0) setItems(seeded);
+        if (seeded.length > 0 && !latestItems.current.some(row => row.body || row.imageKey || row.from)) setItems(() => seeded);
       })
       .catch(() => {
         // 清单拉不到就退回原来的样子：一条空白的记录行，仍然能用。
@@ -75,7 +93,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
     return () => {
       alive = false;
     };
-  }, [projectId, tool.id]);
+  }, [projectId, tool.id, draft.loaded]);
 
   const filled = items.filter((i) => i.body.trim());
 
@@ -93,7 +111,8 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
     setError(null);
     try {
       const key = await uploadUserImage(file);
-      set(i, { imageKey: key, preview: URL.createObjectURL(file) });
+      setPreviews(old => ({...old, [key]: URL.createObjectURL(file)}));
+      set(i, { imageKey: key });
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
@@ -106,11 +125,10 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   }
 
   async function finish() {
+    if (submitting || uploading !== null) return;
+    setSubmitting(true);
     try {
-      const made = await createNotes(
-        projectId,
-        filled.map((i) => ({ kind: i.kind, body: i.body.trim(), imageKey: i.imageKey })),
-      );
+      const {notes: made, submittedRevision} = await draft.submit();
       // 🚨 带回来的便签要各占一格。createNotes 不给坐标，于是它们全落在
       // (0,0)——2026-09-02 线上实测：带回两条，板上看起来只有一张，另一张
       // 严丝合缝压在下面，她既看不见也拖不出来。板子上手动加的那条走的是
@@ -126,31 +144,37 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         }
       }
       // 便签已经贴在板上了，印记看得见。不用我们再替她复述一遍。
-      onFinish({ brought: filled.length }, "");
+      onFinish({ brought: made.length, observationRevision: submittedRevision }, "");
     } catch (err) {
       setError(apiErrorText(err));
-    }
+    } finally { setSubmitting(false); }
   }
 
   return (
     <ToolFrame
       title={tool.label}
-      task="请逐条记录你看到的和听到的内容"
+      task="请逐条记录观察、原话、推论或问题"
       why={tool.reason}
       todo={filled.length === 0 ? "至少带回来一条" : ""}
-      finishLabel="贴到板上"
+      finishLabel="提交记录并讨论"
       onFinish={() => void finish()}
-      onClose={onClose}
+      busy={!draft.loaded || submitting || uploading !== null}
+      onClose={() => { if (submitting || uploading !== null) return; void draft.flush().then(onClose).catch(()=>{}); }}
     >
+      <p className="mb-3 text-mk-small text-mk-secondary">{!draft.loaded ? (draft.error ? "草稿读取失败" : "正在读取草稿…") : draft.saving ? "草稿保存中" : draft.dirty ? "草稿待保存" : "草稿已保存"} · 提交后才会加入便签板</p>
+      {draft.error && <section role="alert" className="mb-3 space-y-2"><Says content={errorMarkdown(draft.error)}/><button className="rounded-mk-md border border-mk-border px-3 py-2 text-mk-small" onClick={()=>void draft.inspect()}>读取已保存草稿</button>{draft.remote && <><div className="grid gap-3" style={{gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 220px), 1fr))"}}>{[{title:"当前输入",rows:draft.document},{title:"已保存草稿",rows:draft.remote.document}].map(version=><section key={version.title} className="min-w-0 rounded-mk-md border border-mk-border bg-mk-surface p-3"><h3 className="mb-2 font-semibold">{version.title}</h3>{version.rows.length===0?<p>无记录</p>:version.rows.map((row,index)=><div key={index} className="border-t border-mk-border py-2 first:border-0"><p className="text-mk-small text-mk-secondary">{noteKindMeta(row.kind).label}</p><p className="whitespace-pre-wrap break-words">{row.body||"未填写正文"}</p>{row.from&&<p className="mt-1 text-mk-small text-mk-secondary">任务：{row.from}</p>}{row.imageKey&&<p className="mt-1 text-mk-small text-mk-secondary">已关联照片</p>}</div>)}</section>)}</div><div className="flex flex-wrap gap-2"><button className="rounded-mk-md border border-mk-border px-3 py-2 text-mk-small" onClick={()=>void draft.resolve(false)}>使用已保存草稿</button><button className="rounded-mk-md border border-mk-border px-3 py-2 text-mk-small" onClick={()=>void draft.resolve(true)}>保留当前输入并保存</button></div></>}</section>}
+      <fieldset disabled={!draft.loaded || submitting || uploading !== null}>
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+        </div>
       )}
 
       {/* 🚨 带回来的东西分四类，缺哪一类一眼看得出来。
           观察一趟只带回自己的推论，是这件工具最常见的失败法——她"看"了，
           但没带回任何一句别人的原话、任何一个数字。这条计数条就是那面镜子。 */}
+      <p className="mb-2 text-mk-small font-semibold text-mk-secondary">本次待提交</p>
+      <p className="mb-3 text-mk-small text-mk-muted">已提交的记录保存在项目材料的便签板中。</p>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {NOTE_KINDS.filter((k) => k.kind !== "idea").map((k) => {
           const n = filled.filter((i) => i.kind === k.kind).length;
@@ -181,14 +205,14 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
 
       {/* 🚨 没做到的那几条照实摆出来，不催也不空一个框等她补。
           「第 2 条没做到」是信号，不是过失——常常说明那一条本来就不现实。 */}
-      {mission.some((m) => !m.doneAt) && (
+      {mission.some((m) => !m.doneAt && !m.supersededAt) && (
         <div
           className="mb-3 rounded-mk-md px-3 py-2"
           style={{ background: "var(--mk-paper)" }}
         >
-          <p className="text-mk-small text-mk-secondary">这一趟没做到的：</p>
+          <p className="text-mk-small text-mk-secondary">尚未完成的观察任务</p>
           {mission
-            .filter((m) => !m.doneAt)
+            .filter((m) => !m.doneAt && !m.supersededAt)
             .map((m) => (
               <p key={m.id} className="mt-0.5 text-mk-small text-mk-muted">
                 {m.prompt}
@@ -214,6 +238,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                   <button
                     key={k.kind}
                     type="button"
+                    aria-pressed={it.kind === k.kind}
                     onClick={() => set(i, { kind: k.kind })}
                     className="rounded-mk-full px-2 py-0.5 text-mk-small"
                     style={
@@ -287,7 +312,8 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 />
               </label>
             )}
-            <textarea
+            <GrowingTextarea
+              aria-label={`${noteKindMeta(it.kind).label} ${i + 1}`}
               value={it.body}
               onChange={(e) => set(i, { body: e.target.value })}
               rows={2}
@@ -307,6 +333,12 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         再加一条
       </button>
 
+      </fieldset>
+      <div className="mt-4 border-t border-mk-border pt-3">
+        <p className="text-mk-small text-mk-muted">提交记录后可以继续观察。结束本次观察后，记录仍会保留。</p>
+        <button type="button" disabled={!draft.loaded || submitting || uploading !== null || filled.length > 0} onClick={() => { void draft.flush().then(() => onFinish({endObservation: true}, "")).catch(() => {}); }} className="mt-2 rounded-mk-md border border-mk-border px-3 py-2 text-mk-small disabled:opacity-40">结束本次观察</button>
+        {filled.length > 0 && <p className="mt-1 text-mk-small text-mk-muted">请先提交当前记录。</p>}
+      </div>
       {/* 照片已经能带了（走 OSS，库里存 key）。录音和涂鸦还没做。 */}
     </ToolFrame>
   );

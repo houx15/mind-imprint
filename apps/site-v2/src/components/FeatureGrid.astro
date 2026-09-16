@@ -1,0 +1,5 @@
+---
+import {features} from '../data/features';import {t,path,type Lang} from '../config';import Icon from './Icon.astro';import FeatureArt from './FeatureArt.astro';
+const {lang}=Astro.props as {lang:Lang};
+---
+<div class="feature-grid">{features.map((f,i)=><a class={`feature-card ${f.tone}`} href={path(lang,`product/${f.id}`)}><div class="feature-card-top"><span class="icon-box"><Icon name={f.icon}/></span><span class="feature-number">0{i+1}</span></div><h3>{t(lang,f.name)}</h3><p>{t(lang,f.desc)}</p><FeatureArt kind={f.id} lang={lang}/><div class="feature-card-bottom"><span>{f.label}</span><Icon name="arrow"/></div></a>)}</div>

@@ -1,9 +1,17 @@
+import { Says, errorMarkdown } from "../../Says";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, GripVertical } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Icon } from "@/ui";
 import { apiErrorText } from "../../../api/errorText";
+import { ApiError } from "../../../api/client";
 import {
   addOption,
+  getDecisionDraft,
+  saveDecisionDraft,
+  type DecisionDraft,
+  type DecisionDraftState,
   decisionTodo,
   rankOptions,
   joinWhyNot,
@@ -18,6 +26,9 @@ import { Stage } from "../board/Stage";
 import { DragGhost } from "../board/DragGhost";
 import { useZoneDrag } from "../board/useZoneDrag";
 import type { ToolSurfaceProps } from "../registry";
+import { beforeNavigate } from "../../../routing";
+import { GrowingTextarea } from "../../../shared/GrowingTextarea";
+import { textChanges, remarkTextChanges, type TextRange } from "../../../shared/textChanges";
 
 /**
  * Decide —— 理性决策。
@@ -78,19 +89,151 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     }
   }
   const [error, setError] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [remoteDraft, setRemoteDraft] = useState<DecisionDraftState | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [reviewedVersion, setReviewedVersion] = useState(0);
+  const revision = useRef(0);
+  const saved = useRef("");
+  const pending = useRef<Promise<void> | null>(null);
+  const closed = useRef(false);
+  const loadEpoch = useRef(0);
+  const snapshot = JSON.stringify({
+    contentVersion: reviewedVersion,
+    choiceId: decision?.options.find((o) => o.label === choice)?.id ?? "",
+    why, dropped, flip, adding, mineLabel, mineWhy,
+  } satisfies DecisionDraft);
+  const latest = useRef(snapshot);
+  latest.current = snapshot;
+
+  const flushDraft = useCallback((): Promise<void> => {
+    if (pending.current) return pending.current;
+    if (!draftLoaded || !decision || closed.current) return Promise.resolve();
+    const save = async () => {
+      setSaving(true);
+      try {
+        while (saved.current !== latest.current && !closed.current) {
+          const value = latest.current;
+          const result = await saveDecisionDraft(projectId, decision.id, JSON.parse(value), revision.current);
+          revision.current = result.revision;
+          saved.current = value;
+          setSavedSnapshot(value);
+        }
+        setDraftError(null);
+        setConflict(false);
+      } catch (err) {
+        setConflict(err instanceof ApiError && err.status === 409);
+        setDraftError(apiErrorText(err));
+        throw err;
+      } finally {
+        setSaving(false);
+        pending.current = null;
+      }
+    };
+    // A microtask ensures pending is assigned before a no-op save finishes.
+    pending.current = Promise.resolve().then(save);
+    return pending.current;
+  }, [draftLoaded, decision?.id, projectId]);
+
+  useEffect(() => {
+    if (!draftLoaded || snapshot === saved.current) return;
+    const timer = window.setTimeout(() => { void flushDraft().catch(() => {}); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [snapshot, draftLoaded, flushDraft]);
+
+  useEffect(() => beforeNavigate(async () => {
+    setLeaving(true);
+    try { await flushDraft(); }
+    finally { setLeaving(false); }
+  }), [flushDraft]);
+
+  useEffect(() => {
+    if (!draftLoaded || snapshot === savedSnapshot) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [draftLoaded, snapshot, savedSnapshot]);
+
+  async function close() {
+    if (leaving) return;
+    setLeaving(true);
+    try { await flushDraft(); onClose(); } catch { setLeaving(false); }
+  }
+
+  async function inspectSavedDraft() {
+    if (!decision) return;
+    try { setRemoteDraft(await getDecisionDraft(projectId, decision.id)); }
+    catch (err) { setDraftError(apiErrorText(err)); }
+  }
+
+  async function keepCurrentDraft() {
+    if (!remoteDraft || remoteDraft.settled) return;
+    revision.current = remoteDraft.revision;
+    try { await flushDraft(); setRemoteDraft(null); }
+    catch { setRemoteDraft(null); }
+  }
+
+  function useSavedDraft() {
+    if (!remoteDraft || !decision || remoteDraft.settled || pending.current) return;
+    const d = remoteDraft.draft;
+    const restored = {
+      contentVersion: d.contentVersion ?? 0,
+      choiceId: decision.options.some((o) => o.id === d.choiceId) ? d.choiceId! : "",
+      why: d.why ?? "", dropped: d.dropped ?? {}, flip: d.flip ?? "",
+      adding: d.adding ?? false, mineLabel: d.mineLabel ?? "", mineWhy: d.mineWhy ?? "",
+    };
+    revision.current = remoteDraft.revision;
+    saved.current = JSON.stringify(restored);
+    setSavedSnapshot(saved.current);
+    setReviewedVersion(restored.contentVersion);
+    setChoice(decision.options.find((o) => o.id === restored.choiceId)?.label ?? "");
+    setWhy(restored.why); setDropped(restored.dropped); setFlip(restored.flip);
+    setAdding(restored.adding); setMineLabel(restored.mineLabel); setMineWhy(restored.mineWhy);
+    setDraftError(null); setConflict(false); setRemoteDraft(null);
+  }
 
   const boot = useCallback(async () => {
+    const epoch = ++loadEpoch.current;
+    setReady(false);
+    setError(null);
     try {
-      setDecision(openDecisionOf(await listDecisions(projectId)));
+      const current = openDecisionOf(await listDecisions(projectId));
+      if (current) {
+        const state = await getDecisionDraft(projectId, current.id);
+        if (epoch !== loadEpoch.current) return;
+        if (state.settled) throw new Error("这个决定已确认，请重新打开");
+        const d = state.draft;
+        const restored = {
+          contentVersion: d.contentVersion ?? 0,
+          choiceId: current.options.some((o) => o.id === d.choiceId) ? d.choiceId! : "",
+          why: d.why ?? "", dropped: d.dropped ?? {}, flip: d.flip ?? "",
+          adding: d.adding ?? false, mineLabel: d.mineLabel ?? "", mineWhy: d.mineWhy ?? "",
+        };
+        revision.current = state.revision;
+        saved.current = JSON.stringify(restored);
+        setSavedSnapshot(saved.current);
+        setReviewedVersion(restored.contentVersion);
+        setChoice(current.options.find((o) => o.id === restored.choiceId)?.label ?? "");
+        setWhy(restored.why); setDropped(restored.dropped); setFlip(restored.flip);
+        setAdding(restored.adding); setMineLabel(restored.mineLabel); setMineWhy(restored.mineWhy);
+        setDraftLoaded(true);
+      }
+      if (epoch !== loadEpoch.current) return;
+      setDecision(current);
     } catch (err) {
-      setError(apiErrorText(err));
+      if (epoch === loadEpoch.current) setError(apiErrorText(err));
     } finally {
-      setReady(true);
+      if (epoch === loadEpoch.current) setReady(true);
     }
   }, [projectId]);
 
   useEffect(() => {
     void boot();
+    return () => { loadEpoch.current++; };
   }, [boot]);
 
   const whyNot = decision
@@ -102,16 +245,21 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     : "";
 
   async function finish() {
-    if (!decision) return;
+    if (!decision || leaving || reviewedVersion !== decision.contentVersion) return;
+    setLeaving(true);
     try {
+      await flushDraft();
       const got = await settleDecision(projectId, decision.id, {
         choice: choice.trim(),
         why: why.trim(),
         whyNot: whyNot.trim(),
         flip: flip.trim(),
+        contentVersion: reviewedVersion,
       });
+      closed.current = true;
       onFinish({ decisionId: got.id, choice: got.choice }, got.why);
     } catch (err) {
+      setLeaving(false);
       setError(apiErrorText(err));
     }
   }
@@ -131,7 +279,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     }
   }
 
-  const todo = decisionTodo(decision, { choice, why, whyNot });
+  const todo = decision && reviewedVersion !== decision.contentVersion ? "请核对修订内容与原理由" : decisionTodo(decision, { choice, why, whyNot });
   // 排过就按名次显示，没排过就按印记给的顺序。
   const ordered = decision
     ? [...decision.options].sort((a, b) => {
@@ -141,7 +289,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         return a.ordinal - b.ordinal;
       })
     : [];
-  const chosenIndex = decision?.options.findIndex((o) => o.label === choice) ?? -1;
+  const chosenIndex = ordered.findIndex((o) => o.label === choice);
   const chosenTone = optionTone(chosenIndex < 0 ? 0 : chosenIndex);
   const answeredDrops = decision
     ? decision.options.filter((o) => o.label !== choice && (dropped[o.id] ?? "").trim() !== "")
@@ -176,26 +324,79 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       task="针对每个选项的原因及可能后果进行深入思考，再做出决定"
       why={tool.reason}
       todo={todo}
-      insight={choice ? `已确定：${choice}` : undefined}
+      insight={choice ? `暂选：${choice}` : undefined}
       finishLabel="确认选择"
+      busy={leaving}
       onFinish={() => void finish()}
-      onClose={onClose}
+      onClose={() => void close()}
     >
       {error && (
-        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {error}
-        </p>
+        <div className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          <Says content={errorMarkdown(error)} />
+          {!decision && <button className="ml-2 underline" onClick={() => void boot()}>重新加载</button>}
+        </div>
       )}
 
-      {ready && !decision && (
+      {ready && !decision && !error && (
         <p className="text-mk-small text-mk-muted">
           暂时没有需要决策的内容。印记提出几个方案时，会在这里让你选。
         </p>
       )}
 
       {decision && (
-        <>
+        <div ref={(el) => { if (el) el.inert = leaving; }}>
+          <div className="mb-2 text-mk-small text-mk-muted" role="status">
+            {draftError ? <Says content={errorMarkdown(`保存失败：${draftError}`)} /> : saving || snapshot !== savedSnapshot ? "草稿保存中" : "草稿已保存"}
+            {draftError && (conflict
+              ? <button className="ml-2 underline" onClick={() => void inspectSavedDraft()}>查看已保存版本</button>
+              : <button className="ml-2 underline" onClick={() => void flushDraft().catch(() => {})}>重试保存</button>)}
+          </div>
+          {remoteDraft && (
+            <section className="mb-3 rounded-mk-md border border-mk-border p-3 text-mk-small">
+              <h3 className="font-semibold">已保存版本</h3>
+              {remoteDraft.settled ? <>
+                <p>这个决定已在另一页面确认，当前草稿无法覆盖。请保留需要的文字后关闭当前草稿。</p>
+                <button className="mt-2 underline" onClick={() => { closed.current = true; onClose(); }}>关闭未保存草稿</button>
+              </> : <>
+                <p>另一页面已保存新内容。请对照下面的版本，再决定是否用当前输入替换。</p>
+                <p>暂选方案：{decision.options.find((o) => o.id === remoteDraft.draft.choiceId)?.label ?? "未选择"}</p>
+                <p className="whitespace-pre-wrap">选择原因：{remoteDraft.draft.why || "未填写"}</p>
+                {Object.entries(remoteDraft.draft.dropped ?? {}).map(([id, reason]) => <p key={id} className="whitespace-pre-wrap">未选原因（{decision.options.find((o) => o.id === id)?.label ?? "原方案"}）：{reason}</p>)}
+                <p className="whitespace-pre-wrap">改主意的条件：{remoteDraft.draft.flip || "未填写"}</p>
+                <p className="whitespace-pre-wrap">自定义方案：{remoteDraft.draft.mineLabel || "未填写"} {remoteDraft.draft.mineWhy}</p>
+                <button className="mt-2 underline" onClick={() => void keepCurrentDraft()}>保留当前输入并保存</button>
+                <button className="ml-3 mt-2 underline" onClick={useSavedDraft}>使用已保存版本</button>
+              </>}
+            </section>
+          )}
           <p className="text-mk-body text-mk-ink">{decision.subject}</p>
+          {(decision.revisionHistory?.length ?? 0) > 0 && <section className="my-3 rounded-mk-md border border-mk-border p-3 text-mk-small">
+            <h3 className="font-semibold">修订记录 · 第 {decision.contentVersion + 1} 版</h3>
+            <p>候选方案已修改。请比较修改前后的内容，并核对原理由是否仍然适用。</p>
+            {decision.revisionHistory.map((previous, index) => {
+              const next = decision.revisionHistory[index + 1] ?? decision;
+              return <details key={previous.version} className="my-2" open={index === decision.revisionHistory.length - 1}>
+                <summary className="cursor-pointer">第 {previous.version + 1} → {previous.version + 2} 版：{previous.reason}</summary>
+                {previous.subject !== next.subject && <p className="my-2">主题：{previous.subject} → {next.subject}</p>}
+                {previous.options.map((old) => {
+                  const updated = next.options.find((o) => o.id === old.id);
+                  if (!updated || (old.label === updated.label && old.description === updated.description)) return null;
+                  const changes = textChanges(old.description, updated.description);
+                  return <div key={old.id} className="my-5 grid gap-4 border-t-2 border-mk-border pt-5 md:grid-cols-2">
+                    <section className="min-w-0 overflow-hidden rounded-mk-md border-2 border-rose-200 bg-white">
+                      <header className="border-b border-rose-200 bg-rose-50 px-4 py-3"><p className="mb-1 font-semibold text-rose-800">修改前 · 删除处已标记</p><h4 className="font-semibold">{old.label}</h4></header>
+                      <div className="px-4 pb-4"><DecisionText ranges={changes.before} removed>{old.description}</DecisionText></div>
+                    </section>
+                    <section className="min-w-0 overflow-hidden rounded-mk-md border-2 border-emerald-300 bg-white">
+                      <header className="border-b border-emerald-200 bg-emerald-50 px-4 py-3"><p className="mb-1 font-semibold text-emerald-800">修改后 · 新增处已高亮</p><h4 className="font-semibold">{updated.label}</h4></header>
+                      <div className="px-4 pb-4"><DecisionText ranges={changes.after}>{updated.description}</DecisionText></div>
+                    </section>
+                  </div>;
+                })}
+              </details>;
+            })}
+            {reviewedVersion !== decision.contentVersion && <button className="mt-2 underline" onClick={() => setReviewedVersion(decision.contentVersion)}>已核对修订内容与原理由</button>}
+          </section>}
 
           {/* 🚨 印记给的这几条不是全集。「在别人摆好的选项里挑一个」和「决定」
               是两回事——后者包含「这些都不对，我要的是另一样」。 */}
@@ -209,10 +410,9 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   placeholder="方案名称"
                   className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
-                <input
+                <GrowingTextarea
                   value={mineWhy}
                   onChange={(e) => setMineWhy(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void addMine()}
                   placeholder="方案说明"
                   className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
@@ -264,16 +464,18 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
             </div>
           )}
 
-          <div className="mt-2 grid gap-2 md:grid-cols-3">
+          <div className={`mt-2 grid gap-2 ${ordered.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
             {ordered.map((o, i) => {
               const on = choice === o.label;
               const t = optionTone(i);
               // 选中一张之后，别的暗下去——她要看见的是"我挑了这条，放掉了那些"。
               const faded = choice !== "" && !on;
               return (
-                <button
+                <div
                   key={o.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={on}
                   ref={drag.zoneRef(`opt:${o.id}`)}
                   // 🚨 拖和选是同一个手势的两半（useZoneDrag 的 onDrop / onTap）。
                   // 分成"拖把手 + 点正文"在触屏上两个都不好按，而这块板上她做得
@@ -282,6 +484,11 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   onClick={() => {
                     if (justDragged.current) return;
                     setChoice(on ? "" : o.label);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    if (!e.repeat) setChoice(on ? "" : o.label);
                   }}
                   className="block h-full w-full rounded-mk-md border px-3 py-2.5 text-left transition-opacity"
                   // 🚨 整张卡染上这条路自己的淡底，不挂左侧色条。
@@ -294,14 +501,14 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                     boxShadow: on ? `0 0 0 2px color-mix(in srgb, ${t.solid} 32%, transparent)` : undefined,
                   }}
                 >
-                  <span className="flex items-start gap-2">
+                  <div className="flex items-start gap-2">
                     <span
                       className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
                       style={{ background: t.solid, color: "var(--mk-surface)" }}
                     >
                       {optionTag(i)}
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                       <span className="block text-mk-small font-semibold" style={{ color: t.fg }}>
                         {o.label}
                         {/* 她自己加的那条要认得出来——那是她的判断，不是印记的提议。 */}
@@ -312,11 +519,9 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                         )}
                       </span>
                       {o.description && (
-                        <span className="mt-1 block text-mk-small text-mk-secondary">
-                          {o.description}
-                        </span>
+                        <DecisionText>{o.description}</DecisionText>
                       )}
-                    </span>
+                    </div>
                     {/* 抓手。一直在，不靠 hover 才出现——触屏上没有 hover，
                         而她第一次看见这三张卡时最需要知道的就是"这个能拿起来"。 */}
                     {!choice && ordered.length > 1 && (
@@ -332,8 +537,8 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                         <Icon icon={Check} size={15} />
                       </span>
                     )}
-                  </span>
-                </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -349,7 +554,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   />
                   <label className="text-mk-body font-semibold text-mk-ink">选择原因</label>
                 </div>
-                <textarea
+                <GrowingTextarea
                   value={why}
                   onChange={(e) => setWhy(e.target.value)}
                   rows={2}
@@ -410,7 +615,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                             {o.label}
                           </span>
                         </div>
-                        <input
+                        <GrowingTextarea
                           value={dropped[o.id] ?? ""}
                           onChange={(e) =>
                             setDropped((prev) => ({ ...prev, [o.id]: e.target.value }))
@@ -425,7 +630,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
       <DragGhost drag={drag.drag}>
         {draggedOption && (
@@ -442,4 +647,23 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       </DragGhost>
     </Stage>
   );
+}
+
+function DecisionText({ children, ranges = [], removed = false }: { children: string; ranges?: TextRange[]; removed?: boolean }) {
+  return (<div className="mt-2 break-words text-mk-small leading-relaxed text-mk-secondary [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_strong]:font-semibold [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:p-1 [&_th]:border [&_th]:p-1">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm, [remarkTextChanges, { source: children, ranges, removed }]]}
+                            skipHtml
+                            // 卡片整体负责选择，正文不嵌套链接或其他交互控件。
+                            components={{
+                              a: ({ children }) => <span>{children}</span>,
+                              img: ({ alt }) => <span>{alt}</span>,
+                              input: ({ checked }) => <span>{checked ? "☑" : "☐"}</span>,
+                              del: ({ children }) => <del className="bg-rose-100 text-rose-900 decoration-rose-600 decoration-2">{children}</del>,
+                              mark: ({ children }) => <mark className="rounded-sm bg-emerald-100 px-0.5 font-medium text-emerald-950">{children}</mark>,
+                            }}
+                          >
+                            {children}
+                          </ReactMarkdown>
+                        </div>);
 }

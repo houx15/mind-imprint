@@ -34,7 +34,7 @@ import (
 //  3. 选择、为什么、什么会让我改主意，三样都不能空。
 
 type pblOptionDTO struct {
-	ID string `json:"id"`
+	ID          string `json:"id"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	// 🚨 谁提的这条路。印记提的是默认，她自己加的那条是另一回事——
@@ -47,8 +47,8 @@ type pblOptionDTO struct {
 }
 
 type pblCriterionDTO struct {
-	ID      string `json:"id"`
-	Label   string `json:"label"`
+	ID     string `json:"id"`
+	Label  string `json:"label"`
 	Author string `json:"author"`
 	// 她排的名次，1 是第一。0 = 还没排过。
 	StudentRank int32 `json:"studentRank"`
@@ -56,9 +56,11 @@ type pblCriterionDTO struct {
 }
 
 type pblDecisionDTO struct {
-	ID        string            `json:"id"`
-	Subject   string            `json:"subject"`
-	Choice string `json:"choice"`
+	ContentVersion  int32           `json:"contentVersion"`
+	RevisionHistory json.RawMessage `json:"revisionHistory"`
+	ID              string          `json:"id"`
+	Subject         string          `json:"subject"`
+	Choice          string          `json:"choice"`
 	// 为什么选它 / 为什么不选别的——确认时要回答的那两个小问题。
 	Why    string `json:"why"`
 	WhyNot string `json:"whyNot"`
@@ -72,6 +74,7 @@ type pblDecisionDTO struct {
 
 func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []sqlc.PblDecisionCriterion) pblDecisionDTO {
 	out := pblDecisionDTO{
+		ContentVersion: d.ContentVersion, RevisionHistory: d.RevisionHistory,
 		ID: d.ID.String(), Subject: d.Subject, Choice: d.Choice,
 		Why: d.Why, WhyNot: d.WhyNot, Flip: d.Flip,
 		Options: make([]pblOptionDTO, 0, len(opts)), Criteria: make([]pblCriterionDTO, 0, len(crit)),
@@ -112,6 +115,7 @@ func (a *API) loadPblDecisionFull(r *http.Request, id uuid.UUID) (pblDecisionDTO
 		ID: d.ID, AtomID: d.AtomID, SessionID: d.SessionID, Subject: d.Subject,
 		Choice: d.Choice, Why: d.Why, WhyNot: d.WhyNot, GaveUp: d.GaveUp,
 		Flip: d.Flip, SettledAt: d.SettledAt, CreatedAt: d.CreatedAt,
+		ContentVersion: d.ContentVersion, RevisionHistory: d.RevisionHistory,
 	}, opts, crit), nil
 }
 
@@ -360,9 +364,10 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Choice string `json:"choice"`
-		Why    string `json:"why"`
-		WhyNot string `json:"whyNot"`
+		ContentVersion int32  `json:"contentVersion"`
+		Choice         string `json:"choice"`
+		Why            string `json:"why"`
+		WhyNot         string `json:"whyNot"`
 		// Flip 是「什么情况会让你改主意」。
 		//
 		// 🚨 不是必填。一个决定不写翻盘条件也仍然是个决定；把它设成门槛，只会
@@ -408,9 +413,9 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := a.d.Queries.SettlePblDecision(r.Context(), sqlc.SettlePblDecisionParams{
-		ID: did, Choice: choice, Why: why, WhyNot: whyNot, Flip: flip,
+		ID: did, Choice: choice, Why: why, WhyNot: whyNot, Flip: flip, ContentVersion: req.ContentVersion,
 	}); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "这个决定已经定过了", nil))
+		httpx.WriteError(w, r, httpx.ErrConflict("决定已确认或选项已修订，请重新打开核对后确认"))
 		return
 	}
 	full, err := a.loadPblDecisionFull(r, did)

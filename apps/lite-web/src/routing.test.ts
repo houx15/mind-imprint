@@ -1,5 +1,13 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { coursePath, liteRoutePath, navigate, parseLiteRoute, type LiteRoute } from "./routing";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  beforeNavigate,
+  coursePath,
+  listenForNavigation,
+  liteRoutePath,
+  navigate,
+  parseLiteRoute,
+  type LiteRoute,
+} from "./routing";
 
 /**
  * routing.test.ts —— parse/format 这一对必须互为逆。
@@ -86,4 +94,58 @@ describe("navigate", () => {
       window.removeEventListener("popstate", onPop);
     }
   });
+});
+
+// 🚨 两组用例都要留着（2026-09-16 合并）。上面这一组管的是「只差一个查询串
+// 也要真的导航」（教师端 ?tab=grading），下面那两条管的是导航守卫：编辑器
+// 存完了才让路由走。它们测的是同一个 navigate 的两件不同的事。
+it("waits for an editor save, rejects failed saves, and commits only the latest destination", async () => {
+  const pushState = vi.fn();
+  vi.stubGlobal("window", { location: { pathname: "/projects/p", search: "" }, history: { pushState }, dispatchEvent: vi.fn() });
+  vi.stubGlobal("PopStateEvent", class { constructor(public type: string) {} });
+  let release!: () => void;
+  const done = new Promise<void>((resolve) => { release = resolve; });
+  let remove = beforeNavigate(() => done);
+  try {
+    navigate("/readings"); navigate("/projects");
+    expect(pushState).not.toHaveBeenCalled();
+    release();
+    await vi.waitFor(() => expect(pushState).toHaveBeenCalledTimes(1));
+    expect(pushState).toHaveBeenLastCalledWith({ __liteHistoryIndex: 1 }, "", "/projects");
+    remove();
+    remove = beforeNavigate(async () => { throw new Error("save failed"); });
+    navigate("/courses");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pushState).toHaveBeenCalledTimes(1);
+  } finally { remove(); vi.unstubAllGlobals(); }
+});
+
+it("keeps an editor mounted during history saves and reverses a failed traversal", async () => {
+  const original = { state: window.history.state, path: window.location.href };
+  window.history.replaceState({ __liteHistoryIndex: 1 }, "", "/projects/p");
+  const changed = vi.fn();
+  const stop = listenForNavigation(changed);
+  let release!: () => void;
+  const saved = new Promise<void>((resolve) => { release = resolve; });
+  let remove = beforeNavigate(() => saved);
+  const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+  try {
+    window.history.replaceState({ __liteHistoryIndex: 0 }, "", "/projects");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(changed).not.toHaveBeenCalled();
+    release();
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    remove();
+    remove = beforeNavigate(async () => { throw new Error("offline"); });
+    window.history.replaceState({ __liteHistoryIndex: -1 }, "", "/readings");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await vi.waitFor(() => expect(go).toHaveBeenCalledWith(1));
+    expect(changed).toHaveBeenCalledTimes(1);
+    window.history.replaceState({ __liteHistoryIndex: 0 }, "", "/projects");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(changed).toHaveBeenCalledTimes(1);
+  } finally {
+    remove(); stop(); go.mockRestore();
+    window.history.replaceState(original.state, "", original.path);
+  }
 });

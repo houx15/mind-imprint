@@ -11,11 +11,13 @@ import { formatDeadline } from "../shared/deadline";
  * line inherits its meta row's styling next to 来源 · ….
  */
 export function AssignmentLine({ atomId, className = "text-mk-small text-mk-muted" }: { atomId: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
   const [assignment, setAssignment] = useState<AssignmentForAtom | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setAssignment(null);
+    setExpanded(false);
     getAssignmentForAtom(atomId)
       .then((a) => {
         if (!cancelled) setAssignment(a);
@@ -28,6 +30,12 @@ export function AssignmentLine({ atomId, className = "text-mk-small text-mk-mute
     };
   }, [atomId]);
 
-  if (!assignment || !assignment.dueAt) return null;
-  return <span className={className}>作业 · 截止 {formatDeadline(assignment.dueAt)}</span>;
+  if (!assignment) return null;
+  return <span className={className}>
+    作业{assignment.dueAt && <> · 截止 {formatDeadline(assignment.dueAt)}</>}
+    {assignment.instructions.trim() && <>
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} className="ml-2 underline">{expanded ? "收起任务说明" : "查看任务说明"}</button>
+      {expanded && <span className="mt-2 block whitespace-pre-wrap rounded-lg border border-mk-border bg-mk-surface p-3">{assignment.instructions}</span>}
+    </>}
+  </span>;
 }

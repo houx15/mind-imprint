@@ -155,6 +155,7 @@ export interface StartAssignmentResult {
 }
 
 export interface AssignmentForAtom {
+  instructions: string;
   id: string;
   kind: AssignmentKind;
   title: string;
@@ -388,11 +389,14 @@ export function normalizeStartResult(raw: unknown): StartAssignmentResult {
 export function normalizeAssignmentForAtom(raw: unknown): AssignmentForAtom | null {
   const r = obj(raw);
   if (typeof r.id !== "string") return null;
+  // 🚨 两条线的并集（2026-09-16），和服务端那一处一一对应：退回修改那几个字段
+  // 来自已经上线的教师端，instructions 来自作业材料那条线。
   return {
     id: r.id,
     kind: r.kind === undefined ? "writing" : normalizeKind(r.kind),
     title: s(r.title),
     dueAt: s(r.dueAt),
+    instructions: s(r.instructions),
     returnedAt: nullableString(r.returnedAt),
     returnDueAt: nullableString(r.returnDueAt),
     returnNote: nullableString(r.returnNote),

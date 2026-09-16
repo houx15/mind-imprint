@@ -1,4 +1,7 @@
-import { listArtifacts } from "./artifacts";
+import { listArtifacts, pendingArtifacts } from "./artifacts";
+import { listSiteRefs } from "./siteRefs";
+import { getCreativeDirection } from "./creativeDirection";
+import { listCodeVersions } from "./codeVersions";
 import { getSite } from "./site";
 import { listDecisions } from "./decide";
 import { listNotes } from "./notes";
@@ -31,6 +34,8 @@ export interface Material {
   detail: string;
   /** 有多少。0 = 还没开始，那一行淡着放。 */
   count: number;
+  /** Optional tools can be opened before any material has been collected. */
+  availableWhenEmpty?: boolean;
 }
 
 /**
@@ -61,7 +66,7 @@ export async function listMaterials(
   const stickies = allNotes.filter((n) => n.kind !== "idea");
   const current = currentReframe(ok(reframes, []));
   const arts = ok(artifacts, []);
-  const waiting = arts.filter((a) => a.verdict === null);
+  const waiting = pendingArtifacts(arts).filter(a => !a.stale);
   const nodes = ok(tree, { tree: "main", nodes: [], checks: [] }).nodes;
   const decs = ok(decisions, []);
   const unsettled = decs.filter((d) => !d.settledAt);
@@ -77,32 +82,24 @@ export async function listMaterials(
   // count 恒为 1：这一行永远点得开。别的几行是「攒了多少」，这一行是一个地方。
   const websiteRow: Material[] = [];
   if (projectKind === "website") {
-    const site = await getSite().catch(() => null);
+    const [site, refs, creative, versions] = await Promise.all([getSite().catch(() => null), listSiteRefs(projectId).catch(() => null), getCreativeDirection(projectId).catch(() => null), listCodeVersions(projectId).catch(() => null)]);
+    websiteRow.push({tool:"sites", label:"灵感采集", hue:"var(--mk-mist)", count:refs?.length ?? 0, availableWhenEmpty:true, detail:refs ? refs.length ? `已收藏 ${refs.length} 个参考 · 可选` : "可选 · 探索画面与互动效果" : "参考读取失败，点击重试"});
     websiteRow.push({
       tool: "ship",
       label: "我的主页",
       hue: "var(--mk-gold)",
       count: 1,
-      detail: site
-        ? site.published
-          ? "已上线"
-          : site.missing.length
-            ? `还缺 ${site.missing.length} 处你自己的话`
-            : "待上线"
-        : "",
+      detail: !site || !versions ? "主页状态读取失败，点击重试" : site.published ? "已上线 · 查看版本与更新" : versions.length ? `${versions.length} 个草稿版本 · 查看发布条件` : "查看主页与发布条件",
     });
-    // 🚨 改一页，改的是两样东西：上面的字，和它长什么样。
-    //
-    // 字那一半她回对话里说给印记（页面上每一句都必须是她的原话，所以这里没有
-    // 输入框，这是设计）。**长什么样那一半原来没有入口**：配色、风格、头图都在
-    // 「视觉基调」里，而那件工具只有印记在第三关递过一次——递完就再也回不去了。
-    // 于是「发布不是终点，她随时能回来改」这句话只对文字成立，对样子不成立。
+    // The primary design entry follows the creative workflow, not the retired palette picker.
+    const hasCreative = Boolean(creative && (creative.document.feeling.trim() || creative.document.motifs.length || creative.document.hero?.scene.trim()));
     websiteRow.push({
-      tool: "look",
-      label: "视觉基调",
+      tool: "creative",
+      label: "主页创作构思",
       hue: "var(--mk-lake)",
-      count: 1,
-      detail: site?.palette?.label ? site.palette.label : "配色与风格",
+      count: hasCreative ? 1 : 0,
+      availableWhenEmpty: true,
+      detail: !creative ? "构思读取失败，点击重试" : hasCreative ? "风格、意象与第一幕 · 继续编辑" : "从喜欢的感觉开始",
     });
   }
 
@@ -137,7 +134,7 @@ export async function listMaterials(
       detail: arts.length
         ? waiting.length
           ? `${waiting.length} 份待审核`
-          : `${arts.length} 份已审`
+          : `${arts.filter((a) => a.settledAt).length} 份已审 / ${arts.length} 份成果`
         : "",
     },
     {

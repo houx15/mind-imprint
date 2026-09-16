@@ -118,6 +118,8 @@ describe("return fields", () => {
       kind: "writing",
       title: "t",
       dueAt: "d",
+      // 老服务端不发这个字段，安全的默认值是空串（2026-09-16 两条线合并时加的）。
+      instructions: "",
       returnedAt: null,
       returnDueAt: null,
       returnNote: null,

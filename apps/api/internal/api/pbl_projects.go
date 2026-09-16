@@ -44,6 +44,7 @@ type pblProjectDTO struct {
 	CurrentStep string `json:"currentStep"`
 	StepsDone   int32  `json:"stepsDone"`
 	StepsTotal  int32  `json:"stepsTotal"`
+	PlanPending bool   `json:"planPending"`
 }
 
 // pblProjectStatuses mirrors pbl_project's status CHECK (0108). Validated here
@@ -127,8 +128,9 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 	}
 	// A non-nil empty slice: `[]` is an empty board, `null` is a frontend crash.
 	out := make([]pblProjectDTO, 0, len(rows))
+	homepage, homepageErr := a.d.Queries.GetPblSite(r.Context(), u.ID)
 	for _, p := range rows {
-		out = append(out, pblProjectDTO{
+		item := pblProjectDTO{
 			ID: p.AtomID.String(), Idea: p.Idea, Kind: p.Kind, Name: p.Name,
 			CoverGround: p.CoverGround, CoverGlyph: p.CoverGlyph, Status: p.Status,
 			BoardAxes:      p.BoardAxes,
@@ -138,7 +140,32 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 			CurrentStep:    p.CurrentStep,
 			StepsDone:      p.StepsDone,
 			StepsTotal:     p.StepsTotal,
-		})
+			PlanPending:    p.PlanPending,
+		}
+		if homepageErr == nil && homepage.AtomID.Valid && uuid.UUID(homepage.AtomID.Bytes) == p.AtomID {
+			if version, err := a.d.Queries.GetPblShownPlan(r.Context(), p.AtomID); err == nil {
+				if steps, err := a.d.Queries.ListPblPlanSteps(r.Context(), version.ID); err == nil {
+					plan := pblPlanDTO{Steps: make([]pblStepDTO, 0, len(steps))}
+					for _, step := range steps {
+						plan.Steps = append(plan.Steps, toPblStepDTO(step))
+					}
+					a.attachHomepageProgress(r, p.AtomID, &plan)
+					item.StepsDone, item.StepsTotal, item.CurrentStep = 0, 0, ""
+					for _, step := range plan.Steps {
+						if step.Status == "cancelled" {
+							continue
+						}
+						item.StepsTotal++
+						if step.Progress == "done" || (step.Progress == "" && step.Status == "done") {
+							item.StepsDone++
+						} else if item.CurrentStep == "" {
+							item.CurrentStep = step.Title
+						}
+					}
+				}
+			}
+		}
+		out = append(out, item)
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)
 }

@@ -65,11 +65,12 @@ export function sectionProgress(prompts: LookbackPrompt[]): { done: number; tota
 }
 
 export interface LookbackPrompt {
+  revision?: number;
   id: string;
   section: ReviewSection;
   prompt: string;
   answer: string;
-  /** 这一问冲着的那件事——她当初写下的原话。空 = 冲着她本人问的。 */
+  /** 这一问对应的项目记录，可能来自学生、计划或系统回执。空 = 感受问题。 */
   evidence: string;
   /** 她现在怎么看当初那句话。空 = 还没表态。 */
   stance: Stance;
@@ -88,6 +89,10 @@ export function bySection(
 
 export function getLookback(projectId: string): Promise<LookbackPrompt[]> {
   return apiFetch<LookbackPrompt[]>(`${base(projectId)}/lookback`);
+}
+
+export function regenerateLookback(projectId: string): Promise<LookbackPrompt[]> {
+  return apiFetch(`${base(projectId)}/lookback/regenerate`, { method: "POST" });
 }
 
 export function answerLookback(
@@ -111,11 +116,10 @@ export function setStance(
   projectId: string,
   promptId: string,
   stance: Stance,
-  answer: string,
 ): Promise<LookbackPrompt> {
   return apiFetch<LookbackPrompt>(`${base(projectId)}/lookback/${promptId}`, {
     method: "PATCH",
-    body: JSON.stringify({ answer, stance }),
+    body: JSON.stringify({ stance }),
   });
 }
 

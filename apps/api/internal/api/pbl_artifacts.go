@@ -37,16 +37,18 @@ var pblArtifactKinds = map[string]bool{
 }
 
 type pblArtifactDTO struct {
-	ID        string          `json:"id"`
-	Kind      string          `json:"kind"`
-	Title     string          `json:"title"`
-	Payload   json.RawMessage `json:"payload"`
-	Guessed   []string        `json:"guessed"`
-	Admits    []string        `json:"admits"`
-	Verdict   *string         `json:"verdict"`
-	Why       string          `json:"why"`
-	SettledAt *string         `json:"settledAt"`
-	CreatedAt string          `json:"createdAt"`
+	Superseded bool            `json:"superseded,omitempty"`
+	Stale      bool            `json:"stale,omitempty"`
+	ID         string          `json:"id"`
+	Kind       string          `json:"kind"`
+	Title      string          `json:"title"`
+	Payload    json.RawMessage `json:"payload"`
+	Guessed    []string        `json:"guessed"`
+	Admits     []string        `json:"admits"`
+	Verdict    *string         `json:"verdict"`
+	Why        string          `json:"why"`
+	SettledAt  *string         `json:"settledAt"`
+	CreatedAt  string          `json:"createdAt"`
 }
 
 func toPblArtifactDTO(a sqlc.PblArtifact) pblArtifactDTO {
@@ -83,9 +85,19 @@ func (a *API) listPblArtifacts(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	superseded := supersededArtifactIDs(rows)
 	out := make([]pblArtifactDTO, 0, len(rows))
 	for _, x := range rows {
-		out = append(out, toPblArtifactDTO(x))
+		dto := toPblArtifactDTO(x)
+		dto.Superseded = superseded[x.ID]
+		if x.Kind == "site" && !x.SettledAt.Valid {
+			dto.Stale, err = a.siteReviewStale(r, x.Kind, x.AtomID, x.Payload)
+			if err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
+		}
+		out = append(out, dto)
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)
 }
@@ -179,6 +191,15 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("这件成果不存在"))
 		return
 	}
+	versions, err := a.d.Queries.ListPblArtifacts(r.Context(), atomID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if supersededArtifactIDs(versions)[aid] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("superseded_artifact", "这份成果已有新版，请审核最新版本；旧版记录仍可查看", nil))
+		return
+	}
 	var req struct {
 		Verdict string `json:"verdict"`
 		Why     string `json:"why"`
@@ -188,6 +209,17 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	verdict := strings.TrimSpace(req.Verdict)
+	if verdict == "kept" {
+		stale, err := a.siteReviewStale(r, row.Kind, row.AtomID, row.Payload)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if stale {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("stale_site_review", "主页已更新，请刷新审核后检查当前页面", nil))
+			return
+		}
+	}
 	switch verdict {
 	case "kept", "revise", "dropped":
 	default:
@@ -229,6 +261,7 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 
 type pblToolDTO struct {
 	ID         string          `json:"id"`
+	SessionID  *string         `json:"sessionId"`
 	Tool       string          `json:"tool"`
 	Kind       string          `json:"kind"`
 	Label      string          `json:"label"`
@@ -246,6 +279,10 @@ func toPblToolDTO(t sqlc.PblToolInstance) pblToolDTO {
 		ID: t.ID.String(), Tool: t.Tool, Kind: t.Kind, Label: t.Tool,
 		Reason: t.Reason, Status: t.Status, Note: t.StudentNote,
 		Result: json.RawMessage(t.Result), CreatedAt: t.CreatedAt.Format(time.RFC3339),
+	}
+	if t.SessionID.Valid {
+		s := uuid.UUID(t.SessionID.Bytes).String()
+		out.SessionID = &s
 	}
 	// 表里有就用表里的名字；表外的工具就用它自己的名字，界面照样能显示。
 	if def, ok := pbl.LookupTool(t.Tool); ok {
@@ -381,9 +418,13 @@ func (a *API) appendPblToolRecord(r *http.Request, atomID uuid.UUID, sess pgtype
 	if note != "" {
 		line += "：" + note
 	}
+	a.appendPblStatus(r, atomID, sess, line)
+}
+
+func (a *API) appendPblStatus(r *http.Request, atomID uuid.UUID, sess pgtype.UUID, line string) {
 	warn := func(err error) {
-		slog.Warn("pbl: could not record the finished tool",
-			"err", err, "atom_id", atomID, "tool", tool)
+		slog.Warn("pbl: could not record status",
+			"err", err, "atom_id", atomID)
 	}
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
@@ -449,6 +490,14 @@ func (a *API) resolvePblTool(w http.ResponseWriter, r *http.Request) {
 	// 🚨 拒绝不要理由。理由字段是留给她想说的时候用的，不是门槛——
 	// 如果拒绝比接受更费事，那就不是一个真的选择（铁律②）。
 	note := strings.TrimSpace(req.Note)
+	if row.Tool == "creative" && len(req.Result) > 0 {
+		result := creativeContext(req.Result)
+		if result == "" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_result", "创作结果格式无效", nil))
+			return
+		}
+		req.Result = json.RawMessage(result)
+	}
 	out, err := a.d.Queries.ResolvePblTool(r.Context(), sqlc.ResolvePblToolParams{
 		ID: tid, Status: status, Result: req.Result, StudentNote: note,
 	})

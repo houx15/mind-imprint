@@ -3,6 +3,7 @@ package api_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/gateway"
@@ -123,5 +124,47 @@ func TestPblTurn_WorldToolKeepsItsKind(t *testing.T) {
 	}
 	if tools[0].Label != "观察日记" {
 		t.Fatalf("label = %q", tools[0].Label)
+	}
+}
+
+func TestPblTurnDeclinedToolIsNotOpenAndReasonReachesCoach(t *testing.T) {
+	provider := gateway.NewSequenceStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"reply":"可以重新整理想法。","tool":"board","tool_reason":"你重新提出了整理想法的需要"}`},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	h, cookie, _, _ := liteHandlerWithProvider(t, provider)
+	pid := newProjectViaAPI(t, h, cookie)
+	base := "/api/v1/pbl/projects/" + pid
+	rec := pblPost(t, h, cookie, base+"/tools", `{"tool":"board","reason":"整理想法"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create: %s", rec.Body)
+	}
+	oldID := artifactID(t, rec.Body.String())
+	rec = pblPost(t, h, cookie, base+"/tools/"+oldID+"/resolve", `{"status":"declined","note":"先确认课堂条件"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("decline: %s", rec.Body)
+	}
+	rec = pblPost(t, h, cookie, base+"/turn", `{"text":"课堂条件已经确认，我现在想重新整理想法，请打开头脑风暴"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn: %s", rec.Body)
+	}
+	var result struct {
+		ToolID *string `json:"toolId"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.ToolID == nil || *result.ToolID == oldID {
+		t.Fatalf("declined offer blocked new requested tool: %s", rec.Body)
+	}
+	request, err := json.Marshal(provider.Requests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(request), "学生已跳过的工具与原因") || !strings.Contains(string(request), "先确认课堂条件") {
+		t.Fatalf("decline missing from coach input: %s", request)
+	}
+	if strings.Contains(string(request), "【已经递过、她还没做的工具】") {
+		t.Fatal("declined tool treated as open")
 	}
 }
