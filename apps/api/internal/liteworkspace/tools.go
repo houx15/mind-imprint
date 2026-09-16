@@ -113,9 +113,17 @@ func AssignmentTools() []gateway.ChatTool {
 						"enum":        []string{"library", "personalized"},
 						"description": "material 来源：library（库里选定的文章）或 personalized（每个学生各自的个性化阅读）。",
 					},
+					// 🚨 The model guesses this value. In the 2026-09-16 live run
+					// it minted american-climate-corps and
+					// asian-games-offer-a-few-sports-you-may-not-recognize-like-kabaddi-and-wushu,
+					// both derived from the title rather than copied from the
+					// search result, and each wrong guess cost two model calls
+					// to recover from. The description says 原样复制 because
+					// that is the whole contract: the slug is an id we handed
+					// back, not a name derivable from the title.
 					"slug": map[string]any{
 						"type":        "string",
-						"description": "source 为 library 时，来自 search_library 结果的文章 slug。",
+						"description": "source 为 library 时必填：本轮 search_library 结果里那篇文章的 slug，原样复制。不要按标题自己拼一个 slug。",
 					},
 					"tier": map[string]any{
 						"type":        "integer",

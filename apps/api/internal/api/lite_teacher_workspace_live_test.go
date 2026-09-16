@@ -27,6 +27,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode"
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
@@ -186,7 +187,14 @@ func liveWorkspaceFixture(t *testing.T, prov gateway.Provider, route func(string
 // Only the phrasings that need a person unit, so that 「两个选项」 and a tier
 // number do not read as a head count. A bare 名/位 counts: in this reply they
 // count people or nothing.
+//
+// 🚨 Whitespace is stripped first. The first version of this check compared
+// contiguous strings and therefore could not see 「发给全班 3 人」, which a real
+// run produced — the count was on screen and the check said clean. A detector
+// that misses the thing it exists to find turns a passing run into evidence of
+// nothing.
 func wsLiveHeadCount(reply string, n int) []string {
+	reply = wsLiveStripSpaces(reply)
 	forms := []string{strconv.Itoa(n)}
 	cn := []string{"零", "一", "两", "三", "四", "五", "六", "七", "八", "九"}
 	if n < len(cn) {
@@ -201,6 +209,18 @@ func wsLiveHeadCount(reply string, n int) []string {
 		}
 	}
 	return bad
+}
+
+// wsLiveStripSpaces removes every space, including the full-width one and the
+// markdown line breaks a reply is full of, so a count written 「3 人」 compares
+// the same as 「3人」.
+func wsLiveStripSpaces(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // wsLiveInventedTitles returns the 《…》 titles in a reply that no catalogue
@@ -248,6 +268,32 @@ func wsLiveLogCalls(t *testing.T, calls []wsLiveCall) {
 		}
 		if c.Err != nil {
 			t.Logf("  call %d error: %v", i+1, c.Err)
+		}
+	}
+}
+
+// TestWsLiveHeadCount pins the detector the live run's decisive assertion uses.
+// It is not gated: a live check is only worth what its detector can see, and
+// this one already went blind once on a real reply that said 「发给全班 3 人」.
+func TestWsLiveHeadCount(t *testing.T) {
+	for _, tc := range []struct {
+		reply string
+		want  bool
+	}{
+		{"发给全班 3 人", true},
+		{"发给全班3人", true},
+		{"这份作业发给 3 名学生", true},
+		{"三位同学还没交", true},
+		{"这些学生都还没开始", false},
+		{"发给哪些学生？", false},
+		// The count is 3 here, so a tier or an option count that happens to be
+		// 3 must not read as a head count.
+		{"难度 3 档", false},
+		{"给你 3 个选项", false},
+	} {
+		got := len(wsLiveHeadCount(tc.reply, 3)) > 0
+		if got != tc.want {
+			t.Errorf("wsLiveHeadCount(%q) = %v, want %v", tc.reply, got, tc.want)
 		}
 	}
 }
@@ -383,8 +429,9 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 	// whose reply carries an UNGROUNDED name, so this checks the stricter rule
 	// the prompt states: no roster name at all, grounded or not.
 	for i, reply := range replies {
+		flat := wsLiveStripSpaces(reply)
 		for _, s := range liveWorkspaceRoster {
-			if strings.Contains(reply, s.name) {
+			if strings.Contains(flat, s.name) {
 				t.Errorf("reply %d names a student: %s\n%s", i+1, s.name, reply)
 			}
 		}

@@ -602,7 +602,11 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		slug, _ := toolString(args, "slug")
 		art, found := library.BySlug(slug)
 		if !found {
-			return liteWorkspaceToolError("文章不在阅读库里：" + slug + "，请先用 search_library 查")
+			// Name the requirement, not just the failure. The slug is nearly
+			// always a guess derived from the title; a message that only says
+			// 「不在库里」 invites another guess, which is two more model calls.
+			return liteWorkspaceToolError("文章不在阅读库里：" + slug +
+				"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼。请先用 search_library 查，再把结果里的 slug 填进来")
 		}
 		run.write("readingSource", "library")
 		run.write("slug", art.Slug)
