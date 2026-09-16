@@ -15,6 +15,7 @@ import {
 } from "./assignmentLogic";
 import { Field, INPUT_CLS } from "./formParts";
 import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm";
+import { StudentViewPreview } from "./StudentViewPreview";
 import type { WorkspaceThread } from "./workspace/useWorkspaceThread";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
@@ -228,6 +229,8 @@ export function AssignmentAIMode({
         {cards.map((c, i) => (
           <WorkspaceCardView key={i} card={c} />
         ))}
+
+        <StudentViewPreview draft={draft} classes={classes} />
 
         <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
           <Button variant="primary" onClick={() => void publish()} disabled={publishBusy}>
