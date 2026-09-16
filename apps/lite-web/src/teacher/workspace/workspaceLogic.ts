@@ -81,3 +81,25 @@ export function clampChoices(choices: Choice[]): Choice[] {
   }
   return out;
 }
+
+/** Identifies which session and class a turn was sent under. `classId`
+ * alone is not enough to tell a turn's response is still wanted: a teacher
+ * can switch class A → B → A while a turn for A is in flight, and the
+ * response would land with the classId matching again even though it
+ * belongs to an abandoned conversation. `gen` is a counter bumped on every
+ * class change (or any other reset that should invalidate in-flight turns)
+ * — comparing it alongside `classId` catches the "changed and changed back"
+ * case that classId alone cannot. */
+export interface TurnSession {
+  gen: number;
+  classId: string;
+}
+
+/** Whether a turn captured as `sent` is still the live session `now` — i.e.
+ * whether its response is still wanted. Both fields must match: `gen` alone
+ * would be enough on its own (a class change always bumps it), but naming
+ * `classId` too keeps the check legible at the call site and independent of
+ * anything else that might one day bump `gen` without also changing class. */
+export function isCurrentTurn(sent: TurnSession, now: TurnSession): boolean {
+  return sent.gen === now.gen && sent.classId === now.classId;
+}

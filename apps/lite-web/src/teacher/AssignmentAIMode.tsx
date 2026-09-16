@@ -15,7 +15,7 @@ import {
 } from "./assignmentLogic";
 import { Field, INPUT_CLS } from "./formParts";
 import { RecipientChecklist, SettingsFields } from "./AssignmentForm";
-import { applyPatch, clampChoices, trimTurns, type Choice, type Turn } from "./workspace/workspaceLogic";
+import { applyPatch, clampChoices, isCurrentTurn, trimTurns, type Choice, type Turn } from "./workspace/workspaceLogic";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
 // teacher/AssignmentAIMode.tsx — the AI mode of 布置作业: the homework card
@@ -116,13 +116,23 @@ export function AssignmentAIMode({
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
+  // A generation counter, bumped on every class change. `classId` alone
+  // cannot tell a turn's response is still wanted: she can switch A → B → A
+  // while a turn for A is in flight, and the response lands with classId
+  // matching again even though the conversation it belongs to was cleared
+  // in between. `gen` catches that case — `isCurrentTurn` checks both.
+  const genRef = useRef(0);
+
   async function runTurn(input: { text: string } | { choiceId: string; label: string }) {
     if (busy) return;
     const teacherText = "text" in input ? input.text : input.label;
-    // Snapshot before the round trip: `applyPatch` needs to know what the
-    // draft looked like when the turn started, so a card edit she makes
-    // while the AI is thinking is never silently overwritten.
+    // Captured before the round trip: `applyPatch` needs to know what the
+    // draft looked like when the turn started (so a card edit she makes
+    // while the AI is thinking is never silently overwritten), and `sent`
+    // is what `isCurrentTurn` compares the live session against once the
+    // response lands.
     const snapshot = draft;
+    const sent = { gen: genRef.current, classId: snapshot.classId };
     const nextTurns = [...turns, { role: "teacher" as const, text: teacherText }];
     setTurns(nextTurns);
     setBusy(true);
@@ -139,12 +149,14 @@ export function AssignmentAIMode({
         ...("text" in input ? { text: input.text } : { choiceId: input.choiceId }),
       });
       if (!alive.current) return;
-      if (draftRef.current.classId !== snapshot.classId) {
-        // She switched class while this turn was in flight. The request was
+      if (!isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
+        // A class change (possibly A → B → A while this was in flight)
+        // already cleared the conversation on screen. The request was
         // scoped to the class she had when she sent it (the server reads
-        // `classId` per turn); a class change already cleared the
-        // conversation on screen, so this reply and patch belong to a class
-        // that is no longer showing and must not land on the new one.
+        // `classId` per turn), so this reply, patch and cards belong to an
+        // abandoned session and must not land on the live one — otherwise
+        // it would append an orphaned AI bubble with no teacher turn above
+        // it, or a patch meant for a different sitting of the same class.
         return;
       }
       const { next, kept: keptFields } = applyPatch(draftRef.current, snapshot, res.patch as Partial<AssignmentDraft>);
@@ -154,9 +166,9 @@ export function AssignmentAIMode({
       setCards(res.cards);
       setTurns((t) => [...t, { role: "ai" as const, text: res.reply }]);
     } catch (e) {
-      // A failure for a turn whose class she has since left is not worth
-      // surfacing — the conversation about that class is already gone.
-      if (alive.current && draftRef.current.classId === snapshot.classId) {
+      // A failure for a turn whose session she has since left is not worth
+      // surfacing — the conversation it belongs to is already gone.
+      if (alive.current && isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
         // The server already prefixes its own message with 「对话失败：」;
         // `failText` recognizes that prefix and does not double it.
         setError(failText("对话", e));
@@ -174,8 +186,15 @@ export function AssignmentAIMode({
    * effect on `draft.classId`, unconditional on mode. The conversation and
    * any pending choices/cards/kept-note are cleared here: the server scopes
    * each turn to `classId`, so a turn from the old class must not carry into
-   * the new class's roster. */
+   * the new class's roster. `genRef` bumps too, so a turn already in flight
+   * for the class she is leaving cannot resurface even if she switches back
+   * to the same class before it resolves (`isCurrentTurn`). The `<select>`
+   * is left enabled while `busy` on purpose: a teacher who notices mid-turn
+   * that she picked the wrong class should be able to fix it immediately
+   * rather than wait out a model call she no longer wants — the generation
+   * counter is what makes that safe. */
   function onClassChange(classId: string) {
+    genRef.current += 1;
     writeLastClassId(classId);
     setDraft((d) => draftOnClassChange(d, classId));
     setTurns([]);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPatch, clampChoices, trimTurns, TURNS_WINDOW, MAX_CHOICES } from "./workspaceLogic";
+import { applyPatch, clampChoices, isCurrentTurn, trimTurns, TURNS_WINDOW, MAX_CHOICES } from "./workspaceLogic";
 
 describe("applyPatch", () => {
   // 一轮在飞的时候老师改了截止时间：patch 不能把她的修改抹掉。
@@ -54,6 +54,21 @@ describe("trimTurns", () => {
   it("leaves a short thread alone", () => {
     const turns = [{ role: "teacher" as const, text: "a" }];
     expect(trimTurns(turns)).toEqual(turns);
+  });
+});
+
+describe("isCurrentTurn", () => {
+  it("is current when neither the generation nor the class has moved", () => {
+    expect(isCurrentTurn({ gen: 1, classId: "A" }, { gen: 1, classId: "A" })).toBe(true);
+  });
+
+  it("is stale once the generation has moved, even if the class matches", () => {
+    // 老师从 A 切到 B 又切回 A：class 一样，但这不是同一轮对话了。
+    expect(isCurrentTurn({ gen: 1, classId: "A" }, { gen: 3, classId: "A" })).toBe(false);
+  });
+
+  it("is stale when only the class has moved", () => {
+    expect(isCurrentTurn({ gen: 1, classId: "A" }, { gen: 1, classId: "B" })).toBe(false);
   });
 });
 
