@@ -5,7 +5,9 @@ import { api, type ClassSummary } from "@/api";
 import { createAssignment, extractWritingFields, type AssignmentKind } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
+import { postWorkspaceTurn } from "../api/teacherWorkspace";
 import { AssignmentAIMode } from "./AssignmentAIMode";
+import { useWorkspaceThread } from "./workspace/useWorkspaceThread";
 import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
 import { PersonalizedPicker } from "./PersonalizedPicker";
@@ -287,6 +289,40 @@ export function AssignmentForm({
     userIds: [],
   }));
 
+  // The AI mode's conversation. Held here, above the mode toggle, so
+  // switching to 传统 and back keeps it (AssignmentAIMode unmounts).
+  const thread = useWorkspaceThread<AssignmentDraft>({
+    artifact: draft,
+    setArtifact: setDraft,
+    scopeOf: (d) => d.classId,
+    post: ({ artifact, turns, input }) =>
+      postWorkspaceTurn({
+        surface: "assignment",
+        classId: artifact.classId,
+        artifact,
+        turns,
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
+      }).then((res) => ({ ...res, patch: res.patch as Partial<AssignmentDraft> })),
+    // The server already prefixes its message with 「对话失败：」; `failText`
+    // does not double it.
+    describeError: (e) => failText("对话", e),
+  });
+
+  /** She picked a different class, in either mode. Goes through
+   * `draftOnClassChange` — setting `classId` directly would leave the old
+   * class's personalised-reading `picks` attached. The conversation is reset
+   * in both modes: the server scopes each turn to `classId`, so turns from
+   * the old class must not be sent with the new one, and `reset()` bumps the
+   * generation so a turn in flight for the old class is dropped even if she
+   * switches back to it before it lands. The roster refetch happens in the
+   * effect on `draft.classId` below. The AI mode's `<select>` stays enabled
+   * while a turn is in flight; the generation check is what makes that safe. */
+  function changeClass(classId: string) {
+    thread.reset();
+    writeLastClassId(classId);
+    setDraft((d) => draftOnClassChange(d, classId));
+  }
+
   const [roster, setRoster] = useState<RosterRow[] | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [rosterNonce, setRosterNonce] = useState(0);
@@ -401,6 +437,8 @@ export function AssignmentForm({
           rosterError={rosterError}
           onRosterRetry={() => setRosterNonce((n) => n + 1)}
           onCreated={onCreated}
+          thread={thread}
+          onClassChange={changeClass}
         />
       ) : (
         <form
@@ -416,11 +454,7 @@ export function AssignmentForm({
           <Field label="班级">
             <select
               value={draft.classId}
-              onChange={(e) => {
-                const classId = e.target.value;
-                writeLastClassId(classId);
-                setDraft((d) => draftOnClassChange(d, classId));
-              }}
+              onChange={(e) => changeClass(e.target.value)}
               className={INPUT_CLS}
             >
               {classes.map((c) => (

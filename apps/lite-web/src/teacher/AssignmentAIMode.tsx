@@ -1,13 +1,12 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/ui";
 import { type ClassSummary } from "@/api";
 import { createAssignment } from "../api/assignments";
-import { postWorkspaceTurn, type WorkspaceCard } from "../api/teacherWorkspace";
+import { type WorkspaceCard } from "../api/teacherWorkspace";
 import type { RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
 import {
   buildCreateInput,
-  draftOnClassChange,
   draftOnKindChange,
   failText,
   fillTitleIfEmpty,
@@ -16,22 +15,15 @@ import {
 } from "./assignmentLogic";
 import { Field, INPUT_CLS } from "./formParts";
 import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm";
-import {
-  applyPatch,
-  clampChoices,
-  isCurrentTurn,
-  rollbackTurn,
-  trimTurns,
-  type Choice,
-  type Turn,
-} from "./workspace/workspaceLogic";
+import type { WorkspaceThread } from "./workspace/useWorkspaceThread";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
 // teacher/AssignmentAIMode.tsx — the AI mode of 布置作业: the homework card
 // (today's form fields, unchanged widgets) sits as `WorkspacePanel`'s
 // canvas, the conversation drives it via `patch`. `AssignmentForm.tsx` owns
-// `draft`/`classes`/`roster` and the mode toggle; this component only turns
-// a conversation into edits on the draft it is handed.
+// `draft`/`classes`/`roster`, the mode toggle and the conversation
+// (`useWorkspaceThread`), so the conversation outlives this component when
+// she switches to 传统 and back.
 
 /** Patch keys the server sends are `AssignmentDraft` field names
  * (apps/api/internal/api/lite_teacher_workspace.go's `run.write` calls) —
@@ -96,6 +88,8 @@ export function AssignmentAIMode({
   rosterError,
   onRosterRetry,
   onCreated,
+  thread,
+  onClassChange,
 }: {
   draft: AssignmentDraft;
   setDraft: Dispatch<SetStateAction<AssignmentDraft>>;
@@ -104,122 +98,16 @@ export function AssignmentAIMode({
   rosterError: string | null;
   onRosterRetry: () => void;
   onCreated: (assignmentId: string) => void;
+  /** Owned by `AssignmentForm`; see `useWorkspaceThread`. */
+  thread: WorkspaceThread<AssignmentDraft>;
+  /** `AssignmentForm.changeClass`: `draftOnClassChange` + `thread.reset()`. */
+  onClassChange: (classId: string) => void;
 }) {
   const alive = useAlive();
-
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [choices, setChoices] = useState<Choice[]>([]);
-  const [cards, setCards] = useState<WorkspaceCard[]>([]);
-  const [kept, setKept] = useState<(keyof AssignmentDraft)[]>([]);
+  const { turns, busy, error, choices, cards, kept } = thread;
 
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
-
-  // `runTurn` closes over `draft` at the render that created it — reading
-  // that same binding after the `await` would give back whatever it was at
-  // send time, not what she has now, so `current` in `applyPatch` would
-  // always equal `snapshot` and `kept` could never fire. `draftRef` is kept
-  // current on every render so the continuation can read the real "now".
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-
-  // A generation counter, bumped on every class change. `classId` alone
-  // cannot tell a turn's response is still wanted: she can switch A → B → A
-  // while a turn for A is in flight, and the response lands with classId
-  // matching again even though the conversation it belongs to was cleared
-  // in between. `gen` catches that case — `isCurrentTurn` checks both.
-  const genRef = useRef(0);
-
-  async function runTurn(input: { text: string } | { choiceId: string; label: string; slug?: string }) {
-    if (busy) return;
-    const teacherText = "text" in input ? input.text : input.label;
-    // Captured before the round trip: `applyPatch` needs to know what the
-    // draft looked like when the turn started (so a card edit she makes
-    // while the AI is thinking is never silently overwritten), and `sent`
-    // is what `isCurrentTurn` compares the live session against once the
-    // response lands.
-    const snapshot = draft;
-    const sent = { gen: genRef.current, classId: snapshot.classId };
-    const nextTurns = [...turns, { role: "teacher" as const, text: teacherText }];
-    setTurns(nextTurns);
-    setBusy(true);
-    setError(null);
-    setKept([]);
-    try {
-      const res = await postWorkspaceTurn({
-        surface: "assignment",
-        classId: snapshot.classId,
-        artifact: snapshot,
-        // The window is the only thing bounding prompt growth — the full
-        // conversation still shows in the panel, only the request is capped.
-        turns: trimTurns(nextTurns),
-        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
-      });
-      if (!alive.current) return;
-      if (!isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
-        // A class change (possibly A → B → A while this was in flight)
-        // already cleared the conversation on screen. The request was
-        // scoped to the class she had when she sent it (the server reads
-        // `classId` per turn), so this reply, patch and cards belong to an
-        // abandoned session and must not land on the live one — otherwise
-        // it would append an orphaned AI bubble with no teacher turn above
-        // it, or a patch meant for a different sitting of the same class.
-        return;
-      }
-      const { next, kept: keptFields } = applyPatch(draftRef.current, snapshot, res.patch as Partial<AssignmentDraft>);
-      setDraft(next);
-      setKept(keptFields);
-      setChoices(clampChoices(res.choices));
-      setCards(res.cards);
-      setTurns((t) => [...t, { role: "ai" as const, text: res.reply }]);
-    } catch (e) {
-      // A failure for a turn whose session she has since left is not worth
-      // surfacing — the conversation it belongs to is already gone.
-      if (alive.current && isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
-        // Her sentence goes back off screen before the error goes up. 重试
-        // re-enters this function and appends it again, so without the
-        // rollback she read her own sentence twice and the server received it
-        // twice — once in `turns`, once as `text`. `rollbackTurn` removes it
-        // only while it is still the last turn and still says what was sent;
-        // `isCurrentTurn` above has already refused a failure from a session
-        // she has left, so this cannot reach another generation's turn.
-        setTurns((t) => rollbackTurn(t, nextTurns.length - 1, teacherText));
-        // The server already prefixes its own message with 「对话失败：」;
-        // `failText` recognizes that prefix and does not double it.
-        setError(failText("对话", e));
-      }
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  }
-
-  /** She picked a different class. Must go through `draftOnClassChange` —
-   * setting `classId` directly would leave the old class's personalised-
-   * reading `picks` attached, which can publish `{picks:{}}` built for a
-   * different class (the bug that fix already exists to prevent). The
-   * roster refetch + recipient reset already happen from `AssignmentForm`'s
-   * effect on `draft.classId`, unconditional on mode. The conversation and
-   * any pending choices/cards/kept-note are cleared here: the server scopes
-   * each turn to `classId`, so a turn from the old class must not carry into
-   * the new class's roster. `genRef` bumps too, so a turn already in flight
-   * for the class she is leaving cannot resurface even if she switches back
-   * to the same class before it resolves (`isCurrentTurn`). The `<select>`
-   * is left enabled while `busy` on purpose: a teacher who notices mid-turn
-   * that she picked the wrong class should be able to fix it immediately
-   * rather than wait out a model call she no longer wants — the generation
-   * counter is what makes that safe. */
-  function onClassChange(classId: string) {
-    genRef.current += 1;
-    writeLastClassId(classId);
-    setDraft((d) => draftOnClassChange(d, classId));
-    setTurns([]);
-    setChoices([]);
-    setCards([]);
-    setKept([]);
-    setError(null);
-  }
 
   async function publish() {
     if (publishBusy) return;
@@ -250,12 +138,16 @@ export function AssignmentAIMode({
       turns={turns}
       busy={busy}
       error={error}
-      choices={clampChoices(choices)}
-      onSend={(text) => void runTurn({ text })}
+      choices={choices}
+      onSend={(text) => thread.run({ text })}
       onChoose={(choiceId) => {
         const choice = choices.find((c) => c.id === choiceId);
-        void runTurn({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
+        thread.run({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
       }}
+      composer={thread.composer}
+      onComposerChange={thread.setComposer}
+      onRetry={thread.retry}
+      canRetry={thread.failed !== null}
     >
       <div className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
         <Field label="班级">

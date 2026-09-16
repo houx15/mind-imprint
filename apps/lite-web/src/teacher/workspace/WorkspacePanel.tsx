@@ -31,6 +31,15 @@ export interface WorkspacePanelProps {
   choices: Choice[];
   onSend: (text: string) => void;
   onChoose: (choiceId: string) => void;
+  /** The composer's text, controlled by the caller (`useWorkspaceThread`
+   *  holds it so it survives this panel unmounting, and so a failed sentence
+   *  can be written back into it). */
+  composer: string;
+  onComposerChange: (text: string) => void;
+  /** Sends the last failed input again. The caller holds that input: it has
+   *  to outlive this panel, like the error line it belongs to. */
+  onRetry: () => void;
+  canRetry: boolean;
   /** The canvas. The shell renders it as-is and imposes no read-only state —
    *  the caller owns whether and how each cell can be edited. */
   children: ReactNode;
@@ -40,11 +49,19 @@ const AI_RADIUS = "rounded-[4px_13px_13px_13px]";
 const HER_RADIUS = "rounded-[13px_4px_13px_13px]";
 const BUBBLE = "inline-block max-w-[85%] px-4 py-3 text-mk-body text-mk-ink";
 
-type LastAttempt = { kind: "text"; value: string } | { kind: "choice"; id: string } | null;
-
-export function WorkspacePanel({ turns, busy, error, choices, onSend, onChoose, children }: WorkspacePanelProps) {
-  const [draft, setDraft] = useState("");
-  const [lastAttempt, setLastAttempt] = useState<LastAttempt>(null);
+export function WorkspacePanel({
+  turns,
+  busy,
+  error,
+  choices,
+  onSend,
+  onChoose,
+  composer,
+  onComposerChange,
+  onRetry,
+  canRetry,
+  children,
+}: WorkspacePanelProps) {
   // `choices` names the pending row; `answeredKey` names the row she already
   // acted on. A fresh set of choices (a new reply) carries a different key,
   // so the row reappears for THAT reply without any effect needed to reset it.
@@ -55,27 +72,19 @@ export function WorkspacePanel({ turns, busy, error, choices, onSend, onChoose, 
   const showChoices = lastIsAi && choices.length > 0 && choicesKey !== answeredKey;
 
   function handleSend() {
-    const text = draft.trim();
+    const text = composer.trim();
     if (!text || busy) return;
-    setDraft("");
+    onComposerChange("");
     // Typing past an offered choice counts as having answered it too — the
     // row belongs to a question that is now moot either way.
     setAnsweredKey(choicesKey);
-    setLastAttempt({ kind: "text", value: text });
     onSend(text);
   }
 
   function handleChoose(choice: Choice) {
     if (busy) return;
     setAnsweredKey(choicesKey);
-    setLastAttempt({ kind: "choice", id: choice.id });
     onChoose(choice.id);
-  }
-
-  function handleRetry() {
-    if (busy || !lastAttempt) return;
-    if (lastAttempt.kind === "text") onSend(lastAttempt.value);
-    else onChoose(lastAttempt.id);
   }
 
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -171,17 +180,17 @@ export function WorkspacePanel({ turns, busy, error, choices, onSend, onChoose, 
               <p className="text-mk-small text-mk-danger" role="alert">
                 {error}
               </p>
-              <Button variant="secondary" size="sm" onClick={handleRetry} disabled={busy || !lastAttempt}>
+              <Button variant="secondary" size="sm" onClick={onRetry} disabled={busy || !canRetry}>
                 重试
               </Button>
             </div>
           )}
 
           <Composer
-            value={draft}
-            onChange={setDraft}
+            value={composer}
+            onChange={onComposerChange}
             onSend={handleSend}
-            state={busy ? "replying" : draft.trim() ? "typing" : "empty"}
+            state={busy ? "replying" : composer.trim() ? "typing" : "empty"}
             disabled={busy}
             placeholder="请输入"
           />
