@@ -69,16 +69,68 @@ var loadLabels = map[string]string{
 	loadBridge:  "过渡",
 }
 
+// readingPart 是这篇文章的一个部分：从第几段到第几段，它在干什么。
+//
+// # 为什么要把文章切成部分（2026-09-16）
+//
+// 产品负责人走查之后的原话：
+//
+//	> currently, the 通读部分 is too general. and one student, if they haven't
+//	> read the article before, they would feel that ai's guidance is not easy
+//	> to understand. maybe we should let ai give more scaffolding for student
+//	> to read the whole article, like: general structure guidance, 导读 …
+//	> then ask students to read part by part.
+//
+// 「通读全文」对一个没读过这篇的学生来说不是一个动作，是一整件事。切成三到五
+// 个部分之后它才有台阶：一次读一部分，一部分问一句。带读那一步据此一段一段
+// 地走（见 reading_coach.go 的「通读」那一节）。
+type readingPart struct {
+	// Title 是这一部分的名字，中文，短。
+	Title string `json:"title"`
+	// From / To 是这一部分的头尾段 id，闭区间。
+	From string `json:"from"`
+	To   string `json:"to"`
+	// Does 是这一部分**在干什么**（提出问题 / 给证据 / 让步 / 收束），
+	// 不是它讲了什么内容 —— 讲了什么要她自己去读。
+	Does string `json:"does"`
+}
+
 // readingOutline 就是落进 reading_source.outline 的那份 jsonb。
 type readingOutline struct {
-	OneLine string            `json:"oneLine"`
-	Shape   string            `json:"shape"`
-	Load    map[string]string `json:"load"`
+	OneLine string `json:"oneLine"`
+	// Gist 是这篇的**中心思想**：作者到底主张什么。
+	//
+	// 🚨 这一项 2026-09-16 才加，而且它**推翻了 OneLine 旁边那条注释的一半**。
+	// 原来整份导读刻意不说结论（「结论说出来，后面每一步都是走过场」）。
+	// 产品负责人走查之后判的是另一头：一个没读过这篇的学生，面对一个只有
+	// 问题、没有答案的导读，连印记在说什么都跟不上。
+	//
+	// 两者并存的办法是把它们分工：OneLine 说这篇在**问**什么（她带着这个问题
+	// 去读），Gist 说作者**答**了什么（她拿它当地图对照）。她要做的事没有被
+	// 拿走 —— 一篇文章的价值不在于那个结论，而在于它凭什么这么说，而「凭什么」
+	// 每一步都还在等她。雅思学术阅读的第一项训练目标「抓住主旨」也仍然在练：
+	// 每一部分的主旨还是要她自己说（见 readingPart）。
+	//
+	// 允许为空：老数据没有这一项，界面据此整行不显示。
+	Gist  string            `json:"gist,omitempty"`
+	Shape string            `json:"shape"`
+	Load  map[string]string `json:"load"`
+	// Parts 是这篇分成的几个部分，按正文顺序。允许为空 —— 老数据没有，
+	// 校验没过的也会被整个丢掉（见 validateOutline）。
+	Parts []readingPart `json:"parts,omitempty"`
 }
 
 const (
 	outlineOneLineMaxRunes = 60
+	outlineGistMaxRunes    = 80
 	outlineShapeMaxRunes   = 40
+	outlinePartTitleMax    = 20
+	outlinePartDoesMax     = 40
+	// 一篇文章最多切几部分。六：再多就不是「部分」了，那是把段落重新编了一次号，
+	// 而带读要一部分停一次 —— 七个停顿比不停更难走完。
+	outlinePartsMax = 6
+	// 少于两部分就不是分部分。一整篇算一部分，等于没切。
+	outlinePartsMin = 2
 )
 
 // coreShareCap 是核心段占全文的上限。
@@ -93,6 +145,61 @@ func (o readingOutline) blank() bool {
 	return strings.TrimSpace(o.OneLine) == "" && strings.TrimSpace(o.Shape) == "" && len(o.Load) == 0
 }
 
+// validateParts 把模型切出来的那几个部分收进我们能保证的范围里。
+//
+// 返回 nil 表示这份切法不能用 —— **整份丢掉，不修补**。一份被修补过的切法在
+// 屏幕上和一份真的切法长得一模一样，而她没有办法分辨；而且带读会照着它一部分
+// 一部分地走，走到一个不存在的段落上就断在那儿。
+//
+// 五条判据，每一条都对应一种真的会发生的坏切法：
+//
+//	段 id 不存在        模型自己数段号，数错了（它不止一次把 b13 写成 b31）
+//	from 在 to 后面      头尾写反
+//	和上一部分重叠       同一段属于两个部分，带读会把它读两遍
+//	不是从第一段开始      前面几段没人管，她读到那里没有任何提示
+//	少于两部分           一整篇算一部分，等于没切
+//
+// 中间**允许有缝**（上一部分到 b5、下一部分从 b7 开始）：那是模型漏了一段，
+// 而漏一段的代价远小于整份丢掉。缝里的段落照常显示，只是不属于任何一部分。
+func validateParts(got []readingPart, blocks []Block) []readingPart {
+	if len(got) < outlinePartsMin {
+		return nil
+	}
+	order := make(map[string]int, len(blocks))
+	for i, b := range blocks {
+		order[b.ID] = i
+	}
+	out := make([]readingPart, 0, len(got))
+	prevEnd := -1
+	for _, p := range got {
+		from, okFrom := order[strings.TrimSpace(p.From)]
+		to, okTo := order[strings.TrimSpace(p.To)]
+		if !okFrom || !okTo || from > to || from <= prevEnd {
+			return nil
+		}
+		title := trimRunes(strings.TrimSpace(p.Title), outlinePartTitleMax)
+		if title == "" {
+			return nil
+		}
+		prevEnd = to
+		out = append(out, readingPart{
+			Title: title,
+			From:  strings.TrimSpace(p.From),
+			To:    strings.TrimSpace(p.To),
+			Does:  trimRunes(strings.TrimSpace(p.Does), outlinePartDoesMax),
+		})
+		if len(out) == outlinePartsMax {
+			break
+		}
+	}
+	// 必须从第一段开始。从第三段开始的切法，意味着前两段她读到的时候屏幕上
+	// 什么提示都没有 —— 而那两段往往正是导语。
+	if len(out) < outlinePartsMin || out[0].From != blocks[0].ID {
+		return nil
+	}
+	return out
+}
+
 // validateOutline 把模型给的那份导读收进我们能保证的范围里。
 //
 // 返回的 bool 是「这份还值不值得存」。不值得的时候整份丢掉而不是修补：一份
@@ -100,8 +207,13 @@ func (o readingOutline) blank() bool {
 func validateOutline(got readingOutline, blocks []Block) (readingOutline, bool) {
 	out := readingOutline{
 		OneLine: trimRunes(strings.TrimSpace(got.OneLine), outlineOneLineMaxRunes),
+		Gist:    trimRunes(strings.TrimSpace(got.Gist), outlineGistMaxRunes),
 		Shape:   trimRunes(strings.TrimSpace(got.Shape), outlineShapeMaxRunes),
 		Load:    map[string]string{},
+		// 切法单独校验，单独丢弃：它没过不该让整份导读作废（导读的其余三样
+		// 仍然有用），但它坏了也绝不能修补着用 —— 带读会照着它一部分一部分
+		// 地走，走到一个不存在的段落上就断在那儿。
+		Parts: validateParts(got.Parts, blocks),
 	}
 
 	// 每一段都要有一个标签，而且只能是我们认识的那三个。模型漏掉的、写错的，

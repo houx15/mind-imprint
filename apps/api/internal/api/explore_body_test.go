@@ -77,6 +77,31 @@ func readingSourceHTTP(t *testing.T, h http.Handler, cookie *http.Cookie, readin
 	return rec.Code, out
 }
 
+// readingSourceDetail 和 readingSourceHTTP 同一个请求，多读一位 excerptOnly。
+func readingSourceDetail(t *testing.T, h http.Handler, cookie *http.Cookie, readingID string) (int, []string, bool) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(
+		httptest.NewRequest("GET", "/api/v1/readings/"+readingID+"/source", nil), cookie))
+	if rec.Code != http.StatusOK {
+		return rec.Code, nil, false
+	}
+	var got struct {
+		Blocks []struct {
+			Text string `json:"text"`
+		} `json:"blocks"`
+		ExcerptOnly bool `json:"excerptOnly"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode source: %v (%s)", err, rec.Body)
+	}
+	out := make([]string, 0, len(got.Blocks))
+	for _, b := range got.Blocks {
+		out = append(out, b.Text)
+	}
+	return rec.Code, out, got.ExcerptOnly
+}
+
 func savedReadingID(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	if rec.Code != http.StatusOK {
@@ -115,16 +140,49 @@ func TestSavePlanet_FillsTheArticleFromTheFeed(t *testing.T) {
 	}
 }
 
-// feed 没带正文的源（实测半数如此）照旧走另外两条路：这里没有正文，
-// 阅读室摆粘贴框 —— 这是**正常结果**，不是失败。
-func TestSavePlanet_NoFeedBodyStillLeavesTheOtherRoutes(t *testing.T) {
+// feed 没带正文、原页面也抓不到的时候（实测半数源如此），她拿到的是**那段
+// 摘要**，并且这一篇被标成 excerptOnly —— 阅读室据此摆出「我们无法直接获取
+// 正文，如果想要阅读全文，请跳转原网站」加一颗跳转按钮。
+//
+// 🚨 这一条 2026-09-16 改过方向。原来断言的是「没有正文 → GET /source 404」，
+// 也就是她落在一个粘贴框上，而前端会**另开一页原文**让她自己复制。产品负责人
+// 把那个自动跳转否掉了：
+//
+//	> we jump to reading page. if we extracted the texts successfully, then
+//	> begin reading directly. or if we only have abstract, we go to reading
+//	> with abstract, with below a button …
+//
+// 于是「只有摘要」第一次成了一个要**说出来**的状态，而不是一个空屏。
+func TestSavePlanet_NoFeedBodyFallsBackToTheAbstract(t *testing.T) {
 	h, cookie, _, pool := liteHandler(t)
 	id := seedPlanetWithBody(t, pool, "")
 
 	readingID := savedReadingID(t, savePlanetHTTP(h, cookie, id))
 
-	if code, _ := readingSourceHTTP(t, h, cookie, readingID); code != http.StatusNotFound {
-		t.Errorf("feed 没带正文时不该凭空有正文，GET /source = %d", code)
+	code, blocks, excerptOnly := readingSourceDetail(t, h, cookie, readingID)
+	if code != http.StatusOK {
+		t.Fatalf("抓不到正文时她该拿到摘要，GET /source = %d", code)
+	}
+	if len(blocks) == 0 || !strings.Contains(blocks[0], "一句摘要") {
+		t.Fatalf("摘要没有落进阅读室：%q", blocks)
+	}
+	// 🚨 这一位是整条链子的意义所在。不说出来，两句话的摘要和一篇很短的报道
+	// 在屏幕上长得一模一样，她读完两句就以为读完了。
+	if !excerptOnly {
+		t.Error("只有摘要却没有标成 excerptOnly —— 她不会知道这不是全文")
+	}
+}
+
+// feed 带了正文的那些，**不**标 excerptOnly：在一篇完整的文章下面摆一条
+// 「我们无法直接获取正文」，比不摆更糟。
+func TestSavePlanet_AFeedBodyIsNotAnExcerpt(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	id := seedPlanetWithBody(t, pool, feedBody)
+	readingID := savedReadingID(t, savePlanetHTTP(h, cookie, id))
+
+	_, _, excerptOnly := readingSourceDetail(t, h, cookie, readingID)
+	if excerptOnly {
+		t.Error("feed 给的正文被当成了摘要")
 	}
 }
 

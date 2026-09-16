@@ -53,22 +53,40 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 3. 给每一步写一句**贴着这篇文章**的说明（steps[].detail）。比如不要写「精读重点
    段」，要写「这一段是全文唯一给出数据的地方，值得细读」。
 4. 篇幅很短、或者内容很浅的文章，可以少排几步——一步都不能编，但可以不排。
-5. 排一份**导读**：oneLine、shape、load。见下。
+5. 排一份**导读**：oneLine、gist、shape、load、parts。见下。
 
 ## 导读
 
-学生一进阅读室就会看见这三样东西，它们是她的地图。
+学生一进阅读室就会看见这几样东西，它们是她的地图。**她还没读过这篇文章**——
+导读要让一个完全没读过的人看得懂接下来要干什么。
 
-🚨 **三样都用中文写，包括 shape 里的那几个词。** 文章是英文的，界面是中文的，
+🚨 **全部用中文写，包括 shape 里的那几个词。** 文章是英文的，界面是中文的，
 她读的是中文界面。线上第一次跑就写成了英文（「outbreak → blockade → aid
 scramble」），那份导读对她等于不存在。**文章里的专有名词照抄原文**
 （人名、地名、机构名），其余一律中文。
 
 - **oneLine**：这篇在**问**什么。不超过 30 个字。
   🚨 **问题，不是结论。**「屋顶光伏到底划不划算」可以；
-  「屋顶光伏其实并不划算」不行——那是这篇的答案，说出来她就不用读了。
+  「屋顶光伏其实并不划算」不行——那句话是 gist 的活儿。
+- **gist**：这篇的**中心思想**——作者主张什么。不超过 40 个字。
+  写成一句完整的话：「作者认为屋顶光伏在南方划算，在北方要看补贴能撑多久。」
+  🚨 **只写作者真的写了的那个主张**，不要替他推一步、不要加你的评价。
+  🚨 **写作者的主张，不要写「这篇文章介绍了……」。** 后者是一句目录，不是主旨。
+  这篇真的没有主张（纯叙事、纯报道），就写它在讲的那件事是什么，
+  一样写成一句完整的话。
 - **shape**：它是怎么组织的，四到六个**中文**词，中间用 → 连。
   比如「问题 → 数据 → 让步 → 结论」「事件 → 各方反应 → 未解决的部分」。
+- **parts**：把整篇切成 **2 到 5 个部分**，按顺序，用段落编号划界。
+  她会一部分一部分地读，所以这是「通读全文」那一步真正的台阶。
+  每个部分给三样：
+  - title：这一部分叫什么，中文，不超过 10 个字。比如「提出争议」「实测数据」。
+  - from / to：头尾段编号（闭区间），比如 from=b1, to=b3。
+  - does：这一部分**在干什么**，不超过 20 个字。说的是它的作用
+    （「摆出两方的说法」「用一组数据支持前面那个判断」），
+    🚨 **不是它讲了什么内容**——讲了什么要她自己去读。
+  🚨 **必须从第一段开始**，各部分之间**不许重叠**，顺序不许乱。
+  段落编号必须真实存在（系统会核对，对不上整份切法作废，她就没有台阶可走）。
+  文章太短（少于四段）切不出两部分，就给一个空数组。
 - **load**：**每一段**的承重，一段一个值，只能取这三个之一：
   - 「core」（核心）——承载主张的那几段。读到这里要停下来。
   - 「support」（支撑）——证据、例子、数据。它们在撑上面某个主张。
@@ -79,8 +97,11 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   🚨 **每一段都要给一个值**，包括小标题那一段（小标题算 「bridge」）。
 
 严格规则：
-- **不要替她读。** 说明里不要出现这篇文章的结论、主旨、答案。你在说「这一步要
-  干什么」，不是在说「这篇讲了什么」。她还没读。
+- **不要替她读。** steps[].detail 里不要出现这篇文章的结论、答案、要点总结。
+  你在说「这一步要干什么」，不是在说「这篇讲了什么」。
+  🚨 这一条**管的是 steps，不管 gist**。gist 那一项就是要写出中心思想 ——
+  2026-09-16 定的（见上）。两者不冲突：她拿着中心思想去读，要她做的事是看
+  作者**凭什么**这么说，而那件事一步都没被拿走。
 - 步骤的 kind 和顺序**只能**来自你挑的那套读法，不能新增、不能改顺序。
 - focusBlocks 必须是真实存在的段落编号。
 - detail 每条不超过 40 个字。
@@ -89,7 +110,9 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
 
 只输出一个 JSON 对象：
 {"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}],
- "oneLine":"...","shape":"... → ... → ...","load":{"b1":"bridge","b2":"core"}}
+ "oneLine":"...","gist":"...","shape":"... → ... → ...",
+ "parts":[{"title":"...","from":"b1","to":"b3","does":"..."}],
+ "load":{"b1":"bridge","b2":"core"}}
 
 steps 按顺序对应你挑的那套读法的步骤；kind 逐字照抄。不要输出对象以外的任何
 文字或代码块标记。`
@@ -167,13 +190,17 @@ type readingPlanReply struct {
 	// 导读。这一次调用本来就要把全文读一遍并挑出重点段，所以它顺带给出
 	// 「这篇在问什么 / 它怎么组织 / 哪几段承重」。见 reading_outline.go。
 	OneLine string            `json:"oneLine"`
+	Gist    string            `json:"gist"`
 	Shape   string            `json:"shape"`
 	Load    map[string]string `json:"load"`
+	Parts   []readingPart     `json:"parts"`
 }
 
-// outline 把这份回复里属于导读的三样东西拿出来。
+// outline 把这份回复里属于导读的那几样东西拿出来。
 func (p readingPlanReply) outline() readingOutline {
-	return readingOutline{OneLine: p.OneLine, Shape: p.Shape, Load: p.Load}
+	return readingOutline{
+		OneLine: p.OneLine, Gist: p.Gist, Shape: p.Shape, Load: p.Load, Parts: p.Parts,
+	}
 }
 
 // salvageReadingPlan 逐个字段读一份坏掉的排读法回复，到齐的留下。
@@ -227,10 +254,14 @@ func salvageReadingPlan(s string) (readingPlanReply, bool) {
 			_ = json.Unmarshal(raw, &got.Steps)
 		case "oneLine":
 			_ = json.Unmarshal(raw, &got.OneLine)
+		case "gist":
+			_ = json.Unmarshal(raw, &got.Gist)
 		case "shape":
 			_ = json.Unmarshal(raw, &got.Shape)
 		case "load":
 			_ = json.Unmarshal(raw, &got.Load)
+		case "parts":
+			_ = json.Unmarshal(raw, &got.Parts)
 		}
 	}
 	// routineKey 是唯一不能少的东西 —— 没有它就没有读法，也就没有清单。

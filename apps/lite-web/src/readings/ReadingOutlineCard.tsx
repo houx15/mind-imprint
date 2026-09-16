@@ -17,14 +17,29 @@ import type { ReadingOutline } from "../api/readings";
  * 模型那一轮因此没有内容可讲，只剩下递第一张卡片这一件事。
  * 见 docs/2026-09-10-reading-guidance-redesign.md。
  *
- * # 三样东西，为什么是这三样
+ * # 卡片上的几样东西
  *
- *   在问什么   **是问题，不是结论**。结论摆出来她就不用读了 —— 服务端的
- *              prompt 明写着这一条，这里只是渲染。
+ *   在问什么   这篇在**问**什么。
+ *   中心思想   作者**主张**什么。
  *   结构       四到六个词。她带着一张地图读，比闷头逐段啃有效。
+ *   分几部分   每一部分叫什么、第几段到第几段、它在干什么。段号可以点。
  *   承重       共几段、核心几段、分别是第几段。段号**可以点**，点了滚过去。
  *              这是整份调研里唯一真的回答了「该在哪儿停」的东西：按论证承重，
  *              不按生词多少。
+ *
+ * # 「中心思想」是 2026-09-16 加的，而它推翻了这张卡片原来的一条设计
+ *
+ * 原来整份导读刻意不说结论（「结论摆出来她就不用读了」）。产品负责人走查之后
+ * 判的是另一头：
+ *
+ *   > currently, the 通读部分 is too general. and one student, if they haven't
+ *   > read the article before, they would feel that ai's guidance is not easy
+ *   > to understand. maybe we should let ai give more scaffolding … 导读 -
+ *   > 文章的中心思想、主旨、行文结构. then ask students to read part by part.
+ *
+ * 两者并存的办法是分工：「在问什么」是她带着去读的那个问题，「中心思想」是她
+ * 拿来对照的那张地图。要她做的事没有被拿走 —— 一篇文章的价值不在那个结论，
+ * 而在它凭什么这么说，而「凭什么」每一步都还在等她。
  *
  * 承重的判断是模型做的，所以卡片上明说它是系统判断 —— 她可以不同意。
  * （不同意这件事本身值得记下来，但那是下一步，这一版还没有那个入口。）
@@ -41,6 +56,9 @@ export function ReadingOutlineCard({
   onLocate: (blockId: string) => void;
 }) {
   const core = outline.core.filter((id) => ordinalOf(id) > 0);
+  // 段号由服务端给（fromOrd/toOrd）。这里只挡掉正文换过之后对不上的那些 ——
+  // 一个指着不存在的段落的按钮点下去什么都不会发生，而她不知道为什么。
+  const parts = (outline.parts ?? []).filter((p) => ordinalOf(p.from) > 0);
   return (
     <section
       className="mk-reading-outline"
@@ -52,11 +70,38 @@ export function ReadingOutlineCard({
           {outline.oneLine}
         </p>
       )}
+      {outline.gist && (
+        <p className="mk-reading-outline__line">
+          <span className="mk-reading-outline__key">中心思想</span>
+          {outline.gist}
+        </p>
+      )}
       {outline.shape && (
         <p className="mk-reading-outline__line">
           <span className="mk-reading-outline__key">结构</span>
           {outline.shape}
         </p>
+      )}
+      {parts.length > 0 && (
+        <div className="mk-reading-outline__line">
+          <span className="mk-reading-outline__key">分几部分</span>
+          <ol className="mk-outline-parts">
+            {parts.map((p) => (
+              <li key={p.from}>
+                <button
+                  type="button"
+                  className="mk-reading-outline__jump"
+                  onClick={() => onLocate(p.from)}
+                >
+                  第 {p.fromOrd}
+                  {p.toOrd > p.fromOrd ? `–${p.toOrd}` : ""} 段
+                </button>
+                <span className="mk-outline-parts__title">{p.title}</span>
+                {p.does && <span className="mk-outline-parts__does">{p.does}</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
       {core.length > 0 && (
         <p className="mk-reading-outline__line">

@@ -2181,6 +2181,33 @@
   font-size: 11px;
 }
 
+/* 分几部分。每一行是「第 N–M 段 · 名字 · 它在干什么」，段号可点。
+ *
+ * 缩进对齐到标签右边（34px 标签 + 8px 间距），所以它和上面几行的正文左边
+ * 在同一条线上。 */
+.mk-outline-parts {
+  display: grid;
+  gap: 3px;
+  margin: 3px 0 0 42px;
+  padding: 0;
+  list-style: none;
+}
+.mk-outline-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+  line-height: 1.65;
+}
+.mk-outline-parts__title {
+  color: var(--mk-ink);
+  font-weight: 600;
+}
+.mk-outline-parts__does {
+  color: var(--mk-muted);
+  font-size: 12px;
+}
+
 /* 核心段：正文左边一道竖线。
  *
  * 用的是 Annotate 已经写在每个 <p> 上的那条 `3px solid transparent` 行内边框

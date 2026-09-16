@@ -338,13 +338,18 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading, false))
 }
 
-// planetBodyMinRunes 是「这份文本算不算正文」。
+// planetFetchMinRunes 是「**抓回来的**这份算不算正文」。
 //
 // 和 news.GroundText 用的是同一个数（internal/news/write.go 的 groundMinRunes），
-// 同一个理由：六百字以下的那份，多半是一段导语，不是一篇文章。判错的方向在这里
-// 是不对称的 —— 把一段摘要当正文放过去，她读完两句话就以为读完了一篇报道；
-// 把一篇很短的报道标成摘要，她多看到一行「跳转原网站」，仅此而已。
-const planetBodyMinRunes = 600
+// 同一个理由：抓一个页面抓回来的东西可能是导航条、Cookie 提示、付费墙那一屏 ——
+// 六百字以下的那份多半不是文章。
+//
+// 🚨 这个门槛**只管抓回来的那一份，不管 feed 自带的那一份**。content:encoded
+// 是出版方自己填的正文字段，它就是这篇文章；拿六百字去卡它，会把一篇真的很短的
+// 报道判成「只有摘要」，然后在一篇完整的文章下面摆一条「我们无法直接获取正文」。
+// feed 没带正文的那些源，这一列本来就是空串（实测 Aeon / Psyche / ScienceDaily
+// / Phys.org 都是），所以「非空 = 有正文」这条判据在真实数据上是准的。
+const planetFetchMinRunes = 600
 
 // planetArticle 是一颗星球最终落进阅读室的那份文本。
 type planetArticle struct {
@@ -369,7 +374,7 @@ type planetArticle struct {
 // 🚨 抓取在事务**外面**做。一次跨网的 HTTP 请求最长十二秒，把它关在事务里就是
 // 让一个数据库连接跟着它一起等。
 func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) planetArticle {
-	if body := strings.TrimSpace(p.Body); len([]rune(body)) >= planetBodyMinRunes {
+	if body := strings.TrimSpace(p.Body); body != "" {
 		return planetArticle{Body: body}
 	}
 	// 🚨 这里抓的 URL 来自我们自己那张源表挑出来的那一条，不是学生贴的、更不是
@@ -381,16 +386,12 @@ func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) plane
 		if ferr != nil {
 			// 不是错误，是第二条路没走通。第三条还在。
 			slog.Info("explore: 这一篇的原页面抓不到，退回摘要", "err", ferr, "url", p.Url)
-		} else if fetched := strings.TrimSpace(text); len([]rune(fetched)) >= planetBodyMinRunes {
+		} else if fetched := strings.TrimSpace(text); len([]rune(fetched)) >= planetFetchMinRunes {
 			return planetArticle{Body: fetched}
 		}
 	}
-	// feed 带的那点正文比导语长就用它，否则用导语。两种都只是一段摘要。
-	excerpt := strings.TrimSpace(p.Summary)
-	if b := strings.TrimSpace(p.Body); len([]rune(b)) > len([]rune(excerpt)) {
-		excerpt = b
-	}
-	return planetArticle{Body: excerpt, ExcerptOnly: true}
+	// 三条路都没走通。剩下的是 feed 的导语 —— 它就是那段摘要。
+	return planetArticle{Body: strings.TrimSpace(p.Summary), ExcerptOnly: true}
 }
 
 // mintReadingForPlanet 为一颗星球建一篇阅读。

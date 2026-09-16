@@ -44,8 +44,20 @@ export interface ReadingFigure {
   credit: string;
 }
 
+/** 导读里的一个部分：从第几段到第几段，它在干什么。 */
+export interface ReadingOutlinePart {
+  title: string;
+  /** 这一部分**在干什么**（它的作用），不是它讲了什么。可能为空。 */
+  does?: string;
+  from: string;
+  to: string;
+  /** 段号，**服务端数的**。她屏幕上那个号码来自同一份 —— 前端自己数会和它漂开。 */
+  fromOrd: number;
+  toOrd: number;
+}
+
 /**
- * 导读：这篇在问什么、它怎么组织、哪几段承重。
+ * 导读：这篇在问什么、作者主张什么、它怎么组织、分成几部分、哪几段承重。
  *
  * 排读法那一次调用算出来的（`apps/api/internal/api/reading_outline.go`），
  * 排读法之前整个字段不存在。
@@ -55,8 +67,20 @@ export interface ReadingFigure {
  */
 export interface ReadingOutline {
   oneLine: string;
+  /**
+   * 中心思想：作者主张什么（2026-09-16 加）。
+   *
+   * 🚨 它和 `oneLine` 分工：`oneLine` 是这篇在**问**什么（她带着这个问题读），
+   * `gist` 是作者**答**了什么（她拿它当地图对照）。产品负责人的理由是一个
+   * 没读过这篇的学生，面对一个只有问题没有答案的导读，连印记在说什么都跟不上。
+   *
+   * 老数据没有这一项，整行不显示。
+   */
+  gist?: string;
   shape: string;
   core: string[];
+  /** 这篇分成的几个部分。切不出来（文章太短）或者校验没过时为空。 */
+  parts?: ReadingOutlinePart[];
   blocks: number;
 }
 

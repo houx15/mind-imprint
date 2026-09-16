@@ -88,13 +88,32 @@ type sourceDTO struct {
 // 核心」——把三种标签的全表发过去，客户端还得自己再筛一遍，而筛的规则就会
 // 变成第二份真相。支撑/过渡这两类在界面上不显示任何东西，发过去也没人用。
 type outlineDTO struct {
-	OneLine string   `json:"oneLine"`
-	Shape   string   `json:"shape"`
-	Core    []string `json:"core"`
+	OneLine string `json:"oneLine"`
+	// Gist 是这篇的中心思想（2026-09-16）。老数据没有，前端据此整行不显示。
+	Gist  string   `json:"gist,omitempty"`
+	Shape string   `json:"shape"`
+	Core  []string `json:"core"`
+	// Parts 是这篇分成的几个部分，带上每一部分的段号范围 —— 前端要显示
+	// 「第 1–3 段」，而段号是服务端数的（她看到的段号来自服务端）。
+	Parts []outlinePartDTO `json:"parts,omitempty"`
 	// Blocks 是这篇一共几段。导读卡上要说「共 12 段，核心 3 段」，而
 	// 前端手里的 Blocks 长度就是它 —— 但那份是切出来的，这一份是服务端
 	// 数的，两边对不上的时候以服务端为准（她看到的段号来自服务端）。
 	Blocks int `json:"blocks"`
+}
+
+// outlinePartDTO 是一个部分发给前端的形状。
+//
+// 🚨 `FromOrd` / `ToOrd` 是**服务端数出来的段号**，不是前端自己数的。她屏幕上
+// 每一段左边那个号码由服务端给（见 readingBlockTag 的注释：模型嘴上说第三段、
+// 字段里给 b4 那次事故就是两边各数一遍数出来的），这里跟着同一份。
+type outlinePartDTO struct {
+	Title   string `json:"title"`
+	Does    string `json:"does,omitempty"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	FromOrd int    `json:"fromOrd"`
+	ToOrd   int    `json:"toOrd"`
 }
 
 // outlineDTOFrom 把存下来的那份导读变成发出去的那份。空的返回 nil，
@@ -103,10 +122,30 @@ func outlineDTOFrom(o readingOutline, blocks []Block) *outlineDTO {
 	if o.blank() {
 		return nil
 	}
+	ord := make(map[string]int, len(blocks))
+	for i, b := range blocks {
+		ord[b.ID] = i + 1
+	}
+	parts := make([]outlinePartDTO, 0, len(o.Parts))
+	for _, p := range o.Parts {
+		from, okFrom := ord[p.From]
+		to, okTo := ord[p.To]
+		if !okFrom || !okTo {
+			// 这一篇的正文换过（她重新粘了一份），段 id 对不上了。整份切法
+			// 丢掉 —— 指着不存在的段落的台阶比没有台阶更糟。
+			parts = nil
+			break
+		}
+		parts = append(parts, outlinePartDTO{
+			Title: p.Title, Does: p.Does, From: p.From, To: p.To, FromOrd: from, ToOrd: to,
+		})
+	}
 	return &outlineDTO{
 		OneLine: o.OneLine,
+		Gist:    o.Gist,
 		Shape:   o.Shape,
 		Core:    o.coreBlockIDs(blocks),
+		Parts:   parts,
 		Blocks:  len(blocks),
 	}
 }
