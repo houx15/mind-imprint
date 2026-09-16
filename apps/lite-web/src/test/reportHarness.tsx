@@ -12,6 +12,7 @@ const reading: LiteReport = {
   title: "中国的太阳能扩张正在改写全球排放曲线",
   studentName: "Phoebe",
   finishedAt: "2026-09-14T09:12:00Z",
+  ordinal: 8,
   stats: [
     { key: "focusMinutes", label: "阅读时长", value: 34, unit: "分钟" },
     { key: "wordsRead", label: "读了", value: 2180, unit: "字" },

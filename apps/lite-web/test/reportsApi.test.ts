@@ -52,6 +52,7 @@ const REPORT: LiteReport = {
   title: "中国是否让地球变得更可持续？",
   studentName: "Phoebe",
   finishedAt: "2026-08-29T03:00:00Z",
+  ordinal: 8,
   stats: [{ key: "focusMinutes", label: "专注时长", value: 12, unit: "分钟" }],
   moments: [{ quote: "碳排放全球第一", where: "写论证的时候" }],
   keep: { label: "我的收获", text: "来源要溯源", source: "student" },

@@ -125,6 +125,38 @@ func (q *Queries) CountAtomEvidence(ctx context.Context, atomID uuid.UUID) (int6
 	return n, err
 }
 
+const countFinishedReadingsByUser = `-- name: CountFinishedReadingsByUser :one
+SELECT count(*) FROM reading r
+JOIN atom a ON a.id = r.atom_id
+WHERE a.user_id = $1 AND r.status = 'finished'
+`
+
+// 报告开场那句「第 8 篇」的来源。
+//
+// 数的是她**完成过**的篇数，在生成这份报告的那个事务里数一次，然后冻结进报告
+// 的 JSON。重新数会让她三个月前那份报告今天变成「第 20 篇」—— 那是在改她的
+// 过去。冻结的判据不在这条语句里，在 liteReportDTO.Ordinal 的注释里。
+func (q *Queries) CountFinishedReadingsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countFinishedReadingsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countFinishedWritingsByUser = `-- name: CountFinishedWritingsByUser :one
+SELECT count(*) FROM writing w
+JOIN atom a ON a.id = w.atom_id
+WHERE a.user_id = $1 AND w.status = 'finished'
+`
+
+// CountFinishedReadingsByUser 的写作孪生。同样只数完成的。
+func (q *Queries) CountFinishedWritingsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countFinishedWritingsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAtom = `-- name: CreateAtom :one
 INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at
 `

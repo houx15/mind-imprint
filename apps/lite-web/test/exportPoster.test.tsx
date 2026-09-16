@@ -75,6 +75,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     title: "中国是否让地球变得更可持续？",
     studentName: "Phoebe",
     finishedAt: "2026-08-29T03:00:00Z",
+    ordinal: 8,
     stats: [
       { key: "focusMinutes", label: "专注时长", value: 12, unit: "分钟" },
       { key: "wordsRead", label: "阅读字数", value: 860, unit: "字" },

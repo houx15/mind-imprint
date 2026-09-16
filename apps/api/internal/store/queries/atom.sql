@@ -165,3 +165,19 @@ UPDATE atom SET active_seconds = active_seconds + $2 WHERE id = $1;
 -- 她给这次阅读体验打的星（0107）。方向是她评我们，不是我们评她。
 -- 只在这里写：范围由 CHECK 兜底，调用方仍要先挡一次，好给出人话的错误。
 UPDATE atom SET experience_rating = $2 WHERE id = $1 RETURNING *;
+
+-- name: CountFinishedReadingsByUser :one
+-- 报告开场那句「第 8 篇」的来源。
+--
+-- 数的是她**完成过**的篇数，在生成这份报告的那个事务里数一次，然后冻结进报告
+-- 的 JSON。重新数会让她三个月前那份报告今天变成「第 20 篇」—— 那是在改她的
+-- 过去。冻结的判据不在这条语句里，在 liteReportDTO.Ordinal 的注释里。
+SELECT count(*) FROM reading r
+JOIN atom a ON a.id = r.atom_id
+WHERE a.user_id = $1 AND r.status = 'finished';
+
+-- name: CountFinishedWritingsByUser :one
+-- CountFinishedReadingsByUser 的写作孪生。同样只数完成的。
+SELECT count(*) FROM writing w
+JOIN atom a ON a.id = w.atom_id
+WHERE a.user_id = $1 AND w.status = 'finished';

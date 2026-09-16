@@ -142,6 +142,9 @@ type GetLiteAssignmentForAtomRow struct {
 }
 
 // 写作的锁定判断也读这一条：归档的作业不算。
+// 🚨 选出来的列是两条线的并集（2026-09-16）：退回修改那几列来自已经上线的
+// 教师端，instructions 来自作业材料那条线。少一列，对面那个功能就在这一个
+// 端点上静默失效。
 func (q *Queries) GetLiteAssignmentForAtom(ctx context.Context, arg GetLiteAssignmentForAtomParams) (GetLiteAssignmentForAtomRow, error) {
 	row := q.db.QueryRow(ctx, getLiteAssignmentForAtom, arg.AtomID, arg.UserID)
 	var i GetLiteAssignmentForAtomRow

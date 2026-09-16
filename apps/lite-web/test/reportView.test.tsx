@@ -19,6 +19,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     title: "中国是否让地球变得更可持续？",
     studentName: "Phoebe",
     finishedAt: "2026-08-20T09:30:00Z",
+    ordinal: 8,
     stats: [],
     moments: [],
     keep: null,

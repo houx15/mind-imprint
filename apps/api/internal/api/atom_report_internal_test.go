@@ -4,6 +4,8 @@ package api
 // lives here (package api), not in atom_report_test.go (package api_test).
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -261,5 +263,32 @@ func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
 		if strings.Contains(liteReportSystem, banned) {
 			t.Errorf("liteReportSystem must not model third-person reference as an example, found %q", banned)
 		}
+	}
+}
+
+// 冻结的判据不是「函数返回几」，而是「存下来的那块 JSON 里有没有这个数」——
+// 报告是一整块存进 atom_report.report 的 jsonb，序号一旦写进去就再也不会被
+// 重新数。这条测试守的是那个形状。
+func TestReportOrdinalIsStoredAsANumberAndOmittedWhenAbsent(t *testing.T) {
+	b, err := json.Marshal(liteReportDTO{Version: 1, Kind: "reading", Ordinal: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back liteReportDTO
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Ordinal != 8 {
+		t.Fatalf("ordinal did not survive the round trip: %d", back.Ordinal)
+	}
+
+	// 0 的意思是「这份报告早于这个字段」。整个键必须缺席 —— 前端据此不渲染
+	// 那一句，而渲染成「第 0 篇」比不渲染糟得多。
+	old, err := json.Marshal(liteReportDTO{Version: 1, Kind: "reading"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(old, []byte("ordinal")) {
+		t.Errorf("a report with no ordinal must omit the key entirely: %s", old)
 	}
 }

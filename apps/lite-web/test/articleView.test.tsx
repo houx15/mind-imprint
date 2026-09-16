@@ -22,6 +22,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     title: "转弯中的国家",
     studentName: "Phoebe",
     finishedAt: "2026-08-30T09:30:00Z",
+    ordinal: 8,
     stats: [{ key: "words", label: "写了", value: 842, unit: "字" }],
     moments: [],
     keep: null,

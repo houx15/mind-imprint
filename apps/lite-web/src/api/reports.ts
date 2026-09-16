@@ -54,6 +54,15 @@ export type LiteReport = {
   title: string;
   studentName: string;
   finishedAt: string;
+  /** 她完成这一篇时已经完成的篇数 —— 开场那句「第 8 篇」用的数。
+   *
+   *  服务端存的是**数字不是句子**（见 Go 侧 liteReportDTO.Ordinal）：报告是
+   *  整块存下来的 JSON，一句话写进去就永远改不动，而人称还得按语境变 ——
+   *  她自己看是「我」，公开页上访客看到的是她的名字。
+   *
+   *  0 = 这份报告早于这个字段（服务端 omitempty，这里 `?? 0`）。那一句整句
+   *  不渲染 —— 「第 0 篇」比不渲染糟得多。 */
+  ordinal: number;
   stats: ReportStat[];
   moments: ReportMoment[];
   keep: ReportKeep | null;
@@ -88,9 +97,10 @@ export type LiteReport = {
  *  they may be absent (a report generated before `notes` existed lacks it). */
 type RawLiteReport = Omit<
   LiteReport,
-  "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece" | "prosePending"
+  "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece" | "prosePending" | "ordinal"
 > & {
   prosePending?: boolean;
+  ordinal?: number;
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
@@ -107,6 +117,7 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     lensNotes: raw.lensNotes ?? [],
     notes: raw.notes ?? [],
     piece: raw.piece ?? "",
+    ordinal: raw.ordinal ?? 0,
     prosePending: raw.prosePending ?? false,
     // See `ReportKeep`: a keep with no source predates the field and can only
     // have been her own takeaway.

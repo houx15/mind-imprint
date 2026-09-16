@@ -147,7 +147,23 @@ type liteReportDTO struct {
 	Title       string         `json:"title"`
 	StudentName string         `json:"studentName"`
 	FinishedAt  string         `json:"finishedAt"`
-	Stats       []reportStat   `json:"stats"`
+	// Ordinal 是她完成这一篇时已经完成的篇数 —— 报告开场那句「第 8 篇」用的数。
+	//
+	// **存的是数字，不是句子。** 两条理由：
+	//
+	//  1. 报告是整块存下来的 JSON，一句话写进去就永远改不动了。统计标签已经为
+	//     这件事付过一次学费（`statLabels.ts` 就是那个补丁：标签一律由前端从
+	//     `stat.key` 解出来，好让一次改名能追上库里每一份旧报告）。
+	//  2. 人称因此能由前端按语境定：她自己看是「我和印记一起读的第 8 篇」，
+	//     公开页上访客看到的是「Phoebe 和印记一起读的第 8 篇」。
+	//
+	// **冻结在完成的那一刻。** 重新数会让她三个月前那份报告今天变成「第 20
+	// 篇」—— 那是在改她的过去。
+	//
+	// omitempty：早于这个字段的报告整个键缺席，前端据此不渲染那一句，而不是
+	// 渲染成「第 0 篇」。
+	Ordinal int          `json:"ordinal,omitempty"`
+	Stats   []reportStat `json:"stats"`
 	Moments     []reportMoment `json:"moments,omitempty"`
 	Keep        *reportKeep    `json:"keep"`
 	Gains       []string       `json:"gains,omitempty"`
@@ -678,6 +694,16 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	}
 	blocks := SplitBlocks(src.Body)
 
+	// 开场那句「第 8 篇」的数。在这个事务里数一次，然后冻结进报告的 JSON ——
+	// 见 liteReportDTO.Ordinal。数不出来不该让整份报告失败：这是一句开场白，
+	// 不是报告本身，所以失败就当作没有（键缺席，那一句不渲染）。
+	ordinal := 0
+	if n, cerr := qtx.CountFinishedReadingsByUser(ctx, userID); cerr == nil {
+		ordinal = int(n)
+	} else {
+		slog.Warn("lite report: could not count her finished readings", "err", cerr, "atom_id", at.ID)
+	}
+
 	corpus := buildReadingCorpus(takeaway.Text, notes, msgs, cards, blocks)
 
 	stamps := make([]time.Time, 0, len(msgs)+len(notes)+len(cards))
@@ -757,7 +783,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 	return liteReportDTO{
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
-		FinishedAt: finishedAt, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
+		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
 		LensNotes: lensNotes, Notes: buildReadingNotes(notes),
 		ProsePending: prosePending,
 	}, nil
@@ -794,6 +820,13 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	wr, err := qtx.GetWriting(ctx, at.ID)
 	if err != nil {
 		return liteReportDTO{}, err
+	}
+	// 见 buildReadingReportDTO 里的孪生注释：数一次、冻结、数不出来就当没有。
+	ordinal := 0
+	if n, cerr := qtx.CountFinishedWritingsByUser(ctx, userID); cerr == nil {
+		ordinal = int(n)
+	} else {
+		slog.Warn("lite report: could not count her finished writings", "err", cerr, "atom_id", at.ID)
 	}
 	draft, err := qtx.GetWritingDraft(ctx, at.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -870,7 +903,7 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 	return liteReportDTO{
 		Version: 1, Kind: "writing", Title: wr.Title, StudentName: studentName,
-		FinishedAt: finishedAt, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
+		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
 		// See `Piece`. Trimmed so a draft of nothing but whitespace stores as
 		// "" and the section is absent rather than an empty bordered slab.
 		Piece:        strings.TrimSpace(draft.Body),
