@@ -31,6 +31,7 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/lite/teacher/assignments/extract", liteTeacher(a.extractLiteAssignment))
 	mux.Handle("POST /api/v1/lite/teacher/assignments/{aid}/recipients/{userId}/return", liteTeacher(a.returnLiteAssignmentRecipient))
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/personalized-reading/preview", liteTeacher(a.previewLitePersonalizedReading))
+	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/library/recommended", liteTeacher(a.getLiteTeacherLibraryRecommended))
 
 	// 教师工作台. The exception to the two comments around it: this is the one
 	// teacher route that calls a model synchronously — one turn of at most

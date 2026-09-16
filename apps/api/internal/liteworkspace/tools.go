@@ -34,6 +34,7 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
   老师说「周五」，你按上面的今天算出是哪一天，自己写成绝对时刻。
 - 材料只能从分级阅读库里选（先 search_library 再 set_material），
   或者设成个性化阅读。不要编造文章标题。
+- 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
 - 你改不了的事不要说你改了。`
 
 // AssignmentSystem renders the system prompt the teacher workspace turn
@@ -42,9 +43,9 @@ func AssignmentSystem(c SystemContext) string {
 	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount)
 }
 
-// AssignmentTools returns the six tool schemas the model may call while
+// AssignmentTools returns the seven tool schemas the model may call while
 // building one homework card: set_fields, search_library, set_material,
-// list_students, set_recipients, ask_choice.
+// recommend_articles, list_students, set_recipients, ask_choice.
 //
 // list_students' filter enum must stay identical to the values
 // ParseStudentFilter accepts. The schema is the only thing telling the model
@@ -72,7 +73,8 @@ func AssignmentTools() []gateway.ChatTool {
 						"enum": []string{"reading", "writing", "project"},
 						"description": "作业种类：reading（阅读，作业带一篇阅读材料）、writing（写作，没有阅读材料这一栏）、project（项目）。" +
 							"老师说「读一篇…再写一篇」这种读写结合的作业，选 reading，把写的要求写进 instructions。" +
-							"只有 reading 能设材料；改成 writing 或 project 会把已经选好的文章清掉。",
+							"只有 reading 能设材料；改成 writing 或 project 会把已经选好的文章清掉。" +
+							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读」「写作」「项目」。",
 					},
 					"title": map[string]any{
 						"type":        "string",
@@ -119,9 +121,10 @@ func AssignmentTools() []gateway.ChatTool {
 				"type": "object",
 				"properties": map[string]any{
 					"source": map[string]any{
-						"type":        "string",
-						"enum":        []string{"library", "personalized"},
-						"description": "material 来源：library（库里选定的文章）或 personalized（每个学生各自的个性化阅读）。",
+						"type": "string",
+						"enum": []string{"library", "personalized"},
+						"description": "material 来源：library（库里选定的文章）或 personalized（每个学生各自的个性化阅读）。" +
+							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读库」或「个性化阅读」。",
 					},
 					// 🚨 The model guesses this value. In the 2026-09-16 live run
 					// it minted american-climate-corps and
@@ -132,8 +135,10 @@ func AssignmentTools() []gateway.ChatTool {
 					// that is the whole contract: the slug is an id we handed
 					// back, not a name derivable from the title.
 					"slug": map[string]any{
-						"type":        "string",
-						"description": "source 为 library 时必填：本轮 search_library 结果里那篇文章的 slug，原样复制。不要按标题自己拼一个 slug。",
+						"type": "string",
+						"description": "source 为 library 时必填：本轮 search_library 或 recommend_articles 结果里那篇文章的 slug，原样复制。" +
+							"不要按标题自己拼一个 slug。这个值只给系统识别用，不是给老师看的内容——" +
+							"回复里提到这篇文章要说书名号里的中文标题，不要写 slug。",
 					},
 					"tier": map[string]any{
 						"type":        "integer",
@@ -141,6 +146,28 @@ func AssignmentTools() []gateway.ChatTool {
 					},
 				},
 				"required": []string{"source"},
+			},
+		},
+		{
+			// recommend_articles gives the model something to call BEFORE the
+			// teacher has named an article — a class-wide reading pick, not
+			// one student's. It is pure computation (every enrolled student's
+			// interest strengths summed into one profile, scored the same way
+			// Recommend scores one student), so there is nothing to search for
+			// with search_library first.
+			Name: "recommend_articles",
+			Description: "为这个班推荐几篇分级阅读库文章，按全班学生的兴趣画像聚合打分，老师没有指定文章时先用这个，不要凭空推荐。" +
+				"每条结果带 slug——那是给 set_material 用的系统参数，不要出现在给老师的回复里；" +
+				"介绍文章时用书名号里的中文标题（zhTitle）。",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"disciplines": map[string]any{
+						"type":        "array",
+						"items":       map[string]any{"type": "string"},
+						"description": "限定学科，留空按全班兴趣不限学科地推荐。",
+					},
+				},
 			},
 		},
 		{

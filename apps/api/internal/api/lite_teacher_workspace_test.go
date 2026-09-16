@@ -20,7 +20,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/liteworkspace"
 )
 
@@ -336,6 +338,42 @@ func TestWorkspaceTurnAcceptsNameAToolReturned(t *testing.T) {
 	}
 	if len(out.Cards[0].Rows) != 1 || out.Cards[0].Rows[0]["name"] != "林知遥" {
 		t.Fatalf("students card rows = %+v", out.Cards[0].Rows)
+	}
+}
+
+// TestWorkspaceRecommendArticles — the model reaches for recommend_articles
+// when the teacher has not named a text; the tool's result (computed from
+// every enrolled student's library.Profile, no model call of its own) feeds
+// back into the loop and lands on the canvas as an articles card.
+func TestWorkspaceRecommendArticles(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("recommend_articles", `{}`),
+		wsText("给你推荐了几篇，选一篇作为这次的材料。"),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	d := library.All()[len(library.All())-1].Disciplines[0]
+	seedInterestFor(t, pool, studentID, d)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBodyOfKind(classID, "reading", "帮我推荐一篇文章"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("recommend_articles turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if len(out.Cards) != 1 || out.Cards[0].Kind != "articles" {
+		t.Fatalf("cards = %+v, want one articles card", out.Cards)
+	}
+	rows := out.Cards[0].Rows
+	if len(rows) == 0 {
+		t.Fatalf("articles card is empty, want at least one recommendation")
+	}
+	want, _ := disciplines.ByID(d)
+	first := rows[0]
+	if first["slug"] == "" || first["zhTitle"] == "" {
+		t.Fatalf("first row = %+v, want a slug and a Chinese title", first)
+	}
+	why, _ := first["why"].([]any)
+	if len(why) == 0 || why[0] != want.Zh {
+		t.Fatalf("why = %v, want it to name %s", first["why"], want.Zh)
 	}
 }
 

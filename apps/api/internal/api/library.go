@@ -124,37 +124,56 @@ func (a *API) getLibraryShelf(w http.ResponseWriter, r *http.Request) {
 		out.Fields = append(out.Fields, libraryTagDTO{ID: f, Zh: disciplines.FieldLabels[f], Field: f})
 	}
 	for _, art := range articles {
-		dto := libraryArticleDTO{
-			Slug: art.Slug, Title: art.Title, ZhTitle: art.ZhTitle,
-			Reason: art.Reason, Field: art.Field,
-			Tags:   a.libraryTags(art.Disciplines),
-			Levels: make([]libraryLevelDTO, 0, len(art.Levels)),
-		}
-		if art.Cover != nil {
-			dto.CoverURL = a.signObject(art.Cover.Key)
-		}
-		for _, l := range art.Levels {
-			dto.Levels = append(dto.Levels, libraryLevelDTO{
-				Tier: l.Tier, Name: l.Name, Lexile: l.Lexile, Words: l.Words, Minutes: l.Minutes,
-			})
-		}
+		dto := a.libraryArticleDTOFor(art)
 		if row, ok := read[art.Slug]; ok {
 			dto.ReadingID, dto.ReadTier, dto.Finished = row.id.String(), row.tier, row.finished
 		}
 		out.Articles = append(out.Articles, dto)
 	}
 	for _, rec := range library.Recommend(articles, profile, libraryRecommendCount) {
-		why := make([]string, 0, len(rec.Why))
-		for _, id := range rec.Why {
-			if d, ok := disciplines.ByID(id); ok {
-				why = append(why, d.Zh)
-			}
-		}
 		out.Recommended = append(out.Recommended, libraryRecommendationDTO{
-			Slug: rec.Article.Slug, Tier: rec.Tier, Why: why,
+			Slug: rec.Article.Slug, Tier: rec.Tier, Why: libraryWhyZh(rec.Why),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)
+}
+
+// libraryArticleDTOFor builds one article's shelf-shaped DTO: everything
+// about the article itself (title, tags, cover, levels), with no per-student
+// state. getLibraryShelf adds her own read state (ReadingID/ReadTier/
+// Finished) after calling this; the teacher's class-recommendation endpoint
+// (lite_teacher_library.go) has no single student to read state for and uses
+// this as it is — the same cover URL signing runs in exactly one place.
+func (a *API) libraryArticleDTOFor(art library.Article) libraryArticleDTO {
+	dto := libraryArticleDTO{
+		Slug: art.Slug, Title: art.Title, ZhTitle: art.ZhTitle,
+		Reason: art.Reason, Field: art.Field,
+		Tags:   a.libraryTags(art.Disciplines),
+		Levels: make([]libraryLevelDTO, 0, len(art.Levels)),
+	}
+	if art.Cover != nil {
+		dto.CoverURL = a.signObject(art.Cover.Key)
+	}
+	for _, l := range art.Levels {
+		dto.Levels = append(dto.Levels, libraryLevelDTO{
+			Tier: l.Tier, Name: l.Name, Lexile: l.Lexile, Words: l.Words, Minutes: l.Minutes,
+		})
+	}
+	return dto
+}
+
+// libraryWhyZh turns Recommend's discipline ids (Why) into the Chinese names
+// shown next to a recommendation — shared by the shelf and the class-wide
+// recommendation endpoint so the two never translate a discipline id
+// differently.
+func libraryWhyZh(why []string) []string {
+	out := make([]string, 0, len(why))
+	for _, id := range why {
+		if d, ok := disciplines.ByID(id); ok {
+			out = append(out, d.Zh)
+		}
+	}
+	return out
 }
 
 // libraryTags 把学科 id 翻成界面上的标签。表外的 id 在 library 包启动校验时
