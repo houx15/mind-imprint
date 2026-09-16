@@ -192,6 +192,92 @@ func TestSearchLibrary(t *testing.T) {
 	})
 }
 
+// TestStatedCounts — the matcher that decides whether a reply claimed a head
+// count. Both halves matter equally: it has to see 「3 人」, which a real reply
+// wrote and the first version of this check could not see, and it has to stay
+// silent on everything else a workspace reply is full of.
+func TestStatedCounts(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want []int
+	}{
+		// The live reply that escaped: a space between the number and 人.
+		{"搞定。作业卡现在：\n\n- 发给全班 3 人", []int{3}},
+		{"发给全班3人", []int{3}},
+		{"这份作业发给 12 名学生", []int{12}},
+		{"三人还没交", []int{3}},
+		{"两位同学本周没上线", []int{2}},
+		{"二十三名学生已完成", []int{23}},
+		{"十人未开始", []int{10}},
+
+		// 🚨 Everything below carries digits and none of it is a head count.
+		// A general digit detector fails every one of these turns.
+		{"截止时间定在 2026-09-18T18:00", nil},
+		{"难度 3 档，1 到 5 都有", nil},
+		{"不少于 800 字", nil},
+		{"给你 2 个选项", nil},
+		{"第一位交的同学", nil},
+		{"第 3 名是谁不重要", nil},
+		{"库里找到 7 篇气候相关的文章", nil},
+		{"《亚运会上你可能没见过的项目》", nil},
+	} {
+		got := StatedCounts(tc.text)
+		if len(got) != len(tc.want) {
+			t.Errorf("StatedCounts(%q) = %v, want %v", tc.text, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("StatedCounts(%q) = %v, want %v", tc.text, got, tc.want)
+				break
+			}
+		}
+	}
+}
+
+// TestUngroundedCounts — a count the tools returned is hers to be told; one
+// nobody produced is the failure §6 exists to stop.
+func TestUngroundedCounts(t *testing.T) {
+	if bad := UngroundedCounts("发给全班 3 人", []int{3}); len(bad) != 0 {
+		t.Fatalf("got %v, want none: list_students returned 3 students this turn", bad)
+	}
+	bad := UngroundedCounts("发给全班 5 人", []int{3})
+	if len(bad) != 1 || bad[0] != 5 {
+		t.Fatalf("got %v, want [5]: no tool returned 5 this turn", bad)
+	}
+	// Repeating the same wrong number is one fault, not two.
+	if bad := UngroundedCounts("5 人，也就是那 5 位", nil); len(bad) != 1 {
+		t.Fatalf("got %v, want one entry", bad)
+	}
+}
+
+// TestNumbersInReadsWhatSheTyped — her own numbers are evidence, in whatever
+// shape the reply later echoes them.
+func TestNumbersInReadsWhatSheTyped(t *testing.T) {
+	// 5 is in here because 周五 carries 五. That is the right way for this side
+	// to err: it is the evidence half, and a number she wrote grounds a reply
+	// that echoes it, exactly as a name she typed does. Being generous here
+	// costs a rare miss; being strict would fail her turn over her own words.
+	got := NumbersIn("发给 3 名学生，周五 18:00 交")
+	want := map[int]bool{0: true, 3: true, 5: true, 18: true}
+	for _, n := range got {
+		if !want[n] {
+			t.Fatalf("NumbersIn read %d out of %v, which she did not write", n, got)
+		}
+	}
+	for _, need := range []int{3, 18} {
+		found := false
+		for _, n := range got {
+			if n == need {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("NumbersIn = %v, missing the %d she typed", got, need)
+		}
+	}
+}
+
 func slugsOf(arts []library.Article) []string {
 	out := make([]string, len(arts))
 	for i, a := range arts {

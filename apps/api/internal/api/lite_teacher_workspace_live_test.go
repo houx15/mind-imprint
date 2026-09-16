@@ -323,20 +323,23 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 	var pending []liteworkspace.Choice
 
 	// say sends one teacher turn: typed text, or a clicked option when said is
-	// empty. Both are her turn as far as the endpoint is concerned.
-	say := func(said, choiceID string) {
+	// empty. Both are her turn as far as the endpoint is concerned. A clicked
+	// option carries its slug back exactly as the client does — that round trip
+	// IS the feature, so a harness that dropped it would test the old path.
+	say := func(said string, clicked liteworkspace.Choice) {
 		t.Helper()
 		before := rec.mark()
 		body, _ := json.Marshal(map[string]any{
 			"surface": "assignment", "classId": classID,
-			"artifact": artifact, "turns": turns, "text": said, "choiceId": choiceID,
+			"artifact": artifact, "turns": turns, "text": said,
+			"choiceId": clicked.ID, "choiceSlug": clicked.Slug,
 		})
 		start := time.Now()
 		res := postWorkspaceTurn(t, h, teacher, string(body))
 		calls := rec.since(before)
 		if said == "" {
-			said = choiceID
-			t.Logf("--- teacher clicked: %s (%.1fs)", choiceID, time.Since(start).Seconds())
+			said = clicked.ID
+			t.Logf("--- teacher clicked: %s (slug %q) (%.1fs)", clicked.ID, clicked.Slug, time.Since(start).Seconds())
 		} else {
 			t.Logf("--- teacher said: %s (%.1fs)", said, time.Since(start).Seconds())
 		}
@@ -373,20 +376,20 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 	// offered button, and types the next scripted line only when there is no
 	// button. Typing past a pending ask_choice is what a harness does, not what
 	// she does, and it leaves the model answering a 「这篇」 with no antecedent.
-	say(opening, "")
+	say(opening, liteworkspace.Choice{})
 	next := 0
 	for len(replies) < liveWorkspaceMaxTurns {
 		if artifact["readingSource"] != nil && artifact["dueInput"] != nil {
 			break
 		}
 		if len(pending) > 0 {
-			say("", pending[0].ID)
+			say("", pending[0])
 			continue
 		}
 		if next >= len(followUps) {
 			break
 		}
-		say(followUps[next], "")
+		say(followUps[next], liteworkspace.Choice{})
 		next++
 	}
 
@@ -395,14 +398,18 @@ func liveWorkspaceRun(t *testing.T, prov gateway.Provider, route func(string) ga
 		named[tc.Name] = true
 	}
 	t.Logf("tools this run: %v; card now: %v", toolOrder(tools), artifact)
+	t.Logf("invented slugs this run: %d of %d library set_material calls",
+		wsLiveInventedSlugs(tools), wsLiveLibraryMaterials(tools))
 
 	// 1. Tools rather than invention: a library material must be preceded by a
-	// search, and its slug must be a real one.
+	// search, and its slug must be a real one. A material she TAPPED needs no
+	// search at all — that is the point of the option payload — so the ordering
+	// only binds when the model set it with a tool of its own.
 	if named["set_material"] {
 		if first(tools, "search_library") > first(tools, "set_material") || !named["search_library"] {
 			t.Errorf("set_material without a preceding search_library: %v", toolOrder(tools))
 		}
-	} else {
+	} else if artifact["readingSource"] == nil {
 		t.Errorf("no set_material after %d turns — the model never chose a material; tools: %v",
 			len(replies), toolOrder(tools))
 	}
@@ -477,6 +484,39 @@ func first(tools []gateway.ToolCall, name string) int {
 		}
 	}
 	return len(tools)
+}
+
+// wsLiveLibraryMaterials counts the set_material calls that named a library
+// article, and wsLiveInventedSlugs counts how many of those named one that does
+// not exist. Their ratio is the number the second pass moved and the third pass
+// is watching: each invented slug costs two model calls to recover from.
+func wsLiveLibraryMaterials(tools []gateway.ToolCall) int {
+	n := 0
+	for _, tc := range tools {
+		if tc.Name == "set_material" {
+			if source, _ := tc.Args["source"].(string); source == "library" {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+func wsLiveInventedSlugs(tools []gateway.ToolCall) int {
+	n := 0
+	for _, tc := range tools {
+		if tc.Name != "set_material" {
+			continue
+		}
+		slug, _ := tc.Args["slug"].(string)
+		if slug == "" {
+			continue
+		}
+		if _, found := library.BySlug(slug); !found {
+			n++
+		}
+	}
+	return n
 }
 
 func toolOrder(tools []gateway.ToolCall) []string {

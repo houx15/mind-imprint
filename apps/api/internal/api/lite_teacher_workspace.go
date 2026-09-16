@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,6 +61,13 @@ type liteWorkspaceTurnRequest struct {
 	Turns    []liteworkspace.Turn `json:"turns"`
 	Text     string               `json:"text"`
 	ChoiceID string               `json:"choiceId"`
+	// ChoiceSlug is the article the option she tapped carried, echoed back by
+	// the client. It is how "use this article" survives a turn boundary: the
+	// server holds nothing between turns, so the payload has to make the round
+	// trip. Client-supplied and therefore trusted for nothing — it is looked up
+	// in the embedded catalogue before it is used, so the worst a forged value
+	// can do is pick a different real article for the teacher who forged it.
+	ChoiceSlug string `json:"choiceSlug"`
 }
 
 // liteWorkspaceTurnDTO is §4.4's response. patch carries only the fields a
@@ -186,10 +194,22 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	turns := liteworkspace.TrimTurns(req.Turns)
-	msgs := liteWorkspaceMessages(cls.Name, roster, req.Artifact, turns, said)
-
 	run := &liteWorkspaceRun{roster: roster}
+	// An option she tapped that carried an article sets the material before the
+	// model runs, through the same setMaterial every other path uses. The model
+	// is then told it is done rather than asked to do it: the old route was
+	// three model calls — search for its own choice id, fail, search again —
+	// and this one is none.
+	chosen := liteWorkspaceChosenArticle(run, req)
+
+	turns := liteworkspace.TrimTurns(req.Turns)
+	// run.patch is passed so the card the model reads is the card as it stands
+	// NOW, including what tapping an option just wrote. Showing it the pre-turn
+	// card instead put the note 「材料已经设成这一篇了」 next to a card whose
+	// material cell was empty, and it believed the cell: every run re-set the
+	// material by hand, which is the round trip the option payload removes.
+	msgs := liteWorkspaceMessages(cls.Name, roster, req.Artifact, run.patch, turns, said+chosen)
+
 	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, u.ID, resolved, msgs, run)
 	if aerr != nil {
 		httpx.WriteError(w, r, aerr)
@@ -204,10 +224,22 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	grounded = append(grounded, liteWorkspaceNamesTeacherTyped(roster, turns, typed)...)
 
 	choices = liteworkspace.ClampChoices(choices)
+	checked := liteWorkspaceCheckedText(reply, choices, run.patch)
 	if bad := liteworkspace.UngroundedNames(
-		liteWorkspaceCheckedText(reply, choices, run.patch), liteWorkspaceRosterNames(roster), grounded,
+		checked, liteWorkspaceRosterNames(roster), grounded,
 	); len(bad) > 0 {
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
+		return
+	}
+
+	// The same rule for the other half of §6. A name is checked against the
+	// roster; a head count had nothing but the prompt behind it, and a live run
+	// showed the prompt does not always hold — 「发给全班 3 人」 reached a teacher
+	// with no tool having counted anything. A wrong number about her own class
+	// is the failure this section exists to prevent, so it fails the turn the
+	// way a fabricated name does.
+	if bad := liteworkspace.UngroundedCounts(checked, liteWorkspaceGroundedCounts(run, turns, typed)); len(bad) > 0 {
+		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
 		return
 	}
 
@@ -285,6 +317,12 @@ func liteWorkspaceCheckedText(reply string, choices []liteworkspace.Choice, patc
 		b.WriteString(c.ID)
 		b.WriteString("\n")
 		b.WriteString(c.Label)
+		// The slug is checked too. It is validated against the catalogue
+		// before it gets here, so it cannot carry a fabricated name today —
+		// but it travels to the client and back like the id does, and a field
+		// that is exempt from the check is a field someone will later widen.
+		b.WriteString("\n")
+		b.WriteString(c.Slug)
 	}
 	for _, v := range patch {
 		switch value := v.(type) {
@@ -329,19 +367,65 @@ func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []lite
 	return out
 }
 
+// liteWorkspaceChosenArticle applies the article an option carried, when she
+// tapped one, and returns the line telling the model it is already done.
+//
+// It runs through run.setMaterial rather than writing the patch itself: what
+// "the material is this article" means to the card must have one implementation,
+// or the tool path and the click path drift apart over a field the class reads.
+// An unknown slug is ignored in silence — the tool result goes nowhere here,
+// and a click is not a turn the teacher can be shown an error for.
+func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequest) string {
+	slug := strings.TrimSpace(req.ChoiceSlug)
+	if slug == "" || strings.TrimSpace(req.Text) != "" {
+		return ""
+	}
+	art, found := library.BySlug(slug)
+	if !found {
+		return ""
+	}
+	run.setMaterial(map[string]any{"source": "library", "slug": art.Slug})
+	return "\n（她点的这个选项对应库里的《" + art.Title + "》，材料已经设成这一篇了，不用再查一次。）"
+}
+
+// liteWorkspaceGroundedCounts is every number a reply may state as a count of
+// people: what a tool counted this turn, and what the teacher wrote herself.
+//
+// Her numbers count in whatever shape she wrote them, because the reply will
+// echo them in whatever shape it likes — she types 「发给 3 名学生」 and the reply
+// says 「三人」, and that is her number coming back, not a fabrication.
+func liteWorkspaceGroundedCounts(run *liteWorkspaceRun, turns []liteworkspace.Turn, typed string) []int {
+	out := append([]int{}, run.countsReturned...)
+	out = append(out, liteworkspace.NumbersIn(typed)...)
+	for _, t := range turns {
+		if t.Role == "teacher" {
+			out = append(out, liteworkspace.NumbersIn(t.Text)...)
+		}
+	}
+	return out
+}
+
+func liteWorkspaceJoinInts(ns []int) string {
+	parts := make([]string, 0, len(ns))
+	for _, n := range ns {
+		parts = append(parts, strconv.Itoa(n))
+	}
+	return strings.Join(parts, "、")
+}
+
 // liteWorkspaceMessages builds the prompt: one system message carrying the
 // rules plus the card as it stands, then the trimmed transcript, then what she
 // just said.
 //
 // The card state goes in because she can edit any cell while a turn is in
 // flight. A model that cannot see the card describes changes it did not make.
-func liteWorkspaceMessages(className string, roster []liteworkspace.Student, artifact json.RawMessage, turns []liteworkspace.Turn, said string) []gateway.ChatMessage {
+func liteWorkspaceMessages(className string, roster []liteworkspace.Student, artifact json.RawMessage, applied map[string]any, turns []liteworkspace.Turn, said string) []gateway.ChatMessage {
 	system := liteworkspace.AssignmentSystem(liteworkspace.SystemContext{
 		ClassName:    className,
 		TodayBeijing: time.Now().In(liteworkspace.BeijingOffset).Format("2006-01-02"),
 		StudentCount: len(roster),
 	})
-	if card := liteWorkspaceCardState(artifact); card != "" {
+	if card := liteWorkspaceCardState(artifact, applied); card != "" {
 		system += "\n\n## 作业卡现在的内容\n\n" + card
 	}
 	msgs := make([]gateway.ChatMessage, 0, len(turns)+2)
@@ -359,13 +443,26 @@ func liteWorkspaceMessages(className string, roster []liteworkspace.Student, art
 // liteWorkspaceCardState renders the card's filled cells. An unparseable or
 // absent artifact renders nothing: a first turn has no card yet, and that is
 // not an error.
-func liteWorkspaceCardState(raw json.RawMessage) string {
-	if len(raw) == 0 {
+//
+// applied is what this turn already wrote before the model ran — today, the
+// article she tapped. It is overlaid by marshalling it back over the parsed
+// artifact rather than by copying field by field: json.Unmarshal only touches
+// the keys that are present, and the patch's keys are the artifact's own tags,
+// so a field added to either side is covered without anyone editing this.
+func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string {
+	if len(raw) == 0 && len(applied) == 0 {
 		return ""
 	}
 	var art liteWorkspaceArtifact
-	if err := json.Unmarshal(raw, &art); err != nil {
-		return ""
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &art); err != nil {
+			return ""
+		}
+	}
+	if len(applied) > 0 {
+		if b, err := json.Marshal(applied); err == nil {
+			_ = json.Unmarshal(b, &art)
+		}
 	}
 	var lines []string
 	add := func(label, value string) {
@@ -402,6 +499,10 @@ type liteWorkspaceRun struct {
 	// namesReturned is what list_students handed back this turn — the evidence
 	// side of the grounding check.
 	namesReturned []string
+	// countsReturned is how many students each tool counted this turn. It is
+	// the evidence side of the head-count check: a reply may state a number a
+	// tool produced, and nothing else.
+	countsReturned []int
 	// question and choices are set by ask_choice, which ends the turn.
 	question string
 	choices  []liteworkspace.Choice
@@ -640,19 +741,34 @@ func (run *liteWorkspaceRun) listStudents(args map[string]any) string {
 		run.namesReturned = append(run.namesReturned, s.Name)
 	}
 	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
+	run.countsReturned = append(run.countsReturned, len(out))
 	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
 }
 
 func (run *liteWorkspaceRun) setRecipients(args map[string]any) string {
+	rawFilter, hasFilter := toolString(args, "filter")
+	explicit := toolStrings(args, "userIds")
+	if hasFilter && rawFilter != "" && len(explicit) > 0 {
+		return liteWorkspaceToolError("filter 和 userIds 只能给一个：按条件发就只给 filter，指定人就只给 userIds")
+	}
+	if hasFilter && rawFilter != "" {
+		return run.recipientsByFilter(rawFilter)
+	}
+
 	known := make(map[string]bool, len(run.roster))
 	for _, s := range run.roster {
 		known[s.ID] = true
 	}
 	ids := make([]string, 0, len(run.roster))
 	seen := make(map[string]bool, len(run.roster))
-	for _, id := range toolStrings(args, "userIds") {
+	for _, id := range explicit {
 		if !known[id] {
-			return liteWorkspaceToolError("这个学生不在班里：" + id)
+			// Name the shape, not just the miss. 「all」 arrived here as a user
+			// id once, and a message that only says 「不在班里」 invites another
+			// guess — which costs two more model calls in a turn budgeted for
+			// six.
+			return liteWorkspaceToolError("这个学生不在班里：" + id +
+				"。userIds 必须是 list_students 返回的 id，原样复制；要发给一整类学生就改用 filter")
 		}
 		if !seen[id] {
 			seen[id] = true
@@ -660,10 +776,44 @@ func (run *liteWorkspaceRun) setRecipients(args map[string]any) string {
 		}
 	}
 	if len(ids) == 0 {
-		return liteWorkspaceToolError("请至少选择一名学生")
+		return liteWorkspaceToolError("请至少选择一名学生，或者给一个 filter")
 	}
-	run.write("userIds", ids)
+	run.recorded(ids)
 	return liteWorkspaceToolOK(map[string]any{"count": len(ids)})
+}
+
+// recipientsByFilter resolves a closed-set condition straight to recipients.
+// It goes through the same ParseStudentFilter and FilterStudents that
+// list_students uses, so 「本周未活跃」 cannot come to mean one thing when she
+// looks at the list and another when the assignment goes out.
+//
+// It also puts the matched students on the canvas, exactly as list_students
+// does: she is about to send homework to a group she named by condition, and
+// she should see who that turned out to be without asking.
+func (run *liteWorkspaceRun) recipientsByFilter(raw string) string {
+	filter, ok := liteworkspace.ParseStudentFilter(raw)
+	if !ok {
+		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet")
+	}
+	rows := liteworkspace.FilterStudents(run.roster, filter)
+	if len(rows) == 0 {
+		return liteWorkspaceToolError("这个条件下现在没有学生：" + raw + "，换一个条件，或者直接给 userIds")
+	}
+	ids := make([]string, 0, len(rows))
+	for _, s := range rows {
+		ids = append(ids, s.ID)
+		run.namesReturned = append(run.namesReturned, s.Name)
+	}
+	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
+	run.recorded(ids)
+	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "count": len(ids)})
+}
+
+// recorded writes the recipients and remembers how many there are. The count
+// is evidence: a reply may state a number the tools produced, and only that.
+func (run *liteWorkspaceRun) recorded(ids []string) {
+	run.write("userIds", ids)
+	run.countsReturned = append(run.countsReturned, len(ids))
 }
 
 func (run *liteWorkspaceRun) askChoice(args map[string]any) string {
@@ -683,7 +833,20 @@ func (run *liteWorkspaceRun) askChoice(args map[string]any) string {
 		if id == "" || label == "" {
 			continue
 		}
-		choices = append(choices, liteworkspace.Choice{ID: id, Label: label})
+		choice := liteworkspace.Choice{ID: id, Label: label}
+		// A slug is checked HERE, while the turn still has budget. The point
+		// of the field is that "use this article" survives to the next turn;
+		// a slug that is not in the catalogue would not survive anything, and
+		// finding that out two turns later is what this field exists to stop.
+		if slug, given := toolString(obj, "slug"); given && slug != "" {
+			art, found := library.BySlug(slug)
+			if !found {
+				return liteWorkspaceToolError("选项 " + id + " 的 slug 不在阅读库里：" + slug +
+					"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼")
+			}
+			choice.Slug = art.Slug
+		}
+		choices = append(choices, choice)
 	}
 	if len(choices) < 2 {
 		return liteWorkspaceToolError("请给出 2 到 4 个选项")

@@ -22,6 +22,11 @@ export interface Turn {
 export interface Choice {
   id: string;
   label: string;
+  /** The article this option means, when it means one (liteworkspace.Choice's
+   *  `slug`). Echoed back as `choiceSlug` when she taps it, which is how "use
+   *  this article" survives a turn boundary — the server holds nothing between
+   *  turns. Absent on an option that is not about an article. */
+  slug?: string;
 }
 
 /** `current[key] !== snapshot[key]` is reference equality, which is wrong

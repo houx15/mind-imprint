@@ -500,3 +500,191 @@ func TestWorkspaceTurnFailsWhenTheModelSaysNothing(t *testing.T) {
 		t.Fatalf("recorded %d llm_call rows for a call that produced nothing, want 1", n)
 	}
 }
+
+// TestWorkspaceTurnRejectsUngroundedHeadCount — §6's other half. A name is
+// checked against the roster; a head count had nothing but the prompt behind
+// it until now, and a live run produced 「发给全班 3 人」 with no tool having
+// counted anything. A wrong number about her own class must not reach her.
+func TestWorkspaceTurnRejectsUngroundedHeadCount(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，这份作业会发给全班 12 人。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周布置什么好"))
+	if rec.Code < 400 {
+		t.Fatalf("ungrounded head count = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "12") {
+		t.Fatalf("the error does not name the offending count: %s", rec.Body)
+	}
+	if strings.Contains(rec.Body.String(), "发给全班") {
+		t.Fatalf("the rejected reply was rendered anyway: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceTurnAcceptsACountAToolReturned — the check grounds, it does not
+// ban. list_students counted the class this turn, so the reply may say so.
+func TestWorkspaceTurnAcceptsACountAToolReturned(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_students", `{"filter":"all"}`),
+		wsText("名单拉出来了，一共 1 人。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "班里有谁"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a count list_students returned = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnKeepsDigitsThatAreNotHeadCounts — 🚨 the narrowness IS the
+// feature. A due time, a tier and a word count all carry digits, and a checker
+// that fired on them would fail turns for saying nothing wrong.
+func TestWorkspaceTurnKeepsDigitsThatAreNotHeadCounts(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"dueAt":"2026-09-18T18:00","instructions":"不少于 800 字。"}`),
+		wsText("截止定在 2026-09-18 18:00，难度 3 档，给你 2 个方向可以选。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "周五交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a reply full of innocent digits = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceSetRecipientsTakesAFilter — 「发给全班」 must cost one tool call.
+// The model used to answer that intent with userIds:["all"], a filter name in
+// the id field, and spend two more model calls recovering; one live turn hit
+// 6 of 6 doing it.
+func TestWorkspaceSetRecipientsTakesAFilter(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_recipients", `{"filter":"all"}`),
+		wsText("已经设定好收件人。"),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "发给全班"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set_recipients with a filter = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	ids, _ := out.Patch["userIds"].([]any)
+	if len(ids) != 1 || ids[0] != studentID.String() {
+		t.Fatalf("userIds = %v, want the one enrolled student", out.Patch["userIds"])
+	}
+	// She is about to send homework to a group she named by condition, so the
+	// canvas has to show who that turned out to be.
+	if len(out.Cards) != 1 || out.Cards[0].Kind != "students" {
+		t.Fatalf("cards = %+v, want one students card", out.Cards)
+	}
+}
+
+// TestWorkspaceSetRecipientsRejectsAFilterNameAsAnID — the failure that cost
+// the round trips. The message has to say what to do instead, or the model
+// guesses again.
+func TestWorkspaceSetRecipientsRejectsAFilterNameAsAnID(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_recipients", `{"userIds":["all"]}`),
+		wsText("收件人还没定。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "发给全班"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a bad argument must come back as a tool result, not a failed turn: %d %s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, wrote := out.Patch["userIds"]; wrote {
+		t.Fatalf("a filter name written as a recipient: %v", out.Patch)
+	}
+}
+
+// TestWorkspaceAskChoiceCarriesASlug — the field that stops the model from
+// smuggling an article into the option id. A bad slug is a tool error on the
+// SAME turn, while there is still budget to fix it.
+func TestWorkspaceAskChoiceCarriesASlug(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("ask_choice", `{"question":"读哪篇？","options":[
+		{"id":"a","label":"美国气候队","slug":"biden-creates-climate-corps"},
+		{"id":"b","label":"个性化阅读"}
+	]}`))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "找篇气候的文章"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ask_choice with a slug = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if len(out.Choices) != 2 || out.Choices[0].Slug != "biden-creates-climate-corps" {
+		t.Fatalf("choices = %+v, want the first one carrying the slug", out.Choices)
+	}
+	if out.Choices[1].Slug != "" {
+		t.Fatalf("an option that is not about an article must carry no slug: %+v", out.Choices[1])
+	}
+}
+
+func TestWorkspaceAskChoiceRejectsAnInventedSlug(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("ask_choice", `{"question":"读哪篇？","options":[
+			{"id":"a","label":"美国气候队","slug":"american-climate-corps"},
+			{"id":"b","label":"个性化阅读"}
+		]}`),
+		wsText("我再查一下这篇文章。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "找篇气候的文章"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a bad slug must come back as a tool result, not a failed turn: %d %s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if len(out.Choices) != 0 {
+		t.Fatalf("an option list with an invented slug must not reach her: %+v", out.Choices)
+	}
+}
+
+// TestWorkspaceChoiceSlugSetsTheMaterial — the point of the whole field: she
+// taps 「用这篇」 and the article is set before the model runs, so the model
+// never searches for its own choice id.
+func TestWorkspaceChoiceSlugSetsTheMaterial(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的，材料就定这篇。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID,
+		"choiceId": "use-this", "choiceSlug": "biden-creates-climate-corps",
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clicking an article option = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["readingSource"] != "library" || out.Patch["slug"] != "biden-creates-climate-corps" {
+		t.Fatalf("patch = %v, want the material set from the tapped option", out.Patch)
+	}
+	// The whole point: no search round trip. One call is the turn's own reply.
+	if prov.Calls != 1 {
+		t.Fatalf("made %d model calls; a tapped article costs none of them", prov.Calls)
+	}
+}
+
+// TestWorkspaceChoiceSlugIgnoresAnUnknownArticle — the field is client-supplied
+// and therefore trusted for nothing. An id that is not in the catalogue writes
+// nothing; the turn still runs.
+func TestWorkspaceChoiceSlugIgnoresAnUnknownArticle(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("我先查一下库里有什么。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID,
+		"choiceId": "use-this", "choiceSlug": "not-a-real-article",
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unknown choiceSlug = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if _, wrote := out.Patch["slug"]; wrote {
+		t.Fatalf("a slug the catalogue does not carry was written anyway: %v", out.Patch)
+	}
+}

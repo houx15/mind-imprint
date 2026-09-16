@@ -149,18 +149,31 @@ func AssignmentTools() []gateway.ChatTool {
 			},
 		},
 		{
+			// filter is here so 「发给全班」 costs one tool call instead of
+			// three. The model used to answer that intent with
+			// set_recipients{userIds:["all"]} — a filter name in the id field —
+			// and spend two more model calls recovering via list_students. One
+			// turn reached 6 of 6 doing exactly that.
+			//
+			// The enum must stay identical to ParseStudentFilter's, which is
+			// also list_students': one vocabulary for 「这批学生是谁」, named the
+			// same way in both places.
 			Name:        "set_recipients",
-			Description: "设定这次作业发给谁。",
+			Description: "设定这次作业发给谁：给一个闭集条件，或者给明确的学生 ID 列表。只给其中一个。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
+					"filter": map[string]any{
+						"type":        "string",
+						"enum":        []any{"all", "inactive_this_week", "has_overdue", "no_writing_yet"},
+						"description": "按条件发：all（全班）、inactive_this_week（本周未活跃）、has_overdue（有逾期作业）、no_writing_yet（还没写过作文）。用这个就不用先 list_students。",
+					},
 					"userIds": map[string]any{
 						"type":        "array",
 						"items":       map[string]any{"type": "string"},
-						"description": "接收作业的学生 ID 列表。",
+						"description": "接收作业的学生 ID 列表，必须是 list_students 返回的 id，原样复制。要发给一整类学生就用 filter。",
 					},
 				},
-				"required": []string{"userIds"},
 			},
 		},
 		{
@@ -179,10 +192,17 @@ func AssignmentTools() []gateway.ChatTool {
 							"type": "object",
 							"properties": map[string]any{
 								"id": map[string]any{
-									"type": "string",
+									"type":        "string",
+									"description": "这个选项的标识，你自己取。不要把文章 slug 塞进来——那是 slug 字段的事。",
 								},
 								"label": map[string]any{
 									"type": "string",
+								},
+								// The field that stops the model from smuggling
+								// a slug into the id. See liteworkspace.Choice.
+								"slug": map[string]any{
+									"type":        "string",
+									"description": "选项的意思是「用这篇文章」时填：search_library 结果里的 slug，原样复制。老师点了它，材料就直接定成这篇，你不用再查一次。",
 								},
 							},
 							"required": []string{"id", "label"},

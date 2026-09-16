@@ -31,6 +31,11 @@ export interface WorkspaceTurnInput {
    *  the id of the choice she tapped. */
   text?: string;
   choiceId?: string;
+  /** The `slug` the tapped choice carried, if it carried one. Sent alongside
+   *  `choiceId`: the server keeps no state between turns, so an option that
+   *  means "use this article" has to carry the article back itself. Without
+   *  it the model searches for its own choice id and finds nothing. */
+  choiceSlug?: string;
 }
 
 /** One tool result the canvas renders directly (§ liteWorkspaceCardDTO).

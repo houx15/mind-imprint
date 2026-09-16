@@ -6,6 +6,7 @@ package liteworkspace
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -42,9 +43,22 @@ type Turn struct {
 	Text string `json:"text"`
 }
 
+// Choice is one option button. Slug is the article that option means, when it
+// means one.
+//
+// It exists because the model kept putting a slug in the ID: offered a list of
+// articles it minted ids like biden-climate-corps, which look like slugs and
+// are never equal to one, and then on the next turn searched for its own id as
+// a query and told the teacher 「库里没搜到这篇」. The id field was the only place
+// it had to put the article, so it used it. This is that place.
+//
+// Slug is validated against the catalogue when ask_choice writes it, so a
+// wrong one is a tool error on the same turn, while the model still has budget
+// to fix it — not a dead end two turns later.
 type Choice struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
+	Slug  string `json:"slug,omitempty"`
 }
 
 // Student is the workspace's view of one roster row — only the fields a
@@ -125,6 +139,163 @@ func UngroundedNames(reply string, roster, grounded []string) []string {
 	}
 	sort.Strings(bad)
 	return bad
+}
+
+// personCounter reports whether r is a counter word that makes the number
+// before it a count of PEOPLE.
+//
+// 个 is deliberately not one. 「两个选项」「3 个字段」「一个办法」 are not head
+// counts, and a check that fired on them would fail turns for saying nothing
+// wrong. 人 / 位 / 名 after a number count people in this reply or count
+// nothing.
+func personCounter(r rune) bool { return r == '人' || r == '位' || r == '名' }
+
+// StatedCounts returns every head count a text states: a number, written in
+// digits or Chinese numerals, immediately followed by 人, 位 or 名.
+//
+// 🚨 Narrow on purpose. This is NOT a digit detector. A year, a tier, a word
+// count, a date and an ordinal all carry digits and none of them is a claim
+// about how many students there are; a checker that fired on those would be
+// the third recorded case in this repo of a detector costing more than it
+// caught. Only the number-plus-counter-word shape.
+//
+// Whitespace is removed first. 「发给全班 3 人」 and 「发给全班3人」 are the same
+// sentence, and the first version of this check compared contiguous strings and
+// therefore saw only the second — a real reply walked straight through it.
+//
+// 第 before the number excludes it: 「第一位」 and 「第 3 名」 are ordinals.
+func StatedCounts(text string) []int {
+	r := []rune(stripSpace(text))
+	var out []int
+	for i := 0; i < len(r); {
+		n, width, ok := readNumber(r[i:])
+		if !ok {
+			i++
+			continue
+		}
+		end := i + width
+		if end < len(r) && personCounter(r[end]) && (i == 0 || r[i-1] != '第') {
+			out = append(out, n)
+		}
+		i = end
+	}
+	return out
+}
+
+// UngroundedCounts returns the head counts a text states that this turn's tools
+// never returned and the teacher never wrote.
+//
+// It mirrors UngroundedNames, and for the same reason: a number about her own
+// class is governed by the prompt alone, and a prompt is not a guarantee. The
+// model's own earlier turns are not evidence here either — a made-up count's
+// source is the model's own words.
+func UngroundedCounts(text string, grounded []int) []int {
+	ok := make(map[int]bool, len(grounded))
+	for _, g := range grounded {
+		ok[g] = true
+	}
+	seen := make(map[int]bool)
+	var bad []int
+	for _, n := range StatedCounts(text) {
+		if ok[n] || seen[n] {
+			continue
+		}
+		seen[n] = true
+		bad = append(bad, n)
+	}
+	sort.Ints(bad)
+	return bad
+}
+
+// NumbersIn returns every integer a text writes in digits, plus every head
+// count it states in Chinese numerals. It is the evidence side of
+// UngroundedCounts, read over what the TEACHER wrote: a number she typed is
+// hers to have typed, in whatever shape the reply later echoes it.
+func NumbersIn(text string) []int {
+	r := []rune(stripSpace(text))
+	var out []int
+	for i := 0; i < len(r); {
+		n, width, ok := readNumber(r[i:])
+		if !ok {
+			i++
+			continue
+		}
+		out = append(out, n)
+		i += width
+	}
+	return out
+}
+
+// readNumber reads one number off the front of r, in digits or in Chinese
+// numerals, and returns how many runes it consumed.
+func readNumber(r []rune) (value, width int, ok bool) {
+	if n, w, isDigits := readDigits(r); isDigits {
+		return n, w, true
+	}
+	return readCJKNumber(r)
+}
+
+func readDigits(r []rune) (value, width int, ok bool) {
+	i := 0
+	for i < len(r) && r[i] >= '0' && r[i] <= '9' {
+		i++
+	}
+	if i == 0 {
+		return 0, 0, false
+	}
+	n, err := strconv.Atoi(string(r[:i]))
+	if err != nil {
+		// A run longer than an int; it is not a class size either way.
+		return 0, i, false
+	}
+	return n, i, true
+}
+
+var cjkDigits = map[rune]int{
+	'〇': 0, '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+	'五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+}
+
+// readCJKNumber reads 三 / 十 / 十三 / 三十 / 三十五 — everything a class size
+// can be. Larger constructions (百, 千) are not read: a head count past 99 is
+// not a head count.
+func readCJKNumber(r []rune) (value, width int, ok bool) {
+	i := 0
+	ones := -1
+	if i < len(r) {
+		if v, isDigit := cjkDigits[r[i]]; isDigit {
+			ones = v
+			i++
+		}
+	}
+	if i < len(r) && r[i] == '十' {
+		i++
+		tens := 1
+		if ones >= 0 {
+			tens = ones
+		}
+		value = tens * 10
+		if i < len(r) {
+			if v, isDigit := cjkDigits[r[i]]; isDigit {
+				value += v
+				i++
+			}
+		}
+		return value, i, true
+	}
+	if ones >= 0 {
+		return ones, 1, true
+	}
+	return 0, 0, false
+}
+
+func stripSpace(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // BeijingWallToUTC reads a wall-clock time the model wrote as Beijing time

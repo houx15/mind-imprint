@@ -123,7 +123,7 @@ export function AssignmentAIMode({
   // in between. `gen` catches that case — `isCurrentTurn` checks both.
   const genRef = useRef(0);
 
-  async function runTurn(input: { text: string } | { choiceId: string; label: string }) {
+  async function runTurn(input: { text: string } | { choiceId: string; label: string; slug?: string }) {
     if (busy) return;
     const teacherText = "text" in input ? input.text : input.label;
     // Captured before the round trip: `applyPatch` needs to know what the
@@ -146,7 +146,7 @@ export function AssignmentAIMode({
         // The window is the only thing bounding prompt growth — the full
         // conversation still shows in the panel, only the request is capped.
         turns: trimTurns(nextTurns),
-        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId }),
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
       });
       if (!alive.current) return;
       if (!isCurrentTurn(sent, { gen: genRef.current, classId: draftRef.current.classId })) {
@@ -237,7 +237,7 @@ export function AssignmentAIMode({
       onSend={(text) => void runTurn({ text })}
       onChoose={(choiceId) => {
         const choice = choices.find((c) => c.id === choiceId);
-        void runTurn({ choiceId, label: choice?.label ?? choiceId });
+        void runTurn({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
       }}
     >
       <div className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
