@@ -3,6 +3,7 @@ import { api, type ClassSummary } from "@/api";
 import { listClassParentReports, type ParentReportSummary } from "../api/parentReports";
 import { publishedMonthDay, rangeLabel } from "../parentReport/range";
 import { errorText, pickClassId, readLastClassId, writeLastClassId } from "./assignmentLogic";
+import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 
 /**
@@ -93,7 +94,7 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
         ) : classes === null ? (
           <div className="text-mk-body text-mk-muted">加载中…</div>
         ) : classes.length === 0 ? (
-          <div className="text-mk-body text-mk-muted">暂无班级</div>
+          <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
         ) : rowsError ? (
           <div className="text-mk-small font-semibold text-mk-danger">
             加载失败：{rowsError}{" "}
@@ -104,7 +105,7 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
         ) : rows === null ? (
           <div className="text-mk-body text-mk-muted">加载中…</div>
         ) : rows.length === 0 ? (
-          <div className="text-mk-body text-mk-muted">暂无家长报告</div>
+          <StudioEmpty kind="keepsake">暂无家长报告。请在学生页面为单个学生生成报告。</StudioEmpty>
         ) : (
           <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
             <table className="w-full border-collapse">

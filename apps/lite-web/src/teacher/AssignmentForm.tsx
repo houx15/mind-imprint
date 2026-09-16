@@ -10,6 +10,7 @@ import { LibraryPicker } from "./LibraryPicker";
 import { PersonalizedPicker } from "./PersonalizedPicker";
 import { RubricFields } from "./RubricFields";
 import { rubricDefaultNote } from "./rubricLogic";
+import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import { UploadSourceField } from "./UploadSourceField";
 import {
@@ -369,7 +370,7 @@ export function AssignmentForm({
       ) : classes === null ? (
         <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
       ) : classes.length === 0 ? (
-        <div className="mt-6 text-mk-body text-mk-muted">暂无班级</div>
+        <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
       ) : (
         <form
           // noValidate: the browser's own tooltips (type=url, number min)

@@ -304,7 +304,16 @@ export function ClassPage({
           ) : sortedRoster === null ? (
             <div className="text-mk-body text-mk-muted">加载中…</div>
           ) : sortedRoster.length === 0 ? (
-            <StudioEmpty>{query.trim() || selectedDays !== null ? "未找到匹配的学生，请修改搜索条件。" : `暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}</StudioEmpty>
+            query.trim() || selectedDays !== null ? (
+              <StudioEmpty kind="discovery">未找到匹配的学生，请修改搜索条件。</StudioEmpty>
+            ) : (
+              <StudioEmpty
+                kind="quest"
+                action={joinCode ? { label: "复制邀请码", onClick: () => void navigator.clipboard.writeText(joinCode) } : undefined}
+              >
+                {`暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}
+              </StudioEmpty>
+            )
           ) : (
             <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface shadow-mk-xs">
               <table className="w-full min-w-[900px] border-collapse">

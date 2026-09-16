@@ -241,7 +241,7 @@ function AssignmentSection({
     <section className="mt-8">
       <h2 className="text-mk-h3 text-mk-ink">作业</h2>
       {rows.length === 0 ? (
-        <p className="mt-2 text-mk-small text-mk-muted">暂无作业</p>
+        <StudioEmpty kind="writing">暂无作业</StudioEmpty>
       ) : (
         <div className="mt-2 flex flex-col gap-2">
           {rows.map((row) => {
@@ -324,7 +324,7 @@ function ParentReportSection({
       ) : rows === null ? (
         <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
       ) : rows.length === 0 ? (
-        <p className="mt-2 text-mk-small text-mk-muted">暂无家长报告</p>
+        <StudioEmpty kind="keepsake">暂无家长报告</StudioEmpty>
       ) : (
         <div className="mt-2 flex flex-col gap-2">
           {rows.map((row) => (

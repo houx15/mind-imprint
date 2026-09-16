@@ -52,6 +52,7 @@
 .teacher-confirm p { flex:1; min-width:240px; }
 .teacher-empty { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; padding:28px; color:var(--mk-muted); font-size:13px; line-height:1.7; text-align:center; }
 .teacher-empty img { width:190px; height:126px; object-fit:contain; }
+.teacher-empty button { margin-top:4px; }
 .teacher-stat-strip { display:flex; flex-wrap:wrap; gap:24px 0; border-block:1px solid var(--mk-border); padding:24px 0; margin:10px 0 36px; }
 .teacher-stat { flex:1; min-width:110px; padding:0 20px; border-right:1px solid var(--mk-border); }
 .teacher-stat:first-child { padding-left:0; }

@@ -4,6 +4,7 @@ import { api, type ClassSummary } from "@/api";
 import { listAssignments, type AssignmentSummaryDTO } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL } from "../shared/deadline";
 import { kindLabel } from "./format";
+import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import { assignmentFileName, errorText, pickClassId, readLastClassId, STATUS_ORDER, writeLastClassId } from "./assignmentLogic";
 
@@ -114,7 +115,7 @@ export function AssignmentsPage({
         ) : classes === null ? (
           <div className="text-mk-body text-mk-muted">加载中…</div>
         ) : classes.length === 0 ? (
-          <div className="text-mk-body text-mk-muted">暂无班级</div>
+          <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
         ) : rowsError ? (
           <div className="text-mk-small font-semibold text-mk-danger">
             加载失败：{rowsError}{" "}
@@ -125,7 +126,18 @@ export function AssignmentsPage({
         ) : rows === null ? (
           <div className="text-mk-body text-mk-muted">加载中…</div>
         ) : rows.length === 0 ? (
-          <div className="text-mk-body text-mk-muted">暂无作业</div>
+          <StudioEmpty
+            kind="writing"
+            action={{
+              label: "布置作业",
+              onClick: () => {
+                writeLastClassId(classId);
+                onNew(classId);
+              },
+            }}
+          >
+            这个班级还没有作业。
+          </StudioEmpty>
         ) : (
           <div className="overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
             <table className="w-full min-w-[820px] border-collapse">
