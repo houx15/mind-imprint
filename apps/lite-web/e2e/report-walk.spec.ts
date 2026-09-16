@@ -46,7 +46,9 @@ const ARTICLE_BODY = [
   "所以，如果储能和电网的问题不解决，继续增加装机带来的边际收益会递减：白天多出来的电卖不掉，甚至要被弃掉。十年的增长是真实的，但把它直接外推到下一个十年，是一种过于轻松的乐观。",
 ].join("\n\n");
 
-const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF";
+// 🚨 逐字抄自 ReadingsLanding.tsx。这一份漂过一次（页面上是「PDF / DOCX / TXT」，
+// 这里写的是「DOCX / PDF」），于是这条 walk 连房间都进不去，报的是 fill 超时。
+const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——也可以上传 PDF / DOCX / TXT";
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 

@@ -129,8 +129,15 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
       );
     // 对话只有在她勾过的时候才会跟着负载回来（服务端没勾连键都不发），所以
     // 这里不需要再判一次「该不该显示」—— 有就是她要给人看的。
+    //
+    // 🚨 判的是**这一屏是不是记录**，不是 `currentView`。阅读没有文章那一页，
+    // 它的 `/s/:token` 直接渲染记录，而 `view` 仍然是 "article"（见 routing.ts：
+    // 「a reading has no article, so its /s/:token renders the record directly
+    // and view is ignored」）。第一版写成 `currentView !== "article"`，于是
+    // 阅读的公开页上永远看不到那段对话 —— 走查第 5 步抓到的就是这个。
+    const showingRecord = !(hasArticle && currentView === "article");
     const transcript =
-      currentView !== "article" && payload.transcript.length > 0 ? (
+      showingRecord && payload.transcript.length > 0 ? (
         <PublicTranscript lines={payload.transcript} name={report.studentName} />
       ) : null;
     return (
