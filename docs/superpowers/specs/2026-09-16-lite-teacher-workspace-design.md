@@ -346,3 +346,71 @@ D1 先做，因为它的工具最多、画布最结构化，壳在这里站住�
 3. 主页摘要每次进页面都会调一次 `digest`。如果按班级缓存到当天，可以省掉大部分调用——现在按每次都算做，先看真实感受。
 
 另有 A/B/C 遗留的五个问题仍未定：退回修改能否把截止时间往前设；退回是否重置未读；退回弹窗是否预填上次的话；写作室要不要放只读的老师批改面板；已有人开始后，没开始的学生能否继续更换个性化文章。
+
+---
+
+## 12. 第二轮（2026-09-16 晚，D1 上线之后）
+
+产品负责人看了线上的 D1 之后给出：
+
+> raw internal values. that is not good. we should let teacher select the words they know, and we map for them.
+>
+> I hope we can make recommendations. or when we want teacher select, display the full card (as in the student end), select in a scrolling title-only list is difficult.
+>
+> not built yet: build them. smaller gaps: fix them.
+
+以及对五个遗留问题的答复（见 12.4）。本节的每一条都约束 D2、D3 与下列修补；与前文冲突时以本节为准。
+
+### 12.1 F · 老师只看见她认识的词
+
+**问题：** 线上 AI 的确认里出现了「种类：reading」「材料来源：library」「文章：biden-creates-climate-corps」。来源是 `liteWorkspaceCardState`（`lite_teacher_workspace.go:506`）把线值原样写进了模型的上文，模型照抄。
+
+**做法——映射在我们这边做，不靠模型自觉：**
+
+1. 服务端新增一张中文标签表（`liteworkspace/labels.go`）：类型 `reading→阅读 / writing→写作 / project→项目`；来源 `library→分级阅读库 / url→链接 / text→正文 / file→上传文件 / personalized→个性化`；难度 `1..5→入门/基础/进阶/高阶/原文`，空为「按学生水平」。与前端 `KIND_OPTIONS`、`SOURCE_OPTIONS`、`TIER_NAMES` 逐字一致，有一条测试把两边钉在一起。
+2. `liteWorkspaceCardState` 只写中文：`类型：阅读`、`材料来源：分级阅读库`、`文章：《{ZhTitle}》`、`难度：进阶`。**模型的上文里不再出现 slug 与英文枚举值。** 工具参数仍是线值，工具说明里写清楚参数是给系统的、不给老师看。
+3. 兜底：回复、选项文字发出之前，服务端把其中出现的**任何已知 slug** 换成《中文标题》。slug 是闭集、带连字符，逐字替换不会误伤。英文枚举值不做文本替换（「reading」可能是老师自己要的英文作业内容），靠第 2 条从源头消掉；有一条测试断言上文里没有这些线值。
+4. 选项（`ask_choice`）的文字本来就是中文，保持不变。
+
+### 12.2 F · 阅读库：推荐，并且用整张卡片来选
+
+**问题：** 画布上的 `LibraryPicker` 是一串只有标题的滚动列表，难选；也没有推荐。
+
+1. **班级推荐。** 新增 `GET /api/v1/lite/teacher/classes/{id}/library/recommended?limit=8`：把班里每个学生的兴趣学科（`libraryProfileIn`）按强度相加成一个班级画像，交给 `library.Recommend`；难度取全班建议档的中位数。每篇附「推荐理由」（命中的学科）与「已读人数」。纯计算，不调模型。聚合函数放在 `internal/library`（`RecommendForGroup`），有单元测试。
+2. **整张卡片。** 选择器改成与学生端一致的卡片：封面、中文标题、一句话理由、学科标签。结构是先「为这个班推荐」一行，再「全部文章」网格（保留按标题搜索与学科筛选）。选中的卡片有明确的已选状态；难度仍在卡片下方选。学生端的 `LibraryCard` 抽出一个只负责展示的部分共用，**学生端的外观与行为不变**。传统模式与个性化「更换」弹窗里用的是同一个选择器，一起变好。
+3. **AI 也会推荐。** 新增工具 `recommend_articles`（可选学科），返回上面的班级推荐。AI 给出的文章选项（带 slug 的 `ask_choice` 选项）在对话里渲染成**小卡片**（封面缩略图 + 中文标题 + 理由），不再是只有字的按钮。
+
+### 12.3 F · 修补四个缺口
+
+1. **切换模式不丢对话。** 对话状态（轮次、选项、卡片、保留提示）从 `AssignmentAIMode` 提到 `AssignmentForm` 里，做成一个可复用的 `useWorkspaceThread`；D2、D3 用同一个。
+2. **失败的话不丢。** 一轮失败时，她那句话放回输入框（输入框为空时），同时保留「重试」。
+3. **「学生看到的样子」。** AI 模式的作业卡底部加一个默认折叠的预览，按学生端作业条（`AssignmentStrip` 的样式）渲染类型、标题、说明、截止时间与班级，状态固定为「未开始」。只用草稿里已有的字段，不新增接口。
+4. **AI 模式可以用贴进来的正文。** `set_material` 接受 `source: "text"` 与 `text`。🚨 **正文必须来自老师这一轮贴进来的话**（逐字是她输入的子串，去掉首尾空白后比较），否则工具报错——模型不能自己写阅读材料。上限 50000 字，与传统模式一致。历史轮次发送时每条截到 1000 字，当前这一轮完整发送，免得一篇长文每轮重发。
+
+### 12.4 G · 五个问题的答复
+
+| 问题 | 答复 | 做法 |
+|---|---|---|
+| 退回修改能否把截止时间往前设 | 可以 | 服务端与前端现在都只要求晚于当前时间，**已经允许**。补一条测试钉住：早于原截止、晚于现在的时间被接受。 |
+| 退回是否让作业重新变成未读 | 是 | `SetLiteAssignmentReturned` 同时把 `seen_at` 置空，收件箱重新计入未读、出现红点。只改查询，不改表。 |
+| 第二次退回时备注框预填上次的话 | 预填，可改 | **已经如此**（`ReturnDialog.tsx:29`）。浏览器里核对一次。 |
+| 写作室里显示老师批改 | 是 | 修改已完成的作文时，写作室里放一个只读、可折叠的「老师批改」面板，复用 `TeacherGradingPanel`，只列已发送的批改。引文在当前草稿里找得到才可点，找不到就只显示文字。 |
+| 有人开始后，没开始的学生能否更换个性化文章 | 可以，直到这位学生开始 | 锁从「整份作业」改成「每个学生」：只有已开始的学生那一行不能更换。其他设置（类型、来源、学科筛选、全班难度）仍在任何人开始后锁定，因为它们会改动已开始学生的文章。服务端校验：设置有变且已有人开始时，只放行「类型与来源不变，且只改了未开始学生的 picks」这一种改动。 |
+
+### 12.5 D2 · 主页
+
+1. **每张班级卡上方一句摘要。** 由 lite 自己的 `ClassPreview` 渲染（`ClassesView` 是 pro 的共用代码，不改）。卡片进入视口时调用 `POST /api/v1/lite/teacher/classes/{id}/summary`（会调模型，所以是 POST；本仓库约定 GET 不调模型）。输入是花名册与本周统计（`liteClassWeekStats` / 卡片数据），不新增查询。档位 `ClassDigest`。
+2. **摘要守 §6 的规矩**：学生姓名按花名册校验，人数按计数形状校验；不过就显示「摘要生成失败：{原话}」和重试，不显示一句兜底话。
+3. **缓存。** 按「班级 + 北京日期 + 花名册指纹」在进程内缓存，同一天同一数据只算一次。不入库（§10 不新增表）；重启后重算，可以接受。
+4. **点摘要进入对话。** 新路由 `{ view: "classChat", classId }`，页面是同一个壳：左边对话，右边画布放班级概况卡与工具结果卡。
+5. **工具（surface = `home`）：** `class_snapshot`、`list_students`（同 D1 闭集）、`list_assignments`（这个班的作业与各状态人数）、`open_page`、`ask_choice`。`open_page` 的目标是闭集：`classWeekly`、`student`（必须是花名册里的 id）、`assignmentNew`、`assignment`（必须是这个班的作业）、`parentReports`。它只产生一个「前往：{页面名}」按钮，**老师点了才跳**。
+6. 归属：`classId` 走 D1 同一个 `authTeacherClassFromBody`。
+
+### 12.6 D3 · 家长报告
+
+1. `ParentReportEditor` 放进同一个壳：左边对话，右边是现有编辑器。宽度不够三栏时（< 1400px），编辑器内部的「草稿 / 预览」两栏改成切换。
+2. **surface = `parentReport`**，请求带 `reportId`；归属照 `loadTeacherParentReport`：先查报告，再校验老师教这份报告所在的班。
+3. **工具：** `revise_section(section, text)` 与 `ask_choice`。`section` 必须在这份报告当前可写的分节里（`liteparent.SectionsWithFacts`），`text` 不超过 2000 字。
+4. 🚨 **改写出来的段落必须通过和生成草稿完全相同的检查**：引文出自事实、数字出自事实、不出现别的学生的名字（`compose_lite_parent.go` 里按段调用 `liteweekly.CheckProse` 的那段循环抽成一个导出函数，生成与改写共用）。不过就作为工具错误还给模型，让它重写。
+5. **写入只有一条路。** 工具不直接写库，返回 patch；前端通过编辑器已有的那一个 `SerialQueue` 保存（和老师手打的自动保存排在同一队），并照 D1 的 `applyPatch` 规则保留她在这一轮里手改过的段落。
+6. 学生已离开班级（`student_left`）时对话禁用，理由与禁用重新生成相同。导出照旧。
