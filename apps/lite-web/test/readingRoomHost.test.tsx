@@ -355,7 +355,12 @@ describe("ReadingRoomHost", () => {
     // synchronous get here raced that resolution.
     expect(await screen.findByText("作者把「装机量」当成了「实际发电量」。")).toBeTruthy();
     // Nothing that could change the reading is on the page.
-    expect(screen.queryByRole("tab")).toBeNull();
+    //
+    // 2026-09-16：这一条原来断的是「页面上一个 role=tab 都没有」，当时那是
+    // 「房间的页签不在这儿」的代理判据。现在完成页自己有三格（报告 · 对话 ·
+    // 原文），所以改成断那三格**就是全部** —— 它们都只读，任何一格里都没有
+    // 能改这次阅读的东西。判的仍然是同一件事，不是把这条断言让开。
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["报告", "对话", "原文"]);
     expect(screen.queryByText(/完成这次阅读/)).toBeNull();
     // And the room's own loads are never even attempted.
     expect(calls.some((c) => c.url.endsWith("/source"))).toBe(false);

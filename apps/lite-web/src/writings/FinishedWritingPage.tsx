@@ -5,6 +5,8 @@ import { apiErrorText } from "../api/errorText";
 import { listWritingGradings, type StudentGrading } from "../api/gradings";
 import { getWritingVersion, listWritingVersions, type Writing, type WritingVersion, type WritingVersionList } from "../api/writings";
 import { ReportPanel } from "../reports/ReportPanel";
+import { FinishedTabs, type FinishedTab } from "../reports/FinishedTabs";
+import { TranscriptView } from "../reports/TranscriptView";
 import { splitParagraphs } from "../reports/paragraphs";
 import { formatDeadline } from "../shared/deadline";
 import { highlightSegments, MARK_STYLE, PIECE_CLS, rangeForQuote } from "../shared/gradingText";
@@ -50,12 +52,17 @@ interface QuoteHighlight {
  * the room could not save anything anyway — `showFinishedPage` in
  * `WritingRoomHost`'s load effect decides which of the two this is).
  *
- * Header: title, chip, homework line, locked/returned line, 修改 and 报告.
- * Left column (44rem): the version being viewed, the latest by default.
- * Right rail: 版本, 老师批改 (absent when the teacher has sent none — see
- * `TeacherGradingPanel`), and 与当前版本对比 when an older version is
- * selected. Below 1024px the rail follows the text in one column. 报告 swaps
- * the columns for ReportPanel.
+ * Header: title, chip, homework line, locked/returned line, 修改, and the
+ * three tabs — **成稿 · 对话 · 报告**.
+ * 成稿 (the default): left column (44rem) is the version being viewed, the
+ * latest by default; right rail is 版本, 老师批改 (absent when the teacher has
+ * sent none — see `TeacherGradingPanel`), and 与当前版本对比 when an older
+ * version is selected. Below 1024px the rail follows the text in one column.
+ * 对话 is the read-only transcript (`TranscriptView`); 报告 is `ReportPanel`.
+ *
+ * 2026-09-16：对话那一格是新的。在这之前写完就只剩报告和成稿，她回不去看那段
+ * 对话 —— 数据一直在（`GET /writings/{id}/messages`），没有界面读它而已。
+ * 版本、修改、对比这些真会写的控件只属于成稿那一格。
  *
  * `revise()` opens the compose/write view via `onRevise` (WritingRoomHost's
  * `reload()` re-runs the load effect; `isRevising(writing)` and `showFinishedPage`
@@ -84,7 +91,10 @@ export function FinishedWritingPage({
   const requested = useRef<Set<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [compare, setCompare] = useState(false);
-  const [showReport, setShowReport] = useState(false);
+  // 2026-09-16：原来是「正文 / 报告」一颗来回切的按钮，现在是三格 ——
+  // 成稿 · 对话 · 报告。默认仍然停在成稿：这一页的主角是她写的那篇东西。
+  // 版本、修改、对比这些真会写的控件都属于成稿那一格，不跟着页签跑。
+  const [tab, setTab] = useState<FinishedTab>("source");
   const [revising, setRevising] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [gradings, setGradings] = useState<StudentGrading[]>([]);
@@ -254,9 +264,15 @@ export function FinishedWritingPage({
             <Button variant="secondary" onClick={() => void revise()} disabled={locked || revising || list === null}>
               修改
             </Button>
-            <Button variant={showReport ? "primary" : "secondary"} onClick={() => setShowReport((v) => !v)}>
-              {showReport ? "正文" : "报告"}
-            </Button>
+            <FinishedTabs
+              tabs={[
+                { id: "source", label: "成稿" },
+                { id: "transcript", label: "对话" },
+                { id: "report", label: "报告" },
+              ]}
+              active={tab}
+              onPick={setTab}
+            />
           </div>
         </div>
         {assignmentError && (
@@ -289,9 +305,15 @@ export function FinishedWritingPage({
         )}
       </header>
 
-      {showReport ? (
+      {/* 🚨 报告那一格用 `hidden` 藏，不用条件渲染拆掉：`ReportPanel` 在
+          `prosePending` 时会自己补发一次请求，而那一次**真的在等一个旗舰调用**。
+          每切一次页签就卸载重挂，等于每切一次就再买一次那通调用（这一页为
+          「每次 修改 都是一次模型调用」已经付过一次学费）。 */}
+      <div hidden={tab !== "report"}>
         <ReportPanel kind="writing" atomId={writing.id} />
-      ) : (
+      </div>
+      {tab === "transcript" && <TranscriptView kind="writing" atomId={writing.id} />}
+      {tab === "source" && (
         <div className="mk-rp-measure mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,1fr)]">
           <article className="min-w-0">
             {selectedSummary && selected !== latest && (
