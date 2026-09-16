@@ -1,0 +1,318 @@
+package api
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/liteweek"
+	"mindimprint/api/internal/liteweekly"
+	"mindimprint/api/internal/liteworkspace"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// lite_class_summary.go — D2 · 一句班级摘要，显示在教师班级列表每张班级卡的上方
+// (§12.5)。一个 POST，因为它调模型：本仓库的约定是 GET 绝不调模型（见
+// lite_teacher_routes.go 里 weekly 那一段的注释）。
+//
+// 输入是 loadLiteClassWeek / liteClassWeekStats / liteClassWeekCards 已经算好
+// 的上一个完整周的数据 —— 和 GET …/weekly 用的同一批，不新增查询。
+//
+// §6 的两条校验在摘要被缓存或返回之前跑：姓名按花名册校验（只有出现在 praise/
+// watch 名单里的学生才算有依据），人数按「数字+人/位/名」的形状校验（依据是
+// 喂给模型的统计数字）。校验不过是 502「摘要生成失败：{原因}」，不缓存，也绝不
+// 用一句兜底话代替。
+//
+// 缓存是进程内的，键是「班级 + 北京日期 + 花名册指纹」；§10 不新增表，重启后
+// 缓存清空，下一次请求重算，这是可以接受的代价。
+
+// liteClassSummaryPurpose is the llm_call purpose for every model call this
+// route makes.
+const liteClassSummaryPurpose = "lite_class_summary"
+
+// liteClassSummaryCacheMax bounds the process-wide cache: once it holds this
+// many entries, the oldest is evicted to make room for a new one.
+const liteClassSummaryCacheMax = 512
+
+// errLiteClassSummary is the visible failure of one summary attempt. 动词+失败
+// plus the real cause, never a plausible sentence standing in for a summary
+// that was never produced (AGENTS.md rule: no fallback sentence, ever).
+func errLiteClassSummary(reason string) *httpx.APIError {
+	return &httpx.APIError{
+		Status: http.StatusBadGateway, Code: "class_summary_failed", Message: "摘要生成失败：" + reason,
+	}
+}
+
+// liteClassSummaryDTO is the response shape.
+type liteClassSummaryDTO struct {
+	Summary     string `json:"summary"`
+	GeneratedAt string `json:"generatedAt"`
+	Cached      bool   `json:"cached"`
+}
+
+// postLiteClassSummary handles POST /api/v1/lite/teacher/classes/{id}/summary.
+func (a *API) postLiteClassSummary(w http.ResponseWriter, r *http.Request) {
+	cls, ok := a.authTeacherClass(w, r)
+	if !ok {
+		return
+	}
+	u, ok := requireTeacherEntitled(w, r)
+	if !ok {
+		return
+	}
+	if a.d.Provider == nil {
+		httpx.WriteError(w, r, errLiteClassSummary("未配置模型通道"))
+		return
+	}
+
+	ctx := r.Context()
+	roster, err := a.liteWorkspaceRoster(ctx, cls.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
+	now := time.Now()
+	key := liteClassSummaryCacheKey(cls.ID, now, roster)
+
+	entry, cached, cerr := liteClassSummaryGlobalStore.resolve(key, func() (liteClassSummaryEntry, error) {
+		return a.composeLiteClassSummary(r, u.ID, cls, roster)
+	})
+	if cerr != nil {
+		httpx.WriteError(w, r, cerr)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, liteClassSummaryDTO{
+		Summary: entry.Summary, GeneratedAt: entry.GeneratedAt.Format(time.RFC3339), Cached: cached,
+	})
+}
+
+// liteClassSummarySystemPrompt asks for plain 说明文, one to three sentences,
+// no invented facts. AGENTS.md 界面文案 rule 10: no metaphor, no 抒情副词, no
+// exclamation marks outside a real milestone (this is neither).
+const liteClassSummarySystemPrompt = `你在给老师写一句摘要，显示在班级列表的班级卡片上方，帮她判断这周要不要点进去看这个班。
+只使用下面给出的事实，不补充事实；不使用给出事实里没有的数字；不写给出的学生名单之外的姓名。
+写一到三句话，说这个班上一周最值得老师注意的事：整体参与情况，或者哪些学生值得表扬、哪些需要关注。
+说明文，不用比喻，不用感叹号，不写标题，不写称呼，只输出摘要正文本身。`
+
+// composeLiteClassSummary runs one model call and validates it against §6
+// before returning. roster is the CURRENT class roster (for the name check's
+// closed set); the facts the model reads are the last completed week's, the
+// same ones GET …/weekly assembles.
+func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sqlc.Class, roster []liteworkspace.Student) (liteClassSummaryEntry, error) {
+	ctx := r.Context()
+	ws := liteweek.LatestCompleted(time.Now())
+	students, err := a.loadLiteClassWeek(ctx, cls.ID, ws)
+	if err != nil {
+		return liteClassSummaryEntry{}, err
+	}
+	stats := liteClassWeekStats(students)
+	_, praise, watch := liteClassWeekCards(students)
+	prompt, names, counts := liteClassSummaryFacts(cls, liteweek.Label(ws), stats, praise, watch)
+
+	mctx, cancel := detachedModelCtx(r)
+	defer cancel()
+	resolved, rerr := a.routeE(mctx, gateway.ClassDigest)
+	if rerr != nil {
+		return liteClassSummaryEntry{}, errLiteClassSummary(rerr.Error())
+	}
+
+	msgs := []gateway.ChatMessage{
+		{Role: gateway.RoleSystem, Content: liteClassSummarySystemPrompt},
+		{Role: gateway.RoleUser, Content: prompt},
+	}
+	res, cerr := gateway.Collect(mctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs})
+	// Metered whether or not the call produced anything usable — it was paid
+	// for either way.
+	a.recordLiteLLMCall(mctx, userID, uuid.Nil, liteClassSummaryPurpose, resolved, res.Usage)
+	if cerr != nil {
+		return liteClassSummaryEntry{}, errLiteClassSummary(cerr.Error())
+	}
+	summary := strings.TrimSpace(res.Text)
+	if summary == "" {
+		return liteClassSummaryEntry{}, errLiteClassSummary("模型没有返回内容")
+	}
+
+	if bad := liteworkspace.UngroundedNames(summary, liteWorkspaceRosterNames(roster), names); len(bad) > 0 {
+		return liteClassSummaryEntry{}, errLiteClassSummary("摘要里出现了本轮没有依据的学生姓名：" + strings.Join(bad, "、"))
+	}
+	if bad := liteworkspace.UngroundedCounts(summary, counts); len(bad) > 0 {
+		return liteClassSummaryEntry{}, errLiteClassSummary("摘要里出现了本轮没有依据的人数：" + liteWorkspaceJoinInts(bad))
+	}
+
+	return liteClassSummaryEntry{Summary: summary, GeneratedAt: time.Now()}, nil
+}
+
+// liteClassSummaryFacts builds the user turn AND, in the same pass, the two
+// §6 evidence lists: every student name the facts name (praise + watch) and
+// every integer the facts state (so the reply may repeat them back). Building
+// all three together is deliberate — a fact added to the prompt without also
+// being added to one of these lists would silently fail every summary that
+// mentions it.
+func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.ClassWeekStats, praise, watch []liteClassWeekCardDTO) (prompt string, names []string, counts []int) {
+	var b strings.Builder
+	fmt.Fprintf(&b, "班级：%s\n", cls.Name)
+	fmt.Fprintf(&b, "周：%s\n", weekLabel)
+	fmt.Fprintf(&b, "班级人数：%d\n", stats.ClassSize)
+	counts = append(counts, stats.ClassSize)
+	fmt.Fprintf(&b, "本周活跃学生数：%d\n", stats.ActiveStudents)
+	counts = append(counts, stats.ActiveStudents)
+	fmt.Fprintf(&b, "完成项数：%d\n", stats.Finished)
+	counts = append(counts, stats.Finished)
+	if stats.AssignmentRate >= 0 {
+		fmt.Fprintf(&b, "作业按时完成率：%d%%\n", stats.AssignmentRate)
+		counts = append(counts, stats.AssignmentRate)
+	} else {
+		b.WriteString("作业按时完成率：本周无到期作业\n")
+	}
+
+	b.WriteString("值得表扬：")
+	if len(praise) == 0 {
+		b.WriteString("无")
+	}
+	for _, c := range praise {
+		fmt.Fprintf(&b, "\n- %s：%s", c.Name, c.Evidence)
+		names = append(names, c.Name)
+	}
+	b.WriteString("\n需要关注：")
+	if len(watch) == 0 {
+		b.WriteString("无")
+	}
+	for _, c := range watch {
+		fmt.Fprintf(&b, "\n- %s：%s", c.Name, c.Evidence)
+		names = append(names, c.Name)
+	}
+	return b.String(), names, counts
+}
+
+// liteClassSummaryEntry is what the cache stores and the handler returns.
+type liteClassSummaryEntry struct {
+	Summary     string
+	GeneratedAt time.Time
+}
+
+// liteClassSummaryCacheKey is "class + Beijing date + roster fingerprint". A
+// pure function of its arguments — no DB, no clock read inside it — so the
+// UTC/Beijing midnight boundary can be tested directly with a fixed `now`.
+//
+// The Beijing offset comes from liteworkspace.BeijingOffset, a fixed
+// time.FixedZone, never time.LoadLocation: the distroless runtime image the
+// server ships in carries no tzdata, and LoadLocation fails silently into UTC
+// there (see the repo's dev-ops-gotchas memory).
+func liteClassSummaryCacheKey(classID uuid.UUID, now time.Time, roster []liteworkspace.Student) string {
+	date := now.In(liteworkspace.BeijingOffset).Format("2006-01-02")
+	return classID.String() + "|" + date + "|" + liteClassSummaryRosterFingerprint(roster)
+}
+
+// liteClassSummaryRosterFingerprint hashes the roster rows' activity fields —
+// the same three fields the workspace's list_students tool reads
+// (ActiveDaysThisWeek, OverdueAssignments, WritingsDone). Any change to any
+// student's week changes the hash, which is what "roster change → recompute"
+// means: the cache does not know WHAT changed, only that something did.
+//
+// Sorted by student id before hashing so the fingerprint does not depend on
+// the roster query's row order.
+func liteClassSummaryRosterFingerprint(roster []liteworkspace.Student) string {
+	rows := make([]string, len(roster))
+	for i, s := range roster {
+		rows[i] = fmt.Sprintf("%s:%d:%d:%d", s.ID, s.ActiveDaysThisWeek, s.OverdueAssignments, s.WritingsDone)
+	}
+	sort.Strings(rows)
+	sum := sha256.Sum256([]byte(strings.Join(rows, ";")))
+	return hex.EncodeToString(sum[:])
+}
+
+// liteClassSummaryGlobalStore is the process-wide cache every request shares.
+// In-process only (§10: no new table) — a restart loses it and the next
+// request recomputes, which is the accepted trade-off.
+var liteClassSummaryGlobalStore = newLiteClassSummaryStore(liteClassSummaryCacheMax)
+
+// liteClassSummaryStore is a bounded, mutex-guarded, single-flight cache.
+// "Single-flight" here means: while a computation for a key is running, any
+// other caller for the SAME key waits on that one call instead of starting
+// its own — two simultaneous requests for a freshly-invalidated class do not
+// pay for two model calls.
+type liteClassSummaryStore struct {
+	mu       sync.Mutex
+	max      int
+	order    []string // insertion order, oldest first, for eviction
+	data     map[string]liteClassSummaryEntry
+	inflight map[string]*liteClassSummaryFlight
+}
+
+// liteClassSummaryFlight is one computation in progress for a key. Every
+// caller that joins it (found it already in s.inflight) waits on done and
+// reads the same result the caller who started it got.
+type liteClassSummaryFlight struct {
+	done  chan struct{}
+	entry liteClassSummaryEntry
+	err   error
+}
+
+func newLiteClassSummaryStore(max int) *liteClassSummaryStore {
+	return &liteClassSummaryStore{
+		max: max, data: map[string]liteClassSummaryEntry{}, inflight: map[string]*liteClassSummaryFlight{},
+	}
+}
+
+// resolve returns the entry cached under key, or runs fn to produce one.
+//
+// cached=true means the entry was already in the cache before this call did
+// anything — the "second request, same day, same data: cached, stub not
+// called again" case. A caller that instead joins an in-flight computation
+// gets cached=false: this request is one of the reasons a model call
+// happened, even though it did not start that call itself.
+//
+// A failed fn is NEVER stored: the next resolve for the same key — whether it
+// joined this flight or arrived after it finished — tries again, exactly as
+// §6 requires ("the failed result is NOT cached").
+func (s *liteClassSummaryStore) resolve(key string, fn func() (liteClassSummaryEntry, error)) (liteClassSummaryEntry, bool, error) {
+	s.mu.Lock()
+	if e, ok := s.data[key]; ok {
+		s.mu.Unlock()
+		return e, true, nil
+	}
+	if f, ok := s.inflight[key]; ok {
+		s.mu.Unlock()
+		<-f.done
+		return f.entry, false, f.err
+	}
+	f := &liteClassSummaryFlight{done: make(chan struct{})}
+	s.inflight[key] = f
+	s.mu.Unlock()
+
+	entry, err := fn()
+	f.entry, f.err = entry, err
+	close(f.done)
+
+	s.mu.Lock()
+	delete(s.inflight, key)
+	if err == nil {
+		s.put(key, entry)
+	}
+	s.mu.Unlock()
+	return entry, false, err
+}
+
+// put stores entry under key and evicts the oldest entry once the store is
+// over its cap. Called with s.mu held.
+func (s *liteClassSummaryStore) put(key string, entry liteClassSummaryEntry) {
+	if _, exists := s.data[key]; !exists {
+		s.order = append(s.order, key)
+	}
+	s.data[key] = entry
+	for len(s.order) > s.max {
+		oldest := s.order[0]
+		s.order = s.order[1:]
+		delete(s.data, oldest)
+	}
+}

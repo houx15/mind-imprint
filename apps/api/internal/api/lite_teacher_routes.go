@@ -21,6 +21,9 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/weekly", liteTeacher(a.getLiteClassWeekly))
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/weekly/prose", liteTeacher(a.postLiteClassWeeklyProse))
 
+	// Class summary (D2). A POST, like the prose route above: it calls a model.
+	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/summary", liteTeacher(a.postLiteClassSummary))
+
 	// Assignments. POST …/assignments/extract and the {aid} routes differ by
 	// method, so the Go 1.22 mux registers them without a pattern conflict.
 	mux.Handle("POST /api/v1/lite/teacher/classes/{id}/assignments", liteTeacher(a.createLiteAssignment))
