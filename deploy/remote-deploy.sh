@@ -49,7 +49,11 @@ CACHE_KEEP=48h
 # Pre-migration pg_dumps to keep. They are snapshots taken seconds before each
 # migration, not the backup system of record, and they had never been deleted:
 # 188 files / 2.2 GB going back to 2026-08-05 by the time anyone looked.
-BACKUPS_KEEP=30
+#
+# 2026-09-16：30 → 10，产品负责人定的。用得上这些文件的场合只有一个 ——
+# 「上一次迁移把数据弄坏了，回到它之前」；那件事要么当天就发现，要么这份快照
+# 本来也已经追不上现在的数据了。留 30 份是在为一个不存在的场合占盘。
+BACKUPS_KEEP=10
 
 avail_gb() { df -P -k / | awk 'NR==2 {print int($4/1024/1024)}'; }
 
