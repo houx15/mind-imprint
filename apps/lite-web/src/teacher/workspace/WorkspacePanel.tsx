@@ -42,6 +42,14 @@ export interface WorkspacePanelProps {
    *  to outlive this panel, like the error line it belongs to. */
   onRetry: () => void;
   canRetry: boolean;
+  /** Set while the canvas cannot take a turn's result (the parent report
+   *  editor during an export or a redraft). The composer and the choices are
+   *  disabled; nothing is shown. */
+  paused?: boolean;
+  /** Set when the conversation is closed for good (the student has left the
+   *  class). The composer, the choices and 重试 are disabled and this line is
+   *  shown above the composer. */
+  closedReason?: string | null;
   /** The canvas. The shell renders it as-is and imposes no read-only state —
    *  the caller owns whether and how each cell can be edited. */
   children: ReactNode;
@@ -62,8 +70,14 @@ export function WorkspacePanel({
   onComposerChange,
   onRetry,
   canRetry,
+  paused = false,
+  closedReason = null,
   children,
 }: WorkspacePanelProps) {
+  // `busy` keeps its own meaning (a turn in flight: thinking row, stop
+  // button); `blocked` is every reason she cannot act.
+  const closed = closedReason !== null;
+  const blocked = busy || paused || closed;
   // `choices` names the pending row; `answeredKey` names the row she already
   // acted on. A fresh set of choices (a new reply) carries a different key,
   // so the row reappears for THAT reply without any effect needed to reset it.
@@ -75,7 +89,7 @@ export function WorkspacePanel({
 
   function handleSend() {
     const text = composer.trim();
-    if (!text || busy) return;
+    if (!text || blocked) return;
     // The composer is not cleared here: the caller clears it when it accepts
     // the turn (`beginTurn`), so a refused send keeps her text.
     // Typing past an offered choice counts as having answered it too — the
@@ -85,7 +99,7 @@ export function WorkspacePanel({
   }
 
   function handleChoose(choice: Choice) {
-    if (busy) return;
+    if (blocked) return;
     if (onChoose(choice.id)) setAnsweredKey(choicesKey);
   }
 
@@ -136,7 +150,7 @@ export function WorkspacePanel({
                         <ChoiceArticleCard
                           key={c.id}
                           article={c.article!}
-                          disabled={busy}
+                          disabled={blocked}
                           onClick={() => handleChoose(c)}
                         />
                       ))}
@@ -148,7 +162,7 @@ export function WorkspacePanel({
                         <button
                           key={c.id}
                           type="button"
-                          disabled={busy}
+                          disabled={blocked}
                           onClick={() => handleChoose(c)}
                           className="rounded-mk-full border border-mk-accent-200 bg-mk-accent-50 px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-100 disabled:opacity-50"
                         >
@@ -182,18 +196,24 @@ export function WorkspacePanel({
               <p className="text-mk-small text-mk-danger" role="alert">
                 {error}
               </p>
-              <Button variant="secondary" size="sm" onClick={onRetry} disabled={busy || !canRetry}>
+              <Button variant="secondary" size="sm" onClick={onRetry} disabled={blocked || !canRetry}>
                 重试
               </Button>
             </div>
+          )}
+
+          {closed && (
+            <p className="text-mk-small font-semibold text-mk-muted" role="status">
+              {closedReason}
+            </p>
           )}
 
           <Composer
             value={composer}
             onChange={onComposerChange}
             onSend={handleSend}
-            state={busy ? "replying" : composer.trim() ? "typing" : "empty"}
-            disabled={busy}
+            state={busy ? "replying" : composer.trim() && !blocked ? "typing" : "empty"}
+            disabled={blocked}
             placeholder="请输入"
           />
         </div>

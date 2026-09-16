@@ -11,32 +11,55 @@ import {
   type ParentReportHidden,
   type TeacherParentReport,
 } from "../api/parentReports";
+import { postWorkspaceTurn } from "../api/teacherWorkspace";
 import { ParentReportPoster } from "../parentReport/ParentReportPoster";
 import { ParentReportView } from "../parentReport/ParentReportView";
 import { rangeLabel } from "../parentReport/range";
 import { posterFileName, SECTION_LABELS, toggleHidden, visibleFacts } from "../parentReport/view";
 import { exportPoster } from "../reports/exportPoster";
 import { errorText, failText } from "./assignmentLogic";
+import { Segmented } from "./formParts";
 import { TeacherPage } from "./TeacherPage";
 import {
   draftErrorText,
-  errorCode,
   EXPORT_BLOCKED_TEXT,
   exportBlockedReason,
   hiddenMentionText,
   isBodyBlank,
+  keptSectionText,
+  planReportPatch,
   posterReportFrom,
   recalledDraftError,
   rememberDraftError,
+  reportArtifactPayload,
+  reportPatchBody,
   runeCount,
   saveErrorText,
   SECTION_MAX_RUNES,
   showsNoDraftHint,
+  studentLeftReason,
 } from "./parentReportLogic";
 import { createSerialQueue } from "./serialQueue";
+import type { ThreadInput } from "./workspace/useWorkspaceThread";
+import { useWorkspaceThread } from "./workspace/useWorkspaceThread";
+import { WorkspacePanel } from "./workspace/WorkspacePanel";
 
 type SectionState = { kind: "saving" } | { kind: "saved" } | { kind: "error"; text: string };
 type Action = "redraft" | "export";
+type Texts = Record<string, string>;
+type Pane = "draft" | "preview";
+
+const PANE_OPTIONS: { value: Pane; label: string }[] = [
+  { value: "draft", label: "草稿" },
+  { value: "preview", label: "预览" },
+];
+
+/** A turn's reply, held between the request settling and the thread
+ * accepting it (see "The conversation" below). */
+interface TurnPatch {
+  snapshot: Texts;
+  patch: Texts;
+}
 
 /** The stored text of each section the report has, blank for a missing one. */
 function bodyOf(r: TeacherParentReport): Record<string, string> {
@@ -79,8 +102,39 @@ function bodyOf(r: TeacherParentReport): Record<string, string> {
  *
  * - 重新生成草稿. A body with text asks first and replaces it; a blank body is
  *   redrafted without asking (the server fills it).
- * - After `student_left`, redraft is disabled; editing, hiding and export stay
- *   available.
+ * - After `student_left`, redraft and the conversation are disabled; editing,
+ *   hiding and export stay available.
+ *
+ * ## The conversation (§12.6, D3)
+ *
+ * The editor sits in `WorkspacePanel` beside a `parentReport` thread. A turn
+ * sends each shown section's current text (unsaved typing included) and gets
+ * back a patch of revised sections; the server never writes the report.
+ *
+ * The patch is applied here, not by the thread. The thread's own
+ * `applyPatch` compares against the artifact of the last render, while a
+ * section's text lives in `textsRef`, which a keystroke updates before the
+ * next render. So `post` keeps the snapshot and the patch in `turnRef` and
+ * hands the thread an empty patch; the thread calls `setArtifact` only for a
+ * current reply, and that call runs `planReportPatch` against `textsRef`:
+ * - a section she changed during the turn keeps her text and gets
+ *   「{段名} 已保留你的修改」;
+ * - every other patched section is set in `textsRef` and saved with
+ *   `saveSection`, the same queue and the same `storeSection` her typing
+ *   uses. The save reads `textsRef` when it runs, so typing that lands after
+ *   the patch is what gets saved, and a save of hers already in flight
+ *   finishes first. A failed save shows under its section like any other.
+ *
+ * While a turn is in flight, redraft and export are disabled (both replace
+ * or snapshot the whole body); while either runs, the composer is paused.
+ * So a patch is never applied while the textareas are locked.
+ *
+ * ## Width
+ *
+ * Below 1400px the conversation, the draft and the preview do not fit in
+ * three columns, so 草稿 / 预览 become a `Segmented` switch. This is a CSS
+ * breakpoint (`min-[1400px]:`) like the rest of this page, not a width hook:
+ * both panes stay mounted and only their display changes.
  */
 export function ParentReportEditor({
   reportId,
@@ -105,8 +159,13 @@ export function ParentReportEditor({
   const [busy, setBusy] = useState<Action | null>(null);
   const [confirm, setConfirm] = useState<Action | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [studentLeft, setStudentLeft] = useState(false);
+  /** The server's reason once a redraft or a turn was refused with
+   * `student_left`; null until then. */
+  const [leftReason, setLeftReason] = useState<string | null>(null);
   const [hiddenBusy, setHiddenBusy] = useState(false);
+  const [kept, setKept] = useState<string[]>([]);
+  const turnRef = useRef<TurnPatch | null>(null);
+  const [pane, setPane] = useState<Pane>("draft");
   const [hiddenError, setHiddenError] = useState<string | null>(null);
 
   const posterRef = useRef<HTMLDivElement>(null);
@@ -234,7 +293,65 @@ export function ParentReportEditor({
   }
 
   function noteRefusal(e: unknown) {
-    if (errorCode(e) === "student_left") setStudentLeft(true);
+    const reason = studentLeftReason(e);
+    if (reason !== null && alive.current) setLeftReason(reason);
+  }
+
+  /** The thread's `setArtifact`, called once per current reply. `next` is the
+   * thread's copy with an empty patch applied and is not used: the patch is
+   * in `turnRef` and is planned against `textsRef` (see the doc above). */
+  function applyTurn() {
+    const turn = turnRef.current;
+    turnRef.current = null;
+    if (!turn || !alive.current) return;
+    const plan = planReportPatch(textsRef.current, turn.snapshot, turn.patch, reportRef.current?.view.sections ?? []);
+    setKept(plan.kept);
+    if (plan.write.length === 0) return;
+    textsRef.current = plan.texts;
+    setTexts(plan.texts);
+    for (const key of plan.write) void saveSection(key);
+  }
+
+  const thread = useWorkspaceThread<Texts>({
+    artifact: texts,
+    setArtifact: applyTurn,
+    // The shell mounts this editor with `key={reportId}`, so the scope never
+    // changes during its life.
+    scopeOf: () => reportId,
+    post: ({ artifact, turns, input }) => {
+      const current = reportRef.current;
+      turnRef.current = null;
+      return postWorkspaceTurn({
+        surface: "parentReport",
+        classId: current?.classId ?? "",
+        reportId,
+        artifact: reportArtifactPayload(artifact, current?.view.sections ?? []),
+        turns,
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
+      }).then(
+        (res) => {
+          turnRef.current = { snapshot: artifact, patch: reportPatchBody(res.patch) };
+          return { reply: res.reply, choices: res.choices, cards: [], patch: {} };
+        },
+        (e: unknown) => {
+          noteRefusal(e);
+          throw e;
+        },
+      );
+    },
+    // The server prefixes its own failures with 「对话失败：」; `failText`
+    // does not double it.
+    describeError: (e) => failText("对话", e),
+  });
+
+  function runTurn(input: ThreadInput): boolean {
+    const accepted = thread.run(input);
+    if (accepted) {
+      setKept([]);
+      // A pending 确认重新生成 would replace the body under the turn.
+      setConfirm(null);
+    }
+    return accepted;
   }
 
   function requestRedraft() {
@@ -253,6 +370,8 @@ export function ParentReportEditor({
       if (!alive.current) return;
       applyReport(result.report);
       replaceTexts(result.report);
+      // The notices are about text the redraft just replaced.
+      setKept([]);
       rememberDraftError(reportId, result.draftError);
       setDraftMessage(draftErrorText(result.draftError));
     } catch (e) {
@@ -348,21 +467,46 @@ export function ParentReportEditor({
 
   return (
     <>
-      <TeacherPage width="full">
+      <WorkspacePanel
+        turns={thread.turns}
+        busy={thread.busy}
+        error={thread.error}
+        choices={thread.choices}
+        onSend={(text) => runTurn({ text })}
+        onChoose={(choiceId) => {
+          const choice = thread.choices.find((c) => c.id === choiceId);
+          return runTurn({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
+        }}
+        composer={thread.composer}
+        onComposerChange={thread.setComposer}
+        onRetry={() => {
+          // `thread.retry` is `run(failed)`; this goes through `runTurn` so a
+          // retry clears the same state a new turn does.
+          if (thread.failed) runTurn(thread.failed);
+        }}
+        canRetry={thread.failed !== null && leftReason === null}
+        paused={anyBusy}
+        closedReason={leftReason}
+      >
         {backButton}
 
         <p className="learning-landing-kicker mt-4">家长报告</p>
         <div className="mt-1 flex flex-wrap items-center gap-3">
           <h1 className="teacher-page-title">{report.view.studentName || "—"}</h1>
           <div className="flex flex-wrap gap-2 sm:ml-auto">
-            <Button variant="secondary" size="sm" onClick={requestRedraft} disabled={anyBusy || studentLeft}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={requestRedraft}
+              disabled={anyBusy || thread.busy || leftReason !== null}
+            >
               {busy === "redraft" ? "生成中" : "重新生成草稿"}
             </Button>
             <Button
               variant="primary"
               size="sm"
               onClick={() => void runExport()}
-              disabled={anyBusy}
+              disabled={anyBusy || thread.busy}
               iconStart={<Icon icon={Download} size={15} />}
             >
               {busy === "export" ? "处理中" : "导出图片"}
@@ -388,8 +532,16 @@ export function ParentReportEditor({
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-2">
-          <div className="flex min-w-0 flex-col gap-5">
+        <div className="mt-6 min-[1400px]:hidden">
+          <Segmented label="视图" options={PANE_OPTIONS} value={pane} onChange={setPane} />
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 items-start gap-6 min-[1400px]:grid-cols-2">
+          <div
+            className={
+              "min-w-0 flex-col gap-5 min-[1400px]:flex " + (pane === "draft" ? "flex" : "hidden")
+            }
+          >
             {draftMessage && <DangerNote role="alert">{draftMessage}</DangerNote>}
             {showsNoDraftHint(report.hasDraft, texts, draftMessage) && (
               <p className="text-mk-small text-mk-muted">暂无草稿，请重新生成草稿</p>
@@ -404,6 +556,11 @@ export function ParentReportEditor({
                   <label htmlFor={`parent-report-${key}`} className="text-mk-small font-bold text-mk-ink">
                     {SECTION_LABELS[key]}
                   </label>
+                  {kept.includes(key) && (
+                    <p className="text-mk-small font-semibold text-mk-accent-700" role="status">
+                      {keptSectionText(key)}
+                    </p>
+                  )}
                   {mentions && mentions.length > 0 && (
                     <DangerNote role="status">{hiddenMentionText(mentions)}</DangerNote>
                   )}
@@ -511,14 +668,20 @@ export function ParentReportEditor({
             )}
           </div>
 
-          <aside className="min-w-0 min-[900px]:sticky min-[900px]:top-4" aria-label="预览">
+          <aside
+            className={
+              "min-w-0 min-[1400px]:sticky min-[1400px]:top-4 min-[1400px]:block " +
+              (pane === "preview" ? "block" : "hidden")
+            }
+            aria-label="预览"
+          >
             <div className="mb-2 text-mk-label font-bold text-mk-muted">预览</div>
-            <div className="overflow-hidden rounded-mk-lg border border-mk-border bg-mk-paper min-[900px]:max-h-[calc(100vh-6rem)] min-[900px]:overflow-y-auto">
+            <div className="overflow-hidden rounded-mk-lg border border-mk-border bg-mk-paper min-[1400px]:max-h-[calc(100vh-6rem)] min-[1400px]:overflow-y-auto">
               <ParentReportView report={preview} />
             </div>
           </aside>
         </div>
-      </TeacherPage>
+      </WorkspacePanel>
 
       {/* Mounted only while an export runs. The offscreen offset lives on the
           poster's own wrapper, never on the node that is rasterized. */}

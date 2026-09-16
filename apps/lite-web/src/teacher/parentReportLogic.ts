@@ -126,3 +126,100 @@ export function rememberDraftError(reportId: string, draftError: string | null):
 export function recalledDraftError(reportId: string): string | null {
   return pendingDraftErrors.get(reportId) ?? null;
 }
+
+// ── The conversation beside the editor (§12.6, D3) ─────────────────────────
+
+/**
+ * The `artifact` a parentReport turn sends: the text of each section the
+ * report shows now, as the editor holds it (unsaved typing included), each cut
+ * to SECTION_MAX_RUNES. Only the listed sections go out, so neither a section
+ * hidden with its keywords nor text past the limit reaches the request (the
+ * server applies the same two rules; the request is capped at 256KB). An
+ * explicit projection: nothing else from the editor's state is sent.
+ */
+export function reportArtifactPayload(
+  texts: Readonly<Record<string, string>>,
+  sections: readonly string[],
+): { body: Record<string, string> } {
+  const body: Record<string, string> = {};
+  for (const key of sections) {
+    body[key] = [...(texts[key] ?? "")].slice(0, SECTION_MAX_RUNES).join("");
+  }
+  return { body };
+}
+
+/** A turn's `patch` (`{body: {<section>: <text>}}`) as section texts. A value
+ * that is not a string is dropped. */
+export function reportPatchBody(patch: Readonly<Record<string, unknown>>): Record<string, string> {
+  const body = patch.body;
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, text] of Object.entries(body as Record<string, unknown>)) {
+    if (typeof text === "string") out[key] = text;
+  }
+  return out;
+}
+
+export interface ReportPatchPlan {
+  /** The editor's texts after the patch. Sections not written are unchanged. */
+  texts: Record<string, string>;
+  /** Sections to save, in report order. Each goes through the editor's one
+   * queue and its section save. */
+  write: string[];
+  /** Sections she changed while the turn was in flight. Her text stays and
+   * the patched text is dropped (the rule of `applyPatch`). */
+  kept: string[];
+}
+
+/**
+ * Which patched sections to write and which to keep. `live` is the editor's
+ * text NOW (read from its ref when the reply lands, not from the last
+ * render), `snapshot` is the text sent with the turn, and `sections` is the
+ * report's sections now.
+ *
+ * - A section the report does not show now (hidden while the turn ran), or
+ *   one the editor has no text entry for, is dropped: there is no textarea to
+ *   show it in, and the section save would skip it anyway.
+ * - A section whose live text differs from the snapshot is kept.
+ * - A section whose patched text equals the live text is neither written nor
+ *   kept: nothing changes.
+ */
+export function planReportPatch(
+  live: Readonly<Record<string, string>>,
+  snapshot: Readonly<Record<string, string>>,
+  patch: Readonly<Record<string, string>>,
+  sections: readonly string[],
+): ReportPatchPlan {
+  const texts = { ...live };
+  const write: string[] = [];
+  const kept: string[] = [];
+  for (const key of sections) {
+    if (!(key in patch) || !(key in live)) continue;
+    if ((live[key] ?? "") !== (snapshot[key] ?? "")) {
+      kept.push(key);
+      continue;
+    }
+    const next = patch[key]!;
+    if (next === live[key]) continue;
+    texts[key] = next;
+    write.push(key);
+  }
+  return { texts, write, kept };
+}
+
+/** The line above a section whose patched text was dropped. */
+export function keptSectionText(key: string): string {
+  return `${SECTION_LABELS[key] ?? "该段落"} 已保留你的修改`;
+}
+
+/**
+ * Why the conversation is closed, or null. The server refuses a turn for a
+ * student who has left the class with the same 409 `student_left` it gives a
+ * redraft, so the reason shown is the server's own words, whichever of the two
+ * requests was refused first. A verb prefix is removed so the line reads the
+ * same in both cases.
+ */
+export function studentLeftReason(e: unknown): string | null {
+  if (errorCode(e) !== "student_left") return null;
+  return errorText(e).replace(/^(对话|重新生成)失败：/, "");
+}

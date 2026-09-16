@@ -9,10 +9,18 @@ import {
   generateErrorPlacement,
   hiddenMentionText,
   isBodyBlank,
+  keptSectionText,
+  planReportPatch,
+  reportArtifactPayload,
+  reportPatchBody,
+  runeCount,
   saveErrorText,
+  SECTION_MAX_RUNES,
   sectionKeysToLabels,
   showsNoDraftHint,
+  studentLeftReason,
 } from "./parentReportLogic";
+import { createSerialQueue } from "./serialQueue";
 
 // Fix round 1: the export once checked one snapshot and rasterized another,
 // which could put a hidden 金句 into the PNG. The picture is built from the
@@ -164,5 +172,187 @@ describe("isBodyBlank", () => {
     expect(isBodyBlank({})).toBe(true);
     expect(isBodyBlank({ overview: "", next: " \n " })).toBe(true);
     expect(isBodyBlank({ overview: "", next: "建议" })).toBe(false);
+  });
+});
+
+describe("reportArtifactPayload", () => {
+  it("sends only the listed sections, in their current text, each cut to the limit", () => {
+    const long = "字".repeat(SECTION_MAX_RUNES + 5);
+    const payload = reportArtifactPayload({ overview: "未保存的输入", interests: "隐藏了", next: long }, [
+      "overview",
+      "next",
+      "reading",
+    ]);
+    expect(Object.keys(payload.body)).toEqual(["overview", "next", "reading"]);
+    expect(payload.body.overview).toBe("未保存的输入");
+    expect(runeCount(payload.body.next!)).toBe(SECTION_MAX_RUNES);
+    expect(payload.body.reading).toBe("");
+  });
+
+  it("cuts by code point, not by UTF-16 unit", () => {
+    const emoji = "😀".repeat(SECTION_MAX_RUNES + 1);
+    const cut = reportArtifactPayload({ overview: emoji }, ["overview"]).body.overview!;
+    expect(runeCount(cut)).toBe(SECTION_MAX_RUNES);
+    expect(cut.length).toBe(SECTION_MAX_RUNES * 2);
+  });
+});
+
+describe("reportPatchBody", () => {
+  it("reads the section texts and drops anything that is not a string", () => {
+    expect(reportPatchBody({ body: { overview: "新的概述", next: 3, reading: null } })).toEqual({ overview: "新的概述" });
+  });
+  it("is empty for an empty or malformed patch", () => {
+    expect(reportPatchBody({})).toEqual({});
+    expect(reportPatchBody({ body: "overview" })).toEqual({});
+    expect(reportPatchBody({ body: ["x"] })).toEqual({});
+    expect(reportPatchBody({ body: null })).toEqual({});
+  });
+});
+
+describe("planReportPatch", () => {
+  const snapshot = { overview: "原概述", reading: "原阅读", next: "原建议" };
+
+  it("writes a patched section she did not touch", () => {
+    const plan = planReportPatch(snapshot, snapshot, { overview: "新概述" }, ["overview", "reading", "next"]);
+    expect(plan.write).toEqual(["overview"]);
+    expect(plan.kept).toEqual([]);
+    expect(plan.texts).toEqual({ ...snapshot, overview: "新概述" });
+  });
+
+  it("keeps a section she changed while the turn ran, and still writes the others", () => {
+    const live = { ...snapshot, reading: "她改过的阅读" };
+    const plan = planReportPatch(live, snapshot, { reading: "模型的阅读", next: "模型的建议" }, [
+      "overview",
+      "reading",
+      "next",
+    ]);
+    expect(plan.kept).toEqual(["reading"]);
+    expect(plan.write).toEqual(["next"]);
+    expect(plan.texts.reading).toBe("她改过的阅读");
+    expect(plan.texts.next).toBe("模型的建议");
+  });
+
+  it("leaves her edit in a section the patch does not name, without reporting it", () => {
+    const live = { ...snapshot, overview: "她在打字" };
+    const plan = planReportPatch(live, snapshot, { next: "模型的建议" }, ["overview", "next"]);
+    expect(plan.kept).toEqual([]);
+    expect(plan.write).toEqual(["next"]);
+    expect(plan.texts.overview).toBe("她在打字");
+  });
+
+  it("drops a section the report no longer shows, and one the editor has no entry for", () => {
+    const plan = planReportPatch(snapshot, snapshot, { next: "新建议", interests: "兴趣" }, ["overview", "reading"]);
+    expect(plan.write).toEqual([]);
+    expect(plan.kept).toEqual([]);
+    expect(plan.texts).toEqual(snapshot);
+    const unknown = planReportPatch(snapshot, snapshot, { projects: "项目" }, ["overview", "projects"]);
+    expect(unknown.write).toEqual([]);
+    expect("projects" in unknown.texts).toBe(false);
+  });
+
+  it("writes nothing for a patched text equal to what is there", () => {
+    const plan = planReportPatch(snapshot, snapshot, { overview: "原概述" }, ["overview"]);
+    expect(plan.write).toEqual([]);
+    expect(plan.kept).toEqual([]);
+  });
+
+  it("lists writes in report order and does not modify its inputs", () => {
+    const live = { ...snapshot };
+    const plan = planReportPatch(live, snapshot, { next: "b", overview: "a" }, ["overview", "reading", "next"]);
+    expect(plan.write).toEqual(["overview", "next"]);
+    expect(live).toEqual(snapshot);
+  });
+});
+
+describe("keptSectionText", () => {
+  it("names the section by its heading, never its key", () => {
+    expect(keptSectionText("next")).toBe("下一步建议 已保留你的修改");
+    expect(keptSectionText("unknown_key")).toBe("该段落 已保留你的修改");
+  });
+});
+
+describe("studentLeftReason", () => {
+  it("is the server's words for student_left, without a verb prefix", () => {
+    expect(studentLeftReason(new ApiError("student_left", "该学生已不在本班", 409))).toBe("该学生已不在本班");
+    expect(studentLeftReason(new ApiError("student_left", "对话失败：该学生已不在本班", 409))).toBe("该学生已不在本班");
+  });
+  it("is null for any other failure", () => {
+    expect(studentLeftReason(new ApiError("ai_dialogue_failed", "对话失败：超时", 502))).toBeNull();
+    expect(studentLeftReason(new Error("Failed to fetch"))).toBeNull();
+  });
+});
+
+// The editor applies a plan by replacing its text ref, then enqueuing the
+// section save for each written key on its one queue. The save reads the ref
+// when it RUNS. `editor` below models that save against a server whose
+// responses the test releases one by one, to pin the orderings the editor
+// relies on.
+describe("patch writes through the editor's one queue", () => {
+  function editor(initial: Record<string, string>) {
+    const queue = createSerialQueue();
+    const state = { live: { ...initial }, saved: { ...initial } };
+    const sent: [string, string][] = [];
+    const release: (() => void)[] = [];
+    function store(key: string): Promise<boolean> {
+      const text = state.live[key] ?? "";
+      if (text === state.saved[key]) return Promise.resolve(true);
+      sent.push([key, text]);
+      return new Promise<boolean>((resolve) => {
+        release.push(() => {
+          state.saved[key] = text;
+          resolve(true);
+        });
+      });
+    }
+    const save = (key: string) => queue.enqueue(() => store(key));
+    function applyPlan(snapshot: Record<string, string>, patch: Record<string, string>, sections: string[]) {
+      const plan = planReportPatch(state.live, snapshot, patch, sections);
+      state.live = plan.texts;
+      return Promise.all(plan.write.map(save));
+    }
+    return { state, sent, release, save, applyPlan, queue };
+  }
+  const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+
+  it("saves a patch for a section after that section's save already in flight", async () => {
+    const e = editor({ overview: "原概述" });
+    e.state.live = { overview: "她的输入" };
+    const hers = e.save("overview");
+    await flush();
+    // The turn was sent with her typing in it, and she has not typed since.
+    const patched = e.applyPlan({ ...e.state.live }, { overview: "模型的概述" }, ["overview"]);
+    await flush();
+    expect(e.sent).toEqual([["overview", "她的输入"]]);
+    e.release.shift()!();
+    await hers;
+    await flush();
+    expect(e.sent).toEqual([
+      ["overview", "她的输入"],
+      ["overview", "模型的概述"],
+    ]);
+    e.release.shift()!();
+    await patched;
+    expect(e.state.saved.overview).toBe("模型的概述");
+  });
+
+  it("sends her newer text when she edits a patched section before its save runs", async () => {
+    const e = editor({ overview: "原概述", next: "原建议" });
+    e.state.live = { ...e.state.live, overview: "她的输入" };
+    const hers = e.save("overview");
+    await flush();
+    const patched = e.applyPlan({ ...e.state.live }, { next: "模型的建议" }, ["overview", "next"]);
+    expect(e.state.live.next).toBe("模型的建议");
+    e.state.live = { ...e.state.live, next: "她又改了建议" };
+    e.release.shift()!();
+    await hers;
+    await flush();
+    expect(e.sent).toEqual([
+      ["overview", "她的输入"],
+      ["next", "她又改了建议"],
+    ]);
+    e.release.shift()!();
+    await patched;
+    await e.queue.idle();
+    expect(e.state.saved).toEqual({ overview: "她的输入", next: "她又改了建议" });
   });
 });

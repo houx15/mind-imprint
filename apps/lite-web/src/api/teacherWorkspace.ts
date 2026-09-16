@@ -11,14 +11,20 @@ import type { Choice, ChoiceArticle, Turn } from "../teacher/workspace/workspace
 // the Go side sends and reads (liteworkspace.Turn / liteworkspace.Choice).
 
 /**
- * "assignment" (布置作业) and "home" (the class conversation, §12.5). apps/api
- * rejects any other value with 「该工作台尚未开放：{surface}」.
+ * "assignment" (布置作业), "home" (the class conversation, §12.5) and
+ * "parentReport" (the parent report editor, §12.6). apps/api rejects any
+ * other value with 「该工作台尚未开放：{surface}」.
  */
-export type WorkspaceSurface = "assignment" | "home";
+export type WorkspaceSurface = "assignment" | "home" | "parentReport";
 
 export interface WorkspaceTurnInput {
   surface: WorkspaceSurface;
+  /** The class the turn is about. The parentReport surface ignores it and
+   *  takes the class from the report row. */
   classId: string;
+  /** parentReport only: the report being revised. Its patch is
+   *  `{body: {<section>: <text>}}`, and the server never writes it. */
+  reportId?: string;
   /** The canvas's current draft, exactly as the caller holds it — the model
    *  reads it as "the card's current content" (§ liteWorkspaceCardState). */
   artifact: unknown;
