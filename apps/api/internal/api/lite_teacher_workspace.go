@@ -71,6 +71,10 @@ type liteWorkspaceTurnDTO struct {
 	Choices []liteworkspace.Choice `json:"choices"`
 	Patch   map[string]any         `json:"patch"`
 	Cards   []liteWorkspaceCardDTO `json:"cards"`
+	// Navigate is set only by a surface that offers a page to open (today,
+	// only home's open_page). omitempty keeps every other surface's response
+	// byte-identical to before this field existed.
+	Navigate *liteWorkspaceNavigateDTO `json:"navigate,omitempty"`
 }
 
 // liteWorkspaceCardDTO is one tool result on the canvas. kind is "students" or
@@ -122,6 +126,25 @@ type liteWorkspaceSurface interface {
 	// result is what goes back to the canvas: the fields a tool wrote and the
 	// tool results the panel renders. Either may be nil.
 	result() (patch map[string]any, cards []liteWorkspaceCardDTO)
+	// navigate is the page open_page offered this turn, or nil. The assignment
+	// surface has no such tool and always returns nil, which is why the field
+	// is omitempty on the wire — her assignment turns keep the exact response
+	// shape they had before D2.
+	navigate() *liteWorkspaceNavigateDTO
+}
+
+// liteWorkspaceNavigateDTO is the page open_page offered this turn (§12.5
+// item 6, D2's home surface). The server performs no navigation: this is an
+// offer the panel renders as a button, and only her click moves her there.
+type liteWorkspaceNavigateDTO struct {
+	View         string  `json:"view"`
+	ClassID      string  `json:"classId"`
+	UserID       *string `json:"userId,omitempty"`
+	AssignmentID *string `json:"assignmentId,omitempty"`
+	// Label is Chinese and names a real page or a real student/assignment —
+	// exactly the kind of text §6 exists to check, so the surface that builds
+	// it must also return it from extraParts().
+	Label string `json:"label"`
 }
 
 // liteWorkspaceSubject is what the ownership check loaded for a turn: the
@@ -175,6 +198,12 @@ var liteWorkspaceSurfaces = map[string]liteWorkspaceSurfaceSpec{
 		resolve: liteWorkspaceSubjectFromClass,
 		build: func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error) {
 			return a.newLiteWorkspaceAssignment(in.mctx, in.subject.class, in.roster, in.req.Artifact, in.typed), nil
+		},
+	},
+	"home": {
+		resolve: liteWorkspaceSubjectFromClass,
+		build: func(a *API, in liteWorkspaceSurfaceInput) (liteWorkspaceSurface, error) {
+			return a.newLiteWorkspaceHome(in.mctx, in.subject.class, in.roster, in.typed), nil
 		},
 	},
 }
@@ -387,7 +416,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		cards = []liteWorkspaceCardDTO{}
 	}
 	httpx.WriteJSON(w, http.StatusOK, liteWorkspaceTurnDTO{
-		Reply: reply, Choices: choices, Patch: patch, Cards: cards,
+		Reply: reply, Choices: choices, Patch: patch, Cards: cards, Navigate: surface.navigate(),
 	})
 }
 
@@ -736,6 +765,82 @@ func toolStrings(args map[string]any, key string) []string {
 		}
 	}
 	return out
+}
+
+// liteWorkspaceListStudentsTool runs list_students' closed-set filter against
+// a roster. Both surfaces (assignment and home) call this — same filter
+// vocabulary, same result shape, same evidence — so "本周未活跃" cannot mean
+// one list on one page and a different list on the other.
+//
+// ok=false means args did not name a real filter; result is already the tool
+// error to return, and the other return values are zero. ok=true means
+// result is the tool's success JSON and names/count/card are the §6 evidence
+// and canvas row the caller records.
+func liteWorkspaceListStudentsTool(roster []liteworkspace.Student, args map[string]any) (result string, names []string, count int, card liteWorkspaceCardDTO, ok bool) {
+	raw, _ := toolString(args, "filter")
+	filter, valid := liteworkspace.ParseStudentFilter(raw)
+	if !valid {
+		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet"),
+			nil, 0, liteWorkspaceCardDTO{}, false
+	}
+	rows := liteworkspace.FilterStudents(roster, filter)
+	out := make([]map[string]any, 0, len(rows))
+	names = make([]string, 0, len(rows))
+	for _, s := range rows {
+		out = append(out, map[string]any{"id": s.ID, "name": s.Name})
+		names = append(names, s.Name)
+	}
+	card = liteWorkspaceCardDTO{Kind: "students", Rows: rows}
+	result = liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
+	return result, names, len(out), card, true
+}
+
+// liteWorkspaceAskChoiceArgs parses ask_choice's arguments: the question and
+// 2 to 4 options. Both surfaces call this — the id/label/2-to-4 rule is one
+// rule, not two.
+//
+// withSlug controls whether an option's slug is read and checked against the
+// article catalogue: only the assignment surface's options can mean "use
+// this article". errMsg == "" means ok; otherwise question and choices are
+// zero and errMsg is the tool error text to return.
+func liteWorkspaceAskChoiceArgs(args map[string]any, withSlug bool) (question string, choices []liteworkspace.Choice, errMsg string) {
+	question, _ = toolString(args, "question")
+	if question == "" {
+		return "", nil, "没有给出问题"
+	}
+	raw, _ := args["options"].([]any)
+	out := make([]liteworkspace.Choice, 0, len(raw))
+	for _, item := range raw {
+		obj, isObject := item.(map[string]any)
+		if !isObject {
+			continue
+		}
+		id, _ := toolString(obj, "id")
+		label, _ := toolString(obj, "label")
+		if id == "" || label == "" {
+			continue
+		}
+		choice := liteworkspace.Choice{ID: id, Label: label}
+		if withSlug {
+			// A slug is checked HERE, while the turn still has budget. See
+			// liteWorkspaceRun.askChoice's original comment: finding out two
+			// turns later that "use this article" cannot survive is what this
+			// check exists to stop.
+			if slug, given := toolString(obj, "slug"); given && slug != "" {
+				art, found := library.BySlug(slug)
+				if !found {
+					return "", nil, "选项 " + id + " 的 slug 不在阅读库里：" + slug +
+						"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼"
+				}
+				choice.Slug = art.Slug
+			}
+		}
+		out = append(out, choice)
+	}
+	if len(out) < 2 {
+		return "", nil, "请给出 2 到 4 个选项"
+	}
+	return question, out, ""
 }
 
 // liteWorkspaceClampRunes truncates to max runes. Each caller passes the cap

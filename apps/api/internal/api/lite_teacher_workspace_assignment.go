@@ -240,6 +240,9 @@ func (run *liteWorkspaceRun) result() (map[string]any, []liteWorkspaceCardDTO) {
 	return run.patch, run.cards
 }
 
+// navigate is nil: the assignment surface has no open_page tool.
+func (run *liteWorkspaceRun) navigate() *liteWorkspaceNavigateDTO { return nil }
+
 // liteWorkspaceRun is the assignment surface: it accumulates what one turn's
 // tools produced.
 type liteWorkspaceRun struct {
@@ -571,20 +574,14 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 }
 
 func (run *liteWorkspaceRun) listStudents(args map[string]any) string {
-	raw, _ := toolString(args, "filter")
-	filter, ok := liteworkspace.ParseStudentFilter(raw)
+	result, names, count, card, ok := liteWorkspaceListStudentsTool(run.roster, args)
 	if !ok {
-		return liteWorkspaceToolError("没有这个条件：" + raw + "，只能是 all、inactive_this_week、has_overdue、no_writing_yet")
+		return result
 	}
-	rows := liteworkspace.FilterStudents(run.roster, filter)
-	out := make([]map[string]any, 0, len(rows))
-	for _, s := range rows {
-		out = append(out, map[string]any{"id": s.ID, "name": s.Name})
-		run.namesReturned = append(run.namesReturned, s.Name)
-	}
-	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "students", Rows: rows})
-	run.countsReturned = append(run.countsReturned, len(out))
-	return liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
+	run.namesReturned = append(run.namesReturned, names...)
+	run.countsReturned = append(run.countsReturned, count)
+	run.cards = append(run.cards, card)
+	return result
 }
 
 func (run *liteWorkspaceRun) setRecipients(args map[string]any) string {
@@ -659,39 +656,9 @@ func (run *liteWorkspaceRun) recorded(ids []string) {
 }
 
 func (run *liteWorkspaceRun) askChoice(args map[string]any) string {
-	question, _ := toolString(args, "question")
-	if question == "" {
-		return liteWorkspaceToolError("没有给出问题")
-	}
-	raw, _ := args["options"].([]any)
-	choices := make([]liteworkspace.Choice, 0, len(raw))
-	for _, item := range raw {
-		obj, isObject := item.(map[string]any)
-		if !isObject {
-			continue
-		}
-		id, _ := toolString(obj, "id")
-		label, _ := toolString(obj, "label")
-		if id == "" || label == "" {
-			continue
-		}
-		choice := liteworkspace.Choice{ID: id, Label: label}
-		// A slug is checked HERE, while the turn still has budget. The point
-		// of the field is that "use this article" survives to the next turn;
-		// a slug that is not in the catalogue would not survive anything, and
-		// finding that out two turns later is what this field exists to stop.
-		if slug, given := toolString(obj, "slug"); given && slug != "" {
-			art, found := library.BySlug(slug)
-			if !found {
-				return liteWorkspaceToolError("选项 " + id + " 的 slug 不在阅读库里：" + slug +
-					"。slug 必须原样复制 search_library 结果里的那一个，不能按标题自己拼")
-			}
-			choice.Slug = art.Slug
-		}
-		choices = append(choices, choice)
-	}
-	if len(choices) < 2 {
-		return liteWorkspaceToolError("请给出 2 到 4 个选项")
+	question, choices, errMsg := liteWorkspaceAskChoiceArgs(args, true)
+	if errMsg != "" {
+		return liteWorkspaceToolError(errMsg)
 	}
 	run.question, run.choices, run.asked = question, choices, true
 	return liteWorkspaceToolOK(map[string]any{"options": len(choices)})

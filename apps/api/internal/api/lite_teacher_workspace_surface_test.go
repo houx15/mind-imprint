@@ -23,7 +23,6 @@ func TestWorkspaceTurnRefusesSurfacesNotOpenYet(t *testing.T) {
 	}{
 		{"missing", map[string]any{"classId": classID, "text": "布置作业"}},
 		{"unknown", map[string]any{"surface": "gradebook", "classId": classID, "text": "布置作业"}},
-		{"home", map[string]any{"surface": "home", "classId": classID, "text": "这个班怎么样"}},
 		{"parentReport", map[string]any{
 			"surface": "parentReport", "classId": classID,
 			"reportId": "00000000-0000-0000-0000-000000000001", "text": "改一下第一段",

@@ -317,22 +317,14 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"assignment": newAssignmentDTO(as)})
 }
 
-// listLiteAssignments handles GET /api/v1/lite/teacher/classes/{id}/assignments.
-func (a *API) listLiteAssignments(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	classID, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return
-	}
-	if _, err := a.assertTeacherOwnsClass(ctx, classID); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
+// classAssignmentSummaries loads every non-archived assignment of classID
+// with its per-status recipient counts. listLiteAssignments (the HTTP route)
+// and the home workspace surface's list_assignments tool both call this, so
+// the two never compute the counts two different ways.
+func (a *API) classAssignmentSummaries(ctx context.Context, classID uuid.UUID) ([]AssignmentSummaryDTO, error) {
 	rows, err := a.d.Queries.ListLiteAssignmentsByClass(ctx, classID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return nil, err
 	}
 	out := make([]AssignmentSummaryDTO, 0, len(rows))
 	index := make(map[uuid.UUID]int, len(rows))
@@ -355,8 +347,7 @@ func (a *API) listLiteAssignments(w http.ResponseWriter, r *http.Request) {
 	if len(ids) > 0 {
 		recipients, err := a.d.Queries.ListLiteAssignmentRecipients(ctx, ids)
 		if err != nil {
-			httpx.WriteError(w, r, err)
-			return
+			return nil, err
 		}
 		now := time.Now()
 		for _, rc := range recipients {
@@ -368,6 +359,26 @@ func (a *API) listLiteAssignments(w http.ResponseWriter, r *http.Request) {
 				returnOf(rc.ReturnedAt, rc.ReturnDueAt, rc.Resubmitted))
 			out[i].Counts[status]++
 		}
+	}
+	return out, nil
+}
+
+// listLiteAssignments handles GET /api/v1/lite/teacher/classes/{id}/assignments.
+func (a *API) listLiteAssignments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	classID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if _, err := a.assertTeacherOwnsClass(ctx, classID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out, err := a.classAssignmentSummaries(ctx, classID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignments": out})
 }

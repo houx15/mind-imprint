@@ -263,3 +263,123 @@ func AssignmentTools() []gateway.ChatTool {
 		},
 	}
 }
+
+const homeSystemTemplate = `你在帮一位老师了解她的一个班：回答关于这个班和学生的问题，需要时给她一个前往某个页面的入口。
+
+现在是北京时间 %s。班级是%s，共 %d 名学生。
+
+## 你怎么答
+
+- 只根据 class_snapshot、list_students、list_assignments 的结果说事实，不要编。
+- 她想去某个页面看时，用 open_page 给她一个入口；你自己不会跳转，老师点了才跳。
+- 一轮只问一个问题。需要她选的时候用 ask_choice，一次 2 到 4 个选项。
+- 说话要短。不超过 120 个字。
+
+## 硬规矩
+
+- **不要在回复里写学生人数、学生姓名，也不要复述作业各状态的人数。** 它们会显示在
+  卡片上，由系统查出来。你要指代的时候就说「这些学生」「名单上的学生」「这份作业」。
+- 你改不了的事不要说你改了。`
+
+// HomeSystem renders the system prompt the home workspace turn loop sends
+// ahead of the transcript (§12.5, D2's class chat).
+func HomeSystem(c SystemContext) string {
+	return fmt.Sprintf(homeSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount)
+}
+
+// HomeTools returns the five tool schemas the model may call while helping a
+// teacher understand one class: class_snapshot, list_students,
+// list_assignments, open_page, ask_choice.
+//
+// list_students' filter enum must stay identical to ParseStudentFilter's —
+// same reason AssignmentTools' comment gives: the schema is the only thing
+// telling the model which filters exist.
+func HomeTools() []gateway.ChatTool {
+	return []gateway.ChatTool{
+		{
+			Name: "class_snapshot",
+			Description: "查这个班这周（进行中）的整体情况：活跃学生数、完成项数、作业按时完成率，" +
+				"以及哪些学生值得表扬、哪些需要关注。结果显示在卡片上，不要在回复里复述具体人数或姓名。",
+			Parameters: map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			Name:        "list_students",
+			Description: "按一个闭集条件查班级名单，结果显示在卡片上，不要在回复里复述。",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"filter": map[string]any{
+						"type":        "string",
+						"enum":        []any{"all", "inactive_this_week", "has_overdue", "no_writing_yet"},
+						"description": "all（全部）、inactive_this_week（本周未活跃）、has_overdue（有逾期作业）、no_writing_yet（还没写过作文）。",
+					},
+				},
+				"required": []string{"filter"},
+			},
+		},
+		{
+			Name: "list_assignments",
+			Description: "查这个班布置过的作业：类型、标题、截止时间，以及各状态的人数。" +
+				"结果显示在卡片上，不要在回复里复述具体人数。",
+			Parameters: map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			Name:        "open_page",
+			Description: "给老师一个「前往某个页面」的入口。你自己不会跳转，这只是给她点的一个按钮。",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"target": map[string]any{
+						"type": "string",
+						"enum": []any{"classWeekly", "student", "assignmentNew", "assignment", "parentReports"},
+						"description": "classWeekly（本周报告）、student（某个学生的学习页，要给 userId）、" +
+							"assignmentNew（布置作业）、assignment（某份作业详情，要给 assignmentId）、" +
+							"parentReports（家长报告）。这个英文值只给系统识别用，不要写进给老师的回复。",
+					},
+					"userId": map[string]any{
+						"type": "string",
+						"description": "target 为 student 时必填：list_students 返回的学生 id，原样复制。" +
+							"这个值只给系统识别用，不是给老师看的内容。",
+					},
+					"assignmentId": map[string]any{
+						"type": "string",
+						"description": "target 为 assignment 时必填：list_assignments 返回的作业 id，原样复制。" +
+							"这个值只给系统识别用，不是给老师看的内容。",
+					},
+				},
+				"required": []string{"target"},
+			},
+		},
+		{
+			Name:        "ask_choice",
+			Description: "结束这一轮，给老师 2 到 4 个按钮选，而不是问一个开放式问题。",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"question": map[string]any{
+						"type":        "string",
+						"description": "要问的问题，一句话。",
+					},
+					"options": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"id": map[string]any{
+									"type":        "string",
+									"description": "这个选项的标识，你自己取。",
+								},
+								"label": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"id", "label"},
+						},
+						"description": "2 到 4 个选项，超过 4 个会被截断。",
+					},
+				},
+				"required": []string{"question", "options"},
+			},
+		},
+	}
+}
