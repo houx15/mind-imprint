@@ -184,7 +184,18 @@ POST /api/v1/lite/teacher/workspace/turn
 | `set_recipients` | 定收件学生 | patch |
 | `ask_choice` | 给一个问题加 2–4 个选项 | 本轮终止 |
 
-`list_students` 的条件是一个**闭集**，不是自由查询：`all`、`noWritingThisWeek`、`noWritingTwoWeeks`、`belowTier`。闭集的理由是可验证、可测试、不会让模型编出一个我们没实现的过滤条件。
+`list_students` 的条件是一个**闭集**，不是自由查询。闭集的理由是可验证、可测试、不会让模型编出一个我们没实现的过滤条件。
+
+闭集只能包含花名册真的算得出来的东西。`GET .../roster`（`lite_teacher_roster.go` → `RosterRow`）给的是 `activeDaysThisWeek`、`minutesThisWeek`、`writingsDone`/`writingsTotal`、`readingsDone`/`readingsTotal`、`overdueAssignments`、`lastActiveAt`。据此：
+
+| 条件 | 含义 | 判据 |
+|---|---|---|
+| `all` | 全班 | 全部行 |
+| `inactive_this_week` | 本周没有活动 | `activeDaysThisWeek == 0` |
+| `has_overdue` | 有逾期作业 | `overdueAssignments > 0` |
+| `no_writing_yet` | 还没有写过 | `writingsDone == 0` |
+
+🚨 不要加「本周没写作」或「低于某个难度档」这类条件：花名册没有按周的写作计数，难度档要靠阅读历史现算（`library.SuggestTier`）。要加得先加查询，不能在工具层假装有。
 
 **个性化材料：** `set_material` 选 `personalized` 时不在这一轮算人选——它写进 patch，由已有的 `PersonalizedPicker` 预览接口去取每个学生的文章（C 部分已建好）。AI 模式不重复实现选人逻辑。
 
@@ -203,7 +214,7 @@ POST /api/v1/lite/teacher/workspace/turn
 | 工具 | 作用 |
 |---|---|
 | `class_snapshot` | 取该班本周概况（沿用 roster 与 weekly 的既有接口） |
-| `list_students` | 同 D1 的闭集条件 |
+| `list_students` | 同 D1 的闭集条件（`all` / `inactive_this_week` / `has_overdue` / `no_writing_yet`） |
 | `open_page` | 带老师去某一页 |
 
 `open_page` 的目标也是闭集：`classWeekly`（本周报告）、`student`（某个学生）、`assignment`（某份作业）、`assignmentNew`（去布置作业）。跳转前在对话里先说一句要去哪，跳转本身由老师点按钮触发——AI 不在她没点的时候把页面换掉。
