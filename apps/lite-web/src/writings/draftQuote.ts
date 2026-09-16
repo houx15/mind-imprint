@@ -1,7 +1,6 @@
 // writings/draftQuote.ts — whether a teacher's quoted point can still be
-// found in the CURRENT draft while she is revising, and (2026-09-17, review
-// round 1) the exact substring to hand `ProseSurface` so it actually
-// highlights.
+// found in the CURRENT draft while she is revising, and the exact substring
+// to hand `ProseSurface` so it actually highlights.
 //
 // The finished page checks a quote against the (frozen) submitted version it
 // was written about. The room shows her LIVE draft instead — she is revising

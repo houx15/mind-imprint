@@ -54,7 +54,7 @@ describe("quoteFoundInDraft", () => {
 });
 
 /**
- * 🚨 CRITICAL（review round 1）：判据用的是归一化匹配（`rangeForQuote`），
+ * 🚨 CRITICAL：判据用的是归一化匹配（`rangeForQuote`），
  * 但 `ProseSurface` 的镜像高亮层做的是**字面** `text.indexOf`——它是一块
  * textarea 的镜像层，不是一次搜索。第一版直接把老师的原话喂给它，能通过
  * 「可点」这道判据，却在 `ProseSurface` 里字面找不到，什么都不会高亮、

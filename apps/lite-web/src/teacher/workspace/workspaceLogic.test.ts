@@ -3,6 +3,7 @@ import {
   applyPatch,
   clampChoices,
   isCurrentTurn,
+  panelErrorLine,
   rollbackTurn,
   splitChoices,
   trimTurns,
@@ -214,5 +215,20 @@ describe("splitChoices", () => {
     const { cards, pills } = splitChoices(choices);
     expect(cards.map((c) => c.id)).toEqual(["a", "b"]);
     expect(pills.map((c) => c.id)).toEqual(["1", "2"]);
+  });
+});
+
+// The student-left refusal arrives both as the failed turn's error and as the
+// closed reason; the panel must show it once.
+describe("panelErrorLine", () => {
+  it("drops the error that repeats the closed reason", () => {
+    expect(panelErrorLine("对话失败：该学生已不在本班", "该学生已不在本班")).toBeNull();
+    expect(panelErrorLine("该学生已不在本班", "该学生已不在本班")).toBeNull();
+  });
+  it("keeps any other error, closed or not", () => {
+    expect(panelErrorLine("对话失败：网络错误", "该学生已不在本班")).toBe("对话失败：网络错误");
+    expect(panelErrorLine("对话失败：该学生已不在本班", null)).toBe("对话失败：该学生已不在本班");
+    expect(panelErrorLine("对话失败：网络错误", "")).toBe("对话失败：网络错误");
+    expect(panelErrorLine(null, "该学生已不在本班")).toBeNull();
   });
 });

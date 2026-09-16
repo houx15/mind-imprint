@@ -33,7 +33,7 @@ describe("a successful turn", () => {
     expect(b.kept).toEqual(["dueInput"]);
   });
 
-  // I-1 (2026-09-16 review): wireTurns is HISTORY ONLY — the current turn
+  // wireTurns is HISTORY ONLY — the current turn
   // travels once, as ThreadInput, never inside this array. Putting it in
   // both places doubled it in the model's messages.
   it("sends only the last TURNS_WINDOW HISTORY turns, never the current one", () => {
@@ -48,7 +48,7 @@ describe("a successful turn", () => {
     expect(r.wireTurns.some((t) => t.text === "最后一句")).toBe(false);
   });
 
-  // F7 + I-1: every history turn is capped, with no "last turn" exception —
+  // Every history turn is capped, with no "last turn" exception —
   // there is no current turn in this array to except.
   it("caps every history turn; the current turn never appears in wireTurns", () => {
     const long = "气".repeat(HISTORY_TEXT_CAP + 500);

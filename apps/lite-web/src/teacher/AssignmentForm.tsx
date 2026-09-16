@@ -286,7 +286,7 @@ export function AssignmentForm({
       postWorkspaceTurn({
         surface: "assignment",
         classId: artifact.classId,
-        // Only the fields the endpoint reads (I-2) — never the whole draft,
+        // Only the fields the endpoint reads — never the whole draft,
         // which can carry a 50000-rune pasted-text material that has
         // nothing to do with what the model needs to see.
         artifact: workspaceArtifactPayload(artifact),

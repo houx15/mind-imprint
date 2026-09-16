@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { keptLabels } from "./AssignmentAIMode";
 
-// F7: the "text" patch key (set_material's pasted-article source) must show
+// The "text" patch key (set_material's pasted-article source) must show
 // up in the kept-fields banner as the Chinese word, never the wire name —
 // the same rule every other AssignmentDraft field already follows.
 describe("keptLabels", () => {

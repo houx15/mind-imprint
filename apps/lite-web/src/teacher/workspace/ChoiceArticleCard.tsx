@@ -1,7 +1,7 @@
 import type { ChoiceArticle } from "./workspaceLogic";
 
 // teacher/workspace/ChoiceArticleCard.tsx — an ask_choice option that means an
-// article, shown as a card instead of a bare text button (Task 4). The whole
+// article, shown as a card instead of a bare text button. The whole
 // card is the control: a native <button> so it is keyboard-accessible for
 // free, disabled the same way the plain choice buttons already are.
 //

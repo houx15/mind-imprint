@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Layers, MessageSquareText, Check } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
@@ -94,9 +94,8 @@ export function ComposeStage({
    * A teacher grading's quote clicked in the room's 老师批改 panel
    * (`RoomTeacherFeedback`, 2026-09-17): highlight it here exactly the way
    * `CommentPanel`'s `onTrace` already does, via the same `highlight` state
-   * and `ProseSurface`. A fresh object every click — including a repeat
-   * click on the identical quote — so the effect below always re-fires and
-   * re-scrolls.
+   * and `ProseSurface`. The host passes a fresh object on every click, so
+   * the effect below re-fires on a repeat click on the identical quote.
    */
   pendingHighlight?: { text: string } | null;
 }) {
@@ -106,7 +105,18 @@ export function ComposeStage({
   const [reviewing, setReviewing] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [comment, setComment] = useState<Comment | null>(null);
-  const [highlight, setHighlight] = useState<string | null>(null);
+  /**
+   * The highlighted quote plus a click counter. The text alone is not enough:
+   * a second click on the same quote sets the same string, React skips the
+   * re-render, and `ProseSurface` never scrolls back to it. The counter
+   * changes on every click, and `ProseSurface` keys its scroll on it.
+   */
+  const [highlight, setHighlight] = useState<{ text: string; nonce: number } | null>(null);
+  const highlightNonce = useRef(0);
+  const showHighlight = useCallback((text: string) => {
+    highlightNonce.current += 1;
+    setHighlight({ text, nonce: highlightNonce.current });
+  }, []);
   const [confirmingReassemble, setConfirmingReassemble] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -150,8 +160,8 @@ export function ComposeStage({
   useEffect(() => () => clearPending(), []);
 
   useEffect(() => {
-    if (pendingHighlight) setHighlight(pendingHighlight.text);
-  }, [pendingHighlight]);
+    if (pendingHighlight) showHighlight(pendingHighlight.text);
+  }, [pendingHighlight, showHighlight]);
 
   // The last stored critique, so a comment survives navigating away and back.
   // Newest first, and only the whole-draft scope — per-paragraph comments
@@ -462,7 +472,8 @@ export function ComposeStage({
             value={body}
             onChange={onBodyChange}
             onBlur={() => void flush()}
-            highlight={highlight}
+            highlight={highlight?.text ?? null}
+            highlightNonce={highlight?.nonce}
             placeholder="请先写下你最想说的那句话，再围绕它展开。"
           />
         </div>
@@ -482,7 +493,7 @@ export function ComposeStage({
           {comment && (
             <CommentPanel
               comment={comment}
-              onTrace={setHighlight}
+              onTrace={showHighlight}
               currentText={body}
               onRecheck={() => void review()}
               rechecking={reviewing}

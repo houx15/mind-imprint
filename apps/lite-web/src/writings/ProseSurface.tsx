@@ -57,6 +57,7 @@ export function ProseSurface({
   onChange,
   onBlur,
   highlight,
+  highlightNonce,
   placeholder,
 }: {
   value: string;
@@ -66,6 +67,9 @@ export function ProseSurface({
   onBlur?: () => void;
   /** A literal substring of `value` to mark in the layer behind the textarea. */
   highlight?: string | null;
+  /** Changes on every click that sets `highlight`, including a repeat click
+   *  on the same quote, so the mark scrolls into view again. */
+  highlightNonce?: number;
   placeholder?: string;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -82,14 +86,16 @@ export function ProseSurface({
 
   const parts = splitOnHighlight(value, highlight);
 
-  // A new highlight scrolls itself into view — a click on a comment's quote,
-  // or (2026-09-17) on a teacher grading's quote in the room, should not
-  // require her to go hunting for where in a long draft it landed.
+  // Each click on a quote scrolls the mark into view: a click on a comment's
+  // quote, or on a teacher grading's quote in the room, should not require
+  // her to go hunting for where in a long draft it landed. Keyed on the
+  // nonce as well as the text: a second click on the same quote leaves
+  // `highlight` unchanged, and keyed on the text alone it would not scroll.
   // `scrollIntoView` is guarded, not assumed: jsdom (this component's own
   // tests) has no layout engine and does not implement it at all.
   useEffect(() => {
     markRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-  }, [highlight]);
+  }, [highlight, highlightNonce]);
 
   return (
     <div className="relative max-w-[68ch] mx-auto bg-mk-paper">

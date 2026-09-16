@@ -6,13 +6,13 @@ import { getLibraryShelf, type LibraryArticle } from "../api/library";
 import { Chip } from "./formParts";
 import { LibraryPicker } from "./LibraryPicker";
 import {
-  canSwapPick,
   disciplineOptions,
   errorText,
   keptFromRows,
   keptFromSaved,
   mergePickRows,
-  pickTierText,
+  pickRowView,
+  selectedDisciplinesText,
   swapPick,
   tierLabel,
   toggleId,
@@ -54,7 +54,8 @@ export function PersonalizedPicker({
   const [swapping, setSwapping] = useState<PickRow | null>(null);
 
   // The shelf gives the discipline options and the titles of saved picks. On
-  // failure the filter is hidden and titles fall back to slugs.
+  // failure the filter is hidden, and a pick with no title shows as
+  // 文章信息缺失 (pickRowView), never as its slug.
   useEffect(() => {
     let cancelled = false;
     getLibraryShelf()
@@ -122,6 +123,15 @@ export function PersonalizedPicker({
         </div>
       )}
 
+      {picksOnly && articles !== null && (
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-mk-small">
+          <dt className="font-bold text-mk-muted">学科筛选</dt>
+          <dd className="text-mk-ink">{selectedDisciplinesText(value.disciplines, options)}</dd>
+          <dt className="font-bold text-mk-muted">难度</dt>
+          <dd className="text-mk-ink">{tierLabel(tier)}</dd>
+        </dl>
+      )}
+
       {!picksOnly && (
         <div className="flex flex-col gap-1.5">
           <span className="text-mk-label font-bold text-mk-muted">难度</span>
@@ -170,25 +180,17 @@ export function PersonalizedPicker({
             </thead>
             <tbody>
               {rows.map((r) => {
-                const swappable = canSwapPick(recipients, r.userId);
-                // A started row shows the article she is actually reading,
-                // which a fresh preview may not match.
-                const reading = swappable ? null : recipients.find((x) => x.userId === r.userId)?.reading;
-                const actual = reading && reading.state === "started" ? reading : null;
+                const view = pickRowView(r, recipients, value.personalTier);
                 return (
                   <tr key={r.userId}>
                     <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">{r.name}</td>
-                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                      {actual ? actual.title || actual.slug : r.title}
-                    </td>
-                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                      {actual ? tierLabel(actual.tier) : pickTierText(r, value.personalTier)}
-                    </td>
-                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">{r.reason}</td>
+                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{view.title}</td>
+                    <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{view.tierText}</td>
+                    <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-muted">{view.reason}</td>
                     <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
                       <div className="flex items-center gap-3">
-                        {!swappable && <span className="font-bold text-mk-muted">已开始</span>}
-                        <Button variant="link" size="sm" onClick={() => setSwapping(r)} disabled={!swappable}>
+                        {view.started && <span className="font-bold text-mk-muted">已开始</span>}
+                        <Button variant="link" size="sm" onClick={() => setSwapping(r)} disabled={view.started}>
                           更换
                         </Button>
                       </div>

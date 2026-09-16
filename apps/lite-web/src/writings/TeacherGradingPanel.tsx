@@ -22,7 +22,7 @@ import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
  * whose version hasn't loaded (or failed to load) shows no "unmarked" flag
  * until it has (`determinedUnmarkedQuotes` returns `null` for both).
  *
- * `onQuote`/`clickable`/`heading` (2026-09-17, Task 10): the writing room
+ * `onQuote`/`clickable`/`heading`: the writing room
  * reuses this same panel while she revises, where clicking a quote must jump
  * into the CURRENT DRAFT rather than a submitted version, and the room's own
  * collapsible wrapper already carries the 「老师批改」 label. `onQuote` is

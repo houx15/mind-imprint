@@ -7,7 +7,7 @@ import type { AssignmentDraft } from "./assignmentLogic";
 import { KIND_OPTIONS } from "./labels";
 
 // teacher/StudentViewPreview.tsx — 「学生看到的样子」: a collapsed preview at
-// the bottom of the AI-mode homework card (Task 6), showing how the draft
+// the bottom of the AI-mode homework card, showing how the draft
 // will read on the student's inbox row / 作业 strip once published
 // (`AssignmentInboxItem`, see `inbox/AssignmentStrip.tsx`). A draft has no
 // id, unread flag, atomId or return info yet — those cells are left out
@@ -50,8 +50,8 @@ export function draftPreviewItem(draft: AssignmentDraft, classes: ClassSummary[]
 
 /**
  * Collapsed by default, sits at the bottom of the AI-mode homework card,
- * above 发布作业. Traditional mode does not get this preview (a recorded
- * ruling — see task-6-brief.md).
+ * above 发布作业. Traditional mode does not get this preview: spec §12.3 puts
+ * it on the AI card, and the traditional form stays as it was.
  */
 export function StudentViewPreview({ draft, classes }: { draft: AssignmentDraft; classes: ClassSummary[] }) {
   const [open, setOpen] = useState(false);

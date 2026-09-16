@@ -114,7 +114,7 @@ export interface AssignmentDraft extends SettingsDraft {
  * reads (apps/api/internal/api/lite_teacher_workspace.go's `artifact`
  * struct) — never the whole draft. Sending the whole draft put a
  * 50000-rune pasted-text material back on the wire on every later turn,
- * just because it lives on the same draft object (I-2, 2026-09-16 review):
+ * just because it lives on the same draft object:
  * the server ignores JSON fields it does not declare, but the bytes still
  * cross the network before it gets the chance to. Built as an explicit
  * object, not a spread of the draft, so a future large field on the draft
@@ -689,6 +689,58 @@ export function pickTierText(row: PickRow, personalTier: number | null): string 
   if (personalTier !== null) return tierLabel(personalTier);
   if (row.suggestedTier) return `按学生水平（${tierLabel(row.suggestedTier)}）`;
   return tierLabel(null);
+}
+
+/** Shown in place of an article title the page does not have. A slug is a
+ *  system value and never goes on a teacher screen (spec §12.1). */
+export const MISSING_ARTICLE_TEXT = "文章信息缺失";
+
+export interface PickRowView {
+  title: string;
+  tierText: string;
+  /** Empty for a started row: the preview's reason is about the article the
+   *  preview would pick now, not the one she is reading. */
+  reason: string;
+  started: boolean;
+}
+
+/**
+ * One row of the personalized picker as the teacher sees it.
+ *
+ * A started student's row shows the article she is actually reading (her
+ * recipient row), since a fresh preview may pick a different one. If that
+ * row does not say what she is reading, the title is MISSING_ARTICLE_TEXT
+ * rather than the preview's pick. An unstarted row shows the preview or the
+ * teacher's pick. In both cases a title that is empty or is only the slug
+ * (the shelf failed to load) shows as MISSING_ARTICLE_TEXT.
+ */
+export function pickRowView(row: PickRow, recipients: RecipientDTO[], personalTier: number | null): PickRowView {
+  const readable = (title: string, slug: string) => (title && title !== slug ? title : MISSING_ARTICLE_TEXT);
+  if (canSwapPick(recipients, row.userId)) {
+    return { title: readable(row.title, row.slug), tierText: pickTierText(row, personalTier), reason: row.reason, started: false };
+  }
+  const reading = recipients.find((x) => x.userId === row.userId)?.reading;
+  if (reading && reading.state === "started") {
+    return { title: readable(reading.title, reading.slug), tierText: tierLabel(reading.tier), reason: "", started: true };
+  }
+  return { title: MISSING_ARTICLE_TEXT, tierText: "—", reason: "", started: true };
+}
+
+/** The selected 学科筛选 as read-only text (picks mode, where the filter can no
+ *  longer change). Each id shows as its Chinese label from the shelf; an id
+ *  the shelf does not carry is counted, never shown raw. */
+export function selectedDisciplinesText(ids: string[], options: LibraryTag[]): string {
+  if (ids.length === 0) return "不限学科";
+  const byId = new Map(options.map((t) => [t.id, t.zh]));
+  const labels: string[] = [];
+  let missing = 0;
+  for (const id of ids) {
+    const zh = byId.get(id);
+    if (zh) labels.push(zh);
+    else missing += 1;
+  }
+  if (missing > 0) labels.push(`另有 ${missing} 个学科（名称加载失败）`);
+  return labels.join("、");
 }
 
 /** Discipline tags that appear on library articles, each once, in library order. */

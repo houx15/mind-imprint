@@ -436,7 +436,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             two-column width it stays in the left column, beside (never
             over) 印记's rail. */}
         <div className="flex min-h-0 flex-col gap-3">
-          {/* `min-h-[280px]` (2026-09-17, review round 1): the 老师批改 panel
+          {/* `min-h-[280px]`: the 老师批改 panel
               below can grow up to `min(320px, 33vh)` when open, on a short
               viewport that would otherwise be enough to squeeze the editor
               down to nothing. This floor keeps it usable regardless. */}

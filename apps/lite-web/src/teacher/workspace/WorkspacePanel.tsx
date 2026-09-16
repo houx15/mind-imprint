@@ -4,7 +4,7 @@ import { Button, Pebble } from "@/ui";
 import { LiteChatMarkdown } from "../../readings/LiteChatMarkdown";
 import { TeacherPage } from "../TeacherPage";
 import { ChoiceArticleCard } from "./ChoiceArticleCard";
-import { splitChoices } from "./workspaceLogic";
+import { panelErrorLine, splitChoices } from "./workspaceLogic";
 import type { Choice, Turn } from "./workspaceLogic";
 
 // teacher/workspace/WorkspacePanel.tsx — the shell every teacher workspace
@@ -78,6 +78,7 @@ export function WorkspacePanel({
   // button); `blocked` is every reason she cannot act.
   const closed = closedReason !== null;
   const blocked = busy || paused || closed;
+  const errorLine = panelErrorLine(error, closedReason);
   // `choices` names the pending row; `answeredKey` names the row she already
   // acted on. A fresh set of choices (a new reply) carries a different key,
   // so the row reappears for THAT reply without any effect needed to reset it.
@@ -140,9 +141,8 @@ export function WorkspacePanel({
               const { cards, pills } = splitChoices(choices);
               return (
                 // Article cards stack (full width, one per row); plain
-                // options stay the compact wrapping pill row that shipped
-                // before Task 4 — that task only turned ARTICLE options into
-                // cards, not every option into a form field.
+                // options stay the compact wrapping pill row. Only ARTICLE
+                // options became cards, not every option a form field.
                 <div className="flex flex-col gap-2 pl-8">
                   {cards.length > 0 && (
                     <div className="flex flex-col gap-2">
@@ -191,10 +191,10 @@ export function WorkspacePanel({
             <div ref={endRef} />
           </div>
 
-          {error && (
+          {errorLine && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-mk-small text-mk-danger" role="alert">
-                {error}
+                {errorLine}
               </p>
               <Button variant="secondary" size="sm" onClick={onRetry} disabled={blocked || !canRetry}>
                 重试

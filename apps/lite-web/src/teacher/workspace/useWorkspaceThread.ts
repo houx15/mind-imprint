@@ -45,8 +45,7 @@ export interface WorkspaceThreadOptions<A extends object> {
    *  `turns` is HISTORY ONLY — already windowed (`trimTurns`) and capped
    *  (`truncateHistory`), never including this turn. `input` carries the
    *  current turn; the caller sends it as `text`/`choiceId`, not inside
-   *  `turns` (I-1, 2026-09-16 review — putting it in both doubled it in the
-   *  model's messages). */
+   *  `turns` (putting it in both doubled it in the model's messages). */
   post: (req: { artifact: A; turns: Turn[]; input: ThreadInput }) => Promise<ThreadReply<A>>;
   /** The error line for a failed turn, e.g. `failText("对话", e)`. */
   describeError: (e: unknown) => string;

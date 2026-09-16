@@ -76,7 +76,7 @@ export function shouldRestore(composer: string): boolean {
  *  exception). The current turn is never in it: it travels once, as
  *  `ThreadInput` (the caller sends it as `text`/`choiceId`). Putting it in
  *  both places doubled it in the model's messages — every loop round, for
- *  every turn — and this is the fix (I-1, 2026-09-16 review).
+ *  every turn, so it is kept out of here.
  *
  *  If the composer still holds exactly this sentence (a failed sentence was
  *  restored and she pressed 重试 instead of 发送), it is cleared so the same

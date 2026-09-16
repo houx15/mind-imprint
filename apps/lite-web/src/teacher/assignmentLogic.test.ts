@@ -31,9 +31,11 @@ import {
   mergePickRows,
   parseTargetWords,
   pickClassId,
+  pickRowView,
   pickTierText,
   readExtractResult,
   recipientReadingText,
+  selectedDisciplinesText,
   settingsFromAssignment,
   settingsSummary,
   statusChipStyle,
@@ -44,6 +46,7 @@ import {
   validateSettings,
   visiblePickRows,
   workspaceArtifactPayload,
+  MISSING_ARTICLE_TEXT,
   type AssignmentDraft,
   type EditDraft,
   type PickRow,
@@ -336,7 +339,7 @@ describe("draftOnKindChange", () => {
     expect(next.slug).toBe("");
     expect(next.readingSource).toBe("library");
     expect(next.tier).toBeNull();
-    // M-1: matches the server's set_fields, which also clears "text" on the
+    // Matches the server's set_fields, which also clears "text" on the
     // same transition — a pasted-article material must not linger either.
     expect(next.text).toBe("");
   });
@@ -357,7 +360,7 @@ describe("draftOnKindChange", () => {
   });
 });
 
-// I-2 (2026-09-16 review): the workspace turn endpoint's `liteWorkspaceArtifact`
+// The workspace turn endpoint's `liteWorkspaceArtifact`
 // only reads eight fields; the request body must carry only those, never the
 // whole draft, or a material already on the card (a 50000-rune paste) travels
 // again on every later turn.
@@ -387,7 +390,7 @@ describe("workspaceArtifactPayload", () => {
     expect(Object.keys(payload)).not.toContain("savedPicks");
   });
 
-  // The actual measurement the review asked for: a draft already holding a
+  // The measurement that matters: a draft already holding a
   // 50000-CJK-rune article, a NEW 50000-rune paste as this turn's message,
   // and a full TURNS_WINDOW of history at the per-turn cap — the shape a
   // real "replace the article" turn has. Asserted with the same
@@ -921,5 +924,60 @@ describe("library picker selection", () => {
     expect(withChosen.shown.map((t) => t.id)).toEqual(["phys", "bio", "art"]);
     expect(withChosen.hidden).toBe(1);
     expect(disciplineChips(list, { limit: 2, expanded: true, chosen: [] }).shown).toHaveLength(4);
+  });
+});
+
+// The picker's row as the teacher reads it. A started row must describe the
+// article she is reading, not the preview's pick, and no row may show a slug.
+describe("pickRowView", () => {
+  const row: PickRow = {
+    userId: "u1", name: "Phoebe", slug: "nasa", title: "NASA 新发现", tier: null, suggestedTier: 2,
+    reason: "命中：天文", swapped: false,
+  };
+  const started = recipient({ atomId: "a1", startedAt: "2026-09-16T08:00:00Z" });
+
+  it("an unstarted row shows the preview's title, tier and reason", () => {
+    expect(pickRowView(row, [recipient()], 3)).toEqual({ title: "NASA 新发现", tierText: "进阶", reason: "命中：天文", started: false });
+    expect(pickRowView(row, [], null)).toEqual({ title: "NASA 新发现", tierText: "按学生水平（基础）", reason: "命中：天文", started: false });
+  });
+
+  it("a started row shows her own article and no preview reason", () => {
+    const r = { ...started, reading: { slug: "coral", title: "珊瑚", tier: 4, state: "started" as const } };
+    expect(pickRowView(row, [r], 3)).toEqual({ title: "珊瑚", tierText: "高阶", reason: "", started: true });
+  });
+
+  it("a started row without a title never shows the slug", () => {
+    const r = { ...started, reading: { slug: "coral", title: "", tier: 4, state: "started" as const } };
+    expect(pickRowView(row, [r], 3).title).toBe(MISSING_ARTICLE_TEXT);
+  });
+
+  it("a started row whose reading is not known shows neither the preview's article nor its reason", () => {
+    const view = pickRowView(row, [started], 3);
+    expect(view).toEqual({ title: MISSING_ARTICLE_TEXT, tierText: "—", reason: "", started: true });
+    const picked = { ...started, reading: { slug: "nasa", title: "NASA 新发现", tier: null, state: "picked" as const } };
+    expect(pickRowView(row, [picked], 3).title).toBe(MISSING_ARTICLE_TEXT);
+  });
+
+  it("an unstarted row whose title fell back to the slug shows the placeholder", () => {
+    expect(pickRowView({ ...row, title: "nasa" }, [], null).title).toBe(MISSING_ARTICLE_TEXT);
+    expect(pickRowView({ ...row, title: "" }, [], null).title).toBe(MISSING_ARTICLE_TEXT);
+  });
+});
+
+describe("selectedDisciplinesText", () => {
+  const options = [
+    { id: "biology", zh: "生物", field: "science" },
+    { id: "astronomy", zh: "天文", field: "science" },
+  ];
+  it("lists the Chinese labels in the order selected", () => {
+    expect(selectedDisciplinesText(["astronomy", "biology"], options)).toBe("天文、生物");
+  });
+  it("says 不限学科 when nothing is selected", () => {
+    expect(selectedDisciplinesText([], options)).toBe("不限学科");
+  });
+  it("counts an id the shelf does not carry instead of showing it", () => {
+    const text = selectedDisciplinesText(["biology", "climate-ocean"], options);
+    expect(text).toBe("生物、另有 1 个学科（名称加载失败）");
+    expect(text).not.toContain("climate-ocean");
   });
 });

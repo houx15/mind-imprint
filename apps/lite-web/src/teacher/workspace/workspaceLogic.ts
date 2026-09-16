@@ -121,10 +121,21 @@ export function clampChoices(choices: Choice[]): Choice[] {
   return out;
 }
 
+/** The panel's error line, given the reason the conversation is closed. A
+ *  refused turn for a student who has left the class fails with
+ *  「对话失败：{reason}」 while `closedReason` shows the same {reason}; the
+ *  panel shows it once, in the closed line. Any other error still shows. */
+export function panelErrorLine(error: string | null, closedReason: string | null): string | null {
+  if (error === null) return null;
+  if (closedReason !== null && closedReason !== "" && error.endsWith(closedReason)) return null;
+  return error;
+}
+
 /** Splits one `ask_choice` reply's options into the two blocks the panel
  *  renders: article options as stacked cards, plain options as a wrapping
- *  pill row (the compact row that shipped before Task 4 — the spec only
- *  turned ARTICLE options into cards, not every option into a form field).
+ *  pill row (the compact row the panel used before article cards existed —
+ *  the spec only turned ARTICLE options into cards, not every option into a
+ *  form field).
  *  Order within each group is preserved from `choices`; `cards` always comes
  *  first because a card is the taller, more deliberate pick. */
 export function splitChoices(choices: Choice[]): { cards: Choice[]; pills: Choice[] } {
