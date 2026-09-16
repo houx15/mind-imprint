@@ -206,6 +206,9 @@ type liteReportDTO struct {
 	// 编号（见 reportTurningPoint）。和 LensNotes/Notes 一样不做回填：早于这个
 	// 字段的报告重新服出来时就是没有这一节，客户端当它不存在而不是空。
 	TurningPoints []reportTurningPoint `json:"turningPoints,omitempty"`
+	// Article 是阅读专属的「我读的这篇」：出处、站点、一段短摘录。写作报告
+	// 不填它（她的成品本来就在 Piece 里）。绝不含全文 —— 见 reportExcerptCap。
+	Article *reportArticle `json:"article,omitempty"`
 	// ProsePending says the DETERMINISTIC half of this report is stored and
 	// serveable, and the one model call (moments / gains / summary) has not
 	// run yet. The client renders everything else immediately and asks again;
@@ -230,6 +233,45 @@ type liteReportDTO struct {
 	// a finished report carries neither flag. Declared here anyway so the
 	// field is discoverable from the shape rather than only from the patcher.
 	ProseClaimedAt string `json:"proseClaimedAt,omitempty"`
+}
+
+// --- 我读的这篇 ------------------------------------------------------------
+
+// reportExcerptCap —— 公开页上这篇文章只能露这么多。
+//
+// 🚨 **绝不是全文。** 分级阅读库是第三方素材，报告是她的记录，不是一次转载。
+// 把正文整篇挂到一条谁都能打开的链接上是另一回事。她自己划过的那些句子已经
+// 逐字摆在「我的笔记」和「我用透镜查到的」两节里 —— 那才是这篇文章在这份
+// 报告上的分量。
+//
+// 她自己那一面另有一条路看全文：完成页的「原文」那一格（`ReadingArticle`），
+// 走的是要登录、要归属的 `GET /readings/{id}/source`，所以「只有她自己看得到」
+// 是接口保证的，不是我们记得去删某个字段。
+const reportExcerptCap = 200
+
+// reportArticle 是报告上「我读的这篇」那一块。标题不在这里 —— 阅读报告的
+// 标题就是文章标题，已经在 DTO 的 Title 上。
+type reportArticle struct {
+	SourceURL string `json:"sourceUrl,omitempty"`
+	Host      string `json:"host,omitempty"`
+	Excerpt   string `json:"excerpt,omitempty"`
+}
+
+// buildReportArticle 组出那一块，什么都没有时返回 nil（整节缺席，而不是一块
+// 写着「暂无」的空卡片 —— 这是这份报告每一节共同的规矩）。
+func buildReportArticle(src sqlc.ReadingSource, blocks []Block) *reportArticle {
+	url := ""
+	if src.SourceUrl != nil {
+		url = strings.TrimSpace(*src.SourceUrl)
+	}
+	excerpt := ""
+	if len(blocks) > 0 {
+		excerpt = capRunes(blocks[0].Text, reportExcerptCap)
+	}
+	if url == "" && excerpt == "" {
+		return nil
+	}
+	return &reportArticle{SourceURL: url, Host: hostOf(url), Excerpt: excerpt}
 }
 
 // --- 转折时刻：模型只回编号 ------------------------------------------------
@@ -932,6 +974,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
 		LensNotes: lensNotes, Notes: buildReadingNotes(notes), TurningPoints: prose.TurningPoints,
+		Article: buildReportArticle(src, blocks),
 		ProsePending: prosePending,
 	}, nil
 }

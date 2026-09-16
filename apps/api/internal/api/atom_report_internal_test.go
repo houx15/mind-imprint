@@ -267,6 +267,53 @@ func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
 	}
 }
 
+// 🚨 公开页上永远不放全文。分级阅读库是第三方素材，报告是她的记录，不是一次
+// 转载。她自己划过的那些句子已经逐字摆在「我的笔记」和「我用透镜查到的」两节
+// 里 —— 那才是这篇文章在这份报告上的分量。
+func TestReportArticleNeverCarriesTheWholeBody(t *testing.T) {
+	body := strings.Repeat("这是正文的一句话。", 400)
+	url := "https://www.nature.com/articles/x"
+	got := buildReportArticle(sqlc.ReadingSource{Body: body, SourceUrl: &url}, SplitBlocks(body))
+	if got == nil {
+		t.Fatal("want an article entry, got nil")
+	}
+	if n := len([]rune(got.Excerpt)); n > reportExcerptCap+1 {
+		t.Fatalf("excerpt is %d runes, cap is %d", n, reportExcerptCap)
+	}
+	if strings.Contains(got.Excerpt, body) {
+		t.Error("the excerpt contains the whole body — a public link would be republishing the article")
+	}
+	if got.Host != "nature.com" {
+		t.Errorf("host = %q, want nature.com", got.Host)
+	}
+	if got.SourceURL != url {
+		t.Errorf("sourceUrl = %q", got.SourceURL)
+	}
+}
+
+// 她粘进来的、没有出处的文章：没有链接也没有站点，但摘录仍然值得有 —— 拿到
+// 链接的人至少知道她读的是什么。
+func TestReportArticleWithoutASourceURL(t *testing.T) {
+	got := buildReportArticle(sqlc.ReadingSource{Body: "第一段。\n\n第二段。"}, SplitBlocks("第一段。\n\n第二段。"))
+	if got == nil {
+		t.Fatal("want an article entry, got nil")
+	}
+	if got.SourceURL != "" || got.Host != "" {
+		t.Errorf("want no link at all: %+v", got)
+	}
+	if got.Excerpt == "" {
+		t.Error("want the first paragraph as the excerpt")
+	}
+}
+
+// 一次连正文都没落下来的阅读（createReading 和 putReadingSource 是两次调用）：
+// 整节缺席，而不是一块写着「暂无」的空卡片。
+func TestReportArticleIsAbsentWhenThereIsNothingToShow(t *testing.T) {
+	if got := buildReportArticle(sqlc.ReadingSource{}, nil); got != nil {
+		t.Errorf("want nil, got %+v", got)
+	}
+}
+
 // 转折时刻这一节的全部安全性都压在这条测试上：**正文必须来自行，不来自模型**。
 // 模型只回编号，服务端拿编号去 atom_message 里取原话。所以「引了她没说过的
 // 句子」这件事在这里是结构上不可能的，不是被验出来的。
