@@ -36,11 +36,12 @@ const FIELD_LABELS: Partial<Record<keyof AssignmentDraft, string>> = {
   dueInput: "截止时间",
   readingSource: "来源",
   slug: "文章",
+  text: "正文",
   tier: "难度",
   userIds: "学生",
 };
 
-function keptLabels(kept: (keyof AssignmentDraft)[]): string {
+export function keptLabels(kept: (keyof AssignmentDraft)[]): string {
   return kept.map((k) => FIELD_LABELS[k] ?? String(k)).join("、");
 }
 

@@ -1019,3 +1019,97 @@ func TestWorkspaceChoiceSlugIgnoresAnUnknownArticle(t *testing.T) {
 		t.Fatalf("a slug the catalogue does not carry was written anyway: %v", out.Patch)
 	}
 }
+
+// TestWorkspaceTurnSetsPastedTextPastSection6Checks — F7: a teacher-pasted
+// paragraph is full of real names and numbers with nothing to do with the
+// roster. It must reach the card without tripping §6's name/count checks —
+// set_material's text case already proved it verbatim (a substring of what
+// she typed this turn), so liteWorkspaceCheckedParts skips the "text" patch
+// field on purpose.
+func TestWorkspaceTurnSetsPastedTextPastSection6Checks(t *testing.T) {
+	pasted := "2024年，中国的可再生能源投资达到了8900亿美元，" +
+		"国际能源署负责人法提赫·比罗尔说，这一数字超过了此前七个国家的总和。"
+	argsJSON, err := json.Marshal(map[string]string{"source": "text", "text": pasted})
+	if err != nil {
+		t.Fatalf("marshal set_material args: %v", err)
+	}
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_material", string(argsJSON)),
+		wsText("材料已经设成她贴的这段正文了。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "这周读这段：" + pasted,
+		"artifact": map[string]any{"kind": "reading", "title": "", "dueInput": ""},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pasted text full of names and numbers = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if out.Patch["readingSource"] != "text" {
+		t.Fatalf("patch[readingSource] = %v, want text", out.Patch["readingSource"])
+	}
+	if out.Patch["text"] != pasted {
+		t.Fatalf("patch[text] = %v, want the pasted paragraph verbatim", out.Patch["text"])
+	}
+}
+
+// TestWorkspaceTurnRejectsInventedPastedText — the same tool call, but the
+// "text" argument is not a substring of anything she typed this turn. The
+// model wrote (or summarised) it, which 铁律① forbids for material the
+// student ends up reading.
+func TestWorkspaceTurnRejectsInventedPastedText(t *testing.T) {
+	argsJSON, _ := json.Marshal(map[string]string{
+		"source": "text", "text": "中国是全球最大的碳排放国，但也是可再生能源投资的领先者。",
+	})
+	prov := gateway.NewSequenceStubProvider(wsToolCall("set_material", string(argsJSON)))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "这周读一篇关于气候的报道"))
+	if rec.Code < 400 {
+		t.Fatalf("invented pasted text = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceTurnTruncatesHistoryServerSide — threadLogic.ts already
+// truncates a history turn before sending, but the server does not trust
+// that it did: an over-long earlier turn sent as-is must still reach the
+// model capped at liteworkspace.HistoryTextCapRunes runes, ending in 「…」.
+func TestWorkspaceTurnTruncatesHistoryServerSide(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsText("好的。"))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	long := strings.Repeat("气", liteworkspace.HistoryTextCapRunes+500)
+	body, _ := json.Marshal(map[string]any{
+		"surface": "assignment", "classId": classID, "text": "继续",
+		"artifact": map[string]any{"kind": "reading", "title": "", "dueInput": ""},
+		"turns": []map[string]string{
+			{"role": "teacher", "text": long},
+			{"role": "ai", "text": "收到。"},
+		},
+	})
+	rec := postWorkspaceTurn(t, h, teacher, string(body))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	if len(prov.Requests) == 0 {
+		t.Fatal("the model was never called")
+	}
+	var historyMsg string
+	for _, m := range prov.Requests[0].Messages {
+		if m.Role == gateway.RoleUser && strings.HasPrefix(m.Content, "气") {
+			historyMsg = m.Content
+		}
+	}
+	if historyMsg == "" {
+		t.Fatal("the long history turn never reached the model")
+	}
+	if got := len([]rune(historyMsg)); got > liteworkspace.HistoryTextCapRunes+1 { // +1 for 「…」
+		t.Fatalf("history turn reached the model at %d runes, want capped at %d", got, liteworkspace.HistoryTextCapRunes)
+	}
+	if !strings.HasSuffix(historyMsg, "…") {
+		t.Fatalf("a truncated history turn must end in 「…」, got %q", historyMsg)
+	}
+}

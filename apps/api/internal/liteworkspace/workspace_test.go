@@ -3,6 +3,7 @@ package liteworkspace
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,39 @@ func TestTrimTurnsKeepsTheMostRecent(t *testing.T) {
 	}
 	if got[len(got)-1].Text != in[len(in)-1].Text {
 		t.Fatal("trimming must keep the LAST turns, not the first")
+	}
+}
+
+// TestTruncateHistoryCapsEveryTurnButTheLast — an older turn is cut and
+// marked with 「…」; the last turn is what she just sent and must survive
+// whole, since a pasted article set_material grounds against it.
+func TestTruncateHistoryCapsEveryTurnButTheLast(t *testing.T) {
+	long := strings.Repeat("气", HistoryTextCapRunes+500)
+	in := []Turn{
+		{Role: "teacher", Text: long},
+		{Role: "ai", Text: "短的回复"},
+		{Role: "teacher", Text: long},
+	}
+	got := TruncateHistory(in)
+	if got[2].Text != long {
+		t.Fatalf("the last turn must be untouched, got %d runes", len([]rune(got[2].Text)))
+	}
+	if got[1].Text != "短的回复" {
+		t.Fatalf("a short older turn must not be touched: %q", got[1].Text)
+	}
+	wantCut := string([]rune(long)[:HistoryTextCapRunes]) + "…"
+	if got[0].Text != wantCut {
+		t.Fatalf("a long older turn must be cut to %d runes ending in 「…」, got %d runes",
+			HistoryTextCapRunes, len([]rune(got[0].Text)))
+	}
+	if len(in[0].Text) == 0 || in[0].Text != long {
+		t.Fatal("TruncateHistory must not mutate its input")
+	}
+}
+
+func TestTruncateHistoryEmpty(t *testing.T) {
+	if got := TruncateHistory(nil); got != nil {
+		t.Fatalf("TruncateHistory(nil) = %v, want nil", got)
 	}
 }
 

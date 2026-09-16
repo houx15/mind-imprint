@@ -6,6 +6,9 @@ import {
   rollbackTurn,
   splitChoices,
   trimTurns,
+  truncateHistory,
+  truncateHistoryText,
+  HISTORY_TEXT_CAP,
   TURNS_WINDOW,
   MAX_CHOICES,
   type Choice,
@@ -65,6 +68,46 @@ describe("trimTurns", () => {
   it("leaves a short thread alone", () => {
     const turns = [{ role: "teacher" as const, text: "a" }];
     expect(trimTurns(turns)).toEqual(turns);
+  });
+});
+
+describe("truncateHistoryText", () => {
+  it("leaves a short text alone", () => {
+    expect(truncateHistoryText("短句")).toBe("短句");
+  });
+
+  it("cuts a long text to HISTORY_TEXT_CAP runes and marks the cut", () => {
+    const long = "气".repeat(HISTORY_TEXT_CAP + 500);
+    const got = truncateHistoryText(long);
+    expect([...got]).toHaveLength(HISTORY_TEXT_CAP + 1); // +1 for "…"
+    expect(got.endsWith("…")).toBe(true);
+    expect(got.startsWith("气".repeat(HISTORY_TEXT_CAP))).toBe(true);
+  });
+});
+
+describe("truncateHistory", () => {
+  it("caps every turn but the last", () => {
+    const long = "气".repeat(HISTORY_TEXT_CAP + 500);
+    const turns: Turn[] = [
+      { role: "teacher", text: long },
+      { role: "ai", text: "短的回复" },
+      { role: "teacher", text: long },
+    ];
+    const got = truncateHistory(turns);
+    expect(got[2]!.text).toBe(long); // the current turn: untouched
+    expect(got[1]!.text).toBe("短的回复");
+    expect(got[0]!.text).toBe(truncateHistoryText(long));
+  });
+
+  it("does not mutate its input", () => {
+    const long = "气".repeat(HISTORY_TEXT_CAP + 5);
+    const turns: Turn[] = [{ role: "teacher", text: long }, { role: "ai", text: "回复" }];
+    truncateHistory(turns);
+    expect(turns[0]!.text).toBe(long);
+  });
+
+  it("is the identity on an empty list", () => {
+    expect(truncateHistory([])).toEqual([]);
   });
 });
 

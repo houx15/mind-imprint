@@ -14,6 +14,9 @@ export const TURNS_WINDOW = 8;
 /** Must equal liteworkspace.MaxChoices. */
 export const MAX_CHOICES = 4;
 
+/** Must equal liteworkspace.HistoryTextCapRunes. */
+export const HISTORY_TEXT_CAP = 1000;
+
 export interface Turn {
   role: "teacher" | "ai";
   text: string;
@@ -87,6 +90,23 @@ export function applyPatch<T extends object>(
 export function trimTurns(turns: Turn[]): Turn[] {
   if (turns.length <= TURNS_WINDOW) return turns;
   return turns.slice(turns.length - TURNS_WINDOW);
+}
+
+/** Caps a HISTORY turn's text to HISTORY_TEXT_CAP runes, ending a cut string
+ *  with "…". Not for the current turn — see truncateHistory. */
+export function truncateHistoryText(text: string): string {
+  const runes = [...text];
+  if (runes.length <= HISTORY_TEXT_CAP) return text;
+  return runes.slice(0, HISTORY_TEXT_CAP).join("") + "…";
+}
+
+/** Caps every turn but the LAST one to HISTORY_TEXT_CAP runes. The last turn
+ *  is what she is sending right now — a pasted article's set_material needs
+ *  it whole, substring for substring — so it is returned unchanged. Call
+ *  this on an already-`trimTurns`-windowed array. */
+export function truncateHistory(turns: Turn[]): Turn[] {
+  if (turns.length === 0) return turns;
+  return turns.map((t, i) => (i === turns.length - 1 ? t : { ...t, text: truncateHistoryText(t.text) }));
 }
 
 /** Drops blank labels first, then caps at MAX_CHOICES — a blank must never

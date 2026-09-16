@@ -154,3 +154,96 @@ func TestLiteWorkspaceRecommendArticlesLoadErrorIsAToolError(t *testing.T) {
 		t.Fatalf("cards = %+v, want none — a failed load must not push an articles card", run.cards)
 	}
 }
+
+// TestLiteWorkspaceSetMaterialTextAcceptsAVerbatimSubstring — F7's success
+// case: the model copies a paragraph out of what the teacher typed this
+// turn, unchanged.
+func TestLiteWorkspaceSetMaterialTextAcceptsAVerbatimSubstring(t *testing.T) {
+	pasted := "中国的可再生能源投资去年增长了百分之四十，NASA 的最新数据也印证了这一点。"
+	run := &liteWorkspaceRun{kind: "reading", typed: "这周读一读这篇报道：" + pasted}
+
+	got := run.setMaterial(map[string]any{"source": "text", "text": pasted})
+	var decoded struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil || !decoded.OK {
+		t.Fatalf("tool result = %s, want ok=true", got)
+	}
+	if run.patch["readingSource"] != "text" {
+		t.Fatalf("patch[readingSource] = %v, want text", run.patch["readingSource"])
+	}
+	if run.patch["text"] != pasted {
+		t.Fatalf("patch[text] = %v, want the pasted paragraph", run.patch["text"])
+	}
+	if !run.materialSet {
+		t.Fatal("materialSet must be true once a text material is set")
+	}
+}
+
+// TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote — F7's core rule:
+// text that is not a substring of what she typed THIS turn is refused, and
+// the patch is left untouched.
+func TestLiteWorkspaceSetMaterialTextRejectsWhatTheModelWrote(t *testing.T) {
+	run := &liteWorkspaceRun{kind: "reading", typed: "这周读一篇关于气候的报道。"}
+
+	got := run.setMaterial(map[string]any{
+		"source": "text", "text": "中国是全球最大的碳排放国，但也是可再生能源投资的领先者。",
+	})
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode tool result: %v — %s", err, got)
+	}
+	if decoded.OK || !strings.Contains(decoded.Error, "正文必须来自老师贴进来的内容") {
+		t.Fatalf("tool result = %+v, want the substring-grounding error", decoded)
+	}
+	if run.patch != nil {
+		t.Fatalf("patch = %v, want unchanged (nil) after a rejected text", run.patch)
+	}
+}
+
+// TestLiteWorkspaceSetMaterialTextRejectsOverTheCap — the same 50000-rune
+// cap validateSettings enforces on the traditional form's 正文 field
+// (assignmentLogic.ts), so a tool-written text never fails only at publish.
+func TestLiteWorkspaceSetMaterialTextRejectsOverTheCap(t *testing.T) {
+	long := strings.Repeat("气", liteWorkspaceMaxTextRunes+1)
+	run := &liteWorkspaceRun{kind: "reading", typed: long}
+
+	got := run.setMaterial(map[string]any{"source": "text", "text": long})
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode tool result: %v — %s", err, got)
+	}
+	if decoded.OK || !strings.Contains(decoded.Error, "不能超过 50000 字") {
+		t.Fatalf("tool result = %+v, want the 50000-rune cap error", decoded)
+	}
+	if run.patch != nil {
+		t.Fatalf("patch = %v, want unchanged (nil) over the cap", run.patch)
+	}
+}
+
+// TestLiteWorkspaceSetMaterialTextRejectedOnAWritingCard — D1's rule still
+// holds for the new source: material only goes on a reading card.
+func TestLiteWorkspaceSetMaterialTextRejectedOnAWritingCard(t *testing.T) {
+	run := &liteWorkspaceRun{kind: "writing", typed: "这段正文照抄"}
+
+	got := run.setMaterial(map[string]any{"source": "text", "text": "这段正文照抄"})
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode tool result: %v — %s", err, got)
+	}
+	if decoded.OK || !strings.Contains(decoded.Error, "写作") {
+		t.Fatalf("tool result = %+v, want the wrong-kind error naming 写作", decoded)
+	}
+	if run.patch != nil {
+		t.Fatalf("patch = %v, want unchanged (nil) on a writing card", run.patch)
+	}
+}

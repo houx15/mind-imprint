@@ -52,6 +52,13 @@ const liteWorkspaceSearchLimit = 8
 // 200 字」 — a failure at the last step, over a value we handed her ourselves.
 const liteWorkspaceMaxInstructionsRunes = 2000
 
+// liteWorkspaceMaxTextRunes is set_material's "text" source cap. It is
+// liteassign's own cap (maxTextRunes, unexported, in liteassign/payload.go),
+// which the traditional form's validateSettings enforces client-side and
+// ValidatePayload enforces again at publish — the same number, so a tool
+// writing a longer text would pass the card and fail at the last step.
+const liteWorkspaceMaxTextRunes = 50000
+
 // liteWorkspaceTurnRequest is §4.4's request. reportId is not read yet: only
 // the assignment surface exists, and the other two arrive with D2/D3.
 type liteWorkspaceTurnRequest struct {
@@ -205,8 +212,8 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// material.
 	card := liteWorkspaceParseArtifact(req.Artifact)
 	run := &liteWorkspaceRun{
-		roster: roster, kind: card.Kind,
-		materialSet: card.Slug != "" || card.ReadingSource == "personalized",
+		roster: roster, kind: card.Kind, typed: typed,
+		materialSet: card.Slug != "" || card.ReadingSource == "personalized" || card.ReadingSource == "text",
 		// Lazy: most turns never call recommend_articles, and loading every
 		// enrolled student's profile eagerly would pay a class-of-30's worth
 		// of DB round trips (see loadGroupProfiles) on every turn regardless.
@@ -226,7 +233,12 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// and this one is none.
 	chosen := liteWorkspaceChosenArticle(run, req)
 
-	turns := liteworkspace.TrimTurns(req.Turns)
+	// TruncateHistory runs here even though threadLogic.ts already truncates
+	// before sending: this is a server, and a server never trusts that a
+	// client did its own bounding. Only the current turn (said, below) needs
+	// to reach the model whole — a pasted article's set_material call grounds
+	// against it, not against anything in `turns`.
+	turns := liteworkspace.TruncateHistory(liteworkspace.TrimTurns(req.Turns))
 	// run.patch is passed so the card the model reads is the card as it stands
 	// NOW, including what tapping an option just wrote. Showing it the pre-turn
 	// card instead put the note 「材料已经设成这一篇了」 next to a card whose
@@ -364,6 +376,14 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 // about 3 people, and nothing on either side said anything of the kind. Two
 // fields are two sentences; only the name check, which compares whole names,
 // can safely read them as one blob.
+//
+// The "text" field is the one deliberate exception: set_material's text
+// source already went through a stronger check than either §6 check gives —
+// run.setMaterial refused it unless it is a literal substring of what the
+// teacher typed THIS turn. A pasted news article is full of real names and
+// real numbers that have nothing to do with the roster; scanning it with the
+// name/count detectors would fail almost every one of them, and for content
+// that is proven to be hers verbatim, not the model's.
 func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) []string {
 	out := []string{reply}
 	for _, c := range choices {
@@ -373,7 +393,10 @@ func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, pat
 		// that is exempt from the check is a field someone will later widen.
 		out = append(out, c.ID, c.Label, c.Slug)
 	}
-	for _, v := range patch {
+	for k, v := range patch {
+		if k == "text" {
+			continue
+		}
 		switch value := v.(type) {
 		case string:
 			out = append(out, value)
@@ -631,6 +654,12 @@ type liteWorkspaceRun struct {
 	// so set_material reads it before writing a material into a card that has
 	// nowhere to show one.
 	kind string
+	// typed is what the TEACHER typed this turn (trimmed), before a click's
+	// choiceId is folded in — the only text set_material's "text" source may
+	// be a substring of. Never her earlier turns, never the model's words: a
+	// substring check against anything wider would let the model copy a
+	// sentence out of its own prior reply and pass it off as her paste.
+	typed string
 	// materialSet is whether the card has a reading material right now,
 	// seeded from the artifact and kept current by the tools. readingSource
 	// alone cannot answer it: the client's empty draft already carries
@@ -820,6 +849,7 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 				run.write("readingSource", "library")
 				run.write("slug", "")
 				run.write("tier", nil)
+				run.write("text", "")
 				run.materialSet = false
 				cleared = true
 			}
@@ -931,8 +961,30 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		run.write("readingSource", "personalized")
 		run.materialSet = true
 		return liteWorkspaceToolOK(map[string]any{"source": "personalized"})
+	case "text":
+		// 铁律①: this is the tool that can turn "AI writes the reading
+		// material" into a live bug, so the check is not "does this look like
+		// an article" — it is a literal substring test against run.typed,
+		// which is the teacher's own typed text THIS turn (never an earlier
+		// turn, never the model's words; see the field's comment). A model
+		// that summarised, translated or invented the text fails here, on
+		// the same turn, with a message it can act on.
+		text, _ := toolString(args, "text")
+		if text == "" {
+			return liteWorkspaceToolError("请给出正文")
+		}
+		if len([]rune(text)) > liteWorkspaceMaxTextRunes {
+			return liteWorkspaceToolError("文章正文不能超过 50000 字")
+		}
+		if !strings.Contains(run.typed, text) {
+			return liteWorkspaceToolError("正文必须来自老师贴进来的内容")
+		}
+		run.write("readingSource", "text")
+		run.write("text", text)
+		run.materialSet = true
+		return liteWorkspaceToolOK(map[string]any{"source": "text"})
 	}
-	return liteWorkspaceToolError("材料来源只能是 library 或 personalized，收到：" + source)
+	return liteWorkspaceToolError("材料来源只能是 library、personalized 或 text，收到：" + source)
 }
 
 // liteWorkspaceRecommendLimit is fixed, not model-controlled — §12.2 (F.3)

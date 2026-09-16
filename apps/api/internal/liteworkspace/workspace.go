@@ -401,6 +401,38 @@ func TrimTurns(in []Turn) []Turn {
 	return in[len(in)-TurnsWindow:]
 }
 
+// HistoryTextCapRunes bounds a HISTORY turn's text — every turn but the
+// last, which is what she just sent and must reach the model whole (a
+// pasted article set_material grounds against it, substring for substring).
+// Must equal threadLogic.ts's HISTORY_TEXT_CAP: the client already
+// truncates before sending, but this runs again server-side because the
+// server never trusts that it did.
+const HistoryTextCapRunes = 1000
+
+// TruncateHistory caps every turn but the last to HistoryTextCapRunes
+// runes, ending a cut string with 「…」. The last turn — the one just sent
+// — is returned unchanged. Call this AFTER TrimTurns: the window bounds how
+// many turns travel, this bounds how long each older one is.
+func TruncateHistory(turns []Turn) []Turn {
+	if len(turns) == 0 {
+		return turns
+	}
+	out := make([]Turn, len(turns))
+	copy(out, turns)
+	for i := 0; i < len(out)-1; i++ {
+		out[i].Text = truncateHistoryText(out[i].Text)
+	}
+	return out
+}
+
+func truncateHistoryText(s string) string {
+	r := []rune(s)
+	if len(r) <= HistoryTextCapRunes {
+		return s
+	}
+	return string(r[:HistoryTextCapRunes]) + "…"
+}
+
 // SearchLibrary filters the embedded catalogue.
 //
 // The query is matched against what the article is ABOUT, not only what its

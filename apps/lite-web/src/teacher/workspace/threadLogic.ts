@@ -1,5 +1,13 @@
 import type { WorkspaceCard } from "../../api/teacherWorkspace";
-import { clampChoices, isCurrentTurn, rollbackTurn, trimTurns, type Choice, type Turn } from "./workspaceLogic";
+import {
+  clampChoices,
+  isCurrentTurn,
+  rollbackTurn,
+  trimTurns,
+  truncateHistory,
+  type Choice,
+  type Turn,
+} from "./workspaceLogic";
 
 // teacher/workspace/threadLogic.ts — the state transitions of one workspace
 // conversation, as pure functions. `useWorkspaceThread.ts` is the only
@@ -62,7 +70,10 @@ export function shouldRestore(composer: string): boolean {
 }
 
 /** Starts a turn. Returns null while another turn is in flight. `wireTurns`
- *  is the windowed history to send (`trimTurns`), including the new turn.
+ *  is the windowed history to send (`trimTurns`, then `truncateHistory` so
+ *  every turn but this one is capped — the just-typed turn travels whole,
+ *  which matters when it is a pasted article set_material must match
+ *  substring for substring), including the new turn.
  *
  *  If the composer still holds exactly this sentence (a failed sentence was
  *  restored and she pressed 重试 instead of 发送), it is cleared so the same
@@ -79,7 +90,7 @@ export function beginTurn<K extends PropertyKey>(
   return {
     state: { ...state, turns, busy: true, error: null, kept: [], failed: null, composer },
     pending: { gen: state.gen, scope, index: turns.length - 1, text },
-    wireTurns: trimTurns(turns),
+    wireTurns: truncateHistory(trimTurns(turns)),
   };
 }
 

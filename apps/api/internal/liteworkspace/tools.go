@@ -33,7 +33,9 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
 - **截止时间必须是绝对时刻**，格式 2006-01-02T15:04，按北京时间写。
   老师说「周五」，你按上面的今天算出是哪一天，自己写成绝对时刻。
 - 材料只能从分级阅读库里选（先 search_library 再 set_material），
-  或者设成个性化阅读。不要编造文章标题。
+  或者设成个性化阅读，或者老师这一轮消息里贴了正文——这时候用
+  set_material{source:"text", text:"..."}，text 必须逐字照抄她这一轮贴的内容，
+  一个字都不能改、不能自己写或概括，也不能用她更早几轮贴过的文章。不要编造文章标题。
 - 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
 - 你改不了的事不要说你改了。`
 
@@ -116,15 +118,16 @@ func AssignmentTools() []gateway.ChatTool {
 		},
 		{
 			Name:        "set_material",
-			Description: "确定这次作业的阅读材料：库里的一篇文章，或者个性化阅读。",
+			Description: "确定这次作业的阅读材料：库里的一篇文章、个性化阅读，或者老师这一轮贴的正文。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
 					"source": map[string]any{
 						"type": "string",
-						"enum": []string{"library", "personalized"},
-						"description": "material 来源：library（库里选定的文章）或 personalized（每个学生各自的个性化阅读）。" +
-							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读库」或「个性化阅读」。",
+						"enum": []string{"library", "personalized", "text"},
+						"description": "material 来源：library（库里选定的文章）、personalized（每个学生各自的个性化阅读）" +
+							"或 text（老师这一轮消息里贴的正文）。" +
+							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读库」「个性化阅读」或「她贴的正文」。",
 					},
 					// 🚨 The model guesses this value. In the 2026-09-16 live run
 					// it minted american-climate-corps and
@@ -143,6 +146,14 @@ func AssignmentTools() []gateway.ChatTool {
 					"tier": map[string]any{
 						"type":        "integer",
 						"description": "文章的难度档，可留空。",
+					},
+					// 铁律①：这里绝不是让模型写文章。text 必须是老师这一轮消息里
+					// 已经出现过的原文，服务端会逐字核对——不是这一轮贴的、或者
+					// 被改写过、概括过、自己续写过，这次调用都会被拒绝。
+					"text": map[string]any{
+						"type": "string",
+						"description": "source 为 text 时必填：老师这一轮消息里贴的文章正文，逐字照抄，" +
+							"一个字都不能改、不能概括、不能自己写。不是这一轮贴的内容就不要用这个来源。",
 					},
 				},
 				"required": []string{"source"},
