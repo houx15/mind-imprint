@@ -11,7 +11,9 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -149,9 +151,9 @@ func TestWorkspaceReportReviseSectionRefusesWhatTheDraftWouldRefuse(t *testing.T
 	}
 	// Request 0 is the draft; the workspace turn is requests 1..5.
 	for i, want := range map[int]string{
-		2: "mentions other student: 王小明",
-		3: "digit not in facts: 437",
-		4: "quote not in corpus: 雨水是宝贵的资源",
+		2: "写了其他学生的名字：王小明",
+		3: "数字不在事实里：437",
+		4: "引文不是事实里学生的原话：雨水是宝贵的资源",
 	} {
 		if got := toolResultOf(t, prov, i); !strings.Contains(got, `"ok":false`) || !strings.Contains(got, want) {
 			t.Fatalf("tool result %d = %s, want an error naming %q", i, got, want)
@@ -188,8 +190,8 @@ func TestWorkspaceReportReviseSectionRefusesASectionOrLength(t *testing.T) {
 		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	for i, want := range map[int]string{
-		2: "这份报告没有这个段落：writing",
-		3: "这份报告没有这个段落：summary",
+		2: "这份报告没有「写作」段落",
+		3: "没有这个段落：summary",
 		4: "超过 2000 字",
 	} {
 		if got := toolResultOf(t, prov, i); !strings.Contains(got, `"ok":false`) || !strings.Contains(got, want) {
@@ -292,10 +294,199 @@ func TestWorkspaceReportCanvasShowsHeadingsTextAndVisibleFacts(t *testing.T) {
 			t.Fatalf("system prompt contains %q:\n%s", banned, system)
 		}
 	}
-	if got := toolResultOf(t, prov, 2); !strings.Contains(got, "quote not in corpus: 雨水不是废水") {
+	if got := toolResultOf(t, prov, 2); !strings.Contains(got, "引文不是事实里学生的原话：雨水不是废水") {
 		t.Fatalf("tool result = %s, want the hidden quote refused", got)
 	}
 	if out := decodeWorkspaceTurn(t, rec); len(out.Patch) != 0 {
 		t.Fatalf("patch = %v, want empty", out.Patch)
 	}
+}
+
+// namedReportFixture: a student named herName with one finished reading
+// titled title (moment 「雨水不是废水」), the given classmates, and a generated
+// report. The provider's first script is the draft.
+func namedReportFixture(t *testing.T, herName, title string, classmates []string, scripts ...[]gateway.StreamEvent) (h http.Handler, teacher *http.Cookie, reportID string) {
+	t.Helper()
+	draft, _ := json.Marshal(map[string]string{
+		"overview": "读完《" + title + "》，写下「雨水不是废水」。",
+		"reading":  "读完《" + title + "》。",
+		"next":     "请和她聊一聊雨水花园。",
+	})
+	prov := gateway.NewSequenceStubProvider(append([][]gateway.StreamEvent{weeklyReply(string(draft))}, scripts...)...)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	backdateWeeklyStart(t, pool, classID)
+	renameLiteStudent(t, pool, studentID, herName)
+	reading := seedParentReading(t, pool, studentID, true)
+	mustExec(t, pool, `UPDATE reading SET title = $2 WHERE atom_id = $1`, reading, title)
+	for i, name := range classmates {
+		mate := createStudent(t, pool, SeedSchoolID, fmt.Sprintf("ws-report-mate-%d@demo.local", i))
+		enrollStudent(t, pool, mate, classID)
+		renameLiteStudent(t, pool, mate, name)
+	}
+	gen := generateParentReport(t, h, teacher, classID, studentID)
+	if gen.DraftError != nil {
+		t.Fatalf("draft rejected: %s", *gen.DraftError)
+	}
+	return h, teacher, gen.Report.ID
+}
+
+func wantTurn(t *testing.T, what string, rec *httptest.ResponseRecorder, status int, contains string) {
+	t.Helper()
+	if rec.Code != status || !strings.Contains(rec.Body.String(), contains) {
+		t.Fatalf("%s = %d %s, want %d containing %q", what, rec.Code, rec.Body, status, contains)
+	}
+}
+
+// TestWorkspaceReportQuotedTitleNamingAClassmate — her title names a
+// classmate. The quoted title is a reference to her work, in the reply and in
+// a section; an unquoted claim about the classmate is not, and fails.
+func TestWorkspaceReportQuotedTitleNamingAClassmate(t *testing.T) {
+	const title = "李明推荐的雨水花园"
+	h, teacher, reportID := namedReportFixture(t, "林知遥", title, []string{"李明"},
+		wsText("李明这周没有交作业。"),
+		wsText("已修改《"+title+"》相关的段落。"),
+		reviseCall("reading", "读完《"+title+"》。"),
+		wsText("已修改阅读段落。"),
+	)
+	wantTurn(t, "unquoted claim about 李明",
+		postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)),
+		http.StatusBadGateway, "没有依据的学生姓名：李明")
+	wantTurn(t, "quoted title in the reply",
+		postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "改一下", nil)), http.StatusOK, "")
+	rec := postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "改一下阅读", nil))
+	wantTurn(t, "quoted title in a section", rec, http.StatusOK, "")
+	if body, _ := decodeWorkspaceTurn(t, rec).Patch["body"].(map[string]any); body["reading"] != "读完《"+title+"》。" {
+		t.Fatalf("patch = %v, want the reading section", body)
+	}
+}
+
+// TestWorkspaceReportTitleThatIsAClassmatesName — a title that is exactly a
+// classmate's name is not blanked for the name check, so a quoted title
+// followed by a claim about her still fails.
+func TestWorkspaceReportTitleThatIsAClassmatesName(t *testing.T) {
+	h, teacher, reportID := namedReportFixture(t, "林知遥", "李明", []string{"李明"},
+		wsText("「李明」还没有交作业。"),
+	)
+	wantTurn(t, "quoted title that is a classmate's name",
+		postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)),
+		http.StatusBadGateway, "没有依据的学生姓名：李明")
+}
+
+// TestWorkspaceReportHerNameContainsAClassmates —she is 王丽华, a classmate
+// is 王丽. Naming her is not naming 王丽; naming 王丽 still fails; a section
+// naming her applies.
+func TestWorkspaceReportHerNameContainsAClassmates(t *testing.T) {
+	revised := "王丽华读完《城市里的雨水花园》。"
+	h, teacher, reportID := namedReportFixture(t, "王丽华", "城市里的雨水花园", []string{"王丽"},
+		wsText("已看过王丽华的报告。"),
+		wsText("王丽没有交作业。"),
+		reviseCall("reading", revised),
+		wsText("已修改王丽华的阅读段落。"),
+	)
+	wantTurn(t, "naming her", postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)), http.StatusOK, "")
+	wantTurn(t, "naming 王丽", postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)),
+		http.StatusBadGateway, "没有依据的学生姓名：王丽")
+	rec := postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "改一下阅读", nil))
+	wantTurn(t, "section naming her", rec, http.StatusOK, "")
+	if body, _ := decodeWorkspaceTurn(t, rec).Patch["body"].(map[string]any); body["reading"] != revised {
+		t.Fatalf("patch = %v, want the reading section", body)
+	}
+}
+
+// TestWorkspaceReportClassmateNameContainsHers — she is 王丽, a classmate is
+// 王丽华. Blanking her name must not hide the classmate.
+func TestWorkspaceReportClassmateNameContainsHers(t *testing.T) {
+	h, teacher, reportID := namedReportFixture(t, "王丽", "城市里的雨水花园", []string{"王丽华"},
+		wsText("王丽华没有交作业。"),
+		wsText("王丽读完了《城市里的雨水花园》。"),
+	)
+	wantTurn(t, "naming 王丽华", postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)),
+		http.StatusBadGateway, "没有依据的学生姓名：王丽华")
+	wantTurn(t, "naming her", postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看一下", nil)), http.StatusOK, "")
+}
+
+// TestWorkspaceReportToolResultsCarryNoKeysOrEnglish — every error
+// revise_section can return reaches the model without a section key or the
+// checker's English text (§12.1).
+func TestWorkspaceReportToolResultsCarryNoKeysOrEnglish(t *testing.T) {
+	calls := [][]gateway.StreamEvent{
+		reviseCall("summary", "读完《城市里的雨水花园》。"), // unknown section
+		reviseCall("writing", "读完《城市里的雨水花园》。"), // section this report does not show
+		reviseCall("reading", ""),                        // empty
+		reviseCall("reading", strings.Repeat("读", 2001)), // too long
+		reviseCall("reading", "读完三篇文章。"),                 // Chinese numeral count
+		reviseCall("overview", "读完城市里的雨水花园》。"),           // unmatched closing mark
+		reviseCall("overview", "读完《城市里的雨水花园。"),           // unclosed quote
+		reviseCall("overview", "她写下「雨水是资源」。"),            // quote not in corpus
+		reviseCall("next", "请读《不存在的书》。"),                 // title not in titles
+		reviseCall("next", "请读 437 篇。"),                  // digit not in facts
+		reviseCall("interests", "读完《城市里的雨水花园》。"),         // section this report does not show
+		reviseCall("reading", "她和王小明一起读完《城市里的雨水花园》。"),    // other student
+	}
+	// Three turns of at most five tool calls each, each closed by a reply.
+	var scripts [][]gateway.StreamEvent
+	for i, c := range calls {
+		scripts = append(scripts, c)
+		if i%5 == 4 || i == len(calls)-1 {
+			scripts = append(scripts, wsText("请说明要改哪一段。"))
+		}
+	}
+	h, _, teacher, _, _, reportID, prov := reportWorkspaceFixture(t, scripts...)
+	for range 3 {
+		if rec := postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "改一下", nil)); rec.Code != http.StatusOK {
+			t.Fatalf("turn = %d %s", rec.Code, rec.Body)
+		}
+	}
+
+	seen := map[string]bool{}
+	for _, req := range prov.Requests {
+		for _, m := range req.Messages {
+			if m.Role == gateway.RoleTool {
+				seen[m.Content] = true
+			}
+		}
+	}
+	if len(seen) != len(calls) {
+		t.Fatalf("distinct tool results = %d, want %d: %v", len(seen), len(calls), seen)
+	}
+	banned := []string{
+		"overview", "reading", "writing", "projects", "interests", "next",
+		"chinese numeral", "closing mark", "unclosed", "not in corpus", "not in titles",
+		"not in facts", "mentions other",
+	}
+	wants := []string{"三篇", "雨水是资源", "不存在的书", "437", "王小明", "「写作」", "「兴趣」", "summary"}
+	var all strings.Builder
+	for got := range seen {
+		all.WriteString(got)
+		if !strings.Contains(got, `"ok":false`) {
+			t.Fatalf("tool result = %s, want an error", got)
+		}
+		for _, b := range banned {
+			if strings.Contains(got, b) {
+				t.Fatalf("tool result contains %q: %s", b, got)
+			}
+		}
+	}
+	for _, w := range wants {
+		if !strings.Contains(all.String(), w) {
+			t.Fatalf("no tool result keeps %q: %s", w, all.String())
+		}
+	}
+}
+
+// TestWorkspaceReportDoesNotGroundTheClassSize — the report prompt never
+// states the class size, so a class size in the reply fails.
+func TestWorkspaceReportDoesNotGroundTheClassSize(t *testing.T) {
+	h, pool, teacher, classID, _, reportID, _ := reportWorkspaceFixture(t, wsText("全班2人里她最先读完。"))
+	var students int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM enrollments WHERE class_id = $1 AND role_in_class = 'student'`, classID).Scan(&students); err != nil {
+		t.Fatal(err)
+	}
+	if students != 2 {
+		t.Fatalf("roster = %d, want 2", students)
+	}
+	wantTurn(t, "class size in the reply",
+		postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "她读得怎么样", nil)),
+		http.StatusBadGateway, "没有依据的人数：2")
 }

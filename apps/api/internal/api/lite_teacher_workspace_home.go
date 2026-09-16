@@ -161,6 +161,17 @@ func (run *liteWorkspaceHome) verbatimClassName() string {
 	return run.className
 }
 
+// verbatimSubjectNames is nil: the home surface is about a class, not one
+// student.
+func (run *liteWorkspaceHome) verbatimSubjectNames() []string { return nil }
+
+// groundsRosterSize is true: HomeSystem states the class size.
+func (run *liteWorkspaceHome) groundsRosterSize() bool { return true }
+
+// blanksQuotedSpansForNames is false: a roster name inside a quoted
+// assignment title still needs evidence here.
+func (run *liteWorkspaceHome) blanksQuotedSpansForNames() bool { return false }
+
 // snapshot runs snapshotLoad the first time class_snapshot is called this
 // turn; a second call in the same turn reads the memoised result instead of
 // hitting the database again.

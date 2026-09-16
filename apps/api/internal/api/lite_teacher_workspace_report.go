@@ -146,23 +146,19 @@ func liteWorkspaceReportCurrent(raw json.RawMessage, stored map[string]string, s
 	return out
 }
 
-// liteWorkspaceReportNames is the name evidence every turn of this surface
-// starts with. The report is about her, so her name (as frozen on the report,
-// and as the roster shows it now) is always grounded. A classmate's name is
-// grounded only when it sits inside one of her own titles, quotes or keywords:
-// CheckLiteParentSections accepts it there, and without this the shared name
-// check would fail a section that quotes her verbatim.
+// liteWorkspaceReportNames is her name as frozen on the report and as the
+// roster shows it now (when she is on it and it differs). It is both the name
+// evidence and the subject name the shared check blanks. No classmate is
+// grounded here: a classmate's name inside one of her titles or quotes is
+// handled by blanking that span where it is quoted (verbatimQuotedSpans), so
+// an unquoted mention of the classmate still fails.
 func liteWorkspaceReportNames(f liteparent.Facts, roster []liteworkspace.Student, userID uuid.UUID) []string {
 	var out []string
 	if f.StudentName != "" {
 		out = append(out, f.StudentName)
 	}
-	corpus := liteparent.Corpus(f) + "\n" + liteparent.TitleCorpus(f)
 	for _, s := range roster {
-		if s.Name == "" {
-			continue
-		}
-		if s.ID == userID.String() || strings.Contains(corpus, s.Name) {
+		if s.ID == userID.String() && s.Name != "" && s.Name != f.StudentName {
 			out = append(out, s.Name)
 		}
 	}
@@ -242,10 +238,27 @@ func (run *liteWorkspaceReport) groundedNames() []string { return run.names }
 
 // groundedCounts is 1 and nothing else. The facts carry no count of people,
 // and the report is about one student, so 「一名学生」 or 「作为一位读者」 about
-// her is not a claim about the class. Any other head count fails the turn.
-// Digits in a section are checked against the facts by
-// CheckLiteParentSections, which is stricter than this.
+// her must not fail the turn.
+//
+// This is a trade-off, and it leaves a gap: 「只有一人交了作业」 also passes,
+// although nothing counted anyone. The draft path has the same gap
+// (checkChineseCounts skips 一 on its own), so the revision is no weaker than
+// the draft. An Arabic 1 in a section still has to be a fact, because
+// CheckLiteParentSections checks every digit.
 func (run *liteWorkspaceReport) groundedCounts() []int { return []int{1} }
+
+// groundsRosterSize is false: ReportSystem never states the class size, so a
+// class size in the reply has nothing behind it.
+func (run *liteWorkspaceReport) groundsRosterSize() bool { return false }
+
+// blanksQuotedSpansForNames is true: a section may quote her title that
+// contains a classmate's name, and CheckLiteParentSections accepts that. A
+// span that is exactly a roster name is still checked (the handler drops it
+// from the blanking).
+func (run *liteWorkspaceReport) blanksQuotedSpansForNames() bool { return true }
+
+// verbatimSubjectNames is her name (see liteWorkspaceReportNames).
+func (run *liteWorkspaceReport) verbatimSubjectNames() []string { return run.names }
 
 func (run *liteWorkspaceReport) result() (map[string]any, []liteWorkspaceCardDTO) {
 	if len(run.revised) == 0 {
@@ -260,9 +273,10 @@ func (run *liteWorkspaceReport) navigate() *liteWorkspaceNavigateDTO { return ni
 // verbatimQuotedSpans is every title and quote in the visible facts, plus
 // every quoted span inside a section this turn accepted. A title such as
 // 《3人小组实验》 or a quote such as 「我们3人一组」 is her work or her words,
-// not a head count; the shared check blanks it only where it is written
-// quoted. The accepted spans cover a quoted fragment of a longer quote, which
-// the quote check accepts.
+// not a head count, and a classmate's name inside 《李明推荐的雨水花园》 is not
+// the reply naming 李明. The shared name and count checks blank these spans
+// only where they are written quoted. The accepted spans cover a quoted
+// fragment of a longer quote, which the quote check accepts.
 func (run *liteWorkspaceReport) verbatimQuotedSpans() []string {
 	out := append([]string{}, run.quoted...)
 	for _, items := range [][]liteparent.Item{run.facts.Readings, run.facts.Writings, run.facts.Projects} {
@@ -322,10 +336,15 @@ func reportSection(raw string) (string, bool) {
 func (run *liteWorkspaceReport) reviseSection(args map[string]any) string {
 	raw, _ := toolString(args, "section")
 	key, known := reportSection(raw)
-	if !known || !slices.Contains(run.sections, key) {
-		return liteWorkspaceToolError("这份报告没有这个段落：" + raw + "。只能是：" + run.sectionList())
+	if !known {
+		return liteWorkspaceToolError("没有这个段落：" + raw + "。只能是：" + run.sectionList())
 	}
 	label := liteparent.SectionLabels[key]
+	if !slices.Contains(run.sections, key) {
+		// A real key this report does not show is named by its heading: a
+		// tool result is model input, and a key there reaches her reply.
+		return liteWorkspaceToolError("这份报告没有「" + label + "」段落。只能是：" + run.sectionList())
+	}
 	text, _ := toolString(args, "text")
 	if text == "" {
 		return liteWorkspaceToolError("没有给出「" + label + "」的正文")
@@ -335,7 +354,7 @@ func (run *liteWorkspaceReport) reviseSection(args map[string]any) string {
 			label, n, liteworkspace.ReviseSectionMaxRunes))
 	}
 	if err := agent.CheckLiteParentSections(map[string]string{key: text}, []string{key}, run.facts, run.others); err != nil {
-		return liteWorkspaceToolError("「" + label + "」没有通过检查（" + err.Error() + "）。" +
+		return liteWorkspaceToolError("「" + label + "」没有通过检查：" + liteWorkspaceReportCheckError(key, err) + "。" +
 			"引文和作品标题必须逐字出自事实，数字只用事实里的阿拉伯数字，不写其他学生的名字。请改好后重新调用 revise_section。")
 	}
 	if run.revised == nil {
@@ -346,13 +365,46 @@ func (run *liteWorkspaceReport) reviseSection(args map[string]any) string {
 	return liteWorkspaceToolOK(map[string]any{"section": label})
 }
 
-// sectionList is this report's sections for a tool error, key and heading.
+// sectionList is this report's section headings for a tool error. Headings
+// only: revise_section accepts them, and a key here is a key in her reply.
 func (run *liteWorkspaceReport) sectionList() string {
 	parts := make([]string, 0, len(run.sections))
 	for _, k := range run.sections {
-		parts = append(parts, k+"（"+liteparent.SectionLabels[k]+"）")
+		parts = append(parts, "「"+liteparent.SectionLabels[k]+"」")
 	}
 	return strings.Join(parts, "、")
+}
+
+// liteWorkspaceReportCheckCauses maps each cause CheckLiteParentSections can
+// return to Chinese. The list is taken from the code:
+// compose_lite_parent.go's checkChineseCounts, and liteweekly.CheckProse
+// (extractSpans, the quote/title/digit/name checks). CheckProse's "unknown
+// evidence code" cannot occur: the parent report passes no codes. The agent's
+// strings stay English because the draft path logs and returns them as they
+// are; the rewrite happens here, before a tool result reaches the model.
+var liteWorkspaceReportCheckCauses = []struct{ english, chinese string }{
+	{"chinese numeral count: ", "人数或数量用了中文数字，请改成事实里的阿拉伯数字："},
+	{"unmatched closing mark: ", "有一个右引号或右书名号没有对应的左边："},
+	{"unclosed quote: ", "有一个引号或书名号没有闭合："},
+	{"quote not in corpus: ", "引文不是事实里学生的原话："},
+	{"title not in titles: ", "作品标题不在事实里："},
+	{"digit not in facts: ", "数字不在事实里："},
+	{"mentions other student: ", "写了其他学生的名字："},
+}
+
+// liteWorkspaceReportCheckError rewrites one CheckLiteParentSections error
+// for the model: the "<key>: " prefix is dropped (the caller names the
+// section by its heading) and the English cause becomes Chinese, keeping the
+// part after it (the quote, the digit, the name). A cause not in the table is
+// reported without its English text.
+func liteWorkspaceReportCheckError(key string, err error) string {
+	msg := strings.TrimPrefix(err.Error(), key+": ")
+	for _, c := range liteWorkspaceReportCheckCauses {
+		if rest, ok := strings.CutPrefix(msg, c.english); ok {
+			return c.chinese + rest
+		}
+	}
+	return "文字不符合生成报告时的规则"
 }
 
 // liteWorkspaceReportSpans returns the text inside every closed 「」, “” and

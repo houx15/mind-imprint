@@ -258,6 +258,17 @@ func (run *liteWorkspaceRun) verbatimClassName() string {
 	return run.className
 }
 
+// verbatimSubjectNames is nil: an assignment card is about a class, not one
+// student.
+func (run *liteWorkspaceRun) verbatimSubjectNames() []string { return nil }
+
+// groundsRosterSize is true: AssignmentSystem states the class size.
+func (run *liteWorkspaceRun) groundsRosterSize() bool { return true }
+
+// blanksQuotedSpansForNames is false: a roster name inside a quoted article
+// title still needs evidence here.
+func (run *liteWorkspaceRun) blanksQuotedSpansForNames() bool { return false }
+
 // liteWorkspaceRun is the assignment surface: it accumulates what one turn's
 // tools produced.
 type liteWorkspaceRun struct {

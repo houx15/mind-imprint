@@ -474,7 +474,7 @@ func ReportTools() []gateway.ChatTool {
 						"enum": enum,
 						"description": "要改写的段落：" + reportSectionEnumText() +
 							"。只能是「报告现在的内容」里列出的段落。" +
-							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说段落标题。",
+							"也可以直接填段落标题。这个英文值只给系统识别用，不要写进给老师的回复，回复里说段落标题。",
 					},
 					"text": map[string]any{
 						"type":        "string",

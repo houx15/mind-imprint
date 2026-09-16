@@ -161,6 +161,30 @@ type liteWorkspaceSurface interface {
 	// blanked, which is the one case where blanking removes real information
 	// rather than a false alarm.
 	verbatimClassName() string
+	// verbatimSubjectNames is the name of the one student the page is about,
+	// blanked UNQUOTED from every part before the NAME check only. A classmate
+	// whose name is part of hers (her 王丽华, classmate 王丽) would otherwise be
+	// found inside every mention of her. A classmate whose name contains hers
+	// (her 王丽, classmate 王丽华) is checked before the blanking, the order
+	// CheckProse uses. nil for a surface with no single student (assignment,
+	// home).
+	//
+	// The count check does not blank these names: it keeps its own blanking
+	// (verbatimQuotedSpans, verbatimClassName), so a name that happened to be
+	// count-shaped still reads as a count there.
+	verbatimSubjectNames() []string
+	// groundsRosterSize reports whether the roster size is evidence for the
+	// count check. It is only when the surface's system prompt hands the
+	// class size to the model (assignment, home). The parent report prompt
+	// does not, so there a stated class size has nothing behind it.
+	groundsRosterSize() bool
+	// blanksQuotedSpansForNames reports whether verbatimQuotedSpans are also
+	// blanked, where quoted, before the NAME check. Only the parent report
+	// does: a section quoting her own title that contains a classmate's name
+	// passes CheckLiteParentSections and must not then fail here. Assignment
+	// and home keep the stricter rule: a roster name inside a quoted title
+	// still needs evidence (TestWorkspaceHomeBlankingDoesNotWeakenNameCheck).
+	blanksQuotedSpansForNames() bool
 }
 
 // liteWorkspaceBlankSeparator replaces a blanked span (a quoted title, or an
@@ -462,8 +486,14 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	parts = append(parts, surface.extraParts()...)
-	if bad := liteworkspace.UngroundedNames(
-		strings.Join(parts, "\n"), liteWorkspaceRosterNames(roster), grounded,
+	quotedSpans := surface.verbatimQuotedSpans()
+	rosterNames := liteWorkspaceRosterNames(roster)
+	var nameSpans []string
+	if surface.blanksQuotedSpansForNames() {
+		nameSpans = liteWorkspaceSpansForNameCheck(quotedSpans, rosterNames)
+	}
+	if bad := liteWorkspaceUngroundedNames(
+		parts, nameSpans, surface.verbatimSubjectNames(), rosterNames, grounded,
 	); len(bad) > 0 {
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
 		return
@@ -486,8 +516,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// justify an unrelated claim anywhere else in the same turn. A title is
 	// blanked only where the model wrote it QUOTED (verbatimQuotedSpans'
 	// comment); the class name is blanked unquoted (verbatimClassName's).
-	countGrounds := liteWorkspaceGroundedCounts(surface.groundedCounts(), len(roster), turns, typed)
-	quotedSpans := surface.verbatimQuotedSpans()
+	countGrounds := liteWorkspaceGroundedCounts(surface.groundedCounts(), len(roster), surface.groundsRosterSize(), turns, typed)
 	className := surface.verbatimClassName()
 	for _, part := range parts {
 		checked := liteWorkspaceBlankQuotedSpans(part, quotedSpans)
@@ -552,6 +581,64 @@ func (a *API) liteWorkspaceRoster(ctx context.Context, classID uuid.UUID) ([]lit
 		})
 	}
 	return out, nil
+}
+
+// liteWorkspaceSpansForNameCheck is spans without any span whose trimmed text
+// is exactly a roster name. Blanking such a span would remove the name
+// itself: a title 「李明」 would let 「「李明」还没有交作业」 through.
+func liteWorkspaceSpansForNameCheck(spans, rosterNames []string) []string {
+	out := make([]string, 0, len(spans))
+	for _, s := range spans {
+		if !slices.Contains(rosterNames, strings.TrimSpace(s)) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// liteWorkspaceUngroundedNames is the name half of §6 over this turn's parts.
+//
+// Each part first has quotedSpans blanked where they appear QUOTED. The
+// caller passes spans only for a surface whose blanksQuotedSpansForNames is
+// true (the parent report): there a quoted title of hers is a reference to
+// her work, and a roster name inside it (《李明推荐的雨水花园》) is not the
+// reply naming 李明. An unquoted echo of the same text is left as it is and
+// still checked.
+//
+// Then subject (the one student the page is about) is blanked unquoted, so a
+// classmate whose name is part of hers is not found inside her name. A
+// classmate whose name CONTAINS hers would vanish with that blanking, so
+// those names are checked first, on the text before it.
+//
+// The parts are joined only after blanking: the name check compares whole
+// names, so joining cannot assemble one.
+func liteWorkspaceUngroundedNames(parts, quotedSpans, subject, roster, grounded []string) []string {
+	blanked := make([]string, len(parts))
+	for i, p := range parts {
+		blanked[i] = liteWorkspaceBlankQuotedSpans(p, quotedSpans)
+	}
+	text := strings.Join(blanked, "\n")
+	subjects := liteWorkspaceDedupeLongestFirst(subject)
+	var containing []string
+	for _, name := range roster {
+		for _, s := range subjects {
+			if name != s && strings.Contains(name, s) {
+				containing = append(containing, name)
+				break
+			}
+		}
+	}
+	bad := liteworkspace.UngroundedNames(text, containing, grounded)
+	for _, s := range subjects {
+		text = strings.ReplaceAll(text, s, liteWorkspaceBlankSeparator)
+	}
+	for _, name := range liteworkspace.UngroundedNames(text, roster, grounded) {
+		if !slices.Contains(bad, name) {
+			bad = append(bad, name)
+		}
+	}
+	slices.Sort(bad)
+	return bad
 }
 
 func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
@@ -709,9 +796,14 @@ func liteWorkspaceNamesTeacherTyped(roster []liteworkspace.Student, turns []lite
 // class of twelve. The case this side exists for still passes — she types
 // 「发给 3 名学生」, the reply says 「三人」 — because that is a head count in both
 // shapes.
-func liteWorkspaceGroundedCounts(fromTools []int, rosterSize int, turns []liteworkspace.Turn, typed string) []int {
+//
+// groundRoster is false on a surface whose prompt does not state the class
+// size (groundsRosterSize); there the roster size is left out.
+func liteWorkspaceGroundedCounts(fromTools []int, rosterSize int, groundRoster bool, turns []liteworkspace.Turn, typed string) []int {
 	out := append([]int{}, fromTools...)
-	out = append(out, rosterSize)
+	if groundRoster {
+		out = append(out, rosterSize)
+	}
 	out = append(out, liteworkspace.StatedCounts(typed)...)
 	for _, t := range turns {
 		if t.Role == "teacher" {
