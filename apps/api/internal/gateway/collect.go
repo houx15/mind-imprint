@@ -38,7 +38,9 @@ func Collect(ctx context.Context, p Provider, r Resolved, req ChatRequest) (Chat
 			res.Reasoning += ev.TextDelta
 		case EventToolUse:
 			if ev.ToolUse != nil {
-				res.ToolCalls = append(res.ToolCalls, ToolCall{ID: ev.ToolUse.ID, Name: ev.ToolUse.Name})
+				res.ToolCalls = append(res.ToolCalls, ToolCall{
+					ID: ev.ToolUse.ID, Name: ev.ToolUse.Name, Args: decodeToolArgs(ev.ToolUse.ArgsJSON),
+				})
 			}
 		case EventUsage:
 			if ev.Usage != nil {

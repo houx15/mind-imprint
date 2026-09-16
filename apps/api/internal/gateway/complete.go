@@ -103,9 +103,10 @@ const maxCompletionBytes = 8 << 20
 
 // completeOpenAICompatible 发一次非流式请求。
 //
-// 第二个返回值是**带参数的**工具调用，只有 streamViaComplete 用得上：ChatResult
-// 里的 ToolCall 不带参数（`Collect` 从流式那一路收上来的也不带，见 collect.go），
-// 两条路必须给调用方一模一样的东西，所以这里不去「顺手补上」它。
+// 第二个返回值是工具调用的**原始参数串**，streamViaComplete 要照原样发出去。
+// ChatResult 里的 ToolCall 带的是解析好的参数（`Collect` 从流式那一路收上来的
+// 也一样，见 collect.go）—— 两条路给调用方的东西必须一模一样，工具循环才不会
+// 因为换了条通道就拿到一个「被调用了但没有参数」的工具调用。
 func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolved, body map[string]any, provider string) (ChatResult, []StreamToolUse, error) {
 	// 🚨 显式把 stream 关掉。buildBody 是两条路共用的，而流式那边靠它带上
 	// `stream:true`；漏掉这一行会让上游按 SSE 回，而这里按 JSON 读 —— 症状是
@@ -154,7 +155,9 @@ func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolv
 		res.Reasoning = c.Message.ReasoningContent
 		res.StopReason = mapOpenAIFinish(c.FinishReason)
 		for _, tc := range c.Message.ToolCalls {
-			res.ToolCalls = append(res.ToolCalls, ToolCall{ID: tc.ID, Name: tc.Function.Name})
+			res.ToolCalls = append(res.ToolCalls, ToolCall{
+				ID: tc.ID, Name: tc.Function.Name, Args: decodeToolArgs(tc.Function.Arguments),
+			})
 			uses = append(uses, StreamToolUse{ID: tc.ID, Name: tc.Function.Name, ArgsJSON: tc.Function.Arguments})
 		}
 	}

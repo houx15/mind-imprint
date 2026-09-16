@@ -5,6 +5,11 @@
 // logs, errors, or committed files.
 package gateway
 
+import (
+	"encoding/json"
+	"strings"
+)
+
 // ChatRole mirrors the TS ChatRole union.
 type ChatRole = string
 
@@ -30,6 +35,27 @@ type ToolCall struct {
 	ID   string         `json:"id"`
 	Name string         `json:"name"`
 	Args map[string]any `json:"args"`
+}
+
+// decodeToolArgs parses the JSON object a provider sent as one tool call's
+// arguments. Both paths that build a ChatResult call it — the streaming one in
+// collect.go and the non-streaming one in complete.go — so a tool loop gets the
+// same call whichever channel served it.
+//
+// Empty or malformed arguments give a nil map, which reaches the caller as a
+// call with no arguments. That is a state every tool executor already has to
+// handle, since a model can call a tool with `{}` as well; the executor says
+// which argument is missing and the model gets another round to fix it.
+func decodeToolArgs(raw string) map[string]any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 // ChatTool mirrors TS ChatTool { name, description, parameters }.
