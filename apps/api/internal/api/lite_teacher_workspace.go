@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -330,7 +332,11 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// a name cannot be assembled out of the end of one field and the start of
 	// the next, and joining costs nothing.
 	patch, cards := surface.result()
-	parts := liteWorkspaceCheckedParts(reply, choices, patch)
+	parts, err := liteWorkspaceCheckedParts(reply, choices, patch)
+	if err != nil {
+		httpx.WriteError(w, r, errLiteWorkspaceTurn("画布内容无法校验："+err.Error()))
+		return
+	}
 	parts = append(parts, surface.extraParts()...)
 	if bad := liteworkspace.UngroundedNames(
 		strings.Join(parts, "\n"), liteWorkspaceRosterNames(roster), grounded,
@@ -458,7 +464,7 @@ func liteWorkspaceRosterNames(roster []liteworkspace.Student) []string {
 // "text" against §6 would fail a turn over content already proven honest,
 // so it is not checked at all.
 
-func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) []string {
+func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, patch map[string]any) ([]string, error) {
 	out := []string{reply}
 	for _, c := range choices {
 		// The slug is checked too. It is validated against the catalogue
@@ -467,40 +473,59 @@ func liteWorkspaceCheckedParts(reply string, choices []liteworkspace.Choice, pat
 		// that is exempt from the check is a field someone will later widen.
 		out = append(out, c.ID, c.Label, c.Slug)
 	}
-	for k, v := range patch {
+	if len(patch) == 0 {
+		return out, nil
+	}
+	// The patch is normalised through JSON before it is walked, so the walk
+	// only ever sees string, float64, bool, nil, []any and map[string]any.
+	// A surface that writes a typed Go value ([]map[string]any, a struct)
+	// would otherwise reach a type the walk does not know, and its text would
+	// skip both §6 checks with no error. The client receives this same JSON,
+	// so what is checked is what she is sent.
+	//
+	// A patch that cannot be marshalled fails the turn: skipping it would be
+	// the silent miss this normalisation exists to prevent.
+	raw, err := json.Marshal(patch)
+	if err != nil {
+		return nil, err
+	}
+	var normalised map[string]any
+	if err := json.Unmarshal(raw, &normalised); err != nil {
+		return nil, err
+	}
+	for _, k := range slices.Sorted(maps.Keys(normalised)) {
 		// Top level only. A nested key named "text" (a parent report's
 		// section, say) is not the pasted article that setMaterial proved
 		// verbatim, so it is checked like everything else.
 		if k == "text" {
 			continue
 		}
-		out = liteWorkspacePatchStrings(out, v)
+		out = liteWorkspacePatchStrings(out, normalised[k])
 	}
-	return out
+	return out, nil
 }
 
 // liteWorkspacePatchStrings appends every string leaf under v, one part per
-// leaf, walking maps and slices to any depth. A parent report's patch is
-// {"body": {"<section>": "<text>"}}; a walk that stopped at the top level
-// would let revised report text skip both §6 checks. Each leaf stays its own
-// part so the head-count check still reads field by field.
+// leaf, walking maps and slices to any depth. v is JSON-decoded (see
+// liteWorkspaceCheckedParts), so these are the only container types. A parent
+// report's patch is {"body": {"<section>": "<text>"}}; a walk that stopped at
+// the top level would let revised report text skip both §6 checks. Each leaf
+// stays its own part so the head-count check still reads field by field.
+//
+// Non-string leaves produce no part: tier 3 is not a sentence about 3 people.
+// Map keys are walked in sorted order so the parts, and therefore the first
+// failing count in the error message, are the same on every run.
 func liteWorkspacePatchStrings(out []string, v any) []string {
 	switch value := v.(type) {
 	case string:
 		out = append(out, value)
-	case []string:
-		out = append(out, value...)
-	case map[string]string:
-		for _, s := range value {
-			out = append(out, s)
-		}
 	case []any:
 		for _, item := range value {
 			out = liteWorkspacePatchStrings(out, item)
 		}
 	case map[string]any:
-		for _, item := range value {
-			out = liteWorkspacePatchStrings(out, item)
+		for _, k := range slices.Sorted(maps.Keys(value)) {
+			out = liteWorkspacePatchStrings(out, value[k])
 		}
 	}
 	return out
