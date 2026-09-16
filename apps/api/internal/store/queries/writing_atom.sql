@@ -77,12 +77,15 @@ WITH deleted AS (
 )
 -- roles 与 texts 平行传入（0100）：role 是骨架给的通用块名，text 是她自己
 -- 写的那句话。一次 PUT 同时重写两列，role 才不会在她编辑正文时被抹掉。
-INSERT INTO writing_outline (atom_id, text, role, depth, position)
+-- source 与它们平行传入（0158）：一条她找来的材料要带着出处走，否则 印记
+-- 没法查它说的对不对 —— 而「查一份材料」正是这一列存在的全部理由。
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source)
 SELECT sqlc.arg(atom_id),
        unnest(sqlc.arg(texts)::text[]),
        unnest(sqlc.arg(roles)::text[]),
        unnest(sqlc.arg(depths)::int[]),
-       unnest(sqlc.arg(positions)::int[])
+       unnest(sqlc.arg(positions)::int[]),
+       unnest(sqlc.arg(sources)::text[])
 RETURNING *;
 
 -- name: ListWritingOutline :many
@@ -156,8 +159,8 @@ WHERE atom_id = $1 AND position >= $2;
 -- 与 ReplaceWritingOutline 的关键差别是**保住 id**。规划是一轮一轮长出来的，
 -- 每一轮都全量重写会重新铸 id，把父子引用和 writing_snippet.outline_id 一起
 -- 打断；这里逐个插入，既有的行一个都不动。
-INSERT INTO writing_outline (atom_id, text, role, depth, position)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: SetWritingOutlineGuide :exec

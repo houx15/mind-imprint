@@ -31,6 +31,18 @@ export type WritingOutlineItem = {
   role: string;
   depth: number;
   position: number;
+  /**
+   * 这条材料从哪来（服务端迁移 0158）。
+   *
+   * 非空 = 她**找回来的**一份材料（一份研究、一条报道、一组数据、一次访谈）。
+   * 空 = 她自己的经历，或者她没写出处 —— 两者不区分：她见过的事，出处就是
+   * 她自己，编一个「本人」进去是多余的。
+   *
+   * 印记 拿它去查这份材料（出处是谁 / 它真的说了那句话吗 / 它撑的是不是这条
+   * 分论点 / 相关有没有被写成因果），所以它必须跟着节点一起回传 —— 和 `role`
+   * 同一个道理：全量替换那条路只负责别把它弄丢。
+   */
+  source?: string;
   /** The stored guide for this block (writing_outline.go's writingOutlineItemDTO.Guide),
    *  painted the moment GET /outline loads instead of waiting for her to open
    *  the block — absent when this block has never been guided yet. */
@@ -348,13 +360,13 @@ export async function getWritingOutline(id: string): Promise<WritingOutlineItem[
  * Full replace — every existing row is wiped and the posted array reinserted
  * in order. An empty array clears the outline entirely.
  *
- * `role` MUST be echoed back from what the server served. The PUT rewrites
- * both columns, so dropping it here would erase every block label the moment
- * she edits one block's text.
+ * `role` and `source` MUST be echoed back from what the server served. The PUT
+ * rewrites both columns, so dropping either here would erase every block label
+ * — or every material's provenance — the moment she edits one block's text.
  */
 export async function putWritingOutline(
   id: string,
-  items: { text: string; role: string; depth: number }[],
+  items: { text: string; role: string; depth: number; source?: string }[],
 ): Promise<WritingOutlineItem[]> {
   const raw = await apiFetch<{ outline: WritingOutlineItem[] }>(`${base(id)}/outline`, {
     method: "PUT",

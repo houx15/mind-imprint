@@ -135,9 +135,15 @@ func writingPlanStalled(msgs []sqlc.AtomMessage, pending string) bool {
 // 写进 prompt**，模型就不必从十六轮对话里重新推一遍「她定下中心论点了吗」——
 // 而那个重新推的动作，是它每一轮都在做、而且每一轮都可能推错的事。
 type writingPlanShape struct {
-	Top      int // depth 0：中心论点、开头、结尾这些最上层的块
-	Points   int // depth 1：分论点
-	Material int // depth 2 及以下：她自己的材料
+	Top    int // depth 0：中心论点、开头、结尾这些最上层的块
+	Points int // depth 1：分论点
+	// depth 2 及以下：撑着某条分论点的材料。
+	//
+	// 🚨 **两种都算**：她自己见过、经历过的事，以及她找来的研究、报道、数据、
+	// 访谈。这个计数从来就没有区分过两者（它只看深度），但 prompt 那边一直只
+	// 问「你自己经历过吗」—— 2026-09-16 改成两种并列，理由见 writing_plan.go
+	// 的「材料有两种」。一个十五岁的学生，自己的经历通常只够撑一条理由。
+	Material int
 }
 
 func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
@@ -247,8 +253,8 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 	b.WriteString("\n【这份计划现在有什么】（服务端数出来的，不用你再数一遍）\n")
 	b.WriteString("- 最上层的块：" + strconv.Itoa(s.Top) + " 个\n")
 	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条（这篇篇幅下要 " + strconv.Itoa(need.Points) + " 条）\n")
-	b.WriteString("- 她自己的材料（挂在某条分论点下面的）：" + strconv.Itoa(s.Material) +
-		" 条（要 " + strconv.Itoa(need.Material) + " 条）\n")
+	b.WriteString("- 材料（挂在某条分论点下面的，她自己的经历和她找来的都算）：" +
+		strconv.Itoa(s.Material) + " 条（要 " + strconv.Itoa(need.Material) + " 条）\n")
 
 	var missing []string
 	if s.Top == 0 {
@@ -258,7 +264,8 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 		missing = append(missing, "支撑它的分论点还不到 "+strconv.Itoa(need.Points)+" 条")
 	}
 	if s.Material < need.Material {
-		missing = append(missing, "她自己见过、经历过的材料还不到 "+strconv.Itoa(need.Material)+" 条")
+		missing = append(missing, "撑得住这些理由的材料还不到 "+strconv.Itoa(need.Material)+
+			" 条（她自己见过的事，或者她找来的研究、报道、数据，都算）")
 	}
 	if len(missing) == 0 {
 		b.WriteString("- **判据都满足了。这一轮就请她去写。**\n")
@@ -322,4 +329,3 @@ const writingPlanStalledBlock = `
 2. 说清她现在就可以去写——写出来之后再回来补计划，比在这儿继续想更省力。
 3. **这一轮一个问号都不要有。**
 `
-

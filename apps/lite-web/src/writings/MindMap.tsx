@@ -381,6 +381,15 @@ function Branch({
           >
             {node.item.text}
           </span>
+          {/* 出处（服务端 0158）。只有她**找回来的**那种材料有 —— 她自己见过
+              的事出处就是她本人，摆一行「出处 · 本人」是废话。
+              摆出来的理由不是装饰：一份材料被写下来之后，「它是谁说的」是她
+              唯一还能回头查的东西，而印记 下一轮正是照着它查这份材料。 */}
+          {node.item.source && (
+            <span className="text-mk-small" style={{ color: "var(--mk-muted)" }}>
+              出处 · {node.item.source}
+            </span>
+          )}
         </div>
         {onRemove && (
           <button

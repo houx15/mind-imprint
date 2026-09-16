@@ -180,7 +180,7 @@ export function PlanningView({
    * one path that CAN change or remove a node, and it is only ever reachable
    * from her hands. The planning turn has no such call.
    */
-  async function mutate(next: { text: string; role: string; depth: number }[]) {
+  async function mutate(next: { text: string; role: string; depth: number; source?: string }[]) {
     try {
       onOutline(await putWritingOutline(writing.id, next));
       setJustAdded([]);
@@ -210,7 +210,7 @@ export function PlanningView({
       }
       keep.push(n);
     }
-    void mutate(keep.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
+    void mutate(keep.map((n) => ({ text: n.text, role: n.role, depth: n.depth, source: n.source })));
   }
 
   /**
@@ -223,7 +223,7 @@ export function PlanningView({
   function moveNode(draggedId: string, targetId: string, mode: OutlineMoveMode) {
     const next = moveOutlineNode(outline, draggedId, targetId, mode);
     if (!next) return;
-    void mutate(next.map((n) => ({ text: n.text, role: n.role, depth: n.depth })));
+    void mutate(next.map((n) => ({ text: n.text, role: n.role, depth: n.depth, source: n.source })));
   }
 
   function editNode(id: string, text: string) {
@@ -231,7 +231,7 @@ export function PlanningView({
       outline
         .slice()
         .sort((a, b) => a.position - b.position)
-        .map((n) => ({ text: n.id === id ? text : n.text, role: n.role, depth: n.depth })),
+        .map((n) => ({ text: n.id === id ? text : n.text, role: n.role, depth: n.depth, source: n.source })),
     );
   }
 
@@ -351,7 +351,11 @@ export function PlanningView({
                     那里只有一个删除按钮。」她在找一颗「＋」，而这里没有、
                     也不该有：加一条的办法是跟印记说一句，它摆上去。
                     那条路一直在，只是没有一个字讲过。 */}
-                想加一条，说给印记听；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
+                {/* 🚨 「找来的材料也说给印记听」是 2026-09-16 加的那半句。
+                    产品负责人：材料不该只有她自己的经历，她找回来的研究、报道、
+                    数据同样算，而且印记要查它 —— 但她得先知道这条路存在。
+                    说清楚「连出处一起说」，因为没有出处的那一份印记查不了。 */}
+                想加一条，说给印记听 —— 找来的研究、报道、数据也一样，连出处一起说；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
             <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />

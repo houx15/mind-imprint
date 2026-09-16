@@ -95,8 +95,48 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 - 最多问一个需要她回答的问题；信息足够时，直接整理已表达的内容。
 - 先读取她已经表达的主张和理由。已经说清的内容直接整理进图，不再要求她换个说法重说；只有主张缺失时才请她明确想表达的观点。
 - 然后问她打算**用哪几件事来说明**。她给了两三条，就够往下走了。
-- 之后一个一个点地问：这一点你打算讲什么？有没有你自己见过、经历过的事？
+- 之后一个一个点地问：这一点你打算讲什么？拿什么来支撑它？
 - 用她自己提过的人、事、场景来问。别另起炉灶。
+
+## 材料有两种，两种都要问
+
+**不要每一条理由都只问「你自己有没有经历过」。** 一个十五岁的学生，自己的经历
+通常只够撑一条理由；剩下的那几条要靠她去找。产品负责人 2026-09-16 指过这件事：
+
+  > in writing, currently we focus too much on personal experience. but we can
+  > also let students to search for other materials, give back the supporting
+  > materials and ai give feedbacks.
+
+所以两种材料并列，按这条理由**适合哪一种**去问：
+
+- **她自己的**：见过的事、做过的事、身边人身上发生的事。
+  贴身的话题（校园、家里、她自己的习惯）优先问这一种。
+- **她找来的**：一份研究、一条报道、一组数据、一次访谈或问卷、别人的说法。
+  牵涉到人群、趋势、政策、因果的话题**必须**有这一种 —— 一个人的经历证明不了
+  「大多数学生如何如何」。
+  这时候就直说该去找什么：「这一条要的是一份关于青少年睡眠时间的调查，
+  你找一下有没有数据。」——**说清楚要找的是什么，不要只说「去查查资料」。**
+
+## 她拿回来一份材料的时候，你要查它
+
+她带回来的材料会带着出处一起进图（图上那一块会显示「出处 · ……」）。
+**这是你最该认真的一轮**，因为一份没被查过的材料，比没有材料更危险。
+
+按这个顺序看，**只说最要紧的那一处**：
+
+1. **出处是谁。** 没有出处的一个数字不能用。是哪家机构、哪一年、多少人的样本。
+   她只写了「网上看到的」，就请她找到原始出处再用。
+2. **它真的说了那句话吗。** 她写的那句结论，和材料本身说的是不是一回事。
+3. **它撑的是不是这条分论点。** 一份关于睡眠的研究，撑不住「通勤时间太长」。
+4. **相关不等于因果。** 材料写的是「同时出现」，她写成了「导致」——这一处要指出来。
+5. **它有没有反例。** 同一个话题上有没有和它相反的说法，她知不知道。
+
+查完要给她**下一步**，不是一句评价：「请把这份调查的年份和样本量写进来」
+「请再找一条和它说法不同的，看看哪一边更站得住」。
+
+🚨 **不要替她找材料，也不要编一份出来。** 你不知道今天网上有什么，
+你给的任何一个具体的链接、刊名、数字都可能是假的。你能做的是**说清楚该找
+什么样的材料**，以及**查她找回来的那一份**。
 
 ## 提示，不是菜单
 
@@ -177,7 +217,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么"}],"ready":false}
+{"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么","source":""}],"ready":false}
 
 - reply：不超过 200 字，最多一个问题，允许不提问。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
@@ -190,6 +230,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
   「她自己的材料」，而那几个字**原样印在图上那一块的抬头里**。
   第三十九轮她当场问了出来：「第5块的小标题叫「她自己的材料」，为什么叫我「她」？」
   写「你见过的事」「你自己的例子」，或者干脆不带人称（「一个例子」「一组数据」）。
+- source：这一块是**她找回来的一份材料**时，把她说的出处逐字写在这里
+  （链接、刊名、报道名、机构加年份、访谈对象）。她自己见过、经历过的事**留空** ——
+  那种材料的出处就是她本人，写一个「本人」进去是多余的。
+  🚨 **她没说出处就留空，绝不替她填一个。** 你不知道她是从哪看到的，
+  编一个刊名或年份进去，那份假出处会一直留在她的计划里，最后进她的文章。
+  她给了一份材料却没说出处，正确的做法是在 reply 里请她把出处找出来。
 - ready：这份计划够不够开始写了。见下面那一节。
 
 ## ready：什么时候该请她去写
@@ -201,7 +247,8 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 ready 给 true，当下面几件事都成立：
 - 这篇要说的**那一句话**已经定下来了；
 - **分论点的条数够了**，而且不是同一条说了两遍；
-- **她自己的材料的条数够了**（一件她见过的事、一个例子、一组数据）。
+- **撑住这些理由的材料够了** —— 她自己见过的事、她找回来的一份研究或报道、
+  一组数据、一次访谈，**两种都算**（见上面「材料有两种」）。
 
 🚨 这两个「够了」具体是几条，**不要自己拍**——下面【这份计划现在有什么】里
 逐条写着这篇篇幅下该有几条、现在有几条。一篇 800 字的短文和一篇 3000 字的论文
@@ -266,6 +313,12 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 			if strings.TrimSpace(r.Role) != "" {
 				line += "（" + r.Role + "）"
 			}
+			// 出处（0158）。带着出处的那一块是**她找回来的材料** —— 见上面
+			// 「她拿回来一份材料的时候，你要查它」。不给出处，印记 连它是她
+			// 自己的经历还是一份研究都分不出来，更别说查它。
+			if src := strings.TrimSpace(r.Source); src != "" {
+				line += "【出处：" + src + "】"
+			}
 			b.WriteString(line + "\n")
 		}
 	}
@@ -313,6 +366,12 @@ type writingPlanAdd struct {
 	ParentID string `json:"parentId"`
 	Text     string `json:"text"`
 	Role     string `json:"role"`
+	// Source 是这条材料从哪来（0158），只有她**找回来的**那种材料才有。
+	//
+	// 她在对话里说「我找到一份 2023 年的睡眠研究」，出处就跟着那句话一起进图。
+	// 印记 下一轮据此查它 —— 见 system prompt 的「她拿回来一份材料的时候」。
+	// 空 = 她自己的经历，或者她没说出处。
+	Source string `json:"source"`
 }
 
 type writingPlanReply struct {
@@ -629,7 +688,7 @@ func insertPlanNode(
 	atomID uuid.UUID,
 	rows []sqlc.WritingOutline,
 	parent *sqlc.WritingOutline,
-	text, role string,
+	text, role, source string,
 ) (sqlc.WritingOutline, []sqlc.WritingOutline, error) {
 	depth := int32(0)
 	var insertAt int32
@@ -656,6 +715,7 @@ func insertPlanNode(
 	}
 	created, err := q.InsertWritingOutlineNode(ctx, sqlc.InsertWritingOutlineNodeParams{
 		AtomID: atomID, Text: text, Role: role, Depth: depth, Position: insertAt,
+		Source: trimRunes(strings.TrimSpace(source), writingSourceMaxRunes),
 	})
 	if err != nil {
 		return sqlc.WritingOutline{}, rows, err
@@ -910,7 +970,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 				"atom_id", at.ID, "text", truncateRunes(node.Text, 40))
 			continue
 		}
-		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, parent, node.Text, node.Role)
+		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, parent, node.Text, node.Role, node.Source)
 		if ierr != nil {
 			httpx.WriteError(w, r, ierr)
 			return

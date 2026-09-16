@@ -60,6 +60,9 @@ type writingOutlineItemDTO struct {
 	Role     string `json:"role"`
 	Depth    int32  `json:"depth"`
 	Position int32  `json:"position"`
+	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处；
+	// 界面据此不显示出处那一行，也不编一个「本人」出来。
+	Source string `json:"source,omitempty"`
 	// Guide is the stored 引导 (Task 4, writing_guide.go): job + resolved
 	// methods + questions, painted on first render instead of waiting for
 	// her to click 卡住了？. nil (omitted) when this block has never been
@@ -70,6 +73,7 @@ type writingOutlineItemDTO struct {
 func toWritingOutlineItemDTO(row sqlc.WritingOutline) writingOutlineItemDTO {
 	dto := writingOutlineItemDTO{
 		ID: row.ID.String(), Text: row.Text, Role: row.Role, Depth: row.Depth, Position: row.Position,
+		Source: row.Source,
 	}
 	if g, ok := storedWritingGuide(row); ok {
 		dto.Guide = &g
@@ -111,6 +115,10 @@ type writingOutlineItemReq struct {
 	Role  string `json:"role"`
 	Text  string `json:"text"`
 	Depth int32  `json:"depth"`
+	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处。
+	// 客户端把服务端发给它的那一份原样回传 —— 和 Role 同一个道理：全量替换
+	// 这条路只负责别把它弄丢。
+	Source string `json:"source"`
 }
 
 // getWritingOutline is GET /api/v1/writings/{id}/outline.
@@ -138,19 +146,28 @@ func (a *API) getWritingOutline(w http.ResponseWriter, r *http.Request) {
 // Built in a single loop over the SAME source slice, so the three results are
 // equal length by construction — position is simply the loop index, and depth
 // is clamped here (0..2) rather than left to the caller.
-func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32) {
+func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32, sources []string) {
 	texts = make([]string, len(items))
 	roles = make([]string, len(items))
 	depths = make([]int32, len(items))
 	positions = make([]int32, len(items))
+	sources = make([]string, len(items))
 	for i, it := range items {
 		texts[i] = strings.TrimSpace(it.Text)
 		roles[i] = strings.TrimSpace(it.Role)
 		depths[i] = clampDepth(it.Depth)
 		positions[i] = int32(i)
+		sources[i] = trimRunes(strings.TrimSpace(it.Source), writingSourceMaxRunes)
 	}
-	return texts, roles, depths, positions
+	return texts, roles, depths, positions, sources
 }
+
+// writingSourceMaxRunes 是一条出处能有多长。
+//
+// 300：一个链接加一句刊名、期号绰绰有余，而再长的那些是她把整段材料粘进了
+// 出处栏 —— 那段材料该待在节点的正文里。截断而不是拒绝：她已经打完了，
+// 为一个格式问题把整次保存退回去，代价比截掉一截大。
+const writingSourceMaxRunes = 300
 
 // validateWritingOutlineArrayLengths is a hard guard before ReplaceWritingOutline
 // runs: Task 1's review of that query found that Postgres NULL-pads the
@@ -163,8 +180,9 @@ func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, r
 // fires — it exists so that stays true by an assertion, not merely by
 // happenstance, and so any future caller that assembles the three arrays a
 // different way gets a clean 400 instead of a database error.
-func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32) error {
-	if len(texts) != len(roles) || len(texts) != len(depths) || len(texts) != len(positions) {
+func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32, sources []string) error {
+	if len(texts) != len(roles) || len(texts) != len(depths) || len(texts) != len(positions) ||
+		len(texts) != len(sources) {
 		return httpx.ErrBadRequest("outline_array_length_mismatch", "提纲数据格式不对，请重试。", nil)
 	}
 	return nil
@@ -190,8 +208,8 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	texts, roles, depths, positions := buildWritingOutlineArrays(body.Outline)
-	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions); verr != nil {
+	texts, roles, depths, positions, sources := buildWritingOutlineArrays(body.Outline)
+	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); verr != nil {
 		httpx.WriteError(w, r, verr)
 		return
 	}
@@ -213,6 +231,7 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := a.d.Queries.ReplaceWritingOutline(r.Context(), sqlc.ReplaceWritingOutlineParams{
 		AtomID: at.ID, Texts: texts, Roles: roles, Depths: depths, Positions: positions,
+		Sources: sources,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

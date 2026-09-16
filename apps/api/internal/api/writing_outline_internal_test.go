@@ -24,8 +24,9 @@ func TestValidateWritingOutlineArrayLengths_MismatchReturns400(t *testing.T) {
 	roles := []string{"", ""}
 	depths := []int32{0}
 	positions := []int32{0, 1}
+	sources := []string{"", ""}
 
-	err := validateWritingOutlineArrayLengths(texts, roles, depths, positions)
+	err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources)
 	if err == nil {
 		t.Fatalf("mismatched array lengths must be rejected, got nil error")
 	}
@@ -45,7 +46,8 @@ func TestValidateWritingOutlineArrayLengths_MatchedIsNil(t *testing.T) {
 	roles := []string{"你的立场", "最强的那个理由"}
 	depths := []int32{0, 1}
 	positions := []int32{0, 1}
-	if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions); err != nil {
+	sources := []string{"", "中国睡眠研究会 2023 年报告"}
+	if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); err != nil {
 		t.Fatalf("matched lengths must pass, got %v", err)
 	}
 }
@@ -59,11 +61,12 @@ func TestBuildWritingOutlineArrays_AlwaysProducesEqualLengths(t *testing.T) {
 		for i := range items {
 			items[i] = writingOutlineItemReq{Text: "x", Role: "r", Depth: int32(i)}
 		}
-		texts, roles, depths, positions := buildWritingOutlineArrays(items)
-		if len(texts) != n || len(roles) != n || len(depths) != n || len(positions) != n {
-			t.Fatalf("n=%d: got lengths %d/%d/%d/%d", n, len(texts), len(roles), len(depths), len(positions))
+		texts, roles, depths, positions, sources := buildWritingOutlineArrays(items)
+		if len(texts) != n || len(roles) != n || len(depths) != n || len(positions) != n || len(sources) != n {
+			t.Fatalf("n=%d: got lengths %d/%d/%d/%d/%d",
+				n, len(texts), len(roles), len(depths), len(positions), len(sources))
 		}
-		if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions); err != nil {
+		if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); err != nil {
 			t.Fatalf("n=%d: buildWritingOutlineArrays' own output failed its own guard: %v", n, err)
 		}
 	}

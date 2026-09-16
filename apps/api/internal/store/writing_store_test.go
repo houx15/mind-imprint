@@ -136,6 +136,7 @@ func TestWritingStore_CascadesFromAtom(t *testing.T) {
 		Roles:     []string{"", ""},
 		Depths:    []int32{0, 0},
 		Positions: []int32{0, 1},
+		Sources:   []string{"", ""},
 	}); err != nil {
 		t.Fatalf("ReplaceWritingOutline: %v", err)
 	}
@@ -326,6 +327,7 @@ func TestWritingStore_OutlineSnippetDraftRoundTrip(t *testing.T) {
 		Roles:     []string{"", "", ""},
 		Depths:    []int32{0, 0, 0},
 		Positions: []int32{0, 1, 2},
+		Sources:   []string{"", "", ""},
 	}); err != nil {
 		t.Fatalf("ReplaceWritingOutline: %v", err)
 	}
@@ -344,6 +346,7 @@ func TestWritingStore_OutlineSnippetDraftRoundTrip(t *testing.T) {
 		Roles:     []string{""},
 		Depths:    []int32{0},
 		Positions: []int32{0},
+		Sources:   []string{""},
 	}); err != nil {
 		t.Fatalf("ReplaceWritingOutline (2nd): %v", err)
 	}
