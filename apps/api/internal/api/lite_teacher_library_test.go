@@ -105,3 +105,16 @@ func TestLiteTeacherLibraryRecommendedLimit(t *testing.T) {
 		t.Fatalf("articles = %d, want <= 3", len(resp.Articles))
 	}
 }
+
+// TestLiteTeacherLibraryRecommendedLimitIsCapped — an oversized ?limit= is
+// clamped, not passed straight through to RecommendForGroup.
+func TestLiteTeacherLibraryRecommendedLimitIsCapped(t *testing.T) {
+	h, _, teacher, classID, _ := liteTeacherFixture(t)
+	var resp libraryGroupRecommendedResp
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/library/recommended?limit=9999", &resp); code != http.StatusOK {
+		t.Fatalf("recommended = %d", code)
+	}
+	if len(resp.Articles) > 24 {
+		t.Fatalf("articles = %d, want <= 24 (the cap), even for an oversized limit", len(resp.Articles))
+	}
+}

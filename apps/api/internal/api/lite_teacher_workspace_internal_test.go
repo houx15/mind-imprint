@@ -2,9 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/liteassign"
 )
 
@@ -84,5 +87,70 @@ func TestLiteWorkspaceCardStateUnknownSlug(t *testing.T) {
 	}
 	if !strings.Contains(got, "文章：未找到") {
 		t.Fatalf("card state = %q, want 文章：未找到", got)
+	}
+}
+
+// TestLiteWorkspaceRecommendArticlesLoadsProfilesLazily — most turns never
+// call recommend_articles, and building every enrolled student's profile
+// (ListLiteWeekClassStudents + three queries per student inside
+// libraryProfileIn — roughly ninety round trips for a class of 30) must not
+// run for a turn that never reaches for the tool.
+func TestLiteWorkspaceRecommendArticlesLoadsProfilesLazily(t *testing.T) {
+	calls := 0
+	run := &liteWorkspaceRun{
+		groupProfilesLoad: func() ([]library.Profile, error) {
+			calls++
+			return []library.Profile{{Tier: 2}}, nil
+		},
+	}
+	run.execute(gateway.ToolCall{Name: "set_fields", Args: map[string]any{"title": "阅读作业"}})
+	if calls != 0 {
+		t.Fatalf("loader calls = %d, want 0 — set_fields must never touch the profile loader", calls)
+	}
+}
+
+// TestLiteWorkspaceRecommendArticlesCachesProfilesWithinATurn — the model may
+// call recommend_articles more than once in one turn (retrying a bad
+// discipline filter, say); the second call must reuse the first's fetch
+// rather than pay for it again.
+func TestLiteWorkspaceRecommendArticlesCachesProfilesWithinATurn(t *testing.T) {
+	calls := 0
+	run := &liteWorkspaceRun{
+		groupProfilesLoad: func() ([]library.Profile, error) {
+			calls++
+			return []library.Profile{{Tier: 2}}, nil
+		},
+	}
+	run.execute(gateway.ToolCall{Name: "recommend_articles", Args: map[string]any{}})
+	run.execute(gateway.ToolCall{Name: "recommend_articles", Args: map[string]any{}})
+	if calls != 1 {
+		t.Fatalf("loader calls = %d, want 1 — the second call must reuse the cached profiles", calls)
+	}
+}
+
+// TestLiteWorkspaceRecommendArticlesLoadErrorIsAToolError — a loader failure
+// (a transient DB error, say) must come back as a tool result the model can
+// react to, not fail the turn. execute has no error return path at all: the
+// only way a failure here can reach the teacher is through the reply the
+// model writes after reading this tool error.
+func TestLiteWorkspaceRecommendArticlesLoadErrorIsAToolError(t *testing.T) {
+	run := &liteWorkspaceRun{
+		groupProfilesLoad: func() ([]library.Profile, error) {
+			return nil, errors.New("connection refused")
+		},
+	}
+	got := run.execute(gateway.ToolCall{Name: "recommend_articles", Args: map[string]any{}})
+	var decoded struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got), &decoded); err != nil {
+		t.Fatalf("decode tool result: %v — %s", err, got)
+	}
+	if decoded.OK || !strings.Contains(decoded.Error, "connection refused") {
+		t.Fatalf("tool result = %+v, want ok=false carrying the underlying error", decoded)
+	}
+	if len(run.cards) != 0 {
+		t.Fatalf("cards = %+v, want none — a failed load must not push an articles card", run.cards)
 	}
 }

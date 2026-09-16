@@ -185,14 +185,6 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, r, err)
 		return
 	}
-	// recommend_articles needs every member's profile, loaded once here (not
-	// inside the tool loop, which has no ctx/db access) so the tool call
-	// itself is pure computation.
-	groupProfiles, err := classLibraryProfiles(ctx, a.d.Queries, cls.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
 
 	mctx, cancel := detachedModelCtx(r)
 	defer cancel()
@@ -213,8 +205,16 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// material.
 	card := liteWorkspaceParseArtifact(req.Artifact)
 	run := &liteWorkspaceRun{
-		roster: roster, groupProfiles: groupProfiles, kind: card.Kind,
+		roster: roster, kind: card.Kind,
 		materialSet: card.Slug != "" || card.ReadingSource == "personalized",
+		// Lazy: most turns never call recommend_articles, and loading every
+		// enrolled student's profile eagerly would pay a class-of-30's worth
+		// of DB round trips (see loadGroupProfiles) on every turn regardless.
+		// mctx (not ctx) so this load survives the same way the model call
+		// does if she navigates away mid-turn.
+		groupProfilesLoad: func() ([]library.Profile, error) {
+			return classLibraryProfiles(mctx, a.d.Queries, cls.ID)
+		},
 	}
 	if run.kind == "" {
 		run.kind = "reading"
@@ -583,10 +583,23 @@ func liteWorkspaceDeslugged(text string) string {
 // liteWorkspaceRun accumulates what one turn's tools produced.
 type liteWorkspaceRun struct {
 	roster []liteworkspace.Student
-	// groupProfiles is every enrolled student's library.Profile, loaded once
-	// before the tool loop starts (see classLibraryProfiles). recommend_articles
-	// is pure computation over it — no query runs inside the loop.
-	groupProfiles []library.Profile
+	// groupProfilesLoad fetches every enrolled student's library.Profile
+	// (classLibraryProfiles, bound to this turn's ctx/queries/class id at
+	// construction). It is called at most once per turn, lazily, from
+	// loadGroupProfiles — never eagerly here, because most turns never call
+	// recommend_articles, and a class of 30 costs roughly ninety DB round
+	// trips to build (ListLiteWeekClassStudents + three queries per student
+	// inside libraryProfileIn) for a tool most turns do not reach for. It is
+	// also swapped out in tests to count and to fail on demand.
+	groupProfilesLoad func() ([]library.Profile, error)
+	// groupProfiles/groupProfilesErr/groupProfilesLoaded memoise
+	// groupProfilesLoad's one call: a turn may call recommend_articles more
+	// than once (the model retrying a bad discipline filter, say), and the
+	// second call must not pay for the fetch — or repeat a transient
+	// failure — again.
+	groupProfiles       []library.Profile
+	groupProfilesErr    error
+	groupProfilesLoaded bool
 	// kind is the card's homework type as it stands: seeded from the artifact,
 	// updated when set_fields writes it. It decides which cells the card has,
 	// so set_material reads it before writing a material into a card that has
@@ -620,6 +633,17 @@ func (run *liteWorkspaceRun) write(field string, value any) {
 		run.patch = map[string]any{}
 	}
 	run.patch[field] = value
+}
+
+// loadGroupProfiles runs groupProfilesLoad the first time recommend_articles
+// is called this turn — success or failure alike is cached, so a second call
+// in the same turn reads it back instead of hitting the database again.
+func (run *liteWorkspaceRun) loadGroupProfiles() ([]library.Profile, error) {
+	if !run.groupProfilesLoaded {
+		run.groupProfiles, run.groupProfilesErr = run.groupProfilesLoad()
+		run.groupProfilesLoaded = true
+	}
+	return run.groupProfiles, run.groupProfilesErr
 }
 
 // runLiteWorkspaceLoop runs the bounded tool loop and returns the reply the
@@ -890,11 +914,19 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 // without her having to scroll a list to compare them.
 const liteWorkspaceRecommendLimit = 6
 
-// recommendArticles is pure computation over run.groupProfiles, loaded once
-// before the tool loop — no query runs here. The optional disciplines filter
-// narrows the candidate articles the same way search_library's does, before
-// library.RecommendForGroup scores what is left.
+// recommendArticles loads the class's profiles on first use (see
+// loadGroupProfiles), then is pure computation: the optional disciplines
+// filter narrows the candidate articles the same way search_library's does,
+// before library.RecommendForGroup scores what is left.
+//
+// A load failure comes back as a tool result, not a failed turn — the same
+// posture every other tool error here takes: the model can tell her the
+// recommendation is not available and carry on with the rest of the card.
 func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
+	profiles, err := run.loadGroupProfiles()
+	if err != nil {
+		return liteWorkspaceToolError("班级的阅读画像加载失败：" + err.Error())
+	}
 	arts := library.All()
 	if want := toolStrings(args, "disciplines"); len(want) > 0 {
 		wantSet := make(map[string]bool, len(want))
@@ -912,7 +944,7 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 		}
 		arts = filtered
 	}
-	recs := library.RecommendForGroup(arts, run.groupProfiles, liteWorkspaceRecommendLimit)
+	recs := library.RecommendForGroup(arts, profiles, liteWorkspaceRecommendLimit)
 	rows := make([]map[string]any, 0, len(recs))
 	for _, rec := range recs {
 		rows = append(rows, map[string]any{
@@ -921,7 +953,7 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 		})
 	}
 	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "articles", Rows: rows})
-	return liteWorkspaceToolOK(map[string]any{"articles": rows, "tier": library.GroupTier(run.groupProfiles)})
+	return liteWorkspaceToolOK(map[string]any{"articles": rows, "tier": library.GroupTier(profiles)})
 }
 
 func (run *liteWorkspaceRun) listStudents(args map[string]any) string {

@@ -27,6 +27,10 @@ import (
 // same count as the student shelf's own recommendation strip.
 const liteTeacherLibraryRecommendDefault = libraryRecommendCount * 2
 
+// liteTeacherLibraryRecommendMax bounds ?limit= regardless of what she asks
+// for — the card this renders into is a strip, not a paginated list.
+const liteTeacherLibraryRecommendMax = 24
+
 // libraryGroupRecommendationDTO is one article recommended to the class: the
 // same shape GET /library gives one article, plus why it was picked and how
 // many of the class have already read it.
@@ -76,7 +80,7 @@ func (a *API) getLiteTeacherLibraryRecommended(w http.ResponseWriter, r *http.Re
 			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_limit", "limit 必须是正整数", nil))
 			return
 		}
-		limit = n
+		limit = min(n, liteTeacherLibraryRecommendMax)
 	}
 
 	ctx := r.Context()
