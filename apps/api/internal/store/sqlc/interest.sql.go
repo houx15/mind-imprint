@@ -354,7 +354,7 @@ func (q *Queries) ListInterestProposals(ctx context.Context, arg ListInterestPro
 }
 
 const listKeywordDig = `-- name: ListKeywordDig :many
-SELECT keyword_id, kind, text, why, created_at FROM keyword_dig WHERE keyword_id = $1 ORDER BY
+SELECT keyword_id, kind, text, why, created_at, library_slug, library_tier FROM keyword_dig WHERE keyword_id = $1 ORDER BY
   CASE kind WHEN 'think' THEN 1 WHEN 'read' THEN 2 WHEN 'write' THEN 3 ELSE 4 END
 `
 
@@ -373,6 +373,8 @@ func (q *Queries) ListKeywordDig(ctx context.Context, keywordID uuid.UUID) ([]Ke
 			&i.Text,
 			&i.Why,
 			&i.CreatedAt,
+			&i.LibrarySlug,
+			&i.LibraryTier,
 		); err != nil {
 			return nil, err
 		}
@@ -748,15 +750,20 @@ func (q *Queries) UpsertInterestKeyword(ctx context.Context, arg UpsertInterestK
 }
 
 const upsertKeywordDig = `-- name: UpsertKeywordDig :exec
-INSERT INTO keyword_dig (keyword_id, kind, text, why) VALUES ($1,$2,$3,$4)
-ON CONFLICT (keyword_id, kind) DO UPDATE SET text = EXCLUDED.text, why = EXCLUDED.why
+INSERT INTO keyword_dig (keyword_id, kind, text, why, library_slug, library_tier)
+VALUES ($1,$2,$3,$4,$5,$6)
+ON CONFLICT (keyword_id, kind) DO UPDATE SET
+  text = EXCLUDED.text, why = EXCLUDED.why,
+  library_slug = EXCLUDED.library_slug, library_tier = EXCLUDED.library_tier
 `
 
 type UpsertKeywordDigParams struct {
-	KeywordID uuid.UUID `json:"keyword_id"`
-	Kind      string    `json:"kind"`
-	Text      string    `json:"text"`
-	Why       string    `json:"why"`
+	KeywordID   uuid.UUID `json:"keyword_id"`
+	Kind        string    `json:"kind"`
+	Text        string    `json:"text"`
+	Why         string    `json:"why"`
+	LibrarySlug string    `json:"library_slug"`
+	LibraryTier int32     `json:"library_tier"`
 }
 
 func (q *Queries) UpsertKeywordDig(ctx context.Context, arg UpsertKeywordDigParams) error {
@@ -765,6 +772,8 @@ func (q *Queries) UpsertKeywordDig(ctx context.Context, arg UpsertKeywordDigPara
 		arg.Kind,
 		arg.Text,
 		arg.Why,
+		arg.LibrarySlug,
+		arg.LibraryTier,
 	)
 	return err
 }

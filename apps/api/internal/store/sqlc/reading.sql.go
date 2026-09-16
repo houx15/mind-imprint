@@ -146,7 +146,7 @@ func (q *Queries) GetReadingBrief(ctx context.Context, atomID uuid.UUID) (Readin
 }
 
 const getReadingSource = `-- name: GetReadingSource :one
-SELECT atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline FROM reading_source WHERE atom_id = $1
+SELECT atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline, excerpt_only FROM reading_source WHERE atom_id = $1
 `
 
 func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (ReadingSource, error) {
@@ -162,6 +162,7 @@ func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (Readi
 		&i.Figures,
 		&i.Headings,
 		&i.Outline,
+		&i.ExcerptOnly,
 	)
 	return i, err
 }
@@ -636,7 +637,7 @@ func (q *Queries) SetReadingTaskStatus(ctx context.Context, arg SetReadingTaskSt
 }
 
 const updateReadingSourceOutline = `-- name: UpdateReadingSourceOutline :one
-UPDATE reading_source SET outline = $2 WHERE atom_id = $1 RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
+UPDATE reading_source SET outline = $2 WHERE atom_id = $1 RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline, excerpt_only
 `
 
 type UpdateReadingSourceOutlineParams struct {
@@ -660,6 +661,7 @@ func (q *Queries) UpdateReadingSourceOutline(ctx context.Context, arg UpdateRead
 		&i.Figures,
 		&i.Headings,
 		&i.Outline,
+		&i.ExcerptOnly,
 	)
 	return i, err
 }
@@ -671,7 +673,7 @@ ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
       source_url = EXCLUDED.source_url, figures = EXCLUDED.figures,
       headings = EXCLUDED.headings, ingested_at = now()
-RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline, excerpt_only
 `
 
 type UpsertLibraryReadingSourceParams struct {
@@ -704,6 +706,7 @@ func (q *Queries) UpsertLibraryReadingSource(ctx context.Context, arg UpsertLibr
 		&i.Figures,
 		&i.Headings,
 		&i.Outline,
+		&i.ExcerptOnly,
 	)
 	return i, err
 }
@@ -745,19 +748,21 @@ func (q *Queries) UpsertReadingBrief(ctx context.Context, arg UpsertReadingBrief
 }
 
 const upsertReadingSource = `-- name: UpsertReadingSource :one
-INSERT INTO reading_source (atom_id, title, body, source_url)
-VALUES ($1, $2, $3, $4)
+INSERT INTO reading_source (atom_id, title, body, source_url, excerpt_only)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
-      source_url = EXCLUDED.source_url, ingested_at = now()
-RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline
+      source_url = EXCLUDED.source_url, excerpt_only = EXCLUDED.excerpt_only,
+      ingested_at = now()
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings, outline, excerpt_only
 `
 
 type UpsertReadingSourceParams struct {
-	AtomID    uuid.UUID `json:"atom_id"`
-	Title     string    `json:"title"`
-	Body      string    `json:"body"`
-	SourceUrl *string   `json:"source_url"`
+	AtomID      uuid.UUID `json:"atom_id"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	SourceUrl   *string   `json:"source_url"`
+	ExcerptOnly bool      `json:"excerpt_only"`
 }
 
 func (q *Queries) UpsertReadingSource(ctx context.Context, arg UpsertReadingSourceParams) (ReadingSource, error) {
@@ -766,6 +771,7 @@ func (q *Queries) UpsertReadingSource(ctx context.Context, arg UpsertReadingSour
 		arg.Title,
 		arg.Body,
 		arg.SourceUrl,
+		arg.ExcerptOnly,
 	)
 	var i ReadingSource
 	err := row.Scan(
@@ -778,6 +784,7 @@ func (q *Queries) UpsertReadingSource(ctx context.Context, arg UpsertReadingSour
 		&i.Figures,
 		&i.Headings,
 		&i.Outline,
+		&i.ExcerptOnly,
 	)
 	return i, err
 }

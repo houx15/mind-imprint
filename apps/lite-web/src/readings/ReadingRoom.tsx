@@ -152,6 +152,15 @@ export type LiteReadingRoomProps = {
   headingBlockIds?: string[];
   /** 导读：这篇在问什么、它怎么组织、哪几段承重。排读法之前没有。 */
   outline?: ReadingOutline;
+  /**
+   * 正文里放的只是这篇的摘要/导语。
+   *
+   * 从探索地图点开一条新闻、而服务端三条取正文的路都没走通时为真。正文下面
+   * 因此多一条说明加一颗跳转按钮 —— 产品负责人 2026-09-16 的裁定，见
+   * `explore/NewsSheet.tsx` 的文件头。**不说出来的话，两句话的摘要长得和一篇
+   * 很短的文章一模一样，她会以为自己读完了。**
+   */
+  excerptOnly?: boolean;
 };
 
 /**
@@ -232,6 +241,7 @@ export function ReadingRoom({
   figures,
   headingBlockIds,
   outline,
+  excerptOnly = false,
   onBlockNote,
 }: LiteReadingRoomProps) {
   // DEBT: `useReadingLoop` still carries pro's signature and wants a
@@ -740,6 +750,9 @@ export function ReadingRoom({
                     );
                   }}
                 />
+                {excerptOnly && (
+                  <ExcerptOnlyNotice url={source.sourceUrl} />
+                )}
               </div>
             </article>
         </section>
@@ -903,5 +916,51 @@ function ArticleFigure({ figure }: { figure: ReadingFigure }) {
         {figure.credit && <span className="mk-reading-figure__credit">{figure.credit}</span>}
       </figcaption>
     </figure>
+  );
+}
+
+/**
+ * ExcerptOnlyNotice —— 「上面那段只是摘要」。
+ *
+ * # 它为什么必须存在
+ *
+ * 从探索地图点开一条新闻，服务端会按三条路取正文：feed 自带的正文 → 现抓一次
+ * 原页面 → feed 的导语。落到第三条时，正文区里放的是两三句话的摘要。
+ *
+ * **一段摘要和一篇很短的报道在屏幕上长得一模一样。** 不说出来，她读完两句话
+ * 就以为读完了这一篇 —— 这是「看不见就是没有」那条教训的另一种形态
+ * （memory: observation-tool-is-the-bug-2026-09-12）。
+ *
+ * 文案是产品负责人 2026-09-16 逐字给的：
+ *
+ *   > 「我们无法直接获取正文，如果想要阅读全文，请跳转原网站」，按钮「点击跳转」
+ *
+ * # 跳转是她按的，不是我们替她按的
+ *
+ * 上一版在「现在读」的时候自动 `window.open` 一次原文，这个组件取代的就是那件
+ * 事。链接照旧带 `rel="noopener noreferrer"`。
+ */
+function ExcerptOnlyNotice({ url }: { url: string }) {
+  return (
+    <aside className="mk-reading-excerpt-note">
+      <p className="mk-reading-excerpt-note__text">
+        我们无法直接获取正文，如果想要阅读全文，请跳转原网站
+      </p>
+      {url ? (
+        <a
+          className="mk-reading-excerpt-note__cta"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          点击跳转
+        </a>
+      ) : (
+        // 没有链接可跳的时候不摆一颗点不动的按钮：说清楚这一篇没有留下原网址，
+        // 比一颗假按钮诚实。从地图进来的那些不会走到这里（星球一定有 url），
+        // 但这个组件不该假设自己只被那一条路用到。
+        <p className="mk-reading-excerpt-note__text">这一篇没有留下原网址。</p>
+      )}
+    </aside>
   );
 }

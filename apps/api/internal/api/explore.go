@@ -338,12 +338,69 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading, false))
 }
 
-// mintReadingForPlanet 为一颗星球建一篇空的阅读。
+// planetBodyMinRunes 是「这份文本算不算正文」。
+//
+// 和 news.GroundText 用的是同一个数（internal/news/write.go 的 groundMinRunes），
+// 同一个理由：六百字以下的那份，多半是一段导语，不是一篇文章。判错的方向在这里
+// 是不对称的 —— 把一段摘要当正文放过去，她读完两句话就以为读完了一篇报道；
+// 把一篇很短的报道标成摘要，她多看到一行「跳转原网站」，仅此而已。
+const planetBodyMinRunes = 600
+
+// planetArticle 是一颗星球最终落进阅读室的那份文本。
+type planetArticle struct {
+	Body string
+	// ExcerptOnly —— 这里放的只是摘要/导语。阅读室据此摆出「跳转原网站」那一条。
+	ExcerptOnly bool
+}
+
+// resolvePlanetArticle 决定她点开这颗星之后读到的是什么。
+//
+// 三条路，按可信度排（和 news.GroundText 同一套顺序，同一个理由）：
+//
+//  1. feed 自己带的正文（0141 存下来的那一列）—— 免费、不会被挡。
+//  2. 现去抓一次原页面 —— 有的站行，有的 403。
+//  3. feed 的导语 —— 这就是「只有摘要」那种情况。
+//
+// 🚨 第三条**不是失败**，它是一个要说出来的状态。2026-09-16 之前这里只走第一条，
+// 走不通就留一篇没有正文的空阅读，由前端另开一页原文让她自己粘。产品负责人把
+// 那个自动跳转否掉了，于是「只有摘要」第一次需要在数据里留下痕迹 —— 否则阅读室
+// 手上只有一段文字，分不出它是一整篇还是一段导语。
+//
+// 🚨 抓取在事务**外面**做。一次跨网的 HTTP 请求最长十二秒，把它关在事务里就是
+// 让一个数据库连接跟着它一起等。
+func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) planetArticle {
+	if body := strings.TrimSpace(p.Body); len([]rune(body)) >= planetBodyMinRunes {
+		return planetArticle{Body: body}
+	}
+	// 🚨 这里抓的 URL 来自我们自己那张源表挑出来的那一条，不是学生贴的、更不是
+	// 模型挑的。Fetcher 那道 SSRF 守卫照旧生效。
+	if a.d.Fetcher != nil && strings.TrimSpace(p.Url) != "" {
+		fctx, cancel := context.WithTimeout(ctx, articleFetchTimeout)
+		_, text, _, ferr := a.d.Fetcher.FetchReadable(fctx, p.Url)
+		cancel()
+		if ferr != nil {
+			// 不是错误，是第二条路没走通。第三条还在。
+			slog.Info("explore: 这一篇的原页面抓不到，退回摘要", "err", ferr, "url", p.Url)
+		} else if fetched := strings.TrimSpace(text); len([]rune(fetched)) >= planetBodyMinRunes {
+			return planetArticle{Body: fetched}
+		}
+	}
+	// feed 带的那点正文比导语长就用它，否则用导语。两种都只是一段摘要。
+	excerpt := strings.TrimSpace(p.Summary)
+	if b := strings.TrimSpace(p.Body); len([]rune(b)) > len([]rune(excerpt)) {
+		excerpt = b
+	}
+	return planetArticle{Body: excerpt, ExcerptOnly: true}
+}
+
+// mintReadingForPlanet 为一颗星球建一篇阅读。
 //
 // atom + reading 一个事务，理由和 createReading 那边一样：一个没有 reading 行
-// 的 atom 是一个渲染不出来的身份。正文留空 —— 那篇文章在别人的网站上，前端
-// 会把原文另开一页，阅读室里等她粘。
+// 的 atom 是一个渲染不出来的身份。正文由 resolvePlanetArticle 在事务外面定下来
+// —— 抓得到就是正文，抓不到就是那段摘要加一条「跳转原网站」。
 func (a *API) mintReadingForPlanet(ctx context.Context, userID uuid.UUID, p sqlc.NewsPlanet) (uuid.UUID, error) {
+	article := a.resolvePlanetArticle(ctx, p)
+
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, err
@@ -364,18 +421,19 @@ func (a *API) mintReadingForPlanet(ctx context.Context, userID uuid.UUID, p sqlc
 	}); err != nil {
 		return uuid.Nil, err
 	}
-	// feed 已经把正文给我们了，就在这里落进 reading_source —— 她点开就是一篇
-	// 能读的文章，没有粘贴框那一屏。
+	// 正文（或那段摘要）就在这里落进 reading_source —— 她点开就是一篇能读的
+	// 东西，没有粘贴框那一屏。
 	//
 	// 这和她自己粘进来走的是同一张表、同一个形状（纯文本、空行分段），所以
 	// 阅读室那边什么都不用改：SplitBlocks 照常切块，段落工具条、挂卡片、精读
-	// 段落全都照常。
+	// 段落全都照常。excerpt_only 是唯一多出来的那一位。
 	//
-	// 存不进去不算失败：另外两条路（抓原页面 / 她自己粘）还在，回滚整篇反而
-	// 把一篇本来能读的文章弄没了。
-	if body := strings.TrimSpace(p.Body); body != "" {
+	// 存不进去不算失败：她自己粘那条路还在，回滚整篇反而把一篇本来能读的文章
+	// 弄没了。
+	if article.Body != "" {
 		if _, err := qtx.UpsertReadingSource(ctx, sqlc.UpsertReadingSourceParams{
-			AtomID: at.ID, Title: title, Body: body, SourceUrl: nullableText(p.Url),
+			AtomID: at.ID, Title: title, Body: article.Body,
+			SourceUrl: nullableText(p.Url), ExcerptOnly: article.ExcerptOnly,
 		}); err != nil {
 			slog.Warn("explore: 星球正文没能落进阅读室", "err", err, "atom_id", at.ID)
 		}

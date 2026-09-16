@@ -136,10 +136,24 @@ export type DigKind = "think" | "read" | "write" | "make";
 
 export interface DigSeed {
   kind: DigKind;
-  /** 会被当作标题 / 立意直接送进创建接口，所以它是一句能独立成立的话。 */
+  /**
+   * 会被当作标题 / 立意直接送进创建接口，所以它是一句能独立成立的话。
+   *
+   * 🚨 `read` 那一颗例外：它是**分级阅读库里那篇文章的真标题**，由服务端填，
+   * 不是模型写的（2026-09-16）。模型只在服务端给的名单里挑一个 slug；挑了
+   * 名单以外的，那一颗整个不存在。
+   */
   text: string;
   /** 一句「为什么是你」，把这颗种子和她这个词的来源连起来。 */
   why: string;
+  /**
+   * 分级阅读库里的 slug 和难度档，只有 `read` 那一颗有。
+   *
+   * 空 = 这一颗没有落到库上（也包括那篇文章后来从库里下架了）。界面据此不给
+   * 「在阅读室打开」那颗按钮 —— 一颗指向不存在的文章的按钮比没有按钮更糟。
+   */
+  slug?: string;
+  tier?: number;
 }
 
 export interface KeywordDig {
@@ -164,7 +178,12 @@ export async function fetchKeywordDig(keywordId: string): Promise<KeywordDig> {
   );
   return {
     keywordId: raw.keywordId ?? keywordId,
-    seeds: (raw.seeds ?? []).filter((s): s is DigSeed => Boolean(s?.kind && s?.text)),
+    seeds: (raw.seeds ?? [])
+      .filter((s): s is DigSeed => Boolean(s?.kind && s?.text))
+      // 「去读」必须指向库里真的有的那一篇。服务端已经挡过一道（名单外的 slug
+      // 整颗丢掉、下架的那篇发出来时不带 slug），这里再挡一道 —— 一颗没有
+      // slug 的 read 种子在界面上仍然长得像一篇文章，而它点不开。
+      .filter((s) => s.kind !== "read" || Boolean(s.slug && s.tier)),
     note: raw.note ?? "",
   };
 }

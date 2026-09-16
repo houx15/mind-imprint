@@ -167,8 +167,11 @@ SELECT * FROM keyword_dig WHERE keyword_id = $1 ORDER BY
   CASE kind WHEN 'think' THEN 1 WHEN 'read' THEN 2 WHEN 'write' THEN 3 ELSE 4 END;
 
 -- name: UpsertKeywordDig :exec
-INSERT INTO keyword_dig (keyword_id, kind, text, why) VALUES ($1,$2,$3,$4)
-ON CONFLICT (keyword_id, kind) DO UPDATE SET text = EXCLUDED.text, why = EXCLUDED.why;
+INSERT INTO keyword_dig (keyword_id, kind, text, why, library_slug, library_tier)
+VALUES ($1,$2,$3,$4,$5,$6)
+ON CONFLICT (keyword_id, kind) DO UPDATE SET
+  text = EXCLUDED.text, why = EXCLUDED.why,
+  library_slug = EXCLUDED.library_slug, library_tier = EXCLUDED.library_tier;
 
 -- 盖章在生成之前。见迁移 0121。
 -- name: MarkKeywordDigged :exec

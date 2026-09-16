@@ -34,11 +34,12 @@ UPDATE reading SET status = 'finished', finished_at = now(), updated_at = now()
 WHERE atom_id = $1 AND status <> 'finished';
 
 -- name: UpsertReadingSource :one
-INSERT INTO reading_source (atom_id, title, body, source_url)
-VALUES ($1, $2, $3, $4)
+INSERT INTO reading_source (atom_id, title, body, source_url, excerpt_only)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
-      source_url = EXCLUDED.source_url, ingested_at = now()
+      source_url = EXCLUDED.source_url, excerpt_only = EXCLUDED.excerpt_only,
+      ingested_at = now()
 RETURNING *;
 
 -- name: GetReadingSource :one

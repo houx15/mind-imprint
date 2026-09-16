@@ -34,6 +34,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/interest"
 	"mindimprint/api/internal/interests"
+	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/news"
 )
@@ -195,16 +196,38 @@ func TestLivePromptQuiz(t *testing.T) {
 
 func TestLivePromptDig(t *testing.T) {
 	rs := liveResolvers(t)
+
+	// 候选来自**真的目录**。这一条因此同时验着 2026-09-16 那条裁定：去读那一颗
+	// 只能落在库里真的有的文章上，编一个 slug 出来会被 ParseDigReply 丢掉，
+	// 于是这里看到的是「只给了 3 颗」。
+	var candidates []interest.LibraryCandidate
+	for _, rec := range library.Recommend(library.All(), library.Profile{Tier: 2}, 12) {
+		title := rec.Article.ZhTitle
+		if title == "" {
+			title = rec.Article.Title
+		}
+		candidates = append(candidates, interest.LibraryCandidate{
+			Slug: rec.Article.Slug, Title: title, Reason: rec.Article.Reason,
+		})
+	}
+	if len(candidates) == 0 {
+		t.Fatal("阅读库是空的，这一条测不出东西")
+	}
+	inLibrary := map[string]bool{}
+	for _, c := range candidates {
+		inLibrary[c.Slug] = true
+	}
+
 	system, user := interest.BuildDigPrompt(
 		"样本代表性",
 		"你反复回到同一个问题：这一小块，凭什么替一大片说话。",
 		[]string{
 			"我读到面积那一段才反应过来，四平方公里其实很小。",
 			"一个避难所不是一个计划。",
-		})
+		}, candidates)
 	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
 
-	seeds, err := interest.ParseDigReply(raw)
+	seeds, err := interest.ParseDigReply(raw, candidates)
 	if err != nil {
 		t.Fatalf("解析失败 —— 抽屉里那一节会是空的：%v\n原始回复：\n%s", err, raw)
 	}
@@ -213,10 +236,13 @@ func TestLivePromptDig(t *testing.T) {
 		kinds[s.Kind] = true
 		t.Logf("  [%s] %s", s.Kind, s.Text)
 		t.Logf("        why: %s", s.Why)
-		// 去读 / 去写 / 去做 的正文会被**直接当标题**送进创建接口。一句话，
-		// 不是一段。
-		if len([]rune(s.Text)) > 40 {
+		// 去写 / 去做 的正文会被**直接当标题**送进创建接口。一句话，不是一段。
+		// 去读那一颗的正文是目录里的真标题，长度由目录决定，不受这条约束。
+		if s.Kind != interest.DigRead && len([]rune(s.Text)) > 40 {
 			t.Errorf("[%s] 正文 %d 字，太长了，它要当标题用：%q", s.Kind, len([]rune(s.Text)), s.Text)
+		}
+		if s.Kind == interest.DigRead && !inLibrary[s.LibrarySlug] {
+			t.Errorf("去读那一颗指向了库里没有的文章：slug=%q", s.LibrarySlug)
 		}
 	}
 	if len(seeds) < interest.DigSeedCount {

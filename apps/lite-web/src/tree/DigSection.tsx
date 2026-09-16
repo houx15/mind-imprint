@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Hammer, Loader2, PenLine, BookOpen, Sparkles } from "lucide-react";
 import { fetchKeywordDig, type DigKind, type DigSeed } from "../api/interest";
-import { createReading } from "../api/readings";
+import { startLibraryReading } from "../api/library";
 import { createWriting } from "../api/writings";
 import { createProject } from "../api/projects";
 import { liteRoutePath, navigate } from "../routing";
@@ -30,6 +30,18 @@ import { Sys } from "./ui";
  *
  * 服务端生成失败会返回零颗种子加一句原话，界面照实说。**绝不自己补四个通用
  * 动词** —— 那正是这套东西要取代的东西。
+ *
+ * # 「去读」指的是库里真的有的那一篇（2026-09-16）
+ *
+ * 这一颗原来是模型现写的一句话，点下去用它当标题新建一篇空的阅读。产品负责人
+ * 的原话：
+ *
+ *   > in the interest tree, sometimes we would recommend some papers that don't
+ *   > exist. we can only recommend readings in our database, if there is not
+ *   > suitable ones, then we don't recommend. don't fake these articles.
+ *
+ * 所以它现在带着 slug + tier，走 `startLibraryReading` —— 和书架上点开一篇是
+ * 同一条路。库里挑不出合适的，这一节就只有三颗种子，不补第四颗。
  */
 
 const META: Record<DigKind, { label: string; hue: string; icon: typeof BookOpen | null; cta: string }> = {
@@ -70,8 +82,12 @@ export function DigSection({ keywordId }: { keywordId: string }) {
     setError("");
     try {
       if (seed.kind === "read") {
-        const r = await createReading({ title: seed.text });
-        navigate(liteRoutePath({ tab: "readings", readingId: r.id }));
+        // 🚨 开的是**分级阅读库里那一篇**，不是用一句话新建一篇空的阅读。
+        // 服务端保证 slug 在目录里；没有 slug 的 read 种子在 api/interest.ts
+        // 就被滤掉了，所以到这里 slug 一定有。
+        if (!seed.slug || !seed.tier) return;
+        const id = await startLibraryReading(seed.slug, seed.tier);
+        navigate(liteRoutePath({ tab: "readings", readingId: id }));
       } else if (seed.kind === "write") {
         const w = await createWriting({ idea: seed.text });
         navigate(liteRoutePath({ tab: "writings", writingId: w.id }));
@@ -92,7 +108,7 @@ export function DigSection({ keywordId }: { keywordId: string }) {
       <div className="tree-scanline mb-5" />
       <h3 className="text-mk-h3 text-mk-ink">继续深挖</h3>
       <p className="mt-1 text-mk-small leading-[1.8] text-mk-muted">
-        这四条是按你在这个词上写过的话生成的。点一个，它会带着这句话去到该去的地方。
+        以下几条按你在这个词上写过的话生成。「去读」来自分级阅读库，库里没有合适的文章时不出现。
       </p>
 
       {seeds === null && !error ? (
@@ -177,7 +193,7 @@ export function DigSection({ keywordId }: { keywordId: string }) {
       {seeds && seeds.length > 0 ? (
         <p className="mt-3 text-mk-small text-mk-faint">
           <Sys>说明</Sys>{" "}
-          点「去读 / 去写 / 开一个项目」会用这句话新建一个房间，并直接带你进去。
+          「去读」直接打开分级阅读库里的这一篇；「去写 / 开一个项目」用这句话新建一个房间。
         </p>
       ) : null}
     </div>

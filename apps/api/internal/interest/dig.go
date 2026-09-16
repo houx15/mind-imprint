@@ -56,9 +56,26 @@ type Seed struct {
 	Kind DigKind
 	// Text 是种子本身。**它会被当作标题/立意直接送进创建接口**，所以它必须是
 	// 一句能独立成立的话，不是一个片段。
+	//
+	// 🚨 read 那一颗例外：它的 Text 由服务端用 LibrarySlug 那篇文章的**真标题**
+	// 覆盖掉，模型写的那句不算数。见 ParseDigReply。
 	Text string
 	// Why 是一句「为什么是你」——把这颗种子和她这个词的来源连起来。
 	Why string
+	// LibrarySlug 只在 read 那一颗上非空：分级阅读库里真的有的那一篇。
+	LibrarySlug string
+}
+
+// LibraryCandidate 是送进 prompt 的一篇候选文章。
+//
+// 候选由服务端按她的兴趣从 internal/library 里算出来 —— 模型**只在这份名单里
+// 挑**，挑不中就没有「去读」那一颗。
+type LibraryCandidate struct {
+	Slug string
+	// Title 是给模型看的标题。中文标题有就用中文的，她读到的也是这一个。
+	Title string
+	// Reason 是目录里那句「这篇讲什么」，帮模型判断它和这个词有没有关系。
+	Reason string
 }
 
 const digSystemPrompt = `一个中学生的兴趣树上有一个关键词。下面给你这个词、我们对它的
@@ -74,9 +91,12 @@ const digSystemPrompt = `一个中学生的兴趣树上有一个关键词。下�
   那一句。不是复习题，是想起来会卡住的问题。以问号结尾。
   好：「你说电池是清洁能源的关键。开采锂的那一段算在'清洁'里吗？」
   差：「电池还有哪些应用？」（这只是让她再列一遍）
-- read  去读：一篇**可能不同意她**的东西 —— 换一个立场、换一个学科、或者把她
-  当成理所当然的那件事说成有争议的。写成一个可以直接当阅读标题的句子。
-  好：「反对建更多太阳能农场的人在担心什么」。差：「找一些关于太阳能的资料」。
+- read  去读：从下面【阅读库里的文章】那份名单里挑**一篇**，挑最能推她一步的那一篇
+  —— 换一个立场、换一个学科、或者把她当成理所当然的那件事说成有争议的。
+  在 slug 里逐字写下那一篇的 slug，text 留空（标题由我们自己填）。
+  🚨 **名单以外的文章一篇都不许写，也不许自己拟一个标题。** 名单里真的没有一篇
+  和这个词搭得上的，就把这一颗整个省略 —— 三颗种子是正常结果，编一篇不存在的
+  文章不是。
 - write 去写：一个**她得替自己辩护的说法**，不是一段介绍。写成一个可以直接当
   写作立意的句子，里面要有一个可以被反驳的判断。
   好：「电动车没有解决交通问题，只是换了个污染的地方 —— 我同不同意」。
@@ -91,14 +111,17 @@ const digSystemPrompt = `一个中学生的兴趣树上有一个关键词。下�
 字数：text 不超过 30 字；why 不超过 40 字。
 
 只输出一个 JSON 对象，不要任何解释：
-{"seeds":[{"kind":"think","text":"","why":""},{"kind":"read","text":"","why":""},{"kind":"write","text":"","why":""},{"kind":"make","text":"","why":""}]}`
+{"seeds":[{"kind":"think","text":"","why":""},{"kind":"read","slug":"","why":""},{"kind":"write","text":"","why":""},{"kind":"make","text":"","why":""}]}`
 
 // BuildDigPrompt 拼出深挖用的 system 与 user 两段。
 //
 // evidences 是她在这个词上留下的每一句原话（来自 keyword_source.evidence）。
 // **它们是这次调用唯一真正重要的输入** —— 没有它们，模型只能围着一个词泛泛地
 // 想，而那正是原型那四个空动词的来源。
-func BuildDigPrompt(textZh, note string, evidences []string) (system, user string) {
+// candidates 是「去读」那一颗能挑的全部文章。空名单时 prompt 里会明说一句
+// 「这次没有可挑的文章」，模型因此该省略那一颗 —— 而解析那一侧不认任何 slug，
+// 所以它编一个出来也进不来。
+func BuildDigPrompt(textZh, note string, evidences []string, candidates []LibraryCandidate) (system, user string) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "关键词：%s\n", textZh)
 	if n := strings.TrimSpace(note); n != "" {
@@ -117,6 +140,18 @@ func BuildDigPrompt(textZh, note string, evidences []string) (system, user strin
 		}
 		fmt.Fprintf(&b, "- 「%s」\n", truncRunes(e, 200))
 	}
+
+	b.WriteString("\n【阅读库里的文章】（去读那一颗只能从这里挑，按 slug）\n")
+	if len(candidates) == 0 {
+		b.WriteString("（这次一篇都没有。请省略 read 那一颗。）\n")
+	}
+	for _, c := range candidates {
+		fmt.Fprintf(&b, "- %s ｜ %s", c.Slug, truncRunes(strings.TrimSpace(c.Title), 80))
+		if reason := strings.TrimSpace(c.Reason); reason != "" {
+			fmt.Fprintf(&b, " ｜ %s", truncRunes(reason, 80))
+		}
+		b.WriteString("\n")
+	}
 	return digSystemPrompt, b.String()
 }
 
@@ -125,6 +160,7 @@ type digReply struct {
 		Kind string `json:"kind"`
 		Text string `json:"text"`
 		Why  string `json:"why"`
+		Slug string `json:"slug"`
 	} `json:"seeds"`
 }
 
@@ -137,7 +173,15 @@ type digReply struct {
 //  2. kind 不是四种之一 → 丢。
 //  3. text 为空 → 丢。它会被当作标题直接送进创建接口，空的会建出一个无名的东西。
 //  4. 同一种重复 → 只留第一颗。四种各一颗。
-func ParseDigReply(raw string) ([]Seed, error) {
+//  5. **read 那一颗的 slug 必须在 candidates 里**，否则整颗丢掉；它的 text 一律
+//     用那篇文章的真标题覆盖，模型写的那句不算数。
+//
+// 第 5 条是 2026-09-16 加的，为的是让「只推荐库里有的文章」成为一条**能验的**
+// 判据而不是 prompt 里的一句话（[[prompt-output-must-be-verifiable-2026-09-03]]）。
+// 模型编一个 slug、或者把标题写成一篇不存在的论文，结果都一样：这一颗不存在。
+// 三颗种子是正常结果 —— 产品负责人的原话是「if there is not suitable ones,
+// then we don't recommend. don't fake these articles.」
+func ParseDigReply(raw string, candidates []LibraryCandidate) ([]Seed, error) {
 	body, err := sliceJSONObject(raw)
 	if err != nil {
 		return nil, err
@@ -147,16 +191,35 @@ func ParseDigReply(raw string) ([]Seed, error) {
 		return nil, fmt.Errorf("dig reply is not the expected object: %w", err)
 	}
 
+	titleOf := make(map[string]string, len(candidates))
+	for _, c := range candidates {
+		if slug := strings.TrimSpace(c.Slug); slug != "" {
+			titleOf[slug] = strings.TrimSpace(c.Title)
+		}
+	}
+
 	out := make([]Seed, 0, DigSeedCount)
 	seen := map[DigKind]bool{}
 	for _, s := range rep.Seeds {
 		k := DigKind(strings.TrimSpace(s.Kind))
-		text := strings.TrimSpace(s.Text)
-		if !digKinds[k] || seen[k] || text == "" {
+		if !digKinds[k] || seen[k] {
+			continue
+		}
+		seed := Seed{Kind: k, Text: strings.TrimSpace(s.Text), Why: strings.TrimSpace(s.Why)}
+		if k == DigRead {
+			slug := strings.TrimSpace(s.Slug)
+			title, known := titleOf[slug]
+			if !known || title == "" {
+				// 库里没有这一篇 —— 这一颗整个不存在。
+				continue
+			}
+			seed.LibrarySlug, seed.Text = slug, title
+		}
+		if seed.Text == "" {
 			continue
 		}
 		seen[k] = true
-		out = append(out, Seed{Kind: k, Text: text, Why: strings.TrimSpace(s.Why)})
+		out = append(out, seed)
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("dig reply 里没有一颗可用的种子")

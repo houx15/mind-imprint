@@ -429,6 +429,10 @@ type KeywordDig struct {
 	Text      string    `json:"text"`
 	Why       string    `json:"why"`
 	CreatedAt time.Time `json:"created_at"`
+	// 分级阅读库里的 slug（internal/library/articles.json）。空串 = 这颗种子没有落到库上。
+	LibrarySlug string `json:"library_slug"`
+	// 开哪一档（1..5）。0 = 没有落到库上。
+	LibraryTier int32 `json:"library_tier"`
 }
 
 type KeywordDiscipline struct {
@@ -1106,6 +1110,8 @@ type ReadingSource struct {
 	Figures    []byte    `json:"figures"`
 	Headings   []byte    `json:"headings"`
 	Outline    []byte    `json:"outline"`
+	// true = 这里放的只是摘要/导语，不是正文。阅读室据此摆出「跳转原网站」那一条。
+	ExcerptOnly bool `json:"excerpt_only"`
 }
 
 type ReadingTakeaway struct {

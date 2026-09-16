@@ -62,6 +62,13 @@ type sourceDTO struct {
 	// 生成 articles.json，不必回头去改已经开出去的每一条阅读记录。
 	Byline string  `json:"byline,omitempty"`
 	Blocks []Block `json:"blocks"`
+	// ExcerptOnly —— Blocks 里放的只是这篇的摘要/导语，不是正文（迁移 0156）。
+	//
+	// 从探索地图点开一条新闻时，三条取正文的路都没走通就会是这样。阅读室据此
+	// 在正文下面摆一条「我们无法直接获取正文，如果想要阅读全文，请跳转原网站」
+	// 加一颗跳转按钮 —— 这是 2026-09-16 那条裁定里唯一需要数据支持的一半：
+	// 不说出来的话，两句话的摘要长得和一篇很短的文章一模一样。
+	ExcerptOnly bool `json:"excerptOnly,omitempty"`
 	// 版式，只有从分级阅读库开来的那些才有（迁移 0142）。图不在 Blocks 里：
 	// 工具卡挂在段 id 上，一张占了段 id 的图会被当成一段课文引回给学生。每张
 	// 图记着自己跟在哪一段之后（after，空串 = 题图），渲染时插在段与段之间。
@@ -162,7 +169,7 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 			len(SplitBlocks(existing.Body)) > 0 {
 			httpx.WriteJSON(w, http.StatusOK, sourceDTO{
 				Title: existing.Title, SourceURL: derefOr(existing.SourceUrl, ""),
-				Blocks: SplitBlocks(existing.Body),
+				Blocks: SplitBlocks(existing.Body), ExcerptOnly: existing.ExcerptOnly,
 			})
 			return
 		}
@@ -194,8 +201,12 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		title = "未命名文章"
 	}
 
+	// 她自己粘进来的、或者抓成功的那一份，都是正文 —— excerpt_only 归 false。
+	// 这也是从摘要升级成正文的那条路：她在摘要那一屏粘了全文，这一行就把
+	// 「跳转原网站」那一条收掉了。
 	row, err := a.d.Queries.UpsertReadingSource(r.Context(), sqlc.UpsertReadingSourceParams{
 		AtomID: at.ID, Title: title, Body: body, SourceUrl: nullableText(srcURL),
+		ExcerptOnly: false,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -222,7 +233,8 @@ func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: blocks,
 		Byline:  a.libraryByline(r, at.ID),
 		Figures: figures, Headings: headings,
-		Outline: outlineDTOFrom(decodeOutline(row.Outline), blocks),
+		Outline:     outlineDTOFrom(decodeOutline(row.Outline), blocks),
+		ExcerptOnly: row.ExcerptOnly,
 	})
 }
 

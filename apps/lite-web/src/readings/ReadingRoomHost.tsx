@@ -198,12 +198,18 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   // 排读法那一次算出来的，所以排读法之前也是空的。
   const layout = useMemo(() => {
     if (state.phase !== "ready") {
-      return { figures: [] as ReadingFigure[], headings: [] as string[], outline: undefined as ReadingOutline | undefined };
+      return {
+        figures: [] as ReadingFigure[],
+        headings: [] as string[],
+        outline: undefined as ReadingOutline | undefined,
+        excerptOnly: false,
+      };
     }
     return {
       figures: state.source.figures ?? [],
       headings: state.source.headings ?? [],
       outline: state.source.outline,
+      excerptOnly: state.source.excerptOnly ?? false,
     };
   }, [state]);
 
@@ -270,6 +276,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         figures={layout.figures}
         headingBlockIds={layout.headings}
         outline={layout.outline}
+        excerptOnly={layout.excerptOnly}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         // 完成这篇 lands her on the report. Re-running the load is what does

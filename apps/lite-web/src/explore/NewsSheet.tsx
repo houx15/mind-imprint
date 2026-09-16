@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { BookOpen, Clock, ExternalLink, Loader2, X } from "lucide-react";
 import { savePlanet, type ExplorePlanet } from "../api/explore";
-import { putReadingSource } from "../api/readings";
 import { fieldById } from "../tree/geometry";
 import { liteRoutePath, navigate } from "../routing";
 import type { FieldId } from "../tree/types";
@@ -27,19 +26,23 @@ import type { Lang } from "./Planet";
  *
  * 所以现在是两个动作，都落到阅读室的同一篇上（服务端幂等，迁移 0138）：
  *
- *  - **现在读** —— 原文另开一页，同时进阅读室那一篇。我们先替她试一次抓正文；
- *    抓不到就是空的，阅读室本来就有粘贴框。
+ *  - **现在读** —— 直接进阅读室那一篇。
  *  - **稍后读** —— 只建那一篇，她留在地图上。
  *
- * ## 为什么原文要另开一页
+ * ## 原文不再自动另开一页（2026-09-16）
  *
- *   > we have a link to 读原文, but what I really hope is to read in our platform.
- *   > but I understand that, on our platform, it is difficult to fetch the original
- *   > content. then, maybe we can jump to the reading room, and also open a new
- *   > page, and invite students to paste here?
+ * 上一版「现在读」会在跳转之前 `window.open` 一次原文。产品负责人把它否掉了：
  *
- * 那篇文章在别人的网站上，抓不抓得到不由我们决定。抓到了她就在我们这儿读；
- * 抓不到，旁边那一页就是她能复制的那份。两种情况下她都已经在阅读室里了。
+ *   > now in exploration if we click one paper, we automatically open the
+ *   > original link. a new recommendation is: we jump to reading page. if we
+ *   > extracted the texts successfully, then begin reading directly. or if we
+ *   > only have abstract, we go to reading with abstract, with below a button
+ *   > 「我们无法直接获取正文，如果想要阅读全文，请跳转原网站」
+ *
+ * 所以现在**只有一个去处**：阅读室。取正文这件事整个搬到了服务端
+ * （`resolvePlanetArticle`）—— feed 自带的正文 → 现抓一次原页面 → 那段摘要，
+ * 三条路按可信度排。落到第三条时 `excerptOnly` 为真，阅读室在正文下面摆出
+ * 那一条加一颗跳转按钮。**跳不跳由她决定，不由我们替她决定。**
  */
 export function NewsSheet({
   item,
@@ -83,19 +86,14 @@ export function NewsSheet({
 
   async function readNow() {
     if (!item) return;
-    // 🚨 `window.open` 必须在 await 之前，否则浏览器不认它是点击引起的，
-    // 直接当弹窗拦掉。
-    if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
     setBusy("now");
     setError("");
     try {
+      // 取正文整个在服务端（`resolvePlanetArticle`，`savePlanet` 那一次就做完
+      // 了）。这里因此**只剩一件事**：走进阅读室。抓不到正文不是错误，是
+      // excerptOnly ——「跳转原网站」那一条由阅读室摆出来。
       const id = await ensureReading();
       if (!id) throw new Error("阅读室没有返回这一篇的编号。");
-      // 替她试一次抓正文。抓不到是**正常结果**，不是错误：阅读室会摆出粘贴框，
-      // 而她要复制的那一页刚刚已经开在旁边了。
-      if (item.url) {
-        await putReadingSource(id, { title: item.titleZh, url: item.url }).catch(() => undefined);
-      }
       navigate(liteRoutePath({ tab: "readings", readingId: id }));
     } catch (e: unknown) {
       // 动词 + 失败，再接后台原话（AGENTS.md §8）。
@@ -276,7 +274,7 @@ export function NewsSheet({
           <p className="mt-2.5 max-w-[52ch] text-mk-small leading-[1.8] text-[var(--mk-explore-muted)]">
             {item.saved
               ? "这一篇已经在阅读室里了。「现在读」会直接打开它。"
-              : "两个都会在阅读室里建这一篇；「现在读」还会另开一页放原文，让你把正文粘进来。读完之后，报告上会提出可以加进你树里的词。"}
+              : "两个都会在阅读室里建这一篇。我们会先替你取一次正文，取不到就先给你摘要，并在阅读室里给出原网站的跳转。读完之后，报告上会提出可以加进你树里的词。"}
           </p>
 
           {error ? (

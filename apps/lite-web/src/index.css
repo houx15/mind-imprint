@@ -1893,6 +1893,60 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * 只有摘要的那一篇（`ExcerptOnlyNotice`）
+ *
+ * 从探索地图点开一条新闻、三条取正文的路都没走通时，正文区里放的是两三句话的
+ * 摘要。这一条摆在它下面，说清楚上面那段不是全文，并给出跳原网站的按钮。
+ *
+ * 视觉上它**不能**长得像正文的一部分，也不该长得像报错：它是一条说明。所以是
+ * 一块浅色的卡片加一颗实心按钮，用 accent 那一族而不是 danger。
+ * ------------------------------------------------------------------------ */
+
+.mk-reading-excerpt-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: var(--mk-radius-md, 12px);
+  /* mk token 是裸 CSS 变量，Tailwind 的 alpha 语法在它们上面一个字节都不出 ——
+     所以这里用 color-mix，不用 /8 那种写法（memory: tailwind-mk-token-alpha-trap）。 */
+  background: color-mix(in srgb, var(--mk-accent-500) 5%, var(--mk-paper));
+}
+
+.mk-reading-excerpt-note__text {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--mk-secondary);
+}
+
+.mk-reading-excerpt-note__cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: var(--mk-accent-500);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 120ms ease;
+}
+.mk-reading-excerpt-note__cta:hover {
+  opacity: 0.9;
+}
+.mk-reading-excerpt-note__cta:focus-visible {
+  outline: 2px solid var(--mk-accent-200);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
  * 导读（`ReadingOutlineCard`）
  *
  * 摆在正文顶上：这篇在问什么、它怎么组织、哪几段承重。它替掉的是 印记 开场
