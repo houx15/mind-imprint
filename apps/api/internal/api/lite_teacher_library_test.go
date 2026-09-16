@@ -37,8 +37,8 @@ func TestLiteTeacherLibraryRecommendedAuthz(t *testing.T) {
 	}
 }
 
-// TestLiteTeacherLibraryRecommendedCarriesWhyAndTier pins the shape the brief
-// asks for: an article shaped like GET /library's own article, plus why it
+// TestLiteTeacherLibraryRecommendedCarriesWhyAndTier pins the response shape:
+// an article shaped like GET /library's own article, plus why it
 // was picked, how many of the class read it, and the class's shared tier.
 func TestLiteTeacherLibraryRecommendedCarriesWhyAndTier(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
