@@ -18,6 +18,7 @@ import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm"
 import { StudentViewPreview } from "./StudentViewPreview";
 import type { WorkspaceThread } from "./workspace/useWorkspaceThread";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
+import { StudentsCard } from "./workspace/WorkspaceCards";
 
 // teacher/AssignmentAIMode.tsx — the AI mode of 布置作业: the homework card
 // (today's form fields, unchanged widgets) sits as `WorkspacePanel`'s
@@ -45,41 +46,8 @@ export function keptLabels(kept: (keyof AssignmentDraft)[]): string {
   return kept.map((k) => FIELD_LABELS[k] ?? String(k)).join("、");
 }
 
-interface StudentCardRow {
-  id: string;
-  name: string;
-}
-
-/** `WorkspaceCard.rows` is opaque on the wire (§ teacherWorkspace.ts) — a
- * "students" card's actual shape is `liteworkspace.Student` (apps/api's
- * workspace.go), narrowed defensively here so a malformed row cannot crash
- * the canvas. */
-function studentRows(raw: unknown): StudentCardRow[] {
-  if (!Array.isArray(raw)) return [];
-  const out: StudentCardRow[] = [];
-  for (const r of raw) {
-    if (!r || typeof r !== "object") continue;
-    const o = r as Record<string, unknown>;
-    if (typeof o.id === "string" && typeof o.name === "string") out.push({ id: o.id, name: o.name });
-  }
-  return out;
-}
-
 function WorkspaceCardView({ card }: { card: WorkspaceCard }) {
-  if (card.kind !== "students") return null;
-  const rows = studentRows(card.rows);
-  return (
-    <div className="rounded-mk-md border border-mk-border bg-mk-paper p-3">
-      <p className="text-mk-label font-bold text-mk-muted">学生 {rows.length} 人</p>
-      {rows.length > 0 && (
-        <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
-          {rows.map((s) => (
-            <li key={s.id}>{s.name}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+  return card.kind === "students" ? <StudentsCard card={card} /> : null;
 }
 
 export function AssignmentAIMode({

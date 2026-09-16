@@ -14,6 +14,7 @@ describe("isTeacherRailActive", () => {
     [{ view: "classes" }, "classes"],
     [{ view: "class", classId: "c" }, "classes"],
     [{ view: "classWeekly", classId: "c" }, "classes"],
+    [{ view: "classChat", classId: "c" }, "classes"],
     [{ view: "student", classId: "c", userId: "u" }, "classes"],
     [{ view: "item", classId: "c", userId: "u", atomId: "a" }, "classes"],
     [{ view: "assignments" }, "assignments"],

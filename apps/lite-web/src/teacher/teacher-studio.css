@@ -135,6 +135,16 @@
 .teacher-preview-recent .teacher-avatar { width:26px; height:26px; font-size:10px; }
 .teacher-preview-empty,.teacher-preview-loading,.teacher-preview-error { padding:24px 0; font-size:12px; line-height:1.7; color:var(--mk-muted); }
 .teacher-preview-error { color:var(--mk-danger); }
+.teacher-class-summary { margin:12px 0 4px; padding:12px 14px; border:1px solid var(--mk-border); border-radius:12px; background:var(--mk-accent-50); cursor:pointer; transition:border-color .2s,background .2s; }
+.teacher-class-summary:hover { border-color:var(--mk-accent-300); background:var(--mk-accent-100); }
+.teacher-class-summary:focus-visible { outline:2px solid var(--mk-accent-500); outline-offset:2px; }
+.teacher-class-summary>p { font-size:13px; line-height:1.65; color:var(--mk-ink); }
+.teacher-class-summary>p.teacher-class-summary-label { font-size:10px; font-weight:700; color:var(--mk-muted); margin-bottom:4px; }
+.teacher-class-summary.is-failed { background:var(--mk-surface); }
+.teacher-class-summary.is-failed>p[role=alert] { color:var(--mk-danger); }
+.teacher-class-summary-retry { margin-top:8px; padding:3px 12px; border:1px solid var(--mk-border); border-radius:999px; background:var(--mk-surface); font-size:12px; color:var(--mk-ink); cursor:pointer; }
+.teacher-class-summary-retry:hover { border-color:var(--mk-accent-300); }
+.teacher-class-summary-link { display:block; margin-top:6px; font-size:11px; font-weight:600; color:var(--mk-accent-700); }
 .teacher-stat-strip { padding:18px 0; margin-bottom:18px; }
 .teacher-item-section { padding:20px 0; grid-template-columns:120px minmax(0,1fr); gap:24px; }
 .teacher-item-label>span { font-size:28px; margin-top:8px; }

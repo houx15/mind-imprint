@@ -20,6 +20,7 @@ import { resolveTeacherRoute, teacherRoutePath, type TeacherRoute } from "./teac
 import { isTeacherRailActive, teacherRailItems, type TeacherRailKey } from "./teacherRail";
 import { ClassPage } from "./ClassPage";
 import { ClassWeeklyPage } from "./ClassWeeklyPage";
+import { ClassChatPage } from "./ClassChatPage";
 import { StudentPage } from "./StudentPage";
 import { ItemPage } from "./ItemPage";
 import { AssignmentsPage } from "./AssignmentsPage";
@@ -202,7 +203,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
       </nav>
       <main className="teacher-main" data-teacher-page={route.view} ref={mainRef}>
         {route.view === "classes" && (
-          <ClassesView renderClassPreview={classId => <ClassPreview classId={classId} />} studioArtwork={studentArtwork.writing} client={api} role={user.role} onOpenClass={(classId) => go({ view: "class", classId })} />
+          <ClassesView renderClassPreview={classId => <ClassPreview classId={classId} onOpenChat={() => go({ view: "classChat", classId })} />} studioArtwork={studentArtwork.writing} client={api} role={user.role} onOpenClass={(classId) => go({ view: "class", classId })} />
         )}
         {route.view === "class" && (
           <ClassPage
@@ -227,6 +228,14 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             classId={route.classId}
             onBack={() => go({ view: "class", classId: route.classId })}
             onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
+          />
+        )}
+        {route.view === "classChat" && (
+          <ClassChatPage
+            key={route.classId}
+            classId={route.classId}
+            onBack={() => go({ view: "class", classId: route.classId })}
+            go={go}
           />
         )}
         {route.view === "assignments" && (

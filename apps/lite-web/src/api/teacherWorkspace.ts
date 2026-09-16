@@ -11,12 +11,10 @@ import type { Choice, ChoiceArticle, Turn } from "../teacher/workspace/workspace
 // the Go side sends and reads (liteworkspace.Turn / liteworkspace.Choice).
 
 /**
- * Only "assignment" exists today (apps/api rejects any other value with
- * 「该工作台尚未开放：{surface}」). Typed as its own union — not a bare string —
- * so the two surfaces D2/D3 add later are a one-line addition here, not a
- * call-site rewrite.
+ * "assignment" (布置作业) and "home" (the class conversation, §12.5). apps/api
+ * rejects any other value with 「该工作台尚未开放：{surface}」.
  */
-export type WorkspaceSurface = "assignment";
+export type WorkspaceSurface = "assignment" | "home";
 
 export interface WorkspaceTurnInput {
   surface: WorkspaceSurface;
@@ -54,6 +52,19 @@ export interface WorkspaceTurn {
   patch: Record<string, unknown>;
   /** Never null — an empty turn's tools produced [] on the wire. */
   cards: WorkspaceCard[];
+  /** The page `open_page` offered this turn (home surface only), exactly as
+   *  sent. Unvalidated here: `navigateRoute` decides whether it becomes a
+   *  button. Absent on every other turn. */
+  navigate?: WorkspaceNavigate;
+}
+
+/** liteWorkspaceNavigateDTO. `label` is already Chinese. */
+export interface WorkspaceNavigate {
+  view: string;
+  classId: string;
+  userId?: string;
+  assignmentId?: string;
+  label: string;
 }
 
 /** The wire shape of one choice, before `normalizeChoice` — `article`, when
@@ -77,6 +88,7 @@ interface WorkspaceTurnDTO {
   choices?: ChoiceDTO[];
   patch?: Record<string, unknown>;
   cards?: WorkspaceCard[];
+  navigate?: Partial<WorkspaceNavigate> | null;
 }
 
 /** Turns one wire choice into `Choice`: a missing `article` stays absent
@@ -112,5 +124,21 @@ export async function postWorkspaceTurn(input: WorkspaceTurnInput): Promise<Work
     choices: (raw.choices ?? []).map(normalizeChoice),
     patch: raw.patch ?? {},
     cards: raw.cards ?? [],
+    ...(raw.navigate ? { navigate: normalizeNavigate(raw.navigate) } : {}),
+  };
+}
+
+/** Missing string fields become "" / absent; `navigateRoute` drops what is
+ *  unusable. */
+export function normalizeNavigate(raw: Partial<WorkspaceNavigate>): WorkspaceNavigate {
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const userId = str(raw.userId);
+  const assignmentId = str(raw.assignmentId);
+  return {
+    view: str(raw.view),
+    classId: str(raw.classId),
+    label: str(raw.label),
+    ...(userId ? { userId } : {}),
+    ...(assignmentId ? { assignmentId } : {}),
   };
 }

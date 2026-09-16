@@ -32,6 +32,7 @@ export function isTeacherRailActive(key: TeacherRailKey, route: TeacherRoute): b
         route.view === "classes" ||
         route.view === "class" ||
         route.view === "classWeekly" ||
+        route.view === "classChat" ||
         route.view === "student" ||
         route.view === "item"
       );
