@@ -243,6 +243,14 @@ func (run *liteWorkspaceRun) result() (map[string]any, []liteWorkspaceCardDTO) {
 // navigate is nil: the assignment surface has no open_page tool.
 func (run *liteWorkspaceRun) navigate() *liteWorkspaceNavigateDTO { return nil }
 
+// verbatimSpans is the class name plus every article Chinese title a tool
+// handed back this turn (search_library, recommend_articles, set_material) —
+// the only titles the model was ever told to name in its reply (系统 prompt:
+// 「介绍文章时用书名号里的中文标题」).
+func (run *liteWorkspaceRun) verbatimSpans() []string {
+	return append([]string{run.className}, run.titlesReturned...)
+}
+
 // liteWorkspaceRun is the assignment surface: it accumulates what one turn's
 // tools produced.
 type liteWorkspaceRun struct {
@@ -296,6 +304,10 @@ type liteWorkspaceRun struct {
 	// the evidence side of the head-count check: a reply may state a number a
 	// tool produced, and nothing else.
 	countsReturned []int
+	// titlesReturned is every article's Chinese title search_library,
+	// recommend_articles or set_material handed back this turn — the
+	// verbatimSpans half of the head-count check (see that method's comment).
+	titlesReturned []string
 	// question and choices are set by ask_choice, which ends the turn.
 	question string
 	choices  []liteworkspace.Choice
@@ -425,6 +437,7 @@ func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {
 			"slug": art.Slug, "title": art.Title, "zhTitle": art.ZhTitle,
 			"disciplines": art.Disciplines, "tiers": tiers,
 		})
+		run.titlesReturned = append(run.titlesReturned, art.ZhTitle)
 	}
 	return liteWorkspaceToolOK(map[string]any{"articles": rows})
 }
@@ -471,6 +484,7 @@ func (run *liteWorkspaceRun) setMaterial(args map[string]any) string {
 		// clearing block in setFields for the same rule).
 		run.write("text", "")
 		run.materialSet = true
+		run.titlesReturned = append(run.titlesReturned, art.ZhTitle)
 		if tier, ok := toolInt(args, "tier"); ok {
 			if _, has := art.LevelAt(tier); !has {
 				return liteWorkspaceToolError("这篇文章没有这一档")
@@ -568,6 +582,7 @@ func (run *liteWorkspaceRun) recommendArticles(args map[string]any) string {
 			"slug": rec.Article.Slug, "zhTitle": rec.Article.ZhTitle,
 			"why": libraryWhyZh(rec.Why), "readCount": rec.ReadCount,
 		})
+		run.titlesReturned = append(run.titlesReturned, rec.Article.ZhTitle)
 	}
 	run.cards = append(run.cards, liteWorkspaceCardDTO{Kind: "articles", Rows: rows})
 	return liteWorkspaceToolOK(map[string]any{"articles": rows, "tier": library.GroupTier(profiles)})

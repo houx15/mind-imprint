@@ -99,7 +99,9 @@ func createHomeAssignment(t *testing.T, h http.Handler, teacher *http.Cookie, cl
 // student only after the provider is already built. newHandler may be
 // called more than once (with different providers) against the same pool —
 // class creation and enrollment do not depend on which provider is bound.
-func liteHomeFixtureIDs(t *testing.T) (pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID, newHandler func(gateway.Provider) http.Handler) {
+// className is the class's name — a test asserting the class-name half of
+// verbatimSpans needs to control it.
+func liteHomeFixtureIDs(t *testing.T, className string) (pool *pgxpool.Pool, teacher *http.Cookie, classID string, studentID uuid.UUID, newHandler func(gateway.Provider) http.Handler) {
 	t.Helper()
 	pool = newAPITestPool(t)
 	newHandler = func(prov gateway.Provider) http.Handler {
@@ -113,7 +115,7 @@ func liteHomeFixtureIDs(t *testing.T) (pool *pgxpool.Pool, teacher *http.Cookie,
 	}
 	bootstrap := newHandler(nil)
 	teacher = signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "lt-home-teacher@demo.local"))
-	classID = createClassViaAPI(t, bootstrap, teacher, "Lite Home Class")
+	classID = createClassViaAPI(t, bootstrap, teacher, className)
 	studentID = createStudent(t, pool, SeedSchoolID, "lt-home-student@demo.local")
 	enrollStudent(t, pool, studentID, classID)
 	return
@@ -272,7 +274,7 @@ func TestWorkspaceHomeOpenPageSetsNavigate(t *testing.T) {
 	})
 
 	t.Run("student", func(t *testing.T) {
-		pool, teacher, classID, studentID, newHandler := liteHomeFixtureIDs(t)
+		pool, teacher, classID, studentID, newHandler := liteHomeFixtureIDs(t, "Lite Home Class")
 		renameLiteStudent(t, pool, studentID, "林知遥")
 		prov := gateway.NewSequenceStubProvider(
 			wsToolCall("open_page", `{"target":"student","userId":"`+studentID.String()+`"}`),
@@ -289,7 +291,7 @@ func TestWorkspaceHomeOpenPageSetsNavigate(t *testing.T) {
 	})
 
 	t.Run("assignment", func(t *testing.T) {
-		_, teacher, classID, studentID, newHandler := liteHomeFixtureIDs(t)
+		_, teacher, classID, studentID, newHandler := liteHomeFixtureIDs(t, "Lite Home Class")
 		bootstrap := newHandler(nil)
 		aid := createHomeAssignment(t, bootstrap, teacher, classID, "阅读理解练习", []string{studentID.String()})
 		prov := gateway.NewSequenceStubProvider(
@@ -400,6 +402,107 @@ func TestWorkspaceHomeClassSnapshotNoWireValues(t *testing.T) {
 				t.Fatalf("message carried wire value %q: %s", wire, m.Content)
 			}
 		}
+	}
+}
+
+// TestWorkspaceHomeUnrelatedHeadCountNearATitleFails — the reviewer's exact
+// repro of the round-1 hole: grounding a title's OWN digits used to free
+// that digit to justify ANY claim in the turn, not only a claim about the
+// title itself. A 1-student class, an assignment titled 「3 人小组汇报」, the
+// model calls list_assignments and then states an UNRELATED head count that
+// shares the same digit — 「有 3 位学生逾期」, never grounded by any tool and
+// never a substring the reply echoes verbatim — must still fail §6.
+func TestWorkspaceHomeUnrelatedHeadCountNearATitleFails(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("有 3 位学生逾期。"),
+	)
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	createHomeAssignment(t, h, teacher, classID, "3 人小组汇报", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code < 400 {
+		t.Fatalf("an unrelated head count sharing a title's digit = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "3") {
+		t.Fatalf("the error does not name the offending count: %s", rec.Body)
+	}
+}
+
+// TestWorkspaceHomeTitlePrefixOfAnotherTitleBothBlanked — one assignment's
+// title is a literal prefix of another's. Longest-span-first blanking must
+// still remove both when the reply echoes both verbatim, regardless of which
+// one physically contains the other's text.
+func TestWorkspaceHomeTitlePrefixOfAnotherTitleBothBlanked(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("「5 人合作报告展示」和「5 人合作报告」都还没有学生开始。"),
+	)
+	h, _, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	createHomeAssignment(t, h, teacher, classID, "5 人合作报告", []string{studentID.String()})
+	createHomeAssignment(t, h, teacher, classID, "5 人合作报告展示", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("echoing a title and a title that contains it = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceHomeClassNameHeadCountShapeDoesNotFailTurn — the other half of
+// verbatimSpans: a class name that itself reads as a head count (「高一（3）
+// 班」-shaped — here 「三年级3人实验班」, which contains a literal 「3人」) must
+// not fail a turn that names her own class.
+func TestWorkspaceHomeClassNameHeadCountShapeDoesNotFailTurn(t *testing.T) {
+	_, teacher, classID, _, newHandler := liteHomeFixtureIDs(t, "三年级3人实验班")
+	prov := gateway.NewSequenceStubProvider(wsText("「三年级3人实验班」这周挺活跃的。"))
+	h := newHandler(prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这个班这周怎么样"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("a class name with a head-count shape = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWorkspaceHomeOpenPageLastCallWins — two open_page calls in one turn:
+// documents and pins that the second call's navigate replaces the first's.
+// Nothing in the surface deduplicates or refuses a second call; run.nav is a
+// plain field the tool overwrites.
+func TestWorkspaceHomeOpenPageLastCallWins(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("open_page", `{"target":"classWeekly"}`),
+		wsToolCall("open_page", `{"target":"parentReports"}`),
+		wsText("已经给你准备好家长报告的入口。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	nav := requireNavigate(t, postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "先看本周报告，等等改主意去看家长报告")))
+	if nav.View != "parentReports" || nav.Label != "家长报告" {
+		t.Fatalf("navigate = %+v, want the SECOND open_page call to win", nav)
+	}
+}
+
+// TestWorkspaceHomeBlankingDoesNotWeakenNameCheck — the name check must keep
+// reading the ORIGINAL, unblanked text. An assignment titled 「林知遥小组的
+// 报告」 is a verbatim span (blanked before the COUNT check runs); 林知遥 is a
+// real roster student's name that no tool returned this turn (list_assignments
+// returns titles, never names), so naming her is still an ungrounded name —
+// if blanking ever leaked into the name check, her name would vanish along
+// with the span that contains it and this would wrongly pass.
+func TestWorkspaceHomeBlankingDoesNotWeakenNameCheck(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_assignments", `{}`),
+		wsText("「林知遥小组的报告」这份作业还没有人开始。"),
+	)
+	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	renameLiteStudent(t, pool, studentID, "林知遥")
+	createHomeAssignment(t, h, teacher, classID, "林知遥小组的报告", []string{studentID.String()})
+
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "有什么作业还没交"))
+	if rec.Code < 400 {
+		t.Fatalf("a real roster name inside a blanked title span = %d, want a failure; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "林知遥") {
+		t.Fatalf("the error does not name the offending student: %s", rec.Body)
 	}
 }
 

@@ -131,6 +131,53 @@ type liteWorkspaceSurface interface {
 	// is omitempty on the wire — her assignment turns keep the exact response
 	// shape they had before D2.
 	navigate() *liteWorkspaceNavigateDTO
+	// verbatimSpans is catalogue/teacher text this turn's tools handed back
+	// (an article or assignment title) plus the class name — text that
+	// legitimately contains a 数字+人/位/名/个 shape with NOTHING to do with a
+	// student head count (「3 人小组汇报」, 「高一（3）班」), but is only safe
+	// where it actually, verbatim, appears: the handler blanks every
+	// occurrence of each span before the count check runs, so an unrelated
+	// claim that happens to share a digit with a title nearby is still
+	// caught.
+	//
+	// 🚨 This replaced grounding a title's OWN digits as head counts (adding
+	// them to groundedCounts). That made every reply in the turn free to
+	// state that digit as a headcount claim about ANYTHING — reproduced: a
+	// 1-student class, an assignment titled 「3 人小组汇报」, the model calls
+	// list_assignments and replies 「有 3 位学生逾期。」, a claim the title
+	// never made and no tool counted, and it passed. Blanking only protects
+	// the span itself, not the digit everywhere it appears.
+	verbatimSpans() []string
+}
+
+// liteWorkspaceBlankSpans blanks every occurrence of each span in text,
+// longest spans first — a title that itself contains another span (an
+// assignment title containing the class name) is replaced wholesale, so the
+// shorter span's own replacement pass never has a partial match left to find.
+// Each match becomes a newline, not "": the count check reads across field
+// boundaries by whitespace alone (liteWorkspaceCheckedParts' comment on why
+// fields are never joined with nothing between them), and a title that ended
+// mid-word must not fuse with whatever follows it.
+//
+// Only the count check reads blanked text. The name check runs on the
+// ORIGINAL text — a real roster name is still every bit as ungrounded when it
+// sits next to, or even inside, a blanked span.
+func liteWorkspaceBlankSpans(text string, spans []string) string {
+	seen := make(map[string]bool, len(spans))
+	clean := make([]string, 0, len(spans))
+	for _, s := range spans {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		clean = append(clean, s)
+	}
+	slices.SortFunc(clean, func(a, b string) int { return len(b) - len(a) })
+	for _, s := range clean {
+		text = strings.ReplaceAll(text, s, "\n")
+	}
+	return text
 }
 
 // liteWorkspaceNavigateDTO is the page open_page offered this turn (§12.5
@@ -385,9 +432,16 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// matching, so any separator a join could use dissolves, and a 说明 ending
 	// 「难度 3」 beside a label starting 「人工智能方向」 became a claim about
 	// 3 people that neither field made.
+	//
+	// Each part is blanked of this turn's verbatim spans (a title, the class
+	// name) BEFORE the count check runs — never grounded as digits, which
+	// would free that digit to justify an unrelated claim anywhere else in
+	// the same turn. See liteWorkspaceBlankSpans and verbatimSpans' comment.
 	countGrounds := liteWorkspaceGroundedCounts(surface.groundedCounts(), len(roster), turns, typed)
+	spans := surface.verbatimSpans()
 	for _, part := range parts {
-		if bad := liteworkspace.UngroundedCounts(part, countGrounds); len(bad) > 0 {
+		checked := liteWorkspaceBlankSpans(part, spans)
+		if bad := liteworkspace.UngroundedCounts(checked, countGrounds); len(bad) > 0 {
 			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
 			return
 		}

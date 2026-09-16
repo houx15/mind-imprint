@@ -130,19 +130,29 @@ type liteWorkspaceHome struct {
 	// on the roster.
 	namesReturned []string
 	// countsReturned is the evidence side of the head-count check: every
-	// number a tool actually counted this turn, plus (for list_assignments
-	// and open_page{target:assignment}) any head count an assignment's own
-	// TITLE states — a title such as 「3 人小组汇报」 is catalogue/teacher
-	// data, not a model claim, but its digits still sit inside text §6
-	// checks (the reply, a choice label, the navigate label), so they are
-	// grounded the moment a tool hands the title back.
+	// number a tool actually counted this turn (a status count, a roster
+	// filter's size).
 	countsReturned []int
+	// titlesReturned is every assignment title a tool handed back this turn
+	// (list_assignments, open_page{target:assignment}) — the verbatimSpans
+	// half of the head-count check. A title such as 「3 人小组汇报」 is
+	// catalogue/teacher data, not a model claim, but its digits still sit
+	// inside text §6 checks (the reply, a choice label, the navigate label);
+	// see verbatimSpans' comment on lite_teacher_workspace.go for why its
+	// digits are blanked from checked text rather than grounded as counts.
+	titlesReturned []string
 	// question and choices are set by ask_choice, which ends the turn.
 	question string
 	choices  []liteworkspace.Choice
 	asked    bool
 	// nav is the page open_page offered this turn, or nil.
 	nav *liteWorkspaceNavigateDTO
+}
+
+// verbatimSpans is the class name plus every assignment title a tool handed
+// back this turn.
+func (run *liteWorkspaceHome) verbatimSpans() []string {
+	return append([]string{run.className}, run.titlesReturned...)
 }
 
 // snapshot runs snapshotLoad the first time class_snapshot is called this
@@ -252,9 +262,7 @@ func (run *liteWorkspaceHome) listAssignments() string {
 			counts[liteassign.StatusLabel(status)] = n
 			run.countsReturned = append(run.countsReturned, n)
 		}
-		// A title's own digits are grounded the moment the tool hands it
-		// back — see countsReturned's field comment.
-		run.countsReturned = append(run.countsReturned, liteworkspace.StatedCounts(as.Title)...)
+		run.titlesReturned = append(run.titlesReturned, as.Title)
 		modelRows = append(modelRows, map[string]any{
 			"id": as.ID, "kind": liteworkspace.KindLabel(as.Kind), "title": as.Title,
 			"dueAt": as.DueAt, "counts": counts,
@@ -303,7 +311,7 @@ func (run *liteWorkspaceHome) openPage(args map[string]any) string {
 			return liteWorkspaceToolError("这份作业不属于这个班：" + assignmentID +
 				"。assignmentId 必须是 list_assignments 返回的 id，原样复制")
 		}
-		run.countsReturned = append(run.countsReturned, liteworkspace.StatedCounts(title)...)
+		run.titlesReturned = append(run.titlesReturned, title)
 		id := assignmentID
 		run.nav = &liteWorkspaceNavigateDTO{View: "assignment", ClassID: run.classID, AssignmentID: &id, Label: title}
 	case "parentReports":
