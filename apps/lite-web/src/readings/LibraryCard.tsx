@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { fieldById } from "../tree/geometry";
-import type { FieldId } from "../tree/types";
 import type { LibraryArticle, LibraryLevel } from "../api/library";
+import { ArticleCardBody } from "./ArticleCardBody";
 
 /**
  * LibraryCard —— 分级阅读库里的一张卡。
@@ -59,104 +58,76 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
     <article
       className="reading-library-card flex flex-col overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface shadow-mk-xs transition-shadow duration-[120ms] ease-mk hover:shadow-mk-sm"
     >
-      {article.coverUrl && (
-        <img
-          src={article.coverUrl}
-          alt={article.zhTitle}
-          loading="lazy"
-          className="reading-library-cover w-full object-cover"
-        />
-      )}
-
-      <div className="reading-library-content flex flex-1 flex-col gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-mk-body font-semibold leading-snug text-mk-ink">{article.zhTitle}</h3>
-          {article.finished && (
+      <ArticleCardBody
+        article={article}
+        badge={
+          article.finished && (
             <span className="mt-0.5 flex shrink-0 items-center gap-1 text-mk-label text-mk-muted">
               <Check size={13} aria-hidden="true" />
               已完成
             </span>
-          )}
-        </div>
-        <p className="reading-library-english text-mk-muted">{article.title}</p>
-        <p className="reading-library-description text-mk-secondary">{article.reason}</p>
+          )
+        }
+        note={why && why.length > 0 && <p className="text-mk-label text-mk-muted">因为你关心{why.join("、")}</p>}
+        footer={
+          <>
+              {picking ? (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="pb-1.5 text-mk-label text-mk-muted">选择难度</legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {article.levels.map((l) => (
+                      <LevelChip key={l.tier} level={l} active={l.tier === tier} hue={hue} onPick={() => setTier(l.tier)} />
+                    ))}
+                  </div>
+                  <p className="text-mk-label text-mk-muted">
+                    {level ? levelSummary(level) : ""}
+                  </p>
+                </fieldset>
+              ) : (
+                <p className="text-mk-label text-mk-muted">{level ? levelSummary(level) : ""}</p>
+              )}
 
-        <div className="mt-0.5 flex flex-wrap gap-1.5">
-          {article.tags.map((t) => (
-            <span
-              key={t.id}
-              className="rounded-mk-full px-2 py-0.5 text-mk-label"
-              style={{
-                background: `color-mix(in srgb, ${fieldById(t.field as FieldId).hue} 16%, transparent)`,
-                color: `color-mix(in srgb, ${fieldById(t.field as FieldId).hue} 72%, black)`,
-              }}
-            >
-              {t.zh}
-            </span>
-          ))}
-        </div>
-
-        {why && why.length > 0 && (
-          <p className="text-mk-label text-mk-muted">因为你关心{why.join("、")}</p>
-        )}
-
-        <div className="reading-library-footer mt-auto">
-          {picking ? (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="pb-1.5 text-mk-label text-mk-muted">选择难度</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {article.levels.map((l) => (
-                  <LevelChip key={l.tier} level={l} active={l.tier === tier} hue={hue} onPick={() => setTier(l.tier)} />
-                ))}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (openTier === tier && article.readingId) {
+                      onResume(article.readingId);
+                      return;
+                    }
+                    onStart(article.slug, tier);
+                  }}
+                  className="reading-library-start rounded-mk-full px-3.5 py-1.5 text-mk-small font-medium text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
+                  style={{ background: `color-mix(in srgb, ${hue} 82%, black)` }}
+                >
+                  {/* 🚨 不叫「开始阅读」：粘贴框那个提交按钮已经叫这个名字了，
+                      同一页上两个同名按钮，她点哪个都说不清。 */}
+                  {openTier === tier ? "继续读" : "读这一篇"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPicking((v) => !v)}
+                  className="reading-library-change rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
+                >
+                  {picking ? "收起难度" : "换一档"}
+                </button>
               </div>
-              <p className="text-mk-label text-mk-muted">
-                {level ? levelSummary(level) : ""}
-              </p>
-            </fieldset>
-          ) : (
-            <p className="text-mk-label text-mk-muted">{level ? levelSummary(level) : ""}</p>
-          )}
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                if (openTier === tier && article.readingId) {
-                  onResume(article.readingId);
-                  return;
-                }
-                onStart(article.slug, tier);
-              }}
-              className="reading-library-start rounded-mk-full px-3.5 py-1.5 text-mk-small font-medium text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
-              style={{ background: `color-mix(in srgb, ${hue} 82%, black)` }}
-            >
-              {/* 🚨 不叫「开始阅读」：粘贴框那个提交按钮已经叫这个名字了，
-                  同一页上两个同名按钮，她点哪个都说不清。 */}
-              {openTier === tier ? "继续读" : "读这一篇"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPicking((v) => !v)}
-              className="reading-library-change rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
-            >
-              {picking ? "收起难度" : "换一档"}
-            </button>
-          </div>
-          {/* 她开着的那一次，摆在自己的位置上。主按钮已经被页面的默认难度占了，
-              这一行是那一次阅读的唯一入口 —— 少了它，「读这一篇」就会在她背后
-              开出同一篇文章的第二条记录。 */}
-          {openTier > 0 && openTier !== tier && article.readingId && (
-            <button
-              type="button"
-              onClick={() => onResume(article.readingId!)}
-              className="mt-2 text-mk-label text-mk-secondary underline decoration-mk-border underline-offset-2 transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700"
-            >
-              继续读你开着的那一档 · {openLevel ? openLevel.name : ""}
-            </button>
-          )}
-        </div>
-      </div>
+              {/* 她开着的那一次，摆在自己的位置上。主按钮已经被页面的默认难度占了，
+                  这一行是那一次阅读的唯一入口 —— 少了它，「读这一篇」就会在她背后
+                  开出同一篇文章的第二条记录。 */}
+              {openTier > 0 && openTier !== tier && article.readingId && (
+                <button
+                  type="button"
+                  onClick={() => onResume(article.readingId!)}
+                  className="mt-2 text-mk-label text-mk-secondary underline decoration-mk-border underline-offset-2 transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700"
+                >
+                  继续读你开着的那一档 · {openLevel ? openLevel.name : ""}
+                </button>
+              )}
+          </>
+        }
+      />
     </article>
   );
 }

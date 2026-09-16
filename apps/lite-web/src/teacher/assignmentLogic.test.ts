@@ -18,6 +18,9 @@ import {
   failText,
   fillTitleIfEmpty,
   filterArticles,
+  filterByDisciplines,
+  pageArticles,
+  pickArticle,
   isArchiveSuccess,
   keptFromRows,
   keptFromSaved,
@@ -701,5 +704,49 @@ describe("pick rows", () => {
     expect(recipientReadingText({ slug: "coral", title: "", tier: null, state: "picked" })).toBe("coral · 按学生水平");
     expect(recipientReadingText({ slug: "", title: "", tier: null, state: "pending" })).toBe("待推荐");
     expect(recipientReadingText(null)).toBe("—");
+  });
+});
+
+describe("library picker selection", () => {
+  const art = (slug: string, tagIds: string[] = []): LibraryArticle => ({
+    slug,
+    title: slug,
+    zhTitle: slug,
+    reason: "",
+    field: "science",
+    tags: tagIds.map((id) => ({ id, zh: id, field: "science" })),
+    coverUrl: "",
+    levels: [],
+    finished: false,
+  });
+
+  // The recommended row and the full grid are separate lists of separate
+  // objects; selection must follow the slug so both show the same state.
+  it("an article picked in the recommended row is the selected one in the grid", () => {
+    const recommended = art("coral", ["biology"]);
+    const inGrid = art("coral", ["biology"]);
+    const next = pickArticle({ slug: "", tier: null }, recommended.slug);
+    expect(next).toEqual({ slug: "coral", tier: null });
+    expect(pickArticle(next, inGrid.slug)).toBe(next);
+  });
+  it("clicking the selected article keeps it and its tier", () => {
+    const current = { slug: "coral", tier: 3 };
+    expect(pickArticle(current, "coral")).toBe(current);
+  });
+  it("switching article resets the tier", () => {
+    expect(pickArticle({ slug: "coral", tier: 3 }, "nasa")).toEqual({ slug: "nasa", tier: null });
+  });
+  it("filters by any of the chosen disciplines, and not at all when none are chosen", () => {
+    const list = [art("a", ["biology"]), art("b", ["astronomy"]), art("c", ["biology", "physics"]), art("d")];
+    expect(filterByDisciplines(list, []).map((a) => a.slug)).toEqual(["a", "b", "c", "d"]);
+    expect(filterByDisciplines(list, ["physics", "astronomy"]).map((a) => a.slug)).toEqual(["b", "c"]);
+  });
+  it("keeps the selected article on screen when it is past the cut", () => {
+    const list = ["a", "b", "c", "d", "e"].map((s) => art(s));
+    expect(pageArticles(list, 2, "").map((a) => a.slug)).toEqual(["a", "b"]);
+    expect(pageArticles(list, 2, "b").map((a) => a.slug)).toEqual(["a", "b"]);
+    expect(pageArticles(list, 2, "e").map((a) => a.slug)).toEqual(["a", "b", "e"]);
+    expect(pageArticles(list, 2, "gone").map((a) => a.slug)).toEqual(["a", "b"]);
+    expect(pageArticles(list, 9, "e")).toBe(list);
   });
 });

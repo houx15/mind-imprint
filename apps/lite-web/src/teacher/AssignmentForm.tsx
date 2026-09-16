@@ -98,7 +98,7 @@ export function SettingsFields({
             onChange={(readingSource) => set({ readingSource })}
           />
           {value.readingSource === "library" && (
-            <LibraryPicker slug={value.slug} tier={value.tier} onChange={(next) => set(next)} />
+            <LibraryPicker classId={classId} slug={value.slug} tier={value.tier} onChange={(next) => set(next)} />
           )}
           {value.readingSource === "url" && (
             <Field label="链接">

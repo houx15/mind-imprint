@@ -179,6 +179,7 @@ export function PersonalizedPicker({
 
       {swapping && (
         <SwapDialog
+          classId={classId}
           row={swapping}
           personalTier={value.personalTier}
           onClose={() => setSwapping(null)}
@@ -194,11 +195,13 @@ export function PersonalizedPicker({
 }
 
 function SwapDialog({
+  classId,
   row,
   personalTier,
   onClose,
   onConfirm,
 }: {
+  classId: string;
   row: PickRow;
   personalTier: number | null;
   onClose: () => void;
@@ -240,7 +243,7 @@ function SwapDialog({
         aria-modal="true"
         aria-labelledby="swap-dialog-title"
         tabIndex={-1}
-        className="flex max-h-full w-full max-w-[640px] flex-col gap-5 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg outline-none"
+        className="flex max-h-full w-full max-w-[880px] flex-col gap-5 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg outline-none"
       >
         <div className="flex flex-col gap-1.5">
           <h2 id="swap-dialog-title" className="text-mk-h2 text-mk-ink">
@@ -249,6 +252,7 @@ function SwapDialog({
           <p className="text-mk-small text-mk-muted">{row.name}</p>
         </div>
         <LibraryPicker
+          classId={classId}
           slug={choice.slug}
           tier={choice.tier}
           onChange={setChoice}

@@ -644,6 +644,40 @@ export function filterArticles(articles: LibraryArticle[], query: string): Libra
   return articles.filter((a) => a.title.toLowerCase().includes(q) || (a.zhTitle ?? "").toLowerCase().includes(q));
 }
 
+/** Articles carrying at least one of `ids` as a discipline tag; no ids means
+ *  no filter. */
+export function filterByDisciplines(articles: LibraryArticle[], ids: string[]): LibraryArticle[] {
+  if (ids.length === 0) return articles;
+  const want = new Set(ids);
+  return articles.filter((a) => (Array.isArray(a.tags) ? a.tags : []).some((t) => want.has(t.id)));
+}
+
+/**
+ * The picker's next value after a click on the card for `slug`. Selection is
+ * by slug alone, so the same article clicked in the recommended row or in the
+ * full grid gives the same result, and both show it as selected. Clicking the
+ * selected card keeps it (and its tier); another article starts from a null
+ * tier, since it may not have the chosen level.
+ */
+export function pickArticle(
+  current: { slug: string; tier: number | null },
+  slug: string,
+): { slug: string; tier: number | null } {
+  return slug === current.slug ? current : { slug, tier: null };
+}
+
+/**
+ * The part of the full grid shown before 显示全部. A selected article past
+ * the cut is appended, so the chosen card is always on screen.
+ */
+export function pageArticles(list: LibraryArticle[], limit: number, selectedSlug: string): LibraryArticle[] {
+  if (list.length <= limit) return list;
+  const head = list.slice(0, limit);
+  if (!selectedSlug || head.some((a) => a.slug === selectedSlug)) return head;
+  const selected = list.find((a) => a.slug === selectedSlug);
+  return selected ? [...head, selected] : head;
+}
+
 /** One-line settings summary for the detail header, e.g. `目标字数 800 · 中文`.
  * A link source is rendered by the page itself (through `safeHttpUrl`), so
  * only its label is here. Long text (题目 / 驱动问题) is shown as its own block. */

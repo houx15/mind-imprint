@@ -54,3 +54,68 @@
     font-size: var(--mk-font-size-page-mobile);
   }
 }
+
+/* LibraryPicker (分级阅读库, teacher side). The picker sits in a card inside a
+ * two-column workspace and in the 更换文章 dialog, so its row and grid follow
+ * the picker's own width (a size container), not the viewport. */
+.teacher-library-picker {
+  container-type: inline-size;
+}
+/* 为这个班推荐: one horizontal row. Narrow: most of a card plus the edge of the
+ * next, to show the row scrolls. From 520px: three cards. From 760px: four. */
+.teacher-pick-row {
+  display: flex;
+  gap: var(--mk-space-12);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  padding: 2px 2px var(--mk-space-6);
+}
+.teacher-pick-row > * {
+  flex: 0 0 74%;
+  scroll-snap-align: start;
+}
+@container (min-width: 520px) {
+  .teacher-pick-row > * {
+    flex-basis: calc((100% - 2 * var(--mk-space-12)) / 3);
+  }
+}
+@container (min-width: 760px) {
+  .teacher-pick-row > * {
+    flex-basis: calc((100% - 3 * var(--mk-space-12)) / 4);
+  }
+}
+/* 全部文章: as many 160px+ columns as fit (two at 360px, three at ~560px). */
+.teacher-pick-grid {
+  display: grid;
+  gap: var(--mk-space-12);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  padding: 2px;
+}
+@container (min-width: 900px) {
+  .teacher-pick-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+/* Smaller than the student shelf's card: the teacher compares many at once. */
+.teacher-pick-card .reading-library-cover {
+  height: 112px;
+}
+.teacher-pick-card .reading-library-content {
+  padding: var(--mk-space-12) var(--mk-space-12) var(--mk-space-14);
+  gap: var(--mk-space-6);
+}
+.teacher-pick-card .reading-library-content h3 {
+  font-size: var(--mk-font-size-body);
+  line-height: 1.45;
+}
+.teacher-pick-card .reading-library-description {
+  margin-top: 0;
+  line-height: 1.65;
+}
+.teacher-pick-badge {
+  border-color: var(--mk-accent-500);
+  background: color-mix(in srgb, var(--mk-accent-500) 16%, var(--mk-surface));
+  color: var(--mk-accent-700);
+  white-space: nowrap;
+}
