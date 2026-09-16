@@ -285,6 +285,10 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	reply = liteWorkspaceDeslugged(reply)
 	for i := range choices {
 		choices[i].Label = liteWorkspaceDeslugged(choices[i].Label)
+		// Article is enriched from the catalogue, not from the model's words,
+		// so it runs on the untouched Slug rather than on liteWorkspaceDeslugged's
+		// output.
+		choices[i].Article = a.liteWorkspaceChoiceArticle(choices[i].Slug)
 	}
 
 	// An empty patch and an empty card list go out as {} and [], not null: the
@@ -578,6 +582,28 @@ func liteWorkspaceDeslugged(text string) string {
 		}
 		return art.ZhTitle, true
 	})
+}
+
+// liteWorkspaceChoiceArticle builds the card an option about an article shows
+// in the conversation. slug already passed askChoice's catalogue check when
+// the tool wrote it — that is the "整组拒绝" rule for an unknown slug — so a
+// miss here only means the option was never about an article, and the option
+// stays a plain button.
+//
+// libraryArticleDTOFor (library.go) is the same call getLibraryShelf makes,
+// so this card's cover link is signed exactly the way the shelf's is.
+func (a *API) liteWorkspaceChoiceArticle(slug string) *liteworkspace.ChoiceArticle {
+	if slug == "" {
+		return nil
+	}
+	art, ok := library.BySlug(slug)
+	if !ok {
+		return nil
+	}
+	dto := a.libraryArticleDTOFor(art)
+	return &liteworkspace.ChoiceArticle{
+		Slug: dto.Slug, ZhTitle: dto.ZhTitle, CoverURL: dto.CoverURL, Reason: dto.Reason,
+	}
 }
 
 // liteWorkspaceRun accumulates what one turn's tools produced.

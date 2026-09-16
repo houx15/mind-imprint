@@ -59,6 +59,22 @@ type Choice struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 	Slug  string `json:"slug,omitempty"`
+	// Article is filled in by the api layer, from the catalogue, after Slug
+	// is already known-good (askChoice rejects an unknown one before this
+	// struct ever carries it). It is not model output, so it does not go
+	// through the §6 grounding checks the way Label does, and it does not go
+	// through slug replacement — Slug here is meant to stay a slug.
+	Article *ChoiceArticle `json:"article,omitempty"`
+}
+
+// ChoiceArticle is the article one option means, shaped for a card in the
+// conversation rather than a shelf: the same fields the shelf shows for a
+// title and a reason to open it, plus the cover it already signs.
+type ChoiceArticle struct {
+	Slug     string `json:"slug"`
+	ZhTitle  string `json:"zhTitle"`
+	CoverURL string `json:"coverUrl,omitempty"`
+	Reason   string `json:"reason"`
 }
 
 // Student is the workspace's view of one roster row — only the fields a

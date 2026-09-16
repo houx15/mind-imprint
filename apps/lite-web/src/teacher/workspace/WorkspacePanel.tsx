@@ -3,6 +3,7 @@ import { Composer } from "@/studio/ai/Composer";
 import { Button, Pebble } from "@/ui";
 import { LiteChatMarkdown } from "../../readings/LiteChatMarkdown";
 import { TeacherPage } from "../TeacherPage";
+import { ChoiceArticleCard } from "./ChoiceArticleCard";
 import type { Choice, Turn } from "./workspaceLogic";
 
 // teacher/workspace/WorkspacePanel.tsx — the shell every teacher workspace
@@ -110,18 +111,27 @@ export function WorkspacePanel({ turns, busy, error, choices, onSend, onChoose, 
             )}
 
             {showChoices && (
-              <div className="flex flex-wrap gap-2 pl-8">
-                {choices.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => handleChoose(c)}
-                    className="rounded-mk-full border border-mk-accent-200 bg-mk-accent-50 px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-100 disabled:opacity-50"
-                  >
-                    {c.label}
-                  </button>
-                ))}
+              // Column-first, not flex-wrap: an article card wants its full
+              // width, and a plain option beside one would either crowd it
+              // or be forced to the same width for no reason. Every choice
+              // gets its own row; a plain option just doesn't stretch to fill
+              // it (`self-start`).
+              <div className="flex flex-col gap-2 pl-8">
+                {choices.map((c) =>
+                  c.article ? (
+                    <ChoiceArticleCard key={c.id} article={c.article} disabled={busy} onClick={() => handleChoose(c)} />
+                  ) : (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => handleChoose(c)}
+                      className="self-start rounded-mk-full border border-mk-accent-200 bg-mk-accent-50 px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-100 disabled:opacity-50"
+                    >
+                      {c.label}
+                    </button>
+                  ),
+                )}
               </div>
             )}
 

@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { Choice, Turn } from "../teacher/workspace/workspaceLogic";
+import type { Choice, ChoiceArticle, Turn } from "../teacher/workspace/workspaceLogic";
 
 // api/teacherWorkspace.ts — client for the teacher workspace's one turn.
 // Shape read from apps/api/internal/api/lite_teacher_workspace.go
@@ -56,11 +56,50 @@ export interface WorkspaceTurn {
   cards: WorkspaceCard[];
 }
 
+/** The wire shape of one choice, before `normalizeChoice` — `article`, when
+ *  present, is `liteworkspace.ChoiceArticle` exactly, including its own
+ *  `,omitempty` on `coverUrl` (so a signing failure is a missing key, not an
+ *  empty string, though `normalizeChoice` treats both the same). */
+interface ChoiceDTO {
+  id?: string;
+  label?: string;
+  slug?: string;
+  article?: {
+    slug?: string;
+    zhTitle?: string;
+    coverUrl?: string;
+    reason?: string;
+  };
+}
+
 interface WorkspaceTurnDTO {
   reply?: string;
-  choices?: Choice[];
+  choices?: ChoiceDTO[];
   patch?: Record<string, unknown>;
   cards?: WorkspaceCard[];
+}
+
+/** Turns one wire choice into `Choice`: a missing `article` stays absent
+ *  (never `{}`), and an unsignable cover (`coverUrl` empty or missing) is
+ *  normalized to absent too — the one place both callers of `article.coverUrl`
+ *  need to check is "is it there", not "is it there and non-empty". */
+export function normalizeChoiceArticle(raw: ChoiceDTO["article"]): ChoiceArticle | undefined {
+  if (!raw) return undefined;
+  return {
+    slug: raw.slug ?? "",
+    zhTitle: raw.zhTitle ?? "",
+    reason: raw.reason ?? "",
+    coverUrl: raw.coverUrl || undefined,
+  };
+}
+
+export function normalizeChoice(raw: ChoiceDTO): Choice {
+  return {
+    id: raw.id ?? "",
+    label: raw.label ?? "",
+    slug: raw.slug || undefined,
+    article: normalizeChoiceArticle(raw.article),
+  };
 }
 
 export async function postWorkspaceTurn(input: WorkspaceTurnInput): Promise<WorkspaceTurn> {
@@ -70,7 +109,7 @@ export async function postWorkspaceTurn(input: WorkspaceTurnInput): Promise<Work
   });
   return {
     reply: raw.reply ?? "",
-    choices: raw.choices ?? [],
+    choices: (raw.choices ?? []).map(normalizeChoice),
     patch: raw.patch ?? {},
     cards: raw.cards ?? [],
   };

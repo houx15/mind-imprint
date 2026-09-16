@@ -27,6 +27,20 @@ export interface Choice {
    *  this article" survives a turn boundary — the server holds nothing between
    *  turns. Absent on an option that is not about an article. */
   slug?: string;
+  /** The catalogue fields to show as a card, filled in server-side from
+   *  `slug` (liteworkspace.ChoiceArticle) — not model output, so it carries
+   *  no unverified prose. Absent on an option that is not about an article. */
+  article?: ChoiceArticle;
+}
+
+export interface ChoiceArticle {
+  slug: string;
+  zhTitle: string;
+  /** Absent when the cover could not be signed (OSS unset, or the key
+   *  missing). A card with no cover renders without one, not with a broken
+   *  `<img>`. */
+  coverUrl?: string;
+  reason: string;
 }
 
 /** `current[key] !== snapshot[key]` is reference equality, which is wrong

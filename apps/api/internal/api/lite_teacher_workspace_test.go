@@ -730,6 +730,42 @@ func TestWorkspaceAskChoiceCarriesASlug(t *testing.T) {
 	}
 }
 
+// TestWorkspaceAskChoiceEnrichesArticleCard — an option carrying a slug comes
+// back with the catalogue fields a card needs (Task 4). The option that is
+// not about an article must carry no card at all, and the label — built from
+// the model's own words — still has to pass §6, same as before this field
+// existed.
+func TestWorkspaceAskChoiceEnrichesArticleCard(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(wsToolCall("ask_choice", `{"question":"读哪篇？","options":[
+		{"id":"a","label":"美国气候队","slug":"biden-creates-climate-corps"},
+		{"id":"b","label":"个性化阅读"}
+	]}`))
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "找篇气候的文章"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ask_choice with a slug = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	if len(out.Choices) != 2 {
+		t.Fatalf("choices = %+v, want 2", out.Choices)
+	}
+	art, found := library.BySlug("biden-creates-climate-corps")
+	if !found {
+		t.Fatal("fixture article missing from the embedded catalogue")
+	}
+	got := out.Choices[0].Article
+	if got == nil {
+		t.Fatalf("choice with a slug carries no article card: %+v", out.Choices[0])
+	}
+	if got.Slug != art.Slug || got.ZhTitle != art.ZhTitle || got.Reason != art.Reason {
+		t.Fatalf("article card = %+v, want slug/zhTitle/reason from the catalogue entry %+v", got, art)
+	}
+	if out.Choices[1].Article != nil {
+		t.Fatalf("an option that is not about an article must carry no article card: %+v", out.Choices[1])
+	}
+}
+
 func TestWorkspaceAskChoiceRejectsAnInventedSlug(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("ask_choice", `{"question":"读哪篇？","options":[
