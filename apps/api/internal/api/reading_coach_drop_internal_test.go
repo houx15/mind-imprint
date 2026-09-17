@@ -574,12 +574,12 @@ func TestFallbackCardCannotBeRejected(t *testing.T) {
 	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
 
 	// 兜底那张必须**过得了**校验 —— 它要是也能被驳回，就不叫兜底。
-	got := fallbackCardFor("哪一句最能说明援助进不去？")
+	got := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。")
 	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
 		t.Fatalf("兜底卡被驳回了，理由 %q —— 那它就不是兜底", why)
 	}
 	if got.Type != coachCardPickInArticle {
-		t.Errorf("兜底只能是 pick_in_article（没有 options 就没有对不上原文这回事），拿到 %q", got.Type)
+		t.Errorf("兜底只能是 pick_in_article / short_text（没有 options 就没有对不上原文这回事），拿到 %q", got.Type)
 	}
 	// 印记 自己那道题要留住 —— 她看到的是它问的话，不是我们编的。
 	if got.Prompt != "哪一句最能说明援助进不去？" {
@@ -589,7 +589,7 @@ func TestFallbackCardCannotBeRejected(t *testing.T) {
 
 func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
 	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
-	got := fallbackCardFor("")
+	got := fallbackCardFor("", "我们来看这几段。")
 	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
 		t.Fatalf("没有题目时的兜底也必须过得了校验，理由 %q", why)
 	}
@@ -598,7 +598,43 @@ func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
 	}
 	// 超长的那一道也不能原样塞回去 —— 它自己会被 promptLen 驳回。
 	long := strings.Repeat("很", 200)
-	if kept, _ := validateCoachCardWhy(fallbackCardFor(long), blocks); kept == nil {
+	if kept, _ := validateCoachCardWhy(fallbackCardFor(long, "我们来看这几段。"), blocks); kept == nil {
 		t.Error("题目超长时应该换成中性那句，而不是把兜底也弄坏")
+	}
+}
+
+// 🚨 兜底那张卡要她做的事，必须和话里说的是同一件事。
+//
+// 线上实测（2026-09-17，那一轮部署完之后立刻走的）：印记 说
+//
+//	「下面那张卡上写几个字就行：你觉得这篇报道接下来会讲哪几类消息？」
+//
+// 而兜出来的卡片写着「请在文章里点出你想说的那一句。」—— 一个要她打字，
+// 一个要她点句子。产品负责人报的第 2 条是「对话框指令和动手部分的指令不一致」，
+// 而这一句不一致是**我们自己写的**，不是模型写的。
+func TestFallbackCardFollowsTheVerbInTheReply(t *testing.T) {
+	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
+	cases := []struct {
+		name  string
+		reply string
+		want  string
+	}{
+		{"请她写", "下面那张卡上写几个字就行：你觉得接下来会讲哪几类消息？", coachCardShortText},
+		{"请她用自己的话说", "在卡片上用你自己的话说一遍。", coachCardShortText},
+		{"请她点句子", "在下面那张卡片上挑一句。", coachCardPickInArticle},
+		{"没说清楚", "我们来看这几段。", coachCardPickInArticle},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := fallbackCardFor("", tc.reply)
+			if got.Type != tc.want {
+				t.Errorf("话里说的是「%s」，兜出来的却是 %q —— 她照着话去做，做不成",
+					tc.reply, got.Type)
+			}
+			// 两种形状都必须仍然过得了校验，否则它就不是兜底。
+			if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+				t.Errorf("兜底卡被驳回了，理由 %q", why)
+			}
+		})
 	}
 }

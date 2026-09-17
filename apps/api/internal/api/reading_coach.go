@@ -2272,10 +2272,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
 	// 的时候才用那句中性的。
 	if !anyOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
-		parsed.Card = fallbackCardFor(parsed.askedPrompt)
+		parsed.Card = fallbackCardFor(parsed.askedPrompt, parsed.Reply)
 		parsed.cardWhy = cardOK
-		slog.Info("reading coach: promised a card and had none, fell back to pick_in_article",
-			"atom_id", at.ID, "kept_prompt", parsed.askedPrompt != "")
+		slog.Info("reading coach: promised a card and had none, fell back",
+			"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
 	}
 
 	// The card rides on the AI message's payload (0106), inside the same
@@ -2588,12 +2588,33 @@ func replyOnlyAsksHerToRead(reply string) bool {
 //
 // 问题优先用 印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
 // 本身是好的）。它连题都没写才用中性的那句。
-func fallbackCardFor(asked string) *coachCard {
+func fallbackCardFor(asked, reply string) *coachCard {
+	// 🚨 兜底那张卡要她做的事，必须和话里说的是同一件事。
+	//
+	// 线上实测（2026-09-17，刚部署完那一轮）：印记 说「下面那张卡上写几个字
+	// 就行：你觉得这篇报道接下来会讲哪几类消息？」而兜出来的卡片写着
+	// 「请在文章里点出你想说的那一句。」—— 一个要她打字，一个要她点句子。
+	// 这和产品负责人报的第 2 条是同一种伤：「对话框指令和动手部分的指令不一致」，
+	// 只是这一次那句不一致是**我们自己写的**。
+	//
+	// 两种形状都不可能被驳回（都没有 options，也就没有「引文对不上原文」
+	// 可言），所以按话里的动词挑：请她写就给 short_text，其余给 pick_in_article。
+	write := false
+	for _, w := range []string{"写几个字", "写下", "写一", "写出", "打字", "用你自己的话", "写在"} {
+		if strings.Contains(reply, w) {
+			write = true
+			break
+		}
+	}
+	kind, neutral := coachCardPickInArticle, "请在文章里点出你想说的那一句。"
+	if write {
+		kind, neutral = coachCardShortText, "请用你自己的话写一句。"
+	}
 	prompt := strings.TrimSpace(asked)
 	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
-		prompt = "请在文章里点出你想说的那一句。"
+		prompt = neutral
 	}
-	return &coachCard{Type: coachCardPickInArticle, Prompt: prompt}
+	return &coachCard{Type: kind, Prompt: prompt}
 }
 
 // escapeRawControlInStrings 把 JSON 字符串值里没转义的控制字符（换行、回车、
