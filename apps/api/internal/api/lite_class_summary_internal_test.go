@@ -72,6 +72,13 @@ func TestLiteClassSummaryCacheKeyRosterFingerprint(t *testing.T) {
 	if keyA != keyReordered {
 		t.Fatalf("row order changed the key: %q vs %q", keyA, keyReordered)
 	}
+
+	// Setting a gender changes the pronouns the summary may use.
+	gendered := []liteworkspace.Student{a[0], a[1]}
+	gendered[0].Gender = liteworkspace.GenderFemale
+	if liteClassSummaryCacheKey(classID, now, gendered) == keyA {
+		t.Fatalf("setting a gender did not change the key: %q", keyA)
+	}
 }
 
 // TestLiteClassSummaryStorePanicRecovers pins the panic path: a panic

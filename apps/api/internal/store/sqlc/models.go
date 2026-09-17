@@ -1325,6 +1325,7 @@ type User struct {
 	CardTheme       string             `json:"card_theme"`
 	PageBackground  string             `json:"page_background"`
 	OnboardedAt     pgtype.Timestamptz `json:"onboarded_at"`
+	Gender          *string            `json:"gender"`
 }
 
 type VoiceTtsCache struct {

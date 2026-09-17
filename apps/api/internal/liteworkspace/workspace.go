@@ -80,8 +80,10 @@ type ChoiceArticle struct {
 // Student is the workspace's view of one roster row — only the fields a
 // closed-set filter reads. The api layer maps its roster DTO into this.
 type Student struct {
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Gender is users.gender: GenderFemale, GenderMale, or "" (未设置).
+	Gender             string `json:"gender,omitempty"`
 	ActiveDaysThisWeek int    `json:"activeDaysThisWeek"`
 	OverdueAssignments int    `json:"overdueAssignments"`
 	WritingsDone       int    `json:"writingsDone"`

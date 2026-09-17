@@ -61,7 +61,25 @@ func withSection(base map[string]string, key, value string) map[string]string {
 var classmates = []string{"王小明", "周子墨"}
 
 func composeParent(prov gateway.Provider, f liteparent.Facts, others []string) (map[string]string, []agent.Attempt, error) {
-	return agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, f, others)
+	return agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, f, others, "她")
+}
+
+// The draft prompt carries the pronoun the teacher set, and forbids both when
+// none is set: the model guessed 他/她 from her name before.
+func TestComposeLiteParentReportPronounRule(t *testing.T) {
+	for _, tc := range []struct{ pronoun, want string }{
+		{"她", "代词只用「她」"},
+		{"他", "代词只用「他」"},
+		{"未设置", "不用「他」「她」指这名学生"},
+	} {
+		prov := gateway.NewSequenceStubProvider(liteReply(parentReply(t, parentValidSections())))
+		if _, _, err := agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, parentFacts(), classmates, tc.pronoun); err != nil {
+			t.Fatalf("%s: %v", tc.pronoun, err)
+		}
+		if system := prov.LastRequest.Messages[0].Content; !strings.Contains(system, tc.want) {
+			t.Fatalf("%s: system prompt lacks %q:\n%s", tc.pronoun, tc.want, system)
+		}
+	}
 }
 
 func TestComposeLiteParentReportValidFirstReply(t *testing.T) {

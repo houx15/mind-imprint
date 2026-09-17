@@ -22,8 +22,20 @@ const liteParentSectionMax = 400
 // Ruling 9.
 const liteParentSystemPromptTemplate = `你在为一名学生的家长写学习报告，由老师审阅后发出。只使用给出的事实，不补充事实，不评价学生的人格。输出 JSON，键为 {sections}（只输出这些键），值为该部分的正文，每部分不超过 400 字。overview 概括这段时间做了什么；next 给出 1 到 3 条家长在家可以配合的具体做法。引用学生原话时用「」并逐字照抄给出的金句。不使用事实里没有的数字。不写其他学生的名字。说明文，不用比喻、抒情和套话。作品标题用《》，只有学生原话用「」。数字一律用阿拉伯数字。不做加减和单位换算，数字照抄给出的事实。列举多条时不编号，每条单独一行。`
 
-func liteParentSystemPrompt(sections []string) string {
-	return strings.Replace(liteParentSystemPromptTemplate, "{sections}", strings.Join(sections, ","), 1)
+// liteParentPronounRule tells the model which pronoun it may use for her.
+// pronoun is 她 or 他; anything else means the teacher has not set a gender,
+// and then the prose uses neither: a guess from her name was wrong in
+// production.
+func liteParentPronounRule(pronoun string) string {
+	if pronoun == "她" || pronoun == "他" {
+		return "指这名学生时，代词只用「" + pronoun + "」。"
+	}
+	return "学生的性别未设置：不用「他」「她」指这名学生，重复学生姓名，或者写「孩子」。"
+}
+
+func liteParentSystemPrompt(sections []string, pronoun string) string {
+	return strings.Replace(liteParentSystemPromptTemplate, "{sections}", strings.Join(sections, ","), 1) +
+		liteParentPronounRule(pronoun)
 }
 
 // ComposeLiteParentReport drafts the sections of a parent report from f. The
@@ -33,10 +45,11 @@ func liteParentSystemPrompt(sections []string) string {
 // sections, never substitute prose.
 //
 // otherNames are the student's classmates; the prose may not name them.
-func ComposeLiteParentReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, f liteparent.Facts, otherNames []string) (map[string]string, []Attempt, error) {
+// pronoun is the one the prose may use for her (see liteParentPronounRule).
+func ComposeLiteParentReport(ctx context.Context, prov gateway.Provider, r gateway.Resolved, f liteparent.Facts, otherNames []string, pronoun string) (map[string]string, []Attempt, error) {
 	sections := liteparent.SectionsWithFacts(f)
 	msgs := []gateway.ChatMessage{
-		{Role: gateway.RoleSystem, Content: liteParentSystemPrompt(sections)},
+		{Role: gateway.RoleSystem, Content: liteParentSystemPrompt(sections, pronoun)},
 		{Role: gateway.RoleUser, Content: liteparent.FactsText(f)},
 	}
 	out, attempts, err := composeLiteWeekly(ctx, prov, r, msgs, func(p map[string]string) error {

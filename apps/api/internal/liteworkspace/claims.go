@@ -1,0 +1,108 @@
+package liteworkspace
+
+import (
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// claims.go — checks for replies that say the AI did something no tool can
+// do. Each one was seen on production (2026-09-17) and the prompt already
+// said not to:
+//
+//   - the class chat said 「已经打开了本周报告页面」 when open_page had only
+//     offered a button;
+//   - the report chat offered 「新增一个『阅读』段落」 on a report without
+//     that section, and no tool can add a section.
+//
+// The handler runs these on the reply and the option labels once the model
+// has finished, and gives the model one rewrite when one fires.
+
+// openedPagePattern matches a completed opening or navigation: 已打开,
+// 已经为您跳转, 帮您打开了. An offer (「要打开本周报告吗」) does not match.
+var openedPagePattern = regexp.MustCompile(
+	`已(经)?(为您|为你|帮您|帮你|给您|给你)?(打开|跳转|切换到)` +
+		`|(为您|为你|帮您|帮你|给您|给你)(打开|跳转|切换)(了|好)`)
+
+// ClaimsOpenedPage reports whether text says a page was opened. No workspace
+// tool opens a page: open_page only puts a button under the reply.
+func ClaimsOpenedPage(text string) bool {
+	return openedPagePattern.MatchString(text)
+}
+
+var buttonPattern = regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
+
+// PointsAtButton reports whether text tells her to use a button under the
+// reply.
+func PointsAtButton(text string) bool {
+	return buttonPattern.MatchString(text)
+}
+
+// newSectionPattern matches an offer or claim to add or remove a whole
+// section: 新增一个『阅读』段落, 添加一个部分, 删除「兴趣」板块. Adding a
+// sentence inside a section (「增加一段话」) does not match.
+var newSectionPattern = regexp.MustCompile(
+	`(新增|增加|添加|加上|增设|删除|删去|删掉|去掉)(一个|个)?(新的)?` +
+		`([「『“"][^」』”"]{1,8}[」』”"])?(段落|部分|板块|章节)`)
+
+// OffersSectionChange reports whether text offers to add or remove a report
+// section. revise_section can only rewrite a section the report already has.
+//
+// A negated verb is the honest answer, not an offer: 「不能新增段落」 and
+// 「无法新增或删除段落」 pass. Measured: the first version failed the model's
+// correct refusal in 3 of 3 live runs.
+func OffersSectionChange(text string) bool {
+	for _, loc := range newSectionPattern.FindAllStringIndex(text, -1) {
+		if !negatedBefore(text[:loc[0]]) {
+			return true
+		}
+	}
+	return false
+}
+
+// negationPattern matches a negation at the end of the text before a verb,
+// allowing up to four runes between them (「不能新增或删除段落」: 不能 sits
+// before 新增或 and still negates 删除).
+var negationPattern = regexp.MustCompile(`(不|无法|没法|没办法|未)[^，。！？；\n]{0,4}$`)
+
+func negatedBefore(prefix string) bool {
+	return negationPattern.MatchString(prefix)
+}
+
+// NamesMissingSection returns the first heading in missing that text names as
+// a section: quoted (「阅读」) or followed by 段/部分/板块 (阅读部分). ""
+// when none is named.
+func NamesMissingSection(text string, missing []string) string {
+	for _, label := range missing {
+		if label == "" {
+			continue
+		}
+		q := regexp.QuoteMeta(label)
+		re := regexp.MustCompile(`[「『“"]` + q + `[」』”"]|` + q + `(段|部分|板块)`)
+		if re.MatchString(text) {
+			return label
+		}
+	}
+	return ""
+}
+
+// RedactedName replaces a student's name in a log line.
+const RedactedName = "[学生]"
+
+// RedactNames replaces every name in names found in text with RedactedName,
+// longest name first, so 王丽华 is not left as [学生]华. Log lines use it:
+// a reply the §6 check rejected is logged for debugging, and the names in it
+// are students'.
+func RedactNames(text string, names []string) string {
+	sorted := make([]string, 0, len(names))
+	for _, n := range names {
+		if strings.TrimSpace(n) != "" {
+			sorted = append(sorted, n)
+		}
+	}
+	sort.SliceStable(sorted, func(i, j int) bool { return len([]rune(sorted[i])) > len([]rune(sorted[j])) })
+	for _, n := range sorted {
+		text = strings.ReplaceAll(text, n, RedactedName)
+	}
+	return text
+}

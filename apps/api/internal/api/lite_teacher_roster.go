@@ -11,6 +11,7 @@ import (
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/liteassign"
 	"mindimprint/api/internal/liteweek"
+	"mindimprint/api/internal/liteworkspace"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -21,6 +22,7 @@ type LiteRosterRowDTO struct {
 	ID                 string  `json:"id"`
 	DisplayName        string  `json:"displayName"`
 	AvatarColor        string  `json:"avatarColor"`
+	Gender             string  `json:"gender"` // "female" | "male" | "" (未设置)
 	LastActiveAt       *string `json:"lastActiveAt"`
 	ActiveDaysThisWeek int32   `json:"activeDaysThisWeek"`
 	MinutesTotal       int32   `json:"minutesTotal"`    // -1 = no time recorded at all
@@ -109,6 +111,7 @@ var liteEpoch = time.Unix(0, 0).UTC()
 func liteRosterRow(row sqlc.ListLiteClassRosterRow) LiteRosterRowDTO {
 	dto := LiteRosterRowDTO{
 		ID: row.ID.String(), DisplayName: row.DisplayName, AvatarColor: row.AvatarColor,
+		Gender:             liteworkspace.GenderOf(row.Gender),
 		ActiveDaysThisWeek: row.ActiveDaysThisWeek,
 		MinutesTotal:       secondsToMinutes(row.SecondsTotal),
 		MinutesThisWeek:    -1,

@@ -11,7 +11,7 @@
 -- against it rather than against a Go nil. seconds_this_week's 0 needs no
 -- sentinel: it is already an honest answer for "measured before, nothing
 -- this week".
-SELECT u.id, u.display_name, u.avatar_color,
+SELECT u.id, u.display_name, u.avatar_color, u.gender,
        COALESCE((SELECT max(a.last_activity_at) FROM atom a WHERE a.user_id = u.id), 'epoch'::timestamptz)::timestamptz AS last_active_at,
        COALESCE((SELECT sum(a.active_seconds) FROM atom a WHERE a.user_id = u.id), 0)::int AS seconds_total,
        COALESCE((SELECT sum(d.seconds) FROM atom_active_day d JOIN atom a ON a.id = d.atom_id
@@ -41,7 +41,7 @@ ORDER BY u.display_name;
 -- see its header comment), scoped to one student by id instead of by class:
 -- the caller (authTeacherStudent) already checked class ownership + that
 -- user_id is a student member, so no enrollments join is needed here.
-SELECT u.id, u.display_name, u.avatar_color,
+SELECT u.id, u.display_name, u.avatar_color, u.gender,
        COALESCE((SELECT max(a.last_activity_at) FROM atom a WHERE a.user_id = u.id), 'epoch'::timestamptz)::timestamptz AS last_active_at,
        COALESCE((SELECT sum(a.active_seconds) FROM atom a WHERE a.user_id = u.id), 0)::int AS seconds_total,
        COALESCE((SELECT sum(d.seconds) FROM atom_active_day d JOIN atom a ON a.id = d.atom_id
@@ -63,6 +63,14 @@ SELECT u.id, u.display_name, u.avatar_color,
        (SELECT count(*) FROM atom a WHERE a.user_id = u.id AND a.kind = 'project')::int AS projects_total
 FROM users u
 WHERE u.id = sqlc.arg(user_id);
+
+-- name: SetLiteStudentGender :exec
+-- The caller (authTeacherStudent) has checked that the teacher owns the class
+-- and that user_id is a student member of it. NULL clears the setting.
+UPDATE users SET gender = sqlc.narg(gender) WHERE id = sqlc.arg(user_id);
+
+-- name: GetUserGender :one
+SELECT gender FROM users WHERE id = $1;
 
 -- name: ListLiteStudentItems :many
 -- One row per reading/writing/project atom the student has, header + status +

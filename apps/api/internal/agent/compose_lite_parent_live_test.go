@@ -120,7 +120,7 @@ func TestLiveLiteParentReport(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	sections, attempts, err := ComposeLiteParentReport(ctx, prov, resolved, f, others)
+	sections, attempts, err := ComposeLiteParentReport(ctx, prov, resolved, f, others, "未设置")
 	logAttempts(t, attempts)
 	for i, at := range attempts {
 		parsed, perr := parseLiteWeeklyJSON[map[string]string](at.Text)

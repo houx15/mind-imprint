@@ -22,10 +22,10 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
 
 ## 你怎么问
 
-- **一轮只问一个问题。** 问的时候尽量给选项，让老师点，而不是让她打字。
+- **一轮只问一个问题。** 问的时候尽量给选项，让老师点，而不是让老师打字。
   给选项就调 ask_choice，一次 2 到 4 个。选项是名词或短动宾，不要写成句子。
-- 老师已经说清楚的事不要再问。她说「这周读气候变化写议论文周五交」，
-  你就直接把这些填进去，只问她还没说的那一件。
+- 老师已经说清楚的事不要再问。老师说「这周读气候变化写议论文周五交」，
+  你就直接把这些填进去，只问老师还没说的那一件。
 - 说话要短。不超过 120 个字。
 
 ## 硬规矩
@@ -37,7 +37,7 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
 - 材料只能从分级阅读库里选（先 search_library 再 set_material），
   或者设成个性化阅读，或者老师这一轮消息里贴了正文——这时候用
   set_material{source:"text", startAnchor:"...", endAnchor:"..."}，两个锚点分别是
-  那段正文开头和结尾约 15 个字，从她这一轮的消息里原样复制；不能用她更早几轮贴过的文章。不要编造文章标题。
+  那段正文开头和结尾约 15 个字，从老师这一轮的消息里原样复制；不能用老师更早几轮贴过的文章。不要编造文章标题。
 - 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
 - **提到文章标题或作业标题时，把标题放进《》里**（比如《美国气候队》），不要不加符号地写出来。
 - 你改不了的事不要说你改了。`
@@ -45,7 +45,7 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
 // AssignmentSystem renders the system prompt the teacher workspace turn
 // loop sends ahead of the transcript.
 func AssignmentSystem(c SystemContext) string {
-	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount)
+	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount) + "\n" + PronounRule
 }
 
 // AssignmentTools returns the seven tool schemas the model may call while
@@ -130,7 +130,7 @@ func AssignmentTools() []gateway.ChatTool {
 						"enum": []string{"library", "personalized", "text"},
 						"description": "material 来源：library（库里选定的文章）、personalized（每个学生各自的个性化阅读）" +
 							"或 text（老师这一轮消息里贴的正文）。" +
-							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读库」「个性化阅读」或「她贴的正文」。",
+							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读库」「个性化阅读」或「您贴的正文」。",
 					},
 					// 🚨 The model guesses this value. In the 2026-09-16 live run
 					// it minted american-climate-corps and
@@ -277,15 +277,16 @@ func AssignmentTools() []gateway.ChatTool {
 	}
 }
 
-const homeSystemTemplate = `你在帮一位老师了解她的一个班：回答关于这个班和学生的问题，需要时给她一个前往某个页面的入口。
+const homeSystemTemplate = `你在帮一位老师了解自己的一个班：回答关于这个班和学生的问题，需要时给老师一个前往某个页面的入口。
 
 现在是北京时间 %s。班级是%s，共 %d 名学生。
 
 ## 你怎么答
 
 - 只根据 class_snapshot、list_students、list_assignments 的结果说事实，不要编。
-- 她想去某个页面看时，用 open_page 给她一个入口；你自己不会跳转，老师点了才跳。
-- 一轮只问一个问题。需要她选的时候用 ask_choice，一次 2 到 4 个选项。
+- 老师想去某个页面看时，用 open_page 给一个入口。open_page 只在对话下方放一个按钮，页面不会打开，老师点了按钮才会跳转。
+  所以回复里不要说「已打开」「已跳转」「为您打开了」，要说「请点击下方按钮前往」。
+- 一轮只问一个问题。需要老师选的时候用 ask_choice，一次 2 到 4 个选项。
 - 说话要短。不超过 120 个字。
 
 ## 硬规矩
@@ -298,7 +299,7 @@ const homeSystemTemplate = `你在帮一位老师了解她的一个班：回答�
 // HomeSystem renders the system prompt the home workspace turn loop sends
 // ahead of the transcript (§12.5, D2's class chat).
 func HomeSystem(c SystemContext) string {
-	return fmt.Sprintf(homeSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount)
+	return fmt.Sprintf(homeSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount) + "\n" + PronounRule
 }
 
 // HomeTools returns the five tool schemas the model may call while helping a
@@ -339,7 +340,7 @@ func HomeTools() []gateway.ChatTool {
 		},
 		{
 			Name:        "open_page",
-			Description: "给老师一个「前往某个页面」的入口。你自己不会跳转，这只是给她点的一个按钮。",
+			Description: "给老师一个「前往某个页面」的入口。页面不会打开，这只是给老师点的一个按钮。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -411,7 +412,12 @@ type ReportSystemContext struct {
 	TodayBeijing string // "2006-01-02"
 	ClassName    string
 	StudentName  string
-	Canvas       string
+	// Pronoun is Pronoun(her gender): 她, 他 or PronounUnset.
+	Pronoun string
+	// Sections is this report's section headings, 「」-quoted and joined
+	// with 、 — the only sections the model may name or revise.
+	Sections string
+	Canvas   string
 }
 
 // ReviseSectionMaxRunes is revise_section's cap on one section. It equals the
@@ -422,10 +428,13 @@ const ReviseSectionMaxRunes = 2000
 
 const reportSystemTemplate = `你在帮一位老师修改一份给家长的学习报告。报告由系统根据学生的学习记录生成，老师审阅后发给家长。
 
-现在是北京时间 %s。班级是%s。这份报告写的是%s。
+现在是北京时间 %s。班级是%s。这份报告写的是%s（称谓：%s）。
 
 ## 你怎么做
 
+- 这份报告的段落是固定的，只有这几段：%s。你只能改写这几段的文字，
+  不能新增段落、删除段落，也不能调整顺序。老师要求新增或删除段落时，直说做不到，并说明可以改写哪一段。
+  给选项时也只给改写这几段的选项。
 - 老师说要改哪一段、怎么改，你就调用 revise_section，写出改好的整段。只改老师要改的段落。
 - 改好的段落会显示在右边的报告里，不要在回复里整段复述，说明改了哪一段即可。
 - 老师没说清楚改哪一段或怎么改时，用 ask_choice 给 2 到 4 个选项。一轮只问一个问题。
@@ -438,15 +447,16 @@ const reportSystemTemplate = `你在帮一位老师修改一份给家长的学�
 - 数字一律用阿拉伯数字，只用事实里出现的数字，照抄，不做加减和单位换算。
 - 不写其他学生的名字。
 - 说明文，不用比喻、抒情和套话。列举多条时不编号，每条单独一行。
-- 提到段落时用段落标题（如「阅读」「下一步建议」）。
+- 提到段落时用上面列出的段落标题。
 - 你改不了的事不要说你改了。
+%s
 
 %s`
 
 // ReportSystem renders the system prompt the parent report workspace turn
 // loop sends ahead of the transcript (§5.3, §12.6).
 func ReportSystem(c ReportSystemContext) string {
-	return fmt.Sprintf(reportSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentName, c.Canvas)
+	return fmt.Sprintf(reportSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentName, c.Pronoun, c.Sections, PronounRule, c.Canvas)
 }
 
 // reportSectionEnumText lists every section key with its heading, in

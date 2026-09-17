@@ -22,6 +22,7 @@ import (
 	"mindimprint/api/internal/liteassign"
 	"mindimprint/api/internal/liteparent"
 	"mindimprint/api/internal/liteweek"
+	"mindimprint/api/internal/liteworkspace"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -442,13 +443,24 @@ func requireParentStudentEnrolled(ctx context.Context, q *sqlc.Queries, locked s
 // requireParentStudentEnrolled; if she left in the meantime it is 409
 // student_left and the draft is discarded. replaceBody overwrites the
 // teacher's body; otherwise the body takes the draft only while it is blank.
-func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teacherID uuid.UUID, resolved gateway.Resolved, reportID uuid.UUID, facts liteparent.Facts, others []string, replaceBody bool) (sqlc.LiteParentReport, *string, error) {
-	sections, attempts, cerr := agent.ComposeLiteParentReport(ctx, a.d.Provider, resolved, facts, others)
+func (a *API) composeLiteParentDraft(ctx context.Context, requestID string, teacherID uuid.UUID, resolved gateway.Resolved, reportID, studentID uuid.UUID, facts liteparent.Facts, others []string, replaceBody bool) (sqlc.LiteParentReport, *string, error) {
+	// Her gender as it is now: the pronoun the draft may use for her.
+	gender, err := a.d.Queries.GetUserGender(ctx, studentID)
+	if err != nil {
+		return sqlc.LiteParentReport{}, nil, err
+	}
+	pronoun := liteworkspace.Pronoun(liteworkspace.GenderOf(gender))
+	sections, attempts, cerr := agent.ComposeLiteParentReport(ctx, a.d.Provider, resolved, facts, others, pronoun)
 	for _, at := range attempts {
 		a.recordLiteLLMCall(ctx, teacherID, uuid.Nil, liteParentReportPurpose, resolved, at.Usage)
 	}
 	if cerr != nil {
-		slog.Warn("lite parent report: draft rejected", "err", cerr, "report_id", reportID, "request_id", requestID)
+		// The cause can quote her words or name a classmate
+		// ("mentions other student: …"); names are redacted in the log. The
+		// teacher still gets the full cause.
+		slog.Warn("lite parent report: draft rejected",
+			"err", liteworkspace.RedactNames(cerr.Error(), append([]string{facts.StudentName}, others...)),
+			"report_id", reportID, "request_id", requestID)
 		msg := cerr.Error()
 		return sqlc.LiteParentReport{}, &msg, nil
 	}
@@ -573,7 +585,7 @@ func (a *API) createLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requestID := httpx.RequestIDFromContext(ctx)
-	row, draftError, err := a.composeLiteParentDraft(mctx, requestID, u.ID, resolved, created.ID, facts, others, false)
+	row, draftError, err := a.composeLiteParentDraft(mctx, requestID, u.ID, resolved, created.ID, userID, facts, others, false)
 	if err != nil {
 		// The row exists: answer 201 with it (its draft was not written) so the
 		// client has the id. composeLiteParentDraft has already logged the
@@ -811,7 +823,7 @@ func (a *API) redraftLiteParentReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("lite_parent_report route: "+err.Error()))
 		return
 	}
-	row, draftError, err := a.composeLiteParentDraft(mctx, httpx.RequestIDFromContext(ctx), u.ID, resolved, locked.ID, facts, others, req.ReplaceBody)
+	row, draftError, err := a.composeLiteParentDraft(mctx, httpx.RequestIDFromContext(ctx), u.ID, resolved, locked.ID, locked.UserID, facts, others, req.ReplaceBody)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

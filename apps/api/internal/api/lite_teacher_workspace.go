@@ -109,6 +109,14 @@ type liteWorkspaceSurface interface {
 	// ended reports whether a tool ended the turn during the last round, and
 	// with which reply and options. The loop checks it after every round.
 	ended() (reply string, choices []liteworkspace.Choice, done bool)
+	// clearEnded forgets the ask_choice that ended the last round, so the
+	// loop can give the model a rewrite (falseClaim).
+	clearEnded()
+	// falseClaim reports, in Chinese, something the finished reply or an
+	// option label says was done or can be done that no tool of this surface
+	// does; "" when there is none. text is the reply and every option label,
+	// joined with newlines. See liteworkspace/claims.go.
+	falseClaim(text string) string
 	// extraParts is anything this turn shows the teacher that is neither the
 	// reply, an option nor a patch value — those three the handler checks
 	// itself (liteWorkspaceCheckedParts). One string per field. nil when the
@@ -460,7 +468,11 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	turns := liteworkspace.TruncateHistory(liteworkspace.TrimTurns(req.Turns))
 	msgs := liteWorkspaceMessages(surface.system(), turns, said+chosen)
 
-	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, u.ID, resolved, msgs, surface)
+	rosterNames := liteWorkspaceRosterNames(roster)
+	// Every name a log line hides: the roster, plus her name as frozen on a
+	// report, which can differ from the roster after a rename.
+	logNames := append(append([]string{}, rosterNames...), surface.verbatimSubjectNames()...)
+	reply, choices, aerr := a.runLiteWorkspaceLoop(mctx, r, req.Surface, u.ID, resolved, msgs, surface, logNames)
 	if aerr != nil {
 		httpx.WriteError(w, r, aerr)
 		return
@@ -489,7 +501,6 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	}
 	parts = append(parts, surface.extraParts()...)
 	quotedSpans := surface.verbatimQuotedSpans()
-	rosterNames := liteWorkspaceRosterNames(roster)
 	var nameSpans []string
 	if surface.blanksQuotedSpansForNames() {
 		nameSpans = liteWorkspaceSpansForNameCheck(quotedSpans, rosterNames)
@@ -497,7 +508,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	if bad := liteWorkspaceUngroundedNames(
 		parts, nameSpans, surface.verbatimSubjectNames(), rosterNames, grounded,
 	); len(bad) > 0 {
-		liteWorkspaceLogGroundingFailure(r, req.Surface, "names", strings.Join(bad, "、"), strings.Join(grounded, "、"), strings.Join(parts, " | "))
+		liteWorkspaceLogGroundingFailure(r, req.Surface, "names", len(bad), strconv.Itoa(len(grounded))+" 个", strings.Join(parts, " | "), logNames)
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
 		return
 	}
@@ -525,7 +536,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		checked := liteWorkspaceBlankQuotedSpans(part, quotedSpans)
 		checked = liteWorkspaceBlankUnquoted(checked, className)
 		if bad := liteworkspace.UngroundedCounts(checked, countGrounds); len(bad) > 0 {
-			liteWorkspaceLogGroundingFailure(r, req.Surface, "counts", liteWorkspaceJoinInts(bad), liteWorkspaceJoinInts(countGrounds), part)
+			liteWorkspaceLogGroundingFailure(r, req.Surface, "counts", len(bad), liteWorkspaceJoinInts(countGrounds), part, logNames)
 			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
 			return
 		}
@@ -579,12 +590,25 @@ func (a *API) liteWorkspaceRoster(ctx context.Context, classID uuid.UUID) ([]lit
 		out = append(out, liteworkspace.Student{
 			ID:                 row.ID.String(),
 			Name:               row.DisplayName,
+			Gender:             liteworkspace.GenderOf(row.Gender),
 			ActiveDaysThisWeek: int(row.ActiveDaysThisWeek),
 			OverdueAssignments: int(overdue[row.ID]),
 			WritingsDone:       int(row.WritingsDone),
 		})
 	}
 	return out, nil
+}
+
+// liteWorkspacePronounOf is the pronoun the model may use for userID on
+// roster; liteworkspace.PronounUnset when she is not on it or has no gender
+// set.
+func liteWorkspacePronounOf(roster []liteworkspace.Student, userID string) string {
+	for _, s := range roster {
+		if s.ID == userID {
+			return liteworkspace.Pronoun(s.Gender)
+		}
+	}
+	return liteworkspace.PronounUnset
 }
 
 // liteWorkspaceSpansForNameCheck is spans without any span whose trimmed text
@@ -820,16 +844,21 @@ func liteWorkspaceGroundedCounts(fromTools []int, rosterSize int, groundRoster b
 }
 
 // liteWorkspaceLogGroundingFailure records a turn the §6 check rejected: the
-// surface, what was ungrounded, what the turn had as evidence, and the
-// model-written text that carried it.
-// The text is teacher-facing model output (reply, option labels, patch
-// fields); no key and no student chat transcript reaches it. It is cut at
-// 2,000 runes: a patch can carry a whole pasted article.
-func liteWorkspaceLogGroundingFailure(r *http.Request, surface, kind, ungrounded, grounded, text string) {
+// surface, how many names or counts were ungrounded, what the turn had as
+// evidence, and the model-written text that carried them.
+//
+// 🚨 No student name reaches the log. The text is teacher-facing model output
+// (reply, option labels, patch fields) and names students; every roster name
+// in it is replaced with liteworkspace.RedactedName, and a failed name check
+// logs how many names failed, not which. The name check only ever reports
+// roster names, so redacting the roster covers everything it can report. A
+// failed count check still logs the numbers: they are not personal. The text
+// is cut at 2,000 runes first: a patch can carry a whole pasted article.
+func liteWorkspaceLogGroundingFailure(r *http.Request, surface, kind string, ungrounded int, grounded, text string, names []string) {
 	slog.Warn("lite workspace: reply failed the grounding check",
 		"request_id", httpx.RequestIDFromContext(r.Context()),
 		"surface", surface, "kind", kind, "ungrounded", ungrounded, "grounded", grounded,
-		"text", liteWorkspaceClampRunes(text, 2000))
+		"text", liteworkspace.RedactNames(liteWorkspaceClampRunes(text, 2000), names))
 }
 
 func liteWorkspaceJoinInts(ns []int) string {
@@ -896,37 +925,89 @@ func (a *API) liteWorkspaceChoiceArticle(slug string) *liteworkspace.ChoiceArtic
 // runLiteWorkspaceLoop runs the bounded tool loop and returns the reply the
 // teacher sees. Every model call inside it is metered, including a call that
 // produced nothing usable — it was paid for either way.
-func (a *API) runLiteWorkspaceLoop(ctx context.Context, userID uuid.UUID, resolved gateway.Resolved, msgs []gateway.ChatMessage, surface liteWorkspaceSurface) (string, []liteworkspace.Choice, *httpx.APIError) {
+func (a *API) runLiteWorkspaceLoop(ctx context.Context, r *http.Request, surfaceName string, userID uuid.UUID, resolved gateway.Resolved, msgs []gateway.ChatMessage, surface liteWorkspaceSurface, logNames []string) (string, []liteworkspace.Choice, *httpx.APIError) {
 	tools := surface.tools()
+	rewrites := 0
 	for i := 0; i < liteworkspace.ToolLoopMax; i++ {
 		res, err := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: msgs, Tools: tools})
 		a.recordLiteLLMCall(ctx, userID, uuid.Nil, liteTeacherWorkspacePurpose, resolved, res.Usage)
 		if err != nil {
 			return "", nil, errLiteWorkspaceTurn(err.Error())
 		}
+		var reply string
+		var choices []liteworkspace.Choice
 		if len(res.ToolCalls) == 0 {
 			// A stop with neither tools nor text is a dead turn. Say so rather
 			// than render an empty bubble she would answer into.
 			if strings.TrimSpace(res.Text) == "" {
 				return "", nil, errLiteWorkspaceTurn("模型没有返回内容")
 			}
-			return res.Text, nil, nil
-		}
-		msgs = append(msgs, gateway.ChatMessage{
-			Role: gateway.RoleAssistant, Content: res.Text, ToolCalls: res.ToolCalls,
-		})
-		for _, tc := range res.ToolCalls {
+			reply = res.Text
+			msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text})
+		} else {
 			msgs = append(msgs, gateway.ChatMessage{
-				Role: gateway.RoleTool, ToolCallID: tc.ID, Content: surface.execute(tc),
+				Role: gateway.RoleAssistant, Content: res.Text, ToolCalls: res.ToolCalls,
 			})
-		}
-		if reply, choices, done := surface.ended(); done {
+			for _, tc := range res.ToolCalls {
+				msgs = append(msgs, gateway.ChatMessage{
+					Role: gateway.RoleTool, ToolCallID: tc.ID, Content: surface.execute(tc),
+				})
+			}
+			var done bool
 			// A tool that ends the turn (ask_choice) supplies the reply: the
 			// question IS the reply.
+			if reply, choices, done = surface.ended(); !done {
+				continue
+			}
+		}
+
+		// The turn is finished. Before it goes out, check it does not say
+		// something happened that no tool did (liteworkspace/claims.go). The
+		// prompt already forbids these; production showed it is not enough.
+		// One rewrite, then the turn fails with the reason: a false claim is
+		// never shown to her.
+		reason := surface.falseClaim(liteWorkspaceClaimText(reply, choices))
+		if reason == "" {
 			return reply, choices, nil
 		}
+		slog.Warn("lite workspace: reply made a false claim",
+			"request_id", httpx.RequestIDFromContext(r.Context()), "surface", surfaceName,
+			"attempt", rewrites+1, "reason", reason,
+			"text", liteworkspace.RedactNames(liteWorkspaceClampRunes(liteWorkspaceClaimText(reply, choices), 2000), logNames))
+		if rewrites >= liteWorkspaceClaimRewrites {
+			return "", nil, errLiteWorkspaceTurn(reason)
+		}
+		rewrites++
+		surface.clearEnded()
+		msgs = append(msgs, gateway.ChatMessage{
+			Role: gateway.RoleUser, Content: "上一条回复没有通过检查：" + reason + "。这条检查不是老师说的话。请重新回复老师。",
+		})
 	}
 	return "", nil, errLiteWorkspaceTurn("工具调用次数超出上限")
+}
+
+// liteWorkspaceClaimRewrites is how many times a turn may be rewritten after
+// falseClaim fires.
+const liteWorkspaceClaimRewrites = 1
+
+// liteWorkspaceClaimText is what falseClaim reads: the reply and every option
+// label, one per line.
+func liteWorkspaceClaimText(reply string, choices []liteworkspace.Choice) string {
+	parts := []string{reply}
+	for _, c := range choices {
+		parts = append(parts, c.Label)
+	}
+	return strings.Join(parts, "\n")
+}
+
+// liteWorkspaceOpenedPageClaim is falseClaim's answer for a reply that says
+// a page was opened. It is the same on every surface: none of them opens a
+// page.
+func liteWorkspaceOpenedPageClaim(text string) string {
+	if liteworkspace.ClaimsOpenedPage(text) {
+		return "回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」"
+	}
+	return ""
 }
 
 func liteWorkspaceToolError(msg string) string {
@@ -1003,7 +1084,7 @@ func liteWorkspaceListStudentsTool(roster []liteworkspace.Student, args map[stri
 	out := make([]map[string]any, 0, len(rows))
 	names = make([]string, 0, len(rows))
 	for _, s := range rows {
-		out = append(out, map[string]any{"id": s.ID, "name": s.Name})
+		out = append(out, map[string]any{"id": s.ID, "name": s.Name, "称谓": liteworkspace.Pronoun(s.Gender)})
 		names = append(names, s.Name)
 	}
 	card = liteWorkspaceCardDTO{Kind: "students", Rows: rows}

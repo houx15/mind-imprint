@@ -69,7 +69,7 @@ func (q *Queries) GetLiteStudentItem(ctx context.Context, arg GetLiteStudentItem
 }
 
 const getLiteStudentRosterRow = `-- name: GetLiteStudentRosterRow :one
-SELECT u.id, u.display_name, u.avatar_color,
+SELECT u.id, u.display_name, u.avatar_color, u.gender,
        COALESCE((SELECT max(a.last_activity_at) FROM atom a WHERE a.user_id = u.id), 'epoch'::timestamptz)::timestamptz AS last_active_at,
        COALESCE((SELECT sum(a.active_seconds) FROM atom a WHERE a.user_id = u.id), 0)::int AS seconds_total,
        COALESCE((SELECT sum(d.seconds) FROM atom_active_day d JOIN atom a ON a.id = d.atom_id
@@ -105,6 +105,7 @@ type GetLiteStudentRosterRowRow struct {
 	ID                 uuid.UUID `json:"id"`
 	DisplayName        string    `json:"display_name"`
 	AvatarColor        string    `json:"avatar_color"`
+	Gender             *string   `json:"gender"`
 	LastActiveAt       time.Time `json:"last_active_at"`
 	SecondsTotal       int32     `json:"seconds_total"`
 	SecondsThisWeek    int32     `json:"seconds_this_week"`
@@ -136,6 +137,7 @@ func (q *Queries) GetLiteStudentRosterRow(ctx context.Context, arg GetLiteStuden
 		&i.ID,
 		&i.DisplayName,
 		&i.AvatarColor,
+		&i.Gender,
 		&i.LastActiveAt,
 		&i.SecondsTotal,
 		&i.SecondsThisWeek,
@@ -150,6 +152,17 @@ func (q *Queries) GetLiteStudentRosterRow(ctx context.Context, arg GetLiteStuden
 		&i.ProjectsTotal,
 	)
 	return i, err
+}
+
+const getUserGender = `-- name: GetUserGender :one
+SELECT gender FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUserGender(ctx context.Context, id uuid.UUID) (*string, error) {
+	row := q.db.QueryRow(ctx, getUserGender, id)
+	var gender *string
+	err := row.Scan(&gender)
+	return gender, err
 }
 
 const listLiteClassRecipientStates = `-- name: ListLiteClassRecipientStates :many
@@ -203,7 +216,7 @@ func (q *Queries) ListLiteClassRecipientStates(ctx context.Context, classID uuid
 
 const listLiteClassRoster = `-- name: ListLiteClassRoster :many
 
-SELECT u.id, u.display_name, u.avatar_color,
+SELECT u.id, u.display_name, u.avatar_color, u.gender,
        COALESCE((SELECT max(a.last_activity_at) FROM atom a WHERE a.user_id = u.id), 'epoch'::timestamptz)::timestamptz AS last_active_at,
        COALESCE((SELECT sum(a.active_seconds) FROM atom a WHERE a.user_id = u.id), 0)::int AS seconds_total,
        COALESCE((SELECT sum(d.seconds) FROM atom_active_day d JOIN atom a ON a.id = d.atom_id
@@ -241,6 +254,7 @@ type ListLiteClassRosterRow struct {
 	ID                 uuid.UUID `json:"id"`
 	DisplayName        string    `json:"display_name"`
 	AvatarColor        string    `json:"avatar_color"`
+	Gender             *string   `json:"gender"`
 	LastActiveAt       time.Time `json:"last_active_at"`
 	SecondsTotal       int32     `json:"seconds_total"`
 	SecondsThisWeek    int32     `json:"seconds_this_week"`
@@ -285,6 +299,7 @@ func (q *Queries) ListLiteClassRoster(ctx context.Context, arg ListLiteClassRost
 			&i.ID,
 			&i.DisplayName,
 			&i.AvatarColor,
+			&i.Gender,
 			&i.LastActiveAt,
 			&i.SecondsTotal,
 			&i.SecondsThisWeek,
@@ -429,4 +444,20 @@ func (q *Queries) ListLiteStudentItems(ctx context.Context, userID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const setLiteStudentGender = `-- name: SetLiteStudentGender :exec
+UPDATE users SET gender = $1 WHERE id = $2
+`
+
+type SetLiteStudentGenderParams struct {
+	Gender *string   `json:"gender"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+// The caller (authTeacherStudent) has checked that the teacher owns the class
+// and that user_id is a student member of it. NULL clears the setting.
+func (q *Queries) SetLiteStudentGender(ctx context.Context, arg SetLiteStudentGenderParams) error {
+	_, err := q.db.Exec(ctx, setLiteStudentGender, arg.Gender, arg.UserID)
+	return err
 }

@@ -67,6 +67,23 @@ func (run *liteWorkspaceHome) ended() (string, []liteworkspace.Choice, bool) {
 	return run.question, run.choices, run.asked
 }
 
+func (run *liteWorkspaceHome) clearEnded() {
+	run.question, run.choices, run.asked = "", nil, false
+}
+
+// falseClaim: the home surface offers pages but never opens one, and a reply
+// that points at a button must have one under it. Measured 2026-09-17: the
+// model wrote 「请点击下方按钮前往周子涵的学习页」 without calling open_page.
+func (run *liteWorkspaceHome) falseClaim(text string) string {
+	if reason := liteWorkspaceOpenedPageClaim(text); reason != "" {
+		return reason
+	}
+	if run.nav == nil && !run.asked && liteworkspace.PointsAtButton(text) {
+		return "回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page"
+	}
+	return ""
+}
+
 // extraParts carries the navigate label, when open_page set one: it names a
 // real page, and on target=student or target=assignment a real student's
 // name or a real assignment's title, so it goes through the same §6 checks
@@ -229,12 +246,12 @@ func (run *liteWorkspaceHome) classSnapshot() string {
 	}
 	praiseRows := make([]map[string]any, 0, len(praise))
 	for _, c := range praise {
-		praiseRows = append(praiseRows, map[string]any{"name": c.Name, "evidence": c.Evidence})
+		praiseRows = append(praiseRows, map[string]any{"name": c.Name, "称谓": run.pronounOf(c.UserID), "evidence": c.Evidence})
 		run.namesReturned = append(run.namesReturned, c.Name)
 	}
 	watchRows := make([]map[string]any, 0, len(watch))
 	for _, c := range watch {
-		watchRows = append(watchRows, map[string]any{"name": c.Name, "evidence": c.Evidence})
+		watchRows = append(watchRows, map[string]any{"name": c.Name, "称谓": run.pronounOf(c.UserID), "evidence": c.Evidence})
 		run.namesReturned = append(run.namesReturned, c.Name)
 	}
 	run.countsReturned = append(run.countsReturned, stats.ClassSize, stats.ActiveStudents, stats.Finished)
@@ -347,6 +364,12 @@ func (run *liteWorkspaceHome) openPage(args map[string]any) string {
 			"，只能是 classWeekly、student、assignmentNew、assignment 或 parentReports")
 	}
 	return liteWorkspaceToolOK(map[string]any{"navigate": true, "label": run.nav.Label})
+}
+
+// pronounOf is the pronoun the model may use for userID: the gender the
+// teacher set on her roster row, or liteworkspace.PronounUnset.
+func (run *liteWorkspaceHome) pronounOf(userID string) string {
+	return liteWorkspacePronounOf(run.roster, userID)
 }
 
 // rosterName reports the display name of userID on run.roster, when she is a

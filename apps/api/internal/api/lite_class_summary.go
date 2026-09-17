@@ -105,10 +105,11 @@ func (a *API) postLiteClassSummary(w http.ResponseWriter, r *http.Request) {
 // liteClassSummarySystemPrompt asks for plain 说明文, one to three sentences,
 // no invented facts. AGENTS.md 界面文案 rule 10: no metaphor, no 抒情副词, no
 // exclamation marks outside a real milestone (this is neither).
-const liteClassSummarySystemPrompt = `你在给老师写一句摘要，显示在班级列表的班级卡片上方，帮她判断这周要不要点进去看这个班。
+const liteClassSummarySystemPrompt = `你在给老师写一句摘要，显示在班级列表的班级卡片上方，帮老师判断这周要不要点进去看这个班。
 只使用下面给出的事实，不补充事实；不使用给出事实里没有的数字；不写给出的学生名单之外的姓名。
 写一到三句话，说这个班这周（进行中）最值得老师注意的事：整体参与情况，或者哪些学生值得表扬、哪些需要关注。
-说明文，不用比喻，不用感叹号，不写标题，不写称呼，只输出摘要正文本身。`
+说明文，不用比喻，不用感叹号，不写标题，不写称呼，只输出摘要正文本身。
+` + liteworkspace.PronounRule
 
 // liteClassSummaryMaxAttempts is the first call plus one retry — mirrors
 // agent.composeLiteWeekly's retry budget. Only a §6 grounding failure spends
@@ -138,7 +139,7 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 	}
 	stats := liteClassWeekStats(students)
 	_, praise, watch := liteClassWeekCards(students)
-	prompt, names, counts := liteClassSummaryFacts(cls, liteweek.Label(ws), stats, praise, watch)
+	prompt, names, counts := liteClassSummaryFacts(cls, liteweek.Label(ws), stats, praise, watch, roster)
 	rosterNames := liteWorkspaceRosterNames(roster)
 
 	resolved, rerr := a.routeE(mctx, gateway.ClassDigest)
@@ -176,9 +177,13 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 			return liteClassSummaryEntry{Summary: summary, GeneratedAt: time.Now()}, nil
 		}
 
+		// No student name reaches the log: the reason and the summary both
+		// name students, and every name the check reports is a roster name.
 		slog.Warn("lite class summary: summary failed the grounding check",
 			"request_id", httpx.RequestIDFromContext(r.Context()),
-			"attempt", attempt+1, "reason", reason, "summary", summary)
+			"attempt", attempt+1,
+			"reason", liteworkspace.RedactNames(reason, rosterNames),
+			"summary", liteworkspace.RedactNames(summary, rosterNames))
 		groundErr = errLiteClassSummary(reason)
 		if attempt == liteClassSummaryMaxAttempts-1 {
 			break
@@ -197,7 +202,7 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 // all three together is deliberate — a fact added to the prompt without also
 // being added to one of these lists would silently fail every summary that
 // mentions it.
-func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.ClassWeekStats, praise, watch []liteClassWeekCardDTO) (prompt string, names []string, counts []int) {
+func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.ClassWeekStats, praise, watch []liteClassWeekCardDTO, roster []liteworkspace.Student) (prompt string, names []string, counts []int) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "班级：%s\n", cls.Name)
 	fmt.Fprintf(&b, "周：%s\n", weekLabel)
@@ -225,7 +230,7 @@ func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.Cl
 		b.WriteString("无")
 	}
 	for _, c := range praise {
-		fmt.Fprintf(&b, "\n- %s：%s", c.Name, c.Evidence)
+		fmt.Fprintf(&b, "\n- %s（称谓：%s）：%s", c.Name, liteWorkspacePronounOf(roster, c.UserID), c.Evidence)
 		names = append(names, c.Name)
 	}
 	b.WriteString("\n需要关注：")
@@ -233,8 +238,18 @@ func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.Cl
 		b.WriteString("无")
 	}
 	for _, c := range watch {
-		fmt.Fprintf(&b, "\n- %s：%s", c.Name, c.Evidence)
+		fmt.Fprintf(&b, "\n- %s（称谓：%s）：%s", c.Name, liteWorkspacePronounOf(roster, c.UserID), c.Evidence)
 		names = append(names, c.Name)
+	}
+	// Each list states a head count by listing its students: 「这两位学生」
+	// about the two names under 需要关注 is a fact the model was given.
+	// Measured: without these, that sentence failed the summary in 2 of 3 live
+	// runs (2026-09-17).
+	if len(praise) > 0 {
+		counts = append(counts, len(praise))
+	}
+	if len(watch) > 0 {
+		counts = append(counts, len(watch))
 	}
 	return b.String(), names, counts
 }
@@ -260,7 +275,8 @@ func liteClassSummaryCacheKey(classID uuid.UUID, now time.Time, roster []litewor
 
 // liteClassSummaryRosterFingerprint hashes the roster rows' activity fields —
 // the same three fields the workspace's list_students tool reads
-// (ActiveDaysThisWeek, OverdueAssignments, WritingsDone). Any change to any
+// (ActiveDaysThisWeek, OverdueAssignments, WritingsDone) — and each student's
+// gender, which the summary's pronouns follow. Any change to any
 // student's week changes the hash, which is what "roster change → recompute"
 // means: the cache does not know WHAT changed, only that something did.
 //
@@ -269,7 +285,7 @@ func liteClassSummaryCacheKey(classID uuid.UUID, now time.Time, roster []litewor
 func liteClassSummaryRosterFingerprint(roster []liteworkspace.Student) string {
 	rows := make([]string, len(roster))
 	for i, s := range roster {
-		rows[i] = fmt.Sprintf("%s:%d:%d:%d", s.ID, s.ActiveDaysThisWeek, s.OverdueAssignments, s.WritingsDone)
+		rows[i] = fmt.Sprintf("%s:%d:%d:%d:%s", s.ID, s.ActiveDaysThisWeek, s.OverdueAssignments, s.WritingsDone, s.Gender)
 	}
 	sort.Strings(rows)
 	sum := sha256.Sum256([]byte(strings.Join(rows, ";")))

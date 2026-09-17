@@ -396,7 +396,8 @@ func TestStatedCountsOnLiveReplies(t *testing.T) {
 // Adding a field is allowed. Editing this list on purpose, after checking the
 // new field is not prose the student wrote to the coach, is the whole ritual.
 func TestStudentCarriesNoProse(t *testing.T) {
-	want := []string{"ActiveDaysThisWeek", "ID", "Name", "OverdueAssignments", "WritingsDone"}
+	// Gender (2026-09-17): a closed value the teacher sets, not student prose.
+	want := []string{"ActiveDaysThisWeek", "Gender", "ID", "Name", "OverdueAssignments", "WritingsDone"}
 	rt := reflect.TypeOf(Student{})
 	got := make([]string, 0, rt.NumField())
 	for i := 0; i < rt.NumField(); i++ {

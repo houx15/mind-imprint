@@ -232,6 +232,15 @@ func (run *liteWorkspaceRun) ended() (string, []liteworkspace.Choice, bool) {
 	return run.question, run.choices, run.asked
 }
 
+func (run *liteWorkspaceRun) clearEnded() {
+	run.question, run.choices, run.asked = "", nil, false
+}
+
+// falseClaim: the assignment surface has no page tool at all.
+func (run *liteWorkspaceRun) falseClaim(text string) string {
+	return liteWorkspaceOpenedPageClaim(text)
+}
+
 // extraParts is nil: everything the assignment surface shows the teacher is
 // the reply, an option or a patch value, which the handler checks itself.
 func (run *liteWorkspaceRun) extraParts() []string { return nil }

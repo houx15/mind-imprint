@@ -11,6 +11,7 @@ func (a *API) registerLiteTeacherRoutes(mux *http.ServeMux) {
 	}
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/roster", liteTeacher(a.getLiteClassRoster))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}", liteTeacher(a.getLiteStudentPage))
+	mux.Handle("PUT /api/v1/lite/teacher/classes/{id}/students/{userId}/gender", liteTeacher(a.putLiteStudentGender))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}", liteTeacher(a.getLiteTeacherItem))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/items/{atomId}/versions/{n}", liteTeacher(a.getLiteTeacherWritingVersion))
 	mux.Handle("GET /api/v1/lite/teacher/classes/{id}/students/{userId}/tree", liteTeacher(a.getLiteTeacherTree))

@@ -103,6 +103,11 @@ func (a *API) newLiteWorkspaceReport(in liteWorkspaceSurfaceInput) (liteWorkspac
 	sections := liteparent.SectionsWithFacts(facts)
 	current := liteWorkspaceReportCurrent(in.req.Artifact, stored, sections)
 
+	genderCol, err := q.GetUserGender(in.mctx, rep.UserID)
+	if err != nil {
+		return nil, err
+	}
+
 	className := facts.ClassName
 	if className == "" {
 		className = in.subject.class.Name
@@ -114,6 +119,7 @@ func (a *API) newLiteWorkspaceReport(in liteWorkspaceSurfaceInput) (liteWorkspac
 		current:   current,
 		className: className,
 		names:     liteWorkspaceReportNames(facts, in.roster, rep.UserID),
+		gender:    liteworkspace.GenderOf(genderCol),
 	}, nil
 }
 
@@ -175,6 +181,9 @@ type liteWorkspaceReport struct {
 	current   map[string]string
 	className string
 	names     []string
+	// gender is her users.gender as it is now (not frozen on the report):
+	// the teacher may set it after the report was drafted.
+	gender string
 
 	// revised is what revise_section accepted this turn, by section key.
 	revised map[string]string
@@ -196,6 +205,8 @@ func (run *liteWorkspaceReport) system() string {
 		TodayBeijing: time.Now().In(liteworkspace.BeijingOffset).Format("2006-01-02"),
 		ClassName:    run.className,
 		StudentName:  run.facts.StudentName,
+		Pronoun:      liteworkspace.Pronoun(run.gender),
+		Sections:     run.sectionList(),
 		Canvas:       run.canvas(),
 	})
 }
@@ -228,6 +239,37 @@ func (run *liteWorkspaceReport) tools() []gateway.ChatTool { return liteworkspac
 // ended is ask_choice's: it ends the turn, and the question is the reply.
 func (run *liteWorkspaceReport) ended() (string, []liteworkspace.Choice, bool) {
 	return run.question, run.choices, run.asked
+}
+
+func (run *liteWorkspaceReport) clearEnded() {
+	run.question, run.choices, run.asked = "", nil, false
+}
+
+// falseClaim: revise_section rewrites a section this report already has. It
+// cannot add, remove or reorder sections, and nothing here opens a page.
+func (run *liteWorkspaceReport) falseClaim(text string) string {
+	if reason := liteWorkspaceOpenedPageClaim(text); reason != "" {
+		return reason
+	}
+	if liteworkspace.OffersSectionChange(text) {
+		return "报告的段落是固定的，不能新增或删除段落，只能改写这几段：" + run.sectionList()
+	}
+	if label := liteworkspace.NamesMissingSection(text, run.missingSectionLabels()); label != "" {
+		return "这份报告没有「" + label + "」段落，只能改写这几段：" + run.sectionList()
+	}
+	return ""
+}
+
+// missingSectionLabels is the heading of every section this report does not
+// show.
+func (run *liteWorkspaceReport) missingSectionLabels() []string {
+	var out []string
+	for _, k := range liteparent.SectionKeys {
+		if !slices.Contains(run.sections, k) {
+			out = append(out, liteparent.SectionLabels[k])
+		}
+	}
+	return out
 }
 
 // extraParts is nil: a revised section is a patch value, which the handler

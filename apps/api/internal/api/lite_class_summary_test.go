@@ -428,3 +428,31 @@ func TestClassSummaryComputationIgnoresTheFirstRequesterCancelling(t *testing.T)
 		t.Fatal("empty summary")
 	}
 }
+
+// TestClassSummaryListSizeIsGrounded — the watch list names two students, so
+// 「两位学生需要关注」 states a count the facts gave. The live run of
+// 2026-09-17 failed this sentence in 2 of 3 summaries. A count the lists do
+// not support still fails, and each listed student carries her pronoun.
+func TestClassSummaryListSizeIsGrounded(t *testing.T) {
+	for _, tc := range []struct {
+		reply string
+		want  int
+	}{
+		{"本周有两位学生需要关注。", http.StatusOK},
+		{"本周有 7 位学生需要关注。", http.StatusBadGateway},
+	} {
+		prov := gateway.NewStubProvider(weeklyReply(tc.reply))
+		h, pool, teacher, classID, _ := liteClassSummaryFixture(t, prov)
+		quiet := createStudent(t, pool, SeedSchoolID, "cs-quiet@demo.local")
+		enrollStudent(t, pool, quiet, classID)
+		addUncardedStudent(t, pool, classID, "cs-active@demo.local", "赵一诺")
+
+		code, _, body := postSummary(t, h, teacher, classID)
+		if code != tc.want {
+			t.Fatalf("%q: summary = %d, want %d; body=%s", tc.reply, code, tc.want, body)
+		}
+		if prompt := prov.LastRequest.Messages[1].Content; !strings.Contains(prompt, "（称谓：未设置）") {
+			t.Fatalf("facts lack the pronoun:\n%s", prompt)
+		}
+	}
+}
