@@ -621,13 +621,20 @@ export type ReadingGrammarPoint = { name: string; why?: string; example?: string
  *  第一版只有 backbone / parts / points。 */
 export type ReadingGrammar = {
   clauses?: ReadingGrammarSpan[];
-  parts: ReadingGrammarSpan[];
+  /** 第二版里可以是空的（这一句的难点不在结构）。 */
+  parts?: ReadingGrammarSpan[];
   words?: ReadingGrammarSpan[];
   tenses?: ReadingGrammarSpan[];
   meaning?: string;
   backbone?: string;
   points?: ReadingGrammarPoint[];
 };
+
+/** 这张语法卡有没有可摆的东西（四层、老卡的 parts 任何一层不空）。 */
+export function grammarHasContent(g: ReadingGrammar | undefined): boolean {
+  if (!g) return false;
+  return [g.clauses, g.parts, g.words, g.tenses].some((l) => (l?.length ?? 0) > 0);
+}
 
 /** Everything she has already opened, so a reload restores it instead of
  *  making her pay for it twice. */

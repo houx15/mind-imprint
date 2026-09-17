@@ -160,8 +160,11 @@ func dropNestedClauses(cls []readingGrammarSpan, sentence string) []readingGramm
 // parseGrammarCard 读语法那份回话，并丢掉一切核对不上的。
 //
 // 丢弃规则，和 parseWordCards 同一条纪律：每一段都要逐字来自那一句、带着名字；
-// 核不上的丢掉。**句子成分不足两段（主语 + 谓语都没有）整张作废** —— 那是这张
-// 卡的骨架；从句、关键词、时态可以是空的（一个简单句本来就没有从句）。
+// 核不上的丢掉。
+//
+// 四层都可以是空的 —— owner 2026-09-17：「not every card need all these. only need
+// to highlight those key points.」模型只交这一句值得讲的那一两层。**四层全空才整张
+// 作废**。句子成分只剩一段时这一层丢掉（一个孤零零的「主语」讲不出结构）。
 func parseGrammarCard(body, sentence string) (readingGrammar, bool) {
 	var got readingGrammar
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
@@ -185,6 +188,9 @@ func parseGrammarCard(body, sentence string) (readingGrammar, bool) {
 		}
 	}
 	if len(out.Parts) < grammarPartsMin {
+		out.Parts = []readingGrammarSpan{}
+	}
+	if len(out.Clauses)+len(out.Parts)+len(out.Words)+len(out.Tenses) == 0 {
 		return readingGrammar{}, false
 	}
 	return out, true

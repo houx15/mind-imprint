@@ -134,3 +134,20 @@ func TestGrammarCardDropsABareConjunction(t *testing.T) {
 		}
 	}
 }
+
+// owner 2026-09-17：「not every card need all these. only need to highlight those
+// key points.」只有一层的卡片成立；成分只剩一段时那一层丢掉，别的层照留。
+func TestGrammarCardOneLayerIsEnough(t *testing.T) {
+	body := `{"clauses":[],"parts":[{"text":"These feathers","label":"主语"}],
+	  "words":[{"text":"likely","label":"副词"}],"tenses":[]}`
+	got, ok := parseGrammarCard(body, grammarSentence)
+	if !ok || len(got.Words) != 1 {
+		t.Fatalf("只有词法一层的卡片被丢了：ok=%v %+v", ok, got)
+	}
+	if got.Parts == nil || len(got.Parts) != 0 {
+		t.Errorf("只剩一段的成分层应该清空（且序列化成 []，前端要读 length）：%+v", got.Parts)
+	}
+	if _, ok := parseGrammarCard(`{"clauses":[],"parts":[],"words":[],"tenses":[],"meaning":"x"}`, grammarSentence); ok {
+		t.Error("四层全空应该作废")
+	}
+}

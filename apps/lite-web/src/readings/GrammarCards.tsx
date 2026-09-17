@@ -18,8 +18,9 @@ import type { ReadingGrammar, ReadingGrammarPoint, ReadingGrammarSpan } from "..
  *   词法      关键词加底色加粗，下面逐个说词性、词形
  *   时态      谓语加底色，下面说时态名、为什么用它、一个例句
  *
- * 一层没有内容就不出那个标签（简单句没有从句）。每一层下面有图例和逐条说明；
- * 句意固定在最下面。
+ * 不是每张卡都有四层（owner 2026-09-17：「only need to highlight those key
+ * points」）：模型只交这一句的重点那一两层，空的那层不出标签；只有一层时不摆
+ * 标签栏，换成一个层名。每一层下面有图例和逐条说明；句意固定在最下面。
  *
  * 高亮能落下去，是因为服务端核对过：每一段 text 逐字出现在这一句里
  * （reading_block_grammar.go 的 parseGrammarCard）。这里只做逐字查找，不猜。
@@ -123,6 +124,7 @@ const LAYER_NAMES: Record<Layer, string> = {
 
 export function GrammarCards({ sentence, grammar }: { sentence: string; grammar: ReadingGrammar }) {
   const clauses = grammar.clauses ?? [];
+  const parts = grammar.parts ?? [];
   const words = grammar.words ?? [];
   const tenses = grammar.tenses ?? [];
   // 第二版的回话没有 backbone/points（服务端 omitempty 会把空的 clauses 也省掉，
@@ -130,7 +132,7 @@ export function GrammarCards({ sentence, grammar }: { sentence: string; grammar:
   const isV2 = !grammar.backbone && !(grammar.points?.length);
   const layers: Layer[] = [];
   if (clauses.length > 0) layers.push("clauses");
-  if (grammar.parts.length > 0) layers.push("parts");
+  if (parts.length > 0) layers.push("parts");
   if (words.length > 0) layers.push("words");
   if (tenses.length > 0) layers.push("tenses");
   const [picked, setPicked] = useState<Layer | null>(null);
@@ -140,26 +142,27 @@ export function GrammarCards({ sentence, grammar }: { sentence: string; grammar:
 
   return (
     <div className="mk-grammar">
-      <div className="mk-grammar__tabs" role="tablist" aria-label="语法分层">
-        {layers.map((l) => (
-          <button
-            key={l}
-            type="button"
-            role="tab"
-            aria-selected={l === layer}
-            className="mk-grammar__tab"
-            onClick={() => setPicked(l)}
-          >
-            {LAYER_NAMES[l]}
-          </button>
-        ))}
-      </div>
-      {clauses.length === 0 && (
-        <p className="mk-grammar__hint">这一句是简单句，没有从句。</p>
-      )}
+      {layers.length > 1 ? (
+        <div className="mk-grammar__tabs" role="tablist" aria-label="语法分层">
+          {layers.map((l) => (
+            <button
+              key={l}
+              type="button"
+              role="tab"
+              aria-selected={l === layer}
+              className="mk-grammar__tab"
+              onClick={() => setPicked(l)}
+            >
+              {LAYER_NAMES[l]}
+            </button>
+          ))}
+        </div>
+      ) : layer ? (
+        <p className="mk-grammar__label mk-grammar__label--block">{LAYER_NAMES[layer]}</p>
+      ) : null}
 
       {layer === "clauses" && <ClauseLayer sentence={sentence} clauses={clauses} />}
-      {layer === "parts" && <PartLayer sentence={sentence} parts={grammar.parts} />}
+      {layer === "parts" && <PartLayer sentence={sentence} parts={parts} />}
       {layer === "words" && <SpanLayer sentence={sentence} spans={words} tone={WORD_TONE} bold />}
       {layer === "tenses" && <SpanLayer sentence={sentence} spans={tenses} tone={TENSE_TONE} />}
 
@@ -315,7 +318,8 @@ function SpanLayer({
 
 /** 第一版的卡片：主干 + 按序号标色的几块 + 语法点。 */
 function LegacyGrammar({ sentence, grammar }: { sentence: string; grammar: ReadingGrammar }) {
-  const segments = splitSentenceByParts(sentence, grammar.parts);
+  const legacyParts = grammar.parts ?? [];
+  const segments = splitSentenceByParts(sentence, legacyParts);
   const t = (i: number): Tone => LEGACY_TONES[i % LEGACY_TONES.length] ?? MAIN_TONE;
   const points: ReadingGrammarPoint[] = grammar.points ?? [];
   return (
@@ -339,7 +343,7 @@ function LegacyGrammar({ sentence, grammar }: { sentence: string; grammar: Readi
         )}
       </p>
       <ol className="mk-grammar__parts">
-        {grammar.parts.map((p, i) => (
+        {legacyParts.map((p, i) => (
           <li key={`${i}-${p.text}`} className="mk-grammar__part">
             <span className="mk-grammar__part-n" style={{ background: t(i).bg }}>
               {i + 1}
