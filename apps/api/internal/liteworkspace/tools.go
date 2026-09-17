@@ -334,6 +334,7 @@ const homeSystemTemplate = `你在帮一位老师了解自己的一个班：回�
 - 只根据 class_snapshot、list_students、list_assignments 的结果说事实，不要编。
 - 老师想去某个页面看时，用 open_page 给一个入口。open_page 只在对话下方放一个按钮，页面不会打开，老师点了按钮才会跳转。
   所以回复里不要说「已打开」「已跳转」「为您打开了」，要说「请点击下方按钮前往」。
+- 老师要给某几个学生布置作业时（比如刚列出的名单），open_page 的 target 用 assignmentNew，并在 userIds 里带上这些学生的 id。
 - 一轮只问一个问题。需要老师选的时候用 ask_choice，一次 2 到 4 个选项。
 - 查了名单或作业之后，回复先用一句话回答老师的问题，说明卡片上列的是什么（比如「名单上的学生本周还没有开始学习。」），再问下一步。不要只问下一步。
 - 说话要短。不超过 120 个字。
@@ -410,6 +411,13 @@ func HomeTools() []gateway.ChatTool {
 						"type": "string",
 						"description": "target 为 assignment 时必填：list_assignments 返回的作业 id，原样复制。" +
 							"这个值只给系统识别用，不是给老师看的内容。",
+					},
+					"userIds": map[string]any{
+						"type":  "array",
+						"items": map[string]any{"type": "string"},
+						"description": "target 为 assignmentNew 时可选：这份作业要布置给哪些学生，" +
+							"list_students 或 class_snapshot 返回的学生 id，原样复制。布置作业页只勾选这些学生；" +
+							"不给就是全班。这些值只给系统识别用，不是给老师看的内容。",
 					},
 				},
 				"required": []string{"target"},

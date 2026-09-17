@@ -284,6 +284,9 @@ type liteWorkspaceNavigateDTO struct {
 	ClassID      string  `json:"classId"`
 	UserID       *string `json:"userId,omitempty"`
 	AssignmentID *string `json:"assignmentId,omitempty"`
+	// UserIDs (assignmentNew only) are the recipients the form preselects;
+	// absent means the whole class.
+	UserIDs []string `json:"userIds,omitempty"`
 	// Label is Chinese and names a real page or a real student/assignment —
 	// exactly the kind of text §6 exists to check, so the surface that builds
 	// it must also return it from extraParts().

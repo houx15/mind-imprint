@@ -32,11 +32,12 @@ func homeTurnBody(classID, text string) string {
 }
 
 type homeNavigateJSON struct {
-	View         string  `json:"view"`
-	ClassID      string  `json:"classId"`
-	UserID       *string `json:"userId"`
-	AssignmentID *string `json:"assignmentId"`
-	Label        string  `json:"label"`
+	View         string   `json:"view"`
+	ClassID      string   `json:"classId"`
+	UserID       *string  `json:"userId"`
+	AssignmentID *string  `json:"assignmentId"`
+	UserIDs      []string `json:"userIds"`
+	Label        string   `json:"label"`
 }
 
 type homeTurnJSON struct {
@@ -205,6 +206,39 @@ func TestWorkspaceHomeOpenPageForeignUserID(t *testing.T) {
 	if !toolResultContains(prov, "这个学生不在班里") {
 		t.Fatalf("tool result did not name the roster error; messages=%+v", prov.LastRequest.Messages)
 	}
+}
+
+// TestWorkspaceHomeOpenPageAssignmentNewUserIDs — 「给这些学生布置作业」:
+// the ids ride on the offer (deduplicated) so the form preselects them, and
+// an id that is not on this roster fails the tool and leaves no offer.
+func TestWorkspaceHomeOpenPageAssignmentNewUserIDs(t *testing.T) {
+	t.Run("roster ids", func(t *testing.T) {
+		_, teacher, classID, studentID, newHandler := liteHomeFixtureIDs(t, "Lite Home Class")
+		id := studentID.String()
+		prov := gateway.NewSequenceStubProvider(
+			wsToolCall("open_page", `{"target":"assignmentNew","userIds":["`+id+`","`+id+`"]}`),
+			wsText("请点击下方按钮前往布置作业。"),
+		)
+		nav := requireNavigate(t, postWorkspaceTurn(t, newHandler(prov), teacher, homeTurnBody(classID, "给这些学生布置作业")))
+		if nav.View != "assignmentNew" || len(nav.UserIDs) != 1 || nav.UserIDs[0] != id {
+			t.Fatalf("navigate = %+v, want assignmentNew with userIds [%s]", nav, id)
+		}
+	})
+
+	t.Run("foreign id", func(t *testing.T) {
+		prov := gateway.NewSequenceStubProvider(
+			wsToolCall("open_page", `{"target":"assignmentNew","userIds":["`+uuid.New().String()+`"]}`),
+			wsText("这名学生不在这个班里。"),
+		)
+		h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+		out := decodeHomeTurn(t, postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "给他布置作业")).Body.Bytes())
+		if out.Navigate != nil {
+			t.Fatalf("navigate = %+v, want nil after a userId not on the roster", out.Navigate)
+		}
+		if !toolResultContains(prov, "这个学生不在班里") {
+			t.Fatalf("tool result did not name the roster error; messages=%+v", prov.LastRequest.Messages)
+		}
+	})
 }
 
 // TestWorkspaceHomeOpenPageForeignAssignmentID — an assignmentId that does

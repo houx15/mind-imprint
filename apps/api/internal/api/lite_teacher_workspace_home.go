@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -341,7 +342,20 @@ func (run *liteWorkspaceHome) openPage(args map[string]any) string {
 		id := userID
 		run.nav = &liteWorkspaceNavigateDTO{View: "student", ClassID: run.classID, UserID: &id, Label: name + "的学习页"}
 	case "assignmentNew":
-		run.nav = &liteWorkspaceNavigateDTO{View: "assignmentNew", ClassID: run.classID, Label: "布置作业"}
+		// userIds preselects the recipients on the form (the class chat's
+		// 「给这些学生布置作业」). Every id must be on this class's roster;
+		// none means the whole class, the form's own default.
+		var userIDs []string
+		for _, id := range toolStrings(args, "userIds") {
+			if _, ok := run.rosterName(id); !ok {
+				return liteWorkspaceToolError("这个学生不在班里：" + id +
+					"。userIds 里的每个值必须是 list_students 或 class_snapshot 返回的 id，原样复制")
+			}
+			if !slices.Contains(userIDs, id) {
+				userIDs = append(userIDs, id)
+			}
+		}
+		run.nav = &liteWorkspaceNavigateDTO{View: "assignmentNew", ClassID: run.classID, UserIDs: userIDs, Label: "布置作业"}
 	case "assignment":
 		assignmentID, _ := toolString(args, "assignmentId")
 		rows, err := run.assignmentRows()
