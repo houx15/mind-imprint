@@ -587,6 +587,18 @@ func TestFallbackCardCannotBeRejected(t *testing.T) {
 	}
 }
 
+// 兜底卡没有选项；一道「分析下列句子，判断它们各自属于……」照抄上去，她面对的是
+// 一张要她分类、却一句话都没摆的卡（2026-09-17 入口走查）。
+func TestFallbackCardDropsAPromptThatNeedsOptions(t *testing.T) {
+	got := fallbackCardFor("分析下列句子，判断它们各自属于AI做的还是人做的。", "我们来看第7段。")
+	if strings.Contains(got.Prompt, "下列") || strings.Contains(got.Prompt, "各自") {
+		t.Errorf("兜底卡照抄了一道要选项的题：%q", got.Prompt)
+	}
+	if kept := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。"); kept.Prompt != "哪一句最能说明援助进不去？" {
+		t.Errorf("不需要选项的题应该留着：%q", kept.Prompt)
+	}
+}
+
 func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
 	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
 	got := fallbackCardFor("", "我们来看这几段。")

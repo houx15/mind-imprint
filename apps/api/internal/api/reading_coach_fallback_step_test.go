@@ -38,3 +38,27 @@ func TestCoachFallbackOnPredictStepIsAWritingCardNotABoard(t *testing.T) {
 		t.Errorf("先预测那一步兜底给的是 %v，要的是 short_text（话里请她写）：%s", card["type"], rec2s(out))
 	}
 }
+
+// 反过来那一半（同一天第二轮走查）：精读那一步印记说「把每一句拖到它该在的角色里」，
+// 板被上一版收成「只在标注步建」之后，屏幕上一块板都没有。话里说的是板，就兜一块板。
+func TestCoachFallbackOnFocusStepBuildsTheBoardItPromised(t *testing.T) {
+	const reply = `{"reply":"第3段是整篇的关键。下面这张卡上有几句话，把每一句拖到它该在的角色里。","advance":"","focusBlock":"b3","card":null}`
+	h, cookie, q, _ := liteHandlerWithProvider(t, writingTextStubProvider(reply))
+	id := createReadingAtom(t, h, cookie)
+	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
+	if _, err := q.ReplaceReadingTasks(context.Background(), sqlc.ReplaceReadingTasksParams{
+		AtomID:    uuid.MustParse(id),
+		Positions: []int32{0, 1},
+		Kinds:     []string{"focus_block", "label"},
+		Labels:    []string{"精读重点段落第3段", "拆开作者的论证"},
+		Details:   []string{"", ""},
+		BlockIds:  []string{"b3", ""},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := coachTurnRaw(t, coachTurn(t, h, cookie, id, "我读完第3段了"))
+	card, ok := out["coachCard"].(map[string]any)
+	if !ok || card["type"] != "label_roles" {
+		t.Fatalf("话里请她把句子拖进角色，屏幕上却是 %v：%s", out["coachCard"], rec2s(out))
+	}
+}

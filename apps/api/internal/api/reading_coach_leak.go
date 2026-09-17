@@ -1,6 +1,9 @@
 package api
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // reading_coach_leak.go —— 两种「说漏嘴」：把协议词写进她读到的话里，
 // 以及当着她的面把她叫成「她」。
@@ -28,8 +31,31 @@ var coachProtocolLeaks = []string{
 	`"advance"`, "focusBlock", "summon_card",
 }
 
+// bareStatusAfterHan / bareStatusAfterStop —— 取值单独漏出来、没带 advance 的那种。
+//
+// 2026-09-17 入口走查（星图那篇果蝇脑图）录到：「…第7段接着讲这次怎么做，done。」
+// 上面那张表要求 advance 和取值一起出现，这一句一个都没对上。
+//
+// 判据：done / skipped 紧跟在**汉字或中文收尾标点**后面，后面是中文句末标点或
+// 结尾。引英文原文时（"the work is done."）它前面是英文字母，不算。
+var (
+	bareStatusAfterHan  = regexp.MustCompile(`(\p{Han}|[）」』”])\s*[，,、]?\s*(?i:done|skipped)\s*([。！？；]|$)`)
+	bareStatusAfterStop = regexp.MustCompile(`([。！？])\s*(?i:done|skipped)\s*[。！？]?`)
+)
+
 // firstProtocolLeak 返回回复里第一处协议词，没有就返回 ""。
 func firstProtocolLeak(reply string) string {
+	if m := bareStatusAfterHan.FindString(reply); m != "" {
+		return m
+	}
+	if m := bareStatusAfterStop.FindString(reply); m != "" {
+		return m
+	}
+	return tableProtocolLeak(reply)
+}
+
+// tableProtocolLeak —— 只查 coachProtocolLeaks 那张表。
+func tableProtocolLeak(reply string) string {
 	lower := strings.ToLower(reply)
 	for _, w := range coachProtocolLeaks {
 		if strings.Contains(lower, strings.ToLower(w)) {
@@ -51,13 +77,19 @@ func stripProtocolLeak(reply string) string {
 	if firstProtocolLeak(reply) == "" {
 		return reply
 	}
+	// 表里那几种（「advance给done」）整句拿掉，先做；剩下单独漏出来的取值只拿掉
+	// 那个词 —— 它前面那半句是真话，整句删掉会丢内容。顺序反过来，「advance给
+	// done。」会先变成「advance给。」，表里就再也认不出它了。
+	if tableProtocolLeak(reply) == "" {
+		return stripBareStatus(reply)
+	}
 	// 按行拆，再按中文句号拆 —— 漏出来的那一句总是自成一句。
 	lines := strings.Split(reply, "\n")
 	outLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		kept := make([]string, 0, 4)
 		for _, sent := range splitCJKSentences(line) {
-			if firstProtocolLeak(sent) == "" {
+			if tableProtocolLeak(sent) == "" {
 				kept = append(kept, sent)
 			}
 		}
@@ -74,7 +106,13 @@ func stripProtocolLeak(reply string) string {
 		// 而且调用点那一侧有「这一轮什么都没请她做」在守。
 		return reply
 	}
-	return out
+	return stripBareStatus(out)
+}
+
+// stripBareStatus 只拿掉单独漏出来的 done / skipped 那个词。
+func stripBareStatus(s string) string {
+	s = bareStatusAfterHan.ReplaceAllString(s, "${1}${2}")
+	return bareStatusAfterStop.ReplaceAllString(s, "${1}")
 }
 
 // splitCJKSentences 按中文句末标点切句，标点留在句子里。

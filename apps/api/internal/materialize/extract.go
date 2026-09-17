@@ -46,26 +46,28 @@ func extractHTML(body []byte) (title, text string) {
 // 只认**整段就是这句话**的那一行（大小写、末尾冒号不计），不认包含它的句子 ——
 // 正文里说一句「you might also like this approach」不该把后半篇切掉。
 var relatedTrailerHeads = map[string]bool{
-	"you might also like": true,
-	"you may also like":   true,
-	"related articles":    true,
-	"related stories":     true,
-	"related content":     true,
-	"related reading":     true,
-	"recommended for you": true,
-	"recommended reading": true,
-	"recommended stories": true,
-	"more stories":        true,
-	"read next":           true,
-	"read more":           true,
-	"trending now":        true,
-	"most popular":        true,
-	"相关阅读":                true,
-	"相关文章":                true,
-	"推荐阅读":                true,
-	"延伸阅读":                true,
-	"猜你喜欢":                true,
-	"更多推荐":                true,
+	"you might also like":     true,
+	"you may also like":       true,
+	"related articles":        true,
+	"related stories":         true,
+	"related content":         true,
+	"related reading":         true,
+	"recommended for you":     true,
+	"recommended reading":     true,
+	"recommended stories":     true,
+	"more stories":            true,
+	"read next":               true,
+	"read more":               true,
+	"trending now":            true,
+	"comment on this article": true,
+	"next article":            true,
+	"most popular":            true,
+	"相关阅读":                    true,
+	"相关文章":                    true,
+	"推荐阅读":                    true,
+	"延伸阅读":                    true,
+	"猜你喜欢":                    true,
+	"更多推荐":                    true,
 }
 
 // CutRelatedTrailer 从「推荐阅读」那一行起，把它和它之后的全部段落拿掉。
@@ -81,11 +83,30 @@ func CutRelatedTrailer(text string) string {
 		head := strings.ToLower(strings.TrimSpace(p))
 		head = strings.TrimRight(head, ":：")
 		head = strings.TrimSpace(head)
-		if relatedTrailerHeads[head] {
-			return strings.TrimSpace(strings.Join(paras[:i], "\n\n"))
+		if relatedTrailerHeads[head] || isAlsoInHead(head) {
+			cut := i
+			// 栏目标题前面紧挨着的那一行订阅提示也是网站的，不是正文。
+			if cut > 2 && isNewsletterLine(paras[cut-1]) {
+				cut--
+			}
+			return strings.TrimSpace(strings.Join(paras[:cut], "\n\n"))
 		}
 	}
 	return text
+}
+
+// isAlsoInHead —— 「Also in Biology」这种栏目标题（Quanta，2026-09-17 入口走查）：
+// also in 后面最多跟两个词。
+func isAlsoInHead(head string) bool {
+	rest, ok := strings.CutPrefix(head, "also in ")
+	return ok && rest != "" && len(strings.Fields(rest)) <= 2
+}
+
+// isNewsletterLine —— 「Get highlights … delivered to your email inbox」这种订阅提示。
+func isNewsletterLine(p string) bool {
+	l := strings.ToLower(strings.TrimSpace(p))
+	return len(l) <= 160 && (strings.Contains(l, "to your inbox") || strings.Contains(l, "to your email inbox") ||
+		strings.HasPrefix(l, "sign up for") || strings.HasPrefix(l, "subscribe to"))
 }
 
 // scrapeBlocks concatenates the text of block elements under root, skipping

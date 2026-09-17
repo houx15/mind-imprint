@@ -69,7 +69,7 @@ describe("ReadingCoachPanel — picks", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("读完这一步，跟印记说一声"), {
+    fireEvent.change(screen.getByPlaceholderText("请输入你的回答或问题"), {
       target: { value: "我觉得是这句" },
     });
     fireEvent.click(screen.getByLabelText("发送"));

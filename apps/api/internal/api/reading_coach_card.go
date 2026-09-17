@@ -322,6 +322,23 @@ var cardPromiseWords = []string{
 	"放进", "各自放", "归到", "分到", "角色里", "哪个角色", "它的角色",
 }
 
+// boardPromiseWords —— cardPromiseWords 里专指「板」的那些：格子、拖、角色。
+var boardPromiseWords = []string{
+	"标注板", "块板", "格的板", "格子",
+	"拖到", "拖进", "拖句", "各自拖",
+	"放进", "各自放", "归到", "分到", "角色里", "哪个角色", "它的角色",
+}
+
+// replyPromisesABoard —— 这句回复说的是一块要摆的板，不只是「一张卡」。
+func replyPromisesABoard(reply string) bool {
+	for _, w := range boardPromiseWords {
+		if strings.Contains(reply, w) {
+			return true
+		}
+	}
+	return false
+}
+
 // replyPromisesACard —— 这句回复有没有在指着一张卡片。
 func replyPromisesACard(reply string) bool {
 	for _, w := range cardPromiseWords {

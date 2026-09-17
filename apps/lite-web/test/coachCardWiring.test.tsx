@@ -115,7 +115,7 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
       panel({ initialMessages: [{ seq: 1, role: "ai", content: "开始吧。", createdAt: "" }] }),
     );
 
-    fireEvent.change(screen.getByPlaceholderText("读完这一步，跟印记说一声"), { target: { value: "好" } });
+    fireEvent.change(screen.getByPlaceholderText("请输入你的回答或问题"), { target: { value: "好" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
     expect(await screen.findByText("哪一句最能说明作者的态度？")).toBeTruthy();
@@ -548,7 +548,7 @@ describe("R2 — 屏幕上看得见的三件事", () => {
       postTurn.mockRejectedValueOnce(new Error("boom"));
       render(panel({ initialMessages: OPENED }));
 
-      const box = screen.getByPlaceholderText("读完这一步，跟印记说一声") as HTMLTextAreaElement;
+      const box = screen.getByPlaceholderText("请输入你的回答或问题") as HTMLTextAreaElement;
       fireEvent.change(box, { target: { value: "我觉得他在替中国说话。" } });
       fireEvent.click(screen.getByLabelText("发送"));
 
