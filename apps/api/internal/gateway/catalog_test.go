@@ -231,7 +231,7 @@ func TestEveryClassResolvesToTheBenchmarkedModel(t *testing.T) {
 		ClassReflex:   "qwen3.7-flash",     // 200ms vs glm-5.3's 1.5s, both structurally perfect
 		ClassDialogue: "deepseek-v4-pro",   // worst case 3 on the lite reading coach; every rival scored 1-2
 		ClassCompose:  "ZHIPU/GLM-5.3",     // all three tied at 4; 4.1s vs kimi-k3's 10.3s decides it
-		ClassReview:   "deepseek-v4-pro",   // every candidate still scored 2 — a tie is not evidence to move
+		ClassReview:   "ZHIPU/GLM-5.3",     // framework-ready gold 100%, quality 5, and fastest tied candidate; default effort resolves to low
 		ClassAssess:   "deepseek-v4-pro",   // 评估绝不降级
 		ClassDigest:   "deepseek-v4-flash", // 1.4s vs 2.3s, tied at 5/5
 	}

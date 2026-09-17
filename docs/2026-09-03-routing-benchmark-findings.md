@@ -2,9 +2,12 @@
 
 2026-09-03 · 数据来自 `go run ./cmd/routebench` · 判官 `dashscope/qwen3.7-max`
 
+> **状态：历史基线。** 当前 `framework ready` 校准与 `review` 绑定见
+> `docs/2026-09-14-framework-ready-routing-benchmark-findings.md`。
+
 ---
 
-## 结论：现在这一组
+## 结论：2026-09-03 当时这一组
 
 | 档 | 绑定 | 相比之前 | 依据（第二轮，判官可用） |
 |---|---|---|---|
@@ -134,7 +137,7 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 但报告只在最后写一次，全部结果连同已经付过钱的一百多次调用一起没了。
 现在每跑完一个用例就落一次报告。
 
-## 待办
+## 当时待办（2026-09-03）
 
 1. **`frameworkReviewSystem` 要改**：四个模型都把半成品判成 ready，这是 prompt 的问题。
 2. **compose 再加一两个判官用例**：现在只有一个，结论比别的档薄。

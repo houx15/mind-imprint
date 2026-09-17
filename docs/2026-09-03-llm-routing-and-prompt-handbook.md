@@ -1,6 +1,6 @@
 # LLM 路由与 Prompt 手册
 
-2026-09-03 · 交接文档：给接手「持续优化路由策略」与「打磨 prompt」的同事
+首次生成 2026-09-03 · 最后更新 2026-09-14 · 给接手「持续优化路由策略」与「打磨 prompt」的同事
 
 > 附录 A / B 的两张清单是**从代码里生成的**，说明栏取自代码自己的注释，不是我
 > 转述的。改完代码重新生成一次（见文末「怎么重新生成这份文档」），别手改表格。
@@ -15,7 +15,7 @@
   通道 × 模型 × 能力档。换模型 = 改一个环境变量或改这个 JSON，不写 Go。
 - 换绑定**必须有实测撑着**：`go run ./cmd/routebench`。人来改 models.json，
   工具只出推荐。
-- 全系统 **67 处** LLM 调用，落在 6 个档上。**44 个 prompt 常量**，绝大多数在
+- 全系统 **71 处**模型调用，落在 7 个档上。**48 个 prompt 常量**，绝大多数在
   `internal/agent/`。
 
 ---
@@ -33,12 +33,13 @@
 
 | 档 | 一句话 | 现在绑的模型 | 推理 | 延迟预算 | 调用点数 |
 |---|---|---|---|---|---|
-| `reflex` | 一个标签、一次路由判断，无自由文本 | `dashscope/qwen3.7-flash` | off | 2s | 5 |
+| `reflex` | 一个标签、一次路由判断，无自由文本 | `dashscope/qwen3.7-flash` | off | 2s | 4 |
 | `dialogue` | 学生当场看得见的一轮 | `dashscope/deepseek-v4-pro` | off | 4s | 14 |
 | `compose` | 从已陈述的输入派生一个 schema 产物 | `dashscope/glm-5.3` | low | 12s | 30 |
-| `review` | 判学生的成果，判错有代价 | `dashscope/deepseek-v4-pro` | default | 40s | 12 |
+| `review` | 判学生的成果，判错有代价 | `dashscope/glm-5.3` | default（模型默认 low） | 40s | 12 |
 | `assess` | 过程评估 / 回顾 / 周报，**绝不降级** | `dashscope/deepseek-v4-pro` | max | 180s | 3 |
-| `digest` | 长输入短输出，压缩不判断 | `dashscope/deepseek-v4-flash` | off | 15s | 3 |
+| `digest` | 长输入短输出，压缩不判断 | `dashscope/deepseek-v4-flash` | off | 15s | 6 |
+| `draw` | 生成一张图 | `dashscope/qwen-image-3.0` | default | 90s | 1 |
 
 预留未用：`search`、`multimodal`。
 
@@ -64,7 +65,10 @@ tokens、拿回来 105，比例 39:1；整个 dialogue 档平均 32:1。换模�
 
 ---
 
-## 2 · 实测结论：每一档为什么是现在这个模型
+## 2 · 2026-09-03 基线实测（历史）
+
+本节保留最初分档后的基线结果，不代表当前所有绑定。`framework ready` 的 2026-09-14
+校准及当前 `review` 绑定见 `docs/2026-09-14-framework-ready-routing-benchmark-findings.md`。
 
 判官 `dashscope/qwen3.7-max`（旗舰，不在任何候选名单里），1–5 分，n=3
 （assess n=1）。**分数只在同一轮内可比**——换了判官就不能跨轮比绝对值。
@@ -104,7 +108,7 @@ glm-5.3 拿了全场唯一的 pro 陪练 5 分，却在 lite 阅读陪练上是 
 （第一轮 qwen3.8-max 曾被**生产解析器拒收 67%** 的输出——线上表现是阅读室退回那句
 通用的「具体是哪一句」，卡也不再发。结构不合格一票否决。）
 
-### `review` —— 四个模型全部把半成品判成 ready
+### `review` —— 2026-09-03 时四个模型全部把半成品判成 ready
 
 | 模型 | 质量 | p50 | 出/推理 tokens |
 |---|---|---:|---:|
@@ -113,8 +117,8 @@ glm-5.3 拿了全场唯一的 pro 陪练 5 分，却在 lite 阅读陪练上是 
 | glm-5.3 | 2 | 4s | 181 / **0** |
 | glm-5.2 | 3 | 20s | 1122 / 945（有一次调用失败，出局） |
 
-**全部 2 分，全部判 ready。** 这是 prompt 的问题，换模型解决不了 —— 见 §6 待办①。
-并列不构成换绑的依据，所以保持 deepseek-v4-pro 不动。
+**当时四个模型都判 ready。** 这定位出了 prompt 问题，因此当轮保持
+deepseek-v4-pro 不动；该问题及绑定已由 2026-09-14 校准更新。
 
 ⚠️ 注意 glm-5.3 那一行：4 秒、**推理 token 为零**，在一个存在意义就是推理的档上。
 早期的判分规则「同分挑最便宜」在这里选了它——这就是「成本不能压过差距、并列也不
@@ -185,9 +189,9 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 2. 最差一项比「最好的那个的最差一项」低超过一分的 → 出局。
 3. 剩下的按 **性能 > 速度 > 成本** 排：最差一项 → 均分 → p50 延迟 → token。
 
-**成本只能打破平局，不能压过差距。** 这条被磨过三次，每次都是因为它给出了肉眼
-可见的错答案。`review` / `assess` 上还多一条：**并列不构成换绑的依据**——四个模型
-都判 2 分说明的是评分标准没有区分度，不是最便宜那个赢了。
+**成本只能打破质量和速度的平局，不能压过差距。** 所有档统一按最差质量、平均质量、
+p50 延迟、token 排序；只有四项完全相同时才保留现有绑定。若所有模型都在关键用例上
+低分，应该修 prompt 或 rubric，而不是依靠“保留 incumbent”掩盖问题。
 
 **看最差一项，不看均分。** qwen3.7-plus 曾经在 dialogue 上均分和在任者打平，
 而在 lite 阅读陪练上拿 1 分——「直接认定步骤已完成并结束阅读」。四个学生面坏掉
@@ -239,7 +243,7 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 
 ## 5 · Prompt 放在哪、怎么改
 
-**44 个 prompt 常量，绝大多数是 Go 里的反引号字符串**（见附录 B 的完整清单）。
+**48 个 prompt 常量，绝大多数是 Go 里的反引号字符串**（见附录 B 的完整清单）。
 分布：
 
 | 位置 | 装什么 |
@@ -269,6 +273,9 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 
 - **结构合法性**：`cmd/routebench` 把模型输出喂**真实生产解析器**。prompt 改坏了
   结构，这里直接掉到 100% 以下。
+- **任务命中**：有明确正确答案的用例在结构成功后执行自己的 `GoldCheck`。例如研究框架
+  审阅逐样本校验 `ready` 是否命中 gold label；任何一次未命中都会淘汰候选，但不会混同为
+  生产 JSON 解析失败。
 - **质量**：judge 用例写在 `internal/*/benchcases.go`，用的是**真实的、未导出的
   prompt 常量**（不是复制一份——复制的会漂）。内容锚在验收主动脉那个场景
   （Phoebe /「中国是否让地球变得更可持续？」），每个用例里都埋了一个故意的破绽。
@@ -278,11 +285,13 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 
 ## 6 · 已知待办（建议从这里开始）
 
-1. 🚨 **`frameworkReviewSystem` 判不出半成品。** 用例是一份故意的半成品框架
-   （目标可量化，但资源写着「上网查」，活动是「第一周找数据、第二周做图」，反例只
-   被点了名）。**换过判官、加过候选，四个模型仍然全部判 ready，全部 2 分。**
-   这是 prompt 的问题，换模型解决不了。位置见附录 B
-   `internal/agent/framework_review.go`。
+1. **`frameworkReviewSystem` 校准（2026-09-14）。** 已把正式 ready rubric 压缩为生产
+   prompt，并增加四个同场景 gold 用例：半成品、宽泛目标必须 `false`；最低可用、成熟
+   框架必须 `true`。专用配置在
+   `apps/api/cmd/routebench/routebench-framework-ready.json`，结果与最终绑定见
+   `docs/2026-09-14-framework-ready-routing-benchmark-findings.md`。后续改这个 prompt 必须
+   重跑该配置；结构通过、gold 100% 与
+   判官质量都不可互相替代。
 2. **lite 阅读陪练的入 tokens 4,090**，是全系统最大的一笔。压它比换模型有效。
 3. **compose 档只有一个判官用例**，结论比别的档薄。建议补一两个。
 4. **填价格**：22 个模型 `UNPRICED`，填完成本就能按钱排。
@@ -296,8 +305,10 @@ DASHSCOPE_API_KEY=… go run ./cmd/routebench -config cmd/routebench/routebench-
 
 ## 7 · 相关文档
 
-- `docs/2026-09-03-routing-benchmark-findings.md` —— 这一组绑定是怎么测出来的，
-  含每一格的原始数字和判官原话（本文 §2 是它的结论摘要）。
+- `docs/2026-09-14-framework-ready-routing-benchmark-findings.md` —— framework ready
+  prompt 校准的最终结果与当前 `review` 绑定。
+- `docs/2026-09-03-routing-benchmark-findings.md` —— 最初分档后的历史基线；本文 §2
+  是它的结论摘要。
 - `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md` —— 分档设计。
 - `apps/api/cmd/routebench/README.md` —— 工具本身。
 - `AGENTS.md` —— 铁律、硬约束、界面文案规范。
@@ -312,7 +323,7 @@ cd apps/api
 python3 tools/llm-inventory.py > /tmp/tables.md
 ```
 
-然后把本文从「## 附录 A」到结尾整段替换成它的输出。**不要手改表格**：67 行的表
+然后把本文从「## 附录 A」到结尾整段替换成它的输出。**不要手改表格**：71 行的表
 手工维护，一周之内就会是错的。
 
 推论是：**想让某个调用点在这份文档里有一句像样的说明，就去给那个函数写 doc
@@ -325,23 +336,22 @@ cd apps/api
 grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep -v _test | wc -l
 ```
 
-（这个数会比附录 A 的 67 多几处：`internal/api/proposal_track.go` 里那几行是路由
+（这个数会比附录 A 的 71 多几处：`internal/api/proposal_track.go` 里那几行是路由
 接缝本身的定义，不是调用点，脚本把它排除了。）
 
 ---
 
-## 附录 A · 全部 LLM 调用点（67 处，按档分组）
+## 附录 A · 全部模型调用点（71 处，按档分组）
 
 ### `reflex` — 一个标签或一次路由判断，无自由文本
 
-共 5 处。
+共 4 处。
 
 | 调用点 | 位置 | 这次调用在做什么（取自代码自己的注释） |
 |---|---|---|
 | `postCoach` | `internal/api/coach.go:167` | postCoach runs one continuous, spine-aware coach turn. |
 | `postCoachStart` | `internal/api/coach.go:988` | postCoachStart is the explicit "start" gate (Task 3, studio onboarding): the student confirms she's ready, so 印记 opens 提案 (forming) and begins the 开题 … |
 | `postCoachAdvance` | `internal/api/coach.go:1130` | postCoachAdvance acts on a one-tap nextStep (铁律②: 打开由学生确认). |
-| `routeByModel` | `internal/api/interest.go:194` | routeByModel 是 T3 档。失败一律返回 nil：这个词暂时没有学科，下次采集再试。 |
 | `postSuggestPlacement` | `internal/api/placement.go:69` | placement.go — POST suggest-placement · 印记 suggests which research question a just-added reference belongs under (or null → 未归类). |
 
 ### `dialogue` — 学生当场看得见的一轮
@@ -356,18 +366,18 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 | `postCoachOpening` | `internal/api/coach.go:854` | postCoachOpening runs 印记's real-AI opening welcome — the very first thing the student sees on entering a project's studio, before she has said anythin… |
 | `postCoachStart` | `internal/api/coach.go:950` | postCoachStart is the explicit "start" gate (Task 3, studio onboarding): the student confirms she's ready, so 印记 opens 提案 (forming) and begins the 开题 … |
 | `postCoachAdvance` | `internal/api/coach.go:1123` | postCoachAdvance acts on a one-tap nextStep (铁律②: 打开由学生确认). |
-| `postCourseAsk` | `internal/api/course.go:442` | postCourseAsk drives one free-Q&A course-coach turn (Task 6): the student asks a free question about the CURRENT step ({slug, ordinal}); the coach ans… |
-| `postPblTurn` | `internal/api/pbl_turn.go:115` | — |
+| `postCourseAsk` | `internal/api/course.go:455` | postCourseAsk drives one free-Q&A course-coach turn (Task 6): the student asks a free question about the CURRENT step ({slug, ordinal}); the coach ans… |
+| `postPblTurn` | `internal/api/pbl_turn.go:123` | — |
 | `submitProjectCard` | `internal/api/projectcards.go:203` | submitProjectCard (SSE, Task 5) persists a filled card envelope, runs CompleteCard (mints the evidence node once the spec's completion predicates hold… |
 | `explainReadingBlock` | `internal/api/reading_block.go:324` | explainReadingBlock is POST /api/v1/readings/{id}/blocks/{bid}/explain. |
-| `postReadingCoachTurn` | `internal/api/reading_coach.go:895` | postReadingCoachTurn is POST /api/v1/readings/{id}/coach. |
+| `postReadingCoachTurn` | `internal/api/reading_coach.go:1695` | postReadingCoachTurn is POST /api/v1/readings/{id}/coach. |
 | `postProjectTurn` | `internal/api/studioturn.go:194` | postProjectTurn drives the agent runtime one step (RunAgentStep) for a Studio project and streams the result over SSE: at most one card, intervention,… |
-| `postWritingOpening` | `internal/api/writing_setup.go:291` | postWritingOpening is POST /api/v1/writings/{id}/opening — the coach's first line, called by the frontend immediately after the setup dialog closes. |
-| `postLiteWritingTurn` | `internal/api/writing_turn.go:246` | postLiteWritingTurn drives one coach turn for the writing room. |
+| `postWritingOpening` | `internal/api/writing_setup.go:308` | postWritingOpening is POST /api/v1/writings/{id}/opening — the coach's first line, called by the frontend immediately after the setup dialog closes. |
+| `postLiteWritingTurn` | `internal/api/writing_turn.go:447` | postLiteWritingTurn drives one coach turn for the writing room. |
 
 ### `compose` — 从已陈述的输入派生一个 schema 产物
 
-共 30 处。
+共 31 处。
 
 | 调用点 | 位置 | 这次调用在做什么（取自代码自己的注释） |
 |---|---|---|
@@ -378,14 +388,15 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 | `digExploration` | `internal/api/exploration.go:834` | digExploration hands OpenAlex candidates straight to the client-side tray — no persistence (adopting is a separate, explicit student action, 铁律①). |
 | `proposeQuestionEdges` | `internal/api/exploration.go:1386` | proposeQuestionEdges wires POST /exploration/edges/propose. |
 | `digSeeds` | `internal/api/interest_dig.go:169` | digSeeds 发那一次调用。返回 (种子, 失败原话)。 |
-| `harvestOneAtom` | `internal/api/interest_harvest.go:140` | harvestOneAtom 采集一个 atom。 |
-| `harvestQuiz` | `internal/api/interest_quiz.go:240` | harvestQuiz 从这次作答里长词，并种进树。 |
+| `extractLiteAssignment` | `internal/api/lite_assignment_extract.go:107` | extractLiteAssignment handles POST /api/v1/lite/teacher/assignments/extract: one compose call turning pasted assignment text into {prompt, targetWords… |
+| `generatePblPalettes` | `internal/api/pbl_look.go:56` | generatePblPalettes —— 从她第一关留下的关键词派生三组配色。 |
+| `generatePblPersonas` | `internal/api/pbl_personas.go:90` | generatePblPersonas —— 印记先动：从她真做过的事里推出两三个可能的读者。 |
 | `composeJourney` | `internal/api/project_create.go:167` | composeJourney runs the mid-tier journey composer and, if it yields a waived set, persists it + records a journey_composed event. |
 | `postQuestionCardTurn` | `internal/api/question_card.go:79` | POST /projects/{id}/cards/question-card/turn {messages:[{role,text}]} |
 | `summonReadingLens` | `internal/api/reading_lens.go:222` | summonReadingLens mints the card cardID names, or declines with the plain sentence to say instead. |
 | `summonReadingLens` | `internal/api/reading_lens.go:225` | summonReadingLens mints the card cardID names, or declines with the plain sentence to say instead. |
 | `summonReadingLens` | `internal/api/reading_lens.go:230` | summonReadingLens mints the card cardID names, or declines with the plain sentence to say instead. |
-| `planReadingTasks` | `internal/api/reading_plan.go:251` | planReadingTasks is the plan generation itself, split out of the HTTP handler so the guided coach can plan on demand: 开始 is the only button she has, a… |
+| `planReadingTasks` | `internal/api/reading_plan.go:370` | planReadingTasks is the plan generation itself, split out of the HTTP handler so the guided coach can plan on demand: 开始 is the only button she has, a… |
 | `getReadingQuestions` | `internal/api/reading_questions.go:328` | getReadingQuestions is GET /api/v1/readings/{id}/questions. |
 | `getTakeawayDraft` | `internal/api/reading_takeaway.go:205` | getTakeawayDraft is the "AI drafts, student confirms" step of the reading takeaway's split-hybrid: assembles the record half deterministically (readin… |
 | `postLiteReadingTurn` | `internal/api/reading_turn.go:371` | postLiteReadingTurn drives one coach turn. |
@@ -396,11 +407,11 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 | `summonProjectCard` | `internal/api/summoncard.go:206` | summonProjectCard lets the student summon a CHOSEN reading card onto a material herself. |
 | `summonProjectCard` | `internal/api/summoncard.go:211` | summonProjectCard lets the student summon a CHOSEN reading card onto a material herself. |
 | `generatePlanItems` | `internal/api/workspace_plan_generate.go:202` | generatePlanItems makes the one-shot mid-tier completion, meters it (purpose= "plan_gen") BEFORE any bail, and returns validated tasks. |
-| `deepenWritingBlock` | `internal/api/writing_deepen.go:309` | deepenWritingBlock is POST /api/v1/writings/{id}/outline/{oid}/deepen — one turn of the block-scoped Socratic sub-agent. |
-| `guideWritingBlock` | `internal/api/writing_guide.go:597` | guideWritingBlock is POST /api/v1/writings/{id}/outline/{oid}/guide — the single-block REGENERATE. |
-| `guideWritingBlocks` | `internal/api/writing_guide.go:744` | guideWritingBlocks is POST /api/v1/writings/{id}/guide — the batch route Task 4 (B1) adds: guide EVERY block in the outline in ONE model call, persist… |
-| `postWritingPlanTurn` | `internal/api/writing_plan.go:443` | postWritingPlanTurn is POST /api/v1/writings/{id}/plan/turn. |
-| `suggestWritingTitles` | `internal/api/writing_title.go:272` | suggestWritingTitles is POST /api/v1/writings/{id}/title-ideas. |
+| `deepenWritingBlock` | `internal/api/writing_deepen.go:308` | deepenWritingBlock is POST /api/v1/writings/{id}/outline/{oid}/deepen — one turn of the block-scoped Socratic sub-agent. |
+| `guideWritingBlock` | `internal/api/writing_guide.go:672` | guideWritingBlock is POST /api/v1/writings/{id}/outline/{oid}/guide — the single-block REGENERATE. |
+| `guideWritingBlocks` | `internal/api/writing_guide.go:850` | guideWritingBlocks is POST /api/v1/writings/{id}/guide — the batch route Task 4 (B1) adds: guide EVERY block in the outline in ONE model call, persist… |
+| `postWritingPlanTurn` | `internal/api/writing_plan.go:741` | postWritingPlanTurn is POST /api/v1/writings/{id}/plan/turn. |
+| `suggestWritingTitles` | `internal/api/writing_title.go:278` | suggestWritingTitles is POST /api/v1/writings/{id}/title-ideas. |
 
 ### `review` — 判学生的成果，判错有代价
 
@@ -418,7 +429,7 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 | `liteEvaluateCardSelectionFor` | `internal/api/reading_lens.go:356` | liteEvaluateCardSelectionFor judges the sentence the student picked against the open card's lens. |
 | `orderSpotCheck` | `internal/api/spotcheck.go:89` | orderSpotCheck runs a station's spot-check. |
 | `orderReview` | `internal/api/writing.go:340` | orderReview runs the student-triggered whole-draft review over a committed snapshot. |
-| `commentOnSnippet` | `internal/api/writing_comment.go:253` | commentOnSnippet is POST /api/v1/writings/{id}/snippets/{sid}/comment — a spend endpoint (one model call), metered as purpose="block_comment". |
+| `commentOnSnippet` | `internal/api/writing_comment.go:518` | commentOnSnippet is POST /api/v1/writings/{id}/snippets/{sid}/comment — a spend endpoint (one model call), metered as purpose="block_comment". |
 | `reviewWritingDraft` | `internal/api/writing_compose.go:231` | reviewWritingDraft is POST /api/v1/writings/{id}/review — a spend endpoint (one model call): gates on HasEntitlement and on a non-empty draft (400 mis… |
 
 ### `assess` — 过程评估 / 回顾 / 周报，绝不降级
@@ -428,21 +439,32 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 | 调用点 | 位置 | 这次调用在做什么（取自代码自己的注释） |
 |---|---|---|
 | `runReportGeneration` | `internal/api/evaluation_generate.go:120` | runReportGeneration gathers a project's recorded data, computes the FACT half, runs the four LLM calls, and assembles + validates the Report. |
-| `getPblLookback` | `internal/api/pbl_lookback.go:130` | — |
+| `getPblLookback` | `internal/api/pbl_lookback.go:146` | — |
 | `composeWeeklyProse` | `internal/api/teacher_weekly.go:348` | composeWeeklyProse makes the flagship call and records its cost — including when the output is rejected, since a rejected composition still spent real… |
 
 ### `digest` — 长输入短输出，压缩不判断
 
-共 3 处。
+共 6 处。
 
 | 调用点 | 位置 | 这次调用在做什么（取自代码自己的注释） |
 |---|---|---|
-| `buildStarmap` | `internal/api/explore.go:268` | buildStarmap 抓 → 过滤 → 选五颗。返回 (星球, 失败原话)。 |
+| `buildStarmap` | `internal/api/explore.go:477` | buildStarmap 抓 → 过滤 → 选 → 照着正文写。返回 (星球, 失败原话)。 |
+| `harvestOneAtom` | `internal/api/interest_harvest.go:93` | harvestOneAtom 采集一个 atom。 |
+| `harvestQuiz` | `internal/api/interest_quiz.go:247` | harvestQuiz 从这次作答里长词，并种进树。 |
+| `addPblSiteRef` | `internal/api/pbl_sites.go:102` | addPblSiteRef —— 她粘一个网址进来。 |
 | `maybeCompactBackstop` | `internal/api/projectcoach.go:164` | maybeCompactBackstop is S4 lever-1's size-threshold backstop, run at the tail of a coach turn. |
 | `composeReturnSummary` | `internal/api/workspace_summary.go:113` | composeReturnSummary runs the flagship composer over the spine projection and records the call's cost (surface="studio", purpose="summary") BEFORE any… |
 
+### `draw` — 生成一张图
 
-## 附录 B · Prompt 存放位置（44 个常量）
+共 1 处。
+
+| 调用点 | 位置 | 这次调用在做什么（取自代码自己的注释） |
+|---|---|---|
+| `drawAndStore` | `internal/api/pbl_draw.go:41` | drawAndStore 画一张图，存进我们自己的 OSS，返回 object key。 |
+
+
+## 附录 B · Prompt 存放位置（48 个常量）
 
 **`internal/agent/ai_use.go`**
 
@@ -572,6 +594,12 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 |---|---|---|
 | `searchGuidanceSystem` | 36 | — |
 
+**`internal/api/lite_assignment_extract.go`**
+
+| 常量 | 行 | 说明 |
+|---|---|---|
+| `assignmentExtractSystem` | 19 | assignmentExtractSystem asks for the three writing-assignment settings the form has. |
+
 **`internal/api/reading_block.go`**
 
 | 常量 | 行 | 说明 |
@@ -582,7 +610,7 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `readingCoachSystem` | 47 | — |
+| `readingCoachSystem` | 49 | — |
 
 **`internal/api/reading_plan.go`**
 
@@ -606,26 +634,26 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `writingCommentSystem` | 145 | writingCommentSystem instructs the model to comment on a piece of her writing — one paragraph or the whole draft — with a one-line overall j… |
+| `writingCommentSystem` | 335 | — |
 
 **`internal/api/writing_guide.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `writingGuideSystem` | 100 | writingGuideSystem — guides ONE block (POST /outline/{oid}/guide, the single-block regenerate). |
-| `writingGuideBatchSystem` | 120 | writingGuideBatchSystem — guides EVERY block in the outline in ONE call (POST /writings/{id}/guide). |
+| `writingGuideSystem` | 83 | writingGuideSystem — guides ONE block (POST /outline/{oid}/guide, the single-block regenerate). |
+| `writingGuideBatchSystem` | 103 | writingGuideBatchSystem — guides EVERY block in the outline in ONE call (POST /writings/{id}/guide). |
 
 **`internal/api/writing_plan.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `writingPlanSystem` | 84 | 🔑 每一个写进这段提示词散文里的方法名（『并排说几条』『比一比』『留个悬念』 『先抛一个问题』『开门见山』『先承认，再反驳』……）都必须**逐字**存在于 packages/contracts/vocab/methods.json 的某个 name 或 formal_name 里… |
+| `writingPlanSystem` | 89 | 🔑 每一个写进这段提示词散文里的方法名（『并列论证』『对比论证』『留个悬念』 『先抛一个问题』『开门见山』『先承认，再反驳』……）都必须**逐字**存在于 packages/contracts/vocab/methods.json 的某个 name 或 formal_name 里… |
 
 **`internal/api/writing_setup.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `writingOpeningSystem` | 136 | writingOpeningSystem is the coach's opening line. |
+| `writingOpeningSystem` | 135 | writingOpeningSystem is the coach's opening line. |
 
 **`internal/api/writing_title.go`**
 
@@ -637,48 +665,61 @@ grep -rn "a\.route(\|a\.routeE(\|a\.routeFn(" --include="*.go" internal/ | grep 
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `digSystemPrompt` | 54 | — |
-
-**`internal/interest/harvest.go`**
-
-| 常量 | 行 | 说明 |
-|---|---|---|
-| `harvestSystemPrompt` | 36 | — |
-
-**`internal/interest/router.go`**
-
-| 常量 | 行 | 说明 |
-|---|---|---|
-| `routeSystemPrompt` | 112 | — |
+| `digSystemPrompt` | 64 | — |
 
 **`internal/news/select.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `selectSystemPrompt` | 48 | — |
+| `selectSystemPrompt` | 81 | — |
+
+**`internal/news/write.go`**
+
+| 常量 | 行 | 说明 |
+|---|---|---|
+| `writeSystemPrompt` | 107 | — |
 
 **`internal/pbl/coach.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `coachSystem` | 168 | — |
+| `coachSystem` | 245 | — |
+
+**`internal/pbl/look.go`**
+
+| 常量 | 行 | 说明 |
+|---|---|---|
+| `paletteSystem` | 45 | — |
 
 **`internal/pbl/lookback.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `lookbackSystem` | 69 | — |
+| `lookbackSystem` | 82 | — |
+
+**`internal/pbl/persona.go`**
+
+| 常量 | 行 | 说明 |
+|---|---|---|
+| `personaSystem` | 56 | — |
+
+**`internal/pbl/siteref.go`**
+
+| 常量 | 行 | 说明 |
+|---|---|---|
+| `siteRefSystem` | 71 | — |
 
 **`internal/store/sqlc/pbl_review.sql.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
 | `answerPblReviewPrompt` | 67 | — |
-| `createPblReviewPrompt` | 174 | — |
-| `getPblReviewPrompt` | 296 | — |
+| `createPblReviewPrompt` | 178 | — |
+| `getPblReviewPrompt` | 301 | — |
 
 **`internal/store/sqlc/writing_atom.sql.go`**
 
 | 常量 | 行 | 说明 |
 |---|---|---|
-| `setWritingOutlineGuide` | 456 | — |
+| `setWritingAssignedPrompt` | 466 | — |
+| `setWritingOutlineGuide` | 497 | — |

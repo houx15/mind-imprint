@@ -1,6 +1,7 @@
 package routebench
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -9,18 +10,73 @@ import (
 
 // cell builds one (case × model) result with a fixed cost and a judge score.
 func cell(caseID, class, model string, judge float64, outTokens int) Result {
+	return timedCell(caseID, class, model, judge, outTokens, time.Second)
+}
+
+func timedCell(caseID, class, model string, judge float64, outTokens int, total time.Duration) Result {
 	return Result{
 		CaseID:  caseID,
 		Class:   class,
 		ModelID: model,
 		Judge:   judge,
 		Samples: []Sample{{
-			Total: time.Second,
+			Total: total,
 			Out:   outTokens,
 			Text:  "x",
 			Valid: true,
 		}},
 	}
+}
+
+func goldCell(caseID, class, model string, judge float64, gold ...bool) Result {
+	samples := make([]Sample, 0, len(gold))
+	for _, ok := range gold {
+		s := Sample{Total: time.Second, Text: "x", Valid: true, Gold: ok}
+		if !ok {
+			s.GoldErr = "ready = true, want false"
+		}
+		samples = append(samples, s)
+	}
+	return Result{CaseID: caseID, Class: class, ModelID: model, Judge: judge, Samples: samples}
+}
+
+func TestGoldRateDistinguishesNoCheckFromFailure(t *testing.T) {
+	if got := (Result{Samples: []Sample{{Valid: true}}}).GoldRate(); got != -1 {
+		t.Fatalf("no GoldCheck rate = %v, want -1", got)
+	}
+	if got := (Result{Samples: []Sample{{Valid: true, Gold: true}, {Valid: true, Gold: true}, {Valid: true, GoldErr: "wrong verdict"}}}).GoldRate(); got != 2.0/3.0 {
+		t.Fatalf("gold rate = %v, want 2/3", got)
+	}
+}
+
+func TestGoldFailureRejectsCandidateAndIsReportedSeparately(t *testing.T) {
+	cat, err := gateway.DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const cls = gateway.ClassReview
+	incumbent := cat.Lanes[cls].Model
+	results := []Result{
+		goldCell("review/framework-review", cls, incumbent, 5, true, true, true),
+		goldCell("review/framework-review", cls, "dashscope/qwen3.8-max", 5, true, false, true),
+	}
+	for _, rec := range Recommend(results, cat) {
+		if rec.Class != cls {
+			continue
+		}
+		if rec.ModelID != incumbent {
+			t.Fatalf("review = %q, want gold-passing incumbent %q", rec.ModelID, incumbent)
+		}
+		if len(rec.Rejected) != 1 || !strings.Contains(rec.Rejected[0], "gold expectation missed on 33%") {
+			t.Fatalf("gold failure rejection = %#v", rec.Rejected)
+		}
+		md := Markdown(results, cat, Config{Samples: 3}, time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC))
+		if !strings.Contains(md, "任务命中") || !strings.Contains(md, "任务未命中：ready = true, want false") {
+			t.Fatalf("markdown does not distinguish gold failure:\n%s", md)
+		}
+		return
+	}
+	t.Fatal("no review recommendation produced")
 }
 
 // The real 2026-09-03 dialogue numbers. deepseek-v4-pro is worse on three of the
@@ -62,11 +118,9 @@ func TestCostNeverOverridesAWorseWorstCase(t *testing.T) {
 	t.Fatal("no dialogue recommendation produced")
 }
 
-// On review/assess a tie is not evidence to move. Every candidate scoring the
-// same means the RUBRIC is not discriminating (on 2026-09-03: a prompt bug that
-// made all four judge a half-baked framework "ready") — switching on cost there
-// hands a reasoning class to whichever model reasons least.
-func TestQualityTieKeepsTheIncumbentOnReview(t *testing.T) {
+// Equal quality is not a complete tie: the documented ordering is quality,
+// speed, then token count, including for review and assess.
+func TestSpeedBreaksQualityTieOnReview(t *testing.T) {
 	cat, err := gateway.DefaultCatalog()
 	if err != nil {
 		t.Fatal(err)
@@ -76,16 +130,47 @@ func TestQualityTieKeepsTheIncumbentOnReview(t *testing.T) {
 	if incumbent == "" {
 		t.Fatal("review must be bound for this test to mean anything")
 	}
+	challenger := "dashscope/qwen3.8-max"
+	if challenger == incumbent {
+		challenger = "dashscope/deepseek-v4-pro"
+	}
 	results := []Result{
-		cell("review/framework", cls, incumbent, 2, 491),
-		cell("review/framework", cls, "dashscope/glm-5.3", 2, 181),
+		timedCell("review/framework", cls, incumbent, 5, 200, 2*time.Second),
+		timedCell("review/framework", cls, challenger, 5, 200, time.Second),
+	}
+	for _, rec := range Recommend(results, cat) {
+		if rec.Class != cls {
+			continue
+		}
+		if rec.ModelID != challenger {
+			t.Fatalf("review = %q, want faster challenger %q after quality tie", rec.ModelID, challenger)
+		}
+		return
+	}
+	t.Fatal("no review recommendation produced")
+}
+
+func TestExactMetricTieKeepsTheIncumbent(t *testing.T) {
+	cat, err := gateway.DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const cls = gateway.ClassReview
+	incumbent := cat.Lanes[cls].Model
+	challenger := "dashscope/qwen3.8-max"
+	if challenger == incumbent {
+		challenger = "dashscope/deepseek-v4-pro"
+	}
+	results := []Result{
+		cell("review/framework", cls, incumbent, 5, 200),
+		cell("review/framework", cls, challenger, 5, 200),
 	}
 	for _, rec := range Recommend(results, cat) {
 		if rec.Class != cls {
 			continue
 		}
 		if rec.ModelID != incumbent {
-			t.Fatalf("review = %q, want the incumbent %q kept: a tie is not evidence", rec.ModelID, incumbent)
+			t.Fatalf("review = %q, want exactly tied incumbent %q", rec.ModelID, incumbent)
 		}
 		return
 	}

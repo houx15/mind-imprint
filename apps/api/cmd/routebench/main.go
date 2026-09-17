@@ -171,7 +171,11 @@ func printPlan(cat *gateway.Catalog, cfg routebench.Config, cases []benchcase.Ca
 		if c.Validate != nil {
 			structural = " [structural]"
 		}
-		fmt.Printf("  %-34s %-10s%s%s\n    %s\n", c.ID, c.Class, structural, judged, c.Site)
+		gold := ""
+		if c.GoldCheck != nil {
+			gold = " [gold]"
+		}
+		fmt.Printf("  %-34s %-10s%s%s%s\n    %s\n", c.ID, c.Class, structural, gold, judged, c.Site)
 	}
 	fmt.Printf("\nCANDIDATES (n=%d each)\n", cfg.Samples)
 	for _, class := range gateway.Classes {
