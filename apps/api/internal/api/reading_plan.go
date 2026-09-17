@@ -525,7 +525,7 @@ func (a *API) planReadingTasks(
 	// 🚨 导读**先**校验，因为清单要用它切出来的那几个部分：通读摊成一步一个
 	// 部分（readingPartSteps）。校验没过的切法是 nil，通读就退回整篇一步 ——
 	// 和没有切法的短文章走同一条路。
-	outline, outlineOK := validateOutline(plan.outline(), blocks)
+	outline, outlineWhy := validateOutlineWhy(plan.outline(), blocks)
 
 	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, blocks, outline.Parts)
 	if len(positions) == 0 {
@@ -553,7 +553,7 @@ func (a *API) planReadingTasks(
 	}
 	// 导读。校验不过就不写 —— 那一列留着上一次的（或者 '{}'），阅读室因此
 	// 不显示导读卡，而不是显示一份修补过的。见 validateOutline。
-	if outlineOK {
+	if outlineWhy == outlineOK {
 		if raw, merr := json.Marshal(outline); merr == nil {
 			if _, err := qtx.UpdateReadingSourceOutline(ctx, sqlc.UpdateReadingSourceOutlineParams{
 				AtomID: atomID, Outline: raw,
@@ -562,7 +562,17 @@ func (a *API) planReadingTasks(
 			}
 		}
 	} else {
-		slog.Info("reading plan: outline rejected", "atom_id", atomID, "blocks", len(blocks))
+		// 🚨 理由要写进去。这一行原来只有 atom_id 和段数 —— 于是线上只知道
+		// 「导读又没了」，四种理由分不出来，而它们的修法完全不同。
+		// 这份一丢，通读那一步的台阶（parts）跟着一起丢。
+		core := 0
+		for _, b := range blocks {
+			if plan.Load[b.ID] == loadCore {
+				core++
+			}
+		}
+		slog.Info("reading plan: outline rejected", "atom_id", atomID, "blocks", len(blocks),
+			"why", string(outlineWhy), "core", core, "parts", len(plan.Parts))
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

@@ -33,14 +33,19 @@ package api
 // 验不了，它就只是一句期望。这里能验的有三条，`validateOutline` 全做了：
 //
 //	承重只能取三个值            越界的那一段退回「支撑」
-//	核心段不超过全文的三分之一   超了整份 outline 作废（全是核心 = 没有核心）
+//	核心段不超过全文的一半      超了整份 outline 作废（全是核心 = 没有核心）
 //	一段核心都没有              整份作废（那份分类没在分类）
 //	一句话必须是中文的          一个汉字都没有 → 整份作废
 //	两个字段都有字数上限        超了截断
 //
 // 第二条是真正有意义的那条。模型很容易把每一段都标成核心 —— 那份 outline 在
 // 屏幕上仍然长得像一份导读，但它一个字的信息都没有，而带读的节奏会退回「每段
-// 都停」，也就是没有节奏。
+// 都停」，也就是没有节奏。**它 2026-09-17 从三分之一放宽到一半，有实测撑着**：
+// 见 coreShareCap。
+//
+// 🚨 整份作废的代价 2026-09-17 起翻了一倍：切法（parts）和这份导读同生共死，
+// 而切法现在是通读那一步的台阶（reading_plan.go 的 readingPartSteps）。
+// 再往这里加「整份作废」的理由之前，先想清楚这件事。
 //
 // 第四条是线上第一次跑就撞上的：文章是英文的，模型顺着文章的语言把导读也写成了
 // 英文（「outbreak → blockade → aid scramble → war」），摆在中文界面上对她等于
@@ -133,11 +138,28 @@ const (
 	outlinePartsMin = 2
 )
 
-// coreShareCap 是核心段占全文的上限。
+// coreShareCap 是核心段占全文的上限，写成分母：core * coreShareCap > 总段数
+// 就作废。
 //
-// 三分之一：一篇十二段的报道，核心段最多四段。这个数字不是精算出来的，它是
-// 「还能构成一个判断」的边界 —— 一半以上都是核心，这份分类就没有在分类。
-const coreShareCap = 3
+// 🚨 **2026-09-17 从 3（三分之一）改成 2（一半），有实测。**
+//
+// 这条注释原来写的是：「三分之一：一篇十二段的报道，核心段最多四段。这个数字
+// 不是精算出来的，它是『还能构成一个判断』的边界 —— **一半以上都是核心，
+// 这份分类就没有在分类**。」最后那句说的是一半，代码写的是三分之一 —— 从一开始
+// 这两者就不是同一个数。
+//
+// 实测（`LIVE_LLM=1 ... TestLiveEnglishReadingPlanParses`，一篇 12 段的英文
+// 社论，两轮各 6 次）：模型反复给出 **5/12** 段核心，而 12/3=4，于是整份导读
+// 被丢掉 —— 第一轮 3/6，第二轮 1/6。被丢掉的那几份**别的什么毛病都没有**：
+// 中文写得好、中心思想准、12 段每段都有承重、切法完整。5/12 是 42%，
+// 它离「全是核心」很远。
+//
+// 代价 2026-09-17 起翻了一倍：切法（parts）和这份导读同生共死，而切法现在是
+// 通读那一步的台阶（reading_plan.go 的 readingPartSteps）。一段承重标得宽一点，
+// 换来的是她的通读退回「读完告诉我一声」那个死锁。
+//
+// 「一段核心都没有」那条没动：那一种确实是没在分类。
+const coreShareCap = 2
 
 // blank 说的是这份导读什么都没说。空的 outline 不落库，前端因此不必区分
 // 「没有导读」和「有一份空导读」。
@@ -200,11 +222,34 @@ func validateParts(got []readingPart, blocks []Block) []readingPart {
 	return out
 }
 
+// outlineReject 说的是这份导读为什么没留下。
+//
+// 🚨 这四种以前共用一个 bool 和一行 `slog.Info("reading plan: outline rejected")`
+// —— 于是线上只知道「又没了」，不知道是哪一条，而四条的修法完全不同
+// （[[model-json-half-arrived-2026-09-08]] 里排读法那三种 reject 分开数是同一
+// 个理由）。2026-09-17 那次实测之所以能定位到「核心段多了一段」，靠的正是把
+// 它们分开数。
+type outlineReject string
+
+const (
+	outlineOK                outlineReject = ""
+	outlineRejectNotCJK      outlineReject = "oneLine is not written in Chinese"
+	outlineRejectTooMuchCore outlineReject = "more than half the article is marked core"
+	outlineRejectNoCore      outlineReject = "no paragraph is marked core"
+	outlineRejectBlank       outlineReject = "nothing was filled in"
+)
+
 // validateOutline 把模型给的那份导读收进我们能保证的范围里。
 //
 // 返回的 bool 是「这份还值不值得存」。不值得的时候整份丢掉而不是修补：一份
 // 修补过的导读在屏幕上和一份真的导读长得一模一样，而她没有办法分辨。
 func validateOutline(got readingOutline, blocks []Block) (readingOutline, bool) {
+	out, why := validateOutlineWhy(got, blocks)
+	return out, why == outlineOK
+}
+
+// validateOutlineWhy 多返回一个「为什么没留下」，给日志用。
+func validateOutlineWhy(got readingOutline, blocks []Block) (readingOutline, outlineReject) {
 	out := readingOutline{
 		OneLine: trimRunes(strings.TrimSpace(got.OneLine), outlineOneLineMaxRunes),
 		Gist:    trimRunes(strings.TrimSpace(got.Gist), outlineGistMaxRunes),
@@ -247,21 +292,21 @@ func validateOutline(got readingOutline, blocks []Block) (readingOutline, bool) 
 	// 判据取最宽的那一个：**一个汉字都没有**才算没写中文。这样英文的专有名词
 	// （人名、地名、机构名）照抄原文不会被误伤 —— 那本来就是对的做法。
 	if !hasCJK(out.OneLine) {
-		return readingOutline{}, false
+		return readingOutline{}, outlineRejectNotCJK
 	}
 
-	// 全是核心 = 没有核心。见 coreShareCap。
+	// 一半以上都是核心 = 没有核心。见 coreShareCap。
 	if core*coreShareCap > len(out.Load) {
-		return readingOutline{}, false
+		return readingOutline{}, outlineRejectTooMuchCore
 	}
 	// 一段核心都没有，这份分类也没在分类 —— 带读会退回「哪儿都不停」。
 	if core == 0 {
-		return readingOutline{}, false
+		return readingOutline{}, outlineRejectNoCore
 	}
 	if out.blank() {
-		return readingOutline{}, false
+		return readingOutline{}, outlineRejectBlank
 	}
-	return out, true
+	return out, outlineOK
 }
 
 // coreBlockIDs 是核心段的 id，按正文顺序。

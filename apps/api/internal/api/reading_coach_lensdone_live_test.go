@@ -102,10 +102,17 @@ func liveLensDoneBlocks() []Block {
 func TestLiveLensDoneReplyParses(t *testing.T) {
 	prov, r := liveClass(t, gateway.ClassDialogue)
 	blocks := liveLensDoneBlocks()
+	// 🚨 带一个 **rethink** 的复核结论（2026-09-17）。这是产品负责人报的那一幕
+	// 里最难的一种：复核当着她的面说了「这一句撑不住」，而 印记 只拿到句子和
+	// finding，于是照着「先说她哪里选得准」那一节夸了她一句 ——
+	// 「句子匹配不通过，但是点击记录发现后，主 ai 又给出了不一样的回答。」
+	// 现在结论跟着回灌，这一轮不许跟它相反。
 	done := &readingLensDone{
-		CardName: "溯源体检",
-		Quote:    "这个数字来自平台自己提供的数据，独立机构难以验证。",
-		Finding:  "这句点出数据的来源方就是被审对象，属于自证。",
+		CardName:      "溯源体检",
+		Quote:         "这个数字来自平台自己提供的数据，独立机构难以验证。",
+		Finding:       "这句点出数据的来源方就是被审对象，属于自证。",
+		Verdict:       "rethink",
+		VerdictReason: "这一句说的是数据从哪儿来，还没说这笔钱最后落到谁手上。",
 	}
 	// A plan whose CURRENT step is the lens step — the realistic shape, and
 	// the one whose 「advance: done」 the new rules ask for.
@@ -181,7 +188,11 @@ func TestLiveLensDoneReplyParses(t *testing.T) {
 		if got.Card != nil {
 			t.Errorf("sample %d: handed her a card right after she finished a lens", i)
 		}
-		t.Logf("sample %d ok — advance=%q reply=%.60s…", i, got.Advance, got.Reply)
+		// 🚨 整条回复打出来，不截断。这一轮要看的是**它有没有跟复核的结论
+		// 对着干**，而那件事没法用一个子串判出来 —— 只能由人读一遍
+		// （[[optimizing-a-detector-made-coaching-worse-2026-09-14]]：把一件
+		// 教学上的事压成一个探测器，数字会清零而教得更差）。
+		t.Logf("sample %d ok — advance=%q\n--- reply ---\n%s\n--- end ---", i, got.Advance, got.Reply)
 	}
 	t.Logf("RESULT: %d/6 first passes truncated; %d/6 still unusable AFTER one retry", firstPass, truncated)
 	// The bar is the one the STUDENT feels: after production's retry, a turn

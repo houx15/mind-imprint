@@ -48,10 +48,63 @@ func TestOutlineAcceptsAThirdAsCore(t *testing.T) {
 	}
 	out, ok := validateOutline(readingOutline{OneLine: "屋顶光伏到底划不划算", Shape: "问题 → 数据 → 让步 → 结论", Load: load}, blocks)
 	if !ok {
-		t.Fatal("十二段里四段核心，正好在上限上，应该收下")
+		t.Fatal("十二段里四段核心，应该收下")
 	}
 	if got := out.coreBlockIDs(blocks); len(got) != 4 || got[0] != "b1" || got[3] != "b12" {
 		t.Fatalf("核心段的顺序应该跟着正文走，拿到 %v", got)
+	}
+}
+
+// 核心段那条线在**一半**上，而不是三分之一。
+//
+// 🚨 这条测试记的是一次实测。`LIVE_LLM=1 ... TestLiveEnglishReadingPlanParses`
+// 在一篇 12 段的英文社论上跑，模型反复给出 5/12 段核心 —— 而旧的线是 12/3=4，
+// 于是整份导读被丢掉（第一轮 6 次里丢了 3 次）。那几份**别的什么毛病都没有**。
+// 而 2026-09-17 起切法和这份导读同生共死，切法又是通读那一步的台阶，所以那一段
+// 的代价是她的通读退回「读完告诉我一声」。见 coreShareCap。
+func TestOutlineCoreShareLineIsHalf(t *testing.T) {
+	blocks := outlineBlocks(12)
+	core := func(n int) map[string]string {
+		load := fullLoad(12, loadSupport)
+		for i := 1; i <= n; i++ {
+			load[blocks[i-1].ID] = loadCore
+		}
+		return load
+	}
+	for _, n := range []int{1, 4, 5, 6} {
+		out, why := validateOutlineWhy(
+			readingOutline{OneLine: "这篇在问什么", Shape: "问题 → 证据 → 结论", Load: core(n)}, blocks)
+		if why != outlineOK {
+			t.Errorf("%d/12 段核心被丢掉了（%s）—— 连切法一起没了", n, why)
+		}
+		if len(out.coreBlockIDs(blocks)) != n {
+			t.Errorf("%d/12: 核心段数对不上", n)
+		}
+	}
+	// 七段就是一半以上了：那份分类确实没在分类。
+	if _, why := validateOutlineWhy(
+		readingOutline{OneLine: "这篇在问什么", Load: core(7)}, blocks); why != outlineRejectTooMuchCore {
+		t.Errorf("7/12 段核心应该被丢掉，拿到 %q", why)
+	}
+}
+
+// 四种作废理由各自说得出自己是谁 —— 线上只有一行日志，分不出是哪一条的时候
+// 只能猜，而四条的修法完全不同。
+func TestOutlineRejectReasonsAreDistinct(t *testing.T) {
+	blocks := outlineBlocks(6)
+	cases := []struct {
+		name string
+		got  readingOutline
+		want outlineReject
+	}{
+		{"英文", readingOutline{OneLine: "Is breakfast a moral duty?", Load: fullLoad(6, loadCore)}, outlineRejectNotCJK},
+		{"全是核心", readingOutline{OneLine: "这篇在问什么", Load: fullLoad(6, loadCore)}, outlineRejectTooMuchCore},
+		{"一段核心都没有", readingOutline{OneLine: "这篇在问什么", Load: fullLoad(6, loadSupport)}, outlineRejectNoCore},
+	}
+	for _, c := range cases {
+		if _, why := validateOutlineWhy(c.got, blocks); why != c.want {
+			t.Errorf("%s: why = %q, want %q", c.name, why, c.want)
+		}
 	}
 }
 

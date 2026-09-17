@@ -62,14 +62,49 @@ func liveEnglishBlocks() []Block {
 
 // liveEnglishTasks 就是线上那一篇的读法（en-argument，全部 pending，一条消息
 // 都还没有）—— 她按下「开始」的那一刻。
+//
+// 🚨 **2026-09-17 跟着生产的形状改了。** 通读现在一步一个部分
+// （reading_plan.go 的 readingPartSteps），精读一步一段。旧的这一份只有一个
+// 「通读全文」，喂给模型的于是是一份生产里不会出现的清单 ——
+// [[fixture-told-coach-session-over-2026-09-14]]：用例的形状从生产代码里抄，
+// 不然实测测的是另一个产品。
 func liveEnglishTasks() []sqlc.ReadingTask {
 	return []sqlc.ReadingTask{
-		{Position: 0, Label: "通读全文", Kind: "read", Status: "pending", Detail: "先找出作者站哪一边。"},
-		{Position: 1, Label: "精读重点段落第6段", Kind: "focus_block", Status: "pending", BlockID: "b6"},
-		{Position: 2, Label: "深入思考", Kind: "lens", Status: "pending"},
-		{Position: 3, Label: "你信吗", Kind: "reflect", Status: "pending"},
-		{Position: 4, Label: "你站哪边", Kind: "connect", Status: "pending"},
-		{Position: 5, Label: "找出关键句", Kind: "hunt", Status: "pending"},
+		{Position: 0, Label: "先预测", Kind: "predict", Status: "pending", Detail: "只看标题：作者大概站哪一边？正文先别读。"},
+		{Position: 1, Label: "通读第1–3段·口号的来历", Kind: "read", Status: "pending",
+			BlockID: "b1", Detail: "请通读第1–3段。这几段摆出问题，追问那句口号从哪儿来。"},
+		{Position: 2, Label: "通读第4–6段·证据的对决", Kind: "read", Status: "pending",
+			BlockID: "b4", Detail: "请通读第4–6段。这几段用两种研究互相检验。"},
+		{Position: 3, Label: "通读第7–9段·为何被道德化", Kind: "read", Status: "pending",
+			BlockID: "b7", Detail: "请通读第7–9段。这几段解释那种语气为什么留得住。"},
+		{Position: 4, Label: "精读重点段落第6段", Kind: "focus_block", Status: "pending", BlockID: "b6"},
+		{Position: 5, Label: "精读重点段落第9段", Kind: "focus_block", Status: "pending", BlockID: "b9"},
+		{Position: 6, Label: "深入思考", Kind: "lens", Status: "pending"},
+		{Position: 7, Label: "你信吗", Kind: "reflect", Status: "pending"},
+		{Position: 8, Label: "你站哪边", Kind: "connect", Status: "pending"},
+		{Position: 9, Label: "找出关键句", Kind: "hunt", Status: "pending"},
+	}
+}
+
+// liveEnglishOutline 是那一篇排出来的导读，含切法 —— 生产里带读每一轮都拿得到
+// 它（buildReadingCoachPrompt 的【这篇分成几个部分】那一节）。
+func liveEnglishOutline() readingOutline {
+	return readingOutline{
+		OneLine: "不吃早餐真的是道德问题吗？",
+		Gist:    "作者认为早餐有益的证据被夸大了，那种自信在替人做道德评判。",
+		Shape:   "设问 → 起源 → 证据检验 → 语言批判 → 有限结论",
+		Load: map[string]string{
+			"b1": loadBridge, "b2": loadCore, "b3": loadSupport,
+			"b4": loadSupport, "b5": loadSupport, "b6": loadCore,
+			"b7": loadBridge, "b8": loadSupport, "b9": loadCore,
+			"b10": loadSupport, "b11": loadSupport, "b12": loadCore,
+		},
+		Parts: []readingPart{
+			{Title: "口号的来历", From: "b1", To: "b3", Does: "摆出问题，追问口号的出处"},
+			{Title: "证据的对决", From: "b4", To: "b6", Does: "用两种研究互相检验"},
+			{Title: "为何被道德化", From: "b7", To: "b9", Does: "解释那种语气为什么留得住"},
+			{Title: "诚实的结论", From: "b10", To: "b12", Does: "划定证据边界，收束论点"},
+		},
 	}
 }
 
@@ -79,9 +114,10 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 
 	// 中文标题 + 英文正文，正是从地图「现在读」落下来的那个形状。
 	system := buildReadingCoachSystem("en")
-	prompt := buildReadingCoachPrompt("不吃早餐算不算不道德？", blocks, readingOutline{}, liveEnglishTasks(), nil, nil, "", nil, "")
+	prompt := buildReadingCoachPrompt("不吃早餐算不算不道德？", blocks, liveEnglishOutline(),
+		liveEnglishTasks(), nil, nil, "", nil, "")
 
-	bad := 0
+	bad, twoAsks, noCard := 0, 0, 0
 	for i := 0; i < 6; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		start := time.Now()
@@ -108,10 +144,33 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 		if strings.TrimSpace(got.Reply) == "" {
 			t.Errorf("sample %d: parsed but reply empty", i)
 		}
-		t.Logf("sample %d ok — advance=%q focus=%q reply=%.80s…", i, got.Advance, got.FocusBlock, got.Reply)
+		cardType := "（没有卡片）"
+		if got.Card != nil {
+			cardType = got.Card.Type
+		} else {
+			noCard++
+		}
+		if got.twoAsks {
+			twoAsks++
+			t.Logf("sample %d: 卡片 + 话又以另一个问句收尾 —— 屏幕上两道题\n  reply: %s\n  card:  %s",
+				i, got.Reply, got.Card.Prompt)
+		}
+		t.Logf("sample %d ok — advance=%q focus=%q card=%s reply=%.80s…",
+			i, got.Advance, got.FocusBlock, cardType, got.Reply)
 	}
-	t.Logf("RESULT: %d/6 rejected", bad)
+	t.Logf("RESULT: %d/6 rejected · 两道题 %d/6 · 没发卡片 %d/6", bad, twoAsks, noCard)
 	if bad > 0 {
 		t.Errorf("%d/6 English first turns unparseable — she gets 「AI 响应错误」", bad)
+	}
+	// 🚨 twoAsks 走的是重试那条路，所以偶尔一次不致命（调用点会再问一遍）。
+	// 但**半数以上**就说明 prompt 那条规矩没写进去，而重试是要花钱的。
+	// 产品负责人 2026-09-17 报的正是这一幕：「卡片内容上的要求和对话窗口的
+	// 文本要求不一致。」
+	if twoAsks*2 > 6 {
+		t.Errorf("%d/6 的第一轮同时给了卡片和另一个问题 —— 她不知道该答哪一个", twoAsks)
+	}
+	// 第一轮必须用一张卡片把她领进去（system prompt 的「卡片」那一节明写）。
+	if noCard*2 > 6 {
+		t.Errorf("%d/6 的第一轮一张卡片都没有 —— 她只拿到一段话和一个输入框", noCard)
 	}
 }

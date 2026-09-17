@@ -46,20 +46,55 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 			t.Logf("sample %d: REJECTED (%s)\n--- raw ---\n%s\n--- end ---", i, reject, res.Text)
 			continue
 		}
-		positions, _, _, _, _ := buildReadingTasks(routine, plan, blocks, nil)
+		// 导读（2026-09-16 加了 gist 和 parts）。它和读法清单同一次调用产出，
+		// 所以在这里一起验 —— 它**过不了校验是静默的**：屏幕上少一张卡片，
+		// 日志里一行 info，而通读那一步会退回没有台阶的那一种。
+		//
+		// 🚨 顺序：2026-09-17 起清单要用切法（通读一步一个部分），所以导读得先
+		// 校验出来 —— 和 planReadingTasks 里的顺序一致。
+		out, okOutline := validateOutline(plan.outline(), blocks)
+
+		positions, kinds, labels, _, _ := buildReadingTasks(routine, plan, blocks, out.Parts)
 		t.Logf("sample %d ok — routine=%s focus=%v steps=%d", i, routine.Key, plan.FocusBlocks, len(positions))
 		if len(positions) == 0 {
 			t.Errorf("sample %d: routine produced no usable steps", i)
 		}
+		reads, focuses := 0, 0
+		for n, k := range kinds {
+			switch k {
+			case string(taskRead):
+				reads++
+				t.Logf("           read → %s", labels[n])
+			case string(taskFocusBlock):
+				focuses++
+				t.Logf("           focus → %s", labels[n])
+			}
+		}
+		// 🚨 这两条是 2026-09-17 那两个 bug 的实测门槛。两者都**不会报错**：
+		// 通读退回一步就是「读完告诉我一声」那个死锁，精读只走一步就是
+		// 「整篇的交互集中在两三段」。
+		if len(out.Parts) >= outlinePartsMin && reads < 2 {
+			t.Errorf("sample %d: 切出了 %d 个部分，清单上却只有 %d 个通读步",
+				i, len(out.Parts), reads)
+		}
+		if len(blocks) >= 10 && focuses < 2 {
+			t.Logf("sample %d: %d 段的文章只挑了 %d 段精读", i, len(blocks), focuses)
+		}
 
-		// 导读（2026-09-16 加了 gist 和 parts）。它和读法清单同一次调用产出，
-		// 所以在这里一起验 —— 它**过不了校验是静默的**：屏幕上少一张卡片，
-		// 日志里一行 info，而通读那一步会退回没有台阶的那一种。
-		out, okOutline := validateOutline(plan.outline(), blocks)
 		if !okOutline {
 			noOutline++
-			t.Logf("sample %d: 导读被整份丢掉 —— oneLine=%q gist=%q load=%d",
-				i, plan.OneLine, plan.Gist, len(plan.Load))
+			// 🚨 数出核心段有几段。四条作废理由里只有「核心段超了」是**程度**
+			// 问题（另外三条是「没写中文」「一段核心都没有」「整份是空的」），
+			// 而日志分不出是哪一条的时候，只能猜。2026-09-17 实测 3/6 作废，
+			// 就是靠这一行才看出全部是同一条。
+			core := 0
+			for _, b := range blocks {
+				if plan.Load[b.ID] == loadCore {
+					core++
+				}
+			}
+			t.Logf("sample %d: 导读被整份丢掉 —— oneLine=%q gist=%q load=%d 核心段=%d/%d",
+				i, plan.OneLine, plan.Gist, len(plan.Load), core, len(blocks))
 			continue
 		}
 		t.Logf("sample %d 导读 — 在问=%q", i, out.OneLine)
