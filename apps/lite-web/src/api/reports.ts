@@ -182,7 +182,9 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     piece: raw.piece ?? "",
     ordinal: raw.ordinal ?? 0,
     turningPoints: raw.turningPoints ?? [],
-    boards: raw.boards ?? [],
+    // 同 toolkit：服务端没给这个键的时候，规范化之后也不该多出一个键 ——
+    // 早于这个字段的每一份旧报告（和每一份旧夹具）的形状必须原样不动。
+    ...(raw.boards ? { boards: raw.boards } : {}),
     article: raw.article ?? null,
     // 只在服务端给了的时候才带这个键：早于它的报告（以及每一个旧测试夹具）
     // 规范化之后的形状一个键都不多。

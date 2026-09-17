@@ -43,7 +43,7 @@ func TestAdvanceTaskMovesTheActiveStepForward(t *testing.T) {
 	if d.tasks[1].Status != "done" {
 		t.Fatalf("当前这一步没有被标掉：%+v", d.tasks[1])
 	}
-	if cur := currentReadingTask(d.tasks); cur == nil || cur.Kind != "question" {
+	if cur := currentReadingTask(d.tasks); cur == nil || cur.Kind != string(taskCritique) {
 		t.Fatalf("下一步应当成为当前步（按生产的 currentReadingTask）：%+v", cur)
 	}
 }
