@@ -29,10 +29,63 @@ func extractHTML(body []byte) (title, text string) {
 	title = findTitle(doc)
 	if main := findMainNode(doc); main != nil {
 		if t := scrapeBlocks(main); len(t) >= mainTextFloor {
-			return title, t
+			return title, CutRelatedTrailer(t)
 		}
 	}
-	return title, scrapeBlocks(doc)
+	return title, CutRelatedTrailer(scrapeBlocks(doc))
+}
+
+// relatedTrailerHeads —— 文章正文结束之后，网站自己加的「推荐阅读」那一栏的标题。
+//
+// 产品负责人 2026-09-17：「有时候我们抓取的文章最后会有：You Might Also Like。这个及
+// 之后的内容其实可以不要，不然会干扰正常阅读。」线上两篇 Smithsonian 的文章就是这样：
+// 正文之后跟着一行 You Might Also Like，再是六七条别的文章的标题和日期 —— 阅读室把它们
+// 当成了这篇的最后几段，导读和通读也会把它们切进去。
+//
+// 这些栏目常常不在 <aside>/<footer> 里（那两个早就跳过了），所以按**标题那一行**认。
+// 只认**整段就是这句话**的那一行（大小写、末尾冒号不计），不认包含它的句子 ——
+// 正文里说一句「you might also like this approach」不该把后半篇切掉。
+var relatedTrailerHeads = map[string]bool{
+	"you might also like": true,
+	"you may also like":   true,
+	"related articles":    true,
+	"related stories":     true,
+	"related content":     true,
+	"related reading":     true,
+	"recommended for you": true,
+	"recommended reading": true,
+	"recommended stories": true,
+	"more stories":        true,
+	"read next":           true,
+	"read more":           true,
+	"trending now":        true,
+	"most popular":        true,
+	"相关阅读":                true,
+	"相关文章":                true,
+	"推荐阅读":                true,
+	"延伸阅读":                true,
+	"猜你喜欢":                true,
+	"更多推荐":                true,
+}
+
+// CutRelatedTrailer 从「推荐阅读」那一行起，把它和它之后的全部段落拿掉。
+//
+// 🚨 只在它**前面已经有至少两段正文**的时候才切：一个在开头就出现的「Read more」
+// 多半是站点导航漏进来的，切掉的会是整篇文章。
+func CutRelatedTrailer(text string) string {
+	paras := strings.Split(text, "\n\n")
+	for i, p := range paras {
+		if i < 2 {
+			continue
+		}
+		head := strings.ToLower(strings.TrimSpace(p))
+		head = strings.TrimRight(head, ":：")
+		head = strings.TrimSpace(head)
+		if relatedTrailerHeads[head] {
+			return strings.TrimSpace(strings.Join(paras[:i], "\n\n"))
+		}
+	}
+	return text
 }
 
 // scrapeBlocks concatenates the text of block elements under root, skipping
