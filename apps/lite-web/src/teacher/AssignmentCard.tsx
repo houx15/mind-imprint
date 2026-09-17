@@ -67,7 +67,16 @@ export function AssignmentCard({ assignment: a, onOpen }: { assignment: Assignme
         )}
       </p>
       <div className="teacher-task-foot">
-        <span />
+        {a.toGrade > 0 ? (
+          <span
+            className="teacher-chip"
+            style={{ background: `color-mix(in srgb, ${PROGRESS_HUE.toGrade} 16%, var(--mk-surface))`, color: `color-mix(in srgb, ${PROGRESS_HUE.toGrade} 55%, var(--mk-ink))` }}
+          >
+            待批改 {a.toGrade}
+          </span>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           className="teacher-cta"

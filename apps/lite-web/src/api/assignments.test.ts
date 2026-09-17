@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizeAssignmentForAtom,
+  normalizeAssignmentSummaryDTO,
   normalizeExtractResult,
   normalizeInboxResponse,
   normalizePreviewRows,
@@ -172,5 +173,15 @@ describe("normalizePreviewRows", () => {
   });
   it("is empty for a malformed body", () => {
     expect(normalizePreviewRows(null)).toEqual([]);
+  });
+});
+
+describe("normalizeAssignmentSummaryDTO", () => {
+  const raw = { id: "a", classId: "c", kind: "writing", title: "t", instructions: "", payload: {}, dueAt: "2026-09-20T14:00:00Z", createdAt: "2026-09-17T14:00:00Z", counts: {} };
+  it("reads toGrade, and treats a missing or bad value as 0", () => {
+    expect(normalizeAssignmentSummaryDTO({ ...raw, toGrade: 2 }).toGrade).toBe(2);
+    expect(normalizeAssignmentSummaryDTO(raw).toGrade).toBe(0);
+    expect(normalizeAssignmentSummaryDTO({ ...raw, toGrade: -1 }).toGrade).toBe(0);
+    expect(normalizeAssignmentSummaryDTO({ ...raw, toGrade: "3" }).toGrade).toBe(0);
   });
 });

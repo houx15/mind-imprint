@@ -1023,6 +1023,17 @@ func TestLiteGradingSendAllReviewed(t *testing.T) {
 	if statuses[gids[0]] != "sent" || statuses[gids[1]] != "draft" || statuses[gids[2]] != "draft" {
 		t.Fatalf("statuses = %v", statuses)
 	}
+	// The class's assignment list counts 待批改: submitted, nothing sent yet.
+	var list struct {
+		Assignments []struct {
+			ID      string `json:"id"`
+			ToGrade int    `json:"toGrade"`
+		} `json:"assignments"`
+	}
+	getJSON(t, f.h, f.teacher, "/api/v1/lite/teacher/classes/"+f.classID+"/assignments", &list)
+	if len(list.Assignments) != 1 || list.Assignments[0].ID != aid || list.Assignments[0].ToGrade != 2 {
+		t.Fatalf("list = %+v, want toGrade 2", list.Assignments)
+	}
 	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", sendAll, map[string]any{"ids": []string{"x"}}); code != http.StatusBadRequest || ec != "invalid_ids" {
 		t.Fatalf("bad ids = %d %s", code, ec)
 	}

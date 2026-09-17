@@ -309,7 +309,12 @@ SELECT r.assignment_id, r.user_id, r.seen_at, r.atom_id, r.started_at,
        (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id AND t.status = 'done')::int AS steps_done,
        (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id)::int AS steps_total,
        COALESCE((SELECT v.word_count FROM writing_version v WHERE v.atom_id = r.atom_id
-                 ORDER BY v.number DESC LIMIT 1), 0)::int AS latest_word_count
+                 ORDER BY v.number DESC LIMIT 1), 0)::int AS latest_word_count,
+       -- 待批改：最新提交版本还没有已发送的批改。
+       EXISTS (SELECT 1 FROM writing_version v
+               WHERE v.atom_id = r.atom_id
+                 AND v.number = (SELECT max(x.number) FROM writing_version x WHERE x.atom_id = r.atom_id)
+                 AND NOT EXISTS (SELECT 1 FROM lite_grading g WHERE g.version_id = v.id AND g.status = 'sent'))::bool AS to_grade
 FROM lite_assignment_recipient r
 JOIN users u ON u.id = r.user_id
 LEFT JOIN atom at ON at.id = r.atom_id
@@ -338,6 +343,7 @@ type ListLiteAssignmentRecipientsRow struct {
 	StepsDone       int32              `json:"steps_done"`
 	StepsTotal      int32              `json:"steps_total"`
 	LatestWordCount int32              `json:"latest_word_count"`
+	ToGrade         bool               `json:"to_grade"`
 }
 
 // 一份作业的每个学生，连同她那一项的完成时间、退回信息和提交版本数。
@@ -369,6 +375,7 @@ func (q *Queries) ListLiteAssignmentRecipients(ctx context.Context, assignmentId
 			&i.StepsDone,
 			&i.StepsTotal,
 			&i.LatestWordCount,
+			&i.ToGrade,
 		); err != nil {
 			return nil, err
 		}

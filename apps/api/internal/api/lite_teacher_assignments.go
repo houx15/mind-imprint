@@ -37,6 +37,9 @@ type AssignmentDTO struct {
 type AssignmentSummaryDTO struct {
 	AssignmentDTO
 	Counts map[string]int `json:"counts"`
+	// ToGrade counts students whose latest submitted version has no sent
+	// grading yet (writing only; 0 otherwise).
+	ToGrade int `json:"toGrade"`
 }
 
 // RecipientDTO is one student on an assignment. Status is derived on read.
@@ -368,6 +371,9 @@ func (a *API) classAssignmentSummaries(ctx context.Context, classID uuid.UUID) (
 			status := liteassign.StatusWithReturn(rc.StartedAt.Valid, tsPtr(rc.FinishedAt), rows[i].DueAt, now,
 				returnOf(rc.ReturnedAt, rc.ReturnDueAt, rc.Resubmitted))
 			out[i].Counts[status]++
+			if rc.ToGrade {
+				out[i].ToGrade++
+			}
 		}
 	}
 	return out, nil
