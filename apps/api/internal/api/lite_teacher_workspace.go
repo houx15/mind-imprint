@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -496,6 +497,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	if bad := liteWorkspaceUngroundedNames(
 		parts, nameSpans, surface.verbatimSubjectNames(), rosterNames, grounded,
 	); len(bad) > 0 {
+		liteWorkspaceLogGroundingFailure(r, req.Surface, "names", strings.Join(bad, "、"), strings.Join(grounded, "、"), strings.Join(parts, " | "))
 		httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的学生姓名："+strings.Join(bad, "、")))
 		return
 	}
@@ -523,6 +525,7 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		checked := liteWorkspaceBlankQuotedSpans(part, quotedSpans)
 		checked = liteWorkspaceBlankUnquoted(checked, className)
 		if bad := liteworkspace.UngroundedCounts(checked, countGrounds); len(bad) > 0 {
+			liteWorkspaceLogGroundingFailure(r, req.Surface, "counts", liteWorkspaceJoinInts(bad), liteWorkspaceJoinInts(countGrounds), part)
 			httpx.WriteError(w, r, errLiteWorkspaceTurn("回复里出现了本轮没有依据的人数："+liteWorkspaceJoinInts(bad)))
 			return
 		}
@@ -814,6 +817,19 @@ func liteWorkspaceGroundedCounts(fromTools []int, rosterSize int, groundRoster b
 		}
 	}
 	return out
+}
+
+// liteWorkspaceLogGroundingFailure records a turn the §6 check rejected: the
+// surface, what was ungrounded, what the turn had as evidence, and the
+// model-written text that carried it.
+// The text is teacher-facing model output (reply, option labels, patch
+// fields); no key and no student chat transcript reaches it. It is cut at
+// 2,000 runes: a patch can carry a whole pasted article.
+func liteWorkspaceLogGroundingFailure(r *http.Request, surface, kind, ungrounded, grounded, text string) {
+	slog.Warn("lite workspace: reply failed the grounding check",
+		"request_id", httpx.RequestIDFromContext(r.Context()),
+		"surface", surface, "kind", kind, "ungrounded", ungrounded, "grounded", grounded,
+		"text", liteWorkspaceClampRunes(text, 2000))
 }
 
 func liteWorkspaceJoinInts(ns []int) string {

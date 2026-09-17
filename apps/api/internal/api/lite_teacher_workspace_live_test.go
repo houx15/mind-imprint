@@ -1404,3 +1404,130 @@ func wsLiveTexts(calls []wsLiveCall) []string {
 	}
 	return out
 }
+
+// ---------------------------------------------------------------------------
+// Scenario 6: the 2026-09-17 production 502. A trial class of six: four
+// students active on one day this week with five finished writings between
+// them, two with no records at all. The teacher asked 「这周谁还没开始学习？」
+// on the home surface and the turn failed with 「回复里出现了本轮没有依据的人数：1」.
+//
+//	.superpowers/tmp/run-live.sh TestLiveWorkspaceHomeProdCount <outfile>
+//
+// LIVE_PROD_RUNS overrides the number of runs (default 5). The failure came
+// from an ask_choice label 「打开其中一位的学习页」 and showed up in 1 of 30
+// runs before the fix, so 5 runs rarely see it.
+// ---------------------------------------------------------------------------
+
+// liveProdClassActive and liveProdClassQuiet are the production class's shape
+// with the names the production summary used.
+var liveProdClassActive = []struct {
+	email, name string
+	writings    int
+}{
+	{"prod-a@demo.local", "孙浩然", 2},
+	{"prod-b@demo.local", "林知遥", 1},
+	{"prod-c@demo.local", "赵一诺", 1},
+	{"prod-d@demo.local", "陈思远", 1},
+}
+
+var liveProdClassQuiet = []struct{ email, name string }{
+	{"prod-e@demo.local", "周子涵"},
+	{"prod-f@demo.local", "李若溪"},
+}
+
+const liveProdCountRuns = 5
+
+const liveProdCountQuestion = "这周谁还没开始学习？"
+
+func TestLiveWorkspaceHomeProdCount(t *testing.T) {
+	prov, route, resolved := liveWorkspaceModel(t)
+	t.Logf("class %s → provider=%s model=%s", gateway.ClassDialogue, resolved.Provider, resolved.Model)
+	runs := liveProdCountRuns
+	if n, err := strconv.Atoi(os.Getenv("LIVE_PROD_RUNS")); err == nil && n > 0 {
+		runs = n
+	}
+	for run := 1; run <= runs; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) { liveProdCountRun(t, prov, route, run) })
+	}
+}
+
+func liveProdCountRun(t *testing.T, prov gateway.Provider, route func(string) gateway.KeyResolver, run int) {
+	const sc = "6-home-prod-count"
+	rec := &wsLiveRecorder{inner: prov}
+	pool := newAPITestPool(t)
+	h := New(Deps{
+		Queries: sqlc.New(pool), Pool: pool, Provider: rec, Route: route, SpecByID: cards.ByID,
+	}).Handler()
+	mustExec(t, pool, `UPDATE schools SET edition = 'lite'`)
+	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "prod-teacher@demo.local"))
+	classID := createClassViaAPI(t, h, teacher, "同事试用班")
+	today := liteweek.Day(time.Now())
+	var rosterNames []string
+	for _, s := range liveProdClassActive {
+		id := createStudent(t, pool, SeedSchoolID, s.email)
+		enrollStudent(t, pool, id, classID)
+		renameLiteStudent(t, pool, id, s.name)
+		rosterNames = append(rosterNames, s.name)
+		for i := 0; i < s.writings; i++ {
+			atom := seedLiteWritingForUser(t, pool, id, "finished")
+			seedBucket(t, pool, atom, today, 600)
+		}
+	}
+	for _, s := range liveProdClassQuiet {
+		id := createStudent(t, pool, SeedSchoolID, s.email)
+		enrollStudent(t, pool, id, classID)
+		renameLiteStudent(t, pool, id, s.name)
+		rosterNames = append(rosterNames, s.name)
+	}
+	backdateWeeklyStart(t, pool, classID)
+
+	code, body, out, calls := wsLivePost(t, h, teacher, rec, map[string]any{
+		"surface": "home", "classId": classID, "text": liveProdCountQuestion,
+	})
+	// The rejected reply never reaches the response, so it is read off the
+	// last model call.
+	final := ""
+	if len(calls) > 0 {
+		final = calls[len(calls)-1].Text
+	}
+	if code != http.StatusOK {
+		for _, sentence := range regexp.MustCompile(`[。！？\n]`).Split(final, -1) {
+			if n := liteworkspace.StatedCounts(sentence); len(n) > 0 {
+				t.Logf("COUNTSENTENCE | %s | run %d | counts %v | %q", sc, run, n, sentence)
+			}
+		}
+	}
+	var stated []int
+	for _, c := range calls {
+		stated = append(stated, liteworkspace.StatedCounts(c.Text)...)
+		for _, tc := range c.Tools {
+			if q, _ := tc.Args["question"].(string); q != "" {
+				stated = append(stated, liteworkspace.StatedCounts(q)...)
+			}
+			for _, o := range toolOptionLabels(tc.Args) {
+				stated = append(stated, liteworkspace.StatedCounts(o)...)
+			}
+		}
+	}
+	t.Logf("FINAL | %s | run %d | HTTP %d | tools %v | stated in any call %v | last text %q",
+		sc, run, code, wsLiveAllTools(calls), stated, final)
+	wsLiveVerdict(t, sc, run, "HTTP 200 (server §6 passed)", code == http.StatusOK, false, body)
+	if code == http.StatusOK {
+		badNames := liteworkspace.UngroundedNames(out.Reply, rosterNames, nil)
+		t.Logf("names in reply (tool-grounded or not): %v", badNames)
+	}
+	t.Logf("USAGE | %s | run %d | %s", sc, run, wsLiveUsage(calls))
+}
+
+func toolOptionLabels(args map[string]any) []string {
+	raw, _ := args["options"].([]any)
+	var out []string
+	for _, o := range raw {
+		if m, ok := o.(map[string]any); ok {
+			if l, _ := m["label"].(string); l != "" {
+				out = append(out, l)
+			}
+		}
+	}
+	return out
+}

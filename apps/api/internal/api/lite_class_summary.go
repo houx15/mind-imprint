@@ -176,6 +176,9 @@ func (a *API) composeLiteClassSummary(r *http.Request, userID uuid.UUID, cls sql
 			return liteClassSummaryEntry{Summary: summary, GeneratedAt: time.Now()}, nil
 		}
 
+		slog.Warn("lite class summary: summary failed the grounding check",
+			"request_id", httpx.RequestIDFromContext(r.Context()),
+			"attempt", attempt+1, "reason", reason, "summary", summary)
 		groundErr = errLiteClassSummary(reason)
 		if attempt == liteClassSummaryMaxAttempts-1 {
 			break

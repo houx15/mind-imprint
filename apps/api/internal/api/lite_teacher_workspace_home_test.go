@@ -614,3 +614,47 @@ func requireNavigate(t *testing.T, rec *httptest.ResponseRecorder) *homeNavigate
 	}
 	return out.Navigate
 }
+
+// TestWorkspaceHomeOneOfThemIsNotAHeadCount replays the 2026-09-17 production
+// 502 on 「这周谁还没开始学习？」. list_students returned two students and the
+// model offered a button 「打开其中一位的学习页」; the count check read 一位 as a
+// head count of 1 and failed the turn. The control is the same turn with a
+// question that does state a count no tool returned, which must still fail.
+func TestWorkspaceHomeOneOfThemIsNotAHeadCount(t *testing.T) {
+	for _, tc := range []struct {
+		name, question string
+		want           int
+	}{
+		{"one of them", "接下来你想做什么？", http.StatusOK},
+		{"fabricated count", "只有一位学生还没开始学习，接下来你想做什么？", http.StatusBadGateway},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			askArgs, _ := json.Marshal(map[string]any{
+				"question": tc.question,
+				"options": []map[string]string{
+					{"id": "snapshot", "label": "看本周整体情况"},
+					{"id": "overdue", "label": "看谁有逾期作业"},
+					{"id": "contact", "label": "打开其中一位的学习页"},
+					{"id": "parent", "label": "看家长报告"},
+				},
+			})
+			prov := gateway.NewSequenceStubProvider(
+				wsToolCall("list_students", `{"filter":"inactive_this_week"}`),
+				wsToolCall("ask_choice", string(askArgs)),
+			)
+			h, pool, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+			// Two students with no activity: list_students returns 2 and the
+			// roster size is 2, so nothing grounds a 1.
+			second := createStudent(t, pool, SeedSchoolID, "lt-home-second@demo.local")
+			enrollStudent(t, pool, second, classID)
+
+			rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这周谁还没开始学习？"))
+			if rec.Code != tc.want {
+				t.Fatalf("turn = %d, want %d; body=%s", rec.Code, tc.want, rec.Body)
+			}
+			if tc.want == http.StatusBadGateway && !strings.Contains(rec.Body.String(), "本轮没有依据的人数：1") {
+				t.Fatalf("502 body does not name the count: %s", rec.Body)
+			}
+		})
+	}
+}

@@ -279,6 +279,18 @@ func TestStatedCounts(t *testing.T) {
 		{"第一位交的同学", nil},
 		{"第 3 名是谁不重要", nil},
 		{"库里找到 7 篇气候相关的文章", nil},
+
+		// 一 after a determiner names one person, not a count.
+		{"每一位同学都要交", nil},
+		{"哪一位还没交", nil},
+		{"另一名学生", nil},
+		{"这一个孩子", nil},
+		// These still say how many.
+		{"其中两位还没交", []int{2}},
+		{"其中 1 位还没交", []int{1}},
+		{"只有一位还没交", []int{1}},
+		{"唯一一位还没交", []int{1}},
+		{"十一名学生已完成", []int{11}},
 		{"《亚运会上你可能没见过的项目》", nil},
 	} {
 		got := StatedCounts(tc.text)
@@ -351,6 +363,11 @@ func TestStatedCountsOnLiveReplies(t *testing.T) {
 		{"本周全班3人中仅有2人活跃，整体参与度偏低；", []int{3, 2}},
 		{"本周班级整体参与度较低，3人中仅2人有活跃记录。", []int{3, 2}},
 		{"本周无到期作业，班级整体参与度较低，仅有2名学生有活跃记录。", []int{2}},
+		// home surface, 「这周谁还没开始学习？」: an ask_choice label from the
+		// run that reproduced the production 502. 其中一位 is 「one of them」.
+		{"打开其中一位的学习页", nil},
+		{"查看其中一位学生的详情", nil},
+		{"本周有 2 位学生还没开始学习，名单已显示在卡片上。", []int{2}},
 		// parent report, reading section
 		{"陈书宁阅读了《透水砖能让城市吸水吗》和《城市里的雨水花园》2篇文章。", nil},
 		{"通过这2篇阅读，陈书宁接触了社会与世界领域的关键词海绵城市。", nil},

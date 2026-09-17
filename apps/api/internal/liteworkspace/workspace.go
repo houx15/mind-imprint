@@ -249,6 +249,9 @@ func hasPrefixRunes(r, prefix []rune) bool {
 // therefore saw only the second — a real reply walked straight through it.
 //
 // 第 before the number excludes it: 「第一位」 and 「第 3 名」 are ordinals.
+//
+// A 一 after a determiner is excluded too (singlePersonReference): 「其中一位」
+// 「每一位」 name one person or each person, not how many there are.
 func StatedCounts(text string) []int {
 	r := []rune(stripSpace(text))
 	var out []int
@@ -259,7 +262,7 @@ func StatedCounts(text string) []int {
 			continue
 		}
 		end := i + width
-		if w := personCounterWidth(r, end); w > 0 && (i == 0 || r[i-1] != '第') {
+		if w := personCounterWidth(r, end); w > 0 && (i == 0 || r[i-1] != '第') && !singlePersonReference(r, i, width) {
 			out = append(out, n)
 			i = end + w
 			continue
@@ -267,6 +270,37 @@ func StatedCounts(text string) []int {
 		i = end
 	}
 	return out
+}
+
+// oneOfDeterminers are the words that turn a following 一位 / 一名 / 一个学生
+// into a reference to one person: 其中一位 (one of them), 每一位 (each),
+// 哪一位 (which), 某一位 (a certain), 另一位 (the other), 任一位 (any),
+// 这一位 / 那一位 (this / that one).
+var oneOfDeterminers = [][]rune{
+	[]rune("其中"), []rune("每"), []rune("哪"), []rune("某"),
+	[]rune("另"), []rune("任"), []rune("这"), []rune("那"),
+}
+
+// singlePersonReference reports whether the number at r[i:i+width] is the
+// single rune 一 right after one of oneOfDeterminers.
+//
+// 🚨 Only the rune 一. 「其中两位」 and 「其中 1 位」 still count: the first is a
+// head count, and the second is how a count is written, not how 「one of
+// them」 is. 「只有一位」 and 「唯一一位」 still count too: 有 and 唯一 are not
+// determiners, and those sentences do say how many.
+//
+// The 2026-09-17 production 502 was an ask_choice label, 「打开其中一位的学习页」,
+// read as a head count of 1 while list_students had returned 2.
+func singlePersonReference(r []rune, i, width int) bool {
+	if width != 1 || r[i] != '一' {
+		return false
+	}
+	for _, d := range oneOfDeterminers {
+		if i >= len(d) && hasPrefixRunes(r[i-len(d):i], d) {
+			return true
+		}
+	}
+	return false
 }
 
 // IsPureHeadCount reports whether s, once its whitespace is stripped, IS a
