@@ -9,6 +9,7 @@ import {
   startButtonLabel,
   startErrorText,
   stripDueAt,
+  unreadGradings,
 } from "./inboxLogic";
 
 function item(over: Partial<AssignmentInboxItem>): AssignmentInboxItem {
@@ -118,4 +119,17 @@ describe("startButtonLabel", () => {
   it("in progress", () => expect(startButtonLabel({ status: "in_progress", atomId: "x" })).toBe("继续"));
   it("overdue with a room", () => expect(startButtonLabel({ status: "overdue", atomId: "x" })).toBe("继续"));
   it("overdue and never opened", () => expect(startButtonLabel({ status: "overdue", atomId: null })).toBe("开始"));
+});
+
+describe("unreadGradings", () => {
+  const g = (id: string, unread: boolean, sentAt: string) => ({ type: "grading" as const, id, atomId: "w", writingTitle: "t", sentAt, unread });
+  it("lists only unread gradings, newest first", () => {
+    const items = [
+      g("old", true, "2026-09-16T10:00:00Z"),
+      g("read", false, "2026-09-17T10:00:00Z"),
+      item({ id: "a" }),
+      g("new", true, "2026-09-17T12:00:00Z"),
+    ];
+    expect(unreadGradings(items).map((x) => x.id)).toEqual(["new", "old"]);
+  });
 });

@@ -4,8 +4,8 @@ import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/d
 import { useAlive } from "../shared/useAlive";
 import { statusChipStyle } from "../teacher/assignmentLogic";
 import { kindLabel } from "../teacher/format";
-import { openItemsForKind, startButtonLabel, stripDueAt } from "./inboxLogic";
-import { openAssignment } from "./openAssignment";
+import { openItemsForKind, startButtonLabel, stripDueAt, unreadGradings } from "./inboxLogic";
+import { openAssignment, openGrading } from "./openAssignment";
 import { useInbox } from "./useInbox";
 
 /** Status chip, same colours as the teacher end. */
@@ -35,7 +35,20 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
   const [startError, setStartError] = useState<string | null>(null);
 
   const items = openItemsForKind(inbox.items, kind);
-  if (items.length === 0) return null;
+  // Only the home page (every kind) lists new gradings.
+  const gradings = kind === null ? unreadGradings(inbox.items) : [];
+  if (items.length === 0 && gradings.length === 0) return null;
+
+  async function openSent(id: string) {
+    const g = gradings.find((it) => it.id === id);
+    if (!g || openingId) return;
+    setOpeningId(id);
+    try {
+      await openGrading(g, inbox.reload);
+    } finally {
+      if (alive.current) setOpeningId(null);
+    }
+  }
 
   async function open(id: string) {
     const item = items.find((it) => it.id === id);
@@ -55,6 +68,42 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
     >
       <h2 className="px-1 text-mk-small font-semibold text-mk-secondary">作业</h2>
       <ul className="mt-1 flex flex-col">
+        {gradings.map((g) => (
+          <li
+            key={g.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-mk-border px-1 py-2.5 first:border-t-0"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="flex min-w-0 items-center gap-2 text-mk-body font-semibold text-mk-ink">
+                <span
+                  className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label font-normal text-mk-accent-700"
+                  style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
+                >
+                  批改
+                </span>
+                <span className="truncate">{g.writingTitle}</span>
+              </p>
+              <p className="mt-0.5 text-mk-small text-mk-muted">老师已批改 · {formatDeadline(g.sentAt)}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className="inline-block whitespace-nowrap rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
+                style={{ background: "color-mix(in srgb, var(--mk-danger) 12%, var(--mk-surface))", color: "var(--mk-danger)" }}
+              >
+                未读
+              </span>
+              <button
+                type="button"
+                disabled={openingId !== null}
+                onClick={() => void openSent(g.id)}
+                className="whitespace-nowrap rounded-mk-full px-3.5 py-1.5 text-mk-small font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                style={{ background: "var(--mk-accent-500)" }}
+              >
+                {openingId === g.id ? "处理中" : "查看"}
+              </button>
+            </div>
+          </li>
+        ))}
         {items.map((item) => (
           <li
             key={item.id}

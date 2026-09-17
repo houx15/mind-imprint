@@ -1,7 +1,7 @@
 // inbox/inboxLogic.ts — pure rules behind the student inbox and the 作业
 // strips. No React and no network, so each rule is testable on its own.
 
-import type { AssignmentInboxItem, AssignmentKind, InboxItemDTO } from "../api/assignments";
+import type { AssignmentInboxItem, AssignmentKind, GradingInboxItem, InboxItemDTO } from "../api/assignments";
 import type { AssignmentStatus } from "../shared/deadline";
 
 const START_PREFIX = "开始失败：";
@@ -74,4 +74,13 @@ export function inboxPanelLeft(railRight: number, viewportWidth: number): number
  * overdue assignment she never opened); 继续 once a room exists. */
 export function startButtonLabel(item: Pick<AssignmentInboxItem, "status" | "atomId">): "开始" | "继续" {
   return item.status === "not_started" || item.atomId === null ? "开始" : "继续";
+}
+
+/** Gradings the student has not opened yet, newest first. The home page
+ *  lists them next to the open homework: before 2026-09-17 a sent grading
+ *  reached her only as a dot on 收件箱. */
+export function unreadGradings(items: readonly InboxItemDTO[]): GradingInboxItem[] {
+  return items
+    .filter((it): it is GradingInboxItem => it.type === "grading" && it.unread)
+    .sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt));
 }

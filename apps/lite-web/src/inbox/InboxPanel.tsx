@@ -1,15 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { AssignmentInboxItem, GradingInboxItem, InboxItemDTO } from "../api/assignments";
-import { markGradingSeen } from "../api/gradings";
-import { navigate, writingPath } from "../routing";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
-import { notifyGradingsChanged } from "../writings/gradingsChanged";
 import { AssignmentStatusChip } from "./AssignmentStrip";
 import { INBOX_PANEL_WIDTH, inboxPanelLeft, sortUnreadFirst } from "./inboxLogic";
-import { openAssignment } from "./openAssignment";
+import { openAssignment, openGrading } from "./openAssignment";
 import type { InboxState } from "./useInbox";
 
 /**
@@ -82,21 +79,8 @@ export function InboxPanel({
     setOpeningId(item.id);
     if (item.type === "grading") {
       try {
-        // A failed seen-call must not block getting to the writing — but it
-        // must not vanish without a trace either. Unlike `openAssignment`'s
-        // own seen call (`markSeen(...).catch(() => undefined)`, which
-        // swallows a failure completely with no compensating reload of its
-        // own), this one reloads the inbox unconditionally right after: if
-        // the mark really failed server-side, this row still shows unread
-        // the next time the inbox opens — a real, durable signal instead of
-        // a silently lost one.
-        await markGradingSeen(item.id).catch(() => undefined);
-        inbox.reload();
         onClose(false);
-        // navigate() does nothing when this writing's page is already open,
-        // so the page is also told to fetch its gradings again.
-        notifyGradingsChanged(item.atomId);
-        navigate(writingPath(item.atomId));
+        await openGrading(item, inbox.reload);
       } finally {
         // Navigating away closes the panel, which usually unmounts it before
         // this runs — but not always (`onClose`/`navigate` don't guarantee
