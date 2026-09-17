@@ -45,6 +45,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"mindimprint/api/internal/materialize"
 	"net/http"
 	"strings"
 	"sync"
@@ -380,7 +381,9 @@ func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) plane
 	// 摘要加一行「Source」，一共 403 个字符 —— 她打开就在两段话上开始「通读」，
 	// 屏幕上没有任何提醒。第二条路（现抓）早就有 planetFetchMinRunes 这道线，
 	// 第一条路没有。短的那一份不丢：它往下走，抓不到原页面时它就是那段摘要。
-	feedBody := strings.TrimSpace(p.Body)
+	// feed 自带的正文（content:encoded）也会带着网站的「推荐阅读」尾巴，和抓回来的
+	// 页面一样切掉（materialize.CutRelatedTrailer，2026-09-17）。
+	feedBody := materialize.CutRelatedTrailer(strings.TrimSpace(p.Body))
 	if len([]rune(feedBody)) >= planetFetchMinRunes {
 		return planetArticle{Body: feedBody}
 	}
