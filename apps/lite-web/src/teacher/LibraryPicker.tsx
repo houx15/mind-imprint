@@ -67,6 +67,10 @@ export function LibraryPicker({
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [allChips, setAllChips] = useState(false);
+  // 全部文章 starts folded when the class has recommendations: the row above
+  // is the usual choice, and the full grid put 12+ cards between the fields
+  // and 发布作业 (round-7 audit).
+  const [browseOpen, setBrowseOpen] = useState(false);
 
   const [recs, setRecs] = useState<ClassRecommendations | null>(null);
   const [recError, setRecError] = useState<string | null>(null);
@@ -115,6 +119,8 @@ export function LibraryPicker({
   const matched = articles ? filterByDisciplines(filterArticles(articles, query), disciplines) : [];
   const shown = expanded || filtering ? matched : pageArticles(matched, GRID_PAGE, slug);
   const hiddenCount = matched.length - shown.length;
+  const hasRecs = recs !== null && recs.articles.length > 0;
+  const showAll = !classId || browseOpen || recError !== null || (recs !== null && !hasRecs);
 
   return (
     <div className="teacher-library-picker mk-branch-hues flex flex-col gap-6">
@@ -160,14 +166,36 @@ export function LibraryPicker({
         </section>
       )}
 
+      {!showAll ? (
+        <button
+          type="button"
+          aria-expanded={false}
+          onClick={() => setBrowseOpen(true)}
+          className="self-start rounded-mk-full border border-mk-border bg-mk-surface px-4 py-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+        >
+          {articles ? `浏览全部文章（${articles.length} 篇）` : "浏览全部文章"}
+        </button>
+      ) : (
       <section className="flex flex-col gap-3" aria-label="全部文章">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <span className={LABEL_CLS}>全部文章</span>
-          {articles && (
-            <span className="text-mk-label text-mk-muted">
-              {filtering ? `${matched.length} / ${articles.length} 篇` : `${articles.length} 篇`}
-            </span>
-          )}
+          <span className="flex items-baseline gap-3">
+            {articles && (
+              <span className="text-mk-label text-mk-muted">
+                {filtering ? `${matched.length} / ${articles.length} 篇` : `${articles.length} 篇`}
+              </span>
+            )}
+            {classId && hasRecs && (
+              <button
+                type="button"
+                aria-expanded
+                onClick={() => setBrowseOpen(false)}
+                className="text-mk-label text-mk-accent-700 underline-offset-2 hover:underline"
+              >
+                收起全部文章
+              </button>
+            )}
+          </span>
         </div>
 
         {error ? (
@@ -242,6 +270,7 @@ export function LibraryPicker({
           </>
         )}
       </section>
+      )}
 
       {selected && (
         <section className="flex flex-col gap-2 border-t border-mk-border pt-4" aria-label="难度">

@@ -28,7 +28,7 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
   const { data } = w;
 
   return (
-    <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
+    <section className="teacher-panel">
       <WeekHeader
         title={data?.title ?? null}
         weekLabel={data?.weekLabel ?? ""}
@@ -45,7 +45,7 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
         <p className="mt-3 text-mk-body text-mk-muted">加载中…</p>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="teacher-facts">
             <FactTile label="活跃天数" value={`${data.facts.activeDays} 天`} />
             <FactTile label="学习时长" value={formatMinutes(data.facts.minutes)} />
             <FactTile label="对话轮次" value={`${data.facts.turns} 轮`} />
@@ -56,8 +56,8 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <CardGroup title="值得表扬" cards={data.cards.filter((c) => c.kind === "praise")} />
-            <CardGroup title="需要建议" cards={data.cards.filter((c) => c.kind === "watch")} />
+            <CardGroup title="值得表扬" emptyText="该周暂无" cards={data.cards.filter((c) => c.kind === "praise")} />
+            <CardGroup title="需要建议" emptyText="该周暂无" cards={data.cards.filter((c) => c.kind === "watch")} />
           </div>
 
           <div className="mt-5">
@@ -84,7 +84,7 @@ export function WeekSummaryCard({ classId, userId }: { classId: string; userId: 
                 )}
               </>
             ) : data.empty ? (
-              <p className="mt-1.5 text-mk-body text-mk-muted">该周没有学习记录</p>
+              <p className="mt-1.5 text-mk-body text-mk-muted">该周没有学习记录。学生在平台内学习后，这里会生成总结。</p>
             ) : (
               <ProseStatus state={w.prose} onRetry={w.retryProse} />
             )}
@@ -122,6 +122,18 @@ export function WeekHeader({
         <IconButton icon={ChevronLeft} label="上一周" variant="secondary" size="sm" disabled={!onPrev} onClick={onPrev} />
         <IconButton icon={ChevronRight} label="下一周" variant="secondary" size="sm" disabled={!onNext} onClick={onNext} />
       </div>
+    </div>
+  );
+}
+
+/** The week label between ‹ 上一周 / 下一周 ›, for a page whose title is
+ *  already in its header. A missing handler disables the button. */
+export function WeekNav({ label, onPrev, onNext }: { label: string; onPrev?: () => void; onNext?: () => void }) {
+  return (
+    <div className="teacher-week-nav">
+      <IconButton icon={ChevronLeft} label="上一周" variant="secondary" size="sm" disabled={!onPrev} onClick={onPrev} />
+      <span>{label || "—"}</span>
+      <IconButton icon={ChevronRight} label="下一周" variant="secondary" size="sm" disabled={!onNext} onClick={onNext} />
     </div>
   );
 }
@@ -165,9 +177,9 @@ export function ProseStatus({ state, onRetry }: { state: ProseState; onRetry: ()
 
 export function FactTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[104px] rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2.5">
-      <div className="text-mk-h3 tabular-nums text-mk-ink">{value}</div>
-      <div className="mt-0.5 text-mk-label text-mk-muted">{label}</div>
+    <div className="teacher-fact">
+      <strong>{value}</strong>
+      <span>{label}</span>
     </div>
   );
 }
@@ -188,11 +200,11 @@ export function CardTag({ kind, label }: { kind: string; label: string }) {
   );
 }
 
-function CardGroup({ title, cards }: { title: string; cards: WeekCard[] }) {
+function CardGroup({ title, emptyText, cards }: { title: string; emptyText: string; cards: WeekCard[] }) {
   return (
-    <GroupShell title={title} empty={cards.length === 0}>
+    <GroupShell title={title} count={cards.length} emptyText={emptyText}>
       {cards.map((c) => (
-        <div key={c.code} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+        <div key={c.code} className="rounded-mk-md bg-mk-paper p-3">
           <CardTag kind={c.kind} label={c.label} />
           <p className="mt-1.5 text-mk-small text-mk-ink">{c.evidence}</p>
         </div>
@@ -201,14 +213,29 @@ function CardGroup({ title, cards }: { title: string; cards: WeekCard[] }) {
   );
 }
 
-export function GroupShell({ title, empty, children }: { title: string; empty: boolean; children: ReactNode }) {
+/** A titled group of cards with its count. `emptyText` is the caller's own
+ *  line for an empty group. */
+export function GroupShell({
+  title,
+  count,
+  emptyText,
+  children,
+}: {
+  title: string;
+  count: number;
+  emptyText: string;
+  children: ReactNode;
+}) {
   return (
     <div>
-      <h3 className="text-mk-label font-bold text-mk-muted">{title}</h3>
-      {empty ? (
-        <p className="mt-1.5 text-mk-small text-mk-muted">暂无</p>
+      <h3 className="teacher-group-title">
+        {title}
+        <span>{count}</span>
+      </h3>
+      {count === 0 ? (
+        <p className="teacher-group-empty">{emptyText}</p>
       ) : (
-        <div className="mt-1.5 flex flex-col gap-2">{children}</div>
+        <div className="mt-2 flex flex-col gap-2">{children}</div>
       )}
     </div>
   );

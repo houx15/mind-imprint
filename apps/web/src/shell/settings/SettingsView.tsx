@@ -42,8 +42,11 @@ export function SettingsView({
   onLogout,
   user = null,
   teachingStudio = false,
+  studioArtwork,
 }: {
   teachingStudio?: boolean;
+  /** Lite teaching studio only: the header illustration. */
+  studioArtwork?: string;
   session: SessionStore;
   onLogout: () => void;
   user?: MeUser | null;
@@ -64,7 +67,18 @@ export function SettingsView({
   return (
     <div className={cx("h-full w-full overflow-y-auto bg-mk-paper", teachingStudio && "teacher-settings")}>
       <div className="mx-auto max-w-[680px] px-10 py-10 pb-16">
-        <h1 className="text-mk-h1 text-mk-ink">设置</h1>
+        {teachingStudio ? (
+          <header className="teacher-heading">
+            <div className="teacher-heading-copy">
+              <p className="teacher-heading-kicker">教学工作室</p>
+              <h1>设置</h1>
+              <p className="teacher-heading-desc">账号信息、主题色与页面底色。</p>
+            </div>
+            {studioArtwork && <img src={studioArtwork} alt="" />}
+          </header>
+        ) : (
+          <h1 className="text-mk-h1 text-mk-ink">设置</h1>
+        )}
 
         {/* === 个人 === */}
         <SectionLabel>个人</SectionLabel>
@@ -81,6 +95,15 @@ export function SettingsView({
             </div>
           </div>
 
+          {teachingStudio ? (
+            <dl className="grid grid-cols-[72px_1fr] gap-x-4 gap-y-3 border-t border-mk-border pt-4 text-mk-body">
+              <dt className="text-mk-muted">姓名</dt>
+              <dd className="min-w-0 break-words text-mk-ink">{user?.display_name || "—"}</dd>
+              <dt className="text-mk-muted">邮箱</dt>
+              <dd className="min-w-0 break-words text-mk-ink">{user?.email || "—"}</dd>
+            </dl>
+          ) : (
+            <>
           <div className="mb-1.5 text-mk-caption text-mk-secondary">姓名</div>
           <input
             value={user?.display_name ?? ""}
@@ -95,6 +118,8 @@ export function SettingsView({
             readOnly
             className="w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3.5 py-2.5 text-mk-body text-mk-ink outline-none"
           />
+            </>
+          )}
         </Card>
 
         {/* === 主题色 (accent picker, replaces the old local-only AI 形象 4-hex swatches) === */}
@@ -150,7 +175,7 @@ export function SettingsView({
         <Card className="p-6">
           <div className="text-mk-h3 text-mk-ink">页面背景</div>
           <div className="mt-1 text-mk-body text-mk-muted">
-            选一个你看着最舒服的底色——温暖纸感，或者纯白、微蓝、微绿都行。
+            {teachingStudio ? "页面底色。请选择一种。" : "选一个你看着最舒服的底色——温暖纸感，或者纯白、微蓝、微绿都行。"}
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">

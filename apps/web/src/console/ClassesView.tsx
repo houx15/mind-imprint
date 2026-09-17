@@ -75,13 +75,22 @@ export function ClassesView({
   return (
     <div className={studioArtwork ? "teacher-classes" : undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
-        {studioArtwork && <header className="teacher-hero"><div><p className="teacher-eyebrow">TEACHING & LEARNING</p><h1>了解学生的学习过程</h1><p>查看班级中的学习记录、思考过程与成果。</p></div><img src={studioArtwork} alt="" /></header>}
+        {studioArtwork && (
+          <header className="teacher-heading">
+            <div className="teacher-heading-copy">
+              <p className="teacher-heading-kicker">教学工作室</p>
+              <h1>了解学生的学习过程</h1>
+              <p className="teacher-heading-desc">班级卡片汇总本周的学习情况。请进入班级查看名单、布置作业。</p>
+            </div>
+            <img src={studioArtwork} alt="" />
+          </header>
+        )}
         <div className={studioArtwork ? "teacher-section-heading" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-.01em" }}>
             {isTeacher ? "我的班级" : "全校班级"}{studioArtwork && classes && <small className="teacher-count">{classes.length}</small>}
           </div>
           {canCreate && !creating && (
-            <Button onClick={openCreate}>+ 新建班级</Button>
+            <Button onClick={openCreate}>{studioArtwork ? "新建班级" : "+ 新建班级"}</Button>
           )}
         </div>
 
@@ -121,13 +130,25 @@ export function ClassesView({
           </div>
         )}
 
-        {error && (
+        {error && studioArtwork && (
+          <div className="teacher-error" role="alert"><p>加载失败：{error}</p><button type="button" onClick={load}>重新加载</button></div>
+        )}
+        {error && !studioArtwork && (
           <div style={{ marginTop: 14, color: "var(--mk-danger)", fontSize: 13.5, fontWeight: 600 }}>{error} · <span onClick={load} style={{ cursor: "pointer", textDecoration: "underline" }}>重试</span></div>
         )}
 
-        {classes && classes.length === 0 && !creating && (
-          <div className={studioArtwork ? "teacher-empty" : undefined} style={{ marginTop: 28, color: "var(--mk-muted)", fontSize: 14.5, lineHeight: 1.7 }}>
-            {studioArtwork && <img src={studioArtwork} alt="" />}
+        {classes && classes.length === 0 && !creating && studioArtwork && (
+          <div className="teacher-empty-state" style={{ marginTop: 20 }}>
+            <img src={studioArtwork} alt="" />
+            <div>
+              <p className="teacher-empty-title">暂无班级</p>
+              <p className="teacher-empty-body">{canCreate ? "学生凭邀请码加入班级。请新建班级，并把邀请码发给学生。" : "请联系管理员为你分配班级。"}</p>
+              {canCreate && <Button size="sm" onClick={openCreate}>新建班级</Button>}
+            </div>
+          </div>
+        )}
+        {classes && classes.length === 0 && !creating && !studioArtwork && (
+          <div style={{ marginTop: 28, color: "var(--mk-muted)", fontSize: 14.5, lineHeight: 1.7 }}>
             {isTeacher ? "还没有班级，点「+ 新建班级」创建第一个。" : "本校暂无班级。"}
           </div>
         )}
@@ -148,7 +169,7 @@ export function ClassesView({
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenClass(c.id); } }}
                 style={{ padding: "18px 20px", cursor: "pointer" }}
               >
-                {studioArtwork && <div className="teacher-card-index"><span>CLASS {String(index + 1).padStart(2, "0")}</span><span aria-hidden="true">↗</span></div>}
+                {studioArtwork && <div className="teacher-card-index"><span>班级 {String(index + 1).padStart(2, "0")}</span><span className="teacher-card-open">进入班级 <span aria-hidden="true">→</span></span></div>}
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--mk-ink)", lineHeight: 1.45 }}>{c.name}</div>
                 {renderClassPreview?.(c.id)}
                 <div className={studioArtwork ? "teacher-class-meta" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
@@ -157,6 +178,12 @@ export function ClassesView({
                 </div>
               </Surface>
             ))}
+            {studioArtwork && canCreate && !creating && (
+              <button type="button" className="teacher-task-new" onClick={openCreate}>
+                <strong>新建班级</strong>
+                <small>新建后会生成邀请码，学生凭邀请码加入。</small>
+              </button>
+            )}
           </div>
         )}
       </div>

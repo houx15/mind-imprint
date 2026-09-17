@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Button } from "@/ui";
 import {
   archiveAssignment,
   getAssignment,
@@ -8,6 +7,7 @@ import {
   type AssignmentDTO,
   type RecipientDTO,
 } from "../api/assignments";
+import { listAssignmentGradings } from "../api/gradings";
 import { getLibraryShelf } from "../api/library";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatDeadline, isoToBeijingInput, STATUS_LABEL } from "../shared/deadline";
@@ -21,15 +21,18 @@ import { PersonalizedPicker } from "./PersonalizedPicker";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
 import { rubricScaleLabel } from "./rubricLogic";
-import { StudioEmpty } from "./StudioArtwork";
+import { BackLink, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
+import { PROGRESS_HUE, ProgressBar } from "./AssignmentCard";
 import { TeacherPage } from "./TeacherPage";
 import {
   buildPatchInput,
+  countStatuses,
   errorText,
   failText,
   fillTitleIfEmpty,
   isArchiveSuccess,
-  recipientProgressText,
+  progressFromCounts,
+  recipientProgress,
   recipientReadingText,
   recipientStarted,
   settingsAccess,
@@ -37,6 +40,7 @@ import {
   settingsSummary,
   statusChipStyle,
   tabAfterAssignmentChange,
+  toGradeCount,
   toggleId,
   unassignedStudents,
   type EditDraft,
@@ -183,6 +187,25 @@ export function AssignmentDetailPage({
     };
   }, [classId, rosterNonce]);
 
+  // 待批改 for the summary above the tabs. Reloaded when she switches tab,
+  // so a grading sent in 批改 is counted when she comes back. Decorative:
+  // on failure the tile is left out.
+  const isWriting = assignment?.kind === "writing";
+  const [toGrade, setToGrade] = useState<number | null>(null);
+  useEffect(() => {
+    setToGrade(null);
+    if (!isWriting) return;
+    let cancelled = false;
+    listAssignmentGradings(assignmentId)
+      .then((rows) => {
+        if (!cancelled) setToGrade(toGradeCount(rows));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId, isWriting, tab, nonce]);
+
   async function save() {
     if (!edit || busy) return;
     const aid = assignmentId;
@@ -252,24 +275,12 @@ export function AssignmentDetailPage({
 
   return (
     <TeacherPage>
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={ArrowLeft} size={15} />
-        返回
-      </button>
+      <BackLink label="返回作业" onClick={onBack} />
 
       {error ? (
-        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-          加载失败：{error}{" "}
-          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-            重试
-          </button>
-        </div>
+        <StudioError message={error} onRetry={() => setNonce((n) => n + 1)} />
       ) : assignment === null ? (
-        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+        <StudioLoading />
       ) : (
         <>
           {edit ? (
@@ -390,6 +401,8 @@ export function AssignmentDetailPage({
             />
           )}
 
+          <ProgressSummary recipients={recipients} toGrade={toGrade} />
+
           {assignment.kind === "writing" && (
             <div role="tablist" aria-label="作业视图" className="mt-8 flex gap-2 border-b border-mk-border">
               {(["students", "grading"] as const).map((key) => (
@@ -404,7 +417,7 @@ export function AssignmentDetailPage({
                     (tab === key ? "border-mk-accent font-bold text-mk-accent-700" : "border-transparent text-mk-muted hover:text-mk-ink")
                   }
                 >
-                  {key === "students" ? "学生" : "批改"}
+                  {key === "students" ? `学生 ${recipients.length}` : toGrade ? `批改 · 待批改 ${toGrade}` : "批改"}
                 </button>
               ))}
             </div>
@@ -413,10 +426,11 @@ export function AssignmentDetailPage({
             <GradingTab assignmentId={assignment.id} classId={assignment.classId} onOpenGrading={onOpenGrading} />
           ) : (
             <>
-            <section className="mt-8 teacher-compact-empty">
-              <h2 className="text-mk-h3 text-mk-ink">学生</h2>
+            <section className={assignment.kind === "writing" ? "mt-4" : "mt-8"}>
               {recipients.length === 0 ? (
-                <StudioEmpty kind="quest">暂无学生</StudioEmpty>
+                <StudioEmpty kind="quest" title="暂无学生">
+                  这份作业还没有布置给任何学生。请在下方添加学生。
+                </StudioEmpty>
               ) : (
                 <div className="mt-3 overflow-x-auto rounded-mk-lg border border-mk-border bg-mk-surface">
                   <table className="w-full min-w-[600px] border-collapse">
@@ -436,7 +450,10 @@ export function AssignmentDetailPage({
                       {recipients.map((r) => (
                         <tr key={r.userId}>
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                            {r.displayName}
+                            <span className="inline-flex items-center gap-2">
+                              <span className="teacher-avatar">{Array.from(r.displayName)[0]}</span>
+                              {r.displayName}
+                            </span>
                           </td>
                           {personalized && (
                             <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{recipientReadingText(r.reading)}</td>
@@ -445,11 +462,13 @@ export function AssignmentDetailPage({
                             <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
                           </td>
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
-                            {recipientProgressText(
-                              assignment.kind,
-                              r,
-                              typeof assignment.payload.targetWords === "number" ? assignment.payload.targetWords : null,
-                            )}
+                            <ProgressCell
+                              progress={recipientProgress(
+                                assignment.kind,
+                                r,
+                                typeof assignment.payload.targetWords === "number" ? assignment.payload.targetWords : null,
+                              )}
+                            />
                           </td>
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                             {r.startedAt ? formatDeadline(r.startedAt) : "—"}
@@ -481,19 +500,14 @@ export function AssignmentDetailPage({
               )}
             </section>
 
-            <section className="mt-8 teacher-compact-empty">
-              <h2 className="text-mk-h3 text-mk-ink">添加学生</h2>
+            <section className="mt-8">
+              <h2 className="text-mk-body font-semibold text-mk-ink">添加学生</h2>
               {rosterError ? (
-                <div className="mt-2 text-mk-small font-semibold text-mk-danger">
-                  加载失败：{rosterError}{" "}
-                  <button type="button" onClick={() => setRosterNonce((n) => n + 1)} className="cursor-pointer underline">
-                    重试
-                  </button>
-                </div>
+                <StudioError message={rosterError} onRetry={() => setRosterNonce((n) => n + 1)} />
               ) : unassigned === null ? (
-                <p className="mt-2 text-mk-small text-mk-muted">加载中…</p>
+                <StudioLoading />
               ) : unassigned.length === 0 ? (
-                <StudioEmpty kind="discovery">暂无未布置的学生</StudioEmpty>
+                <p className="mt-1 text-mk-small text-mk-muted">班级中的学生均已布置这份作业。</p>
               ) : (
                 <div className="mt-3 flex flex-col gap-3">
                   <StudentChecklist students={unassigned} selected={toAdd} onToggle={(id) => setToAdd((ids) => toggleId(ids, id))} />
@@ -562,18 +576,26 @@ function AssignmentHeader({
 
   return (
     <>
-      <p className="learning-landing-kicker mt-4">{kindLabel(kind)}</p>
-      <div className="mt-1 flex flex-wrap items-center gap-3">
-        <h1 className="teacher-page-title">{assignment.title}</h1>
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <Button variant="secondary" size="sm" onClick={onEdit} disabled={busy}>
-            修改
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onArchive} disabled={busy}>
-            归档
-          </Button>
-        </div>
-      </div>
+      <StudioHeading
+        kicker={`${kindLabel(kind)}作业`}
+        title={assignment.title}
+        description={
+          kind === "writing"
+            ? "请查看学生进度。学生提交后，在「批改」中使用 AI 批改、审阅并发送。"
+            : "请查看学生进度。学生开始后，可以查看每名学生的学习成果。"
+        }
+        kind={kind === "reading" ? "reading" : kind === "writing" ? "writing" : "project"}
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={onEdit} disabled={busy}>
+              修改作业
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onArchive} disabled={busy}>
+              归档
+            </Button>
+          </>
+        }
+      />
 
       {confirmArchive && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-mk-small font-semibold text-mk-danger">
@@ -621,6 +643,40 @@ function AssignmentHeader({
       </dl>
     </>
   );
+}
+
+/** 未开始 / 进行中 / 已完成 / 已逾期, plus 待批改 on a writing homework once
+ *  its gradings have loaded. */
+function ProgressSummary({ recipients, toGrade }: { recipients: RecipientDTO[]; toGrade: number | null }) {
+  const p = progressFromCounts(countStatuses(recipients));
+  if (p.total === 0) return null;
+  const tiles: { label: string; n: number; hue: string; alert?: boolean }[] = [
+    { label: "未开始", n: p.notStarted, hue: PROGRESS_HUE.notStarted },
+    { label: "进行中", n: p.inProgress, hue: PROGRESS_HUE.inProgress },
+    { label: "已完成", n: p.done, hue: PROGRESS_HUE.done },
+    { label: "已逾期", n: p.overdue, hue: PROGRESS_HUE.overdue, alert: p.overdue > 0 },
+  ];
+  if (toGrade !== null) tiles.push({ label: "待批改", n: toGrade, hue: PROGRESS_HUE.toGrade, alert: toGrade > 0 });
+  return (
+    <section aria-label="作业进度" className="mt-6">
+      <div className="teacher-counts">
+        {tiles.map((t) => (
+          <div key={t.label} className="teacher-count-tile" data-alert={t.alert ? "true" : undefined} style={{ "--tile-hue": t.hue } as CSSProperties}>
+            <strong>{t.n}</strong>
+            <span>{t.label}</span>
+          </div>
+        ))}
+      </div>
+      <ProgressBar p={p} />
+      <p className="mt-2 text-mk-small text-mk-muted">
+        共 {p.total} 名学生，已完成 {p.done} 名。
+      </p>
+    </section>
+  );
+}
+
+function ProgressCell({ progress }: { progress: { text: string; warn: boolean } }) {
+  return <span className={progress.warn ? "teacher-warn-text" : undefined}>{progress.text}</span>;
 }
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {

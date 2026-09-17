@@ -8,6 +8,8 @@ import {
   gradingContentReducer,
   gradingPointLabel,
   gradingRowStatus,
+  gradingPageSteps,
+  gradingSteps,
   queueResultText,
   reviewedDraftIds,
   sendResultText,
@@ -180,5 +182,53 @@ describe("regradeLabel", () => {
   it("does not call a first AI run on a 人工批改 a re-grade", () => {
     expect(regradeLabel("teacher")).toBe("AI 批改");
     expect(regradeLabel("ai")).toBe("重新批改");
+  });
+});
+
+describe("gradingPageSteps", () => {
+  const base = { hasContent: true, reviewedAt: null, studentSeenAt: null };
+  const st = (g: Parameters<typeof gradingPageSteps>[0]) => gradingPageSteps(g).map((s) => s.state);
+  it("follows one grading from 起草 to 发送", () => {
+    expect(st({ ...base, status: "running", hasContent: false })).toEqual(["current", "todo", "todo"]);
+    expect(st({ ...base, status: "draft" })).toEqual(["done", "current", "todo"]);
+    expect(st({ ...base, status: "draft", reviewedAt: "t" })).toEqual(["done", "done", "current"]);
+    expect(st({ ...base, status: "sent", reviewedAt: "t" })).toEqual(["done", "done", "done"]);
+  });
+  it("keeps a failed first run on 起草, and a failed regrade where its content was", () => {
+    expect(gradingPageSteps({ ...base, status: "failed", hasContent: false })[0]).toEqual({ label: "起草", state: "current", note: "批改失败" });
+    expect(st({ ...base, status: "failed" })).toEqual(["done", "current", "todo"]);
+  });
+  it("says whether the student has read a sent grading", () => {
+    expect(gradingPageSteps({ ...base, status: "sent" })[2]!.note).toBe("学生未读");
+    expect(gradingPageSteps({ ...base, status: "sent", studentSeenAt: "t" })[2]!.note).toBe("学生已读");
+  });
+});
+
+describe("gradingSteps", () => {
+  const states = (rows: GradingRow[]) => gradingSteps(rows).steps.map((s) => s.state);
+  it("is all todo with nothing submitted", () => {
+    const r = gradingSteps([row({ version: null }), row({ version: null })]);
+    expect(r.submitted).toBe(0);
+    expect(r.steps.map((s) => s.state)).toEqual(["todo", "todo", "todo"]);
+    expect(r.steps[2]!.note).toBe("已发送 0/0");
+  });
+  it("points at 批改 while a submission is ungraded, failed or running", () => {
+    expect(states([row({}), row({ grading: summary("sent") })])).toEqual(["current", "todo", "todo"]);
+    expect(states([row({ grading: summary("failed") })])).toEqual(["current", "todo", "todo"]);
+    const r = gradingSteps([row({}), row({ grading: summary("running") }), row({ grading: summary("draft") })]);
+    expect(r.steps[0]!.note).toBe("待批改 1 · 批改中 1");
+    expect(r.steps[1]!.note).toBe("待审阅 1");
+  });
+  it("moves to 审阅, then 发送, then all done", () => {
+    expect(states([row({ grading: summary("draft") }), row({ grading: summary("draft", "2026-09-17T00:00:00Z") })])).toEqual([
+      "done",
+      "current",
+      "todo",
+    ]);
+    expect(states([row({ grading: summary("draft", "2026-09-17T00:00:00Z") })])).toEqual(["done", "done", "current"]);
+    const r = gradingSteps([row({ grading: summary("sent") }), row({ version: null })]);
+    expect(r.steps.map((s) => s.state)).toEqual(["done", "done", "done"]);
+    expect(r.steps[0]!.note).toBe("无待批改");
+    expect(r.steps[2]!.note).toBe("已发送 1/1");
   });
 });

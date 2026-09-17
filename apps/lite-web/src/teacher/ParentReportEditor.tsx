@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import {
   getTeacherParentReport,
@@ -20,6 +20,7 @@ import { exportPoster } from "../reports/exportPoster";
 import { errorText, failText } from "./assignmentLogic";
 import { Segmented } from "./formParts";
 import { TeacherPage } from "./TeacherPage";
+import { BackLink, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import {
   draftErrorText,
   EXPORT_BLOCKED_TEXT,
@@ -426,30 +427,16 @@ export function ParentReportEditor({
     }
   }
 
-  const backButton = (
-    <button
-      type="button"
-      onClick={() => onBack(report?.classId ?? null)}
-      className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-    >
-      <Icon icon={ArrowLeft} size={15} />
-      返回
-    </button>
-  );
+  const backButton = <BackLink label="返回家长报告" onClick={() => onBack(report?.classId ?? null)} />;
 
   if (loadError || report === null) {
     return (
       <TeacherPage width="full">
         {backButton}
         {loadError ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{loadError}{" "}
-            <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
+          <StudioError message={loadError} onRetry={() => setNonce((n) => n + 1)} />
         ) : (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+          <StudioLoading />
         )}
       </TeacherPage>
     );
@@ -487,16 +474,18 @@ export function ParentReportEditor({
         canRetry={thread.failed !== null && leftReason === null}
         paused={anyBusy}
         closedReason={leftReason}
-        intro="AI 按学习记录改写左侧报告中的段落，改写结果会先显示在编辑器里，导出前可以再修改。报告的段落不能增删。请说明要改哪一段、怎么改。"
+        intro="印记按学习记录改写左侧报告的段落，结果先显示在编辑器中，段落不能增删。请说明要改哪一段、怎么改。"
         suggestions={["让下一步建议更具体", "把总体概述改短一些"]}
         header={
           <>
             {backButton}
 
-            <p className="learning-landing-kicker mt-4">家长报告</p>
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <h1 className="teacher-page-title">{report.view.studentName || "—"}</h1>
-              <div className="flex flex-wrap gap-2 sm:ml-auto">
+            <StudioHeading
+              kicker="家长报告"
+              title={report.view.studentName || "—"}
+              description="AI 起草的文字可能有误。请逐段审核，在「预览」中确认后再导出图片。"
+              actions={
+                <>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -514,11 +503,13 @@ export function ParentReportEditor({
                 >
                   {busy === "export" ? "处理中" : "导出图片"}
                 </Button>
-              </div>
-            </div>
-            <p className="mt-1 text-mk-small text-mk-muted">
-              {[report.view.className, rangeLabel(report.view.rangeStart, report.view.rangeEnd)].filter(Boolean).join(" · ")}
-            </p>
+                </>
+              }
+            >
+              <p className="text-mk-small text-mk-muted">
+                {[report.view.className, rangeLabel(report.view.rangeStart, report.view.rangeEnd)].filter(Boolean).join(" · ")}
+              </p>
+            </StudioHeading>
 
             {confirm === "redraft" && (
               <ConfirmRow
@@ -545,7 +536,13 @@ export function ParentReportEditor({
           <div className={"min-w-0 flex-col gap-5 " + (pane === "draft" ? "flex" : "hidden")}>
             {draftMessage && <DangerNote role="alert">{draftMessage}</DangerNote>}
             {showsNoDraftHint(report.hasDraft, texts, draftMessage) && (
-              <p className="text-mk-small text-mk-muted">暂无草稿，请重新生成草稿</p>
+              <StudioEmpty
+                kind="keepsake"
+                title="暂无草稿"
+                action={leftReason === null && !anyBusy && !thread.busy ? { label: "重新生成草稿", onClick: requestRedraft } : undefined}
+              >
+                草稿由印记按学习记录起草。请重新生成草稿，再逐段修改。
+              </StudioEmpty>
             )}
             {sections.map((key) => {
               const text = texts[key] ?? "";

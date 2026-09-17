@@ -5,6 +5,7 @@ import {
   type GradingContent,
   type GradingPoint,
   type GradingRow,
+  type GradingStatus,
   type PointKind,
   type QueueGradingsResult,
   type GradingSource,
@@ -81,6 +82,74 @@ export function failedCount(rows: readonly GradingRow[]): number {
 
 export function pendingCount(rows: readonly GradingRow[]): number {
   return rows.filter((r) => gradingRowStatus(r) === "pending").length;
+}
+
+export type GradingStepState = "done" | "current" | "todo";
+
+/**
+ * The 批改 → 审阅 → 发送 guide above the 批改 tab: one state and one count
+ * line per step. The current step is the first one with work left: an
+ * ungraded or failed submission (批改), else a draft (审阅), else a reviewed
+ * draft (发送). With nothing submitted every step is `todo`; with every
+ * submission sent every step is `done`.
+ */
+export function gradingSteps(rows: readonly Pick<GradingRow, "version" | "grading">[]): {
+  submitted: number;
+  steps: { key: "grade" | "review" | "send"; label: string; state: GradingStepState; note: string }[];
+} {
+  const count = (s: GradingRowStatus) => rows.filter((r) => gradingRowStatus(r) === s).length;
+  const submitted = rows.filter((r) => r.version !== null).length;
+  const toGrade = count("pending") + count("failed");
+  const running = count("running");
+  const drafts = count("draft");
+  const reviewed = count("reviewed");
+  const sent = count("sent");
+  const work = [toGrade + running > 0, drafts > 0, reviewed > 0];
+  const current = submitted === 0 ? -1 : work.findIndex(Boolean);
+  const state = (i: number): GradingStepState => {
+    if (submitted === 0) return "todo";
+    if (current === -1) return "done";
+    return i < current ? "done" : i === current ? "current" : "todo";
+  };
+  const gradeNote = [toGrade > 0 ? `待批改 ${toGrade}` : "", running > 0 ? `批改中 ${running}` : ""].filter(Boolean).join(" · ");
+  return {
+    submitted,
+    steps: [
+      { key: "grade", label: "批改", state: state(0), note: gradeNote || "无待批改" },
+      { key: "review", label: "审阅", state: state(1), note: drafts > 0 ? `待审阅 ${drafts}` : "无待审阅" },
+      { key: "send", label: "发送", state: state(2), note: `已发送 ${sent}/${submitted}` },
+    ],
+  };
+}
+
+/**
+ * 起草 → 审阅 → 发送 on the grading page, from one grading's state. A
+ * failed first run (no content) stays on 起草; a sent grading is done and
+ * says whether the student has read it.
+ */
+export function gradingPageSteps(g: {
+  status: GradingStatus;
+  hasContent: boolean;
+  reviewedAt: string | null;
+  studentSeenAt: string | null;
+}): { label: string; state: GradingStepState; note?: string }[] {
+  const at = (current: number, notes: (string | undefined)[] = []) =>
+    ["起草", "审阅", "发送"].map((label, i) => ({
+      label,
+      state: (i < current ? "done" : i === current ? "current" : "todo") as GradingStepState,
+      note: notes[i],
+    }));
+  switch (g.status) {
+    case "queued":
+    case "running":
+      return at(0, ["批改中"]);
+    case "failed":
+      return g.hasContent ? at(g.reviewedAt ? 2 : 1) : at(0, ["批改失败"]);
+    case "sent":
+      return at(3, [undefined, undefined, g.studentSeenAt ? "学生已读" : "学生未读"]);
+    default:
+      return g.reviewedAt ? at(2, [undefined, "已审阅"]) : at(1, [undefined, "待审阅"]);
+  }
 }
 
 export const REGRADE_CONFIRM = "重新批改会覆盖当前修改";

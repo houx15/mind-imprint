@@ -75,7 +75,7 @@ export function ClassPreview({ classId, onOpenChat }: { classId: string; onOpenC
         <p role="alert">{summary.message}</p>
         <button type="button" className="teacher-class-summary-retry" onClick={retry} onKeyDown={e => e.stopPropagation()}>重试</button>
       </> : <p>{summary.status === "ready" ? summary.text : summary.status === "loading" ? "摘要生成中" : " "}</p>}
-      <span className="teacher-class-summary-link">进入班级对话 ↗</span>
+      <span className="teacher-class-summary-link">进入班级对话 →</span>
     </div>
     {error ? <p className="teacher-preview-error">概况加载失败：{error}</p> : rows === null ? <p className="teacher-preview-loading">学习概况加载中…</p> : <>
       <LearningSnapshot rows={rows} compact />

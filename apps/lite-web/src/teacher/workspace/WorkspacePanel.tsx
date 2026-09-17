@@ -159,7 +159,10 @@ export function WorkspacePanel({
         <div className="teacher-ai-thread mk-scroll">
           {turns.length === 0 && !busy && (
             <div className="flex flex-col gap-3">
-              <p className="text-mk-small leading-relaxed text-mk-secondary">{intro}</p>
+              <div className="teacher-ai-welcome">
+                <img src={bookmark} alt="" />
+                <p>{intro}</p>
+              </div>
               {suggestions.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <p className="text-mk-label font-bold text-mk-muted">示例</p>

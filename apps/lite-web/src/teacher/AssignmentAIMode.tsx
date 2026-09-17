@@ -5,11 +5,13 @@ import { createAssignment } from "../api/assignments";
 import { type WorkspaceCard } from "../api/teacherWorkspace";
 import type { RosterRow } from "../api/teacher";
 import { useAlive } from "../shared/useAlive";
+import bookmark from "../home/assets/yinji-bookmark.webp";
 import {
   buildCreateInput,
   draftOnKindChange,
   failText,
   fillTitleIfEmpty,
+  publishSummary,
   writeLastClassId,
   type AssignmentDraft,
 } from "./assignmentLogic";
@@ -132,11 +134,14 @@ export function AssignmentAIMode({
       onComposerChange={thread.setComposer}
       onRetry={thread.retry}
       canRetry={thread.failed !== null}
-      intro="AI 根据你的描述填写左侧的作业卡，发布前可以再修改。请输入作业要求，例如类型、材料和截止时间，也可以直接贴入文章正文。"
+      intro="印记根据你的描述填写左侧的作业卡。请说明作业的类型、材料和截止时间，也可以直接贴入文章正文。"
       header={header}
       suggestions={["这周读一篇关于气候变化的文章，周五交", "布置一篇议论文，下周一交", "给每个学生推荐适合的文章"]}
     >
-      <div className="flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
+      <div className="teacher-form-card">
+      <div className="flex flex-col gap-5 p-4 sm:p-6">
+        <AiFillNote state={busy ? "busy" : turns.length === 0 ? "waiting" : "filled"} />
+
         <Field label="班级">
           <Select value={draft.classId} onChange={onClassChange} options={classes.map((c) => ({ value: c.id, label: c.name }))} />
         </Field>
@@ -206,18 +211,45 @@ export function AssignmentAIMode({
         ))}
 
         <StudentViewPreview draft={draft} classes={classes} />
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
-          <Button variant="primary" onClick={() => void publish()} disabled={publishBusy}>
-            {publishBusy ? "发布中" : "发布作业"}
-          </Button>
-          {publishMessage && (
-            <span className="text-mk-small font-semibold text-mk-danger" role="alert">
-              {publishMessage}
-            </span>
-          )}
+        <div className="teacher-publish-bar">
+          <p>
+            <strong>
+              {publishSummary(classes.find((c) => c.id === draft.classId)?.name ?? "", draft.userIds.length, draft.dueInput)}
+            </strong>
+            {publishMessage && (
+              <span className="mt-1 block font-semibold text-mk-danger" role="alert">
+                {publishMessage}
+              </span>
+            )}
+          </p>
+          <div>
+            <Button variant="primary" onClick={() => void publish()} disabled={publishBusy}>
+              {publishBusy ? "发布中" : "发布作业"}
+            </Button>
+          </div>
         </div>
       </div>
     </WorkspacePanel>
+  );
+}
+
+/** The top of the homework card in AI mode: whether 印记 has filled it yet. */
+function AiFillNote({ state }: { state: "waiting" | "busy" | "filled" }) {
+  const copy =
+    state === "waiting"
+      ? { title: "待印记填写", body: "请在右侧说明作业要求，印记会填写这张作业卡。也可以直接修改下面的内容。" }
+      : state === "busy"
+        ? { title: "印记填写中", body: "填写结果会显示在下面的各项中。" }
+        : { title: "印记已填写", body: "AI 可能填错。请核对下面的内容，确认后发布。" };
+  return (
+    <div className="teacher-ai-note" data-state={state} role="status">
+      <img src={bookmark} alt="" />
+      <div>
+        <strong>{copy.title}</strong>
+        <p>{copy.body}</p>
+      </div>
+    </div>
   );
 }

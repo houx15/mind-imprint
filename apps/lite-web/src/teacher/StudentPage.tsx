@@ -1,8 +1,8 @@
 import { StudentLearningSnapshot } from "./LearningSnapshot";
-import { StudioEmpty, StudioHeading } from "./StudioArtwork";
+import { BackLink, SectionHead, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import { StudentGenderField } from "./StudentGenderField";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api } from "@/api";
 import { ApiError } from "../api/client";
@@ -25,6 +25,9 @@ import { rememberDraftError } from "./parentReportLogic";
 import { TeacherPage } from "./TeacherPage";
 import { WeekSummaryCard } from "./WeekSummaryCard";
 import { TreeView } from "../tree/TreeView";
+import { studentArtwork } from "../learning/StudentArtwork";
+
+const KIND_ART: Record<string, "reading" | "writing" | "project"> = { reading: "reading", writing: "writing", project: "project" };
 import { useInterestTree } from "../tree/useInterestTree";
 
 /**
@@ -125,48 +128,39 @@ export function StudentPage({
   const writings = page?.items.filter((i) => i.kind === "writing") ?? [];
   const projects = page?.items.filter((i) => i.kind === "project") ?? [];
 
+  const noItems = readings.length + writings.length + projects.length === 0;
+
   return (
     <TeacherPage>
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={ArrowLeft} size={15} />
-        返回
-      </button>
+      <BackLink label="返回班级" onClick={onBack} />
 
       {pageError ? (
-        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-          加载失败：{pageError}{" "}
-          <button
-            type="button"
-            onClick={() => setPageNonce((n) => n + 1)}
-            className="cursor-pointer underline"
-          >
-            重试
-          </button>
-        </div>
+        <StudioError message={pageError} onRetry={() => setPageNonce((n) => n + 1)} />
       ) : page === null ? (
-        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+        <StudioLoading />
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <StudioHeading label={`${className ?? "学生"} · 学习档案`} title={page.student.displayName} kind="reading" />
-            <Button variant="primary" size="sm" className="sm:ml-auto" onClick={() => setGenerating(true)}>
-              生成家长报告
-            </Button>
-          </div>
+          <StudioHeading
+            kicker={`${className ?? "学生"} · 学习档案`}
+            title={page.student.displayName}
+            description="学习时长、作业、学习成果与兴趣树。对话内容不向教师展示。"
+            kind="reading"
+            actions={
+              <Button variant="primary" onClick={() => setGenerating(true)}>
+                生成家长报告
+              </Button>
+            }
+          />
           <StudentGenderField classId={classId} userId={userId} initial={page.student.gender} />
 
-                     <div className="teacher-stat-strip">
-             <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
-             <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
-             <StatTile label="对话轮次" value={`${page.student.turns} 轮`} />
-           </div>
-           <StudentLearningSnapshot student={page.student} />
-<p className="mt-3 mb-3 text-mk-small text-mk-muted">阅读、写作和项目的数量均为「已完成 / 总数」；时长仅统计在平台内的学习活动。</p>
-           <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
+          <div className="teacher-stat-strip">
+            <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />
+            <StatTile label="本周时长" value={formatMinutes(page.student.minutesThisWeek)} />
+            <StatTile label="对话轮次" value={`${page.student.turns} 轮`} />
+          </div>
+          <StudentLearningSnapshot student={page.student} />
+          <p className="mb-6 mt-3 text-mk-small text-mk-muted">阅读、写作和项目的数量均为「已完成 / 总数」；时长仅统计在平台内的学习活动。</p>
+          <WeekSummaryCard key={`${classId}:${userId}`} classId={classId} userId={userId} />
 
           <AssignmentSection rows={page.assignments} onOpenItem={onOpenItem} />
 
@@ -175,20 +169,37 @@ export function StudentPage({
             classId={classId}
             userId={userId}
             onOpen={onOpenParentReport}
+            onGenerate={() => setGenerating(true)}
           />
 
-          <ItemSection kind="reading" rows={readings} onOpenItem={onOpenItem} />
-          <ItemSection kind="writing" rows={writings} onOpenItem={onOpenItem} />
-          <ItemSection kind="project" rows={projects} onOpenItem={onOpenItem} />
+          <section>
+            <SectionHead
+              title="学习成果"
+              aside={noItems ? undefined : `阅读 ${readings.length} · 写作 ${writings.length} · 项目 ${projects.length}`}
+            />
+            {noItems ? (
+              <StudioEmpty kind="reading" title="暂无学习记录">
+                学生开始阅读、写作或项目后，记录会显示在这里。可以通过布置作业让学生开始。
+              </StudioEmpty>
+            ) : (
+              <div className="flex flex-col gap-6">
+                <ItemGroup kind="reading" rows={readings} onOpenItem={onOpenItem} />
+                <ItemGroup kind="writing" rows={writings} onOpenItem={onOpenItem} />
+                <ItemGroup kind="project" rows={projects} onOpenItem={onOpenItem} />
+              </div>
+            )}
+          </section>
 
-          <section className="mt-10 teacher-compact-empty">
-            <h2 className="text-mk-h3 text-mk-ink">兴趣树</h2>
+          <section>
+            <SectionHead title="兴趣树" />
             {live.status === "loading" ? (
-              <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
+              <StudioLoading />
             ) : live.status === "error" ? (
-              <p className="mt-2 text-mk-small font-semibold text-mk-danger">兴趣树加载失败：{live.error}</p>
+              <StudioError verb="兴趣树加载" message={live.error} />
             ) : live.status === "empty" ? (
-              <StudioEmpty kind="discovery">暂无兴趣关键词</StudioEmpty>
+              <StudioEmpty kind="discovery" title="暂无兴趣关键词" compact>
+                学生在阅读和写作中记下的关键词会显示在这里。
+              </StudioEmpty>
             ) : (
               <div className="teacher-tree">
                 <TreeView user={studentUser} live={live} readOnly />
@@ -241,38 +252,39 @@ function AssignmentSection({
   onOpenItem: (atomId: string) => void;
 }) {
   return (
-    <section className="mt-8 teacher-compact-empty">
-      <h2 className="text-mk-h3 text-mk-ink">作业</h2>
+    <section>
+      <SectionHead title="作业" aside={rows.length > 0 ? `${rows.length} 份` : undefined} />
       {rows.length === 0 ? (
-        <StudioEmpty kind="writing">暂无作业</StudioEmpty>
+        <StudioEmpty kind="writing" title="暂无作业" compact>
+          布置给该学生的作业会显示在这里。
+        </StudioEmpty>
       ) : (
-        <div className="mt-2 flex flex-col gap-2">
+        <div className="teacher-row-list">
           {rows.map((row) => {
             const label = row.statusLabel || STATUS_LABEL[row.status as AssignmentStatus] || row.status;
             const body = (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-mk-small font-bold text-mk-ink">{row.title}</span>
-                  <StatusChip status={row.status} label={label} />
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
-                  <span>{kindLabel(row.kind)}</span>
-                  <span>截止时间 {row.dueAt ? formatDeadline(row.dueAt) : "—"}</span>
-                </div>
+                <img src={studentArtwork[KIND_ART[row.kind] ?? "ideas"]} alt="" />
+                <span className="teacher-row-card-copy">
+                  <strong>{row.title}</strong>
+                  <small>
+                    <span>{kindLabel(row.kind)}</span>
+                    <span>截止 {row.dueAt ? formatDeadline(row.dueAt) : "—"}</span>
+                  </small>
+                  <span className="mt-2 block">
+                    <StatusChip status={row.status} label={label} />
+                  </span>
+                </span>
               </>
             );
             const atomId = row.atomId;
             return atomId ? (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => onOpenItem(atomId)}
-                className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-              >
+              <button key={row.id} type="button" onClick={() => onOpenItem(atomId)} className="teacher-row-card" aria-label={`查看作业：${row.title}`}>
                 {body}
+                <Icon icon={ArrowRight} size={18} />
               </button>
             ) : (
-              <div key={row.id} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+              <div key={row.id} className="teacher-row-card">
                 {body}
               </div>
             );
@@ -289,10 +301,12 @@ function ParentReportSection({
   classId,
   userId,
   onOpen,
+  onGenerate,
 }: {
   classId: string;
   userId: string;
   onOpen: (reportId: string) => void;
+  onGenerate: () => void;
 }) {
   const [rows, setRows] = useState<ParentReportSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -315,32 +329,28 @@ function ParentReportSection({
   }, [classId, userId, nonce]);
 
   return (
-    <section className="mt-8 teacher-compact-empty">
-      <h2 className="text-mk-h3 text-mk-ink">家长报告</h2>
+    <section>
+      <SectionHead title="家长报告" aside={rows && rows.length > 0 ? `${rows.length} 份` : undefined} />
       {error ? (
-        <p className="mt-2 text-mk-small font-semibold text-mk-danger">
-          加载失败：{error}{" "}
-          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-            重试
-          </button>
-        </p>
+        <StudioError message={error} onRetry={() => setNonce((n) => n + 1)} />
       ) : rows === null ? (
-        <p className="mt-2 text-mk-body text-mk-muted">加载中…</p>
+        <StudioLoading />
       ) : rows.length === 0 ? (
-        <StudioEmpty kind="keepsake">暂无家长报告</StudioEmpty>
+        <StudioEmpty kind="keepsake" title="暂无家长报告" compact action={{ label: "生成家长报告", onClick: onGenerate }}>
+          家长报告按所选日期汇总学习记录，导出前可修改。
+        </StudioEmpty>
       ) : (
-        <div className="mt-2 flex flex-col gap-2">
+        <div className="teacher-row-list">
           {rows.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => onOpen(row.id)}
-              className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-            >
-              <div className="text-mk-small font-bold text-mk-ink">{rangeLabel(row.rangeStart, row.rangeEnd) || "—"}</div>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
-                <span>创建时间 {publishedMonthDay(row.createdAt) || "—"}</span>
-              </div>
+            <button key={row.id} type="button" onClick={() => onOpen(row.id)} className="teacher-row-card">
+              <img src={studentArtwork.keepsake} alt="" />
+              <span className="teacher-row-card-copy">
+                <strong>{rangeLabel(row.rangeStart, row.rangeEnd) || "—"}</strong>
+                <small>
+                  <span>创建于 {publishedMonthDay(row.createdAt) || "—"}</span>
+                </small>
+              </span>
+              <Icon icon={ArrowRight} size={18} />
             </button>
           ))}
         </div>
@@ -349,7 +359,7 @@ function ParentReportSection({
   );
 }
 
-function ItemSection({
+function ItemGroup({
   kind,
   rows,
   onOpenItem,
@@ -359,33 +369,54 @@ function ItemSection({
   onOpenItem: (atomId: string) => void;
 }) {
   return (
-    <section className="teacher-item-section">
-      <div className="teacher-item-label"><h2>{kindLabel(kind)}</h2><p>{rows.length} 项学习记录</p><span aria-hidden="true">↘</span></div>
+    <div>
+      <h3 className="teacher-group-title">
+        {kindLabel(kind)}
+        <span>{rows.length}</span>
+      </h3>
       {rows.length === 0 ? (
-        <StudioEmpty kind={kind}>暂无{kindLabel(kind)}记录</StudioEmpty>
+        <p className="teacher-group-empty">暂无{kindLabel(kind)}记录</p>
       ) : (
-        <div className="mt-2 flex flex-col gap-2">
+        <div className="teacher-task-grid mt-3">
           {rows.map((row) => (
-            <button
-              key={row.atomId}
-              type="button"
-              onClick={() => onOpenItem(row.atomId)}
-              className="teacher-item-row"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-mk-small font-bold text-mk-ink">{row.title}</span>
-                <span className="text-mk-small text-mk-muted">{itemStatusLabel(row.kind, row.status)} <span aria-hidden="true">↗</span></span>
+            <article key={row.atomId} className="teacher-task cursor-pointer" data-item-row onClick={() => onOpenItem(row.atomId)}>
+              <div className="teacher-task-art">
+                <img src={studentArtwork[kind === "reading" ? "keepsake" : kind]} alt="" />
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-mk-small text-mk-muted">
-                <span>时长 {formatMinutes(row.minutes)}</span>
-                <span>对话 {row.turns} 轮</span>
-                <span>最近活跃 {shortDate(row.lastActiveAt)}</span>
-                {row.kind === "reading" && row.level !== null ? <span>第 {row.level} 档</span> : null}
+              <p className="teacher-task-eyebrow">
+                <span>{kindLabel(kind)}</span>
+                <span aria-hidden="true">·</span>
+                <span>{itemStatusLabel(row.kind, row.status)}</span>
+                {row.kind === "reading" && row.level !== null ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>第 {row.level} 档</span>
+                  </>
+                ) : null}
+              </p>
+              <h3>{row.title}</h3>
+              <p className="teacher-task-detail">
+                时长 {formatMinutes(row.minutes)} · 对话 {row.turns} 轮 · 最近活跃 {shortDate(row.lastActiveAt)}
+              </p>
+              <div className="teacher-task-foot">
+                <span />
+                <button
+                  type="button"
+                  className="teacher-cta"
+                  aria-label={`查看成果：${row.title}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenItem(row.atomId);
+                  }}
+                >
+                  查看成果
+                  <Icon icon={ArrowRight} size={15} />
+                </button>
               </div>
-            </button>
+            </article>
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

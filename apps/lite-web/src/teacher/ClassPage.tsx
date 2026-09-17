@@ -1,12 +1,15 @@
 import { LearningSnapshot } from "./LearningSnapshot";
-import { StudioEmpty, StudioHeading } from "./StudioArtwork";
+import { BackLink, SectionHead, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api } from "@/api";
+import { listAssignments, type AssignmentSummaryDTO } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatMinutes } from "./format";
 import { errorText } from "./assignmentLogic";
+import { AssignmentCard } from "./AssignmentCard";
+import { TeacherPage } from "./TeacherPage";
 
 /**
  * ClassPage — the lite teacher end's one class: name + join code header,
@@ -75,6 +78,9 @@ export function ClassPage({
   onOpenStudent,
   onNewAssignment,
   onOpenWeekly,
+  onOpenChat,
+  onOpenAssignment,
+  onOpenAssignments,
 }: {
   classId: string;
   // Accepted for parity with pro's `ConsoleShell` wiring and future
@@ -87,6 +93,12 @@ export function ClassPage({
   onNewAssignment?: () => void;
   /** 周报 in the header, next to 布置作业; opens the class weekly page. */
   onOpenWeekly?: () => void;
+  /** 班级对话 in the header: the class conversation with 印记. */
+  onOpenChat?: () => void;
+  /** A card in 作业 opens that homework. */
+  onOpenAssignment?: (assignmentId: string) => void;
+  /** 全部作业: the assignments page on this class. */
+  onOpenAssignments?: () => void;
 }) {
   void role;
 
@@ -212,34 +224,43 @@ export function ClassPage({
   const sortedRoster = roster ? sortRoster(roster.filter(s => (selectedDays === null || s.activeDaysThisWeek === selectedDays) && s.displayName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), sortKey, sortDir) : null;
 
   return (
-    <div className="min-h-full">
-      <div className="teacher-page teacher-class-page">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-        >
-          <Icon icon={ArrowLeft} size={15} />
-          返回班级
-        </button>
+    <TeacherPage width="wide">
+      <div className="teacher-class-page">
+        <BackLink label="返回班级列表" onClick={onBack} />
 
         {headerError ? (
-          <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-            加载失败：{headerError}{" "}
-            <button type="button" onClick={loadHeader} className="cursor-pointer underline">
-              重试
-            </button>
-          </div>
+          <StudioError message={headerError} onRetry={loadHeader} />
         ) : name === null ? (
-          <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
-        ) : null}
-
-        {name !== null && (
+          <StudioLoading />
+        ) : (
           <>
-            <StudioHeading label="CLASS OVERVIEW · 班级概览" title={name} />
-            <div className="teacher-class-actions">
-              {onOpenWeekly && <Button variant="secondary" size="sm" onClick={onOpenWeekly}>周报</Button>}
-              {onNewAssignment && <Button variant="primary" size="sm" onClick={onNewAssignment}>布置作业</Button>}
+            <StudioHeading
+              kicker="班级"
+              title={name}
+              description="本周的学习情况、作业和学生名单。请从这里布置作业，或询问印记本班的情况。"
+              kind="project"
+              actions={
+                <>
+                  {onNewAssignment && (
+                    <Button variant="primary" onClick={onNewAssignment}>
+                      布置作业
+                    </Button>
+                  )}
+                  {onOpenChat && (
+                    <Button variant="secondary" onClick={onOpenChat}>
+                      班级对话
+                    </Button>
+                  )}
+                  {onOpenWeekly && (
+                    <Button variant="secondary" onClick={onOpenWeekly}>
+                      周报
+                    </Button>
+                  )}
+                </>
+              }
+            />
+
+            <div className="teacher-invite-strip">
               {renaming ? (
                 <>
                   <input
@@ -247,9 +268,12 @@ export function ClassPage({
                     aria-label="班级名称"
                     value={draftName}
                     onChange={(e) => setDraftName(e.target.value)}
-                    className="rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-h1 text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void doRename();
+                    }}
+                    className="tc-input min-w-[200px] flex-1"
                   />
-                  <Button variant="secondary" size="sm" onClick={() => void doRename()} disabled={busy}>
+                  <Button variant="primary" size="sm" onClick={() => void doRename()} disabled={busy}>
                     保存
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setRenaming(false)}>
@@ -258,84 +282,83 @@ export function ClassPage({
                 </>
               ) : (
                 <>
-
+                  <strong>邀请码 {joinCode}</strong>
+                  <span>学生凭邀请码加入本班</span>
                   <Button
                     variant="secondary"
+                    size="sm"
+                    onClick={async () => { try { await navigator.clipboard.writeText(joinCode ?? ""); setCopied(true); } catch (e) { setMutationError(`复制失败：${String(e)}`); } }}
+                  >
+                    {copied ? "已复制" : "复制邀请码"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(true)}>
+                    更换邀请码
+                  </Button>
+                  <span className="teacher-invite-spacer" />
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => {
                       setDraftName(name);
                       setRenaming(true);
                     }}
                   >
-                    修改名称
+                    修改班级名称
                   </Button>
                 </>
               )}
             </div>
-
-            <div className="teacher-invite flex flex-wrap items-center gap-2">
-              <span
-                className="rounded-mk-md px-3 py-1.5 text-mk-small font-bold text-mk-accent-700"
-                style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface))" }}
-              >
-                邀请码 {joinCode}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={async () => { try { await navigator.clipboard.writeText(joinCode ?? ""); setCopied(true); } catch (e) { setMutationError(`复制失败：${String(e)}`); } }}
-              >
-                {copied ? "已复制" : "复制邀请码"}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => setConfirmRegen(true)}>
-                更换邀请码
-              </Button>
-              {confirmRegen && (
-                <span className="inline-flex items-center gap-2 text-mk-small font-semibold text-mk-danger">
-                  更换后，旧邀请码将立即失效。是否继续？
-                  <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
-                    确认更换
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
-                    取消
-                  </Button>
-                </span>
-              )}
-            </div>
+            {confirmRegen && (
+              <div className="teacher-confirm mt-3" role="alert">
+                <p>更换后，旧邀请码将立即失效。是否继续？</p>
+                <Button variant="danger" size="sm" onClick={() => void doRegen()} disabled={busy}>
+                  确认更换
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>
+                  取消
+                </Button>
+              </div>
+            )}
 
             {mutationError && (
-              <div className="mt-3 text-mk-small font-semibold text-mk-danger">{mutationError}</div>
+              <div className="mt-3 text-mk-small font-semibold text-mk-danger" role="alert">{mutationError}</div>
             )}
           </>
         )}
 
         {roster && <LearningSnapshot rows={roster} selectedDays={selectedDays} onSelectDays={setSelectedDays} />}
+
+        <ClassAssignments
+          classId={classId}
+          onOpen={onOpenAssignment}
+          onOpenAll={onOpenAssignments}
+          onNew={onNewAssignment}
+        />
+
         <div className="teacher-roster-section">
           <div className="teacher-section-heading"><div><h2>学生名单 <small className="teacher-count">{roster?.length ?? "—"}</small></h2><p>阅读、写作和项目均为「已完成 / 总数」；时长仅统计平台内的学习活动。</p></div><input className="teacher-search" type="search" aria-label="搜索学生" placeholder="搜索学生姓名" value={query} onChange={e => setQuery(e.target.value)} /></div>
           {selectedDays !== null && <button className="teacher-filter-chip" onClick={() => setSelectedDays(null)}>本周活跃 {selectedDays} 天 · 清除筛选 ×</button>}
           {confirmRemove && <div className="teacher-confirm" role="alert"><p>确认移出「{roster?.find(s => s.id === confirmRemove)?.displayName}」？移出后，该学生将无法查看本班内容。</p><Button variant="danger" size="sm" disabled={busy} onClick={() => void doRemove(confirmRemove)}>确认移出</Button><Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button></div>}
           {rosterError ? (
-            <div className="text-mk-small font-semibold text-mk-danger">
-              加载失败：{rosterError}{" "}
-              <button type="button" onClick={loadRoster} className="cursor-pointer underline">
-                重试
-              </button>
-            </div>
+            <StudioError message={rosterError} onRetry={loadRoster} />
           ) : sortedRoster === null ? (
-            <div className="text-mk-body text-mk-muted">加载中…</div>
+            <StudioLoading />
           ) : sortedRoster.length === 0 ? (
             query.trim() || selectedDays !== null ? (
-              <StudioEmpty kind="discovery">未找到匹配的学生，请修改搜索条件。</StudioEmpty>
+              <StudioEmpty kind="discovery" title="未找到匹配的学生" compact>
+                请修改搜索条件，或清除筛选。
+              </StudioEmpty>
             ) : (
               <StudioEmpty
                 kind="quest"
+                title="暂无学生"
                 action={
                   joinCode
                     ? { label: emptyStateCopied ? "已复制" : "复制邀请码", onClick: () => void copyJoinCodeFromEmptyState() }
                     : undefined
                 }
               >
-                {`暂无学生。请将邀请码 ${joinCode ?? "—"} 发给学生。`}
+                {`学生凭邀请码加入本班。请将邀请码 ${joinCode ?? "—"} 发给学生。`}
               </StudioEmpty>
             )
           ) : (
@@ -365,7 +388,7 @@ export function ClassPage({
                       className="cursor-pointer hover:bg-mk-accent-50"
                     >
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
-                        <button className="teacher-student-link" onClick={e => { e.stopPropagation(); onOpenStudent(s.id); }}><span className="teacher-avatar">{Array.from(s.displayName)[0]}</span>{s.displayName}<span aria-hidden="true">↗</span></button>
+                        <button className="teacher-student-link" onClick={e => { e.stopPropagation(); onOpenStudent(s.id); }}><span className="teacher-avatar">{Array.from(s.displayName)[0]}</span>{s.displayName}{s.activeDaysThisWeek === 0 && <span className="teacher-idle-pill">本周未活跃</span>}<span aria-hidden="true">→</span></button>
                       </td>
                       <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                         {lastActiveLabel(s.lastActiveAt)}
@@ -406,6 +429,74 @@ export function ClassPage({
           )}
         </div>
       </div>
-    </div>
+    </TeacherPage>
+  );
+}
+
+/** 本班作业：最近的三份，卡片与作业页相同。自己加载，失败不影响名单。 */
+function ClassAssignments({
+  classId,
+  onOpen,
+  onOpenAll,
+  onNew,
+}: {
+  classId: string;
+  onOpen?: (assignmentId: string) => void;
+  onOpenAll?: () => void;
+  onNew?: () => void;
+}) {
+  const [rows, setRows] = useState<AssignmentSummaryDTO[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setError(null);
+    listAssignments(classId)
+      .then((list) => {
+        if (!cancelled) setRows(list);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(errorText(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [classId, nonce]);
+
+  return (
+    <section>
+      <SectionHead
+        title="作业"
+        aside={
+          rows && rows.length > 0 && onOpenAll ? (
+            <button type="button" className="teacher-link" onClick={onOpenAll}>
+              全部作业（{rows.length}）
+              <Icon icon={ArrowRight} size={14} />
+            </button>
+          ) : undefined
+        }
+      />
+      {error ? (
+        <StudioError message={error} onRetry={() => setNonce((n) => n + 1)} />
+      ) : rows === null ? (
+        <StudioLoading />
+      ) : rows.length === 0 ? (
+        <StudioEmpty
+          kind="writing"
+          title="暂无作业"
+          compact
+          action={onNew ? { label: "布置作业", onClick: onNew } : undefined}
+        >
+          作业会显示在学生首页和收件箱。请为本班布置第一份作业。
+        </StudioEmpty>
+      ) : (
+        <div className="teacher-task-grid">
+          {rows.slice(0, 3).map((a) => (
+            <AssignmentCard key={a.id} assignment={a} onOpen={() => onOpen?.(a.id)} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

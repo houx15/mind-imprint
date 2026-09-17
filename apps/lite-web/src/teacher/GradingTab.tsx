@@ -5,12 +5,14 @@ import { listAssignmentGradings, queueAssignmentGradings, queueWritingGrading, s
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText, tintedChipStyle } from "./assignmentLogic";
+import { StepPath, StudioEmpty, StudioError, StudioLoading } from "./StudioArtwork";
 import {
   failedCount,
   failureText,
   GRADING_STATUS_LABEL,
   gradingRowStatus,
   gradingStatusHue,
+  gradingSteps,
   pendingCount,
   POLL_MS,
   queueResultText,
@@ -19,6 +21,15 @@ import {
   sendResultText,
   shouldPoll,
 } from "./gradingLogic";
+
+/** The line beside the buttons: what the current step asks of her. */
+function guideHint(steps: ReturnType<typeof gradingSteps>["steps"]): string {
+  const current = steps.find((st) => st.state === "current")?.key;
+  if (current === "review") return "请点击下方「查看」逐份审阅，修改后标记已审阅。";
+  if (current === "send") return "审阅完成的批改可以一并发送。";
+  if (current === "grade") return "批改完成后，请逐份审阅。";
+  return "已提交的作文均已发送。";
+}
 
 /**
  * 批改 tab of a writing homework: one row per student. Polls every 5s while
@@ -151,30 +162,41 @@ export function GradingTab({
     }
   }
 
-  if (error) {
+  if (error) return <StudioError message={error} onRetry={() => setNonce((n) => n + 1)} />;
+  if (rows === null) return <StudioLoading />;
+
+  const guide = gradingSteps(rows);
+  if (guide.submitted === 0) {
     return (
-      <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-        加载失败：{error}{" "}
-        <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-          重试
-        </button>
-      </div>
+      <section className="mt-4">
+        <StudioEmpty kind="quest" title="暂无已提交的作文">
+          {`已布置给 ${rows.length} 名学生。学生提交后，可以在这里使用 AI 批改，审阅后发送给学生。`}
+        </StudioEmpty>
+      </section>
     );
   }
-  if (rows === null) return <p className="mt-4 text-mk-small text-mk-muted">加载中…</p>;
+  const pending = pendingCount(rows);
+  const failed = failedCount(rows);
 
   return (
     <section className="mt-4 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" size="sm" onClick={() => void queue(false)} disabled={busy || pendingCount(rows) === 0}>
-          {queueing ? "处理中" : "一键AI批改"}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => void queue(true)} disabled={busy || failedCount(rows) === 0}>
-          重试失败
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => setConfirmSend(true)} disabled={busy || reviewed.length === 0}>
-          发送全部已审阅
-        </Button>
+      <div className="teacher-guide">
+        <p>AI 批改可能出错。请先批改，再逐份审阅并修改，确认后发送给学生。</p>
+        <StepPath label="批改步骤" steps={guide.steps} />
+        <div className="teacher-guide-actions">
+          <Button variant="primary" size="sm" onClick={() => void queue(false)} disabled={busy || pending === 0}>
+            {queueing ? "处理中" : pending > 0 ? `一键AI批改（${pending}）` : "一键AI批改"}
+          </Button>
+          {failed > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => void queue(true)} disabled={busy}>
+              {`重试失败（${failed}）`}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => setConfirmSend(true)} disabled={busy || reviewed.length === 0}>
+            {reviewed.length > 0 ? `发送全部已审阅（${reviewed.length}）` : "发送全部已审阅"}
+          </Button>
+          <small>{guideHint(guide.steps)}</small>
+        </div>
       </div>
       {message && (
         <p role="status" className="break-words text-mk-small font-semibold text-mk-ink">
@@ -218,7 +240,12 @@ export function GradingTab({
               const rowError = r.grading?.error ?? null;
               return (
                 <tr key={r.userId}>
-                  <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">{r.displayName}</td>
+                  <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small font-bold text-mk-ink">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="teacher-avatar">{Array.from(r.displayName)[0]}</span>
+                      {r.displayName}
+                    </span>
+                  </td>
                   <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                     {r.version ? `v${r.version.number} · ${formatDeadline(r.version.submittedAt)}` : "—"}
                   </td>

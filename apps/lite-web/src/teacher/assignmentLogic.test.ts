@@ -36,8 +36,14 @@ import {
   readExtractResult,
   initialRecipients,
   parsePendingRecipients,
+  countStatuses,
+  progressFromCounts,
+  publishSummary,
+  readingUnfinished,
+  recipientProgress,
   recipientProgressText,
   recipientReadingText,
+  toGradeCount,
   selectedDisciplinesText,
   settingsFromAssignment,
   settingsSummary,
@@ -1004,6 +1010,90 @@ describe("recipientProgressText", () => {
   });
   it("is a dash before she starts", () => {
     expect(recipientProgressText("project", { ...base, atomId: null })).toBe("—");
+  });
+});
+
+describe("recipientProgress (未读完)", () => {
+  const base = {
+    atomId: "a",
+    status: "done" as const,
+    activeMinutes: 12,
+    stepsDone: 3,
+    stepsTotal: 14,
+    versionCount: 0,
+    latestWordCount: 0,
+  };
+  it("flags a finished reading that skipped steps", () => {
+    expect(recipientProgress("reading", base)).toEqual({ text: "3/14 步 · 未读完 · 12 分钟", warn: true });
+    expect(recipientProgress("reading", { ...base, status: "done_late", activeMinutes: 0 })).toEqual({
+      text: "3/14 步 · 未读完 · 不到 1 分钟",
+      warn: true,
+    });
+  });
+  it("leaves a reading alone when every step is done, it is not finished, or there is no plan", () => {
+    expect(recipientProgress("reading", { ...base, stepsDone: 14 })).toEqual({ text: "14/14 步 · 12 分钟", warn: false });
+    expect(recipientProgress("reading", { ...base, status: "in_progress" })).toEqual({ text: "3/14 步 · 12 分钟", warn: false });
+    expect(recipientProgress("reading", { ...base, status: "overdue" }).warn).toBe(false);
+    expect(recipientProgress("reading", { ...base, stepsDone: 0, stepsTotal: 0 })).toEqual({ text: "12 分钟", warn: false });
+    expect(readingUnfinished("reading", { ...base, atomId: null })).toBe(false);
+  });
+  it("never flags writing or project homework", () => {
+    expect(readingUnfinished("writing", base)).toBe(false);
+    expect(readingUnfinished("project", base)).toBe(false);
+  });
+});
+
+describe("publishSummary", () => {
+  it("names the class, the head count and the Beijing deadline", () => {
+    expect(publishSummary("高一（3）班", 4, "2026-09-21T21:00")).toBe("发给「高一（3）班」 4 名学生 · 截止 9月21日 21:00");
+    expect(publishSummary("", 1, "2026-10-05T08:30")).toBe("发给 1 名学生 · 截止 10月5日 08:30");
+  });
+  it("says what is still missing", () => {
+    expect(publishSummary("A", 0, "")).toBe("待选择学生 · 截止时间待填写");
+    expect(publishSummary("A", 2, "2026-09-21")).toBe("发给「A」 2 名学生 · 截止时间待填写");
+    expect(publishSummary("A", 2, "2026-13-01T10:00")).toBe("发给「A」 2 名学生 · 截止时间待填写");
+  });
+});
+
+describe("progress summary counts", () => {
+  it("groups statuses into 未开始 / 进行中 / 已完成 / 已逾期", () => {
+    expect(
+      progressFromCounts({ not_started: 2, in_progress: 1, returned: 1, done: 3, done_late: 1, resubmitted: 1, overdue: 2 }),
+    ).toEqual({ total: 11, notStarted: 2, inProgress: 2, done: 5, overdue: 2 });
+    expect(progressFromCounts({})).toEqual({ total: 0, notStarted: 0, inProgress: 0, done: 0, overdue: 0 });
+  });
+  it("counts recipients by status, ignoring unknown ones", () => {
+    const counts = countStatuses([
+      { status: "done" },
+      { status: "done" },
+      { status: "overdue" },
+      { status: "bogus" as never },
+    ]);
+    expect(counts.done).toBe(2);
+    expect(counts.overdue).toBe(1);
+    expect(counts.not_started).toBe(0);
+    expect(progressFromCounts(counts).total).toBe(3);
+  });
+  it("counts 待批改 as submitted and not yet sent", () => {
+    const v = { number: 1, submittedAt: "2026-09-17T10:00:00Z" };
+    const g = (status: "queued" | "running" | "draft" | "failed" | "sent") => ({
+      id: status,
+      status,
+      overallGrade: null,
+      error: null,
+      reviewedAt: null,
+      sentAt: null,
+    });
+    expect(
+      toGradeCount([
+        { version: null, grading: null },
+        { version: v, grading: null },
+        { version: v, grading: g("draft") },
+        { version: v, grading: g("failed") },
+        { version: v, grading: g("running") },
+        { version: v, grading: g("sent") },
+      ]),
+    ).toBe(4);
   });
 });
 

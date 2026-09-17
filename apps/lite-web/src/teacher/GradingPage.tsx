@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Button, Icon, Pebble } from "@/ui";
+import { Button, Pebble } from "@/ui";
 import { getAssignment, type RecipientDTO } from "../api/assignments";
 import {
   getGrading,
@@ -14,6 +13,7 @@ import {
   type TeacherGrading,
 } from "../api/gradings";
 import { formatDeadline } from "../shared/deadline";
+import bookmark from "../home/assets/yinji-bookmark.webp";
 import { highlightSegments, MARK_STYLE, pickableSentences, PIECE_CLS, quoteRanges, unmarkedPointQuotes } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText } from "./assignmentLogic";
@@ -25,6 +25,7 @@ import {
   failureText,
   gradingContentReducer,
   gradingDoneText,
+  gradingPageSteps,
   gradingPointLabel,
   GRADING_RUNNING_KEEPS_TEXT,
   GRADING_RUNNING_TEXT,
@@ -38,6 +39,7 @@ import {
 } from "./gradingLogic";
 import { ReturnDialog } from "./ReturnDialog";
 import { TeacherPage } from "./TeacherPage";
+import { BackLink, StepPath, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 
 const EMPTY: GradingContent = { overall: { grade: "", comment: "" }, dimensions: [], points: [] };
 
@@ -204,17 +206,13 @@ export function GradingPage({
   }
 
   const back = (
-    <button
-      type="button"
+    <BackLink
+      label={grading && !grading.assignmentId ? "返回学习成果" : "返回批改"}
       onClick={() => {
         if (dirty) setConfirmLeave(true);
         else onBack(grading);
       }}
-      className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-    >
-      <Icon icon={ArrowLeft} size={15} />
-      返回
-    </button>
+    />
   );
 
   const leaveConfirmBanner = confirmLeave && (
@@ -245,12 +243,7 @@ export function GradingPage({
       <TeacherPage>
         {back}
         {leaveConfirmBanner}
-        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-          加载失败：{loadError}{" "}
-          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-            重试
-          </button>
-        </div>
+        <StudioError message={loadError} onRetry={() => setNonce((n) => n + 1)} />
       </TeacherPage>
     );
   }
@@ -258,7 +251,7 @@ export function GradingPage({
     return (
       <TeacherPage>
         {back}
-        <p className="mt-4 text-mk-body text-mk-muted">加载中…</p>
+        <StudioLoading />
       </TeacherPage>
     );
   }
@@ -276,29 +269,42 @@ export function GradingPage({
       <div className="shrink-0">
         {back}
         {leaveConfirmBanner}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <h1 className="teacher-page-title">
-            {grading.displayName} · {grading.title}
-          </h1>
-          <span className="rounded-mk-full bg-mk-accent-50 px-2.5 py-0.5 text-mk-label font-semibold text-mk-accent-700">
-            {grading.source === "teacher" ? "人工批改" : "AI 批改"}
-          </span>
-          <span className="text-mk-small text-mk-muted">
-            v{grading.versionNumber}
-            {grading.latestVersionNumber > grading.versionNumber ? ` · 最新 v${grading.latestVersionNumber}` : ""}
-          </span>
+        <div className="teacher-grading-head">
+          <StudioHeading
+            kicker={`批改 · ${grading.displayName}`}
+            title={grading.title}
+            description={
+              grading.source === "teacher"
+                ? "请填写等级与意见，保存后发送给学生。"
+                : "AI 批改可能出错。请对照左侧正文审核每一条意见，修改后发送给学生。"
+            }
+          >
+            <p className="flex flex-wrap items-center gap-2 text-mk-small text-mk-muted">
+              <span className="teacher-status-pill">
+                {grading.source === "teacher" ? "人工批改" : (
+                  <>
+                    <img src={bookmark} alt="" className="h-4 w-4 object-contain" />
+                    印记起草
+                  </>
+                )}
+              </span>
+              <span>
+                v{grading.versionNumber}
+                {grading.latestVersionNumber > grading.versionNumber ? ` · 最新 v${grading.latestVersionNumber}` : ""}
+              </span>
+              {grading.status === "sent" && grading.sentAt && <span>发送于 {formatDeadline(grading.sentAt)}</span>}
+            </p>
+          </StudioHeading>
+          <StepPath
+            label="批改进度"
+            steps={gradingPageSteps({
+              status: grading.status,
+              hasContent: grading.content !== null,
+              reviewedAt: grading.reviewedAt,
+              studentSeenAt: grading.studentSeenAt,
+            })}
+          />
         </div>
-        <p className="mt-1 text-mk-small text-mk-muted">
-          {grading.status === "sent" && grading.sentAt
-            ? `已发送 ${formatDeadline(grading.sentAt)} · ${grading.studentSeenAt ? "学生已读" : "学生未读"}`
-            : running
-              ? "批改中"
-              : grading.reviewedAt
-                ? "已审阅"
-                : grading.status === "draft"
-                  ? "草稿"
-                  : ""}
-        </p>
         {grading.error && (
           <p role="alert" className="mt-2 break-words text-mk-small font-semibold text-mk-danger">
             {failureText(grading.error)}
@@ -541,13 +547,13 @@ function GradingEditor({
   return (
     <div className="flex flex-col gap-4">
       <section className="flex flex-col gap-2">
-        <h2 className="text-mk-small font-bold text-mk-ink">总评</h2>
+        <h2 className="teacher-grading-h">总评</h2>
         <GradeInput rubric={rubric} label="总评等级" value={content.overall.grade} onChange={(v) => onEdit({ type: "overallGrade", value: v })} />
         <textarea aria-label="总评评语" rows={3} value={content.overall.comment} onChange={(e) => onEdit({ type: "overallComment", value: e.target.value })} className={INPUT_CLS} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-mk-small font-bold text-mk-ink">维度</h2>
+        <h2 className="teacher-grading-h">维度</h2>
         {content.dimensions.map((d, i) => (
           <div key={d.name} className="flex flex-col gap-1.5">
             <h3 className="text-mk-small font-semibold text-mk-ink">{d.name}</h3>
@@ -558,7 +564,7 @@ function GradingEditor({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-mk-small font-bold text-mk-ink">意见</h2>
+        <h2 className="teacher-grading-h">意见</h2>
         {content.points.map((p, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3">
             <div className="flex flex-wrap items-center gap-2">

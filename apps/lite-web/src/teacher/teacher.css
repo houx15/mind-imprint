@@ -1,6 +1,8 @@
 /* Teacher pages. Measures come from learning/landing.css; these are the extra widths and the heading type. */
+/* `!important`: teacher-studio.css sets every `.teacher-page` to 1240px with
+ * !important, which used to swallow this measure (the form ran 1175px wide). */
 .learning-landing-measure.teacher-page--narrow {
-  max-width: 760px;
+  max-width: 880px !important;
 }
 .learning-landing-measure.teacher-page--full {
   max-width: 1320px;
@@ -21,14 +23,19 @@
   }
 }
 
-/* `Button`/`IconButton` (apps/web) paint a disabled button with a light-theme hex
- * (`disabled:bg-[#F0E9E1]`) that no token reaches, so in dark mode it shows as a
- * cream square. The teacher shell gives it the lite disabled treatment instead
+/* `Button`/`IconButton` (apps/web) paint a disabled button with a hex
+ * (`disabled:bg-[#F0E9E1]`) that no token reaches: a cream square in both
+ * themes. The teacher shell gives it the lite disabled treatment instead
  * (the same colours as `.learning-composer button:disabled`). */
-:root[data-theme="dark"] .lite-teacher button:disabled[class*="disabled:bg-[#F0E9E1]"] {
+.lite-teacher button:disabled[class*="disabled:bg-[#F0E9E1]"],
+.lite-teacher .teacher-ai-footer button[aria-label="发送"]:disabled {
   background: var(--mk-border);
   border-color: var(--mk-border);
   color: var(--mk-muted);
+}
+.lite-teacher button:disabled[class*="disabled:bg-[#F0E9E1]"][class*="bg-transparent"] {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* Pro's SettingsView cards: flat with a hairline, as on the student settings page
@@ -279,4 +286,1096 @@
   .teacher-page--fill :is(.teacher-grading-article, .teacher-grading-editor) {
     overflow-y: auto;
   }
+}
+
+/* ===================================================================
+ * Round 7 design pass: the student end's language on the teacher end.
+ * Headers (`LandingHeader`), cards (`.learning-task`, `.learning-course`),
+ * empty states (`.learning-empty`), step paths (`.reading-quest__path`).
+ * Lengths are literal px (see the LibraryPicker warning above); colours
+ * are tokens, so the dark theme follows.
+ * =================================================================== */
+
+/* Page header: kicker, title, one-line purpose, art. */
+.teacher-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 196px;
+  padding: 8px 0 20px;
+}
+.teacher-heading.is-plain {
+  min-height: 0;
+  padding-bottom: 4px;
+}
+.teacher-heading-copy {
+  min-width: 0;
+  max-width: 700px;
+}
+.teacher-heading-kicker {
+  font-size: var(--mk-font-size-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--mk-accent-500);
+}
+:root[data-theme="dark"] .teacher-heading-kicker {
+  color: var(--mk-accent-700);
+}
+.teacher-heading h1 {
+  margin: 10px 0 12px;
+  font-size: var(--mk-font-size-page);
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  color: var(--mk-ink);
+  overflow-wrap: anywhere;
+}
+.teacher-heading.is-plain h1 {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+.teacher-heading-meta {
+  margin: -2px 0 10px;
+}
+.teacher-heading-desc {
+  font-size: var(--mk-font-size-intro);
+  line-height: 1.8;
+  color: var(--mk-muted);
+}
+.teacher-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.teacher-heading > img {
+  flex-shrink: 0;
+  width: 230px;
+  height: 170px;
+  object-fit: contain;
+}
+@media (max-width: 700px) {
+  .teacher-heading {
+    gap: 12px;
+    min-height: 150px;
+  }
+  .teacher-heading h1 {
+    font-size: var(--mk-font-size-page-mobile);
+  }
+  .teacher-heading.is-plain h1 {
+    font-size: 24px;
+  }
+  .teacher-heading-desc {
+    font-size: var(--mk-font-size-small);
+  }
+  .teacher-heading > img {
+    width: 96px;
+    height: 110px;
+    align-self: flex-start;
+    margin-top: 12px;
+  }
+}
+
+/* Back link: names where it goes. */
+.teacher-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-radius: 8px;
+  font-size: var(--mk-font-size-small);
+  color: var(--mk-muted);
+  transition: color 0.12s;
+}
+.teacher-back:hover {
+  color: var(--mk-accent-700);
+}
+
+/* Loading and load errors (`.learning-loading`, `.learning-error`). */
+.teacher-loading {
+  padding: 24px 0;
+  font-size: var(--mk-font-size-body);
+  color: var(--mk-muted);
+}
+.teacher-error {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--mk-danger) 30%, var(--mk-border));
+  border-radius: var(--mk-radius-md);
+  background: color-mix(in srgb, var(--mk-danger) 6%, var(--mk-surface));
+  font-size: var(--mk-font-size-small);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.teacher-error p {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--mk-danger) 70%, var(--mk-ink));
+}
+.teacher-error button {
+  margin-top: 4px;
+  padding: 2px 0;
+  font-weight: 600;
+  color: var(--mk-accent-700);
+  text-decoration: underline;
+}
+
+/* Empty state: art, a title, a reason, one action. */
+.teacher-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 22px 28px;
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-empty-state > img {
+  flex-shrink: 0;
+  width: 200px;
+  height: 140px;
+  object-fit: contain;
+}
+.teacher-empty-state > div {
+  min-width: 0;
+}
+.teacher-empty-title {
+  font-size: var(--mk-font-size-body-lg);
+  font-weight: 650;
+  line-height: 1.5;
+  color: var(--mk-ink);
+}
+.teacher-empty-body {
+  margin-top: 6px;
+  font-size: var(--mk-font-size-small);
+  line-height: 1.8;
+  color: var(--mk-muted);
+}
+.teacher-empty-state button {
+  margin-top: 14px;
+}
+.teacher-empty-state.is-compact {
+  gap: 18px;
+  padding: 14px 18px;
+}
+.teacher-empty-state.is-compact > img {
+  width: 110px;
+  height: 80px;
+}
+.teacher-empty-state.is-compact .teacher-empty-title {
+  font-size: var(--mk-font-size-body);
+}
+.teacher-empty-state.is-compact button {
+  margin-top: 10px;
+}
+@media (max-width: 560px) {
+  .teacher-empty-state {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px;
+  }
+  .teacher-empty-state > img {
+    align-self: center;
+    width: 160px;
+    height: 110px;
+  }
+  .teacher-empty-state.is-compact {
+    flex-direction: row;
+    align-items: center;
+  }
+  .teacher-empty-state.is-compact > img {
+    width: 80px;
+    height: 64px;
+  }
+}
+
+/* Section head: h2 on the left, a note or a link on the right. */
+.teacher-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 32px 0 14px;
+}
+.teacher-section-head h2 {
+  font-size: var(--mk-font-size-subtitle);
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--mk-ink);
+}
+.teacher-section-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: var(--mk-font-size-small);
+  font-weight: 600;
+  color: var(--mk-accent-700);
+}
+.teacher-link:hover {
+  text-decoration: underline;
+}
+
+/* Step path (`.reading-quest__path`), display only. */
+.teacher-steps {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.teacher-steps li {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.teacher-steps li:not(:last-child)::after {
+  content: "";
+  align-self: center;
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  margin-right: 10px;
+  background: var(--mk-accent-200);
+}
+.teacher-steps-dot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: 50%;
+  background: var(--mk-surface);
+  font-size: 12px;
+  color: var(--mk-muted);
+}
+.teacher-steps [data-state="done"] .teacher-steps-dot {
+  background: var(--mk-accent-100);
+  color: var(--mk-accent-700);
+}
+.teacher-steps [data-state="current"] .teacher-steps-dot {
+  border-color: var(--mk-accent-600);
+  background: var(--mk-accent-600);
+  color: var(--mk-on-accent);
+  box-shadow: 0 0 0 4px var(--mk-accent-100);
+}
+.teacher-steps-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: 4px;
+  white-space: nowrap;
+}
+.teacher-steps-copy strong {
+  font-size: var(--mk-font-size-small);
+  font-weight: 600;
+  color: var(--mk-ink);
+}
+.teacher-steps [data-state="todo"] .teacher-steps-copy strong {
+  color: var(--mk-muted);
+  font-weight: 500;
+}
+.teacher-steps-copy small {
+  margin-top: 2px;
+  font-size: var(--mk-font-size-caption);
+  color: var(--mk-muted);
+}
+@media (max-width: 560px) {
+  .teacher-steps {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .teacher-steps li:not(:last-child)::after {
+    display: none;
+  }
+  .teacher-steps-copy {
+    white-space: normal;
+  }
+}
+
+/* A guide card: the steps of a flow with a reason line (批改 tab). */
+.teacher-guide {
+  padding: 18px 20px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-accent-50);
+}
+.teacher-guide > p {
+  margin-bottom: 14px;
+  font-size: var(--mk-font-size-small);
+  line-height: 1.8;
+  color: var(--mk-ink);
+}
+.teacher-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mk-accent-200);
+}
+.teacher-guide-actions small {
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+
+/* Status count strip: 未开始 / 进行中 / 已完成 / 已逾期 / 待批改. */
+.teacher-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.teacher-count-tile {
+  padding: 14px 16px;
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+}
+.teacher-count-tile strong {
+  display: block;
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--mk-ink);
+}
+.teacher-count-tile span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-count-tile span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tile-hue, var(--mk-muted));
+}
+.teacher-count-tile[data-alert="true"] strong {
+  color: color-mix(in srgb, var(--tile-hue) 70%, var(--mk-ink));
+}
+.teacher-progress {
+  display: flex;
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--mk-border);
+}
+.teacher-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--seg-hue);
+}
+
+/* Assignment cards (`.learning-task`). */
+.teacher-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: 16px;
+}
+.teacher-task {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid transparent;
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+  text-align: left;
+  color: var(--mk-ink);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.teacher-task:hover {
+  transform: translateY(-2px);
+  border-color: var(--mk-accent-200);
+}
+.teacher-task:focus-visible {
+  outline: 2px solid var(--mk-accent-500);
+  outline-offset: 2px;
+}
+.teacher-task-art {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  border-radius: var(--mk-radius-subtle);
+  background: var(--mk-accent-50);
+}
+.teacher-task-art img {
+  width: 100%;
+  height: 104px;
+  object-fit: contain;
+}
+.teacher-task-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-task h3 {
+  margin: 8px 0 4px;
+  font-size: var(--mk-font-size-body-lg);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.teacher-task-file {
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+  overflow-wrap: anywhere;
+}
+.teacher-task-detail {
+  margin-top: 6px;
+  font-size: var(--mk-font-size-label);
+  line-height: 1.7;
+  color: var(--mk-muted);
+}
+.teacher-task-detail strong {
+  font-weight: 600;
+  color: var(--mk-ink);
+}
+.teacher-task-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.teacher-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  border-radius: var(--mk-radius-sm);
+  background: var(--mk-accent-500);
+  font-size: var(--mk-font-size-small);
+  font-weight: 600;
+  color: var(--mk-on-accent);
+}
+.teacher-task:hover .teacher-cta {
+  filter: brightness(0.92);
+}
+.teacher-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--mk-font-size-label);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.teacher-task-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  padding: 20px;
+  border: 1px dashed var(--mk-accent-300);
+  border-radius: var(--mk-radius-lg);
+  background: color-mix(in srgb, var(--mk-accent-50) 60%, transparent);
+  text-align: center;
+  color: var(--mk-accent-700);
+  transition: background 0.15s;
+}
+.teacher-class-grid > .teacher-task-new {
+  align-self: start;
+}
+.teacher-task-new:hover {
+  background: var(--mk-accent-50);
+}
+.teacher-task-new strong {
+  font-size: var(--mk-font-size-body);
+  font-weight: 650;
+}
+.teacher-task-new small {
+  max-width: 220px;
+  font-size: var(--mk-font-size-label);
+  line-height: 1.7;
+  color: var(--mk-muted);
+}
+
+/* Horizontal link card (`.learning-course`): parent reports, a student's rows. */
+.teacher-row-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+}
+.teacher-row-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+  text-align: left;
+  color: var(--mk-ink);
+  transition: transform 0.15s, border-color 0.15s;
+}
+button.teacher-row-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mk-accent-200);
+}
+.teacher-row-card:focus-visible {
+  outline: 2px solid var(--mk-accent-500);
+  outline-offset: 2px;
+}
+.teacher-row-card > img {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--mk-radius-sm);
+  background: var(--mk-accent-50);
+  object-fit: contain;
+}
+.teacher-row-card > .teacher-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+.teacher-row-card-copy {
+  flex: 1;
+  min-width: 0;
+}
+.teacher-row-card-copy strong {
+  display: block;
+  font-size: var(--mk-font-size-body);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.teacher-row-card-copy small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 4px;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-row-card > svg {
+  flex-shrink: 0;
+  color: var(--mk-accent-500);
+}
+
+/* Toolbar under a header: a class picker and its label. */
+.teacher-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 18px;
+}
+.teacher-toolbar-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+
+/* Assignment form: numbered groups and a sticky publish bar. */
+.teacher-form-card {
+  margin-top: 20px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-form-step {
+  padding: 22px 24px;
+}
+.teacher-form-step + .teacher-form-step {
+  border-top: 1px solid var(--mk-border);
+}
+.teacher-form-step > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.teacher-form-step > header > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px 10px 10px 3px;
+  background: var(--mk-accent-600);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--mk-on-accent);
+}
+.teacher-form-step h2 {
+  font-size: var(--mk-font-size-section);
+  font-weight: 650;
+  line-height: 1.6;
+  color: var(--mk-ink);
+}
+.teacher-form-step header p {
+  font-size: var(--mk-font-size-label);
+  line-height: 1.7;
+  color: var(--mk-muted);
+}
+.teacher-form-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.teacher-form-step-body .text-mk-label.font-bold {
+  font-size: var(--mk-font-size-small);
+  color: var(--mk-ink);
+}
+.teacher-publish-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--mk-border);
+  border-radius: 0 0 var(--mk-radius-lg) var(--mk-radius-lg);
+  background: color-mix(in srgb, var(--mk-surface) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+.teacher-publish-bar p {
+  min-width: 0;
+  font-size: var(--mk-font-size-small);
+  color: var(--mk-muted);
+}
+.teacher-publish-bar p strong {
+  font-weight: 600;
+  color: var(--mk-ink);
+}
+.teacher-publish-bar > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .teacher-form-step {
+    padding: 18px 16px;
+  }
+  .teacher-publish-bar {
+    padding: 12px 16px;
+  }
+}
+
+/* A note block with the 印记 bookmark: what the AI does here. */
+.teacher-ai-note {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px dashed var(--mk-accent-300);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-accent-50);
+}
+.teacher-ai-note img {
+  flex: none;
+  width: 48px;
+  height: 56px;
+  object-fit: contain;
+}
+.teacher-ai-note strong {
+  display: block;
+  font-size: var(--mk-font-size-body);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+.teacher-ai-note p {
+  margin-top: 2px;
+  font-size: var(--mk-font-size-small);
+  line-height: 1.7;
+  color: var(--mk-muted);
+}
+.teacher-ai-note[data-state="filled"] {
+  border-style: solid;
+  border-color: var(--mk-accent-200);
+}
+.teacher-field-filled .tc-input,
+.teacher-field-filled .tc-select {
+  border-color: var(--mk-accent-300);
+}
+
+/* Empty rail: the bookmark above the intro. */
+.teacher-ai-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px 4px;
+  text-align: center;
+}
+.teacher-ai-welcome img {
+  width: 96px;
+  height: 112px;
+  object-fit: contain;
+}
+.teacher-ai-welcome p {
+  font-size: var(--mk-font-size-small);
+  line-height: 1.8;
+  color: var(--mk-muted);
+}
+
+/* Class chat, left pane: what the conversation is for. */
+.teacher-companion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 26px;
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-companion h2 {
+  font-size: var(--mk-font-size-section);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+.teacher-companion > div > p {
+  margin-top: 6px;
+  font-size: var(--mk-font-size-small);
+  line-height: 1.8;
+  color: var(--mk-muted);
+}
+.teacher-companion ul {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.teacher-companion li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: var(--mk-font-size-small);
+  line-height: 1.7;
+  color: var(--mk-ink);
+}
+.teacher-companion li > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--mk-accent-500);
+}
+.teacher-companion > img {
+  width: 200px;
+  height: 150px;
+  object-fit: contain;
+}
+.teacher-companion-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .teacher-companion {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+  }
+  .teacher-companion > img {
+    display: none;
+  }
+}
+
+/* Plain panel (surface, no shadow). */
+.teacher-panel {
+  padding: 18px 20px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-panel-title {
+  margin-bottom: 4px;
+  font-size: var(--mk-font-size-body-lg);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+
+/* Class page: invite strip. */
+.teacher-invite-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 12px 16px;
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+  font-size: var(--mk-font-size-small);
+}
+.teacher-invite-strip > strong {
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--mk-accent-50);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--mk-accent-700);
+}
+.teacher-invite-strip > span {
+  color: var(--mk-muted);
+}
+.teacher-invite-strip .teacher-invite-spacer {
+  flex: 1;
+}
+
+/* Quote cards (no left bar; `.student-selection-tray__item`). */
+.teacher-quote {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--mk-paper);
+  overflow-wrap: anywhere;
+}
+.teacher-quote p {
+  line-height: 1.85;
+}
+.teacher-quote-list {
+  display: grid;
+  gap: 10px;
+}
+
+/* Status pill for a line such as 报告文字生成中. */
+.teacher-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--mk-accent-50);
+  font-size: var(--mk-font-size-label);
+  font-weight: 600;
+  color: var(--mk-accent-700);
+}
+
+/* Roster: a "no activity this week" pill. */
+.teacher-idle-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mk-warning) 14%, var(--mk-surface));
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--mk-warning) 40%, var(--mk-ink));
+  white-space: nowrap;
+}
+
+/* Settings: the same column as every other teacher page. */
+.lite-teacher .teacher-settings > div {
+  max-width: 1240px;
+  padding: 24px 32px 56px;
+}
+.lite-teacher .teacher-settings > div > :not(.teacher-heading) {
+  max-width: 760px;
+}
+@media (max-width: 760px) {
+  .lite-teacher .teacher-settings > div {
+    padding-inline: 20px;
+  }
+}
+
+/* Top bar: the account opens settings. */
+.teacher-account-button {
+  border-radius: 12px;
+  padding: 4px 8px 4px 4px !important;
+  text-align: left;
+  transition: background 0.15s;
+}
+.teacher-account-name {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.teacher-account-button:hover {
+  background: var(--mk-accent-50);
+}
+
+/* Warning text for 「3/14 步 · 未读完」. */
+.teacher-warn-text {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--mk-warning) 55%, var(--mk-ink));
+}
+
+/* Grading page: header with its step path. */
+.teacher-grading-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 32px;
+}
+.teacher-grading-head > .teacher-heading {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.teacher-grading-head > .teacher-steps {
+  flex: 0 1 420px;
+  padding: 14px 16px;
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-grading-h {
+  font-size: var(--mk-font-size-body-lg);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+
+/* Class chat, left pane. */
+.teacher-chat-canvas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.teacher-chat-canvas .teacher-companion {
+  grid-template-columns: minmax(0, 1fr);
+}
+.teacher-panel .teacher-learning-snapshot.is-compact {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Weekly: fact tiles (one stat style with `.teacher-count-tile`). */
+.teacher-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.teacher-fact {
+  padding: 14px 16px;
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+}
+.teacher-panel .teacher-fact {
+  background: var(--mk-paper);
+}
+.teacher-fact strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--mk-ink);
+  white-space: nowrap;
+}
+.teacher-fact span {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-week-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--mk-surface);
+}
+.teacher-week-nav > span {
+  min-width: 120px;
+  font-size: var(--mk-font-size-small);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--mk-ink);
+}
+.teacher-prose-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.teacher-prose-head img {
+  width: 34px;
+  height: 40px;
+  object-fit: contain;
+}
+.teacher-prose-head p {
+  font-size: var(--mk-font-size-label);
+  color: var(--mk-muted);
+}
+.teacher-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--mk-font-size-body-lg);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+.teacher-group-title > span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--mk-accent-100);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mk-accent-800);
+}
+.teacher-group-empty {
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 1px dashed var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  font-size: var(--mk-font-size-small);
+  color: var(--mk-muted);
+}
+.teacher-week-student {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+  text-align: left;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.teacher-week-student:hover {
+  transform: translateY(-2px);
+  border-color: var(--mk-accent-200);
+}
+.teacher-week-student:focus-visible {
+  outline: 2px solid var(--mk-accent-500);
+  outline-offset: 2px;
+}
+.teacher-week-student .teacher-avatar {
+  width: 28px;
+  height: 28px;
+}
+.teacher-week-student-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: var(--mk-font-size-label);
+  font-weight: 600;
+  color: var(--mk-accent-700);
 }

@@ -190,14 +190,13 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
         <button className="teacher-brand" onClick={() => go({ view: user.role === "admin" ? "overview" : "classes" })}>
           <img src={bookmark} alt="" /><span>思维印记<small>教学工作室</small></span>
         </button>
-        <p className="teacher-nav-label">TEACHER STUDIO</p>
         {railItems.map(({ key, label, icon }) => {
           const active = isTeacherRailActive(key, route);
           return <button key={key} className="teacher-nav-item" aria-current={active ? "page" : undefined}
-            onClick={() => go({ view: key } as TeacherRoute)}><Icon icon={icon} size={19} /><span>{label}</span><span className="teacher-nav-arrow" aria-hidden="true">↗</span></button>;
+            onClick={() => go({ view: key } as TeacherRoute)}><Icon icon={icon} size={19} /><span>{label}</span></button>;
         })}
         <div className="teacher-nav-footer">
-          <div className="teacher-account"><span className="teacher-avatar">{Array.from(user.display_name)[0]}</span><div>{user.display_name}<small>{user.school.name}</small></div></div>
+          <button type="button" className="teacher-account teacher-account-button" aria-label={`${user.display_name}，打开设置`} onClick={() => go({ view: "settings" })}><span className="teacher-avatar">{Array.from(user.display_name)[0]}</span><span className="teacher-account-name">{user.display_name}<small>{user.school.name}</small></span></button>
           <button className="teacher-nav-item" onClick={() => go({ view: "settings" })} aria-current={route.view === "settings" ? "page" : undefined}><Icon icon={Settings} size={19} />设置</button>
         </div>
       </nav>
@@ -220,6 +219,12 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
               go({ view: "assignmentNew", classId: route.classId });
             }}
             onOpenWeekly={() => go({ view: "classWeekly", classId: route.classId })}
+            onOpenChat={() => go({ view: "classChat", classId: route.classId })}
+            onOpenAssignment={(assignmentId) => go({ view: "assignment", assignmentId })}
+            onOpenAssignments={() => {
+              writeLastClassId(route.classId);
+              go({ view: "assignments" });
+            }}
           />
         )}
         {route.view === "classWeekly" && (
@@ -228,6 +233,11 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             classId={route.classId}
             onBack={() => go({ view: "class", classId: route.classId })}
             onOpenStudent={(userId) => go({ view: "student", classId: route.classId, userId })}
+            onOpenChat={() => go({ view: "classChat", classId: route.classId })}
+            onNewAssignment={() => {
+              writeLastClassId(route.classId);
+              go({ view: "assignmentNew", classId: route.classId });
+            }}
           />
         )}
         {route.view === "classChat" && (
@@ -235,6 +245,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
             key={route.classId}
             classId={route.classId}
             onBack={() => go({ view: "class", classId: route.classId })}
+            onOpenWeekly={() => go({ view: "classWeekly", classId: route.classId })}
             go={go}
           />
         )}
@@ -277,7 +288,10 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
           />
         )}
         {route.view === "parentReports" && (
-          <ParentReportsPage onOpen={(reportId) => go({ view: "parentReport", reportId })} />
+          <ParentReportsPage
+            onOpen={(reportId) => go({ view: "parentReport", reportId })}
+            onOpenClass={(classId) => go({ view: "class", classId })}
+          />
         )}
         {route.view === "parentReport" && (
           <ParentReportEditor
@@ -313,7 +327,7 @@ export function LiteTeacherShell({ user, onLogout }: { user: MeUser; onLogout: (
         {route.view === "teachers" && user.role === "admin" && <TeachersView client={api} />}
         {route.view === "import" && user.role === "admin" && <ImportView client={api} />}
         {route.view === "settings" && (
-          <SettingsView teachingStudio session={unusedSettingsSession} user={user} onLogout={onLogout} />
+          <SettingsView teachingStudio studioArtwork={studentArtwork.keepsake} session={unusedSettingsSession} user={user} onLogout={onLogout} />
         )}
       </main>
     </div>

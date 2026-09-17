@@ -31,8 +31,9 @@
 .teacher-class-grid { gap:22px!important; }
 .teacher-class-card { padding:26px!important; min-height:184px; border:1px solid var(--mk-border); border-radius:18px; background:var(--mk-surface); transition:transform .2s,border-color .2s,box-shadow .2s; }
 .teacher-class-card:hover { transform:translateY(-4px); border-color:var(--mk-accent-300); box-shadow:0 12px 24px color-mix(in srgb,var(--mk-ink) 5%,transparent); }
-.teacher-card-index { display:flex; justify-content:space-between; align-items:center; font-size:10px; letter-spacing:.14em; color:var(--mk-accent-700); margin-bottom:25px; }
-.teacher-card-index>span:last-child { font-size:24px; letter-spacing:0; }
+.teacher-card-index { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--mk-accent-600); margin-bottom:25px; }
+.teacher-card-index .teacher-card-open { font-size:13px; letter-spacing:0; color:var(--mk-accent-700); opacity:.8; transition:opacity .15s; }
+.teacher-class-card:hover .teacher-card-open { opacity:1; }
 .teacher-class-card>div:nth-child(2) { font-size:20px!important; font-weight:600!important; }
 .teacher-class-card>div:last-child { margin-top:24px!important; }
 .teacher-class-actions { display:flex; gap:10px; margin-top:-24px; margin-bottom:20px; }
@@ -77,9 +78,10 @@
 .teacher-record-section>h2 { font-size:21px; font-weight:600; margin-bottom:22px; }
 .teacher-record-section h3 { font-size:12px; font-weight:650; color:var(--mk-accent-700); margin-bottom:12px; }
 .teacher-record-section .teacher-stat-strip { border-top:0; margin-top:0; padding-top:0; }
-.teacher-evidence { padding:14px 0 18px 20px; border-left:2px solid var(--mk-accent-200); margin:8px 0; overflow-wrap:anywhere; }
+.teacher-evidence { padding:14px 16px; border-radius:10px; background:var(--mk-surface); margin:4px 0; overflow-wrap:anywhere; }
+.teacher-writing-original .teacher-evidence, .teacher-panel .teacher-evidence { background:var(--mk-paper); }
 .teacher-evidence p { line-height:1.9; }
-.teacher-evidence p.italic { font-style:normal; font-size:18px; line-height:1.9; }
+.teacher-evidence p.italic { font-style:normal; font-size:16px; line-height:1.9; }
 .teacher-takeaway { padding:26px 32px; margin-top:28px; border-radius:3px 20px 20px 20px; background:var(--mk-accent-50); }
 .teacher-takeaway>p:first-of-type { font-size:17px; line-height:1.9; }
 .teacher-record-section .text-mk-body { line-height:1.95; }

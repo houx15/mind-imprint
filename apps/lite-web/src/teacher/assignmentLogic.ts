@@ -22,6 +22,7 @@ import type {
   RecipientReading,
   ReturnRecipientInput,
 } from "../api/assignments";
+import type { GradingRow } from "../api/gradings";
 import type { LibraryArticle, LibraryTag } from "../api/library";
 import type { RosterRow } from "../api/teacher";
 import { beijingInputToISO, type AssignmentStatus } from "../shared/deadline";
@@ -778,6 +779,88 @@ export function recipientProgressText(
   if (kind === "writing" && r.versionCount === 0) parts.push("未提交");
   parts.push(r.activeMinutes > 0 ? `${r.activeMinutes} 分钟` : "不到 1 分钟");
   return parts.join(" · ");
+}
+
+/**
+ * A reading recipient marked finished (已完成 / 逾期完成) who did not walk
+ * every step of her plan. Before 2026-09-17 she looked the same in the
+ * 学习进度 cell as one who read everything (the prod walk: 已完成 after 3 of
+ * 14 steps).
+ */
+export function readingUnfinished(
+  kind: AssignmentKind,
+  r: Pick<RecipientDTO, "atomId" | "status" | "stepsDone" | "stepsTotal">,
+): boolean {
+  return (
+    kind === "reading" &&
+    r.atomId !== null &&
+    (r.status === "done" || r.status === "done_late") &&
+    r.stepsTotal > 0 &&
+    r.stepsDone < r.stepsTotal
+  );
+}
+
+/** The 学习进度 cell: `recipientProgressText`, plus 「未读完」 after the steps
+ *  and `warn` set when `readingUnfinished`. */
+export function recipientProgress(
+  kind: AssignmentKind,
+  r: Pick<
+    RecipientDTO,
+    "atomId" | "status" | "activeMinutes" | "stepsDone" | "stepsTotal" | "versionCount" | "latestWordCount"
+  >,
+  targetWords: number | null = null,
+): { text: string; warn: boolean } {
+  const text = recipientProgressText(kind, r, targetWords);
+  if (!readingUnfinished(kind, r)) return { text, warn: false };
+  const steps = `${r.stepsDone}/${r.stepsTotal} 步`;
+  return { text: `${steps} · 未读完${text.slice(steps.length)}`, warn: true };
+}
+
+/** The line beside 发布作业: who gets it and when it is due, from the draft.
+ *  `dueInput` is the form's `YYYY-MM-DDTHH:mm` (Beijing); a malformed or
+ *  empty one reads 截止时间待填写. */
+export function publishSummary(className: string, students: number, dueInput: string): string {
+  const who = students > 0 ? `发给${className ? `「${className}」` : ""} ${students} 名学生` : "待选择学生";
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(dueInput);
+  const due = m && beijingInputToISO(dueInput) ? `截止 ${Number(m[2])}月${Number(m[3])}日 ${m[4]}:${m[5]}` : "截止时间待填写";
+  return `${who} · ${due}`;
+}
+
+/** The four groups the progress summary shows. 已退回 counts as 进行中 (she is
+ *  revising), 逾期完成 and 已重新提交 as 已完成. */
+export interface ProgressCounts {
+  total: number;
+  notStarted: number;
+  inProgress: number;
+  done: number;
+  overdue: number;
+}
+
+export function progressFromCounts(counts: Partial<Record<AssignmentStatus, number>>): ProgressCounts {
+  const n = (s: AssignmentStatus) => counts[s] ?? 0;
+  const out = {
+    notStarted: n("not_started"),
+    inProgress: n("in_progress") + n("returned"),
+    done: n("done") + n("done_late") + n("resubmitted"),
+    overdue: n("overdue"),
+  };
+  return { ...out, total: out.notStarted + out.inProgress + out.done + out.overdue };
+}
+
+/** Per-status counts of the recipients on the detail page, in the list DTO's
+ *  shape, so both pages summarise through `progressFromCounts`. */
+export function countStatuses(recipients: readonly Pick<RecipientDTO, "status">[]): Record<AssignmentStatus, number> {
+  const out = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<AssignmentStatus, number>;
+  for (const r of recipients) {
+    if (Object.prototype.hasOwnProperty.call(out, r.status)) out[r.status] += 1;
+  }
+  return out;
+}
+
+/** 待批改 on a writing homework: she has submitted a version and no grading
+ *  of it has been sent to her yet (none started, queued, a draft, failed). */
+export function toGradeCount(rows: readonly Pick<GradingRow, "version" | "grading">[]): number {
+  return rows.filter((r) => r.version !== null && r.grading?.status !== "sent").length;
 }
 
 export function recipientReadingText(reading: RecipientReading | null): string {

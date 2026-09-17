@@ -8,7 +8,7 @@ import { assignmentCardRows, classSnapshotView, studentRows, studentsCardTitle, 
 // canvas. `StudentsCard` is shared by the homework card and the class
 // conversation; the other two are the class conversation's (§12.5).
 
-const CARD = "rounded-mk-md border border-mk-border bg-mk-paper p-3";
+const CARD = "teacher-panel";
 
 export function StudentsCard({ card }: { card: WorkspaceCard }) {
   const rows = studentRows(card.rows);
@@ -38,14 +38,14 @@ function SnapshotGroup({
   onOpenStudent: (userId: string) => void;
 }) {
   return (
-    <GroupShell title={title} empty={rows.length === 0}>
+    <GroupShell title={title} count={rows.length} emptyText="暂无">
       {rows.map((c) => (
         <button
           key={`${c.userId}:${c.code}`}
           type="button"
           disabled={!c.userId}
           onClick={() => onOpenStudent(c.userId)}
-          className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+          className="w-full rounded-mk-md border border-transparent bg-mk-paper p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         >
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-mk-body font-bold text-mk-ink">{c.name}</span>
@@ -70,7 +70,7 @@ export function ClassSnapshotCard({
   return (
     <div className={CARD}>
       <p className="text-mk-label font-bold text-mk-muted">本周概况</p>
-      <div className="mt-2 flex flex-wrap gap-3">
+      <div className="teacher-facts">
         <FactTile label="活跃学生" value={`${v.activeStudents}/${v.classSize} 人`} />
         <FactTile label="完成项目数" value={`${v.finished} 项`} />
         <FactTile label="作业完成率" value={v.assignmentRate < 0 ? "—" : `${v.assignmentRate}%`} />
@@ -101,7 +101,7 @@ export function AssignmentsCard({
               key={a.id}
               type="button"
               onClick={() => onOpenAssignment(a.id)}
-              className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              className="w-full rounded-mk-md border border-transparent bg-mk-paper p-3 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
             >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 {a.kindLabel && <span className="text-mk-small text-mk-muted">{a.kindLabel}</span>}

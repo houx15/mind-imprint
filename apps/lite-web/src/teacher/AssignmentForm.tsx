@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { Button } from "@/ui";
 import { api, type ClassSummary } from "@/api";
 import { createAssignment, extractWritingFields, type AssignmentKind } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
@@ -14,7 +13,7 @@ import { LibraryPicker } from "./LibraryPicker";
 import { PersonalizedPicker } from "./PersonalizedPicker";
 import { RubricFields } from "./RubricFields";
 import { rubricDefaultNote } from "./rubricLogic";
-import { StudioEmpty } from "./StudioArtwork";
+import { BackLink, FormStep, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import { UploadSourceField } from "./UploadSourceField";
 import { DateField } from "./controls/DateField";
@@ -30,6 +29,7 @@ import {
   fillTitleIfEmpty,
   initialRecipients,
   pickClassId,
+  publishSummary,
   readAssignmentMode,
   readLastClassId,
   toggleId,
@@ -421,26 +421,24 @@ export function AssignmentForm({
 
   const header = (
     <>
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={ArrowLeft} size={15} />
-        返回
-      </button>
+      <BackLink label="返回作业" onClick={onBack} />
 
-      <h1 className="teacher-page-title mt-4">布置作业</h1>
-      <p className="mt-2 text-mk-small text-mk-muted">学生会在收件箱和对应页面顶部看到这份作业。</p>
+      <StudioHeading
+        kicker="作业"
+        title="布置作业"
+        description={
+          mode === "ai"
+            ? "作业会显示在学生首页和收件箱。请在右侧向印记说明要求，印记填写左侧的作业卡，发布前可修改。"
+            : "作业会显示在学生首页和收件箱。请按顺序填写四项内容，然后发布。"
+        }
+        kind="ideas"
+        actions={<Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />}
+      />
       {preselectNote && (
-        <p className="mt-2 text-mk-small font-semibold text-mk-accent-700" role="status">
+        <p className="mb-2 text-mk-small font-semibold text-mk-accent-700" role="status">
           {preselectNote}
         </p>
       )}
-
-      <div className="mt-4">
-        <Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />
-      </div>
     </>
   );
 
@@ -465,85 +463,106 @@ export function AssignmentForm({
     );
   }
 
+  const className = classes?.find((c) => c.id === draft.classId)?.name ?? "";
+
   return (
     <TeacherPage width="narrow">
       {header}
 
       {classesError ? (
-        <div className="mt-6 text-mk-small font-semibold text-mk-danger">
-          加载失败：{classesError}{" "}
-          <button type="button" onClick={() => setClassesNonce((n) => n + 1)} className="cursor-pointer underline">
-            重试
-          </button>
-        </div>
+        <StudioError message={classesError} onRetry={() => setClassesNonce((n) => n + 1)} />
       ) : classes === null ? (
-        <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
+        <StudioLoading />
       ) : classes.length === 0 ? (
-        <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
+        <StudioEmpty kind="discovery" title="暂无班级">
+          布置作业需要先有班级。请联系管理员为你分配班级。
+        </StudioEmpty>
       ) : (
         <form
           // noValidate: the browser's own tooltips (type=url, number min)
           // would block submit before buildCreateInput shows its message.
           noValidate
-          className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6"
+          className="teacher-form-card"
           onSubmit={(e) => {
             e.preventDefault();
             void submit();
           }}
         >
-          <Field label="班级">
-            <Select value={draft.classId} onChange={changeClass} options={classes.map((c) => ({ value: c.id, label: c.name }))} />
-          </Field>
+          <FormStep index={1} title="班级与类型" note="类型决定下面要填写的材料。">
+            <Field label="班级">
+              <Select value={draft.classId} onChange={changeClass} options={classes.map((c) => ({ value: c.id, label: c.name }))} />
+            </Field>
+            <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
+          </FormStep>
 
-          <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
+          <FormStep index={2} title="标题与说明" note="显示在学生的作业卡上。">
+            <Field label="标题">
+              <input
+                value={draft.title}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                maxLength={200}
+                className={INPUT_CLS}
+              />
+            </Field>
 
-          <Field label="标题">
-            <input
-              value={draft.title}
-              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-              maxLength={200}
-              className={INPUT_CLS}
+            <Field label="说明">
+              <textarea
+                value={draft.instructions}
+                onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value }))}
+                rows={3}
+                className={INPUT_CLS}
+              />
+            </Field>
+          </FormStep>
+
+          <FormStep
+            index={3}
+            title={draft.kind === "reading" ? "阅读材料" : draft.kind === "writing" ? "写作要求" : "项目要求"}
+            note={
+              draft.kind === "reading"
+                ? "从分级阅读库选择文章，或提供链接、正文、文档。"
+                : draft.kind === "writing"
+                  ? "题目、字数与评分标准，AI 批改时使用。"
+                  : "驱动问题是学生立项的起点。"
+            }
+          >
+            <SettingsFields
+              value={draft}
+              onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))}
+              onExtractedTitle={(title) => setDraft((d) => ({ ...d, title: fillTitleIfEmpty(d.title, title) }))}
+              classId={draft.classId}
+              recipientIds={draft.userIds}
             />
-          </Field>
+          </FormStep>
 
-          <Field label="说明">
-            <textarea
-              value={draft.instructions}
-              onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value }))}
-              rows={3}
-              className={INPUT_CLS}
+          <FormStep index={4} title="学生与截止时间" note="默认选中班级全部学生。">
+            <Field label="截止时间（北京时间）">
+              <DateField withTime shortcuts value={draft.dueInput} onChange={(dueInput) => setDraft((d) => ({ ...d, dueInput }))} />
+            </Field>
+
+            <RecipientChecklist
+              roster={roster}
+              error={rosterError}
+              onRetry={() => setRosterNonce((n) => n + 1)}
+              selected={draft.userIds}
+              onChange={(userIds) => setDraft((d) => ({ ...d, userIds }))}
             />
-          </Field>
+          </FormStep>
 
-          <Field label="截止时间（北京时间）">
-            <DateField withTime shortcuts value={draft.dueInput} onChange={(dueInput) => setDraft((d) => ({ ...d, dueInput }))} />
-          </Field>
-
-          <SettingsFields
-            value={draft}
-            onChange={(update) => setDraft((d) => ({ ...d, ...update(d) }))}
-            onExtractedTitle={(title) => setDraft((d) => ({ ...d, title: fillTitleIfEmpty(d.title, title) }))}
-            classId={draft.classId}
-            recipientIds={draft.userIds}
-          />
-
-          <RecipientChecklist
-            roster={roster}
-            error={rosterError}
-            onRetry={() => setRosterNonce((n) => n + 1)}
-            selected={draft.userIds}
-            onChange={(userIds) => setDraft((d) => ({ ...d, userIds }))}
-          />
-
-          <div className="flex flex-wrap items-center gap-3 border-t border-mk-border pt-4">
-            <Button type="submit" variant="primary" disabled={busy}>
-              {busy ? "发布中" : "发布作业"}
-            </Button>
-            {message && (
-              <span className="text-mk-small font-semibold text-mk-danger" role="alert">
-                {message}
-              </span>
-            )}
+          <div className="teacher-publish-bar">
+            <p>
+              <strong>{publishSummary(className, draft.userIds.length, draft.dueInput)}</strong>
+              {message && (
+                <span className="mt-1 block font-semibold text-mk-danger" role="alert">
+                  {message}
+                </span>
+              )}
+            </p>
+            <div>
+              <Button type="submit" variant="primary" disabled={busy}>
+                {busy ? "发布中" : "发布作业"}
+              </Button>
+            </div>
           </div>
         </form>
       )}
@@ -583,16 +602,11 @@ export function RecipientChecklist({
         )}
       </div>
       {error ? (
-        <div className="text-mk-small font-semibold text-mk-danger">
-          加载失败：{error}{" "}
-          <button type="button" onClick={onRetry} className="cursor-pointer underline">
-            重试
-          </button>
-        </div>
+        <StudioError message={error} onRetry={onRetry} />
       ) : roster === null ? (
-        <div className="text-mk-small text-mk-muted">加载中…</div>
+        <StudioLoading />
       ) : roster.length === 0 ? (
-        <div className="text-mk-small text-mk-muted">暂无学生</div>
+        <div className="text-mk-small text-mk-muted">本班暂无学生。学生凭邀请码加入后才能布置。</div>
       ) : (
         <StudentChecklist students={roster} selected={selected} onToggle={(id) => onChange(toggleId(selected, id))} />
       )}

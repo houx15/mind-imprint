@@ -1,9 +1,8 @@
 import { ReportVisualSummary } from "../reports/ReportVisualSummary";
 import { ProjectProgressVisual } from "../projects/ProjectProgressVisual";
-import { StudioHeading } from "./StudioArtwork";
+import { BackLink, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { Button } from "@/ui";
 import { ApiError } from "../api/client";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, getItemVersion, type ItemDetail } from "../api/teacher";
@@ -133,24 +132,12 @@ export function ItemPage({
 
   return (
     <TeacherPage>
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={ArrowLeft} size={15} />
-        返回
-      </button>
+      <BackLink label="返回学生" onClick={onBack} />
 
       {error ? (
-        <div className="mt-4 text-mk-small font-semibold text-mk-danger">
-          加载失败：{error}{" "}
-          <button type="button" onClick={() => setNonce((n) => n + 1)} className="cursor-pointer underline">
-            重试
-          </button>
-        </div>
+        <StudioError message={error} onRetry={() => setNonce((n) => n + 1)} />
       ) : detail === null ? (
-        <div className="mt-4 text-mk-body text-mk-muted">加载中…</div>
+        <StudioLoading />
       ) : (
         <ItemBody
           classId={classId}
@@ -274,15 +261,20 @@ function ItemBody({
   const showOriginal = documentView?.id === item.atomId && documentView.original;
   return (
     <>
-      <StudioHeading label={`${kindLabel(item.kind)} · 学习成果`} title={item.title} kind={item.kind === "reading" ? "keepsake" : item.kind} />
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-muted">
-        <span>{itemStatusLabel(item.kind, item.status)}</span>
-        <span>时长 {formatMinutes(item.minutes)}</span>
-        <span>对话 {item.turns} 轮</span>
-        {/* 没完成的项目没有完成日期：不留一个没有标签的「—」。 */}
-        {item.finishedAt ? <span>完成于 {shortDate(item.finishedAt)}</span> : null}
-      </p>
-      <p className="mt-3 text-mk-small text-mk-muted">对话内容不向教师展示；以下为学生的产出。</p>
+      <StudioHeading
+        kicker={`${kindLabel(item.kind)} · 学习成果`}
+        title={item.title}
+        kind={item.kind === "reading" ? "keepsake" : item.kind}
+        description="对话内容不向教师展示，以下为学生的产出。"
+      >
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-mk-small text-mk-muted">
+          <span className="teacher-status-pill">{itemStatusLabel(item.kind, item.status)}</span>
+          <span>时长 {formatMinutes(item.minutes)}</span>
+          <span>对话 {item.turns} 轮</span>
+          {/* 没完成的项目没有完成日期：不留一个没有标签的「—」。 */}
+          {item.finishedAt ? <span>完成于 {shortDate(item.finishedAt)}</span> : null}
+        </p>
+      </StudioHeading>
 
       {detail.writing && (
         <nav className="teacher-writing-views" aria-label="写作成果视图">
@@ -303,7 +295,7 @@ function ItemBody({
         proseError={proseError}
       />
       <ReadingSection reading={detail.reading} keep={detail.report?.keep ?? null} />
-      <WritingSection writing={detail.writing} />
+      <WritingSection writing={detail.writing} onShowOriginal={() => setDocumentView({ id: item.atomId, original: true })} />
       <ProjectSection project={detail.project} />
       </>}
     </>
@@ -496,6 +488,8 @@ function ReportSection({
     .filter((s) => s.value !== 0)
     .map((s) => displayStat({ key: s.key, label: s.key, value: s.value, unit: s.unit } as ReportStat, kind));
   const pendingLabel = prosePendingLabel(report.prosePending, retriedProse);
+  const hasStats = stats.some((st) => Number.isFinite(st.value) && st.value > 0);
+  if (!hasStats && report.moments.length === 0 && !report.keep && !pendingLabel && !proseError) return null;
 
   return (
     <section className="teacher-record-section">
@@ -532,8 +526,11 @@ function ReportSection({
           报告加载失败：{proseError}
         </p>
       ) : pendingLabel ? (
-        <p className="mt-3 text-mk-small text-mk-muted" role="status" aria-live="polite">
-          {pendingLabel}
+        <p className="mt-3" role="status" aria-live="polite">
+          <span className="teacher-status-pill">
+            {report.prosePending && !retriedProse && <span className="mk-think-dot" />}
+            {pendingLabel}
+          </span>
         </p>
       ) : null}
     </section>
@@ -611,9 +608,10 @@ function ReadingSection({
   );
 }
 
-function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
+function WritingSection({ writing, onShowOriginal }: { writing: ItemDetail["writing"]; onShowOriginal: () => void }) {
   if (!writing) return null;
   const { targetWords, lang, structureKey, outline, snippets, comments } = writing;
+  const empty = outline.length === 0 && snippets.length === 0 && comments.length === 0;
   return (
     <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">写作过程</h2>
@@ -623,6 +621,14 @@ function WritingSection({ writing }: { writing: ItemDetail["writing"] }) {
         <span>语言 {langLabel(lang)}</span>
         {structureKey && <details><summary className="cursor-pointer">查看历史结构标识</summary>{structureKey}</details>}
       </div>
+
+      {empty && (
+        <div className="mt-4">
+          <StudioEmpty kind="writing" title="暂无写作过程" action={{ label: "查看写作原文", onClick: onShowOriginal }}>
+            学生写作时的提纲、片段和 AI 批注会显示在这里。正文在「写作原文」中查看。
+          </StudioEmpty>
+        </div>
+      )}
 
       {outline.length > 0 && (
         <div className="mt-4">

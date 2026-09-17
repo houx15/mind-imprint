@@ -1,12 +1,16 @@
-import { ArrowLeft } from "lucide-react";
-import { Icon } from "@/ui";
+import { useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { Button, Icon } from "@/ui";
+import { api } from "@/api";
 import { classCardProse, getClassWeekly, postClassWeeklyProse, type ClassWeekCard, type ClassWeeklyProse } from "../api/weekly";
+import bookmark from "../home/assets/yinji-bookmark.webp";
 import { formatMinutes } from "./format";
-import { canGoNext, shiftWeek } from "./weekNav";
+import { canGoNext, shiftWeek, splitWeekTitle } from "./weekNav";
 import { useWeekly } from "./useWeekly";
 import { cardShowsProse } from "./classWeeklyLogic";
 import { TeacherPage } from "./TeacherPage";
-import { CardTag, FactTile, GroupShell, LoadFailed, ProseStatus, WeekHeader } from "./WeekSummaryCard";
+import { BackLink, StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
+import { CardTag, FactTile, GroupShell, ProseStatus, WeekNav } from "./WeekSummaryCard";
 
 /**
  * ClassWeeklyPage — `/classes/:classId/weekly`. The class's week: stat tiles,
@@ -16,7 +20,8 @@ import { CardTag, FactTile, GroupShell, LoadFailed, ProseStatus, WeekHeader } fr
  * prose request; before it lands the card shows the rule's evidence only.
  *
  * The title comes from the API (上周班级周报 · … for the latest completed week,
- * 班级周报 · … for an earlier one). Prose renders as plain text.
+ * 班级周报 · … for an earlier one): its head is the page title, the week
+ * label sits beside the week arrows. Prose renders as plain text.
  *
  * The shell keys this page by class id.
  */
@@ -24,10 +29,14 @@ export function ClassWeeklyPage({
   classId,
   onBack,
   onOpenStudent,
+  onOpenChat,
+  onNewAssignment,
 }: {
   classId: string;
   onBack: () => void;
   onOpenStudent: (userId: string) => void;
+  onOpenChat?: () => void;
+  onNewAssignment?: () => void;
 }) {
   const w = useWeekly({
     scope: classId,
@@ -37,36 +46,68 @@ export function ClassWeeklyPage({
   });
   const { data } = w;
 
+  // The class name is the kicker only; on failure the kicker says 班级周报.
+  const [className, setClassName] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getClass(classId)
+      .then((d) => {
+        if (!cancelled) setClassName(d.class.name);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
+
+  const { head, label } = splitWeekTitle(data?.title ?? "", data?.weekLabel ?? "");
+  const title = head.replace(/\s*·\s*$/, "") || "班级周报";
+
   return (
     <TeacherPage width="wide">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 rounded-mk-sm text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={ArrowLeft} size={15} />
-        返回
-      </button>
+      <BackLink label="返回班级" onClick={onBack} />
 
-      <div className="mt-4">
-        <WeekHeader
-          title={data?.title ?? null}
-          weekLabel={data?.weekLabel ?? ""}
-          level="h1"
-          onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
-          onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
-        />
-      </div>
+      <StudioHeading
+        kicker={className ?? "班级周报"}
+        title={title}
+        description="按周汇总本班的学习记录，并列出值得表扬和需要沟通的学生。"
+        kind="quest"
+        actions={
+          <>
+            <WeekNav
+              label={label || data?.weekLabel || ""}
+              onPrev={data?.hasPrev ? () => w.goToWeek(shiftWeek(data.weekStart, -7)) : undefined}
+              onNext={data && canGoNext(data.weekStart, data.isLatest) ? () => w.goToWeek(shiftWeek(data.weekStart, 7)) : undefined}
+            />
+            {onOpenChat && (
+              <Button variant="secondary" size="sm" onClick={onOpenChat}>
+                询问印记
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {w.notStarted ? (
-        <p className="mt-4 text-mk-body text-mk-muted">{w.notStarted}</p>
+        <StudioEmpty kind="quest" title="暂无周报">
+          {w.notStarted}
+        </StudioEmpty>
       ) : w.loadError ? (
-        <LoadFailed message={w.loadError} onRetry={w.reload} />
+        <StudioError message={w.loadError} onRetry={w.reload} />
       ) : data === null ? (
-        <p className="mt-4 text-mk-body text-mk-muted">加载中…</p>
+        <StudioLoading />
+      ) : data.empty ? (
+        <StudioEmpty
+          kind="discovery"
+          title="该周没有学习记录"
+          action={onNewAssignment ? { label: "布置作业", onClick: onNewAssignment } : undefined}
+        >
+          {`本班 ${data.stats.classSize} 名学生在这一周没有使用平台。周报在有学习记录后生成。请布置作业，或查看其他周。`}
+        </StudioEmpty>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="teacher-facts">
             <FactTile label="活跃学生" value={`${data.stats.activeStudents}/${data.stats.classSize} 人`} />
             <FactTile label="学习时长" value={formatMinutes(data.stats.minutes)} />
             <FactTile label="对话轮次" value={`${data.stats.turns} 轮`} />
@@ -77,12 +118,16 @@ export function ClassWeeklyPage({
             />
           </div>
 
-          <section className="mt-8 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-5">
-            <h2 className="text-mk-h3 text-mk-ink">班级点评</h2>
+          <section className="teacher-panel mt-6">
+            <div className="teacher-prose-head">
+              <img src={bookmark} alt="" />
+              <div>
+                <h2 className="teacher-panel-title">班级点评</h2>
+                <p>印记根据本周的学习记录整理</p>
+              </div>
+            </div>
             {data.prose ? (
-              <p className="mt-2 whitespace-pre-wrap text-mk-body text-mk-ink">{data.prose.comment}</p>
-            ) : data.empty ? (
-              <p className="mt-2 text-mk-body text-mk-muted">该周没有学习记录</p>
+              <p className="mt-3 whitespace-pre-wrap text-mk-body leading-relaxed text-mk-ink">{data.prose.comment}</p>
             ) : (
               <ProseStatus state={w.prose} onRetry={w.retryProse} />
             )}
@@ -91,6 +136,7 @@ export function ClassWeeklyPage({
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <StudentGroup
               title="值得表扬"
+              emptyText="本周暂无值得表扬的学生"
               cards={data.praise}
               prose={data.prose}
               watchUserIds={new Set(data.watch.map((c) => c.userId))}
@@ -98,6 +144,7 @@ export function ClassWeeklyPage({
             />
             <StudentGroup
               title="需要建议"
+              emptyText="本周暂无需要沟通的学生"
               cards={data.watch}
               prose={data.prose}
               watchUserIds={new Set(data.watch.map((c) => c.userId))}
@@ -112,12 +159,14 @@ export function ClassWeeklyPage({
 
 function StudentGroup({
   title,
+  emptyText,
   cards,
   prose,
   watchUserIds,
   onOpenStudent,
 }: {
   title: string;
+  emptyText: string;
   cards: ClassWeekCard[];
   prose: ClassWeeklyProse | null;
   /** Students with a watch card: their lead and action go there only. */
@@ -125,7 +174,7 @@ function StudentGroup({
   onOpenStudent: (userId: string) => void;
 }) {
   return (
-    <GroupShell title={title} empty={cards.length === 0}>
+    <GroupShell title={title} count={cards.length} emptyText={emptyText}>
       {cards.map((c) => {
         const written = cardShowsProse(c.kind, c.userId, watchUserIds) ? classCardProse(prose, c.userId) : null;
         return (
@@ -133,13 +182,14 @@ function StudentGroup({
             key={`${c.userId}:${c.code}`}
             type="button"
             onClick={() => onOpenStudent(c.userId)}
-            className="w-full rounded-mk-md border border-mk-border bg-mk-surface p-3.5 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+            className="teacher-week-student"
           >
             <div className="flex flex-wrap items-center gap-2">
+              <span className="teacher-avatar">{Array.from(c.name)[0]}</span>
               <span className="text-mk-body font-bold text-mk-ink">{c.name}</span>
               <CardTag kind={c.kind} label={c.label} />
             </div>
-            <p className="mt-1.5 text-mk-small text-mk-muted">{c.evidence}</p>
+            <p className="mt-2 text-mk-small text-mk-muted">{c.evidence}</p>
             {written && (
               <>
                 <p className="mt-2 whitespace-pre-wrap text-mk-small text-mk-ink">{written.lead}</p>
@@ -149,6 +199,10 @@ function StudentGroup({
                 </p>
               </>
             )}
+            <span className="teacher-week-student-open">
+              查看学生
+              <Icon icon={ArrowRight} size={14} />
+            </span>
           </button>
         );
       })}
