@@ -121,3 +121,45 @@ func TestOrderBoardDroppedOnArgument(t *testing.T) {
 		t.Errorf("议论文上发出了排序板：%s", rec2s(out))
 	}
 }
+
+// 🚨 导读整份作废的时候，体裁那一个词必须留下。
+//
+// 2026-09-18 实测（TestLiveGenreRoutesEachArticle，那篇故事）：模型把 oneLine
+// 写成了英文，整份导读因此被丢掉 —— 而体裁就搭在那一份里，于是带读那一侧读回来
+// 是空的，一篇记叙文按议论文带。导读是**摆给她看的**（写错语言就等于不存在），
+// 体裁是**给系统看的一个词**，两样东西的判据不该绑在一起。
+func TestGenreSurvivesARejectedOutline(t *testing.T) {
+	// oneLine 是英文 → 导读整份作废；genre 仍然是 narrative。
+	const plan = `{"genre":"narrative","routineKey":"en-narrative","focusBlocks":["b2"],
+	  "steps":[{"kind":"read","detail":"先把故事看完。"}],
+	  "oneLine":"What made her change her mind","gist":"一个女孩三次错过末班车。",
+	  "shape":"错过 → 被等 → 还钱","load":{"b1":"core","b2":"support"},"parts":[]}`
+	h, cookie, q, _ := liteHandlerWithProvider(t, writingTextStubProvider(plan))
+	id := createReadingAtom(t, h, cookie)
+	putReadingSourceHTTP(t, h, cookie, id, "The Last Bus Home",
+		"Mei had missed the last bus twice that winter.\n\nOn the third night, the driver saw her running and waited.")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings/"+id+"/plan", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("排读法失败：%d %s", rec.Code, rec.Body)
+	}
+	src, err := q.GetReadingSource(context.Background(), uuid.MustParse(id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Genre   string `json:"genre"`
+		OneLine string `json:"oneLine"`
+	}
+	if err := json.Unmarshal(src.Outline, &got); err != nil {
+		t.Fatalf("存下来的导读读不出来：%s", src.Outline)
+	}
+	if got.Genre != "narrative" {
+		t.Errorf("体裁没留下：%s", src.Outline)
+	}
+	// 她的地图确实作废了 —— 留下的只有那一个词，导读卡因此照样不显示。
+	if got.OneLine != "" {
+		t.Errorf("作废的导读被存进去了：%s", src.Outline)
+	}
+}

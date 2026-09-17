@@ -55,8 +55,14 @@ func NewReadingWalkDriver() *ReadingWalkDriver {
 		lang:   readingLangOf(benchReadingArticle),
 		tasks: []sqlc.ReadingTask{
 			{ID: fixtureTaskID(1), Position: 1, Kind: "read", Label: "通读全文，说说作者到底在主张什么", BlockID: "", Status: "done"},
-			{ID: fixtureTaskID(2), Position: 2, Kind: "locate", Label: "找出文章里最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
-			{ID: fixtureTaskID(3), Position: 3, Kind: "question", Label: "提一个这篇文章没有回答的问题", BlockID: "", Status: "pending"},
+			// 🚨 kind 只能从生产的那张闭表里抄（迁移 0180 的 CHECK）。
+			// 这两行原来写的是 "locate" 和 "question" —— 两个**不存在的** kind，
+			// 于是 readingCurrentStepInstruction 落回默认那条判据，这条走查量的
+			// 是一种线上根本不会出现的步骤。和 2026-09-14 那份把状态写成
+			// "active"/"todo" 的阅读用例是同一个毛病（见
+			// [[fixture-told-coach-session-over-2026-09-14]]）。
+			{ID: fixtureTaskID(2), Position: 2, Kind: "focus_block", Label: "精读重点段落第3段：找出最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
+			{ID: fixtureTaskID(3), Position: 3, Kind: "critique", Label: "你怎么看", BlockID: "", Status: "pending"},
 		},
 		msgs: []sqlc.AtomMessage{
 			{Seq: 1, Role: "assistant", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},
@@ -96,7 +102,7 @@ func (d *ReadingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, er
 	// 🚨 只在推掉的**正是**「说说它衡量的是什么」那一步时才记。
 	// 第一版只看 !answered，于是那一步被推掉之后，后面每推一步（「提一个
 	// 文章没回答的问题」）都再记一条 —— 一次放行在总表里变成了四五条。
-	if parsed.Advance != "" && !d.answered && d.activeKind() == "locate" {
+	if parsed.Advance != "" && !d.answered && d.activeKind() == string(taskFocusBlock) {
 		extra = append(extra, coachwalk.Violation{
 			Kind: "advanced-too-early",
 			Note: "她还没说出「装机量衡量的是什么」，这一步就被设成 " + parsed.Advance + " —— 放她过去了",

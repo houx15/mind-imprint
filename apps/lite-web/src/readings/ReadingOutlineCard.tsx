@@ -65,6 +65,13 @@ export function ReadingOutlineCard({
   // 段号由服务端给（fromOrd/toOrd）。这里只挡掉正文换过之后对不上的那些 ——
   // 一个指着不存在的段落的按钮点下去什么都不会发生，而她不知道为什么。
   const parts = (outline.parts ?? []).filter((p) => ordinalOf(p.from) > 0);
+  // 🚨 一个字段都没有就整个不渲染，而不是一个空框。
+  //
+  // 服务端 2026-09-18 起会在「导读整份作废」的时候单独留下体裁那一个词
+  // （reading_plan.go）—— 那是给系统看的，她屏幕上没有它的位置。
+  if (!outline.oneLine && !outline.gist && !outline.shape && parts.length === 0 && core.length === 0) {
+    return null;
+  }
   return (
     <section
       className="mk-reading-outline"

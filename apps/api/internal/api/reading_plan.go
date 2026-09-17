@@ -592,6 +592,27 @@ func (a *API) planReadingTasks(
 				return nil, err
 			}
 		}
+	} else if g := validateGenre(plan.Genre); g != "" {
+		// 🚨 **导读整份作废，体裁也要留下。**
+		//
+		// 2026-09-18 实测（TestLiveGenreRoutesEachArticle，那篇故事）：导读因为
+		// oneLine 写成了英文被整份丢掉，而体裁就搭在那一份里 —— 于是带读那一侧
+		// 读回来是空的，一篇记叙文按议论文带。整个体裁那条链子，被一句英文的
+		// 导语拆掉了。
+		//
+		// 两样东西的判据本来就不一样：导读是**摆给她看的**（写错了语言，那份
+		// 地图对她等于不存在），体裁是**给系统看的一个词**，它没有语言可写错。
+		// 所以这里单独存那一个词，别的字段留空 —— 导读卡因此照样不显示
+		// （ReadingOutlineCard 一个字段都没有就整个不渲染）。
+		if raw, merr := json.Marshal(readingOutline{Genre: g}); merr == nil {
+			if _, err := qtx.UpdateReadingSourceOutline(ctx, sqlc.UpdateReadingSourceOutlineParams{
+				AtomID: atomID, Outline: raw,
+			}); err != nil {
+				return nil, err
+			}
+		}
+		slog.Info("reading plan: outline rejected, kept the genre", "atom_id", atomID,
+			"why", string(outlineWhy), "genre", g)
 	} else {
 		// 🚨 理由要写进去。这一行原来只有 atom_id 和段数 —— 于是线上只知道
 		// 「导读又没了」，四种理由分不出来，而它们的修法完全不同。

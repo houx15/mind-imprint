@@ -7,10 +7,11 @@ package api
 //
 // # 为什么必须是实测
 //
-// 体裁（readingOutline.Genre）**不摆在屏幕上**。它管的是给她什么工具：那块
-// 「主张 / 证据 / 限制」的板只在 argument 上成立，而报道上它没有指称对象。
-// 所以模型把一篇报道判成 argument 的样子，和一切正常一模一样 —— 板照常摆出来，
-// 她照常猜，日志里一个字都没有。单元测试只能证明 validateGenre 认得出这四个词。
+// 体裁（readingOutline.Genre）**不摆在屏幕上**。它管的是整份读法和她手上的板：
+// 报道排的是「分清事实与说法 + 排时间线」，议论文排的是「拆开作者的论证」。
+// 所以模型把一篇报道判成 argument 的样子，和一切正常一模一样 —— 她被要求去找
+// 一个不存在的主张，而日志里一个字都没有。单元测试只能证明 validateGenre
+// 认得出这四个词。
 //
 // 用的那篇就是同事 2026-09-17 截图里的那一篇（Israel-Hamas 的援助报道）。
 
@@ -64,25 +65,29 @@ func TestLiveReportGenreIsNotAnArgument(t *testing.T) {
 			continue
 		}
 		out, _ := validateOutline(plan.outline(), blocks)
-		hasLabel := false
-		for _, s := range routine.Steps {
-			if s.Kind == taskLabel {
-				hasLabel = true
-			}
-		}
-		t.Logf("sample %d — routine=%s 体裁=%q 标注步=%v", i, routine.Key, out.Genre, hasLabel)
+		// 🚨 读法跟着体裁走（2026-09-17）：这里量的是**服务端定下来的那一套**，
+		// 不是模型挑的那一套。模型挑错了，pickRoutineForGenre 会换掉它 ——
+		// 那正是这条链子该有的样子。
+		fitted := pickRoutineForGenre(routine, out.Genre)
+		t.Logf("sample %d — 模型挑的=%s 最终=%s 体裁=%q", i, routine.Key, fitted.Key, out.Genre)
 		if out.Genre == genreArgument {
 			wrong++
-			t.Logf("sample %d: 一篇报道被判成 %q —— 那块「主张/证据/限制」的板会照常摆给她",
+			t.Logf("sample %d: 一篇报道被判成 %q —— 她会被要求去找一个不存在的主张",
 				i, out.Genre)
+			continue
 		}
-		if hasLabel {
+		// 报道有它自己的板（事实 / 引述 / 解释），所以「有没有标注步」不再是
+		// 判据；判据是**这一套读法服务不服务这个体裁**。
+		if out.Genre != "" && !fitted.serves(out.Genre) {
+			t.Errorf("sample %d: 体裁 %q 最后却排了 %s", i, out.Genre, fitted.Key)
+		}
+		if fitted.Key == "en-report" {
 			labelled++
 		}
 	}
-	t.Logf("RESULT: %d/6 判成了「作者在说服你」· %d/6 的清单上有标注论证", wrong, labelled)
-	// 半数以上认错就是 prompt 没写对。判错的方向是**宁可放过**（见
-	// hasAuthorsArgument），所以这里量的是它错得有多频繁，不是一次都不许错。
+	t.Logf("RESULT: %d/6 判成了「作者在说服你」· %d/6 排上了报道那一套", wrong, labelled)
+	// 半数以上认错就是 prompt 没写对。判错的方向是**宁可放过**（认不出体裁时
+	// 什么都不挡），所以这里量的是它错得有多频繁，不是一次都不许错。
 	if wrong*2 > 6 {
 		t.Errorf("%d/6 把一篇战地报道当成了议论文", wrong)
 	}
