@@ -34,6 +34,7 @@ export const CARD_LABELS: Record<string, string> = {
   short_text: "写一句",
   label_roles: "标注板",
   word_bank: "生词板",
+  order_events: "排序板",
 };
 
 export function transcriptLines(msgs: LiteMessage[]): TranscriptLine[] {

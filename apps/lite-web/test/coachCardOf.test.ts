@@ -38,6 +38,7 @@ describe("coachCardOf 认得服务端会发的每一种卡片", () => {
       { type: "short_text", extra: {} },
       { type: "label_roles", extra: { options: [SPAN], labels: ["主张", "证据"] } },
       { type: "word_bank", extra: { words: [{ blockId: "b2", term: "delivered" }] } },
+      { type: "order_events", extra: { options: [SPAN, SPAN, SPAN] } },
     ];
     for (const c of cards) {
       const got = coachCardOf(msg({ type: c.type, prompt: "问一句话？", ...c.extra }));

@@ -71,6 +71,16 @@ export type ReportToolkit = {
   writings: { tool: string; prompt: string; text: string }[];
 };
 
+/** 阅读报告上「我摆的板」那一节 —— apps/api/internal/api/atom_report_boards.go。
+ *  标题按体裁来（议论文是论证图，报道是事实与来源对照……）。板上的句子是
+ *  **文章的原话**，摆的位置才是她的判断。 */
+export type ReportBoard = {
+  kind: "label" | "order";
+  title: string;
+  groups?: { bin: string; quotes: string[] }[];
+  order?: string[];
+};
+
 /** `liteReportDTO` — apps/api/internal/api/atom_report.go. */
 export type LiteReport = {
   version: 1;
@@ -103,6 +113,9 @@ export type LiteReport = {
   revisedAt?: string;
   /** 段落工具上她做过的事（阅读专属，2026-09-17）。早于这个字段的报告是 null。 */
   toolkit?: ReportToolkit | null;
+  /** 她摆过的板（阅读专属，2026-09-18）。早于这个字段的报告没有这一项；
+   *  规范化之后是空数组，旧的夹具里整个键缺席。 */
+  boards?: ReportBoard[];
   /** The finished piece, in full, HER OWN words — writing-kind only, and
    *  `""` on a writing report generated before the field existed (no
    *  backfill, same as `notes`/`lensNotes`). This is what makes a scanned
@@ -142,8 +155,10 @@ type RawLiteReport = Omit<
   | "turningPoints"
   | "article"
   | "toolkit"
+  | "boards"
 > & {
   toolkit?: Partial<ReportToolkit> | null;
+  boards?: ReportBoard[];
   prosePending?: boolean;
   ordinal?: number;
   turningPoints?: ReportTurningPoint[];
@@ -167,6 +182,7 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     piece: raw.piece ?? "",
     ordinal: raw.ordinal ?? 0,
     turningPoints: raw.turningPoints ?? [],
+    boards: raw.boards ?? [],
     article: raw.article ?? null,
     // 只在服务端给了的时候才带这个键：早于它的报告（以及每一个旧测试夹具）
     // 规范化之后的形状一个键都不多。

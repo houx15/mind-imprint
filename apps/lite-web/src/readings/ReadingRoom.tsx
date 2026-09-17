@@ -31,6 +31,8 @@ import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { PasteFullTextModal } from "./PasteFullTextModal";
+import { SelectionTools } from "./SelectionTools";
+import { ReadingHarvest, harvestBoards, harvestWritings, harvestWords } from "./ReadingHarvest";
 import type { CoachCardAnswer } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
 import { StepIndicator } from "./StepIndicator";
@@ -397,7 +399,16 @@ export function ReadingRoom({
   const [quoted, setQuoted] = useState<QuotedRef[]>([]);
   const selSeq = useRef(0);
 
-  function addSelection(blockId: string, quote: string) {
+  /**
+   * 她在正文里划出的那几个字，以及工具条摆在哪儿。
+   *
+   * 划选同时做两件事：那几个字成为一条引用（下面 addSelection），并且**留在
+   * 屏幕上**，旁边出现一条工具条（查词 / 语法）。见 SelectionTools.tsx。
+   */
+  const [selPick, setSelPick] = useState<{ blockId: string; quote: string; x: number; y: number } | null>(null);
+
+  function addSelection(blockId: string, quote: string, at?: { x: number; y: number }) {
+    setSelPick(at ? { blockId, quote, x: at.x, y: at.y } : null);
     setQuoted((prev) => {
       // Skip an exact-duplicate quote (double drag on the same phrase).
       if (prev.some((q) => q.quote === quote)) return prev;
@@ -495,6 +506,19 @@ export function ReadingRoom({
   const [blockAnchor, setBlockAnchor] = useState<{ id: string; el: HTMLElement; x: number } | null>(null);
   // Set when the coach chose a tool for this turn; consumed once by the panel.
   const [autoTool, setAutoTool] = useState<string | null>(null);
+  /** 带读那一栏手里那份转写。「阅读成果」那一页从它读她摆过的板。 */
+  const [liveMessages, setLiveMessages] = useState<LiteMessage[]>(coachMessages);
+
+  /** 「阅读成果」页签上那个数：她真的产出了几样东西。 */
+  const harvestCount =
+    harvestWords(blockNotes).length +
+    blockNotes.filter((n) => n.grammar && n.subject).length +
+    harvestBoards(liveMessages).length +
+    harvestWritings(liveMessages).length +
+    loop.outcomes.length;
+
+  /** autoTool 要讲的那几个字（她划出来的）。空 = 照旧请她在段落里点一次。 */
+  const [autoSubject, setAutoSubject] = useState<string | null>(null);
 
   // Where the last pointer press landed. `onReferenceBlock` hands over a block
   // id and nothing else, and "near my mouse" needs the mouse — so the position
@@ -506,6 +530,25 @@ export function ReadingRoom({
     };
     window.addEventListener("pointerdown", onDown, true);
     return () => window.removeEventListener("pointerdown", onDown, true);
+  }, []);
+
+  // 选区没了，工具条就跟着走。判据是**选区本身**（她点了别处、按了 Esc、
+  // 又划了一次），不是某一次点击 —— 工具条说的是「对这几个字」，那几个字
+  // 不再高亮着，它就没有了指称对象。
+  useEffect(() => {
+    const onSel = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) setSelPick(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelPick(null);
+    };
+    document.addEventListener("selectionchange", onSel);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("selectionchange", onSel);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   // 一张卡挂到正文上的时候，把右栏切回对话 —— 卡片和印记的话在同一栏里，
@@ -568,7 +611,7 @@ export function ReadingRoom({
    * on every paragraph (Annotate renders it, and `locateBlock` above uses
    * exactly this).
    */
-  function focusBlock(blockId: string, tool?: string) {
+  function focusBlock(blockId: string, tool?: string, subject?: string) {
     const el = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
     if (el) {
@@ -580,6 +623,7 @@ export function ReadingRoom({
     // on — so the panel opens with that tool already running rather than
     // showing her a row of buttons and hoping she presses the right one.
     setAutoTool(tool ?? null);
+    setAutoSubject(subject ?? null);
   }
 
   /**
@@ -590,6 +634,7 @@ export function ReadingRoom({
    */
   function pickBlock(blockId: string) {
     setAutoTool(null);
+    setSelPick(null);
     if (blockAnchor?.id === blockId) {
       setBlockAnchor(null);
       return;
@@ -792,6 +837,23 @@ export function ReadingRoom({
                   <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
                   {loop.status === "idle" && <p className="student-selection-hint">划选文字可引用到对话；点击段落可查看该段的阅读工具</p>}
                 </header>
+                {selPick && (
+                  <SelectionTools
+                    quote={selPick.quote}
+                    at={{ x: selPick.x, y: selPick.y }}
+                    tools={blockTools}
+                    onPick={(toolId) => {
+                      const { blockId, quote } = selPick;
+                      setSelPick(null);
+                      window.getSelection()?.removeAllRanges();
+                      focusBlock(blockId, toolId, quote);
+                    }}
+                    onDismiss={() => {
+                      setSelPick(null);
+                      window.getSelection()?.removeAllRanges();
+                    }}
+                  />
+                )}
                 <Annotate
                   blocks={source.blocks}
                   headingBlockIds={headingBlockIds}
@@ -859,7 +921,11 @@ export function ReadingRoom({
                           ordinal={ordinalOf(blockId)}
                           onToolAnswer={sendToolAnswer}
                           autoTool={autoTool}
-                          onAutoToolConsumed={() => setAutoTool(null)}
+                          autoSubject={autoSubject}
+                          onAutoToolConsumed={() => {
+                            setAutoTool(null);
+                            setAutoSubject(null);
+                          }}
                           onClose={() => {
                             setBlockAnchor(null);
                             setAutoTool(null);
@@ -948,7 +1014,7 @@ export function ReadingRoom({
               onClick={() => setCoachView("outcomes")}
             >
               阅读成果
-              <span className="mk-lite-coachtabs__count">{loop.outcomes.length}</span>
+              <span className="mk-lite-coachtabs__count">{harvestCount}</span>
             </button>
           </div>
 
@@ -956,7 +1022,12 @@ export function ReadingRoom({
               ReadingCoachPanel 手里有她还没发出去的草稿、滚动位置、和一份
               乐观更新的消息列表 —— 卸载它等于她切一下页签就丢一段话。 */}
           <div className={coachView === "outcomes" ? "mk-lite-coachpane mk-lite-coachpane--scroll" : "mk-lite-coachpane mk-lite-coachpane--scroll is-hidden"}>
-            <ReadingOutcomes outcomes={loop.outcomes} onLocate={locateBlock} />
+            <ReadingHarvest
+              notes={blockNotes}
+              messages={liveMessages}
+              outcomes={loop.outcomes}
+              onLocate={locateBlock}
+            />
           </div>
 
           <div className={coachView === "chat" ? "mk-lite-coachpane" : "mk-lite-coachpane is-hidden"}>
@@ -974,6 +1045,7 @@ export function ReadingRoom({
             outline={outline}
             ordinalOf={ordinalOf}
             onLocateBlock={locateBlock}
+            onMessagesChange={setLiveMessages}
             slot={{
               // 🚨 `loop.busy`，不是 `busyOrCarded` —— 一副敞开的透镜不再锁住
               // 这一栏。她在文章里找不到句子的时候得能开口求助。见 `locked`。

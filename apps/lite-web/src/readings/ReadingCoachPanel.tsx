@@ -81,6 +81,7 @@ export function ReadingCoachPanel({
   onLocateBlock,
   toolAnswer,
   onToolAnswerSent,
+  onMessagesChange,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -113,6 +114,9 @@ export function ReadingCoachPanel({
    */
   toolAnswer?: CoachCardAnswer | null;
   onToolAnswerSent?: (ok: boolean) => void;
+  /** 这一栏手里那份转写，报给房间 —— 「阅读成果」那一页要从它读她摆过的板、
+   *  以及她在段落工具底下写的那几段。见 ReadingHarvest.tsx。 */
+  onMessagesChange?: (messages: LiteMessage[]) => void;
   /** 段 id → 第几段。导读卡上的段号按钮要用。没有导读就用不上，所以可选。 */
   ordinalOf?: (blockId: string) => number;
   /** 点导读卡上那个段号，滚到那一段。同上，可选。 */
@@ -376,6 +380,19 @@ export function ReadingCoachPanel({
    *  composer. It goes through the SAME function on purpose: a tap is a turn
    *  like any other, and routing it around send() would leave the guard below
    *  as a trap the next card type walks into. */
+  /** 卡片底下的求助按钮：她说了这句话，一轮普通的话。卡片保持敞开。 */
+  function ask(text: string) {
+    if (busy || slot.locked) return;
+    void turn(text);
+  }
+
+  // 「阅读成果」那一页要读这份转写（她摆过的板、在段落工具底下写的那几段），
+  // 而这份列表的主人是这一栏（乐观更新、失败重发都在这里）。所以往上报一次，
+  // 而不是让房间另存一份会漂开的副本。
+  useEffect(() => {
+    onMessagesChange?.(messages);
+  }, [messages, onMessagesChange]);
+
   function send(tapped?: CoachCardAnswer) {
     const text = draft.trim();
     // pick_in_article is the one card shape that has no button of its own: it
@@ -482,6 +499,7 @@ export function ReadingCoachPanel({
                 stale={cards.stale.has(m.seq)}
                 prefill={cards.prefillBySeq.get(m.seq)}
                 onAnswer={send}
+                onAsk={ask}
               />
             </div>
           ),

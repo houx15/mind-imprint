@@ -53,6 +53,9 @@ const (
 	coachCardShortText     = "short_text"
 	coachCardLabelRoles    = "label_roles"
 	coachCardWordBank      = "word_bank"
+	// order_events —— 排序板：几句写着一件事的原话，她按发生的先后排好。
+	// 只在报道和记叙上发（genreHasOrderBoard），见 reading_genre.go。
+	coachCardOrderEvents = "order_events"
 )
 
 // label_roles 那块板上的格子。**闭表，而且由服务端填** —— 模型只给句子，
@@ -228,6 +231,10 @@ const (
 	cardRejectDeadTurn    cardReject = "the turn hands her nothing to do"
 	cardRejectNoArgument  cardReject = "a 主张/证据/限制 board on an article whose author makes no argument"
 	cardRejectBoardRepeat cardReject = "this article has already had its one 拆开作者的论证 board"
+	// 2026-09-17：体裁各有自己的板之后，cardRejectNoArgument 不再有人发 ——
+	// 留着这个值，是因为老转写的 payload 里存着它（coachMessagePayload.Dropped）。
+	cardRejectOrderNotHere = cardReject("an order_events board on an article that is not a report or narrative, or its third one")
+	cardRejectNoOrderBoard = cardReject("the sequence step needs its order_events board and the reply had none")
 )
 
 // replyLooksCutOff —— 这句话像不像说到一半断掉了。
@@ -272,7 +279,7 @@ var cardFixIt = map[cardReject]string{
 		"问因果（这一步凭什么成立）、或者问边界（它什么时候不成立）。",
 	cardRejectPromptLen: "问题写成一句话，不超过 60 个字。",
 	cardRejectUnknownType: "type 只能是 choose_span / pick_in_article / short_text / " +
-		"label_roles / word_bank 五个之一。",
+		"label_roles / word_bank 五个之一（报道和记叙还可以用 order_events）。",
 	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
 		"她那边什么都没出现。要给就真的给，不给就别提。",
 	cardRejectCutOff: "你上一轮那句话断在半句上，她读到的是半截。" +
@@ -285,6 +292,10 @@ var cardFixIt = map[cardReject]string{
 	cardRejectBoardRepeat: "这篇文章已经摆过标注板了。一篇只摆一次 —— 她摆完之后你觉得" +
 		"有一两张放错，就在话里说清那一句为什么该换个位置，然后推进，不要再发一块" +
 		"让她从头摆一遍。",
+	cardRejectOrderNotHere: "排序板只用在新闻报道和记叙文上，一篇最多两块。这一轮换一种卡片，" +
+		"或者在话里说清楚那几件事的先后。",
+	cardRejectNoOrderBoard: "清单走到了「排出事件顺序」这一步，这一步要用一块 order_events 排序板：" +
+		"从文章里逐字抄 3 到 5 句各写着一件事的原话，放进 options。",
 	cardRejectNoArgument: "这篇文章的作者没有在说服谁（它是报道 / 记叙），" +
 		"所以「主张 / 证据 / 限制」这块板在这篇上没有指称对象 —— 她只能猜。" +
 		"换一种：choose_span（在几句里挑一句）、short_text（请她写一句）、" +
@@ -378,7 +389,7 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	}
 	switch c.Type {
 	case coachCardChooseSpan, coachCardPickInArticle, coachCardShortText,
-		coachCardLabelRoles, coachCardWordBank:
+		coachCardLabelRoles, coachCardWordBank, coachCardOrderEvents:
 	default:
 		return nil, cardRejectUnknownType
 	}
@@ -397,7 +408,7 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		}
 		return &coachCard{Type: c.Type, Prompt: prompt, Words: words}, cardOK
 	}
-	if c.Type != coachCardChooseSpan && c.Type != coachCardLabelRoles {
+	if c.Type != coachCardChooseSpan && c.Type != coachCardLabelRoles && c.Type != coachCardOrderEvents {
 		return &coachCard{Type: c.Type, Prompt: prompt}, cardOK
 	}
 
@@ -459,11 +470,25 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		}
 		out = coachCardPlace(out, o)
 	}
-	if len(out) > coachCardMaxOptions {
-		out = out[:coachCardMaxOptions]
+	maxOpts, minOpts := coachCardMaxOptions, coachCardMinOptions
+	if c.Type == coachCardOrderEvents {
+		maxOpts, minOpts = coachOrderMaxOptions, coachOrderMinOptions
 	}
-	if len(out) < coachCardMinOptions {
+	if len(out) > maxOpts {
+		out = out[:maxOpts]
+	}
+	if len(out) < minOpts {
 		return nil, cardRejectFewOptions
+	}
+	if c.Type == coachCardOrderEvents {
+		// 按原文顺序摆，模型给的那个顺序不能漏到屏幕上。见 orderByArticle。
+		// 题目里写了怎么拖、或者数目对不上，换成标准那一句 —— 同标注板。
+		p := prompt
+		if promptTellsHerHowToDrag(p) || promptCountMismatch(p, len(out)) {
+			p = coachOrderPrompt
+		}
+		return &coachCard{Type: c.Type, Prompt: p,
+			Options: stampOptionWhere(orderByArticle(out, blocks), blocks)}, cardOK
 	}
 	// 🚨 跨段落这一条必须在**截断之后**判，判的是她屏幕上真正会出现的那几条。
 	// 放在截断之前判会这样漏：候选里第 5 条来自另一段，前 4 条全在同一段——
@@ -1080,6 +1105,22 @@ func isRoleLabel(s string) bool {
 		}
 	}
 	return false
+}
+
+// isAnyBoardLabel —— isRoleLabel 加上三种体裁板的格子名。读回转写里她摆过
+// 的板时用它；「题目是不是编了格子名」那条判据仍然只认议论文那几个
+// （labelPromptInventsBins），议论文那条路因此一个字节都不变。
+func isAnyBoardLabel(s string) bool {
+	return isRoleLabel(s) || containsString(genreBoardBins(), strings.TrimSpace(s))
+}
+
+// allBoardLabels —— allRoleLabels 加上三种体裁板的格子名，长的在前。
+func allBoardLabels() []string {
+	out := append(allRoleLabels(), genreBoardBins()...)
+	sort.SliceStable(out, func(i, j int) bool {
+		return len([]rune(out[i])) > len([]rune(out[j]))
+	})
+	return out
 }
 
 // quotedSegments —— 「」『』 里面的东西。

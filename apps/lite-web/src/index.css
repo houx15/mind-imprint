@@ -2762,3 +2762,314 @@
   background: color-mix(in srgb, var(--mk-accent-500) 32%, transparent);
   cursor: not-allowed;
 }
+
+/* ------------------------------------------------------------------------
+ * 排序板（OrderBoard.tsx）：几件事从上到下排成发生的先后。
+ * 编号在左、箭头在右，卡片本身沿用标注板的 chip 样子 —— 她认得出这是同一族东西。
+ * ------------------------------------------------------------------------ */
+.mk-order__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mk-order__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--mk-radius-md);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.mk-order__row.is-armed {
+  border-color: color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
+  border-style: dashed;
+}
+
+.mk-order__row.is-over {
+  border-color: var(--mk-accent-500);
+  background: color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface));
+}
+
+.mk-order__num {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--mk-radius-full);
+  background: var(--mk-accent-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mk-order__chip {
+  flex: 1;
+  min-width: 0;
+}
+
+.mk-order__arrows {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mk-order__arrow {
+  width: 26px;
+  height: 20px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-sm);
+  background: var(--mk-surface);
+  color: var(--mk-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mk-order__arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* 卡片底下的求助按钮（给点提示 / 示范一下）。 */
+.mk-coachcard__asks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mk-coachcard__ask {
+  padding: 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 35%, transparent);
+  border-radius: var(--mk-radius-full);
+  background: var(--mk-surface);
+  color: var(--mk-accent-700);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.mk-coachcard__ask:hover {
+  background: var(--mk-accent-50);
+}
+
+.mk-coachcard__ask:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------------
+ * 划选之后贴着那几个字的工具条（SelectionTools.tsx）。
+ * 2026-09-18：划选原来会把选区清掉，她划出一个词之后既看不见它，也没有地方
+ * 问它是什么意思。
+ * ------------------------------------------------------------------------ */
+.mk-seltools {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-full);
+  background: var(--mk-surface);
+  box-shadow: 0 6px 18px rgba(31, 37, 48, 0.16);
+  transform: translateX(-50%);
+}
+
+.mk-seltools__btn {
+  padding: 3px 11px;
+  border: none;
+  border-radius: var(--mk-radius-full);
+  background: transparent;
+  color: var(--mk-accent-700);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mk-seltools__btn:hover {
+  background: var(--mk-accent-50);
+}
+
+.mk-seltools__btn--quiet {
+  color: var(--mk-faint);
+}
+
+/* ------------------------------------------------------------------------
+ * 「阅读成果」那一页（ReadingHarvest.tsx）：她学过的词、拆过的句子、摆过的板、
+ * 写下的话。2026-09-18 之前这一页只摆透镜的成果，而透镜已经不再排进读法。
+ * ------------------------------------------------------------------------ */
+.mk-harvest {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 2px 12px;
+}
+
+.mk-harvest__empty {
+  padding: 18px 14px;
+  color: var(--mk-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.mk-harvest__title {
+  margin: 0 0 2px;
+  color: var(--mk-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mk-harvest__hint {
+  margin: 0 0 8px;
+  color: var(--mk-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mk-harvest__item {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+}
+
+.mk-harvest__q {
+  margin: 0 0 6px;
+  color: var(--mk-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 她自己写的那一段。左边一条实杠 —— 这一页上只有这一处是她的话。 */
+.mk-harvest__mine {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--mk-accent-400);
+  color: var(--mk-ink);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.mk-harvest__bins,
+.mk-harvest__bins ul,
+.mk-harvest__order {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.mk-harvest__bins > li {
+  margin-bottom: 8px;
+}
+
+.mk-harvest__bin {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 8px;
+  border-radius: var(--mk-radius-full);
+  background: color-mix(in srgb, var(--mk-accent-500) 14%, transparent);
+  color: var(--mk-accent-700);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mk-harvest__bins ul li,
+.mk-harvest__order li {
+  margin-bottom: 4px;
+  color: var(--mk-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.mk-harvest__order {
+  counter-reset: harvest-order;
+}
+
+.mk-harvest__order li::before {
+  margin-right: 6px;
+  color: var(--mk-accent-700);
+  content: counter(harvest-order) "、";
+  counter-increment: harvest-order;
+  font-weight: 700;
+}
+
+.mk-harvest__locate {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--mk-accent-700);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 报告上「阅读成果」那一节（ReportView 的 Boards）：她摆过的板。 */
+.mk-rp-board {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+}
+
+.mk-rp-board__title {
+  margin: 0 0 8px;
+  color: var(--mk-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mk-rp-board__bins,
+.mk-rp-board__bins ul,
+.mk-rp-board__order {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.mk-rp-board__bins > li {
+  margin-bottom: 8px;
+}
+
+.mk-rp-board__bin {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 8px;
+  border-radius: var(--mk-radius-full);
+  background: color-mix(in srgb, var(--mk-accent-500) 14%, transparent);
+  color: var(--mk-accent-700);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mk-rp-board__bins ul li,
+.mk-rp-board__order li {
+  margin-bottom: 4px;
+  color: var(--mk-secondary);
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+.mk-rp-board__order {
+  counter-reset: rp-order;
+}
+
+.mk-rp-board__order li::before {
+  margin-right: 6px;
+  color: var(--mk-accent-700);
+  content: counter(rp-order) "、";
+  counter-increment: rp-order;
+  font-weight: 700;
+}

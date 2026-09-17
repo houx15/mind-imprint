@@ -138,7 +138,11 @@ export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
   //
   // 两块板同理，只是「空了」的判据不同：标注板没有句子、生词板没有词，
   // 渲染出来都是一块摆不了的板。
-  if ((c.type === "choose_span" || c.type === "label_roles") && !(options && options.length > 0)) return null;
+  if (
+    (c.type === "choose_span" || c.type === "label_roles" || c.type === "order_events") &&
+    !(options && options.length > 0)
+  )
+    return null;
   if (c.type === "word_bank" && !(words && words.length > 0)) return null;
   return {
     type: c.type as CoachCardSpec["type"],
@@ -150,7 +154,7 @@ export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
   };
 }
 
-/** 五种卡片形状。🚨 服务端加一种，这里必须跟着加一种，否则那种卡片会在客户端
+/** 六种卡片形状。🚨 服务端加一种，这里必须跟着加一种，否则那种卡片会在客户端
  *  被静默丢掉 —— 它已经发生过一次了（见 coachCardOf 里那段）。 */
 const COACH_CARD_TYPES: CoachCardSpec["type"][] = [
   "choose_span",
@@ -158,6 +162,8 @@ const COACH_CARD_TYPES: CoachCardSpec["type"][] = [
   "short_text",
   "label_roles",
   "word_bank",
+  // 2026-09-17：排序板，只在报道和记叙上出现（reading_genre.go）。
+  "order_events",
 ];
 
 /** Her answer to a card, if this message IS one. */

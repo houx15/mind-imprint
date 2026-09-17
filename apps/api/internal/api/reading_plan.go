@@ -7,7 +7,7 @@ package api
 //
 // 模型在这条链路上做的是**挑选和调参**，不是自由编任务：
 //
-//   - 挑哪一套 routine（reading_routines.go 里写死的四套之一）
+//   - 挑哪一套 routine（reading_routines.go 里写死的那几套之一，跟着体裁走）
 //   - 指出哪一两段是重点（focus_block 的 blockId）——这是真判断，也是这个教练
 //     能贡献的最有价值的东西
 //   - 按这篇文章把每一步的 detail 说得更具体一点
@@ -46,7 +46,9 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 
 你要做的只有五件事：
 
-1. 从给出的读法里**挑一套**（routineKey 必须逐字取自表里）。
+1. 先判这篇的体裁（genre，见下），再从**服务这个体裁**的读法里挑一套
+   （routineKey 必须逐字取自表里；每套读法后面写着它服务哪个体裁）。
+   挑了不服务这个体裁的，系统会换成服务它的那一套。
 2. 指出哪几段值得精读（focusBlocks，用段落编号 b1/b2/…）。这是你最重要的
    判断：挑那种「读懂了这一段，整篇就通了」的段落，或者那种最难、最容易被跳过去
    的段落。不要挑第一段就了事。
@@ -83,8 +85,9 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   - narrative——记叙：一件事按时间讲下来，或者一个人的故事。
   - explain——说明：讲清楚一样东西是怎么回事（科普、流程、原理）。
   🚨 拿不准就照**作者有没有在说服你**分：有就是 argument，没有就在另外三个里挑。
-  这一项管的是后面给她什么工具：那块「主张 / 证据 / 限制」的板只在 argument
-  上才成立。同事 2026-09-17 逐字报的：「我总觉得不是所有的文章都应该按照主张、
+  这一项决定整份读法和她手上的板：议论文拆论证，报道分清事实与说法、排时间线，
+  说明文理清说明结构，记叙文排事件顺序、看人物描写。「主张 / 证据」那块板只在
+  argument 上才成立。同事 2026-09-17 逐字报的：「我总觉得不是所有的文章都应该按照主张、
   证据、限制这样的内容来拆分，而且主张、证据、限制很多时候并不知道哪些该在
   哪里。」他看的那一篇是战地新闻报道——里面一句作者的主张都没有。
 - **shape**：它是怎么组织的，四到六个**中文**词，中间用 → 连。
@@ -93,6 +96,8 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   **每个部分 2 到 4 段**——这是一个中学生一口气读得完的量。段数多的文章就多切
   几个部分，最多 6 个（再多就不是「部分」了）；六个部分还装不下的超长文章，
   每部分放到 5 段。
+  切法按这篇实际的组织来：议论文按论证链（提出问题 → 论据 → 让步 → 结论），
+  报道和记叙按事件顺序，说明文按信息层次或因果关系。
   🚨 这几个部分**各自会成为清单上的一步**：她读完一部分答一次，再进下一部分。
   所以切法直接决定她读这篇文章的节奏，不是一份装饰性的目录。
   每个部分给三样：
@@ -128,9 +133,8 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   她的屏幕上没有。（focusBlocks 字段里当然还是用 b1/b2。）
 
 只输出一个 JSON 对象：
-{"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}],
+{"genre":"argument","routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}],
  "oneLine":"...","gist":"...","shape":"... → ... → ...",
- "genre":"argument",
  "parts":[{"title":"...","from":"b1","to":"b3","does":"..."}],
  "load":{"b1":"bridge","b2":"core"}}
 
@@ -146,7 +150,8 @@ func buildReadingPlanPrompt(lang, title string, blocks []Block) string {
 
 	b.WriteString("\n【可选的读法（routineKey 只能从这里挑）】\n")
 	for _, r := range readingRoutinesFor(lang) {
-		b.WriteString("- routineKey=" + r.Key + " · " + r.Name + " · 适合：" + r.Blurb + "\n")
+		b.WriteString("- routineKey=" + r.Key + " · " + r.Name + " · 体裁=" + strings.Join(r.Genres, ",") +
+			" · 适合：" + r.Blurb + "\n")
 		for i, s := range r.Steps {
 			b.WriteString("    " + itoaSmall(i+1) + ". kind=" + string(s.Kind) + " · " + s.Label + "\n")
 		}
@@ -537,6 +542,15 @@ func (a *API) planReadingTasks(
 			"lang", lang, "stop_reason", res.StopReason, "reply_len", len(res.Text),
 			"reply_tail", tailRunes(res.Text, 200))
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
+	}
+
+	// 读法跟着体裁走（reading_genre.go）。换过读法，模型对着原来那一套写的
+	// 每一步说明就对不上了 —— 丢掉，用读法库自己那几句。
+	if fitted := pickRoutineForGenre(routine, plan.Genre); fitted.Key != routine.Key {
+		slog.Info("reading plan: routine refit to the genre", "atom_id", atomID,
+			"genre", plan.Genre, "from", routine.Key, "to", fitted.Key)
+		routine = fitted
+		plan.Steps = nil
 	}
 
 	// 🚨 导读**先**校验，因为清单要用它切出来的那几个部分：通读摊成一步一个

@@ -181,6 +181,9 @@ type liteReportDTO struct {
 	// Toolkit is reading-kind only: 段落工具上她做过的事（2026-09-17，见
 	// atom_report_toolkit.go）。确定性的，不花模型调用。和上面两项一样不回填。
 	Toolkit *reportToolkit `json:"toolkit,omitempty"`
+	// Boards is reading-kind only: 她摆过的板（2026-09-18，见
+	// atom_report_boards.go）。同样确定性、同样不回填。
+	Boards []reportBoard `json:"boards,omitempty"`
 	// Piece is writing-kind only: the finished draft, in full, HER OWN words.
 	//
 	// It exists because of what the share link is FOR — "if students agree to
@@ -997,6 +1000,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		LensNotes: lensNotes, Notes: buildReadingNotes(notes), TurningPoints: prose.TurningPoints,
 		Article: buildReportArticle(src, blocks),
 		Toolkit: buildReportToolkit(rd.Lang, blockNotes, msgs),
+		Boards:  buildReportBoards(msgs, decodeOutline(src.Outline).Genre),
 		ProsePending: prosePending,
 	}, nil
 }

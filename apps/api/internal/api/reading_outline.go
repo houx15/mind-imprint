@@ -172,22 +172,6 @@ func validateGenre(s string) string {
 	return ""
 }
 
-// hasAuthorsArgument —— 这篇文章里有没有「作者的主张」这件东西。
-//
-// 「主张 / 证据 / 限制」那块板（coachCardLabelRoles）的每一个格子都是从这个
-// 前提上长出来的：主张是**作者要你接受的那句话**，证据是拿来撑住它的，限制是
-// 作者自己承认的那一点「但是」。作者不表态的文章上，这三个格子没有指称对象 ——
-// 她只能猜，而猜出来的那一下我们还会当成她的理解回灌给 印记。
-//
-// 认不出体裁（空）时返回 true：不挡。见 Genre 的注释。
-func hasAuthorsArgument(genre string) bool {
-	switch validateGenre(genre) {
-	case genreReport, genreNarrative:
-		return false
-	}
-	return true
-}
-
 // coreShareCap 是核心段占全文的上限，写成分母：core * coreShareCap > 总段数
 // 就作废。
 //

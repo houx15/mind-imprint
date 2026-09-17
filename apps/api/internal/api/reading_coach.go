@@ -971,6 +971,10 @@ func buildReadingCoachPrompt(
 			"过完说一句它们在撑哪一段；过渡段一句带过。** 这是你安排节奏的依据。\n")
 	}
 
+	// 体裁。议论文和认不出来的体裁这一节是空的 —— 那两种的 prompt 和
+	// 2026-09-17 之前一字不差。见 reading_genre.go。
+	b.WriteString(buildGenreCoachSection(outline.Genre))
+
 	// 这篇分成的几个部分。通读那一步照着它一部分一部分地走 —— 见 system
 	// prompt 的「一部分一部分地走」。
 	//
@@ -1207,6 +1211,8 @@ func buildReadingCoachPrompt(
 			"**不要再复述一遍**，也不要讲这篇文章的内容。" +
 			"直接领她进第一步，并且用一张卡片把她领进去。）\n")
 	}
+	// 她按了卡片底下的求助按钮（给点提示 / 示范一下）。见 helpRequestSection。
+	b.WriteString(helpRequestSection(studentText))
 	b.WriteString(readingCurrentStepInstruction(tasks))
 	// 透镜开着这件事排在最后：它**取消**上面那条推进判据（这一轮不推进），
 	// 而最后一节才是这一轮真正的指令。
@@ -1278,6 +1284,14 @@ func readingCurrentStepInstruction(tasks []sqlc.ReadingTask) string {
 			"作者**漏掉了谁**。然后用一张 short_text 卡请她写。" +
 			"她写出了自己的判断就给 done —— **不要求她的判断和你一致**，也不要求她写长。" +
 			"她说同意作者，就请她说一句凭什么同意；那也是一个判断。"
+	case string(taskSequence):
+		// 2026-09-17，同事的阅读模块 PRD：报道「搭建事件时间线」，记叙「事件卡
+		// 排序；切换发生顺序／讲述顺序」。板摆完就算做完，和标注步同一条判据
+		// （代码里也兜着，见 answeredOrderBoard 的调用点）。
+		rule = "本步用一块 order_events 排序板把几件事交给她，请她按发生的先后排好；给板的那一轮不要说出正确的先后。" +
+			"已收到排序板的真实作答时，先接住她的排法，再用一两句说清**讲述顺序和发生顺序哪里不一样、作者为什么这样安排**" +
+			"（她排错了一处，就指出原文哪几个字能看出先后），然后给 done。**不要再发第二块排序板。**" +
+			"普通文字说排好了不能替代真实作答。"
 	case string(taskLens):
 		rule = "已收到【她刚做完一副透镜】时，反馈她的实际分析并给 done，不再要求她操作已完成的透镜；没有完成回传时按透镜步骤继续。"
 	}
@@ -1298,6 +1312,11 @@ const maxLabelBoards = 2
 // 数的是 印记 发出去的那些（ai 消息 payload 里的 card），不是她答过几块：
 // 一块发出去她没答的板，对她来说照样是一次「又来一块」。
 func countLabelBoards(msgs []sqlc.AtomMessage) int {
+	return countCards(msgs, coachCardLabelRoles)
+}
+
+// countCards —— 这篇文章里 印记 已经发过几张这种类型的卡。
+func countCards(msgs []sqlc.AtomMessage, typ string) int {
 	n := 0
 	for _, m := range msgs {
 		if m.Role != "ai" || len(m.Payload) == 0 {
@@ -1307,7 +1326,7 @@ func countLabelBoards(msgs []sqlc.AtomMessage) int {
 		if err := json.Unmarshal(m.Payload, &p); err != nil {
 			continue
 		}
-		if p.Card != nil && p.Card.Type == coachCardLabelRoles {
+		if p.Card != nil && p.Card.Type == typ {
 			n++
 		}
 	}
@@ -1323,10 +1342,15 @@ func answeredBoard(a *coachCardAnswer) bool {
 		return false
 	}
 	switch strings.TrimSpace(a.Type) {
-	case coachCardLabelRoles, coachCardWordBank:
+	case coachCardLabelRoles, coachCardWordBank, coachCardOrderEvents:
 		return true
 	}
 	return false
+}
+
+// answeredOrderBoard —— 这一轮她交上来的是一块排好了的排序板。
+func answeredOrderBoard(a *coachCardAnswer) bool {
+	return answeredBoard(a) && strings.TrimSpace(a.Type) == coachCardOrderEvents
 }
 
 // dropReason —— 这一轮有什么东西没送到她屏幕上。卡片优先（它更具体）；
@@ -2134,6 +2158,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+	genre := decodeOutline(src.Outline).Genre
 	// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
 	//
 	// 她摆完的结果原样在转写里（「限制：」加上那一句），所以这是它没读，不是
@@ -2166,24 +2191,31 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("reading coach: card dropped", "why", string(cardRejectBoardRepeat),
 			"atom_id", at.ID, "boards", countLabelBoards(msgs))
 	}
-	// 🚨 作者不表态的文章上，那块「主张 / 证据 / 限制」的板没有指称对象。
+	// 🚨 排序板只属于报道和记叙（genreHasOrderBoard），而且一篇只摆两块 ——
+	// 和标注板同一条上限，同一个理由。
 	//
-	// 同事 2026-09-17 逐字：「我总觉得不是所有的文章都应该按照主张、证据、
-	// 限制这样的内容来拆分，而且主张、证据、限制很多时候并不知道哪些该在哪里。」
-	// 他看的那一篇是战地新闻报道 —— 四句话里没有一句是作者的主张，她只能猜，
-	// 而猜出来的那一下我们还会当成她的理解回灌给 印记。
-	//
-	// 丢掉这一张、连着重来一次（下面那个 if 里带着 cardRejectNoArgument）：
-	// 修正话术会告诉它换哪几种卡片，所以她这一轮拿到的仍然是一件能做的事。
-	// 体裁认不出来（空）就不挡 —— 少发一块板是少一次练习，发错一块板是让她
-	// 对着一套根本不适用的词干瞪眼。
+	// 2026-09-17 之前这里挡的是另一件事：报道和记叙上不许摆「主张 / 证据」板。
+	// 那三种体裁现在各有自己的格子（fitBoardToGenre），板本身不再需要挡。
 	if okParse && parsed.Card != nil && parsed.cardWhy == cardOK &&
-		parsed.Card.Type == coachCardLabelRoles &&
-		!hasAuthorsArgument(decodeOutline(src.Outline).Genre) {
+		parsed.Card.Type == coachCardOrderEvents &&
+		(!genreHasOrderBoard(genre) || countCards(msgs, coachCardOrderEvents) >= maxLabelBoards) {
 		parsed.Card = nil
-		parsed.cardWhy = cardRejectNoArgument
-		slog.Info("reading coach: card dropped", "why", string(cardRejectNoArgument),
-			"atom_id", at.ID, "genre", decodeOutline(src.Outline).Genre)
+		parsed.cardWhy = cardRejectOrderNotHere
+		slog.Info("reading coach: card dropped", "why", string(cardRejectOrderNotHere),
+			"atom_id", at.ID, "genre", genre)
+	}
+	// 🚨 走到「排出事件顺序」那一步，第一块排序板必须真的到她屏幕上。
+	//
+	// 这一步的全部内容就是那块板，和标注步一样（reading_coach_board_build.go 的
+	// 文件头）。模型没给，先重来一次（下面那个 if），还没有就由服务端摆
+	// （buildOrderBoard）。
+	seqCur := currentReadingTask(tasks)
+	needOrderBoard := seqCur != nil && seqCur.Kind == string(taskSequence) &&
+		genreHasOrderBoard(genre) && !anyOpen && !toolAnswerTurn &&
+		!answeredOrderBoard(req.CardAnswer) && countCards(msgs, coachCardOrderEvents) == 0
+	if okParse && needOrderBoard && parsed.Lens == "" &&
+		(parsed.Card == nil || parsed.Card.Type != coachCardOrderEvents) {
+		parsed.cardWhy = cardRejectNoOrderBoard
 	}
 	// 🚨 引了一句文章上、卡片上、她嘴里都没有的话。产品负责人 2026-09-17 报的
 	// 第 2 条，见 reading_ghostquote.go。
@@ -2231,7 +2263,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.ghostQuote != "" || parsed.leak != "" ||
 		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
 		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm ||
-		parsed.cardWhy == cardRejectNoArgument || parsed.cardWhy == cardRejectBoardRepeat) {
+		parsed.cardWhy == cardRejectOrderNotHere || parsed.cardWhy == cardRejectNoOrderBoard ||
+		parsed.cardWhy == cardRejectBoardRepeat) {
 		why := string(parsed.cardWhy)
 		if parsed.lensRetry {
 			why = parsed.lensRetryWhy
@@ -2256,15 +2289,32 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				!again.lensRetry && !again.twoAsks &&
 				firstProtocolLeak(again.Reply) == "" && !replyCallsHerShe(again.Reply, blocks) &&
-				// 第二张板也一样要过体裁那一关，否则「重来一次」只是把同一张
+				// 第二张排序板也一样要过体裁那一关，否则「重来一次」只是把同一张
 				// 不适用的板又发了一遍。
-				!(again.Card != nil && again.Card.Type == coachCardLabelRoles &&
-					!hasAuthorsArgument(decodeOutline(src.Outline).Genre)) &&
+				!(again.Card != nil && again.Card.Type == coachCardOrderEvents && !genreHasOrderBoard(genre)) &&
 				firstGhostQuote(again.Reply, readingQuoteCorpus(
 					src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, again.Card, lensDone)) == "" &&
 				(again.cardWhy == cardOK || again.cardWhy == cardRejectNoCard) {
 				res, parsed = retryRes, again
 			}
+		}
+	}
+	// 重来之后还是没有排序板：服务端摆一块（buildOrderBoard）。
+	// cardRejectNoOrderBoard 只是「该重来」的信号，不是一张被丢掉的卡 ——
+	// 不清掉的话，下一轮会被告知「你上一轮的东西没到她屏幕上」，而那张
+	// choose_span 明明到了。
+	if okParse && parsed.cardWhy == cardRejectNoOrderBoard {
+		if parsed.Card != nil && parsed.Card.Type == coachCardOrderEvents {
+			parsed.cardWhy = cardOK
+		} else if built := validateCoachCard(buildOrderBoard(blocks, decodeOutline(src.Outline).Parts), blocks); built != nil && parsed.Lens == "" {
+			slog.Info("reading coach: sequence step had no order board, built one",
+				"atom_id", at.ID, "options", len(built.Options))
+			parsed.Card = built
+			parsed.cardWhy = cardOK
+		} else if parsed.Card != nil {
+			parsed.cardWhy = cardOK
+		} else {
+			parsed.cardWhy = cardRejectNoCard
 		}
 	}
 	if !okParse {
@@ -2424,7 +2474,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 「把每一句拖到它该在的角色里」，屏幕上一块板都没有。
 	// 板数上限对兜底一样生效 —— 模型那块被上限挡掉的板不能从这里再建出来。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
-		hasAuthorsArgument(decodeOutline(src.Outline).Genre) &&
+		cur.Kind != string(taskSequence) &&
 		countLabelBoards(msgs) < maxLabelBoards &&
 		((cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply))) ||
 			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
@@ -2484,6 +2534,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			"atom_id", at.ID, "word", w)
 	}
 
+	// 标注板的格子换成这篇体裁的那一套。议论文原样不动。见 fitBoardToGenre。
+	parsed.Card = fitBoardToGenre(parsed.Card, genre)
+
 	// The card rides on the AI message's payload (0106), inside the same
 	// transaction as the words it came with — so a refresh can never show her
 	// the reply without the card it was written around.
@@ -2526,6 +2579,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// 这不是替她判对错：板上本来就没有对错，摆完这个动作本身就是这一步的
 		// 产出，和 hunt 要求「真的点一句」是同一种判据。
 		if current.Kind == string(taskLabel) && advance == "" && answeredBoard(req.CardAnswer) {
+			advance = "done"
+		}
+		// 排序板同一条：排好交上来，这一步就做完了。
+		if current.Kind == string(taskSequence) && advance == "" && answeredOrderBoard(req.CardAnswer) {
 			advance = "done"
 		}
 		// 🚨 话里领她去读哪几段，清单就停在哪一步（reading_coach_align.go）。
@@ -2723,7 +2780,7 @@ func lastBoardPlacement(msgs []sqlc.AtomMessage) map[string]string {
 		lines := strings.Split(ans.Choice, "\n")
 		for j := 0; j+1 < len(lines); j++ {
 			bin := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(lines[j]), "："))
-			if !isRoleLabel(bin) {
+			if !isAnyBoardLabel(bin) {
 				continue
 			}
 			if sent := strings.TrimSpace(lines[j+1]); sent != "" {

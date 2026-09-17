@@ -5,6 +5,7 @@ import {
   type BoardItem,
   type BoardPlacement,
 } from "./CoachBoards";
+import { OrderBoard, OrderBoardRecap, composeOrderAnswer, parseOrderAnswer } from "./OrderBoard";
 
 /**
  * CoachCard — 印记 把这一步递到她手上，让她点。
@@ -88,7 +89,9 @@ export type CoachCardType =
   // 两块板（2026-09-10）。前三种是「她说」，这两种是「她摆」——
   // 见 CoachBoards.tsx 的头注。
   | "label_roles"
-  | "word_bank";
+  | "word_bank"
+  // 排序板（2026-09-17）：报道和记叙上，几件事按发生的先后排。见 OrderBoard.tsx。
+  | "order_events";
 
 /**
  * 卡片上的一个选项：文章里某一段（blockId）的某一句原话（quote），以及它在
@@ -107,7 +110,7 @@ export type CoachCardWord = { blockId: string; term: string };
 export type CoachCardSpec = {
   type: CoachCardType;
   prompt: string;
-  /** `choose_span` 和 `label_roles` 有；其余服务端会清空。 */
+  /** `choose_span`、`label_roles`、`order_events` 有；其余服务端会清空。 */
   options?: CoachCardOption[];
   /** `word_bank` 专用。 */
   words?: CoachCardWord[];
@@ -143,6 +146,15 @@ export type CoachCardAnswer = {
 /** 生词板的三格。写死在这里而不是由服务端发：它们和这块板是同一件东西，
  *  换了格子就是换了一块板，而服务端那一侧没有任何东西需要知道它们。 */
 export const WORD_BINS = ["认识", "不确定", "不认识"];
+
+/**
+ * 卡片底下那两颗求助按钮。按下去就是她说了这句话（服务端认这两句原话，
+ * 见 reading_genre.go 的 helpRequestSection）。
+ *
+ * 同事 2026-09-17 的阅读模块 PRD：「提供『给点提示／示范一下／我自己试试』入口，
+ * 卡片操作期间仍可向 AI 求助。」「我自己试试」不做成按钮：卡片本身就是那件事。
+ */
+export const COACH_ASKS = ["给点提示", "示范一下"] as const;
 
 /** 一块板上待分类的那些东西，从卡片本身派生。 */
 export function boardItems(card: CoachCardSpec): BoardItem[] {
@@ -270,8 +282,11 @@ export function CoachCard({
   busy = false,
   stale = false,
   prefill,
+  onAsk,
 }: {
   card: CoachCardSpec;
+  /** 她按了卡片底下的求助按钮。不给就不显示那两颗按钮。 */
+  onAsk?: (text: string) => void;
   /** 她点了/写了。调用方负责把它发出去并把 `answered` 传回来。 */
   onAnswer: (answer: CoachCardAnswer) => void;
   /** 已经答过了：显示她的选择，整张卡片停止响应。 */
@@ -377,6 +392,8 @@ export function CoachCard({
         />
       ) : done && (card.type === "label_roles" || card.type === "word_bank") ? (
         <AnsweredBoard card={card} choice={answered!.choice} takeFocus={!answeredAtMount.current} />
+      ) : done && card.type === "order_events" ? (
+        <AnsweredOrder card={card} choice={answered!.choice} takeFocus={!answeredAtMount.current} />
       ) : done ? (
         <HerAnswer answer={answered!} takeFocus={!answeredAtMount.current} />
       ) : card.type === "choose_span" ? (
@@ -404,6 +421,12 @@ export function CoachCard({
               分数，服务端也不发答案），不需要再用一句话去安抚。 */}
           <p className="text-mk-small text-mk-faint">请选择一句。</p>
         </>
+      ) : card.type === "order_events" ? (
+        <OrderBoard
+          items={boardItems(card)}
+          busy={busy}
+          onSubmit={(order) => answer(composeOrderAnswer(order, boardItems(card)))}
+        />
       ) : card.type === "label_roles" || card.type === "word_bank" ? (
         <CoachBoard
           items={boardItems(card)}
@@ -493,6 +516,49 @@ export function CoachCard({
           </div>
         </div>
       )}
+      {/* 求助入口。一直在卡片底下，而不是等她卡住了才出现 —— 她不必先承认
+          自己卡住，才能要一点帮助。按下去是一轮普通的话，卡片保持敞开。 */}
+      {!done && onAsk && (
+        <div className="mk-coachcard__asks">
+          {COACH_ASKS.map((q) => (
+            <button key={q} type="button" disabled={busy} onClick={() => onAsk(q)} className="mk-coachcard__ask">
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 排好之后的那块排序板。认不出来就退回原样显示她那段作答。 */
+function AnsweredOrder({
+  card,
+  choice,
+  takeFocus = false,
+}: {
+  card: CoachCardSpec;
+  choice: string;
+  takeFocus?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (takeFocus) ref.current?.focus?.();
+  }, [takeFocus]);
+  const items = boardItems(card);
+  const order = parseOrderAnswer(items, choice);
+  if (order.length === 0) {
+    return <HerAnswer answer={{ type: card.type, prompt: card.prompt, choice }} takeFocus={takeFocus} />;
+  }
+  return (
+    <div
+      ref={ref}
+      role="status"
+      tabIndex={-1}
+      className="flex flex-col gap-1 rounded-mk-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+    >
+      <span className="text-mk-small text-mk-faint">你排的顺序</span>
+      <OrderBoardRecap items={items} order={order} />
     </div>
   );
 }

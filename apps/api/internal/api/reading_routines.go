@@ -104,6 +104,14 @@ const (
 	// 那件做，产品负责人的原话是「split them. first is analyze what author
 	// written. then is students' self critical thinking.」
 	taskCritique readingTaskKind = "critique"
+
+	// 排序：把几件事按**发生的先后**排好（order_events 那块板）。
+	//
+	// 2026-09-17 同事的阅读模块 PRD：新闻报道要「搭建事件时间线」，记叙文要
+	// 「事件卡排序；切换发生顺序／讲述顺序」。卡片上的几句按**原文顺序**摆出来
+	// （那就是讲述顺序），她要排成的是发生顺序 —— 两者不一样的地方，就是这篇
+	// 文章的叙述手法。议论文和说明文的读法里没有这一步。
+	taskSequence readingTaskKind = "sequence"
 )
 
 // focusBlockLabelBase is the 精读 step's label WITHOUT its paragraph number.
@@ -144,8 +152,43 @@ type readingRoutine struct {
 	// Lang scopes a routine to the language it is idiomatic in. An English
 	// close-read and a Chinese 通读 are not translations of each other — they
 	// spend their attention on different things.
-	Lang  string               `json:"lang"`
-	Steps []readingRoutineStep `json:"steps"`
+	Lang string `json:"lang"`
+	// Genres 是这套读法服务的体裁（reading_outline.go 的闭表）。
+	//
+	// 🚨 2026-09-17 起**读法跟着体裁走**：排读法那一次调用同时判了体裁，
+	// 模型挑的读法不服务这个体裁，服务端就换成同语言里服务它的第一套
+	// （pickRoutineForGenre）。原来两件事各判各的，一篇新闻报道可以被排上
+	// 「通读 → 精读 → 论证」，于是整条清单都在找一个不存在的主张。
+	Genres []string             `json:"genres"`
+	Steps  []readingRoutineStep `json:"steps"`
+}
+
+// serves —— 这套读法是不是给这个体裁的。
+func (r readingRoutine) serves(genre string) bool {
+	for _, g := range r.Genres {
+		if g == genre {
+			return true
+		}
+	}
+	return false
+}
+
+// pickRoutineForGenre 把模型挑的读法和它判的体裁对齐。
+//
+// 体裁认不出来（空）就不动 —— 和 hasAuthorsArgument 同一个方向：宁可放过。
+// 模型挑的那一套本来就服务这个体裁（议论文在英文里有两套可挑），也不动。
+// 只有两件事打架的时候才换，换成同语言里服务这个体裁的第一套。
+func pickRoutineForGenre(chosen readingRoutine, genre string) readingRoutine {
+	genre = validateGenre(genre)
+	if genre == "" || chosen.serves(genre) {
+		return chosen
+	}
+	for _, r := range readingRoutines {
+		if r.Lang == chosen.Lang && r.serves(genre) {
+			return r
+		}
+	}
+	return chosen
 }
 
 // readingRoutines is the whole library. Growing it = appending here; nothing
@@ -153,10 +196,11 @@ type readingRoutine struct {
 // slice, and the frontend fetches it rather than holding a second copy).
 var readingRoutines = []readingRoutine{
 	{
-		Key:   "zh-scan-focus-lens",
-		Lang:  "zh",
-		Name:  "通读 → 精读 → 论证",
-		Blurb: "默认读法。适合说明文、议论文、新闻这类讲道理的文章。",
+		Key:    "zh-scan-focus-lens",
+		Lang:   "zh",
+		Genres: []string{genreArgument},
+		Name:   "通读 → 精读 → 论证",
+		Blurb:  "议论文的读法：作者在说服你接受一个看法（议论文、社论、评论）。",
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请先根据标题预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
@@ -174,21 +218,66 @@ var readingRoutines = []readingRoutine{
 		},
 	},
 	{
-		Key:   "zh-narrative",
-		Lang:  "zh",
-		Name:  "跟着故事读",
-		Blurb: "适合记叙文、人物报道、散文——有人、有事、有转折的文章。",
+		// 2026-09-17 按同事的阅读模块 PRD 重排：读懂事件 → 找到转折 → 理解人物 →
+		// 回看叙述与细节 → 形成自己的解释。
+		Key:    "zh-narrative",
+		Lang:   "zh",
+		Genres: []string{genreNarrative},
+		Name:   "跟着故事读",
+		Blurb:  "记叙文的读法：有人、有事、有转折（记叙文、小说片段、人物故事）。",
 		Steps: []readingRoutineStep{
-			{Kind: taskRead, Label: "通读全文", Detail: "先把故事看完，别急着分析。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里变了方向——点开段落工具，看看作者是怎么写的。"},
-			{Kind: taskReflect, Label: "作者想让你有什么感觉", Detail: "他是靠什么让你有这种感觉的？"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先把故事看完：谁、在哪儿、发生了什么。"},
+			{Kind: taskSequence, Label: "排出事件顺序", Detail: "把几件事按发生的先后排好，再和文章讲述的顺序对照。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里发生了转折，请看作者是怎么写的。"},
+			{Kind: taskLabel, Label: "看人物怎么写", Detail: "把几句话各自归到一种描写：动作、语言、心理、环境。"},
+			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
 			{Kind: taskConnect, Label: "角色选择", Detail: "如果遇到相同情境，你会如何处理？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出你觉得写得最好的那一句——不是最重要的，是最好的。"},
 		},
 	},
 	{
-		Key:   "en-close-read",
-		Lang:  "en",
+		// 2026-09-17 新增。PRD：了解事件 → 梳理时间与参与方 → 区分事实、引述和
+		// 解释 → 比较来源与说法 → 总结已知与待了解的信息。
+		Key:    "zh-report",
+		Lang:   "zh",
+		Genres: []string{genreReport},
+		Name:   "读新闻报道",
+		Blurb:  "新闻报道的读法：发生了什么、各方怎么说，记者自己不表态。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇报的是一件什么事？"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先弄清楚两件事：发生了什么，牵涉到哪几方。"},
+			{Kind: taskSequence, Label: "排出事件时间线", Detail: "把几件事按发生的先后排好。报道常常先讲结果，再回头交代经过。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
+			{Kind: taskLabel, Label: "分清事实与说法", Detail: "把几句话各自归类：记者核实的事实、某一方说的话、对事件的解释。"},
+			{Kind: taskCritique, Label: "比较来源", Detail: "各方的说法依据是什么？有没有哪一方没被问到？哪一句还需要别的来源？"},
+			{Kind: taskReflect, Label: "已知与待了解", Detail: "这件事目前能确定的是什么，还有哪些没有弄清楚？"},
+			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能说明这件事的那一句。"},
+		},
+	},
+	{
+		// 2026-09-17 新增。PRD：明确说明对象 → 理清概念 → 搭出结构或过程 →
+		// 解释关键关系 → 换情境应用。
+		Key:    "zh-explain",
+		Lang:   "zh",
+		Genres: []string{genreExplain},
+		Name:   "读说明文",
+		Blurb:  "说明文的读法：讲清楚一样东西是什么、怎么运作（科普、原理、流程）。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇要说明的对象是什么？"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先找到说明对象，再看作者分几块来讲它。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理，值得细读。"},
+			{Kind: taskLabel, Label: "理清说明结构", Detail: "把几句话各自归类：说明对象、原理与过程、例子与数据。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
+			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
+			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？会有什么不同？"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能概括这个原理的那一句。"},
+		},
+	},
+	{
+		Key:    "en-close-read",
+		Lang:   "en",
+		Genres: []string{genreArgument},
 		Name:  "Close Read",
 		Blurb: "英文文章的默认读法：先看懂，再看它是怎么写的。",
 		Steps: []readingRoutineStep{
@@ -208,37 +297,70 @@ var readingRoutines = []readingRoutine{
 		},
 	},
 	{
-		// 🚨 2026-09-17 新加。在这之前**两套英文读法都带着「标注论证」那一步**，
-		// 于是一篇战地新闻报道也会被要求按「主张 / 证据 / 限制」拆 —— 而报道里
-		// 一句作者的主张都没有。同事逐字报的：「我总觉得不是所有的文章都应该
-		// 按照主张、证据、限制这样的内容来拆分，而且主张、证据、限制很多时候
-		// 并不知道哪些该在哪里。」
+		// 2026-09-17 新加，同一天改了第二次。第一次：两套英文读法都带着「拆开
+		// 作者的论证」，于是一篇战地新闻报道也被要求按「主张 / 证据」拆，而
+		// 报道里一句作者的主张都没有（同事逐字：「我总觉得不是所有的文章都应该
+		// 按照主张、证据、限制这样的内容来拆分」）。那时的做法是这一套里不放板。
 		//
-		// 中文那一侧早就有对应的那一套（zh-narrative 没有标注步）；缺的是英文。
-		// 改法和 2026-09-17 那一天别处一样：**把它变成结构**，而不是在提示词里
-		// 多写一句「报道就别摆板了」。这一套里没有那一步，也就没有那块板。
-		//
-		// 换下来的那一步是「谁在说这句话」：报道真正要练的分辨是**记者查到的
-		// 事实**和**某一方说的话**，而那件事用一句问题就问得出来，不需要另造
-		// 一套格子。
-		Key:   "en-report",
-		Lang:  "en",
-		Name:  "Read the Report",
-		Blurb: "适合英文新闻报道、人物特写——作者不表态，只讲发生了什么、各方怎么说。",
+		// 第二次（同事的阅读模块 PRD）：报道有它**自己的**板 —— 事实 / 引述 /
+		// 解释（coachGenreBoards），外加一条时间线。板没有错，错的是格子名。
+		Key:    "en-report",
+		Lang:   "en",
+		Genres: []string{genreReport},
+		Name:   "Read the Report",
+		Blurb:  "英文新闻报道、人物特写的读法——作者不表态，只讲发生了什么、各方怎么说。",
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇报的是一件什么事？"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先弄清楚两件事：发生了什么，牵涉到哪几方。"},
+			// 2026-09-17：「谁在说这句话」那一步由一块板承担（事实 / 引述 / 解释），
+			// 并补上时间线。见同事的阅读模块 PRD。
+			{Kind: taskSequence, Label: "排出事件时间线", Detail: "把几件事按发生的先后排好。报道常常先讲结果，再回头交代经过。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法，一样一样看。"},
-			{Kind: taskReflect, Label: "谁在说这句话", Detail: "哪些是记者查到的事实，哪些是某一方说的话？"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
+			{Kind: taskLabel, Label: "分清事实与说法", Detail: "把几句话各自归类：记者核实的事实、某一方说的话、对事件的解释。"},
+			{Kind: taskCritique, Label: "比较来源", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这件事一句话讲完，加上你记住的两三个细节。"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
 		},
 	},
 	{
-		Key:   "en-argument",
-		Lang:  "en",
+		Key:    "en-explain",
+		Lang:   "en",
+		Genres: []string{genreExplain},
+		Name:   "Understand the Explanation",
+		Blurb:  "英文说明文、科普文章的读法——讲清楚一样东西是什么、怎么运作。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇要说明的对象是什么？"},
+			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先找到说明对象。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理。点开段落工具：翻译、关键单词、语法。"},
+			{Kind: taskLabel, Label: "理清说明结构", Detail: "把几句话各自归类：说明对象、原理与过程、例子与数据。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
+			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
+			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "回到文章里，点出最能概括这个原理的那一句。"},
+		},
+	},
+	{
+		Key:    "en-narrative",
+		Lang:   "en",
+		Genres: []string{genreNarrative},
+		Name:   "Follow the Story",
+		Blurb:  "英文记叙文、小说片段、人物故事的读法——有人、有事、有转折。",
+		Steps: []readingRoutineStep{
+			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先弄清楚谁、在哪儿、发生了什么。"},
+			{Kind: taskSequence, Label: "排出事件顺序", Detail: "把几件事按发生的先后排好，再和文章讲述的顺序对照。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里发生了转折。点开段落工具：翻译、关键单词、写作解析。"},
+			{Kind: taskLabel, Label: "看人物怎么写", Detail: "把几句话各自归到一种描写：动作、语言、心理、环境。"},
+			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
+			{Kind: taskConnect, Label: "角色选择", Detail: "如果遇到相同情境，你会如何处理？"},
+			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这个故事一句话讲完，加上你记住的两三个表达。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出你觉得写得最好的那一句。"},
+		},
+	},
+	{
+		Key:    "en-argument",
+		Lang:   "en",
+		Genres: []string{genreArgument},
 		Name:  "Follow the Argument",
 		Blurb: "适合英文议论文、社论、TOEFL 阅读——作者在说服你的时候用。",
 		Steps: []readingRoutineStep{

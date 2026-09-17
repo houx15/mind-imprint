@@ -125,7 +125,11 @@ export type AnnotateProps = {
    * `selectMode` is null. Lets her quote an arbitrary span into the chat, not
    * only a whole paragraph. Absent by default — behavior unchanged.
    */
-  onReferenceSelection?: (blockId: string, quote: string) => void;
+  /**
+   * 她在正文里划选了一段。`at` 是这次划选在屏幕上的位置（viewport 坐标，
+   * 选区的下边缘中点），房间据此把工具条摆在她划的那几个字底下。
+   */
+  onReferenceSelection?: (blockId: string, quote: string, at?: { x: number; y: number }) => void;
   /** Block ids currently referenced (whole-paragraph) — rendered with a subtle highlight. */
   referencedBlockIds?: string[];
   /**
@@ -227,10 +231,22 @@ export function Annotate({
     : referenceEnabled && onReferenceSelection
       ? () => {
           const span = selectionToSpan();
-          if (span && span.text.trim()) {
-            onReferenceSelection(span.blockId, span.text.trim());
-            window.getSelection()?.removeAllRanges();
+          if (!span || !span.text.trim()) return;
+          // 🚨 **不要清掉选区。** 这里原来跟着一句 `removeAllRanges()`，于是她
+          // 划完一个词，那几个字当场不再高亮 —— 产品负责人 2026-09-18 逐字报的
+          // 「when I select a word or a sentence, my selection disappears and
+          // cannot ask a word's meaning」。划选是一个**还没说完的动作**：她划出
+          // 那个词，是要对它做点什么（查词、语法），而选区正是「对哪几个字」的
+          // 唯一记录。清掉它，她面前就只剩一条引用，和一个没人接的意图。
+          //
+          // 位置也要带出去：工具条得摆在她划的那几个字旁边，不是屏幕某处。
+          const sel = window.getSelection();
+          let at: { x: number; y: number } | undefined;
+          const rect = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).getBoundingClientRect() : null;
+          if (rect && (rect.width > 0 || rect.height > 0)) {
+            at = { x: rect.left + rect.width / 2, y: rect.bottom };
           }
+          onReferenceSelection(span.blockId, span.text.trim(), at);
         }
       : undefined;
 

@@ -71,6 +71,7 @@ export function BlockToolsPanel({
   tools,
   notes,
   autoTool,
+  autoSubject,
   onAutoToolConsumed,
   onNote,
   onClose,
@@ -90,6 +91,12 @@ export function BlockToolsPanel({
   /** A tool 印记 reached for. Runs itself once, so its teaching lands as
    *  teaching rather than as a button she has to find and press. */
   autoTool?: string | null;
+  /**
+   * `autoTool` 要讲的是哪几个字。她在正文里划选之后从工具条点「查词」「语法」
+   * 时给 —— 那时候「讲哪一个词/哪一句」已经由她划出来了，不该再请她点一次
+   * （2026-09-18，见 Annotate 里那段）。空 = 照旧请她在这一段里点。
+   */
+  autoSubject?: string | null;
   onAutoToolConsumed?: () => void;
   onNote: (note: ReadingBlockNote) => void;
   onClose: () => void;
@@ -190,7 +197,7 @@ export function BlockToolsPanel({
   const autoFired = useRef<string | null>(null);
   useEffect(() => {
     if (!autoTool) return;
-    const key = `${blockId}:${autoTool}`;
+    const key = `${blockId}:${autoTool}:${autoSubject ?? ""}`;
     if (autoFired.current === key) return;
     const tool = tools.find((t) => t.id === autoTool);
     if (!tool) {
@@ -198,9 +205,13 @@ export function BlockToolsPanel({
       return;
     }
     autoFired.current = key;
-    void run(tool).finally(() => onAutoToolConsumed?.());
+    // 她划好了字就直接讲那几个字，不再进「请点一个词」那一步。
+    const go = autoSubject && (tool.subject === "word" || tool.subject === "sentence")
+      ? ask(tool, autoSubject)
+      : run(tool);
+    void go.finally(() => onAutoToolConsumed?.());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoTool, blockId, tools]);
+  }, [autoTool, autoSubject, blockId, tools]);
 
   const shown = open ? noteFor(open, shownSentence) : undefined;
   const shownTool = tools.find((t) => t.id === open);

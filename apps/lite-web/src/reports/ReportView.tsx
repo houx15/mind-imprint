@@ -156,6 +156,7 @@ export function ReportView({
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <ArticleEntry article={report.article} title={report.title} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Boards boards={report.boards} />
       <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
@@ -182,6 +183,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Boards boards={report.boards} />
       <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
@@ -622,6 +624,51 @@ function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
  * （「仿写 · 第3段：……」）是它上面一行小灰字。反过来摆，读的人会以为那一行是
  * 她写的。
  */
+/**
+ * 「我摆的板」—— 她在阅读里做过的判断，原样留下。
+ *
+ * 产品负责人 2026-09-18：报告上的成果不该只有透镜。板是她这一篇里做过的**判断**
+ * （哪一句是事实、哪一句是某一方的说法、几件事按什么先后发生），而在这之前它
+ * 只活在对话记录里。
+ *
+ * 🚨 板上那几句是**文章的原话**，不是她写的句子 —— 这一节的说明因此写的是
+ * 「你放的位置」，而不是「你写的」。
+ */
+function Boards({ boards }: { boards: LiteReport["boards"] }) {
+  if (!boards || boards.length === 0) return null;
+  return (
+    <section className="mk-rp-sec">
+      <h2 className="mk-rp-h2">阅读成果</h2>
+      <p className="mk-rp-note">句子来自原文，位置是你的判断。</p>
+      {boards.map((b, i) => (
+        <div key={i} className="mk-rp-board">
+          <h3 className="mk-rp-board__title">{b.title}</h3>
+          {b.kind === "label" ? (
+            <ul className="mk-rp-board__bins">
+              {(b.groups ?? []).map((g) => (
+                <li key={g.bin}>
+                  <span className="mk-rp-board__bin">{g.bin}</span>
+                  <ul>
+                    {g.quotes.map((q, j) => (
+                      <li key={j}>{q}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ol className="mk-rp-board__order">
+              {(b.order ?? []).map((q, j) => (
+                <li key={j}>{q}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function Toolkit({ toolkit }: { toolkit: LiteReport["toolkit"] }) {
   if (!toolkit) return null;
   const { tools, words, grammar, writings } = toolkit;

@@ -71,7 +71,7 @@ func TestLiveReportGenreIsNotAnArgument(t *testing.T) {
 			}
 		}
 		t.Logf("sample %d — routine=%s 体裁=%q 标注步=%v", i, routine.Key, out.Genre, hasLabel)
-		if hasAuthorsArgument(out.Genre) {
+		if out.Genre == genreArgument {
 			wrong++
 			t.Logf("sample %d: 一篇报道被判成 %q —— 那块「主张/证据/限制」的板会照常摆给她",
 				i, out.Genre)
