@@ -397,7 +397,9 @@ func TestStatedCountsOnLiveReplies(t *testing.T) {
 // new field is not prose the student wrote to the coach, is the whole ritual.
 func TestStudentCarriesNoProse(t *testing.T) {
 	// Gender (2026-09-17): a closed value the teacher sets, not student prose.
-	want := []string{"ActiveDaysThisWeek", "Gender", "ID", "Name", "OverdueAssignments", "WritingsDone"}
+	// Progress (2026-09-17): counters only ("r1/2 w0 p0/1 t3"), json:"-", for
+	// the class summary cache key.
+	want := []string{"ActiveDaysThisWeek", "Gender", "ID", "Name", "OverdueAssignments", "Progress", "WritingsDone"}
 	rt := reflect.TypeOf(Student{})
 	got := make([]string, 0, rt.NumField())
 	for i := 0; i < rt.NumField(); i++ {

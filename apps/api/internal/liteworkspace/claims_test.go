@@ -57,10 +57,10 @@ func TestNamesSectionAndChange(t *testing.T) {
 		{"请把总体概述写得更具体一些，提到她完成了阅读作业并修改了作文。", true},
 		{"把下一步建议改短一些，只留两条。", true},
 		{"阅读那段删掉最后一句", true},
-		{"帮我改一下", false},        // no section
-		{"总体概述写得怎么样", true},    // 写得 counts; asking back is still wrong here
+		{"帮我改一下", false},      // no section
+		{"总体概述写得怎么样", true},   // 写得 counts; asking back is still wrong here
 		{"这份报告可以发了吗？", false}, // no section, no change
-		{"下一步建议", false},        // no direction
+		{"下一步建议", false},      // no direction
 	} {
 		if got := NamesSectionAndChange(tc.text, labels); got != tc.want {
 			t.Errorf("NamesSectionAndChange(%q) = %v, want %v", tc.text, got, tc.want)

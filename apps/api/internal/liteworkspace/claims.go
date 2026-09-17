@@ -74,7 +74,7 @@ func NamesSectionAndChange(typed string, sectionLabels []string) bool {
 	return named && changeWordPattern.MatchString(typed)
 }
 
-var buttonPattern =regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
+var buttonPattern = regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
 
 // PointsAtButton reports whether text tells her to use a button under the
 // reply.
