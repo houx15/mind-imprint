@@ -2054,11 +2054,6 @@
   background: var(--mk-ink);
   color: var(--mk-surface);
 }
-.mk-grammar__hint {
-  margin: -2px 0 0;
-  font-size: 12px;
-  color: var(--mk-muted);
-}
 .mk-grammar__hl--bold { font-weight: 650; }
 .mk-grammar__list {
   display: flex;

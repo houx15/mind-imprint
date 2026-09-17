@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Icon } from "@/ui";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { segmentSentences } from "@/primitives/annotate/sentences";
-import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
+import { explainReadingBlock, grammarHasContent, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
 import { BlockToolbar } from "./BlockToolbar";
 import { WordCards } from "./WordCards";
 import { GrammarCards } from "./GrammarCards";
@@ -306,7 +306,7 @@ export function BlockToolsPanel({
           {shown.subject && !shown.grammar ? (
             <p className="mk-block-note__subject">{shown.subject}</p>
           ) : null}
-          {shown.grammar && shown.grammar.parts.length > 0 && shown.subject ? (
+          {shown.grammar && grammarHasContent(shown.grammar) && shown.subject ? (
             <GrammarCards sentence={shown.subject} grammar={shown.grammar} />
           ) : shown.words && shown.words.length > 0 ? (
             <WordCards words={shown.words} />

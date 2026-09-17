@@ -41,7 +41,7 @@ func TestLiveGrammarCard(t *testing.T) {
 			tool = tt
 		}
 	}
-	failed, parts, dropped, noWords, noMain, noPerfect, badPredicate := 0, 0, 0, 0, 0, 0, 0
+	failed, parts, dropped, allFour, totalLayers, noMain, noPerfect, badPredicate := 0, 0, 0, 0, 0, 0, 0, 0
 	for i := 0; i < 8; i++ {
 		si := i % 4
 		idx := blockOf[si]
@@ -69,9 +69,16 @@ func TestLiveGrammarCard(t *testing.T) {
 		kept := len(g.Clauses) + len(g.Parts) + len(g.Words) + len(g.Tenses)
 		sent := len(raw.Clauses) + len(raw.Parts) + len(raw.Words) + len(raw.Tenses)
 		dropped += sent - kept
-		if len(g.Words) == 0 {
-			noWords++
+		layers := 0
+		for _, l := range [][]readingGrammarSpan{g.Clauses, g.Parts, g.Words, g.Tenses} {
+			if len(l) > 0 {
+				layers++
+			}
 		}
+		if layers == 4 {
+			allFour++
+		}
+		totalLayers += layers
 		// 🚨 主句由界面反推：从句要是把整句盖满了，「主从句」那一层就没有主句。
 		rest := sentence
 		for _, c := range g.Clauses {
@@ -103,11 +110,12 @@ func TestLiveGrammarCard(t *testing.T) {
 		}
 		t.Logf("    句意：%s", g.Meaning)
 	}
-	t.Logf("RESULT: 整张作废 %d/8 · 成分 %d 块 · 丢掉 %d 段 · 没有词法 %d · 没有主句 %d · 漏过去完成时 %d · 谓语带主语 %d", failed, parts, dropped, noWords, noMain, noPerfect, badPredicate)
+	t.Logf("RESULT: 整张作废 %d/8 · 成分 %d 块 · 丢掉 %d 段 · 四层全填 %d · 平均层数 %.1f · 没有主句 %d · 漏过去完成时 %d · 谓语带主语 %d", failed, parts, dropped, allFour, float64(totalLayers)/8, noMain, noPerfect, badPredicate)
 	if failed > 1 {
 		t.Errorf("%d/8 张语法卡整张作废 —— 她点语法会拿到「AI 响应错误」", failed)
 	}
-	if noMain > 0 || noWords > 1 {
-		t.Errorf("没有主句 %d 张、没有词法 %d 张", noMain, noWords)
+	// 🚨 owner：「only need to highlight those key points」—— 四层全填的卡片是在凑数。
+	if noMain > 0 || allFour > 2 {
+		t.Errorf("没有主句 %d 张、四层全填 %d 张", noMain, allFour)
 	}
 }
