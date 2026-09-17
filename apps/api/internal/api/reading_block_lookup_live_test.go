@@ -7,7 +7,6 @@ package api
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +26,7 @@ func TestLiveLookupWord(t *testing.T) {
 	prov, r := liveClass(t, tool.Class)
 	blocks := SplitBlocks("During this prolonged period of cold and darkness, plants were unable to photosynthesize, and as a result, many animals starved to death. The fluffy body feathers the researchers found in the coprolite might have been good enough to keep the birds warm.")
 	words := []string{"prolonged", "photosynthesize", "starved", "coprolite", "fluffy", "good enough"}
-	failed := 0
+	failed, wrong := 0, 0
 	for i, w := range words {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		start := time.Now()
@@ -47,14 +46,20 @@ func TestLiveLookupWord(t *testing.T) {
 			t.Logf("sample %d (%s): 作废\n%s", i, w, res.Text)
 			continue
 		}
-		c := got[0]
-		if !strings.EqualFold(c.Term, w) && !strings.Contains(strings.ToLower(c.Term), strings.ToLower(w)) {
-			t.Logf("sample %d: 她点的是 %q，卡片讲的是 %q", i, w, c.Term)
+		// 🚨 生产上还会再问一次（explainReadingBlock），这里量的是第一次就对的比例。
+		c := lookupCardFor(got, w)
+		if c == nil {
+			wrong++
+			t.Logf("sample %d: 她点的是 %q，卡片讲的是 %q", i, w, got[0].Term)
+			continue
 		}
 		t.Logf("sample %d %s | %v | %s（%s）%s — %s | %s", i, r.ModelID, time.Since(start).Round(time.Millisecond),
 			c.Term, c.Pos, c.Meaning, c.Note, c.Example)
 	}
-	t.Logf("RESULT: 作废 %d/%d", failed, len(words))
+	t.Logf("RESULT: 作废 %d/%d · 讲错了词 %d/%d", failed, len(words), wrong, len(words))
+	if wrong*2 > len(words) {
+		t.Errorf("%d/%d 次讲的不是她点的那个词", wrong, len(words))
+	}
 	if failed > 1 {
 		t.Errorf("%d/%d 次查词作废 —— 她点一个词会拿到「AI 响应错误」", failed, len(words))
 	}
