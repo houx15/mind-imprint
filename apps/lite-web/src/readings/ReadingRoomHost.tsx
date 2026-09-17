@@ -361,6 +361,11 @@ function ReopenButton({ onReopen }: { onReopen: () => Promise<void> }) {
         {busy ? "正在打开…" : "继续阅读"}
       </Button>
       {err && <span className="text-mk-small text-mk-danger">继续阅读失败：{err}</span>}
+      {/* 🚨 报告是存下来的。继续阅读之后再完成，它会按新的记录重新生成 —— 按之前
+          就要说清楚（产品负责人 2026-09-17：「we need to let students know」）。 */}
+      <span className="basis-full text-mk-small text-mk-muted">
+        继续阅读后，再次完成时报告会按新的阅读记录重新生成，内容可能变化；已分享的链接也会显示新的内容。
+      </span>
     </>
   );
 }

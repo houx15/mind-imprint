@@ -142,6 +142,7 @@ export function ReportView({
         <div>
           <p className="journal-byline">{report.studentName} <span>／ {date}</span></p>
           <Opening ordinal={report.ordinal} name={report.studentName} viewer={viewer} kind={report.kind} />
+      <RevisionNote revision={report.revision} revisedAt={report.revisedAt} viewer={viewer} />
           <h1>{report.title}</h1>
         </div>
         <img src={studentArtwork.keepsake} alt="" />
@@ -174,6 +175,7 @@ export function ReportView({
       />
       {sharePanel}
       <Opening ordinal={report.ordinal} name={report.studentName} viewer={viewer} kind={report.kind} />
+      <RevisionNote revision={report.revision} revisedAt={report.revisedAt} viewer={viewer} />
       <BackToArticle onBack={onBackToArticle} />
       <ReportVisualSummary stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
@@ -371,6 +373,35 @@ function Moments({ moments }: { moments: LiteReport["moments"] }) {
  *
  * 感叹号留着 —— 完成一篇是规则 9 说的那种「真正的节点」，而且这是她的原话。
  */
+/**
+ * 这份报告更新过。
+ *
+ * 🚨 产品负责人 2026-09-17：「it is saved. then regenerated would change the
+ * content. but we need to let students know.」报告是存下来的；她「继续阅读」
+ * 再完成之后，它按新的记录重新生成，金句、收获、数字都可能变。这一行让她（和拿着
+ * 分享链接的人）知道眼前这份不是原来那一份。第 1 版不显示。
+ */
+function RevisionNote({
+  revision,
+  revisedAt,
+  viewer,
+}: {
+  revision?: number;
+  revisedAt?: string;
+  viewer: "owner" | "guest";
+}) {
+  if (!revision || revision < 2) return null;
+  const when = revisedAt ? formatDate(revisedAt) : "";
+  return (
+    <p className="text-mk-small text-mk-muted">
+      第 {revision} 版{when ? ` · ${when} 更新` : ""}
+      {viewer === "owner"
+        ? "：继续阅读后再次完成，报告已按新的阅读记录重新生成，内容可能与之前不同。"
+        : "：作者继续阅读后，报告已按新的阅读记录重新生成。"}
+    </p>
+  );
+}
+
 function Opening({
   ordinal,
   name,

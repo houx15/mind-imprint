@@ -97,6 +97,10 @@ export type LiteReport = {
   turningPoints: ReportTurningPoint[];
   /** 我读的这篇。写作报告永远是 null。 */
   article: ReportArticle | null;
+  /** 这份报告是第几版。没有 = 第 1 版。「继续阅读」再完成之后重新生成的是 2、3…… */
+  revision?: number;
+  /** 最近一次重新生成的时间（RFC3339）。 */
+  revisedAt?: string;
   /** 段落工具上她做过的事（阅读专属，2026-09-17）。早于这个字段的报告是 null。 */
   toolkit?: ReportToolkit | null;
   /** The finished piece, in full, HER OWN words — writing-kind only, and
