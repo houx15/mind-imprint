@@ -839,10 +839,6 @@ type coachCardAnswer struct {
 	Prompt  string `json:"prompt,omitempty"`
 	Choice  string `json:"choice,omitempty"`
 	BlockID string `json:"blockId,omitempty"`
-	// Revised：这是她对同一张卡**改过的**答案（2026-09-17，产品负责人要的
-	// 「回退」）。存进 payload，前端据此把它挂回原来那张卡上；转写里多一行
-	// 「> 【她改了答案】」，印记 据此知道要回应的是新的这一份。
-	Revised bool `json:"revised,omitempty"`
 }
 
 // coachCardAnswerPayload renders her answer into the jsonb column's bytes,

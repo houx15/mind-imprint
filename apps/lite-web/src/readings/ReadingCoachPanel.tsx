@@ -164,8 +164,6 @@ export function ReadingCoachPanel({
     const cardBySeq = new Map<number, CoachCardSpec>();
     const answerBySeq = new Map<number, CoachCardAnswer>();
     const open: { seq: number; card: CoachCardSpec }[] = [];
-    // 已经答过的卡，按到达顺序。改答案（`revised`）那一份要挂回它自己那张上。
-    const answered: { seq: number; card: CoachCardSpec }[] = [];
     let newest: number | null = null;
     for (const m of messages) {
       if (m.role === "ai") {
@@ -179,20 +177,7 @@ export function ReadingCoachPanel({
       }
       const answer = coachAnswerOf(m);
       // 段落工具底下写的那一段不是任何一张卡的回答 —— 见 BLOCK_TOOL_ANSWER。
-      if (!answer || answer.type === BLOCK_TOOL_ANSWER) continue;
-      // 🚨 改过的答案挂回**它自己那张**已答的卡上，覆盖上一份 —— 卡片显示最新的
-      // 那一份。它不能走下面「挂到最新那张没答的卡」那条退路：那样会把一张她
-      // 还没碰过的卡当成已答收起来。
-      if (answer.revised) {
-        for (let k = answered.length - 1; k >= 0; k--) {
-          if (answered[k]!.card.prompt === answer.prompt) {
-            answerBySeq.set(answered[k]!.seq, answer);
-            break;
-          }
-        }
-        continue;
-      }
-      if (open.length === 0) continue;
+      if (!answer || open.length === 0 || answer.type === BLOCK_TOOL_ANSWER) continue;
       let i = open.length - 1;
       for (let k = open.length - 1; k >= 0; k--) {
         if (open[k]!.card.prompt === answer.prompt) {
@@ -201,7 +186,6 @@ export function ReadingCoachPanel({
         }
       }
       answerBySeq.set(open[i]!.seq, answer);
-      answered.push(open[i]!);
       open.splice(i, 1);
     }
     // 铁律③ 一次只问一个：只有**对话里最后到达的那张**卡片是敞开的，它之前的
@@ -240,7 +224,6 @@ export function ReadingCoachPanel({
       prefillBySeq,
       open: last && last.seq === newest ? last : null,
       stale,
-      newest,
     };
   }, [messages]);
 
@@ -498,9 +481,6 @@ export function ReadingCoachPanel({
                 busy={busy || slot.locked || Boolean(slot.lensOpen)}
                 stale={cards.stale.has(m.seq)}
                 prefill={cards.prefillBySeq.get(m.seq)}
-                // 只有最新的那张能改：对话往下走了之后回头改旧卡，印记 回应的是
-                // 一件早就翻过去的事。透镜开着时也不改（一次只做一件事）。
-                canRevise={m.seq === cards.newest && !slot.lensOpen}
                 onAnswer={send}
               />
             </div>

@@ -435,12 +435,6 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   这一句拖到证据格。板上没有这一句，她找了半天找不到。
   要指板上那一条，就照板上那一条的样子抄；懒得抄就别加引号，说「第 4 段那句」。
 
-### 她改了答案的那一轮
-
-【她刚刚说的】开头是「> 【她改了答案】」时，她把刚才那张卡的答案换掉了。
-回应**新的这一份**：先说她改了什么（从哪一句换到哪一句 / 哪张卡挪到了哪一格），
-再说改得怎么样。不要把上一份当成她现在的想法，也不要为「改了」这件事本身夸她或批评她。
-
 ### 她在段落工具底下写了一段的那一轮
 
 【她刚刚说的】开头那一行是「> 【印记问】想一想 · 第N段：……」或「> 【印记问】仿写 · 第N段：……」
@@ -1998,7 +1992,6 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			Prompt:  collapseCardPrompt(ca.Prompt),
 			Choice:  normalizeCardAnswerText(ca.Choice),
 			BlockID: strings.TrimSpace(ca.BlockID),
-			Revised: ca.Revised,
 		}
 		quote, ownFromChoice, pointed := cardAnswerChoiceParts(answer.Choice, answer.BlockID, blocks)
 		picks = dedupeReadingPicks(append(picks, pointed...))
@@ -2011,11 +2004,6 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if content := composeCardAnswerMessage(answer.Prompt, quote, own, blocks...); content != "" {
-			// 改过的答案：转写里多一行说明。这一行带「> 」—— 它不是她说的话，
-			// 不进她的语料（和【印记问】那一行同一个待遇）。
-			if answer.Revised {
-				content = "> 【她改了答案】\n" + content
-			}
 			studentContent = content
 			studentPayload = coachCardAnswerPayload(answer)
 		}
