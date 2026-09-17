@@ -10,6 +10,8 @@ import {
   gradingRowStatus,
   gradingPageSteps,
   gradingSteps,
+  initialGradingMode,
+  previewValue,
   queueResultText,
   reviewedDraftIds,
   sendResultText,
@@ -230,5 +232,28 @@ describe("gradingSteps", () => {
     expect(r.steps.map((s) => s.state)).toEqual(["done", "done", "done"]);
     expect(r.steps[0]!.note).toBe("无待批改");
     expect(r.steps[2]!.note).toBe("已发送 1/1");
+  });
+});
+
+describe("initialGradingMode", () => {
+  it("opens a sent or reviewed grading on 预览", () => {
+    expect(initialGradingMode("sent", null)).toBe("preview");
+    expect(initialGradingMode("draft", "2026-09-18T02:00:00Z")).toBe("preview");
+  });
+  it("opens work still in progress on 编辑", () => {
+    expect(initialGradingMode("draft", null)).toBe("edit");
+    expect(initialGradingMode("failed", null)).toBe("edit");
+    expect(initialGradingMode("running", null)).toBe("edit");
+  });
+});
+
+describe("previewValue", () => {
+  it("names a blank field instead of rendering nothing", () => {
+    expect(previewValue("")).toEqual({ text: "待填写", filled: false });
+    expect(previewValue("   ")).toEqual({ text: "待填写", filled: false });
+    expect(previewValue(null)).toEqual({ text: "待填写", filled: false });
+  });
+  it("trims what she wrote", () => {
+    expect(previewValue("  结构清楚  ")).toEqual({ text: "结构清楚", filled: true });
   });
 });

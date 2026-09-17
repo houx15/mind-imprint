@@ -3,13 +3,11 @@ import { Button, Pebble } from "@/ui";
 import { getAssignment, type RecipientDTO } from "../api/assignments";
 import {
   getGrading,
-  LETTER_GRADES,
   patchGrading,
   queueWritingGrading,
   regradeGrading,
   sendGrading,
   type GradingContent,
-  type Rubric,
   type TeacherGrading,
 } from "../api/gradings";
 import { formatDeadline } from "../shared/deadline";
@@ -17,16 +15,14 @@ import bookmark from "../home/assets/yinji-bookmark.webp";
 import { highlightSegments, MARK_STYLE, pickableSentences, PIECE_CLS, quoteRanges, unmarkedPointQuotes } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText } from "./assignmentLogic";
-import { NumberField } from "./controls/NumberField";
-import { Select } from "./controls/Select";
-import { INPUT_CLS } from "./formParts";
+import { GradingCard } from "./GradingCard";
 import {
   contentForSave,
   failureText,
   gradingContentReducer,
   gradingDoneText,
   gradingPageSteps,
-  gradingPointLabel,
+  initialGradingMode,
   GRADING_RUNNING_KEEPS_TEXT,
   GRADING_RUNNING_TEXT,
   LEAVE_UNSAVED_CONFIRM,
@@ -36,6 +32,7 @@ import {
   shouldPoll,
   validateGradingContent,
   type GradingAction,
+  type GradingMode,
 } from "./gradingLogic";
 import { ReturnDialog } from "./ReturnDialog";
 import { TeacherPage } from "./TeacherPage";
@@ -77,6 +74,10 @@ export function GradingPage({
   const [picking, setPicking] = useState<number | null>(null);
   const [returning, setReturning] = useState<RecipientDTO | null>(null);
   const [nonce, setNonce] = useState(0);
+  // Which view the grading card shows. Null until the row has loaded and
+  // `initialGradingMode` can decide; her own choice after that, never
+  // re-decided by a poll.
+  const [mode, setMode] = useState<GradingMode | null>(null);
 
   // Mirrors `dirty` for the poll path below, which must always read the
   // CURRENT value even though its effect only re-runs on [gradingId, nonce]
@@ -107,6 +108,7 @@ export function GradingPage({
 
   function apply(g: TeacherGrading, replaceContent: boolean) {
     setGrading(g);
+    setMode((m) => m ?? initialGradingMode(g.status, g.reviewedAt));
     if (replaceContent && g.content) {
       dispatch({ type: "load", content: g.content });
       setDirty(false);
@@ -169,6 +171,12 @@ export function GradingPage({
       const g = await task();
       if (alive.current) {
         apply(g, true);
+        // Once it is sent there is nothing left to type: show her what the
+        // student now reads.
+        if (action === "send") {
+          setMode("preview");
+          setPicking(null);
+        }
         const done = gradingDoneText(action, wasSent);
         if (done) setMessage({ tone: "done", text: done });
         // A regrade (or anything else `run` drives) can hand back a row
@@ -357,35 +365,41 @@ export function GradingPage({
         </article>
 
         <aside className="teacher-grading-aside flex min-h-0 min-w-0 flex-col gap-4">
-          <div className="teacher-grading-editor mk-scroll flex min-h-0 flex-col gap-4 min-[900px]:flex-1 min-[900px]:pr-1">
-            {running && (
-              <div role="status" className="flex items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4">
-                <span className="mt-0.5 shrink-0">
-                  <Pebble state="thinking" size={28} />
-                </span>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <p className="flex items-center gap-2 text-mk-body font-semibold text-mk-ink">
-                    批改中
-                    <span className="mk-think-dot" />
-                    <span className="mk-think-dot [animation-delay:0.15s]" />
-                    <span className="mk-think-dot [animation-delay:0.3s]" />
-                  </p>
-                  <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_TEXT}</p>
-                  {grading.content !== null && <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_KEEPS_TEXT}</p>}
-                </div>
+          {running && (
+            <div role="status" className="flex shrink-0 items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4">
+              <span className="mt-0.5 shrink-0">
+                <Pebble state="thinking" size={28} />
+              </span>
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <p className="flex items-center gap-2 text-mk-body font-semibold text-mk-ink">
+                  批改中
+                  <span className="mk-think-dot" />
+                  <span className="mk-think-dot [animation-delay:0.15s]" />
+                  <span className="mk-think-dot [animation-delay:0.3s]" />
+                </p>
+                <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_TEXT}</p>
+                {grading.content !== null && <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_KEEPS_TEXT}</p>}
               </div>
-            )}
-            {editable ? (
-              <GradingEditor
-                rubric={grading.rubric}
-                content={content}
-                unmarked={unmarked}
-                onEdit={edit}
-                onPickQuote={setPicking}
-                onShowQuote={(i) => document.getElementById(`grading-quote-${i}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}
-              />
-            ) : null}
-          </div>
+            </div>
+          )}
+
+          {editable && (
+            <GradingCard
+              rubric={grading.rubric}
+              content={content}
+              mode={mode ?? "edit"}
+              onMode={(m) => {
+                setMode(m);
+                // 预览 has no quote picker; one left open would apply her next
+                // sentence click to a point she can no longer see.
+                if (m === "preview") setPicking(null);
+              }}
+              unmarked={unmarked}
+              onEdit={edit}
+              onPickQuote={setPicking}
+              onShowQuote={(i) => document.getElementById(`grading-quote-${i}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}
+            />
+          )}
 
           <div className="flex shrink-0 flex-col gap-2 border-t border-mk-border pt-4">
             <div className="flex flex-wrap gap-2">
@@ -505,134 +519,5 @@ export function GradingPage({
         />
       )}
     </TeacherPage>
-  );
-}
-
-function GradeInput({ rubric, value, onChange, label }: { rubric: Rubric; value: string; onChange: (v: string) => void; label: string }) {
-  if (rubric.scale === "letter") {
-    return (
-      <Select
-        ariaLabel={label}
-        className="!w-28"
-        value={value}
-        placeholder="—"
-        onChange={onChange}
-        options={[
-          ...(value && !(LETTER_GRADES as readonly string[]).includes(value) ? [{ value, label: value }] : []),
-          ...LETTER_GRADES.map((g) => ({ value: g as string, label: g })),
-        ]}
-      />
-    );
-  }
-  return (
-    <NumberField ariaLabel={label} min={0} max={rubric.max} value={value} onChange={onChange} />
-  );
-}
-
-function GradingEditor({
-  rubric,
-  content,
-  unmarked,
-  onEdit,
-  onPickQuote,
-  onShowQuote,
-}: {
-  rubric: Rubric;
-  content: GradingContent;
-  unmarked: ReadonlySet<number>;
-  onEdit: (a: Parameters<typeof gradingContentReducer>[1]) => void;
-  onPickQuote: (index: number) => void;
-  onShowQuote: (index: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-2">
-        <h2 className="teacher-grading-h">总评</h2>
-        <GradeInput rubric={rubric} label="总评等级" value={content.overall.grade} onChange={(v) => onEdit({ type: "overallGrade", value: v })} />
-        <textarea aria-label="总评评语" rows={3} value={content.overall.comment} onChange={(e) => onEdit({ type: "overallComment", value: e.target.value })} className={INPUT_CLS} />
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="teacher-grading-h">维度</h2>
-        {content.dimensions.map((d, i) => (
-          <div key={d.name} className="flex flex-col gap-1.5">
-            <h3 className="text-mk-small font-semibold text-mk-ink">{d.name}</h3>
-            <GradeInput rubric={rubric} label={`${d.name}等级`} value={d.grade} onChange={(v) => onEdit({ type: "dimensionGrade", index: i, value: v })} />
-            <textarea aria-label={`${d.name}评语`} rows={2} value={d.comment} onChange={(e) => onEdit({ type: "dimensionComment", index: i, value: e.target.value })} className={INPUT_CLS} />
-          </div>
-        ))}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="teacher-grading-h">意见</h2>
-        {content.points.map((p, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                ariaLabel={gradingPointLabel(i, "类型")}
-                size="sm"
-                className="!min-w-[104px]"
-                value={p.kind}
-                onChange={(v) => onEdit({ type: "pointKind", index: i, value: v })}
-                options={[
-                  { value: "good", label: "优点" },
-                  { value: "issue", label: "问题" },
-                ]}
-              />
-              <span className="text-mk-label text-mk-muted">{p.source === "ai" ? "AI" : "老师"}</span>
-              <Button variant="ghost" size="sm" aria-label={gradingPointLabel(i, "删除")} onClick={() => onEdit({ type: "deletePoint", index: i })}>
-                删除
-              </Button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-mk-small">
-              <span className="text-mk-muted">引文</span>
-              {p.quote ? (
-                <button type="button" onClick={() => onShowQuote(i)} className="min-w-0 text-left text-mk-ink underline">
-                  「{p.quote}」
-                </button>
-              ) : (
-                <span className="text-mk-muted">—</span>
-              )}
-              <Button variant="link" size="sm" aria-label={gradingPointLabel(i, "选择引文")} onClick={() => onPickQuote(i)}>
-                选择引文
-              </Button>
-              {p.quote && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  aria-label={gradingPointLabel(i, "清除引文")}
-                  onClick={() => onEdit({ type: "pointQuote", index: i, value: null })}
-                >
-                  清除
-                </Button>
-              )}
-            </div>
-            {p.quote && unmarked.has(i) && <p className="text-mk-small text-mk-danger">未在正文中标出</p>}
-            <textarea
-              aria-label={gradingPointLabel(i, "说明")}
-              rows={2}
-              value={p.text}
-              onChange={(e) => onEdit({ type: "pointText", index: i, value: e.target.value })}
-              className={INPUT_CLS}
-            />
-            {p.kind === "issue" && (
-              <textarea
-                aria-label={gradingPointLabel(i, "修改建议")}
-                placeholder="修改建议"
-                rows={2}
-                value={p.action ?? ""}
-                onChange={(e) => onEdit({ type: "pointAction", index: i, value: e.target.value })}
-                className={INPUT_CLS}
-              />
-            )}
-          </div>
-        ))}
-        <div>
-          <Button variant="secondary" size="sm" onClick={() => onEdit({ type: "addPoint" })}>
-            添加意见
-          </Button>
-        </div>
-      </section>
-    </div>
   );
 }

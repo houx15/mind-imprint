@@ -1245,6 +1245,104 @@ button.teacher-row-card:hover {
   color: var(--mk-ink);
 }
 
+/* The grading itself is one card with two views (GradingCard, 2026-09-18):
+ * 编辑 is the form, 预览 is the finished grading as running text. The head
+ * holds the card's name and the two tabs; the body is the part that
+ * scrolls in `fill` mode (it keeps the `.teacher-grading-editor` class the
+ * fill rules above already target). */
+.teacher-grading-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-grading-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--mk-border);
+}
+.teacher-grading-card > .teacher-grading-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+}
+.teacher-grading-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--mk-radius-full);
+  background: var(--mk-paper);
+}
+.teacher-grading-tabs > button {
+  padding: 5px 16px;
+  border-radius: var(--mk-radius-full);
+  font-size: var(--mk-font-size-small);
+  color: var(--mk-muted);
+  transition: background-color 120ms var(--mk-ease), color 120ms var(--mk-ease);
+}
+.teacher-grading-tabs > button:hover {
+  color: var(--mk-ink);
+}
+.teacher-grading-tabs > button[aria-pressed="true"] {
+  background: var(--mk-surface);
+  font-weight: 650;
+  color: var(--mk-accent-700);
+}
+.teacher-grading-tabs > button:focus-visible {
+  outline: 2px solid var(--mk-accent-200);
+  outline-offset: 1px;
+}
+
+.teacher-grading-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.teacher-grading-preview-h {
+  font-size: var(--mk-font-size-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--mk-muted);
+}
+.teacher-grading-dims {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: baseline;
+}
+/* One point, in both views. */
+.teacher-grading-point {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-paper);
+}
+.teacher-grading-kind {
+  padding: 2px 10px;
+  border-radius: var(--mk-radius-full);
+  font-size: var(--mk-font-size-label);
+  font-weight: 700;
+  color: var(--mk-ink);
+  /* Mixed against the surface it sits on, so the tint follows the theme
+     instead of painting a fixed pastel that goes unreadable in the dark. */
+  background: color-mix(in srgb, var(--mk-muted) 18%, var(--mk-surface));
+}
+.teacher-grading-kind[data-kind="good"] {
+  background: color-mix(in srgb, var(--mk-success) 26%, var(--mk-surface));
+}
+.teacher-grading-kind[data-kind="issue"] {
+  background: color-mix(in srgb, var(--mk-warning) 30%, var(--mk-surface));
+}
+
 /* Class chat, left pane. */
 .teacher-chat-canvas {
   display: grid;

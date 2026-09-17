@@ -218,6 +218,27 @@ export function failureText(error: string | null): string {
   return `批改失败：${error ?? "没有更多信息"}`;
 }
 
+/** The grading card's two views: the form, or the finished grading as the
+ *  student will read it. */
+export type GradingMode = "edit" | "preview";
+
+/**
+ * Which view the card opens on. A grading she has already sent or marked
+ * 已审阅 is something she comes back to READ — it opens on 预览, where the
+ * whole grading is one page of text instead of a column of input boxes. Work
+ * still in progress opens on 编辑.
+ */
+export function initialGradingMode(status: GradingStatus, reviewedAt: string | null): GradingMode {
+  return status === "sent" || reviewedAt ? "preview" : "edit";
+}
+
+/** A field's value in 预览, or what is still missing. Blank is never silently
+ *  rendered as nothing — 预览 has to show the same gaps the form does. */
+export function previewValue(value: string | null): { text: string; filled: boolean } {
+  const t = (value ?? "").trim();
+  return t === "" ? { text: "待填写", filled: false } : { text: t, filled: true };
+}
+
 export function sendAllConfirmText(n: number): string {
   return `将发送 ${n} 份已审阅的批改`;
 }
