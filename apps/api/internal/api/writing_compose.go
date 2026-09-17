@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -405,6 +406,21 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	// A revision identical to the last version is not a new version. On
+	// production (2026-09-17) a returned essay came back as v2 with the same
+	// 233 characters as v1; the teacher then graded the same text twice.
+	if revising {
+		last, err := qtx.GetLatestWritingVersion(ctx, at.ID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if err == nil && strings.TrimSpace(last.Body) == strings.TrimSpace(freshDraft.Body) {
+			httpx.WriteError(w, r, &httpx.APIError{Status: http.StatusConflict, Code: "unchanged_version",
+				Message: fmt.Sprintf("正文与 v%d 相同，请修改后再提交。", last.Number)})
+			return
+		}
 	}
 	if first {
 		if err := qtx.SetWritingFinished(ctx, at.ID); err != nil {

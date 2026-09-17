@@ -202,6 +202,10 @@ func TestWritingVersionReviseDiscardAndRefinish(t *testing.T) {
 	if code := assignJSON(t, h, student, "POST", base+"/revise", nil, nil); code != http.StatusOK {
 		t.Fatalf("second revise = %d", code)
 	}
+	// Unchanged text is not a new version (production 2026-09-17).
+	if code, ec := writeErrorCode(t, h, student, "POST", base+"/finish", nil); code != http.StatusConflict || ec != "unchanged_version" {
+		t.Fatalf("refinish unchanged = %d %s, want 409 unchanged_version", code, ec)
+	}
 	if code := assignJSON(t, h, student, "PUT", base+"/draft", map[string]any{"body": "第二版正文。"}, nil); code != http.StatusOK {
 		t.Fatalf("draft before refinish = %d", code)
 	}
