@@ -131,7 +131,8 @@ export async function walkRoom(
         note = `没有第 ${a.button} 号按钮。`;
         continue;
       }
-      await b.click({ timeout: 8000 }).catch(() => {});
+      // An animated element never counts as "stable"; a real hand clicks it anyway.
+      await b.click({ timeout: 8000 }).catch(() => b.click({ force: true, timeout: 4000 }).catch(() => {}));
       await page.waitForTimeout(800);
       continue;
     }

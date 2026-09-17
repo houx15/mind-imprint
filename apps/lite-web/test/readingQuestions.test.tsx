@@ -1,6 +1,6 @@
 import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ReadingQuestions, WRITING_IDEA_KEY } from "@lite/readings/ReadingQuestions";
+import { ReadingQuestions, WRITING_IDEA_KEY, WRITING_IDEA_LANG_KEY } from "@lite/readings/ReadingQuestions";
 import { WritingsLanding } from "@lite/writings/WritingsLanding";
 
 /**
@@ -132,7 +132,10 @@ describe("ReadingQuestions", () => {
     fireEvent.click(buttons[1]!);
 
     expect(sessionStorage.getItem(WRITING_IDEA_KEY)).toBe(QUESTION_2.text);
-    expect(sessionStorage.length).toBe(1);
+    // The only other thing handed over is the article's language code — a
+    // label, not any of the article's text.
+    expect(["zh", "en"]).toContain(sessionStorage.getItem(WRITING_IDEA_LANG_KEY));
+    expect(sessionStorage.length).toBe(2);
   });
 });
 

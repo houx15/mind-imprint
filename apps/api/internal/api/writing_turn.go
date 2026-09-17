@@ -203,6 +203,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		for _, o := range outline {
 			headingOf[o.ID.String()] = strings.TrimSpace(o.Text)
 		}
+		numbers := writingBlockNumbers(outline, snippets)
 		for _, s := range snippets {
 			text := strings.TrimSpace(s.Text)
 			if text == "" {
@@ -214,7 +215,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 					label = "「" + h + "」"
 				}
 			}
-			fmt.Fprintf(&b, "  [第%d块]%s %s\n", s.Position+1, label, writingProjectionSnippet(text))
+			fmt.Fprintf(&b, "  [第%d块]%s %s\n", numbers[s.ID], label, writingProjectionSnippet(text))
 		}
 		b.WriteString(writingCoachGroundingRules)
 	}

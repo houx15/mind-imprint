@@ -6,7 +6,7 @@ import { ApiError } from "../api/client";
 import { createWriting, extractDocument, listWritings, isWritingFinished, type Writing } from "../api/writings";
 import { navigate, writingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
-import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
+import { WRITING_IDEA_KEY, WRITING_IDEA_LANG_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
@@ -33,6 +33,8 @@ import { splitBroughtFile } from "./broughtFile";
 
 export function WritingsLanding() {
   const [idea, setIdea] = useState("");
+  /** The language handed over with a reading's question, if any. */
+  const [ideaLang, setIdeaLang] = useState<"zh" | "en" | undefined>(undefined);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -76,9 +78,12 @@ export function WritingsLanding() {
   useEffect(() => {
     try {
       const stashed = sessionStorage.getItem(WRITING_IDEA_KEY);
+      const stashedLang = sessionStorage.getItem(WRITING_IDEA_LANG_KEY);
+      sessionStorage.removeItem(WRITING_IDEA_LANG_KEY);
       if (stashed) {
         sessionStorage.removeItem(WRITING_IDEA_KEY);
         setIdea(stashed);
+        if (stashedLang === "en" || stashedLang === "zh") setIdeaLang(stashedLang);
       }
     } catch {
       // Private mode / storage disabled: nothing to pick up, and no reason
@@ -212,7 +217,7 @@ export function WritingsLanding() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();
-                  void start(idea);
+                  void start(idea, ideaLang);
                 }
               }}
               placeholder="说说你想写点什么，直接开始"
@@ -235,7 +240,7 @@ export function WritingsLanding() {
                 <Icon icon={FileUp} size={14} />
                 带一篇写好的进来
               </button>
-              <Button onClick={() => void start(idea)} disabled={!idea.trim()} loading={starting}>
+              <Button onClick={() => void start(idea, ideaLang)} disabled={!idea.trim()} loading={starting}>
                 开始写作
               </Button>
             </div>

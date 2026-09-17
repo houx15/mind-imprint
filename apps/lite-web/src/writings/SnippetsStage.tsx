@@ -8,6 +8,7 @@ import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
+import { buildSlots, type Slot } from "./slots";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { registerPendingSave } from "./pendingSaves";
 import { handleWriteError } from "./writeErrors";
@@ -68,60 +69,6 @@ import {
  * barely used them, and a student stuck on a paragraph wants a question, not a
  * form to fill in.
  */
-
-type Slot = {
-  position: number;
-  outlineId: string | null;
-  heading: string;
-  /** The generic block label from the skeleton ("反方最强的说法"), when this
-   *  slot comes from one. Free paragraphs have none. */
-  role: string;
-  snippet: WritingSnippet | null;
-};
-
-/**
- * Two rules, both learned from bugs:
- *
- * 1. EVERY persisted snippet gets a slot, whether or not it maps to a current
- *    outline point. Slicing to outline-derived slots ONLY used to silently
- *    drop any snippet that wasn't one of them — a free paragraph added via
- *    加一段, or one written before a structure was ever chosen. Its text still
- *    lands in the composed draft either way, so hiding it left her unable to
- *    see or edit part of her own finished piece.
- * 2. A snippet is matched to a block strictly by `outlineId` (the server's own
- *    by-text-repaired link), never by array position. Position matching can
- *    point at the WRONG block the moment the outline is reordered — "specific,
- *    confident and wrong", exactly what the backend refuses to do.
- */
-function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnippet[]): Slot[] {
-  const sortedOutline = outline.slice().sort((a, b) => a.position - b.position);
-  const outlineIds = new Set(sortedOutline.map((o) => o.id));
-
-  const outlineSlots: Slot[] = sortedOutline.map((o) => ({
-    position: o.position,
-    outlineId: o.id,
-    // Her own sentence is the heading when she has written one; the generic
-    // role is the fallback, so a block she hasn't summarised yet still says
-    // what it is for rather than showing an empty strip.
-    heading: o.text.trim() || o.role,
-    role: o.role,
-    snippet: snippets.find((s) => s.outlineId === o.id) ?? null,
-  }));
-
-  const freeSlots: Slot[] = snippets
-    .filter((s) => !s.outlineId || !outlineIds.has(s.outlineId))
-    .slice()
-    .sort((a, b) => a.position - b.position)
-    .map((s) => ({
-      position: s.position,
-      outlineId: s.outlineId,
-      heading: s.outlineHeading,
-      role: "",
-      snippet: s,
-    }));
-
-  return [...outlineSlots, ...freeSlots];
-}
 
 /** The guides the server already stored, keyed by outline row id. */
 function storedGuides(outline: WritingOutlineItem[]): Record<string, WritingBlockGuide> {
@@ -681,8 +628,8 @@ function SnippetBlock({
               第一段最后一句有点像，不确定它到底在说哪一段，有点乱。」
               抬头上原来只有结构那一步的标题，一个数字都没有，于是她只能自己数；
               而空的块也占位置，数出来常常对不上。
-              这个号和服务端 projection 里那个是同一个（position + 1）。 */}
-          <span className="shrink-0 text-mk-small text-mk-faint">第 {slot.position + 1} 块</span>
+              这个号是它在屏幕上的顺序，和服务端 writingBlockNumbers 同一条规则。 */}
+          <span className="shrink-0 text-mk-small text-mk-faint">第 {slot.number} 块</span>
           <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -737,7 +684,19 @@ function SnippetBlock({
         </div>
       </div>
 
-      {showGuide && <GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />}
+      {/* 结构图里挂在这一块下面的材料。它们写进这一段，不单独成段（slots.ts）。 */}
+      {slot.materials.length > 0 && (
+        <div className="rounded-mk-sm px-3 py-2 text-mk-small" style={{ background: "var(--mk-paper)" }}>
+          <p className="font-semibold text-mk-secondary">这一段可用的材料</p>
+          <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-mk-ink">
+            {slot.materials.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {showGuide &&<GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />}
 
       <textarea
         ref={textareaRef}

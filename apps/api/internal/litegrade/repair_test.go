@@ -48,6 +48,28 @@ func TestOnlyUnfoundQuotationsNeedsOnlyThatReason(t *testing.T) {
 	}
 }
 
+// 模型在数组里多写了一个引号：`},"{"name"`。
+func TestParseRepairsAStrayQuoteBeforeAnObject(t *testing.T) {
+	reply := `{"overall":{"grade":"A-","comment":"好"},"dimensions":[{"name":"内容","grade":"A-","comment":"a"},"{"name":"结构","grade":"B+","comment":"b"}],"points":[]}`
+	c, err := Parse(reply)
+	if err != nil {
+		t.Fatalf("not repaired: %v", err)
+	}
+	if len(c.Dimensions) != 2 || c.Dimensions[1].Name != "结构" {
+		t.Fatalf("dimensions = %+v", c.Dimensions)
+	}
+	// A quote inside a string is untouched: this one parses as-is.
+	ok := `{"overall":{"grade":"A","comment":"写了 },\"{ 这几个字"},"dimensions":[],"points":[]}`
+	c, err = Parse(ok)
+	if err != nil || c.Overall.Comment != `写了 },"{ 这几个字` {
+		t.Fatalf("valid reply changed: %q %v", c.Overall.Comment, err)
+	}
+	// Still broken after the repair → the original error.
+	if _, err := Parse(`{"overall":{"grade":"A"},"dimensions":[{"name":"a"} {"name":"b"}]}`); err == nil {
+		t.Fatal("broken JSON accepted")
+	}
+}
+
 // 模型回了 6 条意见，整份批改失败。
 func TestNormalizeAICapsPointsKeepingAGoodAndAnIssue(t *testing.T) {
 	c := validContent()

@@ -146,6 +146,13 @@ async function finishHere(page: Page) {
   await page.getByRole("heading", { name: "版本", exact: true }).waitFor({ timeout: 60_000 }).catch(() => {});
 }
 
+/** The finished page's tabs: role=tab or a plain button, depending on the page. */
+async function tab(page: Page, name: string) {
+  const t = page.getByRole("tab", { name, exact: true }).first();
+  if (await t.isVisible().catch(() => false)) return t.click();
+  await page.getByRole("button", { name, exact: true }).first().click().catch(() => {});
+}
+
 async function gotoStage(page: Page, name: "结构" | "段落" | "成稿") {
   // 结构那一屏是全屏的 PlanningView，它的「去写」进入段落。
   const tab = page.getByRole("button", { name, exact: true }).first();
@@ -231,13 +238,15 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
     await snap(page, "reading-questions");
     note("读完出现「去写一写」", has ? "ok" : "bad");
     if (!has) throw new Error("no 去写一写");
-    const q = await go.locator("xpath=ancestor::div[contains(@class,'mk-rq-bubble')]").innerText().catch(() => "");
-    await go.click();
+    const qs = await j<{ questions: { text: string }[] }>(ctx, "GET", `/api/v1/readings/${rid}/questions`);
+    const first = qs.body?.questions?.[0]?.text ?? "";
+    // 气泡一直在上下浮动，Playwright 等它「停稳」会一直等下去。
+    await go.click({ force: true });
     await page.waitForURL(/\/writings/, { timeout: 20_000 });
     await settleRoom(page);
     const box = page.getByPlaceholder("说说你想写点什么，直接开始");
     const v = await box.inputValue().catch(() => "");
-    note("问题带进写作框", v.trim() !== "" && q.includes(v.trim().slice(0, 20)) ? "ok" : "bad", v.slice(0, 80));
+    note("问题带进写作框", v.trim() !== "" && v.trim() === first.trim() ? "ok" : "bad", v.slice(0, 80));
     await snap(page, "landing-prefilled");
     await page.getByRole("button", { name: "开始写作" }).click();
     await page.waitForURL(/\/writings\/[0-9a-f-]{36}/, { timeout: 30_000 }).catch(() => {});
@@ -260,8 +269,8 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
     await settleRoom(page);
     await page.waitForTimeout(2500);
     await snap(page, "tree");
-    const node = page.locator(".tree-node").first();
-    await node.click({ timeout: 20_000 }).catch(() => {});
+    const node = page.locator(".tree-node button").first();
+    await node.click({ timeout: 20_000, force: true }).catch(() => {});
     const open = page.getByRole("button", { name: "在写作间打开" }).first();
     const has = await seen(open, 120_000);
     await snap(page, "tree-dig");
@@ -428,13 +437,15 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
   if (/Invalid Date|undefined|NaN/.test(pageText)) note("完成页出现坏字", "bad", pageText.match(/.{0,30}(Invalid Date|undefined|NaN).{0,30}/)?.[0] ?? "");
 
   // 报告
-  await page.getByRole("button", { name: "报告", exact: true }).click().catch(() => {});
+  await tab(page, "报告");
   await page.waitForTimeout(4000);
   await settleRoom(page);
-  const rep = await page.locator("body").innerText();
   await snap(page, "report");
-  note("报告能打开", /加载失败|出错/.test(rep) ? "bad" : "ok", rep.match(/加载失败.{0,60}/)?.[0] ?? "");
-  await page.getByRole("button", { name: "成稿", exact: true }).click().catch(() => {});
+  // The essay itself may contain 「出错」; only a visible alert counts.
+  const alerts = await page.locator('[role="alert"]:visible').allInnerTexts();
+  const shownReport = await page.getByText(/学习数据概览|写了|WRITING/).first().isVisible().catch(() => false);
+  note("报告能打开", alerts.length === 0 && shownReport ? "ok" : "bad", alerts.join(" / ").slice(0, 160));
+  await tab(page, "成稿");
 
   // 修改 → 改一句 → 完成 → 第 2 版
   await page.getByRole("button", { name: "修改", exact: true }).click();

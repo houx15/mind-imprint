@@ -4,6 +4,7 @@ import { Button, Icon } from "@/ui";
 import { useAlive } from "../shared/useAlive";
 import { getReadingQuestions, type ReadingQuestion } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
+import { guessLang } from "../writings/guessLang";
 
 /**
  * ReadingQuestions — what a finished reading leaves her with besides a full
@@ -71,7 +72,7 @@ export function ReadingQuestions({ readingId }: { readingId: string }) {
               <p className="text-mk-report-quote text-mk-ink">{q.text}</p>
               <p className="mt-3 text-mk-body text-mk-muted">从这句想到的：{q.anchorQuote}</p>
               <div className="mt-4">
-                <Button variant="secondary" onClick={() => writeAbout(q.text)}>
+                <Button variant="secondary" onClick={() => writeAbout(q.text, guessLang(q.anchorQuote))}>
                   <Icon icon={PenLine} size={15} />
                   去写一写
                 </Button>
@@ -99,10 +100,16 @@ const MACARON = [
 /** Read-and-clear on the other side (`WritingsLanding`) — this key is a
  *  one-shot handoff for THIS arrival, not a standing preference. */
 export const WRITING_IDEA_KEY = "lite:writing-idea";
+/** The article's language, guessed from the question's anchor (a verbatim
+ *  sentence of the article). The questions themselves are written in Chinese,
+ *  so the question text alone would make every writing from an English
+ *  article a Chinese one (2026-09-18 walk). */
+export const WRITING_IDEA_LANG_KEY = "lite:writing-idea-lang";
 
-function writeAbout(text: string) {
+function writeAbout(text: string, lang: "zh" | "en") {
   try {
     sessionStorage.setItem(WRITING_IDEA_KEY, text);
+    sessionStorage.setItem(WRITING_IDEA_LANG_KEY, lang);
   } catch {
     // Private mode / storage disabled: the navigation still helps her, she
     // just retypes the question. Never let a storage failure eat the click.

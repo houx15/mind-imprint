@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"mindimprint/api/internal/liteassign"
@@ -76,11 +77,25 @@ func Parse(text string) (Content, error) {
 		return Content{}, ErrUnparseable
 	}
 	var c Content
-	if err := json.Unmarshal([]byte(text[start:end+1]), &c); err != nil {
-		return Content{}, fmt.Errorf("%w: %v", ErrUnparseable, err)
+	body := text[start : end+1]
+	err := json.Unmarshal([]byte(body), &c)
+	if err == nil {
+		return c, nil
 	}
-	return c, nil
+	// 2026-09-18 写作入口走查：一份中文批改两次都在数组里写成了
+	// `},"{"name":…` —— 对象前面多了一个引号，整份批改因此失败。
+	// 只修这一种形状（引号紧贴在 `},` 与 `{` 之间），修完仍不是合法 JSON
+	// 就照旧报原来的错。
+	if fixed := strayQuoteBeforeObject.ReplaceAllString(body, "},{"); fixed != body {
+		var c2 Content
+		if json.Unmarshal([]byte(fixed), &c2) == nil {
+			return c2, nil
+		}
+	}
+	return Content{}, fmt.Errorf("%w: %v", ErrUnparseable, err)
 }
+
+var strayQuoteBeforeObject = regexp.MustCompile(`\}\s*,\s*"\s*\{`)
 
 // NormalizeAI trims a model result, marks every point as the AI's, drops the
 // action from good points and orders dimensions as the rubric lists them.
