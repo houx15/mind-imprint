@@ -282,6 +282,25 @@ func errWeekBeforeStart(message string) *httpx.APIError {
 	return &httpx.APIError{Status: http.StatusBadRequest, Code: "week_before_start", Message: message}
 }
 
+// The answers to a GET of the default (latest) week when there is no week yet:
+// a student who joined, or a class created, after that week ended. That is
+// the normal state of a new student or class, not an error, so it is a 200
+// with `notStarted` instead of a 400 (production 2026-09-17: every visit to a
+// new student's page logged a failed request). A week she asked for by date
+// is still a 400.
+const (
+	liteWeekNotYetStudent = "学生加入班级后的第一周结束后，这里显示周报。"
+	liteWeekNotYetClass   = "班级创建后的第一周结束后，这里显示周报。"
+)
+
+func writeWeekBeforeStart(w http.ResponseWriter, r *http.Request, message, notYet string) {
+	if r.Method == http.MethodGet && r.URL.Query().Get("weekStart") == "" {
+		httpx.WriteJSON(w, http.StatusOK, map[string]string{"notStarted": notYet})
+		return
+	}
+	httpx.WriteError(w, r, errWeekBeforeStart(message))
+}
+
 // liteWeekBound checks the week starting at ws against start. A week whose
 // end is at or before start is out of range (inRange false). hasPrev says
 // whether the week before ws is in range, i.e. whether its end (ws) is after
@@ -327,7 +346,7 @@ func (a *API) parseLiteStudentWeek(w http.ResponseWriter, r *http.Request, class
 	}
 	hasPrev, inRange := liteWeekBound(ws, joined)
 	if !inRange {
-		httpx.WriteError(w, r, errWeekBeforeStart(liteWeekBeforeEnrollment))
+		writeWeekBeforeStart(w, r, liteWeekBeforeEnrollment, liteWeekNotYetStudent)
 		return time.Time{}, false, false, false
 	}
 	return ws, isLatest, hasPrev, true
@@ -342,7 +361,7 @@ func parseLiteClassWeek(w http.ResponseWriter, r *http.Request, cls sqlc.Class) 
 	}
 	hasPrev, inRange := liteWeekBound(ws, cls.CreatedAt)
 	if !inRange {
-		httpx.WriteError(w, r, errWeekBeforeStart(liteWeekBeforeClass))
+		writeWeekBeforeStart(w, r, liteWeekBeforeClass, liteWeekNotYetClass)
 		return time.Time{}, false, false, false
 	}
 	return ws, isLatest, hasPrev, true

@@ -907,7 +907,15 @@ func TestLiteWeeklyWeekBeforeStart(t *testing.T) {
 	// The fixture creates the class and enrolls her now: the latest completed
 	// week ended before both.
 	for _, rt := range append(append([]route{}, studentRoutes...), classRoutes...) {
-		wantBeforeStart(rt, "")
+		if rt.method == "GET" {
+			// The default week of a new student or class is not an error.
+			code, body := weeklyDo(t, h, teacher, "GET", rt.path, nil)
+			if code != http.StatusOK || !strings.Contains(body, `"notStarted"`) || !strings.Contains(body, "第一周结束后") {
+				t.Fatalf("GET %s = %d %s, want 200 notStarted", rt.path, code, body)
+			}
+		} else {
+			wantBeforeStart(rt, "")
+		}
 		wantBeforeStart(rt, weekQ(ws))
 	}
 

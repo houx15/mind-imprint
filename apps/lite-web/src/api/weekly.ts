@@ -259,8 +259,18 @@ const base = (classId: string) => `/api/v1/lite/teacher/classes/${encodeURICompo
 const weekQuery = (weekStart: string | null) => (weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : "");
 
 /** `weekStart` null = the latest completed week. */
+/** The server answers the default week with `{notStarted}` when there is no
+ *  week yet (a new student or class). Callers already treat a
+ *  week_before_start error as a plain line, so it is raised as one. */
+export function throwIfNotStarted(r: Raw): void {
+  if (typeof r.notStarted === "string" && r.notStarted) {
+    throw new ApiError("week_before_start", r.notStarted, 200);
+  }
+}
+
 export async function getStudentWeekly(classId: string, userId: string, weekStart: string | null): Promise<StudentWeekly> {
   const r = await apiFetch<Raw>(`${base(classId)}/students/${encodeURIComponent(userId)}/weekly${weekQuery(weekStart)}`);
+  throwIfNotStarted(r);
   return normalizeStudentWeekly(r);
 }
 
@@ -277,6 +287,7 @@ export async function postStudentWeeklyProse(
 
 export async function getClassWeekly(classId: string, weekStart: string | null): Promise<ClassWeekly> {
   const r = await apiFetch<Raw>(`${base(classId)}/weekly${weekQuery(weekStart)}`);
+  throwIfNotStarted(r);
   return normalizeClassWeekly(r);
 }
 

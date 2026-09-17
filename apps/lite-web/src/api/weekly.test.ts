@@ -9,7 +9,7 @@ import {
   suggestionLabel,
   classCardProse,
 } from "./weekly";
-import { weekBeforeStartMessage } from "./weekly";
+import { throwIfNotStarted, weekBeforeStartMessage } from "./weekly";
 
 describe("normalizeStudentWeekly", () => {
   it("keeps the server's title and fills missing arrays and numbers", () => {
@@ -187,5 +187,21 @@ describe("classCardProse", () => {
     expect(classCardProse(prose, "u2")).toEqual({ userId: "u2", lead: "读完一篇。", action: "当面表扬。" });
     expect(classCardProse(prose, "u1")).toBeNull();
     expect(classCardProse(null, "u2")).toBeNull();
+  });
+});
+
+describe("throwIfNotStarted", () => {
+  it("turns the server's notStarted answer into the week_before_start line", () => {
+    let caught: unknown = null;
+    try {
+      throwIfNotStarted({ notStarted: "学生加入班级后的第一周结束后，这里显示周报。" });
+    } catch (e) {
+      caught = e;
+    }
+    expect(weekBeforeStartMessage(caught)).toBe("学生加入班级后的第一周结束后，这里显示周报。");
+  });
+  it("lets a real week through", () => {
+    expect(() => throwIfNotStarted({ weekStart: "2026-09-07" })).not.toThrow();
+    expect(() => throwIfNotStarted({ notStarted: "" })).not.toThrow();
   });
 });
