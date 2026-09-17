@@ -73,7 +73,7 @@ export function ClassChatPage({
         classId: a.classId,
         artifact: {},
         turns,
-        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug, choiceLabel: input.label }),
       }).then((res) => ({
         reply: res.reply,
         choices: res.choices,

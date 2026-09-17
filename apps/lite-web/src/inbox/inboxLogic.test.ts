@@ -57,6 +57,20 @@ describe("openItemsForKind", () => {
   it("keeps open items of that kind", () =>
     expect(openItemsForKind(items, "reading").map((it) => it.id)).toEqual(["1", "2", "3"]));
   it("is empty when nothing of that kind is open", () => expect(openItemsForKind(items, "project")).toEqual([]));
+  // The home page lists every kind, soonest deadline first: a student who
+  // signs in sees what is due before anything else (real-user walk,
+  // 2026-09-17: the home page showed none of three new homeworks).
+  it("lists every kind, soonest deadline first, when kind is null", () =>
+    expect(
+      openItemsForKind(
+        [
+          item({ id: "late", dueAt: "2026-09-23T10:00:00Z" }),
+          item({ id: "soon", kind: "writing", dueAt: "2026-09-18T13:00:00Z" }),
+          item({ id: "done", status: "done", dueAt: "2026-09-17T13:00:00Z" }),
+        ],
+        null,
+      ).map((it) => it.id),
+    ).toEqual(["soon", "late"]));
 });
 
 describe("sortUnreadFirst", () => {

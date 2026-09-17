@@ -758,6 +758,40 @@ export function disciplineOptions(articles: LibraryArticle[]): LibraryTag[] {
   return out;
 }
 
+/**
+ * 学习进度 on a homework's student row: how far she got, not only whether she
+ * pressed 完成. Reading: steps done of the plan; writing: the latest
+ * submitted version and its length; every kind: minutes spent. "—" before
+ * she has started.
+ */
+export function recipientProgressText(
+  kind: AssignmentKind,
+  r: Pick<RecipientDTO, "atomId" | "activeMinutes" | "stepsDone" | "stepsTotal" | "versionCount" | "latestWordCount">,
+  targetWords: number | null = null,
+): string {
+  if (!r.atomId) return "—";
+  const parts: string[] = [];
+  if (kind === "reading" && r.stepsTotal > 0) parts.push(`${r.stepsDone}/${r.stepsTotal} 步`);
+  if (kind === "writing" && r.versionCount > 0) {
+    parts.push(`v${r.versionCount} · ${r.latestWordCount}${targetWords ? ` / ${targetWords}` : ""} 字`);
+  }
+  if (kind === "writing" && r.versionCount === 0) parts.push("未提交");
+  parts.push(r.activeMinutes > 0 ? `${r.activeMinutes} 分钟` : "不到 1 分钟");
+  return parts.join(" · ");
+}
+
+/** The weekday of a datetime-local value (2026-09-18T21:00 → 周五), or ""
+ *  when it cannot be read. The input shows no weekday, and a deadline that
+ *  landed on Sunday instead of Friday looked right (real-user walk,
+ *  2026-09-17). The value is Beijing wall-clock text, so the date part alone
+ *  decides the weekday — no time zone is involved. */
+export function dueWeekday(dueInput: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}$/.exec(dueInput.trim());
+  if (!m) return "";
+  const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+  return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day] ?? "";
+}
+
 export function recipientReadingText(reading: RecipientReading | null): string {
   if (!reading) return "—";
   if (reading.state === "pending") return "待推荐";

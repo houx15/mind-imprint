@@ -2,9 +2,11 @@ import type { CSSProperties } from "react";
 import type { RosterRow } from "../api/teacher";
 
 const areas = [
-  { label: "阅读", done: "readingsDone", total: "readingsTotal", color: "var(--mk-accent-500)" },
-  { label: "写作", done: "writingsDone", total: "writingsTotal", color: "var(--teacher-chart-writing)" },
-  { label: "项目", done: "projectsDone", total: "projectsTotal", color: "var(--teacher-chart-project)" },
+  // `unit` keeps 「3 / 4」 from reading as a head count in a class of four:
+  // these count items, not students (real-user walk, 2026-09-17).
+  { label: "阅读", unit: "篇", done: "readingsDone", total: "readingsTotal", color: "var(--mk-accent-500)" },
+  { label: "写作", unit: "篇", done: "writingsDone", total: "writingsTotal", color: "var(--teacher-chart-writing)" },
+  { label: "项目", unit: "个", done: "projectsDone", total: "projectsTotal", color: "var(--teacher-chart-project)" },
 ] as const;
 
 function Ring({ value, total, label }: { value: number; total: number; label: string }) {
@@ -20,8 +22,8 @@ function CompletionBars({ rows }: { rows: RosterRow[] }) {
     const done = rows.reduce((sum, row) => sum + row[area.done], 0);
     const total = rows.reduce((sum, row) => sum + row[area.total], 0);
     return <div className="teacher-completion-row" key={area.label} style={{ "--chart-color": area.color } as CSSProperties}>
-      <div><span>{area.label}</span><strong>{done}<small> / {total}</small></strong></div>
-      <div className="teacher-bar-track" role="img" aria-label={`${area.label}：已完成 ${done} 项，共 ${total} 项`} title={`${area.label}：${done} / ${total}`}><span style={{ width: `${total > 0 ? Math.min(100, done / total * 100) : 0}%` }} /></div>
+      <div><span>{area.label}</span><strong>{done}<small> / {total} {area.unit}</small></strong></div>
+      <div className="teacher-bar-track" role="img" aria-label={`${area.label}：已完成 ${done} ${area.unit}，共 ${total} ${area.unit}`} title={`${area.label}：${done} / ${total}`}><span style={{ width: `${total > 0 ? Math.min(100, done / total * 100) : 0}%` }} /></div>
     </div>;
   })}</div>;
 }

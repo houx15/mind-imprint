@@ -327,7 +327,7 @@ export function ParentReportEditor({
         reportId,
         artifact: reportArtifactPayload(artifact, current?.view.sections ?? []),
         turns,
-        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug, choiceLabel: input.label }),
       }).then(
         (res) => {
           turnRef.current = { snapshot: artifact, patch: reportPatchBody(res.patch) };

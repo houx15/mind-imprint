@@ -172,6 +172,7 @@ describe("gradingDoneText", () => {
     expect(gradingDoneText("review", false)).toBe("已标记为已审阅");
     expect(gradingDoneText("send", false)).toBe("已发送给学生");
     expect(gradingDoneText("regrade", false)).toBeNull();
+    expect(gradingDoneText("manual", false)).toContain("人工批改");
   });
 });
 

@@ -8,6 +8,7 @@ import { useAlive } from "../shared/useAlive";
 import {
   buildCreateInput,
   draftOnKindChange,
+  dueWeekday,
   failText,
   fillTitleIfEmpty,
   writeLastClassId,
@@ -184,6 +185,8 @@ export function AssignmentAIMode({
             onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
             className={INPUT_CLS}
           />
+          {/* aria-hidden: inside the label it would change the field's name; the date is in the input. */}
+          {dueWeekday(draft.dueInput) && <span aria-hidden="true" className="text-mk-small text-mk-muted">{dueWeekday(draft.dueInput)}</span>}
         </Field>
 
         <SettingsFields

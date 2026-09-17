@@ -100,6 +100,12 @@ export interface RecipientDTO {
   returnDueAt: string | null;
   returnNote: string | null;
   versionCount: number;
+  /** How far she got: minutes in the item, reading steps done of the plan
+   *  (0/0 before a plan exists), the latest submitted version's word count. */
+  activeMinutes: number;
+  stepsDone: number;
+  stepsTotal: number;
+  latestWordCount: number;
   /** This student's article on a personalized reading homework; null on any
    * other homework. */
   reading: RecipientReading | null;
@@ -309,6 +315,10 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
     returnDueAt: nullableString(raw.returnDueAt),
     returnNote: nullableString(raw.returnNote),
     versionCount: typeof raw.versionCount === "number" ? raw.versionCount : 0,
+    activeMinutes: typeof raw.activeMinutes === "number" ? raw.activeMinutes : 0,
+    stepsDone: typeof raw.stepsDone === "number" ? raw.stepsDone : 0,
+    stepsTotal: typeof raw.stepsTotal === "number" ? raw.stepsTotal : 0,
+    latestWordCount: typeof raw.latestWordCount === "number" ? raw.latestWordCount : 0,
     reading: normalizeRecipientReading(raw.reading),
   };
 }

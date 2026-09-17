@@ -104,7 +104,8 @@ export type GradingAction =
   | "save"
   | "review"
   | "send"
-  | "regrade";
+  | "regrade"
+  | "manual";
 
 /**
  * The line shown after an action on the grading page succeeds. Before
@@ -122,6 +123,8 @@ export function gradingDoneText(action: GradingAction, wasSent: boolean): string
       return "已发送给学生";
     case "regrade":
       return null;
+    case "manual":
+      return "已改为人工批改，请填写等级和意见后保存";
   }
 }
 

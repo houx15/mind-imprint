@@ -3,6 +3,7 @@ import type { AssignmentKind } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { statusChipStyle } from "../teacher/assignmentLogic";
+import { kindLabel } from "../teacher/format";
 import { openItemsForKind, startButtonLabel, stripDueAt } from "./inboxLogic";
 import { openAssignment } from "./openAssignment";
 import { useInbox } from "./useInbox";
@@ -24,8 +25,10 @@ export function AssignmentStatusChip({ status, label }: { status: AssignmentStat
  * 已退回). Renders nothing when there are none, so a student with no
  * assignments sees the landing exactly as before. `className` carries the
  * outer spacing, so the hidden strip leaves no margin behind.
+ *
+ * Without `kind` (the home page) it lists every kind, each row labelled.
  */
-export function AssignmentStrip({ kind, className = "" }: { kind: AssignmentKind; className?: string }) {
+export function AssignmentStrip({ kind = null, className = "" }: { kind?: AssignmentKind | null; className?: string }) {
   const inbox = useInbox();
   const alive = useAlive();
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -58,7 +61,17 @@ export function AssignmentStrip({ kind, className = "" }: { kind: AssignmentKind
             className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-mk-border px-1 py-2.5 first:border-t-0"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-mk-body font-semibold text-mk-ink">{item.title}</p>
+              <p className="flex min-w-0 items-center gap-2 text-mk-body font-semibold text-mk-ink">
+                {kind === null && (
+                  <span
+                    className="shrink-0 rounded-mk-full px-2 py-0.5 text-mk-label font-normal text-mk-accent-700"
+                    style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface))" }}
+                  >
+                    {kindLabel(item.kind)}
+                  </span>
+                )}
+                <span className="truncate">{item.title}</span>
+              </p>
               {item.instructions.trim() && (
                 <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-muted">{item.instructions}</p>
               )}

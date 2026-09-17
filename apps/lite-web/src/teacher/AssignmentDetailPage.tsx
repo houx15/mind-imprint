@@ -28,6 +28,7 @@ import {
   failText,
   fillTitleIfEmpty,
   isArchiveSuccess,
+  recipientProgressText,
   recipientReadingText,
   recipientStarted,
   settingsAccess,
@@ -425,7 +426,7 @@ export function AssignmentDetailPage({
                   <table className="w-full min-w-[600px] border-collapse">
                     <thead>
                       <tr>
-                        {["学生", ...(personalized ? ["文章"] : []), "状态", "开始时间", "完成时间", "操作"].map((h) => (
+                        {["学生", ...(personalized ? ["文章"] : []), "状态", "学习进度", "开始时间", "完成时间", "操作"].map((h) => (
                           <th
                             key={h}
                             className="whitespace-nowrap border-b border-mk-border px-3 py-2.5 text-left text-mk-label font-bold text-mk-muted"
@@ -446,6 +447,13 @@ export function AssignmentDetailPage({
                           )}
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
                             <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
+                          </td>
+                          <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
+                            {recipientProgressText(
+                              assignment.kind,
+                              r,
+                              typeof assignment.payload.targetWords === "number" ? assignment.payload.targetWords : null,
+                            )}
                           </td>
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                             {r.startedAt ? formatDeadline(r.startedAt) : "—"}

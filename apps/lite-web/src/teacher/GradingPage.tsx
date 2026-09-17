@@ -6,6 +6,7 @@ import {
   getGrading,
   LETTER_GRADES,
   patchGrading,
+  queueWritingGrading,
   regradeGrading,
   sendGrading,
   type GradingContent,
@@ -410,6 +411,21 @@ export function GradingPage({
                   }
                 >
                   发送
+                </Button>
+              )}
+              {/* The AI failed and left nothing: she can write it herself. */}
+              {grading.status === "failed" && grading.content === null && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void run("人工批改", "manual", () =>
+                      queueWritingGrading(grading.classId, grading.userId, grading.atomId, "manual"),
+                    )
+                  }
+                >
+                  人工批改
                 </Button>
               )}
               {canRegrade && (

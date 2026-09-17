@@ -22,6 +22,7 @@ import {
   draftOnClassChange,
   emptySettings,
   errorText,
+  dueWeekday,
   failText,
   fillTitleIfEmpty,
   pickClassId,
@@ -291,7 +292,7 @@ export function AssignmentForm({
         // nothing to do with what the model needs to see.
         artifact: workspaceArtifactPayload(artifact),
         turns,
-        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug }),
+        ...("text" in input ? { text: input.text } : { choiceId: input.choiceId, choiceSlug: input.slug, choiceLabel: input.label }),
       }).then((res) => ({ ...res, patch: res.patch as Partial<AssignmentDraft> })),
     // The server already prefixes its message with 「对话失败：」; `failText`
     // does not double it.
@@ -513,6 +514,8 @@ export function AssignmentForm({
               onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
               className={INPUT_CLS}
             />
+            {/* aria-hidden: inside the label it would change the field's name; the date is in the input. */}
+            {dueWeekday(draft.dueInput) && <span aria-hidden="true" className="text-mk-small text-mk-muted">{dueWeekday(draft.dueInput)}</span>}
           </Field>
 
           <SettingsFields

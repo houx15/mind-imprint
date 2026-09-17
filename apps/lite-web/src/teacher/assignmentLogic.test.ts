@@ -34,6 +34,8 @@ import {
   pickRowView,
   pickTierText,
   readExtractResult,
+  dueWeekday,
+  recipientProgressText,
   recipientReadingText,
   selectedDisciplinesText,
   settingsFromAssignment,
@@ -84,6 +86,10 @@ function recipient(over: Partial<RecipientDTO> = {}): RecipientDTO {
     returnDueAt: null,
     returnNote: null,
     versionCount: 0,
+    activeMinutes: 0,
+    stepsDone: 0,
+    stepsTotal: 0,
+    latestWordCount: 0,
     reading: null,
     ...over,
   };
@@ -979,5 +985,31 @@ describe("selectedDisciplinesText", () => {
     const text = selectedDisciplinesText(["biology", "climate-ocean"], options);
     expect(text).toBe("生物、另有 1 个学科（名称加载失败）");
     expect(text).not.toContain("climate-ocean");
+  });
+});
+
+// Real-user walk, 2026-09-17: one student finished a reading after 2 of 14
+// steps in a minute, another after 11 of 15; the teacher saw 「已完成」 twice.
+describe("recipientProgressText", () => {
+  const base = { atomId: "a", activeMinutes: 0, stepsDone: 0, stepsTotal: 0, versionCount: 0, latestWordCount: 0 };
+  it("shows reading steps and minutes", () => {
+    expect(recipientProgressText("reading", { ...base, stepsDone: 11, stepsTotal: 15, activeMinutes: 25 })).toBe("11/15 步 · 25 分钟");
+    expect(recipientProgressText("reading", { ...base, stepsDone: 2, stepsTotal: 14 })).toBe("2/14 步 · 不到 1 分钟");
+  });
+  it("shows the latest writing version, or that nothing is submitted", () => {
+    expect(recipientProgressText("writing", { ...base, versionCount: 2, latestWordCount: 395, activeMinutes: 21 })).toBe("v2 · 395 字 · 21 分钟");
+    expect(recipientProgressText("writing", { ...base, activeMinutes: 4 })).toBe("未提交 · 4 分钟");
+    expect(recipientProgressText("writing", { ...base, versionCount: 1, latestWordCount: 235 }, 600)).toBe("v1 · 235 / 600 字 · 不到 1 分钟");
+  });
+  it("is a dash before she starts", () => {
+    expect(recipientProgressText("project", { ...base, atomId: null })).toBe("—");
+  });
+});
+
+describe("dueWeekday", () => {
+  it("names the weekday of a Beijing wall-clock value", () => {
+    expect(dueWeekday("2026-09-18T21:00")).toBe("周五");
+    expect(dueWeekday("2026-09-20T21:00")).toBe("周日");
+    expect(dueWeekday("")).toBe("");
   });
 });

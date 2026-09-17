@@ -231,9 +231,17 @@ export function GradingTab({
                   <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{r.grading?.overallGrade ?? "—"}</td>
                   <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small">
                     {r.grading ? (
-                      <Button variant="link" size="sm" onClick={() => onOpenGrading(r.grading?.id ?? "")}>
-                        查看
-                      </Button>
+                      <span className="flex items-center gap-1">
+                        <Button variant="link" size="sm" onClick={() => onOpenGrading(r.grading?.id ?? "")}>
+                          查看
+                        </Button>
+                        {/* A failed AI grading left nothing to edit: offer to write it by hand. */}
+                        {status === "failed" && r.atomId && (
+                          <Button variant="link" size="sm" disabled={busy} onClick={() => void startManual(r)}>
+                            {starting === r.userId ? "处理中" : "人工批改"}
+                          </Button>
+                        )}
+                      </span>
                     ) : status === "pending" && r.atomId ? (
                       <Button variant="link" size="sm" disabled={busy} onClick={() => void startManual(r)}>
                         {starting === r.userId ? "处理中" : "人工批改"}

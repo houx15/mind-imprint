@@ -40,6 +40,10 @@ export interface WorkspaceTurnInput {
    *  means "use this article" has to carry the article back itself. Without
    *  it the model searches for its own choice id and finds nothing. */
   choiceSlug?: string;
+  /** The label of the tapped choice, as she saw it. The model reads it next
+   *  to the id; with the id alone it took 「usage_compare」 for something she
+   *  typed (real-user walk, 2026-09-17). */
+  choiceLabel?: string;
 }
 
 /** One tool result the canvas renders directly (§ liteWorkspaceCardDTO).

@@ -29,10 +29,15 @@ const OPEN_STATUSES: readonly AssignmentStatus[] = ["not_started", "in_progress"
  *  returned homework is open again until she resubmits (then it becomes
  *  `resubmitted`, which is not in this list). Grading inbox rows are never
  *  listed here (they have no `kind`/`status` to filter on). */
-export function openItemsForKind(items: readonly InboxItemDTO[], kind: AssignmentKind): AssignmentInboxItem[] {
-  return items.filter(
-    (it): it is AssignmentInboxItem => it.type === "assignment" && it.kind === kind && OPEN_STATUSES.includes(it.status),
-  );
+/** Open assignments of one kind, or of every kind when `kind` is null (the
+ *  home page). Every kind's list is soonest deadline first. */
+export function openItemsForKind(items: readonly InboxItemDTO[], kind: AssignmentKind | null): AssignmentInboxItem[] {
+  return items
+    .filter(
+      (it): it is AssignmentInboxItem =>
+        it.type === "assignment" && (kind === null || it.kind === kind) && OPEN_STATUSES.includes(it.status),
+    )
+    .sort((a, b) => Date.parse(stripDueAt(a)) - Date.parse(stripDueAt(b)));
 }
 
 /** The deadline a strip row shows: the return deadline whenever the teacher

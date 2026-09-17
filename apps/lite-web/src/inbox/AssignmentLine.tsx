@@ -3,22 +3,13 @@ import { getAssignmentForAtom, type AssignmentForAtom } from "../api/assignments
 import { formatDeadline } from "../shared/deadline";
 import { effectiveDueAt, isReturnOpen } from "../writings/finishedWriting";
 
-/**
- * 作业 · 截止 … — shown in a room whose atom was started from an
- * assignment. Renders nothing when the atom has no assignment or the lookup
- * fails: a room she opened herself must look exactly as it did before.
- *
- * `className` defaults to muted small text; the reading room passes `""` so the
- * line inherits its meta row's styling next to 来源 · ….
- */
-export function AssignmentLine({ atomId, className = "text-mk-small text-mk-muted" }: { atomId: string; className?: string }) {
-  const [expanded, setExpanded] = useState(false);
+/** The assignment an atom was started from, or null (none, or the lookup
+ *  failed — a room she opened herself looks as it did before). */
+export function useAssignmentForAtom(atomId: string): AssignmentForAtom | null {
   const [assignment, setAssignment] = useState<AssignmentForAtom | null>(null);
-
   useEffect(() => {
     let cancelled = false;
     setAssignment(null);
-    setExpanded(false);
     getAssignmentForAtom(atomId)
       .then((a) => {
         if (!cancelled) setAssignment(a);
@@ -30,6 +21,21 @@ export function AssignmentLine({ atomId, className = "text-mk-small text-mk-mute
       cancelled = true;
     };
   }, [atomId]);
+  return assignment;
+}
+
+/**
+ * 作业 · 截止 … — shown in a room whose atom was started from an
+ * assignment. Renders nothing when the atom has no assignment or the lookup
+ * fails: a room she opened herself must look exactly as it did before.
+ *
+ * `className` defaults to muted small text; the reading room passes `""` so the
+ * line inherits its meta row's styling next to 来源 · ….
+ */
+export function AssignmentLine({ atomId, className = "text-mk-small text-mk-muted" }: { atomId: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const assignment = useAssignmentForAtom(atomId);
+  useEffect(() => setExpanded(false), [atomId]);
 
   if (!assignment) return null;
   // 退回修改: the deadline that applies is the return deadline, and she

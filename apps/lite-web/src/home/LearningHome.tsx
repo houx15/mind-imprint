@@ -15,6 +15,7 @@ import { listProjects } from "../api/projects";
 import { apiErrorText } from "../api/errorText";
 import { coursePath, navigate } from "../routing";
 import { recentLearning, type RecentLearning } from "./recentLearning";
+import { AssignmentStrip } from "../inbox/AssignmentStrip";
 import together from "./assets/learning-together-v3.webp";
 import curious from "./assets/curious-learner-v2.webp";
 import makers from "./assets/project-makers-v2.webp";
@@ -90,6 +91,9 @@ export function LearningHome({ user }: { user: MeUser }) {
             </div>
             <img src={together} alt="" />
           </header>
+          {/* Homework first: it has a deadline, and before 2026-09-17 the
+              home page showed none of it (only a dot on 收件箱). */}
+          <AssignmentStrip className="mb-8" />
           <section aria-labelledby="continue-title">
             <div className="learning-section-head">
               <h2 id="continue-title">继续学习</h2>
