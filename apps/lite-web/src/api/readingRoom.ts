@@ -603,14 +603,30 @@ export type ReadingBlockNote = {
   grammar?: ReadingGrammar;
 };
 
-/** 语法卡里句子被切开的一块。`text` 逐字来自那一句（服务端核对过）。 */
-export type ReadingGrammarPart = { text: string; role: string; note?: string };
+/** 语法卡里句子被标出来的一段。`text` 逐字来自那一句（服务端核对过）。
+ *  `label` 是它是什么（从句种类 / 成分 / 词性词形 / 时态）；第一版的卡片把
+ *  成分名写在 `role` 里，读的时候用 `label ?? role`。 */
+export type ReadingGrammarSpan = {
+  text: string;
+  label?: string;
+  role?: string;
+  note?: string;
+  example?: string;
+  exampleZh?: string;
+};
+export type ReadingGrammarPart = ReadingGrammarSpan;
 export type ReadingGrammarPoint = { name: string; why?: string; example?: string; exampleZh?: string };
+/** 第二版（2026-09-17 晚些）分三层：句法（clauses 从句 + parts 句子成分）·
+ *  词法（words）· 时态（tenses）。主句不单独给：句子里不属于任何从句的部分就是主句。
+ *  第一版只有 backbone / parts / points。 */
 export type ReadingGrammar = {
-  backbone?: string;
-  parts: ReadingGrammarPart[];
-  points: ReadingGrammarPoint[];
+  clauses?: ReadingGrammarSpan[];
+  parts: ReadingGrammarSpan[];
+  words?: ReadingGrammarSpan[];
+  tenses?: ReadingGrammarSpan[];
   meaning?: string;
+  backbone?: string;
+  points?: ReadingGrammarPoint[];
 };
 
 /** Everything she has already opened, so a reload restores it instead of
