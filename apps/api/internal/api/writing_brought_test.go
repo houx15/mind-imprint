@@ -109,6 +109,46 @@ func TestBroughtWriting_EssayStaysOutOfTheTranscript(t *testing.T) {
 	}
 }
 
+// 🚨 带进来的一篇，题目（常常就是文件名）不是她跟印记说的第一句话。
+// 2026-09-18 走查：「en-toefl-groups」作为她的第一个气泡出现在对话里。
+func TestBroughtWriting_TitleIsNotHerFirstMessage(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	id := createBroughtWritingHTTP(t, h, cookie, "en-toefl-groups", "Group work helps students learn from each other.")
+	for _, m := range writingMessages(t, h, cookie, id) {
+		if m.Role == "student" {
+			t.Fatalf("带进来的一篇不该有 student 行，拿到 %+v", m)
+		}
+	}
+}
+
+// 不传语言时按字判断。四个入口（阅读、兴趣树、直接输入、带一篇进来）都不传。
+func TestCreateWriting_GuessesLanguageWhenNotGiven(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	create := func(idea, body string) string {
+		payload, _ := json.Marshal(map[string]string{"idea": idea, "body": body})
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/writings", strings.NewReader(string(payload))), cookie))
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create = %d; body=%s", rec.Code, rec.Body)
+		}
+		var out struct{ ID string }
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return out.ID
+	}
+	cases := []struct{ idea, body, want string }{
+		{"Do you agree or disagree: it is better for students to work in groups?", "", "en"},
+		{"essay", "Nowadays, many teachers ask students to finish projects in groups.", "en"},
+		{"学校应不应该取消期中考试", "", "zh"},
+		{"关于 AI 的一篇议论文", "", "zh"},
+	}
+	for _, c := range cases {
+		wr := getWritingHTTP(t, h, cookie, create(c.idea, c.body))
+		if wr.Lang != c.want {
+			t.Errorf("idea %q body %q → lang %q, want %q", c.idea, c.body, wr.Lang, c.want)
+		}
+	}
+}
+
 func TestBroughtWriting_NoBodyIsTheOldPath(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	id := createWritingAtomHTTP(t, h, cookie, "我想写食堂浪费这件事")

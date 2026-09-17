@@ -11,6 +11,7 @@ import { WRITING_TOPICS, type WritingTopic } from "./topics";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
+import { splitBroughtFile } from "./broughtFile";
 
 /**
  * WritingsLanding — Lite writing entry. Presentation uses LandingHeader and
@@ -90,7 +91,7 @@ export function WritingsLanding() {
     [history],
   );
 
-  async function start(text: string, lang: "zh" | "en" = "zh") {
+  async function start(text: string, lang?: "zh" | "en") {
     const trimmed = text.trim();
     if (!trimmed || starting) return;
     setStarting(true);
@@ -120,10 +121,10 @@ export function WritingsLanding() {
     setExtracting(true);
     setBringFileError(null);
     try {
-      const { title, text } = await extractDocument(file);
-      setBringBody((prev) => (prev.trim() ? prev + "\n\n" + text : text));
+      const got = splitBroughtFile(await extractDocument(file), file.name);
+      setBringBody((prev) => (prev.trim() ? prev + "\n\n" + got.body : got.body));
       // 文件自带的标题只在她还没写标题的时候用 —— 她写过的不覆盖。
-      setBringTitle((prev) => prev.trim() || title.trim() || file.name.replace(/\.[^.]+$/, ""));
+      setBringTitle((prev) => prev.trim() || got.title);
     } catch (err) {
       setBringFileError(apiErrorText(err));
     } finally {

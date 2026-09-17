@@ -83,6 +83,12 @@ export type WriteBeat = {
   action: WriteAction;
 };
 
+/** 按入口造一个学生：同一套人设，换一件要写的事。 */
+export function studentFor(lang: "zh" | "en", idea: string, key: string = lang): WriteStudent {
+  const base = WRITE_STUDENTS.find((s) => s.lang === lang)!;
+  return { ...base, key, idea };
+}
+
 /** 两个学生。语言不同，毛病也不同 —— 英文那个要露出中文语序的破绽。 */
 export type WriteStudent = { key: string; lang: "zh" | "en"; persona: string; idea: string };
 
@@ -182,9 +188,11 @@ export async function think(args: {
   screen: WriteAffordances;
   recent: string[];
   note?: string;
+  /** 这一次走查要她做成的那件事。不给就是「把这篇写出来」。 */
+  goal?: string;
 }): Promise<WriteBeat> {
   const user = [
-    `你今天要做的事：在这个网站上把这篇文章写出来。`,
+    `你今天要做的事：${args.goal ?? "在这个网站上把这篇文章写出来。"}`,
     ``,
     args.recent.length
       ? `你刚才做过的几步（最近的在最后）：\n${args.recent.map((r) => "  - " + r).join("\n")}`

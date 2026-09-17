@@ -79,8 +79,12 @@ export const ROLE_BIN_HINT: Record<string, string> = {
 };
 
 /** 她摆完之后，这块板变成一条什么话——回灌给 印记 的就是这条。 */
-export function composeRoleBoardAnswer(sentences: Sentence[], placement: BoardPlacement): string {
-  const lines: string[] = ["我给这一段的每一句标了它在干什么："];
+export function composeRoleBoardAnswer(sentences: Sentence[], placement: BoardPlacement, heading = ""): string {
+  // 🚨 带上这一段的标题（2026-09-18）。没有它，印记 不知道她标的是开头段
+  // 还是主体段，于是对着开头段说「缺证据，把例子挪进来」—— 而那个例子
+  // 在提纲里本来就安排在下一段。
+  const which = heading.trim() ? `「${heading.trim()}」这一段` : "这一段";
+  const lines: string[] = [`我给${which}的每一句标了它在干什么：`];
   for (const s of sentences) {
     const bin = placement[s.id];
     if (!bin) continue;
@@ -100,12 +104,15 @@ export function composeRoleBoardAnswer(sentences: Sentence[], placement: BoardPl
 export function RoleBoard({
   text,
   snippetId,
+  heading = "",
   busy,
   onSubmit,
   onCancel,
 }: {
   /** 她写的这一段。 */
   text: string;
+  /** 这一段在提纲里的标题，写进回灌的第一行。 */
+  heading?: string;
   /** 这一段是哪一条 snippet——只用来给卡片一个稳定的来源标记。 */
   snippetId: string;
   busy?: boolean;
@@ -140,7 +147,7 @@ export function RoleBoard({
         itemLabel="把每一句拖到下面某一格里，或者点一句再点一格。"
         submitLabel="标好了"
         busy={busy}
-        onSubmit={(placement) => onSubmit(composeRoleBoardAnswer(sentences, placement))}
+        onSubmit={(placement) => onSubmit(composeRoleBoardAnswer(sentences, placement, heading))}
       />
     </div>
   );

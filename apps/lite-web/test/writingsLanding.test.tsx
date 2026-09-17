@@ -83,7 +83,10 @@ describe("the one box", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/writings/new-1"));
     const post = calls.find((c) => c.method === "POST" && c.url === "/api/v1/writings")!;
-    expect(post.body).toEqual({ idea: "我想论证一下短视频有没有让人变笨。", lang: "zh" });
+    // No lang: the server guesses it from the text (guessWritingLang). A
+    // hard-coded "zh" here turned every typed English prompt into a Chinese
+    // writing (2026-09-18 walk).
+    expect(post.body).toEqual({ idea: "我想论证一下短视频有没有让人变笨。" });
   });
 
   it("sends on Enter, not Shift+Enter", async () => {

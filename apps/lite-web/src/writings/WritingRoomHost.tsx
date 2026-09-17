@@ -374,6 +374,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         onMessages={(next) => setState((s) => (s.phase === "ready" ? { ...s, messages: next } : s))}
         onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
         onDone={() => void jumpStage("snippets")}
+        onUpload={() => void jumpStage("draft")}
         onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
         onLocked={reload}
         banner={isRevising(writing) ? <RevisingStrip writingId={writingId} onDiscarded={reload} /> : null}
@@ -385,6 +386,15 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   // paper surface, and it does its own scrolling (the prose column and the
   // rail scroll independently, which a single scrolling panel cannot do).
   const onPage = writing.stage === "draft" || writing.stage === "finished";
+
+  const teacherFeedback = (
+    <RoomTeacherFeedback
+      writingId={writingId}
+      stage={writing.stage}
+      draftBody={state.draft.body}
+      onQuote={(matchedText) => setDraftHighlight({ text: matchedText })}
+    />
+  );
 
   return (
     <div
@@ -425,6 +435,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         </div>
       )}
 
+      {/* 2026-09-18：成稿那一页上，老师批改放进这一页自己的右栏；放在编辑区下面时，
+          1000px 高的屏幕上正文只剩两百多像素。段落那一步仍然放在下面。 */}
       <div className="student-writing-workspace grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         {/* Wrapped in its own flex column, not a bare cell: 老师批改 sits
             BELOW the stage content here, inside the same left-hand slot the
@@ -456,6 +468,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
               onSay={say}
               onLocked={reload}
               pendingHighlight={draftHighlight}
+              teacherFeedback={isWritingFinished(writing) && onPage ? teacherFeedback : null}
             />
           </div>
           {/* Only mounted once the essay has been finished at least once
@@ -463,14 +476,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
               time she's revising, per `Writing.revisingAt`'s own doc
               comment) — a brand-new essay can have no sent grading, so this
               avoids firing `listWritingGradings` on every room load. */}
-          {isWritingFinished(writing) && (
-            <RoomTeacherFeedback
-              writingId={writingId}
-              stage={writing.stage}
-              draftBody={state.draft.body}
-              onQuote={(matchedText) => setDraftHighlight({ text: matchedText })}
-            />
-          )}
+          {isWritingFinished(writing) && !onPage && teacherFeedback}
         </div>
 
         <div className="student-coach-panel flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
@@ -596,6 +602,7 @@ function StagePanel({
   onSay,
   onLocked,
   pendingHighlight,
+  teacherFeedback,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
@@ -612,6 +619,8 @@ function StagePanel({
    *  `ComposeStage` (成稿) can highlight it — 段落 has no single draft
    *  surface to point into. */
   pendingHighlight?: { text: string } | null;
+  /** 老师批改, shown in 成稿's own rail. */
+  teacherFeedback?: ReactNode;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -646,6 +655,7 @@ function StagePanel({
           onRenamed={(w) => setState((s) => (s.phase === "ready" ? { ...s, writing: w } : s))}
           onLocked={onLocked}
           pendingHighlight={pendingHighlight}
+          railTop={teacherFeedback}
         />
       );
     // 'outline' (结构) never reaches here: it takes the WHOLE screen as

@@ -1,6 +1,6 @@
 import { StudentCoachHeading } from "../learning/StudentCoachHeading";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileUp } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
@@ -55,6 +55,7 @@ export function PlanningView({
   onMessages,
   onOutline,
   onDone,
+  onUpload,
   onBack,
   onLocked,
   banner,
@@ -69,6 +70,8 @@ export function PlanningView({
   onOutline: (next: WritingOutlineItem[]) => void;
   /** Leaves planning for 段落. */
   onDone: () => void;
+  /** Leaves planning for 成稿, where she can upload a piece written elsewhere. */
+  onUpload?: () => void;
   onBack: () => void;
   /** The deadline passed while she was revising and jumped back to 结构 (顶
    *  上那排 结构/段落/成稿 一直可点，不是关卡): every write below reloads
@@ -250,6 +253,12 @@ export function PlanningView({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-mk-small text-mk-muted">先想清楚，再动笔</span>
+          {/* 在别处写完的（尤其是作业）直接去成稿上传，不用先走结构和段落。 */}
+          {onUpload && (
+            <Button variant="ghost" onClick={onUpload} iconStart={<Icon icon={FileUp} size={14} />}>
+              上传写好的文章
+            </Button>
+          )}
           <Button onClick={onDone} iconEnd={<Icon icon={ArrowRight} size={14} />}>
             去写
           </Button>

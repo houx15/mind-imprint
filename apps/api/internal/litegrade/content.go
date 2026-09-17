@@ -127,6 +127,48 @@ func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 		}
 		out.Points = append(out.Points, q)
 	}
+	if fromAI {
+		out.Points = capPoints(out.Points)
+	}
+	return out
+}
+
+// capPoints keeps at most MaxPoints of a model's points, in their order.
+//
+// 2026-09-18 写作入口走查：一次英文批改两次都回了 6 条意见，整份批改因此
+// 失败，老师什么都拿不到。多出来的那一条是最不要紧的一条（模型按重要性排），
+// 删掉它不改任何一条留下的话。至少各留一条优点和问题，否则删完又会因为
+// 「没有优点意见」再失败一次。
+func capPoints(ps []Point) []Point {
+	if len(ps) <= MaxPoints {
+		return ps
+	}
+	keep := make([]bool, len(ps))
+	n := 0
+	for _, kind := range []string{KindGood, KindIssue} {
+		for i, p := range ps {
+			if p.Kind == kind {
+				keep[i] = true
+				n++
+				break
+			}
+		}
+	}
+	for i := range ps {
+		if n >= MaxPoints {
+			break
+		}
+		if !keep[i] {
+			keep[i] = true
+			n++
+		}
+	}
+	out := make([]Point, 0, MaxPoints)
+	for i, p := range ps {
+		if keep[i] {
+			out = append(out, p)
+		}
+	}
 	return out
 }
 

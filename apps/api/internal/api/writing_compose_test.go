@@ -108,6 +108,7 @@ type writingResp struct {
 	Stage string `json:"stage"`
 	// Origin: "here" 在这儿写的 / "brought" 她带进来的（0146）。
 	Origin     string  `json:"origin"`
+	Lang       string  `json:"lang"`
 	Status     string  `json:"status"`
 	FinishedAt *string `json:"finishedAt"`
 }

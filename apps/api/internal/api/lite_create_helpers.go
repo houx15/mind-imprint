@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -51,6 +52,30 @@ func liteLang(lang string) string {
 		lang = "zh"
 	}
 	return lang
+}
+
+// guessWritingLang picks the language of a writing from its own text when the
+// client did not say.
+//
+// 🚨 2026-09-18 写作入口走查：从阅读「去写一写」、从兴趣树「去写」、从写作页
+// 直接打一道托福题、带一篇英文作文进来 —— 这四条路都不传语言，于是一律落成
+// 中文，设定弹窗也就预选「中文」。一个没留意那两颗按钮的学生，英文作文会被
+// 按中文字数、中文方法库、中文症状表教一整篇。
+// 判据只看字：拉丁字母明显多于汉字就是英文。拿不准的归中文（原来的默认）。
+func guessWritingLang(text string) string {
+	han, latin := 0, 0
+	for _, r := range text {
+		switch {
+		case unicode.Is(unicode.Han, r):
+			han++
+		case r < unicode.MaxASCII && unicode.IsLetter(r):
+			latin++
+		}
+	}
+	if latin >= 12 && latin > han*4 {
+		return "en"
+	}
+	return "zh"
 }
 
 // readingTitle is the name a reading goes by in 我的阅读: trimmed, 未命名阅读
@@ -340,7 +365,7 @@ func (a *API) createWritingFor(ctx context.Context, userID uuid.UUID, idea, lang
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	id, err := createWritingInTx(ctx, qtx, userID, idea, lang)
+	id, err := createWritingInTx(ctx, qtx, userID, idea, lang, true)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -365,7 +390,11 @@ func (a *API) createWritingFor(ctx context.Context, userID uuid.UUID, idea, lang
 // title, and verbatim (uncut) it becomes the first atom_message
 // (role='student') — because 先聊's first line really is the one she just
 // said, and it must not vanish from the transcript.
-func createWritingInTx(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, idea, lang string) (uuid.UUID, error) {
+//
+// sayIdea=false skips that message: a brought piece's idea is its title (often
+// the file name), which she never said to 印记 — as a student row it showed up
+// as her first chat bubble and fed every downstream prompt as her words.
+func createWritingInTx(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, idea, lang string, sayIdea bool) (uuid.UUID, error) {
 	idea = strings.TrimSpace(idea)
 	if idea == "" {
 		return uuid.Nil, errEmptyIdea
@@ -383,6 +412,9 @@ func createWritingInTx(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID,
 	// seq=1 literal, not NextAtomMessageSeq: this atom_id was just minted
 	// inside this same transaction, so it is unconditionally the first
 	// message — no concurrent writer can have raced it.
+	if !sayIdea {
+		return at.ID, nil
+	}
 	if _, err := qtx.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: 1, Role: "student", Content: idea,
 	}); err != nil {

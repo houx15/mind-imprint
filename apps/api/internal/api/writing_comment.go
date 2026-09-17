@@ -64,6 +64,7 @@ import (
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/quotematch"
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/vocab"
 )
@@ -189,8 +190,17 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	for _, p := range points {
 		q := strings.TrimSpace(p.Quote)
 		// 老规矩，不动：引文必须逐字在她写的东西里。
-		if q == "" || !strings.Contains(source, q) {
+		// 只差标点、空格、大小写的，从原文里取出那一段逐字的换上
+		// （quotematch.Locate）——锚点仍然逐字是她写的。
+		if q == "" {
 			continue
+		}
+		if !strings.Contains(source, q) {
+			span, ok := quotematch.Locate(source, q)
+			if !ok {
+				continue
+			}
+			q = span
 		}
 		p.Quote = q
 		p.Text = strings.TrimSpace(p.Text)
@@ -330,7 +340,13 @@ const writingCommentRules = `## 怎么说话
 - 你是老师，不是打分器。说清一件事为什么重要，用【可用的方法】里真正的方法名，别自己造词。
 - **对着文字说，别对着人说。** 说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。
 - 不客套。「很有灵气」「写得不错，继续加油」说多了，你的肯定就不值钱了。
-- 不打分，不给等级。`
+- 不打分，不给等级。
+- **说一个十五六岁的学生第一遍就读得懂的话。** 不用「机制」「环节」「尺寸对不上」
+  「因果链」这类抽象词；改说读者读到这一句时会产生的那个具体疑问
+  （例：「读者会问：分了任务，偷懒的人为什么就躲不掉？」）。
+  text 一般不超过两句。
+- 这一轮只谈最上面那一层时，别让她以为别的都没问题，也别让她以为你没看见：
+  summary 最后可以用半句说明「用词和语法下一轮再看」（只在确实存在下面几层的问题时说）。`
 
 const writingCommentSystem = `你是「印记」，正在给学生已经写的文字提意见——可能是她正在写的一段，也可能是她写完的整篇稿子。
 

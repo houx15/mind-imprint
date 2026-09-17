@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Layers, MessageSquareText, Check } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Layers, MessageSquareText, Check, FileUp } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { wordUnit } from "./wordUnit";
@@ -19,8 +19,10 @@ import {
   type WritingDraft,
   type WritingSnippet,
 } from "../api/writingRoom";
-import { renameWriting, type Writing } from "../api/writings";
+import { extractDocument, renameWriting, type Writing } from "../api/writings";
+import { apiErrorText } from "../api/errorText";
 import { handleWriteError } from "./writeErrors";
+import { splitBroughtFile } from "./broughtFile";
 
 /**
  * ComposeStage — 成稿, as a page rather than a box.
@@ -70,7 +72,10 @@ export function ComposeStage({
   onRenamed,
   onLocked,
   pendingHighlight,
+  railTop,
 }: {
+  /** Shown at the top of the rail: the room's 老师批改 panel. */
+  railTop?: ReactNode;
   /** `"brought"` = 她带进来的成稿（0146）。这一页据此说明结构和段落两步没有
    *  走过 —— 她看见那两步是空的，得知道为什么。 */
   origin?: string;
@@ -118,6 +123,9 @@ export function ComposeStage({
     setHighlight({ text, nonce: highlightNonce.current });
   }, []);
   const [confirmingReassemble, setConfirmingReassemble] = useState(false);
+  const [importing, setImporting] = useState(false);
+  /** Text read from an uploaded file, waiting for her 替换 / 接在后面. */
+  const [pendingImport, setPendingImport] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
    * 印记's title candidates, or `null` when the naming dialog is closed.
@@ -311,6 +319,39 @@ export function ComposeStage({
     void assemble();
   }
 
+  /**
+   * 上传一份写好的文件，文字落进这一页。
+   *
+   * 🚨 2026-09-18 写作入口走查：作业只能从作业条「开始」进来，而这个房间里
+   * 没有上传 —— 在别处写完作业的学生只能把全文复制粘贴进来。落地页那个
+   * 「带一篇写好的进来」建的是另一篇、不挂在作业上，老师那边看不到。
+   * 所以上传放在成稿这一页：哪一篇都能用，作业也就能交上传的那一份。
+   * 页面上已经有字时先问她是替换还是接在后面，不静默覆盖。
+   */
+  async function importFile(file: File | undefined) {
+    if (!file || importing) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const { body: text } = splitBroughtFile(await extractDocument(file), file.name);
+      if (bodyRef.current.trim() === "") applyImport(text);
+      else setPendingImport(text);
+    } catch (err) {
+      setError(`上传失败：${apiErrorText(err)}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function applyImport(next: string) {
+    clearPending();
+    bodyRef.current = next;
+    setBody(next);
+    setAssembledBody(null);
+    setHighlight(null);
+    void save(next);
+  }
+
   async function review() {
     setReviewing(true);
     setError(null);
@@ -426,6 +467,25 @@ export function ComposeStage({
           >
             从段落重新拼一次
           </Button>
+          <label
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200 ${
+              importing ? "pointer-events-none opacity-60" : ""
+            }`}
+            title="PDF / DOCX / TXT"
+          >
+            <Icon icon={FileUp} size={14} />
+            {importing ? "正在读取文件…" : "上传文件"}
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt,.md"
+              className="sr-only"
+              disabled={importing}
+              onChange={(e) => {
+                void importFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </label>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -479,6 +539,7 @@ export function ComposeStage({
         </div>
 
         <aside className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l">
+          {railTop}
           {/* 🚨 这一块本来只传了 comment 和 onTrace —— 段落那一步早就会说
               「这条是上一版」了，成稿这一步一直没接上，而**整稿意见更容易过期**：
               她照着改的正是被引的那几句。2026-09-11 第八轮走查，两个学生一共
@@ -499,7 +560,31 @@ export function ComposeStage({
               rechecking={reviewing}
             />
           )}
-          <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
+          {/* 带进来的一篇没有段落原文；「暂无段落原文」只会让她以为漏了一步。 */}
+          {!(origin === "brought" && !snippets.some((s) => s.text.trim() !== "")) && (
+            <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
+          )}
+          {/* 2026-09-18 走查：到了成稿，学生没有任何提示去请印记通读，
+              「教到了吗」一栏在这一步掉到 1 —— 她直接按了「完成这篇」。
+              没有审阅过的时候，在右栏把这一步摆出来。 */}
+          {!comment && body.trim() !== "" && (
+            <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-3">
+              <p className="text-mk-small font-semibold text-mk-ink">提交前建议先请印记通读</p>
+              <p className="mt-1 text-mk-small text-mk-muted">
+                印记会通读全文，先指出最需要修改的一两处，并说明怎么改；改完后可以再请印记看。
+              </p>
+              <Button
+                className="mt-2"
+                variant="secondary"
+                size="sm"
+                onClick={() => void review()}
+                loading={reviewing}
+                iconStart={<Icon icon={MessageSquareText} size={14} />}
+              >
+                请印记通读
+              </Button>
+            </div>
+          )}
         </aside>
       </div>
 
@@ -546,6 +631,43 @@ export function ComposeStage({
             如果只是想补上刚改过的某一段，回「段落」改完再回来，把那几句自己贴进去，比整篇重拼稳妥。
           </p>
         </div>
+      </Modal>
+
+      <Modal
+        open={pendingImport !== null}
+        onClose={() => setPendingImport(null)}
+        title="这一页已经有正文"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingImport(null)}>
+              取消
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const text = pendingImport ?? "";
+                setPendingImport(null);
+                applyImport(bodyRef.current.trimEnd() + "\n\n" + text);
+              }}
+            >
+              接在后面
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const text = pendingImport ?? "";
+                setPendingImport(null);
+                applyImport(text);
+              }}
+            >
+              替换
+            </Button>
+          </>
+        }
+      >
+        <p className="text-mk-body text-mk-ink">
+          文件里读到 {countWords(pendingImport ?? "")} {wordUnit(lang)}。替换会用文件内容覆盖现在的 {countWords(body)} {wordUnit(lang)}；接在后面会把文件内容加到末尾。
+        </p>
       </Modal>
 
       {titleIdeas !== null && (

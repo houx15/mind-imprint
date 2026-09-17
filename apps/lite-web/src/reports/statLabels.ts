@@ -26,17 +26,19 @@ import type { AtomKind, ReportStat } from "@lite/api/reports";
  * `unit: ""` deliberately CLEARS a stored unit: 「AI 对话轮数」 already names
  * the quantity, and a stored `unit: "轮"` would render 「1 轮 / AI 对话轮数」.
  */
-const STAT_DISPLAY: Record<string, { label: string; unit?: string }> = {
+const STAT_DISPLAY: Record<string, { label: string; unit?: string; fallbackUnit?: string }> = {
   // reading
   focusMinutes: { label: "阅读时长", unit: "分钟" },
-  wordsRead: { label: "读了", unit: "字" },
+  // No unit override: the server writes 字 or 词 by language (lengthUnit);
+  // fallbackUnit only fills a stored stat that has no unit at all.
+  wordsRead: { label: "读了", fallbackUnit: "字" },
   chatTurns: { label: "AI 对话轮数", unit: "" },
   highlights: { label: "划线", unit: "处" },
   notes: { label: "笔记", unit: "条" },
   lenses: { label: "用了透镜", unit: "个" },
   stepsDone: { label: "阅读任务完成数", unit: "" },
   // writing
-  words: { label: "写了", unit: "字" },
+  words: { label: "写了", fallbackUnit: "字" },
   outline: { label: "搭了提纲", unit: "条" },
   snippets: { label: "改了", unit: "段" },
   comments: { label: "印记读了", unit: "遍" },
@@ -59,7 +61,7 @@ const STAT_DISPLAY: Record<string, { label: string; unit?: string }> = {
  * picks the corrected wording up on re-serve — which is the whole reason
  * labels resolve here instead of being trusted from the stored blob.
  */
-const STAT_DISPLAY_BY_KIND: Record<AtomKind, Record<string, { label: string; unit?: string }>> = {
+const STAT_DISPLAY_BY_KIND: Record<AtomKind, Record<string, { label: string; unit?: string; fallbackUnit?: string }>> = {
   reading: {},
   writing: {
     focusMinutes: { label: "写作时长", unit: "分钟" },
@@ -77,5 +79,5 @@ const STAT_DISPLAY_BY_KIND: Record<AtomKind, Record<string, { label: string; uni
 export function displayStat(stat: ReportStat, kind: AtomKind): ReportStat {
   const over = STAT_DISPLAY_BY_KIND[kind][stat.key] ?? STAT_DISPLAY[stat.key];
   if (!over) return stat;
-  return { ...stat, label: over.label, unit: over.unit ?? stat.unit };
+  return { ...stat, label: over.label, unit: over.unit ?? (stat.unit || over.fallbackUnit || "") };
 }

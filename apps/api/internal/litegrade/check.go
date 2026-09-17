@@ -243,6 +243,69 @@ func textReasons(where, s string, in Input, cp corpus, required bool) []Reason {
 	return rs
 }
 
+// UnwrapUnfoundQuotations removes the quotation marks around every 「」/『』/“”
+// span in the model's prose that Check would reject as not being her words.
+// The words stay; only the claim that they are a verbatim quote goes.
+//
+// 2026-09-18 写作入口走查：一份中文批改两次都在说明里写了
+// 「想查公式却被短视频带走」—— 她正文的意思，不是她的原话。整份批改失败，
+// 老师拿到的是「批改失败」。去掉引号之后那句话是一句转述，不再冒充原文；
+// 意见的锚点（quote 字段）不在这里处理，仍然必须逐字是她写的。
+// Only the caller decides when this is acceptable (after the last attempt, and
+// only when these are the sole reasons left).
+func UnwrapUnfoundQuotations(c Content, in Input) Content {
+	cp := newCorpus(in)
+	fix := func(s string) string {
+		for _, span := range quotematch.ExtractQuotedSpans(s) {
+			n := quotematch.Normalize(span)
+			if len([]rune(n)) < quotematch.MinRunes {
+				continue
+			}
+			if cp.normCatalog != "" && strings.Contains(cp.normCatalog, n) {
+				continue
+			}
+			if r := cp.reason("", span, ReasonQuotationNotInBody); r == nil || r.Code != ReasonQuotationNotInBody {
+				continue
+			}
+			for _, pair := range [][2]string{{"「", "」"}, {"『", "』"}, {"“", "”"}, {"\"", "\""}} {
+				s = strings.ReplaceAll(s, pair[0]+span+pair[1], span)
+			}
+		}
+		return s
+	}
+	out := c
+	out.Overall.Comment = fix(c.Overall.Comment)
+	out.Dimensions = make([]Dimension, len(c.Dimensions))
+	for i, d := range c.Dimensions {
+		d.Comment = fix(d.Comment)
+		out.Dimensions[i] = d
+	}
+	out.Points = make([]Point, len(c.Points))
+	for i, p := range c.Points {
+		p.Text = fix(p.Text)
+		if p.Action != nil {
+			a := fix(*p.Action)
+			p.Action = &a
+		}
+		out.Points[i] = p
+	}
+	return out
+}
+
+// OnlyUnfoundQuotations reports whether every reason is a prose quotation
+// that is not in her body.
+func OnlyUnfoundQuotations(rs []Reason) bool {
+	if len(rs) == 0 {
+		return false
+	}
+	for _, r := range rs {
+		if r.Code != ReasonQuotationNotInBody {
+			return false
+		}
+	}
+	return true
+}
+
 // corpus is her body, the teacher's assigned prompt and the rendered symptom
 // catalog, normalized once so every quote check in one Check/CheckTeacherEdit
 // call reuses the same normalization instead of repeating it per quote.

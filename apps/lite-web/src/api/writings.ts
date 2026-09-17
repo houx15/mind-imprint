@@ -110,7 +110,10 @@ export async function createWriting(input: {
   lang?: "zh" | "en";
   body?: string;
 }): Promise<{ id: string }> {
-  const payload: Record<string, string> = { idea: input.idea, lang: input.lang ?? "zh" };
+  // No lang → the server guesses from the idea and body (guessWritingLang).
+  // Only a caller that KNOWS the language (a topic tile) sends one.
+  const payload: Record<string, string> = { idea: input.idea };
+  if (input.lang) payload.lang = input.lang;
   if (input.body) payload.body = input.body;
   return apiFetch<{ id: string }>("/api/v1/writings", {
     method: "POST",

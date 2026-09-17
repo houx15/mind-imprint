@@ -1,10 +1,14 @@
 package docextract
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 // 一个入口，四种格式。
@@ -62,10 +66,11 @@ func Any(filename string, b []byte) (title, text string, err error) {
 		}
 		return title, text, nil
 	case ".txt", ".md":
-		if !utf8.Valid(b) {
-			return "", "", &ErrText{Msg: "这个文本文件不是 UTF-8 编码，请另存为 UTF-8 再上传。"}
+		s, ok := decodePlainText(b)
+		if !ok {
+			return "", "", &ErrText{Msg: "这个文本文件的编码无法识别，请另存为 UTF-8 再上传。"}
 		}
-		return "", string(b), nil
+		return PlainTextTitle(s), s, nil
 	default:
 		return "", "", &ErrText{Msg: fmt.Sprintf("只收这几种文件：%s。", strings.Join(Supported, " / "))}
 	}
@@ -85,3 +90,59 @@ func (e *ErrText) Error() string {
 }
 
 func (e *ErrText) Unwrap() error { return e.Err }
+
+// decodePlainText 把一个 .txt 的字节变成字符串。
+//
+// 🚨 旧版 Windows 记事本和很多国产软件存出来的中文 .txt 是 GBK，不是 UTF-8。
+// 原来这里一律回「不是 UTF-8 编码」—— 对一个只会「另存为」的中学生来说，
+// 这等于这个按钮坏了。先认 UTF-8（去掉 BOM），不是的话按 GB18030（GBK 的超集）
+// 解一次，解出来还不是合法文字才算认不出。
+// 换行统一成 \n，否则 Windows 的 \r\n 会在段落切分时多出空段。
+func decodePlainText(b []byte) (string, bool) {
+	b = bytes.TrimPrefix(b, []byte{0xEF, 0xBB, 0xBF})
+	var s string
+	if utf8.Valid(b) {
+		s = string(b)
+	} else {
+		out, err := simplifiedchinese.GB18030.NewDecoder().Bytes(b)
+		if err != nil || !utf8.Valid(out) || bytes.ContainsRune(out, utf8.RuneError) {
+			return "", false
+		}
+		s = string(out)
+	}
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	return s, true
+}
+
+// PlainTextTitle 认 .txt 的第一行是不是标题：不空、不长、不以句末标点结尾、
+// 至少有两个字母或汉字、后面还有正文。认不出就回空串，调用方退回文件名。
+//
+// DOCX 有样式可以认标题，纯文本没有；学生的作文几乎总是第一行题目、空一行、
+// 再写正文，所以这条判据够用，认错的代价也小（她在框里改得动）。
+func PlainTextTitle(s string) string {
+	s = strings.TrimSpace(s)
+	first, rest, ok := strings.Cut(s, "\n")
+	if !ok || strings.TrimSpace(rest) == "" {
+		return ""
+	}
+	first = strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(first), "#"))
+	n := utf8.RuneCountInString(first)
+	if n == 0 || n > 60 {
+		return ""
+	}
+	last, _ := utf8.DecodeLastRuneInString(first)
+	if strings.ContainsRune(".!?;,:。！？；，：、…", last) {
+		return ""
+	}
+	letters := 0
+	for _, r := range first {
+		if unicode.IsLetter(r) {
+			letters++
+		}
+	}
+	if letters < 2 {
+		return ""
+	}
+	return first
+}

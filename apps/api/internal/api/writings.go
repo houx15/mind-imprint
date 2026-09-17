@@ -205,7 +205,11 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	atID, err := createWritingInTx(r.Context(), qtx, u.ID, idea, req.Lang)
+	lang := strings.TrimSpace(req.Lang)
+	if lang == "" {
+		lang = guessWritingLang(idea + "\n" + body)
+	}
+	atID, err := createWritingInTx(r.Context(), qtx, u.ID, idea, lang, body == "")
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -235,7 +239,7 @@ func (a *API) createWriting(w http.ResponseWriter, r *http.Request) {
 		// （writing_stage.go 的 "stage: a → b"）：它是一条结构性记录，
 		// 不是谁「说」的话。
 		if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
-			AtomID: atID, Seq: 2, Role: "system", Content: "origin: brought",
+			AtomID: atID, Seq: 1, Role: "system", Content: "origin: brought",
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return

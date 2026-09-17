@@ -937,7 +937,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	// honest strip rather than a wall of noughts.
 	stats := []reportStat{
 		{Key: "focusMinutes", Label: "阅读时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
-		{Key: "wordsRead", Label: "读了", Value: countWordsForLang(src.Body, rd.Lang), Unit: "字"},
+		{Key: "wordsRead", Label: "读了", Value: countWordsForLang(src.Body, rd.Lang), Unit: lengthUnit(rd.Lang)},
 		// 「AI 教练对话轮数」 and 「完成阅读任务」 are the product owner's own
 		// wording, replacing 「和印记聊了 N 轮」 and 「读完 N 步」: the first
 		// assumed the reader already knows who 印记 is, and the second read as
@@ -1075,7 +1075,7 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	}
 
 	stats := []reportStat{
-		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: "字"},
+		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: lengthUnit(wr.Lang)},
 		// 写作时长, not 阅读时长 — this is the writing report. The client
 		// resolves stat labels from `Key` anyway (statLabels.ts, so that a
 		// rename reaches reports already stored), and it carries the same

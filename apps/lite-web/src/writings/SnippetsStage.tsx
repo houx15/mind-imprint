@@ -808,6 +808,7 @@ function SnippetBlock({
         <RoleBoard
           text={text}
           snippetId={slot.snippet?.id ?? `pos-${slot.position}`}
+          heading={slot.heading}
           busy={boardBusy}
           onCancel={() => setBoardOpen(false)}
           onSubmit={(message) => {

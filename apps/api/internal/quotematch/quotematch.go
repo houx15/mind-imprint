@@ -43,6 +43,58 @@ func Normalize(s string) string {
 	return strings.ToLower(b.String())
 }
 
+// Locate finds q in source the way Normalize compares, and returns the span of
+// source it matched — verbatim, so a caller can store it and a client can
+// highlight it with a plain substring search. The span runs from the first to
+// the last matched rune; punctuation or spacing the quote left off either end
+// is not included. ok is false when q normalizes to nothing or is not there.
+//
+// 2026-09-18 写作入口走查：通篇审阅的那条肯定两次都被丢掉，只剩三条问题
+// —— 它引的那句和原文只差一个句号。意见的锚点要逐字，但「逐字」应该由我们
+// 从原文里取，不该要求模型一个标点不差。
+func Locate(source, q string) (string, bool) {
+	nq := []rune(Normalize(q))
+	if len(nq) == 0 {
+		return "", false
+	}
+	src := []rune(source)
+	// normalized rune → index into src
+	idx := make([]int, 0, len(src))
+	norm := make([]rune, 0, len(src))
+	for i, r := range src {
+		if skipRune(r) {
+			continue
+		}
+		for _, lr := range strings.ToLower(string(r)) {
+			norm = append(norm, lr)
+			idx = append(idx, i)
+		}
+	}
+	for start := 0; start+len(nq) <= len(norm); start++ {
+		match := true
+		for k := range nq {
+			if norm[start+k] != nq[k] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return string(src[idx[start] : idx[start+len(nq)-1]+1]), true
+		}
+	}
+	return "", false
+}
+
+func skipRune(r rune) bool {
+	switch r {
+	case ' ', '\t', '\n', '\r', '　',
+		'。', '，', '、', '；', '：', '！', '？', '…',
+		'.', ',', ';', ':', '!', '?':
+		return true
+	}
+	return false
+}
+
 // ExtractQuotedSpans returns the text inside each 「」, 『』 or “” pair in s,
 // in the order they appear. Unpaired quotes — English straight quotes
 // included — are not recognised.

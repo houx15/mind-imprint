@@ -85,6 +85,15 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 			if out.Reasons = litegrade.Check(content, in); len(out.Reasons) == 0 {
 				return gradeOutcome{Content: content, Attempts: attempt, LastReply: res.Text, Tried: out.Tried}
 			}
+			// Last attempt, and the only problem left is a quotation in the
+			// model's prose that is not her words: drop those quotation marks
+			// rather than fail the whole grading (see UnwrapUnfoundQuotations).
+			if attempt == liteGradingAttempts && litegrade.OnlyUnfoundQuotations(out.Reasons) {
+				fixed := litegrade.UnwrapUnfoundQuotations(content, in)
+				if len(litegrade.Check(fixed, in)) == 0 {
+					return gradeOutcome{Content: fixed, Attempts: attempt, LastReply: res.Text, Tried: append(out.Tried, out.Reasons)}
+				}
+			}
 		}
 		out.Tried = append(out.Tried, out.Reasons)
 		msgs = append(msgs,

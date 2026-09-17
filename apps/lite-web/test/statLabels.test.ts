@@ -65,6 +65,11 @@ describe("displayStat", () => {
     });
   });
 
+  it("keeps the server's 词 on an English piece", () => {
+    expect(displayStat(stat({ key: "words", label: "写了", unit: "词" }), "writing").unit).toBe("词");
+    expect(displayStat(stat({ key: "wordsRead", label: "读了", unit: "词" }), "reading").unit).toBe("词");
+  });
+
   it("falls through to the server's wording for a key it does not know", () => {
     // A stat added server-side still renders — with server wording — before
     // this map learns about it.

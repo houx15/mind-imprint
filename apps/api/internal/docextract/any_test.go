@@ -4,7 +4,50 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
+
+func TestPlainTextReadsGBKAndBOMAndTitle(t *testing.T) {
+	gbk, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte("手机让生活更好\r\n\r\n正文第一段。"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	title, text, err := Any("作文.txt", gbk)
+	if err != nil {
+		t.Fatalf("GBK txt refused: %v", err)
+	}
+	if title != "手机让生活更好" {
+		t.Fatalf("title = %q", title)
+	}
+	if strings.Contains(text, "\r") || !strings.Contains(text, "正文第一段。") {
+		t.Fatalf("text = %q", text)
+	}
+
+	bom := append([]byte{0xEF, 0xBB, 0xBF}, []byte("Working in Groups\n\nNowadays, many students work in groups.")...)
+	title, text, err = Any("essay.txt", bom)
+	if err != nil || title != "Working in Groups" || strings.HasPrefix(text, "\xef\xbb\xbf") {
+		t.Fatalf("bom: title=%q text=%q err=%v", title, text, err)
+	}
+
+	if _, _, err := Any("junk.txt", []byte{0xff, 0xfe, 0x00, 0xd8, 0x00}); err == nil {
+		t.Fatal("undecodable bytes accepted")
+	}
+}
+
+func TestPlainTextTitleOnlyTakesAHeadingLine(t *testing.T) {
+	for in, want := range map[string]string{
+		"Working in Groups or Alone\n\nBody.":             "Working in Groups or Alone",
+		"Nowadays, many students work in groups.\nMore.": "",
+		"只有一行，没有正文":                                        "",
+		"2026\n\n正文。":                                     "",
+		"我认为手机让生活更好。\n正文。":                               "",
+	} {
+		if got := PlainTextTitle(in); got != want {
+			t.Errorf("PlainTextTitle(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
 
 // 一个入口，四种格式。产品负责人 2026-09-12：「make this a general tool」。
 
