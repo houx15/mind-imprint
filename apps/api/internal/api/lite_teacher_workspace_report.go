@@ -260,6 +260,10 @@ func (run *liteWorkspaceReport) falseClaim(text string) string {
 	if label := liteworkspace.NamesMissingSection(text, run.missingSectionLabels()); label != "" {
 		return "这份报告没有「" + label + "」段落，只能改写这几段：" + run.sectionList()
 	}
+	if run.asked && len(run.revised) == 0 && liteworkspace.NamesSectionAndChange(run.typed, run.sectionLabels()) {
+		return "老师已经说了改哪一段、怎么改，不要反问。请直接调用 revise_section 改写那一段；" +
+			"事实里没有的内容不要写，在回复里说明哪一部分事实里没有"
+	}
 	return liteworkspace.PronounProblem(text, run.pronouns())
 }
 
@@ -270,6 +274,15 @@ func (run *liteWorkspaceReport) pronouns() liteworkspace.PronounsAllowed {
 	p.Allow(run.gender)
 	p.AllowTyped(run.typed)
 	return p
+}
+
+// sectionLabels is the heading of every section this report shows.
+func (run *liteWorkspaceReport) sectionLabels() []string {
+	out := make([]string, 0, len(run.sections))
+	for _, k := range run.sections {
+		out = append(out, liteparent.SectionLabels[k])
+	}
+	return out
 }
 
 // missingSectionLabels is the heading of every section this report does not

@@ -87,6 +87,45 @@ func reportWorkspaceFixture(t *testing.T, scripts ...[]gateway.StreamEvent) (h h
 	return
 }
 
+// TestWorkspaceReportNamedRequestIsNotAnsweredWithAQuestion — production
+// 2026-09-17: 「请把总体概述写得更具体一些」 got 「您想怎么改写？」 and four
+// options. A request that names a section and a change gets one rewrite when
+// the model only asks; the rewrite revises the section.
+func TestWorkspaceReportNamedRequestIsNotAnsweredWithAQuestion(t *testing.T) {
+	askArgs, _ := json.Marshal(map[string]any{
+		"question": "您想怎么改写「总体概述」？",
+		"options": []map[string]string{
+			{"id": "a", "label": "列出作品篇名"},
+			{"id": "b", "label": "保留现有内容"},
+		},
+	})
+	revised := "这段时间的学习记录显示，阅读和写作都有完成的作品。"
+	h, _, teacher, _, _, reportID, prov := reportWorkspaceFixture(t,
+		wsToolCall("ask_choice", string(askArgs)),
+		reviseCall("overview", revised),
+		wsText("已改写「总体概述」。"),
+	)
+	rec := postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "请把总体概述写得更具体一些。", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeWorkspaceTurn(t, rec)
+	bodyPatch, _ := out.Patch["body"].(map[string]any)
+	if bodyPatch["overview"] != revised {
+		t.Fatalf("patch = %v, want the rewrite to revise the overview", out.Patch)
+	}
+	if got := lastUserMessage(t, prov, 2); !strings.Contains(got, "不要反问") {
+		t.Fatalf("rewrite request = %q", got)
+	}
+
+	// A message that names no section may still be answered with options.
+	h2, _, teacher2, _, _, reportID2, _ := reportWorkspaceFixture(t, wsToolCall("ask_choice", string(askArgs)))
+	rec = postWorkspaceTurn(t, h2, teacher2, reportTurnBody(reportID2, "帮我改一下", nil))
+	if rec.Code != http.StatusOK || len(decodeWorkspaceTurn(t, rec).Choices) != 2 {
+		t.Fatalf("unnamed request = %d %s, want the options", rec.Code, rec.Body)
+	}
+}
+
 // TestWorkspaceReportRejectsOutsiders — ownership follows
 // loadTeacherParentReport: another teacher, a malformed id and a missing
 // report are all 404; a student is 403. None of them reaches the model.

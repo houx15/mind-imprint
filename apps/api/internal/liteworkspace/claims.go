@@ -53,7 +53,28 @@ func ClaimsPublished(text string) bool {
 	return false
 }
 
-var buttonPattern = regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
+// changeWordPattern matches a direction for a rewrite: 改短, 写得更具体,
+// 加上, 提到, 删掉, 换成, 语气.
+var changeWordPattern = regexp.MustCompile(
+	`改|写得|写成|加上|加入|补充|提到|写上|写进|删掉|删去|去掉|换成|具体|精简|简短|简洁|详细|短一些|长一些|短一点|长一点|语气|只留`)
+
+// NamesSectionAndChange reports whether the teacher's message names one of
+// the report's sections (by its heading) and says how to change it. Such a
+// message is a request to rewrite, not a question to answer with options.
+// Production 2026-09-17: 「请把总体概述写得更具体一些…」 got 「您想怎么改写？」
+// in three tries out of three.
+func NamesSectionAndChange(typed string, sectionLabels []string) bool {
+	named := false
+	for _, l := range sectionLabels {
+		if l != "" && strings.Contains(typed, l) {
+			named = true
+			break
+		}
+	}
+	return named && changeWordPattern.MatchString(typed)
+}
+
+var buttonPattern =regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
 
 // PointsAtButton reports whether text tells her to use a button under the
 // reply.
