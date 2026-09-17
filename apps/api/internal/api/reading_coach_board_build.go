@@ -148,7 +148,7 @@ func buildLabelBoardFromReply(blocks []Block, focus, reply string) *coachCard {
 		// 🚨 逐字来自正文，所以它照样过得了 validateCoachCard 那一关 ——
 		// 调用方仍然会把它送进去校验，这里不是一条绕过校验的后门。
 		Options: out,
-		Labels:  coachCardRoleLabels,
+		Labels:  coachArgueBinsBasic,
 	}
 }
 

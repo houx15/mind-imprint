@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -54,13 +55,47 @@ const (
 	coachCardWordBank      = "word_bank"
 )
 
-// coachCardRoleLabels 是 label_roles 那块板上的格子。
+// label_roles 那块板上的格子。**闭表，而且由服务端填** —— 模型只给句子，
+// 给不了标签。理由和学科表一样：模型能编出第六个角色，而那个角色在板上没有
+// 格子、在带读规矩里也没有对应的说法。
 //
-// 🚨 **闭表，而且由服务端填**，模型只给句子、给不了标签。理由和学科表一样：
-// 模型能编出第六个角色，而第六个角色在板上没有格子、在带读规矩里没有对应的
-// 说法。它们也是她真正要学会认的那五种东西 —— 换一篇文章还是这五个格子，
-// 那个「认得出」就是学习本身（reading_routines.go 开头那三条里的第 2 条）。
-var coachCardRoleLabels = []string{"主张", "证据", "限制", "背景", "对比"}
+// # 🚨 2026-09-17：五个格子砍成两套小的
+//
+// 原来是一套五个（主张 / 证据 / 限制 / 背景 / 对比），换一篇文章还是这五个。
+// 同事和产品负责人在同一天从两头指出它不成立：
+//
+//	我总觉得不是所有的文章都应该按照主张、证据、限制这样的内容来拆分，
+//	而且主张、证据、限制很多时候并不知道哪些该在哪里。
+//
+//	I dragged the 主张，证据，限制，背景，对比. but maybe not every paragraph
+//	has this thing. I know it is very important to learn 论证. maybe we need
+//	to simplify it.
+//	key statement 关键主张 / key evidence 证据
+//	or sometimes it is an argument: 驳斥观点 / 作者观点 / 证据
+//
+// 「限制 / 背景 / 对比」三格是这块板上最难判的三个，而它们对「看懂一个论证」
+// 这件事并不必要 —— 论证的骨架就是**一个主张 + 撑住它的东西**。作者还驳了
+// 另一个观点时，多一格 驳斥观点；没驳就两格。
+//
+// 两套都留在闭表里，用哪一套由模型按这篇文章挑（BinSet），服务端校验。
+var (
+	// coachArgueBinsBasic —— 作者只是在立论。
+	coachArgueBinsBasic = []string{"关键主张", "证据"}
+	// coachArgueBinsCounter —— 作者在驳一个观点，所以多一格给「他驳的那个」。
+	coachArgueBinsCounter = []string{"作者观点", "驳斥观点", "证据"}
+	// coachLegacyRoleLabels —— 2026-09-17 之前那五个。**不再发给她**，但老的
+	// 转写里有（她摆过的板原样存在 atom_message 里），读回来仍然要认得出。
+	coachLegacyRoleLabels = []string{"主张", "证据", "限制", "背景", "对比"}
+)
+
+// coachBinSetFor 把模型给的那个标识收进闭表。认不出来就是基础那一套 ——
+// 两格永远成立，三格只在真有驳论时才对。
+func coachBinSetFor(name string) []string {
+	if strings.TrimSpace(strings.ToLower(name)) == "counter" {
+		return coachArgueBinsCounter
+	}
+	return coachArgueBinsBasic
+}
 
 // coachCardWord 是生词板上的一个词：它出现在哪一段（BlockID），词本身（Term）。
 //
@@ -149,8 +184,15 @@ type coachCard struct {
 	// word_bank 用它：这一段里的几个词。
 	Words []coachCardWord `json:"words,omitempty"`
 	// label_roles 那块板上的格子。**服务端填的**，模型给不了 —— 见
-	// coachCardRoleLabels。模型如果自己塞了一份，这里会被覆盖掉。
+	// coachArgueBinsBasic。模型如果自己塞了一份，这里会被覆盖掉。
 	Labels []string `json:"labels,omitempty"`
+	// BinSet 是模型**唯一**能对格子说的话：这篇用哪一套。
+	// "counter" = 作者在驳一个观点（作者观点 / 驳斥观点 / 证据），
+	// 其余一律是基础那一套（关键主张 / 证据）。认不出来就按基础那套办。
+	//
+	// 🚨 它不发给前端（Labels 才是屏幕上那几个格子），所以标了 "-"：
+	// 多发一个只有服务端看得懂的标识，前端迟早会有人拿它去判断。
+	BinSet string `json:"binSet,omitempty"`
 }
 
 const (
@@ -185,6 +227,7 @@ const (
 	cardRejectCutOff      cardReject = "the reply ends mid-sentence"
 	cardRejectDeadTurn    cardReject = "the turn hands her nothing to do"
 	cardRejectNoArgument  cardReject = "a 主张/证据/限制 board on an article whose author makes no argument"
+	cardRejectBoardRepeat cardReject = "this article has already had its one 拆开作者的论证 board"
 )
 
 // replyLooksCutOff —— 这句话像不像说到一半断掉了。
@@ -239,6 +282,9 @@ var cardFixIt = map[cardReject]string{
 		"要么明确请她做一件事。",
 	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
 		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
+	cardRejectBoardRepeat: "这篇文章已经摆过标注板了。一篇只摆一次 —— 她摆完之后你觉得" +
+		"有一两张放错，就在话里说清那一句为什么该换个位置，然后推进，不要再发一块" +
+		"让她从头摆一遍。",
 	cardRejectNoArgument: "这篇文章的作者没有在说服谁（它是报道 / 记叙），" +
 		"所以「主张 / 证据 / 限制」这块板在这篇上没有指称对象 —— 她只能猜。" +
 		"换一种：choose_span（在几句里挑一句）、short_text（请她写一句）、" +
@@ -433,9 +479,9 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	// 中间还有去重、套娃剔除和截断，补早了等于给一批不会上卡的选项算号码。
 	card := &coachCard{Type: c.Type, Prompt: prompt, Options: stampOptionWhere(out, blocks)}
 	if c.Type == coachCardLabelRoles {
-		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉：
-		// 见 coachCardRoleLabels。
-		card.Labels = coachCardRoleLabels
+		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉；
+		// 它只能说「这篇用哪一套」，见 coachBinSetFor。
+		card.Labels = coachBinSetFor(c.BinSet)
 		// 🚨 题目里另起一套格子名的，把题目换成标准那一句。
 		//
 		// 格子被覆盖了，题目没有 —— 于是屏幕上是「把卡片放进『进不去/动不了/
@@ -926,8 +972,9 @@ const coachLabelBoardPrompt = "分析下列句子，判断它们各自属于哪�
 
 // labelPromptInventsBins —— 这道题目是不是另起了一套格子名。
 //
-// 格子是闭表（coachCardRoleLabels），由服务端填。模型有时在题目里自己编一套
-// （「进不去 / 动不了 / 快撑不住了」），而屏幕上的格子仍然是那五个。
+// 格子是闭表（coachArgueBinsBasic / coachArgueBinsCounter），由服务端填。模型
+// 有时在题目里自己编一套（「进不去 / 动不了 / 快撑不住了」），而屏幕上的格子
+// 仍然是我们发下去的那几个。
 //
 // 判据看**题目里被引号框起来、或者用斜杠并列起来的短词**：那是它在点名格子。
 // 只要其中有一个不在闭表里，这套名字就是它自己编的。
@@ -941,32 +988,73 @@ func labelPromptInventsBins(prompt string) bool {
 	}
 	// 没加引号也能并列：「放进进不去/动不了/快撑不住了」。
 	//
-	// 🚨 闭表里五个名字**都是两个字**，所以判据就取斜杠两边各两个字：
-	// 「分成主张/证据两类」两边是主张、证据，都在表里，是一句正常的话；
-	// 「放进进不去/动不了/……」左边是「不去」，不在表里，那就是它自己编的。
+	// 🚨 这一段 2026-09-17 重写过。原来的版本取斜杠两边**各两个字**去查表，
+	// 因为当时闭表里五个名字都是两个字。换成新的两套之后名字有两字也有四字
+	// （关键主张 / 证据 / 作者观点 / 驳斥观点），「各取两字」当场失效：
+	// 「关键主张/证据」的左边取到的是「主张」—— 在老表里、在新表里都不是
+	// 一个完整的名字，一句完全正常的话会被判成编格子名。
 	//
-	// 先按整句切斜杠的那一版在这里栽过：那样切出来的是「分成主张」和
-	// 「证据两类」，两个都不在表里，一句完全正常的话被判成编格子名。
+	// 改成：斜杠左边看**是不是以某个格子名结尾**，右边看**是不是以某个格子名
+	// 开头**。两边都对不上才算它自己编的。
+	//
+	// 先按整句切斜杠的那一版更早以前也栽过（切出来是「分成主张」和「证据两类」，
+	// 两个都不在表里），所以这里不整句切。
 	r := []rune(prompt)
 	for i, c := range r {
 		if c != '/' {
 			continue
 		}
-		if i < 2 || i+2 >= len(r) {
-			return true
-		}
-		if !isRoleLabel(string(r[i-2:i])) || !isRoleLabel(string(r[i+1:i+3])) {
+		if !endsWithRoleLabel(string(r[:i])) || !startsWithRoleLabel(string(r[i+1:])) {
 			return true
 		}
 	}
 	return false
 }
 
+// endsWithRoleLabel / startsWithRoleLabel —— 斜杠两边贴着的是不是一个格子名。
+func endsWithRoleLabel(left string) bool {
+	for _, l := range allRoleLabels() {
+		if strings.HasSuffix(left, l) {
+			return true
+		}
+	}
+	return false
+}
+
+func startsWithRoleLabel(right string) bool {
+	for _, l := range allRoleLabels() {
+		if strings.HasPrefix(right, l) {
+			return true
+		}
+	}
+	return false
+}
+
+// allRoleLabels —— 所有我们发过的格子名，长的排在前面（「关键主张」要先于
+// 「主张」被试到，否则一个长名字会被它的后缀抢先匹配掉）。
+func allRoleLabels() []string {
+	out := make([]string, 0, 10)
+	for _, set := range [][]string{coachArgueBinsCounter, coachArgueBinsBasic, coachLegacyRoleLabels} {
+		out = append(out, set...)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return len([]rune(out[i])) > len([]rune(out[j]))
+	})
+	return out
+}
+
+// isRoleLabel —— 这个词是不是一个格子名。
+//
+// 🚨 认**所有我们发过的**名字，包括 2026-09-17 换掉的那五个：这个函数还被
+// lastBoardPlacement 用来读老的转写，只认新名字会让她三天前摆的那块板变成
+// 一堆读不出来的行。
 func isRoleLabel(s string) bool {
 	s = strings.TrimSpace(s)
-	for _, l := range coachCardRoleLabels {
-		if s == l {
-			return true
+	for _, set := range [][]string{coachArgueBinsBasic, coachArgueBinsCounter, coachLegacyRoleLabels} {
+		for _, l := range set {
+			if s == l {
+				return true
+			}
 		}
 	}
 	return false

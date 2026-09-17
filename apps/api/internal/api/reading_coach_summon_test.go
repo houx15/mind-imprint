@@ -58,88 +58,45 @@ type coachTurnSummonJSON struct {
 	} `json:"card"`
 }
 
-// The coach names a lens and a paragraph; the room gets a card aimed there.
-func TestCoachTurnMintsAimedLens(t *testing.T) {
+// 🚨 2026-09-17：**这一步没有了，所以这两条断言也换了。**
+//
+// 产品负责人逐字：「at this stage, I think we can skip the 透镜 part. it is
+// really not applicable in many papers. and difficult for students to
+// understand. the above mentioned critical thinking can be a better
+// replacement of lens.」
+//
+// 读法库里不再排 lens 那一步，而判据放在 lensOK 上：**清单里没有 lens 这一步，
+// 就一副透镜都不给**（reading_coach.go 的 planHasLens）。整套透镜的机器没删 ——
+// 哪天读法库里再排上它，原样就能用。
+//
+// 这两条原来断言的是「递出去的透镜落在它刚讲的那一段上」和「卡片和滚动位置
+// 要一致」。那两件事现在**结构上到不了**：cardOut 永远是 nil。断言一件到不了
+// 的事，绿着也什么都不证明（[[fixture-told-coach-session-over-2026-09-14]]），
+// 所以换成断言这一轮真正该发生的事。
+func TestCoachTurnDoesNotMintALensWhenThePlanHasNoLensStep(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(coachSummonScript))
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "碳排放与增长", coachSummonArticle)
 
-	// 开始 — no plan exists yet, so this one turn also generates the plan
-	// before the coach itself replies.
 	rec := coachTurn(t, h, cookie, id, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("coach turn = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
-
 	var out coachTurnSummonJSON
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode coach turn: %v — body=%s", err, rec.Body)
 	}
-
-	// 1. the response carries a card with status "proposed"
-	if out.Card == nil {
-		t.Fatalf("coach turn carried no card at all; body=%s", rec.Body)
+	// 模型在这份回话里明明白白点了 "lens":"craap"。清单里没有那一步，所以
+	// 一副都不给。
+	if out.Card != nil {
+		t.Errorf("清单里没有透镜那一步，却还是递了一副：%+v", out.Card)
 	}
-	if out.Card.Status != "proposed" {
-		t.Errorf("card status = %q, want \"proposed\"", out.Card.Status)
-	}
-
-	// 2. the card's block_id is "b2"
-	if out.Card.BlockID == nil || *out.Card.BlockID != "b2" {
-		t.Errorf("card blockId = %v, want \"b2\"", out.Card.BlockID)
-	}
-
-	// 3. origin is "router" — she did not choose this lens
-	if out.Card.Origin != "router" {
-		t.Errorf("card origin = %q, want \"router\"", out.Card.Origin)
-	}
-
-	// 4. the reply text is unchanged by the summon
+	// 🚨 这一轮仍然要成立：她拿到 印记 的话。透镜被拒掉不是一次失败，
+	// 是这一步本来就不存在。
 	if out.Reply != "这条来源值得查一下" {
-		t.Errorf("reply = %q, want the coach's own reply untouched by the summon", out.Reply)
+		t.Errorf("reply = %q，透镜被拒掉不该动它", out.Reply)
 	}
 }
 
-// focusLensDisagreeScript — F4 (final review): a turn that BOTH advances into
-// a focus_block step (routine "zh-scan-focus-lens", focusBlocks=["b2"] — so
-// the step she is walking INTO carries block "b2") AND summons a lens aimed
-// at a DIFFERENT paragraph ("b4", the one the reply itself just discussed).
-// Before the fix, the response's focusBlock was unconditionally overridden
-// with the NEXT step's own block id — so the article would scroll to b2
-// while the lens card hung under b4.
-const focusLensDisagreeScript = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b2"],"steps":[],
-  "reply":"通读完了，来看这一句","advance":"done","focusBlock":"b4","lens":"craap",
-  "block_id":"b4","quote":"绿地和水面是相反的力量。","why":"这句提出了一个对比论点。"}`
-
-// TestCoachTurn_LensAgreesWithFocusBlockOverStepsOwnParagraph — the card and
-// the scroll must agree. When a lens actually minted THIS turn, the response
-// stays aimed at the paragraph the lens is aimed at, even though the newly
-// current step names its own (different) paragraph.
-func TestCoachTurn_LensAgreesWithFocusBlockOverStepsOwnParagraph(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(focusLensDisagreeScript))
-	id := createReadingAtom(t, h, cookie)
-	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
-
-	rec := coachTurn(t, h, cookie, id, "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("coach turn = %d, want 200; body=%s", rec.Code, rec.Body)
-	}
-	var out coachTurnSummonJSON
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode coach turn: %v — body=%s", err, rec.Body)
-	}
-
-	if out.Card == nil {
-		t.Fatalf("no card minted at all; body=%s", rec.Body)
-	}
-	if out.Card.BlockID == nil || *out.Card.BlockID != "b4" {
-		t.Fatalf("card blockId = %v, want \"b4\" (setup broken, not the thing under test)", out.Card.BlockID)
-	}
-	// The bug: this used to read "b2" (the newly-current focus_block step's
-	// own paragraph) instead of staying on the paragraph the card is aimed
-	// at.
-	if out.FocusBlock != "b4" {
-		t.Errorf("focusBlock = %q, want \"b4\" to agree with the minted card — "+
-			"the room would scroll one way while the lens card hangs under the other paragraph", out.FocusBlock)
-	}
-}
+// 「读法库里一套带 lens 的都不该剩下」那一条在 reading_routines_internal_test.go
+// 里（readingRoutines 是未导出的，这个文件是 package api_test）。

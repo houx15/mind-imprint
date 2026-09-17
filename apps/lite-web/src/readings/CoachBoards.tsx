@@ -61,8 +61,16 @@ import { useRef, useState } from "react";
  * 两个房间的格子本来就不是同一套词，共用一份表是让它们迟早互相踩的唯一原因。
  */
 const BIN_HINT: Record<string, string> = {
-  主张: "作者要你接受的那句话",
+  // 现行两套（2026-09-17）。产品负责人：「maybe not every paragraph has this
+  // thing… maybe we need to simplify it. key statement 关键主张 / key evidence
+  // 证据 / or sometimes it is an argument: 驳斥观点 / 作者观点 / 证据」
+  关键主张: "作者要你接受的那句话",
   证据: "拿来撑住主张的事实、数字或例子",
+  作者观点: "作者自己站的那一边",
+  驳斥观点: "作者要反对的那个说法",
+  // 2026-09-17 换下来的三个。**不再发给她**，留在这里是因为她三天前摆过的
+  // 那块板还在转写里，回看时格子底下那句话不该是空的。
+  主张: "作者要你接受的那句话",
   限制: "作者自己承认的那一点「但是」",
   背景: "交代情况，不参与说服",
   对比: "拿来比的另一面",

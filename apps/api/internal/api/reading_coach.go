@@ -264,9 +264,10 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   她连着说了三遍「这篇没有这种句子」，越说越烦，而她是对的。
   **她说文章里没有这种句子的时候，先信她**：回去看一眼，真没有就换一副，
   或者干脆不用透镜，直接往下走。不要让她为一个不存在的东西找第四遍。
-- 🚨 **格子名不要自己编。** 标注板的格子永远是那五个（主张/证据/限制/背景/对比），
-  由服务端填。你在话里说「按因果链分成原因和结果两格」「分成正方反方」之类的，
-  她屏幕上出现的仍然是那五个格子 —— 于是她照着你的话去找，找不到，就以为板没出来。
+- 🚨 **格子名不要自己编。** 标注板的格子只有两套，由服务端填：
+  基础那一套是「关键主张 / 证据」，作者在驳一个观点时是「作者观点 / 驳斥观点 / 证据」。
+  你在话里说「按因果链分成原因和结果两格」「分成正方反方」之类的，
+  她屏幕上出现的仍然是那两套里的一套 —— 于是她照着你的话去找，找不到，就以为板没出来。
   实测她逐字报的：「它让我把第2段那三句话重新分类拖进格子里（因果链），但我屏幕上
   根本没有出现那个分类的板子和卡片。」说板的时候就说「把这几句各自放进它的角色里」。
 - **给 lens 就必须同时给 focusBlock**，而且是你 reply 里刚讲的那一段。
@@ -319,15 +320,25 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   请她自己到正文里划出一句。没有 options ——「自己去找」就是这张卡的全部内容。
 - {"type":"short_text","prompt":"一句话的问题"}
   请她用自己的话写一小段。没有 options。
-- {"type":"label_roles","prompt":"一句话的问题","options":[{"blockId":"b3","quote":"文章里的原话"}]}
-  **标注板**：几句原话摆在板上，她把每一句拖到一个角色格子里。
-  格子是固定的五个（主张 / 证据 / 限制 / 背景 / 对比），**你不用给，也给不了**。
+- {"type":"label_roles","prompt":"一句话的问题","binSet":"basic","options":[{"blockId":"b3","quote":"文章里的原话"}]}
+  **标注板**：几句原话摆在板上，她把每一句拖到一个格子里。
+  格子**你不用给，也给不了** —— 你只能用 binSet 说这篇该用哪一套：
+  - "basic"：格子是「关键主张 / 证据」。作者只是在立论时用这一套。**默认用它。**
+  - "counter"：格子是「作者观点 / 驳斥观点 / 证据」。只在作者**明确在驳一个
+    别人的观点**时用；文章里找不出那个被驳的观点，就用 basic。
+  🚨 格子 2026-09-17 从五个（主张/证据/限制/背景/对比）砍成了这两套。
+  「限制 / 背景 / 对比」是最难判的三个，而看懂一个论证不需要它们：
+  论证的骨架就是**一个主张加上撑住它的东西**。
   options 给 2 到 4 条，**每一句都必须逐字抄自文章**（系统会核对，对不上就整张丢掉）。
   🚨 和 choose_span 不同：这几句**可以来自同一段**。同一段里的「后果」和「原因」
   正是关系最紧、也最值得让她分辨的一对。
-  什么时候用：读法清单走到「标注论证」那一步，或者她说得出这篇在讲什么、
-  却说不清哪句在撑着哪句的时候。**这是一次不问「你懂了吗」的理解检查**——
-  贴不出来就是没读懂，而她一个字都不用写。
+  什么时候用：**读法清单走到「拆开作者的论证」那一步的时候，而且只在那一步。**
+  **这是一次不问「你懂了吗」的理解检查**——贴不出来就是没读懂，而她一个字都不用写。
+  🚨 **一篇文章里这块板只摆一次。** 产品负责人 2026-09-17 逐字：
+  「only one such practice in one paper is enough. (in my just finished paper,
+  I repeated at least four times. although three of them are the same one)」
+  她摆完你觉得有一两张放错了，就在话里说清那一句为什么该换个位置，然后推进 ——
+  不要再发一块板让她从头摆一遍。
 - {"type":"word_bank","prompt":"一句话的问题","words":[{"blockId":"b3","term":"scrambling"}]}
   **生词板**：这一段里的几个词摆在板上，她把每个拖进「认识 / 不确定 / 不认识」。
   words 给 3 到 6 个，**每个都必须逐字出现在它那个段落里**（系统会核对，
@@ -1204,13 +1215,67 @@ func readingCurrentStepInstruction(tasks []sqlc.ReadingTask) string {
 	case string(taskHunt):
 		rule = "只看【她在文章里点出来的句子】是否有真实选句。有选句就给 done，不要求它与你偏好的句子相同，也不要求再选一句。没有真实选句时留空并说明点击操作。"
 	case string(taskLabel):
-		rule = "已收到标注板的真实作答时，依据她的分类简短反馈并给 done；尚未提交时引导她使用标注板。普通文字说摆好了不能替代真实作答。"
+		// 🚨 「依据她的分类简短反馈并给 done」后面那半句是 2026-09-17 加的。
+		// 产品负责人在一篇文章里被同一块板问了四次（「three of them are the
+		// same one」）—— 摆完之后觉得有一两张放错，就再发一块板让她从头摆，
+		// 而她每次摆的其实是同一件事。判断该由**话**来给，不由第二块板来收。
+		rule = "已收到标注板的真实作答时，依据她的分类简短反馈并给 done；尚未提交时引导她使用标注板。" +
+			"普通文字说摆好了不能替代真实作答。" +
+			"🚨 觉得她有一两张放错了，就在 reply 里说清那一句为什么该换个位置，然后照常给 done —— " +
+			"**绝对不要再发第二块标注板**。这一步只摆一次板。"
+	case string(taskCritique):
+		// 🚨 2026-09-17 新增，顶掉了 透镜 那一步。产品负责人逐字：
+		//
+		//	we can invite students to give some comments on this, like do they
+		//	agree with author's view, do they think the evidence is enough, or
+		//	do they think if there is another possiblity.
+		//	give perspectives suggestion, like another possibility,
+		//	credibility, another explanation, etc.
+		//
+		// 「你怎么看」直接问出去，收到的是「我觉得挺好的」。她需要的不是一个
+		// 更大的问题，是**几个角度**——而角度要挂在这篇文章的具体处上，
+		// 否则又是一个 taskConnect 那样的空问题。
+		rule = "本步要她给出自己的判断，不是复述作者。reply 先在**这篇文章里**点出一处她可以下手的地方" +
+			"（作者的某一个判断、某一条证据、某个只有一个来源的说法），再给她两三个角度让她挑一个，" +
+			"写成一行一个的短列表。角度从这几种里挑：**同不同意**这个判断、" +
+			"这条**证据够不够**撑住它、有没有**另一种解释**、这个说法的**来源可不可信**、" +
+			"作者**漏掉了谁**。然后用一张 short_text 卡请她写。" +
+			"她写出了自己的判断就给 done —— **不要求她的判断和你一致**，也不要求她写长。" +
+			"她说同意作者，就请她说一句凭什么同意；那也是一个判断。"
 	case string(taskLens):
 		rule = "已收到【她刚做完一副透镜】时，反馈她的实际分析并给 done，不再要求她操作已完成的透镜；没有完成回传时按透镜步骤继续。"
 	}
 	return "\n【本轮推进判据】\n当前步骤：" + current.Kind + "；任务：" + current.Label + "。\n" +
 		"先检查学生是否明确要求跳过：如是，advance 必须为 skipped。否则：" + rule + "\n" +
 		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；reply 可以介绍下一步，但不能因介绍下一步而把 advance 留空。一次只推进当前一步。\n"
+}
+
+// maxLabelBoards 是一篇文章里最多摆几块标注板。
+//
+// 二：一块给她摆，一块留给「她摆完之后确实需要整体重摆」的那种情况。
+// 产品负责人的那一篇摆了四块，其中三块是同一件事 —— 那不是练习，是重复劳动。
+// 改正一两张的正确做法是**在话里说清楚**，见 taskLabel 的推进判据。
+const maxLabelBoards = 2
+
+// countLabelBoards —— 这篇文章里已经发过几块标注板。
+//
+// 数的是 印记 发出去的那些（ai 消息 payload 里的 card），不是她答过几块：
+// 一块发出去她没答的板，对她来说照样是一次「又来一块」。
+func countLabelBoards(msgs []sqlc.AtomMessage) int {
+	n := 0
+	for _, m := range msgs {
+		if m.Role != "ai" || len(m.Payload) == 0 {
+			continue
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(m.Payload, &p); err != nil {
+			continue
+		}
+		if p.Card != nil && p.Card.Type == coachCardLabelRoles {
+			n++
+		}
+	}
+	return n
 }
 
 // answeredBoard —— 这一轮她交上来的是不是一块摆完了的板。
@@ -1998,8 +2063,28 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// The coach may only reach for a lens the room could actually open right
 	// now. Checking here rather than after the call means a refused summon
 	// never reaches her as a card that silently failed to appear.
+	// 🚨 这份清单里有没有「深入思考」那一步。
+	//
+	// 产品负责人 2026-09-17：「at this stage, I think we can skip the 透镜 part.
+	// it is really not applicable in many papers. and difficult for students to
+	// understand. the above mentioned critical thinking can be a better
+	// replacement of lens.」
+	//
+	// 读法库里已经没有 lens 那一步了（critique 顶掉了它），但**机器还在**：
+	// prompt 里仍然有透镜那一节，模型仍然可能顺手召一副。所以判据放在这里 ——
+	// 清单上没有这一步，就一副都不给。
+	//
+	// 这样写而不是把整套透镜删掉，是因为「at this stage」：哪天读法库里再排上
+	// lens，它原样就能用；而在那之前，她一副也碰不到。
+	planHasLens := false
+	for _, t := range tasks {
+		if t.Kind == string(taskLens) {
+			planHasLens = true
+			break
+		}
+	}
 	lensOK := func(id string) bool {
-		if deckErr != nil || anyOpen || !inReadingDeck(deck, id) {
+		if deckErr != nil || anyOpen || !planHasLens || !inReadingDeck(deck, id) {
 			return false
 		}
 		if id == "sift" && !ordering.AllowSift {
@@ -2023,6 +2108,25 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if okParse && replyAsksForANoOpMove(parsed.Reply, lastBoardPlacement(msgs)) {
 		parsed.lensRetry = true
 		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
+	}
+	// 🚨 一篇文章里这块板只摆一次 —— 加上一次改正的机会。
+	//
+	// 产品负责人 2026-09-17 逐字：「only one such practice in one paper is
+	// enough. (in my just finished paper, I repeated at least four times.
+	// although three of them are the same one)」
+	//
+	// 四次里有三次是同一块板：她摆完，印记 觉得有一两张放错，就再发一块让她
+	// **从头摆一遍**。改正是好的，从头摆不是 —— 那三次她做的是同一件事。
+	//
+	// prompt 里已经写了这条（taskLabel 的判据），但散文跨不过判据
+	// （[[reading-room-rulings-2026-09-17]] 第一条），所以这里数出来：
+	// 这篇文章里已经发过 maxLabelBoards 块板，第 maxLabelBoards+1 块丢掉。
+	if okParse && parsed.Card != nil && parsed.cardWhy == cardOK &&
+		parsed.Card.Type == coachCardLabelRoles && countLabelBoards(msgs) >= maxLabelBoards {
+		parsed.Card = nil
+		parsed.cardWhy = cardRejectBoardRepeat
+		slog.Info("reading coach: card dropped", "why", string(cardRejectBoardRepeat),
+			"atom_id", at.ID, "boards", countLabelBoards(msgs))
 	}
 	// 🚨 作者不表态的文章上，那块「主张 / 证据 / 限制」的板没有指称对象。
 	//
@@ -2085,7 +2189,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.ghostQuote != "" || parsed.leak != "" ||
 		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
 		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm ||
-		parsed.cardWhy == cardRejectNoArgument) {
+		parsed.cardWhy == cardRejectNoArgument || parsed.cardWhy == cardRejectBoardRepeat) {
 		why := string(parsed.cardWhy)
 		if parsed.lensRetry {
 			why = parsed.lensRetryWhy

@@ -31,7 +31,9 @@ func TestLabelRolesGetsItsLabelsFromTheServer(t *testing.T) {
 	if got == nil {
 		t.Fatal("这张标注板应该通过")
 	}
-	if len(got.Labels) != len(coachCardRoleLabels) || got.Labels[0] != coachCardRoleLabels[0] {
+	// 格子由服务端填，模型塞的那份被覆盖掉。没说 binSet 就是基础那一套
+	// （2026-09-17：关键主张 / 证据）。
+	if len(got.Labels) != len(coachArgueBinsBasic) || got.Labels[0] != coachArgueBinsBasic[0] {
 		t.Fatalf("格子应该被服务端那份覆盖，拿到 %v", got.Labels)
 	}
 }

@@ -1479,8 +1479,8 @@ func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
 	if got.Prompt != coachLabelBoardPrompt {
 		t.Fatalf("题目没换回标准那一句：%q", got.Prompt)
 	}
-	// 格子仍然是闭表那五个。
-	if len(got.Labels) != len(coachCardRoleLabels) {
+	// 格子仍然是闭表里的那一套。
+	if len(got.Labels) != len(coachArgueBinsBasic) {
 		t.Fatalf("格子被改了：%+v", got.Labels)
 	}
 }

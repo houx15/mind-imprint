@@ -87,6 +87,21 @@ const (
 	// 调研里叫 exit retrieval。它便宜（一分半钟）、假不了（合上了文章，
 	// 凭印象说不出来就是真的没留下），而且产出的是一条完整的过程记录。
 	taskRecall readingTaskKind = "recall"
+	// 你怎么看：她自己对这篇文章的判断 —— 同意不同意，证据够不够，
+	// 有没有别的可能。
+	//
+	// 🚨 2026-09-17 **顶掉了 透镜 那一步**。产品负责人逐字：
+	//
+	//	at this stage, I think we can skip the 透镜 part. it is really not
+	//	applicable in many papers. and difficult for students to understand.
+	//	the above mentioned critical thinking can be a better replacement of
+	//	lens.
+	//
+	// 它和 taskLabel 是**同一件事的两半**，而且必须分开走：label 是拆**作者**
+	// 写了什么（那块板），critique 是她自己怎么看。挤在一步里她只会挑更容易的
+	// 那件做，产品负责人的原话是「split them. first is analyze what author
+	// written. then is students' self critical thinking.」
+	taskCritique readingTaskKind = "critique"
 )
 
 // focusBlockLabelBase is the 精读 step's label WITHOUT its paragraph number.
@@ -138,13 +153,14 @@ var readingRoutines = []readingRoutine{
 	{
 		Key:   "zh-scan-focus-lens",
 		Lang:  "zh",
-		Name:  "通读 → 精读 → 透镜",
+		Name:  "通读 → 精读 → 论证",
 		Blurb: "默认读法。适合说明文、议论文、新闻这类讲道理的文章。",
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请先根据标题预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
-			{Kind: taskLens, Label: "深入思考", Detail: "请使用一张透镜卡，按卡片提示分析文章。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：哪一句是关键主张，哪些是撑住它的证据。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskReflect, Label: "总结收获", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
 			// 🚨 2026-09-17 改写。原来这句是「这篇讲的事，你自己身边、新闻里、
 			// 或者别的书里，有没有碰到过？」——产品负责人报的「有点抽象，还有
@@ -177,8 +193,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "请根据标题和第一句预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
-			{Kind: taskLabel, Label: "标注论证", Detail: "给几句话各自贴一个角色：主张、证据、限制、背景、对比。"},
-			{Kind: taskLens, Label: "深入思考", Detail: "请使用一张透镜卡，按卡片提示分析文章。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：哪一句是关键主张，哪些是撑住它的证据。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			// 🚨 复述在前，找句在后，而且是这个顺序才对：她先凭记忆说一遍，
 			// 再回文章里核对自己说得准不准。反过来（点完句子再合上文章复述）
@@ -212,7 +228,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "通读全文", Detail: "先弄清楚两件事：发生了什么，牵涉到哪几方。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法，一样一样看。"},
 			{Kind: taskReflect, Label: "谁在说这句话", Detail: "哪些是记者查到的事实，哪些是某一方说的话？"},
-			{Kind: taskLens, Label: "深入思考", Detail: "请使用一张透镜卡，按卡片提示分析文章。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这件事一句话讲完，加上你记住的两三个细节。"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
@@ -227,9 +243,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：作者大概站哪一边？正文先别读。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先找出作者站哪一边。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具，看他是怎么把话说重的。"},
-			{Kind: taskLabel, Label: "标注论证", Detail: "给几句话各自贴一个角色：主张、证据、限制、背景、对比。"},
-			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度检查他的论证。"},
-			{Kind: taskReflect, Label: "论证判断", Detail: "哪一步你觉得站得住，哪一步你觉得他跳过去了？"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：作者的观点、他驳的那个观点、撑住他的证据。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "观点变化", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出作者最没说服你的那一句。"},
 		},

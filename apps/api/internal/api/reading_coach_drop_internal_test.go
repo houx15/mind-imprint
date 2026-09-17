@@ -226,7 +226,7 @@ func TestOpenCardIsShownToTheCoach(t *testing.T) {
 			{BlockID: "b1", Quote: "第一段那句话。"},
 			{BlockID: "b2", Quote: "第二段那句话。"},
 		},
-		Labels: coachCardRoleLabels,
+		Labels: coachArgueBinsBasic,
 	}
 	blocks := []Block{{ID: "b1", Text: "第一段那句话。"}, {ID: "b2", Text: "第二段那句话。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(card, cardOK))}
