@@ -315,6 +315,23 @@ const readingBlockSystem = `你是「印记」，正在给一个中学生讲解�
 
 这一次要做的是：`
 
+// buildReadingBlockPromptFor 按这件工具讲的是哪一级来搭上下文。
+//
+// 「查词」（Subject == "word"）时，subject 是她点的那一个词：给的是那个词和它
+// 所在的整段 —— 一个词在这里是什么意思，只有看着它那一句才说得准。
+func buildReadingBlockPromptFor(t readingBlockTool, title string, blocks []Block, idx int, subject string) string {
+	if t.Subject != "word" || subject == "" {
+		return buildReadingBlockPrompt(title, blocks, idx, subject)
+	}
+	var b strings.Builder
+	if tt := strings.TrimSpace(title); tt != "" {
+		b.WriteString("文章标题：" + tt + "\n")
+	}
+	b.WriteString("\n【要讲解的这一个词】\n" + subject + "\n")
+	b.WriteString("\n【它所在的那一段】\n" + strings.TrimSpace(blocks[idx].Text) + "\n")
+	return b.String()
+}
+
 // sentence 非空时，讲的是这一段里的**那一句**（语法那件工具）。段落仍然给，
 // 因为一个代词指的是谁、一个省略省掉了什么，只有把上一句读了才说得清 ——
 // 但要讲的是哪一句必须写死，否则模型会顺手把整段都讲一遍。
@@ -558,7 +575,11 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	// §model-routing · dialogue. Explaining a paragraph is explanation, not
 	// judgement, and it is the most frequently-clicked call in the room —
 	// which is exactly what dialogue's 4-second budget is for.
-	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
+	class := gateway.ClassDialogue
+	if tool.Class != "" {
+		class = tool.Class
+	}
+	resolved, rerr := a.routeE(turnCtx, class)
 	if rerr != nil {
 		slog.Warn("reading block explain: resolve model failed", "err", rerr,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -568,7 +589,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: readingBlockSystemFor(tool)},
-			{Role: gateway.RoleUser, Content: buildReadingBlockPrompt(src.Title, blocks, idx, sentence)},
+			{Role: gateway.RoleUser, Content: buildReadingBlockPromptFor(tool, src.Title, blocks, idx, sentence)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, res.Usage)
@@ -589,6 +610,11 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 				"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 			return
+		}
+		// 「查词」只讲她点的那一个词：模型顺手多给的卡片不留 —— 她问的是一个
+		// 词，屏幕上冒出四个词会让她以为自己点错了。
+		if tool.Subject == "word" && len(got) > 1 {
+			got = got[:1]
 		}
 		words = got
 		// body 存的是这组卡片的纯文字形态。见 wordCardsAsProse。

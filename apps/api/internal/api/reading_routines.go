@@ -1,5 +1,7 @@
 package api
 
+import "mindimprint/api/internal/gateway"
+
 // reading_routines.go — 阅读流程库：一组**写死的**读法。
 //
 // 产品的原话（2026-08-27）：
@@ -314,7 +316,16 @@ type readingBlockTool struct {
 	// （readingBlockDefaultMaxRunes）。讲解越长她越不读，所以多给字数要有理由：
 	// 现在只有「写作解析」多给，因为 2026-09-17 把「把握度」并进了它。
 	MaxRunes int `json:"-"`
-	// Subject 说这件工具讲的是哪一级：空 = 整段，"sentence" = 她点的那一句。
+	// Class 是这件工具走哪一个能力档。空 = dialogue（学生当场看得见的一轮）。
+	//
+	// 「查词」走 digest：读一段、给一张短卡、不评判她 —— 正是那一档的合同
+	// （长输入短输出，压缩而不判断），而它绑着更便宜的模型。产品负责人
+	// 2026-09-17：「for word analysis, we can use cheaper models.」
+	// 🚨 不是 reflex：reflex 的合同是「一个标签，没有自由文本」，而且
+	// catalog.go 写明它跑的那个最便宜的模型中文不够顺 —— 词卡是她要读的中文。
+	Class string `json:"-"`
+	// Subject 说这件工具讲的是哪一级：空 = 整段，"sentence" = 她点的那一句，
+	// "word" = 她点的那一个词（2026-09-17）。
 	//
 	// 语法 2026-09-16 改成按句子讲。产品负责人的原话：
 	//
@@ -346,6 +357,19 @@ var readingBlockTools = []readingBlockTool{
 		Shape: "words", ID: "vocabulary", Label: "关键单词", Lang: "en",
 		Instruction: "挑出这一段里**真正值得学**的 3–5 个词（不是最长的，是最有用的、在这里意思特别的）。" +
 			"不要把整段的词都列出来，那是词典干的事；也不要挑初中就学过的。",
+	},
+	{
+		// 🚨 2026-09-17 新增：点一个词，讲这一个词。产品负责人逐字：
+		// 「we should be able to select a sentence to ask grammar, select a word
+		// to ask the meaning. tool bar word level - word meaning.」
+		//
+		// 「关键单词」是模型替她挑的词；这一件是**她自己**卡住的那个词 ——
+		// 后者才是她真正不认识的。产物和关键单词是同一种卡（shape "words"），
+		// 所以正文里的荧光笔、卡片的样子、报告里的生词表都不用另写一份。
+		Shape: "words", ID: "lookup", Label: "查词", Lang: "en", Subject: "word",
+		Class: gateway.ClassDigest,
+		Instruction: "她点了这一段里的**一个词**（见下面【要讲解的这一个词】），只讲这一个词，给**一张**词卡。" +
+			"讲的是它在**这一句里**的意思；它是一个词组的一部分时，term 写整个词组（仍然要逐字出现在段落里）。",
 	},
 	{
 		// 2026-09-16：按句子讲，不再讲整段。见 readingBlockTool.Subject。

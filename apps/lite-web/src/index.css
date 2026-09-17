@@ -2120,6 +2120,29 @@
  * 要讲的那一句本来就在她眼前，让她重打一遍是多余的。
  * ------------------------------------------------------------------------ */
 
+.mk-word-pick {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 2;
+  color: var(--mk-ink);
+}
+/* 词是按钮，但读起来仍然是一段话：没有边框、没有底色，只有悬停时一层淡底。 */
+.mk-word-pick__word {
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.mk-word-pick__word:hover,
+.mk-word-pick__word:focus-visible {
+  outline: none;
+  background: var(--mk-butter-bg);
+}
+.mk-word-pick__word:disabled { cursor: progress; }
+
 .mk-sentence-pick {
   margin-top: 8px;
   padding: 11px 13px;

@@ -145,6 +145,13 @@ export function BlockToolsPanel({
       setOpen(null);
       return;
     }
+    if (tool.subject === "word") {
+      // 查词：这一段本身就是选择器，每个词点得动。见 wordTokens。
+      setOpen(null);
+      setError(null);
+      setPicking(tool);
+      return;
+    }
     if (tool.subject === "sentence") {
       // 一句话的段落没什么可挑的 —— 直接讲那一句，别摆一张只有一个选项的单子。
       if (sentences.length <= 1) {
@@ -217,7 +224,7 @@ export function BlockToolsPanel({
         <div className="mk-sentence-pick">
           <div className="mk-sentence-pick__head">
             <span className="text-mk-caption text-mk-accent-700">
-              {picking.label} · 请选择一个句子
+              {picking.label} · {picking.subject === "word" ? "请点一个词" : "请选择一个句子"}
             </span>
             <button
               type="button"
@@ -228,6 +235,25 @@ export function BlockToolsPanel({
               <Icon icon={X} size={14} />
             </button>
           </div>
+          {picking.subject === "word" ? (
+            <p className="mk-word-pick">
+              {wordTokens(blockText).map((tok, i) =>
+                tok.word ? (
+                  <button
+                    key={i}
+                    type="button"
+                    className="mk-word-pick__word"
+                    disabled={busy !== null}
+                    onClick={() => void ask(picking, tok.text)}
+                  >
+                    {tok.text}
+                  </button>
+                ) : (
+                  <span key={i}>{tok.text}</span>
+                ),
+              )}
+            </p>
+          ) : (
           <ul className="mk-sentence-pick__list">
             {sentences.map((s) => (
               <li key={s.start}>
@@ -242,6 +268,7 @@ export function BlockToolsPanel({
               </li>
             ))}
           </ul>
+          )}
         </div>
       )}
 
@@ -282,4 +309,25 @@ export function BlockToolsPanel({
       )}
     </>
   );
+}
+
+/**
+ * 把一段英文切成「词」和「词之间的东西」，拼回去逐字等于原文。
+ *
+ * 「查词」那张选择器就是这一段本身：词是按钮，标点和空格原样摆着。
+ * 一个词 = 字母开头，后面跟字母、撇号（it's / O’Connor）或连字符
+ * （non-invasive）。数字不算词 —— 没有人会点「66」去查它是什么意思。
+ */
+export function wordTokens(text: string): { text: string; word: boolean }[] {
+  const out: { text: string; word: boolean }[] = [];
+  const re = /[A-Za-z][A-Za-z'’-]*[A-Za-z]|[A-Za-z]/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push({ text: text.slice(last, at), word: false });
+    out.push({ text: m[0], word: true });
+    last = at + m[0].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last), word: false });
+  return out;
 }
