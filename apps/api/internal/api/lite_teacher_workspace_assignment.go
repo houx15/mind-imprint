@@ -240,7 +240,8 @@ func (a *API) newLiteWorkspaceAssignment(mctx context.Context, cls sqlc.Class, r
 	run := &liteWorkspaceRun{
 		roster: roster, kind: card.Kind, typed: typed,
 		className: cls.Name, artifact: artifact,
-		materialSet: card.Slug != "" || card.ReadingSource == "personalized" || card.ReadingSource == "text",
+		materialSet:    card.Slug != "" || card.ReadingSource == "personalized" || card.ReadingSource == "text",
+		materialOnCard: card.Slug != "" || card.ReadingSource == "personalized" || card.ReadingSource == "text",
 		// Lazy: most turns never call recommend_articles, and loading every
 		// enrolled student's profile eagerly would pay a class-of-30's worth
 		// of DB round trips (see loadGroupProfiles) on every turn regardless.
@@ -310,6 +311,10 @@ func (run *liteWorkspaceRun) clearEnded() {
 func (run *liteWorkspaceRun) falseClaim(text string) string {
 	if reason := liteWorkspaceOpenedPageClaim(text); reason != "" {
 		return reason
+	}
+	if liteworkspace.ClaimsPublished(text) {
+		return "回复说作业已经布置或发布，但作业还没有发布：你只填作业卡，老师检查后点「发布作业」才会发给学生。" +
+			"请说「作业卡已填好，请检查后点「发布作业」」"
 	}
 	card := liteWorkspaceCard(run.artifact, run.patch)
 	if label := liteworkspace.UnfilledClaim(text, liteWorkspaceRequiredFields(card)); label != "" {
@@ -434,6 +439,10 @@ type liteWorkspaceRun struct {
 	// alone cannot answer it: the client's empty draft already carries
 	// "library" with no article behind it.
 	materialSet bool
+	// materialOnCard is whether the card had a reading material when the
+	// turn began, i.e. one she can see and may have chosen. A material the
+	// model set and then cleared within the same turn is not news to her.
+	materialOnCard bool
 	// patch holds only the draft fields a tool actually wrote. The client
 	// applies it field by field and drops the ones she edited meanwhile
 	// (§4.5), which only works if an untouched field is absent, not zero.
@@ -559,9 +568,14 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 		return liteWorkspaceToolError("没有给出任何字段")
 	}
 	out := map[string]any{"written": written}
-	if cleared {
+	// Only a material she could see is worth a sentence. On production
+	// (2026-09-17) a fresh card turned into a writing homework got
+	// 「之前阅读库里的材料已清掉」 about an article she never saw.
+	if cleared && run.materialOnCard {
 		out["note"] = "类型不是 reading 了，作业卡上没有阅读材料这一栏，原来选的文章已经清掉。" +
 			"跟老师说清楚这件事，不要再提那篇文章；她要保留文章就把类型改回 reading"
+	} else if cleared {
+		out["note"] = "这一轮选的阅读材料已随类型一起清掉，老师没有看到过它，回复里不要提"
 	}
 	return liteWorkspaceToolOK(out)
 }

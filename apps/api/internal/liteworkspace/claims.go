@@ -30,6 +30,29 @@ func ClaimsOpenedPage(text string) bool {
 	return openedPagePattern.MatchString(text)
 }
 
+// publishedPattern matches a completed publishing: 已布置好, 已为林知遥布置,
+// 布置好了, 已发布, 已发给学生. 「已布置的作业」 and 「布置好以后」 do not match.
+var publishedPattern = regexp.MustCompile(
+	`已(经)?(为|给|向)[^。！？!?\n]{0,30}?布置` +
+		`|已(经)?布置(好|完成|完毕|下去|了)` +
+		`|布置(好|完成)了` +
+		`|已(经)?(发布|发出|发送|下发)` +
+		`|已(经)?发给`)
+
+// ClaimsPublished reports whether text says the homework was published or
+// sent. The assignment surface only fills the card; she publishes it with
+// 发布作业. Seen on production 2026-09-17: 「已为林知遥、陈思远、赵一诺布置好
+// 议论文」 and 「已布置好。项目《手机学习时间调查》发给孙浩然…」 before any
+// publish. A negated verb (「还没有发布」) passes.
+func ClaimsPublished(text string) bool {
+	for _, loc := range publishedPattern.FindAllStringIndex(text, -1) {
+		if !negatedBefore(text[:loc[0]]) {
+			return true
+		}
+	}
+	return false
+}
+
 var buttonPattern = regexp.MustCompile(`下方(的)?按钮|点击按钮|点下面的按钮|下面的按钮`)
 
 // PointsAtButton reports whether text tells her to use a button under the

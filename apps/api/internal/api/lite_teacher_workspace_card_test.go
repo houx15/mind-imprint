@@ -36,6 +36,28 @@ func workspaceTurnWithCard(classID, text string, card map[string]any) string {
 	return string(b)
 }
 
+// Production 2026-09-17: 「已布置好。项目《…》发给…」 before she pressed
+// 发布作业. The reply is rewritten once; and a material the model set and
+// cleared in the same turn is not reported to her as a change.
+func TestWorkspacePublishedClaimIsRewritten(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("set_fields", `{"kind":"project","title":"手机学习时间调查","dueAt":"2026-09-23T21:00","drivingQuestion":"我们班同学每天用手机学习多久？"}`),
+		wsText("已布置好。项目《手机学习时间调查》发给全班。"),
+		wsText("作业卡已填好，请检查后点「发布作业」。"),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	rec := postWorkspaceTurn(t, h, teacher, workspaceTurnBody(classID, "布置一个手机学习时间的调查项目，9月23日晚上九点交"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
+	}
+	if got := decodeWorkspaceTurn(t, rec).Reply; got != "作业卡已填好，请检查后点「发布作业」。" {
+		t.Fatalf("reply = %q, want the rewrite", got)
+	}
+	if got := lastUserMessage(t, prov, 2); !strings.Contains(got, "作业还没有发布") {
+		t.Fatalf("rewrite request = %q", got)
+	}
+}
+
 func TestWorkspaceSetsProjectAndWritingFields(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_fields", `{"kind":"project","title":"《手机学习时间调查》","dueAt":"2026-09-23T18:00",`+

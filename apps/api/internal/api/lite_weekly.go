@@ -73,6 +73,32 @@ func liteWeekAsOf(weekEnd, now time.Time) time.Time {
 	return weekEnd
 }
 
+// liteWeekAssignmentOutcome is how one (student, homework) pair due in the
+// week counts toward the week's completion rate: done, done_late, overdue, or
+// "" for not counted.
+//
+// A homework whose deadline has not passed yet is not counted, finished or
+// not. Counting only its early finishers made the rate 100% on the Thursday
+// before a Friday deadline, with five of six students still reading
+// (production, 2026-09-17: 「本周全班作业按时完成率100%」).
+//
+// Work finished after the week ended does not count as finished for the
+// week: at week end it was still overdue.
+func liteWeekAssignmentOutcome(started bool, finishedAt *time.Time, dueAt, weekEnd, now time.Time) string {
+	asOf := liteWeekAsOf(weekEnd, now)
+	if dueAt.After(asOf) {
+		return ""
+	}
+	if finishedAt != nil && !finishedAt.Before(weekEnd) {
+		finishedAt = nil
+	}
+	switch s := liteassign.Status(started, finishedAt, dueAt, asOf); s {
+	case "done", "done_late", "overdue":
+		return s
+	}
+	return ""
+}
+
 // loadLiteWeeks runs each fact query once for all members and groups the rows
 // by user id. The result keeps the members' order.
 func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sqlc.ListLiteWeekClassStudentsRow, weekStart time.Time) ([]liteweekly.StudentWeek, error) {
@@ -138,13 +164,7 @@ func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sq
 		if s == nil {
 			continue
 		}
-		// Work finished after the week ended does not count as finished for
-		// this week: at week end it was still overdue.
-		fin := tsPtr(r.FinishedAt)
-		if fin != nil && !fin.Before(we) {
-			fin = nil
-		}
-		switch liteassign.Status(r.StartedAt.Valid, fin, r.DueAt, liteWeekAsOf(we, time.Now())) {
+		switch liteWeekAssignmentOutcome(r.StartedAt.Valid, tsPtr(r.FinishedAt), r.DueAt, we, time.Now()) {
 		case "done":
 			s.AssignmentsDone++
 		case "done_late":

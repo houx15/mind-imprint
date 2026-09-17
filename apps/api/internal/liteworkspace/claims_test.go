@@ -25,6 +25,29 @@ func TestClaimsOpenedPage(t *testing.T) {
 	}
 }
 
+func TestClaimsPublished(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{
+		// Production, 2026-09-17, before the teacher pressed 发布作业.
+		{"已为林知遥、陈思远、赵一诺布置好议论文《城市是否应该限制私家车出行》：", true},
+		{"已布置好。项目《手机学习时间调查》发给孙浩然、周子涵、李若溪。", true},
+		{"作业已发布。", true},
+		{"已经发给全班了。", true},
+		{"作业布置好了。", true},
+		{"作业卡已填好，请检查后点「发布作业」。", false},
+		{"作业还没有发布，请检查后发布。", false},
+		{"这份作业发布后，学生会在收件箱看到。", false},
+		{"本周已布置的作业有两份。", false},
+		{"已填好：标题《AI 与学习》，截止时间 9月18日 21:00。", false},
+	} {
+		if got := ClaimsPublished(tc.text); got != tc.want {
+			t.Errorf("ClaimsPublished(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
 func TestPointsAtButton(t *testing.T) {
 	for _, tc := range []struct {
 		text string
