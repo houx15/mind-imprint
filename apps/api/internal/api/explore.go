@@ -374,8 +374,15 @@ type planetArticle struct {
 // 🚨 抓取在事务**外面**做。一次跨网的 HTTP 请求最长十二秒，把它关在事务里就是
 // 让一个数据库连接跟着它一起等。
 func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) planetArticle {
-	if body := strings.TrimSpace(p.Body); body != "" {
-		return planetArticle{Body: body}
+	// 🚨 feed 自带的 body **也要够长才算正文**。
+	//
+	// 2026-09-17 之前这里只看非空。有的源（Quanta 那一条）在 body 里放的就是
+	// 摘要加一行「Source」，一共 403 个字符 —— 她打开就在两段话上开始「通读」，
+	// 屏幕上没有任何提醒。第二条路（现抓）早就有 planetFetchMinRunes 这道线，
+	// 第一条路没有。短的那一份不丢：它往下走，抓不到原页面时它就是那段摘要。
+	feedBody := strings.TrimSpace(p.Body)
+	if len([]rune(feedBody)) >= planetFetchMinRunes {
+		return planetArticle{Body: feedBody}
 	}
 	// 🚨 这里抓的 URL 来自我们自己那张源表挑出来的那一条，不是学生贴的、更不是
 	// 模型挑的。Fetcher 那道 SSRF 守卫照旧生效。
@@ -390,8 +397,12 @@ func (a *API) resolvePlanetArticle(ctx context.Context, p sqlc.NewsPlanet) plane
 			return planetArticle{Body: fetched}
 		}
 	}
-	// 三条路都没走通。剩下的是 feed 的导语 —— 它就是那段摘要。
-	return planetArticle{Body: strings.TrimSpace(p.Summary), ExcerptOnly: true}
+	// 三条路都没走通。剩下的是一段摘要 —— feed 那份短 body 和导语，哪个长用哪个。
+	excerpt := strings.TrimSpace(p.Summary)
+	if len([]rune(feedBody)) > len([]rune(excerpt)) {
+		excerpt = feedBody
+	}
+	return planetArticle{Body: excerpt, ExcerptOnly: true}
 }
 
 // mintReadingForPlanet 为一颗星球建一篇阅读。

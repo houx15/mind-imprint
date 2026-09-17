@@ -22,7 +22,6 @@ import (
 
 	"mindimprint/api/internal/docextract"
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/store/sqlc"
 )
 
 // liteSourceFileMaxBytes mirrors pro's "user_doc" OSS scope maxBytes (oss.go).
@@ -124,12 +123,12 @@ func (a *API) postReadingSourceFileLite(w http.ResponseWriter, r *http.Request) 
 		docTitle = "未命名文章"
 	}
 
-	// No SourceUrl: an uploaded file has no fetchable link (its filename is
-	// not a URL and would render as a broken "查看原文" href) — same as a
-	// pasted body, which also carries none.
-	row, err := a.d.Queries.UpsertReadingSource(r.Context(), sqlc.UpsertReadingSourceParams{
-		AtomID: at.ID, Title: docTitle, Body: body, SourceUrl: nil,
-	})
+	// No new SourceUrl: an uploaded file has no fetchable link (its filename is
+	// not a URL and would render as a broken "查看原文" href). A reading that
+	// already had one (the abstract-only article she downloaded and uploaded,
+	// 2026-09-17) keeps it — see replaceReadingBody, which also clears the plan
+	// built on the old body.
+	row, err := a.replaceReadingBody(r.Context(), at.ID, docTitle, body, "")
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
