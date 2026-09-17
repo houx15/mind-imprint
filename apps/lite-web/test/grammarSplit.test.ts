@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitSentenceByParts } from "../src/readings/GrammarCards";
+import { mainClauseText, splitSentenceByParts } from "../src/readings/GrammarCards";
 
 /**
  * 语法卡最上面那一句的切法。这是 GrammarCards 里唯一一处读代码看不出对错的
@@ -63,5 +63,24 @@ describe("splitSentenceByParts", () => {
 
   it("没有块就是整句一段", () => {
     expect(splitSentenceByParts(S, [])).toEqual([{ text: S, part: null }]);
+  });
+});
+
+// 🚨 第二版：主句由界面反推（从句之外的部分），模型不给。反推错了，「主从句」那一层
+// 的颜色就全是错的。
+describe("mainClauseText", () => {
+  const long =
+    "These feathers, which likely helped insulate the birds from the cold, might be the key to why hesperornithiforms did not survive.";
+  const clauses = [
+    { text: "which likely helped insulate the birds from the cold" },
+    { text: "why hesperornithiforms did not survive" },
+  ];
+
+  it("主句是从句之外有字的那几截，两头的逗号去掉", () => {
+    expect(mainClauseText(long, clauses)).toBe("These feathers … might be the key to");
+  });
+
+  it("没有从句时整句都是主句", () => {
+    expect(mainClauseText(S, [])).toBe(S);
   });
 });

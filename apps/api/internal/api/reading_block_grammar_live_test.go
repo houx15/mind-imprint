@@ -35,7 +35,7 @@ func TestLiveGrammarCard(t *testing.T) {
 			tool = tt
 		}
 	}
-	failed, parts, dropped := 0, 0, 0
+	failed, parts, dropped, noWords, noMain := 0, 0, 0, 0, 0
 	for i := 0; i < 6; i++ {
 		idx := i % 2
 		sentence := sentences[idx]
@@ -50,9 +50,7 @@ func TestLiveGrammarCard(t *testing.T) {
 		if err != nil {
 			t.Fatalf("sample %d: %v", i, err)
 		}
-		var raw struct {
-			Parts []readingGrammarPart `json:"parts"`
-		}
+			var raw readingGrammar
 		_ = json.Unmarshal([]byte(sliceBlockJSON(res.Text)), &raw)
 		g, ok := parseGrammarCard(sliceBlockJSON(res.Text), sentence)
 		if !ok {
@@ -61,17 +59,34 @@ func TestLiveGrammarCard(t *testing.T) {
 			continue
 		}
 		parts += len(g.Parts)
-		dropped += len(raw.Parts) - len(g.Parts)
-		t.Logf("sample %d ok — 主干=%q 块=%d(丢 %d) 语法点=%d", i, g.Backbone, len(g.Parts), len(raw.Parts)-len(g.Parts), len(g.Points))
-		for _, p := range g.Parts {
-			t.Logf("    [%s] %s — %s", p.Role, p.Text, p.Note)
+		kept := len(g.Clauses) + len(g.Parts) + len(g.Words) + len(g.Tenses)
+		sent := len(raw.Clauses) + len(raw.Parts) + len(raw.Words) + len(raw.Tenses)
+		dropped += sent - kept
+		if len(g.Words) == 0 {
+			noWords++
 		}
-		for _, pt := range g.Points {
-			t.Logf("    · %s：%s | %s", pt.Name, pt.Why, pt.Example)
+		// 🚨 主句由界面反推：从句要是把整句盖满了，「主从句」那一层就没有主句。
+		rest := sentence
+		for _, c := range g.Clauses {
+			rest = strings.Replace(rest, c.Text, "", 1)
 		}
+		if len(strings.Fields(strings.Trim(rest, " ,.;"))) < 2 {
+			noMain++
+			t.Logf("sample %d: 从句之外剩不下主句：%q", i, rest)
+		}
+		t.Logf("sample %d ok — 从句=%d 成分=%d 词法=%d 时态=%d (丢 %d)", i, len(g.Clauses), len(g.Parts), len(g.Words), len(g.Tenses), sent-kept)
+		for name, layer := range map[string][]readingGrammarSpan{"从句": g.Clauses, "成分": g.Parts, "词法": g.Words, "时态": g.Tenses} {
+			for _, p := range layer {
+				t.Logf("    %s [%s] %s — %s %s", name, p.Label, p.Text, p.Note, p.Example)
+			}
+		}
+		t.Logf("    句意：%s", g.Meaning)
 	}
-	t.Logf("RESULT: 整张作废 %d/6 · 留下 %d 块 · 丢掉 %d 块", failed, parts, dropped)
+	t.Logf("RESULT: 整张作废 %d/6 · 成分 %d 块 · 丢掉 %d 段 · 没有词法 %d · 没有主句 %d", failed, parts, dropped, noWords, noMain)
 	if failed > 1 {
 		t.Errorf("%d/6 张语法卡整张作废 —— 她点语法会拿到「AI 响应错误」", failed)
+	}
+	if noMain > 0 || noWords > 1 {
+		t.Errorf("没有主句 %d 张、没有词法 %d 张", noMain, noWords)
 	}
 }

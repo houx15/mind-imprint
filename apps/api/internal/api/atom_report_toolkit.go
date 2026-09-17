@@ -115,10 +115,22 @@ func buildReportToolkit(lang string, notes []sqlc.ReadingBlockNote, msgs []sqlc.
 			len(out.Grammar) < reportToolkitGrammarMax {
 			seenSentence[n.Subject] = true
 			rg := reportGrammar{Sentence: n.Subject}
-			for _, pt := range g.Points {
-				if name := strings.TrimSpace(pt.Name); name != "" {
+			// 报告上这一句挂的名字：从句的种类、时态，老卡片的语法点。去重。
+			seenName := map[string]bool{}
+			addName := func(name string) {
+				if name = strings.TrimSpace(name); name != "" && !seenName[name] {
+					seenName[name] = true
 					rg.Points = append(rg.Points, name)
 				}
+			}
+			for _, c := range g.Clauses {
+				addName(c.Label)
+			}
+			for _, tn := range g.Tenses {
+				addName(tn.Label)
+			}
+			for _, pt := range g.Points {
+				addName(pt.Name)
 			}
 			out.Grammar = append(out.Grammar, rg)
 		}

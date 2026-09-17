@@ -378,8 +378,10 @@ var readingBlockTools = []readingBlockTool{
 		// points? with highlighting, knowledge point, cases」。结构见
 		// reading_block_grammar.go。
 		Shape: "grammar", ID: "grammar", Label: "语法", Lang: "en", Subject: "sentence",
-		Instruction: "把这一句拆给她看：主干是什么，句子分成哪几块、每一块在句子里是什么成分，" +
-			"这一句里有哪几个值得单独学的语法点，最后这一句是什么意思。",
+		// 2026-09-17 晚些改成三层：句法（主句/从句、句子成分）、词法（关键词）、
+		// 时态。见 reading_block_grammar.go 的文件头。
+		Instruction: "把这一句的语法拆给她看，分三层：句法（哪里是从句、主句由哪些成分组成）、" +
+			"词法（哪几个词的词性和形式值得注意）、时态（需要的时候才讲）。最后说这一句是什么意思。",
 	},
 	{
 		// 🚨 2026-09-17：「把握度」那件工具**并进来了**，不再单独占一个按钮。
