@@ -1,5 +1,6 @@
 import { StudentLearningSnapshot } from "./LearningSnapshot";
 import { StudioEmpty, StudioHeading } from "./StudioArtwork";
+import { StudentGenderField } from "./StudentGenderField";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
@@ -155,6 +156,7 @@ export function StudentPage({
               生成家长报告
             </Button>
           </div>
+          <StudentGenderField classId={classId} userId={userId} initial={page.student.gender} />
 
                      <div className="teacher-stat-strip">
              <StatTile label="累计时长" value={formatMinutes(page.student.minutesTotal)} />

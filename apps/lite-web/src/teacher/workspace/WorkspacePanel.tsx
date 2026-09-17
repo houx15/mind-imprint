@@ -50,6 +50,13 @@ export interface WorkspacePanelProps {
    *  class). The composer, the choices and 重试 are disabled and this line is
    *  shown above the composer. */
   closedReason?: string | null;
+  /** Shown while the conversation is empty: what the AI does on this page
+   *  and what to ask. Each surface passes its own — no surface's copy lives
+   *  in this shared file. */
+  intro: string;
+  /** Example requests shown under the intro while the conversation is
+   *  empty. A click sends one as her turn. */
+  suggestions?: string[];
   /** The canvas. The shell renders it as-is and imposes no read-only state —
    *  the caller owns whether and how each cell can be edited. */
   children: ReactNode;
@@ -72,6 +79,8 @@ export function WorkspacePanel({
   canRetry,
   paused = false,
   closedReason = null,
+  intro,
+  suggestions = [],
   children,
 }: WorkspacePanelProps) {
   // `busy` keeps its own meaning (a turn in flight: thinking row, stop
@@ -104,6 +113,11 @@ export function WorkspacePanel({
     if (onChoose(choice.id)) setAnsweredKey(choicesKey);
   }
 
+  function handleSuggestion(text: string) {
+    if (blocked) return;
+    onSend(text);
+  }
+
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
@@ -120,6 +134,26 @@ export function WorkspacePanel({
       <div className="grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-[minmax(320px,420px)_1fr]">
         <div className="order-2 flex min-w-0 flex-col gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4 min-[900px]:order-1">
           <div className="mk-scroll flex max-h-[60vh] min-h-[220px] flex-col gap-3 overflow-y-auto pr-1">
+            {turns.length === 0 && !busy && (
+              <div className="flex flex-col gap-3 rounded-mk-md bg-mk-paper p-3">
+                <p className="text-mk-small text-mk-muted">{intro}</p>
+                {suggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={blocked}
+                        onClick={() => handleSuggestion(s)}
+                        className="rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1 text-left text-mk-small text-mk-ink transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 disabled:opacity-50"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {turns.map((t, i) =>
               t.role === "ai" ? (
                 <div key={i} className="flex items-start justify-start gap-2">

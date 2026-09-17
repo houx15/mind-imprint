@@ -109,6 +109,8 @@ export function ClassChatPage({
       onComposerChange={thread.setComposer}
       onRetry={thread.retry}
       canRetry={thread.failed !== null}
+      intro="AI 根据本班这周的数据回答问题，需要时在回复下方给出前往相关页面的按钮。请输入问题，或选择下面的示例。"
+      suggestions={["这周谁还没开始学习？", "哪些作业有学生逾期？", "本周整体情况如何？"]}
     >
       <div className="flex flex-col gap-4">
         <button type="button" onClick={onBack} className={BACK_CLS}>
@@ -122,7 +124,7 @@ export function ClassChatPage({
               班级加载失败：{nameError}
             </p>
           )}
-          <p className="mt-2 text-mk-small text-mk-muted">可询问本班的学习情况、作业进度，或请印记打开相关页面。</p>
+          <p className="mt-2 text-mk-small text-mk-muted">可询问本班的学习情况和作业进度；印记会在回复下方给出前往相关页面的按钮。</p>
         </div>
 
         <section className="rounded-mk-lg border border-mk-border bg-mk-surface p-4">

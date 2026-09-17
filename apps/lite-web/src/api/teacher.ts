@@ -15,10 +15,18 @@ import { normalizeGradingSummary, type GradingSummary } from "./gradings";
 import { fetchInterestTreeFrom, type InterestTree } from "./interest";
 import { normalizeVersionSummary, type WritingVersion, type WritingVersionSummary } from "./writings";
 
+/** users.gender. "" = 未设置. The AI on the teacher end picks 她/他 from it. */
+export type StudentGender = "" | "female" | "male";
+
+export function normalizeGender(v: unknown): StudentGender {
+  return v === "female" || v === "male" ? v : "";
+}
+
 export interface RosterRow {
   id: string;
   displayName: string;
   avatarColor: string;
+  gender: StudentGender;
   lastActiveAt: string | null;
   activeDaysThisWeek: number;
   minutesTotal: number;
@@ -134,6 +142,7 @@ export function normalizeRosterRow(raw: Record<string, unknown>): RosterRow {
     id: s(raw.id),
     displayName: s(raw.displayName),
     avatarColor: s(raw.avatarColor),
+    gender: normalizeGender(raw.gender),
     lastActiveAt: typeof raw.lastActiveAt === "string" ? raw.lastActiveAt : null,
     activeDaysThisWeek: n(raw.activeDaysThisWeek),
     minutesTotal: n(raw.minutesTotal),
@@ -181,6 +190,15 @@ export async function getStudentPage(classId: string, userId: string): Promise<S
     `${base(classId)}/students/${encodeURIComponent(userId)}`,
   );
   return normalizeStudentPage(r);
+}
+
+/** Sets or clears ("") a student's gender. Resolves to the stored value. */
+export async function setStudentGender(classId: string, userId: string, gender: StudentGender): Promise<StudentGender> {
+  const r = await apiFetch<{ gender?: unknown }>(`${base(classId)}/students/${encodeURIComponent(userId)}/gender`, {
+    method: "PUT",
+    body: JSON.stringify({ gender }),
+  });
+  return normalizeGender(r.gender);
 }
 
 /**

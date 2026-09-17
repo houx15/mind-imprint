@@ -118,6 +118,8 @@ export function AssignmentAIMode({
       onComposerChange={thread.setComposer}
       onRetry={thread.retry}
       canRetry={thread.failed !== null}
+      intro="AI 根据你的描述填写右侧的作业卡，发布前可以再修改。请输入作业要求，例如类型、材料和截止时间，也可以直接贴入文章正文。"
+      suggestions={["这周读一篇关于气候变化的文章，周五交", "布置一篇议论文，下周一交", "给每个学生推荐适合的文章"]}
     >
       <div className="mt-6 flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
         <Field label="班级">

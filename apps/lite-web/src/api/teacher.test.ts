@@ -6,7 +6,7 @@ vi.mock("./client", () => ({
   })),
 }));
 
-import { getRoster, normalizeItemDetail, normalizeRosterRow, normalizeStudentPage } from "./teacher";
+import { getRoster, normalizeGender, normalizeItemDetail, normalizeRosterRow, normalizeStudentPage } from "./teacher";
 
 describe("getRoster", () => {
   it("fills missing numeric fields with 0 and keeps -1", async () => {
@@ -140,5 +140,14 @@ describe("normalizeItemDetail", () => {
     expect(detail.writing).toBeNull();
     expect(detail.project).toBeNull();
     expect(detail.report).toBeNull();
+  });
+});
+
+describe("normalizeGender", () => {
+  it("keeps the two stored values and reads anything else as unset", () => {
+    expect(normalizeGender("female")).toBe("female");
+    expect(normalizeGender("male")).toBe("male");
+    for (const v of [undefined, null, "", "other", "女", 1]) expect(normalizeGender(v)).toBe("");
+    expect(normalizeRosterRow({ id: "u1" }).gender).toBe("");
   });
 });

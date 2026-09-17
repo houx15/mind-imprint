@@ -487,6 +487,8 @@ export function ParentReportEditor({
         canRetry={thread.failed !== null && leftReason === null}
         paused={anyBusy}
         closedReason={leftReason}
+        intro="AI 按学习记录改写右侧报告中的段落，改写结果会先显示在编辑器里，导出前可以再修改。报告的段落不能增删。请说明要改哪一段、怎么改。"
+        suggestions={["让下一步建议更具体", "把总体概述改短一些"]}
       >
         {backButton}
 
