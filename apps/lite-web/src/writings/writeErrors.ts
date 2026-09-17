@@ -16,10 +16,18 @@
 import { apiErrorText } from "../api/errorText";
 import { isWritingClosedError } from "./finishedWriting";
 
-export function handleWriteError(err: unknown, onLocked: (() => void) | undefined, setError: (message: string) => void): void {
+// `action` names what failed (「提交」): the line reads 「提交失败：{后台原话}」
+// (AGENTS.md 界面文案 rule 8). Without it the generic 「后台错误：…」 stays.
+export function handleWriteError(
+  err: unknown,
+  onLocked: (() => void) | undefined,
+  setError: (message: string) => void,
+  action?: string,
+): void {
   if (onLocked && isWritingClosedError(err)) {
     onLocked();
     return;
   }
-  setError(apiErrorText(err));
+  const text = apiErrorText(err);
+  setError(action ? `${action}失败：${text.replace(/^后台错误：/, "")}` : text);
 }

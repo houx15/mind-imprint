@@ -31,6 +31,12 @@ describe("handleWriteError", () => {
     expect(setError).toHaveBeenCalledWith(apiErrorText(err));
   });
 
+  it("names the action that failed when given one", () => {
+    const setError = vi.fn();
+    handleWriteError(new ApiError("unchanged_version", "正文与 v2 相同，请修改后再提交。", 409), vi.fn(), setError, "提交");
+    expect(setError).toHaveBeenCalledWith("提交失败：正文与 v2 相同，请修改后再提交。");
+  });
+
   it("does not reload on writing_finished at a status other than 403", () => {
     const onLocked = vi.fn();
     const setError = vi.fn();

@@ -385,7 +385,7 @@ export function ComposeStage({
     try {
       onFinished(await finishWriting(writingId));
     } catch (err) {
-      handleWriteError(err, onLocked, setError);
+      handleWriteError(err, onLocked, setError, "提交");
       setFinishing(false);
     }
   }
