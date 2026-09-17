@@ -205,6 +205,7 @@ type RawReportEnvelope = {
   shared?: boolean;
   shareToken?: string | null;
   includeTranscript?: boolean;
+  includeToolkit?: boolean;
   /** 她给这次体验打的星（1–5），没打过就是 null。绝不会是 0——「没说」和
    *  「给了最低分」必须分得开。 */
   rating?: number | null;
@@ -220,6 +221,8 @@ export type ReportEnvelope = {
    *  服务端读回来，这个勾选框每次重开都从「没勾」开始，于是一个当前为真的
    *  状态在屏幕上显示成假。 */
   includeTranscript: boolean;
+  /** 她上次有没有勾「公开段落工具」（阅读报告那一节，有她自己写的仿写）。 */
+  includeToolkit: boolean;
   /** The star she already gave, so the scorer at the foot of the report opens
    *  filled in instead of asking her again every time. */
   rating: number | null;
@@ -242,6 +245,7 @@ export async function getReportEnvelope(kind: AtomKind, id: string): Promise<Rep
     report: raw.report ? normalizeReport(raw.report) : null,
     shareToken: raw.shareToken ?? null,
     includeTranscript: raw.includeTranscript ?? false,
+    includeToolkit: raw.includeToolkit ?? false,
     rating: raw.rating ?? null,
   };
 }
@@ -254,11 +258,19 @@ export async function getReportEnvelope(kind: AtomKind, id: string): Promise<Rep
 export async function shareReport(
   kind: AtomKind,
   id: string,
-  opts: { includeTranscript?: boolean } = {},
+  opts: { includeTranscript?: boolean; includeToolkit?: boolean } = {},
 ): Promise<{ token: string; url: string; includeTranscript: boolean }> {
+  // 🚨 两位**每次都一起发**：服务端按请求体整份覆盖，只发一位等于把另一位
+  // 悄悄改回 false。
   return apiFetch<{ token: string; url: string; includeTranscript: boolean }>(
     `${atomBase(kind, id)}/report/share`,
-    { method: "POST", body: JSON.stringify({ includeTranscript: opts.includeTranscript ?? false }) },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        includeTranscript: opts.includeTranscript ?? false,
+        includeToolkit: opts.includeToolkit ?? false,
+      }),
+    },
   );
 }
 

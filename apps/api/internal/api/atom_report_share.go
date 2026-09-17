@@ -185,6 +185,9 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 		// 她已经发出去的链接。
 		var body struct {
 			IncludeTranscript bool `json:"includeTranscript"`
+			// IncludeToolkit：阅读报告上「段落工具」那一节（有她自己写的仿写）
+			// 要不要一起公开。2026-09-17 起，和对话一样单独勾选、默认不公开。
+			IncludeToolkit bool `json:"includeToolkit"`
 		}
 		if r.Body != nil {
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -202,6 +205,7 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 		}
 		if _, err := a.d.Queries.SetAtomReportShare(ctx, sqlc.SetAtomReportShareParams{
 			AtomID: at.ID, ShareToken: &token, IncludeTranscript: body.IncludeTranscript,
+			IncludeToolkit: body.IncludeToolkit,
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -211,6 +215,7 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 			"token":             token,
 			"url":               publicShareURL(r, a.d.CORSOrigins, token),
 			"includeTranscript": body.IncludeTranscript,
+			"includeToolkit":    body.IncludeToolkit,
 		})
 	}
 }
@@ -232,7 +237,7 @@ func (a *API) revokeAtomShareFor(kind string) http.HandlerFunc {
 		// NULL 时自己会把它写成 false，见 atom.sql），写出来是为了让「撤销
 		// 把两件事一起收回」在调用点上也看得见。
 		if _, err := a.d.Queries.SetAtomReportShare(r.Context(), sqlc.SetAtomReportShareParams{
-			AtomID: at.ID, ShareToken: nil, IncludeTranscript: false,
+			AtomID: at.ID, ShareToken: nil, IncludeTranscript: false, IncludeToolkit: false,
 		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteError(w, r, err)
 			return
@@ -294,7 +299,12 @@ func (a *API) getPublicReport(w http.ResponseWriter, r *http.Request) {
 			transcript = publicTranscriptOf(msgs)
 		}
 	}
-	body, err := publicReportBody(stripProseBookkeeping(a.reportWithPiece(r.Context(), row.AtomID, row.Report)), transcript)
+	report := stripProseBookkeeping(a.reportWithPiece(r.Context(), row.AtomID, row.Report))
+	// 段落工具那一节（有她自己写的仿写）只在她勾了的时候跟着公开。
+	if !row.IncludeToolkit {
+		report = stripReportKey(report, "toolkit")
+	}
+	body, err := publicReportBody(report, transcript)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -302,4 +312,22 @@ func (a *API) getPublicReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)
+}
+
+// stripReportKey 从存下来的报告里拿掉一个顶层键，别的字节不动；没有这个键就
+// 原样返回（不重新编码 —— 她分享出去的字节就是我们服务的字节）。
+func stripReportKey(raw []byte, key string) []byte {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return raw
+	}
+	if _, ok := obj[key]; !ok {
+		return raw
+	}
+	delete(obj, key)
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
 }

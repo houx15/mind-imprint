@@ -322,7 +322,7 @@ func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, erro
 }
 
 const getAtomReport = `-- name: GetAtomReport :one
-SELECT atom_id, kind, report, share_token, shared_at, created_at, include_transcript FROM atom_report WHERE atom_id = $1
+SELECT atom_id, kind, report, share_token, shared_at, created_at, include_transcript, include_toolkit FROM atom_report WHERE atom_id = $1
 `
 
 func (q *Queries) GetAtomReport(ctx context.Context, atomID uuid.UUID) (AtomReport, error) {
@@ -336,12 +336,13 @@ func (q *Queries) GetAtomReport(ctx context.Context, atomID uuid.UUID) (AtomRepo
 		&i.SharedAt,
 		&i.CreatedAt,
 		&i.IncludeTranscript,
+		&i.IncludeToolkit,
 	)
 	return i, err
 }
 
 const getAtomReportByShareToken = `-- name: GetAtomReportByShareToken :one
-SELECT atom_id, kind, report, share_token, shared_at, created_at, include_transcript FROM atom_report WHERE share_token = $1
+SELECT atom_id, kind, report, share_token, shared_at, created_at, include_transcript, include_toolkit FROM atom_report WHERE share_token = $1
 `
 
 func (q *Queries) GetAtomReportByShareToken(ctx context.Context, shareToken *string) (AtomReport, error) {
@@ -355,6 +356,7 @@ func (q *Queries) GetAtomReportByShareToken(ctx context.Context, shareToken *str
 		&i.SharedAt,
 		&i.CreatedAt,
 		&i.IncludeTranscript,
+		&i.IncludeToolkit,
 	)
 	return i, err
 }
@@ -632,14 +634,16 @@ const setAtomReportShare = `-- name: SetAtomReportShare :one
 UPDATE atom_report
 SET share_token = $1,
     shared_at = CASE WHEN $1::text IS NULL THEN NULL ELSE now() END,
-    include_transcript = CASE WHEN $1::text IS NULL THEN false ELSE $2 END
-WHERE atom_id = $3
-RETURNING atom_id, kind, report, share_token, shared_at, created_at, include_transcript
+    include_transcript = CASE WHEN $1::text IS NULL THEN false ELSE $2 END,
+    include_toolkit = CASE WHEN $1::text IS NULL THEN false ELSE $3 END
+WHERE atom_id = $4
+RETURNING atom_id, kind, report, share_token, shared_at, created_at, include_transcript, include_toolkit
 `
 
 type SetAtomReportShareParams struct {
 	ShareToken        *string   `json:"share_token"`
 	IncludeTranscript bool      `json:"include_transcript"`
+	IncludeToolkit    bool      `json:"include_toolkit"`
 	AtomID            uuid.UUID `json:"atom_id"`
 }
 
@@ -652,8 +656,14 @@ type SetAtomReportShareParams struct {
 //
 // 2026-09-16：多写一位 include_transcript。撤销（share_token 置 NULL）时它跟着
 // 归 false —— 撤掉再重开的链接不该继承上一次的公开范围，见迁移 0174。
+// 2026-09-17：include_toolkit（段落工具那一节）同一个规矩，见迁移 0177。
 func (q *Queries) SetAtomReportShare(ctx context.Context, arg SetAtomReportShareParams) (AtomReport, error) {
-	row := q.db.QueryRow(ctx, setAtomReportShare, arg.ShareToken, arg.IncludeTranscript, arg.AtomID)
+	row := q.db.QueryRow(ctx, setAtomReportShare,
+		arg.ShareToken,
+		arg.IncludeTranscript,
+		arg.IncludeToolkit,
+		arg.AtomID,
+	)
 	var i AtomReport
 	err := row.Scan(
 		&i.AtomID,
@@ -663,6 +673,7 @@ func (q *Queries) SetAtomReportShare(ctx context.Context, arg SetAtomReportShare
 		&i.SharedAt,
 		&i.CreatedAt,
 		&i.IncludeTranscript,
+		&i.IncludeToolkit,
 	)
 	return i, err
 }
@@ -769,7 +780,7 @@ const upsertAtomReport = `-- name: UpsertAtomReport :one
 INSERT INTO atom_report (atom_id, kind, report)
 VALUES ($1, $2, $3)
 ON CONFLICT (atom_id) DO UPDATE SET report = EXCLUDED.report
-RETURNING atom_id, kind, report, share_token, shared_at, created_at, include_transcript
+RETURNING atom_id, kind, report, share_token, shared_at, created_at, include_transcript, include_toolkit
 `
 
 type UpsertAtomReportParams struct {
@@ -789,6 +800,7 @@ func (q *Queries) UpsertAtomReport(ctx context.Context, arg UpsertAtomReportPara
 		&i.SharedAt,
 		&i.CreatedAt,
 		&i.IncludeTranscript,
+		&i.IncludeToolkit,
 	)
 	return i, err
 }
