@@ -30,6 +30,7 @@ import type { ReadingFigure, ReadingOutline } from "../api/readings";
 import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
+import type { CoachCardAnswer } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
 import { StepIndicator } from "./StepIndicator";
 import { AssignmentLine } from "../inbox/AssignmentLine";
@@ -645,6 +646,20 @@ export function ReadingRoom({
    * 房间都会拿上次的成果再买一轮旗舰调用。
    */
   const [pendingLens, setPendingLens] = useState<ReadingLensDone | null>(null);
+  /**
+   * 她在段落工具（想一想 / 仿写）底下写好、要交给 印记 的那一段，
+   * 以及这一轮落地之后要告诉那个框的那一声（送到了 / 没送到）。
+   *
+   * 形状照 `pendingLens`：段落工具在正文那一栏，对话在另一栏，房间把前者交给
+   * 后者，后者把它变成一轮真的对话。
+   */
+  const [pendingToolAnswer, setPendingToolAnswer] = useState<{
+    answer: CoachCardAnswer;
+    done: (ok: boolean) => void;
+  } | null>(null);
+  function sendToolAnswer(answer: CoachCardAnswer): Promise<boolean> {
+    return new Promise((resolve) => setPendingToolAnswer({ answer, done: resolve }));
+  }
   const seenOutcomesRef = useRef<number | null>(null);
   useEffect(() => {
     if (seenOutcomesRef.current === null) {
@@ -833,6 +848,8 @@ export function ReadingRoom({
                           tools={blockTools}
                           notes={blockNotes}
                           onNote={onBlockNote}
+                          ordinal={ordinalOf(blockId)}
+                          onToolAnswer={sendToolAnswer}
                           autoTool={autoTool}
                           onAutoToolConsumed={() => setAutoTool(null)}
                           onClose={() => {
@@ -960,6 +977,11 @@ export function ReadingRoom({
             onFocusBlock={focusBlock}
             // 她做完的透镜交给 印记：一轮真的回应 + 一次真的推进。见
             // `pendingLens` 上面的注释。
+            toolAnswer={pendingToolAnswer?.answer ?? null}
+            onToolAnswerSent={(ok) => {
+              pendingToolAnswer?.done(ok);
+              setPendingToolAnswer(null);
+            }}
             lensDone={pendingLens}
             onLensDoneSent={() => setPendingLens(null)}
             // 读法走完之后，面板上出现「完成阅读，生成报告」。只有面板看得见

@@ -829,6 +829,11 @@ type coachMessagePayload struct {
 // apart. See composeCardAnswerMessage: what goes into the transcript is
 // classified by CHECKING the choice against the article, not by believing
 // the type the client declared.
+// blockToolAnswerType 是她在段落工具（想一想 / 仿写）底下写的那一段交上来时
+// 的 type。它不是任何一张卡片的回答，所以这一轮**不推进步骤**（见
+// postReadingCoachTurn）。前端同名常量：CoachCard.tsx 的 BLOCK_TOOL_ANSWER。
+const blockToolAnswerType = "block_tool"
+
 type coachCardAnswer struct {
 	Type    string `json:"type,omitempty"`
 	Prompt  string `json:"prompt,omitempty"`

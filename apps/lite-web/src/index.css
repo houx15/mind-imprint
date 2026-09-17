@@ -2120,6 +2120,61 @@
  * 要讲的那一句本来就在她眼前，让她重打一遍是多余的。
  * ------------------------------------------------------------------------ */
 
+/* 想一想 / 仿写 底下那个框（2026-09-17）。 */
+.mk-tool-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--mk-border);
+}
+.mk-tool-answer__input {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--mk-input-border, var(--mk-border));
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-surface);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--mk-ink);
+}
+.mk-tool-answer__input:focus-visible {
+  outline: none;
+  border-color: var(--mk-accent-500);
+}
+.mk-tool-answer__row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.mk-tool-answer__send {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-accent-500);
+  color: #fff;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.mk-tool-answer__send:disabled { opacity: 0.45; cursor: not-allowed; }
+.mk-tool-answer__sent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--mk-ink);
+}
+.mk-tool-answer__sent-label {
+  font-size: 11.5px;
+  color: var(--mk-muted);
+}
+
 .mk-word-pick {
   margin: 8px 0 0;
   font-size: 14px;

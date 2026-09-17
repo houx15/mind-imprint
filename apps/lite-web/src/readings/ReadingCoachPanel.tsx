@@ -6,6 +6,7 @@ import type { ReadingCoachSlot } from "./ReadingRoom";
 import {
   CoachCard,
   carryOverPlacement,
+  BLOCK_TOOL_ANSWER,
   WORD_BINS,
   type CoachCardAnswer,
   type CoachCardSpec,
@@ -78,6 +79,8 @@ export function ReadingCoachPanel({
   outline,
   ordinalOf,
   onLocateBlock,
+  toolAnswer,
+  onToolAnswerSent,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -103,6 +106,13 @@ export function ReadingCoachPanel({
    * 排读法之前没有，所以可以为空。
    */
   outline?: ReadingOutline;
+  /**
+   * 她在段落工具（想一想 / 仿写）底下写好、要交给 印记 的那一段。
+   * 和 `lensDone` 同一个形状：非空的这段时间里，这个面板把它变成一轮对话，
+   * 然后通过 `onToolAnswerSent` 让房间清掉。
+   */
+  toolAnswer?: CoachCardAnswer | null;
+  onToolAnswerSent?: (ok: boolean) => void;
   /** 段 id → 第几段。导读卡上的段号按钮要用。没有导读就用不上，所以可选。 */
   ordinalOf?: (blockId: string) => number;
   /** 点导读卡上那个段号，滚到那一段。同上，可选。 */
@@ -166,7 +176,8 @@ export function ReadingCoachPanel({
         continue;
       }
       const answer = coachAnswerOf(m);
-      if (!answer || open.length === 0) continue;
+      // 段落工具底下写的那一段不是任何一张卡的回答 —— 见 BLOCK_TOOL_ANSWER。
+      if (!answer || open.length === 0 || answer.type === BLOCK_TOOL_ANSWER) continue;
       let i = open.length - 1;
       for (let k = open.length - 1; k >= 0; k--) {
         if (open[k]!.card.prompt === answer.prompt) {
@@ -221,8 +232,8 @@ export function ReadingCoachPanel({
     picks: { blockId: string; quote: string }[] = [],
     cardAnswer: CoachCardAnswer | null = null,
     finishedLens: ReadingLensDone | null = null,
-  ) {
-    if (busy) return;
+  ): Promise<boolean> {
+    if (busy) return false;
     setBusy(true);
     setError(null);
     // Her side of this turn, shown before the server has spoken. A tap carries
@@ -263,6 +274,7 @@ export function ReadingCoachPanel({
       // own turn/summon flow — the room's card state has no way to have
       // picked it up on its own, so it needs telling.
       if (res.card) slot.onCardSummoned?.();
+      return true;
     } catch (err) {
       setError(apiErrorText(err));
       // 🚨 一次 502 不许把她点过的答案偷偷取消掉。
@@ -284,6 +296,7 @@ export function ReadingCoachPanel({
         if (mine) setMessages((prev) => prev.filter((m) => m !== mine));
         setDraft(text);
       }
+      return false;
     } finally {
       setBusy(false);
     }
@@ -329,6 +342,19 @@ export function ReadingCoachPanel({
     // 和「刚腾出手」，而重复发送由上面的 ref 把住。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lensDone, busy]);
+
+  // 段落工具底下写的那一段。和上面透镜那一条同一套防重复发送的办法。
+  const toolSentRef = useRef<CoachCardAnswer | null>(null);
+  useEffect(() => {
+    if (!toolAnswer) {
+      toolSentRef.current = null;
+      return;
+    }
+    if (toolSentRef.current === toolAnswer || busy) return;
+    toolSentRef.current = toolAnswer;
+    void turn("", [], toolAnswer).then((ok) => onToolAnswerSent?.(ok));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toolAnswer, busy]);
 
   /** 重发上一轮失败的作答，原样。她点过的那一句一直留在卡片上，这里只是把它
    *  再送一次——先把留着的那条乐观消息撤掉，`turn` 会重新放一条一样的。 */
@@ -464,6 +490,23 @@ export function ReadingCoachPanel({
       continue;
     }
     const answer = coachAnswerOf(m);
+    if (answer && answer.type === BLOCK_TOOL_ANSWER) {
+      // 段落工具底下写的那一段：上面没有一张卡替它显示，所以这里自己显示 ——
+      // 一行小字说明是在回答哪件工具，下面是她写的原话。
+      chatMessages.push({
+        id: `c${m.seq}`,
+        kind: "student",
+        node: (
+          <>
+            {answer.prompt && (
+              <span className="mb-1 block text-mk-caption text-mk-muted">{answer.prompt}</span>
+            )}
+            <span className="whitespace-pre-wrap">{answer.choice}</span>
+          </>
+        ),
+      });
+      continue;
+    }
     if (answer) {
       // Her answer is already on the card above — rendering the stored message
       // too would say the same sentence twice, and say it in the raw `> ` form

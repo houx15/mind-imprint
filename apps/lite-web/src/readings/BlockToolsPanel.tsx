@@ -7,6 +7,7 @@ import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } fro
 import { BlockToolbar } from "./BlockToolbar";
 import { WordCards } from "./WordCards";
 import { GrammarCards } from "./GrammarCards";
+import { BLOCK_TOOL_ANSWER, type CoachCardAnswer } from "./CoachCard";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -73,6 +74,8 @@ export function BlockToolsPanel({
   onAutoToolConsumed,
   onNote,
   onClose,
+  ordinal,
+  onToolAnswer,
 }: {
   readingId: string;
   blockId: string;
@@ -90,6 +93,13 @@ export function BlockToolsPanel({
   onAutoToolConsumed?: () => void;
   onNote: (note: ReadingBlockNote) => void;
   onClose: () => void;
+  /** 这一段是第几段。交给 印记 的那一行说明里要用。 */
+  ordinal?: number;
+  /**
+   * 她在想一想 / 仿写 底下写好了一段，交给 印记 要反馈。
+   * 返回的 promise 在这一轮落地（或失败）时结束，true = 送到了。
+   */
+  onToolAnswer?: (answer: CoachCardAnswer) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -305,6 +315,16 @@ export function BlockToolsPanel({
               <ChatMarkdown text={shown.body} />
             </div>
           )}
+          {onToolAnswer && (shown.tool === "questions" || shown.tool === "imitate") && (
+            <ToolAnswerBox
+              key={`${blockId}-${shown.tool}`}
+              label={shownLabel}
+              prompt={toolAnswerPrompt(shownLabel, ordinal, shown.body)}
+              blockId={blockId}
+              kind={shown.tool}
+              onSend={onToolAnswer}
+            />
+          )}
         </div>
       )}
     </>
@@ -330,4 +350,112 @@ export function wordTokens(text: string): { text: string; word: boolean }[] {
   }
   if (last < text.length) out.push({ text: text.slice(last), word: false });
   return out;
+}
+
+/** 服务端给卡片题目的上限（reading_coach.go 的 collapseCardPrompt）。超过的整句被丢掉。 */
+const TOOL_PROMPT_MAX = 60;
+
+/**
+ * 交给 印记 的那一行说明：「仿写 · 第3段：先给一个日常场景，再解释背后的原理」。
+ *
+ * 它会作为「【印记问】」那一行存进对话 —— **不算她说的话**。所以这里只放工具
+ * 名、段号和那件工具自己的内容（想一想的问题 / 仿写的写法），她写的另外走。
+ * 截到服务端的上限以内：超过的那一行服务端会整行丢掉，印记 就不知道她在答什么。
+ */
+export function toolAnswerPrompt(label: string, ordinal: number | undefined, body: string): string {
+  const head = ordinal && ordinal > 0 ? `${label} · 第${ordinal}段：` : `${label}：`;
+  const firstLine =
+    body
+      .split("\n")
+      // 先去掉加粗的标签，再去掉列表记号：反过来的话，「- 」那条规则会先吃掉
+      // 「**这一段的写法**」开头的那个 *，标签就再也认不出来了。
+      .map((l) => l.replace(/\*\*这一段的写法\*\*：/, "").replace(/^[-*]\s+/, "").trim())
+      .find((l) => l.length > 0) ?? "";
+  const room = TOOL_PROMPT_MAX - Array.from(head).length;
+  const chars = Array.from(firstLine);
+  const tail = chars.length > room ? chars.slice(0, Math.max(0, room - 1)).join("") + "…" : firstLine;
+  return head + tail;
+}
+
+/**
+ * 想一想 / 仿写 底下那个框。
+ *
+ * 🚨 产品负责人 2026-09-17：「想一想 and 仿写 actually these are things that need
+ * students' input. how should we do that? put a box there to invite students to
+ * write and give feedbacks?」—— 这两件工具原来只给题目、不收答案，她想完、写完
+ * 都没有地方放，印记 也永远不知道。
+ *
+ * 写好交给 印记：反馈出现在对话里，和别的每一轮一样被记下来（报告要用）。
+ * 回车发送、Shift+回车换行、中文输入法选词不误发 —— 和另外两个框同一套手势。
+ */
+function ToolAnswerBox({
+  label,
+  prompt,
+  blockId,
+  kind,
+  onSend,
+}: {
+  label: string;
+  prompt: string;
+  blockId: string;
+  kind: string;
+  onSend: (answer: CoachCardAnswer) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [sentText, setSentText] = useState("");
+
+  async function submit() {
+    const text = draft.trim();
+    if (!text || state === "sending") return;
+    setState("sending");
+    const ok = await onSend({ type: BLOCK_TOOL_ANSWER, prompt, choice: text, blockId });
+    if (ok) {
+      setSentText(text);
+      setDraft("");
+      setState("sent");
+    } else {
+      setState("failed");
+    }
+  }
+
+  return (
+    <div className="mk-tool-answer">
+      {state === "sent" && (
+        <p className="mk-tool-answer__sent">
+          <span className="mk-tool-answer__sent-label">已发送给印记，反馈在对话里</span>
+          <span className="whitespace-pre-wrap">{sentText}</span>
+        </p>
+      )}
+      <textarea
+        className="mk-tool-answer__input"
+        rows={3}
+        value={draft}
+        disabled={state === "sending"}
+        placeholder={
+          kind === "imitate"
+            ? `请用这一段的写法写一段（${label}，回车发送，Shift+回车换行）`
+            : `请写下你的想法（${label}，回车发送，Shift+回车换行）`
+        }
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey) return;
+          if (e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          void submit();
+        }}
+      />
+      <div className="mk-tool-answer__row">
+        {state === "failed" && <span className="text-mk-small text-mk-danger">发送失败，请重试</span>}
+        <button
+          type="button"
+          className="mk-tool-answer__send"
+          disabled={!draft.trim() || state === "sending"}
+          onClick={() => void submit()}
+        >
+          {state === "sending" ? "处理中" : "交给印记"}
+        </button>
+      </div>
+    </div>
+  );
 }

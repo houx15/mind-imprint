@@ -123,8 +123,18 @@ export type CoachCardSpec = {
  * （`quoteIsArticleText`）；核不上就当成她的话处理，「她指了」这件事就没了，
  * hunt 步也就落不了地。
  */
+/**
+ * 她在段落工具（想一想 / 仿写）底下写的那一段，作为一轮交给 印记 时的 type。
+ *
+ * 🚨 它**不是**任何一张卡片的回答。ReadingCoachPanel 的配对循环会把一条
+ * 找不到对应题目的回答挂到「最新那张还没答的卡」上 —— 这一条要是走进那条路，
+ * 她正开着的那张卡会被当成已答、收起来。所以配对循环见到这个 type 就跳过。
+ * 服务端见到它就不推进步骤（它是一次旁支练习，不是这一步的作业）。
+ */
+export const BLOCK_TOOL_ANSWER = "block_tool" as const;
+
 export type CoachCardAnswer = {
-  type: CoachCardType;
+  type: CoachCardType | typeof BLOCK_TOOL_ANSWER;
   prompt: string;
   choice: string;
   blockId?: string;

@@ -435,6 +435,20 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   这一句拖到证据格。板上没有这一句，她找了半天找不到。
   要指板上那一条，就照板上那一条的样子抄；懒得抄就别加引号，说「第 4 段那句」。
 
+### 她在段落工具底下写了一段的那一轮
+
+【她刚刚说的】开头那一行是「> 【印记问】想一想 · 第N段：……」或「> 【印记问】仿写 · 第N段：……」
+时，她是在**段落工具**底下写的，不是在做清单上的这一步。这一轮只做一件事：给反馈。
+
+- **先说她写对了什么**，要具体到她的原话（引她的原话，一个字都别改）。
+- **再只说一处最值得改的**，说清为什么。一次只说一处 —— 说三处等于没说。
+- 仿写：看她**有没有用上那个写法**（「先给场景再讲原理」她做到了哪一半），
+  🚨 **绝对不要替她写一段示范，也不要把她那段改写一遍给她看**。改写后的那句话
+  就是替她写了。
+- 想一想：看她的想法**有没有落在这一段上**，有没有拿文章里的东西撑住。
+- 说完就停。不要推进清单、不要出新卡片。系统也会把这一轮的推进拦掉。
+  最后一句可以提醒她清单上现在停在哪一步。
+
 ### 她刚把一块板摆完的那一轮
 
 板（label_roles / word_bank）摆完之后，她的作答会原样回到【她刚刚说的】里：
@@ -898,6 +912,28 @@ func openLensLine(anyOpen bool, name string) string {
 		"请她跳过（卡片上那个跳过就在那儿）。真的有，就指到第几段、哪个词附近，让她自己去读那一句。\n" +
 		"- 她问这副透镜到底要她干什么 → 用一句白话说清这种分析在看什么，再当场拿这篇里的某一句做一遍示范。\n" +
 		"- 她问别的 → 回答她，然后一句话把她送回那副透镜。\n"
+}
+
+// toolAnswerLine —— 这一轮是她在段落工具（想一想 / 仿写）底下写的那一段。
+//
+// 🚨 和 openLensLine 同一个位置、同一个理由：它排在 prompt **最后**，压过
+// 前面那条按步骤写的推进判据。
+//
+// 实测（2026-09-17，6 次）：只有 system prompt 里那一节说明时，6 次里有 5 次
+// 只夸一句就转进清单上的「你怎么看」，有一次对她写的那段一个字没提 —— 末尾那条
+// 「本步要她给出自己的判断」的判据赢了（[[reading-room-rulings-2026-09-17]]
+// 第一条：散文跨不过判据，第四次）。
+func toolAnswerLine(toolAnswerTurn bool) string {
+	if !toolAnswerTurn {
+		return ""
+	}
+	return "\n【这一轮不按上面那条推进判据走】\n" +
+		"她刚才是在**段落工具**（想一想 / 仿写）底下写了一段，要你给反馈。这一轮只做这一件事：\n" +
+		"1. 先说她写对了什么，引她的原话，具体到那一句。\n" +
+		"2. 再只说**一处**最值得改的地方和为什么。仿写就看她有没有用上那个写法；想一想就看她的想法有没有落在那一段上、有没有拿文章里的东西撑住。\n" +
+		"3. 🚨 不替她写：不给示范段、不把她那段改写一遍。\n" +
+		"4. 说完就停。advance 留空，card、lens 都留空。**不要**在这一轮里开始清单上的下一件事，" +
+		"最多用一句话提一下清单现在停在哪一步，**不要说有卡片在等她** —— 这一轮没有卡片。\n"
 }
 
 func buildReadingCoachPrompt(
@@ -1943,6 +1979,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// what the next turn will read back out of 【你们刚才聊的】.
 	studentContent := studentText
 	var studentPayload []byte
+	// 这一轮是她在段落工具底下写的那一段（想一想 / 仿写），不是清单上这一步的作业。
+	toolAnswerTurn := req.CardAnswer != nil && strings.TrimSpace(req.CardAnswer.Type) == blockToolAnswerType
 	// An answer with nothing in it is not a turn: composing on the prompt alone
 	// would store a student message that is only 印记's own question.
 	if ca := req.CardAnswer; ca != nil && (normalizeCardAnswerText(ca.Choice) != "" || studentText != "") {
@@ -2049,7 +2087,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	chatReq := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, picks, studentContent, lensDone, openLensLine(anyOpen, openLensName))},
+			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, picks, studentContent, lensDone, openLensLine(anyOpen, openLensName)+toolAnswerLine(toolAnswerTurn))},
 		},
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
@@ -2184,6 +2222,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 的卡因为选项全来自同一段被丢掉，seq 42 的卡因为引文对不上被丢掉 ——
 	// 中间 印记 连着两轮道歉「卡没送到你手里」，她连着两轮回「没有卡啊」。
 	// 产品负责人报的第 5 条就是这两轮。
+	// 反馈那一轮「说完就停」是对的，不是一轮死掉的话 —— 不为它花一次重试。
+	if okParse && toolAnswerTurn && parsed.cardWhy == cardRejectDeadTurn {
+		parsed.cardWhy = cardRejectNoCard
+	}
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
 		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry || parsed.twoAsks ||
 		parsed.ghostQuote != "" || parsed.leak != "" ||
@@ -2339,6 +2381,18 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 开口，所以这一轮不会发生。放开输入框（找不到句子的时候她得能求助）之后，
 	// 一句「我找不到这样的句子」就会走到这里 —— 而模型看不见屏幕，它默认的反应
 	// 是接着往下领一步，把那副还等着她的透镜甩在后面。
+	// 🚨 她在段落工具（想一想 / 仿写）底下写的那一段，**不推进这一步**。
+	//
+	// 那是一次旁支练习 —— 她在第 3 段上顺手仿写了一段，而清单此刻可能停在
+	// 「你怎么看」。模型会把「她交了一段话」读成「这一步的作业交了」，给 done，
+	// 于是她一个字没写那一步就过去了。判据在这里，不在提示词里
+	// （[[reading-room-rulings-2026-09-17]]：散文跨不过判据）。
+	if toolAnswerTurn {
+		parsed.Advance = ""
+		// 这一轮是反馈，不是再出一道题。
+		parsed.Card = nil
+		parsed.Lens = ""
+	}
 	if anyOpen {
 		if parsed.Card != nil {
 			parsed.Card = nil
@@ -2361,7 +2415,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 文章上它没有指称对象。en-report 那套读法里本来就没有标注步，但
 	// `replyPromisesACard` 这条路在任何一步上都通 —— 兜底不该把一件刚被挡掉的
 	// 事从后门放进来。
-	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && parsed.Card == nil && parsed.Lens == "" &&
+	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
 		hasAuthorsArgument(decodeOutline(src.Outline).Genre) &&
 		((cur.Kind == string(taskLabel) && !answeredBoard(req.CardAnswer)) || replyPromisesACard(parsed.Reply)) {
 		focus := parsed.FocusBlock
@@ -2402,7 +2456,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
 	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
 	// 的时候才用那句中性的。
-	if !anyOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
+	if !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
 		parsed.Card = fallbackCardFor(parsed.askedPrompt, parsed.Reply)
 		parsed.cardWhy = cardOK
 		slog.Info("reading coach: promised a card and had none, fell back",
