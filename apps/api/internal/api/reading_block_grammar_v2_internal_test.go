@@ -118,3 +118,19 @@ func TestGrammarCardTrimsEdgeCommas(t *testing.T) {
 		t.Errorf("两头的逗号没去掉：ok=%v %+v", ok, got.Parts)
 	}
 }
+
+// 实测（线上 2026-09-17）：并列句里的 and 被标成「插入语」。
+func TestGrammarCardDropsABareConjunction(t *testing.T) {
+	sentence := "Plants were unable to photosynthesize, and many animals starved to death."
+	body := `{"parts":[{"text":"Plants","label":"主语"},{"text":"were unable to photosynthesize","label":"谓语"},
+	  {"text":"and","label":"插入语"},{"text":"many animals","label":"主语"},{"text":"starved to death","label":"谓语"}]}`
+	got, ok := parseGrammarCard(body, sentence)
+	if !ok || len(got.Parts) != 4 {
+		t.Fatalf("ok=%v parts=%+v", ok, got.Parts)
+	}
+	for _, p := range got.Parts {
+		if p.Text == "and" {
+			t.Errorf("单独一个连词被当成了成分")
+		}
+	}
+}

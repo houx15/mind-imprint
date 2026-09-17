@@ -24,21 +24,28 @@ func TestLiveGrammarCard(t *testing.T) {
 	blocks := SplitBlocks(strings.Join([]string{
 		"The analysis also revealed two smaller, fuzzy body feathers that were more primitive in nature. These feathers, which likely helped insulate the birds from the cold, might be the key to why hesperornithiforms did not survive the mass extinction event.",
 		"Exactly how the Chicxulub impact some 66 million years ago triggered so many deaths worldwide remains the subject of scientific debate.",
+		"During this prolonged period of cold and darkness, plants were unable to photosynthesize, and many animals starved to death. Scientists who have studied the fossils believe that the birds had already lost the ability to fly.",
 	}, "\n\n"))
 	sentences := []string{
 		"These feathers, which likely helped insulate the birds from the cold, might be the key to why hesperornithiforms did not survive the mass extinction event.",
 		"Exactly how the Chicxulub impact some 66 million years ago triggered so many deaths worldwide remains the subject of scientific debate.",
+		// 并列句：两个分句各有主谓，连词不是成分（线上实测标错过）。
+		"During this prolonged period of cold and darkness, plants were unable to photosynthesize, and many animals starved to death.",
+		// 从句里的过去完成时要进时态（线上实测漏过）。
+		"Scientists who have studied the fossils believe that the birds had already lost the ability to fly.",
 	}
+	blockOf := []int{0, 1, 2, 2}
 	var tool readingBlockTool
 	for _, tt := range readingBlockTools {
 		if tt.ID == "grammar" {
 			tool = tt
 		}
 	}
-	failed, parts, dropped, noWords, noMain := 0, 0, 0, 0, 0
-	for i := 0; i < 6; i++ {
-		idx := i % 2
-		sentence := sentences[idx]
+	failed, parts, dropped, noWords, noMain, noPerfect, badPredicate := 0, 0, 0, 0, 0, 0, 0
+	for i := 0; i < 8; i++ {
+		si := i % 4
+		idx := blockOf[si]
+		sentence := sentences[si]
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
@@ -74,6 +81,20 @@ func TestLiveGrammarCard(t *testing.T) {
 			noMain++
 			t.Logf("sample %d: 从句之外剩不下主句：%q", i, rest)
 		}
+		if si == 3 {
+			found := false
+			for _, tn := range g.Tenses {
+				found = found || strings.Contains(tn.Text, "had")
+			}
+			if !found {
+				noPerfect++
+			}
+		}
+		for _, p := range g.Parts {
+			if p.Label == "谓语" && strings.Contains(p.Text, "animals") {
+				badPredicate++
+			}
+		}
 		t.Logf("sample %d ok — 从句=%d 成分=%d 词法=%d 时态=%d (丢 %d)", i, len(g.Clauses), len(g.Parts), len(g.Words), len(g.Tenses), sent-kept)
 		for name, layer := range map[string][]readingGrammarSpan{"从句": g.Clauses, "成分": g.Parts, "词法": g.Words, "时态": g.Tenses} {
 			for _, p := range layer {
@@ -82,9 +103,9 @@ func TestLiveGrammarCard(t *testing.T) {
 		}
 		t.Logf("    句意：%s", g.Meaning)
 	}
-	t.Logf("RESULT: 整张作废 %d/6 · 成分 %d 块 · 丢掉 %d 段 · 没有词法 %d · 没有主句 %d", failed, parts, dropped, noWords, noMain)
+	t.Logf("RESULT: 整张作废 %d/8 · 成分 %d 块 · 丢掉 %d 段 · 没有词法 %d · 没有主句 %d · 漏过去完成时 %d · 谓语带主语 %d", failed, parts, dropped, noWords, noMain, noPerfect, badPredicate)
 	if failed > 1 {
-		t.Errorf("%d/6 张语法卡整张作废 —— 她点语法会拿到「AI 响应错误」", failed)
+		t.Errorf("%d/8 张语法卡整张作废 —— 她点语法会拿到「AI 响应错误」", failed)
 	}
 	if noMain > 0 || noWords > 1 {
 		t.Errorf("没有主句 %d 张、没有词法 %d 张", noMain, noWords)

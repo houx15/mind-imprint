@@ -86,6 +86,12 @@ const (
 	grammarPartMinRunes = 2
 )
 
+// grammarBareConnective 是单独一个连词。实测模型把并列句里的 and 标成「插入语」——
+// 连词不是成分，单独标出来就是教错了。
+var grammarBareConnective = map[string]bool{
+	"and": true, "but": true, "or": true, "so": true, "yet": true, "nor": true, "for": true,
+}
+
 // keepVerbatimSpans 留下逐字出现在 sentence 里、带着 label 的那些段，去重、截断。
 //
 // 🚨 大小写敏感：这一段是从**这一句**里抄的，差一个大小写就说明它没在抄
@@ -105,7 +111,7 @@ func keepVerbatimSpans(got []readingGrammarSpan, sentence string, max int) []rea
 		if text == "" || label == "" || utf8.RuneCountInString(text) < grammarPartMinRunes {
 			continue
 		}
-		if !strings.Contains(sentence, text) || seen[text] {
+		if !strings.Contains(sentence, text) || seen[text] || grammarBareConnective[strings.ToLower(text)] {
 			continue
 		}
 		seen[text] = true
