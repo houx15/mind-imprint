@@ -534,12 +534,21 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sentence := strings.TrimSpace(req.Sentence)
-	if tool.Subject != "sentence" {
-		// 别的工具讲的是整段。带了句子也当没带 —— 否则同一段会按她随手划到
+	switch {
+	case tool.Subject != "sentence" && tool.Subject != "word":
+		// 讲整段的工具。带了句子也当没带 —— 否则同一段会按她随手划到
 		// 哪儿缓存出好几份一模一样的讲解。
 		sentence = ""
-	} else if sentence == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_sentence", "请先在这一段里点一个句子。", nil))
+	case sentence == "":
+		// 🚨 「查词」（Subject == "word"）2026-09-17 加进来时这里只认 "sentence"，
+		// 于是她点的那个词被当成「整段工具带来的多余字段」**清掉了**：模型没收到
+		// 词，自己挑了一个（线上：点 prolonged，讲 starved to death），而且整段
+		// 只缓存一份 —— 这一段里点哪个词都会重放同一张卡。
+		msg := "请先在这一段里点一个句子。"
+		if tool.Subject == "word" {
+			msg = "请先在这一段里点一个词。"
+		}
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_sentence", msg, nil))
 		return
 	}
 
