@@ -90,10 +90,17 @@ func TestLiteClassSummaryCacheKeyRosterFingerprint(t *testing.T) {
 func TestLiteClassSummaryStorePanicRecovers(t *testing.T) {
 	s := newLiteClassSummaryStore(4)
 	const key = "k"
+	// 🚨 The panicking flight must not finish before the waiter has JOINED it.
+	// Closing `started` alone did not guarantee that: fn closed it and panicked
+	// in the same breath, the flight was over before the goroutine got to
+	// resolve, and the waiter started a flight of its own — 23 failures in 30
+	// runs (2026-09-17). onJoin fires inside resolve's join branch, so fn
+	// waits for it.
+	joined := make(chan struct{})
+	s.onJoin = func() { close(joined) }
 
 	// A concurrent caller for the same key, launched only once the panicking
-	// call is actually under way (so it is guaranteed to JOIN the in-flight
-	// computation, not start its own).
+	// call is actually under way.
 	started := make(chan struct{})
 	waiterErr := make(chan error, 1)
 	go func() {
@@ -107,6 +114,7 @@ func TestLiteClassSummaryStorePanicRecovers(t *testing.T) {
 
 	_, _, err := s.resolve(key, func() (liteClassSummaryEntry, error) {
 		close(started)
+		<-joined
 		panic("boom")
 	})
 	if err == nil {

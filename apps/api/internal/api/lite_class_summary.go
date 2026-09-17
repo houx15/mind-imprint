@@ -308,6 +308,11 @@ type liteClassSummaryStore struct {
 	order    []string // insertion order, oldest first, for eviction
 	data     map[string]liteClassSummaryEntry
 	inflight map[string]*liteClassSummaryFlight
+	// onJoin 在一个调用**加入**别人正在跑的那一次计算、开始等它之前被调用。
+	// 生产里永远是 nil；只给测试用 —— 没有它，测试没法知道等待者真的加入了
+	// 那一次计算，而不是在它结束之后自己另起了一次（见
+	// TestLiteClassSummaryStorePanicRecovers，2026-09-17 之前它 30 次里挂 23 次）。
+	onJoin func()
 }
 
 // liteClassSummaryFlight is one computation in progress for a key. Every
@@ -343,7 +348,11 @@ func (s *liteClassSummaryStore) resolve(key string, fn func() (liteClassSummaryE
 		return e, true, nil
 	}
 	if f, ok := s.inflight[key]; ok {
+		hook := s.onJoin
 		s.mu.Unlock()
+		if hook != nil {
+			hook()
+		}
 		<-f.done
 		return f.entry, false, f.err
 	}
