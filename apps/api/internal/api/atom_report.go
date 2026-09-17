@@ -178,6 +178,9 @@ type liteReportDTO struct {
 	// generated before this field existed re-serves without it, and the
 	// client renders the section as absent rather than empty.
 	Notes []reportNote `json:"notes,omitempty"`
+	// Toolkit is reading-kind only: 段落工具上她做过的事（2026-09-17，见
+	// atom_report_toolkit.go）。确定性的，不花模型调用。和上面两项一样不回填。
+	Toolkit *reportToolkit `json:"toolkit,omitempty"`
 	// Piece is writing-kind only: the finished draft, in full, HER OWN words.
 	//
 	// It exists because of what the share link is FOR — "if students agree to
@@ -884,6 +887,10 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		return liteReportDTO{}, err
 	}
 	blocks := SplitBlocks(src.Body)
+	blockNotes, err := qtx.ListReadingBlockNotes(ctx, at.ID)
+	if err != nil {
+		return liteReportDTO{}, err
+	}
 
 	// 开场那句「第 8 篇」的数。在这个事务里数一次，然后冻结进报告的 JSON ——
 	// 见 liteReportDTO.Ordinal。数不出来不该让整份报告失败：这是一句开场白，
@@ -977,6 +984,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
 		LensNotes: lensNotes, Notes: buildReadingNotes(notes), TurningPoints: prose.TurningPoints,
 		Article: buildReportArticle(src, blocks),
+		Toolkit: buildReportToolkit(rd.Lang, blockNotes, msgs),
 		ProsePending: prosePending,
 	}, nil
 }

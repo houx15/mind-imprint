@@ -1,3 +1,4 @@
+import type { ReadingWord } from "./readingRoom";
 import { API_BASE, ApiError, apiFetch } from "./client";
 
 /**
@@ -60,6 +61,16 @@ export type ReportTurningPoint = { turn: number; why: string; student: string; c
  *  `excerpt` 是**一段摘录**，服务端封了 200 字，永远不是全文。 */
 export type ReportArticle = { sourceUrl: string; host: string; excerpt: string };
 
+/** 阅读报告上「段落工具」那一节 —— apps/api/internal/api/atom_report_toolkit.go。
+ *  全是确定性的：数的是她真的做过的事，不经过模型。 */
+export type ReportToolkit = {
+  tools: { label: string; blocks: number }[];
+  words: ReadingWord[];
+  grammar: { sentence: string; points: string[] }[];
+  /** `prompt` 是 印记 那一行（工具 + 段号 + 题目），`text` 才是她写的。 */
+  writings: { tool: string; prompt: string; text: string }[];
+};
+
 /** `liteReportDTO` — apps/api/internal/api/atom_report.go. */
 export type LiteReport = {
   version: 1;
@@ -86,6 +97,8 @@ export type LiteReport = {
   turningPoints: ReportTurningPoint[];
   /** 我读的这篇。写作报告永远是 null。 */
   article: ReportArticle | null;
+  /** 段落工具上她做过的事（阅读专属，2026-09-17）。早于这个字段的报告是 null。 */
+  toolkit?: ReportToolkit | null;
   /** The finished piece, in full, HER OWN words — writing-kind only, and
    *  `""` on a writing report generated before the field existed (no
    *  backfill, same as `notes`/`lensNotes`). This is what makes a scanned
@@ -124,7 +137,9 @@ type RawLiteReport = Omit<
   | "ordinal"
   | "turningPoints"
   | "article"
+  | "toolkit"
 > & {
+  toolkit?: Partial<ReportToolkit> | null;
   prosePending?: boolean;
   ordinal?: number;
   turningPoints?: ReportTurningPoint[];
@@ -138,8 +153,9 @@ type RawLiteReport = Omit<
 };
 
 function normalizeReport(raw: RawLiteReport): LiteReport {
+  const { toolkit: rawToolkit, ...rest } = raw;
   return {
-    ...raw,
+    ...rest,
     moments: raw.moments ?? [],
     gains: raw.gains ?? [],
     lensNotes: raw.lensNotes ?? [],
@@ -148,6 +164,18 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     ordinal: raw.ordinal ?? 0,
     turningPoints: raw.turningPoints ?? [],
     article: raw.article ?? null,
+    // 只在服务端给了的时候才带这个键：早于它的报告（以及每一个旧测试夹具）
+    // 规范化之后的形状一个键都不多。
+    ...(rawToolkit
+      ? {
+          toolkit: {
+            tools: rawToolkit.tools ?? [],
+            words: rawToolkit.words ?? [],
+            grammar: (rawToolkit.grammar ?? []).map((g) => ({ ...g, points: g.points ?? [] })),
+            writings: rawToolkit.writings ?? [],
+          },
+        }
+      : {}),
     prosePending: raw.prosePending ?? false,
     // See `ReportKeep`: a keep with no source predates the field and can only
     // have been her own takeaway.

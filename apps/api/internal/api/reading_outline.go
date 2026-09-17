@@ -128,8 +128,8 @@ type readingOutline struct {
 	// 允许为空：认不出体裁就不挡任何东西（老数据也一样）。判错的方向和别处
 	// 一致——宁可放过，不可误伤：少发一块板是少一次练习，发错一块板是让她
 	// 对着一套根本不适用的词干瞪眼。
-	Genre string `json:"genre,omitempty"`
-	Shape string `json:"shape"`
+	Genre string            `json:"genre,omitempty"`
+	Shape string            `json:"shape"`
 	Load  map[string]string `json:"load"`
 	// Parts 是这篇分成的几个部分，按正文顺序。允许为空 —— 老数据没有，
 	// 校验没过的也会被整个丢掉（见 validateOutline）。

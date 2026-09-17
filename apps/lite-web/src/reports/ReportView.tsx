@@ -2,6 +2,7 @@ import { ReportVisualSummary } from "./ReportVisualSummary";
 import { studentArtwork } from "../learning/StudentArtwork";
 import type { LiteReport } from "@lite/api/reports";
 import { displayStat } from "./statLabels";
+import { WordCards } from "../readings/WordCards";
 
 /**
  * ReportView — a wide, colourful record of one session, not a column of prose.
@@ -154,6 +155,7 @@ export function ReportView({
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <ArticleEntry article={report.article} title={report.title} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
       <footer className="journal-colophon">{report.studentName} · 阅读手记 <span>{date}</span></footer>
@@ -178,6 +180,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
       <ProsePending pending={report.prosePending} stuck={proseStuck} onRetry={onRetryProse} />
     </article>
@@ -571,6 +574,87 @@ function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+/**
+ * 段落工具 —— 她在这一篇上拆过什么、学了哪些词、自己写了什么。
+ *
+ * 产品负责人 2026-09-17：「these things, students' actions, their learns, the
+ * shadow writing, the words. can be revealed in their reading report.」
+ *
+ * 四小块，哪块没有就不显示：用过的工具（几段）、学过的词（词卡原样）、拆过的
+ * 句子和语法点、她在想一想 / 仿写 底下写的那几段。
+ *
+ * 🚨 R4：最后那一块里，**她写的**是正文大小的黑字；印记 的那一行题目
+ * （「仿写 · 第3段：……」）是它上面一行小灰字。反过来摆，读的人会以为那一行是
+ * 她写的。
+ */
+function Toolkit({ toolkit }: { toolkit: LiteReport["toolkit"] }) {
+  if (!toolkit) return null;
+  const { tools, words, grammar, writings } = toolkit;
+  if (tools.length + words.length + grammar.length + writings.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionTitle>段落工具</SectionTitle>
+      {tools.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {tools.map((t, i) => {
+            const { bg, fg } = macaron(i);
+            return (
+              <span
+                key={t.label}
+                className="rounded-mk-full px-3 py-1 text-mk-small"
+                style={{ background: bg, color: fg }}
+              >
+                {t.label} · {t.blocks} 段
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {words.length > 0 && (
+        <div className="mk-rp-card mk-rp-rise rounded-mk-lg p-5">
+          <p className="mb-3 text-mk-label text-mk-muted">学过的词</p>
+          <WordCards words={words} />
+        </div>
+      )}
+      {grammar.length > 0 && (
+        <div className="mk-rp-card mk-rp-rise flex flex-col gap-3 rounded-mk-lg p-5">
+          <p className="text-mk-label text-mk-muted">拆过的句子</p>
+          {grammar.map((g) => (
+            <div key={g.sentence} className="flex flex-col gap-1.5">
+              <p className="mk-rp-source pl-3 text-mk-small text-mk-muted">
+                <span className="mr-1.5 text-mk-label">原文</span>
+                {g.sentence}
+              </p>
+              {g.points.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pl-3">
+                  {g.points.map((p) => (
+                    <span key={p} className="rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-mk-caption text-mk-accent-700">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {writings.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {writings.map((w, i) => (
+            <div key={`${w.prompt}-${i}`} className="mk-rp-card mk-rp-rise rounded-mk-lg p-5" style={rise(i + 6)}>
+              <p className="text-mk-small text-mk-muted">
+                <span className="mr-1.5 text-mk-label">{w.tool ? `我的${w.tool}` : "我写的"}</span>
+                {w.prompt}
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{w.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
