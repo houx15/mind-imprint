@@ -6,6 +6,7 @@ import { segmentSentences } from "@/primitives/annotate/sentences";
 import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
 import { BlockToolbar } from "./BlockToolbar";
 import { WordCards } from "./WordCards";
+import { GrammarCards } from "./GrammarCards";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -127,6 +128,7 @@ export function BlockToolsPanel({
         body: note.body,
         subject: note.subject ?? sentence,
         words: note.words,
+        grammar: note.grammar,
       });
       setOpen(tool.id);
       setShownSentence(sentence);
@@ -264,10 +266,12 @@ export function BlockToolsPanel({
           </div>
           {/* 讲的是哪一句，摆在讲解上面。她可能已经往下读了两段 —— 不说清楚
               这一份讲的是哪一句，她得自己回去找。 */}
-          {shown.subject ? (
+          {shown.subject && !shown.grammar ? (
             <p className="mk-block-note__subject">{shown.subject}</p>
           ) : null}
-          {shown.words && shown.words.length > 0 ? (
+          {shown.grammar && shown.grammar.parts.length > 0 && shown.subject ? (
+            <GrammarCards sentence={shown.subject} grammar={shown.grammar} />
+          ) : shown.words && shown.words.length > 0 ? (
             <WordCards words={shown.words} />
           ) : (
             <div className="text-mk-body leading-relaxed text-mk-ink">

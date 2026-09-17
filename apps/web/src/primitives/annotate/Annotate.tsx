@@ -80,6 +80,24 @@ export type AnnotateProps = {
    */
   blockLead?: Record<string, string>;
   /**
+   * 她在这一段上开过的那几件工具的名字，`blockId → ["翻译", "语法"]`。
+   * 画成一行小字跟在那一段**后面**。
+   *
+   * 🚨 产品负责人 2026-09-17：「once students clicked one thing, can we reveal
+   * that in the paragraph? like tags after the texts? … should not be overlap
+   * with text, should not be too highlighted. just indicate that students can
+   * view these things later.」
+   *
+   * 两条约束直接决定了它长什么样：**跟在后面**（不压正文，所以是自己的一行，
+   * 不是绝对定位的角标），**不抢眼**（样式全在轻量版的 CSS 里，比正文小、比
+   * 正文淡）。它不是按钮 —— 段落工具条点一下段落就出来，这一行只负责说
+   * 「这儿有东西可以回去看」。
+   *
+   * 和 blockLead 同一条纪律：段落**之外**的元素，不进 block.text。
+   * 不传时输出逐字节不变。
+   */
+  blockMarks?: Record<string, string[]>;
+  /**
    * 荧光笔：每一段里要标出来的关键词，`blockId → terms`（轻量版的关键单词，
    * 见 `apps/lite-web/src/readings/WordCards.tsx`）。
    *
@@ -153,6 +171,7 @@ export function Annotate({
   coreBlockIds,
   activeBlockIds,
   blockLead,
+  blockMarks,
   keywordTerms,
   onReferenceBlock,
   onReferenceSelection,
@@ -314,6 +333,7 @@ export function Annotate({
           const core = Boolean(coreBlockIds?.includes(block.id));
           const active = Boolean(activeBlockIds?.includes(block.id));
           const lead = blockLead?.[block.id];
+          const marks = blockMarks?.[block.id];
           return (
             <Fragment key={block.id}>
               {lead && (
@@ -421,6 +441,16 @@ export function Annotate({
                   );
                 })}
               </p>
+              {marks && marks.length > 0 && (
+                <p data-block-marks className="mk-block-marks">
+                  {marks.map((m, i) => (
+                    <span key={m}>
+                      {i > 0 && <span aria-hidden="true"> · </span>}
+                      {m}
+                    </span>
+                  ))}
+                </p>
+              )}
               {renderAfterBlock?.(block.id)}
               {activeSpan?.block_ref === block.id && activeCard}
             </Fragment>

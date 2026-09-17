@@ -599,6 +599,18 @@ export type ReadingBlockNote = {
   subject?: string;
   /** 词卡。只有关键单词那件工具有。 */
   words?: ReadingWord[];
+  /** 语法卡（2026-09-17 起）。老的语法笔记是一段散文，没有这一项。 */
+  grammar?: ReadingGrammar;
+};
+
+/** 语法卡里句子被切开的一块。`text` 逐字来自那一句（服务端核对过）。 */
+export type ReadingGrammarPart = { text: string; role: string; note?: string };
+export type ReadingGrammarPoint = { name: string; why?: string; example?: string; exampleZh?: string };
+export type ReadingGrammar = {
+  backbone?: string;
+  parts: ReadingGrammarPart[];
+  points: ReadingGrammarPoint[];
+  meaning?: string;
 };
 
 /** Everything she has already opened, so a reload restores it instead of

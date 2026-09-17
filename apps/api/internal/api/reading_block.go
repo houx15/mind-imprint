@@ -56,6 +56,35 @@ const readingBlockContextRunes = 1200
 var readingShapedSuffix = map[string]string{
 	"questions": "\n\n只输出一个 JSON 对象：{\"questions\":[\"...\",\"...\"]}。每条都必须以问号结尾。不要输出对象以外的任何文字或代码块标记。",
 	"imitate":   "\n\n只输出一个 JSON 对象：{\"move\":\"这一段在写法上做了什么，一句话\",\"tryThis\":[\"一个可以用同样写法去写的话题\",\"另一个\"]}。\n\n**绝对不要写出任何一段示范文字。** 你只说写法和话题，段落由她自己写。tryThis 里每一条是一个话题或情境，不是一句范文。不要输出对象以外的任何文字或代码块标记。",
+	// 🚨 2026-09-17：语法从一段散文改成一组卡片。产品负责人逐字：
+	//
+	//	grammar, I hope we can be better, like words, become a card. sentence
+	//	composition split? grammar points? with highlighting, knowledge point,
+	//	cases, etc. instead of a large paragraph.
+	//
+	// 「像词卡一样」这一句里有一个硬要求：**要能在句子上标出来**。而要标出来，
+	// 就得知道**哪几个字**是那一块 —— 所以 parts[].text 逐字来自原句，
+	// 和词卡的 term 是同一条判据（parseGrammarCard 会回原句里核对，
+	// 核不上的丢掉）。一段散文没有这个位置，这才是它必须变成结构的理由。
+	"grammar": "\n\n只输出一个 JSON 对象：" +
+		`{"backbone":"","parts":[{"text":"","role":"","note":""}],` +
+		`"points":[{"name":"","why":"","example":"","exampleZh":""}],"meaning":""}` + "\n\n" +
+		"- backbone：这一句的主干，一句中文，不超过 25 字。「谁 + 做了什么 + 对谁」。\n" +
+		"- parts：把这一句**切成 2 到 5 块**，按它们在句子里出现的先后排。\n" +
+		"  - text：这一块**在原句里的原样**，一个字母一个标点都不许改。" +
+		"**系统会拿它回原句里逐字核对，对不上的那一块丢掉。**" +
+		"几块之间不要重叠，也不必覆盖整句 —— 只切出真正值得说的那几块。\n" +
+		"  - role：这一块是什么，用中文语法名（主语 / 谓语 / 宾语 / 状语 / 定语 / " +
+		"同位语 / 插入语 / 定语从句 / 状语从句 / 非谓语 / 表语 …）。\n" +
+		"  - note：它挂在哪、修饰的是哪个词、在这里起什么作用。一句话，不超过 30 字。\n" +
+		"- points：这一句里值得单独学的语法点，**1 到 3 个**，宁缺毋滥。\n" +
+		"  - name：语法点的名字，用她课上听得到的那个说法（现在完成时 / 定语从句 / " +
+		"虚拟语气 / 独立主格 / 倒装 …）。\n" +
+		"  - why：它在**这一句里**干什么、为什么作者要这么写。两句以内。\n" +
+		"  - example：一个**新造的**短例句，用上同一个语法点，不要抄原句。不超过 15 个词。\n" +
+		"  - exampleZh：上面那句的中文翻译。\n" +
+		"- meaning：这一句的意思，一句中文。\n" +
+		"只讲这一句，不要扩展到整段。不要输出对象以外的任何文字或代码块标记。",
 	"words": "\n\n只输出一个 JSON 对象：" +
 		`{"words":[{"term":"","pos":"","meaning":"","note":"","example":"","exampleZh":""}]}` + "\n\n" +
 		"- term：这个词**在这一段里的原样**，一个字母都不许改 —— 不要还原成原形、不要改大小写、" +
@@ -375,6 +404,9 @@ type blockNoteDTO struct {
 	Subject string `json:"subject,omitempty"`
 	// Words 是关键单词那件工具的词卡。别的工具没有这一项。
 	Words []readingWord `json:"words,omitempty"`
+	// Grammar 是语法那件工具的卡片（2026-09-17 起）。老的语法笔记是一段散文，
+	// 没有这一项 —— 界面据此退回渲染 body。
+	Grammar *readingGrammar `json:"grammar,omitempty"`
 }
 
 // blockNoteDTOFrom 把一行 reading_block_note 变成发出去的那份。
@@ -387,10 +419,12 @@ func blockNoteDTOFrom(row sqlc.ReadingBlockNote) blockNoteDTO {
 	}
 	if len(row.Data) > 0 {
 		var payload struct {
-			Words []readingWord `json:"words"`
+			Words   []readingWord   `json:"words"`
+			Grammar *readingGrammar `json:"grammar"`
 		}
 		if err := json.Unmarshal(row.Data, &payload); err == nil {
 			dto.Words = payload.Words
+			dto.Grammar = payload.Grammar
 		}
 	}
 	return dto
@@ -463,7 +497,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		dto := blockNoteDTOFrom(row)
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"blockId": dto.BlockID, "tool": dto.Tool, "body": dto.Body,
-			"subject": dto.Subject, "words": dto.Words, "cached": true,
+			"subject": dto.Subject, "words": dto.Words, "grammar": dto.Grammar, "cached": true,
 		})
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -540,6 +574,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, res.Usage)
 	body := strings.TrimSpace(res.Text)
 	var words []readingWord
+	var grammar *readingGrammar
 	var data []byte
 	switch {
 	case cerr != nil || body == "":
@@ -559,6 +594,22 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		// body 存的是这组卡片的纯文字形态。见 wordCardsAsProse。
 		body = wordCardsAsProse(words)
 		if encoded, merr := json.Marshal(map[string]any{"words": words}); merr == nil {
+			data = encoded
+		}
+	case tool.Shape == "grammar":
+		// 🚨 每一块都要回**那一句**里逐字核对 —— 高亮就是拿它去找的。
+		// 核不上的丢光了（不足两块），这件工具算失败，不把原始回话当散文
+		// 渲染出去：一张指着句子里没有的字的卡片，高亮无处可落。
+		g, okG := parseGrammarCard(sliceBlockJSON(body), sentence)
+		if !okG {
+			slog.Warn("reading block explain: grammar card failed the verbatim check",
+				"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		grammar = &g
+		body = grammarCardAsProse(g)
+		if encoded, merr := json.Marshal(map[string]any{"grammar": g}); merr == nil {
 			data = encoded
 		}
 	case tool.Shape != "prose":
@@ -592,6 +643,6 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"blockId": blockID, "tool": tool.ID, "body": body,
-		"subject": sentence, "words": words, "cached": false,
+		"subject": sentence, "words": words, "grammar": grammar, "cached": false,
 	})
 }

@@ -1941,6 +1941,98 @@
   font-weight: 500;
 }
 
+/* ---------------------------------------------------------------------------
+ * 语法卡（`GrammarCards`，2026-09-17）
+ *
+ * 句子摆在最上面，每一块一个浅底色 + 一个小序号；下面那一排按同样的序号和
+ * 颜色说它是什么。底色都是现成的 *-bg token，深色版跟着 token 走。
+ * ------------------------------------------------------------------------ */
+.mk-grammar { display: flex; flex-direction: column; gap: 10px; }
+.mk-grammar__label {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--mk-accent-700);
+}
+.mk-grammar__label--block { margin: 4px 0 -2px; }
+.mk-grammar__backbone,
+.mk-grammar__meaning {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--mk-ink);
+}
+.mk-grammar__sentence {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-surface);
+  font-size: 15px;
+  line-height: 2.05;
+  color: var(--mk-ink);
+}
+.mk-grammar__hl {
+  padding: 2px 3px;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.mk-grammar__hl-n {
+  margin-left: 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--mk-muted);
+}
+.mk-grammar__parts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mk-grammar__part {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.mk-grammar__part-n {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mk-ink);
+}
+.mk-grammar__role {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--mk-ink);
+}
+.mk-grammar__part-text {
+  font-style: italic;
+  color: var(--mk-ink);
+}
+.mk-grammar__part-note {
+  flex-basis: 100%;
+  padding-left: 26px;
+  font-size: 12.5px;
+  color: var(--mk-muted);
+}
+.mk-grammar__point-name {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+
 .mk-word-cards {
   display: grid;
   gap: 10px;
@@ -2262,6 +2354,24 @@
 }
 .mk-block-lead:first-child {
   margin-top: 0;
+}
+
+/* 她在这一段上开过哪几件工具。
+ *
+ * 🚨 产品负责人 2026-09-17 给了两条约束，这几行就是它们：
+ * 「should not be overlap with text」——它是自己的一行，跟在段落后面，不是
+ * 压在正文上的角标；「should not be too highlighted」——10px、`--mk-faint`，
+ * 比段号还淡。它只说「这儿有东西可以回去看」，不邀请她点。
+ *
+ * 往上贴 -8px：段落自己有 14px 的下边距，不收一点，这一行会飘在两段中间，
+ * 看不出它属于上面那一段。 */
+.mk-block-marks {
+  margin: -8px 0 14px;
+  padding-left: 3px;
+  font-size: 10px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  color: var(--mk-faint);
 }
 
 /* ---------------------------------------------------------------------------

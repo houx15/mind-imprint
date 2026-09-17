@@ -349,10 +349,13 @@ var readingBlockTools = []readingBlockTool{
 	},
 	{
 		// 2026-09-16：按句子讲，不再讲整段。见 readingBlockTool.Subject。
-		Shape: "prose", ID: "grammar", Label: "语法", Lang: "en", Subject: "sentence",
-		Instruction: "把这一句的结构拆给她看：先说清主干（谁 + 做什么），再说每一块修饰挂在哪、修饰的是哪个词。" +
-			"句子里有从句、倒装、插入语、非谓语、省略的，点出它的名字并说清它在这里起什么作用。" +
-			"最后用一句话把这一句的意思说出来。只讲这一句，不要扩展到整段。",
+		// 2026-09-17：从一段散文改成一张卡（shape "grammar"）。产品负责人：
+		// 「like words, become a card. sentence composition split? grammar
+		// points? with highlighting, knowledge point, cases」。结构见
+		// reading_block_grammar.go。
+		Shape: "grammar", ID: "grammar", Label: "语法", Lang: "en", Subject: "sentence",
+		Instruction: "把这一句拆给她看：主干是什么，句子分成哪几块、每一块在句子里是什么成分，" +
+			"这一句里有哪几个值得单独学的语法点，最后这一句是什么意思。",
 	},
 	{
 		// 🚨 2026-09-17：「把握度」那件工具**并进来了**，不再单独占一个按钮。

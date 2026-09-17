@@ -427,6 +427,36 @@ export function ReadingRoom({
   }, [blockNotes]);
 
   /**
+   * 她在哪几段上开过工具，各开了哪几件。
+   *
+   * 🚨 产品负责人 2026-09-17：「I want to record students' actions on these
+   * bars. so once students clicked one thing, can we reveal that in the
+   * paragraph? like tags after the texts? or something else? should not be
+   * overlap with text, should not be too highlighted. just indicate that
+   * students can view these things later.」
+   *
+   * 数据一直都在（`reading_block_note` 按 (blockId, tool) 存了一份重放），
+   * 缺的是**她看得见**：读到第十段再想回头看第三段的翻译，屏幕上没有任何东西
+   * 说那儿有一份。
+   *
+   * 「不压正文、不太抢眼」是他给的两条约束，所以这里只交出「哪一段、哪几件」，
+   * 画成一行小字跟在那一段后面（`.mk-block-marks`）。
+   */
+  const blockMarks = useMemo(() => {
+    const label = new Map(blockTools.map((t) => [t.id, t.label]));
+    const out: Record<string, string[]> = {};
+    for (const note of blockNotes) {
+      // 工具目录里没有的那一件（比如 2026-09-17 并掉的「把握度」）：她确实开过，
+      // 所以不能当它不存在；没有名字就不画 —— 一个没有名字的记号比没有记号更糟。
+      const name = label.get(note.tool);
+      if (!name) continue;
+      const had = out[note.blockId] ?? [];
+      if (!had.includes(name)) out[note.blockId] = [...had, name];
+    }
+    return out;
+  }, [blockNotes, blockTools]);
+
+  /**
    * 她**此刻正在读的那几段**，和摆在它们前面那一行小字。
    *
    * 🚨 产品负责人 2026-09-17：「the article, during 通读 stage, is becoming
@@ -745,6 +775,7 @@ export function ReadingRoom({
                   coreBlockIds={outline?.core}
                   activeBlockIds={activePart?.blockIds}
                   blockLead={activePart?.lead}
+                  blockMarks={blockMarks}
                   keywordTerms={keywordTerms}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
