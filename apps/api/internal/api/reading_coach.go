@@ -2415,9 +2415,14 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 文章上它没有指称对象。en-report 那套读法里本来就没有标注步，但
 	// `replyPromisesACard` 这条路在任何一步上都通 —— 兜底不该把一件刚被挡掉的
 	// 事从后门放进来。
+	// 🚨 只在「拆开作者的论证」那一步上建板（2026-09-17 入口走查）。原来的条件是
+	// 「标注步，**或者**话里提到了卡片」，于是在「先预测」那一步，印记 说「写在下面
+	// 这张卡上」，屏幕上出来的是一块「关键主张 / 证据」板，格子里是标题和署名 ——
+	// 话要她写，卡要她摆，正是产品负责人报的第 2 条。别的步骤上话里提到卡片，
+	// 交给下面那道 fallbackCardFor（按话里的动词给 short_text 或 pick_in_article）。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
 		hasAuthorsArgument(decodeOutline(src.Outline).Genre) &&
-		((cur.Kind == string(taskLabel) && !answeredBoard(req.CardAnswer)) || replyPromisesACard(parsed.Reply)) {
+		cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply)) {
 		focus := parsed.FocusBlock
 		if focus == "" {
 			focus = cur.BlockID
@@ -2517,6 +2522,15 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// 产出，和 hunt 要求「真的点一句」是同一种判据。
 		if current.Kind == string(taskLabel) && advance == "" && answeredBoard(req.CardAnswer) {
 			advance = "done"
+		}
+		// 🚨 话里领她去读哪几段，清单就停在哪一步（reading_coach_align.go）。
+		// 透镜开着、或者这一轮是段落工具的反馈时，上面已经把 done 拦下了，不动。
+		if !anyOpen && !toolAnswerTurn {
+			if aligned := alignAdvanceWithReply(tasks, advance, parsed.Reply); aligned != advance {
+				slog.Info("reading coach: advance realigned with the reply",
+					"atom_id", at.ID, "kind", current.Kind, "from", advance, "to", aligned)
+				advance = aligned
+			}
 		}
 		// 🚨 一步耗满六轮，我们替她往下走。
 		//

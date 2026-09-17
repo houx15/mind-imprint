@@ -221,112 +221,117 @@ export function BlockToolsPanel({
           onClose={onClose}
         />
       )}
+      {/* 🚨 这一块里的点击不算「点在工具条外面」（BlockToolbar 的 data-block-tools 判据）。
+          2026-09-17 入口走查：点一个句子、一个词、想一想的输入框、语法卡的层标签，
+          都先触发了工具条的「点外面就关」—— 这一块跟着卸掉，讲解永远出不来。 */}
+      <div data-block-tools>
 
-      {error && (
-        <p role="alert" className="mt-2 text-mk-small text-mk-danger">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p role="alert" className="mt-2 text-mk-small text-mk-danger">
+            {error}
+          </p>
+        )}
 
-      {/* 请她点一个句子。摆的是这一段切出来的真句子，不是一个输入框 ——
-          她要讲的那一句本来就在眼前，让她重打一遍是多余的。 */}
-      {picking && (
-        <div className="mk-sentence-pick">
-          <div className="mk-sentence-pick__head">
-            <span className="text-mk-caption text-mk-accent-700">
-              {picking.label} · {picking.subject === "word" ? "请点一个词" : "请选择一个句子"}
-            </span>
-            <button
-              type="button"
-              aria-label="取消选择句子"
-              onClick={() => setPicking(null)}
-              className="shrink-0 rounded-mk-xs p-0.5 text-mk-faint hover:text-mk-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-            >
-              <Icon icon={X} size={14} />
-            </button>
-          </div>
-          {picking.subject === "word" ? (
-            <p className="mk-word-pick">
-              {wordTokens(blockText).map((tok, i) =>
-                tok.word ? (
-                  <button
-                    key={i}
-                    type="button"
-                    className="mk-word-pick__word"
-                    disabled={busy !== null}
-                    onClick={() => void ask(picking, tok.text)}
-                  >
-                    {tok.text}
-                  </button>
-                ) : (
-                  <span key={i}>{tok.text}</span>
-                ),
-              )}
-            </p>
-          ) : (
-          <ul className="mk-sentence-pick__list">
-            {sentences.map((s) => (
-              <li key={s.start}>
-                <button
-                  type="button"
-                  className="mk-sentence-pick__item"
-                  disabled={busy !== null}
-                  onClick={() => void ask(picking, s.text.trim())}
-                >
-                  {s.text.trim()}
-                </button>
-              </li>
-            ))}
-          </ul>
-          )}
-        </div>
-      )}
-
-      {shown && (
-        <div
-          className="mt-2 rounded-mk-md border p-3.5"
-          style={{
-            borderColor: "var(--mk-accent-200)",
-            background: "color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-paper))",
-          }}
-        >
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-mk-caption text-mk-accent-700">{shownLabel}</span>
-            <button
-              type="button"
-              aria-label="收起这段讲解"
-              onClick={() => setOpen(null)}
-              className="shrink-0 rounded-mk-xs p-0.5 text-mk-faint hover:text-mk-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-            >
-              <Icon icon={X} size={14} />
-            </button>
-          </div>
-          {/* 讲的是哪一句，摆在讲解上面。她可能已经往下读了两段 —— 不说清楚
-              这一份讲的是哪一句，她得自己回去找。 */}
-          {shown.subject && !shown.grammar ? (
-            <p className="mk-block-note__subject">{shown.subject}</p>
-          ) : null}
-          {shown.grammar && grammarHasContent(shown.grammar) && shown.subject ? (
-            <GrammarCards sentence={shown.subject} grammar={shown.grammar} />
-          ) : shown.words && shown.words.length > 0 ? (
-            <WordCards words={shown.words} />
-          ) : (
-            <div className="text-mk-body leading-relaxed text-mk-ink">
-              <ChatMarkdown text={shown.body} />
+        {/* 请她点一个句子。摆的是这一段切出来的真句子，不是一个输入框 ——
+            她要讲的那一句本来就在眼前，让她重打一遍是多余的。 */}
+        {picking && (
+          <div className="mk-sentence-pick">
+            <div className="mk-sentence-pick__head">
+              <span className="text-mk-caption text-mk-accent-700">
+                {picking.label} · {picking.subject === "word" ? "请点一个词" : "请选择一个句子"}
+              </span>
+              <button
+                type="button"
+                aria-label="取消选择句子"
+                onClick={() => setPicking(null)}
+                className="shrink-0 rounded-mk-xs p-0.5 text-mk-faint hover:text-mk-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              >
+                <Icon icon={X} size={14} />
+              </button>
             </div>
-          )}
-          {onToolAnswer && (shown.tool === "questions" || shown.tool === "imitate") && (
-            <ToolAnswerBox
-              key={`${blockId}-${shown.tool}`}
-              label={shownLabel}
-              prompt={toolAnswerPrompt(shownLabel, ordinal, shown.body)}
-              blockId={blockId}
-              kind={shown.tool}
-              onSend={onToolAnswer}
-            />
-          )}
-        </div>
-      )}
+            {picking.subject === "word" ? (
+              <p className="mk-word-pick">
+                {wordTokens(blockText).map((tok, i) =>
+                  tok.word ? (
+                    <button
+                      key={i}
+                      type="button"
+                      className="mk-word-pick__word"
+                      disabled={busy !== null}
+                      onClick={() => void ask(picking, tok.text)}
+                    >
+                      {tok.text}
+                    </button>
+                  ) : (
+                    <span key={i}>{tok.text}</span>
+                  ),
+                )}
+              </p>
+            ) : (
+            <ul className="mk-sentence-pick__list">
+              {sentences.map((s) => (
+                <li key={s.start}>
+                  <button
+                    type="button"
+                    className="mk-sentence-pick__item"
+                    disabled={busy !== null}
+                    onClick={() => void ask(picking, s.text.trim())}
+                  >
+                    {s.text.trim()}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            )}
+          </div>
+        )}
+
+        {shown && (
+          <div
+            className="mt-2 rounded-mk-md border p-3.5"
+            style={{
+              borderColor: "var(--mk-accent-200)",
+              background: "color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-paper))",
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-mk-caption text-mk-accent-700">{shownLabel}</span>
+              <button
+                type="button"
+                aria-label="收起这段讲解"
+                onClick={() => setOpen(null)}
+                className="shrink-0 rounded-mk-xs p-0.5 text-mk-faint hover:text-mk-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              >
+                <Icon icon={X} size={14} />
+              </button>
+            </div>
+            {/* 讲的是哪一句，摆在讲解上面。她可能已经往下读了两段 —— 不说清楚
+                这一份讲的是哪一句，她得自己回去找。 */}
+            {shown.subject && !shown.grammar ? (
+              <p className="mk-block-note__subject">{shown.subject}</p>
+            ) : null}
+            {shown.grammar && grammarHasContent(shown.grammar) && shown.subject ? (
+              <GrammarCards sentence={shown.subject} grammar={shown.grammar} />
+            ) : shown.words && shown.words.length > 0 ? (
+              <WordCards words={shown.words} />
+            ) : (
+              <div className="text-mk-body leading-relaxed text-mk-ink">
+                <ChatMarkdown text={shown.body} />
+              </div>
+            )}
+            {onToolAnswer && (shown.tool === "questions" || shown.tool === "imitate") && (
+              <ToolAnswerBox
+                key={`${blockId}-${shown.tool}`}
+                label={shownLabel}
+                prompt={toolAnswerPrompt(shownLabel, ordinal, shown.body)}
+                blockId={blockId}
+                kind={shown.tool}
+                onSend={onToolAnswer}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }

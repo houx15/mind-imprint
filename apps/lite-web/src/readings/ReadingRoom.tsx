@@ -1025,8 +1025,7 @@ export function ReadingRoom({
           <div className="mk-finishask__card">
             <h2 className="text-mk-h3 text-mk-ink">完成这篇？</h2>
             <p className="mt-2 text-mk-body leading-relaxed text-mk-secondary">
-              完成之后这篇就不能再改了——透镜、批注、对话都会停在这里。
-              你走过的每一步会变成一份阅读报告。
+              你走过的每一步会汇总成一份阅读报告。之后在报告页点「继续阅读」可以回到这里接着读，再次完成时报告会重新生成。
             </p>
             {finishError && <p className="mt-3 text-mk-small text-mk-danger">{finishError}</p>}
             <div className="mt-5 flex justify-end gap-2">

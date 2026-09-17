@@ -186,6 +186,8 @@ export function BlockToolbar({
       // A click back on the same paragraph is the paragraph's own gesture to
       // handle (it toggles), so it must not ALSO be read as "outside".
       if (target && (bar.contains(target) || anchorEl.contains(target))) return;
+      // 工具打开的那一块（选句子、点词、写答案、语法卡的层标签）是这一栏的一部分。
+      if (target instanceof Element && target.closest("[data-block-tools]")) return;
       onClose();
     }
     window.addEventListener("keydown", onKey);

@@ -81,10 +81,10 @@ async function startReading(page: Page, title: string): Promise<void> {
 async function finishReading(page: Page): Promise<void> {
   await page.getByRole("button", { name: "完成这篇" }).click();
   const finalize = page.getByRole("dialog", { name: "完成这篇" });
-  // 完成之后不能再改，所以这一步要她确认一次——但只有确认，没有表格。
+  // 完成会生成报告（之后还能「继续阅读」），所以这一步要她确认一次——但只有确认，没有表格。
   await expect(finalize.getByRole("heading", { name: "完成这篇？" })).toBeVisible();
   await expect(
-    finalize.getByText("完成之后这篇就不能再改了", { exact: false }),
+    finalize.getByText("再次完成时报告会重新生成", { exact: false }),
   ).toBeVisible();
   await finalize.getByRole("button", { name: "完成，看报告" }).click();
   await expect(finalize).toBeHidden({ timeout: 30_000 });
