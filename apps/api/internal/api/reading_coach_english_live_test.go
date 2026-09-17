@@ -117,7 +117,7 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 	prompt := buildReadingCoachPrompt("不吃早餐算不算不道德？", blocks, liveEnglishOutline(),
 		liveEnglishTasks(), nil, nil, "", nil, "")
 
-	bad, twoAsks, noCard := 0, 0, 0
+	bad, twoAsks, noCard, ghost := 0, 0, 0, 0
 	for i := 0; i < 6; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		start := time.Now()
@@ -155,10 +155,20 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 			t.Logf("sample %d: 卡片 + 话又以另一个问句收尾 —— 屏幕上两道题\n  reply: %s\n  card:  %s",
 				i, got.Reply, got.Card.Prompt)
 		}
+		// 🚨 引了一句文章上、卡片上、她嘴里都没有的话。产品负责人 2026-09-17
+		// 报的第 2 条（「文本内容和卡片上的内容对应不上」），判据在
+		// reading_ghostquote.go。这里量的是它多久犯一次 —— 走的是重试那条路，
+		// 所以偶尔一次不致命，半数以上就说明那条规矩没进去。
+		if q := firstGhostQuote(got.Reply, readingQuoteCorpus("不吃早餐算不算不道德？",
+			blocks, liveEnglishOutline(), liveEnglishTasks(), nil, got.Card, nil)); q != "" {
+			ghost++
+			t.Logf("sample %d: 引了一句哪儿都没有的话 —— %q\n  reply: %s", i, q, got.Reply)
+		}
 		t.Logf("sample %d ok — advance=%q focus=%q card=%s reply=%.80s…",
 			i, got.Advance, got.FocusBlock, cardType, got.Reply)
 	}
-	t.Logf("RESULT: %d/6 rejected · 两道题 %d/6 · 没发卡片 %d/6", bad, twoAsks, noCard)
+	t.Logf("RESULT: %d/6 rejected · 两道题 %d/6 · 没发卡片 %d/6 · 引了不存在的句子 %d/6",
+		bad, twoAsks, noCard, ghost)
 	if bad > 0 {
 		t.Errorf("%d/6 English first turns unparseable — she gets 「AI 响应错误」", bad)
 	}
@@ -168,6 +178,9 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 	// 文本要求不一致。」
 	if twoAsks*2 > 6 {
 		t.Errorf("%d/6 的第一轮同时给了卡片和另一个问题 —— 她不知道该答哪一个", twoAsks)
+	}
+	if ghost*2 > 6 {
+		t.Errorf("%d/6 引了一句文章上和卡片上都没有的话 —— 她会去找那一句，找不到", ghost)
 	}
 	// 第一轮必须用一张卡片把她领进去（system prompt 的「卡片」那一节明写）。
 	if noCard*2 > 6 {

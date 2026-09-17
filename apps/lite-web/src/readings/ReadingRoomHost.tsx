@@ -7,6 +7,7 @@ import {
   getReading,
   getReadingSource,
   getReadingTakeaway,
+  reopenReading,
   putReadingSource,
   type Reading,
   type ReadingSource,
@@ -237,6 +238,13 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         reading={state.reading}
         takeaway={state.takeaway}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
+        // 重新打开之后走的是**同一条加载路径**：reloadKey 变了，上面那个 effect
+        // 再跑一遍，这一次 getReading 答的是 active，于是挂的是真的阅读室。
+        // 没有第二份「打开房间」的代码，也就不会有第二种打开方式跟它漂移。
+        onReopen={async () => {
+          await reopenReading(state.reading.id);
+          setReloadKey((k) => k + 1);
+        }}
       />
     );
   }
@@ -326,6 +334,38 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * ReopenButton —— 「继续阅读」。
+ *
+ * 自己拿着 busy 和失败那句话，因为它是这一页上唯一一个**会写**的动作，而这一页
+ * 其余部分是只读的。失败按 AGENTS.md §界面文案怎么写 规矩 8：动词+失败，
+ * 后面接后台原话。
+ */
+function ReopenButton({ onReopen }: { onReopen: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={() => {
+          setErr(null);
+          setBusy(true);
+          void onReopen()
+            .catch((e) => {
+              setErr(apiErrorText(e));
+              setBusy(false);
+            });
+        }}
+      >
+        {busy ? "正在打开…" : "继续阅读"}
+      </Button>
+      {err && <span className="text-mk-small text-mk-danger">继续阅读失败：{err}</span>}
+    </>
+  );
+}
+
+/**
  * FinishedReadingPanel — what a finished reading opens into.
  *
  * READ-ONLY BY CONSTRUCTION. There is no room here, so there is no way to
@@ -362,10 +402,13 @@ function FinishedReadingPanel({
   reading,
   takeaway,
   onBack,
+  onReopen,
 }: {
   reading: Reading;
   takeaway: string;
   onBack: () => void;
+  /** 继续阅读：把这一篇重新打开，回到原来那个阅读室。 */
+  onReopen: () => Promise<void>;
 }) {
   const day = shortDay(reading.finishedAt ?? reading.updatedAt);
   // 默认停在报告：她刚完成时想看的是结果。回看是她第二次来才要的东西。
@@ -383,6 +426,7 @@ function FinishedReadingPanel({
           已完成
         </span>
         {day && <span className="text-mk-small text-mk-muted">完成于 {day}</span>}
+        <ReopenButton onReopen={onReopen} />
         {/* A breadcrumb, not a heading: the report's hero states the title at
             display size, so this is the small line that keeps the page named
             when the report is still loading or failed to load. */}

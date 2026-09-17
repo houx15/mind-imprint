@@ -277,6 +277,22 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 	return i, err
 }
 
+const deleteUnsharedAtomReport = `-- name: DeleteUnsharedAtomReport :exec
+DELETE FROM atom_report WHERE atom_id = $1 AND share_token IS NULL
+`
+
+// 她把一篇读完的文章重新打开了，那份报告说的就不再是全部了。删掉它，下一次
+// 完成时按更全的记录重新生成一份（ensureAtomReport 找不到行就重新生成）。
+//
+// 🚨 **已经分享出去的那一份不动。** 她把链接发给了别人，那个链接上的内容不该
+// 因为她回房间多聊了两句就换掉；而报告一旦分享，share_token 也活在这一行上，
+// 删掉行等于悄悄撤销分享。代价是：分享过又重新打开的那一篇，报告停在分享的
+// 那一刻 —— 这一种要不要跟着变，是产品负责人的判断，不是这一条能替他定的。
+func (q *Queries) DeleteUnsharedAtomReport(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUnsharedAtomReport, atomID)
+	return err
+}
+
 const getAtom = `-- name: GetAtom :one
 SELECT id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at FROM atom WHERE id = $1
 `

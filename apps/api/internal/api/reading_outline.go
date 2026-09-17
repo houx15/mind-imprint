@@ -117,8 +117,19 @@ type readingOutline struct {
 	// 每一部分的主旨还是要她自己说（见 readingPart）。
 	//
 	// 允许为空：老数据没有这一项，界面据此整行不显示。
-	Gist  string            `json:"gist,omitempty"`
-	Shape string            `json:"shape"`
+	Gist string `json:"gist,omitempty"`
+	// Genre 是这篇文章的体裁，闭表：argument / report / narrative / explain。
+	//
+	// 🚨 它不摆在屏幕上 —— 它管的是**给她什么工具**。同事 2026-09-17 逐字：
+	// 「我总觉得不是所有的文章都应该按照主张、证据、限制这样的内容来拆分，
+	// 而且主张、证据、限制很多时候并不知道哪些该在哪里。」他看的那一篇是
+	// 战地新闻报道，四句话里一句作者的主张都没有，而 印记 仍然摆出了那块板。
+	//
+	// 允许为空：认不出体裁就不挡任何东西（老数据也一样）。判错的方向和别处
+	// 一致——宁可放过，不可误伤：少发一块板是少一次练习，发错一块板是让她
+	// 对着一套根本不适用的词干瞪眼。
+	Genre string `json:"genre,omitempty"`
+	Shape string `json:"shape"`
 	Load  map[string]string `json:"load"`
 	// Parts 是这篇分成的几个部分，按正文顺序。允许为空 —— 老数据没有，
 	// 校验没过的也会被整个丢掉（见 validateOutline）。
@@ -137,6 +148,45 @@ const (
 	// 少于两部分就不是分部分。一整篇算一部分，等于没切。
 	outlinePartsMin = 2
 )
+
+// 体裁闭表。四个词，和 prompt 里那一段一一对应。
+const (
+	genreArgument  = "argument"  // 作者在说服你接受一个看法
+	genreReport    = "report"    // 新闻报道：发生了什么、各方怎么说
+	genreNarrative = "narrative" // 记叙：一件事按时间讲下来
+	genreExplain   = "explain"   // 说明：讲清楚一样东西是怎么回事
+)
+
+// validateGenre 把模型给的体裁收进闭表。认不出来就是空 —— 空不挡任何东西。
+func validateGenre(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case genreArgument:
+		return genreArgument
+	case genreReport:
+		return genreReport
+	case genreNarrative:
+		return genreNarrative
+	case genreExplain:
+		return genreExplain
+	}
+	return ""
+}
+
+// hasAuthorsArgument —— 这篇文章里有没有「作者的主张」这件东西。
+//
+// 「主张 / 证据 / 限制」那块板（coachCardLabelRoles）的每一个格子都是从这个
+// 前提上长出来的：主张是**作者要你接受的那句话**，证据是拿来撑住它的，限制是
+// 作者自己承认的那一点「但是」。作者不表态的文章上，这三个格子没有指称对象 ——
+// 她只能猜，而猜出来的那一下我们还会当成她的理解回灌给 印记。
+//
+// 认不出体裁（空）时返回 true：不挡。见 Genre 的注释。
+func hasAuthorsArgument(genre string) bool {
+	switch validateGenre(genre) {
+	case genreReport, genreNarrative:
+		return false
+	}
+	return true
+}
 
 // coreShareCap 是核心段占全文的上限，写成分母：core * coreShareCap > 总段数
 // 就作废。
@@ -183,6 +233,8 @@ func (o readingOutline) blank() bool {
 //
 // 中间**允许有缝**（上一部分到 b5、下一部分从 b7 开始）：那是模型漏了一段，
 // 而漏一段的代价远小于整份丢掉。缝里的段落照常显示，只是不属于任何一部分。
+//
+// 尾巴上**不允许有缝**，但也不丢 —— 最后一个部分直接补到末段，见函数末尾。
 func validateParts(got []readingPart, blocks []Block) []readingPart {
 	if len(got) < outlinePartsMin {
 		return nil
@@ -219,6 +271,25 @@ func validateParts(got []readingPart, blocks []Block) []readingPart {
 	if len(out) < outlinePartsMin || out[0].From != blocks[0].ID {
 		return nil
 	}
+	// 🚨 **也必须切到最后一段。** 2026-09-17 走查第 1 条：一篇 18 段的文章，
+	// 通读走到第 14 段就结束了。
+	//
+	// 头一端从第一天起就有人守（上面那行），尾巴那一端没有 —— 而 2026-09-17
+	// 之后这两端的代价不再对称：切法是通读那一步的台阶
+	// （reading_plan.go 的 readingPartSteps），最后一个部分停在哪儿，
+	// **她的通读就停在哪儿**。模型漏在中间的缝还有别的步骤兜（那几段照常显示），
+	// 漏在尾巴上的那几段是彻底没人读了。
+	//
+	// 两条路都会走到这里：模型自己就没切到底，或者它切了七八个部分而
+	// outlinePartsMax 在第 6 个上 break 掉了后面的。
+	//
+	// 补而不是丢：这份切法别的地方都是对的，丢掉它换来的是通读退回
+	// 「读完告诉我一声」那个死锁（[[reading-room-rulings-2026-09-17]] 里
+	// 「整份丢掉的代价会被后来的改动悄悄放大」说的就是这件事）。补出来的那个
+	// 部分名字仍然是模型写的，只是管的段落多几段。
+	if last := len(out) - 1; out[last].To != blocks[len(blocks)-1].ID {
+		out[last].To = blocks[len(blocks)-1].ID
+	}
 	return out
 }
 
@@ -253,6 +324,7 @@ func validateOutlineWhy(got readingOutline, blocks []Block) (readingOutline, out
 	out := readingOutline{
 		OneLine: trimRunes(strings.TrimSpace(got.OneLine), outlineOneLineMaxRunes),
 		Gist:    trimRunes(strings.TrimSpace(got.Gist), outlineGistMaxRunes),
+		Genre:   validateGenre(got.Genre),
 		Shape:   trimRunes(strings.TrimSpace(got.Shape), outlineShapeMaxRunes),
 		Load:    map[string]string{},
 		// 切法单独校验，单独丢弃：它没过不该让整份导读作废（导读的其余三样

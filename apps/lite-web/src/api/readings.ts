@@ -185,6 +185,20 @@ export async function renameReading(id: string, title: string): Promise<Reading>
   });
 }
 
+/**
+ * POST /api/v1/readings/{id}/reopen —— 继续阅读。
+ *
+ * 把一篇读完的文章重新打开，她回到**原来那个阅读室**接着读、接着说话。
+ * 产品负责人 2026-09-17：「just let the students be able to come back to the
+ * reading page, the original reading page. they can even send messages!」
+ * 完成页那三格（报告·对话·原文）是给她**看**的；这一条把房子重新打开。
+ */
+export async function reopenReading(id: string): Promise<void> {
+  await apiFetch<unknown>(`/api/v1/readings/${encodeURIComponent(id)}/reopen`, {
+    method: "POST",
+  });
+}
+
 /** GET /api/v1/readings/{id}/takeaway — 「我的收获」. Never 404s: a reading
  * with nothing written yet answers 200 with an empty `text`. */
 export async function getReadingTakeaway(id: string): Promise<{ text: string; updatedAt: string }> {

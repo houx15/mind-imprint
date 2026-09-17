@@ -77,6 +77,16 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   🚨 **写作者的主张，不要写「这篇文章介绍了……」。** 后者是一句目录，不是主旨。
   这篇真的没有主张（纯叙事、纯报道），就写它在讲的那件事是什么，
   一样写成一句完整的话。
+- **genre**：这篇是哪一类，只能取这四个词之一（英文小写，照抄）：
+  - argument——作者在说服你接受一个看法（社论、议论文、书评里的立论）。
+  - report——新闻报道：发生了什么、各方怎么说，作者自己不表态。
+  - narrative——记叙：一件事按时间讲下来，或者一个人的故事。
+  - explain——说明：讲清楚一样东西是怎么回事（科普、流程、原理）。
+  🚨 拿不准就照**作者有没有在说服你**分：有就是 argument，没有就在另外三个里挑。
+  这一项管的是后面给她什么工具：那块「主张 / 证据 / 限制」的板只在 argument
+  上才成立。同事 2026-09-17 逐字报的：「我总觉得不是所有的文章都应该按照主张、
+  证据、限制这样的内容来拆分，而且主张、证据、限制很多时候并不知道哪些该在
+  哪里。」他看的那一篇是战地新闻报道——里面一句作者的主张都没有。
 - **shape**：它是怎么组织的，四到六个**中文**词，中间用 → 连。
   比如「问题 → 数据 → 让步 → 结论」「事件 → 各方反应 → 未解决的部分」。
 - **parts**：把整篇切开，按顺序，用段落编号划界。
@@ -91,7 +101,9 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   - does：这一部分**在干什么**，不超过 20 个字。说的是它的作用
     （「摆出两方的说法」「用一组数据支持前面那个判断」），
     🚨 **不是它讲了什么内容**——讲了什么要她自己去读。
-  🚨 **必须从第一段开始**，各部分之间**不许重叠**，顺序不许乱。
+  🚨 **必须从第一段开始，必须一直切到最后一段**，各部分之间**不许重叠**，
+  顺序不许乱。最后一个部分的 to 就是全文的最后一段 —— 停在中间，后面那几段
+  她就再也不会读到了。
   段落编号必须真实存在（系统会核对，对不上整份切法作废，她就没有台阶可走）。
   文章太短（少于四段）切不出两部分，就给一个空数组。
 - **load**：**每一段**的承重，一段一个值，只能取这三个之一：
@@ -118,6 +130,7 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
 只输出一个 JSON 对象：
 {"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}],
  "oneLine":"...","gist":"...","shape":"... → ... → ...",
+ "genre":"argument",
  "parts":[{"title":"...","from":"b1","to":"b3","does":"..."}],
  "load":{"b1":"bridge","b2":"core"}}
 
@@ -198,6 +211,7 @@ type readingPlanReply struct {
 	// 「这篇在问什么 / 它怎么组织 / 哪几段承重」。见 reading_outline.go。
 	OneLine string            `json:"oneLine"`
 	Gist    string            `json:"gist"`
+	Genre   string            `json:"genre"`
 	Shape   string            `json:"shape"`
 	Load    map[string]string `json:"load"`
 	Parts   []readingPart     `json:"parts"`
@@ -206,7 +220,8 @@ type readingPlanReply struct {
 // outline 把这份回复里属于导读的那几样东西拿出来。
 func (p readingPlanReply) outline() readingOutline {
 	return readingOutline{
-		OneLine: p.OneLine, Gist: p.Gist, Shape: p.Shape, Load: p.Load, Parts: p.Parts,
+		OneLine: p.OneLine, Gist: p.Gist, Genre: p.Genre,
+		Shape: p.Shape, Load: p.Load, Parts: p.Parts,
 	}
 }
 
@@ -263,6 +278,8 @@ func salvageReadingPlan(s string) (readingPlanReply, bool) {
 			_ = json.Unmarshal(raw, &got.OneLine)
 		case "gist":
 			_ = json.Unmarshal(raw, &got.Gist)
+		case "genre":
+			_ = json.Unmarshal(raw, &got.Genre)
 		case "shape":
 			_ = json.Unmarshal(raw, &got.Shape)
 		case "load":

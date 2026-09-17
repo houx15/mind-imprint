@@ -132,7 +132,7 @@ export type CoachCardAnswer = {
 
 /** 生词板的三格。写死在这里而不是由服务端发：它们和这块板是同一件东西，
  *  换了格子就是换了一块板，而服务端那一侧没有任何东西需要知道它们。 */
-const WORD_BINS = ["认识", "不确定", "不认识"];
+export const WORD_BINS = ["认识", "不确定", "不认识"];
 
 /** 一块板上待分类的那些东西，从卡片本身派生。 */
 export function boardItems(card: CoachCardSpec): BoardItem[] {
@@ -186,6 +186,40 @@ export function parseBoardAnswer(card: CoachCardSpec, choice: string): BoardPlac
 }
 
 /**
+ * 上一块板上她摆好的那些，搬到这一块板上来。
+ *
+ * 🚨 同事 2026-09-17 报的第 3 条：一块板常常要两三轮才摆对，而 印记 每一轮
+ * 重发的板是**空的** —— 上一轮她摆对的那几句，也要从头再摆一遍。
+ *
+ * 按**句子本身**认，不按 id 认：每张卡片的 id 是它自己那一份里的序号
+ * （`o0` `o1`…），两张卡片上的 `o0` 常常不是同一句话。这和
+ * `parseBoardAnswer` 认句子的办法是同一条。
+ *
+ * 两块板的格子不一样时（`label_roles` 换了一套 labels），落在这块板上没有的
+ * 那一格里的那一句就不搬 —— 搬过去她会看到一张卡片卡在一个不存在的格子里。
+ */
+export function carryOverPlacement(
+  prev: { card: CoachCardSpec; choice: string },
+  next: CoachCardSpec,
+  nextBins: string[],
+): BoardPlacement {
+  if (prev.card.type !== next.type) return {};
+  const placed = parseBoardAnswer(prev.card, prev.choice);
+  const prevText = new Map(boardItems(prev.card).map((it) => [it.id, it.text.trim()]));
+  const binByText = new Map<string, string>();
+  for (const [id, bin] of Object.entries(placed)) {
+    const text = prevText.get(id);
+    if (text && nextBins.includes(bin)) binByText.set(text, bin);
+  }
+  const out: BoardPlacement = {};
+  for (const it of boardItems(next)) {
+    const bin = binByText.get(it.text.trim());
+    if (bin) out[it.id] = bin;
+  }
+  return out;
+}
+
+/**
  * 她摆完之后，这块板变成一段什么话。
  *
  * 🚨 这段话要同时被两个人读：印记（它得看懂她把什么放进了哪儿）和**她自己**
@@ -225,6 +259,7 @@ export function CoachCard({
   answered,
   busy = false,
   stale = false,
+  prefill,
 }: {
   card: CoachCardSpec;
   /** 她点了/写了。调用方负责把它发出去并把 `answered` 传回来。 */
@@ -233,6 +268,8 @@ export function CoachCard({
   answered?: CoachCardAnswer | null;
   /** 这一轮还在飞——不接第二次作答。 */
   busy?: boolean;
+  /** 她上一次在同一块板上摆好的那些，开局就摆着。见 carryOverPlacement。 */
+  prefill?: BoardPlacement;
   /** 后面又来了一张还没答的卡：这张收起来，点一下能重新展开。 */
   stale?: boolean;
 }) {
@@ -368,6 +405,7 @@ export function CoachCard({
           }
           submitLabel={card.type === "label_roles" ? "摆好了" : "分好了"}
           busy={busy}
+          prefill={prefill}
           onSubmit={(placement) =>
             answer(composeBoardAnswer(card, placement, boardItems(card)))
           }

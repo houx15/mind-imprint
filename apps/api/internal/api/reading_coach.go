@@ -406,6 +406,13 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   问的是「哪一句最不像在讲道理」。
   收尾用陈述句把手交给她（「下面这张卡上的三句话，各挑一句看看」这种也不行，
   它仍然在复述卡片）——直接说完你要说的那件事，然后停。
+- 🚨 **加了引号的句子必须逐字照抄，一个字都不许改。**
+  你只能引三种东西：文章里的原句、这张卡片上摆着的那一条、她自己说过的话。
+  **不许把原文的两句压成一句再加引号**——产品负责人 2026-09-17 逐字报的那一幕：
+  原文写的是「Hundreds of people have been killed. Thousands have been
+  wounded.」，你写的是「Hundreds killed, Thousands wounded.」，然后让她把
+  这一句拖到证据格。板上没有这一句，她找了半天找不到。
+  要指板上那一条，就照板上那一条的样子抄；懒得抄就别加引号，说「第 4 段那句」。
 
 ### 她刚把一块板摆完的那一轮
 
@@ -1392,6 +1399,11 @@ type readingCoachReply struct {
 	// 两道题，措辞还不一样，她只能挑一道信。和 lensRetry 一样：不丢任何东西，
 	// 只让这一轮重来一次。
 	twoAsks bool
+	// ghostQuote：这一轮的话里引了一句**文章上、卡片上、她嘴里都没有**的话
+	// （reading_ghostquote.go）。存的是那句引文本身，因为日志里要有它 ——
+	// 「又引错了」和「它把原文两句压成一句」是两件不同的事。
+	// 和 twoAsks 一样：不丢任何东西，只让这一轮重来一次。
+	ghostQuote string
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -1998,6 +2010,34 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.lensRetry = true
 		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
 	}
+	// 🚨 作者不表态的文章上，那块「主张 / 证据 / 限制」的板没有指称对象。
+	//
+	// 同事 2026-09-17 逐字：「我总觉得不是所有的文章都应该按照主张、证据、
+	// 限制这样的内容来拆分，而且主张、证据、限制很多时候并不知道哪些该在哪里。」
+	// 他看的那一篇是战地新闻报道 —— 四句话里没有一句是作者的主张，她只能猜，
+	// 而猜出来的那一下我们还会当成她的理解回灌给 印记。
+	//
+	// 丢掉这一张、连着重来一次（下面那个 if 里带着 cardRejectNoArgument）：
+	// 修正话术会告诉它换哪几种卡片，所以她这一轮拿到的仍然是一件能做的事。
+	// 体裁认不出来（空）就不挡 —— 少发一块板是少一次练习，发错一块板是让她
+	// 对着一套根本不适用的词干瞪眼。
+	if okParse && parsed.Card != nil && parsed.cardWhy == cardOK &&
+		parsed.Card.Type == coachCardLabelRoles &&
+		!hasAuthorsArgument(decodeOutline(src.Outline).Genre) {
+		parsed.Card = nil
+		parsed.cardWhy = cardRejectNoArgument
+		slog.Info("reading coach: card dropped", "why", string(cardRejectNoArgument),
+			"atom_id", at.ID, "genre", decodeOutline(src.Outline).Genre)
+	}
+	// 🚨 引了一句文章上、卡片上、她嘴里都没有的话。产品负责人 2026-09-17 报的
+	// 第 2 条，见 reading_ghostquote.go。
+	//
+	// 判在这里而不在 parseReadingCoachReply 里：语料要用到转写和导读，
+	// 而那两样解析器拿不到（它只看得见这一段 JSON 和文章）。
+	if okParse {
+		parsed.ghostQuote = firstGhostQuote(parsed.Reply, readingQuoteCorpus(
+			src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, parsed.Card, lensDone))
+	}
 	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
 	// 再问一次。
 	//
@@ -2019,14 +2059,19 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 产品负责人报的第 5 条就是这两轮。
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
 		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry || parsed.twoAsks ||
+		parsed.ghostQuote != "" ||
 		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
-		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm) {
+		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm ||
+		parsed.cardWhy == cardRejectNoArgument) {
 		why := string(parsed.cardWhy)
 		if parsed.lensRetry {
 			why = parsed.lensRetryWhy
 		}
 		if parsed.twoAsks {
 			why = "the turn hands her a card AND ends its words on a different question"
+		}
+		if parsed.ghostQuote != "" {
+			why = "the reply quotes a sentence that is not in the article, on the card, or in her own words: " + parsed.ghostQuote
 		}
 		slog.Warn("reading coach: reply looks broken, retrying once",
 			"why", why,
@@ -2038,6 +2083,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 第二次只在**它确实更好**的时候采用：解析得动，而且没有被判失败。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				!again.lensRetry && !again.twoAsks &&
+				// 第二张板也一样要过体裁那一关，否则「重来一次」只是把同一张
+				// 不适用的板又发了一遍。
+				!(again.Card != nil && again.Card.Type == coachCardLabelRoles &&
+					!hasAuthorsArgument(decodeOutline(src.Outline).Genre)) &&
+				firstGhostQuote(again.Reply, readingQuoteCorpus(
+					src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, again.Card, lensDone)) == "" &&
 				(again.cardWhy == cardOK || again.cardWhy == cardRejectNoCard) {
 				res, parsed = retryRes, again
 			}
@@ -2175,7 +2226,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 一次只问一个 —— 两件器械同时摆着，她第一件要做的事就变成了「先做哪个」。
 	// 这条以前不需要，因为透镜开着时输入框是锁死的，这一轮压根不会发生；
 	// 放开输入框（她得能在找不到句子的时候求助）之后它就是一条真的路了。
+	// 🚨 `hasAuthorsArgument`：这块板摆的是「主张 / 证据 / 限制」，作者不表态的
+	// 文章上它没有指称对象。en-report 那套读法里本来就没有标注步，但
+	// `replyPromisesACard` 这条路在任何一步上都通 —— 兜底不该把一件刚被挡掉的
+	// 事从后门放进来。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && parsed.Card == nil && parsed.Lens == "" &&
+		hasAuthorsArgument(decodeOutline(src.Outline).Genre) &&
 		((cur.Kind == string(taskLabel) && !answeredBoard(req.CardAnswer)) || replyPromisesACard(parsed.Reply)) {
 		focus := parsed.FocusBlock
 		if focus == "" {

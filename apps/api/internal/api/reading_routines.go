@@ -190,6 +190,35 @@ var readingRoutines = []readingRoutine{
 		},
 	},
 	{
+		// 🚨 2026-09-17 新加。在这之前**两套英文读法都带着「标注论证」那一步**，
+		// 于是一篇战地新闻报道也会被要求按「主张 / 证据 / 限制」拆 —— 而报道里
+		// 一句作者的主张都没有。同事逐字报的：「我总觉得不是所有的文章都应该
+		// 按照主张、证据、限制这样的内容来拆分，而且主张、证据、限制很多时候
+		// 并不知道哪些该在哪里。」
+		//
+		// 中文那一侧早就有对应的那一套（zh-narrative 没有标注步）；缺的是英文。
+		// 改法和 2026-09-17 那一天别处一样：**把它变成结构**，而不是在提示词里
+		// 多写一句「报道就别摆板了」。这一套里没有那一步，也就没有那块板。
+		//
+		// 换下来的那一步是「谁在说这句话」：报道真正要练的分辨是**记者查到的
+		// 事实**和**某一方说的话**，而那件事用一句问题就问得出来，不需要另造
+		// 一套格子。
+		Key:   "en-report",
+		Lang:  "en",
+		Name:  "Read the Report",
+		Blurb: "适合英文新闻报道、人物特写——作者不表态，只讲发生了什么、各方怎么说。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇报的是一件什么事？"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先弄清楚两件事：发生了什么，牵涉到哪几方。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法，一样一样看。"},
+			{Kind: taskReflect, Label: "谁在说这句话", Detail: "哪些是记者查到的事实，哪些是某一方说的话？"},
+			{Kind: taskLens, Label: "深入思考", Detail: "请使用一张透镜卡，按卡片提示分析文章。"},
+			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
+			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这件事一句话讲完，加上你记住的两三个细节。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
+		},
+	},
+	{
 		Key:   "en-argument",
 		Lang:  "en",
 		Name:  "Follow the Argument",

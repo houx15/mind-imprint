@@ -274,6 +274,7 @@ export function CoachBoard({
   busy,
   onSubmit,
   binHints,
+  prefill,
 }: {
   items: BoardItem[];
   /** 格子的名字，按屏幕顺序。 */
@@ -284,6 +285,18 @@ export function CoachBoard({
   busy?: boolean;
   onSubmit: (placement: BoardPlacement) => void;
   /**
+   * 她上一次在同一块板上的摆放，开局就摆好。
+   *
+   * 🚨 同事 2026-09-17：「像是这种填入句子的卡片，很多时候会出现两三次交互，
+   * 对其中的具体句子进行替换的情况（比如 1、4 句正确，2 和 3 重新填写），
+   * 需要在 2、3 次调用的时候进行复用，保存上一次的填写结果，不用每一次都要
+   * 重新填。」印记 指出两句放错了，而她要重摆的是四句 —— 另外两句是她已经
+   * 做对的功课，让她再做一遍是我们在收回她的成果。
+   *
+   * 只在**开局**读一次（useState 的初值）。她接下来怎么摆都以屏幕上为准。
+   */
+  prefill?: BoardPlacement;
+  /**
    * 每个格子底下那一句白话。不给就用阅读室那一份（BIN_HINT）。
    *
    * 🚨 房间自己传，因为那句话是**站在谁的位置上说的**：阅读室说「作者要你
@@ -292,7 +305,7 @@ export function CoachBoard({
   binHints?: Record<string, string>;
 }) {
   const hints = binHints ?? BIN_HINT;
-  const b = useBoard();
+  const b = useBoard(prefill ?? {});
   const loose = items.filter((it) => !b.placed[it.id]);
   const done = loose.length === 0;
 
@@ -306,6 +319,11 @@ export function CoachBoard({
         <p className="mk-board__hint">
           {loose.length > 0 ? itemLabel : `都摆好了。请点下面的「${submitLabel}」。`}
         </p>
+        {/* 格子里开局就有东西的时候，说清它们是哪儿来的。不说的话，这块板看着
+            像是印记替她摆了一半 —— 而那正是这个产品绝不做的事。 */}
+        {prefill && Object.keys(prefill).length > 0 && (
+          <p className="mk-board__hint">已保留你上一次的摆放，请只调整需要改的那几张。</p>
+        )}
         <div className="mk-board__chips">
           {loose.map((it) => (
             <Chip

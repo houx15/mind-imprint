@@ -184,6 +184,7 @@ const (
 	cardRejectLensWon     cardReject = "a lens was given this turn, so the card was dropped (铁律③)"
 	cardRejectCutOff      cardReject = "the reply ends mid-sentence"
 	cardRejectDeadTurn    cardReject = "the turn hands her nothing to do"
+	cardRejectNoArgument  cardReject = "a 主张/证据/限制 board on an article whose author makes no argument"
 )
 
 // replyLooksCutOff —— 这句话像不像说到一半断掉了。
@@ -238,6 +239,10 @@ var cardFixIt = map[cardReject]string{
 		"要么明确请她做一件事。",
 	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
 		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
+	cardRejectNoArgument: "这篇文章的作者没有在说服谁（它是报道 / 记叙），" +
+		"所以「主张 / 证据 / 限制」这块板在这篇上没有指称对象 —— 她只能猜。" +
+		"换一种：choose_span（在几句里挑一句）、short_text（请她写一句）、" +
+		"word_bank（生词板），或者 pick_in_article（请她在文章里点一句）。",
 }
 
 // cardPromiseWords —— 这句回复是不是在**指着一张卡片说话**。

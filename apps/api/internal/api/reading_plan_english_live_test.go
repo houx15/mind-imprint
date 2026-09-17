@@ -26,7 +26,7 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 	blocks := liveEnglishBlocks()
 	prompt := buildReadingPlanPrompt("en", "Is skipping breakfast a moral failure?", blocks)
 
-	bad, noOutline, noGist, noParts := 0, 0, 0, 0
+	bad, noOutline, noGist, noParts, noGenre := 0, 0, 0, 0, 0
 	for i := 0; i < 6; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
@@ -97,7 +97,14 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 				i, plan.OneLine, plan.Gist, len(plan.Load), core, len(blocks))
 			continue
 		}
-		t.Logf("sample %d 导读 — 在问=%q", i, out.OneLine)
+		// 🚨 体裁 2026-09-17 加。它不摆在屏幕上，它管的是**给她什么工具**
+		// （那块「主张 / 证据 / 限制」的板只在 argument 上成立），所以它悄悄
+		// 空掉的样子和一切正常一模一样 —— 只有这一行看得见。
+		if out.Genre == "" {
+			noGenre++
+			t.Logf("sample %d: 没有体裁 —— 报道上那块板挡不住了。模型给的是 %q", i, plan.Genre)
+		}
+		t.Logf("sample %d 导读 — 在问=%q 体裁=%q", i, out.OneLine, out.Genre)
 		t.Logf("           中心思想=%q", out.Gist)
 		t.Logf("           结构=%q 核心段=%d", out.Shape, len(out.coreBlockIDs(blocks)))
 		if out.Gist == "" {
@@ -112,9 +119,17 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 		for _, pt := range out.Parts {
 			t.Logf("           · %s（%s–%s）%s", pt.Title, pt.From, pt.To, pt.Does)
 		}
+		// 🚨 切法必须管到最后一段。产品负责人 2026-09-17 报的第 1 条：
+		// 「18 段的文章，通读部分只 14 段就截断了。」切法停在哪儿，她的通读
+		// 就停在哪儿。服务端会把尾巴补上，所以这里量的是**最终那一份** ——
+		// 这一条挂了就说明连补都没补上。
+		if last := out.Parts[len(out.Parts)-1]; last.To != blocks[len(blocks)-1].ID {
+			t.Errorf("sample %d: 切法停在 %s，全文到 %s —— 后面那几段她再也读不到",
+				i, last.To, blocks[len(blocks)-1].ID)
+		}
 	}
-	t.Logf("RESULT: %d/6 rejected · 导读没了 %d/6 · 没有中心思想 %d/6 · 没有切法 %d/6",
-		bad, noOutline, noGist, noParts)
+	t.Logf("RESULT: %d/6 rejected · 导读没了 %d/6 · 没有中心思想 %d/6 · 没有切法 %d/6 · 没有体裁 %d/6",
+		bad, noOutline, noGist, noParts, noGenre)
 	if bad > 0 {
 		t.Errorf("%d/6 English plans unparseable — 「开始」按下去是 502", bad)
 	}
@@ -130,4 +145,8 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 	if noParts*2 > 6 {
 		t.Errorf("%d/6 没有切法 —— 通读又变回「读完告诉我一声」", noParts)
 	}
+	if noGenre*2 > 6 {
+		t.Errorf("%d/6 没有体裁 —— 报道上那块「主张/证据/限制」的板就挡不住了", noGenre)
+	}
+
 }

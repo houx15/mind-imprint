@@ -447,3 +447,59 @@ func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
 }
+
+// reopenReading is POST /api/v1/readings/{id}/reopen（继续阅读）：把一篇读完
+// 的文章重新打开，她回到**原来那个阅读室**接着读、接着跟 印记 说话。
+//
+// 产品负责人 2026-09-17 逐字：
+//
+//	we need to let students be able to view their chat history even after
+//	the reading finished … I don't want a chat-only page. just let the
+//	students be able to come back to the reading page, the original reading
+//	page. they can even send messages! to chat more.
+//
+// 完成页上那三格（报告 · 对话 · 原文，2026-09-16）解决的是「回不去看对话」，
+// 但它给的是一份**看**的东西。这一条给的是那间房子本身。
+//
+// # 和 铁律④ 的关系
+//
+// 那道 finished 写闸（loadOwnedAtom）拦的是「一个还开着的旧标签页、或者一次
+// 裸 API 调用，在她已经看到只读界面之后还在往记录里写」。她自己按下「继续
+// 阅读」不是那一种 —— 过程即数据，她回来接着读，那也是过程。所以这里要的是
+// 一个**明写出来的动作**，不是把闸拆了。
+//
+// 写作室早就有同一件事（reviseWriting，修改）。那边的做法是状态不动、另加一个
+// revisingAt，因为一篇已提交的作业要对老师维持「已提交」。阅读没有这层，所以
+// 直接把状态翻回 active，并且**把完成时间一起清掉** —— 屏幕上不该同时写着
+// 「进行中」和一个完成时间。
+func (a *API) reopenReading(w http.ResponseWriter, r *http.Request) {
+	// 🚨 Row，不是带闸的那个：这条路的**全部意义**就是在一篇已完成的阅读上
+	// 生效，走带闸的那个它会被自己要解除的那道闸拦掉。
+	at, ok := a.loadOwnedReadingAtomRow(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	if err := a.d.Queries.ReopenReading(ctx, at.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// 那份报告说的不再是全部了。删掉没分享过的那些，她下次完成时按更全的记录
+	// 重新生成一份；分享过的不动，见 DeleteUnsharedAtomReport。
+	if err := a.d.Queries.DeleteUnsharedAtomReport(ctx, at.ID); err != nil {
+		// 报告没删掉不该让她回不了房间：房间已经开了，这一步是善后。
+		slog.Warn("reopen reading: dropping the stale report failed",
+			"err", err, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+	rd, err := a.d.Queries.GetReading(ctx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	hasSrc, err := a.hasSource(r, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
+}

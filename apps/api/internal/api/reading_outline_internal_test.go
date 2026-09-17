@@ -324,3 +324,69 @@ func TestOutlineTrimsAnOverlongGist(t *testing.T) {
 		t.Errorf("中心思想 %d 字，应该截到 %d", n, outlineGistMaxRunes)
 	}
 }
+
+// --------------------------------------------------------------------------
+// 尾巴：切法必须管到最后一段
+// --------------------------------------------------------------------------
+
+// TestValidatePartsExtendsTheLastPartToTheEnd —— 产品负责人 2026-09-17 报的
+// 第 1 条，逐字：「对于长文本的通读，会在 3/4 左右截断。（下图一共有 18 段，
+// 但是通读部分只 14 段就截断了）」
+//
+// 2026-09-17 之前这只会让最后几段在导读卡上没有归属；这之后一个部分就是清单上
+// 的一步，所以切法停在哪儿，她的通读就停在哪儿。
+func TestValidatePartsExtendsTheLastPartToTheEnd(t *testing.T) {
+	blocks := outlineBlocks(18)
+	got := validateParts([]readingPart{
+		{Title: "开篇与类比", From: "b1", To: "b4"},
+		{Title: "教育的创造", From: "b5", To: "b6"},
+		{Title: "驳斥借口", From: "b7", To: "b12"},
+		{Title: "宣言与号召", From: "b13", To: "b14"},
+	}, blocks)
+	if len(got) != 4 {
+		t.Fatalf("切法被丢掉了，通读会退回一步：%+v", got)
+	}
+	if got[3].To != "b18" {
+		t.Errorf("最后一个部分停在 %s —— 第 15–18 段没有人读", got[3].To)
+	}
+	// 名字是模型写的，补的只是它管到哪儿。
+	if got[3].Title != "宣言与号召" || got[3].From != "b13" {
+		t.Errorf("补尾巴不该改别的：%+v", got[3])
+	}
+}
+
+// 切了七八个部分、被 outlinePartsMax 在第 6 个上截断的那一种，尾巴同样要补 ——
+// 否则一篇长文最后那几段永远走不到。
+func TestValidatePartsExtendsTheTailAfterTheSixPartCap(t *testing.T) {
+	blocks := outlineBlocks(24)
+	in := make([]readingPart, 0, 8)
+	for i := 0; i < 8; i++ {
+		in = append(in, readingPart{
+			Title: "第" + itoaSmall(i+1) + "部分",
+			From:  "b" + itoaSmall(i*3+1),
+			To:    "b" + itoaSmall(i*3+3),
+		})
+	}
+	got := validateParts(in, blocks)
+	if len(got) != outlinePartsMax {
+		t.Fatalf("应该留下 %d 个部分，得到 %d", outlinePartsMax, len(got))
+	}
+	if got[len(got)-1].To != "b24" {
+		t.Errorf("截断之后尾巴没补：最后一个部分停在 %s，后面 6 段没人读", got[len(got)-1].To)
+	}
+}
+
+// 已经切到底的那一份，一个字都不该动。
+func TestValidatePartsLeavesAFullSplitAlone(t *testing.T) {
+	blocks := outlineBlocks(12)
+	got := validateParts(goodParts(), blocks)
+	want := goodParts()
+	if len(got) != len(want) {
+		t.Fatalf("len=%d", len(got))
+	}
+	for i := range got {
+		if got[i].To != want[i].To || got[i].From != want[i].From {
+			t.Errorf("第 %d 个部分被改了：%+v，原来是 %+v", i, got[i], want[i])
+		}
+	}
+}

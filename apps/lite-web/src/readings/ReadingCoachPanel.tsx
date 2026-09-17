@@ -3,7 +3,14 @@ import { Play } from "lucide-react";
 import { Button, Icon, Pebble } from "@/ui";
 import { Composer } from "@/studio/ai/Composer";
 import type { ReadingCoachSlot } from "./ReadingRoom";
-import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard";
+import {
+  CoachCard,
+  carryOverPlacement,
+  WORD_BINS,
+  type CoachCardAnswer,
+  type CoachCardSpec,
+} from "./CoachCard";
+import type { BoardPlacement } from "./CoachBoards";
 import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { ThinkingFold } from "./ThinkingFold";
 import { ApiError } from "../api/client";
@@ -159,11 +166,34 @@ export function ReadingCoachPanel({
     // 旧卡片会因为顶上了「最新未答」的位置而**自己弹开**，下一条回复到达时又折
     // 回去——真实走查的 `05-turn1-card-AFTER-tap.png` 拍到的就是这一下抖动。
     // 折叠状态该跟着「她是不是已经往下走了」，而这件事一旦发生就不会倒退。
+    // 🚨 同一块板重发的时候，把她上一次摆好的那些搬过来（同事 2026-09-17
+    // 报的第 3 条，见 carryOverPlacement）。「上一次」= 这张卡之前**最近一次
+    // 答过的同类型的板**；答过的那些自己有 answered，不需要预填。
+    const prefillBySeq = new Map<number, BoardPlacement>();
+    let lastBoard: { card: CoachCardSpec; choice: string } | null = null;
+    for (const m of messages) {
+      const card = cardBySeq.get(m.seq);
+      if (!card) continue;
+      const isBoard = card.type === "label_roles" || card.type === "word_bank";
+      const answer = answerBySeq.get(m.seq);
+      if (isBoard && !answer && lastBoard) {
+        const bins = card.type === "label_roles" ? card.labels ?? [] : WORD_BINS;
+        const carried = carryOverPlacement(lastBoard, card, bins);
+        if (Object.keys(carried).length > 0) prefillBySeq.set(m.seq, carried);
+      }
+      if (isBoard && answer) lastBoard = { card, choice: answer.choice };
+    }
     const stale = new Set(open.filter((o) => newest !== null && o.seq < newest).map((o) => o.seq));
     // 敞开的那张 = 最后到达的那张，且她还没答。她答完之后没有卡片自动接班：
     // 一张折起来的旧卡片不该在背后悄悄接住她下一次在文章里点的那一句。
     const last = open.at(-1) ?? null;
-    return { cardBySeq, answerBySeq, open: last && last.seq === newest ? last : null, stale };
+    return {
+      cardBySeq,
+      answerBySeq,
+      prefillBySeq,
+      open: last && last.seq === newest ? last : null,
+      stale,
+    };
   }, [messages]);
 
   async function turn(
@@ -404,6 +434,7 @@ export function ReadingCoachPanel({
                 // 那一个，不然一副敞开的透镜底下那张旧卡又能点了。
                 busy={busy || slot.locked || Boolean(slot.lensOpen)}
                 stale={cards.stale.has(m.seq)}
+                prefill={cards.prefillBySeq.get(m.seq)}
                 onAnswer={send}
               />
             </div>

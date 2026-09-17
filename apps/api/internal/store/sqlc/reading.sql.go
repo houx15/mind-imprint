@@ -515,6 +515,28 @@ func (q *Queries) RenameReading(ctx context.Context, arg RenameReadingParams) er
 	return err
 }
 
+const reopenReading = `-- name: ReopenReading :exec
+UPDATE reading SET status = 'active', finished_at = NULL, updated_at = now()
+WHERE atom_id = $1 AND status = 'finished'
+`
+
+// 把一篇已完成的阅读重新打开，她回到原来那个房间接着读、接着说话。
+//
+// 产品负责人 2026-09-17：「just let the students be able to come back to the
+// reading page, the original reading page. they can even send messages! to
+// chat more.」—— 不是另做一个只读的对话页，是这一间房子本身还开着。
+//
+// finished_at 跟着清掉：这一刻它不是一篇完成了的阅读，屏幕上也不该显示一个
+// 完成时间。她再按一次「完成这篇」时 SetReadingFinished 会盖一个新的 —— 那是
+// 真的又完成了一次，不是 SetReadingFinished 注释里说的那种「悄悄漂移」。
+//
+// 守着 status = 'finished'：没完成过的阅读调这一条是 no-op，不会把别的什么
+// 状态洗掉。
+func (q *Queries) ReopenReading(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, reopenReading, atomID)
+	return err
+}
+
 const replaceReadingTasks = `-- name: ReplaceReadingTasks :many
 WITH deleted AS (
   DELETE FROM reading_task WHERE atom_id = $1
