@@ -54,6 +54,36 @@ func TestProtocolLeakDoesNotFireOnTheArticlesOwnEnglish(t *testing.T) {
 	}
 }
 
+// 2026-09-17 入口走查（星图那篇果蝇脑图）：取值单独漏出来，前面没有 advance。
+// 只拿掉那个词，前面那半句是真话，要留着。
+func TestBareStatusWordIsStrippedAlone(t *testing.T) {
+	leaky := "你点的是第7段开头那句，它确实最干脆。第6段交代了雌果蝇图谱做到了什么规模，第7段接着讲这次怎么做，done。"
+	if firstProtocolLeak(leaky) == "" {
+		t.Fatal("「，done。」没被抓到")
+	}
+	want := "你点的是第7段开头那句，它确实最干脆。第6段交代了雌果蝇图谱做到了什么规模，第7段接着讲这次怎么做。"
+	if got := stripProtocolLeak(leaky); got != want {
+		t.Errorf("got  %q\nwant %q", got, want)
+	}
+	for _, leaky := range []string{"这一步完成了。done", "好，我们跳过这一步 skipped。", "这一段读完了。Done。"} {
+		if firstProtocolLeak(leaky) == "" {
+			t.Errorf("没抓到：%q", leaky)
+		}
+		if got := stripProtocolLeak(leaky); strings.Contains(strings.ToLower(got), "done") || strings.Contains(got, "skipped") {
+			t.Errorf("没拿干净：%q → %q", leaky, got)
+		}
+	}
+	// 引英文原文时那个词是原文的一部分。
+	for _, fine := range []string{
+		"第2段说「the work is done.」，你觉得是谁做完的？",
+		"注意 well done 这个搭配。",
+	} {
+		if w := firstProtocolLeak(fine); w != "" {
+			t.Errorf("误判（%q）：%q", w, fine)
+		}
+	}
+}
+
 // 整条回复只有协议词的时候，还给原话 —— 空回复比一句怪话更糟，而且
 // 「这一轮什么都没请她做」那道闸在守着。
 func TestStripProtocolLeakNeverReturnsNothing(t *testing.T) {

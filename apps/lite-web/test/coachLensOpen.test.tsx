@@ -128,7 +128,7 @@ describe("透镜开着的时候", () => {
   // `locked` 没有被删掉，只是收窄了：上一轮还在飞的时候照旧不让发第二轮。
   it("上一轮还在飞的时候仍然锁着", () => {
     render(panel(slot({ locked: true })));
-    const box = screen.getByPlaceholderText("读完这一步，跟印记说一声") as HTMLTextAreaElement;
+    const box = screen.getByPlaceholderText("请输入你的回答或问题") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "我读完了。" } });
     fireEvent.click(screen.getByLabelText("发送"));
     expect(postTurn).not.toHaveBeenCalled();

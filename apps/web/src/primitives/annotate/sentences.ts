@@ -28,7 +28,10 @@ function asciiDotIsBoundary(chars: string[], i: number): boolean {
   const next = chars[i + 1];
   if (isDigit(prev) && isDigit(next)) return false; // decimal: 3.5
   // Single capital letter preceded by a non-letter → initial/abbrev: "U.S.", "e.g."
-  if (isAlpha(prev) && !isAlpha(chars[i - 2])) return false;
+  // A letter right after a digit is a plural or a unit ("1990s.", "5km."), not
+  // an initial. Lite's grammar picker glued "…in the 1990s. Donald Shoup…"
+  // into one sentence (2026-09-17).
+  if (isAlpha(prev) && !isAlpha(chars[i - 2]) && !isDigit(chars[i - 2])) return false;
   // Only break when what follows starts a new sentence: end, space, CJK, or a
   // closing quote/bracket that belongs to this sentence (e.g. `He said "go."`).
   return next === undefined || isSpace(next) || isCJK(next) || TRAILERS.has(next);

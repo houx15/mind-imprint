@@ -35,6 +35,31 @@ func TestCutRelatedTrailerVariants(t *testing.T) {
 	}
 }
 
+// Quanta 的页尾（2026-09-17 入口走查）：订阅提示 → 「Also in Biology」→ 几个标题 →
+// 评论须知 → 「Next article」。
+func TestCutRelatedTrailerQuantaFooter(t *testing.T) {
+	body := strings.Join([]string{
+		"A round 700 million years ago, a group of organisms resembling glowing blobs split off.",
+		"Over the past decade, ctenophores have helped answer long-standing questions.",
+		"C. veneris uses cilia and muscular undulation to glide through the water column.",
+		"Get highlights of the most important news delivered to your email inbox",
+		"Also in Biology",
+		"Genome Duplication Is a Radical Evolutionary Gamble",
+		"Comment on this article",
+		"Quanta Magazine moderates comments to facilitate an informed conversation.",
+		"Next article",
+	}, "\n\n")
+	got := CutRelatedTrailer(body)
+	if !strings.HasSuffix(got, "through the water column.") {
+		t.Errorf("页尾没切干净：%q", got)
+	}
+	// 正文里的「also in」句子不动。
+	fine := "One.\n\nTwo.\n\nThe same pattern appears also in birds and bats, the authors note.\n\nThree."
+	if CutRelatedTrailer(fine) != fine {
+		t.Error("正文里带 also in 的句子被当成栏目标题了")
+	}
+}
+
 // 🚨 只认「整段就是这句话」，而且前面至少有两段正文。
 func TestCutRelatedTrailerLeavesRealTextAlone(t *testing.T) {
 	cases := []string{

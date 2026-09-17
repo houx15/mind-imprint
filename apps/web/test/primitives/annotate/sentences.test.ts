@@ -2,6 +2,16 @@ import { describe, it, expect } from "vitest";
 import { segmentSentences, sentenceAtOffset } from "@/primitives/annotate/sentences";
 
 describe("segmentSentences", () => {
+  it("splits after a decade or a unit (1990s. / 5km.) but keeps initials", () => {
+    const segs = segmentSentences("Economists began to question these rules in the 1990s. Donald Shoup disagreed.");
+    expect(segs.map((s) => s.text)).toEqual([
+      "Economists began to question these rules in the 1990s.",
+      "Donald Shoup disagreed.",
+    ]);
+    expect(segmentSentences("They walked 5km. Then they rested.")).toHaveLength(2);
+    expect(segmentSentences("The U.S. economy grew.")).toHaveLength(1);
+  });
+
   it("splits Chinese sentences on 。！？ and keeps the terminator", () => {
     const segs = segmentSentences("中国碳排放全球第一。这是要正面处理的反例！你怎么看？");
     expect(segs.map((s) => s.text)).toEqual([

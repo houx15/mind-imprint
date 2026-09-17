@@ -2415,14 +2415,19 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 文章上它没有指称对象。en-report 那套读法里本来就没有标注步，但
 	// `replyPromisesACard` 这条路在任何一步上都通 —— 兜底不该把一件刚被挡掉的
 	// 事从后门放进来。
-	// 🚨 只在「拆开作者的论证」那一步上建板（2026-09-17 入口走查）。原来的条件是
-	// 「标注步，**或者**话里提到了卡片」，于是在「先预测」那一步，印记 说「写在下面
-	// 这张卡上」，屏幕上出来的是一块「关键主张 / 证据」板，格子里是标题和署名 ——
-	// 话要她写，卡要她摆，正是产品负责人报的第 2 条。别的步骤上话里提到卡片，
-	// 交给下面那道 fallbackCardFor（按话里的动词给 short_text 或 pick_in_article）。
+	// 🚨 什么时候兜一块板（2026-09-17 入口走查，两次）：
+	//   - 「拆开作者的论证」那一步；
+	//   - 别的步骤上，话里说的是**板**（拖到、角色、格子），而且没请她写。
+	// 原来的条件是「标注步，**或者**话里提到了任何卡片」，于是在「先预测」那一步
+	// 印记 说「写在下面这张卡上」，屏幕上出来一块「关键主张 / 证据」板 —— 话要她写，
+	// 卡要她摆（第一批反馈第 2 条）。只收成「标注步」又矫枉过正：精读那一步印记说
+	// 「把每一句拖到它该在的角色里」，屏幕上一块板都没有。
+	// 板数上限对兜底一样生效 —— 模型那块被上限挡掉的板不能从这里再建出来。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
 		hasAuthorsArgument(decodeOutline(src.Outline).Genre) &&
-		cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply)) {
+		countLabelBoards(msgs) < maxLabelBoards &&
+		((cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply))) ||
+			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
 		focus := parsed.FocusBlock
 		if focus == "" {
 			focus = cur.BlockID
@@ -2798,6 +2803,16 @@ func replyOnlyAsksHerToRead(reply string) bool {
 //
 // 问题优先用 印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
 // 本身是好的）。它连题都没写才用中性的那句。
+// replyAsksToWrite —— 这句回复是在请她打字。
+func replyAsksToWrite(reply string) bool {
+	for _, w := range []string{"写几个字", "写下", "写一", "写出", "打字", "用你自己的话", "写在"} {
+		if strings.Contains(reply, w) {
+			return true
+		}
+	}
+	return false
+}
+
 func fallbackCardFor(asked, reply string) *coachCard {
 	// 🚨 兜底那张卡要她做的事，必须和话里说的是同一件事。
 	//
@@ -2809,22 +2824,28 @@ func fallbackCardFor(asked, reply string) *coachCard {
 	//
 	// 两种形状都不可能被驳回（都没有 options，也就没有「引文对不上原文」
 	// 可言），所以按话里的动词挑：请她写就给 short_text，其余给 pick_in_article。
-	write := false
-	for _, w := range []string{"写几个字", "写下", "写一", "写出", "打字", "用你自己的话", "写在"} {
-		if strings.Contains(reply, w) {
-			write = true
-			break
-		}
-	}
 	kind, neutral := coachCardPickInArticle, "请在文章里点出你想说的那一句。"
-	if write {
+	if replyAsksToWrite(reply) {
 		kind, neutral = coachCardShortText, "请用你自己的话写一句。"
 	}
 	prompt := strings.TrimSpace(asked)
-	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
+	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes ||
+		promptPresumesOptions(prompt) {
 		prompt = neutral
 	}
 	return &coachCard{Type: kind, Prompt: prompt}
+}
+
+// promptPresumesOptions —— 这道题要的是一组摆在卡上的句子（「分析下列句子，判断
+// 它们各自属于……」）。兜底的两种卡都没有选项，照抄这道题她就对着一张空卡被要求
+// 分类（2026-09-17 入口走查，星图那篇果蝇脑图）。
+func promptPresumesOptions(prompt string) bool {
+	for _, w := range []string{"下列", "下面这几句", "以下几句", "各自属于", "分别属于", "每一句"} {
+		if strings.Contains(prompt, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // escapeRawControlInStrings 把 JSON 字符串值里没转义的控制字符（换行、回车、
