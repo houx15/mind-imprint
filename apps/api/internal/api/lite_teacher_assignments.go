@@ -55,6 +55,14 @@ type RecipientDTO struct {
 	ReturnDueAt  *string `json:"returnDueAt"`
 	ReturnNote   *string `json:"returnNote"`
 	VersionCount int     `json:"versionCount"`
+	// How far she got: minutes spent in the item, reading steps done of the
+	// plan (0/0 before a plan exists), and the latest submitted version's
+	// word count. Real-user walk, 2026-09-17: a student who finished after 2
+	// of 14 steps and one who finished after 11 of 15 both read 「已完成」.
+	ActiveMinutes   int `json:"activeMinutes"`
+	StepsDone       int `json:"stepsDone"`
+	StepsTotal      int `json:"stepsTotal"`
+	LatestWordCount int `json:"latestWordCount"`
 	// Reading is this student's article on a personalized reading homework; nil otherwise.
 	Reading *RecipientReadingDTO `json:"reading"`
 }
@@ -139,6 +147,8 @@ func newRecipientDTO(row sqlc.ListLiteAssignmentRecipientsRow, dueAt, now time.T
 		FinishedAt: tsStringPtr(row.FinishedAt), SeenAt: tsStringPtr(row.SeenAt),
 		ReturnedAt: tsStringPtr(row.ReturnedAt), ReturnDueAt: tsStringPtr(row.ReturnDueAt),
 		ReturnNote: row.ReturnNote, VersionCount: int(row.VersionCount),
+		ActiveMinutes: int(row.ActiveSeconds) / 60, StepsDone: int(row.StepsDone), StepsTotal: int(row.StepsTotal),
+		LatestWordCount: int(row.LatestWordCount),
 	}
 }
 

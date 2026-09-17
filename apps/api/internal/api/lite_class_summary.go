@@ -210,7 +210,9 @@ func liteClassSummaryFacts(cls sqlc.Class, weekLabel string, stats liteweekly.Cl
 	counts = append(counts, stats.ClassSize)
 	fmt.Fprintf(&b, "本周活跃学生数：%d\n", stats.ActiveStudents)
 	counts = append(counts, stats.ActiveStudents)
-	fmt.Fprintf(&b, "完成项数：%d\n", stats.Finished)
+	// Measured 2026-09-17: the summary called these 「完成4项作业」 while one of
+	// the four was a reading the student started herself.
+	fmt.Fprintf(&b, "完成项数：%d（本周完成的阅读、写作、项目，含学生自己开始的，不全是作业）\n", stats.Finished)
 	counts = append(counts, stats.Finished)
 	// AssignmentRate is NOT added to counts: it is a percentage, not a head
 	// count, and a bare number sitting in the grounded set laundered any reply

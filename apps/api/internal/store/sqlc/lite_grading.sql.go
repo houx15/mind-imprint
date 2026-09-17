@@ -645,6 +645,47 @@ func (q *Queries) SetLiteGradingFailed(ctx context.Context, arg SetLiteGradingFa
 	return result.RowsAffected(), nil
 }
 
+const startManualOnFailedLiteGrading = `-- name: StartManualOnFailedLiteGrading :one
+UPDATE lite_grading
+SET status = 'draft', content = $1::jsonb, ai = NULL, error = NULL,
+    requested_by = $2, updated_at = now()
+WHERE id = $3 AND status = 'failed' AND content IS NULL
+RETURNING id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at
+`
+
+type StartManualOnFailedLiteGradingParams struct {
+	Content     []byte    `json:"content"`
+	RequestedBy uuid.UUID `json:"requested_by"`
+	ID          uuid.UUID `json:"id"`
+}
+
+// AI 批改失败（没有内容）之后改为人工批改：同一行变成老师的空白草稿。
+// 否则老师在 AI 连续失败时既不能人工批改（这一版已有一行），也改不了这一行。
+func (q *Queries) StartManualOnFailedLiteGrading(ctx context.Context, arg StartManualOnFailedLiteGradingParams) (LiteGrading, error) {
+	row := q.db.QueryRow(ctx, startManualOnFailedLiteGrading, arg.Content, arg.RequestedBy, arg.ID)
+	var i LiteGrading
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.VersionID,
+		&i.UserID,
+		&i.ClassID,
+		&i.AssignmentID,
+		&i.Rubric,
+		&i.Status,
+		&i.Ai,
+		&i.Content,
+		&i.Error,
+		&i.RequestedBy,
+		&i.ReviewedAt,
+		&i.SentAt,
+		&i.StudentSeenAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateLiteGradingContent = `-- name: UpdateLiteGradingContent :one
 UPDATE lite_grading
 SET content = COALESCE($1::jsonb, content),

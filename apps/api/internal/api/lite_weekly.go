@@ -61,6 +61,18 @@ func (a *API) loadLiteStudentWeekWithRoster(ctx context.Context, classID, userID
 	return liteweekly.StudentWeek{}, nil, pgx.ErrNoRows
 }
 
+// liteWeekAsOf is the moment a week's homework is judged at: the week's end,
+// or now while the week is still running. Judging the current week at its end
+// counted a reading due Friday 21:00 as overdue on Thursday, and the class
+// summary told the teacher that student had 「1份到期作业未完成」
+// (real-user walk, 2026-09-17).
+func liteWeekAsOf(weekEnd, now time.Time) time.Time {
+	if now.Before(weekEnd) {
+		return now
+	}
+	return weekEnd
+}
+
 // loadLiteWeeks runs each fact query once for all members and groups the rows
 // by user id. The result keeps the members' order.
 func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sqlc.ListLiteWeekClassStudentsRow, weekStart time.Time) ([]liteweekly.StudentWeek, error) {
@@ -132,7 +144,7 @@ func (a *API) loadLiteWeeks(ctx context.Context, classID uuid.UUID, members []sq
 		if fin != nil && !fin.Before(we) {
 			fin = nil
 		}
-		switch liteassign.Status(r.StartedAt.Valid, fin, r.DueAt, we) {
+		switch liteassign.Status(r.StartedAt.Valid, fin, r.DueAt, liteWeekAsOf(we, time.Now())) {
 		case "done":
 			s.AssignmentsDone++
 		case "done_late":

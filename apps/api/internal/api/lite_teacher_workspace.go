@@ -61,6 +61,9 @@ type liteWorkspaceTurnRequest struct {
 	// in the embedded catalogue before it is used, so the worst a forged value
 	// can do is pick a different real article for the teacher who forged it.
 	ChoiceSlug string `json:"choiceSlug"`
+	// ChoiceLabel is the tapped option's label as she saw it. Read by the
+	// model beside the id, never used as evidence (it is client-supplied).
+	ChoiceLabel string `json:"choiceLabel"`
 }
 
 // liteWorkspaceTurnDTO is §4.4's response. patch carries only the fields a
@@ -414,6 +417,12 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 		// {id: "林知遥-alone"} would otherwise get that name grounded the moment
 		// she clicked the button, which is laundering by another route.
 		said = strings.TrimSpace(req.ChoiceID)
+		// The label she saw goes beside the id. With the id alone the model
+		// read 「usage_compare」 as something she typed and asked her what that
+		// English abbreviation meant (real-user walk, 2026-09-17).
+		if label := strings.TrimSpace(req.ChoiceLabel); said != "" && label != "" {
+			said = "（点选了选项「" + liteWorkspaceClampRunes(label, 200) + "」，选项 id：" + said + "）"
+		}
 	}
 	if said == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入", nil))
@@ -549,9 +558,11 @@ func (a *API) postLiteTeacherWorkspaceTurn(w http.ResponseWriter, r *http.Reques
 	// have to see the model's own words, and a slug the model invented (one
 	// that library.BySlug cannot find) is left exactly as it is written, which
 	// is what makes it visible to a human reading the failure later.
-	reply = liteWorkspaceDeslugged(reply)
+	// Dates the model copied from the card's input value (2026-09-18T21:00)
+	// are written the way a teacher reads them.
+	reply = liteworkspace.HumanizeDatetimes(liteWorkspaceDeslugged(reply))
 	for i := range choices {
-		choices[i].Label = liteWorkspaceDeslugged(choices[i].Label)
+		choices[i].Label = liteworkspace.HumanizeDatetimes(liteWorkspaceDeslugged(choices[i].Label))
 		// Article is enriched from the catalogue, not from the model's words,
 		// so it runs on the untouched Slug rather than on liteWorkspaceDeslugged's
 		// output.

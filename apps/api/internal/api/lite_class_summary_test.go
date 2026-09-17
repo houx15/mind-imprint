@@ -456,3 +456,47 @@ func TestClassSummaryListSizeIsGrounded(t *testing.T) {
 		}
 	}
 }
+
+// TestClassSummaryNotYetDueIsNotOverdue: the summary reads the week that is
+// still running. A homework due later this week and not finished yet is not
+// overdue; one whose deadline has passed is. Real-user walk, 2026-09-17: on
+// Thursday the summary said a student had 「1份到期作业未完成」 for a reading
+// due Friday 21:00.
+func TestClassSummaryNotYetDueIsNotOverdue(t *testing.T) {
+	now := time.Now()
+	weekStart := liteweek.WeekStart(now)
+	weekEnd := weekStart.AddDate(0, 0, 7)
+	if weekEnd.Sub(now) < 10*time.Minute || now.Sub(weekStart) < 10*time.Minute {
+		t.Skip("too close to a week boundary to place both deadlines inside this week")
+	}
+	for _, tc := range []struct {
+		name    string
+		due     time.Time
+		overdue bool
+	}{
+		{"due later this week", now.Add(5 * time.Minute), false},
+		{"due earlier this week", now.Add(-5 * time.Minute), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prov := gateway.NewStubProvider(weeklyReply("这周班级整体参与平稳。"))
+			h, pool, teacher, classID, studentID := liteClassSummaryFixture(t, prov)
+			mustExec(t, pool, `INSERT INTO lite_assignment (class_id, created_by, kind, title, instructions, payload, due_at)
+				SELECT $1, user_id, 'reading', '阅读作业', '', '{"source":"text","text":"这是一段足够长的阅读材料，用来布置这份作业。"}', $2
+				FROM enrollments WHERE class_id = $1 AND role_in_class = 'teacher'`, classID, tc.due)
+			mustExec(t, pool, `INSERT INTO lite_assignment_recipient (assignment_id, user_id)
+				SELECT id, $2 FROM lite_assignment WHERE class_id = $1`, classID, studentID)
+			// Active today: a student with no activity gets the inactivity card
+			// instead, and only one watch card is shown per student.
+			mustExec(t, pool, `WITH a AS (INSERT INTO atom (kind, user_id) VALUES ('reading', $1) RETURNING id)
+				INSERT INTO atom_active_day (atom_id, day, seconds) SELECT id, $2, 60 FROM a`, studentID, liteweek.Day(now))
+
+			if code, _, body := postSummary(t, h, teacher, classID); code != http.StatusOK {
+				t.Fatalf("summary = %d; body=%s", code, body)
+			}
+			prompt := lastUserPrompt(t, prov)
+			if got := strings.Contains(prompt, "份未完成"); got != tc.overdue {
+				t.Fatalf("overdue in facts = %v, want %v:\n%s", got, tc.overdue, prompt)
+			}
+		})
+	}
+}

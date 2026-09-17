@@ -41,6 +41,25 @@ func TestPointsAtButton(t *testing.T) {
 	}
 }
 
+func TestOnlyAQuestion(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{
+		{"接下来想看什么？", true}, // live, 2026-09-17, twice
+		{"接下来您想怎么做？", true},
+		{"名单上的学生本周还没有开始学习。您想看看该生的学习页，还是查看全班本周报告？", false},
+		{"本周整体情况已列在左侧！需要我打开本周报告吗？", false},
+		{"只有这两名学生还没开始，接下来想做什么？", false},
+		{"好的", false},
+		{"", false},
+	} {
+		if got := OnlyAQuestion(tc.text); got != tc.want {
+			t.Errorf("OnlyAQuestion(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
 func TestOffersMessage(t *testing.T) {
 	for _, tc := range []struct {
 		text string

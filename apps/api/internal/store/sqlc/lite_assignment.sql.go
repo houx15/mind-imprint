@@ -303,9 +303,16 @@ SELECT r.assignment_id, r.user_id, r.seen_at, r.atom_id, r.started_at,
        COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
        COALESCE((SELECT count(*) FROM writing_version v WHERE v.atom_id = r.atom_id), 0)::int AS version_count,
        EXISTS (SELECT 1 FROM writing_version v
-               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
+               WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted,
+       -- 老师看「做得多深」：学习时长、阅读步骤完成数、最新提交版本的字数。
+       COALESCE(at.active_seconds, 0)::int AS active_seconds,
+       (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id AND t.status = 'done')::int AS steps_done,
+       (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id)::int AS steps_total,
+       COALESCE((SELECT v.word_count FROM writing_version v WHERE v.atom_id = r.atom_id
+                 ORDER BY v.number DESC LIMIT 1), 0)::int AS latest_word_count
 FROM lite_assignment_recipient r
 JOIN users u ON u.id = r.user_id
+LEFT JOIN atom at ON at.id = r.atom_id
 LEFT JOIN reading rd ON rd.atom_id = r.atom_id
 LEFT JOIN writing w ON w.atom_id = r.atom_id
 LEFT JOIN pbl_project p ON p.atom_id = r.atom_id
@@ -314,19 +321,23 @@ ORDER BY u.display_name
 `
 
 type ListLiteAssignmentRecipientsRow struct {
-	AssignmentID uuid.UUID          `json:"assignment_id"`
-	UserID       uuid.UUID          `json:"user_id"`
-	SeenAt       pgtype.Timestamptz `json:"seen_at"`
-	AtomID       pgtype.UUID        `json:"atom_id"`
-	StartedAt    pgtype.Timestamptz `json:"started_at"`
-	ReturnedAt   pgtype.Timestamptz `json:"returned_at"`
-	ReturnDueAt  pgtype.Timestamptz `json:"return_due_at"`
-	ReturnNote   *string            `json:"return_note"`
-	DisplayName  string             `json:"display_name"`
-	AvatarColor  string             `json:"avatar_color"`
-	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
-	VersionCount int32              `json:"version_count"`
-	Resubmitted  bool               `json:"resubmitted"`
+	AssignmentID    uuid.UUID          `json:"assignment_id"`
+	UserID          uuid.UUID          `json:"user_id"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	AtomID          pgtype.UUID        `json:"atom_id"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	ReturnedAt      pgtype.Timestamptz `json:"returned_at"`
+	ReturnDueAt     pgtype.Timestamptz `json:"return_due_at"`
+	ReturnNote      *string            `json:"return_note"`
+	DisplayName     string             `json:"display_name"`
+	AvatarColor     string             `json:"avatar_color"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	VersionCount    int32              `json:"version_count"`
+	Resubmitted     bool               `json:"resubmitted"`
+	ActiveSeconds   int32              `json:"active_seconds"`
+	StepsDone       int32              `json:"steps_done"`
+	StepsTotal      int32              `json:"steps_total"`
+	LatestWordCount int32              `json:"latest_word_count"`
 }
 
 // 一份作业的每个学生，连同她那一项的完成时间、退回信息和提交版本数。
@@ -354,6 +365,10 @@ func (q *Queries) ListLiteAssignmentRecipients(ctx context.Context, assignmentId
 			&i.FinishedAt,
 			&i.VersionCount,
 			&i.Resubmitted,
+			&i.ActiveSeconds,
+			&i.StepsDone,
+			&i.StepsTotal,
+			&i.LatestWordCount,
 		); err != nil {
 			return nil, err
 		}

@@ -452,7 +452,7 @@ func TestWorkspaceTurnMetersOnDialogue(t *testing.T) {
 func TestWorkspaceTurnPatchesOnlyWhatToolsWrote(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_fields", `{"kind":"writing","title":"中国是否让地球变得更可持续？","dueAt":"2026-09-18T18:00"}`),
-		wsText("题目和截止时间已经填好，说明还需要你补一句。"),
+		wsText("标题和截止时间已经填好，说明还需要你补一句。"),
 	)
 	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
 

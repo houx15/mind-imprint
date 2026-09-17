@@ -38,6 +38,17 @@ func PointsAtButton(text string) bool {
 	return buttonPattern.MatchString(text)
 }
 
+// OnlyAQuestion reports whether text is one bare question: a single clause
+// that ends in ？. 「接下来想看什么？」 is; 「名单上的学生本周还没开始。接下来
+// 想看什么？」 and 「只有这两名学生还没开始，接下来想做什么？」 are not.
+func OnlyAQuestion(text string) bool {
+	t := strings.TrimSpace(text)
+	if t == "" {
+		return false
+	}
+	return !strings.ContainsAny(t, "。！!，,；;") && strings.ContainsAny(t, "？?")
+}
+
 // messagePattern matches an offer or claim to contact a student: 提醒该生,
 // 通知这些学生, 给她们发消息, 催一下.
 var messagePattern = regexp.MustCompile(`提醒|通知|催促|催一下|发消息|发送消息|发个消息|联系(该生|学生|这些学生|家长)`)

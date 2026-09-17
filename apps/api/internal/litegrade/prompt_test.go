@@ -20,13 +20,25 @@ func TestSystemPromptCarriesTheRubric(t *testing.T) {
 	in.Rubric = liteassign.Rubric{Scale: liteassign.ScalePoints, Max: 20, Dimensions: []liteassign.RubricDimension{{Name: "Argument", Note: "evidence"}}}
 	in.Lang = "en"
 	p = SystemPrompt(in)
-	for _, want := range []string{"0 到 20 的整数", "Argument：evidence", "用英文写"} {
+	for _, want := range []string{"0 到 20 的整数", `name 写 "Argument"；这一维看：evidence`, `"dimensions":[{"name":"Argument","grade":"…","comment":"…"}]`, "用英文写"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("points/en prompt lacks %q", want)
 		}
 	}
 	if strings.Contains(p, "%!") {
 		t.Fatalf("format verbs leaked: %s", p)
+	}
+}
+
+func TestRetryNudgeExplainsAnUnparseableReply(t *testing.T) {
+	got := RetryNudge([]Reason{{Code: ReasonUnparseable, Detail: "invalid character ':' after array element"}})
+	for _, want := range []string{"回复不是有效的 JSON", "invalid character ':' after array element", "数组里只能放"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("nudge lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(RetryNudge([]Reason{{Code: ReasonEmptyText, Where: "总评"}}), "数组里只能放") {
+		t.Fatal("the array hint belongs to unparseable replies only")
 	}
 }
 

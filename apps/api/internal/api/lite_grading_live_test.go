@@ -37,12 +37,24 @@ Every day the canteen throw away many rice. Last Friday I counted six bins are f
 
 Some students say the portions are too big. Others say the food is not tasty. In my opinion, the school should let students choose their portion size, because this is the simplest way.`
 
+// liveGradingWalk is the essay of the 2026-09-17 real-user walk. The review
+// model returned invalid JSON for it on both attempts, twice (a stray
+// "dimensions_placeholder" key inside the dimensions array).
+const liveGradingWalk = `现在很多同学都用 AI 写作业，有人直接让它生成整篇作文，也有人只用它查资料。学校到底该不该允许？我认为应该允许，但要规定清楚怎么用。
+
+第一，AI 查资料快，能给我们提供自己想不到的角度。上次写环保作文，我用 AI 找到了塑料回收率的数据，这是我自己查不到的。
+
+第二，全面禁止反而管不住。大家会偷偷用，老师也分辨不出来。不如公开规定：可以用来查资料、检查语法，但不能直接生成段落。
+
+有人会说，用了 AI 学生就不会自己写了。这个担心有道理，所以规定的重点是「不能让 AI 写正文」，写的部分必须是自己的。`
+
 func TestLiveLiteGrading(t *testing.T) {
 	cases := []struct {
-		name, lang, prompt, body string
+		name, lang, title, prompt, body string
 	}{
-		{"zh", "zh", "写一篇议论文，讨论学校食堂的浪费问题，并提出你的建议。", liveGradingZH},
-		{"en", "en", "Write an essay about food waste in your school and suggest one solution.", liveGradingEN},
+		{"zh", "zh", "食堂浪费", "写一篇议论文，讨论学校食堂的浪费问题，并提出你的建议。", liveGradingZH},
+		{"en", "en", "食堂浪费", "Write an essay about food waste in your school and suggest one solution.", liveGradingEN},
+		{"zh-walk", "zh", "学校该不该允许学生用AI写作业", "学校该不该允许学生用AI写作业？请就此问题写一篇议论文，表明你的立场并给出理由。", liveGradingWalk},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,7 +63,7 @@ func TestLiveLiteGrading(t *testing.T) {
 			defer cancel()
 			prompt := tc.prompt
 			in := liteGradingInput(sqlc.GetLiteGradingSourceRow{
-				Number: 1, Title: "食堂浪费", Body: tc.body, Lang: tc.lang, AssignedPrompt: &prompt,
+				Number: 1, Title: tc.title, Body: tc.body, Lang: tc.lang, AssignedPrompt: &prompt,
 			}, liteassign.DefaultRubric(tc.lang))
 
 			out := gradeWithRetry(ctx, prov, resolved, in, func(u gateway.ChatUsage) {
@@ -59,6 +71,9 @@ func TestLiveLiteGrading(t *testing.T) {
 			})
 			content, reasons, attempts := out.Content, out.Reasons, out.Attempts
 			t.Logf("attempts = %d", attempts)
+			for i, rs := range out.Tried {
+				t.Logf("attempt %d failed: %s", i+1, litegrade.JoinReasons(rs))
+			}
 			if len(reasons) > 0 {
 				t.Fatalf("grading failed after %d attempts: %s (parse error: %v; last reply: %s)", attempts, litegrade.JoinReasons(reasons), out.ParseErr, out.LastReply)
 			}

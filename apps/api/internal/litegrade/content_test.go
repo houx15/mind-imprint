@@ -55,3 +55,29 @@ func TestNormalize(t *testing.T) {
 		t.Fatal("dimensions must marshal as [] not null")
 	}
 }
+
+// Live, 2026-09-17: the model wrote each dimension as 「名称：说明」 on both
+// attempts and the grading failed.
+func TestNormalizeAIRepairsDimensionNamesWithTheirNote(t *testing.T) {
+	r := liteassign.DefaultRubric("zh")
+	c := Content{Dimensions: []Dimension{
+		{Name: "内容：立意是否明确，材料是否支撑观点", Grade: "B"},
+		{Name: "结构（段落顺序是否清楚）", Grade: "B"},
+		{Name: "语言", Grade: "B"},
+		{Name: "书写规范：标点、错别字与格式", Grade: "B"},
+	}}
+	got := NormalizeAI(c, r)
+	for i, want := range []string{"内容", "结构", "语言", "书写规范"} {
+		if got.Dimensions[i].Name != want {
+			t.Fatalf("dimension %d = %q, want %q", i, got.Dimensions[i].Name, want)
+		}
+	}
+	// A teacher's edit is not repaired: she sees the names she saved.
+	if n := NormalizeTeacher(c, r).Dimensions[0].Name; n != "内容：立意是否明确，材料是否支撑观点" {
+		t.Fatalf("teacher dimension = %q", n)
+	}
+	// A name that only shares a prefix with no separator stays as it is.
+	if n := rubricDimensionName("内容丰富", r); n != "内容丰富" {
+		t.Fatalf("prefix without a separator = %q", n)
+	}
+}

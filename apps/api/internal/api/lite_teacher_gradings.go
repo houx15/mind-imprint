@@ -110,8 +110,12 @@ type teacherGradingDTO struct {
 	UpdatedAt     string  `json:"updatedAt"`
 }
 
-func gradingSource(ai []byte) string {
-	if len(ai) == 0 {
+// gradingSource is "teacher" for a 人工批改 — content the teacher wrote and
+// no AI result — and "ai" otherwise, including an AI grading that is queued
+// or failed before it produced anything (it showed 「人工批改」 on its failure
+// page, 2026-09-17).
+func gradingSource(ai, content []byte) string {
+	if len(ai) == 0 && len(content) > 0 {
 		return litegrade.SourceTeacher
 	}
 	return litegrade.SourceAI
@@ -321,7 +325,7 @@ func (a *API) teacherGradingResponse(w http.ResponseWriter, r *http.Request, g s
 		VersionNumber: src.Number, LatestVersionNumber: latest.Number,
 		Title: src.Title, Body: src.Body, Lang: src.Lang,
 		Rubric: json.RawMessage(g.Rubric), Status: g.Status, Content: json.RawMessage(g.Content), Error: g.Error,
-		Source:     gradingSource(g.Ai),
+		Source:     gradingSource(g.Ai, g.Content),
 		ReviewedAt: tsStringPtr(g.ReviewedAt), SentAt: tsStringPtr(g.SentAt), StudentSeenAt: tsStringPtr(g.StudentSeenAt),
 		UpdatedAt: g.UpdatedAt.Format(time.RFC3339),
 	}})
@@ -680,7 +684,11 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		// whatever is there (a draft, a sent grading, a run in flight) is
 		// what she should be looking at, so this reports the same 409 the AI
 		// path does and the client opens that row.
-		if manual {
+		if manual && existing.Status == "failed" && len(existing.Content) == 0 {
+			// The AI failed and left nothing: that row becomes her blank
+			// draft, so a failing model never locks her out of grading.
+			g, err = a.startManualOnFailed(ctx, existing, u.ID)
+		} else if manual {
 			err = existingGradingConflict(existing.Status)
 		} else {
 			g, err = a.queueOrRefuseSingle(ctx, existing, u.ID)
@@ -716,6 +724,32 @@ func (a *API) createManualLiteGrading(ctx context.Context, rubric []byte, p sqlc
 	}
 	p.Content = content
 	return a.d.Queries.CreateManualLiteGrading(ctx, p)
+}
+
+// startManualOnFailed turns a failed AI grading with no content into a blank
+// teacher draft, graded against the row's own rubric. A row that changed
+// meanwhile (requeued, or given content) is left alone and reported as the
+// conflict it now is.
+func (a *API) startManualOnFailed(ctx context.Context, g sqlc.LiteGrading, requestedBy uuid.UUID) (sqlc.LiteGrading, error) {
+	var ru liteassign.Rubric
+	if err := json.Unmarshal(g.Rubric, &ru); err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	content, err := json.Marshal(litegrade.BlankContent(ru))
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	out, err := a.d.Queries.StartManualOnFailedLiteGrading(ctx, sqlc.StartManualOnFailedLiteGradingParams{
+		ID: g.ID, Content: content, RequestedBy: requestedBy,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		fresh, gerr := a.d.Queries.GetLiteGrading(ctx, g.ID)
+		if gerr != nil {
+			return sqlc.LiteGrading{}, gerr
+		}
+		return sqlc.LiteGrading{}, existingGradingConflict(fresh.Status)
+	}
+	return out, err
 }
 
 // regradeLiteGrading handles POST /api/v1/lite/teacher/gradings/{gid}/regrade (重新批改).

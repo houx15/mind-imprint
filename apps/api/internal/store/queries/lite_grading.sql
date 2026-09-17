@@ -18,6 +18,15 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', sqlc.arg(content)::jsonb)
 ON CONFLICT (version_id) DO NOTHING
 RETURNING *;
 
+-- name: StartManualOnFailedLiteGrading :one
+-- AI 批改失败（没有内容）之后改为人工批改：同一行变成老师的空白草稿。
+-- 否则老师在 AI 连续失败时既不能人工批改（这一版已有一行），也改不了这一行。
+UPDATE lite_grading
+SET status = 'draft', content = sqlc.arg(content)::jsonb, ai = NULL, error = NULL,
+    requested_by = sqlc.arg(requested_by), updated_at = now()
+WHERE id = sqlc.arg(id) AND status = 'failed' AND content IS NULL
+RETURNING *;
+
 -- name: GetLiteGrading :one
 SELECT * FROM lite_grading WHERE id = $1;
 

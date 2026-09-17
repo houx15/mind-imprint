@@ -3,6 +3,7 @@ package liteworkspace
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/liteparent"
@@ -16,9 +17,13 @@ type SystemContext struct {
 	StudentCount int
 }
 
-const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输出会填进右边的作业卡，老师看一眼就发布。
+const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输出会填进左边的作业卡，老师看一眼就发布。
 
-现在是北京时间 %s。班级是%s，共 %d 名学生。
+今天是北京时间 %s。班级是%s，共 %d 名学生。
+
+下面是今天起两周的日历。老师说「周五」「下周三」时，照着这张表找日期，不要自己推算星期几：
+
+%s
 
 ## 你怎么问
 
@@ -27,6 +32,16 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
 - 老师已经说清楚的事不要再问。老师说「这周读气候变化写议论文周五交」，
   你就直接把这些填进去，只问老师还没说的那一件。
 - 说话要短。不超过 120 个字。
+- 回复里写截止时间用「9月18日 21:00」这种写法，不要写 2026-09-18T21:00。
+
+## 作业卡上每种作业必须填的栏
+
+- 阅读：标题、截止时间、材料。
+- 写作：标题、截止时间、题目（prompt）、目标字数（targetWords）。
+- 项目：标题、截止时间、驱动问题（drivingQuestion）。
+- 这些栏只能用 set_fields 写。**没有调用 set_fields 写进去，就不要说「已加上」「已写入」「填好了」。**
+  作业卡现在的内容写在下面，空着的必填栏会标出来。
+- 驱动问题写进 drivingQuestion，写作题目写进 prompt，不要写进说明（instructions）。
 
 ## 硬规矩
 
@@ -40,12 +55,22 @@ const assignmentSystemTemplate = `你在帮一位老师布置作业。你的输�
   那段正文开头和结尾约 15 个字，从老师这一轮的消息里原样复制；不能用老师更早几轮贴过的文章。不要编造文章标题。
 - 老师没有指定文章时，先调用 recommend_articles 给出推荐，不要凭空推荐。
 - **提到文章标题或作业标题时，把标题放进《》里**（比如《美国气候队》），不要不加符号地写出来。
-- 你改不了的事不要说你改了。`
+- 你改不了的事不要说你改了。
+- **一张作业卡只布置一份作业。** 你不能替老师新建第二份作业，也不要为了第二份作业改这张卡的类型。
+  只在老师明确要求时才改类型。
+- **阅读作业的说明里只写阅读室里能完成的事**（跟着印记读完、完成这篇）。阅读室里没有写一篇文章的地方，
+  所以不要在阅读作业的说明里要求学生「写一篇反思」「写 200 字」。老师想读后写作，就告诉老师：
+  先发布这份阅读作业，再点「布置作业」另建一份写作作业。
+- 给学生看的标题、说明、题目、驱动问题只写中文，不要在括号里加英文注释。`
 
 // AssignmentSystem renders the system prompt the teacher workspace turn
 // loop sends ahead of the transcript.
 func AssignmentSystem(c SystemContext) string {
-	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount) + "\n" + PronounRule
+	calendar := ""
+	if today, err := time.ParseInLocation("2006-01-02", c.TodayBeijing, BeijingOffset); err == nil {
+		calendar = Calendar(today)
+	}
+	return fmt.Sprintf(assignmentSystemTemplate, c.TodayBeijing, c.ClassName, c.StudentCount, calendar) + "\n" + PronounRule
 }
 
 // AssignmentTools returns the seven tool schemas the model may call while
@@ -61,7 +86,7 @@ func AssignmentTools() []gateway.ChatTool {
 	return []gateway.ChatTool{
 		{
 			Name:        "set_fields",
-			Description: "写入作业卡的种类、标题、说明或截止时间。只填这一轮新确定的字段。",
+			Description: "写入作业卡的栏：种类、标题、说明、截止时间；写作的题目、目标字数、语言；项目的驱动问题、补充说明。只填这一轮新确定的字段。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -77,13 +102,15 @@ func AssignmentTools() []gateway.ChatTool {
 						"type": "string",
 						"enum": []string{"reading", "writing", "project"},
 						"description": "作业种类：reading（阅读，作业带一篇阅读材料）、writing（写作，没有阅读材料这一栏）、project（项目）。" +
-							"老师说「读一篇…再写一篇」这种读写结合的作业，选 reading，把写的要求写进 instructions。" +
+							"老师说「读一篇…再写一篇」这种读写结合的作业，这一份选 reading，并告诉老师发布后另建一份写作作业（你建不了第二份）；" +
+							"只在老师明确要求改类型时才改 kind。" +
+							"阅读室里没有写文章的地方，不要把写的要求写进 instructions。" +
 							"只有 reading 能设材料；改成 writing 或 project 会把已经选好的文章清掉。" +
 							"这个英文值只给系统识别用，不要写进给老师的回复——回复里说「阅读」「写作」「项目」。",
 					},
 					"title": map[string]any{
 						"type":        "string",
-						"description": "作业标题。",
+						"description": "作业标题，只写标题本身，不加《》或引号。",
 					},
 					"instructions": map[string]any{
 						"type":        "string",
@@ -92,6 +119,27 @@ func AssignmentTools() []gateway.ChatTool {
 					"dueAt": map[string]any{
 						"type":        "string",
 						"description": "截止时间，必须是绝对时刻，格式 2006-01-02T15:04（如 2026-09-18T18:00），按北京时间写。不要写「周五」这类相对说法。",
+					},
+					"prompt": map[string]any{
+						"type":        "string",
+						"description": "写作题目，只有写作作业有这一栏，发布前必须填。",
+					},
+					"targetWords": map[string]any{
+						"type":        "integer",
+						"description": "目标字数，只有写作作业有这一栏，发布前必须填，1 到 100000。",
+					},
+					"lang": map[string]any{
+						"type":        "string",
+						"enum":        []string{"zh", "en"},
+						"description": "写作语言：zh（中文）或 en（英文），只有写作作业有这一栏。回复里说「中文」「英文」。",
+					},
+					"drivingQuestion": map[string]any{
+						"type":        "string",
+						"description": "项目的驱动问题：学生整个项目要回答的那一个问题。只有项目作业有这一栏，发布前必须填。不要再写进说明。",
+					},
+					"description": map[string]any{
+						"type":        "string",
+						"description": "项目的补充说明，只有项目作业有这一栏，可以不填。",
 					},
 				},
 			},
@@ -367,8 +415,24 @@ func HomeTools() []gateway.ChatTool {
 				"required": []string{"target"},
 			},
 		},
-		plainAskChoiceTool(),
+		homeAskChoiceTool(),
 	}
+}
+
+// homeAskChoiceTool is ask_choice with an answer field. Measured 2026-09-17:
+// asked 「这周谁还没开始？」, the chat listed the students on the canvas and
+// replied only 「接下来想看什么？」 — ask_choice had nowhere to put an answer,
+// and a prose rule asking for one did not change that, even as a rewrite.
+func homeAskChoiceTool() gateway.ChatTool {
+	t := plainAskChoiceTool()
+	props := t.Parameters["properties"].(map[string]any)
+	props["answer"] = map[string]any{
+		"type": "string",
+		"description": "先回答老师刚才问的问题，一句话，说明左侧卡片上列的是什么（比如「名单上的学生本周还没有开始学习。」）。" +
+			"不写学生姓名和人数。老师这一轮没有问问题时写空字符串。",
+	}
+	t.Parameters["required"] = []string{"answer", "question", "options"}
+	return t
 }
 
 // plainAskChoiceTool is ask_choice without the article slug field: the home

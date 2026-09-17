@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,6 +67,43 @@ type liteWorkspaceArtifact struct {
 	Slug          string   `json:"slug"`
 	Tier          *int     `json:"tier"`
 	UserIDs       []string `json:"userIds"`
+	// Writing: the client draft keeps targetWords as the raw input string.
+	Prompt      string `json:"prompt"`
+	TargetWords string `json:"targetWords"`
+	Lang        string `json:"lang"`
+	// Project.
+	DrivingQuestion string `json:"drivingQuestion"`
+	Description     string `json:"description"`
+}
+
+// liteWorkspaceCard is the card as it stands after this turn's writes.
+func liteWorkspaceCard(raw json.RawMessage, applied map[string]any) liteWorkspaceArtifact {
+	art := liteWorkspaceParseArtifact(raw)
+	if len(applied) > 0 {
+		if b, err := json.Marshal(applied); err == nil {
+			_ = json.Unmarshal(b, &art)
+		}
+	}
+	return art
+}
+
+// liteWorkspaceRequiredFields are the cells a homework of this kind cannot
+// be published without, with the value each has now. The labels are the
+// card's own and the words the model uses about them.
+func liteWorkspaceRequiredFields(art liteWorkspaceArtifact) []liteworkspace.CardField {
+	fields := []liteworkspace.CardField{
+		{Label: "标题", Value: art.Title},
+		{Label: "截止时间", Value: art.DueInput},
+	}
+	switch art.Kind {
+	case "writing":
+		fields = append(fields,
+			liteworkspace.CardField{Label: "题目", Value: art.Prompt},
+			liteworkspace.CardField{Label: "目标字数", Value: art.TargetWords})
+	case "project":
+		fields = append(fields, liteworkspace.CardField{Label: "驱动问题", Value: art.DrivingQuestion})
+	}
+	return fields
 }
 
 // liteWorkspaceParseArtifact projects the draft the client sent onto the part
@@ -125,12 +163,7 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 	if len(raw) == 0 && len(applied) == 0 {
 		return ""
 	}
-	art := liteWorkspaceParseArtifact(raw)
-	if len(applied) > 0 {
-		if b, err := json.Marshal(applied); err == nil {
-			_ = json.Unmarshal(b, &art)
-		}
-	}
+	art := liteWorkspaceCard(raw, applied)
 	var lines []string
 	add := func(label, value string) {
 		if strings.TrimSpace(value) != "" {
@@ -144,8 +177,21 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 	add("类型", liteworkspace.KindLabel(art.Kind))
 	add("标题", art.Title)
 	add("说明", art.Instructions)
-	add("截止时间", art.DueInput)
-	add("材料来源", liteworkspace.SourceLabel(art.ReadingSource))
+	if art.DueInput != "" {
+		add("截止时间", liteworkspace.DueLabel(art.DueInput))
+	}
+	switch art.Kind {
+	case "writing":
+		add("题目", art.Prompt)
+		add("目标字数", art.TargetWords)
+		add("语言", map[string]string{"zh": "中文", "en": "英文"}[art.Lang])
+	case "project":
+		add("驱动问题", art.DrivingQuestion)
+		add("补充说明", art.Description)
+	}
+	if art.Kind == "" || art.Kind == "reading" {
+		add("材料来源", liteworkspace.SourceLabel(art.ReadingSource))
+	}
 	if art.Slug != "" {
 		if found, ok := library.BySlug(art.Slug); ok {
 			add("文章", "《"+found.ZhTitle+"》")
@@ -158,6 +204,23 @@ func liteWorkspaceCardState(raw json.RawMessage, applied map[string]any) string 
 	}
 	if n := len(art.UserIDs); n > 0 {
 		add("已选学生", fmt.Sprintf("%d 名", n))
+	}
+	// An empty required cell is named, so the model knows what is still
+	// missing instead of guessing (it told her the 驱动问题 was written while
+	// the cell was empty, five turns running).
+	if art.Kind != "" {
+		complete := true
+		for _, f := range liteWorkspaceRequiredFields(art) {
+			if strings.TrimSpace(f.Value) == "" {
+				lines = append(lines, "- "+f.Label+"：（空，发布前必须填写）")
+				complete = false
+			}
+		}
+		// Measured: with every cell filled the model still told her 题目 and
+		// 目标字数 were missing. Saying so is cheaper than letting it guess.
+		if complete {
+			lines = append(lines, "- 必填栏：都已填好，老师可以发布")
+		}
 	}
 	if len(lines) == 0 {
 		return "（还是空的）"
@@ -198,6 +261,12 @@ func (a *API) newLiteWorkspaceAssignment(mctx context.Context, cls sqlc.Class, r
 // it is done rather than asked to do it: the old route was three model calls
 // — search for its own choice id, fail, search again — and this one is none.
 func (run *liteWorkspaceRun) begin(req liteWorkspaceTurnRequest) string {
+	for _, t := range req.Turns {
+		if t.Role == "teacher" {
+			run.teacherTexts = append(run.teacherTexts, t.Text)
+		}
+	}
+	run.teacherTexts = append(run.teacherTexts, req.Text)
 	return liteWorkspaceChosenArticle(run, req)
 }
 
@@ -242,6 +311,15 @@ func (run *liteWorkspaceRun) falseClaim(text string) string {
 	if reason := liteWorkspaceOpenedPageClaim(text); reason != "" {
 		return reason
 	}
+	card := liteWorkspaceCard(run.artifact, run.patch)
+	if label := liteworkspace.UnfilledClaim(text, liteWorkspaceRequiredFields(card)); label != "" {
+		return "回复说「" + label + "」已经填好，但作业卡上这一栏是空的。先调用 set_fields 把它写进去，再告诉老师"
+	}
+	if _, wrote := run.patch["dueInput"]; wrote {
+		if reason := liteworkspace.DueWeekdayMismatch(run.teacherTexts, card.DueInput); reason != "" {
+			return reason
+		}
+	}
 	return liteWorkspaceRosterPronounProblem(text, run.roster, run.namesReturned, run.typed)
 }
 
@@ -249,9 +327,35 @@ func (run *liteWorkspaceRun) falseClaim(text string) string {
 // the reply, an option or a patch value, which the handler checks itself.
 func (run *liteWorkspaceRun) extraParts() []string { return nil }
 
-func (run *liteWorkspaceRun) groundedNames() []string { return run.namesReturned }
+// groundedNames is what the tools returned this turn plus the students on the
+// card now. Measured 2026-09-17: six turns in, her first message (which named
+// the two students) had left the history window, and a reply naming the two
+// students the card showed failed with 「没有依据的学生姓名」.
+func (run *liteWorkspaceRun) groundedNames() []string {
+	names := append([]string(nil), run.namesReturned...)
+	onCard := map[string]bool{}
+	for _, id := range liteWorkspaceCard(run.artifact, run.patch).UserIDs {
+		onCard[id] = true
+	}
+	for _, s := range run.roster {
+		if onCard[s.ID] {
+			names = append(names, s.Name)
+		}
+	}
+	return names
+}
 
-func (run *liteWorkspaceRun) groundedCounts() []int { return run.countsReturned }
+// groundedCounts is what the tools counted this turn plus the students on the
+// card now. Measured 2026-09-17: she named two students, the card showed
+// 已选 2/4, and the next turn — a tapped option, no recipient tool — failed
+// with 「没有依据的人数：2」.
+func (run *liteWorkspaceRun) groundedCounts() []int {
+	counts := append([]int(nil), run.countsReturned...)
+	if n := len(liteWorkspaceCard(run.artifact, run.patch).UserIDs); n > 0 {
+		counts = append(counts, n)
+	}
+	return counts
+}
 
 func (run *liteWorkspaceRun) result() (map[string]any, []liteWorkspaceCardDTO) {
 	return run.patch, run.cards
@@ -316,6 +420,9 @@ type liteWorkspaceRun struct {
 	// so set_material reads it before writing a material into a card that has
 	// nowhere to show one.
 	kind string
+	// teacherTexts is every message she sent in this conversation, oldest
+	// first — what she said about the deadline may be several turns back.
+	teacherTexts []string
 	// typed is what the TEACHER typed this turn (trimmed), before a click's
 	// choiceId is folded in — the only text set_material's "text" source cuts
 	// its passage from. Never her earlier turns, never the model's words:
@@ -427,8 +534,8 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 			return liteWorkspaceToolError("作业种类只能是 reading、writing 或 project，收到：" + kind)
 		}
 	}
-	if title, ok := toolString(args, "title"); ok && title != "" {
-		run.write("title", liteWorkspaceClampRunes(title, maxAssignmentTitleRunes))
+	if title, ok := toolString(args, "title"); ok && liteworkspace.CleanTitle(title) != "" {
+		run.write("title", liteWorkspaceClampRunes(liteworkspace.CleanTitle(title), maxAssignmentTitleRunes))
 		written = append(written, "title")
 	}
 	if ins, ok := toolString(args, "instructions"); ok && ins != "" {
@@ -445,6 +552,9 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 		run.write("dueInput", due)
 		written = append(written, "dueAt")
 	}
+	if msg := run.setKindFields(args, &written); msg != "" {
+		return liteWorkspaceToolError(msg)
+	}
 	if len(written) == 0 {
 		return liteWorkspaceToolError("没有给出任何字段")
 	}
@@ -454,6 +564,78 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 			"跟老师说清楚这件事，不要再提那篇文章；她要保留文章就把类型改回 reading"
 	}
 	return liteWorkspaceToolOK(out)
+}
+
+// setKindFields writes the cells only one kind of homework has. A cell for
+// another kind is refused: the card has nowhere to show it, and the teacher
+// would publish without seeing it.
+func (run *liteWorkspaceRun) setKindFields(args map[string]any, written *[]string) string {
+	current := run.kind
+	if current == "" {
+		current = "reading" // an empty card is a reading card (see newLiteWorkspaceAssignment)
+	}
+	kindName := liteworkspace.KindLabel(current)
+	only := func(label, kind string) string {
+		return label + "只属于" + liteworkspace.KindLabel(kind) + "作业，现在作业卡是" + kindName + "作业；要写这一栏先把 kind 改成 " + kind
+	}
+	if v, ok := toolString(args, "prompt"); ok && strings.TrimSpace(v) != "" {
+		if run.kind != "writing" {
+			return only("题目", "writing")
+		}
+		run.write("prompt", liteWorkspaceClampRunes(strings.TrimSpace(v), liteWorkspaceMaxInstructionsRunes))
+		*written = append(*written, "prompt")
+	}
+	if n, ok := liteWorkspaceTargetWordsArg(args); ok {
+		if run.kind != "writing" {
+			return only("目标字数", "writing")
+		}
+		if n < 1 || n > 100000 {
+			return "目标字数需在 1 到 100000 之间"
+		}
+		run.write("targetWords", strconv.Itoa(n))
+		*written = append(*written, "targetWords")
+	}
+	if v, ok := toolString(args, "lang"); ok && v != "" {
+		if run.kind != "writing" {
+			return only("语言", "writing")
+		}
+		if v != "zh" && v != "en" {
+			return "语言只能是 zh 或 en，收到：" + v
+		}
+		run.write("lang", v)
+		*written = append(*written, "lang")
+	}
+	if v, ok := toolString(args, "drivingQuestion"); ok && strings.TrimSpace(v) != "" {
+		if run.kind != "project" {
+			return only("驱动问题", "project")
+		}
+		run.write("drivingQuestion", liteWorkspaceClampRunes(strings.TrimSpace(v), liteWorkspaceMaxInstructionsRunes))
+		*written = append(*written, "drivingQuestion")
+	}
+	if v, ok := toolString(args, "description"); ok && strings.TrimSpace(v) != "" {
+		if run.kind != "project" {
+			return only("补充说明", "project")
+		}
+		run.write("description", liteWorkspaceClampRunes(strings.TrimSpace(v), liteWorkspaceMaxInstructionsRunes))
+		*written = append(*written, "description")
+	}
+	return ""
+}
+
+// liteWorkspaceTargetWordsArg reads targetWords as a number or a numeric
+// string ("600"): the schema asks for an integer and models send both.
+func liteWorkspaceTargetWordsArg(args map[string]any) (int, bool) {
+	if n, ok := toolInt(args, "targetWords"); ok {
+		return n, n != 0
+	}
+	if v, ok := toolString(args, "targetWords"); ok && strings.TrimSpace(v) != "" {
+		n, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return -1, true
+		}
+		return n, true
+	}
+	return 0, false
 }
 
 func (run *liteWorkspaceRun) searchLibrary(args map[string]any) string {

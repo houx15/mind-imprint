@@ -137,3 +137,55 @@ func TestLiteGradingManualWithoutQueue(t *testing.T) {
 		t.Fatalf("manual without queue = %d", code)
 	}
 }
+
+// An AI grading that has not produced anything yet (queued, or failed on its
+// first run) is still an AI grading. Real-user walk, 2026-09-17: a failed one
+// was labelled 「人工批改」.
+func TestLiteGradingQueuedAIIsNotManual(t *testing.T) {
+	f := newGradingFixture(t)
+	_, atomID, _ := f.submit(t)
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	var resp struct {
+		Grading struct {
+			Status string `json:"status"`
+			Source string `json:"source"`
+		} `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK || resp.Grading.Status != "queued" || resp.Grading.Source != "ai" {
+		t.Fatalf("queued AI grading = %d %+v", code, resp.Grading)
+	}
+}
+
+// When the AI fails and leaves nothing, 人工批改 takes over that version.
+// Real-user walk, 2026-09-17: the model failed three runs in a row and the
+// teacher had no way to grade the essay herself.
+func TestLiteGradingManualAfterAFailedAI(t *testing.T) {
+	f := newGradingFixture(t, "抱歉，我无法批改。")
+	_, atomID, _ := f.submit(t)
+	single := "/api/v1/lite/teacher/classes/" + f.classID + "/students/" + f.studentID.String() + "/items/" + atomID + "/gradings"
+	var resp struct {
+		Grading struct {
+			ID      string          `json:"id"`
+			Status  string          `json:"status"`
+			Source  string          `json:"source"`
+			Content json.RawMessage `json:"content"`
+		} `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, nil, &resp); code != http.StatusOK {
+		t.Fatalf("AI = %d", code)
+	}
+	gid := resp.Grading.ID
+	f.runJobs(t)
+	if g := f.grading(t, gid); g.Status != "failed" {
+		t.Fatalf("after two bad replies = %+v", g)
+	}
+	if code := assignJSON(t, f.h, f.teacher, "POST", single, map[string]any{"mode": "manual"}, &resp); code != http.StatusOK {
+		t.Fatalf("manual after failure = %d", code)
+	}
+	if resp.Grading.ID != gid || resp.Grading.Status != "draft" || resp.Grading.Source != "teacher" || !strings.Contains(string(resp.Grading.Content), `"name":"内容"`) {
+		t.Fatalf("manual after failure = %+v %s", resp.Grading, resp.Grading.Content)
+	}
+	if g := f.grading(t, gid); g.Error != nil {
+		t.Fatalf("the old failure is still shown: %v", *g.Error)
+	}
+}

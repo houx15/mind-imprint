@@ -626,7 +626,7 @@ func TestWorkspaceHomeOneOfThemIsNotAHeadCount(t *testing.T) {
 		name, question string
 		want           int
 	}{
-		{"one of them", "接下来你想做什么？", http.StatusOK},
+		{"one of them", "名单上的学生本周还没有开始学习。接下来你想做什么？", http.StatusOK},
 		{"fabricated count", "只有一位学生还没开始学习，接下来你想做什么？", http.StatusBadGateway},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

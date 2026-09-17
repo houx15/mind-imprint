@@ -116,6 +116,58 @@ func TestWorkspaceHomeOfferToOpenIsNotAClaim(t *testing.T) {
 
 // An option offering to remind a student (live, 2026-09-17: 「提醒该生开始学习」)
 // is rewritten: no class-chat tool reaches a student.
+// Live, 2026-09-17: asked who had not started, the chat listed the students
+// on the canvas and replied only 「接下来想看什么？」.
+func TestWorkspaceHomeBareQuestionAfterDataIsRewritten(t *testing.T) {
+	ask := func(question string) string {
+		b, _ := json.Marshal(map[string]any{
+			"question": question,
+			"options":  []map[string]string{{"id": "a", "label": "看看全班本周概况"}, {"id": "b", "label": "不用了"}},
+		})
+		return string(b)
+	}
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_students", `{"filter":"inactive_this_week"}`),
+		wsToolCall("ask_choice", ask("接下来想看什么？")),
+		wsToolCall("ask_choice", ask("名单上的学生本周还没有开始学习。接下来想看什么？")),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这周谁还没开始学习？"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
+	}
+	if got := decodeHomeTurn(t, rec.Body.Bytes()).Reply; !strings.HasPrefix(got, "名单上的学生本周还没有开始学习。") {
+		t.Fatalf("reply = %q, want the rewrite with an answer first", got)
+	}
+	if got := lastUserMessage(t, prov, 2); !strings.Contains(got, "回复只有一个追问") {
+		t.Fatalf("rewrite request = %q", got)
+	}
+}
+
+// ask_choice's answer field is the reply's first sentence.
+func TestWorkspaceHomeAskChoiceAnswerComesFirst(t *testing.T) {
+	b, _ := json.Marshal(map[string]any{
+		"answer":   "名单上的学生本周还没有开始学习。",
+		"question": "接下来想看什么？",
+		"options":  []map[string]string{{"id": "a", "label": "看看全班本周概况"}, {"id": "b", "label": "不用了"}},
+	})
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("list_students", `{"filter":"inactive_this_week"}`),
+		wsToolCall("ask_choice", string(b)),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这周谁还没开始学习？"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
+	}
+	if got := decodeHomeTurn(t, rec.Body.Bytes()).Reply; got != "名单上的学生本周还没有开始学习。\n\n接下来想看什么？" {
+		t.Fatalf("reply = %q", got)
+	}
+	if len(prov.Requests) != 2 {
+		t.Fatalf("model requests = %d, want no rewrite", len(prov.Requests))
+	}
+}
+
 func TestWorkspaceHomeReminderOfferIsRewritten(t *testing.T) {
 	ask := func(label string) string {
 		b, _ := json.Marshal(map[string]any{

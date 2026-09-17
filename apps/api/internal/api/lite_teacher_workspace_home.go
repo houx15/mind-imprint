@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"mindimprint/api/internal/gateway"
@@ -80,6 +81,12 @@ func (run *liteWorkspaceHome) falseClaim(text string) string {
 	}
 	if run.nav == nil && !run.asked && liteworkspace.PointsAtButton(text) {
 		return "回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page"
+	}
+	// Data on the canvas and nothing but a question in the reply: the teacher
+	// asked something and got only 「接下来想看什么？」 back (live, 2026-09-17,
+	// twice after the prompt already asked for an answer sentence first).
+	if run.asked && len(run.cards) > 0 && liteworkspace.OnlyAQuestion(run.question) {
+		return "老师问了一个问题，左侧已经列出查到的数据，但回复只有一个追问。先用一句话回答老师的问题、说明左侧列的是什么（不写姓名和人数），再问下一步"
 	}
 	if liteworkspace.OffersMessage(text) {
 		return "回复或选项提出提醒、通知或联系学生，但没有工具能给学生发消息。" +
@@ -389,6 +396,10 @@ func (run *liteWorkspaceHome) askChoice(args map[string]any) string {
 	question, choices, errMsg := liteWorkspaceAskChoiceArgs(args, false)
 	if errMsg != "" {
 		return liteWorkspaceToolError(errMsg)
+	}
+	// The answer comes first, then the question (homeAskChoiceTool).
+	if answer, _ := toolString(args, "answer"); strings.TrimSpace(answer) != "" {
+		question = strings.TrimSpace(answer) + "\n\n" + question
 	}
 	run.question, run.choices, run.asked = question, choices, true
 	return liteWorkspaceToolOK(map[string]any{"options": len(choices)})

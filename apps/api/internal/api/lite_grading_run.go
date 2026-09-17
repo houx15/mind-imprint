@@ -50,6 +50,10 @@ type gradeOutcome struct {
 	Attempts  int
 	LastReply string
 	ParseErr  error
+	// Tried is every failed attempt's reasons, in order (a success adds
+	// nothing). A grading that passes on its second try hides why the first
+	// failed; the live tests print this.
+	Tried [][]litegrade.Reason
 }
 
 // gradeWithRetry makes at most two model calls. A reply that fails Check is
@@ -75,13 +79,14 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 		content, perr := litegrade.Parse(res.Text)
 		if perr != nil {
 			out.ParseErr = perr
-			out.Reasons = []litegrade.Reason{{Code: litegrade.ReasonUnparseable}}
+			out.Reasons = []litegrade.Reason{{Code: litegrade.ReasonUnparseable, Detail: perr.Error()}}
 		} else {
 			content = litegrade.NormalizeAI(content, in.Rubric)
 			if out.Reasons = litegrade.Check(content, in); len(out.Reasons) == 0 {
-				return gradeOutcome{Content: content, Attempts: attempt, LastReply: res.Text}
+				return gradeOutcome{Content: content, Attempts: attempt, LastReply: res.Text, Tried: out.Tried}
 			}
 		}
+		out.Tried = append(out.Tried, out.Reasons)
 		msgs = append(msgs,
 			gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
 			gateway.ChatMessage{Role: gateway.RoleUser, Content: litegrade.RetryNudge(out.Reasons)},

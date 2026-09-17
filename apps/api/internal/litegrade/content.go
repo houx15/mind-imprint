@@ -106,7 +106,11 @@ func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 	out := Content{Overall: Overall{Grade: strings.TrimSpace(c.Overall.Grade), Comment: strings.TrimSpace(c.Overall.Comment)}}
 	dims := make([]Dimension, 0, len(c.Dimensions))
 	for _, d := range c.Dimensions {
-		dims = append(dims, Dimension{Name: strings.TrimSpace(d.Name), Grade: strings.TrimSpace(d.Grade), Comment: strings.TrimSpace(d.Comment)})
+		name := strings.TrimSpace(d.Name)
+		if fromAI {
+			name = rubricDimensionName(name, r)
+		}
+		dims = append(dims, Dimension{Name: name, Grade: strings.TrimSpace(d.Grade), Comment: strings.TrimSpace(d.Comment)})
 	}
 	out.Dimensions = orderDimensions(dims, r)
 	out.Points = make([]Point, 0, len(c.Points))
@@ -124,6 +128,27 @@ func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 		out.Points = append(out.Points, q)
 	}
 	return out
+}
+
+// rubricDimensionName maps a dimension name the model wrote with the rubric's
+// note attached (「内容：立意是否明确，材料是否支撑观点」) back to the rubric's
+// name. Measured 2026-09-17: both attempts of a grading came back that way
+// and the grading failed with 「评分维度与评分标准不一致」. The name is the
+// rubric's, not the student's text, so this repair changes nothing she wrote.
+func rubricDimensionName(name string, r liteassign.Rubric) string {
+	for _, d := range r.Dimensions {
+		if name == d.Name {
+			return name
+		}
+	}
+	for _, d := range r.Dimensions {
+		for _, sep := range []string{"：", ":", "（", "(", " - ", "——", " "} {
+			if strings.HasPrefix(name, d.Name+sep) {
+				return d.Name
+			}
+		}
+	}
+	return name
 }
 
 func trimPtr(s *string) *string {
