@@ -171,6 +171,42 @@ func parseWordCards(body, paragraph string) ([]readingWord, bool) {
 	return out, len(out) > 0
 }
 
+// lookupCardFor 在一组词卡里找**讲的是她点的那个词**的那一张。
+//
+// 词卡的 term 可以是包含那个词的词组（她点 starved，卡片讲 starved to death，
+// 这是对的 —— prompt 就是这么要求的），所以判据是「term 里有这个词」，按整词、
+// 不分大小写。没有就是 nil。
+func lookupCardFor(words []readingWord, tapped string) *readingWord {
+	want := lookupTokens(tapped)
+	if len(want) == 0 {
+		return nil
+	}
+	for i := range words {
+		have := lookupTokens(words[i].Term)
+		// 她点的那几个词要在 term 里**连着**出现（点一个词时就是「term 里有这个词」）。
+		for at := 0; at+len(want) <= len(have); at++ {
+			match := true
+			for k := range want {
+				if have[at+k] != want[k] {
+					match = false
+					break
+				}
+			}
+			if match {
+				return &words[i]
+			}
+		}
+	}
+	return nil
+}
+
+// lookupTokens 把一个词或词组切成小写的整词：字母、撇号、连字符算词的一部分。
+func lookupTokens(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !(r == '\'' || r == '’' || r == '-' || ('a' <= r && r <= 'z'))
+	})
+}
+
 // wordCardsAsProse 把一组词卡写成 body 那一列里的纯文字。
 //
 // 🚨 它不是拿来渲染的（界面渲染的是卡片本身）。它存在是为了让这一行在任何一个
@@ -586,13 +622,31 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+	chatReq := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: readingBlockSystemFor(tool)},
 			{Role: gateway.RoleUser, Content: buildReadingBlockPromptFor(tool, src.Title, blocks, idx, sentence)},
 		},
-	})
+	}
+	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, res.Usage)
+	// 🚨 「查词」讲的必须是**她点的那个词**。
+	//
+	// 线上走查（2026-09-17，刚部署完）：点的是 prolonged，卡片讲的是
+	// starved to death —— 同一段里的另一个词。逐字核对只保证卡片上的词在这一段
+	// 里，保证不了是她点的那个。便宜的那个模型偶尔会自己挑一个「更值得学」的。
+	// 对不上就再问一次（这一档一次一两秒），还对不上就算失败 —— 绝不把一张讲
+	// 别的词的卡片交给她。
+	if tool.Subject == "word" && cerr == nil {
+		if got, ok := parseWordCards(sliceBlockJSON(res.Text), blocks[idx].Text); !ok || lookupCardFor(got, sentence) == nil {
+			slog.Info("reading block explain: lookup card is about a different word, asking again",
+				"atom_id", at.ID, "word", sentence)
+			if again, err2 := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq); err2 == nil {
+				a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, again.Usage)
+				res = again
+			}
+		}
+	}
 	body := strings.TrimSpace(res.Text)
 	var words []readingWord
 	var grammar *readingGrammar
@@ -611,10 +665,17 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 			return
 		}
-		// 「查词」只讲她点的那一个词：模型顺手多给的卡片不留 —— 她问的是一个
-		// 词，屏幕上冒出四个词会让她以为自己点错了。
-		if tool.Subject == "word" && len(got) > 1 {
-			got = got[:1]
+		// 「查词」只讲她点的那一个词：别的卡片不留 —— 她问的是一个词，屏幕上
+		// 冒出别的词会让她以为自己点错了。一张讲她那个词的都没有，就是失败。
+		if tool.Subject == "word" {
+			c := lookupCardFor(got, sentence)
+			if c == nil {
+				slog.Warn("reading block explain: lookup card never matched the word she tapped",
+					"atom_id", at.ID, "word", sentence, "request_id", httpx.RequestIDFromContext(r.Context()))
+				httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+				return
+			}
+			got = []readingWord{*c}
 		}
 		words = got
 		// body 存的是这组卡片的纯文字形态。见 wordCardsAsProse。
