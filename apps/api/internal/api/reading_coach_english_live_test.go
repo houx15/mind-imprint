@@ -79,7 +79,7 @@ func TestLiveEnglishCoachFirstTurnParses(t *testing.T) {
 
 	// 中文标题 + 英文正文，正是从地图「现在读」落下来的那个形状。
 	system := buildReadingCoachSystem("en")
-	prompt := buildReadingCoachPrompt("不吃早餐算不算不道德？", blocks, readingOutline{}, liveEnglishTasks(), nil, nil, "", nil)
+	prompt := buildReadingCoachPrompt("不吃早餐算不算不道德？", blocks, readingOutline{}, liveEnglishTasks(), nil, nil, "", nil, "")
 
 	bad := 0
 	for i := 0; i < 6; i++ {

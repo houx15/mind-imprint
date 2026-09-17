@@ -76,7 +76,7 @@ func TestBuildReadingTasks_FocusLabelCarriesTheParagraphNumber(t *testing.T) {
 		t.Fatal("the default zh routine is gone")
 	}
 	_, kinds, labels, _, blockIDs := buildReadingTasks(
-		routine, readingPlanReply{FocusBlocks: []string{"b3"}}, blocks)
+		routine, readingPlanReply{FocusBlocks: []string{"b3"}}, blocks, nil)
 
 	found := false
 	for i, kind := range kinds {

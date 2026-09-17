@@ -27,7 +27,7 @@ func TestClarityReadingSequence(t *testing.T) {
 				msgs := []sqlc.AtomMessage{{Seq: 1, Role: "ai", Content: c.task + "。"}}
 				for turn, student := range c.students {
 					t.Run(fmt.Sprintf("turn-%d", turn+1), func(t *testing.T) {
-						req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh")}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt(c.name, blocks, readingOutline{}, tasks, msgs, nil, student, nil)}}}
+						req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh")}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt(c.name, blocks, readingOutline{}, tasks, msgs, nil, student, nil, "")}}}
 						var reply string
 						claritytest.Run(t, gateway.ClassDialogue, req, func(raw string) error {
 							got, ok := parseReadingCoachReply(raw, blocks, "zh", func(string) bool { return true })

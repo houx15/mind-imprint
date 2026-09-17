@@ -2336,6 +2336,40 @@
   background: color-mix(in srgb, var(--mk-accent-50) 85%, var(--mk-surface));
 }
 
+/* 卡片上那个段号（「第4段」）。摘出上下文的一句话，不说它从哪儿来，
+   「哪句在撑哪句」她无从判断 —— 见 BoardItem.where。 */
+.mk-board__chipwhere {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: var(--mk-radius-full);
+  background: color-mix(in srgb, var(--mk-accent-500) 12%, transparent);
+  color: var(--mk-accent-700);
+  font-size: 11px;
+  line-height: 1.6;
+  vertical-align: 1px;
+}
+
+/* 摆完之后的那块板：同样的样子，不能再动。没有 cursor: grab，也不接事件。 */
+.mk-board.is-done .mk-board__bins {
+  margin-top: 0;
+  /* 摆完之后每个格子按自己的内容收，不再跟最高的那一列对齐 —— 这块板这时候
+     是对话里的一条记录，五个和最长那一列一样高的空格子会把她的下一句话
+     推出一屏。摆的时候仍然对齐（那时候空格子是**落点**，得够大）。 */
+  align-items: start;
+}
+
+.mk-board__bin.is-readonly {
+  border-style: solid;
+  cursor: default;
+}
+
+.mk-board__chip.is-readonly {
+  display: inline-block;
+  cursor: default;
+  touch-action: auto;
+}
+
 /* 拖起来的那一张在原位留一个空位，而不是原地消失 —— 消失会让下面的卡片
    往上跳，她拖到一半时目标就移动了。 */
 .mk-board__chip.is-dragging {

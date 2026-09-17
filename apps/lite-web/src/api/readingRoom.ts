@@ -448,6 +448,16 @@ export type ReadingLensDone = {
   quote: string;
   /** What the room already concluded from that pick. */
   finding: string;
+  /**
+   * 复核对这一句的结论，以及它给出的理由 —— **她屏幕上已经读过这两样**。
+   *
+   * 🚨 少了它们，印记 这一轮会跟几秒钟前屏幕上那个结论对着干（产品负责人
+   * 2026-09-17：「句子匹配不通过，但是点击记录发现后，主 ai 又给出了不一样的
+   * 回答」）。服务端拿它们只是转述，不会再问一次模型。
+   * 可选：老的成果行里没有 eval。
+   */
+  verdict?: "strong" | "partial" | "rethink";
+  verdictReason?: string;
 };
 
 export async function postReadingCoachTurn(

@@ -172,7 +172,21 @@ export type LiteReadingRoomProps = {
  * is currently open and typing should wait.
  */
 export type ReadingCoachSlot = {
-  /** A lens is open on the article: sending anything now would talk over it. */
+  /**
+   * 这一栏此刻不能发东西。
+   *
+   * 🚨 2026-09-17 收窄了它的含义：它现在**只**表示「上一轮还在飞」。
+   *
+   * 在这之前，一副敞开的透镜也算锁住。产品负责人逐字报的后果：
+   * 「找不到句子的时候，没法在聊天框打字求助 ai。」—— 透镜挑得不对（一篇讲读
+   * 书态度的议论文被召了伦理学那副），她在文章里找不到任何一句符合的话，而屏幕
+   * 上唯一还能动的东西是「跳过」。她没有办法说出「这篇里没有这种句子」，
+   * 而她说的是对的（system prompt 里那条「她说文章里没有这种句子，先信她」
+   * 从来没有机会被触发，因为她开不了口）。
+   *
+   * 透镜开着的时候，服务端那一轮会自己收着：不递新卡、不递第二副透镜、
+   * 也不推进（见 reading_coach.go 的 anyOpen）。
+   */
   locked: boolean;
   /** Sentences she picked out of the article for her next message.
    *  `blockId` is which paragraph each one came from — undefined only for a
@@ -393,8 +407,6 @@ export function ReadingRoom({
 
   const articleRef = useRef<HTMLDivElement | null>(null);
 
-  const busyOrCarded = loop.busy || loop.status !== "idle";
-
   /**
    * 荧光笔要标的词，`blockId → terms`。
    *
@@ -586,7 +598,19 @@ export function ReadingRoom({
     seenOutcomesRef.current = loop.outcomes.length;
     const o = loop.outcomes[loop.outcomes.length - 1];
     if (!o || !o.quote.trim()) return;
-    setPendingLens({ cardName: o.cardName, quote: o.quote, finding: o.finding });
+    // 🚨 复核的**结论**也要带过去，不只是那句 finding。
+    //
+    // 产品负责人 2026-09-17：「句子匹配不通过，但是点击记录发现后，主 ai 又给出
+    // 了不一样的回答。」少了这两样，这一轮就是两个模型各说各的：复核当着她的面
+    // 判了「这一句撑不住」，印记 只拿到句子和 finding，于是照着「她交作业了，
+    // 先说她哪里选得准」那一节夸了一句。她刚读完前一句，紧接着读到后一句。
+    setPendingLens({
+      cardName: o.cardName,
+      quote: o.quote,
+      finding: o.finding,
+      verdict: o.eval?.verdict,
+      verdictReason: o.eval?.verdictReason,
+    });
   }, [loop.outcomes]);
 
   // Confirmed findings, keyed by span id — clicking a finding's highlight shows
@@ -852,7 +876,9 @@ export function ReadingRoom({
             tasks={tasks}
             initialMessages={coachMessages}
             slot={{
-              locked: busyOrCarded,
+              // 🚨 `loop.busy`，不是 `busyOrCarded` —— 一副敞开的透镜不再锁住
+              // 这一栏。她在文章里找不到句子的时候得能开口求助。见 `locked`。
+              locked: loop.busy,
               // 🚨 「锁住了」和「文章上真的有一副透镜」不是一回事：一次还在飞
               // 的请求也会锁住这一栏。面板那条「请到文章里选一句」只能挂在后者
               // 上 —— 挂错的话，她会点「带我过去」然后发现屏幕纹丝不动

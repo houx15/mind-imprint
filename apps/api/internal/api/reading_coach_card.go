@@ -108,6 +108,35 @@ const (
 type coachCardOption struct {
 	BlockID string `json:"blockId"`
 	Quote   string `json:"quote"`
+	// Where 是这句话在哪一段，她看得懂的那个写法（「第4段」）。
+	//
+	// 🚨 **服务端填，模型给不了**（解析出来的那一份在 validateCoachCardWhy 里
+	// 被原样丢弃），理由和段号在别处一样：让模型从 b1 数出「第一段」，它会数错，
+	// 而她屏幕上那个号码是服务端给的 —— 两边对不上，她照着去找就找不到。
+	//
+	// 为什么要有它：产品负责人 2026-09-17 逐字报的「对整体拆分时，选择的都是
+	// 单句，并未标注段落，有时候单独的句子拆出来很难看出属于什么部分」。
+	// 一块标注板上四句话摆在一起，不说它们各自从哪儿来，她没法判断哪句在撑哪句。
+	Where string `json:"where,omitempty"`
+}
+
+// stampOptionWhere 给每个选项补上「第几段」。段号和 readingBlockTag /
+// readingPickOrdinal 数的是同一套（从 1 起、每一段都算），所以卡片上的号码
+// 和正文旁边那个号码永远是同一个。
+func stampOptionWhere(opts []coachCardOption, blocks []Block) []coachCardOption {
+	ord := make(map[string]int, len(blocks))
+	for i, b := range blocks {
+		ord[b.ID] = i + 1
+	}
+	out := make([]coachCardOption, 0, len(opts))
+	for _, o := range opts {
+		where := ""
+		if n := ord[o.BlockID]; n > 0 {
+			where = "第" + itoaSmall(n) + "段"
+		}
+		out = append(out, coachCardOption{BlockID: o.BlockID, Quote: o.Quote, Where: where})
+	}
+	return out
 }
 
 // coachCard 是 印记 在这一轮回复里附带的一张卡片。**它不带 answer key** ——
@@ -395,7 +424,9 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	if c.Type == coachCardChooseSpan && !coachCardSpansBlocks(out) {
 		return nil, cardRejectOneBlock
 	}
-	card := &coachCard{Type: c.Type, Prompt: prompt, Options: out}
+	// 段号在这里补上，最后一步 —— 补在最终的那几条上，不在候选池上：
+	// 中间还有去重、套娃剔除和截断，补早了等于给一批不会上卡的选项算号码。
+	card := &coachCard{Type: c.Type, Prompt: prompt, Options: stampOptionWhere(out, blocks)}
 	if c.Type == coachCardLabelRoles {
 		// 格子由服务端填。模型自己塞的那份（如果有）在这里被覆盖掉：
 		// 见 coachCardRoleLabels。

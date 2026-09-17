@@ -194,7 +194,18 @@ describe("CoachCard", () => {
     expect(onAnswer).not.toHaveBeenCalled();
   });
 
-  it("答过的卡片还留着她的选择，但已经点不动了", () => {
+  // 🚨 这条 2026-09-17 **反过来了**。
+  //
+  // 原来答完之后只留她选的那一句，理由是「几个选项并排摆着、中间标出来一个，
+  // 读起来就是答案对照表」。产品负责人用真文章走完一遍之后逐字报的是另一头：
+  // 「阅读卡片选择以后无法看到其他选项（贴句子的卡片也是），无法回退。」
+  //
+  // 而且它有代价：印记 下一轮讲的往往就是几个选项之间的差别，选项一收走，
+  // 它只好在对话里把三个选项重抄一遍（真实截图）。
+  //
+  // 「不是对照表」这件事仍然要守，只是判据换成了更准的那个：**没有任何表示
+  // 对错的记号**。下面同时断言这两条。
+  it("答过的卡片留着全部选项，她选的那一句标出来，但已经点不动了", () => {
     const onAnswer = vi.fn();
     const { container } = render(
       <CoachCard
@@ -209,13 +220,18 @@ describe("CoachCard", () => {
       />,
     );
 
-    // 她的话还在对话里
-    expect(screen.getByText(new RegExp(OPTIONS[2]!.quote.slice(0, 10)))).toBeTruthy();
-    // 没被选中的那两句不留在屏幕上：并排摆着、中间标出来一句，读起来就是
-    // 「答案对照表」——而这张卡片从头到尾没有正确答案。
-    expect(screen.queryByText(new RegExp(OPTIONS[0]!.quote.slice(0, 10)))).toBeNull();
-    expect(screen.queryByText(new RegExp(OPTIONS[1]!.quote.slice(0, 10)))).toBeNull();
-    // 但整张卡片不再是可操作的东西
+    // 三句都还在屏幕上 —— 她回头看得见自己是在什么里面选的。
+    for (const o of OPTIONS) {
+      expect(screen.getByText(new RegExp(o.quote.slice(0, 10)))).toBeTruthy();
+    }
+    // 她选的那一句被标出来，用的是「你选的」，不是「对」。
+    expect(screen.getByText("你选的")).toBeTruthy();
+    // 🚨 铁律②：卡片上永远不出现对错。没被选的那两条不带任何记号。
+    const text = container.textContent ?? "";
+    for (const mark of ["✓", "✗", "×", "正确", "错误", "答对", "答错", "标准答案"]) {
+      expect(text.includes(mark)).toBe(false);
+    }
+    // 整张卡片不再是可操作的东西
     expect(screen.queryAllByRole("button")).toHaveLength(0);
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     // 🚨 只点最外层那一下是空转的：任何「不渲染按钮」的实现都能过。整棵子树

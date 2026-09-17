@@ -112,7 +112,7 @@ func TestLiveLensDoneReplyParses(t *testing.T) {
 	tasks := liveLensDoneTasks()
 
 	system := buildReadingCoachSystem("zh")
-	prompt := buildReadingCoachPrompt("一份外卖的配送费，到底付给了谁？", blocks, readingOutline{}, tasks, nil, nil, "", done)
+	prompt := buildReadingCoachPrompt("一份外卖的配送费，到底付给了谁？", blocks, readingOutline{}, tasks, nil, nil, "", done, "")
 
 	truncated, firstPass := 0, 0
 	for i := 0; i < 6; i++ {

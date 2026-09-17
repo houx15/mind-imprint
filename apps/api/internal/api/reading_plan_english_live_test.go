@@ -46,7 +46,7 @@ func TestLiveEnglishReadingPlanParses(t *testing.T) {
 			t.Logf("sample %d: REJECTED (%s)\n--- raw ---\n%s\n--- end ---", i, reject, res.Text)
 			continue
 		}
-		positions, _, _, _, _ := buildReadingTasks(routine, plan, blocks)
+		positions, _, _, _, _ := buildReadingTasks(routine, plan, blocks, nil)
 		t.Logf("sample %d ok — routine=%s focus=%v steps=%d", i, routine.Key, plan.FocusBlocks, len(positions))
 		if len(positions) == 0 {
 			t.Errorf("sample %d: routine produced no usable steps", i)

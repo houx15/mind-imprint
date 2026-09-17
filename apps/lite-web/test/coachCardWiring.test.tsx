@@ -169,13 +169,20 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
     });
   });
 
-  it("shows her choice on the card once she has tapped, and stops offering the options", async () => {
+  // 🚨 2026-09-17 反了一半：答完之后**选项仍然看得见**（她回头得知道自己是在
+  // 什么里面选的，而且 印记 下一轮讲的往往就是几个选项之间的差别），但它们
+  // 不再是按钮。见 CoachCard 的 AnsweredOptions。
+  it("shows her choice on the card once she has tapped, and stops the options being tappable", async () => {
     render(panel({ initialMessages: OPENED }));
     fireEvent.click(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" }));
 
     await waitFor(() => expect(screen.getByText("你选的")).toBeTruthy());
+    // 没被选的那一句还在屏幕上……
+    expect(screen.getByText("中国的碳排放总量位居世界第一。")).toBeTruthy();
+    // ……但点不动了。
     expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
-    expect(screen.getByText("“但人均排放仍低于多数发达国家。”")).toBeTruthy();
+    expect(screen.getByText("但人均排放仍低于多数发达国家。")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
   });
 
   it("scrolls the log when the card is answered, even though no new message is visible", async () => {
@@ -516,9 +523,11 @@ describe("R2 — 屏幕上看得见的三件事", () => {
       fireEvent.click(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" }));
 
       const again = await screen.findByRole("button", { name: "重试" });
-      // 她的选择还在，选项没有全部回来——不用她重新回忆点过什么。
+      // 她的选择还在、还标着——不用她重新回忆点过什么。卡片没有恢复成未答：
+      // 一条都不再是按钮。
       expect(screen.getByText("你选的")).toBeTruthy();
-      expect(screen.getByText("“但人均排放仍低于多数发达国家。”")).toBeTruthy();
+      expect(screen.getByText("但人均排放仍低于多数发达国家。")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
       expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
 
       fireEvent.click(again);

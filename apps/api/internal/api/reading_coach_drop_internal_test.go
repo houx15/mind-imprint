@@ -80,7 +80,7 @@ func TestDropNoticeTellsItNotToMentionTheCard(t *testing.T) {
 	// 会接着说「点上面那张卡」——线上就是这么连着六轮的。
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
-	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 	if !strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
 		t.Fatal("prompt 里没有那一节")
 	}
@@ -98,7 +98,7 @@ func TestDropNoticeIsNotForHerEars(t *testing.T) {
 	// 说出来只会让她觉得这个房间在出故障。
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
-	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 	if !strings.Contains(prompt, "这件事不要说给她听") {
 		t.Fatal("那一节没有交代「别把这件事讲给她」")
 	}
@@ -131,7 +131,7 @@ func TestEveryRejectReasonSaysHowToFixIt(t *testing.T) {
 func TestTheNoticeCarriesTheFixNotJustTheReason(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
-	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 	if !strings.Contains(prompt, "怎么改：") {
 		t.Fatal("那一节只说了理由，没说怎么改 —— 它会照着原样再出一张")
 	}
@@ -230,7 +230,7 @@ func TestOpenCardIsShownToTheCoach(t *testing.T) {
 	}
 	blocks := []Block{{ID: "b1", Text: "第一段那句话。"}, {ID: "b2", Text: "第二段那句话。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(card, cardOK))}
-	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 
 	if !strings.Contains(prompt, "她屏幕上现在摆着这张卡片") {
 		t.Fatal("prompt 里没有那一节 —— 模型看不见自己递出去的东西")
@@ -275,7 +275,7 @@ func TestNoOpenCardOnAPlainTurn(t *testing.T) {
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
-	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
+	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 	if strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
 	}

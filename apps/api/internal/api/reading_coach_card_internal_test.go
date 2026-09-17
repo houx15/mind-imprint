@@ -57,10 +57,12 @@ func TestValidateCoachCard(t *testing.T) {
 		if got.Prompt != "哪一句你读着最不服气？" {
 			t.Fatalf("prompt changed: %q", got.Prompt)
 		}
-		if got.Options[0] != (coachCardOption{BlockID: "b1", Quote: "白天吸热、夜里放热"}) {
+		// 引文和落点段一个字都不动；段号是校验器**补上**的（stampOptionWhere，
+		// 2026-09-17）—— 她看得懂的那个写法，服务端数的，模型给不了。
+		if got.Options[0] != (coachCardOption{BlockID: "b1", Quote: "白天吸热、夜里放热", Where: "第1段"}) {
 			t.Fatalf("option 0 changed: %+v", got.Options[0])
 		}
-		if got.Options[1] != (coachCardOption{BlockID: "b2", Quote: "空调外机把热量排到室外"}) {
+		if got.Options[1] != (coachCardOption{BlockID: "b2", Quote: "空调外机把热量排到室外", Where: "第2段"}) {
 			t.Fatalf("option 1 changed: %+v", got.Options[1])
 		}
 	})

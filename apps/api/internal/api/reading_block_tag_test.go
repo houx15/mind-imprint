@@ -26,7 +26,7 @@ func TestReadingPrompt_LabelsParagraphsWithTheirOrdinal(t *testing.T) {
 		name   string
 		prompt string
 	}{
-		{"coach", buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, nil, nil, "", nil)},
+		{"coach", buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, nil, nil, "", nil, "")},
 		{"plan", buildReadingPlanPrompt("zh", "标题", blocks)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestReadingBlockTag_CountsSkippedParagraphs(t *testing.T) {
 		{ID: "b2", Text: "   "},
 		{ID: "b3", Text: "也有内容。"},
 	}
-	prompt := buildReadingCoachPrompt("", blocks, readingOutline{}, nil, nil, nil, "", nil)
+	prompt := buildReadingCoachPrompt("", blocks, readingOutline{}, nil, nil, nil, "", nil, "")
 
 	if strings.Contains(prompt, "b2") {
 		t.Fatalf("the empty paragraph should not be in the prompt at all:\n%s", prompt)

@@ -80,7 +80,7 @@ func (d *ReadingWalkDriver) Request() gateway.ChatRequest {
 			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(d.lang)},
 			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(
 				"中国的能源转型：投入与结果", d.blocks, readingOutline{},
-				d.tasks, d.msgs, d.picks, d.student, nil)},
+				d.tasks, d.msgs, d.picks, d.student, nil, "")},
 		},
 	}
 }

@@ -146,7 +146,12 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
 			{Kind: taskLens, Label: "深入思考", Detail: "请使用一张透镜卡，按卡片提示分析文章。"},
 			{Kind: taskReflect, Label: "总结收获", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
-			{Kind: taskConnect, Label: "链接经验", Detail: "这篇讲的事，你自己身边、新闻里、或者别的书里，有没有碰到过？想到什么说什么，这一步没有标准答案。"},
+			// 🚨 2026-09-17 改写。原来这句是「这篇讲的事，你自己身边、新闻里、
+			// 或者别的书里，有没有碰到过？」——产品负责人报的「有点抽象，还有
+			// 点鸡肋」说的就是它：一个没有落点的问题只能换来一句泛泛的话。
+			// 落点由 印记 从这篇文章里取（见 readingCurrentStepInstruction 的
+			// connect 分支），这里说清楚她要拿出来的是什么。
+			{Kind: taskConnect, Label: "链接经验", Detail: "请就文章里的某一个说法，说出你自己见过的一件对得上、或者对不上的事。"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能撑住作者观点的那一句。点出来，我们一起看看它撑不撑得住。"},
 		},
 	},

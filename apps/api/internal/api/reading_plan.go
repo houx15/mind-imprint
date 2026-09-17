@@ -47,9 +47,12 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 你要做的只有五件事：
 
 1. 从给出的读法里**挑一套**（routineKey 必须逐字取自表里）。
-2. 指出哪 **1–2 段**值得精读（focusBlocks，用段落编号 b1/b2/…）。这是你最重要的
+2. 指出哪几段值得精读（focusBlocks，用段落编号 b1/b2/…）。这是你最重要的
    判断：挑那种「读懂了这一段，整篇就通了」的段落，或者那种最难、最容易被跳过去
    的段落。不要挑第一段就了事。
+   **十段以内挑 1 段，十段以上挑 2 段，二十段以上挑 3 段**，而且要**分散在全篇**，
+   不要两段挨着。🚨 你挑几段，清单上就有几个精读步骤 —— 挑得太少，整篇十七段
+   的文章最后只有两段被读过。
 3. 给每一步写一句**贴着这篇文章**的说明（steps[].detail）。比如不要写「精读重点
    段」，要写「这一段是全文唯一给出数据的地方，值得细读」。
 4. 篇幅很短、或者内容很浅的文章，可以少排几步——一步都不能编，但可以不排。
@@ -76,8 +79,12 @@ scramble」），那份导读对她等于不存在。**文章里的专有名词�
   一样写成一句完整的话。
 - **shape**：它是怎么组织的，四到六个**中文**词，中间用 → 连。
   比如「问题 → 数据 → 让步 → 结论」「事件 → 各方反应 → 未解决的部分」。
-- **parts**：把整篇切成 **2 到 5 个部分**，按顺序，用段落编号划界。
-  她会一部分一部分地读，所以这是「通读全文」那一步真正的台阶。
+- **parts**：把整篇切开，按顺序，用段落编号划界。
+  **每个部分 2 到 4 段**——这是一个中学生一口气读得完的量。段数多的文章就多切
+  几个部分，最多 6 个（再多就不是「部分」了）；六个部分还装不下的超长文章，
+  每部分放到 5 段。
+  🚨 这几个部分**各自会成为清单上的一步**：她读完一部分答一次，再进下一部分。
+  所以切法直接决定她读这篇文章的节奏，不是一份装饰性的目录。
   每个部分给三样：
   - title：这一部分叫什么，中文，不超过 10 个字。比如「提出争议」「实测数据」。
   - from / to：头尾段编号（闭区间），比如 from=b1, to=b3。
@@ -336,7 +343,11 @@ const (
 // `detail` and say which blocks to focus on. A model that returned steps in a
 // different order, or a kind the routine does not have, is simply ignored —
 // the loop walks the ROUTINE, not the reply.
-func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []Block) (
+// `parts` 是**校验过的**那份切法（validateParts 的结果，可以为空）。有切法的
+// 时候，「通读全文」那一步摊成一步一个部分 —— 见 readingPartSteps。
+func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []Block,
+	parts []readingPart,
+) (
 	positions []int32, kinds, labels, details, blockIDs []string,
 ) {
 	// Ordinal, not just validity: the 精读 step's label now carries 第N段, and
@@ -347,9 +358,14 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []B
 		ordinal[blk.ID] = i + 1
 	}
 	focus := make([]string, 0, len(plan.FocusBlocks))
+	seenFocus := map[string]bool{}
 	for _, id := range plan.FocusBlocks {
-		if ordinal[strings.TrimSpace(id)] > 0 {
-			focus = append(focus, strings.TrimSpace(id))
+		id = strings.TrimSpace(id)
+		// 同一段挑两次就是同一步走两遍。去重在这里做，因为下面每一段都会变成
+		// 清单上自己的一步。
+		if ordinal[id] > 0 && !seenFocus[id] && len(focus) < maxFocusSteps {
+			seenFocus[id] = true
+			focus = append(focus, id)
 		}
 	}
 	nextFocus := 0
@@ -362,17 +378,50 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []B
 		}
 		label := step.Label
 		blockID := ""
+		// 通读切成了几步，一步一个部分。
+		if step.Kind == taskRead && len(parts) > 0 {
+			for _, ps := range readingPartSteps(parts, ordinal) {
+				positions = append(positions, pos)
+				kinds = append(kinds, string(taskRead))
+				labels = append(labels, ps.label)
+				details = append(details, ps.detail)
+				blockIDs = append(blockIDs, ps.blockID)
+				pos++
+			}
+			continue
+		}
 		if step.Kind == taskFocusBlock {
-			if nextFocus < len(focus) {
-				blockID = focus[nextFocus]
-				nextFocus++
-				label = focusBlockLabel(ordinal[blockID])
-			} else {
+			if nextFocus >= len(focus) {
 				// A focus step with no paragraph behind it is a dead step —
 				// she would be told to read "the highlighted paragraph" with
 				// nothing highlighted. Drop it rather than render a lie.
 				continue
 			}
+			// 🚨 模型被要求挑 1–2 段，而 routine 里只有一个精读步 —— 多出来的
+			// 那一段以前**静默丢掉**。产品负责人 2026-09-17 逐字报的正是它的
+			// 后果：「整篇的交互就集中在 2-3 个段落，其他的段落完全放置了」。
+			// 挑了两段就走两步，各自带着自己的段号。
+			for nextFocus < len(focus) {
+				blockID = focus[nextFocus]
+				// 🚨 模型那句 detail 是对着**一段**写的（「这一段是全文唯一给出
+				// 数据的地方」）。把它复制到第二个精读步上，那句话就成了一句
+				// 关于别的段落的假话。第一步用它，往后的用读法库自己那一句。
+				// 「这一段凭什么值得精读」由 印记 在进入那一步的那一轮说
+				// （readingCurrentStepInstruction 的 focus_block 分支），
+				// 那时候它看得见是哪一段。
+				stepDetail := detail
+				if nextFocus > 0 {
+					stepDetail = step.Detail
+				}
+				nextFocus++
+				positions = append(positions, pos)
+				kinds = append(kinds, string(taskFocusBlock))
+				labels = append(labels, focusBlockLabel(ordinal[blockID]))
+				details = append(details, stepDetail)
+				blockIDs = append(blockIDs, blockID)
+				pos++
+			}
+			continue
 		}
 		positions = append(positions, pos)
 		kinds = append(kinds, string(step.Kind))
@@ -382,6 +431,54 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []B
 		pos++
 	}
 	return positions, kinds, labels, details, blockIDs
+}
+
+// maxFocusSteps 是精读步骤的上限。三：一篇二十段以上的长文，三段精读已经是
+// 一次能撑住的量；再多，整份清单就长到她走不完，而一份走不完的清单和一份
+// 只读了两段的清单一样没用。
+const maxFocusSteps = 3
+
+// readingPartStep 是通读被切开之后的一步：一个部分。
+type readingPartStep struct{ label, detail, blockID string }
+
+// readingPartSteps 把「通读全文」摊成一步一个部分。
+//
+// # 为什么是步骤，不是一段提示词
+//
+// 「一部分一部分地走」2026-09-16 是写在 system prompt 里的一段散文，而每一轮
+// 末尾那条**判据**（readingCurrentStepInstruction 的 taskRead 分支）写的是
+// 「已回答本步的通读卡片就给 done」。散文跨不过判据：真模型发一张卡、她答了、
+// 这一步当场 done，下一句就进精读。产品负责人 2026-09-17 在一篇 17 段的文章上
+// 逐字指出了这一幕（「马上就转到精读了」）。
+//
+// [[hardcoded-thresholds-vs-user-set-scale-2026-09-12]]：提示词里的软话跨不过
+// 代码里的硬判据。所以「走完一个部分」不再由模型自己数 —— 一个部分就是清单上
+// 的一步，走完它就是 advance 一次，和别的步骤一模一样。
+//
+// 顺带解决了另一半：她在进度盘上看得见通读走到哪儿，而在这之前通读是一颗圆点，
+// 点亮之前和点亮之后都不知道自己读了多少。
+func readingPartSteps(parts []readingPart, ordinal map[string]int) []readingPartStep {
+	out := make([]readingPartStep, 0, len(parts))
+	for _, p := range parts {
+		from, to := ordinal[p.From], ordinal[p.To]
+		if from <= 0 || to < from {
+			continue
+		}
+		where := "第" + itoaSmall(from) + "–" + itoaSmall(to) + "段"
+		if from == to {
+			where = "第" + itoaSmall(from) + "段"
+		}
+		// 标签带上段号：她在进度盘上一眼看得出这一步读哪几段，不用点开。
+		label := "通读" + where + "·" + p.Title
+		detail := "请通读" + where + "。"
+		if p.Does != "" {
+			// does 说的是这一部分**在干什么**，不是它说了什么 —— 那是她要自己
+			// 读出来的。validateParts 保证它不超过 20 个字。
+			detail += "这几段" + p.Does + "。"
+		}
+		out = append(out, readingPartStep{label: label, detail: detail, blockID: p.From})
+	}
+	return out
 }
 
 // planReadingTasks is the plan generation itself, split out of the HTTP
@@ -425,7 +522,12 @@ func (a *API) planReadingTasks(
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
 	}
 
-	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, blocks)
+	// 🚨 导读**先**校验，因为清单要用它切出来的那几个部分：通读摊成一步一个
+	// 部分（readingPartSteps）。校验没过的切法是 nil，通读就退回整篇一步 ——
+	// 和没有切法的短文章走同一条路。
+	outline, outlineOK := validateOutline(plan.outline(), blocks)
+
+	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, blocks, outline.Parts)
 	if len(positions) == 0 {
 		slog.Warn("reading plan: routine produced no usable steps", "atom_id", atomID, "routine", routine.Key)
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
@@ -451,8 +553,8 @@ func (a *API) planReadingTasks(
 	}
 	// 导读。校验不过就不写 —— 那一列留着上一次的（或者 '{}'），阅读室因此
 	// 不显示导读卡，而不是显示一份修补过的。见 validateOutline。
-	if o, ok := validateOutline(plan.outline(), blocks); ok {
-		if raw, merr := json.Marshal(o); merr == nil {
+	if outlineOK {
+		if raw, merr := json.Marshal(outline); merr == nil {
 			if _, err := qtx.UpdateReadingSourceOutline(ctx, sqlc.UpdateReadingSourceOutlineParams{
 				AtomID: atomID, Outline: raw,
 			}); err != nil {

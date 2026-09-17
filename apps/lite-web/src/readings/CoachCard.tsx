@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { CoachBoard, type BoardItem, type BoardPlacement } from "./CoachBoards";
+import {
+  CoachBoard,
+  CoachBoardRecap,
+  type BoardItem,
+  type BoardPlacement,
+} from "./CoachBoards";
 
 /**
  * CoachCard — 印记 把这一步递到她手上，让她点。
@@ -85,8 +90,15 @@ export type CoachCardType =
   | "label_roles"
   | "word_bank";
 
-/** 卡片上的一个选项：文章里某一段（blockId）的某一句原话（quote）。 */
-export type CoachCardOption = { blockId: string; quote: string };
+/**
+ * 卡片上的一个选项：文章里某一段（blockId）的某一句原话（quote），以及它在
+ * 第几段（where，「第4段」）。
+ *
+ * 🚨 `where` 是**服务端数的**（`stampOptionWhere`），不是前端从 blockId 推的，
+ * 也不是模型写的 —— 它必须和正文旁边那个号码是同一个，不然她照着去找就找不到。
+ * 老消息里的卡片没有这个字段，所以它是可选的：没有就不显示。
+ */
+export type CoachCardOption = { blockId: string; quote: string; where?: string };
 
 /** 生词板上的一个词。**没有释义字段**，而且是故意的：板上不摆答案。 */
 export type CoachCardWord = { blockId: string; term: string };
@@ -125,6 +137,7 @@ const WORD_BINS = ["认识", "不确定", "不认识"];
 /** 一块板上待分类的那些东西，从卡片本身派生。 */
 export function boardItems(card: CoachCardSpec): BoardItem[] {
   if (card.type === "word_bank") {
+    // 词不带段号：一个词标上「第4段」没有帮助，她要分的是认不认识，不是它在哪儿。
     return (card.words ?? []).map((w, i) => ({
       id: `w${i}`,
       text: w.term,
@@ -135,7 +148,41 @@ export function boardItems(card: CoachCardSpec): BoardItem[] {
     id: `o${i}`,
     text: o.quote,
     blockId: o.blockId,
+    where: o.where,
   }));
+}
+
+/**
+ * 她摆完的那块板，从她那条作答里读回来。
+ *
+ * 🚨 逐行对着 `composeBoardAnswer` 写的，而且**只认那一种格式** —— 认不出来的
+ * 行就跳过。这段字是唯一的记录（它就是存进 atom_message 的那一份），所以读它
+ * 比另存一份状态更诚实：刷新之后回来看到的，和服务端看到的是同一个东西。
+ */
+export function parseBoardAnswer(card: CoachCardSpec, choice: string): BoardPlacement {
+  const items = boardItems(card);
+  const byText = new Map(items.map((it) => [it.text.trim(), it.id]));
+  const out: BoardPlacement = {};
+  const lines = choice.split("\n");
+  if (card.type === "word_bank") {
+    // 「词 — 格子」，一行一个。
+    for (const line of lines) {
+      const i = line.indexOf(" — ");
+      if (i < 0) continue;
+      const id = byText.get(line.slice(0, i).trim());
+      const bin = line.slice(i + 3).trim();
+      if (id && bin) out[id] = bin;
+    }
+    return out;
+  }
+  // 「格子：」一行，原文那一句在下一行。
+  for (let i = 0; i + 1 < lines.length; i++) {
+    const head = lines[i]!.trim();
+    if (!head.endsWith("：")) continue;
+    const id = byText.get(lines[i + 1]!.trim());
+    if (id) out[id] = head.slice(0, -1);
+  }
+  return out;
 }
 
 /**
@@ -275,7 +322,15 @@ export function CoachCard({
         {card.prompt}
       </p>
 
-      {done ? (
+      {done && card.type === "choose_span" ? (
+        <AnsweredOptions
+          options={options}
+          choice={answered!.choice}
+          takeFocus={!answeredAtMount.current}
+        />
+      ) : done && (card.type === "label_roles" || card.type === "word_bank") ? (
+        <AnsweredBoard card={card} choice={answered!.choice} takeFocus={!answeredAtMount.current} />
+      ) : done ? (
         <HerAnswer answer={answered!} takeFocus={!answeredAtMount.current} />
       ) : card.type === "choose_span" ? (
         <>
@@ -288,6 +343,7 @@ export function CoachCard({
                   onClick={() => answer(o.quote, o.blockId)}
                   className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-left text-mk-small leading-relaxed text-mk-ink transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  <OptionWhere where={o.where} />
                   {o.quote}
                 </button>
               </li>
@@ -348,9 +404,26 @@ export function CoachCard({
             aria-label={card.prompt}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            // 🚨 回车发送，Shift+回车换行 —— 和输入框（Composer）同一套手势。
+            // 产品负责人 2026-09-17：「动手部分，按回车键无法发送，需要点击
+            // 发送按钮才能发送。」这个框和下面那个输入框长得一样、挨在一起，
+            // 一个认回车一个不认，她只会以为发送坏了。
+            //
+            // 🚨 `isComposing`：中文输入法用回车上屏候选词。不挡的话，她打
+            // 「礼貌」按回车选词，选的那一下就把半句话发出去了。
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey) return;
+              if (e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              if (busy) return;
+              const text = draft.trim();
+              if (!text) return;
+              setDraft("");
+              answer(text);
+            }}
             rows={2}
             disabled={busy}
-            placeholder="用中文写一句你自己的话"
+            placeholder="用中文写一句你自己的话（回车发送，Shift+回车换行）"
             className="mk-scroll w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small leading-relaxed text-mk-ink placeholder:text-mk-faint focus:border-mk-accent-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:opacity-60"
           />
           <div className="flex justify-end">
@@ -376,12 +449,143 @@ export function CoachCard({
   );
 }
 
+/** 选项前面那个段号。没有（老消息、生词板）就整个不渲染。 */
+function OptionWhere({ where }: { where?: string }) {
+  if (!where) return null;
+  return (
+    <span
+      className="mr-1.5 inline-block rounded-mk-full px-1.5 py-px align-[1px] text-mk-caption"
+      style={{
+        background: "color-mix(in srgb, var(--mk-accent-500) 12%, transparent)",
+        color: "var(--mk-accent-700)",
+      }}
+    >
+      {where}
+    </span>
+  );
+}
+
+/**
+ * 她答过之后的那张 choose_span：**几个选项全部留着**，她点的那一个标出来。
+ *
+ * 🚨 这推翻了 2026-08 的那条设计。原来这里只留她选的那一句，理由写着：
+ * 「把它们并排摆着，中间还有一个被标出来的，屏幕上读起来就是『答案对照表』。」
+ * 真用下来是反的 —— 产品负责人 2026-09-17 逐字报的：「阅读卡片选择以后无法
+ * 看到其他选项（贴句子的卡片也是），无法回退。」
+ *
+ * 代价有两处，都在她那边：
+ *
+ *  - 印记 下一轮讲的往往就是**几个选项之间的差别**（「古训、俗话，跟你选的
+ *    第 3 句，在让人相信这件事上不一样」）。选项一收走，她手上只剩自己那一句，
+ *    只能往回翻 —— 而截图里 印记 索性把三个选项在对话里重抄了一遍，那正是
+ *    屏幕上缺了东西的症状。
+ *  - 她想回头看看自己当时在什么里面选的，屏幕上没有那个东西了。
+ *
+ * 「答案对照表」那个担心靠别的东西挡住，而且比收走选项挡得更准：**这里仍然
+ * 没有 ✓、没有 ✗、没有分数**（铁律②），没被选的几条也不带任何「错」的记号，
+ * 只是退到背景里。标出来的是「你选的」，不是「对的」。
+ */
+function AnsweredOptions({
+  options,
+  choice,
+  takeFocus = false,
+}: {
+  options: CoachCardOption[];
+  choice: string;
+  takeFocus?: boolean;
+}) {
+  // 焦点：同 HerAnswer —— 她按的那个按钮在作答之后被卸载了，没人接住就掉回
+  // <body>，键盘和读屏用户答完一题会回到文档顶部。
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (takeFocus) ref.current?.focus?.();
+  }, [takeFocus]);
+  const picked = choice.trim();
+  // 她选的那一句不在选项里（兜底卡、或者正文换过了）→ 退回只显示她那一句，
+  // 而不是把一组和她无关的选项摆在那儿。
+  const matched = options.some((o) => o.quote.trim() === picked);
+  return (
+    <div
+      ref={ref}
+      role="status"
+      tabIndex={-1}
+      className="flex flex-col gap-1.5 rounded-mk-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+    >
+      {!matched && <span className="text-mk-small text-mk-faint">你选的</span>}
+      {(matched ? options : [{ blockId: "", quote: picked } as CoachCardOption]).map((o, i) => {
+        const mine = o.quote.trim() === picked;
+        return (
+          <div
+            key={`${o.blockId}-${i}`}
+            className="rounded-mk-md border-l-2 px-3 py-2 text-mk-small leading-relaxed"
+            style={
+              mine
+                ? {
+                    borderLeftColor: "var(--mk-accent-400)",
+                    background: "color-mix(in srgb, var(--mk-surface) 88%, transparent)",
+                    color: "var(--mk-ink)",
+                  }
+                : {
+                    // 没被选的那几条：退到背景里，但仍然读得清。它们不是错的，
+                    // 所以没有任何表示「错」的记号 —— 只是不是她挑的那一句。
+                    borderLeftColor: "transparent",
+                    background: "transparent",
+                    color: "var(--mk-muted)",
+                  }
+            }
+          >
+            {mine && <span className="mr-1.5 text-mk-caption text-mk-faint">你选的</span>}
+            <OptionWhere where={o.where} />
+            {o.quote}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 她摆完之后的那块板：同样的格子、同样的卡片、同样的位置，只是不能再动。
+ *  见 `CoachBoardRecap`。 */
+function AnsweredBoard({
+  card,
+  choice,
+  takeFocus = false,
+}: {
+  card: CoachCardSpec;
+  choice: string;
+  takeFocus?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (takeFocus) ref.current?.focus?.();
+  }, [takeFocus]);
+  const items = boardItems(card);
+  const placement = parseBoardAnswer(card, choice);
+  const bins = card.type === "label_roles" ? card.labels ?? [] : WORD_BINS;
+  // 一行都没认出来（格式变过、老数据）→ 退回原样显示她那段作答，而不是摆一块
+  // 空板。空板读起来是「你什么都没摆」，那是假的。
+  if (Object.keys(placement).length === 0 || bins.length === 0) {
+    return <HerAnswer answer={{ type: card.type, prompt: card.prompt, choice }} takeFocus={takeFocus} />;
+  }
+  return (
+    <div
+      ref={ref}
+      role="status"
+      tabIndex={-1}
+      className="flex flex-col gap-1 rounded-mk-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+    >
+      <span className="text-mk-small text-mk-faint">你摆的</span>
+      <CoachBoardRecap items={items} bins={bins} placement={placement} />
+    </div>
+  );
+}
+
 /**
  * 她答过之后卡片剩下的东西：**只有她的选择**。
  *
- * 故意不把没被选的几个选项一起留在这里。把它们并排摆着，中间还有一个被标出来
- * 的，屏幕上读起来就是「答案对照表」——而这张卡片从头到尾没有一个正确答案。
- * 留下的这一句是她说过的话，不是她的成绩。
+ * 🚨 这一种现在只服务 `short_text` 和 `pick_in_article` —— 这两种本来就没有
+ * 选项可留（一个是她自己写的，一个是她自己到正文里划的）。choose_span 和两块
+ * 板走 AnsweredOptions / AnsweredBoard，见那两个函数上面的注释。
  */
 function HerAnswer({ answer, takeFocus = false }: { answer: CoachCardAnswer; takeFocus?: boolean }) {
   const hersInHerOwnWords = answer.type === "short_text";

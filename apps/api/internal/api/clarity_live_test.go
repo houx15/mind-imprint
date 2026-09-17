@@ -34,7 +34,7 @@ func TestClarityReading(t *testing.T) {
 			blocks := SplitBlocks(benchReadingArticle)
 			tasks := []sqlc.ReadingTask{{ID: fixtureTaskID(1), Position: 1, Kind: input.kind, Label: input.label, BlockID: "b3", Status: "pending"}, {ID: fixtureTaskID(2), Position: 2, Kind: "reflect", Label: "总结读后的观点变化", Status: "pending"}}
 			history := []sqlc.AtomMessage{{Seq: 1, Role: "ai", Content: "当前任务：" + input.label + "。"}}
-			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(readingLangOf(benchReadingArticle))}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, history, input.picks, input.text, nil)}}}
+			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(readingLangOf(benchReadingArticle))}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, history, input.picks, input.text, nil, "")}}}
 			claritytest.Run(t, gateway.ClassDialogue, req, func(raw string) error {
 				out, ok := parseReadingCoachReply(raw, blocks, readingLangOf(benchReadingArticle), func(string) bool { return true })
 				if !ok {
@@ -63,7 +63,7 @@ func TestClarityReadingLens(t *testing.T) {
 			blocks := SplitBlocks(benchReadingArticle)
 			tasks := []sqlc.ReadingTask{{ID: fixtureTaskID(1), Position: 1, Kind: "lens", Label: "用信源评估透镜分析一条证据", BlockID: "b3", Status: "pending"}, {ID: fixtureTaskID(2), Position: 2, Kind: "reflect", Label: "总结读后的观点变化", Status: "pending"}}
 			history := []sqlc.AtomMessage{{Seq: 1, Role: "ai", Content: "请用信源评估透镜分析文章中的一条证据。"}}
-			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(readingLangOf(benchReadingArticle))}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, history, nil, c.text, c.done)}}}
+			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(readingLangOf(benchReadingArticle))}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, history, nil, c.text, c.done, "")}}}
 			claritytest.Run(t, gateway.ClassDialogue, req, func(raw string) error {
 				out, ok := parseReadingCoachReply(raw, blocks, readingLangOf(benchReadingArticle), func(string) bool { return true })
 				if !ok {

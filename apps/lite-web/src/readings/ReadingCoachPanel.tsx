@@ -394,11 +394,15 @@ export function ReadingCoachPanel({
               <CoachCard
                 card={card}
                 answered={cards.answerBySeq.get(m.seq) ?? null}
-                // A lens open on the article counts as busy here for the same
-                // reason it locks the composer: 一次只问一个. The server already
-                // refuses to mint both in one turn, but an OLD card sitting
-                // above a fresh lens could still be tapped.
-                busy={busy || slot.locked}
+                // A lens open on the article counts as busy here: 一次只问一个.
+                // The server already refuses to mint both in one turn, but an
+                // OLD card sitting above a fresh lens could still be tapped.
+                //
+                // 🚨 `slot.lensOpen`，不是 `slot.locked`。2026-09-17 之前这两件
+                // 事是同一个值，然后 `locked` 收窄成了「上一轮还在飞」（她得能在
+                // 透镜上卡住的时候开口求助）—— 卡片这一侧要的仍然是**透镜开着**
+                // 那一个，不然一副敞开的透镜底下那张旧卡又能点了。
+                busy={busy || slot.locked || Boolean(slot.lensOpen)}
                 stale={cards.stale.has(m.seq)}
                 onAnswer={send}
               />
@@ -596,11 +600,14 @@ export function ReadingCoachPanel({
           </div>
         )}
 
-        {/* 🚨 一副透镜开着的时候，这一栏是锁住的 —— 而在这之前，屏幕上说明这件
-            事的全部内容是输入框里一句灰色的 placeholder。模拟学生走查逐字报的：
-            「发送按钮按不动，我打不了字。」她盯着右边这一栏，而那副透镜在**左边
-            文章上**，她根本没往那边看。
-            一句明确的话 + 一颗把她送过去的按钮。 */}
+        {/* 🚨 一副透镜开着的时候，这条横幅说清楚这一步要在文章里做，并给一颗
+            把她送过去的按钮。在它之前，屏幕上说明这件事的全部内容是输入框里
+            一句灰色的 placeholder，模拟学生走查逐字报的：「发送按钮按不动，
+            我打不了字。」她盯着这一栏，而那副透镜在文章上，她根本没往那边看。
+
+            🚨 2026-09-17：这一栏**不再锁住**了（产品负责人：「找不到句子的时候，
+            没法在聊天框打字求助 ai」），所以这句话也从「你现在只能去那边」改成
+            「那边有一件事，做不下去就在这儿说」。 */}
         {slot.lensOpen && (
           <div
             className="flex items-center justify-between gap-3 rounded-mk-md border px-3 py-2"
@@ -609,8 +616,11 @@ export function ReadingCoachPanel({
               background: "color-mix(in srgb, var(--mk-accent-50) 70%, var(--mk-surface))",
             }}
           >
+            {/* 🚨 一个方位词都不许有 —— 文章在桌面端和手机上排的位置不一样，
+                写死的方位迟早是错的（CoachCard 的 pick_in_article 那段注释记的
+                是同一次事故）。原来这里写的是「请在左边的文章里选出那一句」。 */}
             <span className="text-mk-small leading-relaxed text-mk-ink">
-              这一步要在文章里做：印记 给了你一副透镜，请在左边的文章里选出那一句。
+              这一步要在文章里做：印记给了你一副透镜，请在文章里选出那一句。找不到合适的句子，直接告诉印记。
             </span>
             <button
               type="button"
@@ -639,8 +649,12 @@ export function ReadingCoachPanel({
           // lets pointing alone send.
           state={busy ? "replying" : draft.trim() || slot.quotes.length > 0 ? "typing" : "empty"}
           placeholder={
-            slot.locked
-              ? "先完成文章里的这副透镜…"
+            // 🚨 透镜开着的时候这一栏**不再锁**，所以这句话也换了。旧的那句
+            // 「先完成文章里的这副透镜…」是一条把她关在外面的通知；产品负责人
+            // 2026-09-17 报的正是它的后果：「找不到句子的时候，没法在聊天框
+            // 打字求助 ai。」现在它是一句邀请。
+            slot.lensOpen
+              ? "找不到合适的句子？跟印记说一声"
               : finished
                 ? "读完了，还想聊点什么？"
                 : // 🚨 上面那张卡片自己带一个输入框的时候，屏幕上就有**两个**能

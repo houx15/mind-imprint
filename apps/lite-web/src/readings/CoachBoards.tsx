@@ -76,6 +76,15 @@ export type BoardItem = {
   text: string;
   /** 它出自哪一段（用来在回灌里说「第几段」）。 */
   blockId: string;
+  /**
+   * 它出自第几段，她看得懂的那个写法（「第4段」）。服务端填的
+   * （`coachCardOption.where`），这里只负责显示。
+   *
+   * 🚨 产品负责人 2026-09-17：「对整体拆分时，选择的都是单句，并未标注段落，
+   * 有时候单独的句子拆出来很难看出属于什么部分。」四句话摘出上下文摆在一块板
+   * 上，不说各自从哪儿来，「哪句在撑哪句」这件事她无从判断。
+   */
+  where?: string;
 };
 
 /** 她摆完之后的状态：itemId → 格子名。没摆的那些不在表里。 */
@@ -404,7 +413,60 @@ function Chip({
       // 冒泡到格子上，把刚选中的那张立刻放进去。
       onClick={(e) => e.stopPropagation()}
     >
+      {/* 段号在句子前面，不在后面：她扫这块板的时候先要知道「这是哪儿的话」，
+          再读那句话本身。没有段号（生词板、老数据）就整个不渲染。 */}
+      {item.where && <span className="mk-board__chipwhere">{item.where}</span>}
       {item.text}
     </button>
+  );
+}
+
+/**
+ * 一块摆完了的板，只读。
+ *
+ * 🚨 产品负责人 2026-09-17：「阅读卡片选择以后无法看到其他选项（贴句子的卡片
+ * 也是），无法回退。」她一交上来，这块板就从屏幕上整个消失，只剩一段
+ * 「主张：……证据：……」的文字 —— 于是「我刚才把哪句放在哪儿」这件事，
+ * 她只能靠读那段文字重建。
+ *
+ * 留下来的是**同一块板的样子**（同样的格子、同样的卡片、同样的位置），
+ * 只是不能再动。能不能再动这件事是有意的：板一交上去，印记 那一轮就是照着这个
+ * 摆法讲的，再改一次只会让屏幕和对话对不上（system prompt 里那条「不要再让她
+ * 动那块板」说的是同一件事）。
+ */
+export function CoachBoardRecap({
+  items,
+  bins,
+  placement,
+  binHints,
+}: {
+  items: BoardItem[];
+  bins: string[];
+  placement: BoardPlacement;
+  binHints?: Record<string, string>;
+}) {
+  const hints = binHints ?? BIN_HINT;
+  return (
+    <div className="mk-board is-done" aria-label="你摆好的板">
+      <div className="mk-board__bins">
+        {bins.map((bin) => {
+          const inside = items.filter((it) => placement[it.id] === bin);
+          return (
+            <div key={bin} data-board-bin={bin} className="mk-board__bin is-readonly">
+              <span className="mk-board__binname">{bin}</span>
+              {hints[bin] && <span className="mk-board__binhint">{hints[bin]}</span>}
+              <div className="mk-board__chips">
+                {inside.map((it) => (
+                  <span key={it.id} className="mk-board__chip is-readonly">
+                    {it.where && <span className="mk-board__chipwhere">{it.where}</span>}
+                    {it.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

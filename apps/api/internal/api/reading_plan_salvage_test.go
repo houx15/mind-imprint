@@ -24,9 +24,33 @@ func TestReadingPlanSurvivesBrokenSteps(t *testing.T) {
 		t.Errorf("focusBlocks lost: %v", plan.FocusBlocks)
 	}
 	// steps 写坏了就当它没给 —— 清单照样排得出来，detail 用读法库自己那一句。
-	positions, kinds, labels, details, _ := buildReadingTasks(routine, plan, blocks)
-	if len(positions) != len(routine.Steps) {
-		t.Fatalf("got %d steps, want the routine's %d", len(positions), len(routine.Steps))
+	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, blocks, nil)
+	// 🚨 不是「等于读法库的步数」：它挑了**两段**精读，而 2026-09-17 起挑几段
+	// 就走几步（在那之前多出来的那一段被静默丢掉，整篇十七段的文章最后只有两段
+	// 被读过）。所以这里是读法库的步数 + 多出来的那一个精读步。
+	focusSteps := 0
+	for _, k := range kinds {
+		if k == string(taskFocusBlock) {
+			focusSteps++
+		}
+	}
+	if focusSteps != 2 {
+		t.Errorf("focus steps = %d, want one per focusBlock (2)", focusSteps)
+	}
+	if len(positions) != len(routine.Steps)+1 {
+		t.Fatalf("got %d steps, want the routine's %d plus the extra 精读 step",
+			len(positions), len(routine.Steps))
+	}
+	// 两个精读步各自挂着自己那一段，不是同一段走两遍。
+	seen := map[string]bool{}
+	for i, k := range kinds {
+		if k != string(taskFocusBlock) {
+			continue
+		}
+		if blockIDs[i] == "" || seen[blockIDs[i]] {
+			t.Errorf("focus step %d points at %q (empty or repeated)", i, blockIDs[i])
+		}
+		seen[blockIDs[i]] = true
 	}
 	// 第一步的 kind 来自读法库自己，不是写死的 "read" —— 库里加一步（2026-09-10
 	// 加了「先预测」）不该让这条测试变红：它测的是「steps 写坏了，清单照样排得
