@@ -138,8 +138,6 @@ export type CoachCardAnswer = {
   prompt: string;
   choice: string;
   blockId?: string;
-  /** 这是她改过的答案（同一张卡的第二份作答）。见 CoachCard 的 `canRevise`。 */
-  revised?: boolean;
 };
 
 /** 生词板的三格。写死在这里而不是由服务端发：它们和这块板是同一件东西，
@@ -272,7 +270,6 @@ export function CoachCard({
   busy = false,
   stale = false,
   prefill,
-  canRevise = false,
 }: {
   card: CoachCardSpec;
   /** 她点了/写了。调用方负责把它发出去并把 `answered` 传回来。 */
@@ -285,24 +282,12 @@ export function CoachCard({
   prefill?: BoardPlacement;
   /** 后面又来了一张还没答的卡：这张收起来，点一下能重新展开。 */
   stale?: boolean;
-  /**
-   * 答过之后还能改。
-   *
-   * 🚨 产品负责人 2026-09-17 第一轮报的「阅读卡片选择以后无法看到其他选项……
-   * 无法回退」，这一轮确认要的是**真能改答案**。改后的那一份作为新的一轮交给
-   * 印记（`revised: true`），卡片显示最新的那一份。
-   *
-   * 只给**最新的那张**卡：对话已经往下走了好几轮之后回头改一张旧卡，印记 接着
-   * 回应的是一件早就翻过去的事，她会看不懂对话在说什么。
-   */
-  canRevise?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [reopened, setReopened] = useState(false);
-  const [revising, setRevising] = useState(false);
   const promptId = useId();
   const options = card.options ?? [];
-  const done = Boolean(answered) && !revising;
+  const done = Boolean(answered);
   // 已作答的卡片永远不折叠：她说过的话不该缩回去。
   const collapsed = stale && !done && !reopened;
   // 挂载时就已经答过 → 这是刷新回来的旧卡，别抢焦点（她刚进房间，不该被拽到
@@ -311,29 +296,8 @@ export function CoachCard({
 
   function answer(choice: string, blockId?: string) {
     if (done || busy || collapsed) return;
-    const isRevision = revising && Boolean(answered);
-    onAnswer({
-      type: card.type,
-      prompt: card.prompt,
-      choice,
-      ...(blockId ? { blockId } : {}),
-      ...(isRevision ? { revised: true } : {}),
-    });
-    setRevising(false);
+    onAnswer({ type: card.type, prompt: card.prompt, choice, ...(blockId ? { blockId } : {}) });
   }
-
-  function startRevising() {
-    if (!answered || busy) return;
-    // 写一句的那种，把她上一次写的放回框里 —— 她要改的往往是一两个字。
-    if (card.type === "short_text") setDraft(answered.choice);
-    setRevising(true);
-  }
-
-  // 改答案时，板上开局摆的是她上一次的摆放（和重发的板同一个道理）。
-  const boardPrefill =
-    revising && answered && (card.type === "label_roles" || card.type === "word_bank")
-      ? parseBoardAnswer(card, answered.choice)
-      : prefill;
 
   if (collapsed) {
     // 一行问题 + 一句邀请。没有「未完成」、没有计数、没有任何在记账的字眼——
@@ -451,7 +415,7 @@ export function CoachCard({
           }
           submitLabel={card.type === "label_roles" ? "摆好了" : "分好了"}
           busy={busy}
-          prefill={boardPrefill}
+          prefill={prefill}
           onSubmit={(placement) =>
             answer(composeBoardAnswer(card, placement, boardItems(card)))
           }
@@ -527,21 +491,6 @@ export function CoachCard({
               说说看
             </button>
           </div>
-        </div>
-      )}
-
-      {/* 改答案。答过、而且这是最新的那张卡时才出现；改的过程中换成「取消修改」。
-          按钮文案照 AGENTS.md §界面文案 规矩 2：写做什么。 */}
-      {/* 划选那一种没有自己的按钮（她是在文章里划的），改答案就是再划一句发出去。 */}
-      {canRevise && answered && !busy && card.type !== "pick_in_article" && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => (revising ? setRevising(false) : startRevising())}
-            className="rounded-mk-full px-2.5 py-0.5 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-          >
-            {revising ? "取消修改" : "修改答案"}
-          </button>
         </div>
       )}
     </div>
