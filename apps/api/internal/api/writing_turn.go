@@ -85,6 +85,19 @@ var writingStageLabels = map[string]string{
 	"finished": "成稿",
 }
 
+// writingRoomHowTo is what the room's screen actually offers, so 印记's
+// "what to do next" names real buttons.
+//
+// 2026-09-18 写作入口走查：她写完三块、剩两块空着，问怎么提交。印记说
+// 「提交按钮不在编辑器里」「把空白块删掉」—— 这个房间里删不了块，
+// 提交就在成稿那一页。她连着五步找不到出口，clarity 掉到 2。
+const writingRoomHowTo = `这个写作房间怎么用（回答「怎么提交 / 下一步点哪里」时按这里说，不要编别的按钮）：
+- 页面顶部有「结构 / 段落 / 成稿」三步，随时可以点。
+- 段落：每一块一个输入框；空着的块不用删，拼成稿时自动跳过。页面底部有「去成稿」。
+- 成稿：「从段落重新拼一次」「上传文件」「请印记看看」（通读全文给意见）「完成这篇」（提交一版，交给老师）。
+- 完成之后还能点「修改」提交新的一版。
+`
+
 func writingStageLabel(stage string) string {
 	if s, ok := writingStageLabels[stage]; ok {
 		return s
@@ -118,6 +131,7 @@ type liteWritingTurnReq struct {
 // 落过字），这时以段落为准。
 func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet, draftBody string) string {
 	var b strings.Builder
+	b.WriteString(writingRoomHowTo)
 	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	// 🚨 The language rule reaches the MAIN coach chat here. It was missing
 	// entirely, which is why 印记 kept discussing an English piece as though

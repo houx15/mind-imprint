@@ -333,6 +333,20 @@ export function SnippetsStage({
           </Button>
         </div>
       )}
+      {/* 2026-09-18 走查：写了三块、字数够了、剩两块空着 —— 她连着五步找不到
+          「完成这篇」，印记还让她「删掉空白块」（这里删不了块）。完成在成稿那一步，
+          空着的块拼成稿时自动跳过；这两件事屏幕上要直接说出来。 */}
+      {slots.some((s) => (s.snippet?.text ?? "").trim() !== "") &&
+        !slots.every((s) => (s.snippet?.text ?? "").trim() !== "") && (
+          <div className="flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-3">
+            <span className="text-mk-small text-mk-secondary">
+              需要的段落写完后，请到「成稿」把它们拼成整篇，并在那里点「完成这篇」提交。空着的块不会进入成稿。
+            </span>
+            <Button size="sm" variant="secondary" onClick={onGoToDraft}>
+              去成稿
+            </Button>
+          </div>
+        )}
 
       <button
         type="button"

@@ -443,7 +443,8 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
   await snap(page, "report");
   // The essay itself may contain 「出错」; only a visible alert counts.
   const alerts = await page.locator('[role="alert"]:visible').allInnerTexts();
-  const shownReport = await page.getByText(/学习数据概览|写了|WRITING/).first().isVisible().catch(() => false);
+  // A writing report opens on the piece itself; its share button is the steady marker.
+  const shownReport = await page.getByRole("button", { name: /分享/ }).first().isVisible().catch(() => false);
   note("报告能打开", alerts.length === 0 && shownReport ? "ok" : "bad", alerts.join(" / ").slice(0, 160));
   await tab(page, "成稿");
 
