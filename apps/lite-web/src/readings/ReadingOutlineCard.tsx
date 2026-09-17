@@ -19,11 +19,17 @@ import type { ReadingOutline } from "../api/readings";
  *
  * # 卡片上的几样东西
  *
- *   在问什么   这篇在**问**什么。
- *   中心思想   作者**主张**什么。
+ *   核心问题   这篇在**问**什么。
+ *   关键结论   作者**主张**什么。
  *   结构       四到六个词。她带着一张地图读，比闷头逐段啃有效。
- *   分几部分   每一部分叫什么、第几段到第几段、它在干什么。段号可以点。
- *   承重       共几段、核心几段、分别是第几段。段号**可以点**，点了滚过去。
+ *   文章概览   每一部分叫什么、第几段到第几段、它在干什么。段号可以点。
+ *   重点段落   共几段、核心几段、分别是第几段。段号**可以点**，点了滚过去。
+ *
+ * 🚨 这五个名字 2026-09-17 全改过一遍，产品负责人逐条给的：
+ * 在问→核心问题、中心思想→关键结论、分几部分→文章概览、承重→重点段落。
+ * 前两个原来是**半句话**（「在问」「中心思想」），后两个是我们自己造的词
+ * （「分几部分」「承重」）—— 按 AGENTS.md §界面文案怎么写 的规矩 1
+ * 「标签是名词，不是句子」和规矩 6「用真正的专业词」。
  *              这是整份调研里唯一真的回答了「该在哪儿停」的东西：按论证承重，
  *              不按生词多少。
  *
@@ -66,13 +72,13 @@ export function ReadingOutlineCard({
     >
       {outline.oneLine && (
         <p className="mk-reading-outline__line">
-          <span className="mk-reading-outline__key">在问</span>
+          <span className="mk-reading-outline__key">核心问题</span>
           {outline.oneLine}
         </p>
       )}
       {outline.gist && (
         <p className="mk-reading-outline__line">
-          <span className="mk-reading-outline__key">中心思想</span>
+          <span className="mk-reading-outline__key">关键结论</span>
           {outline.gist}
         </p>
       )}
@@ -84,7 +90,7 @@ export function ReadingOutlineCard({
       )}
       {parts.length > 0 && (
         <div className="mk-reading-outline__line">
-          <span className="mk-reading-outline__key">分几部分</span>
+          <span className="mk-reading-outline__key">文章概览</span>
           <ol className="mk-outline-parts">
             {parts.map((p) => (
               <li key={p.from}>
@@ -105,7 +111,7 @@ export function ReadingOutlineCard({
       )}
       {core.length > 0 && (
         <p className="mk-reading-outline__line">
-          <span className="mk-reading-outline__key">承重</span>
+          <span className="mk-reading-outline__key">重点段落</span>
           共 {outline.blocks} 段，核心 {core.length} 段：
           {core.map((id, i) => (
             <span key={id}>
@@ -122,7 +128,7 @@ export function ReadingOutlineCard({
         </p>
       )}
       {/* 承重是模型判断的。说出来，她才知道这是可以不同意的东西。 */}
-      <p className="mk-reading-outline__note">承重由系统判断，供参考。</p>
+      <p className="mk-reading-outline__note">重点段落由系统判断，供参考。</p>
     </section>
   );
 }

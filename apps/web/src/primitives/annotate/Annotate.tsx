@@ -52,6 +52,34 @@ export type AnnotateProps = {
    */
   coreBlockIds?: string[];
   /**
+   * 她**此刻正在读的那几段** —— 通读走到哪一部分，那一部分的段落就是它。
+   *
+   * 🚨 产品负责人 2026-09-17：「insert this into the paragraphs. namely the
+   * article, during 通读stage, is becoming several parts, with each parts a
+   * guidance, so students are able to read a long article patiently.」
+   * 一篇十八段的文章摊在她面前，她不知道这一步要读到哪儿为止 —— 步骤名里写着
+   * 「通读第1–4段」，而文章那一栏上一个记号都没有。
+   *
+   * 和 coreBlockIds 一样只渲染成 `data-active`，样式全在轻量版自己的 CSS 里，
+   * 不传时输出逐字节不变，pro 从不传它。
+   */
+  activeBlockIds?: string[];
+  /**
+   * 某一段**之前**要摆的一行小字，`blockId → 那句话`。
+   *
+   * 通读到某一部分时，这一部分的第一段前面出现一行「现在读这一部分 · 开篇与
+   * 类比」。产品负责人：「or even better, sometimes ai will ask questions part
+   * by part. then for each part, during that part, highlights those
+   * paragraphs, with a small guidance above them.」
+   *
+   * 🚨 它是**段落之外**的一个元素，不进 block.text —— 标注的锚点是段落文本里的
+   * 偏移，往正文里插一个字，之前存下来的每一条标注就都错位了（data-n 那个段号
+   * 用 CSS 画出来也是这个理由）。
+   *
+   * 不传时输出逐字节不变。
+   */
+  blockLead?: Record<string, string>;
+  /**
    * 荧光笔：每一段里要标出来的关键词，`blockId → terms`（轻量版的关键单词，
    * 见 `apps/lite-web/src/readings/WordCards.tsx`）。
    *
@@ -123,6 +151,8 @@ export function Annotate({
   renderAfterBlock,
   headingBlockIds,
   coreBlockIds,
+  activeBlockIds,
+  blockLead,
   keywordTerms,
   onReferenceBlock,
   onReferenceSelection,
@@ -282,8 +312,15 @@ export function Annotate({
           const referenced = Boolean(referencedBlockIds?.includes(block.id));
           const heading = Boolean(headingBlockIds?.includes(block.id));
           const core = Boolean(coreBlockIds?.includes(block.id));
+          const active = Boolean(activeBlockIds?.includes(block.id));
+          const lead = blockLead?.[block.id];
           return (
             <Fragment key={block.id}>
+              {lead && (
+                <p data-block-lead className="mk-block-lead">
+                  {lead}
+                </p>
+              )}
               <p
                 data-block-id={block.id}
                 // 段号。🚨 用属性而不是往正文里插字：标注的锚点是这一段文本里
@@ -292,6 +329,7 @@ export function Annotate({
                 data-n={blockIndex + 1}
                 data-heading={heading ? "" : undefined}
                 data-core={core ? "" : undefined}
+                data-active={active ? "" : undefined}
                 data-referenced={referenced ? "" : undefined}
                 role={heading ? "heading" : undefined}
                 aria-level={heading ? 2 : undefined}

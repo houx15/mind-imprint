@@ -27,7 +27,6 @@ import type {
   ReadingTask,
 } from "../api/readingRoom";
 import type { ReadingFigure, ReadingOutline } from "../api/readings";
-import { ReadingOutlineCard } from "./ReadingOutlineCard";
 import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
@@ -427,6 +426,34 @@ export function ReadingRoom({
     return out;
   }, [blockNotes]);
 
+  /**
+   * 她**此刻正在读的那几段**，和摆在它们前面那一行小字。
+   *
+   * 🚨 产品负责人 2026-09-17：「the article, during 通读 stage, is becoming
+   * several parts, with each parts a guidance, so students are able to read a
+   * long article patiently… for each part, during that part, highlights those
+   * paragraphs, with a small guidance above them.」
+   *
+   * 一篇十八段的文章摊在她面前，步骤名里写着「通读第1–4段」，而文章那一栏上
+   * 一个记号都没有 —— 她得自己数到第四段，或者干脆一路读下去。
+   *
+   * 只在**通读**那几步上亮（clean：一个部分就是清单上的一步，
+   * reading_plan.go 的 readingPartSteps），而且只亮当前那一步的那几段。
+   * 别的步骤上一个记号都没有 —— 一直亮着的记号等于没有记号。
+   */
+  const activePart = useMemo(() => {
+    const cur = tasks.find((t) => t.status === "pending");
+    if (!cur || cur.kind !== "read" || !cur.blockId) return null;
+    const part = (outline?.parts ?? []).find((p) => p.from === cur.blockId);
+    if (!part) return null;
+    const ids = source.blocks.map((b) => b.id);
+    const from = ids.indexOf(part.from);
+    const to = ids.indexOf(part.to);
+    if (from < 0 || to < from) return null;
+    const lead = part.does ? `现在读这一部分 · ${part.title} · ${part.does}` : `现在读这一部分 · ${part.title}`;
+    return { blockIds: ids.slice(from, to + 1), lead: { [part.from]: lead } };
+  }, [tasks, outline, source.blocks]);
+
   // 段落工具. The paragraph whose tool bar is open, together with what the bar
   // pins itself to: the paragraph element, and the x her pointer went down at.
   const [blockAnchor, setBlockAnchor] = useState<{ id: string; el: HTMLElement; x: number } | null>(null);
@@ -699,17 +726,13 @@ export function ReadingRoom({
                       打开原文 ↗
                     </a>
                   )}
-                  {/* 🚨 导读在题图**之前**。它是她开读之前要看的那张地图，
-                      而题图是一张 400px 高的照片 —— 摆在照片下面，导读就在
-                      第一屏之外，走查的截图里正是这样（她得先往下滚才看得到
-                      「这篇在问什么」，而那时候她已经开始读了）。 */}
-                  {outline && (
-                    <ReadingOutlineCard
-                      outline={outline}
-                      ordinalOf={ordinalOf}
-                      onLocate={locateBlock}
-                    />
-                  )}
+                  {/* 🚨 导读**不在这里**了。2026-09-17 产品负责人：
+                      「the reading guide. I think it can be shown in the ai box
+                      instead of paper top.」
+                      它是 印记 排出来的东西，也是 印记 接下来每一步的依据 ——
+                      摆在正文顶上，它读起来像文章自带的一段前言；摆在 印记
+                      那一栏的开头，它是「它要带你怎么读」。
+                      渲染在 ReadingCoachPanel 里，见那边的 outline 那一段。 */}
                   {leadFigure && <ArticleFigure figure={leadFigure} />}
                   {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
                       要回去找一个词」，不是开读前的那张地图。 */}
@@ -720,6 +743,8 @@ export function ReadingRoom({
                   blocks={source.blocks}
                   headingBlockIds={headingBlockIds}
                   coreBlockIds={outline?.core}
+                  activeBlockIds={activePart?.blockIds}
+                  blockLead={activePart?.lead}
                   keywordTerms={keywordTerms}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
@@ -875,6 +900,10 @@ export function ReadingRoom({
             readingId={readingId}
             tasks={tasks}
             initialMessages={coachMessages}
+            // 导读 2026-09-17 从正文顶上搬到了这一栏的开头。
+            outline={outline}
+            ordinalOf={ordinalOf}
+            onLocateBlock={locateBlock}
             slot={{
               // 🚨 `loop.busy`，不是 `busyOrCarded` —— 一副敞开的透镜不再锁住
               // 这一栏。她在文章里找不到句子的时候得能开口求助。见 `locked`。

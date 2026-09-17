@@ -12,6 +12,7 @@ import {
 } from "./CoachCard";
 import type { BoardPlacement } from "./CoachBoards";
 import { LiteChatMarkdown } from "./LiteChatMarkdown";
+import { ReadingOutlineCard } from "./ReadingOutlineCard";
 import { ThinkingFold } from "./ThinkingFold";
 import { ApiError } from "../api/client";
 import {
@@ -23,6 +24,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
+import type { ReadingOutline } from "../api/readings";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -73,6 +75,9 @@ export function ReadingCoachPanel({
   lensDone,
   onLensDoneSent,
   onFinish,
+  outline,
+  ordinalOf,
+  onLocateBlock,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -87,6 +92,21 @@ export function ReadingCoachPanel({
    *  it takes this panel to turn it into one coach turn; the room clears it
    *  through `onLensDoneSent`. See the effect below. */
   lensDone: ReadingLensDone | null;
+  /**
+   * 导读：这篇在问什么、作者答了什么、怎么分几部分、哪几段是重点。
+   *
+   * 🚨 2026-09-17 从正文顶上搬到这里。产品负责人：「the reading guide. I think
+   * it can be shown in the ai box instead of paper top.」—— 它是 印记 排出来的
+   * 东西，也是它接下来每一步的依据。摆在正文顶上，它读起来像文章自带的一段
+   * 前言；摆在这一栏的开头，它是「它要带你怎么读」。
+   *
+   * 排读法之前没有，所以可以为空。
+   */
+  outline?: ReadingOutline;
+  /** 段 id → 第几段。导读卡上的段号按钮要用。没有导读就用不上，所以可选。 */
+  ordinalOf?: (blockId: string) => number;
+  /** 点导读卡上那个段号，滚到那一段。同上，可选。 */
+  onLocateBlock?: (blockId: string) => void;
   /** Called once the turn for `lensDone` has been ATTEMPTED — success or
    *  failure. Failure must still clear it: a lens she finished is not worth
    *  retrying forever against a server that is down, and the outcome itself is
@@ -513,6 +533,14 @@ export function ReadingCoachPanel({
           position IS the design claim (Task 8), and a test that only asks
           「prompt 在某处」 would pass on a rail above the log too. */}
       <div data-coach-log className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
+        {/* 🚨 导读排在对话**最上面**，跟着这一栏一起滚 —— 不是钉在顶上。
+            她开读时它在第一屏；往下聊了十轮之后，她要的是屏幕上多一点对话，
+            而那时候她早就不需要再看一遍地图了。要回看，往上滚就是。 */}
+        {outline && ordinalOf && onLocateBlock && (
+          <div className="pb-3">
+            <ReadingOutlineCard outline={outline} ordinalOf={ordinalOf} onLocate={onLocateBlock} />
+          </div>
+        )}
         <CoachLog rows={chatMessages} thinking={busy} />
         <div ref={endRef} data-scroll-anchor="coach-end" />
       </div>

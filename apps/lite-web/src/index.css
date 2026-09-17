@@ -2233,6 +2233,37 @@
   border-left-color: color-mix(in srgb, var(--mk-accent-500) 32%, transparent) !important;
 }
 
+/* 她此刻正在读的那几段。
+ *
+ * 🚨 产品负责人 2026-09-17 要的是「a small highlight effect」—— 小。
+ * 底色只有 5%：她读的仍然是白底黑字，那层底色是余光里的一个范围，
+ * 不是一支荧光笔。整块亮起来会让正文变成一张便签，而她要读的是文章。
+ *
+ * 只改背景，不改边框 —— 边框那一位归核心段（data-core），两者可以同时成立
+ * （一段既是重点段、又在当前这一部分里）。 */
+.mk-lite-room .mk-reading-room__article-inner p[data-active] {
+  background: color-mix(in srgb, var(--mk-accent-500) 5%, transparent);
+  border-radius: 4px;
+}
+
+/* 这一部分前面那一行小字。
+ *
+ * 「现在读这一部分 · 开篇与类比 · 把一个口号的来历翻出来」。
+ * 它不是正文，所以比正文小、比正文淡，而且左边有一道短线把它和下面那几段
+ * 系在一起。 */
+.mk-block-lead {
+  margin: 22px 0 8px;
+  padding: 3px 0 3px 10px;
+  border-left: 3px solid color-mix(in srgb, var(--mk-accent-500) 45%, transparent);
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--mk-muted);
+}
+.mk-block-lead:first-child {
+  margin-top: 0;
+}
+
 /* ---------------------------------------------------------------------------
  * 板（`CoachBoards`）
  *
