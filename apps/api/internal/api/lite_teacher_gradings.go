@@ -101,10 +101,20 @@ type teacherGradingDTO struct {
 	Status              string          `json:"status"`
 	Content             json.RawMessage `json:"content"`
 	Error               *string         `json:"error"`
-	ReviewedAt          *string         `json:"reviewedAt"`
-	SentAt              *string         `json:"sentAt"`
-	StudentSeenAt       *string         `json:"studentSeenAt"`
-	UpdatedAt           string          `json:"updatedAt"`
+	// Source is "ai" when the model drafted this grading, "teacher" for a
+	// 人工批改 (ai is NULL).
+	Source        string  `json:"source"`
+	ReviewedAt    *string `json:"reviewedAt"`
+	SentAt        *string `json:"sentAt"`
+	StudentSeenAt *string `json:"studentSeenAt"`
+	UpdatedAt     string  `json:"updatedAt"`
+}
+
+func gradingSource(ai []byte) string {
+	if len(ai) == 0 {
+		return litegrade.SourceTeacher
+	}
+	return litegrade.SourceAI
 }
 
 func gradingOverallGrade(content []byte) *string {
@@ -311,6 +321,7 @@ func (a *API) teacherGradingResponse(w http.ResponseWriter, r *http.Request, g s
 		VersionNumber: src.Number, LatestVersionNumber: latest.Number,
 		Title: src.Title, Body: src.Body, Lang: src.Lang,
 		Rubric: json.RawMessage(g.Rubric), Status: g.Status, Content: json.RawMessage(g.Content), Error: g.Error,
+		Source:     gradingSource(g.Ai),
 		ReviewedAt: tsStringPtr(g.ReviewedAt), SentAt: tsStringPtr(g.SentAt), StudentSeenAt: tsStringPtr(g.StudentSeenAt),
 		UpdatedAt: g.UpdatedAt.Format(time.RFC3339),
 	}})
@@ -580,6 +591,10 @@ func (a *API) queueOrRefuseSingle(ctx context.Context, g sqlc.LiteGrading, reque
 // grade one writing's latest version — create the row, or quietly requeue a
 // failed one that never produced content. A draft or sent row is 409: only
 // the explicit regrade route may overwrite an existing draft.
+//
+// The body's optional {"mode":"manual"} is 人工批改: the same row, written by
+// the teacher instead of the model. It calls no model and needs no queue, so
+// it also works while the job queue is down.
 func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	classID, userID, ok := a.authTeacherStudent(w, r)
@@ -594,7 +609,15 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
-	if a.d.River == nil {
+	var req struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
+		return
+	}
+	manual := req.Mode == "manual"
+	if !manual && a.d.River == nil {
 		httpx.WriteError(w, r, errGradingQueueUnavailable())
 		return
 	}
@@ -633,25 +656,66 @@ func (a *API) queueLiteWritingGrading(w http.ResponseWriter, r *http.Request) {
 		}
 		classID = as.ClassID
 	}
-	g, err := a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
-		return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
+	var g sqlc.LiteGrading
+	if manual {
+		g, err = a.createManualLiteGrading(ctx, rubric, sqlc.CreateManualLiteGradingParams{
 			AtomID: at.ID, VersionID: latest.ID, UserID: userID, ClassID: classID,
 			AssignmentID: assignmentID, Rubric: rubric, RequestedBy: u.ID,
 		})
-	})
+	} else {
+		g, err = a.enqueueLiteGradingTx(ctx, rubric, func(qtx *sqlc.Queries) (sqlc.LiteGrading, error) {
+			return qtx.CreateLiteGrading(ctx, sqlc.CreateLiteGradingParams{
+				AtomID: at.ID, VersionID: latest.ID, UserID: userID, ClassID: classID,
+				AssignmentID: assignmentID, Rubric: rubric, RequestedBy: u.ID,
+			})
+		})
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		existing, gerr := a.d.Queries.GetLiteGradingByVersion(ctx, latest.ID)
 		if gerr != nil {
 			httpx.WriteError(w, r, gerr)
 			return
 		}
-		g, err = a.queueOrRefuseSingle(ctx, existing, u.ID)
+		// A row already covers this version. 人工批改 never overwrites one —
+		// whatever is there (a draft, a sent grading, a run in flight) is
+		// what she should be looking at, so this reports the same 409 the AI
+		// path does and the client opens that row.
+		if manual {
+			err = existingGradingConflict(existing.Status)
+		} else {
+			g, err = a.queueOrRefuseSingle(ctx, existing, u.ID)
+		}
 	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	a.teacherGradingResponse(w, r, g)
+}
+
+// existingGradingConflict names the row that already grades this version.
+func existingGradingConflict(status string) error {
+	switch status {
+	case "sent":
+		return errGradingSent()
+	case "queued", "running":
+		return errGradingInProgress()
+	}
+	return errGradingExists()
+}
+
+// createManualLiteGrading writes the blank draft a 人工批改 starts from.
+func (a *API) createManualLiteGrading(ctx context.Context, rubric []byte, p sqlc.CreateManualLiteGradingParams) (sqlc.LiteGrading, error) {
+	var ru liteassign.Rubric
+	if err := json.Unmarshal(rubric, &ru); err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	content, err := json.Marshal(litegrade.BlankContent(ru))
+	if err != nil {
+		return sqlc.LiteGrading{}, err
+	}
+	p.Content = content
+	return a.d.Queries.CreateManualLiteGrading(ctx, p)
 }
 
 // regradeLiteGrading handles POST /api/v1/lite/teacher/gradings/{gid}/regrade (重新批改).

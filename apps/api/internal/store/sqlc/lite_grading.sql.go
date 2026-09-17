@@ -98,6 +98,63 @@ func (q *Queries) CreateLiteGrading(ctx context.Context, arg CreateLiteGradingPa
 	return i, err
 }
 
+const createManualLiteGrading = `-- name: CreateManualLiteGrading :one
+INSERT INTO lite_grading (atom_id, version_id, user_id, class_id, assignment_id, rubric, requested_by, status, content)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', $8::jsonb)
+ON CONFLICT (version_id) DO NOTHING
+RETURNING id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at
+`
+
+type CreateManualLiteGradingParams struct {
+	AtomID       uuid.UUID   `json:"atom_id"`
+	VersionID    uuid.UUID   `json:"version_id"`
+	UserID       uuid.UUID   `json:"user_id"`
+	ClassID      uuid.UUID   `json:"class_id"`
+	AssignmentID pgtype.UUID `json:"assignment_id"`
+	Rubric       []byte      `json:"rubric"`
+	RequestedBy  uuid.UUID   `json:"requested_by"`
+	Content      []byte      `json:"content"`
+}
+
+// 人工批改：老师自己写，不调用模型，所以直接落成草稿。content 是按评分标准
+// 生成的空白表（等级和评语都为空），不能为 NULL —— UpdateLiteGradingContent
+// 要求 content IS NOT NULL，否则老师第一次保存就会被拒。ai 保持为 NULL，
+// 学生那边据此显示这份批改不是 AI 起草的。
+// 一个版本只有一行：已有一行时不插入，返回 no rows。
+func (q *Queries) CreateManualLiteGrading(ctx context.Context, arg CreateManualLiteGradingParams) (LiteGrading, error) {
+	row := q.db.QueryRow(ctx, createManualLiteGrading,
+		arg.AtomID,
+		arg.VersionID,
+		arg.UserID,
+		arg.ClassID,
+		arg.AssignmentID,
+		arg.Rubric,
+		arg.RequestedBy,
+		arg.Content,
+	)
+	var i LiteGrading
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.VersionID,
+		&i.UserID,
+		&i.ClassID,
+		&i.AssignmentID,
+		&i.Rubric,
+		&i.Status,
+		&i.Ai,
+		&i.Content,
+		&i.Error,
+		&i.RequestedBy,
+		&i.ReviewedAt,
+		&i.SentAt,
+		&i.StudentSeenAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getLiteGrading = `-- name: GetLiteGrading :one
 SELECT id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at FROM lite_grading WHERE id = $1
 `
@@ -318,7 +375,8 @@ func (q *Queries) ListLiteInboxGradings(ctx context.Context, userID uuid.UUID) (
 }
 
 const listSentLiteGradingsForAtom = `-- name: ListSentLiteGradingsForAtom :many
-SELECT g.id, g.rubric, g.content, g.sent_at, g.student_seen_at, v.number AS version_number
+SELECT g.id, g.rubric, g.content, g.sent_at, g.student_seen_at, v.number AS version_number,
+       (g.ai IS NOT NULL)::bool AS ai_drafted
 FROM lite_grading g
 JOIN writing_version v ON v.id = g.version_id
 WHERE g.atom_id = $1 AND g.status = 'sent'
@@ -332,6 +390,7 @@ type ListSentLiteGradingsForAtomRow struct {
 	SentAt        pgtype.Timestamptz `json:"sent_at"`
 	StudentSeenAt pgtype.Timestamptz `json:"student_seen_at"`
 	VersionNumber int32              `json:"version_number"`
+	AiDrafted     bool               `json:"ai_drafted"`
 }
 
 // 学生读的批改：只有已发送的行。
@@ -351,6 +410,7 @@ func (q *Queries) ListSentLiteGradingsForAtom(ctx context.Context, atomID uuid.U
 			&i.SentAt,
 			&i.StudentSeenAt,
 			&i.VersionNumber,
+			&i.AiDrafted,
 		); err != nil {
 			return nil, err
 		}

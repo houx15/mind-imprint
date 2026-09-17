@@ -90,6 +90,18 @@ func NormalizeAI(c Content, r liteassign.Rubric) Content { return normalize(c, r
 // "ai" only if it already had it; everything else is the teacher's.
 func NormalizeTeacher(c Content, r liteassign.Rubric) Content { return normalize(c, r, false) }
 
+// BlankContent is the empty grading a 人工批改 starts from: one row per rubric
+// dimension, nothing filled in. The teacher chooses every grade herself, so no
+// grade is guessed here — CheckTeacherEdit rejects an empty grade, which is
+// what asks her to pick one before the first save.
+func BlankContent(r liteassign.Rubric) Content {
+	dims := make([]Dimension, 0, len(r.Dimensions))
+	for _, d := range r.Dimensions {
+		dims = append(dims, Dimension{Name: d.Name})
+	}
+	return Content{Dimensions: dims, Points: []Point{}}
+}
+
 func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 	out := Content{Overall: Overall{Grade: strings.TrimSpace(c.Overall.Grade), Comment: strings.TrimSpace(c.Overall.Comment)}}
 	dims := make([]Dimension, 0, len(c.Dimensions))

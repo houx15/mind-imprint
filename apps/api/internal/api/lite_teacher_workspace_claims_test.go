@@ -114,6 +114,39 @@ func TestWorkspaceHomeOfferToOpenIsNotAClaim(t *testing.T) {
 	}
 }
 
+// An option offering to remind a student (live, 2026-09-17: 「提醒该生开始学习」)
+// is rewritten: no class-chat tool reaches a student.
+func TestWorkspaceHomeReminderOfferIsRewritten(t *testing.T) {
+	ask := func(label string) string {
+		b, _ := json.Marshal(map[string]any{
+			"question": "接下来您想怎么做？",
+			"options": []map[string]string{
+				{"id": "a", "label": "看看全班本周概况"},
+				{"id": "b", "label": label},
+			},
+		})
+		return string(b)
+	}
+	prov := gateway.NewSequenceStubProvider(
+		wsToolCall("ask_choice", ask("提醒该生开始学习")),
+		wsToolCall("ask_choice", ask("给这些学生布置作业")),
+	)
+	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
+	rec := postWorkspaceTurn(t, h, teacher, homeTurnBody(classID, "这周谁还没开始学习？"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
+	}
+	out := decodeHomeTurn(t, rec.Body.Bytes())
+	for _, c := range out.Choices {
+		if strings.Contains(c.Label, "提醒") {
+			t.Fatalf("choices = %+v, the reminder offer went out", out.Choices)
+		}
+	}
+	if got := lastUserMessage(t, prov, 1); !strings.Contains(got, "没有工具能给学生发消息") {
+		t.Fatalf("rewrite request = %q", got)
+	}
+}
+
 // The fixture report has overview, reading and next. 写作 and 兴趣 are not
 // sections of it, and no tool adds one.
 func TestWorkspaceReportSectionClaimsAreRewritten(t *testing.T) {

@@ -7,6 +7,17 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (version_id) DO NOTHING
 RETURNING *;
 
+-- name: CreateManualLiteGrading :one
+-- 人工批改：老师自己写，不调用模型，所以直接落成草稿。content 是按评分标准
+-- 生成的空白表（等级和评语都为空），不能为 NULL —— UpdateLiteGradingContent
+-- 要求 content IS NOT NULL，否则老师第一次保存就会被拒。ai 保持为 NULL，
+-- 学生那边据此显示这份批改不是 AI 起草的。
+-- 一个版本只有一行：已有一行时不插入，返回 no rows。
+INSERT INTO lite_grading (atom_id, version_id, user_id, class_id, assignment_id, rubric, requested_by, status, content)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', sqlc.arg(content)::jsonb)
+ON CONFLICT (version_id) DO NOTHING
+RETURNING *;
+
 -- name: GetLiteGrading :one
 SELECT * FROM lite_grading WHERE id = $1;
 
@@ -129,7 +140,8 @@ WHERE g.assignment_id = sqlc.arg(assignment_id) AND g.id = ANY(sqlc.arg(ids)::uu
 
 -- name: ListSentLiteGradingsForAtom :many
 -- 学生读的批改：只有已发送的行。
-SELECT g.id, g.rubric, g.content, g.sent_at, g.student_seen_at, v.number AS version_number
+SELECT g.id, g.rubric, g.content, g.sent_at, g.student_seen_at, v.number AS version_number,
+       (g.ai IS NOT NULL)::bool AS ai_drafted
 FROM lite_grading g
 JOIN writing_version v ON v.id = g.version_id
 WHERE g.atom_id = $1 AND g.status = 'sent'

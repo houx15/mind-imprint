@@ -38,6 +38,25 @@ func PointsAtButton(text string) bool {
 	return buttonPattern.MatchString(text)
 }
 
+// messagePattern matches an offer or claim to contact a student: 提醒该生,
+// 通知这些学生, 给她们发消息, 催一下.
+var messagePattern = regexp.MustCompile(`提醒|通知|催促|催一下|发消息|发送消息|发个消息|联系(该生|学生|这些学生|家长)`)
+
+// OffersMessage reports whether text offers to remind, notify or message a
+// student. No class-chat tool reaches a student; a homework does (it shows in
+// her inbox), and that is the page the reply should point to. Seen live on
+// 2026-09-17: 「提醒该生开始学习」 as an option, and 「需要提醒她们吗」.
+//
+// A negated verb is the honest answer: 「无法直接提醒学生」 passes.
+func OffersMessage(text string) bool {
+	for _, loc := range messagePattern.FindAllStringIndex(text, -1) {
+		if !negatedBefore(text[:loc[0]]) {
+			return true
+		}
+	}
+	return false
+}
+
 // newSectionPattern matches an offer or claim to add or remove a whole
 // section: 新增一个『阅读』段落, 添加一个部分, 删除「兴趣」板块. Adding a
 // sentence inside a section (「增加一段话」) does not match.

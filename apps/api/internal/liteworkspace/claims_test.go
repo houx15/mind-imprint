@@ -41,6 +41,27 @@ func TestPointsAtButton(t *testing.T) {
 	}
 }
 
+func TestOffersMessage(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{
+		// Live, 2026-09-17.
+		{"提醒该生开始学习", true},
+		{"需要提醒她们吗", true},
+		{"通知这些学生", true},
+		{"给家长发个消息", true},
+		{"我无法直接提醒学生，可以为这些学生布置一份作业。", false},
+		{"不能通知学生", false},
+		{"查看该生学习页", false},
+		{"看看全班本周概况", false},
+	} {
+		if got := OffersMessage(tc.text); got != tc.want {
+			t.Errorf("OffersMessage(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
 func TestOffersSectionChange(t *testing.T) {
 	for _, tc := range []struct {
 		text string

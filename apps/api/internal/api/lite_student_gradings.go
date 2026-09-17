@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/litegrade"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -23,6 +24,8 @@ type studentGradingDTO struct {
 	Content       json.RawMessage `json:"content"`
 	SentAt        string          `json:"sentAt"`
 	Seen          bool            `json:"seen"`
+	// Source is "ai" when the model drafted it, "teacher" for a 人工批改.
+	Source string `json:"source"`
 }
 
 // InboxGradingDTO is a sent grading in the student's inbox.
@@ -67,6 +70,7 @@ func (a *API) listWritingGradingsHandler(w http.ResponseWriter, r *http.Request)
 			ID: g.ID.String(), VersionNumber: g.VersionNumber,
 			Rubric: json.RawMessage(g.Rubric), Content: json.RawMessage(g.Content),
 			SentAt: g.SentAt.Time.Format(time.RFC3339), Seen: g.StudentSeenAt.Valid,
+			Source: studentGradingSource(g.AiDrafted),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"gradings": out})
@@ -90,4 +94,11 @@ func (a *API) markLiteGradingSeen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func studentGradingSource(aiDrafted bool) string {
+	if aiDrafted {
+		return litegrade.SourceAI
+	}
+	return litegrade.SourceTeacher
 }

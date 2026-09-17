@@ -83,6 +83,9 @@ type liteWorkspaceTurnDTO struct {
 type liteWorkspaceCardDTO struct {
 	Kind string `json:"kind"`
 	Rows any    `json:"rows"`
+	// Filter is the list_students filter a students card shows, so the card
+	// can say which list it is (the reply may not name the students).
+	Filter string `json:"filter,omitempty"`
 }
 
 // liteWorkspaceSurface is what one page of the workspace contributes to a
@@ -1098,7 +1101,7 @@ func liteWorkspaceListStudentsTool(roster []liteworkspace.Student, args map[stri
 		out = append(out, map[string]any{"id": s.ID, "name": s.Name, "称谓": liteworkspace.Pronoun(s.Gender)})
 		names = append(names, s.Name)
 	}
-	card = liteWorkspaceCardDTO{Kind: "students", Rows: rows}
+	card = liteWorkspaceCardDTO{Kind: "students", Rows: rows, Filter: string(filter)}
 	result = liteWorkspaceToolOK(map[string]any{"filter": string(filter), "students": out, "count": len(out)})
 	return result, names, len(out), card, true
 }

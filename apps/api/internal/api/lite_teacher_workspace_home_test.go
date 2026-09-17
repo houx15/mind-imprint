@@ -43,8 +43,9 @@ type homeTurnJSON struct {
 	Reply   string                `json:"reply"`
 	Choices []liteworkspaceChoice `json:"choices"`
 	Cards   []struct {
-		Kind string          `json:"kind"`
-		Rows json.RawMessage `json:"rows"`
+		Kind   string          `json:"kind"`
+		Rows   json.RawMessage `json:"rows"`
+		Filter string          `json:"filter"`
 	} `json:"cards"`
 	Navigate *homeNavigateJSON `json:"navigate"`
 }
@@ -654,6 +655,17 @@ func TestWorkspaceHomeOneOfThemIsNotAHeadCount(t *testing.T) {
 			}
 			if tc.want == http.StatusBadGateway && !strings.Contains(rec.Body.String(), "本轮没有依据的人数：1") {
 				t.Fatalf("502 body does not name the count: %s", rec.Body)
+			}
+			// The reply may not name the students, so the card says which
+			// list it is.
+			if tc.want == http.StatusOK {
+				var out homeTurnJSON
+				if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+					t.Fatal(err)
+				}
+				if len(out.Cards) != 1 || out.Cards[0].Kind != "students" || out.Cards[0].Filter != "inactive_this_week" {
+					t.Fatalf("cards = %+v, want one students card with its filter", out.Cards)
+				}
 			}
 		})
 	}

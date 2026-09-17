@@ -81,6 +81,10 @@ func (run *liteWorkspaceHome) falseClaim(text string) string {
 	if run.nav == nil && !run.asked && liteworkspace.PointsAtButton(text) {
 		return "回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page"
 	}
+	if liteworkspace.OffersMessage(text) {
+		return "回复或选项提出提醒、通知或联系学生，但没有工具能给学生发消息。" +
+			"可以建议老师布置一份作业（学生会在收件箱看到），或前往学生的学习页"
+	}
 	return liteWorkspaceRosterPronounProblem(text, run.roster, run.namesReturned, run.typed)
 }
 
