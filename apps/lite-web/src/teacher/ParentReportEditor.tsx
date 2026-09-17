@@ -131,8 +131,8 @@ function bodyOf(r: TeacherParentReport): Record<string, string> {
  *
  * ## Width
  *
- * The AI rail takes the right 400px (`WorkspacePanel`), which leaves the
- * canvas about 720px — too narrow for the draft and the preview side by side.
+ * The AI sidebar takes the right 400–500px (`WorkspacePanel`), which leaves
+ * the canvas about 800px at 1440px — too narrow for the draft and the preview side by side.
  * 草稿 / 预览 is a `Segmented` switch at every width; both panes stay mounted
  * and only their display changes.
  */

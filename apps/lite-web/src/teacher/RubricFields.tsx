@@ -1,5 +1,6 @@
 import { Button } from "@/ui";
 import type { RubricDimension } from "../api/gradings";
+import { NumberField } from "./controls/NumberField";
 import { Field, INPUT_CLS, Segmented } from "./formParts";
 import { rubricDimensionLabel, type RubricDraft } from "./rubricLogic";
 
@@ -37,16 +38,7 @@ export function RubricFields({
       {value.scale === "points" && (
         <div className="sm:w-[200px]">
           <Field label="满分">
-            <input
-              type="number"
-              min={1}
-              max={100}
-              step={1}
-              inputMode="numeric"
-              value={value.max}
-              onChange={(e) => onChange((d) => ({ ...d, max: e.target.value }))}
-              className={INPUT_CLS}
-            />
+            <NumberField min={1} max={100} value={value.max} onChange={(max) => onChange((d) => ({ ...d, max }))} className="w-full" />
           </Field>
         </div>
       )}

@@ -3,6 +3,7 @@ import { Button } from "@/ui";
 import { createParentReport } from "../api/parentReports";
 import { defaultRange, todayBeijing } from "../parentReport/range";
 import { failText } from "./assignmentLogic";
+import { DateField } from "./controls/DateField";
 import { generateErrorPlacement } from "./parentReportLogic";
 
 /**
@@ -74,9 +75,6 @@ export function GenerateParentReportDialog({
     }
   }
 
-  const inputCls =
-    "w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:text-mk-muted";
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -103,31 +101,27 @@ export function GenerateParentReportDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-mk-small text-mk-muted">
               开始日期
-              <input
-                type="date"
+              <DateField
                 value={start}
                 max={end || initial.today}
                 disabled={busy}
-                onChange={(e) => {
-                  setStart(e.target.value);
+                onChange={(v) => {
+                  setStart(v);
                   setRangeError(null);
                 }}
-                className={inputCls}
               />
             </label>
             <label className="flex flex-col gap-1.5 text-mk-small text-mk-muted">
               结束日期
-              <input
-                type="date"
+              <DateField
                 value={end}
                 min={start || undefined}
                 max={initial.today}
                 disabled={busy}
-                onChange={(e) => {
-                  setEnd(e.target.value);
+                onChange={(v) => {
+                  setEnd(v);
                   setRangeError(null);
                 }}
-                className={inputCls}
               />
             </label>
           </div>

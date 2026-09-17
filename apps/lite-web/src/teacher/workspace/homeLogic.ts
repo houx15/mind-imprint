@@ -14,6 +14,9 @@ export interface NavigateTarget {
   route: TeacherRoute;
   label: string;
   classId: string;
+  /** assignmentNew only, when the offer named students: the recipients the
+   *  form preselects (`writePendingRecipients`). */
+  userIds?: string[];
 }
 
 /**
@@ -46,7 +49,9 @@ export function navigateRoute(nav: unknown, pageClassId: string): NavigateTarget
       route = { view: "parentReports" };
       break;
   }
-  return route ? { route, label: offer.label, classId } : undefined;
+  if (!route) return undefined;
+  const userIds = offer.view === "assignmentNew" ? offer.userIds ?? [] : [];
+  return { route, label: offer.label, classId, ...(userIds.length > 0 ? { userIds } : {}) };
 }
 
 /**
@@ -81,19 +86,32 @@ const isObj = (v: unknown): v is Raw => !!v && typeof v === "object" && !Array.i
  *  strings when present. */
 function asNavigate(v: unknown): WorkspaceNavigate | undefined {
   if (!isObj(v)) return undefined;
-  const { view, classId, label, userId, assignmentId } = v;
+  const { view, classId, label, userId, assignmentId, userIds } = v;
   if (typeof view !== "string" || typeof classId !== "string" || typeof label !== "string" || !label.trim()) {
     return undefined;
   }
   if (userId !== undefined && typeof userId !== "string") return undefined;
   if (assignmentId !== undefined && typeof assignmentId !== "string") return undefined;
+  if (userIds !== undefined && !(Array.isArray(userIds) && userIds.every((id) => typeof id === "string"))) return undefined;
   return {
     view,
     classId,
     label,
     ...(userId ? { userId } : {}),
     ...(assignmentId ? { assignmentId } : {}),
+    ...(Array.isArray(userIds) && userIds.length > 0 ? { userIds: userIds as string[] } : {}),
   };
+}
+
+/**
+ * What the class chat's canvas shows under the class overview: the tool
+ * cards of the latest turn that produced any. A turn that only answered or
+ * only offered a page (「请点击下方按钮前往布置作业」) keeps the list she was
+ * looking at, instead of blanking it.
+ */
+export function keepDataCards(prev: WorkspaceCard[], next: WorkspaceCard[]): WorkspaceCard[] {
+  const data = next.filter((c) => c.kind !== NAVIGATE_CARD_KIND);
+  return data.length > 0 ? data : prev;
 }
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 

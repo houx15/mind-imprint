@@ -3,6 +3,7 @@ import {
   applyPatch,
   clampChoices,
   isCurrentTurn,
+  openChoices,
   panelErrorLine,
   rollbackTurn,
   splitChoices,
@@ -178,6 +179,23 @@ describe("clampChoices", () => {
     ]);
     expect(got).toHaveLength(MAX_CHOICES);
     expect(got.every((c) => c.label.trim() !== "")).toBe(true);
+  });
+});
+
+// 印记 asked 「您想用哪篇文章？」 and she picked one on the card instead: the
+// article options are answered, the rest of the row stays.
+describe("openChoices", () => {
+  const choices: Choice[] = [
+    { id: "a", label: "冻干土豆", slug: "potato", article: { slug: "potato", zhTitle: "冻干土豆", reason: "" } },
+    { id: "b", label: "另一篇", slug: "other" },
+    { id: "c", label: "先定截止时间" },
+  ];
+  it("keeps every option while the card's article is unchanged", () => {
+    expect(openChoices(choices, "", "")).toBe(choices);
+  });
+  it("drops article options once the card's article changed", () => {
+    expect(openChoices(choices, "", "lasso").map((c) => c.id)).toEqual(["c"]);
+    expect(openChoices(choices, "potato", "").map((c) => c.id)).toEqual(["c"]);
   });
 });
 

@@ -76,6 +76,8 @@ export interface WorkspaceNavigate {
   classId: string;
   userId?: string;
   assignmentId?: string;
+  /** assignmentNew only: the students the form preselects. */
+  userIds?: string[];
   label: string;
 }
 
@@ -146,11 +148,13 @@ export function normalizeNavigate(raw: Partial<WorkspaceNavigate>): WorkspaceNav
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const userId = str(raw.userId);
   const assignmentId = str(raw.assignmentId);
+  const userIds = Array.isArray(raw.userIds) ? raw.userIds.filter((v): v is string => typeof v === "string" && v !== "") : [];
   return {
     view: str(raw.view),
     classId: str(raw.classId),
     label: str(raw.label),
     ...(userId ? { userId } : {}),
     ...(assignmentId ? { assignmentId } : {}),
+    ...(userIds.length > 0 ? { userIds } : {}),
   };
 }

@@ -16,6 +16,7 @@ import { KindField, SettingsFields, StudentChecklist } from "./AssignmentForm";
 import { kindLabel, safeHttpUrl } from "./format";
 import { Field, INPUT_CLS } from "./formParts";
 import { GradingTab } from "./GradingTab";
+import { DateField } from "./controls/DateField";
 import { PersonalizedPicker } from "./PersonalizedPicker";
 import { ReturnDialog } from "./ReturnDialog";
 import { RubricFields } from "./RubricFields";
@@ -305,12 +306,7 @@ export function AssignmentDetailPage({
                 />
               </Field>
               <Field label="截止时间（北京时间）">
-                <input
-                  type="datetime-local"
-                  value={edit.dueInput}
-                  onChange={(e) => setEdit((d) => (d ? { ...d, dueInput: e.target.value } : d))}
-                  className={INPUT_CLS}
-                />
+                <DateField withTime shortcuts value={edit.dueInput} onChange={(dueInput) => setEdit((d) => (d ? { ...d, dueInput } : d))} />
               </Field>
               {editable ? (
                 <SettingsFields

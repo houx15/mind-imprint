@@ -4,6 +4,8 @@ import { returnRecipient, type RecipientDTO } from "../api/assignments";
 import { isoToBeijingInput } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { buildReturnInput, failText } from "./assignmentLogic";
+import { DateField } from "./controls/DateField";
+import { INPUT_CLS } from "./formParts";
 
 const DEFAULT_EXTENSION_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -56,8 +58,7 @@ export function ReturnDialog({
     }
   }
 
-  const inputCls =
-    "w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:text-mk-muted";
+  const inputCls = INPUT_CLS;
 
   return (
     <div
@@ -83,7 +84,7 @@ export function ReturnDialog({
 
         <label className="flex flex-col gap-1.5 text-mk-small text-mk-muted">
           新的截止时间（北京时间）
-          <input type="datetime-local" value={dueInput} disabled={busy} onChange={(e) => setDueInput(e.target.value)} className={inputCls} />
+          <DateField withTime shortcuts value={dueInput} disabled={busy} onChange={setDueInput} />
         </label>
 
         <label className="flex flex-col gap-1.5 text-mk-small text-mk-muted">

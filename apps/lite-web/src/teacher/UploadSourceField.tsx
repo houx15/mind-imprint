@@ -54,7 +54,7 @@ export function UploadSourceField({
             e.target.value = "";
             if (file) void extract(file);
           }}
-          className="text-mk-small text-mk-ink"
+          className="tc-file"
         />
       </label>
       <p className="text-mk-small text-mk-muted">

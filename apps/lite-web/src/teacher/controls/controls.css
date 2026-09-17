@@ -1,0 +1,463 @@
+/* Teacher form controls (teacher/controls/*): text boxes, dropdowns, date
+ * fields, number boxes and checkboxes on the lite tokens. One look for every
+ * field: 40px tall, 10px radius, a hairline that warms on hover and turns
+ * accent with a soft ring on focus. `.tc-input` is also what `INPUT_CLS`
+ * (formParts.tsx) resolves to, so plain <input>/<textarea> match. */
+
+.tc-input,
+.tc-field {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--mk-input-border, var(--mk-border));
+  border-radius: 10px;
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+  font-size: var(--mk-font-size-small);
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.tc-input {
+  padding: 8px 12px;
+  outline: none;
+}
+textarea.tc-input {
+  display: block;
+  resize: vertical;
+  line-height: 1.75;
+}
+.tc-input::placeholder {
+  color: var(--mk-faint, var(--mk-muted));
+}
+.tc-input:hover:not(:disabled),
+.tc-field:hover:not(:disabled):not([data-disabled]) {
+  border-color: var(--mk-accent-300);
+}
+.tc-input:focus,
+.tc-field:focus-visible,
+.tc-field:focus-within,
+.tc-field[data-open] {
+  border-color: var(--mk-accent-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-accent-500) 18%, transparent);
+  outline: none;
+}
+/* teacher-studio.css outlines every focused button and input; these fields
+ * show the ring above instead. */
+.teacher-studio .tc-field:focus-visible,
+.teacher-studio .tc-input:focus-visible,
+.teacher-studio .tc-number input:focus-visible,
+.teacher-studio .tc-check:focus-visible {
+  outline: none;
+}
+.tc-popover :focus-visible {
+  outline: 2px solid var(--mk-accent-500);
+  outline-offset: 1px;
+}
+.tc-input:disabled,
+.tc-field:disabled,
+.tc-field[data-disabled] {
+  cursor: not-allowed;
+  background: var(--mk-paper);
+  color: var(--mk-muted);
+}
+.tc-input[type="number"]::-webkit-inner-spin-button,
+.tc-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Dropdown and date triggers */
+.tc-select,
+.tc-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.tc-field--sm {
+  width: auto;
+  min-width: 180px;
+  min-height: 36px;
+  padding-block: 6px;
+}
+.tc-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tc-placeholder {
+  color: var(--mk-faint, var(--mk-muted));
+}
+.tc-chevron {
+  flex-shrink: 0;
+  color: var(--mk-muted);
+  transition: transform 0.18s, color 0.15s;
+}
+.tc-select[data-open] .tc-chevron {
+  transform: rotate(180deg);
+  color: var(--mk-accent-600);
+}
+.tc-date-icon {
+  flex-shrink: 0;
+  color: var(--mk-accent-600);
+}
+
+/* The floating panel */
+.tc-popover {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid var(--mk-border);
+  border-radius: 14px;
+  background: var(--mk-surface);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--mk-ink) 14%, transparent), 0 2px 6px color-mix(in srgb, var(--mk-ink) 6%, transparent);
+  animation: tc-pop 0.14s ease-out;
+}
+@keyframes tc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tc-popover {
+    animation: none;
+  }
+}
+
+.tc-listbox {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  outline: none;
+}
+.tc-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--mk-ink);
+  font-size: var(--mk-font-size-small);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.tc-option[data-active] {
+  background: var(--mk-accent-50);
+}
+.tc-option[aria-selected="true"] {
+  color: var(--mk-accent-700);
+  font-weight: 600;
+}
+.tc-option svg {
+  flex-shrink: 0;
+  color: var(--mk-accent-600);
+}
+
+/* Date panel */
+.tc-date-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  outline: none;
+}
+.tc-date-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mk-border);
+}
+.tc-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--mk-border);
+  border-radius: 999px;
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+  font-size: var(--mk-font-size-label, 12px);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.tc-chip:hover {
+  border-color: var(--mk-accent-300);
+  background: var(--mk-accent-50);
+}
+.tc-chip[aria-pressed="true"] {
+  border-color: var(--mk-accent-500);
+  background: var(--mk-accent-100);
+  color: var(--mk-accent-800);
+  font-weight: 600;
+}
+.tc-date-body {
+  display: flex;
+  gap: 14px;
+}
+.tc-calendar {
+  flex: 1;
+  min-width: 0;
+}
+.tc-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--mk-font-size-small);
+  font-weight: 650;
+  color: var(--mk-ink);
+}
+.tc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--mk-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.tc-icon-btn:hover {
+  background: var(--mk-accent-50);
+  color: var(--mk-accent-700);
+}
+.tc-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+.tc-weekhead {
+  padding: 4px 0 6px;
+  text-align: center;
+  color: var(--mk-muted);
+  font-size: var(--mk-font-size-label, 12px);
+}
+.tc-day {
+  height: 34px;
+  border-radius: 8px;
+  color: var(--mk-ink);
+  font-size: var(--mk-font-size-small);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s, color 0.12s;
+}
+.tc-day:hover:not(:disabled) {
+  background: var(--mk-accent-50);
+  color: var(--mk-accent-800);
+}
+.tc-day[data-outside] {
+  color: var(--mk-faint, var(--mk-muted));
+}
+.tc-day[data-today] {
+  box-shadow: inset 0 0 0 1px var(--mk-accent-400);
+  font-weight: 650;
+}
+.tc-day[aria-pressed="true"],
+.tc-day[aria-pressed="true"]:hover {
+  background: var(--mk-accent-600);
+  color: var(--mk-on-accent, #fff);
+  font-weight: 650;
+}
+.tc-day:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+.tc-time {
+  display: flex;
+  flex-direction: column;
+  width: 118px;
+  padding-left: 14px;
+  border-left: 1px solid var(--mk-border);
+}
+.tc-time-title {
+  height: 30px;
+  margin-bottom: 8px;
+  line-height: 30px;
+  text-align: center;
+  font-size: var(--mk-font-size-small);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--mk-ink);
+}
+.tc-time-cols {
+  display: flex;
+  gap: 6px;
+}
+.tc-time-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  height: 244px;
+  overflow-y: auto;
+}
+.tc-time-cell {
+  flex-shrink: 0;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--mk-ink);
+  font-size: var(--mk-font-size-small);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s;
+}
+.tc-time-cell:hover {
+  background: var(--mk-accent-50);
+}
+.tc-time-cell[aria-pressed="true"] {
+  background: var(--mk-accent-600);
+  color: var(--mk-on-accent, #fff);
+  font-weight: 650;
+}
+.tc-date-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--mk-border);
+  color: var(--mk-muted);
+  font-size: var(--mk-font-size-label, 12px);
+}
+.tc-done {
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: var(--mk-accent-600);
+  color: var(--mk-on-accent, #fff);
+  font-size: var(--mk-font-size-small);
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.tc-done:hover {
+  background: var(--mk-accent-700);
+}
+
+/* Number box */
+.tc-number {
+  display: flex;
+  align-items: stretch;
+  width: 150px;
+  overflow: hidden;
+}
+.tc-number input {
+  order: 1;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: none;
+}
+.tc-number-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  color: var(--mk-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.tc-number-minus {
+  order: 0;
+}
+.tc-number-plus {
+  order: 2;
+}
+.tc-number-btn:hover:not(:disabled) {
+  background: var(--mk-accent-50);
+  color: var(--mk-accent-700);
+}
+.tc-number-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+/* File picker: the browser's button, drawn like the other controls. */
+.tc-file {
+  color: var(--mk-muted);
+  font-size: var(--mk-font-size-small);
+}
+.tc-file::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 16px;
+  border: 1px solid var(--mk-input-border, var(--mk-border));
+  border-radius: 10px;
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tc-file:hover:not(:disabled)::file-selector-button {
+  border-color: var(--mk-accent-300);
+  background: var(--mk-accent-50);
+}
+.tc-file:disabled::file-selector-button {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Checkbox */
+.tc-check {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid var(--mk-input-border, var(--mk-border));
+  border-radius: 5px;
+  background: var(--mk-surface);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.tc-check::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  margin-top: -2px;
+  border-left: 2px solid var(--mk-on-accent, #fff);
+  border-bottom: 2px solid var(--mk-on-accent, #fff);
+  transform: rotate(-45deg) scale(0);
+  transition: transform 0.12s;
+}
+.tc-check:hover {
+  border-color: var(--mk-accent-400);
+}
+.tc-check:checked {
+  border-color: var(--mk-accent-600);
+  background: var(--mk-accent-600);
+}
+.tc-check:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+.tc-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-accent-500) 22%, transparent);
+}
+.tc-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 480px) {
+  .tc-date-body {
+    flex-direction: column;
+  }
+  .tc-time {
+    width: auto;
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--mk-border);
+  }
+  .tc-time-col {
+    height: 150px;
+  }
+}

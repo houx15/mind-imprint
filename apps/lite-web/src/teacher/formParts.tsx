@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./controls/controls.css";
 
 /**
  * formParts — the labelled-field and segmented-tab building blocks shared by
@@ -11,8 +12,8 @@ import type { ReactNode } from "react";
 
 export const LABEL_CLS = "text-mk-label font-bold text-mk-muted";
 
-export const INPUT_CLS =
-  "w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200";
+/** Text boxes: the look of teacher/controls (hover, focus ring, disabled). */
+export const INPUT_CLS = "tc-input";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

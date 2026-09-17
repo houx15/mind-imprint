@@ -3,6 +3,7 @@ import { api, type ClassSummary } from "@/api";
 import { listClassParentReports, type ParentReportSummary } from "../api/parentReports";
 import { publishedMonthDay, rangeLabel } from "../parentReport/range";
 import { errorText, pickClassId, readLastClassId, writeLastClassId } from "./assignmentLogic";
+import { Select } from "./controls/Select";
 import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 
@@ -63,23 +64,17 @@ export function ParentReportsPage({ onOpen }: { onOpen: (reportId: string) => vo
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="teacher-page-title">家长报告</h1>
         {classes && classes.length > 0 && (
-          <label className="flex items-center gap-2 text-mk-small text-mk-muted">
-            班级
-            <select
-              value={classId}
-              onChange={(e) => {
-                setClassId(e.target.value);
-                writeLastClassId(e.target.value);
-              }}
-              className="max-w-[240px] rounded-mk-md border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-            >
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            size="sm"
+            ariaLabel="班级"
+            className="max-w-[260px]"
+            value={classId}
+            onChange={(id) => {
+              setClassId(id);
+              writeLastClassId(id);
+            }}
+            options={classes.map((c) => ({ value: c.id, label: c.name }))}
+          />
         )}
       </div>
 

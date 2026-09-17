@@ -17,23 +17,29 @@ import { rubricDefaultNote } from "./rubricLogic";
 import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import { UploadSourceField } from "./UploadSourceField";
+import { DateField } from "./controls/DateField";
+import { NumberField } from "./controls/NumberField";
+import { Select } from "./controls/Select";
 import {
   buildCreateInput,
   draftOnClassChange,
   emptySettings,
   errorText,
-  dueWeekday,
   failText,
+  clearPendingRecipients,
   fillTitleIfEmpty,
+  initialRecipients,
   pickClassId,
   readAssignmentMode,
   readLastClassId,
   toggleId,
   workspaceArtifactPayload,
   writeAssignmentMode,
+  readPendingRecipients,
   writeLastClassId,
   type AssignmentDraft,
   type AssignmentMode,
+  type PendingRecipients,
   type SettingsDraft,
 } from "./assignmentLogic";
 
@@ -148,16 +154,7 @@ export function SettingsFields({
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="sm:w-[200px]">
               <Field label="目标字数">
-                <input
-                  type="number"
-                  min={1}
-                  max={100000}
-                  step={1}
-                  inputMode="numeric"
-                  value={value.targetWords}
-                  onChange={(e) => set({ targetWords: e.target.value })}
-                  className={INPUT_CLS}
-                />
+                <NumberField min={50} max={100000} step={50} value={value.targetWords} onChange={(targetWords) => set({ targetWords })} className="w-full" />
               </Field>
             </div>
             <Segmented
@@ -362,8 +359,14 @@ export function AssignmentForm({
     };
   }, [initialClassId, classesNonce]);
 
+  // Students handed over by the class chat (「给这些学生布置作业」), read
+  // once when the page opens and used on the first roster of their class.
+  const [pending, setPending] = useState<PendingRecipients | null>(() => readPendingRecipients());
+  useEffect(() => clearPendingRecipients(), []);
+  const [preselectNote, setPreselectNote] = useState<string | null>(null);
+
   // Roster of the chosen class; switching class re-checks every student of
-  // the new class (DEC-4 default).
+  // the new class (DEC-4 default), unless the class chat named students.
   useEffect(() => {
     if (!draft.classId) return;
     let cancelled = false;
@@ -374,7 +377,15 @@ export function AssignmentForm({
       .then((rows) => {
         if (cancelled) return;
         setRoster(rows);
-        setDraft((d) => ({ ...d, userIds: rows.map((s) => s.id) }));
+        const ids = rows.map((s) => s.id);
+        const picked = initialRecipients(ids, draft.classId, pending);
+        if (pending && pending.classId === draft.classId) {
+          setPending(null);
+          setPreselectNote(picked.length < ids.length ? `已按班级对话选中 ${picked.length} 名学生` : null);
+        } else {
+          setPreselectNote(null);
+        }
+        setDraft((d) => ({ ...d, userIds: picked }));
       })
       .catch((e: unknown) => {
         if (!cancelled) setRosterError(errorText(e));
@@ -382,6 +393,8 @@ export function AssignmentForm({
     return () => {
       cancelled = true;
     };
+    // `pending` is read when the class's roster loads, not watched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.classId, rosterNonce]);
 
   async function submit() {
@@ -419,6 +432,11 @@ export function AssignmentForm({
 
       <h1 className="teacher-page-title mt-4">布置作业</h1>
       <p className="mt-2 text-mk-small text-mk-muted">学生会在收件箱和对应页面顶部看到这份作业。</p>
+      {preselectNote && (
+        <p className="mt-2 text-mk-small font-semibold text-mk-accent-700" role="status">
+          {preselectNote}
+        </p>
+      )}
 
       <div className="mt-4">
         <Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />
@@ -474,17 +492,7 @@ export function AssignmentForm({
           }}
         >
           <Field label="班级">
-            <select
-              value={draft.classId}
-              onChange={(e) => changeClass(e.target.value)}
-              className={INPUT_CLS}
-            >
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <Select value={draft.classId} onChange={changeClass} options={classes.map((c) => ({ value: c.id, label: c.name }))} />
           </Field>
 
           <KindField value={draft.kind} onChange={(kind) => setDraft((d) => ({ ...d, kind }))} />
@@ -508,14 +516,7 @@ export function AssignmentForm({
           </Field>
 
           <Field label="截止时间（北京时间）">
-            <input
-              type="datetime-local"
-              value={draft.dueInput}
-              onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
-              className={INPUT_CLS}
-            />
-            {/* aria-hidden: inside the label it would change the field's name; the date is in the input. */}
-            {dueWeekday(draft.dueInput) && <span aria-hidden="true" className="text-mk-small text-mk-muted">{dueWeekday(draft.dueInput)}</span>}
+            <DateField withTime shortcuts value={draft.dueInput} onChange={(dueInput) => setDraft((d) => ({ ...d, dueInput }))} />
           </Field>
 
           <SettingsFields
@@ -615,7 +616,7 @@ export function StudentChecklist({
           key={s.id}
           className="flex cursor-pointer items-center gap-2 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-ink hover:bg-mk-accent-50"
         >
-          <input type="checkbox" checked={selected.includes(s.id)} onChange={() => onToggle(s.id)} />
+          <input type="checkbox" className="tc-check" checked={selected.includes(s.id)} onChange={() => onToggle(s.id)} />
           {s.displayName}
         </label>
       ))}

@@ -34,7 +34,8 @@ import {
   pickRowView,
   pickTierText,
   readExtractResult,
-  dueWeekday,
+  initialRecipients,
+  parsePendingRecipients,
   recipientProgressText,
   recipientReadingText,
   selectedDisciplinesText,
@@ -1006,10 +1007,22 @@ describe("recipientProgressText", () => {
   });
 });
 
-describe("dueWeekday", () => {
-  it("names the weekday of a Beijing wall-clock value", () => {
-    expect(dueWeekday("2026-09-18T21:00")).toBe("周五");
-    expect(dueWeekday("2026-09-20T21:00")).toBe("周日");
-    expect(dueWeekday("")).toBe("");
+describe("pending recipients (class chat → 布置作业)", () => {
+  it("parses only a well-formed handoff that names someone", () => {
+    expect(parsePendingRecipients(JSON.stringify({ classId: "c1", userIds: ["u1", 3, "", "u2"] }))).toEqual({ classId: "c1", userIds: ["u1", "u2"] });
+    expect(parsePendingRecipients(JSON.stringify({ classId: "c1", userIds: [] }))).toBeNull();
+    expect(parsePendingRecipients(JSON.stringify({ classId: "", userIds: ["u1"] }))).toBeNull();
+    expect(parsePendingRecipients(JSON.stringify([{ classId: "c1", userIds: ["u1"] }]))).toBeNull();
+    expect(parsePendingRecipients("{not json")).toBeNull();
+    expect(parsePendingRecipients(null)).toBeNull();
+  });
+  it("checks the handed-off students on their own class, in roster order", () => {
+    const pending = { classId: "c1", userIds: ["u3", "u1", "gone"] };
+    expect(initialRecipients(["u1", "u2", "u3"], "c1", pending)).toEqual(["u1", "u3"]);
+  });
+  it("checks everyone on another class, with no handoff, or when nobody named is on the roster", () => {
+    expect(initialRecipients(["u1", "u2"], "c2", { classId: "c1", userIds: ["u1"] })).toEqual(["u1", "u2"]);
+    expect(initialRecipients(["u1", "u2"], "c1", null)).toEqual(["u1", "u2"]);
+    expect(initialRecipients(["u1", "u2"], "c1", { classId: "c1", userIds: ["gone"] })).toEqual(["u1", "u2"]);
   });
 });

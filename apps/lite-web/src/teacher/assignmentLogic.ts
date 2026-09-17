@@ -780,18 +780,6 @@ export function recipientProgressText(
   return parts.join(" · ");
 }
 
-/** The weekday of a datetime-local value (2026-09-18T21:00 → 周五), or ""
- *  when it cannot be read. The input shows no weekday, and a deadline that
- *  landed on Sunday instead of Friday looked right (real-user walk,
- *  2026-09-17). The value is Beijing wall-clock text, so the date part alone
- *  decides the weekday — no time zone is involved. */
-export function dueWeekday(dueInput: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}$/.exec(dueInput.trim());
-  if (!m) return "";
-  const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
-  return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day] ?? "";
-}
-
 export function recipientReadingText(reading: RecipientReading | null): string {
   if (!reading) return "—";
   if (reading.state === "pending") return "待推荐";
@@ -952,6 +940,68 @@ export function writeLastClassId(classId: string): void {
   } catch {
     /* storage blocked: the page still works, it just forgets */
   }
+}
+
+const PENDING_RECIPIENTS_KEY = "lite-teacher:assignments:pendingRecipients";
+
+export interface PendingRecipients {
+  classId: string;
+  userIds: string[];
+}
+
+/** The class chat's 「给这些学生布置作业」: which students the create form
+ * checks when it opens on this class. The route carries only the class, so
+ * the list travels in session storage. */
+export function writePendingRecipients(classId: string, userIds: string[]): void {
+  try {
+    window.sessionStorage.setItem(PENDING_RECIPIENTS_KEY, JSON.stringify({ classId, userIds }));
+  } catch {
+    /* storage blocked: the form checks the whole class, its default */
+  }
+}
+
+/** Reads the handoff without clearing it: a useState initializer runs twice
+ * under StrictMode, and a read that also removed would hand the second call
+ * nothing. The form clears it in an effect (`clearPendingRecipients`). */
+export function readPendingRecipients(): PendingRecipients | null {
+  try {
+    return parsePendingRecipients(window.sessionStorage.getItem(PENDING_RECIPIENTS_KEY));
+  } catch {
+    return null;
+  }
+}
+
+/** Clears the handoff, so a later visit to the form starts from the whole
+ * class again. */
+export function clearPendingRecipients(): void {
+  try {
+    window.sessionStorage.removeItem(PENDING_RECIPIENTS_KEY);
+  } catch {
+    /* storage blocked: nothing was stored either */
+  }
+}
+
+export function parsePendingRecipients(raw: string | null): PendingRecipients | null {
+  if (!raw) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+    const { classId, userIds } = v as Record<string, unknown>;
+    if (typeof classId !== "string" || !classId || !Array.isArray(userIds)) return null;
+    const ids = userIds.filter((id): id is string => typeof id === "string" && id !== "");
+    return ids.length > 0 ? { classId, userIds: ids } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The recipients checked when a class's roster loads: the handed-off
+ * students who are on this roster (in roster order), or everyone when the
+ * handoff is for another class or names nobody on it. */
+export function initialRecipients(rosterIds: string[], classId: string, pending: PendingRecipients | null): string[] {
+  if (!pending || pending.classId !== classId) return rosterIds;
+  const picked = rosterIds.filter((id) => pending.userIds.includes(id));
+  return picked.length > 0 ? picked : rosterIds;
 }
 
 export type AssignmentMode = "traditional" | "ai";

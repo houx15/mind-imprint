@@ -17,6 +17,8 @@ import { formatDeadline } from "../shared/deadline";
 import { highlightSegments, MARK_STYLE, pickableSentences, PIECE_CLS, quoteRanges, unmarkedPointQuotes } from "../shared/gradingText";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText } from "./assignmentLogic";
+import { NumberField } from "./controls/NumberField";
+import { Select } from "./controls/Select";
 import { INPUT_CLS } from "./formParts";
 import {
   contentForSave,
@@ -503,18 +505,21 @@ export function GradingPage({
 function GradeInput({ rubric, value, onChange, label }: { rubric: Rubric; value: string; onChange: (v: string) => void; label: string }) {
   if (rubric.scale === "letter") {
     return (
-      <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={`${INPUT_CLS} w-24`}>
-        {!(LETTER_GRADES as readonly string[]).includes(value) && <option value={value}>{value || "—"}</option>}
-        {LETTER_GRADES.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </select>
+      <Select
+        ariaLabel={label}
+        className="!w-28"
+        value={value}
+        placeholder="—"
+        onChange={onChange}
+        options={[
+          ...(value && !(LETTER_GRADES as readonly string[]).includes(value) ? [{ value, label: value }] : []),
+          ...LETTER_GRADES.map((g) => ({ value: g as string, label: g })),
+        ]}
+      />
     );
   }
   return (
-    <input aria-label={label} type="number" min={0} max={rubric.max} step={1} value={value} onChange={(e) => onChange(e.target.value)} className={`${INPUT_CLS} w-24`} />
+    <NumberField ariaLabel={label} min={0} max={rubric.max} value={value} onChange={onChange} />
   );
 }
 
@@ -557,15 +562,17 @@ function GradingEditor({
         {content.points.map((p, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                aria-label={gradingPointLabel(i, "类型")}
+              <Select
+                ariaLabel={gradingPointLabel(i, "类型")}
+                size="sm"
+                className="!min-w-[104px]"
                 value={p.kind}
-                onChange={(e) => onEdit({ type: "pointKind", index: i, value: e.target.value === "good" ? "good" : "issue" })}
-                className={`${INPUT_CLS} w-24`}
-              >
-                <option value="good">优点</option>
-                <option value="issue">问题</option>
-              </select>
+                onChange={(v) => onEdit({ type: "pointKind", index: i, value: v })}
+                options={[
+                  { value: "good", label: "优点" },
+                  { value: "issue", label: "问题" },
+                ]}
+              />
               <span className="text-mk-label text-mk-muted">{p.source === "ai" ? "AI" : "老师"}</span>
               <Button variant="ghost" size="sm" aria-label={gradingPointLabel(i, "删除")} onClick={() => onEdit({ type: "deletePoint", index: i })}>
                 删除

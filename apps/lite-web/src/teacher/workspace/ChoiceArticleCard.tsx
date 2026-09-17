@@ -30,7 +30,7 @@ export function ChoiceArticleCard({
       {article.coverUrl ? (
         <img
           src={article.coverUrl}
-          alt={article.zhTitle}
+          alt=""
           loading="lazy"
           className="h-14 w-14 shrink-0 rounded-mk-md object-cover"
         />

@@ -3,6 +3,7 @@ import { normalizeNavigate, type WorkspaceNavigate } from "../../api/teacherWork
 import {
   assignmentCardRows,
   classSnapshotView,
+  keepDataCards,
   navigateOf,
   navigateRoute,
   studentsCardTitle,
@@ -44,6 +45,18 @@ describe("navigateRoute", () => {
   ])("drops %s without throwing", (_, input) => {
     expect(() => navigateRoute(input, "c1")).not.toThrow();
     expect(navigateRoute(input, "c1")).toBeUndefined();
+  });
+
+  it("carries the students of a 布置作业 offer, and only of that offer", () => {
+    expect(navigateRoute(nav({ view: "assignmentNew", label: "布置作业", userIds: ["u1", "u2"] }), "c1")).toEqual({
+      route: { view: "assignmentNew", classId: "c1" },
+      label: "布置作业",
+      classId: "c1",
+      userIds: ["u1", "u2"],
+    });
+    expect(navigateRoute(nav({ userIds: ["u1"] }), "c1")).not.toHaveProperty("userIds");
+    expect(navigateRoute({ ...nav({ view: "assignmentNew" }), userIds: ["u1", 2] }, "c1")).toBeUndefined();
+    expect(normalizeNavigate({ view: "assignmentNew", classId: "c1", label: "x", userIds: ["u1", 2 as unknown as string, ""] }).userIds).toEqual(["u1"]);
   });
 
   it("drops a wire offer whose ids are not strings", () => {
@@ -153,6 +166,20 @@ describe("assignmentCardRows", () => {
 
   it("returns nothing for a non-array", () => {
     expect(assignmentCardRows({ id: "a1" })).toEqual([]);
+  });
+});
+
+// A turn that only offers a page must not blank the list she was reading.
+describe("keepDataCards", () => {
+  const students = { kind: "students", rows: [] };
+  const offer = { kind: NAVIGATE_CARD_KIND, rows: nav({}) };
+  it("keeps the previous tool cards when a turn brings none", () => {
+    expect(keepDataCards([students], [offer])).toEqual([students]);
+    expect(keepDataCards([students], [])).toEqual([students]);
+  });
+  it("takes the new tool cards, without the page offer", () => {
+    const assignments = { kind: "assignments", rows: [] };
+    expect(keepDataCards([students], [assignments, offer])).toEqual([assignments]);
   });
 });
 

@@ -4,6 +4,7 @@ import { api, type ClassSummary } from "@/api";
 import { listAssignments, type AssignmentSummaryDTO } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL } from "../shared/deadline";
 import { kindLabel } from "./format";
+import { Select } from "./controls/Select";
 import { StudioEmpty } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
 import { assignmentFileName, errorText, pickClassId, readLastClassId, STATUS_ORDER, writeLastClassId } from "./assignmentLogic";
@@ -72,23 +73,16 @@ export function AssignmentsPage({
         <h1 className="teacher-page-title">作业</h1>
         {classes && classes.length > 0 && (
           <>
-            <label className="flex items-center gap-2 text-mk-small text-mk-muted">
-              班级
-              <select
-                value={classId}
-                onChange={(e) => {
-                  setClassId(e.target.value);
-                  writeLastClassId(e.target.value);
-                }}
-                className="rounded-mk-md border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-              >
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              size="sm"
+              ariaLabel="班级"
+              value={classId}
+              onChange={(id) => {
+                setClassId(id);
+                writeLastClassId(id);
+              }}
+              options={classes.map((c) => ({ value: c.id, label: c.name }))}
+            />
             <Button
               variant="primary"
               size="sm"

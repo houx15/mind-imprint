@@ -8,7 +8,6 @@ import { useAlive } from "../shared/useAlive";
 import {
   buildCreateInput,
   draftOnKindChange,
-  dueWeekday,
   failText,
   fillTitleIfEmpty,
   writeLastClassId,
@@ -17,8 +16,11 @@ import {
 import { Field, INPUT_CLS } from "./formParts";
 import { KindField, RecipientChecklist, SettingsFields } from "./AssignmentForm";
 import { StudentViewPreview } from "./StudentViewPreview";
+import { DateField } from "./controls/DateField";
+import { Select } from "./controls/Select";
 import type { WorkspaceThread } from "./workspace/useWorkspaceThread";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
+import { openChoices } from "./workspace/workspaceLogic";
 import { StudentsCard } from "./workspace/WorkspaceCards";
 
 // teacher/AssignmentAIMode.tsx — the AI mode of 布置作业: the homework card
@@ -108,12 +110,19 @@ export function AssignmentAIMode({
 
   const keptText = kept.length > 0 ? `${keptLabels(kept)} 已保留你的修改` : null;
 
+  // The card's article when the current options arrived. Picking an article
+  // on the card answers 「您想用哪篇文章？」, so its article options leave.
+  const choicesKey = choices.map((c) => c.id).join("\n");
+  const [offer, setOffer] = useState({ key: choicesKey, slug: draft.slug });
+  if (offer.key !== choicesKey) setOffer({ key: choicesKey, slug: draft.slug });
+  const shownChoices = openChoices(choices, offer.key === choicesKey ? offer.slug : draft.slug, draft.slug);
+
   return (
     <WorkspacePanel
       turns={turns}
       busy={busy}
       error={error}
-      choices={choices}
+      choices={shownChoices}
       onSend={(text) => thread.run({ text })}
       onChoose={(choiceId) => {
         const choice = choices.find((c) => c.id === choiceId);
@@ -129,13 +138,7 @@ export function AssignmentAIMode({
     >
       <div className="flex flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-4 sm:p-6">
         <Field label="班级">
-          <select value={draft.classId} onChange={(e) => onClassChange(e.target.value)} className={INPUT_CLS}>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select value={draft.classId} onChange={onClassChange} options={classes.map((c) => ({ value: c.id, label: c.name }))} />
         </Field>
 
         {/* 类型 sits where the traditional form puts it — after 班级, before
@@ -179,14 +182,7 @@ export function AssignmentAIMode({
         </Field>
 
         <Field label="截止时间（北京时间）">
-          <input
-            type="datetime-local"
-            value={draft.dueInput}
-            onChange={(e) => setDraft((d) => ({ ...d, dueInput: e.target.value }))}
-            className={INPUT_CLS}
-          />
-          {/* aria-hidden: inside the label it would change the field's name; the date is in the input. */}
-          {dueWeekday(draft.dueInput) && <span aria-hidden="true" className="text-mk-small text-mk-muted">{dueWeekday(draft.dueInput)}</span>}
+          <DateField withTime shortcuts value={draft.dueInput} onChange={(dueInput) => setDraft((d) => ({ ...d, dueInput }))} />
         </Field>
 
         <SettingsFields

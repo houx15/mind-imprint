@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { api } from "@/api";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { postWorkspaceTurn } from "../api/teacherWorkspace";
-import { errorText, failText, writeLastClassId } from "./assignmentLogic";
+import { errorText, failText, writeLastClassId, writePendingRecipients } from "./assignmentLogic";
 import { LearningSnapshot } from "./LearningSnapshot";
 import type { TeacherRoute } from "./teacherRouting";
-import { navigateOf, navigateRoute, withNavigateCard } from "./workspace/homeLogic";
+import { keepDataCards, navigateOf, navigateRoute, withNavigateCard, type NavigateTarget } from "./workspace/homeLogic";
 import { useWorkspaceThread } from "./workspace/useWorkspaceThread";
 import { AssignmentsCard, ClassSnapshotCard, StudentsCard } from "./workspace/WorkspaceCards";
 import { WorkspacePanel } from "./workspace/WorkspacePanel";
@@ -86,6 +86,15 @@ export function ClassChatPage({
   });
   const { choices, cards } = thread;
 
+  // The canvas keeps the last list a turn produced: a reply that only offers
+  // a page (「请点击下方按钮前往布置作业」) does not blank it.
+  const [shownCards, setShownCards] = useState(cards);
+  const [cardsSeen, setCardsSeen] = useState(cards);
+  if (cards !== cardsSeen) {
+    setCardsSeen(cards);
+    setShownCards((prev) => keepDataCards(prev, cards));
+  }
+
   const target = navigateRoute(navigateOf(cards), classId);
   function open(route: TeacherRoute) {
     // The assignment form and the parent report list open on the remembered
@@ -93,6 +102,26 @@ export function ClassChatPage({
     writeLastClassId(classId);
     go(route);
   }
+  function openTarget(t: NavigateTarget) {
+    if (t.userIds) writePendingRecipients(classId, t.userIds);
+    open(t.route);
+  }
+
+  // She picked an option (「给这些学生布置作业」) and the reply offers the
+  // page for it: that pick was her click, so the page opens without asking
+  // for a second one. A typed request still gets the button.
+  // Holds the cards that were on screen when she picked, until that turn
+  // settles. A failed turn leaves `cards` as they were, and must not follow
+  // the previous reply's offer.
+  const choseRef = useRef<typeof cards | null>(null);
+  useEffect(() => {
+    const before = choseRef.current;
+    if (before === null || thread.busy) return;
+    choseRef.current = null;
+    if (cards !== before && target) openTarget(target);
+    // Runs when a picked turn settles; `target` is derived from `cards`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, thread.busy]);
 
   return (
     <WorkspacePanel
@@ -100,10 +129,16 @@ export function ClassChatPage({
       busy={thread.busy}
       error={thread.error}
       choices={choices}
-      onSend={(text) => thread.run({ text })}
+      onSend={(text) => {
+        const ok = thread.run({ text });
+        if (ok) choseRef.current = null;
+        return ok;
+      }}
       onChoose={(choiceId) => {
         const choice = choices.find((c) => c.id === choiceId);
-        return thread.run({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
+        const ok = thread.run({ choiceId, label: choice?.label ?? choiceId, slug: choice?.slug });
+        if (ok) choseRef.current = cards;
+        return ok;
       }}
       composer={thread.composer}
       onComposerChange={thread.setComposer}
@@ -111,6 +146,13 @@ export function ClassChatPage({
       canRetry={thread.failed !== null}
       intro="AI 根据本班这周的数据回答问题，需要时在回复下方给出前往相关页面的按钮。请输入问题，或选择下面的示例。"
       suggestions={["这周谁还没开始学习？", "哪些作业有学生逾期？", "本周整体情况如何？"]}
+      replyAction={
+        target && (
+          <Button variant="primary" size="sm" onClick={() => openTarget(target)}>
+            前往：{target.label}
+          </Button>
+        )
+      }
       header={
         <>
           <button type="button" onClick={onBack} className={BACK_CLS}>
@@ -145,9 +187,9 @@ export function ClassChatPage({
           )}
         </section>
 
-        {/* The page offer rides in `cards` too (`withNavigateCard`); its kind
-            matches none of these and renders as the button below. */}
-        {cards.map((c, i) =>
+        {/* The page offer rides in `cards` too (`withNavigateCard`);
+            `keepDataCards` leaves it out, and it renders under the reply. */}
+        {shownCards.map((c, i) =>
           c.kind === "classSnapshot" ? (
             <ClassSnapshotCard key={i} card={c} onOpenStudent={(userId) => open({ view: "student", classId, userId })} />
           ) : c.kind === "students" ? (
@@ -157,13 +199,6 @@ export function ClassChatPage({
           ) : null,
         )}
 
-        {target && (
-          <div>
-            <Button variant="primary" size="sm" onClick={() => open(target.route)}>
-              前往：{target.label}
-            </Button>
-          </div>
-        )}
       </div>
     </WorkspacePanel>
   );

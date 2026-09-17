@@ -189,7 +189,7 @@ export function LibraryPicker({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="按标题搜索"
               aria-label="按标题搜索"
-              className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-mk-small text-mk-ink outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              className="tc-input"
             />
             {chips.shown.length > 0 && (
               <div className="flex flex-wrap gap-2" role="group" aria-label="学科筛选">

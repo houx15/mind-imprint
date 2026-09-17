@@ -147,6 +147,14 @@ export function splitChoices(choices: Choice[]): { cards: Choice[]; pills: Choic
   return { cards, pills };
 }
 
+/** The options still open under the last reply. Article options were offered
+ *  for the card's article as it was then (`slugWhenOffered`); once she picks
+ *  an article on the card herself, they are answered and leave. */
+export function openChoices(choices: Choice[], slugWhenOffered: string, slugNow: string): Choice[] {
+  if (slugNow === slugWhenOffered) return choices;
+  return choices.filter((c) => !c.slug && !c.article);
+}
+
 /** Removes the optimistic teacher turn a failed round trip left on screen.
  *
  * A turn is appended before the request goes out so her sentence appears
