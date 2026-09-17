@@ -124,6 +124,35 @@ func TestWorkspaceReportNamedRequestIsNotAnsweredWithAQuestion(t *testing.T) {
 	if rec.Code != http.StatusOK || len(decodeWorkspaceTurn(t, rec).Choices) != 2 {
 		t.Fatalf("unnamed request = %d %s, want the options", rec.Code, rec.Body)
 	}
+
+	// The bounce-back also arrives as a plain question with no tool call
+	// (production 2026-09-17).
+	h3, _, teacher3, _, _, reportID3, prov3 := reportWorkspaceFixture(t,
+		wsText("需要我这样改写「总体概述」吗，还是您有其他方向？"),
+		reviseCall("overview", revised),
+		wsText("已改写「总体概述」。"),
+	)
+	rec = postWorkspaceTurn(t, h3, teacher3, reportTurnBody(reportID3, "请把总体概述写得更具体一些。", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("plain question = %d %s", rec.Code, rec.Body)
+	}
+	if bodyPatch, _ := decodeWorkspaceTurn(t, rec).Patch["body"].(map[string]any); bodyPatch["overview"] != revised {
+		t.Fatalf("plain question was not rewritten: %s", rec.Body)
+	}
+	if got := lastUserMessage(t, prov3, 2); !strings.Contains(got, "不要反问") {
+		t.Fatalf("rewrite request = %q", got)
+	}
+
+	// A refusal with no question is an answer, not a bounce: it goes out.
+	const refusal = "事实里没有修改作文的记录，这部分没有写进去。"
+	h4, _, teacher4, _, _, reportID4, prov4 := reportWorkspaceFixture(t, wsText(refusal))
+	rec = postWorkspaceTurn(t, h4, teacher4, reportTurnBody(reportID4, "请把总体概述写得更具体一些。", nil))
+	if rec.Code != http.StatusOK || decodeWorkspaceTurn(t, rec).Reply != refusal {
+		t.Fatalf("refusal = %d %s, want it unchanged", rec.Code, rec.Body)
+	}
+	if len(prov4.Requests) != 2 {
+		t.Fatalf("refusal spent %d model calls, want 2 (draft + turn)", len(prov4.Requests))
+	}
 }
 
 // TestWorkspaceReportRejectsOutsiders — ownership follows

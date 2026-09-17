@@ -260,7 +260,12 @@ func (run *liteWorkspaceReport) falseClaim(text string) string {
 	if label := liteworkspace.NamesMissingSection(text, run.missingSectionLabels()); label != "" {
 		return "这份报告没有「" + label + "」段落，只能改写这几段：" + run.sectionList()
 	}
-	if run.asked && len(run.revised) == 0 && liteworkspace.NamesSectionAndChange(run.typed, run.sectionLabels()) {
+	// The bounce-back can arrive as ask_choice or as a plain question
+	// (production 2026-09-17: 「需要我这样改写总体概述吗，还是您有其他方向？」
+	// with no tool call). A refusal with no question — 「事实里没有修改记录，
+	// 这部分没有写进去」 — is an answer, not a bounce, and passes.
+	bounced := run.asked || strings.ContainsAny(text, "？?")
+	if bounced && len(run.revised) == 0 && liteworkspace.NamesSectionAndChange(run.typed, run.sectionLabels()) {
 		return "老师已经说了改哪一段、怎么改，不要反问。请直接调用 revise_section 改写那一段；" +
 			"事实里没有的内容不要写，在回复里说明哪一部分事实里没有"
 	}
