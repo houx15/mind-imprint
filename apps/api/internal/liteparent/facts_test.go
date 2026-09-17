@@ -55,7 +55,7 @@ func TestParseRangeBoundaries(t *testing.T) {
 
 func TestDefaultRange(t *testing.T) {
 	s, e := DefaultRange(time.Date(2026, 9, 14, 10, 0, 0, 0, liteweek.Beijing))
-	if s != "2026-08-17" || e != "2026-09-13" {
+	if s != "2026-08-18" || e != "2026-09-14" {
 		t.Fatalf("default = %s..%s", s, e)
 	}
 }

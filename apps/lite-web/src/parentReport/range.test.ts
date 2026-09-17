@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { defaultRange, monthDay, publishedMonthDay, rangeLabel, todayBeijing } from "./range";
 
 describe("parent report range", () => {
-  it("defaults to 28 days ending yesterday", () =>
-    expect(defaultRange("2026-09-14")).toEqual({ start: "2026-08-17", end: "2026-09-13" }));
+  it("defaults to 28 days ending today", () =>
+    expect(defaultRange("2026-09-14")).toEqual({ start: "2026-08-18", end: "2026-09-14" }));
   it("labels a range", () => expect(rangeLabel("2026-08-17", "2026-09-13")).toBe("8月17日–9月13日"));
   it("today in Beijing crosses UTC midnight", () =>
     expect(todayBeijing(Date.UTC(2026, 8, 13, 16, 30))).toBe("2026-09-14"));
@@ -11,9 +11,9 @@ describe("parent report range", () => {
   // Calendar math on YYYY-MM-DD, not local-time Date arithmetic: month and
   // year boundaries are where a hand-rolled day count goes wrong.
   it("crosses a year boundary", () =>
-    expect(defaultRange("2026-01-10")).toEqual({ start: "2025-12-13", end: "2026-01-09" }));
+    expect(defaultRange("2026-01-10")).toEqual({ start: "2025-12-14", end: "2026-01-10" }));
   it("crosses a leap day", () =>
-    expect(defaultRange("2028-03-01")).toEqual({ start: "2028-02-02", end: "2028-02-29" }));
+    expect(defaultRange("2028-03-01")).toEqual({ start: "2028-02-03", end: "2028-03-01" }));
   it("names both years when the range spans two", () =>
     expect(rangeLabel("2025-12-13", "2026-01-09")).toBe("2025年12月13日–2026年1月9日"));
   it("still in Beijing's day before UTC midnight", () =>

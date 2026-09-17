@@ -302,10 +302,13 @@ func RangeDays(s, e time.Time) int {
 	return int(e.Sub(s).Hours()/24) + 1
 }
 
-// DefaultRange returns the DefaultRangeDays days ending yesterday (Beijing),
-// as YYYY-MM-DD dates.
+// DefaultRange returns the DefaultRangeDays days ending today (Beijing), as
+// YYYY-MM-DD dates. Today is included: a teacher who grades an essay and then
+// writes the parent report expects that essay in it (production walk,
+// 2026-09-17: a report ending yesterday said the student had finished no
+// reading, an hour after she finished the homework reading).
 func DefaultRange(now time.Time) (start, end string) {
-	e := liteweek.Day(now).AddDate(0, 0, -1)
+	e := liteweek.Day(now)
 	s := e.AddDate(0, 0, -(DefaultRangeDays - 1))
 	return s.Format(dateLayout), e.Format(dateLayout)
 }

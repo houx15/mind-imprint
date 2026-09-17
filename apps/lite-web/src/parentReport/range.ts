@@ -34,9 +34,10 @@ export function addDays(date: string, days: number): string {
   return isoDay(Date.UTC(p.y, p.m - 1, p.d) + days * DAY_MS);
 }
 
-/** The 28 days ending yesterday, relative to `today` (Beijing). */
+/** The 28 days ending today (Beijing), same as `liteparent.DefaultRange`:
+ * work finished today belongs in a report written today. */
 export function defaultRange(today: string): { start: string; end: string } {
-  const end = addDays(today, -1);
+  const end = today;
   return { start: addDays(end, -(DEFAULT_RANGE_DAYS - 1)), end };
 }
 

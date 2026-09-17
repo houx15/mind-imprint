@@ -779,8 +779,10 @@ func TestLiteParentReportRangeBeforeStart(t *testing.T) {
 		}
 	}
 
-	// The fixture enrolls her now; the default range ends yesterday.
-	wantBefore("default range, enrolled today", "")
+	// The fixture enrolls her now: a range ending yesterday is before she
+	// joined. (The default range ends today, so it covers her.)
+	today := liteweek.Day(time.Now())
+	wantBefore("range ending yesterday, enrolled today", parentRangeJSON(today.AddDate(0, 0, -10), today.AddDate(0, 0, -1)))
 
 	joined := liteweek.Day(time.Now()).AddDate(0, 0, -5)
 	mustExec(t, pool, `UPDATE enrollments SET created_at = $3 WHERE class_id = $1 AND user_id = $2`, classID, studentID, joined)
