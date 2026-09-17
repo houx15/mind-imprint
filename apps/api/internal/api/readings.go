@@ -484,11 +484,11 @@ func (a *API) reopenReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	// 那份报告说的不再是全部了。删掉没分享过的那些，她下次完成时按更全的记录
-	// 重新生成一份；分享过的不动，见 DeleteUnsharedAtomReport。
-	if err := a.d.Queries.DeleteUnsharedAtomReport(ctx, at.ID); err != nil {
-		// 报告没删掉不该让她回不了房间：房间已经开了，这一步是善后。
-		slog.Warn("reopen reading: dropping the stale report failed",
+	// 那份报告说的不再是全部了。标成过期，她下次完成、打开报告时按更全的
+	// 记录重新生成 —— 分享过的也一样，链接留着、内容换新。见 MarkAtomReportStale。
+	if err := a.d.Queries.MarkAtomReportStale(ctx, at.ID); err != nil {
+		// 没标上不该让她回不了房间：房间已经开了，这一步是善后。
+		slog.Warn("reopen reading: marking the report stale failed",
 			"err", err, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(ctx))
 	}
 	rd, err := a.d.Queries.GetReading(ctx, at.ID)

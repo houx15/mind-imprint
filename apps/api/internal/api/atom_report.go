@@ -212,6 +212,18 @@ type liteReportDTO struct {
 	// Article 是阅读专属的「我读的这篇」：出处、站点、一段短摘录。写作报告
 	// 不填它（她的成品本来就在 Piece 里）。绝不含全文 —— 见 reportExcerptCap。
 	Article *reportArticle `json:"article,omitempty"`
+	// Revision 是这份报告的第几版。第一次生成不写（omitempty ⇒ 就是第 1 版）；
+	// 她「继续阅读」再完成之后重新生成的那一份是 2、3……
+	//
+	// 🚨 产品负责人 2026-09-17：「it is saved. then regenerated would change the
+	// content. but we need to let students know.」—— 报告是存下来的，重新生成
+	// 就会改内容；这一位和 RevisedAt 是界面上那一行「这份报告更新过」的依据。
+	Revision  int    `json:"revision,omitempty"`
+	RevisedAt string `json:"revisedAt,omitempty"`
+	// StaleSince 是记账字段，从不渲染：她在这一刻「继续阅读」了，这份报告等
+	// 她再完成时重新生成（MarkAtomReportStale 直接写进存下来的字节里）。
+	// 新生成的那一份没有它。
+	StaleSince string `json:"staleSince,omitempty"`
 	// ProsePending says the DETERMINISTIC half of this report is stored and
 	// serveable, and the one model call (moments / gains / summary) has not
 	// run yet. The client renders everything else immediately and asks again;
@@ -1341,7 +1353,11 @@ func (a *API) ensureAtomReportWith(ctx context.Context, userID, atomID uuid.UUID
 
 	// Cheap pre-check outside any transaction: after both phases have run
 	// this is the only cost, for every reopen, forever.
-	if row, err := a.d.Queries.GetAtomReport(ctx, atomID); err == nil {
+	// 过期的那一份（她继续阅读过）当作没有：往下走，重新生成，覆盖同一行。
+	previous := reportVersionProbe{}
+	if row, err := a.d.Queries.GetAtomReport(ctx, atomID); err == nil && reportIsStale(row.Report) {
+		previous = probeReportVersion(row.Report)
+	} else if err == nil {
 		if !allowProse || !reportProsePending(row.Report) {
 			return row, true, nil
 		}
@@ -1373,13 +1389,15 @@ func (a *API) ensureAtomReportWith(ctx context.Context, userID, atomID uuid.UUID
 	// Re-check UNDER the lock: a racer that already generated (and
 	// committed) while this one waited wins outright — this one returns its
 	// rows without ever reaching the provider.
-	if row, err := qtx.GetAtomReport(ctx, atomID); err == nil {
+	if row, err := qtx.GetAtomReport(ctx, atomID); err == nil && !reportIsStale(row.Report) {
 		if cerr := tx.Commit(ctx); cerr != nil {
 			return sqlc.AtomReport{}, false, cerr
 		}
 		return row, true, nil
-	} else if !errors.Is(err, pgx.ErrNoRows) {
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return sqlc.AtomReport{}, false, err
+	} else if err == nil {
+		previous = probeReportVersion(row.Report)
 	}
 
 	name, err := a.studentDisplayName(ctx, qtx, userID)
@@ -1398,6 +1416,10 @@ func (a *API) ensureAtomReportWith(ctx context.Context, userID, atomID uuid.UUID
 	}
 	// ProsePending is set by the builder (wantProse=false ⇒ still owed), not
 	// stamped here — one owner for the flag.
+	if previous.stale {
+		report.Revision = max(previous.Revision, 1) + 1
+		report.RevisedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 
 	raw, merr := json.Marshal(report)
 	if merr != nil {
@@ -1523,7 +1545,8 @@ func stripProseBookkeeping(raw []byte) []byte {
 	if json.Unmarshal(raw, &obj) != nil {
 		return raw
 	}
-	if _, pending := obj["prosePending"]; !pending {
+	_, stale := obj["staleSince"]
+	if _, pending := obj["prosePending"]; !pending && !stale {
 		if _, claimed := obj["proseClaimedAt"]; !claimed {
 			// The overwhelmingly common case (a completed report): don't
 			// re-marshal at all, so the bytes she shared stay the bytes we
@@ -1533,12 +1556,31 @@ func stripProseBookkeeping(raw []byte) []byte {
 	}
 	delete(obj, "prosePending")
 	delete(obj, "proseClaimedAt")
+	delete(obj, "staleSince")
 	out, err := json.Marshal(obj)
 	if err != nil {
 		return raw
 	}
 	return out
 }
+
+// reportVersionProbe 只读版本相关的三个记账字段。
+type reportVersionProbe struct {
+	Revision   int    `json:"revision"`
+	RevisedAt  string `json:"revisedAt"`
+	StaleSince string `json:"staleSince"`
+	stale      bool
+}
+
+func probeReportVersion(raw []byte) reportVersionProbe {
+	var p reportVersionProbe
+	_ = json.Unmarshal(raw, &p)
+	p.stale = p.StaleSince != ""
+	return p
+}
+
+// reportIsStale —— 她「继续阅读」过，这份报告等着重新生成。
+func reportIsStale(raw []byte) bool { return probeReportVersion(raw).stale }
 
 // patchReportClaim sets `proseClaimedAt` on the stored envelope while leaving
 // every other key byte-identical — see claimReportProse's 🚨.
@@ -1611,6 +1653,10 @@ func (a *API) enrichAtomReportProse(
 	if err != nil {
 		slog.Warn("lite report: prose phase failed to rebuild", "err", err, "atom_id", atomID)
 		return stored, true, nil
+	}
+	// 第几版是第一阶段定的，第二阶段照抄 —— 重新搭 DTO 不该把它丢掉。
+	if v := probeReportVersion(stored.Report); v.Revision > 0 {
+		report.Revision, report.RevisedAt = v.Revision, v.RevisedAt
 	}
 	// 🚨 Whether the flag clears is the BUILDER's answer (report.ProsePending,
 	// from reportProse.Retryable), never "did we get any moments".

@@ -277,22 +277,6 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 	return i, err
 }
 
-const deleteUnsharedAtomReport = `-- name: DeleteUnsharedAtomReport :exec
-DELETE FROM atom_report WHERE atom_id = $1 AND share_token IS NULL
-`
-
-// 她把一篇读完的文章重新打开了，那份报告说的就不再是全部了。删掉它，下一次
-// 完成时按更全的记录重新生成一份（ensureAtomReport 找不到行就重新生成）。
-//
-// 🚨 **已经分享出去的那一份不动。** 她把链接发给了别人，那个链接上的内容不该
-// 因为她回房间多聊了两句就换掉；而报告一旦分享，share_token 也活在这一行上，
-// 删掉行等于悄悄撤销分享。代价是：分享过又重新打开的那一篇，报告停在分享的
-// 那一刻 —— 这一种要不要跟着变，是产品负责人的判断，不是这一条能替他定的。
-func (q *Queries) DeleteUnsharedAtomReport(ctx context.Context, atomID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUnsharedAtomReport, atomID)
-	return err
-}
-
 const getAtom = `-- name: GetAtom :one
 SELECT id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at FROM atom WHERE id = $1
 `
@@ -546,6 +530,25 @@ func (q *Queries) LockAtom(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	row := q.db.QueryRow(ctx, lockAtom, id)
 	err := row.Scan(&id)
 	return id, err
+}
+
+const markAtomReportStale = `-- name: MarkAtomReportStale :exec
+UPDATE atom_report
+SET report = report || jsonb_build_object(
+  'staleSince', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+WHERE atom_id = $1
+`
+
+// 她把一篇读完的文章重新打开了，那份报告说的就不再是全部了。标一个
+// staleSince，下一次读报告时（她再完成一次之后）按更全的记录重新生成。
+//
+// 🚨 **标记，不删行。** 分享链接（share_token / include_transcript）活在这一行
+// 上，删行就是悄悄撤销分享。产品负责人 2026-09-17：报告是存下来的，重新生成
+// 会改内容 —— 可以改，但要让学生知道（继续阅读的按钮旁边说明，报告上标出版本）。
+// UpsertAtomReport 冲突时只改 report 这一列，所以链接原样留着，内容换成新的。
+func (q *Queries) MarkAtomReportStale(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markAtomReportStale, atomID)
+	return err
 }
 
 const nextAtomMessageSeq = `-- name: NextAtomMessageSeq :one
