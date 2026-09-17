@@ -82,6 +82,7 @@ type AtomReport struct {
 	SharedAt          pgtype.Timestamptz `json:"shared_at"`
 	CreatedAt         time.Time          `json:"created_at"`
 	IncludeTranscript bool               `json:"include_transcript"`
+	IncludeToolkit    bool               `json:"include_toolkit"`
 }
 
 type CardCompetence struct {

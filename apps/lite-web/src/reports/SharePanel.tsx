@@ -66,7 +66,9 @@ export function SharePanel({
   atomId,
   initialShareToken = null,
   initialIncludeTranscript = false,
+  initialIncludeToolkit = false,
   onSharedChange,
+  onIncludesChange,
 }: {
   kind: AtomKind;
   atomId: string;
@@ -74,6 +76,10 @@ export function SharePanel({
    *  （见上面 F2 那一段）：不从服务端读回来，这个框每次重开都从「没勾」开始，
    *  于是一个当前为真的状态在屏幕上显示成假。 */
   initialIncludeTranscript?: boolean;
+  /** 她上次勾没勾「公开段落工具」。同上。 */
+  initialIncludeToolkit?: boolean;
+  /** 两个勾选框的状态被服务端确认之后回报（对话, 段落工具）。 */
+  onIncludesChange?: (transcript: boolean, toolkit: boolean) => void;
   /** F2: a token already minted server-side, e.g. from a previous sitting —
    *  when present, the panel starts at {phase:"on"} instead of "off". */
   initialShareToken?: string | null;
@@ -101,6 +107,7 @@ export function SharePanel({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [withTranscript, setWithTranscript] = useState(initialIncludeTranscript);
+  const [withToolkit, setWithToolkit] = useState(initialIncludeToolkit);
 
   // Mount-only: fill in the QR image for a share that was ALREADY live when
   // this panel mounted (initialShareToken). handleShare below generates its
@@ -127,7 +134,10 @@ export function SharePanel({
     setError(null);
     setState({ phase: "sharing" });
     try {
-      const { token } = await shareReport(kind, atomId, { includeTranscript: withTranscript });
+      const { token } = await shareReport(kind, atomId, {
+        includeTranscript: withTranscript,
+        includeToolkit: withToolkit,
+      });
       const url = buildShareUrl(token);
       let qr: string | null = null;
       try {
@@ -166,9 +176,25 @@ export function SharePanel({
     setWithTranscript(next);
     setError(null);
     try {
-      await shareReport(kind, atomId, { includeTranscript: next });
+      await shareReport(kind, atomId, { includeTranscript: next, includeToolkit: withToolkit });
+      onIncludesChange?.(next, withToolkit);
     } catch (err) {
       setWithTranscript(before);
+      setError(`设置失败：${apiErrorText(err)}`);
+    }
+  }
+
+  /** 「公开段落工具」那一勾。同一套：乐观改，失败改回去。两位一起发。 */
+  async function handleToolkit(next: boolean) {
+    if (state.phase !== "on") return;
+    const before = withToolkit;
+    setWithToolkit(next);
+    setError(null);
+    try {
+      await shareReport(kind, atomId, { includeTranscript: withTranscript, includeToolkit: next });
+      onIncludesChange?.(withTranscript, next);
+    } catch (err) {
+      setWithToolkit(before);
       setError(`设置失败：${apiErrorText(err)}`);
     }
   }
@@ -225,6 +251,26 @@ export function SharePanel({
             </span>
           </span>
         </label>
+
+        {/* 段落工具那一节（学过的词、拆过的句子、她自己写的仿写）。产品负责人
+            2026-09-17：和对话一样单独勾选。写作报告没有这一节，不显示。 */}
+        {kind === "reading" && (
+          <label className="flex items-start gap-2 text-mk-small text-mk-secondary">
+            <input
+              type="checkbox"
+              checked={withToolkit}
+              disabled={state.phase === "unsharing"}
+              onChange={(e) => void handleToolkit(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              公开我的段落工具记录
+              <span className="block text-mk-faint">
+                勾选之后，拿到这个链接的人能看到你学过的词、拆过的句子和你写的仿写。停止分享时一起收回。
+              </span>
+            </span>
+          </label>
+        )}
 
         {state.qr && (
           <img

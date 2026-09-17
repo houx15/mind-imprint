@@ -88,6 +88,7 @@ export function ReportPanel({
   // 她上次勾没勾「公开我和印记的对话」。和 shareToken 一样从服务端读回来，
   // 理由见 SharePanel 里 F2 那一段。
   const [withTranscript, setWithTranscript] = useState(false);
+  const [withToolkit, setWithToolkit] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
@@ -147,6 +148,7 @@ export function ReportPanel({
         setReport(env.report);
         setShareToken(env.shareToken);
         setWithTranscript(env.includeTranscript);
+        setWithToolkit(env.includeToolkit);
         setRating(env.rating);
         setState(env.report ? "done" : "quiet");
         /**
@@ -229,6 +231,13 @@ export function ReportPanel({
         atomId={atomId}
         initialShareToken={shareToken}
         initialIncludeTranscript={withTranscript}
+        initialIncludeToolkit={withToolkit}
+        // 分享面板是开关一次就重挂一次的：勾选框改过之后要回写到这里，
+        // 否则重开时显示的是上一次加载时的状态。
+        onIncludesChange={(t, k) => {
+          setWithTranscript(t);
+          setWithToolkit(k);
+        }}
         // Keeps the share icon's "already published" dot honest after a mint
         // or a revoke, and keeps `initialShareToken` valid across the
         // unmount/remount this toggle causes — without giving two components
