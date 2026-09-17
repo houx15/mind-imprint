@@ -102,6 +102,19 @@ export interface StudentCardRow {
   name: string;
 }
 
+/** A students card's title: which list it is. The filter values are
+ *  liteworkspace.StudentFilter; the homework card's recipient list has none. */
+const STUDENT_FILTER_TITLE: Record<string, string> = {
+  all: "全部学生",
+  inactive_this_week: "本周未开始学习",
+  has_overdue: "有逾期作业",
+  no_writing_yet: "还没有写作",
+};
+
+export function studentsCardTitle(filter: string | undefined): string {
+  return (filter && STUDENT_FILTER_TITLE[filter]) || "学生";
+}
+
 /** A "students" card's rows (`liteworkspace.Student`), malformed rows skipped. */
 export function studentRows(raw: unknown): StudentCardRow[] {
   if (!Array.isArray(raw)) return [];

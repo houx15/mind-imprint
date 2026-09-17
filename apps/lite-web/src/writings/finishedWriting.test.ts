@@ -171,7 +171,7 @@ describe("isWritingLockedError", () => {
   it("rejects a non-ApiError", () => expect(isWritingLockedError(new Error("network down"))).toBe(false));
 });
 
-// Ruling: no test asserts AI_ATTRIBUTION's own text — that would only check
+// Ruling: no test asserts gradingAttribution's own text — that would only check
 // a constant equals its own literal, which AGENTS.md's logic-tests-only rule
 // bans.
 describe("gradingVersionLine", () => {

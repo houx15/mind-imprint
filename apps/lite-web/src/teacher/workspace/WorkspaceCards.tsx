@@ -2,7 +2,7 @@ import type { WorkspaceCard } from "../../api/teacherWorkspace";
 import { formatDeadline } from "../../shared/deadline";
 import { statusChipStyle } from "../assignmentLogic";
 import { CardTag, FactTile, GroupShell } from "../WeekSummaryCard";
-import { assignmentCardRows, classSnapshotView, studentRows, type SnapshotStudent } from "./homeLogic";
+import { assignmentCardRows, classSnapshotView, studentRows, studentsCardTitle, type SnapshotStudent } from "./homeLogic";
 
 // teacher/workspace/WorkspaceCards.tsx — tool result cards on a workspace
 // canvas. `StudentsCard` is shared by the homework card and the class
@@ -14,7 +14,9 @@ export function StudentsCard({ card }: { card: WorkspaceCard }) {
   const rows = studentRows(card.rows);
   return (
     <div className={CARD}>
-      <p className="text-mk-label font-bold text-mk-muted">学生 {rows.length} 人</p>
+      <p className="text-mk-label font-bold text-mk-muted">
+        {studentsCardTitle(card.filter)} · {rows.length} 人
+      </p>
       {rows.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-mk-small text-mk-ink">
           {rows.map((s) => (

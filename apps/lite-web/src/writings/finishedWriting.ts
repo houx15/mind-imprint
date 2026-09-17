@@ -149,8 +149,11 @@ export function isWritingClosedError(err: unknown): boolean {
   return err instanceof ApiError && err.status === 403 && (err.code === "writing_locked" || err.code === "writing_finished");
 }
 
-/** Verbatim, on every sent 批改 the student reads. */
-export const AI_ATTRIBUTION = "由 AI 起草，老师审阅后发送";
+/** The last line of every sent 批改 the student reads: who wrote it. A
+ *  人工批改 (source "teacher") must not claim an AI draft. */
+export function gradingAttribution(source: "ai" | "teacher"): string {
+  return source === "ai" ? "由 AI 起草，老师审阅后发送" : "由老师批改";
+}
 
 /** 「针对 v{n}」 when the grading is about a version other than the one on the page. */
 export function gradingVersionLine(gradingVersion: number, shownVersion: number | null): string | null {

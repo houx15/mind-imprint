@@ -405,8 +405,8 @@ export function AssignmentForm({
     }
   }
 
-  return (
-    <TeacherPage width="narrow">
+  const header = (
+    <>
       <button
         type="button"
         onClick={onBack}
@@ -422,6 +422,33 @@ export function AssignmentForm({
       <div className="mt-4">
         <Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />
       </div>
+    </>
+  );
+
+  // AI mode is a workspace page of its own (`WorkspacePanel` draws the page,
+  // with this header above both columns). Nesting it inside this page's
+  // `TeacherPage` applied the page padding twice: the panel sat 33px right of
+  // the title and 30px lower than the canvas.
+  if (mode === "ai" && classes !== null && classes.length > 0 && !classesError) {
+    return (
+      <AssignmentAIMode
+        draft={draft}
+        setDraft={setDraft}
+        classes={classes}
+        roster={roster}
+        rosterError={rosterError}
+        onRosterRetry={() => setRosterNonce((n) => n + 1)}
+        onCreated={onCreated}
+        thread={thread}
+        onClassChange={changeClass}
+        header={header}
+      />
+    );
+  }
+
+  return (
+    <TeacherPage width="narrow">
+      {header}
 
       {classesError ? (
         <div className="mt-6 text-mk-small font-semibold text-mk-danger">
@@ -434,18 +461,6 @@ export function AssignmentForm({
         <div className="mt-6 text-mk-body text-mk-muted">加载中…</div>
       ) : classes.length === 0 ? (
         <StudioEmpty kind="discovery">暂无班级。请联系管理员为你分配班级。</StudioEmpty>
-      ) : mode === "ai" ? (
-        <AssignmentAIMode
-          draft={draft}
-          setDraft={setDraft}
-          classes={classes}
-          roster={roster}
-          rosterError={rosterError}
-          onRosterRetry={() => setRosterNonce((n) => n + 1)}
-          onCreated={onCreated}
-          thread={thread}
-          onClassChange={changeClass}
-        />
       ) : (
         <form
           // noValidate: the browser's own tooltips (type=url, number min)

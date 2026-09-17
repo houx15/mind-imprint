@@ -18,6 +18,7 @@ import { apiFetch } from "./client";
 
 export type GradingStatus = "queued" | "running" | "draft" | "failed" | "sent";
 export type PointKind = "good" | "issue";
+export type GradingSource = "ai" | "teacher";
 export const LETTER_GRADES = ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D"] as const;
 
 export interface RubricDimension {
@@ -73,6 +74,8 @@ export interface TeacherGrading {
   status: GradingStatus;
   content: GradingContent | null;
   error: string | null;
+  /** "ai" when the model drafted it, "teacher" for a 人工批改. */
+  source: GradingSource;
   reviewedAt: string | null;
   sentAt: string | null;
   studentSeenAt: string | null;
@@ -85,6 +88,7 @@ export interface StudentGrading {
   content: GradingContent;
   sentAt: string;
   seen: boolean;
+  source: GradingSource;
 }
 
 /**
@@ -202,6 +206,7 @@ export function normalizeTeacherGrading(raw: unknown): TeacherGrading {
     status: status(r.status),
     content: normalizeGradingContent(r.content),
     error: ns(r.error),
+    source: r.source === "teacher" ? "teacher" : "ai",
     reviewedAt: ns(r.reviewedAt),
     sentAt: ns(r.sentAt),
     studentSeenAt: ns(r.studentSeenAt),
@@ -220,6 +225,7 @@ export function normalizeStudentGrading(raw: unknown): StudentGrading | null {
     content,
     sentAt: s(r.sentAt),
     seen: r.seen === true,
+    source: r.source === "teacher" ? "teacher" : "ai",
   };
 }
 
@@ -254,13 +260,20 @@ export async function sendReviewedGradings(aid: string, ids: string[]): Promise<
 }
 
 /** POST .../classes/{id}/students/{userId}/items/{atomId}/gradings — grades
- * one writing's latest version. 409 `grading_exists` if that version already
- * has a draft (use `regradeGrading` instead); 409 `grading_sent` /
- * `grading_in_progress`; 503 `grading_queue_unavailable`. */
-export async function queueWritingGrading(classId: string, userId: string, atomId: string): Promise<TeacherGrading> {
+ * one writing's latest version. `mode: "manual"` is 人工批改: a blank draft
+ * the teacher fills in, with no model call. 409 `grading_exists` if that
+ * version already has a draft (use `regradeGrading` instead); 409
+ * `grading_sent` / `grading_in_progress`; 503 `grading_queue_unavailable`
+ * (AI only). */
+export async function queueWritingGrading(
+  classId: string,
+  userId: string,
+  atomId: string,
+  mode: "ai" | "manual" = "ai",
+): Promise<TeacherGrading> {
   const r = await apiFetch<{ grading: unknown }>(
     `${teacherBase}/classes/${enc(classId)}/students/${enc(userId)}/items/${enc(atomId)}/gradings`,
-    { method: "POST" },
+    { method: "POST", ...(mode === "manual" ? { body: JSON.stringify({ mode }) } : {}) },
   );
   return normalizeTeacherGrading(r.grading);
 }

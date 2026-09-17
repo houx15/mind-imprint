@@ -7,6 +7,7 @@ import {
   type GradingRow,
   type PointKind,
   type QueueGradingsResult,
+  type GradingSource,
   type Rubric,
   type SendGradingsResult,
 } from "../api/gradings";
@@ -84,6 +85,46 @@ export function pendingCount(rows: readonly GradingRow[]): number {
 
 export const REGRADE_CONFIRM = "重新批改会覆盖当前修改";
 
+/** The button that asks the AI to grade a row that already exists: a 人工批改
+ *  was never graded by the AI, so 「重新」 would be wrong there. */
+export function regradeLabel(source: GradingSource): string {
+  return source === "teacher" ? "AI 批改" : "重新批改";
+}
+
+export function regradeConfirmText(source: GradingSource): string {
+  return source === "teacher" ? "AI 批改会覆盖当前内容" : REGRADE_CONFIRM;
+}
+
+/** Shown in place of the editor while the AI is grading. The second line
+ *  only applies to a regrade: SetLiteGradingFailed keeps the old content. */
+export const GRADING_RUNNING_TEXT = "AI 正在批改，通常需要 1 分钟左右。可以先离开此页，稍后在作业的「批改」中查看。";
+export const GRADING_RUNNING_KEEPS_TEXT = "批改失败时保留当前内容。";
+
+export type GradingAction =
+  | "save"
+  | "review"
+  | "send"
+  | "regrade";
+
+/**
+ * The line shown after an action on the grading page succeeds. Before
+ * 2026-09-17 a successful save showed nothing, so 保存并发送 looked like it
+ * did nothing although it had re-sent the grading to the student.
+ * `wasSent`: the row was already sent before this save (保存并发送).
+ */
+export function gradingDoneText(action: GradingAction, wasSent: boolean): string | null {
+  switch (action) {
+    case "save":
+      return wasSent ? "已保存并重新发送，学生端显示为未读" : "已保存";
+    case "review":
+      return "已标记为已审阅";
+    case "send":
+      return "已发送给学生";
+    case "regrade":
+      return null;
+  }
+}
+
 /** Shown before leaving the grading view with unsaved edits — both the
  *  page's own inline 返回 confirm and the shell's cross-component navigation
  *  guard (rail links, browser back) use this exact text, so the two guards
@@ -147,7 +188,7 @@ export function gradeInScale(rubric: Rubric, grade: string): boolean {
   return Number(grade) <= (rubric.max ?? 0);
 }
 
-export type GradingAction =
+export type GradingContentAction =
   | { type: "load"; content: GradingContent }
   | { type: "overallGrade"; value: string }
   | { type: "overallComment"; value: string }
@@ -168,7 +209,7 @@ function editDimension(c: GradingContent, index: number, patch: Partial<GradingC
   return { ...c, dimensions: c.dimensions.map((d, i) => (i === index ? { ...d, ...patch } : d)) };
 }
 
-export function gradingContentReducer(state: GradingContent, action: GradingAction): GradingContent {
+export function gradingContentReducer(state: GradingContent, action: GradingContentAction): GradingContent {
   switch (action.type) {
     case "load":
       return action.content;

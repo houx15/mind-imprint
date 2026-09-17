@@ -413,7 +413,7 @@ export function AssignmentDetailPage({
             </div>
           )}
           {assignment.kind === "writing" && tab === "grading" ? (
-            <GradingTab assignmentId={assignment.id} onOpenGrading={onOpenGrading} />
+            <GradingTab assignmentId={assignment.id} classId={assignment.classId} onOpenGrading={onOpenGrading} />
           ) : (
             <>
             <section className="mt-8 teacher-compact-empty">

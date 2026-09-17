@@ -111,21 +111,23 @@ export function ClassChatPage({
       canRetry={thread.failed !== null}
       intro="AI 根据本班这周的数据回答问题，需要时在回复下方给出前往相关页面的按钮。请输入问题，或选择下面的示例。"
       suggestions={["这周谁还没开始学习？", "哪些作业有学生逾期？", "本周整体情况如何？"]}
-    >
-      <div className="flex flex-col gap-4">
-        <button type="button" onClick={onBack} className={BACK_CLS}>
-          <Icon icon={ArrowLeft} size={15} />
-          返回班级
-        </button>
-        <div>
-          <h1 className="teacher-page-title">{name ?? "班级对话"}</h1>
+      header={
+        <>
+          <button type="button" onClick={onBack} className={BACK_CLS}>
+            <Icon icon={ArrowLeft} size={15} />
+            返回班级
+          </button>
+          <h1 className="teacher-page-title mt-4">{name ?? "班级对话"}</h1>
           {nameError && (
             <p className="mt-1 text-mk-small font-semibold text-mk-danger" role="alert">
               班级加载失败：{nameError}
             </p>
           )}
           <p className="mt-2 text-mk-small text-mk-muted">可询问本班的学习情况和作业进度；印记会在回复下方给出前往相关页面的按钮。</p>
-        </div>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
 
         <section className="rounded-mk-lg border border-mk-border bg-mk-surface p-4">
           <p className="text-mk-label font-bold text-mk-muted">班级概况</p>

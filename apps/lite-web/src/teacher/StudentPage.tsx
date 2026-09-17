@@ -4,7 +4,8 @@ import { StudentGenderField } from "./StudentGenderField";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
-import { api, ApiError } from "@/api";
+import { api } from "@/api";
+import { ApiError } from "../api/client";
 import type { MeUser } from "../api/auth";
 import {
   getStudentPage,

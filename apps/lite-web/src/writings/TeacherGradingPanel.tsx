@@ -2,7 +2,7 @@ import type { StudentGrading } from "../api/gradings";
 import type { WritingVersion } from "../api/writings";
 import { formatDeadline } from "../shared/deadline";
 import { determinedUnmarkedQuotes } from "../shared/gradingText";
-import { AI_ATTRIBUTION, gradingVersionLine } from "./finishedWriting";
+import { gradingAttribution, gradingVersionLine } from "./finishedWriting";
 
 /**
  * 老师批改 in the finished page's rail: the gradings the teacher has sent,
@@ -116,7 +116,7 @@ export function TeacherGradingPanel({
                 ))}
               </ul>
             )}
-            <p className="text-mk-label text-mk-muted">{AI_ATTRIBUTION}</p>
+            <p className="text-mk-label text-mk-muted">{gradingAttribution(g.source)}</p>
           </article>
         );
       })}

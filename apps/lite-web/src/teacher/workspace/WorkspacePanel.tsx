@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Composer } from "@/studio/ai/Composer";
 import { Button, Pebble } from "@/ui";
+import bookmark from "../../home/assets/yinji-bookmark.webp";
 import { LiteChatMarkdown } from "../../readings/LiteChatMarkdown";
 import { TeacherPage } from "../TeacherPage";
 import { ChoiceArticleCard } from "./ChoiceArticleCard";
@@ -57,6 +58,9 @@ export interface WorkspacePanelProps {
   /** Example requests shown under the intro while the conversation is
    *  empty. A click sends one as her turn. */
   suggestions?: string[];
+  /** Above both columns: back link, title, page actions. Both columns start
+   *  below it, at the same height. */
+  header?: ReactNode;
   /** The canvas. The shell renders it as-is and imposes no read-only state —
    *  the caller owns whether and how each cell can be edited. */
   children: ReactNode;
@@ -81,6 +85,7 @@ export function WorkspacePanel({
   closedReason = null,
   intro,
   suggestions = [],
+  header,
   children,
 }: WorkspacePanelProps) {
   // `busy` keeps its own meaning (a turn in flight: thinking row, stop
@@ -124,16 +129,29 @@ export function WorkspacePanel({
   }, [turns.length, showChoices, busy]);
 
   return (
-    <TeacherPage width="full">
-      {/* Wide (≥900px): a fixed-measure conversation column beside a canvas
-          that takes the rest. Narrow: one column, canvas FIRST — a teacher on
-          a phone needs to see what she is making before she reads the chat
-          that is making it. `order-*` does the flip; `grid-cols-[minmax(…)]`
-          does the measure (report editor's two-column grid is a plain 1fr/1fr
-          split, so it can't be reused verbatim here). */}
-      <div className="grid grid-cols-1 items-start gap-6 min-[900px]:grid-cols-[minmax(320px,420px)_1fr]">
-        <div className="order-2 flex min-w-0 flex-col gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4 min-[900px]:order-1">
-          <div className="mk-scroll flex max-h-[60vh] min-h-[220px] flex-col gap-3 overflow-y-auto pr-1">
+    <TeacherPage width="full" fill>
+      {header && <div className="shrink-0">{header}</div>}
+      {/* Wide (≥900px): the canvas on the left and the AI as a full-height
+          rail on the right, as in the student rooms (WritingRoomHost's
+          `lg:grid-cols-[1fr_380px]`). Both columns fill the page height and
+          scroll on their own, so their tops and bottoms line up and the
+          composer never scrolls out of reach. Before 2026-09-17 the chat was
+          a short card (max 60vh) on the left of a canvas up to 2,600px tall.
+          Narrow: one column, canvas first, the rail at a fixed height. */}
+      <div className="teacher-workspace-grid mt-5 grid min-h-0 flex-1 grid-cols-1 gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
+        <div className="teacher-workspace-canvas mk-scroll min-w-0">{children}</div>
+
+        <section
+          aria-label="AI 教学助手"
+          className="teacher-workspace-rail flex min-h-0 min-w-0 flex-col gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4"
+        >
+          <div className="teacher-ai-heading">
+            <img src={bookmark} alt="" />
+            <div>
+              印记<span>AI 教学助手</span>
+            </div>
+          </div>
+          <div className="mk-scroll flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             {turns.length === 0 && !busy && (
               <div className="flex flex-col gap-3 rounded-mk-md bg-mk-paper p-3">
                 <p className="text-mk-small text-mk-muted">{intro}</p>
@@ -250,9 +268,7 @@ export function WorkspacePanel({
             disabled={blocked}
             placeholder="请输入"
           />
-        </div>
-
-        <div className="order-1 min-w-0 min-[900px]:order-2">{children}</div>
+        </section>
       </div>
     </TeacherPage>
   );

@@ -4,7 +4,7 @@ import { StudioHeading } from "./StudioArtwork";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button, Icon } from "@/ui";
-import { ApiError } from "@/api";
+import { ApiError } from "../api/client";
 import type { ReportStat, AtomKind } from "@lite/api/reports";
 import { getItem, getItemVersion, type ItemDetail } from "../api/teacher";
 import type { WritingVersion, WritingVersionSummary } from "../api/writings";
@@ -332,7 +332,8 @@ function WritingManuscript({
   const [body, setBody] = useState<WritingVersion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const alive = useAlive();
-  const [busy, setBusy] = useState(false);
+  // Which of the two start buttons is in flight, so only that one reads 处理中.
+  const [busy, setBusy] = useState<"ai" | "manual" | null>(null);
   const [gradeError, setGradeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -355,12 +356,12 @@ function WritingManuscript({
   const action = itemGradingAction(writing.versions.length, writing.grading);
   const rowStatus = writing.grading ? gradingRowStatus({ version: writing.versions[0] ?? null, grading: writing.grading }) : null;
 
-  async function grade() {
+  async function grade(mode: "ai" | "manual") {
     if (busy) return;
-    setBusy(true);
+    setBusy(mode);
     setGradeError(null);
     try {
-      const g = await queueWritingGrading(classId, userId, atomId);
+      const g = await queueWritingGrading(classId, userId, atomId, mode);
       if (alive.current) onOpenGrading(g.id);
     } catch (e) {
       // A 409 means a draft/sent/in-flight row already exists for this
@@ -382,7 +383,7 @@ function WritingManuscript({
         setGradeError(failText("批改", e));
       }
     } finally {
-      if (alive.current) setBusy(false);
+      if (alive.current) setBusy(null);
     }
   }
 
@@ -415,9 +416,14 @@ function WritingManuscript({
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {action === "grade" && (
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void grade()}>
-                AI 批改
-              </Button>
+              <>
+                <Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => void grade("ai")}>
+                  {busy === "ai" ? "处理中" : "AI 批改"}
+                </Button>
+                <Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => void grade("manual")}>
+                  {busy === "manual" ? "处理中" : "人工批改"}
+                </Button>
+              </>
             )}
             {action === "open" && writing.grading && rowStatus && (
               <>

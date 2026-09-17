@@ -121,6 +121,7 @@ describe("normalizeStudentGrading", () => {
       content: { overall: { grade: "A-", comment: "好" }, dimensions: [], points: [] },
       sentAt: "2026-09-15T06:20:00Z",
       seen: false,
+      source: "teacher",
     });
     expect(g).toEqual({
       id: "g3",
@@ -129,6 +130,16 @@ describe("normalizeStudentGrading", () => {
       content: { overall: { grade: "A-", comment: "好" }, dimensions: [], points: [] },
       sentAt: "2026-09-15T06:20:00Z",
       seen: false,
+      source: "teacher",
     });
+  });
+
+  // A server from before 人工批改 sends no `source`, and every grading it had
+  // was AI-drafted. Only the exact value "teacher" means a 人工批改.
+  it("reads a missing or unknown source as ai", () => {
+    const base = { id: "g4", content: { overall: { grade: "B", comment: "" }, dimensions: [], points: [] } };
+    expect(normalizeStudentGrading(base)?.source).toBe("ai");
+    expect(normalizeStudentGrading({ ...base, source: "TEACHER" })?.source).toBe("ai");
+    expect(normalizeTeacherGrading({ ...base, source: "teacher" }).source).toBe("teacher");
   });
 });

@@ -5,6 +5,7 @@ import {
   classSnapshotView,
   navigateOf,
   navigateRoute,
+  studentsCardTitle,
   NAVIGATE_CARD_KIND,
   withNavigateCard,
 } from "./homeLogic";
@@ -152,5 +153,17 @@ describe("assignmentCardRows", () => {
 
   it("returns nothing for a non-array", () => {
     expect(assignmentCardRows({ id: "a1" })).toEqual([]);
+  });
+});
+
+// The class chat's reply may not name students, so the card has to say which
+// list it shows. A filter the client does not know falls back to 「学生」
+// instead of showing the raw enum value.
+describe("studentsCardTitle", () => {
+  it("names each list_students filter, and falls back for others", () => {
+    expect(studentsCardTitle("inactive_this_week")).toBe("本周未开始学习");
+    expect(studentsCardTitle("has_overdue")).toBe("有逾期作业");
+    expect(studentsCardTitle(undefined)).toBe("学生");
+    expect(studentsCardTitle("something_new")).toBe("学生");
   });
 });

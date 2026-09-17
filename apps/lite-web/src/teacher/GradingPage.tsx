@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { Button, Icon, Pebble } from "@/ui";
 import { getAssignment, type RecipientDTO } from "../api/assignments";
 import {
   getGrading,
@@ -21,12 +21,17 @@ import {
   contentForSave,
   failureText,
   gradingContentReducer,
+  gradingDoneText,
   gradingPointLabel,
+  GRADING_RUNNING_KEEPS_TEXT,
+  GRADING_RUNNING_TEXT,
   LEAVE_UNSAVED_CONFIRM,
   POLL_MS,
-  REGRADE_CONFIRM,
+  regradeConfirmText,
+  regradeLabel,
   shouldPoll,
   validateGradingContent,
+  type GradingAction,
 } from "./gradingLogic";
 import { ReturnDialog } from "./ReturnDialog";
 import { TeacherPage } from "./TeacherPage";
@@ -60,7 +65,8 @@ export function GradingPage({
   const [content, dispatch] = useReducer(gradingContentReducer, EMPTY);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  // The result of the last action: an error, or what just happened.
+  const [message, setMessage] = useState<{ tone: "error" | "done"; text: string } | null>(null);
   const [confirmRegrade, setConfirmRegrade] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
@@ -136,6 +142,7 @@ export function GradingPage({
   const edit = (action: Parameters<typeof dispatch>[0]) => {
     dispatch(action);
     setDirty(true);
+    setMessage((m) => (m?.tone === "done" ? null : m));
     // A point picking its quote is identified by index; deleting a point
     // shifts every later index, so a picker left open across a delete would
     // silently attach its pick to a DIFFERENT point.
@@ -148,14 +155,17 @@ export function GradingPage({
   // 「未在正文中标出」 on its own card instead of silently looking fine.
   const unmarked = useMemo(() => new Set(unmarkedPointQuotes(content.points.map((p) => p.quote), ranges)), [content.points, ranges]);
 
-  async function run(verb: string, task: () => Promise<TeacherGrading>) {
+  async function run(verb: string, action: GradingAction, task: () => Promise<TeacherGrading>) {
     if (busy) return;
+    const wasSent = grading?.status === "sent";
     setBusy(true);
     setMessage(null);
     try {
       const g = await task();
       if (alive.current) {
         apply(g, true);
+        const done = gradingDoneText(action, wasSent);
+        if (done) setMessage({ tone: "done", text: done });
         // A regrade (or anything else `run` drives) can hand back a row
         // that is now queued/running — the poll chain only reschedules
         // itself from INSIDE its own effect (fix round 1), so nothing
@@ -165,7 +175,7 @@ export function GradingPage({
         if (shouldPoll([g.status])) setNonce((n) => n + 1);
       }
     } catch (e) {
-      if (alive.current) setMessage(failText(verb, e));
+      if (alive.current) setMessage({ tone: "error", text: failText(verb, e) });
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -184,9 +194,9 @@ export function GradingPage({
       const { recipients } = await getAssignment(grading.assignmentId);
       const r = recipients.find((x) => x.userId === grading.userId);
       if (alive.current) setReturning(r ?? null);
-      if (alive.current && !r) setMessage("退回失败：这名学生不在这份作业中");
+      if (alive.current && !r) setMessage({ tone: "error", text: "退回失败：这名学生不在这份作业中" });
     } catch (e) {
-      if (alive.current) setMessage(failText("退回", e));
+      if (alive.current) setMessage({ tone: "error", text: failText("退回", e) });
     }
   }
 
@@ -255,40 +265,51 @@ export function GradingPage({
   // that case. Only a row with no content at all (a first grading that
   // failed outright, or one still queued/running) has no editor.
   const editable = grading.content !== null && (grading.status === "draft" || grading.status === "sent");
+  const running = grading.status === "queued" || grading.status === "running";
   const canRegrade = grading.status === "draft" || grading.status === "failed";
 
   return (
-    <TeacherPage width="wide">
-      {back}
-      {leaveConfirmBanner}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <h1 className="teacher-page-title">
-          {grading.displayName} · {grading.title}
-        </h1>
-        <span className="text-mk-small text-mk-muted">
-          v{grading.versionNumber}
-          {grading.latestVersionNumber > grading.versionNumber ? ` · 最新 v${grading.latestVersionNumber}` : ""}
-        </span>
-      </div>
-      <p className="mt-1 text-mk-small text-mk-muted">
-        {grading.status === "sent" && grading.sentAt
-          ? `已发送 ${formatDeadline(grading.sentAt)} · ${grading.studentSeenAt ? "学生已读" : "学生未读"}`
-          : grading.status === "queued" || grading.status === "running"
-            ? "批改中"
-            : grading.reviewedAt
-              ? "已审阅"
-              : grading.status === "draft"
-                ? "草稿"
-                : ""}
-      </p>
-      {grading.error && (
-        <p role="alert" className="mt-2 break-words text-mk-small font-semibold text-mk-danger">
-          {failureText(grading.error)}
+    <TeacherPage width="wide" fill>
+      <div className="shrink-0">
+        {back}
+        {leaveConfirmBanner}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <h1 className="teacher-page-title">
+            {grading.displayName} · {grading.title}
+          </h1>
+          <span className="rounded-mk-full bg-mk-accent-50 px-2.5 py-0.5 text-mk-label font-semibold text-mk-accent-700">
+            {grading.source === "teacher" ? "人工批改" : "AI 批改"}
+          </span>
+          <span className="text-mk-small text-mk-muted">
+            v{grading.versionNumber}
+            {grading.latestVersionNumber > grading.versionNumber ? ` · 最新 v${grading.latestVersionNumber}` : ""}
+          </span>
+        </div>
+        <p className="mt-1 text-mk-small text-mk-muted">
+          {grading.status === "sent" && grading.sentAt
+            ? `已发送 ${formatDeadline(grading.sentAt)} · ${grading.studentSeenAt ? "学生已读" : "学生未读"}`
+            : running
+              ? "批改中"
+              : grading.reviewedAt
+                ? "已审阅"
+                : grading.status === "draft"
+                  ? "草稿"
+                  : ""}
         </p>
-      )}
+        {grading.error && (
+          <p role="alert" className="mt-2 break-words text-mk-small font-semibold text-mk-danger">
+            {failureText(grading.error)}
+          </p>
+        )}
+      </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,44rem)_minmax(20rem,1fr)]">
-        <article className="min-w-0">
+      {/* Wide (≥900px): the page is as tall as the window; the essay and the
+          editor each scroll on their own, and the buttons with their result
+          line sit under the editor, always on screen. Before 2026-09-17 the
+          whole right column scrolled as one box and the result of 保存并发送
+          appeared below its visible edge — the teacher saw nothing happen. */}
+      <div className="teacher-grading-grid mt-6 grid min-h-0 flex-1 grid-cols-1 gap-8 min-[900px]:grid-cols-[minmax(0,44rem)_minmax(20rem,1fr)]">
+        <article className="teacher-grading-article mk-scroll min-w-0">
           {picking !== null ? (
             <div className="flex flex-col gap-2">
               <p className="text-mk-small text-mk-muted">请选择一句作为第 {picking + 1} 条意见的引文</p>
@@ -326,103 +347,125 @@ export function GradingPage({
           )}
         </article>
 
-        <aside className="flex min-w-0 flex-col gap-4">
-          {editable ? (
-            <GradingEditor
-              rubric={grading.rubric}
-              content={content}
-              unmarked={unmarked}
-              onEdit={edit}
-              onPickQuote={setPicking}
-              onShowQuote={(i) => document.getElementById(`grading-quote-${i}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}
-            />
-          ) : (
-            grading.status !== "failed" && <p className="text-mk-small text-mk-muted">批改完成后可以在这里修改。</p>
-          )}
+        <aside className="teacher-grading-aside flex min-h-0 min-w-0 flex-col gap-4">
+          <div className="teacher-grading-editor mk-scroll flex min-h-0 flex-col gap-4 min-[900px]:flex-1 min-[900px]:pr-1">
+            {running && (
+              <div role="status" className="flex items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4">
+                <span className="mt-0.5 shrink-0">
+                  <Pebble state="thinking" size={28} />
+                </span>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <p className="flex items-center gap-2 text-mk-body font-semibold text-mk-ink">
+                    批改中
+                    <span className="mk-think-dot" />
+                    <span className="mk-think-dot [animation-delay:0.15s]" />
+                    <span className="mk-think-dot [animation-delay:0.3s]" />
+                  </p>
+                  <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_TEXT}</p>
+                  {grading.content !== null && <p className="text-mk-small text-mk-muted">{GRADING_RUNNING_KEEPS_TEXT}</p>}
+                </div>
+              </div>
+            )}
+            {editable ? (
+              <GradingEditor
+                rubric={grading.rubric}
+                content={content}
+                unmarked={unmarked}
+                onEdit={edit}
+                onPickQuote={setPicking}
+                onShowQuote={(i) => document.getElementById(`grading-quote-${i}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}
+              />
+            ) : null}
+          </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-mk-border pt-4">
-            {editable && (
-              <Button variant="primary" size="sm" disabled={busy} onClick={() => void run("保存", saveContent)}>
-                {grading.status === "sent" ? "保存并发送" : "保存"}
-              </Button>
+          <div className="flex shrink-0 flex-col gap-2 border-t border-mk-border pt-4">
+            <div className="flex flex-wrap gap-2">
+              {editable && (
+                <Button variant="primary" size="sm" disabled={busy} onClick={() => void run("保存", "save", saveContent)}>
+                  {grading.status === "sent" ? "保存并发送" : "保存"}
+                </Button>
+              )}
+              {editable && grading.status === "draft" && !grading.reviewedAt && (
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => void run("审阅", "review", () => (dirty ? saveContent() : patchGrading(gradingId)))}>
+                  标记已审阅
+                </Button>
+              )}
+              {editable && grading.status === "draft" && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void run("发送", "send", async () => {
+                      if (dirty) {
+                        // Apply the PATCH result now — if `sendGrading` then
+                        // fails, the page must show the already-saved content
+                        // (reviewedAt set, no stale `dirty`), not the state
+                        // from before this save.
+                        const saved = await saveContent();
+                        if (alive.current) apply(saved, true);
+                      }
+                      return sendGrading(gradingId);
+                    })
+                  }
+                >
+                  发送
+                </Button>
+              )}
+              {canRegrade && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    // A picker left open across a regrade would apply its
+                    // pick to whatever content lands after the regrade
+                    // completes, not the point she was actually looking at.
+                    setPicking(null);
+                    // Only a row with content to lose needs the confirm — a
+                    // `failed` row (no content) has nothing to overwrite.
+                    if (grading.content !== null) setConfirmRegrade(true);
+                    else void run(regradeLabel(grading.source), "regrade", () => regradeGrading(gradingId));
+                  }}
+                >
+                  {regradeLabel(grading.source)}
+                </Button>
+              )}
+              {grading.assignmentId && (
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => void openReturn()}>
+                  退回修改
+                </Button>
+              )}
+            </div>
+            {confirmRegrade && (
+              <div className="flex flex-wrap items-center gap-2 text-mk-small font-semibold text-mk-danger">
+                {regradeConfirmText(grading.source)}
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmRegrade(false);
+                    setPicking(null);
+                    void run(regradeLabel(grading.source), "regrade", () => regradeGrading(gradingId));
+                  }}
+                >
+                  确认
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirmRegrade(false)}>
+                  取消
+                </Button>
+              </div>
             )}
-            {editable && grading.status === "draft" && !grading.reviewedAt && (
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void run("审阅", () => (dirty ? saveContent() : patchGrading(gradingId)))}>
-                标记已审阅
-              </Button>
-            )}
-            {editable && grading.status === "draft" && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  void run("发送", async () => {
-                    if (dirty) {
-                      // Apply the PATCH result now — if `sendGrading` then
-                      // fails, the page must show the already-saved content
-                      // (reviewedAt set, no stale `dirty`), not the state
-                      // from before this save.
-                      const saved = await saveContent();
-                      if (alive.current) apply(saved, true);
-                    }
-                    return sendGrading(gradingId);
-                  })
-                }
+            {message && (
+              <p
+                role={message.tone === "error" ? "alert" : "status"}
+                className={`break-words text-mk-small font-semibold ${message.tone === "error" ? "text-mk-danger" : "text-mk-success"}`}
               >
-                发送
-              </Button>
-            )}
-            {canRegrade && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  // A picker left open across a regrade would apply its
-                  // pick to whatever content lands after the regrade
-                  // completes, not the point she was actually looking at.
-                  setPicking(null);
-                  // Only a row with content to lose needs the confirm — a
-                  // `failed` row (no content) has nothing to overwrite.
-                  if (grading.content !== null) setConfirmRegrade(true);
-                  else void run("重新批改", () => regradeGrading(gradingId));
-                }}
-              >
-                重新批改
-              </Button>
-            )}
-            {grading.assignmentId && (
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void openReturn()}>
-                退回修改
-              </Button>
+                {message.text}
+              </p>
             )}
           </div>
-          {confirmRegrade && (
-            <div className="flex flex-wrap items-center gap-2 text-mk-small font-semibold text-mk-danger">
-              {REGRADE_CONFIRM}
-              <Button
-                variant="danger"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  setConfirmRegrade(false);
-                  setPicking(null);
-                  void run("重新批改", () => regradeGrading(gradingId));
-                }}
-              >
-                确认重新批改
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmRegrade(false)}>
-                取消
-              </Button>
-            </div>
-          )}
-          {message && (
-            <p role="alert" className="break-words text-mk-small font-semibold text-mk-danger">
-              {message}
-            </p>
-          )}
         </aside>
       </div>
 

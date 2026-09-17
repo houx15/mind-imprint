@@ -16,11 +16,23 @@ const WIDTH_CLASS: Record<TeacherPageWidth, string> = {
   full: " teacher-page--full",
 };
 
-/** The page wrapper every teacher page uses: the landing measure and padding, centred. */
-export function TeacherPage({ width = "default", children }: { width?: TeacherPageWidth; children: ReactNode }) {
+/** The page wrapper every teacher page uses: the landing measure and padding, centred.
+ *  `fill` (wide screens only): the page is exactly as tall as the scroll area
+ *  and its content scrolls inside it — the AI workspaces (`WorkspacePanel`). */
+export function TeacherPage({
+  width = "default",
+  fill = false,
+  children,
+}: {
+  width?: TeacherPageWidth;
+  fill?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div className="min-h-full">
-      <div className={`learning-landing-measure teacher-page mx-auto w-full${WIDTH_CLASS[width]}`}>{children}</div>
+    <div className={fill ? "min-h-full min-[900px]:h-full" : "min-h-full"}>
+      <div className={`learning-landing-measure teacher-page mx-auto w-full${WIDTH_CLASS[width]}${fill ? " teacher-page--fill" : ""}`}>
+        {children}
+      </div>
     </div>
   );
 }

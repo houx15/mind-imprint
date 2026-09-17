@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "@/api";
+import { ApiError } from "../api/client";
 import { setStudentGender, type StudentGender } from "../api/teacher";
 import { Segmented } from "./formParts";
 

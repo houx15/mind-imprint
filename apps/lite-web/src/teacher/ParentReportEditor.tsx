@@ -131,10 +131,10 @@ function bodyOf(r: TeacherParentReport): Record<string, string> {
  *
  * ## Width
  *
- * Below 1400px the conversation, the draft and the preview do not fit in
- * three columns, so 草稿 / 预览 become a `Segmented` switch. This is a CSS
- * breakpoint (`min-[1400px]:`) like the rest of this page, not a width hook:
- * both panes stay mounted and only their display changes.
+ * The AI rail takes the right 400px (`WorkspacePanel`), which leaves the
+ * canvas about 720px — too narrow for the draft and the preview side by side.
+ * 草稿 / 预览 is a `Segmented` switch at every width; both panes stay mounted
+ * and only their display changes.
  */
 export function ParentReportEditor({
   reportId,
@@ -487,63 +487,62 @@ export function ParentReportEditor({
         canRetry={thread.failed !== null && leftReason === null}
         paused={anyBusy}
         closedReason={leftReason}
-        intro="AI 按学习记录改写右侧报告中的段落，改写结果会先显示在编辑器里，导出前可以再修改。报告的段落不能增删。请说明要改哪一段、怎么改。"
+        intro="AI 按学习记录改写左侧报告中的段落，改写结果会先显示在编辑器里，导出前可以再修改。报告的段落不能增删。请说明要改哪一段、怎么改。"
         suggestions={["让下一步建议更具体", "把总体概述改短一些"]}
+        header={
+          <>
+            {backButton}
+
+            <p className="learning-landing-kicker mt-4">家长报告</p>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <h1 className="teacher-page-title">{report.view.studentName || "—"}</h1>
+              <div className="flex flex-wrap gap-2 sm:ml-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={requestRedraft}
+                  disabled={anyBusy || thread.busy || leftReason !== null}
+                >
+                  {busy === "redraft" ? "生成中" : "重新生成草稿"}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void runExport()}
+                  disabled={anyBusy || thread.busy}
+                  iconStart={<Icon icon={Download} size={15} />}
+                >
+                  {busy === "export" ? "处理中" : "导出图片"}
+                </Button>
+              </div>
+            </div>
+            <p className="mt-1 text-mk-small text-mk-muted">
+              {[report.view.className, rangeLabel(report.view.rangeStart, report.view.rangeEnd)].filter(Boolean).join(" · ")}
+            </p>
+
+            {confirm === "redraft" && (
+              <ConfirmRow
+                text="重新生成会覆盖当前文字，确定？"
+                confirmLabel="确认重新生成"
+                onConfirm={() => void runRedraft(true)}
+                onCancel={() => setConfirm(null)}
+              />
+            )}
+
+            {actionError && (
+              <div className="mt-3 break-words text-mk-small font-semibold text-mk-danger" role="alert">
+                {actionError}
+              </div>
+            )}
+          </>
+        }
       >
-        {backButton}
-
-        <p className="learning-landing-kicker mt-4">家长报告</p>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="teacher-page-title">{report.view.studentName || "—"}</h1>
-          <div className="flex flex-wrap gap-2 sm:ml-auto">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={requestRedraft}
-              disabled={anyBusy || thread.busy || leftReason !== null}
-            >
-              {busy === "redraft" ? "生成中" : "重新生成草稿"}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void runExport()}
-              disabled={anyBusy || thread.busy}
-              iconStart={<Icon icon={Download} size={15} />}
-            >
-              {busy === "export" ? "处理中" : "导出图片"}
-            </Button>
-          </div>
-        </div>
-        <p className="mt-1 text-mk-small text-mk-muted">
-          {[report.view.className, rangeLabel(report.view.rangeStart, report.view.rangeEnd)].filter(Boolean).join(" · ")}
-        </p>
-
-        {confirm === "redraft" && (
-          <ConfirmRow
-            text="重新生成会覆盖当前文字，确定？"
-            confirmLabel="确认重新生成"
-            onConfirm={() => void runRedraft(true)}
-            onCancel={() => setConfirm(null)}
-          />
-        )}
-
-        {actionError && (
-          <div className="mt-3 break-words text-mk-small font-semibold text-mk-danger" role="alert">
-            {actionError}
-          </div>
-        )}
-
-        <div className="mt-6 min-[1400px]:hidden">
+        <div>
           <Segmented label="视图" options={PANE_OPTIONS} value={pane} onChange={setPane} />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 items-start gap-6 min-[1400px]:grid-cols-2">
-          <div
-            className={
-              "min-w-0 flex-col gap-5 min-[1400px]:flex " + (pane === "draft" ? "flex" : "hidden")
-            }
-          >
+        <div className="mt-5 grid grid-cols-1 items-start gap-6">
+          <div className={"min-w-0 flex-col gap-5 " + (pane === "draft" ? "flex" : "hidden")}>
             {draftMessage && <DangerNote role="alert">{draftMessage}</DangerNote>}
             {showsNoDraftHint(report.hasDraft, texts, draftMessage) && (
               <p className="text-mk-small text-mk-muted">暂无草稿，请重新生成草稿</p>
@@ -672,13 +671,13 @@ export function ParentReportEditor({
 
           <aside
             className={
-              "min-w-0 min-[1400px]:sticky min-[1400px]:top-4 min-[1400px]:block " +
+              "min-w-0 " +
               (pane === "preview" ? "block" : "hidden")
             }
             aria-label="预览"
           >
             <div className="mb-2 text-mk-label font-bold text-mk-muted">预览</div>
-            <div className="overflow-hidden rounded-mk-lg border border-mk-border bg-mk-paper min-[1400px]:max-h-[calc(100vh-6rem)] min-[1400px]:overflow-y-auto">
+            <div className="overflow-hidden rounded-mk-lg border border-mk-border bg-mk-paper">
               <ParentReportView report={preview} />
             </div>
           </aside>

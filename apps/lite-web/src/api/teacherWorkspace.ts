@@ -47,6 +47,8 @@ export interface WorkspaceTurnInput {
 export interface WorkspaceCard {
   kind: string;
   rows: unknown;
+  /** The list_students filter a students card shows. */
+  filter?: string;
 }
 
 export interface WorkspaceTurn {

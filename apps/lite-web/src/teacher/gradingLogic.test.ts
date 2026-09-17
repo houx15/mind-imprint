@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GradingContent, GradingRow, Rubric } from "../api/gradings";
 import {
+  gradingDoneText,
+  regradeLabel,
   contentForSave,
   gradeInScale,
   gradingContentReducer,
@@ -155,5 +157,27 @@ describe("validateGradingContent", () => {
     expect(gradeInScale(points, "20")).toBe(true);
     expect(gradeInScale(points, "08")).toBe(false);
     expect(gradeInScale(points, "21")).toBe(false);
+  });
+});
+
+// 2026-09-17: a successful 保存并发送 showed nothing, although the server had
+// re-sent the grading and marked it unread. Every action that changes what the
+// student sees must say so.
+describe("gradingDoneText", () => {
+  it("says a save of a sent grading re-sent it", () => {
+    expect(gradingDoneText("save", true)).toContain("重新发送");
+    expect(gradingDoneText("save", false)).toBe("已保存");
+  });
+  it("reports review and send, and leaves a regrade to the 批改中 panel", () => {
+    expect(gradingDoneText("review", false)).toBe("已标记为已审阅");
+    expect(gradingDoneText("send", false)).toBe("已发送给学生");
+    expect(gradingDoneText("regrade", false)).toBeNull();
+  });
+});
+
+describe("regradeLabel", () => {
+  it("does not call a first AI run on a 人工批改 a re-grade", () => {
+    expect(regradeLabel("teacher")).toBe("AI 批改");
+    expect(regradeLabel("ai")).toBe("重新批改");
   });
 });

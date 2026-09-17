@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/ui";
-import { listAssignmentGradings, queueAssignmentGradings, sendReviewedGradings, type GradingRow } from "../api/gradings";
+import { ApiError } from "../api/client";
+import { listAssignmentGradings, queueAssignmentGradings, queueWritingGrading, sendReviewedGradings, type GradingRow } from "../api/gradings";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { errorText, failText, tintedChipStyle } from "./assignmentLogic";
@@ -31,7 +32,15 @@ import {
  * running, and the effect's cleanup (assignmentId change, or unmount)
  * always clears the pending timer.
  */
-export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: string; onOpenGrading: (gradingId: string) => void }) {
+export function GradingTab({
+  assignmentId,
+  classId,
+  onOpenGrading,
+}: {
+  assignmentId: string;
+  classId: string;
+  onOpenGrading: (gradingId: string) => void;
+}) {
   const alive = useAlive();
   const [rows, setRows] = useState<GradingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +50,10 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 一键AI批改 in flight: its own label reads 处理中 (the other buttons only disable).
+  const [queueing, setQueueing] = useState(false);
+  // The student whose 人工批改 is being created.
+  const [starting, setStarting] = useState<string | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
   const [nonce, setNonce] = useState(0);
 
@@ -72,6 +85,7 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
   async function queue(retryFailed: boolean) {
     if (busy) return;
     setBusy(true);
+    setQueueing(!retryFailed);
     setMessage(null);
     setActionError(null);
     try {
@@ -86,7 +100,32 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
     } finally {
       if (alive.current) {
         setBusy(false);
+        setQueueing(false);
         setNonce((n) => n + 1);
+      }
+    }
+  }
+
+  // 人工批改: a blank draft for one student, then straight into the editor.
+  // A 409 means a row appeared since this list loaded; reload so its 查看
+  // shows instead.
+  async function startManual(row: GradingRow) {
+    if (busy || !row.atomId) return;
+    setBusy(true);
+    setStarting(row.userId);
+    setMessage(null);
+    setActionError(null);
+    try {
+      const g = await queueWritingGrading(classId, row.userId, row.atomId, "manual");
+      if (alive.current) onOpenGrading(g.id);
+    } catch (e) {
+      if (!alive.current) return;
+      if (e instanceof ApiError && e.status === 409) setNonce((n) => n + 1);
+      else setActionError(failText("人工批改", e));
+    } finally {
+      if (alive.current) {
+        setBusy(false);
+        setStarting(null);
       }
     }
   }
@@ -128,7 +167,7 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
     <section className="mt-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" size="sm" onClick={() => void queue(false)} disabled={busy || pendingCount(rows) === 0}>
-          一键AI批改
+          {queueing ? "处理中" : "一键AI批改"}
         </Button>
         <Button variant="secondary" size="sm" onClick={() => void queue(true)} disabled={busy || failedCount(rows) === 0}>
           重试失败
@@ -194,6 +233,10 @@ export function GradingTab({ assignmentId, onOpenGrading }: { assignmentId: stri
                     {r.grading ? (
                       <Button variant="link" size="sm" onClick={() => onOpenGrading(r.grading?.id ?? "")}>
                         查看
+                      </Button>
+                    ) : status === "pending" && r.atomId ? (
+                      <Button variant="link" size="sm" disabled={busy} onClick={() => void startManual(r)}>
+                        {starting === r.userId ? "处理中" : "人工批改"}
                       </Button>
                     ) : (
                       <span className="text-mk-muted">—</span>
