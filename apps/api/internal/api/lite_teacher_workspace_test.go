@@ -159,7 +159,7 @@ func TestWorkspaceTurnFailsWhenToolLoopExhausted(t *testing.T) {
 // model names a student without anything having looked her up, so the turn
 // fails and the reply is never rendered.
 func TestWorkspaceTurnRejectsUngroundedName(t *testing.T) {
-	prov := gateway.NewSequenceStubProvider(wsText("林知遥这周没有写作，先给她单独布置。"))
+	prov := gateway.NewSequenceStubProvider(wsText("林知遥这周没有写作，先给该生单独布置。"))
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
 	renameLiteStudent(t, pool, studentID, "林知遥")
 
@@ -170,7 +170,7 @@ func TestWorkspaceTurnRejectsUngroundedName(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "林知遥") {
 		t.Fatalf("the error does not name the offending student: %s", rec.Body)
 	}
-	if strings.Contains(rec.Body.String(), "先给她单独布置") {
+	if strings.Contains(rec.Body.String(), "先给该生单独布置") {
 		t.Fatalf("the rejected reply was rendered anyway: %s", rec.Body)
 	}
 }
@@ -1048,7 +1048,7 @@ func TestWorkspaceTurnSetsPastedTextPastSection6Checks(t *testing.T) {
 	}
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_material", string(argsJSON)),
-		wsText("材料已经设成她贴的这段正文了。"),
+		wsText("材料已经设成您贴的这段正文了。"),
 	)
 	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
 
@@ -1131,7 +1131,7 @@ func TestWorkspaceTurnAcceptsAPasteCutMidNumber(t *testing.T) {
 	})
 	prov := gateway.NewSequenceStubProvider(
 		wsToolCall("set_material", string(argsJSON)),
-		wsText("材料已经设成她贴的这段正文了。"),
+		wsText("材料已经设成您贴的这段正文了。"),
 	)
 	h, _, teacher, classID, _ := liteTeacherFixtureWithProvider(t, prov)
 

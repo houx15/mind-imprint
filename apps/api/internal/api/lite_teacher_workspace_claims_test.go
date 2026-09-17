@@ -174,7 +174,7 @@ func TestWorkspaceReportPromptCarriesSectionsAndPronoun(t *testing.T) {
 		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
 	}
 	system := prov.Requests[1].Messages[0].Content
-	for _, want := range []string{"只有这几段：「总体概述」、「阅读」、「下一步建议」", "林知遥（称谓：未设置）"} {
+	for _, want := range []string{"只有这几段：「总体概述」、「阅读」、「下一步建议」", "林知遥（称谓：她）"} {
 		if !strings.Contains(system, want) {
 			t.Fatalf("system prompt lacks %q:\n%s", want, system)
 		}
@@ -183,13 +183,13 @@ func TestWorkspaceReportPromptCarriesSectionsAndPronoun(t *testing.T) {
 		t.Fatalf("system prompt still names a section as an example:\n%s", system)
 	}
 
-	if code, body := parentDo(t, h, teacher, "PUT", genderPath(classID, studentID.String()), `{"gender":"female"}`, nil); code != http.StatusOK {
+	if code, body := parentDo(t, h, teacher, "PUT", genderPath(classID, studentID.String()), `{"gender":"male"}`, nil); code != http.StatusOK {
 		t.Fatalf("PUT gender = %d %s", code, body)
 	}
 	if rec := postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "看看", nil)); rec.Code != http.StatusOK {
 		t.Fatalf("turn = %d; body=%s", rec.Code, rec.Body)
 	}
-	if system := prov.Requests[2].Messages[0].Content; !strings.Contains(system, "林知遥（称谓：她）") {
+	if system := prov.Requests[2].Messages[0].Content; !strings.Contains(system, "林知遥（称谓：他）") {
 		t.Fatalf("system prompt lacks the set pronoun:\n%s", system)
 	}
 }

@@ -75,6 +75,8 @@ func TestNamesMissingSection(t *testing.T) {
 		{"把兴趣部分写具体", "兴趣"},
 		{"写作段落再短一点", "写作"},
 		{"她对写作很有兴趣。", ""},
+		{"报告里没有「写作」这个段落，不能新增。可以改写「阅读」。", ""},
+		{"没有问题。可以改写「兴趣」。", "兴趣"},
 		{"改写「阅读」", ""},
 	} {
 		if got := NamesMissingSection(tc.text, missing); got != tc.want {
@@ -87,6 +89,46 @@ func TestRedactNames(t *testing.T) {
 	got := RedactNames("王丽华和王丽都还没交，王丽华先交。", []string{"王丽", "王丽华", ""})
 	if want := "[学生]和[学生]都还没交，[学生]先交。"; got != want {
 		t.Fatalf("RedactNames = %q, want %q", got, want)
+	}
+}
+
+func TestPronounProblem(t *testing.T) {
+	none := PronounsAllowed{}
+	female := PronounsAllowed{Female: true}
+	male := PronounsAllowed{Male: true}
+	both := PronounsAllowed{Female: true, Male: true}
+	for _, tc := range []struct {
+		text    string
+		p       PronounsAllowed
+		wantBad bool
+	}{
+		// Production and live, 2026-09-17.
+		{"给她们布置作业", none, true},
+		{"需要提醒她们吗", none, true},
+		{"她这周没有登录。", none, true},
+		{"他这周没有登录。", female, true},
+		{"她这周没有登录。", female, false},
+		{"他这周没有登录。", male, false},
+		{"给她们布置作业", female, false},
+		{"给她们布置作业", both, true},
+		{"他们都还没开始。", both, false},
+		{"其他同学都已开始，请关注他人。", none, false},
+		{"这些学生都还没开始，请点击下方按钮。", none, false},
+	} {
+		if got := PronounProblem(tc.text, tc.p) != ""; got != tc.wantBad {
+			t.Errorf("PronounProblem(%q, %+v) bad = %v, want %v", tc.text, tc.p, got, tc.wantBad)
+		}
+	}
+
+	var p PronounsAllowed
+	p.AllowPronounsOf([]Student{{Name: "周子涵", Gender: GenderFemale}, {Name: "孙浩然", Gender: GenderMale}}, []string{"周子涵"})
+	if !p.Female || p.Male {
+		t.Fatalf("AllowPronounsOf = %+v, want female only", p)
+	}
+	var typed PronounsAllowed
+	typed.AllowTyped("她这周怎么样？其他人呢")
+	if !typed.Female || typed.Male {
+		t.Fatalf("AllowTyped = %+v, want female only", typed)
 	}
 }
 

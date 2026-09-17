@@ -32,9 +32,10 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// wsLiveNotSingular are words that contain 他 or 她 without being a pronoun
-// for one student.
-var wsLiveNotSingular = regexp.MustCompile(`其他|其她|他们|她们|他人|吉他`)
+// wsLiveNotSingular are words that contain 他 or 她 without being a gendered
+// pronoun for students. 他们/她们 are not in it: production 2026-09-17 showed
+// 「给她们布置作业」 for two students with no gender set.
+var wsLiveNotSingular = regexp.MustCompile(`其他|其她|他人|吉他`)
 
 // wsLiveSingularPronouns returns every 他 and 她 in s that can refer to one
 // person, with a few runes around each.
@@ -57,7 +58,8 @@ func TestWsLiveSingularPronouns(t *testing.T) {
 		want int
 	}{
 		{"周子涵这周没有登录，她的作业还没开始。", 1},
-		{"其他同学都已开始，他们的进度正常。", 0},
+		{"其他同学都已开始。", 0},
+		{"给她们布置作业", 1},
 		{"他和她", 2},
 		{"请点击下方按钮前往。", 0},
 	} {

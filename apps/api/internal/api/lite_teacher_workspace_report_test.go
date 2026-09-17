@@ -218,6 +218,7 @@ func TestWorkspaceReportGoodRevisionPassesEndToEnd(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
 	backdateWeeklyStart(t, pool, classID)
 	renameLiteStudent(t, pool, studentID, "林知遥")
+	setFemale(t, pool, studentID)
 	reading := seedParentReading(t, pool, studentID, false)
 	mustExec(t, pool, `UPDATE reading SET title = '3人小组的雨水花园' WHERE atom_id = $1`, reading)
 	seedReport(t, pool, reading, "reading", `{"version":1,"moments":[{"quote":"我们3人一组种下雨水花园","where":""}]}`)
@@ -316,6 +317,7 @@ func namedReportFixture(t *testing.T, herName, title string, classmates []string
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
 	backdateWeeklyStart(t, pool, classID)
 	renameLiteStudent(t, pool, studentID, herName)
+	setFemale(t, pool, studentID)
 	reading := seedParentReading(t, pool, studentID, true)
 	mustExec(t, pool, `UPDATE reading SET title = $2 WHERE atom_id = $1`, reading, title)
 	for i, name := range classmates {
@@ -489,4 +491,11 @@ func TestWorkspaceReportDoesNotGroundTheClassSize(t *testing.T) {
 	wantTurn(t, "class size in the reply",
 		postWorkspaceTurn(t, h, teacher, reportTurnBody(reportID, "她读得怎么样", nil)),
 		http.StatusBadGateway, "没有依据的人数：2")
+}
+
+// setFemale sets a fixture student's gender: the scripted drafts call her 她,
+// and a pronoun the teacher did not set fails the draft.
+func setFemale(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID) {
+	t.Helper()
+	mustExec(t, pool, `UPDATE users SET gender = 'female' WHERE id = $1`, userID)
 }

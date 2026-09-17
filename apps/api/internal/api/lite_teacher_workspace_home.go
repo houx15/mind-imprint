@@ -81,7 +81,7 @@ func (run *liteWorkspaceHome) falseClaim(text string) string {
 	if run.nav == nil && !run.asked && liteworkspace.PointsAtButton(text) {
 		return "回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page"
 	}
-	return ""
+	return liteWorkspaceRosterPronounProblem(text, run.roster, run.namesReturned, run.typed)
 }
 
 // extraParts carries the navigate label, when open_page set one: it names a
@@ -113,10 +113,8 @@ type liteWorkspaceHome struct {
 	className string
 	classID   string
 	roster    []liteworkspace.Student
-	// typed is what the TEACHER typed this turn (trimmed). Unread by any tool
-	// today — the home surface has no set_material-shaped text argument — but
-	// kept for parity with the assignment surface and in case a later tool
-	// needs it.
+	// typed is what the TEACHER typed this turn (trimmed). falseClaim reads
+	// it: a pronoun she used herself is allowed in the reply.
 	typed string
 
 	// snapshotLoad fetches this week's class stats and cards

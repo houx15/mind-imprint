@@ -980,7 +980,8 @@ func (a *API) runLiteWorkspaceLoop(ctx context.Context, r *http.Request, surface
 		rewrites++
 		surface.clearEnded()
 		msgs = append(msgs, gateway.ChatMessage{
-			Role: gateway.RoleUser, Content: "上一条回复没有通过检查：" + reason + "。这条检查不是老师说的话。请重新回复老师。",
+			Role: gateway.RoleUser, Content: "上一条回复没有通过检查，老师没有看到它：" + reason + "。" +
+				"这条检查不是老师说的话。请重新回复老师，不要提到上一条回复，也不要道歉。",
 		})
 	}
 	return "", nil, errLiteWorkspaceTurn("工具调用次数超出上限")
@@ -998,6 +999,16 @@ func liteWorkspaceClaimText(reply string, choices []liteworkspace.Choice) string
 		parts = append(parts, c.Label)
 	}
 	return strings.Join(parts, "\n")
+}
+
+// liteWorkspaceRosterPronounProblem is falseClaim's pronoun check for a
+// surface about a class: a gendered pronoun is allowed only for a gender a
+// student named this turn has, or one the teacher used herself.
+func liteWorkspaceRosterPronounProblem(text string, roster []liteworkspace.Student, named []string, typed string) string {
+	var p liteworkspace.PronounsAllowed
+	p.AllowPronounsOf(roster, named)
+	p.AllowTyped(typed)
+	return liteworkspace.PronounProblem(text, p)
 }
 
 // liteWorkspaceOpenedPageClaim is falseClaim's answer for a reply that says

@@ -331,7 +331,9 @@ func parentFixture(t *testing.T, prov gateway.Provider) (h http.Handler, pool *p
 	t.Helper()
 	h, pool, teacher, classID, studentID = liteTeacherFixtureWithProvider(t, prov)
 	backdateWeeklyStart(t, pool, classID)
-	mustExec(t, pool, `UPDATE users SET display_name = '林知遥' WHERE id = $1`, studentID)
+	// Her gender is set: the fixture replies call her 她, and a pronoun the
+	// teacher did not set fails the draft.
+	mustExec(t, pool, `UPDATE users SET display_name = '林知遥', gender = 'female' WHERE id = $1`, studentID)
 	seedParentReading(t, pool, studentID, true)
 	return
 }
@@ -766,6 +768,7 @@ func TestLiteParentReportInvalidRange(t *testing.T) {
 func TestLiteParentReportRangeBeforeStart(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(weeklyReply(parentQuietReply))
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
+	setFemale(t, pool, studentID)
 	path := parentReportsPath(classID, studentID)
 	wantBefore := func(what, body string) {
 		t.Helper()
@@ -835,6 +838,7 @@ func TestLiteParentReportEntitlementBeforeSpend(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(weeklyReply(parentPlainReply))
 	h, pool, teacher, classID, studentID := liteTeacherFixtureWithProvider(t, prov)
 	backdateWeeklyStart(t, pool, classID)
+	setFemale(t, pool, studentID)
 	reading := seedParentReading(t, pool, studentID, false)
 	deny := func(context.Context, User) (bool, error) { return false, nil }
 	path := parentReportsPath(classID, studentID)

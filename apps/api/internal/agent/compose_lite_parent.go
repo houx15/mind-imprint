@@ -11,6 +11,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/liteparent"
 	"mindimprint/api/internal/liteweekly"
+	"mindimprint/api/internal/liteworkspace"
 )
 
 // liteParentSectionMax is the rune cap on each section of a parent report.
@@ -53,12 +54,34 @@ func ComposeLiteParentReport(ctx context.Context, prov gateway.Provider, r gatew
 		{Role: gateway.RoleUser, Content: liteparent.FactsText(f)},
 	}
 	out, attempts, err := composeLiteWeekly(ctx, prov, r, msgs, func(p map[string]string) error {
-		return validateLiteParentReport(p, f, sections, otherNames)
+		if err := validateLiteParentReport(p, f, sections, otherNames); err != nil {
+			return err
+		}
+		return checkLiteParentPronouns(p, sections, pronoun)
 	})
 	if err != nil {
 		return nil, attempts, fmt.Errorf("agent: lite parent report: %w", err)
 	}
 	return out, attempts, nil
+}
+
+// checkLiteParentPronouns fails a draft that calls her 他 or 她 when the
+// teacher set another gender or none. The error goes back to the model on the
+// retry, so it is written for the model.
+func checkLiteParentPronouns(p map[string]string, sections []string, pronoun string) error {
+	var allowed liteworkspace.PronounsAllowed
+	switch pronoun {
+	case "她":
+		allowed.Allow(liteworkspace.GenderFemale)
+	case "他":
+		allowed.Allow(liteworkspace.GenderMale)
+	}
+	for _, k := range sections {
+		if reason := liteworkspace.PronounProblem(p[k], allowed); reason != "" {
+			return fmt.Errorf("%s: %s", k, reason)
+		}
+	}
+	return nil
 }
 
 // validateLiteParentReport checks the keys, lengths and prose of one reply.

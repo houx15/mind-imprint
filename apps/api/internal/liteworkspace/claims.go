@@ -72,6 +72,9 @@ func negatedBefore(prefix string) bool {
 // NamesMissingSection returns the first heading in missing that text names as
 // a section: quoted (「阅读」) or followed by 段/部分/板块 (阅读部分). ""
 // when none is named.
+//
+// A sentence that says the section is not there is the honest answer:
+// 「报告里没有「写作」这个段落，不能新增。」 passes (live, 2026-09-17).
 func NamesMissingSection(text string, missing []string) string {
 	for _, label := range missing {
 		if label == "" {
@@ -79,11 +82,31 @@ func NamesMissingSection(text string, missing []string) string {
 		}
 		q := regexp.QuoteMeta(label)
 		re := regexp.MustCompile(`[「『“"]` + q + `[」』”"]|` + q + `(段|部分|板块)`)
-		if re.MatchString(text) {
-			return label
+		for _, loc := range re.FindAllStringIndex(text, -1) {
+			if !sentenceDenies(text, loc[0], loc[1]) {
+				return label
+			}
 		}
 	}
 	return ""
+}
+
+var sentenceEnd = regexp.MustCompile(`[。！？!?\n]`)
+
+var denial = regexp.MustCompile(`没有|不能|无法|不可以|不支持|不存在`)
+
+// sentenceDenies reports whether the sentence around text[start:end] contains
+// a denial.
+func sentenceDenies(text string, start, end int) bool {
+	from := 0
+	if locs := sentenceEnd.FindAllStringIndex(text[:start], -1); len(locs) > 0 {
+		from = locs[len(locs)-1][1]
+	}
+	to := len(text)
+	if loc := sentenceEnd.FindStringIndex(text[end:]); loc != nil {
+		to = end + loc[0]
+	}
+	return denial.MatchString(text[from:to])
 }
 
 // RedactedName replaces a student's name in a log line.

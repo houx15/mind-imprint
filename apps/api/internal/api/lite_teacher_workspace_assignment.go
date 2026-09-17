@@ -236,9 +236,13 @@ func (run *liteWorkspaceRun) clearEnded() {
 	run.question, run.choices, run.asked = "", nil, false
 }
 
-// falseClaim: the assignment surface has no page tool at all.
+// falseClaim: the assignment surface has no page tool at all, and its
+// pronouns follow the students list_students named.
 func (run *liteWorkspaceRun) falseClaim(text string) string {
-	return liteWorkspaceOpenedPageClaim(text)
+	if reason := liteWorkspaceOpenedPageClaim(text); reason != "" {
+		return reason
+	}
+	return liteWorkspaceRosterPronounProblem(text, run.roster, run.namesReturned, run.typed)
 }
 
 // extraParts is nil: everything the assignment surface shows the teacher is

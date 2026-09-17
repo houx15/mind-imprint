@@ -120,6 +120,7 @@ func (a *API) newLiteWorkspaceReport(in liteWorkspaceSurfaceInput) (liteWorkspac
 		className: className,
 		names:     liteWorkspaceReportNames(facts, in.roster, rep.UserID),
 		gender:    liteworkspace.GenderOf(genderCol),
+		typed:     in.typed,
 	}, nil
 }
 
@@ -184,6 +185,8 @@ type liteWorkspaceReport struct {
 	// gender is her users.gender as it is now (not frozen on the report):
 	// the teacher may set it after the report was drafted.
 	gender string
+	// typed is what the teacher typed this turn.
+	typed string
 
 	// revised is what revise_section accepted this turn, by section key.
 	revised map[string]string
@@ -257,7 +260,16 @@ func (run *liteWorkspaceReport) falseClaim(text string) string {
 	if label := liteworkspace.NamesMissingSection(text, run.missingSectionLabels()); label != "" {
 		return "这份报告没有「" + label + "」段落，只能改写这几段：" + run.sectionList()
 	}
-	return ""
+	return liteworkspace.PronounProblem(text, run.pronouns())
+}
+
+// pronouns is what the report may call her: the gender the teacher set, and
+// any pronoun the teacher used this turn.
+func (run *liteWorkspaceReport) pronouns() liteworkspace.PronounsAllowed {
+	var p liteworkspace.PronounsAllowed
+	p.Allow(run.gender)
+	p.AllowTyped(run.typed)
+	return p
 }
 
 // missingSectionLabels is the heading of every section this report does not
@@ -394,6 +406,9 @@ func (run *liteWorkspaceReport) reviseSection(args map[string]any) string {
 	if n := utf8.RuneCountInString(text); n > liteworkspace.ReviseSectionMaxRunes {
 		return liteWorkspaceToolError(fmt.Sprintf("「%s」有 %d 字，超过 %d 字的上限，请缩短后重写",
 			label, n, liteworkspace.ReviseSectionMaxRunes))
+	}
+	if reason := liteworkspace.PronounProblem(text, run.pronouns()); reason != "" {
+		return liteWorkspaceToolError("「" + label + "」没有通过检查：" + reason + "。请改好后重新调用 revise_section。")
 	}
 	if err := agent.CheckLiteParentSections(map[string]string{key: text}, []string{key}, run.facts, run.others); err != nil {
 		return liteWorkspaceToolError("「" + label + "」没有通过检查：" + liteWorkspaceReportCheckError(key, err) + "。" +

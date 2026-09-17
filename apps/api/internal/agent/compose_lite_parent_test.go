@@ -64,6 +64,24 @@ func composeParent(prov gateway.Provider, f liteparent.Facts, others []string) (
 	return agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, f, others, "她")
 }
 
+// A draft that calls her 她 is retried, then rejected, when the teacher set
+// 他 or nothing; with 她 set it passes.
+func TestComposeLiteParentReportRejectsAPronounNotSet(t *testing.T) {
+	for _, tc := range []struct {
+		pronoun string
+		ok      bool
+	}{{"她", true}, {"他", false}, {"未设置", false}} {
+		prov := gateway.NewSequenceStubProvider(liteReply(parentReply(t, parentValidSections())))
+		_, attempts, err := agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, parentFacts(), classmates, tc.pronoun)
+		if (err == nil) != tc.ok {
+			t.Fatalf("%s: err = %v, want ok=%v", tc.pronoun, err, tc.ok)
+		}
+		if !tc.ok && (len(attempts) != 2 || !strings.Contains(err.Error(), "回复用了「她」")) {
+			t.Fatalf("%s: attempts %d, err %v", tc.pronoun, len(attempts), err)
+		}
+	}
+}
+
 // The draft prompt carries the pronoun the teacher set, and forbids both when
 // none is set: the model guessed 他/她 from her name before.
 func TestComposeLiteParentReportPronounRule(t *testing.T) {
@@ -73,10 +91,10 @@ func TestComposeLiteParentReportPronounRule(t *testing.T) {
 		{"未设置", "不用「他」「她」指这名学生"},
 	} {
 		prov := gateway.NewSequenceStubProvider(liteReply(parentReply(t, parentValidSections())))
-		if _, _, err := agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, parentFacts(), classmates, tc.pronoun); err != nil {
-			t.Fatalf("%s: %v", tc.pronoun, err)
-		}
-		if system := prov.LastRequest.Messages[0].Content; !strings.Contains(system, tc.want) {
+		// Only the prompt is checked here. The fixture draft calls her 她, which
+		// the 他 and 未设置 cases reject (TestComposeLiteParentReportRejectsAPronounNotSet).
+		_, _, _ = agent.ComposeLiteParentReport(context.Background(), prov, liteResolved, parentFacts(), classmates, tc.pronoun)
+		if system := prov.Requests[0].Messages[0].Content; !strings.Contains(system, tc.want) {
 			t.Fatalf("%s: system prompt lacks %q:\n%s", tc.pronoun, tc.want, system)
 		}
 	}
