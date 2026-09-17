@@ -288,6 +288,8 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         headingBlockIds={layout.headings}
         outline={layout.outline}
         excerptOnly={layout.excerptOnly}
+        // 她把全文粘进来之后，正文、导读、清单都换了 —— 走同一条加载路径重来一遍。
+        onSourceReplaced={() => setReloadKey((k) => k + 1)}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         // 完成这篇 lands her on the report. Re-running the load is what does

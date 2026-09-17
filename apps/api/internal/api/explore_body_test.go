@@ -28,9 +28,17 @@ import (
 )
 
 // 三段，段落之间一个空行 —— 和她粘进来的文章一模一样的形状。
-const feedBody = "第一段：太阳能中午最多，用电高峰在傍晚，这中间是错位。\n\n" +
-	"第二段：填这个错位要靠储能、需求响应或者跨区输电。\n\n" +
-	"第三段：白天多出来的电卖不掉，甚至要被弃掉。"
+//
+// 🚨 2026-09-17 起要够一篇文章的长度（≥ planetFetchMinRunes = 600 个字符）：
+// feed 自带的 body 太短就当成摘要（见 resolvePlanetArticle）。原来这里是三句话，
+// 那正是线上被当成全文的那种形状。
+var feedBody = "第一段：太阳能中午最多，用电高峰在傍晚，这中间是错位。" + strings.Repeat("光伏板在正午发电最多，而家家户户开灯做饭是在太阳落山以后。", 8) + "\n\n" +
+	"第二段：填这个错位要靠储能、需求响应或者跨区输电。" + strings.Repeat("电池要贵，需求响应要人配合，跨区输电要先修线路。", 8) + "\n\n" +
+	"第三段：白天多出来的电卖不掉，甚至要被弃掉。" + strings.Repeat("弃光的比例在一些省份一度很高，这笔账最后落在电站头上。", 8)
+
+// 线上那一篇的形状（Quanta，2026-09-17）：feed 的 body 里只有导语和一行「Source」，
+// 一共 403 个字符。
+const shortFeedBody = "Around 700 million years ago, a group of organisms resembling little more than glowing, gelatinous blobs split off from the rest of the animals, forming possibly the earliest branching animal lineage. Nearly 200 species of ctenophores, commonly known as comb jellies, live today in environments ranging from the cold depths of the sea to warm coastal surface waters.\n\nSource"
 
 func seedPlanetWithBody(t *testing.T, pool *pgxpool.Pool, body string) string {
 	t.Helper()
@@ -230,5 +238,24 @@ func TestPutReadingSource_HerOwnPasteStillReplacesIt(t *testing.T) {
 	_, blocks := readingSourceHTTP(t, h, cookie, readingID)
 	if len(blocks) != 2 || !strings.Contains(blocks[0], "她粘的第一段") {
 		t.Errorf("她粘的那一份没有覆盖掉 feed 那一份：%q", blocks)
+	}
+}
+
+// 🚨 feed 带了 body，但那只是一段摘要（线上那一篇）：标成 excerptOnly，
+// 正文就是那段摘要（比导语长就用它）。
+func TestSavePlanet_AShortFeedBodyIsAnExcerpt(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	id := seedPlanetWithBody(t, pool, shortFeedBody)
+	readingID := savedReadingID(t, savePlanetHTTP(h, cookie, id))
+
+	code, blocks, excerptOnly := readingSourceDetail(t, h, cookie, readingID)
+	if code != http.StatusOK {
+		t.Fatalf("GET /source = %d", code)
+	}
+	if !excerptOnly {
+		t.Error("feed 的 body 只有一段导语，却没有标成 excerptOnly —— 她会在两段话上开始通读")
+	}
+	if len(blocks) == 0 || !strings.Contains(blocks[0], "ctenophores") {
+		t.Errorf("那段摘要（比 feed 的一句导语长）没有用上：%q", blocks)
 	}
 }

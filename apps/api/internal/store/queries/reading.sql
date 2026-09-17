@@ -50,11 +50,23 @@ UPDATE reading SET status = 'active', finished_at = NULL, updated_at = now()
 WHERE atom_id = $1 AND status = 'finished';
 
 -- name: UpsertReadingSource :one
+-- 🚨 2026-09-17：正文换了，导读和版式跟着清空。
+--
+-- 导读（outline）、图（figures）、小标题（headings）都按段 id（b1, b2…）指着
+-- 正文。只有摘要的那一篇被她粘成全文之后，b1 已经不是原来那一段了 —— 留着
+-- 旧的导读，「重点段落：第 1 段」指的就是另一段话。正文没变（同一份再存一次）
+-- 就原样留着。
 INSERT INTO reading_source (atom_id, title, body, source_url, excerpt_only)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
       source_url = EXCLUDED.source_url, excerpt_only = EXCLUDED.excerpt_only,
+      outline = CASE WHEN reading_source.body IS DISTINCT FROM EXCLUDED.body
+                     THEN '{}'::jsonb ELSE reading_source.outline END,
+      figures = CASE WHEN reading_source.body IS DISTINCT FROM EXCLUDED.body
+                     THEN '[]'::jsonb ELSE reading_source.figures END,
+      headings = CASE WHEN reading_source.body IS DISTINCT FROM EXCLUDED.body
+                      THEN '[]'::jsonb ELSE reading_source.headings END,
       ingested_at = now()
 RETURNING *;
 

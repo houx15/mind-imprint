@@ -30,6 +30,7 @@ import type { ReadingFigure, ReadingOutline } from "../api/readings";
 import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
+import { PasteFullTextModal } from "./PasteFullTextModal";
 import type { CoachCardAnswer } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
 import { StepIndicator } from "./StepIndicator";
@@ -161,6 +162,8 @@ export type LiteReadingRoomProps = {
    * 很短的文章一模一样，她会以为自己读完了。**
    */
   excerptOnly?: boolean;
+  /** 她把全文粘进来之后，让宿主重新加载这一间（正文、导读、清单都换了）。 */
+  onSourceReplaced?: () => void;
 };
 
 /**
@@ -256,6 +259,7 @@ export function ReadingRoom({
   headingBlockIds,
   outline,
   excerptOnly = false,
+  onSourceReplaced,
   onBlockNote,
 }: LiteReadingRoomProps) {
   // DEBT: `useReadingLoop` still carries pro's signature and wants a
@@ -646,6 +650,9 @@ export function ReadingRoom({
    * 房间都会拿上次的成果再买一轮旗舰调用。
    */
   const [pendingLens, setPendingLens] = useState<ReadingLensDone | null>(null);
+  // 只有摘要的那一篇：一进来就请她把全文粘进来（产品负责人 2026-09-17）。
+  // 她选「先读摘要」关掉之后，正文下面那一条里还有一颗按钮能再打开。
+  const [pasteOpen, setPasteOpen] = useState(Boolean(excerptOnly));
   /**
    * 她在段落工具（想一想 / 仿写）底下写好、要交给 印记 的那一段，
    * 以及这一轮落地之后要告诉那个框的那一声（送到了 / 没送到）。
@@ -872,7 +879,21 @@ export function ReadingRoom({
                   }}
                 />
                 {excerptOnly && (
-                  <ExcerptOnlyNotice url={source.sourceUrl} />
+                  <ExcerptOnlyNotice url={source.sourceUrl} onPaste={() => setPasteOpen(true)} />
+                )}
+                {excerptOnly && (
+                  <PasteFullTextModal
+                    open={pasteOpen}
+                    onClose={() => setPasteOpen(false)}
+                    readingId={readingId}
+                    title={source.title ?? ""}
+                    sourceUrl={source.sourceUrl}
+                    abstract={source.blocks.map((b) => b.text)}
+                    onReplaced={() => {
+                      setPasteOpen(false);
+                      onSourceReplaced?.();
+                    }}
+                  />
                 )}
               </div>
             </article>
@@ -1072,12 +1093,16 @@ function ArticleFigure({ figure }: { figure: ReadingFigure }) {
  * 上一版在「现在读」的时候自动 `window.open` 一次原文，这个组件取代的就是那件
  * 事。链接照旧带 `rel="noopener noreferrer"`。
  */
-function ExcerptOnlyNotice({ url }: { url: string }) {
+function ExcerptOnlyNotice({ url, onPaste }: { url: string; onPaste: () => void }) {
   return (
     <aside className="mk-reading-excerpt-note">
       <p className="mk-reading-excerpt-note__text">
         我们无法直接获取正文，如果想要阅读全文，请跳转原网站
       </p>
+      {/* 2026-09-17：跳过去看完还得回来 —— 把全文粘进来，后面的读法才按全文排。 */}
+      <button type="button" className="mk-reading-excerpt-note__cta" onClick={onPaste}>
+        粘贴全文
+      </button>
       {url ? (
         <a
           className="mk-reading-excerpt-note__cta"

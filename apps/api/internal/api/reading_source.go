@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -243,10 +245,7 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	// 她自己粘进来的、或者抓成功的那一份，都是正文 —— excerpt_only 归 false。
 	// 这也是从摘要升级成正文的那条路：她在摘要那一屏粘了全文，这一行就把
 	// 「跳转原网站」那一条收掉了。
-	row, err := a.d.Queries.UpsertReadingSource(r.Context(), sqlc.UpsertReadingSourceParams{
-		AtomID: at.ID, Title: title, Body: body, SourceUrl: nullableText(srcURL),
-		ExcerptOnly: false,
-	})
+	row, err := a.replaceReadingBody(r.Context(), at.ID, title, body, srcURL)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -309,4 +308,41 @@ func nullableText(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// replaceReadingBody 把一篇阅读的正文换成新的一份（粘贴和上传都走这里）。
+//
+// 她自己放进来的都是正文 —— excerpt_only 归 false。这也是从摘要升级成正文的那
+// 条路（产品负责人 2026-09-17：只有摘要时请她下载原文上传、或者粘贴全文）。
+//
+// 🚨 正文换了，按旧正文排的东西都要清掉：导读和版式由 UpsertReadingSource 自己
+// 清，读法清单在这里清。只有摘要的那一篇，她已经在两段话上排好了一份读法，
+// 粘成全文之后那份清单指的段落已经不是原来那两段了。清掉之后前端马上请一次
+// 重排（POST /plan）；那一次没成，下一次开口时教练那一轮也会按需重排。
+// 同一份正文再存一次不动清单。
+//
+// srcURL 为空而原来那一行有原网址时，原网址留着 —— 上传的 PDF 没有链接，但
+// 这篇文章仍然是那一个网页上的那一篇，「打开原文」不该因为她换了一种方式把
+// 全文放进来就消失。
+func (a *API) replaceReadingBody(ctx context.Context, atomID uuid.UUID, title, body, srcURL string) (sqlc.ReadingSource, error) {
+	previous, prevErr := a.d.Queries.GetReadingSource(ctx, atomID)
+	if srcURL == "" && prevErr == nil {
+		srcURL = derefOr(previous.SourceUrl, "")
+	}
+	row, err := a.d.Queries.UpsertReadingSource(ctx, sqlc.UpsertReadingSourceParams{
+		AtomID: atomID, Title: title, Body: body, SourceUrl: nullableText(srcURL),
+		ExcerptOnly: false,
+	})
+	if err != nil {
+		return sqlc.ReadingSource{}, err
+	}
+	if prevErr == nil && strings.TrimSpace(previous.Body) != strings.TrimSpace(body) {
+		if _, err := a.d.Queries.ReplaceReadingTasks(ctx, sqlc.ReplaceReadingTasksParams{
+			AtomID: atomID, Positions: []int32{}, Kinds: []string{}, Labels: []string{},
+			Details: []string{}, BlockIds: []string{},
+		}); err != nil {
+			slog.Warn("reading source: clearing the old plan failed", "err", err, "atom_id", atomID)
+		}
+	}
+	return row, nil
 }
