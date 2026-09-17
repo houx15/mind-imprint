@@ -79,6 +79,13 @@ func TestLiteClassSummaryCacheKeyRosterFingerprint(t *testing.T) {
 	if liteClassSummaryCacheKey(classID, now, gendered) == keyA {
 		t.Fatalf("setting a gender did not change the key: %q", keyA)
 	}
+
+	// A finished reading (Progress) refreshes the summary the same day.
+	read := []liteworkspace.Student{a[0], a[1]}
+	read[1].Progress = "r1/1 w0 p0/0 t3"
+	if liteClassSummaryCacheKey(classID, now, read) == keyA {
+		t.Fatalf("finishing a reading did not change the key: %q", keyA)
+	}
 }
 
 // TestLiteClassSummaryStorePanicRecovers pins the panic path: a panic

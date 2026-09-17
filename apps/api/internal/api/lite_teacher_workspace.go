@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/http"
@@ -611,6 +612,8 @@ func (a *API) liteWorkspaceRoster(ctx context.Context, classID uuid.UUID) ([]lit
 			ActiveDaysThisWeek: int(row.ActiveDaysThisWeek),
 			OverdueAssignments: int(overdue[row.ID]),
 			WritingsDone:       int(row.WritingsDone),
+			Progress: fmt.Sprintf("r%d/%d w%d p%d/%d t%d", row.ReadingsDone, row.ReadingsTotal,
+				row.WritingsTotal, row.ProjectsDone, row.ProjectsTotal, row.Turns),
 		})
 	}
 	return out, nil

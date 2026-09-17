@@ -276,9 +276,11 @@ func liteClassSummaryCacheKey(classID uuid.UUID, now time.Time, roster []litewor
 }
 
 // liteClassSummaryRosterFingerprint hashes the roster rows' activity fields —
-// the same three fields the workspace's list_students tool reads
-// (ActiveDaysThisWeek, OverdueAssignments, WritingsDone) — and each student's
-// gender, which the summary's pronouns follow. Any change to any
+// the three fields the workspace's list_students tool reads
+// (ActiveDaysThisWeek, OverdueAssignments, WritingsDone), her other counters
+// (Progress: readings, projects, turns; production 2026-09-17 kept a summary
+// all evening after two students finished the homework reading) — and each
+// student's gender, which the summary's pronouns follow. Any change to any
 // student's week changes the hash, which is what "roster change → recompute"
 // means: the cache does not know WHAT changed, only that something did.
 //
@@ -287,7 +289,7 @@ func liteClassSummaryCacheKey(classID uuid.UUID, now time.Time, roster []litewor
 func liteClassSummaryRosterFingerprint(roster []liteworkspace.Student) string {
 	rows := make([]string, len(roster))
 	for i, s := range roster {
-		rows[i] = fmt.Sprintf("%s:%d:%d:%d:%s", s.ID, s.ActiveDaysThisWeek, s.OverdueAssignments, s.WritingsDone, s.Gender)
+		rows[i] = fmt.Sprintf("%s:%d:%d:%d:%s:%s", s.ID, s.ActiveDaysThisWeek, s.OverdueAssignments, s.WritingsDone, s.Gender, s.Progress)
 	}
 	sort.Strings(rows)
 	sum := sha256.Sum256([]byte(strings.Join(rows, ";")))

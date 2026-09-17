@@ -87,6 +87,10 @@ type Student struct {
 	ActiveDaysThisWeek int    `json:"activeDaysThisWeek"`
 	OverdueAssignments int    `json:"overdueAssignments"`
 	WritingsDone       int    `json:"writingsDone"`
+	// Progress is a fingerprint of her other counters (readings, projects,
+	// turns). The model never sees it; the class summary cache keys on it so a
+	// finished reading refreshes the summary the same day.
+	Progress string `json:"-"`
 }
 
 // StudentFilter is the closed set list_students accepts. Every member must be
