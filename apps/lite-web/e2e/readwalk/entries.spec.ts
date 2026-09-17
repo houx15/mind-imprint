@@ -461,7 +461,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   // ─────────────────────── 5. 段落工具条 ───────────────────────
   if (!(await page.locator(".mk-reading-room__article").count())) {
     await page.goto(`/readings/${id}`);
-    await Promise.race([page.locator(".mk-reading-room__article").first().waitFor({ timeout: 60_000 }), page.getByText("阅读任务完成数").first().waitFor({ timeout: 60_000 })]).catch(() => {});
+    await Promise.race([page.locator(".mk-reading-room__article").first().waitFor({ timeout: 60_000 }), page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 })]).catch(() => {});
     const again0 = page.getByRole("button", { name: "继续阅读" });
     if (await again0.count()) {
       note("走查途中提前完成了，先继续阅读再测工具", "look");
@@ -544,14 +544,15 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       note(`工具条上有${name}`, "bad");
       continue;
     }
-    const input = page.locator(".mk-tool-answer__input").first();
+    // 🚨 上一件工具的面板在新的一件出来之前还留着（连同它的输入框）—— 要等标着
+    // 这件工具名字的那一块，否则仿写的答案会写进想一想的框里。
+    const input = page
+      .locator("[data-block-tools]")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .locator(".mk-tool-answer__input")
+      .first();
     await input.waitFor({ timeout: 90_000 }).catch(() => {});
-    await page
-      .waitForFunction(() => {
-        const el = document.querySelector<HTMLTextAreaElement>(".mk-tool-answer__input");
-        return !!el && !el.disabled && !el.readOnly;
-      }, null, { timeout: 90_000 })
-      .catch(() => {});
+    await page.waitForTimeout(500);
     if (!(await input.count()) || !(await input.isEditable().catch(() => false))) {
       await snap(page, `tool-${name}-noinput`);
       note(`${name}：下面有输入框`, "bad");
@@ -629,7 +630,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const dialogText = await dialog.innerText();
   note("完成确认框文案", /透镜|不可再修改|不能再改/.test(dialogText) ? "bad" : "look", dialogText.replace(/\n/g, " ").slice(0, 200));
   await dialog.getByRole("button", { name: "完成，看报告" }).click();
-  await page.getByText("阅读任务完成数").first().waitFor({ timeout: 150_000 });
+  await page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 150_000 });
   await page.waitForTimeout(2000);
   const report1 = await page.locator("body").innerText();
   note("报告有「段落工具」一节", /段落工具/.test(report1) ? "ok" : "bad");
@@ -655,14 +656,14 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       const anon = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       const pub = await anon.newPage();
       await pub.goto(publicUrl);
-      await pub.getByText("阅读任务完成数").first().waitFor({ timeout: 60_000 }).catch(() => {});
+      await pub.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 }).catch(() => {});
       const pubText = await pub.locator("body").innerText();
       note("分享页：没勾时看不到段落工具", /段落工具/.test(pubText) ? "bad" : "ok");
       if (checked === false) {
         await toolsBox.check().catch(() => {});
         await page.waitForTimeout(2500);
         await pub.reload();
-        await pub.getByText("阅读任务完成数").first().waitFor({ timeout: 60_000 }).catch(() => {});
+        await pub.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 }).catch(() => {});
         note("分享页：勾上之后能看到段落工具", /段落工具/.test(await pub.locator("body").innerText()) ? "ok" : "bad");
       }
       await anon.close();
@@ -673,7 +674,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
 
   // ─────────────────────── 7. 继续阅读 → 再完成 ───────────────────────
   await page.goto(`/readings/${id}`);
-  await page.getByText("阅读任务完成数").first().waitFor({ timeout: 60_000 });
+  await page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 });
   const again = page.getByRole("button", { name: "继续阅读" });
   if (!(await again.count())) {
     note("报告上有「继续阅读」", "bad");
@@ -702,7 +703,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     const d2 = page.getByRole("dialog", { name: "完成这篇" });
     await d2.waitFor({ timeout: 10_000 });
     await d2.getByRole("button", { name: "完成，看报告" }).click();
-    await page.getByText("阅读任务完成数").first().waitFor({ timeout: 150_000 });
+    await page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 150_000 });
     await page.waitForTimeout(2000);
     const report2 = await page.locator("body").innerText();
     fs.writeFileSync(path.join(OUT, "report-v2.txt"), report2);
@@ -712,7 +713,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       const anon = await browser.newContext();
       const pub = await anon.newPage();
       await pub.goto(publicUrl);
-      await pub.getByText("阅读任务完成数").first().waitFor({ timeout: 60_000 }).catch(() => {});
+      await pub.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 }).catch(() => {});
       const t = await pub.locator("body").innerText();
       note("同一个分享链接显示新版本", /第\s*2\s*版|作者继续阅读后/.test(t) ? "ok" : "bad");
       await anon.close();
