@@ -53,6 +53,16 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 ## 你怎么带
 
+- 🚨 **你是在当面跟她说话。回复里一律用「你」称呼她，一个「她」字都不要出现。**
+  下面这份说明书从头到尾用「她」指这个学生（「她读完一部分答一次」），那是**写给
+  你看的**；你写出去的话是**说给她本人听的**。产品负责人 2026-09-17 逐字报的：
+  「the AI often says 她, but we are talking.」
+  （文章本身讲的是某个女性时，引原文里那个「她」当然照旧。）
+- 🚨 **reply 里绝对不要出现 advance、focusBlock、card、lens 这些字。**
+  它们是 JSON 里的键，是你跟系统之间的事，她屏幕上没有这些东西。
+  她逐字读到过：「这一步做完。advance给done。」—— 那一句对她毫无意义，
+  而它恰好出现在一步结束、她最需要知道下一步干什么的时候。
+  这一步做完了，就在 JSON 的 advance 字段里写 done，**话里一个字都别提**。
 - **一次只领一步。** 说清楚当前这一步要她做什么，说完就停，等她。不要一口气讲两步。
 - 说话要短，但**短不等于什么都不说**。不超过 200 个字。
   值得教的时候就教：先说清这一步为什么重要（一句），再说该怎么做，
@@ -1404,6 +1414,10 @@ type readingCoachReply struct {
 	// 「又引错了」和「它把原文两句压成一句」是两件不同的事。
 	// 和 twoAsks 一样：不丢任何东西，只让这一轮重来一次。
 	ghostQuote string
+	// leak：这一轮说漏嘴了 —— 把协议词写进了她读到的话里（「advance给done」），
+	// 或者当着她的面把她叫成「她」。见 reading_coach_leak.go。
+	// 和 twoAsks 一样：不丢任何东西，只让这一轮重来一次。
+	leak string
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
@@ -2038,6 +2052,15 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.ghostQuote = firstGhostQuote(parsed.Reply, readingQuoteCorpus(
 			src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, parsed.Card, lensDone))
 	}
+	// 🚨 说漏嘴的两种（产品负责人 2026-09-17 第三轮走查，见
+	// reading_coach_leak.go）：协议词写进了正文，或者当面把她叫成「她」。
+	if okParse {
+		if w := firstProtocolLeak(parsed.Reply); w != "" {
+			parsed.leak = "the reply prints the protocol word " + w + " where she can read it"
+		} else if replyCallsHerShe(parsed.Reply, blocks) {
+			parsed.leak = "the reply calls her 「她」 to her face"
+		}
+	}
 	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
 	// 再问一次。
 	//
@@ -2059,7 +2082,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 产品负责人报的第 5 条就是这两轮。
 	if okParse && (parsed.cardWhy == cardRejectPromised || parsed.cardWhy == cardRejectCutOff ||
 		parsed.cardWhy == cardRejectDeadTurn || parsed.lensRetry || parsed.twoAsks ||
-		parsed.ghostQuote != "" ||
+		parsed.ghostQuote != "" || parsed.leak != "" ||
 		parsed.cardWhy == cardRejectOneBlock || parsed.cardWhy == cardRejectFewOptions ||
 		parsed.cardWhy == cardRejectFewWords || parsed.cardWhy == cardRejectBannedForm ||
 		parsed.cardWhy == cardRejectNoArgument) {
@@ -2073,6 +2096,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		if parsed.ghostQuote != "" {
 			why = "the reply quotes a sentence that is not in the article, on the card, or in her own words: " + parsed.ghostQuote
 		}
+		if parsed.leak != "" {
+			why = parsed.leak
+		}
 		slog.Warn("reading coach: reply looks broken, retrying once",
 			"why", why,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -2083,6 +2109,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 第二次只在**它确实更好**的时候采用：解析得动，而且没有被判失败。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				!again.lensRetry && !again.twoAsks &&
+				firstProtocolLeak(again.Reply) == "" && !replyCallsHerShe(again.Reply, blocks) &&
 				// 第二张板也一样要过体裁那一关，否则「重来一次」只是把同一张
 				// 不适用的板又发了一遍。
 				!(again.Card != nil && again.Card.Type == coachCardLabelRoles &&
@@ -2276,6 +2303,17 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.cardWhy = cardOK
 		slog.Info("reading coach: promised a card and had none, fell back",
 			"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
+	}
+
+	// 🚨 两次都把协议词写进了正文，就把漏出来的那一句拿掉。
+	//
+	// 这不是改写它的话：被拿掉的那一句是**我们自己的脚手架**
+	// （「这一步做完。advance给done。」的后半句），不承载任何教学内容，而她
+	// 读到它只会以为屏幕坏了。见 stripProtocolLeak。
+	if w := firstProtocolLeak(parsed.Reply); w != "" {
+		parsed.Reply = stripProtocolLeak(parsed.Reply)
+		slog.Info("reading coach: stripped a protocol word from the reply",
+			"atom_id", at.ID, "word", w)
 	}
 
 	// The card rides on the AI message's payload (0106), inside the same

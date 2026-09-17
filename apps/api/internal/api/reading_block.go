@@ -30,6 +30,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -257,6 +258,22 @@ func parseShapedBlockReply(shape, text string) (string, bool) {
 	return "", false
 }
 
+// readingBlockSystemFor 把字数上限填进去。
+//
+// 🚨 上限**按工具**给，不再是一个写死的 200。2026-09-17 把「把握度」并进
+// 「写作解析」之后，那一件要在同一段话里讲两件事（这一段在干什么 + 作者说得
+// 有多满），200 字装不下；而别的工具一个字都不该多写 —— 讲解越长她越不读。
+func readingBlockSystemFor(t readingBlockTool) string {
+	cap := t.MaxRunes
+	if cap <= 0 {
+		cap = readingBlockDefaultMaxRunes
+	}
+	return fmt.Sprintf(readingBlockSystem, cap) + t.Instruction + readingShapedSuffix[t.Shape]
+}
+
+// readingBlockDefaultMaxRunes 是一件工具默认最多写多少字。
+const readingBlockDefaultMaxRunes = 200
+
 const readingBlockSystem = `你是「印记」，正在给一个中学生讲解她点开的**这一段**。
 
 你只讲这一段。上下文给你，是为了让你知道这一段在整篇里的位置，不是让你去讲整篇。
@@ -264,7 +281,7 @@ const readingBlockSystem = `你是「印记」，正在给一个中学生讲解�
 共同的规矩：
 - 直接讲，不要「好的」「让我们来看看」这类开场白。
 - 讲给一个中学生听：把话说清楚，不要用他没学过的术语；非用不可就顺手解释一句。
-- 不超过 200 个字。讲不满不要凑。
+- 不超过 %d 个字。讲不满不要凑。
 - 用中文讲解（哪怕原文是英文）。
 
 这一次要做的是：`
@@ -516,7 +533,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: readingBlockSystem + tool.Instruction + readingShapedSuffix[tool.Shape]},
+			{Role: gateway.RoleSystem, Content: readingBlockSystemFor(tool)},
 			{Role: gateway.RoleUser, Content: buildReadingBlockPrompt(src.Title, blocks, idx, sentence)},
 		},
 	})
