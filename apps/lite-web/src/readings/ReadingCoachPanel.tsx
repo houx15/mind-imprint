@@ -694,7 +694,7 @@ export function ReadingCoachPanel({
           >
             <p className="text-mk-label text-mk-accent-700">读法已全部完成</p>
             <p className="text-mk-small leading-relaxed text-mk-ink">
-              报告会汇总这一篇的阅读时长、划线、笔记与透镜发现。完成后本篇不可再修改。
+              报告会汇总这一篇的阅读时长、划线、笔记与段落工具记录。完成后仍可继续阅读，再次完成时报告会重新生成。
             </p>
             <div className="flex justify-end">
               <Button onClick={onFinish}>完成阅读，生成报告</Button>
