@@ -48,7 +48,9 @@ var coachGenreBoards = map[string]coachGenreBoard{
 	genreReport: {
 		Bins:   []string{"事实", "引述", "解释"},
 		Prompt: "分析下列句子，判断它们各自是报道中的哪一类信息。",
-		Named:  "「事实 / 引述 / 解释」——记者核实的事、某一方说的话、对事件的解释或推断",
+		// 🚨 引述包括转述：「Some residents blamed the council」没有引号，
+		// 仍然是某一方的说法，不是记者核实的事实（2026-09-18 线上走查）。
+		Named:  "「事实 / 引述 / 解释」——记者核实的事、某一方的说法（直接引用或转述都算）、对事件的解释或推断",
 	},
 	// PRD：文章内容 = 说明对象、主要的说明部分；搭出结构或过程。
 	genreExplain: {

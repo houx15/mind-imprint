@@ -165,3 +165,26 @@ func TestGenreSurvivesARejectedOutline(t *testing.T) {
 		t.Errorf("作废的导读被存进去了：%s", src.Outline)
 	}
 }
+
+// 🚨 2026-09-18 线上走查（记叙文，排出事件顺序）：排序板开着、没交，印记 说
+// 「把下方的卡片拖到上面」—— 说的正是那块板 —— 兜底却又递了一张
+// 「请在文章里点出你想说的那一句」。她屏幕上于是两张卡加一块板。
+func TestNoFallbackCardWhileABoardIsOpen(t *testing.T) {
+	const reply = `{"reply":"把下面这几张卡片拖到它们该在的位置，按发生的先后排。","advance":"","focusBlock":"","card":null}`
+	h, cookie, id, q := setupReportReading(t, reply,
+		[]string{"sequence", "hunt"}, []string{"排出事件时间线", "找出关键句"})
+	// 上一轮 印记 已经发了一块排序板，她还没交。
+	board := `{"card":{"type":"order_events","prompt":"请按事情发生的先后，排列下列事件。","options":[` +
+		`{"blockId":"b2","quote":"周五夜里，暴雨抵达城东，河水在两小时内漫过了堤岸。"},` +
+		`{"blockId":"b3","quote":"市政府在周三就发布了撤离通知，周四起全区学校停课。"},` +
+		`{"blockId":"b5","quote":"到了周日，城东大部分家庭恢复了供电。"}]}}`
+	if _, err := q.AppendAtomMessage(context.Background(), sqlc.AppendAtomMessageParams{
+		AtomID: uuid.MustParse(id), Seq: 1, Role: "ai", Content: "排一排这几件事。", Payload: []byte(board),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := coachTurnRaw(t, coachTurn(t, h, cookie, id, "我不知道先动哪一张"))
+	if card, ok := out["coachCard"].(map[string]any); ok && card != nil {
+		t.Errorf("板还开着，却又递了一张卡：%v", card)
+	}
+}

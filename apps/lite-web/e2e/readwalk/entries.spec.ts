@@ -590,15 +590,20 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const firstSentence = (zh ? p3text.split(/(?<=[。！？])/)[0] : p3text.split(/(?<=[.!?])\s/)[0]) ?? p3text;
   if (await selectText(page, pIdx + 1, firstSentence)) {
     await page.waitForTimeout(1200);
-    const vis = await page.locator("button:visible").allInnerTexts();
-    note("划一句 → 能问语法", vis.some((s) => /语法/.test(s)) ? "ok" : "look", vis.filter((s) => s.length < 12).slice(-12).join(" / "));
+    // 🚨 看的是**贴着选区的那条工具条**（.mk-seltools），不是整屏的按钮 ——
+    // 段落工具条上本来就有「语法」「查词」，拿整屏来判，这条永远是 ok。
+    const vis = await page.locator(".mk-seltools button:visible").allInnerTexts();
+    const kept = await page.evaluate(() => (window.getSelection()?.toString() ?? "").trim().length > 0);
+    note("划一句 → 选区还在、贴着它能问语法", kept && vis.some((s) => /语法/.test(s)) ? "ok" : "bad", `选区还在=${kept}；工具条：${vis.join(" / ")}`);
     await snap(page, "select-sentence");
   }
   const oneWord = zh ? p3text.slice(0, 2) : (p3text.match(/[A-Za-z]{6,}/) ?? ["question"])[0];
   if (await selectText(page, pIdx + 1, oneWord)) {
     await page.waitForTimeout(1200);
-    const vis = await page.locator("button:visible").allInnerTexts();
-    note("划一个词 → 能查词义", vis.some((s) => /查词|词义/.test(s)) ? "ok" : "look", `划了「${oneWord}」；` + vis.filter((s) => s.length < 12).slice(-12).join(" / "));
+    const vis = await page.locator(".mk-seltools button:visible").allInnerTexts();
+    const kept = await page.evaluate(() => (window.getSelection()?.toString() ?? "").trim().length > 0);
+    // 中文文章上没有查词（它是英文工具），工具条本来就不出现。
+    note("划一个词 → 选区还在、贴着它能查词义", kept && vis.some((s) => /查词/.test(s)) ? "ok" : zh ? "look" : "bad", `划了「${oneWord}」；选区还在=${kept}；工具条：${vis.join(" / ")}`);
     await snap(page, "select-word");
   }
   await page.keyboard.press("Escape");

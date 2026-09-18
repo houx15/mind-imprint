@@ -1100,7 +1100,13 @@ func buildReadingCoachPrompt(
 	// 一句引语都没有 —— 她照着做不到，当场卡死。
 	//
 	// 递出去的东西要让它知道，这和「没送到要告诉它」是同一条闭环的两半。
-	if card := lastOpenCard(tail); card != nil {
+	card := lastOpenCard(tail)
+	if card == nil {
+		// 最后一条 印记 的话没带卡，但更早那块板还开着、还没交 —— 它仍然在她
+		// 屏幕上。见 openBoard。
+		card = openBoard(tail)
+	}
+	if card != nil {
 		b.WriteString("\n【她屏幕上现在摆着这张卡片，你看不到，所以照着它说话】\n")
 		b.WriteString("类型：" + card.Type + "　问题：" + card.Prompt + "\n")
 		for i, o := range card.Options {
@@ -1425,6 +1431,40 @@ func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
 			return nil
 		}
 		return p.Card
+	}
+	return nil
+}
+
+// openBoard —— 她屏幕上还开着、还没交的那块板（标注板 / 生词板 / 排序板）。
+//
+// 和 lastOpenCard 不一样：那个只看**最后一条** 印记 的话带的卡片。一块板发出去
+// 之后，印记 接着说一句话（或者兜底又递了一张卡），板就不再是「最后一张」了 ——
+// 但它还摆在她屏幕上，没交。
+//
+// 🚨 2026-09-18 线上走查（记叙文，排出事件顺序）：排序板开着，印记 说「把下方的
+// 卡片拖到上面」—— 说的正是那块板 —— 而「说了卡却没给卡」的兜底又递了一张
+// 「请在文章里点出你想说的那一句」。她屏幕上于是两张卡加一块板，三件事同时要她做。
+func openBoard(msgs []sqlc.AtomMessage) *coachCard {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role == "student" {
+			if a := coachAnswerFromPayload(m.Payload); a != nil && answeredBoard(a) {
+				// 最近的一块板已经交了。
+				return nil
+			}
+			continue
+		}
+		if m.Role != "ai" || len(m.Payload) == 0 {
+			continue
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(m.Payload, &p); err != nil || p.Card == nil {
+			continue
+		}
+		switch p.Card.Type {
+		case coachCardLabelRoles, coachCardWordBank, coachCardOrderEvents:
+			return p.Card
+		}
 	}
 	return nil
 }
@@ -2159,6 +2199,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 	genre := decodeOutline(src.Outline).Genre
+	// 她屏幕上还开着一块没交的板：话里说「拖到」「格子」「下面这块板」，说的就是
+	// 它 —— 这一轮不是「说了卡却没给」，不为它重来，也不兜一张卡。见 openBoard。
+	boardOpen := openBoard(msgs) != nil && !answeredBoard(req.CardAnswer)
+	if okParse && boardOpen && parsed.cardWhy == cardRejectPromised {
+		parsed.cardWhy = cardRejectNoCard
+	}
 	// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
 	//
 	// 她摆完的结果原样在转写里（「限制：」加上那一句），所以这是它没读，不是
@@ -2474,7 +2520,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 「把每一句拖到它该在的角色里」，屏幕上一块板都没有。
 	// 板数上限对兜底一样生效 —— 模型那块被上限挡掉的板不能从这里再建出来。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
-		cur.Kind != string(taskSequence) &&
+		cur.Kind != string(taskSequence) && !boardOpen &&
 		countLabelBoards(msgs) < maxLabelBoards &&
 		((cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply))) ||
 			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
@@ -2516,7 +2562,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
 	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
 	// 的时候才用那句中性的。
-	if !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
+	if !anyOpen && !toolAnswerTurn && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
 		parsed.Card = fallbackCardFor(parsed.askedPrompt, parsed.Reply)
 		parsed.cardWhy = cardOK
 		slog.Info("reading coach: promised a card and had none, fell back",
