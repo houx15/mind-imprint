@@ -2268,6 +2268,16 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.lensRetry = true
 		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
 	}
+	// 🚨 她刚交了板（板随即收走），话里却让她「挪到某一格」。
+	//
+	// prompt 里「不要再让她动那块板」写着，2026-09-18 线上报道那篇走查仍然连着
+	// 两次说「把这一句从事实挪到引述那一格」，她屏幕上什么都没有，当场卡住。
+	// 以前兜底会真的摆一块新板；那一版「做完一步就交下一步」之后，这一轮的
+	// 后半段在交下一步，再摆一块旧板就是两件事叠在一起。所以先重来一次。
+	if okParse && !parsed.lensRetry && answeredBoard(req.CardAnswer) && replyAsksToMoveOnABoard(parsed.Reply) {
+		parsed.lensRetry = true
+		parsed.lensRetryWhy = "the board was just submitted and is gone; the reply still asks her to move a card"
+	}
 	// 🚨 一篇文章里这块板只摆一次 —— 加上一次改正的机会。
 	//
 	// 产品负责人 2026-09-17 逐字：「only one such practice in one paper is
@@ -2384,6 +2394,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			// 第二次只在**它确实更好**的时候采用：解析得动，而且没有被判失败。
 			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
 				!again.lensRetry && !again.twoAsks &&
+				!(answeredBoard(req.CardAnswer) && replyAsksToMoveOnABoard(again.Reply)) &&
 				firstProtocolLeak(again.Reply) == "" && !replyCallsHerShe(again.Reply, blocks) &&
 				// 第二张排序板也一样要过体裁那一关，否则「重来一次」只是把同一张
 				// 不适用的板又发了一遍。
@@ -2572,10 +2583,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
 		cur.Kind != string(taskSequence) && !boardOpen &&
 		countLabelBoards(msgs) < maxLabelBoards &&
-		// 🚨 她这一轮交的就是板（answeredBoard）：话里的「格子」「放进」说的是她刚摆完的
-		// 那一块，而这一轮还要把下一步交给她（readingNextStepHandoff）。在这里再兜一块板，
-		// 就是 2026-09-18 同事看到的「板后面又来一张没头没尾的卡」。
-		!answeredBoard(req.CardAnswer) &&
+		// 🚨 她这一轮交的就是板（answeredBoard）时，只有话里**真的在叫她挪**才兜
+		// （重来一次之后还这么说，见 replyAsksToMoveOnABoard）。别的情况下话里的
+		// 「格子」「放进」说的是她刚摆完的那一块，这一轮的后半段在交下一步
+		// （readingNextStepHandoff），再兜一块旧板就是两件事叠在一起。
+		(!answeredBoard(req.CardAnswer) || replyAsksToMoveOnABoard(parsed.Reply)) &&
 		(cur.Kind == string(taskLabel) ||
 			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
 		focus := parsed.FocusBlock
@@ -2927,6 +2939,35 @@ func dropAlreadyPlaced(c *coachCard, placed map[string]string) *coachCard {
 	out := *c
 	out.Options = fresh
 	return &out
+}
+
+// replyAsksToMoveOnABoard —— 话里在叫她把一张卡挪进某一格：一个「挪」的祈使动词，
+// 同一句里点了一个格子名。
+//
+// 动词比 coachMoveVerbs 窄：「放进」「放到」在肯定句里太常见（「你把这句放进论点，
+// 很准」），这里只认挪 / 移 / 拖 / 改放 / 换到 —— 说这几个字的时候，就是在叫她动手。
+func replyAsksToMoveOnABoard(reply string) bool {
+	verbs := []string{"挪到", "挪进", "挪回", "移到", "移进", "拖到", "拖进", "改放", "换到"}
+	for _, sent := range strings.FieldsFunc(reply, func(r rune) bool {
+		return r == '。' || r == '！' || r == '？' || r == '\n'
+	}) {
+		moves := false
+		for _, v := range verbs {
+			if strings.Contains(sent, v) {
+				moves = true
+				break
+			}
+		}
+		if !moves {
+			continue
+		}
+		for _, l := range allBoardLabels() {
+			if strings.Contains(sent, l) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // coachMoveVerbs —— 「把它挪过去」的说法。

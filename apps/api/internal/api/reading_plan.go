@@ -544,6 +544,35 @@ func (a *API) planReadingTasks(
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
 	}
 
+	// 🚨 导读写成了英文：再问一次，把它自己那一份和理由一起还给它。
+	//
+	// 2026-09-18 线上走查（英文故事那篇）：oneLine、gist、shape、parts 全是英文，
+	// 整份导读被丢掉 —— 通读因此没切成几部分，读完也没有「全文总结」。prompt
+	// 里「全部用中文写」写了两遍，判据（hasCJK）早就有，缺的是**判出来之后**
+	// 做点什么（[[prompt-twice-then-make-it-checkable-2026-09-12]]）。
+	// 重问那一份整份过了校验才换上；没过就用第一份（导读照旧丢掉，体裁留下）。
+	if _, why := validateOutlineWhy(plan.outline(), blocks); why == outlineRejectNotCJK {
+		retry, rerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: readingPlanSystem},
+				{Role: gateway.RoleUser, Content: buildReadingPlanPrompt(lang, src.Title, blocks)},
+				{Role: gateway.RoleAssistant, Content: res.Text},
+				{Role: gateway.RoleUser, Content: "导读（oneLine、gist、shape、parts 的 title 和 does）写成了英文。" +
+					"界面是中文的，请把整份 JSON 原样重给一遍，只把导读这几项改用中文写（人名、地名、机构名照抄原文）。"},
+			},
+		})
+		a.recordLiteLLMCall(ctx, userID, atomID, "reading_plan", resolved, retry.Usage)
+		if rerr == nil {
+			if p2, r2, rj2 := parseReadingPlan(retry.Text, lang); rj2 == planOK {
+				if _, why2 := validateOutlineWhy(p2.outline(), blocks); why2 == outlineOK {
+					plan, routine = p2, r2
+				}
+			}
+		}
+		slog.Info("reading plan: outline was English, asked again", "atom_id", atomID,
+			"fixed", func() bool { _, w := validateOutlineWhy(plan.outline(), blocks); return w == outlineOK }())
+	}
+
 	// 读法跟着体裁走（reading_genre.go）。换过读法，模型对着原来那一套写的
 	// 每一步说明就对不上了 —— 丢掉，用读法库自己那几句。
 	if fitted := pickRoutineForGenre(routine, plan.Genre); fitted.Key != routine.Key {

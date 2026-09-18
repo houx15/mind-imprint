@@ -1126,7 +1126,7 @@ export function ReadingRoom({
           <div className="mk-finishask__card">
             <h2 className="text-mk-h3 text-mk-ink">完成这篇？</h2>
             <p className="mt-2 text-mk-body leading-relaxed text-mk-secondary">
-              你走过的每一步会汇总成一份阅读报告。之后在报告页点「继续阅读」可以回到这里接着读，再次完成时报告会重新生成。
+              你走过的每一步会汇总成一份阅读报告。之后可在报告页的「查看阅读记录」里继续阅读，再次完成时报告会重新生成。
             </p>
             {/* She is handing in homework; say so. */}
             {assignment && (

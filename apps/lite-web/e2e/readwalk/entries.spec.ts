@@ -697,9 +697,13 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   // ─────────────────────── 7. 继续阅读 → 再完成 ───────────────────────
   await page.goto(`/readings/${id}`);
   await page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 });
+  // 2026-09-18 起继续阅读在「查看阅读记录」那一页的末尾（完成页顶上只留返回）。
+  const record = page.getByRole("button", { name: "查看阅读记录" });
+  note("报告右上角有「查看阅读记录」", (await record.count()) ? "ok" : "bad");
+  if (await record.count()) await record.click();
   const again = page.getByRole("button", { name: "继续阅读" });
   if (!(await again.count())) {
-    note("报告上有「继续阅读」", "bad");
+    note("阅读记录页上有「继续阅读」", "bad");
   } else {
     const hint = await page.getByText(/继续阅读后，再次完成时报告会按新的阅读记录重新生成/).count();
     note("继续阅读下面说明报告会重新生成", hint ? "ok" : "bad");

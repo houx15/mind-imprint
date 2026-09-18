@@ -52,6 +52,30 @@ func TestQuestionInTakesJustTheQuestion(t *testing.T) {
 	}
 }
 
+// 她刚交了板、板已收走，话里还叫她挪（2026-09-18 线上报道那篇走查，连着两次卡住）。
+// 肯定句里的「放进」不算。
+func TestMoveOnASubmittedBoardIsCaught(t *testing.T) {
+	asks := []string{
+		"把这一句从\"事实\"挪到\"引述\"那一格。",
+		"这一句该挪到「论点」格。",
+	}
+	for _, r := range asks {
+		if !replyAsksToMoveOnABoard(r) {
+			t.Errorf("没抓到叫她挪：%q", r)
+		}
+	}
+	fine := []string{
+		"你把 Ruth 的话放进了引述格，这个判断很准。",
+		"这一句挪到后面再说。下一步请看第5段。",
+		"论点和论据你都分得清楚。",
+	}
+	for _, r := range fine {
+		if replyAsksToMoveOnABoard(r) {
+			t.Errorf("误伤了一句正常的话：%q", r)
+		}
+	}
+}
+
 // 2026-09-18 同事：「出现新的分析的时候，原来的例子没有清除」。新板上夹着上一块板
 // 摆过的句子就拿掉；整块都是摆过的句子（重摆一次）就原样留着。
 func TestNewBoardDropsSentencesAlreadyPlaced(t *testing.T) {
