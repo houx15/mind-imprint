@@ -4,7 +4,7 @@ export interface Feature {
   icon: string;
   tone: string;
   name: Copy;
-  label: string;
+  label: Copy;
   title: Copy;
   desc: Copy;
   action: Copy;
@@ -19,7 +19,7 @@ export const features: Feature[] = [
     icon: "orbit",
     tone: "blue",
     name: ["探索与兴趣树", "Exploration & interests"],
-    label: "CURIOSITY",
+    label: ["好奇与探索", "CURIOSITY"],
     title: [
       "从真正的兴趣，发现值得研究的问题。",
       "Turn genuine curiosity into a question worth exploring.",
@@ -52,7 +52,7 @@ export const features: Feature[] = [
     icon: "book",
     tone: "green",
     name: ["中英文阅读", "Chinese & English reading"],
-    label: "READING",
+    label: ["阅读", "READING"],
     title: [
       "读懂材料，也学会判断材料。",
       "Understand the text. Examine the evidence.",
@@ -83,7 +83,7 @@ export const features: Feature[] = [
     icon: "pen",
     tone: "peach",
     name: ["中英文写作", "Chinese & English writing"],
-    label: "WRITING",
+    label: ["写作", "WRITING"],
     title: [
       "让每一段论证，都有自己的思考。",
       "Help students develop an argument of their own.",
@@ -117,7 +117,7 @@ export const features: Feature[] = [
     icon: "shapes",
     tone: "yellow",
     name: ["项目式学习", "Project-based learning"],
-    label: "PROJECTS",
+    label: ["项目", "PROJECTS"],
     title: ["把一个想法，做成值得展示的项目。", "Take an idea into the world."],
     desc: [
       "学生与 AI 共同制定计划、开展调查、审查方案和制作成果。需要判断与决策时，思维工具帮助学生进一步思考。",
@@ -141,7 +141,7 @@ export const features: Feature[] = [
     icon: "spark",
     tone: "purple",
     name: ["课程体系", "Curriculum & courses"],
-    label: "COURSES",
+    label: ["课程", "COURSES"],
     title: [
       "在真实情境里，练习思考的方法。",
       "Practice thinking in real situations.",
@@ -172,7 +172,7 @@ export const features: Feature[] = [
     icon: "chart",
     tone: "mint",
     name: ["过程评估", "Process assessment"],
-    label: "LEARNING INSIGHTS",
+    label: ["学习洞察", "LEARNING INSIGHTS"],
     title: [
       "看见学生怎样思考，找到下一步的支持。",
       "See how students think. Know where to support them.",
