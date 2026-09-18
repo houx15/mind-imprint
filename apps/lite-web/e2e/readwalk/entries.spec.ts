@@ -403,11 +403,16 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       continue;
     }
     if (a.kind === "place") {
+      // 🚨 和 screen.ts 数的必须是**同一块板**：还开着、不是排序板的那块。
+      // 只在描述那一侧排除交过的板、动作这一侧仍然全页数，格子的下标就错位了 ——
+      // 她点的是屏幕上那块板的「动作描写」，runner 点进的是上面一块交过的板
+      // （2026-09-18 记叙文复走，同一个摆放连着二十步没生效）。
+      const live = page.locator(".mk-board:not(.mk-order):not(.is-done)").last();
       const want = screen.board?.chips[a.chip]?.text ?? "";
       const chip = want
-        ? page.locator(".mk-board__chip", { hasText: want }).first()
-        : page.locator(".mk-board__chip").nth(a.chip);
-      const bin = page.locator(".mk-board__bin").nth(a.bin);
+        ? live.locator(".mk-board__chip", { hasText: want }).first()
+        : live.locator(".mk-board__chip").nth(a.chip);
+      const bin = live.locator(".mk-board__bin").nth(a.bin);
       if ((await chip.count()) && (await bin.count())) {
         await chip.click();
         await bin.click();
@@ -439,7 +444,10 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const focus = tasks.filter((t) => t.kind === "focus_block");
   note("精读挑了几段就走几步", "look", `精读 ${focus.length} 步：${focus.map((t) => t.label).join(" / ")}`);
   note("清单里没有透镜", tasks.some((t) => t.kind === "lens") ? "bad" : "ok", tasks.map((t) => t.kind).join(","));
-  const boards = tasks.filter((t) => /板|论证|主张|观点/.test(t.label));
+  // 数的是**标注那一步**（kind=label），不是名字里带「论证/观点」的步骤 ——
+  // en-argument 的「观点变化」是链接经验那一步，而通读的部分标题是模型起的，
+  // 「通读第4–6段·论证与转折」也会被一个按名字的正则算进来（2026-09-18 误报）。
+  const boards = tasks.filter((t) => t.kind === "label");
   note("论证练习只有一次", boards.length <= 2 ? "ok" : "bad", boards.map((t) => t.label).join(" / "));
   note("通读时文章上有「现在读这一部分」指引", guidanceSeen > 0 ? "ok" : readSteps ? "bad" : "look", `通读步里看到 ${guidanceSeen}/${readSteps} 次`);
   const stuckTask = [...turnsOnTask.entries()].sort((a, b) => b[1] - a[1])[0];

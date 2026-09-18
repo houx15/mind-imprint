@@ -1461,10 +1461,18 @@ func openBoard(msgs []sqlc.AtomMessage) *coachCard {
 		if err := json.Unmarshal(m.Payload, &p); err != nil || p.Card == nil {
 			continue
 		}
+		// 🚨 **最新的那张卡**说了算，不是「最近的一块板」。
+		//
+		// 板后面又来过一张卡，屏幕上那块板就收起来了（CoachCard 的 stale：
+		// 后面有更新的卡，旧的折成一行）—— 它不再摆在她眼前。第一版往回一直找
+		// 到一块板为止，于是一块十几轮前没交、早就折起来的板被当成「开着」，
+		// 印记 在精读那一步说「把这几句摆到位置上」，兜底却因为「板还开着」
+		// 没有补板：她屏幕上什么都没有，连着四十步在找（2026-09-18 议论文复走）。
 		switch p.Card.Type {
 		case coachCardLabelRoles, coachCardWordBank, coachCardOrderEvents:
 			return p.Card
 		}
+		return nil
 	}
 	return nil
 }
