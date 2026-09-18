@@ -69,6 +69,7 @@ export function ReportPanel({
   kind,
   atomId,
   fallback,
+  onOpenRecord,
 }: {
   kind: AtomKind;
   atomId: string;
@@ -79,6 +80,8 @@ export function ReportPanel({
    *  silently drop her own words off the page rather than merely omitting a
    *  summary. Hosts pass the same content in its pre-report form. */
   fallback?: React.ReactNode;
+  /** 「查看阅读记录」，摆在导出 / 分享旁边。宿主给了才有。 */
+  onOpenRecord?: () => void;
 }) {
   const [report, setReport] = useState<LiteReport | null>(null);
   // 那一次自动补请求没成 —— 屏幕上换成一颗她能按的按钮。见 fetchProse。
@@ -223,6 +226,7 @@ export function ReportPanel({
         shareOpen={shareOpen}
         shared={shareToken !== null}
         onToggleShare={() => setShareOpen((v) => !v)}
+        onOpenRecord={onOpenRecord}
       />
     );
     const sharePanel = shareOpen ? (

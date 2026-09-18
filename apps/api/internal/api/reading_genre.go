@@ -48,7 +48,9 @@ var coachGenreBoards = map[string]coachGenreBoard{
 	genreReport: {
 		Bins:   []string{"事实", "引述", "解释"},
 		Prompt: "分析下列句子，判断它们各自是报道中的哪一类信息。",
-		Named:  "「事实 / 引述 / 解释」——记者核实的事、某一方说的话、对事件的解释或推断",
+		// 🚨 引述包括转述：「Some residents blamed the council」没有引号，
+		// 仍然是某一方的说法，不是记者核实的事实（2026-09-18 线上走查）。
+		Named:  "「事实 / 引述 / 解释」——记者核实的事、某一方的说法（直接引用或转述都算）、对事件的解释或推断",
 	},
 	// PRD：文章内容 = 说明对象、主要的说明部分；搭出结构或过程。
 	genreExplain: {
@@ -235,7 +237,7 @@ func buildGenreCoachSection(genre string) string {
 	b.WriteString(guide + "\n")
 	if board, ok := genreBoardFor(genre); ok {
 		b.WriteString("\n🚨 **这篇的标注板换了一套格子**：" + board.Named + "。" +
-			"系统说明里「关键主张 / 证据」「作者观点 / 驳斥观点 / 证据」那两套在这篇上不用，" +
+			"系统说明里「论点 / 论据 / 论证」「论点 / 驳斥观点 / 论据 / 论证」那两套在这篇上不用，" +
 			"binSet 也不用给 —— 格子由系统按这篇的体裁填。说板的时候就用这几个格子名，" +
 			"题目照这个样子写：「" + board.Prompt + "」\n")
 	}

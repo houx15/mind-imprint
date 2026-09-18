@@ -57,8 +57,8 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 1. 她明确说「跳过这一步／不做这一步」：确认跳过当前步，advance="skipped"，card、lens 留空；不要继续领读、提问或出题。这条优先于首次领读、当前步骤说明和默认发卡。「我放弃」单独出现是索答，不是跳过。
 2. 明确索答（「直接告诉我答案」「给我答案」「我放弃」「给我看范例」）：**直接给当前问题的完整答案**，不改成提示或反问；索答不是完成或跳过，advance 留空。
 3. 「不会／给点提示」或「是不是 X」：按提示梯子只给一级，不公布答案。先看她已说了什么，只补下一层方向、位置或局部词语线索；不要引用含答案的整句原文。若 prompt 说屏幕上已有卡片，沿用那张卡，card、lens 留空，不推进。独立概念或词义可直接解释，但不算完成。
-4. 先看当前任务的要求：她已覆盖全部要求，即使粗糙也必须 advance="done"；card、lens 留空，不再追问、要求点击或换一种说法。解释一个术语时可以引用其他段落，不能因证据不在当前段而要求重做。当前任务有多个信息点时，只答其中一个（如只说排名、时间或「投入很大」）仍是部分回答：advance 留空，只提示缺少的信息，不替她补上答案。每轮最多推进一步。
-5. 已完成、跳过，或收到标注板／透镜完成回灌时：先具体回应她的成果，再推进；**只处理当前一步，不附加下一步的 card 或 lens**。回灌是已提交的成果，不要求她操作已经收起的组件。
+4. 先看当前任务的要求：她已覆盖全部要求，即使粗糙也必须 advance="done"；不再追问、要求点击或换一种说法。解释一个术语时可以引用其他段落，不能因证据不在当前段而要求重做。当前任务有多个信息点时，只答其中一个（如只说排名、时间或「投入很大」）仍是部分回答：advance 留空，只提示缺少的信息，不替她补上答案。每轮最多推进一步。
+5. 已完成、跳过，或收到标注板／透镜完成回灌时：先具体回应她的成果，再推进。跳过不附加工具；完成时按当前步骤说明直接交接下一步，必要时可给下一步的一张 card。回灌是已提交的成果，不要求她操作已经收起的组件。
 
 ## 对话方式
 
@@ -96,13 +96,14 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 
 ## 卡片
 
-仅在当前任务尚未完成、需要她动手时，默认给她一张卡片；跳过、求提示、索答、完成或组件完成回灌优先，不发卡。prompt 若说屏幕上已有卡片，表示它已送达：只围绕那张卡引导，不再发 card。第一轮也一样，用卡把她领入第一步。每轮最多一张，且有 lens 时不发 card。
+仅在当前任务尚未完成、需要她动手时，默认给她一张卡片；跳过、求提示、索答优先，不发卡。完成或组件完成回灌时只可按下一步说明给一张下一步 card。prompt 若说屏幕上已有卡片，表示它已送达：只围绕那张卡引导，不再发 card。第一轮也一样，用卡把她领入第一步。每轮最多一张，且有 lens 时不发 card。
 
 - choose_span：{"type":"choose_span","prompt":"一句真问题","options":[{"blockId":"b3","quote":"原文"}]}。只能有一个问题；2–4 条完整原文句子或从标点到标点的完整分句，blockId 必须对应原句。**choose_span 的选项必须跨段落取：至少来自两个不同的段落**；通读某个多段部分时可只在该部分内跨段。做不到上述条件时改用 pick_in_article 或 short_text，不能交出不完整卡片。**存活的选项全部来自同一段，整张卡片会被丢掉**。
 - pick_in_article：{"type":"pick_in_article","prompt":"一句真问题"}，请她自己在原文划一句。
 - short_text：{"type":"short_text","prompt":"一句真问题"}，请她用自己的话回答。
-- label_roles：{"type":"label_roles","prompt":"一句真问题","binSet":"basic","options":[...]}。basic 为「关键主张／证据」；仅作者明确驳斥别人的观点时用 counter（「作者观点／驳斥观点／证据」）。只在拆论证步骤使用，一篇至多一块；options 2–4 条，**每一句都必须逐字抄自文章**，可来自同段。
+- label_roles：{"type":"label_roles","prompt":"一句真问题","binSet":"basic","options":[...]}。basic 为「论点／论据／论证」；仅作者明确驳斥别人的观点时用 counter（「论点／驳斥观点／论据／论证」）。只在拆论证步骤使用，一篇至多一块；options 2–4 条，**每一句都必须逐字抄自文章**，可来自同段。挑句前先确认每句能放进其中一格。
 - word_bank：{"type":"word_bank","prompt":"一句真问题","words":[{"blockId":"b3","term":"原词"}]}。3–6 个逐字出现在对应段落的词；选学术高频、熟词僻义、搭配或主题词。该轮不解释，回灌后只解释「不确定／不认识」的词。
+- order_events：{"type":"order_events","prompt":"一句真问题","options":[...]}。仅报道或记叙的排序步骤使用；2–4 条逐字原文句子，请她按发生先后排列，出卡时不说答案。
 
 卡片规则：
 
@@ -116,13 +117,15 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 
 【她刚刚说的】以段落工具「想一想／仿写」开头时，只反馈该段：先具体说对了什么，再说一处最值得改的；仿写不代写，想一想看是否以段落内容支撑。advance、card、lens 都留空。
 
-标注板（label_roles／word_bank）提交后，先具体回应某一句为何合适或最关键的误解；word_bank 只讲不确定／不认识的词；随后 advance="done"。对她已提交的合理分类，不要为了延长这一步而要求重新分类；不要要求拖动已经消失的板，也不再发板、卡或透镜。
+标注板（label_roles／word_bank／order_events）提交后，先具体回应某一句为何合适或最关键的误解；word_bank 只讲不确定／不认识的词；随后 advance="done"。对她已提交的合理分类，不要为了延长这一步而要求重新分类；不要要求拖动已经消失的板，也不再发板。可按下一步说明给一张下一步 card。
 
 ## 特别步骤
 
 - read：当前 read 步只管清单标明的段落或部分，不问「读完了吗」。用卡检验该部分大意、作者立场或定位，不讲出内容替她读；她说读完即可 done。通读练主旨和定位，别用扫细节即可回答的问题。
 - connect（链接经验）：没有标准答案；接住经验、问一个能让她多说一点的问题，再 done；不评价经历或拉回正确理解。
 - hunt（找出关键句）：只有【她在文章里点出来的句子】才算完成。真点了就评价该句并 done；只说「第几段那句」但未点，留在当前步并请她在文章中划出。不同于你的预设不等于错。
+- critique（你怎么看）：围绕文章中一个具体判断、证据或来源，给两三个思考角度并用 short_text 请她选一个说；她给出有依据的判断就 done，不要求同意你。
+- sequence（排出事件顺序）：用一张 order_events 板让她排发生先后；提交后说明一处原文依据并 done，不再发第二张排序板。
 `
 
 // readingPick is one sentence she pointed at in the article, rather than
@@ -794,7 +797,11 @@ func buildReadingCoachPrompt(
 
 // Bind the generic teaching rules to the one active task. This is a prompt
 // projection only; it never settles state or invents a completion signal.
-func readingCurrentStepInstruction(tasks []sqlc.ReadingTask, studentText string) string {
+func readingCurrentStepInstruction(tasks []sqlc.ReadingTask, studentTexts ...string) string {
+	studentText := ""
+	if len(studentTexts) > 0 {
+		studentText = studentTexts[0]
+	}
 	current := currentReadingTask(tasks)
 	if current == nil {
 		return "\n【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。\n"
@@ -871,7 +878,27 @@ func readingCurrentStepInstruction(tasks []sqlc.ReadingTask, studentText string)
 	}
 	return "\n【本轮推进判据】\n当前步骤：" + current.Kind + "；任务：" + current.Label + "。\n" +
 		"先检查学生是否明确要求跳过当前步骤：如是，advance 必须为 skipped。单独说「我放弃」是索答，不是跳过；明确索答要直接回答，advance 留空。否则：" + rule + "\n" +
-		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；reply 可以介绍下一步，但不能因介绍下一步而把 advance 留空。已完成或跳过的本轮不要附加下一张 card/lens。一次只推进当前一步。\n"
+		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；不能因介绍下一步而把 advance 留空。明确跳过时不要附加 card 或 lens。一次只推进当前一步。\n" +
+		readingNextStepHandoff(tasks, current)
+}
+
+// readingNextStepHandoff gives a completed step a concrete next action in
+// the same reply. Skipped steps are explicitly excluded by the preceding
+// current-step instruction.
+func readingNextStepHandoff(tasks []sqlc.ReadingTask, current *sqlc.ReadingTask) string {
+	var next *sqlc.ReadingTask
+	for i := range tasks {
+		if tasks[i].Status == "pending" && tasks[i].Position > current.Position {
+			if next == nil || tasks[i].Position < next.Position {
+				next = &tasks[i]
+			}
+		}
+	}
+	if next == nil {
+		return "仅当 advance 为 done 且这是最后一步时，用一两句收尾：说清她这一篇完成了什么，不再布置任务。\n"
+	}
+	return "仅当 advance 为 done 时，reply 的最后一段直接交接下一步：「" + next.Label + "」（" + next.Detail + "）。" +
+		"说明这一步为什么值得做、她现在要做什么；能用一张 card 承担就给下一步的 card。不要等她回一句「好」才开始。\n"
 }
 
 // maxLabelBoards 是一篇文章里最多摆几块标注板。
@@ -999,6 +1026,34 @@ func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
 			return nil
 		}
 		return p.Card
+	}
+	return nil
+}
+
+// openBoard returns the latest board still awaiting a real board submission.
+// A later ordinary card replaces an older board on screen, so it stops here
+// rather than searching further back through the transcript.
+func openBoard(msgs []sqlc.AtomMessage) *coachCard {
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.Role == "student" {
+			if a := coachAnswerFromPayload(m.Payload); a != nil && answeredBoard(a) {
+				return nil
+			}
+			continue
+		}
+		if m.Role != "ai" || len(m.Payload) == 0 {
+			continue
+		}
+		var p coachMessagePayload
+		if err := json.Unmarshal(m.Payload, &p); err != nil || p.Card == nil {
+			continue
+		}
+		switch p.Card.Type {
+		case coachCardLabelRoles, coachCardWordBank, coachCardOrderEvents:
+			return p.Card
+		}
+		return nil
 	}
 	return nil
 }
@@ -1733,6 +1788,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 	genre := decodeOutline(src.Outline).Genre
+	// An open board is already the component mentioned in the reply; do not
+	// retry or add another card merely because the model refers to it.
+	boardOpen := openBoard(msgs) != nil && !answeredBoard(req.CardAnswer)
+	if okParse && boardOpen && parsed.cardWhy == cardRejectPromised {
+		parsed.cardWhy = cardRejectNoCard
+	}
 	// 🚨 让她把一张卡挪到它**已经在**的那一格，是一条她做不到的指令。
 	//
 	// 她摆完的结果原样在转写里（「限制：」加上那一句），所以这是它没读，不是
@@ -1745,6 +1806,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if okParse && replyAsksForANoOpMove(parsed.Reply, lastBoardPlacement(msgs)) {
 		parsed.lensRetry = true
 		parsed.lensRetryWhy = "the reply asks her to move a card into the bin it is already in"
+	}
+	if okParse && !parsed.lensRetry && answeredBoard(req.CardAnswer) && replyAsksToMoveOnABoard(parsed.Reply) {
+		parsed.lensRetry = true
+		parsed.lensRetryWhy = "the board was just submitted and is gone; the reply still asks her to move a card"
 	}
 	// 🚨 一篇文章里这块板只摆一次 —— 加上一次改正的机会。
 	//
@@ -2043,9 +2108,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 「把每一句拖到它该在的角色里」，屏幕上一块板都没有。
 	// 板数上限对兜底一样生效 —— 模型那块被上限挡掉的板不能从这里再建出来。
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
-		cur.Kind != string(taskSequence) &&
+		cur.Kind != string(taskSequence) && !boardOpen &&
 		countLabelBoards(msgs) < maxLabelBoards &&
-		((cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply))) ||
+		(!answeredBoard(req.CardAnswer) || replyAsksToMoveOnABoard(parsed.Reply)) &&
+		(cur.Kind == string(taskLabel) ||
 			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
 		focus := parsed.FocusBlock
 		if focus == "" {
@@ -2080,16 +2146,16 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 就是 印记 说「我给你一张卡」而屏幕上什么都没有 —— 那正是她逐字说过的
 	// 「没有卡啊」。
 	//
-	// pick_in_article 是唯一**不可能被驳回**的形状：它没有 options，也就没有
-	// 「引文对不上原文」可言，只有一句问题加一次「你到文章里点一句」。
-	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
-	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
-	// 的时候才用那句中性的。
-	if !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
-		parsed.Card = fallbackCardFor(parsed.askedPrompt, parsed.Reply)
-		parsed.cardWhy = cardOK
-		slog.Info("reading coach: promised a card and had none, fell back",
-			"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
+	// 兜底只沿用印记写过的题，或当前步骤说明里的真问题；没有题就不制造一张
+	// 不知道要做什么的卡。
+	if !anyOpen && !toolAnswerTurn && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) &&
+		(parsed.askedPrompt != "" || req.CardAnswer == nil) {
+		if fb := fallbackCardFor(parsed.askedPrompt, parsed.Reply, stepQuestion(currentReadingTask(tasks))); fb != nil {
+			parsed.Card = fb
+			parsed.cardWhy = cardOK
+			slog.Info("reading coach: promised a card and had none, fell back",
+				"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
+		}
 	}
 
 	// 🚨 两次都把协议词写进了正文，就把漏出来的那一句拿掉。
@@ -2102,6 +2168,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("reading coach: stripped a protocol word from the reply",
 			"atom_id", at.ID, "word", w)
 	}
+
+	parsed.Card = dropAlreadyPlaced(parsed.Card, lastBoardPlacement(msgs))
 
 	// 标注板的格子换成这篇体裁的那一套。议论文原样不动。见 fitBoardToGenre。
 	parsed.Card = fitBoardToGenre(parsed.Card, genre)
@@ -2315,14 +2383,15 @@ func acceptableReadingCoachRecovery(raw string, blocks []Block, lang string, len
 }
 
 func readingCoachSettlesWithTool(got readingCoachReply) bool {
-	return got.Advance != "" && (got.Card != nil || got.Lens != "")
+	// A completed step can hand the next task to the student with one card.
+	// A skipped step ends without opening another teaching interaction.
+	return got.Advance == "skipped" && (got.Card != nil || got.Lens != "")
 }
 
-// A turn that settles the current task may introduce the next task in words,
-// but the next task's card/lens belongs to the following turn. This is shared
-// by the request path to keep completed and skipped turns free of new tools.
+// A skipped turn must not open a new teaching interaction. A completed turn
+// may introduce the next task with its card, so it is deliberately preserved.
 func enforceSettledReadingTurn(got readingCoachReply) readingCoachReply {
-	if got.Advance == "" {
+	if got.Advance != "skipped" {
 		return got
 	}
 	got.Card = nil
@@ -2433,6 +2502,53 @@ func lastBoardPlacement(msgs []sqlc.AtomMessage) map[string]string {
 	return nil
 }
 
+// dropAlreadyPlaced prevents a fresh board from carrying a mixture of new
+// options and sentences already placed on the previous board. An all-old or
+// too-small board is retained so a deliberate retry remains usable.
+func dropAlreadyPlaced(c *coachCard, placed map[string]string) *coachCard {
+	if c == nil || c.Type != coachCardLabelRoles || len(placed) == 0 {
+		return c
+	}
+	fresh := make([]coachCardOption, 0, len(c.Options))
+	for _, o := range c.Options {
+		if _, seen := placed[strings.TrimSpace(o.Quote)]; !seen {
+			fresh = append(fresh, o)
+		}
+	}
+	if len(fresh) == len(c.Options) || len(fresh) < coachCardMinOptions {
+		return c
+	}
+	out := *c
+	out.Options = fresh
+	return &out
+}
+
+// replyAsksToMoveOnABoard distinguishes a new operational instruction from
+// feedback such as “you put this in the evidence bin accurately”.
+func replyAsksToMoveOnABoard(reply string) bool {
+	verbs := []string{"挪到", "挪进", "挪回", "移到", "移进", "拖到", "拖进", "改放", "换到"}
+	for _, sent := range strings.FieldsFunc(reply, func(r rune) bool {
+		return r == '。' || r == '！' || r == '？' || r == '\n'
+	}) {
+		moves := false
+		for _, v := range verbs {
+			if strings.Contains(sent, v) {
+				moves = true
+				break
+			}
+		}
+		if !moves {
+			continue
+		}
+		for _, label := range allBoardLabels() {
+			if strings.Contains(sent, label) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // coachMoveVerbs —— 「把它挪过去」的说法。
 var coachMoveVerbs = []string{"拖到", "拖进", "挪到", "挪进", "移到", "移进", "放进", "放到", "改放", "换到"}
 
@@ -2511,7 +2627,7 @@ func replyAsksToWrite(reply string) bool {
 	return false
 }
 
-func fallbackCardFor(asked, reply string) *coachCard {
+func fallbackCardFor(asked, reply, stepQ string) *coachCard {
 	// 🚨 兜底那张卡要她做的事，必须和话里说的是同一件事。
 	//
 	// 线上实测（2026-09-17，刚部署完那一轮）：印记 说「下面那张卡上写几个字
@@ -2522,16 +2638,48 @@ func fallbackCardFor(asked, reply string) *coachCard {
 	//
 	// 两种形状都不可能被驳回（都没有 options，也就没有「引文对不上原文」
 	// 可言），所以按话里的动词挑：请她写就给 short_text，其余给 pick_in_article。
-	kind, neutral := coachCardPickInArticle, "请在文章里点出你想说的那一句。"
+	kind := coachCardPickInArticle
 	if replyAsksToWrite(reply) {
-		kind, neutral = coachCardShortText, "请用你自己的话写一句。"
+		kind = coachCardShortText
 	}
-	prompt := strings.TrimSpace(asked)
-	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes ||
-		promptPresumesOptions(prompt) {
-		prompt = neutral
+	for _, prompt := range []string{asked, questionIn(reply, true), stepQ} {
+		prompt = strings.TrimSpace(prompt)
+		if n := utf8.RuneCountInString(prompt); n > 0 && n <= coachCardPromptMaxRunes && !promptPresumesOptions(prompt) {
+			return &coachCard{Type: kind, Prompt: prompt}
+		}
 	}
-	return &coachCard{Type: kind, Prompt: prompt}
+	return nil
+}
+
+func stepQuestion(t *sqlc.ReadingTask) string {
+	if t == nil {
+		return ""
+	}
+	return questionIn(t.Detail, false)
+}
+
+func questionIn(text string, last bool) string {
+	r := []rune(strings.ReplaceAll(strings.TrimSpace(text), "**", ""))
+	end := -1
+	for i, c := range r {
+		if c == '？' || c == '?' {
+			end = i
+			if !last {
+				break
+			}
+		}
+	}
+	if end < 0 {
+		return ""
+	}
+	start := 0
+	for i := end - 1; i >= 0; i-- {
+		if strings.ContainsRune("。！？!?：:\n", r[i]) {
+			start = i + 1
+			break
+		}
+	}
+	return strings.TrimSpace(string(r[start : end+1]))
 }
 
 // promptPresumesOptions —— 这道题要的是一组摆在卡上的句子（「分析下列句子，判断

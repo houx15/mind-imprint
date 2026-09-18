@@ -113,6 +113,17 @@ export type AnnotateProps = {
    */
   keywordTerms?: Record<string, string[]>;
   /**
+   * 卡片上正摆着的那几句原话，`blockId → quotes`，在正文里标出来
+   * （`<span data-card-quote>`，样式由轻量版的 CSS 给）。
+   *
+   * 同事 2026-09-18：「希望句子在卡片里进行单独标注的时候，能够在文中也进行
+   * highlight，方便让人看清其处于原文的哪些位置」。和 keywordTerms 走同一条
+   * 逐字查找，同一个位置两者都命中时句子赢（长的先占）。
+   *
+   * 不传时输出逐字节不变，pro 从不传它。
+   */
+  cardQuotes?: Record<string, string[]>;
+  /**
    * "Click a sentence to reference it" (引用原文). When supplied AND
    * `selectMode` is null (i.e. NOT in evidence-pick mode), each block
    * becomes clickable and calls back with the block's id. Absent by
@@ -177,6 +188,7 @@ export function Annotate({
   blockLead,
   blockMarks,
   keywordTerms,
+  cardQuotes,
   onReferenceBlock,
   onReferenceSelection,
   referencedBlockIds,
@@ -401,8 +413,9 @@ export function Annotate({
                     // 荧光笔只落在**没有标注**的那些段落上。一段文字同时是
                     // 一条标注又是一个关键词时，标注赢 —— 标注是她自己（或
                     // 印记）在这篇文章上做过的事，关键词只是一个词表。
-                    const terms = keywordTerms?.[block.id];
-                    if (!terms || terms.length === 0) {
+                    const quotes = cardQuotes?.[block.id] ?? [];
+                    const terms = [...quotes, ...(keywordTerms?.[block.id] ?? [])];
+                    if (terms.length === 0) {
                       return <span key={i}>{run.text}</span>;
                     }
                     return (
@@ -410,6 +423,10 @@ export function Annotate({
                         {splitByKeywords(run.text, terms).map((kw, j) =>
                           kw.term == null ? (
                             <span key={j}>{kw.text}</span>
+                          ) : quotes.some((q) => q.trim().toLowerCase() === kw.term!.toLowerCase()) ? (
+                            <span key={j} data-card-quote="">
+                              {kw.text}
+                            </span>
                           ) : (
                             <span key={j} data-kw="">
                               {kw.text}

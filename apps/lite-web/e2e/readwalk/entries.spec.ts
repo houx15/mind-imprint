@@ -149,8 +149,12 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     await page.goto("/readings");
     await page.getByLabel("文章正文或链接").waitFor({ timeout: 30_000 });
     if (ENTRY === "text") {
-      await page.getByLabel("阅读的名字").fill("停车场与公园");
-      await page.getByLabel("文章正文或链接").fill(fs.readFileSync(`${FIX}/long-article.txt`, "utf8"));
+      // READWALK_FIXTURE / READWALK_TITLE：换一篇文章走同一条路（2026-09-18 起
+      // 读法跟着体裁走，所以议论文之外的三种体裁各要走一遍）。
+      await page.getByLabel("阅读的名字").fill(process.env.READWALK_TITLE ?? "停车场与公园");
+      await page
+        .getByLabel("文章正文或链接")
+        .fill(fs.readFileSync(`${FIX}/${process.env.READWALK_FIXTURE ?? "long-article.txt"}`, "utf8"));
       await page.getByRole("button", { name: /开始阅读/ }).first().click();
     } else if (ENTRY === "link") {
       await page.getByLabel("文章正文或链接").fill(LINK_URL);
@@ -271,6 +275,9 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const cardAskPairs: string[] = [];
   let finished = false;
   let helpAsked = 0;
+  let openCardSteps = 0;
+  let highlightedSteps = 0;
+  const binsSeen = new Set<string>();
 
   for (let step = 0; step < STEPS; step++) {
     await settle(page);
@@ -322,6 +329,16 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       const lastAi = bubbles.at(-1)?.slice(-200) ?? "";
       const pair = `AI：${lastAi}\n卡：${lastCard}`;
       if (!cardAskPairs.includes(pair)) cardAskPairs.push(pair);
+      // 同事 2026-09-18 第 4 条：卡片上摆着的句子要在正文里标出来。
+      // 「敞开」= 最后一张卡还没作答（没有「你摆的 / 你选的」）而且摆着带段号的句子。
+      if (!/你摆的|你选的|你排的/.test(lastCard) && /第\s*\d+\s*段/.test(lastCard)) {
+        openCardSteps++;
+        if (await page.locator("[data-card-quote]").count()) highlightedSteps++;
+      }
+      const boardText = await page.locator(".mk-board").last().innerText().catch(() => "");
+      for (const bin of ["论点", "论据", "论证", "关键主张", "证据", "作者观点"]) {
+        if (new RegExp(`(^|\\n)${bin}(\\n|$)`).test(boardText)) binsSeen.add(bin);
+      }
     }
 
     if (/读法已全部完成/.test(body)) {
@@ -399,11 +416,16 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       continue;
     }
     if (a.kind === "place") {
+      // 🚨 和 screen.ts 数的必须是**同一块板**：还开着、不是排序板的那块。
+      // 只在描述那一侧排除交过的板、动作这一侧仍然全页数，格子的下标就错位了 ——
+      // 她点的是屏幕上那块板的「动作描写」，runner 点进的是上面一块交过的板
+      // （2026-09-18 记叙文复走，同一个摆放连着二十步没生效）。
+      const live = page.locator(".mk-board:not(.mk-order):not(.is-done)").last();
       const want = screen.board?.chips[a.chip]?.text ?? "";
       const chip = want
-        ? page.locator(".mk-board__chip", { hasText: want }).first()
-        : page.locator(".mk-board__chip").nth(a.chip);
-      const bin = page.locator(".mk-board__bin").nth(a.bin);
+        ? live.locator(".mk-board__chip", { hasText: want }).first()
+        : live.locator(".mk-board__chip").nth(a.chip);
+      const bin = live.locator(".mk-board__bin").nth(a.bin);
       if ((await chip.count()) && (await bin.count())) {
         await chip.click();
         await bin.click();
@@ -414,6 +436,43 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   await snap(page, "walk-end");
   fs.writeFileSync(path.join(OUT, "card-vs-chat.txt"), cardAskPairs.join("\n\n———\n\n"));
   fs.writeFileSync(path.join(OUT, "ai-said.txt"), [...aiSeen].join("\n\n———\n\n"));
+
+  // ── 同事 2026-09-18 那一批，一条一个检查 ──
+  note(
+    "卡片上的句子在正文里标出来",
+    openCardSteps === 0 ? "look" : highlightedSteps > 0 ? "ok" : "bad",
+    `敞开的卡 ${openCardSteps} 步，正文有标记 ${highlightedSteps} 步`,
+  );
+  const stars = [...aiSeen].filter((t) => t.includes("**"));
+  note("印记的话里没有漏出来的 **", stars.length ? "bad" : "ok", stars[0]?.slice(0, 160) ?? "");
+  if (binsSeen.size) {
+    const argumentBins = ["论点", "论据", "论证"].some((b) => binsSeen.has(b));
+    const oldBins = ["关键主张", "作者观点"].some((b) => binsSeen.has(b));
+    note("议论文的板是 论点 / 论据 / 论证", oldBins ? "bad" : argumentBins ? "ok" : "look", [...binsSeen].join(" / "));
+  }
+  // 第 9 条：做完一步不以「这一步做完」收尾、等她回一句「好」。
+  const dangling = [...aiSeen].filter((t) => /(这一步(就)?做完(了)?|往下走)[。！!]?\s*$/.test(t.trim()));
+  note("做完一步的那一句同时交下一步（不以「这一步做完」收尾）", dangling.length ? "bad" : "ok", dangling[0]?.slice(-120) ?? "");
+  // 第 5 条：卡片题目不是「请点出你想说的那一句」这种不问事的话。
+  const vague = cardAskPairs.filter((p) => /点出你想说的那一句|请用你自己的话写一句。/.test(p));
+  note("卡片题目是一道题", vague.length ? "bad" : "ok", vague[0]?.slice(-160) ?? "");
+  // 第 7 条：她发过的话，悬停出编辑按钮，点了字回到输入框。
+  const mineRows = page.locator('[data-chat-row="student"]');
+  if (await mineRows.count()) {
+    const row = mineRows.last();
+    await row.scrollIntoViewIfNeeded();
+    await row.hover();
+    const edit = row.getByRole("button", { name: "编辑后重新发送" });
+    if (await edit.count()) {
+      const said = (await row.locator('[data-role="student"]').innerText()).trim();
+      await edit.click();
+      const box = page.locator("textarea:visible").last();
+      const v = (await box.inputValue()).trim();
+      note("她发过的话能放回输入框再编辑", v && said.includes(v.slice(0, 10)) ? "ok" : "bad", `气泡「${said.slice(0, 40)}」；输入框「${v.slice(0, 40)}」`);
+      await snap(page, "edit-resend");
+      await box.fill("");
+    } else note("她发过的话能放回输入框再编辑", "bad", "悬停后没有编辑按钮");
+  }
 
   // ─────────────────────── 4. 读法本身的形状 ───────────────────────
   plan = await api<Plan>(ctx, `/api/v1/readings/${id}/plan`);
@@ -435,7 +494,10 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const focus = tasks.filter((t) => t.kind === "focus_block");
   note("精读挑了几段就走几步", "look", `精读 ${focus.length} 步：${focus.map((t) => t.label).join(" / ")}`);
   note("清单里没有透镜", tasks.some((t) => t.kind === "lens") ? "bad" : "ok", tasks.map((t) => t.kind).join(","));
-  const boards = tasks.filter((t) => /板|论证|主张|观点/.test(t.label));
+  // 数的是**标注那一步**（kind=label），不是名字里带「论证/观点」的步骤 ——
+  // en-argument 的「观点变化」是链接经验那一步，而通读的部分标题是模型起的，
+  // 「通读第4–6段·论证与转折」也会被一个按名字的正则算进来（2026-09-18 误报）。
+  const boards = tasks.filter((t) => t.kind === "label");
   note("论证练习只有一次", boards.length <= 2 ? "ok" : "bad", boards.map((t) => t.label).join(" / "));
   note("通读时文章上有「现在读这一部分」指引", guidanceSeen > 0 ? "ok" : readSteps ? "bad" : "look", `通读步里看到 ${guidanceSeen}/${readSteps} 次`);
   const stuckTask = [...turnsOnTask.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -443,10 +505,15 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     const t = tasks.find((x) => x.id === stuckTask[0]);
     note("同一步不反复", stuckTask[1] > 12 ? "look" : "ok", `停留最久的一步「${t?.label}」${stuckTask[1]} 个回合`);
   }
-  // 导读在印记那一栏
-  const outlineInCoach = await page.locator('[data-coach-log] [aria-label="导读"], [aria-label="导读"]').count();
-  const outlineText = outlineInCoach ? await page.locator('[aria-label="导读"]').first().innerText() : "";
-  note("导读在对话栏、用新名字（核心问题/关键结论/文章概览/重点段落）", outlineInCoach ? (/核心问题/.test(outlineText) ? "ok" : "bad") : "look", outlineText.slice(0, 120).replace(/\n/g, " "));
+  // 导读 2026-09-18 起只在清单走完之后出现，当「全文总结」（同事的第 1 条）。
+  const allDone = tasks.length > 0 && tasks.every((t) => t.status !== "pending");
+  const outlineInCoach = await page.locator('[data-coach-log] [aria-label="全文总结"]').count();
+  const outlineText = outlineInCoach ? await page.locator('[aria-label="全文总结"]').first().innerText() : "";
+  note(
+    "全文总结在清单走完之后出现（核心问题/关键结论/结构）",
+    allDone ? (outlineInCoach && /核心问题|关键结论/.test(outlineText) ? "ok" : "bad") : outlineInCoach ? "bad" : "ok",
+    allDone ? outlineText.slice(0, 120).replace(/\n/g, " ") : `清单未走完，总结${outlineInCoach ? "提前出现了" : "未出现"}`,
+  );
   // 答过的选句卡：选项都在、标着「你选的」
   const chosen = page.locator('[data-chat-row="card"]', { hasText: "你选的" });
   const nChosen = await chosen.count();
@@ -494,48 +561,23 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     return true;
   }
 
-  const zh = ENTRY === "upload";
-  if (!zh) {
-    // 语法：选一句 → 语法卡（只标重点的那一两层）
-    if (await tool("语法")) {
-      await page.locator(".mk-sentence-pick__item").first().waitFor({ timeout: 20_000 }).catch(() => {});
-      const items = page.locator(".mk-sentence-pick__item");
-      if (await items.count()) {
-        await items.nth(Math.min(1, (await items.count()) - 1)).click();
-        await page.locator(".mk-grammar").first().waitFor({ timeout: 90_000 }).catch(() => {});
-      }
-      const g = page.locator(".mk-grammar").first();
-      if (await g.count()) {
-        const tabs = await g.locator('[role="tab"]').count();
-        const txt = await g.innerText();
-        note("语法卡：只讲重点的一两层、有句意", tabs <= 3 && /句意|意思/.test(txt) ? "ok" : "look", `${tabs} 个层标签；${txt.slice(0, 160).replace(/\n/g, " / ")}`);
-        await g.scrollIntoViewIfNeeded();
-        await snap(page, "grammar-card");
-      } else note("语法卡出来了", "bad", "等了 90 秒没有 .mk-grammar");
-    } else note("工具条上有语法", "bad");
-
-    // 查词：点一个词
-    if (await tool("查词")) {
-      const w = page.locator(".mk-word-pick__word");
-      await w.first().waitFor({ timeout: 15_000 }).catch(() => {});
-      if (await w.count()) {
-        const words = await w.allInnerTexts();
-        let wi = words.findIndex((x) => x.trim().length >= 7);
-        if (wi < 0) wi = Math.min(3, words.length - 1);
-        const word = (words[wi] ?? "").trim();
-        await w.nth(wi).click();
-        await page.waitForTimeout(1500);
-        await page.getByRole("button", { name: "收起这段讲解" }).first().waitFor({ timeout: 60_000 }).catch(() => {});
-        const card = await page
-          .getByRole("button", { name: "收起这段讲解" })
-          .first()
-          .locator("xpath=../..")
-          .innerText()
-          .catch(() => "");
-        note("查词讲的是点的那个词", card.toLowerCase().includes(word.toLowerCase()) ? "ok" : "look", `点的「${word}」；卡片：${card.slice(0, 120).replace(/\n/g, " / ")}`);
-        await snap(page, "word-lookup");
-      } else note("查词：可以点词", "bad", "没有可点的词");
-    }
+  // 中文文章（上传入口，或者文本入口粘进来的是中文）上没有查词 / 句子解析 —— 那两件是英文工具。
+  const zh = ENTRY === "upload" || /[\u4e00-\u9fff]{4}/.test(await para.innerText());
+  // 2026-09-18 产品负责人：「don't add the two word/sentence level to paragraph level.」
+  note(
+    "段落工具条上没有词、句两级的工具（查词 / 句子解析 / 语法）",
+    tools.some((t) => /查词|句子解析|^语法$/.test(t)) ? "bad" : "ok",
+    tools.join(" / "),
+  );
+  note("段落工具条上没有「拆开这一段」", (await bar.innerText().catch(() => "")).includes("拆开这一段") ? "bad" : "ok");
+  // 同事 2026-09-18 第 6 条：结构解析要在段落内按句子拆层次，不是整段概述一句。
+  if (zh && (await tool("结构解析"))) {
+    const items = page.locator("[data-block-tools] ol li");
+    await items.first().waitFor({ timeout: 90_000 }).catch(() => {});
+    const n = await items.count();
+    const txt = n ? (await items.allInnerTexts()).join(" / ") : "";
+    note("结构解析按句子拆成几个层次", n >= 2 ? "ok" : "bad", `${n} 层：${txt.slice(0, 200)}`);
+    await snap(page, "structure");
   }
 
   // 想一想：输入框，Shift+回车换行，回车交上去
@@ -586,16 +628,41 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const firstSentence = (zh ? p3text.split(/(?<=[。！？])/)[0] : p3text.split(/(?<=[.!?])\s/)[0]) ?? p3text;
   if (await selectText(page, pIdx + 1, firstSentence)) {
     await page.waitForTimeout(1200);
-    const vis = await page.locator("button:visible").allInnerTexts();
-    note("划一句 → 能问语法", vis.some((s) => /语法/.test(s)) ? "ok" : "look", vis.filter((s) => s.length < 12).slice(-12).join(" / "));
+    // 🚨 看的是**贴着选区的那条工具条**（.mk-seltools），不是整屏的按钮。
+    const vis = await page.locator(".mk-seltools button:visible").allInnerTexts();
+    const kept = await page.evaluate(() => (window.getSelection()?.toString() ?? "").trim().length > 0);
+    note("划一句 → 选区还在、贴着它能点句子解析", kept && vis.some((s) => /句子解析/.test(s)) ? "ok" : zh ? "look" : "bad", `选区还在=${kept}；工具条：${vis.join(" / ")}`);
     await snap(page, "select-sentence");
+    const go = page.locator(".mk-seltools").getByRole("button", { name: "句子解析" });
+    if (await go.count()) {
+      await go.click();
+      await page.locator(".mk-grammar").first().waitFor({ timeout: 90_000 }).catch(() => {});
+      const g = page.locator(".mk-grammar").first();
+      if (await g.count()) {
+        const txt = await g.innerText();
+        note("句子解析讲的是划的那一句、有句意", /句意|意思/.test(txt) ? "ok" : "look", txt.slice(0, 160).replace(/\n/g, " / "));
+        await g.scrollIntoViewIfNeeded();
+        await snap(page, "grammar-card");
+      } else note("句子解析卡出来了", "bad", "等了 90 秒没有 .mk-grammar");
+    }
   }
   const oneWord = zh ? p3text.slice(0, 2) : (p3text.match(/[A-Za-z]{6,}/) ?? ["question"])[0];
   if (await selectText(page, pIdx + 1, oneWord)) {
     await page.waitForTimeout(1200);
-    const vis = await page.locator("button:visible").allInnerTexts();
-    note("划一个词 → 能查词义", vis.some((s) => /查词|词义/.test(s)) ? "ok" : "look", `划了「${oneWord}」；` + vis.filter((s) => s.length < 12).slice(-12).join(" / "));
+    const vis = await page.locator(".mk-seltools button:visible").allInnerTexts();
+    const kept = await page.evaluate(() => (window.getSelection()?.toString() ?? "").trim().length > 0);
+    // 中文文章上没有查词（它是英文工具），工具条本来就不出现。
+    note("划一个词 → 选区还在、贴着它能查词义", kept && vis.some((s) => /查词/.test(s)) ? "ok" : zh ? "look" : "bad", `划了「${oneWord}」；选区还在=${kept}；工具条：${vis.join(" / ")}`);
+    note("划一个词 → 工具条上只有查词、没有句子解析", vis.some((s) => /句子解析/.test(s)) ? "bad" : "ok", vis.join(" / "));
     await snap(page, "select-word");
+    const look = page.locator(".mk-seltools").getByRole("button", { name: "查词" });
+    if (await look.count()) {
+      await look.click();
+      await page.getByRole("button", { name: "收起这段讲解" }).first().waitFor({ timeout: 60_000 }).catch(() => {});
+      const card = await page.getByRole("button", { name: "收起这段讲解" }).first().locator("xpath=../..").innerText().catch(() => "");
+      note("查词讲的是划的那个词", card.toLowerCase().includes(oneWord.toLowerCase()) ? "ok" : "bad", `划的「${oneWord}」；卡片：${card.slice(0, 120).replace(/\n/g, " / ")}`);
+      await snap(page, "word-lookup");
+    }
   }
   await page.keyboard.press("Escape");
   await page.mouse.click(5, 500);
@@ -634,6 +701,16 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   await page.waitForTimeout(2000);
   const report1 = await page.locator("body").innerText();
   note("报告有「段落工具」一节", /段落工具/.test(report1) ? "ok" : "bad");
+  note("报告有「全文总结」一节", /全文总结/.test(report1) ? "ok" : "bad");
+  // 产品负责人 2026-09-18：完成页顶上只要一颗返回；查看阅读记录在导出 / 分享旁边。
+  note(
+    "完成页顶上只有返回（没有页签、已完成、继续阅读）",
+    (await page.getByRole("tab").count()) === 0 &&
+      !(await page.getByRole("button", { name: "继续阅读" }).count()) &&
+      (await page.getByRole("button", { name: "返回", exact: true }).count()) > 0
+      ? "ok"
+      : "bad",
+  );
   fs.writeFileSync(path.join(OUT, "report-v1.txt"), report1);
   await snap(page, "report-v1", true);
 
@@ -675,9 +752,13 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   // ─────────────────────── 7. 继续阅读 → 再完成 ───────────────────────
   await page.goto(`/readings/${id}`);
   await page.getByRole("region", { name: "学习数据概览" }).waitFor({ timeout: 60_000 });
+  // 2026-09-18 起继续阅读在「查看阅读记录」那一页的末尾（完成页顶上只留返回）。
+  const record = page.getByRole("button", { name: "查看阅读记录" });
+  note("报告右上角有「查看阅读记录」", (await record.count()) ? "ok" : "bad");
+  if (await record.count()) await record.click();
   const again = page.getByRole("button", { name: "继续阅读" });
   if (!(await again.count())) {
-    note("报告上有「继续阅读」", "bad");
+    note("阅读记录页上有「继续阅读」", "bad");
   } else {
     const hint = await page.getByText(/继续阅读后，再次完成时报告会按新的阅读记录重新生成/).count();
     note("继续阅读下面说明报告会重新生成", hint ? "ok" : "bad");

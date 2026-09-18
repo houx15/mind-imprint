@@ -1,7 +1,15 @@
 import type { ReadingOutline } from "../api/readings";
 
 /**
- * ReadingOutlineCard —— 正文顶上的导读。
+ * ReadingOutlineCard —— 这篇文章的导读，读完之后当全文总结摆出来。
+ *
+ * 🚨 2026-09-18 从对话最上面挪到了**清单走完之后**。同事（《敬业与乐业》）：
+ * 「the conclusion card - 核心问题，关键结论，结构 etc. we suggest this to
+ * appear after the steps finished, appear at the end to work as a summary.
+ * and can also appear in the reading report?」一开读就摆出关键结论，后面
+ * 「总结论点」那一步她只要照抄；读完再摆，它是她拿来对照自己总结的那一份。
+ * 通读时的分段地图没有丢：每一部分开读时正文里有一行说明（ReadingRoom 的
+ * activePart）。
  *
  * # 它为什么存在
  *
@@ -55,11 +63,14 @@ export function ReadingOutlineCard({
   outline,
   ordinalOf,
   onLocate,
+  heading,
 }: {
   outline: ReadingOutline;
   /** 段 id → 第几段。段号是她屏幕上唯一认得的坐标，b3 不是。 */
   ordinalOf: (blockId: string) => number;
   onLocate: (blockId: string) => void;
+  /** 卡片顶上的标题。读完之后当总结摆出来时给「全文总结」。 */
+  heading?: string;
 }) {
   const core = outline.core.filter((id) => ordinalOf(id) > 0);
   // 段号由服务端给（fromOrd/toOrd）。这里只挡掉正文换过之后对不上的那些 ——
@@ -75,8 +86,9 @@ export function ReadingOutlineCard({
   return (
     <section
       className="mk-reading-outline"
-      aria-label="导读"
+      aria-label={heading ?? "导读"}
     >
+      {heading && <p className="mk-reading-outline__heading">{heading}</p>}
       {outline.oneLine && (
         <p className="mk-reading-outline__line">
           <span className="mk-reading-outline__key">核心问题</span>

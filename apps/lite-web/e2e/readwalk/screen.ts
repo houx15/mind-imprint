@@ -42,12 +42,20 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
     .map((text, i) => ({ n: i + 1, text }))
     .filter((p) => p.text.length > 0);
 
-  const hasBoard = (await page.locator(".mk-board").count()) > 0;
+  // 🚨 排序板（.mk-order，2026-09-18）不是「卡片 + 格子」：它是一列可以上下挪的
+  // 卡片，没有格子。当成标注板来描述，模型看到的是几张卡片和零个格子，于是
+  // 一遍遍地「摆」—— 线上第一次走记叙文就是这样（「上面已有条目，下面又有
+  // 待摆放卡片，不知道操作对象是谁」）。那是走查瞎，不是产品坏。所以排序板
+  // 单独描述（见下面 orderText），标注板这一侧只数不在排序板里的那些。
+  // 🚨 交上去的板（.is-done，只读的那份回看）也不算：线上报道那一条走查里，
+  // 上一块板的四张卡片被当成「还没摆的」列给模型，它于是连着二十步去挪一张
+  // 挪不动的卡。
+  const hasBoard = (await page.locator(".mk-board:not(.mk-order):not(.is-done)").count()) > 0;
   const board = hasBoard
     ? {
         chips: (
           await page
-            .locator(".mk-board__chip")
+            .locator(".mk-board:not(.mk-order):not(.is-done) .mk-board__chip")
             .evaluateAll((els) =>
               els.map((e) => ({
                 text: (e.textContent ?? "").trim(),
@@ -58,7 +66,7 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
         ).map((c, i) => ({ i, ...c })),
         bins: (
           await page
-            .locator(".mk-board__bin")
+            .locator(".mk-board:not(.mk-order):not(.is-done) .mk-board__bin")
             .evaluateAll((els) => els.map((e) => e.getAttribute("data-board-bin") ?? ""))
             .catch(() => [] as string[])
         ).map((name, i) => ({ i, name })),
@@ -105,7 +113,29 @@ export async function readScreen(page: Page): Promise<ReadAffordances> {
       `现在请在输入框里写下你用这副透镜看出了什么，然后点「记下这条发现」。）`;
   }
 
-  return { ...base, text, paragraphs, board };
+  // 排序板：把现在的先后按行号说出来，并说清哪几颗按钮是挪它的。真人看得见
+  // 每一行右边那对箭头挨着哪张卡；模型拿到的按钮名只有「↑」「↓」，看不出是
+  // 哪一行的 —— 所以按钮名换成它们自己的 aria-label（「上移第2件」）。
+  const orderRows = await page
+    .locator(".mk-order:not(.is-done) .mk-order__row")
+    .evaluateAll((els) => els.map((e) => (e.querySelector(".mk-order__chip")?.textContent ?? "").trim()))
+    .catch(() => [] as string[]);
+  let buttons = base.buttons;
+  if (orderRows.length > 0) {
+    const aria = await page
+      .locator("button:visible")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? ""))
+      .catch(() => [] as string[]);
+    buttons = base.buttons.map((b) =>
+      (b.label === "↑" || b.label === "↓") && aria[b.i] ? { ...b, label: aria[b.i]! } : b,
+    );
+    text +=
+      `\n\n（系统提示：屏幕上有一块排序板，现在从上到下是：\n` +
+      orderRows.map((t, i) => `  ${i + 1}. ${t}`).join("\n") +
+      `\n用「上移第N件」「下移第N件」那几颗按钮调整先后，排好后点「排好了」。）`;
+  }
+
+  return { ...base, buttons, text, paragraphs, board };
 }
 
 /** 给模型看的那一段。 */

@@ -114,7 +114,7 @@ func TestReadingFixtureExpectationsAreAdvisoryEvidence(t *testing.T) {
 func TestReadingPromptKeepsFourAgreedBehaviors(t *testing.T) {
 	for _, want := range []string{
 		"直接给当前问题的完整答案", "只补下一层方向、位置或局部词语线索",
-		"只处理当前一步，不附加下一步的 card 或 lens", "对她已提交的合理分类，不要为了延长这一步而要求重新分类",
+		"跳过不附加工具；完成时按当前步骤说明直接交接下一步", "对她已提交的合理分类，不要为了延长这一步而要求重新分类",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("prompt lost %q", want)
@@ -126,10 +126,10 @@ func TestReadingPromptPrioritizesSkipHintAndCompletion(t *testing.T) {
 	for _, want := range []string{
 		"确认跳过当前步，advance=\"skipped\"，card、lens 留空",
 		"沿用那张卡，card、lens 留空，不推进",
-		"advance=\"done\"；card、lens 留空，不再追问",
+		"advance=\"done\"；不再追问",
 		"解释一个术语时可以引用其他段落，不能因证据不在当前段而要求重做",
 		"只答其中一个（如只说排名、时间或「投入很大」）仍是部分回答",
-		"跳过、求提示、索答、完成或组件完成回灌优先，不发卡",
+		"完成或组件完成回灌时只可按下一步说明给一张下一步 card",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("prompt lost priority rule %q", want)
@@ -175,10 +175,18 @@ func TestBareAnswerRequestCannotSettleCurrentStep(t *testing.T) {
 	}
 }
 
-func TestSettledReadingTurnDoesNotHandOutNextTool(t *testing.T) {
+func TestSkippedReadingTurnDoesNotHandOutNextTool(t *testing.T) {
 	card := &coachCard{Type: coachCardShortText, Prompt: "你怎么看？"}
-	got := enforceSettledReadingTurn(readingCoachReply{Reply: "当前步骤已结束，下面给你一张卡片和透镜。", Advance: "done", Card: card, Lens: "lens-economics"})
-	if got.Card != nil || got.Lens != "" || got.Advance != "done" {
-		t.Fatalf("settled step: %+v", got)
+	got := enforceSettledReadingTurn(readingCoachReply{Reply: "当前步骤已跳过。", Advance: "skipped", Card: card, Lens: "lens-economics"})
+	if got.Card != nil || got.Lens != "" || got.Advance != "skipped" {
+		t.Fatalf("skipped step: %+v", got)
+	}
+}
+
+func TestCompletedReadingTurnCanHandOutNextCard(t *testing.T) {
+	card := &coachCard{Type: coachCardShortText, Prompt: "你怎么看？"}
+	got := enforceSettledReadingTurn(readingCoachReply{Reply: "下一步请比较作者的依据。", Advance: "done", Card: card})
+	if got.Card != card || got.Advance != "done" {
+		t.Fatalf("completed handoff: %+v", got)
 	}
 }

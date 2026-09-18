@@ -90,7 +90,7 @@ async function finishReading(page: Page): Promise<void> {
   await expect(finalize).toBeHidden({ timeout: 30_000 });
 
   await page.reload();
-  await expect(page.getByText("已完成", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "返回", exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
 test("a finished reading's report: appears, is shared with a stranger, revoked, and exported as a picture", async ({

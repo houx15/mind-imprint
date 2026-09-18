@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkCjkFriendly from "remark-cjk-friendly";
 import type { Components } from "react-markdown";
 
 /**
@@ -29,6 +30,12 @@ import type { Components } from "react-markdown";
  * are bare custom properties, so Tailwind's alpha syntax (`text-mk-accent/80`)
  * emits no CSS at all for them — an arbitrary-value class here would be a
  * silent no-op.
+ *
+ * `remark-cjk-friendly`: CommonMark does not close `**` when the bold text
+ * ends in CJK punctuation and a CJK character follows (`**这一步做完。**下一步`
+ * — the closing run is not "right-flanking"), so 印记's bold came through as
+ * literal asterisks (colleague report, 2026-09-18). The plugin relaxes the
+ * flanking rule for CJK text; `apps/web`'s card modal uses the same one.
  *
  * AI-role messages ONLY — student turns stay plain `whitespace-pre-wrap` text
  * in `ReadingCoachPanel` (a student typing a literal `*` or `#` must never be
@@ -65,7 +72,7 @@ const components: Components = {
 export function LiteChatMarkdown({ text }: { text: string }) {
   return (
     <div className="-mb-2 text-mk-body text-mk-ink">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} components={components}>
         {text}
       </ReactMarkdown>
     </div>

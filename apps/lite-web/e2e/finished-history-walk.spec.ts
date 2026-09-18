@@ -100,26 +100,28 @@ test("读完之后能回看对话和原文，公开的范围由她自己定", as
   await finalize.getByRole("button", { name: "完成，看报告" }).click();
   await expect(finalize).toBeHidden({ timeout: 30_000 });
   await page.goto(`/readings/${atomId}`);
-  await expect(page.getByText("已完成")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "返回", exact: true })).toBeVisible({ timeout: 30_000 });
 
-  /* ── 1 · 三格都在，报告那一格有开场那一句 ──────────────────────────── */
-  await expect(page.getByRole("tab")).toHaveCount(3);
-  await expect(page.getByRole("tab", { name: "报告" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "对话" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "原文" })).toBeVisible();
+  /* ── 1 · 报告在，顶上只有返回，「查看阅读记录」在报告右上角 ──────────
+     2026-09-18 产品负责人：「just a back button. and a right upper 查看阅读记录
+     button, which near the download, link share button.」 */
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "查看阅读记录" })).toBeVisible({ timeout: 60_000 });
   // 这是她的第一篇 —— fresh account 的意义就在这一条断言上。
   await expect(page.getByText(/这是我和印记一起读的第 1 篇文章/)).toBeVisible({ timeout: 60_000 });
   await page.screenshot({ path: testInfo.outputPath("1-report.png"), fullPage: true });
 
-  /* ── 2 · 对话那一格：两句话，各自标明是谁说的 ─────────────────────── */
-  await page.getByRole("tab", { name: "对话" }).click();
+  /* ── 2 · 阅读记录：两句话，各自标明是谁说的 ─────────────────────── */
+  await page.getByRole("button", { name: "查看阅读记录" }).click();
   await expect(page.getByText(HER_LINE)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(COACH_LINE)).toBeVisible();
   await expect(page.getByText("印记", { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("2-transcript.png"), fullPage: true });
 
-  /* ── 3 · 原文那一格：正文真的在 ──────────────────────────────────── */
-  await page.getByRole("tab", { name: "原文" }).click();
+  /* ── 3 · 原文：报告下面「再看一遍这篇文章」，正文真的在 ─────────────── */
+  await expect(page.getByRole("button", { name: "继续阅读" })).toBeVisible();
+  await page.getByRole("button", { name: "返回报告" }).click();
+  await page.getByRole("button", { name: "再看一遍这篇文章" }).click();
   // 🚨 要限定在原文那一块里。报告那一格是用 `hidden` 藏的（不卸载，否则每切
   // 一次页签就再买一次那通旗舰调用），而报告上的「我读的这篇」里也有这段摘录
   // —— 不限定的话 strict mode 会同时匹配到两个。

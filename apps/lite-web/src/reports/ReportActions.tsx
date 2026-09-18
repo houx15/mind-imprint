@@ -1,4 +1,4 @@
-import { Download, Link2 } from "lucide-react";
+import { Download, Link2, MessagesSquare } from "lucide-react";
 import { Icon } from "@/ui";
 
 /**
@@ -37,6 +37,7 @@ export function ReportActions({
   shareOpen,
   shared,
   onToggleShare,
+  onOpenRecord,
 }: {
   exporting: boolean;
   onExport: () => void;
@@ -44,9 +45,17 @@ export function ReportActions({
   /** True when a public link is live right now. */
   shared: boolean;
   onToggleShare: () => void;
+  /** 「查看阅读记录」：她和印记的对话。只有阅读室自己那一面传；公开页不传。 */
+  onOpenRecord?: () => void;
 }) {
   return (
     <div className="mk-rp-actions">
+      {onOpenRecord && (
+        <button type="button" onClick={onOpenRecord} className="mk-rp-action mk-rp-action--labelled">
+          <Icon icon={MessagesSquare} size={17} />
+          <span className="mk-rp-action__label">查看阅读记录</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={onExport}

@@ -1941,6 +1941,15 @@
   font-weight: 500;
 }
 
+/* 敞开的那张卡片上摆着的句子（`Annotate` 的 `cardQuotes`，2026-09-18）。
+   和荧光笔区分开：荧光笔是黄色的一笔，这里是一道虚下划线加很淡的底色 ——
+   一整句都涂满黄色，几句连着就成了一片。 */
+[data-card-quote] {
+  background: color-mix(in srgb, var(--mk-matcha) 14%, transparent);
+  border-bottom: 2px dashed var(--mk-matcha);
+  border-radius: 2px;
+}
+
 /* ---------------------------------------------------------------------------
  * 语法卡（`GrammarCards`，2026-09-17）
  *
@@ -2433,6 +2442,14 @@
   border: 1px dashed color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
   border-radius: var(--mk-radius-md);
   background: color-mix(in srgb, var(--mk-accent-50) 55%, var(--mk-surface));
+}
+
+/* 读完之后摆出来时的标题（「全文总结」，2026-09-18）。 */
+.mk-reading-outline__heading {
+  margin: 0 0 8px;
+  font-size: var(--mk-text-body, 14px);
+  font-weight: 700;
+  color: var(--mk-ink);
 }
 
 .mk-reading-outline__line {
@@ -3013,6 +3030,35 @@
   color: var(--mk-accent-700);
   font-size: 12px;
   cursor: pointer;
+}
+
+/* 报告上「全文总结」那一节（ReportView 的 Summary，2026-09-18）。 */
+.mk-rp-summary {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-surface);
+}
+
+.mk-rp-summary > div {
+  display: grid;
+  grid-template-columns: 5em 1fr;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.mk-rp-summary dt {
+  color: var(--mk-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mk-rp-summary dd {
+  margin: 0;
+  color: var(--mk-ink);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* 报告上「阅读成果」那一节（ReportView 的 Boards）：她摆过的板。 */

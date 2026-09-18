@@ -576,7 +576,7 @@ func TestFallbackCardCannotBeRejected(t *testing.T) {
 	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
 
 	// 兜底那张必须**过得了**校验 —— 它要是也能被驳回，就不叫兜底。
-	got := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。")
+	got := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。", "")
 	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
 		t.Fatalf("兜底卡被驳回了，理由 %q —— 那它就不是兜底", why)
 	}
@@ -592,28 +592,39 @@ func TestFallbackCardCannotBeRejected(t *testing.T) {
 // 兜底卡没有选项；一道「分析下列句子，判断它们各自属于……」照抄上去，她面对的是
 // 一张要她分类、却一句话都没摆的卡（2026-09-17 入口走查）。
 func TestFallbackCardDropsAPromptThatNeedsOptions(t *testing.T) {
-	got := fallbackCardFor("分析下列句子，判断它们各自属于AI做的还是人做的。", "我们来看第7段。")
-	if strings.Contains(got.Prompt, "下列") || strings.Contains(got.Prompt, "各自") {
+	got := fallbackCardFor("分析下列句子，判断它们各自属于AI做的还是人做的。", "我们来看第7段。", "")
+	if got != nil && (strings.Contains(got.Prompt, "下列") || strings.Contains(got.Prompt, "各自")) {
 		t.Errorf("兜底卡照抄了一道要选项的题：%q", got.Prompt)
 	}
-	if kept := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。"); kept.Prompt != "哪一句最能说明援助进不去？" {
+	if kept := fallbackCardFor("哪一句最能说明援助进不去？", "我们来看这几段。", ""); kept.Prompt != "哪一句最能说明援助进不去？" {
 		t.Errorf("不需要选项的题应该留着：%q", kept.Prompt)
 	}
 }
 
+// 它没写题：用这一步说明里的那个问句；这一步也没有问句，就不兜。
+//
+// 🚨 2026-09-18 以前这里兜的是一句中性的「请在文章里点出你想说的那一句。」同事：
+// 「完全没看懂这个卡片在干嘛」—— 一张不问任何事的卡比没有卡更糟。
 func TestFallbackCardWhenItNeverWroteAQuestion(t *testing.T) {
 	blocks := SplitBlocks("第一段说了一件事，句子够长可以上卡。\n\n第二段说了另一件事，也够长。")
-	got := fallbackCardFor("", "我们来看这几段。")
-	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
-		t.Fatalf("没有题目时的兜底也必须过得了校验，理由 %q", why)
+	step := &sqlc.ReadingTask{Kind: "hunt", Detail: "回到文章里：作者直接表明中心论点的是哪一句？把它点出来，对照你刚才的总结。"}
+	got := fallbackCardFor("", "我们来看这几段。", stepQuestion(step))
+	if got == nil {
+		t.Fatal("这一步的说明里有问句，应该拿它当题")
 	}
-	if strings.TrimSpace(got.Prompt) == "" {
-		t.Error("兜底卡不能没有问题")
+	if got.Prompt != "作者直接表明中心论点的是哪一句？" {
+		t.Errorf("题目应该是说明里那一问，拿到 %q", got.Prompt)
+	}
+	if kept, why := validateCoachCardWhy(got, blocks); kept == nil {
+		t.Fatalf("兜底卡必须过得了校验，理由 %q", why)
+	}
+	if fb := fallbackCardFor("", "我们来看这几段。", stepQuestion(&sqlc.ReadingTask{Detail: "请打开段落工具，把它拆开。"})); fb != nil {
+		t.Errorf("没有任何一道题时不该兜一张卡，拿到 %q", fb.Prompt)
 	}
 	// 超长的那一道也不能原样塞回去 —— 它自己会被 promptLen 驳回。
 	long := strings.Repeat("很", 200)
-	if kept, _ := validateCoachCardWhy(fallbackCardFor(long, "我们来看这几段。"), blocks); kept == nil {
-		t.Error("题目超长时应该换成中性那句，而不是把兜底也弄坏")
+	if fb := fallbackCardFor(long, "我们来看这几段。", ""); fb != nil {
+		t.Errorf("题目超长、又没有步骤问句时不该兜卡，拿到 %q", fb.Prompt)
 	}
 }
 
@@ -640,7 +651,7 @@ func TestFallbackCardFollowsTheVerbInTheReply(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := fallbackCardFor("", tc.reply)
+			got := fallbackCardFor("", tc.reply, "文中哪一句最能说明这件事？")
 			if got.Type != tc.want {
 				t.Errorf("话里说的是「%s」，兜出来的却是 %q —— 她照着话去做，做不成",
 					tc.reply, got.Type)

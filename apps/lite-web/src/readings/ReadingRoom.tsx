@@ -19,12 +19,14 @@ import { ConfirmedFindingCard } from "@/studio/reading/ConfirmedFindingCard";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi, type ReadingOutcome } from "@/studio/reading/readingLoop";
 import "@/studio/reading/ReadingRoom.css";
-import type {
-  LiteMessage,
-  ReadingBlockNote,
-  ReadingBlockTool,
-  ReadingLensDone,
-  ReadingTask,
+import {
+  coachAnswerOf,
+  coachCardOf,
+  type LiteMessage,
+  type ReadingBlockNote,
+  type ReadingBlockTool,
+  type ReadingLensDone,
+  type ReadingTask,
 } from "../api/readingRoom";
 import type { ReadingFigure, ReadingOutline } from "../api/readings";
 import { ArticleFinder } from "./ArticleFinder";
@@ -33,7 +35,7 @@ import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { PasteFullTextModal } from "./PasteFullTextModal";
 import { SelectionTools } from "./SelectionTools";
 import { ReadingHarvest, harvestBoards, harvestWritings, harvestWords } from "./ReadingHarvest";
-import type { CoachCardAnswer } from "./CoachCard";
+import type { CoachCardAnswer, CoachCardSpec } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
 import { StepIndicator } from "./StepIndicator";
 import { AssignmentLine, useAssignmentForAtom } from "../inbox/AssignmentLine";
@@ -509,6 +511,31 @@ export function ReadingRoom({
   /** 带读那一栏手里那份转写。「阅读成果」那一页从它读她摆过的板。 */
   const [liveMessages, setLiveMessages] = useState<LiteMessage[]>(coachMessages);
 
+  /**
+   * 敞开的那张卡片上摆着的原话，`blockId → quotes`，在正文里标出来。
+   *
+   * 同事 2026-09-18：「希望句子在卡片里进行单独标注的时候，能够在文中也进行
+   * highlight，方便让人看清其处于原文的哪些位置」。卡片上每一句只标了「第6段」，
+   * 她要把它放回那一段里才判断得了它在论证里干什么。
+   *
+   * 「敞开」= 转写里最后一张卡，而且它后面还没有她的作答。她一交，标记就收掉 ——
+   * 一直亮着的记号等于没有记号。
+   */
+  const cardQuotes = useMemo(() => {
+    let open: CoachCardSpec | null = null;
+    for (const m of liveMessages) {
+      const card = coachCardOf(m);
+      if (card) open = card;
+      else if (coachAnswerOf(m)) open = null;
+    }
+    const out: Record<string, string[]> = {};
+    for (const o of open?.options ?? []) {
+      if (!o.blockId || !o.quote.trim()) continue;
+      out[o.blockId] = [...(out[o.blockId] ?? []), o.quote.trim()];
+    }
+    return out;
+  }, [liveMessages]);
+
   /** 「阅读成果」页签上那个数：她真的产出了几样东西。 */
   const harvestCount =
     harvestWords(blockNotes).length +
@@ -862,6 +889,7 @@ export function ReadingRoom({
                   blockLead={activePart?.lead}
                   blockMarks={blockMarks}
                   keywordTerms={keywordTerms}
+                  cardQuotes={cardQuotes}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
                   onSelectSpan={setActiveSpanId}
@@ -1098,7 +1126,7 @@ export function ReadingRoom({
           <div className="mk-finishask__card">
             <h2 className="text-mk-h3 text-mk-ink">完成这篇？</h2>
             <p className="mt-2 text-mk-body leading-relaxed text-mk-secondary">
-              你走过的每一步会汇总成一份阅读报告。之后在报告页点「继续阅读」可以回到这里接着读，再次完成时报告会重新生成。
+              你走过的每一步会汇总成一份阅读报告。之后可在报告页的「查看阅读记录」里继续阅读，再次完成时报告会重新生成。
             </p>
             {/* She is handing in homework; say so. */}
             {assignment && (

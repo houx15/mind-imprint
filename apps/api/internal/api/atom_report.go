@@ -184,6 +184,10 @@ type liteReportDTO struct {
 	// Boards is reading-kind only: 她摆过的板（2026-09-18，见
 	// atom_report_boards.go）。同样确定性、同样不回填。
 	Boards []reportBoard `json:"boards,omitempty"`
+	// Summary is reading-kind only: 这篇的全文总结（导读里的核心问题 / 关键结论 /
+	// 结构）。同事 2026-09-18：「can also appear in the reading report?」
+	// 读法排出来时就定下的，确定性、不花模型调用、不回填。
+	Summary *reportSummary `json:"summary,omitempty"`
 	// Piece is writing-kind only: the finished draft, in full, HER OWN words.
 	//
 	// It exists because of what the share link is FOR — "if students agree to
@@ -1001,6 +1005,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		Article: buildReportArticle(src, blocks),
 		Toolkit: buildReportToolkit(rd.Lang, blockNotes, msgs),
 		Boards:  buildReportBoards(msgs, decodeOutline(src.Outline).Genre),
+		Summary: buildReportSummary(decodeOutline(src.Outline)),
 		ProsePending: prosePending,
 	}, nil
 }
@@ -1801,4 +1806,24 @@ func (a *API) getAtomReportFor(kind string) http.HandlerFunc {
 			"rating": at.ExperienceRating,
 		})
 	}
+}
+
+// reportSummary —— 阅读报告上的「全文总结」：导读里那三行。
+type reportSummary struct {
+	Question   string `json:"question,omitempty"`
+	Conclusion string `json:"conclusion,omitempty"`
+	Structure  string `json:"structure,omitempty"`
+}
+
+// buildReportSummary —— 三行都没有（老数据、导读被整份丢掉）就是 nil，这一节不出现。
+func buildReportSummary(o readingOutline) *reportSummary {
+	s := reportSummary{
+		Question:   strings.TrimSpace(o.OneLine),
+		Conclusion: strings.TrimSpace(o.Gist),
+		Structure:  strings.TrimSpace(o.Shape),
+	}
+	if s.Question == "" && s.Conclusion == "" && s.Structure == "" {
+		return nil
+	}
+	return &s
 }

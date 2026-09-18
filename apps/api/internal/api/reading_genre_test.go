@@ -129,11 +129,13 @@ func TestOrderBoardDroppedOnArgument(t *testing.T) {
 // 是空的，一篇记叙文按议论文带。导读是**摆给她看的**（写错语言就等于不存在），
 // 体裁是**给系统看的一个词**，两样东西的判据不该绑在一起。
 func TestGenreSurvivesARejectedOutline(t *testing.T) {
-	// oneLine 是英文 → 导读整份作废；genre 仍然是 narrative。
+	// 两段全标成核心 → 「全是核心等于没有核心」，导读整份作废；genre 仍然是
+	// narrative。（第一版用英文 oneLine 触发作废；2026-09-18 起那一条只丢那一行，
+	// 不再整份作废，所以换一条真的会整份作废的理由。）
 	const plan = `{"genre":"narrative","routineKey":"en-narrative","focusBlocks":["b2"],
 	  "steps":[{"kind":"read","detail":"先把故事看完。"}],
-	  "oneLine":"What made her change her mind","gist":"一个女孩三次错过末班车。",
-	  "shape":"错过 → 被等 → 还钱","load":{"b1":"core","b2":"support"},"parts":[]}`
+	  "oneLine":"她为什么改变了主意","gist":"一个女孩三次错过末班车。",
+	  "shape":"错过 → 被等 → 还钱","load":{"b1":"core","b2":"core"},"parts":[]}`
 	h, cookie, q, _ := liteHandlerWithProvider(t, writingTextStubProvider(plan))
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "The Last Bus Home",
@@ -161,5 +163,28 @@ func TestGenreSurvivesARejectedOutline(t *testing.T) {
 	// 她的地图确实作废了 —— 留下的只有那一个词，导读卡因此照样不显示。
 	if got.OneLine != "" {
 		t.Errorf("作废的导读被存进去了：%s", src.Outline)
+	}
+}
+
+// 🚨 2026-09-18 线上走查（记叙文，排出事件顺序）：排序板开着、没交，印记 说
+// 「把下方的卡片拖到上面」—— 说的正是那块板 —— 兜底却又递了一张
+// 「请在文章里点出你想说的那一句」。她屏幕上于是两张卡加一块板。
+func TestNoFallbackCardWhileABoardIsOpen(t *testing.T) {
+	const reply = `{"reply":"把下面这几张卡片拖到它们该在的位置，按发生的先后排。","advance":"","focusBlock":"","card":null}`
+	h, cookie, id, q := setupReportReading(t, reply,
+		[]string{"sequence", "hunt"}, []string{"排出事件时间线", "找出关键句"})
+	// 上一轮 印记 已经发了一块排序板，她还没交。
+	board := `{"card":{"type":"order_events","prompt":"请按事情发生的先后，排列下列事件。","options":[` +
+		`{"blockId":"b2","quote":"周五夜里，暴雨抵达城东，河水在两小时内漫过了堤岸。"},` +
+		`{"blockId":"b3","quote":"市政府在周三就发布了撤离通知，周四起全区学校停课。"},` +
+		`{"blockId":"b5","quote":"到了周日，城东大部分家庭恢复了供电。"}]}}`
+	if _, err := q.AppendAtomMessage(context.Background(), sqlc.AppendAtomMessageParams{
+		AtomID: uuid.MustParse(id), Seq: 1, Role: "ai", Content: "排一排这几件事。", Payload: []byte(board),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := coachTurnRaw(t, coachTurn(t, h, cookie, id, "我不知道先动哪一张"))
+	if card, ok := out["coachCard"].(map[string]any); ok && card != nil {
+		t.Errorf("板还开着，却又递了一张卡：%v", card)
 	}
 }
