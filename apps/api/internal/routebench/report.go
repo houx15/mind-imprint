@@ -21,9 +21,10 @@ type Recommendation struct {
 
 // Recommend picks a model per class under one rule, applied in order:
 //
-//  1. anything that failed a call, or whose output the production parser
-//     rejected even once, is out. Structural failure is not a tradeoff — it is
-//     a student seeing an error.
+//  1. anything that failed a call, whose output the production parser rejected,
+//     or that missed a deterministic fixture expectation even once, is out.
+//     These are separate measurements in the report: malformed wire output is
+//     not the same defect as a readable reply with the wrong advance/tool.
 //
 //  2. anything whose WORST case is more than one point below the best model's
 //     worst case is out.
@@ -84,11 +85,17 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			if r.ErrRate() > 0 {
 				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: %.0f%% of calls failed", r.CaseID, r.ErrRate()*100))
 			}
-			if v := r.ValidRate(); v >= 0 && v < 1 {
+			if v := r.ParseRate(); v >= 0 && v < 1 {
 				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: production parser rejected %.0f%% of outputs", r.CaseID, (1-v)*100))
 			}
 			if g := r.GoldRate(); g >= 0 && g < 1 {
 				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: gold expectation missed on %.0f%% of outputs", r.CaseID, (1-g)*100))
+			}
+			if v := r.ExpectedRate(); v >= 0 && v < 1 {
+				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: deterministic expectations rejected %.0f%% of outputs", r.CaseID, (1-v)*100))
+			}
+			for _, failure := range resultJudgeFailures(r) {
+				a.hardFail = append(a.hardFail, r.CaseID+": "+failure)
 			}
 			if r.Judge > 0 {
 				a.judgeSum += r.Judge
@@ -200,13 +207,13 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 				}
 			}
 		}
-		why := fmt.Sprintf("结构 100%%，质量 %.1f（最差一项 %.0f），输出 %d tokens（其中推理 %d），p50 %s",
+		why := fmt.Sprintf("解析/预期 100%%，质量 %.1f（最差一项 %.0f），输出 %d tokens（其中推理 %d），p50 %s",
 			w.judge, w.min, w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
 		if keptIncumbentOnExactTie {
 			why += "  · 所有排序指标完全相同，保持现有绑定"
 		}
 		if w.a.judged == 0 {
-			why = fmt.Sprintf("结构 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
+			why = fmt.Sprintf("解析/预期 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
 				w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
 		}
 		if spec, bound := cat.Lanes[class]; bound && spec.LatencyBudgetMs > 0 {
@@ -235,44 +242,53 @@ func sortedModelIDs[V any](m map[string]V) []string {
 // what a reader came for, then the table it rests on.
 func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.Time) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# routebench · 分级路由实测\n\n")
-	fmt.Fprintf(&b, "%s · 每格 n=%d，取中位数 · 判官 `%s`\n\n", started.Format("2006-01-02 15:04"), cfg.Samples, cfg.JudgeModel)
-
-	unpriced := 0
-	for _, id := range cat.ModelIDs() {
-		if cat.Models[id].Price == nil {
-			unpriced++
-		}
-	}
-	if unpriced > 0 {
-		fmt.Fprintf(&b, "> **成本按 token 量排序，不是按钱。** 目录里有 %d 个模型 `priceUsd` 为空——\n"+
-			"> 宁可记成本为空，也不能编一个数字，否则这份目录存在的意义（比成本）当场就废了。\n"+
-			"> 把百炼控制台的费率填进 `models.json` 之后，同一份结果不用重跑就能换算成钱。\n\n", unpriced)
+	if cfg.Suite != "" {
+		fmt.Fprintf(&b, "# prompt gate · 单轮体检\n\n")
+		fmt.Fprintf(&b, "%s · suite `%s` · 每格 n=%d · 判官 `%s`\n\n",
+			started.Format("2006-01-02 15:04"), cfg.Suite, cfg.Samples, cfg.JudgeModel)
+		fmt.Fprintf(&b, "> 仅模型调用与最终解析失败使命令失败；预期、判官、token 和延迟供人工审阅。\n\n")
+	} else {
+		fmt.Fprintf(&b, "# routebench · 分级路由实测\n\n")
+		fmt.Fprintf(&b, "%s · 每格 n=%d，取中位数 · 判官 `%s`\n\n", started.Format("2006-01-02 15:04"), cfg.Samples, cfg.JudgeModel)
 	}
 
-	fmt.Fprintf(&b, "## 推荐绑定\n\n")
-	fmt.Fprintf(&b, "| 档 | 推荐模型 | 依据 |\n|---|---|---|\n")
-	recs := Recommend(results, cat)
-	for _, r := range recs {
-		model := r.ModelID
-		if model == "" {
-			model = "**无**"
+	if cfg.Suite == "" {
+		unpriced := 0
+		for _, id := range cat.ModelIDs() {
+			if cat.Models[id].Price == nil {
+				unpriced++
+			}
 		}
-		fmt.Fprintf(&b, "| `%s` | `%s` | %s |\n", r.Class, model, r.Why)
-	}
-	b.WriteString("\n")
-	for _, r := range recs {
-		if len(r.Rejected) == 0 {
-			continue
+		if unpriced > 0 {
+			fmt.Fprintf(&b, "> **成本按 token 量排序，不是按钱。** 目录里有 %d 个模型 `priceUsd` 为空——\n"+
+				"> 宁可记成本为空，也不能编一个数字，否则这份目录存在的意义（比成本）当场就废了。\n"+
+				"> 把百炼控制台的费率填进 `models.json` 之后，同一份结果不用重跑就能换算成钱。\n\n", unpriced)
 		}
-		fmt.Fprintf(&b, "**`%s` 排除了：**\n", r.Class)
-		for _, x := range r.Rejected {
-			fmt.Fprintf(&b, "- %s\n", x)
+
+		fmt.Fprintf(&b, "## 推荐绑定\n\n")
+		fmt.Fprintf(&b, "| 档 | 推荐模型 | 依据 |\n|---|---|---|\n")
+		recs := Recommend(results, cat)
+		for _, r := range recs {
+			model := r.ModelID
+			if model == "" {
+				model = "**无**"
+			}
+			fmt.Fprintf(&b, "| `%s` | `%s` | %s |\n", r.Class, model, r.Why)
 		}
 		b.WriteString("\n")
+		for _, r := range recs {
+			if len(r.Rejected) == 0 {
+				continue
+			}
+			fmt.Fprintf(&b, "**`%s` 排除了：**\n", r.Class)
+			for _, x := range r.Rejected {
+				fmt.Fprintf(&b, "- %s\n", x)
+			}
+			b.WriteString("\n")
+		}
 	}
 
-	fmt.Fprintf(&b, "## 逐格结果\n\n")
+	fmt.Fprintf(&b, "## 单轮结果\n\n")
 	byCase := map[string][]Result{}
 	var order []string
 	for _, r := range results {
@@ -287,36 +303,88 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 		// 入 tokens is here because cost is (in x in_price + out x out_price), and a
 		// report that prints only the output half cannot be converted to money no
 		// matter what prices you later fill in.
-		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 结构 | 任务命中 | 质量 | 备注 |\n")
-		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|\n")
+		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 解析 | 预期 | 任务命中 | 质量 | 备注 |\n")
+		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|\n")
 		for _, r := range rs {
 			if r.Skipped != "" {
-				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
+				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
 				continue
 			}
 			judge := "—"
 			if r.Judge > 0 {
-				judge = fmt.Sprintf("%.0f", r.Judge)
+				judge = fmt.Sprintf("%.1f（最低 %.0f / 中位 %.0f）", r.Judge, r.JudgeMin(), r.JudgeMedian())
 			}
 			note := r.JudgeWhy
 			if e := firstError(r); e != "" {
 				note = e + "  " + note
 			}
-			gold := pct(r.GoldRate())
-			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s | %s |\n",
+			if r.RetryRate() > 0 {
+				note = fmt.Sprintf("重试 %.0f%%；%s", r.RetryRate()*100, note)
+			}
+			if failures := resultJudgeFailures(r); len(failures) > 0 {
+				note = "判官失败：" + strings.Join(failures, "；") + "；" + note
+			}
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s | %s | %s |\n",
 				r.ModelID,
 				r.P50TTFT().Round(100*time.Millisecond),
 				r.P50Total().Round(100*time.Millisecond),
-				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ValidRate()), gold, judge, note)
+				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ParseRate()), pct(r.ExpectedRate()), pct(r.GoldRate()), judge, note)
 		}
 		b.WriteString("\n")
+	}
+	if cfg.Suite != "" {
+		b.WriteString("## 回复速览\n\n每个用例展示一个代表样本，以及其他需要关注的样本；完整样本见 JSON。\n\n")
+		for _, id := range order {
+			for _, r := range byCase[id] {
+				if len(r.Samples) == 0 {
+					continue
+				}
+				fmt.Fprintf(&b, "### `%s` · `%s`\n\n", id, r.ModelID)
+				picked := map[int]bool{0: true}
+				for i, s := range r.Samples {
+					if s.Err != "" || (s.ParseErr != "" && s.ParseErr != "n/a") || (s.ValidErr != "" && s.ValidErr != "n/a") || isJudgeFailure(s.JudgeWhy) || (s.Judge > 0 && s.Judge < 3) {
+						picked[i] = true
+					}
+				}
+				for i, s := range r.Samples {
+					if !picked[i] {
+						continue
+					}
+					fmt.Fprintf(&b, "样本 %d · 预期：%s · 判官：%.0f · 入/出/推理 tokens：%d/%d/%d\n\n", i+1, sampleExpectation(s), s.Judge, s.In, s.Out, s.Reason)
+					if s.ValidErr != "" && s.ValidErr != "n/a" {
+						fmt.Fprintf(&b, "需审阅：%s\n\n", s.ValidErr)
+					}
+					if s.Err != "" || (s.ParseErr != "" && s.ParseErr != "n/a") {
+						fmt.Fprintf(&b, "技术故障：%s %s\n\n", s.Err, s.ParseErr)
+					}
+					if s.JudgeWhy != "" {
+						fmt.Fprintf(&b, "判官理由：%s\n\n", s.JudgeWhy)
+					}
+					reply := s.Text
+					if reply == "" {
+						reply = s.FirstText
+					}
+					fmt.Fprintf(&b, "```json\n%s\n```\n\n", reply)
+				}
+			}
+		}
 	}
 	return b.String()
 }
 
-// firstError surfaces the first thing that went wrong in a cell — a failed call
-// or a parser rejection — because "valid 67%" without the reason is a number
-// nobody can act on.
+func sampleExpectation(s Sample) string {
+	if s.ValidErr == "n/a" {
+		return "未设置"
+	}
+	if s.Valid {
+		return "符合"
+	}
+	return "需审阅"
+}
+
+// firstError surfaces the first thing that went wrong in a cell while keeping
+// parser failures, provider/finalization failures, and fixture expectations
+// visibly distinct.
 //
 // The call-failure budget is deliberately generous. It used to be 70 characters,
 // which cut a DashScope error off inside the word "message" and left a cell that
@@ -324,13 +392,18 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 // failure this function exists to prevent.
 func firstError(r Result) string {
 	for _, s := range r.Samples {
+		if s.ParseErr != "" && s.ParseErr != "n/a" {
+			return "解析失败：" + truncate(s.ParseErr, 400)
+		}
+	}
+	for _, s := range r.Samples {
 		if s.Err != "" {
 			return "调用失败：" + truncate(s.Err, 400)
 		}
 	}
 	for _, s := range r.Samples {
 		if s.ValidErr != "" && s.ValidErr != "n/a" {
-			return "结构不合格：" + truncate(s.ValidErr, 200)
+			return "预期不符：" + truncate(s.ValidErr, 200)
 		}
 	}
 	for _, s := range r.Samples {
@@ -345,7 +418,7 @@ func firstError(r Result) string {
 // from a judge verdict having been recorded, successful or not.
 func judgeAttempted(rs []Result) bool {
 	for _, r := range rs {
-		if r.Judge > 0 || strings.HasPrefix(r.JudgeWhy, "judge call failed") {
+		if r.Judge > 0 || len(resultJudgeFailures(r)) > 0 {
 			return true
 		}
 	}
@@ -358,9 +431,21 @@ func judgeFailures(rs []Result) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, r := range rs {
-		if r.Judge == 0 && strings.HasPrefix(r.JudgeWhy, "judge call failed") && !seen[r.JudgeWhy] {
-			seen[r.JudgeWhy] = true
-			out = append(out, r.JudgeWhy)
+		for _, failure := range resultJudgeFailures(r) {
+			if !seen[failure] {
+				seen[failure] = true
+				out = append(out, failure)
+			}
+		}
+	}
+	return out
+}
+
+func resultJudgeFailures(r Result) []string {
+	var out []string
+	for _, s := range r.Samples {
+		if isJudgeFailure(s.JudgeWhy) {
+			out = append(out, s.JudgeWhy)
 		}
 	}
 	return out

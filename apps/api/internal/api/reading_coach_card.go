@@ -253,6 +253,10 @@ const (
 // 收尾是完全正常的写法（卡片自己会把话说完）。
 func replyLooksCutOff(reply string) bool {
 	r := []rune(strings.TrimSpace(reply))
+	// Closing Markdown emphasis/code markers are formatting, not sentence endings.
+	for len(r) > 0 && (r[len(r)-1] == '*' || r[len(r)-1] == '_' || r[len(r)-1] == '`') {
+		r = r[:len(r)-1]
+	}
 	if len(r) == 0 {
 		return false
 	}
@@ -1002,6 +1006,7 @@ func replyAsksForSomething(reply string) bool {
 var replyAskWords = []string{
 	"请", "说说", "写下", "写一", "挑一", "选一", "找一", "找出", "标出", "圈出",
 	"告诉我", "试试", "想一想", "读一读", "看一看", "接着读", "往下读", "点开", "点一下",
+	"点那句",
 	// 🚨 「划」是这个房间最核心的动作（在文章里划出一句），第一版这张表里**没有它** ——
 	// 于是「在文章里划出你最不服气的那一句」被判成「什么都没请她做」。
 	// 守着这条的是 TestReadingPlusSomethingToDoIsFine。

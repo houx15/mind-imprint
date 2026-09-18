@@ -1,6 +1,32 @@
 package api
 
-import "testing"
+import (
+	"testing"
+)
+
+func TestLiteReadingWalkSuiteHasOneScriptedScenario(t *testing.T) {
+	got := ReadingWalkScenarios()
+	if len(got) != 1 {
+		t.Fatalf("scenarios = %d, want 1", len(got))
+	}
+	for _, s := range got {
+		if s.Suite != liteReadingCoachSuite || s.Version != 8 || len(s.Script) == 0 {
+			t.Errorf("invalid suite scenario: %+v", s)
+		}
+		if s.Script[0] != coachAskHint {
+			t.Fatalf("hint ladder must start with the real help control, got %q", s.Script[0])
+		}
+	}
+}
+
+func TestReadingCoachReplyNeedsRetryMatchesProductionRecoveryKinds(t *testing.T) {
+	if !readingCoachReplyNeedsRetry(readingCoachReply{cardWhy: cardRejectDeadTurn}) {
+		t.Fatal("dead turn must use the production recovery path")
+	}
+	if readingCoachReplyNeedsRetry(readingCoachReply{}) {
+		t.Fatal("ordinary reply without a card must not retry")
+	}
+}
 
 // readingStepAnswered 决定 advanced-too-early 这条犯规记不记。它判错的代价是
 // 双向的：判松了会把一次「放她过去」记成合规；判紧了会把一次正确的推进记成缺陷。
@@ -51,7 +77,7 @@ func TestAdvanceTaskMovesTheActiveStepForward(t *testing.T) {
 // 一次放行只记一条：推掉「衡量的是什么」那一步算放她过去，之后推掉别的步骤不再算。
 func TestAdvancedTooEarlyCountsOnlyTheStepSheHadNotAnswered(t *testing.T) {
 	d := NewReadingWalkDriver()
-	raw := `{"reply":"好，我们往下看。","advance":"done","focusBlock":"","tool":"","lens":"","card":null}`
+	raw := `{"reply":"好，我们往下看。请提出一个文章没有回答的问题。","advance":"done","focusBlock":"","tool":"","lens":"","card":null}`
 	_, extra, err := d.Parse(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +85,7 @@ func TestAdvancedTooEarlyCountsOnlyTheStepSheHadNotAnswered(t *testing.T) {
 	if len(extra) != 1 || extra[0].Kind != "advanced-too-early" {
 		t.Fatalf("推掉她还没答上来的那一步必须记一条：%+v", extra)
 	}
+	d.Advance(raw, "好，我们往下看。请提出一个文章没有回答的问题。", "")
 	// 现在当前步是「提一个问题」。再推，和「衡量的是什么」无关，不能再记。
 	_, extra, err = d.Parse(raw)
 	if err != nil {
@@ -69,11 +96,24 @@ func TestAdvancedTooEarlyCountsOnlyTheStepSheHadNotAnswered(t *testing.T) {
 	}
 }
 
+func TestReadingWalkTerminalRequiresAdvanceAfterCorrectAnswer(t *testing.T) {
+	d := NewReadingWalkDriver()
+	d.answered = true
+	if got := d.TerminalViolations(); len(got) != 1 || got[0].Kind != "expected-terminal" {
+		t.Fatalf("answered but not advanced must fail terminal check: %+v", got)
+	}
+	d.advanceTask("done")
+	if got := d.TerminalViolations(); len(got) != 0 {
+		t.Fatalf("next task reached: %+v", got)
+	}
+}
+
 // 说出答案有两种：她没要就说了（失败），她明确要了才说（prompt 允许，产品决定）。
 // 判据只记第一种；两种混在一起，这条犯规就在替产品做决定。
 func TestAnswerUnpromptedOnlyWhenSheNeitherAskedNorSaidItHerself(t *testing.T) {
-	leak := `{"reply":"装机容量衡量的是发电能力，不是实际发电量。","advance":"","focusBlock":"","tool":"","lens":"","card":null}`
+	leak := `{"reply":"装机容量衡量的是发电能力，不是实际发电量。请用自己的话说明这个区别。","advance":"","focusBlock":"","tool":"","lens":"","card":null}`
 	hint := `{"reply":"回到第六段最后一句，看作者拿装机容量和什么做了对比。","advance":"","focusBlock":"b6","tool":"","lens":"","card":null}`
+	strongQuestion := `{"reply":"装机量，和实际发出的电，是不是一回事？回到第六段找线索。","advance":"","focusBlock":"b6","tool":"","lens":"","card":null}`
 
 	count := func(d *ReadingWalkDriver, raw string) int {
 		_, extra, err := d.Parse(raw)
@@ -114,5 +154,9 @@ func TestAnswerUnpromptedOnlyWhenSheNeitherAskedNorSaidItHerself(t *testing.T) {
 	// 提示不是答案。
 	if got := count(NewReadingWalkDriver(), hint); got != 0 {
 		t.Errorf("指到段落的提示不该记，实际 %d", got)
+	}
+	// 把关键概念放进问句可能提示过强，但不是可由子串判定的「已陈述答案」。
+	if got := count(NewReadingWalkDriver(), strongQuestion); got != 0 {
+		t.Errorf("问句的提示强度应交给判官，不应硬拦，实际 %d", got)
 	}
 }

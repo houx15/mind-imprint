@@ -90,7 +90,7 @@ func (d *WritingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, er
 	return out.Body, extra, nil
 }
 
-func (d *WritingWalkDriver) Advance(reply, said string) {
+func (d *WritingWalkDriver) Advance(_ string, reply, said string) {
 	d.history = append(d.history,
 		ChatTurn{Role: "assistant", Content: reply},
 		ChatTurn{Role: "user", Content: said},
@@ -225,7 +225,7 @@ func (d *ProWalkDriver) Parse(raw string) (string, []coachwalk.Violation, error)
 	return out.Body, extra, nil
 }
 
-func (d *ProWalkDriver) Advance(reply, said string) {
+func (d *ProWalkDriver) Advance(_ string, reply, said string) {
 	d.history = append(d.history,
 		ChatTurn{Role: "assistant", Content: reply},
 		ChatTurn{Role: "user", Content: said},

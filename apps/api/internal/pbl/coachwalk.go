@@ -38,7 +38,7 @@ func (d *WalkDriver) Parse(raw string) (string, []coachwalk.Violation, error) {
 	var extra []coachwalk.Violation
 	// reply 里已经问了一个、又挂一个钩子，是「三个问题穿了件外套」那件事的
 	// 轻量版（见 CoachOutput.Hook 的注释）。
-	if out.Hook != "" && coachwalk.CountQuestions(out.Reply) >= 1 {
+	if out.Hook != "" && coachwalk.QuestionMarkCount(out.Reply) >= 1 {
 		extra = append(extra, coachwalk.Violation{
 			Kind: "question+hook", Note: "reply 里问了一个，又另外挂了一个钩子"})
 	}
@@ -46,7 +46,7 @@ func (d *WalkDriver) Parse(raw string) (string, []coachwalk.Violation, error) {
 	return out.Reply, extra, nil
 }
 
-func (d *WalkDriver) Advance(reply, said string) {
+func (d *WalkDriver) Advance(_ string, reply, said string) {
 	d.in.Recent = append(d.in.Recent,
 		Turn{Role: "ai", Content: reply},
 		Turn{Role: "student", Content: said},

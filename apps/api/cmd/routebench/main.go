@@ -45,6 +45,11 @@ func main() {
 	var (
 		configPath = flag.String("config", "cmd/routebench/routebench.json", "experiment config")
 		outPath    = flag.String("out", "", "write the Markdown report here (default: stdout)")
+		jsonOut    = flag.String("json-out", "", "write a machine-readable artifact")
+		compare    = flag.String("compare", "", "compare this run with an earlier artifact")
+		check      = flag.Bool("check", false, "exit non-zero on model-call or final parse failures")
+		suite      = flag.String("suite", "", "run a named evaluation suite")
+		bound      = flag.Bool("bound", false, "test the current binding for the suite's class")
 		caseFilter = flag.String("cases", "", "comma-separated substrings of case ids to run")
 		samples    = flag.Int("samples", 0, "override the config's sample count")
 		list       = flag.Bool("list", false, "print cases and candidates without calling anything")
@@ -63,14 +68,30 @@ func main() {
 	if *samples > 0 {
 		cfg.Samples = *samples
 	}
+	if *suite != "" {
+		cfg.Suite = *suite
+	}
 
 	cat, err := gateway.DefaultCatalog()
 	if err != nil {
 		log.Fatalf("catalog: %v", err)
 	}
+	if *bound {
+		if cfg.Suite == "" {
+			log.Fatal("-bound requires -suite")
+		}
+		boundModel := cat.Lanes[gateway.ClassDialogue].Model
+		if boundModel == "" {
+			log.Fatal("dialogue has no current binding")
+		}
+		if boundModel == cfg.JudgeModel {
+			log.Fatal("current dialogue binding cannot judge itself")
+		}
+		cfg.Candidates = map[string][]string{gateway.ClassDialogue: {boundModel}}
+	}
 
 	if *list {
-		printPlan(cat, cfg, cases)
+		printPlan(cat, cfg, wantedCases(cases, cfg))
 		return
 	}
 
@@ -106,17 +127,70 @@ func main() {
 	// all of it was lost because the report was written only at the end.
 	rn.OnProgress = write
 
-	fmt.Fprintf(os.Stderr, "routebench: %d cases, n=%d\n", len(cases), cfg.Samples)
+	caseCount := len(cases)
+	if cfg.Suite != "" {
+		caseCount = 0
+		for _, c := range cases {
+			if c.Suite == cfg.Suite {
+				caseCount++
+			}
+		}
+	}
+	fmt.Fprintf(os.Stderr, "routebench: %d cases, n=%d\n", caseCount, cfg.Samples)
 	results := rn.Run(ctx, cases)
 	fmt.Fprintf(os.Stderr, "\njudging with %s …\n", cfg.JudgeModel)
 	rn.Judge(ctx, cases, results)
 
-	if *outPath == "" {
-		fmt.Print(routebench.Markdown(results, cat, cfg, started))
-		return
+	artifact := routebench.NewArtifact(cases, cfg, results, started)
+	if *jsonOut != "" {
+		if err := routebench.WriteArtifact(*jsonOut, artifact); err != nil {
+			log.Fatalf("write artifact: %v", err)
+		}
 	}
-	write(results)
-	fmt.Fprintf(os.Stderr, "\nwrote %s (%s)\n", *outPath, time.Since(started).Round(time.Second))
+	comparison := ""
+	if *compare != "" {
+		base, err := routebench.ReadArtifact(*compare)
+		if err != nil {
+			log.Fatalf("read comparison run: %v", err)
+		}
+		comparison = routebench.CompareArtifactMarkdown(base, artifact)
+	}
+	md := routebench.Markdown(results, cat, cfg, started) + comparison
+	if *outPath == "" {
+		fmt.Print(md)
+	} else {
+		if err := os.WriteFile(*outPath, []byte(md), 0o644); err != nil {
+			log.Fatalf("write report: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "\nwrote %s (%s)\n", *outPath, time.Since(started).Round(time.Second))
+	}
+	if failures := routebench.TechnicalFailures(artifact); len(failures) > 0 {
+		fmt.Fprintln(os.Stderr, "routebench technical failures:\n- "+strings.Join(failures, "\n- "))
+		if *check {
+			os.Exit(1)
+		}
+	}
+	return
+}
+
+func wantedCases(cases []benchcase.Case, cfg routebench.Config) []benchcase.Case {
+	var out []benchcase.Case
+	for _, c := range cases {
+		if cfg.Suite != "" && c.Suite != cfg.Suite {
+			continue
+		}
+		if len(cfg.CaseFilter) == 0 {
+			out = append(out, c)
+			continue
+		}
+		for _, f := range cfg.CaseFilter {
+			if strings.Contains(c.ID, f) {
+				out = append(out, c)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // allCases gathers the cases from the packages that own the prompts. Adding a
@@ -161,21 +235,28 @@ func loadConfig(path string) (routebench.Config, error) {
 }
 
 func printPlan(cat *gateway.Catalog, cfg routebench.Config, cases []benchcase.Case) {
-	fmt.Printf("catalog %s\n\nCASES\n", cat.Version)
+	fmt.Printf("catalog %s\n", cat.Version)
+	if cfg.Suite != "" {
+		fmt.Printf("suite %s\n", cfg.Suite)
+	}
+	fmt.Printf("\nCASES\n")
 	for _, c := range cases {
 		judged := ""
 		if strings.TrimSpace(c.Judge) != "" {
 			judged = " [judged]"
 		}
-		structural := ""
-		if c.Validate != nil {
-			structural = " [structural]"
+		checks := ""
+		if c.Parse != nil {
+			checks += " [parsed]"
 		}
 		gold := ""
 		if c.GoldCheck != nil {
 			gold = " [gold]"
 		}
-		fmt.Printf("  %-34s %-10s%s%s%s\n    %s\n", c.ID, c.Class, structural, gold, judged, c.Site)
+		if c.Validate != nil {
+			checks += " [checked]"
+		}
+		fmt.Printf("  %-34s %-10s%s%s%s\n    %s\n", c.ID, c.Class, checks, gold, judged, c.Site)
 	}
 	fmt.Printf("\nCANDIDATES (n=%d each)\n", cfg.Samples)
 	for _, class := range gateway.Classes {

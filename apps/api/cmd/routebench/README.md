@@ -64,6 +64,26 @@ go run ./cmd/routebench -cases dialogue -samples 5 -out dialogue.md
 天然不在候选里——目录会当场拒绝这个绑定，报告里写成「目录拒绝：…」，
 而不是假装从来没考虑过它们。
 
+## Prompt 优化体检
+
+阅读陪练的 routebench 用例与 coachwalk 脚本仍调用真实生产 prompt。当前产品快速迭代，
+两份结果只在同一次优化周期内作参照；不用提交长期基线，也不要求判官分数全过。
+
+```bash
+cd apps/api
+# 改 prompt 前（先确认用例符合当前产品流程）
+make prompt-gate-capture SUITE=lite-reading-coach OUT_DIR=/private/tmp/reading-before
+# 修改 prompt 后；此命令会采集新结果，并在 Markdown 末尾附对比表
+make prompt-gate SUITE=lite-reading-coach BEFORE_DIR=/private/tmp/reading-before OUT_DIR=/private/tmp/reading-after
+```
+
+两个目录必须不同，且 OUT_DIR 中不得已有结果。默认单轮每个用例 2 次、多轮路径 1 次；
+可用 `PROMPT_SAMPLES`、`PROMPT_REPEATS` 调整。调用或最终解析失败返回非零；
+业务预期、终态、判官、token 和延迟只在报告里提示人工审阅。单轮报告直接列出
+代表回复及异常回复，多轮报告保留完整对话。JSON 保留全部样本。
+
+调整用例或脚本时更新其 Version；不同版本或模型的行标为不可比。prompt 本身改变
+是实验对象，不需要改 Version。旧的 v1–v10 capture 仅供历史参考。
 `judgeModel` 必须是旗舰，且**不能同时是候选**：一个模型给自己判卷，不是测量。
 
 ## 成本这一列现在是空的
