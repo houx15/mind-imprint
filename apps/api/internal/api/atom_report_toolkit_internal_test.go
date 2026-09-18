@@ -45,7 +45,7 @@ func TestReportToolkitCountsParagraphsPerTool(t *testing.T) {
 	if got == nil {
 		t.Fatal("她用过工具，这一节不该是空的")
 	}
-	want := map[string]int{"翻译": 2, "语法": 1}
+	want := map[string]int{"翻译": 2, "句子解析": 1}
 	if len(got.Tools) != len(want) {
 		t.Fatalf("tools = %+v", got.Tools)
 	}

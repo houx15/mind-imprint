@@ -283,7 +283,7 @@ var readingRoutines = []readingRoutine{
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请根据标题和第一句预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、写作解析，一样一样看。哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
@@ -315,7 +315,7 @@ var readingRoutines = []readingRoutine{
 			// 2026-09-17：「谁在说这句话」那一步由一块板承担（事实 / 引述 / 解释），
 			// 并补上时间线。见同事的阅读模块 PRD。
 			{Kind: taskSequence, Label: "排出事件时间线", Detail: "把几件事按发生的先后排好。报道常常先讲结果，再回头交代经过。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法，一样一样看。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词，一样一样看。哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "分清事实与说法", Detail: "把几句话各自归类：记者核实的事实、某一方说的话、对事件的解释。"},
 			{Kind: taskCritique, Label: "比较来源", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
@@ -332,7 +332,7 @@ var readingRoutines = []readingRoutine{
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇要说明的对象是什么？"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先找到说明对象。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理。点开段落工具：翻译、关键单词、语法。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理。点开段落工具：翻译、关键单词；哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "理清说明结构", Detail: "把几句话各自归类：说明对象、原理与过程、例子与数据。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
 			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
@@ -499,7 +499,7 @@ var readingBlockTools = []readingBlockTool{
 		// 「like words, become a card. sentence composition split? grammar
 		// points? with highlighting, knowledge point, cases」。结构见
 		// reading_block_grammar.go。
-		Shape: "grammar", ID: "grammar", Label: "语法", Lang: "en", Subject: "sentence",
+		Shape: "grammar", ID: "grammar", Label: "句子解析", Lang: "en", Subject: "sentence",
 		// 2026-09-17 晚些改成三层：句法（主句/从句、句子成分）、词法（关键词）、
 		// 时态。见 reading_block_grammar.go 的文件头。
 		Instruction: "讲这一句语法上的重点：从句法（从句、句子成分）、词法、时态里挑这一句最值得学的一两层，" +

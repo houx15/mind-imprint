@@ -224,7 +224,9 @@ export function BlockToolsPanel({
         <BlockToolbar
           anchorEl={anchorEl}
           pointerX={pointerX ?? 0}
-          tools={tools}
+          // 词、句两级的工具（查词、句子解析）只从划选出来的小工具条进（SelectionTools）。
+          // 产品负责人 2026-09-18：「don't add the two word/sentence level to paragraph level.」
+          tools={tools.filter((t) => !t.subject)}
           openedTools={opened}
           busyTool={busy}
           activeTool={picking?.id ?? open}
