@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { QuizResult } from "../../api/interestQuiz";
+import { quizExitResult } from "./AwakeningQuiz";
 import {
   CHALLENGE_OPTIONS,
   HOOKS,
@@ -20,6 +24,28 @@ import {
 // 这里不测屏幕长什么样。测的是四类会静默出错的东西：钩子 id 和后端对不对得上、
 // 压力测试有没有恰好一个正确项、每个错误项有没有带上说明差在哪的那句话、
 // 以及那台状态机走不走得到头。
+
+describe("测试退出结果", () => {
+  it("完成前退出不携带待定位词", () => {
+    expect(quizExitResult(null)).toEqual({ grew: false, interestIds: [] });
+  });
+
+  it("结果页的所有退出入口都携带真正种下的闭表 id", () => {
+    const result = {
+      keywords: [
+        { interestId: "climate", textZh: "气候", textEn: "Climate", field: "science", note: "", evidence: "气候变化" },
+        { interestId: "", textZh: "", textEn: "", field: "self", note: "", evidence: "" },
+      ],
+    } as QuizResult;
+    expect(quizExitResult(result)).toEqual({ grew: true, interestIds: ["climate"] });
+  });
+
+  it("顶栏与结果按钮都使用同一份退出结果", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/tree/quiz/AwakeningQuiz.tsx"), "utf8");
+    expect(source.match(/onExit\(exitResult\)/g)).toHaveLength(2);
+    expect(source).not.toContain("onExit({ grew: false, interestIds: [] })");
+  });
+});
 
 describe("兴趣钩子", () => {
   // 🚨 这三个字符串是**跨语言的契约**：Go 侧 interest.Hook 只认这三个值，

@@ -52,18 +52,19 @@ func (a *API) plantKeywords(
 	refID uuid.UUID,
 	label string,
 	hs []interest.Harvested,
-) {
+) []interest.Harvested {
 	if len(hs) == 0 {
-		return
+		return nil
 	}
 
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {
 		slog.Warn("interest: begin failed", "err", err, "user_id", userID)
-		return
+		return nil
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	qtx := a.d.Queries.WithTx(tx)
+	planted := make([]interest.Harvested, 0, len(hs))
 
 	for _, h := range hs {
 		// 闭表那条不变量在写库前再站一个人。解析器已经挡过一遍，但这一条和
@@ -109,11 +110,14 @@ func (a *API) plantKeywords(
 		}
 		// 词 → 学科的边。查表，不判定。
 		linkCatalogDisciplines(ctx, qtx, row.ID, it)
+		planted = append(planted, h)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		slog.Warn("interest: commit failed", "err", err, "user_id", userID)
+		return nil
 	}
+	return planted
 }
 
 // linkCatalogDisciplines 把词表里写好的那几条边写进库。

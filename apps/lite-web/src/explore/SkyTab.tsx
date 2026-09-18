@@ -35,10 +35,14 @@ const SWITCHES: { key: SkySurface; label: string; icon: typeof Telescope }[] = [
 export function SkyTab({
   user,
   surface,
+  quizReturnInterestIds = [],
+  onQuizReturnHandled,
   onSwitch,
 }: {
   user: MeUser;
   surface: SkySurface;
+  quizReturnInterestIds?: string[];
+  onQuizReturnHandled?: () => void;
   onSwitch: (next: SkySurface) => void;
 }) {
   const live = useInterestTree();
@@ -100,7 +104,16 @@ export function SkyTab({
       </div>
 
       <div className="min-h-0 flex-1">
-        {surface === "map" ? <ExploreView tree={live} /> : <TreeView user={user} live={live} />}
+        {surface === "map" ? (
+          <ExploreView tree={live} />
+        ) : (
+          <TreeView
+            user={user}
+            live={live}
+            focusInterestIds={quizReturnInterestIds}
+            onFocusHandled={onQuizReturnHandled}
+          />
+        )}
       </div>
     </div>
   );

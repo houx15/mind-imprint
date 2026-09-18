@@ -54,11 +54,12 @@ type quizResultJSON struct {
 		} `json:"syllabus"`
 	} `json:"lenses"`
 	Keywords []struct {
-		TextZh   string `json:"textZh"`
-		Field    string `json:"field"`
-		Evidence string `json:"evidence"`
+		InterestID string `json:"interestId"`
+		TextZh     string `json:"textZh"`
+		Field      string `json:"field"`
+		Evidence   string `json:"evidence"`
 	} `json:"keywords"`
-	Harvested bool `json:"harvested"`
+	HarvestStatus string `json:"harvestStatus"`
 }
 
 // quizStubProvider 回一份合法的采集应答，好让「交卷 → 种词 → 树上看得到」这条
@@ -72,6 +73,20 @@ func quizStubProvider() gateway.Provider {
 			`"note":"你在意一个人在最难的时候还能不能自己做主。",` +
 			`"evidence":"他经历了很多痛苦，但在关键时刻依然保持理智，做出自己的选择。"}]}`},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 60, OutputTokens: 30}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+}
+
+func quizEmptyProvider() gateway.Provider {
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"keywords":[]}`},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+}
+
+func quizMalformedProvider() gateway.Provider {
+	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `not json`},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
 	})
 }
@@ -240,8 +255,8 @@ func TestInterestQuiz_UnknownHookIsDroppedNotStored(t *testing.T) {
 
 /* ── 采集 ───────────────────────────────────────────────────────────────── */
 
-// 她只写了「很帅」时：不发那次调用，也不编一个词。harvested=false 让界面能
-// 说出正确的那句话（请她多写一句），而不是「这次没长出词」。
+// 她只写了「很帅」时：不发那次调用，也不编一个词。too_thin 让界面能
+// 说出正确的那句话（请她多写一句），而不是把它混成系统故障或正常空结果。
 func TestInterestQuiz_ThinReasonNeverCallsTheModel(t *testing.T) {
 	prov := &countingProvider{inner: quizStubProvider()}
 	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
@@ -251,8 +266,8 @@ func TestInterestQuiz_ThinReasonNeverCallsTheModel(t *testing.T) {
 	body["anchorReason"] = "很帅"
 	got := finishQuiz(t, h, cookie, id, body)
 
-	if got.Harvested {
-		t.Error("太短的理由不该报告成「采集跑过了」")
+	if got.HarvestStatus != "too_thin" {
+		t.Errorf("太短的理由状态 = %q，want too_thin", got.HarvestStatus)
 	}
 	if len(got.Keywords) != 0 {
 		t.Errorf("从「很帅」里编出了 %d 个词：%+v", len(got.Keywords), got.Keywords)
@@ -262,16 +277,39 @@ func TestInterestQuiz_ThinReasonNeverCallsTheModel(t *testing.T) {
 	}
 }
 
+func TestInterestQuiz_DistinguishesEmptyFromUnavailable(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		h, cookie, _, _ := liteHandlerWithProvider(t, quizEmptyProvider())
+		id := startQuiz(t, h, cookie)
+		got := finishQuiz(t, h, cookie, id, fullAttempt())
+		if got.HarvestStatus != "empty" {
+			t.Errorf("正常空结果状态 = %q，want empty", got.HarvestStatus)
+		}
+	})
+
+	t.Run("unavailable", func(t *testing.T) {
+		h, cookie, _, _ := liteHandlerWithProvider(t, quizMalformedProvider())
+		id := startQuiz(t, h, cookie)
+		got := finishQuiz(t, h, cookie, id, fullAttempt())
+		if got.HarvestStatus != "unavailable" {
+			t.Errorf("解析失败状态 = %q，want unavailable", got.HarvestStatus)
+		}
+	})
+}
+
 func TestInterestQuiz_PlantsIntoTheSameTree(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, quizStubProvider())
 	id := startQuiz(t, h, cookie)
 	got := finishQuiz(t, h, cookie, id, fullAttempt())
 
-	if !got.Harvested {
-		t.Fatal("采集没有跑")
+	if got.HarvestStatus != "completed" {
+		t.Fatalf("采集状态 = %q，want completed", got.HarvestStatus)
 	}
 	if len(got.Keywords) != 1 {
 		t.Fatalf("种下了 %d 个词，want 1：%+v", len(got.Keywords), got.Keywords)
+	}
+	if got.Keywords[0].InterestID != "purpose" || got.Keywords[0].Field != "self" {
+		t.Errorf("结果页没有带回闭表 id 与七值 field：%+v", got.Keywords[0])
 	}
 
 	// 关键的一半：它必须出现在**同一棵树**上，而不是测试自己的一份数据。

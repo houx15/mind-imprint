@@ -73,7 +73,7 @@ type quizLensDTO struct {
 	ID       string              `json:"id"`
 	Zh       string              `json:"zh"`
 	En       string              `json:"en"`
-	Field    string              `json:"field"`
+	Field    interestFieldID     `json:"field"`
 	Asks     string              `json:"asks"`
 	Method   string              `json:"method"`
 	Exemplar string              `json:"exemplar"`
@@ -90,19 +90,32 @@ type quizSyllabusRefTO struct {
 type quizResultDTO struct {
 	Attempt quizAttemptDTO `json:"attempt"`
 	Lenses  []quizLensDTO  `json:"lenses"`
-	// Keywords 是这次真的种到树上的词。**可能是空的**，界面必须照实说。
+	// Keywords 是这次确认种到树上的词。**可能是空的**，界面必须照实说。
 	Keywords []quizPlantedDTO `json:"keywords"`
-	// Harvested 说采集到底跑没跑。false 表示她写得太短，我们没有发那次调用 ——
-	// 这和「跑了但一个词都没长出来」是两回事，界面要说的话也不一样。
-	Harvested bool `json:"harvested"`
+	// HarvestStatus 把四种结果明确分开：输入太薄、已种下、正常空结果、系统不可用。
+	// 旧的 harvested 布尔值无法区分「理由太短」和「provider 故障」，会把系统错误
+	// 错归因给学生。
+	HarvestStatus quizHarvestStatus `json:"harvestStatus"`
 }
 
+type interestFieldID string
+
+type quizHarvestStatus string
+
+const (
+	quizHarvestTooThin     quizHarvestStatus = "too_thin"
+	quizHarvestCompleted   quizHarvestStatus = "completed"
+	quizHarvestEmpty       quizHarvestStatus = "empty"
+	quizHarvestUnavailable quizHarvestStatus = "unavailable"
+)
+
 type quizPlantedDTO struct {
-	TextZh   string `json:"textZh"`
-	TextEn   string `json:"textEn"`
-	Field    string `json:"field"`
-	Note     string `json:"note"`
-	Evidence string `json:"evidence"`
+	InterestID string          `json:"interestId"`
+	TextZh     string          `json:"textZh"`
+	TextEn     string          `json:"textEn"`
+	Field      interestFieldID `json:"field"`
+	Note       string          `json:"note"`
+	Evidence   string          `json:"evidence"`
 }
 
 /* ── 端点 ───────────────────────────────────────────────────────────────── */
@@ -195,29 +208,29 @@ func (a *API) finishInterestQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out := quizResultDTO{
-		Attempt:  quizAttemptToDTO(row),
-		Lenses:   lensesToDTO(interest.HookLenses(att.Hook)),
-		Keywords: []quizPlantedDTO{},
+		Attempt:       quizAttemptToDTO(row),
+		Lenses:        lensesToDTO(interest.HookLenses(att.Hook)),
+		Keywords:      []quizPlantedDTO{},
+		HarvestStatus: quizHarvestUnavailable,
 	}
 
 	// 采集。用脱离请求生命周期的 context：她如果在等待时切走，那次已经花掉的
 	// 调用不该被取消 —— 词照样种进树里，她下次打开就看见了。
 	mCtx, cancel := detachedModelCtx(r)
 	defer cancel()
-	if hs, ran := a.harvestQuiz(mCtx, u.ID, row.ID, att); ran {
-		out.Harvested = true
-		for _, h := range hs {
-			// 中文名/主枝从词表查，不从模型的回话里读 —— 结果页上显示的那几个
-			// 字，和真正种进树里的那一行，必须是同一个来源。
-			it, ok := interests.ByID(h.InterestID)
-			if !ok {
-				continue
-			}
-			out.Keywords = append(out.Keywords, quizPlantedDTO{
-				TextZh: it.Zh, TextEn: it.En, Field: it.Field,
-				Note: h.Note, Evidence: h.Evidence,
-			})
+	hs, status := a.harvestQuiz(mCtx, u.ID, row.ID, att)
+	out.HarvestStatus = status
+	for _, h := range hs {
+		// 中文名/主枝从词表查，不从模型的回话里读 —— 结果页上显示的那几个
+		// 字，和真正种进树里的那一行，必须是同一个来源。
+		it, ok := interests.ByID(h.InterestID)
+		if !ok {
+			continue
 		}
+		out.Keywords = append(out.Keywords, quizPlantedDTO{
+			InterestID: it.ID, TextZh: it.Zh, TextEn: it.En, Field: interestFieldID(it.Field),
+			Note: h.Note, Evidence: h.Evidence,
+		})
 	}
 
 	httpx.WriteJSON(w, http.StatusOK, out)
@@ -227,27 +240,26 @@ func (a *API) finishInterestQuiz(w http.ResponseWriter, r *http.Request) {
 
 // harvestQuiz 从这次作答里长词，并种进树。
 //
-// 返回的 ran 说**这次调用到底发没发**：她写得太短时我们根本不发（那不是失败，
-// 是没有可采的），而发了却一个词都没长出来是另一件事。界面对这两种情况说的话
-// 不一样，所以这里必须把它们分开。
+// 返回四态而不是一个 ran 布尔值：理由太短、正常空结果、模型/写库不可用，对学生
+// 来说是三件完全不同的事。只有确认提交到同一棵树的词才随 completed 返回。
 func (a *API) harvestQuiz(
 	ctx context.Context,
 	userID, quizID uuid.UUID,
 	att interest.Attempt,
-) ([]interest.Harvested, bool) {
+) ([]interest.Harvested, quizHarvestStatus) {
 	if !att.ShouldHarvest() {
-		return nil, false
+		return nil, quizHarvestTooThin
 	}
 	// 没有 provider 就没有这次调用 —— gateway.Collect 会对 nil provider 直接
 	// panic，而一次交卷 panic 掉的代价是她刚花的五分钟。测试里的 provider 就是
 	// nil（liteHandler 不装模型），所以这条不是防御性代码，是走得到的分支。
 	if a.d.Provider == nil {
-		return nil, false
+		return nil, quizHarvestUnavailable
 	}
 	resolved, ok := a.route(ctx, gateway.ClassDigest)
 	if !ok {
 		slog.Warn("interest quiz: no provider resolved", "quiz_id", quizID)
-		return nil, false
+		return nil, quizHarvestUnavailable
 	}
 	system, user := att.BuildQuizPrompt()
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
@@ -261,13 +273,13 @@ func (a *API) harvestQuiz(
 	a.recordLiteLLMCall(ctx, userID, uuid.Nil, "interest_quiz", resolved, res.Usage)
 	if cerr != nil {
 		slog.Warn("interest quiz: provider call failed", "err", cerr, "quiz_id", quizID)
-		return nil, false
+		return nil, quizHarvestUnavailable
 	}
 	hs, perr := interest.ParseHarvestReply(res.Text)
 	if perr != nil {
-		// 不长词，也不编词。
+		// 不长词，也不编词。解析失败是系统不可用，不是假装成正常空结果。
 		slog.Warn("interest quiz: unparseable reply", "err", perr, "quiz_id", quizID)
-		return nil, true
+		return nil, quizHarvestUnavailable
 	}
 	// 🚨 evidence 必须真的出自她敲进去的字。实测抓到过一次：模型把 prompt 里
 	// 我自己写的脚手架文字当成她的原话返回，长度合格、语义通顺、能过解析器，
@@ -277,12 +289,18 @@ func (a *API) harvestQuiz(
 	if n := before - len(hs); n > 0 {
 		slog.Warn("interest quiz: dropped ungrounded keywords", "dropped", n, "quiz_id", quizID)
 	}
+	if len(hs) == 0 {
+		return nil, quizHarvestEmpty
+	}
 	// 🚨 ref_id 用这一行作答的 id，不是 uuid.Nil。keyword_source 的
 	// UNIQUE (keyword_id, kind, ref_id) 会因此允许**下一次作答给同一个词再添
 	// 一条来源**（强度上升）；用 Nil 的话第二次重做会撞进唯一约束，一个词都
 	// 加不上，而「重做是再长几个词」正是这个测试的设计。
-	a.plantKeywords(ctx, userID, "quiz", quizID, interest.QuizSourceLabel, hs)
-	return hs, true
+	planted := a.plantKeywords(ctx, userID, "quiz", quizID, interest.QuizSourceLabel, hs)
+	if len(planted) == 0 {
+		return nil, quizHarvestUnavailable
+	}
+	return planted, quizHarvestCompleted
 }
 
 /* ── 转换 ───────────────────────────────────────────────────────────────── */
@@ -314,7 +332,7 @@ func lensesToDTO(ds []disciplines.Discipline) []quizLensDTO {
 			})
 		}
 		out = append(out, quizLensDTO{
-			ID: d.ID, Zh: d.Zh, En: d.En, Field: d.Field,
+			ID: d.ID, Zh: d.Zh, En: d.En, Field: interestFieldID(d.Field),
 			Asks: d.Asks, Method: d.Method, Exemplar: d.Exemplar,
 			Syllabus: refs,
 		})

@@ -254,7 +254,7 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
     let planted = 0;
     for (let i = 0; i < 3 && planted === 0; i++) {
       const q = await j<{ id: string }>(ctx, "POST", "/api/v1/interest/quiz");
-      const done = await j<{ keywords: unknown[]; harvested: boolean }>(ctx, "PUT", `/api/v1/interest/quiz/${q.body.id}`, {
+      const done = await j<{ keywords: unknown[]; harvestStatus: string }>(ctx, "PUT", `/api/v1/interest/quiz/${q.body.id}`, {
         navigator: "",
         anchorWork: "流浪地球",
         anchorReason: "我喜欢里面人类一起想办法把地球推走，我一直在想如果真的要搬家，城市的水和粮食怎么保证，我还自己算过地下城要多少电。",
@@ -263,7 +263,7 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
         challengeAttempts: 0,
       });
       planted = done.body?.keywords?.length ?? 0;
-      note("兴趣测试种词", planted > 0 ? "ok" : "look", `第 ${i + 1} 次：${done.status} harvested=${done.body?.harvested} ${planted} 个`);
+      note("兴趣测试种词", planted > 0 ? "ok" : "look", `第 ${i + 1} 次：${done.status} harvestStatus=${done.body?.harvestStatus} ${planted} 个`);
     }
     await page.goto("/tree");
     await settleRoom(page);

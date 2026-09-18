@@ -49,6 +49,23 @@ func TestQuizPromptSaysHerOwnChoiceIsTheEvidence(t *testing.T) {
 	}
 }
 
+// 数学与形式 / 科学与自然都可能出现「模型」「规律」这类字。模型只能选闭表 id，
+// field 最终由表决定；但 prompt 仍要把选择边界说清，避免它先挑错 id。
+func TestQuizPromptSeparatesFormalFromScience(t *testing.T) {
+	system := quizSystem(t)
+	for _, frag := range []string{
+		"数学与形式：关心规则、数量、概率、逻辑、统计、模型是否成立",
+		"科学与自然：关心自然现象、生物、物质、地球或宇宙为什么会这样发生",
+		"不要因为科学研究会用数学",
+		"最终 field 由所选",
+		"id 在上表中的分组决定",
+	} {
+		if !strings.Contains(system, frag) {
+			t.Errorf("兴趣测试的 prompt 没有写清 formal/science 边界：%q", frag)
+		}
+	}
+}
+
 // 分开的**只有那一段**。词表、字段要求、JSON 形状必须仍然和采集是同一套 ——
 // 否则同一棵树上会挂着两种质量的词，而那正是当初决定共用的理由。
 func TestQuizAndHarvestStillShareEverythingElse(t *testing.T) {
@@ -56,10 +73,10 @@ func TestQuizAndHarvestStillShareEverythingElse(t *testing.T) {
 	harvest, _ := BuildHarvestPrompt("reading", "标题", "她写的一段话。")
 
 	shared := []string{
-		"你只能从下面这张表里选，不能自己造词",          // 闭表这条规矩
+		"你只能从下面这张表里选，不能自己造词",                               // 闭表这条规矩
 		`{"keywords":[{"id":"","note":"","evidence":""}]}`, // JSON 形状
-		"id：**上表里的 id 原样照抄**",                       // 字段要求
-		"evidence：**她自己写的原话**",                       // 逐字摘录这条
+		"id：**上表里的 id 原样照抄**",                              // 字段要求
+		"evidence：**她自己写的原话**",                             // 逐字摘录这条
 		"宁可只给一个，也不要凑满三个",
 	}
 	for _, frag := range shared {

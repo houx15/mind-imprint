@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MeUser } from "../api/auth";
 import {
   FIELDS,
@@ -77,6 +77,8 @@ export function TreeView({
   user,
   live,
   readOnly = false,
+  focusInterestIds = [],
+  onFocusHandled,
 }: {
   user: MeUser;
   live: LiveTree;
@@ -84,6 +86,9 @@ export function TreeView({
    *  空枝邀请），其余——枝、叶、根、成长轴、相关活动——照常渲染。默认
    *  `false`，学生自己那面因此一字不变。 */
   readOnly?: boolean;
+  /** 兴趣测试本次确认种下的闭表 id；树刷新后自动打开第一个对应词。 */
+  focusInterestIds?: string[];
+  onFocusHandled?: () => void;
 }) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
@@ -113,6 +118,22 @@ export function TreeView({
   // `readOnly`，从不把它喂给 TreeState 或渲染那颗按钮。
   const quizTaken = useQuizTaken();
   const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
+  const focusKey = focusInterestIds.join("\u0000");
+
+  // 从满屏测试返回时 SkyTab 会重新挂载，useInterestTree 随即拉取真数据；等新快照
+  // 到达后再打开对应关键词的来源抽屉。不能拿结果页 DTO 直接画一片临时叶子：树上
+  // 的 uuid、强度与来源必须以 GET tree 为准。
+  useEffect(() => {
+    if (!focusKey || live.status !== "ready") return;
+    const interestIds = new Set(focusInterestIds);
+    const target = live.keywords.find((k) => interestIds.has(k.interestId));
+    if (!target) return;
+    setStop(3);
+    setPick({ kind: "leaf", id: target.id });
+    setOpenId(target.id);
+    onFocusHandled?.();
+  }, [focusInterestIds, focusKey, live.keywords, live.status, onFocusHandled]);
+
   // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
   const [inviteField, setInviteField] = useState<FieldId | null>(null);
 

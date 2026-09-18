@@ -7,6 +7,7 @@ import {
   type QuizHook,
   type QuizResult,
 } from "../../api/interestQuiz";
+import { fieldById } from "../geometry";
 import {
   CHALLENGE_OPTIONS,
   CHALLENGE_PASS,
@@ -51,7 +52,19 @@ import "./quiz.css";
  * 整个 lite 是暖纸 + 暖夜，这一屏是冷蓝科幻。这是有意的温差：她从外面的系统
  * 走回自己的树。见 quiz.css 顶部。
  */
-export function AwakeningQuiz({ onExit }: { onExit: (grew: boolean) => void }) {
+export interface QuizExitResult {
+  grew: boolean;
+  interestIds: string[];
+}
+
+/** 所有退出入口共用同一个结果，避免结果页顶栏丢掉刚种下的词。 */
+export function quizExitResult(result: QuizResult | null): QuizExitResult {
+  if (!result) return { grew: false, interestIds: [] };
+  const interestIds = result.keywords.map((keyword) => keyword.interestId).filter(Boolean);
+  return { grew: interestIds.length > 0, interestIds };
+}
+
+export function AwakeningQuiz({ onExit }: { onExit: (result: QuizExitResult) => void }) {
   const [step, setStep] = useState<Step>("boot");
   const [attemptId, setAttemptId] = useState("");
   const [principle, setPrinciple] = useState("");
@@ -73,8 +86,9 @@ export function AwakeningQuiz({ onExit }: { onExit: (grew: boolean) => void }) {
     setStep("world");
     startQuiz()
       .then((a) => setAttemptId(a.id))
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : String(e));
+      .catch(() => {
+        // 瞬时失败先留空；交卷前会自动补开一次，只有补开也失败才向学生报错。
+        setAttemptId("");
       });
   }, []);
 
@@ -82,7 +96,22 @@ export function AwakeningQuiz({ onExit }: { onExit: (grew: boolean) => void }) {
     setSubmitting(true);
     setError("");
     try {
-      const r = await finishQuiz(attemptId, {
+      // 第一屏开作答可能因为瞬时网络错误失败。不能让她做完七屏才因为空 id 交不上：
+      // 交卷前补开一次，并把失败明确写成「创建作答失败」。
+      let id = attemptId;
+      if (!id) {
+        try {
+          const attempt = await startQuiz();
+          id = attempt.id;
+          setAttemptId(id);
+        } catch (e: unknown) {
+          throw new Error(`创建作答失败：${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      if (!id) {
+        throw new Error("创建作答失败：后台没有返回作答 id");
+      }
+      const r = await finishQuiz(id, {
         navigator,
         anchorWork: work,
         anchorReason: reason,
@@ -100,9 +129,11 @@ export function AwakeningQuiz({ onExit }: { onExit: (grew: boolean) => void }) {
     }
   }
 
+  const exitResult = quizExitResult(result);
+
   return (
     <div className="awk flex min-h-full flex-col">
-      <TopBar step={step} onExit={() => onExit(false)} />
+      <TopBar step={step} onExit={() => onExit(exitResult)} />
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 pb-10">
         {step === "boot" ? <Boot onNext={begin} /> : null}
@@ -156,7 +187,7 @@ export function AwakeningQuiz({ onExit }: { onExit: (grew: boolean) => void }) {
           <Result
             result={result}
             navigatorName={navigator}
-            onExit={() => onExit(result.keywords.length > 0)}
+            onExit={() => onExit(exitResult)}
           />
         ) : null}
       </div>
@@ -574,7 +605,7 @@ function Challenge({
       {error ? (
         <p className="mt-4 rounded-lg p-3 text-mk-small leading-[1.8]"
            style={{ background: "rgba(255,113,137,.12)", border: "1px solid rgba(255,113,137,.4)" }}>
-          提交失败：{error}
+          {error.startsWith("创建作答失败：") ? error : `提交失败：${error}`}
         </p>
       ) : null}
 
@@ -688,10 +719,19 @@ function Result({
           <div className="mt-4 grid gap-3">
             {result.keywords.map((k, i) => (
               <div key={k.textZh} className="awk-soft awk-in p-4" style={{ ["--i" as string]: i }}>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Sparkles size={15} strokeWidth={2} color="var(--amber)" />
                   <strong className="text-mk-h3">{k.textZh}</strong>
                   <span className="font-mono text-mk-small awk-dim">{k.textEn}</span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11px]"
+                    style={{
+                      border: "1px solid var(--line)",
+                      color: "var(--cyan)",
+                    }}
+                  >
+                    主枝 · {fieldById(k.field).label}
+                  </span>
                 </div>
                 {k.note ? (
                   <p className="mt-2 leading-[1.85] text-[#c6d7e8]">{k.note}</p>
@@ -707,17 +747,27 @@ function Result({
             ))}
           </div>
         ) : (
-          // 🚨 两种「没长出词」，说的话不一样。绝不编一个像样的词填进来。
+          // 🚨 四种采集结果分别说明。系统不可用时绝不反过来责怪学生写得太短。
           <div className="awk-soft mt-4 p-5">
             <p className="leading-[1.9] text-[#c6d7e8]">
-              {result.harvested
-                ? "这次没有长出关键词——你写的那段话里，还没有能作为根据的原话。"
-                : "这次没有采集：你写的理由太短，里面还没有能摘出来的句子。"}
+              {result.harvestStatus === "too_thin"
+                ? "这次没有采集：你写的理由太短，里面还没有能摘出来的句子。"
+                : result.harvestStatus === "empty"
+                  ? "采集已完成，但这次没有找到同时满足闭表与原话证据要求的关键词。"
+                  : result.harvestStatus === "unavailable"
+                    ? "关键词采集暂时不可用。你的作答已保存，但这次没有向兴趣树写入关键词。"
+                    : "这次没有向兴趣树写入关键词。"}
             </p>
-            <p className="mt-2 text-mk-small leading-[1.85] awk-dim">
-              可以再做一次，在「它最吸引你的地方」里写一个具体的画面或情节。重做是往树上再加几个词，
-              不会清空已有的。
-            </p>
+            {result.harvestStatus !== "unavailable" ? (
+              <p className="mt-2 text-mk-small leading-[1.85] awk-dim">
+                可以再做一次，在「它最吸引你的地方」里写一个具体的画面或情节。重做会增加关键词或来源，
+                不会清空已有内容。
+              </p>
+            ) : (
+              <p className="mt-2 text-mk-small leading-[1.85] awk-dim">
+                请稍后重试。重做不会清空兴趣树上已有的内容。
+              </p>
+            )}
           </div>
         )}
       </div>

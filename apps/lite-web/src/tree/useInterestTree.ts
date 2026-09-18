@@ -93,15 +93,17 @@ export function useInterestTree(fetcher: () => Promise<InterestTree> = fetchInte
 /**
  * 成果数 —— 这些词是从几件**做完的**事情上长出来的。
  *
- * 按 (类型, id) 去重：一篇阅读长出三个词，它仍然是一件事。这个数字的定义就是
- * 「几件做完的事」，而不是「几次活动」——后者是一个参与度指标，而参与度指标会
- * 让一个反复打开同一篇文章的学生看起来很努力。
+ * 只数能被称为学习成果的阅读、写作与项目，并按 (类型, id) 去重：一篇阅读长出
+ * 三个词，它仍然是一件事。兴趣测试是冷启动活动、新闻是发现来源，都不是学生完成
+ * 的作品，不能因为它们带 ref id 就混进成果数。
  */
 export function outputCount(keywords: Keyword[]): number {
   const seen = new Set<string>();
   for (const k of keywords) {
     for (const s of k.sources) {
-      if (s.id) seen.add(`${s.kind}:${s.id}`);
+      if ((s.kind === "reading" || s.kind === "writing" || s.kind === "project") && s.id) {
+        seen.add(`${s.kind}:${s.id}`);
+      }
     }
   }
   return seen.size;

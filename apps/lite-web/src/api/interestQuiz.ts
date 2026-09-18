@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { InterestFieldId } from "./interest";
 
 /**
  * api/interestQuiz — 觉醒协议（兴趣测试）。
@@ -47,7 +48,7 @@ export interface QuizLens {
   id: string;
   zh: string;
   en: string;
-  field: string;
+  field: InterestFieldId;
   asks: string;
   method: string;
   exemplar: string;
@@ -55,25 +56,26 @@ export interface QuizLens {
 }
 
 export interface QuizPlanted {
+  interestId: string;
   textZh: string;
   textEn: string;
-  field: string;
+  field: InterestFieldId;
   note: string;
   evidence: string;
 }
 
+export type QuizHarvestStatus = "too_thin" | "completed" | "empty" | "unavailable";
+
 export interface QuizResult {
   attempt: QuizAttempt;
   lenses: QuizLens[];
-  /** 这次真的种到树上的词。**可能是空的**，结果页必须照实说。 */
+  /** 这次确认种到树上的词。**可能是空的**，结果页必须照实说。 */
   keywords: QuizPlanted[];
   /**
-   * 采集到底跑没跑。
-   *
-   * `false` 表示她写得太短，我们**根本没发那次调用** —— 这和「跑了但一个词都
-   * 没长出来」是两回事，结果页对这两种情况说的话也不一样。
+   * 采集结果四态。`too_thin` 是输入不足；`empty` 是模型正常返回但没有合格词；
+   * `unavailable` 是模型、解析或写库不可用。绝不把系统故障写成学生输入太短。
    */
-  harvested: boolean;
+  harvestStatus: QuizHarvestStatus;
 }
 
 export interface FinishQuizInput {
@@ -83,6 +85,35 @@ export interface FinishQuizInput {
   hook: QuizHook | "";
   challengeChoice: string;
   challengeAttempts: number;
+}
+
+const FIELD_IDS = new Set<InterestFieldId>([
+  "formal",
+  "science",
+  "making",
+  "society",
+  "humanities",
+  "arts",
+  "self",
+]);
+
+const HARVEST_STATUSES = new Set<QuizHarvestStatus>([
+  "too_thin",
+  "completed",
+  "empty",
+  "unavailable",
+]);
+
+export function normalizeField(value: unknown): InterestFieldId {
+  return typeof value === "string" && FIELD_IDS.has(value as InterestFieldId)
+    ? (value as InterestFieldId)
+    : "self";
+}
+
+export function normalizeHarvestStatus(value: unknown): QuizHarvestStatus {
+  return typeof value === "string" && HARVEST_STATUSES.has(value as QuizHarvestStatus)
+    ? (value as QuizHarvestStatus)
+    : "unavailable";
 }
 
 function normalizeAttempt(raw: Partial<QuizAttempt> | null | undefined): QuizAttempt {
@@ -124,13 +155,20 @@ export async function finishQuiz(id: string, input: FinishQuizInput): Promise<Qu
       id: l.id ?? "",
       zh: l.zh ?? "",
       en: l.en ?? "",
-      field: l.field ?? "",
+      field: normalizeField(l.field),
       asks: l.asks ?? "",
       method: l.method ?? "",
       exemplar: l.exemplar ?? "",
       syllabus: l.syllabus ?? [],
     })),
-    keywords: (raw.keywords ?? []) as QuizPlanted[],
-    harvested: raw.harvested ?? false,
+    keywords: (raw.keywords ?? []).map((k) => ({
+      interestId: k.interestId ?? "",
+      textZh: k.textZh ?? "",
+      textEn: k.textEn ?? "",
+      field: normalizeField(k.field),
+      note: k.note ?? "",
+      evidence: k.evidence ?? "",
+    })),
+    harvestStatus: normalizeHarvestStatus(raw.harvestStatus),
   };
 }

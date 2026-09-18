@@ -249,6 +249,9 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   // 「阅读 / 写作 / 项目」的轨会把它降级成一个开着的面板 —— 和觉醒协议满屏
   // 渲染是同一条理由。pro 的 shell 在同一个位置做同一件事。
   const [immersive, setImmersive] = useState(false);
+  // 兴趣测试返回树时带回这次真正种下的闭表 id。SkyTab 重新挂载会拉取最新数据，
+  // 树组件在新快照到达后自动打开对应关键词的证据抽屉；不用 URL 查询串保存一次性状态。
+  const [quizReturnInterestIds, setQuizReturnInterestIds] = useState<string[]>([]);
 
   useEffect(() => {
     function onPopState() {
@@ -267,7 +270,10 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     return (
       <div className="h-full w-full overflow-hidden">
         <AwakeningQuiz
-          onExit={() => navigate(liteRoutePath({ tab: "tree" }))}
+          onExit={({ grew, interestIds }) => {
+            setQuizReturnInterestIds(grew ? interestIds : []);
+            navigate(liteRoutePath({ tab: "tree" }));
+          }}
         />
       </div>
     );
@@ -361,6 +367,8 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           <SkyTab
             user={user}
             surface={route.tab === "tree" ? "tree" : "map"}
+            quizReturnInterestIds={quizReturnInterestIds}
+            onQuizReturnHandled={() => setQuizReturnInterestIds([])}
             onSwitch={(next) =>
               navigate(
                 liteRoutePath(
