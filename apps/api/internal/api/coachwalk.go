@@ -61,8 +61,8 @@ func NewReadingWalkDriver() *ReadingWalkDriver {
 			// 是一种线上根本不会出现的步骤。和 2026-09-14 那份把状态写成
 			// "active"/"todo" 的阅读用例是同一个毛病（见
 			// [[fixture-told-coach-session-over-2026-09-14]]）。
-			{ID: fixtureTaskID(2), Position: 2, Kind: "focus_block", Label: "精读重点段落第3段：找出最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
-			{ID: fixtureTaskID(3), Position: 3, Kind: "critique", Label: "你怎么看", BlockID: "", Status: "pending"},
+			{ID: fixtureTaskID(2), Position: 2, Kind: string(taskFocusBlock), Label: "精读重点段落第3段：找出最关键的那个数字，说说它衡量的是什么", BlockID: "b3", Status: "pending"},
+			{ID: fixtureTaskID(3), Position: 3, Kind: string(taskCritique), Label: "你怎么看", BlockID: "", Status: "pending"},
 		},
 		msgs: []sqlc.AtomMessage{
 			{Seq: 1, Role: "assistant", Content: "先通读一遍。读完告诉我，作者到底想让你接受什么？"},
@@ -73,6 +73,24 @@ func NewReadingWalkDriver() *ReadingWalkDriver {
 		picks:   []readingPick{{BlockID: "b3", Quote: "中国的可再生能源新增装机量连续八年位居世界第一。"}},
 		student: "我觉得这句最关键，装机量连续八年第一，说明投入是真的很大。",
 		seq:     4,
+	}
+}
+
+// ReadingWalkScenarios is the lite-reading-coach multi-turn half of the same
+// suite whose single turns live in benchcases.go. Keeping the registration by
+// the unexported prompt builders prevents fixtures from drifting into copies.
+func ReadingWalkScenarios() []coachwalk.Scenario {
+	return []coachwalk.Scenario{
+		{
+			Suite: liteReadingCoachSuite, ID: "lite-reading-coach/hint-ladder", Version: 8,
+			Judge: ReadingWalkJudge, Make: func() coachwalk.Driver { return NewReadingWalkDriver() },
+			Script: []string{
+				coachAskHint,
+				"是不是就是实际发电量？",
+				"装机容量衡量发电能力，不等于实际发电量。",
+				"",
+			},
+		},
 	}
 }
 
@@ -98,6 +116,8 @@ func (d *ReadingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, er
 		// retrying once」），两次都读不动才回 502。包上 ErrRetry，走查照做。
 		return "", nil, fmt.Errorf("%w: reply unparseable", coachwalk.ErrRetry)
 	}
+	parsed.Advance = protectedReadingCoachAdvance(parsed.Advance, currentReadingTask(d.tasks), nil, d.picks, d.msgs, d.blocks, d.student)
+	parsed = enforceSettledReadingTurn(parsed)
 	var extra []coachwalk.Violation
 	// 🚨 只在推掉的**正是**「说说它衡量的是什么」那一步时才记。
 	// 第一版只看 !answered，于是那一步被推掉之后，后面每推一步（「提一个
@@ -110,28 +130,77 @@ func (d *ReadingWalkDriver) Parse(raw string) (string, []coachwalk.Violation, er
 	}
 	// 🚨 她自己还没说出来、也没有明确要答案，印记就把这一步的答案说了 ——
 	// 这是替她读，不需要判官。她明确说了「直接告诉我」之后说出来的不在这里记：
-	// prompt 的提示梯子允许那种情况给第 5 级，要不要继续允许是产品决定，
-	// 判据不替它决定。d.student 此时还是她上一句（Advance 在 Parse 之后才更新）。
-	if !d.answered && readingAnswerLeaked(parsed.Reply) && !readingExplicitAsk(d.student) {
+	// prompt 的提示梯子允许那种情况给第 5 级，但直接索要答案不等于
+	// 跳过当前步骤。d.student 此时还是她上一句（Advance 在 Parse 之后才更新）。
+	if !d.answered && readingAnswerStated(parsed.Reply) && !readingExplicitAsk(d.student) {
 		extra = append(extra, coachwalk.Violation{
 			Kind: "answer-unprompted",
 			Note: "她没有要答案，这一步的答案（装机容量衡量的是能力、不是实际发电）已经说出来了",
 		})
 	}
-	if parsed.Advance != "" {
-		d.advanceTask(parsed.Advance)
-	}
 	return parsed.Reply, extra, nil
 }
 
-// readingAnswerLeaked 判断回复里有没有把这一步的答案说出来。
+// readingAnswerStated reports only a declarative statement of this fixture's
+// answer. A question that places the two concepts side by side may be too
+// strong a hint, but that judgement depends on context and belongs to the
+// semantic judge rather than a blocking substring rule.
 //
-// 只认说出答案的说法，不认提到这个词：「回到第 6 段，看作者拿装机容量和什么
-// 做了对比」是提示，不算。把答案当选项塞进问句里（「是发电能力还是实际发电量？」）
-// 算说出来了 —— 那是把她要自己得出的区分递到她嘴边。
-func readingAnswerLeaked(reply string) bool {
-	return containsAnyFolded(reply, "发电能力", "能发多少电", "不是实际发", "不等于实际",
-		"实际发出的电", "不等于发电量", "不是发电量", "不是真发", "发电的能力", "满负荷", "能力上限")
+// The split is intentionally small and mechanical: question-shaped segments
+// are excluded; declarative segments still need both an answer concept and a
+// relation that actually asserts it. We do not try to grade hint strength here.
+func readingAnswerStated(reply string) bool {
+	for _, segment := range readingAnswerSegments(reply) {
+		if segment.question {
+			continue
+		}
+		text := coachwalk.Fold(segment.text)
+		if text == "" {
+			continue
+		}
+		hasCapacity := strings.Contains(text, coachwalk.Fold("发电能力")) ||
+			strings.Contains(text, coachwalk.Fold("发电的能力")) ||
+			strings.Contains(text, coachwalk.Fold("能发多少电")) ||
+			strings.Contains(text, coachwalk.Fold("能力上限"))
+		statesCapacity := hasCapacity && (strings.Contains(text, coachwalk.Fold("衡量")) ||
+			strings.Contains(text, coachwalk.Fold("量的是")) ||
+			strings.Contains(text, coachwalk.Fold("量得是")) ||
+			strings.Contains(text, coachwalk.Fold("也就是")) ||
+			strings.Contains(text, coachwalk.Fold("说的是")))
+		statesDistinction := containsAnyFolded(text, "不是实际发", "不等于实际", "不等于发电量",
+			"不是发电量", "不是真发", "不等同于实际", "不代表实际发")
+		if statesCapacity || statesDistinction {
+			return true
+		}
+	}
+	return false
+}
+
+type readingAnswerSegment struct {
+	text     string
+	question bool
+}
+
+func readingAnswerSegments(reply string) []readingAnswerSegment {
+	var out []readingAnswerSegment
+	var current []rune
+	flush := func(question bool) {
+		if text := strings.TrimSpace(string(current)); text != "" {
+			out = append(out, readingAnswerSegment{text: text, question: question})
+		}
+		current = nil
+	}
+	for _, r := range reply {
+		current = append(current, r)
+		switch r {
+		case '？', '?':
+			flush(true)
+		case '。', '！', '!', '\n':
+			flush(false)
+		}
+	}
+	flush(false)
+	return out
 }
 
 // readingExplicitAsk 判断她这句话是不是明确要答案（prompt 提示梯子第 5 级的触发条件）。
@@ -169,7 +238,14 @@ func (d *ReadingWalkDriver) advanceTask(status string) {
 	}
 }
 
-func (d *ReadingWalkDriver) Advance(reply, said string) {
+func (d *ReadingWalkDriver) Advance(raw, reply, said string) {
+	if parsed, ok := parseReadingCoachReply(raw, d.blocks, d.lang, func(string) bool { return true }); ok {
+		advance := protectedReadingCoachAdvance(parsed.Advance, currentReadingTask(d.tasks), nil, d.picks, d.msgs, d.blocks, d.student)
+		advance = alignAdvanceWithReply(d.tasks, advance, parsed.Reply)
+		if advance != "" {
+			d.advanceTask(advance)
+		}
+	}
 	d.seq++
 	d.msgs = append(d.msgs, sqlc.AtomMessage{Seq: d.seq, Role: "assistant", Content: reply})
 	d.seq++
@@ -178,6 +254,16 @@ func (d *ReadingWalkDriver) Advance(reply, said string) {
 	if readingStepAnswered(said) {
 		d.answered = true
 	}
+}
+
+func (d *ReadingWalkDriver) TerminalViolations() []coachwalk.Violation {
+	if !d.answered {
+		return []coachwalk.Violation{{Kind: "expected-terminal", Note: "脚本结束时学生仍未说出装机容量与实际发电量的区别"}}
+	}
+	if d.activeKind() != string(taskCritique) {
+		return []coachwalk.Violation{{Kind: "expected-terminal", Note: "学生答对后没有恰好推进到下一项提问任务"}}
+	}
+	return nil
 }
 
 // readingStepAnswered 判断她这句话有没有真的回答「装机量衡量的是什么」。
@@ -247,9 +333,11 @@ const ReadingWalkJudge = `下面是一个高中生和 AI 阅读陪练的完整�
 
 请只评价 AI（印记）这一侧，按 1–5 打分。看两件事：
 （1）判断力——它有没有守住这一步？她还没说出那个区别就说「很好，我们看下一步」
-    是错的；八轮之后她自己说出来了再推进才是对的。
+    是错的；第 4 轮她自己说出来了再推进才是对的。
 （2）姿态——铁律①不替她定论（直接告诉她「装机量不等于发电量」也是错的）、
     铁律③一次只问一个。
+把「装机量」和「实际发电」放在问句里不是自动失败：请根据它给的线索强度评价。
+如果问句几乎把答案选项递到她嘴边，可以降到 3 分；只有 AI 用陈述句直接说出结论时，才按「直接把答案讲了」处理。
 1 = 放她过去，或直接把答案讲了；3 = 守住了但把答案讲了一半/问了不止一个；
 5 = 守住这一步，并用问题让她自己说出那个区别。
 只输出 JSON：{"score": <1-5>, "why": "<一句话，指出具体第几轮>"}`

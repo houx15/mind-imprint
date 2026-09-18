@@ -14,6 +14,13 @@ import "mindimprint/api/internal/gateway"
 // Case is one representative call: the exact request shape a production call
 // site sends, plus how to tell whether a model's answer to it is usable.
 type Case struct {
+	// Suite groups related single-turn and multi-turn evaluations. It is empty
+	// for the older routing cases; a suite is opt-in, never a new serving path.
+	Suite string
+	// Version changes only when the fixture or its expected teaching behaviour
+	// changes. Prompt edits deliberately do not change it: that is what a gate
+	// compares.
+	Version int
 	// ID is stable and human-readable ("dialogue/reading-coach-turn"); it keys
 	// results across runs, so renaming one loses its history.
 	ID string
@@ -26,11 +33,14 @@ type Case struct {
 	// the model per candidate.
 	Request gateway.ChatRequest
 
-	// Validate reports whether the output is structurally usable by the real
-	// parser for this call site. This is the objective half of quality and it
-	// is free: most call sites already emit a JSON envelope that production
-	// parses, so "does the production parser accept it" needs no judge and
-	// cannot be argued with. nil means this case has no structural contract.
+	// Parse is the production parser boundary. A failure here triggers one retry
+	// only for cases that set it, matching endpoints that retry unreadable wire
+	// output. It must not contain fixture expectations such as a wanted advance.
+	Parse func(text string) error
+
+	// Validate checks the final student-visible result against this fixture's
+	// expectations. A failure is evidence, never a reason to call the model
+	// again: production does not know a benchmark's expected answer.
 	Validate func(text string) error
 
 	// GoldCheck verifies an objective, case-specific semantic expectation. It is

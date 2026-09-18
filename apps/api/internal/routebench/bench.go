@@ -50,6 +50,8 @@ type Config struct {
 	// flagship model and it must NOT be one of the candidates — a model grading
 	// its own homework is not a measurement.
 	JudgeModel string `json:"judgeModel"`
+	// Suite restricts a run to cases with this stable suite identifier.
+	Suite string `json:"suite,omitempty"`
 	// CaseFilter, when non-empty, restricts the run to case ids containing any
 	// of these substrings.
 	CaseFilter []string `json:"caseFilter,omitempty"`
@@ -59,20 +61,37 @@ type Config struct {
 
 // Sample is one call.
 type Sample struct {
-	TTFT     time.Duration
-	Total    time.Duration
-	In, Out  int
-	Reason   int
-	Text     string
+	TTFT    time.Duration
+	Total   time.Duration
+	In, Out int
+	Reason  int
+	// FirstText and RetryText preserve both model attempts when a parser retry occurs.
+	FirstText       string
+	RetryText       string
+	RetryErr        string
+	SelectedAttempt int
+	Text            string
+	// Parsed is the result of the production wire parser. Valid below is the
+	// fixture expectation result; keeping them separate prevents a teaching
+	// error from being reported as malformed JSON.
+	Parsed   bool
+	ParseErr string
 	Valid    bool
 	ValidErr string
 	Gold     bool
 	GoldErr  string
 	Err      string
+	// Retries is the number of production-equivalent recovery attempts made for
+	// this sample. In/Out/Reason/Total include those attempts.
+	Retries  int
+	Judge    float64
+	JudgeWhy string
 }
 
 // Result is one (case × model) cell.
 type Result struct {
+	Suite    string
+	Version  int
 	CaseID   string
 	Class    string
 	Site     string
@@ -84,6 +103,41 @@ type Result struct {
 	// rule that refused the binding (a model that cannot stop reasoning on a
 	// class that must not reason). A refusal is a finding, not an absence.
 	Skipped string
+}
+
+// JudgeScores returns the scores recorded for this cell. It is separate from
+// Result.Judge so old routing reports keep their mean score semantics.
+func (r Result) JudgeScores() []float64 {
+	var out []float64
+	for _, s := range r.Samples {
+		if s.Judge > 0 {
+			out = append(out, s.Judge)
+		}
+	}
+	return out
+}
+
+func (r Result) JudgeMin() float64 {
+	xs := r.JudgeScores()
+	if len(xs) == 0 {
+		return 0
+	}
+	m := xs[0]
+	for _, x := range xs[1:] {
+		if x < m {
+			m = x
+		}
+	}
+	return m
+}
+
+func (r Result) JudgeMedian() float64 {
+	xs := r.JudgeScores()
+	if len(xs) == 0 {
+		return 0
+	}
+	sort.Float64s(xs)
+	return xs[len(xs)/2]
 }
 
 // Median helpers. Medians, not means: one slow sample from a cold route should
@@ -106,7 +160,8 @@ func medianInt(xs []int) int {
 	return s[len(s)/2]
 }
 
-// P50TTFT, P50Total, MedOut, MedReasoning, ValidRate summarise a cell.
+// P50TTFT, P50Total, MedOut, MedReasoning, ParseRate and ExpectedRate
+// summarise a cell.
 func (r Result) P50TTFT() time.Duration {
 	var xs []time.Duration
 	for _, s := range r.Samples {
@@ -157,10 +212,32 @@ func (r Result) MedReasoning() int {
 	return medianInt(xs)
 }
 
-// ValidRate is the share of successful calls whose output the production parser
-// accepted. Cases with no structural contract report -1 ("not applicable"),
-// which the report renders as "—" rather than as a suspiciously perfect 100%.
-func (r Result) ValidRate() float64 {
+// ParseRate is the share of successful calls whose selected output crossed the
+// production parser boundary. Cases with no parser report -1.
+func (r Result) ParseRate() float64 {
+	ok, n := 0, 0
+	for _, s := range r.Samples {
+		if s.Err != "" && s.ParseErr == "" {
+			continue
+		}
+		if s.ParseErr == "n/a" {
+			return -1
+		}
+		n++
+		if s.Parsed {
+			ok++
+		}
+	}
+	if n == 0 {
+		return -1
+	}
+	return float64(ok) / float64(n)
+}
+
+// ExpectedRate is the share of completed calls that meet the fixture's
+// deterministic teaching and state expectations. Cases with no expectation
+// contract report -1.
+func (r Result) ExpectedRate() float64 {
 	ok, n := 0, 0
 	for _, s := range r.Samples {
 		if s.Err != "" {
@@ -203,6 +280,10 @@ func (r Result) GoldRate() float64 {
 	return float64(ok) / float64(n)
 }
 
+// ValidRate is kept as a compatibility alias for older routing callers. It is
+// expectation validity, not parser validity; new reports must name it as such.
+func (r Result) ValidRate() float64 { return r.ExpectedRate() }
+
 // ErrRate is the share of calls that never came back at all.
 func (r Result) ErrRate() float64 {
 	if len(r.Samples) == 0 {
@@ -215,6 +296,19 @@ func (r Result) ErrRate() float64 {
 		}
 	}
 	return float64(bad) / float64(len(r.Samples))
+}
+
+func (r Result) RetryRate() float64 {
+	if len(r.Samples) == 0 {
+		return 0
+	}
+	n := 0
+	for _, s := range r.Samples {
+		if s.Retries > 0 {
+			n++
+		}
+	}
+	return float64(n) / float64(len(r.Samples))
 }
 
 // Runner holds everything one experiment needs. No database, no server.
@@ -261,6 +355,9 @@ func (rn *Runner) Run(ctx context.Context, cases []benchcase.Case) []Result {
 }
 
 func (rn *Runner) wanted(c benchcase.Case) bool {
+	if rn.Cfg.Suite != "" && c.Suite != rn.Cfg.Suite {
+		return false
+	}
 	if len(rn.Cfg.CaseFilter) == 0 {
 		return true
 	}
@@ -310,7 +407,7 @@ func (rn *Runner) candidates(class string) []string {
 // would at a student's turn. A binding the catalog refuses is reported as a
 // refusal with its reason — which is itself a result worth having.
 func (rn *Runner) runCell(ctx context.Context, c benchcase.Case, modelID string) Result {
-	res := Result{CaseID: c.ID, Class: c.Class, Site: c.Site, ModelID: modelID}
+	res := Result{Suite: c.Suite, Version: c.Version, CaseID: c.ID, Class: c.Class, Site: c.Site, ModelID: modelID}
 	resolved, err := rn.Cat.Resolve(c.Class, modelID, rn.Keys)
 	if err != nil {
 		res.Skipped = err.Error()
@@ -321,8 +418,8 @@ func (rn *Runner) runCell(ctx context.Context, c benchcase.Case, modelID string)
 		s := rn.once(ctx, resolved, c)
 		res.Samples = append(res.Samples, s)
 	}
-	rn.logf("  %-34s %-30s p50 %5s  out %4d (think %4d)  valid %s  gold %s",
-		c.ID, modelID, res.P50Total().Round(100*time.Millisecond), res.MedOut(), res.MedReasoning(), pct(res.ValidRate()), pct(res.GoldRate()))
+	rn.logf("  %-34s %-30s p50 %5s  out %4d (think %4d)  parse %s expected %s gold %s",
+		c.ID, modelID, res.P50Total().Round(100*time.Millisecond), res.MedOut(), res.MedReasoning(), pct(res.ParseRate()), pct(res.ExpectedRate()), pct(res.GoldRate()))
 	return res
 }
 
@@ -337,6 +434,50 @@ func pct(v float64) string {
 // from the whole answer. On a reasoning route those two differ by tens of
 // seconds, and it is the FIRST one the student experiences as "it is alive".
 func (rn *Runner) once(ctx context.Context, r gateway.Resolved, c benchcase.Case) Sample {
+	s := rn.attempt(ctx, r, c)
+	s.FirstText = s.Text
+	if s.Err != "" {
+		return s
+	}
+	s.SelectedAttempt = 1
+	if c.Parse != nil {
+		if err := c.Parse(s.Text); err != nil {
+			again := rn.attempt(ctx, r, c)
+			s.Retries = 1
+			s.RetryText, s.RetryErr = again.Text, again.Err
+			s.Total += again.Total
+			s.In += again.In
+			s.Out += again.Out
+			s.Reason += again.Reason
+			if again.Err != "" {
+				s.Err = "recovery attempt failed: " + again.Err
+				s.ParseErr = err.Error()
+				return s
+			}
+			s.Text = again.Text
+			s.SelectedAttempt = 2
+			if retryErr := c.Parse(s.Text); retryErr != nil {
+				s.ParseErr = retryErr.Error()
+				s.Err = "production parser rejected recovery reply: " + retryErr.Error()
+				return s
+			}
+		}
+		s.Parsed = true
+	} else {
+		s.ParseErr = "n/a"
+	}
+	if c.Validate == nil {
+		s.ValidErr = "n/a"
+		return s
+	}
+	if err := c.Validate(s.Text); err != nil {
+		s.ValidErr = err.Error()
+		return s
+	}
+	s.Valid = true
+	return s
+}
+func (rn *Runner) attempt(ctx context.Context, r gateway.Resolved, c benchcase.Case) Sample {
 	timeout := time.Duration(rn.Cfg.TimeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
@@ -373,15 +514,8 @@ func (rn *Runner) once(ctx context.Context, r gateway.Resolved, c benchcase.Case
 		s.Err = "empty completion"
 		return s
 	}
-	if c.Validate == nil {
-		s.ValidErr = "n/a"
-		return s
-	}
-	if verr := c.Validate(s.Text); verr != nil {
-		s.ValidErr = verr.Error()
-		return s
-	}
-	s.Valid = true
+	// The gold check is independent of the production parser and fixture
+	// expectations, but only runs on a student-visible result that passed them.
 	if c.GoldCheck != nil {
 		if gerr := c.GoldCheck(s.Text); gerr != nil {
 			s.GoldErr = gerr.Error()

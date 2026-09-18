@@ -20,10 +20,11 @@ func timedCell(caseID, class, model string, judge float64, outTokens int, total 
 		ModelID: model,
 		Judge:   judge,
 		Samples: []Sample{{
-			Total: total,
-			Out:   outTokens,
-			Text:  "x",
-			Valid: true,
+			Total:    total,
+			Out:      outTokens,
+			Text:     "x",
+			ParseErr: "n/a",
+			Valid:    true,
 		}},
 	}
 }
@@ -31,7 +32,7 @@ func timedCell(caseID, class, model string, judge float64, outTokens int, total 
 func goldCell(caseID, class, model string, judge float64, gold ...bool) Result {
 	samples := make([]Sample, 0, len(gold))
 	for _, ok := range gold {
-		s := Sample{Total: time.Second, Text: "x", Valid: true, Gold: ok}
+		s := Sample{Total: time.Second, Text: "x", ParseErr: "n/a", Valid: true, Gold: ok}
 		if !ok {
 			s.GoldErr = "ready = true, want false"
 		}
@@ -200,4 +201,25 @@ func TestQualityTieStillSwitchesOnCostWhereCostDecides(t *testing.T) {
 		return
 	}
 	t.Fatal("no compose recommendation produced")
+}
+
+func TestPartialJudgeFailureDisqualifiesCandidate(t *testing.T) {
+	cat, err := gateway.DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := cell("dialogue/reading", gateway.ClassDialogue, "dashscope/deepseek-v4-pro", 4, 10)
+	r.Samples = append(r.Samples, Sample{
+		Text: "y", ParseErr: "n/a", Valid: true,
+		JudgeWhy: "judge failed after 2 attempts: returned an empty why",
+	})
+	for _, rec := range Recommend([]Result{r}, cat) {
+		if rec.Class == gateway.ClassDialogue {
+			if rec.ModelID != "" || len(rec.Rejected) == 0 {
+				t.Fatalf("partial judge failure must reject candidate: %+v", rec)
+			}
+			return
+		}
+	}
+	t.Fatal("no dialogue recommendation produced")
 }

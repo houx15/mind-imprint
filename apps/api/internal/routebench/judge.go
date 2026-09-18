@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -45,10 +44,8 @@ func stripFences(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// Judge scores every result whose case carries a rubric. It scores the FIRST
-// successful sample of each cell rather than all of them: the judge call costs
-// as much as the call it is judging, and the between-sample spread on a fixed
-// prompt is far smaller than the between-model spread this exists to measure.
+// Judge scores one usable sample per result whose case carries a rubric.
+// The score is a review aid, not an automatic prompt-regression threshold.
 func (rn *Runner) Judge(ctx context.Context, cases []benchcase.Case, results []Result) {
 	if rn.Cfg.JudgeModel == "" {
 		rn.logf("no judgeModel configured — skipping quality scoring")
@@ -76,62 +73,63 @@ func (rn *Runner) Judge(ctx context.Context, cases []benchcase.Case, results []R
 			r.JudgeWhy = "not judged: this model is the judge"
 			continue
 		}
-		out := firstGoodText(*r)
-		if out == "" {
+		if idx := firstGoodSample(r.Samples); idx >= 0 {
+			s := &r.Samples[idx]
+			s.Judge, s.JudgeWhy = rn.judgeOne(ctx, jr, c.Judge, s.Text)
+			r.Judge, r.JudgeWhy = s.Judge, s.JudgeWhy
+		}
+	}
+}
+
+func firstGoodSample(samples []Sample) int {
+	for i, s := range samples {
+		if s.Err == "" && strings.TrimSpace(s.Text) != "" && (s.Valid || s.ValidErr == "n/a") {
+			return i
+		}
+	}
+	return -1
+}
+func (rn *Runner) judgeOne(ctx context.Context, jr gateway.Resolved, rubric, output string) (float64, string) {
+	var last string
+	for attempt := 1; attempt <= 2; attempt++ {
+		cctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+		res, err := gateway.Collect(cctx, rn.Provider, jr, gateway.ChatRequest{
+			MaxTokens: 4000,
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: judgeSystem},
+				{Role: gateway.RoleUser, Content: "【评分标准】\n" + rubric + "\n\n【模型输出】\n" + output},
+			},
+		})
+		cancel()
+		if err != nil {
+			last = "call failed: " + err.Error()
 			continue
 		}
-		score, why := rn.judgeOne(ctx, jr, c.Judge, out)
-		r.Judge, r.JudgeWhy = score, why
-	}
-}
-
-func firstGoodText(r Result) string {
-	for _, s := range r.Samples {
-		if s.Err == "" && strings.TrimSpace(s.Text) != "" {
-			return s.Text
+		score, why, jerr := parseJudgeReply(res.Text)
+		if jerr == nil {
+			return score, why
 		}
+		last = jerr.Error()
 	}
-	return ""
+	return 0, "judge failed after 2 attempts: " + last
 }
 
-func (rn *Runner) judgeOne(ctx context.Context, jr gateway.Resolved, rubric, output string) (float64, string) {
-	cctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
-	defer cancel()
-	res, err := gateway.Collect(cctx, rn.Provider, jr, gateway.ChatRequest{
-		MaxTokens: 4000,
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: judgeSystem},
-			{Role: gateway.RoleUser, Content: "【评分标准】\n" + rubric + "\n\n【模型输出】\n" + output},
-		},
-	})
-	if err != nil {
-		return 0, "judge call failed: " + err.Error()
-	}
+func parseJudgeReply(raw string) (float64, string, error) {
 	var reply judgeReply
-	body := stripFences(res.Text)
+	body := stripFences(raw)
 	if jerr := json.Unmarshal([]byte(body), &reply); jerr != nil {
-		// Salvage a bare digit rather than throwing the call away, but say so —
-		// a silently-invented score is worse than a missing one.
-		if n := firstDigit(body); n > 0 {
-			return float64(n), "score salvaged from unparseable judge reply"
-		}
-		return 0, "judge reply unparseable: " + truncate(body, 80)
+		return 0, "", fmt.Errorf("reply unparseable: %s", truncate(body, 80))
 	}
 	if reply.Score < 1 || reply.Score > 5 {
-		return 0, fmt.Sprintf("judge returned out-of-range score %d", reply.Score)
+		return 0, "", fmt.Errorf("returned out-of-range score %d", reply.Score)
 	}
-	return float64(reply.Score), reply.Why
+	if strings.TrimSpace(reply.Why) == "" {
+		return 0, "", fmt.Errorf("returned an empty why")
+	}
+	return float64(reply.Score), strings.TrimSpace(reply.Why), nil
 }
 
-func firstDigit(s string) int {
-	for _, r := range s {
-		if r >= '1' && r <= '5' {
-			n, _ := strconv.Atoi(string(r))
-			return n
-		}
-	}
-	return 0
-}
+func isJudgeFailure(why string) bool { return strings.HasPrefix(why, "judge failed after ") }
 
 func truncate(s string, n int) string {
 	rs := []rune(s)

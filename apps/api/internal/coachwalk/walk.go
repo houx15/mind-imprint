@@ -30,8 +30,10 @@ type CallResult struct {
 	Text string
 	// Ms 是这一次调用从发出到收完的毫秒数。陪练的回复是非流式收齐再解析的，
 	// 所以学生等的就是这个数，不是首字时间。
-	Ms  int64
-	Out int
+	Ms     int64
+	In     int
+	Out    int
+	Reason int
 }
 
 // Call 打一次模型。延迟和 token 由调用方在闭包里量，这样这个包不需要认识
@@ -61,7 +63,7 @@ type Driver interface {
 	// Run 会像生产那样再调一次模型。
 	Parse(raw string) (reply string, extra []Violation, err error)
 	// Advance 把这一轮接进状态，下一轮 Request() 就该反映它。
-	Advance(reply, studentSaid string)
+	Advance(raw, reply, studentSaid string)
 	// HerWords 是这一轮「接不住她」该比对的语料：她自己说过或写下的、这一轮
 	// 本该被接住的内容。
 	//
@@ -76,6 +78,20 @@ type Driver interface {
 	Screen(reply string) string
 }
 
+// Scenario is registry data owned by the package that owns a production
+// prompt. A command can filter scenarios by Suite without learning anything
+// about a particular business surface.
+type Scenario struct {
+	Suite   string
+	ID      string
+	Version int
+	Judge   string
+	Make    func() Driver
+	// Script supplies the student's next visible reply. Empty means the normal
+	// simulated-student model should be used.
+	Script []string
+}
+
 // Turn 是一轮来回，以及这一轮当场验出来的东西。
 type Turn struct {
 	N           int
@@ -83,6 +99,11 @@ type Turn struct {
 	Reply       string
 	ParseErr    string
 	StudentSaid string
+	Attempts    []Attempt
+	// SelectedAttempt is one-based. Zero means neither attempt produced a
+	// student-visible reply.
+	SelectedAttempt int
+	RecoveryReason  string
 
 	// CoachMs 是这一轮学生从发出到拿到回复等了多久：**包括重试**。
 	// 重试她看不见，但她等得到。
@@ -90,33 +111,53 @@ type Turn struct {
 	// Retries 是这一轮生产会多调的次数。
 	Retries int
 	// OutTokens 是这一轮陪练所有调用的输出 token 合计。
-	OutTokens int
+	OutTokens       int
+	InTokens        int
+	ReasoningTokens int
 
-	QuestionsInReply int
-	RepeatOf         int
-	EchoesHer        bool
+	QuestionMarks int
+	RepeatOf      int
+	EchoesHer     bool
 	// Extra 是这个陪练自己的判据记下的（生产校验器拒收、过早放她过关……）。
 	Extra []Violation
+}
+
+// Attempt preserves the evidence for one provider call within a turn.
+type Attempt struct {
+	Raw             string
+	Error           string
+	Ms              int64
+	InTokens        int
+	OutTokens       int
+	ReasoningTokens int
 }
 
 // Log 是一整条走查。
 type Log struct {
 	Site  string
 	Turns []Turn
+	Final []Violation
 }
 
-// Violation 是一条数得出来的犯规。
+// TerminalChecker lets a business driver verify the state reached after the
+// scripted conversation without teaching the generic walker business rules.
+type TerminalChecker interface {
+	TerminalViolations() []Violation
+}
+
+// Violation is one evaluator finding. Log decides whether it is a blocking
+// contract failure or a non-blocking observation; callers must not infer that
+// from the struct alone.
 type Violation struct {
 	Turn int
 	Kind string
 	Note string
 }
 
-// Violations 把整条走查里数得出来的问题列出来。
-//
-// 这里**只放不需要判断的东西**。「这个问题问得好不好」不在里面，那个确实要人或
-// 判官去看；「一轮问了三个问题」「第六轮把第三轮的话又说了一遍」「她还没答上来就
-// 被放过去了」不需要。
+// Violations returns blocking contract failures: facts established by the
+// production parser, business state machine, or a high-confidence fixture
+// check. Natural-language heuristics live in Observations and never block a
+// release by themselves.
 func (l *Log) Violations() []Violation {
 	var vs []Violation
 	for _, t := range l.Turns {
@@ -126,27 +167,70 @@ func (l *Log) Violations() []Violation {
 			vs = append(vs, Violation{t.N, "parse", t.ParseErr})
 			continue
 		}
-		if t.QuestionsInReply >= 2 {
-			vs = append(vs, Violation{t.N, "multi-question",
-				fmt.Sprintf("reply 里有 %d 个问号，铁律③ 是一次只问一个", t.QuestionsInReply)})
+		for _, extra := range t.Extra {
+			if !isObservationKind(extra.Kind) {
+				vs = append(vs, extra)
+			}
 		}
-		if t.RepeatOf != 0 {
-			vs = append(vs, Violation{t.N, "repeat",
-				fmt.Sprintf("和第 %d 轮高度重合", t.RepeatOf)})
-		}
-		if !t.EchoesHer {
-			vs = append(vs, Violation{t.N, "ungrounded",
-				"reply 里找不到她说过/写下的任何一段原文"})
-		}
-		vs = append(vs, t.Extra...)
 	}
+	vs = append(vs, l.Final...)
 	return vs
 }
 
-// Count 数某一类犯规有几条。
+// Observations are intentionally non-blocking language signals. They help a
+// reviewer find suspicious turns, but punctuation, textual overlap, and fuzzy
+// similarity are not reliable enough to decide whether Chinese teaching prose
+// is correct.
+func (l *Log) Observations() []Violation {
+	var out []Violation
+	for _, t := range l.Turns {
+		if t.ParseErr != "" {
+			continue
+		}
+		if t.QuestionMarks >= 2 {
+			out = append(out, Violation{t.N, "question-marks",
+				fmt.Sprintf("reply 中有 %d 个问号，仅用于定位；是否多问由判官判断", t.QuestionMarks)})
+		}
+		if t.RepeatOf != 0 {
+			out = append(out, Violation{t.N, "repeat",
+				fmt.Sprintf("和第 %d 轮文本高度相似", t.RepeatOf)})
+		}
+		if !t.EchoesHer {
+			out = append(out, Violation{t.N, "ungrounded",
+				"reply 与她的上一次内容没有连续四字重合"})
+		}
+		for _, extra := range t.Extra {
+			if isObservationKind(extra.Kind) {
+				out = append(out, extra)
+			}
+		}
+	}
+	return out
+}
+
+func isObservationKind(kind string) bool {
+	switch kind {
+	case "question-marks", "question+hook", "repeat", "ungrounded":
+		return true
+	default:
+		return false
+	}
+}
+
+// Count counts one kind of blocking contract failure.
 func (l *Log) Count(kind string) int {
 	n := 0
 	for _, v := range l.Violations() {
+		if v.Kind == kind {
+			n++
+		}
+	}
+	return n
+}
+
+func (l *Log) CountObservation(kind string) int {
+	n := 0
+	for _, v := range l.Observations() {
 		if v.Kind == kind {
 			n++
 		}
@@ -165,25 +249,60 @@ func (l *Log) Transcript() string {
 		}
 		fmt.Fprintf(&b, "印记：%s\n", t.Reply)
 		for _, e := range t.Extra {
+			marker := "🚨"
+			if isObservationKind(e.Kind) {
+				marker = "🔎"
+			}
+			fmt.Fprintf(&b, "　　%s %s：%s\n", marker, e.Kind, e.Note)
+		}
+		if t.StudentSaid != "" {
+			fmt.Fprintf(&b, "学生：%s\n\n", t.StudentSaid)
+		} else {
+			fmt.Fprintln(&b, "学生：（无文本输入）")
+			fmt.Fprintln(&b)
+		}
+	}
+	if len(l.Final) > 0 {
+		fmt.Fprintf(&b, "── 终态检查 ──\n")
+		for _, e := range l.Final {
 			fmt.Fprintf(&b, "　　🚨 %s：%s\n", e.Kind, e.Note)
 		}
-		fmt.Fprintf(&b, "学生：%s\n\n", t.StudentSaid)
 	}
 	return b.String()
 }
 
 // Run 跑 turns 轮，用的是 Driver 交出来的真实 prompt 和真实解析器。
 func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, error) {
+	return run(ctx, d, coach, turns, func(reply string, _ int) (string, error) {
+		return runStudent(ctx, student, d.Persona(), d.Screen(reply))
+	})
+}
+
+// RunScripted executes the exact same coach loop with fixed student turns.
+// It removes another model's randomness from a prompt-regression gate while
+// keeping the production prompt and parser on every coach turn.
+func RunScripted(ctx context.Context, d Driver, coach Call, script []string) (*Log, error) {
+	return run(ctx, d, coach, len(script), func(_ string, n int) (string, error) {
+		if n < 1 || n > len(script) {
+			return "", fmt.Errorf("script has no turn %d", n)
+		}
+		return script[n-1], nil
+	})
+}
+
+func run(ctx context.Context, d Driver, coach Call, turns int, nextStudent func(reply string, turn int) (string, error)) (*Log, error) {
 	log := &Log{Site: d.Site()}
 
 	for n := 1; n <= turns; n++ {
 		t := Turn{N: n}
 		req := d.Request()
 		res, err := coach(ctx, req)
+		t.Attempts = append(t.Attempts, Attempt{Raw: res.Text, Ms: res.Ms, InTokens: res.In, OutTokens: res.Out, ReasoningTokens: res.Reason})
 		if err != nil {
+			t.Attempts[0].Error = err.Error()
 			return log, fmt.Errorf("%s 第 %d 轮陪练调用失败: %w", d.Site(), n, err)
 		}
-		t.CoachRaw, t.CoachMs, t.OutTokens = res.Text, res.Ms, res.Out
+		t.CoachRaw, t.CoachMs, t.InTokens, t.OutTokens, t.ReasoningTokens = res.Text, res.Ms, res.In, res.Out, res.Reason
 		// 先记下这一轮该比对的语料——Advance 之后它就变了。
 		hers := d.HerWords()
 
@@ -191,16 +310,23 @@ func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, e
 		if perr != nil && errors.Is(perr, ErrRetry) {
 			// 照生产的样子再问一次，同一个请求。
 			t.Retries++
+			t.RecoveryReason = perr.Error()
 			again, aerr := coach(ctx, req)
+			t.Attempts = append(t.Attempts, Attempt{Raw: again.Text, Ms: again.Ms, InTokens: again.In, OutTokens: again.Out, ReasoningTokens: again.Reason})
 			if aerr != nil {
+				t.Attempts[1].Error = aerr.Error()
 				perr = fmt.Errorf("重试调用失败，生产回 502: %v", aerr)
 			} else {
-				t.CoachRaw = again.Text
 				t.CoachMs += again.Ms
+				t.InTokens += again.In
 				t.OutTokens += again.Out
+				t.ReasoningTokens += again.Reason
+				t.CoachRaw = again.Text
 				reply, extra, perr = d.Parse(again.Text)
 				if perr != nil {
 					perr = fmt.Errorf("重试后仍读不动，生产回 502: %v", perr)
+				} else {
+					t.SelectedAttempt = 2
 				}
 			}
 		}
@@ -211,8 +337,11 @@ func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, e
 			log.Turns = append(log.Turns, t)
 			return log, nil
 		}
+		if t.SelectedAttempt == 0 {
+			t.SelectedAttempt = 1
+		}
 		t.Reply = reply
-		t.QuestionsInReply = CountQuestions(reply)
+		t.QuestionMarks = QuestionMarkCount(reply)
 		t.EchoesHer = EchoesLast(reply, hers)
 		t.RepeatOf = repeatOf(reply, log.Turns)
 		for _, e := range extra {
@@ -220,14 +349,17 @@ func Run(ctx context.Context, d Driver, coach, student Call, turns int) (*Log, e
 			t.Extra = append(t.Extra, e)
 		}
 
-		said, serr := runStudent(ctx, student, d.Persona(), d.Screen(reply))
+		said, serr := nextStudent(reply, n)
 		if serr != nil {
 			return log, fmt.Errorf("%s 第 %d 轮学生调用失败: %w", d.Site(), n, serr)
 		}
 		t.StudentSaid = strings.TrimSpace(said)
 		log.Turns = append(log.Turns, t)
 
-		d.Advance(reply, t.StudentSaid)
+		d.Advance(t.CoachRaw, reply, t.StudentSaid)
+	}
+	if checker, ok := d.(TerminalChecker); ok {
+		log.Final = append(log.Final, checker.TerminalViolations()...)
 	}
 	return log, nil
 }
@@ -255,6 +387,36 @@ type Latency struct {
 	N             int
 	P50, P90, Max int64
 	Retries       int
+}
+
+// Usage is the median per-turn usage across walks. Turn totals already include
+// any production-equivalent retry, so these are the tokens paid before the
+// student receives one visible answer.
+type Usage struct {
+	InputP50, OutputP50, ReasoningP50 int
+}
+
+func UsageOf(logs []*Log) Usage {
+	var in, out, reasoning []int
+	for _, l := range logs {
+		if l == nil {
+			continue
+		}
+		for _, t := range l.Turns {
+			in = append(in, t.InTokens)
+			out = append(out, t.OutTokens)
+			reasoning = append(reasoning, t.ReasoningTokens)
+		}
+	}
+	return Usage{InputP50: medianInts(in), OutputP50: medianInts(out), ReasoningP50: medianInts(reasoning)}
+}
+
+func medianInts(xs []int) int {
+	if len(xs) == 0 {
+		return 0
+	}
+	sort.Ints(xs)
+	return xs[len(xs)/2]
 }
 
 // LatencyOf 汇总若干条走查的每轮延迟。解析失败的那一轮也算进去：
@@ -299,8 +461,10 @@ func percentile(sorted []int64, p int) int64 {
 
 /* ── 可验判据 ────────────────────────────────────────────────────────────── */
 
-// CountQuestions 数问号，中英文都算。
-func CountQuestions(s string) int {
+// QuestionMarkCount is deliberately mechanical. It is an observation for
+// locating prose worth reviewing, never a claim about how many independent
+// tasks the student received.
+func QuestionMarkCount(s string) int {
 	return strings.Count(s, "？") + strings.Count(s, "?")
 }
 

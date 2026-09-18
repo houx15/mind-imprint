@@ -128,8 +128,9 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// model the opening turn came back as the very prose the sub-project
 		// was built to replace — a plan, a 通读 instruction, and 「读完告诉我一
 		// 声」. The spec's ruling is that 步骤的指令由卡片承担, so the section now
-		// states the default and calls out the first turn by name.
-		"带一步的默认方式就是给她一张卡片",
+		// states the default only for a still-active task and calls out the
+		// first turn by name. A completion turn must not attach the next tool.
+		"仅在当前任务尚未完成、需要她动手时，默认给她一张卡片",
 		"第一轮也一样",
 		// R1's headline ruling, and the correction it encodes. The literal-quote
 		// validator guarantees she must LOOK at the article; it does not

@@ -18,12 +18,12 @@ type fakeDriver struct {
 	calls  int
 }
 
-func (f *fakeDriver) Site() string                 { return "fake" }
-func (f *fakeDriver) Request() gateway.ChatRequest { return gateway.ChatRequest{} }
-func (f *fakeDriver) Advance(string, string)       {}
-func (f *fakeDriver) HerWords() string             { return "" }
-func (f *fakeDriver) Persona() string              { return "" }
-func (f *fakeDriver) Screen(r string) string       { return r }
+func (f *fakeDriver) Site() string                   { return "fake" }
+func (f *fakeDriver) Request() gateway.ChatRequest   { return gateway.ChatRequest{} }
+func (f *fakeDriver) Advance(string, string, string) {}
+func (f *fakeDriver) HerWords() string               { return "" }
+func (f *fakeDriver) Persona() string                { return "" }
+func (f *fakeDriver) Screen(r string) string         { return r }
 func (f *fakeDriver) Parse(raw string) (string, []Violation, error) {
 	i := f.calls
 	f.calls++
@@ -72,6 +72,16 @@ func TestRunRecordsA502WhenTheRetryFailsToo(t *testing.T) {
 	}
 }
 
+func TestRunScriptedUsesFixedStudentTurns(t *testing.T) {
+	l, err := RunScripted(context.Background(), &fakeDriver{}, constCall(5), []string{"第一轮回答", "第二轮回答"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Turns) != 2 || l.Turns[0].StudentSaid != "第一轮回答" || l.Turns[1].StudentSaid != "第二轮回答" {
+		t.Fatalf("scripted walk = %+v", l.Turns)
+	}
+}
+
 func TestRunDoesNotRetryWhatProductionDoesNotRetry(t *testing.T) {
 	// 没包 ErrRetry 的错误（比如写作室的校验器拒收）生产直接回 502，不重试。
 	d := &fakeDriver{parses: []error{errors.New("banned phrasing")}}
@@ -94,5 +104,17 @@ func TestLatencyUsesRealObservedWaits(t *testing.T) {
 	}
 	if got := LatencyOf(nil); got.N != 0 || got.P50 != 0 {
 		t.Fatalf("空输入应当是零值：%+v", got)
+	}
+}
+
+func TestUsageUsesPerTurnTotalsIncludingRecovery(t *testing.T) {
+	l := &Log{Turns: []Turn{
+		{InTokens: 100, OutTokens: 10, ReasoningTokens: 0},
+		{InTokens: 300, OutTokens: 30, ReasoningTokens: 4, Retries: 1},
+		{InTokens: 200, OutTokens: 20, ReasoningTokens: 2},
+	}}
+	got := UsageOf([]*Log{l})
+	if got.InputP50 != 200 || got.OutputP50 != 20 || got.ReasoningP50 != 2 {
+		t.Fatalf("usage = %+v", got)
 	}
 }

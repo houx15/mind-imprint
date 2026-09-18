@@ -1,11 +1,13 @@
 package coachwalk
 
-import "testing"
+import (
+	"testing"
+)
 
-// 这些判据决定报告里会写下几条「产品缺陷」。判据本身错了，走查就会把一个走通了
-// 的陪练记成走不通的——2026-09-04 和 09-12 各栽过一次，所以它们必须先有测试。
+// 合同失败与文本观察必须分开测试。文本信号可以帮助人找到样本，但不能再把一个
+// 已经走通的陪练直接判成产品失败。
 
-func TestCountQuestionsCountsBothScripts(t *testing.T) {
+func TestQuestionMarkCountIsMechanicalAndNonSemantic(t *testing.T) {
 	for _, c := range []struct {
 		in   string
 		want int
@@ -13,11 +15,12 @@ func TestCountQuestionsCountsBothScripts(t *testing.T) {
 		{"你打算怎么量？", 1},
 		{"你打算怎么量?", 1},
 		{"称什么？在哪称？", 2},
+		{"示范：谁统计的？什么口径？这些问题可能由 AI 自己回答。", 2},
 		{"先说说你的想法。", 0},
 		{"", 0},
 	} {
-		if got := CountQuestions(c.in); got != c.want {
-			t.Errorf("CountQuestions(%q) = %d, want %d", c.in, got, c.want)
+		if got := QuestionMarkCount(c.in); got != c.want {
+			t.Errorf("QuestionMarkCount(%q) = %d, want %d", c.in, got, c.want)
 		}
 	}
 }
@@ -88,29 +91,48 @@ func TestViolationsReportsParseFailureAloneAndStopsThere(t *testing.T) {
 	}
 }
 
-func TestViolationsCountsTheCheckableBreachesAndCarriesExtras(t *testing.T) {
+func TestContractViolationsAndLanguageObservationsStaySeparate(t *testing.T) {
 	l := &Log{Turns: []Turn{
-		{N: 1, Reply: "你打算怎么量？", QuestionsInReply: 1, EchoesHer: true},
-		{N: 2, Reply: "称什么？在哪称？", QuestionsInReply: 2, EchoesHer: true},
-		{N: 3, Reply: "很好，继续努力。", QuestionsInReply: 0, EchoesHer: false},
-		{N: 4, Reply: "你打算怎么量？", QuestionsInReply: 1, EchoesHer: true, RepeatOf: 1},
-		{N: 5, Reply: "我帮你写一句。", QuestionsInReply: 0, EchoesHer: true,
+		{N: 1, Reply: "你打算怎么量？", QuestionMarks: 1, EchoesHer: true},
+		{N: 2, Reply: "称什么？在哪称？", QuestionMarks: 2, EchoesHer: true},
+		{N: 3, Reply: "很好，继续努力。", QuestionMarks: 0, EchoesHer: false},
+		{N: 4, Reply: "你打算怎么量？", QuestionMarks: 1, EchoesHer: true, RepeatOf: 1},
+		{N: 5, Reply: "我帮你写一句。", QuestionMarks: 0, EchoesHer: true,
 			Extra: []Violation{{Turn: 5, Kind: "banned-phrasing", Note: "替她写了"}}},
 	}}
-	got := map[string]int{}
+	hard := map[string]int{}
 	for _, v := range l.Violations() {
-		got[v.Kind]++
+		hard[v.Kind]++
 		if v.Turn == 1 {
 			t.Fatalf("合规的一轮被记了犯规：%+v", v)
 		}
 	}
-	for _, want := range []string{"multi-question", "ungrounded", "repeat", "banned-phrasing"} {
-		if got[want] != 1 {
-			t.Errorf("%s 应当记 1 条，实际 %d（全部：%+v）", want, got[want], got)
+	if hard["banned-phrasing"] != 1 || len(hard) != 1 {
+		t.Fatalf("only the production contract failure should block: %+v", hard)
+	}
+	observed := map[string]int{}
+	for _, observation := range l.Observations() {
+		observed[observation.Kind]++
+	}
+	for _, want := range []string{"question-marks", "ungrounded", "repeat"} {
+		if observed[want] != 1 {
+			t.Errorf("%s 应当观察到 1 条，实际 %d（全部：%+v）", want, observed[want], observed)
 		}
 	}
-	// Count 要和 Violations 数出来的一致，否则总表和明细会互相打脸。
-	if l.Count("multi-question") != 1 || l.Count("banned-phrasing") != 1 {
-		t.Errorf("Count 和 Violations 不一致")
+	if l.Count("question-marks") != 0 || l.Count("banned-phrasing") != 1 || l.CountObservation("question-marks") != 1 {
+		t.Errorf("blocking and observation counts are mixed")
+	}
+}
+
+func TestLanguageSignalDoesNotBecomeAContractFailure(t *testing.T) {
+	l := &Log{Turns: []Turn{{N: 1,
+		Reply:         "信源透镜会检查：谁统计的？口径是什么？这些信息原文都没有。",
+		QuestionMarks: 2, EchoesHer: true,
+	}}}
+	if got := l.Violations(); len(got) != 0 {
+		t.Fatalf("a semantic question-count signal blocked the contract: %+v", got)
+	}
+	if got := l.CountObservation("question-marks"); got != 1 {
+		t.Fatalf("diagnostic signal disappeared: got %d", got)
 	}
 }

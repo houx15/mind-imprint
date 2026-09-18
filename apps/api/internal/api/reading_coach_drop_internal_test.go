@@ -186,6 +186,7 @@ func TestReplyCutOffMidSentence(t *testing.T) {
 		"他们同样在讲封锁的后果，但说得更具体：不是",
 		"现在我们往下走，看第 8 段里作者是怎么",
 		"这一句的关键在于",
+		"**这一句的关键在于**",
 	}
 	for _, r := range cut {
 		if !replyLooksCutOff(r) {
@@ -204,6 +205,7 @@ func TestWholeSentencesAreNotCutOff(t *testing.T) {
 		"在文章里点出最能撑住他观点的那一句（不用整段）。",
 		"作者说的是「可能」，不是「已经」。",
 		"往下走吧……",
+		"**这里还要分清发电能力与实际发电量。**",
 	}
 	for _, r := range whole {
 		if replyLooksCutOff(r) {
@@ -464,13 +466,13 @@ func TestLensTurnMustNotEndOnAQuestion(t *testing.T) {
 
 func TestReplyEndsOnAQuestion(t *testing.T) {
 	for reply, want := range map[string]bool{
-		"你觉得哪个成本被漏掉了？":            true,
-		"Which cost is missing?":  true,
-		"现在换你，在文章别处找一句这样的。":       false,
+		"你觉得哪个成本被漏掉了？":           true,
+		"Which cost is missing?": true,
+		"现在换你，在文章别处找一句这样的。":      false,
 		// 中间的问号是讲解的一部分，不算。
 		"这句在问什么？它在说成本。现在换你找一句。": false,
 		// 收尾的引号不算数，要看引号前面那个字。
-		"他问的是「哪个成本被漏掉了？」":         true,
+		"他问的是「哪个成本被漏掉了？」": true,
 	} {
 		if got := replyEndsOnAQuestion(reply); got != want {
 			t.Errorf("replyEndsOnAQuestion(%q) = %v，想要 %v", reply, got, want)

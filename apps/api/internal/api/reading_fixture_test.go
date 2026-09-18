@@ -33,5 +33,9 @@ func TestReadingFixturesHaveACurrentStep(t *testing.T) {
 		}
 	}
 	check("coachwalk reading driver", NewReadingWalkDriver().Request().Messages)
-	check("routebench reading case", readingCoachCase().Request.Messages)
+	for _, c := range BenchCases() {
+		if c.Suite == liteReadingCoachSuite {
+			check("routebench "+c.ID, c.Request.Messages)
+		}
+	}
 }
