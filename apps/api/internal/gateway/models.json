@@ -6,8 +6,8 @@
     "",
     "Secrets never live here: a provider names the ENV VAR that carries its key.",
     "",
-    "Lane bindings are overridable at boot without a rebuild:",
-    "  MODEL_CHAT=dashscope/qwen3.8-max  MODEL_FAST_CHAT=...  MODEL_EVAL=...",
+    "Capability bindings are overridable at boot without a rebuild:",
+    "  MODEL_DIALOGUE=dashscope/deepseek-v4.1-flash  MODEL_DIGEST=...  MODEL_ASSESS=...",
     "Run `api --print-models` to dump the catalog and the active bindings.",
     "",
     "thinkingOff is the body fragment that forces reasoning OFF. It is per-PROVIDER",
@@ -149,9 +149,9 @@
     "",
     "deepseek-v4-flash 这个线名在直连口上被官方指向了 V4.1 Flash（实测：请求它，",
     "回包的 model 字段是 deepseek-flash），所以两行同价。经 DashScope 时不是这样：",
-    "那边的 deepseek-v4-flash 仍是老的 V4 Flash，V4.1 还没上架（实测 2026-09-12，",
-    "GET /models 里没有，直接调是 model_not_found）。同一个线名在两条通道上不是",
-    "同一个模型——这正是价格和绑定都必须按通道记的原因。"
+    "deepseek-v4-flash 仍是老的 V4 Flash；截至 2026-09-18，GET /models 已新增独立的",
+    "deepseek-v4.1-flash，非流式实测可用且接受 enable_thinking:false。同一个线名在",
+    "两条通道上不是同一个模型——这正是价格和绑定都必须按通道记的原因。"
   ],
   "models": {
     "dashscope/deepseek-v4-pro": {
@@ -165,6 +165,11 @@
       "model": "deepseek-v4-flash",
       "label": "DeepSeek V4 Flash via DashScope",
       "streamDropsTail": true
+    },
+    "dashscope/deepseek-v4.1-flash": {
+      "provider": "dashscope",
+      "model": "deepseek-v4.1-flash",
+      "label": "DeepSeek V4.1 Flash via DashScope"
     },
     "dashscope/qwen3.8-max": {
       "provider": "dashscope",
@@ -371,10 +376,10 @@
     "            评估走旗舰模型绝不降级 — a model bound here MUST be flagship:true,",
     "            enforced at boot so an override typo cannot quietly downgrade it.",
     "",
-    "All three route through DashScope so one key and one bill cover every vendor;",
-    "DashScope serves deepseek-v4-pro, so this preserves today's model exactly —",
-    "the switch off DeepSeek-direct is a pure ROUTING change. Try a different model",
-    "one lane at a time (MODEL_CHAT first), or speed and cost stop being",
+    "All capability classes route through DashScope so one key and one bill cover every vendor;",
+    "each class remains independently overridable. Dialogue deliberately moved to",
+    "deepseek-v4.1-flash on 2026-09-18 after live protocol checks; change one class",
+    "at a time with MODEL_DIALOGUE / MODEL_REFLEX / ... or speed and cost stop being",
     "attributable to anything."
   ],
   "_bindingComment": [
@@ -386,10 +391,9 @@
     "compose deepseek-v4-pro -> kimi-k3         6.9s vs 10.8s，191 vs 506 tokens，质量并列",
     "digest  deepseek-v4-pro -> deepseek-v4-flash  1.6s vs 2.9s，77 vs 98 tokens，两者都 5 分",
     "",
-    "dialogue 留 deepseek-v4-pro：它是唯一在 lite 阅读陪练上拿 5 分的候选。",
-    "  qwen3.7-plus 均分打平（3.75）却在那一项拿 1——它把学生没做完的一步放过去了，",
-    "  而那正是这个调用当年被放上旗舰的理由。均分会把这种失败藏起来。",
-    "  这一档真正的收益不是换模型，是关思考：同一个模型，从满额推理降到不推理。",
+    "dialogue 原留 deepseek-v4-pro：它是 2026-09-03 routebench 唯一在 lite 阅读陪练上拿 5 分的候选。",
+    "  2026-09-18 按产品选择切到独立上架的 deepseek-v4.1-flash；上线前已实测非流式、流式、",
+    "  thinking-off 与工具调用。该选择不是原 routebench 结论，后续仍需用同一题集复测教学质量。",
     "review / assess 留 deepseek-v4-pro：assess 上 kimi-k3 直接空回复、glm-5.3 报 400。",
     "  review 上所有候选都只有 2 分——它们全都把一份半成品框架判成了 ready。",
     "  那是 prompt 的问题，换模型解决不了。"
@@ -419,7 +423,7 @@
       "label": "反射 — 一个标签或一次路由选择，没有自由文本"
     },
     "dialogue": {
-      "model": "dashscope/deepseek-v4-pro",
+      "model": "dashscope/deepseek-v4.1-flash",
       "tier": "chaperone",
       "reasoning": "off",
       "latencyBudgetMs": 4000,

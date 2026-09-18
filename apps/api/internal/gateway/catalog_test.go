@@ -213,27 +213,28 @@ func onlyKey(name, value string) KeyLookup {
 }
 
 // Every class must resolve through DashScope with its key wired, and to the
-// model routebench actually chose.
+// model explicitly selected for that class.
 //
-// The second half is the point. These bindings are measurements, not
-// preferences (docs/2026-09-03-routing-benchmark-findings.md), and the way they
-// rot is somebody re-pointing one during an unrelated change. Naming them here
-// makes that a failed test with a document to read rather than a silent
+// Most bindings below come from routebench measurements
+// (docs/2026-09-03-routing-benchmark-findings.md). Dialogue is an explicit
+// product override, accepted only after a live OpenAI-compatible call verified
+// the upstream wire model and thinking-off control. Naming every binding here
+// turns an unrelated re-pointing into a failed test rather than a silent
 // regression in speed, cost, or — on dialogue — in whether the coach notices
 // that a student has not finished a step.
-func TestEveryClassResolvesToTheBenchmarkedModel(t *testing.T) {
+func TestEveryClassResolvesToTheSelectedModel(t *testing.T) {
 	cat, _ := DefaultCatalog()
 	keys := onlyKey("DASHSCOPE_API_KEY", "sk-dashscope")
 	// Round 2 (2026-09-03) re-measured every class with a working judge, after
 	// three tooling bugs were fixed that had kept glm-5.3 and qwen3.8-max out of
 	// contention. See docs/2026-09-03-routing-benchmark-findings.md.
 	want := map[string]string{
-		ClassReflex:   "qwen3.7-flash",     // 200ms vs glm-5.3's 1.5s, both structurally perfect
-		ClassDialogue: "deepseek-v4-pro",   // worst case 3 on the lite reading coach; every rival scored 1-2
-		ClassCompose:  "ZHIPU/GLM-5.3",     // all three tied at 4; 4.1s vs kimi-k3's 10.3s decides it
-		ClassReview:   "ZHIPU/GLM-5.3",     // framework-ready gold 100%, quality 5, and fastest tied candidate; default effort resolves to low
-		ClassAssess:   "deepseek-v4-pro",   // 评估绝不降级
-		ClassDigest:   "deepseek-v4-flash", // 1.4s vs 2.3s, tied at 5/5
+		ClassReflex:   "qwen3.7-flash",       // 200ms vs glm-5.3's 1.5s, both structurally perfect
+		ClassDialogue: "deepseek-v4.1-flash", // 2026-09-18: user-selected OpenAI-compatible dialogue model; live call verified
+		ClassCompose:  "ZHIPU/GLM-5.3",       // all three tied at 4; 4.1s vs kimi-k3's 10.3s decides it
+		ClassReview:   "ZHIPU/GLM-5.3",       // framework-ready gold 100%, quality 5, and fastest tied candidate; default effort resolves to low
+		ClassAssess:   "deepseek-v4-pro",     // 评估绝不降级
+		ClassDigest:   "deepseek-v4-flash",   // 1.4s vs 2.3s, tied at 5/5
 	}
 	for class, model := range want {
 		r, err := cat.Resolve(class, "", keys)
