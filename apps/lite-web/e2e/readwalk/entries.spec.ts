@@ -462,6 +462,8 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   note("卡片题目是一道题", vague.length ? "bad" : "ok", vague[0]?.slice(-160) ?? "");
   // 第 7 条：她发过的话，悬停出编辑按钮，点了字回到输入框。
   // 只有她**打的字**有编辑按钮；卡片作答（字在卡片上）没有 —— 从最后一条往前找。
+  // 印记 还在回的时候按钮是收起来的（那时候不能改），所以先等它说完。
+  await settle(page);
   const mineRows = page.locator('[data-chat-row="student"]');
   const nMine = await mineRows.count();
   if (nMine) {
