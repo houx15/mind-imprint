@@ -15,7 +15,9 @@ import { roleIsExample } from "./slots";
  */
 export type PlanShape = { top: number; points: number; material: number };
 
-const REASONING_WORDS = ["道理", "解释", "推理", "分析", "原因", "理由", "reasoning", "explanation", "analysis", "reason"];
+// 一条道理、或者一条挂得更深的分论点，都不是例子（服务端 writingRoleIsReasoning /
+// writingRoleIsPoint 同一张词表）。
+const REASONING_WORDS = ["道理", "解释", "推理", "分析", "原因", "理由", "分论点", "reasoning", "explanation", "analysis", "reason", "point"];
 
 export function planShapeOf(items: WritingOutlineItem[]): PlanShape {
   const s: PlanShape = { top: 0, points: 0, material: 0 };

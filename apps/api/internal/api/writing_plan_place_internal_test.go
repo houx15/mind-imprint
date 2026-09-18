@@ -68,6 +68,22 @@ func TestPlanAddsThatLand(t *testing.T) {
 	}
 }
 
+// 2026-09-18 线上验证第二轮：第三条分论点被挂在第二条下面（深度 2），被当成了一个
+// 「不是个人经历的例子」，于是只有她自己那一件事就放她去写了。
+func TestDeepPointIsNotAnExample(t *testing.T) {
+	rows := []sqlc.WritingOutline{
+		{Depth: 0, Text: "人可以脆弱", Role: "中心论点"},
+		{Depth: 1, Text: "经历脆弱让人更沉着", Role: "分论点"},
+		{Depth: 2, Text: "爸爸入狱、妹妹抑郁", Role: "你经历过的事"},
+		{Depth: 1, Text: "脆弱让人区别于机器", Role: "分论点"},
+		{Depth: 2, Text: "脆弱的感受带来渴望的信息", Role: "分论点"},
+	}
+	s := writingPlanShapeOf(rows)
+	if s.Material != 1 || s.Wider != 0 || s.ready(writingPlanNeedOf(sqlc.Writing{})) {
+		t.Fatalf("shape = %+v; a deeper 分论点 is not an example, and one personal example is not enough", s)
+	}
+}
+
 // 2026-09-18 线上验证：一条「分论点」落在了最上层，和中心论点平级。
 func TestThesisPlanNodeAndPointRole(t *testing.T) {
 	open := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 0, Text: "从一件小事说起", Role: "开头"}

@@ -166,7 +166,9 @@ func (s *writingPlanShape) count(depth int, role, source string) {
 		s.Top++
 	case depth == 1 && !example:
 		s.Points++
-	case !example && writingRoleIsReasoning(role):
+	case !example && (writingRoleIsReasoning(role) || writingRoleIsPoint(role)):
+		// 一条挂得更深的「分论点」也不是例子（2026-09-18 线上：第三条分论点被挂在
+		// 第二条下面，于是被当成一个「不是个人经历的例子」，放她去写了）。
 		// 一条道理、一层解释：撑分论点的推理，不是例子。
 		// 2026-09-18 实测：「脆弱的感受带来关于自己渴望的信息（一条道理）」被当成了
 		// 一个「不是个人经历的例子」，于是只有她自己那一件事也过了线。
