@@ -116,13 +116,18 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   // server-side, a flagship-tier model call that can run tens of seconds.
   const report = page.locator("article");
   await expect(report).toBeVisible({ timeout: 150_000 });
-  await expect(report.getByText("一次阅读的记录")).toBeVisible();
+  // 阅读报告从 d1d0711c 起是「阅读手记」版式（READING JOURNAL · 阅读手记），
+  // 「一次阅读的记录」只在另一种版式的 hero 上。
+  await expect(report.getByText(/阅读手记/).first()).toBeVisible();
+  // 2026-09-18：完成页顶上只有返回，「查看阅读记录」在导出 / 分享旁边。
+  await expect(page.getByRole("button", { name: "查看阅读记录" })).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(report.getByRole("heading", { name: title })).toBeVisible();
   // 🚨 这条 walk 开一篇就直接完成，没有任何带读往来，所以报告里只有页眉和
   // 这次的数据——没有「我的收获」，也没有金句。以前有，是因为那张归纳表逼她
   // 手打一句；表删掉之后，这份报告诚实地薄。断言只压在必然在的那几样上。
   // 「这次的数据」是这一块的 aria-label，不是页面上的字——getByText 找不到它。
-  await expect(report.getByRole("region", { name: "这次的数据" })).toBeVisible();
+  await expect(report.getByRole("region", { name: "学习数据概览" })).toBeVisible();
   // 统计 — assert the RULE, not one tile.
   //
   // This line used to read `expect(report.getByText("专注时长")).toBeVisible()`
@@ -176,7 +181,7 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   await expect(strangerReport).toBeVisible({ timeout: 30_000 });
   await expect(strangerReport.getByRole("heading", { name: title })).toBeVisible();
   // 陌生人看到的是同一份报告：页眉和标题都对得上。
-  await expect(strangerReport.getByText("一次阅读的记录")).toBeVisible();
+  await expect(strangerReport.getByText(/阅读手记/).first()).toBeVisible();
   // No sign-in screen: this page has no login control at all.
   await expect(strangerPage.getByPlaceholder(/邮箱|密码/)).toHaveCount(0);
   await expect(strangerPage.getByRole("button", { name: /登录|登陆/ })).toHaveCount(0);
@@ -211,7 +216,8 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
     };
   });
 
-  const exportButton = page.getByRole("button", { name: "导出图片" });
+  // exact：生成中那一刻的名字是「导出图片，生成中」，不 exact 就等不到它回来。
+  const exportButton = page.getByRole("button", { name: "导出图片", exact: true });
   await expect(exportButton).toBeVisible();
   await exportButton.click();
   // Back to its resting label once the export (and the offscreen poster

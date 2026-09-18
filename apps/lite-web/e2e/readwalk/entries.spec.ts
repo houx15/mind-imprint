@@ -331,7 +331,8 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
       if (!cardAskPairs.includes(pair)) cardAskPairs.push(pair);
       // 同事 2026-09-18 第 4 条：卡片上摆着的句子要在正文里标出来。
       // 「敞开」= 最后一张卡还没作答（没有「你摆的 / 你选的」）而且摆着带段号的句子。
-      if (!/你摆的|你选的|你排的/.test(lastCard) && /第\s*\d+\s*段/.test(lastCard)) {
+      // 摆着句子 = 至少两行以「第N段」打头（选项 / 板上的卡片）；题目里带「第1–3段」的写字卡不算。
+      if (!/你摆的|你选的|你排的/.test(lastCard) && (lastCard.match(/(^|\n)第\s*\d+\s*段(?![–-])/g) ?? []).length >= 2) {
         openCardSteps++;
         if (await page.locator("[data-card-quote]").count()) highlightedSteps++;
       }
@@ -457,9 +458,17 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   const vague = cardAskPairs.filter((p) => /点出你想说的那一句|请用你自己的话写一句。/.test(p));
   note("卡片题目是一道题", vague.length ? "bad" : "ok", vague[0]?.slice(-160) ?? "");
   // 第 7 条：她发过的话，悬停出编辑按钮，点了字回到输入框。
+  // 只有她**打的字**有编辑按钮；卡片作答（字在卡片上）没有 —— 从最后一条往前找。
   const mineRows = page.locator('[data-chat-row="student"]');
-  if (await mineRows.count()) {
-    const row = mineRows.last();
+  const nMine = await mineRows.count();
+  if (nMine) {
+    let row = mineRows.last();
+    for (let i = nMine - 1; i >= 0; i--) {
+      if (await mineRows.nth(i).getByRole("button", { name: "编辑后重新发送" }).count()) {
+        row = mineRows.nth(i);
+        break;
+      }
+    }
     await row.scrollIntoViewIfNeeded();
     await row.hover();
     const edit = row.getByRole("button", { name: "编辑后重新发送" });
@@ -572,7 +581,7 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   note("段落工具条上没有「拆开这一段」", (await bar.innerText().catch(() => "")).includes("拆开这一段") ? "bad" : "ok");
   // 同事 2026-09-18 第 6 条：结构解析要在段落内按句子拆层次，不是整段概述一句。
   if (zh && (await tool("结构解析"))) {
-    const items = page.locator("[data-block-tools] ol li");
+    const items = page.locator("[data-block-tools] li");
     await items.first().waitFor({ timeout: 90_000 }).catch(() => {});
     const n = await items.count();
     const txt = n ? (await items.allInnerTexts()).join(" / ") : "";
