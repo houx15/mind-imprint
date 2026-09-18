@@ -26,23 +26,27 @@ export function clampPaneWidth(width: number, viewport: number): number {
   return Math.min(Math.max(Math.round(width), PANE_MIN), max);
 }
 
-function readStored(): number {
+function readStored(key: string, fallback: number): number {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(key);
     const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) ? n : PANE_DEFAULT;
+    return Number.isFinite(n) ? n : fallback;
   } catch {
     // 无痕窗口、禁了站点数据——记不住就用默认值，不该因此崩掉整个房间。
-    return PANE_DEFAULT;
+    return fallback;
   }
 }
 
-export function usePaneWidth() {
-  const [width, setWidthRaw] = useState<number>(PANE_DEFAULT);
+/** `key` / `fallback`：写作房间也用这一个（2026-09-18「ai sidebar right side,
+ *  can adjust width」），宽度各存各的，默认值也不同。 */
+export function usePaneWidth(key: string = KEY, fallback: number = PANE_DEFAULT) {
+  const [width, setWidthRaw] = useState<number>(fallback);
   // 窄屏上工具是整屏浮层，宽度没有意义，拖把手也不出现。
   const [desktop, setDesktop] = useState(false);
 
   useEffect(() => {
+    // jsdom（房间的逻辑测试）没有 matchMedia：没有就当窄屏，不拖。
+    if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(min-width: 1024px)");
     const sync = () => setDesktop(mq.matches);
     sync();
@@ -51,21 +55,21 @@ export function usePaneWidth() {
   }, []);
 
   useEffect(() => {
-    setWidthRaw(clampPaneWidth(readStored(), window.innerWidth));
+    setWidthRaw(clampPaneWidth(readStored(key, fallback), window.innerWidth));
     const onResize = () => setWidthRaw((w) => clampPaneWidth(w, window.innerWidth));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [key, fallback]);
 
   const setWidth = useCallback((next: number) => {
     const w = clampPaneWidth(next, window.innerWidth);
     setWidthRaw(w);
     try {
-      window.localStorage.setItem(KEY, String(w));
+      window.localStorage.setItem(key, String(w));
     } catch {
       // 存不下就只是这一次会话有效，不影响拖动本身。
     }
-  }, []);
+  }, [key]);
 
   return { width, setWidth, desktop };
 }

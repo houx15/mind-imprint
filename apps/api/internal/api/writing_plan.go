@@ -107,10 +107,19 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
   > also let students to search for other materials, give back the supporting
   > materials and ai give feedbacks.
 
-所以两种材料并列，按这条理由**适合哪一种**去问：
+产品负责人 2026-09-18 又补了一条：
 
-- **她自己的**：见过的事、做过的事、身边人身上发生的事。
-  贴身的话题（校园、家里、她自己的习惯）优先问这一种。
+  > 对于一个800字的议论文，要求起码2-3个例子。个人经历是信效度最低的，
+  > 最好是使用社会上的、历史上的例子（如一些论文素材库）。
+
+所以议论文的例子**按说服力排**，先问前两种：
+
+- **社会上的、历史上的、时事里的例子**：历史人物和事件、社会新闻、
+  科学家或名人的经历、课本和课外书里读过的人和事。这是议论文最常用、也最站得住的一种。
+  你可以指一个**方向**，请她自己说出具体是谁、哪件事：「历史上有没有人在最
+  失意的时候反而做成了一件大事？你在历史课或语文课上读到过的都可以」。
+  🚨 方向可以给，具体的人和事**必须由她说出来**才能进图 —— 你替她选好一个例子，
+  这一段就不是她想的了。
 - **她找来的**：一份研究、一条报道、一组数据、一次访谈或问卷、别人的说法。
   牵涉到人群、趋势、政策、因果的话题**必须**有这一种 —— 一个人的经历证明不了
   「大多数学生如何如何」。
@@ -118,6 +127,15 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
   你找一下有没有数据。」——**说清楚要找的是什么，不要只说「去查查资料」。**
   这个房间里没有搜索框：请她在浏览器里查，查到后把那句话、数字和出处在对话框里告诉你；
   她这会儿查不了，就先用她自己见过的事往下写，材料之后再补。
+- **她自己的**：见过的事、做过的事、身边人身上发生的事。说服力最弱 ——
+  读者只能相信她的一面之词。**一篇议论文最多用一个**，而且要和上面两种搭配着用。
+  她只给了个人经历的时候，接住它，然后请她再找一个社会上或历史上的例子。
+
+记叙文、写自己经历的题目不受这一条约束：那种文章的材料本来就是她自己的事。
+
+**例子要挂在它支撑的那条分论点下面**（parentId 用那条分论点的 id），不要直接
+挂在中心论点下面 —— 例子是写进某一段里的东西，不是一段。她先给了例子、还没说
+它证明什么，就请她用一句话说出这个例子说明了什么，那一句就是分论点。
 
 ## 她拿回来一份材料的时候，你要查它
 
@@ -230,9 +248,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 - reply：不超过 200 字，最多一个问题，允许不提问。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
 - parentId：父节点的 id，逐字取自下面【当前的图】里给出的 id。留空字符串＝加在最上层。
+  同一轮里先加一条分论点、再加它的例子时，例子引用不到这一轮才建的那条分论点的 id：
+  例子的 parentId 留空即可，服务端会把它挂到这一轮刚加的那条分论点下面（例子从不放在最上层）。
   最上层不止中心论点：开头、结尾也都是最上层的块，按它们在文章里的先后排。
 - text：**她自己的话的精简**，不超过 30 字。
-- role：一句大白话说这块是什么（「中心论点」「一条理由」「你见过的事」「反方会说的话」）。不要用生僻术语。
+- role：一句大白话说这块是什么（「中心论点」「分论点」「历史上的例子」「社会上的例子」「一组数据」「你经历过的事」「反方会说的话」）。不要用生僻术语。
+  例子类的节点 role 里要带「例子」「经历」「数据」「研究」「报道」这类词 —— 段落那一步据此把它并进它上面那条分论点的那一段，而不是单独成段；「你经历过的事」这一类用来标她的个人经历。
   🚨 **role 是印在她屏幕上的小标题，是说给她听的，所以不能用「她」。**
   这一段提示词全程用第三人称讲这个学生，于是它照着写出了「她自己的经历」
   「她自己的材料」，而那几个字**原样印在图上那一块的抬头里**。
@@ -315,9 +336,10 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	if len(rows) == 0 {
 		b.WriteString("（图是空的。先检查她本轮是否已经表达主张或理由，已表达就直接整理；缺失才询问。）\n")
 	} else {
-		for _, r := range rows {
+		for i, r := range rows {
 			indent := strings.Repeat("  ", int(r.Depth))
-			line := indent + "- id=" + r.ID.String() + " · " + r.Text
+			// 短号，不是 UUID：见 planHandle。
+			line := indent + "- id=" + planHandle(i) + " · " + r.Text
 			if strings.TrimSpace(r.Role) != "" {
 				line += "（" + r.Role + "）"
 			}
@@ -875,9 +897,73 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("writing plan turn: retry parsed fine", "atom_id", at.ID)
 	}
 
-	byID := make(map[string]sqlc.WritingOutline, len(rows))
-	for _, row := range rows {
+	byID := make(map[string]sqlc.WritingOutline, 2*len(rows))
+	for i, row := range rows {
 		byID[row.ID.String()] = row
+		// prompt 里给模型看的是短号（n1、n2……），见 planHandle。
+		byID[planHandle(i)] = row
+	}
+
+	// 🚨 印记 说放进图里了，图上就得有。见 writing_plan_place.go。
+	// 两种丢法：reply 里「」引了她的话而图上没有；或者她说了一句新的，
+	// 这一轮什么都没加（只在 reply 里转述）。
+	// 一次重试；第二份没有更好（读不出来、或者放上去的没变多）就用第一份。
+	unplaced := planReplyUnplaced(parsed.Reply, studentText, rows, byID, parsed.Add)
+	if len(unplaced) == 0 && planTurnDroppedHerPoint(studentText, rows, planAddsThatLand(rows, byID, parsed.Add)) {
+		unplaced = []string{truncateRunes(strings.TrimSpace(studentText), 60)}
+	}
+	if len(unplaced) > 0 {
+		slog.Info("writing plan turn: reply names her words that are not on the map, retrying once",
+			"atom_id", at.ID, "unplaced", len(unplaced), "request_id", httpx.RequestIDFromContext(r.Context()))
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingPlanPlaceNudge(unplaced)},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 &&
+				planAddsThatLand(rows, byID, p2.Add) > planAddsThatLand(rows, byID, parsed.Add) &&
+				len(planReplyUnplaced(p2.Reply, studentText, rows, byID, p2.Add)) <= len(unplaced) {
+				parsed = p2
+			} else {
+				slog.Warn("writing plan turn: place retry did not place them", "atom_id", at.ID)
+			}
+		}
+	}
+
+	// 🚨 模型说「可以写了」，而服务端数出来还差（她也没说要去写）：再要一次。
+	// 2026-09-18 本地实测：两条分论点、一个例子（还是她自己的经历），印记就说
+	// 「你的计划已经站得住了……现在就动笔写吧」—— 那条「800 字起码 2–3 个例子、
+	// 至少一个社会或历史上的」的线被模型自己的 ready 越过去了。
+	// 能越线的只有她自己说要写（studentWantsToWrite）和连着两轮没答（stalled）。
+	stalled := writingPlanStalled(msgs, studentText)
+	wantsToWrite := studentWantsToWrite(studentText)
+	if shape := writingPlanShapeWith(rows, byID, parsed.Add); parsed.Ready && !wantsToWrite && !stalled && !shape.ready(writingPlanNeedOf(wr)) {
+		slog.Info("writing plan turn: model invited writing below the line, retrying once",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingPlanReadyTooSoonNudge(shape.missing(writingPlanNeedOf(wr)))},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && !p2.Ready &&
+				planAddsThatLand(rows, byID, p2.Add) >= planAddsThatLand(rows, byID, parsed.Add) {
+				parsed = p2
+			}
+		}
+		// 重试没救回来也不把「可以写了」这个信号发出去：话留着，按钮不出来。
+		parsed.Ready = false
 	}
 
 	// 🚨 这一轮要是请她去写的那一轮，话里就不能还挂着一个问题。
@@ -903,7 +989,11 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
 		if cerr2 == nil {
 			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && !writingPlanReplyAsks(p2.Reply) {
-				parsed = p2
+				// 🚨 只换那句话，不换 add。这次重试只为去掉问号；整份换掉的话，
+				// 第二份里的 add 可能少了节点（2026-09-18 实测：司马迁那个例子就是
+				// 这样丢的），而「过线了」是按第一份的 add 算出来的 ——
+				// 于是她被请去写了，图上却没有那个让它过线的例子。
+				parsed.Reply = p2.Reply
 				parsed.Ready = true
 			} else {
 				// 两次都带问号，或者第二次读不出来：用第一份。一句带问号的好
@@ -948,10 +1038,25 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 
 	live := rows
 	added := make([]string, 0, len(parsed.Add))
+	// 这一轮刚加的那条分论点 —— 同一轮里跟着它的例子要挂到它下面。
+	var pointThisTurn *sqlc.WritingOutline
 	for _, node := range parsed.Add {
 		var parent *sqlc.WritingOutline
+		// 🚨 例子不是一段，不能落在最上层（2026-09-18 走查：她说完「爸爸入狱……」，
+		// 印记同一轮加了分论点和这个例子，例子的 parentId 只能留空 —— 它引用不到
+		// 同一轮才建出来的那个节点的 id —— 于是它落到了最上层，段落那一步把它当成了
+		// 「分论点 3」）。挂到这一轮刚加的分论点下面；这一轮没加，就挂到图上最后
+		// 一条分论点下面。她在图上一拖就能改。
+		if writingRoleIsExample(node.Role, node.Source) {
+			if _, ok := resolvePlanParent(byID, live, node.ParentID); node.ParentID == "" || !ok {
+				if p := examplePlanParent(pointThisTurn, live); p != nil {
+					node.ParentID = p.ID.String()
+					byID[node.ParentID] = *p
+				}
+			}
+		}
 		if node.ParentID != "" {
-			p, found := byID[node.ParentID]
+			p, found := resolvePlanParent(byID, live, node.ParentID)
 			if !found {
 				// An id the model invented. Dropping the node is right:
 				// attaching it to a guessed parent would put her sentence
@@ -986,6 +1091,10 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		live = next
 		byID[created.ID.String()] = created
 		added = append(added, created.ID.String())
+		if created.Depth == 1 && !writingRoleIsExample(created.Role, created.Source) {
+			c := created
+			pointThisTurn = &c
+		}
 	}
 	if err := tx.Commit(turnCtx); err != nil {
 		httpx.WriteError(w, r, err)
@@ -1014,6 +1123,6 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		// 图上还什么都没有的时候，停止提问这件事只由 prompt 那一段来做
 		// （writingPlanStalledBlock：这一轮不要再问，告诉她可以先去写）。
 		"ready": parsed.Ready || planLooksReady(wr, live) ||
-			(writingPlanStalled(msgs, studentText) && writingPlanShapeOf(live).Top >= 1),
+			(stalled && writingPlanShapeOf(live).Top >= 1),
 	})
 }

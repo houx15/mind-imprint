@@ -363,6 +363,8 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   ]);
   await expect(page.getByRole("heading", { name: "段落" })).toBeVisible({ timeout: 60_000 });
 
+  // 2026-09-18 起一次只摊开一张纸，换一段是点上面那一叠卡片。
+  const cards = page.locator("[data-write-card]");
   const boxes = page.getByPlaceholder("写这一段……");
   await expect(boxes.first()).toBeVisible({ timeout: 60_000 });
   // 引导在到达时就在，不用点「卡住了？」。
@@ -376,14 +378,15 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   // 格子就不在页面上了，那时候再 `boxes.count()` 拿到的是 0 —— 于是下面那句
   // 「拼出来的应该等于她写的几段」会拿一段去比两段，报的样子像是成稿把她的字
   // 拼错了，其实是这条 walk 数错了。
-  const slots = await boxes.count();
+  const slots = await cards.count();
   const written = [p1, p2].slice(0, Math.max(1, Math.min(slots, 2)));
 
   for (let i = 0; i < written.length; i++) {
-    await boxes.nth(i).fill(written[i]!);
+    await cards.nth(i).click();
+    await boxes.first().fill(written[i]!);
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
-      boxes.nth(i).blur(),
+      boxes.first().blur(),
     ]);
   }
   await expect(page.getByText("保存这一段失败，请重试。")).toHaveCount(0);

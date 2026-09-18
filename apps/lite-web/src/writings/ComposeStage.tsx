@@ -15,6 +15,7 @@ import {
   listWritingComments,
   finishWriting,
   suggestWritingTitles,
+  suggestWritingTitleKeywords,
   type Comment,
   type WritingDraft,
   type WritingSnippet,
@@ -123,6 +124,9 @@ export function ComposeStage({
     setHighlight({ text, nonce: highlightNonce.current });
   }, []);
   const [confirmingReassemble, setConfirmingReassemble] = useState(false);
+  /** 右栏和意见那一块 —— 意见回来时要把她带过去，见 review()。 */
+  const railRef = useRef<HTMLElement | null>(null);
+  const commentRef = useRef<HTMLDivElement | null>(null);
   const [importing, setImporting] = useState(false);
   /** Text read from an uploaded file, waiting for her 替换 / 接在后面. */
   const [pendingImport, setPendingImport] = useState<string | null>(null);
@@ -361,6 +365,15 @@ export function ComposeStage({
       if (!(await flush())) return;
       setComment(await reviewWritingDraft(writingId));
       setHighlight(null);
+      // 🚨 2026-09-18 产品负责人：「请印记看看点击了以后，没有返回结果」。
+      // 结果其实回来了：意见放在右栏**最上面**，而她点按钮的时候右栏正滚在下面
+      // 看段落原文 —— 屏幕上什么都没变。审阅要花半分钟以上，她看到的只有按钮
+      // 上那个小转圈。所以：审阅中在右栏顶上摆一行状态，意见一到就把右栏滚上去、
+      // 把意见带到眼前。见 [[walk-the-loop-and-show-the-result-2026-09-17]]。
+      requestAnimationFrame(() => {
+        railRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+        commentRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
     } catch (err) {
       handleWriteError(err, onLocked, setError);
     } finally {
@@ -538,7 +551,22 @@ export function ComposeStage({
           />
         </div>
 
-        <aside className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l">
+        <aside
+          ref={railRef}
+          className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l"
+        >
+          {reviewing && (
+            <p
+              role="status"
+              className="rounded-mk-sm border px-3 py-2 text-mk-small text-mk-accent-700"
+              style={{
+                background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+                borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+              }}
+            >
+              印记正在通读全文，意见会显示在这里，通常需要半分钟左右。
+            </p>
+          )}
           {railTop}
           {/* 🚨 这一块本来只传了 comment 和 onTrace —— 段落那一步早就会说
               「这条是上一版」了，成稿这一步一直没接上，而**整稿意见更容易过期**：
@@ -552,13 +580,15 @@ export function ComposeStage({
 
               判据和存的那一版都是现成的，只差把它们接上。 */}
           {comment && (
-            <CommentPanel
-              comment={comment}
-              onTrace={showHighlight}
-              currentText={body}
-              onRecheck={() => void review()}
-              rechecking={reviewing}
-            />
+            <div ref={commentRef}>
+              <CommentPanel
+                comment={comment}
+                onTrace={showHighlight}
+                currentText={body}
+                onRecheck={() => void review()}
+                rechecking={reviewing}
+              />
+            </div>
           )}
           {/* 带进来的一篇没有段落原文；「暂无段落原文」只会让她以为漏了一步。 */}
           {!(origin === "brought" && !snippets.some((s) => s.text.trim() !== "")) && (
@@ -672,7 +702,7 @@ export function ComposeStage({
 
       {titleIdeas !== null && (
         <NamePieceModal
-          ideas={titleIdeas}
+          onHint={() => suggestWritingTitleKeywords(writingId)}
           saving={naming || finishing}
           error={nameError}
           onName={(t) => void nameThenFinish(t)}

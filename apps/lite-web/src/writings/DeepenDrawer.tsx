@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Icon } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
-import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
+import { LiteChatMarkdown as ChatMarkdown } from "../readings/LiteChatMarkdown";
 import { getWritingBlockThread, postWritingBlockDeepen } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { handleWriteError } from "./writeErrors";

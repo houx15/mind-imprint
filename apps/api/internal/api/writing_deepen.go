@@ -44,7 +44,10 @@ import (
 // from the borrowed material in the vocab library rather than her own topic.
 const deepenSystem = writingGuideTeachingRules + `
 
-你是在帮她想这一块，用苏格拉底式的追问：问出她已经知道但还没说出来的东西。绝不替她写句子。你可以从【可用的方法】里举例子——那些例子讲的都是别的题目，不是她的。`
+你是在帮她想这一块，用苏格拉底式的追问：问出她已经知道但还没说出来的东西。绝不替她写句子。你可以从【可用的方法】里举例子——那些例子讲的都是别的题目，不是她的。
+
+你的回复是**直接说给她听的**：称呼她用「你」，不要写「她那段」「她的论点」。
+（这段提示词用「她」指这个学生，是写给你看的；2026-09-18 截图里回复开头就是「她那段其实……」。）`
 
 // liteDeepenTurnReq is postWritingBlockDeepen's request body — one line of
 // text, the same shape as liteWritingTurnReq (writing_turn.go): this sub-agent

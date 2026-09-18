@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, HelpCircle, Eye, LayoutGrid } from "lucide-react";
+import { Plus, HelpCircle, Eye, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { wordUnit } from "./wordUnit";
@@ -8,7 +8,7 @@ import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
-import { buildSlots, type Slot } from "./slots";
+import { buildSlots, slotTitle, type Slot } from "./slots";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { registerPendingSave } from "./pendingSaves";
 import { handleWriteError } from "./writeErrors";
@@ -26,48 +26,37 @@ import {
 } from "../api/writingRoom";
 
 /**
- * SnippetsStage — 段落.
+ * SnippetsStage — 段落，一张卡一段。
  *
- * The 2026-08-27 note that reshaped this file: *"snippets is important, the
- * key is the AI-generated guiding box, instead of letting students write
- * paragraph by paragraph."* The old shape was the second thing — a bare
- * textarea under a heading, and a student staring at a cursor. What was
- * missing wasn't a bigger box; it was something to think *about*.
+ * 🚨 2026-09-18 产品负责人（重排这一页的原话）：
  *
- * ## Guidance is PRESENT ON ARRIVAL (Task 11)
+ *   > I hope that we have the idea of card writing. each snippet is one card.
+ *   > and then we will let our guidance be at the left side and can be folded.
+ *   > and we have a paper-feeling large area with beautiful font that can write.
+ *   > currently it is a small input textbox which cannot trigger my desire of writing.
  *
- * It used to be that the only way to see a guide was to find and press
- * 「卡住了？」 — which meant the student who most needed it (the one who does
- * not know what she is allowed to ask for) was the one least likely to get
- * it. Now:
+ * 所以这一页是三件东西：
  *
- *   - every block's guide is **stored** server-side and arrives on
- *     `GET /outline` (`WritingOutlineItem.guide`), so on any later visit it
- *     is simply painted, with no call and no click;
- *   - the first time a piece reaches 段落 with nothing stored yet, the BATCH
- *     route (`POST /writings/{id}/guide`, one model call for the whole
- *     outline) runs once by itself. She should not have to ask to be taught.
- *   - 「卡住了？」 survives as **regenerate this one block** — a second opinion
- *     when the first set of questions didn't land — not as the way in.
+ *   - **左边：引导**（能折起来）—— 这一张卡要做的事、它要提出/回到的中心论点、
+ *     结构图里给这一段准备的例子、印记的写作引导。只跟着**当前这张卡**走。
+ *   - **中间：卡片 + 纸**。上面一排是这一篇的卡片（开头 · 分论点 · 结尾，
+ *     slots.ts 从结构图派生），下面是当前这张卡的一张纸：衬线字、大行距、
+ *     没有输入框的边框。一次只摊开一张 —— 一排八个小框让人不想写。
+ *   - **右边：印记**，在房间那一层（WritingRoomHost），宽度能拖。
  *
- * ## 请印记看看这一段 (B4)
+ * 下面这几条老规矩都还在，只是换了位置：
  *
- * The same structured critique 成稿 gets on the whole piece, at paragraph
- * zoom — one summary line plus points, each anchored to a sentence she
- * actually wrote (the server drops any point whose quote is not a literal
- * substring). It renders through the SAME `CommentPanel` 成稿 uses; only the
- * trace differs, because there is no `ProseSurface` here to highlight into.
- * Comments persist, so they are fetched on arrival rather than living only in
- * the seconds after she presses the button.
+ * ## 引导一进来就在（Task 11）
+ * 每一块的引导存在服务端、随 `GET /outline` 回来；第一次进段落、一条都还没有
+ * 的时候，整篇一次批量生成。「换一组问题」只是再要一组。
  *
- * 铁律① IS ENFORCED IN THIS FILE: GuideBox renders `guide.questions`, and the
- * server has already dropped anything that isn't a question
- * (writing_guide.go's parseWritingGuide). A question cannot be pasted into an
- * essay; a sentence can. The guarantee is the output TYPE, not a promise.
+ * ## 请印记看看这一段（B4）
+ * 和成稿同一个 `CommentPanel`，意见落在纸的下面；点一条意见，纸上选中被引的那一句。
  *
- * There are no 工具卡 in this room at all (2026-08-27): pro's writing surface
- * barely used them, and a student stuck on a paragraph wants a question, not a
- * form to fill in.
+ * ## 铁律①
+ * GuideBox 只渲染 `guide.questions`，服务端已经把不是问句的都丢了
+ * （writing_guide.go 的 parseWritingGuide）。卡片的标题只有她的节点文字和骨架的
+ * 名字（开头 / 分论点 / 结尾）—— 一个字都不是印记写的。
  */
 
 /** The guides the server already stored, keyed by outline row id. */
@@ -77,6 +66,29 @@ function storedGuides(outline: WritingOutlineItem[]): Record<string, WritingBloc
     if (o.guide) out[o.id] = o.guide;
   }
   return out;
+}
+
+/** 一张卡在卡片叠里的身份。卡的顺序会随结构变，所以不用下标。 */
+const slotKey = (s: Slot) => `${s.kind}-${s.outlineId ?? `p${s.position}`}`;
+
+const hasText = (s: Slot) => (s.snippet?.text ?? "").trim() !== "";
+
+/** 这一张卡要做的事 —— 骨架的说明，和她写什么无关，所以是写死的。 */
+function slotJob(s: Slot): string {
+  if (s.kind === "opening") return "提出这篇要证明的中心论点，让读者知道你要说什么、为什么值得读下去。";
+  if (s.kind === "closing") return "回到中心论点，把它说得比开头更准；可以写读者读完应该带走的判断。";
+  if (s.kind === "free") return "放在全文最后，也可以在成稿里挪到合适的位置。";
+  if (s.needsPoint) return "下面的例子还没有对应的分论点。请先用一句话写出这些例子证明了什么，再展开例子。";
+  return "先写出这条分论点，再用下面的例子证明它，最后说明例子和论点的关系。";
+}
+
+const FOLD_KEY = "lite:writingGuideFolded";
+function readFolded(): boolean {
+  try {
+    return window.localStorage.getItem(FOLD_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function SnippetsStage({
@@ -96,36 +108,45 @@ export function SnippetsStage({
   onSnippetsChange: (next: WritingSnippet[]) => void;
   /** 一块板摆完了：把结果当成她说的一句话发出去，印记 在右栏接住它。 */
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
-  /** Sends her to 结构 from the empty state — naming the step she needs is
-   *  not the same as getting her there. */
   /** 这一篇是中文还是英文 —— 决定篇幅按「字」还是「词」说。见 wordUnit.ts。 */
   lang: string;
+  /** Sends her to 结构 from the empty state. */
   onGoToStructure: () => void;
   /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
   onGoToDraft: () => void;
-  /** The deadline passed while she was mid-edit: every write below (and in
-   *  each `SnippetBlock`) reloads the room into the locked finished page
-   *  instead of showing a raw error on a page that can no longer save. */
+  /** The deadline passed while she was mid-edit: reload into the locked page. */
   onLocked?: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
 
-  /**
-   * 现在开着的是**哪一块**的标注板。一次只开一块。
-   *
-   * 🚨 走查里她同时开了两块板（截图上下各一块）。两个后果：
-   * 屏幕上一次摆着十个格子，她不知道哪一组对应哪一段；
-   * 而且「摆完这一块」这件事没有终点 —— 她在两块之间来回点，
-   * 一块都没交上去。板是被递过来的一件事，不是一排可以同时摊开的抽屉。
-   */
+  // 当前摊开的那一张。默认是第一张还没写的；都写过了就第一张。
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const active =
+    slots.find((s) => slotKey(s) === activeKey) ?? slots.find((s) => !hasText(s)) ?? slots[0] ?? null;
+  const activeIndex = active ? slots.indexOf(active) : -1;
+  // 🚨 定下来就钉住：不钉的话，「第一张还没写的」在她写完第一个字、存下去之后
+  // 就变成了下一张，纸会在她手底下换掉。
+  const resolvedKey = active ? slotKey(active) : null;
+  useEffect(() => {
+    if (activeKey === null && resolvedKey !== null) setActiveKey(resolvedKey);
+  }, [activeKey, resolvedKey]);
+
+  const [folded, setFolded] = useState(readFolded);
+  function toggleFold() {
+    setFolded((f) => {
+      try {
+        window.localStorage.setItem(FOLD_KEY, f ? "0" : "1");
+      } catch {
+        // 记不住就只是这一次有效。
+      }
+      return !f;
+    });
+  }
+
+  /** 现在开着的是哪一张的标注板。一次只开一块（见 RoleBoard）。 */
   const [openBoardFor, setOpenBoardFor] = useState<string | null>(null);
 
-  /**
-   * Guides live here rather than inside each block, because the batch call
-   * answers for the WHOLE outline at once and every block has to be able to
-   * receive its share. Seeded from what the server already stored; a locally
-   * regenerated guide wins over the stored one it replaced.
-   */
+  // 引导放在这一层：批量那一次调用一次回答整篇，每一张都要能收到自己那一份。
   const [guides, setGuides] = useState<Record<string, WritingBlockGuide>>(() => storedGuides(outline));
   useEffect(() => {
     setGuides((prev) => ({ ...storedGuides(outline), ...prev }));
@@ -133,25 +154,10 @@ export function SnippetsStage({
 
   const [batching, setBatching] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
-  // One attempt per mount. A failed batch must not turn into a retry loop
-  // that bills a model call every render, and a piece whose outline genuinely
-  // produced nothing must not be asked again on every keystroke.
+  // One attempt per mount — a failed batch must not become a billed retry loop.
   const batchTried = useRef(false);
-  /**
-   * Deliberately NOT a per-invocation `let cancelled = false` cleanup flag.
-   *
-   * THE TRAP (it hung this exact box for the whole 180s of the writing walk,
-   * 2026-08-28): `batchTried` and a `cancelled` closure disagree under
-   * StrictMode's mount → cleanup → remount. Pass 1 sets the latch and fires
-   * the one real `/guide` call; the cleanup marks pass 1's closure cancelled;
-   * pass 2 is skipped *because the latch is already set*. The single in-flight
-   * request then lands in the only closure watching it — the cancelled one —
-   * so `setGuides`/`setBatching(false)` are both dropped and the room sits on
-   * 「印记正在把每一块都先想一遍」 forever, on a 200 the server answered
-   * perfectly. `useAlive` is restored to true by the remount and only goes
-   * false on a real unmount, so the latch and the guard can no longer
-   * contradict each other. Full write-up in `shared/useAlive.ts`.
-   */
+  // useAlive, NOT a per-invocation cancelled flag: see shared/useAlive.ts for
+  // the StrictMode latch trap that hung this box for 180s on 2026-08-28.
   const alive = useAlive();
 
   const anyGuide = outline.some((o) => guides[o.id]);
@@ -166,8 +172,6 @@ export function SnippetsStage({
         if (alive.current) setGuides((prev) => ({ ...next, ...prev }));
       })
       .catch((err: unknown) => {
-        // Surfaced, never masked: 「卡住了？」 still works per block, and
-        // saying so is more useful than a page that silently teaches nothing.
         if (alive.current) handleWriteError(err, onLocked, setBatchError);
       })
       .finally(() => {
@@ -175,21 +179,9 @@ export function SnippetsStage({
       });
   }, [needsBatch, writingId, alive, onLocked]);
 
-  /** Which block, if any, has 深入一层 open. */
   const [deepen, setDeepen] = useState<{ outlineId: string; heading: string } | null>(null);
 
-  /**
-   * 印记's comments on individual paragraphs, keyed by snippet id — the
-   * newest one per block.
-   *
-   * Fetched on arrival rather than only held from the moment she presses the
-   * button: a comment is PERSISTED (migration 0102), and feedback that
-   * silently disappears when she comes back tomorrow is the exact failure
-   * `POST /review`'s old `{"feedback": "<prose>"}` had. `GET /comments`
-   * returns both zoom levels newest-first, so the first row seen for a
-   * snippet is the one to keep and the draft-scope rows are skipped here —
-   * they belong to 成稿.
-   */
+  // 每一段最新的那条意见，按片段 id。只取段落这一层的，成稿那一层归成稿。
   const [comments, setComments] = useState<Record<string, Comment>>({});
   useEffect(() => {
     let cancelled = false;
@@ -203,25 +195,15 @@ export function SnippetsStage({
         }
         setComments(byBlock);
       })
-      // Not worth an error banner: nothing she did failed, and 请印记看看这一段
-      // still works. Silence here beats an alarm about a page she never asked
-      // to load.
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [writingId]);
 
-  // Free paragraphs live in a position range an outline can never reach.
-  //
-  // position is writing_snippet's upsert key, and outline positions are just
-  // array indices 0..N-1 reassigned on every outline save. So "one past the
-  // current maximum" is not safe: a free paragraph minted at position 1 while
-  // the outline has one block sits exactly where a SECOND block will land the
-  // next time the structure grows — and the first save of that new slot then
-  // upserts onto her free paragraph's row, destroying its text and relinking
-  // it to a heading she never wrote it under. Silent, and the kind of loss
-  // she would only notice much later.
+  // Free paragraphs live in a position range an outline can never reach —
+  // see the long note that used to sit here (writing_snippet upserts by
+  // position; a free paragraph at N+1 would be overwritten by the next block).
   const FREE_POSITION_BASE = 1000;
   const freePositions = snippets.map((s) => s.position).filter((p) => p >= FREE_POSITION_BASE);
   const nextFreePosition = freePositions.length === 0 ? FREE_POSITION_BASE : Math.max(...freePositions) + 1;
@@ -230,136 +212,211 @@ export function SnippetsStage({
   async function addFreeParagraph() {
     setAddError(null);
     try {
-      onSnippetsChange(await putWritingSnippet(writingId, { position: nextFreePosition, text: "" }));
+      const next = await putWritingSnippet(writingId, { position: nextFreePosition, text: "" });
+      onSnippetsChange(next);
+      setActiveKey(`free-p${nextFreePosition}`);
     } catch (err) {
       handleWriteError(err, onLocked, (message) => setAddError(`添加失败：${message}`));
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <h2 className="text-mk-h2 text-mk-ink">段落</h2>
-        {/* 🚨 她一进来撞见的是八个空框。2026-09-13 第十三轮走查里三步在问
-            同两件事：「不知道是不是要按顺序全写完才算一段」「不确定应该按顺序
-            从第一块开始写还是先写中心论点那块」。
-            原来这句写的是「一块一块来…照着想就行」—— 说了节奏，没说规则。
-            她要的是两条事实：顺序归她，存盘各自独立。 */}
-        <p className="text-mk-body text-mk-muted">一块一段，各自保存，先写哪一块都可以。每一块上面写着它要做的事。</p>
-      </div>
-
-      {batching && (
-        <p className="text-mk-body text-mk-muted" role="status">
-          印记正在把每一块都先想一遍…
-        </p>
-      )}
-      {batchError && (
-        <div role="alert" className="rounded-mk-sm px-3 py-2 text-mk-small text-mk-danger" style={{ background: "var(--mk-danger-bg)" }}>
-          {batchError}
-          <button type="button" className="ml-3 underline" onClick={() => setBatchError(null)}>
-            知道了
-          </button>
-        </div>
-      )}
-
-      {/* The design system's own empty state, illustration and all — a bare
-          dashed box with a sentence in it is the shape this page is supposed
-          to avoid, and an empty stage is exactly where a student needs the
-          most warmth rather than the least. `action` sends her to the step
-          that actually unblocks her instead of only naming it. */}
-      {slots.length === 0 && (
+  if (slots.length === 0) {
+    return (
+      <div className="mk-scroll h-full overflow-y-auto p-6">
+        <h2 className="sr-only">段落</h2>
         <EmptyState
           illustration="writing"
-          title="还没有可以写的块"
-          body="段落是跟着结构里的每一块写的。先去把思路理一理，或者直接加一段自由写。"
+          title="还没有可以写的卡片"
+          body="段落是跟着结构写的：开头、每一条分论点、结尾，各是一张卡片。请先去「结构」把思路理一理，或者直接加一段自由写。"
           action={{ label: "去理思路", onClick: onGoToStructure }}
         />
-      )}
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => void addFreeParagraph()} iconStart={<Icon icon={Plus} size={14} />}>
+            加一段
+          </Button>
+          {addError && (
+            <p role="alert" className="break-words text-mk-small text-mk-danger">
+              {addError}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-      <div className="flex flex-col gap-5">
-        {slots.map((slot) => {
-          const oid = slot.outlineId;
-          return (
-            <SnippetBlock
-              key={`${oid ?? "free"}-${slot.position}`}
+  let pointNo = 0;
+  const titles = slots.map((s) => slotTitle(s, s.kind === "point" ? ++pointNo : 0));
+  const allWritten = slots.every(hasText);
+  const someWritten = slots.some(hasText);
+  const activeGuide = active?.outlineId ? (guides[active.outlineId] ?? null) : null;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col lg:flex-row">
+      {/* 读屏的人需要知道这是哪一步；看得见的人看卡片叠就知道。 */}
+      <h2 className="sr-only">段落</h2>
+      {/* ── 左：引导（可折叠） ─────────────────────────────── */}
+      {folded ? (
+        <div className="hidden shrink-0 flex-col items-center gap-2 border-r border-mk-border bg-mk-surface py-3 lg:flex lg:w-12">
+          <button
+            type="button"
+            onClick={toggleFold}
+            aria-label="展开引导"
+            title="展开引导"
+            className="rounded-mk-sm p-1.5 text-mk-secondary hover:bg-mk-accent-50 hover:text-mk-accent-700"
+          >
+            <Icon icon={PanelLeftOpen} size={18} />
+          </button>
+          <span className="text-mk-small text-mk-muted [writing-mode:vertical-rl]">引导</span>
+        </div>
+      ) : (
+        <aside
+          aria-label="引导"
+          className="mk-scroll flex shrink-0 flex-col gap-4 overflow-y-auto border-b border-mk-border bg-mk-surface p-4 lg:w-[320px] lg:border-b-0 lg:border-r"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-mk-body font-semibold text-mk-ink">引导</h2>
+            <button
+              type="button"
+              onClick={toggleFold}
+              aria-label="收起引导"
+              title="收起引导"
+              className="hidden rounded-mk-sm p-1.5 text-mk-secondary hover:bg-mk-accent-50 hover:text-mk-accent-700 lg:block"
+            >
+              <Icon icon={PanelLeftClose} size={18} />
+            </button>
+          </div>
+          {active && (
+            <CardGuidance
+              key={slotKey(active)}
               writingId={writingId}
-              slot={slot}
-              guide={oid ? (guides[oid] ?? null) : null}
+              slot={active}
+              title={titles[activeIndex] ?? ""}
+              guide={activeGuide}
+              batching={batching}
+              batchError={batchError}
+              onDismissBatchError={() => setBatchError(null)}
               onGuide={(next) => {
+                const oid = active.outlineId;
                 if (oid) setGuides((prev) => ({ ...prev, [oid]: next }));
               }}
               onDeepen={() => {
-                if (oid) setDeepen({ outlineId: oid, heading: slot.heading });
+                if (active.outlineId) setDeepen({ outlineId: active.outlineId, heading: active.heading || titles[activeIndex] || "" });
               }}
-              comment={slot.snippet ? (comments[slot.snippet.id] ?? null) : null}
-              onCommented={(c) => {
-                const sid = c.snippetId;
-                if (sid) setComments((prev) => ({ ...prev, [sid]: c }));
-              }}
-              onSaved={onSnippetsChange}
-              onSay={onSay}
-              lang={lang}
-              boardKey={`${oid ?? "free"}-${slot.position}`}
-              openBoardFor={openBoardFor}
-              onBoardOpen={setOpenBoardFor}
               onLocked={onLocked}
             />
-          );
-        })}
-      </div>
-
-      {/* 每一块都写好了 → 屏幕上出现一条真的邀请。
-          🚨 这是结构那一步「去写」那条邀请的同一件事，在下一个接缝上。
-          产品负责人当时的判断是：那颗按钮从第一秒就在，**但从来没有人提议过它**，
-          于是一个已经做完的学生会继续在原地待着。段落这一步是同一个形状 ——
-          2026-09-11 走查里她两次走到这儿停住：
-          「每段都写完了，但没有一个按钮能把它们拼成整篇文章或者进入下一步」。
-          顶上那排「结构 / 段落 / 成稿」一直可点，她只是没把它读成「下一步」。
-
-          ⚠️ 它不替她走。按不按仍然是她的事，导航也照旧。 */}
-      {slots.length > 0 && slots.every((s) => (s.snippet?.text ?? "").trim() !== "") && (
-        <div
-          className="flex flex-wrap items-center gap-3 rounded-mk-lg border p-3"
-          style={{
-            // mk-* 是裸 CSS 变量：Tailwind 的 alpha 语法对它们一个字节的 CSS
-            // 都不生成，半透明只能走 color-mix。
-            background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
-            borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
-          }}
-        >
-          <span className="text-mk-body text-mk-ink">每一块都写好了。下一步把它们拼成整篇。</span>
-          <Button size="sm" onClick={onGoToDraft}>
-            去成稿
-          </Button>
-        </div>
+          )}
+        </aside>
       )}
-      {/* 2026-09-18 走查：写了三块、字数够了、剩两块空着 —— 她连着五步找不到
-          「完成这篇」，印记还让她「删掉空白块」（这里删不了块）。完成在成稿那一步，
-          空着的块拼成稿时自动跳过；这两件事屏幕上要直接说出来。 */}
-      {slots.some((s) => (s.snippet?.text ?? "").trim() !== "") &&
-        !slots.every((s) => (s.snippet?.text ?? "").trim() !== "") && (
-          <div className="flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-3">
-            <span className="text-mk-small text-mk-secondary">
-              需要的段落写完后，请到「成稿」把它们拼成整篇，并在那里点「完成这篇」提交。空着的块不会进入成稿。
-            </span>
-            <Button size="sm" variant="secondary" onClick={onGoToDraft}>
-              去成稿
-            </Button>
-          </div>
+
+      {/* ── 中：卡片 + 纸 ─────────────────────────────────── */}
+      <div className="mk-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto" style={{ background: "var(--mk-surface-2, var(--mk-surface))" }}>
+        <nav aria-label="卡片" className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2 pt-4 sm:px-8">
+          {slots.map((s, i) => {
+            const on = s === active;
+            const done = hasText(s);
+            return (
+              <button
+                key={slotKey(s)}
+                type="button"
+                data-write-card={titles[i]}
+                aria-current={on ? "true" : undefined}
+                onClick={() => setActiveKey(slotKey(s))}
+                className={`flex w-[148px] shrink-0 flex-col gap-1 rounded-mk-md border px-3 py-2 text-left transition-[transform,box-shadow,border-color] duration-[160ms] ease-mk hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 ${
+                  on ? "border-mk-accent-500 shadow-mk-md" : "border-mk-border shadow-mk-sm"
+                }`}
+                style={{ background: on ? "var(--mk-paper)" : "var(--mk-surface)" }}
+              >
+                <span className="flex items-center justify-between gap-1 text-mk-label">
+                  <span className={`font-semibold ${on ? "text-mk-accent-700" : "text-mk-secondary"}`}>
+                    {i + 1} · {titles[i]}
+                  </span>
+                  {done && (
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-mk-full"
+                      style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
+                      aria-label="已写"
+                    >
+                      <Icon icon={Check} size={11} />
+                    </span>
+                  )}
+                </span>
+                <span className="line-clamp-2 text-mk-small text-mk-ink">
+                  {s.heading || s.claim || (s.materials[0] ?? "") || "待写"}
+                </span>
+                <span className="text-mk-label text-mk-faint">
+                  {done ? `${countWords(s.snippet?.text ?? "")} ${wordUnit(lang)}` : "待写"}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => void addFreeParagraph()}
+            className="flex w-[92px] shrink-0 flex-col items-center justify-center gap-1 rounded-mk-md border border-dashed border-mk-border px-2 py-2 text-mk-small text-mk-secondary hover:border-mk-accent-300 hover:text-mk-accent-700"
+          >
+            <Icon icon={Plus} size={16} />
+            加一段
+          </button>
+        </nav>
+        {addError && (
+          <p role="alert" className="break-words px-4 text-mk-small text-mk-danger sm:px-8">
+            {addError}
+          </p>
         )}
 
-      <button
-        type="button"
-        onClick={() => void addFreeParagraph()}
-        className="flex w-fit items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-accent-700 hover:bg-mk-accent-50"
-      >
-        <Icon icon={Plus} size={14} /> 加一段
-      </button>
-      {addError && (
-        <p role="alert" className="break-words text-mk-small text-mk-danger">
-          {addError}
-        </p>
-      )}
+        {active && (
+          <CardPaper
+            key={slotKey(active)}
+            writingId={writingId}
+            slot={active}
+            title={titles[activeIndex] ?? ""}
+            comment={active.snippet ? (comments[active.snippet.id] ?? null) : null}
+            onCommented={(c) => {
+              const sid = c.snippetId;
+              if (sid) setComments((prev) => ({ ...prev, [sid]: c }));
+            }}
+            onSaved={onSnippetsChange}
+            onSay={onSay}
+            lang={lang}
+            boardOpen={openBoardFor === slotKey(active)}
+            onBoardOpen={(on) => setOpenBoardFor(on ? slotKey(active) : null)}
+            onLocked={onLocked}
+            prev={activeIndex > 0 ? () => setActiveKey(slotKey(slots[activeIndex - 1]!)) : undefined}
+            next={activeIndex < slots.length - 1 ? () => setActiveKey(slotKey(slots[activeIndex + 1]!)) : undefined}
+            nextTitle={titles[activeIndex + 1]}
+          />
+        )}
+
+        {/* 每一张都写好了 → 一条真的邀请（2026-09-11：她两次写完停在这儿，
+            没把顶上的「成稿」读成下一步）。写了一部分 → 直说空卡不进成稿。 */}
+        <div className="mx-auto w-full max-w-[760px] px-4 pb-8 sm:px-8">
+          {allWritten ? (
+            <div
+              className="flex flex-wrap items-center gap-3 rounded-mk-lg border p-3"
+              style={{
+                background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+                borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+              }}
+            >
+              <span className="text-mk-body text-mk-ink">每一张卡片都写好了。下一步把它们拼成整篇。</span>
+              <Button size="sm" onClick={onGoToDraft}>
+                去成稿
+              </Button>
+            </div>
+          ) : (
+            someWritten && (
+              <div className="flex flex-wrap items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-3">
+                <span className="text-mk-small text-mk-secondary">
+                  需要的段落写完后，请到「成稿」把它们拼成整篇，并在那里点「完成这篇」提交。空着的卡片不会进入成稿。
+                </span>
+                <Button size="sm" variant="secondary" onClick={onGoToDraft}>
+                  去成稿
+                </Button>
+              </div>
+            )
+          )}
+        </div>
+      </div>
 
       {deepen && (
         <DeepenDrawer
@@ -374,235 +431,42 @@ export function SnippetsStage({
   );
 }
 
-function SnippetBlock({
+/**
+ * 左栏：当前这张卡的引导。
+ *
+ * 写过字的卡进来时引导是折着的（2026-09-13 第十三轮：那几个问题是对着白纸写的，
+ * 她写完三百字后还挂着，读起来像过期的反馈）。空卡照旧摊开 —— 最需要引导的学生
+ * 正是最不会主动去点的那个。
+ */
+function CardGuidance({
   writingId,
   slot,
+  title,
   guide,
+  batching,
+  batchError,
+  onDismissBatchError,
   onGuide,
   onDeepen,
-  comment,
-  onCommented,
-  onSaved,
-  onSay,
-  boardKey,
-  openBoardFor,
-  onBoardOpen,
-  lang,
   onLocked,
 }: {
   writingId: string;
   slot: Slot;
-  /** Whatever guidance this block already has — stored from the server or
-   *  just regenerated. Null only for a block that has never been guided (and
-   *  for free paragraphs, which have no outline row to guide). */
+  title: string;
   guide: WritingBlockGuide | null;
+  batching: boolean;
+  batchError: string | null;
+  onDismissBatchError: () => void;
   onGuide: (next: WritingBlockGuide) => void;
   onDeepen: () => void;
-  /** The newest stored comment on THIS paragraph, if 印记 has looked at it. */
-  comment: Comment | null;
-  onCommented: (next: Comment) => void;
-  onSaved: (next: WritingSnippet[]) => void;
-  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
-  /** 这一块在「谁的板开着」里的名字。 */
-  boardKey: string;
-  lang: string;
-  openBoardFor: string | null;
-  onBoardOpen: (key: string | null) => void;
-  /** The deadline passed while she was mid-edit: every write below reloads
-   *  the room into the locked finished page. */
   onLocked?: () => void;
 }) {
-  const [text, setText] = useState(slot.snippet?.text ?? "");
-  const [saving, setSaving] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => hasText(slot));
   const [guiding, setGuiding] = useState(false);
-  const [commenting, setCommenting] = useState(false);
-  const [boardBusy, setBoardBusy] = useState(false);
-  const boardOpen = openBoardFor === boardKey;
-  const setBoardOpen = (on: boolean) => onBoardOpen(on ? boardKey : null);
-  // 拆句是纯函数、很便宜，所以每次渲染算一遍就行——把它记忆化只会多一个
-  // 会和 text 失去同步的地方。
-  const sentenceCount = splitSentences(text).length;
-  // 「已保存」＝ 服务端那一行的字和框里的字一模一样。比一个 savedAt 时间戳
-  // 诚实：她改了一个字，这行就自己消失，不会留下一句过期的「已保存」。
-  const saved = text.trim() !== "" && slot.snippet?.text === text;
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  /**
-   * 收起 hides the box; it does not throw the guidance away. Regenerating on
-   * the way back in would charge a model call to see something we already
-   * have, so the button becomes 「打开引导」 instead.
-   *
-   * 🚨 **已经写过的那一块，进来时就折着。**
-   *
-   * 引导那几个问题是对着**一张白纸**写的（「你见过哪一次？」「那天几点？」）。
-   * 她写完三百字之后，那几个问题还挂在正文框上面 —— 而它们看起来跟印记的
-   * 反馈是一类东西。2026-09-13 第十三轮线上走查，两个学生一共三步在说这个：
-   *
-   *   「左侧的意见卡片[18][19][20]好像还是旧版的提示，没跟着我的正文一起更新，
-   *     看着有点乱」
-   *   「下面那个卡片18还显示旧的提示，看着有点乱」
-   *
-   * 她没说错：那几个问题**确实**不会跟着她的正文变，它们也不该变 ——
-   * 它们不是反馈，是开工前的脚手架。脚手架该在她开工之后让开。
-   *
-   * ⚠️ 这不动「引导一进来就在」那条（Task 11：最需要它的那个学生，正是最不会
-   * 主动去点的那个）—— 空白的块照旧摊开。折的只是**她已经写过的**那些块，
-   * 而且只在进来那一刻决定一次：写到一半把她眼前的东西收走，比留着更糟。
-   */
-  const [collapsed, setCollapsed] = useState(() => (slot.snippet?.text ?? "").trim() !== "");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // 🚨 **她手正放在这个框里的时候，绝不把服务端那一份写回去。**
-    //
-    // 这一行原来是无条件 setText。在只有「失焦才存」的年代它是安全的：
-    // 存的那一刻她已经不在框里了。下面加了打字停顿自动存之后，这一条就成了
-    // 一个吞字的入口 —— 第一次存会把 snippet 行建出来，`slot.snippet?.id`
-    // 从 undefined 变成一个 id，这个 effect 于是跑一次，把她**在那一次往返
-    // 期间又敲的字**覆盖回存下去的那一版。
-    //
-    // 丢掉她写的字，是这一整轮里最不能犯的一类错（她跟印记说过三次「我的字
-    // 被截断了」，那次只是没显示，这次会是真的没了）。所以宁可让框里那一份
-    // 留着不同步：她在打字，框里那份就是最新的。
-    if (textareaRef.current !== null && document.activeElement === textareaRef.current) return;
-    setText(slot.snippet?.text ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slot.snippet?.id]);
-
-  /**
-   * 打字停下来就存，不必等她离开这个框。
-   *
-   * 🚨 顶上那个「已写 N / 目标 M」数的是**服务端存着的**东西（草稿正文，
-   * 没有就把各段加起来）。只在失焦时存，意味着她正在打的这一段服务端还没有，
-   * 于是同一屏上两个数字互相打脸 —— 2026-09-12 第二十九轮她的原话：
-   *
-   *	「已写还是0，但我明明看到第二段有85字了」
-   *
-   * 这一块自己那行小字是当场算的（`countWords(text)`），所以她看见的是
-   * 「这一段 85 字」和「已写 0」并排摆着。她的下一句是「不知道会不会影响保存」。
-   *
-   * 顺带把真的风险也堵上：在这之前，她写完一段却没点进别处，那段字**服务端
-   * 一个字都没有**。
-   *
-   * 存下去会把 snippet 行建出来（`slot.snippet?.id` 从无到有），上面那个
-   * effect 因此会跑一次 —— 那里的焦点判断就是为这一刻加的，别删。
-   */
-  useEffect(() => {
-    if (text === (slot.snippet?.text ?? "")) return;
-    const t = setTimeout(() => void save(), 1200);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, slot.snippet?.text]);
-
-  /**
-   * 🚨 **她一敲完就问印记的时候，防抖还没到。**
-   *
-   * 上面那个 1.2 秒是给「停下来」用的；她打完最后一个字直接去跟印记说话，
-   * 这一轮的上文里就没有刚敲的那句。第三十八轮十六条卡壳里十条是这个 ——
-   * 「框里明明已经有让步的句子了，印记还说我缺让步」。
-   *
-   * 所以把「存这一块」登记出去，`say()` 发消息之前会等它。
-   * 卸载时注销，见 pendingSaves.ts 里那段。
-   */
-  useEffect(() => {
-    return registerPendingSave(async () => {
-      if (text === (slot.snippet?.text ?? "")) return;
-      await save();
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, slot.snippet?.text]);
-
-  /**
-   * Persist this block's text. Returns the saved row for THIS slot (or null
-   * if the save failed), because 请印记看看这一段 needs the snippet id and the
-   * comment endpoint is keyed on it — a block she has typed into but never
-   * blurred has no row on the server at all.
-   */
-  async function save(): Promise<WritingSnippet | null> {
-    setSaving(true);
-    setError(null);
-    try {
-      const saved = await putWritingSnippet(writingId, {
-        // Only send outlineId to ESTABLISH a link, on this slot's very first
-        // save (no persisted row yet). Once a snippet row exists, omit it —
-        // the PUT's "absent outlineId = preserve whatever link is already
-        // there" semantics then apply, so an ordinary text save can never
-        // clobber a link the server holds (including one it just repaired by
-        // heading text after a structure change) with a value merely inferred
-        // client-side.
-        outlineId: slot.snippet ? undefined : slot.outlineId,
-        position: slot.position,
-        text,
-      });
-      onSaved(saved);
-      // Same by-id-never-by-position discipline buildSlots uses: match on
-      // outlineId when this slot has one, and only fall back to position for
-      // a free paragraph, which has nothing else to be matched by.
-      return (
-        saved.find((s) => (slot.outlineId ? s.outlineId === slot.outlineId : s.position === slot.position)) ?? null
-      );
-    } catch (err) {
-      handleWriteError(err, onLocked, setError);
-      return null;
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  /**
-   * 请印记看看这一段 — B4 at the paragraph zoom level.
-   *
-   * Saves first, deliberately: the endpoint needs a snippet row and judges
-   * the text the SERVER holds, so commenting on a stale save would anchor
-   * every point to sentences she has since rewritten. Empty text is answered
-   * here rather than by burning a call the server will refuse anyway.
-   */
-  async function askForComment() {
-    if (!text.trim()) {
-      setError("这一段还没有内容，先写点什么再来看看。");
-      return;
-    }
-    setCommenting(true);
-    setError(null);
-    try {
-      const row = slot.snippet && slot.snippet.text === text ? slot.snippet : await save();
-      if (!row) return; // save() already surfaced why.
-      onCommented(await commentOnWritingSnippet(writingId, row.id));
-    } catch (err) {
-      handleWriteError(err, onLocked, setError);
-    } finally {
-      setCommenting(false);
-    }
-  }
-
-  /**
-   * Clicking a point traces it back to the sentence it is about.
-   *
-   * 成稿 hands the quote to `ProseSurface`; there is no prose surface here,
-   * only a textarea, so the honest equivalent is to focus it and select the
-   * quoted range. **A quote that cannot be located does nothing visible** —
-   * no scroll, no approximate highlight. That is the same line the server
-   * holds when it drops points whose quote is not a literal substring
-   * (validateCommentPoints): a trace landing on the neighbouring sentence is
-   * worse than no trace, because it teaches her something false about her own
-   * paragraph. The miss is real — she may have edited the text since the
-   * comment was generated — and silence is the correct answer to it.
-   */
-  function trace(quote: string) {
-    const el = textareaRef.current;
-    if (!el) return;
-    const at = el.value.indexOf(quote);
-    if (at < 0) return;
-    el.focus();
-    el.setSelectionRange(at, at + quote.length);
-  }
-
   async function regenerate() {
-    if (!slot.outlineId) {
-      // A free paragraph has no block to reason about — the guide endpoint is
-      // keyed on an outline row. Say so rather than firing a call that 404s.
-      setError("这是一段自由写的段落，先把它挂到「结构」里的某一块上，印记才知道该往哪个方向问。");
-      return;
-    }
+    if (!slot.outlineId) return;
     setGuiding(true);
     setError(null);
     try {
@@ -615,77 +479,299 @@ function SnippetBlock({
     }
   }
 
-  const showGuide = guide !== null && !collapsed;
-
   return (
-    /* data-write-block 是给走查用的：**这一块的标题，和这一块里的框、按钮，
-       是一组**。真人一眼就看见它们在同一张卡片里；模拟学生那只眼睛原来只拿到
-       一串拉平的按钮和输入框，于是报「有三个『标一下这一段』按钮，不知道是不是
-       都要点」「『中心论点』那个引导到底管哪一段」。屏幕上分了组，读屏的人
-       没读到，记下来就成了产品的毛病。见 e2e/writewalk/screen.ts。 */
-    <div
-      data-write-block={slot.heading || "自由段落"}
-      className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-baseline gap-2">
-          {slot.role && (
-            <span
-              className="shrink-0 rounded-mk-xs px-1.5 py-0.5 text-mk-label font-semibold"
-              style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
-            >
-              {slot.role}
-            </span>
-          )}
-          {/* 🚨 号要摆出来 —— 印记 说的是「第 N 块」。
-              第三十六轮中文那一路：「印记说的『第3段最后那两句』跟我现在看到的
-              第一段最后一句有点像，不确定它到底在说哪一段，有点乱。」
-              抬头上原来只有结构那一步的标题，一个数字都没有，于是她只能自己数；
-              而空的块也占位置，数出来常常对不上。
-              这个号是它在屏幕上的顺序，和服务端 writingBlockNumbers 同一条规则。 */}
-          <span className="shrink-0 text-mk-small text-mk-faint">第 {slot.number} 块</span>
-          <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
+    <div className="flex flex-col gap-4">
+      <section className="flex flex-col gap-1">
+        <span className="text-mk-label font-semibold text-mk-accent-700">{title}</span>
+        <p className="text-mk-body text-mk-ink">{slotJob(slot)}</p>
+      </section>
+
+      {slot.claim && (
+        <section className="flex flex-col gap-1">
+          <h3 className="text-mk-label font-semibold text-mk-secondary">中心论点</h3>
+          <p className="font-mk-piece text-mk-body-lg text-mk-ink">{slot.claim}</p>
+        </section>
+      )}
+
+      {slot.kind === "point" && slot.heading && (
+        <section className="flex flex-col gap-1">
+          <h3 className="text-mk-label font-semibold text-mk-secondary">分论点</h3>
+          <p className="font-mk-piece text-mk-body-lg text-mk-ink">{slot.heading}</p>
+        </section>
+      )}
+
+      {slot.materials.length > 0 && (
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-mk-label font-semibold text-mk-secondary">这一段的材料</h3>
+          <ul className="flex list-none flex-col gap-1.5">
+            {slot.materials.map((m, i) => (
+              <li
+                key={i}
+                className="rounded-mk-sm border border-mk-border px-2.5 py-1.5 text-mk-small text-mk-ink"
+                style={{ background: "var(--mk-paper)" }}
+              >
+                {m}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {batching && (
+        <p className="text-mk-small text-mk-muted" role="status">
+          印记正在为每一张卡片准备引导…
+        </p>
+      )}
+      {batchError && (
+        <div role="alert" className="rounded-mk-sm px-3 py-2 text-mk-small text-mk-danger" style={{ background: "var(--mk-danger-bg)" }}>
+          {batchError}
+          <button type="button" className="ml-3 underline" onClick={onDismissBatchError}>
+            知道了
+          </button>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/*
-            🚨 自由段落上**不摆**这颗按钮。
+      )}
 
-            同事试用：「snippet cards: 不是点了卡住了才开始引导的，太离谱了」。
-            有提纲的块早就不是这样了——`guideWritingBlocks` 在进页面时就把
-            整篇每一块的引导批量取回来，「卡住了？」只剩「换一组问题」的意思。
-            但**自由段落**不在那一批里：它没有 outline 行，`guide` 永远是
-            null，所以它一直显示「卡住了？」；而按下去 `regenerate()` 会直接
-            拒绝（它需要 `slot.outlineId`），只回一句让她先去挂到「结构」上。
-
-            也就是说这颗按钮在这里是一句**空头承诺**：长得像「点我给你引导」，
-            点了却告诉她这儿要不到引导。她的读法只会是「引导要点了才来，而且
-            点了还不来」。所以这里换成把条件直接说清楚的一行字——按
-            AGENTS.md §界面文案怎么写：名词开头的状态，加一句「请+祈使」的
-            出路，不留一颗会失败的按钮。
-          */}
-          {!slot.outlineId ? (
-            <span className="text-mk-small text-mk-faint">
-              自由段落 · 请挂到「结构」中的某一块后获取引导
-            </span>
-          ) : guide !== null && collapsed ? (
+      {/* 自由段落和虚拟的开头/结尾卡没有结构图节点，服务端的引导是按节点存的，
+          所以这里不摆一颗点了也拿不到引导的按钮；上面那句「要做的事」就是它的引导。 */}
+      {slot.outlineId && guide && !collapsed && (
+        <GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />
+      )}
+      {slot.outlineId && (guide === null || collapsed) && (
+        <div className="flex flex-wrap gap-2">
+          {guide !== null ? (
             <Button variant="secondary" size="sm" onClick={() => setCollapsed(false)}>
               打开引导
             </Button>
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void regenerate()}
-              loading={guiding}
-              iconStart={<Icon icon={HelpCircle} size={14} />}
-            >
-              {guide === null ? "获取引导" : "换一组问题"}
-            </Button>
+            !batching && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void regenerate()}
+                loading={guiding}
+                iconStart={<Icon icon={HelpCircle} size={14} />}
+              >
+                获取引导
+              </Button>
+            )
           )}
-          {/* 请印记看看这一段 — the same critique 成稿 gets on the whole piece,
-              at paragraph zoom. It comes AFTER the guide button on purpose:
-              this one reads what she has written, so it only makes sense once
-              there is something in the box. */}
+        </div>
+      )}
+      {slot.outlineId && guide && !collapsed && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-fit"
+          onClick={() => void regenerate()}
+          loading={guiding}
+          iconStart={<Icon icon={HelpCircle} size={14} />}
+        >
+          换一组问题
+        </Button>
+      )}
+      {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * 中间：当前这张卡的那一张纸。
+ *
+ * 一张大纸、衬线字、没有框线 —— 「a paper-feeling large area with beautiful font」。
+ * 字号行距取 `mk-piece` 那一套（成稿、报告里她的文章也用这一个字体），
+ * 所以她在这里写下的字和最后成稿里的字长得一样。
+ */
+function CardPaper({
+  writingId,
+  slot,
+  title,
+  comment,
+  onCommented,
+  onSaved,
+  onSay,
+  boardOpen,
+  onBoardOpen,
+  lang,
+  onLocked,
+  prev,
+  next,
+  nextTitle,
+}: {
+  writingId: string;
+  slot: Slot;
+  title: string;
+  comment: Comment | null;
+  onCommented: (next: Comment) => void;
+  onSaved: (next: WritingSnippet[]) => void;
+  onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
+  boardOpen: boolean;
+  onBoardOpen: (on: boolean) => void;
+  lang: string;
+  onLocked?: () => void;
+  prev?: () => void;
+  next?: () => void;
+  nextTitle?: string;
+}) {
+  const [text, setText] = useState(slot.snippet?.text ?? "");
+  const [saving, setSaving] = useState(false);
+  const [commenting, setCommenting] = useState(false);
+  const [boardBusy, setBoardBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sentenceCount = splitSentences(text).length;
+  // 「已保存」＝ 服务端那一行的字和纸上的字一模一样。
+  const saved = text.trim() !== "" && slot.snippet?.text === text;
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const commentRef = useRef<HTMLDivElement | null>(null);
+
+  // 纸跟着字变高 —— 一张纸不该在里面再滚一层。
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(el.scrollHeight, 360)}px`;
+  }, [text]);
+
+  useEffect(() => {
+    // 🚨 她手正放在纸上的时候，绝不把服务端那一份写回去（第一次存会把片段行建出来，
+    // snippet id 从无到有，这里会跑一次 —— 不挡的话会吞掉往返期间她又敲的字）。
+    if (textareaRef.current !== null && document.activeElement === textareaRef.current) return;
+    setText(slot.snippet?.text ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slot.snippet?.id]);
+
+  // 打字停下来就存（2026-09-12：顶上「已写 0」和这一段「85 字」并排打脸）。
+  useEffect(() => {
+    if (text === (slot.snippet?.text ?? "")) return;
+    const t = setTimeout(() => void save(), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, slot.snippet?.text]);
+
+  // 她一敲完就问印记：say() 先等这一张存完（pendingSaves.ts）。
+  useEffect(() => {
+    return registerPendingSave(async () => {
+      if (text === (slot.snippet?.text ?? "")) return;
+      await save();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, slot.snippet?.text]);
+
+  // 🚨 换到另一张卡时这张纸会卸掉，而防抖的那 1.2 秒也跟着没了。
+  // 卸掉之前把还没存的字存下去 —— 丢她写的字是这个房间最不能犯的错。
+  const latest = useRef({ text, stored: slot.snippet?.text ?? "" });
+  latest.current = { text, stored: slot.snippet?.text ?? "" };
+  useEffect(() => {
+    return () => {
+      if (latest.current.text !== latest.current.stored) void save(latest.current.text);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function save(body: string = text): Promise<WritingSnippet | null> {
+    setSaving(true);
+    setError(null);
+    try {
+      const rows = await putWritingSnippet(writingId, {
+        // Only send outlineId to ESTABLISH a link on this card's first save;
+        // after that, absent = keep whatever link the server holds.
+        outlineId: slot.snippet ? undefined : slot.outlineId,
+        position: slot.position,
+        text: body,
+      });
+      onSaved(rows);
+      return rows.find((s) => (slot.outlineId ? s.outlineId === slot.outlineId : s.position === slot.position)) ?? null;
+    } catch (err) {
+      handleWriteError(err, onLocked, setError);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function askForComment() {
+    if (!text.trim()) {
+      setError("这一段还没有内容，请先写再请印记看。");
+      return;
+    }
+    setCommenting(true);
+    setError(null);
+    try {
+      const row = slot.snippet && slot.snippet.text === text ? slot.snippet : await save();
+      if (!row) return;
+      onCommented(await commentOnWritingSnippet(writingId, row.id));
+      // 意见落在纸的下面 —— 纸长的时候它在屏幕外，要把她带过去（同成稿的 bug 3）。
+      requestAnimationFrame(() => commentRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
+    } catch (err) {
+      handleWriteError(err, onLocked, setError);
+    } finally {
+      setCommenting(false);
+    }
+  }
+
+  /** 点一条意见 → 纸上选中被引的那一句。找不到就什么都不做（别选错一句）。 */
+  function trace(quote: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const at = el.value.indexOf(quote);
+    if (at < 0) return;
+    el.focus();
+    el.setSelectionRange(at, at + quote.length);
+  }
+
+  const heading = slot.kind === "point" ? slot.heading : "";
+
+  return (
+    <div data-write-block={title} className="mx-auto flex w-full max-w-[760px] flex-col gap-3 px-4 pb-4 pt-2 sm:px-8">
+      <article
+        className="rounded-mk-lg border border-mk-border shadow-mk-md"
+        style={{ background: "var(--mk-paper)" }}
+      >
+        <header className="flex flex-wrap items-baseline justify-between gap-2 px-6 pt-6 sm:px-12 sm:pt-10">
+          <div className="min-w-0">
+            <p className="text-mk-label font-semibold text-mk-accent-700">
+              第 {slot.number} 张 · {title}
+            </p>
+            {heading && <h3 className="mt-1 font-mk-piece text-mk-h2 text-mk-ink">{heading}</h3>}
+            {slot.kind !== "point" && slot.claim && (
+              <p className="mt-1 font-mk-piece text-mk-body text-mk-secondary">{slot.claim}</p>
+            )}
+          </div>
+        </header>
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() => {
+            if (text !== (slot.snippet?.text ?? "")) void save();
+          }}
+          placeholder="写这一段……"
+          spellCheck={false}
+          className="block w-full resize-none border-none bg-transparent px-6 pb-10 pt-4 font-mk-piece text-mk-ink outline-none placeholder:text-[#B8ADA2] focus:outline-none focus:ring-0 sm:px-12"
+          style={{ fontSize: "18px", lineHeight: 2, minHeight: 360, caretColor: "var(--mk-accent-500)" }}
+        />
+      </article>
+
+      {/* 这一段交上去了没有：状态留在屏幕上，还有一颗真的按钮（2026-09 走查两次找「发送」）。 */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-mk-small text-mk-faint">
+          {saving ? (
+            <span>处理中…</span>
+          ) : saved ? (
+            <span>
+              已保存 · {countWords(text)} {wordUnit(lang)}
+            </span>
+          ) : text.trim() !== "" ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => void save()}>
+                保存这一段
+              </Button>
+              <span>
+                {countWords(text)} {wordUnit(lang)}
+              </span>
+            </>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
             variant="secondary"
             size="sm"
@@ -695,118 +781,63 @@ function SnippetBlock({
           >
             请印记看看这一段
           </Button>
-        </div>
-      </div>
-
-      {/* 结构图里挂在这一块下面的材料。它们写进这一段，不单独成段（slots.ts）。 */}
-      {slot.materials.length > 0 && (
-        <div className="rounded-mk-sm px-3 py-2 text-mk-small" style={{ background: "var(--mk-paper)" }}>
-          <p className="font-semibold text-mk-secondary">这一段可用的材料</p>
-          <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-mk-ink">
-            {slot.materials.map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {showGuide &&<GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />}
-
-      <textarea
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => void save()}
-        placeholder="写这一段……"
-        className="min-h-[100px] w-full resize-y rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      />
-      {/* 🚨 这一段到底算不算交上去了。
-          走查里她写完四段之后问的是：「发送按钮按不动，不知道怎么交」——
-          这个房间是失焦自动存的，存完只闪一下「保存中…」就什么都不剩，
-          于是她一直在找一颗并不存在的「发送」。
-          存下来这件事本身要**留在屏幕上**，她才知道可以往下走。
-          用 已/处理中 这对词（ui-copy-style 第 4 条），不写「未保存」吓她。 */}
-      {/* 🚨 **一颗真的「保存」按钮。**
-          上一版只把「已保存」这行字留在屏幕上，以为这样她就知道存过了。
-          线上走查里她第二次报同一件事：「没有明显的写文章正文的按钮，
-          不知道写完怎么提交这一段」—— 因为那行字**只在存过之后才出现**。
-          她刚写完、还没失焦的那一刻，屏幕上关于「怎么交」一个字都没有，
-          于是她继续找一颗并不存在的「发送」。
-          状态看得见 ≠ 动作做得到：要交的那一下，得有个东西给她按。
-          失焦自动存照旧，这颗按钮只是把那件事摆到手边。 */}
-      <div className="flex items-center gap-2 text-mk-small text-mk-faint">
-        {saving ? (
-          <span>处理中…</span>
-        ) : saved ? (
-          <span>已保存 · {countWords(text)} {wordUnit(lang)}</span>
-        ) : text.trim() !== "" ? (
-          <>
-            <Button variant="secondary" size="sm" onClick={() => void save()}>
-              保存这一段
+          {prev && (
+            <Button variant="ghost" size="sm" onClick={prev} aria-label="上一张" iconStart={<Icon icon={ChevronLeft} size={14} />}>
+              上一张
             </Button>
-            <span>{countWords(text)} {wordUnit(lang)}</span>
-          </>
-        ) : null}
+          )}
+          {next && (
+            <Button variant="ghost" size="sm" onClick={next} iconEnd={<Icon icon={ChevronRight} size={14} />}>
+              下一张{nextTitle ? `：${nextTitle}` : ""}
+            </Button>
+          )}
+        </div>
       </div>
-      {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+      {commenting && (
+        <p role="status" className="text-mk-small text-mk-muted">
+          印记正在读这一段…
+        </p>
+      )}
+      {error && <p role="alert" className="text-mk-small text-mk-danger">{error}</p>}
 
-      {/* 🚨 **把板递到她手上，而不是把按钮摆在那儿等她发现。**
-          第一版这颗按钮长在正文框**上面**那条工具条里，和「获取引导」
-          「请印记看看这一段」挤在一起。模拟学生走查里它连着出现 22 步，
-          她一次都没按过 —— 屏幕上有它，和她手上有它，是两回事。
-          （这也正是 2026-08-27 删掉卡片货架的那条裁定在说的事。）
-          现在它长在她刚写完的那一段**下面**，而且带一句话说清它是干嘛的：
-          出现的时机是「她已经写出两句以上」，也就是真的有东西可标的那一刻。 */}
+      {/* 标注板：她写出两句以上才递过来，长在这一段下面（屏幕上有它 ≠ 她手上有它）。 */}
       {!boardOpen && sentenceCount >= ROLE_BOARD_MIN && (
-        <div className="flex flex-wrap items-center gap-2 rounded-mk-sm border border-mk-border px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-mk-sm border border-mk-border bg-mk-surface px-3 py-2">
           <span className="text-mk-body text-mk-muted">
             这一段有 {sentenceCount} 句。标一下每一句在做什么，就看得出缺了哪一种。
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setBoardOpen(true)}
-            iconStart={<Icon icon={LayoutGrid} size={14} />}
-          >
+          <Button variant="secondary" size="sm" onClick={() => onBoardOpen(true)} iconStart={<Icon icon={LayoutGrid} size={14} />}>
             标一下这一段
           </Button>
         </div>
       )}
-
-      {/* 标注板 —— 这个房间里第一件她用手摆的东西。
-          闭环和阅读室那两块板一模一样：她摆完 → 结果原样变成一条真的学生
-          消息 → 印记 在右栏对着它说话。所以这里只负责把那条消息发出去，
-          然后把板收起来。 */}
       {boardOpen && sentenceCount >= ROLE_BOARD_MIN && (
         <RoleBoard
           text={text}
           snippetId={slot.snippet?.id ?? `pos-${slot.position}`}
-          heading={slot.heading}
+          heading={heading || title}
           busy={boardBusy}
-          onCancel={() => setBoardOpen(false)}
+          onCancel={() => onBoardOpen(false)}
           onSubmit={(message) => {
             setBoardBusy(true);
             void onSay(message, "role")
-              .then(() => setBoardOpen(false))
-              .catch(() => {
-                // 发不出去就把板留在原地：她摆的东西还在，可以再按一次。
-                setError("发送失败，再试一次。");
-              })
+              .then(() => onBoardOpen(false))
+              .catch(() => setError("发送失败，请再试一次。"))
               .finally(() => setBoardBusy(false));
           }}
         />
       )}
 
-      {/* The SAME renderer 成稿 uses — one comment shape, one component, two
-          zoom levels. `onTrace` is what differs, because the surface differs. */}
       {comment && (
-        <CommentPanel
-          comment={comment}
-          onTrace={trace}
-          currentText={text}
-          onRecheck={() => void askForComment()}
-          rechecking={commenting}
-        />
+        <div ref={commentRef}>
+          <CommentPanel
+            comment={comment}
+            onTrace={trace}
+            currentText={text}
+            onRecheck={() => void askForComment()}
+            rechecking={commenting}
+          />
+        </div>
       )}
     </div>
   );

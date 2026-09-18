@@ -144,6 +144,67 @@ type writingPlanShape struct {
 	// 问「你自己经历过吗」—— 2026-09-16 改成两种并列，理由见 writing_plan.go
 	// 的「材料有两种」。一个十五岁的学生，自己的经历通常只够撑一条理由。
 	Material int
+	// Wider 是 Material 里**不是她个人经历**的那几条：社会上的、历史上的、时事里的
+	// 例子，研究、报道、数据。
+	//
+	// 🚨 2026-09-18 产品负责人：「个人经历是信效度最低的，最好是使用社会上的、
+	// 历史上的例子（如一些论文素材库）。」一篇议论文只拿自己的两件事去撑，
+	// 老师读到的是「我觉得」。所以这一条单独数出来，判据里至少要有一条。
+	Wider int
+}
+
+// count 把一个节点记进形状里 —— writingPlanShapeOf 和 writingPlanShapeWith
+// （还没落库的那一轮）共用，两边不会数得不一样。
+//
+// 例子不管挂在哪一层都算例子：挂在中心论点下面（深度 1）的不算分论点，
+// 落到最上层（深度 0）的不算中心论点 —— 「两个例子就被当成两条理由」正是
+// 2026-09-18 那张截图里的毛病。
+func (s *writingPlanShape) count(depth int, role, source string) {
+	example := writingRoleIsExample(role, source)
+	switch {
+	case depth == 0 && !example:
+		s.Top++
+	case depth == 1 && !example:
+		s.Points++
+	case !example && writingRoleIsReasoning(role):
+		// 一条道理、一层解释：撑分论点的推理，不是例子。
+		// 2026-09-18 实测：「脆弱的感受带来关于自己渴望的信息（一条道理）」被当成了
+		// 一个「不是个人经历的例子」，于是只有她自己那一件事也过了线。
+	default:
+		s.Material++
+		if !writingRoleIsPersonal(role, source) {
+			s.Wider++
+		}
+	}
+}
+
+// writingRoleIsReasoning：role 说这一块是一条道理 / 一层解释，而不是一个例子。
+// role 空着或说不清的，照旧当例子数 —— 拿不准就别卡住她。
+func writingRoleIsReasoning(role string) bool {
+	r := strings.ToLower(role)
+	for _, kw := range []string{"道理", "解释", "推理", "分析", "原因", "理由", "reasoning", "explanation", "analysis", "reason"} {
+		if strings.Contains(r, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// writingRoleIsPersonal：这条材料是不是她自己的经历（role 是印记写给她看的
+// 小标题，「你经历过的事」「你见过的事」「你自己的例子」这一类）。带出处的
+// 一定不是 —— 那是她找回来的。拿不准的算「不是个人经历」：这个数只用来提醒
+// 「还缺一条更有说服力的例子」，少提醒一次比冤枉她强。
+func writingRoleIsPersonal(role, source string) bool {
+	if strings.TrimSpace(source) != "" {
+		return false
+	}
+	r := strings.ToLower(role)
+	for _, kw := range []string{"你", "自己", "亲身", "个人", "身边", "经历过", "见过", "your own", "personal", "my own", "you saw", "you did"} {
+		if strings.Contains(r, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
@@ -152,14 +213,7 @@ func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
-		switch r.Depth {
-		case 0:
-			s.Top++
-		case 1:
-			s.Points++
-		default:
-			s.Material++
-		}
+		s.count(int(r.Depth), r.Role, r.Source)
 	}
 	return s
 }
@@ -171,7 +225,7 @@ func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
 //
 // 判据跟着这一篇的篇幅走，见 writingPlanNeedOf。
 func (s writingPlanShape) ready(need writingPlanNeed) bool {
-	return s.Top >= 1 && s.Points >= need.Points && s.Material >= need.Material
+	return s.Top >= 1 && s.Points >= need.Points && s.Material >= need.Material && s.Wider >= need.Wider
 }
 
 // writingPlanNeed 是这一篇**按它的篇幅**该有的骨架。
@@ -193,17 +247,23 @@ func (s writingPlanShape) ready(need writingPlanNeed) bool {
 // 每条分论点撑多少：中文按 400 字，英文按 250 词（英文一个词大致抵一个半到
 // 两个汉字，这个比例和 writingLengthLine 里换算单位的那一处是同一个来源）。
 //
-//	800 字  → 2 条分论点、1 条材料（和原来那条线一样，短文不受影响）
-//	1600 字 → 4 条、3 条
-//	3000 字 → 封顶 4 条、3 条
+//	800 字  → 2 条分论点、2 个例子（其中至少 1 个不是个人经历）
+//	1600 字 → 4 条、4 个
+//	3000 字 → 封顶 4 条、4 个
 //
 // 封在 4：再往上就不是「还没想清楚」，而是这篇文章该拆章节了，而拆章节不是
 // 拦着她不让动笔的理由。下限仍是 2 —— 一条理由撑不起一篇议论文。
 //
 // 没设目标字数就还是原来那条线：不知道她要写多长，就不该替她加码。
+//
+// 🚨 2026-09-18 产品负责人：「对于一个800字的议论文，要求起码2-3个例子，
+// 目前思维导图的长度完全不够。」原来 800 字只要 1 条材料 —— 两条分论点里有一条
+// 是空推理也放她去写。现在例子至少和分论点一样多、下限 2 个，且其中至少一个
+// 不是她的个人经历（见 writingPlanShape.Wider）。
 type writingPlanNeed struct {
 	Points   int
 	Material int
+	Wider    int
 }
 
 const (
@@ -211,10 +271,11 @@ const (
 	writingPlanWordsPerPoint = 250 // 英文，词
 	writingPlanMinPoints     = 2
 	writingPlanMaxPoints     = 4
+	writingPlanMinExamples   = 2
 )
 
 func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
-	need := writingPlanNeed{Points: writingPlanMinPoints, Material: 1}
+	need := writingPlanNeed{Points: writingPlanMinPoints, Material: writingPlanMinExamples, Wider: 1}
 	if wr.TargetWords == nil {
 		return need
 	}
@@ -230,11 +291,10 @@ func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
 		n = writingPlanMaxPoints
 	}
 	need.Points = n
-	// 材料比分论点少一条：不必每条理由底下都压着一件她见过的事，但也不能
-	// 只有一条材料就去写四条理由 —— 那几条会全是空推理。
-	need.Material = n - 1
-	if need.Material < 1 {
-		need.Material = 1
+	// 每条分论点底下至少一个例子，下限 2（800 字要 2–3 个例子）。
+	need.Material = n
+	if need.Material < writingPlanMinExamples {
+		need.Material = writingPlanMinExamples
 	}
 	return need
 }
@@ -253,9 +313,24 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 	b.WriteString("\n【这份计划现在有什么】（服务端数出来的，不用你再数一遍）\n")
 	b.WriteString("- 最上层的块：" + strconv.Itoa(s.Top) + " 个\n")
 	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条（这篇篇幅下要 " + strconv.Itoa(need.Points) + " 条）\n")
-	b.WriteString("- 材料（挂在某条分论点下面的，她自己的经历和她找来的都算）：" +
-		strconv.Itoa(s.Material) + " 条（要 " + strconv.Itoa(need.Material) + " 条）\n")
+	b.WriteString("- 例子（挂在某条分论点下面的材料）：" +
+		strconv.Itoa(s.Material) + " 个（要 " + strconv.Itoa(need.Material) + " 个）\n")
+	b.WriteString("- 其中社会、历史、时事上的例子或研究数据（不是她的个人经历）：" +
+		strconv.Itoa(s.Wider) + " 个（至少要 " + strconv.Itoa(need.Wider) + " 个）\n")
 
+	missing := s.missing(need)
+	if missing == "" {
+		b.WriteString("- **判据都满足了。这一轮就请她去写。**\n")
+		return b.String()
+	}
+	b.WriteString("- 还缺：" + missing + "。\n")
+	b.WriteString("- **按上面这个顺序补，一轮补一件。**\n")
+	return b.String()
+}
+
+// missing 是「还缺什么」那一句，空串 = 判据都满足了。promptBlock 和
+// 「请她去写得太早」那次重试（writingPlanReadyTooSoonNudge）说的是同一句。
+func (s writingPlanShape) missing(need writingPlanNeed) string {
 	var missing []string
 	if s.Top == 0 {
 		missing = append(missing, "这篇要说的那一句话还没定下来")
@@ -264,16 +339,13 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 		missing = append(missing, "支撑它的分论点还不到 "+strconv.Itoa(need.Points)+" 条")
 	}
 	if s.Material < need.Material {
-		missing = append(missing, "撑得住这些理由的材料还不到 "+strconv.Itoa(need.Material)+
-			" 条（她自己见过的事，或者她找来的研究、报道、数据，都算）")
+		missing = append(missing, "撑得住这些分论点的例子还不到 "+strconv.Itoa(need.Material)+
+			" 个（每条分论点底下至少一个）")
 	}
-	if len(missing) == 0 {
-		b.WriteString("- **判据都满足了。这一轮就请她去写。**\n")
-		return b.String()
+	if s.Wider < need.Wider {
+		missing = append(missing, "还没有一个社会、历史或时事上的例子（个人经历说服力最弱，至少要有一个更有公信力的）")
 	}
-	b.WriteString("- 还缺：" + strings.Join(missing, "；") + "。\n")
-	b.WriteString("- **按上面这个顺序补，一轮补一件。**\n")
-	return b.String()
+	return strings.Join(missing, "；")
 }
 
 // outlineHasText 说这张图上有没有已经写着这句话的节点。

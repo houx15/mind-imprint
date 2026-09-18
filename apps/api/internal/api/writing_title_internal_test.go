@@ -105,55 +105,40 @@ func TestFirstStudentMessage(t *testing.T) {
 	}
 }
 
-func TestValidateTitleIdeas(t *testing.T) {
-	current := "我想写中国是不是真的让地球更可持续了"
+// 2026-09-18：「不能直接给取名字」—— 关键词必须逐字出现在她的正文里。
+// 模型拼出来的一句（她正文里没有）就是一个标题，要丢掉。
+func TestValidateTitleKeywords(t *testing.T) {
+	draft := "同样的练习，因为目标和做法发生变化，也带给了我不同的感受。跳绳仍然让我出汗、喘气，但那些疲惫不再占据我全部的注意力。"
+	current := "作者说苦乐全在主观的心"
 
-	got := validateTitleIdeas([]string{
-		"《转弯中的国家》",              // 书名号 stripped — packaging, not the name
-		"  转弯中的国家  ",            // same name after trimming: a duplicate
-		"“看方向盘，不是看车道”",         // curly quotes stripped
-		"",                      // empty
-		"   ",                   // whitespace only
-		current,                 // the placeholder she is replacing
-		strings.Repeat("很长的标题", 20), // way over the cap
-		"总量第一，人均第五十",
-		"中国真的让地球变绿了吗",
-		"第五个候选应该被砍掉",
-	}, current)
+	got := validateTitleKeywords([]string{
+		"「跳绳」",        // 包装去掉，逐字在正文里
+		"跳绳",          // 重复
+		"苦乐在心不在事",     // 正文里没有 —— 这是一个标题
+		"同样的跳绳，不同的滋味", // 拼出来的标题
+		"疲惫",
+		"注意力",
+		"我",                     // 太短
+		strings.Repeat("跳", 13), // 太长
+		current,                 // 占位标题
+		"目标和做法",
+		"出汗",
+		"不同的感受",
+		"第七个应该被砍掉",
+	}, draft, current)
 
-	want := []string{"转弯中的国家", "看方向盘，不是看车道", "总量第一，人均第五十", "中国真的让地球变绿了吗"}
-	if len(got) != len(want) {
-		t.Fatalf("validateTitleIdeas returned %d ideas (%q), want %d", len(got), got, len(want))
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("idea %d = %q, want %q (all: %q)", i, got[i], want[i], got)
-		}
-	}
-}
-
-func TestValidateTitleIdeasDropsOverlongRatherThanTruncating(t *testing.T) {
-	// Cutting a too-long title mid-clause would produce something worse than
-	// the placeholder it replaces, so it is dropped outright.
-	long := string([]rune(strings.Repeat("字", suggestedTitleRuneCap+1)))
-	got := validateTitleIdeas([]string{long, "好名字"}, "旧标题")
-	if len(got) != 1 || got[0] != "好名字" {
-		t.Fatalf("validateTitleIdeas = %q, want only the short one", got)
+	want := []string{"跳绳", "疲惫", "注意力", "目标和做法", "出汗", "不同的感受"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("keywords = %q, want %q", got, want)
 	}
 }
 
-func TestParseWritingTitleIdeas(t *testing.T) {
-	// Fenced JSON is the shape every model in this package actually returns;
-	// extractWritingJSONObject is shared for exactly this reason.
-	got, ok := parseWritingTitleIdeas("```json\n{\"ideas\":[\"转弯中的国家\",\"总量与人均\"]}\n```")
-	if !ok {
-		t.Fatal("parseWritingTitleIdeas: not ok on fenced JSON")
+func TestParseWritingTitleKeywords(t *testing.T) {
+	got, ok := parseWritingTitleKeywords("```json\n{\"keywords\":[\"跳绳\",\"疲惫\"]}\n```")
+	if !ok || len(got.Keywords) != 2 || got.Keywords[0] != "跳绳" {
+		t.Fatalf("parse = %+v, %v", got, ok)
 	}
-	if len(got.Ideas) != 2 || got.Ideas[0] != "转弯中的国家" {
-		t.Fatalf("ideas = %q", got.Ideas)
-	}
-
-	if _, ok := parseWritingTitleIdeas("抱歉，我不知道该叫什么。"); ok {
-		t.Fatal("parseWritingTitleIdeas: prose must not parse as ok")
+	if _, ok := parseWritingTitleKeywords("抱歉，我不知道。"); ok {
+		t.Fatal("prose must not parse as ok")
 	}
 }

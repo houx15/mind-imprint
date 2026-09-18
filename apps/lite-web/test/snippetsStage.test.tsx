@@ -43,6 +43,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * 2026-09-18 起段落是一叠卡片，一次只摊开一张纸（默认是第一张还没写的）。
+ * 要看哪一段，先点那一张卡 —— 和她在屏幕上做的一样。
+ */
+function openCard(title: string) {
+  const card = document.querySelector(`[data-write-card="${title}"]`);
+  if (!card) throw new Error(`no card titled ${title}`);
+  fireEvent.click(card);
+}
+const cardCount = () => document.querySelectorAll("[data-write-card]").length;
+
 function Harness({
   outline,
   initialSnippets,
@@ -83,7 +94,8 @@ describe("B2 — every persisted snippet must stay visible and editable", () => 
     });
 
     render(<Harness outline={outline} initialSnippets={[]} />);
-    expect(screen.getAllByPlaceholderText("写这一段……")).toHaveLength(2);
+    // 开头 · 分论点 1 · 结尾
+    expect(cardCount()).toBe(3);
 
     fireEvent.click(screen.getByRole("button", { name: "加一段" }));
 
@@ -92,7 +104,7 @@ describe("B2 — every persisted snippet must stay visible and editable", () => 
     // exists, so the newly-persisted free paragraph (position 2, no
     // outlineId) never gets a slot — the PUT succeeds but nothing new
     // renders.
-    await waitFor(() => expect(screen.getAllByPlaceholderText("写这一段……")).toHaveLength(3));
+    await waitFor(() => expect(cardCount()).toBe(4));
   });
 
   it("keeps a free paragraph written before the outline existed visible after the outline is confirmed", async () => {
@@ -113,8 +125,9 @@ describe("B2 — every persisted snippet must stay visible and editable", () => 
 
     render(<Harness outline={outline} initialSnippets={[freeSnippet]} />);
 
-    // One slot for the outline point, plus one for the pre-existing free
-    // paragraph that has no outline link at all.
+    // A card for the outline, plus one for the pre-existing free paragraph
+    // that has no outline link at all.
+    openCard("自由段落");
     expect(await screen.findByDisplayValue("这是提纲确认之前写的自由段落")).toBeTruthy();
   });
 });
@@ -141,8 +154,10 @@ describe("H1 — snippets link to outline points by id, never by position", () =
 
     render(<Harness outline={outline} initialSnippets={[snippet]} />);
 
+    // o1 is the opening card, o2 the first body card.
+    openCard("分论点 1");
     const textarea = (await screen.findByDisplayValue("这是第二部分的内容")) as HTMLTextAreaElement;
-    const block = textarea.closest("div.rounded-mk-md")!;
+    const block = textarea.closest("[data-write-block]")!;
     expect(block.textContent).toContain("第二部分");
     expect(block.textContent).not.toContain("第一部分");
   });
@@ -165,6 +180,7 @@ describe("H1 — snippets link to outline points by id, never by position", () =
     });
 
     render(<Harness outline={outline} initialSnippets={[snippet]} />);
+    openCard("开头");
     const textarea = screen.getByDisplayValue("已有的内容");
     fireEvent.change(textarea, { target: { value: "改过的内容" } });
     fireEvent.blur(textarea);
@@ -398,6 +414,7 @@ describe("B4 — 请印记看看这一段", () => {
     });
 
     render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+    openCard("开头");
     fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
 
     expect(await screen.findByText("理由说清楚了，但没说是谁的钱。")).toBeTruthy();
@@ -418,6 +435,7 @@ describe("B4 — 请印记看看这一段", () => {
     });
 
     render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+    openCard("开头");
     fireEvent.change(screen.getByDisplayValue(PARAGRAPH), {
       target: { value: `${PARAGRAPH}还得有人天天浇。` },
     });
@@ -460,6 +478,7 @@ describe("B4 — 请印记看看这一段", () => {
     });
 
     render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+    openCard("开头");
 
     expect(await screen.findByText("理由说清楚了，但没说是谁的钱。")).toBeTruthy();
     expect(screen.queryByText("整篇的评语")).toBeNull();
@@ -475,6 +494,7 @@ describe("B4 — tracing a point back to the sentence, or honestly not at all", 
       return undefined;
     });
     render(<Harness outline={OUTLINE_O1} initialSnippets={[snippet]} />);
+    openCard("开头");
     await screen.findByText(comment.summary);
     return document.querySelector("[data-comment-point]") as HTMLButtonElement;
   }
@@ -558,6 +578,38 @@ describe("guidance must survive React StrictMode's double-invoked effects", () =
     expect(calls.filter((c) => c.url === `/api/v1/writings/${WID}/guide`)).toHaveLength(1);
     // And the "印记 is thinking" line must be gone: the `finally` that clears
     // it is the first casualty of the cancelled-closure trap.
-    await waitFor(() => expect(screen.queryByText(/印记正在把每一块都先想一遍/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/印记正在为每一张卡片准备引导/)).toBeNull());
+  });
+});
+
+/**
+ * 2026-09-18：一次只摊开一张纸，换卡时这张纸会卸掉。防抖的 1.2 秒还没到，
+ * 她刚敲的字服务端还没有 —— 换卡那一下必须把它存下去，不能跟着纸一起没了。
+ */
+describe("card writing — switching cards never drops unsaved words", () => {
+  it("saves the card she is leaving before its debounce fires", async () => {
+    const outline: WritingOutlineItem[] = [
+      { id: "o1", text: "种树不便宜", role: "中心论点", depth: 0, position: 0 },
+      { id: "o2", text: "谁来养", role: "分论点", depth: 1, position: 1 },
+    ];
+    stubFetch((method, url, body) => {
+      if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
+        const it = (body as { snippets: { outlineId?: string; position: number; text: string }[] }).snippets[0]!;
+        return { body: { snippets: [{ id: "s1", outlineId: it.outlineId ?? null, outlineHeading: "", position: it.position, text: it.text }] } };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={outline} initialSnippets={[]} />);
+    openCard("开头");
+    fireEvent.change(screen.getByPlaceholderText("写这一段……"), { target: { value: "开头的第一句" } });
+    openCard("分论点 1");
+
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    const put = calls.find((c) => c.method === "PUT")!;
+    expect((put.body as { snippets: { text: string; outlineId?: string }[] }).snippets[0]).toMatchObject({
+      text: "开头的第一句",
+      outlineId: "o1",
+    });
   });
 });

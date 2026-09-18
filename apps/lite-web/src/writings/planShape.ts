@@ -1,4 +1,5 @@
 import type { WritingOutlineItem } from "../api/writingRoom";
+import { roleIsExample } from "./slots";
 
 /**
  * 这份计划现在有几块 —— 按深度数，和服务端 writingPlanShapeOf 数的是同一批东西。
@@ -14,12 +15,18 @@ import type { WritingOutlineItem } from "../api/writingRoom";
  */
 export type PlanShape = { top: number; points: number; material: number };
 
+const REASONING_WORDS = ["道理", "解释", "推理", "分析", "原因", "理由", "reasoning", "explanation", "analysis", "reason"];
+
 export function planShapeOf(items: WritingOutlineItem[]): PlanShape {
   const s: PlanShape = { top: 0, points: 0, material: 0 };
   for (const it of items) {
     if (it.text.trim() === "") continue;
-    if (it.depth === 0) s.top++;
-    else if (it.depth === 1) s.points++;
+    // 挂在中心论点下面的例子算例子，不算分论点（服务端 writingPlanShape.count 同一条）。
+    const example = roleIsExample(it.role, it.source);
+    if (it.depth === 0 && !example) s.top++;
+    else if (it.depth === 1 && !example) s.points++;
+    // 一条道理 / 一层解释不是例子（服务端 writingRoleIsReasoning 同一张词表）。
+    else if (!example && REASONING_WORDS.some((w) => it.role.toLowerCase().includes(w))) continue;
     else s.material++;
   }
   return s;
@@ -35,5 +42,5 @@ export function planShapeOf(items: WritingOutlineItem[]): PlanShape {
  * 名词，不写成句子（AGENTS.md §界面文案怎么写 第 1 条）。
  */
 export function planShapeLine(s: PlanShape): string {
-  return `中心论点 ${s.top} · 分论点 ${s.points} · 你自己的材料 ${s.material}`;
+  return `中心论点 ${s.top} · 分论点 ${s.points} · 例子 ${s.material}`;
 }

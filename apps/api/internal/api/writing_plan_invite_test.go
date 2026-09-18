@@ -28,6 +28,7 @@ func TestWritingPlanInvite_CatchesTheQuestionOnTheTurnThatCrossesTheLine(t *test
 		planRow("b", 0, "人多了，学校多了，自然就分散了"),
 		planRow("c", 1, "孩子多了学位不够，所以要多开设学校"),
 		planRow("d", 2, "家乡考生从五千涨到一万多，学校多开了好几所"),
+		planRow("e", 2, "教育部公布的县域高中数量报道"),
 	}
 	byID := map[string]sqlc.WritingOutline{}
 	for _, r := range rows {
@@ -87,13 +88,14 @@ func TestWritingPlanNeedOf_ScalesWithLength(t *testing.T) {
 		wantPts int
 		wantMat int
 	}{
-		{"没设目标就用原来那条线", sqlc.Writing{Lang: "zh"}, 2, 1},
-		{"800 字短文，和原来一样", sqlc.Writing{Lang: "zh", TargetWords: words(800)}, 2, 1},
-		{"1600 字", sqlc.Writing{Lang: "zh", TargetWords: words(1600)}, 4, 3},
-		{"3000 字论文，封顶", sqlc.Writing{Lang: "zh", TargetWords: words(3000)}, 4, 3},
-		{"很短的也不低于两条", sqlc.Writing{Lang: "zh", TargetWords: words(200)}, 2, 1},
-		{"英文按词算：500 词", sqlc.Writing{Lang: langEnglish, TargetWords: words(500)}, 2, 1},
-		{"英文 1200 词", sqlc.Writing{Lang: langEnglish, TargetWords: words(1200)}, 4, 3},
+		// 2026-09-18：例子至少和分论点一样多，下限 2 个（800 字要 2–3 个例子）。
+		{"没设目标", sqlc.Writing{Lang: "zh"}, 2, 2},
+		{"800 字短文", sqlc.Writing{Lang: "zh", TargetWords: words(800)}, 2, 2},
+		{"1600 字", sqlc.Writing{Lang: "zh", TargetWords: words(1600)}, 4, 4},
+		{"3000 字论文，封顶", sqlc.Writing{Lang: "zh", TargetWords: words(3000)}, 4, 4},
+		{"很短的也不低于两条", sqlc.Writing{Lang: "zh", TargetWords: words(200)}, 2, 2},
+		{"英文按词算：500 词", sqlc.Writing{Lang: langEnglish, TargetWords: words(500)}, 2, 2},
+		{"英文 1200 词", sqlc.Writing{Lang: langEnglish, TargetWords: words(1200)}, 4, 4},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := writingPlanNeedOf(tc.wr)
@@ -106,14 +108,14 @@ func TestWritingPlanNeedOf_ScalesWithLength(t *testing.T) {
 
 // 同一份形状，在短文里过线、在长论文里不过线 —— 这就是这条改动的全部意思。
 func TestWritingPlanReady_SameShapeDiffersByLength(t *testing.T) {
-	shape := writingPlanShape{Top: 1, Points: 2, Material: 1}
+	shape := writingPlanShape{Top: 1, Points: 2, Material: 2, Wider: 1}
 	n := int32(800)
 	short := sqlc.Writing{Lang: "zh", TargetWords: &n}
 	m := int32(3000)
 	long := sqlc.Writing{Lang: "zh", TargetWords: &m}
 
 	if !shape.ready(writingPlanNeedOf(short)) {
-		t.Error("800 字的短文，两条分论点加一条材料该过线")
+		t.Error("800 字的短文，两条分论点加两个例子该过线")
 	}
 	if shape.ready(writingPlanNeedOf(long)) {
 		t.Error("3000 字的论文，两条分论点就说想好了 —— 正是要修的那个毛病")

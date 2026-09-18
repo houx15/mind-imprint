@@ -327,7 +327,9 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   for (const node of afterSecond.outline) {
     await expect(page.getByText(node.text, { exact: true }).first()).toBeVisible();
   }
-  const plannedCount = afterSecond.outline.length;
+  // 2026-09-18 起段落是一叠卡片：开头 · 每条分论点一张 · 结尾（slots.ts），
+  // 张数不再等于节点数 —— 例子并进它那条分论点的卡片里。至少有开头和结尾两张。
+  expect(afterSecond.outline.length).toBeGreaterThan(0);
 
   // ── the length is VISIBLE here. The old room saved it and never showed it
   // again, which is why it read as broken; the header counter is both the
@@ -340,8 +342,12 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const paragraph2 =
     "但如果直接完全禁止课间用手机，也会让平时靠线上聊天维持友谊的同学少了唯一能自由社交的窗口——这是「完全禁止」绕不开的代价。";
 
-  const paragraphBoxes = page.getByPlaceholder("写这一段……");
-  await expect(paragraphBoxes).toHaveCount(plannedCount, { timeout: 15_000 });
+  const cards = page.locator("[data-write-card]");
+  await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+  expect(await cards.count()).toBeGreaterThanOrEqual(2);
+  // 一次只摊开一张纸。
+  const paper = page.getByPlaceholder("写这一段……");
+  await expect(paper).toHaveCount(1);
 
   // ── guidance is PRESENT ON ARRIVAL — no 「卡住了？」 click needed on the
   // happy path. A single batch call (POST /writings/{id}/guide) guides the
@@ -356,16 +362,14 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await expect(page.getByText("想一想").first()).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 
-  await paragraphBoxes.nth(0).fill(paragraph1);
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
-    paragraphBoxes.nth(0).blur(),
-  ]);
-  await paragraphBoxes.nth(1).fill(paragraph2);
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
-    paragraphBoxes.nth(1).blur(),
-  ]);
+  for (const [i, text] of [paragraph1, paragraph2].entries()) {
+    await cards.nth(i).click();
+    await paper.fill(text);
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
+      paper.blur(),
+    ]);
+  }
   // An absence is only worth asserting once the thing it contradicts has had
   // its chance to render. `waitForResponse` returns on the NETWORK response —
   // one tick before React has committed anything — so checking the banner

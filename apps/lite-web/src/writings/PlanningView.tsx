@@ -4,7 +4,7 @@ import { ArrowRight, FileUp } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
-import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
+import { LiteChatMarkdown as ChatMarkdown } from "../readings/LiteChatMarkdown";
 import {
   postWritingPlanTurn,
   postWritingOpening,

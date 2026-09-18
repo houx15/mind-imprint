@@ -344,17 +344,28 @@ describe("naming the piece at 完成这篇", () => {
     routes[key("PATCH", RENAME_URL)] = { body: { id: WID, title: "转弯中的国家", stage: "draft" } };
   });
 
-  it("asks for a name before finishing, and finishes with the one she picks", async () => {
+  // 🚨 2026-09-18 产品负责人：「ai不要直接生成题目文本……给出一些关键词，
+  // 但是不能直接给取名字。」—— 框是空的，没有任何名字摆出来；「需要提示」之后
+  // 给的是关键词，点关键词不会把它填进框里。起名的是她。
+  it("offers no name; 需要提示 shows keywords that never fill the box", async () => {
+    routes[key("POST", base("/title-keywords"))] = { body: { keywords: ["总量", "人均"] } };
     const { onFinished, onRenamed } = renderStage({ draft: draftOf("我写完的正文。") });
 
     finishClick();
-    await dialog();
+    const d = await dialog();
+    const box = within(d).getByLabelText("这篇文章叫") as HTMLInputElement;
+    expect(box.value).toBe("");
+    // The old ideas the server may still send are never shown.
+    expect(within(d).queryByText("转弯中的国家")).toBeNull();
+    expect(calls.some((c) => c.url === base("/title-keywords"))).toBe(false);
 
-    // The suggestions are offers: tapping one fills the box, nothing is saved
-    // until she presses the button.
-    fireEvent.click(screen.getByRole("button", { name: "总量第一，人均第五十" }));
-    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    fireEvent.click(within(d).getByRole("button", { name: "需要提示" }));
+    const chip = await within(d).findByText("人均");
+    expect(chip.tagName).not.toBe("BUTTON");
+    fireEvent.click(chip);
+    expect(box.value).toBe("");
 
+    fireEvent.change(box, { target: { value: "总量第一，人均第五十" } });
     fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
 
     await waitFor(() => expect(onFinished).toHaveBeenCalled());
@@ -362,22 +373,6 @@ describe("naming the piece at 完成这篇", () => {
     expect(rename?.body).toEqual({ title: "总量第一，人均第五十" });
     // The header's EditableTitle must see it immediately, not at the next load.
     expect(onRenamed).toHaveBeenCalled();
-  });
-
-  it("she can type her own name over the suggestions", async () => {
-    const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
-
-    finishClick();
-    const box = within(await dialog()).getByLabelText("这篇文章叫") as HTMLInputElement;
-    // Pre-filled with the first suggestion, so the fast path still produces a
-    // real title — but it is an editable box, not a picker.
-    expect(box.value).toBe("转弯中的国家");
-
-    fireEvent.change(box, { target: { value: "看方向盘，不是看车道" } });
-    fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
-
-    await waitFor(() => expect(onFinished).toHaveBeenCalled());
-    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "看方向盘，不是看车道" });
   });
 
   // 铁律②: this is a question, not a gate.
@@ -429,7 +424,8 @@ describe("naming the piece at 完成这篇", () => {
     const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
 
     finishClick();
-    await dialog();
+    const box = within(await dialog()).getByLabelText("这篇文章叫") as HTMLInputElement;
+    fireEvent.change(box, { target: { value: "转弯中的国家" } });
     fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("名字没存上，请重试。");

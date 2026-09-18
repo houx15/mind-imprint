@@ -64,20 +64,13 @@ func writingPlanShapeWith(
 		}
 		depth := 0
 		if n.ParentID != "" {
-			p, ok := byID[n.ParentID]
+			p, ok := resolvePlanParent(byID, seen, n.ParentID)
 			if !ok {
 				continue
 			}
 			depth = int(p.Depth) + 1
 		}
-		switch depth {
-		case 0:
-			s.Top++
-		case 1:
-			s.Points++
-		default:
-			s.Material++
-		}
+		s.count(depth, n.Role, n.Source)
 		// 同一轮里两个一模一样的节点，落库那边也只会留下第一个。
 		seen = append(seen, sqlc.WritingOutline{Text: n.Text, Depth: int32(depth)})
 	}

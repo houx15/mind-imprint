@@ -55,6 +55,17 @@ describe("LiteChatMarkdown", () => {
     expect(strong!.className).not.toContain("text-mk-ink");
   });
 
+  // 2026-09-18 产品负责人截图（写作室「印记 · 关于这一块」）：bold 以中文右括号
+  // 收尾、后面紧跟汉字，CommonMark 不认这个 `**` 是收尾，星号原样印了出来。
+  // 写作室当时用的是 pro 的 ChatMarkdown（没有 remark-cjk-friendly）。
+  it("closes **bold** that ends in CJK punctuation right before a CJK character", () => {
+    const { container } = render(
+      <LiteChatMarkdown text="可以用**讲道理（道理论证）**补一小步：你现在只说了「理解来自摩擦」。" />,
+    );
+    expect(container.querySelector("strong")?.textContent).toBe("讲道理（道理论证）");
+    expect(container.textContent).not.toContain("**");
+  });
+
   it("renders a short list as a real list", () => {
     const { container } = render(<LiteChatMarkdown text={"你想先看哪一个：\n\n- 第一段的数字\n- 最后那句反问"} />);
     const items = container.querySelectorAll("ul li");

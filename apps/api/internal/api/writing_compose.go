@@ -195,7 +195,14 @@ func (a *API) composeWritingDraft(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	body := composeSnippetsIntoDraft(snippets)
+	// 按段落那一步卡片的顺序拼（开头 → 分论点 → 结尾），不按存储位置：
+	// 虚拟开头卡的片段存在保留位置 998 上。见 writing_blocks.go。
+	outline, err := a.d.Queries.ListWritingOutline(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	body := composeSnippetsIntoDraft(writingSnippetsInCardOrder(outline, snippets))
 	// See writeWritingDraftLocked's comment (putWritingDraft, this file) —
 	// this handler is the other direct writer of writing_draft outside the
 	// finish/discard transactions, so it goes through the same locked path.

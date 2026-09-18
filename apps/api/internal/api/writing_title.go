@@ -16,41 +16,29 @@ package api
 // parent scanning a QR code was reading 「我想写中国是不是真的让地球更可持续
 // 了，因为我们地理课上…」 where the piece's name should be.
 //
-// ## The shape: offered at 完成这篇, never imposed
+// ## The shape: asked at 完成这篇, and she names it herself
 //
-// One endpoint, called when she presses 完成这篇:
+// `POST /title-ideas` answers ONE question, with no model call: is the title
+// still the placeholder (`needsName`)? If not, 完成这篇 goes straight through.
+// If so, the client opens a small dialog with a text box.
 //
-//   - `needsName` false — she already renamed it herself. No model call, no
-//     dialog, nothing at all: 完成这篇 goes straight through, exactly as
-//     before. Anyone who has named their piece must not be asked again.
-//   - `needsName` true — the title is still, character for character, the
-//     truncated idea sentence. The client opens one small dialog with these
-//     `ideas` as tappable suggestions and a free text box, plus a way to keep
-//     what she has.
+// 🚨 2026-09-18 产品负责人：「ai不要直接生成题目文本，我觉得可以在学生点击
+// 『需要提示』之后，给出一些关键词，但是不能直接给取名字。」
 //
-// The server NEVER writes a title here. It returns candidates and the client
-// saves whichever one she chose (or her own words) through the existing
-// PATCH /writings/{id}. That separation is the whole reason this is an
-// offer: there is no code path in which a generated title reaches the
-// database without her having picked it.
+// The first version offered four finished titles as tappable chips — she
+// tapped one and the piece was named by 印记. Now:
 //
-// ## 铁律① — why a title is not 正文, said out loud
+//   - nothing is suggested until she asks (「需要提示」);
+//   - what she gets is **keywords** (`POST /title-keywords`), and every one of
+//     them must appear VERBATIM in her draft (validateTitleKeywords). A title
+//     cannot be validated as a substring of her writing — naming is finding
+//     words that are not already there — but a keyword can, so the rule
+//     「不能直接给取名字」 is enforced by the checker, not by the prompt's manners;
+//   - the chips are inert: tapping one does not fill the box. She composes the
+//     name from them herself.
 //
-// AGENTS.md draws this boundary explicitly: 「AI 绝不代写正文」 is about her
-// BODY TEXT, and it does not extend to deterministic or supporting system
-// steps. A title is not a sentence of her essay — nothing here is written
-// into the draft, the snippets or the outline, and this file has no write
-// path to any of them. What it does have is the same posture as every other
-// offer in this room (GuideBox's methods, VocabExamples, the 语文 term card):
-// named, explained, tappable, and inert until she chooses.
-//
-// **Honest limit, in the manner of writing_comment.go's own:** unlike a
-// comment's quote, a title CANNOT be validated as a literal substring of her
-// writing — naming a thing is precisely the act of finding words that are
-// not already in it. So `ideas` is free model prose, held only by the
-// prompt's instructions and by the length cap in validateTitleIdeas. That is
-// accepted deliberately, and it is bounded by the two structural facts
-// above: she picks, and nothing is written without her.
+// The server never writes a title here; she saves hers through PATCH
+// /writings/{id}.
 
 import (
 	"context"
@@ -72,11 +60,13 @@ import (
 // worth naming rather than the one worth being clever about.
 const titleRuneCap = 200
 
-// suggestedTitleRuneCap bounds a candidate. A "title" of 60 characters is
-// the very thing this file exists to get rid of, so an over-long suggestion
-// is dropped rather than truncated — cutting one mid-clause would produce a
-// worse title than the placeholder it replaces.
-const suggestedTitleRuneCap = 40
+// 关键词的长度：2–12 个字符（英文一两个词）。再长就是一句话，
+// 一句话离一个标题只差一步。
+const (
+	titleKeywordMinRunes = 2
+	titleKeywordMaxRunes = 12
+	titleKeywordMax      = 6
+)
 
 // titleIsStillTheIdea reports whether `title` is untouched since
 // createWriting — i.e. it is still her idea sentence, truncated the same way
@@ -122,102 +112,76 @@ func firstStudentMessage(msgs []sqlc.AtomMessage) string {
 	return ""
 }
 
-// validateTitleIdeas keeps the candidates that could actually serve as a
-// title: non-empty, not absurdly long, and distinct from one another.
+// validateTitleKeywords keeps the keywords that are really HERS: each must
+// appear verbatim in her draft (after stripping the quotes/书名号 a model
+// likes to wrap things in), be 2–12 characters, not repeat, and not be the
+// placeholder title. At most titleKeywordMax.
 //
-// Deduping is on the trimmed string, and it also drops anything equal to the
-// placeholder she is replacing — offering her current title back as a fresh
-// suggestion would read as the model not having looked at anything.
-func validateTitleIdeas(ideas []string, current string) []string {
-	out := make([]string, 0, len(ideas))
+// 🚨 The substring check is the whole point (see the file header): a model
+// that returns 「苦乐在心」 when her draft never says it has handed her a
+// title, not a keyword — and it is dropped.
+func validateTitleKeywords(keywords []string, draft, current string) []string {
+	out := make([]string, 0, titleKeywordMax)
 	seen := map[string]bool{strings.TrimSpace(current): true}
-	for _, raw := range ideas {
-		// Models like to wrap a title in quotes or 书名号; those are packaging,
-		// not part of the name she'd type.
-		t := strings.TrimSpace(strings.Trim(strings.TrimSpace(raw), `"'“”「」《》`))
-		if t == "" || len([]rune(t)) > suggestedTitleRuneCap || seen[t] {
+	for _, raw := range keywords {
+		k := strings.TrimSpace(strings.Trim(strings.TrimSpace(raw), `"'“”‘’「」《》『』`))
+		n := len([]rune(k))
+		if n < titleKeywordMinRunes || n > titleKeywordMaxRunes || seen[k] {
 			continue
 		}
-		seen[t] = true
-		out = append(out, t)
-		if len(out) == 4 {
+		if !strings.Contains(draft, k) {
+			continue
+		}
+		seen[k] = true
+		out = append(out, k)
+		if len(out) == titleKeywordMax {
 			break
 		}
 	}
 	return out
 }
 
-// writingTitleSystem asks for names for a finished piece — and nothing else.
-//
-// The prompt is deliberately narrow: it never sees a question it could
-// answer with a sentence for her essay, because the only thing it is asked
-// to produce is a list of names. writingGuideTeachingRules is NOT included
-// here — that doctrine is about how 印记 talks to her, and this reply is
-// never shown as speech; it becomes four chips she taps.
-const writingTitleSystem = `你是「印记」。学生刚写完一篇文章，现在要给它起个名字。她原来那一栏里放的是她最开始随手写下的一句「我想写…」，那是给她自己看的备忘，不是标题。
+// writingTitleKeywordsSystem asks for keywords — words she already wrote —
+// and nothing else.
+const writingTitleKeywordsSystem = `你是「印记」。学生写完了一篇文章，正在自己给它起标题。她请你给一点提示。
 
-请你读她写完的这篇文章，给出 4 个可以当标题的候选。要求：
-- 每个标题都要短。中文一般不超过 20 个字，英文不超过 8 个词。
-- 必须来自她这篇文章本身——说的是她真正写了的那件事、她真正持的那个立场，不要写成一个泛泛的作文题。
-- 4 个之间要有区别：可以有的直白概括，有的用她文章里的一个具体形象或一组对比，有的带一点问句。不要 4 个都是同一个句式。
-- 只给名字。不要解释，不要在标题后面加副标题、破折号说明或者任何点评。
+你的任务：从她的文章里**原样摘出** 4 到 6 个关键词或短语，帮她想标题。
+- 每一个都必须是她文章里**逐字出现过**的词或短语，一个字都不能改、不能拼接。
+- 每个 2 到 12 个字（英文文章给一两个英文词）。
+- 挑最能代表这篇的：核心概念、关键的形象或物件、一组对比里的两个词、立场里最关键的那个词。
+- **不要给标题，不要把几个词组合成一个标题，不要解释。** 标题由她自己起。
 
-输出 JSON：{"ideas":["…","…","…","…"]}
+输出 JSON：{"keywords":["…","…","…","…"]}
 
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
 
-// buildWritingTitlePrompt gives the model her finished piece and the note she
-// started from, labelled for what each one is. The idea sentence is included
-// because it carries what she SET OUT to argue, which a draft that wanders
-// may not state as plainly — but it is labelled 「不是标题」 so it is never
-// echoed straight back as a candidate (validateTitleIdeas drops it anyway if
-// it is).
-//
-// Takes `wr` for the language rule: a title IS the piece's own words, so an
-// English essay's candidates must be English. This builder had no access to
-// wr.Lang at all, which is half of 「英文的写作，中文的mindmap」 — the same
-// omission, on a different field. See writing_lang.go.
-func buildWritingTitlePrompt(wr sqlc.Writing, idea, draft string) string {
+func buildWritingTitleKeywordsPrompt(wr sqlc.Writing, draft string) string {
 	var b strings.Builder
 	b.WriteString(writingLangLine(wr))
-	if i := strings.TrimSpace(idea); i != "" {
-		b.WriteString("她最开始说想写的（这是备忘，不是标题）：\n" + i + "\n\n")
-	}
 	b.WriteString("她写完的文章：\n" + strings.TrimSpace(draft) + "\n")
 	return b.String()
 }
 
-type writingTitleResult struct {
-	Ideas []string `json:"ideas"`
+type writingTitleKeywordsResult struct {
+	Keywords []string `json:"keywords"`
 }
 
-// parseWritingTitleIdeas decodes the model's reply. Reuses
-// extractWritingJSONObject (writing_snippets.go) — the same "strip fences,
-// clamp to the outermost {..}" extraction every JSON-replying prompt in this
-// package shares.
-func parseWritingTitleIdeas(text string) (writingTitleResult, bool) {
+func parseWritingTitleKeywords(text string) (writingTitleKeywordsResult, bool) {
 	c := extractWritingJSONObject(text)
 	if c == "" {
-		return writingTitleResult{}, false
+		return writingTitleKeywordsResult{}, false
 	}
-	var got writingTitleResult
+	var got writingTitleKeywordsResult
 	if err := json.Unmarshal([]byte(c), &got); err != nil {
-		return writingTitleResult{}, false
+		return writingTitleKeywordsResult{}, false
 	}
 	return got, true
 }
 
-// suggestWritingTitles is POST /api/v1/writings/{id}/title-ideas.
-//
-// A spend endpoint, but a CONDITIONAL one: it makes a model call only when
-// the title is still the placeholder. A student who named her piece herself
-// pays nothing and sees nothing, which is what keeps this from becoming a
-// toll on 完成这篇.
-//
-// Metered as purpose="title_ideas". Follows commentOnSnippet's shape:
-// loadOwnedWritingAtom → HasEntitlement → 150s detached timeout →
-// resolveEval → gateway.Collect → recordLiteLLMCall → parse → validate.
-// It persists NOTHING — see this file's header for why that is the point.
+// suggestWritingTitles is POST /api/v1/writings/{id}/title-ideas — despite the
+// route's old name it no longer suggests anything: it answers `needsName`
+// with no model call. `ideas` stays in the wire shape, always empty, so an
+// older client in a stale tab keeps working. See the file header.
 func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
@@ -233,26 +197,33 @@ func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	idea := firstStudentMessage(msgs)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"needsName": titleIsStillTheIdea(wr.Title, firstStudentMessage(msgs)),
+		"ideas":     []string{},
+	})
+}
 
-	// She has already named it. Answer honestly and spend nothing — this is
-	// the common case for anyone who used EditableTitle, and it must stay
-	// free and instant.
-	if !titleIsStillTheIdea(wr.Title, idea) {
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"needsName": false, "ideas": []string{}})
+// suggestWritingTitleKeywords is POST /api/v1/writings/{id}/title-keywords —
+// 「需要提示」. A spend endpoint (one model call, metered as
+// purpose="title_keywords"); persists nothing.
+func (a *API) suggestWritingTitleKeywords(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedWritingAtom(w, r)
+	if !ok {
 		return
 	}
-
-	// Nothing written yet means nothing to name from. Not an error: the
-	// client simply shows the box with no suggestions in it, and she can
-	// still type a title herself.
+	wr, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	draft, derr := a.d.Queries.GetWritingDraft(r.Context(), at.ID)
 	body := ""
 	if derr == nil {
 		body = strings.TrimSpace(draft.Body)
 	}
 	if body == "" {
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"needsName": true, "ideas": []string{}})
+		// Nothing written, nothing to take words from.
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"keywords": []string{}})
 		return
 	}
 
@@ -270,41 +241,37 @@ func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
 
-	// §model-routing · compose. Naming a piece is a reading-comprehension task
-	// over her whole draft, and a model with nothing left to spend produces
-	// generic 作文题 titles — exactly the failure this endpoint exists to avoid.
-	// It derives a name from a draft she has already written, so it is compose,
-	// not review; what it needs is a reasoning budget, not the reviewer tier.
-	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
+	// §model-routing · digest：长输入（整篇）、短输出（几个词），而且产出是
+	// 从她的原文里摘的，不需要推理预算。
+	resolved, ok2 := a.route(turnCtx, gateway.ClassDigest)
 	if !ok2 {
-		slog.Warn("writing title ideas: no provider resolved",
+		slog.Warn("writing title keywords: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingTitleSystem},
-			{Role: gateway.RoleUser, Content: buildWritingTitlePrompt(wr, idea, body)},
+			{Role: gateway.RoleSystem, Content: writingTitleKeywordsSystem},
+			{Role: gateway.RoleUser, Content: buildWritingTitleKeywordsPrompt(wr, body)},
 		},
 	})
-	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "title_ideas", resolved, res.Usage)
+	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "title_keywords", resolved, res.Usage)
 	if cerr != nil {
-		slog.Warn("writing title ideas: provider call failed", "err", cerr,
+		slog.Warn("writing title keywords: provider call failed", "err", cerr,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	parsed, okParse := parseWritingTitleIdeas(res.Text)
+	parsed, okParse := parseWritingTitleKeywords(res.Text)
 	if !okParse {
-		slog.Warn("writing title ideas: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		slog.Warn("writing title keywords: reply unparseable",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+			"reply_head", headRunes(res.Text, 120))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"needsName": true,
-		"ideas":     validateTitleIdeas(parsed.Ideas, wr.Title),
+		"keywords": validateTitleKeywords(parsed.Keywords, body, wr.Title),
 	})
 }

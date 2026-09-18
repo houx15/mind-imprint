@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
-import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
+import { LiteChatMarkdown as ChatMarkdown } from "../readings/LiteChatMarkdown";
 import { getWriting, isAssignedWriting, isRevising, isWritingFinished, listWritingVersions, reviseWriting, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { useHeartbeat } from "../shared/useHeartbeat";
@@ -38,6 +38,12 @@ import { isWritingClosedError, showFinishedPage, stageAfterRevise } from "./fini
 import { coachOpeningNeeded } from "./openingRule";
 import { RevisingStrip } from "./RevisingStrip";
 import { RoomTeacherFeedback } from "./RoomTeacherFeedback";
+import { PaneResizer } from "../projects/PaneResizer";
+import { usePaneWidth } from "../projects/usePaneWidth";
+
+/** 印记那一栏的默认宽度，和改版前固定的那一栏一样宽。 */
+const COACH_PANE_DEFAULT = 380;
+const COACH_PANE_MAX = 720;
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -104,6 +110,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   // Bumped to re-run the load effect after 修改/放弃修改 change whether the
   // writing is revising, without touching `writingId` itself.
   const [reloadNonce, setReloadNonce] = useState(0);
+  // 2026-09-18「ai sidebar right side, can adjust width」：右栏宽度她自己拖，
+  // 记在本机上（和项目房间那一栏各记各的）。
+  const coachPane = usePaneWidth("lite:writingCoachWidth", COACH_PANE_DEFAULT);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   // The report's minute count. `state.phase === "ready"` is exactly "loaded
@@ -385,7 +395,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   // 成稿 is a writing PAGE, not a panel: it wants the room's width and its own
   // paper surface, and it does its own scrolling (the prose column and the
   // rail scroll independently, which a single scrolling panel cannot do).
+  // 段落 is the same since 2026-09-18: guidance column + card paper, each
+  // scrolling on its own.
   const onPage = writing.stage === "draft" || writing.stage === "finished";
+  const onCards = !onPage;
 
   const teacherFeedback = (
     <RoomTeacherFeedback
@@ -398,7 +411,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
   return (
     <div
-      className={`student-writing-room mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1180px]"}`}
+      className={`student-writing-room mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1680px]"}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
@@ -437,7 +450,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
       {/* 2026-09-18：成稿那一页上，老师批改放进这一页自己的右栏；放在编辑区下面时，
           1000px 高的屏幕上正文只剩两百多像素。段落那一步仍然放在下面。 */}
-      <div className="student-writing-workspace grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
+      <div ref={workspaceRef} className="student-writing-workspace flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         {/* Wrapped in its own flex column, not a bare cell: 老师批改 sits
             BELOW the stage content here, inside the same left-hand slot the
             editor already owns — never inside the 380px coach column on the
@@ -447,7 +460,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             panel — exactly "below the draft" on narrow screens; at the wide
             two-column width it stays in the left column, beside (never
             over) 印记's rail. */}
-        <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
           {/* `min-h-[280px]`: the 老师批改 panel
               below can grow up to `min(320px, 33vh)` when open, on a short
               viewport that would otherwise be enough to squeeze the editor
@@ -456,7 +469,9 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             className={
               onPage
                 ? "min-h-[280px] flex-1 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
-                : "mk-scroll min-h-[280px] flex-1 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
+                : onCards
+                  ? "min-h-[280px] flex-1 overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface"
+                  : "mk-scroll min-h-[280px] flex-1 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
             }
           >
             <StagePanel
@@ -479,7 +494,19 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           {isWritingFinished(writing) && !onPage && teacherFeedback}
         </div>
 
-        <div className="student-coach-panel flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
+        <div
+          className="student-coach-panel relative flex min-h-0 shrink-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3"
+          style={coachPane.desktop ? { width: coachPane.width } : undefined}
+        >
+          {/* 拖左边这道缝改宽度。PaneResizer 按「窗口右边到指针」算，
+              这里减掉房间右边的留白，宽度才跟着指针走。 */}
+          <PaneResizer
+            onResize={(w) => {
+              const right = workspaceRef.current?.getBoundingClientRect().right ?? window.innerWidth;
+              coachPane.setWidth(Math.min(COACH_PANE_MAX, w - (window.innerWidth - right)));
+            }}
+            onDoubleClick={() => coachPane.setWidth(COACH_PANE_DEFAULT)}
+          />
           <StudentCoachHeading />
           <ChatLog messages={chatMessages} thinking={sending || opening} className="min-h-0 flex-1" />
           <Composer

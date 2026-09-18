@@ -486,6 +486,15 @@ export async function suggestWritingTitles(id: string): Promise<TitleIdeas> {
   return { needsName: raw.needsName === true, ideas: raw.ideas ?? [] };
 }
 
+/**
+ * 「需要提示」—— 几个摘自她正文的关键词，不是标题（2026-09-18）。
+ * 服务端逐个验过都逐字出现在她的正文里（writing_title.go validateTitleKeywords）。
+ */
+export async function suggestWritingTitleKeywords(id: string): Promise<string[]> {
+  const raw = await apiFetch<{ keywords?: string[] }>(`${base(id)}/title-keywords`, { method: "POST" });
+  return raw.keywords ?? [];
+}
+
 /*
  * The writing room has NO 工具卡 (2026-08-27). listWritingCards /
  * activateWritingCard / skipWritingCard / submitWritingCard /

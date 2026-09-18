@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Button, Modal } from "@/ui";
+import { Lightbulb } from "lucide-react";
+import { Button, Icon, Modal } from "@/ui";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * NamePieceModal — 给这篇起个名字, asked once, at 完成这篇.
@@ -34,26 +36,28 @@ import { Button, Modal } from "@/ui";
  * rename is a legitimate outcome — the failure this fixes is never being
  * ASKED, not "having the wrong title".
  *
- * ## The suggestions are offers
+ * ## She names it; 印记 only hands her keywords, and only when asked
  *
- * Tapping one fills the box; it does not commit anything. She can edit it
- * afterwards, or ignore all of them and type her own — the input is the
- * primary control and the chips sit under it, the same "named, explained,
- * tappable, inert until she chooses" posture `GuideBox` takes with its
- * methods. What gets saved is whatever is in the box when she presses the
- * button, which is always something she has looked at.
+ * 🚨 2026-09-18 产品负责人：「ai不要直接生成题目文本，我觉得可以在学生点击
+ * 『需要提示』之后，给出一些关键词，但是不能直接给取名字。」
+ *
+ * The first version opened with four finished titles, the first one already
+ * in the box — she pressed 确认 and 印记 had named her piece. Now the box
+ * starts empty, nothing is suggested until she presses 「需要提示」, and what
+ * comes back is keywords that the server has checked appear verbatim in her
+ * draft (writing_title.go validateTitleKeywords). The chips are NOT buttons:
+ * tapping one does not fill the box. Composing the name is hers.
  */
 export function NamePieceModal({
-  ideas,
+  onHint,
   onName,
   onKeep,
   onClose,
   saving,
   error,
 }: {
-  /** 印记's candidates. May be empty — she pressed 完成这篇 on a draft with
-   *  nothing in it, and there was nothing to name from. The box still works. */
-  ideas: string[];
+  /** 「需要提示」：取几个摘自她正文的关键词（POST /title-keywords）。 */
+  onHint: () => Promise<string[]>;
   /** Save this title, then finish. */
   onName: (title: string) => void;
   /** Finish with the title as it stands. */
@@ -62,8 +66,23 @@ export function NamePieceModal({
   saving: boolean;
   error: string | null;
 }) {
-  const [value, setValue] = useState(ideas[0] ?? "");
+  const [value, setValue] = useState("");
   const trimmed = value.trim();
+  const [keywords, setKeywords] = useState<string[] | null>(null);
+  const [hinting, setHinting] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
+
+  async function hint() {
+    setHinting(true);
+    setHintError(null);
+    try {
+      setKeywords(await onHint());
+    } catch (err) {
+      setHintError(`获取提示失败：${apiErrorText(err)}`);
+    } finally {
+      setHinting(false);
+    }
+  }
 
   return (
     <Modal
@@ -123,33 +142,43 @@ export function NamePieceModal({
           />
         </div>
 
-        {ideas.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-mk-small text-mk-secondary">印记读了你这篇，想到几个名字：</span>
-            <div className="flex flex-wrap gap-2">
-              {ideas.map((idea) => {
-                const on = trimmed === idea;
-                return (
-                  <button
-                    key={idea}
-                    type="button"
-                    onClick={() => setValue(idea)}
-                    aria-pressed={on}
-                    className="rounded-mk-full border px-3 py-1.5 text-mk-body"
-                    style={{
-                      borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)",
-                      background: on ? "var(--mk-accent-100)" : "var(--mk-paper)",
-                      color: on ? "var(--mk-accent-700)" : "var(--mk-ink)",
-                    }}
+        <div className="flex flex-col gap-2">
+          {keywords === null ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-fit"
+              onClick={() => void hint()}
+              loading={hinting}
+              iconStart={<Icon icon={Lightbulb} size={14} />}
+            >
+              需要提示
+            </Button>
+          ) : keywords.length === 0 ? (
+            <span className="text-mk-small text-mk-muted">正文里暂时没有可摘的关键词，请直接写一个名字。</span>
+          ) : (
+            <>
+              <span className="text-mk-small text-mk-secondary">关键词（摘自你的正文）</span>
+              <div className="flex flex-wrap gap-2">
+                {keywords.map((k) => (
+                  <span
+                    key={k}
+                    className="rounded-mk-full border px-3 py-1 text-mk-body"
+                    style={{ borderColor: "var(--mk-border)", background: "var(--mk-paper)", color: "var(--mk-ink)" }}
                   >
-                    {idea}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="text-mk-caption text-mk-faint">点一个填进上面的框，还能再改。</span>
-          </div>
-        )}
+                    {k}
+                  </span>
+                ))}
+              </div>
+              <span className="text-mk-caption text-mk-faint">请用这些词组合出你自己的标题。</span>
+            </>
+          )}
+          {hintError && (
+            <p role="alert" className="text-mk-small text-mk-danger">
+              {hintError}
+            </p>
+          )}
+        </div>
 
         {error && (
           <p role="alert" className="text-mk-small text-mk-danger">

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
@@ -213,23 +212,22 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		//
 		// 两头一起改：屏幕上把号摆出来（SnippetsStage），这里把标题给它。
 		// 有标题就能说「『各地都能开设很好的学校』那一块」，比数字准得多。
-		headingOf := map[string]string{}
-		for _, o := range outline {
-			headingOf[o.ID.String()] = strings.TrimSpace(o.Text)
-		}
-		numbers := writingBlockNumbers(outline, snippets)
-		for _, s := range snippets {
-			text := strings.TrimSpace(s.Text)
+		//
+		// 2026-09-18：按卡片的顺序列（开头 → 各分论点 → 结尾），标签也取卡片的 ——
+		// 虚拟的开头/结尾卡在结构图上没有节点，只能从卡片那里拿到名字。
+		for i, c := range writingCards(outline, snippets) {
+			if c.Snippet == nil {
+				continue
+			}
+			text := strings.TrimSpace(c.Snippet.Text)
 			if text == "" {
 				continue
 			}
 			label := ""
-			if s.OutlineID.Valid {
-				if h := headingOf[uuid.UUID(s.OutlineID.Bytes).String()]; h != "" {
-					label = "「" + h + "」"
-				}
+			if l := c.Label(); l != "" {
+				label = "「" + l + "」"
 			}
-			fmt.Fprintf(&b, "  [第%d块]%s %s\n", numbers[s.ID], label, writingProjectionSnippet(text))
+			fmt.Fprintf(&b, "  [第%d块]%s %s\n", i+1, label, writingProjectionSnippet(text))
 		}
 		b.WriteString(writingCoachGroundingRules)
 	}

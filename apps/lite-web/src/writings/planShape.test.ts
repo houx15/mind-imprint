@@ -22,7 +22,7 @@ describe("planShapeOf", () => {
       node(1, "各地都能开设很好的学校"),
     ]);
     expect(s).toEqual({ top: 2, points: 2, material: 1 });
-    expect(planShapeLine(s)).toBe("中心论点 2 · 分论点 2 · 你自己的材料 1");
+    expect(planShapeLine(s)).toBe("中心论点 2 · 分论点 2 · 例子 1");
   });
 
   /** 深度 3 及以下都算她的材料，别漏掉。 */
