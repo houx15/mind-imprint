@@ -452,7 +452,10 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     note("议论文的板是 论点 / 论据 / 论证", oldBins ? "bad" : argumentBins ? "ok" : "look", [...binsSeen].join(" / "));
   }
   // 第 9 条：做完一步不以「这一步做完」收尾、等她回一句「好」。
-  const dangling = [...aiSeen].filter((t) => /(这一步(就)?做完(了)?|往下走)[。！!]?\s*$/.test(t.trim()));
+  // 只抓「最后一句就是『这一步做完 / 往下走』」的那种：话停在这儿，她只能回一句「好」。
+  const dangling = [...aiSeen].filter((t) =>
+    /(^|[。！!\n])\s*(\*\*)?(这一步(就)?做完(了)?(，往下走)?|往下走)[。！!]?(\*\*)?\s*$/.test(t.trim()),
+  );
   note("做完一步的那一句同时交下一步（不以「这一步做完」收尾）", dangling.length ? "bad" : "ok", dangling[0]?.slice(-120) ?? "");
   // 第 5 条：卡片题目不是「请点出你想说的那一句」这种不问事的话。
   const vague = cardAskPairs.filter((p) => /点出你想说的那一句|请用你自己的话写一句。/.test(p));
@@ -581,10 +584,11 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
   note("段落工具条上没有「拆开这一段」", (await bar.innerText().catch(() => "")).includes("拆开这一段") ? "bad" : "ok");
   // 同事 2026-09-18 第 6 条：结构解析要在段落内按句子拆层次，不是整段概述一句。
   if (zh && (await tool("结构解析"))) {
-    const items = page.locator("[data-block-tools] li");
-    await items.first().waitFor({ timeout: 90_000 }).catch(() => {});
-    const n = await items.count();
-    const txt = n ? (await items.allInnerTexts()).join(" / ") : "";
+    // 模型有时写列表、有时一层一段 —— 数的是「第N句」这种层次标记，不是 li。
+    const panel = page.locator("[data-block-tools]").filter({ hasText: /第\s*\d+/ }).last();
+    await panel.waitFor({ timeout: 90_000 }).catch(() => {});
+    const txt = (await panel.innerText().catch(() => "")).replace(/\n+/g, " / ");
+    const n = (txt.match(/第\s*\d+\s*(?:[–-]\s*\d+\s*)?句/g) ?? []).length;
     note("结构解析按句子拆成几个层次", n >= 2 ? "ok" : "bad", `${n} 层：${txt.slice(0, 200)}`);
     await snap(page, "structure");
   }

@@ -503,6 +503,16 @@ func readingPartSteps(parts []readingPart, ordinal map[string]int) []readingPart
 	return out
 }
 
+// outlineFixIt —— 导读因为这一条被丢掉时，还给模型的那句话。没有这一句的理由不重问
+// （「什么都没填」重问一次也填不出来）。
+var outlineFixIt = map[outlineReject]string{
+	outlineRejectNotCJK: "导读（oneLine、gist、shape、parts 的 title 和 does）写成了英文。" +
+		"界面是中文的，请把整份 JSON 原样重给一遍，只把导读这几项改用中文写（人名、地名、机构名照抄原文）。",
+	outlineRejectTooMuchCore: "load 里一半以上的段落标成了 core —— 处处是重点就等于没有重点。" +
+		"请把整份 JSON 原样重给一遍，只改 load：core 只留真正承重的那几段（不超过全文的一半）。",
+	outlineRejectNoCore: "load 里一段 core 都没有。请把整份 JSON 原样重给一遍，只改 load：标出真正承重的那一两段为 core。",
+}
+
 // planReadingTasks is the plan generation itself, split out of the HTTP
 // handler so the guided coach can plan on demand: 开始 is the only button she
 // has, and pressing it with no plan yet must produce one rather than refuse.
@@ -551,14 +561,16 @@ func (a *API) planReadingTasks(
 	// 里「全部用中文写」写了两遍，判据（hasCJK）早就有，缺的是**判出来之后**
 	// 做点什么（[[prompt-twice-then-make-it-checkable-2026-09-12]]）。
 	// 重问那一份整份过了校验才换上；没过就用第一份（导读照旧丢掉，体裁留下）。
-	if _, why := validateOutlineWhy(plan.outline(), blocks); why == outlineRejectNotCJK {
+	//
+	// 同一天又走出另一种：一篇故事一半以上的段落都标成了 core，整份导读照样丢掉。
+	// 同一条路：理由不同，还回去的那句话不同（outlineFixIt）。
+	if _, why := validateOutlineWhy(plan.outline(), blocks); outlineFixIt[why] != "" {
 		retry, rerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: readingPlanSystem},
 				{Role: gateway.RoleUser, Content: buildReadingPlanPrompt(lang, src.Title, blocks)},
 				{Role: gateway.RoleAssistant, Content: res.Text},
-				{Role: gateway.RoleUser, Content: "导读（oneLine、gist、shape、parts 的 title 和 does）写成了英文。" +
-					"界面是中文的，请把整份 JSON 原样重给一遍，只把导读这几项改用中文写（人名、地名、机构名照抄原文）。"},
+				{Role: gateway.RoleUser, Content: outlineFixIt[why]},
 			},
 		})
 		a.recordLiteLLMCall(ctx, userID, atomID, "reading_plan", resolved, retry.Usage)
@@ -569,7 +581,7 @@ func (a *API) planReadingTasks(
 				}
 			}
 		}
-		slog.Info("reading plan: outline was English, asked again", "atom_id", atomID,
+		slog.Info("reading plan: outline rejected, asked again", "atom_id", atomID, "why", string(why),
 			"fixed", func() bool { _, w := validateOutlineWhy(plan.outline(), blocks); return w == outlineOK }())
 	}
 
