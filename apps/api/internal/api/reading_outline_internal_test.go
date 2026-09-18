@@ -390,3 +390,43 @@ func TestValidatePartsLeavesAFullSplitAlone(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 2026-09-18 线上：同一篇英文故事连着两次只有 oneLine 是英文，整份导读因此
+// 作废，切法跟着没了 —— 十段的故事只剩「通读全文」一步。现在只丢那一行。
+func TestOutlineDropsOnlyTheEnglishField(t *testing.T) {
+	blocks := outlineBlocks(6)
+	load := fullLoad(6, loadSupport)
+	load["b2"] = loadCore
+	got, why := validateOutlineWhy(readingOutline{
+		OneLine: "What made her change her mind",
+		Gist:    "一个女孩三次错过末班车，司机没有收她的钱。",
+		Shape:   "错过 → 被等 → 还钱 → 回家",
+		Genre:   "narrative",
+		Load:    load,
+		Parts: []readingPart{
+			{Title: "错过末班车", From: "b1", To: "b3", Does: "交代人物和处境"},
+			{Title: "司机的回答", From: "b4", To: "b6", Does: "事情发生转折"},
+		},
+	}, blocks)
+	if why != outlineOK {
+		t.Fatalf("只有 oneLine 是英文，整份却被丢了：%q", why)
+	}
+	if got.OneLine != "" {
+		t.Errorf("英文的 oneLine 该丢掉：%q", got.OneLine)
+	}
+	if got.Gist == "" || got.Shape == "" || len(got.Parts) != 2 || got.Genre != genreNarrative {
+		t.Errorf("中文的那几样该留下：%+v", got)
+	}
+
+	// 切法的标题是英文 → 整份切法照旧丢（它会印在清单上），其余照留。
+	got, why = validateOutlineWhy(readingOutline{
+		OneLine: "她为什么改变了主意", Load: load,
+		Parts: []readingPart{
+			{Title: "The bus", From: "b1", To: "b3"},
+			{Title: "司机的回答", From: "b4", To: "b6"},
+		},
+	}, blocks)
+	if why != outlineOK || got.Parts != nil || got.OneLine == "" {
+		t.Errorf("英文标题的切法该丢、导读该留：why=%q %+v", why, got)
+	}
+}

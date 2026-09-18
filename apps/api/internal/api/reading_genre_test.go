@@ -129,11 +129,13 @@ func TestOrderBoardDroppedOnArgument(t *testing.T) {
 // 是空的，一篇记叙文按议论文带。导读是**摆给她看的**（写错语言就等于不存在），
 // 体裁是**给系统看的一个词**，两样东西的判据不该绑在一起。
 func TestGenreSurvivesARejectedOutline(t *testing.T) {
-	// oneLine 是英文 → 导读整份作废；genre 仍然是 narrative。
+	// 两段全标成核心 → 「全是核心等于没有核心」，导读整份作废；genre 仍然是
+	// narrative。（第一版用英文 oneLine 触发作废；2026-09-18 起那一条只丢那一行，
+	// 不再整份作废，所以换一条真的会整份作废的理由。）
 	const plan = `{"genre":"narrative","routineKey":"en-narrative","focusBlocks":["b2"],
 	  "steps":[{"kind":"read","detail":"先把故事看完。"}],
-	  "oneLine":"What made her change her mind","gist":"一个女孩三次错过末班车。",
-	  "shape":"错过 → 被等 → 还钱","load":{"b1":"core","b2":"support"},"parts":[]}`
+	  "oneLine":"她为什么改变了主意","gist":"一个女孩三次错过末班车。",
+	  "shape":"错过 → 被等 → 还钱","load":{"b1":"core","b2":"core"},"parts":[]}`
 	h, cookie, q, _ := liteHandlerWithProvider(t, writingTextStubProvider(plan))
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "The Last Bus Home",

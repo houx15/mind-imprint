@@ -149,8 +149,12 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     await page.goto("/readings");
     await page.getByLabel("文章正文或链接").waitFor({ timeout: 30_000 });
     if (ENTRY === "text") {
-      await page.getByLabel("阅读的名字").fill("停车场与公园");
-      await page.getByLabel("文章正文或链接").fill(fs.readFileSync(`${FIX}/long-article.txt`, "utf8"));
+      // READWALK_FIXTURE / READWALK_TITLE：换一篇文章走同一条路（2026-09-18 起
+      // 读法跟着体裁走，所以议论文之外的三种体裁各要走一遍）。
+      await page.getByLabel("阅读的名字").fill(process.env.READWALK_TITLE ?? "停车场与公园");
+      await page
+        .getByLabel("文章正文或链接")
+        .fill(fs.readFileSync(`${FIX}/${process.env.READWALK_FIXTURE ?? "long-article.txt"}`, "utf8"));
       await page.getByRole("button", { name: /开始阅读/ }).first().click();
     } else if (ENTRY === "link") {
       await page.getByLabel("文章正文或链接").fill(LINK_URL);

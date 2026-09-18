@@ -1,0 +1,19 @@
+A vaccine works by showing your immune system a harmless piece of a germ, so that the body is ready if the real germ ever arrives.
+
+Your immune system keeps a kind of memory. When a virus enters the body for the first time, white blood cells need several days to work out how to attack it. During those days, the virus multiplies and you get sick.
+
+A vaccine shortens that delay. It carries a fragment of the virus, usually a piece of the protein on its surface, or a set of instructions for making that piece.
+
+There are several ways to deliver the fragment. Older vaccines use a virus that has been killed or weakened. Newer mRNA vaccines deliver only the instructions, wrapped in a tiny bubble of fat.
+
+Cells near the injection site read those instructions and build the surface protein themselves. The protein alone cannot make you ill; it is a shape, not a working virus.
+
+Immune cells find the shape, treat it as an intruder, and build antibodies that lock onto it. Some of those cells then become memory cells and stay in the body for years.
+
+If the real virus arrives later, the memory cells recognize the same shape within hours rather than days, and the infection is stopped before it spreads.
+
+Some vaccines need a second dose. The first dose starts the memory; the second one, given weeks later, makes the response stronger and longer-lasting.
+
+This is also why a sore arm or a mild fever after a shot is not a sign that something went wrong. It is the immune system doing its rehearsal.
+
+When enough people in a community are protected, a virus has fewer people to pass through, which also protects those who cannot be vaccinated, such as newborn babies.

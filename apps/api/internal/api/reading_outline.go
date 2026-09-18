@@ -347,7 +347,33 @@ func validateOutlineWhy(got readingOutline, blocks []Block) (readingOutline, out
 	// 它就只是一句期望（[[prompt-output-must-be-verifiable-2026-09-03]]）。
 	// 判据取最宽的那一个：**一个汉字都没有**才算没写中文。这样英文的专有名词
 	// （人名、地名、机构名）照抄原文不会被误伤 —— 那本来就是对的做法。
+	//
+	// 🚨 2026-09-18 起**按字段丢，不再整份丢**。线上同一篇英文故事连着两次只有
+	// oneLine 写成了英文（「What made her change her mind」），其余几样都是中文 ——
+	// 而整份作废把切法也一起带走了，于是一篇十段的故事只剩「通读全文」一步，
+	// 她的台阶没了。那是 2026-09-17 记下的同一个坑：往「整份作废」的校验上挂
+	// 东西，代价是挂上去的每一样（[[reading-room-rulings-2026-09-17]]）。
+	//
+	// 丢掉一个字段不是修补：屏幕上少一行，而不是多一行编出来的话。切法的标题
+	// 会印在她的清单上（「通读第1–3段·<标题>」），所以哪个部分的标题是英文，
+	// 整份切法照旧丢 —— 切法本来就是整份丢、不修补的（validateParts）。
+	// 三样一个中文字都没剩、也没有切法，才算这份导读没有写中文。
 	if !hasCJK(out.OneLine) {
+		out.OneLine = ""
+	}
+	if !hasCJK(out.Gist) {
+		out.Gist = ""
+	}
+	if !hasCJK(out.Shape) {
+		out.Shape = ""
+	}
+	for _, part := range out.Parts {
+		if !hasCJK(part.Title) {
+			out.Parts = nil
+			break
+		}
+	}
+	if out.OneLine == "" && out.Gist == "" && out.Shape == "" && len(out.Parts) == 0 {
 		return readingOutline{}, outlineRejectNotCJK
 	}
 
