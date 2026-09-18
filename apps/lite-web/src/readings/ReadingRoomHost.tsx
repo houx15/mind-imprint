@@ -14,7 +14,7 @@ import {
   type ReadingFigure,
   type ReadingOutline,
 } from "../api/readings";
-import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel";
+import { isFinished as isFinishedReading } from "./ReadingHistoryPanel";
 import {
   createReadingRoomApi,
   getReadingPlan,
@@ -33,9 +33,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
-import { FinishedTabs, type FinishedTab } from "../reports/FinishedTabs";
 import { TranscriptView } from "../reports/TranscriptView";
-import { ReadingArticle } from "../reports/ReadingArticle";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { ReadingQuestions } from "./ReadingQuestions";
 import { liteRoutePath, navigate } from "../routing";
@@ -386,8 +384,9 @@ function ReopenButton({ onReopen }: { onReopen: () => Promise<void> }) {
  * can view all history.」—— 缺的从来不是数据（`GET /readings/{id}/messages`
  * 一直都在），是没有任何界面去读它。
  *
- * 报告那一格仍然领着这一页并带着自己的宽 hero（标题、她的名字、日期），
- * 所以上面那条横条仍然只有：返回、已完成、日期、页签。
+ * 2026-09-18 三格收成两页：报告（默认），和从报告右上角「查看阅读记录」进去的
+ * 对话。原文就在报告下面（「再看一遍这篇文章」），继续阅读在对话那一页的末尾。
+ * 顶上那条只有一颗返回 —— 见组件里那段产品负责人的原话。
  *
  * Two blocks that used to live here are gone on purpose, and both were
  * duplicates of the report rather than losses:
@@ -417,56 +416,47 @@ function FinishedReadingPanel({
   /** 继续阅读：把这一篇重新打开，回到原来那个阅读室。 */
   onReopen: () => Promise<void>;
 }) {
-  const day = shortDay(reading.finishedAt ?? reading.updatedAt);
   // 默认停在报告：她刚完成时想看的是结果。回看是她第二次来才要的东西。
-  const [tab, setTab] = useState<FinishedTab>("report");
+  const [page, setPage] = useState<"report" | "record">("report");
   return (
     <div className="flex w-full flex-col pb-14">
-      <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-8">
-        <Button variant="secondary" onClick={onBack}>
-          回到阅读
-        </Button>
-        <span
-          className="rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
-          style={{ background: "var(--mk-success-bg)" }}
-        >
-          已完成
-        </span>
-        {day && <span className="text-mk-small text-mk-muted">完成于 {day}</span>}
-        <ReopenButton onReopen={onReopen} />
-        {/* A breadcrumb, not a heading: the report's hero states the title at
-            display size, so this is the small line that keeps the page named
-            when the report is still loading or failed to load. */}
-        <span className="min-w-0 truncate text-mk-small text-mk-muted">{reading.title}</span>
+      {/* 🚨 2026-09-18 产品负责人：「very noisy now. just a back button. and a
+          right upper 查看阅读记录 button, which near the download, link share
+          button. don't always add so many top buttons everywhere ok?」
+          原来这一条上并排着：回到阅读、已完成、完成于、继续阅读（加一行说明）、
+          标题，下面再一排 报告 / 对话 / 原文 三个页签。现在这一条只有返回；
+          「查看阅读记录」在报告右上角导出 / 分享旁边；原文本来就在报告下面
+          （ReportPanel 的 ReadingArticle），「原文」那一格是重复的；继续阅读挪到
+          阅读记录那一页的末尾。 */}
+      <div className="mk-rp-measure pt-8">
+        {page === "report" ? (
+          <Button variant="secondary" onClick={onBack}>
+            返回
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => setPage("report")}>
+            返回报告
+          </Button>
+        )}
       </div>
 
-      <div className="mk-rp-measure pt-5">
-        <FinishedTabs
-          tabs={[
-            { id: "report", label: "报告" },
-            { id: "transcript", label: "对话" },
-            { id: "source", label: "原文" },
-          ]}
-          active={tab}
-          onPick={setTab}
-        />
-      </div>
-
-      {/* 🚨 报告那一格用 `hidden` 藏，不用条件渲染拆掉。`ReportPanel` 在
-          `prosePending` 时会自己补发一次请求，而那一次请求**真的在等一个旗舰
-          调用**；每切一次页签就卸载重挂，等于每切一次就再买一次那通调用。
-          另外两格是纯读，拆掉重挂只是多一次 GET，所以照常条件渲染。 */}
-      {tab === "transcript" && <TranscriptView kind="reading" atomId={reading.id} />}
-      {tab === "source" && (
-        <div className="mk-rp-measure py-8">
-          <ReadingArticle atomId={reading.id} defaultOpen />
-        </div>
+      {page === "record" && (
+        <>
+          <TranscriptView kind="reading" atomId={reading.id} />
+          <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-6">
+            <ReopenButton onReopen={onReopen} />
+          </div>
+        </>
       )}
 
-      <div hidden={tab !== "report"}>
+      {/* 🚨 报告用 `hidden` 藏，不用条件渲染拆掉。`ReportPanel` 在
+          `prosePending` 时会自己补发一次请求，而那一次请求**真的在等一个旗舰
+          调用**；每切一次就卸载重挂，等于每切一次就再买一次那通调用。 */}
+      <div hidden={page !== "report"}>
       <ReportPanel
         kind="reading"
         atomId={reading.id}
+        onOpenRecord={() => setPage("record")}
         // Only when there is no report: the report's own 我的收获 renders this
         // exact text (server-side `keep` is the takeaway, copied verbatim), so
         // rendering both would print her 收获 twice on every finished reading.

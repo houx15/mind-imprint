@@ -61,13 +61,16 @@ import { useRef, useState } from "react";
  * 两个房间的格子本来就不是同一套词，共用一份表是让它们迟早互相踩的唯一原因。
  */
 const BIN_HINT: Record<string, string> = {
-  // 现行两套（2026-09-17）。产品负责人：「maybe not every paragraph has this
-  // thing… maybe we need to simplify it. key statement 关键主张 / key evidence
-  // 证据 / or sometimes it is an argument: 驳斥观点 / 作者观点 / 证据」
+  // 议论文现行的一套（2026-09-18，论证三要素）。同事：「建议可划分的空格分为：
+  // 论点、论据、论证（分析）」。服务端闭表在 reading_coach_card.go。
+  论点: "作者要证明的看法",
+  论据: "用来证明论点的事实、例子、名言或道理",
+  论证: "把论据和论点接起来的分析、设问、让步或过渡",
+  驳斥观点: "作者要反对的那个说法",
+  // 2026-09-17 到 09-18 那两套。不再发给她，老转写里还有。
   关键主张: "作者要你接受的那句话",
   证据: "拿来撑住主张的事实、数字或例子",
   作者观点: "作者自己站的那一边",
-  驳斥观点: "作者要反对的那个说法",
   // 另外三种体裁各自的板（2026-09-17，同事的阅读模块 PRD；服务端闭表在
   // reading_genre.go 的 coachGenreBoards）。
   事实: "记者核实过、写成陈述的事",

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Play } from "lucide-react";
+import { PencilLine, Play } from "lucide-react";
 import { Button, Icon, Pebble } from "@/ui";
 import { Composer } from "@/studio/ai/Composer";
 import type { ReadingCoachSlot } from "./ReadingRoom";
@@ -133,6 +133,8 @@ export function ReadingCoachPanel({
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
+  /** 输入框那一格。「编辑后重新发送」把字放回去之后要把光标落进去。 */
+  const composerRef = useRef<HTMLDivElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** 上一轮**带着她的作答**却没送出去的那一份，原样留着好重发。 */
@@ -542,7 +544,28 @@ export function ReadingCoachPanel({
       if (own) chatMessages.push({ id: `c${m.seq}`, kind: "student", node: own });
       continue;
     }
-    chatMessages.push({ id: `c${m.seq}`, kind: "student", node: m.content });
+    chatMessages.push({ id: `c${m.seq}`, kind: "student", node: m.content, editText: ownWords(m.content) });
+  }
+
+  /**
+   * 把她发过的一句放回输入框，改完再发。
+   *
+   * 同事 2026-09-18：「发送错误无法撤回编辑」—— 她手一滑发出去一个「号」，
+   * 印记 当成一句话接了。产品负责人：「make users can select a message to resend
+   * with editing. be simple, just click one small button (which appears when
+   * hovering on that message) and that text would appear in the input box, like
+   * in claude desktop and codex.」
+   *
+   * 只放回输入框，不撤回那一轮：发出去的那一句和 印记 的回复都是过程数据
+   * （铁律④），她改完再发是新的一轮。
+   */
+  function editMessage(text: string) {
+    setDraft(text);
+    requestAnimationFrame(() => {
+      const box = composerRef.current?.querySelector("textarea");
+      box?.focus();
+      box?.setSelectionRange(box.value.length, box.value.length);
+    });
   }
 
   // Scroll the newest turn into view without dragging the whole page.
@@ -594,15 +617,15 @@ export function ReadingCoachPanel({
           position IS the design claim (Task 8), and a test that only asks
           「prompt 在某处」 would pass on a rail above the log too. */}
       <div data-coach-log className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-        {/* 🚨 导读排在对话**最上面**，跟着这一栏一起滚 —— 不是钉在顶上。
-            她开读时它在第一屏；往下聊了十轮之后，她要的是屏幕上多一点对话，
-            而那时候她早就不需要再看一遍地图了。要回看，往上滚就是。 */}
-        {outline && ordinalOf && onLocateBlock && (
-          <div className="pb-3">
-            <ReadingOutlineCard outline={outline} ordinalOf={ordinalOf} onLocate={onLocateBlock} />
+        <CoachLog rows={chatMessages} thinking={busy} onEdit={busy ? undefined : editMessage} />
+        {/* 🚨 导读 2026-09-18 从对话最上面挪到了清单走完之后，当全文总结。
+            同事：「appear after the steps finished, appear at the end to work as
+            a summary」。开读就摆出关键结论，「总结论点」那一步她只要照抄。 */}
+        {finished && outline && ordinalOf && onLocateBlock && (
+          <div className="pt-3">
+            <ReadingOutlineCard outline={outline} ordinalOf={ordinalOf} onLocate={onLocateBlock} heading="全文总结" />
           </div>
         )}
-        <CoachLog rows={chatMessages} thinking={busy} />
         <div ref={endRef} data-scroll-anchor="coach-end" />
       </div>
 
@@ -753,6 +776,7 @@ export function ReadingCoachPanel({
           </div>
         )}
 
+        <div ref={composerRef} className="contents">
         <Composer
           value={draft}
           onChange={setDraft}
@@ -790,6 +814,7 @@ export function ReadingCoachPanel({
                   : "请输入你的回答或问题"
           }
         />
+        </div>
 
       </div>
     </div>
@@ -797,7 +822,13 @@ export function ReadingCoachPanel({
 }
 
 /** 日志里的一行：印记 说的一句话、她说的一句话，或者一张卡片。 */
-type CoachRow = { id: string; kind: "ai" | "student" | "card"; node: ReactNode };
+type CoachRow = {
+  id: string;
+  kind: "ai" | "student" | "card";
+  node: ReactNode;
+  /** 她打的那几个字（不含引文行）。有它，这一行悬停时出现「编辑」按钮。 */
+  editText?: string;
+};
 
 // 气泡的圆角是 spec §13 的字面值（印记 的尾巴在起头一侧，她的在另一侧），和
 // `@/studio/ai/ChatLog` 保持一致 —— 这个房间只是把头像挂到了气泡**外面**。
@@ -825,7 +856,15 @@ const BUBBLE = "inline-block max-w-[85%] px-4 py-3 text-mk-body text-mk-ink";
  * 其余（圆角、白气泡 + 极淡阴影、思考中的三个点）和共享 `ChatLog` 逐字一致：
  * 这是同一个 印记，不该在 lite 里换一套长相。
  */
-function CoachLog({ rows, thinking = false }: { rows: CoachRow[]; thinking?: boolean }) {
+function CoachLog({
+  rows,
+  thinking = false,
+  onEdit,
+}: {
+  rows: CoachRow[];
+  thinking?: boolean;
+  onEdit?: (text: string) => void;
+}) {
   return (
     <div className="flex flex-col gap-3">
       {rows.map((row) =>
@@ -845,7 +884,18 @@ function CoachLog({ rows, thinking = false }: { rows: CoachRow[]; thinking?: boo
           </div>
         ) : (
           // 她那一侧不挂头像：房间里只有一个角色需要被认出来。
-          <div key={row.id} data-chat-row="student" className="flex justify-end">
+          <div key={row.id} data-chat-row="student" className="group flex items-start justify-end gap-1.5">
+            {onEdit && row.editText && (
+              <button
+                type="button"
+                title="编辑后重新发送"
+                aria-label="编辑后重新发送"
+                onClick={() => onEdit(row.editText!)}
+                className="mt-2 shrink-0 rounded-mk-full p-1.5 text-mk-muted opacity-0 transition-opacity hover:bg-mk-paper hover:text-mk-ink focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <Icon icon={PencilLine} size={14} />
+              </button>
+            )}
             {/* 🚨 `whitespace-pre-wrap` 只给她这一侧。她那一轮是原样字符串
                 （印记 那一轮走 LiteChatMarkdown），而 HTML 会把她敲的换行折掉
                 ——同事试用里报的「换行的话发送给AI就不换行了」。印记 那一侧

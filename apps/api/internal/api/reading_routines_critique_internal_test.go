@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // 🚨 2026-09-17：读法库里一套带 lens 的都不该剩下。
 //
@@ -55,11 +58,12 @@ func TestLabelIsFollowedByCritique(t *testing.T) {
 
 // 格子闭表的两条不变量。
 func TestArgueBinsAreClosedAndSmall(t *testing.T) {
-	if len(coachArgueBinsBasic) != 2 {
-		t.Errorf("基础那一套应该只有两格（关键主张 / 证据），拿到 %v", coachArgueBinsBasic)
+	// 2026-09-18：论证三要素（同事拿《敬业与乐业》测出来两格装不下提问、让步这类句子）。
+	if strings.Join(coachArgueBinsBasic, "/") != "论点/论据/论证" {
+		t.Errorf("基础那一套应该是 论点 / 论据 / 论证，拿到 %v", coachArgueBinsBasic)
 	}
-	if len(coachArgueBinsCounter) != 3 {
-		t.Errorf("驳论那一套应该是三格，拿到 %v", coachArgueBinsCounter)
+	if len(coachArgueBinsCounter) != 4 {
+		t.Errorf("驳论那一套应该是四格，拿到 %v", coachArgueBinsCounter)
 	}
 	// 模型只能说用哪一套，说别的一律按基础那套办。
 	for _, bad := range []string{"", "五个", "custom", "因果链"} {
@@ -68,7 +72,7 @@ func TestArgueBinsAreClosedAndSmall(t *testing.T) {
 			t.Errorf("coachBinSetFor(%q) 没有退回基础那一套：%v", bad, got)
 		}
 	}
-	if len(coachBinSetFor("counter")) != 3 || len(coachBinSetFor("COUNTER")) != 3 {
+	if len(coachBinSetFor("counter")) != 4 || len(coachBinSetFor("COUNTER")) != 4 {
 		t.Error("counter 那一套没认出来")
 	}
 }

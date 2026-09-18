@@ -205,16 +205,16 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "请先根据标题预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
-			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：哪一句是关键主张，哪些是撑住它的证据。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
-			{Kind: taskReflect, Label: "总结收获", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
+			{Kind: taskReflect, Label: "总结论点", Detail: "用你自己的话总结本文的论点：作者的中心论点是什么？他分几层来论证？"},
 			// 🚨 2026-09-17 改写。原来这句是「这篇讲的事，你自己身边、新闻里、
 			// 或者别的书里，有没有碰到过？」——产品负责人报的「有点抽象，还有
 			// 点鸡肋」说的就是它：一个没有落点的问题只能换来一句泛泛的话。
 			// 落点由 印记 从这篇文章里取（见 readingCurrentStepInstruction 的
 			// connect 分支），这里说清楚她要拿出来的是什么。
 			{Kind: taskConnect, Label: "链接经验", Detail: "请就文章里的某一个说法，说出你自己见过的一件对得上、或者对不上的事。"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能撑住作者观点的那一句。点出来，我们一起看看它撑不撑得住。"},
+			{Kind: taskHunt, Label: "找出中心论点", Detail: "回到文章里：作者直接表明中心论点的是哪一句？把它点出来，对照你刚才的总结。"},
 		},
 	},
 	{
@@ -232,7 +232,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskLabel, Label: "看人物怎么写", Detail: "把几句话各自归到一种描写：动作、语言、心理、环境。"},
 			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
 			{Kind: taskConnect, Label: "角色选择", Detail: "如果遇到相同情境，你会如何处理？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出你觉得写得最好的那一句——不是最重要的，是最好的。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "文中你觉得写得最好的是哪一句？不是最重要的，是写得最好的。把它点出来。"},
 		},
 	},
 	{
@@ -252,7 +252,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskCritique, Label: "比较来源", Detail: "各方的说法依据是什么？有没有哪一方没被问到？哪一句还需要别的来源？"},
 			{Kind: taskReflect, Label: "已知与待了解", Detail: "这件事目前能确定的是什么，还有哪些没有弄清楚？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能说明这件事的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最能说明这件事？把它点出来。"},
 		},
 	},
 	{
@@ -271,7 +271,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
 			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
 			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？会有什么不同？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能概括这个原理的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最能概括这个原理？把它点出来。"},
 		},
 	},
 	{
@@ -284,7 +284,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "请根据标题和第一句预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
-			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：哪一句是关键主张，哪些是撑住它的证据。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			// 🚨 复述在前，找句在后，而且是这个顺序才对：她先凭记忆说一遍，
@@ -293,7 +293,7 @@ var readingRoutines = []readingRoutine{
 			// hunt 必须是最后一步 —— 见 reading_routines_internal_test.go：
 			// 打字的答案可以凭印象给，点出来的句子不能。
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：作者的主张一句话，加上你记住的两三个表达。"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
+			{Kind: taskHunt, Label: "找出中心论点", Detail: "现在回到文章里：作者直接说出主张的是哪一句？把它点出来，对照你刚才的复述。"},
 		},
 	},
 	{
@@ -320,7 +320,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskCritique, Label: "比较来源", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这件事一句话讲完，加上你记住的两三个细节。"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出最能撑住你刚才那句复述的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里：哪一句最能对上你刚才那句复述？把它点出来。"},
 		},
 	},
 	{
@@ -337,7 +337,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
 			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
 			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "回到文章里，点出最能概括这个原理的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "回到文章里：哪一句最能概括这个原理？把它点出来。"},
 		},
 	},
 	{
@@ -354,7 +354,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
 			{Kind: taskConnect, Label: "角色选择", Detail: "如果遇到相同情境，你会如何处理？"},
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这个故事一句话讲完，加上你记住的两三个表达。"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里，点出你觉得写得最好的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里：你觉得写得最好的是哪一句？把它点出来。"},
 		},
 	},
 	{
@@ -367,10 +367,10 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：作者大概站哪一边？正文先别读。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先找出作者站哪一边。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具，看他是怎么把话说重的。"},
-			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自摆到它的位置上：作者的观点、他驳的那个观点、撑住他的证据。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归类：作者的论点、他驳的那个观点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "观点变化", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
-			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出作者最没说服你的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最没说服你？把它点出来。"},
 		},
 	},
 }
@@ -539,8 +539,17 @@ var readingBlockTools = []readingBlockTool{
 		Instruction: "这一段举了哪些具体的事例、数据或引用？每个说清楚它是用来支持什么的。没有具体事例就直说这一段是在讲道理，不是在举例。",
 	},
 	{
-		Shape: "prose", ID: "structure", Label: "结构解析", Lang: "zh",
-		Instruction: "这一段在整篇里**在干什么**（起头、承接、转折、举证、收束……），以及它和上一段是什么关系。两三句话，说的是位置和作用，不是内容摘要。",
+		// 🚨 2026-09-18 同事（《敬业与乐业》第 8 段）：「这个结构解析工具基本没解析，
+		// 按理来说现在应该在段落内，对句子划分结构，但是解析工具只是整体概述了一下」。
+		// 原来的说明只问「这一段在整篇里在干什么」，模型照做了 —— 给的就是一句概述。
+		// 改成先拆段内的层次（哪几句是一层、这一层在干什么、层与层怎么接），
+		// 最后才用一句话说这一段在全文的位置。
+		Shape: "prose", ID: "structure", Label: "结构解析", Lang: "zh", MaxRunes: 360,
+		Instruction: "把这一段**按句子拆成几个层次**，写成编号列表，一层一行：" +
+			"先引这一层开头的几个字（加「」，逐字照抄原文），注明是第几句到第几句，" +
+			"再说这一层在干什么（提出观点、举例、引用、设问、反驳、让步、推论、总结……）" +
+			"以及它和上一层是什么关系（递进、转折、因果、并列、承接……）。" +
+			"列表之后用一句话说这一段在全文里的位置和作用。说的是结构，不是内容摘要。",
 	},
 }
 

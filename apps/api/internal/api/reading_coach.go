@@ -265,7 +265,7 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   **她说文章里没有这种句子的时候，先信她**：回去看一眼，真没有就换一副，
   或者干脆不用透镜，直接往下走。不要让她为一个不存在的东西找第四遍。
 - 🚨 **格子名不要自己编。** 标注板的格子只有两套，由服务端填：
-  基础那一套是「关键主张 / 证据」，作者在驳一个观点时是「作者观点 / 驳斥观点 / 证据」。
+  基础那一套是「论点 / 论据 / 论证」，作者在驳一个观点时是「论点 / 驳斥观点 / 论据 / 论证」。
   你在话里说「按因果链分成原因和结果两格」「分成正方反方」之类的，
   她屏幕上出现的仍然是那两套里的一套 —— 于是她照着你的话去找，找不到，就以为板没出来。
   实测她逐字报的：「它让我把第2段那三句话重新分类拖进格子里（因果链），但我屏幕上
@@ -293,11 +293,12 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
    在哪儿，然后往下走。
 2. 把这次的发现接回**这篇文章要回答的问题**上：这一句让我们对这篇的判断有了
    什么变化。这是透镜存在的理由，不是装饰。
-3. 领她进下一步。当前这一步已经用这副透镜做完了，就在 advance 里给 "done"。
+3. 领她进下一步。当前这一步已经用这副透镜做完了，就在 advance 里给 "done"，
+   并且照【本轮推进判据】里说的，把下一步交给她。
 
 绝对不要：
-- **不要再给一副透镜，也不要给卡片**（lens、card 都留空）。她刚做完一件事，
-  紧接着又被塞一件，等于这次动手没有被看见。
+- **不要再给一副透镜**（lens 留空）。她刚做完一件事，紧接着又被同一件事塞一遍，
+  等于这次动手没有被看见。下一步的卡片可以给。
 - 不要重复你上一轮说过的话。她已经读过了。
 - 不要问她「感觉怎么样」。看她做了什么，然后往下走。
 
@@ -318,17 +319,29 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
   从文章里的几句原话中点一句。options 给 2 到 4 条，**至少来自两个不同的段落**。
 - {"type":"pick_in_article","prompt":"一句话的问题"}
   请她自己到正文里划出一句。没有 options ——「自己去找」就是这张卡的全部内容。
+  🚨 prompt 要写成一道题，说清找的是哪一种句子：「文中哪一句直接表明了作者的中心论点？」
+  「文中哪一句最先交代了事情的转折？」—— 不要写「请点出你想说的那一句」这种不问任何事的话，
+  她看到那样的卡不知道该点什么、点了算什么（同事 2026-09-18 逐字：「完全没看懂这个卡片在干嘛」）。
 - {"type":"short_text","prompt":"一句话的问题"}
   请她用自己的话写一小段。没有 options。
 - {"type":"label_roles","prompt":"一句话的问题","binSet":"basic","options":[{"blockId":"b3","quote":"文章里的原话"}]}
   **标注板**：几句原话摆在板上，她把每一句拖到一个格子里。
   格子**你不用给，也给不了** —— 你只能用 binSet 说这篇该用哪一套：
-  - "basic"：格子是「关键主张 / 证据」。作者只是在立论时用这一套。**默认用它。**
-  - "counter"：格子是「作者观点 / 驳斥观点 / 证据」。只在作者**明确在驳一个
+  - "basic"：格子是「论点 / 论据 / 论证」。作者只是在立论时用这一套。**默认用它。**
+  - "counter"：格子是「论点 / 驳斥观点 / 论据 / 论证」。只在作者**明确在驳一个
     别人的观点**时用；文章里找不出那个被驳的观点，就用 basic。
-  🚨 格子 2026-09-17 从五个（主张/证据/限制/背景/对比）砍成了这两套。
-  「限制 / 背景 / 对比」是最难判的三个，而看懂一个论证不需要它们：
-  论证的骨架就是**一个主张加上撑住它的东西**。
+  三个格子的意思（语文课上的论证三要素）：
+  - 论点：作者要证明的看法（中心论点或分论点）。
+  - 论据：拿来证明论点的事实、例子、名言、道理。
+  - 论证：把论据和论点接起来的那些句子 —— 分析推理、提问引路、让步、
+    承上启下。一句既不是看法也不是材料的话，多半就在这一格。
+  🚨 **挑句子之前，先确定每一句各自该放哪一格，放不进任何一格的句子不要挑。**
+  同事 2026-09-18 拿《敬业与乐业》测，板上三句里两句在当时那两个格子里都放不进去，
+  你自己也只好在话里说「这副板只给了两个格」。挑的时候照这个配：一句论点、
+  一到两句论据、一句论证，让三个格子都有东西。
+  🚨 **一个论点底下的几条论据是并列的，不要问「哪一条论据最关键」。**
+  论据各自从一面证明同一个论点，没有哪一条是「关键的那条」；要她比，就比
+  「这一条论据证明的是论点的哪一面」。
   options 给 2 到 4 条，**每一句都必须逐字抄自文章**（系统会核对，对不上就整张丢掉）。
   🚨 和 choose_span 不同：这几句**可以来自同一段**。同一段里的「后果」和「原因」
   正是关系最紧、也最值得让她分辨的一对。
@@ -463,11 +476,15 @@ prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交�
 2. **生词板还多一件事：只讲她划到「不确定」和「不认识」的那几个词。**
    她说认识的，一个字都不要讲 —— 这块板存在的全部理由就是让「讲哪几个词」
    由她决定。讲词的时候给的是**这一句里的意思**，不是词典释义。
-3. **然后往下走。** 这一步已经用这块板做完了，advance 给 "done"。
+   **论证板也多一件事：她放进「论证」的那一句，说清它在论证里是哪一种关系**
+   —— 递进、转折、让步、因果、提问引路、承上启下（衔接）、总结，挑它真是的那一种，
+   并说一句凭哪几个字看出来的。只说一句，不要把每一句都讲一遍。
+3. **然后往下走。** 这一步已经用这块板做完了，advance 给 "done"，
+   并且照【本轮推进判据】里说的，把下一步交给她。
 
 绝对不要：
-- **不要紧接着再给一块板或者一张卡片**（card 留空）。她刚动完手，
-  马上又被塞一件，等于这次动手没有被看见。
+- **不要紧接着再给一块板**，也不要再就这块板出题。她刚动完手，
+  马上又被同一件事塞一遍，等于这次动手没有被看见。下一步的卡片可以给。
 - 不要把她摆的东西再复述一遍。她刚摆完，她记得。
 - 🚨 **不要再让她动那块板。** 她一交上来，那块板就从屏幕上收走了 ——
   「把这句挪到主张旁边」「再拖一张过去」这类话，她照着做的时候会发现屏幕上
@@ -1303,7 +1320,32 @@ func readingCurrentStepInstruction(tasks []sqlc.ReadingTask) string {
 	}
 	return "\n【本轮推进判据】\n当前步骤：" + current.Kind + "；任务：" + current.Label + "。\n" +
 		"先检查学生是否明确要求跳过：如是，advance 必须为 skipped。否则：" + rule + "\n" +
-		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；reply 可以介绍下一步，但不能因介绍下一步而把 advance 留空。一次只推进当前一步。\n"
+		"概念或词义提问可以直接解释；解释不算学生已经完成分析任务。学生已经完成时，advance 必须为 done；不能因介绍下一步而把 advance 留空。一次只推进当前一步。\n" +
+		readingNextStepHandoff(tasks, current)
+}
+
+// readingNextStepHandoff —— advance 给 done 的那一轮，话要把下一步交到她手上。
+//
+// 🚨 2026-09-18 同事（《敬业与乐业》）：「每次单独的步骤做完，不会在一条内容里
+// 引导完成下一步」。印记 说完「这一步做完。」就停，她只能回一句「好」，下一轮
+// 它才开始讲下一步 —— 每一步都多出一个空回合。产品负责人：「we should make our
+// tasks close-end, a full loop.」原来这里只说「reply **可以**介绍下一步」，
+// 而且模型根本不知道下一步是什么（清单只把当前这一步给它）。
+func readingNextStepHandoff(tasks []sqlc.ReadingTask, current *sqlc.ReadingTask) string {
+	var next *sqlc.ReadingTask
+	for i := range tasks {
+		if tasks[i].Status == "pending" && tasks[i].Position > current.Position {
+			if next == nil || tasks[i].Position < next.Position {
+				next = &tasks[i]
+			}
+		}
+	}
+	if next == nil {
+		return "这是清单上的最后一步。给 done 的那一轮，reply 用一两句收尾：说清她这一篇做完了哪几件事，不再布置任务。\n"
+	}
+	return "给 done 的那一轮，reply 的最后一段必须直接把下一步交给她：下一步是「" + next.Label + "」（" + next.Detail + "）。" +
+		"说清这一步凭什么值得做、她现在要做什么，能用一张卡片承担就在 card 里给下一步的卡。" +
+		"🚨 不要以「这一步做完」「往下走」「下一轮我们看……」收尾、等她回一句「好」才开始下一步。\n"
 }
 
 // maxLabelBoards 是一篇文章里最多摆几块标注板。
@@ -2530,7 +2572,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
 		cur.Kind != string(taskSequence) && !boardOpen &&
 		countLabelBoards(msgs) < maxLabelBoards &&
-		((cur.Kind == string(taskLabel) && (!answeredBoard(req.CardAnswer) || replyPromisesACard(parsed.Reply))) ||
+		// 🚨 她这一轮交的就是板（answeredBoard）：话里的「格子」「放进」说的是她刚摆完的
+		// 那一块，而这一轮还要把下一步交给她（readingNextStepHandoff）。在这里再兜一块板，
+		// 就是 2026-09-18 同事看到的「板后面又来一张没头没尾的卡」。
+		!answeredBoard(req.CardAnswer) &&
+		(cur.Kind == string(taskLabel) ||
 			(replyPromisesABoard(parsed.Reply) && !replyAsksToWrite(parsed.Reply))) {
 		focus := parsed.FocusBlock
 		if focus == "" {
@@ -2570,11 +2616,17 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 问题用它自己刚才那道（askedPrompt）——**她看到的仍然是 印记 问的话，
 	// 不是我们编的**（[[ai-errors-must-surface-never-fake]]）；它连问题都没写
 	// 的时候才用那句中性的。
-	if !anyOpen && !toolAnswerTurn && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) {
-		parsed.Card = fallbackCardFor(parsed.askedPrompt, parsed.Reply)
-		parsed.cardWhy = cardOK
-		slog.Info("reading coach: promised a card and had none, fell back",
-			"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
+	// 🚨 她这一轮交的是一张卡或一块板、而它自己一道题都没写：话里的「格子」「卡片」
+	// 说的多半是她刚交的那一张，不是一张新卡（2026-09-18，同事看到板后面跟了一张
+	// 没头没尾的卡）。这时不兜。
+	if !anyOpen && !toolAnswerTurn && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) &&
+		(parsed.askedPrompt != "" || req.CardAnswer == nil) {
+		if fb := fallbackCardFor(parsed.askedPrompt, parsed.Reply, stepQuestion(currentReadingTask(tasks))); fb != nil {
+			parsed.Card = fb
+			parsed.cardWhy = cardOK
+			slog.Info("reading coach: promised a card and had none, fell back",
+				"atom_id", at.ID, "type", parsed.Card.Type, "kept_prompt", parsed.askedPrompt != "")
+		}
 	}
 
 	// 🚨 两次都把协议词写进了正文，就把漏出来的那一句拿掉。
@@ -2587,6 +2639,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("reading coach: stripped a protocol word from the reply",
 			"atom_id", at.ID, "word", w)
 	}
+
+	// 新的一块板上混着她上一块板已经摆过的句子，就把那几句拿掉。见 dropAlreadyPlaced。
+	parsed.Card = dropAlreadyPlaced(parsed.Card, lastBoardPlacement(msgs))
 
 	// 标注板的格子换成这篇体裁的那一套。议论文原样不动。见 fitBoardToGenre。
 	parsed.Card = fitBoardToGenre(parsed.Card, genre)
@@ -2846,6 +2901,34 @@ func lastBoardPlacement(msgs []sqlc.AtomMessage) map[string]string {
 	return nil
 }
 
+// dropAlreadyPlaced —— 一块新标注板上，她上一块板已经摆过的句子拿掉。
+//
+// 🚨 2026-09-18 同事（《敬业与乐业》）：「出现新的分析的时候，原来的例子没有清除」。
+// 印记 给第 8 段发了一块板，选项里却夹着第 6、7 段那两句 —— 她上一块板刚摆过的。
+// 前端按句子把她上次的摆法搬过来（carryOverPlacement），于是新板一打开，格子里
+// 已经躺着两张旧卡。
+//
+// 只在**新旧混着**的时候拿：整块板都是摆过的句子，那是「重摆一次」，搬过来
+// 正是同事 09-17 要的（「1、4 句正确，2 和 3 重新填写」）。拿掉之后剩不到两句，
+// 就原样留着 —— 一块只剩一句的板不成一块板。
+func dropAlreadyPlaced(c *coachCard, placed map[string]string) *coachCard {
+	if c == nil || c.Type != coachCardLabelRoles || len(placed) == 0 {
+		return c
+	}
+	fresh := make([]coachCardOption, 0, len(c.Options))
+	for _, o := range c.Options {
+		if _, seen := placed[strings.TrimSpace(o.Quote)]; !seen {
+			fresh = append(fresh, o)
+		}
+	}
+	if len(fresh) == len(c.Options) || len(fresh) < coachCardMinOptions {
+		return c
+	}
+	out := *c
+	out.Options = fresh
+	return &out
+}
+
 // coachMoveVerbs —— 「把它挪过去」的说法。
 var coachMoveVerbs = []string{"拖到", "拖进", "挪到", "挪进", "移到", "移进", "放进", "放到", "改放", "换到"}
 
@@ -2907,13 +2990,6 @@ func replyOnlyAsksHerToRead(reply string) bool {
 	return true
 }
 
-// fallbackCardFor —— 它说了有卡、而那张卡没能发出去时，兜底的那一张。
-//
-// 🚨 只可能是 pick_in_article：五种卡片里只有它**没有 options**，因此不存在
-// 「引文和原文对不上」这种驳回理由 —— 它一定发得出去。这正是兜底需要的性质。
-//
-// 问题优先用 印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
-// 本身是好的）。它连题都没写才用中性的那句。
 // replyAsksToWrite —— 这句回复是在请她打字。
 func replyAsksToWrite(reply string) bool {
 	for _, w := range []string{"写几个字", "写下", "写一", "写出", "打字", "用你自己的话", "写在"} {
@@ -2924,27 +3000,73 @@ func replyAsksToWrite(reply string) bool {
 	return false
 }
 
-func fallbackCardFor(asked, reply string) *coachCard {
+// fallbackCardFor —— 它说了有卡、而那张卡没能发出去时，兜底的那一张。
+//
+// 🚨 只可能是 pick_in_article / short_text：它们**没有 options**，因此不存在
+// 「引文和原文对不上」这种驳回理由 —— 它一定发得出去。这正是兜底需要的性质。
+//
+// 题目按顺序取：印记 自己刚才写的那一道（哪怕那张卡因为选项坏了被丢掉，那道题
+// 本身是好的）→ 这一步说明里的那个问句（stepQuestion）。两样都没有就**不兜**，
+// 返回 nil。
+//
+// 🚨 2026-09-18 删掉了原来的中性题「请在文章里点出你想说的那一句。」同事
+// （《敬业与乐业》）：「完全没看懂这个卡片在干嘛，主ai文本也没有引导」。一张
+// 不问任何事的卡比没有卡更糟：她不知道该点哪一句、点了算什么。卡片上的题要像
+// 一道题（「文中哪一句……？」），不是一句操作说明。
+func fallbackCardFor(asked, reply, stepQ string) *coachCard {
 	// 🚨 兜底那张卡要她做的事，必须和话里说的是同一件事。
 	//
 	// 线上实测（2026-09-17，刚部署完那一轮）：印记 说「下面那张卡上写几个字
-	// 就行：你觉得这篇报道接下来会讲哪几类消息？」而兜出来的卡片写着
-	// 「请在文章里点出你想说的那一句。」—— 一个要她打字，一个要她点句子。
-	// 这和产品负责人报的第 2 条是同一种伤：「对话框指令和动手部分的指令不一致」，
-	// 只是这一次那句不一致是**我们自己写的**。
-	//
-	// 两种形状都不可能被驳回（都没有 options，也就没有「引文对不上原文」
-	// 可言），所以按话里的动词挑：请她写就给 short_text，其余给 pick_in_article。
-	kind, neutral := coachCardPickInArticle, "请在文章里点出你想说的那一句。"
+	// 就行：你觉得这篇报道接下来会讲哪几类消息？」而兜出来的卡片要她点句子 ——
+	// 一个要她打字，一个要她点句子。按话里的动词挑：请她写就给 short_text，
+	// 其余给 pick_in_article。
+	kind := coachCardPickInArticle
 	if replyAsksToWrite(reply) {
-		kind, neutral = coachCardShortText, "请用你自己的话写一句。"
+		kind = coachCardShortText
 	}
-	prompt := strings.TrimSpace(asked)
-	if utf8.RuneCountInString(prompt) == 0 || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes ||
-		promptPresumesOptions(prompt) {
-		prompt = neutral
+	for _, p := range []string{asked, questionIn(reply, true), stepQ} {
+		p = strings.TrimSpace(p)
+		if n := utf8.RuneCountInString(p); n > 0 && n <= coachCardPromptMaxRunes && !promptPresumesOptions(p) {
+			return &coachCard{Type: kind, Prompt: p}
+		}
 	}
-	return &coachCard{Type: kind, Prompt: prompt}
+	return nil
+}
+
+// stepQuestion —— 这一步说明里的第一个问句，没有问句就是空串。读法库里的说明
+// 大多本来就写成一道题（「作者说的你同意吗？」）。
+func stepQuestion(t *sqlc.ReadingTask) string {
+	if t == nil {
+		return ""
+	}
+	return questionIn(t.Detail, false)
+}
+
+// questionIn —— 一段话里的一个问句（从它前面最近的句号、问号、叹号或冒号后面起，
+// 到「？」为止）。last 取最后一个，否则取第一个；没有问句就是空串。
+// 加粗记号去掉：卡片上的题不渲染 Markdown。
+func questionIn(text string, last bool) string {
+	r := []rune(strings.ReplaceAll(strings.TrimSpace(text), "**", ""))
+	end := -1
+	for i, c := range r {
+		if c == '？' || c == '?' {
+			end = i
+			if !last {
+				break
+			}
+		}
+	}
+	if end < 0 {
+		return ""
+	}
+	start := 0
+	for i := end - 1; i >= 0; i-- {
+		if strings.ContainsRune("。！？!?：:\n", r[i]) {
+			start = i + 1
+			break
+		}
+	}
+	return strings.TrimSpace(string(r[start : end+1]))
 }
 
 // promptPresumesOptions —— 这道题要的是一组摆在卡上的句子（「分析下列句子，判断

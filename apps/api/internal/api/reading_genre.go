@@ -237,7 +237,7 @@ func buildGenreCoachSection(genre string) string {
 	b.WriteString(guide + "\n")
 	if board, ok := genreBoardFor(genre); ok {
 		b.WriteString("\n🚨 **这篇的标注板换了一套格子**：" + board.Named + "。" +
-			"系统说明里「关键主张 / 证据」「作者观点 / 驳斥观点 / 证据」那两套在这篇上不用，" +
+			"系统说明里「论点 / 论据 / 论证」「论点 / 驳斥观点 / 论据 / 论证」那两套在这篇上不用，" +
 			"binSet 也不用给 —— 格子由系统按这篇的体裁填。说板的时候就用这几个格子名，" +
 			"题目照这个样子写：「" + board.Prompt + "」\n")
 	}

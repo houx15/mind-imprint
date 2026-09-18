@@ -81,6 +81,9 @@ export type ReportBoard = {
   order?: string[];
 };
 
+/** 阅读报告上「全文总结」那一节 —— atom_report.go 的 reportSummary。 */
+export type ReportSummary = { question?: string; conclusion?: string; structure?: string };
+
 /** `liteReportDTO` — apps/api/internal/api/atom_report.go. */
 export type LiteReport = {
   version: 1;
@@ -116,6 +119,9 @@ export type LiteReport = {
   /** 她摆过的板（阅读专属，2026-09-18）。早于这个字段的报告没有这一项；
    *  规范化之后是空数组，旧的夹具里整个键缺席。 */
   boards?: ReportBoard[];
+  /** 全文总结：导读里的核心问题 / 关键结论 / 结构（阅读专属，2026-09-18）。
+   *  早于这个字段的报告没有这一项，原样透传（不规范化出一个空对象）。 */
+  summary?: ReportSummary;
   /** The finished piece, in full, HER OWN words — writing-kind only, and
    *  `""` on a writing report generated before the field existed (no
    *  backfill, same as `notes`/`lensNotes`). This is what makes a scanned

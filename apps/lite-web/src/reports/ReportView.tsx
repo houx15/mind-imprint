@@ -156,6 +156,7 @@ export function ReportView({
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <ArticleEntry article={report.article} title={report.title} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Summary summary={report.summary} />
       <Boards boards={report.boards} />
       <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
@@ -183,6 +184,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
+      <Summary summary={report.summary} />
       <Boards boards={report.boards} />
       <Toolkit toolkit={report.toolkit} />
       <Gains gains={report.gains} />
@@ -634,6 +636,33 @@ function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
  * 🚨 板上那几句是**文章的原话**，不是她写的句子 —— 这一节的说明因此写的是
  * 「你放的位置」，而不是「你写的」。
  */
+/**
+ * 全文总结：导读里的核心问题 / 关键结论 / 结构。同事 2026-09-18：「can also
+ * appear in the reading report?」和阅读室里读完之后摆出来的是同一份。
+ */
+function Summary({ summary }: { summary: LiteReport["summary"] }) {
+  if (!summary) return null;
+  const rows = [
+    ["核心问题", summary.question],
+    ["关键结论", summary.conclusion],
+    ["结构", summary.structure],
+  ].filter((r): r is [string, string] => Boolean(r[1]));
+  if (rows.length === 0) return null;
+  return (
+    <section className="mk-rp-sec">
+      <h2 className="mk-rp-h2">全文总结</h2>
+      <dl className="mk-rp-summary">
+        {rows.map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function Boards({ boards }: { boards: LiteReport["boards"] }) {
   if (!boards || boards.length === 0) return null;
   return (

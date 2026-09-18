@@ -226,8 +226,14 @@ export function carryOverPlacement(
   nextBins: string[],
 ): BoardPlacement {
   if (prev.card.type !== next.type) return {};
-  const placed = parseBoardAnswer(prev.card, prev.choice);
   const prevText = new Map(boardItems(prev.card).map((it) => [it.id, it.text.trim()]));
+  // 🚨 标注板只有「重摆同一批句子」才搬。新板上有一句是上一块没有的，那就是
+  // 一次新的分析 —— 同事 2026-09-18：「出现新的分析的时候，原来的例子没有清除」。
+  // 那时把旧句子摆好放进格子里，看着就是上一题的答案留在了这一题上。
+  // 生词板不受这条管：一个词她说过认识，换一块板仍然认识。
+  const prevSet = new Set(prevText.values());
+  if (next.type === "label_roles" && boardItems(next).some((it) => !prevSet.has(it.text.trim()))) return {};
+  const placed = parseBoardAnswer(prev.card, prev.choice);
   const binByText = new Map<string, string>();
   for (const [id, bin] of Object.entries(placed)) {
     const text = prevText.get(id);

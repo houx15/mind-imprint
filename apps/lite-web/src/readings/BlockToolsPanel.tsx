@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Icon } from "@/ui";
-import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
+import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { segmentSentences } from "@/primitives/annotate/sentences";
 import { explainReadingBlock, grammarHasContent, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
 import { BlockToolbar } from "./BlockToolbar";
@@ -327,7 +327,7 @@ export function BlockToolsPanel({
               <WordCards words={shown.words} />
             ) : (
               <div className="text-mk-body leading-relaxed text-mk-ink">
-                <ChatMarkdown text={shown.body} />
+                <LiteChatMarkdown text={shown.body} />
               </div>
             )}
             {onToolAnswer && (shown.tool === "questions" || shown.tool === "imitate") && (

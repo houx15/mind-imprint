@@ -348,7 +348,7 @@ describe("ReadingRoomHost", () => {
     };
     render(<ReadingRoomHost readingId={READING_ID} />);
 
-    expect(await screen.findByText("已完成")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "返回" })).toBeTruthy();
     // `find`, not `get`: 我的收获 is no longer rendered by the panel itself. It
     // is `ReportPanel`'s `fallback`, shown only once the report fetch has
     // resolved to "no report" — so it lands a tick after 已完成, and a
@@ -356,11 +356,10 @@ describe("ReadingRoomHost", () => {
     expect(await screen.findByText("作者把「装机量」当成了「实际发电量」。")).toBeTruthy();
     // Nothing that could change the reading is on the page.
     //
-    // 2026-09-16：这一条原来断的是「页面上一个 role=tab 都没有」，当时那是
-    // 「房间的页签不在这儿」的代理判据。现在完成页自己有三格（报告 · 对话 ·
-    // 原文），所以改成断那三格**就是全部** —— 它们都只读，任何一格里都没有
-    // 能改这次阅读的东西。判的仍然是同一件事，不是把这条断言让开。
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["报告", "对话", "原文"]);
+    // 2026-09-18：顶上只有一颗返回（产品负责人：「just a back button」）。
+    // 页签和「继续阅读」都不在报告这一页上 —— 继续阅读挪到了阅读记录那一页。
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "继续阅读" })).toBeNull();
     expect(screen.queryByText(/完成这次阅读/)).toBeNull();
     // And the room's own loads are never even attempted.
     expect(calls.some((c) => c.url.endsWith("/source"))).toBe(false);
@@ -404,14 +403,13 @@ describe("ReadingRoomHost", () => {
       body: { ...READING, status: "finished", finishedAt: "2026-08-25T00:00:00Z" },
     };
     render(<ReadingRoomHost readingId={READING_ID} />); // no takeaway route → 404
-    expect(await screen.findByText("已完成")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "返回" })).toBeTruthy();
     // A missing takeaway is now the NORMAL case, not a degraded one: 完成这篇
     // stopped asking for one. So the panel says nothing about it rather than
     // reporting 「这次阅读没有留下收获记录」 — that line described a form we no
     // longer ask her to fill, and it read as something having gone wrong.
     expect(screen.queryByText("我的收获")).toBeNull();
     expect(screen.queryByText(/没有留下收获记录/)).toBeNull();
-    expect(screen.getByText(READING.title)).toBeTruthy();
   });
 });
 

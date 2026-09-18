@@ -259,7 +259,8 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // lite 的学生没有「工作区」，只有「我的阅读」。walk 没跟上，于是它红着，
   // 而它红的理由恰恰是文案变对了。
   await expect(page.getByRole("button", { name: "返回工作区" })).toHaveCount(0);
-  await page.getByRole("button", { name: "回到阅读", exact: true }).click();
+  // 2026-09-18 又改回「返回」：完成页顶上只剩这一颗（产品负责人：「just a back button」）。
+  await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page).toHaveURL(/\/readings$/);
   await expectGreeting(page);
 

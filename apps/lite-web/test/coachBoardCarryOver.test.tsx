@@ -49,11 +49,19 @@ describe("一块板重发的时候", () => {
   it("按句子认，不按位置认 —— 两张卡上的 o0 常常不是同一句", () => {
     const first = labelCard([A, B, C, D]);
     const choice = composeBoardAnswer(first, { o0: "主张", o3: "背景" }, boardItems(first));
-    // 印记 重发时换了顺序，还去掉了一句、添了一句。
-    const second = labelCard([D, "The U.N. is worried about working in the area.", A]);
+    // 印记 重发时换了顺序，还去掉了两句。
+    const second = labelCard([D, A]);
     const carried = carryOverPlacement({ card: first, choice }, second, BINS);
-    // D 现在是 o0、A 现在是 o2，各自带着自己那一格过来；新加的那一句没有。
-    expect(carried).toEqual({ o0: "背景", o2: "主张" });
+    // D 现在是 o0、A 现在是 o1，各自带着自己那一格过来。
+    expect(carried).toEqual({ o0: "背景", o1: "主张" });
+  });
+
+  it("新板上添了一句上一块没有的 —— 那是一次新的分析，一个都不带", () => {
+    // 同事 2026-09-18：「出现新的分析的时候，原来的例子没有清除」。
+    const first = labelCard([A, B, C, D]);
+    const choice = composeBoardAnswer(first, { o0: "主张", o3: "背景" }, boardItems(first));
+    const second = labelCard([D, "The U.N. is worried about working in the area.", A]);
+    expect(carryOverPlacement({ card: first, choice }, second, BINS)).toEqual({});
   });
 
   it("上一次没摆的那几张，这一次仍然空着", () => {

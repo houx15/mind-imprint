@@ -455,10 +455,15 @@ test(`阅读室入口：${ENTRY}`, async ({ browser }) => {
     const t = tasks.find((x) => x.id === stuckTask[0]);
     note("同一步不反复", stuckTask[1] > 12 ? "look" : "ok", `停留最久的一步「${t?.label}」${stuckTask[1]} 个回合`);
   }
-  // 导读在印记那一栏
-  const outlineInCoach = await page.locator('[data-coach-log] [aria-label="导读"], [aria-label="导读"]').count();
-  const outlineText = outlineInCoach ? await page.locator('[aria-label="导读"]').first().innerText() : "";
-  note("导读在对话栏、用新名字（核心问题/关键结论/文章概览/重点段落）", outlineInCoach ? (/核心问题/.test(outlineText) ? "ok" : "bad") : "look", outlineText.slice(0, 120).replace(/\n/g, " "));
+  // 导读 2026-09-18 起只在清单走完之后出现，当「全文总结」（同事的第 1 条）。
+  const allDone = tasks.length > 0 && tasks.every((t) => t.status !== "pending");
+  const outlineInCoach = await page.locator('[data-coach-log] [aria-label="全文总结"]').count();
+  const outlineText = outlineInCoach ? await page.locator('[aria-label="全文总结"]').first().innerText() : "";
+  note(
+    "全文总结在清单走完之后出现（核心问题/关键结论/结构）",
+    allDone ? (outlineInCoach && /核心问题|关键结论/.test(outlineText) ? "ok" : "bad") : outlineInCoach ? "bad" : "ok",
+    allDone ? outlineText.slice(0, 120).replace(/\n/g, " ") : `清单未走完，总结${outlineInCoach ? "提前出现了" : "未出现"}`,
+  );
   // 答过的选句卡：选项都在、标着「你选的」
   const chosen = page.locator('[data-chat-row="card"]', { hasText: "你选的" });
   const nChosen = await chosen.count();
