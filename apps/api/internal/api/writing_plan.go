@@ -1054,6 +1054,15 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 					byID[node.ParentID] = *p
 				}
 			}
+		} else if writingRoleIsPoint(node.Role) {
+			// 同一个毛病的另一半（2026-09-18 线上验证）：一条「分论点」落在了最上层，
+			// 和中心论点平级。分论点就挂在中心论点下面。
+			if _, ok := resolvePlanParent(byID, live, node.ParentID); node.ParentID == "" || !ok {
+				if p := thesisPlanNode(live); p != nil {
+					node.ParentID = p.ID.String()
+					byID[node.ParentID] = *p
+				}
+			}
 		}
 		if node.ParentID != "" {
 			p, found := resolvePlanParent(byID, live, node.ParentID)

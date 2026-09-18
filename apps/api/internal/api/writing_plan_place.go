@@ -145,6 +145,38 @@ func examplePlanParent(pointThisTurn *sqlc.WritingOutline, live []sqlc.WritingOu
 	return last
 }
 
+// writingRoleIsPoint：role 说这一块是一条分论点 / 理由（不是中心论点本身）。
+func writingRoleIsPoint(role string) bool {
+	r := strings.ToLower(role)
+	if strings.Contains(r, "中心") {
+		return false
+	}
+	for _, kw := range []string{"分论点", "理由", "论点", "sub-point", "subpoint", "reason", "point"} {
+		if strings.Contains(r, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// thesisPlanNode 是图上的中心论点：第一个最上层、不是开头/结尾/例子/分论点的节点。
+// 返回 live 里的那一行；没有就 nil（分论点只能留在最上层）。
+func thesisPlanNode(live []sqlc.WritingOutline) *sqlc.WritingOutline {
+	var best *sqlc.WritingOutline
+	for i := range live {
+		r := live[i]
+		if r.Depth != 0 || strings.TrimSpace(r.Text) == "" ||
+			roleHasAny(r.Role, writingOpeningRoleWords) || roleHasAny(r.Role, writingClosingRoleWords) ||
+			writingRoleIsExample(r.Role, r.Source) || writingRoleIsPoint(r.Role) {
+			continue
+		}
+		if best == nil || r.Position < best.Position {
+			best = &live[i]
+		}
+	}
+	return best
+}
+
 var planReplyQuote = regexp.MustCompile(`「([^「」]{2,60})」`)
 
 // planReplyUnplaced 列出 reply 里引着她**这一轮原话**、却不在图上也不在

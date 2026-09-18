@@ -14,6 +14,11 @@ import path from "node:path";
 import fs from "node:fs";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:5174";
+// Online the API is its own host (relative /api hits the static site → 405).
+// Locally the dev server proxies /api, so it stays empty.
+const API = process.env.E2E_API_BASE ?? "";
+// Online: sign up a fresh student into this class (the 写作走查班), never a real one.
+const JOIN = process.env.E2E_JOIN_CODE ?? "";
 const OUT = process.argv[2] ?? ".";
 fs.mkdirSync(OUT, { recursive: true });
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, `${name}.png`) });
@@ -26,11 +31,20 @@ const must = async (res, what) => {
   return res.json();
 };
 
-await must(await api.post("/api/v1/auth/signin", { data: { email: "phoebe@demo.mindimprint.local", password: "phoebe-dev-pass" } }), "signin");
+if (JOIN) {
+  const tag = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const email = `writecards-${tag}@demo.mindimprint.local`;
+  const password = `wc-${tag}-pass`;
+  await must(await api.post(`${API}/api/v1/auth/signup`, { data: { email, password, display_name: "卡片走查", join_code: JOIN } }), "signup");
+  await must(await api.post(`${API}/api/v1/auth/signin`, { data: { email, password } }), "signin");
+  console.log(`account ${email}`);
+} else {
+  await must(await api.post(`${API}/api/v1/auth/signin`, { data: { email: "phoebe@demo.mindimprint.local", password: "phoebe-dev-pass" } }), "signin");
+}
 
 // ── 1. planning: the owner's screenshot, turn by turn ──────────────────────
-const { id } = await must(await api.post("/api/v1/writings", { data: { idea: "人如何面对脆弱", lang: "zh" } }), "create");
-await must(await api.put(`/api/v1/writings/${id}/setup`, { data: { lang: "zh", targetWords: 800, note: "" } }), "setup");
+const { id } = await must(await api.post(`${API}/api/v1/writings`, { data: { idea: "人如何面对脆弱", lang: "zh" } }), "create");
+await must(await api.put(`${API}/api/v1/writings/${id}/setup`, { data: { lang: "zh", targetWords: 800, note: "" } }), "setup");
 const turns = [
   "脆弱不可怕，人是可以脆弱的。没有一个人可以不经历脆弱就能成长。",
   "我经历了爸爸进监狱，妹妹抑郁症，这些没有打垮我，反而让我成为了更沉着更懂得珍惜的人",
@@ -41,13 +55,13 @@ const turns = [
 ];
 for (const text of turns) {
   const t0 = Date.now();
-  const r = await must(await api.post(`/api/v1/writings/${id}/plan/turn`, { data: { text }, timeout: 180_000 }), "plan turn");
+  const r = await must(await api.post(`${API}/api/v1/writings/${id}/plan/turn`, { data: { text }, timeout: 180_000 }), "plan turn");
   console.log(`\n【她】${text}\n【印记 ${((Date.now() - t0) / 1000).toFixed(0)}s · ready=${r.ready}】${r.reply}`);
   for (const o of r.outline) console.log(`   ${"  ".repeat(o.depth)}- ${o.text}（${o.role}）`);
 }
 
 // ── 2. 段落: the card layout ────────────────────────────────────────────────
-await must(await api.post(`/api/v1/writings/${id}/stage`, { data: { stage: "snippets" } }), "stage snippets");
+await must(await api.post(`${API}/api/v1/writings/${id}/stage`, { data: { stage: "snippets" } }), "stage snippets");
 const page = await ctx.newPage();
 await page.goto(`/writings/${id}`);
 await page.locator("[data-write-card]").first().waitFor({ timeout: 60_000 });
@@ -61,7 +75,7 @@ await page.locator("[data-write-card]").first().click();
 await paper.fill("很多人把脆弱当成需要藏起来的东西。可我越来越觉得，脆弱不可怕，人是可以脆弱的。");
 await page.locator("[data-write-card]").nth(1).click(); // leave mid-debounce: must still save
 await page.waitForTimeout(1500);
-const snips = await must(await api.get(`/api/v1/writings/${id}/snippets`), "snippets");
+const snips = await must(await api.get(`${API}/api/v1/writings/${id}/snippets`), "snippets");
 console.log(`换卡之后服务端的片段：${JSON.stringify((snips.snippets ?? []).map((s) => s.text.slice(0, 12)))}`);
 await shot(page, "2-second-card");
 await page.getByRole("button", { name: "收起引导" }).click();
@@ -69,6 +83,27 @@ await shot(page, "3-guidance-folded");
 await page.getByRole("button", { name: "展开引导" }).click();
 const coachW = await page.locator(".student-coach-panel").evaluate((el) => el.getBoundingClientRect().width);
 console.log(`印记那一栏宽 ${Math.round(coachW)}px`);
+
+// 深入一层: markdown bold must render (no raw **), and 印记 talks TO her (你, not 她).
+const deepen = page.getByRole("button", { name: "深入一层" }).first();
+if (await deepen.count()) {
+  await deepen.click();
+  const drawer = page.getByRole("dialog");
+  await drawer.waitFor();
+  const composer = drawer.getByRole("textbox");
+  await composer.fill("我这一段该用什么方法？请把方法名加粗告诉我。");
+  await composer.press("Enter");
+  await drawer.locator("strong").first().waitFor({ timeout: 120_000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  const text = (await drawer.textContent()) ?? "";
+  const bold = await drawer.locator("strong").count();
+  console.log(`深入一层：加粗 ${bold} 处；原样星号：${text.includes("**")}；回复里「她那段/她的」：${/她那段|她的论点|她那/.test(text)}`);
+  await shot(page, "2b-deepen");
+  await page.keyboard.press("Escape");
+  await drawer.getByRole("button").first().click().catch(() => {});
+} else {
+  console.log("（这张卡没有深入一层按钮）");
+}
 
 // ── 3. 成稿: 请印记看看 with the rail scrolled away ─────────────────────────
 const essay = [
@@ -78,8 +113,8 @@ const essay = [
   "当我发现自己从频繁绊绳变得能够连续跳很久时，心里十分高兴。跳绳仍然让我出汗、喘气，但那些疲惫不再占据我全部的注意力。",
   "这段经历让我明白，乐趣可以在认真投入的过程中逐渐产生。当努力有了方向，辛苦有了意义，我们便更有可能带着期待继续前行。",
 ].join("\n\n");
-await must(await api.put(`/api/v1/writings/${id}/draft`, { data: { body: essay } }), "draft");
-await must(await api.post(`/api/v1/writings/${id}/stage`, { data: { stage: "draft" } }), "stage draft");
+await must(await api.put(`${API}/api/v1/writings/${id}/draft`, { data: { body: essay } }), "draft");
+await must(await api.post(`${API}/api/v1/writings/${id}/stage`, { data: { stage: "draft" } }), "stage draft");
 await page.goto(`/writings/${id}`);
 await page.getByRole("button", { name: "请印记看看", exact: true }).waitFor();
 const rail = page.locator("aside").last();

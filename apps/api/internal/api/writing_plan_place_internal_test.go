@@ -67,3 +67,23 @@ func TestPlanAddsThatLand(t *testing.T) {
 		t.Fatalf("lands = %d, want 2", n)
 	}
 }
+
+// 2026-09-18 线上验证：一条「分论点」落在了最上层，和中心论点平级。
+func TestThesisPlanNodeAndPointRole(t *testing.T) {
+	open := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 0, Text: "从一件小事说起", Role: "开头"}
+	thesis := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 1, Text: "人可以脆弱", Role: "中心论点"}
+	stray := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 2, Text: "变故不必然打垮人", Role: "分论点"}
+	if p := thesisPlanNode([]sqlc.WritingOutline{open, stray, thesis}); p == nil || p.ID != thesis.ID {
+		t.Fatal("the thesis is the first top-level node that is not an opening, example or point")
+	}
+	if thesisPlanNode([]sqlc.WritingOutline{open}) != nil {
+		t.Fatal("no thesis yet")
+	}
+	for role, want := range map[string]bool{
+		"分论点": true, "一条理由（讲道理）": true, "中心论点": false, "你经历过的事": false, "开头": false,
+	} {
+		if writingRoleIsPoint(role) != want {
+			t.Errorf("writingRoleIsPoint(%q) = %v", role, !want)
+		}
+	}
+}
