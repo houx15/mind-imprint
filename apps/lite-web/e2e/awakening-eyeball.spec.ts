@@ -68,14 +68,14 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   await expect(page.getByText("AWAKENING_PROTOCOL")).toBeVisible();
   await shot("01-boot");
-  await page.getByRole("button", { name: "跳过" }).click();
+  await page.getByRole("button", { name: "跳过开场剧情" }).click();
 
   /* ── 2 序章 ───────────────────────────────────────────────────────────── */
 
-  await expect(page.getByText("你的判断仍然属于你。")).toBeVisible();
+  await expect(page.getByText("你的脑子，仍然属于你。")).toBeVisible();
   await shot("02-world");
   // 走长的那条：先看清楚 AI。
-  await page.getByRole("button", { name: /先看清楚 AI/ }).click();
+  await page.getByRole("button", { name: /暂不加入联盟/ }).click();
 
   /* ── 3 提醒 ───────────────────────────────────────────────────────────── */
 
@@ -109,8 +109,8 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
     await expect(page.getByText("生成式 AI 的底牌")).toBeVisible();
     if (i === 0) await shot("05-deck");
     // 每张牌选第一个选项，两个选项都能推进。
-    await page.locator(".awk-card").first().click();
-    await page.getByRole("button", { name: /翻开下一张|三张底牌已经翻开/ }).click();
+    await page.locator(".awk-option").first().click();
+    await page.getByRole("button", { name: /开始第一个实验|翻开下一张/ }).click();
   }
   await expect(page.getByText("三张底牌已经翻开")).toBeVisible();
   await shot("06-deck-done");
