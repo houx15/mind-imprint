@@ -593,6 +593,26 @@ func (a *API) buildAwakeningReport(
 //
 // 一个词都没长出来是一个**正常结果**，不是错误：她写得少、写得抽象，就该长出
 // 零个词，而报告照实说。绝不编一个像样的词填进去。
+// awakeningSelectAttempts 是选词最多打几次。两次：够接住一次写坏的 JSON，
+// 又不会在真的连不上时把她晾在加载动画里太久。
+const awakeningSelectAttempts = 2
+
+// retryHarvest 打到读得懂为止，最多 attempts 次。
+//
+// 第二个返回值是「成没成」，和「挑出来几个」无关 —— 一次成功但零结果
+// （她确实没有可落的词）返回 (nil, true)，这和失败必须分得开。
+func retryHarvest(
+	attempts int, once func(attempt int) ([]interest.Harvested, error),
+) ([]interest.Harvested, bool) {
+	for attempt := 1; attempt <= attempts; attempt++ {
+		hs, err := once(attempt)
+		if err == nil {
+			return hs, true
+		}
+	}
+	return nil, false
+}
+
 // awakeningSelect 选词并写回树。
 //
 // 第二个返回值是「这一步跑成了没有」，**不是**「有没有挑出词」。挑不出词是
@@ -621,9 +641,7 @@ func (a *API) awakeningSelect(
 	// 一篇再来，这里不能，所以这里值得多打一次。
 	// 2026-09-19 线上实测：`invalid character ',' after object key`，第一趟直接
 	// 零词。
-	var hs []interest.Harvested
-	failed := true
-	for attempt := 1; attempt <= 2; attempt++ {
+	hs, ok := retryHarvest(awakeningSelectAttempts, func(attempt int) ([]interest.Harvested, error) {
 		res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: system},
@@ -634,20 +652,19 @@ func (a *API) awakeningSelect(
 		if cerr != nil {
 			slog.Warn("awakening: selection call failed",
 				"err", cerr, "run_id", run.ID, "attempt", attempt)
-			continue
+			return nil, cerr
 		}
 		parsed, perr := interest.ParseHarvestReply(res.Text)
 		if perr != nil {
 			slog.Warn("awakening: unparseable selection reply",
 				"err", perr, "run_id", run.ID, "attempt", attempt)
-			continue
+			return nil, perr
 		}
-		hs = parsed
-		failed = false
-		break
-	}
-	if failed {
-		slog.Error("awakening: selection gave up after 2 attempts", "run_id", run.ID)
+		return parsed, nil
+	})
+	if !ok {
+		slog.Error("awakening: selection gave up",
+			"run_id", run.ID, "attempts", awakeningSelectAttempts)
 		return []awakening.Planted{}, false
 	}
 
