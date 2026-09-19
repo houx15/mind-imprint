@@ -15,11 +15,14 @@ import { freshAccount } from "./freshAccount";
  * 2026-08-30 的教训是 344 个测试全绿而导出的 PNG 是全白的 —— 所以这里每一屏
  * 都截一张图，留给人看。
  *
- * 跑：
+ * 跑（线上所需的三个值由 online.config.ts 自己定，不用再传 env）：
  *
- *     E2E_API_BASE=https://mind-api.uni-robot.cn E2E_JOIN_CODE=G624-UXFE \
  *     pnpm --filter @mind-imprint/lite-web exec playwright test \
  *       -c e2e/online.config.ts awakening-eyeball
+ *
+ * 🚨 2026-09-19 之前这里写的是「传 E2E_API_BASE 和 E2E_JOIN_CODE」，**少了
+ * E2E_BASE_URL** —— 照着跑，页面来自本地 dev server，接口却打线上，两个 host
+ * 各说各话。现在三个值一起在 config 里定死，照着跑就是线上。
  */
 
 const SHOTS = process.env.E2E_SHOTS ?? "e2e/.shots/awakening";
@@ -206,11 +209,17 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   await expect(page.getByText("你的兴趣印记")).toBeVisible({ timeout: 300_000 });
 
-  // 🚨 报告要**整块**截，不能用 shot()。房间是 fixed 浮层、正文在内层滚动容器
-  // 里，`fullPage` 截出来的高度正好等于视口 —— 2026-09-19 才发现，报告下半部分
+  await shot("18-report");
+
+  // 🚨 报告比一屏高，而它在**内层滚动容器**里（房间是 fixed 浮层，body 的滚动
+  // 被锁住）。于是 `fullPage` 截出来的高度正好等于视口 —— 报告下半部分
   // （你的问题 / 能力分布 / 本次变化 / 下一步）从来没有被人眼看过一次。
-  await page.waitForTimeout(400);
-  await page.locator("[data-awakening-report]").screenshot({ path: `${SHOTS}/18-report.png` });
+  //
+  // 按元素截也不行：那样会得到一张**下半部分整片空白**的长图 —— 尺寸对了、
+  // 内容没画上，看上去反而像页面坏了（2026-08-30 那张全白 PNG 同一类）。
+  // 所以老老实实把内层容器滚到底，再截第二张。
+  await scrollReportToBottom(page);
+  await shot("18b-report-lower");
 
   // 🚨 报告里每个词都必须真的有字。2026-09-19 那次接口走查抓到的就是这一层：
   // 结构少了 json 标签，卡片全是空的，而树上的词是对的。
@@ -261,3 +270,27 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   await ctx.close();
 });
+
+/**
+ * 把报告所在的那个**内层滚动容器**滚到底。
+ *
+ * 房间是 fixed 浮层、body 滚动被锁，所以 `window.scrollTo` 没有用 —— 要找到
+ * 报告往上第一个真的会滚的祖先。
+ */
+async function scrollReportToBottom(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    let el: HTMLElement | null = document.querySelector("[data-awakening-report]");
+    while (el) {
+      const style = getComputedStyle(el);
+      const scrolls = /(auto|scroll|overlay)/.test(style.overflowY);
+      if (scrolls && el.scrollHeight > el.clientHeight + 4) {
+        el.scrollTop = el.scrollHeight;
+        return;
+      }
+      el = el.parentElement;
+    }
+    // 没有内层容器就退回窗口滚动。
+    window.scrollTo(0, document.body.scrollHeight);
+  });
+  await page.waitForTimeout(500);
+}
