@@ -593,20 +593,20 @@ export const REPORT = {
   eyebrow: "AWAKENING COMPLETE",
   title: "你的兴趣印记",
   sections: {
-    pursuing: "你在追什么",
+    pursuing: "兴趣方向",
     drivers: "可能的驱动力",
     question: "你的问题",
-    talent: "怎么靠近",
+    talent: "能力分布",
     next: "下一步",
-    diff: "和上次比",
+    diff: "本次变化",
   },
   /** 一个词都没长出来时说的话。照实说，不补。 */
   emptyPursuing:
     "这一趟没有长出新的关键词。你写下的内容里还没有足够具体的原话可以作为根据。下次多写一两句具体的经历，树上就会有东西。",
   emptyReadings: "分级阅读库里暂时没有和这个方向对得上的材料。",
   emptyDrivers: "这一趟没有得出驱动力推测。",
-  confirmTag: "又出现了",
-  growTag: "新长出来",
+  confirmTag: "再次出现",
+  growTag: "首次出现",
   /** 驱动力那一块的免责说明。它们是假设，界面必须这样说。 */
   driversNote: "以下是根据你写的内容做出的推测，不是结论。请自己判断它们是否成立。",
   openFieldsLead: "你还没有关键词的方向：",

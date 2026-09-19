@@ -205,22 +205,44 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   /* ── 13 报告 ──────────────────────────────────────────────────────────── */
 
   await expect(page.getByText("你的兴趣印记")).toBeVisible({ timeout: 300_000 });
-  await shot("18-report");
+
+  // 🚨 报告要**整块**截，不能用 shot()。房间是 fixed 浮层、正文在内层滚动容器
+  // 里，`fullPage` 截出来的高度正好等于视口 —— 2026-09-19 才发现，报告下半部分
+  // （你的问题 / 能力分布 / 本次变化 / 下一步）从来没有被人眼看过一次。
+  await page.waitForTimeout(400);
+  await page.locator("[data-awakening-report]").screenshot({ path: `${SHOTS}/18-report.png` });
 
   // 🚨 报告里每个词都必须真的有字。2026-09-19 那次接口走查抓到的就是这一层：
   // 结构少了 json 标签，卡片全是空的，而树上的词是对的。
-  const cards = page.locator("section").filter({ hasText: "你在追什么" });
+  const cards = page.locator("section").filter({ hasText: "兴趣方向" });
   await expect(cards).toBeVisible();
   const emptyCard = await page.evaluate(() => {
     const sec = [...document.querySelectorAll("section")].find((s) =>
-      s.querySelector("h2")?.textContent?.includes("你在追什么"),
+      s.querySelector("h2")?.textContent?.includes("兴趣方向"),
     );
-    if (!sec) return "找不到「你在追什么」那一块";
+    if (!sec) return "找不到「兴趣方向」那一块";
     const text = sec.textContent ?? "";
     if (text.includes("undefined")) return "卡片里出现了 undefined";
     return "";
   });
   expect(emptyCard, emptyCard).toBe("");
+
+  // 折线下面那几块同样要在。它们是这份报告作为「终点」的全部内容 ——
+  // 少一块，这一趟就只是把词写进了树，没有交还给她任何东西。
+  await expect(page.getByRole("heading", { name: "你的问题" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "下一步" })).toBeVisible();
+
+  // 报告里任何一处出现 undefined / null / [object Object]，都说明某个字段在
+  // Go→TS 这条边界上掉了名字或掉了形状（2026-09-19 两次都栽在这里）。
+  const dirty = await page.evaluate(() => {
+    const root = document.querySelector("[data-awakening-report]");
+    const text = root?.textContent ?? "";
+    for (const bad of ["undefined", "null", "[object Object]", "NaN"]) {
+      if (text.includes(bad)) return `报告里出现了 ${bad}`;
+    }
+    return "";
+  });
+  expect(dirty, dirty).toBe("");
 
   /* ── 出门：回到树，词在上面 ───────────────────────────────────────────── */
 

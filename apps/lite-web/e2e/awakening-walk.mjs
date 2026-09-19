@@ -91,6 +91,22 @@ const PHOEBE_AGAIN = [
   "我想写一份给同学的制作笔记，把六次失败都记下来",
 ];
 
+// 第二趟的她，但**方向没变** —— 还是潮汐和海岸，只是又往前走了一点。
+//
+// 🚨 这一份不是多余的。PHOEBE_AGAIN 故意换了方向，于是选词落不到同一个词上，
+// 「又出现一次的词强度要涨」这条判据就一直被跳过 —— 而那正是这次重建最核心的
+// 承诺（重做是接着长，不是从头来）。要验它，就得有一个方向没变的学生。
+const PHOEBE_SAME = [
+  "这两个月我还在看潮汐发电，又找了三个海湾的资料，越看越想弄明白",
+  "最吸引我的还是闸门什么时候开这件事，它要等潮水到一个高度才动",
+  "我家在海边，赶海要看潮汐表，那张表和发电站看的是同一件事",
+  "我想不通为什么潮汐这么规律，全世界真的建起来的潮汐电站却这么少",
+  "为什么同样的潮差，有的海岸建得起来，有的海岸建不起来？",
+  "我需要先弄懂潮差和海湾地形的关系，再看两个建成的案例",
+  "我猜是因为要有很窄的海湾，但如果平缓海岸也有成功的例子，我就得改想法",
+  "我想给同学做一张图，让他们看出我家那片海滩为什么建不了",
+];
+
 // 一个还说不清的学生。每一问都很薄 —— 服务端应该换个问法再问一次。
 const THIN = ["不知道", "说不清", "没想过", "都可以", "随便", "不知道", "没什么", "都喜欢"];
 
@@ -354,8 +370,8 @@ async function scenarioRetake(first) {
     if (stronger === null || grown === null) {
       fail(`diff 里有 null（前端会在它上面崩掉）：${JSON.stringify(report.diff)}`);
     }
-    ok(`和上次比：变强 ${(stronger ?? []).length} 个，新长 ${(grown ?? []).length} 个`);
-    if (!report.diff.previousQuestion) fail("和上次比那一块没有带上上次的问题");
+    ok(`本次变化：变强 ${(stronger ?? []).length} 个，新长 ${(grown ?? []).length} 个`);
+    if (!report.diff.previousQuestion) fail("本次变化那一块没有带上上次的问题");
     else ok(`带上了上次的问题：${report.diff.previousQuestion.slice(0, 30)}…`);
   }
 
@@ -389,6 +405,92 @@ async function scenarioObserverOptOut() {
   const tree = await call("GET", "/api/v1/interest/tree");
   if ((tree.json?.keywords ?? []).length !== 0) fail("她还没答任何问题，树上不该有词");
   else ok("树上没有任何词 —— 没答问题就不该有");
+}
+
+/**
+ * 6 · 方向没变的重做：又出现的那个词必须**接着长**，不是从头来。
+ *
+ * 这条回路的核心承诺就在这里。场景 4 的她换了方向，于是一个 confirm 都没有、
+ * 强度那条判据被整段跳过 —— 走查绿着，而最重要的那件事没人验过。
+ */
+async function scenarioSameDirectionRetake() {
+  log("\n【6】方向没变的重做 · 又出现的词要接着长");
+  const { call } = await signUp("confirm");
+
+  // ── 第一趟 ──
+  const run1 = (await call("POST", "/api/v1/awakening")).json;
+  const st = blankState();
+  Object.assign(st, { stage: "terminal", route: "joined", navigator: "NOVA" });
+  await save(call, run1.id, st);
+  const t1 = await answerAll(call, run1.id, PHOEBE);
+  if (!t1[t1.length - 1].done) {
+    fail("第一趟八问没走完");
+    return;
+  }
+  st.stage = "talent";
+  st.talent = { selected: ["logic", "explore"], lanes: { energy: ["logic"], learned: [], latent: ["explore"] } };
+  await save(call, run1.id, st);
+  const r1 = (await call("POST", `/api/v1/awakening/${run1.id}/finish`)).json.report;
+  const first = r1.pursuing.map((w) => w.zh);
+  if (first.length === 0) {
+    fail("第一趟一个词都没长出来，这条判据没法验（换一份答案）");
+    return;
+  }
+  ok(`第一趟长出：${first.join("、")}`);
+
+  // ── 第二趟，同一个方向 ──
+  const run2 = (await call("POST", "/api/v1/awakening")).json;
+  if (run2.attemptNo !== 2) fail(`第二趟的 attemptNo 应为 2，得到 ${run2.attemptNo}`);
+  const st2 = blankState();
+  Object.assign(st2, { stage: "terminal", route: "joined", navigator: "NOVA" });
+  await save(call, run2.id, st2);
+  const t2 = await answerAll(call, run2.id, PHOEBE_SAME);
+  if (!t2[t2.length - 1].done) {
+    fail("第二趟八问没走完");
+    return;
+  }
+  st2.stage = "talent";
+  st2.talent = { selected: ["logic", "explore"], lanes: { energy: ["logic"], learned: [], latent: ["explore"] } };
+  await save(call, run2.id, st2);
+  const r2 = (await call("POST", `/api/v1/awakening/${run2.id}/finish`)).json.report;
+  ok(`第二趟长出：${r2.pursuing.map((w) => w.zh).join("、") || "（无）"}`);
+
+  // 判据一：她说的还是同一件事，就该有词被判成 confirm。
+  const confirmed = r2.pursuing.filter((w) => w.verdict === "confirm");
+  if (confirmed.length === 0) {
+    fail(
+      `她两趟说的是同一件事（第一趟：${first.join("、")}），第二趟却一个 confirm 都没有 —— ` +
+        `这意味着重做永远不会让已有的词变强，回路是断的`,
+    );
+    return;
+  }
+  ok(`${confirmed.length} 个词又出现了一次：${confirmed.map((w) => w.zh).join("、")}`);
+
+  // 判据二：confirm 的词强度必须高于 1。
+  const weak = confirmed.filter((w) => w.strength < 2);
+  if (weak.length > 0) fail(`有 confirm 的词强度仍是 1：${weak.map((w) => `${w.zh}=${w.strength}`).join("、")}`);
+  else ok(`它们的强度都涨到了 2 以上：${confirmed.map((w) => `${w.zh}=${w.strength}`).join("、")}`);
+
+  // 判据三：机制本身 —— 树上那个词要挂着**两趟各一条**来源。
+  const tree = await call("GET", "/api/v1/interest/tree");
+  const words = tree.json?.keywords ?? [];
+  const hit = words.find((w) => confirmed.some((c) => c.zh === w.textZh));
+  if (!hit) {
+    fail(`树上找不到又出现的那个词：${confirmed.map((c) => c.zh).join("、")}`);
+  } else {
+    const refs = new Set((hit.sources ?? []).map((x) => x.refId));
+    if (!refs.has(run1.id) || !refs.has(run2.id)) {
+      fail(`「${hit.textZh}」的来源没有同时指向两趟（来源：${[...refs].join("、")}）`);
+    } else {
+      ok(`「${hit.textZh}」挂着两趟各一条来源 —— 强度是这么涨上来的`);
+    }
+  }
+
+  // 判据四：报告的「本次变化」要把它算作变强，而不是新长。
+  const stronger = r2.diff?.stronger ?? [];
+  const missing = confirmed.filter((c) => !stronger.includes(c.zh));
+  if (missing.length > 0) fail(`「本次变化」里没把 ${missing.map((c) => c.zh).join("、")} 算作变强`);
+  else ok(`「本次变化」把它算作变强：${stronger.join("、")}`);
 }
 
 /* ── 报告的共用检查 ─────────────────────────────────────────────────────── */
@@ -427,8 +529,8 @@ function checkReport(report, { attemptNo, expectDiff }) {
     ok("库里没有对得上的材料，报告会照实说（这是允许的结果）");
   }
 
-  if (expectDiff && !report.diff) fail("第二趟应该有「和上次比」那一块");
-  if (!expectDiff && report.diff) fail("第一趟不该有「和上次比」那一块");
+  if (expectDiff && !report.diff) fail("第二趟应该有「本次变化」那一块");
+  if (!expectDiff && report.diff) fail("第一趟不该有「本次变化」那一块");
 }
 
 /* ── 跑 ─────────────────────────────────────────────────────────────────── */
@@ -442,6 +544,7 @@ const scenarios = {
     await scenarioThinAnswers();
     await scenarioRetake(first);
     await scenarioObserverOptOut();
+    await scenarioSameDirectionRetake();
   },
 };
 

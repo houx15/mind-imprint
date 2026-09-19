@@ -1,3 +1,4 @@
+import { test } from "@playwright/test";
 import type { Browser, BrowserContext } from "@playwright/test";
 
 /**
@@ -33,7 +34,26 @@ import type { Browser, BrowserContext } from "@playwright/test";
  */
 
 const API = (process.env.E2E_API_BASE ?? "").replace(/\/+$/, "");
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:5174";
+
+/**
+ * 这一趟到底打哪台。
+ *
+ * 🚨 2026-09-19：这里原来只读 env，默认 localhost:5174 —— 它**看不见**跑着的
+ * 那份 config 的 `use.baseURL`。于是 `-c e2e/online.config.ts` 说的是线上，而
+ * 每一条用 freshAccount 的 spec 都静默地打了本地 dev server；因为本地那台在跑
+ * 旧代码，走查红在第一屏，读起来像功能没做出来。
+ *
+ * 现在以**跑着的那份 config** 为准，env 只是它没写时的退路。
+ */
+function resolveBaseURL(): string {
+  try {
+    const fromConfig = test.info().project.use.baseURL;
+    if (fromConfig) return fromConfig;
+  } catch {
+    // 不在一条 test 里（比如被别的脚本 import）——退回 env。
+  }
+  return process.env.E2E_BASE_URL ?? "http://localhost:5174";
+}
 
 // 注册必须带一个有效的班级 join code ——「不存在无组织账号」是组织不变式，
 // 不是这里可以绕过的一步。
@@ -54,7 +74,18 @@ export async function freshAccount(browser: Browser, label: string): Promise<Bro
   const email = `e2e-${label}-${tag}@demo.mindimprint.local`;
   const password = `e2e-${tag}-pass`;
 
-  const ctx = await browser.newContext({ baseURL: BASE_URL });
+  const baseURL = resolveBaseURL();
+
+  // 线上的接口在**另一台**机器（mind-api）。API 空着就意味着相对路径，那会打到
+  // 静态站上去、回一个读起来像「接口没了」的 405。与其让它去撞，不如在这里说清楚。
+  if (!API && !/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(baseURL)) {
+    throw new Error(
+      `freshAccount：baseURL 是 ${baseURL}，但 E2E_API_BASE 空着。` +
+        `线上的接口不在这台机器上，请一并设置 E2E_API_BASE 与 E2E_JOIN_CODE。`,
+    );
+  }
+
+  const ctx = await browser.newContext({ baseURL });
   const up = await ctx.request.post(`${API}/api/v1/auth/signup`, {
     data: { email, password, display_name: `走查 ${label}`, join_code: JOIN_CODE },
   });

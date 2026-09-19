@@ -19,7 +19,7 @@ import { REPORT, TALENT_CARDS } from "./content";
  *
  * # 哪些字是她的，哪些是模型的
  *
- * 「你的问题」「你在追什么」下面那些引文，全部是她自己敲的字，逐字。
+ * 「你的问题」「兴趣方向」下面那些引文，全部是她自己敲的字，逐字。
  * 「可能的驱动力」是模型的推测，所以它自带一句说明，说清楚它是推测。
  * 这条界线在界面上必须看得见 —— 一段生成的话署上「你自己说的」是谎话
  * （memory: ai-errors-must-surface-never-fake）。
@@ -93,8 +93,10 @@ export function ReportView({
     setExporting(false);
   };
 
+  // data-awakening-report：走查用它整块截图。房间是 fixed 浮层、正文在内层滚动
+  // 容器里，`fullPage` 只截得到第一屏 —— 报告下半部分因此一直没被人眼看过。
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
+    <div data-awakening-report className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
       <div ref={posterRef}>
         <p className="font-mono text-mk-small uppercase tracking-[0.18em] text-mk-accent-500">
           {REPORT.eyebrow}
@@ -184,7 +186,7 @@ export function ReportView({
           </Section>
         ) : null}
 
-        {/* 4 · 怎么靠近 —— 她自己的分堆 */}
+        {/* 4 · 能力分布 —— 她自己的分堆 */}
         {report.talent.some((p) => p.cards.length > 0) ? (
           <Section title={REPORT.sections.talent}>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -210,7 +212,7 @@ export function ReportView({
           </Section>
         ) : null}
 
-        {/* 6 · 和上次比 —— 第二趟起才有 */}
+        {/* 6 · 本次变化 —— 第二趟起才有 */}
         {report.diff ? (
           <Section title={REPORT.sections.diff}>
             <Card>

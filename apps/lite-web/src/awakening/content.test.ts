@@ -124,7 +124,7 @@ describe("天赋卡牌", () => {
   });
 
   // 🚨 三堆的 key 进 jsonb，Go 侧 talentPiles 按这三个名字读。改一个，
-  // 报告里「怎么靠近」那一块就整块空掉，而且不会报错。
+  // 报告里「能力分布」那一块就整块空掉，而且不会报错。
   it("三堆的 key 就是后端读的那三个", () => {
     expect(TALENT_LANES.map((l) => l.key)).toEqual(["energy", "learned", "latent"]);
   });
