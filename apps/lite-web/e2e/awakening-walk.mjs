@@ -433,7 +433,11 @@ async function scenarioSameDirectionRetake() {
   const r1 = (await call("POST", `/api/v1/awakening/${run1.id}/finish`)).json.report;
   const first = r1.pursuing.map((w) => w.zh);
   if (first.length === 0) {
-    fail("第一趟一个词都没长出来，这条判据没法验（换一份答案）");
+    if (r1.selectionFailed) {
+      fail("第一趟选词失败（不是她写得不够 —— 是我们没跑成），这条判据没法验");
+    } else {
+      fail("第一趟一个词都没长出来，这条判据没法验（换一份答案）");
+    }
     return;
   }
   ok(`第一趟长出：${first.join("、")}`);
@@ -517,6 +521,13 @@ function checkReport(report, { attemptNo, expectDiff }) {
     if (!corpus.includes(d.evidence)) fail(`驱动力「${d.label}」的 evidence 不在她的原话里：${d.evidence}`);
   }
   ok(`${report.pursuing.length} 个词 / ${report.drivers.length} 条驱动力，evidence 全部查得到`);
+
+  // 🚨 零词有两种来路，而只有一种是允许的。selectionFailed 说明是**我们**没
+  // 跑成（调用失败 / 回话读不懂），那时报告会对她说「你写得不够具体」——
+  // 2026-09-19 线上真的发生过。走查必须把这一种叫出来。
+  if (report.selectionFailed) {
+    fail("选词那一步失败了（报告会把我们的故障说成她写得不够具体）");
+  }
 
   // 推荐的必须是真文章：有 slug，而且有命中的学科（补位的一律不该出现）。
   for (const a of report.readings) {

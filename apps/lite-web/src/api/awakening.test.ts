@@ -48,6 +48,9 @@ describe("报告整形", () => {
     expect(r.diff!.stronger).toEqual([]);
     expect(r.diff!.new).toEqual([]);
     expect(r.diff!.previousQuestion).toBe("");
+    // 旧 payload 里根本没有这个字段，默认必须是 false —— 默认成 true 的话，
+    // 每一份老报告都会挂上一句「关键词分析失败」。
+    expect(r.selectionFailed).toBe(false);
     expect(r.diff!.daysBetween).toBe(0);
 
     // 界面真的会这样用它 —— 所以这里也这样用一次。

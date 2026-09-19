@@ -153,6 +153,8 @@ export interface AwakeningReport {
   /** 从真实库里挑的文章。空表示库里没有对得上的。 */
   readings: ReadingPick[];
   openFields: string[];
+  /** 选词那一步没跑成（我们的故障），不是「她没有可落的词」。 */
+  selectionFailed: boolean;
   /** 模型写的那一句。空表示这一次没回上来，界面少显示一块。 */
   summary: string;
   diff: ReportDiff | null;
@@ -226,6 +228,7 @@ function normalizeReport(raw: Partial<AwakeningReport> | null | undefined): Awak
       why: a?.why ?? [],
     })),
     openFields: raw?.openFields ?? [],
+    selectionFailed: Boolean(raw?.selectionFailed),
     summary: raw?.summary ?? "",
     diff: d
       ? {

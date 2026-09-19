@@ -569,8 +569,9 @@ func (a *API) buildAwakeningReport(
 	}
 
 	// ── 选词 → 写回树 ────────────────────────────────────────────────────
-	planted := a.awakeningSelect(ctx, userID, run, answers, corpus, brief)
+	planted, selectionOK := a.awakeningSelect(ctx, userID, run, answers, corpus, brief)
 	rep.Pursuing = planted
+	rep.SelectionFailed = !selectionOK
 	rep.OpenFields = awakening.StillOpen(brief.EmptyFields, planted)
 
 	// ── 阅读推荐：只从真实库里挑 ─────────────────────────────────────────
@@ -592,35 +593,64 @@ func (a *API) buildAwakeningReport(
 //
 // 一个词都没长出来是一个**正常结果**，不是错误：她写得少、写得抽象，就该长出
 // 零个词，而报告照实说。绝不编一个像样的词填进去。
+// awakeningSelect 选词并写回树。
+//
+// 第二个返回值是「这一步跑成了没有」，**不是**「有没有挑出词」。挑不出词是
+// 一种正常结果（她确实没写出可落的东西），调用失败或回话读不懂是我们的故障；
+// 报告对这两件事要说不一样的话。见 awakening.Report.SelectionFailed。
 func (a *API) awakeningSelect(
 	ctx context.Context, userID uuid.UUID, run sqlc.AwakeningRun,
 	answers []string, corpus string, brief awakening.TreeBrief,
-) []awakening.Planted {
+) ([]awakening.Planted, bool) {
 	if a.d.Provider == nil {
-		return []awakening.Planted{}
+		// 没配模型的环境（本地、测试）不算故障。
+		return []awakening.Planted{}, true
 	}
 	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		slog.Warn("awakening: no provider for selection", "run_id", run.ID)
-		return []awakening.Planted{}
+		return []awakening.Planted{}, false
 	}
 	system, user := awakening.BuildSelectionPrompt(answers, awakening.HerQuestion(answers))
-	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: user},
-		},
-	})
-	a.recordLiteLLMCall(ctx, userID, uuid.Nil, "awakening_select", resolved, res.Usage)
-	if cerr != nil {
-		slog.Warn("awakening: selection call failed", "err", cerr, "run_id", run.ID)
-		return []awakening.Planted{}
+
+	// 🚨 读不懂就再问一次。
+	//
+	// 模型偶尔回写坏的 / 半份的 JSON（memory: model-json-half-arrived-2026-09-08），
+	// 而**这一次调用是终点**：报告只生成一次、只写一行，一次解析失败就等于她这
+	// 一趟写的八段话一个词都进不了树，而且没有第二次机会。阅读室采集失败还能换
+	// 一篇再来，这里不能，所以这里值得多打一次。
+	// 2026-09-19 线上实测：`invalid character ',' after object key`，第一趟直接
+	// 零词。
+	var hs []interest.Harvested
+	failed := true
+	for attempt := 1; attempt <= 2; attempt++ {
+		res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: user},
+			},
+		})
+		a.recordLiteLLMCall(ctx, userID, uuid.Nil, "awakening_select", resolved, res.Usage)
+		if cerr != nil {
+			slog.Warn("awakening: selection call failed",
+				"err", cerr, "run_id", run.ID, "attempt", attempt)
+			continue
+		}
+		parsed, perr := interest.ParseHarvestReply(res.Text)
+		if perr != nil {
+			slog.Warn("awakening: unparseable selection reply",
+				"err", perr, "run_id", run.ID, "attempt", attempt)
+			continue
+		}
+		hs = parsed
+		failed = false
+		break
 	}
-	hs, perr := interest.ParseHarvestReply(res.Text)
-	if perr != nil {
-		slog.Warn("awakening: unparseable selection reply", "err", perr, "run_id", run.ID)
-		return []awakening.Planted{}
+	if failed {
+		slog.Error("awakening: selection gave up after 2 attempts", "run_id", run.ID)
+		return []awakening.Planted{}, false
 	}
+
 	// 🚨 evidence 必须真的出自她敲进去的字。语料只含她写的话，不含印记说的话。
 	before := len(hs)
 	hs = interest.KeepGrounded(hs, corpus)
@@ -628,7 +658,7 @@ func (a *API) awakeningSelect(
 		slog.Warn("awakening: dropped ungrounded keywords", "dropped", n, "run_id", run.ID)
 	}
 	if len(hs) == 0 {
-		return []awakening.Planted{}
+		return []awakening.Planted{}, true
 	}
 
 	known := knownIDs(brief)
@@ -642,7 +672,7 @@ func (a *API) awakeningSelect(
 
 	// 写回之后再读一次强度，报告上那个数字才是她刷新树之后看到的那个。
 	fillStrengths(ctx, a, userID, planted)
-	return planted
+	return planted, true
 }
 
 // awakeningProse 跑报告那一次调用。失败时两样都给空 —— 报告少两块，不编。

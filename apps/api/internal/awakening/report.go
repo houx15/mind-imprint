@@ -108,6 +108,15 @@ type Report struct {
 	// OpenFields 是她仍然一个词都没有的主枝（field id）。
 	OpenFields []string `json:"openFields"`
 
+	// SelectionFailed 说的是「选词这一步没跑成」，不是「她没有可落的词」。
+	//
+	// 🚨 这两件事在报告上必须说不一样的话。Pursuing 为空有两种来路：模型读完
+	// 她的八段话确实没挑出闭表里的词（实情，照实说），或者调用失败 / 回话读
+	// 不懂（我们的故障）。2026-09-19 线上实测到后者：选词那次回了写坏的 JSON，
+	// 报告于是对一个写了八段具体经历的学生说「你写下的内容里还没有足够具体的
+	// 原话可以作为根据」—— 那是在冤枉她。
+	SelectionFailed bool `json:"selectionFailed"`
+
 	// Summary 是模型写的那一句话。失败时为空串，界面据此少显示一块，
 	// 而不是填一句像样的话进去。
 	Summary string `json:"summary"`

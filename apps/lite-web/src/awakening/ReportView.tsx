@@ -109,7 +109,9 @@ export function ReportView({
         {/* 1 · 她在追什么 —— 这次动了的词 */}
         <Section title={REPORT.sections.pursuing}>
           {report.pursuing.length === 0 ? (
-            <p className="text-mk-body leading-[1.9] text-mk-secondary">{REPORT.emptyPursuing}</p>
+            <p className="text-mk-body leading-[1.9] text-mk-secondary">
+              {report.selectionFailed ? REPORT.failedPursuing : REPORT.emptyPursuing}
+            </p>
           ) : (
             <div className="grid gap-3">
               {report.pursuing.map((w) => (

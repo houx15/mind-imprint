@@ -115,6 +115,7 @@ func TestReportSerialisesWithTheNamesTheClientReads(t *testing.T) {
 	for _, k := range []string{
 		"version", "attemptNo", "navigator", "pursuing", "drivers", "question",
 		"workConcept", "talent", "readings", "openFields", "summary", "diff", "answers",
+		"selectionFailed",
 	} {
 		if _, ok := got[k]; !ok {
 			t.Errorf("报告里少了 %q：%s", k, raw)
