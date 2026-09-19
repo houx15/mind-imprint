@@ -274,7 +274,13 @@ func BuildDiff(planted []Planted, prev *Report, daysBetween int) *Diff {
 	if prev == nil {
 		return nil
 	}
+	// 🚨 两个切片必须是**空切片**，不是 nil。Go 把 nil 切片 marshal 成 `null`，
+	// 而前端写的是 `diff.stronger.join(...)` —— 于是一趟没有长出词的重做会让
+	// 整个报告页崩掉。2026-09-19 线上走查里，第二趟正好一个词都没长出来，
+	// 这条才露出来。
 	d := &Diff{
+		Stronger:         []string{},
+		New:              []string{},
 		PreviousQuestion: prev.Question,
 		DaysBetween:      daysBetween,
 	}

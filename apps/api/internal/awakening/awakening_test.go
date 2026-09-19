@@ -1,6 +1,7 @@
 package awakening
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -377,6 +378,25 @@ func TestHerOwnSentencesComeOutVerbatim(t *testing.T) {
 func TestBuildDiffIsAbsentOnTheFirstRun(t *testing.T) {
 	if BuildDiff(nil, nil, 0) != nil {
 		t.Error("第一趟不该有「和上次比」这一块")
+	}
+}
+
+// 🚨 nil 切片会被 marshal 成 null，而前端对它调 .join()。一趟没长出词的重做
+// 因此会让整个报告页崩掉 —— 2026-09-19 线上走查抓到的。
+func TestBuildDiffGivesEmptySlicesNotNil(t *testing.T) {
+	d := BuildDiff(nil, &Report{Question: "上次的问题"}, 3)
+	if d == nil {
+		t.Fatal("有上一趟就该有 diff")
+	}
+	if d.Stronger == nil || d.New == nil {
+		t.Errorf("Stronger/New 必须是空切片而不是 nil：%+v", d)
+	}
+	raw, err := json.Marshal(d)
+	if err != nil {
+		t.Fatalf("序列化失败：%v", err)
+	}
+	if strings.Contains(string(raw), "null") {
+		t.Errorf("diff 里出现了 null，前端会在它上面崩掉：%s", raw)
 	}
 }
 

@@ -346,7 +346,15 @@ async function scenarioRetake(first) {
   checkReport(report, { attemptNo: 2, expectDiff: true });
 
   if (report.diff) {
-    ok(`和上次比：变强 ${report.diff.stronger.length} 个，新长 ${report.diff.new.length} 个`);
+    // 🚨 这里逐个兜底不是防御性代码，是判据的一部分：Go 的 nil 切片会
+    // marshal 成 null，而前端对它调 .join()。走查必须**看得见** null，
+    // 而不是在它上面崩掉。
+    const stronger = report.diff.stronger;
+    const grown = report.diff.new;
+    if (stronger === null || grown === null) {
+      fail(`diff 里有 null（前端会在它上面崩掉）：${JSON.stringify(report.diff)}`);
+    }
+    ok(`和上次比：变强 ${(stronger ?? []).length} 个，新长 ${(grown ?? []).length} 个`);
     if (!report.diff.previousQuestion) fail("和上次比那一块没有带上上次的问题");
     else ok(`带上了上次的问题：${report.diff.previousQuestion.slice(0, 30)}…`);
   }

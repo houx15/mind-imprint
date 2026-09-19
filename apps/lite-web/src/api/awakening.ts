@@ -194,7 +194,16 @@ function normalizeRun(raw: Partial<AwakeningRun> | null | undefined): AwakeningR
   };
 }
 
+/**
+ * 把一份 payload 收拾成界面可以直接渲染的样子。
+ *
+ * 🚨 **每一层的数组都要兜底，不只是顶层。** Go 把 nil 切片 marshal 成 `null`，
+ * 而 `null.join(...)` 会让整个报告页白掉。2026-09-19 线上走查里，一趟没有长出
+ * 词的重做正好产出了 `diff.stronger = null` —— 服务端那一侧已经改成空切片，
+ * 但**库里已经写下的那些行改不回去**，所以这里必须挡住。
+ */
 function normalizeReport(raw: Partial<AwakeningReport> | null | undefined): AwakeningReport {
+  const d = raw?.diff;
   return {
     version: raw?.version ?? 1,
     attemptNo: raw?.attemptNo ?? 1,
@@ -203,11 +212,29 @@ function normalizeReport(raw: Partial<AwakeningReport> | null | undefined): Awak
     drivers: raw?.drivers ?? [],
     question: raw?.question ?? "",
     workConcept: raw?.workConcept ?? "",
-    talent: raw?.talent ?? [],
-    readings: raw?.readings ?? [],
+    talent: (raw?.talent ?? []).map((p) => ({
+      key: p?.key ?? "",
+      label: p?.label ?? "",
+      cards: p?.cards ?? [],
+    })),
+    readings: (raw?.readings ?? []).map((a) => ({
+      slug: a?.slug ?? "",
+      title: a?.title ?? "",
+      zhTitle: a?.zhTitle ?? "",
+      field: a?.field ?? "",
+      tier: a?.tier ?? 2,
+      why: a?.why ?? [],
+    })),
     openFields: raw?.openFields ?? [],
     summary: raw?.summary ?? "",
-    diff: raw?.diff ?? null,
+    diff: d
+      ? {
+          stronger: d.stronger ?? [],
+          new: d.new ?? [],
+          previousQuestion: d.previousQuestion ?? "",
+          daysBetween: d.daysBetween ?? 0,
+        }
+      : null,
     answers: raw?.answers ?? [],
   };
 }
