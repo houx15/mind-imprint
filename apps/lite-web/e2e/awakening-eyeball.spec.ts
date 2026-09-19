@@ -150,7 +150,8 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   /* ── 9 终端 ───────────────────────────────────────────────────────────── */
 
-  await expect(page.getByText("兴趣探询")).toBeVisible();
+  // 抬头写的是「印记 // INTEREST DIAGNOSTIC」，兴趣探询挪到副标题里去了。
+  await expect(page.getByText("INTEREST DIAGNOSTIC")).toBeVisible();
   await shot("11-terminal-empty");
 
   const answers = [
