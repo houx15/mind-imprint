@@ -124,11 +124,14 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   /* ── 7 能量卡牌 ───────────────────────────────────────────────────────── */
 
   for (let i = 0; i < 4; i++) {
-    await expect(page.getByText("能量线索")).toBeVisible();
+    // 🚨 用 heading，不用 getByText：顶栏那条路线也写着「能量线索」，
+    // 纯文本会同时命中两个元素，Playwright 直接判 strict mode violation。
+    await expect(page.getByRole("heading", { name: "能量线索" })).toBeVisible();
     if (i === 0) await shot("08-energy");
-    // 每组选两张。
-    await page.locator(".awk-card").nth(0).click();
-    await page.locator(".awk-card").nth(3).click();
+    // 每组选两张。能量卡走的是共用的 Choice，渲染出来是 .awk-option；
+    // 天赋卡才是 .awk-card。两者别搞混。
+    await page.locator(".awk-option").nth(0).click();
+    await page.locator(".awk-option").nth(3).click();
     await page.getByRole("button", { name: /下一组|完成校准/ }).click();
   }
   await expect(page.getByText("你的能量方向")).toBeVisible();
