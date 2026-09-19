@@ -174,3 +174,6 @@ apps/site-v2/.astro/
 
 # 上一轮跑 agent 时倒出来的一份日志，不是源码。
 .claude-tmp-*.json
+
+# arm64 sqlc, downloaded because the x86 one stopped running on macOS 27
+.tooling/

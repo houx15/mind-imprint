@@ -92,12 +92,18 @@ describe("parseLiteRoute", () => {
     expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "explore" }));
 
   // 觉醒协议是 tree 这条 tab 下的一屏，不是自己的顶层 tab。
-  it("knows the quiz sub-page", () =>
-    expect(parseLiteRoute("/tree/quiz")).toEqual({ tab: "tree", quiz: true }));
-  it("round-trips the quiz path", () =>
-    expect(parseLiteRoute(liteRoutePath({ tab: "tree", quiz: true }))).toEqual({
+  it("knows the awakening sub-page", () =>
+    expect(parseLiteRoute("/tree/awakening")).toEqual({ tab: "tree", awakening: true }));
+  it("round-trips the awakening path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree", awakening: true }))).toEqual({
       tab: "tree",
-      quiz: true,
+      awakening: true,
+    }));
+  // 一份已经生成的报告有自己的路径，所以她能把它收藏、也能刷新。
+  it("round-trips a report path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree", reportRunId: "abc-123" }))).toEqual({
+      tab: "tree",
+      reportRunId: "abc-123",
     }));
   // 一个手敲错的子路径不该把她丢回阅读室——她要去的是树，那就给她树。
   it("falls back to the tree itself for an unknown sub-page", () =>

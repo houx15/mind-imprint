@@ -41,6 +41,7 @@ import {
   parseLiteRoute,
   settingsPath,
   type LiteRoute,
+  readingPath,
 } from "./routing";
 import {
   getMe,
@@ -63,7 +64,8 @@ import { MySitePage } from "./mysite/MySitePage";
 import { CoursesHost } from "./courses/CoursesHost";
 import { LearningHome, bookmark } from "./home/LearningHome";
 import "./home/learning.css";
-import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
+import { AwakeningRoom } from "./awakening/AwakeningRoom";
+import { startLibraryReading } from "./api/library";
 import { LiteTeacherShell } from "./teacher/LiteTeacherShell";
 import { InboxButton } from "./inbox/InboxButton";
 
@@ -257,23 +259,22 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     return listenForNavigation(onPopState);
   }, []);
 
-  // 觉醒协议**满屏渲染，不带导航轨**。它是一个连续的七屏叙事，旁边杵着一条
-  // 「阅读 / 写作 / 项目」的导航栏会把它降级成「一个开着的表单」——而这一屏的
-  // 全部任务就是让一个还不知道自己喜欢什么的学生愿意花五分钟。
+  // 觉醒协议是**覆盖在树上面的一层**，不是替换整页的另一条路由。
   //
-  // 放在这里（所有 hook 之后）而不是 `rootElementFor`：它需要已登录的 `user`，
-  // 而且做完之后要能原地回到树上，不该是一次整页跳转。
-  if (route.tab === "tree" && route.quiz) {
-    return (
-      <div className="h-full w-full overflow-hidden">
-        <AwakeningQuiz
-          onExit={() => navigate(liteRoutePath({ tab: "tree" }))}
-        />
-      </div>
-    );
-  }
+  // 这两者的差别就是 spec §7 那条门槛：树暗下去，让位给这个房间，一次动作。
+  // 整页替换会让她感觉自己被送去了别的地方，而这个房间讲的恰恰是她自己那棵树。
+  // 房间里不出现导航轨、页头和返回按钮 —— AwakeningRoom 自己铺满视口，
+  // 下面这棵树仍然在，只是被盖住了。
+  //
+  // 它仍然有真实的 URL（`/tree/awakening`）：这一趟可能走十五分钟，刷新、
+  // 误触返回键、第二天从历史记录点回来，都该落在同一个地方。
+  const awakeningOpen = route.tab === "tree" && (route.awakening === true || !!route.reportRunId);
+  // 走完一趟之后树要重拉一次。计数器住在这里而不是 SkyTab 里，因为触发它的
+  // 是房间关门那一刻，而房间挂在这一层。
+  const [treeNonce, setTreeNonce] = useState(0);
 
   return (
+    <>
     <div
       className={cx(
         "lite-student flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink",
@@ -361,6 +362,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           <SkyTab
             user={user}
             surface={route.tab === "tree" ? "tree" : "map"}
+            refreshNonce={treeNonce}
             onSwitch={(next) =>
               navigate(
                 liteRoutePath(
@@ -395,5 +397,26 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
         )}
       </main>
     </div>
+
+    {/* 觉醒协议的房间。盖在树上面，所以进门是一次动作，不是一次整页跳转。 */}
+    <AwakeningRoom
+      open={awakeningOpen}
+      reportRunId={route.tab === "tree" ? route.reportRunId : undefined}
+      onClose={(grew) => {
+        // `grew` 为真表示这一趟往树上写了词。换一个 nonce，树重新拉一次 ——
+        // 否则她回到树上看到的还是走进来之前那一棵。
+        if (grew) setTreeNonce((n) => n + 1);
+        navigate(liteRoutePath({ tab: "tree" }));
+      }}
+      onOpenReading={(slug, tier) => {
+        // 报告里那几篇是**真的文章**，所以点它就该真的开始读，而不是把她丢回
+        // 书架自己找。开一篇 = 建一条 reading（和书架那两处走同一个入口），
+        // 失败时退到书架，她至少还看得见那一架书。
+        void startLibraryReading(slug, tier)
+          .then((id) => navigate(readingPath(id)))
+          .catch(() => navigate(liteRoutePath({ tab: "readings", library: true })));
+      }}
+    />
+    </>
   );
 }

@@ -24,7 +24,8 @@ import {
 } from "./roots";
 import { KeywordDrawer } from "./KeywordDrawer";
 import { treeCopy } from "./treeCopy";
-import { useQuizTaken } from "./quiz/useQuizStatus";
+import { useAwakeningStatus } from "../awakening/useAwakeningStatus";
+import { DOOR } from "../awakening/content";
 import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
 
@@ -107,12 +108,18 @@ export function TreeView({
   // 各拉一次会在她来回切时各发一次请求，而且推荐算出来的星可能和树上的词对不上。
   const all = live.keywords;
 
-  // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
+  // 觉醒协议。三态：null = 还不知道，那时两件事都不做。
   // 🚨 `readOnly`（教师视角）下这个 hook 仍然照常调用——hook 顺序不能因为一个
-  // prop 分支——只是它的结果被忽略：下面每处用到 `quizTaken` 的地方都先判
-  // `readOnly`，从不把它喂给 TreeState 或渲染那颗按钮。
-  const quizTaken = useQuizTaken();
-  const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
+  // prop 分支——只是它的结果被忽略：下面每处用到它的地方都先判 `readOnly`，
+  // 从不把它喂给 TreeState 或渲染那颗按钮。
+  const awakening = useAwakeningStatus();
+  const quizTaken = awakening === null ? null : awakening.taken;
+  // 有一趟没走完就是「继续」，走过就是「再走一次」，都没有就是「开始」。
+  const doorLabel =
+    awakening?.open ? DOOR.resume : quizTaken ? DOOR.again : DOOR.firstTime;
+  const openQuiz = () => navigate(liteRoutePath({ tab: "tree", awakening: true }));
+  const openReport = () =>
+    navigate(liteRoutePath({ tab: "tree", reportRunId: awakening?.latestReportRunId ?? "" }));
   // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
   const [inviteField, setInviteField] = useState<FieldId | null>(null);
 
@@ -239,7 +246,19 @@ export function TreeView({
                          focus-visible:ring-2 focus-visible:ring-mk-accent-300"
               style={{ borderColor: "var(--mk-accent-300)", color: "var(--mk-accent-500)" }}
             >
-              {quizTaken ? "再做一次兴趣测试" : "兴趣测试"}
+              {doorLabel}
+            </button>
+          ) : null}
+          {/* 已经有一份报告时多一条路：直接回去看它，不用重走一趟。 */}
+          {!readOnly && awakening?.latestReportRunId ? (
+            <button
+              type="button"
+              onClick={openReport}
+              className="text-mk-small text-mk-muted underline-offset-4 transition-colors
+                         duration-[120ms] hover:text-mk-ink hover:underline
+                         focus-visible:outline-none"
+            >
+              {DOOR.openReport}
             </button>
           ) : null}
           <span className="text-right">
@@ -1138,7 +1157,7 @@ function TreeState({
               <>
                 <div className="my-4 h-px" style={{ background: "var(--tree-line)" }} />
                 <p className="text-mk-small leading-[1.8] text-mk-secondary">
-                  也可以先做一次兴趣测试，五分钟，树上会长出第一批词。
+                  {DOOR.emptyLead}
                 </p>
                 <button
                   type="button"
@@ -1146,7 +1165,7 @@ function TreeState({
                   className="mt-3 rounded-full px-5 py-2 text-mk-body font-semibold text-white transition hover:opacity-90"
                   style={{ background: "linear-gradient(135deg,var(--mk-accent-400),var(--mk-accent-600))" }}
                 >
-                  开始兴趣测试
+                  {DOOR.firstTime}
                 </button>
               </>
             ) : null}

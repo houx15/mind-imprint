@@ -28,7 +28,8 @@ const ROUTES: LiteRoute[] = [
   { tab: "courses" },
   { tab: "courses", slug: "vibe-coding" },
   { tab: "tree" },
-  { tab: "tree", quiz: true },
+  { tab: "tree", awakening: true },
+  { tab: "tree", reportRunId: "9f1c2b3a-0000-4000-8000-000000000001" },
   { tab: "settings" },
 ];
 

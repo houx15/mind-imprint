@@ -60,6 +60,10 @@ content_type_for() {
     gif)          echo "image/gif" ;;
     svg)          echo "image/svg+xml" ;;
     mp4)          echo "video/mp4" ;;
+    # 觉醒协议的语音是 .m4a（AAC in MP4）。没有这一条它会以
+    # application/octet-stream 上传，浏览器拿到之后不肯播。
+    m4a)          echo "audio/mp4" ;;
+    mp3)          echo "audio/mpeg" ;;
     webm)         echo "video/webm" ;;
     pdf)          echo "application/pdf" ;;
     vtt)          echo "text/vtt" ;;

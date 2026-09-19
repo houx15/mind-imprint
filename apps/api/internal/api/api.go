@@ -291,11 +291,16 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))
 	// 「不感兴趣」。探索地图上的推荐是前端查闭表算出来的，不经过后端；只有她
 	// 按下的这一次拒绝要落库 —— 拒绝和完成一样是过程数据（铁律④）。
-	// 觉醒协议 —— 冷启动的兴趣测试。开与交是两次请求，所以一次中途退出
-	// 也留下痕迹（见 interest_quiz.go 顶部）。
-	mux.Handle("GET /api/v1/interest/quiz", liteOnly(a.getInterestQuizStatus))
-	mux.Handle("POST /api/v1/interest/quiz", liteOnly(a.startInterestQuiz))
-	mux.Handle("PUT /api/v1/interest/quiz/{id}", liteOnly(a.finishInterestQuiz))
+	// 觉醒协议（0181）—— 冷启动那棵空树，并且每一趟都从她已经有的词出发。
+	// 开、存、走完是分开的请求，所以一次中途退出也留下痕迹，而且下次能接着
+	// 走（见 awakening.go 顶部）。取代了 0119 的七屏兴趣测试。
+	mux.Handle("GET /api/v1/awakening", liteOnly(a.getAwakeningStatus))
+	mux.Handle("POST /api/v1/awakening", liteOnly(a.startAwakeningRun))
+	mux.Handle("PUT /api/v1/awakening/{id}", liteOnly(a.saveAwakeningProgress))
+	mux.Handle("POST /api/v1/awakening/{id}/turn", liteOnly(a.postAwakeningTurn))
+	mux.Handle("POST /api/v1/awakening/{id}/finish", liteOnly(a.finishAwakeningRun))
+	mux.Handle("GET /api/v1/awakening/{id}/report", liteOnly(a.getAwakeningReport))
+	mux.Handle("POST /api/v1/awakening/{id}/share", liteOnly(a.shareAwakeningReport))
 	// 今日新闻星图。生成是惰性的（第一个打开的人触发，advisory lock 保证
 	// 一天只抓一次、只调一次模型）——见 explore.go 顶部。
 	mux.Handle("GET /api/v1/explore/today", liteOnly(a.getExploreToday))
@@ -501,6 +506,9 @@ func (a *API) Handler() http.Handler {
 	// link, and anyone with it — no login — can view her report. Do not wrap
 	// this in an auth gate; that would defeat the whole feature.
 	mux.Handle("GET /api/v1/public/reports/{token}", http.HandlerFunc(a.getPublicReport))
+	// 觉醒协议的报告，公开只读。受同一条裁定约束（R1）：token 不可猜、撤回
+	// 立即生效、公开出去的只有 payload。见 awakening.go 的 shareAwakeningReport。
+	mux.Handle("GET /api/v1/public/awakening/{token}", http.HandlerFunc(a.getPublicAwakeningReport))
 	// 同样公开、同样无 session：她把自己的主页链接发给了谁，谁就能打开。响应
 	// 带 X-Robots-Tag: noindex（spec §15——她是未成年人，链接是给人的，不是给
 	// 搜索引擎的）。

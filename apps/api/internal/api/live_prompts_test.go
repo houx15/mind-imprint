@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"mindimprint/api/internal/config"
+	"mindimprint/api/internal/awakening"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/interest"
 	"mindimprint/api/internal/interests"
@@ -158,37 +159,122 @@ func TestLivePromptHarvest(t *testing.T) {
 	}
 }
 
-/* ── 2. 觉醒协议（兴趣测试） ────────────────────────────────────────────── */
+/* ── 2. 觉醒协议 ────────────────────────────────────────────────────────── */
 
-func TestLivePromptQuiz(t *testing.T) {
+// herAnswers 是一个学生走完八问之后留下的话。
+//
+// 用真实内容，不用 lorem ipsum：这三条测试要回答的问题是「真模型读到一个真
+// 学生写的东西时会怎么样」，而一份占位文本谁都能通过。
+var herAnswers = []string{
+	"最近老是刷到潮汐发电的视频，一个海湾里的闸门一开一合就能发电，我看了四十分钟还在看",
+	"最吸引我的是那个闸门的节奏，它不是一直转，而是要等潮水到某个高度才动一次",
+	"我家在海边，小时候赶海要看潮汐表，我一直觉得那张表很神奇，现在发现它跟发电是同一件事",
+	"我想不通的是，既然潮汐这么规律，为什么全世界用潮汐发电的地方这么少",
+	"为什么潮汐发电在少数海岸能建起来，在大多数海岸却建不起来？",
+	"我需要先读懂潮差和地形的基础概念，再看一两个真的建成了的案例",
+	"我猜是因为要有很大的潮差和很窄的海湾，但如果看到平缓海岸也有成功的例子，我会改想法",
+	"我想做一个给同学看的图解，让他们一眼看出为什么我家那片海滩建不了",
+}
+
+// TestLivePromptAwakeningSelection —— 选词那一次。
+//
+// 🚨 这一条守着 2026-09-11 踩过的坑：兴趣测试第一版整条照搬了采集的 system
+// prompt，把「不是这篇材料的话题」也带了过来，而测试里根本没有材料，真模型
+// 因此 0/3 长出词。判据段落是重写的，这条测试是验它真的管用。
+func TestLivePromptAwakeningSelection(t *testing.T) {
 	rs := liveResolvers(t)
-	att := interest.Attempt{
-		Navigator: "腹黑军师",
-		Work:      "《进击的巨人》里的利威尔",
-		Reason:    "他经历了很多痛苦，但在关键时刻依然保持理智，做出自己的选择。",
-		Hook:      interest.HookCharacter,
-	}.Clean()
-	system, user := att.BuildQuizPrompt()
-	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
+	system, user := awakening.BuildSelectionPrompt(herAnswers, awakening.HerQuestion(herAnswers))
+	raw := liveAsk(t, rs, gateway.ClassCompose, system, user)
 
 	hs, err := interest.ParseHarvestReply(raw)
 	if err != nil {
-		t.Fatalf("解析失败 —— 结果页会说「这次没有长出关键词」：%v\n原始回复：\n%s", err, raw)
+		t.Fatalf("解析失败 —— 报告会说「这次没有长出关键词」：%v\n原始回复：\n%s", err, raw)
 	}
 	if len(hs) == 0 {
-		t.Fatalf("零个词。一个学生刚花了五分钟。原始回复：\n%s", raw)
+		t.Fatalf("零个词。一个学生刚走完八问。原始回复：\n%s", raw)
 	}
+	corpus := awakening.Corpus(herAnswers)
 	for _, h := range hs {
 		it, known := interests.ByID(h.InterestID)
 		if !known {
-			// ParseHarvestReply 已经挡了；这里只是让日志说得出名字。
 			t.Fatalf("解析器放过了一个表外 id：%q", h.InterestID)
 		}
 		t.Logf("  %s (%s / %s) — %s", it.Zh, it.ID, it.Field, h.Note)
 		t.Logf("    evidence: %q", h.Evidence)
-		if !strings.Contains(att.Reason, h.Evidence) {
-			t.Errorf("evidence 不是她原话的逐字摘录：%q", h.Evidence)
+		// 🚨 逐字摘录。一个爱转述的模型会让每个词都在落库前被 KeepGrounded
+		// 丢掉，而学生只看到「没长出词」。
+		if !strings.Contains(corpus, h.Evidence) {
+			t.Errorf("evidence 不是她原话的逐字摘录 —— 模型在转述：%q", h.Evidence)
 		}
+	}
+	if left := interest.KeepGrounded(hs, corpus); len(left) == 0 {
+		t.Errorf("逐字比对之后一个词都不剩。原始回复：\n%s", raw)
+	}
+}
+
+// TestLivePromptAwakeningDialogue —— 对话那一次。
+//
+// 验三件事：模型回的是纯文本（不是 JSON）、长度没有失控、**没有引用她没写过
+// 的话**。最后一条是这个文件里最值钱的断言：幻引在生产上发生过，代价是她问
+// 「我不知道该听它的还是按我现在的正文来」。
+func TestLivePromptAwakeningDialogue(t *testing.T) {
+	rs := liveResolvers(t)
+	// 第三个节点：她已经说了两轮，上下文里有东西可引。
+	history := []awakening.Turn{
+		{NodeIndex: 0, StudentText: herAnswers[0], Reply: "你提到看了四十分钟还在看。是哪一段让你停下来的？"},
+		{NodeIndex: 1, StudentText: herAnswers[1], Reply: "闸门的节奏，很具体。"},
+	}
+	in := awakening.DialogueInput{
+		Guide:     awakening.GuideOrDefault("SAGE"),
+		Brief:     awakening.BuildBrief(nil, 1, 0),
+		NodeIndex: 2,
+		History:   history,
+		Latest:    herAnswers[2],
+	}
+	system, user := awakening.BuildDialoguePrompt(in)
+	raw := liveAsk(t, rs, gateway.ClassDialogue, system, user)
+
+	reply := awakening.CleanReply(raw)
+	t.Logf("  回复：%s", reply)
+	if reply == "" {
+		t.Fatalf("空回复。原始：\n%s", raw)
+	}
+	if strings.HasPrefix(strings.TrimSpace(raw), "{") {
+		t.Errorf("模型回了 JSON —— 这一次要的是纯文本。原始：\n%s", raw)
+	}
+	// 语料只含她写的话，不含印记说过的话：幻引的来源就是它自己的上文。
+	corpus := awakening.Corpus([]string{herAnswers[0], herAnswers[1], herAnswers[2]})
+	if bad := awakening.HallucinatedQuotes(reply, corpus); len(bad) > 0 {
+		t.Errorf("引用了她没写过的话：%q\n完整回复：%s", bad, reply)
+	}
+}
+
+// TestLivePromptAwakeningReport —— 报告那一次。
+func TestLivePromptAwakeningReport(t *testing.T) {
+	rs := liveResolvers(t)
+	system, user := awakening.BuildReportPrompt(herAnswers)
+	raw := liveAsk(t, rs, gateway.ClassCompose, system, user)
+
+	drivers, summary, err := awakening.ParseReportReply(raw)
+	if err != nil {
+		t.Fatalf("解析失败 —— 报告会少两块：%v\n原始回复：\n%s", err, raw)
+	}
+	if len(drivers) == 0 {
+		t.Fatalf("零条驱动力假设。原始回复：\n%s", raw)
+	}
+	t.Logf("  总结：%s", summary)
+	corpus := awakening.Corpus(herAnswers)
+	for _, d := range drivers {
+		t.Logf("  %s（%.2f）— %q", d.Label, d.Confidence, d.Evidence)
+		if !strings.Contains(corpus, d.Evidence) {
+			t.Errorf("驱动力的 evidence 不是她的原话：%q", d.Evidence)
+		}
+	}
+	if left := awakening.KeepGroundedDrivers(drivers, corpus); len(left) == 0 {
+		t.Errorf("逐字比对之后一条驱动力都不剩。原始回复：\n%s", raw)
+	}
+	if summary == "" {
+		t.Error("总结是空的 —— 报告会少一块")
 	}
 }
 

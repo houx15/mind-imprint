@@ -51,3 +51,19 @@ func SameKeyword(a, b string) bool {
 
 // Norm 是 disciplines.Normalize 的转出口，省得每个调用方都去 import 两个包。
 func Norm(s string) string { return disciplines.Normalize(s) }
+
+// truncRunes 按**字符**截断，不按字节。
+//
+// 它原来住在 quiz.go 里；那个文件随七屏兴趣测试一起删掉了（觉醒协议取代了它），
+// 而 dig.go 一直在用它，所以它搬到这里。
+//
+// 🚨 按字节切会把一个汉字切成两半，留下一个替换符。这个函数只用在喂给模型的
+// 上文上，**绝不用在她自己写的字上**
+// （memory: observation-tool-is-the-bug-2026-09-12）。
+func truncRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Sprout, Telescope } from "lucide-react";
 import { ExploreView } from "./ExploreView";
 import { TreeView } from "../tree/TreeView";
@@ -36,12 +37,29 @@ export function SkyTab({
   user,
   surface,
   onSwitch,
+  refreshNonce = 0,
 }: {
   user: MeUser;
   surface: SkySurface;
   onSwitch: (next: SkySurface) => void;
+  /** 变一次就重拉一次树。觉醒协议往树上写完词之后由 LiteApp 递一个新值 ——
+   *  否则她走出房间回到树上，看到的还是走进去之前那一棵。 */
+  refreshNonce?: number;
 }) {
   const live = useInterestTree();
+
+  // 跳过首次：挂载时那一次拉取由 useInterestTree 自己发，这里再发一次是白花的。
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    live.reload();
+    // live.reload 是 useCallback 出来的稳定引用，但把 live 整个列进依赖会让
+    // 每次数据变化都重跑这个 effect，于是变成一个无限重拉的循环。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshNonce]);
   // 地图是夜，树是纸。切换器浮在两者之上，所以它得知道自己现在站在哪一张上。
   const night = surface === "map";
 

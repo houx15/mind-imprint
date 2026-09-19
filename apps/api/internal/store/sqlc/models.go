@@ -85,6 +85,43 @@ type AtomReport struct {
 	IncludeToolkit    bool               `json:"include_toolkit"`
 }
 
+type AwakeningReport struct {
+	ID         uuid.UUID `json:"id"`
+	RunID      uuid.UUID `json:"run_id"`
+	UserID     uuid.UUID `json:"user_id"`
+	Payload    []byte    `json:"payload"`
+	ShareToken *string   `json:"share_token"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type AwakeningRun struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	AttemptNo        int32              `json:"attempt_no"`
+	Stage            string             `json:"stage"`
+	Route            string             `json:"route"`
+	Navigator        string             `json:"navigator"`
+	EnergyProfile    []byte             `json:"energy_profile"`
+	Talent           []byte             `json:"talent"`
+	LensChoice       string             `json:"lens_choice"`
+	ChallengeChoice  string             `json:"challenge_choice"`
+	ArchiveAttempts  int32              `json:"archive_attempts"`
+	ObserverQuestion string             `json:"observer_question"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+}
+
+type AwakeningTurn struct {
+	ID          uuid.UUID `json:"id"`
+	RunID       uuid.UUID `json:"run_id"`
+	Seq         int32     `json:"seq"`
+	NodeIndex   int32     `json:"node_index"`
+	StudentText string    `json:"student_text"`
+	Reply       string    `json:"reply"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type CardCompetence struct {
 	ID              uuid.UUID `json:"id"`
 	UserID          uuid.UUID `json:"user_id"`

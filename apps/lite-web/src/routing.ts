@@ -44,10 +44,14 @@ export type LiteRoute =
   // `GET /api/v1/interest/tree` and renders nothing when that fails, because a
   // tree that falls back to sample words hangs sixteen keywords that are not
   // hers on a picture captioned 「这就是你的模型」.
-  // `quiz` 打开觉醒协议（兴趣测试），`/tree/quiz`。它是**同一条 tab 下的一屏**
-  // 而不是自己的顶层 tab：入口在树上，做完了回到树上，导航栏里不该多出一格
-  // 只在冷启动时有意义的东西。
-  | { tab: "tree"; quiz?: boolean }
+  // `awakening` 打开觉醒协议，`/tree/awakening`；`reportRunId` 直接打开一份
+  // 已经生成的报告，`/tree/report/:runId`。两者都是**同一条 tab 下的一屏**
+  // 而不是自己的顶层 tab：入口在树上，走完回到树上，导航栏里不该多出一格。
+  //
+  // 它有真实的 URL 而不是纯前端状态，因为这一趟可能走十五分钟：刷新、误触
+  // 返回键、第二天从历史记录点回来，都该落在同一个地方。房间本身是覆盖在
+  // 树上面的一层（LiteApp），所以进门仍然是一次动作，不是一次整页跳转。
+  | { tab: "tree"; awakening?: boolean; reportRunId?: string }
   // 我的主页。**她自己那一面**，不是 `/p/:token` 那个访客页。
   //
   // 2026-09-05 加：主页发布之后项目进 keeping，她随时能回来改，但在这之前回到
@@ -117,7 +121,9 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     case "courses":
       return second ? { tab: "courses", slug: second } : { tab: "courses" };
     case "tree":
-      return second === "quiz" ? { tab: "tree", quiz: true } : { tab: "tree" };
+      if (second === "awakening") return { tab: "tree", awakening: true };
+      if (second === "report" && third) return { tab: "tree", reportRunId: third };
+      return { tab: "tree" };
     case "site":
       return { tab: "mysite" };
     case "explore":
@@ -171,7 +177,9 @@ export function liteRoutePath(route: LiteRoute): string {
     case "courses":
       return route.slug ? `/courses/${encodeSegment(route.slug)}` : "/courses";
     case "tree":
-      return route.quiz ? "/tree/quiz" : "/tree";
+      if (route.awakening) return "/tree/awakening";
+      if (route.reportRunId) return `/tree/report/${encodeSegment(route.reportRunId)}`;
+      return "/tree";
     case "explore":
       return "/explore";
     case "mysite":
