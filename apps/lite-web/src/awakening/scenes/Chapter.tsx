@@ -60,7 +60,7 @@ export function WorldScene({ onChoose }: { onChoose: (route: "joined" | "observe
           </div>
           <div className="awk-city-copy">
             <div className="awk-chapter-number">{WORLD.chapter}</div>
-            <h2 className="awk-h2">{WORLD.title}</h2>
+            <h2 className="awk-h2 awk-h2--hero">{WORLD.title}</h2>
             <p className="awk-p">{WORLD.lead}</p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export function WorldScene({ onChoose }: { onChoose: (route: "joined" | "observe
           <p className="awk-p">{WORLD.prompt}</p>
 
           <div className="awk-choice-stack">
-            {WORLD_CHOICES.map((c) => (
+            {WORLD_CHOICES.map((c, i) => (
               <button
                 key={c.key}
                 type="button"
@@ -96,6 +96,8 @@ export function WorldScene({ onChoose }: { onChoose: (route: "joined" | "observe
                   <span>{c.body}</span>
                 </span>
                 <span className="awk-option-arrow">›</span>
+                <span className="awk-hw-id">SYS-{String(i + 1).padStart(2, "0")}</span>
+                <span className="awk-hw-barcode" aria-hidden="true" />
               </button>
             ))}
           </div>
@@ -193,42 +195,34 @@ export function ArchiveScene({
             ))}
           </div>
 
-          {ARCHIVE_EVIDENCE.map((e) => {
-            const isOpen = open === e.id;
-            return (
-              <div key={e.id} className="awk-evidence">
-                <button
-                  type="button"
-                  className="awk-evidence-toggle"
-                  aria-expanded={isOpen}
-                  onClick={() => setOpen(isOpen ? "" : e.id)}
-                >
-                  <span className="awk-evidence-mark">{e.index}</span>
-                  <span>
-                    <strong>{e.title}</strong>
-                    <small>{e.hint}</small>
-                  </span>
-                  <em>{isOpen ? "▾" : "›"}</em>
-                </button>
-                {isOpen ? (
-                  <div className="awk-evidence-note">
-                    <strong>印记助手：</strong>
-                    {e.reply}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-
-          <div className="awk-grid-3">
-            {ARCHIVE_SYSTEMS.map((sys) => (
-              <div key={sys.id} className="awk-system-card">
-                <b>{sys.name}</b>
-                <span>{sys.body}</span>
-              </div>
-            ))}
+          <div className="awk-evidence-row">
+            {ARCHIVE_EVIDENCE.map((e) => {
+              const isOpen = open === e.id;
+              return (
+                <div key={e.id} className="awk-evidence">
+                  <button
+                    type="button"
+                    className="awk-evidence-toggle"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpen(isOpen ? "" : e.id)}
+                  >
+                    <span className="awk-evidence-mark">{e.index}</span>
+                    <span>
+                      <strong>{e.title}</strong>
+                      <small>{e.hint}</small>
+                    </span>
+                    <em>{isOpen ? "▾" : "›"}</em>
+                  </button>
+                  {isOpen ? (
+                    <div className="awk-evidence-note">
+                      <strong>印记助手：</strong>
+                      {e.reply}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
-          <p className="awk-p">{ARCHIVE_CONCLUSION}</p>
         </div>
 
         <div>
@@ -251,8 +245,8 @@ export function ArchiveScene({
           <div className="awk-panel" style={{ marginTop: 14 }}>
             <h3 className="awk-h3">{ARCHIVE_QUESTION.label}</h3>
             <p className="awk-p">{ARCHIVE_QUESTION.ask}</p>
-            <div role="group" aria-label="档案确认题选项">
-              {ARCHIVE_OPTIONS.map((o) => {
+            <div className="awk-quiz-grid" role="group" aria-label="档案确认题选项">
+              {ARCHIVE_OPTIONS.map((o, qi) => {
                 const isPicked = picked === o.key;
                 const tone = !isPicked
                   ? ""
@@ -273,6 +267,8 @@ export function ArchiveScene({
                     <span className="awk-option-copy">
                       <strong>{o.label}</strong>
                     </span>
+                    <span className="awk-hw-id">SYS-{String(qi + 3).padStart(2, "0")}</span>
+                    <span className="awk-hw-barcode" aria-hidden="true" />
                   </button>
                 );
               })}
@@ -295,6 +291,22 @@ export function ArchiveScene({
           </div>
         </div>
       </div>
+
+      {/* 通栏：三种思考方式 + 结论。设计稿把它压在这一屏的最下面。 */}
+      <div className="awk-wrap awk-system-band">
+        <div className="awk-grid-3">
+          {ARCHIVE_SYSTEMS.map((sys) => (
+            <div
+              key={sys.id}
+              className={`awk-system-card${sys.id === "ai" ? " awk-system-card--ai" : ""}`}
+            >
+              <b>{sys.name}</b>
+              <span>{sys.body}</span>
+            </div>
+          ))}
+        </div>
+        <p className="awk-system-note">{ARCHIVE_CONCLUSION}</p>
+      </div>
     </section>
   );
 }
@@ -303,6 +315,8 @@ export function ArchiveScene({
 
 export function DeckScene({ onDone }: { onDone: () => void }) {
   /** 已经翻开几张。round === DECK_CARDS.length 表示三张都开了。 */
+  /** 开局那一屏（牌还没发）和正式开打是两屏 —— 设计稿如此。 */
+  const [started, setStarted] = useState(false);
   const [round, setRound] = useState(0);
   const [answer, setAnswer] = useState("");
 
@@ -319,32 +333,70 @@ export function DeckScene({ onDone }: { onDone: () => void }) {
             <p className="awk-p">{DECK.lead}</p>
           </div>
           <div className="awk-deck-counter">
-            ROUND {String(Math.min(round + (finished ? 0 : 1), DECK_CARDS.length)).padStart(2, "0")}{" "}
+            ROUND{" "}
+            {String(started ? Math.min(round + (finished ? 0 : 1), DECK_CARDS.length) : 0).padStart(
+              2,
+              "0",
+            )}{" "}
             / {String(DECK_CARDS.length).padStart(2, "0")}
             <br />
-            <span>{finished ? "三张已翻开" : "牌组已启动"}</span>
+            <span>{!started ? "牌组尚未启动" : finished ? "三张已翻开" : "牌组已启动"}</span>
           </div>
         </div>
 
         {/* 三张牌一直在，翻开过的正面朝上 —— 她能看见自己的进度。 */}
-        <div className="awk-deck-cards" aria-label="三张底牌">
-          {DECK_CARDS.map((c, i) => (
-            <div
-              key={c.id}
-              className={`awk-deck-card${i < round ? " awk-deck-card--open" : ""}`}
-            >
-              <div className="awk-deck-card-inner">
-                <div className="awk-deck-back">翻开底牌</div>
-                <div className="awk-deck-face">
-                  <b>{c.mark}</b>
-                  <span>{c.face.headline}</span>
+        {started ? (
+          <div className="awk-deck-cards" aria-label="三张底牌">
+            {DECK_CARDS.map((c, i) => (
+              <div
+                key={c.id}
+                className={`awk-deck-card${i < round ? " awk-deck-card--open" : ""}`}
+              >
+                <div className="awk-deck-card-inner">
+                  <div className="awk-deck-back">翻开底牌</div>
+                  <div className="awk-deck-face">
+                    <b>{c.mark}</b>
+                    <span>{c.face.headline}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : null}
 
-        {finished ? (
+        {!started ? (
+          <div className="awk-deck-intro">
+            <div className="awk-deck-cards awk-deck-cards--rack" aria-label="三张底牌">
+              {DECK_CARDS.map((c) => (
+                <div key={c.id} className="awk-deck-card">
+                  <div className="awk-deck-card-inner">
+                    <div className="awk-deck-back">翻开底牌</div>
+                    <div className="awk-deck-face">
+                      <b>{c.mark}</b>
+                      <span>{c.face.headline}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="awk-deck-intro-copy">
+                印记助手让你先看见 AI 的底牌。现在把它当成一台需要被观察的机器：
+                <strong>每完成一个实验，就翻开一张底牌。</strong>
+              </p>
+              <div className="awk-foot">
+                <span className="awk-helper">卡牌背面朝上 · 等待你的第一次选择</span>
+                <button
+                  type="button"
+                  className="awk-btn awk-btn--primary"
+                  onClick={() => setStarted(true)}
+                >
+                  {DECK.start}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : finished ? (
           <div className="awk-panel">
             <div className="awk-eyebrow">DECK COMPLETE</div>
             <h3 className="awk-h3" style={{ marginTop: 8 }}>
@@ -407,7 +459,7 @@ export function DeckScene({ onDone }: { onDone: () => void }) {
                   setAnswer("");
                 }}
               >
-                {round === 0 ? DECK.start : DECK.next}
+                {DECK.next}
               </button>
             </div>
           </div>

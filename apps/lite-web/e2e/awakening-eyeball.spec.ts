@@ -105,12 +105,15 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   /* ── 5 AI 底牌 ────────────────────────────────────────────────────────── */
 
+  // 开局是单独一屏（三张牌竖排 + 说明），照设计稿。
+  await expect(page.getByText("生成式 AI 的底牌")).toBeVisible();
+  await shot("05-deck");
+  await page.getByRole("button", { name: "开始第一局" }).click();
+
   for (let i = 0; i < 3; i++) {
-    await expect(page.getByText("生成式 AI 的底牌")).toBeVisible();
-    if (i === 0) await shot("05-deck");
     // 每张牌选第一个选项，两个选项都能推进。
     await page.locator(".awk-option").first().click();
-    await page.getByRole("button", { name: /开始第一个实验|翻开下一张/ }).click();
+    await page.getByRole("button", { name: "翻开下一张" }).click();
   }
   await expect(page.getByText("三张底牌已经翻开")).toBeVisible();
   await shot("06-deck-done");

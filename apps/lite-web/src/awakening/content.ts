@@ -308,10 +308,10 @@ export const DECK_CARDS: DeckCard[] = [
 ];
 
 export const DECK = {
-  eyebrow: "AI AWARENESS DECK",
+  eyebrow: "AI AWARENESS DECK · LIVE",
   title: "生成式 AI 的底牌",
   lead: "三张牌，三个实验。先亲手让它顺、换、偏，再听我说它是什么。",
-  start: "开始第一个实验",
+  start: "开始第一局",
   next: "翻开下一张",
   done: "三张底牌已经翻开",
   toRejoin: "重新面对选择",

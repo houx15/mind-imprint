@@ -68,6 +68,7 @@ export function Choice({
   wrong,
   onClick,
   disabled,
+  hwId,
 }: {
   index?: string;
   title: string;
@@ -76,6 +77,8 @@ export function Choice({
   wrong?: boolean;
   onClick: () => void;
   disabled?: boolean;
+  /** 右上角那个编号，形如 SYS-01。不给就不显示。 */
+  hwId?: string;
 }) {
   const tone = wrong ? " awk-option--bad" : selected ? " awk-option--selected" : "";
   return (
@@ -92,6 +95,9 @@ export function Choice({
         {body ? <span>{body}</span> : null}
       </span>
       <span className="awk-option-arrow">›</span>
+      {/* 编号和条码：设计稿里每张可点的卡上都有，是「一台机器上的一格」的记号。 */}
+      {hwId ? <span className="awk-hw-id">{hwId}</span> : null}
+      <span className="awk-hw-barcode" aria-hidden="true" />
     </button>
   );
 }

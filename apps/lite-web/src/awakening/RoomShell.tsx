@@ -17,7 +17,7 @@ import type { AwakeningStage } from "../api/awakening";
 /** 每一屏在顶栏上报出的身份。关卡号沿用设计稿的编法（E/W/A/D/R/O/N）。 */
 const STAGE_BADGE: Record<AwakeningStage, { route: string; level: string }> = {
   boot: { route: "觉醒协议", level: "E-00" },
-  world: { route: "觉醒协议", level: "E-01" },
+  world: { route: "觉醒协议", level: "E-00" },
   warning: { route: "认知提醒", level: "W-00" },
   archive: { route: "历史档案 · 认知让步", level: "A-01" },
   deck: { route: "觉醒训练 · 三张底牌", level: "D-00" },
@@ -66,11 +66,11 @@ export function RoomShell({
 
         <div className="awk-status-group">
           {/* 这一条是气氛，不是状态 —— 设计稿里它恒亮。 */}
-          <div className="awk-status-pill">
+          <div className="awk-chip">
             <span className="awk-status-dot" aria-hidden="true" />
             神经连接稳定
           </div>
-          <div className="awk-status-pill">
+          <div className="awk-chip">
             <span>
               {entry} · {badge.route}
             </span>
