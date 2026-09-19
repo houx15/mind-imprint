@@ -257,6 +257,35 @@ func extractAttributedQuotes(s string) []string {
 	return out
 }
 
+// StripBadQuotes 把**被归给她、而她没逐字写过**的那几对引号去掉，句子留下。
+//
+// # 为什么去引号而不是丢掉整轮
+//
+// 2026-09-19 线上走查里，八轮有一轮被判失败。模型写的是
+//
+//	你说「让我家那片海滩建不了」
+//
+// 而她写的是「……让他们一眼看出为什么我家那片海滩建不了」。意思是她的，
+// 措辞压缩了一点。按逐字判，这是幻引；按后果判，它离那次真事故很远 ——
+// 那次的伤害是「印记引用了她**没写过**的句子，于是她不知道该听谁的」。
+//
+// 丢掉整轮的代价是她看见一个死掉的终端。去掉引号的代价是那句话变成转述 ——
+// 而转述本来就是允许的。**不变量仍然成立**：凡是打上引号说成她原话的，
+// 一定逐字出自她。这比放宽比对好：放宽之后「差不多就算」会一路滑到没有判据。
+func StripBadQuotes(reply, corpus string) string {
+	bad := HallucinatedQuotes(reply, corpus)
+	if len(bad) == 0 {
+		return reply
+	}
+	out := reply
+	for _, q := range bad {
+		for _, p := range quotePairs {
+			out = strings.ReplaceAll(out, string(p[0])+q+string(p[1]), q)
+		}
+	}
+	return out
+}
+
 // attributedAt 报告开引号（下标 open）前面那一小段里有没有归属说法。
 func attributedAt(r []rune, open int) bool {
 	from := open - attributionWindow

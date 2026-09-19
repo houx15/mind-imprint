@@ -95,6 +95,37 @@ func TestHallucinatedQuotesOnlyJudgesAttributedQuotes(t *testing.T) {
 	}
 }
 
+// 2026-09-19 线上走查：模型把她的「……让他们一眼看出为什么我家那片海滩建不了」
+// 压成「让我家那片海滩建不了」再打上引号。意思是她的，措辞不是。
+//
+// 丢掉整轮的代价是她看见一个死掉的终端；去掉引号的代价是那句话变成转述，
+// 而转述本来就允许。不变量仍然成立：打了引号说成她原话的，一定逐字出自她。
+func TestStripBadQuotesKeepsTheSentenceAndDropsTheQuotes(t *testing.T) {
+	corpus := "我想做一个给同学看的图解，让他们一眼看出为什么我家那片海滩建不了"
+	reply := "你说「让我家那片海滩建不了」，那我们来看这一点。"
+
+	got := StripBadQuotes(reply, corpus)
+	if strings.Contains(got, "「让我家那片海滩建不了」") {
+		t.Errorf("引号应当去掉：%q", got)
+	}
+	if !strings.Contains(got, "让我家那片海滩建不了") {
+		t.Errorf("句子本身不该丢：%q", got)
+	}
+	// 去过之后必须干净 —— 否则调用方会以为自己还在幻引。
+	if bad := HallucinatedQuotes(got, corpus); len(bad) != 0 {
+		t.Errorf("去引号之后仍然判出幻引：%v", bad)
+	}
+}
+
+// 她真写过的引文一个都不许动。
+func TestStripBadQuotesLeavesRealQuotesAlone(t *testing.T) {
+	corpus := "最吸引我的是那个闸门的节奏"
+	reply := "你提到「闸门的节奏」，我们从这里往下问。"
+	if got := StripBadQuotes(reply, corpus); got != reply {
+		t.Errorf("她真写过的引文被改了：%q", got)
+	}
+}
+
 /* ── 回复的清理 ─────────────────────────────────────────────────────────── */
 
 func TestCleanReplyStripsPrefixesAndWrappingQuotes(t *testing.T) {

@@ -345,9 +345,12 @@ func (a *API) postAwakeningTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 这一句薄不薄，服务端算。薄了就在同一个节点换个问法再问一次 ——
-	// 而且**只换一次**：同一个节点连着两轮都薄，就带着这句话往下走，
-	// 与其把她卡在第三问，不如让后面几问多给一些线索。
-	retry := awakening.TooThin(nodeIndex, text) && !alreadyRetried(turns, nodeIndex)
+	// 而且**只换一次**（maxTurnsPerNode）：与其把她卡在第三问，不如带着这句
+	// 话往下走，让后面几问多给一些线索。
+	//
+	// 这里算的是「这一轮要不要换个问法问」，和下面那个「下一轮问哪个节点」
+	// 是两件事：这一轮的问题在她发送**之前**就已经问出去了。
+	retry := awakening.TooThin(nodeIndex, text) && turnsOnNode(turns, nodeIndex) == 0
 
 	in := awakening.DialogueInput{
 		Guide:       awakening.GuideOrDefault(run.Navigator),
@@ -369,18 +372,20 @@ func (a *API) postAwakeningTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	next := nodeIndex
-	if !retry {
-		next = nodeIndex + 1
-	}
+	// 🚨 下一轮问哪个节点，用**和下一个请求同一个函数**算，把刚记下的这一轮
+	// 一起算进去。两处各算各的，正是上面那个 400 的来源。
+	updated := append(turns, sqlc.AwakeningTurn{
+		RunID: run.ID, Seq: seq, NodeIndex: int32(nodeIndex), StudentText: text,
+	})
+	next := nextNodeIndex(updated)
 	out := awakeningTurnRespDTO{
 		Reply: reply, NodeIndex: nodeIndex, NextNode: next,
-		Retry: retry, Done: next >= awakening.NodeCount, Failed: failed,
+		Retry: next == nodeIndex, Done: next >= awakening.NodeCount, Failed: failed,
 	}
 	if !out.Done {
 		n := awakening.NodeAt(next)
 		out.Ask = n.Ask
-		if retry {
+		if out.Retry {
 			out.Ask = n.Retry
 		}
 	}
@@ -427,7 +432,13 @@ func (a *API) awakeningDialogue(
 		if bad := awakening.HallucinatedQuotes(reply, corpus); len(bad) > 0 {
 			slog.Warn("awakening: reply quotes words she never wrote",
 				"run_id", runID, "attempt", attempt, "quotes", bad)
-			continue
+			if attempt == 0 {
+				continue // 再要一次，通常第二次就规矩了
+			}
+			// 🚨 第二次还这样，**去掉引号**而不是丢掉整轮。不变量仍然成立
+			// （打了引号说成她原话的，一定逐字出自她），而她不会看见一个
+			// 死掉的终端。见 awakening.StripBadQuotes 的说明。
+			return awakening.StripBadQuotes(reply, corpus), false
 		}
 		return reply, false
 	}
@@ -902,34 +913,47 @@ func (a *API) previousReport(ctx context.Context, userID uuid.UUID, run sqlc.Awa
 	return &rep, days
 }
 
-// nextNodeIndex 从已经发生的轮次算出下一轮问第几个节点。
+// maxTurnsPerNode 是一个节点最多问几轮。
 //
-// 不等于轮数：一个节点可能问了两轮（她第一次答得太薄）。所以取**最后一轮的
-// 节点号**，再看那一轮是不是换问法的那一次。
+// 两轮：原来那个问法，加上她答得太薄时换的那一个。第三轮没有新的问法可给，
+// 只会把她卡在第三问上 —— 与其如此，不如带着这句话往下走，后面几问多给线索。
+const maxTurnsPerNode = 2
+
+// nextNodeIndex 从已经发生的轮次算出**下一轮**问第几个节点。
+//
+// 🚨 这是「下一个节点是谁」的**唯一一处**答案。
+//
+// 第一版不是这样：handler 用自己那个 retry 标志算响应里的 nextNode，而下一个
+// 请求进来时又用这个函数重算一遍。两者在「一个薄答案落在最后一个节点」上分道
+// 扬镳 —— 响应说还在第 8 问，下一个请求算出来已经问完了，于是回 400
+// terminal_done。2026-09-19 的接口走查抓到的。
+//
+// 现在 handler 也调它（把刚记下的那一轮一起算进去），所以两边由构造保证一致。
 func nextNodeIndex(turns []sqlc.AwakeningTurn) int {
 	if len(turns) == 0 {
 		return 0
 	}
-	last := turns[len(turns)-1]
-	// 同一个节点已经问过两轮，就不再重复，往下走。
-	if alreadyRetried(turns, int(last.NodeIndex)) {
-		return int(last.NodeIndex) + 1
+	last := int(turns[len(turns)-1].NodeIndex)
+	// 这个节点已经用满了轮数，往下走。
+	if turnsOnNode(turns, last) >= maxTurnsPerNode {
+		return last + 1
 	}
-	if awakening.TooThin(int(last.NodeIndex), last.StudentText) {
-		return int(last.NodeIndex)
+	// 她刚才那句太薄，在同一个节点换个问法再问一次。
+	if awakening.TooThin(last, turns[len(turns)-1].StudentText) {
+		return last
 	}
-	return int(last.NodeIndex) + 1
+	return last + 1
 }
 
-// alreadyRetried 报告这个节点是不是已经问过不止一轮。
-func alreadyRetried(turns []sqlc.AwakeningTurn, nodeIndex int) bool {
+// turnsOnNode 数这个节点已经问过几轮。
+func turnsOnNode(turns []sqlc.AwakeningTurn, nodeIndex int) int {
 	n := 0
 	for _, t := range turns {
 		if int(t.NodeIndex) == nodeIndex {
 			n++
 		}
 	}
-	return n >= 2
+	return n
 }
 
 // toTurns 把库里的行转成纯逻辑层的结构。

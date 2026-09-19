@@ -119,16 +119,19 @@ const (
 // 报告要分开说这两件事：「这几个词你又说了一次，它们更确定了」和「这几个是
 // 这次新长出来的」。合成一句「长出了 3 个词」，会让一个第五次走协议的学生
 // 看到和第一次一模一样的句子。
+// 🚨 json 标签不能省。这个结构整个进 awakening_report.payload，前端逐字段读
+// 小驼峰。少了标签它会序列化成 `Zh` / `Evidence`，于是报告里每张卡都是空的 ——
+// 而树上的词是对的，日志里也没有任何报错。2026-09-19 的接口走查抓到过一次。
 type Planted struct {
-	InterestID string
-	Zh         string
-	En         string
-	Field      string
-	Note       string
-	Evidence   string
-	Verdict    Verdict
+	InterestID string  `json:"interestId"`
+	Zh         string  `json:"zh"`
+	En         string  `json:"en"`
+	Field      string  `json:"field"`
+	Note       string  `json:"note"`
+	Evidence   string  `json:"evidence"`
+	Verdict    Verdict `json:"verdict"`
 	// Strength 是写回之后的强度读数。confirm 的那几个会比上次高。
-	Strength int
+	Strength int `json:"strength"`
 }
 
 // Classify 判定每个选中的词是 confirm 还是 grow。
