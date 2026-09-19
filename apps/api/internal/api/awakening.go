@@ -357,6 +357,8 @@ func (a *API) postAwakeningTurn(w http.ResponseWriter, r *http.Request) {
 		Brief:       brief,
 		NodeIndex:   nodeIndex,
 		Retry:       retry,
+		// 她刚答完最后一个节点，而且这一轮不换问法 —— 后面没有问题了。
+		Last: !retry && nodeIndex == awakening.NodeCount-1,
 		EnergyFocus: energyFocus(run.EnergyProfile),
 		History:     toTurns(turns),
 		Latest:      text,

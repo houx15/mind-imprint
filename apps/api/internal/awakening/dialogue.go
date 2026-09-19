@@ -53,6 +53,12 @@ type DialogueInput struct {
 	NodeIndex int
 	// Retry 为真表示她上一句太薄，这一轮要在**同一个节点**换个问法再问一次。
 	Retry bool
+	// Last 为真表示她刚回答的是最后一个节点，后面没有问题了。
+	//
+	// 不带这个标志时模型会照着「这一步要问的问题」把第八问**再问一遍** ——
+	// 她刚答完，印记又问了一次，然后屏幕上写着「八个问题已经问完」。
+	// 2026-09-19 用真浏览器走一遍才看见（接口走查看不到这种别扭）。
+	Last bool
 	// EnergyFocus 是能量卡牌那一屏的结论，一句话。可以为空。
 	EnergyFocus string
 	// History 是这一趟已经发生过的轮次，按时间正序。
@@ -78,7 +84,13 @@ func BuildDialoguePrompt(in DialogueInput) (system, user string) {
 	fmt.Fprintf(&sb, "\n你这一轮的身份是「%s」。%s\n", in.Guide.Zh, in.Guide.Style)
 	fmt.Fprintf(&sb, "\n当前进度：第 %d 步，共 %d 步。\n", in.NodeIndex+1, NodeCount)
 	fmt.Fprintf(&sb, "这一步要问出来的东西：%s\n", node.Objective)
-	fmt.Fprintf(&sb, "这一步要问的问题：%s\n", ask)
+	if in.Last {
+		// 最后一问她已经答完了。再问一次只会让她以为自己答错了。
+		sb.WriteString("她刚回答的是最后一个问题，后面没有问题了。这一轮只做两件事：" +
+			"接住她这句里的一个具体的东西，再做一句暂定的推断。**不要再提问。**\n")
+	} else {
+		fmt.Fprintf(&sb, "这一步要问的问题：%s\n", ask)
+	}
 	if in.Retry {
 		sb.WriteString("她上一句太短，没有可以引用的内容。这一轮**不要**重复上一个问法，换成上面这个更具体的入口，并且不要说她答得不好。\n")
 	}
@@ -89,7 +101,15 @@ func BuildDialoguePrompt(in DialogueInput) (system, user string) {
 		sb.WriteString("\n")
 		sb.WriteString(t)
 	}
-	sb.WriteString(dialogueSystemRules)
+	sb.WriteString(dialogueSystemRulesHead)
+	// 第三条随「后面还有没有问题」而变。两条都写进去，模型会照前面那条
+	// 提问、又照后面那条收尾，自相矛盾的 prompt 得到的是自相矛盾的回复。
+	if in.Last {
+		sb.WriteString("3. 收尾。**这一轮不要提任何问题。**\n")
+	} else {
+		sb.WriteString("3. 最后把这一步要问的问题问出来。可以换成你自己的说法，但**要问的那件事不能换**。\n")
+	}
+	sb.WriteString(dialogueSystemRulesTail)
 	fmt.Fprintf(&sb, "回复长度不超过 %d 字。\n", dialogueMaxRunes)
 
 	return sb.String(), buildDialogueUser(in)
@@ -99,12 +119,13 @@ const dialogueSystemHead = `你是「觉醒协议」里的印记助手，正在�
 你的任务是从她自己的经历里，帮她把一个模糊的兴趣变成一个可以继续追问的研究问题。
 你不给她贴性格标签，也不根据一个爱好直接推荐职业。`
 
-const dialogueSystemRules = `
+const dialogueSystemRulesHead = `
 怎么回这一轮：
 1. 先引用她刚才说的**一个具体的东西**（一个动作、一个画面、一个条件），用她自己的词。
 2. 再做一句暂定的推断，用「可能」「看起来」「这样理解对吗」这样的说法。
-3. 最后把这一步要问的问题问出来。可以换成你自己的说法，但**要问的那件事不能换**。
+`
 
+const dialogueSystemRulesTail = `
 绝对不要做的事：
 - 不要把她没说过的话说成是她说的。写「你说……」「你提到……」的时候，引号里必须是她的原话，一个字都不能改。
 - 不要替她回答，不要给她一个结论，不要列出好几个问题让她挑。
