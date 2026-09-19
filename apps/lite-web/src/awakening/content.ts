@@ -41,15 +41,18 @@ export const BOOT_CONTINUE = "继续";
 /* ── 序章：加入或者先看 ─────────────────────────────────────────────────── */
 
 export const WORLD = {
-  chapter: "序章 01 / 2050",
-  title: "你的判断仍然属于你。",
+  // 🚨 2100，不是 2050 —— 序章第一句就是「现在是公元2100年」。
+  chapter: "序章 01 / 2100",
+  title: "你的脑子，仍然属于你。",
   lead: "先做出你的选择。",
-  speaker: "印记",
-  body: [
-    "AI 可以帮你更快地得到答案。更快不等于更真。",
-    "现在请决定：加入觉醒者联盟，还是先看清楚 AI 再决定。",
-  ],
-  prompt: "请选择你的下一步。",
+  /** 这一屏说话的是系统，不是印记 —— 设计稿里头像写着 SYS。 */
+  speaker: "联盟中枢",
+  speakerMark: "SYS",
+  speakerState: "序章已启动",
+  body: ["AI 可以帮你更快地生成答案，但「更快」不等于「更真」。"],
+  /** 单独一行、加重的那句。 */
+  highlight: "这一刻，方向由你决定。",
+  prompt: "现在，请决定是否加入觉醒者联盟。",
 } as const;
 
 export interface WorldChoice {
@@ -64,13 +67,13 @@ export const WORLD_CHOICES: WorldChoice[] = [
     key: "joined",
     index: "A",
     title: "加入觉醒者联盟",
-    body: "直接开始校准你的能量线索。",
+    body: "现在开始。",
   },
   {
     key: "observer",
     index: "B",
-    title: "先看清楚 AI",
-    body: "打开历史档案，做完三个实验，再决定。",
+    title: "暂不加入联盟",
+    body: "先以观察者身份了解 AI。",
   },
 ];
 

@@ -1,323 +1,1774 @@
-/* ===========================================================================
- * quiz.css — 觉醒协议的视觉层。
+/**
+ * 觉醒协议 · 这个房间自己的样式。
  *
- * 这一屏**故意和产品其他地方不一样**。整个 lite 是暖纸 + 暖夜；这里是冷蓝的
- * 科幻界面。理由不是花哨：这是一个学生在还不知道自己喜欢什么的时候走进来的
- * 地方，它的任务是让她愿意花五分钟。一个和作业界面长得一样的问卷做不到这件事。
+ * # 为什么这一份不用产品的设计令牌
  *
- * 调色板取自 `docs/reference/explore_interest.html`。它是这套设计里唯一冷色的
- * 一屏，走出去（结果页的「回到我的树」）就换回暖色 —— 那个温差本身就是叙事：
- * 你从外面的系统回到自己的树。
+ * 平台是暖色编辑风（mk-* 那套）。这个房间是另一套东西：2100 年的废土终端。
+ * 学生走进来时应该感觉「进了另一个房间」，而不是「平台上多了一个功能」。
+ * 所以这里自成一套变量，**值全部来自参考设计**
+ * （docs/reference/觉醒协议-大模型兴趣探索版-2026-09-18）。
  *
- * 🚨 `mk-*` 是裸 CSS 变量，任何 Tailwind 透明度修饰都不会生成 CSS
- * （memory: tailwind-mk-token-alpha-trap）。这个文件里索性一个 mk token 都不用，
- * 全是自己的变量与字面 rgba。
- * ======================================================================== */
+ * # 为什么每一条都挂在 .awk 下面
+ *
+ * 这套样式和平台的样式互相冲突（深色、等宽、方角、大字号）。全部收在 `.awk`
+ * 这个根 class 下面，房间关掉就一点都不剩 —— 绝不能因为进过一次这个房间，
+ * 阅读室的按钮就变了样。🚨 这里不要出现任何裸的元素选择器（`button{}`、
+ * `h2{}`），它们会穿透到整个应用。
+ *
+ * # 两套视觉，不是一套
+ *
+ * 参考设计里其实有两种画面，不要把它们统一掉：
+ *
+ *   序章（boot）  废土外景。灰绿、暗，说话人是暗红 #b13a46，正文暖白 #e8e5dc，
+ *                字号大到 43px —— 它是一部动画的开场，不是一个界面。
+ *   主线（其余）   舱内 HUD。青 #55e6ff + 琥珀 #ffcd70，面板、状态灯、等宽标签。
+ *
+ * # 字体
+ *
+ * 中文正文用 PingFang，HUD 标签用等宽 —— 和设计一致。这两者都不是平台的字体，
+ * 这是有意的（owner：进这个房间要像进一个特别的房间）。
+ */
 
 .awk {
-  --ink: #e8f3ff;
-  --muted: #9bb0c6;
-  --panel: rgba(9, 19, 34, 0.9);
-  --panel-soft: rgba(13, 28, 47, 0.76);
-  --line: rgba(130, 225, 255, 0.22);
-  --cyan: #55e6ff;
-  --cyan-2: #1ca5dc;
-  --amber: #ffcd70;
-  --purple: #9e8cff;
-  --green: #62e6ad;
-  --danger: #ff7189;
+  /* ── 主线 HUD 的令牌（来自设计稿 :root） ───────────────────────────── */
+  --awk-ink: #f5fbff;
+  --awk-muted: #9bb0c6;
+  --awk-panel: rgba(9, 19, 34, 0.9);
+  --awk-panel-soft: rgba(13, 28, 47, 0.76);
+  --awk-line: rgba(130, 225, 255, 0.22);
+  --awk-cyan: #55e6ff;
+  --awk-cyan-2: #1ca5dc;
+  --awk-amber: #ffcd70;
+  --awk-purple: #9e8cff;
+  --awk-green: #62e6ad;
+  --awk-danger: #ff7189;
+  --awk-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
 
+  /* ── 序章那套（废土，另一组颜色） ──────────────────────────────────── */
+  --awk-waste-text: #e8e5dc;
+  --awk-waste-speaker: #b13a46;
+  --awk-waste-dim: #59635e;
+  --awk-waste-label: #78837d;
+  --awk-waste-rule: rgba(107, 123, 113, 0.28);
+
+  --awk-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --awk-sans: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  color: var(--awk-ink);
+  background: #02070f;
+  font-family: var(--awk-sans);
+  font-size: 16px;
+  /* 房间盖住整个产品：导航轨、页头都在下面。出门时整块卸掉。 */
+  overflow: hidden;
+}
+
+/**
+ * 舞台。
+ *
+ * 设计稿把内容锁在一个 4:3 的框里居中 —— 宽屏上左右留黑边。这不是偷懒，
+ * 是它让画面像一块屏幕而不像一张网页，「特别的房间」有一半来自这个比例。
+ */
+.awk-shell {
   position: relative;
+  width: min(100vw, 1280px);
+  height: 100vh;
+  max-height: 960px;
+  min-height: 640px;
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+  overflow: hidden;
   isolation: isolate;
-  min-height: 100%;
-  width: 100%;
-  overflow-y: auto;
-  color: var(--ink);
-  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   background:
     radial-gradient(circle at 77% 12%, rgba(52, 205, 255, 0.15), transparent 28%),
     radial-gradient(circle at 15% 80%, rgba(130, 92, 255, 0.13), transparent 33%),
-    linear-gradient(145deg, #06111f 0%, #02070f 56%, #071422 100%);
+    linear-gradient(145deg, #06111f 0%, #030a14 60%, #01060c 100%);
 }
 
-/* 细扫描线。压得很低，是质感不是图案。 */
-.awk::before {
-  content: "";
+/** 扫描线。整个房间都铺着，很淡，是「这是一块屏幕」的第一个信号。 */
+.awk-noise {
   position: absolute;
   inset: 0;
+  z-index: 12;
   pointer-events: none;
-  z-index: 0;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(120, 200, 255, 0.045) 0px,
-    rgba(120, 200, 255, 0.045) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  opacity: 0.055;
+  background-image: repeating-linear-gradient(0deg, transparent 0 3px, #ffffff 4px 5px);
+  animation: awk-scan 12s linear infinite;
 }
 
-.awk > * {
+@keyframes awk-scan {
+  to {
+    background-position: 0 120px;
+  }
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────────── */
+
+.awk-topbar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 64px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 30px;
+  border-bottom: 1px solid var(--awk-line);
+  background: linear-gradient(180deg, rgba(2, 8, 16, 0.94), rgba(2, 8, 16, 0.62));
+  backdrop-filter: blur(12px);
+}
+
+.awk-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/** 那个菱形。一个旋转 45° 的方框，不是图片。 */
+.awk-brand-mark {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--awk-cyan);
+  transform: rotate(45deg);
+  box-shadow: 0 0 24px rgba(85, 230, 255, 0.36);
+}
+
+.awk-brand-copy {
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.awk-brand-copy small {
+  display: block;
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+}
+
+.awk-status-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: var(--awk-muted);
+  font-size: 12px;
+}
+
+.awk-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--awk-line);
+  border-radius: 999px;
+  background: rgba(9, 29, 47, 0.62);
+  white-space: nowrap;
+}
+
+.awk-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--awk-green);
+  box-shadow: 0 0 12px var(--awk-green);
+}
+
+/** 关卡号（E-00 / D-00）。琥珀色，等宽，是 HUD 上唯一的高亮数字。 */
+.awk-level {
+  color: var(--awk-amber);
+  font-family: var(--awk-mono);
+  font-weight: 800;
+}
+
+.awk-topbar-button {
+  min-width: 112px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(85, 230, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(9, 29, 47, 0.72);
+  color: var(--awk-cyan);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.awk-topbar-button:hover {
+  background: rgba(16, 48, 74, 0.86);
+  box-shadow: 0 0 18px rgba(85, 230, 255, 0.24);
+}
+
+.awk-topbar-button:focus-visible {
+  outline: 2px solid var(--awk-cyan);
+  outline-offset: 2px;
+}
+
+/* ── 屏 ───────────────────────────────────────────────────────────────── */
+
+/**
+ * 每一屏铺满顶栏以下。
+ *
+ * 只渲染当前那一屏（React 决定），所以这里不需要设计稿那套 display:none +
+ * .active —— 那是给一份写死 14 个 section 的静态文件用的。
+ */
+.awk-screen {
+  position: absolute;
+  inset: 64px 0 0;
+  z-index: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  animation: awk-screen-in 300ms ease both;
+}
+
+@keyframes awk-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/** 序章要铺满整个舞台（含顶栏那一条），它是一部片头。 */
+.awk-screen--bleed {
+  inset: 0;
+  z-index: 16;
+  overflow: hidden;
+}
+
+/* ══ 序章：废土 ═══════════════════════════════════════════════════════════
+ *
+ * 这是一部片头，不是一个界面。版式照参考设计实测：
+ *
+ *   背景铺满整屏（废土 SVG + 压暗 + CRT 扫描线 + 暗角）
+ *   对话框**贴在底部**，约 28vh 高，像一部 AVG 游戏 —— 不是居中的大面板
+ *   NOVA 的立绘压在对话框上沿，**只有 NOVA 说话时才出现**
+ *   上沿一条 HUD，右下角两个按键提示
+ *
+ * 🚨 第一版我把对话框写成了居中的 570px 面板、台词 43px。那是基础 CSS 里被
+ * `.avg-prologue` 覆盖掉的旧值 —— 真正在跑的是下面这套。读设计稿的 CSS 时
+ * 要找那个**实际生效的变体**，不要只读第一条同名规则。
+ */
+
+.awk-waste {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #010303;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.52) 0%, rgba(5, 8, 9, 0.58) 56%, rgba(0, 0, 0, 0.68) 100%),
+    var(--awk-waste-image);
+  background-size: cover;
+  background-position: center bottom;
+}
+
+.awk-haze {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.2)),
+    linear-gradient(105deg, transparent 4%, rgba(201, 220, 207, 0.025) 43%, transparent 67%);
+}
+
+.awk-crt-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px);
+}
+
+.awk-crt-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, transparent 44%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+/**
+ * NOVA 的立绘。
+ *
+ * 站在对话框正上方居中，底边贴着框的上沿 —— 经典 AVG 的站位。
+ * 🚨 **旁白时它不在**：`--speaking` 才把透明度给到 1。这一下让「谁在说话」
+ * 有了画面，而不只是换个颜色。
+ */
+.awk-sprite {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: calc(clamp(28px, 4vh, 48px) + clamp(220px, 28vh, 330px) - 4px);
+  width: min(42vw, 500px);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+}
+
+.awk-sprite--speaking {
+  opacity: 1;
+}
+
+.awk-sprite img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.awk-skip {
+  position: absolute;
+  z-index: 32;
+  top: clamp(56px, 7vh, 76px);
+  right: clamp(18px, 3vw, 44px);
+  min-width: 118px;
+  min-height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 9px 16px;
+  border: 1px solid rgba(143, 255, 209, 0.48);
+  background: rgba(3, 10, 10, 0.82);
+  color: #e9fff7;
+  font-family: var(--awk-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+
+.awk-skip:hover,
+.awk-skip:focus-visible {
+  border-color: #8fffd1;
+  background: #8fffd1;
+  color: #03110c;
+  outline: none;
+  box-shadow: inset 3px 0 0 rgba(3, 17, 12, 0.32), 0 0 16px rgba(143, 255, 209, 0.28);
+}
+
+/** 上沿那条 HUD。压一层黑到透明的渐变，让白字在任何背景上都读得出来。 */
+.awk-prologue-hud {
+  position: absolute;
+  z-index: 6;
+  inset: 0 0 auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px clamp(18px, 3vw, 44px);
+  border-bottom: 1px solid rgba(121, 146, 134, 0.18);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), transparent);
+  color: var(--awk-waste-dim);
+  font-family: var(--awk-mono);
+  font-size: clamp(10px, 1.05vw, 13px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.awk-prologue-hud-left,
+.awk-prologue-signal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.awk-prologue-classification {
+  color: #912732;
+}
+
+.awk-prologue-signal i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #912732;
+  box-shadow: 0 0 10px #912732;
+}
+
+/** 底部对话框。宽屏贴底、约 28vh、半透明，左边一道青色的光。 */
+.awk-terminal {
+  position: absolute;
+  z-index: 14;
+  left: 50%;
+  bottom: clamp(28px, 4vh, 48px);
+  width: min(1180px, 92vw);
+  height: clamp(220px, 28vh, 330px);
+  transform: translateX(-50%);
+  border: 1px solid rgba(132, 166, 153, 0.38);
+  border-left-color: rgba(93, 229, 199, 0.68);
+  background: linear-gradient(105deg, rgba(3, 8, 12, 0.94), rgba(6, 12, 16, 0.84) 72%, rgba(4, 8, 11, 0.91));
+  box-shadow: inset 3px 0 0 rgba(86, 226, 196, 0.14);
+}
+
+/** 左上角那道 24% 宽的青线 —— 整个框上最亮的一处。 */
+.awk-terminal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24%;
+  height: 1px;
+  background: #70e8cf;
+  box-shadow: 0 0 7px rgba(90, 231, 201, 0.45);
+}
+
+/** 右下角那把虚线小尺。纯装饰，但少了它右下角就空了。 */
+.awk-terminal::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  width: 58px;
+  height: 3px;
+  opacity: 0.4;
+  background: repeating-linear-gradient(90deg, #76dbc5 0 1px, transparent 1px 4px);
+}
+
+.awk-terminal-head {
+  position: absolute;
+  z-index: 3;
+  top: 13px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: rgba(147, 165, 157, 0.56);
+  font-family: var(--awk-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.awk-terminal-title {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.awk-terminal-main {
+  height: 100%;
+  padding: clamp(42px, 6vh, 68px) clamp(28px, 5vw, 68px) 34px;
+  color: #d9fff8;
+  font-family: var(--awk-mono);
+}
+
+/** 说话人的名牌。只在 NOVA 说话时渲染。 */
+.awk-speaker-name {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 3px 10px;
+  border: 1px solid rgba(97, 230, 200, 0.62);
+  background: rgba(3, 20, 18, 0.95);
+  box-shadow: inset 3px 0 0 rgba(84, 232, 200, 0.68);
+  color: #8cf0da;
+  font-size: clamp(11px, 1.2vw, 13px);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-shadow: 0 0 9px rgba(84, 232, 200, 0.42);
+}
+
+.awk-line-wrap {
+  position: relative;
+  width: 100%;
+  padding-right: 42px;
+  text-align: left;
+}
+
+.awk-line {
+  display: inline;
+  margin: 0;
+  font-size: clamp(19px, 2.05vw, 29px);
+  font-weight: 560;
+  line-height: 1.7;
+  letter-spacing: 0.025em;
+  text-wrap: pretty;
+}
+
+/* 旁白是灰的、轻的；NOVA 是青的、带一点辉光。两种声音，两种颜色。 */
+.awk-terminal-main--narrator .awk-line {
+  color: #b8b9b4;
+  font-weight: 480;
+  letter-spacing: 0.035em;
+}
+
+.awk-terminal-main--assistant .awk-line {
+  color: #adf2e2;
+  text-shadow: 0 0 11px rgba(74, 222, 191, 0.19);
+}
+
+.awk-terminal-main--narrator .awk-cursor,
+.awk-terminal-main--narrator .awk-continue-arrow {
+  color: #8f918c;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.awk-cursor {
+  display: inline-block;
+  width: 0.62em;
+  height: 1.08em;
+  margin-left: 0.12em;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: awk-cursor-blink 0.74s steps(1, end) infinite;
+}
+
+@keyframes awk-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.awk-continue-arrow {
+  position: absolute;
+  right: 0;
+  bottom: -6px;
+  color: #7a8980;
+  font-size: 20px;
+  animation: awk-arrow-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes awk-arrow-pulse {
+  from {
+    opacity: 0.3;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/** 进度条贴在对话框最底下那 2px。 */
+.awk-progress-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(116, 137, 128, 0.13);
+}
+
+.awk-progress-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #5f1821, #a52a38 55%, #56cdb5);
+  box-shadow: 0 0 12px rgba(90, 218, 190, 0.32);
+  transition: width 0.35s ease;
+}
+
+.awk-prologue-footer {
+  position: absolute;
+  z-index: 13;
+  right: 4vw;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: rgba(139, 154, 147, 0.62);
+  font-family: var(--awk-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.awk-key {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 18px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid #3d4641;
+  background: #080b0a;
+  box-shadow: inset 0 -2px #000;
+  color: #7f8b84;
+}
+
+@media (max-width: 700px) {
+  .awk-prologue-hud {
+    min-height: 42px;
+    padding: 11px 14px;
+  }
+
+  .awk-skip {
+    top: 52px;
+    right: 12px;
+    min-width: 104px;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 10px;
+  }
+
+  .awk-terminal {
+    bottom: 30px;
+    width: calc(100vw - 24px);
+    height: clamp(230px, 32vh, 310px);
+  }
+
+  .awk-terminal-head {
+    top: 10px;
+    right: 14px;
+  }
+
+  .awk-terminal-main {
+    padding: 42px 22px 27px;
+  }
+
+  .awk-line {
+    font-size: clamp(18px, 5.5vw, 23px);
+    line-height: 1.62;
+  }
+
+  .awk-sprite {
+    bottom: calc(30px + clamp(230px, 32vh, 310px) - 4px);
+    width: min(72vw, 360px);
+  }
+
+  .awk-prologue-footer {
+    right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awk-noise,
+  .awk-cursor,
+  .awk-continue-arrow,
+  .awk-screen {
+    animation: none;
+  }
+}
+
+
+/* ══ 主线：舱内 HUD ═══════════════════════════════════════════════════════
+ *
+ * 序章之后的十三屏共用这一套。值同样取自参考设计。
+ *
+ * 命名规则：一律 `awk-` 前缀。设计稿里那些 `.eyebrow` `.lead` `.speaker`
+ * 是裸名字，直接搬进来会和平台撞车（我们也有 .speaker），所以全部改名。
+ */
+
+/* ── 版面 ─────────────────────────────────────────────────────────────── */
+
+/** 一屏的内容区。绝大多数屏都是「居中一栏，两边留白」。 */
+.awk-wrap {
+  width: min(1080px, 92%);
+  margin: 0 auto;
+  padding: clamp(20px, 3vh, 34px) 0 clamp(28px, 5vh, 52px);
+}
+
+/** 两栏：正文 + 侧栏（档案、观察者、重新决定都是这个形状）。 */
+.awk-two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: clamp(16px, 2.4vw, 30px);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .awk-two-col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/** 面板：这套 HUD 的基本容器。 */
+.awk-panel {
+  min-width: 0;
+  padding: clamp(16px, 2.2vw, 26px);
+  border: 1px solid var(--awk-line);
+  border-radius: 20px;
+  background: var(--awk-panel);
+  box-shadow: var(--awk-shadow);
+}
+
+.awk-panel--soft {
+  background: var(--awk-panel-soft);
+}
+
+/* ── 字 ───────────────────────────────────────────────────────────────── */
+
+/** 小标题上面那行全大写的英文。这套界面的标志性元素之一。 */
+.awk-eyebrow {
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.awk-h2 {
+  margin: 10px 0 0;
+  font-size: clamp(24px, 2.9vw, 38px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.awk-h3 {
+  margin: 0;
+  font-size: clamp(17px, 1.6vw, 21px);
+  font-weight: 800;
+}
+
+.awk-p {
+  margin: 10px 0 0;
+  color: var(--awk-muted);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.awk-lead {
+  margin: 14px 0 0;
+  color: #c3d6e6;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.awk-helper {
+  color: var(--awk-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.awk-center {
+  text-align: center;
+}
+
+/* ── 按钮 ─────────────────────────────────────────────────────────────── */
+
+.awk-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.awk-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--awk-cyan);
+  box-shadow: 0 12px 28px rgba(14, 132, 171, 0.22);
+}
+
+.awk-btn:focus-visible {
+  outline: 2px solid var(--awk-cyan);
+  outline-offset: 2px;
+}
+
+.awk-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.awk-btn--primary {
+  color: #021018;
+  background: linear-gradient(135deg, #82f0ff, #42c8ee);
+  box-shadow: 0 12px 34px rgba(45, 201, 239, 0.24);
+}
+
+.awk-btn--secondary {
+  color: var(--awk-ink);
+  border-color: rgba(85, 230, 255, 0.35);
+  background: rgba(12, 38, 59, 0.72);
+}
+
+.awk-btn--ghost {
+  color: var(--awk-muted);
+  border-color: var(--awk-line);
+  background: transparent;
+}
+
+/* ── 选项卡 ───────────────────────────────────────────────────────────── */
+
+/**
+ * 一行一个选项，左边一个字母角标。
+ * 选中和 hover 一样往右挪 4px —— 设计稿用位移而不是填色来表示「这一条被选了」。
+ */
+.awk-option {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--awk-line);
+  border-radius: 14px;
+  background: rgba(11, 28, 45, 0.82);
+  color: var(--awk-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.awk-option:hover,
+.awk-option--selected {
+  transform: translateX(4px);
+  border-color: var(--awk-cyan);
+  background: rgba(22, 74, 94, 0.62);
+}
+
+.awk-option:focus-visible {
+  outline: 2px solid var(--awk-cyan);
+  outline-offset: 2px;
+}
+
+.awk-option--good {
+  border-color: var(--awk-green);
+  background: rgba(45, 138, 96, 0.14);
+}
+
+.awk-option--bad {
+  border-color: var(--awk-danger);
+  background: rgba(150, 42, 69, 0.14);
+}
+
+.awk-option-index {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(85, 230, 255, 0.32);
+  border-radius: 10px;
+  background: rgba(85, 230, 255, 0.08);
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-weight: 900;
+}
+
+.awk-option-copy strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.awk-option-copy span {
+  display: block;
+  margin-top: 3px;
+  color: var(--awk-muted);
+  font-size: 13px;
+}
+
+.awk-option-arrow {
+  color: var(--awk-muted);
+  font-size: 20px;
+}
+
+/* ── 说话人 / 气泡 ────────────────────────────────────────────────────── */
+
+.awk-speaker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--awk-line);
+}
+
+.awk-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--awk-cyan);
+  border-radius: 14px;
+  background: rgba(23, 112, 139, 0.2);
+  box-shadow: inset 0 0 20px rgba(85, 230, 255, 0.1);
+  color: var(--awk-cyan);
+  font-weight: 900;
+}
+
+.awk-speaker-meta strong {
+  display: block;
+  font-size: 14px;
+}
+
+.awk-speaker-meta span {
+  display: block;
+  color: var(--awk-muted);
+  font-size: 12px;
+}
+
+/** 印记说的话。左上角是方的，其余是圆的 —— 一个从左上角发出来的气泡。 */
+.awk-bubble {
+  position: relative;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(158, 140, 255, 0.26);
+  border-radius: 4px 16px 16px 16px;
+  background: rgba(63, 44, 111, 0.18);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.awk-bubble strong {
+  color: #c9c0ff;
+}
+
+/** 一条紫色竖线带出来的提示。 */
+.awk-guide {
+  margin-top: 10px;
+  padding: 10px 13px;
+  border-left: 3px solid var(--awk-purple);
+  background: rgba(158, 140, 255, 0.08);
+  color: #c9c0ff;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* ── 进度 ─────────────────────────────────────────────────────────────── */
+
+.awk-meter {
+  display: flex;
+  gap: 7px;
+}
+
+.awk-meter span {
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.awk-meter span.on {
+  background: var(--awk-cyan);
+  box-shadow: 0 0 10px rgba(85, 230, 255, 0.4);
+}
+
+/* ── 一屏的头和脚 ─────────────────────────────────────────────────────── */
+
+.awk-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--awk-line);
+}
+
+.awk-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--awk-line);
+}
+
+/** 右上角那个两行的关卡牌（NODE 06 / ENERGY MAP）。 */
+.awk-node-tag {
+  flex: none;
+  padding: 8px 12px;
+  border: 1px solid var(--awk-line);
+  border-radius: 10px;
+  background: rgba(9, 29, 47, 0.62);
+  color: var(--awk-amber);
+  font-family: var(--awk-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-align: right;
+}
+
+/* ── 输入 ─────────────────────────────────────────────────────────────── */
+
+.awk-label {
+  display: block;
+  margin: 12px 0 5px;
+  color: #dce7f0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.awk-textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--awk-line);
+  border-radius: 12px;
+  background: rgba(3, 12, 23, 0.78);
+  color: var(--awk-ink);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.awk-textarea:focus {
+  outline: none;
+  border-color: var(--awk-cyan);
+  background: rgba(6, 20, 34, 0.9);
+}
+
+.awk-hint {
+  margin: 6px 0 0;
+  color: #8fa5b6;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── 小件 ─────────────────────────────────────────────────────────────── */
+
+/** 编号 + 一句话，档案和观察者那两屏都在用。 */
+.awk-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--awk-line);
+  border-radius: 12px;
+  background: rgba(9, 24, 39, 0.6);
+}
+
+.awk-item b {
+  flex: none;
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-size: 13px;
+}
+
+.awk-item span {
+  color: var(--awk-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.awk-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .awk-grid-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.awk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+
+/* ══ 各屏专有版式 ═════════════════════════════════════════════════════════ */
+
+/* ── 序章 01：城市 + 对话 ─────────────────────────────────────────────── */
+
+.awk-chapter {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(390px, 0.94fr);
+  gap: 16px;
+  padding: 16px 20px 18px;
+}
+
+@media (max-width: 900px) {
+  .awk-chapter {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+}
+
+/** 左边那块只有画面：一排剪影楼。 */
+.awk-city-panel {
+  position: relative;
+  min-width: 0;
+  min-height: 260px;
+  display: flex;
+  align-items: flex-end;
+  padding: 22px;
+  border: 1px solid var(--awk-line);
+  border-radius: 20px;
+  background: var(--awk-panel);
+  box-shadow: var(--awk-shadow);
+  overflow: hidden;
+}
+
+.awk-city {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/** 楼。宽度固定 10%，高低和左右位置由内联 style 给 —— 六栋，剪影。 */
+.awk-tower {
+  position: absolute;
+  bottom: 0;
+  width: 10%;
+  border: 1px solid rgba(85, 230, 255, 0.12);
+  border-bottom: 0;
+  background: linear-gradient(90deg, rgba(5, 12, 24, 0.96), rgba(16, 31, 48, 0.94));
+  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+}
+
+.awk-city-copy {
   position: relative;
   z-index: 1;
 }
 
-/* --- 排版 ---------------------------------------------------------------- */
-
-.awk-eyebrow {
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--cyan);
-  font-weight: 600;
-}
-
-.awk-dim {
-  color: var(--muted);
-}
-
-/* --- 顶栏 ---------------------------------------------------------------- */
-
-.awk-pill {
+/** 那个琥珀色的章节号。 */
+.awk-chapter-number {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel-soft);
-  padding: 6px 14px;
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 11px;
+  margin-bottom: 9px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 205, 112, 0.32);
+  border-radius: 8px;
+  background: rgba(80, 53, 12, 0.26);
+  color: var(--awk-amber);
+  font-family: var(--awk-mono);
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0.12em;
-  color: var(--muted);
 }
 
-.awk-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--green);
-  box-shadow: 0 0 10px var(--green);
-  animation: awk-blink 2.4s ease-in-out infinite;
+.awk-dialog-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid var(--awk-line);
+  border-radius: 20px;
+  background: var(--awk-panel);
+  box-shadow: var(--awk-shadow);
+  overflow-y: auto;
 }
 
-@keyframes awk-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+/** 单独一行、左边一道青线的那句重点。 */
+.awk-highlight {
+  padding: 10px 13px;
+  border-left: 3px solid var(--awk-cyan);
+  background: rgba(85, 230, 255, 0.08);
+  color: #f2fbff;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.45;
 }
 
-/* --- 面板 ---------------------------------------------------------------- */
-
-.awk-panel {
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+.awk-choice-stack {
+  display: grid;
+  gap: 12px;
 }
 
-.awk-soft {
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--panel-soft);
+/* ── 提醒 ─────────────────────────────────────────────────────────────── */
+
+.awk-warning-signal {
+  position: relative;
+  min-height: 330px;
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  border: 1px solid rgba(255, 113, 137, 0.28);
+  border-radius: 26px;
+  background: radial-gradient(circle, rgba(255, 113, 137, 0.18), transparent 52%), rgba(32, 10, 23, 0.62);
+  overflow: hidden;
 }
 
-/* --- 按钮 ---------------------------------------------------------------- */
-
-.awk-primary {
-  border: 0;
-  border-radius: 999px;
-  padding: 13px 30px;
-  font-weight: 600;
-  color: #04121d;
-  background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-2) 100%);
-  box-shadow: 0 12px 32px rgba(28, 165, 220, 0.32);
-  cursor: pointer;
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms;
-}
-.awk-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 38px rgba(28, 165, 220, 0.42);
-}
-.awk-primary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  box-shadow: none;
+/** 那个叹号。整屏唯一的圆形。 */
+.awk-warning-core {
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 205, 112, 0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 50px rgba(255, 205, 112, 0.22);
+  color: var(--awk-amber);
+  font: 700 46px/1 var(--awk-mono);
 }
 
-.awk-ghost {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 12px 24px;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  transition: color 140ms, border-color 140ms;
-}
-.awk-ghost:hover {
-  color: var(--ink);
-  border-color: rgba(130, 225, 255, 0.45);
+.awk-warning-caption {
+  color: rgba(255, 205, 112, 0.7);
+  font-family: var(--awk-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
 }
 
-/* --- 选项卡 -------------------------------------------------------------- */
+/** 三条风险。比 awk-item 更红一点 —— 这一屏是警示。 */
+.awk-risk {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 113, 137, 0.22);
+  border-radius: 13px;
+  background: rgba(255, 113, 137, 0.065);
+  color: #e8dce2;
+}
 
-.awk-card {
+.awk-risk b {
+  flex: none;
+  color: var(--awk-danger);
+  font-family: var(--awk-mono);
+}
+
+/* ── 历史档案 ─────────────────────────────────────────────────────────── */
+
+.awk-archive-figure {
+  position: relative;
+  padding: 14px;
+  border: 1px solid rgba(85, 230, 255, 0.28);
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(6, 16, 30, 0.92), rgba(3, 9, 18, 0.96));
+  box-shadow: 0 24px 60px rgba(2, 7, 15, 0.55);
+  overflow: hidden;
+}
+
+.awk-archive-figure img {
   display: block;
   width: 100%;
-  text-align: left;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--panel-soft);
-  padding: 16px 18px;
-  cursor: pointer;
-  transition: border-color 160ms, background 160ms, transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-.awk-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(130, 225, 255, 0.5);
-}
-.awk-card[aria-pressed="true"],
-.awk-card[data-on="true"] {
-  border-color: var(--cyan);
-  background: rgba(28, 165, 220, 0.16);
-  box-shadow: 0 0 0 1px var(--cyan) inset;
-}
-.awk-card[data-wrong="true"] {
-  border-color: var(--danger);
-  background: rgba(255, 113, 137, 0.12);
-}
-
-.awk-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: none;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 12px;
-  color: var(--cyan);
-}
-
-/* --- 输入 ---------------------------------------------------------------- */
-
-.awk-input,
-.awk-textarea {
-  width: 100%;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: rgba(4, 12, 22, 0.7);
-  color: var(--ink);
-  padding: 12px 14px;
-  outline: none;
-  transition: border-color 140ms, box-shadow 140ms;
-}
-.awk-input::placeholder,
-.awk-textarea::placeholder {
-  color: rgba(155, 176, 198, 0.55);
-}
-.awk-input:focus,
-.awk-textarea:focus {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(85, 230, 255, 0.16);
-}
-.awk-textarea {
-  min-height: 108px;
-  resize: vertical;
-  line-height: 1.75;
 }
 
-/* --- 中枢的话 ------------------------------------------------------------ */
+.awk-archive-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 
-.awk-bubble {
+.awk-tag {
+  padding: 4px 9px;
+  border: 1px solid var(--awk-line);
+  border-radius: 999px;
+  background: rgba(9, 29, 47, 0.62);
+  color: var(--awk-muted);
+  font-family: var(--awk-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.awk-tag--risk {
+  border-color: rgba(255, 113, 137, 0.4);
+  color: var(--awk-danger);
+}
+
+.awk-archive-caption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: var(--awk-muted);
+  font-family: var(--awk-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+/** 三条证据，点开才有下文。 */
+.awk-evidence {
+  margin-top: 10px;
+  border: 1px solid rgba(85, 230, 255, 0.22);
   border-radius: 14px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--cyan);
-  background: rgba(28, 165, 220, 0.1);
-  padding: 14px 16px;
-  line-height: 1.85;
+  background: rgba(12, 30, 44, 0.74);
+  overflow: hidden;
 }
 
-/* --- 开场的轨道 ---------------------------------------------------------- */
+.awk-evidence-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 0;
+  background: transparent;
+  color: var(--awk-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 
+.awk-evidence-toggle:hover {
+  background: rgba(22, 74, 94, 0.4);
+}
+
+.awk-evidence-mark {
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-weight: 900;
+}
+
+.awk-evidence-toggle strong {
+  display: block;
+  font-size: 15px;
+}
+
+.awk-evidence-toggle small {
+  display: block;
+  margin-top: 2px;
+  color: var(--awk-muted);
+  font-size: 12px;
+}
+
+.awk-evidence-note {
+  padding: 0 15px 14px;
+  color: #cfe0ee;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.awk-evidence-note strong {
+  color: var(--awk-cyan);
+}
+
+/** 三个认知系统那一条。 */
+.awk-system-card {
+  padding: 13px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  background: rgba(18, 18, 27, 0.82);
+}
+
+.awk-system-card b {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--awk-ink);
+  font-size: 14px;
+}
+
+.awk-system-card span {
+  color: var(--awk-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── 三张底牌 ─────────────────────────────────────────────────────────── */
+
+.awk-deck-counter {
+  min-width: 150px;
+  padding: 12px 14px;
+  border: 1px solid rgba(85, 230, 255, 0.25);
+  border-radius: 14px;
+  background: rgba(85, 230, 255, 0.055);
+  color: var(--awk-cyan);
+  font: 700 12px/1.6 var(--awk-mono);
+  text-align: right;
+}
+
+.awk-deck-cards {
+  display: flex;
+  justify-content: center;
+  gap: clamp(10px, 3vw, 28px);
+  margin: 26px 0 12px;
+  perspective: 900px;
+}
+
+/** 一张牌。翻面是 3D 的，所以内层要 preserve-3d。 */
+.awk-deck-card {
+  position: relative;
+  width: clamp(112px, 13vw, 166px);
+  height: clamp(158px, 19vw, 232px);
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.35));
+  cursor: pointer;
+}
+
+.awk-deck-card-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 520ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.awk-deck-card--open .awk-deck-card-inner {
+  transform: rotateY(180deg);
+}
+
+.awk-deck-face,
+.awk-deck-back {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  backface-visibility: hidden;
+}
+
+.awk-deck-back {
+  border: 1px solid rgba(85, 230, 255, 0.38);
+  background: repeating-linear-gradient(
+      135deg,
+      rgba(85, 230, 255, 0.07) 0 6px,
+      transparent 6px 12px
+    ),
+    rgba(6, 20, 34, 0.94);
+  color: rgba(186, 237, 249, 0.78);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  writing-mode: vertical-rl;
+}
+
+.awk-deck-face {
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255, 205, 112, 0.5);
+  background: linear-gradient(170deg, rgba(38, 28, 8, 0.95), rgba(10, 14, 22, 0.96));
+  text-align: center;
+  transform: rotateY(180deg);
+}
+
+.awk-deck-face b {
+  color: var(--awk-amber);
+  font-size: 34px;
+}
+
+.awk-deck-face span {
+  color: var(--awk-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── 重新决定 ─────────────────────────────────────────────────────────── */
+
+.awk-rejoin-stack {
+  display: grid;
+  gap: 12px;
+}
+
+/** 三张已经翻开的牌，浅色 —— 和深色的舱内形成对比，像摆在桌上的实物。 */
+.awk-rejoin-card {
+  min-height: 116px;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #dfeef2, #b9d4dc);
+  color: #04131c;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.awk-rejoin-card b {
+  font-size: 26px;
+}
+
+.awk-rejoin-card strong {
+  font-size: 14px;
+}
+
+.awk-rejoin-card span {
+  color: #24444f;
+  font-size: 12px;
+}
+
+/* ── 选择印记 ─────────────────────────────────────────────────────────── */
+
+.awk-navigator-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .awk-navigator-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/** 一张助手卡。--accent 由内联 style 给（青 / 琥珀 / 紫）。 */
+.awk-navigator-card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--awk-line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(18, 40, 63, 0.86), rgba(6, 15, 27, 0.95));
+  color: var(--awk-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.awk-navigator-card:hover,
+.awk-navigator-card--selected {
+  transform: translateY(-3px);
+  border-color: var(--awk-accent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.36), 0 0 0 1px var(--awk-accent) inset;
+}
+
+.awk-navigator-label {
+  color: var(--awk-accent);
+  font-family: var(--awk-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.awk-navigator-quote {
+  padding: 9px 11px;
+  border-left: 3px solid var(--awk-accent);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d7e8f2;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── 天赋卡 ───────────────────────────────────────────────────────────── */
+
+.awk-talent-deck {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .awk-talent-deck {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.awk-talent-card {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid var(--awk-line);
+  border-radius: 14px;
+  background: rgba(11, 28, 45, 0.82);
+  color: var(--awk-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.awk-talent-card:hover,
+.awk-talent-card--selected {
+  transform: translateY(-2px);
+  border-color: var(--awk-cyan);
+  background: rgba(22, 74, 94, 0.62);
+}
+
+.awk-talent-card b {
+  color: var(--awk-cyan);
+  font-family: var(--awk-mono);
+  font-size: 12px;
+}
+
+.awk-talent-card strong {
+  font-size: 14px;
+}
+
+.awk-talent-card span {
+  color: var(--awk-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.awk-talent-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .awk-talent-lanes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.awk-talent-lane {
+  min-height: 200px;
+  padding: 14px;
+  border: 1px dashed rgba(155, 176, 198, 0.3);
+  border-radius: 18px;
+  background: rgba(7, 18, 31, 0.5);
+}
+
+.awk-talent-lane h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.awk-talent-lane p {
+  margin: 0 0 10px;
+  color: var(--awk-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/* ── 小件（ui.tsx 用） ────────────────────────────────────────────────── */
+
+.awk-dim {
+  color: var(--awk-muted);
+}
+
+/** 等待时那颗转着的核心。房间里唯一的 loading。 */
 .awk-orbit {
   position: relative;
-  width: 210px;
-  height: 210px;
-  margin: 0 auto;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
 }
+
 .awk-ring {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(130, 225, 255, 0.28);
-  animation: awk-spin 18s linear infinite;
+  border: 1px solid rgba(85, 230, 255, 0.28);
+  border-radius: 50%;
+  animation: awk-orbit-spin 3.2s linear infinite;
 }
+
 .awk-ring:nth-child(2) {
-  inset: 26px;
+  inset: 16px;
   border-color: rgba(158, 140, 255, 0.28);
-  animation-duration: 26s;
+  animation-duration: 2.1s;
   animation-direction: reverse;
 }
-.awk-ring:nth-child(3) {
-  inset: 54px;
-  border-color: rgba(255, 205, 112, 0.24);
-  animation-duration: 34s;
-}
+
 .awk-core {
-  position: absolute;
-  inset: 82px;
-  border-radius: 999px;
-  background: radial-gradient(circle, var(--cyan) 0%, rgba(28, 165, 220, 0.15) 70%, transparent 72%);
-  box-shadow: 0 0 42px rgba(85, 230, 255, 0.45);
-  animation: awk-pulse 3.6s ease-in-out infinite;
-}
-@keyframes awk-spin {
-  to { transform: rotate(360deg); }
-}
-@keyframes awk-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.08); opacity: 1; }
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--awk-cyan);
+  box-shadow: 0 0 26px var(--awk-cyan);
 }
 
-/* --- 进度 ---------------------------------------------------------------- */
-
-.awk-meter {
-  display: inline-flex;
-  gap: 6px;
-}
-.awk-meter span {
-  width: 26px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(130, 225, 255, 0.22);
-}
-.awk-meter span[data-on="true"] {
-  background: var(--cyan);
-  box-shadow: 0 0 10px var(--cyan);
+@keyframes awk-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* --- 入场 ---------------------------------------------------------------- */
-
+/** 逐条入场。--i 是序号，用来错开延迟。 */
 .awk-in {
-  animation: awk-in 420ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation: awk-in 320ms ease both;
   animation-delay: calc(var(--i, 0) * 60ms);
 }
+
 @keyframes awk-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .awk-ring,
-  .awk-core,
-  .awk-dot {
-    animation: none !important;
-  }
   .awk-in {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
+    animation: none;
+  }
+}
+
+
+/* ── 还在用的三个旧名字 ───────────────────────────────────────────────
+ *
+ * 能量 / 选择印记 / 终端 / 天赋那几屏的组件写的是这三个名字。与其把四个文件
+ * 全改一遍，不如在这里把它们**重新定义成新视觉**的一部分 —— 改一处，四屏
+ * 一起换皮，而且不会漏。
+ */
+
+/** 次一级的面板：比 .awk-panel 轻，用来装一组小东西。 */
+.awk-soft {
+  padding: 16px;
+  border: 1px solid var(--awk-line);
+  border-radius: 16px;
+  background: var(--awk-panel-soft);
+}
+
+/** 可点的卡：能量卡、印记卡、天赋卡共用。 */
+.awk-card {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--awk-line);
+  border-radius: 16px;
+  background: rgba(11, 28, 45, 0.82);
+  color: var(--awk-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.awk-card:hover:not(:disabled),
+.awk-card[aria-pressed="true"] {
+  transform: translateY(-2px);
+  border-color: var(--awk-cyan);
+  background: rgba(22, 74, 94, 0.62);
+}
+
+.awk-card[aria-pressed="true"] {
+  box-shadow: 0 0 0 1px var(--awk-cyan) inset;
+}
+
+.awk-card:focus-visible {
+  outline: 2px solid var(--awk-cyan);
+  outline-offset: 2px;
+}
+
+.awk-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/** 那颗会呼吸的点。等待时唯一在动的东西。 */
+.awk-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--awk-cyan);
+  box-shadow: 0 0 14px var(--awk-cyan);
+  animation: awk-dot-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes awk-dot-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awk-dot {
+    animation: none;
   }
 }

@@ -6,17 +6,18 @@ import "./awakening.css";
 import { DOOR, TERMINAL } from "./content";
 import { ReportView } from "./ReportView";
 import { EnergyScene, NavigatorScene, TalentScene } from "./scenes/Cards";
+import { BootScene } from "./scenes/Boot";
 import {
   ArchiveScene,
-  BootScene,
   DeckScene,
   ObserverScene,
   RejoinScene,
   WarningScene,
   WorldScene,
-} from "./scenes/Prologue";
+} from "./scenes/Chapter";
 import { ChallengeScene, LensScene, TerminalScene } from "./scenes/Terminal";
-import { Ghost, Pill, Primary, Stage } from "./ui";
+import { RoomShell } from "./RoomShell";
+import { Ghost, Primary, Stage } from "./ui";
 import { useAwakeningRun } from "./useAwakeningRun";
 import { useVoice } from "./useVoice";
 
@@ -302,31 +303,17 @@ export function AwakeningRoom({
       style={inRoom ? undefined : { background: "var(--mk-bg, #faf7f2)" }}
     >
       {inRoom ? (
-        <div className="awk min-h-full">
-          {/* 房间里唯一的常驻件：连接状态，和一个离开。没有导航，没有页头。 */}
-          <div className="sticky top-0 z-20 flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
-            <Pill>AWAKENING PROTOCOL</Pill>
-            <div className="flex items-center gap-3">
-              {/* 声音。默认关，一个常驻开关，任何一屏都不等它。 */}
-              <button
-                type="button"
-                className="awk-ghost"
-                onClick={voice.toggle}
-                aria-pressed={voice.muted ? "false" : "true"}
-              >
-                {voice.muted ? "声音已关闭" : "声音已开启"}
-              </button>
-              <button
-                type="button"
-                className="awk-ghost"
-                onClick={() => onClose(grew)}
-                title={DOOR.leaveConfirm}
-              >
-                {DOOR.leave}
-              </button>
-            </div>
-          </div>
-          {body()}
+        <div className="awk">
+          {/* 顶栏、扫描线、4:3 舞台都在 RoomShell 里 —— 它每一屏都在。 */}
+          <RoomShell
+            stage={state.stage}
+            attemptNo={run?.attemptNo ?? 1}
+            muted={voice.muted}
+            onToggleVoice={voice.toggle}
+            onLeave={() => onClose(grew)}
+          >
+            {body()}
+          </RoomShell>
         </div>
       ) : (
         body()
