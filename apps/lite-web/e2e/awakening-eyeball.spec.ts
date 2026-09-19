@@ -228,6 +228,13 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   await expect(page).toHaveURL(/\/tree$/);
   // 房间关上之后，导航轨回来了。
   await expect(page.locator("nav").first()).toBeVisible({ timeout: 30_000 });
+
+  // 🚨 入口必须跟着变。走完一趟之后它还写着「开始觉醒协议」，说明那条状态
+  // 没有重查 —— 树重拉了而它没有，两件事当时用的不是同一个信号。
+  await expect(page.getByRole("button", { name: "再走一次觉醒协议" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole("button", { name: "查看兴趣印记" })).toBeVisible();
   await shot("19-back-on-tree");
 
   await ctx.close();

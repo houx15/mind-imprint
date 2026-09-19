@@ -47,7 +47,8 @@ export function AwakeningRoom({
   onOpenReading,
 }: {
   open: boolean;
-  /** 关闭。`grew` 为真表示树上的词可能变了，调用方据此重新拉一次树。 */
+  /** 关闭。`grew` 说这一趟有没有往树上写词，调用方可以据此决定说什么；
+   *  重拉树和重查入口状态则**每次出门都做**（见 LiteApp）。 */
   onClose: (grew: boolean) => void;
   reportRunId?: string;
   onOpenReading: (slug: string, tier: number) => void;

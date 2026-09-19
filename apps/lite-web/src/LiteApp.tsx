@@ -402,10 +402,14 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     <AwakeningRoom
       open={awakeningOpen}
       reportRunId={route.tab === "tree" ? route.reportRunId : undefined}
-      onClose={(grew) => {
-        // `grew` 为真表示这一趟往树上写了词。换一个 nonce，树重新拉一次 ——
-        // 否则她回到树上看到的还是走进来之前那一棵。
-        if (grew) setTreeNonce((n) => n + 1);
+      onClose={() => {
+        // **每次出门都换一个 nonce**，不看这一趟有没有长出词。
+        //
+        // 它同时驱动两件事：树重拉一次（否则她看到的还是走进来之前那一棵），
+        // 以及觉醒协议那条入口重查一次（否则她刚走完，按钮上还写着「开始」，
+        // 「查看兴趣印记」也不出现）。第二件事和长没长出词无关 —— 一趟一个词
+        // 都没长出来，她仍然是走完过的人。
+        setTreeNonce((n) => n + 1);
         navigate(liteRoutePath({ tab: "tree" }));
       }}
       onOpenReading={(slug, tier) => {

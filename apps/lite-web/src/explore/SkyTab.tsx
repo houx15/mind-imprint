@@ -118,7 +118,7 @@ export function SkyTab({
       </div>
 
       <div className="min-h-0 flex-1">
-        {surface === "map" ? <ExploreView tree={live} /> : <TreeView user={user} live={live} />}
+        {surface === "map" ? <ExploreView tree={live} /> : <TreeView user={user} live={live} refreshNonce={refreshNonce} />}
       </div>
     </div>
   );

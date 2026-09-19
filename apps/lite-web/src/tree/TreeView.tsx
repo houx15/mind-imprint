@@ -78,9 +78,16 @@ export function TreeView({
   user,
   live,
   readOnly = false,
+  refreshNonce = 0,
 }: {
   user: MeUser;
   live: LiveTree;
+  /** 变一次就重查一次觉醒协议的状态。
+   *
+   *  🚨 走完一趟出来，树重拉了，而这条入口没有 —— 于是她刚做完，按钮上还写着
+   *  「开始觉醒协议」，「查看兴趣印记」也不出现。两件事要用同一个信号
+   *  （2026-09-19 用真浏览器看一遍才发现）。 */
+  refreshNonce?: number;
   /** 教师看学生的树：拿掉一切会创建/改动学生数据的入口（兴趣测试、继续深挖、
    *  空枝邀请），其余——枝、叶、根、成长轴、相关活动——照常渲染。默认
    *  `false`，学生自己那面因此一字不变。 */
@@ -112,7 +119,7 @@ export function TreeView({
   // 🚨 `readOnly`（教师视角）下这个 hook 仍然照常调用——hook 顺序不能因为一个
   // prop 分支——只是它的结果被忽略：下面每处用到它的地方都先判 `readOnly`，
   // 从不把它喂给 TreeState 或渲染那颗按钮。
-  const awakening = useAwakeningStatus();
+  const awakening = useAwakeningStatus(refreshNonce);
   const quizTaken = awakening === null ? null : awakening.taken;
   // 有一趟没走完就是「继续」，走过就是「再走一次」，都没有就是「开始」。
   const doorLabel =
