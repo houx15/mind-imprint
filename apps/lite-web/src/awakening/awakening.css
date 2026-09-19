@@ -2107,6 +2107,15 @@
   mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 6px), transparent 100%);
 }
 
+/**
+ * 消息少的时候贴着底排，像一个正在进行的对话；多了照常从上往下滚。
+ * 用 `margin-top:auto` 而不是 `justify-content:flex-end` —— 后者在溢出时
+ * 有的浏览器会把最上面那条裁掉。
+ */
+.awk-term-log > :first-child {
+  margin-top: auto;
+}
+
 .awk-term-log::before {
   content: "SESSION LOG // LIVE";
   position: absolute;
