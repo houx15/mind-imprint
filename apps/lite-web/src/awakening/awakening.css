@@ -1981,3 +1981,319 @@
 .awk-system-note strong {
   color: var(--awk-amber);
 }
+
+
+/* ══ 兴趣诊断终端 ═════════════════════════════════════════════════════════
+ *
+ * 这一屏在设计稿里自成一套颜色（绿 #8fffd1 + 青 #5bd8ff），不跟主线的琥珀 ——
+ * 它是印记的终端，不是舱里的面板。背景另铺一张压暗的档案底图。
+ *
+ * 🚨 **它是一整块聊天屏，不是一张卡片。** 三行网格：抬头 / 会话 / 输入，
+ * 中间那行吃掉所有剩余高度并自己滚动，输入永远钉在底上。
+ * 第一版把它做成了 `max-height:52vh` 的面板，而且**把「当前这一问」放在输入框
+ * 上面** —— 对话于是断成两截：上面是历史，下面是一个飘着的问题。
+ * 现在那一问就是会话里的最后一条消息，整屏从头到尾是一条连续的对话。
+ */
+
+.awk-term-screen {
+  --it-green: #8fffd1;
+  --it-cyan: #5bd8ff;
+  --it-white: #f5f7f3;
+  --it-dim: #768780;
+
+  position: absolute;
+  inset: 58px 0 0;
+  z-index: 2;
+  display: grid;
+  padding: clamp(10px, 1.6vh, 20px) clamp(12px, 2vw, 28px);
+  overflow: hidden;
+}
+
+/** 压暗的档案底图。 */
+.awk-term-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(1, 5, 4, 0.58) 52%, rgba(0, 0, 0, 0.82)),
+    var(--awk-term-plate);
+  background-size: cover;
+  background-position: center;
+  filter: saturate(0.48) brightness(0.62) contrast(1.12);
+}
+
+/**
+ * 终端本体。
+ *
+ * 设计稿把它钉成 min(68vw,900px) × min(76vh,680px) 的一个窗口；owner 要求
+ * 「continuous, larger」，所以这里改成**铺满这一屏**，其余（描边、抬头、
+ * 会话、输入）一律照设计稿。这是对设计稿唯一一处有意的偏离。
+ */
+.awk-term {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid rgba(143, 255, 209, 0.28);
+  background: rgba(3, 11, 9, 0.82);
+  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.22), 6px 8px 0 rgba(0, 0, 0, 0.42);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+
+.awk-term-head {
+  position: relative;
+  z-index: 2;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(143, 255, 209, 0.25);
+  background: rgba(8, 18, 15, 0.72);
+}
+
+.awk-term-title b {
+  display: block;
+  color: var(--it-green);
+  font-size: clamp(13px, 1.4vw, 16px);
+  letter-spacing: 0.14em;
+  text-shadow: 0 0 9px rgba(143, 255, 209, 0.26);
+}
+
+.awk-term-title small {
+  display: block;
+  margin-top: 4px;
+  color: var(--it-dim);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.awk-term-phase {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 3px;
+  min-width: 128px;
+  color: var(--it-cyan);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-align: right;
+}
+
+.awk-term-phase strong {
+  color: var(--it-white);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+/**
+ * 会话。整屏最高的那一块，自己滚。
+ * 顶上那道 mask 让上一条消息淡出去，而不是被生硬地切断。
+ */
+.awk-term-log {
+  position: relative;
+  z-index: 2;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 30px 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(143, 255, 209, 0.4) transparent;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 6px), transparent 100%);
+}
+
+.awk-term-log::before {
+  content: "SESSION LOG // LIVE";
+  position: absolute;
+  top: 8px;
+  left: 20px;
+  color: rgba(118, 135, 128, 0.52);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+/** 她说的话，靠右。 */
+.awk-term-her {
+  align-self: flex-end;
+  max-width: 78%;
+  padding: 11px 14px;
+  border: 1px solid rgba(91, 216, 255, 0.34);
+  background: rgba(8, 24, 32, 0.9);
+  box-shadow: inset -3px 0 0 rgba(91, 216, 255, 0.4);
+  color: #dff2ff;
+  font-size: 15px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px));
+}
+
+/** 印记说的话，靠左。 */
+.awk-term-imprint {
+  align-self: flex-start;
+  max-width: 86%;
+  padding: 11px 14px;
+  border: 1px solid rgba(143, 255, 209, 0.3);
+  background: rgba(6, 20, 16, 0.9);
+  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.42);
+  color: #d8f3e6;
+  font-size: 15px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px));
+}
+
+.awk-term-who {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--it-green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+/** 当前这一问。它就在会话里，不在输入框上面。 */
+.awk-term-ask {
+  border-color: rgba(143, 255, 209, 0.6);
+  box-shadow: inset 3px 0 0 var(--it-green), 0 0 22px -8px rgba(143, 255, 209, 0.5);
+  color: #eafff6;
+}
+
+.awk-term-failed {
+  align-self: flex-start;
+  max-width: 86%;
+  padding: 11px 14px;
+  border: 1px solid rgba(212, 75, 62, 0.55);
+  background: rgba(40, 14, 12, 0.85);
+  box-shadow: inset 3px 0 0 var(--awk-danger);
+  color: #f3d5cf;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.awk-term-busy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--it-dim);
+  font-size: 13px;
+}
+
+.awk-term-busy .awk-dot {
+  background: var(--it-green);
+  box-shadow: 0 0 10px rgba(143, 255, 209, 0.55);
+}
+
+/* ── 输入 ─────────────────────────────────────────────────────────────── */
+
+.awk-term-input {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 12px 16px 15px;
+  border-top: 1px solid rgba(143, 255, 209, 0.22);
+  background: rgba(2, 9, 8, 0.94);
+}
+
+.awk-term-input-wrap {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 9px;
+  border-bottom: 1px solid rgba(143, 255, 209, 0.55);
+  box-shadow: 0 7px 12px -12px rgba(143, 255, 209, 0.5);
+}
+
+.awk-term-input-wrap:focus-within {
+  border-color: var(--it-green);
+  box-shadow: 0 7px 14px -9px rgba(143, 255, 209, 0.9), 0 1px 0 var(--it-green);
+}
+
+.awk-term-prompt {
+  padding-bottom: 10px;
+  color: var(--it-green);
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(143, 255, 209, 0.5);
+}
+
+/** 输入框本身没有框 —— 框是外面那条会亮的下划线。 */
+.awk-term-field {
+  width: 100%;
+  min-height: 44px;
+  max-height: 34vh;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--it-white);
+  caret-color: var(--it-green);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+  resize: none;
+  clip-path: none;
+}
+
+.awk-term-field:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.awk-term-hint {
+  position: absolute;
+  right: 0;
+  bottom: -17px;
+  color: var(--it-dim);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.awk-term-send {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid rgba(143, 255, 209, 0.46);
+  background: #08120f;
+  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.28), 3px 3px 0 rgba(0, 0, 0, 0.35);
+  color: var(--it-green);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  transition: color 0.14s ease, background 0.14s ease;
+}
+
+.awk-term-send:hover:not(:disabled),
+.awk-term-send:focus-visible {
+  color: #03110c;
+  border-color: var(--it-green);
+  background: var(--it-green);
+  outline: none;
+}
+
+.awk-term-send:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/** 八问答完之后，输入区换成收尾。 */
+.awk-term-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(143, 255, 209, 0.22);
+  background: rgba(2, 9, 8, 0.94);
+  color: #cfe9de;
+  font-size: 15px;
+}

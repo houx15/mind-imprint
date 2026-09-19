@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { type AwakeningRun, postTurn } from "../../api/awakening";
+import { IMAGES } from "../assets";
 import { CHALLENGE, CHALLENGE_OPTIONS, LENS, TERMINAL } from "../content";
 import { Bubble, Choice, Dim, Eyebrow, Meter, Panel, Primary, Stage } from "../ui";
 
@@ -82,111 +83,124 @@ export function TerminalScene({
     }
   };
 
+  /* 这一屏是一整块聊天。会话吃掉全部剩余高度，输入钉在底上，
+     「当前这一问」是会话里的最后一条消息 —— 不再飘在输入框上面。 */
+  const step = Math.min(node + 1, TERMINAL.steps.length);
+  const stateLabel = done ? "COMPLETE" : busy ? "THINKING" : "AWAITING INPUT";
+
   return (
-    <Stage>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <Eyebrow>{TERMINAL.eyebrow}</Eyebrow>
-          <h1 className="mt-2 text-[24px] font-semibold">{TERMINAL.title}</h1>
-        </div>
-        <Meter total={TERMINAL.steps.length} done={Math.min(node, TERMINAL.steps.length)} />
-      </div>
+    <section
+      className="awk-term-screen"
+      aria-label="兴趣信号诊断终端"
+      style={{ ["--awk-term-plate" as string]: `url(${IMAGES.archiveBackdrop})` }}
+    >
+      <div className="awk-term">
+        <header className="awk-term-head">
+          <div className="awk-term-title">
+            <b>印记 // {TERMINAL.eyebrow}</b>
+            {/* 副标题说的是真状态：走到第几步、这一步问的是什么。 */}
+            <small>
+              {done
+                ? "八问已完成"
+                : `${TERMINAL.title} · 第 ${step} / ${TERMINAL.steps.length} 步 · ${
+                    TERMINAL.steps[Math.min(node, TERMINAL.steps.length - 1)]
+                  }`}
+            </small>
+          </div>
+          <div className="awk-term-phase">
+            <span>
+              NODE {String(step).padStart(2, "0")} / {String(TERMINAL.steps.length).padStart(2, "0")}
+            </span>
+            <strong>{stateLabel}</strong>
+          </div>
+        </header>
 
-      <div className="awk-dim mt-2 font-mono text-[11px] tracking-[0.14em]">
-        {done
-          ? "八问已完成"
-          : `第 ${Math.min(node + 1, TERMINAL.steps.length)} 步 / 共 ${TERMINAL.steps.length} 步 · ${
-              TERMINAL.steps[Math.min(node, TERMINAL.steps.length - 1)]
-            }`}
-      </div>
-
-      <Panel className="mt-5">
-        <div className="flex max-h-[52vh] flex-col gap-4 overflow-y-auto pr-1">
-          {/* 第一问由服务端给。第二趟起它会从她树上已有的词出发。 */}
-          {lines.length === 0 ? <Bubble speaker="印记">{ask}</Bubble> : null}
-
+        <div className="awk-term-log" role="log" aria-live="polite">
           {lines.map((l, i) =>
             l.who === "her" ? (
-              <div key={i} className="self-end" style={{ maxWidth: "88%" }}>
-                <div className="awk-soft px-4 py-3 text-[15px] leading-[1.85] whitespace-pre-wrap">
-                  {l.text}
-                </div>
+              <div key={i} className="awk-term-her">
+                {l.text}
+              </div>
+            ) : l.failed ? (
+              <div key={i} className="awk-term-failed">
+                {TERMINAL.failed}
               </div>
             ) : (
-              <div key={i} style={{ maxWidth: "92%" }}>
-                {l.failed ? (
-                  <div
-                    className="awk-soft px-4 py-3 text-[14px] leading-relaxed"
-                    style={{ borderColor: "var(--danger)", color: "var(--danger)" }}
-                  >
-                    {TERMINAL.failed}
-                  </div>
-                ) : (
-                  <Bubble speaker="印记">
-                    <span className="whitespace-pre-wrap">{l.text}</span>
-                  </Bubble>
-                )}
+              <div key={i} className="awk-term-imprint">
+                <span className="awk-term-who">印记</span>
+                {l.text}
               </div>
             ),
           )}
 
+          {/* 当前这一问。会话的最后一条，亮一点。 */}
+          {!done && !busy && ask ? (
+            <div className="awk-term-imprint awk-term-ask">
+              <span className="awk-term-who">印记</span>
+              {ask}
+            </div>
+          ) : null}
+
           {busy ? (
-            <div className="awk-dim flex items-center gap-2 text-[13px]">
+            <div className="awk-term-busy">
               <span className="awk-dot" />
               印记正在回复
             </div>
           ) : null}
+
+          {error ? (
+            <div className="awk-term-failed">发送失败：{error}</div>
+          ) : null}
+
           <div ref={bottom} />
         </div>
 
         {done ? (
-          <div className="mt-6 border-t border-[var(--line)] pt-5">
-            <p className="text-[15px] leading-relaxed">八个问题已经问完。</p>
-            <div className="mt-4">
-              <Primary onClick={onDone}>{TERMINAL.finish}</Primary>
-            </div>
+          <div className="awk-term-done">
+            <span>八个问题已经问完。</span>
+            <button type="button" className="awk-term-send" onClick={onDone}>
+              {TERMINAL.finish}
+            </button>
           </div>
         ) : (
           <form
-            className="mt-5 border-t border-[var(--line)] pt-5"
+            className="awk-term-input"
             onSubmit={(e) => {
               e.preventDefault();
               void send();
             }}
           >
-            {!busy && lines.length > 0 ? (
-              <p className="awk-dim mb-3 text-[13px] leading-relaxed">{ask}</p>
-            ) : null}
-            <textarea
-              className="awk-textarea"
-              placeholder={TERMINAL.placeholder}
-              value={text}
-              disabled={busy}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-            />
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <Dim>
-                <span className="font-mono text-[11px]">{TERMINAL.hint}</span>
-              </Dim>
-              <Primary type="submit" disabled={busy || text.trim() === ""}>
-                {TERMINAL.send}
-              </Primary>
+            <div className="awk-term-input-wrap">
+              <span className="awk-term-prompt" aria-hidden="true">
+                &gt;_
+              </span>
+              <textarea
+                className="awk-term-field"
+                rows={1}
+                placeholder={TERMINAL.placeholder}
+                value={text}
+                disabled={busy}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+              />
+              <span className="awk-term-hint">{TERMINAL.hint}</span>
             </div>
-            {error ? (
-              <p className="mt-3 text-[13px]" style={{ color: "var(--danger)" }}>
-                发送失败：{error}
-              </p>
-            ) : null}
+            <button
+              type="submit"
+              className="awk-term-send"
+              disabled={busy || text.trim() === ""}
+            >
+              {TERMINAL.send}
+            </button>
           </form>
         )}
-      </Panel>
-    </Stage>
+      </div>
+    </section>
   );
 }
 
