@@ -147,6 +147,9 @@ test("兴趣测试：保留线索、换一条重新问、中途总结", async ({
   /* ── 新的探索：上次那一段真的不在了 ───────────────────────────────────── */
 
   await page.getByRole("button", { name: /新的探索/ }).click();
+  // 问一次那一屏：它要把「会被清空」说清楚，所以它也要被人眼看过。
+  await expect(page.getByRole("button", { name: "确认清空并重新开始" })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-04b-fresh-confirm.png`, fullPage: true });
   await page.getByRole("button", { name: "确认清空并重新开始" }).click();
   await expect(page.getByText("INTEREST DIAGNOSTIC")).toBeVisible({ timeout: 30_000 });
   // 🚨 判据是她那句原话不在屏幕上，不是轮数 —— 清空要是只清了计数，
@@ -161,6 +164,8 @@ test("兴趣测试：保留线索、换一条重新问、中途总结", async ({
     "我家在海边，小时候赶海要看潮汐表，我一直觉得那张表很神奇，现在发现它跟发电是同一件事",
   );
   await page.getByRole("button", { name: "现在总结" }).click();
+  await expect(page.getByRole("button", { name: "确认总结" })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-05b-summarize-confirm.png`, fullPage: true });
   await page.getByRole("button", { name: "确认总结" }).click();
 
   await expect(page.getByRole("heading", { name: "你的兴趣印记" })).toBeVisible({
