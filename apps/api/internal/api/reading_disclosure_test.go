@@ -7,6 +7,24 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// 渐进披露默认关（见 readingDisclosureEnabled）。这些测试量的是它开着时的
+// 行为，所以每一条自己把它打开 —— 而不是依赖跑测试的人记得设环境变量。
+func enableDisclosure(t *testing.T) {
+	t.Helper()
+	t.Setenv("READING_DISCLOSURE", "1")
+}
+
+// 默认必须是关的：这条守的是「谁 deploy main 都不会把它带上线」。
+func TestDisclosureIsOffByDefault(t *testing.T) {
+	t.Setenv("READING_DISCLOSURE", "")
+	tasks := []sqlc.ReadingTask{
+		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskRead), BlockID: "b4", Status: "pending"},
+	}
+	if got := readingDisclosureScope(discBlocks(9), discOutline(), tasks, nil, nil); got != nil {
+		t.Fatal("渐进披露默认必须是关的 —— 它还没过长文走查那一关")
+	}
+}
+
 // 每段 400 字 × 9 段 = 3,600 字，越过 readingDisclosureMinRunes 的门槛。
 func discBlocks(n int) []Block {
 	out := make([]Block, 0, n)
@@ -26,6 +44,7 @@ func discOutline() readingOutline {
 
 // 通读这一步只管它那一个部分 —— 展开的正好是那三段。
 func TestDisclosureReadStepKeepsOnlyItsPart(t *testing.T) {
+	enableDisclosure(t)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskRead), BlockID: "b1", Status: "done"},
 		{ID: fixtureTaskID(2), Position: 2, Kind: string(taskRead), BlockID: "b4", Status: "pending"},
@@ -48,6 +67,7 @@ func TestDisclosureReadStepKeepsOnlyItsPart(t *testing.T) {
 
 // 精读：那一段加左右各一段。一段话很少能脱离邻居读懂。
 func TestDisclosureFocusStepKeepsNeighbours(t *testing.T) {
+	enableDisclosure(t)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskFocusBlock), BlockID: "b5", Status: "pending"},
 	}
@@ -64,6 +84,7 @@ func TestDisclosureFocusStepKeepsNeighbours(t *testing.T) {
 
 // 🚨 不划定段落范围的步骤要通观全文。收窄它们等于拿掉它们的依据。
 func TestDisclosureLeavesOpenEndedStepsAlone(t *testing.T) {
+	enableDisclosure(t)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskReflect), BlockID: "b2", Status: "pending"},
 	}
@@ -74,6 +95,7 @@ func TestDisclosureLeavesOpenEndedStepsAlone(t *testing.T) {
 
 // 没有分部分就没有依据收窄 —— 照旧全给。
 func TestDisclosureWithoutPartsKeepsEverything(t *testing.T) {
+	enableDisclosure(t)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskRead), BlockID: "b1", Status: "pending"},
 	}
@@ -84,6 +106,7 @@ func TestDisclosureWithoutPartsKeepsEverything(t *testing.T) {
 
 // 🚨 短文章一律不收窄：省不到什么，而解释性的那一段可能正是她这一步的依据。
 func TestDisclosureSkipsShortArticles(t *testing.T) {
+	enableDisclosure(t)
 	short := make([]Block, 0, 6)
 	for i := 1; i <= 6; i++ {
 		short = append(short, Block{ID: "b" + itoaSmall(i), Text: strings.Repeat("字", 40)})
@@ -99,6 +122,7 @@ func TestDisclosureSkipsShortArticles(t *testing.T) {
 // 🚨 承重段永远展开。走查那篇文章的定义句在最后一段，而她这一步要用的正是那个
 // 定义 —— 按「这一段加左右各一段」收窄会把它收起来，印记 就失去了依据。
 func TestDisclosureAlwaysKeepsCoreParagraphs(t *testing.T) {
+	enableDisclosure(t)
 	outline := discOutline()
 	outline.Load = map[string]string{"b9": loadCore}
 	tasks := []sqlc.ReadingTask{
@@ -118,6 +142,7 @@ func TestDisclosureAlwaysKeepsCoreParagraphs(t *testing.T) {
 
 // 她自己点出来的句子，无论属于哪一部分都要展开：印记 正要跟她谈的就是它。
 func TestDisclosureAlwaysKeepsHerPicks(t *testing.T) {
+	enableDisclosure(t)
 	tasks := []sqlc.ReadingTask{
 		{ID: fixtureTaskID(1), Position: 1, Kind: string(taskRead), BlockID: "b1", Status: "pending"},
 	}

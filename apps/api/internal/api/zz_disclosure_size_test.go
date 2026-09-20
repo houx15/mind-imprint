@@ -15,6 +15,7 @@ import (
 // size conclusion drawn from the bench fixture is meaningless; this builds an
 // article of a realistic shape instead.
 func TestDisclosurePromptSize(t *testing.T) {
+	enableDisclosure(t)
 	// 9 paragraphs x ~700 runes — a real graded-reader article.
 	var sb strings.Builder
 	for i := 1; i <= 9; i++ {

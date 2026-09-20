@@ -1,6 +1,10 @@
 package api
 
-import "mindimprint/api/internal/store/sqlc"
+import (
+	"os"
+
+	"mindimprint/api/internal/store/sqlc"
+)
 
 // reading_disclosure.go — 每一轮只展开这一步真正要读的那几段。
 //
@@ -30,6 +34,20 @@ type disclosureScope map[string]bool
 // 是那种文章。三千字以下省不到什么，而风险是实打实的（见上面那段）。
 const readingDisclosureMinRunes = 3000
 
+// readingDisclosureEnabled —— **默认关**，`READING_DISCLOSURE=1` 才开。
+//
+// 🚨 为什么带着开关进 main：这件事省得不少（单测里干净比出来整份 prompt −32%），
+// 但它还没过「先 mock e2e 再上线」那一关 —— 长文走查跑出来两边判官都是 1 分
+// （阅读陪练把答案直接讲了的老毛病），所以它能证明「不会更差」，证明不了
+// 「它是好的」；而且那一轮 scoped 的 p90 延迟 12.0s 对 full 的 4.7s，
+// 尾巴更长，这是学生当场等着的一轮。
+//
+// 默认关意味着：代码和测试都在库里、随时能开来量，而任何人 deploy main 都不会
+// 把它带上线。等阅读陪练那个毛病修好、长文走查能分出高下了，再把默认值翻过来。
+func readingDisclosureEnabled() bool {
+	return os.Getenv("READING_DISCLOSURE") == "1"
+}
+
 // readingDisclosureScope 算出这一轮该展开的段落集合。
 //
 // 返回 nil 表示「不收窄，照旧全给」——没有分部分、当前这一步不是按段落划定
@@ -41,6 +59,9 @@ func readingDisclosureScope(
 	picks []readingPick,
 	msgs []sqlc.AtomMessage,
 ) disclosureScope {
+	if !readingDisclosureEnabled() {
+		return nil
+	}
 	current := currentReadingTask(tasks)
 	if current == nil || len(outline.Parts) == 0 || current.BlockID == "" {
 		return nil

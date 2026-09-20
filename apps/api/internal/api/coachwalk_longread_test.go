@@ -10,6 +10,7 @@ import (
 // [[fixture-told-coach-session-over-2026-09-14]] 的教训 —— 用例的形状不对，
 // 量出来的东西就不是产品的。
 func TestLongReadWalkActuallyNarrows(t *testing.T) {
+	enableDisclosure(t)
 	full := newLongReadWalkDriver(false)
 	scoped := newLongReadWalkDriver(true)
 
