@@ -139,9 +139,14 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 	// 🚨 「约 %d 字」 was hard-coded here too. On an English piece this told the
 	// coach a 500-word essay was 500 Chinese characters — see writing_lang.go
 	// for the advice that came out the other end.
+	// 🚨 目标篇幅是稳定的（整篇写作都是那个数），留在前面；
+	// **「她现在多少字、还差多少」每一轮都在变，所以它不能排在这儿** ——
+	// 它一动，排在它后面的提纲和她那份正文就全部掉出缓存前缀，每轮全价。
+	// 它现在由 gap 变量带到这个函数的最后（两条分支都要带上）。
+	var gap string
 	if wr.TargetWords != nil {
 		b.WriteString(writingLengthLine(wr, "目标篇幅"))
-		b.WriteString(writingLengthGapBlock(wr, draftBody))
+		gap = writingLengthGapBlock(wr, draftBody)
 	} else {
 		b.WriteString("目标篇幅：还没定\n")
 	}
@@ -177,6 +182,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		// 🚨 这三条在成稿这一支上同样要有。差点漏掉：这一支是后加的、而且
 		// 提前 return，而那条测试当时用的是空成稿，绿着也没发现。
 		b.WriteString(writingCoachGroundingRules)
+		b.WriteString(gap)
 		return b.String()
 	}
 
@@ -231,6 +237,7 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		}
 		b.WriteString(writingCoachGroundingRules)
 	}
+	b.WriteString(gap)
 	return b.String()
 }
 

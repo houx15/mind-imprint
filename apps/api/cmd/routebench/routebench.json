@@ -34,34 +34,36 @@
     "dialogue": [
       "dashscope/deepseek-v4-pro",
       "dashscope/deepseek-v4.1-flash",
-      "deepseek/deepseek-flash",
       "dashscope/deepseek-v4-flash",
       "dashscope/qwen3.8-flash",
+      "dashscope/qwen3.7-flash",
       "dashscope/qwen3.7-plus"
     ],
     "compose": [
       "dashscope/glm-5.3",
       "dashscope/glm-5.3-flash",
-      "deepseek/deepseek-flash",
+      "dashscope/deepseek-v4.1-flash",
+      "dashscope/deepseek-v4-flash",
       "dashscope/qwen3.8-flash",
-      "dashscope/qwen3.7-plus"
+      "dashscope/qwen3.7-flash"
     ],
     "review": [
+      "dashscope/glm-5.3",
       "dashscope/deepseek-v4-pro",
-      "dashscope/qwen3.8-max",
-      "dashscope/kimi-k3",
-      "dashscope/glm-5.3"
+      "dashscope/glm-5.3-flash",
+      "dashscope/deepseek-v4.1-flash",
+      "dashscope/qwen3.8-flash"
     ],
     "assess": [
       "dashscope/deepseek-v4-pro",
-      "dashscope/qwen3.8-max",
-      "dashscope/kimi-k3",
-      "dashscope/glm-5.3"
+      "dashscope/kimi-k2.6",
+      "dashscope/glm-5.2",
+      "dashscope/qwen3.8-max"
     ],
     "digest": [
       "dashscope/deepseek-v4-flash",
-      "dashscope/qwen3.8-flash",
-      "dashscope/deepseek-v4-pro"
+      "dashscope/qwen3.7-flash",
+      "dashscope/qwen3.8-flash"
     ]
   }
 }

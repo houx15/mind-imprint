@@ -246,7 +246,7 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 		// The bill for one pass of this class's cases, so a reader can see what
 		// the last tiebreak was actually comparing instead of inferring it.
 		if w.a.priced {
-			why += fmt.Sprintf("，本档一遍 $%.4f", w.a.money)
+			why += fmt.Sprintf("，本档一遍 ¥%.4f", w.a.money*gateway.CNYPerUSD)
 		}
 		if spec, bound := cat.Lanes[class]; bound && spec.LatencyBudgetMs > 0 {
 			if w.a.cases > 0 {
@@ -285,16 +285,22 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 	}
 
 	if cfg.Suite == "" {
-		unpriced := 0
+		// 只数**两种价格都没有**的模型。原来只看 priceUsd，于是 2026-09-20 填了
+		// priceCny 之后，那一整批按人民币计价的模型仍被数成「没有价格」，
+		// 报告顶上继续写着「成本按 token 排序」—— 而排序早就按钱了。
+		// 一份和自己行为不符的报告，比没有那句话更糟。
+		var unpriced []string
 		for _, id := range cat.ModelIDs() {
-			if cat.Models[id].Price == nil {
-				unpriced++
+			m := cat.Models[id]
+			if m.Price == nil && m.PriceCNY == nil {
+				unpriced = append(unpriced, id)
 			}
 		}
-		if unpriced > 0 {
-			fmt.Fprintf(&b, "> **成本按 token 量排序，不是按钱。** 目录里有 %d 个模型 `priceUsd` 为空——\n"+
+		if len(unpriced) > 0 {
+			fmt.Fprintf(&b, "> **这几个模型没有价格，成本一栏对它们按 token 排：** %s。\n"+
 				"> 宁可记成本为空，也不能编一个数字，否则这份目录存在的意义（比成本）当场就废了。\n"+
-				"> 把百炼控制台的费率填进 `models.json` 之后，同一份结果不用重跑就能换算成钱。\n\n", unpriced)
+				"> 把百炼控制台的费率填进 `models.json`（`priceCny`）之后，同一份结果不用重跑就能换算成钱。\n\n",
+				strings.Join(unpriced, "、"))
 		}
 
 		fmt.Fprintf(&b, "## 推荐绑定\n\n")
@@ -335,11 +341,11 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 		// 入 tokens is here because cost is (in x in_price + out x out_price), and a
 		// report that prints only the output half cannot be converted to money no
 		// matter what prices you later fill in.
-		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 解析 | 预期 | 任务命中 | 质量 | 备注 |\n")
-		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|\n")
+		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | **¥/次** | 解析 | 预期 | 任务命中 | 质量 | 备注 |\n")
+		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|\n")
 		for _, r := range rs {
 			if r.Skipped != "" {
-				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
+				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
 				continue
 			}
 			judge := "—"
@@ -356,11 +362,22 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 			if failures := resultJudgeFailures(r); len(failures) > 0 {
 				note = "判官失败：" + strings.Join(failures, "；") + "；" + note
 			}
-			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s | %s | %s |\n",
+			// 钱这一列是重点，不是 token。同样的 token 数在两个模型上可以差
+			// 一个数量级，所以一份只印 token 的表读起来像证据，其实要读的人
+			// 自己心算汇率和单价 —— 那一步没人会做。推理 token 按输出计价。
+			money := "—"
+			if spec, known := cat.Models[r.ModelID]; known {
+				if c, priced := gateway.EstimateCost(spec.Provider, spec.Model,
+					r.MedIn(), r.MedOut()+r.MedReasoning()); priced {
+					money = fmt.Sprintf("¥%.4f", c*gateway.CNYPerUSD)
+				}
+			}
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s | %s | %s | %s |\n",
 				r.ModelID,
 				r.P50TTFT().Round(100*time.Millisecond),
 				r.P50Total().Round(100*time.Millisecond),
-				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ParseRate()), pct(r.ExpectedRate()), pct(r.GoldRate()), judge, note)
+				r.MedIn(), r.MedOut(), r.MedReasoning(), money,
+				pct(r.ParseRate()), pct(r.ExpectedRate()), pct(r.GoldRate()), judge, note)
 		}
 		b.WriteString("\n")
 	}
