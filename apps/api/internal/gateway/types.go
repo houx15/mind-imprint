@@ -117,9 +117,19 @@ type ChatRequest struct {
 // ChatUsage mirrors provider usage. ReasoningTokens is optional because only
 // providers that expose a completion-token breakdown can supply it.
 type ChatUsage struct {
-	InputTokens     int  `json:"inputTokens"`
-	OutputTokens    int  `json:"outputTokens"`
-	ReasoningTokens *int `json:"reasoningTokens,omitempty"`
+	InputTokens  int `json:"inputTokens"`
+	OutputTokens int `json:"outputTokens"`
+	// CachedInputTokens is the part of InputTokens the provider served from its
+	// context cache. It is a SUBSET of InputTokens, not an addition to it.
+	//
+	// It matters because it is priced differently: DashScope bills a matched
+	// prefix at 20% of the input rate, and a reading turn re-sends the whole
+	// article, so ~90% of its input arrives cached. Without this number a cost
+	// estimate overstates the input side of every repeated-context call by
+	// about 4x — which is the difference between "reading is expensive" and
+	// "reading looks expensive because we counted it wrong".
+	CachedInputTokens int  `json:"cachedInputTokens,omitempty"`
+	ReasoningTokens   *int `json:"reasoningTokens,omitempty"`
 }
 
 // ChatResult mirrors TS ChatResult (the accumulated, non-streamed shape; useful

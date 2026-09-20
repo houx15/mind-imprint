@@ -33,6 +33,7 @@
     ],
     "dialogue": [
       "dashscope/deepseek-v4-pro",
+      "dashscope/deepseek-v4.1-flash",
       "deepseek/deepseek-flash",
       "dashscope/deepseek-v4-flash",
       "dashscope/qwen3.8-flash",

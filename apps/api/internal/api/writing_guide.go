@@ -134,6 +134,44 @@ func writingGuideAppliesTo(role string) string {
 	return "body"
 }
 
+// writingGuideSaidRuneBudget bounds 【她在对话里说过的话】.
+//
+// 🚨 这两处原来一个上限都没有：ListAtomMessages 返回这篇写作的**全部**消息，
+// 一条不落地进 prompt。写作是一次能开好几天的事，聊得越久，每点一次「生成引导」
+// 就越贵，而且没有封顶 —— 这是 lite 两个房间里唯一一处会无限长大的 prompt。
+//
+// 按**整条**丢最老的，不切句子：她自己写的字一个字都不切
+// （[[observation-tool-is-the-bug-2026-09-12]]：切到 400 字之后她跟印记说了
+// 三次「我的字被截断了」）。丢掉一条旧消息她看不见；把一句话拦腰切断，模型会
+// 拿着半句去给她立引导。
+const writingGuideSaidRuneBudget = 6000
+
+// recentStudentSaid renders the student's own lines, newest kept first when the
+// budget bites, but printed oldest-first so the model reads them in the order
+// she said them.
+func recentStudentSaid(msgs []sqlc.AtomMessage) []string {
+	var kept []string
+	total := 0
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != "student" {
+			continue
+		}
+		s := strings.TrimSpace(msgs[i].Content)
+		if s == "" {
+			continue
+		}
+		if total+len([]rune(s)) > writingGuideSaidRuneBudget && len(kept) > 0 {
+			break
+		}
+		total += len([]rune(s))
+		kept = append(kept, s)
+	}
+	for l, r := 0, len(kept)-1; l < r; l, r = l+1, r-1 {
+		kept[l], kept[r] = kept[r], kept[l]
+	}
+	return kept
+}
+
 // buildWritingGuidePrompt assembles what the model sees for ONE block: which
 // block it is (role + her own heading text), the skeleton it sits in, what she
 // has already drafted there, her material, and the methods usable at this
@@ -184,17 +222,11 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	}
 
 	b.WriteString("\n【她在对话里说过的话】\n")
-	any := false
-	for _, m := range msgs {
-		if m.Role != "student" {
-			continue
-		}
-		if s := strings.TrimSpace(m.Content); s != "" {
-			b.WriteString("- " + s + "\n")
-			any = true
-		}
+	said := recentStudentSaid(msgs)
+	for _, s := range said {
+		b.WriteString("- " + s + "\n")
 	}
-	if !any {
+	if len(said) == 0 {
 		b.WriteString("（她还没在对话里说过什么。）\n")
 	}
 
@@ -253,17 +285,11 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	}
 
 	b.WriteString("\n【她在对话里说过的话】\n")
-	any := false
-	for _, m := range msgs {
-		if m.Role != "student" {
-			continue
-		}
-		if s := strings.TrimSpace(m.Content); s != "" {
-			b.WriteString("- " + s + "\n")
-			any = true
-		}
+	said := recentStudentSaid(msgs)
+	for _, s := range said {
+		b.WriteString("- " + s + "\n")
 	}
-	if !any {
+	if len(said) == 0 {
 		b.WriteString("（她还没在对话里说过什么。）\n")
 	}
 

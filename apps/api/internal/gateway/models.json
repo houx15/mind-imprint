@@ -134,18 +134,31 @@
     "always reasons than to send a field that buys us a comforting lie."
   ],
   "_priceComment": [
-    "priceUsd is cache-miss USD per 1M tokens. A model with priceUsd omitted is",
+    "A model carries its rate in the currency its bill is written in: priceUsd",
+    "for the direct vendors, priceCny for DashScope. Both are cache-miss per 1M",
+    "tokens; gateway.CNYPerUSD converts in one place. A model with neither is",
     "UNPRICED: llm_call records a NULL/zero cost rather than a wrong number, and",
-    "--print-models flags it. The DashScope rows below are deliberately unpriced —",
-    "Aliyun bills in CNY at its own rates, and guessing them would silently corrupt",
-    "every cost comparison the catalog exists to make. Fill them in from the",
-    "Bailian console before drawing any cost conclusion from llm_usage.",
+    "--print-models flags it.",
+    "",
+    "2026-09-20 · 每个能绑定的 DashScope 模型都填上了价格，取自百炼控制台价目表",
+    "（华北2-北京，cache miss，标忙时/闲时的记忙时）。在此之前它们全都没有价格，",
+    "所以线上每一次 lite 调用的成本都记成 0 —— 那一列不是「便宜」，是没记。",
+    "🚨 价格按 WIRE 名记，不按线名：同一个线名在两条通道上不是同一个价钱，",
+    "deepseek-v4-flash 经 DashScope 是 1/2 元，直连那行记的是另一个模型。",
+    "",
+    "🚨 便宜的那一档不是零头：deepseek-v4-pro 12/24 元，qwen3.7-flash 0.2/0.8 元 ——",
+    "同一次调用差 60 倍 / 30 倍。档位绑错一个，一个月的账单就是另一个数量级。",
     "",
     "2026-09-12 · 两行 deepseek 直连价改了，因为原来那两行是错的（V4 时代的旧价，",
     "按它算出来的钱只有真实的三分之一）。现价取自 api-docs.deepseek.com 的",
     "Models & Pricing，记的是**峰时**（cache miss）：deepseek-v4-pro 1.32/3.96，",
     "deepseek-flash 0.30/1.20 USD per 1M。闲时是峰时的一半，我们记贵的那个——",
     "成本估高了只是保守，估低了会让一次降级看起来没必要。",
+    "",
+    "2026-09-20 · DashScope 上架了 deepseek-v4.1-flash（实测 GET /models：256 个",
+    "名字，9 月 12 号那次是 249 个、里面没有它）。¥2/¥8，而在位的 deepseek-v4-pro",
+    "是 ¥12/¥24 —— 同一条通道、同一把 key，进价便宜 6 倍、出价便宜 3 倍。",
+    "所以 [[deepseek-v41-flash-direct-only-2026-09-12]] 那条「只在直连口」已作废。",
     "",
     "deepseek-v4-flash 这个线名在直连口上被官方指向了 V4.1 Flash（实测：请求它，",
     "回包的 model 字段是 deepseek-flash），所以两行同价。经 DashScope 时不是这样：",
@@ -158,24 +171,49 @@
       "provider": "dashscope",
       "model": "deepseek-v4-pro",
       "label": "DeepSeek V4 Pro via DashScope",
-      "flagship": true
+      "flagship": true,
+      "priceCny": {
+        "inputPerMillion": 12.0,
+        "outputPerMillion": 24.0
+      }
     },
     "dashscope/deepseek-v4-flash": {
       "provider": "dashscope",
       "model": "deepseek-v4-flash",
       "label": "DeepSeek V4 Flash via DashScope",
-      "streamDropsTail": true
+      "streamDropsTail": true,
+      "priceCny": {
+        "inputPerMillion": 1.0,
+        "outputPerMillion": 2.0
+      }
+    },
+    "dashscope/deepseek-v4.1-flash": {
+      "provider": "dashscope",
+      "model": "deepseek-v4.1-flash",
+      "label": "DeepSeek V4.1 Flash via DashScope",
+      "priceCny": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
+      }
     },
     "dashscope/qwen3.8-max": {
       "provider": "dashscope",
       "model": "qwen3.8-max",
       "label": "Qwen 3.8 Max via DashScope",
-      "flagship": true
+      "flagship": true,
+      "priceCny": {
+        "inputPerMillion": 12.0,
+        "outputPerMillion": 36.0
+      }
     },
     "dashscope/qwen3.8-flash": {
       "provider": "dashscope",
       "model": "qwen3.8-flash",
-      "label": "Qwen 3.8 Flash via DashScope"
+      "label": "Qwen 3.8 Flash via DashScope",
+      "priceCny": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 2.7
+      }
     },
     "dashscope/qwen3.7-max": {
       "provider": "dashscope",
@@ -184,6 +222,10 @@
       "flagship": true,
       "reasoningEffortAliases": {
         "max": "xhigh"
+      },
+      "priceCny": {
+        "inputPerMillion": 12.0,
+        "outputPerMillion": 36.0
       }
     },
     "dashscope/qwen3.7-plus": {
@@ -192,6 +234,10 @@
       "label": "Qwen 3.7 Plus via DashScope",
       "reasoningEffortAliases": {
         "max": "xhigh"
+      },
+      "priceCny": {
+        "inputPerMillion": 2.0,
+        "outputPerMillion": 8.0
       }
     },
     "dashscope/qwen3.7-flash": {
@@ -200,6 +246,10 @@
       "label": "Qwen 3.7 Flash via DashScope",
       "reasoningEffortAliases": {
         "max": "xhigh"
+      },
+      "priceCny": {
+        "inputPerMillion": 0.2,
+        "outputPerMillion": 0.8
       }
     },
     "dashscope/glm-5.3": {
@@ -210,7 +260,11 @@
       "thinkingOffUnsupported": true,
       "defaultReasoningEffort": "low",
       "minReasoningEffort": "low",
-      "requiresUserMessage": true
+      "requiresUserMessage": true,
+      "priceCny": {
+        "inputPerMillion": 8.0,
+        "outputPerMillion": 28.0
+      }
     },
     "dashscope/glm-5.3-flash": {
       "provider": "dashscope",
@@ -219,24 +273,40 @@
       "thinkingOffUnsupported": true,
       "defaultReasoningEffort": "low",
       "minReasoningEffort": "low",
-      "requiresUserMessage": true
+      "requiresUserMessage": true,
+      "priceCny": {
+        "inputPerMillion": 0.8,
+        "outputPerMillion": 2.8
+      }
     },
     "dashscope/glm-5.2": {
       "provider": "dashscope",
       "model": "glm-5.2",
       "label": "GLM 5.2 via DashScope",
-      "flagship": true
+      "flagship": true,
+      "priceCny": {
+        "inputPerMillion": 8.0,
+        "outputPerMillion": 28.0
+      }
     },
     "dashscope/glm-5.1": {
       "provider": "dashscope",
       "model": "glm-5.1",
-      "label": "GLM 5.1 via DashScope"
+      "label": "GLM 5.1 via DashScope",
+      "priceCny": {
+        "inputPerMillion": 6.0,
+        "outputPerMillion": 24.0
+      }
     },
     "dashscope/kimi-k3": {
       "provider": "dashscope",
       "model": "kimi-k3",
       "label": "Kimi K3 via DashScope",
-      "flagship": true
+      "flagship": true,
+      "priceCny": {
+        "inputPerMillion": 20.0,
+        "outputPerMillion": 100.0
+      }
     },
     "dashscope/kimi-k2.6": {
       "provider": "dashscope",
@@ -245,6 +315,10 @@
       "flagship": true,
       "reasoningEffortAliases": {
         "max": "xhigh"
+      },
+      "priceCny": {
+        "inputPerMillion": 6.5,
+        "outputPerMillion": 27.0
       }
     },
     "dashscope/kimi-k2.7-code": {
@@ -257,7 +331,11 @@
         "tools",
         "coding"
       ],
-      "thinkingOffUnsupported": true
+      "thinkingOffUnsupported": true,
+      "priceCny": {
+        "inputPerMillion": 6.5,
+        "outputPerMillion": 27.0
+      }
     },
     "dashscope/qwen3.5-omni-plus": {
       "provider": "dashscope",
@@ -267,7 +345,11 @@
         "chat",
         "tools",
         "vision"
-      ]
+      ],
+      "priceCny": {
+        "inputPerMillion": 7.0,
+        "outputPerMillion": 53.0
+      }
     },
     "dashscope/qwen3.5-omni-flash": {
       "provider": "dashscope",
@@ -277,7 +359,11 @@
         "chat",
         "tools",
         "vision"
-      ]
+      ],
+      "priceCny": {
+        "inputPerMillion": 2.2,
+        "outputPerMillion": 18.0
+      }
     },
     "dashscope/qwen-image-3.0-pro": {
       "provider": "dashscope_image",

@@ -284,8 +284,9 @@ func mergeMaps(base, over map[string]any) map[string]any {
 	return out
 }
 
-// priceSpec is the catalog's USD-per-million wire shape. Absent ⇒ unpriced, and
-// an unpriced model records no cost rather than an invented one.
+// priceSpec is the catalog's per-million wire shape, read under either
+// priceUsd or priceCny. Absent ⇒ unpriced, and an unpriced model records no
+// cost rather than an invented one.
 type priceSpec struct {
 	InputPerMillion  float64 `json:"inputPerMillion"`
 	OutputPerMillion float64 `json:"outputPerMillion"`
@@ -334,6 +335,12 @@ type ModelSpec struct {
 	Capabilities           []string   `json:"capabilities"`
 	DefaultReasoningEffort string     `json:"defaultReasoningEffort"`
 	Price                  *priceSpec `json:"priceUsd"`
+	// PriceCNY is the same shape for the vendors that bill in yuan. DashScope
+	// publishes CNY only, so recording its rates as USD would bake one exchange
+	// rate into every DashScope entry and make all of them wrong on the day it
+	// moves. A model carries its rate in the currency its bill is written in;
+	// CNYPerUSD converts, in one place, when the price table is built.
+	PriceCNY *priceSpec `json:"priceCny"`
 	ModelPolicy
 }
 

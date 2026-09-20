@@ -41,10 +41,15 @@ type Recommendation struct {
 //     then p50 latency, and only then token count. Cost is the last word, never
 //     the first: it may break a tie and may not override a difference.
 //
-// Cost is ranked by TOKENS, not money, because every DashScope model in the
-// catalog is UNPRICED. Recording an invented price would defeat the one thing
-// the catalog exists for. Fill in priceUsd and the same run converts to money
-// without being re-run.
+// Cost is ranked by MONEY since 2026-09-20, when the DashScope rates were
+// filled in (priceCny). Before that it could only rank by token count, and that
+// is a rule with a known failure mode: qwen3.7-flash and deepseek-v4-pro differ
+// by 60x on input price, so a model that emits slightly more tokens can still
+// be an order of magnitude cheaper. Ranking those two on tokens gives the
+// opposite answer to ranking them on the bill.
+//
+// A model the catalog cannot price still falls back to token count: a missing
+// measurement has to read as missing, never as a tie.
 func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 	byClass := map[string][]Result{}
 	for _, r := range results {
@@ -59,7 +64,11 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 		}
 		// Aggregate per model across that class's cases.
 		type agg struct {
-			out, think    int
+			in, out, think int
+			// money is the USD this model would spend on one pass of this
+			// class's cases, at catalog rates. 0 when the model is unpriced.
+			money         float64
+			priced        bool
 			total         time.Duration
 			judgeSum      float64
 			judgeMin      float64
@@ -79,9 +88,19 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 				continue
 			}
 			a.cases++
+			a.in += r.MedIn()
 			a.out += r.MedOut()
 			a.think += r.MedReasoning()
 			a.total += r.P50Total()
+			// Reasoning tokens are billed as output, and the vendors that charge
+			// most for thinking are exactly the ones a token count flatters.
+			if spec, known := cat.Models[r.ModelID]; known {
+				if c, priced := gateway.EstimateCost(spec.Provider, spec.Model,
+					r.MedIn(), r.MedOut()+r.MedReasoning()); priced {
+					a.money += c
+					a.priced = true
+				}
+			}
 			if r.ErrRate() > 0 {
 				a.hardFail = append(a.hardFail, fmt.Sprintf("%s: %.0f%% of calls failed", r.CaseID, r.ErrRate()*100))
 			}
@@ -188,6 +207,14 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			if ok[i].a.total != ok[j].a.total {
 				return ok[i].a.total < ok[j].a.total
 			}
+			// 🚨 2026-09-20 · 这一行原来比的是 token 数。价格填上之前那是唯一能比
+			// 的东西，但它在价差一个数量级的时候会给出**反的**结论：
+			// qwen3.7-flash 0.2/0.8 元 与 deepseek-v4-pro 12/24 元 相差 60 倍，
+			// 少吐几个 token 补不回来。现在按钱比。
+			// 两边都没有价格时退回 token —— 缺测量要读成缺测量，不能读成打平。
+			if ok[i].a.priced && ok[j].a.priced && ok[i].a.money != ok[j].a.money {
+				return ok[i].a.money < ok[j].a.money
+			}
 			return ok[i].a.out+ok[i].a.think < ok[j].a.out+ok[j].a.think
 		})
 		w := ok[0]
@@ -215,6 +242,11 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 		if w.a.judged == 0 {
 			why = fmt.Sprintf("解析/预期 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
 				w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
+		}
+		// The bill for one pass of this class's cases, so a reader can see what
+		// the last tiebreak was actually comparing instead of inferring it.
+		if w.a.priced {
+			why += fmt.Sprintf("，本档一遍 $%.4f", w.a.money)
 		}
 		if spec, bound := cat.Lanes[class]; bound && spec.LatencyBudgetMs > 0 {
 			if w.a.cases > 0 {

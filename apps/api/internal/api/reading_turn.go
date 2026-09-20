@@ -564,7 +564,14 @@ func (a *API) recordLiteLLMCall(ctx context.Context, userID, atomID uuid.UUID, p
 	if resolved.Provider == "" {
 		return
 	}
-	cost, priced := gateway.EstimateCost(resolved.Provider, resolved.Model, usage.InputTokens, usage.OutputTokens)
+	// The cached part of the input is priced at gateway.CachedInputRate, not at
+	// list. A reading turn re-sends the whole article, so on the second turn of
+	// a session ~90% of its input arrives cached — charging all of it at list
+	// would make the reading room look roughly four times more expensive than
+	// the bill says it is, and every decision taken off that number would be
+	// aimed at the wrong thing.
+	cost, priced := gateway.EstimateCostCached(resolved.Provider, resolved.Model,
+		usage.InputTokens, usage.CachedInputTokens, usage.OutputTokens)
 	if !priced {
 		slog.Warn("lite llm_call: unpriced model — cost recorded as 0",
 			"provider", resolved.Provider, "model", resolved.Model)

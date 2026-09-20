@@ -148,8 +148,11 @@ type openAIChunk struct {
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens            int `json:"prompt_tokens"`
-		CompletionTokens        int `json:"completion_tokens"`
+		PromptTokens        int `json:"prompt_tokens"`
+		CompletionTokens    int `json:"completion_tokens"`
+		PromptTokensDetails *struct {
+			CachedTokens *int `json:"cached_tokens"`
+		} `json:"prompt_tokens_details"`
 		CompletionTokensDetails *struct {
 			ReasoningTokens *int `json:"reasoning_tokens"`
 		} `json:"completion_tokens_details"`
@@ -210,6 +213,9 @@ func consumeOpenAICompatible(ctx context.Context, body io.Reader, out chan<- Str
 		}
 		if chunk.Usage != nil {
 			usage := &ChatUsage{InputTokens: chunk.Usage.PromptTokens, OutputTokens: chunk.Usage.CompletionTokens}
+			if details := chunk.Usage.PromptTokensDetails; details != nil && details.CachedTokens != nil {
+				usage.CachedInputTokens = *details.CachedTokens
+			}
 			if details := chunk.Usage.CompletionTokensDetails; details != nil && details.ReasoningTokens != nil {
 				reasoning := *details.ReasoningTokens
 				usage.ReasoningTokens = &reasoning
