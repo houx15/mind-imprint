@@ -1427,6 +1427,7 @@ type WritingOutline struct {
 	// 这条材料从哪来（链接、刊名、报道名、访谈对象）。空串 = 她自己的经历，或者没写。
 	Source string `json:"source"`
 	Kind   string `json:"kind"`
+	Method string `json:"method"`
 }
 
 type WritingSnippet struct {

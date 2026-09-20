@@ -41,6 +41,11 @@ export type WritingOutlineItem = {
    * 所以读的时候走那个函数，别直接 switch 这个字符串。
    */
   kind?: string;
+  /**
+   * 她在行文那一步给这一块标的论证方法（vocab 的 id，服务端 0184）。
+   * 空 = 还没标。段落那一步的引导据此说「这一段你打算用举例论证」。
+   */
+  method?: string;
   depth: number;
   position: number;
   /**
@@ -419,7 +424,7 @@ export async function getWritingOutline(id: string): Promise<WritingOutlineItem[
  */
 export async function putWritingOutline(
   id: string,
-  items: { text: string; role: string; kind?: string; depth: number; source?: string }[],
+  items: { text: string; role: string; kind?: string; method?: string; depth: number; source?: string }[],
 ): Promise<WritingOutlineItem[]> {
   const raw = await apiFetch<{ outline: WritingOutlineItem[] }>(`${base(id)}/outline`, {
     method: "PUT",
@@ -557,3 +562,50 @@ export async function suggestWritingTitleKeywords(id: string): Promise<string[]>
  * 学科透镜 — those cards are used against an article, which gives them
  * something real to bite on.
  */
+
+// --- 行文（第四步的第二步，服务端 writing_flow.go）-------------------------
+
+/** 那个下拉里的一项（只有论证方法那一层）。服务端 `writingFlowMethodDTO`。 */
+export type FlowMethodDTO = { id: string; name: string; definition: string };
+
+/** 服务端 `writingFlowStructureDTO`。 */
+export type FlowStructureDTO = {
+  id: string;
+  name: string;
+  definition: string;
+  example: string;
+};
+
+/**
+ * 那四条论证结构（总分式 / 并列式 / 层进式 / 对照式）。
+ *
+ * 从服务端取而不是前端写第二份：名字和定义的真相在 vocab，
+ * 两份词表迟早分岔，而分岔的那天她在板上选的结构服务端不认。
+ */
+export async function getWritingFlowStructures(
+  id: string,
+): Promise<{ structures: FlowStructureDTO[]; methods: FlowMethodDTO[] }> {
+  const raw = await apiFetch<{ structures: FlowStructureDTO[]; methods: FlowMethodDTO[] }>(
+    `${base(id)}/flow/structures`,
+  );
+  // 🚨 逐层兜底：Go 把 nil 切片 marshal 成 null，一个 .map() 就崩。
+  return { structures: raw.structures ?? [], methods: raw.methods ?? [] };
+}
+
+/**
+ * 存行文那一步：整篇的论证结构 + 每一块标的论证方法。
+ *
+ * 🚨 **不收正文**。同事 2026-09-20 那句括号里的话就是这条路的边界：
+ * 「并非填充内容」。
+ */
+export async function putWritingFlow(
+  id: string,
+  structureKey: string,
+  methods: Record<string, string>,
+): Promise<WritingOutlineItem[]> {
+  const raw = await apiFetch<{ outline: WritingOutlineItem[] }>(`${base(id)}/flow`, {
+    method: "PUT",
+    body: JSON.stringify({ structureKey, methods }),
+  });
+  return raw.outline ?? [];
+}

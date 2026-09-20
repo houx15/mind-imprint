@@ -3,6 +3,7 @@ import { Button, Icon } from "@/ui";
 import { BookOpen, GraduationCap } from "lucide-react";
 import type { WritingBlockGuide, WritingGuideMethod } from "../api/writingRoom";
 import { VocabExamples } from "./VocabExamples";
+import { paragraphShapeOf } from "./paragraphShape";
 
 /**
  * GuideBox — the guiding box, shared by 结构 and 段落.
@@ -77,10 +78,17 @@ import { VocabExamples } from "./VocabExamples";
  */
 export function GuideBox({
   guide,
+  kind = "",
   onDismiss,
   onDeepen,
 }: {
   guide: WritingBlockGuide;
+  /**
+   * 这一块是什么（outlineKind 的取值）。用来渲染「这一段里的几步」——
+   * 那一节是**确定性**的（按 kind 查表），不花模型调用。
+   * 空 = 自由段落那一类，整节不渲染。
+   */
+  kind?: string;
   onDismiss: () => void;
   /** 深入一层 — opens `DeepenDrawer` on this block (the same 印记, scoped to
    *  one block). This component owns only the button and the callback. */
@@ -93,6 +101,7 @@ export function GuideBox({
   const [openTermIndex, setOpenTermIndex] = useState<number | null>(null);
   const [showPrior, setShowPrior] = useState(false);
   const prior = guide.previous;
+  const steps = paragraphShapeOf(kind);
   const hasMethods = guide.methods.length > 0;
   // Patterns count as something to show. The English methods in vocab carry
   // sentence FRAMES instead of worked examples, so gating this button on
@@ -124,9 +133,35 @@ export function GuideBox({
         </section>
       )}
 
+      {/* 🚨 「这一段里的几步」排在方法名**前面**。同事 2026-09-20 的意见 5：
+          「需要组织的内容为一个段落内的文本结构」——她站在一段空白面前要的
+          不是「有哪几种写法」，是这一段先写什么再写什么。方法名回答的是
+          另一个问题，所以它退到后面。 */}
+      {steps.length > 0 && (
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-mk-label font-semibold text-mk-accent-700">这一段里的几步</h3>
+          <ol className="flex list-none flex-col gap-2">
+            {steps.map((s, i) => (
+              <li key={i} className="flex gap-2.5">
+                <span
+                  className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-mk-label"
+                  style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
+                >
+                  {i + 1}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-mk-body font-semibold text-mk-ink">{s.label}</span>
+                  <span className="text-mk-small text-mk-muted">{s.hint}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       {hasMethods && (
         <section className="flex flex-col gap-1.5">
-          <h3 className="text-mk-label font-semibold text-mk-accent-700">常见的几种写法</h3>
+          <h3 className="text-mk-label font-semibold text-mk-accent-700">可以用上的方法</h3>
           <div className="flex flex-col gap-1.5">
             {guide.methods.map((m, i) => {
               const open = openTermIndex === i;

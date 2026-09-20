@@ -221,16 +221,19 @@ describe("结构 — a planning conversation, not a template to fill", () => {
     });
   });
 
+  // 🚨 2026-09-20：「去写」现在先去**行文**（想清楚怎么组织），再去段落。
+  // 同事的意见 4：「要在开始写之前先想好整个文章组织框架」。
+  // 它仍然不是关卡 —— 顶上那条导航一直点得动，行文那一屏也一步就能过去。
   it("lets her leave for the page at any time — planning is never a gate", async () => {
-    routes[key("POST", base("/stage"))] = { body: writing(inRoom()) };
+    routes[key("POST", base("/stage"))] = { body: writing({ ...inRoom(), stage: "flow" }) };
     render(<WritingRoomHost writingId={WID} />);
     await screen.findByPlaceholderText("说说你的想法");
 
     fireEvent.click(screen.getByRole("button", { name: /去写/ }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "段落" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "行文" })).toBeTruthy());
     const post = calls.find((c) => c.method === "POST" && c.url === base("/stage"))!;
-    expect(post.body).toEqual({ stage: "snippets" });
+    expect(post.body).toEqual({ stage: "flow" });
   });
 });
 

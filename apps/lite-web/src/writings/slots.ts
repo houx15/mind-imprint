@@ -52,6 +52,14 @@ export type Slot = {
   claim: string;
   /** 这张卡只有例子、还没有一句分论点：这一段要先说清例子证明了什么。 */
   needsPoint: boolean;
+  /**
+   * 这张卡底下那个结构图节点的 kind（闭表，见 outlineKind.ts）。
+   *
+   * 比 `kind` 细：卡片那一层把反方观点和分论点都画成「主体卡」，而段落引导
+   * 里「这一段里的几步」对这两种是不一样的（一个要承认再转，一个要分论点
+   * 句 → 论据 → 分析 → 回扣）。虚拟卡和自由段落没有节点，留空。
+   */
+  outlineKind: string;
 };
 
 /**
@@ -102,6 +110,7 @@ export function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnipp
     materials: [],
     claim: "",
     needsPoint: false,
+    outlineKind: outlineKindOf(o),
     ...over,
   });
   const virtual = (kind: "opening" | "closing", snippet: WritingSnippet | null, claim: string): Slot => ({
@@ -115,6 +124,8 @@ export function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnipp
     materials: [],
     claim,
     needsPoint: false,
+    // 虚拟的开头 / 结尾卡没有节点，但它们的活是确定的。
+    outlineKind: kind,
   });
 
   const slots: Slot[] = [];
@@ -187,6 +198,7 @@ export function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnipp
       materials: [],
       claim: "",
       needsPoint: false,
+      outlineKind: "",
     });
   }
 

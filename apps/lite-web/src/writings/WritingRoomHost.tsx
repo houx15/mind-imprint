@@ -31,6 +31,7 @@ import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { flushPendingSaves } from "./pendingSaves";
 import { SnippetsStage } from "./SnippetsStage";
+import { FlowStage } from "./FlowStage";
 import { ComposeStage } from "./ComposeStage";
 import { apiErrorText } from "../api/errorText";
 import { FinishedWritingPage } from "./FinishedWritingPage";
@@ -383,11 +384,38 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
         onMessages={(next) => setState((s) => (s.phase === "ready" ? { ...s, messages: next } : s))}
         onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
-        onDone={() => void jumpStage("snippets")}
+        // 结构走完之后先去行文（想清楚怎么组织），再去段落。
+        onDone={() => void jumpStage("flow")}
         onUpload={() => void jumpStage("draft")}
         onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
         onLocked={reload}
         banner={isRevising(writing) ? <RevisingStrip writingId={writingId} onDiscarded={reload} /> : null}
+      />
+    );
+  }
+
+  /**
+   * 行文（2026-09-20，同事的意见 4）—— 和结构那一步一样占整屏：
+   * 这一步要的是「看见整篇」，挤在一个面板里就又变回一段一段看了。
+   *
+   * 🚨 它**不是关卡**：顶上那条导航一直点得动，结构那一步的「去写」也照旧
+   * 直通段落。这一步是一条明路，不是一道门。
+   */
+  if (writing.stage === "flow") {
+    return (
+      <FlowStage
+        writingId={writingId}
+        outline={state.outline}
+        structureKey={writing.structureKey ?? ""}
+        onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
+        onStructureKey={(next) =>
+          setState((s) =>
+            s.phase === "ready" ? { ...s, writing: { ...s.writing, structureKey: next } } : s,
+          )
+        }
+        onDone={() => void jumpStage("snippets")}
+        onBack={() => void jumpStage("outline")}
+        onLocked={reload}
       />
     );
   }

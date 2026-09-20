@@ -29,10 +29,16 @@ const GUIDE: WritingBlockGuide = {
 
 describe("GuideBox", () => {
   it("renders all four parts, and questions at reading size", () => {
-    render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
+    render(<GuideBox guide={GUIDE} kind="point" onDismiss={() => {}} onDeepen={() => {}} />);
 
     expect(screen.getByText(/这一段要做的事/)).toBeTruthy();
-    expect(screen.getByText(/常见的几种写法/)).toBeTruthy();
+    // 段内结构那一节是按 kind 确定性渲染的，不花模型调用。
+    expect(screen.getByText(/这一段里的几步/)).toBeTruthy();
+    expect(screen.getByText(/分析/)).toBeTruthy();
+    // 2026-09-20 改名：「常见的几种写法」→「可以用上的方法」，而且退到
+    // 「这一段里的几步」后面 —— 同事的意见 5：她站在一段空白面前要的不是
+    // 「有哪几种写法」，是这一段先写什么再写什么。
+    expect(screen.getByText(/可以用上的方法/)).toBeTruthy();
     expect(screen.getByText("正反")).toBeTruthy();
     expect(screen.getByText(/一正一反两个例子/)).toBeTruthy();
     expect(screen.getByText(/想一想/)).toBeTruthy();

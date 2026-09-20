@@ -7,6 +7,6 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
   timeout: 60_000,
-  use: { baseURL: "http://localhost:5233", viewport: { width: 1280, height: 820 } },
+  use: { baseURL: "http://localhost:5234", viewport: { width: 1280, height: 820 } },
   reporter: [["list"]],
 });

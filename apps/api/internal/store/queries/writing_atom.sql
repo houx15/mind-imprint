@@ -81,14 +81,17 @@ WITH deleted AS (
 -- 没法查它说的对不对 —— 而「查一份材料」正是这一列存在的全部理由。
 -- kind 与它们平行传入（0182）：一个节点「是什么」决定了它的深度、父节点和
 -- 屏幕上的标题。全量替换这条路（她自己拖动、自己编辑）同样负责别把它弄丢。
-INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
+-- method 与它们平行传入（0184）：这一块打算用哪一个论证方法。
+-- 她在行文那一步标的，全量替换这条路同样负责别把它弄丢。
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind, method)
 SELECT sqlc.arg(atom_id),
        unnest(sqlc.arg(texts)::text[]),
        unnest(sqlc.arg(roles)::text[]),
        unnest(sqlc.arg(depths)::int[]),
        unnest(sqlc.arg(positions)::int[]),
        unnest(sqlc.arg(sources)::text[]),
-       unnest(sqlc.arg(kinds)::text[])
+       unnest(sqlc.arg(kinds)::text[]),
+       unnest(sqlc.arg(methods)::text[])
 RETURNING *;
 
 -- name: ListWritingOutline :many
@@ -165,6 +168,11 @@ WHERE atom_id = $1 AND position >= $2;
 INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
+
+-- name: SetWritingOutlineMethod :exec
+-- 行文那一步给这一块标一个论证方法。单独一条语句而不是走全量替换：
+-- 她在那块板上一次只改一块，而全量替换会把她同时在别处的编辑一起卷进来。
+UPDATE writing_outline SET method = $2 WHERE id = $1;
 
 -- name: SetWritingOutlineGuide :exec
 UPDATE writing_outline SET guide = $2 WHERE id = $1;

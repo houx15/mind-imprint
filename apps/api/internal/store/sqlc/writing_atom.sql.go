@@ -189,7 +189,7 @@ func (q *Queries) GetWritingForUpdate(ctx context.Context, atomID uuid.UUID) (Wr
 const insertWritingOutlineNode = `-- name: InsertWritingOutlineNode :one
 INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, atom_id, text, depth, position, role, guide, source, kind
+RETURNING id, atom_id, text, depth, position, role, guide, source, kind, method
 `
 
 type InsertWritingOutlineNodeParams struct {
@@ -230,6 +230,7 @@ func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritin
 		&i.Guide,
 		&i.Source,
 		&i.Kind,
+		&i.Method,
 	)
 	return i, err
 }
@@ -269,7 +270,7 @@ func (q *Queries) ListWritingComments(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingOutline = `-- name: ListWritingOutline :many
-SELECT id, atom_id, text, depth, position, role, guide, source, kind FROM writing_outline WHERE atom_id = $1 ORDER BY position
+SELECT id, atom_id, text, depth, position, role, guide, source, kind, method FROM writing_outline WHERE atom_id = $1 ORDER BY position
 `
 
 func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]WritingOutline, error) {
@@ -291,6 +292,7 @@ func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]W
 			&i.Guide,
 			&i.Source,
 			&i.Kind,
+			&i.Method,
 		); err != nil {
 			return nil, err
 		}
@@ -457,15 +459,16 @@ const replaceWritingOutline = `-- name: ReplaceWritingOutline :many
 WITH deleted AS (
   DELETE FROM writing_outline WHERE atom_id = $1
 )
-INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind, method)
 SELECT $1,
        unnest($2::text[]),
        unnest($3::text[]),
        unnest($4::int[]),
        unnest($5::int[]),
        unnest($6::text[]),
-       unnest($7::text[])
-RETURNING id, atom_id, text, depth, position, role, guide, source, kind
+       unnest($7::text[]),
+       unnest($8::text[])
+RETURNING id, atom_id, text, depth, position, role, guide, source, kind, method
 `
 
 type ReplaceWritingOutlineParams struct {
@@ -476,6 +479,7 @@ type ReplaceWritingOutlineParams struct {
 	Positions []int32   `json:"positions"`
 	Sources   []string  `json:"sources"`
 	Kinds     []string  `json:"kinds"`
+	Methods   []string  `json:"methods"`
 }
 
 // Full replace, not a diff: the whole outline is written as one shape each
@@ -489,6 +493,8 @@ type ReplaceWritingOutlineParams struct {
 // 没法查它说的对不对 —— 而「查一份材料」正是这一列存在的全部理由。
 // kind 与它们平行传入（0182）：一个节点「是什么」决定了它的深度、父节点和
 // 屏幕上的标题。全量替换这条路（她自己拖动、自己编辑）同样负责别把它弄丢。
+// method 与它们平行传入（0184）：这一块打算用哪一个论证方法。
+// 她在行文那一步标的，全量替换这条路同样负责别把它弄丢。
 func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingOutlineParams) ([]WritingOutline, error) {
 	rows, err := q.db.Query(ctx, replaceWritingOutline,
 		arg.AtomID,
@@ -498,6 +504,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 		arg.Positions,
 		arg.Sources,
 		arg.Kinds,
+		arg.Methods,
 	)
 	if err != nil {
 		return nil, err
@@ -516,6 +523,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 			&i.Guide,
 			&i.Source,
 			&i.Kind,
+			&i.Method,
 		); err != nil {
 			return nil, err
 		}
@@ -569,6 +577,22 @@ type SetWritingOutlineGuideParams struct {
 
 func (q *Queries) SetWritingOutlineGuide(ctx context.Context, arg SetWritingOutlineGuideParams) error {
 	_, err := q.db.Exec(ctx, setWritingOutlineGuide, arg.ID, arg.Guide)
+	return err
+}
+
+const setWritingOutlineMethod = `-- name: SetWritingOutlineMethod :exec
+UPDATE writing_outline SET method = $2 WHERE id = $1
+`
+
+type SetWritingOutlineMethodParams struct {
+	ID     uuid.UUID `json:"id"`
+	Method string    `json:"method"`
+}
+
+// 行文那一步给这一块标一个论证方法。单独一条语句而不是走全量替换：
+// 她在那块板上一次只改一块，而全量替换会把她同时在别处的编辑一起卷进来。
+func (q *Queries) SetWritingOutlineMethod(ctx context.Context, arg SetWritingOutlineMethodParams) error {
+	_, err := q.db.Exec(ctx, setWritingOutlineMethod, arg.ID, arg.Method)
 	return err
 }
 

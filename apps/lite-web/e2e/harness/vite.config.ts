@@ -28,5 +28,5 @@ export default defineConfig({
       { find: "@lite", replacement: path.resolve(liteRoot, "src") },
     ],
   },
-  server: { port: 5233, strictPort: true },
+  server: { port: 5234, strictPort: true },
 });

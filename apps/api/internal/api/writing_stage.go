@@ -49,8 +49,11 @@ import (
 // costs nothing. THIS map is the enforcement point, so a stale client posting
 // 'ideate' gets a clean 400 rather than parking a writing on a stage with no
 // page behind it.
+// 🚨 'flow' 是 2026-09-20 加的第四步（行文）。0184 同时放开了 0099 写下的
+// 那条 CHECK —— 只改这张表而不改约束，她第一次保存就会撞上一个数据库层的
+// 冲突，而那以一个读不懂的 500 出现在她面前。
 var validWritingStages = map[string]bool{
-	"outline": true, "snippets": true, "draft": true, "finished": true,
+	"outline": true, "flow": true, "snippets": true, "draft": true, "finished": true,
 }
 
 const (

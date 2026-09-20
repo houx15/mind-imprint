@@ -63,7 +63,11 @@ type writingOutlineItemDTO struct {
 	// Kind 是这一块是什么，闭表见 writing_kind.go。
 	// 🚨 json 标签不能少：缺标签会让前端读到的字段名全错，而 Go 测试全绿、
 	// 日志干净（[[go-nil-slice-becomes-null]]）。
-	Kind     string `json:"kind"`
+	Kind string `json:"kind"`
+	// Method 是她在行文那一步给这一块标的论证方法（vocab 的 id，0184）。
+	// 空 = 还没标。段落那一步的引导据此说「这一段你打算用举例论证」，
+	// 而不是每次重新猜一个。
+	Method   string `json:"method"`
 	Depth    int32  `json:"depth"`
 	Position int32  `json:"position"`
 	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处；
@@ -84,7 +88,8 @@ func toWritingOutlineItemDTO(row sqlc.WritingOutline) writingOutlineItemDTO {
 		role = lbl
 	}
 	dto := writingOutlineItemDTO{
-		ID: row.ID.String(), Text: row.Text, Role: role, Kind: kind, Depth: row.Depth, Position: row.Position,
+		ID: row.ID.String(), Text: row.Text, Role: role, Kind: kind, Method: row.Method,
+		Depth: row.Depth, Position: row.Position,
 		Source: row.Source,
 	}
 	if g, ok := storedWritingGuide(row); ok {
@@ -129,8 +134,11 @@ type writingOutlineItemReq struct {
 	// Kind 是这一块是什么（0182）。客户端把服务端发给它的那一份原样回传；
 	// 她拖动之后前端会按 outlineKind.ts 改写它。不合法或缺失时服务端按
 	// role + depth 兜底，见 buildWritingOutlineArrays。
-	Kind  string `json:"kind"`
-	Depth int32  `json:"depth"`
+	Kind string `json:"kind"`
+	// Method：她在行文那一步标的论证方法（0184）。客户端把服务端发给它的那一份
+	// 原样回传；不在 vocab 里的 id 落库前清空，不整份拒绝。
+	Method string `json:"method"`
+	Depth  int32  `json:"depth"`
 	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处。
 	// 客户端把服务端发给它的那一份原样回传 —— 和 Role 同一个道理：全量替换
 	// 这条路只负责别把它弄丢。
@@ -162,13 +170,14 @@ func (a *API) getWritingOutline(w http.ResponseWriter, r *http.Request) {
 // Built in a single loop over the SAME source slice, so the three results are
 // equal length by construction — position is simply the loop index, and depth
 // is clamped here (0..2) rather than left to the caller.
-func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32, sources []string, kinds []string) {
+func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32, sources []string, kinds []string, methods []string) {
 	texts = make([]string, len(items))
 	roles = make([]string, len(items))
 	depths = make([]int32, len(items))
 	positions = make([]int32, len(items))
 	sources = make([]string, len(items))
 	kinds = make([]string, len(items))
+	methods = make([]string, len(items))
 	for i, it := range items {
 		texts[i] = strings.TrimSpace(it.Text)
 		// kind 不合法就按她给的 role 和深度兜底 —— 老前端不会传这个字段，
@@ -185,8 +194,11 @@ func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, r
 		roles[i] = writingKindLabel(k, it.Source)
 		positions[i] = int32(i)
 		sources[i] = trimRunes(strings.TrimSpace(it.Source), writingSourceMaxRunes)
+		// 🚨 编出来的方法 id 清空，不整份拒绝 —— 一次保存里混进一个认不出的
+		// 方法，不该让她整张图存不上。
+		methods[i] = writingValidMethodID(it.Method)
 	}
-	return texts, roles, depths, positions, sources, kinds
+	return texts, roles, depths, positions, sources, kinds, methods
 }
 
 // writingSourceMaxRunes 是一条出处能有多长。
@@ -207,9 +219,9 @@ const writingSourceMaxRunes = 300
 // fires — it exists so that stays true by an assertion, not merely by
 // happenstance, and so any future caller that assembles the three arrays a
 // different way gets a clean 400 instead of a database error.
-func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32, sources, kinds []string) error {
+func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32, sources, kinds, methods []string) error {
 	if len(texts) != len(roles) || len(texts) != len(depths) || len(texts) != len(positions) ||
-		len(texts) != len(sources) || len(texts) != len(kinds) {
+		len(texts) != len(sources) || len(texts) != len(kinds) || len(texts) != len(methods) {
 		return httpx.ErrBadRequest("outline_array_length_mismatch", "提纲数据格式不对，请重试。", nil)
 	}
 	return nil
@@ -235,8 +247,8 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	texts, roles, depths, positions, sources, kinds := buildWritingOutlineArrays(body.Outline)
-	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds); verr != nil {
+	texts, roles, depths, positions, sources, kinds, methods := buildWritingOutlineArrays(body.Outline)
+	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds, methods); verr != nil {
 		httpx.WriteError(w, r, verr)
 		return
 	}
@@ -258,7 +270,7 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := a.d.Queries.ReplaceWritingOutline(r.Context(), sqlc.ReplaceWritingOutlineParams{
 		AtomID: at.ID, Texts: texts, Roles: roles, Depths: depths, Positions: positions,
-		Sources: sources, Kinds: kinds,
+		Sources: sources, Kinds: kinds, Methods: methods,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

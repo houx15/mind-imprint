@@ -476,6 +476,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/writings/{id}/messages", liteOnly(a.liteListMessagesFor("writing")))
 	mux.Handle("GET /api/v1/writings/{id}/outline", liteOnly(a.getWritingOutline))
 	mux.Handle("PUT /api/v1/writings/{id}/outline", liteOnly(a.putWritingOutline))
+	// 行文那一步（0184）：整篇的论证结构 + 每一块的论证方法。不收正文。
+	mux.Handle("GET /api/v1/writings/{id}/flow/structures", liteOnly(a.getWritingFlowStructures))
+	mux.Handle("PUT /api/v1/writings/{id}/flow", liteOnly(a.putWritingFlow))
 	mux.Handle("POST /api/v1/writings/{id}/outline/{oid}/guide", liteOnly(a.guideWritingBlock))
 	mux.Handle("POST /api/v1/writings/{id}/guide", liteOnly(a.guideWritingBlocks))
 	mux.Handle("POST /api/v1/writings/{id}/outline/{oid}/deepen", liteOnly(a.deepenWritingBlock))

@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import { Icon } from "@/ui";
 
 /**
- * StageMap — the three-step 结构 / 段落 / 成稿 indicator.
+ * StageMap — the 结构 / 行文 / 段落 / 成稿 indicator (four steps since 2026-09-20).
  *
  * It was four steps until 2026-08-27. 构思 came first and owned a page whose
  * entire content was a 目标字数 input that gave no feedback — a screen that
@@ -19,10 +19,19 @@ import { Icon } from "@/ui";
  * "you haven't unlocked 成稿 yet" state anywhere in this component.
  */
 
-export type WritingStageKey = "outline" | "snippets" | "draft";
+export type WritingStageKey = "outline" | "flow" | "snippets" | "draft";
 
+/**
+ * 四步。「行文」是 2026-09-20 加的（同事的意见 4）：
+ *
+ *	「要在开始写之前先想好整个文章组织框架（并非填充内容）如何搭建，
+ *	  现在只有文本内容的引导。」
+ *
+ * 结构长出「有哪些点」，段落直接开始写字，中间少了「这些点怎么组织」那一问。
+ */
 const STEPS: { key: WritingStageKey; label: string }[] = [
   { key: "outline", label: "结构" },
+  { key: "flow", label: "行文" },
   { key: "snippets", label: "段落" },
   { key: "draft", label: "成稿" },
 ];
@@ -53,7 +62,7 @@ export function StageMap({
   const currentIndex = STEPS.findIndex((s) => s.key === current);
 
   return (
-    <nav aria-label="写作三步" className="flex items-center gap-1">
+    <nav aria-label="写作四步" className="flex items-center gap-1">
       {STEPS.map((step, i) => {
         const active = step.key === current;
         const done = i < currentIndex;

@@ -8,6 +8,7 @@ import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
+import { MiniMap } from "./MiniMap";
 import { buildSlots, slotTitle, type Slot } from "./slots";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { registerPendingSave } from "./pendingSaves";
@@ -285,6 +286,13 @@ export function SnippetsStage({
               <Icon icon={PanelLeftClose} size={18} />
             </button>
           </div>
+
+          {/* 🚨 那张思维导图留在这里 —— 同事 2026-09-20 在截图上画了个箭头
+              指着左栏顶部：「我觉得可以在这里保留刚刚的思维导图，然后把引导
+              往下放」。到了这一步她眼前只剩一张卡和一张纸，「这一段在整篇里
+              是第几块」只能靠记。只读；要改结构回上一步改。 */}
+          <MiniMap outline={outline} />
+
           {active && (
             <CardGuidance
               key={slotKey(active)}
@@ -534,7 +542,7 @@ function CardGuidance({
       {/* 自由段落和虚拟的开头/结尾卡没有结构图节点，服务端的引导是按节点存的，
           所以这里不摆一颗点了也拿不到引导的按钮；上面那句「要做的事」就是它的引导。 */}
       {slot.outlineId && guide && !collapsed && (
-        <GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />
+        <GuideBox guide={guide} kind={slot.outlineKind} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />
       )}
       {slot.outlineId && (guide === null || collapsed) && (
         <div className="flex flex-wrap gap-2">
