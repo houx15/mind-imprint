@@ -1936,6 +1936,18 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if okParse && toolAnswerTurn && parsed.cardWhy == cardRejectDeadTurn {
 		parsed.cardWhy = cardRejectNoCard
 	}
+	// 🚨 提示那一轮同理，而且更要紧：她屏幕上那张卡**还开着**，一句提示本来就不该
+	// 再递一件新的事做 —— 「这一轮什么都没给她做」在这里是假的。
+	//
+	// 2026-09-20 线上走查逐字量到：三次提示里有两次判了 cardRejectDeadTurn，于是
+	// 每次提示多花一次模型调用（阅读陪练占一次阅读成本的 83%），而重来那一次收到
+	// 的指令是「这一轮结尾要么给一张卡片，要么明确请她做一件事」—— 正好和「不要
+	// 再发新卡片」顶上，它给出来的卡片随即又被闸丢掉。理由还会存进 payload，
+	// 下一轮当面告诉它「你递出去的东西没到她屏幕上、不要再提这张卡」——
+	// 而那张卡她正看着。
+	if okParse && helpHoldsCard && parsed.cardWhy == cardRejectDeadTurn {
+		parsed.cardWhy = cardRejectNoCard
+	}
 	if okParse && readingCoachReplyNeedsRetry(parsed) {
 		why := string(parsed.cardWhy)
 		if parsed.lensRetry {
