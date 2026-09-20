@@ -166,6 +166,21 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-accent-500) 22%, transparent);
 }
 
+/* 放到它**旁边**（成为它的兄弟），不是挂到它底下。
+ *
+ * 和 .mk-node-drop 在视觉上必须一眼分得开：那个是整张卡亮起来（东西进到卡
+ * 里面去），这个是上沿一条插入线（东西落在卡外面、它前面）。她要在松手之前
+ * 知道会发生哪一种 —— 同事 2026-09-20 的意见 1 之所以难被发现，正是因为
+ * 拖动的结果只有松手之后才看得见。
+ *
+ * 用 box-shadow 画这条线而不是 border-top：border 会改变盒子的高度，
+ * 整张图会在她拖动时抖一下。 */
+.mk-node-drop-sibling {
+  box-shadow:
+    0 -3px 0 0 var(--mk-accent-500),
+    0 0 0 1px color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
+}
+
 /* The accent ring fades out on its own, so a node stops looking "new" a beat
  * after she has seen it — without any state to clear. */
 .mk-node-flash {

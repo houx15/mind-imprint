@@ -20,8 +20,19 @@ import { AssignedPromptLine } from "./AssignedPromptLine";
 import { MindMap } from "./MindMap";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
+import { outlineKindOf } from "./outlineKind";
 import { handleWriteError } from "./writeErrors";
 import { coachOpeningNeeded } from "./openingRule";
+
+/**
+ * 把一行提纲整理成 PUT 要的那个形状。
+ *
+ * 🚨 kind 一定要带上，而且老行要现算一个（outlineKindOf）：服务端按它算深度，
+ * 漏掉就等于把这一行交还给关键词猜测，她拖的那一下会被静默撤销。
+ */
+function outlineToReq(n: WritingOutlineItem) {
+  return { text: n.text, role: n.role, kind: outlineKindOf(n), depth: n.depth, source: n.source };
+}
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -182,8 +193,12 @@ export function PlanningView({
    * Her own edits to the map. These go through the full-replace PUT — the
    * one path that CAN change or remove a node, and it is only ever reachable
    * from her hands. The planning turn has no such call.
+   *
+   * 🚨 **每一条都必须带着 kind 回传。** 0182 起服务端按 kind 算深度
+   *（buildWritingOutlineArrays），漏掉它会让每一次保存都退回按 role 猜 ——
+   * 她刚拖出来的那个节点会被悄悄放回去，而屏幕上看不出发生过什么。
    */
-  async function mutate(next: { text: string; role: string; depth: number; source?: string }[]) {
+  async function mutate(next: { text: string; role: string; kind?: string; depth: number; source?: string }[]) {
     try {
       onOutline(await putWritingOutline(writing.id, next));
       setJustAdded([]);
@@ -213,7 +228,7 @@ export function PlanningView({
       }
       keep.push(n);
     }
-    void mutate(keep.map((n) => ({ text: n.text, role: n.role, depth: n.depth, source: n.source })));
+    void mutate(keep.map(outlineToReq));
   }
 
   /**
@@ -226,7 +241,7 @@ export function PlanningView({
   function moveNode(draggedId: string, targetId: string, mode: OutlineMoveMode) {
     const next = moveOutlineNode(outline, draggedId, targetId, mode);
     if (!next) return;
-    void mutate(next.map((n) => ({ text: n.text, role: n.role, depth: n.depth, source: n.source })));
+    void mutate(next.map(outlineToReq));
   }
 
   function editNode(id: string, text: string) {
@@ -234,7 +249,7 @@ export function PlanningView({
       outline
         .slice()
         .sort((a, b) => a.position - b.position)
-        .map((n) => ({ text: n.id === id ? text : n.text, role: n.role, depth: n.depth, source: n.source })),
+        .map((n) => ({ ...outlineToReq(n), text: n.id === id ? text : n.text })),
     );
   }
 

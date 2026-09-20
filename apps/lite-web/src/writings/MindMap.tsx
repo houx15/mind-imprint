@@ -4,6 +4,7 @@ import { Icon } from "@/ui";
 import type { WritingOutlineItem } from "../api/writingRoom";
 import { useMindMapDrag, type MindMapDrag } from "./useMindMapDrag";
 import type { OutlineMoveMode } from "./outlineMove";
+import { outlineKindLabel, outlineKindOf } from "./outlineKind";
 
 /**
  * MindMap — the canvas that grows on the right while she plans.
@@ -253,6 +254,22 @@ export function MindMap({
           while still letting it grow past the panel and scroll. A short map
           pinned to the top of a tall panel reads as a list that happens to be
           drawn; centred, it reads as something sitting on a sheet. */}
+      {/* 拖动中：空白处也是一个落点，而且是唯一能把节点提出来的那个。
+          必须说出来 —— 第三十五轮那个学生的原话是「它说『拖一条到另一条上面』，
+          但我看不到可以拖的东西」：能做的事没写在屏幕上，等于不存在。 */}
+      {drag.draggingId && (
+        <div
+          className="pointer-events-none absolute right-4 top-4 rounded-mk-md border px-2.5 py-1 text-mk-small"
+          style={{
+            borderColor: drag.hoverMode === "root" ? "var(--mk-accent-500)" : "var(--mk-border)",
+            background: "var(--mk-surface)",
+            color: drag.hoverMode === "root" ? "var(--mk-accent-700)" : "var(--mk-muted)",
+          }}
+        >
+          放到空白处：移到最上层
+        </div>
+      )}
+
       <div className="relative flex min-h-full w-max items-center">
         <ul className="flex flex-col gap-4">
           {roots.map((node) => (
@@ -286,6 +303,7 @@ function Branch({
 }) {
   const isNew = justAdded.includes(node.item.id);
   const isRoot = node.item.depth === 0;
+  const label = outlineKindLabel(outlineKindOf(node.item)) || node.item.role;
 
   /**
    * Which root is the SPINE.
@@ -304,7 +322,10 @@ function Branch({
    * emphasised, which is correct, because at that moment there is no spine
    * yet.
    */
-  const isSpine = isRoot && node.children.length > 0;
+  // 中心论点由 kind 认出来（0182 起它是闭表里的一个值），而不是靠「最上层且
+  // 底下有东西」去推。原来那个结构性判断有一个诚实的失败：她还在规划、什么都
+  // 还没挂上去时，没有任何一块是重点 —— 现在第一句主张一落图就认得出来。
+  const isSpine = outlineKindOf(node.item) === "thesis";
 
   /**
    * The evidence level (depth 2) stacks BELOW its reason instead of beside it.
@@ -341,7 +362,12 @@ function Branch({
           //（走查那个学生只读得到文字和按钮，看不见光标；这一条是给真人改的。）
           drag.enabled ? "touch-none select-none cursor-grab active:cursor-grabbing" : "",
           drag.draggingId === node.item.id ? "opacity-50" : "",
-          drag.hoverId === node.item.id ? "mk-node-drop" : "",
+          drag.hoverId === node.item.id && drag.hoverMode === "child" ? "mk-node-drop" : "",
+          // 放到它旁边：上沿画一条插入线。和「挂到它底下」在视觉上必须分得开 ——
+          // 她要在松手之前知道会发生哪一种。
+          drag.hoverId === node.item.id && drag.hoverMode === "after"
+            ? "mk-node-drop-sibling"
+            : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -356,9 +382,11 @@ function Branch({
         }
       >
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {node.item.role && (
+          {/* 标题来自 kind 的那张表（outlineKind.ts），不是模型写的散文。
+              同事 2026-09-20 的意见 2：「部分论据的标题不规范」。 */}
+          {label && (
             <span className="text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
-              {node.item.role}
+              {label}
             </span>
           )}
           {/* contentEditable is deliberately NOT used: a stray keystroke on a

@@ -36,6 +36,15 @@ export type MindMapDrag = {
   draggingId: string | null;
   /** 指针此刻悬在哪张卡上（它就是落点）。 */
   hoverId: string | null;
+  /**
+   * 悬在那张卡上会发生哪一种：挂到它底下，还是放到它旁边。
+   * 空白处是 `"root"`（升到最上层）。
+   *
+   * 🚨 她必须**在松手之前**看见会发生哪一种。一次看不见结果的拖动，
+   * 和 2026-09-12 那个「拖完弹出一个改字框」是同一类问题：
+   * 她做了一个动作，屏幕给的反馈不是她预期的那件事。
+   */
+  hoverMode: OutlineMoveMode | null;
   /** 挂在每张卡片上的那几个事件。 */
   handlers: (id: string) => {
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
@@ -57,6 +66,9 @@ export function useMindMapDrag(
 ): MindMapDrag {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [hoverMode, setHoverMode] = useState<OutlineMoveMode | null>(null);
+  // 同 draggingRef：松手那一刻要读最新值，state 要等渲染。
+  const hoverModeRef = useRef<OutlineMoveMode | null>(null);
   const downAtRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
   // 同 CoachBoards：ref 在同一个事件循环里就是最新值，state 要等渲染。
@@ -65,10 +77,25 @@ export function useMindMapDrag(
   /** 这一次有没有已经捕获过指针。见 onPointerDown 那段。 */
   const capturedRef = useRef(false);
 
-  function nodeAt(x: number, y: number): string | null {
+  function cardAt(x: number, y: number): Element | null {
     const el = document.elementFromPoint(x, y);
-    const card = el?.closest?.("[data-outline-node]");
-    return card ? card.getAttribute("data-outline-node") : null;
+    return el?.closest?.("[data-outline-node]") ?? null;
+  }
+
+  function nodeAt(x: number, y: number): string | null {
+    return cardAt(x, y)?.getAttribute("data-outline-node") ?? null;
+  }
+
+  /**
+   * 卡片上三分之一 = 放到它旁边（兄弟），其余 = 挂到它底下（孩子）。
+   *
+   * 为什么是上三分之一而不是一半：**挂到底下是常用的那一个**（她大部分时间
+   * 在给一条理由补材料），所以它该占大头；「放到旁边」是纠正一次挂错的动作，
+   * 占一条窄边就够，而且窄边更难误触。
+   */
+  function modeFor(card: Element, y: number): OutlineMoveMode {
+    const box = card.getBoundingClientRect();
+    return y - box.top < box.height / 3 ? "after" : "child";
   }
 
   function handlers(id: string) {
@@ -91,7 +118,9 @@ export function useMindMapDrag(
         movedRef.current = false;
         capturedRef.current = false;
         draggingRef.current = id;
+        hoverModeRef.current = null;
         setDraggingId(id);
+        setHoverMode(null);
       },
       onPointerMove(e: React.PointerEvent<HTMLElement>) {
         if (!draggingRef.current) return;
@@ -104,21 +133,47 @@ export function useMindMapDrag(
           e.currentTarget.setPointerCapture(e.pointerId);
           capturedRef.current = true;
         }
-        const over = nodeAt(e.clientX, e.clientY);
-        setHoverId(over === draggingRef.current ? null : over);
+        const card = cardAt(e.clientX, e.clientY);
+        const over = card?.getAttribute("data-outline-node") ?? null;
+        if (card && over && over !== draggingRef.current) {
+          setHoverId(over);
+          const mode = modeFor(card, e.clientY);
+          hoverModeRef.current = mode;
+          setHoverMode(mode);
+        } else {
+          setHoverId(null);
+          // 空白画布上：升到最上层。
+          hoverModeRef.current = "root";
+          setHoverMode("root");
+        }
       },
       onPointerUp(e: React.PointerEvent<HTMLElement>) {
         if (draggingRef.current !== id) return;
         if (capturedRef.current) e.currentTarget.releasePointerCapture?.(e.pointerId);
         capturedRef.current = false;
-        const over = movedRef.current ? nodeAt(e.clientX, e.clientY) : null;
+        const card = movedRef.current ? cardAt(e.clientX, e.clientY) : null;
+        const over = card?.getAttribute("data-outline-node") ?? null;
+        const dragged = movedRef.current;
+        const mode = hoverModeRef.current;
         draggingRef.current = null;
+        hoverModeRef.current = null;
         setDraggingId(null);
         setHoverId(null);
+        setHoverMode(null);
         downAtRef.current = null;
-        // 放在自己身上、或者放在空白处 = 什么都不做。把一次落空的拖动
-        // 当成一次「挂到最近的那张上」，是在替她做一个她没做的决定。
-        if (over && over !== id) onMove?.(id, over, "child");
+        if (!dragged) return;
+        if (over && over !== id) {
+          onMove?.(id, over, card ? modeFor(card, e.clientY) : "child");
+          return;
+        }
+        // 🚨 **落在空白画布上 = 升到最上层。**
+        //
+        // 这之前是空操作，理由写着「把一次落空的拖动当成一次『挂到最近的那张
+        // 上』，是在替她做一个她没做的决定」—— 那句话是对的，但它得出的结论
+        // 错了：什么都不做，等于一条理由被挂进子层之后**再也出不来**
+        //（同事 2026-09-20 的意见 1）。空白处不是「没有落点」，它是一个真的
+        // 落点，而且是唯一一个能把节点提出来的那个。
+        if (mode === "root" || !over) onMove?.(id, "", "root");
       },
     };
   }
@@ -127,6 +182,7 @@ export function useMindMapDrag(
     enabled: Boolean(onMove),
     draggingId,
     hoverId,
+    hoverMode,
     handlers,
     justDragged: () => movedRef.current,
   };

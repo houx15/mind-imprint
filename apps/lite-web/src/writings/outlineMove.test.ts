@@ -107,3 +107,73 @@ describe("moveOutlineNode", () => {
     expect(roots[1]?.children[0]?.children.map((n) => n.item.text)).toEqual(["她的经历"]);
   });
 });
+
+/**
+ * 🚨 同事 2026-09-20 的意见 1：「论点被拖入到子论点后就没法拖出来了」。
+ *
+ * `useMindMapDrag` 只会调 `"child"`，落在空白处是空操作 —— 于是每一次拖动
+ * 只能往深里挂一层，挂进去就出不来。`"after"` 这个模式在这个文件里躺了一个月，
+ * 没有任何调用点。
+ */
+describe("拖得出来", () => {
+  const row = (id: string, depth: number, position: number, kind: string, text = id): WritingOutlineItem => ({
+    id,
+    text,
+    role: "",
+    kind,
+    depth,
+    position,
+  });
+
+  const nested = (): WritingOutlineItem[] => [
+    row("t", 0, 0, "thesis", "中心论点"),
+    row("p", 1, 1, "point", "理由A"),
+    // 她本来想说的是一条理由，却被挂到了理由A 底下。
+    row("x", 2, 2, "evidence", "本来是条理由"),
+  ];
+
+  it("落在空白画布上 = 升到最上层", () => {
+    const next = moveOutlineNode(nested(), "x", "", "root");
+    expect(next).not.toBeNull();
+    const moved = next!.find((r) => r.id === "x")!;
+    expect(moved.depth).toBe(0);
+  });
+
+  it("升到最上层之后，kind 跟着改 —— 图上已有中心论点，所以它是结尾", () => {
+    const next = moveOutlineNode(nested(), "x", "", "root")!;
+    expect(next.find((r) => r.id === "x")!.kind).toBe("closing");
+  });
+
+  it("拖到一张卡旁边是兄弟，不是孩子；论据到了深度 1 就成了分论点", () => {
+    const next = moveOutlineNode(nested(), "x", "p", "after")!;
+    const moved = next.find((r) => r.id === "x")!;
+    expect(moved.depth).toBe(1);
+    expect(moved.kind).toBe("point");
+  });
+
+  it("深度没变就不改 kind —— 把一条论据从一个分论点挪到另一个，它还是论据", () => {
+    const items = [
+      row("t", 0, 0, "thesis", "中心论点"),
+      row("p1", 1, 1, "point", "理由A"),
+      row("e", 2, 2, "reference", "一份研究"),
+      row("p2", 1, 3, "point", "理由B"),
+    ];
+    const next = moveOutlineNode(items, "e", "p2", "child")!;
+    const moved = next.find((r) => r.id === "e")!;
+    expect(moved.depth).toBe(2);
+    expect(moved.kind).toBe("reference");
+  });
+
+  it("整棵子树跟着走，深度一起平移", () => {
+    const items = [
+      row("t", 0, 0, "thesis", "中心论点"),
+      row("p", 1, 1, "point", "理由A"),
+      row("e", 2, 2, "evidence", "她的经历"),
+    ];
+    const next = moveOutlineNode(items, "p", "", "root")!;
+    expect(next.find((r) => r.id === "p")!.depth).toBe(0);
+    expect(next.find((r) => r.id === "e")!.depth).toBe(1);
+    // 深度 1 上的论据不成立 —— 它现在是一条分论点。
+    expect(next.find((r) => r.id === "e")!.kind).toBe("point");
+  });
+});
