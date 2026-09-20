@@ -1936,16 +1936,29 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if okParse && toolAnswerTurn && parsed.cardWhy == cardRejectDeadTurn {
 		parsed.cardWhy = cardRejectNoCard
 	}
-	// 🚨 提示那一轮同理，而且更要紧：她屏幕上那张卡**还开着**，一句提示本来就不该
-	// 再递一件新的事做 —— 「这一轮什么都没给她做」在这里是假的。
+	// 🚨 提示那一轮，**任何和卡片有关的驳回都不买重试**。
 	//
-	// 2026-09-20 线上走查逐字量到：三次提示里有两次判了 cardRejectDeadTurn，于是
-	// 每次提示多花一次模型调用（阅读陪练占一次阅读成本的 83%），而重来那一次收到
-	// 的指令是「这一轮结尾要么给一张卡片，要么明确请她做一件事」—— 正好和「不要
-	// 再发新卡片」顶上，它给出来的卡片随即又被闸丢掉。理由还会存进 payload，
-	// 下一轮当面告诉它「你递出去的东西没到她屏幕上、不要再提这张卡」——
-	// 而那张卡她正看着。
-	if okParse && helpHoldsCard && parsed.cardWhy == cardRejectDeadTurn {
+	// 理由是结构性的：这一轮她手上那张卡还开着，而下面那道闸无论如何都会把新卡
+	// 丢掉 —— 为一张注定不会到她屏幕上的卡再打一次模型，是纯粹的浪费，而且重来
+	// 那一次收到的指令（「结尾要么给一张卡片，要么明确请她做一件事」「要给就真的
+	// 给」）正好和「不要再发新卡片」顶上。理由还会存进 payload，下一轮当面告诉它
+	// 「你递出去的东西没到她屏幕上、不要再提这张卡」—— 而那张卡她正看着。
+	//
+	// 2026-09-20 线上走查两次量到，两次是**不同的**驳回理由：先是
+	// cardRejectDeadTurn（「这一轮什么都没给她做」—— 她手上有卡，这是假的），
+	// 修掉之后换成 cardRejectPromised（印记 说「这张卡」指的就是她开着的那张，
+	// 被读成「许诺了一张新卡却没给」）。一条一条补下去补不完，所以判据放在
+	// 「这一轮的卡片注定落不了地」这件事上，而不是放在某一个理由上。
+	// （同一条推理上面已经有过一次：openBoard 那块板开着时也豁免 cardRejectPromised。）
+	//
+	// 🚨 只豁免卡片那一列。引了文章里没有的话、把协议词写给她看、一轮里问两件事
+	// —— 这些是**这句话本身**坏了，提示轮同样要重来一次。
+	//
+	// assistAllowed 例外：那一轮我们**真的想要**一张好的选择题，所以照常重来。
+	if okParse && helpHoldsCard && !assistAllowed &&
+		parsed.cardWhy != cardOK && parsed.cardWhy != cardRejectNoCard {
+		slog.Info("reading coach: help turn, a card-shaped rejection does not buy a retry",
+			"atom_id", at.ID, "why", string(parsed.cardWhy))
 		parsed.cardWhy = cardRejectNoCard
 	}
 	if okParse && readingCoachReplyNeedsRetry(parsed) {

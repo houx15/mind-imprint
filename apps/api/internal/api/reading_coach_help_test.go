@@ -140,12 +140,29 @@ const helpTurnIsJustAClue = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["
   "steps":[{"kind":"read","detail":"先整体读一遍。"}],
   "reply":"线索在第3段的前半句，它讲的是白天。","advance":"","focusBlock":"b3"}`
 
+// 另一种同样常见的提示：它**指着她开着的那张卡**说话。原来这会被读成
+// 「许诺了一张新卡却没给」（cardRejectPromised），照样白买一次重试 ——
+// 2026-09-20 线上修掉 deadTurn 之后量到的就是这一种。
+const helpTurnPointsAtHerCard = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],
+  "steps":[{"kind":"read","detail":"先整体读一遍。"}],
+  "reply":"回到上面那张卡片，先只答前半个问题：白天发生了什么？","advance":"","focusBlock":"b3"}`
+
 // 🚨 2026-09-20 线上走查量到的那一条：三次提示里有两次判了 cardRejectDeadTurn，
 // 于是每次提示白花一次模型调用（阅读陪练占一次阅读成本的 83%），而重来那一次
 // 收到的指令是「结尾要么给一张卡片，要么明确请她做一件事」—— 正好和「不要再发
 // 新卡片」顶上。读代码看不出来，只有数调用次数才问得出口。
 func TestReadingCoach_APlainHintDoesNotBuyARetry(t *testing.T) {
-	prov := coachScripts(helpTurnOpensACard, helpTurnIsJustAClue)
+	for _, tc := range []struct{ name, reply string }{
+		{"一句线索", helpTurnIsJustAClue},
+		{"指着她开着的那张卡", helpTurnPointsAtHerCard},
+	} {
+		t.Run(tc.name, func(t *testing.T) { plainHintCostsOneCall(t, tc.reply) })
+	}
+}
+
+func plainHintCostsOneCall(t *testing.T, hintReply string) {
+	t.Helper()
+	prov := coachScripts(helpTurnOpensACard, hintReply)
 	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
