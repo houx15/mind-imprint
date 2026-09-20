@@ -64,6 +64,16 @@ func allCoaches() []coach {
 		}
 		out = append(out, coach{name: name, suite: s.Suite, id: s.ID, version: s.Version, judge: s.Judge, make: s.Make, script: s.Script})
 	}
+	// 长文走查：同一篇库里的真文章跑两遍，只差「导读里有没有 parts」——
+	// 也就是渐进披露开没开。原来那条阅读走查的文章只有 286 字，线上一轮平均
+	// 11,035 个输入 token，凡是跟文章大小有关的事在那条上都测不出来。
+	for _, s := range api.LongReadWalkScenarios() {
+		out = append(out, coach{
+			name:  "reading-" + strings.TrimPrefix(s.ID, "lite-reading-coach/"),
+			suite: s.Suite, id: s.ID, version: s.Version,
+			judge: s.Judge, make: s.Make, script: s.Script,
+		})
+	}
 	return out
 }
 
