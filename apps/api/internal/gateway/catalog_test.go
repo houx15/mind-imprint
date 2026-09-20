@@ -229,7 +229,11 @@ func TestEveryClassResolvesToTheBenchmarkedModel(t *testing.T) {
 	// contention. See docs/2026-09-03-routing-benchmark-findings.md.
 	want := map[string]string{
 		ClassReflex:   "qwen3.7-flash",     // 200ms vs glm-5.3's 1.5s, both structurally perfect
-		ClassDialogue: "deepseek-v4-pro",   // worst case 3 on the lite reading coach; every rival scored 1-2
+		// 2026-09-20 re-measured with cmd/coachwalk (2 walks x 8 turns per coach),
+		// scored on the WORST walk: writing 5 vs the incumbent's 3, pro 3 vs 2,
+		// reading tied (both 1 — that is the prompt handing the answer away, not
+		// the model). Faster on every coach, and ¥2/¥8 against ¥12/¥24.
+		ClassDialogue: "deepseek-v4.1-flash",
 		ClassCompose:  "ZHIPU/GLM-5.3",     // all three tied at 4; 4.1s vs kimi-k3's 10.3s decides it
 		ClassReview:   "ZHIPU/GLM-5.3",     // framework-ready gold 100%, quality 5, and fastest tied candidate; default effort resolves to low
 		ClassAssess:   "deepseek-v4-pro",   // 评估绝不降级
