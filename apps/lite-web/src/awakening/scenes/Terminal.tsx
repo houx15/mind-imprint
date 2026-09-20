@@ -35,9 +35,15 @@ interface Line {
 export function TerminalScene({
   run,
   onDone,
+  onHold,
+  onSummarize,
 }: {
   run: AwakeningRun;
   onDone: () => void;
+  /** 暂时保留这条线索，出门。下次进来接着问。 */
+  onHold: () => void;
+  /** 现在总结：不再往下问，用已经写下的这些回答生成报告。 */
+  onSummarize: () => void;
 }) {
   // 已经发生过的轮次先铺上去 —— 她刷新过、或者昨天走到一半。
   const [lines, setLines] = useState<Line[]>(() => {
@@ -54,6 +60,8 @@ export function TerminalScene({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(run.nextNode >= TERMINAL.steps.length);
   const [error, setError] = useState("");
+  // 「现在总结」按下之后先问一次 —— 它结束这次探索，后面那几问不再问。
+  const [confirmSummary, setConfirmSummary] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,6 +95,8 @@ export function TerminalScene({
      「当前这一问」是会话里的最后一条消息 —— 不再飘在输入框上面。 */
   const step = Math.min(node + 1, TERMINAL.steps.length);
   const stateLabel = done ? "COMPLETE" : busy ? "THINKING" : "AWAITING INPUT";
+  // 她已经写下的段数。一段都没有就总结不了 —— 报告里不会有一个字是她的。
+  const answered = lines.filter((l) => l.who === "her").length;
 
   return (
     <section
@@ -199,6 +209,46 @@ export function TerminalScene({
             </button>
           </form>
         )}
+
+        {/* 中途离开的两条路。八问没问完时才有 —— 问完了她走的是「完成探询」。 */}
+        {!done ? (
+          confirmSummary ? (
+            <div className="awk-term-exit awk-term-exit--ask">
+              <span>{TERMINAL.summarizeAsk.replace("{n}", String(answered))}</span>
+              <span className="awk-term-exit-buttons">
+                <button
+                  type="button"
+                  className="awk-term-quiet"
+                  onClick={() => setConfirmSummary(false)}
+                >
+                  {TERMINAL.cancel}
+                </button>
+                <button type="button" className="awk-term-send" onClick={onSummarize}>
+                  {TERMINAL.summarizeConfirm}
+                </button>
+              </span>
+            </div>
+          ) : (
+            <div className="awk-term-exit">
+              <span className="awk-term-exit-note">
+                {answered === 0 ? TERMINAL.summarizeLocked : TERMINAL.holdBody}
+              </span>
+              <span className="awk-term-exit-buttons">
+                <button type="button" className="awk-term-quiet" onClick={onHold}>
+                  {TERMINAL.hold}
+                </button>
+                <button
+                  type="button"
+                  className="awk-term-quiet"
+                  disabled={answered === 0 || busy}
+                  onClick={() => setConfirmSummary(true)}
+                >
+                  {TERMINAL.summarize}
+                </button>
+              </span>
+            </div>
+          )
+        ) : null}
       </div>
     </section>
   );

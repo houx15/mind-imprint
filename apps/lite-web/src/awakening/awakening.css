@@ -2068,7 +2068,8 @@
   z-index: 1;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* 第四行是中途离开那条 —— 八问问完之后它不渲染，那一行塌成 0。 */
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   border: 1px solid rgba(143, 255, 209, 0.28);
   background: rgba(3, 11, 9, 0.82);
   box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.22), 6px 8px 0 rgba(0, 0, 0, 0.42);
@@ -2325,6 +2326,77 @@
 .awk-term-send:disabled {
   opacity: 0.42;
   cursor: not-allowed;
+}
+
+/**
+ * 中途离开那条 —— 「暂时保留兴趣线索」与「现在总结」。
+ *
+ * 它压在输入框下面、比输入框暗一档：这两件事一直要在，但它们不是这一屏
+ * 让她做的事。发送才是。
+ */
+.awk-term-exit {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px 11px;
+  border-top: 1px solid rgba(143, 255, 209, 0.14);
+  background: rgba(2, 9, 8, 0.94);
+  color: var(--it-dim);
+  font-size: 12px;
+}
+
+/* 问一次的那一行亮一点 —— 这时它是这一屏在问她的话。 */
+.awk-term-exit--ask {
+  border-top-color: rgba(143, 255, 209, 0.4);
+  color: #cfe9de;
+  font-size: 13px;
+}
+
+.awk-term-exit-note {
+  min-width: 0;
+}
+
+.awk-term-exit-buttons {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.awk-term-quiet {
+  padding: 6px 11px;
+  border: 1px solid rgba(143, 255, 209, 0.3);
+  background: transparent;
+  color: #a9cfc1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+
+.awk-term-quiet:hover:not(:disabled),
+.awk-term-quiet:focus-visible {
+  border-color: var(--it-green);
+  color: var(--it-green);
+  outline: none;
+}
+
+.awk-term-quiet:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .awk-term-exit {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
 }
 
 /** 八问答完之后，输入区换成收尾。 */

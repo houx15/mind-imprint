@@ -5,7 +5,7 @@ package api
 //	GET  /api/v1/awakening                她做过没有、有没有一趟没走完
 //	POST /api/v1/awakening                开一趟（或者接上没走完的那一趟）
 //	PUT  /api/v1/awakening/{id}           存一次进度
-//	POST /api/v1/awakening/{id}/turn      终端里的一轮
+//	POST /api/v1/awakening/{id}/reset     清空轮次，换一条线索重新问\n//	POST /api/v1/awakening/{id}/turn      终端里的一轮
 //	POST /api/v1/awakening/{id}/finish    走完：选词 → 写回树 → 生成报告
 //	GET  /api/v1/awakening/{id}/report    读报告
 //
@@ -305,6 +305,58 @@ func (a *API) saveAwakeningProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := a.runToDTO(r.Context(), u.ID, row)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
+}
+
+// resetAwakeningRun —— POST /api/v1/awakening/{id}/reset
+//
+// 「新的探索」：她保留着一条没做完的线索，回来却想换一个话题从头问。
+//
+// # 为什么清的是轮次，不是这一趟
+//
+// 开新的一趟要先把这一趟盖上章，而盖章等于「走完了」—— 树上那条入口会立刻
+// 改口说「再做一次」，finishedCount 会多一次，可是她一份报告都没拿到。
+// 清空轮次把这件事说对：**这一趟还没走完，只是换了一条线索重新问**。
+// 助手和能量结果留在 awakening_run 上，她不必再选一遍。
+//
+// # 🚨 它删的是她自己写下的字
+//
+// 没有回收站。所以这里先查一次归属，界面上也先问一次；而「现在总结」
+// （POST /finish）就摆在旁边，想留住这些字的人走那条路。
+func (a *API) resetAwakeningRun(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_run_id", "作答 id 无效", nil))
+		return
+	}
+	run, err := a.d.Queries.GetAwakeningRun(r.Context(), sqlc.GetAwakeningRunParams{ID: id, UserID: u.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这一趟作答不在进行中"))
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// 走完的那一趟不能清 —— 它的轮次是那份报告的语料，报告已经生成了。
+	if run.FinishedAt.Valid {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这一趟作答不在进行中"))
+		return
+	}
+	if err := a.d.Queries.ClearAwakeningTurns(r.Context(), run.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	dto, err := a.runToDTO(r.Context(), u.ID, run)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

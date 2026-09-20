@@ -297,6 +297,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/awakening", liteOnly(a.getAwakeningStatus))
 	mux.Handle("POST /api/v1/awakening", liteOnly(a.startAwakeningRun))
 	mux.Handle("PUT /api/v1/awakening/{id}", liteOnly(a.saveAwakeningProgress))
+	// 「新的探索」：清空这一趟的轮次，换一条线索重新问（见 awakening.go）。
+	mux.Handle("POST /api/v1/awakening/{id}/reset", liteOnly(a.resetAwakeningRun))
 	mux.Handle("POST /api/v1/awakening/{id}/turn", liteOnly(a.postAwakeningTurn))
 	mux.Handle("POST /api/v1/awakening/{id}/finish", liteOnly(a.finishAwakeningRun))
 	mux.Handle("GET /api/v1/awakening/{id}/report", liteOnly(a.getAwakeningReport))

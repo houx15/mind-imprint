@@ -50,6 +50,22 @@ func (q *Queries) AppendAwakeningTurn(ctx context.Context, arg AppendAwakeningTu
 	return i, err
 }
 
+const clearAwakeningTurns = `-- name: ClearAwakeningTurns :exec
+DELETE FROM awakening_turn WHERE run_id = $1
+`
+
+// 把这一趟的轮次清空 —— 「新的探索」。
+//
+// 她保留着一条没做完的线索，回来却想换一个话题从头问。清空的是**轮次**，
+// 不是这一趟：助手和能量结果留在 awakening_run 上，她不必再选一遍。
+//
+// 🚨 这一条删的是她自己写下的字，没有回收站。所以调用方先查一次归属
+// （GetAwakeningRun 带 user_id），界面上也必须先问一次。
+func (q *Queries) ClearAwakeningTurns(ctx context.Context, runID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearAwakeningTurns, runID)
+	return err
+}
+
 const countFinishedAwakeningRuns = `-- name: CountFinishedAwakeningRuns :one
 SELECT count(*) FROM awakening_run
 WHERE user_id = $1 AND finished_at IS NOT NULL

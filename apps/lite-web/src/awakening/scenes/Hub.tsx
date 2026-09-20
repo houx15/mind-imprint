@@ -1,7 +1,9 @@
+import { useState } from "react";
+
 import type { AwakeningStage } from "../../api/awakening";
-import { GUIDES, HUB } from "../content";
-import { STAGE_BADGE } from "../RoomShell";
-import { Choice } from "../ui";
+import { HUB } from "../content";
+import { type HubCard, hubCards } from "../hub";
+import { Choice, Ghost, Primary } from "../ui";
 
 /**
  * 复访入口。她不是第一次进这个房间时，落在这一屏。
@@ -14,6 +16,12 @@ import { Choice } from "../ui";
  * 第二趟这条线就是错的。她已经看过剧情、已经选过助手，回来是为了再做一次
  * 兴趣探索。而 2026-09-20 学生反馈的那条更直接：**做到一半走掉的人回来只能
  * 接着那一屏往下走，到不了能量测试**。菜单解决的是这件事。
+ *
+ * # 保留下来的线索占两张卡，不是一张
+ *
+ * 她上次按了「暂时保留兴趣线索」，这一次可能想接着问，也可能想换个话题从头
+ * 问。这是两件事：一件接着上次的语料走，一件把那些语料清空。合成一张卡，
+ * 总有一半的人按到的是另一件。
  *
  * # 🚨 这一屏不进 run.stage
  *
@@ -32,7 +40,10 @@ export function HubScene({
   resume,
   navigator,
   hasEnergy,
+  /** 清空失败时后台那句原话。空表示没失败过。 */
+  freshError,
   onContinue,
+  onFresh,
   onEnergy,
   onStory,
   onNavigator,
@@ -42,15 +53,51 @@ export function HubScene({
   resume: AwakeningStage;
   navigator: string;
   hasEnergy: boolean;
+  freshError: string;
   onContinue: () => void;
+  onFresh: () => void;
   onEnergy: () => void;
   onStory: () => void;
   onNavigator: () => void;
 }) {
-  const guide = GUIDES.find((g) => g.id === navigator);
-  const started = turnsDone > 0;
-  // 「继续」去的是探询，还是她停下的另一屏？两种说法不一样，而说错就是骗她。
-  const toTerminal = resume === "terminal";
+  // 「新的探索」删的是她自己写下的字，所以先问一次。
+  const [confirmFresh, setConfirmFresh] = useState(false);
+
+  if (confirmFresh) {
+    return (
+      <section className="awk-screen" aria-label="确认新的探索">
+        <div className="awk-wrap awk-hub">
+          <div>
+            <div className="awk-eyebrow">{HUB.eyebrow}</div>
+            <h2 className="awk-h2">{HUB.fresh}</h2>
+          </div>
+          <div>
+            <p className="awk-p">{HUB.freshAsk.replace("{n}", String(turnsDone))}</p>
+            {freshError ? (
+              <p className="awk-p" style={{ color: "var(--danger)", marginTop: 12 }}>
+                {HUB.freshFailed}：{freshError}
+              </p>
+            ) : null}
+            <div className="mt-7 flex flex-wrap items-center gap-4">
+              <Primary onClick={onFresh}>{HUB.freshConfirm}</Primary>
+              <Ghost onClick={() => setConfirmFresh(false)}>{HUB.cancel}</Ghost>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // 摆哪几张卡、每张卡上写什么，是一个有测试的纯函数（hub.ts）——
+  // 一张说错的卡不会报错，它只是让她按下去之后到了别的地方。
+  const cards = hubCards({ turnsDone, resume, navigator, hasEnergy });
+  const action: Record<HubCard["key"], () => void> = {
+    continue: onContinue,
+    fresh: () => setConfirmFresh(true),
+    energy: onEnergy,
+    navigator: onNavigator,
+    story: onStory,
+  };
 
   return (
     <section className="awk-screen" aria-label="兴趣测试入口">
@@ -64,44 +111,19 @@ export function HubScene({
         </div>
 
         <div className="awk-choice-stack" aria-label="这一次做什么">
-          <Choice
-            index="01"
-            hwId="SYS-01"
-            title={toTerminal ? (started ? HUB.resume : HUB.restart) : HUB.continueRun}
-            body={
-              !toTerminal
-                ? HUB.continueAt.replace("{stage}", STAGE_BADGE[resume].route)
-                : started
-                  ? HUB.progress.replace("{n}", String(turnsDone))
-                  : HUB.resumeBody
-            }
-            onClick={onContinue}
-          />
-          <Choice
-            index="02"
-            hwId="SYS-02"
-            title={HUB.energy}
-            body={hasEnergy ? `${HUB.energyDone}${HUB.energyBody}` : HUB.energyBody}
-            onClick={onEnergy}
-          />
-          <Choice
-            index="03"
-            hwId="SYS-03"
-            title={guide ? HUB.navigator : HUB.navigatorFirst}
-            body={
-              guide
-                ? `${HUB.navigatorNow.replace("{name}", guide.zh)}。${HUB.navigatorBody}`
-                : HUB.navigatorFirstBody
-            }
-            onClick={onNavigator}
-          />
-          <Choice
-            index="04"
-            hwId="SYS-04"
-            title={HUB.story}
-            body={HUB.storyBody}
-            onClick={onStory}
-          />
+          {cards.map((c, i) => {
+            const n = String(i + 1).padStart(2, "0");
+            return (
+              <Choice
+                key={c.key}
+                index={n}
+                hwId={`SYS-${n}`}
+                title={c.title}
+                body={c.body}
+                onClick={action[c.key]}
+              />
+            );
+          })}
         </div>
       </div>
     </section>

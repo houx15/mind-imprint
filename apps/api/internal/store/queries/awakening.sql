@@ -81,6 +81,16 @@ INSERT INTO awakening_turn (run_id, seq, node_index, student_text, reply)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- 把这一趟的轮次清空 —— 「新的探索」。
+--
+-- 她保留着一条没做完的线索，回来却想换一个话题从头问。清空的是**轮次**，
+-- 不是这一趟：助手和能量结果留在 awakening_run 上，她不必再选一遍。
+--
+-- 🚨 这一条删的是她自己写下的字，没有回收站。所以调用方先查一次归属
+-- （GetAwakeningRun 带 user_id），界面上也必须先问一次。
+-- name: ClearAwakeningTurns :exec
+DELETE FROM awakening_turn WHERE run_id = $1;
+
 -- 这一趟说过的全部。它同时是**语料** —— 树上每个词的 evidence 都要能在
 -- student_text 里逐字查到。
 -- name: ListAwakeningTurns :many

@@ -5,6 +5,7 @@ import {
   type AwakeningStage,
   finishAwakening,
   fetchReport,
+  resetAwakeningTurns,
 } from "../api/awakening";
 import { SYSTEM_VOICE, voiceUrl } from "./assets";
 import "./awakening.css";
@@ -83,6 +84,8 @@ export function AwakeningRoom({
   const [replay, setReplay] = useState(false);
   // 「继续」要去的那一屏：接着没走完的那一趟，或者（重做时）直接进探询。
   const resumeRef = useRef<AwakeningStage>("terminal");
+  // 「新的探索」清空失败时后台那句原话。入口那一屏照实显示它。
+  const [freshError, setFreshError] = useState("");
 
   // 进门时判一次：她是不是回来的人。判据是纯函数，有测试（reentry.test.ts）。
   useEffect(() => {
@@ -120,6 +123,7 @@ export function AwakeningRoom({
     setHub(null);
     setDetour(false);
     setReplay(false);
+    setFreshError("");
   }, [open]);
 
   // 一屏一句。换屏就换那一句，上一句停掉 —— 否则她快速翻过三屏会同时听见
@@ -207,6 +211,26 @@ export function AwakeningRoom({
     }
   };
 
+  /**
+   * 「新的探索」：清空这一趟保留下来的轮次，换一条线索从第一问重新开始。
+   *
+   * 🚨 **它删的是她自己写下的字。** 入口那一屏已经问过一次，这里只负责做。
+   * 清空失败就留在入口、照实说 —— 绝不假装清空了然后把旧的轮次铺出来。
+   */
+  const startFresh = async () => {
+    if (!run) return;
+    setFreshError("");
+    try {
+      const fresh = await resetAwakeningTurns(run.id);
+      setRun(fresh);
+      resumeRef.current = "terminal";
+      setHub(false);
+      go("terminal");
+    } catch (e: unknown) {
+      setFreshError(e instanceof Error && e.message ? e.message : "请再试一次");
+    }
+  };
+
   const body = () => {
     if (report) {
       return (
@@ -281,10 +305,12 @@ export function AwakeningRoom({
           resume={resumeRef.current}
           navigator={state.navigator}
           hasEnergy={Boolean(state.energyProfile.domains?.length)}
+          freshError={freshError}
           onContinue={() => {
             setHub(false);
             go(resumeRef.current);
           }}
+          onFresh={() => void startFresh()}
           onEnergy={() => detourTo("energy")}
           onNavigator={() => detourTo("navigator")}
           onStory={() => setReplay(true)}
@@ -350,7 +376,20 @@ export function AwakeningRoom({
           />
         );
       case "terminal":
-        return <TerminalScene run={run} onDone={() => go("lens")} />;
+        return (
+          <TerminalScene
+            run={run}
+            onDone={() => go("lens")}
+            // 暂时保留：出门就行。这一趟的轮次在库里，stage 已经是 terminal，
+            // 下次进来入口那一屏会把它当成保留下来的线索。
+            onHold={() => onClose(grew)}
+            // 现在总结：跳过后面那三屏，直接用她已经写下的话生成报告。
+            onSummarize={() => {
+              go("report");
+              void finish();
+            }}
+          />
+        );
       case "lens":
         return (
           <LensScene

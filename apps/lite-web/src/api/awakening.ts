@@ -12,6 +12,7 @@ import { apiFetch } from "./client";
  *   startAwakening        开一趟，或者接上没走完的那一趟
  *   saveAwakening         存一次进度 —— **每换一屏调一次**，所以一次中途
  *                         退出也留下痕迹，下次能接着走
+ *   resetAwakeningTurns   清空这一趟的轮次 —— 「新的探索」，换一条线索重新问
  *   postTurn              终端里的一轮
  *   finishAwakening       走完。**这一个会慢**：服务端同步跑两次调用
  *                         （选词 + 报告），界面必须为此显示「正在生成」
@@ -278,6 +279,21 @@ export async function saveAwakening(
       method: "PUT",
       body: JSON.stringify(state),
     }),
+  );
+}
+
+/**
+ * 「新的探索」：清空这一趟已经答过的轮次，换一条线索从第一问重新开始。
+ *
+ * 🚨 **它删的是她自己写下的字，没有回收站。** 调用前必须先问一次。
+ * 想留住那些字的人走 finishAwakening（「现在总结」）。
+ */
+export async function resetAwakeningTurns(id: string): Promise<AwakeningRun> {
+  return normalizeRun(
+    await apiFetch<Partial<AwakeningRun>>(
+      `/api/v1/awakening/${encodeURIComponent(id)}/reset`,
+      { method: "POST" },
+    ),
   );
 }
 
