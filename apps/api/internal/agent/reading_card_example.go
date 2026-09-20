@@ -62,6 +62,10 @@ func ProposeCardExample(ctx context.Context, p gateway.Provider, resolver gatewa
 		}
 		total.InputTokens += res.Usage.InputTokens
 		total.OutputTokens += res.Usage.OutputTokens
+		// The cached share rides along, or the second attempt — which repeats a
+		// prompt the provider has just seen, so it is almost entirely a cache
+		// hit — gets billed at list price in our own records.
+		total.CachedInputTokens += res.Usage.CachedInputTokens
 		var reply cardExampleReply
 		if perr := json.Unmarshal([]byte(stripFences(res.Text)), &reply); perr != nil {
 			continue // truncated/garbage — retry once, then degrade
@@ -122,10 +126,28 @@ func buildCardExamplePrompt(spec cards.Spec) string {
 // reply round-trips directly against blocks without any alias translation —
 // this path has exactly one material, unlike BuildMaterialContext's
 // multi-material "mN:blockID" qualifying.
+// cardExampleArticleRuneBudget caps the article this prompt carries, matching
+// the budget the reading plan and the anchored questions already apply to the
+// same body. Without it this was the one path that sent an article of any
+// length — and it is reached twice per lens summon, each of which retries
+// twice, so an unbudgeted article here is billed up to four times over.
+//
+// A paragraph past the budget is named rather than dropped: the model is
+// picking ONE illustrative sentence, and a paragraph it cannot see is better
+// declared missing than silently absent from a body it is told is complete.
+const cardExampleArticleRuneBudget = 9000
+
 func renderCardExampleArticle(blocks []MaterialBlock) string {
 	var b strings.Builder
 	b.WriteString("文章：\n")
+	total := 0
 	for _, blk := range blocks {
+		runes := []rune(blk.Text)
+		if total+len(runes) > cardExampleArticleRuneBudget {
+			b.WriteString("[" + blk.ID + "] （这一段没放进来，但它存在）\n")
+			continue
+		}
+		total += len(runes)
 		b.WriteString("[" + blk.ID + "] " + blk.Text + "\n")
 	}
 	return b.String()

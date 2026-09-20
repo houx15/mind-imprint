@@ -202,7 +202,18 @@ func (a *API) appendBlockMessage(ctx context.Context, atomID uuid.UUID, blockID 
 // chat turns — the same student/ai → user/assistant mapping
 // buildWritingTurnHistory uses for the room's own thread, just scoped to one
 // block's rows instead of the whole atom.
+// deepenTurnsWindow bounds the block thread this call carries, matching the
+// windows the other three lite transcripts already use (reading 14, writing
+// turn 12, writing plan 16).
+//
+// 🚨 这里原来没有窗口：抽屉里聊到第 N 轮，前面 N−1 轮全都跟着走一遍，而其他
+// 三处早就是切过的。一条深挖线越长越贵，且没有上限。
+const deepenTurnsWindow = 16
+
 func blockThreadToChatMessages(msgs []sqlc.AtomMessage) []gateway.ChatMessage {
+	if len(msgs) > deepenTurnsWindow {
+		msgs = msgs[len(msgs)-deepenTurnsWindow:]
+	}
 	out := make([]gateway.ChatMessage, 0, len(msgs))
 	for _, m := range msgs {
 		switch m.Role {

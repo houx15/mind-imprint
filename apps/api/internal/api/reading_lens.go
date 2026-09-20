@@ -219,15 +219,15 @@ func (a *API) summonReadingLens(
 	// reasoning task — the pro side measured the chaperone tier grounding just
 	// as reliably at a fraction of the latency, with one flagship retry as the
 	// safety net. Same ladder here.
-	groundResolver := a.routeFn(gateway.ClassCompose)
-	usedChaperone := groundResolver != nil
-	if !usedChaperone {
-		groundResolver = a.routeFn(gateway.ClassCompose)
-	}
-	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(ctx, a.d.Provider, groundResolver, spec, atomID.String(), blocks)
+	// 🚨 2026-09-20 · 这个梯子原来是塌的：两级都解析 ClassCompose，而 routeFn 返回
+	// 的是一个闭包、永远不为 nil，所以 usedChaperone 恒为真、`&& true` 是残留，
+	// 「一次旗舰兜底」实际上是拿同一个模型把同一个 prompt 再打一遍。
+	// ProposeCardExample 自己内部已经重试两次了 —— 失败一次要打四次，其中两次
+	// 什么都换不来。改成梯子真的抬一级：兜底那次走旗舰档。
+	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), spec, atomID.String(), blocks)
 	a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
-	if !exampleOK && usedChaperone && true {
-		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), spec, atomID.String(), blocks)
+	if !exampleOK {
+		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.routeFn(gateway.ClassReview), spec, atomID.String(), blocks)
 		a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
 	}
 

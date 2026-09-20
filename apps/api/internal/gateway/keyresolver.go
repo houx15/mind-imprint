@@ -202,9 +202,17 @@ func DescribeBindings(cfg config.Config) string {
 	fmt.Fprintf(&b, "\nMODELS (bind with MODEL_REFLEX / MODEL_DIALOGUE / MODEL_COMPOSE / MODEL_REVIEW / MODEL_ASSESS / MODEL_DIGEST)\n")
 	for _, id := range cat.ModelIDs() {
 		m := cat.Models[id]
-		price := "UNPRICED — set priceUsd in models.json to compare cost"
-		if m.Price != nil {
+		// Printed in the currency the bill is written in, then in the USD the
+		// cost column stores — so a reader can check a rate against the vendor's
+		// price list without doing the conversion in their head.
+		price := "UNPRICED — set priceUsd or priceCny in models.json to compare cost"
+		switch {
+		case m.Price != nil:
 			price = fmt.Sprintf("$%.3f in / $%.3f out per 1M", m.Price.InputPerMillion, m.Price.OutputPerMillion)
+		case m.PriceCNY != nil:
+			price = fmt.Sprintf("¥%.2f in / ¥%.2f out per 1M  ($%.3f / $%.3f)",
+				m.PriceCNY.InputPerMillion, m.PriceCNY.OutputPerMillion,
+				m.PriceCNY.InputPerMillion/CNYPerUSD, m.PriceCNY.OutputPerMillion/CNYPerUSD)
 		}
 		flag := " "
 		if m.Flagship {
