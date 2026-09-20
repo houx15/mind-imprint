@@ -106,8 +106,9 @@ test("议论文：一段有例子没分析，印记叫得出「分析句」这�
 
   const snippets = (await (await ctx.request.get(`${API}/api/v1/writings/${id}/snippets`)).json())
     .snippets as { id: string; text: string }[];
-  expect(snippets.length, "段落没存上").toBeGreaterThan(0);
-  const sid = snippets[0].id;
+  const first = snippets[0];
+  expect(first, "段落没存上").toBeTruthy();
+  const sid = first!.id;
 
   const res = await ctx.request.post(`${API}/api/v1/writings/${id}/snippets/${sid}/comment`);
   expect(res.ok(), `请印记看一看失败：${res.status()} ${await res.text()}`).toBeTruthy();
