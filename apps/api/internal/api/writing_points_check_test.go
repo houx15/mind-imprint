@@ -42,6 +42,26 @@ func TestWritingPointsOffThesis(t *testing.T) {
 			want: []string{"人应该多运动"},
 		},
 		{
+			// 🚨 时机：她只有一条分论点的时候不提这件事。讲义里「扣得住」是
+			// 分论点都摆出来之后回头检查的一条。2026-09-21 的 LIVE_LLM 实测
+			// 撞上过这一下，那一轮陪练不去帮她想，改成请她重新措辞。
+			name: "只有一条分论点 —— 她还在想，不提措辞",
+			rows: []sqlc.WritingOutline{
+				kindRow(writingKindThesis, "上学时间该往后推一小时"),
+				kindRow(writingKindPoint, "青少年生物钟本来就晚"),
+			},
+			want: nil,
+		},
+		{
+			name: "两条之后才查 —— 这时候跑题的那条报出来",
+			rows: []sqlc.WritingOutline{
+				kindRow(writingKindThesis, "上学时间该往后推一小时"),
+				kindRow(writingKindPoint, "青少年生物钟本来就晚"),
+				kindRow(writingKindPoint, "上学时间往后推，第一节课的效率会高"),
+			},
+			want: []string{"青少年生物钟本来就晚"},
+		},
+		{
 			name: "还没有中心论点 —— 扣不扣得住无从谈起",
 			rows: []sqlc.WritingOutline{
 				kindRow(writingKindPoint, "人应该多运动"),
@@ -52,6 +72,7 @@ func TestWritingPointsOffThesis(t *testing.T) {
 			name: "空白的卡不算跑题",
 			rows: []sqlc.WritingOutline{
 				kindRow(writingKindThesis, "读书要读慢"),
+				kindRow(writingKindPoint, "慢读才能发现问题"),
 				kindRow(writingKindPoint, "   "),
 			},
 			want: nil,
@@ -62,6 +83,7 @@ func TestWritingPointsOffThesis(t *testing.T) {
 			name: "只共用虚词不算扣住",
 			rows: []sqlc.WritingOutline{
 				kindRow(writingKindThesis, "读书要读慢"),
+				kindRow(writingKindPoint, "慢读才能发现问题"),
 				kindRow(writingKindPoint, "运动是有好处的"),
 			},
 			want: []string{"运动是有好处的"},
@@ -107,7 +129,9 @@ func TestPointsCheckBlockIsSilentWhenNothingIsWrong(t *testing.T) {
 		t.Errorf("全都扣得住的时候不该加任何字，得到：%q", got)
 	}
 
-	bad := append(ok, kindRow(writingKindPoint, "人应该多运动"))
+	bad := append(append([]sqlc.WritingOutline{}, ok...),
+		kindRow(writingKindPoint, "慢一点读才记得住"),
+		kindRow(writingKindPoint, "人应该多运动"))
 	block := writingPointsCheckBlock(zh, bad)
 	if !strings.Contains(block, "人应该多运动") {
 		t.Errorf("跑题那句她写的原话没出现在提示里：%q", block)

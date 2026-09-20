@@ -169,7 +169,7 @@ func writingPointsOffThesis(wr sqlc.Writing, rows []sqlc.WritingOutline) []strin
 	if strings.TrimSpace(thesis) == "" {
 		return nil // 还没有中心论点，扣不扣得住无从谈起。
 	}
-	var out []string
+	var written, off []string
 	for _, row := range rows {
 		if writingKindOf(row) != writingKindPoint {
 			continue
@@ -177,12 +177,29 @@ func writingPointsOffThesis(wr sqlc.Writing, rows []sqlc.WritingOutline) []strin
 		if strings.TrimSpace(row.Text) == "" {
 			continue // 还没写字的空卡不算跑题。
 		}
+		written = append(written, row.Text)
 		if !writingSharesKeyword(thesis, row.Text) {
-			out = append(out, row.Text)
+			off = append(off, row.Text)
 		}
 	}
-	return out
+	// 🚨 **她只有一条分论点的时候不提这件事。**
+	//
+	// 讲义里「扣得住」是**分论点都摆出来之后**回头检查的一条，不是写第一条
+	// 时的门槛。2026-09-21 的 LIVE_LLM 实测撞上了这一下：她刚说出
+	// 「青少年生物钟本来就晚」（中心论点是「上学时间该往后推一小时」），
+	// 这条判据响了，于是那一轮陪练不去帮她想，改成请她把句子重新措辞 ——
+	// 正是产品负责人说的「吹毛求疵」。
+	//
+	// 那句话按讲义的标准确实没扣住，这条判据本身没算错；错的是**时机**。
+	// 她还在想的时候，一条理由的意思对不对比它的措辞要紧得多。
+	if len(written) < writingPointsCheckFrom {
+		return nil
+	}
+	return off
 }
+
+// writingPointsCheckFrom —— 有几条分论点之后才查「扣得住」。见上面那段。
+const writingPointsCheckFrom = 2
 
 // writingPointsCheckBlock 是加进立题 prompt 的那一段。
 //

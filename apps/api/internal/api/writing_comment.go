@@ -514,7 +514,16 @@ func writingCommentBlockJob(kind string) string {
   写了什么，重复了就说出来）。
 
 🚨 **五句不是五条意见。** 一次只说最要紧的那一处，不要把例子、解释、让步
-机械拆成三条。`
+机械拆成三条。
+
+🚨 **五句也不是一张验收清单。** 它说的是一个写完的主体段长什么样，不是
+「少一句就不合格」。少一两句 ⇒ **polish**。只有这一段整个没在做它的活
+（她写的不是这条分论点要说的事、或者材料和主张根本对不上）才是 revise。
+一段有时间、有地点、有人物的具体材料，缺的顶多是一句分析句 —— 那是 polish。
+
+🚨 **观点句可能写在这一块的卡片上，不在正文里。** 她在图上给这一块起的
+名字就是这一段的分论点。卡片上已经有了，就不要判她「没有观点句」；
+可以提一句「正文里也说一次，读文章的人看不见你的卡片」，但那也是 polish。`
 
 	case writingKindRebuttal:
 		return `
@@ -650,8 +659,34 @@ type writingCommentResult struct {
 // fences, clamp to the outermost {..}" extraction every JSON-replying prompt
 // in this package already shares.
 func parseWritingComment(text string) (writingCommentResult, bool) {
-	c := extractWritingJSONObject(text)
-	if c == "" {
+	// 先走大家共用的那一条（去围栏 + 夹到最外层的 {..}）。绝大多数轮次到这里
+	// 就结束了，这一条的行为一个字都没变。
+	if got, ok := decodeWritingComment(extractWritingJSONObject(text)); ok {
+		return got, true
+	}
+	// 🚨 它回了**不止一个** JSON 对象。
+	//
+	// 2026-09-21 实测抓到的样子：模型先写了一份，接着用大白话跟自己商量
+	//（「补一句好的话也可以说……最终输出加一条 good」），然后又写了一份
+	// 改好的。夹到「第一个 { 到最后一个 }」得到的是
+	// `{对象一} 大白话 {对象二}` —— 不是合法 JSON，于是整轮作废，
+	// 她那边是一个转不动的终端。
+	//
+	// 这和 [[model-json-half-arrived-2026-09-08]] 是同一类（「写完了但写坏了」），
+	// 而 prompt 越长模型越爱这样自言自语 —— R4 把检查表加长了，正好撞上。
+	//
+	// **从后往前取**：它自己说的是「最终输出」，改好的那一份在后面。
+	spans := writingJSONObjectSpans(text)
+	for i := len(spans) - 1; i >= 0; i-- {
+		if got, ok := decodeWritingComment(spans[i]); ok {
+			return got, true
+		}
+	}
+	return writingCommentResult{}, false
+}
+
+func decodeWritingComment(c string) (writingCommentResult, bool) {
+	if strings.TrimSpace(c) == "" {
 		return writingCommentResult{}, false
 	}
 	var got writingCommentResult
@@ -663,6 +698,42 @@ func parseWritingComment(text string) (writingCommentResult, bool) {
 	}
 	got.Verdict = normalizeWritingVerdict(got.Verdict)
 	return got, true
+}
+
+// writingJSONObjectSpans 交出文本里每一段**括号配平**的 {...}。
+//
+// 🚨 字符串里的括号不算数。她的正文里有一个 `}`（或者模型引了一句带括号的
+// 话），按裸括号数就会在半路上「配平」，切出一段断掉的 JSON —— 那正是
+// 这个函数要避免的事，所以这里跟着引号和反斜杠走。
+func writingJSONObjectSpans(text string) []string {
+	var spans []string
+	var depth, start int
+	var inStr, esc bool
+	for i, r := range text {
+		switch {
+		case esc:
+			esc = false
+		case inStr && r == '\\':
+			esc = true
+		case r == '"':
+			inStr = !inStr
+		case inStr:
+			// 字符串里的括号不参与配平。
+		case r == '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case r == '}':
+			if depth > 0 {
+				depth--
+				if depth == 0 {
+					spans = append(spans, text[start:i+1])
+				}
+			}
+		}
+	}
+	return spans
 }
 
 // commentOnSnippet is POST /api/v1/writings/{id}/snippets/{sid}/comment — a
