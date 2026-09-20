@@ -25,7 +25,30 @@ describe("outlineKind", () => {
       reasoning: 2,
       rebuttal: 2,
       gap: 2,
+      // 记叙文那四种（R4）：场景和转折是主干，细节挂在场景底下，
+      // 感悟收在主干那一层。
+      scene: 1,
+      turn: 1,
+      feeling: 1,
+      detail: 2,
     });
+  });
+
+  it("记叙文那四种块也有标题 —— 没有的话她会看见一张没名字的卡", () => {
+    expect(outlineKindLabel("scene")).toBe("场景");
+    expect(outlineKindLabel("detail")).toBe("细节");
+    expect(outlineKindLabel("turn")).toBe("转折");
+    expect(outlineKindLabel("feeling")).toBe("感悟");
+  });
+
+  // 🚨 她把一块拖到主干那一层之后，记叙文里该变成「场景」，不是「分论点」。
+  // 落错了她会看见一张写着「分论点」的卡 —— R1 修掉的那个毛病换了个文体
+  // 又长出来一次。
+  it("拖动之后的默认种类按文体分岔", () => {
+    expect(rekindForDepth("detail", 1, true, "narrative")).toBe("scene");
+    expect(rekindForDepth("scene", 2, true, "narrative")).toBe("detail");
+    // 不传文体时照旧是议论文 —— 现有的调用点一个都不用改。
+    expect(rekindForDepth("evidence", 1, true)).toBe("point");
   });
 
   it("标题用的是语文课上的正式词", () => {
