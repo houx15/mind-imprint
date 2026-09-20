@@ -52,7 +52,11 @@
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
 - **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估，绝不降级）/ `digest`（长输入短输出）/ `draw`（生成一张图）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
 - **换模型 = 改一个环境变量，不改代码；新增模型 / 新增 OpenAI 兼容厂商 = 改 `models.json`，不写 Go。** 每档一个变量（`MODEL_DIALOGUE` / `MODEL_COMPOSE` / …）指向目录里的 model id（如 `dashscope/qwen3.8-max`），只动一条、其余不变，测出来的速度与成本才可归因。旧的 `MODEL_CHAT` / `MODEL_FAST_CHAT` / `MODEL_EVAL` 仍作为别名生效（→ dialogue / reflex / assess）。写错 id、给 `assess` 指了非旗舰模型、或给一个要求关思考的档绑了停不下来思考的模型，**启动即失败**，不会悄悄跑一周。`api --print-models` 打印目录与当前绑定。
-- **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，分开测生产解析、gold 任务命中和判官质量；硬门槛通过后按最差质量 → 平均质量 → 延迟 → token 排序，只有全部指标完全相同才保留现有绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
+- **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，分开测生产解析、gold 任务命中和判官质量；硬门槛通过后按最差质量 → 平均质量 → 延迟 → **成本（钱，不是 token）**排序，只有全部指标完全相同才保留现有绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
+  **2026-09-20 改成按钱排**：在此之前 DashScope 一个模型都没有价格，只能按 token 排，而那在单价差一个数量级时会给出**反的**结论（qwen3.7-flash ¥0.2/¥0.8 对 deepseek-v4-pro ¥12/¥24，差 60 倍，少吐几个 token 补不回来）。价格按 `priceCny` 记在 wire 名上；没有价格的模型仍退回 token，因为缺测量要读成缺测量、不能读成打平。
+- **成本要把缓存算进去，否则高估约四倍。** 百炼的**隐式缓存关不掉**：公共前缀超过 1024 token 就可能命中，命中部分按输入单价的 **20%** 计费。阅读陪练每轮重发全文，但稳定块排在前、易变块排在后，所以从第二轮起 **91%–99% 的输入是命中的**（2026-09-20 实测）。`ChatUsage.CachedInputTokens` + `gateway.EstimateCostCached` 就是为此存在，`LIVE_LLM=1 go test ./internal/gateway -run TestLiveCachedTokens` 守着这条线。
+  **🚨 因此 prompt 块的顺序是一条成本契约**：把任何易变的东西（计时、还差多少字、板的状态）挪到正文前面，就把整个前缀打碎了，那一轮全价。改 prompt 组装顺序前先想这件事。
+  推论：**「费 token」和「费钱」不是一回事**，裁文章省下来的只有票面的五分之一——真正的杠杆是档位选型。见 `docs/2026-09-20-lite-ai-cost-and-routing.md`。
 - **🚨 `draw` 档不走对话口，它的端点是实测出来的，不是照文档推的。** 2026-09-04
   实测：聊天走的那个 DashScope maas 聚合口**画不了图**——`/images/generations`
   在两个主机上都是 404，尽管它的 `GET /models` 里就列着 `qwen-image-3.0`；
