@@ -669,16 +669,25 @@ export const HUB = {
   resume: "继续兴趣探索",
   restart: "开始兴趣探索",
   resumeBody: "和印记助手来回八轮，把一个模糊的兴趣问成一个具体的问题。",
+  /*
+   * 她上次停在探询之前（比如能量卡牌那一屏）时，第一张卡说的话。
+   *
+   * 这一格不能恒写「开始兴趣探索」：按下去到的是她停下的那一屏，而那一屏
+   * 可能根本不是探询。按钮上写的必须是它真的会做的事。
+   */
+  continueRun: "继续上次的进度",
+  continueAt: "上次停在：{stage}。",
   energy: "能量测试",
   energyBody: "重新选一遍卡牌，看这一阵子你的注意力落在哪几个方向。",
   energyDone: "已完成一次。",
   story: "回顾剧情",
   storyBody: "重看一遍开场：废土、觉醒者联盟，以及你当时做的那个选择。",
   navigator: "重新选择兴趣探索助手",
+  navigatorFirst: "选择兴趣探索助手",
+  navigatorFirstBody: "挑一个陪你探询的人，三个助手的追问方式不一样。",
   navigatorBody: "换一个陪你探询的人，三个助手的追问方式不一样。",
   /** 当前助手那一行。`{name}` 换成中文名。 */
   navigatorNow: "当前：{name}",
-  navigatorNone: "当前：还没有选",
   /** 继续那一张上的进度，`{n}` 换成已经答完的轮数。 */
   progress: "已答 {n} / 8 轮",
   /**

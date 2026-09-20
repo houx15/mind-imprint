@@ -278,6 +278,7 @@ export function AwakeningRoom({
         <HubScene
           returning={run.attemptNo > 1 && run.stage === "boot"}
           turnsDone={run.turns.length}
+          resume={resumeRef.current}
           navigator={state.navigator}
           hasEnergy={Boolean(state.energyProfile.domains?.length)}
           onContinue={() => {

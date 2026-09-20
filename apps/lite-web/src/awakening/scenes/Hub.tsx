@@ -1,4 +1,6 @@
+import type { AwakeningStage } from "../../api/awakening";
 import { GUIDES, HUB } from "../content";
+import { STAGE_BADGE } from "../RoomShell";
 import { Choice } from "../ui";
 
 /**
@@ -26,6 +28,8 @@ export function HubScene({
   returning,
   /** 已经答完几轮。0 表示这一趟的探询还没开始。 */
   turnsDone,
+  /** 「继续」那一下真正会去的那一屏。第一张卡上的字照它写。 */
+  resume,
   navigator,
   hasEnergy,
   onContinue,
@@ -35,6 +39,7 @@ export function HubScene({
 }: {
   returning: boolean;
   turnsDone: number;
+  resume: AwakeningStage;
   navigator: string;
   hasEnergy: boolean;
   onContinue: () => void;
@@ -44,6 +49,8 @@ export function HubScene({
 }) {
   const guide = GUIDES.find((g) => g.id === navigator);
   const started = turnsDone > 0;
+  // 「继续」去的是探询，还是她停下的另一屏？两种说法不一样，而说错就是骗她。
+  const toTerminal = resume === "terminal";
 
   return (
     <section className="awk-screen" aria-label="兴趣测试入口">
@@ -60,8 +67,14 @@ export function HubScene({
           <Choice
             index="01"
             hwId="SYS-01"
-            title={started ? HUB.resume : HUB.restart}
-            body={started ? HUB.progress.replace("{n}", String(turnsDone)) : HUB.resumeBody}
+            title={toTerminal ? (started ? HUB.resume : HUB.restart) : HUB.continueRun}
+            body={
+              !toTerminal
+                ? HUB.continueAt.replace("{stage}", STAGE_BADGE[resume].route)
+                : started
+                  ? HUB.progress.replace("{n}", String(turnsDone))
+                  : HUB.resumeBody
+            }
             onClick={onContinue}
           />
           <Choice
@@ -74,10 +87,12 @@ export function HubScene({
           <Choice
             index="03"
             hwId="SYS-03"
-            title={HUB.navigator}
-            body={`${
-              guide ? HUB.navigatorNow.replace("{name}", guide.zh) : HUB.navigatorNone
-            }。${HUB.navigatorBody}`}
+            title={guide ? HUB.navigator : HUB.navigatorFirst}
+            body={
+              guide
+                ? `${HUB.navigatorNow.replace("{name}", guide.zh)}。${HUB.navigatorBody}`
+                : HUB.navigatorFirstBody
+            }
             onClick={onNavigator}
           />
           <Choice

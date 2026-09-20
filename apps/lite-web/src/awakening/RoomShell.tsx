@@ -24,7 +24,7 @@ import type { AwakeningStage } from "../api/awakening";
  * `hub` 不是一个 stage，它是复访时盖在 stage 上面的一层（见 AwakeningRoom），
  * 所以它只在这张表里出现，绝不会被存进 run.stage。
  */
-const STAGE_BADGE: Record<AwakeningStage | "hub", { route: string; level: string }> = {
+export const STAGE_BADGE: Record<AwakeningStage | "hub", { route: string; level: string }> = {
   hub: { route: "兴趣测试 · 入口", level: "N-00" },
   boot: { route: "开场剧情", level: "E-00" },
   world: { route: "序章 · 做一个选择", level: "E-00" },
