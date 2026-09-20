@@ -201,3 +201,56 @@ func TestLiveTeachingFrameNotGhostwriting(t *testing.T) {
 %s`, all)
 	}
 }
+
+// TestLiveTeachingNarrativePlanUsesNarrativeKinds ——
+// 一篇记叙文，立题那一轮开出来的是记叙文的块吗。
+//
+// 🚨 这条守的是 R4 差点漏掉的那件事：闭表里加了 scene/detail/turn/feeling，
+// 而立题的提示词还写着「只能是下面这十个之一」 —— 模型永远开不出它们，
+// 记叙文那半边是死代码。
+func TestLiveTeachingNarrativePlanUsesNarrativeKinds(t *testing.T) {
+	prov, resolved := liveClass(t, gateway.ClassCompose)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	wr := sqlc.Writing{Title: "记一次难忘的经历", Lang: "zh"}
+	var rows []sqlc.WritingOutline
+	if g := writingGenreOf(wr, rows); g != genreNarrative {
+		t.Fatalf("这个题目该被推成记叙文，得到 %q", g)
+	}
+
+	const said = "我想写那天下雨我爸来接我的事。那天我在补习班楼道口等，雨下得特别大。"
+	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+		Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreNarrative)},
+			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("provider: %v", err)
+	}
+	t.Logf("模型原样回的：\n%s", res.Text)
+
+	parsed, ok := parseWritingPlanReply(res.Text)
+	if !ok {
+		t.Fatalf("解析不了：\n%s", res.Text)
+	}
+	t.Logf("reply=%s", parsed.Reply)
+	for _, a := range parsed.Add {
+		t.Logf("  kind=%s text=%s", a.Kind, a.Text)
+	}
+
+	if len(parsed.Add) == 0 {
+		t.Skip("这一轮它一个块都没开 —— 合法（她说得还不够），换一次再看")
+	}
+	for _, a := range parsed.Add {
+		if !writingKindValid(a.Kind) {
+			t.Errorf("开出了闭表外的 kind %q", a.Kind)
+		}
+		// 🚨 记叙文这一篇不该开出议论文的块。
+		if writingKindGenre(a.Kind) == genreArgument {
+			t.Errorf("记叙文那一篇开出了议论文的块 %q（%s）—— 文体这条轴没接到立题那条路上",
+				a.Kind, a.Text)
+		}
+	}
+}

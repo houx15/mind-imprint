@@ -251,18 +251,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 - reply：不超过 200 字，最多一个问题，允许不提问。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
-- kind：这一块**是什么**。只能是下面这十个之一，**写错的整条会被丢掉**：
-  - 「thesis」 中心论点 —— 这篇要证明的那一句话，一篇只有一个
-  - 「point」 分论点 —— 支撑中心论点的一条理由
-  - 「evidence」 论据 · 她见过的事 —— 她自己经历过、见过、身边发生的事
-  - 「reference」 论据 · 她找来的 —— 一份研究、一条报道、一组数据、一次访谈，
-    以及社会上、历史上的例子（司马迁那一类算这一种，不算她见过的事）
-  - 「reasoning」 道理 —— 撑住一条分论点的推理，不举具体的事
-  - 「counter」 反方观点 —— 反方最强的那一点
-  - 「rebuttal」 对反方的回应
-  - 「gap」 待补的材料 —— 她知道这里缺一份材料，但还没找到
-  - 「opening」 开篇
-  - 「closing」 结尾
+@@KINDS@@
   🚨 **你不决定它挂在哪儿，也不给它起名字。** 位置由 kind 算出来：分论点挂在
   中心论点下面，论据挂在前面最近的那条分论点下面，开篇和结尾各在最前和最后；
   屏幕上的小标题也由 kind 决定。所以**不要给 parentId，也不要给 role**。
@@ -306,6 +295,50 @@ ready 给 true 的那一轮，reply 里要做两件事：说一句这份计划�
 不该拿来拦着她。
 
 不要输出对象以外的任何文字或代码块标记。`
+
+// —— 这一块「是什么」的清单，按文体两份（R4，2026-09-21）——
+//
+// 🚨 在这之前只有议论文那一份，而且写死在 writingPlanSystem 里。
+// 也就是说：闭表里就算加了记叙文那四种，模型**永远不会用到它们** ——
+// prompt 明说「只能是下面这十个之一」。一篇记叙文于是被摆成
+// 中心论点／分论点／论据，一副用不上的骨架。
+//
+// 清单和 writing_kind.go 的闭表必须对得上，由
+// TestWritingPlanKindListsMatchTheClosedSet 钉住。
+
+const writingPlanArgumentKinds = `- kind：这一块**是什么**。只能是下面这十个之一，**写错的整条会被丢掉**：
+  - 「thesis」 中心论点 —— 这篇要证明的那一句话，一篇只有一个
+  - 「point」 分论点 —— 支撑中心论点的一条理由
+  - 「evidence」 论据 · 她见过的事 —— 她自己经历过、见过、身边发生的事
+  - 「reference」 论据 · 她找来的 —— 一份研究、一条报道、一组数据、一次访谈，
+    以及社会上、历史上的例子（司马迁那一类算这一种，不算她见过的事）
+  - 「reasoning」 道理 —— 撑住一条分论点的推理，不举具体的事
+  - 「counter」 反方观点 —— 反方最强的那一点
+  - 「rebuttal」 对反方的回应
+  - 「gap」 待补的材料 —— 她知道这里缺一份材料，但还没找到
+  - 「opening」 开篇
+  - 「closing」 结尾`
+
+// 记叙文那一份。来源是两份记叙文讲义：细节描写和抑扬转情法（抑→渡→转→扬）。
+const writingPlanNarrativeKinds = `- kind：这一块**是什么**。只能是下面这六个之一，**写错的整条会被丢掉**：
+  - 「scene」 场景 —— 一件事，有时间有地点
+  - 「detail」 细节 —— 场景里的一个动作、一句话、一处环境
+  - 「turn」 转折 —— 让她改观的那一下（讲义里的「转」）
+  - 「feeling」 感悟 —— 这件事之后她明白了什么（讲义里的「扬」）
+  - 「opening」 开篇
+  - 「closing」 结尾
+  🚨 **这一篇是记叙文，没有中心论点，也没有分论点。** 不要问她「你要证明
+  什么」，问的是那天发生了什么、她当时看见了什么。`
+
+// writingPlanSystemFor 按文体组装立题那份系统提示词。
+func writingPlanSystemFor(genre string) string {
+	kinds := writingPlanArgumentKinds
+	if genre == genreNarrative {
+		kinds = writingPlanNarrativeKinds
+	}
+	s := strings.Replace(writingPlanSystem, "@@KINDS@@", kinds, 1)
+	return strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
+}
 
 // buildWritingPlanPrompt renders the current map (with ids, so the model can
 // point at a parent) plus the windowed conversation.
@@ -891,7 +924,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	system := strings.Replace(writingPlanSystem, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
+	system := writingPlanSystemFor(writingGenreOf(wr, rows))
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
