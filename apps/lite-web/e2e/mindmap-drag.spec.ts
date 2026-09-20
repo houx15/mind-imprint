@@ -181,3 +181,73 @@ test("思维导图：挂进子层的节点，拖到空白处能升回最上层",
 
   await ctx.close();
 });
+
+/**
+ * 🚨 同事 2026-09-20 的意见 3：「这个是总结，不是分论点」。
+ *
+ * 截图里那张卡叫「分论点 3」，而它的内容是「结尾回到『方便比好看值』」。
+ * 真因是模型把结尾挂在了中心论点底下（深度 1），而卡片派生只在 depth===0
+ * 时认结尾。这条走的是**线上的段落页**，看那张卡上印的到底是哪几个字。
+ */
+test("段落：挂在深度 1 的结尾，卡片上印的是「结尾」不是「分论点」", async ({ browser }) => {
+  test.setTimeout(180_000);
+
+  const ctx = await freshAccount(browser, "closing-card");
+  const page = await ctx.newPage();
+  page.on("dialog", (d) => void d.dismiss());
+
+  const created = await ctx.request.post(`${API}/api/v1/writings`, {
+    data: { idea: "校服", lang: "zh" },
+  });
+  expect(created.ok(), `创建写作失败：${created.status()}`).toBeTruthy();
+  const writingId = (await created.json()).id as string;
+
+  const setup = await ctx.request.put(`${API}/api/v1/writings/${writingId}/setup`, {
+    data: { lang: "zh", targetWords: 500, note: "" },
+  });
+  expect(setup.ok(), `设定失败：${setup.status()}`).toBeTruthy();
+
+  const put = await ctx.request.put(`${API}/api/v1/writings/${writingId}/outline`, {
+    data: {
+      outline: [
+        { text: "校服不太好看，但早上省心", kind: "thesis", depth: 0 },
+        { text: "早上不用想穿什么", kind: "point", depth: 1 },
+        { text: "校服不好看，想穿自己的衣服", kind: "point", depth: 1 },
+        // 截图里那一条：结尾被挂在了深度 1。
+        { text: "结尾回到「方便比好看值」", kind: "closing", depth: 1 },
+      ],
+    },
+  });
+  expect(put.ok(), `摆图失败：${put.status()}`).toBeTruthy();
+
+  // 🚨 服务端按 kind 把它放回深度 0 —— 摆错在这一层就已经不可表示了。
+  const back = (await (await ctx.request.get(`${API}/api/v1/writings/${writingId}/outline`)).json())
+    .outline as { text: string; kind: string; depth: number }[];
+  const closing = back.find((r) => r.kind === "closing");
+  expect(closing, "结尾那一条不见了").toBeTruthy();
+  expect(closing!.depth, "结尾必须落在最上层，不管模型想把它挂在哪儿").toBe(0);
+
+  // 🚨 用接口把她送到段落那一步，不要靠点「去写」。
+  // 第一版就是点按钮的，而它**没点动**（陪练那一轮还在回话），测试却绿了 ——
+  // 因为断言当时落在**结构图上那个节点**上，那个节点本来就写着「结尾」。
+  // 一条在错误的屏幕上通过的断言，比红着更糟（[[observation-tool-is-the-bug]]）。
+  const staged = await ctx.request.post(`${API}/api/v1/writings/${writingId}/stage`, {
+    data: { stage: "snippets" },
+  });
+  expect(staged.ok(), `切到段落失败：${staged.status()}`).toBeTruthy();
+
+  await page.goto(`/writings/${writingId}`);
+
+  // 先确认真的到了段落那一屏：卡片叠上那句提示只在这一步有。
+  await expect(page.getByText("请印记看看这一段")).toBeVisible({ timeout: 30_000 });
+
+  // 🚨 卡片叠里那一张卡本身是一个 <button>，要对着它断言。
+  // 第二版对着 `[class*=rounded]` 断言，那匹配到的是**包着好几张卡的外层**，
+  // 于是「不含分论点」当然不成立 —— 用例的眼睛又错了一次，这回是红的。
+  const card = page.getByRole("button").filter({ hasText: "结尾回到「方便比好看" }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText("结尾");
+  // 同事截图里印的是「分论点 3」——这就是那一条。
+  await expect(card).not.toContainText("分论点");
+  await page.screenshot({ path: "e2e/.writewalk-online/closing-card-online.png", fullPage: true });
+});
