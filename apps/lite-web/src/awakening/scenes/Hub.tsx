@@ -47,7 +47,7 @@ export function HubScene({
 
   return (
     <section className="awk-screen" aria-label="兴趣测试入口">
-      <div className="awk-wrap awk-two-col">
+      <div className="awk-wrap awk-hub">
         <div>
           <div className="awk-eyebrow">{HUB.eyebrow}</div>
           <h2 className="awk-h2">{HUB.title}</h2>
@@ -68,7 +68,7 @@ export function HubScene({
             index="02"
             hwId="SYS-02"
             title={HUB.energy}
-            body={hasEnergy ? `${HUB.energyDone} · ${HUB.energyBody}` : HUB.energyBody}
+            body={hasEnergy ? `${HUB.energyDone}${HUB.energyBody}` : HUB.energyBody}
             onClick={onEnergy}
           />
           <Choice
@@ -77,7 +77,7 @@ export function HubScene({
             title={HUB.navigator}
             body={`${
               guide ? HUB.navigatorNow.replace("{name}", guide.zh) : HUB.navigatorNone
-            } · ${HUB.navigatorBody}`}
+            }。${HUB.navigatorBody}`}
             onClick={onNavigator}
           />
           <Choice

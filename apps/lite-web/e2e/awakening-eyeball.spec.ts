@@ -103,8 +103,14 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   // 那张警示图必须真的加载出来 —— 一个碎图标 jsdom 永远看不见。
   const img = page.locator("figure img").first();
   await expect(img).toBeVisible();
-  const loaded = await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0);
-  expect(loaded, "档案那张图没有加载出来（CDN 或路径不对）").toBe(true);
+  // 用 poll 等它下完：这张图 275KB，问一次答 false 只说明这一刻还没解码完，
+  // 不说明它坏了。等不到才是真的坏（CDN 或路径不对）。
+  await expect
+    .poll(
+      () => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0),
+      { message: "档案那张图没有加载出来（CDN 或路径不对）", timeout: 20_000 },
+    )
+    .toBe(true);
 
   for (const t of ["被丢掉的主动思考", "AI 接管了三个动作", "瘫坐的孩子"]) {
     await page.getByRole("button", { name: new RegExp(t) }).click();
@@ -316,6 +322,24 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
     timeout: 30_000,
   });
   await shot("21-hub-energy");
+
+  // 四组卡片走完。这里不选任何一张 —— 「一张都不选也可以」这句话必须是真的。
+  for (let i = 0; i < 3; i += 1) {
+    await page.getByRole("button", { name: "下一组" }).click();
+  }
+  await page.getByRole("button", { name: "完成校准" }).click();
+  await expect(page.getByRole("heading", { name: "你的能量方向" })).toBeVisible();
+
+  // 🚨 从入口进去的那一屏，走完要回**入口**，不是被推进第一趟那条线。
+  // 按钮上的字也得说真话 —— 它写的是「返回入口」，不是「选择你的印记」。
+  await page.getByRole("button", { name: "返回入口" }).click();
+  await expect(page.getByRole("heading", { name: "兴趣测试" })).toBeVisible();
+  await shot("22-hub-again");
+
+  // 从入口进探询：这才是她回来要做的那件事。
+  await page.getByRole("button", { name: /开始兴趣探索|继续兴趣探索/ }).click();
+  await expect(page.getByText("INTEREST DIAGNOSTIC")).toBeVisible({ timeout: 30_000 });
+  await shot("23-hub-terminal");
 
   await ctx.close();
 });

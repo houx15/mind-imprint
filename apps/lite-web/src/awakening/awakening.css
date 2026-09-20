@@ -675,6 +675,27 @@
   align-items: start;
 }
 
+/*
+ * 复访入口。和 two-col 反过来：这一屏的主角是右边那四张可点的卡，左边只有
+ * 一个标题和一句话，所以宽的那一列给卡。整块在竖直方向居中 —— 只有四张卡，
+ * 顶在上面会让下面空掉一半屏。
+ */
+.awk-hub {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.35fr);
+  gap: clamp(20px, 3.4vw, 52px);
+  align-items: center;
+  min-height: calc(100vh - 58px - clamp(36px, 6.2vh, 64px));
+}
+
+@media (max-width: 900px) {
+  .awk-hub {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .awk-two-col {
     grid-template-columns: minmax(0, 1fr);

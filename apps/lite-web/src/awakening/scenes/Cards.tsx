@@ -57,8 +57,12 @@ export function scoreEnergy(picked: Record<string, string[]>): EnergyProfile {
 
 export function EnergyScene({
   onDone,
+  /** 走完那一下按钮上的字。默认是第一趟里的下一步（选印记助手）；从复访入口
+   *  进来时调用方换成「返回入口」—— 按下去回哪里，上面就得写哪里。 */
+  doneLabel = ENERGY.toNavigator,
 }: {
   onDone: (profile: EnergyProfile) => void;
+  doneLabel?: string;
 }) {
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<Record<string, string[]>>({});
@@ -95,7 +99,7 @@ export function EnergyScene({
           )}
         </div>
         <div className="mt-8">
-          <Primary onClick={() => onDone(result)}>{ENERGY.toNavigator}</Primary>
+          <Primary onClick={() => onDone(result)}>{doneLabel}</Primary>
         </div>
       </Stage>
     );

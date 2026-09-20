@@ -8,7 +8,7 @@ import {
 } from "../api/awakening";
 import { SYSTEM_VOICE, voiceUrl } from "./assets";
 import "./awakening.css";
-import { DOOR, TERMINAL } from "./content";
+import { DOOR, HUB, TERMINAL } from "./content";
 import { ReportView } from "./ReportView";
 import { EnergyScene, NavigatorScene, TalentScene } from "./scenes/Cards";
 import { BootScene } from "./scenes/Boot";
@@ -332,6 +332,7 @@ export function AwakeningRoom({
       case "energy":
         return (
           <EnergyScene
+            doneLabel={detour ? HUB.back : undefined}
             onDone={(profile) =>
               detour
                 ? backToHub({ energyProfile: profile })
