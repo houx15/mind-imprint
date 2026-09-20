@@ -69,7 +69,7 @@ type deepenTurnDTO struct {
 // take the planning transcript (atom_message, block_id IS NULL) as a
 // parameter — that omission from the signature IS the guarantee, not just an
 // unused argument that could be added later. TestBuildDeepenBrief pins it.
-func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc.WritingOutline, snippetText string, guideQuestions []string) string {
+func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc.WritingOutline, snippetText string, guideQuestions []string, studentText string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
@@ -107,6 +107,12 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 		b.WriteString("她已经写下的段落内容：\n" + t + "\n")
 	} else {
 		b.WriteString("这一段还是空的。\n")
+	}
+
+	// 她请我们替她搜索或替她写 → 这一轮先说明再往下走。一次性。
+	// 见 writing_refusal.go（同事 2026-09-20 的意见 8）。
+	if writingAsksUsToDoIt(studentText) {
+		b.WriteString(writingRefusalBlock)
 	}
 
 	if len(guideQuestions) > 0 {
@@ -312,7 +318,7 @@ func (a *API) deepenWritingBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	brief := buildDeepenBrief(wr, outline, block, snippetText, guideQuestions)
+	brief := buildDeepenBrief(wr, outline, block, snippetText, guideQuestions, studentText)
 	messages := make([]gateway.ChatMessage, 0, len(prior)+2)
 	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: deepenSystem + "\n\n" + brief})
 	messages = append(messages, blockThreadToChatMessages(prior)...)

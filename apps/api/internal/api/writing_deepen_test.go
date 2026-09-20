@@ -27,7 +27,7 @@ func TestWritingTopicLine_AssignedPromptIsTheTeachers(t *testing.T) {
 		"guide":   buildWritingGuidePrompt(wr, outline[0], outline, "", nil),
 		"batch":   buildWritingGuideBatchPrompt(wr, outline, nil, nil),
 		"coach":   buildWritingCoachProjection(wr, outline, nil, ""),
-		"deepen":  buildDeepenBrief(wr, outline, outline[0], "", nil),
+		"deepen":  buildDeepenBrief(wr, outline, outline[0], "", nil, ""),
 		"comment": buildWritingCommentPrompt(wr, "她的整篇稿子", "雨下了一整天。"),
 		"plan":    buildWritingPlanPrompt(wr, outline, nil, ""),
 	}
@@ -89,7 +89,7 @@ func TestBuildDeepenBrief_CarriesTheMapAndBlock(t *testing.T) {
 	}
 	block := outline[1]
 
-	brief := buildDeepenBrief(wr, outline, block, "更麻烦的是维护。", []string{"这笔钱谁出？"})
+	brief := buildDeepenBrief(wr, outline, block, "更麻烦的是维护。", []string{"这笔钱谁出？"}, "")
 
 	for _, want := range []string{"城市该不该大规模种行道树", "该种，但要先定谁长期养", "维护年年花钱", "更麻烦的是维护。", "这笔钱谁出？"} {
 		if !strings.Contains(brief, want) {

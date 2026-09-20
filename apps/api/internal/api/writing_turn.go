@@ -455,6 +455,11 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	// 不是在闲聊。加在 projection 上而不是改那个 producer，因为它是 pro 和
 	// lite 共用的（lite-must-not-break-pro）。见 writing_board.go。
 	projection += writingBoardNote(req.Board)
+	// 她请我们替她搜索或替她写 → 这一轮先说明再往下走。一次性，不做常驻。
+	// 见 writing_refusal.go（同事 2026-09-20 的意见 8）。
+	if writingAsksUsToDoIt(studentText) {
+		projection += writingRefusalBlock
+	}
 	surfaceLabel := writingStageLabel(wr.Stage)
 
 	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)

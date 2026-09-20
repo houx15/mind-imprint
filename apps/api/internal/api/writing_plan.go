@@ -335,6 +335,12 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 		b.WriteString(writingPlanStalledBlock)
 	}
 
+	// 她请我们替她搜索或替她写 → 这一轮先说明再往下走。同样是一次性的。
+	// 见 writing_refusal.go（同事 2026-09-20 的意见 8）。
+	if writingAsksUsToDoIt(studentText) {
+		b.WriteString(writingRefusalBlock)
+	}
+
 	b.WriteString("\n【当前的图】\n")
 	if len(rows) == 0 {
 		b.WriteString("（图是空的。先检查她本轮是否已经表达主张或理由，已表达就直接整理；缺失才询问。）\n")
@@ -998,6 +1004,36 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		// 重试没救回来也不把「可以写了」这个信号发出去：话留着，按钮不出来。
 		parsed.Ready = false
+	}
+
+	// 🚨 她请我们替她搜索或替她写，而这一轮一个字都没说自己不做这件事：
+	// 重试一次。见 writing_refusal.go（同事 2026-09-20 的意见 8）。
+	//
+	// 🚨 重试完**照旧把拿得到的那一份交出去**。为了一个检测项让她看见一个死掉
+	// 的终端，是比生硬更大的毛病（[[ai-errors-must-surface-never-fake]] 的
+	// 另一面：一句不够完美的真话，好过一个空白）。
+	if writingAsksUsToDoIt(studentText) && !writingReplyOwnsTheRefusal(parsed.Reply) {
+		slog.Info("writing plan turn: refusal not owned, retrying once",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingRefusalNudge},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && writingReplyOwnsTheRefusal(p2.Reply) {
+				// 🚨 只换那句话，不换 add —— 和上面那条邀请重试同一个道理：
+				// 整份换掉的话，第二份里的 add 可能少了节点。
+				parsed.Reply = p2.Reply
+			} else {
+				slog.Warn("writing plan turn: retry still did not own the refusal", "atom_id", at.ID)
+			}
+		}
 	}
 
 	// 🚨 这一轮要是请她去写的那一轮，话里就不能还挂着一个问题。
