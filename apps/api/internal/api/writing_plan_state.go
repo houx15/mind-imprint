@@ -154,59 +154,35 @@ type writingPlanShape struct {
 }
 
 // count 把一个节点记进形状里 —— writingPlanShapeOf 和 writingPlanShapeWith
-// （还没落库的那一轮）共用，两边不会数得不一样。
+//（还没落库的那一轮）共用，两边不会数得不一样。
 //
-// 例子不管挂在哪一层都算例子：挂在中心论点下面（深度 1）的不算分论点，
-// 落到最上层（深度 0）的不算中心论点 —— 「两个例子就被当成两条理由」正是
-// 2026-09-18 那张截图里的毛病。
-func (s *writingPlanShape) count(depth int, role, source string) {
-	example := writingRoleIsExample(role, source)
-	switch {
-	case depth == 0 && !example:
+// 🚨 2026-09-20：这个函数原来要靠四张关键词表去猜一个节点是什么
+//（writingRoleIsExample / writingRoleIsReasoning / writingRoleIsPoint /
+// writingRoleIsPersonal），而每一张都是一次线上事故的补丁：
+// 例子落在最上层被当成分论点、挂得更深的分论点被当成例子、一条道理被当成例子。
+// 现在节点自己带着 kind，这里就只剩一个 switch。
+//
+// 材料不管挂在哪一层都是材料，分论点不管挂在哪一层都是分论点 —— 深度已经由
+// kind 强制过了，这里连深度都不必看。
+func (s *writingPlanShape) count(kind, source string) {
+	_ = source
+	switch kind {
+	case writingKindOpening, writingKindThesis, writingKindClosing:
 		s.Top++
-	case depth == 1 && !example:
+	case writingKindPoint, writingKindCounter:
 		s.Points++
-	case !example && (writingRoleIsReasoning(role) || writingRoleIsPoint(role)):
-		// 一条挂得更深的「分论点」也不是例子（2026-09-18 线上：第三条分论点被挂在
-		// 第二条下面，于是被当成一个「不是个人经历的例子」，放她去写了）。
-		// 一条道理、一层解释：撑分论点的推理，不是例子。
-		// 2026-09-18 实测：「脆弱的感受带来关于自己渴望的信息（一条道理）」被当成了
-		// 一个「不是个人经历的例子」，于是只有她自己那一件事也过了线。
-	default:
+	case writingKindEvidence, writingKindReference:
 		s.Material++
-		if !writingRoleIsPersonal(role, source) {
+		if writingKindIsWider(kind) {
 			s.Wider++
 		}
+	case writingKindReasoning, writingKindRebuttal:
+		// 🚨 道理和对反方的回应都是**推理**，不是材料。
+		// 2026-09-18 实测：一条道理被当成「不是个人经历的例子」，于是只有她
+		// 自己那一件事也过了线。道理站得住是好事，但它撑不起「你有什么证据」。
+	case writingKindGap:
+		// 🚨 一个洞不是一条材料。见 writing_kind.go 的 writingKindIsMaterial。
 	}
-}
-
-// writingRoleIsReasoning：role 说这一块是一条道理 / 一层解释，而不是一个例子。
-// role 空着或说不清的，照旧当例子数 —— 拿不准就别卡住她。
-func writingRoleIsReasoning(role string) bool {
-	r := strings.ToLower(role)
-	for _, kw := range []string{"道理", "解释", "推理", "分析", "原因", "理由", "reasoning", "explanation", "analysis", "reason"} {
-		if strings.Contains(r, kw) {
-			return true
-		}
-	}
-	return false
-}
-
-// writingRoleIsPersonal：这条材料是不是她自己的经历（role 是印记写给她看的
-// 小标题，「你经历过的事」「你见过的事」「你自己的例子」这一类）。带出处的
-// 一定不是 —— 那是她找回来的。拿不准的算「不是个人经历」：这个数只用来提醒
-// 「还缺一条更有说服力的例子」，少提醒一次比冤枉她强。
-func writingRoleIsPersonal(role, source string) bool {
-	if strings.TrimSpace(source) != "" {
-		return false
-	}
-	r := strings.ToLower(role)
-	for _, kw := range []string{"你", "自己", "亲身", "个人", "身边", "经历过", "见过", "your own", "personal", "my own", "you saw", "you did"} {
-		if strings.Contains(r, kw) {
-			return true
-		}
-	}
-	return false
 }
 
 func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
@@ -215,7 +191,7 @@ func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
 		if strings.TrimSpace(r.Text) == "" {
 			continue
 		}
-		s.count(int(r.Depth), r.Role, r.Source)
+		s.count(writingKindOf(r), r.Source)
 	}
 	return s
 }

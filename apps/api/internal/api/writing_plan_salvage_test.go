@@ -29,7 +29,7 @@ func TestParseWritingPlanReply_SalvagesTheSentenceWhenTheStructureBreaks(t *test
 		{
 			// 2026-09-08 那一种：该收 ] 的地方收了 }。
 			name:  "数组收错了括号",
-			text:  `{"reply":"先把中心论点定下来。","add":[{"text":"校车该不该装安全带","role":"claim"}}]}`,
+			text:  `{"reply":"先把中心论点定下来。","add":[{"text":"校车该不该装安全带","kind":"thesis"}}]}`,
 			reply: "先把中心论点定下来。",
 			adds:  1, // 断点之前那个是完整的，留着
 		},
@@ -81,14 +81,35 @@ func TestParseWritingPlanReply_SalvagesTheSentenceWhenTheStructureBreaks(t *test
 func TestParseWritingPlanReply_HealthyReplyUnchanged(t *testing.T) {
 	got, ok := parseWritingPlanReply(
 		"```json\n{\"reply\":\"你见过哪一次？\",\"ready\":true," +
-			"\"add\":[{\"text\":\"食堂浪费\",\"role\":\"claim\"},{\"text\":\"我数过六个桶\",\"parentId\":\"abc\"}]}\n```")
+			"\"add\":[{\"text\":\"食堂浪费\",\"kind\":\"thesis\"},{\"text\":\"我数过六个桶\",\"kind\":\"evidence\"}]}\n```")
 	if !ok {
 		t.Fatal("一份完好的回复没读出来")
 	}
 	if got.Reply != "你见过哪一次？" || !got.Ready || len(got.Add) != 2 {
 		t.Fatalf("got %+v", got)
 	}
-	if got.Add[1].ParentID != "abc" {
-		t.Errorf("parentId 丢了：%+v", got.Add[1])
+	if got.Add[1].Kind != writingKindEvidence {
+		t.Errorf("kind 丢了：%+v", got.Add[1])
+	}
+}
+
+// 🚨 模型编一个不在闭表里的 kind：整条丢掉，不猜一个最近的。
+// 猜错的代价是她的一句话落在一个她没放的地方，而她看不出发生过什么。
+func TestParseWritingPlanReply_DropsAnInventedKind(t *testing.T) {
+	got, ok := parseWritingPlanReply(
+		`{"reply":"好。","add":[` +
+			`{"kind":"point","text":"早上省心"},` +
+			`{"kind":"我编的一个","text":"这条要丢掉"},` +
+			`{"kind":"CLOSING","text":"回到方便比好看值"}` +
+			`],"ready":false}`)
+	if !ok {
+		t.Fatal("should parse")
+	}
+	if len(got.Add) != 2 {
+		t.Fatalf("kept %d nodes, want 2（编的那个要丢掉）：%+v", len(got.Add), got.Add)
+	}
+	// 大小写不该让一条合法的节点掉队。
+	if got.Add[1].Kind != writingKindClosing {
+		t.Errorf("CLOSING 应当归一化成 closing，得到 %q", got.Add[1].Kind)
 	}
 }

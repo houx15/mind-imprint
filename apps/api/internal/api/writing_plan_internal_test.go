@@ -16,13 +16,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"mindimprint/api/internal/store/sqlc"
 	"mindimprint/api/internal/vocab"
 )
 
 func TestWritingPlanSystem_TeachesWholePieceJudgment(t *testing.T) {
 	for _, want := range []string{
-		"最上层不止中心论点",
+		// 🚨 2026-09-20：原来这里钉的是「最上层不止中心论点」—— 那句话在教模型
+		// 怎么摆节点。模型不再摆节点了，所以钉住的换成新的那条契约本身：
+		// 它只说这一块是什么，位置不归它管。
+		"你不决定它挂在哪儿",
+		"「closing」 结尾",
+		"「reasoning」 道理",
 		"不超过 200 字",
 	} {
 		if !strings.Contains(writingPlanSystem, want) {
@@ -31,6 +38,13 @@ func TestWritingPlanSystem_TeachesWholePieceJudgment(t *testing.T) {
 	}
 	if strings.Contains(writingPlanSystem, "不超过 120 字") {
 		t.Fatalf("writingPlanSystem still carries the old 120-字 cap")
+	}
+	// 🚨 判据要盯住**真失败本身**，不是它的影子（[[detector-must-target-the-real-failure]]）。
+	// 真失败是「提示词还在向模型要一个 parentId」，而不是「提示词里出现了
+	// parentId 这个词」—— 那句「不要给 parentId」正是我们要的话，第一版判据
+	// 把它也判成了失败。所以只查**输出格式里的那个字段**（带引号的那一个）。
+	if strings.Contains(writingPlanSystem, `"parentId"`) {
+		t.Fatalf("writingPlanSystem's output format still carries a parentId field")
 	}
 }
 
@@ -113,17 +127,23 @@ func TestRootInsertPosition(t *testing.T) {
 		role string
 		want int32
 	}{
-		{"opening role goes first", "开头", 0},
-		{"opening synonym goes first", "钩子式开头", 0},
-		{"closing role appends", "结尾", int32(len(rows))},
-		{"thesis role appends", "中心论点", int32(len(rows))},
-		{"unrecognised role appends", "反方会说的话", int32(len(rows))},
+		{"开篇排在最前", writingKindOpening, 0},
+		{"结尾排在最后", writingKindClosing, int32(len(rows))},
+		// 图上还没有开篇，所以中心论点就排在 0。有开篇时排在它后面，
+		// 由下面那条子用例守着。
+		{"中心论点排在开篇之后", writingKindThesis, 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := rootInsertPosition(c.role, rows); got != c.want {
-				t.Fatalf("rootInsertPosition(%q, rows) = %d, want %d", c.role, got, c.want)
+			if got := topLevelInsertPosition(c.role, rows); got != c.want {
+				t.Fatalf("topLevelInsertPosition(%q, rows) = %d, want %d", c.role, got, c.want)
 			}
 		})
+	}
+	withOpening := append([]sqlc.WritingOutline{
+		{ID: uuid.New(), Kind: writingKindOpening, Depth: 0, Position: 0},
+	}, rows...)
+	if got := topLevelInsertPosition(writingKindThesis, withOpening); got != 1 {
+		t.Fatalf("有开篇时中心论点应排在它后面，得到 %d", got)
 	}
 }

@@ -78,7 +78,9 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	b.WriteString("\n【整篇的结构】\n")
 	for _, s := range outline {
 		indent := strings.Repeat("  ", int(s.Depth))
-		role := s.Role
+		// 块的名字用 kind 的标题 —— 屏幕上印的就是这几个字，
+		// 让模型看见和她看见的是同一个词。
+		role := writingKindLabel(writingKindOf(s), s.Source)
 		if role == "" {
 			role = "（未命名的块）"
 		}
@@ -95,7 +97,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	}
 
 	b.WriteString("\n【她现在停住的这一块】\n")
-	b.WriteString("这一块的作用：" + block.Role + "\n")
+	b.WriteString("这一块的作用：" + writingKindLabel(writingKindOf(block), block.Source) + "\n")
 	if t := strings.TrimSpace(block.Text); t != "" {
 		b.WriteString("她给这一块定的要点：" + t + "\n")
 	} else {
@@ -117,7 +119,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	// Position AND language (vocab.For): this sub-agent is the one that actually
 	// shows examples, so a wrong-language entry here would be read out loud.
 	b.WriteString("\n【可用的方法】（举例子只能用这里的，别自己编，例子讲的是别的题目，不是她的）\n")
-	for _, m := range vocab.For(writingGuideAppliesTo(block.Role), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	return b.String()

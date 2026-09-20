@@ -2,7 +2,6 @@ package api
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"mindimprint/api/internal/store/sqlc"
@@ -22,160 +21,15 @@ import (
 // 出自她这一轮原话的那句，要么在图上，要么在这一轮的 add 里。
 // 都不在就重试一次（planReplyUnplaced + writingPlanPlaceNudge）。
 
-// planHandle 是 prompt 里给模型看的节点短号：n1、n2……（按这一轮开始时图上的顺序）。
+// 🚨 2026-09-20：这里原来住着五个函数 —— planHandle、resolvePlanParent、
+// examplePlanParent、writingRoleIsPoint、thesisPlanNode —— 全部删掉了。
 //
-// 🚨 2026-09-18 实测：模型抄 36 位的 UUID 会抄丢一整段
-// （`c968eb1b-0b62-4214-e2555921adf8`，少了第四段），那个节点于是按「不认识的
-// parentId」被丢掉，重试一次还是同样抄错。短号抄不错。
-func planHandle(i int) string { return "n" + strconv.Itoa(i+1) }
-
-// resolvePlanParent 把模型给的 parentId 对到一个真实的节点上。
+// 它们做的是同一件事：**把模型给的位置修回来**。模型抄丢 UUID 的一段、
+// 同一轮新建的分论点没有 id 可引用、把结尾挂到中心论点底下……每一个函数都是
+// 一次线上事故的补丁，而补丁只能在错误发生之后纠正它。
 //
-// 从严到宽，每一步都只接受**唯一**的命中：逐字 id → 去掉「id=」和空白 →
-// 至少 8 位的 id 前缀 → 节点文字完全相同。都不中就不认 —— 猜一个父节点会把
-// 她的话放到她没放过的地方，比丢掉更糟（原来那条规矩不变）。
-//
-// 先查 rows（落库循环里的 live，位置是最新的），再查 byID：
-// byID 里的行是这一轮开始时读的，同一轮前面插过节点之后它们的 Position 已经旧了，
-// 拿旧位置去算插入点会把节点插错地方。
-func resolvePlanParent(byID map[string]sqlc.WritingOutline, rows []sqlc.WritingOutline, raw string) (sqlc.WritingOutline, bool) {
-	find := func(id string) (sqlc.WritingOutline, bool) {
-		for _, r := range rows {
-			if r.ID.String() == id {
-				return r, true
-			}
-		}
-		r, ok := byID[id]
-		if !ok {
-			return r, false
-		}
-		// byID 里的行是这一轮开始时的，位置可能已经旧了：换成 rows 里那一行。
-		for _, x := range rows {
-			if x.ID == r.ID {
-				return x, true
-			}
-		}
-		return r, true
-	}
-	if r, ok := find(raw); ok {
-		return r, true
-	}
-	id := strings.ToLower(strings.TrimSpace(raw))
-	id = strings.TrimPrefix(id, "id=")
-	id = strings.TrimPrefix(id, "id:")
-	id = strings.TrimSpace(id)
-	if r, ok := find(id); ok {
-		return r, true
-	}
-	all := append([]sqlc.WritingOutline(nil), rows...)
-	for _, r := range byID {
-		dup := false
-		for _, x := range all {
-			if x.ID == r.ID {
-				dup = true
-				break
-			}
-		}
-		if !dup {
-			all = append(all, r)
-		}
-	}
-	unique := func(match func(sqlc.WritingOutline) bool) (sqlc.WritingOutline, bool) {
-		var hit sqlc.WritingOutline
-		n := 0
-		for _, r := range all {
-			if match(r) {
-				hit = r
-				n++
-			}
-		}
-		return hit, n == 1
-	}
-	if len(id) >= 8 {
-		if r, ok := unique(func(r sqlc.WritingOutline) bool { return strings.HasPrefix(r.ID.String(), id) }); ok {
-			return r, true
-		}
-	}
-	// 抄丢了中间一段的 UUID：头尾两段对得上、每一段都在。
-	if segs := strings.Split(id, "-"); len(segs) >= 3 && len(segs[0]) >= 8 {
-		if r, ok := unique(func(r sqlc.WritingOutline) bool {
-			full := r.ID.String()
-			if !strings.HasPrefix(full, segs[0]) || !strings.HasSuffix(full, segs[len(segs)-1]) {
-				return false
-			}
-			for _, sg := range segs {
-				if !strings.Contains(full, sg) {
-					return false
-				}
-			}
-			return true
-		}); ok {
-			return r, true
-		}
-	}
-	if want := normalizeOutlineText(raw); want != "" {
-		if r, ok := unique(func(r sqlc.WritingOutline) bool { return normalizeOutlineText(r.Text) == want }); ok {
-			return r, true
-		}
-	}
-	return sqlc.WritingOutline{}, false
-}
-
-// examplePlanParent 是一个没有可用父节点的例子该挂到哪里：这一轮刚加的那条
-// 分论点；这一轮没加，就是图上（按位置）最后一条分论点；一条都没有就 nil
-// （那就只能留在最上层，段落那一步会把它排成一张「先说清它证明了什么」的卡）。
-// 返回的是 live 里的那一行（位置是最新的）。
-func examplePlanParent(pointThisTurn *sqlc.WritingOutline, live []sqlc.WritingOutline) *sqlc.WritingOutline {
-	if pointThisTurn != nil {
-		for i := range live {
-			if live[i].ID == pointThisTurn.ID {
-				return &live[i]
-			}
-		}
-	}
-	var last *sqlc.WritingOutline
-	for i := range live {
-		r := live[i]
-		if r.Depth == 1 && !writingRoleIsExample(r.Role, r.Source) && strings.TrimSpace(r.Text) != "" {
-			if last == nil || r.Position > last.Position {
-				last = &live[i]
-			}
-		}
-	}
-	return last
-}
-
-// writingRoleIsPoint：role 说这一块是一条分论点 / 理由（不是中心论点本身）。
-func writingRoleIsPoint(role string) bool {
-	r := strings.ToLower(role)
-	if strings.Contains(r, "中心") {
-		return false
-	}
-	for _, kw := range []string{"分论点", "理由", "论点", "sub-point", "subpoint", "reason", "point"} {
-		if strings.Contains(r, kw) {
-			return true
-		}
-	}
-	return false
-}
-
-// thesisPlanNode 是图上的中心论点：第一个最上层、不是开头/结尾/例子/分论点的节点。
-// 返回 live 里的那一行；没有就 nil（分论点只能留在最上层）。
-func thesisPlanNode(live []sqlc.WritingOutline) *sqlc.WritingOutline {
-	var best *sqlc.WritingOutline
-	for i := range live {
-		r := live[i]
-		if r.Depth != 0 || strings.TrimSpace(r.Text) == "" ||
-			roleHasAny(r.Role, writingOpeningRoleWords) || roleHasAny(r.Role, writingClosingRoleWords) ||
-			writingRoleIsExample(r.Role, r.Source) || writingRoleIsPoint(r.Role) {
-			continue
-		}
-		if best == nil || r.Position < best.Position {
-			best = &live[i]
-		}
-	}
-	return best
-}
+// 现在模型不给位置了，只说这一块**是什么**（kind），位置由 writing_kind.go
+// 算出来。要修的东西没有了，修它们的代码也就没有了。
 
 var planReplyQuote = regexp.MustCompile(`「([^「」]{2,60})」`)
 
@@ -184,11 +38,11 @@ var planReplyQuote = regexp.MustCompile(`「([^「」]{2,60})」`)
 //
 // 只认出自她这一轮原话的引文：印记 引方法名（「并列论证」）、引图上早就有的
 // 节点、引它自己的话，都不算。短于 4 个字的不算（「好」「对」）。
-// add 里 parentId 认不出来的那一条也算「没放上去」—— 它落库时会被丢掉。
+// 🚨 2026-09-20 起不再有「parentId 认不出来所以落库时被丢掉」这一类：
+// 每一条通过解析的 add 都一定落得上去（位置由 kind 算，不会认不出来）。
 func planReplyUnplaced(
 	reply, studentText string,
 	rows []sqlc.WritingOutline,
-	byID map[string]sqlc.WritingOutline,
 	add []writingPlanAdd,
 ) []string {
 	said := normalizeOutlineText(studentText)
@@ -202,11 +56,6 @@ func planReplyUnplaced(
 		}
 	}
 	for _, n := range add {
-		if n.ParentID != "" {
-			if _, ok := resolvePlanParent(byID, rows, n.ParentID); !ok {
-				continue
-			}
-		}
 		if t := normalizeOutlineText(n.Text); t != "" {
 			placed = append(placed, t)
 		}
@@ -261,18 +110,15 @@ func planTurnDroppedHerPoint(studentText string, rows []sqlc.WritingOutline, pla
 	return true
 }
 
-// planAddsThatLand 数这一轮的 add 里真能落到图上的几条（parentId 认得出来、
-// 文字不空、不和图上重复）。和落库那一路丢的是同一批。
-func planAddsThatLand(rows []sqlc.WritingOutline, byID map[string]sqlc.WritingOutline, add []writingPlanAdd) int {
+// planAddsThatLand 数这一轮的 add 里真能落到图上的几条（文字不空、不和图上
+// 重复）。和落库那一路丢的是同一批。
+//
+// kind 不合法的那一条在 parseWritingPlanReply 就已经被丢掉了，到这里不会出现。
+func planAddsThatLand(rows []sqlc.WritingOutline, add []writingPlanAdd) int {
 	n := 0
 	for _, a := range add {
 		if strings.TrimSpace(a.Text) == "" || outlineHasText(rows, a.Text) {
 			continue
-		}
-		if a.ParentID != "" && !writingRoleIsExample(a.Role, a.Source) {
-			if _, ok := resolvePlanParent(byID, rows, a.ParentID); !ok {
-				continue
-			}
 		}
 		n++
 	}

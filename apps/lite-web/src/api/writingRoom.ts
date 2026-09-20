@@ -28,7 +28,19 @@ import type { Writing } from "./writings";
 export type WritingOutlineItem = {
   id: string;
   text: string;
+  /**
+   * 屏幕上的小标题。**派生值**：服务端按 `kind` 算出来（writingKindLabel），
+   * 不再是模型写的散文。老行（0182 之前）可能还带着模型当初写的那一句。
+   */
   role: string;
+  /**
+   * 这一块是什么 —— 闭表，见 `writings/outlineKind.ts`（服务端
+   * `writing_kind.go` 是单一真相源）。深度和父节点都由它算出来。
+   *
+   * 0182 之前的行没有这个字段；`outlineKindOf` 会按 role + depth 现算一个，
+   * 所以读的时候走那个函数，别直接 switch 这个字符串。
+   */
+  kind?: string;
   depth: number;
   position: number;
   /**
@@ -366,7 +378,7 @@ export async function getWritingOutline(id: string): Promise<WritingOutlineItem[
  */
 export async function putWritingOutline(
   id: string,
-  items: { text: string; role: string; depth: number; source?: string }[],
+  items: { text: string; role: string; kind?: string; depth: number; source?: string }[],
 ): Promise<WritingOutlineItem[]> {
   const raw = await apiFetch<{ outline: WritingOutlineItem[] }>(`${base(id)}/outline`, {
     method: "PUT",

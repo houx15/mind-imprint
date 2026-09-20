@@ -22,12 +22,31 @@ UPDATE writing_outline SET kind = CASE
   WHEN role ~ '反方|对方|反对|质疑' OR lower(role) ~ 'counter|objection' THEN 'counter'
   WHEN role ~ '开头|引言|开篇|钩子|导入' OR lower(role) ~ 'opening|hook|introduction|intro' THEN 'opening'
   WHEN role ~ '结尾|结论|总结|收尾|落点|结语' OR lower(role) ~ 'closing|conclusion|ending' THEN 'closing'
-  WHEN role ~ '例|经历|的事|事件|故事|材料|数据|研究|报道|访谈|调查|案例|引用|名言|人物|史实|素材|证据|新闻|实验|统计|场景|现象'
-    OR lower(role) ~ 'example|experience|evidence|data|study|research|report|story|quote|case|survey|statistic|source'
+  -- 深度 ≥ 2 上的「道理 / 解释 / 理由」是撑着分论点的推理，不是材料
+  -- （深度 1 上的「一条理由」是分论点，所以这一条必须带着深度判）。
+  WHEN depth >= 2 AND (role ~ '道理|解释|推理|分析|原因|理由'
+    OR lower(role) ~ 'reasoning|explanation|analysis|reason') THEN 'reasoning'
+  -- 先认 reference（她找来的：研究、报道、数据、史实），剩下的才是 evidence
+  -- （她自己见过的事）。两者分开的理由见 writing_kind.go 的 writingKindReference：
+  -- 一个司马迁的例子没有链接可填，但它不是「她见过的事」，而
+  -- writingPlanShape.Wider 那条判据（至少要有一条不是个人经历）靠的正是这个区分。
+  -- 有 source 的一定是她找来的。
+  WHEN source <> '' THEN 'reference'
+  WHEN role ~ '材料|数据|研究|报道|访谈|调查|引用|名言|史实|素材|新闻|实验|统计|文献|论文'
+    OR lower(role) ~ 'data|study|research|report|quote|survey|statistic|source|paper'
+    THEN 'reference'
+  -- 只有 role 明说是她的，才算她见过的事；其余的材料算她找来的。
+  -- 🚨 这个方向是老 writingRoleIsPersonal 的方向，不是随手挑的：
+  -- 那个数只用来提醒「还缺一条更有说服力的例子」，少提醒一次比冤枉她强。
+  WHEN role ~ '你|自己|亲身|个人|身边|经历过|见过'
+    OR lower(role) ~ 'your own|personal|my own|you saw|you did'
     THEN 'evidence'
+  WHEN role ~ '例|经历|的事|事件|故事|案例|人物|证据|场景|现象|材料|数据|研究|报道|访谈|调查|引用|名言|史实|素材|新闻|实验|统计|文献|论文'
+    OR lower(role) ~ 'example|experience|evidence|story|case|data|study|research|report|quote|survey|statistic|source|paper'
+    THEN 'reference'
   WHEN depth = 0 THEN 'thesis'
   WHEN depth = 1 THEN 'point'
-  ELSE 'evidence'
+  ELSE 'reference'
 END;
 
 -- +goose Down

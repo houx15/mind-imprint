@@ -25,8 +25,9 @@ func TestValidateWritingOutlineArrayLengths_MismatchReturns400(t *testing.T) {
 	depths := []int32{0}
 	positions := []int32{0, 1}
 	sources := []string{"", ""}
+	kinds := []string{"thesis", "point"}
 
-	err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources)
+	err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds)
 	if err == nil {
 		t.Fatalf("mismatched array lengths must be rejected, got nil error")
 	}
@@ -47,7 +48,8 @@ func TestValidateWritingOutlineArrayLengths_MatchedIsNil(t *testing.T) {
 	depths := []int32{0, 1}
 	positions := []int32{0, 1}
 	sources := []string{"", "中国睡眠研究会 2023 年报告"}
-	if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); err != nil {
+	kinds := []string{"thesis", "point"}
+	if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds); err != nil {
 		t.Fatalf("matched lengths must pass, got %v", err)
 	}
 }
@@ -61,12 +63,13 @@ func TestBuildWritingOutlineArrays_AlwaysProducesEqualLengths(t *testing.T) {
 		for i := range items {
 			items[i] = writingOutlineItemReq{Text: "x", Role: "r", Depth: int32(i)}
 		}
-		texts, roles, depths, positions, sources := buildWritingOutlineArrays(items)
-		if len(texts) != n || len(roles) != n || len(depths) != n || len(positions) != n || len(sources) != n {
-			t.Fatalf("n=%d: got lengths %d/%d/%d/%d/%d",
-				n, len(texts), len(roles), len(depths), len(positions), len(sources))
+		texts, roles, depths, positions, sources, kinds := buildWritingOutlineArrays(items)
+		if len(texts) != n || len(roles) != n || len(depths) != n || len(positions) != n ||
+			len(sources) != n || len(kinds) != n {
+			t.Fatalf("n=%d: got lengths %d/%d/%d/%d/%d/%d",
+				n, len(texts), len(roles), len(depths), len(positions), len(sources), len(kinds))
 		}
-		if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); err != nil {
+		if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds); err != nil {
 			t.Fatalf("n=%d: buildWritingOutlineArrays' own output failed its own guard: %v", n, err)
 		}
 	}

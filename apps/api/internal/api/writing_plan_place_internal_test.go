@@ -53,30 +53,33 @@ func TestStudentWantsToWrite(t *testing.T) {
 }
 
 func TestPlanAddsThatLand(t *testing.T) {
-	thesis := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Text: "论点"}
+	thesis := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindThesis, Depth: 0, Text: "论点"}
 	rows := []sqlc.WritingOutline{thesis}
-	byID := map[string]sqlc.WritingOutline{thesis.ID.String(): thesis}
+	// 🚨 「挂在一个认不出的父亲上所以被丢掉」那两条没有了：模型不再给位置。
+	// 剩下会被丢掉的只有空白和重复。
 	add := []writingPlanAdd{
-		{ParentID: thesis.ID.String(), Text: "理由A", Role: "分论点"},
-		{ParentID: "n1", Text: "理由B", Role: "分论点"},       // unknown parent → dropped
-		{ParentID: "n1", Text: "司马迁受宫刑", Role: "历史上的例子"}, // example → re-homed, lands
-		{ParentID: "", Text: "论点", Role: "中心论点"},         // duplicate → dropped
-		{ParentID: "", Text: "  ", Role: "分论点"},          // blank → dropped
+		{Kind: writingKindPoint, Text: "理由A"},
+		{Kind: writingKindPoint, Text: "理由B"},
+		{Kind: writingKindReference, Text: "司马迁受宫刑"},
+		{Kind: writingKindThesis, Text: "论点"}, // duplicate → dropped
+		{Kind: writingKindPoint, Text: "  "},  // blank → dropped
 	}
-	if n := planAddsThatLand(rows, byID, add); n != 2 {
-		t.Fatalf("lands = %d, want 2", n)
+	if n := planAddsThatLand(rows, add); n != 3 {
+		t.Fatalf("lands = %d, want 3", n)
 	}
 }
 
 // 2026-09-18 线上验证第二轮：第三条分论点被挂在第二条下面（深度 2），被当成了一个
 // 「不是个人经历的例子」，于是只有她自己那一件事就放她去写了。
 func TestDeepPointIsNotAnExample(t *testing.T) {
+	// 🚨 第三条分论点被挂在第二条下面（深度 2）。0182 之后这种摆法建不出来了，
+	// 但老数据里有，而且判据仍然必须认它是一条分论点 —— kind 说了算，深度不算数。
 	rows := []sqlc.WritingOutline{
-		{Depth: 0, Text: "人可以脆弱", Role: "中心论点"},
-		{Depth: 1, Text: "经历脆弱让人更沉着", Role: "分论点"},
-		{Depth: 2, Text: "爸爸入狱、妹妹抑郁", Role: "你经历过的事"},
-		{Depth: 1, Text: "脆弱让人区别于机器", Role: "分论点"},
-		{Depth: 2, Text: "脆弱的感受带来渴望的信息", Role: "分论点"},
+		{Kind: writingKindThesis, Depth: 0, Text: "人可以脆弱", Role: "中心论点"},
+		{Kind: writingKindPoint, Depth: 1, Text: "经历脆弱让人更沉着", Role: "分论点"},
+		{Kind: writingKindEvidence, Depth: 2, Text: "爸爸入狱、妹妹抑郁", Role: "论据 · 你见过的事"},
+		{Kind: writingKindPoint, Depth: 1, Text: "脆弱让人区别于机器", Role: "分论点"},
+		{Kind: writingKindPoint, Depth: 2, Text: "脆弱的感受带来渴望的信息", Role: "分论点"},
 	}
 	s := writingPlanShapeOf(rows)
 	if s.Material != 1 || s.Wider != 0 || s.ready(writingPlanNeedOf(sqlc.Writing{})) {
@@ -85,21 +88,24 @@ func TestDeepPointIsNotAnExample(t *testing.T) {
 }
 
 // 2026-09-18 线上验证：一条「分论点」落在了最上层，和中心论点平级。
-func TestThesisPlanNodeAndPointRole(t *testing.T) {
-	open := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 0, Text: "从一件小事说起", Role: "开头"}
-	thesis := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 1, Text: "人可以脆弱", Role: "中心论点"}
-	stray := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Position: 2, Text: "变故不必然打垮人", Role: "分论点"}
-	if p := thesisPlanNode([]sqlc.WritingOutline{open, stray, thesis}); p == nil || p.ID != thesis.ID {
-		t.Fatal("the thesis is the first top-level node that is not an opening, example or point")
+//
+// 🚨 2026-09-20：thesisPlanNode 和 writingRoleIsPoint 都删掉了 —— 那两个函数
+// 是在「模型把分论点摆到了最上层」之后把它认回来。现在分论点只能在深度 1，
+// 这个用例改成钉住那条不变量本身。
+func TestAPointCanOnlyEverBeDepthOne(t *testing.T) {
+	open := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindOpening, Depth: 0, Position: 0, Text: "从一件小事说起"}
+	thesis := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindThesis, Depth: 0, Position: 1, Text: "人可以脆弱"}
+	rows := []sqlc.WritingOutline{open, thesis}
+
+	if d := writingKindDepth(writingKindPoint); d != 1 {
+		t.Fatalf("分论点的深度 = %d，只能是 1", d)
 	}
-	if thesisPlanNode([]sqlc.WritingOutline{open}) != nil {
-		t.Fatal("no thesis yet")
+	if p := writingKindParentOf(writingKindPoint, rows); p == nil || p.ID != thesis.ID {
+		t.Fatal("分论点挂在中心论点下面，不和它平级")
 	}
-	for role, want := range map[string]bool{
-		"分论点": true, "一条理由（讲道理）": true, "中心论点": false, "你经历过的事": false, "开头": false,
-	} {
-		if writingRoleIsPoint(role) != want {
-			t.Errorf("writingRoleIsPoint(%q) = %v", role, !want)
-		}
+	// 图上还没有中心论点：挂不上，由 insertPlanNode 决定怎么办（它会让这一条
+	// 自己当中心论点），而不是悄悄挂到开篇下面。
+	if p := writingKindParentOf(writingKindPoint, []sqlc.WritingOutline{open}); p != nil {
+		t.Fatalf("没有中心论点时不该挂到 %v 上", p.Kind)
 	}
 }

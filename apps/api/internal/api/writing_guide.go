@@ -113,27 +113,6 @@ const writingGuideBatchSystem = `你是「印记」。学生正在写一整篇�
 
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
 
-// writingGuideAppliesTo maps a block's free-text role (her own outline
-// label, or the skeleton's generic name) to one of vocab's three position
-// buckets. Matched by substring against a handful of Chinese synonyms — the
-// same heuristic, and the same narrow failure mode, as rootInsertPosition
-// (writing_plan.go): a role matching neither list falls through to "body",
-// which is the right default because most blocks in a piece ARE body
-// paragraphs.
-func writingGuideAppliesTo(role string) string {
-	for _, kw := range []string{"开头", "引言", "开篇", "钩子", "导入"} {
-		if strings.Contains(role, kw) {
-			return "opening"
-		}
-	}
-	for _, kw := range []string{"结尾", "结论", "收尾", "总结"} {
-		if strings.Contains(role, kw) {
-			return "closing"
-		}
-	}
-	return "body"
-}
-
 // writingGuideSaidRuneBudget bounds 【她在对话里说过的话】.
 //
 // 🚨 这两处原来一个上限都没有：ListAtomMessages 返回这篇写作的**全部**消息，
@@ -193,8 +172,10 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	// same generic question in every block.
 	b.WriteString("\n【整篇的结构，以及每一块她自己写下的要点】\n")
 	for _, s := range siblings {
-		line := "- " + s.Role
-		if s.Role == "" {
+		// 同 buildDeepenBrief：块的名字用 kind 的标题，和她屏幕上的字一致。
+		name := writingKindLabel(writingKindOf(s), s.Source)
+		line := "- " + name
+		if name == "" {
 			line = "- （未命名的块）"
 		}
 		if t := strings.TrimSpace(s.Text); t != "" {
@@ -209,7 +190,7 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	}
 
 	b.WriteString("\n【她现在停住的这一块】\n")
-	b.WriteString("这一块的作用：" + block.Role + "\n")
+	b.WriteString("这一块的作用：" + writingKindLabel(writingKindOf(block), block.Source) + "\n")
 	if t := strings.TrimSpace(block.Text); t != "" {
 		b.WriteString("她给这一块定的要点：" + t + "\n")
 	} else {
@@ -233,7 +214,7 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	// Filtered by position AND by the piece's language — see vocab.For: an
 	// English frame offered inside a Chinese essay is a bug, not a rough edge.
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.For(writingGuideAppliesTo(block.Role), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	// See writingMethodFamiliesLine: an English piece can now be helped with

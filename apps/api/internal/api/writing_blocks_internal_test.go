@@ -108,33 +108,45 @@ func TestWritingSnippetsInCardOrder(t *testing.T) {
 	}
 }
 
-func TestResolvePlanParent(t *testing.T) {
-	thesis := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Text: "脆弱不可怕，人是可以脆弱的"}
-	reason := sqlc.WritingOutline{ID: uuid.New(), Depth: 1, Text: "没有人不经历脆弱就能成长"}
-	rows := []sqlc.WritingOutline{thesis, reason}
-	byID := map[string]sqlc.WritingOutline{
-		thesis.ID.String(): thesis, reason.ID.String(): reason,
-		planHandle(0): thesis, planHandle(1): reason,
-	}
-	full := thesis.ID.String()
-	segs := strings.Split(full, "-")
+// 🚨 2026-09-20：TestResolvePlanParent 和 TestExamplePlanParent 删掉了 ——
+// 它们测的那五个函数（planHandle / resolvePlanParent / examplePlanParent /
+// writingRoleIsPoint / thesisPlanNode）也删掉了。
+//
+// 那五个函数做的是「把模型给的位置修回来」：抄丢一段的 UUID、引用不到同一轮
+// 新建的节点、把结尾挂到中心论点底下。模型现在不给位置了，只说这一块是什么。
+//
+// 顶上那一整类 bug 的回归用例换成下面这一条：**不管模型把它想挂在哪儿，
+// 位置都由 kind 决定。**
+func TestPlacementIgnoresWhereTheModelWantedIt(t *testing.T) {
+	thesis := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindThesis, Depth: 0, Position: 0, Text: "人可以脆弱"}
+	point := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindPoint, Depth: 1, Position: 1, Text: "脆弱没有打垮我"}
+	rows := []sqlc.WritingOutline{thesis, point}
 
-	for _, raw := range []string{
-		full,
-		"id=" + full,
-		" " + full[:13] + " ",
-		"脆弱不可怕，人是可以脆弱的。",
-		"n1",
-		"id=N1",
-		// 2026-09-18 实测抄丢第四段的那种。
-		segs[0] + "-" + segs[1] + "-" + segs[2] + "-" + segs[4],
-	} {
-		if got, ok := resolvePlanParent(byID, rows, raw); !ok || got.ID != thesis.ID {
-			t.Errorf("%q should resolve to the thesis", raw)
-		}
+	cases := []struct {
+		kind      string
+		wantDepth int32
+		wantNil   bool
+		parentID  uuid.UUID
+	}{
+		{writingKindClosing, 0, true, uuid.Nil},
+		{writingKindOpening, 0, true, uuid.Nil},
+		{writingKindThesis, 0, true, uuid.Nil},
+		{writingKindPoint, 1, false, thesis.ID},
+		{writingKindEvidence, 2, false, point.ID},
+		{writingKindReference, 2, false, point.ID},
+		{writingKindGap, 2, false, point.ID},
 	}
-	if _, ok := resolvePlanParent(byID, rows, "n9"); ok {
-		t.Error("an invented id must not resolve")
+	for _, c := range cases {
+		if d := writingKindDepth(c.kind); d != c.wantDepth {
+			t.Errorf("%s: depth = %d, want %d", c.kind, d, c.wantDepth)
+		}
+		p := writingKindParentOf(c.kind, rows)
+		switch {
+		case c.wantNil && p != nil:
+			t.Errorf("%s: parent = %v, want top level", c.kind, p.ID)
+		case !c.wantNil && (p == nil || p.ID != c.parentID):
+			t.Errorf("%s: parent = %v, want %v", c.kind, p, c.parentID)
+		}
 	}
 }
 
@@ -142,24 +154,20 @@ func TestResolvePlanParent(t *testing.T) {
 func TestPlanReplyUnplaced(t *testing.T) {
 	thesis := sqlc.WritingOutline{ID: uuid.New(), Depth: 0, Text: "脆弱不可怕，人是可以脆弱的"}
 	rows := []sqlc.WritingOutline{thesis}
-	byID := map[string]sqlc.WritingOutline{thesis.ID.String(): thesis}
 	said := "脆弱让人区别于机器"
 	reply := "底下两条分论点方向不同——「脆弱让人区别于机器」从另一个角度说明脆弱本身有价值。可以开始写了。"
 
-	if got := planReplyUnplaced(reply, said, rows, byID, nil); len(got) != 1 {
+	if got := planReplyUnplaced(reply, said, rows, nil); len(got) != 1 {
 		t.Fatalf("should flag the unplaced point, got %v", got)
 	}
-	// parentId 认不出来的那条也算没放上去。
-	bad := []writingPlanAdd{{ParentID: "n1", Text: "脆弱让人区别于机器"}}
-	if got := planReplyUnplaced(reply, said, rows, byID, bad); len(got) != 1 {
-		t.Fatalf("an add with an unknown parent is dropped, so still unplaced; got %v", got)
-	}
-	ok := []writingPlanAdd{{ParentID: thesis.ID.String(), Text: "脆弱让人区别于机器"}}
-	if got := planReplyUnplaced(reply, said, rows, byID, ok); len(got) != 0 {
+	// 这一轮真的加上去了就不算。（不再有「parentId 认不出来所以被丢掉」那一类：
+	// 每一条通过解析的 add 都一定落得上去。）
+	ok := []writingPlanAdd{{Kind: writingKindPoint, Text: "脆弱让人区别于机器"}}
+	if got := planReplyUnplaced(reply, said, rows, ok); len(got) != 0 {
 		t.Fatalf("placed this turn, got %v", got)
 	}
 	// 引的是图上已有的、或者不是她这一轮的话，都不算。
-	if got := planReplyUnplaced("你的中心论点是「脆弱不可怕，人是可以脆弱的」，这是「并列论证」。", said, rows, byID, nil); len(got) != 0 {
+	if got := planReplyUnplaced("你的中心论点是「脆弱不可怕，人是可以脆弱的」，这是「并列论证」。", said, rows, nil); len(got) != 0 {
 		t.Fatalf("quotes of the map or of method names are fine, got %v", got)
 	}
 }
@@ -180,22 +188,5 @@ func TestWritingCardsTopLevelExampleIsMaterial(t *testing.T) {
 	}
 	if s := writingPlanShapeOf(outline); s.Top != 1 || s.Points != 2 || s.Material != 1 || s.Wider != 0 {
 		t.Fatalf("shape = %+v; the top-level example is personal material", s)
-	}
-}
-
-func TestExamplePlanParent(t *testing.T) {
-	a := sqlc.WritingOutline{ID: uuid.New(), Depth: 1, Position: 1, Text: "理由A", Role: "分论点"}
-	b := sqlc.WritingOutline{ID: uuid.New(), Depth: 1, Position: 3, Text: "理由B", Role: "分论点"}
-	ex := sqlc.WritingOutline{ID: uuid.New(), Depth: 1, Position: 4, Text: "一个例子", Role: "历史上的例子"}
-	live := []sqlc.WritingOutline{{ID: uuid.New(), Depth: 0, Position: 0, Text: "论点"}, a, b, ex}
-
-	if p := examplePlanParent(&a, live); p == nil || p.ID != a.ID {
-		t.Fatal("the point added this turn wins")
-	}
-	if p := examplePlanParent(nil, live); p == nil || p.ID != b.ID {
-		t.Fatal("otherwise the last point on the map — never an example")
-	}
-	if p := examplePlanParent(nil, live[:1]); p != nil {
-		t.Fatal("no point at all: stays where it is")
 	}
 }

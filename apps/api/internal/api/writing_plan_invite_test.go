@@ -7,10 +7,17 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-func planRow(id string, depth int32, text string) sqlc.WritingOutline {
+// planRow 造一行提纲。
+//
+// 🚨 kind 必须给，而且要给真的那一个：0182 之后每一行都带着 kind，一个
+// kind 空着的用例在数形状时会走 writingKindFromRole 的兜底，测出来的东西
+// 就不是生产里发生的事（2026-09-14 的教训：用例的枚举值只从生产代码抄）。
+func planRow(id string, depth int32, text, kind string) sqlc.WritingOutline {
 	return sqlc.WritingOutline{
 		ID:    uuid.NewSHA1(uuid.Nil, []byte(id)),
 		Depth: depth,
+		Kind:  kind,
+		Role:  writingKindLabel(kind, ""),
 		Text:  text,
 	}
 }
@@ -24,15 +31,12 @@ func planRow(id string, depth int32, text string) sqlc.WritingOutline {
 // 绿框「计划已可开始写作」就贴在那个问号底下。
 func TestWritingPlanInvite_CatchesTheQuestionOnTheTurnThatCrossesTheLine(t *testing.T) {
 	rows := []sqlc.WritingOutline{
-		planRow("a", 0, "人口多的城市，好高中多，大家读的高中不会那么统一"),
-		planRow("b", 0, "人多了，学校多了，自然就分散了"),
-		planRow("c", 1, "孩子多了学位不够，所以要多开设学校"),
-		planRow("d", 2, "家乡考生从五千涨到一万多，学校多开了好几所"),
-		planRow("e", 2, "教育部公布的县域高中数量报道"),
-	}
-	byID := map[string]sqlc.WritingOutline{}
-	for _, r := range rows {
-		byID[r.ID.String()] = r
+		planRow("a", 0, "人口多的城市，好高中多，大家读的高中不会那么统一", writingKindThesis),
+		planRow("b", 0, "人多了，学校多了，自然就分散了", writingKindOpening),
+		planRow("c", 1, "孩子多了学位不够，所以要多开设学校", writingKindPoint),
+		planRow("d", 2, "家乡考生从五千涨到一万多，学校多开了好几所", writingKindEvidence),
+		// 一份教育部的报道是她找来的，不是她见过的事 —— Wider 那条判据数的就是它。
+		planRow("e", 2, "教育部公布的县域高中数量报道", writingKindReference),
 	}
 
 	// 还没加这一轮那条分论点之前：分论点只有 1 条，没过线。
@@ -40,16 +44,12 @@ func TestWritingPlanInvite_CatchesTheQuestionOnTheTurnThatCrossesTheLine(t *test
 		t.Fatal("这一轮之前就该是没过线的")
 	}
 
-	add := []writingPlanAdd{{ParentID: "", Text: "各地都能开设很好的学校", Role: "一条理由（讲道理）"}}
-	// parentId 为空 ⇒ 顶层。截图上它是一条理由，所以挂在中心论点下面才对；
-	// 这里两种都试，判据不该依赖它挂在哪一层。
-	withTop := writingPlanShapeWith(rows, byID, add)
-	if withTop.Top != 3 {
-		t.Errorf("顶层应当是 3，得到 %d", withTop.Top)
-	}
-
-	add[0].ParentID = rows[1].ID.String()
-	got := writingPlanShapeWith(rows, byID, add)
+	// 🚨 2026-09-20：原来这里试了两种挂法（parentId 空 ⇒ 顶层，或挂在中心论点
+	// 下面），断言「判据不该依赖它挂在哪一层」。现在它挂在哪一层已经不是模型
+	// 能决定的事了 —— 一条分论点永远在深度 1。那个不确定性没有了，
+	// 所以也没有两种挂法要试。
+	add := []writingPlanAdd{{Kind: writingKindPoint, Text: "各地都能开设很好的学校"}}
+	got := writingPlanShapeWith(rows, add)
 	if got.Points != 2 || !got.ready(writingPlanNeedOf(sqlc.Writing{})) {
 		t.Fatalf("加上这一轮那条分论点之后应当过线，得到 %+v", got)
 	}
@@ -124,13 +124,14 @@ func TestWritingPlanReady_SameShapeDiffersByLength(t *testing.T) {
 
 // 空白节点和重复节点不该被数进来 —— 落库那边也会把它们丢掉。
 func TestWritingPlanShapeWith_SkipsWhatTheInsertWouldDrop(t *testing.T) {
-	rows := []sqlc.WritingOutline{planRow("a", 1, "孩子多了学位不够")}
-	byID := map[string]sqlc.WritingOutline{rows[0].ID.String(): rows[0]}
+	rows := []sqlc.WritingOutline{planRow("a", 1, "孩子多了学位不够", writingKindPoint)}
 
-	got := writingPlanShapeWith(rows, byID, []writingPlanAdd{
-		{Text: "   "},                    // 空白
-		{Text: "孩子多了学位不够"},              // 和图上那条一模一样
-		{ParentID: "not-a-real-id", Text: "挂在一个不存在的父亲上"}, // 落库那边会丢掉
+	// 「挂在一个不存在的父亲上」那一条不见了：模型不再给 parentId，
+	// 所以不再有这一类会被落库丢掉的节点。kind 编错的那一条在解析时就没了，
+	// 到这个函数手上的每一条都算数。
+	got := writingPlanShapeWith(rows, []writingPlanAdd{
+		{Kind: writingKindPoint, Text: "   "},        // 空白
+		{Kind: writingKindPoint, Text: "孩子多了学位不够"}, // 和图上那条一模一样
 	})
 	if got.Top != 0 || got.Points != 1 || got.Material != 0 {
 		t.Fatalf("该丢的没丢：%+v", got)

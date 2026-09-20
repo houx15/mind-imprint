@@ -48,12 +48,10 @@ func writingPlanReplyAsks(reply string) bool {
 // 为什么不能等落库之后再判：回复是先写进 atom_message 再加节点的，等 live
 // 有了那几个节点，那句带问号的话已经存进对话里了，改不动了。
 //
-// 深度的算法和 insertPlanNode 保持一致：没有 parentId 就是顶层，有就是父亲
-// 那一层加一。丢掉的那几类（空文字、重复、parentId 不认识）也和落库那边丢的
-// 是同一批，否则这里数出来的形状会比真的多。
+// 丢掉的那几类（空文字、重复）和落库那边丢的是同一批，否则这里数出来的形状
+// 会比真的多。kind 不合法的那一条在解析时就已经没了。
 func writingPlanShapeWith(
 	rows []sqlc.WritingOutline,
-	byID map[string]sqlc.WritingOutline,
 	add []writingPlanAdd,
 ) writingPlanShape {
 	s := writingPlanShapeOf(rows)
@@ -62,17 +60,9 @@ func writingPlanShapeWith(
 		if strings.TrimSpace(n.Text) == "" || outlineHasText(seen, n.Text) {
 			continue
 		}
-		depth := 0
-		if n.ParentID != "" {
-			p, ok := resolvePlanParent(byID, seen, n.ParentID)
-			if !ok {
-				continue
-			}
-			depth = int(p.Depth) + 1
-		}
-		s.count(depth, n.Role, n.Source)
+		s.count(n.Kind, n.Source)
 		// 同一轮里两个一模一样的节点，落库那边也只会留下第一个。
-		seen = append(seen, sqlc.WritingOutline{Text: n.Text, Depth: int32(depth)})
+		seen = append(seen, sqlc.WritingOutline{Text: n.Text, Kind: n.Kind, Depth: writingKindDepth(n.Kind)})
 	}
 	return s
 }

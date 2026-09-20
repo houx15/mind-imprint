@@ -1,11 +1,12 @@
 import type { WritingOutlineItem } from "../api/writingRoom";
-import { roleIsExample } from "./slots";
+import { outlineKindOf } from "./outlineKind";
 
 /**
- * 这份计划现在有几块 —— 按深度数，和服务端 writingPlanShapeOf 数的是同一批东西。
+ * 这份计划现在有几块 —— 按 kind 数，和服务端 writingPlanShapeOf 数的是同一批东西。
  *
- * 深度约定沿用 writingPlanMaxDepth：0 = 最上层的块（开头 / 中心论点 / 落点），
- * 1 = 分论点，2 及以下 = 她自己的材料。
+ * 🚨 2026-09-20：原来这里按**深度**数，外加一张关键词表去认「这是不是一个
+ * 例子」。深度是模型定的，于是一条挂错层的分论点会被数成一个例子。
+ * 现在节点自己带着 kind（outlineKind.ts 的闭表），深度不参与。
  *
  * 🚨 **这里只数数，不判断「够不够」。**
  * 「够不够」那条判据在服务端（writingPlanShape.ready），这块面板只在服务端说
@@ -15,21 +16,31 @@ import { roleIsExample } from "./slots";
  */
 export type PlanShape = { top: number; points: number; material: number };
 
-// 一条道理、或者一条挂得更深的分论点，都不是例子（服务端 writingRoleIsReasoning /
-// writingRoleIsPoint 同一张词表）。
-const REASONING_WORDS = ["道理", "解释", "推理", "分析", "原因", "理由", "分论点", "reasoning", "explanation", "analysis", "reason", "point"];
-
 export function planShapeOf(items: WritingOutlineItem[]): PlanShape {
   const s: PlanShape = { top: 0, points: 0, material: 0 };
   for (const it of items) {
     if (it.text.trim() === "") continue;
-    // 挂在中心论点下面的例子算例子，不算分论点（服务端 writingPlanShape.count 同一条）。
-    const example = roleIsExample(it.role, it.source);
-    if (it.depth === 0 && !example) s.top++;
-    else if (it.depth === 1 && !example) s.points++;
-    // 一条道理 / 一层解释不是例子（服务端 writingRoleIsReasoning 同一张词表）。
-    else if (!example && REASONING_WORDS.some((w) => it.role.toLowerCase().includes(w))) continue;
-    else s.material++;
+    // 这个 switch 和服务端 writingPlanShape.count 逐条一致。
+    switch (outlineKindOf(it)) {
+      case "opening":
+      case "thesis":
+      case "closing":
+        s.top++;
+        break;
+      case "point":
+      case "counter":
+        s.points++;
+        break;
+      case "evidence":
+      case "reference":
+        s.material++;
+        break;
+      // 道理和对反方的回应是推理，不是材料；待补的材料是一个洞，也不算。
+      case "reasoning":
+      case "rebuttal":
+      case "gap":
+        break;
+    }
   }
   return s;
 }

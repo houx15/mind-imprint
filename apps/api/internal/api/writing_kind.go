@@ -31,8 +31,24 @@ const (
 	writingKindOpening  = "opening"  // 开篇
 	writingKindThesis   = "thesis"   // 中心论点
 	writingKindPoint    = "point"    // 分论点
-	writingKindEvidence = "evidence" // 论据
-	writingKindCounter  = "counter"  // 反方观点
+	writingKindEvidence = "evidence" // 论据 · 她自己见过、经历过的事
+	// 论据 · 她从别处来的：一份研究、一条报道、一组数据、一次访谈，
+	// 也包括社会上的、历史上的例子。
+	//
+	// 🚨 为什么和 evidence 分成两个 kind，而不是看 source 空不空：
+	// 一个司马迁的例子没有链接可填，但它显然不是「她见过的事」。
+	// 2026-09-18 产品负责人：「个人经历是信效度最低的，最好是使用社会上的、
+	// 历史上的例子」—— 那条判据（writingPlanShape.Wider，至少要有一条）
+	// 靠的就是这个区分，用 source 来推会把每一个历史例子都算成她的亲身经历。
+	writingKindReference = "reference"
+	// 道理：撑住一条分论点的推理，而不是一件事。
+	//
+	// 🚨 它**不是材料**。2026-09-18 实测：「脆弱的感受带来关于自己渴望的信息」
+	// 是一条道理，却被当成了一个「不是个人经历的例子」，于是只有她自己那一件事
+	// 也过了线。道理站得住是好事，但它撑不起「你有什么证据」那一问。
+	// 对应 vocab 里的 point_reasoning（道理论证），是语文课上真有的那个东西。
+	writingKindReasoning = "reasoning"
+	writingKindCounter   = "counter" // 反方观点
 	writingKindRebuttal = "rebuttal" // 对反方的回应
 	writingKindGap      = "gap"      // 待补的材料
 	writingKindClosing  = "closing"  // 结尾
@@ -41,7 +57,8 @@ const (
 var writingKindDepths = map[string]int32{
 	writingKindOpening: 0, writingKindThesis: 0, writingKindClosing: 0,
 	writingKindPoint: 1, writingKindCounter: 1,
-	writingKindEvidence: 2, writingKindRebuttal: 2, writingKindGap: 2,
+	writingKindEvidence: 2, writingKindReference: 2, writingKindReasoning: 2,
+	writingKindRebuttal: 2, writingKindGap: 2,
 }
 
 func writingKindValid(k string) bool {
@@ -66,9 +83,13 @@ func writingKindDepth(k string) int32 {
 // 用的是语文课上的正式词（AGENTS.md 文案规则 6：学生来这儿就是要学这套词），
 // 而且是名词（规则 1）。同事的意见 2：「部分论据的标题不规范」。
 //
-// 论据分两种后缀，靠 source 定：非空 = 她找回来的材料，空 = 她自己见过的事。
-// 这条区分承重 —— 印记 下一轮正是照着 source 去查这份材料。
+// 论据分两种，各自是一个 kind（见上面 writingKindReference 的注释）。
+// 这条区分承重 —— 一篇只拿她自己两件事去撑的议论文，老师读到的是「我觉得」。
+//
+// source 这个参数留着是为了调用点不必关心哪一种 kind 用得上它；
+// 标题本身只看 kind。
 func writingKindLabel(k, source string) string {
+	_ = source
 	switch k {
 	case writingKindOpening:
 		return "开篇"
@@ -85,10 +106,11 @@ func writingKindLabel(k, source string) string {
 	case writingKindClosing:
 		return "结尾"
 	case writingKindEvidence:
-		if strings.TrimSpace(source) != "" {
-			return "论据 · 你找来的材料"
-		}
 		return "论据 · 你见过的事"
+	case writingKindReference:
+		return "论据 · 你找来的材料"
+	case writingKindReasoning:
+		return "道理"
 	}
 	return ""
 }
@@ -109,7 +131,7 @@ func writingKindParentOf(k string, rows []sqlc.WritingOutline) *sqlc.WritingOutl
 		return nil
 	case writingKindPoint, writingKindCounter:
 		return lastWritingKind(rows, writingKindThesis)
-	case writingKindEvidence, writingKindGap:
+	case writingKindEvidence, writingKindReference, writingKindReasoning, writingKindGap:
 		return lastWritingKind(rows, writingKindPoint)
 	case writingKindRebuttal:
 		return lastWritingKind(rows, writingKindCounter)
@@ -142,6 +164,10 @@ func writingKindOf(row sqlc.WritingOutline) string {
 	if row.Kind != "" {
 		return row.Kind
 	}
+	// 有出处的一定是她找来的 —— 和 0182 的回填同一条规则，同一个顺序。
+	if strings.TrimSpace(row.Source) != "" && row.Depth > 0 {
+		return writingKindReference
+	}
 	return writingKindFromRole(row.Role, row.Depth)
 }
 
@@ -151,7 +177,13 @@ func writingKindOf(row sqlc.WritingOutline) string {
 // writingPlanShapeOf 只按深度数材料，于是它被当成一条真材料计入 Material，
 // 可以把 ready() 推过线 —— 她手上一条材料都没有，产品却说这份计划站得住。
 func writingKindIsMaterial(k string) bool {
-	return k == writingKindEvidence
+	return k == writingKindEvidence || k == writingKindReference
+}
+
+// writingKindIsWider：这条材料不是她的个人经历 —— 一份研究、一条报道、
+// 一组数据，或者社会上、历史上的一个例子。判据里至少要有一条。
+func writingKindIsWider(k string) bool {
+	return k == writingKindReference
 }
 
 // writingKindAppliesTo 把 kind 映射成 vocab 的三个位置桶。
@@ -174,13 +206,40 @@ var (
 	writingRoleWordsCounter  = []string{"反方", "对方", "反对", "质疑", "counter", "objection"}
 	writingRoleWordsRebuttal = []string{"回应", "反驳", "rebuttal", "response"}
 	writingRoleWordsGap      = []string{"还没找到", "没找到", "待补", "暂时没有", "缺一份"}
-	writingRoleWordsEvidence = []string{
-		"例", "经历", "的事", "事件", "故事", "材料", "数据", "研究", "报道", "访谈", "调查",
-		"案例", "引用", "名言", "人物", "史实", "素材", "证据", "新闻", "实验", "统计", "场景", "现象",
-		"example", "experience", "evidence", "data", "study", "research", "report",
-		"story", "quote", "case", "survey", "statistic", "source",
+	// 只在深度 ≥ 2 上用：「一条理由」在深度 1 是一条分论点，在深度 2 才是
+	// 撑着它的一条道理。老的 writingRoleIsReasoning 就是这张表。
+	writingRoleWordsReasoning = []string{
+		"道理", "解释", "推理", "分析", "原因", "理由",
+		"reasoning", "explanation", "analysis", "reason",
+	}
+	// 🚨 这两张表分工和别的几张不一样：**先判它是不是一条材料，再判它是谁的。**
+	//
+	// 老的 writingRoleIsPersonal 只在 role 里出现「你 / 自己 / 身边 / 经历过 /
+	// 见过」时才算她的亲身经历，**其余一律算「不是个人经历」**。那个方向是故意的，
+	// 它当时的注释写着：这个数只用来提醒「还缺一条更有说服力的例子」，
+	// 少提醒一次比冤枉她强。回填必须保住同一个方向，否则一批老稿子会在
+	// 她没做错任何事的情况下，突然被判成「还缺一条社会上的例子」。
+	writingRoleWordsPersonal = []string{
+		"你", "自己", "亲身", "个人", "身边", "经历过", "见过",
+		"your own", "personal", "my own", "you saw", "you did",
+	}
+	writingRoleWordsMaterial = []string{
+		"例", "经历", "的事", "事件", "故事", "案例", "人物", "证据", "场景", "现象",
+		"材料", "数据", "研究", "报道", "访谈", "调查", "引用", "名言", "史实", "素材",
+		"新闻", "实验", "统计", "文献", "论文",
+		"example", "experience", "evidence", "story", "case",
+		"data", "study", "research", "report", "quote", "survey", "statistic", "source", "paper",
 	}
 )
+
+// writingMaterialKindFromRole：一条材料是她见过的，还是她找来的。
+// 只有 role 明说是她的（「你经历过的事」）才算她见过的；其余算她找来的。
+func writingMaterialKindFromRole(role string) string {
+	if roleContainsAny(role, writingRoleWordsPersonal) {
+		return writingKindEvidence
+	}
+	return writingKindReference
+}
 
 func roleContainsAny(role string, words []string) bool {
 	r := strings.ToLower(role)
@@ -212,8 +271,10 @@ func writingKindFromRole(role string, depth int32) string {
 		return writingKindOpening
 	case roleContainsAny(role, writingRoleWordsClosing):
 		return writingKindClosing
-	case roleContainsAny(role, writingRoleWordsEvidence):
-		return writingKindEvidence
+	case depth >= writingMaterialDepth && roleContainsAny(role, writingRoleWordsReasoning):
+		return writingKindReasoning
+	case roleContainsAny(role, writingRoleWordsMaterial):
+		return writingMaterialKindFromRole(role)
 	}
 	switch depth {
 	case 0:
@@ -221,6 +282,8 @@ func writingKindFromRole(role string, depth int32) string {
 	case 1:
 		return writingKindPoint
 	default:
-		return writingKindEvidence
+		// 深度 2 而 role 说不出它是什么：当成她找来的。见上面那段注释 ——
+		// 这是老 writingRoleIsPersonal 的默认方向，不是随手挑的。
+		return writingKindReference
 	}
 }

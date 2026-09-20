@@ -25,8 +25,8 @@ func TestWritingKindLabel(t *testing.T) {
 	if got := writingKindLabel(writingKindEvidence, ""); got != "论据 · 你见过的事" {
 		t.Errorf("evidence without source = %q", got)
 	}
-	if got := writingKindLabel(writingKindEvidence, "Lu 2008"); got != "论据 · 你找来的材料" {
-		t.Errorf("evidence with source = %q", got)
+	if got := writingKindLabel(writingKindReference, "Lu 2008"); got != "论据 · 你找来的材料" {
+		t.Errorf("reference = %q", got)
 	}
 	if got := writingKindLabel(writingKindClosing, ""); got != "结尾" {
 		t.Errorf("closing = %q", got)
@@ -80,7 +80,12 @@ func TestWritingKindFromRoleBackfill(t *testing.T) {
 		{"结尾", 1, writingKindClosing},
 		{"开头", 0, writingKindOpening},
 		{"你见过的事", 2, writingKindEvidence},
-		{"一份研究", 1, writingKindEvidence},
+		{"你经历过的事", 2, writingKindEvidence},
+		{"一份研究", 1, writingKindReference},
+		{"历史上的例子", 1, writingKindReference},
+		// 🚨 role 说不出它是什么：算「她找来的」。这是老 writingRoleIsPersonal
+		// 的默认方向 —— 少提醒一次比冤枉她强。
+		{"", 2, writingKindReference},
 		{"反方会说的话", 1, writingKindCounter},
 		{"对反方的回应", 1, writingKindRebuttal},
 		{"暂时还没找到的材料", 2, writingKindGap},
@@ -88,7 +93,7 @@ func TestWritingKindFromRoleBackfill(t *testing.T) {
 		{"一条理由", 1, writingKindPoint},
 		{"完全不认识的东西", 0, writingKindThesis},
 		{"完全不认识的东西", 1, writingKindPoint},
-		{"完全不认识的东西", 2, writingKindEvidence},
+		{"完全不认识的东西", 2, writingKindReference},
 	}
 	for _, c := range cases {
 		if got := writingKindFromRole(c.role, c.depth); got != c.want {

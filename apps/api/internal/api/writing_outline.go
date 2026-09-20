@@ -56,8 +56,14 @@ type writingOutlineItemDTO struct {
 	// They are separate fields for the same reason they are separate columns:
 	// once merged there is no way to tell her thinking from the template, and
 	// that distinction is exactly what the process report reads.
-	Text     string `json:"text"`
-	Role     string `json:"role"`
+	Text string `json:"text"`
+	// Role 现在是**派生值**：kind 的标题（writingKindLabel），不是模型写的散文。
+	// 它仍然落库并回传，因为报告、教师端和老前端都还读这一列。
+	Role string `json:"role"`
+	// Kind 是这一块是什么，闭表见 writing_kind.go。
+	// 🚨 json 标签不能少：缺标签会让前端读到的字段名全错，而 Go 测试全绿、
+	// 日志干净（[[go-nil-slice-becomes-null]]）。
+	Kind     string `json:"kind"`
 	Depth    int32  `json:"depth"`
 	Position int32  `json:"position"`
 	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处；
@@ -71,8 +77,14 @@ type writingOutlineItemDTO struct {
 }
 
 func toWritingOutlineItemDTO(row sqlc.WritingOutline) writingOutlineItemDTO {
+	// 老行（0182 之前）没有 kind：现算一个，别让前端拿到空字符串去 switch。
+	kind := writingKindOf(row)
+	role := row.Role
+	if lbl := writingKindLabel(kind, row.Source); lbl != "" {
+		role = lbl
+	}
 	dto := writingOutlineItemDTO{
-		ID: row.ID.String(), Text: row.Text, Role: row.Role, Depth: row.Depth, Position: row.Position,
+		ID: row.ID.String(), Text: row.Text, Role: role, Kind: kind, Depth: row.Depth, Position: row.Position,
 		Source: row.Source,
 	}
 	if g, ok := storedWritingGuide(row); ok {
@@ -112,8 +124,12 @@ type writingOutlineItemReq struct {
 	// Role is echoed back by the client from what the server served. The
 	// skeleton owns it; the PUT only has to avoid destroying it. An absent
 	// role is stored as "" — a hand-added free block genuinely has no role.
-	Role  string `json:"role"`
-	Text  string `json:"text"`
+	Role string `json:"role"`
+	Text string `json:"text"`
+	// Kind 是这一块是什么（0182）。客户端把服务端发给它的那一份原样回传；
+	// 她拖动之后前端会按 outlineKind.ts 改写它。不合法或缺失时服务端按
+	// role + depth 兜底，见 buildWritingOutlineArrays。
+	Kind  string `json:"kind"`
 	Depth int32  `json:"depth"`
 	// Source 是这条材料从哪来（0158）。空串 = 她自己的经历，或者她没写出处。
 	// 客户端把服务端发给它的那一份原样回传 —— 和 Role 同一个道理：全量替换
@@ -146,20 +162,31 @@ func (a *API) getWritingOutline(w http.ResponseWriter, r *http.Request) {
 // Built in a single loop over the SAME source slice, so the three results are
 // equal length by construction — position is simply the loop index, and depth
 // is clamped here (0..2) rather than left to the caller.
-func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32, sources []string) {
+func buildWritingOutlineArrays(items []writingOutlineItemReq) (texts []string, roles []string, depths []int32, positions []int32, sources []string, kinds []string) {
 	texts = make([]string, len(items))
 	roles = make([]string, len(items))
 	depths = make([]int32, len(items))
 	positions = make([]int32, len(items))
 	sources = make([]string, len(items))
+	kinds = make([]string, len(items))
 	for i, it := range items {
 		texts[i] = strings.TrimSpace(it.Text)
-		roles[i] = strings.TrimSpace(it.Role)
-		depths[i] = clampDepth(it.Depth)
+		// kind 不合法就按她给的 role 和深度兜底 —— 老前端不会传这个字段，
+		// 而一次保存不该因为少一个字段就把她的提纲清空。
+		k := strings.ToLower(strings.TrimSpace(it.Kind))
+		if !writingKindValid(k) {
+			k = writingKindFromRole(strings.TrimSpace(it.Role), clampDepth(it.Depth))
+		}
+		kinds[i] = k
+		// 🚨 深度由 kind 算出来，不采信客户端给的。她拖动之后前端已经按同一张表
+		// 算过一次（outlineKind.ts），这里再算一次是为了让服务端不依赖它算对。
+		depths[i] = clampDepth(writingKindDepth(k))
+		// Role 是派生的标题，不是她输入的字段。
+		roles[i] = writingKindLabel(k, it.Source)
 		positions[i] = int32(i)
 		sources[i] = trimRunes(strings.TrimSpace(it.Source), writingSourceMaxRunes)
 	}
-	return texts, roles, depths, positions, sources
+	return texts, roles, depths, positions, sources, kinds
 }
 
 // writingSourceMaxRunes 是一条出处能有多长。
@@ -180,9 +207,9 @@ const writingSourceMaxRunes = 300
 // fires — it exists so that stays true by an assertion, not merely by
 // happenstance, and so any future caller that assembles the three arrays a
 // different way gets a clean 400 instead of a database error.
-func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32, sources []string) error {
+func validateWritingOutlineArrayLengths(texts, roles []string, depths, positions []int32, sources, kinds []string) error {
 	if len(texts) != len(roles) || len(texts) != len(depths) || len(texts) != len(positions) ||
-		len(texts) != len(sources) {
+		len(texts) != len(sources) || len(texts) != len(kinds) {
 		return httpx.ErrBadRequest("outline_array_length_mismatch", "提纲数据格式不对，请重试。", nil)
 	}
 	return nil
@@ -208,8 +235,8 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	texts, roles, depths, positions, sources := buildWritingOutlineArrays(body.Outline)
-	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources); verr != nil {
+	texts, roles, depths, positions, sources, kinds := buildWritingOutlineArrays(body.Outline)
+	if verr := validateWritingOutlineArrayLengths(texts, roles, depths, positions, sources, kinds); verr != nil {
 		httpx.WriteError(w, r, verr)
 		return
 	}
@@ -231,7 +258,7 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := a.d.Queries.ReplaceWritingOutline(r.Context(), sqlc.ReplaceWritingOutlineParams{
 		AtomID: at.ID, Texts: texts, Roles: roles, Depths: depths, Positions: positions,
-		Sources: sources,
+		Sources: sources, Kinds: kinds,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return

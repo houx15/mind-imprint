@@ -64,7 +64,7 @@ func writingTextSequenceStubProvider(replies ...string) *gateway.SequenceStubPro
 func planTurnWith(t *testing.T, reply string) planTurnResult {
 	t.Helper()
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextSequenceStubProvider(
-		`{"reply":"你打算用哪几件事来说明？","add":[{"parentId":"","text":"不该一刀切禁手机","role":"中心论点"}]}`,
+		`{"reply":"你打算用哪几件事来说明？","add":[{"kind":"thesis","text":"不该一刀切禁手机"}]}`,
 		reply,
 	))
 	id := createWritingAtomHTTP(t, h, cookie, "学校该不该禁手机。")
@@ -82,10 +82,10 @@ func planTurnWith(t *testing.T, reply string) planTurnResult {
 // thesis, so this is the assertion that the teaching changed.
 func TestPlanTurn_AcceptsATopLevelOpeningBesideTheThesis(t *testing.T) {
 	// Existing thesis at depth 0, position 0.
-	// Model adds an opening with parentId "" — it must be stored at depth 0 and
+	// Model adds an opening — it must be stored at depth 0 and
 	// must NOT be reparented under the thesis or dropped.
 	out := planTurnWith(t,
-		`{"reply":"记下了。","add":[{"parentId":"","text":"夏天路上晒得受不了","role":"开头"}]}`)
+		`{"reply":"记下了。","add":[{"kind":"opening","text":"夏天路上晒得受不了"}]}`)
 
 	var roots []string
 	for _, n := range out.Outline {
@@ -102,7 +102,7 @@ func TestPlanTurn_AcceptsATopLevelOpeningBesideTheThesis(t *testing.T) {
 // speaks, 印记 replies, and what she said becomes a node.
 func TestWritingPlanTurn_GrowsTheMapFromWhatSheSaid(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(
-		`{"reply":"你打算用哪几件事来说明？","add":[{"parentId":"","text":"不该一刀切禁手机","role":"中心论点"}]}`))
+		`{"reply":"你打算用哪几件事来说明？","add":[{"kind":"thesis","text":"不该一刀切禁手机"}]}`))
 	id := createWritingAtomHTTP(t, h, cookie, "学校该不该禁手机。")
 
 	rec := planTurn(t, h, cookie, id, "我觉得不该一刀切禁手机。")
@@ -140,7 +140,7 @@ func TestWritingPlanTurn_GrowsTheMapFromWhatSheSaid(t *testing.T) {
 // node that was there before is byte-identical afterwards.
 func TestWritingPlanTurn_CannotTouchWhatIsAlreadyOnTheMap(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(
-		`{"reply":"记下了。","add":[{"parentId":"","text":"她自己写的那一条","role":"中心论点"}]}`))
+		`{"reply":"记下了。","add":[{"kind":"thesis","text":"她自己写的那一条"}]}`))
 	id := createWritingAtomHTTP(t, h, cookie, "随便写点什么。")
 
 	before := decodePlanTurn(t, planTurn(t, h, cookie, id, "我想说的是这个。"))
@@ -164,17 +164,21 @@ func TestWritingPlanTurn_CannotTouchWhatIsAlreadyOnTheMap(t *testing.T) {
 	}
 }
 
-// TestWritingPlanTurn_DropsANodeWithAnInventedParent — a parentId the model
-// made up must lose the node, not attach it somewhere she never put it.
-// Specific-and-wrong is worse than absent here: she can always say it again.
-func TestWritingPlanTurn_DropsANodeWithAnInventedParent(t *testing.T) {
+// TestWritingPlanTurn_DropsANodeWithAnInventedKind — 模型编一个不在闭表里的
+// kind，这一条要整条丢掉，不能猜一个最近的把她的话放到她没放过的地方。
+// 这里「具体而错」比「没有」更糟：她随时可以再说一遍。
+//
+// 🚨 2026-09-20：这个用例原来叫 DropsANodeWithAnInventedParent，测的是模型
+// 编一个 parentId。模型不再给 parentId 了，能编的只剩 kind，所以这条不变量
+// 搬到了 kind 上 —— 丢掉的那一类没有消失，只是换了个字段。
+func TestWritingPlanTurn_DropsANodeWithAnInventedKind(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(
-		`{"reply":"嗯。","add":[{"parentId":"11111111-2222-3333-4444-555555555555","text":"孤儿节点","role":"理由"}]}`))
+		`{"reply":"嗯。","add":[{"kind":"我编的一种","text":"孤儿节点"}]}`))
 	id := createWritingAtomHTTP(t, h, cookie, "写点什么。")
 
 	out := decodePlanTurn(t, planTurn(t, h, cookie, id, "我说点什么。"))
 	if len(out.Outline) != 0 {
-		t.Fatalf("outline = %+v, want the orphan dropped rather than reparented", out.Outline)
+		t.Fatalf("outline = %+v, want the node dropped rather than given a guessed kind", out.Outline)
 	}
 	if len(out.AddedIDs) != 0 {
 		t.Fatalf("addedIds = %v, want empty", out.AddedIDs)

@@ -133,9 +133,9 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 记叙文、写自己经历的题目不受这一条约束：那种文章的材料本来就是她自己的事。
 
-**例子要挂在它支撑的那条分论点下面**（parentId 用那条分论点的 id），不要直接
-挂在中心论点下面 —— 例子是写进某一段里的东西，不是一段。她先给了例子、还没说
-它证明什么，就请她用一句话说出这个例子说明了什么，那一句就是分论点。
+例子是写进某一段里的东西，不是一段（它挂在哪条分论点下面由系统算，不用你操心）。
+她先给了例子、还没说它证明什么，就请她用一句话说出这个例子说明了什么 ——
+那一句就是分论点，先把它加上去，例子才有地方挂。
 
 ## 她拿回来一份材料的时候，你要查它
 
@@ -243,25 +243,28 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么","source":""}],"ready":false}
+{"reply":"你要对她说的话","add":[{"kind":"point","text":"节点文字","source":""}],"ready":false}
 
 - reply：不超过 200 字，最多一个问题，允许不提问。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
-- parentId：父节点的 id，逐字取自下面【当前的图】里给出的 id。留空字符串＝加在最上层。
-  同一轮里先加一条分论点、再加它的例子时，例子引用不到这一轮才建的那条分论点的 id：
-  例子的 parentId 留空即可，服务端会把它挂到这一轮刚加的那条分论点下面（例子从不放在最上层）。
-  最上层不止中心论点：开头、结尾也都是最上层的块，按它们在文章里的先后排。
+- kind：这一块**是什么**。只能是下面这十个之一，**写错的整条会被丢掉**：
+  - 「thesis」 中心论点 —— 这篇要证明的那一句话，一篇只有一个
+  - 「point」 分论点 —— 支撑中心论点的一条理由
+  - 「evidence」 论据 · 她见过的事 —— 她自己经历过、见过、身边发生的事
+  - 「reference」 论据 · 她找来的 —— 一份研究、一条报道、一组数据、一次访谈，
+    以及社会上、历史上的例子（司马迁那一类算这一种，不算她见过的事）
+  - 「reasoning」 道理 —— 撑住一条分论点的推理，不举具体的事
+  - 「counter」 反方观点 —— 反方最强的那一点
+  - 「rebuttal」 对反方的回应
+  - 「gap」 待补的材料 —— 她知道这里缺一份材料，但还没找到
+  - 「opening」 开篇
+  - 「closing」 结尾
+  🚨 **你不决定它挂在哪儿，也不给它起名字。** 位置由 kind 算出来：分论点挂在
+  中心论点下面，论据挂在前面最近的那条分论点下面，开篇和结尾各在最前和最后；
+  屏幕上的小标题也由 kind 决定。所以**不要给 parentId，也不要给 role**。
 - text：**她自己的话的精简**，不超过 30 字。
-- role：一句大白话说这块是什么（「中心论点」「分论点」「历史上的例子」「社会上的例子」「一组数据」「你经历过的事」「反方会说的话」）。不要用生僻术语。
-  例子类的节点 role 里要带「例子」「经历」「数据」「研究」「报道」这类词 —— 段落那一步据此把它并进它上面那条分论点的那一段，而不是单独成段；「你经历过的事」这一类用来标她的个人经历。
-  🚨 **role 是印在她屏幕上的小标题，是说给她听的，所以不能用「她」。**
-  这一段提示词全程用第三人称讲这个学生，于是它照着写出了「她自己的经历」
-  「她自己的材料」，而那几个字**原样印在图上那一块的抬头里**。
-  第三十九轮她当场问了出来：「第5块的小标题叫「她自己的材料」，为什么叫我「她」？」
-  写「你见过的事」「你自己的例子」，或者干脆不带人称（「一个例子」「一组数据」）。
-- source：这一块是**她找回来的一份材料**时，把她说的出处逐字写在这里
-  （链接、刊名、报道名、机构加年份、访谈对象）。她自己见过、经历过的事**留空** ——
-  那种材料的出处就是她本人，写一个「本人」进去是多余的。
+- source：这一块是「reference」时，把她说的出处逐字写在这里（链接、刊名、
+  报道名、机构加年份、访谈对象）。
   🚨 **她没说出处就留空，绝不替她填一个。** 你不知道她是从哪看到的，
   编一个刊名或年份进去，那份假出处会一直留在她的计划里，最后进她的文章。
   她给了一份材料却没说出处，正确的做法是在 reply 里请她把出处找出来。
@@ -336,12 +339,15 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	if len(rows) == 0 {
 		b.WriteString("（图是空的。先检查她本轮是否已经表达主张或理由，已表达就直接整理；缺失才询问。）\n")
 	} else {
-		for i, r := range rows {
+		// 🚨 不再给节点编号。模型不需要指着某一个节点说「挂在它下面」——
+		// 位置由 kind 算出来（writing_kind.go）。给它一份带 id 的清单，只会
+		// 请它做一件它做不好的事：2026-09-18 实测，它抄 36 位 UUID 会抄丢
+		// 一整段，节点于是被静默丢掉，重试一次照样抄错。
+		for _, r := range rows {
 			indent := strings.Repeat("  ", int(r.Depth))
-			// 短号，不是 UUID：见 planHandle。
-			line := indent + "- id=" + planHandle(i) + " · " + r.Text
-			if strings.TrimSpace(r.Role) != "" {
-				line += "（" + r.Role + "）"
+			line := indent + "- " + r.Text
+			if lbl := writingKindLabel(writingKindOf(r), r.Source); lbl != "" {
+				line += "（" + lbl + "）"
 			}
 			// 出处（0158）。带着出处的那一块是**她找回来的材料** —— 见上面
 			// 「她拿回来一份材料的时候，你要查它」。不给出处，印记 连它是她
@@ -393,9 +399,19 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 }
 
 type writingPlanAdd struct {
-	ParentID string `json:"parentId"`
-	Text     string `json:"text"`
-	Role     string `json:"role"`
+	// Kind 是这一块**是什么**，取自 writing_kind.go 的闭表。
+	//
+	// 🚨 这一个字段取代了原来的 ParentID + Role 两个。模型不再决定摆在哪儿 ——
+	// 深度和父节点由 kind 算出来（writingKindDepth / writingKindParentOf），
+	// 标题也由 kind 算出来（writingKindLabel）。
+	//
+	// 原来那对字段出过三类错，全都是静默的：
+	//  1. 模型抄错 UUID，节点被整个丢掉（2026-09-18，重试照样抄错）；
+	//  2. 同一轮新建的分论点没有 id 可引用，它的例子落到最上层；
+	//  3. 模型把结尾挂到中心论点底下，屏幕上印成「分论点 3」（2026-09-20）。
+	// 三类错都来自同一件事：让模型决定位置。现在它不决定了。
+	Kind string `json:"kind"`
+	Text string `json:"text"`
 	// Source 是这条材料从哪来（0158），只有她**找回来的**那种材料才有。
 	//
 	// 她在对话里说「我找到一份 2023 年的睡眠研究」，出处就跟着那句话一起进图。
@@ -623,9 +639,16 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 	kept := make([]writingPlanAdd, 0, len(got.Add))
 	for _, a := range got.Add {
 		a.Text = strings.TrimSpace(a.Text)
-		a.Role = strings.TrimSpace(a.Role)
-		a.ParentID = strings.TrimSpace(a.ParentID)
+		a.Kind = strings.ToLower(strings.TrimSpace(a.Kind))
 		if a.Text == "" {
+			continue
+		}
+		// 🚨 编出来的 kind 整条丢掉，不猜一个最近的。
+		// 猜错的代价是她的一句话落在一个她没放的地方，而她看不出发生过什么 ——
+		// 和下面丢掉一个认不出的 parentId 是同一条理由。
+		if !writingKindValid(a.Kind) {
+			slog.Warn("writing plan turn: dropped node with unknown kind",
+				"kind", a.Kind, "text", truncateRunes(a.Text, 40))
 			continue
 		}
 		kept = append(kept, a)
@@ -676,57 +699,68 @@ func planLooksReady(wr sqlc.Writing, rows []sqlc.WritingOutline) bool {
 	return writingPlanShapeOf(rows).ready(writingPlanNeedOf(wr))
 }
 
-// rootInsertPosition decides where a NEW top-level (depth-0) node lands
-// among the existing rows: an opening-ish role goes to position 0 (first in
-// document order, ahead of the thesis); everything else — 中心论点, a
-// closing, or a role we don't recognise — keeps the old behaviour of
-// appending at the end, in the order she produced them.
+// topLevelInsertPosition 决定一个深度 0 的新块排在哪儿：开篇最前，结尾最后，
+// 中心论点排在开篇之后。
 //
-// This exists because 印记 asks about the opening only AFTER the thesis and
-// body already exist (see "开头和结尾要等主体有了再谈" in the system prompt),
-// so a plain end-append would always land the opening LAST — after the
-// thesis and every 分论点 — even though the spec requires the opening to
-// render as the piece's first block, ahead of 中心论点.
-//
-// It is a heuristic over the model's free-form `role` text, matched by
-// substring against a handful of Chinese synonyms for "opening". Its failure
-// mode if a role doesn't match is narrow: the block sorts to the end instead
-// of the front — a mis-ordered top-level node, never a wrong parent and
-// never a lost one.
-func rootInsertPosition(role string, rows []sqlc.WritingOutline) int32 {
-	for _, kw := range []string{"开头", "引言", "开篇", "钩子", "导入"} {
-		if strings.Contains(role, kw) {
-			return 0
+// 取代 rootInsertPosition。那个函数对模型的自由散文 role 做子串匹配，认不出来
+// 就排到末尾 —— 于是一个它没认出来的开篇会排在每一条分论点后面。现在块是什么
+// 由 kind 说了算，这里就只剩三个确定的位置。
+func topLevelInsertPosition(kind string, rows []sqlc.WritingOutline) int32 {
+	switch kind {
+	case writingKindOpening:
+		return 0
+	case writingKindClosing:
+		return int32(len(rows))
+	}
+	// 中心论点（以及任何别的深度 0 的块）：排在开篇后面。
+	var at int32
+	for _, r := range rows {
+		if writingKindOf(r) == writingKindOpening && r.Position+1 > at {
+			at = r.Position + 1
 		}
 	}
-	return int32(len(rows))
+	return at
 }
 
-// insertPlanNode places one node under `parent` (nil = top level) and returns
-// the created row.
+// insertPlanNode 把一个节点放到它该在的地方，并返回新建的那一行。
 //
-// Position: a node under a parent goes at the END of that parent's subtree,
-// so siblings keep the order she produced them in. The subtree ends at the
-// first following row whose depth is <= the parent's — the same "flattened
-// outline encodes a tree" convention the frontend renders from. A top-level
-// (parent == nil) node's position instead goes through rootInsertPosition,
-// since the document order for root nodes is not simply "arrival order" —
-// an opening has to sort ahead of the thesis that was already there.
+// 🚨 **深度和父节点由 kind 算出来，不采信模型给的位置**（writing_kind.go）。
+// 这是 2026-09-20 那一刀的核心：摆错在结构上不可表示，而不是摆错之后被纠正。
+//
+// 位置：有父的排在那个父的子树末尾，同辈保持她说出来的顺序。子树在第一行深度
+// 不大于父的行处结束 —— 就是前端画图用的那套「扁平清单编码一棵树」的约定。
+// 没有父的走 topLevelInsertPosition。
 func insertPlanNode(
 	ctx context.Context,
 	q *sqlc.Queries,
 	atomID uuid.UUID,
 	rows []sqlc.WritingOutline,
-	parent *sqlc.WritingOutline,
-	text, role, source string,
+	kind, text, source string,
 ) (sqlc.WritingOutline, []sqlc.WritingOutline, error) {
-	depth := int32(0)
+	depth := writingKindDepth(kind)
+	parent := writingKindParentOf(kind, rows)
+
+	// 一条论据（或待补、回应）来了，图上还没有它该挂的那一种：让它自己先当一条
+	// 分论点占住这一段，段落那一步的 needsPoint 会请她先说清它证明了什么。
+	//
+	// 挂到中心论点底下冒充一条理由是更糟的选择 —— 那正是 2026-09-18 记下的
+	// 毛病：例子落在最上层，段落那一步把它印成「分论点 3」。
+	if parent == nil && depth > 0 {
+		kind = writingKindPoint
+		depth = writingKindDepth(kind)
+		parent = writingKindParentOf(kind, rows)
+		if parent == nil {
+			// 连中心论点都还没有：这一句就是这篇的第一块。
+			kind = writingKindThesis
+			depth = 0
+		}
+	}
+	if depth > writingPlanMaxDepth {
+		depth = writingPlanMaxDepth
+	}
+
 	var insertAt int32
 	if parent != nil {
-		depth = parent.Depth + 1
-		if depth > writingPlanMaxDepth {
-			depth = writingPlanMaxDepth
-		}
 		insertAt = parent.Position + 1
 		for _, r := range rows {
 			if r.Position > parent.Position && r.Depth > parent.Depth {
@@ -736,7 +770,7 @@ func insertPlanNode(
 			}
 		}
 	} else {
-		insertAt = rootInsertPosition(role, rows)
+		insertAt = topLevelInsertPosition(kind, rows)
 	}
 	if err := q.ShiftWritingOutlinePositions(ctx, sqlc.ShiftWritingOutlinePositionsParams{
 		AtomID: atomID, Position: insertAt,
@@ -744,7 +778,10 @@ func insertPlanNode(
 		return sqlc.WritingOutline{}, rows, err
 	}
 	created, err := q.InsertWritingOutlineNode(ctx, sqlc.InsertWritingOutlineNodeParams{
-		AtomID: atomID, Text: text, Role: role, Depth: depth, Position: insertAt,
+		AtomID: atomID, Text: text, Kind: kind, Depth: depth, Position: insertAt,
+		// Role 不再由模型写，而是 kind 的标题。它仍然落库，因为报告、教师端和
+		// 老前端都还读这一列 —— 但它现在是**派生值**，不是第二份真相。
+		Role:   writingKindLabel(kind, source),
 		Source: trimRunes(strings.TrimSpace(source), writingSourceMaxRunes),
 	})
 	if err != nil {
@@ -897,19 +934,16 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("writing plan turn: retry parsed fine", "atom_id", at.ID)
 	}
 
-	byID := make(map[string]sqlc.WritingOutline, 2*len(rows))
-	for i, row := range rows {
-		byID[row.ID.String()] = row
-		// prompt 里给模型看的是短号（n1、n2……），见 planHandle。
-		byID[planHandle(i)] = row
-	}
-
 	// 🚨 印记 说放进图里了，图上就得有。见 writing_plan_place.go。
 	// 两种丢法：reply 里「」引了她的话而图上没有；或者她说了一句新的，
 	// 这一轮什么都没加（只在 reply 里转述）。
 	// 一次重试；第二份没有更好（读不出来、或者放上去的没变多）就用第一份。
-	unplaced := planReplyUnplaced(parsed.Reply, studentText, rows, byID, parsed.Add)
-	if len(unplaced) == 0 && planTurnDroppedHerPoint(studentText, rows, planAddsThatLand(rows, byID, parsed.Add)) {
+	//
+	// 🚨 2026-09-20：原来这里还有第三种丢法 —— parentId 认不出来，节点落库时
+	// 被丢掉。那一类随 kind 一起消失了：每一条通过解析的 add 都一定落得上去，
+	// 所以这里不再需要 byID，也不再需要给模型看短号。
+	unplaced := planReplyUnplaced(parsed.Reply, studentText, rows, parsed.Add)
+	if len(unplaced) == 0 && planTurnDroppedHerPoint(studentText, rows, planAddsThatLand(rows, parsed.Add)) {
 		unplaced = []string{truncateRunes(strings.TrimSpace(studentText), 60)}
 	}
 	if len(unplaced) > 0 {
@@ -927,8 +961,8 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
 		if cerr2 == nil {
 			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 &&
-				planAddsThatLand(rows, byID, p2.Add) > planAddsThatLand(rows, byID, parsed.Add) &&
-				len(planReplyUnplaced(p2.Reply, studentText, rows, byID, p2.Add)) <= len(unplaced) {
+				planAddsThatLand(rows, p2.Add) > planAddsThatLand(rows, parsed.Add) &&
+				len(planReplyUnplaced(p2.Reply, studentText, rows, p2.Add)) <= len(unplaced) {
 				parsed = p2
 			} else {
 				slog.Warn("writing plan turn: place retry did not place them", "atom_id", at.ID)
@@ -943,7 +977,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 	// 能越线的只有她自己说要写（studentWantsToWrite）和连着两轮没答（stalled）。
 	stalled := writingPlanStalled(msgs, studentText)
 	wantsToWrite := studentWantsToWrite(studentText)
-	if shape := writingPlanShapeWith(rows, byID, parsed.Add); parsed.Ready && !wantsToWrite && !stalled && !shape.ready(writingPlanNeedOf(wr)) {
+	if shape := writingPlanShapeWith(rows, parsed.Add); parsed.Ready && !wantsToWrite && !stalled && !shape.ready(writingPlanNeedOf(wr)) {
 		slog.Info("writing plan turn: model invited writing below the line, retrying once",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		prior, _ := json.Marshal(parsed)
@@ -958,7 +992,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
 		if cerr2 == nil {
 			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 && !p2.Ready &&
-				planAddsThatLand(rows, byID, p2.Add) >= planAddsThatLand(rows, byID, parsed.Add) {
+				planAddsThatLand(rows, p2.Add) >= planAddsThatLand(rows, parsed.Add) {
 				parsed = p2
 			}
 		}
@@ -972,7 +1006,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 	// 必须在落库**之前**判：回复是先写进 atom_message 再加节点的，等 live 有了
 	// 这几个节点，那句带问号的话已经存进对话里，改不动了。所以形状要连这一轮
 	// 还没落库的 add 一起算。
-	if writingPlanShapeWith(rows, byID, parsed.Add).ready(writingPlanNeedOf(wr)) && writingPlanReplyAsks(parsed.Reply) {
+	if writingPlanShapeWith(rows, parsed.Add).ready(writingPlanNeedOf(wr)) && writingPlanReplyAsks(parsed.Reply) {
 		slog.Info("writing plan turn: invite turn still asked a question, retrying once",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		// assistant 那一轮用 parsed 重新序列化，不用 res.Text —— 上面解析失败
@@ -1038,45 +1072,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 
 	live := rows
 	added := make([]string, 0, len(parsed.Add))
-	// 这一轮刚加的那条分论点 —— 同一轮里跟着它的例子要挂到它下面。
-	var pointThisTurn *sqlc.WritingOutline
 	for _, node := range parsed.Add {
-		var parent *sqlc.WritingOutline
-		// 🚨 例子不是一段，不能落在最上层（2026-09-18 走查：她说完「爸爸入狱……」，
-		// 印记同一轮加了分论点和这个例子，例子的 parentId 只能留空 —— 它引用不到
-		// 同一轮才建出来的那个节点的 id —— 于是它落到了最上层，段落那一步把它当成了
-		// 「分论点 3」）。挂到这一轮刚加的分论点下面；这一轮没加，就挂到图上最后
-		// 一条分论点下面。她在图上一拖就能改。
-		if writingRoleIsExample(node.Role, node.Source) {
-			if _, ok := resolvePlanParent(byID, live, node.ParentID); node.ParentID == "" || !ok {
-				if p := examplePlanParent(pointThisTurn, live); p != nil {
-					node.ParentID = p.ID.String()
-					byID[node.ParentID] = *p
-				}
-			}
-		} else if writingRoleIsPoint(node.Role) {
-			// 同一个毛病的另一半（2026-09-18 线上验证）：一条「分论点」落在了最上层，
-			// 和中心论点平级。分论点就挂在中心论点下面。
-			if _, ok := resolvePlanParent(byID, live, node.ParentID); node.ParentID == "" || !ok {
-				if p := thesisPlanNode(live); p != nil {
-					node.ParentID = p.ID.String()
-					byID[node.ParentID] = *p
-				}
-			}
-		}
-		if node.ParentID != "" {
-			p, found := resolvePlanParent(byID, live, node.ParentID)
-			if !found {
-				// An id the model invented. Dropping the node is right:
-				// attaching it to a guessed parent would put her sentence
-				// somewhere she never put it, which is worse than losing it —
-				// she can always say it again.
-				slog.Warn("writing plan turn: unknown parentId, node dropped",
-					"atom_id", at.ID, "parent_id", node.ParentID)
-				continue
-			}
-			parent = &p
-		}
 		// 🚨 图上已经有这句话了，就不要再加一个。
 		//
 		// 这一路是**只加不改**的，所以重复的节点谁也删不掉，它会一直摆在那儿。
@@ -1092,18 +1088,16 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 				"atom_id", at.ID, "text", truncateRunes(node.Text, 40))
 			continue
 		}
-		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, parent, node.Text, node.Role, node.Source)
+		// 位置、深度、标题全部由 kind 算出来 —— 见 insertPlanNode。
+		// 同一轮里加进来的节点也会被后面那一条看见（live 随每次插入更新），
+		// 所以「这一轮先加分论点、再加它的论据」是成立的：那条论据挂得上。
+		created, next, ierr := insertPlanNode(turnCtx, qtx, at.ID, live, node.Kind, node.Text, node.Source)
 		if ierr != nil {
 			httpx.WriteError(w, r, ierr)
 			return
 		}
 		live = next
-		byID[created.ID.String()] = created
 		added = append(added, created.ID.String())
-		if created.Depth == 1 && !writingRoleIsExample(created.Role, created.Source) {
-			c := created
-			pointThisTurn = &c
-		}
 	}
 	if err := tx.Commit(turnCtx); err != nil {
 		httpx.WriteError(w, r, err)

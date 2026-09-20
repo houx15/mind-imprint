@@ -49,7 +49,11 @@ func getWritingDeepenThread(t *testing.T, h http.Handler, cookie *http.Cookie, i
 
 func seedTwoBlockOutline(t *testing.T, h http.Handler, cookie *http.Cookie, id string) []writingOutlineItem {
 	t.Helper()
-	putBody := `{"outline":[{"role":"中心论点","text":"该种，但要先定谁长期养","depth":0},{"role":"一条理由","text":"维护年年花钱","depth":0}]}`
+	// 🚨 kind 要给，而且要给真的那一个：0182 起深度由 kind 算出来，
+	// 一个只给 role 的用例测的不是真客户端会发的东西。
+	putBody := `{"outline":[` +
+		`{"kind":"thesis","text":"该种，但要先定谁长期养","depth":0},` +
+		`{"kind":"point","text":"维护年年花钱","depth":1}]}`
 	if rec := putWritingOutlineHTTP(t, h, cookie, id, putBody); rec.Code != http.StatusOK {
 		t.Fatalf("put outline = %d; body=%s", rec.Code, rec.Body)
 	}
@@ -183,7 +187,7 @@ func TestDeepenTurn_PromptCarriesBriefButNotRoomThread(t *testing.T) {
 	for _, want := range []string{
 		"城市该不该大规模种行道树",        // title
 		"中心论点", "该种，但要先定谁长期养", // the whole outline map — the OTHER block
-		"一条理由", "维护年年花钱", // the whole outline map — THIS block's own row
+		"分论点", "维护年年花钱", // the whole outline map — THIS block's own row
 		priorBlockTurn, // this block's own prior thread turn
 	} {
 		if !strings.Contains(got, want) {

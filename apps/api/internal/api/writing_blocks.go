@@ -31,57 +31,15 @@ const (
 	writingCardFree    = "free"
 )
 
-// writingRoleIsExample 判断一个节点的 role 说的是不是「一份材料」
-// （例子、经历、数据、研究、报道……），而不是一条分论点。
-//
-// 🚨 2026-09-18 产品负责人：「我有两个例子，结果就变成了两段。」
-// 规划的时候例子常常被直接挂在中心论点下面（深度 1），和分论点平级，
-// 于是段落那一步把**每个例子**都当成了一段，整篇只剩「例子一 / 例子二」两块。
-// 例子是写进某一段里的东西，不是一段。判据只看 role 和出处：
-// 带出处的一定是她找回来的材料。和 slots.ts 的 roleIsExample 同一张词表。
-func writingRoleIsExample(role, source string) bool {
-	if strings.TrimSpace(source) != "" {
-		return true
-	}
-	r := strings.ToLower(role)
-	for _, kw := range writingExampleRoleWords {
-		if strings.Contains(r, kw) {
-			return true
-		}
-	}
-	return false
-}
-
-var writingExampleRoleWords = []string{
-	"例", "经历", "的事", "事件", "故事", "材料", "数据", "研究", "报道", "访谈", "调查",
-	"案例", "引用", "名言", "人物", "史实", "素材", "证据", "新闻", "实验", "统计", "场景", "现象",
-	"example", "experience", "evidence", "data", "study", "research", "report",
-	"story", "quote", "case", "survey", "statistic", "source",
-}
-
-var (
-	writingOpeningRoleWords = []string{"开头", "引言", "开篇", "钩子", "导入", "opening", "hook", "introduction", "intro"}
-	writingClosingRoleWords = []string{"结尾", "结论", "总结", "收尾", "落点", "结语", "closing", "conclusion", "ending"}
-)
-
-func roleHasAny(role string, words []string) bool {
-	r := strings.ToLower(role)
-	for _, w := range words {
-		if strings.Contains(r, w) {
-			return true
-		}
-	}
-	return false
-}
-
 // writingNodeIsMaterial：这个节点是材料（写进某一段），不是一段。
-// 深度 ≥ 2 的一定是；更上层的看 role —— 挂在中心论点下面、甚至落在最上层的
-// 例子也是材料。
+//
+// 🚨 2026-09-20：这里原来是「深度 ≥ 2 的一定是，更上层的看 role」加三张关键词表。
+// 那套判断有一个静默的失败模式 —— 一个结尾被模型挂在深度 1，关键词那一路要求
+// 深度 0 才认结尾，于是它掉进最后的 else，被印成「分论点 3」（同事的意见 3）。
+// 现在节点自己带着 kind，深度不参与判断。
 func writingNodeIsMaterial(o sqlc.WritingOutline) bool {
-	if o.Depth >= writingMaterialDepth {
-		return true
-	}
-	return writingRoleIsExample(o.Role, o.Source)
+	k := writingKindOf(o)
+	return writingKindIsMaterial(k) || k == writingKindGap
 }
 
 // writingCard 是段落那一步屏幕上的一张卡。
@@ -180,22 +138,19 @@ func writingCards(outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet)
 	if len(sorted) > 0 {
 		// 找开头卡要绑的节点：显式的开头节点优先，否则中心论点。
 		var openingNode, thesisNode *sqlc.WritingOutline
+		// 🚨 **按 kind 找，不按深度。** 原来这里有一个 `o.Depth != 0 { continue }`，
+		// 于是一个被挂到深度 1 的开篇或结尾根本进不了这个循环。
 		for i := range sorted {
 			o := sorted[i]
-			if o.Depth != 0 {
-				continue
-			}
-			if roleHasAny(o.Role, writingOpeningRoleWords) {
+			switch writingKindOf(o) {
+			case writingKindOpening:
 				if openingNode == nil {
 					openingNode = &sorted[i]
 				}
-				continue
-			}
-			if roleHasAny(o.Role, writingClosingRoleWords) || writingNodeIsMaterial(o) {
-				continue
-			}
-			if thesisNode == nil {
-				thesisNode = &sorted[i]
+			case writingKindThesis:
+				if thesisNode == nil {
+					thesisNode = &sorted[i]
+				}
 			}
 		}
 		opening := writingCard{Kind: writingCardOpening, Position: writingOpeningPosition, Snippet: openingFree}
@@ -215,12 +170,12 @@ func writingCards(outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet)
 				continue
 			}
 			switch {
-			case o.Depth == 0 && roleHasAny(o.Role, writingOpeningRoleWords):
+			case writingKindOf(o) == writingKindOpening:
 				// 第二个开头节点：没写过字就算开头的材料，写过就单独一张。
 				if written(o) {
 					cards = append(cards, cardFor(writingCardOpening, o))
 				}
-			case o.Depth == 0 && roleHasAny(o.Role, writingClosingRoleWords):
+			case writingKindOf(o) == writingKindClosing:
 				closings = append(closings, cardFor(writingCardClosing, o))
 			case thesisNode != nil && o.ID == thesisNode.ID:
 				// 有显式开头节点时，中心论点是开头要提出的那句话；写过字就单独一张。

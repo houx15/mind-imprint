@@ -93,3 +93,57 @@ describe("buildSlots", () => {
     expect(buildSlots([], [])).toEqual([]);
   });
 });
+
+/**
+ * 🚨 同事 2026-09-20 的意见 3：「这个是总结，不是分论点」。
+ *
+ * 模型把结尾挂在了中心论点底下（深度 1）。老的 buildSlots 只在 `depth === 0`
+ * 时认结尾，于是它掉进最后那个 else，被印成「分论点 3」。
+ * 卡片的种类现在只看 kind，深度一个字都不参与。
+ */
+describe("结尾不管挂在哪一层都是结尾", () => {
+  const row = (over: Partial<WritingOutlineItem> & { id: string }): WritingOutlineItem => ({
+    text: "",
+    role: "",
+    depth: 0,
+    position: 0,
+    ...over,
+  });
+
+  it("挂在深度 1 的结尾仍然是结尾卡", () => {
+    const outline = [
+      row({ id: "t", text: "校服省心", role: "中心论点", kind: "thesis", depth: 0, position: 0 }),
+      row({ id: "p", text: "早上不用挑", role: "分论点", kind: "point", depth: 1, position: 1 }),
+      // 🚨 role 也要给「结尾」：这样这条用例失败的原因只可能是那道深度闸，
+      // 而不是「role 是空的所以关键词没认出来」—— 判据要盯住真失败本身。
+      row({ id: "c", text: "回到方便比好看值", role: "结尾", kind: "closing", depth: 1, position: 2 }),
+    ];
+    const slots = buildSlots(outline, []);
+    const last = slots[slots.length - 1]!;
+    expect(last.kind).toBe("closing");
+    expect(slots.some((s) => s.kind === "point" && s.outlineId === "c")).toBe(false);
+  });
+
+  it("挂在深度 1 的开篇仍然是开头卡", () => {
+    const outline = [
+      row({ id: "o", text: "从一件小事说起", role: "开篇", kind: "opening", depth: 1, position: 0 }),
+      row({ id: "t", text: "校服省心", role: "中心论点", kind: "thesis", depth: 0, position: 1 }),
+      row({ id: "p", text: "早上不用挑", role: "分论点", kind: "point", depth: 1, position: 2 }),
+    ];
+    const slots = buildSlots(outline, []);
+    expect(slots[0]!.kind).toBe("opening");
+    expect(slots[0]!.outlineId).toBe("o");
+  });
+
+  it("待补的材料并进它那一段，不自己成一张卡", () => {
+    const outline = [
+      row({ id: "t", text: "校服省心", role: "中心论点", kind: "thesis", depth: 0, position: 0 }),
+      row({ id: "p", text: "早上不用挑", role: "分论点", kind: "point", depth: 1, position: 1 }),
+      row({ id: "g", text: "还没找到相关调查", role: "待补的材料", kind: "gap", depth: 2, position: 2 }),
+    ];
+    const slots = buildSlots(outline, []);
+    expect(slots.some((s) => s.outlineId === "g")).toBe(false);
+    const body = slots.find((s) => s.outlineId === "p")!;
+    expect(body.materials).toContain("还没找到相关调查");
+  });
+});
