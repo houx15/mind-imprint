@@ -8,7 +8,10 @@ package api
 // demonstration sentence can. That claim rests entirely on this one function,
 // so it is tested directly rather than only through the HTTP handler.
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseWritingGuide_DropsAnythingThatIsNotAQuestion(t *testing.T) {
 	// A model that slips a declarative sentence into the list has just handed
@@ -125,5 +128,63 @@ func TestParseWritingGuide_QuestionFilterAppliesToQuestionsOnly(t *testing.T) {
 func TestParseWritingGuide_FailsWhenNoQuestionsSurvive(t *testing.T) {
 	if _, ok := parseWritingGuide(`{"job":"x","method_ids":[],"questions":["你可以写：手机让人分心。"]}`); ok {
 		t.Fatal("parse succeeded with zero surviving questions; a guide with no questions teaches her nothing")
+	}
+}
+
+// 🚨 同事 2026-09-20：「每一次刷新就会变成新的东西」。
+//
+// 「卡住了？」原来直接覆盖，她读过的那一组当场没了 —— 她按那颗按钮是想再要
+// 一个角度，不是想把刚才那几个问题扔掉。
+func TestRegenerateGuideKeepsPrevious(t *testing.T) {
+	old := writingGuideDTO{Job: "旧的任务", Questions: []string{"旧问题一？", "旧问题二？"}}
+	fresh := writingGuideDTO{Job: "新的任务", Questions: []string{"新问题？"}}
+
+	got := writingGuideWithPrevious(fresh, &old)
+	if got.Previous == nil || got.Previous.Job != "旧的任务" {
+		t.Fatalf("上一组没留住：%+v", got.Previous)
+	}
+	if len(got.Previous.Questions) != 2 {
+		t.Errorf("上一组的问题少了：%+v", got.Previous.Questions)
+	}
+	// 🚨 只留一层。再往上叠会变成一份她读不完的历史。
+	if got.Previous.Previous != nil {
+		t.Error("previous 不该套娃")
+	}
+
+	// 第一次生成（之前什么都没有）不该凭空造一个空的上一组出来。
+	if first := writingGuideWithPrevious(fresh, nil); first.Previous != nil {
+		t.Error("第一次生成不该有 previous")
+	}
+	empty := writingGuideDTO{}
+	if first := writingGuideWithPrevious(fresh, &empty); first.Previous != nil {
+		t.Error("空的上一组等于没有，不该挂上去")
+	}
+}
+
+// 她已经写了字的那一块最多两个问题 —— 提示词里也写了，但真正算数的是这里。
+func TestWritingGuideQuestionCap(t *testing.T) {
+	if got := writingGuideQuestionCap(""); got != writingGuideMaxQuestions {
+		t.Errorf("空白的一块该给 %d 条，得到 %d", writingGuideMaxQuestions, got)
+	}
+	if got := writingGuideQuestionCap("   "); got != writingGuideMaxQuestions {
+		t.Errorf("只有空白也算空白，得到 %d", got)
+	}
+	if got := writingGuideQuestionCap("她已经写了三百字。"); got != writingGuideMaxQuestionsWritten {
+		t.Errorf("写过字的一块该给 %d 条，得到 %d", writingGuideMaxQuestionsWritten, got)
+	}
+}
+
+// 重新生成时要把上一组喂回去，否则模型会原地换个说法重写一遍。
+func TestWritingGuideAnotherAngle(t *testing.T) {
+	if got := writingGuideAnotherAngle(nil); got != "" {
+		t.Errorf("第一次生成不该加这一段，得到 %q", got)
+	}
+	prior := writingGuideDTO{Questions: []string{"闹钟响了你还想睡那次？"}}
+	got := writingGuideAnotherAngle(&prior)
+	if !strings.Contains(got, "闹钟响了你还想睡那次？") {
+		t.Errorf("上一组的问题没喂回去：%s", got)
+	}
+	if !strings.Contains(got, "换一个**角度**") {
+		t.Errorf("没说清这一轮要做什么：%s", got)
 	}
 }

@@ -91,6 +91,8 @@ export function GuideBox({
   // rather than name — two methods could in principle share a display name,
   // and this keeps "which one is open" unambiguous either way.
   const [openTermIndex, setOpenTermIndex] = useState<number | null>(null);
+  const [showPrior, setShowPrior] = useState(false);
+  const prior = guide.previous;
   const hasMethods = guide.methods.length > 0;
   // Patterns count as something to show. The English methods in vocab carry
   // sentence FRAMES instead of worked examples, so gating this button on
@@ -168,6 +170,31 @@ export function GuideBox({
               </li>
             ))}
           </ol>
+
+          {/* 🚨 上一组问题。同事 2026-09-20：「每一次刷新就会变成新的东西」。
+              「换一组问题」原来直接覆盖，她读过的那一组当场没了 —— 而她按那颗
+              按钮是想**再要一个角度**，不是想把刚才那几个问题扔掉。
+              默认折着：这一组才是现在该看的，上一组是她想回头找时的去处。 */}
+          {prior && prior.questions.length > 0 && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowPrior((v) => !v)}
+                className="text-mk-small text-mk-muted underline decoration-dotted underline-offset-4 hover:text-mk-ink"
+              >
+                {showPrior ? "收起上一组" : "看上一组"}
+              </button>
+              {showPrior && (
+                <ol className="mt-2 flex list-none flex-col gap-2 border-l pl-3" style={{ borderColor: "var(--mk-border)" }}>
+                  {prior.questions.map((q, i) => (
+                    <li key={i} className="text-mk-body text-mk-muted">
+                      {q}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
         </section>
       )}
 

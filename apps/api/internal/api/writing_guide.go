@@ -50,6 +50,24 @@ import (
 // is trying not to be.
 const writingGuideMaxQuestions = 4
 
+// writingGuideMaxQuestionsWritten 是**她已经写了字的那一块**的上限。
+//
+// 🚨 同事 2026-09-20：「印记给出来的建议，太多吹毛求疵的部分」。
+// 提示词里也写了这条，但提示词里的「最多两条」是模型可以推翻的
+//（[[prompt-twice-then-make-it-checkable]]）—— 真正算数的是这里这个数。
+//
+// 二：她盯着一段已经写完的话，收到四个问题只会读成「我写得很烂」。
+// 空白的那一块照旧给到四条 —— 那时候她要的是入口，多一个是多一条路。
+const writingGuideMaxQuestionsWritten = 2
+
+// writingGuideQuestionCap 这一块该给几条。
+func writingGuideQuestionCap(existing string) int {
+	if strings.TrimSpace(existing) != "" {
+		return writingGuideMaxQuestionsWritten
+	}
+	return writingGuideMaxQuestions
+}
+
 // Shared presentation rules for single-block and batch guidance. Method names
 // must exist in the registry; per-field output contracts remain below.
 const writingGuideTeachingRules = `## 说明方式
@@ -71,7 +89,20 @@ const writingGuideQuestionRules = `关于问题本身：
 - 要**具体到能马上动笔**。「你的论点是什么？」太空；「你身边有没有哪个同学因为这件事吃过亏？」才有用。
 - 要贴着这一块的作用来问，不要每一块都问同样的话。
 - 要贴着她已经说过的话来问，用她提到过的人、事、场景，不要另起炉灶。
-- 每条只请求一项信息。例如「你准备使用哪份数据？」是一条问题。需要再问数据的适用范围时，另列一条；总数仍为 2–4 条。每条都让她只回答一件事。
+- 每条只请求一项信息。例如「你准备使用哪份数据？」是一条问题。需要再问数据的适用范围时，另列一条。每条都让她只回答一件事。
+- **她这一块已经写了字的时候，最多给两条。** 一次只解决最上面那一层 ——
+  她盯着一段已经写完的话，收到四个问题只会读成「我写得很烂」。
+  这一块还是空的才给三到四条。
+
+🚨 **举例不是唯一的路，也不是每一处分析都要跟一个例子。**
+同事 2026-09-20 指的就是这件事：「要求分析必须跟着举例，而且引导的举例也比较简单」。
+一条理由可以靠一件具体的事撑住，也可以靠把道理一步一步推给读者看
+（「道理论证」），还可以靠和另一种情况比一比（「对比论证」）。
+她这一块已经有一个例子了，就别再要第二个 —— 问「这个例子凭什么说明你的看法」
+比问「还有别的例子吗」有用得多。
+
+🚨 **不要吹毛求疵。** 这一块只要站得住，就说它站得住。挑一处**真的会让读者
+读不下去**的地方问，不要为了凑够条数去问一些「还可以更好」的话。
 
 绝对禁止：
 - **不要写出任何可以直接放进她文章里的句子。** 不给论点、不给开头、不给例句、不给现成的段落。一个字都不行。
@@ -324,6 +355,55 @@ type writingGuideDTO struct {
 	Job       string                  `json:"job"`
 	Methods   []writingGuideMethodDTO `json:"methods"`
 	Questions []string                `json:"questions"`
+	// Previous 是上一组问题（只留一层）。
+	//
+	// 🚨 同事 2026-09-20：「每一次刷新就会变成新的东西」。
+	// 「卡住了？」原来直接 SetWritingOutlineGuide 覆盖，她读过的那一组当场没了 ——
+	// 她按那颗按钮是想**再要一个角度**，不是想把刚才那几个问题扔掉。
+	//
+	// 只留一层：再往上叠会变成一份她读不完的历史，而她要的只是
+	//「刚才那组问题呢」。
+	Previous *writingGuideDTO `json:"previous,omitempty"`
+}
+
+// writingGuideWithPrevious 把上一份引导挂在新的那一份下面。
+func writingGuideWithPrevious(fresh writingGuideDTO, old *writingGuideDTO) writingGuideDTO {
+	if old != nil && (strings.TrimSpace(old.Job) != "" || len(old.Questions) > 0) {
+		trimmed := *old
+		trimmed.Previous = nil // 只留一层
+		fresh.Previous = &trimmed
+	}
+	return fresh
+}
+
+// priorWritingGuide 读出这一块已经存着的那份引导（没有就是 nil）。
+// 薄薄一层，包的是 writing_outline.go 的 storedWritingGuide —— 这里要的是
+// 一个可以直接塞进 Previous 的指针。
+func priorWritingGuide(block sqlc.WritingOutline) *writingGuideDTO {
+	g, ok := storedWritingGuide(block)
+	if !ok {
+		return nil
+	}
+	return &g
+}
+
+// writingGuideAnotherAngle 是重新生成那一轮加进 prompt 的一段。
+//
+// 🚨 她按「换一组问题」是因为上一组没问到点子上，不是因为她想看同一件事
+// 再问一遍。不把上一组喂回去，模型有不小的概率原地换个说法重写一遍 ——
+// 那正是「每一次刷新就会变成新的东西」里最让人白按一次的那种「新」。
+func writingGuideAnotherAngle(prior *writingGuideDTO) string {
+	if prior == nil || len(prior.Questions) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n【她已经读过这几个问题，没帮上忙】\n")
+	for _, q := range prior.Questions {
+		b.WriteString("- " + q + "\n")
+	}
+	b.WriteString("这一轮换一个**角度**看同一块：换一种材料、换一个读者会卡住的地方、" +
+		"或者换一个方法。不要把上面那几个问题换个说法再问一遍。\n")
+	return b.String()
 }
 
 // writingGuideDTOOf resolves a parsed model result into the enriched wire
@@ -686,7 +766,8 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingGuideSystem},
-			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs)},
+			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) +
+				writingGuideAnotherAngle(priorWritingGuide(block))},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res.Usage)
@@ -713,7 +794,8 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingGuideSystem},
-				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) + writingGuideBracketNudge},
+				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) +
+					writingGuideAnotherAngle(priorWritingGuide(block)) + writingGuideBracketNudge},
 			},
 		})
 		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res2.Usage)
@@ -735,7 +817,13 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		slog.Info("writing block guide: retry parsed fine", "atom_id", at.ID)
 	}
 
-	dto := writingGuideDTOOf(guide)
+	// 🚨 重新生成 = **再要一个角度**，不是把她读过的那一组扔掉。
+	fresh := writingGuideDTOOf(guide)
+	// 她已经写了字的那一块最多两条 —— 见 writingGuideQuestionCap。
+	if cap := writingGuideQuestionCap(existing); len(fresh.Questions) > cap {
+		fresh.Questions = fresh.Questions[:cap]
+	}
+	dto := writingGuideWithPrevious(fresh, priorWritingGuide(block))
 	if payload, merr := json.Marshal(dto); merr != nil {
 		slog.Warn("writing block guide: marshal for persistence failed", "err", merr, "atom_id", at.ID, "outline_id", oid)
 	} else if serr := a.d.Queries.SetWritingOutlineGuide(turnCtx, sqlc.SetWritingOutlineGuideParams{

@@ -117,7 +117,19 @@ export type WritingGuideMethod = {
  * sentence, so it is the one the server hard-filters (？ / ? ending only) —
  * see writing_guide.go's parseWritingGuide.
  */
-export type WritingBlockGuide = { job: string; methods: WritingGuideMethod[]; questions: string[] };
+export type WritingBlockGuide = {
+  job: string;
+  methods: WritingGuideMethod[];
+  questions: string[];
+  /**
+   * 上一组问题（只有一层）。
+   *
+   * 🚨 同事 2026-09-20：「每一次刷新就会变成新的东西」。「换一组问题」原来
+   * 直接覆盖，她读过的那一组当场没了。现在旧的那一组留在这里，引导框给一个
+   * 「看上一组」—— 她按那颗按钮是想再要一个角度，不是想把刚才那几个问题扔掉。
+   */
+  previous?: WritingBlockGuide;
+};
 
 export type WritingSnippet = {
   id: string;
@@ -265,6 +277,23 @@ export async function postWritingPlanTurn(
 }
 
 /**
+ * 把一份引导整形成前端能安全渲染的样子。
+ *
+ * 🚨 **逐层兜底，而且 `previous` 要递归。** 服务端把 nil 切片 marshal 成
+ * `null`，前端一个 `.map()` 就崩（[[go-nil-slice-becomes-null]]）——
+ * 而「上一组」只在她按过一次「换一组问题」之后才出现，正好是那种
+ *「上一趟有、这一趟没有」的字段，最容易漏。
+ */
+function normalizeGuide(raw: Partial<WritingBlockGuide> | null | undefined): WritingBlockGuide {
+  return {
+    job: raw?.job ?? "",
+    methods: raw?.methods ?? [],
+    questions: raw?.questions ?? [],
+    ...(raw?.previous ? { previous: normalizeGuide(raw.previous) } : {}),
+  };
+}
+
+/**
  * The guiding box for ONE block. Returns 2–4 questions grounded in her own
  * material — never a sentence she could paste into the essay, which is
  * enforced server-side by dropping anything that isn't a question.
@@ -274,7 +303,7 @@ export async function guideWritingBlock(id: string, outlineId: string): Promise<
     `${base(id)}/outline/${encodeURIComponent(outlineId)}/guide`,
     { method: "POST" },
   );
-  return { job: raw.job ?? "", methods: raw.methods ?? [], questions: raw.questions ?? [] };
+  return normalizeGuide(raw);
 }
 
 /**
@@ -295,7 +324,7 @@ export async function guideWritingBlocks(id: string): Promise<Record<string, Wri
   });
   const out: Record<string, WritingBlockGuide> = {};
   for (const [outlineId, g] of Object.entries(raw.guides ?? {})) {
-    out[outlineId] = { job: g.job ?? "", methods: g.methods ?? [], questions: g.questions ?? [] };
+    out[outlineId] = normalizeGuide(g);
   }
   return out;
 }
