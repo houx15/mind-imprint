@@ -587,7 +587,15 @@ func buildReadingCoachPrompt(
 		}
 	}
 
+	// 这一轮只展开这一步真正要读的那几段，其余点名但不铺开。见
+	// reading_disclosure.go：整篇文章占了这份 prompt 的九成，而服务端本来就
+	// 知道这一步管哪几段。nil = 不收窄（没有分部分，或这一步要通观全文）。
+	scope := readingDisclosureScope(blocks, outline, tasks, picks, msgs)
 	b.WriteString("\n【文章，按段落】\n")
+	if scope != nil {
+		b.WriteString("（这一步只展开它要读的那几段；其余段落在下面点名，" +
+			"它们存在，只是这一轮不看。需要回头看别的部分时就说出来。）\n")
+	}
 	total := 0
 	for i, blk := range blocks {
 		text := strings.TrimSpace(blk.Text)
@@ -597,6 +605,10 @@ func buildReadingCoachPrompt(
 		tag := readingBlockTag(i, blk.ID)
 		if label := loadLabels[outline.Load[blk.ID]]; label != "" {
 			tag += "·" + label
+		}
+		if scope != nil && !scope[blk.ID] {
+			b.WriteString(tag + "：（这一段这一轮没展开，但它存在）\n")
+			continue
 		}
 		runes := []rune(text)
 		if total+len(runes) > readingPlanArticleRuneBudget {
