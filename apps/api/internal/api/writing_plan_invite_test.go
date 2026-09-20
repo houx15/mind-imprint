@@ -130,7 +130,7 @@ func TestWritingPlanShapeWith_SkipsWhatTheInsertWouldDrop(t *testing.T) {
 	// 所以不再有这一类会被落库丢掉的节点。kind 编错的那一条在解析时就没了，
 	// 到这个函数手上的每一条都算数。
 	got := writingPlanShapeWith(rows, []writingPlanAdd{
-		{Kind: writingKindPoint, Text: "   "},        // 空白
+		{Kind: writingKindPoint, Text: "   "},      // 空白
 		{Kind: writingKindPoint, Text: "孩子多了学位不够"}, // 和图上那条一模一样
 	})
 	if got.Top != 0 || got.Points != 1 || got.Material != 0 {

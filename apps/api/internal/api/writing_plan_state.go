@@ -154,10 +154,10 @@ type writingPlanShape struct {
 }
 
 // count 把一个节点记进形状里 —— writingPlanShapeOf 和 writingPlanShapeWith
-//（还没落库的那一轮）共用，两边不会数得不一样。
+// （还没落库的那一轮）共用，两边不会数得不一样。
 //
 // 🚨 2026-09-20：这个函数原来要靠四张关键词表去猜一个节点是什么
-//（writingRoleIsExample / writingRoleIsReasoning / writingRoleIsPoint /
+// （writingRoleIsExample / writingRoleIsReasoning / writingRoleIsPoint /
 // writingRoleIsPersonal），而每一张都是一次线上事故的补丁：
 // 例子落在最上层被当成分论点、挂得更深的分论点被当成例子、一条道理被当成例子。
 // 现在节点自己带着 kind，这里就只剩一个 switch。
@@ -250,6 +250,21 @@ const (
 	writingPlanMinPoints     = 2
 	writingPlanMaxPoints     = 4
 	writingPlanMinExamples   = 2
+	// writingPlanWiderFrom 是「从多长起，必须有一条不是她个人经历的材料」。
+	//
+	// 🚨 同事 2026-09-20 的验收标准：
+	//
+	//	「500字任务不默认强制多条理由和调查数据」
+	//
+	// 在这之前 Wider 无条件是 1：一篇 500 字的短文也被要求先去找一份研究或
+	// 报道，否则那道门不开。对一个写 500 字的初中生，那是一道和篇幅不相称的闸 ——
+	// 而 2026-09-18 定下 Wider 那条判据时针对的是**议论文写长了只拿自己两件事
+	// 去撑**，不是这一种。
+	//
+	// 800：一篇 800 字的议论文要两三条理由，这时候只拿个人经历确实撑不住；
+	// 500 字通常就是一条主张加一两件事，她自己的经历足够。
+	// 英文按同一比例换算（字→词）。
+	writingPlanWiderFrom = 800
 )
 
 func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
@@ -274,7 +289,38 @@ func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
 	if need.Material < writingPlanMinExamples {
 		need.Material = writingPlanMinExamples
 	}
+
+	// 🚨 短文不强制「她找来的」那一种材料 —— 见 writingPlanWiderFrom。
+	// 老师另外要求了的，仍然要（教师布置的题目里写着要查资料，就是要查）。
+	widerFrom := writingPlanWiderFrom
+	if wr.Lang == langEnglish {
+		widerFrom = writingPlanWiderFrom * writingPlanWordsPerPoint / writingPlanRunesPerPoint
+	}
+	if int(*wr.TargetWords) < widerFrom && !writingTeacherWantsResearch(wr) {
+		need.Wider = 0
+	}
 	return need
+}
+
+// writingTeacherWantsResearch：老师布置的那段话里有没有要求她去查资料。
+//
+// 🚨 同事 2026-09-20：「仅在教师要求或论证缺口下引导检索」。
+// 篇幅不够但老师明说了要查，那就还是要查 —— 老师的要求盖过篇幅这条默认。
+func writingTeacherWantsResearch(wr sqlc.Writing) bool {
+	if wr.AssignedPrompt == nil {
+		return false
+	}
+	p := strings.ToLower(*wr.AssignedPrompt)
+	for _, kw := range []string{
+		"查资料", "查找资料", "搜集", "收集资料", "调查", "文献", "引用", "数据",
+		"研究", "报道", "来源", "出处",
+		"research", "source", "cite", "citation", "evidence from", "data",
+	} {
+		if strings.Contains(p, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // promptBlock 把形状渲染成 prompt 里那一段。

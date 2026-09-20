@@ -48,10 +48,10 @@ const (
 	// 也过了线。道理站得住是好事，但它撑不起「你有什么证据」那一问。
 	// 对应 vocab 里的 point_reasoning（道理论证），是语文课上真有的那个东西。
 	writingKindReasoning = "reasoning"
-	writingKindCounter   = "counter" // 反方观点
-	writingKindRebuttal = "rebuttal" // 对反方的回应
-	writingKindGap      = "gap"      // 待补的材料
-	writingKindClosing  = "closing"  // 结尾
+	writingKindCounter   = "counter"  // 反方观点
+	writingKindRebuttal  = "rebuttal" // 对反方的回应
+	writingKindGap       = "gap"      // 待补的材料
+	writingKindClosing   = "closing"  // 结尾
 )
 
 var writingKindDepths = map[string]int32{
@@ -70,7 +70,7 @@ func writingKindValid(k string) bool {
 //
 // 不认识的 kind 当分论点处理（深度 1）—— 中间那一层是议论文里最常见的块，
 // 也是错了代价最小的一层。真正不认识的 kind 在解析那一步就已经被丢掉了
-//（parseWritingPlanReply），这里只是不让一个空字符串把节点送到深度 0。
+// （parseWritingPlanReply），这里只是不让一个空字符串把节点送到深度 0。
 func writingKindDepth(k string) int32 {
 	if d, ok := writingKindDepths[k]; ok {
 		return d

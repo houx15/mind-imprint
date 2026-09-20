@@ -87,7 +87,7 @@ func TestWritingPlanStalled_IgnoresCoachTurns(t *testing.T) {
 }
 
 // `node(text, depth)` 和 ready 那条地板本身已经有 TestPlanLooksReady 在守
-//（writing_plan_ready_internal_test.go），这里不再写第二遍，只测它没测的两件事：
+// （writing_plan_ready_internal_test.go），这里不再写第二遍，只测它没测的两件事：
 // 计数本身，和那段要喂进 prompt 的事实。
 func TestWritingPlanShape_CountsByDepth(t *testing.T) {
 	rows := []sqlc.WritingOutline{
@@ -135,9 +135,9 @@ func TestOutlineHasText(t *testing.T) {
 	}
 
 	for _, same := range []string{
-		"食堂每天倒掉的饭特别多",   // 一模一样
-		"食堂每天倒掉的饭特别多。",  // 只差句末标点 —— 模型复述时最常变的就是这个
-		"  食堂每天倒掉的饭特别多  ", // 前后空白
+		"食堂每天倒掉的饭特别多",                                        // 一模一样
+		"食堂每天倒掉的饭特别多。",                                       // 只差句末标点 —— 模型复述时最常变的就是这个
+		"  食堂每天倒掉的饭特别多  ",                                    // 前后空白
 		"serving staff give too much, students can't finish", // 英文只差大小写
 	} {
 		if !outlineHasText(rows, same) {

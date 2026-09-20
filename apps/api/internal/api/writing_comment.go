@@ -446,8 +446,79 @@ verdict 只能是这三个之一：
 // 表按 writing.lang 选（中文一张、英文一张，见 writing_symptoms.go），
 // 所以这个 prompt 不是常量——一篇英文稿子拿到的是 IELTS 那 13 个能力 id，
 // 一篇中文稿子拿到的是 qifeng 那 18 条诊断。
-func buildWritingCommentSystem(lang string, maxIssues int) string {
-	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang), maxIssues)
+// kind 是她停在的那一块是什么（writing_kind.go 的闭表）。空串 = 通篇审阅那一路，
+// 或者一个没有结构图节点的自由段落 —— 那时候不附分块的检查表。
+func buildWritingCommentSystem(lang string, maxIssues int, kind string) string {
+	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang), maxIssues) +
+		writingCommentBlockJob(kind)
+}
+
+// writingCommentBlockJob 是**这一块的活**：每一种块该查什么，不该查什么。
+//
+// 🚨 同事 2026-09-20 的意见 9，原话：
+//
+//	「标一下这一段功能里，对每一段的分析需要明确各个段落各自的功能，
+//	  而且也要知道其他的段落写了什么。」
+//
+// 前半句是这个函数，后半句是 writing_piece_context.go。两件事都要有：
+// 光知道后面的段写了什么，而不知道「开头的活是什么」，它还是会拿正文的标准
+// 去量开头。
+//
+// 「限制」和「与其他段的关系」两项来自 docs/2026-08-09-all-statuses.md §6
+// （statement complete：for each claim, we need evidence, analysis,
+// **limitation**, how it **correlates with others**）。
+func writingCommentBlockJob(kind string) string {
+	switch kind {
+	case writingKindOpening:
+		return `
+
+## 这一块是**开头**，它的活只有两件
+
+1. 让读者愿意读下去；
+2. 把这篇要证明的那句话亮出来，并且和题目对得上。
+
+🚨 **不要求开头自带完整的事例。** 开头是引子，具体的事写在后面的段里 ——
+你上面已经看得到那几段写了什么。后面确实有那件事，就**不要**在这里说
+「没有一件具体的事」；后面也没有，那是后面那几段的问题，不是这一段的。
+
+🚨 也不要要求开头把全文的理由先列一遍。那叫提纲，不叫开头。`
+
+	case writingKindPoint, writingKindCounter:
+		return `
+
+## 这一块是**正文的一段**，按这四项看
+
+1. **理由**：这一段要证明的那一句，和中心论点接不接得上。
+2. **证据**：有没有一件具体的事、一份材料。
+3. **解释**：有没有一句话说清这件事**凭什么**证明那个看法 ——
+   学生最常缺的是这一项，不是例子。
+4. **限制**：这条理由在什么情况下不成立。她没写不一定是毛病，
+   但如果她把话说得太满（「所有」「一定」「每个人」），这一处要指出来。
+
+外加一项：这一段和别的段的关系 —— 它和上一段是不是在说同一件事
+（你上面看得到别的段写了什么，重复了就说出来）。
+
+🚨 **不要把例子、解释、让步机械拆成三条独立的意见。** 一次只说最要紧的那一处。`
+
+	case writingKindRebuttal:
+		return `
+
+## 这一块是**对反方的回应**
+
+只看一件事：她回应的，是不是反方**真正说的那一点**。
+回应了一个反方没说过的、更弱的说法，这一处要指出来。`
+
+	case writingKindClosing:
+		return `
+
+## 这一块是**结尾**
+
+只看一件事：它有没有**收束全文** —— 回到中心论点，而且说得比开头更准一点。
+把前面说过的话原样再说一遍，不算收束。
+
+🚨 不要要求结尾引入新的证据。新证据出现在结尾，是结构问题，不是优点。`
+	}
+	return ""
 }
 
 // buildWritingCommentPrompt assembles the user turn shared by both zoom
@@ -616,7 +687,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
 	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
-		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues),
+		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind),
 		buildWritingCommentPrompt(wr, "她写的这一段", source, piece),
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))

@@ -54,10 +54,28 @@ export function commentPointIsStale(quote: string, currentText?: string): boolea
  * 🚨 **`polish` 不能用 danger。** 它的意思是「不挡着她往下走」，
  * 长得像错误就等于没分级 —— 那正是同事指出的那个毛病。
  */
-const VERDICT_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
-  pass: { label: "已通过", bg: "var(--mk-accent-100)", fg: "var(--mk-accent-700)" },
-  polish: { label: "可优化", bg: "var(--mk-surface-2, var(--mk-surface))", fg: "var(--mk-muted)" },
-  revise: { label: "需修改", bg: "var(--mk-danger-bg, var(--mk-surface))", fg: "var(--mk-danger)" },
+// 🚨 只用**真的存在**的 mk token。`--mk-surface-2` 在 lite 的 index.css 里
+// 被用过两次却从来没有被定义 —— 那一类幽灵变量解析成空、背景直接没有，
+// 而且不报错（2026-09-02 一次清查里揪出过四个）。
+const VERDICT_CHIP: Record<string, { label: string; bg: string; fg: string; border: string }> = {
+  pass: {
+    label: "已通过",
+    bg: "var(--mk-accent-100)",
+    fg: "var(--mk-accent-700)",
+    border: "var(--mk-accent-300)",
+  },
+  polish: {
+    label: "可优化",
+    bg: "var(--mk-surface)",
+    fg: "var(--mk-muted)",
+    border: "var(--mk-border)",
+  },
+  revise: {
+    label: "需修改",
+    bg: "var(--mk-danger-bg)",
+    fg: "var(--mk-danger)",
+    border: "var(--mk-danger)",
+  },
 };
 
 export function CommentPanel({
@@ -126,7 +144,9 @@ export function CommentPanel({
   // 所以收起来，不是删掉：折在一行后面，她想回头看还能翻开。
   const chip = comment.verdict ? VERDICT_CHIP[comment.verdict] : undefined;
   const verdictLabel = chip?.label ?? "";
-  const verdictStyle = chip ? { background: chip.bg, color: chip.fg } : undefined;
+  const verdictStyle = chip
+    ? { background: chip.bg, color: chip.fg, border: `1px solid ${chip.border}` }
+    : undefined;
 
   const livePoints = comment.points.filter((p) => !stale(p.quote));
   const stalePoints = comment.points.filter((p) => stale(p.quote));

@@ -132,3 +132,78 @@ func TestWritingLaterBlocksText(t *testing.T) {
 		t.Errorf("最后一块后面不该有东西：%q", s)
 	}
 }
+
+// 每一种块该查什么，不该查什么 —— 同事 2026-09-20 的意见 9 的前半句：
+// 「对每一段的分析需要明确各个段落各自的功能」。
+func TestCommentSystemDispatchesByKind(t *testing.T) {
+	opening := buildWritingCommentSystem("zh", 1, writingKindOpening)
+	if !contains(opening, "不要求开头自带完整的事例") {
+		t.Errorf("开头那一份没说清它的活：\n%s", opening)
+	}
+
+	point := buildWritingCommentSystem("zh", 1, writingKindPoint)
+	// 「限制」和「与其他段的关系」来自 all-statuses §6。
+	for _, want := range []string{"理由", "证据", "解释", "限制", "别的段"} {
+		if !contains(point, want) {
+			t.Errorf("正文那一份缺 %q", want)
+		}
+	}
+	// 🚨 正文那一份**不能**带着「不要求开头自带事例」那句话 ——
+	// 共用作用域里放某一个块的说明，是 2026-09-12 那条教训的原形
+	// （阅读室的格子说明漏进了写作室）。
+	if contains(point, "不要求开头自带完整的事例") {
+		t.Error("开头那一块的说明漏进了正文那一份")
+	}
+
+	closing := buildWritingCommentSystem("zh", 1, writingKindClosing)
+	if !contains(closing, "收束全文") {
+		t.Errorf("结尾那一份没说清它的活：\n%s", closing)
+	}
+
+	rebuttal := buildWritingCommentSystem("zh", 1, writingKindRebuttal)
+	if !contains(rebuttal, "反方") {
+		t.Errorf("回应那一份没说清它的活：\n%s", rebuttal)
+	}
+
+	// 通篇审阅（kind 为空）不附分块的检查表。
+	whole := buildWritingCommentSystem("zh", 3, "")
+	for _, unwanted := range []string{"这一块是**开头**", "这一块是**结尾**"} {
+		if contains(whole, unwanted) {
+			t.Errorf("通篇那一份不该带分块的检查表（%q）", unwanted)
+		}
+	}
+}
+
+// 🚨 同事 2026-09-20 的验收标准：
+// 「500字任务不默认强制多条理由和调查数据」。
+func TestShortPieceDoesNotDemandFoundMaterial(t *testing.T) {
+	short := sqlc.Writing{Lang: "zh"}
+	w := int32(500)
+	short.TargetWords = &w
+	if need := writingPlanNeedOf(short); need.Wider != 0 {
+		t.Errorf("500 字的短文不该强制一条「她找来的」材料，need.Wider=%d", need.Wider)
+	}
+
+	// 长一点的仍然要 —— 一篇 800 字只拿自己两件事去撑，老师读到的是「我觉得」。
+	long := sqlc.Writing{Lang: "zh"}
+	lw := int32(1200)
+	long.TargetWords = &lw
+	if need := writingPlanNeedOf(long); need.Wider < 1 {
+		t.Error("1200 字仍然要至少一条社会／历史上的材料")
+	}
+
+	// 🚨 老师明说了要查资料：篇幅短也还是要 —— 老师的要求盖过这条默认。
+	assigned := sqlc.Writing{Lang: "zh"}
+	assigned.TargetWords = &w
+	p := "写一篇 500 字的议论文，要求引用一份调查数据。"
+	assigned.AssignedPrompt = &p
+	if need := writingPlanNeedOf(assigned); need.Wider < 1 {
+		t.Error("老师要求查资料的时候，短文也要一条找来的材料")
+	}
+
+	// 没设篇幅：不知道她要写多长，就不替她减码，照旧要一条。
+	none := sqlc.Writing{Lang: "zh"}
+	if need := writingPlanNeedOf(none); need.Wider < 1 {
+		t.Error("没设目标字数时不该悄悄把这条判据关掉")
+	}
+}
