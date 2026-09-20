@@ -433,6 +433,38 @@ func TestSelectionPromptCarriesTheClosedCatalog(t *testing.T) {
 	}
 }
 
+// 中途总结：八问只答了前两问，两条 prompt 都要成立。
+//
+// 「现在总结」（2026-09-20 的反馈）让一趟没问完的探询也生成报告，于是
+// answers 里后面六格是空串。空格必须**跳过**，不能带着一个空标题进 prompt ——
+// 模型读到「NODE 05 / QUESTION：」后面什么都没有，会自己替她补一个问题，
+// 而那句话她从来没写过。
+func TestPromptsSkipTheQuestionsSheNeverReached(t *testing.T) {
+	answers := make([]string, NodeCount)
+	answers[0] = "最近老是刷到潮汐发电的视频，我看了四十分钟还在看"
+	answers[1] = "最抓住我的是那个闸门的节奏，它要等潮水到某个高度才动一次"
+
+	for name, user := range map[string]string{
+		"选词": func() string { _, u := BuildSelectionPrompt(answers, HerQuestion(answers)); return u }(),
+		"报告": func() string { _, u := BuildReportPrompt(answers); return u }(),
+	} {
+		if !strings.Contains(user, "闸门的节奏") {
+			t.Errorf("%s prompt 里没有她真写过的那一段", name)
+		}
+		// 她没走到的那几问一个都不该出现 —— 出现就是给模型一个空位去填。
+		for _, n := range Nodes[2:] {
+			if strings.Contains(user, n.Code) {
+				t.Errorf("%s prompt 带上了她没答的 %s", name, n.Code)
+			}
+		}
+	}
+
+	// 她没走到 NODE 05 / NODE 08，所以这两格照实为空，而不是拿别的话顶上。
+	if HerQuestion(answers) != "" || HerWorkConcept(answers) != "" {
+		t.Error("没答到的那两问被填上了内容")
+	}
+}
+
 // 🚨 这一条守着 2026-09-11 那次踩坑的反面：不要把采集那条「材料的话题不算」
 // 带进来。这里没有材料，带进来的结果是真模型 0/3 长出词。
 func TestSelectionRulesDoNotBorrowTheMaterialRule(t *testing.T) {
