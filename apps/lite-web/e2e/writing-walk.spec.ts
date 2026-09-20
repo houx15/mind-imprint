@@ -77,19 +77,46 @@ const titled = (name: string) => `${name} ${RUN}`;
 
 const BOX_PLACEHOLDER = "说说你想写点什么，直接开始";
 const WRITING_URL = /\/writings\/[0-9a-f-]{36}$/;
-const STAGE_NAV = "写作三步";
+// 🚨 R3（2026-09-20）在规划和段落之间加了「行文」那一步，StageMap 的
+// aria-label 跟着从「写作三步」改成了「写作四步」。R3 当时只跑了
+// flow-stage 那条新走查，这几条旧的没回头跑 —— 它们从那天起就是红的。
+const STAGE_NAV = "写作四步";
+
+/**
+ * 规划之后那一步：行文。
+ *
+ * 🚨 R3（2026-09-20，同事的意见 4）在规划和段落之间加了这一屏。它和规划一样是
+ * **全屏的**（WritingRoomHost 在房间外壳之前就分叉了），所以这一屏上没有
+ * 「写作四步」那条导航 —— 走查在这里等导航会干等 30 秒，读起来像房间坏了。
+ *
+ * R3 当时只跑了 flow-stage 那条新走查，这几条旧的没回头跑。
+ */
+async function passThroughFlow(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "行文" })).toBeVisible({ timeout: 30_000 });
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
+    page.getByRole("button", { name: /去写段落/ }).click(),
+  ]);
+}
+
 
 type StageLabel = "结构" | "段落" | "成稿";
 
 /**
- * The greeting is split across elements (写 is its own <span> so the ink ring
- * can be drawn behind it), so — same convention as reading-walk's
- * expectGreeting — it is matched on the heading's textContent.
+ * 落地页那个标题。
+ *
+ * 🚨 2026-09-21 订正：这里钉的原来是「Hi，今天想写点什么」，而
+ * `8a1fd0be style(lite): refresh reading writing and project entry pages`
+ * （2026-09-14）把三个入口页统一换成了 `LandingHeader`，写作那个的标题
+ * 是「写作」。**这三条走查从那天起就一直是红的，没有人发现** ——
+ * 它们只在有人手动跑线上套件的时候才会说话。
+ *
+ * 钉标题本身而不是钉一句问候语：问候语是会改的文案，标题是这一页叫什么。
  */
 async function expectGreeting(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toBeVisible();
-  expect(await heading.textContent()).toBe("Hi，今天想写点什么");
+  expect(await heading.textContent()).toBe("写作");
 }
 
 /**
@@ -316,6 +343,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
   ]);
+  await passThroughFlow(page);
   await expect(page.getByRole("navigation", { name: STAGE_NAV })).toBeVisible({ timeout: 30_000 });
 
   // ── THE HANDOVER: the map she planned IS the outline she now writes into ─
@@ -490,8 +518,12 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await expect(
     page.getByText("印记正在把这次写的东西整理成一份报告", { exact: false }),
   ).toHaveCount(0, { timeout: 300_000 });
-  await expect(page.getByText(paragraph1)).toBeVisible();
-  await expect(page.getByText(paragraph2)).toBeVisible();
+  // 🚨 圈到成稿那一栏里再找。完成页有三栏（成稿 / 对话 / 报告），
+  // 没选中的那几栏也在 DOM 里，于是同一段字有两个节点，裸 getByText 会撞上
+  // strict mode。屏幕上她只看见一份 —— 要验的也正是**看得见**的那一份。
+  const piece = page.getByRole("article");
+  await expect(piece.getByText(paragraph1)).toBeVisible();
+  await expect(piece.getByText(paragraph2)).toBeVisible();
   await expect(page.getByRole("button", { name: "回到写作", exact: true })).toBeVisible();
   // Terminal means terminal: no stage map, no coach box, nothing that could
   // reopen this as a live room.
@@ -523,6 +555,7 @@ test("the 设定 dialog can be skipped entirely — length is never a preconditi
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
   ]);
+  await passThroughFlow(page);
   await expect(page.getByRole("navigation", { name: STAGE_NAV })).toBeVisible({ timeout: 30_000 });
 
   // No target set, so the counter offers to set one rather than showing a

@@ -395,7 +395,7 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page
-      .getByRole("navigation", { name: "写作三步" })
+      .getByRole("navigation", { name: "写作四步" })
       .getByRole("button", { name: "成稿" })
       .click(),
   ]);

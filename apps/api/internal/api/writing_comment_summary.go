@@ -48,6 +48,12 @@ import (
 var writingSummaryAbsenceMarkers = []string{
 	// 中文。「缺」单独留着是故意的：缺少/缺乏/缺失/缺点 都该被这条盖住。
 	"缺", "不足", "尚未", "还没", "没能", "未能",
+	// 🚨 2026-09-21 线上走查补的。真模型绕过了上面那几个词：
+	//   「这两段各写了一边的事，但通篇**找不到**一句是你自己的判断」
+	// 说的是同一件事，一个标记都没踩上。
+	// 「没有一句」「没有一个」这样带量词的写法收进来，光秃秃的「没有」不收 ——
+	// 「这一段没有问题」是句好话，收了它每一轮都要重试。
+	"找不到", "看不到", "没有一句", "没有一个", "一句都没有", "一个都没有",
 	// 英文。全部小写比对。
 	"lack", "missing", "absent", "fails to", "fail to", "without a", "no clear",
 }
@@ -114,16 +120,37 @@ func (a *API) collectWritingComment(
 	}
 
 	marker := summaryClaimsAbsence(parsed.Summary)
-	if marker == "" {
+	if marker == "" && writingHasIssue(parsed.Points) {
 		return parsed, true
+	}
+	if marker == "" {
+		// 🚨 **说了这篇有问题，却一条 point 都不给。**
+		//
+		// 2026-09-21 线上走查抓到的：通篇审阅回来只有一句总评
+		//「这两段各写了一边的事，但通篇找不到一句是你自己的判断」，points 是空的。
+		// 面板上于是只剩那一句话挂在最上面，她点不动、追不到原文、也不知道
+		// 下一步做什么 —— 和上面那条「总评说缺什么」是同一个毛病的另一面：
+		// **一句没有东西撑着的断言**。
+		//
+		// 这一条比词表硬：它不问那句话是怎么写的，只问「你说有问题，问题在哪句」。
+		// verdict 是 pass 的时候不触发 —— 那一档本来就允许 points 是空的
+		//（提示词里写着「判 pass 的时候不要硬凑一条 issue 出来」）。
+		if parsed.Verdict == writingVerdictPass {
+			return parsed, true
+		}
+		marker = writingVerdictNoPointMarker
 	}
 
 	// 重试那一轮把它自己上一份回复也带上，否则「points 原样保留」无从谈起。
 	slog.Info("writing comment: summary claimed an absence, retrying once",
 		append(logArgs, "marker", marker, "summary", parsed.Summary)...)
+	nudge := fmt.Sprintf(writingSummaryAbsenceNudge, marker)
+	if marker == writingVerdictNoPointMarker {
+		nudge = writingNoPointNudge
+	}
 	retry := append(msgs,
 		gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
-		gateway.ChatMessage{Role: gateway.RoleUser, Content: fmt.Sprintf(writingSummaryAbsenceNudge, marker)},
+		gateway.ChatMessage{Role: gateway.RoleUser, Content: nudge},
 	)
 	res2, cerr2 := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: retry})
 	a.recordLiteLLMCall(ctx, userID, atomID, purpose, resolved, res2.Usage)
@@ -141,5 +168,26 @@ func (a *API) collectWritingComment(
 		slog.Warn("writing comment: summary still claims an absence after the retry",
 			append(logArgs, "marker", m2, "summary", parsed2.Summary)...)
 	}
+	if parsed2.Verdict != writingVerdictPass && !writingHasIssue(parsed2.Points) {
+		slog.Warn("writing comment: still says something is wrong with no point after the retry",
+			append(logArgs, "verdict", parsed2.Verdict, "summary", parsed2.Summary)...)
+	}
 	return parsed2, true
 }
+
+// writingVerdictNoPointMarker 是第二种触发的记号。不是她正文里的词，
+// 只是给日志和分支用的一个标签。
+const writingVerdictNoPointMarker = "<verdict-without-point>"
+
+// writingNoPointNudge —— 说了这篇有问题，却一条都没指出来的那一轮。
+//
+// 照着 writingSummaryAbsenceNudge 的做法：指出犯的是哪一处，不把整条规矩再念一遍。
+const writingNoPointNudge = `刚才那一份里，verdict 不是 pass，points 却是空的。
+
+你说了这篇还有要改的地方，但没有说是哪一句。她看到的会是一句挂在最上面、
+点不动也追不到原文的话。
+
+重新输出一次完整的 JSON：
+- 真的有要改的地方 → 至少给一条 issue，带上她原文里**逐字**存在的 quote，
+  和一个她现在就能做的动作。
+- 其实没有 → 把 verdict 改成 pass，summary 改成说这一篇现在站在哪儿。`

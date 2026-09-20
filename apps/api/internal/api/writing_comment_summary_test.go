@@ -43,3 +43,48 @@ func TestSummaryClaimsAbsence_English(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 2026-09-21 线上走查：真模型绕过了那张词表。
+//
+// 通篇审阅回来的总评是「这两段各写了一边的事，但通篇**找不到**一句是你自己的
+// 判断」—— 说的和「缺少一个核心论点」是同一件事，一个标记都没踩上。
+func TestSummaryAbsence_CatchesTheSynonymsTheModelActuallyUsed(t *testing.T) {
+	for _, s := range []string{
+		"这两段各写了一边的事，但通篇找不到一句是你自己的判断。",
+		"全文看不到一个属于你自己的判断。",
+		"这两段里没有一句是你的主张。",
+	} {
+		if m := summaryClaimsAbsence(s); m == "" {
+			t.Errorf("没抓住这句在说「她缺了什么」：%q", s)
+		}
+	}
+	// 🚨 光秃秃的「没有」不收 —— 「这一段没有问题」是句好话，
+	// 收了它每一轮都要多跑一次模型。
+	for _, s := range []string{
+		"这一段没有问题，可以往下走了。",
+		"观点句和材料句都齐了，这一段站得住。",
+	} {
+		if m := summaryClaimsAbsence(s); m != "" {
+			t.Errorf("这句是好话，不该触发重试（抓到 %q）：%q", m, s)
+		}
+	}
+}
+
+// 说了这篇有问题，却一条 point 都不给。
+//
+// 这条比词表硬：它不问那句话是怎么写的，只问「你说有问题，问题在哪句」。
+func TestVerdictWithoutAnyPointIsIncoherent(t *testing.T) {
+	none := []CommentPoint{}
+	onlyGood := []CommentPoint{{Kind: "good", Text: "这个例子具体。"}}
+	withIssue := []CommentPoint{{Kind: "issue", Symptom: "claim_not_stated", Text: "…", Action: "…"}}
+
+	if writingHasIssue(none) {
+		t.Error("空的 points 不该算「有一条 issue」")
+	}
+	if writingHasIssue(onlyGood) {
+		t.Error("只有一条肯定不该算「有一条 issue」")
+	}
+	if !writingHasIssue(withIssue) {
+		t.Error("有一条 issue 却没认出来")
+	}
+}
