@@ -55,7 +55,7 @@ func oneCommentTurn(t *testing.T, lang, source string) []CommentPoint {
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(lang, writingBlockCommentMaxIssues, "")},
-			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", source, "")},
+			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", source, "", genreArgument)},
 		},
 	})
 	if err != nil {

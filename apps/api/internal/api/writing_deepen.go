@@ -134,7 +134,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	// Position AND language (vocab.For): this sub-agent is the one that actually
 	// shows examples, so a wrong-language entry here would be read out loud.
 	b.WriteString("\n【可用的方法】（举例子只能用这里的，别自己编，例子讲的是别的题目，不是她的）\n")
-	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang, writingGenreOf(wr, outline)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	return b.String()

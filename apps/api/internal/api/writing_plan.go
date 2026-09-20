@@ -374,7 +374,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	// Both names go in — 印记 says the plain one to her, and knows the formal
 	// one for when she asks what it is really called.
 	b.WriteString("\n【可用的方法】（只能用这里的名字，别造新词）\n")
-	for _, m := range vocab.ForLang(wr.Lang) {
+	for _, m := range vocab.ForLang(wr.Lang, writingGenreOf(wr, rows)) {
 		b.WriteString("- " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
 

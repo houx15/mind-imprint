@@ -252,7 +252,7 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	// Filtered by position AND by the piece's language — see vocab.For: an
 	// English frame offered inside a Chinese essay is a bug, not a rough edge.
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang, writingGenreOf(wr, siblings)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	// See writingMethodFamiliesLine: an English piece can now be helped with
@@ -313,7 +313,7 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	}
 
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.ForLang(wr.Lang) {
+	for _, m := range vocab.ForLang(wr.Lang, writingGenreOf(wr, blocks)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
 	b.WriteString(writingMethodFamiliesLine(wr))

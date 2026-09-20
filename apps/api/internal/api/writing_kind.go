@@ -52,6 +52,19 @@ const (
 	writingKindRebuttal  = "rebuttal" // 对反方的回应
 	writingKindGap       = "gap"      // 待补的材料
 	writingKindClosing   = "closing"  // 结尾
+
+	// —— 记叙文的四种（R4，2026-09-21）——
+	//
+	// 上面十种是按议论文的骨架定的。产品负责人拿来的那位语文老师的讲义里
+	// 还有一整套记叙文的教法，而在这之前，一篇记叙文进了这间屋子会被硬塞进
+	// 中心论点 / 分论点 / 论据 —— 那是一副用不上的骨架。
+	//
+	// 只有四种，因为记叙文的骨架本来就比议论文平：一件事、事里的细节、
+	// 让情感反过来的那个转折、最后落下来的那句。
+	writingKindScene   = "scene"   // 场景：一件事，有时间有地点
+	writingKindDetail  = "detail"  // 细节：场景里的动作、神态、话、环境
+	writingKindTurn    = "turn"    // 转折：让你改观的那一下（讲义的「转」）
+	writingKindFeeling = "feeling" // 感悟：这件事之后你明白了什么（讲义的「扬」）
 )
 
 var writingKindDepths = map[string]int32{
@@ -59,6 +72,27 @@ var writingKindDepths = map[string]int32{
 	writingKindPoint: 1, writingKindCounter: 1,
 	writingKindEvidence: 2, writingKindReference: 2, writingKindReasoning: 2,
 	writingKindRebuttal: 2, writingKindGap: 2,
+	// 记叙文：场景和转折是主干（深度 1），细节挂在场景底下（深度 2），
+	// 感悟收在主干那一层。
+	writingKindScene: 1, writingKindTurn: 1, writingKindFeeling: 1,
+	writingKindDetail: 2,
+}
+
+// writingKindGenre 说这一种块属于哪一种文体。空串 = 两种都用
+//（开篇和结尾：一篇记叙文也要开头结尾）。
+//
+// 🚨 表里没有的 kind 返回空串，也就是「两种都用」。方向和
+// writingKindDepth 的兜底一致：不认识的东西不该因为认不出来就被藏掉。
+func writingKindGenre(k string) string {
+	switch k {
+	case writingKindThesis, writingKindPoint, writingKindEvidence,
+		writingKindReference, writingKindReasoning, writingKindCounter,
+		writingKindRebuttal, writingKindGap:
+		return genreArgument
+	case writingKindScene, writingKindDetail, writingKindTurn, writingKindFeeling:
+		return genreNarrative
+	}
+	return ""
 }
 
 func writingKindValid(k string) bool {
@@ -111,6 +145,14 @@ func writingKindLabel(k, source string) string {
 		return "论据 · 你找来的材料"
 	case writingKindReasoning:
 		return "道理"
+	case writingKindScene:
+		return "场景"
+	case writingKindDetail:
+		return "细节"
+	case writingKindTurn:
+		return "转折"
+	case writingKindFeeling:
+		return "感悟"
 	}
 	return ""
 }
@@ -135,6 +177,16 @@ func writingKindParentOf(k string, rows []sqlc.WritingOutline) *sqlc.WritingOutl
 		return lastWritingKind(rows, writingKindPoint)
 	case writingKindRebuttal:
 		return lastWritingKind(rows, writingKindCounter)
+	// 记叙文：场景、转折、感悟都是主干（深度 1），挂在开篇下面 ——
+	// 记叙文没有中心论点。细节挂在前面最近的场景上。
+	case writingKindScene, writingKindTurn, writingKindFeeling:
+		return lastWritingKind(rows, writingKindOpening)
+	case writingKindDetail:
+		if p := lastWritingKind(rows, writingKindScene); p != nil {
+			return p
+		}
+		// 转折本身也是一个场景，细节可以挂在它下面。
+		return lastWritingKind(rows, writingKindTurn)
 	}
 	return nil
 }

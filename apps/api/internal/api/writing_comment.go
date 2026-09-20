@@ -529,7 +529,7 @@ func writingCommentBlockJob(kind string) string {
 // 字数、方法表、**这一段的正文**，别的段写了什么它一个字都看不见。
 // 同事的意见 9 就是这一条的直接后果：开头段被判「没有一件具体的事」，
 // 而那件事写在第二段里。空串 = 不给整篇（通篇审阅那一路本来就拿得到全文）。
-func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) string {
+func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece, genre string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
@@ -550,7 +550,7 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) strin
 	// 按语言过滤，理由同 writing_plan.go：一句英文句式出现在中文作文的意见里
 	// 是个 bug。
 	b.WriteString("\n【可用的方法】（method 只能从这里挑 id，别自己造词）\n")
-	for _, m := range vocab.ForLang(wr.Lang) {
+	for _, m := range vocab.ForLang(wr.Lang, genre) {
 		b.WriteString("- " + m.ID + "（" + m.Label() + "）：" + m.Definition + "\n")
 	}
 
@@ -657,8 +657,11 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	// 两项减法要用到的三样：这一块是什么、后面的段写了什么、她收到过什么意见。
 	focusKind := ""
 	laterText := ""
+	// 读不到图的时候按题目推 —— 那条路默认议论文，见 writing_genre.go。
+	genre := writingGenreOf(wr, nil)
 	var priorComments []sqlc.WritingComment
 	if outline, oerr := a.d.Queries.ListWritingOutline(turnCtx, at.ID); oerr == nil {
+		genre = writingGenreOf(wr, outline)
 		snippets, _ := a.d.Queries.ListWritingSnippets(turnCtx, at.ID)
 		prior, _ := a.d.Queries.ListWritingComments(turnCtx, at.ID)
 		focus := writingBlockOfSnippet(outline, snippet)
@@ -688,7 +691,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
 		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind),
-		buildWritingCommentPrompt(wr, "她写的这一段", source, piece),
+		buildWritingCommentPrompt(wr, "她写的这一段", source, piece, genre),
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {

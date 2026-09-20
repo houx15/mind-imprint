@@ -14,7 +14,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "opening_question",
@@ -30,7 +31,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "opening_direct",
@@ -46,7 +48,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "opening_story",
@@ -66,7 +69,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "point_parallel",
@@ -82,7 +86,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_progressive",
@@ -98,7 +103,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_contrast",
@@ -114,7 +120,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_pee",
@@ -130,7 +137,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_reasoning",
@@ -146,7 +154,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_concession",
@@ -162,7 +171,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "point_causal",
@@ -178,7 +188,8 @@
         }
       ],
       "patterns": [],
-      "category": "method"
+      "category": "method",
+      "genre": "argument"
     },
     {
       "id": "closing_return",
@@ -194,7 +205,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "closing_scope",
@@ -210,7 +222,8 @@
         }
       ],
       "patterns": [],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_concession",
@@ -230,7 +243,8 @@
           "frame": "Critics are right that ___. What this overlooks, however, is ___."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_qualify",
@@ -250,7 +264,8 @@
           "frame": "In the case of ___, ___; it is less clear whether ___."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_evidence",
@@ -270,7 +285,8 @@
           "frame": "This suggests that ___, because ___."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_word_precision",
@@ -295,7 +311,8 @@
           "frame": "not ___ (a category), but ___ (the specific one)"
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_word_register",
@@ -320,7 +337,8 @@
           "frame": "___ (who exactly) does ___ (what exactly)."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_sentence_variety",
@@ -341,7 +359,8 @@
           "frame": "___ , and ___ . ___ . (the last one three to five words)"
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_sentence_opener",
@@ -365,7 +384,8 @@
           "frame": "By the time ___ , ___ ."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_sentence_appositive",
@@ -385,7 +405,8 @@
           "frame": "___ , who ___ , ___ ."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_sentence_parallel",
@@ -405,7 +426,8 @@
           "frame": "not only ___ but also ___"
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_story_scene",
@@ -426,7 +448,8 @@
           "frame": "At ___ , ___ was ___ ."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_story_turn",
@@ -451,7 +474,8 @@
           "frame": "Until then, ___ . After that, ___ ."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "en_story_landing",
@@ -476,7 +500,8 @@
           "frame": "Before ___ , I ___ . Now ___ ."
         }
       ],
-      "category": ""
+      "category": "",
+      "genre": ""
     },
     {
       "id": "point_quote",
@@ -492,7 +517,8 @@
           "text": "《中国语言生活状况报告》2021 年写到，十岁以下能熟练说方言的孩子不到四成——这个数字比我的感受更有说服力。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "point_metaphor",
@@ -508,7 +534,8 @@
           "text": "方言像一棵树的根：看不见，但砍掉之后树还能站多久，谁也说不准。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "point_analogy",
@@ -524,7 +551,8 @@
           "text": "我们花钱修古建筑，是因为拆了就再也盖不回来。方言也是这样——最后一个说的人走了，它就没有了。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "point_absurd",
@@ -540,7 +568,8 @@
           "text": "如果「说的人少就该淘汰」成立，那么全世界只剩几种大语言才最方便——可没有人愿意生活在那样的地方。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "struct_total_part",
@@ -556,7 +585,8 @@
           "text": "开头一段说清「读书要读慢」；中间三段分别讲慢读能记住、能发现问题、能读出作者的立场；结尾回到「慢」这个字，说它省下的其实是重读的时间。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "struct_parallel",
@@ -572,7 +602,8 @@
           "text": "三段分别从时间、注意力、记忆三个角度说明慢读的好处。三段谁先谁后都不影响读者理解——这就是并列。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "struct_progressive",
@@ -588,7 +619,8 @@
           "text": "第一段说什么叫慢读，第二段说它为什么有用，第三段说一天里怎么挤出这半小时。前一段不讲清楚，后一段就没有落脚点。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
     },
     {
       "id": "struct_contrast",
@@ -604,7 +636,218 @@
           "text": "先用一大段写慢读的人两个月后还记得书里的话；再用短短一段写刷着读的人第二天就想不起书名。差别本身就是论证。"
         }
       ],
-      "patterns": []
+      "patterns": [],
+      "genre": "argument"
+    },
+    {
+      "id": "analysis_cause",
+      "name": "追一句为什么",
+      "formal_name": "因果分析法",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "analysis",
+      "definition": "例子只摆了发生过什么，还没说出为什么。抓住这件事往回推它是怎么来的，推到的那个原因就是你这一段要证的话。",
+      "examples": [
+        {
+          "topic": "心怀梦想",
+          "text": "是什么指引着刘伟用双脚去弹奏钢琴？是他心中的梦想。因为他固执地为梦想插上翅膀，让自己在寻梦途中不断飞越，所以成功走进了维也纳金色大厅。"
+        }
+      ],
+      "patterns": [
+        {
+          "label": "先问后答，再补因果",
+          "frame": "是什么……？是……。因为……，所以……"
+        }
+      ],
+      "genre": "argument"
+    },
+    {
+      "id": "analysis_suppose",
+      "name": "假如反过来",
+      "formal_name": "假设分析法",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "analysis",
+      "definition": "例子里已经有结果了。假设一个相反的情形，问它还会不会是这个结果，两相一比，你要证的那句话就立住了。正面的例子从反面假设，反面的例子从正面假设。",
+      "examples": [
+        {
+          "topic": "有志者事竟成",
+          "text": "假如王羲之根本没有想过要当什么书法家，只是平庸过日子，那他绝不可能有这么坚强的意志去练字，我们后人也就不会知道他这个人。"
+        }
+      ],
+      "patterns": [
+        {
+          "label": "假设一个相反的情形",
+          "frame": "假如……，那么……？"
+        },
+        {
+          "label": "从结果回推",
+          "frame": "若不是……，……？"
+        }
+      ],
+      "genre": "argument"
+    },
+    {
+      "id": "analysis_induce",
+      "name": "找出共同的那一点",
+      "formal_name": "归纳分析法",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "analysis",
+      "definition": "一口气列了好几个例子。把它们放在一起看，说出这些人、这些事共同表现出来的是什么，那一句就是你的分析。",
+      "examples": [
+        {
+          "topic": "中国人是有骨气的",
+          "text": "这些人的所作所为，真正表现了富贵不淫、贫贱不移、威武不屈的大丈夫气概，他们是有骨气的中国人。"
+        }
+      ],
+      "patterns": [
+        {
+          "label": "把几个例子收成一句",
+          "frame": "这些……，真正表现了……"
+        },
+        {
+          "label": "从一类人说到普遍",
+          "frame": "大凡……的人，其……皆来自……"
+        }
+      ],
+      "genre": "argument"
+    },
+    {
+      "id": "closing_echo",
+      "name": "回到开头那一处",
+      "formal_name": "首尾呼应法",
+      "applies_to": "closing",
+      "lang": "zh",
+      "category": "closing",
+      "definition": "开头摆了哪几样东西——一个现象、一个问题、一个场景——结尾一一回应它们，并指出该怎么办。一呼一应，全文读起来是圆的。",
+      "examples": [
+        {
+          "topic": "反躬自省",
+          "text": "看到长城上刻满了人名，告诉自己不要成为他们中的一份子；看到网络暴力，告诉自己不要成为加害者；在工作中遇到不顺，积极寻找原因。反躬自省，砥砺前行。"
+        }
+      ],
+      "patterns": [],
+      "genre": "argument"
+    },
+    {
+      "id": "closing_quote",
+      "name": "借一句话收住",
+      "formal_name": "名言警句法",
+      "applies_to": "closing",
+      "lang": "zh",
+      "category": "closing",
+      "definition": "引一句和中心论点同一个意思的名言收尾。引完要接一句自己的话，说清它为什么正好说中了这一篇，不能引完就停。",
+      "examples": [
+        {
+          "topic": "读书要读慢",
+          "text": "培根说读书是为了权衡和思考。权衡和思考都是慢的事，所以快读读到的只是字，慢读才读到书。"
+        }
+      ],
+      "patterns": [],
+      "genre": ""
+    },
+    {
+      "id": "closing_sum",
+      "name": "把几条收成一句",
+      "formal_name": "总结归纳法",
+      "applies_to": "closing",
+      "lang": "zh",
+      "category": "closing",
+      "definition": "把前面几段各自证到的东西收成一句，让中心论点比开头说得更准。不是把开头那句原样再说一遍。",
+      "examples": [
+        {
+          "topic": "读书要读慢",
+          "text": "记得住、发现得了问题、看得出作者的立场，这三样都要时间。所以慢读省下的，其实是重读的时间。"
+        }
+      ],
+      "patterns": [],
+      "genre": "argument"
+    },
+    {
+      "id": "closing_figure",
+      "name": "用一组句子收住",
+      "formal_name": "修辞收束法",
+      "applies_to": "closing",
+      "lang": "zh",
+      "category": "closing",
+      "definition": "用排比或比喻把中心论点再说一次，让最后一句有力度。🚨 讲义的硬话：结尾不超过两百字，忌空喊口号——没有前面的论证撑着，修辞就是口号。",
+      "examples": [
+        {
+          "topic": "柔软是一种力量",
+          "text": "柔软是特蕾莎修女给流浪汉的那个拥抱，是南丁格尔提灯时的那一点笑，是我们在坚硬的世界里还愿意留着的那颗会流泪的心。"
+        }
+      ],
+      "patterns": [],
+      "genre": ""
+    },
+    {
+      "id": "struct_yiyang",
+      "name": "先抑后扬",
+      "formal_name": "抑扬转情法",
+      "applies_to": "whole",
+      "lang": "zh",
+      "category": "structure",
+      "definition": "开头写你对这个人的不满，中间平淡叙事铺垫，然后一件具体的事让你改观，结尾写出新的认识。前后反差越大，情感越有冲击力。四步是抑、渡、转、扬。",
+      "examples": [
+        {
+          "topic": "写一个你讨厌的人",
+          "text": "开头写父亲总限制我、数学没考好只给白眼；中间一句「日子就这样一天天过着，直到有一天」；然后写风雨夜他弓着身子来接我；结尾写多年之后才发现父爱一直都在，只是我没去体察。"
+        }
+      ],
+      "patterns": [],
+      "genre": "narrative"
+    },
+    {
+      "id": "detail_person",
+      "name": "写人物的细节",
+      "formal_name": "人物细节描写",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "detail",
+      "definition": "外貌、语言、动作、心理，挑和这一篇主题相关的写。动词要准——「弓着身子蹒跚着走来」和「走过来」是两件事，读者只信前一个。",
+      "examples": [
+        {
+          "topic": "风雨夜父亲来接我",
+          "text": "他穿着雨衣，弓着身子，正一步一步蹒跚着向我走来。苍白的脸庞露出了微笑，将手中另一件雨衣递给我：「穿上，回家！」"
+        }
+      ],
+      "patterns": [],
+      "genre": "narrative"
+    },
+    {
+      "id": "detail_scene",
+      "name": "让环境替你说话",
+      "formal_name": "环境烘托",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "detail",
+      "definition": "写天气、写时辰、写周围的声音。环境越难，人物做的那件事越见分量——不用你说「他很不容易」，读者自己读得出来。",
+      "examples": [
+        {
+          "topic": "风雨夜父亲来接我",
+          "text": "风越刮越大，雨越下越猛。狂风肆无忌惮地撕扯他的雨衣，暴雨有恃无恐地迷蒙着他的双眼。"
+        }
+      ],
+      "patterns": [],
+      "genre": "narrative"
+    },
+    {
+      "id": "detail_object",
+      "name": "写一件东西",
+      "formal_name": "物件描写",
+      "applies_to": "body",
+      "lang": "zh",
+      "category": "detail",
+      "definition": "选一件反复出现的东西，写它的样子，也写它对这个人意味着什么。东西本身不重要，它承住的那件事才重要。",
+      "examples": [
+        {
+          "topic": "风雨夜父亲来接我",
+          "text": "那件多出来的雨衣一直挂在门后。后来我才知道，那天他是带着两件出门的。"
+        }
+      ],
+      "patterns": [],
+      "genre": "narrative"
     }
   ]
 }

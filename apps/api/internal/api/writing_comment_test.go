@@ -202,11 +202,11 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 // 都是可以这样机械地验一次的。
 func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。", "")
+		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。", "", genreArgument)
 		if !contains(prompt, "【可用的方法】") {
 			t.Fatalf("%s: prompt 里没有【可用的方法】这一节", lang)
 		}
-		methods := vocab.ForLang(lang)
+		methods := vocab.ForLang(lang, genreArgument)
 		if len(methods) == 0 {
 			t.Fatalf("%s: 方法库是空的", lang)
 		}
