@@ -23,9 +23,11 @@ func TestLoad_EveryMethodIsUsable(t *testing.T) {
 		}
 		seen[m.ID] = true
 		switch m.AppliesTo {
-		case "opening", "body", "closing", "any":
+		// "whole" 是论证结构那一层（2026-09-20）：它属于整篇，不属于任何一个
+		// 位置。For / ForLang 把它挡在按块取方法的那几条路外面。
+		case "opening", "body", "closing", "any", WholePiece:
 		default:
-			t.Errorf("method %q has applies_to %q, want opening|body|closing|any", m.ID, m.AppliesTo)
+			t.Errorf("method %q has applies_to %q, want opening|body|closing|any|whole", m.ID, m.AppliesTo)
 		}
 		switch m.Lang {
 		case "zh", "en", "any":
@@ -266,6 +268,100 @@ func TestEnglishPieceGetsVocabSentenceAndStoryMethods(t *testing.T) {
 				if m.ID == id {
 					t.Errorf("%s: %q reached a Chinese piece", family, id)
 				}
+			}
+		}
+	}
+}
+
+// 同事 2026-09-20 的意见 5：「几种写法不太规范，我找了一些论证结构的思维导图
+// 和教辅，可以参考一下这些论证方法规范一下语言」。
+//
+// 照他给的那两页教辅：论证方法有七种、论证结构有四种，库里各缺一半。
+func TestVocabHasTheStandardArgumentMethods(t *testing.T) {
+	want := []string{"举例论证", "引用论证", "对比论证", "比喻论证", "因果论证", "类比论证", "归谬论证"}
+	have := map[string]bool{}
+	for _, m := range All() {
+		if m.FormalName != "" {
+			have[m.FormalName] = true
+		}
+	}
+	for _, w := range want {
+		if !have[w] {
+			t.Errorf("论证方法缺 %q", w)
+		}
+	}
+}
+
+func TestVocabHasTheFourArgumentStructures(t *testing.T) {
+	want := map[string]bool{"总分式": true, "并列式": true, "层进式": true, "对照式": true}
+	for _, m := range Structures() {
+		delete(want, m.Name)
+		if m.Category != "structure" {
+			t.Errorf("%s 的 category 该是 structure，得到 %q", m.Name, m.Category)
+		}
+		if m.AppliesTo != "whole" {
+			t.Errorf("%s 的 applies_to 该是 whole，得到 %q", m.Name, m.AppliesTo)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("论证结构缺：%v", want)
+	}
+}
+
+// 🚨 整篇层的那四条**不许漏进按块取方法的那几条路**。
+// 「这一段用总分式」是句错话，而 ForLang 正是喂给规划和批量引导两个 prompt
+// 的那一份 —— 漏进去，模型就会在某一段的引导里说「这一段可以用总分式」。
+func TestWholePieceStructuresStayOutOfPerBlockLists(t *testing.T) {
+	for _, m := range ForLang("zh") {
+		if m.AppliesTo == "whole" {
+			t.Errorf("整篇层的 %q 漏进了 ForLang", m.Name)
+		}
+	}
+	for _, pos := range []string{"opening", "body", "closing"} {
+		for _, m := range For(pos, "zh") {
+			if m.AppliesTo == "whole" {
+				t.Errorf("整篇层的 %q 漏进了 For(%q)", m.Name, pos)
+			}
+		}
+	}
+}
+
+// 🚨 一个现有的名字都不许改：提示词散文里引着它们，而
+// api 包的 TestWritingPlanSystem_NamesOnlyRealMethods 逐字钉着 ——
+// 在这里改名，会让那条测试在一个看上去和方法库毫不相干的地方红掉。
+func TestVocabKeepsTheNamesPromptsAlreadyUse(t *testing.T) {
+	for _, n := range []string{
+		"并列论证", "递进论证", "对比论证", "举个例子", "讲道理",
+		"先承认，再反驳", "说清前因后果", "留个悬念", "先抛一个问题",
+		"开门见山", "从一件事讲起", "结尾回到开头", "最后提个建议",
+	} {
+		found := false
+		for _, m := range All() {
+			if m.Name == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("现有的名字 %q 不见了 —— 提示词里引着它", n)
+		}
+	}
+}
+
+// 每一条 body 的方法都要说清自己属于哪一类；开篇/结尾/英文句式不在这条轴上。
+func TestVocabCategoriesAreSet(t *testing.T) {
+	for _, m := range All() {
+		switch m.AppliesTo {
+		case "body":
+			if m.Lang == "en" {
+				continue // 英文句式不在这条轴上
+			}
+			if m.Category != "method" && m.Category != "structure" {
+				t.Errorf("%s（body）的 category 是 %q，该是 method 或 structure", m.ID, m.Category)
+			}
+		case "whole":
+			if m.Category != "structure" {
+				t.Errorf("%s（whole）的 category 该是 structure", m.ID)
 			}
 		}
 	}

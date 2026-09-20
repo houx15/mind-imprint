@@ -74,7 +74,26 @@ type Method struct {
 	// exactly what the rest of the room already does. Tagging the structural
 	// entries "zh" would fix the reported bug and create its mirror image: an
 	// English writer left with one opening method and no closings at all.
-	Lang       string    `json:"lang"`
+	Lang string `json:"lang"`
+	// Category 把 body 那一层再分成两类，照语文课的分法（同事 2026-09-20 给的
+	// 两页教辅）：
+	//
+	//	"structure" 论证结构 —— 整篇的几条分论点之间是什么关系（总分式 /
+	//	            并列式 / 层进式 / 对照式）。它是**行文那一步**的东西，
+	//	            不是某一段的；`applies_to` 是 "whole"。
+	//	"method"    论证方法 —— 一个看法怎么被证明（举例 / 引用 / 对比 /
+	//	            比喻 / 因果 / 类比 / 归谬）。
+	//	""          开篇和结尾的那几种开法收法，以及英文的句式 ——
+	//	            它们不在这条轴上。
+	//
+	// 🚨 加这个字段**没有动任何一个现有的 name / formal_name**：提示词散文里
+	// 引着它们，而 api 包的 TestWritingPlanSystem_NamesOnlyRealMethods 逐字
+	// 钉着（它还显式要求「并列论证」存在）。要加就只加新条目。
+	//
+	// 🚨 `point_parallel`（并列论证）和 `struct_parallel`（并列式）不是重复：
+	// 前者说的是**一段**里几条理由并排摆，后者说的是**整篇**的分论点之间
+	// 地位相同。教辅里这两个词也确实分属两层。
+	Category   string    `json:"category"`
 	Definition string    `json:"definition"`
 	Examples   []Example `json:"examples"`
 	Patterns   []Pattern `json:"patterns"`
@@ -130,6 +149,11 @@ func ByID(id string) (Method, bool) {
 func For(appliesTo string, lang string) []Method {
 	out := make([]Method, 0, len(loaded))
 	for _, m := range loaded {
+		// 🚨 整篇层的论证结构不属于任何一个位置。漏进来，某一段的引导里就会
+		// 出现「这一段可以用总分式」—— 那是句错话。见 WholePiece。
+		if m.AppliesTo == WholePiece {
+			continue
+		}
 		if (m.AppliesTo == appliesTo || m.AppliesTo == "any") && speaks(m, lang) {
 			out = append(out, m)
 		}
@@ -145,7 +169,32 @@ func For(appliesTo string, lang string) []Method {
 func ForLang(lang string) []Method {
 	out := make([]Method, 0, len(loaded))
 	for _, m := range loaded {
+		// 同 For：整篇层的不进按块取方法的那几条路。
+		if m.AppliesTo == WholePiece {
+			continue
+		}
 		if speaks(m, lang) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// WholePiece 是论证结构那一层的 applies_to —— 它不是一个位置，
+// 是「整篇」。行文那一步用它，别的地方一律把它挡在外面。
+const WholePiece = "whole"
+
+// Structures 返回那四条论证结构（总分式 / 并列式 / 层进式 / 对照式）。
+//
+// 只有行文那一步用得上：她的分论点都摆出来之后，选它们之间是什么关系。
+//
+// 🚨 这**不是**2026-08-27 被否掉的那个「从库里挑一副骨架往里填」。
+// 那次否的是**在她想之前**让她挑；这一步发生在她自己的分论点已经在图上之后，
+// 选的是她已经摆出来的那些点之间的关系 —— 先有东西，再给它命名。
+func Structures() []Method {
+	out := make([]Method, 0, 4)
+	for _, m := range loaded {
+		if m.AppliesTo == WholePiece {
 			out = append(out, m)
 		}
 	}

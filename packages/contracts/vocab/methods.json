@@ -8,9 +8,13 @@
       "lang": "any",
       "definition": "先抛出一个还没有答案的情况，让读者为了知道结果而读下去。",
       "examples": [
-        { "topic": "南极科考", "text": "1912 年 1 月，斯科特一行到达南极点，却发现雪地里已经插着一面旗子。那面旗子改变了他们回程的每一个决定。" }
+        {
+          "topic": "南极科考",
+          "text": "1912 年 1 月，斯科特一行到达南极点，却发现雪地里已经插着一面旗子。那面旗子改变了他们回程的每一个决定。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "opening_question",
@@ -20,9 +24,13 @@
       "lang": "any",
       "definition": "开篇提一个真问题，然后用全文来回答它。问题要具体，大到无法回答的问题不算数。",
       "examples": [
-        { "topic": "地铁票价", "text": "一张地铁票卖三块钱，可运一个人真正花掉的是七块。剩下那四块，是谁在付？" }
+        {
+          "topic": "地铁票价",
+          "text": "一张地铁票卖三块钱，可运一个人真正花掉的是七块。剩下那四块，是谁在付？"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "opening_direct",
@@ -32,9 +40,13 @@
       "lang": "any",
       "definition": "第一句就把结论说出来，后面全部用来支撑它。适合读者已经关心这件事的时候。",
       "examples": [
-        { "topic": "校车安全", "text": "校车该不该装安全带，其实早有答案：该装，而且早就该装了。" }
+        {
+          "topic": "校车安全",
+          "text": "校车该不该装安全带，其实早有答案：该装，而且早就该装了。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "opening_story",
@@ -44,10 +56,17 @@
       "lang": "any",
       "definition": "开头先讲一件具体发生过的小事，把读者带到现场，再从这件事说到你要讲的道理。事要小、要有细节，讲完就转，别讲成故事会。",
       "examples": [
-        { "topic": "旧书摊", "text": "巷口那个旧书摊摆了十九年。今年三月，摊主把最后一箱书搬上三轮车，回头问了一句：以后你们上哪儿翻书去？" },
-        { "topic": "校门口的斑马线", "text": "去年冬天，一年级的孩子在斑马线中间停住了——车没停，他也不敢走。那三秒钟，一整条街都在等一个七岁的孩子做决定。" }
+        {
+          "topic": "旧书摊",
+          "text": "巷口那个旧书摊摆了十九年。今年三月，摊主把最后一箱书搬上三轮车，回头问了一句：以后你们上哪儿翻书去？"
+        },
+        {
+          "topic": "校门口的斑马线",
+          "text": "去年冬天，一年级的孩子在斑马线中间停住了——车没停，他也不敢走。那三秒钟，一整条街都在等一个七岁的孩子做决定。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "point_parallel",
@@ -57,9 +76,13 @@
       "lang": "any",
       "definition": "用几条相互独立的理由支持同一主张，并避免内容重复。",
       "examples": [
-        { "topic": "图书馆延长开放", "text": "延长开放有三个理由：夜里的座位一直不够、住得远的人白天来不了、闭馆太早反而把人赶去了更吵的地方。" }
+        {
+          "topic": "图书馆延长开放",
+          "text": "延长开放有三个理由：夜里的座位一直不够、住得远的人白天来不了、闭馆太早反而把人赶去了更吵的地方。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_progressive",
@@ -69,9 +92,13 @@
       "lang": "any",
       "definition": "是什么 → 为什么 → 怎么办。后一层必须依赖前一层，否则它其实是并列论证。",
       "examples": [
-        { "topic": "路灯改造", "text": "这条路晚上太暗；暗是因为路灯之间的距离太远，无法让灯光照明到全路段；所以应该重新测算距离，或者更换功率更大的灯泡。" }
+        {
+          "topic": "路灯改造",
+          "text": "这条路晚上太暗；暗是因为路灯之间的距离太远，无法让灯光照明到全路段；所以应该重新测算距离，或者更换功率更大的灯泡。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_contrast",
@@ -81,9 +108,13 @@
       "lang": "any",
       "definition": "把两种情况放在一起比，差别本身就是论证。两边要在其他条件上尽量相似，不然比出来的不是你想说的那件事。",
       "examples": [
-        { "topic": "两个菜市场", "text": "东街的市场留了装卸区，早晨不堵；西街的没留，同样的车流每天堵四十分钟。" }
+        {
+          "topic": "两个菜市场",
+          "text": "东街的市场留了装卸区，早晨不堵；西街的没留，同样的车流每天堵四十分钟。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_pee",
@@ -93,9 +124,13 @@
       "lang": "any",
       "definition": "三步：先说你的看法，再举一件具体的事，最后说清这件事为什么能说明那个看法。",
       "examples": [
-        { "topic": "自行车道", "text": "隔离带比划线管用。某条路加了隔离带之后，机动车占道从每天十几起降到零。因为划线只是提示，隔离带是物理上进不去。" }
+        {
+          "topic": "自行车道",
+          "text": "隔离带比划线管用。某条路加了隔离带之后，机动车占道从每天十几起降到零。因为划线只是提示，隔离带是物理上进不去。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_reasoning",
@@ -105,9 +140,13 @@
       "lang": "any",
       "definition": "不举具体的事，而是把道理一步一步推给读者看：因为什么，所以什么。用在举不出例子、但道理站得住的地方；每一步都要接得上，跳一步读者就不信了。",
       "examples": [
-        { "topic": "课间十分钟", "text": "课间十分钟不该被占用。注意力不是水龙头，关上再拧开就有；它要有一段真正的空档才蓄得回来。占掉这十分钟，看着是多讲了十分钟，实际上后面四十分钟都在打折。" }
+        {
+          "topic": "课间十分钟",
+          "text": "课间十分钟不该被占用。注意力不是水龙头，关上再拧开就有；它要有一段真正的空档才蓄得回来。占掉这十分钟，看着是多讲了十分钟，实际上后面四十分钟都在打折。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_concession",
@@ -117,21 +156,29 @@
       "lang": "any",
       "definition": "先真诚承认对方最强的那一点，再说明它为什么不足以推翻你的结论。承认得越具体，转折越有力。",
       "examples": [
-        { "topic": "夜市管理", "text": "夜市确实吵，住在楼上的人休息不好，这一点不能装作没有。但吵的是通宵那几家，不是整条街，所以该管的是时间，不是取消。" }
+        {
+          "topic": "夜市管理",
+          "text": "夜市确实吵，住在楼上的人休息不好，这一点不能装作没有。但吵的是通宵那几家，不是整条街，所以该管的是时间，不是取消。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "point_causal",
       "name": "说清前因后果",
-      "formal_name": "因果",
+      "formal_name": "因果论证",
       "applies_to": "body",
       "lang": "any",
       "definition": "指出前因如何导致后果。要小心「先后」不等于「因果」，中间的机制得说出来。",
       "examples": [
-        { "topic": "早自习", "text": "早自习提前半小时，迟到反而变多了——因为最早的一班公交没有跟着提前。" }
+        {
+          "topic": "早自习",
+          "text": "早自习提前半小时，迟到反而变多了——因为最早的一班公交没有跟着提前。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": "method"
     },
     {
       "id": "closing_return",
@@ -141,9 +188,13 @@
       "lang": "any",
       "definition": "结尾回到开头那个场景或问题，用全文得到的东西重新回答一次。读者会觉得这篇是完整的。",
       "examples": [
-        { "topic": "地铁票价", "text": "所以再看开头那四块钱：它不是补贴谁的善意，是我们共同决定要不要让这座城市跑得起来。" }
+        {
+          "topic": "地铁票价",
+          "text": "所以再看开头那四块钱：它不是补贴谁的善意，是我们共同决定要不要让这座城市跑得起来。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "closing_scope",
@@ -153,9 +204,13 @@
       "lang": "any",
       "definition": "把大结论收回到一件具体、可执行的事上。比喊口号更有力，也更难反驳。",
       "examples": [
-        { "topic": "校车安全", "text": "不必等全套法规。先把已有的校车按最旧的一批排序，今年换掉前二十辆，就是可以做的第一步。" }
+        {
+          "topic": "校车安全",
+          "text": "不必等全套法规。先把已有的校车按最旧的一批排序，今年换掉前二十辆，就是可以做的第一步。"
+        }
       ],
-      "patterns": []
+      "patterns": [],
+      "category": ""
     },
     {
       "id": "en_concession",
@@ -166,9 +221,16 @@
       "definition": "英文里的让步句式：先承认对方那一点成立，再把它的适用范围收窄。",
       "examples": [],
       "patterns": [
-        { "label": "Admit then limit", "frame": "While it is true that ___, this does not mean ___." },
-        { "label": "Grant the strongest case", "frame": "Critics are right that ___. What this overlooks, however, is ___." }
-      ]
+        {
+          "label": "Admit then limit",
+          "frame": "While it is true that ___, this does not mean ___."
+        },
+        {
+          "label": "Grant the strongest case",
+          "frame": "Critics are right that ___. What this overlooks, however, is ___."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_qualify",
@@ -179,9 +241,16 @@
       "definition": "英文里的限定句式：把话说到多满，自己先讲清楚，读者才知道该信几分。",
       "examples": [],
       "patterns": [
-        { "label": "Degree", "frame": "To a large extent, ___ — though ___." },
-        { "label": "Bounded claim", "frame": "In the case of ___, ___; it is less clear whether ___." }
-      ]
+        {
+          "label": "Degree",
+          "frame": "To a large extent, ___ — though ___."
+        },
+        {
+          "label": "Bounded claim",
+          "frame": "In the case of ___, ___; it is less clear whether ___."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_evidence",
@@ -192,9 +261,16 @@
       "definition": "英文里引材料的句式：先把来源交代清楚，再说它到底说明了什么。",
       "examples": [],
       "patterns": [
-        { "label": "Cite a study", "frame": "A 2019 study of ___ found that ___." },
-        { "label": "Say what it shows", "frame": "This suggests that ___, because ___." }
-      ]
+        {
+          "label": "Cite a study",
+          "frame": "A 2019 study of ___ found that ___."
+        },
+        {
+          "label": "Say what it shows",
+          "frame": "This suggests that ___, because ___."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_word_precision",
@@ -204,12 +280,22 @@
       "lang": "en",
       "definition": "把笼统的词换成准确的词。动词和名词最能带信息，形容词最不能——读者是靠动词看见画面的。",
       "examples": [
-        { "topic": "南极科考", "text": "笼统：The team went across the ice and it was very hard.  准确：The team hauled their sledges across the ice, breaking through a crust that gave way every third step." }
+        {
+          "topic": "南极科考",
+          "text": "笼统：The team went across the ice and it was very hard.  准确：The team hauled their sledges across the ice, breaking through a crust that gave way every third step."
+        }
       ],
       "patterns": [
-        { "label": "Let the verb carry it", "frame": "Replace was very ___ with one verb that shows it: ___." },
-        { "label": "Name the thing exactly", "frame": "not ___ (a category), but ___ (the specific one)" }
-      ]
+        {
+          "label": "Let the verb carry it",
+          "frame": "Replace was very ___ with one verb that shows it: ___."
+        },
+        {
+          "label": "Name the thing exactly",
+          "frame": "not ___ (a category), but ___ (the specific one)"
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_word_register",
@@ -219,12 +305,22 @@
       "lang": "en",
       "definition": "整篇的用词分寸要一致。一句学术、一句口语混在一起，读者会觉得作者自己也没想清楚这是写给谁看的。",
       "examples": [
-        { "topic": "外卖配送费", "text": "跳档：Platforms take a cut, which is honestly kind of sketchy, and this raises questions of transparency.  一致：Platforms take a share they do not disclose, which makes the arrangement difficult to audit." }
+        {
+          "topic": "外卖配送费",
+          "text": "跳档：Platforms take a cut, which is honestly kind of sketchy, and this raises questions of transparency.  一致：Platforms take a share they do not disclose, which makes the arrangement difficult to audit."
+        }
       ],
       "patterns": [
-        { "label": "A neutral verb for a claim", "frame": "___ suggests / indicates / points to ___." },
-        { "label": "Name the actor instead of a vague one", "frame": "___ (who exactly) does ___ (what exactly)." }
-      ]
+        {
+          "label": "A neutral verb for a claim",
+          "frame": "___ suggests / indicates / points to ___."
+        },
+        {
+          "label": "Name the actor instead of a vague one",
+          "frame": "___ (who exactly) does ___ (what exactly)."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_sentence_variety",
@@ -234,11 +330,18 @@
       "lang": "en",
       "definition": "一段里句子长度要有变化。连着三个等长的句子读起来像念清单；在一串长句之后放一个短句，那个短句就成了重音。",
       "examples": [
-        { "topic": "横渡英吉利海峡", "text": "She had trained for two winters in water that never rose above twelve degrees, swimming before dawn so that the cold would stop being a surprise. Then the tide turned. Six hours of work went backwards in forty minutes." }
+        {
+          "topic": "横渡英吉利海峡",
+          "text": "She had trained for two winters in water that never rose above twelve degrees, swimming before dawn so that the cold would stop being a surprise. Then the tide turned. Six hours of work went backwards in forty minutes."
+        }
       ],
       "patterns": [
-        { "label": "Long, long, then short", "frame": "___ , and ___ . ___ . (the last one three to five words)" }
-      ]
+        {
+          "label": "Long, long, then short",
+          "frame": "___ , and ___ . ___ . (the last one three to five words)"
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_sentence_opener",
@@ -249,10 +352,20 @@
       "definition": "把从句放到句首，先交代让步、原因或时间，再说主句。每一句都从主语开头的那种单调感，就是这样打破的。",
       "examples": [],
       "patterns": [
-        { "label": "Concession first", "frame": "Although ___ , ___ ." },
-        { "label": "Cause first", "frame": "Because ___ , ___ ." },
-        { "label": "Time first", "frame": "By the time ___ , ___ ." }
-      ]
+        {
+          "label": "Concession first",
+          "frame": "Although ___ , ___ ."
+        },
+        {
+          "label": "Cause first",
+          "frame": "Because ___ , ___ ."
+        },
+        {
+          "label": "Time first",
+          "frame": "By the time ___ , ___ ."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_sentence_appositive",
@@ -263,9 +376,16 @@
       "definition": "在名词后面用逗号接一个短语，把身份或背景补进去，不必另起一句。这是英文里最省字的一种交代方式。",
       "examples": [],
       "patterns": [
-        { "label": "Identify in passing", "frame": "___ , a ___ , ___ ." },
-        { "label": "Add the telling detail", "frame": "___ , who ___ , ___ ." }
-      ]
+        {
+          "label": "Identify in passing",
+          "frame": "___ , a ___ , ___ ."
+        },
+        {
+          "label": "Add the telling detail",
+          "frame": "___ , who ___ , ___ ."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_sentence_parallel",
@@ -276,9 +396,16 @@
       "definition": "并列的几项要用同样的语法形状：三个动词就都用动词，三个名词就都用名词。形状一致，读者才看得出它们是同一层的东西。",
       "examples": [],
       "patterns": [
-        { "label": "Three of a kind", "frame": "___ , ___ , and ___ . (same part of speech, same shape)" },
-        { "label": "Not only, but also", "frame": "not only ___ but also ___" }
-      ]
+        {
+          "label": "Three of a kind",
+          "frame": "___ , ___ , and ___ . (same part of speech, same shape)"
+        },
+        {
+          "label": "Not only, but also",
+          "frame": "not only ___ but also ___"
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_story_scene",
@@ -288,11 +415,18 @@
       "lang": "en",
       "definition": "记叙文从一个具体时刻开始，不要从背景交代开始。先让读者看见一个画面，背景在后面一点一点补进去。",
       "examples": [
-        { "topic": "五台山朝圣", "text": "At four in the morning the stone steps were still wet, and the woman ahead of me stopped every three steps to press her forehead against them." }
+        {
+          "topic": "五台山朝圣",
+          "text": "At four in the morning the stone steps were still wet, and the woman ahead of me stopped every three steps to press her forehead against them."
+        }
       ],
       "patterns": [
-        { "label": "Time and place, then one action", "frame": "At ___ , ___ was ___ ." }
-      ]
+        {
+          "label": "Time and place, then one action",
+          "frame": "At ___ , ___ was ___ ."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_story_turn",
@@ -302,12 +436,22 @@
       "lang": "en",
       "definition": "一条故事线要有一个转折点：某一刻之后，你看这件事的方式和之前不一样了。没有这个点，故事就只是一串按时间排下来的事。",
       "examples": [
-        { "topic": "横渡英吉利海峡", "text": "For six hours the swim had been about the cold. When the tide turned, it stopped being about the cold and started being about whether she could accept losing ground she had already won." }
+        {
+          "topic": "横渡英吉利海峡",
+          "text": "For six hours the swim had been about the cold. When the tide turned, it stopped being about the cold and started being about whether she could accept losing ground she had already won."
+        }
       ],
       "patterns": [
-        { "label": "Name the moment", "frame": "It was not until ___ that ___ ." },
-        { "label": "Before and after", "frame": "Until then, ___ . After that, ___ ." }
-      ]
+        {
+          "label": "Name the moment",
+          "frame": "It was not until ___ that ___ ."
+        },
+        {
+          "label": "Before and after",
+          "frame": "Until then, ___ . After that, ___ ."
+        }
+      ],
+      "category": ""
     },
     {
       "id": "en_story_landing",
@@ -317,12 +461,150 @@
       "lang": "en",
       "definition": "结尾说出这件事让你明白了什么，但不要写成一句道理。回到开头那个具体画面，让读者自己看出变化。",
       "examples": [
-        { "topic": "五台山朝圣", "text": "I still do not know what she was asking for. I know that I counted her steps for two hours and forgot to count my own." }
+        {
+          "topic": "五台山朝圣",
+          "text": "I still do not know what she was asking for. I know that I counted her steps for two hours and forgot to count my own."
+        }
       ],
       "patterns": [
-        { "label": "Return to the image", "frame": "I still ___ . I know that ___ ." },
-        { "label": "Say what changed, not what it means", "frame": "Before ___ , I ___ . Now ___ ." }
-      ]
+        {
+          "label": "Return to the image",
+          "frame": "I still ___ . I know that ___ ."
+        },
+        {
+          "label": "Say what changed, not what it means",
+          "frame": "Before ___ , I ___ . Now ___ ."
+        }
+      ],
+      "category": ""
+    },
+    {
+      "id": "point_quote",
+      "name": "引一句话",
+      "formal_name": "引用论证",
+      "applies_to": "body",
+      "lang": "any",
+      "category": "method",
+      "definition": "引一句名言、一条权威数据来撑住你的看法。引之前先说清它是谁说的、哪一年的，否则读者不知道该信几分。",
+      "examples": [
+        {
+          "topic": "该不该保留方言",
+          "text": "《中国语言生活状况报告》2021 年写到，十岁以下能熟练说方言的孩子不到四成——这个数字比我的感受更有说服力。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_metaphor",
+      "name": "打个比方",
+      "formal_name": "比喻论证",
+      "applies_to": "body",
+      "lang": "any",
+      "category": "method",
+      "definition": "拿一件读者熟悉的事来说明一件他不熟悉的事。比方只负责讲清楚，不负责当证据——讲完还得回到真的理由上。",
+      "examples": [
+        {
+          "topic": "该不该保留方言",
+          "text": "方言像一棵树的根：看不见，但砍掉之后树还能站多久，谁也说不准。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_analogy",
+      "name": "类比",
+      "formal_name": "类比论证",
+      "applies_to": "body",
+      "lang": "any",
+      "category": "method",
+      "definition": "两件事在关键的那一点上相同，于是在结论上也该相同。要先说清相同的到底是哪一点，不然就成了硬凑。",
+      "examples": [
+        {
+          "topic": "该不该保留方言",
+          "text": "我们花钱修古建筑，是因为拆了就再也盖不回来。方言也是这样——最后一个说的人走了，它就没有了。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_absurd",
+      "name": "顺着他的话往下推",
+      "formal_name": "归谬论证",
+      "applies_to": "body",
+      "lang": "any",
+      "category": "method",
+      "definition": "先假设对方说得对，顺着推下去推出一个荒唐的结果，反过来说明他不对。特点是「以错攻错」。",
+      "examples": [
+        {
+          "topic": "该不该保留方言",
+          "text": "如果「说的人少就该淘汰」成立，那么全世界只剩几种大语言才最方便——可没有人愿意生活在那样的地方。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "struct_total_part",
+      "name": "总分式",
+      "formal_name": "总分式",
+      "applies_to": "whole",
+      "lang": "any",
+      "category": "structure",
+      "definition": "先用一段把主张说清楚，后面每一段各撑住它的一面。收尾再回到那句主张，就是总—分—总。",
+      "examples": [
+        {
+          "topic": "读书该快还是该慢",
+          "text": "开头一段说清「读书要读慢」；中间三段分别讲慢读能记住、能发现问题、能读出作者的立场；结尾回到「慢」这个字，说它省下的其实是重读的时间。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "struct_parallel",
+      "name": "并列式",
+      "formal_name": "并列式",
+      "applies_to": "whole",
+      "lang": "any",
+      "category": "structure",
+      "definition": "几条分论点地位相同，从不同角度说同一件事。顺序换了不影响读者理解——换了会影响的，那就不是并列式。",
+      "examples": [
+        {
+          "topic": "读书该快还是该慢",
+          "text": "三段分别从时间、注意力、记忆三个角度说明慢读的好处。三段谁先谁后都不影响读者理解——这就是并列。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "struct_progressive",
+      "name": "层进式",
+      "formal_name": "层进式",
+      "applies_to": "whole",
+      "lang": "any",
+      "category": "structure",
+      "definition": "后一条建立在前一条上：是什么 → 为什么 → 怎么办。顺序不能换，换了后面那条就没有落脚点。",
+      "examples": [
+        {
+          "topic": "读书该快还是该慢",
+          "text": "第一段说什么叫慢读，第二段说它为什么有用，第三段说一天里怎么挤出这半小时。前一段不讲清楚，后一段就没有落脚点。"
+        }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "struct_contrast",
+      "name": "对照式",
+      "formal_name": "对照式",
+      "applies_to": "whole",
+      "lang": "any",
+      "category": "structure",
+      "definition": "把正反两面摆在一起，一面写得重、一面作陪衬，差别本身就是论证。两面要在其他条件上尽量相似。",
+      "examples": [
+        {
+          "topic": "读书该快还是该慢",
+          "text": "先用一大段写慢读的人两个月后还记得书里的话；再用短短一段写刷着读的人第二天就想不起书名。差别本身就是论证。"
+        }
+      ],
+      "patterns": []
     }
   ]
 }
