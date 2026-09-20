@@ -450,7 +450,7 @@ verdict 只能是这三个之一：
 // 或者一个没有结构图节点的自由段落 —— 那时候不附分块的检查表。
 // help 是这一轮该用哪种帮法（writing_stall.go）。helpAsk 什么都不加。
 func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
-	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang), maxIssues) +
+	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
 		writingCommentBlockJob(kind) +
 		writingHelpModeBlock(help, lang, genre)
 }

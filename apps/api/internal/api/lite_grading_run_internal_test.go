@@ -99,7 +99,7 @@ func TestLiteGradingInputWiring(t *testing.T) {
 	if in.PersonJudging == nil || !in.PersonJudging("你很懒") {
 		t.Fatal("PersonJudging must be personDirectedVerdict")
 	}
-	if in.SymptomCatalog != writingSymptomCatalog("en") || in.AssignedPrompt != prompt || in.TargetWords != 800 || in.VersionNumber != 2 {
+	if in.SymptomCatalog != writingSymptomCatalog("en", genreNarrative) || in.AssignedPrompt != prompt || in.TargetWords != 800 || in.VersionNumber != 2 {
 		t.Fatalf("input = %+v", in)
 	}
 }

@@ -35,7 +35,9 @@ func liteGradingInput(src sqlc.GetLiteGradingSourceRow, rubric liteassign.Rubric
 	return litegrade.Input{
 		Lang: src.Lang, Title: src.Title, Body: src.Body, AssignedPrompt: prompt,
 		TargetWords: target, VersionNumber: int(src.Number), Rubric: rubric,
-		SymptomCatalog: writingSymptomCatalog(src.Lang),
+		// 老师批改那一路不挑文体：她交上来的可能是任何一种，
+		// 多给几条认得出的毛病不会伤到谁。
+		SymptomCatalog: writingSymptomCatalog(src.Lang, genreNarrative),
 		PersonJudging:  personDirectedVerdict,
 	}
 }

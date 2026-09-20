@@ -180,11 +180,45 @@ var writingSymptomsEN = []writingSymptom{
 
 // writingSymptomTable 按语言选表。
 //
+// writingSymptomsNarrativeZH —— 记叙文特有的几条（R4，2026-09-21）。
+//
+// 上面那张表是按议论文写的：「有判断没有证据」「举了例子没有解释」在一篇
+// 写风雨夜父亲来接我的文章里都不成立。这四条来自产品负责人拿来的两份
+// 记叙文讲义（细节描写、抑扬转情法）。
+//
+// 🚨 **是补一张小表，不是改那张大表。** 中文那 16 条里有一多半
+//（句子太碎、只有主题没有问题、字句层的每一条）记叙文照样用得上。
+// 两张合起来给记叙文，议论文那一篇一条都不多拿。
+var writingSymptomsNarrativeZH = []writingSymptom{
+	// 讲义：「细节是作文的灵魂……多写动作、神态、语言，少写空洞的感受。」
+	{"detail_vague", writingLayerMaterial, "只有感受，没有细节",
+		"写着「很感动」「特别好」这一类直接说出来的感受，没有动作、神态、说过的话。"},
+	// 讲义：「精准的动词 + 恰当的修饰词」。
+	{"verb_generic", writingLayerSentence, "动词太笼统",
+		"用的是「走过去」「拿着」「看了看」，换成任何一个人都成立。"},
+	// 讲义（抑扬转情法）：「制造波澜」。
+	{"no_turn", writingLayerStructure, "从头到尾一个调子",
+		"平铺直叙，读者的感受从第一句到最后一句没有变过。"},
+	// 讲义：「刚写完讨厌这个人，下一段就突然写我发现他很好，特别生硬。」
+	{"turn_abrupt", writingLayerStructure, "情感转得太突然",
+		"前一段还在写不满，后一段直接写感动，中间没有过渡，也没有触发的那件事。"},
+	// 讲义：结尾要「从这件事里领悟到了什么」，而不是一句放哪儿都成立的话。
+	{"feeling_unearned", writingLayerClaim, "感悟撑不住",
+		"最后那句话放在任何一篇作文里都成立，前面那件事没有把它撑起来。"},
+}
+
 // `writing.lang` 只有 zh / en 两个值（`setWritingSetup` 拦住了别的），
 // 所以 default 走中文而不是报错。
-func writingSymptomTable(lang string) []writingSymptom {
+//
+// genre 传 genreNarrative 时，中文那一边多给记叙文的几条。空串 = 不挑文体。
+func writingSymptomTable(lang string, genre string) []writingSymptom {
 	if lang == "en" {
 		return writingSymptomsEN
+	}
+	if genre == genreNarrative {
+		out := make([]writingSymptom, 0, len(writingSymptomsZH)+len(writingSymptomsNarrativeZH))
+		out = append(out, writingSymptomsZH...)
+		return append(out, writingSymptomsNarrativeZH...)
 	}
 	return writingSymptomsZH
 }
@@ -198,7 +232,13 @@ func lookupWritingSymptom(lang, id string) (writingSymptom, bool) {
 	if id == "" {
 		return writingSymptom{}, false
 	}
-	for _, s := range writingSymptomTable(lang) {
+	// 🚨 查的是**并集**，不按文体挡。
+	//
+	// 摆给模型看的那张表按文体过滤（writingSymptomCatalog），但**认**一条
+	// id 的时候不过滤：判错的方向不对称 —— 文体是推断出来的，推断翻一下
+	// （她往板上加了一张分论点卡），一条本来有效的意见就会整条被丢掉，
+	// 而屏幕上只是「印记没说话」。多认一条从来不会伤到她。
+	for _, s := range writingSymptomTable(lang, genreNarrative) {
 		if s.ID == id {
 			return s, true
 		}
@@ -215,9 +255,9 @@ func lookupWritingSymptom(lang, id string) (writingSymptom, bool) {
 //
 // id 写在最前面是故意的：模型要回填的就是那个 id，把它放在每一行的开头，
 // 比让它从一句中文里反推一个英文 id 可靠得多。
-func writingSymptomCatalog(lang string) string {
+func writingSymptomCatalog(lang string, genre string) string {
 	var b strings.Builder
-	table := writingSymptomTable(lang)
+	table := writingSymptomTable(lang, genre)
 	for layer := writingLayerClaim; layer <= writingLayerSentence; layer++ {
 		var rows []writingSymptom
 		for _, s := range table {

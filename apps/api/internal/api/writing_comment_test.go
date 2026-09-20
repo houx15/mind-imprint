@@ -166,7 +166,7 @@ func TestValidateCommentPoints_SymptomTablesAreLanguageScoped(t *testing.T) {
 func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
 		seen := map[string]bool{}
-		for _, s := range writingSymptomTable(lang) {
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			if seen[s.ID] {
 				t.Fatalf("%s: duplicate symptom id %q", lang, s.ID)
 			}
@@ -180,7 +180,7 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 		}
 		// 每一层都得有东西，否则「只留最上面那一层」在那一层上是空转。
 		byLayer := map[int]int{}
-		for _, s := range writingSymptomTable(lang) {
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			byLayer[s.Layer]++
 		}
 		for l := writingLayerClaim; l <= writingLayerSentence; l++ {
@@ -221,8 +221,8 @@ func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
 // prompt 里那份目录必须真的把 id 写出来 —— 模型要回填的就是它。
 func TestWritingSymptomCatalogListsEveryID(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		cat := writingSymptomCatalog(lang)
-		for _, s := range writingSymptomTable(lang) {
+		cat := writingSymptomCatalog(lang, genreArgument)
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			if !contains(cat, s.ID) {
 				t.Fatalf("%s: catalog is missing %q", lang, s.ID)
 			}

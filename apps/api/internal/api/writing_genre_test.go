@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/store/sqlc"
@@ -155,6 +156,48 @@ func TestVocabNeverCrossesGenres(t *testing.T) {
 		if len(m.Patterns) == 0 {
 			t.Errorf("%s 没有句式 —— 三法值钱的地方正是那一句可套的话", m.ID)
 		}
+	}
+}
+
+// 症状表按文体分岔（spec §7）。
+//
+// 🚨 上面那张中文表是按议论文写的：「有判断没有证据」「举了例子没有解释」
+// 在一篇写风雨夜父亲来接我的文章里都不成立。实测里模型只好借了
+// abstract_and_dry 来说「你只写了我很感动」—— 能用，但它说的不是那件事。
+func TestNarrativeSymptomsOnlyReachNarrativePieces(t *testing.T) {
+	narrativeOnly := []string{"detail_vague", "verb_generic", "no_turn", "turn_abrupt", "feeling_unearned"}
+
+	argument := writingSymptomCatalog("zh", genreArgument)
+	narrative := writingSymptomCatalog("zh", genreNarrative)
+	for _, id := range narrativeOnly {
+		if !strings.Contains(narrative, id) {
+			t.Errorf("记叙文那张表里缺 %q", id)
+		}
+		if strings.Contains(argument, id) {
+			t.Errorf("议论文那张表里混进了记叙文的 %q", id)
+		}
+	}
+	// 🚨 补的是一张小表，不是换掉那张大表 —— 中文那 16 条里一多半记叙文
+	// 照样用得上（句子太碎、字句层的每一条）。
+	if !strings.Contains(narrative, "claim_not_stated") {
+		t.Error("记叙文那张表把原来的几条弄丢了 —— 该是补，不是换")
+	}
+	// 英文那一边不受影响。
+	if en := writingSymptomCatalog("en", genreNarrative); strings.Contains(en, "detail_vague") {
+		t.Error("中文的记叙文症状漏进了英文那张表")
+	}
+
+	// 🚨 **认** id 的时候不按文体挡 —— 文体是推断出来的，推断翻一下
+	// （她往板上加了一张分论点卡），一条本来有效的意见会整条被丢掉，
+	// 而屏幕上只是「印记没说话」。多认一条从来不会伤到她。
+	for _, id := range narrativeOnly {
+		if _, ok := lookupWritingSymptom("zh", id); !ok {
+			t.Errorf("%q 认不出来 —— 模型交上来这一条会被整条丢掉", id)
+		}
+	}
+	// 编出来的还是要丢。
+	if _, ok := lookupWritingSymptom("zh", "no_such_symptom"); ok {
+		t.Error("编出来的 symptom 不该被认")
 	}
 }
 
