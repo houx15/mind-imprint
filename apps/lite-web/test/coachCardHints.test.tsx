@@ -118,6 +118,21 @@ describe("卡片上的求助", () => {
     );
   });
 
+  // 🚨 提示是 印记 说的话，要过和气泡同一个 Markdown 渲染器。第一版直接塞文本，
+  // 线上截图里她看到的是「回到**第32段**」—— 而 system prompt 明令「每一轮都用
+  // 一次加粗」，所以这不是偶发。
+  it("提示里的加粗真的渲染成加粗，不是两个星号", () => {
+    const bold: LiteMessage[] = [
+      ...OPENED,
+      { seq: 3, role: "student", content: "给点提示", createdAt: "" },
+      { seq: 4, role: "ai", content: "回到**第32段**，看前半句。", createdAt: "" },
+    ];
+    const { container } = render(panel(bold));
+    const strong = container.querySelector('[data-coach-card="open"] strong');
+    expect(strong?.textContent).toBe("第32段");
+    expect(container.textContent).not.toContain("**");
+  });
+
   it("提示长在卡片里，不在对话流里", () => {
     const { container } = render(panel(withHints(2)));
 

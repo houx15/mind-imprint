@@ -6,6 +6,7 @@ import {
   type BoardPlacement,
 } from "./CoachBoards";
 import { OrderBoard, OrderBoardRecap, composeOrderAnswer, parseOrderAnswer } from "./OrderBoard";
+import { LiteChatMarkdown } from "./LiteChatMarkdown";
 
 /**
  * CoachCard — 印记 把这一步递到她手上，让她点。
@@ -669,7 +670,11 @@ function CardHints({ hints }: { hints: CoachCardHint[] }) {
           }}
         >
           <span className="mb-0.5 block text-mk-caption text-mk-faint">提示 {i + 1}</span>
-          {h.text}
+          {/* 🚨 提示是 印记 说的话，和气泡里那一句同一种东西 —— 必须过同一个
+              渲染器。第一版直接塞进 {h.text}，线上截图里她看到的是
+              「回到**第32段**」，两个星号明晃晃地印在提示里。
+              （system prompt 里写着「每一轮都用一次加粗」，所以这不是偶发。） */}
+          <LiteChatMarkdown text={h.text} />
         </li>
       ))}
     </ol>
