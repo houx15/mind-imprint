@@ -14,10 +14,20 @@ import type { AwakeningStage } from "../api/awakening";
  * 没有历史，所以它只能写死；我们有，就该显示真的。
  */
 
-/** 每一屏在顶栏上报出的身份。关卡号沿用设计稿的编法（E/W/A/D/R/O/N）。 */
-const STAGE_BADGE: Record<AwakeningStage, { route: string; level: string }> = {
-  boot: { route: "觉醒协议", level: "E-00" },
-  world: { route: "觉醒协议", level: "E-00" },
+/**
+ * 每一屏在顶栏上报出的身份。关卡号沿用设计稿的编法（E/W/A/D/R/O/N）。
+ *
+ * 🚨 顶栏是**系统的字**，所以这里一处都不写「觉醒协议」 —— 那是房间里那部
+ * 片子自己的名字，它出现在开场的 AWAKENING_PROTOCOL 抬头里，不出现在产品
+ * 给这件事起的名字上（content.ts 的 DOOR 那一段写了为什么）。
+ *
+ * `hub` 不是一个 stage，它是复访时盖在 stage 上面的一层（见 AwakeningRoom），
+ * 所以它只在这张表里出现，绝不会被存进 run.stage。
+ */
+const STAGE_BADGE: Record<AwakeningStage | "hub", { route: string; level: string }> = {
+  hub: { route: "兴趣测试 · 入口", level: "N-00" },
+  boot: { route: "开场剧情", level: "E-00" },
+  world: { route: "序章 · 做一个选择", level: "E-00" },
   warning: { route: "认知提醒", level: "W-00" },
   archive: { route: "历史档案 · 认知让步", level: "A-01" },
   deck: { route: "觉醒训练 · 三张底牌", level: "D-00" },
@@ -40,7 +50,7 @@ export function RoomShell({
   onLeave,
   children,
 }: {
-  stage: AwakeningStage;
+  stage: AwakeningStage | "hub";
   /** 第几趟。1 显示「首次接入」，之后显示「第 N 次接入」。 */
   attemptNo: number;
   muted: boolean;

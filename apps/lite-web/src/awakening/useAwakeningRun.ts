@@ -99,7 +99,18 @@ export function useAwakeningRun(enabled: boolean): UseAwakeningRun {
   stateRef.current = state;
 
   useEffect(() => {
-    if (!enabled) return;
+    // 🚨 关上门要把这一行丢掉，并且回到「正在连接」。
+    //
+    // 这个 hook 的宿主（AwakeningRoom）**不会卸载** —— 它只是 return null。
+    // 不丢的话，她走完一趟再进来，第一帧读到的还是上一趟那一行；而那一行
+    // finished_at 不为空，于是房间立刻去拉它的报告，把新开的一趟盖掉。
+    // 2026-09-20 反馈的「完成一次之后再次进入无法从头开始」就是它。
+    if (!enabled) {
+      setRunRaw(null);
+      idRef.current = "";
+      setLoading(true);
+      return;
+    }
     let alive = true;
     setLoading(true);
     startAwakening()

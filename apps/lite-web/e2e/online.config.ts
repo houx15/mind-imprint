@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 // 🚨 这份 config 就是「线上」的定义，而线上要三个值一起定，不是只定一个。
 // 2026-09-19：只在这里写了 baseURL，于是一条号称打线上的走查**实际打的是本地
 // dev server** —— `freshAccount` 读的是 env（默认 localhost:5174），它看不见
-// 这份 config 的 `use.baseURL`。它红在第一屏「找不到开始觉醒协议」，读起来像
+// 这份 config 的 `use.baseURL`。它红在第一屏「找不到开始兴趣测试」，读起来像
 // 入口没做出来，其实是本地那台在跑旧代码。
 // 在这里写进 env，是为了让「跑这份 config」和「打线上」成为同一件事。
 process.env.E2E_BASE_URL ??= "https://mind-lite.uni-robot.cn";

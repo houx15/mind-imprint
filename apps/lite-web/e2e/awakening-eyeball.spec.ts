@@ -42,7 +42,7 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   await page.goto("/tree");
   // 一棵空树上必须**明确**出现那条邀请 —— 状态未知时不显示，所以这里的
   // 出现本身也证明 GET /api/v1/awakening 通了。
-  const invite = page.getByRole("button", { name: "开始觉醒协议" });
+  const invite = page.getByRole("button", { name: "开始兴趣测试" });
   await expect(invite.first()).toBeVisible({ timeout: 30_000 });
   await shot("00-tree-empty-invite");
 
@@ -68,6 +68,20 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   await expect(page.getByText("AWAKENING_PROTOCOL")).toBeVisible();
   await shot("01-boot");
+
+  // 🚨 立绘在**矮窗口**下会被顶栏切掉（2026-09-20 反馈：「立绘位置偏上」）。
+  // 它的高度曾经由宽度决定（aspect-ratio:1），于是窗口一矮就从对话框上沿
+  // 往上顶出画面。这条量的是「它整个在画面里」—— 人眼在 1440×900 下看不出
+  // 这个毛病，因为那个尺寸正好放得下。
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await page.waitForTimeout(200);
+  const sprite = await page.locator(".awk-sprite").boundingBox();
+  expect(sprite, "开场那一屏应该有立绘").not.toBeNull();
+  expect(sprite!.y, "立绘的上沿被顶栏切掉了").toBeGreaterThanOrEqual(0);
+  expect(sprite!.y + sprite!.height, "立绘压到了对话框下面").toBeLessThanOrEqual(560);
+  await shot("01b-boot-short-window");
+  await page.setViewportSize({ width: 1440, height: 900 });
+
   await page.getByRole("button", { name: "跳过开场剧情" }).click();
 
   /* ── 2 序章 ───────────────────────────────────────────────────────────── */
@@ -267,13 +281,41 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   // 房间关上之后，导航轨回来了。
   await expect(page.locator("nav").first()).toBeVisible({ timeout: 30_000 });
 
-  // 🚨 入口必须跟着变。走完一趟之后它还写着「开始觉醒协议」，说明那条状态
+  // 🚨 入口必须跟着变。走完一趟之后它还写着「开始兴趣测试」，说明那条状态
   // 没有重查 —— 树重拉了而它没有，两件事当时用的不是同一个信号。
-  await expect(page.getByRole("button", { name: "再走一次觉醒协议" })).toBeVisible({
+  await expect(page.getByRole("button", { name: "再做一次兴趣测试" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "查看兴趣印记" })).toBeVisible();
   await shot("19-back-on-tree");
+
+  /* ── 复访：入口那一屏 ─────────────────────────────────────────────────── */
+
+  // 🚨 这一段守的是 2026-09-20 的两条反馈：走完一趟再进来不该从开场重走，
+  // 而做到一半走掉的人**必须能到能量测试**。两件事都由入口那一屏解决。
+  await page.getByRole("button", { name: "再做一次兴趣测试" }).click();
+  await expect(page).toHaveURL(/\/tree\/awakening$/);
+  await expect(page.getByRole("heading", { name: "兴趣测试" })).toBeVisible({
+    timeout: 30_000,
+  });
+  // 开场那部片子不该再出现 —— 她已经看过了。
+  await expect(page.getByText("AWAKENING_PROTOCOL")).toHaveCount(0);
+  const hub = page.getByRole("button", { name: /开始兴趣探索|继续兴趣探索/ });
+  await expect(hub).toBeVisible();
+  await expect(page.getByRole("button", { name: /能量测试/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /重新选择兴趣探索助手/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /回顾剧情/ })).toBeVisible();
+  await shot("20-hub");
+
+  // 上一趟选的助手带过来了：入口那一行写的是中文名，不是空的。
+  await expect(page.getByText(/当前：(热血同好|资深向导|腹黑军师)/)).toBeVisible();
+
+  // 能量测试走得到，而且走完回到入口（不是被推进探询）。
+  await page.getByRole("button", { name: /能量测试/ }).click();
+  await expect(page.getByRole("heading", { name: "能量线索" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await shot("21-hub-energy");
 
   await ctx.close();
 });

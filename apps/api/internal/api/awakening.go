@@ -186,6 +186,9 @@ func (a *API) startAwakeningRun(w http.ResponseWriter, r *http.Request) {
 	row, err := a.d.Queries.OpenAwakeningRun(r.Context(), u.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, err = a.d.Queries.StartAwakeningRun(r.Context(), u.ID)
+		if err == nil {
+			row = a.carryOver(r.Context(), u.ID, row)
+		}
 	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -197,6 +200,36 @@ func (a *API) startAwakeningRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, dto)
+}
+
+// carryOver 把上一趟已经定下来的两件事带到新开的这一趟上：她选的印记助手，
+// 和她那一次的能量卡牌结果。
+//
+// 为什么要带：第二趟她落在**入口那一屏**（客户端的 HubScene），从那里可以
+// 直接进兴趣探询 —— 不再经过选助手那一屏。不带过来的话，探询的 prompt 会
+// 退回默认的 NOVA，而她上个月明明选的是腹黑军师。能量结果同理：它喂给对话
+// 的 EnergyFocus，空着等于这一趟的探询比上一趟知道得更少。
+//
+// 带不过来不是错误。**失败就用新开的那一行原样返回** —— 少一个助手只是让她
+// 在入口那一屏重选一次，而让整个「开始」失败会把她挡在门外。
+func (a *API) carryOver(ctx context.Context, userID uuid.UUID, row sqlc.AwakeningRun) sqlc.AwakeningRun {
+	prev, err := a.d.Queries.LatestFinishedAwakeningRun(ctx, userID)
+	if err != nil || prev.Navigator == "" {
+		return row
+	}
+	seeded, err := a.d.Queries.SaveAwakeningProgress(ctx, sqlc.SaveAwakeningProgressParams{
+		ID: row.ID, UserID: userID,
+		Stage:         row.Stage,
+		Route:         row.Route,
+		Navigator:     prev.Navigator,
+		EnergyProfile: jsonOrEmptyObject(rawOrEmptyObject(prev.EnergyProfile)),
+		Talent:        []byte("{}"),
+	})
+	if err != nil {
+		slog.WarnContext(ctx, "awakening carry-over failed", "run", row.ID, "err", err)
+		return row
+	}
+	return seeded
 }
 
 type saveAwakeningBody struct {

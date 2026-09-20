@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { type AwakeningReport, finishAwakening, fetchReport } from "../api/awakening";
+import {
+  type AwakeningReport,
+  type AwakeningStage,
+  finishAwakening,
+  fetchReport,
+} from "../api/awakening";
 import { SYSTEM_VOICE, voiceUrl } from "./assets";
 import "./awakening.css";
 import { DOOR, TERMINAL } from "./content";
@@ -15,6 +20,8 @@ import {
   WarningScene,
   WorldScene,
 } from "./scenes/Chapter";
+import { planReentry } from "./reentry";
+import { HubScene } from "./scenes/Hub";
 import { ChallengeScene, LensScene, TerminalScene } from "./scenes/Terminal";
 import { RoomShell } from "./RoomShell";
 import { Ghost, Primary, Stage } from "./ui";
@@ -33,6 +40,9 @@ import { useVoice } from "./useVoice";
  * 出门是同一个动作反过来 —— 报告那一屏是暖色的，所以温差本身就是「回来了」。
  *
  * # 分支
+ *
+ * 第一趟是一条线。**复访不是** —— 她落在入口那一屏（`hub`），四件事自己挑，
+ * 见 scenes/Hub.tsx。
  *
  *   boot → world ─┬─ joined ────────────────────────────→ energy
  *                 └─ observer → warning → archive → deck → rejoin ─┬→ energy
@@ -64,6 +74,54 @@ export function AwakeningRoom({
   const [grew, setGrew] = useState(false);
   const voice = useVoice();
 
+  // 复访的入口。`null` = 这一趟还没判断过（run 还在路上）。判一次就不再改，
+  // 所以一趟里 `go` 触发的每次 run 刷新不会把她弹回菜单。
+  const [hub, setHub] = useState<boolean | null>(null);
+  // 从入口点进去的那一屏，走完之后回入口，而不是沿着第一趟那条线往下走。
+  const [detour, setDetour] = useState(false);
+  // 回顾剧情。**不存进 stage** —— 存进去就等于把她的进度倒回开场。
+  const [replay, setReplay] = useState(false);
+  // 「继续」要去的那一屏：接着没走完的那一趟，或者（重做时）直接进探询。
+  const resumeRef = useRef<AwakeningStage>("terminal");
+
+  // 进门时判一次：她是不是回来的人。判据是纯函数，有测试（reentry.test.ts）。
+  useEffect(() => {
+    if (!run || hub !== null || reportRunId) return;
+    const plan = planReentry(run);
+    resumeRef.current = plan.resume;
+    setHub(plan.hub);
+  }, [run, hub, reportRunId]);
+
+  /** 从入口跳到某一屏，并记住走完要回来。 */
+  const detourTo = (stage: AwakeningStage) => {
+    setDetour(true);
+    setHub(false);
+    go(stage);
+  };
+
+  /** 从一次绕路回到入口，把这一屏的产出一起存下来。 */
+  const backToHub = (patchState?: Parameters<typeof go>[1]) => {
+    setDetour(false);
+    go(resumeRef.current, patchState);
+    setHub(true);
+  };
+
+  // 关上门就把这一趟在这一层留下的痕迹清掉。
+  //
+  // 🚨 同上：组件不卸载。不清的话她走完一趟、出门、再进来，看见的是**上一趟
+  // 的报告**，而不是新的一趟 —— 按钮写着「再做一次」，点下去却回到了上次的
+  // 结果页。这一条和 useAwakeningRun 里那一条是同一个毛病的两半，缺一不可。
+  useEffect(() => {
+    if (open) return;
+    setReport(null);
+    setFinishing(false);
+    setFinishError("");
+    setGrew(false);
+    setHub(null);
+    setDetour(false);
+    setReplay(false);
+  }, [open]);
+
   // 一屏一句。换屏就换那一句，上一句停掉 —— 否则她快速翻过三屏会同时听见
   // 三个人说话。静音时 play 什么都不做，所以这个 effect 照常跑没有代价。
   useEffect(() => {
@@ -77,13 +135,13 @@ export function AwakeningRoom({
       lens: voiceUrl(g, "lens"),
       challenge: voiceUrl(g, "challenge"),
     };
-    const url = clip[state.stage];
+    const url = hub ? undefined : clip[state.stage];
     if (url) voice.play(url);
     else voice.stop();
     // voice 的成员都是 useCallback 出来的，但把它整个列进依赖会让每次静音
     // 状态变化都重播一次当前这一屏。只认「哪一屏」和「哪个助手」。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, state.stage, state.navigator]);
+  }, [open, state.stage, state.navigator, hub]);
 
   // 报告那一屏的那一句，跟着报告出现而不是跟着 stage —— 生成要等几秒，
   // 在等待时就播完会让她听见一句对不上的话。
@@ -198,6 +256,41 @@ export function AwakeningRoom({
       );
     }
 
+    // 入口那一屏还没判出来（判断就在同一次 commit 之后）。这一帧什么都不画：
+    // 否则复访的人会先闪一下她上次停下的那一屏，连带着播一句语音。
+    if (hub === null) {
+      return (
+        <Stage>
+          <div className="flex items-center justify-center gap-3 py-24">
+            <span className="awk-dot" />
+            <span className="awk-dim text-[14px]">正在连接</span>
+          </div>
+        </Stage>
+      );
+    }
+
+    // 回顾剧情。放在 switch 前面，因为它盖在任何一屏上，走完回入口。
+    if (replay) {
+      return <BootScene onDone={() => setReplay(false)} />;
+    }
+    if (hub) {
+      return (
+        <HubScene
+          returning={run.attemptNo > 1 && run.stage === "boot"}
+          turnsDone={run.turns.length}
+          navigator={state.navigator}
+          hasEnergy={Boolean(state.energyProfile.domains?.length)}
+          onContinue={() => {
+            setHub(false);
+            go(resumeRef.current);
+          }}
+          onEnergy={() => detourTo("energy")}
+          onNavigator={() => detourTo("navigator")}
+          onStory={() => setReplay(true)}
+        />
+      );
+    }
+
     switch (state.stage) {
       case "boot":
         return <BootScene onDone={() => go("world")} />;
@@ -237,13 +330,21 @@ export function AwakeningRoom({
           />
         );
       case "energy":
-        return <EnergyScene onDone={(profile) => go("navigator", { energyProfile: profile })} />;
+        return (
+          <EnergyScene
+            onDone={(profile) =>
+              detour
+                ? backToHub({ energyProfile: profile })
+                : go("navigator", { energyProfile: profile })
+            }
+          />
+        );
       case "navigator":
         return (
           <NavigatorScene
             navigator={state.navigator}
             onPick={(id) => patch({ navigator: id })}
-            onConfirm={() => go("terminal")}
+            onConfirm={() => (detour ? backToHub() : go("terminal"))}
           />
         );
       case "terminal":
@@ -299,14 +400,14 @@ export function AwakeningRoom({
       className="fixed inset-0 z-50 overflow-y-auto"
       role="dialog"
       aria-modal="true"
-      aria-label="觉醒协议"
+      aria-label="兴趣测试"
       style={inRoom ? undefined : { background: "var(--mk-bg, #faf7f2)" }}
     >
       {inRoom ? (
         <div className="awk">
           {/* 顶栏、扫描线、4:3 舞台都在 RoomShell 里 —— 它每一屏都在。 */}
           <RoomShell
-            stage={state.stage}
+            stage={replay ? "boot" : hub ? "hub" : state.stage}
             attemptNo={run?.attemptNo ?? 1}
             muted={voice.muted}
             onToggleVoice={voice.toggle}

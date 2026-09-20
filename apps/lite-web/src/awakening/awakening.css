@@ -367,13 +367,25 @@
 }
 
 /** NOVA 的立绘：站在对话框正上方居中，旁白时不在。 */
+/*
+ * NOVA 的立绘。
+ *
+ * 🚨 **上下两条边都钉住，不给它固定高度。** 上一版写的是
+ * `aspect-ratio: 1` + 只钉下边，于是它的高度跟着宽度走（min(42vw,500px)）：
+ * 窗口一矮（比如 500px 高的窗口），这个 420 高的方块从对话框上沿往上顶，
+ * 脑袋直接被顶栏切掉 —— 2026-09-20 反馈的「立绘位置偏上」就是这个。
+ *
+ * 现在上边贴着 HUD 下面、下边压在对话框上沿，中间那块空间有多高，立绘就有
+ * 多高；`object-fit: contain` + `object-position: center bottom` 让它在这块
+ * 空间里等比缩放、脚落在对话框上。窗口再矮也整个在画面里。
+ */
 .awk-sprite {
   position: absolute;
   z-index: 3;
   left: 50%;
+  top: clamp(50px, 7vh, 80px);
   bottom: calc(clamp(28px, 4vh, 48px) + clamp(220px, 28vh, 330px) - 4px);
   width: min(42vw, 500px);
-  aspect-ratio: 1;
   transform: translateX(-50%);
   pointer-events: none;
   opacity: 0;
