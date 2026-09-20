@@ -39,7 +39,7 @@
 | 前端 `apps/web` | React + Vite + TypeScript + Tailwind —— 纯渲染 + API 客户端，不持有密钥、不直连模型 |
 | 后端 `apps/api` | **Go**（`net/http` + `pgx`/`sqlc` + `goose` + `river`）—— 智能网关（系统 prompt / `summon_card` / refeed / turn loop 都在服务端）、数据服务、鉴权、异步评估。唯一持有密钥、唯一访问 DB 与模型的单元 |
 | 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（旧任务面留存，不再有新写入）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；`project` 面每次真实 LLM 调用（陪练 / 锚点生成 / 课程渲染）都记一行 `llm_call`（档位 + token + 成本），`llm_usage` 视图三路 UNION（`llm_call` + 冻结的 `message`/`evaluation`）供组织成本汇总 |
-| 模型 | China-first。**模型目录 `apps/api/internal/gateway/models.json` 是「哪条通道跑哪个模型」的单一真相源**（go:embed）：providers（通道 + base URL + key 的 env 变量名 + thinking 开关）× models（价格 + capabilities）× **能力档**（reflex / dialogue / compose / review / assess / digest / draw，外加预留的 search / multimodal）。默认全部走**阿里云 DashScope（百炼）聚合端点**——一把 key 直达 Qwen / DeepSeek / GLM / Kimi，便于横向比能力、速度、成本。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；过程评估走旗舰模型**绝不降级**（`assess` 档只接受 `flagship: true`，启动即校验） |
+| 模型 | China-first。**模型目录 `apps/api/internal/gateway/models.json` 是「哪条通道跑哪个模型」的单一真相源**（go:embed）：providers（通道 + base URL + key 的 env 变量名 + thinking 开关）× models（价格 + capabilities）× **能力档**（reflex / dialogue / compose / review / assess / digest / draw，外加预留的 search / multimodal）。默认全部走**阿里云 DashScope（百炼）聚合端点**——一把 key 直达 Qwen / DeepSeek / GLM / Kimi，便于横向比能力、速度、成本。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。`assess` 档目前只接受 `flagship: true`（启动即校验）——这是一条**技术选择**，和下面那条「过程评估绝不降级」**不是一回事**，它一样要靠实测在效果与成本之间站得住。 |
 
 **三层解耦（核心心智模型：工具卡 = tool-use 循环里「由人来执行的工具」）：**
 决策层（用不用 / 用哪张，**服务端**）→ `summon_card(card_id, reason, nudge_text)` 单函数接线 → Card Runtime（schema 驱动渲染 + 三视觉态 + 事件采集 + 标准信封落库）→ 回灌陪练 → 所有标准信封长成过程树 + rubric 评估。卡 JSON 为单一共享真相源：前端构建期 import，Go `go:embed` 同一批文件。
@@ -48,9 +48,18 @@
 
 ## 给开发者的硬约束（不可违反）
 
+- **每一份技术方案的第一性原理，都是效果与成本的平衡。**（产品负责人 2026-09-21）
+  没有哪一档天然豁免。「这一档很重要」不是把它排除在权衡之外的理由，
+  只是把它的效果那一侧定得更高而已 —— 而「效果」要拿判据量出来，不能靠形容词。
+- **🚨「过程评估绝不降级」说的是数据，不是模型。**（产品负责人 2026-09-21 逐字纠正）
+  它的意思是**过程评估必须建立在学生真实的过程数据上** —— 不许拿编的、
+  拿别人的、拿概括过头的东西去生成那份报告。
+  **它和「assess 档该用哪个模型」无关，别把它扩大成一条路由约束。**
+  `assess` 档的 `flagship: true` 闸是一条独立的技术选择，要它自己的实测撑着
+  （用例：`assess/lite-reading-report`，判据是金句必须逐字来自她说过的话）。
 - **客户端绝不直连模型。** 所有 LLM 调用走后端网关，记录档位 + token + 成本；API key 只在服务端。
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
-- **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估，绝不降级）/ `digest`（长输入短输出）/ `draw`（生成一张图）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
+- **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估）/ `digest`（长输入短输出）/ `draw`（生成一张图）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
 - **换模型 = 改一个环境变量，不改代码；新增模型 / 新增 OpenAI 兼容厂商 = 改 `models.json`，不写 Go。** 每档一个变量（`MODEL_DIALOGUE` / `MODEL_COMPOSE` / …）指向目录里的 model id（如 `dashscope/qwen3.8-max`），只动一条、其余不变，测出来的速度与成本才可归因。旧的 `MODEL_CHAT` / `MODEL_FAST_CHAT` / `MODEL_EVAL` 仍作为别名生效（→ dialogue / reflex / assess）。写错 id、给 `assess` 指了非旗舰模型、或给一个要求关思考的档绑了停不下来思考的模型，**启动即失败**，不会悄悄跑一周。`api --print-models` 打印目录与当前绑定。
 - **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，分开测生产解析、gold 任务命中和判官质量；硬门槛通过后按最差质量 → 平均质量 → 延迟 → **成本（钱，不是 token）**排序，只有全部指标完全相同才保留现有绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
   **2026-09-20 改成按钱排**：在此之前 DashScope 一个模型都没有价格，只能按 token 排，而那在单价差一个数量级时会给出**反的**结论（qwen3.7-flash ¥0.2/¥0.8 对 deepseek-v4-pro ¥12/¥24，差 60 倍，少吐几个 token 补不回来）。价格按 `priceCny` 记在 wire 名上；没有价格的模型仍退回 token，因为缺测量要读成缺测量、不能读成打平。

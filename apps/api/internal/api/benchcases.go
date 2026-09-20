@@ -19,6 +19,11 @@ import (
 func BenchCases() []benchcase.Case {
 	cases := []benchcase.Case{readingCoachCase()}
 	cases = append(cases, readingCoachSuiteCases()...)
+	// lite 的 compose 与 review 两档（benchcases_lite_writing.go）。补它们的理由
+	// 见那个文件顶上：这两档占 lite 总成本四分之一，而在此之前它们在 lite 这一侧
+	// 一个用例都没有 —— routebench 里的 compose / review 用例全是 pro 的，
+	// 拿它们去决定 lite 换不换模型不算证据。
+	cases = append(cases, liteWritingBenchCases()...)
 	return cases
 }
 
