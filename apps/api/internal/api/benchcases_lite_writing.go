@@ -130,8 +130,16 @@ func writingReviewCase() benchcase.Case {
 		Site:  "commentOnSnippet (POST /writings/{id}/snippets/{sid}/comment)",
 		Request: gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, maxIssues, "snippet")},
-				{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "主体段", benchWritingDraft, "")},
+				// 🚨 kind 这一格原来写的是 "snippet" —— 那不是
+				// writing_kind.go 闭表里的值，writingCommentBlockJob 对它返回
+				// 空串，也就是这份 prompt **一条分块检查表都没带**。
+				// 量的是一份生产里不存在的提示词
+				// （[[fixture-told-coach-session-over-2026-09-14]]：用例的枚举值
+				// 只从生产代码里抄）。这里喂的是主体段，所以是 point。
+				{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(
+					wr.Lang, maxIssues, writingKindPoint, helpAsk, genreArgument)},
+				{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(
+					wr, "主体段", benchWritingDraft, "", genreArgument)},
 			},
 		},
 		Validate: func(text string) error {
