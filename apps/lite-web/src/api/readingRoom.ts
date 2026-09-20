@@ -92,6 +92,9 @@ export type CoachMessagePayload = {
   answer?: CoachCardAnswer | null;
   /** 这条回复没说完就交给她了。服务端两次都拿到半句话时标上。 */
   incomplete?: boolean | null;
+  /** 「回到原题」：上一张是辅助题，她答完了，而这一步还没走完 —— 她原来那张
+   *  开放题从「已替换」回到可作答，连着她写了一半的草稿。服务端标的。 */
+  restored?: boolean | null;
 };
 
 export type LiteMessage = {
@@ -107,6 +110,11 @@ export type LiteMessage = {
  *  「对，调用数据是一个方向。**但」，然后就没有了，她只能自己打一个「?」去问。 */
 export function replyIsIncomplete(m: LiteMessage): boolean {
   return m.payload?.incomplete === true;
+}
+
+/** 这条回复把原题交还给她了。见 CoachMessagePayload.restored。 */
+export function replyRestoresCard(m: LiteMessage): boolean {
+  return m.payload?.restored === true;
 }
 
 /** The card on this message, if it carried one. Shape-checked rather than
@@ -151,6 +159,8 @@ export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
     ...(words && words.length > 0 ? { words } : {}),
     // 格子是服务端填的闭表，原样带过来。
     ...(Array.isArray(c.labels) && c.labels.length > 0 ? { labels: c.labels } : {}),
+    // 辅助题标记，同样是服务端填的。
+    ...(c.assist === true ? { assist: true } : {}),
   };
 }
 
@@ -506,6 +516,10 @@ export async function postReadingCoachTurn(
    *  Never stored: it is absent from the transcript, so a refresh loses it.
    *  The model's scratch work is not her record; the process tree is. */
   thinking: string;
+  /** 「回到原题」：上一张是辅助题，她答完了，而这一步还没走完。服务端判的。
+   *  🚨 它同时进这一轮的响应**和**存下来的那条消息的 payload —— 乐观更新和
+   *  刷新之后读回来的，必须是同一个状态。 */
+  restored: boolean;
 }> {
   const raw = await apiFetch<{
     reply: string;
@@ -518,6 +532,7 @@ export async function postReadingCoachTurn(
     nudge?: string;
     coachCard?: CoachCardSpec | null;
     thinking?: string;
+    restored?: boolean;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
     body: JSON.stringify({ text, picks, cardAnswer, lensDone }),
@@ -535,6 +550,7 @@ export async function postReadingCoachTurn(
     // so a live card and a reloaded one can never disagree about what counts.
     coachCard: coachCardOf({ seq: 0, role: "ai", content: "", createdAt: "", payload: { card: raw.coachCard } }),
     thinking: raw.thinking ?? "",
+    restored: raw.restored === true,
   };
 }
 

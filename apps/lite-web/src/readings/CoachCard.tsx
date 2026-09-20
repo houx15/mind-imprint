@@ -116,6 +116,9 @@ export type CoachCardSpec = {
   words?: CoachCardWord[];
   /** `label_roles` 那块板上的格子。**服务端填的闭表**，模型给不了。 */
   labels?: string[];
+  /** 辅助题：她在同一张开放题上按满三次提示还没动，这一张把同一件事换成了
+   *  一道选择题。**服务端标的**，模型给不了。答完它会回到原题。 */
+  assist?: boolean;
 };
 
 /**
@@ -148,13 +151,29 @@ export type CoachCardAnswer = {
 export const WORD_BINS = ["认识", "不确定", "不认识"];
 
 /**
- * 卡片底下那两颗求助按钮。按下去就是她说了这句话（服务端认这两句原话，
- * 见 reading_genre.go 的 helpRequestSection）。
+ * 卡片底下那颗求助按钮。按下去就是她说了这句话（服务端认这句原话，见
+ * reading_coach_help.go 的 helpRequestSection）。
  *
  * 同事 2026-09-17 的阅读模块 PRD：「提供『给点提示／示范一下／我自己试试』入口，
  * 卡片操作期间仍可向 AI 求助。」「我自己试试」不做成按钮：卡片本身就是那件事。
+ *
+ * 🚨 「示范一下」2026-09-20 撤掉。产品负责人：「这个按钮很容易示范着就把答案
+ * 示范出去了，而且在论文里不一定能找到第二个可以示范的位置（很可能不准）。」
+ * 她打字说「给我看范例」仍然算明确索答，那条路照旧；撤掉的是这颗按钮。
  */
-export const COACH_ASKS = ["给点提示", "示范一下"] as const;
+export const COACH_ASK_HINT = "给点提示";
+
+/**
+ * 同一张卡片上最多给几次提示，给满就置灰。
+ *
+ * 产品负责人 2026-09-20：「建议每个卡片的『给点提示』，只限定交互三轮就变灰，
+ * 以免学生反复交互不走流程。」服务端同名常量：reading_coach_help.go 的
+ * coachHintCap（她绕过按钮直接打字时的那一道）。
+ */
+export const COACH_HINT_CAP = 3;
+
+/** 她在这张卡片上按提示换回来的那几句话，按顺序。 */
+export type CoachCardHint = { seq: number; text: string };
 
 /** 一块板上待分类的那些东西，从卡片本身派生。 */
 export function boardItems(card: CoachCardSpec): BoardItem[] {
@@ -289,10 +308,15 @@ export function CoachCard({
   stale = false,
   prefill,
   onAsk,
+  hints = [],
 }: {
   card: CoachCardSpec;
-  /** 她按了卡片底下的求助按钮。不给就不显示那两颗按钮。 */
+  /** 她按了卡片底下的求助按钮。不给就不显示那颗按钮。 */
   onAsk?: (text: string) => void;
+  /** 她在这张卡片上按提示换回来的那几句话。它们**长在卡片里**，不在对话流里：
+   *  产品负责人 2026-09-20「提示、示范在当前卡片内展开，保留题目及答案草稿」。
+   *  摆在对话里的话，屏幕会往下滚，题目和她写了一半的那一段被挤出视野。 */
+  hints?: CoachCardHint[];
   /** 她点了/写了。调用方负责把它发出去并把 `answered` 传回来。 */
   onAnswer: (answer: CoachCardAnswer) => void;
   /** 已经答过了：显示她的选择，整张卡片停止响应。 */
@@ -301,7 +325,15 @@ export function CoachCard({
   busy?: boolean;
   /** 她上一次在同一块板上摆好的那些，开局就摆着。见 carryOverPlacement。 */
   prefill?: BoardPlacement;
-  /** 后面又来了一张还没答的卡：这张收起来，点一下能重新展开。 */
+  /**
+   * 这一张**已替换**：后面又来了一张还没答的卡。收起来，点一下能展开重看题目，
+   * 但不再接收答案。
+   *
+   * 🚨 2026-09-20 之前它只是「收起来」，展开之后照样能答 —— 于是屏幕上同时有
+   * 好几张能作答的卡，她答哪一张、印记 接哪一张，两边对不上。产品负责人报的
+   * 第 1 条：「对于多张卡片没有进行卡片管理……旧卡标记已替换并停止接收答案」。
+   * 一个阅读流程同时只有一张卡收答案。
+   */
   stale?: boolean;
 }) {
   const [draft, setDraft] = useState("");
@@ -309,20 +341,22 @@ export function CoachCard({
   const promptId = useId();
   const options = card.options ?? [];
   const done = Boolean(answered);
+  // 已替换：题目还能看，答不了。已作答的不算（她说过的话就是这张卡的归宿）。
+  const replaced = stale && !done;
   // 已作答的卡片永远不折叠：她说过的话不该缩回去。
-  const collapsed = stale && !done && !reopened;
+  const collapsed = replaced && !reopened;
   // 挂载时就已经答过 → 这是刷新回来的旧卡，别抢焦点（她刚进房间，不该被拽到
   // 某张旧卡上）。只有「在她眼前从未答变成已答」才需要有人接住焦点。
   const answeredAtMount = useRef(done);
 
   function answer(choice: string, blockId?: string) {
-    if (done || busy || collapsed) return;
+    if (done || busy || replaced) return;
     onAnswer({ type: card.type, prompt: card.prompt, choice, ...(blockId ? { blockId } : {}) });
   }
 
   if (collapsed) {
-    // 一行问题 + 一句邀请。没有「未完成」、没有计数、没有任何在记账的字眼——
-    // 这是一扇还开着的门，不是一条对她的记账。
+    // 一行问题 + 一行状态。没有计数、没有「未完成」—— 这一题换了个问法，
+    // 不是她欠下的一笔。
     return (
       <button
         type="button"
@@ -340,8 +374,49 @@ export function CoachCard({
         }}
       >
         <span className="text-mk-small leading-relaxed text-mk-muted">{card.prompt}</span>
-        <span className="text-mk-small text-mk-faint">想回来答这个，点一下就行。</span>
+        <span className="text-mk-small text-mk-faint">已替换。点一下可以重看这道题。</span>
       </button>
+    );
+  }
+
+  // 展开的「已替换」：题目和她按出来的那几条提示都还在，控件全部撤掉。
+  // 🚨 不是把按钮 disabled 摆在那儿 —— 一排点不动的选项读起来是「坏了」，
+  // 而这张卡没有坏，它只是不再是现在要答的那一张。
+  if (replaced) {
+    return (
+      <div
+        role="group"
+        data-coach-card="replaced"
+        aria-labelledby={promptId}
+        className="mk-coachcard my-2 flex flex-col gap-2 rounded-mk-lg border p-3"
+        style={{
+          background: "color-mix(in srgb, var(--mk-accent-50) 35%, var(--mk-surface))",
+          borderColor: "color-mix(in srgb, var(--mk-accent-500) 20%, transparent)",
+          borderLeftWidth: "3px",
+          borderLeftColor: "color-mix(in srgb, var(--mk-accent-500) 35%, transparent)",
+        }}
+      >
+        <span
+          className="inline-flex w-fit items-center gap-1 rounded-mk-full px-2 py-0.5 text-mk-caption"
+          style={{
+            background: "color-mix(in srgb, var(--mk-ink) 8%, transparent)",
+            color: "var(--mk-muted)",
+          }}
+        >
+          已替换
+        </span>
+        <p id={promptId} className="text-mk-body leading-relaxed text-mk-muted">
+          {card.prompt}
+        </p>
+        <CardHints hints={hints} />
+        <button
+          type="button"
+          onClick={() => setReopened(false)}
+          className="self-start text-mk-small text-mk-faint underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+        >
+          收起
+        </button>
+      </div>
     );
   }
 
@@ -389,6 +464,10 @@ export function CoachCard({
       <p id={promptId} className="text-mk-body leading-relaxed text-mk-ink">
         {card.prompt}
       </p>
+      {/* 辅助题：同一件事换了个问法。说出来，不然她会以为上面那道题被吃掉了。 */}
+      {card.assist && !done && (
+        <p className="text-mk-small text-mk-faint">这一题换了个问法。答完它会回到上一道题。</p>
+      )}
 
       {done && card.type === "choose_span" ? (
         <AnsweredOptions
@@ -522,18 +601,64 @@ export function CoachCard({
           </div>
         </div>
       )}
+      {/* 她按出来的那几条提示，长在题目和作答区底下 —— 不在对话流里。 */}
+      <CardHints hints={hints} />
       {/* 求助入口。一直在卡片底下，而不是等她卡住了才出现 —— 她不必先承认
-          自己卡住，才能要一点帮助。按下去是一轮普通的话，卡片保持敞开。 */}
+          自己卡住，才能要一点帮助。按下去是一轮普通的话，卡片保持敞开。
+          🚨 给满三次就置灰（COACH_HINT_CAP）：产品负责人 2026-09-20
+          「以免学生反复交互不走流程」。服务端有同一道闸。 */}
       {!done && onAsk && (
         <div className="mk-coachcard__asks">
-          {COACH_ASKS.map((q) => (
-            <button key={q} type="button" disabled={busy} onClick={() => onAsk(q)} className="mk-coachcard__ask">
-              {q}
-            </button>
-          ))}
+          <button
+            type="button"
+            disabled={busy || hints.length >= COACH_HINT_CAP}
+            onClick={() => onAsk(COACH_ASK_HINT)}
+            className="mk-coachcard__ask"
+          >
+            {COACH_ASK_HINT}
+          </button>
+          {hints.length > 0 && (
+            <span className="text-mk-caption text-mk-faint">
+              {hints.length >= COACH_HINT_CAP
+                ? "提示已用完"
+                : `还可以提示 ${COACH_HINT_CAP - hints.length} 次`}
+            </span>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 她在这张卡片上按出来的那几条提示。
+ *
+ * 🚨 它们是 印记 说的话，原样存在转写里（atom_message），这里只是换一个地方
+ * 显示：摆在卡片里，而不是摆在对话流里。产品负责人 2026-09-20 的原话是
+ * 「提示、示范在当前卡片内展开，保留题目及答案草稿」—— 摆在对话里的话，一条
+ * 回复把屏幕往下推一截，题目和她写了一半的那一段就被挤出视野了。
+ */
+function CardHints({ hints }: { hints: CoachCardHint[] }) {
+  if (hints.length === 0) return null;
+  return (
+    <ol className="flex flex-col gap-1.5">
+      {hints.map((h, i) => (
+        <li
+          key={h.seq}
+          className="rounded-mk-md border border-mk-border px-3 py-2 text-mk-small leading-relaxed text-mk-ink"
+          style={{
+            // 白底 + 一条竖杠：卡片本身是浅色的，再叠一层浅色等于没有边界
+            // （第一版就是这样，截图里三条提示糊成一段正文）。
+            background: "var(--mk-surface)",
+            borderLeftWidth: "3px",
+            borderLeftColor: "color-mix(in srgb, var(--mk-accent-500) 45%, transparent)",
+          }}
+        >
+          <span className="mb-0.5 block text-mk-caption text-mk-faint">提示 {i + 1}</span>
+          {h.text}
+        </li>
+      ))}
+    </ol>
   );
 }
 

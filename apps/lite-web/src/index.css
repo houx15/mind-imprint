@@ -2871,11 +2871,13 @@
   cursor: default;
 }
 
-/* 卡片底下的求助按钮（给点提示 / 示范一下）。 */
+/* 卡片底下那颗求助按钮（给点提示），和它旁边还剩几次的那行小字。
+   2026-09-20：「示范一下」撤掉，给满三次置灰（CoachCard 的 COACH_HINT_CAP）。 */
 .mk-coachcard__asks {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
 }
 
 .mk-coachcard__ask {
@@ -2894,7 +2896,10 @@
 }
 
 .mk-coachcard__ask:disabled {
-  opacity: 0.5;
+  /* 置灰：连颜色一起退掉，不然一颗点不动的按钮看着还是可点的。 */
+  border-color: color-mix(in srgb, var(--mk-ink) 14%, transparent);
+  color: var(--mk-faint);
+  opacity: 0.6;
   cursor: default;
 }
 

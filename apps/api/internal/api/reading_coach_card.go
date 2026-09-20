@@ -210,6 +210,15 @@ type coachCard struct {
 	// 🚨 它不发给前端（Labels 才是屏幕上那几个格子），所以标了 "-"：
 	// 多发一个只有服务端看得懂的标识，前端迟早会有人拿它去判断。
 	BinSet string `json:"binSet,omitempty"`
+	// Assist 标的是「辅助题」：她在同一张开放题上按满三次提示还没动，这一轮把
+	// 同一件事换成一道选择题递给她（产品负责人 2026-09-20：「学生持续卡住时，
+	// 可将开放题改为选择题或填空题」）。
+	//
+	// 🚨 **服务端标，模型给不了**（validateCoachCardWhy 重建这个结构时不带它，
+	// 标记在那之后由 postReadingCoachTurn 盖上）：它决定的是屏幕上两张卡的关系
+	// —— 原来那张标成「已替换」，这张答完之后原题回来 —— 而那件事不能由模型
+	// 顺手写一个字段来决定。
+	Assist bool `json:"assist,omitempty"`
 }
 
 const (
@@ -249,7 +258,39 @@ const (
 	// 留着这个值，是因为老转写的 payload 里存着它（coachMessagePayload.Dropped）。
 	cardRejectOrderNotHere = cardReject("an order_events board on an article that is not a report or narrative, or its third one")
 	cardRejectNoOrderBoard = cardReject("the sequence step needs its order_events board and the reply had none")
+	cardRejectAsksMultiple = cardReject("the question asks for several sentences on a card that takes one answer")
 )
+
+// cardTakesOneAnswer —— 这种卡片她只交得出**一个**东西。
+//
+// choose_span 点一句就发出去，pick_in_article 回文章里点一句就发出去。板不在
+// 此列：一块板上的每一张都要摆，「分别属于哪一类」正是它要问的。short_text
+// 也不在：她自己打字，一句里写两处是她的自由。
+func cardTakesOneAnswer(typ string) bool {
+	return typ == coachCardChooseSpan || typ == coachCardPickInArticle
+}
+
+// promptAsksForSeveral —— 这道题要她指出**不止一处**。
+//
+// 🚨 产品负责人 2026-09-20 报的第 2 条，附截图：卡片标题写着「哪两句分别给出了
+// 这两个关键词？」，底下四个选项，点一句就交上去了 —— 题目要两句，卡片只收一句。
+// 她要么少答一半，要么在那儿找第二个点不到的地方。
+//
+// 这不是措辞不好听，是这张卡**装不下它自己的题**：一道问两处的题和一张单选卡
+// 之间没有任何一种答法是对的。所以判在校验里（整张退回、重问一次），而不是
+// 在提示词里再加一句「一次只问一句」—— 那句话已经在提示词里了。
+func promptAsksForSeveral(prompt string) bool {
+	for _, w := range []string{
+		"哪两", "哪三", "哪几", "哪些",
+		"两句", "三句", "两处", "三处", "几句话", "两个句子",
+		"分别", "各自", "各写", "都有哪",
+	} {
+		if strings.Contains(prompt, w) {
+			return true
+		}
+	}
+	return false
+}
 
 // replyLooksCutOff —— 这句话像不像说到一半断掉了。
 //
@@ -296,6 +337,9 @@ var cardFixIt = map[cardReject]string{
 	cardRejectBannedForm: "换一个问法：问动作（他是怎么做到的）、问对比（为什么是 A 不是 B）、" +
 		"问因果（这一步凭什么成立）、或者问边界（它什么时候不成立）。",
 	cardRejectPromptLen: "问题写成一句话，不超过 60 个字。",
+	cardRejectAsksMultiple: "这张卡她只点得了**一句**，而你的问题要她指出两处（「哪两句」" +
+		"「分别」「各自」）—— 她怎么点都是错的。改成只问一处；真要她比较两句，" +
+		"就换成 label_roles 那块板，每一句都摆一次。",
 	cardRejectUnknownType: "type 只能是 choose_span / pick_in_article / short_text / " +
 		"label_roles / word_bank 五个之一（报道和记叙还可以用 order_events）。",
 	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
@@ -418,6 +462,10 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	// 🚨 一句一句定义就能打发的问题，整张卡丢掉。见 rejectBannedQuestion。
 	if rejectBannedQuestion(prompt) {
 		return nil, cardRejectBannedForm
+	}
+	// 🚨 题目要她指出两处，卡片只收得下一处。见 promptAsksForSeveral。
+	if promptAsksForSeveral(prompt) && cardTakesOneAnswer(c.Type) {
+		return nil, cardRejectAsksMultiple
 	}
 	if c.Type == coachCardWordBank {
 		words := validateCardWords(c.Words, blocks)
@@ -880,6 +928,17 @@ type coachMessagePayload struct {
 	// 半句话本身不是错 —— 错的是**没有任何东西告诉她这是半句**。所以这里只做
 	// 一件事：把「这条没说完」这个事实标在那条消息上，由界面照实说出来。
 	Incomplete bool `json:"incomplete,omitempty"`
+	// Restored 表示「回到原题」：上一张是辅助题（coachCard.Assist），她答完了，
+	// 这一步还没走完 —— 于是她原来那张开放题从「已替换」回到可作答。
+	//
+	// 🚨 存在这条消息上，而不是让前端自己推。前端能看见的只有「最新那张未答的卡
+	// 是哪一张」，推不出「这一步有没有因为这道辅助题而结束」；而刷新之后要落在
+	// 同一个状态，唯一靠得住的记录就是转写本身。
+	//
+	// 🚨 原题是**原来那条消息上那张卡**，不是重新发一张：她在那张卡的输入框里
+	// 写了一半的草稿挂在那个组件上，重发一张等于把它抹掉
+	// （产品负责人 2026-09-20：「恢复原题时保留已有草稿和辅助结果」）。
+	Restored bool `json:"restored,omitempty"`
 }
 
 // coachCardAnswer is her answer to a chat card: which card it was, what it
@@ -934,15 +993,15 @@ func coachCardPayload(c *coachCard) []byte {
 // coachCardPayloadWithDrop 同上，外加「这一轮那张卡为什么没发出去」。
 // 两个都空的时候不写 payload —— 大多数轮本来就是这样。
 func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
-	return coachCardPayloadFull(c, why, false)
+	return coachCardPayloadFull(c, why, false, false)
 }
 
-// coachCardPayloadFull —— 同上，外加「这条回复没说完」这个事实。
-func coachCardPayloadFull(c *coachCard, why cardReject, incomplete bool) []byte {
-	if c == nil && !incomplete && (why == cardOK || why == cardRejectNoCard) {
+// coachCardPayloadFull —— 同上，外加「这条回复没说完」和「回到原题」这两个事实。
+func coachCardPayloadFull(c *coachCard, why cardReject, incomplete, restored bool) []byte {
+	if c == nil && !incomplete && !restored && (why == cardOK || why == cardRejectNoCard) {
 		return nil
 	}
-	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why), Incomplete: incomplete})
+	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why), Incomplete: incomplete, Restored: restored})
 	if err != nil {
 		// A struct of strings cannot fail to marshal; if it somehow did, the
 		// turn is still hers — she loses the card, not the reply.

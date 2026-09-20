@@ -266,18 +266,6 @@ func TestOrderBoardFallbackSpreadsAcrossParts(t *testing.T) {
 	}
 }
 
-func TestHelpRequestSection(t *testing.T) {
-	if s := helpRequestSection("示范一下"); !strings.Contains(s, "只做这一条") {
-		t.Errorf("示范一下 那一节不对：%q", s)
-	}
-	if s := helpRequestSection(" 给点提示 "); !strings.Contains(s, "下一级") {
-		t.Errorf("给点提示 那一节不对：%q", s)
-	}
-	if s := helpRequestSection("示范一下这一段的写法可以吗"); s != "" {
-		t.Error("她自己打的一句话不该被当成按钮")
-	}
-}
-
 // 导读的校验把体裁一起收进闭表。
 func TestOutlineKeepsTheGenre(t *testing.T) {
 	blocks := outlineBlocks(6)

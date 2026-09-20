@@ -7,8 +7,10 @@ import {
   CoachCard,
   carryOverPlacement,
   BLOCK_TOOL_ANSWER,
+  COACH_ASK_HINT,
   WORD_BINS,
   type CoachCardAnswer,
+  type CoachCardHint,
   type CoachCardSpec,
 } from "./CoachCard";
 import type { BoardPlacement } from "./CoachBoards";
@@ -20,6 +22,7 @@ import {
   coachAnswerOf,
   coachCardOf,
   replyIsIncomplete,
+  replyRestoresCard,
   postReadingCoachTurn,
   type ReadingLensDone,
   type ReadingTask,
@@ -220,15 +223,57 @@ export function ReadingCoachPanel({
       }
       if (isBoard && answer) lastBoard = { card, choice: answer.choice };
     }
-    const stale = new Set(open.filter((o) => newest !== null && o.seq < newest).map((o) => o.seq));
-    // 敞开的那张 = 最后到达的那张，且她还没答。她答完之后没有卡片自动接班：
+    // 她按了「给点提示」说的那句话，和 印记 接的那一句：两条都不进对话流 ——
+    // 它们显示在**卡片里**（CoachCard 的 hints）。产品负责人 2026-09-20：
+    // 「提示、示范在当前卡片内展开，保留题目及答案草稿」。摆在对话里的话，
+    // 一条回复把屏幕往下推一截，题目和她写了一半的那一段就被挤出视野了。
+    const hintsBySeq = new Map<number, CoachCardHint[]>();
+    const hidden = new Set<number>();
+    let onScreen: number | null = null;
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]!;
+      if (m.role === "ai" && cardBySeq.has(m.seq)) {
+        onScreen = m.seq;
+        continue;
+      }
+      if (m.role !== "student" || m.content.trim() !== COACH_ASK_HINT) continue;
+      hidden.add(m.seq);
+      const reply = messages[i + 1];
+      // 只吃**紧跟着**那一条，而且它不能自带卡片：配对错一格就等于把 印记
+      // 的一句正经的话从屏幕上抹掉，而她永远不会知道少了什么。
+      if (!reply || reply.role !== "ai" || cardBySeq.has(reply.seq)) continue;
+      hidden.add(reply.seq);
+      if (onScreen === null) continue;
+      hintsBySeq.set(onScreen, [
+        ...(hintsBySeq.get(onScreen) ?? []),
+        { seq: reply.seq, text: reply.content },
+      ]);
+    }
+    // 「回到原题」：上一张是辅助题，她答完了，而这一步还没走完（服务端判的，
+    // 标在那条回复上）。原题回到可作答 —— 连着她在它上面写了一半的草稿，
+    // 因为那张卡的组件从头到尾没有被卸载过。
+    let restored = false;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (m.role !== "ai" || hidden.has(m.seq)) continue;
+      restored = replyRestoresCard(m);
+      break;
+    }
+    // 收答案的那一张 = 最后到达的那张，且她还没答。她答完之后没有卡片自动接班：
     // 一张折起来的旧卡片不该在背后悄悄接住她下一次在文章里点的那一句。
+    // 唯一的例外是「回到原题」—— 那是服务端明说的一次交还。
     const last = open.at(-1) ?? null;
+    const answerable = last && (last.seq === newest || restored) ? last : null;
+    // 🚨 其余每一张敞开的卡都是**已替换**：收起来、能重看题目、不再收答案。
+    // 一个阅读流程同时只有一张卡收答案（产品负责人 2026-09-20 第 1 条）。
+    const stale = new Set(open.filter((o) => o.seq !== answerable?.seq).map((o) => o.seq));
     return {
       cardBySeq,
       answerBySeq,
       prefillBySeq,
-      open: last && last.seq === newest ? last : null,
+      hintsBySeq,
+      hidden,
+      open: answerable,
       stale,
     };
   }, [messages]);
@@ -269,7 +314,11 @@ export function ReadingCoachPanel({
           role: "ai",
           content: res.reply,
           createdAt: "",
-          ...(res.coachCard ? { payload: { card: res.coachCard } } : {}),
+          // 🚨 乐观更新要带上「回到原题」，不然那件事要等到刷新才发生
+          // （payload 里存着，响应里也有，两边是同一个事实）。
+          ...(res.coachCard || res.restored
+            ? { payload: { ...(res.coachCard ? { card: res.coachCard } : {}), ...(res.restored ? { restored: true } : {}) } }
+            : {}),
         },
       ]);
       onTasks(res.tasks);
@@ -454,6 +503,8 @@ export function ReadingCoachPanel({
   // here would either be a lie or never hit.
   const chatMessages: CoachRow[] = [];
   for (const m of messages) {
+    // 提示那一来一回不进对话流：它们长在卡片里（cards.hintsBySeq）。
+    if (cards.hidden.has(m.seq)) continue;
     if (m.role === "ai") {
       // 印记's turn is markdown; the student's (below) is not. Her literal `*`
       // and `#` are hers to keep. `LiteChatMarkdown` is the shared renderer
@@ -500,6 +551,7 @@ export function ReadingCoachPanel({
                 busy={busy || slot.locked || Boolean(slot.lensOpen)}
                 stale={cards.stale.has(m.seq)}
                 prefill={cards.prefillBySeq.get(m.seq)}
+                hints={cards.hintsBySeq.get(m.seq)}
                 onAnswer={send}
                 onAsk={ask}
               />

@@ -352,7 +352,7 @@ describe("CoachCard", () => {
    * 读起来就是「这是你没做完的所有事」——计分板从后门溜进来），而是折叠成一行
    * 问题，点一下还能回去答。
    */
-  describe("旧卡片折叠起来，但没被关死", () => {
+  describe("旧卡片折叠起来，标成「已替换」", () => {
     it("折叠的卡片只剩问题本身——选项不在屏幕上", () => {
       render(<CoachCard card={CHOOSE_SPAN} onAnswer={vi.fn()} stale />);
 
@@ -362,20 +362,25 @@ describe("CoachCard", () => {
       }
     });
 
-    it("点一下折叠的卡片，它重新展开，而且照样能答", () => {
+    /**
+     * 🚨 2026-09-20 推翻了这条原来的断言（「点一下重新展开，而且照样能答」）。
+     * 产品负责人报的第 1 条：「对于多张卡片没有进行卡片管理……旧卡标记已替换
+     * 并停止接收答案」。屏幕上同时有几张能答的卡，她答哪一张、印记 接哪一张，
+     * 两边对不上。题目留着能看，答案只收当前那一张。
+     */
+    it("点一下折叠的卡片，题目回来了，但它不再收答案", () => {
       const onAnswer = vi.fn();
       render(<CoachCard card={CHOOSE_SPAN} onAnswer={onAnswer} stale />);
 
       fireEvent.click(screen.getByRole("button", { name: new RegExp(CHOOSE_SPAN.prompt) }));
 
-      fireEvent.click(screen.getByRole("button", { name: OPTIONS[0]!.quote }));
-      expect(onAnswer).toHaveBeenCalledTimes(1);
-      expect(onAnswer.mock.calls[0]![0]).toEqual({
-        type: "choose_span",
-        prompt: CHOOSE_SPAN.prompt,
-        choice: OPTIONS[0]!.quote,
-        blockId: OPTIONS[0]!.blockId,
-      });
+      expect(screen.getByText(CHOOSE_SPAN.prompt)).toBeTruthy();
+      expect(screen.getByText("已替换")).toBeTruthy();
+      // 选项一个都不在：一排点不动的按钮读起来是「坏了」。
+      for (const o of OPTIONS) {
+        expect(screen.queryByRole("button", { name: o.quote })).toBeNull();
+      }
+      expect(onAnswer).not.toHaveBeenCalled();
     });
 
     it("已经答过的卡片不会被折叠——她说过的话不该缩回去", () => {

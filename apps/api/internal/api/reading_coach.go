@@ -109,6 +109,7 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 
 - prompt 不超过 60 字，是问文章内容的一个 5W1H 真问题，问判断而非操作；**出卡片之前先自问一句：这个问题能不能靠扫关键词答出来？能，就换一个。** **不能有唯一正解**。例如「哪一句你读着最不服气」。不问定义、步骤数、泛泛优缺点或「这段讲了什么」。
 - 不在出卡轮提前说答案，尤其不替标注板分类；**不要连着出两张几乎一样的卡片**。**上一张卡片问过的那件事，这一张就换一件事问**。题目不写操作或选项数。
+- choose_span／pick_in_article 她只交得出**一处**：题目不能要两处（「哪两句」「分别」「各自」）。要她比较两句就用 label_roles。
 - choose_span／label_roles 的 quote 必须原文逐字一致、blockId 正确；引文要**从一个标点后面开始、到一个标点为止**，不截半句、不拼句。选项不能互相包含。
 - card 已写明任务时，**reply 就不要再把它复述一遍**，并且 reply 不以问句收尾；只用一句交接或说明发卡理由。
 - reply 中的带引号文字只能逐字引用文章、当前卡片或学生原话。
@@ -797,9 +798,9 @@ func buildReadingCoachPrompt(
 			"**不要再复述一遍**，也不要讲这篇文章的内容。" +
 			"直接领她进第一步，并且用一张卡片把她领进去。）\n")
 	}
-	// 她按了卡片底下的求助按钮（给点提示 / 示范一下）。见 helpRequestSection。
+	// 她按了卡片底下那颗「给点提示」。级数按当前这张卡片数，见 helpRequestSection。
 	b.WriteString(readingCurrentStepInstruction(tasks, studentText))
-	b.WriteString(helpRequestSection(studentText))
+	b.WriteString(helpRequestSection(studentText, coachHintRound(tail), lastOpenCard(tail)))
 	// 透镜开着这件事排在最后：它**取消**上面那条推进判据（这一轮不推进），
 	// 而最后一节才是这一轮真正的指令。
 	b.WriteString(openLens)
@@ -1036,6 +1037,13 @@ func lastOpenCard(msgs []sqlc.AtomMessage) *coachCard {
 		var p coachMessagePayload
 		if err := json.Unmarshal(m.Payload, &p); err != nil {
 			return nil
+		}
+		// 🚨 这条回复带的是别的东西（一条被丢掉的卡的理由、「这条没说完」、
+		// 「回到原题」），不是一张卡 —— 那么她屏幕上摆着的仍然是**再往前**
+		// 那张。不接着往前找的话，一张卡被丢掉之后模型就再也看不见她手上那张，
+		// 而屏幕上它一直在。和 payload 整个为空的那一条走同一条路。
+		if p.Card == nil {
+			continue
 		}
 		return p.Card
 	}
@@ -1698,6 +1706,25 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 🚨 她按了「给点提示」的那一轮，屏幕上那张卡片原地不动。
+	//
+	// 产品负责人 2026-09-20 报的第 1 条：「对于一个卡片上的交互也没有进行管理
+	// （比如可以就一张卡片一直点提示一下，使得论文阅读流程卡住，无法进行下一步）」。
+	// 系统说明里第 3 条本来就写着「沿用那张卡，card、lens 留空，不推进」，而模型
+	// 该发还是发 —— 每按一次提示换一张新卡，她写了一半的草稿跟着那张卡一起没了，
+	// 清单却一步都没动。提示词里的软话跨不过代码里的硬判据
+	// （[[prompt-twice-then-make-it-checkable-2026-09-12]]），所以判据在这里。
+	//
+	// 唯一的例外是**辅助题**：三次提示之后，一道要她自己写／自己去指的开放题可以
+	// 换成一道选择题（见 helpRequestSection）。那是同一件事换个问法，不是新的一题。
+	helpTurn := isCoachHelpAsk(studentText) && req.CardAnswer == nil
+	openCardNow := lastOpenCard(msgs)
+	hintRound := coachHintRound(msgs)
+	assistAllowed := helpTurn && openCardNow != nil && hintRound >= coachHintCap && openCardIsOpenForm(openCardNow)
+	helpHoldsCard := helpTurn && openCardNow != nil
+	// 她交的是一道辅助题的答案 —— 答完（而且这一步没走完）就回到原题。
+	answeredAssist := req.CardAnswer != nil && !toolAnswerTurn && openCardNow != nil && openCardNow.Assist
+
 	// §model-routing · dialogue.
 	//
 	// 🚨 This is the single biggest deliberate downgrade of the 2026-09-02 class
@@ -2089,6 +2116,25 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		parsed.Card = nil
 		parsed.Lens = ""
 	}
+	// 🚨 提示那一轮：她手上那张卡留着，这一步不推进。见上面 helpHoldsCard。
+	if helpHoldsCard {
+		if parsed.Card != nil && assistAllowed && parsed.Card.Type == coachCardChooseSpan {
+			// 辅助题：同一件事换成一道选择题。标记由服务端盖，模型给不了。
+			parsed.Card.Assist = true
+			slog.Info("reading coach: three hints in, an open-form card was swapped for a choice card",
+				"atom_id", at.ID, "was", openCardNow.Type)
+		} else if parsed.Card != nil {
+			// 🚨 丢得**不留理由**（cardRejectNoCard 那条路，payload 里什么都不写）。
+			// 别的丢卡理由下一轮会当面告诉模型「你递出去的东西没到她屏幕上，
+			// 不要再提这张卡」—— 而这一轮那句话是假的：她屏幕上的卡好好地在。
+			slog.Info("reading coach: help turn, her open card stays and the new one was dropped",
+				"atom_id", at.ID, "type", parsed.Card.Type, "round", hintRound)
+			parsed.Card = nil
+			parsed.cardWhy = cardRejectNoCard
+		}
+		parsed.Lens = ""
+		parsed.Advance = ""
+	}
 	if anyOpen {
 		if parsed.Card != nil {
 			parsed.Card = nil
@@ -2119,7 +2165,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	// 卡要她摆（第一批反馈第 2 条）。只收成「标注步」又矫枉过正：精读那一步印记说
 	// 「把每一句拖到它该在的角色里」，屏幕上一块板都没有。
 	// 板数上限对兜底一样生效 —— 模型那块被上限挡掉的板不能从这里再建出来。
-	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && parsed.Card == nil && parsed.Lens == "" &&
+	if cur := currentReadingTask(tasks); cur != nil && !anyOpen && !toolAnswerTurn && !helpHoldsCard && parsed.Card == nil && parsed.Lens == "" &&
 		cur.Kind != string(taskSequence) && !boardOpen &&
 		countLabelBoards(msgs) < maxLabelBoards &&
 		(!answeredBoard(req.CardAnswer) || replyAsksToMoveOnABoard(parsed.Reply)) &&
@@ -2160,7 +2206,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	//
 	// 兜底只沿用印记写过的题，或当前步骤说明里的真问题；没有题就不制造一张
 	// 不知道要做什么的卡。
-	if !anyOpen && !toolAnswerTurn && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) &&
+	if !anyOpen && !toolAnswerTurn && !helpHoldsCard && !boardOpen && parsed.Card == nil && parsed.Lens == "" && replyPromisesACard(parsed.Reply) &&
 		(parsed.askedPrompt != "" || req.CardAnswer == nil) {
 		if fb := fallbackCardFor(parsed.askedPrompt, parsed.Reply, stepQuestion(currentReadingTask(tasks))); fb != nil {
 			parsed.Card = fb
@@ -2237,7 +2283,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		//
 		// hunt 那一步不在此列：它要的是「真的在文章里点一句」，而那个证据
 		// 上面已经单独判过了，替她推进会把这一步唯一的保证也抹掉。
-		if advance == "" && current.Kind != string(taskHunt) &&
+		// 🚨 提示那一轮不算在内：她按提示是在做这一步，不是在耗着它，而「按了三次
+		// 提示这一步就自己过去了」正是产品负责人要拦的那件事（不推进阅读进度）。
+		if advance == "" && current.Kind != string(taskHunt) && !helpTurn &&
 			!readingCoachAnswerOnly(studentText) && coachStepStalled(tasks, msgs) {
 			// 🚨 透镜那一步耗满了，先把敞开的透镜撤掉再往下走。
 			//
@@ -2273,6 +2321,17 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// 🚨 回到原题：上一张是辅助题（coachCard.Assist），她答完了，而这一步还没走完
+	// —— 于是她原来那张开放题从「已替换」回到可作答，连着她在上面写了一半的草稿
+	// （产品负责人 2026-09-20：「恢复原题时保留已有草稿和辅助结果」）。
+	//
+	// 这一步真的走完了、或者这一轮又递了一张新卡，就不回去：那时回去的是一道
+	// 已经不在问的题。
+	restored := answeredAssist && parsed.Advance == "" && parsed.Card == nil && parsed.Lens == ""
+	if restored {
+		slog.Info("reading coach: assist card answered, the original card comes back", "atom_id", at.ID)
+	}
+
 	// The final card rides on the AI message's payload inside the same
 	// transaction as the words and task status. Run the completion guard first:
 	// otherwise the saved payload could show a card that the response withheld.
@@ -2284,7 +2343,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// 但要让界面说出「这条没说完」。产品负责人 2026-09-12：
 		// 「sometimes the AI response interrupts mid-stream without any notice」。
 		Payload: coachCardPayloadFull(parsed.Card, parsed.dropReason(),
-			replyLooksCutOff(parsed.Reply)),
+			replyLooksCutOff(parsed.Reply), restored),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -2365,6 +2424,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if parsed.Card != nil {
 		resp["coachCard"] = parsed.Card
 	}
+	// 🚨 「回到原题」同时进响应和那条消息的 payload：乐观更新看的是这里，
+	// 刷新之后读回来的是那边，两边必须是同一个事实。
+	if restored {
+		resp["restored"] = true
+	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 
@@ -2377,6 +2441,7 @@ func readingCoachReplyNeedsRetry(got readingCoachReply) bool {
 		got.ghostQuote != "" || got.leak != "" ||
 		got.cardWhy == cardRejectOneBlock || got.cardWhy == cardRejectFewOptions ||
 		got.cardWhy == cardRejectFewWords || got.cardWhy == cardRejectBannedForm ||
+		got.cardWhy == cardRejectAsksMultiple ||
 		got.cardWhy == cardRejectNoArgument || got.cardWhy == cardRejectOrderNotHere ||
 		got.cardWhy == cardRejectNoOrderBoard || got.cardWhy == cardRejectBoardRepeat
 }
@@ -2656,6 +2721,12 @@ func fallbackCardFor(asked, reply, stepQ string) *coachCard {
 	}
 	for _, prompt := range []string{asked, questionIn(reply, true), stepQ} {
 		prompt = strings.TrimSpace(prompt)
+		// 🚨 兜底那张卡也逃不掉「题目装不下」那一条：pick_in_article 她只指得了
+		// 一处，一道要两处的题在它上面同样无解（见 promptAsksForSeveral）。
+		// 要她自己写的那种不受限：一句里写两处是她的自由。
+		if kind == coachCardPickInArticle && promptAsksForSeveral(prompt) {
+			continue
+		}
 		if n := utf8.RuneCountInString(prompt); n > 0 && n <= coachCardPromptMaxRunes && !promptPresumesOptions(prompt) {
 			return &coachCard{Type: kind, Prompt: prompt}
 		}

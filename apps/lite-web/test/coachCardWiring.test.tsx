@@ -333,21 +333,20 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
       expect(screen.getByText(new RegExp("哪一句最能说明作者的态度？"))).toBeTruthy();
     });
 
-    it("she can tap the collapsed card open again and answer it — the room never closes it FOR her", async () => {
+    /**
+     * 🚨 2026-09-20 推翻了这条原来的断言（「点开还能答」）。产品负责人报的
+     * 第 1 条：「对于多张卡片没有进行卡片管理……旧卡标记已替换并停止接收答案」。
+     * 题目留着能看 —— 她回头看得见 印记 问过什么 —— 答案只收当前那一张。
+     */
+    it("she can tap the replaced card open to re-read it, but it takes no answer", () => {
       render(panel({ initialMessages: TWO_OPEN }));
 
       fireEvent.click(screen.getByRole("button", { name: /哪一句最能说明作者的态度？/ }));
-      fireEvent.click(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" }));
 
-      await waitFor(() => expect(postTurn).toHaveBeenCalled());
-      const [, , , cardAnswer] = postTurn.mock.calls[0] as [string, string, unknown, unknown];
-      // 配对循环按 prompt 认卡：答的是旧那张，不是最新那张。
-      expect(cardAnswer).toEqual({
-        type: "choose_span",
-        prompt: "哪一句最能说明作者的态度？",
-        choice: "但人均排放仍低于多数发达国家。",
-        blockId: "b2",
-      });
+      expect(screen.getByText("哪一句最能说明作者的态度？")).toBeTruthy();
+      expect(screen.getByText("已替换")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
+      expect(postTurn).not.toHaveBeenCalled();
     });
   });
 
@@ -505,9 +504,12 @@ describe("R2 — 屏幕上看得见的三件事", () => {
     expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
     expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
 
-    // 🚨 但门始终开着：她点一下就能回去答（铁律②，房间不替她关死）。
+    // 🚨 点一下能重看那道题，但它**不再收答案**（2026-09-20 推翻了原来那条
+    // 「照样能答」的断言：屏幕上同时有几张能答的卡，她答哪一张、印记 接哪一张，
+    // 两边对不上）。
     fireEvent.click(screen.getByRole("button", { name: /哪一句最能说明作者的态度？/ }));
-    expect(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeTruthy();
+    expect(screen.getByText("已替换")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
   });
 
   /**
