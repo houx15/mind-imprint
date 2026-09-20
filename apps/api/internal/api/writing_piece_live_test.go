@@ -59,7 +59,7 @@ func TestLiveWritingPieceOpeningIsNotAskedForAnExample(t *testing.T) {
 
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, writingKindOpening)},
+			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, writingKindOpening, helpAsk, genreArgument)},
 			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", liveOpeningParagraph, piece, genreArgument)},
 		},
 	})
@@ -113,7 +113,7 @@ func TestLiveWritingPieceBodyWithAnExampleIsNotRevise(t *testing.T) {
 
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, writingKindPoint)},
+			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, writingKindPoint, helpAsk, genreArgument)},
 			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", body, piece, genreArgument)},
 		},
 	})

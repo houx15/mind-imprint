@@ -781,8 +781,12 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingGuideSystem},
+			// 🚨 换一组问题换到第二、第三代还没动，就不能再问问题了 ——
+			// 改成给选项、再给句式。general-suggestions.md 交互策略那一条，
+			// R4 之前这条路上一个都没有。见 writing_stall.go。
 			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs, guidePiece) +
-				writingGuideAnotherAngle(priorWritingGuide(block))},
+				writingGuideAnotherAngle(priorWritingGuide(block)) +
+				writingHelpModeBlock(writingGuideHelpMode(priorWritingGuide(block)), wr.Lang, writingGenreOf(wr, siblings))},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res.Usage)

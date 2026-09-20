@@ -448,9 +448,11 @@ verdict 只能是这三个之一：
 // 一篇中文稿子拿到的是 qifeng 那 18 条诊断。
 // kind 是她停在的那一块是什么（writing_kind.go 的闭表）。空串 = 通篇审阅那一路，
 // 或者一个没有结构图节点的自由段落 —— 那时候不附分块的检查表。
-func buildWritingCommentSystem(lang string, maxIssues int, kind string) string {
+// help 是这一轮该用哪种帮法（writing_stall.go）。helpAsk 什么都不加。
+func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
 	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang), maxIssues) +
-		writingCommentBlockJob(kind)
+		writingCommentBlockJob(kind) +
+		writingHelpModeBlock(help, lang, genre)
 }
 
 // writingCommentBlockJob 是**这一块的活**：每一种块该查什么，不该查什么。
@@ -752,8 +754,11 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
 	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
+	// 🚨 同一处说过两轮她还没动 → 换一种帮法（选项 / 句式）。
+	// general-suggestions.md 交互策略那一条，R4 之前只接在立题那条路上。
+	help := writingHelpModeFor(priorComments, snippet.ID, source)
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
-		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind),
+		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind, help, genre),
 		buildWritingCommentPrompt(wr, "她写的这一段", source, piece, genre),
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))

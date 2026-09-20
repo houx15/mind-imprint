@@ -333,6 +333,15 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	// 对话里重新推一遍「她定下中心论点了吗」。见 writing_plan_state.go。
 	b.WriteString(writingPlanShapeOf(rows).promptBlock(writingPlanNeedOf(wr)))
 
+	// 讲义（四）的分论点三原则里，「扣得住」是唯一机械可判的一条 ——
+	// 数出来当事实给它，别让它每轮自己比一遍。全扣得住就一个字都不加。
+	// 见 writing_points_check.go。
+	b.WriteString(writingPointsCheckBlock(wr, rows))
+
+	// 她的分论点还不够的时候，给出讲义（四）的那四个角度，
+	// 让她知道下一条该往哪个方向想。够了就不摆。
+	b.WriteString(writingPointAnglesBlock(wr, rows, writingPlanNeedOf(wr).Points))
+
 	// 她连着两轮等于没答 → 这一轮别再问了。**只在真的停滞时出现，不做常驻**
 	// （2026-09-05：常驻提示会把该做的事挤掉）。
 	if writingPlanStalled(msgs, studentText) {
