@@ -53,11 +53,13 @@ test("思维导图：把一条拖到另一条上面，它挂过去", async ({ br
   const put = await ctx.request.put(`${API}/api/v1/writings/${writingId}/outline`, {
     data: {
       outline: [
-        { text: "中心论点", role: "中心论点", depth: 0 },
-        { text: "理由A", role: "一条理由", depth: 1 },
-        { text: "她的经历", role: "她自己的经历", depth: 2 },
-        { text: "理由B", role: "一条理由", depth: 1 },
-        { text: "另一个中心论点", role: "中心论点", depth: 0 },
+        // 🚨 kind 要给，而且要给真的那一个（0182）：服务端按它算深度，
+        // 一个只给 role 的用例测的不是真客户端会发的东西。
+        { text: "中心论点", kind: "thesis", depth: 0 },
+        { text: "理由A", kind: "point", depth: 1 },
+        { text: "她的经历", kind: "evidence", depth: 2 },
+        { text: "理由B", kind: "point", depth: 1 },
+        { text: "另一个中心论点", kind: "thesis", depth: 0 },
       ],
     },
   });
@@ -109,6 +111,73 @@ test("思维导图：把一条拖到另一条上面，它挂过去", async ({ br
   await cardOf("理由B").locator("span", { hasText: "理由B" }).first().click();
   await page.waitForTimeout(300);
   expect(prompted, "点一下没有打开「改一下这一条」——拖把点也挡掉了").toBeTruthy();
+
+  await ctx.close();
+});
+
+/**
+ * 🚨 同事 2026-09-20 的意见 1：「论点被拖入到子论点后就没法拖出来了」。
+ *
+ * 几何那一半由 `e2e/harness/mindmap-harness.spec.ts` 守着（不连后端，跑得快）；
+ * 这一条守的是另一半：**拖出来之后库里真的变了**。屏幕上对了而库里没变，
+ * 等于她刷新一下就白拖了。
+ */
+test("思维导图：挂进子层的节点，拖到空白处能升回最上层", async ({ browser }) => {
+  test.setTimeout(180_000);
+
+  const ctx = await freshAccount(browser, "mindmap-promote");
+  const page = await ctx.newPage();
+  page.on("dialog", (d) => void d.dismiss());
+
+  const created = await ctx.request.post(`${API}/api/v1/writings`, {
+    data: { idea: "校服", lang: "zh" },
+  });
+  expect(created.ok(), `创建写作失败：${created.status()}`).toBeTruthy();
+  const writingId = (await created.json()).id as string;
+
+  const setup = await ctx.request.put(`${API}/api/v1/writings/${writingId}/setup`, {
+    data: { lang: "zh", targetWords: 800, note: "" },
+  });
+  expect(setup.ok(), `设定失败：${setup.status()}`).toBeTruthy();
+
+  const put = await ctx.request.put(`${API}/api/v1/writings/${writingId}/outline`, {
+    data: {
+      outline: [
+        { text: "校服省心", kind: "thesis", depth: 0 },
+        { text: "早上不用挑", kind: "point", depth: 1 },
+        // 她本来想说的是第二条理由，却被挂到了第一条底下 —— 要能拖出来。
+        { text: "本来是条理由", kind: "evidence", depth: 2 },
+      ],
+    },
+  });
+  expect(put.ok(), `摆图失败：${put.status()}`).toBeTruthy();
+
+  await page.goto(`/writings/${writingId}`);
+  const card = page.locator("[data-outline-node]").filter({ hasText: "本来是条理由" }).first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+
+  const canvas = (await page.locator(".mk-canvas").boundingBox())!;
+  const box = (await card.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 60, canvas.y + canvas.height - 60, { steps: 14 });
+  // 松手之前就该看见会发生什么。
+  await expect(page.getByText("放到空白处：移到最上层")).toBeVisible();
+  await page.mouse.up();
+
+  await expect
+    .poll(
+      async () => {
+        const res = await ctx.request.get(`${API}/api/v1/writings/${writingId}/outline`);
+        if (!res.ok()) return "读不到";
+        const rows = (await res.json()).outline as { text: string; depth: number; kind: string; position: number }[];
+        const moved = rows.find((r) => r.text === "本来是条理由");
+        return moved ? `${moved.depth}/${moved.kind}` : "不见了";
+      },
+      { timeout: 20_000, message: "拖到空白处之后，那个节点没有升到最上层" },
+    )
+    // 升到深度 0，而且 kind 跟着改了：图上已经有中心论点，所以它是结尾。
+    .toBe("0/closing");
 
   await ctx.close();
 });
