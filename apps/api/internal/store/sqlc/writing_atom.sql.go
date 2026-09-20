@@ -183,9 +183,9 @@ func (q *Queries) GetWritingForUpdate(ctx context.Context, atomID uuid.UUID) (Wr
 }
 
 const insertWritingOutlineNode = `-- name: InsertWritingOutlineNode :one
-INSERT INTO writing_outline (atom_id, text, role, depth, position, source)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, text, depth, position, role, guide, source
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, atom_id, text, depth, position, role, guide, source, kind
 `
 
 type InsertWritingOutlineNodeParams struct {
@@ -195,6 +195,7 @@ type InsertWritingOutlineNodeParams struct {
 	Depth    int32     `json:"depth"`
 	Position int32     `json:"position"`
 	Source   string    `json:"source"`
+	Kind     string    `json:"kind"`
 }
 
 // 往思维导图里加一个节点。**只加，不改不删**——这是规划对话的硬保证：
@@ -212,6 +213,7 @@ func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritin
 		arg.Depth,
 		arg.Position,
 		arg.Source,
+		arg.Kind,
 	)
 	var i WritingOutline
 	err := row.Scan(
@@ -223,6 +225,7 @@ func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritin
 		&i.Role,
 		&i.Guide,
 		&i.Source,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -261,7 +264,7 @@ func (q *Queries) ListWritingComments(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingOutline = `-- name: ListWritingOutline :many
-SELECT id, atom_id, text, depth, position, role, guide, source FROM writing_outline WHERE atom_id = $1 ORDER BY position
+SELECT id, atom_id, text, depth, position, role, guide, source, kind FROM writing_outline WHERE atom_id = $1 ORDER BY position
 `
 
 func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]WritingOutline, error) {
@@ -282,6 +285,7 @@ func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]W
 			&i.Role,
 			&i.Guide,
 			&i.Source,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -448,14 +452,15 @@ const replaceWritingOutline = `-- name: ReplaceWritingOutline :many
 WITH deleted AS (
   DELETE FROM writing_outline WHERE atom_id = $1
 )
-INSERT INTO writing_outline (atom_id, text, role, depth, position, source)
+INSERT INTO writing_outline (atom_id, text, role, depth, position, source, kind)
 SELECT $1,
        unnest($2::text[]),
        unnest($3::text[]),
        unnest($4::int[]),
        unnest($5::int[]),
-       unnest($6::text[])
-RETURNING id, atom_id, text, depth, position, role, guide, source
+       unnest($6::text[]),
+       unnest($7::text[])
+RETURNING id, atom_id, text, depth, position, role, guide, source, kind
 `
 
 type ReplaceWritingOutlineParams struct {
@@ -465,6 +470,7 @@ type ReplaceWritingOutlineParams struct {
 	Depths    []int32   `json:"depths"`
 	Positions []int32   `json:"positions"`
 	Sources   []string  `json:"sources"`
+	Kinds     []string  `json:"kinds"`
 }
 
 // Full replace, not a diff: the whole outline is written as one shape each
@@ -476,6 +482,8 @@ type ReplaceWritingOutlineParams struct {
 // 写的那句话。一次 PUT 同时重写两列，role 才不会在她编辑正文时被抹掉。
 // source 与它们平行传入（0158）：一条她找来的材料要带着出处走，否则 印记
 // 没法查它说的对不对 —— 而「查一份材料」正是这一列存在的全部理由。
+// kind 与它们平行传入（0182）：一个节点「是什么」决定了它的深度、父节点和
+// 屏幕上的标题。全量替换这条路（她自己拖动、自己编辑）同样负责别把它弄丢。
 func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingOutlineParams) ([]WritingOutline, error) {
 	rows, err := q.db.Query(ctx, replaceWritingOutline,
 		arg.AtomID,
@@ -484,6 +492,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 		arg.Depths,
 		arg.Positions,
 		arg.Sources,
+		arg.Kinds,
 	)
 	if err != nil {
 		return nil, err
@@ -501,6 +510,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 			&i.Role,
 			&i.Guide,
 			&i.Source,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
