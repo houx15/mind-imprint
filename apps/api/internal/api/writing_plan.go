@@ -797,14 +797,31 @@ func insertPlanNode(
 	//
 	// 挂到中心论点底下冒充一条理由是更糟的选择 —— 那正是 2026-09-18 记下的
 	// 毛病：例子落在最上层，段落那一步把它印成「分论点 3」。
+	//
+	// 🚨 **这段兜底是按议论文写的，记叙文不能走它。** 2026-09-21 线上实测：
+	// 一篇「记一次难忘的经历」，立题那一轮模型正确地开了一个 `scene`，
+	// 而空板上没有 `opening` 可挂 ⇒ 这里把它改成 `point`、再改成 `thesis`，
+	// 于是她屏幕上出现一张写着「中心论点」的卡，内容是「大雨天，爸爸来补习班
+	// 接我」。文体那条轴一路都对，最后一步把它抹掉了。
 	if parent == nil && depth > 0 {
-		kind = writingKindPoint
-		depth = writingKindDepth(kind)
-		parent = writingKindParentOf(kind, rows)
-		if parent == nil {
-			// 连中心论点都还没有：这一句就是这篇的第一块。
-			kind = writingKindThesis
-			depth = 0
+		if writingKindGenre(kind) == genreNarrative {
+			// 细节还没有场景可挂 → 它自己先当一个场景（和论据→分论点同一个道理）。
+			if kind == writingKindDetail {
+				kind = writingKindScene
+				depth = writingKindDepth(kind)
+				parent = writingKindParentOf(kind, rows)
+			}
+			// 场景 / 转折 / 感悟挂不到开篇上是**正常的** —— 记叙文的开篇是可选的，
+			// 她往往就是从一件事直接讲起。留它当一个顶层节点，不改它的种类。
+		} else {
+			kind = writingKindPoint
+			depth = writingKindDepth(kind)
+			parent = writingKindParentOf(kind, rows)
+			if parent == nil {
+				// 连中心论点都还没有：这一句就是这篇的第一块。
+				kind = writingKindThesis
+				depth = 0
+			}
 		}
 	}
 	if depth > writingPlanMaxDepth {

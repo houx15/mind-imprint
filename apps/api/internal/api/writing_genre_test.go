@@ -201,4 +201,34 @@ func TestNarrativeSymptomsOnlyReachNarrativePieces(t *testing.T) {
 	}
 }
 
+// 🚨 空板上开一个场景，它要留着是场景。
+//
+// 2026-09-21 线上实测抓到的：insertPlanNode 里那段「挂不上就往上退」的兜底
+// 是按议论文写的（论据挂不上 → 当分论点 → 再挂不上 → 当中心论点）。
+// 一个 scene 在空板上没有 opening 可挂，于是被一路退成 thesis ——
+// 她屏幕上出现一张写着「中心论点」的卡，内容是「大雨天，爸爸来补习班接我」。
+// 文体那条轴一路都对，最后一步把它抹掉了。
+//
+// 这条测的是那段兜底本身（纯函数那一半：种类怎么变），不连库。
+func TestNarrativeKindSurvivesAnEmptyBoard(t *testing.T) {
+	// 记叙文的主干挂不到开篇上是正常的 —— 开篇是可选的，她往往从一件事讲起。
+	for _, k := range []string{writingKindScene, writingKindTurn, writingKindFeeling} {
+		if p := writingKindParentOf(k, nil); p != nil {
+			t.Errorf("%s 在空板上不该找到父节点", k)
+		}
+	}
+	// 细节挂不到场景上 → 它自己先当一个场景（和论据→分论点同一个道理）。
+	if p := writingKindParentOf(writingKindDetail, nil); p != nil {
+		t.Error("细节在空板上不该找到父节点")
+	}
+	// 议论文那一边原样不动：论据挂不上 → 分论点 → 中心论点。
+	if p := writingKindParentOf(writingKindEvidence, nil); p != nil {
+		t.Error("论据在空板上不该找到父节点")
+	}
+	// 🚨 两种文体的兜底必须分开 —— 判据就是 writingKindGenre。
+	if writingKindGenre(writingKindScene) == writingKindGenre(writingKindEvidence) {
+		t.Error("场景和论据被判成同一种文体 —— 那段兜底会对它们做同一件事")
+	}
+}
+
 func strPtr(s string) *string { return &s }
