@@ -79,7 +79,7 @@ func TestLiveWritingGuideReachesTheNewEnglishFamilies(t *testing.T) {
 		res, err := gateway.Collect(ctx, p, r, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingGuideSystem},
-				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, nil, "", msgs)},
+				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, nil, "", msgs, "")},
 			},
 		})
 		cancel()

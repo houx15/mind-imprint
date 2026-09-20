@@ -60,9 +60,9 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 }
 
 const createWritingComment = `-- name: CreateWritingComment :one
-INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points, source_text)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, snippet_id, scope, summary, points, created_at, source_text
+INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points, source_text, verdict)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, atom_id, snippet_id, scope, summary, points, created_at, source_text, verdict
 `
 
 type CreateWritingCommentParams struct {
@@ -72,6 +72,7 @@ type CreateWritingCommentParams struct {
 	Summary    string      `json:"summary"`
 	Points     []byte      `json:"points"`
 	SourceText string      `json:"source_text"`
+	Verdict    string      `json:"verdict"`
 }
 
 func (q *Queries) CreateWritingComment(ctx context.Context, arg CreateWritingCommentParams) (WritingComment, error) {
@@ -82,6 +83,7 @@ func (q *Queries) CreateWritingComment(ctx context.Context, arg CreateWritingCom
 		arg.Summary,
 		arg.Points,
 		arg.SourceText,
+		arg.Verdict,
 	)
 	var i WritingComment
 	err := row.Scan(
@@ -93,12 +95,13 @@ func (q *Queries) CreateWritingComment(ctx context.Context, arg CreateWritingCom
 		&i.Points,
 		&i.CreatedAt,
 		&i.SourceText,
+		&i.Verdict,
 	)
 	return i, err
 }
 
 const getLatestWritingDraftComment = `-- name: GetLatestWritingDraftComment :one
-SELECT id, atom_id, snippet_id, scope, summary, points, created_at, source_text FROM writing_comment
+SELECT id, atom_id, snippet_id, scope, summary, points, created_at, source_text, verdict FROM writing_comment
 WHERE atom_id = $1 AND scope = 'draft'
 ORDER BY created_at DESC
 LIMIT 1
@@ -116,6 +119,7 @@ func (q *Queries) GetLatestWritingDraftComment(ctx context.Context, atomID uuid.
 		&i.Points,
 		&i.CreatedAt,
 		&i.SourceText,
+		&i.Verdict,
 	)
 	return i, err
 }
@@ -231,7 +235,7 @@ func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritin
 }
 
 const listWritingComments = `-- name: ListWritingComments :many
-SELECT id, atom_id, snippet_id, scope, summary, points, created_at, source_text FROM writing_comment WHERE atom_id = $1 ORDER BY created_at DESC
+SELECT id, atom_id, snippet_id, scope, summary, points, created_at, source_text, verdict FROM writing_comment WHERE atom_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListWritingComments(ctx context.Context, atomID uuid.UUID) ([]WritingComment, error) {
@@ -252,6 +256,7 @@ func (q *Queries) ListWritingComments(ctx context.Context, atomID uuid.UUID) ([]
 			&i.Points,
 			&i.CreatedAt,
 			&i.SourceText,
+			&i.Verdict,
 		); err != nil {
 			return nil, err
 		}

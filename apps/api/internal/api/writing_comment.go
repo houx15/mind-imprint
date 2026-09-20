@@ -128,8 +128,14 @@ type CommentPoint struct {
 // is a comment on the whole piece. One shape, two zoom levels — the same
 // move migration 0102's comment makes ("one shape at two zoom levels").
 type Comment struct {
-	ID        string         `json:"id"`
-	Scope     string         `json:"scope"`
+	ID    string `json:"id"`
+	Scope string `json:"scope"`
+	// Verdict 是这一段现在算什么：pass ／ polish ／ revise（writing_verdict.go）。
+	//
+	// 🚨 空串 = 0183 之前存的老行，那一版还没有分级 —— 前端据此**不渲染**
+	// 那一行标签。不回填一个等级进去：那是替当初那条意见做一个它没做过的
+	// 判断，而她会读到一个凭空出现的「需修改」。
+	Verdict   string         `json:"verdict"`
 	SnippetID *string        `json:"snippetId"`
 	Summary   string         `json:"summary"`
 	Points    []CommentPoint `json:"points"`
@@ -162,6 +168,7 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 	out := Comment{
 		ID:         row.ID.String(),
 		Scope:      row.Scope,
+		Verdict:    row.Verdict,
 		Summary:    row.Summary,
 		Points:     points,
 		CreatedAt:  row.CreatedAt.Format(time.RFC3339),
@@ -391,19 +398,46 @@ const writingCommentSystem = `你是「印记」，正在给学生已经写的�
 action 不许是「再想一想」「多加一些细节」这种没有落点的话，
 也不许以「正确的说法是……」收尾——那等于把她的下一步收走了。
 
-## 一条肯定，放在最前面
+## 先说这一段现在算什么
 
-先挑**一处她已经用对的**（kind 是 good），具体到字，说清它带来了什么阅读效果，
-并指出这是【可用的方法】里的哪一个。具体的肯定本身就是一次教学：
+verdict 只能是这三个之一：
+
+- 「pass」  这一段站得住了，她可以去写下一段。
+- 「polish」还可以更好，但**不挡着她往下走**。
+- 「revise」必须改。这一档要说清三件事：是哪一处文字、它让读者产生了什么问题、
+  改到什么程度算完成。
+
+🚨 **可选的优化不要判成必改。** 问自己一句：这一处不改，读者读到这一段会不会
+真的读不下去、或者得出和她想说的相反的结论？不会，那就是 polish。
+一段站得住的文字收到「需修改」，她学到的是「我怎么写都不对」。
+
+🚨 **判 pass 的时候不要硬凑一条 issue 出来。** 没有要改的，points 就只有那条
+肯定，或者干脆是空数组。为了填满格子去挑一处毛病，挑出来的一定是吹毛求疵的
+那一种。
+
+## 一条肯定：有就说，没有就不说
+
+她确实有一处用对了，就挑出来（kind 是 good），具体到字，说清它带来了什么阅读
+效果，并指出这是【可用的方法】里的哪一个 —— 具体的肯定本身就是一次教学：
 她知道哪个动作起了作用，下次才能重复。
 
-输出 JSON：{"summary":"…","points":[{"kind":"good","method":"…","text":"…","quote":"…"},{"kind":"issue","symptom":"…","text":"…","action":"…","quote":"…"}]}
-- summary：一句话，说这篇稿子**现在站在哪儿**。不要打分。
+🚨 **但它不是必填的，也不固定排第一。** 没有值得说的就不说。
+为了凑「优点＋不足」那个模板去找一条，那条一定是空话，
+而空话会让她把后面那句真话也一起不信。
+
+## 一条意见读起来是什么顺序
+
+**当前判断 → 必要原因 → 下一步动作。** 不要「先夸一句再转折」那个固定套路。
+
+输出 JSON：{"verdict":"polish","summary":"…","points":[{"kind":"issue","symptom":"…","text":"…","action":"…","quote":"…"}]}
+- verdict：pass ／ polish ／ revise 三选一，见上面那一节。
+- summary：一句话，说这一段**现在站在哪儿**。不要打分。
   🚨 **summary 里不许说她「缺」什么**——不写「缺少」「没有」「不足」「尚未」，
   英文不写 lack / missing / absent / fails to。少了什么由下面那几条 point 去说：
   那几条指着她原文里的一句话，还带着她现在就能做的那个动作，说错了查得出来。
   summary 没有那句话撑着，一旦说错，她第一眼读到的就是一句假话。
-- points：**一条 good 打头**，后面跟 %d 条 issue，**全部来自同一层**。
+- points：最多 %d 条 issue，**全部来自同一层**；一条可选的 good。
+  pass 那一轮可以是空数组。
 
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
 
@@ -420,7 +454,11 @@ func buildWritingCommentSystem(lang string, maxIssues int) string {
 // levels: title, target words (only if set, never invented — W-R7), then the
 // text itself under a caller-supplied label ("她写的这一段" vs "她的整篇稿子")
 // so the model knows which zoom level it is looking at.
-func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
+// 🚨 2026-09-20 加了 `piece` —— 这个 builder 原来的全部上下文是题目、语言、
+// 字数、方法表、**这一段的正文**，别的段写了什么它一个字都看不见。
+// 同事的意见 9 就是这一条的直接后果：开头段被判「没有一件具体的事」，
+// 而那件事写在第二段里。空串 = 不给整篇（通篇审阅那一路本来就拿得到全文）。
+func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
@@ -445,6 +483,10 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 		b.WriteString("- " + m.ID + "（" + m.Label() + "）：" + m.Definition + "\n")
 	}
 
+	// 整篇上下文排在方法表（稳定）之后、她的正文（每轮都变）之前 ——
+	// 见 writing_piece_context.go 顶上那条成本契约。
+	b.WriteString(piece)
+
 	b.WriteString("\n" + label + "：\n" + text + "\n")
 
 	// 字句层面的重复，服务端数出来当事实给它 —— 见 writing_repeats.go。
@@ -460,6 +502,9 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 // validate quotes, since it has no access to the source text they must
 // appear in.
 type writingCommentResult struct {
+	// Verdict 是这一段算什么。模型给的字符串在 parseWritingComment 里过一次
+	// normalizeWritingVerdict —— 认不出来的退到 polish，不是 revise。
+	Verdict string         `json:"verdict"`
 	Summary string         `json:"summary"`
 	Points  []CommentPoint `json:"points"`
 }
@@ -480,6 +525,7 @@ func parseWritingComment(text string) (writingCommentResult, bool) {
 	if strings.TrimSpace(got.Summary) == "" {
 		return writingCommentResult{}, false
 	}
+	got.Verdict = normalizeWritingVerdict(got.Verdict)
 	return got, true
 }
 
@@ -530,6 +576,32 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 整篇上下文：这一块是什么、别的块写了什么、她这一块收到过什么意见。
+	// 见 writing_piece_context.go（同事 2026-09-20 的意见 9 和 10）。
+	//
+	// 🚨 这三次查询**失败就降级为空上下文，不报错**。上下文是让意见更准的
+	// 东西，不是它成立的条件；为了少一份上下文让她按下按钮拿到一个 502，
+	// 是更糟的交换。
+	piece := ""
+	// 两项减法要用到的三样：这一块是什么、后面的段写了什么、她收到过什么意见。
+	focusKind := ""
+	laterText := ""
+	var priorComments []sqlc.WritingComment
+	if outline, oerr := a.d.Queries.ListWritingOutline(turnCtx, at.ID); oerr == nil {
+		snippets, _ := a.d.Queries.ListWritingSnippets(turnCtx, at.ID)
+		prior, _ := a.d.Queries.ListWritingComments(turnCtx, at.ID)
+		focus := writingBlockOfSnippet(outline, snippet)
+		piece = buildWritingPieceContext(wr, outline, snippets, prior, focus)
+		if focus != nil {
+			focusKind = writingKindOf(*focus)
+		}
+		laterText = writingLaterBlocksText(outline, snippets, focus)
+		priorComments = prior
+	} else {
+		slog.Warn("writing block comment: outline unavailable, commenting without the whole piece",
+			"err", oerr, "atom_id", at.ID)
+	}
+
 	// §model-routing · review. Judging whether an argument holds up is reviewer
 	// work, the same "faithful, never downgrade" reasoning every other
 	// judgment call in this file's neighbourhood applies — resolves
@@ -545,7 +617,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
 		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues),
-		buildWritingCommentPrompt(wr, "她写的这一段", source),
+		buildWritingCommentPrompt(wr, "她写的这一段", source, piece),
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {
@@ -554,6 +626,25 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	points := validateCommentPoints(parsed.Points, source, wr.Lang, writingBlockCommentMaxIssues)
+
+	// 两项减法，**渲染之前**就丢掉 —— 写在这里而不是提示词里，理由同这个房间
+	// 的老规矩：提示词里的「不要说」是模型可以推翻的。见 writing_verdict.go。
+	before := len(points)
+	points = dropIssuesLaterBlocksAnswer(points, focusKind, laterText)
+	points = dropIssuesSheAlreadyFixed(points, priorComments, snippet.ID, source)
+	if dropped := before - len(points); dropped > 0 {
+		slog.Info("writing block comment: dropped issues the rest of the piece already answers",
+			"atom_id", at.ID, "snippet_id", snippet.ID, "dropped", dropped, "focus_kind", focusKind)
+	}
+
+	// 🚨 减完之后一条 issue 都不剩，这一段就是 pass —— 不要把一个
+	// 「本来要改、但那件事后面已经做了」的判断留在 revise 上，
+	// 她会对着一段没有任何意见的卡片读到「需修改」。
+	verdict := parsed.Verdict
+	if verdict == writingVerdictRevise && !writingHasIssue(points) {
+		verdict = writingVerdictPass
+	}
+
 	payload, merr := json.Marshal(points)
 	if merr != nil {
 		slog.Warn("writing block comment: marshal points failed", "err", merr,
@@ -570,6 +661,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 		// 存的是**它真的读过的那一版**（服务端手上这一份），不是她此刻框里
 		// 的字：意见是对着这一版说的，比对也只能对着这一版。
 		SourceText: snippet.Text,
+		Verdict:    verdict,
 	})
 	if serr != nil {
 		httpx.WriteError(w, r, serr)

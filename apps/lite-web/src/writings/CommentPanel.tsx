@@ -46,6 +46,20 @@ export function commentPointIsStale(quote: string, currentText?: string): boolea
   return !currentText.includes(quote);
 }
 
+/**
+ * 分级标签的字和颜色。
+ *
+ * 用「已／待」那套成对词（AGENTS.md 文案规则 4），不写成句子。
+ *
+ * 🚨 **`polish` 不能用 danger。** 它的意思是「不挡着她往下走」，
+ * 长得像错误就等于没分级 —— 那正是同事指出的那个毛病。
+ */
+const VERDICT_CHIP: Record<string, { label: string; bg: string; fg: string }> = {
+  pass: { label: "已通过", bg: "var(--mk-accent-100)", fg: "var(--mk-accent-700)" },
+  polish: { label: "可优化", bg: "var(--mk-surface-2, var(--mk-surface))", fg: "var(--mk-muted)" },
+  revise: { label: "需修改", bg: "var(--mk-danger-bg, var(--mk-surface))", fg: "var(--mk-danger)" },
+};
+
 export function CommentPanel({
   comment,
   onTrace,
@@ -110,6 +124,10 @@ export function CommentPanel({
   // 被引的那句话在她正文里逐字都不在了。
   //
   // 所以收起来，不是删掉：折在一行后面，她想回头看还能翻开。
+  const chip = comment.verdict ? VERDICT_CHIP[comment.verdict] : undefined;
+  const verdictLabel = chip?.label ?? "";
+  const verdictStyle = chip ? { background: chip.bg, color: chip.fg } : undefined;
+
   const livePoints = comment.points.filter((p) => !stale(p.quote));
   const stalePoints = comment.points.filter((p) => stale(p.quote));
   const [showStale, setShowStale] = useState(false);
@@ -189,6 +207,18 @@ export function CommentPanel({
             请印记再看一遍
           </Button>
         </div>
+      )}
+
+      {/* 🚨 分级标签排在总评**上面**：她第一眼要看到的是「这一段算什么」，
+          而不是一句读不出轻重的评语（同事 2026-09-20 的意见 10：分级反馈）。
+          老评论没有 verdict ⇒ 整行不渲染，不补一个等级上去。 */}
+      {verdictLabel && (
+        <span
+          className="w-fit rounded-mk-full px-2.5 py-0.5 text-mk-label font-semibold"
+          style={verdictStyle}
+        >
+          {verdictLabel}
+        </span>
       )}
 
       <p className="text-mk-body-lg font-semibold text-mk-ink">{comment.summary}</p>

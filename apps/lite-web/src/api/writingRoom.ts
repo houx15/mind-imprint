@@ -182,9 +182,21 @@ export const COMMENT_LAYER_NAMES: Record<number, string> = {
  * comment on the whole piece (reviewWritingDraft). One shape, two zoom
  * levels.
  */
+/**
+ * 这一段现在算什么（服务端 0183 + writing_verdict.go 的闭表）。
+ *
+ * 🚨 `polish` 的意思是「还可以更好，但**不挡着她往下走**」——
+ * 产品里以前没有这个档位，于是任何一条意见读起来都像「你得改」
+ *（同事 2026-09-20 的意见 10：「将可选优化判为必改」）。
+ * 所以它在屏幕上**不能长得像错误**。
+ */
+export type CommentVerdict = "pass" | "polish" | "revise";
+
 export type Comment = {
   id: string;
   scope: string;
+  /** 空 = 0183 之前的老评论，那一版还没有分级 ⇒ 不渲染那一行标签。 */
+  verdict?: CommentVerdict | "";
   snippetId: string | null;
   summary: string;
   points: CommentPoint[];

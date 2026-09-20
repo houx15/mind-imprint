@@ -42,9 +42,9 @@ func TestValidateCommentPoints_DropsQuotesSheNeverWrote(t *testing.T) {
 // 的文章，收到的第一条意见不该是某个词不准——而这一刀只有一次。
 func TestValidateCommentPoints_KeepsOnlyTheTopLayer(t *testing.T) {
 	in := []CommentPoint{
-		issue("sentence_bloat", "两排树掘得密密麻麻"),      // 第 4 层
+		issue("sentence_bloat", "两排树掘得密密麻麻"),        // 第 4 层
 		issue("claim_not_stated", "长了几年也还是瘦瘦的一根杆。"), // 第 1 层
-		issue("loose_whole", "我家楼下那条路就是这样"),        // 第 3 层
+		issue("loose_whole", "我家楼下那条路就是这样"),         // 第 3 层
 	}
 	got := validateCommentPoints(in, commentSource, "zh", 3)
 	if len(got) != 1 {
@@ -202,7 +202,7 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 // 都是可以这样机械地验一次的。
 func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。")
+		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。", "")
 		if !contains(prompt, "【可用的方法】") {
 			t.Fatalf("%s: prompt 里没有【可用的方法】这一节", lang)
 		}

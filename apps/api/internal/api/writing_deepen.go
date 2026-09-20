@@ -69,31 +69,40 @@ type deepenTurnDTO struct {
 // take the planning transcript (atom_message, block_id IS NULL) as a
 // parameter — that omission from the signature IS the guarantee, not just an
 // unused argument that could be added later. TestBuildDeepenBrief pins it.
-func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc.WritingOutline, snippetText string, guideQuestions []string, studentText string) string {
+func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc.WritingOutline, snippetText string, guideQuestions []string, studentText, piece string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
-	b.WriteString("\n【整篇的结构】\n")
-	for _, s := range outline {
-		indent := strings.Repeat("  ", int(s.Depth))
-		// 块的名字用 kind 的标题 —— 屏幕上印的就是这几个字，
-		// 让模型看见和她看见的是同一个词。
-		role := writingKindLabel(writingKindOf(s), s.Source)
-		if role == "" {
-			role = "（未命名的块）"
+	// 🚨 整篇上下文（writing_piece_context.go）取代了这里原来手写的那一段。
+	// 原来那段只列每一块的**标题**，不带她在那一块写下的字 —— 于是这个
+	// 子 agent 和「请印记看看这一段」犯的是同一个错：它不知道后面的段里
+	// 已经有那件具体的事了（同事 2026-09-20 的意见 6 和 9）。
+	//
+	// piece 为空（调用方读不到片段）就退回只列标题 —— 少一份上下文可以，
+	// 整篇的结构**不能**没有：没有它，这个子 agent 连自己在第几段都不知道。
+	if strings.TrimSpace(piece) != "" {
+		b.WriteString(piece)
+	} else {
+		b.WriteString("\n【整篇的结构】\n")
+		for _, s := range outline {
+			indent := strings.Repeat("  ", int(s.Depth))
+			role := writingKindLabel(writingKindOf(s), s.Source)
+			if role == "" {
+				role = "（未命名的块）"
+			}
+			line := indent + "- " + role
+			if t := strings.TrimSpace(s.Text); t != "" {
+				line += "：" + t
+			} else {
+				line += "：（还没写）"
+			}
+			if s.ID == block.ID {
+				line += "   ← **她现在停在这一块**"
+			}
+			b.WriteString(line + "\n")
 		}
-		line := indent + "- " + role
-		if t := strings.TrimSpace(s.Text); t != "" {
-			line += "：" + t
-		} else {
-			line += "：（还没写）"
-		}
-		if s.ID == block.ID {
-			line += "   ← **她现在停在这一块**"
-		}
-		b.WriteString(line + "\n")
 	}
 
 	b.WriteString("\n【她现在停住的这一块】\n")
@@ -318,7 +327,14 @@ func (a *API) deepenWritingBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	brief := buildDeepenBrief(wr, outline, block, snippetText, guideQuestions, studentText)
+	// 整篇上下文：别的段写了什么、她这一块收到过什么意见。读不到就给空 ——
+	// 少一份上下文不该让她连一轮对话都开不了。
+	piece := ""
+	if snippets, serr := a.d.Queries.ListWritingSnippets(turnCtx, at.ID); serr == nil {
+		prior, _ := a.d.Queries.ListWritingComments(turnCtx, at.ID)
+		piece = buildWritingPieceContext(wr, outline, snippets, prior, &block)
+	}
+	brief := buildDeepenBrief(wr, outline, block, snippetText, guideQuestions, studentText, piece)
 	messages := make([]gateway.ChatMessage, 0, len(prior)+2)
 	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleSystem, Content: deepenSystem + "\n\n" + brief})
 	messages = append(messages, blockThreadToChatMessages(prior)...)

@@ -92,7 +92,7 @@ func TestClarityWriting(t *testing.T) {
 		})
 	})
 	t.Run("guide", func(t *testing.T) {
-		claritytest.Run(t, gateway.ClassCompose, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingGuideSystem}, {Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, nil, "", nil)}}}, func(raw string) error {
+		claritytest.Run(t, gateway.ClassCompose, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingGuideSystem}, {Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, nil, "", nil, "")}}}, func(raw string) error {
 			_, ok := parseWritingGuide(raw)
 			if !ok {
 				return errors.New("guide parse failed")
@@ -101,7 +101,7 @@ func TestClarityWriting(t *testing.T) {
 		})
 	})
 	t.Run("comment", func(t *testing.T) {
-		claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues)}, {Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", text)}}}, func(raw string) error {
+		claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues)}, {Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", text, "")}}}, func(raw string) error {
 			out, ok := parseWritingComment(raw)
 			if !ok {
 				return errors.New("comment parse failed")

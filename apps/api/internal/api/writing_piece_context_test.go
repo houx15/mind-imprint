@@ -181,3 +181,53 @@ func TestPieceContextShape(t *testing.T) {
 	}
 	t.Logf("模型会读到的整篇上下文：\n%s", buildWritingPieceContext(wr, outline, snippets, nil, &th))
 }
+
+// 🚨 断言的是**喂给模型的那份 prompt 本身**，不是「它能解析」。
+//
+// 2026-09-11 的教训：系统提示词写着「method 取自【可用的方法】的 id」，而那张表
+// 从来没被放进 prompt 过 —— 单元测试全绿（我喂的 JSON 里写的是真 id），
+// 真模型回了两个不存在的 id。能验的东西，得先真的喂进去。
+func TestCommentPromptCarriesTheWholePiece(t *testing.T) {
+	wr := sqlc.Writing{Lang: "zh", Title: "学校应不应该允许学生带手机"}
+	piece := "\n【整篇的结构，以及她在每一块写下的字】\n" +
+		"- 第 2 张 · 分论点：放学能联系家长\n    她写的：上周三五点半我放学等车。\n"
+
+	got := buildWritingCommentPrompt(wr, "她写的这一段", "手机可以帮助我们联系家长。", piece)
+	if !strings.Contains(got, "上周三五点半我放学等车") {
+		t.Errorf("整篇上下文没进 prompt：\n%s", got)
+	}
+
+	// 🚨 成本契约：整篇上下文要在方法表**之后**、她这一段的正文**之前**。
+	methods := strings.Index(got, "【可用的方法】")
+	ctx := strings.Index(got, "上周三五点半")
+	para := strings.Index(got, "手机可以帮助我们联系家长")
+	if methods < 0 || ctx < 0 || para < 0 {
+		t.Fatalf("三个块少了一个（methods=%d ctx=%d para=%d）", methods, ctx, para)
+	}
+	if !(methods < ctx && ctx < para) {
+		t.Errorf("块的顺序不对：方法表 %d → 整篇 %d → 她这一段 %d", methods, ctx, para)
+	}
+}
+
+// 深入一层和写作引导也要吃到同一份 —— 三处分岔过一次就够了。
+func TestDeepenAndGuideCarryTheWholePiece(t *testing.T) {
+	wr := sqlc.Writing{Lang: "zh"}
+	block := sqlc.WritingOutline{ID: uuid.New(), Kind: writingKindThesis, Depth: 0, Text: "主张"}
+	piece := "别的段里写着：上周三五点半我放学等车。"
+
+	deepen := buildDeepenBrief(wr, []sqlc.WritingOutline{block}, block, "", nil, "", piece)
+	if !strings.Contains(deepen, "上周三五点半") {
+		t.Errorf("深入一层没吃到整篇上下文：\n%s", deepen)
+	}
+
+	guide := buildWritingGuidePrompt(wr, block, []sqlc.WritingOutline{block}, "", nil, piece)
+	if !strings.Contains(guide, "上周三五点半") {
+		t.Errorf("写作引导没吃到整篇上下文：\n%s", guide)
+	}
+
+	// piece 为空时引导退回只列要点，不能整块消失。
+	fallback := buildWritingGuidePrompt(wr, block, []sqlc.WritingOutline{block}, "", nil, "")
+	if !strings.Contains(fallback, "整篇的结构") {
+		t.Errorf("piece 为空时该退回只列要点：\n%s", fallback)
+	}
+}

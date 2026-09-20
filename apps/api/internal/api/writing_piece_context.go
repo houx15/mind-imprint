@@ -70,6 +70,16 @@ func buildWritingPieceContext(
 	b.WriteString(writingLangLine(wr))
 	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
+	// 🚨 **中心论点单独说一次。**
+	//
+	// 下面那份卡片清单用的是她屏幕上看到的名字（开头 / 分论点 / 结尾），
+	// 而「开头」那张卡绑的就是中心论点节点 —— 于是「中心论点」这个词在整份
+	// 上下文里一次都不出现。判任何一段站不站得住，都要先知道这篇在证明什么，
+	// 所以它得有自己的一行。
+	if t := writingThesisText(outline); t != "" {
+		b.WriteString("这一篇的中心论点：" + t + "\n")
+	}
+
 	// —— 易变的那几块 ——
 	b.WriteString("\n【整篇的结构，以及她在每一块写下的字】\n")
 	cards := writingCards(outline, snippets)
@@ -106,6 +116,18 @@ func buildWritingPieceContext(
 	}
 
 	return b.String()
+}
+
+// writingThesisText 是图上那条中心论点的文字（没有就是空串）。
+func writingThesisText(outline []sqlc.WritingOutline) string {
+	for _, o := range outline {
+		if writingKindOf(o) == writingKindThesis {
+			if t := strings.TrimSpace(o.Text); t != "" {
+				return t
+			}
+		}
+	}
+	return ""
 }
 
 // writingPieceCardName 是这一块在上下文里的名字 —— 和她屏幕上看到的那个词一致。
@@ -189,6 +211,23 @@ func writingPriorCommentLines(
 		}
 	}
 	return b.String()
+}
+
+// writingBlockOfSnippet 找这个片段挂在哪一个结构图节点上。
+//
+// 自由段落（`outline_id` 为空，或者那个节点已经不在图上了）返回 nil ——
+// 那是合法的状态，调用方照旧拿得到整篇的结构，只是没有「她停在这一块」那个标记。
+func writingBlockOfSnippet(outline []sqlc.WritingOutline, s sqlc.WritingSnippet) *sqlc.WritingOutline {
+	if !s.OutlineID.Valid {
+		return nil
+	}
+	want := uuid.UUID(s.OutlineID.Bytes)
+	for i := range outline {
+		if outline[i].ID == want {
+			return &outline[i]
+		}
+	}
+	return nil
 }
 
 // writingSnippetOfBlock 找这一块的片段 id 和它此刻的正文。

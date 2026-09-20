@@ -287,7 +287,8 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	// collectWritingComment 里 —— 单段那一支走的是同一个函数。
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "review", resolved,
 		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues),
-		buildWritingCommentPrompt(wr, "她的整篇稿子", body),
+		// 通篇审阅那一路不给整篇上下文：body 本来就是整篇。
+		buildWritingCommentPrompt(wr, "她的整篇稿子", body, ""),
 		"scope", "draft", "atom_id", at.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {

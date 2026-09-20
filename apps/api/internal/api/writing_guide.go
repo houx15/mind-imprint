@@ -54,7 +54,7 @@ const writingGuideMaxQuestions = 4
 //
 // 🚨 同事 2026-09-20：「印记给出来的建议，太多吹毛求疵的部分」。
 // 提示词里也写了这条，但提示词里的「最多两条」是模型可以推翻的
-//（[[prompt-twice-then-make-it-checkable]]）—— 真正算数的是这里这个数。
+// （[[prompt-twice-then-make-it-checkable]]）—— 真正算数的是这里这个数。
 //
 // 二：她盯着一段已经写完的话，收到四个问题只会读成「我写得很烂」。
 // 空白的那一块照旧给到四条 —— 那时候她要的是入口，多一个是多一条路。
@@ -186,7 +186,7 @@ func recentStudentSaid(msgs []sqlc.AtomMessage) []string {
 // block it is (role + her own heading text), the skeleton it sits in, what she
 // has already drafted there, her material, and the methods usable at this
 // position.
-func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, siblings []sqlc.WritingOutline, existing string, msgs []sqlc.AtomMessage) string {
+func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, siblings []sqlc.WritingOutline, existing string, msgs []sqlc.AtomMessage, piece string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目/想法："))
 	b.WriteString(writingLangLine(wr))
@@ -201,23 +201,30 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	// The sibling blocks matter: a question for 「你的回应」 is only good if it
 	// knows what she put in 「反方最强的说法」. Without them the model asks the
 	// same generic question in every block.
-	b.WriteString("\n【整篇的结构，以及每一块她自己写下的要点】\n")
-	for _, s := range siblings {
-		// 同 buildDeepenBrief：块的名字用 kind 的标题，和她屏幕上的字一致。
-		name := writingKindLabel(writingKindOf(s), s.Source)
-		line := "- " + name
-		if name == "" {
-			line = "- （未命名的块）"
+	// 🚨 整篇上下文（writing_piece_context.go）取代了这里原来手写的那一段。
+	// 原来那段只列每一块的**要点**（她定的标题），不带她在那一块**写下的字**。
+	// 同事 2026-09-20 的意见 9：要知道别的段写了什么，才判得出这一段缺什么。
+	// piece 为空（比如批量那一路）就退回只列要点。
+	if strings.TrimSpace(piece) != "" {
+		b.WriteString(piece)
+	} else {
+		b.WriteString("\n【整篇的结构，以及每一块她自己写下的要点】\n")
+		for _, s := range siblings {
+			name := writingKindLabel(writingKindOf(s), s.Source)
+			line := "- " + name
+			if name == "" {
+				line = "- （未命名的块）"
+			}
+			if t := strings.TrimSpace(s.Text); t != "" {
+				line += "：" + t
+			} else {
+				line += "：（还没写）"
+			}
+			if s.ID == block.ID {
+				line += "   ← **她现在停在这一块**"
+			}
+			b.WriteString(line + "\n")
 		}
-		if t := strings.TrimSpace(s.Text); t != "" {
-			line += "：" + t
-		} else {
-			line += "：（还没写）"
-		}
-		if s.ID == block.ID {
-			line += "   ← **她现在停在这一块**"
-		}
-		b.WriteString(line + "\n")
 	}
 
 	b.WriteString("\n【她现在停住的这一块】\n")
@@ -752,6 +759,14 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 整篇上下文：别的段写了什么、她这一块收到过什么意见。读不到就给空，
+	// buildWritingGuidePrompt 会退回只列要点。
+	guidePiece := ""
+	if snippets, serr := a.d.Queries.ListWritingSnippets(turnCtx, at.ID); serr == nil {
+		prior, _ := a.d.Queries.ListWritingComments(turnCtx, at.ID)
+		guidePiece = buildWritingPieceContext(wr, siblings, snippets, prior, &block)
+	}
+
 	// §model-routing · compose. Asking a GOOD question about someone's
 	// half-formed argument is the hardest reasoning in this room — harder than
 	// the dialogue turn, which only has to respond. compose is where that
@@ -766,7 +781,7 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingGuideSystem},
-			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) +
+			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs, guidePiece) +
 				writingGuideAnotherAngle(priorWritingGuide(block))},
 		},
 	})
@@ -794,7 +809,7 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingGuideSystem},
-				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs) +
+				{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs, guidePiece) +
 					writingGuideAnotherAngle(priorWritingGuide(block)) + writingGuideBracketNudge},
 			},
 		})
