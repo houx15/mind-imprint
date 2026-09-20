@@ -210,10 +210,12 @@ describe("结构 — a planning conversation, not a template to fill", () => {
     await waitFor(() => {
       const put = calls.find((c) => c.method === "PUT" && c.url === base("/outline"))!;
       // n2 goes, n3 (its child) goes with it, and the unrelated n4 survives.
+      // 🚨 kind 必须跟着回传（0182）：服务端按它算深度，漏掉就等于把这一行
+      // 交还给关键词猜测，她刚做的编辑会被静默改形。
       expect(put.body).toEqual({
         outline: [
-          { text: "不该一刀切", role: "中心论点", depth: 0 },
-          { text: "第二条理由", role: "一条理由", depth: 1 },
+          { text: "不该一刀切", role: "中心论点", kind: "thesis", depth: 0 },
+          { text: "第二条理由", role: "一条理由", kind: "point", depth: 1 },
         ],
       });
     });
@@ -385,9 +387,18 @@ describe("段落 stage — the 铁律 pressure point", () => {
     routes = {
       ...emptyRoutes(inRoom()),
       [key("GET", base("/outline"))]: {
-        body: { outline: [{ id: "o1", text: "老师会说影响上课", role: "反方会说的话", depth: 0, position: 0 }] },
+        // 🚨 用例要给 kind，而且要给真的那一个（0182）：一份只有一个「反方
+        // 会说的话」的提纲，现在第一张卡是虚拟的开头，那张卡上没有引导按钮 ——
+        // 而那不是产品缺陷，是这份用例不像真数据。
+        body: {
+          outline: [
+            { id: "t1", text: "不该一刀切禁手机", role: "中心论点", kind: "thesis", depth: 0, position: 0 },
+            { id: "o1", text: "老师会说影响上课", role: "反方观点", kind: "counter", depth: 1, position: 1 },
+          ],
+        },
       },
-      [key("POST", base("/outline/o1/guide"))]: {
+      // 第一张卡是开头，它绑在中心论点那个节点上 —— 引导按下去打到的是 t1。
+      [key("POST", base("/outline/t1/guide"))]: {
         body: { questions: ["支持禁手机的老师最常说的一句话是什么？", "你身边有没有哪件事正好证明了那句话？"] },
       },
     };

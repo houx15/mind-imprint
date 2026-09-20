@@ -93,12 +93,23 @@ describe("the spine still reads as the spine", () => {
     expect(boxOf("夏天路上晒得受不了").style.borderColor).toContain("--mk-accent-300");
   });
 
-  it("emphasises nothing while she is still planning and no root has children yet", () => {
+  /**
+   * 🚨 2026-09-20 改了判据，这条用例跟着改。
+   *
+   * 「哪一块是主心骨」原来靠结构推：最上层、而且底下挂着东西。那个推法有一个
+   * 它自己注释里承认的「诚实的失败」—— 她刚说出主张、还没挂任何理由的那一刻，
+   * 屏幕上没有任何一块是重点。
+   *
+   * 现在节点自己带着 kind，中心论点第一眼就认得出来，那个失败没有了。
+   */
+  it("中心论点一落图就是重点，不必等底下挂上东西", () => {
+    render(<MindMap items={[THREE_ROOTS[1]!]} justAdded={[]} />);
+    expect(boxOf("该种，但要先定谁长期养").style.background).toContain("--mk-accent-50");
+  });
+
+  it("开篇和结尾不抢中心论点的重点", () => {
     render(<MindMap items={THREE_ROOTS} justAdded={[]} />);
-    // Honest failure mode of the structural test: at this moment there is no
-    // spine yet, so nothing claims to be one.
-    for (const t of ["夏天路上晒得受不了", "该种，但要先定谁长期养", "谁来养这件事得先定"]) {
-      expect(boxOf(t).style.background).toContain("--mk-surface");
-    }
+    expect(boxOf("夏天路上晒得受不了").style.background).toContain("--mk-surface");
+    expect(boxOf("谁来养这件事得先定").style.background).toContain("--mk-surface");
   });
 });
