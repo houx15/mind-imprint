@@ -193,15 +193,20 @@ test("the landing page is the front door: greeting, box, and the fixed topic she
 
   // 铁律②: a fixed shelf, never a feed a student who has nothing in mind
   // could keep scrolling.
+  //
+  // 🚨 2026-09-21 起这一排不再是写死的四条，而是从写作题库（705 道真题）
+  // 里挑的几道。**要守的不变量没变**：它是一排有边的建议，不是一条可以
+  // 一直往下滚的流。所以这里钉的是「有边」，不是那四个具体的题目名 ——
+  // 钉题目名等于把一份会变的内容当成了契约。
   await expect(page.getByText("不知道写什么？")).toBeVisible();
-  for (const title of [
-    "该不该把上学时间往后推？",
-    "短视频有没有让我们变笨？",
-    "学生该不该在学期中打工？",
-    "A Moment That Changed How I See Something",
-  ]) {
-    await expect(page.getByText(title, { exact: true })).toBeVisible();
-  }
+  const shelf = page.locator("article");
+  await expect(shelf.first()).toBeVisible({ timeout: 60_000 });
+  const shelfCount = await shelf.count();
+  expect(shelfCount, "这一排应该是有边的几条建议，不是一条流").toBeLessThanOrEqual(6);
+  expect(shelfCount).toBeGreaterThan(0);
+
+  // 整座题库在另一页，从这里进得去。
+  await expect(page.getByRole("tab", { name: /写作题库/ })).toBeVisible();
 
   // 我的写作 is a drawer, not a feed on the page.
   await page.getByRole("button", { name: /我的写作/ }).click();
