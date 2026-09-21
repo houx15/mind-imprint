@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -105,12 +104,12 @@ func streamOpenAICompatible(ctx context.Context, client *http.Client, r Resolved
 		// 而少了它，服务端日志里"provider stream failed"这一句分不清是连不上、
 		// 被限流、还是请求被取消——2026-09-02 排查复盘挂住时就卡在这里。
 		// 客户端看到的仍是固定的错误码，不受影响。
-		return nil, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
+		return nil, newUpstreamTransportError(provider, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		detail := readErrorBody(resp.StatusCode, resp.Body)
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("%w: %s http %d%s", errStreamFailed, provider, resp.StatusCode, detail)
+		return nil, newUpstreamHTTPError(provider, resp.StatusCode, detail)
 	}
 
 	out := make(chan StreamEvent)

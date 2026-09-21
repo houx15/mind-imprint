@@ -131,17 +131,18 @@ func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolv
 	if err != nil {
 		// 带上连接层的错因，理由同 streamOpenAICompatible：少了它，日志里分不清
 		// 是连不上、被限流、还是请求被取消。密钥在 header 里，不会进这句话。
-		return ChatResult{}, nil, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
+		return ChatResult{}, nil, newUpstreamTransportError(provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		detail := readErrorBody(resp.StatusCode, resp.Body)
-		return ChatResult{}, nil, fmt.Errorf("%w: %s http %d%s", errStreamFailed, provider, resp.StatusCode, detail)
+		return ChatResult{}, nil, newUpstreamHTTPError(provider, resp.StatusCode, detail)
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxCompletionBytes))
 	if err != nil {
-		return ChatResult{}, nil, fmt.Errorf("%w: %s read: %v", errStreamFailed, provider, err)
+		// 读 body 读断了 —— 连接层的事，和上面拨号失败同一类，值得再试一次。
+		return ChatResult{}, nil, newUpstreamTransportError(provider, err)
 	}
 	var out openAICompletion
 	if err := json.Unmarshal(raw, &out); err != nil {
