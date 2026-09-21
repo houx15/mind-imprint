@@ -278,6 +278,14 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/library", liteOnly(a.getLibraryShelf))
 	mux.Handle("POST /api/v1/library/{slug}/levels/{tier}", liteOnly(a.startLibraryReading))
 
+	// 写作题库（2026-09-21）。同上：内容在 internal/promptlib 里 go:embed。
+	// 705 道题，所以筛 / 搜 / 翻页全在服务端做 —— 一次把全库发给前端是 900KB，
+	// 而「筛完之后每一维还剩哪些值」只有看得见全库的人算得出来。
+	// 老师端和学生端看的是同一份内容，走同一条路（老师也是 lite 账号）。
+	mux.Handle("GET /api/v1/writing-prompts", liteOnly(a.listWritingPrompts))
+	mux.Handle("GET /api/v1/writing-prompts/{id}", liteOnly(a.getWritingPrompt))
+	mux.Handle("POST /api/v1/writing-prompts/{id}/start", liteOnly(a.startWritingFromPrompt))
+
 	// 轻量版（lite edition）· 学生这一侧的作业：收件箱、已读、开始、按 atom 反查。
 	// 见 lite_student_assignments.go。
 	mux.Handle("GET /api/v1/lite/inbox", liteOnly(a.getLiteInbox))

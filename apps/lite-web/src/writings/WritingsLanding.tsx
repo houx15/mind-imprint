@@ -4,10 +4,17 @@ import { Library, ArrowRight, FileUp, Paperclip } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { ApiError } from "../api/client";
 import { createWriting, extractDocument, listWritings, isWritingFinished, type Writing } from "../api/writings";
-import { navigate, writingPath } from "../routing";
+import { navigate, writingPath, writingLibraryPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { WRITING_IDEA_KEY, WRITING_IDEA_LANG_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
+import { WritingsTabs } from "./WritingsTabs";
+import { PromptCard } from "./PromptCard";
+import {
+  listWritingPrompts,
+  startWritingFromPrompt,
+  type WritingPrompt,
+} from "../api/writingPrompts";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
@@ -45,6 +52,12 @@ export function WritingsLanding() {
   const [extracting, setExtracting] = useState(false);
   const [bringFileError, setBringFileError] = useState<string | null>(null);
 
+  // 题库推荐：落地页上那一排不再是写死的四条，而是从 705 道真题里挑的。
+  // 🚨 拿不到就**什么都不显示**，不要弹一句报错——她来这一页是要开始写，
+  // 推荐拉不到不该挡在她前面（下面那排写死的备选题仍然在）。
+  const [recommended, setRecommended] = useState<WritingPrompt[] | null>(null);
+  const [startingPrompt, setStartingPrompt] = useState(false);
+
   const [history, setHistory] = useState<Writing[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -65,6 +78,22 @@ export function WritingsLanding() {
       })
       .catch(() => {
         if (!cancelled) setHistoryError("我的写作暂时加载不出来，刷新一下再试试。");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 题库推荐。第一页、不带任何筛选 —— 服务端只在这种情况下才给 recommended。
+  useEffect(() => {
+    let cancelled = false;
+    listWritingPrompts({ pageSize: 1 })
+      .then((res) => {
+        if (!cancelled) setRecommended(res.recommended.map((r) => r.prompt));
+      })
+      .catch(() => {
+        // 静默退回写死的那几条备选题。见 recommended 那个 state 上面的注释。
+        if (!cancelled) setRecommended([]);
       });
     return () => {
       cancelled = true;
@@ -160,6 +189,18 @@ export function WritingsLanding() {
     }
   }
 
+  async function startFromPrompt(id: string) {
+    if (startingPrompt) return;
+    setStartingPrompt(true);
+    setStartError(null);
+    try {
+      navigate(writingPath(await startWritingFromPrompt(id)));
+    } catch (err) {
+      setStartError(apiErrorText(err));
+      setStartingPrompt(false);
+    }
+  }
+
   return (
     <div className="learning-landing relative min-h-full overflow-hidden">
       <div className="learning-landing-measure relative mx-auto flex w-full flex-col">
@@ -205,6 +246,10 @@ export function WritingsLanding() {
               />
             </button>
           )}
+        </div>
+
+        <div className="flex justify-center">
+          <WritingsTabs active="own" />
         </div>
 
         <LandingHeader kind="writing" title="写作" description="整理想法、组织论证，也可以带来已有文章寻求建议。" />
@@ -260,20 +305,48 @@ export function WritingsLanding() {
             <Hairline />
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {WRITING_TOPICS.map((topic, i) => (
-              <PromptTile
-                key={topic.id}
-                index={i + 1}
-                tag={topic.genre}
-                title={topic.title}
-                reason={topic.reason}
-                tone={topic.tone}
-                disabled={starting}
-                onPick={() => handleTopic(topic)}
-              />
-            ))}
-          </div>
+          {/* 题库里挑的几道真题。拿不到就退回下面那排写死的备选题 ——
+              推荐是锦上添花，不该挡住她开始写。 */}
+          {recommended && recommended.length > 0 && (
+            <>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {recommended.map((p) => (
+                  <PromptCard
+                    key={p.id}
+                    prompt={p}
+                    busy={startingPrompt}
+                    onStart={(id) => void startFromPrompt(id)}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate(writingLibraryPath())}
+                  className="text-mk-small text-mk-accent-700 underline-offset-2 hover:underline"
+                >
+                  去题库里翻更多（中考 · 高考 · 托福 · 雅思 · GRE）
+                </button>
+              </div>
+            </>
+          )}
+
+          {(!recommended || recommended.length === 0) && (
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {WRITING_TOPICS.map((topic, i) => (
+                <PromptTile
+                  key={topic.id}
+                  index={i + 1}
+                  tag={topic.genre}
+                  title={topic.title}
+                  reason={topic.reason}
+                  tone={topic.tone}
+                  disabled={starting}
+                  onPick={() => handleTopic(topic)}
+                />
+              ))}
+            </div>
+          )}
         </section>
       </div>
 

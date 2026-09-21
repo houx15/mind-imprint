@@ -56,6 +56,7 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingLibraryPage } from "./readings/ReadingLibraryPage";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
+import { WritingPromptLibraryPage } from "./writings/WritingPromptLibraryPage";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
 import { SkyTab } from "./explore/SkyTab";
 import { MySitePage } from "./mysite/MySitePage";
@@ -325,6 +326,10 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             user={user}
             onLogout={onLogout}
           />
+        ) : route.tab === "writings" && route.library ? (
+          // 写作题库。同一条 tab 下的一屏（`/writings/library`），
+          // 所以导航栏仍然停在「写作」上 —— 和分级阅读库同一个形状。
+          <WritingPromptLibraryPage />
         ) : route.tab === "writings" ? (
           route.writingId ? (
             <WritingRoomHost

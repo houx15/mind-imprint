@@ -19,6 +19,7 @@ import { UploadSourceField } from "./UploadSourceField";
 import { DateField } from "./controls/DateField";
 import { NumberField } from "./controls/NumberField";
 import { Select } from "./controls/Select";
+import { PromptLibraryPicker } from "./PromptLibraryPicker";
 import {
   buildCreateInput,
   draftOnClassChange,
@@ -143,6 +144,18 @@ export function SettingsFields({
                 ...d,
                 prompt: r.prompt,
                 // No count in the instructions → the field stays empty.
+                targetWords: r.targetWords === null ? "" : String(r.targetWords),
+                lang: r.lang,
+              }))
+            }
+          />
+          {/* 第三条路：从 705 道真题里挑一道。终点和上面那条一样 ——
+              都只是把字填进下面那个 textarea，填完她照样能改。 */}
+          <PromptLibraryPicker
+            onFill={(r) =>
+              onChange((d) => ({
+                ...d,
+                prompt: r.prompt,
                 targetWords: r.targetWords === null ? "" : String(r.targetWords),
                 lang: r.lang,
               }))

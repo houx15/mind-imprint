@@ -6,6 +6,7 @@ import { getLibraryShelf, startLibraryReading, type LibraryShelf } from "../api/
 import { apiErrorText } from "../api/errorText";
 import { fieldById } from "../tree/geometry";
 import type { FieldId } from "../tree/types";
+import { Pagination } from "../learning/Pagination";
 import { LibraryCard } from "./LibraryCard";
 import { ReadingsTabs } from "./ReadingsTabs";
 
@@ -16,9 +17,14 @@ import { ReadingsTabs } from "./ReadingsTabs";
  *
  * # 为什么筛选在前端
  *
- * 目录一次全发（二十篇的元数据，不含正文，十几 KB），所以敲一个字不打一次
- * 请求，切一根主枝也没有加载态。等库长到几百篇，这里会换成服务端筛 —— 到那
- * 时候再换，比现在先写一套用不上的分页强。
+ * 目录一次全发（四十多篇的元数据，不含正文，几十 KB），所以敲一个字不打一次
+ * 请求，切一根主枝也没有加载态。
+ *
+ * 🚨 这段注释原来写着「等库长到几百篇，这里会换成服务端筛」。那一天还没到
+ * （48 篇），但**翻页那一天到了**：四十多张卡一屏滚不完。所以分页放在前端，
+ * 和筛选同一侧 —— 数据本来就全在手上，服务端翻页反而要多打一次请求。
+ * 写作题库那边是 705 道，筛搜翻全在服务端，两边的选择不一样是**因为量级不一样**，
+ * 不是因为两个人写的。
  *
  * # 三个筛子
  *
@@ -34,6 +40,9 @@ import { ReadingsTabs } from "./ReadingsTabs";
 
 const TIER_NAMES = ["入门", "基础", "进阶", "高阶", "原文"];
 
+/** 一页几篇。12：三列整四行，两列六行，手机一列也翻得动。 */
+const LIBRARY_PAGE_SIZE = 12;
+
 export function ReadingLibraryPage() {
   const [shelf, setShelf] = useState<LibraryShelf | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +50,7 @@ export function ReadingLibraryPage() {
   const [field, setField] = useState<string>("");
   const [tier, setTier] = useState(0); // 0 = 用服务端给的默认档
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +68,12 @@ export function ReadingLibraryPage() {
     };
   }, []);
 
+  // 🚨 改了筛选就回到第 1 页。她在第 3 页选了一根主枝、结果只有 1 页的话，
+  // 不回第 1 页她看到的是一片空白，读起来像「这根枝下面没有文章」。
+  useEffect(() => {
+    setPage(1);
+  }, [query, field]);
+
   const visible = useMemo(() => {
     if (!shelf) return [];
     const q = query.trim().toLowerCase();
@@ -68,6 +84,9 @@ export function ReadingLibraryPage() {
       return hay.some((h) => h.includes(q));
     });
   }, [shelf, query, field]);
+
+  const pages = Math.max(1, Math.ceil(visible.length / LIBRARY_PAGE_SIZE));
+  const shown = visible.slice((page - 1) * LIBRARY_PAGE_SIZE, page * LIBRARY_PAGE_SIZE);
 
   async function start(slug: string, pick: number) {
     if (busy) return;
@@ -143,6 +162,7 @@ export function ReadingLibraryPage() {
           <>
             <p className="mt-5 text-mk-label text-mk-muted">
               {visible.length} 篇{query.trim() || field ? "（已筛选）" : ""}
+              {pages > 1 ? ` · 第 ${page} / ${pages} 页` : ""}
             </p>
             {visible.length === 0 ? (
               <p className="mt-10 text-center text-mk-small text-mk-secondary">
@@ -150,7 +170,7 @@ export function ReadingLibraryPage() {
               </p>
             ) : (
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {visible.map((a) => (
+                {shown.map((a) => (
                   <LibraryCard
                     // 🚨 key 带上默认档：卡片的选中档是 useState 的初始值，
                     // 只在挂载时读一次。不换 key 的话，切「默认难度」这一排
@@ -165,6 +185,14 @@ export function ReadingLibraryPage() {
                 ))}
               </div>
             )}
+            <Pagination
+              page={page}
+              pages={pages}
+              onPick={(n) => {
+                setPage(n);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           </>
         )}
       </div>
