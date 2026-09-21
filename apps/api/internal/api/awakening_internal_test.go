@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"mindimprint/api/internal/awakening"
 	"mindimprint/api/internal/store/sqlc"
@@ -169,5 +170,68 @@ func TestReportSerialisesWithTheNamesTheClientReads(t *testing.T) {
 		if _, ok := df[k]; !ok {
 			t.Errorf("diff 少了 %q", k)
 		}
+	}
+}
+
+/* ── 重复总结不该白花两次生成 ───────────────────────────────────────────── */
+
+// 一条线索可以总结不止一次（她总结完又想到新的东西，接着答两问再总结）。
+// 挡住「连点两下」的就是这一条判据：上一份报告之后有没有新的回答。
+//
+// 🚨 判**严格之后**。和报告同一时刻的那几轮正是被那份报告总结掉的，把它们
+// 算成新材料，等于每次点开都重新生成一份一模一样的报告。
+func TestHasTurnAfterOnlyCountsWhatCameLater(t *testing.T) {
+	at := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
+	older := sqlc.AwakeningTurn{CreatedAt: at.Add(-time.Minute)}
+	same := sqlc.AwakeningTurn{CreatedAt: at}
+	newer := sqlc.AwakeningTurn{CreatedAt: at.Add(time.Minute)}
+
+	cases := []struct {
+		name  string
+		turns []sqlc.AwakeningTurn
+		want  bool
+	}{
+		{"没有轮次", nil, false},
+		{"都在报告之前", []sqlc.AwakeningTurn{older, older}, false},
+		{"和报告同一时刻", []sqlc.AwakeningTurn{older, same}, false},
+		{"之后又答了一轮", []sqlc.AwakeningTurn{older, same, newer}, true},
+	}
+	for _, c := range cases {
+		if got := hasTurnAfter(c.turns, at); got != c.want {
+			t.Errorf("%s：hasTurnAfter = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+/* ── 回到一条答了一半的线索，问的是她停在的那一问 ───────────────────────── */
+
+// 🚨 线索库让「回到一条答了一半的线索」成了常走的路，而这一格原来恒给开场
+// 那一问：一个已经答到第 2 问的学生，回来看见的是开场白，等于被往回推了一问。
+//
+// 判据和 postAwakeningTurn 那一处必须是同一条 —— 「接着问」和「刚答完一轮」
+// 看到的应当是同一句话。
+func TestResumeAskFollowsWhereSheStopped(t *testing.T) {
+	brief := awakening.BuildBrief(nil, 1, 0)
+
+	if got := resumeAsk(nil, brief); got != brief.OpeningAsk() {
+		t.Errorf("一轮都没答时应当是开场那一问，得到 %q", got)
+	}
+
+	answered := []sqlc.AwakeningTurn{turn(0, 0, "最近老是刷到潮汐发电的视频，看了四十分钟")}
+	want := awakening.NodeAt(1).Ask
+	if got := resumeAsk(answered, brief); got != want {
+		t.Errorf("答过第一问之后应当问第二问，得到 %q", got)
+	}
+	if resumeAsk(answered, brief) == brief.OpeningAsk() {
+		t.Error("回到半途的线索时又把开场那一问摆了出来")
+	}
+
+	// 八问答满：这时终端显示的是「完成探询」，没有下一问。
+	var full []sqlc.AwakeningTurn
+	for i := 0; i < awakening.NodeCount; i++ {
+		full = append(full, turn(i, int32(i), "她在这一问上写下的一段回答"))
+	}
+	if got := resumeAsk(full, brief); got != "" {
+		t.Errorf("八问答完之后不该再有下一问，得到 %q", got)
 	}
 }

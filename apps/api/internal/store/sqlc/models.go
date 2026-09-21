@@ -110,6 +110,7 @@ type AwakeningRun struct {
 	CreatedAt        time.Time          `json:"created_at"`
 	UpdatedAt        time.Time          `json:"updated_at"`
 	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	Title            string             `json:"title"`
 }
 
 type AwakeningTurn struct {

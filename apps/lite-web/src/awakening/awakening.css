@@ -2336,6 +2336,40 @@
 }
 
 /*
+ * 线索库里的一行。
+ *
+ * 主按钮是「接着问」（整张卡）；总结过的那几条在卡**下面**多挂一条
+ * 「查看兴趣印记」。
+ *
+ * 🚨 第一版把它绝对定位压在卡的右下角，结果它盖在卡自己的装饰层
+ * （条码、箭头）上面，截图里几乎看不见 —— 一个看不见的按钮等于没有这条路。
+ * 现在它自己占一行，不和任何东西重叠。
+ */
+.awk-thread {
+  display: grid;
+  gap: 6px;
+}
+
+.awk-thread-view {
+  justify-self: end;
+  padding: 5px 12px;
+  border: 1px solid rgba(227, 178, 60, 0.45);
+  background: rgba(10, 8, 4, 0.8);
+  color: #e3b23c;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.awk-thread-view:hover,
+.awk-thread-view:focus-visible {
+  border-color: #e3b23c;
+  background: #e3b23c;
+  color: #150f05;
+  outline: none;
+}
+
+/*
  * 选助手那三张卡：每张带自己的颜色，选中之前就看得见。
  *
  * 顶上那条色带是这三张卡唯一的区别信号 —— 卡面其余部分刻意一样，因为

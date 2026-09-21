@@ -12,7 +12,9 @@ import { apiFetch } from "./client";
  *   startAwakening        开一趟，或者接上没走完的那一趟
  *   saveAwakening         存一次进度 —— **每换一屏调一次**，所以一次中途
  *                         退出也留下痕迹，下次能接着走
- *   resetAwakeningTurns   清空这一趟的轮次 —— 「新的探索」，换一条线索重新问
+ *   reopenAwakeningThread 接着一条总结过的线索往下问
+ *   suggestThreadTitles   给这条线索起几个名字让她挑
+ *   setThreadTitle        她挑定的那个名字
  *   postTurn              终端里的一轮
  *   finishAwakening       走完。**这一个会慢**：服务端同步跑两次调用
  *                         （选词 + 报告），界面必须为此显示「正在生成」
@@ -59,6 +61,8 @@ export interface TalentState {
 export interface AwakeningRun {
   id: string;
   attemptNo: number;
+  /** 这条线索的名字。空串表示还没起名。 */
+  title: string;
   stage: AwakeningStage;
   route: AwakeningRoute;
   navigator: string;
@@ -76,6 +80,27 @@ export interface AwakeningRun {
   openingAsk: string;
 }
 
+/**
+ * 线索库里的一行。一条线索就是一趟 run（迁移 0185）。
+ *
+ * 这里没有那几轮的正文 —— 库是一张表，点进去才是对话。
+ */
+export interface AwakeningThread {
+  id: string;
+  /** 她挑定的名字。空串表示还没起名，这时显示 `firstText`。 */
+  title: string;
+  /** 她在这条线索上写下的第一句话，原样。**永远有东西可显示**靠它。 */
+  firstText: string;
+  turnCount: number;
+  /** 已经总结过（有报告）。仍然可以点进去接着问。 */
+  summarized: boolean;
+  reportCount: number;
+  navigator: string;
+  stage: AwakeningStage;
+  lastTurnAt: string;
+  updatedAt: string;
+}
+
 export interface AwakeningStatus {
   /** 只在她**走完过**至少一次时为真。中途退出不算。 */
   taken: boolean;
@@ -84,6 +109,8 @@ export interface AwakeningStatus {
   /** 最近那份报告对应的 run id，用于从树上直接打开。 */
   latestReportRunId: string;
   finishedCount: number;
+  /** 她提出过的每一条线索，最近动过的排在前面。 */
+  threads: AwakeningThread[];
 }
 
 export interface TurnResult {
@@ -165,6 +192,7 @@ export interface AwakeningReport {
 const EMPTY_RUN: AwakeningRun = {
   id: "",
   attemptNo: 1,
+  title: "",
   stage: "boot",
   route: "",
   navigator: "",
@@ -250,12 +278,35 @@ export async function fetchAwakeningStatus(): Promise<AwakeningStatus> {
     open: raw.open ? normalizeRun(raw.open) : null,
     latestReportRunId: raw.latestReportRunId ?? "",
     finishedCount: raw.finishedCount ?? 0,
+    // 🚨 兜底到空数组：Go 把 nil 切片 marshal 成 null，而 null.map 会把整棵树
+    // 的那一屏打白（memory: go-nil-slice-becomes-null-2026-09-19）。
+    threads: (raw.threads ?? []).map((t) => ({
+      id: t?.id ?? "",
+      title: t?.title ?? "",
+      firstText: t?.firstText ?? "",
+      turnCount: t?.turnCount ?? 0,
+      summarized: Boolean(t?.summarized),
+      reportCount: t?.reportCount ?? 0,
+      navigator: t?.navigator ?? "",
+      stage: t?.stage ?? "terminal",
+      lastTurnAt: t?.lastTurnAt ?? "",
+      updatedAt: t?.updatedAt ?? "",
+    })),
   };
 }
 
-export async function startAwakening(): Promise<AwakeningRun> {
+/**
+ * 开一条线索。
+ *
+ * 默认接上她上次动的那条；`fresh` 为真时另起一条 ——「开启新线索」。
+ * 旧的那条原样停在线索库里，一个字都不动。
+ */
+export async function startAwakening(fresh = false): Promise<AwakeningRun> {
   return normalizeRun(
-    await apiFetch<Partial<AwakeningRun>>("/api/v1/awakening", { method: "POST" }),
+    await apiFetch<Partial<AwakeningRun>>(
+      `/api/v1/awakening${fresh ? "?new=1" : ""}`,
+      { method: "POST" },
+    ),
   );
 }
 
@@ -282,17 +333,38 @@ export async function saveAwakening(
   );
 }
 
-/**
- * 「新的探索」：清空这一趟已经答过的轮次，换一条线索从第一问重新开始。
- *
- * 🚨 **它删的是她自己写下的字，没有回收站。** 调用前必须先问一次。
- * 想留住那些字的人走 finishAwakening（「现在总结」）。
- */
-export async function resetAwakeningTurns(id: string): Promise<AwakeningRun> {
+/** 接着一条已经总结过的线索往下问。已有的报告不动。 */
+export async function reopenAwakeningThread(id: string): Promise<AwakeningRun> {
   return normalizeRun(
     await apiFetch<Partial<AwakeningRun>>(
-      `/api/v1/awakening/${encodeURIComponent(id)}/reset`,
+      `/api/v1/awakening/${encodeURIComponent(id)}/reopen`,
       { method: "POST" },
+    ),
+  );
+}
+
+/**
+ * 给这条线索起几个名字让她挑。
+ *
+ * 🚨 **最后一个候选永远是从她原话裁出来的**，模型那次没回上来时它是唯一的
+ * 一个（`failed` 为真）。界面照实说一句，不假装那是模型的建议。
+ */
+export async function suggestThreadTitles(
+  id: string,
+): Promise<{ titles: string[]; failed: boolean }> {
+  const raw = await apiFetch<{ titles?: string[]; failed?: boolean }>(
+    `/api/v1/awakening/${encodeURIComponent(id)}/titles`,
+    { method: "POST" },
+  );
+  return { titles: raw.titles ?? [], failed: Boolean(raw.failed) };
+}
+
+/** 她挑定的那个名字。 */
+export async function setThreadTitle(id: string, title: string): Promise<AwakeningRun> {
+  return normalizeRun(
+    await apiFetch<Partial<AwakeningRun>>(
+      `/api/v1/awakening/${encodeURIComponent(id)}/title`,
+      { method: "PUT", body: JSON.stringify({ title }) },
     ),
   );
 }

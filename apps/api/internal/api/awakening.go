@@ -5,7 +5,10 @@ package api
 //	GET  /api/v1/awakening                她做过没有、有没有一趟没走完
 //	POST /api/v1/awakening                开一趟（或者接上没走完的那一趟）
 //	PUT  /api/v1/awakening/{id}           存一次进度
-//	POST /api/v1/awakening/{id}/reset     清空轮次，换一条线索重新问\n//	POST /api/v1/awakening/{id}/turn      终端里的一轮
+//	POST /api/v1/awakening/{id}/reset     清空轮次，换一条线索重新问\n//	POST /api/v1/awakening/{id}/reopen    接着一条总结过的线索往下问
+//	POST /api/v1/awakening/{id}/titles    给这条线索起几个名字让她挑
+//	PUT  /api/v1/awakening/{id}/title     她挑定的那个名字
+//	POST /api/v1/awakening/{id}/turn      终端里的一轮
 //	POST /api/v1/awakening/{id}/finish    走完：选词 → 写回树 → 生成报告
 //	GET  /api/v1/awakening/{id}/report    读报告
 //
@@ -70,8 +73,10 @@ const awakeningSourceKind = "quiz"
 /* ── DTO ────────────────────────────────────────────────────────────────── */
 
 type awakeningRunDTO struct {
-	ID               string          `json:"id"`
-	AttemptNo        int             `json:"attemptNo"`
+	ID        string `json:"id"`
+	AttemptNo int    `json:"attemptNo"`
+	// Title 是这条线索的名字。空串表示还没起名。
+	Title            string          `json:"title"`
 	Stage            string          `json:"stage"`
 	Route            string          `json:"route"`
 	Navigator        string          `json:"navigator"`
@@ -99,6 +104,27 @@ type awakeningTurnDTO struct {
 	Reply       string `json:"reply"`
 }
 
+// awakeningThreadDTO 是线索库里的一行。
+//
+// 一条线索就是一趟 run（迁移 0185）。这里带的是「认出它、决定要不要点它」
+// 需要的东西，不含那几轮的正文 —— 库是一张表，不是一堆对话。
+type awakeningThreadDTO struct {
+	ID string `json:"id"`
+	// Title 是她挑定的名字。空串表示还没起名，界面这时显示 FirstText。
+	Title string `json:"title"`
+	// FirstText 是她在这条线索上写下的第一句话，原样。没名字时显示它，
+	// 所以**一条线索永远有东西可显示**。
+	FirstText string `json:"firstText"`
+	TurnCount int    `json:"turnCount"`
+	// Summarized 为真表示它已经总结过（有报告）。仍然可以点进去接着问。
+	Summarized  bool   `json:"summarized"`
+	ReportCount int    `json:"reportCount"`
+	Navigator   string `json:"navigator"`
+	Stage       string `json:"stage"`
+	LastTurnAt  string `json:"lastTurnAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
 type awakeningStatusDTO struct {
 	// Taken 只在她**走完过**至少一次时为真。中途退出不算。
 	Taken bool `json:"taken"`
@@ -107,6 +133,8 @@ type awakeningStatusDTO struct {
 	// LatestReportRunID 是她最近那份报告对应的 run id，用于从树上直接打开它。
 	LatestReportRunID string `json:"latestReportRunId"`
 	FinishedCount     int    `json:"finishedCount"`
+	// Threads 是她提出过的每一条线索，最近动过的排在前面。
+	Threads []awakeningThreadDTO `json:"threads"`
 }
 
 type awakeningTurnReqDTO struct {
@@ -142,13 +170,39 @@ func (a *API) getAwakeningStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	out := awakeningStatusDTO{}
 
-	n, err := a.d.Queries.CountFinishedAwakeningRuns(r.Context(), u.ID)
+	// 🚨 数的是**报告**，不是走完的 run。
+	//
+	// 0185 之后，一条总结过的线索被接着往下问时 finished_at 会被清掉；按 run
+	// 数的话，树上那条入口会在她点了「继续」之后忘记她做过兴趣测试，改口说
+	// 「开始」。报告一旦生成就不会消失，所以它才是「做过没有」的依据。
+	n, err := a.d.Queries.CountAwakeningReports(r.Context(), u.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	out.FinishedCount = int(n)
 	out.Taken = n > 0
+
+	rows, err := a.d.Queries.ListAwakeningThreads(r.Context(), u.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out.Threads = make([]awakeningThreadDTO, 0, len(rows))
+	for _, t := range rows {
+		out.Threads = append(out.Threads, awakeningThreadDTO{
+			ID:          t.ID.String(),
+			Title:       t.Title,
+			FirstText:   t.FirstText,
+			TurnCount:   int(t.TurnCount),
+			Summarized:  t.ReportCount > 0,
+			ReportCount: int(t.ReportCount),
+			Navigator:   t.Navigator,
+			Stage:       t.Stage,
+			LastTurnAt:  t.LastTurnAt.Format(time.RFC3339),
+			UpdatedAt:   t.UpdatedAt.Format(time.RFC3339),
+		})
+	}
 
 	if row, err := a.d.Queries.OpenAwakeningRun(r.Context(), u.ID); err == nil {
 		dto, derr := a.runToDTO(r.Context(), u.ID, row)
@@ -183,7 +237,18 @@ func (a *API) startAwakeningRun(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
 		return
 	}
-	row, err := a.d.Queries.OpenAwakeningRun(r.Context(), u.ID)
+	// ?new=1 —— 「开启新线索」。默认（不带它）仍然是接上她上次动的那条。
+	//
+	// 0185 之前这里没得选：一个人只能有一趟没走完的，所以「换一条」只能实现
+	// 成清空她写过的字。现在另起一条就是另起一条，旧的原样停在线索库里。
+	fresh := r.URL.Query().Get("new") == "1"
+	var row sqlc.AwakeningRun
+	var err error
+	if !fresh {
+		row, err = a.d.Queries.OpenAwakeningRun(r.Context(), u.ID)
+	} else {
+		err = pgx.ErrNoRows
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, err = a.d.Queries.StartAwakeningRun(r.Context(), u.ID)
 		if err == nil {
@@ -312,22 +377,17 @@ func (a *API) saveAwakeningProgress(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
-// resetAwakeningRun —— POST /api/v1/awakening/{id}/reset
+// reopenAwakeningRun —— POST /api/v1/awakening/{id}/reopen
 //
-// 「新的探索」：她保留着一条没做完的线索，回来却想换一个话题从头问。
+// 接着一条已经总结过的线索往下问。
 //
-// # 为什么清的是轮次，不是这一趟
+// 产品负责人 2026-09-21：「when closed for good, the thread/keyword/name is
+// recorded somewhere in a 线索库, and she should be able to click to continue
+// on that.」总结不是这条线索的终点，只是它到目前为止的一份交代。
 //
-// 开新的一趟要先把这一趟盖上章，而盖章等于「走完了」—— 树上那条入口会立刻
-// 改口说「再做一次」，finishedCount 会多一次，可是她一份报告都没拿到。
-// 清空轮次把这件事说对：**这一趟还没走完，只是换了一条线索重新问**。
-// 助手和能量结果留在 awakening_run 上，她不必再选一遍。
-//
-// # 🚨 它删的是她自己写下的字
-//
-// 没有回收站。所以这里先查一次归属，界面上也先问一次；而「现在总结」
-// （POST /finish）就摆在旁边，想留住这些字的人走那条路。
-func (a *API) resetAwakeningRun(w http.ResponseWriter, r *http.Request) {
+// 已有的报告一份都不动 —— 那一份记的是当时那几轮。她再答两问之后再总结，
+// 会另起一份（见 summarize 那条判据）。
+func (a *API) reopenAwakeningRun(w http.ResponseWriter, r *http.Request) {
 	u, ok := UserFromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
@@ -338,25 +398,143 @@ func (a *API) resetAwakeningRun(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_run_id", "作答 id 无效", nil))
 		return
 	}
-	run, err := a.d.Queries.GetAwakeningRun(r.Context(), sqlc.GetAwakeningRunParams{ID: id, UserID: u.ID})
+	row, err := a.d.Queries.ReopenAwakeningRun(r.Context(), sqlc.ReopenAwakeningRunParams{ID: id, UserID: u.ID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这一趟作答不在进行中"))
+		// 它本来就在做 —— 那就照原样给回去，不报错。她要的是「进这条线索」，
+		// 而它已经是可以进的状态。
+		row, err = a.d.Queries.GetAwakeningRun(r.Context(), sqlc.GetAwakeningRunParams{ID: id, UserID: u.ID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这条线索不存在"))
+			return
+		}
+	}
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	dto, err := a.runToDTO(r.Context(), u.ID, row)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
+}
+
+type awakeningTitlesDTO struct {
+	// Titles 是给她挑的候选。**最后一个永远是从她原话裁出来的**；模型那次
+	// 没回上来时它是唯一的一个。空表表示她还什么都没写，界面不摆这一步。
+	Titles []string `json:"titles"`
+	// Failed 为真表示起名那次调用没回上来。界面照实说一句，候选里仍然有她
+	// 自己的原话可以挑 —— 绝不编一个名字冒充模型的建议。
+	Failed bool `json:"failed"`
+}
+
+// suggestAwakeningTitles —— POST /api/v1/awakening/{id}/titles
+//
+// 给这条线索起几个名字让她挑（产品负责人 2026-09-21：「model suggest and
+// user selects」）。
+//
+// 档位是 reflex：这是一个标签，不是一段推理。
+func (a *API) suggestAwakeningTitles(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_run_id", "作答 id 无效", nil))
+		return
+	}
+	if _, err := a.d.Queries.GetAwakeningRun(r.Context(),
+		sqlc.GetAwakeningRunParams{ID: id, UserID: u.ID}); err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条线索不存在"))
+		return
+	}
+	turns, err := a.d.Queries.ListAwakeningTurns(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	answers := answersAll(turns)
+	first := ""
+	if len(answers) > 0 {
+		first = answers[0]
+	}
+
+	titles, failed := a.awakeningTitles(r.Context(), u.ID, id, answers)
+	httpx.WriteJSON(w, http.StatusOK, awakeningTitlesDTO{
+		Titles: awakening.TitleChoices(titles, first),
+		Failed: failed,
+	})
+}
+
+// awakeningTitles 跑起名那一次调用。第二个返回值是「这一次没回上来」。
+func (a *API) awakeningTitles(
+	ctx context.Context, userID, runID uuid.UUID, answers []string,
+) ([]string, bool) {
+	if len(answers) == 0 || a.d.Provider == nil {
+		return nil, false
+	}
+	resolved, ok := a.route(ctx, gateway.ClassReflex)
+	if !ok {
+		return nil, true
+	}
+	system, user := awakening.BuildTitlePrompt(answers)
+	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+		Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: system},
+			{Role: gateway.RoleUser, Content: user},
+		},
+	})
+	a.recordLiteLLMCall(ctx, userID, uuid.Nil, "awakening_title", resolved, res.Usage)
+	if cerr != nil {
+		slog.WarnContext(ctx, "awakening: title call failed", "err", cerr, "run_id", runID)
+		return nil, true
+	}
+	titles := awakening.ParseTitles(res.Text)
+	if len(titles) == 0 {
+		slog.WarnContext(ctx, "awakening: unparseable title reply", "run_id", runID)
+		return nil, true
+	}
+	return titles, false
+}
+
+type awakeningTitleBody struct {
+	Title string `json:"title"`
+}
+
+// setAwakeningTitle —— PUT /api/v1/awakening/{id}/title
+//
+// 她挑定的那个名字。挑的是她，所以这里不校验它是不是候选之一。
+func (a *API) setAwakeningTitle(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_run_id", "作答 id 无效", nil))
+		return
+	}
+	var body awakeningTitleBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求体解析失败", nil))
+		return
+	}
+	row, err := a.d.Queries.SetAwakeningRunTitle(r.Context(), sqlc.SetAwakeningRunTitleParams{
+		ID: id, UserID: u.ID, Title: awakening.CleanTitle(body.Title),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条线索不存在"))
 		return
 	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	// 走完的那一趟不能清 —— 它的轮次是那份报告的语料，报告已经生成了。
-	if run.FinishedAt.Valid {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这一趟作答不在进行中"))
-		return
-	}
-	if err := a.d.Queries.ClearAwakeningTurns(r.Context(), run.ID); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	dto, err := a.runToDTO(r.Context(), u.ID, run)
+	dto, err := a.runToDTO(r.Context(), u.ID, row)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -438,12 +616,12 @@ func (a *API) postAwakeningTurn(w http.ResponseWriter, r *http.Request) {
 	retry := awakening.TooThin(nodeIndex, text) && turnsOnNode(turns, nodeIndex) == 0
 
 	in := awakening.DialogueInput{
-		Guide:       awakening.GuideOrDefault(run.Navigator),
-		Brief:       brief,
-		NodeIndex:   nodeIndex,
-		Retry:       retry,
+		Guide:     awakening.GuideOrDefault(run.Navigator),
+		Brief:     brief,
+		NodeIndex: nodeIndex,
+		Retry:     retry,
 		// 她刚答完最后一个节点，而且这一轮不换问法 —— 后面没有问题了。
-		Last: !retry && nodeIndex == awakening.NodeCount-1,
+		Last:        !retry && nodeIndex == awakening.NodeCount-1,
 		EnergyFocus: energyFocus(run.EnergyProfile),
 		History:     toTurns(turns),
 		Latest:      text,
@@ -547,17 +725,28 @@ func (a *API) finishAwakeningRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 先盖章。盖不上说明别人已经盖过了 —— 那时直接去读那一份报告，
-	// 不再花第二次调用。
-	run, err := a.d.Queries.FinishAwakeningRun(r.Context(), sqlc.FinishAwakeningRunParams{ID: id, UserID: u.ID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		rep, rerr := a.d.Queries.GetAwakeningReportByRun(r.Context(),
-			sqlc.GetAwakeningReportByRunParams{RunID: id, UserID: u.ID})
-		if rerr != nil {
-			httpx.WriteError(w, r, httpx.ErrNotFound("这一趟作答不在进行中"))
+	// 🚨 上一份报告之后有没有新的回答？没有就把那一份拿回去。
+	//
+	// 0185 起一条线索可以总结不止一次（她总结完又想到新的东西，接着答两问再
+	// 总结）。于是原来那把锁 —— 「finished_at 只盖一次」—— 不再管用，而没有
+	// 别的锁的话，连点两下「现在总结」就是两次选词加两次报告生成，两份内容
+	// 一模一样的报告。
+	//
+	// 判据用时间戳而不是另存一列轮数：报告之后有没有新的一轮，库里问得出来。
+	if rep, rerr := a.d.Queries.GetAwakeningReportByRun(r.Context(),
+		sqlc.GetAwakeningReportByRunParams{RunID: id, UserID: u.ID}); rerr == nil {
+		turns, terr := a.d.Queries.ListAwakeningTurns(r.Context(), id)
+		if terr == nil && !hasTurnAfter(turns, rep.CreatedAt) {
+			writeRawReport(w, rep)
 			return
 		}
-		writeRawReport(w, rep)
+	}
+
+	// 盖章。已经盖过（她总结完没再答、又点了一次）在上面就返回了，所以走到
+	// 这里还盖不上，说明这条线索不是她的。
+	run, err := a.d.Queries.FinishAwakeningRun(r.Context(), sqlc.FinishAwakeningRunParams{ID: id, UserID: u.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条线索不在进行中"))
 		return
 	}
 	if err != nil {
@@ -583,11 +772,6 @@ func (a *API) finishAwakeningRun(w http.ResponseWriter, r *http.Request) {
 	row, err := a.d.Queries.InsertAwakeningReport(mCtx, sqlc.InsertAwakeningReportParams{
 		RunID: run.ID, UserID: u.ID, Payload: payload,
 	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		// 冲突：别人先写了。读那一份。
-		row, err = a.d.Queries.GetAwakeningReportByRun(mCtx,
-			sqlc.GetAwakeningReportByRunParams{RunID: run.ID, UserID: u.ID})
-	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -978,7 +1162,7 @@ func (a *API) runToDTO(ctx context.Context, userID uuid.UUID, row sqlc.Awakening
 		return awakeningRunDTO{}, err
 	}
 	dto := awakeningRunDTO{
-		ID: row.ID.String(), AttemptNo: int(row.AttemptNo),
+		ID: row.ID.String(), AttemptNo: int(row.AttemptNo), Title: row.Title,
 		Stage: row.Stage, Route: row.Route, Navigator: row.Navigator,
 		EnergyProfile: rawOrEmptyObject(row.EnergyProfile),
 		Talent:        rawOrEmptyObject(row.Talent),
@@ -986,7 +1170,7 @@ func (a *API) runToDTO(ctx context.Context, userID uuid.UUID, row sqlc.Awakening
 		ArchiveAttempts: int(row.ArchiveAttempts), ObserverQuestion: row.ObserverQuestion,
 		Turns:      []awakeningTurnDTO{},
 		NextNode:   nextNodeIndex(turns),
-		OpeningAsk: brief.OpeningAsk(),
+		OpeningAsk: resumeAsk(turns, brief),
 	}
 	if row.FinishedAt.Valid {
 		dto.FinishedAt = row.FinishedAt.Time.Format(time.RFC3339)
@@ -1115,6 +1299,40 @@ func answersAll(rows []sqlc.AwakeningTurn) []string {
 // 这一步有存在的理由：报告要「第 5 问她写的那句」，而轮次和节点不是一一对应
 // （一个节点可能问了两轮）。同一个节点有两轮时取**后一轮** —— 那是她被换了
 // 一个更具体的问法之后说的，信息更多。
+// resumeAsk 是她打开这条线索时，屏幕上那个「当前这一问」。
+//
+// 🚨 只有**一轮都还没答**时才是开场那一问。
+//
+// 线索库让「回到一条答了一半的线索」成了常走的路，而这一格原来恒给开场问题：
+// 一个已经答到第 2 问的学生，回来看见的是「上次的兴趣测试在你的树上记下的
+// 是……」—— 它把她往回推了一问，而她上一轮的回复里明明已经问了第 2 问。
+//
+// 往下走的每一轮由 postAwakeningTurn 给（NodeAt(next).Ask），这里用同一条
+// 规矩，所以「接着问」和「刚答完一轮」看到的是同一句话。
+func resumeAsk(turns []sqlc.AwakeningTurn, brief awakening.TreeBrief) string {
+	next := nextNodeIndex(turns)
+	if next == 0 {
+		return brief.OpeningAsk()
+	}
+	if next >= awakening.NodeCount {
+		return ""
+	}
+	return awakening.NodeAt(next).Ask
+}
+
+// hasTurnAfter 报告这些轮次里有没有一轮发生在 t 之后。
+//
+// 「上一份报告之后她有没有再写点什么」就靠它判。判**严格之后**：和报告同一
+// 时刻的那几轮正是被那份报告总结掉的。
+func hasTurnAfter(rows []sqlc.AwakeningTurn, t time.Time) bool {
+	for _, r := range rows {
+		if r.CreatedAt.After(t) {
+			return true
+		}
+	}
+	return false
+}
+
 func answersByNode(rows []sqlc.AwakeningTurn) []string {
 	out := make([]string, awakening.NodeCount)
 	for _, t := range rows {
@@ -1184,7 +1402,7 @@ func energyFocus(raw []byte) string {
 		return ""
 	}
 	var p struct {
-		Focus   string   `json:"focus"`
+		Focus   string `json:"focus"`
 		Domains []struct {
 			Name  string `json:"name"`
 			Short string `json:"short"`

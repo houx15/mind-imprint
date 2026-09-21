@@ -70,25 +70,24 @@ test("兴趣测试：做到一半离开，回来能到能量测试", async ({ br
 });
 
 /**
- * 保留线索 / 新的探索 / 现在总结。
+ * 线索库：保留一条、起名、另起一条、中途总结、回头接着问。
  *
  * # 它守的是哪条反馈
  *
- * 2026-09-20：「兴趣探索过程有些长，如果学生想要中途退出直接总结，或者暂时
- * 放一放这条线索就不行。」
+ * 2026-09-21：「如果学生只是暂时对上次的线索没有进一步的想法，想先放一放，
+ * 清空了就没有记录了。所以我想能不能有一个线索库，保存学生曾提出的所有线索，
+ * 学生可以随时选择暂停or开启新的线索，也可以选择中途总结。」
  *
- * 三件事在这一条里都真的做一遍：**保留**之后回来接得上、**新的探索**真的把
- * 上次那几段清掉（而不是嘴上说清了、对话还铺在那儿）、**现在总结**在八问
- * 没问完时也真的生成一份报告。
+ * 🚨 这一条最要紧的断言是**第一条线索的那句原话还在**：前一版里「换一条」
+ * 是靠清空实现的，而这一版的全部意义就是那些字不再被删掉。
  *
  * # 它花模型调用，所以和上面那条分开
  *
- * 上面那条四步就到、一次调用都不发。这一条要两轮探询加一次生成（选词 +
- * 散文），大约一分钟。
+ * 两轮探询 + 一次起名 + 一次报告生成，大约一分半。
  */
-test("兴趣测试：保留线索、换一条重新问、中途总结", async ({ browser }) => {
+test("兴趣测试：线索库留住每一条她提出过的线索", async ({ browser }) => {
   test.setTimeout(300_000);
-  const ctx = await freshAccount(browser, "awakening-hold");
+  const ctx = await freshAccount(browser, "awakening-library");
   const page = await ctx.newPage();
   await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -132,51 +131,58 @@ test("兴趣测试：保留线索、换一条重新问、中途总结", async ({
   await answer(first);
   await expect(page.getByRole("button", { name: "现在总结" })).toBeEnabled();
 
-  /* ── 暂时保留：出门，回来接得上 ───────────────────────────────────────── */
+  /* ── 暂时保留 → 给这条线索起名 ────────────────────────────────────────── */
 
   await page.getByRole("button", { name: "暂时保留兴趣线索" }).click();
+  await expect(page.getByRole("heading", { name: "给这条线索起个名字" })).toBeVisible({
+    timeout: 60_000,
+  });
+  // 🚨 候选里最后一个永远是从她原话裁出来的 —— 模型那次没回上来时它是唯一的
+  // 一个，所以这一屏在任何情况下都有东西可挑。
+  const choices = page.locator(".awk-option");
+  await expect(choices.first()).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-04-naming.png`, fullPage: true });
+  // 🚨 取的是卡上的**标题**，不是整张卡的文字 —— 卡面第一行是编号（「04」），
+  // 拿它去当名字会让后面那几条断言在找一个到处都是的两位数。
+  const chosen = (await choices.last().locator(".awk-option-copy strong").innerText()).trim();
+  await choices.last().click();
+  await page.getByRole("button", { name: "就用这个名字" }).click();
   await expect(page).toHaveURL(/\/tree$/);
-  await page.getByRole("button", { name: "继续上次的兴趣测试" }).click();
 
+  /* ── 回来：线索库里那条还在，名字也在 ─────────────────────────────────── */
+
+  await page.getByRole("button", { name: "继续上次的兴趣测试" }).click();
   await expect(page.getByRole("heading", { name: "兴趣测试" })).toBeVisible({
     timeout: 30_000,
   });
-  // 入口那一屏这时说的是「保留下来的线索」，并且旁边摆着换一条的路。
-  await expect(page.getByRole("button", { name: /继续上次保留的兴趣线索/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /新的探索/ })).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/re-04-hub-held.png`, fullPage: true });
+  await page.getByRole("button", { name: /兴趣线索库/ }).click();
+  await expect(page.getByRole("heading", { name: "兴趣线索库" })).toBeVisible();
+  await expect(page.getByText(chosen, { exact: false }).first()).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-05-library.png`, fullPage: true });
 
-  /* ── 新的探索：上次那一段真的不在了 ───────────────────────────────────── */
+  /* ── 开启新线索：旧的那条一个字都不动 ─────────────────────────────────── */
 
-  await page.getByRole("button", { name: /新的探索/ }).click();
-  // 问一次那一屏：它要把「会被清空」说清楚，所以它也要被人眼看过。
-  await expect(page.getByRole("button", { name: "确认清空并重新开始" })).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/re-04b-fresh-confirm.png`, fullPage: true });
-  await page.getByRole("button", { name: "确认清空并重新开始" }).click();
+  await page.getByRole("button", { name: /开启新线索/ }).click();
   await expect(page.getByText("INTEREST DIAGNOSTIC")).toBeVisible({ timeout: 30_000 });
-  // 🚨 判据是她那句原话不在屏幕上，不是轮数 —— 清空要是只清了计数，
-  // 对话还铺在那儿，那就是假清空。
+  // 新线索是空的：上一条的对话不该跟过来。
   await expect(page.getByText(first)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "现在总结" })).toBeDisabled();
-  await page.screenshot({ path: `${SHOTS}/re-05-fresh.png`, fullPage: true });
+
+  const second = "我们班那个总在改规则的桌游，每次玩法都不一样，我一直在想规则到底归谁定";
+  await answer(second);
 
   /* ── 现在总结：八问没问完也交还给她一份报告 ───────────────────────────── */
 
-  await answer(
-    "我家在海边，小时候赶海要看潮汐表，我一直觉得那张表很神奇，现在发现它跟发电是同一件事",
-  );
   await page.getByRole("button", { name: "现在总结" }).click();
   await expect(page.getByRole("button", { name: "确认总结" })).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/re-05b-summarize-confirm.png`, fullPage: true });
   await page.getByRole("button", { name: "确认总结" }).click();
-
   await expect(page.getByRole("heading", { name: "你的兴趣印记" })).toBeVisible({
     timeout: 180_000,
   });
   await page.screenshot({ path: `${SHOTS}/re-06-early-report.png`, fullPage: true });
 
   // 报告里任何一处 undefined / null 都说明某个字段在半路掉了形状 ——
-  // 一份只走了两问的报告正好是那些字段最容易为空的时候。
+  // 一份只走了一问的报告正好是那些字段最容易为空的时候。
   const dirty = await page.evaluate(() => {
     const root = document.querySelector("[data-awakening-report]");
     const text = root?.textContent ?? "";
@@ -187,11 +193,32 @@ test("兴趣测试：保留线索、换一条重新问、中途总结", async ({
   });
   expect(dirty, dirty).toBe("");
 
+  /* ── 🚨 两条线索都在库里，第一条那句原话一个字都没少 ──────────────────── */
+
   await page.getByRole("button", { name: "回到我的树" }).click();
   await expect(page).toHaveURL(/\/tree$/);
-  await expect(page.getByRole("button", { name: "再做一次兴趣测试" })).toBeVisible({
+  await page.getByRole("button", { name: /兴趣测试/ }).first().click();
+  await expect(page.getByRole("heading", { name: "兴趣测试" })).toBeVisible({
     timeout: 30_000,
   });
+  await page.getByRole("button", { name: /兴趣线索库/ }).click();
+  await expect(page.getByRole("heading", { name: "兴趣线索库" })).toBeVisible();
+  // 已经总结的那条标成「已总结」，并且仍然点得进去接着问。
+  await expect(page.getByText("已总结").first()).toBeVisible();
+  // 🚨 「查看兴趣印记」那条路必须真的看得见 —— 第一版它被卡自己的装饰层盖住，
+  // 在 DOM 里存在、在屏幕上没有。toBeVisible 会做命中判定，挡住就红。
+  await expect(page.getByRole("button", { name: "查看兴趣印记" }).first()).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-07-library-two.png`, fullPage: true });
+
+  // 这是整条 spec 的靶心：换了一条线索之后，第一条里她写的那句话还在。
+  await page.getByText(chosen, { exact: false }).first().click();
+  await expect(page.getByText("INTEREST DIAGNOSTIC")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(first)).toBeVisible();
+  // 🚨 接着问的是她停在的那一问，不是开场那一问。原来这一格恒给开场白，
+  // 等于把一个已经答到第 2 问的学生往回推了一问。
+  await expect(page.getByText("第 2 / 8 步")).toBeVisible();
+  await expect(page.getByText("上次的兴趣测试在你的树上")).toHaveCount(0);
+  await page.screenshot({ path: `${SHOTS}/re-08-back-on-first.png`, fullPage: true });
 
   await ctx.close();
 });

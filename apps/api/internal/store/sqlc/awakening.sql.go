@@ -7,8 +7,10 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const appendAwakeningTurn = `-- name: AppendAwakeningTurn :one
@@ -50,20 +52,19 @@ func (q *Queries) AppendAwakeningTurn(ctx context.Context, arg AppendAwakeningTu
 	return i, err
 }
 
-const clearAwakeningTurns = `-- name: ClearAwakeningTurns :exec
-DELETE FROM awakening_turn WHERE run_id = $1
+const countAwakeningReports = `-- name: CountAwakeningReports :one
+SELECT count(*) FROM awakening_report WHERE user_id = $1
 `
 
-// 把这一趟的轮次清空 —— 「新的探索」。
+// 她一共拿到过几份报告。
 //
-// 她保留着一条没做完的线索，回来却想换一个话题从头问。清空的是**轮次**，
-// 不是这一趟：助手和能量结果留在 awakening_run 上，她不必再选一遍。
-//
-// 🚨 这一条删的是她自己写下的字，没有回收站。所以调用方先查一次归属
-// （GetAwakeningRun 带 user_id），界面上也必须先问一次。
-func (q *Queries) ClearAwakeningTurns(ctx context.Context, runID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, clearAwakeningTurns, runID)
-	return err
+// 树上那条入口读它来判断「做过没有」。**不能再数走完的 run** —— 一条总结过
+// 的线索被接着往下问时 finished_at 会被清掉，那样树会忘记她做过。
+func (q *Queries) CountAwakeningReports(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAwakeningReports, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const countFinishedAwakeningRuns = `-- name: CountFinishedAwakeningRuns :one
@@ -83,7 +84,7 @@ func (q *Queries) CountFinishedAwakeningRuns(ctx context.Context, userID uuid.UU
 const finishAwakeningRun = `-- name: FinishAwakeningRun :one
 UPDATE awakening_run SET finished_at = now(), updated_at = now()
 WHERE id = $1 AND user_id = $2 AND finished_at IS NULL
-RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at
+RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title
 `
 
 type FinishAwakeningRunParams struct {
@@ -112,6 +113,7 @@ func (q *Queries) FinishAwakeningRun(ctx context.Context, arg FinishAwakeningRun
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }
@@ -119,6 +121,8 @@ func (q *Queries) FinishAwakeningRun(ctx context.Context, arg FinishAwakeningRun
 const getAwakeningReportByRun = `-- name: GetAwakeningReportByRun :one
 SELECT id, run_id, user_id, payload, share_token, created_at FROM awakening_report
 WHERE run_id = $1 AND user_id = $2
+ORDER BY created_at DESC
+LIMIT 1
 `
 
 type GetAwakeningReportByRunParams struct {
@@ -126,6 +130,7 @@ type GetAwakeningReportByRunParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
+// 这条线索最新的那一份报告。
 func (q *Queries) GetAwakeningReportByRun(ctx context.Context, arg GetAwakeningReportByRunParams) (AwakeningReport, error) {
 	row := q.db.QueryRow(ctx, getAwakeningReportByRun, arg.RunID, arg.UserID)
 	var i AwakeningReport
@@ -186,7 +191,7 @@ func (q *Queries) GetAwakeningReportForUser(ctx context.Context, arg GetAwakenin
 }
 
 const getAwakeningRun = `-- name: GetAwakeningRun :one
-SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at FROM awakening_run
+SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title FROM awakening_run
 WHERE id = $1 AND user_id = $2
 `
 
@@ -215,6 +220,7 @@ func (q *Queries) GetAwakeningRun(ctx context.Context, arg GetAwakeningRunParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }
@@ -223,7 +229,6 @@ const insertAwakeningReport = `-- name: InsertAwakeningReport :one
 
 INSERT INTO awakening_report (run_id, user_id, payload)
 VALUES ($1, $2, $3)
-ON CONFLICT (run_id) DO NOTHING
 RETURNING id, run_id, user_id, payload, share_token, created_at
 `
 
@@ -234,8 +239,11 @@ type InsertAwakeningReportParams struct {
 }
 
 // ── 报告 ──────────────────────────────────────────────────────────────────
-// 一趟一份。ON CONFLICT DO NOTHING 之后返回零行，表示别人已经生成过了 ——
-// 调用方这时去读那一份，不再花第二次调用。
+// 记一份报告。
+//
+// 🚨 0185 起**一条线索可以有多份**：她总结过之后又想到新的东西，接着答两问
+// 再总结，那是第二份，不是把第一份改掉。挡住重复点击的是应用层那条判据
+// （上一份之后有没有新的回答），不是这里的唯一约束。
 func (q *Queries) InsertAwakeningReport(ctx context.Context, arg InsertAwakeningReportParams) (AwakeningReport, error) {
 	row := q.db.QueryRow(ctx, insertAwakeningReport, arg.RunID, arg.UserID, arg.Payload)
 	var i AwakeningReport
@@ -272,7 +280,7 @@ func (q *Queries) LatestAwakeningReport(ctx context.Context, userID uuid.UUID) (
 }
 
 const latestFinishedAwakeningRun = `-- name: LatestFinishedAwakeningRun :one
-SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at FROM awakening_run
+SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title FROM awakening_run
 WHERE user_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC
 LIMIT 1
@@ -298,8 +306,93 @@ func (q *Queries) LatestFinishedAwakeningRun(ctx context.Context, userID uuid.UU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
+}
+
+const listAwakeningThreads = `-- name: ListAwakeningThreads :many
+SELECT
+  r.id, r.user_id, r.attempt_no, r.stage, r.route, r.navigator, r.energy_profile, r.talent, r.lens_choice, r.challenge_choice, r.archive_attempts, r.observer_question, r.created_at, r.updated_at, r.finished_at, r.title,
+  (SELECT count(*) FROM awakening_turn t WHERE t.run_id = r.id)::int AS turn_count,
+  -- 🚨 COALESCE 不能省：一条刚开的线索一轮都还没有，两个子查询都回 NULL，
+  -- 而带 :: 转换之后 sqlc 把它们生成成非指针，NULL 会让整次扫描报错。
+  COALESCE((SELECT t.student_text FROM awakening_turn t
+     WHERE t.run_id = r.id ORDER BY t.seq ASC LIMIT 1), '')::text AS first_text,
+  COALESCE((SELECT max(t.created_at) FROM awakening_turn t WHERE t.run_id = r.id),
+     r.updated_at)::timestamptz AS last_turn_at,
+  (SELECT count(*) FROM awakening_report p WHERE p.run_id = r.id)::int AS report_count
+FROM awakening_run r
+WHERE r.user_id = $1
+ORDER BY r.updated_at DESC
+`
+
+type ListAwakeningThreadsRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	AttemptNo        int32              `json:"attempt_no"`
+	Stage            string             `json:"stage"`
+	Route            string             `json:"route"`
+	Navigator        string             `json:"navigator"`
+	EnergyProfile    []byte             `json:"energy_profile"`
+	Talent           []byte             `json:"talent"`
+	LensChoice       string             `json:"lens_choice"`
+	ChallengeChoice  string             `json:"challenge_choice"`
+	ArchiveAttempts  int32              `json:"archive_attempts"`
+	ObserverQuestion string             `json:"observer_question"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+	FinishedAt       pgtype.Timestamptz `json:"finished_at"`
+	Title            string             `json:"title"`
+	TurnCount        int32              `json:"turn_count"`
+	FirstText        string             `json:"first_text"`
+	LastTurnAt       time.Time          `json:"last_turn_at"`
+	ReportCount      int32              `json:"report_count"`
+}
+
+// 线索库：她提出过的每一条，不管总结没总结。
+//
+// 一次查完，不要按条再查一遍轮数 —— 线索库是一屏，N+1 会让它慢得看得出来。
+// first_text 是她在这条线索上写下的第一句话，用作没名字时的退路。
+func (q *Queries) ListAwakeningThreads(ctx context.Context, userID uuid.UUID) ([]ListAwakeningThreadsRow, error) {
+	rows, err := q.db.Query(ctx, listAwakeningThreads, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAwakeningThreadsRow
+	for rows.Next() {
+		var i ListAwakeningThreadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.AttemptNo,
+			&i.Stage,
+			&i.Route,
+			&i.Navigator,
+			&i.EnergyProfile,
+			&i.Talent,
+			&i.LensChoice,
+			&i.ChallengeChoice,
+			&i.ArchiveAttempts,
+			&i.ObserverQuestion,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FinishedAt,
+			&i.Title,
+			&i.TurnCount,
+			&i.FirstText,
+			&i.LastTurnAt,
+			&i.ReportCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAwakeningTurns = `-- name: ListAwakeningTurns :many
@@ -339,11 +432,16 @@ func (q *Queries) ListAwakeningTurns(ctx context.Context, runID uuid.UUID) ([]Aw
 }
 
 const openAwakeningRun = `-- name: OpenAwakeningRun :one
-SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at FROM awakening_run
+SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title FROM awakening_run
 WHERE user_id = $1 AND finished_at IS NULL
+ORDER BY updated_at DESC
+LIMIT 1
 `
 
-// 她还没走完的那一趟。刷新一次、第二天回来，接着这一行走。
+// 她上次动过的那条**没总结的**线索。进门默认回到它。
+//
+// 🚨 0185 之后一个人可以同时停着好几条，所以这里必须 ORDER BY + LIMIT 1；
+// 原来那条没有 LIMIT 的 :one 在多行时会静悄悄地随便给一行。
 func (q *Queries) OpenAwakeningRun(ctx context.Context, userID uuid.UUID) (AwakeningRun, error) {
 	row := q.db.QueryRow(ctx, openAwakeningRun, userID)
 	var i AwakeningRun
@@ -363,12 +461,13 @@ func (q *Queries) OpenAwakeningRun(ctx context.Context, userID uuid.UUID) (Awake
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }
 
 const previousFinishedAwakeningRun = `-- name: PreviousFinishedAwakeningRun :one
-SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at FROM awakening_run
+SELECT id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title FROM awakening_run
 WHERE user_id = $1 AND finished_at IS NOT NULL AND id <> $2
 ORDER BY finished_at DESC
 LIMIT 1
@@ -399,6 +498,44 @@ func (q *Queries) PreviousFinishedAwakeningRun(ctx context.Context, arg Previous
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
+	)
+	return i, err
+}
+
+const reopenAwakeningRun = `-- name: ReopenAwakeningRun :one
+UPDATE awakening_run SET finished_at = NULL, updated_at = now()
+WHERE id = $1 AND user_id = $2 AND finished_at IS NOT NULL
+RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title
+`
+
+type ReopenAwakeningRunParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+// 接着一条已经总结过的线索往下问：把章去掉，它重新变成在做的那条。
+// 报告不动 —— 那一份记的是当时那几轮，下一次总结会另起一份。
+func (q *Queries) ReopenAwakeningRun(ctx context.Context, arg ReopenAwakeningRunParams) (AwakeningRun, error) {
+	row := q.db.QueryRow(ctx, reopenAwakeningRun, arg.ID, arg.UserID)
+	var i AwakeningRun
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AttemptNo,
+		&i.Stage,
+		&i.Route,
+		&i.Navigator,
+		&i.EnergyProfile,
+		&i.Talent,
+		&i.LensChoice,
+		&i.ChallengeChoice,
+		&i.ArchiveAttempts,
+		&i.ObserverQuestion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }
@@ -416,7 +553,7 @@ UPDATE awakening_run SET
   observer_question = $11,
   updated_at        = now()
 WHERE id = $1 AND user_id = $2 AND finished_at IS NULL
-RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at
+RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title
 `
 
 type SaveAwakeningProgressParams struct {
@@ -469,6 +606,7 @@ func (q *Queries) SaveAwakeningProgress(ctx context.Context, arg SaveAwakeningPr
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }
@@ -500,6 +638,43 @@ func (q *Queries) SetAwakeningReportShare(ctx context.Context, arg SetAwakeningR
 	return i, err
 }
 
+const setAwakeningRunTitle = `-- name: SetAwakeningRunTitle :one
+UPDATE awakening_run SET title = $3, updated_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title
+`
+
+type SetAwakeningRunTitleParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+	Title  string    `json:"title"`
+}
+
+// 给一条线索起名。她从模型给的候选里挑一个，或者用她原话裁出来的那个。
+func (q *Queries) SetAwakeningRunTitle(ctx context.Context, arg SetAwakeningRunTitleParams) (AwakeningRun, error) {
+	row := q.db.QueryRow(ctx, setAwakeningRunTitle, arg.ID, arg.UserID, arg.Title)
+	var i AwakeningRun
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.AttemptNo,
+		&i.Stage,
+		&i.Route,
+		&i.Navigator,
+		&i.EnergyProfile,
+		&i.Talent,
+		&i.LensChoice,
+		&i.ChallengeChoice,
+		&i.ArchiveAttempts,
+		&i.ObserverQuestion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.Title,
+	)
+	return i, err
+}
+
 const startAwakeningRun = `-- name: StartAwakeningRun :one
 
 INSERT INTO awakening_run (user_id, attempt_no)
@@ -508,7 +683,7 @@ VALUES (
   1 + (SELECT count(*) FROM awakening_run
        WHERE user_id = $1 AND finished_at IS NOT NULL)
 )
-RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at
+RETURNING id, user_id, attempt_no, stage, route, navigator, energy_profile, talent, lens_choice, challenge_choice, archive_attempts, observer_question, created_at, updated_at, finished_at, title
 `
 
 // ── 觉醒协议 ──────────────────────────────────────────────────────────────
@@ -537,6 +712,7 @@ func (q *Queries) StartAwakeningRun(ctx context.Context, userID uuid.UUID) (Awak
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.Title,
 	)
 	return i, err
 }

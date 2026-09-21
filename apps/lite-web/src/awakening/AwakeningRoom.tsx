@@ -3,9 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   type AwakeningReport,
   type AwakeningStage,
+  type AwakeningThread,
+  fetchAwakeningStatus,
   finishAwakening,
   fetchReport,
-  resetAwakeningTurns,
+  reopenAwakeningThread,
+  setThreadTitle,
 } from "../api/awakening";
 import { SYSTEM_VOICE, voiceUrl } from "./assets";
 import "./awakening.css";
@@ -23,6 +26,8 @@ import {
 } from "./scenes/Chapter";
 import { planReentry } from "./reentry";
 import { HubScene } from "./scenes/Hub";
+import { LibraryScene } from "./scenes/Library";
+import { NamingScene } from "./scenes/Naming";
 import { ChallengeScene, LensScene, TerminalScene } from "./scenes/Terminal";
 import { RoomShell } from "./RoomShell";
 import { Ghost, Primary, Stage } from "./ui";
@@ -66,9 +71,8 @@ export function AwakeningRoom({
   onOpenReading: (slug: string, tier: number) => void;
 }) {
   // 只在直接看报告之外的情况下开一趟 —— 点「查看兴趣印记」不该新开一趟。
-  const { run, state, error, loading, go, patch, setRun } = useAwakeningRun(
-    open && !reportRunId,
-  );
+  const { run, state, error, loading, go, patch, setRun, adopt, startFresh } =
+    useAwakeningRun(open && !reportRunId);
   const [report, setReport] = useState<AwakeningReport | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState("");
@@ -84,8 +88,30 @@ export function AwakeningRoom({
   const [replay, setReplay] = useState(false);
   // 「继续」要去的那一屏：接着没走完的那一趟，或者（重做时）直接进探询。
   const resumeRef = useRef<AwakeningStage>("terminal");
-  // 「新的探索」清空失败时后台那句原话。入口那一屏照实显示它。
-  const [freshError, setFreshError] = useState("");
+  /*
+   * 盖在当前这一屏上面的一层：线索库、给线索起名。
+   *
+   * 和 `replay` 一样**不进 run.stage** —— 它们不是她在这条线索上走到的位置。
+   */
+  const [view, setView] = useState<"" | "library" | "naming">("");
+  const [threads, setThreads] = useState<AwakeningThread[]>([]);
+  // 线索库这一层的操作失败时后台那句原话。照实显示，不假装什么都没发生。
+  const [libError, setLibError] = useState("");
+
+  // 进门时把线索库拉一次：入口那张「兴趣线索库」要说清楚里面有几条，
+  // 而那个数字在她点开库之前就得是对的。
+  useEffect(() => {
+    if (!open || reportRunId) return;
+    let alive = true;
+    fetchAwakeningStatus()
+      .then((s) => {
+        if (alive) setThreads(s.threads);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [open, reportRunId]);
 
   // 进门时判一次：她是不是回来的人。判据是纯函数，有测试（reentry.test.ts）。
   useEffect(() => {
@@ -123,7 +149,9 @@ export function AwakeningRoom({
     setHub(null);
     setDetour(false);
     setReplay(false);
-    setFreshError("");
+    setView("");
+    setThreads([]);
+    setLibError("");
   }, [open]);
 
   // 一屏一句。换屏就换那一句，上一句停掉 —— 否则她快速翻过三屏会同时听见
@@ -211,24 +239,70 @@ export function AwakeningRoom({
     }
   };
 
-  /**
-   * 「新的探索」：清空这一趟保留下来的轮次，换一条线索从第一问重新开始。
-   *
-   * 🚨 **它删的是她自己写下的字。** 入口那一屏已经问过一次，这里只负责做。
-   * 清空失败就留在入口、照实说 —— 绝不假装清空了然后把旧的轮次铺出来。
-   */
-  const startFresh = async () => {
-    if (!run) return;
-    setFreshError("");
+  /** 打开线索库，把她提出过的线索拉回来。 */
+  const openLibrary = async () => {
+    setLibError("");
+    setView("library");
     try {
-      const fresh = await resetAwakeningTurns(run.id);
-      setRun(fresh);
+      const s = await fetchAwakeningStatus();
+      setThreads(s.threads);
+    } catch (e: unknown) {
+      setLibError(e instanceof Error && e.message ? e.message : "请再试一次");
+    }
+  };
+
+  /**
+   * 接着问某一条线索。
+   *
+   * 已经总结过的那条也走这里：reopen 把章去掉，报告一份都不动
+   * （产品负责人 2026-09-21：总结过的仍然点得进去）。
+   */
+  const openThread = async (t: AwakeningThread) => {
+    setLibError("");
+    try {
+      const fresh = await reopenAwakeningThread(t.id);
+      adopt(fresh);
+      // 一条新开的线索停在 boot，但她已经看过剧情了 —— 直接进探询。
+      const at: AwakeningStage = fresh.stage === "boot" ? "terminal" : fresh.stage;
+      resumeRef.current = at;
+      setView("");
+      setHub(false);
+      go(at);
+    } catch (e: unknown) {
+      setLibError(e instanceof Error && e.message ? e.message : "请再试一次");
+    }
+  };
+
+  /** 开启新线索。旧的那几条原样停在库里，一个字都不动。 */
+  const freshThread = async () => {
+    setLibError("");
+    try {
+      await startFresh();
       resumeRef.current = "terminal";
+      setView("");
       setHub(false);
       go("terminal");
     } catch (e: unknown) {
-      setFreshError(e instanceof Error && e.message ? e.message : "请再试一次");
+      setLibError(e instanceof Error && e.message ? e.message : "请再试一次");
     }
+  };
+
+  /**
+   * 「暂时保留兴趣线索」按下之后：先给它起个名字，再出门。
+   *
+   * 名字是给线索库用的，而她第一次需要认出一条线索，正是在她把它放下、过几天
+   * 回来的时候。放下的这一刻问，她脑子里还记得这条是关于什么的。
+   */
+  const nameAndLeave = async (title: string) => {
+    if (title && run) {
+      // 起名失败不挡她出门 —— 线索库那边没名字会显示她的原话。
+      try {
+        await setThreadTitle(run.id, title);
+      } catch {
+        /* 名字没存上，线索仍然在库里。 */
+      }
+    }
+    onClose(grew);
   };
 
   const body = () => {
@@ -297,6 +371,37 @@ export function AwakeningRoom({
     if (replay) {
       return <BootScene onDone={() => setReplay(false)} />;
     }
+    // 线索库和起名同样盖在任何一屏上 —— 它们不是她在这条线索上走到的位置。
+    if (view === "library") {
+      return (
+        <>
+          {libError ? (
+            <p className="awk-p" style={{ color: "var(--danger)", padding: "0 24px" }}>
+              {libError}
+            </p>
+          ) : null}
+          <LibraryScene
+            threads={threads}
+            onOpen={(t) => void openThread(t)}
+            onView={(t) => {
+              void fetchReport(t.id)
+                .then(setReport)
+                .catch((e: unknown) =>
+                  setLibError(e instanceof Error && e.message ? e.message : "读取失败"),
+                );
+            }}
+            onFresh={() => void freshThread()}
+            onBack={() => {
+              setView("");
+              setHub(true);
+            }}
+          />
+        </>
+      );
+    }
+    if (view === "naming" && run) {
+      return <NamingScene runId={run.id} onDone={(t) => void nameAndLeave(t)} />;
+    }
     if (hub) {
       return (
         <HubScene
@@ -305,12 +410,12 @@ export function AwakeningRoom({
           resume={resumeRef.current}
           navigator={state.navigator}
           hasEnergy={Boolean(state.energyProfile.domains?.length)}
-          freshError={freshError}
+          threadCount={threads.length}
           onContinue={() => {
             setHub(false);
             go(resumeRef.current);
           }}
-          onFresh={() => void startFresh()}
+          onLibrary={() => void openLibrary()}
           onEnergy={() => detourTo("energy")}
           onNavigator={() => detourTo("navigator")}
           onStory={() => setReplay(true)}
@@ -380,9 +485,8 @@ export function AwakeningRoom({
           <TerminalScene
             run={run}
             onDone={() => go("lens")}
-            // 暂时保留：出门就行。这一趟的轮次在库里，stage 已经是 terminal，
-            // 下次进来入口那一屏会把它当成保留下来的线索。
-            onHold={() => onClose(grew)}
+            // 暂时保留：先给这条线索起个名字，再出门。它原样留在线索库里。
+            onHold={() => setView("naming")}
             // 现在总结：跳过后面那三屏，直接用她已经写下的话生成报告。
             onSummarize={() => {
               go("report");
@@ -448,7 +552,7 @@ export function AwakeningRoom({
         <div className="awk">
           {/* 顶栏、扫描线、4:3 舞台都在 RoomShell 里 —— 它每一屏都在。 */}
           <RoomShell
-            stage={replay ? "boot" : hub ? "hub" : state.stage}
+            stage={replay ? "boot" : view || hub ? "hub" : state.stage}
             attemptNo={run?.attemptNo ?? 1}
             muted={voice.muted}
             onToggleVoice={voice.toggle}

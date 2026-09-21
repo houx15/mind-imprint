@@ -18,19 +18,22 @@ import { STAGE_BADGE } from "./RoomShell";
 
 /** 一张卡。`key` 决定它接哪一个动作，编号由它在表里的位置现算。 */
 export interface HubCard {
-  key: "continue" | "fresh" | "energy" | "navigator" | "story";
+  key: "continue" | "library" | "energy" | "navigator" | "story";
   title: string;
   body: string;
 }
 
 export function hubCards({
   turnsDone,
+  threadCount,
   resume,
   navigator,
   hasEnergy,
 }: {
   /** 这一趟已经答完几轮。0 表示没有保留下来的回答。 */
   turnsDone: number;
+  /** 线索库里有几条。0 表示她还没提出过线索，那张卡不摆。 */
+  threadCount: number;
   /** 「继续」那一下真正会去的那一屏。 */
   resume: AwakeningStage;
   navigator: string;
@@ -53,13 +56,15 @@ export function hubCards({
     },
   ];
 
-  // 🚨 没有保留下来的回答时这张卡不出现。出现了就是在问她要不要清空零段话，
-  // 而那时第一张卡本身就是新的探索。
-  if (started) {
+  // 线索库。她提出过至少一条才摆 —— 一个空的库是一扇通向空屋子的门。
+  //
+  // 🚨 这张卡 2026-09-21 之前是「新的探索」，而它做的事是**清空**她上次写的
+  // 回答。现在每一条都留着，所以它指向库，而不是一个删除动作。
+  if (threadCount > 0) {
     cards.push({
-      key: "fresh",
-      title: HUB.fresh,
-      body: HUB.freshBody.replace("{n}", String(turnsDone)),
+      key: "library",
+      title: HUB.library,
+      body: HUB.libraryBody.replace("{n}", String(threadCount)),
     });
   }
 
