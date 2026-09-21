@@ -2029,7 +2029,14 @@
  */
 
 .awk-term-screen {
-  --it-green: #8fffd1;
+  /*
+   * 终端这一屏的主色 —— **跟着她选的那个助手走**。
+   *
+   * 三个助手在选择那一屏各有一个颜色（content.ts 的 accent）；进了终端之后
+   * 对话框、光标、边框都用同一个颜色，所以「我选的是谁」在整段对话里一直
+   * 看得见。TerminalScene 把它写在 style 上，这里这一行是没有助手时的退路。
+   */
+  --it-accent: #8fffd1;
   --it-cyan: #5bd8ff;
   --it-white: #f5f7f3;
   --it-dim: #768780;
@@ -2070,9 +2077,9 @@
   display: grid;
   /* 第四行是中途离开那条 —— 八问问完之后它不渲染，那一行塌成 0。 */
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  border: 1px solid rgba(143, 255, 209, 0.28);
+  border: 1px solid color-mix(in srgb, var(--it-accent) 28%, transparent);
   background: rgba(3, 11, 9, 0.82);
-  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.22), 6px 8px 0 rgba(0, 0, 0, 0.42);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--it-accent) 22%, transparent), 6px 8px 0 rgba(0, 0, 0, 0.42);
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
 }
 
@@ -2085,16 +2092,16 @@
   justify-content: space-between;
   gap: 16px;
   padding: 12px 18px;
-  border-bottom: 1px solid rgba(143, 255, 209, 0.25);
+  border-bottom: 1px solid color-mix(in srgb, var(--it-accent) 25%, transparent);
   background: rgba(8, 18, 15, 0.72);
 }
 
 .awk-term-title b {
   display: block;
-  color: var(--it-green);
+  color: var(--it-accent);
   font-size: clamp(13px, 1.4vw, 16px);
   letter-spacing: 0.14em;
-  text-shadow: 0 0 9px rgba(143, 255, 209, 0.26);
+  text-shadow: 0 0 9px color-mix(in srgb, var(--it-accent) 26%, transparent);
 }
 
 .awk-term-title small {
@@ -2137,7 +2144,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(143, 255, 209, 0.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--it-accent) 40%, transparent) transparent;
   mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 6px), transparent 100%);
 }
 
@@ -2165,10 +2172,10 @@
   align-self: flex-end;
   max-width: 78%;
   padding: 11px 14px;
-  border: 1px solid rgba(91, 216, 255, 0.34);
-  background: rgba(8, 24, 32, 0.9);
-  box-shadow: inset -3px 0 0 rgba(91, 216, 255, 0.4);
-  color: #dff2ff;
+  border: 1px solid rgba(233, 240, 238, 0.26);
+  background: rgba(16, 21, 23, 0.9);
+  box-shadow: inset -3px 0 0 rgba(233, 240, 238, 0.42);
+  color: #e9f0ee;
   font-size: 15px;
   line-height: 1.8;
   white-space: pre-wrap;
@@ -2180,10 +2187,10 @@
   align-self: flex-start;
   max-width: 86%;
   padding: 11px 14px;
-  border: 1px solid rgba(143, 255, 209, 0.3);
-  background: rgba(6, 20, 16, 0.9);
-  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.42);
-  color: #d8f3e6;
+  border: 1px solid color-mix(in srgb, var(--it-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--it-accent) 7%, rgba(4, 11, 10, 0.92));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--it-accent) 42%, transparent);
+  color: color-mix(in srgb, var(--it-accent) 22%, #eef5f1);
   font-size: 15px;
   line-height: 1.8;
   white-space: pre-wrap;
@@ -2193,7 +2200,7 @@
 .awk-term-who {
   display: block;
   margin-bottom: 5px;
-  color: var(--it-green);
+  color: var(--it-accent);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -2201,9 +2208,9 @@
 
 /** 当前这一问。它就在会话里，不在输入框上面。 */
 .awk-term-ask {
-  border-color: rgba(143, 255, 209, 0.6);
-  box-shadow: inset 3px 0 0 var(--it-green), 0 0 22px -8px rgba(143, 255, 209, 0.5);
-  color: #eafff6;
+  border-color: color-mix(in srgb, var(--it-accent) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--it-accent), 0 0 22px -8px color-mix(in srgb, var(--it-accent) 50%, transparent);
+  color: color-mix(in srgb, var(--it-accent) 30%, #ffffff);
 }
 
 .awk-term-failed {
@@ -2227,8 +2234,8 @@
 }
 
 .awk-term-busy .awk-dot {
-  background: var(--it-green);
-  box-shadow: 0 0 10px rgba(143, 255, 209, 0.55);
+  background: var(--it-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--it-accent) 55%, transparent);
 }
 
 /* ── 输入 ─────────────────────────────────────────────────────────────── */
@@ -2241,7 +2248,7 @@
   align-items: end;
   gap: 12px;
   padding: 12px 16px 15px;
-  border-top: 1px solid rgba(143, 255, 209, 0.22);
+  border-top: 1px solid color-mix(in srgb, var(--it-accent) 22%, transparent);
   background: rgba(2, 9, 8, 0.94);
 }
 
@@ -2251,20 +2258,20 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: end;
   gap: 9px;
-  border-bottom: 1px solid rgba(143, 255, 209, 0.55);
-  box-shadow: 0 7px 12px -12px rgba(143, 255, 209, 0.5);
+  border-bottom: 1px solid color-mix(in srgb, var(--it-accent) 55%, transparent);
+  box-shadow: 0 7px 12px -12px color-mix(in srgb, var(--it-accent) 50%, transparent);
 }
 
 .awk-term-input-wrap:focus-within {
-  border-color: var(--it-green);
-  box-shadow: 0 7px 14px -9px rgba(143, 255, 209, 0.9), 0 1px 0 var(--it-green);
+  border-color: var(--it-accent);
+  box-shadow: 0 7px 14px -9px color-mix(in srgb, var(--it-accent) 90%, transparent), 0 1px 0 var(--it-accent);
 }
 
 .awk-term-prompt {
   padding-bottom: 10px;
-  color: var(--it-green);
+  color: var(--it-accent);
   font-weight: 800;
-  text-shadow: 0 0 8px rgba(143, 255, 209, 0.5);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--it-accent) 50%, transparent);
 }
 
 /** 输入框本身没有框 —— 框是外面那条会亮的下划线。 */
@@ -2277,7 +2284,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--it-white);
-  caret-color: var(--it-green);
+  caret-color: var(--it-accent);
   font-family: inherit;
   font-size: 15px;
   line-height: 1.7;
@@ -2303,10 +2310,10 @@
 .awk-term-send {
   min-height: 42px;
   padding: 9px 14px;
-  border: 1px solid rgba(143, 255, 209, 0.46);
-  background: #08120f;
-  box-shadow: inset 3px 0 0 rgba(143, 255, 209, 0.28), 3px 3px 0 rgba(0, 0, 0, 0.35);
-  color: var(--it-green);
+  border: 1px solid color-mix(in srgb, var(--it-accent) 46%, transparent);
+  background: color-mix(in srgb, var(--it-accent) 9%, #070d0c);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--it-accent) 28%, transparent), 3px 3px 0 rgba(0, 0, 0, 0.35);
+  color: var(--it-accent);
   font-family: inherit;
   font-size: 14px;
   font-weight: 800;
@@ -2318,14 +2325,37 @@
 .awk-term-send:hover:not(:disabled),
 .awk-term-send:focus-visible {
   color: #03110c;
-  border-color: var(--it-green);
-  background: var(--it-green);
+  border-color: var(--it-accent);
+  background: var(--it-accent);
   outline: none;
 }
 
 .awk-term-send:disabled {
   opacity: 0.42;
   cursor: not-allowed;
+}
+
+/*
+ * 选助手那三张卡：每张带自己的颜色，选中之前就看得见。
+ *
+ * 顶上那条色带是这三张卡唯一的区别信号 —— 卡面其余部分刻意一样，因为
+ * 三个助手问的是同一批问题，不同的只是追问的方式。
+ */
+.awk-guide {
+  position: relative;
+  overflow: hidden;
+}
+
+.awk-guide::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--awk-guide, transparent);
+}
+
+.awk-guide[aria-pressed="true"]::before {
+  height: 4px;
 }
 
 /**
@@ -2342,7 +2372,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 16px 11px;
-  border-top: 1px solid rgba(143, 255, 209, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--it-accent) 14%, transparent);
   background: rgba(2, 9, 8, 0.94);
   color: var(--it-dim);
   font-size: 12px;
@@ -2350,8 +2380,8 @@
 
 /* 问一次的那一行亮一点 —— 这时它是这一屏在问她的话。 */
 .awk-term-exit--ask {
-  border-top-color: rgba(143, 255, 209, 0.4);
-  color: #cfe9de;
+  border-top-color: color-mix(in srgb, var(--it-accent) 40%, transparent);
+  color: color-mix(in srgb, var(--it-accent) 18%, #e3ecE8);
   font-size: 13px;
 }
 
@@ -2368,9 +2398,9 @@
 
 .awk-term-quiet {
   padding: 6px 11px;
-  border: 1px solid rgba(143, 255, 209, 0.3);
+  border: 1px solid color-mix(in srgb, var(--it-accent) 30%, transparent);
   background: transparent;
-  color: #a9cfc1;
+  color: color-mix(in srgb, var(--it-accent) 26%, #cfd8d4);
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -2381,8 +2411,8 @@
 
 .awk-term-quiet:hover:not(:disabled),
 .awk-term-quiet:focus-visible {
-  border-color: var(--it-green);
-  color: var(--it-green);
+  border-color: var(--it-accent);
+  color: var(--it-accent);
   outline: none;
 }
 
@@ -2406,8 +2436,8 @@
   justify-content: space-between;
   gap: 14px;
   padding: 14px 16px;
-  border-top: 1px solid rgba(143, 255, 209, 0.22);
+  border-top: 1px solid color-mix(in srgb, var(--it-accent) 22%, transparent);
   background: rgba(2, 9, 8, 0.94);
-  color: #cfe9de;
+  color: color-mix(in srgb, var(--it-accent) 18%, #e3ecE8);
   font-size: 15px;
 }

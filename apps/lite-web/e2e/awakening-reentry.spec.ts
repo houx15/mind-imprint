@@ -106,6 +106,8 @@ test("兴趣测试：保留线索、换一条重新问、中途总结", async ({
     await page.getByRole("button", { name: /下一组|完成校准/ }).click();
   }
   await page.getByRole("button", { name: "选择你的印记" }).click();
+  // 三个助手各有一个颜色，选中之前就看得见 —— 进了终端整屏用的就是它。
+  await page.screenshot({ path: `${SHOTS}/re-02b-guides.png`, fullPage: true });
   await page.getByRole("button", { name: /资深向导/ }).click();
   await page.getByRole("button", { name: "确认连接" }).click();
 

@@ -188,10 +188,17 @@ export function NavigatorScene({
             <button
               key={g.id}
               type="button"
-              className="awk-card"
+              className="awk-card awk-guide"
               aria-pressed={on ? "true" : "false"}
               onClick={() => onPick(g.id)}
-              style={on ? { borderColor: g.accent, boxShadow: `0 0 0 1px ${g.accent} inset` } : undefined}
+              /* 颜色一直在，不只在选中时 —— 她是先看见三个颜色，才挑其中一个的。
+                 进了终端之后整屏用的就是这个颜色。 */
+              style={{
+                ["--awk-guide" as string]: g.accent,
+                ...(on
+                  ? { borderColor: g.accent, boxShadow: `0 0 0 1px ${g.accent} inset` }
+                  : {}),
+              }}
             >
               <span className="block font-mono text-[11px] tracking-[0.18em]" style={{ color: g.accent }}>
                 {g.id}
