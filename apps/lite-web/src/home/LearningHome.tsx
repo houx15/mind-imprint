@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
-  Compass,
   GraduationCap,
+  PenLine,
   Sprout,
 } from "lucide-react";
 import type { CourseSummary } from "@mind-imprint/contracts";
@@ -11,7 +11,6 @@ import type { MeUser } from "../api/auth";
 import { apiFetch } from "../api/client";
 import { listReadings } from "../api/readings";
 import { listWritings } from "../api/writings";
-import { listProjects } from "../api/projects";
 import { apiErrorText } from "../api/errorText";
 import { coursePath, navigate } from "../routing";
 import { recentLearning, type RecentLearning } from "./recentLearning";
@@ -35,24 +34,19 @@ export function LearningHome({ user }: { user: MeUser }) {
     setCourses(null);
     setErrors([]);
     setCourseError("");
-    void Promise.allSettled([
-      listReadings(),
-      listWritings(),
-      listProjects(),
-    ]).then(([r, w, p]) => {
+    void Promise.allSettled([listReadings(), listWritings()]).then(([r, w]) => {
       if (!alive) return;
       setRecent(
         recentLearning(
           r.status === "fulfilled" ? r.value : [],
           w.status === "fulfilled" ? w.value : [],
-          p.status === "fulfilled" ? p.value : [],
         ),
       );
       setErrors(
-        [r, w, p].flatMap((result, i) =>
+        [r, w].flatMap((result, i) =>
           result.status === "rejected"
             ? [
-                `${["阅读", "写作", "项目"][i]}加载失败：${apiErrorText(result.reason)}`,
+                `${["阅读", "写作"][i]}加载失败：${apiErrorText(result.reason)}`,
               ]
             : [],
         ),
@@ -217,9 +211,12 @@ export function LearningHome({ user }: { user: MeUser }) {
               <span>开始阅读</span>
               <ArrowRight size={16} />
             </button>
-            <button onClick={() => navigate("/projects")}>
-              <Compass size={20} />
-              <span>我的项目</span>
+            {/* 🚨 这里原来是「我的项目」。项目那一格 2026-09-21 从底栏藏掉了
+                （还没做完），入口也要一起藏 —— 底栏没有、首页却还在请她进去，
+                比两处都有更让人困惑。换成写作：它是眼下真正做得完的那条路。 */}
+            <button onClick={() => navigate("/writings")}>
+              <PenLine size={20} />
+              <span>开始写作</span>
               <ArrowRight size={16} />
             </button>
             <button onClick={() => navigate("/courses")}>

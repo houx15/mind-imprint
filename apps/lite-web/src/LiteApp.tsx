@@ -13,8 +13,6 @@ import {
   BookOpen,
   Compass,
   GraduationCap,
-  Globe,
-  Hammer,
   PenLine,
 } from "lucide-react";
 import { AccentProvider, type LucideIcon } from "@/ui";
@@ -95,12 +93,16 @@ const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "explore", label: "探索", icon: Compass },
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
-  { key: "projects", label: "项目", icon: Hammer },
-  // 课程 sits right after 项目 because that is where it is reached from: 印记
-  // hands her a course when the project needs a skill she has not learned yet
-  // (see projects/tools/surfaces/Course.tsx).
+  // 🚨 2026-09-21 产品负责人：「hide 项目 and 我的主页 tabs for lite version
+  // now because the two are not finished yet」。两格从底栏拿掉，
+  // **路由没动** —— 手上正做着一个项目的人，输网址还进得去，数据一个字不动。
+  //
+  // 课程留在底栏。它原来的注释说「课程紧挨着项目，因为它是从项目里走到的」，
+  // 那条路暂时没有了，但课程自己那一格本来就成立（她可以直接去上一课）。
+  //
+  // 藏的不只是这两格：首页那一行「我的项目」和「最近在学」里的项目条
+  // 也一起藏掉了，否则底栏看不见、首页还在请她进去。
   { key: "courses", label: "课程", icon: GraduationCap },
-  { key: "mysite", label: "我的主页", icon: Globe },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
