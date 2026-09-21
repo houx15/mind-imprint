@@ -672,7 +672,16 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 		// 🚨 整份读不出来 ≠ 整份没到。见 salvageWritingPlanReply。
 		salvaged, ok := salvageWritingPlanReply(c)
 		if !ok {
-			return writingPlanReply{}, false
+			// 🚨 整份就是一句人话，根本没有信封 —— 实测她说「想不出来」的
+			// 那两轮就是这样（见 writing_plan_prose.go）。把它当这一轮的
+			// reply，一个节点都不加。判不准照旧报错。
+			prose, pok := writingPlanReplyFromProse(c)
+			if !pok {
+				return writingPlanReply{}, false
+			}
+			slog.Warn("writing plan turn: reply arrived as plain prose, kept it and added nothing",
+				"reply_bytes", len(c))
+			return prose, true
 		}
 		// 🚨 **救援要出声。** 它原来一声不响地成功，于是 2026-09-12 那个
 		// 「半句话」回归在线上跑了整整一轮都没被发现 —— 日志里一条

@@ -160,6 +160,44 @@ function dumpComment(where: string, c: Comment): void {
 }
 
 /**
+ * 挑衅的说法。和服务端 `writing_tone.go` 的表同源。
+ *
+ * 同事 2026-09-21：「尤其是请印记看一看那个部分，我觉得它一直在挑衅我。」
+ * 那天的走查一趟就有四句，判断全对，写法全是对她努力的判决。
+ *
+ * 🚨 只扫**印记说的话**（summary / text / action），不扫她的正文 ——
+ * 她自己写「根本读不完」是她的字，不是印记的语气。
+ */
+const HOSTILE = [
+  "等于没说", "等于没写", "等于白", "白写", "白立", "白费", "白搭",
+  "跟着塌", "结论塌", "全篇塌", "垮了", "崩了",
+  "换成谁", "换谁写", "谁来写都", "谁都能写",
+  "明明", "可你却", "你倒是",
+  "一文不值", "毫无意义", "没有任何意义", "完全站不住", "一无是处",
+];
+
+function hostileIn(s: string | undefined): string {
+  for (const p of HOSTILE) if ((s ?? "").includes(p)) return p;
+  return "";
+}
+
+/** 这一份意见里，印记有没有说过一句挑衅的话。 */
+function expectNotHostile(c: Comment, where: string): void {
+  const spots: [string, string | undefined][] = [["总评", c.summary]];
+  for (const p of c.points ?? []) {
+    spots.push([`[${p.kind}] text`, p.text]);
+    spots.push([`[${p.kind}] action`, p.action]);
+  }
+  for (const [what, text] of spots) {
+    const hit = hostileIn(text);
+    expect(
+      hit,
+      `${where} 的${what}写成了对她的判决（「${hit}」）—— 同事说的「一直在挑衅我」就是这个：\n${text}`,
+    ).toBe("");
+  }
+}
+
+/**
  * 一条意见里的引文必须逐字出自她写下的字。
  *
  * 语料**只含她的正文**，不含印记自己说过的话 ——
@@ -386,6 +424,7 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
       ).toBeGreaterThan(0);
     }
     expectQuotesAreHers(comment, mine, title);
+    expectNotHostile(comment, title);
     // 铁律①：看完之后她的字一个都不许变。
     await expect(paper).toHaveValue(mine);
     await expect(page.getByRole("alert")).toHaveCount(0);
@@ -419,6 +458,7 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
   const review = ((await reviewResp.json()) as { comment: Comment }).comment ?? {};
   dumpComment("印记对整篇的意见", review);
   expectQuotesAreHers(review, whole, "整篇");
+  expectNotHostile(review, "整篇");
   // 整篇看完，也不许动她的字。
   await expect(draftBox).toHaveValue(whole);
   await expect(page.getByText("这次体检没成功，请重试。")).toHaveCount(0);
