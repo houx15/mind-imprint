@@ -190,9 +190,50 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 // at a sentence she actually wrote. Dropping is right and re-prompting is
 // wrong — a fuzzy match that lands on the neighbouring sentence is worse
 // than one fewer point.
+//
+// 🚨 **丢掉的理由要记下来。** 2026-09-21 真学生走查：她那一段拿回来的是
+// 一句「要紧的问题只有一处 —— 读者读到这里会把它和上一段当成同一件事」，
+// 底下却只有一条夸她的话。模型**是**给了 issue 的，是这里丢掉的；而
+// `collectWritingComment` 那道「说了有问题就得指出一处」的闸门查的是
+// **模型原样回的** points，站在筛子的上游，于是这一整类它一次都看不见。
+// 上游看不见、下游没人管 —— 中间掉下去的那条 issue 就这么没了。
+//
+// 所以现在多回一份「掉下去的都是为什么」：闸门拿它决定要不要再问一次，
+// 日志拿它说清楚到底是哪条规矩在丢东西。
 func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues int) []CommentPoint {
+	out, _ := validateCommentPointsVerbose(points, source, lang, maxIssues)
+	return out
+}
+
+// commentPointDrop 一条没能留下来的意见，和它没留下来的理由。
+//
+// Reason 是个闭表（下面那几个常量），因为它要进日志、也要进重问那一轮的
+// 提示语 —— 两处都不该出现一句临时拼的话。
+type commentPointDrop struct {
+	Kind   string
+	Reason string
+	Quote  string
+}
+
+// 丢掉的理由。闭表。
+const (
+	dropNoQuote          = "no_quote"           // 一条引文都没给
+	dropQuoteNotVerbatim = "quote_not_verbatim" // 引文不在她这一段里（编的，或者引的是别段）
+	dropNoText           = "no_text"            // 没说是什么问题
+	dropPersonDirected   = "person_directed"    // 对着人说，不是对着文字说
+	dropUnknownSymptom   = "unknown_symptom"    // symptom 不在这门语言的闭表里
+	dropNoAction         = "no_action"          // 只下了诊断，没给下一步
+	dropLowerLayer       = "lower_layer"        // 上面还有更要紧的一层
+	dropOverMax          = "over_max"           // 这一轮说不了这么多条
+)
+
+func validateCommentPointsVerbose(points []CommentPoint, source, lang string, maxIssues int) ([]CommentPoint, []commentPointDrop) {
 	var good []CommentPoint
 	var issues []CommentPoint
+	var drops []commentPointDrop
+	drop := func(p CommentPoint, reason string) {
+		drops = append(drops, commentPointDrop{Kind: p.Kind, Reason: reason, Quote: strings.TrimSpace(p.Quote)})
+	}
 
 	for _, p := range points {
 		q := strings.TrimSpace(p.Quote)
@@ -200,11 +241,20 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		// 只差标点、空格、大小写的，从原文里取出那一段逐字的换上
 		// （quotematch.Locate）——锚点仍然逐字是她写的。
 		if q == "" {
+			// 🚨 模型常常把她那句话写进 text 里用「」括着，而 quote 那一格空着。
+			// 实测三趟三趟都是这个死法（writing_dropped_issue_live_test.go）。
+			// 放错格子不等于编了一句话 —— 捞出来的候选仍然要逐字对得上，
+			// 对不上照旧丢掉。见 writing_quote_salvage.go。
+			q = salvageQuoteFromText(p.Text, source)
+		}
+		if q == "" {
+			drop(p, dropNoQuote)
 			continue
 		}
 		if !strings.Contains(source, q) {
 			span, ok := quotematch.Locate(source, q)
 			if !ok {
+				drop(p, dropQuoteNotVerbatim)
 				continue
 			}
 			q = span
@@ -213,10 +263,12 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		p.Text = strings.TrimSpace(p.Text)
 		p.Action = strings.TrimSpace(p.Action)
 		if p.Text == "" {
+			drop(p, dropNoText)
 			continue
 		}
 		// 对着文字说，别对着人说。
 		if personDirectedVerdict(p.Text) || personDirectedVerdict(p.Action) {
+			drop(p, dropPersonDirected)
 			continue
 		}
 
@@ -235,12 +287,14 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		p.Kind = "issue"
 		sym, ok := lookupWritingSymptom(lang, p.Symptom)
 		if !ok {
+			drop(p, dropUnknownSymptom)
 			continue
 		}
 		// 🚨 层由表查出来，不采信模型报的值。
 		p.Symptom, p.Layer, p.Method = sym.ID, sym.Layer, ""
 		// "Diagnostic Without Return"：没有下一步的意见，整条丢掉。
 		if p.Action == "" {
+			drop(p, dropNoAction)
 			continue
 		}
 		issues = append(issues, p)
@@ -261,9 +315,14 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	for _, p := range issues {
 		if p.Layer == top {
 			kept = append(kept, p)
+			continue
 		}
+		drop(p, dropLowerLayer)
 	}
 	if maxIssues > 0 && len(kept) > maxIssues {
+		for _, p := range kept[maxIssues:] {
+			drop(p, dropOverMax)
+		}
 		kept = kept[:maxIssues]
 	}
 
@@ -272,7 +331,7 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	if len(good) > 0 {
 		out = append(out, good[0])
 	}
-	return append(out, kept...)
+	return append(out, kept...), drops
 }
 
 // personDirectedVerdict 认出「对着人说」的那种句子。
@@ -346,6 +405,17 @@ const writingCommentRules = `## 怎么说话
 
 - 你是老师，不是打分器。说清一件事为什么重要，用【可用的方法】里真正的方法名，别自己造词。
 - **对着文字说，别对着人说。** 说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。
+- 🚨 **不要写成「抓到你了」。** 指出问题就够了，不要替她已经写下的东西下判决。
+  这几种一律不用：「等于没说」「白写了」「白立的」「结论跟着塌了」
+  「换成谁来写都成立」「可你明明说过……」「毫无意义」。
+  同一件事这样说：**先说读者读到这儿会怎么想，再说她下一步做什么。**
+  - 「换成谁来写都成立，你开头那句主张等于没说」
+    → 「这三处各指一个方向，读者读完会不确定你站哪一边。先定一个方向，
+       再把这三句改成同一个方向。」
+  - 「前四段白立的主张在这里松了手」
+    → 「结尾这句回到了『有好有坏』，和前四段立的方向不是同一个。」
+  - 「可你第 1 张明明说了……」
+    → 「第 1 张写的是『短视频正在让我们变笨』，这一段的落点和它相反。」
 - 不客套。「很有灵气」「写得不错，继续加油」说多了，你的肯定就不值钱了。
 - 不打分，不给等级。
 - **说一个十五六岁的学生第一遍就读得懂的话。** 不用「机制」「环节」「尺寸对不上」
@@ -831,6 +901,12 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
 		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind, help, genre),
 		buildWritingCommentPrompt(wr, "她写的这一段", source, piece, genre),
+		// 她真的会看到的那几条 —— 校验加两道减法之后剩下的。闸门查的就是这个。
+		func(pts []CommentPoint) []CommentPoint {
+			out := validateCommentPoints(pts, source, wr.Lang, writingBlockCommentMaxIssues)
+			out = dropIssuesLaterBlocksAnswer(out, focusKind, laterText)
+			return dropIssuesSheAlreadyFixed(out, priorComments, snippet.ID, source)
+		},
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {
@@ -850,11 +926,18 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 			"atom_id", at.ID, "snippet_id", snippet.ID, "dropped", dropped, "focus_kind", focusKind)
 	}
 
-	// 🚨 减完之后一条 issue 都不剩，这一段就是 pass —— 不要把一个
-	// 「本来要改、但那件事后面已经做了」的判断留在 revise 上，
-	// 她会对着一段没有任何意见的卡片读到「需修改」。
+	// 🚨 一条 issue 都不剩，这一段就是 pass —— 不要把一个「本来要改、
+	// 但那件事后面已经做了」的判断留在需修改上，她会对着一段没有任何意见的
+	// 卡片读到「需修改」。
+	//
+	// 🚨 2026-09-21 真学生走查：这里原来**只收 revise**，而实测撞到的两次
+	// 都是 `polish`（总评说「要紧的问题只有一处……」，底下只有一条夸她的话）。
+	// 对她来说两者是同一件事：被告知这儿还不行，却没有一个字可以照着改。
+	// 一个没有任何可做之事的档位，不该挂在她那张卡片上。
 	verdict := parsed.Verdict
-	if verdict == writingVerdictRevise && !writingHasIssue(points) {
+	if verdict != writingVerdictPass && !writingHasIssue(points) {
+		slog.Info("writing block comment: no issue survived, verdict falls back to pass",
+			"atom_id", at.ID, "snippet_id", snippet.ID, "was", parsed.Verdict)
 		verdict = writingVerdictPass
 	}
 

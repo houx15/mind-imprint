@@ -297,6 +297,10 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues, "", helpAsk, genre),
 		// 通篇审阅那一路不给整篇上下文：body 本来就是整篇。
 		buildWritingCommentPrompt(wr, "她的整篇稿子", body, "", genre),
+		// 她真的会看到的那几条。通篇这一路没有分块的减法。
+		func(pts []CommentPoint) []CommentPoint {
+			return validateCommentPoints(pts, body, wr.Lang, writingDraftReviewMaxIssues)
+		},
 		"scope", "draft", "atom_id", at.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {

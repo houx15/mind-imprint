@@ -92,12 +92,24 @@ summary 只说这篇稿子现在站在哪儿，不说少了什么。少了什么
 // 返回的是拿得到的那一份：重试完总评还在说「缺」，照样把结果给她。一句不好的
 // 总评下面仍然挂着几条验过的、指着她原话的意见；为这个扣下整轮，她什么都拿不到。
 // 这一点和「JSON 解析不了」不同 —— 那个是真的没有东西可给。
+// deliver 把模型原样回的 points 变成**她最后真的会看到的**那几条。
+//
+// 🚨 这个参数是 2026-09-21 真学生走查逼出来的。原来这里查的是
+// `parsed.Points` —— 模型原样回的那一份，而她看到的是它经过
+// `validateCommentPoints` 加两道减法之后剩下的那一份。闸门站在筛子的**上游**，
+// 于是「模型给了一条好意见、被服务端丢掉了」这一整类，它一次都看不见：
+// 实测三趟三趟如此（模型把引文写进 text、quote 那格空着 ⇒ no_quote ⇒ 整条丢掉）。
+//
+// 判据要落在**交付物**上，不是落在中间产物上。
+type writingCommentDeliver func([]CommentPoint) []CommentPoint
+
 func (a *API) collectWritingComment(
 	ctx context.Context,
 	userID, atomID uuid.UUID,
 	purpose string,
 	resolved gateway.Resolved,
 	system, user string,
+	deliver writingCommentDeliver,
 	logArgs ...any,
 ) (writingCommentResult, bool) {
 	msgs := []gateway.ChatMessage{
@@ -119,35 +131,20 @@ func (a *API) collectWritingComment(
 		return writingCommentResult{}, false
 	}
 
-	marker := summaryClaimsAbsence(parsed.Summary)
-	if marker == "" && writingHasIssue(parsed.Points) {
-		return parsed, true
-	}
-	if marker == "" {
-		// 🚨 **说了这篇有问题，却一条 point 都不给。**
-		//
-		// 2026-09-21 线上走查抓到的：通篇审阅回来只有一句总评
-		//「这两段各写了一边的事，但通篇找不到一句是你自己的判断」，points 是空的。
-		// 面板上于是只剩那一句话挂在最上面，她点不动、追不到原文、也不知道
-		// 下一步做什么 —— 和上面那条「总评说缺什么」是同一个毛病的另一面：
-		// **一句没有东西撑着的断言**。
-		//
-		// 这一条比词表硬：它不问那句话是怎么写的，只问「你说有问题，问题在哪句」。
-		// verdict 是 pass 的时候不触发 —— 那一档本来就允许 points 是空的
-		//（提示词里写着「判 pass 的时候不要硬凑一条 issue 出来」）。
-		if parsed.Verdict == writingVerdictPass {
-			return parsed, true
-		}
-		marker = writingVerdictNoPointMarker
+	// 🚨 查她真的会看到的那几条，不是模型原样回的那份。见 writingCommentDeliver。
+	delivered := parsed.Points
+	if deliver != nil {
+		delivered = deliver(parsed.Points)
 	}
 
-	// 重试那一轮把它自己上一份回复也带上，否则「points 原样保留」无从谈起。
-	slog.Info("writing comment: summary claimed an absence, retrying once",
-		append(logArgs, "marker", marker, "summary", parsed.Summary)...)
-	nudge := fmt.Sprintf(writingSummaryAbsenceNudge, marker)
-	if marker == writingVerdictNoPointMarker {
-		nudge = writingNoPointNudge
+	marker, nudge := writingCommentProblem(parsed, delivered)
+	if marker == "" {
+		return parsed, true
 	}
+
+	// 重试那一轮把它自己上一份回复也带上，否则「原样保留」无从谈起。
+	slog.Info("writing comment: retrying once",
+		append(logArgs, "marker", marker, "summary", parsed.Summary)...)
 	retry := append(msgs,
 		gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
 		gateway.ChatMessage{Role: gateway.RoleUser, Content: nudge},
@@ -163,14 +160,18 @@ func (a *API) collectWritingComment(
 		slog.Warn("writing comment: absence retry unparseable", logArgs...)
 		return parsed, true
 	}
-	if m2 := summaryClaimsAbsence(parsed2.Summary); m2 != "" {
-		// 两次都在说「缺」。用第二份 —— 它至少是照着这条规矩又想了一遍的。
-		slog.Warn("writing comment: summary still claims an absence after the retry",
-			append(logArgs, "marker", m2, "summary", parsed2.Summary)...)
+	delivered2 := parsed2.Points
+	if deliver != nil {
+		delivered2 = deliver(parsed2.Points)
 	}
-	if parsed2.Verdict != writingVerdictPass && !writingHasIssue(parsed2.Points) {
-		slog.Warn("writing comment: still says something is wrong with no point after the retry",
-			append(logArgs, "verdict", parsed2.Verdict, "summary", parsed2.Summary)...)
+	// 两次都没过同一道闸。用第二份 —— 它至少是照着这条规矩又想了一遍的。
+	// 「说了有问题却没有一条她能照着改的」那一档，调用方会把 verdict 收回
+	// 到 pass：与其让她对着一段没有任何可做之事的卡片读到「待打磨」，
+	// 不如不说这句话。
+	if m2, _ := writingCommentProblem(parsed2, delivered2); m2 != "" {
+		slog.Warn("writing comment: still not clean after the retry",
+			append(logArgs, "marker", m2, "verdict", parsed2.Verdict, "summary", parsed2.Summary,
+				"raw_points", len(parsed2.Points), "delivered", len(delivered2))...)
 	}
 	return parsed2, true
 }
@@ -182,12 +183,49 @@ const writingVerdictNoPointMarker = "<verdict-without-point>"
 // writingNoPointNudge —— 说了这篇有问题，却一条都没指出来的那一轮。
 //
 // 照着 writingSummaryAbsenceNudge 的做法：指出犯的是哪一处，不把整条规矩再念一遍。
-const writingNoPointNudge = `刚才那一份里，verdict 不是 pass，points 却是空的。
+// 🚨 这段话原来写的是「points 却是空的」—— 而 points **往往不是空的**：
+// 里面常常有一条 good。模型照着这句话回头看自己那一份，发现 points 有东西，
+// 于是认为这条提醒不适用，原样又回一遍。
+//
+// **提醒里说的那件事必须是真发生的那件事**，否则它只是一句模型对不上号的话。
+// 现在说的是「没有一条 issue」，并且把 issue 活下来要满足的条件列清楚 ——
+// 实测里被丢掉的那些，十有八九是漏了其中一条。
+const writingNoPointNudge = `刚才那一份里，verdict 不是 pass，但 points 里**没有一条 kind 是 issue**
+（有 good 也不算——夸奖不是她能照着改的东西）。
 
-你说了这篇还有要改的地方，但没有说是哪一句。她看到的会是一句挂在最上面、
-点不动也追不到原文的话。
+你说了这篇还有要改的地方，却没有给出一条她能动手的意见。她看到的会是一句
+挂在最上面、点不动也追不到原文的话。
 
 重新输出一次完整的 JSON：
-- 真的有要改的地方 → 至少给一条 issue，带上她原文里**逐字**存在的 quote，
-  和一个她现在就能做的动作。
+- 真的有要改的地方 → 至少给一条 kind 为 issue 的，并且四样都要齐，缺一样这条就会被丢掉：
+  · quote：**单独写在 quote 这个字段里**，逐字照抄她原文里的一句（写在 text 里不算）；
+  · symptom：只能用给定清单里的 id；
+  · text：说清楚是什么问题；
+  · action：她现在就能做的那一个动作。
 - 其实没有 → 把 verdict 改成 pass，summary 改成说这一篇现在站在哪儿。`
+
+// writingCommentProblem —— 这一份意见有没有哪一道闸没过，以及该怎么跟它说。
+//
+// 三道，按「对她的伤害」从大到小排；命中第一道就不往下看了，因为重问那一轮
+// 只带一条提醒 —— 一次说三件事，模型哪件都做不好
+// （[[pbl-refeed-one-produce-slot-2026-09-05]] 是同一个道理）。
+//
+//  1. **说了这篇有问题，却没有一条她能照着改的。** 最伤人的一种：
+//     她被告知这儿不对，却没有一个字可以动手。
+//  2. **总评说她「缺」什么。** 总评是唯一没人验过的字段，
+//     一句没有东西撑着的断言。
+//  3. **话写成了对她的判决。** 同事的原话是「一直在挑衅我」。
+//
+// 判据全部落在**她真的会看到的那一份**上（delivered），不是模型原样回的那份。
+func writingCommentProblem(parsed writingCommentResult, delivered []CommentPoint) (marker, nudge string) {
+	if parsed.Verdict != writingVerdictPass && !writingHasIssue(delivered) {
+		return writingVerdictNoPointMarker, writingNoPointNudge
+	}
+	if m := summaryClaimsAbsence(parsed.Summary); m != "" {
+		return m, fmt.Sprintf(writingSummaryAbsenceNudge, m)
+	}
+	if p := writingHostileTone(parsed); p != "" {
+		return p, fmt.Sprintf(writingHostileToneNudge, p)
+	}
+	return "", ""
+}
