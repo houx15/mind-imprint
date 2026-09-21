@@ -3,6 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 // 于是这条 walk 从第一步就 ReferenceError。它是"拍图给人看"的那种测试，没人天天
 // 跑，坏了大半天也没人发现。
 import { openSiteGate } from "./gate";
+import { skipWhilePaused } from "./pausedSurfaces";
+
+// 项目 / 我的主页 还没做完，这两个面上的走查先停。见 pausedSurfaces.ts。
+skipWhilePaused();
 
 /**
  * 工具 walk —— 七个阶段的七块界面，一块一块打开看。

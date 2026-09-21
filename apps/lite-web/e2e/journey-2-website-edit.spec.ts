@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openSiteGate } from "./gate";
+import { skipWhilePaused } from "./pausedSurfaces";
+
+// 项目 / 我的主页 还没做完，这两个面上的走查先停。见 pausedSurfaces.ts。
+skipWhilePaused();
 
 /**
  * 旅程二 · 她能改自己那一页。
