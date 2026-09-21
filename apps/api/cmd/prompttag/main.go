@@ -156,7 +156,9 @@ func main() {
 		p := promptlib.Prompt{
 			ID: s.ID, Category: s.Category, Lang: lang, Year: s.Year,
 			Type: s.Type, Source: s.Source, Region: s.Region, TaskType: s.TaskType,
-			Text: strings.TrimSpace(s.PromptText), Requirements: strings.TrimSpace(s.Requirements),
+			// 🚨 题面先把卷面脚手架清掉（题号、第X节 书面表达、（20分））——
+			// 那几行是卷子的结构，不是题目。见 promptlib.CleanPromptText。
+			Text: promptlib.CleanPromptText(s.PromptText), Requirements: strings.TrimSpace(s.Requirements),
 			WordLimit: s.WordLimit, SourceURL: s.SourceURL, Notes: s.Notes,
 			Difficulty: diff, Topics: prev[s.ID],
 		}

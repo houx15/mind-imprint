@@ -277,6 +277,18 @@ func (a *API) createWritingFromPrompt(ctx context.Context, userID uuid.UUID, p p
 	}); err != nil {
 		return uuid.Nil, err
 	}
+	// 🚨 题目自己写着「不少于800字」，就不要再在「开始之前」里问她一遍
+	// （产品负责人 2026-09-21：这几样应该是定好的）。语言跟着题走，
+	// 字数从 word_limit 里解出来；解不出来就空着 —— 宁可空着也不猜一个，
+	// 篇幅从来不是一道门槛（铁律②）。
+	if n := promptlib.TargetWords(p.WordLimit); n > 0 {
+		words := int32(n)
+		if err := qtx.SetWritingTargetWords(ctx, sqlc.SetWritingTargetWordsParams{
+			AtomID: id, TargetWords: &words,
+		}); err != nil {
+			return uuid.Nil, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}

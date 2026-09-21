@@ -343,18 +343,24 @@ describe("the setup dialog", () => {
     render(<WritingRoomHost writingId={WID} />);
 
     const dialog = await screen.findByRole("dialog", { name: "开始之前" });
-    // No 文体 selector: a lite student may not know the word, so the third
-    // field is an open box and the model infers genre from it.
+    // 没有 文体 选择器：轻量版的学生可能不知道这个词，文体由模型从她的句子里判断。
     expect(within(dialog).queryByText(/文体/)).toBeNull();
+
+    // 🚨 **也没有任何要她打字的框**（产品负责人 2026-09-21：
+    // 「I don't think we should let students type anything in the modal
+    //   because it is a little strange…always directly enter AI-guided journey」）。
+    // 她推门进来是要去说话的，印记的第一句就在门后面等着；
+    // 在那之前先要她写一段，是在她想说之前先要她交作业。
+    expect(within(dialog).queryByLabelText("还想说点什么")).toBeNull();
+    expect(within(dialog).queryByRole("textbox")).toBeNull();
 
     fireEvent.click(within(dialog).getByRole("button", { name: /English/ }));
     fireEvent.change(within(dialog).getByLabelText("目标字数"), { target: { value: "500" } });
-    fireEvent.change(within(dialog).getByLabelText("还想说点什么"), { target: { value: "这是老师布置的作业。" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "开始" }));
 
     await waitFor(() => {
       const put = calls.find((c) => c.method === "PUT" && c.url === base("/setup"));
-      expect(put?.body).toEqual({ lang: "en", targetWords: 500, note: "这是老师布置的作业。" });
+      expect(put?.body).toEqual({ lang: "en", targetWords: 500, note: "" });
     });
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "开始之前" })).toBeNull());
   });
