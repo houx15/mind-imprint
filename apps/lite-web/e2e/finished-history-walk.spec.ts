@@ -85,7 +85,23 @@ async function startReading(page: Page, title: string): Promise<string> {
   return match[1];
 }
 
+/** 本地那台一次性 Postgres 在不在。 */
+function hasLocalPg(): boolean {
+  try {
+    const out = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { stdio: "pipe" }).toString();
+    return out.split("\n").some((n) => n.trim() === PG_CONTAINER);
+  } catch {
+    return false;
+  }
+}
+
 test("读完之后能回看对话和原文，公开的范围由她自己定", async ({ browser }, testInfo) => {
+  // 🚨 这一条**结构上只能在本地那套栈上跑**：它要直接往 atom_message 里插几条
+  // 对话当固定装置（没有对外的写接口，那是对的）。打线上的时候那个容器不存在，
+  // 报「No such container」，读起来像「读完之后回看坏了」。
+  // 跳过而不是让它红：红着的走查会把真的问题盖住。本地照样跑、照样在守这件事。
+  test.skip(!hasLocalPg(), `要本地那台 ${PG_CONTAINER} 才跑得了：这一条要直接往库里插对话`);
+
   const ctx = await freshAccount(browser, "finished-history-walk");
   const page = await ctx.newPage();
 

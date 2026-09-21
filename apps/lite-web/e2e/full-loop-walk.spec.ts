@@ -1,5 +1,12 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { freshAccount } from "./freshAccount";
+// 🚨 阅读室聊天框的占位符有**四种**，看她当下站在哪儿（ReadingCoachPanel）：
+//   透镜开着 → 「找不到合适的句子？跟印记说一声」
+//   读完了   → 「读完了，还想聊点什么？」
+//   卡片开着 → 「卡片以外的问题，请在这里输入」
+//   其余     → 「请输入你的回答或问题」
+// 原来钉的「读完这一步」那一句早就不在了，只认一种也会在另外三种情况下
+// 去等一个根本不存在的框，然后报成「输入框锁住了」。
 
 /**
  * full-loop-walk —— 从**产品自己的两个入口**走完阅读和写作。
@@ -178,7 +185,7 @@ test("入口一：探索地图上的一颗星 → 阅读室 → 完成 → 在�
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   await page
-    .getByPlaceholder(/读完这一步|还想聊点什么/)
+    .getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/)
     .fill("我最在意的是储能：如果白天多出来的电存不下来，那装机再多是不是就没意义了？");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(replies).toHaveCount(2, { timeout: 300_000 });

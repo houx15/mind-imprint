@@ -1,4 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
+// 🚨 阅读室聊天框的占位符有**四种**，看她当下站在哪儿（ReadingCoachPanel）：
+//   透镜开着 → 「找不到合适的句子？跟印记说一声」
+//   读完了   → 「读完了，还想聊点什么？」
+//   卡片开着 → 「卡片以外的问题，请在这里输入」
+//   其余     → 「请输入你的回答或问题」
+// 原来钉的「读完这一步」那一句早就不在了，只认一种也会在另外三种情况下
+// 去等一个根本不存在的框，然后报成「输入框锁住了」。
 
 /**
  * 带读 is the room's front door now, and this file walks it.
@@ -32,7 +39,9 @@ const ARTICLE_BODY = [
   "所以，如果储能和电网的问题不解决，继续增加装机带来的边际收益会递减：白天多出来的电卖不掉，甚至要被弃掉。",
 ].join("\n\n");
 
-const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF";
+// 🚨 2026-09-21 订正：占位符后来加了 TXT、顺序也换了（ReadingsLanding.tsx）。
+// 钉整串等于把一句会改的文案当成契约，只钉不会变的那一截。
+const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来";
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 
@@ -88,7 +97,7 @@ test("带读: 印记 plans the route and leads, and she administrates none of it
 
   // Skipping did not disappear, it moved into language: the composer is the
   // only control, and it invites her to answer rather than to administrate.
-  await expect(page.getByPlaceholder(/读完这一步/)).toBeVisible();
+  await expect(page.getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/)).toBeVisible();
 });
 
 /**
@@ -354,7 +363,7 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
   // The chip is the proof a POINT was made, distinct from her typed words.
   await expect(page.getByText(`“${quote}”`)).toBeVisible();
 
-  await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("这句提到具体国家了吗？");
+  await page.getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/).fill("这句提到具体国家了吗？");
   await page.getByRole("button", { name: "发送" }).click();
 
   await expect.poll(() => captured.body).not.toBeNull();
