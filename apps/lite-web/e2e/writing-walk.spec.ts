@@ -128,24 +128,27 @@ async function expectGreeting(page: Page): Promise<void> {
  */
 async function completeSetup(
   page: Page,
-  opts: { lang?: "中文" | "English"; words?: number | null; note?: string } = {},
+  opts: { lang?: "中文" | "English"; words?: number | null } = {},
 ): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "开始之前" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-  // There is deliberately NO 文体 selector: a lite student may not know the
-  // word, so the third field is an open box instead and the model infers
-  // genre from her own sentences. Asserted so a future edit cannot quietly
-  // reintroduce a vocabulary question.
+  // 没有 文体 选择器：轻量版的学生可能不知道这个词，文体由模型从她的句子里判断。
   await expect(dialog.getByText("文体")).toHaveCount(0);
+
+  // 🚨 **这里没有任何要她打字的框。**（产品负责人 2026-09-21：
+  // 「I don't think we should let students type anything in the modal
+  //   because it is a little strange…always directly enter AI-guided journey」）
+  // 原来第三格是「还想说点什么？」——在对话开始之前先要她写一段，
+  // 而她推门进来本来就是要去说话的，印记的第一句就在门后面等着。
+  await expect(dialog.getByRole("textbox")).toHaveCount(0);
 
   if (opts.lang) await dialog.getByRole("button", { name: opts.lang }).click();
   if (opts.words != null) await dialog.getByLabel("目标字数").fill(String(opts.words));
-  if (opts.note) await dialog.getByLabel("还想说点什么").fill(opts.note);
 
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/setup") && r.request().method() === "PUT"),
-    dialog.getByRole("button", { name: opts.words == null && !opts.note ? "跳过" : "开始", exact: true }).click(),
+    dialog.getByRole("button", { name: opts.words == null ? "跳过" : "开始", exact: true }).click(),
   ]);
   await expect(dialog).toHaveCount(0, { timeout: 15_000 });
 }
@@ -232,7 +235,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const id = await startWriting(page, idea);
 
   // ── the 设定 dialog: language, length, and her own words ────────────────
-  await completeSetup(page, { lang: "中文", words: 500, note: "这是老师布置的作业，我自己更倾向不要一刀切禁止。" });
+  await completeSetup(page, { lang: "中文", words: 500 });
   await expect(page.getByPlaceholder("说说你的想法")).toBeVisible({ timeout: 30_000 });
 
   // ── the idea really made the round trip: it is BOTH the title and the

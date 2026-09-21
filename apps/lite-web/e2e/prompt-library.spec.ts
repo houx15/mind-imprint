@@ -76,6 +76,24 @@ test("题库：筛、搜、翻页，以及从一道题开一篇写作", async ({
   const miss = await (await ctx.request.get(`${API}/api/v1/writing-prompts?q=zzzq不存在的词`)).json();
   expect(miss.total).toBe(0);
 
+  // ── 🚨 题面上不许有卷面脚手架 ────────────────────────────────────
+  // 产品负责人 2026-09-21：「don't appear like 20分、第三节 书面表达」。
+  // 清理在编译期做（promptlib.CleanPromptText），但**编译产物要真的上线** ——
+  // 本地那份 JSON 干净、线上还是旧的，正是 go:embed 这条链子会出的错。
+  const wide = await (
+    await ctx.request.get(`${API}/api/v1/writing-prompts?pageSize=100`)
+  ).json();
+  for (const it of wide.items) {
+    const first = (it.text as string).split("\n")[0];
+    expect(first, `${it.id} 第一行还挂着题号：${first}`).not.toMatch(/^\s*\d{1,3}\s*[.．、]/);
+    expect(first, `${it.id} 第一行还挂着章节：${first}`).not.toMatch(
+      /第[一二三四五六七八九十\d]+\s*[部节]/,
+    );
+    expect(it.text, `${it.id} 还留着分值：${first}`).not.toMatch(/[（(]\s*\d{1,3}\s*分\s*[）)]/);
+    expect((it.text as string).trim().length, `${it.id} 题面是空的`).toBeGreaterThan(5);
+  }
+  console.log(`题面干净：抽查 ${wide.items.length} 道，没有题号 / 章节 / 分值`);
+
   // ── 推荐 ────────────────────────────────────────────────────────
   expect(all.recommended.length, "落地页那一排推荐是空的").toBeGreaterThan(0);
   for (const r of all.recommended) {
@@ -98,6 +116,17 @@ test("题库：筛、搜、翻页，以及从一道题开一篇写作", async ({
   expect(wr.assignedPrompt, "题面没进 assignedPrompt").toBeTruthy();
   expect(wr.assignedPrompt).toContain(pick.text.slice(0, 20));
   expect(wr.lang).toBe(pick.lang);
+  // 🚨 题目自己写着「不少于800字」，就不该再在「开始之前」里问她一遍
+  //（产品负责人 2026-09-21：这几样应该是定好的）。
+  // 解得出来的必须已经写进去；解不出来的留空是对的 —— 宁可空着也不猜一个，
+  // 她会被一个题目里根本不存在的要求追着跑。
+  if (/\d{2,}/.test(pick.wordLimit ?? "")) {
+    expect(
+      wr.targetWords,
+      `${pick.id} 的「${pick.wordLimit}」没有变成目标字数`,
+    ).toBeGreaterThan(0);
+  }
+  console.log("目标字数 =", wr.targetWords, "| 题目写的是", pick.wordLimit);
 
   await ctx.close();
 });

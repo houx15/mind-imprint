@@ -242,7 +242,9 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
   await expect(dialog).toBeVisible({ timeout: 60_000 });
   await dialog.getByRole("button", { name: "中文" }).click();
   await dialog.getByLabel("目标字数").fill("800");
-  await dialog.getByLabel("还想说点什么").fill("老师说要有自己的观点，不要抄网上的。");
+  // 🚨 2026-09-21 起这个弹窗里**没有任何输入框**了（产品负责人：
+  // 让学生在对话开始之前先打一段字，读起来很奇怪）。她该做的就是推门进去说话。
+  await expect(dialog.getByRole("textbox")).toHaveCount(0);
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/setup") && r.request().method() === "PUT"),
     dialog.getByRole("button", { name: "开始", exact: true }).click(),
