@@ -253,7 +253,7 @@ describe("印记's comment, in the rail", () => {
     routes[key("POST", base("/review"))] = { body: { comment: COMMENT } };
     renderStage({ draft: draftOf("两排树掘得密密麻麻。") });
 
-    fireEvent.click(screen.getByRole("button", { name: "请印记看看" }));
+    fireEvent.click(screen.getByRole("button", { name: "AI审阅" }));
 
     expect(await screen.findByText(COMMENT.summary)).toBeTruthy();
     expect(page().value).toBe("两排树掘得密密麻麻。");

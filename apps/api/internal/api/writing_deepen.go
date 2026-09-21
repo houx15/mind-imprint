@@ -77,7 +77,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 
 	// 🚨 整篇上下文（writing_piece_context.go）取代了这里原来手写的那一段。
 	// 原来那段只列每一块的**标题**，不带她在那一块写下的字 —— 于是这个
-	// 子 agent 和「请印记看看这一段」犯的是同一个错：它不知道后面的段里
+	// 子 agent 和「AI审阅这一段」犯的是同一个错：它不知道后面的段里
 	// 已经有那件具体的事了（同事 2026-09-20 的意见 6 和 9）。
 	//
 	// piece 为空（调用方读不到片段）就退回只列标题 —— 少一份上下文可以，

@@ -369,8 +369,8 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
   }
   await expect(page.getByText("保存这一段失败，请重试。")).toHaveCount(0);
 
-  // ── 每一段都请印记看一看 ────────────────────────────────────────────
-  log("## 三 · 她一段一段请印记看");
+  // ── 每一段都走一次 AI审阅 ────────────────────────────────────────────
+  log("## 三 · 她一段一段请 AI 审阅");
   log();
   const verdicts: { title: string; verdict?: string; text: string }[] = [];
   for (let i = 0; i < cardCount; i += 1) {
@@ -384,7 +384,7 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
         (r) => /\/snippets\/[0-9a-f-]{36}\/comment/.test(r.url()) && r.request().method() === "POST",
         { timeout: 300_000 },
       ),
-      page.getByRole("button", { name: "请印记看看这一段", exact: true }).click(),
+      page.getByRole("button", { name: "AI审阅这一段", exact: true }).click(),
     ]);
     const comment = ((await resp.json()) as { comment: Comment }).comment ?? {};
 
@@ -454,7 +454,7 @@ test("一个真学生写完一整篇《短视频有没有让我们变笨？》",
     page.waitForResponse((r) => r.url().includes("/review") && r.request().method() === "POST", {
       timeout: 300_000,
     }),
-    page.getByRole("button", { name: "请印记看看", exact: true }).click(),
+    page.getByRole("button", { name: "AI审阅", exact: true }).click(),
   ]);
   const review = ((await reviewResp.json()) as { comment: Comment }).comment ?? {};
   dumpComment("印记对整篇的意见", review);

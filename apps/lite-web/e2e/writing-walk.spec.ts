@@ -33,7 +33,7 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *     automatically, on arrival in 成稿 — the draft is simply there, not
  *     behind a button. The button survives, demoted to 从段落重新拼一次, for
  *     re-pulling after she edits 段落 again.
- *   - 请印记看看 now answers a STRUCTURED Comment (summary + points), not a
+ *   - AI审阅 now answers a STRUCTURED Comment (summary + points), not a
  *     prose blob under a "印记的反馈" heading — that heading no longer
  *     exists. `CommentPanel` renders it, and every point is a
  *     `[data-comment-point]` button that traces to a `<mark>` inside
@@ -454,7 +454,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const beforeReview = await draftBox.inputValue();
   const [reviewResp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/review") && r.request().method() === "POST", { timeout: 180_000 }),
-    page.getByRole("button", { name: "请印记看看", exact: true }).click(),
+    page.getByRole("button", { name: "AI审阅", exact: true }).click(),
   ]);
   const reviewed = (await reviewResp.json()) as {
     comment: { summary: string; points: { text: string; quote: string }[] };

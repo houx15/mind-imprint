@@ -18,7 +18,7 @@ package api
 //
 // # 三处调用点共用一份
 //
-// 「请印记看看这一段」（writing_comment.go）、「深入一层」（writing_deepen.go）、
+// 「AI审阅这一段」（writing_comment.go）、「深入一层」（writing_deepen.go）、
 // 「写作引导」（writing_guide.go）—— 三处都只看得见一段，而且各自手写了一小段
 // 「整篇的结构」，都只列标题不带正文。合成一份，它们的上下文才不会再分岔。
 //

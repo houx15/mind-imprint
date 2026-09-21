@@ -111,7 +111,7 @@ test("议论文：一段有例子没分析，印记叫得出「分析句」这�
   const sid = first!.id;
 
   const res = await ctx.request.post(`${API}/api/v1/writings/${id}/snippets/${sid}/comment`);
-  expect(res.ok(), `请印记看一看失败：${res.status()} ${await res.text()}`).toBeTruthy();
+  expect(res.ok(), `AI审阅失败：${res.status()} ${await res.text()}`).toBeTruthy();
   const comment = (await res.json()).comment as {
     verdict: string;
     summary: string;

@@ -118,7 +118,7 @@ export function WritingsLanding() {
    * 上传一份文件，把里面的文字放进上面那个框。
    *
    * 🚨 取出来的文字**落进框里**，不直接建这一篇。她仍然看得见、改得动，
-   * 按「请印记看看」的时候才真的交出去 —— 上传只是省掉复制粘贴那一下，
+   * 按「AI审阅」的时候才真的交出去 —— 上传只是省掉复制粘贴那一下，
    * 不替她做决定。失败那一句原样来自服务端（扫描件和文件坏了是两回事）。
    */
   async function bringFile(file: File | undefined) {
@@ -291,7 +291,7 @@ export function WritingsLanding() {
               取消
             </Button>
             <Button onClick={() => void bringIn()} disabled={!bringBody.trim()} loading={starting}>
-              请印记看看
+              AI审阅
             </Button>
           </>
         }
@@ -320,7 +320,7 @@ export function WritingsLanding() {
             />
           </label>
           {/* 上传。走的是和阅读那边同一件工具（docextract），取出来的文字直接
-              落进上面那个框 —— 她仍然看得见、改得动，按「请印记看看」的时候才
+              落进上面那个框 —— 她仍然看得见、改得动，按「AI审阅」的时候才
               真的交出去。 */}
           <div className="flex items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200">

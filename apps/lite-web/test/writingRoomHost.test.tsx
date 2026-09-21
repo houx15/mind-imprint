@@ -457,7 +457,7 @@ describe("成稿 stage", () => {
     fireEvent.blur(textarea);
     await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url === base("/draft"))).toBe(true));
 
-    fireEvent.click(screen.getByRole("button", { name: "请印记看看" }));
+    fireEvent.click(screen.getByRole("button", { name: "AI审阅" }));
     expect(await screen.findByText("论证的第二段证据略薄，可以再补一个例子。")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));

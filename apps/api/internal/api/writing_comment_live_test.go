@@ -79,7 +79,7 @@ func oneCommentTurn(t *testing.T, lang, source string) []CommentPoint {
 // 中文：至少要活下来一条，而且 issue 必须带着一句祈使。
 //
 // 🚨 「至少活下来一条」本身就是一条真断言：校验器丢得太狠的话，
-// 学生按一次「请印记看看这一段」会得到一张空白的卡 —— 那是比没有更糟的东西。
+// 学生按一次「AI审阅这一段」会得到一张空白的卡 —— 那是比没有更糟的东西。
 func TestLiveWritingComment_ZH(t *testing.T) {
 	points := oneCommentTurn(t, "zh", liveZHParagraph)
 	if len(points) == 0 {

@@ -57,7 +57,7 @@ import { splitBroughtFile } from "./broughtFile";
  * is ever written into the draft.
  */
 
-/** Idle time before the draft saves itself. Blur, 请印记看看 and 完成这篇 all
+/** Idle time before the draft saves itself. Blur, AI审阅 and 完成这篇 all
  *  flush immediately, so this only covers the case that used to lose work: a
  *  long stretch of typing with no blur in it. */
 const AUTOSAVE_MS = 1500;
@@ -188,7 +188,7 @@ export function ComposeStage({
       })
       .catch(() => {
         // A missing comment history is not worth an error banner on arrival —
-        // the page is fully usable without it, and 请印记看看 still reports
+        // the page is fully usable without it, and AI审阅 still reports
         // its own failures.
       });
     return () => {
@@ -229,7 +229,7 @@ export function ComposeStage({
     }
   }
 
-  /** Answers whether the server now holds `next` — 请印记看看 and 完成这篇
+  /** Answers whether the server now holds `next` — AI审阅 and 完成这篇
    *  both stop on `false` rather than acting on text that never landed. */
   async function save(next: string): Promise<boolean> {
     if (next === savedRef.current) return true;
@@ -509,7 +509,7 @@ export function ComposeStage({
             disabled={!body.trim()}
             iconStart={<Icon icon={MessageSquareText} size={14} />}
           >
-            请印记看看
+            AI审阅
           </Button>
           <Button
             size="sm"
@@ -599,9 +599,9 @@ export function ComposeStage({
               没有审阅过的时候，在右栏把这一步摆出来。 */}
           {!comment && body.trim() !== "" && (
             <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-3">
-              <p className="text-mk-small font-semibold text-mk-ink">提交前建议先请印记通读</p>
+              <p className="text-mk-small font-semibold text-mk-ink">提交前建议先做一次AI审阅</p>
               <p className="mt-1 text-mk-small text-mk-muted">
-                印记会通读全文，先指出最需要修改的一两处，并说明怎么改；改完后可以再请印记看。
+                印记会通读全文，先指出最需要修改的一两处，并说明怎么改；改完后可以再审阅一次。
               </p>
               <Button
                 className="mt-2"

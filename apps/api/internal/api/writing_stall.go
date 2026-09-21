@@ -22,7 +22,7 @@ import (
 // # 🚨 这条在 R4 之前只做了一半
 //
 // `writingPlanStalled` 只接在**立题**那条路上（writing_plan.go）。
-// 段落陪练（writing_guide.go）和请印记看一看（writing_comment.go）两条路上
+// 段落陪练（writing_guide.go）和 AI审阅（writing_comment.go）两条路上
 // 一个都没有 —— 也就是她在写段落时卡住，产品会用同一句话问她第三遍。
 // R4 把它补齐。
 //

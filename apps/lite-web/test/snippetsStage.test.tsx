@@ -373,7 +373,7 @@ describe("B3 — 深入一层 opens the SAME 印记, never a second character", 
 });
 
 /**
- * B4 at paragraph zoom — 请印记看看这一段.
+ * B4 at paragraph zoom — AI审阅这一段.
  *
  * The endpoint (Task 5) and the renderer (Task 10) both existed; the button
  * belonged to neither task brief, so 段落 had no way to reach either.
@@ -404,7 +404,7 @@ const OUTLINE_O1: WritingOutlineItem[] = [
   { id: "o1", text: "种树不便宜", role: "中心论点", depth: 0, position: 0, guide: GUIDE },
 ];
 
-describe("B4 — 请印记看看这一段", () => {
+describe("B4 — AI审阅这一段", () => {
   it("comments on this paragraph and renders it through the shared CommentPanel", async () => {
     stubFetch((method, url) => {
       if (method === "POST" && url === `/api/v1/writings/${WID}/snippets/s1/comment`) {
@@ -415,7 +415,7 @@ describe("B4 — 请印记看看这一段", () => {
 
     render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
     openCard("开头");
-    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+    fireEvent.click(screen.getByRole("button", { name: /AI审阅这一段/ }));
 
     expect(await screen.findByText("理由说清楚了，但没说是谁的钱。")).toBeTruthy();
     expect(screen.getByText("这句只说了结果，没说原因。")).toBeTruthy();
@@ -439,7 +439,7 @@ describe("B4 — 请印记看看这一段", () => {
     fireEvent.change(screen.getByDisplayValue(PARAGRAPH), {
       target: { value: `${PARAGRAPH}还得有人天天浇。` },
     });
-    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+    fireEvent.click(screen.getByRole("button", { name: /AI审阅这一段/ }));
 
     await screen.findByText("理由说清楚了，但没说是谁的钱。");
     // Order matters: commenting on a stale save would anchor every point to
@@ -455,7 +455,7 @@ describe("B4 — 请印记看看这一段", () => {
     stubFetch(() => undefined);
 
     render(<Harness outline={OUTLINE_O1} initialSnippets={[empty]} />);
-    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+    fireEvent.click(screen.getByRole("button", { name: /AI审阅这一段/ }));
 
     expect(await screen.findByText(/这一段还没有内容/)).toBeTruthy();
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/comment"))).toBe(false));
