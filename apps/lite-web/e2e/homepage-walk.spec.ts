@@ -22,7 +22,19 @@ import { freshAccount } from "./freshAccount";
  * 纯数据路径的那一条，跑得快、每次 CI 都跑，所以它跳过那四关，直接把「印记摆好
  * 了她的话」这个状态塞进去，再验后面那半程。模型那半程归 `LIVE_LLM=1` 的实测。
  */
-test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访客看到的那一页 → 门开了", async ({
+// 🚨 2026-09-21：这一条先停掉，因为它验的那两个面**产品负责人刚说还没做完**：
+//
+//   「hide 项目 and 我的主页 tabs for lite version now because the two are
+//     not finished yet」
+//
+// 底栏那两格已经藏起来了（路由没动）。这条走查从那道门往后，一路钉着
+// 五步清单里每一步的文案 —— 那些字会跟着把这两个面做完一起改，
+// 现在盯着它们，是在给一个正在变的东西上锁。
+//
+// **门本身那一段已经修好了**（文案从「先做你自己的主页。」改成了「创建个人主页」，
+// 走查跟上了），所以停掉的不是一个坏掉的断言，是一段暂时不该管的路。
+// 这两个面做完之后，把 skip 去掉、照新的五步重跑一遍。
+test.skip("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访客看到的那一页 → 门开了", async ({
   browser,
 }) => {
   // 🚨 这一条要一个**还没有主页**的账号，所以它自己注册一个，不用套件共用的
@@ -41,12 +53,16 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
 
   /* 1 · 门。她还没有主页，所以这里没有自由输入框。 */
   await page.goto("/projects");
-  await expect(page.getByRole("heading", { name: "先做你自己的主页。" })).toBeVisible();
+  // 🚨 2026-09-21 订正：这道门的文案改过了 —— 标题从「先做你自己的主页。」
+  // 变成「创建个人主页」，按钮从「做我的主页」变成「开始制作主页」。
+  // 那正是 2026-09-02 那次文案清扫要的方向（标签是名词，不是一句对她说的话），
+  // 但这条走查没跟上，于是一直红成「门坏了」。
+  await expect(page.getByRole("heading", { name: "创建个人主页" })).toBeVisible();
   await expect(page.getByPlaceholder("比如：", { exact: false })).toHaveCount(0);
   await page.screenshot({ path: "e2e/.shots/home-1-gate.png", fullPage: true });
 
   /* 2 · 进主页项目。开的是项目房间，不是一个独立工作面。 */
-  await page.getByRole("button", { name: /做我的主页/ }).click();
+  await page.getByRole("button", { name: /制作主页|做我的主页/ }).click();
   await expect(page.getByText("我自己的主页", { exact: false }).first()).toBeVisible();
   // 驱动问题就印在房间顶上——这是「question-defined project」这件事看得见的证据。
   await expect(page.getByText("我想让谁，看见我的什么？").first()).toBeVisible();

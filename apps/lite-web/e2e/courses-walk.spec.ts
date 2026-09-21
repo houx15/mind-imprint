@@ -25,6 +25,11 @@ const IDEA = "我想给我们班做一个查作业的小网页，但我不会写
 // 种子里的 2.0 运行时课程（apps/api/internal/store/seed/courses/coverage-course.json）。
 const COURSE_SLUG = "evidence-comparability";
 
+// 🚨 接口在**另一台**机器上（mind-api）。`page.request` 的相对路径会打到静态站
+// 上去，回一段 HTML，`.json()` 当场抛 —— 这条走查的第二个用例因此在线上
+// 从来没跑通过（973ms 就挂）。见 [[online-e2e-two-hosts-2026-09-04]]。
+const API = (process.env.E2E_API_BASE ?? "").replace(/\/+$/, "");
+
 const PG_CONTAINER = process.env.E2E_PG_CONTAINER ?? "mindimprint-lite-e2e-pg";
 
 /** 往库里插一条课程指派 —— 印记 produce("course") 落的就是这一行。 */
@@ -46,7 +51,7 @@ async function makeProject(page: Page): Promise<string> {
   await page.goto("/projects");
   await openSiteGate(page);
 
-  const all = await (await page.request.get("/api/v1/pbl/projects")).json();
+  const all = await (await page.request.get(`${API}/api/v1/pbl/projects`)).json();
   const existing = Array.isArray(all)
     ? all.filter((p: { kind?: string }) => p.kind !== "website")
     : [];
@@ -67,11 +72,17 @@ async function makeProject(page: Page): Promise<string> {
 
 test("课程: 轻量版看得见课程库", async ({ page }) => {
   await page.goto("/courses");
-  // 目录是一次请求，卡片要真的画出来 —— 不是一句「加载中」。课程名在卡片上是
-  // 文字，卡上的按钮叫「开始学习」，所以按文字找。
-  await expect(page.getByText("CRRAAB 信源评估", { exact: false }).first())
+  // 目录是一次请求，卡片要真的画出来 —— 不是一句「加载中」。
+  //
+  // 🚨 2026-09-21 订正：这里原来钉着「CRRAAB 信源评估」这一门课的名字。
+  // 那是**库里的一行种子数据**，不是仓库里的内容 —— 课程库会增删，
+  // 而且一门课给不给轻量版看由 `course.audience` 决定（AGENTS.md）。
+  // 它哪天改了受众或换了名字，这条走查就报「轻量版看不见课程库」，
+  // 而其实课程库好好的。这一族从那之后就一直红着。
+  //
+  // 要守的是「轻量版真的看得见课程库、而且点得进去」，所以钉那件事本身。
+  await expect(page.getByRole("button", { name: "开始学习" }).first())
     .toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "开始学习" }).first()).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/courses-catalog.png", fullPage: true });
 
   // 点开一门：URL 要变成 /courses/:slug，刷新之后还在同一门课上。
@@ -81,9 +92,30 @@ test("课程: 轻量版看得见课程库", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/courses-detail.png", fullPage: true });
 });
 
+/** 本地那台一次性 Postgres 在不在。 */
+function hasLocalPg(): boolean {
+  try {
+    const out = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { stdio: "pipe" })
+      .toString();
+    return out.split("\n").some((n) => n.trim() === PG_CONTAINER);
+  } catch {
+    return false;
+  }
+}
+
 test("课程: 项目里印记递一课，上完写回对话", async ({ page }) => {
+  // 🚨 这一条**结构上只能在本地那套栈上跑**：它要往库里插一行课程指派，
+  // 而那一行只有印记的 produce("course") 会写，**没有对外的 POST**
+  //（那是对的 —— 一门课该不该上是印记的判断，不是一个前端按钮）。
+  // 所以它靠 `docker exec … psql` 直接插，打线上的时候那个容器根本不存在，
+  // 报的是「No such container」，读起来像课程闭环坏了。
+  //
+  // 跳过而不是让它红：红着的走查会把真的问题盖住，而这一条在本地
+  // （run-stack.sh）跑起来照样是绿的、照样在守那个闭环。
+  test.skip(!hasLocalPg(), `要本地那台 ${PG_CONTAINER} 才跑得了：这一条要直接往库里插一行课程指派`);
+
   const id = await makeProject(page);
-  const api = `/api/v1/pbl/projects/${id}`;
+  const api = `${API}/api/v1/pbl/projects/${id}`;
 
   // 指派这一行只有印记的 produce("course") 会写，没有对外的 POST —— 那是对的
   // （一门课该不该上是印记的判断，不是一个前端按钮）。这条 walk 要看的是它之后
