@@ -52,13 +52,15 @@ const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 
-// The greeting is split across elements — 读 is its own <span> so the ink ring
-// can be drawn behind it — so it is matched on the heading's textContent, not
-// with a text selector over the whole phrase.
+// 🚨 2026-09-21 订正：这里钉的原来是「Hi，今天要读点什么」，而 8a1fd0be
+// （2026-09-14，三个入口页统一换成 LandingHeader）把标题改成了「阅读」。
+// 这一族从那天起就一直是红的 —— 线上走查只在有人手动跑的时候才说话。
+// 写作那三条当天已经照这条改过；阅读这一族没跑，所以漏了。
+// 钉标题本身而不是问候语：问候语是会改的文案，标题是这一页叫什么。
 async function expectGreeting(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toBeVisible();
-  expect(await heading.textContent()).toBe("Hi，今天要读点什么");
+  expect(await heading.textContent()).toBe("阅读");
 }
 
 /** Paste an article on the landing page and land in its room. Returns the id. */

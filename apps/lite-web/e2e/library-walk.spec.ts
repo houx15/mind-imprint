@@ -1,6 +1,9 @@
 import { test, expect, type Locator } from "@playwright/test";
 import { freshAccount } from "./freshAccount";
 
+/** 分级阅读库一页几篇。和 ReadingLibraryPage 的 LIBRARY_PAGE_SIZE 一致。 */
+const LIBRARY_PAGE_SIZE = 12;
+
 /**
  * 分级阅读库的走查 —— 从「不知道读什么」到一篇带照片的文章。
  *
@@ -57,23 +60,29 @@ test.describe("分级阅读", () => {
     await page.getByRole("button", { name: /查看全部 \d+ 篇/ }).click();
     await expect(page).toHaveURL(/\/readings\/library$/);
     await expect(page.getByRole("heading", { name: "分级阅读" })).toBeVisible();
-    await expect(page.locator("article")).toHaveCount(20);
+    // 🚨 这里原来钉的是 `toHaveCount(20)` —— 库只有二十篇的那会儿。
+    // 库现在是 48 篇，所以这条**在这次改动之前就已经是红的**
+    // （又一次：[[inserting-a-step-rots-every-older-walk-2026-09-21]]）。
+    // 2026-09-21 这一页又加了页码条，所以钉的换成两件不会随库大小改变的事：
+    // 第一页满页，总数在页面上说得出来。
+    await expect(page.locator("article")).toHaveCount(LIBRARY_PAGE_SIZE);
+    await expect(page.getByRole("navigation", { name: "分页" })).toBeVisible();
     await testInfo.attach("library.png", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 
     // 搜索：打一个学科名，列表应该只剩挂着它的那几篇。
     await page.getByPlaceholder("搜索标题、话题或学科").fill("天文");
-    await expect(page.locator("article")).not.toHaveCount(20);
     const found = await page.locator("article").count();
     expect(found).toBeGreaterThan(0);
+    expect(found, "搜一个学科名之后还是满满一页，等于没筛").toBeLessThan(LIBRARY_PAGE_SIZE);
     await page.getByPlaceholder("搜索标题、话题或学科").fill("");
 
     // 按主枝筛。
     await page.getByRole("button", { name: "科学与自然" }).click();
     const science = await page.locator("article").count();
     expect(science).toBeGreaterThan(0);
-    expect(science).toBeLessThan(20);
+    expect(science).toBeLessThanOrEqual(LIBRARY_PAGE_SIZE);
     await page.getByRole("button", { name: "全部学科" }).click();
-    await expect(page.locator("article")).toHaveCount(20);
+    await expect(page.locator("article")).toHaveCount(LIBRARY_PAGE_SIZE);
 
     // 「默认难度」这一排要真的改到卡片上。走查第一遍发现按钮亮了、卡片上的字
     // 一个都没动 —— 卡片的选中档是 useState 的初始值，不换 key 就不会重读。
@@ -95,7 +104,16 @@ test.describe("分级阅读", () => {
     // 阅读室里：正文有段落，题图在正文之前，图注带署名。
     const figures = page.locator("figure.mk-reading-figure");
     await expect(figures.first()).toBeVisible();
-    await expect(figures.first().locator("figcaption")).toContainText(/Photo:|Graphic:|Map:|Photos:/);
+    // 🚨 这个表要跟着库走。库里实际有八种标记词（Photo: 468、
+    // Photo credit: 50、Map: 15、Graphic: 15、Photos: 10、Image: 5、
+    // Illustration: 5、Art: 5），而这里原来只认四种 —— 新一批文章进来之后
+    // 它就红了，**在这次改动之前**。
+    //
+    // 要守的是「读者分得出自己在看照片还是看图表」，所以认的是「某某：」
+    // 这个形状，不是某几个具体的词。
+    await expect(figures.first().locator("figcaption")).toContainText(
+      /(Photo|Photos|Photo credit|Graphic|Map|Image|Illustration|Art):/,
+    );
     await figures.last().scrollIntoViewIfNeeded();
     const roomFigures = page.locator("figure.mk-reading-figure");
     await expect
@@ -112,9 +130,22 @@ test.describe("分级阅读", () => {
     // 回到书架，这一篇停在**她打开的那一档**上，按钮是「继续读」。第一遍走查
     // 时它显示的是「读这一篇」—— 点下去会开出同一篇文章的第二条阅读记录。
     await page.goto("/readings/library");
+    // 🚨 书架现在是分页的（一页 12 篇，共 48 篇），所以**不能假设她那一篇
+    // 还在第一页**。先搜出来再断言 —— 这正是搜索框存在的理由，
+    // 也正是「她回头找刚才那一篇」的真实走法。
+    await page.getByPlaceholder("搜索标题、话题或学科").fill(zhTitle);
     const opened = page.locator("article", { hasText: zhTitle });
-    await expect(opened.getByRole("button", { name: "继续读" })).toBeVisible();
-    await expect(opened.getByText(/原文 · \d+ 词/)).toBeVisible();
+    await expect(opened).toHaveCount(1);
+    // 🚨 她开着的那一档现在写在**按钮**上（「继续读你开着的那一档 · 原文」），
+    // 不在卡片那行元信息里 —— 那一行显示的是「阅读难度」筛选器选中的档。
+    // 这条原来钉的是那行元信息，在这次改动之前就已经对不上了。
+    //
+    // 要守的不变量没变：卡片记得她打开的是哪一档，所以按钮是「继续读」
+    // 而不是「读这一篇」——第一遍走查时它显示「读这一篇」，点下去会开出
+    // 同一篇文章的第二条阅读记录。
+    const resume = opened.getByRole("button", { name: "继续读" });
+    await expect(resume).toBeVisible();
+    await expect(resume).toContainText("原文");
 
     await ctx.close();
   });
