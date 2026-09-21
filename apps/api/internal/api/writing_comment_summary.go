@@ -127,8 +127,40 @@ func (a *API) collectWritingComment(
 	}
 	parsed, ok := parseWritingComment(res.Text)
 	if !ok {
-		slog.Warn("writing comment: reply unparseable or empty summary", logArgs...)
-		return writingCommentResult{}, false
+		// 🚨 **读不出来就再要一次。** 这一条 2026-09-21 补：
+		// `writing_plan.go` 早就在解析失败时重问一次了，这条路却是直接报错返回 ——
+		// 同一个毛病的两条路，一条兜住了，另一条没有。
+		//
+		// 线上真的撞到过：通篇审阅那一次回来读不出来（scope=draft），
+		// 她按下「AI审阅」，等了半分钟，拿到一句「后台错误」。
+		// 而这一类坏法（字符串里一个没转义的引号、数组收错括号、
+		// 干脆没装进 JSON）和她写了什么无关，换一次采样几乎总能过；
+		// 这一轮的钱又已经花掉了。
+		//
+		// 一次，不是三次：她正同步等着。第二次还坏就老实报错 ——
+		// 那时候是真的没有东西可给（[[ai-errors-must-surface-never-fake]]）。
+		slog.Warn("writing comment: reply unparseable, retrying once",
+			append(logArgs, "reply_bytes", len(res.Text), "stop_reason", res.StopReason,
+				"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 220))...)
+		res1, cerr1 := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: append(msgs, gateway.ChatMessage{
+				Role: gateway.RoleUser, Content: writingCommentUnparseableNudge,
+			}),
+		})
+		a.recordLiteLLMCall(ctx, userID, atomID, purpose, resolved, res1.Usage)
+		if cerr1 != nil {
+			slog.Warn("writing comment: retry provider call failed", append(logArgs, "err", cerr1)...)
+			return writingCommentResult{}, false
+		}
+		parsed, ok = parseWritingComment(res1.Text)
+		if !ok {
+			slog.Warn("writing comment: retry also unparseable",
+				append(logArgs, "reply_bytes", len(res1.Text), "stop_reason", res1.StopReason,
+					"reply_head", headRunes(res1.Text, 220), "reply_tail", tailRunes(res1.Text, 220))...)
+			return writingCommentResult{}, false
+		}
+		slog.Info("writing comment: retry parsed fine", logArgs...)
+		res = res1
 	}
 
 	// 🚨 查她真的会看到的那几条，不是模型原样回的那份。见 writingCommentDeliver。
@@ -229,3 +261,14 @@ func writingCommentProblem(parsed writingCommentResult, delivered []CommentPoint
 	}
 	return "", ""
 }
+
+// writingCommentUnparseableNudge —— 上一份读不出来的时候，重问那一轮说的话。
+//
+// 照这个文件一贯的做法：指出犯的是哪一处，不把整条规矩再念一遍
+// （念规矩它上一轮已经读过了）。
+const writingCommentUnparseableNudge = `刚才那一份我读不出来 —— 它不是一个能解析的 JSON 对象。
+
+请**只输出那一个 JSON 对象**：不要围栏、不要在前面或后面加解释、
+不要先写一份再写第二份。字符串里的引号要转义，数组和对象的括号要配对。
+
+内容按上面的要求重新给一次。`
