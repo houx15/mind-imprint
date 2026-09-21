@@ -76,6 +76,13 @@ func TestWritingHostileTone_LeavesOrdinaryCriticismAlone(t *testing.T) {
 			Kind: "good",
 			Text: "摸了五次手机、每次十几分钟，有次数有时长，读者一读就能看见那个场景。",
 		}}},
+		// 🚨 2026-09-21 走查里印记真写过这一句。「明明白白」是正常副词，
+		// 收了它就要为一句好话白跑一次重问，而且重问还会让它把好话改掉。
+		{Points: []CommentPoint{{
+			Kind:   "issue",
+			Text:   "这条分论点里没有出现「变笨」的意思，读者读到那段会看不出它在证哪句话。",
+			Action: "把这句换个说法，让它明明白白是在说短视频让人变笨。",
+		}}},
 	}
 	for _, res := range fine {
 		if got := writingHostileTone(res); got != "" {
