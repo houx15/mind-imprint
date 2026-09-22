@@ -7,7 +7,9 @@ import { beforeNavigate } from "../routing";
 import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { Says, errorMarkdown } from "../projects/Says";
 import { Showcase } from "../site/Showcase";
-import { SHOWCASE_THEMES } from "../site/showcaseThemes";
+import { ShowcaseImagePicker } from "./ShowcaseImagePicker";
+import { SHOWCASE_PRESETS, SHOWCASE_ILLUSTRATIONS } from "../site/showcasePresets";
+import { SHOWCASE_THEMES, SHOWCASE_FONT_STACKS } from "../site/showcaseThemes";
 import type { ShowcaseConfig, ShowcaseWork } from "../site/showcaseTypes";
 import "./showcaseEditor.css";
 import { parseShowcaseInterests } from "./showcaseDraft";
@@ -40,8 +42,10 @@ export function MySitePage() {
   const [notice, setNotice] = useState("");
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const busyRef = useRef(false);
-  const [tab, setTab] = useState<"profile" | "design" | "works">("design");
+  const [tab, setTab] = useState<"profile" | "design" | "hero" | "works">("design");
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [narrow, setNarrow] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -50,7 +54,8 @@ export function MySitePage() {
   const dirty = !!state && !!effectiveDraft && JSON.stringify(effectiveDraft) !== JSON.stringify(state.draft);
 
   function accept(next: ShowcaseState) {
-    setState(next); setDraft(next.draft); setInterestText(next.draft.interests.join("、"));
+    setState(next); setDraft(next.draft);
+    setImageUrls(current => ({...current, ...(next.draft.heroImageKey && next.heroImageUrl ? {[next.draft.heroImageKey]:next.heroImageUrl}:{}), ...(next.draft.avatarKey && next.avatarUrl ? {[next.draft.avatarKey]:next.avatarUrl}:{})})); setInterestText(next.draft.interests.join("、"));
   }
   useEffect(() => {
     let cancelled = false;
@@ -61,18 +66,18 @@ export function MySitePage() {
     return () => { cancelled = true; };
   }, [attempt]);
   useEffect(() => {
-    if (!dirty && !busy) return;
+    if (!dirty && !busy && !imageBusy) return;
     const remove = beforeNavigate(async () => {
-      setError(busy ? "正在保存，请稍后离开。" : "修改尚未保存，请保存草稿或撤销修改后离开。");
+      setError(busy || imageBusy ? "正在处理，请稍后离开。" : "修改尚未保存，请保存草稿或撤销修改后离开。");
       throw new Error("showcase editor pending");
     });
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener("beforeunload", warn);
     return () => { remove(); window.removeEventListener("beforeunload", warn); };
-  }, [dirty, busy]);
+  }, [dirty, busy, imageBusy]);
 
   async function action(kind: "save" | "publish" | "revoke") {
-    if (!state || !effectiveDraft || busyRef.current) return;
+    if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
     if (kind !== "revoke" && interestInput.error) { setError(interestInput.error); setTab("profile"); return; }
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
@@ -118,34 +123,47 @@ export function MySitePage() {
       <div><p className="showcase-eyebrow">个人展示</p><h1>我的主页</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published ? state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "已发布" : "仅自己可见"}</p></div>
       <div className="showcase-actions">
         {state.url && (state.published || state.hasLegacySite) && <a href={state.url} target="_blank" rel="noreferrer">查看公开页<ExternalLink size={14} /></a>}
-        <button disabled={busy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
-        <button className="showcase-primary" disabled={busy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
+        <button disabled={busy || imageBusy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
+        <button className="showcase-primary" disabled={busy || imageBusy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
       </div>
     </header>
     {(error || notice) && <div className={`showcase-feedback ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}>{error ? <Says content={errorMarkdown(error)} /> : <><Check size={16} />{notice}</>}</div>}
-    {conflict && <div className="showcase-feedback"><span>当前修改已保留。</span><button className="underline" disabled={busy} onClick={() => {setAttempt(n => n + 1); setNotice("");}}>放弃本地修改，读取最新版本</button></div>}
+    {conflict && <div className="showcase-feedback"><span>当前修改已保留。</span><button className="underline" disabled={busy || imageBusy} onClick={() => {setAttempt(n => n + 1); setNotice("");}}>放弃本地修改，读取最新版本</button></div>}
     <div className="showcase-mobile-switch" aria-label="编辑或预览">{(["edit", "preview"] as const).map(v => <button key={v} aria-pressed={mobileView === v} onClick={() => setMobileView(v)}>{v === "edit" ? "编辑主页" : "查看预览"}</button>)}</div>
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
-        <nav className="showcase-tabs" aria-label="主页设置">{([["design", "风格"], ["profile", "介绍"], ["works", "作品"]] as const).map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
-        <fieldset disabled={busy} className="showcase-fields">
+        <nav className="showcase-tabs" aria-label="主页设置">{([["design", "风格"], ["hero", "开场"], ["profile", "介绍"], ["works", "作品"]] as const).map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
+        <fieldset disabled={busy || imageBusy} className="showcase-fields">
           {tab === "design" && <>
-            <div className="showcase-heading"><h2>选择喜欢的样子</h2><p>版式、色调和字体可以自由组合。</p></div>
+            <div className="showcase-heading"><h2>选择喜欢的样子</h2><p>从一套视觉方案开始，再调整配图、字体和版式。</p></div>
+            <div className="showcase-presets">{SHOWCASE_PRESETS.map(preset => {
+              const art = SHOWCASE_ILLUSTRATIONS.find(item => item.id === preset.config.illustration);
+              return <button key={preset.id} className={`showcase-preset preset-${preset.id}`} aria-pressed={(draft.style ?? "classic") === preset.id} onClick={() => patch({...preset.config, heroImageKey:""})}><span className="showcase-preset-art">{art?.src ? <img src={art.src} alt="" loading="lazy" /> : <span>Aa<br />留白</span>}</span><strong>{preset.name}</strong><small>{preset.description}</small></button>;
+            })}</div>
             <div className="showcase-field-group"><h3>版式</h3><div className="showcase-layouts">{layouts.map(layout => <button key={layout.id} className={`showcase-layout ${draft.layout === layout.id ? "is-selected" : ""}`} aria-pressed={draft.layout === layout.id} onClick={() => patch({ layout: layout.id })}><span className={`showcase-layout-sketch sketch-${layout.id}`} aria-hidden="true"><i /><span>{layout.lines.map((w, i) => <b key={i} style={{ width: `${w}%` }} />)}</span></span><span><strong>{layout.label}</strong><small>{layout.detail}</small></span>{draft.layout === layout.id && <Check size={15} />}</button>)}</div></div>
             <div className="showcase-field-group"><h3>色调</h3><div className="showcase-palette-grid">{palettes.map(palette => <button key={palette.id} aria-pressed={draft.palette === palette.id} className={draft.palette === palette.id ? "is-selected" : ""} onClick={() => patch({ palette: palette.id })}><span className="showcase-swatches" aria-hidden="true">{[SHOWCASE_THEMES[palette.id].paper, SHOWCASE_THEMES[palette.id].ink, SHOWCASE_THEMES[palette.id].accent].map(color => <i key={color} style={{ background: color }} />)}</span>{palette.label}{draft.palette === palette.id && <Check size={12} />}</button>)}</div></div>
-            <div className="showcase-field-group"><h3>字体</h3><div className="showcase-segments">{([["sans", "清晰"], ["serif", "书卷"], ["mono", "等宽"]] as const).map(([id, label]) => <button key={id} aria-pressed={draft.font === id} onClick={() => patch({ font: id })}>{label}</button>)}</div></div>
-            <div className="showcase-field-group"><h3>写作展示</h3><div className="showcase-segments">{([["cards", "文章卡片"], ["list", "文章列表"]] as const).map(([id, label]) => <button key={id} aria-pressed={draft.writingStyle === id} onClick={() => patch({ writingStyle: id })}>{label}</button>)}</div></div>
-            <div className="showcase-field-group"><h3>阅读展示</h3><div className="showcase-segments">{([["shelf", "阅读书架"], ["list", "阅读列表"]] as const).map(([id, label]) => <button key={id} aria-pressed={draft.readingStyle === id} onClick={() => patch({ readingStyle: id })}>{label}</button>)}</div></div>
+            <div className="showcase-field-group"><h3>字体</h3><div className="showcase-font-grid">{([["sans", "清晰"], ["serif", "书卷"], ["mono", "等宽"], ["rounded", "快乐体"], ["handwritten", "手写体"], ["display", "黄油体"]] as const).map(([id, label]) => <button key={id} style={{fontFamily:SHOWCASE_FONT_STACKS[id]}} aria-pressed={draft.font === id} onClick={() => patch({ font: id })}>{label}</button>)}</div></div>
+          </>}
+          {tab === "hero" && <>
+            <div className="showcase-heading"><h2>欢迎来到你的空间</h2><p>全屏开场之后，访客可以继续查看个人介绍和作品。</p></div>
+            <label className="showcase-field">开场标题<GrowingTextarea value={draft.heroTitle ?? ""} maxLength={200} onChange={e => patch({heroTitle:e.target.value})} placeholder={`欢迎来到${draft.name || "我的"}的空间`} /></label>
+            <label className="showcase-field">开场介绍<GrowingTextarea value={draft.tagline} maxLength={200} onChange={e => patch({tagline:e.target.value})} placeholder="请写下想对访客说的话。" /></label>
+            <div className="showcase-field-group"><h3>开场配图</h3><div className="showcase-art-options">{SHOWCASE_ILLUSTRATIONS.map(art => <button key={art.id} aria-pressed={!draft.heroImageKey && (draft.illustration ?? "none") === art.id} onClick={() => patch({illustration:art.id,heroImageKey:""})}>{art.src ? <img src={art.src} alt="" loading="lazy" /> : <span>留白</span>}<small>{art.name}</small></button>)}</div></div>
+            <div className="showcase-field-group"><h3>自定义图片</h3><ShowcaseImagePicker purpose="hero" currentUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url) => {if(key)setImageUrls(current=>({...current,[key]:url})); patch({heroImageKey:key});}} /></div>
           </>}
           {tab === "profile" && <>
             <div className="showcase-heading"><h2>关于你</h2><p>请填写愿意在主页上公开的介绍。</p></div>
-            <label className="showcase-field">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>
-            <label className="showcase-field">开场介绍<GrowingTextarea value={draft.tagline} maxLength={200} onChange={e => patch({ tagline: e.target.value })} placeholder="例如：喜欢科幻，也喜欢把想象做成小作品。" /></label>
+            <div className="showcase-field-group"><h3>介绍版式</h3><div className="showcase-segments">{([["classic","名字与简介"],["orbit","照片与关键词"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.aboutLayout??"classic")===id} onClick={()=>patch({aboutLayout:id})}>{label}</button>)}</div></div>
+            <label className="showcase-field mt-6">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>
+
             <label className="showcase-field">个人简介<GrowingTextarea value={draft.bio} maxLength={2000} rows={4} onChange={e => patch({ bio: e.target.value })} placeholder="请介绍你的兴趣、正在探索的事情，或想分享的经历。" /></label>
             <label className="showcase-field">兴趣关键词<input value={interestText} onChange={e => {setInterestText(e.target.value); setNotice("");}} maxLength={500} placeholder="动漫、科幻、植物、摄影" /><small>用顿号或逗号分隔，最多 12 个。已填写 {interestInput.interests.length} 个。</small>{interestInput.error && <small role="alert" className="showcase-field-error">{interestInput.error}</small>}</label>
+            <div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
           </>}
           {tab === "works" && <>
             <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目仅展示名称与简介。</p></div>
+            <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
+            {(draft.portfolioLayout??"sections")==="sections" && <><div className="showcase-field-group"><h3>写作展示</h3><div className="showcase-segments">{([["cards","文章卡片"],["list","文章列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.writingStyle===id} onClick={()=>patch({writingStyle:id})}>{label}</button>)}</div></div><div className="showcase-field-group"><h3>阅读展示</h3><div className="showcase-segments">{([["shelf","阅读书架"],["list","阅读列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.readingStyle===id} onClick={()=>patch({readingStyle:id})}>{label}</button>)}</div></div></>}
             {unavailableIds.length > 0 && <div className="showcase-editor-empty"><p>{unavailableIds.length} 件已选作品已停止发布或暂不可用，不会在主页展示。</p><button className="underline mt-2" onClick={() => patch({selectedWorkIds: draft.selectedWorkIds.filter(id => !unavailableIds.includes(id))})}>移除不可用作品</button></div>}
             {draft.sectionOrder.map((kind, index) => {
               const works = state.availableWorks.filter(w => w.kind === kind).sort((a, b) => {
@@ -165,13 +183,13 @@ export function MySitePage() {
           {state.hasLegacySite && <p>原主页仍在公开展示。发布当前版本后，将使用这里的版式与内容；原项目记录保留。</p>}
           <p>保存草稿仅自己可见。发布后，持有链接的人可以查看主页；只展示你勾选的作品。</p>
           {!canPublish && <p>发布需要展示名称，以及开场介绍或个人简介。</p>}
-          {dirty && <button disabled={busy} onClick={() => {accept(state); setError(""); setNotice("修改已撤销");}}>撤销未保存的修改</button>}
-          {(state.published || state.hasLegacySite) && <div className="showcase-link-actions"><button disabled={busy} onClick={() => void navigator.clipboard.writeText(state.url).then(() => setNotice("公开链接已复制")).catch(() => setError("复制失败，请从公开页面复制地址"))}><Copy size={14} />复制链接</button><button disabled={busy} onClick={() => void action("revoke")}>停止发布</button></div>}
+          {dirty && <button disabled={busy || imageBusy} onClick={() => {accept(state); setError(""); setNotice("修改已撤销");}}>撤销未保存的修改</button>}
+          {(state.published || state.hasLegacySite) && <div className="showcase-link-actions"><button disabled={busy || imageBusy} onClick={() => void navigator.clipboard.writeText(state.url).then(() => setNotice("公开链接已复制")).catch(() => setError("复制失败，请从公开页面复制地址"))}><Copy size={14} />复制链接</button><button disabled={busy || imageBusy} onClick={() => void action("revoke")}>停止发布</button></div>}
         </div>
       </aside>
       <section className="showcase-preview-area" aria-label="主页预览">
         <div className="showcase-preview-toolbar"><span><i />实时预览</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{picked.length} 件作品</span></div>
-        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={state.availableWorks} narrow={narrow || undefined} editing /></div>
+        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={state.availableWorks} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>
       </section>
     </div>
   </div>;

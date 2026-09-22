@@ -100,7 +100,7 @@ export interface PublishedWork {
 export function getPublicSite(
   token: string,
 ): Promise<
-  | {showcase: true; config: ShowcaseConfig; works: ShowcaseWork[]}
+  | {showcase: true; config: ShowcaseConfig; works: ShowcaseWork[]; heroImageUrl?:string; avatarUrl?:string}
   | {generated: true; renderKey: string; comparison?: {feedback:string;observation:string}|null; works?: PublishedWork[]}
   | {generated?: false; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works?: PublishedWork[] }
 > {
