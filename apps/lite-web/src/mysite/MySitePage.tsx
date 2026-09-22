@@ -179,7 +179,7 @@ export function MySitePage() {
           </div></div>
           {tab === "components" && <ShowcaseComponentEditor components={draft.components??[]} disabled={busy||imageBusy} onChange={components=>patch({components})}/>}
           {tab === "works" && <>
-            <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目仅展示名称与简介。</p></div>
+            <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目可展示名称、简介和外部作品链接。</p></div>
             <label className="showcase-field">首页展示数量<select value={draft.homeWorkLimit??6} onChange={e=>patch({homeWorkLimit:Number(e.target.value)})}>{[3,6,9,12].map(n=><option key={n} value={n}>{n} 件</option>)}</select><small>勾选的全部作品可在“全部作品”页查看。</small></label>
             <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>patch({customWorks,selectedWorkIds:draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id))})}/>
             <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
