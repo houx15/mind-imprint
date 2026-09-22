@@ -56,7 +56,7 @@ describe("showcase publication boundaries", () => {
 });
 
 describe("showcase visual presets", () => {
-  it("change only visual fields and reference known local illustrations", () => {
+  it("change only visual fields and reference known public CDN illustrations", () => {
     const protectedFields = ["name", "bio", "tagline", "heroTitle", "interests", "selectedWorkIds", "sectionOrder", "avatarKey", "heroImageKey"];
     const illustrationIds = new Set(SHOWCASE_ILLUSTRATIONS.map((item) => item.id));
     expect(SHOWCASE_PRESETS).toHaveLength(5);
@@ -65,7 +65,7 @@ describe("showcase visual presets", () => {
       expect(illustrationIds.has(preset.config.illustration ?? "none")).toBe(true);
     }
     for (const illustration of SHOWCASE_ILLUSTRATIONS) {
-      if (illustration.src) expect(illustration.src).toMatch(/^\/images\/showcase\/[a-z]+\.webp$/);
+      if (illustration.src) expect(illustration.src).toMatch(/^https:\/\/mind-assets\.uni-robot\.cn\/showcase\/system\/2026-09-22\/[a-z]+\.webp$/);
     }
   });
 });
