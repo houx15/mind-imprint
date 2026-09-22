@@ -109,6 +109,42 @@ func seedApprovedPlan(t *testing.T, h http.Handler, c *http.Cookie) string {
 	return pid
 }
 
+func TestPblStepSubmission_RequiresConfirmationAndPreservesAmendments(t *testing.T) {
+	h, cookie, q, pool := liteHandlerWithProvider(t, nil)
+	pid := seedApprovedPlan(t, h, cookie)
+	live, err := q.GetPblLivePlan(context.Background(), uuid.MustParse(pid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps, err := q.ListPblPlanSteps(context.Background(), live.ID)
+	if err != nil || len(steps) == 0 {
+		t.Fatalf("steps=%d err=%v", len(steps), err)
+	}
+	endpoint := "/api/v1/pbl/projects/" + pid + "/plan/steps/" + steps[0].ID.String() + "/submission"
+	if rec := pblPost(t, h, cookie, endpoint, `{"note":"完成了记录","confirmed":false}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unconfirmed status=%d body=%s", rec.Code, rec.Body)
+	}
+	if rec := pblPost(t, h, cookie, endpoint, `{"note":"完成了记录","url":"https://example.com/result","confirmed":true}`); rec.Code != http.StatusCreated {
+		t.Fatalf("first submission status=%d body=%s", rec.Code, rec.Body)
+	}
+	if rec := pblPost(t, h, cookie, endpoint, `{"note":"核对后更新的记录","confirmed":true}`); rec.Code != http.StatusCreated {
+		t.Fatalf("amendment status=%d body=%s", rec.Code, rec.Body)
+	}
+	var count int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM pbl_step_submission WHERE step_id=$1`, steps[0].ID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("submission history count=%d want 2", count)
+	}
+	shown := pblGetPlan(t, h, cookie, pid)["plan"].(map[string]any)
+	shownSteps := shown["steps"].([]any)
+	latest := shownSteps[0].(map[string]any)["submission"].(map[string]any)
+	if latest["note"] != "核对后更新的记录" {
+		t.Fatalf("latest submission=%v", latest)
+	}
+}
+
 // Nothing RUNS before she approves — but she has to be able to SEE it.
 //
 // 🚨 2026-09-02 改过一次，因为原来那条断言把产品堵死了。
