@@ -1,0 +1,74 @@
+--- FAIL: TestBuildCoachContext_InsideASession (0.00s)
+    coach_test.go:194: session context does not say it is a side thread:
+        他一开始是这么说的：剩饭
+        当前尚未生成计划。
+
+        【当前专题讨论】本次讨论的问题：剩的是米饭还是菜？
+        请围绕当前问题分析，不转向其他项目任务。本次专题讨论不提供 hook 或工具邀请。
+        本次专题讨论刚开始，请结合学生提到的具体事情，说明要分析的内容，然后提出一个相关问题。不要把上面那个问题原样重复一遍。
+--- FAIL: TestBuildCoachContext_NoPlanYet (0.00s)
+    coach_test.go:238: context does not say there is no plan yet:
+        他一开始是这么说的：剩饭
+        当前尚未生成计划。
+--- FAIL: TestBuildCoachContext_EmptyTurnSaysWhatJustHappened (0.00s)
+    empty_turn_test.go:33: 缺少禁止重复的指令：不要重复你上一句
+        ---
+        他一开始是这么说的：下课没人去操场
+        当前尚未生成计划。
+
+        刚才说到：
+        学生：我猜大家就是懒
+        印记：能不能先花几天时间观察一下课间？
+
+        【学生刚做完这件事】她做完了「观察日记」。
+        学生这一轮没有打字——学生是刚做完上面这件事回来的。
+        本次工具完成事件决定这一轮的任务；历史未完成的请求仅供理解背景，不自动恢复执行。只有本次事件明确要求修订（例如审核退回），才执行对应修改。请回应刚完成的工作，结合学生记录中的具体内容，说明接下来可以做什么，不重复提问或要求再次完成同一任务。
+--- FAIL: TestCoachSystem_TellsModelToolReasonAddressesHer (0.00s)
+    empty_turn_test.go:77: 没有规定 tool_reason 用第二人称——第三人称会印到她屏幕上
+--- FAIL: TestCurrentEvidenceFollowsHistoricalClaims (0.00s)
+    refeed_test.go:20: source ordering lost: 他一开始是这么说的：
+        当前尚未生成计划。
+
+        刚才说到：
+        印记：旧结论：公告栏不是主要渠道
+
+        【当前工具原始记录与系统状态】
+          · 【虚构测试记录，未实地观察】公告栏十分钟没有信息
+        上面的历史AI回复可能有错，不能把它们当作证据。本段是当前原始记录；结论必须根据记录的来源、限定和样本范围重新判断，不沿用旧回复的断言。模拟记录只能支持演练，不能支持现实结论。这些记录包含系统状态、AI分析和学生原话；以每条的来源标注为准，不能全部归为学生表达。审核工具完成只代表审核操作结束：通过、要求修改、打回重做是不同结论。要求修改时先处理明确意见，不能称审核通过或推进上线。工具记录用于支持当前任务，不是本轮新请求；不要从历史便签中挑一个旧问题重新回答，也不要把已做完的事再问一遍。
+
+        【学生刚做完这件事】完成观察记录
+        学生这一轮没有打字——学生是刚做完上面这件事回来的。
+        本次工具完成事件决定这一轮的任务；历史未完成的请求仅供理解背景，不自动恢复执行。只有本次事件明确要求修订（例如审核退回），才执行对应修改。请回应刚完成的工作，结合学生记录中的具体内容，说明接下来可以做什么，不重复提问或要求再次完成同一任务。
+--- FAIL: TestBuildCoachContext_AnswersAnExplicitAskAtOnce (0.00s)
+    stuck_test.go:141: 她明说要例子，上下文里却没提这件事：
+        他一开始是这么说的：做一个我自己的主页
+        当前尚未生成计划。
+
+        刚才说到：
+        学生：能给我几个选项吗
+
+        【学生需要进一步帮助】学生明确要求例子或选项，请直接提供相关帮助。
+        请按【学生需要帮助时】提供引导：换成一个更小更具体的问题、三个明确说明为候选的例子、或只确认一个影响下一步的具体困难。
+
+        【本轮学生请求】
+        能给我几个选项吗
+        请回应这个请求，历史问题与工具记录仅作背景。
+--- FAIL: TestBuildCoachContext_TellsTheModelSheIsStuck (0.00s)
+    stuck_test.go:162: 她连着两轮答不上来，上下文里却一个字都没说
+--- FAIL: TestCoachSystem_HasAWayOutWhenSheCannotAnswer (0.00s)
+    stuck_test.go:202: 系统提示里没有 "【他答不上来的时候】"
+--- FAIL: TestCoachSystem_LimitIsOneQuestionNotOneAction (0.00s)
+    tool_pairing_test.go:92: 没写清楚工具和它的产出要同一轮一起给
+--- FAIL: TestBuildCoachContext_SaysWhichToolsAreAlreadyOnHerScreen (0.00s)
+    tool_pairing_test.go:108: 没告诉印记哪几张卡还挂在她屏幕上：
+        他一开始是这么说的：下课没人去操场
+        当前尚未生成计划。
+
+        【已经做完的工具】观察日记
+        这几件不要再递了。
+
+        【已经递过、学生还没做的工具】头脑风暴
+        这些工具邀请已经显示在学生页面上，不重复创建。是否打开由学生决定。
+FAIL
+FAIL	mindimprint/api/internal/pbl	5.090s
+FAIL

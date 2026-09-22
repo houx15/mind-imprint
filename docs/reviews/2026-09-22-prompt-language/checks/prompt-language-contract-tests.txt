@@ -1,0 +1,709 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> @mind-imprint/contracts@0.0.0 test /private/tmp/mind-imprint-prompt-language-review/packages/contracts
+> vitest run
+
+
+ RUN  v1.6.1 /private/tmp/mind-imprint-prompt-language-review/packages/contracts
+
+ ✓ test/reference.test.ts  (16 tests) 6ms
+ ✓ test/evaluationReport.test.ts  (4 tests) 3ms
+ ✓ test/interactionPrimitive.test.ts  (12 tests) 4ms
+ ✓ test/orchestrator.test.ts  (13 tests) 6ms
+ ✓ test/exploration.test.ts  (28 tests) 9ms
+ ✓ test/primitives.test.ts  (19 tests) 6ms
+ ✓ test/course.test.ts  (10 tests) 4ms
+ ✓ test/cardSpec.test.ts  (27 tests) 7ms
+ ✓ test/studioState.test.ts  (36 tests) 13ms
+ ✓ test/reading.test.ts  (6 tests) 5ms
+ ✓ test/envelope.test.ts  (10 tests) 6ms
+ ❯ test/evaluationReportModelSchema.test.ts  (3 tests | 1 failed) 12ms
+   ❯ test/evaluationReportModelSchema.test.ts > EvaluationReport JSON Schemas > matches every checked-in schema used by Go
+     → expected '{\n  "$ref": "#/definitions/Evaluatio…' to be '{\n  "$ref": "#/definitions/Evaluatio…' // Object.is equality
+ ✓ test/agentOutput.test.ts  (9 tests) 10ms
+ ✓ test/cards.info-literacy.test.ts  (12 tests) 12ms
+ ✓ test/refeed.test.ts  (3 tests) 3ms
+ ✓ test/cardReflect.test.ts  (7 tests) 4ms
+ ✓ test/registry.test.ts  (7 tests) 24ms
+ ✓ test/sentenceFrames.test.ts  (2 tests) 4ms
+ ✓ test/skill.test.ts  (7 tests) 7ms
+ ✓ test/rubric.test.ts  (6 tests) 2ms
+ ✓ test/essayTrack.test.ts  (6 tests) 4ms
+ ✓ test/library.test.ts  (8 tests) 9ms
+ ✓ test/ability.test.ts  (2 tests) 4ms
+ ✓ test/anchor.test.ts  (5 tests) 5ms
+ ✓ test/proposalGuide.test.ts  (5 tests) 5ms
+ ✓ test/event.test.ts  (4 tests) 4ms
+ ✓ test/workspace.test.ts  (4 tests) 2ms
+ ✓ test/cardProposal.test.ts  (4 tests) 4ms
+ ✓ test/cards.knowledge-tools.test.ts  (4 tests) 6ms
+ ✓ test/placeholderGolden.test.ts  (1 test) 4ms
+ ✓ test/aiUse.test.ts  (3 tests) 3ms
+ ✓ test/graph.test.ts  (3 tests) 4ms
+ ✓ test/n2Contracts.test.ts  (4 tests) 4ms
+ ✓ test/cards.launch.test.ts  (3 tests) 3ms
+ ✓ test/cards.ai-ethics.test.ts  (3 tests) 6ms
+ ✓ test/summonCard.test.ts  (4 tests) 4ms
+ ✓ test/n1Contracts.test.ts  (3 tests) 4ms
+ ✓ test/cards.tracing.test.ts  (1 test) 3ms
+ ✓ test/cards.growth.test.ts  (1 test) 3ms
+ ✓ test/cards.reflexivity.test.ts  (2 tests) 6ms
+ ✓ test/demoCards.test.ts  (1 test) 2ms
+ ✓ test/collectedCards.test.ts  (2 tests) 3ms
+ ✓ test/cards.aok.test.ts  (1 test) 3ms
+ ✓ test/planItem.test.ts  (2 tests) 4ms
+ ✓ test/proposalAnnotation.test.ts  (3 tests) 3ms
+ ✓ test/spectrumCards.test.ts  (1 test) 4ms
+ ✓ test/proposal.test.ts  (2 tests) 2ms
+ ✓ src/revisionCheckpoint.test.ts  (2 tests) 2ms
+ ✓ test/mirror.test.ts  (2 tests) 5ms
+ ✓ test/canvasCards.test.ts  (2 tests) 2ms
+ ✓ test/courseChallenge.test.ts  (1 test) 2ms
+ ✓ test/activityLog.test.ts  (2 tests) 3ms
+ ✓ test/collection.test.ts  (2 tests) 2ms
+ ✓ test/classifyCards.test.ts  (1 test) 6ms
+ ✓ test/reflectionDoc.test.ts  (2 tests) 5ms
+ ✓ test/outlineNode.test.ts  (2 tests) 2ms
+ ✓ test/toulminCard.test.ts  (1 test) 4ms
+ ✓ test/resourceNeed.test.ts  (2 tests) 1ms
+ ✓ test/smoke.test.ts  (1 test) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/evaluationReportModelSchema.test.ts > EvaluationReport JSON Schemas > matches every checked-in schema used by Go
+AssertionError: expected '{\n  "$ref": "#/definitions/Evaluatio…' to be '{\n  "$ref": "#/definitions/Evaluatio…' // Object.is equality
+
+- Expected
++ Received
+
+  {
+    "$ref": "#/definitions/EvaluationReport",
+    "definitions": {
+      "EvaluationReport": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "const": 1
+          },
+          "reportId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "student": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "basics": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "milestones": {
+                "type": "object",
+                "properties": {
+                  "started": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "frameworkFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "proposalFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "writingFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "projectFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "started",
+                  "frameworkFinished",
+                  "proposalFinished",
+                  "writingFinished",
+                  "projectFinished"
+                ],
+                "additionalProperties": false
+              },
+              "counters": {
+                "type": "object",
+                "properties": {
+                  "aiTurns": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "materialsRead": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "wordsWritten": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "aiCommentCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "editCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "aiTurns",
+                  "materialsRead",
+                  "wordsWritten",
+                  "aiCommentCount",
+                  "editCount"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "title",
+              "type",
+              "startDate",
+              "endDate",
+              "milestones",
+              "counters"
+            ],
+            "additionalProperties": false
+          },
+          "abstract": {
+            "type": "object",
+            "properties": {
+              "overview": {
+                "type": "string"
+              },
+              "materialSentence": {
+                "type": "string"
+              },
+              "writingSentence": {
+                "type": "string"
+              },
+              "aiSentence": {
+                "type": "string"
+              },
+              "suggestionParagraph": {
+                "type": "string"
+              },
+              "suggestionSentences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "recommendedCourses": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "courseId": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "courseId",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "overview",
+              "materialSentence",
+              "writingSentence",
+              "aiSentence",
+              "suggestionParagraph"
+            ],
+            "additionalProperties": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ts": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "chat",
+                    "reading",
+                    "graph",
+                    "writing",
+                    "review",
+                    "milestone"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "aiTurns": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "ts": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ts",
+                "kind",
+                "summary",
+                "aiTurns"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "materials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "materialId": {
+                  "type": "string"
+                },
+                "addedAt": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "usedIn": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finalStatus": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "cannotSupport": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "materialId",
+                "addedAt",
+                "source",
+                "url",
+                "usedIn",
+                "finalStatus",
+                "comment",
+                "cannotSupport"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "depth": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "D1",
+                    "D2",
+                    "D3",
+                    "D4",
+                    "D5",
+                    "D6"
+                  ]
+                },
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+-                 "anyOf": [
+-                   {
+-                     "type": "array",
+-                     "items": {
+-                       "type": "object",
+-                       "properties": {
+-                         "id": {
+-                           "type": "string"
+-                         },
+-                         "ts": {
+-                           "type": "string"
+-                         },
+-                         "stage": {
+-                           "type": "string"
+-                         },
+-                         "quote": {
+-                           "type": "string"
+-                         },
+-                         "observation": {
+-                           "type": "string"
+-                         },
+-                         "boundary": {
+-                           "type": "string"
+-                         }
+-                       },
+-                       "required": [
+-                         "id",
+-                         "quote",
+-                         "observation"
+-                       ],
+-                       "additionalProperties": false
++                 "type": "array",
++                 "items": {
++                   "type": "object",
++                   "properties": {
++                     "id": {
++                       "type": "string"
++                     },
++                     "ts": {
++                       "type": "string"
++                     },
++                     "stage": {
++                       "type": "string"
++                     },
++                     "quote": {
++                       "type": "string"
++                     },
++                     "observation": {
++                       "type": "string"
++                     },
++                     "boundary": {
++                       "type": "string"
+                      }
+                    },
+-                   {
+-                     "type": "null"
+-                   }
+-                 ]
++                   "required": [
++                     "id",
++                     "quote",
++                     "observation"
++                   ],
++                   "additionalProperties": false
++                 }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
++               "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "autonomy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "A1",
+                    "A2",
+                    "A3",
+                    "A4",
+                    "A5",
+                    "A6"
+                  ]
+                },
+                "band": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+-                 "anyOf": [
+-                   {
+-                     "type": "array",
+-                     "items": {
+-                       "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/anyOf/0/items"
+-                     }
+-                   },
+-                   {
+-                     "type": "null"
+-                   }
+-                 ]
++                 "type": "array",
++                 "items": {
++                   "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/items"
++                 }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
++               "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "promptLens": {
+            "type": "object",
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "prompts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "stage": {
+                      "type": "string"
+                    },
+                    "quote": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                    },
+                    "observation": {
+                      "type": "string"
+                    },
+                    "relatedDomains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "attention": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "stage",
+                    "quote",
+                    "ref",
+                    "observation",
+                    "relatedDomains",
+                    "attention"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "summary",
+              "prompts"
+            ],
+            "additionalProperties": false
+          },
+          "toolUsage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "toolId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string"
+                },
+                "purpose": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "toolId",
+                "name",
+                "stage",
+                "purpose",
+                "summary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "ai-ghostwrite",
+                    "missing-source",
+                    "argument-logic",
+                    "data-scope",
+                    "rabbit-hole-offtopic"
+                  ]
+                },
+                "behaviour": {
+                  "type": "string"
+                },
+                "ref": {
+                  "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "behaviour",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "generatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "reportId",
+          "projectId",
+          "student",
+          "basics",
+          "abstract",
+          "events",
+          "materials",
+          "depth",
+          "autonomy",
+          "promptLens",
+          "toolUsage",
+          "risks",
+          "generatedAt"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+
+
+ ❯ test/evaluationReportModelSchema.test.ts:36:44
+     34|         writeFileSync(target, generated);
+     35|       }
+     36|       expect(readFileSync(target, "utf8")).toBe(generated);
+       |                                            ^
+     37|     }
+     38|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 58 passed (59)
+      Tests  1 failed | 338 passed (339)
+   Start at  16:17:51
+   Duration  1.69s (transform 1.03s, setup 2ms, collect 4.12s, tests 290ms, environment 6ms, prepare 4.36s)
+
+/private/tmp/mind-imprint-prompt-language-review/packages/contracts:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @mind-imprint/contracts@0.0.0 test: `vitest run`
+Exit status 1

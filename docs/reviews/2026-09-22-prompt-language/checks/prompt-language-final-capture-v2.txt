@@ -1,0 +1,4 @@
+ok  	mindimprint/api/internal/api	0.484s
+ok  	mindimprint/api/internal/agent	0.423s
+ok  	mindimprint/api/internal/awakening	1.058s
+ok  	mindimprint/api/internal/pbl	0.376s

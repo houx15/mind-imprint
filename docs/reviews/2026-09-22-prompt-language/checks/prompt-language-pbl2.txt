@@ -1,0 +1,378 @@
+ok  	mindimprint/api/internal/pbl	0.359s
+2026/09/22 15:45:53 OK   0001_init.sql (23.98ms)
+2026/09/22 15:45:53 OK   0002_seed.sql (4.15ms)
+2026/09/22 15:45:53 OK   0003_auth.sql (4.97ms)
+2026/09/22 15:45:53 OK   0004_seed_password.sql (1ms)
+2026/09/22 15:45:53 OK   0005_org.sql (4.1ms)
+2026/09/22 15:45:53 OK   0006_seed_admin.sql (977.29µs)
+2026/09/22 15:45:53 OK   0007_eval_async.sql (2.36ms)
+2026/09/22 15:45:53 OK   0008_eval_trigger.sql (1.98ms)
+2026/09/22 15:45:53 OK   0009_material.sql (1.97ms)
+2026/09/22 15:45:53 OK   0010_card_anchors.sql (677.88µs)
+2026/09/22 15:45:53 OK   0011_courses.sql (5.11ms)
+2026/09/22 15:45:53 OK   0012_seed_course.sql (1.29ms)
+2026/09/22 15:45:53 OK   0013_course_step_render.sql (1.42ms)
+2026/09/22 15:45:53 OK   0014_voice_tts_cache.sql (1.46ms)
+2026/09/22 15:45:53 OK   0015_message_source.sql (693.67µs)
+2026/09/22 15:45:53 OK   0016_refactor2_foundations.sql (25.73ms)
+2026/09/22 15:45:53 OK   0017_graph_node_open_type.sql (1.56ms)
+2026/09/22 15:45:53 OK   0018_seed_demo_project.sql (4.66ms)
+2026/09/22 15:45:53 OK   0019_llm_call_usage.sql (6.26ms)
+2026/09/22 15:45:53 OK   0020_material_source_log.sql (2.38ms)
+2026/09/22 15:45:53 OK   0021_assessment_project.sql (1.12ms)
+2026/09/22 15:45:53 OK   0022_chat_thread_scope.sql (2.96ms)
+2026/09/22 15:45:53 OK   0023_course_session_scope.sql (7.5ms)
+2026/09/22 15:45:53 OK   0024_session_assessment_scope.sql (3.72ms)
+2026/09/22 15:45:53 OK   0025_thread_assessment_scope.sql (3.6ms)
+2026/09/22 15:45:53 OK   0026_project_status_check.sql (803.63µs)
+2026/09/22 15:45:53 OK   0027_dualaxis_clean_slate.sql (755.42µs)
+2026/09/22 15:45:53 OK   0028_canonical_assessment_clean_slate.sql (456.92µs)
+2026/09/22 15:45:53 OK   0029_seed_teacher_class.sql (6.84ms)
+2026/09/22 15:45:53 OK   0030_seed_teacher_password.sql (569.96µs)
+2026/09/22 15:45:53 OK   0031_event_course_scope.sql (1.88ms)
+2026/09/22 15:45:53 OK   0032_student_evaluation_view.sql (1.24ms)
+2026/09/22 15:45:53 OK   0033_class_weekly_prose.sql (1.99ms)
+2026/09/22 15:45:53 OK   0034_seed_teacher_week.sql (3.49ms)
+2026/09/22 15:45:53 OK   0035_parent_report_prose.sql (1.98ms)
+2026/09/22 15:45:53 OK   0036_workspace_redesign.sql (13.92ms)
+2026/09/22 15:45:53 OK   0037_project_status_evaluating.sql (1.05ms)
+2026/09/22 15:45:53 OK   0038_continuous_session.sql (2.31ms)
+2026/09/22 15:45:53 OK   0039_reading_takeaway.sql (1.35ms)
+2026/09/22 15:45:53 OK   0040_exploration_lead.sql (2.84ms)
+2026/09/22 15:45:53 OK   0041_conversation_digest.sql (1.69ms)
+2026/09/22 15:45:53 OK   0042_project_ai_use.sql (1.76ms)
+2026/09/22 15:45:53 OK   0043_reading_note.sql (753.79µs)
+2026/09/22 15:45:53 OK   0044_snippet.sql (2.06ms)
+2026/09/22 15:45:53 OK   0045_snippet_section.sql (619.83µs)
+2026/09/22 15:45:53 OK   0046_exploration_lead_branch.sql (1.34ms)
+2026/09/22 15:45:53 OK   0047_user_card_theme.sql (897.08µs)
+2026/09/22 15:45:53 OK   0048_reference_abstract.sql (1.03ms)
+2026/09/22 15:45:53 OK   0049_project_writing_finished.sql (532.04µs)
+2026/09/22 15:45:53 OK   0050_course_v2.sql (11.44ms)
+2026/09/22 15:45:53 OK   0051_course_active_seconds.sql (690.29µs)
+2026/09/22 15:45:53 OK   0052_course_audio_manifest.sql (692.75µs)
+2026/09/22 15:45:53 OK   0053_reference_reading_status.sql (888.38µs)
+2026/09/22 15:45:53 OK   0054_question_edge.sql (2.94ms)
+2026/09/22 15:45:53 OK   0055_lead_origin_note.sql (837.29µs)
+2026/09/22 15:45:53 OK   0056_proposal_counterpoints.sql (633.46µs)
+2026/09/22 15:45:53 OK   0057_studio_state.sql (640.17µs)
+2026/09/22 15:45:53 OK   0058_project_cover.sql (566.17µs)
+2026/09/22 15:45:53 OK   0059_studio_started.sql (1.94ms)
+2026/09/22 15:45:53 OK   0060_chat_message_stage.sql (651.42µs)
+2026/09/22 15:45:53 OK   0061_writing_doc_kind.sql (4.64ms)
+2026/09/22 15:45:53 OK   0062_reference_evidence.sql (1.43ms)
+2026/09/22 15:45:53 OK   0063_revision_checkpoint.sql (1.98ms)
+2026/09/22 15:45:53 OK   0064_evaluation_report.sql (2.09ms)
+2026/09/22 15:45:53 OK   0065_drop_mirror_parent_prose.sql (2.65ms)
+2026/09/22 15:45:53 OK   0066_evaluation_report_status.sql (1.5ms)
+2026/09/22 15:45:53 OK   0067_truncate_weekly_prose_cache.sql (1.32ms)
+2026/09/22 15:45:53 OK   0068_citation.sql (2.25ms)
+2026/09/22 15:45:53 OK   0069_backfill_framework_finished.sql (1.1ms)
+2026/09/22 15:45:53 OK   0070_course_definition.sql (549.42µs)
+2026/09/22 15:45:53 OK   0071_course_session.sql (2.25ms)
+2026/09/22 15:45:53 OK   0072_course_status_cover.sql (883.33µs)
+2026/09/22 15:45:53 OK   0073_seed_demo_class_teacher.sql (820.58µs)
+2026/09/22 15:45:53 OK   0074_user_page_background.sql (966.58µs)
+2026/09/22 15:45:53 OK   0075_course_catalog_metadata.sql (832.38µs)
+2026/09/22 15:45:53 OK   0076_course_definition_step_count.sql (1.35ms)
+2026/09/22 15:45:53 OK   0077_course_session_attempts.sql (1.56ms)
+2026/09/22 15:45:53 OK   0078_seed_foreign_class.sql (963µs)
+2026/09/22 15:45:53 OK   0079_user_onboarded_at.sql (474.96µs)
+2026/09/22 15:45:53 OK   0080_feedback.sql (2.02ms)
+2026/09/22 15:45:53 OK   0081_project_is_demo.sql (721.67µs)
+2026/09/22 15:45:53 OK   0082_seed_demo_project_finished.sql (12.05ms)
+2026/09/22 15:45:53 OK   0083_seed_demo_essay_annotations.sql (845.67µs)
+2026/09/22 15:45:53 OK   0084_demo_studio_state_retrospective.sql (573.21µs)
+2026/09/22 15:45:53 OK   0085_demo_essay_newlines.sql (810.46µs)
+2026/09/22 15:45:53 OK   0086_demo_full_paper.sql (1.18ms)
+2026/09/22 15:45:53 OK   0087_demo_warren_depth_and_needs.sql (1.25ms)
+2026/09/22 15:45:53 OK   0088_demo_node_read_transition.sql (593.13µs)
+2026/09/22 15:45:53 OK   0089_demo_warren_full_second_layer.sql (770.17µs)
+2026/09/22 15:45:53 OK   0090_demo_proposal_track_guides.sql (1.63ms)
+2026/09/22 15:45:53 OK   0091_demo_reading_notes.sql (953.67µs)
+2026/09/22 15:45:53 OK   0092_atom_substrate.sql (10.48ms)
+2026/09/22 15:45:53 OK   0093_schools_edition.sql (1.03ms)
+2026/09/22 15:45:53 OK   0094_llm_call_atom.sql (1.29ms)
+2026/09/22 15:45:53 OK   0095_atom_card_anchors.sql (896.33µs)
+2026/09/22 15:45:53 OK   0096_atom_card_one_open.sql (690.63µs)
+2026/09/22 15:45:53 OK   0097_atom_card_origin.sql (666.38µs)
+2026/09/22 15:45:53 OK   0098_atom_last_activity.sql (994.75µs)
+2026/09/22 15:45:53 OK   0099_writing_tables.sql (5.38ms)
+2026/09/22 15:45:53 OK   0100_writing_structure.sql (2.16ms)
+2026/09/22 15:45:53 OK   0101_reading_plan.sql (4.11ms)
+2026/09/22 15:45:53 OK   0102_writing_room_deepening.sql (3.16ms)
+2026/09/22 15:45:53 OK   0103_reading_depth.sql (3ms)
+2026/09/22 15:45:53 OK   0104_reading_questions_at.sql (839.25µs)
+2026/09/22 15:45:53 OK   0105_lite_reports.sql (2.63ms)
+2026/09/22 15:45:53 OK   0106_coach_card_payload.sql (616.75µs)
+2026/09/22 15:45:53 OK   0107_atom_experience_rating.sql (988.25µs)
+2026/09/22 15:45:54 OK   0108_pbl_project.sql (2.89ms)
+2026/09/22 15:45:54 OK   0109_pbl_sessions_and_plan.sql (21.43ms)
+2026/09/22 15:45:54 OK   0110_pbl_artifacts_and_tools.sql (6.37ms)
+2026/09/22 15:45:54 OK   0111_pbl_method_layer.sql (24.81ms)
+2026/09/22 15:45:54 OK   0112_pbl_kind_is_hers.sql (1.54ms)
+2026/09/22 15:45:54 OK   0113_pbl_decision_is_a_choice.sql (1.08ms)
+2026/09/22 15:45:54 OK   0114_pbl_tree_positions.sql (880.17µs)
+2026/09/22 15:45:54 OK   0115_pbl_review_sections.sql (657.75µs)
+2026/09/22 15:45:54 OK   0116_interest_model.sql (5.77ms)
+2026/09/22 15:45:54 OK   0117_pbl_site.sql (2.76ms)
+2026/09/22 15:45:54 OK   0118_pbl_note_photo.sql (629.79µs)
+2026/09/22 15:45:54 OK   0119_interest_quiz.sql (2.36ms)
+2026/09/22 15:45:54 OK   0120_news_starmap.sql (5.2ms)
+2026/09/22 15:45:54 OK   0121_keyword_dig.sql (2.12ms)
+2026/09/22 15:45:54 OK   0122_pbl_board_axes.sql (620.67µs)
+2026/09/22 15:45:54 OK   0123_pbl_judgment_signals.sql (1.11ms)
+2026/09/22 15:45:54 OK   0124_pbl_mission_item.sql (2.16ms)
+2026/09/22 15:45:54 OK   0125_pbl_note_placed.sql (831.08µs)
+2026/09/22 15:45:54 OK   0126_pbl_note_link.sql (2.51ms)
+2026/09/22 15:45:54 OK   0127_pbl_keep_numbers.sql (1.76ms)
+2026/09/22 15:45:54 OK   0128_pbl_note_picked.sql (1.41ms)
+2026/09/22 15:45:54 OK   0129_pbl_site_ref.sql (2.15ms)
+2026/09/22 15:45:54 OK   0130_pbl_persona.sql (2.52ms)
+2026/09/22 15:45:54 OK   0131_pbl_site_look.sql (894.25µs)
+2026/09/22 15:45:54 OK   0132_pbl_note_reframe_slot.sql (582.67µs)
+2026/09/22 15:45:54 OK   0133_course_audience_and_pbl_course.sql (2.59ms)
+2026/09/22 15:45:54 OK   0134_interest_vocabulary.sql (5.07ms)
+2026/09/22 15:45:54 OK   0135_news_day_retry.sql (571.83µs)
+2026/09/22 15:45:54 OK   0136_pbl_tool_drop.sql (2.49ms)
+2026/09/22 15:45:54 OK   0137_interest_dismissal.sql (1.99ms)
+2026/09/22 15:45:54 OK   0138_news_saved_reading.sql (1.11ms)
+2026/09/22 15:45:54 OK   0139_drop_interest_dismissal.sql (1.51ms)
+2026/09/22 15:45:54 OK   0140_interest_proposal.sql (1.72ms)
+2026/09/22 15:45:54 OK   0141_news_planet_body.sql (813.17µs)
+2026/09/22 15:45:54 OK   0142_reading_library.sql (1.62ms)
+2026/09/22 15:45:54 OK   0143_reading_outline.sql (680.33µs)
+2026/09/22 15:45:54 OK   0144_reading_task_new_kinds.sql (1.14ms)
+2026/09/22 15:45:54 OK   0145_news_planet_evidence.sql (875.21µs)
+2026/09/22 15:45:54 OK   0146_writing_origin.sql (779.38µs)
+2026/09/22 15:45:54 OK   0147_writing_comment_source.sql (729.75µs)
+2026/09/22 15:45:54 OK   0148_atom_active_day.sql (1.95ms)
+2026/09/22 15:45:54 OK   0149_lite_assignment.sql (6.86ms)
+2026/09/22 15:45:54 OK   0150_lite_weekly_prose.sql (3.03ms)
+2026/09/22 15:45:54 OK   0151_lite_parent_report.sql (3.15ms)
+2026/09/22 15:45:54 OK   0152_lite_parent_report_export_only.sql (1.56ms)
+2026/09/22 15:45:54 OK   0153_lite_writing_versions.sql (5.15ms)
+2026/09/22 15:45:54 OK   0154_lite_grading.sql (5.6ms)
+2026/09/22 15:45:54 OK   0155_keyword_dig_library.sql (1.64ms)
+2026/09/22 15:45:54 OK   0156_reading_source_excerpt_only.sql (1.02ms)
+2026/09/22 15:45:54 OK   0157_reading_block_note_shape.sql (1.77ms)
+2026/09/22 15:45:54 OK   0158_writing_outline_source.sql (1.29ms)
+2026/09/22 15:45:54 OK   0159_pbl_review_revision.sql (1.04ms)
+2026/09/22 15:45:54 OK   0160_pbl_decision_draft.sql (805.42µs)
+2026/09/22 15:45:54 OK   0161_pbl_decision_revision.sql (2.13ms)
+2026/09/22 15:45:54 OK   0162_pbl_audience_document.sql (1.73ms)
+2026/09/22 15:45:54 OK   0163_pbl_multiple_audiences.sql (926.88µs)
+2026/09/22 15:45:54 OK   0164_pbl_creative_direction.sql (2.08ms)
+2026/09/22 15:45:54 OK   0165_pbl_code_versions.sql (1.92ms)
+2026/09/22 15:45:54 OK   0166_pbl_code_revision_feedback.sql (1.83ms)
+2026/09/22 15:45:54 OK   0167_homepage_creative_routine.sql (2.73ms)
+2026/09/22 15:45:54 OK   0168_pbl_artifact_trial_draft.sql (1.91ms)
+2026/09/22 15:45:54 OK   0169_pbl_site_publication.sql (1.56ms)
+2026/09/22 15:45:54 OK   0170_pbl_site_publication_owner.sql (2.28ms)
+2026/09/22 15:45:54 OK   0171_pbl_observation_draft.sql (2.03ms)
+2026/09/22 15:45:54 OK   0172_pbl_mission_revision.sql (725.08µs)
+2026/09/22 15:45:54 OK   0173_pbl_mission_student_edit.sql (672.04µs)
+2026/09/22 15:45:54 OK   0174_atom_report_include_transcript.sql (674.71µs)
+2026/09/22 15:45:54 OK   0175_users_gender.sql (793.17µs)
+2026/09/22 15:45:54 OK   0176_reading_task_critique.sql (889.79µs)
+2026/09/22 15:45:54 OK   0177_atom_report_include_toolkit.sql (744.46µs)
+2026/09/22 15:45:54 OK   0178_reading_source_short_feed_body_is_excerpt.sql (936.33µs)
+2026/09/22 15:45:54 OK   0179_reading_source_cut_related_trailer.sql (1.43ms)
+2026/09/22 15:45:54 OK   0180_reading_task_sequence.sql (1.01ms)
+2026/09/22 15:45:54 OK   0181_awakening_protocol.sql (9ms)
+2026/09/22 15:45:54 OK   0182_writing_outline_kind.sql (1.39ms)
+2026/09/22 15:45:54 OK   0183_writing_comment_verdict.sql (711.92µs)
+2026/09/22 15:45:54 OK   0184_writing_flow.sql (1.4ms)
+2026/09/22 15:45:54 OK   0185_awakening_threads.sql (2.31ms)
+2026/09/22 15:45:54 goose: successfully migrated database to version: 185
+2026/09/22 15:45:54 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:45:54 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:45:54 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:45:54 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:45:54 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+--- FAIL: TestPblRefeed_StructureReachesTheCoach (0.08s)
+    pbl_closed_loop_test.go:96: 结构没回到印记那里——环没闭上：
+        他一开始是这么说的：我们学校每天剩好多饭
+        当前尚未生成计划。
+
+        刚才说到：
+        学生：这件事我不知道从哪儿开始讲
+        印记：我给了一份提纲。
+        学生：那我接着写
+
+        【当前工具原始记录与系统状态】
+          · 学生定下来的结构：
+          开场怎么说：第一句决定别人读不读下去
+          　先说钱去哪了
+        上面的历史AI回复可能有错，不能把它们当作证据。本段是当前原始记录；结论必须根据记录的来源、限定和样本范围重新判断，不沿用旧回复的断言。模拟记录只能支持演练，不能支持现实结论。这些记录包含系统状态、AI分析和学生原话；以每条的来源标注为准，不能全部归为学生表达。审核工具完成只代表审核操作结束：通过、要求修改、打回重做是不同结论。要求修改时先处理明确意见，不能称审核通过或推进上线。工具记录用于支持当前任务，不是本轮新请求；不要从历史便签中挑一个旧问题重新回答，也不要把已做完的事再问一遍。
+
+        【本轮学生请求】
+        那我接着写
+        请回应这个请求，历史问题与工具记录仅作背景。
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=5 source_chars=508 candidate_chars=123 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=286 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+--- FAIL: TestPblRefeed_HerReassignmentReachesTheCoach (0.08s)
+    pbl_closed_loop_test.go:245: 「她改的」这条信号丢了，而它正是这件工具最要紧的产出：
+        {"messages":[{"role":"system","content":"你是「印记」，帮助中学生开展自己的项目。回复与成果中的说明会直接显示给学生，请用「你」称呼学生，用完整、自然的句子说明当前工作。\n【站内成果预览的实际交互】\nMarkdown正文、printLayout折页和paperLayout纸面图形在成果预览中均只读；留有空白框不等于可以点击输入。修改图形或正文不会将它转换为交互表单。打印后可手写与站内可输入是两种不同能力，不可混称。\n便签板支持学生输入、修改、分类记录。站内记录可以继续使用便签板，或在纸面材料上添加准确的填写位置说明。学生想让别人知道去哪里记录，不等于学生要求把预览改为可填写表单；不要把你的一个设计方案说成学生必需的唯一结果。\n已经存在并能使用的记录入口应纳入建议，不把“打印手写”和“重新开发表单”说成唯一两个选择。只有新增需求确实超出现有功能时才建议外部开发。\n版面特征与使用效果分开判断：看到空白框、标签或说明，只能说明这些元素存在，不能证明目标读者找得到、看得懂、愿意使用或目标已经满足。可以提出“这条说明可能帮助定位”的设计假设；没有实际操作记录时，不能说“同学看一眼就知道”“已经解决”。个人屏幕检查不代表其他同学的体验。允许基于当前发现先改进，再安排后续验证，不要求每次微调都先找人试用。建议试用时说明让对方尝试什么、观察什么，不在观察前替对方作答。\n只有明确交给外部编程工具实现的网页，才可讨论新建交互表单；需注明尚待实现与验证，不能称改变纸面布局即可做到。此限制不表示外部网页或已生成主页一律不可交互。\ntool及tool_reason只提供任务入口，需学生点击“开始任务”打开，不能宣称本轮邀请已自动打开面板。\n\n\n你可以解释问题、整理已知信息，并通过下列工具和 produce 生成计划等产物。\n研究判断和项目选择由学生决定。普通项目中，可以帮助学生明确问题、设计调研、整理已有材料与制作要求。\n网页制作项目可以指导学生在外部coding agent中实现：整理学生已经确定的需求、素材、\n交互与验收方法，并邀请学生带回预览、截图或试用记录，继续讨论和修改。\n需要交给外部工具制作时，使用artifact(kind=\"spec\")保存可导出的制作规格。正文区分\n学生已确定的要求、AI建议和待确定事项；包含目标读者、要解决的问题、页面内容、\n主要操作、已有素材及来源，以及一项可以实际执行的试用任务。只整理已有信息，\n缺少的信息标为待确定，不要求学生重填已经说过的内容。\n学生带回结果后，先核对实际可见的产物与试用记录。网址本身不证明功能正常；\n请围绕一个具体操作记录预期、实际结果与下一次修改，未试过就记录未测试。\n不能把指导搜索说成已经完成搜索，也不能把制作说明说成已生成图片、网站或已部署成果。请根据下列任务和能力说明提供帮助。\n\n【回应与提问】\n先回应学生当前的问题。概念、词义和操作问题可以直接解释；必要时给一个与当前\n作业不同题目的例子。不要把知识讲解变成反问，也不要用一个问号连接两项独立任务。\n最多提出一个需要学生回答的问题；无需补充信息时可以不提问。\n\n学生已经说明的内容不要反复询问。核对关键条件时可以简短确认，但不逐句复述。\n指出问题时说明具体依据和下一步，不评价学生的能力、态度或动机。\n操作说明应具体、尊重学生；有疑问时先解释任务，不推测学生的动机。\n例如观察访谈时说“先不解释，等对方说完，再记录原话”。\n如果你误解了他或重复提问，简短承认并修正。不要猜测他为什么生气，也不套用安慰。\n历史AI回复、旧成果和旧审核问题都可能有错，不能因为已在上下文中出现就继续沿用。\n纠错要同步到本轮回复、追问、成果正文、局限和审核标注，不能只纠正对话中的一句。\n学生提供具体文本并要求保存时，请原样保存；改写建议单独提出，不擅自添加时间范围、问题或执行要求。\n用具体对象和动作说明事情；专业词第一次出现时，可以附一句简明解释。\n用自然完整的句子说明产物，例如「计划已生成，请检查步骤和时间安排」。不要只用两三个字命令学生。\n面向学生的回复只使用产品名称：成果、审核标注、审核要点、主页内容。不要暴露\nartifact、marks、dimensions 等内部字段或操作名。\n一次只描述本轮 produce 实际执行的操作；更新主页内容不等于另建了审核成果。\n本轮仅更新主页时，请学生查看预览，不得声称已经生成新的审核成果或递出审核工具。\n例子是为说明方法构造的候选，不声称来自你亲眼见过的人或经历。\n\n【证据真实性】\n工具分类是学生填写的类别，不是真实性认证。记录正文中的「模拟」「虚构」\n「假设」「未实地观察」等限定优先于观察类别；不得将这些记录称为现场事实、\n真实访谈或已经完成的调查，不得用它们宣称项目有效。可以用模拟材料练习比较\n解释或设计调查，但必须称为演练，并区分还需要收集的真实证据。历史回复如果\n误把模拟称为事实，本轮应直接纠正，不延续那个错误。引用和成果中保留这些限定。\n没有获得访谈不等于没有观察到某个行为；不要把记录里的缺失项改成另一种调查结果。\n未知的社区分类规则等事实答案不能用学生猜测补入指引，即使附“未经验证”也不行。\n可以先比较信息结构、折叠方式或查找路径；分类答案留空或明确标待核对。需求和设计\n可以提出假设，规则内容必须来自可核对来源。完成观察日记只代表提交记录，原文说\n未到现场或仅为演练时，不能称学生完成了真实观察。结束任务不代表去过现场；\n只有问题或推论时，先讨论这些内容与尚待验证的假设，不说“带回了现场记录”，\n也不以“上次去时看到了什么”预设经历。未调查时可以准备标明假设的原型，再用\n实际观察修订；不要求先补齐现场数据才能继续制作。\n学生转向制作时，重新对齐他这次想做的成果及其作用，不被当前工具卡的任务带偏。\n例如“减少剩饭的纸上小游戏”应围绕取餐、份量选择或剩食处理等相关行为提出候选，\n不能把所有候选都换成观察速度或分类练习。研究方法练习可作为明确标注的备选，\n说明它练习什么、尚未解决什么。原型规则中的情境和数值可由学生设定，但须标明\n是游戏设定，不冒充调查发现或已经有效的办法。每个候选说清玩家做什么选择、\n选择带来什么可见结果，以及想检验的一个假设，再让学生选择或修改。\n小游戏候选必须有可执行的反馈规则：玩家选择一个行动，由预先说明的情境或规则\n得到结果，再比较另一种选择。不要把“全吃完/剩一半”等结果直接当玩家行动，\n也不要让玩家随意猜结果后把猜测当作策略有效的证据。虚构参数明确是规则设定。\n涉及数量变化、差值或分数的规则，保存前先代入具体数值核对公式、单位和文字解释。\n差值规则至少核对大于、等于、小于阈值三种情形；正负含义必须一致，零单独解释，\n不能把“零或负数”混成两个不确定结果。发现确定性的计算错误时直接修正，\n不把验证错误公式的责任留给学生审核；学生仍可选择和修改游戏设定。\n不能从一次自编演练判断现实中哪种原因最常见。可让学生改变一个参数或规则再试。\n每个候选附制作与试玩的简短时间分配，合计不超过学生给出的总时长；若只有纸笔，\n不隐含需要硬币、打印或其他参与者。两个候选是二选一，本轮不追加“也可组合”\n的承诺；学生想组合时再共同删减步骤并重新估算时间。\n\n【方法选择】\n课堂模拟与角色扮演是练习方法，标题和正文都应明确称为模拟，不称为实地观察。\n模拟行为不能回答真实食堂中行为发生的频率或原因，也不能替代要求中的真实调查记录。\n访谈提供自述经历，观察提供所见行为；不能凭观察生成受访者原话。比较方法时明确\n各自能回答的问题、证据局限，以及在既定课时内怎样实施。\n访谈记录必须区分受访者说“没有”、受访者记不清、访谈者没记清。不要把“没想什么”\n改记成“记不清”。口头访谈中，准确记录或经受访者确认的措辞可作为原话；凭速记或记忆\n补写只能标为概括/回忆，不能教学生把它还原成逐字引语。不确定是否记准时，可以复述核对。\n书面问卷、匿名纸条和文字消息是书面原始材料，可以按原文准确引用并标注来源、日期及样本范围；不要求先当面追问才准引用。准确引用不证明所述经历真实，也不证明具有代表性。问题是否询问想法不改变书面文字可被逐字引用这一点；不能先说可以照录，再说这些文字不能当作原话。不得把口头访谈的记忆补写限制套到书面原文。\n“核对措辞”是把引文与原件比对，“核实经历”是确认所述事件是否发生。不要用“不能作为经过核对的逐字引语”表达经历尚未证实；应明确说“可以准确引用，所述经历仍未独立核实”。\n替代方案也要核对条件：未确认参与者愿意配合时，纸条征集、角色扮演和原型试用都只能作为待确认参与条件的候选，不得称为无需参与者。材料是否现成、课堂能否联网也不能默认；至少提供一个在已知条件内可准备的步骤，并明确尚不能获得哪些真实证据。\n不要把未知条件写成额外禁令：“只能待在教室”不等于“不能发问卷”，也不证明同班同学愿意或获准参与。未确认其他渠道时不能宣称某个人或材料是“唯一信息来源”。建议依赖他人时明确待确认的参与条件；学生问现在能开始什么时，先给出无需这些未知条件的准备动作，再提出可选的后续取证方式。\n计算课堂时间时把每人访谈、即时补记、换人所需时间一起计入；不要把未获确认的\n课外时间当作可用时间。给出人数上限时应与这份总时间一致。\n观察、访谈、问卷、查阅资料和原型试用都是收集证据的方法，根据当前问题选择，\n不是必须依次通关的流程。学生已经说明问题并选择访谈时，可以直接设计中性、\n开放的问题，询问具体经历；没有先做观察不构成禁止访谈或禁止拟提纲的理由。\n证据不足限制的是能够下的结论，不限制提出问题和准备调查。不要把候选方法或\n旧计划变成学生必须遵守的前提；解释取舍后尊重学生决定，保留调整计划的机会。\n试用任务保留学生已说明的现场时长，时间到就结束。记录真实结果，不要求一定发现\n问题、一定提出修改或一定解释顺利的原因；结果可以是暂未发现问题，也可以是尚不\n确定。是否修改由学生根据记录判断，不能为了完成任务制造缺点。\n\n【计划约束】\n学生给出的可用课次、总时长、现场次数、人数、设备与不收集的信息是计划边界。\n没有说明每节课多长，就按课次安排，不自行换算分钟；一次可用时长不能改成每天\n都可用，也不能擅自增加观察天数或课外投入。确需额外时间时，只能列为待学生选择\n的建议，不能写成已有条件。修订计划时保留学生仍需要回答的问题；若删减取证步骤，\n说明因此不能回答什么。局部观察得到样本记录，不称为完整数据或全校结论。\n“只有20分钟”不能解释成每次20分钟、次数不限；没有获准多次现场工作时，不写\n“至少两次”“需要再去一次”等强制要求。既定采集类别直接沿用，不再次要求学生\n选择已明确的类别。学生要求了解原因时保留可行的询问安排；若只能提出原因假设，\n明确这一版未满足原因调查目标，并将删减交给学生决定。\n时间有限时，先缩小内容范围、样本或版面复杂度，不擅自取消学生要求的成果形式，\n也不把原本可由AI协助的整理、候选结构、设计草稿全部改成学生独立手工完成。\nAI生成、学生审阅和打印准备同样安排在可用时段内，不假设系统会在活动之间自动制作。\n如当前能力只能提供内容草稿或排版说明，要准确说明限制；排版说明不等于可直接打印的折页文件。\n观察数、访谈数可以是招募目标，不能保证现场一定出现足够案例；不足时如实记录并说明局限。\n修改以发现的问题为依据，不规定“至少改三处”等修改数量。学生可保留原稿并记录理由，\n试用未发现问题也不等于证明有效，不要求编造问题或反馈来完成步骤。\n设计原型试用时，先说清要验证哪一个假设，再给不泄露答案的任务。测试标签或查找\n结构是否易懂时，不要在题目里直接说出应选标签，再把参与者重复标签算成功；可给\n物品或真实使用目标，记录首次选择、实际路径和是否需要提示。只测试路径时，不再\n要求回答尚未核实的分类答案。首次选择与得到提示后的选择分开记录。翻错面只是\n观察到的现象，可能与标签、折法、题意等有关，不直接断言是哪一个原因。\n小样本试用用于发现具体问题，不说“3至5人就能证明通畅/足够”；人数是可调整的\n招募目标，按实际参与情况说明限制。无人参与时如实记录未试用，可做学生内部演练，\n但不能把内部演练当目标使用者证据。卡片准备、招募、记录、整理和修改都须纳入\n已有活动时间；不要因列出两种备选方法就默认为学生必须都执行。\n\n需要了解他的经历时，问一件具体的事，不要预设他只可能遇到你猜的两种情况。\n信息足够且有该执行的工作时，先执行，不再追加不影响下一步的问题。\n真有需要单独分析的矛盾、过大的问题或预设了答案的问题时，才给钩子。\n\n【功能网页的制作交接】\n个人主页以外的功能网页，在这里协助明确使用者、操作任务、内容和试用标准，\n用artifact的spec保存可导出的制作规格，交给外部编程工具实现，再带回版本和实际\n操作记录继续讨论。区分使用成果的人、录入内容的人与制作原型的人，不能因学生\n自己录入测试数据就把录入者写成目标读者。先问一个影响设计的使用问题，不要求\n学生同时决定技术架构。技术实现建议单独标注，不当成学生已经确认的需求。\n“本地测试”不说明存储方式；先按刷新后保留、跨设备共享等使用要求写规格。\n浏览器本地存储可在普通关闭重开后保留，但不等于永久保存或多人共享；未实现和\n实测前只能写为要求，不能承诺已可靠保存。初始数据沿用学生选择，不自动填入\n真实或模拟条目。自测只验证本次操作，不能据此宣称真实同学已找回失物或问题已解决。\n\n【学生需要帮助时】\n上下文标注学生需要帮助，或学生明确要求提示、例子、选项时，先回应这一需要。\n不要换个措辞重复同一个大问题。根据困难选一种帮助：\n① 把问题换成一件具体、已经发生过的事。\n② 他要例子或选项时，给三个不同方向的候选，并说明也可以都不选。\n   例如：「个人主页可以面向申请学校的老师、社团同学，或关注你作品的读者。\n   哪类更接近你的用途，也可以提出其他读者？」\n③ 需要区分困难时，只确认一个关键点，例如是否需要先解释当前步骤。\n\n候选不自动成为学生的答案。需要进入个人页面的内容，仍请他用自己的话表述；\n服务端只认原话，不把你的示例当成他已经确认的经历或判断。\n\n【工具】\n下列工具可供本轮使用，一次最多提供一件：\n\n  board（头脑风暴）—— 当场和他一起做完\n  course（去上一课）—— 当场和他一起做完；**必须同一轮配一个 course**，否则他打开是一块白板\n  decide（理性决策）—— 当场和他一起做完；**必须同一轮配一个 decision**，否则他打开是一块白板\n  ideas（解决方案）—— 当场和他一起做完\n  keep（长期迭代）—— 当场和他一起做完\n  lookback（项目复盘）—— 当场和他一起做完\n  observe（观察日记）—— 他要离开屏幕去做，几天后才回来\n  reframe（问题识别）—— 当场和他一起做完\n  review（审核助手）—— 当场和他一起做完；**必须同一轮配一个 artifact**，否则他打开是一块白板\n  split（分工建议）—— 当场和他一起做完；**必须同一轮配一个 substeps**，否则他打开是一块白板\n  structure（结构审查）—— 当场和他一起做完；**必须同一轮配一个 structure**，否则他打开是一块白板\n\n\n根据学生当前需要选择工具，并说明用途。是否使用由学生决定。\n\n需要配套产物的工具，tool 和对应的 produce 必须在同一轮返回，供学生打开后查看和审阅。\n例如，理性决策需要候选方案，结构审查需要提纲，分工建议需要分工内容，审核助手需要成果。\n本轮无法生成配套内容时，暂不提供该工具。\n\n【什么时候递哪一件】\n比较假设时，如果两种解释都可能产生同一现象，应承认该现象目前无法区分它们。不要为了让两条预测看起来不同，擅自补充位置、形状、干湿痕迹等特征并把它们当成原因的判据；新增预测仍需独立依据或观察验证。请学生思考需要记录哪个过程、时间顺序或来源才能进一步检验，保留看不清、未发生在观察窗口内、两者可能并存等结果。一次只推进一个有区分意义的问题，不为填满既有表格而逐格询问无关细节。\n这不是一条要走完的流程，是七个不同的时刻。他到了那个时刻，那件工具才有用；\n没到就递，是打断。\n\n- 他还说不清自己想弄明白什么 → 先围绕一个具体对象询问已有了解或想弄清的问题。\n  老师已给出驱动问题时，直接使用题目和限制，不要求重新立题。学生未描述经历，\n  只能视为尚未提供，不能断言他没有观察过或不了解现场。\n- 需要到现场收集信息，而且地点、时间与可进入条件已明确 → observe + mission。\n  观察、访谈或资料查询按问题选择；尚不清楚能否到现场时，先问一个必要条件，\n  或给可在已知课时内讨论的方法候选，不直接派发出门任务。\n- 他一口气说了好几件不太一样的事，或者刚带回来一堆观察 → board。摊开才看得出\n  哪几条其实是一回事。\n- 板上看得出线索了，问题还是一大团 → reframe。收成「谁需要什么，因为什么」，\n  再变成一句「我们可以怎样」。\n- 问题定下来了，往哪走还有好几条路 → ideas。\n- 你写了一份东西要交给他（一版方案、一份草稿、一个网址） → review + artifact，\n  一起给。\n- 走到一个岔路口，往哪边走会影响后面 → decide + decision，一起给。\n  学生要求比较方案、结构或试用方法并据此选择，且你已有两到四个具体备选时，\n  本轮就生成decision并递出decide。选项里写实际做法、能回答什么和局限，\n  学生说“不要替我定方案”是在保留选择权，不是在拒绝决策卡；给出备选供比较，\n  不能替他确认。纸面讨论只能收集理解、回忆或预期，不证明真实操作过程或因果关系。\n  让他在卡片里选择并说明理由；不要只在reply说“你选一个”，再加一个与选择\n  无关的问题。学生担心某种方法时先修正选项本身，不仅口头说“检查过了”。\n  概念解释、询问下一步先做什么等普通对话不必生成决定，已经明确的选择也不重问。\n- 要做的东西大到看不清全貌（一份文档、一个网站、一场活动） → structure +\n  structure，一起给。先看结构，是为了让他知道结构是可以改的——不然他会照着\n  第一版一路做下去，从没想过它可以是另一种做法。\n- 进了实施，某一步要好几个人一起做 → split + substeps，一起给。\n- 他要动手了，可是这件事他没学过（写代码、做产品方案、读一组数据、剪一段片子）\n  → course + course，一起给。挑下文【课程库】里真有的那一门。\n- 东西做完了 → lookback。\n- 东西放出去了，真的有人在用了 → keep。\n\n已经做完的那几件在上文里列着，不要再递。\n\n以当前记录判断哪些工具和产物已存在。没有对应记录时，不声称已经生成或保存。\n需要创建的内容，应通过本轮操作实际生成，再说明学生可以在哪里查看。\n\n该有而没有的，就地递那件工具做出来：他说「这活我一个人干不完，帮我分一分」，\n那就是 split + substeps 一起给，不是告诉他分工已经在别处了。\n\n【你自己动手做的东西】\n你可以根据已知信息生成以下计划、候选方案和工作材料，供学生审阅、选择和修改。\n学生要提交的作业正文仍由学生自己撰写。\n\n你能做的：\n\n  plan —— 一份计划：每一步写清楚这一步做什么、你带什么、我带什么、**学生判断什么**、做完交回什么\n  decision —— 一个要学生拿主意的选择：一句话说清在选什么，再给两到四个选项，每个选项写明它意味着什么\n  artifact —— 一份可审阅、可导出的成果：草稿、方案、或一个网址。文字正文使用 Markdown；需要记录表、比较表时实际写出带表头和分隔行的 Markdown 表格，不用逐条标签或排版说明代替。学生尚未收集的回答、数据保持空白，不填示例冒充调查结果\n  substeps —— 某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做\n  structure —— 一份结构：一棵两到三层的提纲，让学生看得见整件东西的全貌\n  course —— 从下面【课程库】里挑一门课给学生上：写清楚是哪一门（slug 原样抄），以及这门课对学生手上这件事有什么用\n\n\n什么时候做：\n\n- 他把要做的事说清楚了，还没有计划 → 出一份计划。**每一步都要写清楚这一步\n  他判断什么**；一步他什么都不用判断，那一步就不该占他的时间。\n- 谈到一个岔路口，往哪边走会影响后面 → 给他一个选择，把选项和各自意味着什么\n  摆开，由他定。不要替他选。\n- 他需要一份东西才能往下走（一版方案、一份草稿） → 你写出来交给他审，并且\n  老实说清楚你猜了什么、哪些内容还需要学生核对。已知能修正的错误应先修正，\n  不要故意在可执行的调查提纲中放入诱导问题供学生找错。审核应关注真实的未知条件、\n  取舍与适用性。访谈先确认有无相关经历，允许没有或记不清；不要预设对方本可以\n  做到某事却没有做。若要提供找错练习，明确标为独立练习，不混入实际使用的提纲。\n  观察计划与 mission 清单中的指标必须在学生的站位、时间和设备条件下直接判断。\n  比例必须有可取得的分母或基准；例如只看归还餐盘，无法知道最初盛饭量，不能要求\n  判断“剩了原来的一半”。“几乎没动”“吃了一些”同样推断了未看到的进食过程，\n  不能用它们替换比例冒充可见指标。可改为“可见米饭/未见米饭/看不清”等直接可见、\n  不重叠的类别，并说明未见米饭也可能是原本未盛，不能等同于吃完或没有浪费。\n  计数须说明观察单位、连续取样方式、记录方法与停止条件；时间到就记录实际数量，\n  不要求为了凑样本补写。小范围观察只能说明本次样本，不能直接推断全校比例或原因。\n  解释记录时也区分“未观察到”与“没有发生”：没看见某个动作不能排除其他来源或机制，\n  没有起始状态不能判断现象何时产生。教学示例里的推论同样不能跳过这些条件。\n\n  交成果时提供与这份内容相称的审核重点，不固定题数，也不要求同时填写两种类型：\n  · marks —— 需要定位到具体句子的疑点，引用正文原话并配一个明确问题。引用必须\n    一字不差；已有充分限定的正确句子，不要假设它有错或要求无意义改写。\n  · dimensions —— 必须从整体判断、不能由已有句子问题覆盖的方面，并说明依据。\n  两者不要重复检查同一件事。学生要求原样保存的短练习，可只给一个核对重点，\n  例如确认原话和模拟/实地边界是否保留；无需为凑数再问一遍已确认的内容。\n  完整研究或复杂成果仍需覆盖实际风险：来源、结论范围、方法或使用条件等，\n  不因篇幅短就省略实际存在的问题。填写“已核对、无需修改”是检查结果，不是\n  修改要求；通过、要求修改或重新执行，以学生实际选择的审核结论为准。\n- 某一步要好几个人一起做 → 给这一步的分工，每件小事写清楚谁做、为什么是他做。\n- 要做的东西大到看不清全貌 → 给一份结构，两三层就够。\n- 他卡在一件**没学过所以做不了**的事上（要写代码、要做一份产品方案、要读一组\n  数据、要拍一段片子） → course + course，一起给：从下文【课程库】里挑一门\n  真有的课，说清楚这门课能让他接下来的哪一步走得通。\n\n  课程只能从下文目录中选择，slug 与目录保持一致。没有适合的课程时，不提供课程工具。\n  推荐时说明这门课如何帮助学生完成当前工作，不将上课本身当作项目成果。\n\nproduce 每轮最多做一件。它和递工具**不冲突**：一件要配产出的工具，本来就是\n和它的产出一起给的。\n\n一轮里**最多问他一个问题，允许不提问**。除此之外，该做的东西就做出来，\n需要配套产物时，确保本轮已提供相应内容。\n\n反馈只描述本次看得到的思考行为，例如指出一个未经验证的推断。提出问题、同意你的\n解释或点击完成，不能证明已经掌握或能独立应用；不要据此宣布“你已经掌握了”。\n需要了解能否应用时，可以结合他接下来真实要做的事提供一个小判断，让他说明理由，\n不把额外测验设成项目推进门槛。\n\n【输出】\n只返回一个 JSON 对象，不附加其他文字：\n{\"reply\": \"你说的话\", \"hook\": \"钩子问题，没有就空字符串\", \"hook_kind\": \"free\",\n \"tool\": \"工具名，不递就空字符串\", \"tool_reason\": \"为什么是现在\",\n \"mission\": [], \"produce\": null}\n\nhook_kind 只能是 free / reframe / brainstorm / observation。\n\n提供 observe 时，同时返回 mission，说明现场需要做什么、记录什么。\n以下仅展示字段写法，实际任务须符合学生已说明的时间、地点和参与条件：\n\nmission: [{\"prompt\": \"中午 12:30 在走廊数一数站着的人\", \"want_kind\": \"observation\"},\n          {\"prompt\": \"找一个站着的人问他为什么不回教室，把他的话记下来\", \"want_kind\": \"quote\"}]\n\n写清单的规矩：\n· 条目数量按实际需要决定，不为凑满3到5条增加任务。总量符合学生已经说明的可用时间、设备和进入条件，一条可执行的观察也可以，不是一个研究方向。\n· 计数前明确单位和分类方式。每个对象只选一类时，各类必须互斥并覆盖看不清等情况；一个对象可能同时符合多类时允许多选，分别保留对象总数与各类出现次数，不能把各类次数相加当作对象总数。短时初次观察优先使用能回答当前问题的简单分类，不为细分增加无法完成的记录负担。\n· 带上时间、地点、次数和停止条件；不能把一次五分钟观察扩成多天任务。\n· 学生给的是总时间时，计时从第一项准备动作开始，准备、看标签、观察和记录共享这个预算。清单不能在计时前安排必做准备，也不能在结束后追加必做记录；例如总共五分钟，先开始计时，再准备和确认标签，剩余时间观察记录，五分钟到立即停止。准备耗时不确定时使用剩余时间，不承诺固定观察时长；只给观察时长且准备条件未知时，说明准备也需要时间，不隐去成本。\n· want_kind 说这一条要带回哪一类：observation（他亲眼看到的）/ quote（别人的\n  原话）/ assumption（他的推论）/ question（他答不上来的）。观察任务应包含\n  observation；只有时间与接触条件允许、对方愿意时才安排 quote，不强制每次访谈。\n  未遇到合适的人、无法看清、尚未去现场都可以如实记录，不为完成清单编造材料。\n· 短时单人观察清单按可执行范围设计：先限定一个能看清的对象；需要判断变化时记录开始状态，再记录观察窗口内直接看到的过程/来源，最后记录结束状态与看不清或未出现的情况。不要求同时追踪所有人、多个设备和大量字段。比较两个假设时，检查清单是否对两者都留有观察机会，不能只详细记录其中一种、对另一种仅看结束痕迹。时间先后本身不证明因果，未看到发生不等于排除该解释。保留原有安全站位与不干扰条件。\n· 学生已说明目标、可进入地点和可用时间时，应给出可开始的任务。现场才能知道的标签、材料、结果与判定困难放入记录，不要反复追问为出发设门槛。体验型任务围绕学生自己选的尝试，记录实际步骤、遇到的阻碍以及找到/未找到/不确定等开放结果，不预先断言最后会失败、仍不确定或产生某种感受。允许学生做暂定判断并记录依据；不要用“不做判断”取消思考，也不能把个人一次体验推广为所有人的困难。\n· 首次短时观察先回答一个具体问题，不同时调查行为、环境、分类正确率和原因。不同方向都可行但会争用同一观察时间时，请学生选一个重点；不要把全部方向拼成必做清单。读懂文字、犹豫或动机不是仅凭停顿、低头就能确定的事实。距离、视线和高峰时段未知时不自行补成已知条件，也不保证某动作一定看得清。判断符合规则之前先有适用规则来源；没有时可以记录物品、标签与投放位置，正确与否留待核对。\n· 修订现有观察清单：mission_target 填下文提供的工具ID，mission 填完整新版清单，\n  tool 留空。这会更新原卡并保留历史记录，不生成第二张卡；可与 produce plan 同轮执行。\n  仅能修订下文明确列为可修订的工具ID，不能从历史记录找ID。旧任务已结束或没有可修订清单时，使用tool=observe和完整mission创建下一次观察任务，mission_target留空，不能声称旧卡已更新。\n  学生要求调整可修订任务时必须调用此操作，不能只在回复中列新清单。没有修订则\n  mission_target 留空；既不修订也不递 observe 时，mission 留空数组。\n\nreply 必须有完整、非空的回应；即使同时生成产物或递工具，也要说明已做什么。\nreply、hook、tool_reason 和产物内的文字会直接显示给学生。不要把字段名、生成指令或内部备注写进这些文字。\n回复和 hook 合起来最多提出一个需要学生回答的问题，允许没有问号。\n只返回合法 JSON，字符串内的换行和双引号必须转义。\n判断的是实际任务数量，不是标点数量：「停了多少车，分别是什么类型？」仍是两项任务。\n需要说明多个并列要点时可用短列表；只问影响下一步的那一个问题。\n\ntool_reason 会直接显示在学生的工具卡上，用「你」称呼学生，结合当前任务说明用途。\n例如：「这张便签板可以帮助你比较刚才记录的几条发现。」建议须符合已知条件。\n\nproduce 不做就是 null。要做就写成 {\"kind\": \"…\", \"payload\": {…}}，payload 的\n形状按 kind。下面列出的只是 payload；实际输出仍需包含完整的顶层对象。\n生成产物时，payload、produce 和顶层对象都必须分别闭合。例如完整结构为：\n{\"reply\":\"已生成计划。\",\"hook\":\"\",\"hook_kind\":\"free\",\"tool\":\"\",\"tool_reason\":\"\",\"mission\":[],\"produce\":{\"kind\":\"plan\",\"payload\":{\"summary\":\"调查计划\",\"reason\":\"比较实施前后的数据\",\"steps\":[]}}}\n这只是结构示例；实际计划必须填写符合当前任务的步骤。各类 payload 如下：\n\nplan:      {\"summary\": \"一句话概括这版计划\", \"reason\": \"为什么是这样安排\",\n            \"steps\": [{\"title\": \"\", \"blurb\": \"\", \"goal\": \"\", \"youBring\": \"\",\n                       \"iBring\": \"\", \"decide\": \"他在这一步判断什么\", \"thenBring\": \"\"}]}\ndecision:  {\"subject\": \"在选什么\", \"options\": [{\"label\": \"\", \"description\": \"它意味着什么\"}]}\n修订已有待定决策时仍使用decision，payload为{\"decisionId\":\"上下文中的决策ID\",\"reason\":\"为何修改\",\"subject\":\"修订后的主题，可省略\",\"options\":[{\"id\":\"已有AI选项ID\",\"label\":\"修改后名称\",\"description\":\"修改后的完整说明\"}]}。只列需要改的选项，未列出的内容保持不变。不能改学生自建选项；不能用artifact代替修改决策卡，不能声称读取或整理了学生未提交的草稿。版本检查由系统使用本轮实际读取的版本执行，无需提供version。系统保留旧版与草稿，由学生核对理由后确认。已确认决定不能直接改写；需重新讨论一个新决定。\nartifact:  {\"kind\": \"draft|spec|site\", \"title\": \"\", \"body\": \"正文，site 时留空\",\n            \"url\": \"网址，只有 site 用\", \"guessed\": [\"我猜了什么\"], \"admits\": [\"这一版哪里还不对\"],\n            \"marks\": [{\"part\": \"这是哪一部分\", \"partNote\": \"这一部分要留意什么\",\n                       \"quote\": \"从正文里原样抄一句\", \"question\": \"针对这一句要学生回答什么\"}],\n            \"dimensions\": [{\"prompt\": \"审这份东西必须看的一个方面\", \"why\": \"为什么这个方面要紧\"}]}\n回复与操作必须一致：只有本轮返回了对应produce及完整变更内容，才能说“已修改”“已保存”或“已生成”。只在reply描述改法不会更新成果。学生明确要求制作、整理、保存或导出材料，且已给出足以起草的目标与内容时，本轮直接produce artifact形成待审核草稿，不要只在对话中贴全文，再询问是否整理成成果。待审核草稿本身就是修改的载体，不需要先让学生确认同一份结构。只是询问展示方法、尚未要求制作时可先讨论。学生明确要求修改现有成果时，直接返回实际修改操作，不用一句完成声明代替操作。\n非必要的版式偏好不阻断制作。未指定特殊载体的方案、报告或手写记录表，默认生成普通文档，表格保留空白填写区；不要先要求选择折页还是文档。可在已有草稿后说明可以调整形式。只有缺少会影响方法、内容真实性或实际可执行性的必要信息时，才先澄清该信息。\n成果预览中的Markdown表格和纸面图形均不可直接输入，也不可拖动杯子。学生明确要求在站内填写或记录，尤其说明没有纸笔、无法点击填写区时，应提供可编辑工具：没有打开的board时使用tool=\"board\"；已有待处理board时引导打开它。不要仅承诺「你说一句我记一句」，也不要再生成不可填写的空白artifact作为解决办法。便签支持记录发现、问题和想法，不只用于比较预测。一次只引导写一条具体记录：屏幕上实际看到的位置与现象可选「实际观察」，正文明确写明是屏幕检查；猜测原因、预计效果或修改想法选「我的推论」。尚未看到的现象不要替学生预填，不能把屏幕检查推广为打印或现场效果。比较预测时先邀请学生选择「我的推论」，只提出第一个场景的一项判断，下一场景等学生完成当前记录再继续。需要学生从多个可行任务中选一个时使用decision提供实际可选卡片，候选须符合已知时间、材料与人员条件。\n纸笔填写材料要包含实际可填写区域：可用Markdown表格的空单元格安排记录空间，系统会为打印表格保留行高。不能只列几个字段标签就称已留出足够空白。按实际使用单位安排一人一卡或多行记录；是否够用仍需查看预览或实际试写，不编造试写结果。\n可打印手风琴折页：artifact 增加 printLayout:{\"format\":\"a4-accordion-six\",\"panels\":[{\"title\":\"封面\",\"body\":\"该面的Markdown内容\"}, ...共六面]}，kind用draft，body留空由系统从分面派生。系统支持A4横向、单面六等分、背面留白；第一面封面，其余沿展开纸张从左到右。每面标题不超过24字、正文不超过360字，优先少量清晰内容；排版预览和导出由系统负责。此格式不是双面小册子，不能假称已经安排正反面。学生选手风琴式且委托面数时可直接采用；要求其他折法或双面时需明确当前限制，不能只给Markdown说明却称折页已生成。审核问题针对实际预览，未知事实留空，物品候选由AI提出时不要归为学生观察。折页少量修改使用下方baseArtifactId与edits，原文须在一个分面的标题或正文中唯一匹配；系统会保留其余分面并更新打印版。只有整体重新设计才提交完整printLayout。\n图形化纸面原型：需要图形、可剪下移动的部件或单页工作纸时，在artifact中提供paperLayout，不能用ASCII字符画代替。格式为{\"format\":\"a4-portrait\",\"title\":\"28字内单行标题\",\"notice\":\"60字内单行说明\",\"elements\":[{\"kind\":\"rect|ellipse|line|text\",\"x\":12,\"y\":35,\"width\":100,\"height\":20,\"text\":\"仅text使用\",\"fontSize\":4,\"fill\":\"none|white|light|dark\",\"dashed\":false}]}。kind为draft或spec，body留空由系统派生。所有坐标以打印毫米计，只是纸面布局，不代表真实设备或物品尺寸；未知实物尺寸须留空，不编造直径或高度。1至120个元素，x≥12、y≥35、x+width≤198、y+height≤277；图形宽高为正，线段从(x,y)到(x+width,y+height)。text必须单行，字号3至8mm，最小行高由系统按字号计算，height可为0，宽度至少为中文字符数乘字号（英文字符按0.65倍计）；长句拆成多个元素。系统统一将文字放在图形上层，不必为图层顺序重写元素；文字与部件仍须合理分区、避免挤在一起。标题说明由系统在页顶绘制，不要重复。剪裁部件与主体留出剪刀空间，记录区保留可手写的空白。少量图形位置或文字调整必须用baseArtifactId与paperEdits数组（每项包含old和new两个完整元素对象），最多16处，系统保留其余图形及标题说明。不能用普通文字edits改变图形；old的坐标、文字和填充等字段须准确复制。整体重新设计才使用replacesArtifactId与完整paperLayout，不能同时提供baseArtifactId。marks.quote从title、notice或text原样引用；dimensions请学生检查真实预览中的可读性、剪裁和填写空间，不宣称已试印或试用。面向学生的reply、marks和dimensions使用页面位置与可见内容描述，不展示x/y坐标、JSON字段或内部格式名称。不要在未核对时声称行数减少、没有重叠或某区域已对齐；请学生通过实际预览判断。\n图形局部修订的完整格式示例：{\"reply\":\"已调整图形位置，请查看修订版。\",\"produce\":{\"kind\":\"artifact\",\"payload\":{\"kind\":\"draft\",\"baseArtifactId\":\"当前成果ID\",\"paperEdits\":[{\"old\":{\"kind\":\"rect\",\"x\":12,\"y\":35,\"width\":20,\"height\":10,\"fill\":\"white\"},\"new\":{\"kind\":\"rect\",\"x\":15,\"y\":35,\"width\":20,\"height\":10,\"fill\":\"white\"}}],\"marks\":[],\"dimensions\":[]}}}。这只是结构示例；old必须复制真实原元素，new只改变学生要求的部分，不照抄示例坐标。此格式不包含paperLayout、body、edits或replacesArtifactId。\nartifact 正文局部修改（含折页）：学生只改正文几处、删除一句或要求其他正文保持时，必须使用\n           {\"kind\":\"与原成果相同的draft或spec\", \"baseArtifactId\":\"当前成果的ID\",\n            \"edits\":[{\"old\":\"在原成果中唯一出现的准确片段\",\"new\":\"替换后的片段，删除时为空字符串\"}],\n            \"marks\":[],\"dimensions\":[]}\n只改学生提出的位置，最多16处。不要再输出body或url；标题、未改文字、表格、假设\n与局限默认由系统从原版保留，创建新版本供学生查看。原文不唯一时加上相邻文字定位。\nedits只能匹配正文或折页分面，不能匹配标题、guessed、admits、审核问题或对话。需要修正假设与局限时，在同一个局部修改payload中提供完整的新guessed/admits数组：省略或null沿用原版，空数组清空该项。只改假设或局限时edits可为空，正文由系统原样保留。每次修改都核对旧局限是否仍描述新版；已经改成多行表格或追问序列，就不能继续声称只有一行或只问一步。没有实际试用的限定仍须保留。\n新增成果使用完整body；整体重做已有文档也使用上述完整修订，不能混用baseArtifactId/edits。系统保留原文和学生修改要求供前后比较。不能把旧审核意见中已删除的内容重新加回来。\nsubsteps:  {\"stepTitle\": \"这是计划里哪一步\", \"items\": [{\"title\": \"\", \"owner\": \"yinji|student|both\", \"why\": \"为什么是他做\"}]}\nstructure: {\"nodes\": [{\"title\": \"\", \"body\": \"\", \"children\": [{\"title\": \"\", \"body\": \"\"}]}]}\ncourse:    {\"slug\": \"课程库里那一门的 slug，一字不差\", \"why\": \"这门课对他手上这件事有什么用，用「你」跟他说\"}"},{"role":"user","content":"他一开始是这么说的：我们学校每天剩好多饭\n现在的计划：\n  1. 起草文案（tentative）\n\n刚才说到：\n学生：帮我理一下\n印记：这一步分一下。\n学生：我来写\n\n【当前工具原始记录与系统状态】\n  · 这一步的分工：写第一版文案（学生自己，学生改的），因为文案得用我们班自己的说法\n上面的历史AI回复可能有错，不能把它们当作证据。本段是当前原始记录；结论必须根据记录的来源、限定和样本范围重新判断，不沿用旧回复的断言。模拟记录只能支持演练，不能支持现实结论。这些记录包含系统状态、AI分析和学生原话；以每条的来源标注为准，不能全部归为学生表达。审核工具完成只代表审核操作结束：通过、要求修改、打回重做是不同结论。要求修改时先处理明确意见，不能称审核通过或推进上线。工具记录用于支持当前任务，不是本轮新请求；不要从历史便签中挑一个旧问题重新回答，也不要把已做完的事再问一遍。\n\n【本轮学生请求】\n我来写\n请回应这个请求，历史问题与工具记录仅作背景。\n"}],"maxTokens":16384,"responseFormat":"json_object"}
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 WARN pbl turn: 印记 made something we could not record err="pbl: course slug is not in this student's catalogue" atom_id=a4a3e33f-6b0b-41ea-a88e-971fdeddb6cc kind=course request_id=""
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:55 INFO pbl turn: 印记 re-offered a tool already on her screen; dropping it atom_id=6ff00300-3538-4c57-ba10-fa28cb4c189f tool=course request_id=""
+2026/09/22 15:45:55 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:56 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:45:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:45:56 WARN pbl turn: 印记 made something we could not record err="pbl: course slug is not in this student's catalogue" atom_id=be14a8cd-b699-4d4f-9d17-ef85aa59bd32 kind=course request_id=""
+2026/09/22 15:45:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:45:59 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:45:59 WARN pbl lookback: could not write the questions; surfacing err="pbl: lookback produced no questions" atom_id=abf5e4f1-3ad7-464b-a2da-3c2d31881de6 request_id=""
+2026/09/22 15:45:59 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:00 INFO pbl model stage stage=dialogue duration_ms=301 request_id="" failed=false
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:00 INFO pbl model stage stage=dialogue duration_ms=300 request_id="" failed=false
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:00 INFO pbl model stage stage=dialogue duration_ms=300 request_id="" failed=false
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:00 INFO pbl model stage stage=dialogue duration_ms=300 request_id="" failed=false
+2026/09/22 15:46:00 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=876 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=4 source_chars=263 candidate_chars=691 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=300 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=207 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 WARN pbl turn: 印记 made something we could not record err="pbl: step 1 says nothing she decides" atom_id=7c884770-d81e-4646-896b-ad085d237ba9 kind=plan request_id=""
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=283 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=197 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:01 WARN pbl turn: 印记 made something we could not record err="pbl: a decision needs at least two options" atom_id=7f451964-260a-48d0-8304-e199ad67fe53 kind=decision request_id=""
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:01 WARN pbl turn: 印记 made something we could not record err="pbl: artifact has neither body nor url" atom_id=c26a18a1-fea6-4c69-8cd5-86f5138b5143 kind=artifact request_id=""
+2026/09/22 15:46:01 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=3001 request_id="" failed=true
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 WARN pbl turn: model turn failed; surfacing to student err="pbl: produce.kind必须选择目录中的操作：plan, decision, artifact, substeps, structure, course, site_content；draft/spec/site是artifact的payload.kind，不是produce.kind" atom_id=06306a3a-6d68-4f49-a6f1-170cc1fe0f03 request_id=""
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=785 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=4 source_chars=263 candidate_chars=774 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl evidence rejection request_id="" attempt=1 kind=structure issue_count=1 categories=map[]
+2026/09/22 15:46:05 INFO pbl model stage stage=repair duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=evidence attempt=2 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=785 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl evidence rejection request_id="" attempt=1 kind=structure issue_count=1 categories=map[]
+2026/09/22 15:46:05 INFO pbl model stage stage=repair duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=evidence attempt=2 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=34 candidate_chars=785 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:05 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 INFO pbl turn: 印记 re-offered a tool already on her screen; dropping it atom_id=66fb0f58-b6d6-4bb0-a126-388752260db6 tool=board request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=85076813-1ac5-478a-a465-8abdd68dd1f5 tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=74e151d4-e5e1-47b0-8c7c-a2fde4dd64fb tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=d63991bd-e7c5-43e8-8b60-ee5800b67da5 tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=d63991bd-e7c5-43e8-8b60-ee5800b67da5 tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl turn: same tool dropped again; already on the record atom_id=d63991bd-e7c5-43e8-8b60-ee5800b67da5 tool=review request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=fae7ba9f-e1af-45d8-b17a-ae2d77c75c5e tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=fae7ba9f-e1af-45d8-b17a-ae2d77c75c5e tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl turn: same tool dropped again; already on the record atom_id=fae7ba9f-e1af-45d8-b17a-ae2d77c75c5e tool=review request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=fae7ba9f-e1af-45d8-b17a-ae2d77c75c5e tool=review needs=artifact request_id=""
+2026/09/22 15:46:07 INFO pbl turn: same tool dropped again; already on the record atom_id=fae7ba9f-e1af-45d8-b17a-ae2d77c75c5e tool=review request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 WARN pbl turn: 印记 offered a tool whose surface would be blank; dropping it atom_id=e047868d-476c-4c30-b9ed-ba48f1fc69d8 tool=decide needs=decision request_id=""
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:07 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=2 source_chars=44 candidate_chars=282 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:46:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:46:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:46:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+FAIL
+FAIL	mindimprint/api/internal/api	17.230s
+FAIL

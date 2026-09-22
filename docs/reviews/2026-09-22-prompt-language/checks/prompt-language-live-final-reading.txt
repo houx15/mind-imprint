@@ -1,0 +1,61 @@
+=== RUN   TestClarityReading
+=== RUN   TestClarityReading/concept
+    clarity_live_test.go:38: TestClarityReading/concept sample=1 model=dashscope/deepseek-v4.1-flash ms=4511 input=4588 output=154 valid=true
+=== RUN   TestClarityReading/help
+    clarity_live_test.go:38: TestClarityReading/help sample=1 model=dashscope/deepseek-v4.1-flash ms=3368 input=4568 output=93 valid=true
+=== RUN   TestClarityReading/partial
+    clarity_live_test.go:38: TestClarityReading/partial sample=1 model=dashscope/deepseek-v4.1-flash ms=2498 input=4569 output=79 valid=true
+=== RUN   TestClarityReading/done
+    clarity_live_test.go:38: TestClarityReading/done sample=1 model=dashscope/deepseek-v4.1-flash ms=6530 input=4588 output=167 valid=true
+=== RUN   TestClarityReading/skip
+2026/09/22 16:18:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/skip sample=1 model=dashscope/deepseek-v4.1-flash ms=1577 input=4565 output=36 valid=true
+=== RUN   TestClarityReading/read-done
+    clarity_live_test.go:38: TestClarityReading/read-done sample=1 model=dashscope/deepseek-v4.1-flash ms=3193 input=4452 output=105 valid=true
+=== RUN   TestClarityReading/connect
+    clarity_live_test.go:38: TestClarityReading/connect sample=1 model=dashscope/deepseek-v4.1-flash ms=4665 input=4468 output=168 valid=true
+=== RUN   TestClarityReading/hunt-no-pick
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=1 model=dashscope/deepseek-v4.1-flash ms=4209 input=4453 output=118 valid=true
+=== RUN   TestClarityReading/hunt-picked
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=1 model=dashscope/deepseek-v4.1-flash ms=6271 input=4475 output=168 valid=false
+    clarity_live_test.go:38: compressed or confrontational teaching language: 撑 (visible output preserved in evidence)
+=== RUN   TestClarityReading/hunt-skip
+2026/09/22 16:19:17 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=1 model=dashscope/deepseek-v4.1-flash ms=5077 input=4448 output=37 valid=true
+--- FAIL: TestClarityReading (41.91s)
+    --- PASS: TestClarityReading/concept (4.51s)
+    --- PASS: TestClarityReading/help (3.37s)
+    --- PASS: TestClarityReading/partial (2.50s)
+    --- PASS: TestClarityReading/done (6.53s)
+    --- PASS: TestClarityReading/skip (1.58s)
+    --- PASS: TestClarityReading/read-done (3.19s)
+    --- PASS: TestClarityReading/connect (4.67s)
+    --- PASS: TestClarityReading/hunt-no-pick (4.21s)
+    --- FAIL: TestClarityReading/hunt-picked (6.27s)
+    --- PASS: TestClarityReading/hunt-skip (5.08s)
+=== RUN   TestClarityReadingLens
+=== RUN   TestClarityReadingLens/not-completed
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=1 model=dashscope/deepseek-v4.1-flash ms=3508 input=4503 output=115 valid=true
+=== RUN   TestClarityReadingLens/completed
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=1 model=dashscope/deepseek-v4.1-flash ms=5158 input=4630 output=159 valid=true
+--- PASS: TestClarityReadingLens (8.67s)
+    --- PASS: TestClarityReadingLens/not-completed (3.51s)
+    --- PASS: TestClarityReadingLens/completed (5.16s)
+=== RUN   TestClarityTeacherReading
+=== RUN   TestClarityTeacherReading/compare-not-verdict
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/compare-not-verdict sample=1 model=dashscope/deepseek-v4.1-flash ms=3657 input=4541 output=191 valid=false
+    clarity_teaching_live_test.go:43: comparison prompt states the core answer before asking the student (visible output preserved in evidence)
+=== RUN   TestClarityTeacherReading/explain-concept
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/explain-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=3609 input=4517 output=147 valid=true
+=== RUN   TestClarityTeacherReading/predict-opening
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/predict-opening sample=1 model=dashscope/deepseek-v4.1-flash ms=3166 input=4421 output=88 valid=true
+=== RUN   TestClarityTeacherReading/direct-answer
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/direct-answer sample=1 model=dashscope/deepseek-v4.1-flash ms=4091 input=4518 output=144 valid=true
+--- FAIL: TestClarityTeacherReading (14.53s)
+    --- FAIL: TestClarityTeacherReading/compare-not-verdict (3.66s)
+    --- PASS: TestClarityTeacherReading/explain-concept (3.61s)
+    --- PASS: TestClarityTeacherReading/predict-opening (3.17s)
+    --- PASS: TestClarityTeacherReading/direct-answer (4.09s)
+FAIL
+FAIL	mindimprint/api/internal/api	66.324s
+FAIL

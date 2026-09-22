@@ -1,0 +1,41 @@
+=== RUN   TestClarityMergeWriting
+=== RUN   TestClarityMergeWriting/process
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/process sample=1 model=dashscope/deepseek-v4.1-flash ms=2379 input=3582 output=55 valid=true
+=== RUN   TestClarityMergeWriting/judgment
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/judgment sample=1 model=dashscope/deepseek-v4.1-flash ms=3931 input=3507 output=143 valid=true
+=== RUN   TestClarityMergeWriting/english-analysis
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-analysis sample=1 model=dashscope/deepseek-v4.1-flash ms=4538 input=3548 output=137 valid=true
+=== RUN   TestClarityMergeWriting/english-narrative
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-narrative sample=1 model=dashscope/deepseek-v4.1-flash ms=3499 input=2936 output=101 valid=true
+=== RUN   TestClarityMergeWriting/choose-word-opening
+    clarity_merge_live_test.go:70: TestClarityMergeWriting/choose-word-opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1939 input=485 output=57 valid=true
+--- PASS: TestClarityMergeWriting (16.29s)
+    --- PASS: TestClarityMergeWriting/process (2.38s)
+    --- PASS: TestClarityMergeWriting/judgment (3.93s)
+    --- PASS: TestClarityMergeWriting/english-analysis (4.54s)
+    --- PASS: TestClarityMergeWriting/english-narrative (3.50s)
+    --- PASS: TestClarityMergeWriting/choose-word-opening (1.94s)
+=== RUN   TestClarityPersonalPlanReady
+=== RUN   TestClarityPersonalPlanReady/zh
+    clarity_merge_live_test.go:105: TestClarityPersonalPlanReady/zh sample=1 model=dashscope/deepseek-v4.1-flash ms=3199 input=3571 output=95 valid=true
+=== RUN   TestClarityPersonalPlanReady/en
+    clarity_merge_live_test.go:105: TestClarityPersonalPlanReady/en sample=1 model=dashscope/deepseek-v4.1-flash ms=16391 input=3613 output=97 valid=true
+--- PASS: TestClarityPersonalPlanReady (19.60s)
+    --- PASS: TestClarityPersonalPlanReady/zh (3.20s)
+    --- PASS: TestClarityPersonalPlanReady/en (16.40s)
+=== RUN   TestClarityTeacherReview
+=== RUN   TestClarityTeacherReview/argument-scope
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"你以晚自习后教室关闭、只能在走廊复习的亲身经历，讨论了图书馆延长开放时间的问题，材料有具体时间、人物和场景。","points":[{"kind":"issue","symptom":"evidence_not_explained","quote":"走廊里不断有人经过，我们很难集中注意力。","text":"例子交代了谁、在哪里、发生了什么，但例子到「很难集中注意力」就结束了，读者需要自己推断这段经历和延长开放时间之间的关系。","action":"请在例子之后补一句分析句，说明走廊自习的困难与延长开放时间之间的因果关系，例如说明延长开放时间后这类同学可以到哪里、为什么那样复习效果会更好。可以参考因果分析法：先问「集中不了注意力是因为什么」，再说明延长开放时间如何改变这个原因。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/argument-scope sample=1 model=dashscope/glm-5.3 ms=4812 input=3681 output=192 valid=true
+=== RUN   TestClarityTeacherReview/narrative
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"你写了一个雨夜等爸爸送雨衣的经历，事件过程和父亲到场的情节已经交代清楚。","points":[{"kind":"issue","symptom":"detail_vague","quote":"我很感动。","text":"这一句直接说出了感受，读者知道你感动，却看不到当时的情形——你接过雨衣时说了什么、做了什么动作、当时站在哪里。","action":"请回忆当时的真实细节，在「他给了我一件雨衣」之后写你接雨衣的动作或当时的一句话，用这些具体情形代替直接说出「感动」，让读者从你的反应中体会感受。"},{"kind":"good","method":"detail_scene","quote":"那天晚上下着雨，我在楼道口等着。","text":"开头写雨夜和等待的地点，为这次经历提供了明确的场景，读者能立刻进入当时的环境。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/narrative sample=1 model=dashscope/glm-5.3 ms=4369 input=2996 output=200 valid=true
+=== RUN   TestClarityTeacherReview/english
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"你用教室关闭后在走廊自习的经历，讨论了图书馆延长开放时间，并在结尾用先试行一周的建议限定了方案范围。","points":[{"kind":"issue","symptom":"mechanism_chain","quote":"Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor.","text":"这个例子交代了时间和地点，说明了教室关闭后的情况，但从「吵闹的走廊」到「需要一个安静图书馆」中间的那一步——噪音具体怎样影响了你的复习——还没有写出来。","action":"请在例子之后补充一个分析句，说明走廊的吵闹对复习造成了什么具体影响，以及这和延长图书馆开放时间的关系，让例子更完整地说明本段观点。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/english sample=1 model=dashscope/glm-5.3 ms=5950 input=3735 output=297 valid=true
+--- PASS: TestClarityTeacherReview (15.14s)
+    --- PASS: TestClarityTeacherReview/argument-scope (4.81s)
+    --- PASS: TestClarityTeacherReview/narrative (4.37s)
+    --- PASS: TestClarityTeacherReview/english (5.95s)
+PASS
+ok  	mindimprint/api/internal/api	52.223s

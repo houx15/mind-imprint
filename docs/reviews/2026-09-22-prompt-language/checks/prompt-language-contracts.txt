@@ -1,0 +1,2 @@
+ok  	mindimprint/api/internal/litegrade	1.041s
+ok  	mindimprint/api/internal/api	2.928s

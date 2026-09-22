@@ -1,0 +1,14 @@
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=2731 input=1852 output=96 valid=true
+--- PASS: TestClarityWriting (2.73s)
+    --- PASS: TestClarityWriting/guide (2.73s)
+=== RUN   TestClarityMergeWriting
+=== RUN   TestClarityMergeWriting/english-analysis
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-analysis sample=1 model=dashscope/deepseek-v4.1-flash ms=3298 input=3576 output=138 valid=false
+    clarity_merge_live_test.go:33: English teaching terminology missing (visible output preserved in evidence)
+--- FAIL: TestClarityMergeWriting (3.30s)
+    --- FAIL: TestClarityMergeWriting/english-analysis (3.30s)
+FAIL
+FAIL	mindimprint/api/internal/api	6.566s
+FAIL

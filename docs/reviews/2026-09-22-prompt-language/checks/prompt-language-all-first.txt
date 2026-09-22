@@ -1,0 +1,1248 @@
+?   	mindimprint/api/cmd/api	[no test files]
+ok  	mindimprint/api/cmd/coachwalk	0.353s
+?   	mindimprint/api/cmd/costreport	[no test files]
+--- FAIL: TestMainRequestParity (0.26s)
+    parity_test.go:62: request differs from main baseline: awakening/opening
+    parity_test.go:62: request differs from main baseline: awakening/report
+    parity_test.go:62: request differs from main baseline: awakening/retry
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/complete
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/direct-answer
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/help
+    parity_test.go:62: request differs from main baseline: course/ask
+    parity_test.go:62: request differs from main baseline: bench/compose/lite-writing-plan
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/hunt-no-pick
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/hunt-picked
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/label
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/skip
+    parity_test.go:62: request differs from main baseline: bench/review/lite-writing-comment
+    parity_test.go:62: request differs from main baseline: interest/dig
+    parity_test.go:62: request differs from main baseline: news/write
+    parity_test.go:62: request differs from main baseline: awakening/last
+    parity_test.go:62: request differs from main baseline: awakening/title
+    parity_test.go:62: request differs from main baseline: bench/compose/reading-router
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-reading-coach/start
+    parity_test.go:62: request differs from main baseline: interest/harvest
+    parity_test.go:62: request differs from main baseline: teacher/assignment
+    parity_test.go:62: request differs from main baseline: teacher/home
+    parity_test.go:62: request differs from main baseline: teacher/report
+    parity_test.go:62: request differs from main baseline: awakening/selection
+    parity_test.go:62: request differs from main baseline: bench/assess/lite-reading-report
+    parity_test.go:62: request differs from main baseline: bench/dialogue/lite-writing-coach
+    parity_test.go:62: request differs from main baseline: news/select
+FAIL
+FAIL	mindimprint/api/cmd/promptinspect	1.823s
+?   	mindimprint/api/cmd/prompttag	[no test files]
+?   	mindimprint/api/cmd/routebench	[no test files]
+2026/09/22 15:52:50 WARN chat: reply not emitted thread_id=38a57773-23f5-4d31-a180-575c22f0c586 err="agent: chat reply rejected by banned-phrasing rule \"rewritten-sentence-zh\""
+--- FAIL: TestClarityAgent (0.00s)
+    --- FAIL: TestClarityAgent/chat-concept (0.00s)
+        clarity_live_test.go:24: production request changed: TestClarityAgent-chat-concept
+            want ace011ff00556034db08e3ef24c8d194a97f3a4f269773e6d1091a095259f40f
+            got  d997fd11f016f72f8f7d63346f24d4fdb5db143376a4de9a7c2f2127984f858f
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityAgent/project-help (0.00s)
+        clarity_live_test.go:24: production request changed: TestClarityAgent-project-help
+            want 9829d2137ea59af9ca0f0e566fbf7b83268dc712a4959c1428707a1f749d9e7d
+            got  c997b2f145cf4cd67312f5fe2d156e027eacbb4e2a587a50d368051cbc120070
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityAgent/course-concept (0.00s)
+        clarity_live_test.go:24: production request changed: TestClarityAgent-course-concept
+            want f2587e9e38e797e1530f1e459554bdf50dda1d7a38ba346b014bd311399c241c
+            got  6a28f174007cc52fc32b5ee3fd9d09f895fae04cbbd8a2a311233a83babe8cc0
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityAgent/project-no-ghostwriting (0.00s)
+        clarity_live_test.go:24: production request changed: TestClarityAgent-project-no-ghostwriting
+            want 707394dd41bce7498bafb0e1d0bee9f95167860a3ba30a4256327487d2225824
+            got  d7a44b0d5acb3ad9488a9aecbe00e9997829ba56ffd0f1b515dd3fb5e1750892
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityAgent/sceptic (0.00s)
+        clarity_live_test.go:37: production request changed: TestClarityAgent-sceptic
+            want 4913e2ddc91e7da7bb257eff600f140a7ea8fa742a2e1a24c6a441adb514ee2c
+            got  67c90f3ec8760b1ca23d42f86f9c78cfeb27fd36d97ddbd063a122a287732a46
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityAgent/executioner (0.00s)
+        clarity_live_test.go:37: production request changed: TestClarityAgent-executioner
+            want 21d08a5ea1910993ee98b2dc0c0246147e570f3d187cdadbccaa0652efbe659e
+            got  0415335f6b2320870446c8565c3be92f7363b386c268fe35f4aadf12bc9247cf
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityReport (0.00s)
+    clarity_live_test.go:108: production request changed: TestClarityReport
+        want bd934a8d16e253318b1b7cce8bd94f00992accf80217493dde2fe04dc8799c7e
+        got  48e5fb0fed40e88da307bd7fd96bf770f87a1e1f8b9b8df262af40f22d4b6a8a
+        Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestCourseAskPrompt (0.00s)
+    course_coach_test.go:35: course ask prompt is missing "不替他下结论":
+        你是「印记」，正在陪一名学生上《一条网络信息，该不该信》这门课的「溯源体检」这一步。本课目标：学会用 CRAAP 给一条说法做信源辨识。学生会自由提问。概念、词义和操作问题请直接解释，必要时使用与测验不同的例子。
+        回答直接展示给学生，称呼学生时使用「你」。教学要求：① 不要直接给出本步测验题的正确答案，只引导学生自己判断；② 分析练习由学生作出判断，学生要提交的作业正文由学生撰写；③ 最多问一个需要学生回答的问题，无需补充信息时可以不问；④ 回答简短，使用术语时附简明解释，不评价学生的能力或态度。
+
+        这一步的内容（仅供你理解语境，不要逐字复述给学生）：
+        这一步会带学生检查作者、发布时间与目的……
+--- FAIL: TestBuildSystemPromptMatchesGolden (0.00s)
+    prompt_test.go:135: system prompt differs from reviewed golden.
+        first diff context — got len=12024 want len=12284
+--- FAIL: TestBuildEvalPrompt_SpeaksToHer (0.00s)
+    reading_eval_voice_test.go:25: prompt no longer states the second-person rule:
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+    reading_eval_voice_test.go:32: field template "\"finding\":\"你这句读出了什么\"" missing — did it revert to 她?
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+    reading_eval_voice_test.go:32: field template "\"judgment\":\"你的论断\"" missing — did it revert to 她?
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+FAIL
+FAIL	mindimprint/api/internal/agent	34.267s
+ok  	mindimprint/api/internal/agent/enforcement	0.988s
+2026/09/22 15:52:52 OK   0001_init.sql (27.07ms)
+2026/09/22 15:52:52 OK   0002_seed.sql (11.12ms)
+2026/09/22 15:52:52 OK   0003_auth.sql (8.64ms)
+2026/09/22 15:52:52 OK   0004_seed_password.sql (2.13ms)
+2026/09/22 15:52:52 OK   0005_org.sql (5.61ms)
+2026/09/22 15:52:52 OK   0006_seed_admin.sql (1.86ms)
+2026/09/22 15:52:52 OK   0007_eval_async.sql (1.83ms)
+2026/09/22 15:52:52 OK   0008_eval_trigger.sql (2.86ms)
+2026/09/22 15:52:52 OK   0009_material.sql (2.97ms)
+2026/09/22 15:52:52 OK   0010_card_anchors.sql (1.24ms)
+2026/09/22 15:52:52 OK   0011_courses.sql (5.42ms)
+2026/09/22 15:52:52 OK   0012_seed_course.sql (2.21ms)
+2026/09/22 15:52:52 OK   0013_course_step_render.sql (1.76ms)
+2026/09/22 15:52:52 OK   0014_voice_tts_cache.sql (1.64ms)
+2026/09/22 15:52:52 OK   0015_message_source.sql (877.42µs)
+2026/09/22 15:52:52 OK   0016_refactor2_foundations.sql (33.47ms)
+2026/09/22 15:52:52 OK   0017_graph_node_open_type.sql (3.43ms)
+2026/09/22 15:52:52 OK   0018_seed_demo_project.sql (7.46ms)
+2026/09/22 15:52:52 OK   0019_llm_call_usage.sql (6.29ms)
+2026/09/22 15:52:52 OK   0020_material_source_log.sql (8.04ms)
+2026/09/22 15:52:52 OK   0021_assessment_project.sql (5.63ms)
+2026/09/22 15:52:52 OK   0022_chat_thread_scope.sql (7.99ms)
+2026/09/22 15:52:52 OK   0023_course_session_scope.sql (13.36ms)
+2026/09/22 15:52:52 OK   0024_session_assessment_scope.sql (11.43ms)
+2026/09/22 15:52:52 OK   0025_thread_assessment_scope.sql (8.83ms)
+2026/09/22 15:52:52 OK   0026_project_status_check.sql (1.38ms)
+2026/09/22 15:52:52 OK   0027_dualaxis_clean_slate.sql (2.4ms)
+2026/09/22 15:52:52 OK   0028_canonical_assessment_clean_slate.sql (1.63ms)
+2026/09/22 15:52:52 OK   0029_seed_teacher_class.sql (9.5ms)
+2026/09/22 15:52:52 OK   0030_seed_teacher_password.sql (2.18ms)
+2026/09/22 15:52:52 OK   0031_event_course_scope.sql (5.93ms)
+2026/09/22 15:52:52 OK   0032_student_evaluation_view.sql (1.85ms)
+2026/09/22 15:52:52 OK   0033_class_weekly_prose.sql (2.67ms)
+2026/09/22 15:52:52 OK   0034_seed_teacher_week.sql (8.25ms)
+2026/09/22 15:52:52 OK   0035_parent_report_prose.sql (3.33ms)
+2026/09/22 15:52:52 OK   0036_workspace_redesign.sql (24.2ms)
+2026/09/22 15:52:52 OK   0037_project_status_evaluating.sql (3.16ms)
+2026/09/22 15:52:52 OK   0038_continuous_session.sql (5.39ms)
+2026/09/22 15:52:52 OK   0039_reading_takeaway.sql (2.66ms)
+2026/09/22 15:52:52 OK   0040_exploration_lead.sql (5.29ms)
+2026/09/22 15:52:52 OK   0041_conversation_digest.sql (2.88ms)
+2026/09/22 15:52:52 OK   0042_project_ai_use.sql (2.5ms)
+2026/09/22 15:52:52 OK   0043_reading_note.sql (3.24ms)
+2026/09/22 15:52:52 OK   0044_snippet.sql (3.86ms)
+2026/09/22 15:52:52 OK   0045_snippet_section.sql (1.94ms)
+2026/09/22 15:52:52 OK   0046_exploration_lead_branch.sql (3.81ms)
+2026/09/22 15:52:52 OK   0047_user_card_theme.sql (2.95ms)
+2026/09/22 15:52:52 OK   0048_reference_abstract.sql (3.61ms)
+2026/09/22 15:52:52 OK   0049_project_writing_finished.sql (1.36ms)
+2026/09/22 15:52:52 OK   0050_course_v2.sql (16.09ms)
+2026/09/22 15:52:52 OK   0051_course_active_seconds.sql (1.5ms)
+2026/09/22 15:52:52 OK   0052_course_audio_manifest.sql (1.58ms)
+2026/09/22 15:52:52 OK   0053_reference_reading_status.sql (1.84ms)
+2026/09/22 15:52:52 OK   0054_question_edge.sql (9.3ms)
+2026/09/22 15:52:52 OK   0055_lead_origin_note.sql (2.6ms)
+2026/09/22 15:52:52 OK   0056_proposal_counterpoints.sql (1.76ms)
+2026/09/22 15:52:52 OK   0057_studio_state.sql (1.25ms)
+2026/09/22 15:52:52 OK   0058_project_cover.sql (1.22ms)
+2026/09/22 15:52:52 OK   0059_studio_started.sql (2.5ms)
+2026/09/22 15:52:52 OK   0060_chat_message_stage.sql (2.52ms)
+2026/09/22 15:52:52 OK   0061_writing_doc_kind.sql (12.37ms)
+2026/09/22 15:52:52 OK   0062_reference_evidence.sql (3.81ms)
+2026/09/22 15:52:52 OK   0063_revision_checkpoint.sql (6.85ms)
+2026/09/22 15:52:52 OK   0064_evaluation_report.sql (3.62ms)
+2026/09/22 15:52:52 OK   0065_drop_mirror_parent_prose.sql (6.4ms)
+2026/09/22 15:52:52 OK   0066_evaluation_report_status.sql (6.38ms)
+2026/09/22 15:52:52 OK   0067_truncate_weekly_prose_cache.sql (2.55ms)
+2026/09/22 15:52:52 OK   0068_citation.sql (8.58ms)
+2026/09/22 15:52:52 OK   0069_backfill_framework_finished.sql (3.66ms)
+2026/09/22 15:52:52 OK   0070_course_definition.sql (1.31ms)
+2026/09/22 15:52:52 OK   0071_course_session.sql (8.79ms)
+2026/09/22 15:52:52 OK   0072_course_status_cover.sql (3.22ms)
+2026/09/22 15:52:52 OK   0073_seed_demo_class_teacher.sql (3.87ms)
+2026/09/22 15:52:52 OK   0074_user_page_background.sql (2.97ms)
+2026/09/22 15:52:52 OK   0075_course_catalog_metadata.sql (3.16ms)
+2026/09/22 15:52:52 OK   0076_course_definition_step_count.sql (2.84ms)
+2026/09/22 15:52:52 OK   0077_course_session_attempts.sql (5.96ms)
+2026/09/22 15:52:52 OK   0078_seed_foreign_class.sql (2.15ms)
+2026/09/22 15:52:52 OK   0079_user_onboarded_at.sql (810.75µs)
+2026/09/22 15:52:52 OK   0080_feedback.sql (3.28ms)
+2026/09/22 15:52:52 OK   0081_project_is_demo.sql (2.64ms)
+2026/09/22 15:52:52 OK   0082_seed_demo_project_finished.sql (30.63ms)
+2026/09/22 15:52:52 OK   0083_seed_demo_essay_annotations.sql (1.78ms)
+2026/09/22 15:52:52 OK   0084_demo_studio_state_retrospective.sql (1.7ms)
+2026/09/22 15:52:52 OK   0085_demo_essay_newlines.sql (2.65ms)
+2026/09/22 15:52:52 OK   0086_demo_full_paper.sql (2.97ms)
+2026/09/22 15:52:52 OK   0087_demo_warren_depth_and_needs.sql (2.54ms)
+2026/09/22 15:52:52 OK   0088_demo_node_read_transition.sql (2.75ms)
+2026/09/22 15:52:52 OK   0089_demo_warren_full_second_layer.sql (6.01ms)
+2026/09/22 15:52:52 OK   0090_demo_proposal_track_guides.sql (4.07ms)
+2026/09/22 15:52:52 OK   0091_demo_reading_notes.sql (4.64ms)
+2026/09/22 15:52:52 OK   0092_atom_substrate.sql (41.05ms)
+2026/09/22 15:52:52 OK   0093_schools_edition.sql (2.79ms)
+2026/09/22 15:52:52 OK   0094_llm_call_atom.sql (3.87ms)
+2026/09/22 15:52:52 OK   0095_atom_card_anchors.sql (2.3ms)
+2026/09/22 15:52:52 OK   0096_atom_card_one_open.sql (1.73ms)
+2026/09/22 15:52:52 OK   0097_atom_card_origin.sql (2.49ms)
+2026/09/22 15:52:52 OK   0098_atom_last_activity.sql (3.4ms)
+2026/09/22 15:52:52 OK   0099_writing_tables.sql (12.89ms)
+2026/09/22 15:52:52 OK   0100_writing_structure.sql (5.19ms)
+2026/09/22 15:52:52 OK   0101_reading_plan.sql (8.68ms)
+2026/09/22 15:52:52 OK   0102_writing_room_deepening.sql (9.13ms)
+2026/09/22 15:52:52 OK   0103_reading_depth.sql (10.36ms)
+2026/09/22 15:52:52 OK   0104_reading_questions_at.sql (3.07ms)
+2026/09/22 15:52:52 OK   0105_lite_reports.sql (9.67ms)
+2026/09/22 15:52:52 OK   0106_coach_card_payload.sql (3.27ms)
+2026/09/22 15:52:52 OK   0107_atom_experience_rating.sql (4.38ms)
+2026/09/22 15:52:52 OK   0108_pbl_project.sql (12.02ms)
+2026/09/22 15:52:52 OK   0109_pbl_sessions_and_plan.sql (35.12ms)
+2026/09/22 15:52:52 OK   0110_pbl_artifacts_and_tools.sql (10.71ms)
+2026/09/22 15:52:53 OK   0111_pbl_method_layer.sql (69.09ms)
+2026/09/22 15:52:53 OK   0112_pbl_kind_is_hers.sql (5.01ms)
+2026/09/22 15:52:53 OK   0113_pbl_decision_is_a_choice.sql (2.96ms)
+2026/09/22 15:52:53 OK   0114_pbl_tree_positions.sql (3.33ms)
+2026/09/22 15:52:53 OK   0115_pbl_review_sections.sql (1.97ms)
+2026/09/22 15:52:53 OK   0116_interest_model.sql (10.52ms)
+2026/09/22 15:52:53 OK   0117_pbl_site.sql (4.84ms)
+2026/09/22 15:52:53 OK   0118_pbl_note_photo.sql (1.19ms)
+2026/09/22 15:52:53 OK   0119_interest_quiz.sql (3.48ms)
+2026/09/22 15:52:53 OK   0120_news_starmap.sql (8.53ms)
+2026/09/22 15:52:53 OK   0121_keyword_dig.sql (4.3ms)
+2026/09/22 15:52:53 OK   0122_pbl_board_axes.sql (2.04ms)
+2026/09/22 15:52:53 OK   0123_pbl_judgment_signals.sql (2.93ms)
+2026/09/22 15:52:53 OK   0124_pbl_mission_item.sql (4.32ms)
+2026/09/22 15:52:53 OK   0125_pbl_note_placed.sql (1.73ms)
+2026/09/22 15:52:53 OK   0126_pbl_note_link.sql (4.99ms)
+2026/09/22 15:52:53 OK   0127_pbl_keep_numbers.sql (3.18ms)
+2026/09/22 15:52:53 OK   0128_pbl_note_picked.sql (2.82ms)
+2026/09/22 15:52:53 OK   0129_pbl_site_ref.sql (4.02ms)
+2026/09/22 15:52:53 OK   0130_pbl_persona.sql (3.39ms)
+2026/09/22 15:52:53 OK   0131_pbl_site_look.sql (2.22ms)
+2026/09/22 15:52:53 OK   0132_pbl_note_reframe_slot.sql (1.41ms)
+2026/09/22 15:52:53 OK   0133_course_audience_and_pbl_course.sql (3.96ms)
+2026/09/22 15:52:53 OK   0134_interest_vocabulary.sql (11.45ms)
+2026/09/22 15:52:53 OK   0135_news_day_retry.sql (1.31ms)
+2026/09/22 15:52:53 OK   0136_pbl_tool_drop.sql (2.57ms)
+2026/09/22 15:52:53 OK   0137_interest_dismissal.sql (2.14ms)
+2026/09/22 15:52:53 OK   0138_news_saved_reading.sql (3.14ms)
+2026/09/22 15:52:53 OK   0139_drop_interest_dismissal.sql (3.85ms)
+2026/09/22 15:52:53 OK   0140_interest_proposal.sql (3.18ms)
+2026/09/22 15:52:53 OK   0141_news_planet_body.sql (1.71ms)
+2026/09/22 15:52:53 OK   0142_reading_library.sql (3.1ms)
+2026/09/22 15:52:53 OK   0143_reading_outline.sql (1.81ms)
+2026/09/22 15:52:53 OK   0144_reading_task_new_kinds.sql (2.72ms)
+2026/09/22 15:52:53 OK   0145_news_planet_evidence.sql (3ms)
+2026/09/22 15:52:53 OK   0146_writing_origin.sql (2.35ms)
+2026/09/22 15:52:53 OK   0147_writing_comment_source.sql (2.71ms)
+2026/09/22 15:52:53 OK   0148_atom_active_day.sql (3.77ms)
+2026/09/22 15:52:53 OK   0149_lite_assignment.sql (15.87ms)
+2026/09/22 15:52:53 OK   0150_lite_weekly_prose.sql (6.19ms)
+2026/09/22 15:52:53 OK   0151_lite_parent_report.sql (7.83ms)
+2026/09/22 15:52:53 OK   0152_lite_parent_report_export_only.sql (2.12ms)
+2026/09/22 15:52:53 OK   0153_lite_writing_versions.sql (6.73ms)
+2026/09/22 15:52:53 OK   0154_lite_grading.sql (7.66ms)
+2026/09/22 15:52:53 OK   0155_keyword_dig_library.sql (2.6ms)
+2026/09/22 15:52:53 OK   0156_reading_source_excerpt_only.sql (1.91ms)
+2026/09/22 15:52:53 OK   0157_reading_block_note_shape.sql (4.41ms)
+2026/09/22 15:52:53 OK   0158_writing_outline_source.sql (2.76ms)
+2026/09/22 15:52:53 OK   0159_pbl_review_revision.sql (2.5ms)
+2026/09/22 15:52:53 OK   0160_pbl_decision_draft.sql (2.45ms)
+2026/09/22 15:52:53 OK   0161_pbl_decision_revision.sql (2.04ms)
+2026/09/22 15:52:53 OK   0162_pbl_audience_document.sql (3.11ms)
+2026/09/22 15:52:53 OK   0163_pbl_multiple_audiences.sql (1.58ms)
+2026/09/22 15:52:53 OK   0164_pbl_creative_direction.sql (2.96ms)
+2026/09/22 15:52:53 OK   0165_pbl_code_versions.sql (6.97ms)
+2026/09/22 15:52:53 OK   0166_pbl_code_revision_feedback.sql (4.25ms)
+2026/09/22 15:52:53 OK   0167_homepage_creative_routine.sql (4.18ms)
+2026/09/22 15:52:53 OK   0168_pbl_artifact_trial_draft.sql (4.38ms)
+2026/09/22 15:52:53 OK   0169_pbl_site_publication.sql (3.93ms)
+2026/09/22 15:52:53 OK   0170_pbl_site_publication_owner.sql (4.41ms)
+2026/09/22 15:52:53 OK   0171_pbl_observation_draft.sql (7.13ms)
+2026/09/22 15:52:53 OK   0172_pbl_mission_revision.sql (2.48ms)
+2026/09/22 15:52:53 OK   0173_pbl_mission_student_edit.sql (1.57ms)
+2026/09/22 15:52:53 OK   0174_atom_report_include_transcript.sql (1.62ms)
+2026/09/22 15:52:53 OK   0175_users_gender.sql (2.57ms)
+2026/09/22 15:52:53 OK   0176_reading_task_critique.sql (2.24ms)
+2026/09/22 15:52:53 OK   0177_atom_report_include_toolkit.sql (1.62ms)
+2026/09/22 15:52:53 OK   0178_reading_source_short_feed_body_is_excerpt.sql (2.68ms)
+2026/09/22 15:52:53 OK   0179_reading_source_cut_related_trailer.sql (2.66ms)
+2026/09/22 15:52:53 OK   0180_reading_task_sequence.sql (2.47ms)
+2026/09/22 15:52:53 OK   0181_awakening_protocol.sql (11.5ms)
+2026/09/22 15:52:53 OK   0182_writing_outline_kind.sql (5.65ms)
+2026/09/22 15:52:53 OK   0183_writing_comment_verdict.sql (2.28ms)
+2026/09/22 15:52:53 OK   0184_writing_flow.sql (4ms)
+2026/09/22 15:52:53 OK   0185_awakening_threads.sql (4.03ms)
+2026/09/22 15:52:53 goose: successfully migrated database to version: 185
+--- FAIL: TestLiteReportSystemAddressesHerDirectly (0.00s)
+    atom_report_internal_test.go:261: liteReportSystem must explicitly instruct gains to address her as 你, not describe her in third person
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:54 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+--- FAIL: TestClarityGrading (0.00s)
+    --- FAIL: TestClarityGrading/zh (0.00s)
+        clarity_grading_live_test.go:22: production request changed: TestClarityGrading-zh
+            want 99b87d919206db4119d296d1c7ab2d9f1fedd13f5a32c4433ad67f320732f4ab
+            got  dcb9604cfe56d27d481ab8c8d92311c9b41e4e16db252c500280ed986e8e6262
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGrading/en (0.00s)
+        clarity_grading_live_test.go:22: production request changed: TestClarityGrading-en
+            want a9fc0c52cae9d188be0ceb52525680abd0d285b390a7cc377f0af8ffcb9e8908
+            got  e618618332a3a5c1e9b2585dfe27709de42895def465f80da41b1306795ba8b2
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityReading (0.14s)
+    --- FAIL: TestClarityReading/concept (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-concept
+            want e99c3cc6197c1aaa2d56ae2fa515d767eae0d487416b509510997423b2dc32c8
+            got  2c7f8da21e6613f38d205ae6a59776ac6293ec45ffd2e1d07b0306373f96d4c3
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/help (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-help
+            want 1786ef5b8caefd8928715a619edfeb1c5ba171127907d9b8d46350581b06782c
+            got  ae2e09f31a964927c1229469ea4f4e1fa39ea5eeb8dcc1f90d0c69a6a2d39428
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/partial (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-partial
+            want 76c2dc092d3de2dcd037710e0fc75f8fffd72a05d4967cbe878fde95b44a2374
+            got  0048ca4adffe20ee3f0b6226649c841278bb26c0e40df3e496fc2cbb20498511
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/done (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-done
+            want 9009b7da6593b8fd0e29ebf45b6cac3bdc0fa41f04fb37e73759a2ad2ee37829
+            got  45c9a369e771bfe306ee5bc3e621c2f35fa8126dbeb92eba26a162fa1886bc0a
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/skip (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-skip
+            want 452e7482b8e37f7c480f938c8f4f83e9de0fe4f739a32bf72aecd9754fa063c3
+            got  23f981e99462771f5f8ed0ec58a23cf2be0d7a50da8131bbd0972e9c642e5bc3
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/read-done (0.02s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-read-done
+            want 53e0bb3f333ef6ae3f3eecc14ecf65e8d8738a3843dd863dc33f58bc3cc396ae
+            got  ce6d308d412a359d5314e1f241cbbd237d967957699a367cb397840381c7bfb0
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/connect (0.02s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-connect
+            want 0d08c45a335a6d7fdac19a940bdf03ec5686f596f48cd69e20fd16e1f02f8b60
+            got  15ecd3ad059bbcfed36457ebd128679856c9c6464a29ffbdb628c773141ab0f4
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/hunt-no-pick (0.01s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-hunt-no-pick
+            want a4a57b8da8f902b7f3cdc733aafe3d256c59666af8e5054e334dbf59de042fbb
+            got  36a15e66ca24e3c728842682bb3f0dd7b282c9b4c98df1d37fefa87699acb21b
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/hunt-picked (0.02s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-hunt-picked
+            want 62e015181a23cc7b7c90d1ab8e257cb6419dcd8d5ea1162486208a07d1f2f7ff
+            got  c5fe6110fc1c732fd066adaae81118be549b2e47811a6f58f167c33c8ce0093a
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReading/hunt-skip (0.02s)
+        clarity_live_test.go:38: production request changed: TestClarityReading-hunt-skip
+            want 4940b74bb8e3af7e963f43fc91d5ace43dadec7e9fc8be2fc559ada6e32f6e42
+            got  842c445e6a019a323be00131cd47b8e3d9c5d00c7fd9981ea804624b41e35605
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityReadingLens (0.03s)
+    --- FAIL: TestClarityReadingLens/not-completed (0.01s)
+        clarity_live_test.go:74: production request changed: TestClarityReadingLens-not-completed
+            want 9e696f8ae0001897dc1bfb9fd67a14a1fcbf2323be17d46cd28cc5f489733a80
+            got  5e57c3fb43366e0de987102a14a690a0d31ccae6633c2ffbbaae22ccddd78848
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingLens/completed (0.02s)
+        clarity_live_test.go:74: production request changed: TestClarityReadingLens-completed
+            want 23f41c6ef3840b6c8690c222527e50614175a479ea39159d47b4f06806fca040
+            got  d60cb91d8b34db6a6f5d2bd9c473b995b88a68b9e3a4ea5686a90e51037bc29c
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityWriting (0.00s)
+    --- FAIL: TestClarityWriting/plan (0.00s)
+        clarity_live_test.go:100: production request changed: TestClarityWriting-plan
+            want 7f8a48035407e544b3449105020b4227644e8b4424b2f5a1b8cb559402233509
+            got  fbb832dc92c728f85fe33e09c65fde019c479b51d121f1d6df3d1852e8165894
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityWriting/guide (0.00s)
+        clarity_live_test.go:109: production request changed: TestClarityWriting-guide
+            want afeb1729f9089afae44496c2a6829f27c0c4f0456bcd1a318c9c026c2206837e
+            got  4d444d73dd35de4bc5dd5421606b5354bc659d744d76e7a09ca12b78e50419d8
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityWriting/comment (0.00s)
+        clarity_live_test.go:118: production request changed: TestClarityWriting-comment
+            want 2097542abe81590ae046b5270450f9d3acfe14b2cfbf3f3ce01888662dc539fc
+            got  9b69361876de4a8efcb33de7fca523c6ec5ba467a7d9ccd87bf495acf528f41c
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityMergeWriting (0.00s)
+    --- FAIL: TestClarityMergeWriting/process (0.00s)
+        clarity_merge_live_test.go:33: production request changed: TestClarityMergeWriting-process
+            want a832a54bd33afa59a08b44b2cbda94807cee987536bf3ea1228283a7551025b8
+            got  89408756f3db117e417b13ac1d0f35943b78c9621c5fdda0cd8de717dc0c8c88
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityMergeWriting/judgment (0.00s)
+        clarity_merge_live_test.go:33: production request changed: TestClarityMergeWriting-judgment
+            want 56b1fd2ce31a8ae2e43487daef6caa2076b30c3810ea73a53572bb3bf5beb767
+            got  dcdc3097d7094c94e070701e21b79c602a45d72133be08abcf2ffdbfd07e0068
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityMergeWriting/english-analysis (0.00s)
+        clarity_merge_live_test.go:33: production request changed: TestClarityMergeWriting-english-analysis
+            want 23735a04d29498d9c15c226dfc3b7aaedb40686fb2ce66db3f6ec9b8783ae83f
+            got  28a525ad818ff556ae0bf476db6eb7d9fed118faf14761904808b01cf90a0b99
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityMergeWriting/english-narrative (0.00s)
+        clarity_merge_live_test.go:33: production request changed: TestClarityMergeWriting-english-narrative
+            want 2a68251dda32b9df990b5f8a6055a4abccf50eec9b3cc145540e59e0d73aa258
+            got  082c6aff7deb4cd0484fc44a4d4d9e74fe337450487a3c89c2d71e1d9193f168
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityMergeWriting/choose-word-opening (0.00s)
+        clarity_merge_live_test.go:70: production request changed: TestClarityMergeWriting-choose-word-opening
+            want a5341e319e7fe8e98a966ad79f866c1783c977f9a3e938e2ba6d9dd569d4f455
+            got  30dabbc72fcc4ae435da6d4d88b9ec4cd99a38c790060d38f095bb2cc7316568
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityPersonalPlanReady (0.00s)
+    --- FAIL: TestClarityPersonalPlanReady/zh (0.00s)
+        clarity_merge_live_test.go:105: production request changed: TestClarityPersonalPlanReady-zh
+            want 88ea7a96e8cf4e33601669bd164f92551e6189c1a2f2a8299e8ef41aeddd99c1
+            got  a5f22ae371babfa8eb71b201f1c5ac49c39f4369d39c35f56850bbcee208f101
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityPersonalPlanReady/en (0.00s)
+        clarity_merge_live_test.go:105: production request changed: TestClarityPersonalPlanReady-en
+            want 5c3ce9dc5920ea5eccf4d80d8550962dc25472362f856046e7e450d284ea947b
+            got  14f5dfe7a5e4de7b0a9610f00f9445fa7a84e203bf413abe2d5320ce76e30dca
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityWritingInvite (0.00s)
+    clarity_prose_live_test.go:27: production request changed: TestClarityWritingInvite
+        want 1ff193d1bcfe9614ed5fbcd2b7810a634c618d7aa2a7b25dc2322fe6205fed2a
+        got  d2a1c21eeb37fbe6d25edf3969179020cd1062c62d6bcddc4b01e8312dd91df8
+        Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityReadingSequence (0.23s)
+    --- FAIL: TestClarityReadingSequence/library-1 (0.04s)
+        --- FAIL: TestClarityReadingSequence/library-1/turn-1 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-1-turn-1
+                want e737501502de62a792587791c1c8904cfcd99c214ca28b1e0a848d4fee7b80ff
+                got  91b2bc56c82b83a6ae7e508a72af6ba751e975598556ffb6aa6130f223d8691d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-1/turn-2 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-1-turn-2
+                want d0c274bfbc9a6e4107779fa0a0856fc0924f4a462ce1953e342c9d49a930c4d5
+                got  1f64dfcc5df6aba0cb080324a9e0aefba94b1116229f197b6c11836ce23c5fbd
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-1/turn-3 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-1-turn-3
+                want 51dedb0f918e990c8dcba66bd9e030ff39bc19d1d090901c0630fe60fa82ee5b
+                got  b7b598573a8202eeb36874d433ac056992a3ffe391e8bfa4ae7fee03e620adb1
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingSequence/library-2 (0.05s)
+        --- FAIL: TestClarityReadingSequence/library-2/turn-1 (0.02s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-2-turn-1
+                want e737501502de62a792587791c1c8904cfcd99c214ca28b1e0a848d4fee7b80ff
+                got  91b2bc56c82b83a6ae7e508a72af6ba751e975598556ffb6aa6130f223d8691d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-2/turn-2 (0.02s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-2-turn-2
+                want d0c274bfbc9a6e4107779fa0a0856fc0924f4a462ce1953e342c9d49a930c4d5
+                got  1f64dfcc5df6aba0cb080324a9e0aefba94b1116229f197b6c11836ce23c5fbd
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-2/turn-3 (0.02s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-2-turn-3
+                want 51dedb0f918e990c8dcba66bd9e030ff39bc19d1d090901c0630fe60fa82ee5b
+                got  b7b598573a8202eeb36874d433ac056992a3ffe391e8bfa4ae7fee03e620adb1
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingSequence/library-3 (0.04s)
+        --- FAIL: TestClarityReadingSequence/library-3/turn-1 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-3-turn-1
+                want e737501502de62a792587791c1c8904cfcd99c214ca28b1e0a848d4fee7b80ff
+                got  91b2bc56c82b83a6ae7e508a72af6ba751e975598556ffb6aa6130f223d8691d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-3/turn-2 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-3-turn-2
+                want d0c274bfbc9a6e4107779fa0a0856fc0924f4a462ce1953e342c9d49a930c4d5
+                got  1f64dfcc5df6aba0cb080324a9e0aefba94b1116229f197b6c11836ce23c5fbd
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/library-3/turn-3 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-library-3-turn-3
+                want 51dedb0f918e990c8dcba66bd9e030ff39bc19d1d090901c0630fe60fa82ee5b
+                got  b7b598573a8202eeb36874d433ac056992a3ffe391e8bfa4ae7fee03e620adb1
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingSequence/urban-heat-1 (0.04s)
+        --- FAIL: TestClarityReadingSequence/urban-heat-1/turn-1 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-1-turn-1
+                want ca7d01ebcc6286238d3016c013e3c1104559409969a11507a39af63ea1356750
+                got  4ede58e4f3455d7e75b8a07d158d28f53280f39181ea112a42cb5dab05632d34
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-1/turn-2 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-1-turn-2
+                want 61a740a2d3ead022db5ca219cf7e8ccaa7519ed9a523d7a3b386de7566036887
+                got  a86ca5e1a42a9027c3690b6ecfd0e8aa96cd8a18198386dddcb597346d3d902d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-1/turn-3 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-1-turn-3
+                want d0425b7148dcb5a79b83d49f6ecd2506fbfdd170c6cd47dd17bc34f1a8d0701e
+                got  a459d64605410ff23137f99a4d70e63b5d85594c6baf880229680d8ea3c4c8f9
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingSequence/urban-heat-2 (0.04s)
+        --- FAIL: TestClarityReadingSequence/urban-heat-2/turn-1 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-2-turn-1
+                want ca7d01ebcc6286238d3016c013e3c1104559409969a11507a39af63ea1356750
+                got  4ede58e4f3455d7e75b8a07d158d28f53280f39181ea112a42cb5dab05632d34
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-2/turn-2 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-2-turn-2
+                want 61a740a2d3ead022db5ca219cf7e8ccaa7519ed9a523d7a3b386de7566036887
+                got  a86ca5e1a42a9027c3690b6ecfd0e8aa96cd8a18198386dddcb597346d3d902d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-2/turn-3 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-2-turn-3
+                want d0425b7148dcb5a79b83d49f6ecd2506fbfdd170c6cd47dd17bc34f1a8d0701e
+                got  a459d64605410ff23137f99a4d70e63b5d85594c6baf880229680d8ea3c4c8f9
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingSequence/urban-heat-3 (0.04s)
+        --- FAIL: TestClarityReadingSequence/urban-heat-3/turn-1 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-3-turn-1
+                want ca7d01ebcc6286238d3016c013e3c1104559409969a11507a39af63ea1356750
+                got  4ede58e4f3455d7e75b8a07d158d28f53280f39181ea112a42cb5dab05632d34
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-3/turn-2 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-3-turn-2
+                want 61a740a2d3ead022db5ca219cf7e8ccaa7519ed9a523d7a3b386de7566036887
+                got  a86ca5e1a42a9027c3690b6ecfd0e8aa96cd8a18198386dddcb597346d3d902d
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+        --- FAIL: TestClarityReadingSequence/urban-heat-3/turn-3 (0.01s)
+            clarity_reading_sequence_test.go:33: production request changed: TestClarityReadingSequence-urban-heat-3-turn-3
+                want d0425b7148dcb5a79b83d49f6ecd2506fbfdd170c6cd47dd17bc34f1a8d0701e
+                got  a459d64605410ff23137f99a4d70e63b5d85594c6baf880229680d8ea3c4c8f9
+                Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityTeacherReading (0.05s)
+    --- FAIL: TestClarityTeacherReading/compare-not-verdict (0.01s)
+        clarity_teaching_live_test.go:43: production request changed: TestClarityTeacherReading-compare-not-verdict
+            want 45106ba7182829d91bc3c91dc55caef5558e6e73c20368b133f6587f2de7d761
+            got  38f6059b89c247d2b651bb93acfad13de27fce433da958712882cb437653e88f
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityTeacherReading/explain-concept (0.01s)
+        clarity_teaching_live_test.go:43: production request changed: TestClarityTeacherReading-explain-concept
+            want 3907edd98c713964fcc51d5c9d210c9ad61fb0c5357bf551d0cd4451a5e51b10
+            got  4ccef04d97ef3315fe6287691a42590d052bd41382637a55e0992f32e110fd35
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityTeacherReading/predict-opening (0.01s)
+        clarity_teaching_live_test.go:43: production request changed: TestClarityTeacherReading-predict-opening
+            want 58490434d139f59a60a219422864aec85bc190cbf5092991c662bc8bdad7fbab
+            got  9ece2ab63c5bc199c1ceb2299aefa3bc4094203e4eee28c4220f493e196798ab
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityTeacherReading/direct-answer (0.01s)
+        clarity_teaching_live_test.go:43: production request changed: TestClarityTeacherReading-direct-answer
+            want 49fd09c876cb37edb5a5a6cefd762fe30a445e90dfbffaec537e76ceee4c3ced
+            got  44ccab36ec0d9e2f68ce97bfa8d036c32379c8d367b87ccfb775d3ee24d3bc57
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityTeacherReview (0.00s)
+    --- FAIL: TestClarityTeacherReview/argument-scope (0.00s)
+        clarity_teaching_live_test.go:77: production request changed: TestClarityTeacherReview-argument-scope
+            want 7e696c91f76172cb65aa880ec09cc4cd3593524caf0e9e1e376388f7594f4c49
+            got  2424e827e975fcc1f18988176e7fb9bece4119c80e474f5a364a2851b739f622
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityTeacherReview/narrative (0.00s)
+        clarity_teaching_live_test.go:77: production request changed: TestClarityTeacherReview-narrative
+            want 90f3aef6550a1d256555295e564ac198326a20cf1bc78ffb2831fc87d3b52408
+            got  a23455401afa90fdfa21aef14fc8511145194c7fe181489ce23f4bc78e0c2723
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityTeacherReview/english (0.00s)
+        clarity_teaching_live_test.go:77: production request changed: TestClarityTeacherReview-english
+            want c2b0bb62a1b4f93ba0ac350e079b681f38120283550d583dc23b76aef5345beb
+            got  2865151c08d28323e63c56f6977b7c6d0fa897e248b76bd83a80455a48919a01
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+--- FAIL: TestClarityReadingPlan (0.00s)
+    --- FAIL: TestClarityReadingPlan/zh (0.00s)
+        clarity_teaching_live_test.go:111: production request changed: TestClarityReadingPlan-zh
+            want 7cfe1c79e66e7fbdb1cc60db5382ddd49a8731eb095616bf6d4c8cc5b9b663bf
+            got  6cff0833eb78a1fa643ed7389b3505465c579aeffebfdac395dafbb5084b1765
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityReadingPlan/en (0.00s)
+        clarity_teaching_live_test.go:111: production request changed: TestClarityReadingPlan-en
+            want 32ce2d6f78e32ce2eb54324d1c30a3a80f569bd1b2bc00a050f7c11338526407
+            got  c75df73182f8ba85e7d1f43b5520b9ff5134f58abdf86c1c634226bf63167a45
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+2026/09/22 15:52:55 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:55 ERROR lite class summary: compose panicked panic=boom
+2026/09/22 15:52:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:55 WARN lite grading: failed grading_id=57915a0e-4b90-4b7b-8558-860ce13b5f07 attempts=2 reasons="回复不是有效的 JSON" parse_err="litegrade: reply is not the JSON object asked for" reply=抱歉，我无法批改。
+2026/09/22 15:52:55 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 15:52:56 WARN lite grading: failed grading_id=eb12c63f-4737-4e02-a999-974a0a8d8374 attempts=2 reasons="第 2 条意见的说明评价的是学生本人，不是文字" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年秋天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"你很懒，材料引用得不认真。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 15:52:56 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+--- FAIL: TestWritingPieceRequestParity (0.00s)
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/missing-body
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/free
+    prompt_piece_parity_test.go:74: piece context changed from main: en/empty
+    prompt_piece_parity_test.go:74: piece context changed from main: en/truncated
+    prompt_piece_parity_test.go:74: piece context changed from main: en/missing-body
+    prompt_piece_parity_test.go:74: piece context changed from main: en/free
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/empty
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/truncated
+2026/09/22 15:52:56 INFO reading coach: card dropped why="fewer than 2 options survived the article check" type=choose_span prompt=哪一句你读着最不服气？
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="a lens was given this turn, so the card was dropped (铁律③)"
+2026/09/22 15:52:56 INFO reading coach: lens dropped why="the lens had no focusBlock to land on"
+--- FAIL: TestDropNoticeTellsItNotToMentionTheCard (0.00s)
+    reading_coach_drop_internal_test.go:85: prompt 里没有那一节
+--- FAIL: TestDropNoticeIsNotForHerEars (0.00s)
+    reading_coach_drop_internal_test.go:103: 那一节没有交代「别把这件事讲给她」
+--- FAIL: TestOpenCardIsShownToTheCoach (0.00s)
+    reading_coach_drop_internal_test.go:238: prompt 里没有那一节 —— 模型看不见自己递出去的东西
+2026/09/22 15:52:56 INFO reading coach: card dropped why="fewer than 2 options survived the article check" type=choose_span prompt=哪一句更像主张？
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply promises a card but none was attached" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply promises a card but none was attached" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: lens dropped why="the lens had no focusBlock to land on"
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: lens dropped why="the lens id is not in the deck"
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: lens dropped why="the lens id is not in the deck"
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: lens dropped why="the lens id is not in the deck"
+--- FAIL: TestLensDoneSuppressesThePressedStartFallback (0.00s)
+    reading_coach_lensdone_internal_test.go:48: missing the lens-done section:
+        文章标题：标题
+
+        【文章，按段落】
+        b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+        b2（第2段）：但人均排放仍低于多数发达国家。
+
+        【阅读任务清单】
+
+        所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+        【最近对话】
+        （还没聊过。）
+
+        【学生刚做完一副透镜】
+        透镜：溯源体检
+        学生自己在文章里找的那一句：「但人均排放仍低于多数发达国家。」
+        此前模型对选句的分析（不属于学生的作答，不据此推断学生已有的认识）：这句把总量和人均分开了，是一次口径切换。
+
+        【学生刚刚说的】
+        （本轮没有新的文字作答，学生已完成透镜选句。请评价选句与分析目标的关系，再按完成规则处理；此前模型写的分析不能当作学生的认识。）
+
+        【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+--- FAIL: TestLensDoneAttributesTheFindingToTheCoach (0.00s)
+    reading_coach_lensdone_internal_test.go:67: missing section:
+        文章标题：标题
+
+        【文章，按段落】
+        b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+        b2（第2段）：但人均排放仍低于多数发达国家。
+
+        【阅读任务清单】
+
+        所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+        【最近对话】
+        （还没聊过。）
+
+        【学生刚做完一副透镜】
+        透镜：溯源体检
+        学生自己在文章里找的那一句：「但人均排放仍低于多数发达国家。」
+        此前模型对选句的分析（不属于学生的作答，不据此推断学生已有的认识）：这句把总量和人均分开了。
+
+        【学生刚刚说的】
+        （本轮没有新的文字作答，学生已完成透镜选句。请评价选句与分析目标的关系，再按完成规则处理；此前模型写的分析不能当作学生的认识。）
+
+        【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+--- FAIL: TestLensDoneWithNoQuoteIsNotACompletedLens (0.00s)
+    --- FAIL: TestLensDoneWithNoQuoteIsNotACompletedLens/nil (0.00s)
+        reading_coach_lensdone_internal_test.go:99: the real 开始 turn must keep its own line for nil:
+            文章标题：标题
+
+            【文章，按段落】
+            b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+            b2（第2段）：但人均排放仍低于多数发达国家。
+
+            【阅读任务清单】
+
+            所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+            【最近对话】
+            （还没聊过。）
+
+            【学生刚刚说的】
+            （学生刚点了「开始」，还没说话。全文总结将在阅读引导结束后展示，学生目前还没有看到。**不要再复述一遍**，也不要讲这篇文章的内容。直接介绍第一步，并提供对应的练习卡片。）
+
+            【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+    --- FAIL: TestLensDoneWithNoQuoteIsNotACompletedLens/empty_quote (0.00s)
+        reading_coach_lensdone_internal_test.go:99: the real 开始 turn must keep its own line for empty quote:
+            文章标题：标题
+
+            【文章，按段落】
+            b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+            b2（第2段）：但人均排放仍低于多数发达国家。
+
+            【阅读任务清单】
+
+            所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+            【最近对话】
+            （还没聊过。）
+
+            【学生刚刚说的】
+            （学生刚点了「开始」，还没说话。全文总结将在阅读引导结束后展示，学生目前还没有看到。**不要再复述一遍**，也不要讲这篇文章的内容。直接介绍第一步，并提供对应的练习卡片。）
+
+            【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+    --- FAIL: TestLensDoneWithNoQuoteIsNotACompletedLens/whitespace_quote (0.00s)
+        reading_coach_lensdone_internal_test.go:99: the real 开始 turn must keep its own line for whitespace quote:
+            文章标题：标题
+
+            【文章，按段落】
+            b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+            b2（第2段）：但人均排放仍低于多数发达国家。
+
+            【阅读任务清单】
+
+            所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+            【最近对话】
+            （还没聊过。）
+
+            【学生刚刚说的】
+            （学生刚点了「开始」，还没说话。全文总结将在阅读引导结束后展示，学生目前还没有看到。**不要再复述一遍**，也不要讲这篇文章的内容。直接介绍第一步，并提供对应的练习卡片。）
+
+            【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+--- FAIL: TestLensDoneStillYieldsToWhatSheTyped (0.00s)
+    reading_coach_lensdone_internal_test.go:116: the lens section must survive alongside her words:
+        文章标题：标题
+
+        【文章，按段落】
+        b1（第1段）：中国的光伏装机量在过去十年增长了二十倍。
+        b2（第2段）：但人均排放仍低于多数发达国家。
+
+        【阅读任务清单】
+
+        所有步骤都走完了。简短说明阅读任务已完成，不增加新任务。
+
+        【最近对话】
+        （还没聊过。）
+
+        【学生刚做完一副透镜】
+        透镜：溯源体检
+        学生自己在文章里找的那一句：「但人均排放仍低于多数发达国家。」
+
+        【学生刚刚说的】
+        我觉得这句在换口径
+
+        【本轮状态】读法清单已结束，简短收尾，不再布置阅读任务。
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 15:52:56 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+--- FAIL: TestPieceContextCarriesPriorComments (0.00s)
+    writing_piece_context_test.go:80: 没说她已经照着改过了 —— 于是它会把同一件事再说一遍：
+
+        【这一篇】
+        写作语言：中文。跟学生说话和文章内容都用中文。
+
+        【整篇的结构，以及学生在每一块写下的字】
+        - 第 1 张 · 开头
+            （这一段还没写）
+        - 第 2 张 · 分论点：放学能联系家长   ← **学生现在停在这一块**
+            学生写的：上周三五点半我放学等车，用手机给我妈打了电话，她来接我。
+        - 第 3 张 · 结尾
+            （这一段还没写）
+
+        【学生这一块之前收到过的意见】
+        - 说的是：这件事没有时间地点。
+          让学生做：把那天几点、在哪儿写进去。
+          学生已经改过这一段了。
+        核对当前稿件后，不重复已经解决的问题；仍存在的问题，本轮优先提供进一步的修改方法。
+--- FAIL: TestPieceContextPutsVolatileLast (0.00s)
+    writing_piece_context_test.go:118: 没标出她停在哪一块：
+
+        【这一篇】
+        题目：校服该不该穿
+        写作语言：中文。跟学生说话和文章内容都用中文。
+
+        【整篇的结构，以及学生在每一块写下的字】
+        - 第 1 张 · 开头
+            （这一段还没写）
+        - 第 2 张 · 分论点：理由   ← **学生现在停在这一块**
+            （这一段还没写）
+        - 第 3 张 · 结尾
+            （这一段还没写）
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=124 nodes_kept=0
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=105 nodes_kept=1
+2026/09/22 15:52:56 WARN writing plan turn: dropped node with unknown kind kind="" text=校车该不该装安全带
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=64 nodes_kept=0
+2026/09/22 15:52:56 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=603
+2026/09/22 15:52:56 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=454
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=142 nodes_kept=0
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=106 nodes_kept=1
+2026/09/22 15:52:56 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=80 nodes_kept=0
+2026/09/22 15:52:56 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=102
+2026/09/22 15:52:56 WARN writing plan turn: dropped node with unknown kind kind=我编的一个 text=这条要丢掉
+--- FAIL: TestPointAnglesBlockOnlyWhenSheStillNeedsOne (0.00s)
+    writing_points_check_test.go:168: 没写「一次只问一个问题」—— 四个角度摆出来很容易变成一次问四件事
+--- FAIL: TestHelpModeBlockIsSilentByDefault (0.00s)
+    writing_stall_test.go:162: 给选项那一档没说清要做什么："\n\n## 当前问题已经讨论两轮，尚未解决\n\n本轮提供两个不同的修改方法，帮助学生选择。\n\n- 结合原文说明两种修改方法及各自用途，再问学生想采用哪一种。\n- 每个选项说明具体修改对象与动作，不提供可直接复制的正文。\n- 这一轮只给选项，不要再追问。"
+    writing_stall_test.go:168: 给句式那一档没划清那条线："\n\n## 当前问题已讨论三轮，提供选项后仍未解决\n\n本轮提供一句带空格的通用句式，由学生填写内容。\n\n句式只表示内容之间的关系，保留待填写部分（「因为……，所以……」），\n内容由学生填写，不代写段落。\n\n可以给的句式：\n- 追一句为什么：是什么……？是……。因为……，所以……\n- 假如反过来：假如……，那么……？\n- 假如反过来：若不是……，……？\n- 找出共同的那一点：这些……，真正表现了……\n- 找出共同的那一点：大凡……的人，其……皆来自……\n"
+
+  article              6039 runes (9 paragraphs)
+  system               7962 runes
+  whole article sent   7031 user runes -> prompt 14993
+  this part only       3239 user runes -> prompt 11201
+  user cut 54%   whole prompt cut 25%
+2026/09/22 15:52:56 WARN advance gates failed err="advance_test: injected LoadGraph failure" project_id=00000000-0000-0000-0000-000000000101
+2026/09/22 15:52:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:52:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:52:57 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:52:57 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:57 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:52:59 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:52:59 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:00 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:00 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:00 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:01 WARN summary llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN coach: model turn failed; surfacing to student err="orchestrator: output not parseable" request_id=""
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 INFO coach: dropped summon_card not valid for status card=cda status=framework request_id=""
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:02 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN revision: read artifact failed artifact=proposal trigger=ask_feedback err="no rows in result set"
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN revision: read artifact failed artifact=proposal trigger=ask_feedback err="no rows in result set"
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN revision: read artifact failed artifact=draft trigger=ask_feedback err="no rows in result set"
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN revision: read artifact failed artifact=draft trigger=ask_feedback err="no rows in result set"
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:03 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:05 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:05 WARN scene: generation failed, using fallback text err="context deadline exceeded" slug=a-mid which=opening request_id=""
+2026/09/22 15:53:06 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:06 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:06 WARN course ask: reply not emitted err="agent: course ask reply rejected by banned-phrasing rule \"rewritten-sentence-zh\"" request_id=""
+2026/09/22 15:53:06 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:07 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 15:53:08 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:08 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 15:53:08 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:08 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:09 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=建议老师联系[学生]，了解她这周的学习情况。
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=建议老师联系[学生]，了解她这周的学习情况。
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：100 summary="本周有 100 位学生完成了写作练习。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：100 summary="本周有 100 位学生完成了写作练习。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：99 summary="这周有 99 位学生完成了写作练习。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：99 summary="这周有 99 位学生完成了写作练习。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：7 summary="本周有 7 位学生需要关注。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：7 summary="本周有 7 位学生需要关注。"
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:13 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite grading: failed grading_id=30e1c67d-04e8-42db-91a7-8db38338e4c5 attempts=2 reasons="回复不是有效的 JSON" parse_err="litegrade: reply is not the JSON object asked for" reply=抱歉，我无法批改。
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite grading: failed grading_id=20e324b4-9e85-45b4-a4ed-9773c303fa25 attempts=2 reasons="第 1 条意见的引文不在正文中：「去年冬天，我在那里摔过一跤。」" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年冬天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"材料与后门空地之间没有说明联系。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:14 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:15 WARN interest harvest: enqueue failed err="connection refused" atom_id=0cd6aaad-295f-476e-b0b7-bf1005fd1c46
+2026/09/22 15:53:15 WARN lite grading: queue-all enqueue failed err="入队失败：connection refused" user_id=49c33199-d959-4843-a328-5b2238c927e8
+2026/09/22 15:53:15 WARN lite grading: queue-all enqueue failed err="入队失败：connection refused" user_id=e631284c-3953-4e8a-b332-18edbcc3c10b
+2026/09/22 15:53:15 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:15 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:15 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:15 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite grading: failed grading_id=cab8a86c-fcc6-4c9e-a6ed-87a4ebe58dfd attempts=2 reasons="总评的等级不在评分标准内：B+；维度「内容」的等级不在评分标准内：B+；维度「结构」的等级不在评分标准内：B；维度「语言」的等级不在评分标准内：A-；维度「书写规范」的等级不在评分标准内：A；评分维度与评分标准不一致：内容、结构、语言、书写规范；第 1 条意见的引文不在正文中：「去年冬天，我在那里摔过一跤。」" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年冬天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"材料与后门空地之间没有说明联系。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: overview: quote not in corpus: 雨水不是废水" report_id=71d3be9b-525b-4109-a3dc-e3cbdce317dd request_id=""
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:16 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: output is not valid JSON: invalid character 'ä' looking for beginning of value" report_id=85e5209e-aea0-44da-bded-f99646f69cc2 request_id=""
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: output is not valid JSON: invalid character 'ä' looking for beginning of value" report_id=a8c9e22b-0920-46cf-b2d9-27d6471dc499 request_id=""
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:17 WARN lite parent report: draft discarded code=student_left report_id=c7366837-08e6-4cf3-92b8-ed70da6bc88a attempts=1 request_id=""
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:18 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:19 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:19 WARN lite assignment start: fetch failed err="fetch failed: simulated fetch failure" assignment_id=af44c5f8-1319-4580-82ce-8a219a49f54b
+2026/09/22 15:53:20 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:53:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:20 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=3 source_chars=111 candidate_chars=122 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:53:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:20 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 15:53:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:20 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=3 source_chars=111 candidate_chars=122 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 15:53:20 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:21 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:22 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason=回复说作业已经布置或发布，但作业还没有发布：你只填作业卡，老师检查后点「发布作业」才会发给学生。请说「作业卡已填好，请检查后点「发布作业」」 text=已布置好。项目《手机学习时间调查》发给全班。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason="回复说「驱动问题」已经填好，但作业卡上这一栏是空的。先调用 set_fields 把它写进去，再告诉老师" text=好了，驱动问题已写入。还需要改什么吗？
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason="老师说的是周五，但截止时间 9月20日 是周日。按提示里的日历找到周五那一天，用 set_fields 改正截止时间，再告诉老师" text=截止时间定在周五晚上九点。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply failed the grounding check request_id="" surface=assignment kind=names ungrounded=1 grounded="0 个" text=[学生]也可以加上。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text=已经打开了本周报告页面。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text=已经打开了本周报告页面。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=2 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text="接下来看什么？\n已为您跳转到本周报告\n看家长报告"
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page" text=请点击下方按钮前往本周报告。
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:23 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason=老师问了一个问题，左侧已经列出查到的数据，但回复只有一个追问。先用一句话回答老师的问题、说明左侧列的是什么（不写姓名和人数），再问下一步 text="接下来想看什么？\n看看全班本周概况\n不用了"
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason=回复或选项提出提醒、通知或联系学生，但没有工具能给学生发消息。可以建议老师布置一份作业（学生会在收件箱看到），或前往学生的学习页 text="接下来您想怎么做？\n看看全班本周概况\n提醒该生开始学习"
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=1 reason=报告的段落是固定的，不能新增或删除段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text="要怎么改？\n新增一个『写作』段落\n改写「下一步建议」"
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=1 reason=这份报告没有「兴趣」段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text=我可以把兴趣部分写得更具体。
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=2 reason=这份报告没有「兴趣」段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text=我可以改写「兴趣」。
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 15:53:24 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+--- FAIL: TestExplicitObservationEndDoesNotReplaySubmission (0.07s)
+    pbl_observation_event_test.go:90: missing event
+--- FAIL: TestExplicitCompletionWinsOverNewerTool (0.07s)
+    pbl_review_event_test.go:70: missing event
+--- FAIL: TestObservationCompletionCarriesSubmittedQuestion (0.07s)
+    pbl_review_event_test.go:99: missing event
+FAIL
+FAIL	mindimprint/api/internal/api	87.029s
+ok  	mindimprint/api/internal/auth	1.209s
+--- FAIL: TestClarityGuideDialogue (0.00s)
+    --- FAIL: TestClarityGuideDialogue/NOVA/opening (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-NOVA-opening
+            want c3afd624d5d717c776c45f617158032bce2ab4238bad8bc9a694baea754dba07
+            got  79be083838795c63d70f9dac1bc19bd39cb85cb9a600689f0a59361c4550dae5
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/NOVA/retry (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-NOVA-retry
+            want bfa17898e2322688704330abe6990f3cc40b5ea31aac6340e545af482eb0b01d
+            got  7fe674ea9187087dbc3d1646d1928e498bd6c6831f00856fe6f763ac0b75db5b
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/NOVA/last (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-NOVA-last
+            want c90e4558b28088914ea91d3545712730effcd460164d64b70d01ff788cf9ecf5
+            got  0461b56afd1a839382efd46e693037425c11eb974e48368f368f3d6ec68a2d86
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/SAGE/opening (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-SAGE-opening
+            want d39c88008c96bfab212896732b82ded248c50a1d4bf04cdd3a5abfe40b9763d8
+            got  c6a75715a8b39a72652685c4f974427f59dd8c93167d56ba1def14b48cf1a718
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/SAGE/retry (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-SAGE-retry
+            want 0a816d7f10d799ea21c14c8e676cecaa2961f5855de443a511ea53a6f30784b7
+            got  b5357f3b00bcffa06f955255e856ddf2b6820006c4db4b221fe609d25db2f11d
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/SAGE/last (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-SAGE-last
+            want c3dca3418ed3626903773c2cf1ce8972a510684f7fa76c3a9870a04f3a289aa2
+            got  b83f344c8316de045ca3601466c50483ab7d5c1e7930a926c5b534e2a6daa8ce
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/KIRO/opening (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-KIRO-opening
+            want 7d0d7ea088a41e12e01794a58a672e007ef47fb99cf80095ba1b416e4c748d9f
+            got  56afc19a2d0a8addd677d2185a6d30ff229e4f5d6fc6cc983dcf2c832d54e465
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/KIRO/retry (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-KIRO-retry
+            want a901bac3a45a00cba3a9466edbacd72f1363282123fc615cf137ea0e45a7bb64
+            got  266c731a1d6e7c350f066beeb63ee7975d126614dc97e6978ea38e4665d5bc2e
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+    --- FAIL: TestClarityGuideDialogue/KIRO/last (0.00s)
+        clarity_live_test.go:27: production request changed: TestClarityGuideDialogue-KIRO-last
+            want d1d908ea611aeb74fe755ef0a5136024bd13978de877dfc04ad9d653f21c62c0
+            got  0834ea4312d38f5a56da9efb745657c63eff328d4e6f1db15a3865ff8570c734
+            Capture with PROMPT_CAPTURE_DIR and review the diff before deliberately updating the baseline.
+FAIL
+FAIL	mindimprint/api/internal/awakening	1.035s
+?   	mindimprint/api/internal/benchcase	[no test files]
+ok  	mindimprint/api/internal/cards	0.634s
+?   	mindimprint/api/internal/claritytest	[no test files]
+ok  	mindimprint/api/internal/coachwalk	0.318s
+ok  	mindimprint/api/internal/config	0.756s
+ok  	mindimprint/api/internal/disciplines	0.738s
+ok  	mindimprint/api/internal/docextract	0.463s
+ok  	mindimprint/api/internal/evalbench	0.692s
+ok  	mindimprint/api/internal/evalreport	0.423s
+ok  	mindimprint/api/internal/gateway	0.991s
+ok  	mindimprint/api/internal/httpx	0.426s
+ok  	mindimprint/api/internal/interest	(cached)
+ok  	mindimprint/api/internal/interests	0.448s
+ok  	mindimprint/api/internal/library	0.334s
+ok  	mindimprint/api/internal/liteassign	0.321s
+ok  	mindimprint/api/internal/litegrade	0.330s
+ok  	mindimprint/api/internal/liteparent	0.291s
+ok  	mindimprint/api/internal/liteweek	0.295s
+ok  	mindimprint/api/internal/liteweekly	0.317s
+ok  	mindimprint/api/internal/liteworkspace	0.372s
+ok  	mindimprint/api/internal/materialize	0.335s
+ok  	mindimprint/api/internal/news	(cached)
+ok  	mindimprint/api/internal/onboarding	0.318s
+ok  	mindimprint/api/internal/org	0.305s
+ok  	mindimprint/api/internal/oss	0.340s
+ok  	mindimprint/api/internal/pbl	4.318s
+ok  	mindimprint/api/internal/promptassembly	0.307s
+ok  	mindimprint/api/internal/promptlib	0.436s
+ok  	mindimprint/api/internal/prompts	0.348s
+ok  	mindimprint/api/internal/quotematch	0.316s
+ok  	mindimprint/api/internal/routebench	0.519s
+ok  	mindimprint/api/internal/rubric	0.291s
+ok  	mindimprint/api/internal/skills	0.298s
+ok  	mindimprint/api/internal/store	10.685s
+?   	mindimprint/api/internal/store/seed/courses	[no test files]
+?   	mindimprint/api/internal/store/sqlc	[no test files]
+ok  	mindimprint/api/internal/studio	2.662s
+ok  	mindimprint/api/internal/teacher	0.317s
+?   	mindimprint/api/internal/teachingvoice	[no test files]
+ok  	mindimprint/api/internal/vocab	0.297s
+ok  	mindimprint/api/internal/voice	0.475s
+ok  	mindimprint/api/internal/websearch	0.363s
+?   	mindimprint/api/tools/evalbench	[no test files]
+?   	mindimprint/api/tools/genhash	[no test files]
+?   	mindimprint/api/tools/synccards	[no test files]
+?   	mindimprint/api/tools/syncrubric	[no test files]
+?   	mindimprint/api/tools/syncskills	[no test files]
+FAIL

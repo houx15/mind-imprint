@@ -1,0 +1,6 @@
+ok  	mindimprint/api/internal/agent	(cached)
+ok  	mindimprint/api/internal/awakening	(cached)
+ok  	mindimprint/api/internal/interest	0.291s
+ok  	mindimprint/api/internal/news	(cached)
+ok  	mindimprint/api/internal/litegrade	(cached)
+ok  	mindimprint/api/internal/liteworkspace	(cached)

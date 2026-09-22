@@ -1,0 +1,11 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> @mind-imprint/contracts@0.0.0 typecheck /private/tmp/mind-imprint-prompt-language-review/packages/contracts
+> tsc --noEmit
+
+test/library.test.ts(39,12): error TS2532: Object is possibly 'undefined'.
+test/library.test.ts(40,12): error TS2532: Object is possibly 'undefined'.
+test/library.test.ts(41,12): error TS2532: Object is possibly 'undefined'.
+/private/tmp/mind-imprint-prompt-language-review/packages/contracts:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @mind-imprint/contracts@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2

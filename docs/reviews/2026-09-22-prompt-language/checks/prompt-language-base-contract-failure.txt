@@ -1,0 +1,642 @@
+
+ RUN  v1.6.1 /private/tmp/prompt-language-base-contracts/packages/contracts
+
+ ❯ test/evaluationReportModelSchema.test.ts  (3 tests | 1 failed) 8ms
+   ❯ test/evaluationReportModelSchema.test.ts > EvaluationReport JSON Schemas > matches every checked-in schema used by Go
+     → expected '{\n  "$ref": "#/definitions/Evaluatio…' to be '{\n  "$ref": "#/definitions/Evaluatio…' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/evaluationReportModelSchema.test.ts > EvaluationReport JSON Schemas > matches every checked-in schema used by Go
+AssertionError: expected '{\n  "$ref": "#/definitions/Evaluatio…' to be '{\n  "$ref": "#/definitions/Evaluatio…' // Object.is equality
+
+- Expected
++ Received
+
+  {
+    "$ref": "#/definitions/EvaluationReport",
+    "definitions": {
+      "EvaluationReport": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "const": 1
+          },
+          "reportId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "student": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "basics": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "milestones": {
+                "type": "object",
+                "properties": {
+                  "started": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "frameworkFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "proposalFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "writingFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "projectFinished": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "started",
+                  "frameworkFinished",
+                  "proposalFinished",
+                  "writingFinished",
+                  "projectFinished"
+                ],
+                "additionalProperties": false
+              },
+              "counters": {
+                "type": "object",
+                "properties": {
+                  "aiTurns": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "materialsRead": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "wordsWritten": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "aiCommentCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "editCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "aiTurns",
+                  "materialsRead",
+                  "wordsWritten",
+                  "aiCommentCount",
+                  "editCount"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "title",
+              "type",
+              "startDate",
+              "endDate",
+              "milestones",
+              "counters"
+            ],
+            "additionalProperties": false
+          },
+          "abstract": {
+            "type": "object",
+            "properties": {
+              "overview": {
+                "type": "string"
+              },
+              "materialSentence": {
+                "type": "string"
+              },
+              "writingSentence": {
+                "type": "string"
+              },
+              "aiSentence": {
+                "type": "string"
+              },
+              "suggestionParagraph": {
+                "type": "string"
+              },
+              "suggestionSentences": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "recommendedCourses": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "courseId": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "courseId",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "overview",
+              "materialSentence",
+              "writingSentence",
+              "aiSentence",
+              "suggestionParagraph"
+            ],
+            "additionalProperties": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ts": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "chat",
+                    "reading",
+                    "graph",
+                    "writing",
+                    "review",
+                    "milestone"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "aiTurns": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "ts": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ts",
+                "kind",
+                "summary",
+                "aiTurns"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "materials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "materialId": {
+                  "type": "string"
+                },
+                "addedAt": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "usedIn": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finalStatus": {
+                  "type": "string"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "cannotSupport": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "materialId",
+                "addedAt",
+                "source",
+                "url",
+                "usedIn",
+                "finalStatus",
+                "comment",
+                "cannotSupport"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "depth": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "D1",
+                    "D2",
+                    "D3",
+                    "D4",
+                    "D5",
+                    "D6"
+                  ]
+                },
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+-                 "anyOf": [
+-                   {
+-                     "type": "array",
+-                     "items": {
+-                       "type": "object",
+-                       "properties": {
+-                         "id": {
+-                           "type": "string"
+-                         },
+-                         "ts": {
+-                           "type": "string"
+-                         },
+-                         "stage": {
+-                           "type": "string"
+-                         },
+-                         "quote": {
+-                           "type": "string"
+-                         },
+-                         "observation": {
+-                           "type": "string"
+-                         },
+-                         "boundary": {
+-                           "type": "string"
+-                         }
+-                       },
+-                       "required": [
+-                         "id",
+-                         "quote",
+-                         "observation"
+-                       ],
+-                       "additionalProperties": false
++                 "type": "array",
++                 "items": {
++                   "type": "object",
++                   "properties": {
++                     "id": {
++                       "type": "string"
++                     },
++                     "ts": {
++                       "type": "string"
++                     },
++                     "stage": {
++                       "type": "string"
++                     },
++                     "quote": {
++                       "type": "string"
++                     },
++                     "observation": {
++                       "type": "string"
++                     },
++                     "boundary": {
++                       "type": "string"
+                      }
+                    },
+-                   {
+-                     "type": "null"
+-                   }
+-                 ]
++                   "required": [
++                     "id",
++                     "quote",
++                     "observation"
++                   ],
++                   "additionalProperties": false
++                 }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
++               "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "autonomy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "A1",
+                    "A2",
+                    "A3",
+                    "A4",
+                    "A5",
+                    "A6"
+                  ]
+                },
+                "band": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+-                 "anyOf": [
+-                   {
+-                     "type": "array",
+-                     "items": {
+-                       "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/anyOf/0/items"
+-                     }
+-                   },
+-                   {
+-                     "type": "null"
+-                   }
+-                 ]
++                 "type": "array",
++                 "items": {
++                   "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/items"
++                 }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
++               "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "promptLens": {
+            "type": "object",
+            "properties": {
+              "summary": {
+                "type": "string"
+              },
+              "prompts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "stage": {
+                      "type": "string"
+                    },
+                    "quote": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                    },
+                    "observation": {
+                      "type": "string"
+                    },
+                    "relatedDomains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "attention": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "stage",
+                    "quote",
+                    "ref",
+                    "observation",
+                    "relatedDomains",
+                    "attention"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "summary",
+              "prompts"
+            ],
+            "additionalProperties": false
+          },
+          "toolUsage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "toolId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string"
+                },
+                "purpose": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "toolId",
+                "name",
+                "stage",
+                "purpose",
+                "summary"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "ai-ghostwrite",
+                    "missing-source",
+                    "argument-logic",
+                    "data-scope",
+                    "rabbit-hole-offtopic"
+                  ]
+                },
+                "behaviour": {
+                  "type": "string"
+                },
+                "ref": {
+                  "$ref": "#/definitions/EvaluationReport/properties/events/items/properties/ref"
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "behaviour",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "generatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "reportId",
+          "projectId",
+          "student",
+          "basics",
+          "abstract",
+          "events",
+          "materials",
+          "depth",
+          "autonomy",
+          "promptLens",
+          "toolUsage",
+          "risks",
+          "generatedAt"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+
+
+ ❯ test/evaluationReportModelSchema.test.ts:36:44
+     34|         writeFileSync(target, generated);
+     35|       }
+     36|       expect(readFileSync(target, "utf8")).toBe(generated);
+       |                                            ^
+     37|     }
+     38|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  16:22:18
+   Duration  191ms (transform 27ms, setup 0ms, collect 46ms, tests 8ms, environment 0ms, prepare 55ms)

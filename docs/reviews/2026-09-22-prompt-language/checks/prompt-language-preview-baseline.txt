@@ -1,0 +1,1 @@
+ok  	mindimprint/api/cmd/promptinspect	1.058s

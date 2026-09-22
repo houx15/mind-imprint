@@ -1,0 +1,108 @@
+=== RUN   TestClarityPBL
+=== RUN   TestClarityPBL/examples
+    clarity_live_test.go:27: TestClarityPBL/examples sample=1 model=dashscope/deepseek-v4.1-flash ms=6062 input=10022 output=229 valid=true
+=== RUN   TestClarityPBL/plan
+    clarity_live_test.go:27: TestClarityPBL/plan sample=1 model=dashscope/deepseek-v4.1-flash ms=24829 input=9361 output=1199 valid=true
+=== RUN   TestClarityPBL/split
+    clarity_live_test.go:27: TestClarityPBL/split sample=1 model=dashscope/deepseek-v4.1-flash ms=16455 input=9335 output=732 valid=true
+=== RUN   TestClarityPBL/observe
+    clarity_live_test.go:27: TestClarityPBL/observe sample=1 model=dashscope/deepseek-v4.1-flash ms=12568 input=9298 output=507 valid=true
+=== RUN   TestClarityPBL/course
+    clarity_live_test.go:27: TestClarityPBL/course sample=1 model=dashscope/deepseek-v4.1-flash ms=7140 input=9347 output=240 valid=true
+=== RUN   TestClarityPBL/concept
+    clarity_live_test.go:27: TestClarityPBL/concept sample=1 model=dashscope/deepseek-v4.1-flash ms=9498 input=9283 output=418 valid=true
+--- PASS: TestClarityPBL (76.57s)
+    --- PASS: TestClarityPBL/examples (6.06s)
+    --- PASS: TestClarityPBL/plan (24.83s)
+    --- PASS: TestClarityPBL/split (16.46s)
+    --- PASS: TestClarityPBL/observe (12.57s)
+    --- PASS: TestClarityPBL/course (7.14s)
+    --- PASS: TestClarityPBL/concept (9.50s)
+=== RUN   TestClarityLookback
+    clarity_live_test.go:58: TestClarityLookback sample=1 model=dashscope/deepseek-v4-pro ms=180001 input=0 output=0 valid=false
+    clarity_live_test.go:58: provider request failed (visible output preserved in evidence)
+--- FAIL: TestClarityLookback (180.00s)
+FAIL
+FAIL	mindimprint/api/internal/pbl	256.904s
+=== RUN   TestClarityGuideDialogue
+=== RUN   TestClarityGuideDialogue/NOVA/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2495 input=884 output=113 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=1877 input=896 output=86 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=1 model=dashscope/deepseek-v4.1-flash ms=2098 input=871 output=69 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2130 input=883 output=74 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2009 input=895 output=43 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=1 model=dashscope/deepseek-v4.1-flash ms=2738 input=870 output=98 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2670 input=909 output=81 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2798 input=921 output=79 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=1 model=dashscope/deepseek-v4.1-flash ms=3930 input=896 output=71 valid=true
+--- PASS: TestClarityGuideDialogue (22.76s)
+    --- PASS: TestClarityGuideDialogue/NOVA/opening (2.50s)
+    --- PASS: TestClarityGuideDialogue/NOVA/retry (1.88s)
+    --- PASS: TestClarityGuideDialogue/NOVA/last (2.10s)
+    --- PASS: TestClarityGuideDialogue/SAGE/opening (2.13s)
+    --- PASS: TestClarityGuideDialogue/SAGE/retry (2.01s)
+    --- PASS: TestClarityGuideDialogue/SAGE/last (2.74s)
+    --- PASS: TestClarityGuideDialogue/KIRO/opening (2.67s)
+    --- PASS: TestClarityGuideDialogue/KIRO/retry (2.80s)
+    --- PASS: TestClarityGuideDialogue/KIRO/last (3.93s)
+PASS
+ok  	mindimprint/api/internal/awakening	23.095s
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/chat-concept
+    clarity_live_test.go:24: TestClarityAgent/chat-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=2495 input=282 output=61 valid=true
+=== RUN   TestClarityAgent/project-help
+    clarity_live_test.go:24: TestClarityAgent/project-help sample=1 model=dashscope/deepseek-v4.1-flash ms=4125 input=372 output=210 valid=true
+=== RUN   TestClarityAgent/course-concept
+    clarity_live_test.go:24: TestClarityAgent/course-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=2115 input=184 output=53 valid=true
+=== RUN   TestClarityAgent/project-no-ghostwriting
+    clarity_live_test.go:24: TestClarityAgent/project-no-ghostwriting sample=1 model=dashscope/deepseek-v4.1-flash ms=1921 input=364 output=64 valid=true
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:83: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：提出了一个明确观点，但论证和证据链条基本尚未展开",
+            "evidence": "草稿原文："学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。"",
+            "missing": "需要核实的方向：图书馆当前的实际开放时间是多少；除"我和三位同学"之外，是否还有其他学生遇到同样情况（如问卷、访谈或图书馆使用数据）；"延长开放时间"与"全天开放"是两个不同的范围，需要确定你实际想建议哪一种。草稿用四人经历推出"所有学生都需要"，这一步的适用范围超出了现有证据能说明的程度，需要更多覆盖面更广的依据。",
+            "fix": "补充方向：收集更多学生的使用情况或需求数据；区分"延长"与"全天开放"的具体含义；说明走廊复习与图书馆开放时间之间的因果联系（是座位不足、开放时段不合适还是其他原因）。另外说明：本稿实际篇幅很短，未观察到超出字数预算或重复、偏题的段落，无需删减；若你有更长版本被截断，请提交完整草稿。",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步：有个例证据但推理以偏概全","evidence":"草稿写「上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放」，用一次四人经历推出「所有学生」的结论。","missing":"需要核实：是否有更大范围的使用数据、访谈或多个时间段的观察；「延长开放时间」与「全天开放」是否为同一诉求；走廊无法复习是否确实由开放时间不足造成（有无其他原因）。","fix":"往补样本范围和因果依据的方向改：收集更多同学的情况，区分「部分学生有需求」与「所有学生都需要」这两个不同强度的结论，并说明你主张的具体开放时段。","points":1}]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=13882 input=1962 output=641 valid=false
+    clarity_live_test.go:37: review teaching language: 主张 (visible output preserved in evidence)
+=== RUN   TestClarityAgent/executioner
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步","evidence":"上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放","missing":"样本只有四个人，不能推出所有学生；缺少对走廊复习与开放时间之间关系的说明；没有其他证据来源","fix":"往扩大证据范围、区分个人经历与普遍结论的方向补充","points":0}]
+    clarity_live_test.go:37: TestClarityAgent/executioner sample=1 model=dashscope/glm-5.3 ms=2093 input=988 output=82 valid=true
+--- FAIL: TestClarityAgent (26.65s)
+    --- PASS: TestClarityAgent/chat-concept (2.50s)
+    --- PASS: TestClarityAgent/project-help (4.13s)
+    --- PASS: TestClarityAgent/course-concept (2.12s)
+    --- PASS: TestClarityAgent/project-no-ghostwriting (1.92s)
+    --- FAIL: TestClarityAgent/sceptic (13.88s)
+    --- PASS: TestClarityAgent/executioner (2.09s)
+=== RUN   TestClarityReport
+    clarity_live_test.go:108: TestClarityReport sample=1 model=dashscope/deepseek-v4-pro ms=12609 input=380 output=466 valid=true
+--- PASS: TestClarityReport (12.61s)
+FAIL
+FAIL	mindimprint/api/internal/agent	39.624s
+=== RUN   TestClarityGrading
+=== RUN   TestClarityGrading/zh
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=1 model=dashscope/glm-5.3 ms=8325 input=2084 output=452 valid=true
+=== RUN   TestClarityGrading/en
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=1 model=dashscope/glm-5.3 ms=13615 input=1838 output=841 valid=true
+--- PASS: TestClarityGrading (21.94s)
+    --- PASS: TestClarityGrading/zh (8.33s)
+    --- PASS: TestClarityGrading/en (13.62s)
+PASS
+ok  	mindimprint/api/internal/api	22.426s
+FAIL
