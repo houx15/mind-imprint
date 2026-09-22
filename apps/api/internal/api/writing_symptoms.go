@@ -1,6 +1,10 @@
 package api
 
-import "strings"
+import (
+	"strings"
+
+	"mindimprint/api/internal/guidance"
+)
 
 // writing_symptoms.go —— 反馈的两张闭表：**先说哪一层**，和**这是哪一种毛病**。
 //
@@ -178,8 +182,6 @@ var writingSymptomsEN = []writingSymptom{
 		"a / the / 零冠词的选择，或者把不可数名词当可数用。"},
 }
 
-// writingSymptomTable 按语言选表。
-//
 // writingSymptomsNarrativeZH —— 记叙文特有的几条（R4，2026-09-21）。
 //
 // 上面那张表是按议论文写的：「有判断没有证据」「举了例子没有解释」在一篇
@@ -207,19 +209,31 @@ var writingSymptomsNarrativeZH = []writingSymptom{
 		"结尾提出了新的认识，但没有说明前文事件如何支持这一认识。"},
 }
 
-// `writing.lang` 只有 zh / en 两个值（`setWritingSetup` 拦住了别的），
-// 所以 default 走中文而不是报错。
+// writingSymptomTable —— 这一次摆给模型看的是哪张毛病表。
 //
-// genre 传 genreNarrative 时，中文那一边多给记叙文的几条。空串 = 不挑文体。
+// 2026-09-22：挑哪一张由 internal/guidance 那条共用规则决定。行为不变。
+//
+// 🚨 英文今天只有一张表，不分文体。补英文记叙那一张属于四期，
+// 不在这一次的范围里（TestWritingSymptomTableENIgnoresGenreForNow 钉着）。
 func writingSymptomTable(lang string, genre string) []writingSymptom {
-	if lang == "en" {
-		return writingSymptomsEN
+	narrativeZH := make([]writingSymptom, 0, len(writingSymptomsZH)+len(writingSymptomsNarrativeZH))
+	narrativeZH = append(narrativeZH, writingSymptomsZH...)
+	narrativeZH = append(narrativeZH, writingSymptomsNarrativeZH...)
+
+	rows := []guidance.Row[[]writingSymptom]{
+		// 先登记的在平局时胜出，所以更具体的那几行要排在前面。
+		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "zh",
+			Genres: []string{genreNarrative}}, Value: narrativeZH},
+		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "zh"},
+			Value: writingSymptomsZH},
+		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "en"},
+			Value: writingSymptomsEN},
 	}
-	if genre == genreNarrative {
-		out := make([]writingSymptom, 0, len(writingSymptomsZH)+len(writingSymptomsNarrativeZH))
-		out = append(out, writingSymptomsZH...)
-		return append(out, writingSymptomsNarrativeZH...)
+	k := guidance.Key{Surface: guidance.SurfaceWrite, Lang: lang, Genre: genre}
+	if got, ok := guidance.Pick(k, rows); ok {
+		return got
 	}
+	// 语言认不出来时按中文通用表办 —— 和 2026-09-22 之前一致。
 	return writingSymptomsZH
 }
 
