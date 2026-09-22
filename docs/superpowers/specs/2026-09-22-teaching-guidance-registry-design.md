@@ -44,7 +44,7 @@ type Key struct {
 	Surface string // "read" | "write" | "comment"
 	Lang    string // "zh" | "en"
 	Genre   string // argument | narrative | report | explain
-	Stage   string // "" 不限 | "junior" | "senior"
+	Stage   string // "" 不限 | junior1..3 | senior1..3，见 §4
 }
 
 // Slot 是提示词模板上的一个洞。
@@ -106,9 +106,20 @@ func Resolve(k Key, slots ...Slot) (map[Slot]string, error)
 
 ### 学段
 
-`classes` 加一列 `stage text not null default ''`，取值 `''` / `junior` / `senior`，
-建班时设。迁移号取 **0186**（现最高 0185）—— 分支开久了迁移号会撞，撞了 goose
-直接起不来，所以这一号要尽早落。
+`classes` 加一列 `stage text not null default ''`，建班时设。迁移号取 **0186**
+（现最高 0185）—— 分支开久了迁移号会撞，撞了 goose 直接起不来，所以这一号要尽早落。
+
+取值到**年级**这一层，不是 junior / senior 两档：
+
+	'' | junior1 | junior2 | junior3 | senior1 | senior2 | senior3
+
+🚨 这一条 2026-09-22 读完资料之后改过。原来定的是 junior / senior 两档，
+而 `初中语文作文批改` 的标准是**按年级**给的 —— 初一 500–600 字「叙事完整、
+语句通顺」，初二 550–650 字「描写生动、结构完整」，初三 600–700 字「立意深刻、
+语言优美」。两档表达不了这三行，而一个班本来就是一个年级。
+
+`Resolve` 的回退链因此多一级：年级 → 学段（junior / senior）→ 不限。
+`guidance.StageBand("junior2") == "junior"`，让「整个初中通用」的内容只写一份。
 
 学段经 `enrollments` 流到学生，再流到她的 writing / reading。取不到就是 `''`，
 `Resolve` 退到不限学段那一行。**本期不产出任何小学内容。**
@@ -187,15 +198,51 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 
 ### 四期 · 批改
 
-- **学生端**：不给分数。按 `CommentPoint.Layer`（1 立意 / 2 材料 / 3 结构 /
-  4 字句）给等级与颜色。`verdict`（pass / polish / revise）已经在，扩成每层一个等级。
-- **教师端**：`liteassign.Rubric` 的字母等级与每维等级**已经是**要的样子，
-  英文默认维度已经是雅思四项。要补的是**理由**：这条意见依据哪一维、命中哪条
-  `symptom`、引的是她哪一句。做成批改卡上的一个弹层。
+**同一份教学内容，两个读者，能给的东西不一样。** 这是读完那几份批改资料之后
+最重要的一条：雅思那份的核心产出是 `提升后范文参考`（一篇 7.5 分的重写）
+加 `范文及原文中英对比`，还有 `band score X.X`。
+
+**学生端**：不给分数、不给范文。按 `CommentPoint.Layer`（1 立意 / 2 材料 /
+3 结构 / 4 字句）给等级与颜色 —— `verdict`（pass / polish / revise）已经在，
+扩成每层一个等级。整篇重写就是代写（铁律①）。
+
+**教师端**：字母等级与每维等级**已经是**要的样子（`liteassign.Rubric`，
+英文默认维度已经是雅思四项）。要补的是**理由**：这条意见依据哪一维、命中哪条
+`symptom`、引的是她哪一句。做成批改卡上的一个弹层。
+
+🚨 **范文（`提升后范文参考`）这一项本期不做，要做需要单独点头。** 今天教师端的
+`GradingSystemTemplate` 第一句就写着「不要重写、不要润色、不要续写，不要给出
+可以直接替换原文的句子」—— 那条规矩现在**连教师端也管**。收雅思那份的整篇
+重写等于推翻它，那是一次单独的产品决定，不在这份 spec 里替他做。
+
+雅思那份**除范文之外**的部分本期都收：逐段反馈、四维表格、
+「先 task response 后语法」的轻重次序（正好对上我们的 Layer 1→4）、
+以及「只给分不解释分」属于禁止行为这一条 —— 那和产品负责人要的「告诉教师
+真实逻辑」是同一件事。
+
+这一期还要补两件：
+
 - 补上缺的那张表：英文记叙的 symptom（今天只有 `writingSymptomsNarrativeZH`）。
 - 九维评价标准里**数得出来的那几维由服务端算**，不让模型每轮自己数：
   词汇多样性（type-token）、平均句长、复杂句占比、连接词数／句数。
   模型只判需要判断力的那几维。理由见 memory：服务端数得出来的事实别交给模型。
+
+## 6.5 · 第三方资料怎么用
+
+`docs/reference/writing-teaching/` 下的四份技能是**别人发布的作品**，
+`_meta.json` 里带着 `ownerId` 和 `publishedAt`。其中 `英语作文批改/SKILL.md`
+还埋着 12 处水印与授权指纹：
+
+	<!-- license-fingerprint: AMBER-IWF-[ORDER-ID]-[BUYER-ID] -->
+	<!-- watermark: 英语作文批改老师 | AMBER-IWF-TRACE-A01 -->
+	<!-- audit-token: … AMBER-IWF-FLOW-[ORDER-ID] -->
+
+规矩：**教法照学，文字自己写。** 那几份资料的教学内容照收（那是产品负责人
+挑它们的理由），但不要把它们的句子整段粘进 `internal/prompts`。
+
+这不是额外的工作 —— AGENTS.md「提示词怎么写」本来就要求陈述句、不打比喻、
+术语只从注册表来，而那几份资料的行文（emoji 小标题、`📝 作文批改报告`、
+`✨ 亮点赏析`）一条都不符合，照搬也得重写一遍。
 
 ## 7 · 不做
 
@@ -213,6 +260,7 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 | 迁移号 0186 被别的会话抢走 | 尽早落这一号；goose 起不来时按 memory 那次的办法整体后移 |
 | 体裁改判后议论文那条路变样 | 照 `reading_genre.go` 的纪律：argument 一个字不动，新增只在另外几种体裁上生效 |
 | 例句被她整句抄走 | `example.topic` 与她的题目不同才给；撞了只给句式 |
+| 第三方技能被整段抄进提示词 | 教法照学、文字自己写，见 §6.5；水印本身就是为查抄袭存在的 |
 | 加了轴但到不了深处 | `TestEveryCombinationResolves` 枚举真会出现的组合，不靠抽样 |
 
 ## 9 · 参考
