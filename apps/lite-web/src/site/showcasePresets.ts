@@ -17,8 +17,8 @@ export const SHOWCASE_PRESETS: readonly ShowcasePreset[] = [
 
 export const SHOWCASE_ILLUSTRATIONS: ReadonlyArray<{ id: ShowcaseIllustration; name: string; src?: string }> = [
   { id: "none", name: "无插画" },
-  { id: "clouds", name: "云朵", src: "/images/showcase/clouds.webp" },
-  { id: "moon", name: "月亮", src: "/images/showcase/moon.webp" },
-  { id: "sky", name: "天空", src: "/images/showcase/sky.webp" },
-  { id: "robot", name: "机器人", src: "/images/showcase/robot.webp" },
+  { id: "clouds", name: "云朵", src: "https://mind-assets.uni-robot.cn/showcase/system/2026-09-22/clouds.webp" },
+  { id: "moon", name: "月亮", src: "https://mind-assets.uni-robot.cn/showcase/system/2026-09-22/moon.webp" },
+  { id: "sky", name: "天空", src: "https://mind-assets.uni-robot.cn/showcase/system/2026-09-22/sky.webp" },
+  { id: "robot", name: "机器人", src: "https://mind-assets.uni-robot.cn/showcase/system/2026-09-22/robot.webp" },
 ];

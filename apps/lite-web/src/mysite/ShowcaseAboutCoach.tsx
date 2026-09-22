@@ -22,7 +22,7 @@ export function ShowcaseAboutCoach({draft, disabled, onBusy, onConversation, onA
   async function send() {
     if (!input.trim() || disabled || lock.current) return;
     const next = [...messages,{role:"user" as const,content:input.trim()}];
-    if (next.length > 19) {setError("本轮对话已达到长度上限。请先应用或记录需要的内容，再开始新对话。");return;}
+    if (next.length > 19 || next.reduce((total,message)=>total+Array.from(message.content).length,0)>18000) {setError("本轮对话已达到长度上限。请先应用或记录需要的内容，再开始新对话。");return;}
     lock.current = true; setPending(true); onBusy(true); setError("");
     try {
       const response = await chatShowcaseAbout(next, {name:draft.name,bio:draft.bio,interests:draft.interests,aboutLayout:draft.aboutLayout ?? "classic"});
