@@ -174,3 +174,13 @@
 .showcase-controls { position:relative; height:100%; min-height:0; }
 .showcase-preview-area { min-height:0; overflow-y:auto; }
 @media (max-width:760px) { .showcase-workspace { flex:1; } .showcase-preview-area { height:100%; } }
+.showcase-component-actions { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.showcase-component-actions button,.showcase-add-link,.showcase-link-editor > button { border:1px solid var(--mk-line); padding:8px 10px; border-radius:8px; font-size:12px; }
+.showcase-component-list { display:flex; flex-direction:column; gap:6px; margin:16px 0; }
+.showcase-component-list button { text-align:left; padding:10px; border-radius:8px; background:var(--mk-paper); font-size:12px; }
+.showcase-component-list button[aria-pressed=true] { outline:1px solid var(--mk-accent-500); }
+.showcase-code-input { font-family:monospace; font-size:11px; min-height:180px; resize:vertical; }
+.showcase-component-toggle { display:flex; gap:8px; align-items:center; font-size:12px; }
+.showcase-component-preview { overflow:hidden; border:1px solid var(--mk-line); border-radius:10px; background:white; }
+.showcase-link-editor { padding:14px; border:1px solid var(--mk-line); border-radius:10px; margin:12px 0; }
+.showcase-field select { border:1px solid var(--mk-line); border-radius:8px; padding:9px; background:var(--mk-surface); font-size:12px; }

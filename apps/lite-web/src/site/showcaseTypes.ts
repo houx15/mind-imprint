@@ -9,7 +9,21 @@ export type ShowcaseKind = "writing" | "reading" | "project";
 
 export interface ShowcaseAboutMessage { role: "user" | "assistant"; content: string; }
 
+export interface ShowcaseComponent {
+  id: string;
+  title: string;
+  format: "svg" | "html";
+  source: string;
+  height: number;
+  placement: "after-about" | "after-works";
+  enabled: boolean;
+}
+export interface ShowcaseCustomWork { id: string; title: string; summary: string; url: string; date?: string; }
+
 export interface ShowcaseConfig {
+  components?: ShowcaseComponent[];
+  customWorks?: ShowcaseCustomWork[];
+  homeWorkLimit?: number;
   aboutConversation?: ShowcaseAboutMessage[];
   interestTreeMode?: "none" | "tree" | "keywords";
   name: string;
@@ -42,6 +56,7 @@ export interface ShowcaseWork {
   title: string;
   summary: string;
   publicPath?: string;
+  externalUrl?: string;
   date?: string;
 }
 
