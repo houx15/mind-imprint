@@ -225,6 +225,10 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 		}
 		showcaseURL := ""
 		if body.AddToShowcase {
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "showcase:"+u.ID.String()); err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
 			showcaseToken, addErr := a.addSharedWorkToShowcase(ctx, q, u, at.ID)
 			if addErr != nil {
 				httpx.WriteError(w, r, addErr)
@@ -250,6 +254,10 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 
 func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u User, atomID uuid.UUID) (string, error) {
 	row, err := q.EnsurePblShowcase(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	row, err = q.GetPblShowcase(ctx, u.ID)
 	if err != nil {
 		return "", err
 	}
@@ -282,6 +290,9 @@ func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u Us
 		source := showcaseSemanticConfig(c)
 		publication = showcasePublication{Config: redactShowcaseForPublic(c), SourceConfig: &source, Works: []showcaseWork{work}, AllWorks: []showcaseWork{work}}
 	} else {
+		if publication.AllWorks == nil {
+			publication.AllWorks = append([]showcaseWork(nil), publication.Works...)
+		}
 		seen := false
 		for _, x := range publication.AllWorks {
 			if x.ID == id {
