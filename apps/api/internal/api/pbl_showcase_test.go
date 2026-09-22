@@ -185,6 +185,8 @@ func TestShowcaseVisualEnumsAndBackwardDefaults(t *testing.T) {
 	}{
 		{"style", "style", "anime", 200}, {"illustration", "illustration", "robot", 200}, {"font", "font", "handwritten", 200},
 		{"bad style", "style", "glitch", 400}, {"bad illustration", "illustration", "stars", 400}, {"bad font", "font", "comic", 400},
+		{"minimal", "style", "minimal", 200}, {"about orbit", "aboutLayout", "orbit", 200}, {"portfolio calendar", "portfolioLayout", "calendar", 200},
+		{"bad about", "aboutLayout", "spiral", 400}, {"bad portfolio", "portfolioLayout", "grid3d", 400},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -201,8 +203,21 @@ func TestShowcaseVisualEnumsAndBackwardDefaults(t *testing.T) {
 	}
 	h, cookie, _, _ := liteHandler(t)
 	draft := decodeSite(t, siteReq(t, h, cookie, http.MethodGet, "/api/v1/pbl/showcase", ""))["draft"].(map[string]any)
-	if draft["style"] != "classic" || draft["illustration"] != "none" {
+	if draft["style"] != "classic" || draft["illustration"] != "none" || draft["aboutLayout"] != "classic" || draft["portfolioLayout"] != "sections" {
 		t.Fatalf("defaults = %#v", draft)
+	}
+}
+
+func TestShowcaseRejectsForeignImagesAndBoundsGenerationBeforeProvider(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	foreign := strings.Replace(validShowcase, `"selectedWorkIds":[]`, `"selectedWorkIds":[],"avatarKey":"users/00000000-0000-0000-0000-000000000001/images/x.png"`, 1)
+	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", foreign); rec.Code != http.StatusBadRequest {
+		t.Fatalf("foreign image = %d; body=%s", rec.Code, rec.Body)
+	}
+	for _, body := range []string{`{"purpose":"hero","prompt":"x"}`, `{"purpose":"banner","prompt":"一张城市与自然的画"}`} {
+		if rec := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/images/generate", body); rec.Code != http.StatusBadRequest {
+			t.Fatalf("invalid generation = %d; body=%s", rec.Code, rec.Body)
+		}
 	}
 }
 

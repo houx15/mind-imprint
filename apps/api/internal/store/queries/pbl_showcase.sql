@@ -21,7 +21,8 @@ WHERE user_id=$1 RETURNING *;
 -- name: ListShowcaseWorks :many
 SELECT a.id AS atom_id, 'writing'::text AS kind, w.title,
        COALESCE(NULLIF(left(d.body, 240), ''), '')::text AS summary,
-       COALESCE(rep.share_token, '')::text AS share_token
+       COALESCE(rep.share_token, '')::text AS share_token,
+       COALESCE(to_char(w.finished_at, 'YYYY-MM-DD'), '')::text AS date
 FROM writing w JOIN atom a ON a.id=w.atom_id
 LEFT JOIN writing_draft d ON d.atom_id=a.id
 LEFT JOIN atom_report rep ON rep.atom_id=a.id
@@ -29,7 +30,8 @@ WHERE a.user_id=$1 AND w.status='finished'
   AND rep.share_token IS NOT NULL AND rep.share_token <> ''
 UNION ALL
 SELECT a.id, 'reading'::text, r.title,
-       COALESCE(t.text, '')::text, COALESCE(rep.share_token, '')::text
+       COALESCE(t.text, '')::text, COALESCE(rep.share_token, '')::text,
+       COALESCE(to_char(r.finished_at, 'YYYY-MM-DD'), '')::text
 FROM reading r JOIN atom a ON a.id=r.atom_id
 LEFT JOIN reading_takeaway t ON t.atom_id=a.id
 LEFT JOIN atom_report rep ON rep.atom_id=a.id
@@ -37,7 +39,8 @@ WHERE a.user_id=$1 AND r.status='finished'
   AND rep.share_token IS NOT NULL AND rep.share_token <> ''
 UNION ALL
 SELECT a.id, 'project'::text, COALESCE(NULLIF(p.name,''), left(p.idea,80)),
-       left(p.idea,240), ''::text
+       left(p.idea,240), ''::text,
+       COALESCE(to_char(p.finished_at, 'YYYY-MM-DD'), '')::text
 FROM pbl_project p JOIN atom a ON a.id=p.atom_id
 WHERE a.user_id=$1 AND p.status IN ('keeping','review') AND p.kind <> 'website'
 ORDER BY kind, title;

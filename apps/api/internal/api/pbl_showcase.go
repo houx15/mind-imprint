@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -29,6 +30,11 @@ type showcaseConfig struct {
 	Font            string   `json:"font"`
 	Style           string   `json:"style,omitempty"`
 	Illustration    string   `json:"illustration,omitempty"`
+	HeroTitle       string   `json:"heroTitle,omitempty"`
+	AboutLayout     string   `json:"aboutLayout,omitempty"`
+	PortfolioLayout string   `json:"portfolioLayout,omitempty"`
+	AvatarKey       string   `json:"avatarKey,omitempty"`
+	HeroImageKey    string   `json:"heroImageKey,omitempty"`
 	WritingStyle    string   `json:"writingStyle"`
 	ReadingStyle    string   `json:"readingStyle"`
 	SectionOrder    []string `json:"sectionOrder"`
@@ -41,6 +47,7 @@ type showcaseWork struct {
 	Title      string `json:"title"`
 	Summary    string `json:"summary"`
 	PublicPath string `json:"publicPath,omitempty"`
+	Date       string `json:"date,omitempty"`
 }
 
 type showcasePublication struct {
@@ -56,10 +63,12 @@ type showcaseState struct {
 	URL                   string         `json:"url"`
 	AvailableWorks        []showcaseWork `json:"availableWorks"`
 	HasLegacySite         bool           `json:"hasLegacySite"`
+	HeroImageURL          string         `json:"heroImageUrl"`
+	AvatarURL             string         `json:"avatarUrl"`
 }
 
 func defaultShowcase(name string) showcaseConfig {
-	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}}
+	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", AboutLayout: "classic", PortfolioLayout: "sections", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}}
 }
 
 func oneOf(v string, allowed ...string) bool {
@@ -86,11 +95,18 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	if c.Illustration == "" {
 		c.Illustration = "none"
 	}
+	if c.AboutLayout == "" {
+		c.AboutLayout = "classic"
+	}
+	if c.PortfolioLayout == "" {
+		c.PortfolioLayout = "sections"
+	}
 	c.Name, c.Bio, c.Tagline = strings.TrimSpace(c.Name), strings.TrimSpace(c.Bio), strings.TrimSpace(c.Tagline)
-	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 {
+	c.HeroTitle = strings.TrimSpace(c.HeroTitle)
+	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 {
 		return c, errors.New("主页文字超过长度限制")
 	}
-	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
+	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
 		return c, errors.New("展示样式无效")
 	}
 	clean := func(in []string, max, width int) ([]string, bool) {
@@ -140,6 +156,12 @@ func decodeShowcase(raw []byte, fallback string) showcaseConfig {
 	if c.Illustration == "" {
 		c.Illustration = "none"
 	}
+	if c.AboutLayout == "" {
+		c.AboutLayout = "classic"
+	}
+	if c.PortfolioLayout == "" {
+		c.PortfolioLayout = "sections"
+	}
 	c.Interests = showcaseNonNil(c.Interests)
 	c.SectionOrder = showcaseNonNil(c.SectionOrder)
 	c.SelectedWorkIDs = showcaseNonNil(c.SelectedWorkIDs)
@@ -152,6 +174,16 @@ func showcaseNonNil(v []string) []string {
 	return v
 }
 
+func ownShowcaseImage(owner uuid.UUID, key string) bool {
+	if key == "" {
+		return true
+	}
+	prefix := "users/" + owner.String() + "/"
+	return path.Clean(key) == key && strings.HasPrefix(key, prefix) &&
+		(strings.HasPrefix(key, prefix+"images/") || strings.HasPrefix(key, prefix+"generated/showcase-")) &&
+		!strings.ContainsAny(key, "?#\\")
+}
+
 func (a *API) showcaseWorks(r *http.Request, userID uuid.UUID) ([]showcaseWork, error) {
 	rows, err := a.d.Queries.ListShowcaseWorks(r.Context(), userID)
 	if err != nil {
@@ -160,7 +192,7 @@ func (a *API) showcaseWorks(r *http.Request, userID uuid.UUID) ([]showcaseWork, 
 	out := make([]showcaseWork, 0, len(rows))
 	uid := userID.String()
 	for _, w := range rows {
-		x := showcaseWork{ID: pbl.SiteItemID(uid, w.AtomID.String()), Kind: w.Kind, Title: w.Title, Summary: trimShowcaseRunes(w.Summary, 240)}
+		x := showcaseWork{ID: pbl.SiteItemID(uid, w.AtomID.String()), Kind: w.Kind, Title: w.Title, Summary: trimShowcaseRunes(w.Summary, 240), Date: w.Date}
 		if w.Kind != "project" {
 			x.PublicPath = publicWorkPath(w.ShareToken)
 		}
@@ -177,6 +209,12 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	draft := decodeShowcase(row.Draft, u.DisplayName)
 	active := row.PublishedAt.Valid
 	state := showcaseState{Draft: draft, Revision: row.Revision, Published: active, AvailableWorks: works}
+	if ownShowcaseImage(u.ID, draft.HeroImageKey) {
+		state.HeroImageURL = a.signedOrEmpty(draft.HeroImageKey)
+	}
+	if ownShowcaseImage(u.ID, draft.AvatarKey) {
+		state.AvatarURL = a.signedOrEmpty(draft.AvatarKey)
+	}
 	if active {
 		var site sqlc.PblSite
 		site, err = a.d.Queries.GetPblSite(r.Context(), u.ID)
@@ -262,6 +300,10 @@ func (a *API) putPblShowcase(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_showcase", err.Error(), nil))
 		return
 	}
+	if !ownShowcaseImage(u.ID, c.AvatarKey) || !ownShowcaseImage(u.ID, c.HeroImageKey) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片不属于当前账号", nil))
+		return
+	}
 	works, err := a.showcaseWorks(r, u.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -330,6 +372,10 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("showcase_incomplete", "请填写姓名，并填写简介或标语", nil))
 		return
 	}
+	if !ownShowcaseImage(u.ID, c.AvatarKey) || !ownShowcaseImage(u.ID, c.HeroImageKey) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片不属于当前账号", nil))
+		return
+	}
 	works, err := q.ListShowcaseWorks(r.Context(), u.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -338,7 +384,7 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 	allowed := map[string]showcaseWork{}
 	for _, x := range works {
 		id := pbl.SiteItemID(u.ID.String(), x.AtomID.String())
-		work := showcaseWork{ID: id, Kind: x.Kind, Title: x.Title, Summary: trimShowcaseRunes(x.Summary, 240)}
+		work := showcaseWork{ID: id, Kind: x.Kind, Title: x.Title, Summary: trimShowcaseRunes(x.Summary, 240), Date: x.Date}
 		if x.Kind != "project" {
 			work.PublicPath = publicWorkPath(x.ShareToken)
 		}
@@ -436,6 +482,12 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 	if c.Illustration == "" {
 		c.Illustration = "none"
 	}
+	if c.AboutLayout == "" {
+		c.AboutLayout = "classic"
+	}
+	if c.PortfolioLayout == "" {
+		c.PortfolioLayout = "sections"
+	}
 	all, err := a.showcaseWorks(r, userID)
 	if err != nil {
 		return nil, nil, err
@@ -462,6 +514,29 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 	}
 	c.SelectedWorkIDs = visibleIDs
 	return &c, selected, nil
+}
+
+func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
+	u, _ := UserFromContext(r.Context())
+	var in struct {
+		Prompt  string `json:"prompt"`
+		Purpose string `json:"purpose"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&in); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	in.Prompt = strings.TrimSpace(in.Prompt)
+	if len([]rune(in.Prompt)) < 3 || len([]rune(in.Prompt)) > 800 || !oneOf(in.Purpose, "hero", "avatar") {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image_request", "图片描述或用途无效", nil))
+		return
+	}
+	key, err := a.drawAndStore(r.Context(), u.ID, uuid.Nil, "showcase-"+in.Purpose, in.Prompt)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]string{"objectKey": key, "url": a.signedOrEmpty(key)})
 }
 
 // showcaseWasPublished keeps the retired homepage publishers from silently

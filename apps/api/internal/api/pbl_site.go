@@ -644,7 +644,7 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if config != nil {
 		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"showcase": true, "config": config, "works": works})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"showcase": true, "config": config, "works": works, "heroImageUrl": a.signedOrEmpty(config.HeroImageKey), "avatarUrl": a.signedOrEmpty(config.AvatarKey)})
 		return
 	}
 
