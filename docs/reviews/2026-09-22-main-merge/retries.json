@@ -1,0 +1,155 @@
+[
+  {
+    "Case": "TestClarityReadingLens/completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3919,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你选的这句话确实是一条值得核对的证据：它给出了「连续八年世界第一」这个比较结果，但要让这个结果可信，还需要知道排名依据的是哪项统计、由谁发布。信源评估要看的正是这一点——一条证据能不能用，取决于它的出处和统计口径，而不只取决于结论本身。\\n\\n接下来我们做最后一步：总结读后的观点变化。读完全文后，你对「中国的能源转型」这件事的看法，有没有被哪一段补充或改变？把读前和读后的想法各说一句，理由用文章里的具体内容说明。\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完全文后，你对能源转型的看法有什么补充或改变？请说明理由。\"}}",
+    "Usage": {
+      "inputTokens": 5045,
+      "outputTokens": 172,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityReadingLens/completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4570,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你选的那句是关于中国可再生能源新增装机量的比较结果，它确实显示中国在这项指标上连续多年居首，但这句话本身没有交代比较依据的是哪一套统计；这一点正是信源评估要盯住的地方，你抓得准。\\n\\n接下来做最后一步：总结读后的观点变化。读这篇文章之前，你对中国的能源转型大概有自己的印象；读完之后，想一想哪些看法被文章里的信息修正了，哪些反而更确定了，用你自己的话把前后的变化说清楚。\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你对中国的能源转型有什么看法发生了变化？\"}}",
+    "Usage": {
+      "inputTokens": 5045,
+      "outputTokens": 150,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityReadingLens/completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 3,
+    "Millis": 3376,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你选的这句确实是一条值得核对的证据：它给出了「连续八年世界第一」这个比较结果，但还要确认统计来源是谁、按什么指标排名、覆盖哪些国家和地区。这正是信源评估要做的事，你已经做到了。\\n\\n下一步是「总结读后的观点变化」。读完这篇短文，你对「中国能源转型」这件事的看法可能有了变化，也可能基本维持原来的判断，或者只是多了一些疑问。请你说说：读之前你是怎么想的，读完之后这个想法有没有变化。\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完这篇短文，你原来的看法有没有变化？变化在哪？\"}}",
+    "Usage": {
+      "inputTokens": 5045,
+      "outputTokens": 151,
+      "cachedInputTokens": 4992
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityReadingLens/not-completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2442,
+    "Text": "{\"advance\":\"\",\"reply\":\"信源评估透镜是让你检查一条证据能不能被信任：它从哪里来、是谁统计的、统计的范围是什么。\\n\\n先看第3段：「中国的可再生能源新增装机量连续八年位居世界第一。」这句话的依据是什么，文章有没有说明这组排名出自哪里？如果没有交代，你会怎么判断它的可信度？\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"craap\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4967,
+      "outputTokens": 95,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityReadingLens/not-completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2995,
+    "Text": "{\"advance\":\"\",\"reply\":\"信源评估透镜是用来检查一条证据值不值得相信、能说明什么的。你可以从两个方向开始：\\n第一，这条数据是谁统计的，它统计的范围和年份是什么。\\n第二，这条数据能直接说明什么，哪些说法它其实还不能证明。\\n你可以先看第三段，那里有一条关于可再生能源新增装机的说法。请找出它统计的对象和范围，说说这条证据能直接说明什么。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"lens-methods\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4967,
+      "outputTokens": 119,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityReadingLens/not-completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 3,
+    "Millis": 2708,
+    "Text": "{\"advance\":\"\",\"reply\":\"信源评估透镜是用来检查一条证据可不可靠的：它由谁统计、统计的是什么、能不能直接说明结论。你可以挑第3段那条「连续八年世界第一」，先问一句：这个排名是按什么指标排的，是谁统计或发布的。把这两点写出来，就等于开始了。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"craap\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4967,
+      "outputTokens": 91,
+      "cachedInputTokens": 4864
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2279,
+    "Text": "{\"reply\":\"你已经有要说明的那句话——学校图书馆可以延长开放时间，底下两条理由各自带着材料：一条是你和三位同学上周在嘈杂走廊复习的经历，说明晚自习后需要安静的学习场所；另一条是校报记录的邻校试行情况，每晚约三十人到馆，说明可以先试行以了解实际需求。中心论点、理由和材料都对上了，现在可以动笔写。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4767,
+      "outputTokens": 94,
+      "cachedInputTokens": 3200
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 7161,
+    "Text": "{\"reply\":\"你的观点是学校图书馆可以延长开放时间，下面有两条理由：晚自习后需要安静的学习场所，可以用你和三位同学在嘈杂走廊复习的经历来说明；可以先试行以了解实际需求，用校报记录的邻校试行活动、每晚约三十人到馆来说明。每条理由都有一份对应材料，现在可以开始写了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4767,
+      "outputTokens": 82,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 3,
+    "Millis": 1925,
+    "Text": "{\"reply\":\"你的观点是学校图书馆可以延长开放时间，下面两条理由分别是晚自习后需要安静的学习场所、可以先试行以了解实际需求；前者有你上周和三位同学在嘈杂走廊复习的亲身经历，后者有校报记录的邻校试行活动，每晚约三十人到馆。观点、理由和材料都对得上，现在可以开始写了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4767,
+      "outputTokens": 84,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  }
+]

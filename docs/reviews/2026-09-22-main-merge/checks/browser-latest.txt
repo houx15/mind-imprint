@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 e2e/harness/reading-harness.spec.ts:22:1 › 盘长在页签那一行里，而且不占印记说话的地方 (604ms)
+  ✓  2 e2e/harness/reading-harness.spec.ts:42:1 › 悬停给清单，而且不掉出屏幕 (380ms)
+  ✓  3 e2e/harness/reading-harness.spec.ts:57:1 › 点开是展开视图：这一步、它的说明、定位原文、十五个圆点 (453ms)
+  ✓  4 e2e/harness/reading-harness.spec.ts:101:1 › 划选工具条：摘抄和放入对话框一直在，查词/语法看划的是词还是句 (398ms)
+  ✓  5 e2e/harness/reading-harness.spec.ts:134:1 › 只有摘要的那一篇：摘抄整颗不出现，别的照常 (229ms)
+  ✓  6 e2e/harness/reading-harness.spec.ts:147:1 › 阅读成果里的我摘抄的：回原文 + 和印记说 (298ms)
+
+  6 passed (3.7s)

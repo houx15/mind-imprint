@@ -1,0 +1,132 @@
+=== RUN   TestClarityReading
+=== RUN   TestClarityReading/concept
+    clarity_live_test.go:38: TestClarityReading/concept sample=1 model=dashscope/deepseek-v4.1-flash ms=3261 input=5062 output=128 valid=true
+    clarity_live_test.go:38: TestClarityReading/concept sample=2 model=dashscope/deepseek-v4.1-flash ms=3547 input=5062 output=140 valid=true
+=== RUN   TestClarityReading/help
+    clarity_live_test.go:38: TestClarityReading/help sample=1 model=dashscope/deepseek-v4.1-flash ms=3014 input=5042 output=68 valid=true
+    clarity_live_test.go:38: TestClarityReading/help sample=2 model=dashscope/deepseek-v4.1-flash ms=1708 input=5042 output=67 valid=true
+=== RUN   TestClarityReading/partial
+    clarity_live_test.go:38: TestClarityReading/partial sample=1 model=dashscope/deepseek-v4.1-flash ms=2796 input=5043 output=85 valid=true
+    clarity_live_test.go:38: TestClarityReading/partial sample=2 model=dashscope/deepseek-v4.1-flash ms=1869 input=5043 output=73 valid=true
+=== RUN   TestClarityReading/done
+    clarity_live_test.go:38: TestClarityReading/done sample=1 model=dashscope/deepseek-v4.1-flash ms=3305 input=5062 output=147 valid=true
+2026/09/22 12:17:33 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/done sample=2 model=dashscope/deepseek-v4.1-flash ms=3978 input=5062 output=144 valid=true
+=== RUN   TestClarityReading/skip
+2026/09/22 12:17:36 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/skip sample=1 model=dashscope/deepseek-v4.1-flash ms=3143 input=5039 output=36 valid=true
+2026/09/22 12:17:37 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/skip sample=2 model=dashscope/deepseek-v4.1-flash ms=1329 input=5039 output=32 valid=true
+=== RUN   TestClarityReading/read-done
+2026/09/22 12:17:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/read-done sample=1 model=dashscope/deepseek-v4.1-flash ms=3143 input=4937 output=110 valid=true
+    clarity_live_test.go:38: TestClarityReading/read-done sample=2 model=dashscope/deepseek-v4.1-flash ms=3639 input=4937 output=136 valid=true
+=== RUN   TestClarityReading/connect
+    clarity_live_test.go:38: TestClarityReading/connect sample=1 model=dashscope/deepseek-v4.1-flash ms=3294 input=4959 output=116 valid=true
+    clarity_live_test.go:38: TestClarityReading/connect sample=2 model=dashscope/deepseek-v4.1-flash ms=3398 input=4959 output=155 valid=true
+=== RUN   TestClarityReading/hunt-no-pick
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=1 model=dashscope/deepseek-v4.1-flash ms=2586 input=4938 output=73 valid=true
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=2 model=dashscope/deepseek-v4.1-flash ms=1799 input=4938 output=61 valid=true
+=== RUN   TestClarityReading/hunt-picked
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=1 model=dashscope/deepseek-v4.1-flash ms=3047 input=4960 output=158 valid=true
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=2 model=dashscope/deepseek-v4.1-flash ms=3572 input=4960 output=146 valid=true
+=== RUN   TestClarityReading/hunt-skip
+2026/09/22 12:18:03 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=1 model=dashscope/deepseek-v4.1-flash ms=1005 input=4933 output=31 valid=true
+2026/09/22 12:18:04 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=2 model=dashscope/deepseek-v4.1-flash ms=1149 input=4933 output=36 valid=true
+--- PASS: TestClarityReading (54.84s)
+    --- PASS: TestClarityReading/concept (6.83s)
+    --- PASS: TestClarityReading/help (4.75s)
+    --- PASS: TestClarityReading/partial (4.69s)
+    --- PASS: TestClarityReading/done (7.31s)
+    --- PASS: TestClarityReading/skip (4.50s)
+    --- PASS: TestClarityReading/read-done (6.81s)
+    --- PASS: TestClarityReading/connect (6.72s)
+    --- PASS: TestClarityReading/hunt-no-pick (4.40s)
+    --- PASS: TestClarityReading/hunt-picked (6.65s)
+    --- PASS: TestClarityReading/hunt-skip (2.18s)
+=== RUN   TestClarityReadingLens
+=== RUN   TestClarityReadingLens/not-completed
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=1 model=dashscope/deepseek-v4.1-flash ms=4716 input=4921 output=213 valid=false
+    clarity_live_test.go:74: compressed or confrontational teaching language: 撑 (visible output preserved in evidence)
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=2 model=dashscope/deepseek-v4.1-flash ms=4380 input=4921 output=176 valid=true
+=== RUN   TestClarityReadingLens/completed
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=1 model=dashscope/deepseek-v4.1-flash ms=4398 input=4999 output=177 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=2 model=dashscope/deepseek-v4.1-flash ms=5029 input=4999 output=209 valid=true
+--- FAIL: TestClarityReadingLens (18.56s)
+    --- FAIL: TestClarityReadingLens/not-completed (9.11s)
+    --- PASS: TestClarityReadingLens/completed (9.45s)
+=== RUN   TestClarityReadingSequence
+=== RUN   TestClarityReadingSequence/library-1
+=== RUN   TestClarityReadingSequence/library-1/turn-1
+2026/09/22 12:18:25 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2431 input=4923 output=63 valid=true
+=== RUN   TestClarityReadingSequence/library-1/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=1988 input=4971 output=68 valid=true
+=== RUN   TestClarityReadingSequence/library-1/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2854 input=5201 output=129 valid=true
+=== RUN   TestClarityReadingSequence/library-2
+=== RUN   TestClarityReadingSequence/library-2/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2541 input=4923 output=84 valid=true
+=== RUN   TestClarityReadingSequence/library-2/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=2229 input=4991 output=83 valid=true
+=== RUN   TestClarityReadingSequence/library-2/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=3000 input=5233 output=107 valid=true
+=== RUN   TestClarityReadingSequence/library-3
+=== RUN   TestClarityReadingSequence/library-3/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2491 input=4923 output=71 valid=true
+=== RUN   TestClarityReadingSequence/library-3/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=1988 input=4978 output=74 valid=true
+=== RUN   TestClarityReadingSequence/library-3/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=4647 input=5214 output=138 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-1
+2026/09/22 12:18:49 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2533 input=4930 output=73 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=1848 input=4989 output=85 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=3608 input=5237 output=106 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2224 input=4930 output=83 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=2606 input=4999 output=93 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2597 input=5255 output=136 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=1999 input=4930 output=68 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=1975 input=4984 output=68 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=3772 input=5215 output=128 valid=true
+--- PASS: TestClarityReadingSequence (47.78s)
+    --- PASS: TestClarityReadingSequence/library-1 (7.34s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-1 (2.45s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-2 (2.01s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-3 (2.88s)
+    --- PASS: TestClarityReadingSequence/library-2 (7.85s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-1 (2.57s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-2 (2.26s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-3 (3.03s)
+    --- PASS: TestClarityReadingSequence/library-3 (9.20s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-1 (2.51s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-2 (2.02s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-3 (4.67s)
+    --- PASS: TestClarityReadingSequence/urban-heat-1 (8.05s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-1 (2.56s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-2 (1.87s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-3 (3.62s)
+    --- PASS: TestClarityReadingSequence/urban-heat-2 (7.50s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-1 (2.25s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-2 (2.63s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-3 (2.62s)
+    --- PASS: TestClarityReadingSequence/urban-heat-3 (7.84s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-1 (2.03s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-2 (2.00s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-3 (3.81s)
+FAIL
+FAIL	mindimprint/api/internal/api	121.697s
+FAIL

@@ -1,0 +1,19 @@
+=== RUN   TestClarityReadingLens
+=== RUN   TestClarityReadingLens/not-completed
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=1 model=dashscope/deepseek-v4.1-flash ms=2442 input=4967 output=95 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=2 model=dashscope/deepseek-v4.1-flash ms=2995 input=4967 output=119 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=3 model=dashscope/deepseek-v4.1-flash ms=2708 input=4967 output=91 valid=true
+=== RUN   TestClarityReadingLens/completed
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=1 model=dashscope/deepseek-v4.1-flash ms=3919 input=5045 output=172 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=2 model=dashscope/deepseek-v4.1-flash ms=4570 input=5045 output=150 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=3 model=dashscope/deepseek-v4.1-flash ms=3376 input=5045 output=151 valid=true
+--- PASS: TestClarityReadingLens (20.17s)
+    --- PASS: TestClarityReadingLens/not-completed (8.18s)
+    --- PASS: TestClarityReadingLens/completed (11.99s)
+=== RUN   TestClarityWritingInvite
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=1 model=dashscope/deepseek-v4.1-flash ms=2279 input=4767 output=94 valid=true
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=2 model=dashscope/deepseek-v4.1-flash ms=7161 input=4767 output=82 valid=true
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=3 model=dashscope/deepseek-v4.1-flash ms=1925 input=4767 output=84 valid=true
+--- PASS: TestClarityWritingInvite (11.40s)
+PASS
+ok  	mindimprint/api/internal/api	32.796s

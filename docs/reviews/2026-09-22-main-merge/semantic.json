@@ -1,0 +1,509 @@
+[
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2037,
+    "Text": "老师让你写的是：成长过程中哪一个词语的理解发生了变化，这变化和你的成长有什么关系。这是老师布置的题目，不是你自己想写的。\n\n这一步我们先一起把要说的想清楚、排出顺序，再动笔。\n\n先想一个事：有哪个词，你小时候理解的跟现在不一样了？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 63
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2379,
+    "Text": "老师要求你写的是：成长过程中，你对哪个词语的理解发生了变化，这变化和你的成长有什么关系。这是老师布置的题目，不是你自己想写的。\n\n我们先要做的，是把你想说的内容和说的顺序想清楚，再动笔。\n\n先想一个问题：你想选哪个词语？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 59,
+      "cachedInputTokens": 384
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3011,
+    "Text": "{\"reply\":\"你举的同学这个例子很具体，它挂在「Students do not get enough sleep」这条 topic sentence（分论点）下面，用来说明学生睡眠不足。不过这条分论点底下还缺一条理由，而这篇文章需要两条。你的中心观点是 Schools should start later。请再想一条别的理由——除了睡眠不足，还有哪件事能说明上学时间该推迟？\",\"add\":[{\"kind\":\"evidence\",\"text\":\"A classmate falls asleep in first period after getting up at 5:30 to take two buses.\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4620,
+      "outputTokens": 122
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 9518,
+    "Text": "{\"reply\":\"你举的这位同学很有用：他每天第一节课睡着，五点半起床、要换两趟公交——这是他睡眠不足的具体表现，也是说明「Students do not get enough sleep」这条 topic sentence 的材料。不过它现在的中心论点只有一条理由。你还可以从哪个方面说明学校应该晚点开始？\",\"add\":[{\"kind\":\"evidence\",\"text\":\"My classmate falls asleep in first period every day. He gets up at 5:30 and takes two buses.\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4620,
+      "outputTokens": 114,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2857,
+    "Text": "{\"reply\":\"你写的是你看见祖父修椅子，而不是把椅子扔掉，并意识到自己从前没注意过他做事有多细心。这是你文章里的一个具体场景。我想先弄清楚：这件事让你对什么事的看法变了？（比如对旧东西、对手艺、对祖父，或者对「扔掉」这件事）\",\"add\":[{\"kind\":\"detail\",\"text\":\"\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4008,
+      "outputTokens": 86,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3238,
+    "Text": "{\"reply\":\"你开头这个画面很好——grandfather 修一把别人会扔掉的椅子，这里已经有一个具体时刻了。图上现在只有这个场景，还没有说明它让你对什么事的看法变了。你重新看这件事的时候，变化发生在哪一点上？是「东西坏了还能修」这件事本身，还是你以前看他的手艺从来没看仔细？先从这两条里挑一条你觉得最想写的。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4008,
+      "outputTokens": 95,
+      "cachedInputTokens": 3968
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1939,
+    "Text": "{\"reply\":\"你说的这句「黑心商家哪怕赚很多钱，也是失败」，是在说明单纯有钱不等于成功——它和「平凡尽责也是成功」是同一个角度的两种情形，放在一起对比，差别本身就说明问题，这个方法叫对比论证。你现有的分论点「人人都有自己的贡献」说的是成功是什么。能否再想一条同为「是什么」角度的分论点，来回应黑心商家这种情形？\",\"add\":[{\"kind\":\"point\",\"text\":\"黑心商家哪怕赚很多钱，也是失败\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4608,
+      "outputTokens": 117,
+      "cachedInputTokens": 3200
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 1499,
+    "Text": "{\"reply\":\"你说的「黑心商家哪怕赚很多钱，也是失败」，是在给「成功」划一条界线：钱多不等于成功。它和你已有的那条「人人都有自己的贡献」切的是同一个角度——都在说成功是什么。能不能就沿着这个角度，再想一条：在你看来，成功还一定是什么，或者一定不是什么？\",\"add\":[{\"kind\":\"point\",\"text\":\"黑心商家哪怕赚很多钱，也是失败\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4608,
+      "outputTokens": 101,
+      "cachedInputTokens": 4480
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2027,
+    "Text": "{\"reply\":\"选词这一步很关键，先想清楚：有哪一个词，你从小到大对它的理解真的变过？比如「自由」「努力」「朋友」「成功」「家」这类词，你可以想想自己小时候怎么理解它，现在又怎么看它。你想选哪个词？\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4683,
+      "outputTokens": 68,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2258,
+    "Text": "{\"reply\":\"选词这件事，正好就是题目要你写的第一层内容——你重新理解的那个词是什么。先想想：从小到大，有哪个词你以前是那样理解的，后来因为某件事、某个人，看法变了？说一个词，再顺带说说你以前怎么理解它、现在又怎么理解它。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4683,
+      "outputTokens": 78,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/en",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3273,
+    "Text": "{\"reply\":\"这份计划已经可以开始写了：你的 thesis 很明确——The school library should stay open later；两条 topic sentence 分别指向晚自习后需要一个安静的地方、以及下课后能用到参考书；每条下面都已经有一件你亲眼见过的事——走廊里被人打断的那次，和昨天想借书却碰上闭馆的那次。两件材料都贴着自己的 topic sentence，读者能看出它们说明了什么。现在按这个顺序去写吧：先把 thesis 放进引言，再依次展开这两段，写完主体后再考虑引言和结尾怎么收。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4683,
+      "outputTokens": 129,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/en",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2849,
+    "Text": "{\"reply\":\"这份计划已经可以开始写了：你的 thesis 是 The school library should stay open later，两条 topic sentence——after evening classes 需要安静的地方，以及 later hours 能让参考书在课后借到——各自都有一件你自己经历的事作材料（走廊被打断的那次、昨天没借到书的那次），理由之间没有重复。现在可以动笔了，从两条理由里你先想到的那一条写起。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4683,
+      "outputTokens": 101,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/zh",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 5888,
+    "Text": "{\"reply\":\"这份计划已经可以开始写了：中心观点是图书馆应延长开放时间，两条理由——晚自习后需要安静的学习场所、晚间开放便于借阅参考书——各自都有你自己经历过的具体事情来说明，理由之间也不重复。现在可以动笔了，写完一段随时拿回来一起看。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4611,
+      "outputTokens": 75,
+      "cachedInputTokens": 3200
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/zh",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2154,
+    "Text": "{\"reply\":\"你这个计划已经可以动笔了：中心观点是「图书馆应该延长开放时间」，底下的两条理由各自不同——一条说晚自习后需要安静的学习场所，你举了自己在走廊复习总被打断的经历；另一条说晚间开放便于借书，你举了下课后去借书却已关门的经历。两条理由都有你亲身经历的事情来说明，800 字的篇幅够了。现在就去写吧。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4611,
+      "outputTokens": 100,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3550,
+    "Text": "{\"advance\":\"\",\"reply\":\"你注意到的是新增装机的比例，这确实是第2段里的数字。不过我们要判断的是「实际发电量」，先看看这个数字统计的对象是什么——「新增的太阳能发电装机」。装机指的是建起来的发电能力，还是真正发出来的电？请你说说，装机容量和实际发电量能不能直接当成同一件事来判断。\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 5017,
+      "outputTokens": 95,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2070,
+    "Text": "{\"advance\":\"\",\"reply\":\"你找到了第2段的数字，也把它和「实际发电量」联系起来了。不过第2段那个数字统计的是太阳能发电的**装机容量**。请回看第2段和第6段，装机容量对应的名称和单位是什么，它和「实际发出的电量」指的是同一件事吗？\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 5017,
+      "outputTokens": 89,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3679,
+    "Text": "{\"advance\":\"\",\"reply\":\"装机容量不等于实际发电量，也不等于被替代掉的化石燃料。第6段把这一点说得很清楚：装机容量衡量的是发电能力，也就是设备在理想状态下能够发出的电力上限；而实际发电量取决于设备实际运行了多久、发了多少电。所以，一个地方装机规模大，并不必然意味着它实际发出的电量同样大。\\n\\n这一步要看的就是这个区别。你愿意的话，可以回到第6段，找一找还有哪个说法和「发电能力」形成对照。\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4994,
+      "outputTokens": 132,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3579,
+    "Text": "{\"advance\":\"\",\"reply\":\"装机容量和实际发电量不是一回事。装机容量指的是设备在满负荷运行时能够发出的功率有多大，它是「能力」；实际发电量则要看这些设备在一年里真正发了多少度电，还受日照、风速、运行时间等条件影响。所以装机容量做得大，并不等于发出的电量就一样大。第6段正是提醒这一点，还说它也不等于被替代掉的化石燃料。\\n你可以回到第2段找那个比例数字，再顺手说说它后面的名称和比较对象是什么。\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4994,
+      "outputTokens": 134,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3131,
+    "Text": "{\"advance\":\"\",\"reply\":\"装机容量指的是一个发电设施在满负荷运行时能够发出的电力总量，也就是它的发电能力上限，单位通常用千瓦或兆瓦表示。它衡量的是「最多能发多少」，而不是「实际发了多少」。文章第6段专门提醒了这一点：装机容量和实际发出的电量是两回事，中间还要看设备实际运转了多少时间、发出了多少电。\\n\\n现在回到这一步的任务：请你到第2段看看那个数字，说说它统计的对象是什么。\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4993,
+      "outputTokens": 125,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4059,
+    "Text": "{\"advance\":\"\",\"reply\":\"装机容量指的是一个发电设施在满负荷运转时能够发出的最大功率，它衡量的是「能力上限」，比如一座太阳能电站能装多大、能配多少块光伏板。它不等于实际发出的电量——实际发电量还要看设备真正运转了多久、光照条件如何。\\n\\n现在我们回到这篇文章。第2段里有一个数字，请你说说看：它统计的是哪个对象、以什么为单位？先找出这个数字，再说明它在比较什么。\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"第2段那个数字统计的是什么对象？以什么为单位？\"}}",
+    "Usage": {
+      "inputTokens": 4993,
+      "outputTokens": 145,
+      "cachedInputTokens": 4224
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2554,
+    "Text": "{\"advance\":\"\",\"reply\":\"我们先从标题开始：读一篇文章之前，可以先用标题想一想它可能会回答什么问题。\",\"focusBlock\":\"b5\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"pick_in_article\",\"prompt\":\"读完标题，你想在文章里找到哪一句来回应它？\"}}",
+    "Usage": {
+      "inputTokens": 4913,
+      "outputTokens": 68,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2537,
+    "Text": "{\"advance\":\"\",\"reply\":\"我们开始读《中国的能源转型》。在你往下看之前，先只根据标题想一想：这篇文章大概会讨论什么话题，是讲能源怎么变化，还是讲它在世界上的位置，或者别的什么？可以先说一个你觉得最可能出现的词。\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"只看标题，你预计这篇文章会讨论什么？说一两个你猜会出现的词。\"}}",
+    "Usage": {
+      "inputTokens": 4913,
+      "outputTokens": 101,
+      "cachedInputTokens": 4864
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 3198,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段开门见山提出观点，并用走廊自习的经历作为材料，从开放时间的必要性角度展开讨论。\",\"points\":[{\"kind\":\"good\",\"method\":\"opening_direct\",\"text\":\"开头直接说明观点，读者第一句就知道这段要讨论什么。\",\"quote\":\"学校图书馆应该延长开放时间。\"},{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子说明走廊复习受到打扰，但读者还需要一段解释，把「教室关闭后无处自习」和「延长图书馆开放时间」连起来。\",\"action\":\"请在走廊这件事之后补一两句，解释这段经历与延长图书馆开放时间之间的关系，例如说明延长开放后这类同学可以去哪里、条件会怎样。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"}]}",
+    "Usage": {
+      "inputTokens": 3476,
+      "outputTokens": 198,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 2738,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段以开门见山的方式提出观点，并用自己的一次经历作为例子，读起来清楚。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」讲了走廊自习受打扰这件事，但没有说清它和「延长图书馆开放时间」之间的关系——读者需要知道这两人被打扰的经历如何说明延长开放时间能解决安静自习场所的问题。\",\"action\":\"在这个例子后面加一两句话，说明走廊的经历和延长图书馆开放时间之间的联系，例如解释延长开放时间后这类同学可以到哪里自习、为什么那里更安静。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过\"}]}",
+    "Usage": {
+      "inputTokens": 3476,
+      "outputTokens": 166,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 1727,
+    "Text": "{\"job\":\"让读者一句话明白你整篇文章的立场和理由方向，也就是图书馆应该延长开放时间、为什么。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"晚自习结束后，你和同学通常去哪里自习？那里的环境有什么让你不满意的地方？\",\"安静的自习场所对完成作业或复习来说，具体带来什么不一样？\",\"延长开放时间后，图书馆能解决哪些目前做不到的事？\"]}",
+    "Usage": {
+      "inputTokens": 1774,
+      "outputTokens": 89,
+      "cachedInputTokens": 1536
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 2118,
+    "Text": "{\"job\":\"中心论点要用一句完整的话表明你对延长图书馆开放时间的立场，并让读者看出后面全文将围绕它展开。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"晚自习结束后，你希望图书馆开放到几点，为什么是这个时间而不是更早或更晚？\",\"除了晚自习后没有安静自习场所这一点，还有没有别的理由让你支持延长开放时间？\",\"晚自习后你和同学通常会去哪里自习，那里的环境有什么让你不满意的地方？\"]}",
+    "Usage": {
+      "inputTokens": 1774,
+      "outputTokens": 104,
+      "cachedInputTokens": 1536
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2945,
+    "Text": "{\"reply\":\"你的观点是：学校图书馆应该延长开放时间。理由是这样能照顾到晚自习后教室关门、暂时没有地方复习的同学，你还举了上周自己和三位同学只能在走廊复习这个例子。这一条已经清楚了。\\n\\n想再问你一条理由：除了「没有地方去」这一点，你觉得延长开放还会带来什么？（想想同一类角度：图书馆开放时间延长之后，同学们的学习会出现什么变化。）\",\"add\":[{\"kind\":\"thesis\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"晚自习后教室关门，同学没有地方复习\",\"source\":\"\"},{\"kind\":\"evidence\",\"text\":\"上周我和三位同学只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4639,
+      "outputTokens": 155
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2773,
+    "Text": "{\"reply\":\"你说的两点我先整理进图：一句是观点，一句是上周你和三位同学在走廊复习的事。现在缺的是说明这条观点的分论点——也就是「为什么图书馆该延长开放」。你提到晚自习后教室关门、你们只能去走廊，这已经能说明一条理由了，就是你刚说的这层意思。我想再请你补一条：除了「晚上没地方复习」，还有哪一件事也让你觉得图书馆该开得晚一点？\",\"add\":[{\"kind\":\"thesis\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"晚自习后教室关门，学生没有地方继续复习\",\"source\":\"\"},{\"kind\":\"evidence\",\"text\":\"上周我和三位同学只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4639,
+      "outputTokens": 163,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1948,
+    "Text": "{\"reply\":\"你的观点是学校图书馆可以延长开放时间，下面两条理由已经各有材料：一条是你和三位同学上周在嘈杂走廊复习的经历，说明晚自习后确实需要安静的学习场所；另一条是校报记录的邻校试行活动，每晚约三十人到馆，说明可以先试行了解实际需求。这两条理由和材料足以把观点说清楚，你可以开始写了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4744,
+      "outputTokens": 90,
+      "cachedInputTokens": 3200
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2339,
+    "Text": "{\"reply\":\"你的观点很明确：学校图书馆可以延长开放时间。两条理由也站得住——一条是晚自习后需要安静的学习场所，你还举了上周和三位同学在嘈杂走廊复习的例子；另一条是可以先试行以了解实际需求，你找到了校报记录的邻校试行、每晚约三十人到馆。这两件事一个说明需求确实存在，一个说明试行能摸清需求。材料够了，你可以开始写了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4744,
+      "outputTokens": 101,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "compressed or confrontational teaching language: 站得住"
+  }
+]

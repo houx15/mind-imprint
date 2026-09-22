@@ -1,0 +1,15 @@
+
+Running 10 tests using 2 workers
+
+  ✓   2 e2e/harness/reading-harness.spec.ts:22:1 › 盘长在页签那一行里，而且不占印记说话的地方 (565ms)
+  ✓   1 e2e/harness/flow-harness.spec.ts:23:1 › 行文：四张论证结构卡，选一个再点一下取消 (574ms)
+  ✓   4 e2e/harness/flow-harness.spec.ts:40:1 › 🚨 行文：顺序真的改得动，而且那个下拉没了（同事 2026-09-22 的意见 4、5） (297ms)
+  ✓   3 e2e/harness/reading-harness.spec.ts:42:1 › 悬停给清单，而且不掉出屏幕 (383ms)
+  ✓   5 e2e/harness/flow-harness.spec.ts:68:1 › 🚨 行文这一步一个字的正文都不写（同事：并非填充内容） (166ms)
+  ✓   6 e2e/harness/reading-harness.spec.ts:57:1 › 点开是展开视图：这一步、它的说明、定位原文、十五个圆点 (384ms)
+  ✓   7 e2e/harness/flow-harness.spec.ts:75:1 › 段落左栏：图在上、引导在下，点放大开浮层 (361ms)
+  ✓   9 e2e/harness/flow-harness.spec.ts:94:1 › 引导框：段内结构排在方法名前面，主体段的五句都在，而且顺序对 (241ms)
+  ✓   8 e2e/harness/reading-harness.spec.ts:101:1 › 划选工具条：摘抄和放入对话框一直在，查词/语法看划的是词还是句 (353ms)
+  ✓  10 e2e/harness/reading-harness.spec.ts:134:1 › 阅读成果里的我摘抄的：回原文 + 和印记说 (243ms)
+
+  10 passed (2.6s)

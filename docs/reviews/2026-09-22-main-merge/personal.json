@@ -1,0 +1,70 @@
+[
+  {
+    "Case": "TestClarityPersonalPlanReady/en",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2977,
+    "Text": "{\"reply\":\"这份计划已经可以开始写了：你的中心论点很清楚——The school library should stay open later；两条 topic sentence（分论点）分别从安静的自习空间和课后借阅参考书两个角度说明理由，各自底下都有一件你自己经历的具体事情作为材料，这两件事的来源和场景都不一样。现在按这个安排写下去就行，开头和结尾等主体有了再回头看。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4660,
+      "outputTokens": 92,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/en",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3630,
+    "Text": "{\"reply\":\"你的计划现在可以开始写了：thesis 已经定下来——The school library should stay open later；两条 topic sentence 分别讲晚自习后需要一个安静的地方、以及延长开放时间才能在下课后借到参考书；每条下面都有一件你自己经历过的事作材料，一条是走廊上有人经过打断了你复习，一条是你昨天下了课去借书发现已经关门。这两件事都具体，也都贴着你自己的理由。现在去写吧，写的时候把 each 例子之后那几句 commentary 说清楚——它怎么说明了上面那条 topic sentence。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4660,
+      "outputTokens": 130,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/zh",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2452,
+    "Text": "{\"reply\":\"计划已经可以动笔：中心观点是图书馆应延长开放时间，下面两条理由——晚自习后需要安静的学习场所、晚间开放便于借阅参考书——各自都配了一件你亲眼见到的事，两件材料正好一一对应。只有一处要先改：第一条理由里没出现「图书馆」或「延长开放时间」，读者读到那里会看不出它在证哪句话。请把中心观点里的关键词放进这一句，比如写明这处安静场所指的就是图书馆晚间开放的时段。改完就可以开始写正文了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4585,
+      "outputTokens": 123,
+      "cachedInputTokens": 3200
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityPersonalPlanReady/zh",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2750,
+    "Text": "{\"reply\":\"你的计划已经可以写了：中心观点是图书馆应该延长开放时间，下面两条理由——晚自习后需要安静的学习场所、晚间开放便于借阅参考书，各配了一件你亲历的事（走廊复习被打断、下课去借书已关门），材料够用。动笔前只改一处：把第一条理由里的说法往中心观点上靠一靠，比如写成「延长开放时间，才能给晚自习后的同学一个安静的学习场所」，让「延长开放时间」这个词出现在这一句里——现在这句单独读，看不出它在证哪句话。然后就可以开始写了。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 4585,
+      "outputTokens": 137,
+      "cachedInputTokens": 4480
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  }
+]

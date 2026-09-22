@@ -1,0 +1,51 @@
+
+Running 18 tests using 2 workers
+
+  ✓   2 e2e/harness/mindmap-harness.spec.ts:43:1 › 🚨 意见 3：挂在深度 1 的结尾，卡片上印的是「结尾」 (774ms)
+  ✓   1 e2e/harness/flow-harness.spec.ts:23:1 › 行文：四张论证结构卡，选一个再点一下取消 (945ms)
+  ✓   4 e2e/harness/flow-harness.spec.ts:40:1 › 🚨 行文：顺序真的改得动，而且那个下拉没了（同事 2026-09-22 的意见 4、5） (500ms)
+  ✓   3 e2e/harness/mindmap-harness.spec.ts:51:1 › 🚨 意见 1：把一条拖到空白画布上，它升到最上层 (719ms)
+  ✓   5 e2e/harness/flow-harness.spec.ts:68:1 › 🚨 行文这一步一个字的正文都不写（同事：并非填充内容） (235ms)
+  ✓   6 e2e/harness/mindmap-harness.spec.ts:75:1 › 卡片上三分之一 = 放到它旁边，其余 = 挂到它底下 (588ms)
+  ✓   7 e2e/harness/flow-harness.spec.ts:75:1 › 段落左栏：图在上、引导在下，点放大开浮层 (546ms)
+  ✓   8 e2e/harness/mindmap-harness.spec.ts:86:1 › 拖到卡片中间 = 挂到它底下，整张卡亮起来 (455ms)
+  ✓   9 e2e/harness/flow-harness.spec.ts:94:1 › 引导框：段内结构排在方法名前面，主体段的五句都在，而且顺序对 (376ms)
+  ✓  10 e2e/harness/mindmap-harness.spec.ts:103:1 › 🚨 卡片上的小标题点开是「这一条是什么」，改完当场变 (582ms)
+  ✓  11 e2e/harness/planning-harness.spec.ts:27:1 › 🚨 构思的时候，整道题和对话、图同时在屏幕上 (708ms)
+  ✓  13 e2e/harness/planning-harness.spec.ts:44:1 › 题目那一栏折得起来，折完正文变宽 (811ms)
+  ✓  12 e2e/harness/reading-harness.spec.ts:22:1 › 盘长在页签那一行里，而且不占印记说话的地方 (1.5s)
+  ✓  14 e2e/harness/planning-harness.spec.ts:61:1 › 🚨 图上那条被摆错的，她自己改得动（意见 3） (527ms)
+  ✓  15 e2e/harness/reading-harness.spec.ts:42:1 › 悬停给清单，而且不掉出屏幕 (413ms)
+  ✓  16 e2e/harness/reading-harness.spec.ts:57:1 › 点开是展开视图：这一步、它的说明、定位原文、十五个圆点 (456ms)
+  ✓  17 e2e/harness/reading-harness.spec.ts:101:1 › 划选工具条：摘抄和放入对话框一直在，查词/语法看划的是词还是句 (486ms)
+  ✘  18 e2e/harness/reading-harness.spec.ts:134:1 › 阅读成果里的我摘抄的：回原文 + 和印记说 (5.3s)
+
+
+  1) e2e/harness/reading-harness.spec.ts:134:1 › 阅读成果里的我摘抄的：回原文 + 和印记说 ─────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: '我摘抄的', exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: '我摘抄的', exact: true })
+
+
+      134 | test("阅读成果里的我摘抄的：回原文 + 和印记说", async ({ page }) => {
+      135 |   // 钉那一节真正的标题（h3），不是裸 getByText —— 看图台的小标题里也有这三个字。
+    > 136 |   await expect(page.getByRole("heading", { name: "我摘抄的", exact: true })).toBeVisible();
+          |                                                                          ^
+      137 |   await expect(page.getByText("Some professors fear that ChatGPT could lead to cheating.")).toBeVisible();
+      138 |
+      139 |   await page.getByRole("button", { name: "回到第 3 段" }).click();
+        at /Users/houyuxin/08Coding/mind-imprint/apps/lite-web/e2e/harness/reading-harness.spec.ts:136:74
+
+    Error Context: test-results/reading-harness-阅读成果里的我摘抄的：回原文-和印记说/error-context.md
+
+  1 failed
+    e2e/harness/reading-harness.spec.ts:134:1 › 阅读成果里的我摘抄的：回原文 + 和印记说 ──────────────────────────────
+  17 passed (19.8s)

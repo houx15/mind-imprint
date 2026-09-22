@@ -1,0 +1,170 @@
+[
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1288,
+    "Text": "老师这个题目要求你写：成长过程中哪个词语的理解发生了变化，这变化跟你的成长有什么关系。我们先一起把要写的内容和顺序想清楚，再动笔。你先想一个词——哪个词是你以前理解得不一样、后来变了？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 52
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 1721,
+    "Text": "老师让你结合自身经历，写一个你成长中理解发生变化的词语。这一步我们先想清楚要写哪个词、你对它的理解怎么变的，再动笔。先问你：有哪个词，是你以前理解成一种意思、后来因为某段经历改变了看法的？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 58,
+      "cachedInputTokens": 384
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2625,
+    "Text": "{\"reply\":\"你这条分论点下面现在只有观点，还没有具体材料。你刚说的同学每天第一节课睡着、五点半起床转两趟公交，这是你自己见过的事，可以先放进「个人经历」里。不过个人经历说服力有限，这篇文章至少还要有一份别人能做核实的材料。你能找一份关于青少年睡眠时间或上学时间的调查或报道吗？找到后把机构、年份和样本量一起告诉我。\",\"add\":[{\"kind\":\"evidence\",\"text\":\"同学每天第一节课睡着，五点半起床转两趟公交\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4565,
+      "outputTokens": 124
+    },
+    "StopReason": "stop",
+    "ValidationError": "English teaching terminology missing"
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3005,
+    "Text": "{\"reply\":\"你给的这件事很具体——同学五点三十起床、坐两趟公交，每天第一节课睡着。它说明的是「学生睡眠不足」，可以挂在「Students do not get enough sleep」下面当例子，我在图里标成「个人经历」。\\n\\n不过全文有一个例子还不够。你能想到一件不是你自己身边的事吗——比如某个机构或调查提出的上学时间与睡眠的数据？那类材料读者更信得过。\",\"add\":[{\"kind\":\"evidence\",\"text\":\"My classmate gets up at 5:30 for two buses and falls asleep in first period.\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4565,
+      "outputTokens": 133,
+      "cachedInputTokens": 4480
+    },
+    "StopReason": "stop",
+    "ValidationError": "English teaching terminology missing"
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2288,
+    "Text": "{\"reply\":\"你从爷爷修椅子这件事开始，画面已经有了：他在工作间里修一把坏椅子，而不是把它丢掉。接下来这篇要成立，还需要你说清你自己的什么想法变了。\\n\\n你可以先明确那一句话：看见爷爷这么做之后，你对什么事的看法和从前不一样了？比如是对「旧东西」的看法，还是对「耐心做事」的看法。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 3953,
+      "outputTokens": 88,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2415,
+    "Text": "{\"reply\":\"你已经有了一个很清楚的开头场景：你在祖父的工作间里，看见他修一把坏椅子，而不是把它扔掉；你才意识到自己从没注意过他做事有多专注。这两块我放进图里了。\\n\\n这篇想说的是你由此改变的一个看法，所以我想先确认这个看法本身：这件事之后，你对「修东西」或者对祖父，看法变成了什么？用一句话说出来就行。\",\"add\":[{\"kind\":\"detail\",\"text\":\"He repaired a broken chair instead of throwing it away\",\"source\":\"\"},{\"kind\":\"feeling\",\"text\":\"I had never noticed how carefully he worked\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 3953,
+      "outputTokens": 139,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3670,
+    "Text": "{\"reply\":\"「黑心商家哪怕赚很多钱，也是失败」这句，是你用来反驳「有钱就算成功」这个说法的吧？那它和「平凡尽责也是成功」就是同一套思路里的另一面——能不能算这条中心论点的一条分论点，等你想清它到底在说明什么再说。先问一个问题:你现在这条「人人都有自己的贡献」，是从「为什么平凡尽责也算成功」这个角度讲的。你打算再想一条理由，也从「为什么」这个角度切进去，说明平凡尽责为什么也是成功——你想说的是哪一点?\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4938,
+      "outputTokens": 126,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4179,
+    "Text": "{\"reply\":\"「黑心商家哪怕赚很多钱，也是失败」——你是想把它单独作为一条理由，用来说明「平凡尽责也是成功」吗？如果是，它和你已有的那条「人人都有自己的贡献」其实是两个不同方向的说法，能不能把它们收拢到同一个角度上？比如都从「成功指什么」来说，或者都从「为什么该这样看」来说。你想往哪个方向走？\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4938,
+      "outputTokens": 96,
+      "cachedInputTokens": 4864
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2821,
+    "Text": "{\"reply\":\"选词确实是这篇文章的起点，你把这一步想清楚很值得。可以先从自己身上找：哪个词你小时候理解的和现在不一样？比如「长大」「朋友」「努力」「自由」「家」这类词，你想到哪个词时，心里会浮出前后两幅不同的画面？先说出那个词，再说说这两幅画面各是什么样。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 5013,
+      "outputTokens": 86,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3190,
+    "Text": "{\"reply\":\"好，先从选词开始。题目问的是「你对哪一个词语的理解发生了变化」——想一想，有没有哪个词你小时候和现在想的不一样了？比如一个你以前只觉得它好、后来发现它也有另一面的词，或者一个以前不懂、现在才慢慢明白的词。你先说说你想到的是哪个词，以及你以前怎么理解它、现在又怎么理解。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 5013,
+      "outputTokens": 91,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  }
+]

@@ -1,0 +1,306 @@
+[
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1639,
+    "Text": "老师这个题目要你选一个自己理解发生过变化的词语，写出这变化和你成长的关系。这一步我们先把你到底要写哪个词、想说的意思定下来，再动笔。你想选哪个词语？它以前在你心里是什么意思，现在又变成了什么意思？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 55,
+      "cachedInputTokens": 384
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/choose-word-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 1319,
+    "Text": "老师要求你写的是：成长中你对哪个词语的理解发生了变化，这个变化和你的成长有什么关系。我们先一起把要说的想清楚、排好顺序，再动笔。你想选哪个词语来写？",
+    "Usage": {
+      "inputTokens": 467,
+      "outputTokens": 44,
+      "cachedInputTokens": 384
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2460,
+    "Text": "{\"reply\":\"你这条分论点说的是学生睡眠不够，刚讲的这个同学正好是个具体例子——他每天第一节课睡着，五点半就得起床换两趟公交。我想先确认一句：你打算让他这个例子说明什么？用一句话讲出来，这句就是这一段的 topic sentence，例子才有地方挂。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4646,
+      "outputTokens": 75
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-analysis",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2547,
+    "Text": "{\"reply\":\"你举的这个同学是个很具体的例子——五点半起床、倒两趟公交、第一节课睡着。不过图上的分论点现在是「Students do not get enough sleep」，这个例子放在它下面还差一步：它到底说明了什么？请用一句话写出这个例子要说明的那个重点，比如「早起上学的时间挤掉了学生的睡眠」（这句要用英文写）。\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4646,
+      "outputTokens": 88,
+      "cachedInputTokens": 4608
+    },
+    "StopReason": "stop",
+    "ValidationError": "English teaching terminology missing"
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3139,
+    "Text": "{\"reply\":\"你开头这个画面很好——祖父修椅子，而不是把它扔掉，你在旁边第一次注意到他做事有多仔细。这两个节点我先放进图里了。\\n\\n接下来我想知道：除了「祖父修椅子」这一件事，你有没有第二件类似的小事——另一件让你看到他这种态度、或者你自己也学着这样做的事？\",\"add\":[{\"kind\":\"detail\",\"text\":\"He repaired a broken chair instead of throwing it away\",\"source\":\"\"},{\"kind\":\"feeling\",\"text\":\"I had never noticed how carefully he worked\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4034,
+      "outputTokens": 121,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/english-narrative",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2259,
+    "Text": "{\"reply\":\"开头这一幕已经有了：grandfather's workshop 里，他修一把坏椅子，而不是扔掉。你说的「没注意到他做得有多仔细」是个很好的观察点——它本身也是一个变化，你原先没留意，那一刻起开始留意了。那这个变化里，你想说的那句话是什么？比如你之前怎么看这件事、后来变成了怎么看？\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4034,
+      "outputTokens": 82,
+      "cachedInputTokens": 3968
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2839,
+    "Text": "{\"reply\":\"「黑心商家哪怕赚很多钱，也是失败」——你说的是成功不能只看赚钱多少，这一句是在反对别人用财富衡量成功的做法，还是在补充「平凡尽责也是成功」这个观点？你先说说它和前面那两条是什么关系。\",\"add\":[{\"kind\":\"counter\",\"text\":\"黑心商家哪怕赚很多钱，也是失败\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4961,
+      "outputTokens": 86,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/judgment",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3378,
+    "Text": "{\"reply\":\"你这条「黑心商家哪怕赚很多钱也是失败」和「平凡尽责也是成功」正好是一种对比：一边靠坑人挣钱，一边踏实做事却看着不起眼，两种成败放到一起，差别本身就说明问题——这个方法叫对比论证。不过现在有一个地方要请你先想清楚：它和图上那条「人人都有自己的贡献」是并排的两条理由，还是你对另一条理由的补充说明？你先说说它和前面那条观点是什么关系。\",\"add\":[{\"kind\":\"point\",\"text\":\"黑心商家哪怕赚很多钱也是失败\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4961,
+      "outputTokens": 130,
+      "cachedInputTokens": 4864
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3027,
+    "Text": "{\"reply\":\"选词这一步确实是这篇文章的地基。要不先不急着挑「有意思」的，换一个角度想：在你的成长里，有没有哪个词你以前是那样理解的，后来因为某件事、某个人，理解变得不一样了？不一定要多特别，像「努力」「成功」「家」「朋友」「自由」这种普通词都行。你先说说，哪个词让你有过这种变化，以及现在你对它的理解是什么？\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 5036,
+      "outputTokens": 101,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityMergeWriting/process",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3057,
+    "Text": "{\"reply\":\"选词是这篇文章的起点，先把范围收小一点会好选。想想你成长过程中，哪个词的意思在你心里前后不一样了——比如「自由」「努力」「朋友」「家」，小时候你以为是那个意思，后来因为某件事、某个人，你发现它还有另一层意思。你先说说，现在浮现在你脑子里的是哪个词？\",\"add\":[],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 5036,
+      "outputTokens": 86,
+      "cachedInputTokens": 4992
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 3295,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段先给出观点，再用走廊自习的经历讨论住校生对自习场所的需要，开头直截了当。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子说明了教室关闭后住校生自习的困难，但句子停在「有人经过」，还没有说明这一困难与延长图书馆开放时间之间的关系，读者需要自己补上「所以图书馆应开放」这一步。\",\"action\":\"请在例子后面补一两句，说明走廊人来人往具体怎样影响复习，以及延长图书馆开放时间为什么能解决这个困难。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"}]}",
+    "Usage": {
+      "inputTokens": 3476,
+      "outputTokens": 178,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3040,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"段落开门见山地提出观点，并用自己和同学在走廊复习的经历作为材料，方向清楚。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」举出了具体经历，但例子讲完就停了，没有说明走廊里有人经过这件事如何说明图书馆延长开放时间会有帮助——读者需要看到教室关闭带来的困难和延长开放之间的联系。\",\"action\":\"在这个例子后面补一两句，说明走廊复习的困难具体体现在哪里，以及延长图书馆开放时间如何解决这个困难，把例子和开头的观点连起来。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过\"}]}",
+    "Usage": {
+      "inputTokens": 3476,
+      "outputTokens": 183,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 2239,
+    "Text": "{\"job\":\"这一块要让读者一眼明白你的整体观点：图书馆应该延长开放时间，以及你最核心的理由是什么。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"放学后到晚自习结束这段时间，你和同学通常在哪里自习，那里的安静程度怎么样？\",\"晚自习结束后，还有哪些同学需要在安静的地方继续学习？他们一般怎么解决？\",\"如果图书馆延长开放时间，你觉得最直接受益的是哪一类学习需求？\",\"除了安静这一点，延长开放时间还有没有别的独立成立的理由可以并列写？\"]}",
+    "Usage": {
+      "inputTokens": 1739,
+      "outputTokens": 113,
+      "cachedInputTokens": 1536
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 2420,
+    "Text": "{\"job\":\"中心论点这一块要用一句明确的话告诉读者：你主张图书馆应延长开放时间，并点出「晚自习后需要安静自习场所」这一核心理由，让后文各段都围绕它展开。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"晚自习结束后，你平时会去哪里自习，那里的环境怎么样？\",\"学校里还有哪些地方能满足安静自习的需要，它们和图书馆比缺少什么？\",\"你觉得「安静」和「场所」这两个条件里，哪一个更难在校外或别处找到？\",\"你希望读者读完中心论点这句话后，马上明白你的立场是什么吗？\"]}",
+    "Usage": {
+      "inputTokens": 1739,
+      "outputTokens": 138,
+      "cachedInputTokens": 1536
+    },
+    "StopReason": "stop",
+    "ValidationError": "compressed or confrontational teaching language: 主张"
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3359,
+    "Text": "{\"reply\":\"你的观点是学校图书馆应当延长开放时间，理由是你和三位同学晚自习后教室关门、只能在走廊复习，这说明现在的开放时间满足不了一些同学的需要。这条经历已经可以放进去。\\n\\n你打算再从哪个角度找一条理由来说明「应当延长」？比如，延长开放能带来什么好处，或者哪些同学最需要这段时间——选一个方向，说说你想讲的那一条。\",\"add\":[{\"kind\":\"thesis\",\"text\":\"学校图书馆应当延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"现在关门太早，晚自习后没地方复习\",\"source\":\"\"},{\"kind\":\"evidence\",\"text\":\"上周我和三位同学晚自习后只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4992,
+      "outputTokens": 158
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3729,
+    "Text": "{\"reply\":\"你的观点是：图书馆应该延长开放时间；理由是你上周的真实经历——晚自习后教室关门，你和三位同学只能在走廊复习。这个具体的事已经可以进图了。\\n\\n不过这一条只说明「现在有同学需要地方复习」。要写满一篇，还得再想一条理由。既然你这条是从「为什么该延长」来说的（因为学生真的有这个需要），那就再顺着这个方向想一条：除了你们几个复习找不到地方，延长开放时间还会带来别的什么好处？\",\"add\":[{\"kind\":\"thesis\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"晚自习后教室关门，学生没有地方复习\",\"source\":\"\"},{\"kind\":\"evidence\",\"text\":\"上周晚自习后教室关门，我和三位同学只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4992,
+      "outputTokens": 182,
+      "cachedInputTokens": 4864
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3118,
+    "Text": "{\"reply\":\"你的观点是学校图书馆可以延长开放时间，底下两条理由——晚自习后需要安静的学习场所，可以先试行以了解实际需求，各自都有材料跟着：你和三位同学在嘈杂走廊复习的经历，校报记录的邻校试行活动。观点、理由、材料都齐了，可以动笔了。写的时候留意一点：「晚自习后需要安静的学习场所」这一句里最好带上「图书馆」或「延长开放时间」的说法，让读者一眼看出它在证哪一句。现在就开始写吧。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 5075,
+      "outputTokens": 120,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  },
+  {
+    "Case": "TestClarityWritingInvite",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3038,
+    "Text": "{\"reply\":\"你的观点是学校图书馆可以延长开放时间，下面两条理由——晚自习后需要安静的学习场所，和可以先试行了解实际需求——各自都带了材料：你和三位同学在走廊复习的那次，还有校报上邻校试行的记录。这两条理由分别从需要和可行性入手，没有重复，材料也够。现在可以动笔了，按这两条把文章写出来。\",\"add\":[],\"ready\":true}",
+    "Usage": {
+      "inputTokens": 5075,
+      "outputTokens": 96,
+      "cachedInputTokens": 4992
+    },
+    "StopReason": "stop",
+    "ValidationError": ""
+  }
+]
