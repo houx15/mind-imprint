@@ -68,19 +68,22 @@ func TestShareReportDoesNotPublishShowcaseByDefault(t *testing.T) {
 
 func TestPublicShowcaseWorksPaginationAndStaleCursor(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
-	custom := `"selectedWorkIds":["external:a","external:b","external:c"],"homeWorkLimit":3,"customWorks":[{"id":"a","title":"A","url":"https://example.org/a"},{"id":"b","title":"B","url":"https://example.org/b"},{"id":"c","title":"C","url":"https://example.org/c"}]`
+	custom := `"selectedWorkIds":["external:a","external:b","external:c","external:d"],"homeWorkLimit":3,"customWorks":[{"id":"a","title":"A","url":"https://example.org/a"},{"id":"b","title":"B","url":"https://example.org/b"},{"id":"c","title":"C","url":"https://example.org/c"},{"id":"d","title":"D","url":"https://example.org/d"}]`
 	body := strings.Replace(validShowcase, `"selectedWorkIds":[]`, custom, 1)
 	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", body); rec.Code != 200 {
 		t.Fatalf("save = %d %s", rec.Code, rec.Body)
 	}
 	pub := decodeSite(t, siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/publish", `{"expectedRevision":1}`))
+	if pub["hasUnpublishedChanges"] != false {
+		t.Fatalf("featured slice incorrectly left publication dirty: %#v", pub)
+	}
 	token := tokenOf(pub["url"].(string))
 	first := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+token+"/works?limit=2", ""))
-	if first["total"] != float64(3) || len(first["items"].([]any)) != 2 || first["nextCursor"] == "" {
+	if first["total"] != float64(4) || len(first["items"].([]any)) != 2 || first["nextCursor"] == "" {
 		t.Fatalf("first page = %#v", first)
 	}
 	second := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+token+"/works?limit=2&cursor="+first["nextCursor"].(string), ""))
-	if len(second["items"].([]any)) != 1 {
+	if len(second["items"].([]any)) != 2 {
 		t.Fatalf("second page = %#v", second)
 	}
 	if rec := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/publish", `{"expectedRevision":1}`); rec.Code != 200 {

@@ -529,6 +529,10 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 		for _, work := range works {
 			byID[work.ID] = work
 		}
+		for _, work := range draft.CustomWorks {
+			id := "external:" + work.ID
+			byID[id] = showcaseWork{ID: id, Kind: "project", Title: work.Title, Summary: work.Summary, Date: work.Date, ExternalURL: work.URL}
+		}
 		current := make([]showcaseWork, 0, len(draft.SelectedWorkIDs))
 		for _, id := range draft.SelectedWorkIDs {
 			if work, ok := byID[id]; ok {
@@ -536,7 +540,11 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 			}
 		}
 		currentBlob, _ := json.Marshal(current)
-		publishedWorksBlob, _ := json.Marshal(publication.Works)
+		publishedWorks := publication.AllWorks
+		if publishedWorks == nil {
+			publishedWorks = publication.Works
+		}
+		publishedWorksBlob, _ := json.Marshal(publishedWorks)
 		state.HasUnpublishedChanges = !bytes.Equal(currentBlob, publishedWorksBlob)
 	}
 	if site, siteErr := a.d.Queries.GetPblSite(r.Context(), u.ID); siteErr == nil {
