@@ -24,6 +24,7 @@ package api
 //     和议论文那两套同一条纪律），报道和记叙多一块排序板（order_events）。
 
 import (
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -205,6 +206,13 @@ func buildGenreCoachSection(genre string) string {
 	parts, err := guidance.Default().Resolve(
 		guidance.Key{Surface: guidance.SurfaceRead, Genre: genre}, guidance.SlotCoach)
 	if err != nil {
+		// 议论文、认不出来的体裁本来就没有这一节，取不到是设计如此。
+		// 但 report / explain / narrative 三种理应有登记 —— 取不到说明
+		// 注册表漏了一行，整节带读说明会静默消失，线上看起来只是「印记
+		// 这一次话比平时少」，日志里要留一条能查的记录。
+		if genre == genreReport || genre == genreExplain || genre == genreNarrative {
+			slog.Warn("reading coach genre section missing", "genre", genre, "err", err)
+		}
 		return ""
 	}
 	guide := parts[guidance.SlotCoach]

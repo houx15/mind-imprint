@@ -22,7 +22,15 @@ import (
 // 的。这正是这条测试要防的那类事故的形状，只是换成了「文体」这根轴。
 // 所以这里钉的是**取到的是哪一段**，逐字比对，不只是「有没有拿到东西」。
 func TestEveryCombinationResolves(t *testing.T) {
-	langs := []string{"zh", "en"}
+	langs := []string{"zh", "en", ""}
+	// 🚨 这七个学段现在全部断言同一份 want[combo] —— 因为今天没有一行按
+	// Stages 登记，取到的内容和学段无关。二期一旦有人加一行按学段登记的
+	// 内容（比如 {write, zh, Stages:["junior2"]}，分数 26），它会**输给**
+	// 现有的 {write, zh, Genres:["narrative"]}（分数 28，见 guidance.go
+	// specificity）：那个年级专属的内容永远选不中，而这条测试照样绿，因为
+	// want 里等着的仍是不分年级的那份泛化内容。**第一次有行开始登记 Stages
+	// 时，want 必须按 lang/genre/stage 三轴键，不能再按 lang/genre 两轴**，
+	// 否则这条测试只是给了个假的安全感。
 	stages := []string{"", "junior1", "junior2", "junior3", "senior1", "senior2", "senior3"}
 
 	// 每种 lang/genre 组合该取到哪一段正文 —— 逐字对应 registry.go 里的登记。
@@ -46,6 +54,18 @@ func TestEveryCombinationResolves(t *testing.T) {
 			SlotKinds:    prompts.WritingPlanEnglishNarrativeKinds,
 			SlotMaterial: prompts.WritingPlanMaterialEN,
 			SlotSkeleton: prompts.WritingPlanSkeletonEN,
+		},
+		// 🚨 语言认不出来（空串、老数据）时的兜底 —— 重构前这条路走的是
+		// 中文那一支，记叙文拿记叙文的块名，其余（含未知文体）拿议论文的。
+		"/argument": {
+			SlotKinds:    prompts.WritingPlanArgumentKinds,
+			SlotMaterial: prompts.WritingPlanMaterialZH,
+			SlotSkeleton: prompts.WritingPlanSkeletonZH,
+		},
+		"/narrative": {
+			SlotKinds:    prompts.WritingPlanNarrativeKinds,
+			SlotMaterial: prompts.WritingPlanMaterialZH,
+			SlotSkeleton: prompts.WritingPlanSkeletonZH,
 		},
 	}
 

@@ -187,7 +187,12 @@ func pickRoutineForGenre(chosen readingRoutine, genre string) readingRoutine {
 	}
 	rows := make([]guidance.Row[readingRoutine], 0, len(readingRoutines))
 	for _, r := range readingRoutines {
-		if r.Lang != chosen.Lang {
+		// serves() 把空 Genres 当成「谁都不服务」，而 Scope.Matches 把它当成
+		// 「不限」—— 同一个字段两种读法。今天 9 套读法都写了 Genres，两边
+		// 读出来一样；但只查 Lang 的话，未来一套 Genres: nil 的读法会被
+		// Scope.Matches 判成「服务所有体裁」，悄悄顶替模型的选择。这里按
+		// 窄的那一种办，两条规则不许分家。
+		if r.Lang != chosen.Lang || !r.serves(genre) {
 			continue
 		}
 		rows = append(rows, guidance.Row[readingRoutine]{

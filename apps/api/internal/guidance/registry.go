@@ -34,6 +34,16 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)
 
+	// 🚨 语言认不出来（空串、老数据）时的兜底。改之前这条路走的是中文那一支：
+	// 记叙文拿记叙文的块名，其余拿议论文的。少了这四行，它会拿到议论文的
+	// 块名 —— 毛病表那一侧 2026-09-22 已经补过同样的四行，这里当时漏了。
+	// 没有 Lang，所以分数（16 / 20）低于上面任何一行，现有的挑选一个都不会动。
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite}, prompts.WritingPlanArgumentKinds)
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"narrative"}},
+		prompts.WritingPlanNarrativeKinds)
+	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
+	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
+
 	// ── 阅读带读说明 ────────────────────────────────────────────────────
 	// 🚨 议论文没有这一节，所以议论文不登记 —— Resolve 取不到就是取不到，
 	// 由调用方 buildGenreCoachSection 把「没有」翻译成空字符串。
