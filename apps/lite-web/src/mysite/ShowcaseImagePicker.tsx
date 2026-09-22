@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Sparkles, Loader2 } from "lucide-react";
 import { apiErrorText } from "../api/errorText";
-import { uploadUserImage, resolveUrl } from "../api/oss";
-import { generateShowcaseImage } from "../api/showcase";
+import { uploadUserImage } from "../api/oss";
+import { generateShowcaseImage, resolveShowcaseImage } from "../api/showcase";
 import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { Says, errorMarkdown } from "../projects/Says";
 
@@ -29,7 +29,7 @@ export function ShowcaseImagePicker({purpose, currentUrl, prompt, onPromptChange
       setError("请选择 10 MB 以内的 PNG、JPEG 或 WebP 图片。"); return;
     }
     lock.current = true; setUploading(true); onBusy(true); setError("");
-    try { const key = await uploadUserImage(file); const url = await resolveUrl(key); onPick(key, url); }
+    try { const key = await uploadUserImage(file); const url = await resolveShowcaseImage(key); onPick(key, url); }
     catch (err) { setError(`上传失败：${apiErrorText(err)}`); }
     finally { lock.current = false; setUploading(false); onBusy(false); }
   }

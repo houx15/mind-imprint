@@ -23,3 +23,8 @@ export const generateShowcaseImage = (prompt: string, purpose: "hero" | "avatar"
   apiFetch<{objectKey: string; url: string}>("/api/v1/pbl/showcase/images/generate", {
     method: "POST", body: JSON.stringify({prompt, purpose}),
   });
+
+export async function resolveShowcaseImage(objectKey: string): Promise<string> {
+  const result = await apiFetch<{url:string}>("/api/v1/pbl/showcase/images/resolve", {method:"POST",body:JSON.stringify({objectKey})});
+  return result.url;
+}
