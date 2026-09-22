@@ -25,7 +25,7 @@ func TestClarityGuideDialogue(t *testing.T) {
 				}
 				system, user := BuildDialoguePrompt(in)
 				claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: system}, {Role: gateway.RoleUser, Content: user}}}, func(raw string) error {
-					reply := CleanReply(raw)
+					reply := StripBadQuotes(CleanReply(raw), in.Latest)
 					if reply == "" {
 						return fmt.Errorf("empty reply")
 					}

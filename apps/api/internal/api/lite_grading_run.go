@@ -70,7 +70,13 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 	out := gradeOutcome{Attempts: liteGradingAttempts}
 	for attempt := 1; attempt <= liteGradingAttempts; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, liteGradingCallTimeout)
-		res, err := gateway.Collect(callCtx, prov, resolved, gateway.ChatRequest{Messages: msgs})
+		req := gateway.ChatRequest{Messages: msgs}
+		// Use the existing wire-level object constraint where supported. The
+		// rubric and quote checks below still validate the object's contents.
+		if resolved.Kind == gateway.KindOpenAICompatible {
+			req.ResponseFormat = gateway.ResponseFormatJSONObject
+		}
+		res, err := gateway.Collect(callCtx, prov, resolved, req)
 		cancel()
 		record(res.Usage)
 		out.LastReply, out.ParseErr = res.Text, nil

@@ -110,3 +110,21 @@ func TestLiteGradingArgsRunOnce(t *testing.T) {
 		t.Fatalf("insert opts = %+v", opts)
 	}
 }
+
+// The object constraint must not make another supported route unusable:
+// the Anthropic adapter rejects ResponseFormat instead of silently ignoring it.
+func TestGradeJSONConstraintRespectsProviderProtocol(t *testing.T) {
+	for _, tc := range []struct{ kind, format string }{
+		{gateway.KindOpenAICompatible, gateway.ResponseFormatJSONObject},
+		{gateway.KindAnthropic, ""},
+		{"", ""},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			prov := gateway.NewSequenceStubProvider(runTestScript(runTestValid))
+			out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub", Kind: tc.kind}, runTestInput(), func(gateway.ChatUsage) {})
+			if len(out.Reasons) > 0 || prov.LastRequest.ResponseFormat != tc.format {
+				t.Fatalf("reasons=%v format=%q", out.Reasons, prov.LastRequest.ResponseFormat)
+			}
+		})
+	}
+}

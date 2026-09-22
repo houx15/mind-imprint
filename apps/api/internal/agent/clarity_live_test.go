@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/agent/enforcement"
 	"mindimprint/api/internal/claritytest"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/skills"
 )
 
 func TestClarityAgent(t *testing.T) {
@@ -32,7 +34,7 @@ func TestClarityAgent(t *testing.T) {
 	}
 	for _, voice := range []Voice{VoiceSceptic, VoiceExecutioner} {
 		t.Run(string(voice), func(t *testing.T) {
-			claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: reviewSystemPrompt(voice, true)}, {Role: gateway.RoleUser, Content: "评分表：A（论证与证据，共 5 分点）\n草稿：学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。\n字数预算已超出，请检查推理和重复，不替我改写。"}}}, func(raw string) error {
+			claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: reviewSystemPrompt(voice, true)}, {Role: gateway.RoleUser, Content: "评分表：A（论证与证据，共 5 分点）\n\n论证摘要：\n\n草稿（分段）：学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。"}}}, func(raw string) error {
 				var out []map[string]any
 				if e := json.Unmarshal([]byte(raw), &out); e != nil {
 					return e
@@ -45,10 +47,44 @@ func TestClarityAgent(t *testing.T) {
 						return errors.New("missing review field " + k)
 					}
 				}
+				for _, row := range out {
+					for _, key := range []string{"band", "missing", "fix"} {
+						if value, ok := row[key].(string); ok {
+							for _, phrase := range []string{"主张", "撑", "站得住", "最狠", "直接猜", "落点"} {
+								if strings.Contains(value, phrase) {
+									return errors.New("review teaching language: " + phrase)
+								}
+							}
+						}
+					}
+				}
 				return nil
+			}, func(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, _ gateway.ChatRequest) (gateway.ChatResult, error) {
+				tapped := &clarityReviewProvider{real: prov, t: t}
+				items, _, err := ProposeReview(ctx, tapped, resolved, []skills.ReviewCriterion{{Code: "A", Name: "论证与证据", Points: 5}}, []string{"学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。"}, "", voice, true)
+				b, _ := json.Marshal(items)
+				return gateway.ChatResult{Text: string(b), Usage: tapped.usage}, err
 			})
 		})
 	}
+}
+
+type clarityReviewProvider struct {
+	real  gateway.Provider
+	usage gateway.ChatUsage
+	t     *testing.T
+}
+
+func (p *clarityReviewProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	res, err := gateway.Collect(ctx, p.real, r, req)
+	p.usage.InputTokens += res.Usage.InputTokens
+	p.usage.OutputTokens += res.Usage.OutputTokens
+	p.usage.CachedInputTokens += res.Usage.CachedInputTokens
+	p.t.Logf("production review attempt: %s", res.Text)
+	if err != nil {
+		return nil, err
+	}
+	return gateway.NewStubProvider([]gateway.StreamEvent{{Kind: gateway.EventTextDelta, TextDelta: res.Text}, {Kind: gateway.EventUsage, Usage: &res.Usage}, {Kind: gateway.EventDone}}).Stream(ctx, r, req)
 }
 
 // Capture through the public production function so the report prompt and

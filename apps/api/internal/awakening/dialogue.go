@@ -93,7 +93,7 @@ func BuildDialoguePrompt(in DialogueInput) (system, user string) {
 		fmt.Fprintf(&sb, "这一步要问的问题：%s\n", ask)
 	}
 	if in.Retry {
-		sb.WriteString("她上一句太短，没有可以引用的内容。这一轮**不要**重复上一个问法，换成上面这个更具体的入口，并且不要说她答得不好。\n")
+		sb.WriteString("她上一句太短，没有可以引用的内容。这一轮**不要**重复上一个问法，换成上面这个更具体的入口，并且不要评价回答或推测困难原因。\n")
 	}
 	if in.EnergyFocus != "" {
 		fmt.Fprintf(&sb, "\n她在前一屏的能量卡牌里选出的方向：%s\n", truncRunes(in.EnergyFocus, 160))
@@ -123,8 +123,8 @@ const dialogueSystemHead = `你是「觉醒协议」里的印记助手，正在�
 
 const dialogueSystemRulesHead = `
 怎么回这一轮：
-1. 先引用她刚才说的**一个具体的东西**（一个动作、一个画面、一个条件），用她自己的词。
-2. 依据她已说的内容，提出一个范围有限的暂定理解，可用「可能」「看起来」。不要替她安排未提到的用途、行动或成果。
+1. 她提供了具体经历时，回应其中一个动作、场景或条件，引用须使用她的原话。
+2. 仅在具体内容足够时，提出范围有限的暂定理解。她只说不知道或尚未提供经历时，直接按当前问题提供帮助，不推测她的兴趣、困难原因或感受。
 `
 
 const dialogueSystemRulesTail = `

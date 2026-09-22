@@ -18,7 +18,7 @@ func TestClarityGrading(t *testing.T) {
 	} {
 		t.Run(c.lang, func(t *testing.T) {
 			in := litegrade.Input{Lang: c.lang, Title: "School library", Body: c.body, VersionNumber: 1, Rubric: liteassign.DefaultRubric(c.lang), SymptomCatalog: writingSymptomCatalog(c.lang, genreNarrative), PersonJudging: personDirectedVerdict}
-			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: litegrade.SystemPrompt(in)}, {Role: gateway.RoleUser, Content: litegrade.UserPrompt(in)}}}
+			req := gateway.ChatRequest{ResponseFormat: gateway.ResponseFormatJSONObject, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: litegrade.SystemPrompt(in)}, {Role: gateway.RoleUser, Content: litegrade.UserPrompt(in)}}}
 			claritytest.Run(t, gateway.ClassReview, req, func(raw string) error {
 				out, err := litegrade.Parse(raw)
 				if err != nil {
