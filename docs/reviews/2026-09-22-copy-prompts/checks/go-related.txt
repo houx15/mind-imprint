@@ -1,0 +1,3 @@
+ok  	mindimprint/api/internal/api	84.793s
+ok  	mindimprint/api/internal/litegrade	(cached)
+ok  	mindimprint/api/internal/awakening	(cached)

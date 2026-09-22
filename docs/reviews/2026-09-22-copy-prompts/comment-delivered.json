@@ -1,0 +1,38 @@
+[
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 4702,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"你开门见山提出观点，并用自己晚自习后在走廊复习的经历作例子，观点与例子都已出现。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子说明了教室关闭后住校生没有安静的自习场所，但「走廊里一直有人经过」这一点和「应该延长图书馆开放时间」之间的关系还没有说透：读者需要知道有人经过为什么会妨碍复习，以及延长开放时间为什么能解决这个问题。\",\"action\":\"在这句例子之后，用自己的话补两步解释：先说走廊里人来人往给复习造成了什么具体困难，再说如果图书馆晚上继续开放，这个困难会怎样得到解决。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"}]}",
+    "Usage": {
+      "inputTokens": 3600,
+      "outputTokens": 275,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "95809ddc40983a3f6f1d52716c7595dd83364d85aa3a5baef55a728de76eb35f"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3859,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段开门见山提出观点，并用走廊自习的经历说明教室关闭后住校生的困难。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子写出了走廊不安静的具体情况，读者能明白教室关闭后确实有困难，但还没有说明这段经历和延长图书馆开放时间之间的关系：为什么去图书馆就能解决这里说的问题。\",\"action\":\"请在走廊这件事之后补一两句话，说明图书馆延长开放时间会如何改变这种情况，例如从场所或安静程度这个角度把例子和你的观点连起来。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"}]}",
+    "Usage": {
+      "inputTokens": 3600,
+      "outputTokens": 205,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "95809ddc40983a3f6f1d52716c7595dd83364d85aa3a5baef55a728de76eb35f"
+  }
+]

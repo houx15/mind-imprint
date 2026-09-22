@@ -1,0 +1,89 @@
+apps/peraspera                           |  WARN  Unsupported engine: wanted: {"node":"22.x"} (current: {"node":"v20.20.2","pnpm":"10.29.3"})
+
+> site-v2@2.0.0 build /private/tmp/mind-imprint-copy-prompts-0922/apps/site-v2
+> astro build
+
+10:17:54 [vite] Re-optimizing dependencies because vite config has changed
+10:17:54 [content] Syncing content
+10:17:54 [content] Synced content
+10:17:54 [types] Generated 244ms
+10:17:54 [build] output: "static"
+10:17:54 [build] mode: "static"
+10:17:54 [build] directory: /private/tmp/mind-imprint-copy-prompts-0922/apps/site-v2/dist/
+10:17:54 [build] Collecting build info...
+10:17:54 [build] ✓ Completed in 252ms.
+10:17:54 [build] Building static entrypoints...
+10:17:55 [vite] ✓ built in 1.12s
+10:17:55 [build] ✓ Completed in 1.14s.
+
+ building client (vite) 
+10:17:55 [vite] transforming...
+10:17:55 [vite] ✓ 8 modules transformed.
+10:17:55 [vite] rendering chunks...
+10:17:55 [vite] ✓ built in 28ms
+
+ generating static routes 
+10:17:55 ▶ src/pages/404.astro
+10:17:55   └─ /404.html (+6ms) 
+10:17:55 ▶ src/pages/[...page].astro
+10:17:55   ├─ /index.html (+6ms) 
+10:17:55   ├─ /product/index.html (+4ms) 
+10:17:55   ├─ /schools/index.html (+3ms) 
+10:17:55   ├─ /resources/index.html (+2ms) 
+10:17:55   ├─ /editions/index.html (+2ms) 
+10:17:55   ├─ /research-studio/index.html (+1ms) 
+10:17:55   ├─ /about/index.html (+1ms) 
+10:17:55   ├─ /courses/ai-ethics/index.html (+1ms) 
+10:17:55   ├─ /courses/ai-use/index.html (+1ms) 
+10:17:55   ├─ /courses/source-evaluation/index.html (+1ms) 
+10:17:55   ├─ /courses/historical-evidence/index.html (+1ms) 
+10:17:55   ├─ /courses/multimedia-reading/index.html (+1ms) 
+10:17:55   ├─ /courses/data-literacy/index.html (+1ms) 
+10:17:55   ├─ /courses/self-exploration/index.html (+1ms) 
+10:17:55   ├─ /product/explore/index.html (+1ms) 
+10:17:55   ├─ /product/reading/index.html (+1ms) 
+10:17:55   ├─ /product/writing/index.html (+1ms) 
+10:17:55   ├─ /product/projects/index.html (+1ms) 
+10:17:55   ├─ /product/courses/index.html (+3ms) 
+10:17:55   ├─ /product/assessment/index.html (+1ms) 
+10:17:55   ├─ /zh/index.html (+1ms) 
+10:17:55   ├─ /zh/product/index.html (+1ms) 
+10:17:55   ├─ /zh/schools/index.html (+1ms) 
+10:17:55   ├─ /zh/resources/index.html (+1ms) 
+10:17:55   ├─ /zh/editions/index.html (+1ms) 
+10:17:55   ├─ /zh/research-studio/index.html (+1ms) 
+10:17:55   ├─ /zh/about/index.html (+1ms) 
+10:17:55   ├─ /zh/courses/ai-ethics/index.html (+1ms) 
+10:17:55   ├─ /zh/courses/ai-use/index.html (+1ms) 
+10:17:55   ├─ /zh/courses/source-evaluation/index.html (+3ms) 
+10:17:55   ├─ /zh/courses/historical-evidence/index.html (+1ms) 
+10:17:55   ├─ /zh/courses/multimedia-reading/index.html (+1ms) 
+10:17:55   ├─ /zh/courses/data-literacy/index.html (+2ms) 
+10:17:55   ├─ /zh/courses/self-exploration/index.html (+1ms) 
+10:17:55   ├─ /zh/product/explore/index.html (+1ms) 
+10:17:55   ├─ /zh/product/reading/index.html (+1ms) 
+10:17:55   ├─ /zh/product/writing/index.html (+1ms) 
+10:17:55   ├─ /zh/product/projects/index.html (+1ms) 
+10:17:55   ├─ /zh/product/courses/index.html (+2ms) 
+10:17:55   └─ /zh/product/assessment/index.html (+1ms) 
+10:17:55 ▶ src/pages/en/[...legacy].astro
+10:17:55   ├─ /en/index.html (+1ms) 
+10:17:55   ├─ /en/product/index.html (+0ms) 
+10:17:55   ├─ /en/schools/index.html (+0ms) 
+10:17:55   ├─ /en/resources/index.html (+0ms) 
+10:17:55   ├─ /en/editions/index.html (+0ms) 
+10:17:55   ├─ /en/about/index.html (+0ms) 
+10:17:55   ├─ /en/product/explore/index.html (+0ms) 
+10:17:55   ├─ /en/product/reading/index.html (+0ms) 
+10:17:55   ├─ /en/product/writing/index.html (+0ms) 
+10:17:55   ├─ /en/product/projects/index.html (+0ms) 
+10:17:55   ├─ /en/product/courses/index.html (+0ms) 
+10:17:55   └─ /en/product/assessment/index.html (+0ms) 
+10:17:55 λ src/pages/robots.txt.ts
+10:17:55   └─ /robots.txt (+0ms) 
+10:17:55 λ src/pages/sitemap.xml.ts
+10:17:55   └─ /sitemap.xml (+0ms) 
+10:17:55 ✓ Completed in 79ms.
+
+10:17:55 [build] 53 page(s) built in 1.51s
+10:17:55 [build] Complete!

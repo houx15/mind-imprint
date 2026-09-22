@@ -1,0 +1,110 @@
+[
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 4327,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段有观点句和具体事例，写出了时间和人物，例子讲完就停了。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"例子只摆了发生了什么：教室关闭、只能在走廊复习、注意力难集中，还没有说明这个困难和「延长图书馆开放时间」之间的因果关系——读者要自己猜延长开放为什么能解决它。\",\"action\":\"在这句之后补一句分析句，用因果分析法：先说明教室关闭后学校里本该有哪个可供自习的地方，再推出延长图书馆开放时间为什么正好补上这个空缺。\",\"quote\":\"走廊里不断有人经过，我们很难集中注意力。\"}]}",
+    "Usage": {
+      "inputTokens": 3805,
+      "outputTokens": 167,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "588b8bb87e1cf31b72c1a56fca609f1a8b9ce4c72046e3e88a68dd0eba9103b2"
+  },
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 9658,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段有明确的观点句和一件具体的事，例子里有人物、地点和困难，结尾停在困难本身。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"例子说明了教室关闭后在走廊复习的困难，但还没说清这个困难和延长图书馆开放时间之间的关系——读者需要知道，如果图书馆当时开放，你们本可以进去安静复习，这一段的判断才算落到实处。\",\"action\":\"请在例子后面补一句分析句，用假设分析法写：假如当时图书馆延长开放，你们会怎样复习，注意力和结果可能有什么不同，再说明这正说明延长开放时间有帮助。\",\"quote\":\"走廊里不断有人经过，我们很难集中注意力。\"}]}",
+    "Usage": {
+      "inputTokens": 7860,
+      "outputTokens": 321,
+      "cachedInputTokens": 7168
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "588b8bb87e1cf31b72c1a56fca609f1a8b9ce4c72046e3e88a68dd0eba9103b2"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 5979,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段已经写出观点句、具体例子、和让步收尾，四样都齐全，例子的时间地点都很具体。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"mechanism_chain\",\"layer\":2,\"text\":\"「Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor」这句话里，从教室关门直接跳到了走廊，中间少一环：读者会问为什么她不去图书馆——按题目推测，图书馆当时也关门了，但正文没有交代。没有这一环，下一句「A quiet library would help」读起来像另起的话，而不是从例子里推出来的。\",\"action\":\"在例子和分析句之间补一句因果分析（是什么……？是……。因为……，所以……），交代那天图书馆也到了关门时间这一环节，让「教室关门→只能去走廊」和「图书馆延长开放→有安静去处」连成一条链。\",\"quote\":\"Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor\"}]}",
+    "Usage": {
+      "inputTokens": 3915,
+      "outputTokens": 291,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "ed2dfc369f330e24f07f35fd727d1a515b812faf18ae75c9c53b4ef0ce2adba4"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 9520,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段用教室关闭后在走廊复习的具体经历来说明延长图书馆开放时间的必要，并在结尾用每周先试一次收窄了适用范围。\",\"points\":[{\"kind\":\"good\",\"method\":\"en_qualify\",\"text\":\"「This may not suit everyone, so the school could try it once a week first.」用「may not suit everyone」承认了结论的适用范围，还给出了一个具体、可执行的折中方案，这让前面的建议更难被反驳。\",\"quote\":\"This may not suit everyone, so the school could try it once a week first.\"},{\"kind\":\"issue\",\"symptom\":\"mechanism_chain\",\"layer\":2,\"text\":\"「Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor.」写出了教室关闭和走廊嘈杂，但没有交代图书馆现在几点关门——读者不知道晚上七点后图书馆为什么也不能去，于是从「教室关了」直接跳到「图书馆该延长」，中间那一环没有写出来。\",\"action\":\"在这句之后补一个信息点，说明图书馆目前的闭馆时间，让读者看清晚上没有安静去处正是延长开放要解决的问题。\",\"quote\":\"Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor.\"}]}",
+    "Usage": {
+      "inputTokens": 3915,
+      "outputTokens": 539,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "ed2dfc369f330e24f07f35fd727d1a515b812faf18ae75c9c53b4ef0ce2adba4"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 10312,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段按时间顺序交代了雨夜在楼道口等到父亲送来雨衣、一路沉默的经过，事情完整、顺序清楚，结尾用「我很感动」直接说出了感受。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"layer\":2,\"text\":\"感动是结论，但前文只写到父亲走过来、递雨衣、一路沉默，读者知道发生了什么，却看不到当时的动作、神情和你说过的或没说出口的话，感受因此没有着落。\",\"action\":\"把「我很感动」这句里的感受留给读者，改成描写当晚的真实细节：回忆接过雨衣那一刻父亲的手、衣着、说过的一句话或当时的沉默，把父亲的动作和你自己的动作具体写出来。\",\"quote\":\"我很感动。\"}]}",
+    "Usage": {
+      "inputTokens": 6379,
+      "outputTokens": 383,
+      "cachedInputTokens": 5632
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "fc66145703fb3daa9416f8457036fa84bde09ad5f05548ae138bb05f4bea66c2"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 7716,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这段写清楚了雨夜父亲送雨衣、两人一路无话的经过，但结尾的感受只有一句直接说出的「感动」。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"layer\":2,\"text\":\"「我很感动」直接把感受说了出来，但前文只有「他给了我一件雨衣」「没说话」这两个笼统的动作，读者看不到你在那个晚上具体做了什么、说了什么，感动是从哪一刻开始的并不清楚。\",\"action\":\"删去「我很感动」，回忆当晚的真实细节补进事件里：你接过雨衣时的动作、父子之间有没有一句对话或沉默里你注意到的神态，让读者从这些具体内容里自己感到这一刻。\",\"quote\":\"他给了我一件雨衣\"}]}",
+    "Usage": {
+      "inputTokens": 3063,
+      "outputTokens": 190,
+      "cachedInputTokens": 2816
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "fc66145703fb3daa9416f8457036fa84bde09ad5f05548ae138bb05f4bea66c2"
+  }
+]

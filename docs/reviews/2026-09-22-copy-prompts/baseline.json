@@ -1,0 +1,232 @@
+[
+  {
+    "Case": "TestClarityReading/concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2514,
+    "Text": "{\"reply\":\"「装机容量」是设备**能发多少电**的能力，单位是千瓦；「发电量」是实际发出来多少电，单位是千瓦时。第 6 段有一句其实就点出了这个区别，你可以从那里找找看。\\n\\n现在请你说说：这两个词不一样，会不会影响第 3 段那个「连续八年世界第一」的说法？\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3472,
+      "outputTokens": 108
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "20ab6065d3fd6eedbc7fd640038c934837871a2ea46712dcdd96790b4d7f3fa8"
+  },
+  {
+    "Case": "TestClarityReading/connect",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2963,
+    "Text": "{\"reply\":\"你的经历和文章正好对得上：第 6 段提醒，装机容量说的是**发电能力**，不等于实际发出的电量——你看到的阴天和晴天差别，就是这层意思。\\n\\n下一步：**总结读后的观点变化**。读完这篇，你对「中国能源转型」原先的想法有没有被哪句话松动、修正，或者反而更确定？用一两句说说现在的看法。\",\"advance\":\"done\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完全文，你原来的看法有哪一点变了、或更确定了？\"}}",
+    "Usage": {
+      "inputTokens": 3440,
+      "outputTokens": 135,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "4a551cf5d83aa10d6e34d1edd9dff92dd508ba6f71525a16f80984b41961aa0a"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2301,
+    "Text": "{\"reply\":\"你抓得很准：2023 年全球新增太阳能装机超过一半在中国，这是**装机容量**的占比，是发电能力，不是实际发电量——你特别点出了这个区别，正是关键。这一步可以过了。\\n\\n下一步：总结读后的观点变化。读完这几段，你对「中国能源转型」原先怎么想，现在又多了哪一层看法？\",\"advance\":\"done\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完后，你对「中国能源转型」的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3473,
+      "outputTokens": 125,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "01b938036d87e533357deceec1b15645a46d255f009e93c70c34cb35bf9dce36"
+  },
+  {
+    "Case": "TestClarityReading/help",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2921,
+    "Text": "{\"reply\":\"先看第 3 段那个数字：「连续八年位居世界第一」。\\n\\n要你说明的是：这个「第一」衡量的是什么——是哪一项在世界上的排名。数字本身不告诉你这一点，**排名**旁边那半句话才告诉你。\\n\\n现在你说说看。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3452,
+      "outputTokens": 86,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "99c7475077ede47314499315eeb5d9d0c9395374115beedf48619c61edf49553"
+  },
+  {
+    "Case": "TestClarityReading/hunt-no-pick",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1517,
+    "Text": "{\"reply\":\"你说的第三段确实在说投入和装机规模，但它还没被点出来。\\n\\n请在文章里**点一下**第 3 段那句，点完它会出现在下面。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3420,
+      "outputTokens": 65,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "3f4b65afd8b467104b06475826a3098f4e8c3c4fda1607735b6061c15af2f04a"
+  },
+  {
+    "Case": "TestClarityReading/hunt-picked",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3705,
+    "Text": "{\"reply\":\"你选的这句挺准：「连续八年」这个**时间跨度**确实是长期变化的指标，能支持作者说的投入规模。\\n\\n接下来是总结读后的观点变化。回想一下：一开始你看到「投入没有先例」时怎么想的，读完第6段那句关于装机容量的区别后，想法有没有变一点。\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完文章，你对\\\"中国能源转型\\\"的看法和一开始比，有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3442,
+      "outputTokens": 121,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "1cc9271e9a914b1a0c2f98bd999488792dbd3ecf99d866ee3c1e38852de3a143"
+  },
+  {
+    "Case": "TestClarityReading/hunt-skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 1701,
+    "Text": "{\"reply\":\"好，这一步跳过，不选句。\\n\\n接下来是最后一步：**总结**读后观点有没有变化。你可以说说，读之前你大概怎么想中国的能源转型，读完之后哪一句让你改了想法——没有变化也可以直说。\",\"advance\":\"skipped\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3415,
+      "outputTokens": 78,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "3f544b5628288fc4bce7178656e8f731aa3c0c95a04e8ecb2dec77fc7d9cc110"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3358,
+    "Text": "{\"reply\":\"「连续八年位居世界第一」是一个**排名**，不是数字本身要说明的那个衡量口径。\\n\\n第 3 段给的是名次，任务要的是具体数值加它衡量什么，看看第 2 段那个「超过一半」和第 4 段那个「三成」，都各自在衡量什么。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"structure\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3453,
+      "outputTokens": 97,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "0d99215ec68846a13b34cc868e24326f1782a7cc76cdc4f855a6c8ee04c611bf"
+  },
+  {
+    "Case": "TestClarityReading/read-done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2437,
+    "Text": "{\"reply\":\"读完了就好。第 3 段那句排名的位置很关键：它把「投入规模大」落成了一个可核对的数字。\\n\\n接下来我们离开单纯的通读，看**你自己的看法怎么变**。回想你读之前对「中国的能源转型」的印象，哪里被这些段落的哪一句改变了？\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读之前你对这件事什么印象？哪一句改变了它？\"}}",
+    "Usage": {
+      "inputTokens": 3419,
+      "outputTokens": 115,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b8fdc3d667697d856ca3db36a177f32848dd3cc9336287794c752274da5f9262"
+  },
+  {
+    "Case": "TestClarityReading/skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 5345,
+    "Text": "{\"reply\":\"好，跳过这一步。\\n\\n下一件事是回看整篇：你读之前对「中国的能源转型」这件事大概是什么印象，六个段落读下来，哪个地方让你的看法松动了。不用长，两三句就够。\",\"advance\":\"skipped\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3449,
+      "outputTokens": 75,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "5f05bb31767bee8e4abda1b42925e6c6b91ad776b80c578a3c8c2d716d52a277"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 3428,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"主张第一句就立住了，方向明确；这一段现在要补的是例子和主张之间的那句话。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"text\":\"走廊这段事讲的是发生了什么，读者读完会问：这说明图书馆延长开放时间就能解决吗？中间缺一句把两者连起来的话。\",\"action\":\"在走廊这件事后面，用一句道理论证说清为什么「教室关了、走廊吵」这条出路走不通，只剩下图书馆这一条路。\"}]}",
+    "Usage": {
+      "inputTokens": 3403,
+      "outputTokens": 150
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "931483125ba81c0f9e4abd50062b3047552237aba198f6b94324ea2fefa59f0a"
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 2548,
+    "Text": "{\"job\":\"中心论点要一句话说清你的立场和最主要的理由，让读者知道整篇文章要往哪走。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"晚自习结束后，你身边的图书馆（或教室、宿舍）现在是什么状况？\",\"晚自习后想继续学习但找不到安静场所的同学多吗？你有没有具体观察到的场景？\",\"除了「晚自习后需要自习场所」，你觉得延长开放时间还有哪条独立的理由？\"]}",
+    "Usage": {
+      "inputTokens": 1545,
+      "outputTokens": 100
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b4a3faddfb63bafd3b44e98d48238ef21f5f8420909ff5382da247b91376a526"
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2564,
+    "Text": "{\"reply\":\"我先把你说的整理一下：「学校图书馆应延长开放时间」是你想主张的那句话；晚自习后教室关门、你和三位同学只能在走廊复习，是你举的一个例子。\\n\\n要让它站住，一条理由还不够。你打算再拿哪一件事来说明「应该延长」？可以从同一个角度想，比如「延长开放会带来什么好处」——历史上或你读过的书里，有没有人因为多了一个能安静待着的地方，做成了什么事？\",\"add\":[{\"kind\":\"point\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"晚自习后教室关门，我和同学只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4628,
+      "outputTokens": 150
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "930037ac98c24723e5449b33625ea61586a506ed4a2adc23a60ac158ae30b204"
+  }
+]

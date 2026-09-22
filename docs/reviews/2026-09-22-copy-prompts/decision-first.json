@@ -1,0 +1,110 @@
+[
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3741,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你选的是第3段“连续八年位居世界第一”，并且说清了这个排名比较的是各国可再生能源新增装机量，而不是实际发电量——数字和它统计的对象两项都齐了。\\n\\n接下来请你总结读后的观点变化。这一步是想让你回头看看，读完这几段后，你对“中国的能源转型”这件事的看法和刚看到标题时相比有什么不同，或者哪一处信息让你改变了原先的想法。你不用急着评价好坏，只要说出自己想法上的一处变化就可以。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完这几段后，你原先对能源转型的哪个想法发生了变化？\"}}",
+    "Usage": {
+      "inputTokens": 4856,
+      "outputTokens": 153,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e4890ced8708a07522ec5196bc7ad61e113ca575e5a712edf3a90644bf8fdccb"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3499,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你说清了两件事：这个数字是连续八年世界第一，它统计的是中国可再生能源新增装机量在世界上的排名，而排名依据的是装机量，不是实际发电量。这一步完成了。\\n\\n接下来请总结读后的观点变化，也就是读完这篇文章后，你对“中国的能源转型”这个说法的看法和读之前相比有什么不同，可以把第5段和第6段提到的内容也考虑进去。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完这篇文章，你对“中国的能源转型”的看法和读之前相比有什么不同？\"}}",
+    "Usage": {
+      "inputTokens": 4856,
+      "outputTokens": 137,
+      "cachedInputTokens": 4736
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e4890ced8708a07522ec5196bc7ad61e113ca575e5a712edf3a90644bf8fdccb"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 3,
+    "Millis": 4399,
+    "Text": "{\"advance\":\"done\",\"reply\":\"你选的是第3段「连续八年位居世界第一」，并且说清了这个第一是按「可再生能源新增装机量」来排的，也就是比较各国每年新增的发电能力，而不是实际发出的电量。数字和它衡量的对象都说到了，这一步完成。\\n\\n接着做下一步：总结读后的观点变化。读完全文后，回头看看自己一开始对「中国的能源转型」的印象，再对照第4段到第6段讲到的排放总量、比较口径和装机与实际发电的区别，说说哪些想法被补充或改变了。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完全文后，你对「中国的能源转型」的看法和读之前相比有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 4856,
+      "outputTokens": 168,
+      "cachedInputTokens": 4736
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e4890ced8708a07522ec5196bc7ad61e113ca575e5a712edf3a90644bf8fdccb"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3415,
+    "Text": "{\"advance\":\"\",\"reply\":\"你说的是第三段的「连续八年位居世界第一」。你已经指出了这个数字，现在还需要说明它比较的对象和衡量的东西：请看看这句话里排在「世界第一」前面的名称，它告诉我们是谁在什么指标上连续八年排第一？\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4837,
+      "outputTokens": 76,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "93b2379eb4408d3a2fea9b5c9183fb76d5f2e7ca85a747090df17f8f5600b363"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2078,
+    "Text": "{\"advance\":\"\",\"reply\":\"你选了第三段的「连续八年位居世界第一」，这是一个排名。请看看这句话里，是按什么指标排的名次——也就是说，中国在什么方面连续八年排第一？把这个指标说出来，就算说清了它统计的对象。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4837,
+      "outputTokens": 73,
+      "cachedInputTokens": 4736
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "93b2379eb4408d3a2fea9b5c9183fb76d5f2e7ca85a747090df17f8f5600b363"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 3,
+    "Millis": 7582,
+    "Text": "{\"advance\":\"\",\"reply\":\"你已经找到了一个可以用的数字：第三段说中国的可再生能源新增装机量连续八年位居世界第一。不过，你还需说清这个排名比较的是什么。\\n\\n请看看第三段里「连续八年位居世界第一」前面的名称，它是按什么指标来排的？把这个指标说出来，这件事就说完整了。\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4837,
+      "outputTokens": 92,
+      "cachedInputTokens": 4736
+    },
+    "StopReason": "stop",
+    "ValidationError": "partial-answer hint supplies the missing statistical object",
+    "RequestSHA256": "93b2379eb4408d3a2fea9b5c9183fb76d5f2e7ca85a747090df17f8f5600b363"
+  }
+]

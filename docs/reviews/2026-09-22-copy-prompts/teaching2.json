@@ -1,0 +1,1185 @@
+[
+  {
+    "Case": "TestClarityReading/concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4373,
+    "Text": "{\"reply\":\"这两个词都是电力系统的常用说法。**装机容量**指的是一台发电设备或一座电站在满负荷运转时，理论上每单位时间能发多少电，算的是「发电能力」；**发电量**指的是一段真实时间里实际发出来的电有多少，算的是「实际成果」。打个比方，装机容量像水管的粗细，发电量像真正流过去的水有多少——管子再粗，如果水流得少，流过去的量也不大。第6段就是在提醒这一点：装机容量衡量的是发电能力，而不是实际发出的电量。\\n\\n明白这两个词之后，你可以看第3段「中国的可再生能源新增装机量连续八年位居世界第一」，再想想第2段那半个太阳能装机的统计。这两处说的都是「能力」还是「实际成果」？\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3909,
+      "outputTokens": 191
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c943e7e5b84d801416c0588530934da0aa28127e0d8b1e54726d5b30d0c9dbdf"
+  },
+  {
+    "Case": "TestClarityReading/concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 8228,
+    "Text": "{\"reply\":\"「装机容量」指的是发电设备能发多少电的能力，比如一座太阳能电站设计上最多能发多少；「发电量」指的是这些设备实际发出了多少电。同一台设备，太阳好、并入电网顺畅时发得多，反过来就发得少，所以能力大不等于实际发的多。\\n\\n用这两个词回到第6段看看：既然能力不等于实际发出的电量，那用装机容量的排名去判断一个国家实际替代了多少化石燃料，还缺哪一步？\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3909,
+      "outputTokens": 128,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c943e7e5b84d801416c0588530934da0aa28127e0d8b1e54726d5b30d0c9dbdf"
+  },
+  {
+    "Case": "TestClarityReading/connect",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3543,
+    "Text": "{\"reply\":\"你提到阴天和晴天发电差别很大，这正好对上文章第6段说的：装机容量衡量的是发电能力，而不是实际发出的电量。太阳能板装在屋顶上，能装多少和实际能发多少、什么时候发，确实是两件事。\\n\\n家里装了板之后，用电上有没有什么和以前不一样的地方？\\n\\n接下来是「总结读后的观点变化」。这一步是想请你回头看看，从第一段读到现在，你对「中国的能源转型」这件事的看法有没有发生什么变化——哪怕只是一点点。\",\"advance\":\"done\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完这几段，你对「中国的能源转型」的看法和最初相比有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3877,
+      "outputTokens": 162,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "54050a4b93625c60aeb7596bcc0683eb43aac569d53c2d57730aa00346bb1634"
+  },
+  {
+    "Case": "TestClarityReading/connect",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 6499,
+    "Text": "{\"reply\":\"你用自己的经历点出了第6段的那个区别：太阳能板阴天和晴天发电差别很大，说明装了多少板（能力）和实际发出多少电并不是一回事。这正是文章提醒大家不要略过的地方，你把它接到自己的生活上了。\\n\\n这一步就到这里。接下来是「总结读后的观点变化」：读完全文，你可能对中国的能源转型有了和刚开始不一样的理解，把这种变化说出来，能帮你看清自己究竟抓住了什么。\",\"advance\":\"done\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前你怎么想，读完后你的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3877,
+      "outputTokens": 144,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "54050a4b93625c60aeb7596bcc0683eb43aac569d53c2d57730aa00346bb1634"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 8121,
+    "Text": "{\"reply\":\"你选的是一个关键数字，也把它的口径说清楚了：这里统计的是新增的发电能力，也就是装了多少设备，不是实际发出来的电量。这一步做到了。\\n\\n接下来「总结读后的观点变化」。读之前你可能会觉得能源转型只有一个方向，读完 b5、b6 之后，看法可能会变得更复杂：投入和装机增长是真的，排放总量大也是真的，两种比较口径还各有道理。现在请你说说，读完之后你对这件事的看法和一开始相比，变了哪些。\",\"advance\":\"done\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完后，你对「中国的能源转型」的看法和一开始相比，变了哪些？\"}}",
+    "Usage": {
+      "inputTokens": 3910,
+      "outputTokens": 155,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "stop",
+    "ValidationError": "internal paragraph id in visible text",
+    "RequestSHA256": "55183cbc38c896112da53675549164a488086c42f21a14241aa9bc5e151e8d0a"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3429,
+    "Text": "{\"reply\":\"你选的这句和第2段给的信息能对上：超过一半指的是全球**新增太阳能发电装机**里中国占的比例。你还把它和「实际发电量」区分开了，这正是第6段提醒的那个技术区别——装机容量衡量的是发电能力，不是实际发出的电量。这一步就到这里。\\n\\n接下来做「总结读后的观点变化」：读之前和读完之后，你对中国能源转型的看法有没有发生变化？这个总结能帮你把这一轮读到的几个事实串起来，而不是只记住单个数字。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你对中国能源转型的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3910,
+      "outputTokens": 155,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "55183cbc38c896112da53675549164a488086c42f21a14241aa9bc5e151e8d0a"
+  },
+  {
+    "Case": "TestClarityReading/help",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3958,
+    "Text": "{\"reply\":\"这一步不是要你找标准答案，而是练一件事：带着数字读文章时，先弄清它数的是什么。\\n\\n先看第 2、3 段里的数字出现在什么位置上。第 2 段提到 2023 年全球新增太阳能发电装机中超过一半在中国，第 3 段说新增装机量连续八年世界第一。你挑其中一个数字，说说它统计的是哪一类东西——是已经发出的电，还是安装起来的设备能力。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"choose_span\",\"prompt\":\"哪个数字说明的是安装起来的发电能力，而不是实际发出的电量？\",\"options\":[{\"blockId\":\"b2\",\"quote\":\"2023 年全球新增的太阳能发电装机中，超过一半位于中国境内\"},{\"blockId\":\"b3\",\"quote\":\"中国的可再生能源新增装机量连续八年位居世界第一\"}]}}",
+    "Usage": {
+      "inputTokens": 3889,
+      "outputTokens": 199,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "6ca112d0e21781fa05497e564dc9e670fcea2703b6ab7624e4e81660fb16db2e"
+  },
+  {
+    "Case": "TestClarityReading/help",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3578,
+    "Text": "{\"reply\":\"提示给你方向和位置：回到第3段，先找出那个反复被统计、也最容易被记住的数字。找到了它，再用第6段来帮你判断——这个数字统计的到底是「能发多少电」，还是「实际发出了多少电」。把这两件事分开说清楚就可以。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3889,
+      "outputTokens": 85,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "6ca112d0e21781fa05497e564dc9e670fcea2703b6ab7624e4e81660fb16db2e"
+  },
+  {
+    "Case": "TestClarityReading/hunt-no-pick",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2029,
+    "Text": "{\"reply\":\"你提到第三段，但这一步要的是你在文章里真正点出那句话——光说第几段还不算完成。请把第三段里你认为最能支持作者观点的那句话划出来，我看看到底是哪一句。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3857,
+      "outputTokens": 72,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e5ff6b7ef279de4f52a96439c33f1beb353f6796925c8ee772a7530b83a4b58c"
+  },
+  {
+    "Case": "TestClarityReading/hunt-no-pick",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4069,
+    "Text": "{\"reply\":\"你提到第三段，这说明你已经注意到「连续八年位居世界第一」这句话在文章里的分量。不过这一步要的是你亲手在文章里把它点出来——光说出来还不算。请你在原文里找到那句话，点击或划出它所在的句子，再提交给我。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3857,
+      "outputTokens": 83,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e5ff6b7ef279de4f52a96439c33f1beb353f6796925c8ee772a7530b83a4b58c"
+  },
+  {
+    "Case": "TestClarityReading/hunt-picked",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 14059,
+    "Text": "{\"reply\":\"你注意到了「连续八年」，这确实说明可再生能源装机的增长不是某一年突然出现的，而是一个持续的过程，这一点作者用数据支持得比较实在。\\n\\n下一步是「总结读后的观点变化」。这一步值得做，是因为文章并列呈现了两个容易让人只挑一边的事实——可再生能源投入规模大、装机领先，同时也排放总量最高——读完之后，你自己的判断可能和刚开始不一样。请写几句话，说说读这篇文章之前和之后你的想法有没有变化，以及是哪一句或哪个事实让你改变的。\",\"advance\":\"done\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你的想法有变化吗？是哪句话或哪个事实造成的？\"}}",
+    "Usage": {
+      "inputTokens": 3879,
+      "outputTokens": 157,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "437d9202861e66a20ed1ab218e16457f0b80599a3bc0455ed9c8ab049f6d0adf"
+  },
+  {
+    "Case": "TestClarityReading/hunt-picked",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 8888,
+    "Text": "{\"reply\":\"你点出的是第3段，并且说出了理由：它给的是一个长期变化的指标，连续八年世界第一说明趋势不是偶然。这句话确实能支持文章对中国可再生能源投入规模的关注。\\n\\n接下来做「总结读后的观点变化」。读完全文，你原来的看法可能和读后不太一样了，把这种变化用一两句话写下来，可以帮你更清楚地知道自己是被哪一处信息说动的。\",\"advance\":\"done\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你对中国的能源转型的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3879,
+      "outputTokens": 131,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "437d9202861e66a20ed1ab218e16457f0b80599a3bc0455ed9c8ab049f6d0adf"
+  },
+  {
+    "Case": "TestClarityReading/hunt-skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2237,
+    "Text": "{\"reply\":\"好，这一步跳过，不用再选了。\\n\\n下一步是总结读后的观点变化：把你读这篇文章之前的想法，和现在读完之后的想法放在一起说一说，看看哪些地方变了、哪些地方没变。这一步能帮你把刚才读到的内容真正变成自己的判断。\",\"advance\":\"skipped\"}",
+    "Usage": {
+      "inputTokens": 3852,
+      "outputTokens": 68,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c44f33530c95fab6f2de90679c6edd8175b9b34a73cfcbee32adfad58a33745a"
+  },
+  {
+    "Case": "TestClarityReading/hunt-skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3927,
+    "Text": "{\"reply\":\"好，这一步就跳过，不选句子了。\\n\\n接下来我们做最后一件事：总结读后的观点变化。读完这几段，你对“中国的能源转型”这件事的看法，和刚看到标题时相比有没有不一样？请用一两句话说说，现在你更在意哪个事实，或者哪一处让你觉得需要再想一想。\",\"advance\":\"skipped\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完后，你对“中国的能源转型”的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3852,
+      "outputTokens": 116,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c44f33530c95fab6f2de90679c6edd8175b9b34a73cfcbee32adfad58a33745a"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 6014,
+    "Text": "{\"reply\":\"你找到的数字是第三段说的「连续八年位居世界第一」，这确实是一个关键数字。不过这一步有两项要求：找出数字，还要说明它衡量什么。这个「八年第一」衡量的是新增装机量在世界上的排名。你再想想：排名说的是相对位置，它能直接说明中国实际发出了多少可再生能源的电吗？还是说，从装机规模到实际发电量之间，还要考虑别的条件？\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3890,
+      "outputTokens": 110,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "3b85dda4a27d7243145204b430de811834f99c4372c11897cf4719b229417ef2"
+  },
+  {
+    "Case": "TestClarityReading/partial",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3539,
+    "Text": "{\"reply\":\"你选的数字是「连续八年位居世界第一」，这确实是一个关键数字，而且你已经说明了它衡量的内容——可再生能源新增装机量在世界上的排名。\\n\\n这一步你完成了：既找到了数字，也点明了它衡量什么。\\n\\n接下来我们做下一步：总结读后的观点变化。读完全文后，你对「中国的能源转型」这件事的看法有没有变化？比如读到第4、5、6段之后，原先的想法是不是有了调整。请用几句话说说你现在的判断。\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完全文，你对「中国的能源转型」的看法有变化吗？说说你现在的判断。\"}}",
+    "Usage": {
+      "inputTokens": 3890,
+      "outputTokens": 159,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "advance = \"done\", want \"\"",
+    "RequestSHA256": "3b85dda4a27d7243145204b430de811834f99c4372c11897cf4719b229417ef2"
+  },
+  {
+    "Case": "TestClarityReading/read-done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2595,
+    "Text": "{\"reply\":\"好，第3段这里读完了。\\n\\n那接下来做「总结读后的观点变化」：读文章时，你的看法常常会在读的过程中发生变化。这一步想请你回想一下，刚翻开这篇文章时你以为它会讲什么，读完之后现在的看法又是什么。想清楚这两点，再往下走会更顺。\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读之前你对这篇文章的预想是什么？现在有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3856,
+      "outputTokens": 115,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b781bb8d2153c5711d9e825d41c94ae6176e4d48caf99e005a5ac40a606626f7"
+  },
+  {
+    "Case": "TestClarityReading/read-done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4090,
+    "Text": "{\"reply\":\"好，第3段读完就行。这一步标的是看第3段，这一段只有一句话：中国的可再生能源新增装机量连续八年位居世界第一。\\n\\n接下来做「总结读后的观点变化」。这一步是让你回头看看，读完这几段之后，你对「中国的能源转型」这件事的看法和刚看到标题时相比有没有变化、变化在哪里——比如是更乐观了，还是多了哪一层顾虑。请用几句话说说你读后的想法。\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完全文后，你对这件事的看法和读之前相比有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3856,
+      "outputTokens": 144,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b781bb8d2153c5711d9e825d41c94ae6176e4d48caf99e005a5ac40a606626f7"
+  },
+  {
+    "Case": "TestClarityReading/skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2661,
+    "Text": "{\"reply\":\"好，这一步我们跳过，不找数字了。\\n\\n接下来进入最后一步：总结你读后的观点变化。读完后回看自己一开始的想法，能帮你看清哪些信息真正改变了你的判断。请说说读这篇文章之前和之后，你对中国能源转型的看法有什么变化。\",\"advance\":\"skipped\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章之前和之后，你对中国能源转型的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3886,
+      "outputTokens": 108,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "9186a49612543db32ac5f1ce1d041127a543120827f636f7e23fb75afac5a598"
+  },
+  {
+    "Case": "TestClarityReading/skip",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 6463,
+    "Text": "{\"reply\":\"好，我们跳过这一步。读法清单上还剩最后一项：总结读后的观点变化。你可以说说读到哪一段时想法发生了转折，以及现在再看「中国的能源转型」这个标题，你会怎么理解它。\",\"advance\":\"skipped\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3886,
+      "outputTokens": 71,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "9186a49612543db32ac5f1ce1d041127a543120827f636f7e23fb75afac5a598"
+  },
+  {
+    "Case": "TestClarityReadingLens/completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 6931,
+    "Text": "{\"reply\":\"你选的这句话正是文章用来显示中国可再生能源规模的一条关键证据：“中国的可再生能源新增装机量连续八年位居世界第一。”它把比较结果直接摆了出来，但你用信源评估的方法提醒了一个要点——这样一个“连续八年”的排名，需要核对它是依据谁的统计、口径是什么，才能判断能不能直接采信。这正是信源评估里很实际的一步：有数字，不等于数字背后的来源已经清楚。\\n\\n接下来做读法的最后一步：总结读后的观点变化。先回想你在读这篇文章之前、和读完之后，对“中国的能源转型”这件事的看法有没有哪里变了，或者哪里得到了补充；说说是什么句子或事实让你产生了这个变化。\",\"advance\":\"done\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你对它的看法有什么变化？哪句话或哪个事实带来的？\"}}",
+    "Usage": {
+      "inputTokens": 3918,
+      "outputTokens": 191,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b7de52d97737b3cfea96615939a6fda9bf0e767cf86051f90071c9661ea795c9"
+  },
+  {
+    "Case": "TestClarityReadingLens/completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4197,
+    "Text": "{\"reply\":\"你选的这句话确实值得核查：「连续八年位居世界第一」是一个比较结果，它需要连续的、可比的年度统计做支撑，而文章这里没有交代数据来自哪个机构。这正是信源评估要问的：结论背后是谁在统计、口径是否一致。\\n\\n接下来做「总结读后的观点变化」。读之前你可能觉得能源转型就是投入和装机量在增长；读完之后，特别是第4段到第6段，文章让你看到一个更复杂的画面。请写下：读这篇文章之前你怎么看中国的能源转型，读完之后你的看法有了什么变化，或者哪一处让你觉得需要再想一想。\",\"advance\":\"done\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读这篇文章前后，你对中国能源转型的看法有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 3918,
+      "outputTokens": 176,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "b7de52d97737b3cfea96615939a6fda9bf0e767cf86051f90071c9661ea795c9"
+  },
+  {
+    "Case": "TestClarityReadingLens/not-completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 7241,
+    "Text": "{\"reply\":\"信源辨识卡不是让你判断「信不信这篇文章」，而是检查一条证据的来路：发布者是谁、为什么发布、信息有多新、说法有没有别的来源可以核对。具体做法是：先选文章里一句依赖某个来源的话，比如第 3 段那句话说中国可再生能源新增装机量连续八年世界第一，然后问自己几个问题——这个「连续八年」的数字是谁统计的？统计口径是新增装机量还是别的？除这篇文章外，还能在哪里查到同样的说法？\\n\\n请用这套问题分析文章里的一条证据，把你怎么检查、结论如何说给我听。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"craap\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3840,
+      "outputTokens": 155,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "d7cc03164bd1b3986741228dfa428aac482e05b7a99660fe6d3d1896ba6b3386"
+  },
+  {
+    "Case": "TestClarityReadingLens/not-completed",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3279,
+    "Text": "{\"reply\":\"信源评估透镜，就是让你自己当一次核查员：面对文章里提到的数据或来源，问它是否可靠、够不够用。\\n\\n先用第 3 段做个示范：「中国的可再生能源新增装机量连续八年位居世界第一。」这句话说的是排名，但没有给出处，也没有说明统计的是装机容量还是发电量。所以要看它是否可信，我们还需要知道：这是谁统计的、统计的范围是什么、用的是哪种口径。\\n\\n现在请你到别处找一句同样需要核查的话——也就是引用了数据、研究或具体来源，但你要多问一句「这是谁说的、统计的是什么」的句子，把它划出来，并说说你还需要核实哪些信息。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"craap\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3840,
+      "outputTokens": 174,
+      "cachedInputTokens": 3712
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "d7cc03164bd1b3986741228dfa428aac482e05b7a99660fe6d3d1896ba6b3386"
+  },
+  {
+    "Case": "TestClarityReadingPlan/en",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 9898,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"en-argument\",\"focusBlocks\":[\"b6\",\"b9\"],\"steps\":[\n{\"kind\":\"predict\",\"detail\":\"看到标题里的 moral failure，先猜猜作者会站在哪一边。\"},\n{\"kind\":\"read\",\"detail\":\"通读全文，留意作者从「一句流行语」一路查到「证据」的过程。\"},\n{\"kind\":\"focus_block\",\"detail\":\"精读第6段：全文证据最硬的地方，随机试验推翻了前文的关联。\"},\n{\"kind\":\"focus_block\",\"detail\":\"精读第9段：作者从数据转向语言本身，是后半篇论证的支点。\"},\n{\"kind\":\"label\",\"detail\":\"拆开论证：把作者让步的部分和反驳的部分分开列。\"},\n{\"kind\":\"critique\",\"detail\":\"你觉得从「卖麦片的人写的」推到结论，够不够有力？\"},\n{\"kind\":\"connect\",\"detail\":\"你原来觉得不吃早饭是坏习惯吗？现在哪里动摇了？\"},\n{\"kind\":\"hunt\",\"detail\":\"找出全文最能代表作者立场的那一句话。\"}],\n\"oneLine\":\"不吃早饭到底是健康问题还是道德问题？\",\n\"gist\":\"作者认为「早饭最重要」的证据不足，这种过度自信的断言在替人做道德审判。\",\n\"shape\":\"流行语溯源 → 证据检验 → 语言分析 → 克制的结论\",\n\"parts\":[\n{\"title\":\"流行语的来历\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"引出问题，追溯那句话的出处\"},\n{\"title\":\"证据检验\",\"from\":\"b4\",\"to\":\"b6\",\"does\":\"用观察数据和随机试验对照检验\"},\n{\"title\":\"道德框架的来源\",\"from\":\"b7\",\"to\":\"b9\",\"does\":\"解释道德化说法为何流行\"},\n{\"title\":\"克制的结论\",\"from\":\"b10\",\"to\":\"b12\",\"does\":\"收窄结论，划清证据的边界\"}],\n\"load\":{\"b1\":\"bridge\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"core\",\"b6\":\"core\",\"b7\":\"bridge\",\"b8\":\"core\",\"b9\":\"core\",\"b10\":\"bridge\",\"b11\":\"support\",\"b12\":\"support\"}}",
+    "Usage": {
+      "inputTokens": 3173,
+      "outputTokens": 559,
+      "cachedInputTokens": 1792
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "16ce3685e2f2d39ac35844e8a1b63af797b1770f717c9417fdfd6de237fa7b06"
+  },
+  {
+    "Case": "TestClarityReadingPlan/en",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 9348,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"en-argument\",\"focusBlocks\":[\"b6\",\"b9\"],\"steps\":[\n{\"kind\":\"predict\",\"detail\":\"先看标题猜：你觉得作者会站在哪一边？为什么早餐会跟「道德」扯上关系？\"},\n{\"kind\":\"read\",\"detail\":\"通读全文，留意作者在哪一段从「科学证据」转向「语言和道德」。\"},\n{\"kind\":\"focus_block\",\"detail\":\"精读第6段：这是全文证据链的关键一环，注意随机试验和前面观察研究的对比。\"},\n{\"kind\":\"focus_block\",\"detail\":\"精读第9段：这一段是作者语言分析的核心，只差几个用词，作者却读出了道德意味。\"},\n{\"kind\":\"label\",\"detail\":\"拆论证：把作者的主张、证据、让步（第10段那句「None of this shows…」）分别标出来。\"},\n{\"kind\":\"critique\",\"detail\":\"你怎么看？作者说证据不足，但你自己吃不吃早餐的体验算证据吗？\"},\n{\"kind\":\"connect\",\"detail\":\"观点变化：读完后，你对「早餐最重要」这句话的信任有没有变？哪里变了？\"},\n{\"kind\":\"hunt\",\"detail\":\"找出中心论点：哪一句最能代表作者真正想说的？不一定是第一段。\"}],\n\"oneLine\":\"不吃早餐是道德问题吗？证据撑得起这种说法吗？\",\n\"gist\":\"作者认为早餐有益的证据被夸大了，「道德失职」的说法是语言的误导，诚实的答案更平淡。\",\n\"shape\":\"提出疑问 → 追溯出处 → 检验证据 → 转向语言分析 → 诚实的结论\",\n\"parts\":[\n{\"title\":\"提出疑问\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"把问题摆出来，并追溯那句名言的来历\"},\n{\"title\":\"检验证据\",\"from\":\"b4\",\"to\":\"b6\",\"does\":\"用两代研究对比，检验最强的科学主张\"},\n{\"title\":\"追问动机\",\"from\":\"b7\",\"to\":\"b9\",\"does\":\"解释道德框架为何延续，转向语言分析\"},\n{\"title\":\"诚实收尾\",\"from\":\"b10\",\"to\":\"b12\",\"does\":\"划清作者没说的话，给出克制的结论\"}],\n\"load\":{\"b1\":\"bridge\",\"b2\":\"core\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"support\",\"b6\":\"core\",\"b7\":\"bridge\",\"b8\":\"core\",\"b9\":\"core\",\"b10\":\"support\",\"b11\":\"support\",\"b12\":\"bridge\"}}",
+    "Usage": {
+      "inputTokens": 3173,
+      "outputTokens": 593,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "16ce3685e2f2d39ac35844e8a1b63af797b1770f717c9417fdfd6de237fa7b06"
+  },
+  {
+    "Case": "TestClarityReadingPlan/zh",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 8560,
+    "Text": "{\"genre\":\"explain\",\"routineKey\":\"zh-explain\",\"focusBlocks\":[\"b6\"],\"steps\":[\n{\"kind\":\"predict\",\"detail\":\"看标题猜：能源转型会讲哪些数字和概念？先写下你的猜想。\"},\n{\"kind\":\"read\",\"detail\":\"通读全文，注意文中出现的每个数据和比较对象。\"},\n{\"kind\":\"focus_block\",\"detail\":\"精读最后一段：它区分了三个容易混为一谈的量，是理解全文的关键。\"},\n{\"kind\":\"label\",\"detail\":\"理清说明结构：全文按「规模—数据—矛盾—解释—辨析」推进，试着给各段归位。\"},\n{\"kind\":\"critique\",\"detail\":\"你觉得第5段两种解释哪种更有说服力？为什么？\"},\n{\"kind\":\"reflect\",\"detail\":\"用自己的话解释：为什么装机多和排放大可以同时成立？\"},\n{\"kind\":\"connect\",\"detail\":\"想想生活中有没有「指标好看但不等于实际效果」的类似例子。\"},\n{\"kind\":\"hunt\",\"detail\":\"找出全文最关键的一句话，说明它为什么关键。\"}\n],\n\"oneLine\":\"中国的可再生能源领先和排放最大如何并存？\",\n\"gist\":\"中国在可再生能源投入上全球领先，但排放总量仍居首位，两者并存需要区分装机容量与实际发电、排放口径等概念。\",\n\"shape\":\"规模事实 → 反差数据 → 两种解释 → 概念辨析\",\n\"parts\":[\n{\"title\":\"领先的事实\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"用数据摆出中国在可再生能源上的投入规模。\"},\n{\"title\":\"矛盾出现\",\"from\":\"b4\",\"to\":\"b4\",\"does\":\"抛出与前面数据看似冲突的另一个事实。\"},\n{\"title\":\"两种解释\",\"from\":\"b5\",\"to\":\"b5\",\"does\":\"列出研究者对这个反差的不同解释。\"},\n{\"title\":\"概念辨析\",\"from\":\"b6\",\"to\":\"b6\",\"does\":\"指出比较时容易被忽略的技术性区别。\"}\n],\n\"load\":{\"b1\":\"bridge\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"core\",\"b6\":\"core\"}}",
+    "Usage": {
+      "inputTokens": 2737,
+      "outputTokens": 527
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2650845e9df547e1bf8f4277f6b24b5b3fa5a8479b69af4166d936c26defab4e"
+  },
+  {
+    "Case": "TestClarityReadingPlan/zh",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 13447,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"zh-scan-focus-lens\",\"focusBlocks\":[\"b4\",\"b6\"],\"steps\":[{\"kind\":\"predict\",\"detail\":\"先看标题，猜猜作者会怎么论证中国的能源转型。\"},{\"kind\":\"read\",\"detail\":\"通读全文，留意作者摆出的几个事实之间的关系。\"},{\"kind\":\"focus_block\",\"detail\":\"第4段把一个与前面相反的事实摆了出来，想一想它和第2、3段如何共存。\"},{\"kind\":\"focus_block\",\"detail\":\"第6段是作者提出技术性区分的地方，最容易滑过去，读慢一点。\"},{\"kind\":\"label\",\"detail\":\"拆出作者用哪些事实支撑了哪个判断，各起什么作用。\"},{\"kind\":\"critique\",\"detail\":\"想一想：作者区分装机容量和实际发电量，这个提醒有说服力吗？\"},{\"kind\":\"reflect\",\"detail\":\"用自己的话总结作者到底想纠正读者哪种误解。\"},{\"kind\":\"connect\",\"detail\":\"你在新闻里看到过类似的能源数据吗？当时怎么理解的？\"},{\"kind\":\"hunt\",\"detail\":\"找出最能代表作者态度的那一句话。\"}],\"oneLine\":\"中国可再生能源投入巨大，为何排放仍居首位？\",\"gist\":\"作者认为看中国的能源转型不能只看装机数字，要分清装机容量、实际发电量与被替代的化石燃料。\",\"shape\":\"规模事实 → 反差事实 → 两种解释 → 技术性区分\",\"parts\":[{\"title\":\"规模事实\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"用数据摆出中国可再生能源的投入规模\"},{\"title\":\"反差出现\",\"from\":\"b4\",\"to\":\"b4\",\"does\":\"抛出与前面并列却相反的事实\"},{\"title\":\"两种解释\",\"from\":\"b5\",\"to\":\"b5\",\"does\":\"摆出研究者对这个反差的分歧口径\"},{\"title\":\"技术性区分\",\"from\":\"b6\",\"to\":\"b6\",\"does\":\"作者提出不应被略过的关键区别\"}],\"load\":{\"b1\":\"bridge\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"support\",\"b6\":\"core\"}}",
+    "Usage": {
+      "inputTokens": 2737,
+      "outputTokens": 437,
+      "cachedInputTokens": 2560
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2650845e9df547e1bf8f4277f6b24b5b3fa5a8479b69af4166d936c26defab4e"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-1/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 5925,
+    "Text": "{\"reply\":\"这个数字是32，它统计的是每晚延长开放时段里实际到馆借阅或自习的学生人数。原文特意补充了一句：这不是全校赞成延长开放的比例。\\n\\n请你再看第2段，找一找哪句话在说明这个数字统计的对象，把它读出来给我听。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"choose_span\",\"prompt\":\"哪句话在说明32这个数字统计的是什么？\",\"options\":[{\"blockId\":\"b2\",\"quote\":\"每晚平均有32名学生在延长时段借阅或自习。\"},{\"blockId\":\"b2\",\"quote\":\"这个数字记录的是实际到馆人数，不是全校赞成延长开放的比例。\"},{\"blockId\":\"b1\",\"quote\":\"学校图书馆试行延长开放时间。\"}]}}",
+    "Usage": {
+      "inputTokens": 3770,
+      "outputTokens": 172,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "44c29b67618ca7abc74d2ca983ab85b0cd676418fc7e029a11337bc7aa286825"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-1/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3247,
+    "Text": "{\"reply\":\"你找到了这个数字，这很好。不过这一步还要你做第二件事：这个32统计的是什么？原文在第2段里专门写了一句来说明它的统计对象，请把那句话读出来。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3839,
+      "outputTokens": 64,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "80f3ca440bbcc9410cb061fdf9a63ac43eca6c3e2e38f0887414f7fe62444ac7"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-1/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 19438,
+    "Text": "{\"reply\":\"你这次说得很清楚：32 统计的是试行期间每晚延长开放时段实际到馆的平均人数，而不是全校学生赞成的比例——这正是第2段那句话想说明的统计对象。这一步到此就完成了。\\n接下来请说明这篇文章对你有什么启发。想一想它让你对「用数字说明一件事」有了什么新的注意，不用给标准答案，说你自己的一点想法就好。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"这篇文章让你对「用数字说明一件事」有什么想法？\"}}",
+    "Usage": {
+      "inputTokens": 4065,
+      "outputTokens": 127,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "33f405ffc58b3f7c2388151048202881d84b3d2e6003013b487d4153ea94ce0f"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-2/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2687,
+    "Text": "{\"reply\":\"「给我一个提示」可以，我先给你一点方向。\\n\\n第二段里的数字是「32」。要说明它统计的对象，你可以看它后面的那句话：它写的是“实际到馆人数”，并且特意说明这“不是全校赞成延长开放的比例”。所以你要回答的是：这32个人，是什么范围内的人，在什么时段做了什么。\\n\\n请照着这个方向，说说这个数字统计的是什么。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3770,
+      "outputTokens": 113,
+      "cachedInputTokens": 3712
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "44c29b67618ca7abc74d2ca983ab85b0cd676418fc7e029a11337bc7aa286825"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-2/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3486,
+    "Text": "{\"reply\":\"你找到了数字 32。现在只差另一半：这个数字统计的是什么人、在什么时段做什么。看看第 2 段紧跟着 32 的那句话是怎么说的，再补上这一半。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3861,
+      "outputTokens": 69,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c0fd9fcaf50844f3dcd5bc1d37deaf7467325903140772ab95b2108608ff69db"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-2/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 5288,
+    "Text": "{\"reply\":\"你这次说清楚了：32 统计的是试行四周里，每晚延长时段实际到馆借阅或自习的平均人数，而且你特意区分了它不是全校赞成延长开放的比例。这正合第 2 段的说明，这一步完成了。\\n\\n接下来请说明这篇文章对你有什么启发：可以想一想，一个数字在什么情况下容易被误当成大家的态度，这对你看待身边的调查数字有什么用处。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"这篇文章让你想到什么？结合自己的经历说一句。\"}}",
+    "Usage": {
+      "inputTokens": 4092,
+      "outputTokens": 129,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "0a0be7bbfdb39d5adef7a14d5ff7502e51b03c9f4818f947476df5a8017c2c62"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-3/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2239,
+    "Text": "{\"reply\":\"这个数字是「32」，要找的是它在第二段里统计的对象。请留意紧跟在「32」后面的那半句，它说明了这个数字记录的是什么。把那一句的意思用自己的话说出来就行。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3770,
+      "outputTokens": 68,
+      "cachedInputTokens": 3712
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "44c29b67618ca7abc74d2ca983ab85b0cd676418fc7e029a11337bc7aa286825"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-3/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2413,
+    "Text": "{\"reply\":\"你找到了这个数字是 32，这一步要找的不只是数字，还要说清它统计的是什么。请再看第2段紧挨着「32」后面那半句——它写的是这个数字记录的哪一类人，把那一句读出来，再用自己的话说一遍。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3823,
+      "outputTokens": 83,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "4118c1195d4fbd1bf85a24697627038983851fb76ca6d0d20d98c74dd6f3c7af"
+  },
+  {
+    "Case": "TestClarityReadingSequence/library-3/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4183,
+    "Text": "{\"reply\":\"这次你说对了：32 统计的是试行期间每晚延长时段实际到馆的平均人数，而且你补上了关键的一层——它不等于全校学生赞成延长开放的比例。第 2 段那句话正是把这个数字和「赞成比例」区分开，你抓到了这层区别。\\n\\n接下来请说明这篇文章对你有什么启发：比如读到数字时，你以后会先想它统计的到底是什么。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4068,
+      "outputTokens": 112,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "0042dc14eeb5eaa6638bf130f7fee6cf812daf652ac923cfe5454632faeac19a"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-1/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2596,
+    "Text": "{\"reply\":\"「测量结果」就是第二段里观测得到的那个数字。理解它，先看这个数字说的是哪两类地点、在什么条件下比出来的。第二段提到连续七个晴天的下午，城区平均气温比郊区高2摄氏度——请你说说，这里的2摄氏度比较的对象是什么？\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3777,
+      "outputTokens": 85,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "88c8c4d4c3fddb7f62013929a1ad3501b370242ae2a7c0e469f70cfbedb25e41"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-1/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2450,
+    "Text": "{\"reply\":\"你找到了数字，这没错——2摄氏度是第二段里观测记录到的结果。不过这一步还要你说出它比较的对象：这个数字是把哪两类地点的气温放在一起比出来的？再读一遍那一句，注意「城区」和「郊区」分别处在什么位置。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3847,
+      "outputTokens": 84,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e9109cb3a4533188f6fb59e8ebd98eea07fabd4e4a22a578c0e295370425fc6b"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-1/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2849,
+    "Text": "{\"reply\":\"你这次说得很完整：2摄氏度比较的是「连续七个晴天的下午」城区和郊区观测点的平均气温，而不是同一个地方一年里的升温幅度——选择和限制条件都说到了，这一步完成。\\n\\n下一步请你说明这篇文章对你有什么启发。你生活在城市里，夏天的热你一定有感受，可以想想文中说的城区和郊区温差，和你自己的经历、或者你对城市生活的观察有没有联系。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"这篇文章让你想到自己的哪段经历或观察？\"}}",
+    "Usage": {
+      "inputTokens": 4094,
+      "outputTokens": 129,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "55c5406afeb8a9eef8ab1221de59170b2e47bf1bcd3400f7db28ca3e5b84785e"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-2/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4296,
+    "Text": "{\"reply\":\"先分清这句话在拿什么和什么比。「城区平均气温比郊区高2摄氏度」里的两个对象，是城区和郊区这两个地点；测温的时间，是连续七个晴天的下午。\\n\\n注意后面那句：「这是两类地点在该时段的温差」，所以这个结果说的是城区和郊区在这七个下午的差别，不是城区自己一年里升温了多少。你可以按这个思路说说，第二段的测量结果是什么，它比较的是哪两类地点。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3777,
+      "outputTokens": 120,
+      "cachedInputTokens": 3712
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "88c8c4d4c3fddb7f62013929a1ad3501b370242ae2a7c0e469f70cfbedb25e41"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-2/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2220,
+    "Text": "{\"reply\":\"你找到了「高2摄氏度」，这个数字确实就是第二段的测量结果。接下来还缺一半：这个结果是比较哪两类地点得出的？第二段说「城区平均气温比郊区高2摄氏度」，温差发生在城区和郊区之间，请你把这两类地点说出来。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3880,
+      "outputTokens": 81,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c414d751695821454320751148f9c6c838811c6e01749eafcbc2d5f727b23d7e"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-2/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 7119,
+    "Text": "{\"reply\":\"你这次把两半都补上了：结果是「高2摄氏度」，比较的对象是城区和郊区观测点的平均气温；而且你还点出了它「不是同一个地方一年内升高了多少」，说明你已经注意到这个测量的时间范围只是连续七个晴天的下午。这一步完成了。\\n\\n下一步想请你从文章往外走一步：这篇文章对你有什么启发。想到什么就说什么，可以从你住的地方、你感受到的夏天，或者你怎么看待这类比较说起。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"这篇文章让你想到什么？说说你自己的感受或联想。\"}}",
+    "Usage": {
+      "inputTokens": 4124,
+      "outputTokens": 140,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "a9bb14bdf5cd41bbef5574305681d1d51186b6a58503faa0b621716748588cad"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-3/turn-1",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2324,
+    "Text": "{\"reply\":\"「测量结果」指的是观测得到的数字。第2段里，这个数字是「城区平均气温比郊区高2摄氏度」。\\n\\n关键是它比较的对象：这2摄氏度是城区和郊区之间的差，不是城区和过去相比升高了多少。再看看这句话前后怎么限定这个结果，你能说出它比较的是哪两类地点、在什么时段的记录吗？\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3777,
+      "outputTokens": 102,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "88c8c4d4c3fddb7f62013929a1ad3501b370242ae2a7c0e469f70cfbedb25e41"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-3/turn-2",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2395,
+    "Text": "{\"reply\":\"对，2摄氏度就是这一段的测量结果。不过现在还需要说出它比较的对象：这个差是拿哪两类地点的记录相比？又在什么时段测的？第2段那句话的后半句正好给了这两个限定，你读一读，把它比较的两类地点和时段说出来。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3861,
+      "outputTokens": 86,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "97bb16143f9076b0d177a55d067e594f5290342cf480c58b43fdd8e479ed2064"
+  },
+  {
+    "Case": "TestClarityReadingSequence/urban-heat-3/turn-3",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4352,
+    "Text": "{\"reply\":\"你这次把两件事都说清楚了：这2摄氏度是城区和郊区两类地点之间的差，时段是连续七个晴天的下午，而且你也点出它并不是同一个地方一年内升高了多少。第二段那个结果比较的对象，你已经答完整了。\\n\\n接下来请说明这篇文章对你有什么启发。可以想想第2段的天气条件和第3段那句提醒：如果只有七个晴天的记录，你会怎么看待这个温差。\",\"advance\":\"done\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"这篇文章让你对\\\"气温比较\\\"这件事多了什么想法？\"}}",
+    "Usage": {
+      "inputTokens": 4110,
+      "outputTokens": 136,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c2b57e15afedba8d361cba820fa5d2ce774a3497186e7bf71f6c30a5fd31672b"
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3239,
+    "Text": "{\"reply\":\"你说的「新增装机超过一半」是第2段里的数字，它说的是新增的发电能力。第6段专门提醒了一个区别：装机容量衡量的是发电能力，而不是实际发出的电量。装机多，只说明能发多少电的潜力大；实际发出多少电，还要看这些设备一年里真正运转了多长时间、发了多少。所以这两者不能直接当成同一件事来判断。\\n\\n请结合第6段想想：如果只知道装机容量，我们能不能断定中国的实际发电量也超过全球一半？把你的理由说出来。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3864,
+      "outputTokens": 139,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2bdd552adf5dd2459bd5c64029b47143d1f24277a11d2b07ceeba3db4dfd1325"
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3239,
+    "Text": "{\"reply\":\"你注意到了第2段的数字，但它统计的是新增的**发电能力**，也就是装上去多少设备，不是实际发了多少电。这两者其实不是一回事：设备装得多，不一定会同比例地发得多——比如光照条件、设备实际运行的时间、以及一部分电是否被浪费，都会影响最终发出的电量。所以不能直接把「新增装机超过一半」当成「实际发电量超过一半」。请你说说，第6段那句话想提醒读者把哪两个概念分开？\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3864,
+      "outputTokens": 128,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2bdd552adf5dd2459bd5c64029b47143d1f24277a11d2b07ceeba3db4dfd1325"
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4881,
+    "Text": "{\"reply\":\"不是。装机容量和实际发电量是两回事。装机容量指的是设备在满负荷状态下能发多少电，是一种发电能力；实际发电量要看这些设备在一年里真正发出了多少电，还要受光照、风速等因素影响。第 6 段说得很清楚：「装机容量衡量的是发电能力，而不是实际发出的电量」。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3841,
+      "outputTokens": 97,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "1d73a73957331c671b84359219c0e9730604c58644dc6fe14c5527ef0a71d90c"
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2467,
+    "Text": "{\"reply\":\"装机容量不是实际发电量。第6段说得很清楚：装机容量衡量的是发电能力，不是实际发出的电量，也不等同于被替代掉的化石燃料。也就是说，装机容量是「能发多少」的上限，实际发电量还要看设备运行的实际情况。\\n\\n不过你已经问了答案，这一步就算你了解这个概念了。你能不能在文章里划出一句，说明为什么两者不能混为一谈？\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"pick_in_article\",\"prompt\":\"哪一句说明装机容量不能等同于实际发电量？\"}}",
+    "Usage": {
+      "inputTokens": 3841,
+      "outputTokens": 133,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "1d73a73957331c671b84359219c0e9730604c58644dc6fe14c5527ef0a71d90c"
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3285,
+    "Text": "{\"reply\":\"装机容量，指的是发电设备在满负荷运转时能达到的最大发电能力，相当于设备的“上限”。它描述的是设备有多大规模，不是实际发出了多少电，也不代表替代了多少化石燃料。明白了这个词，再回到这一步：请你在文章里找出既讲装机容量、又讲实际发电量的句子，比较这两者的区别。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"choose_span\",\"prompt\":\"哪一句点明了装机容量和实际发电量的区别？\",\"options\":[{\"blockId\":\"b6\",\"quote\":\"装机容量衡量的是发电能力，而不是实际发出的电量，更不等同于被替代掉的化石燃料。\"},{\"blockId\":\"b4\",\"quote\":\"与此同时，中国仍然是全球二氧化碳排放总量最大的国家，2023 年约占全球总排放的三成。\"}]}}",
+    "Usage": {
+      "inputTokens": 3840,
+      "outputTokens": 181,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c801a8986312fc9aee942ebbc430711fc33cd49e02779acf22ca6547a2b0c860"
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3159,
+    "Text": "{\"reply\":\"装机容量说的是一个发电设施最多能发出多少电的能力，好比一个水壶标着最多能装多少水。它看的是设备规模有多大，不等于它实际发了多少电——实际发电量还取决于设备有没有满负荷运转、一年里有多少时间在发电。你可以先理解这一点，再看第6段为什么特意把这两件事分开说。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 3840,
+      "outputTokens": 99,
+      "cachedInputTokens": 3712
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "c801a8986312fc9aee942ebbc430711fc33cd49e02779acf22ca6547a2b0c860"
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4025,
+    "Text": "{\"reply\":\"我们从标题开始读。请你根据「中国的能源转型」这个标题，先想一想：如果作者要谈这件事，可能会涉及哪些方面？你可以在文章里选一句你觉得最可能和这个问题相关的句子。\",\"advance\":\"\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"pick_in_article\",\"prompt\":\"根据标题预测文章会讨论的问题，在文中划出你认为最相关的一句。\"}}",
+    "Usage": {
+      "inputTokens": 3832,
+      "outputTokens": 92,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "a64e9e2f14460c4892a4b3673e6d2ec246f85260e1379e0c8b8bd1a5ebb4e516"
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 1761,
+    "Text": "{\"reply\":\"先不用急着读细节。看这个标题，你觉得文章大概会围绕什么问题展开？想到什么就写什么，不用求完整。\",\"advance\":\"\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"看标题「中国的能源转型」，你预计文章会讨论什么问题？\"}}",
+    "Usage": {
+      "inputTokens": 3832,
+      "outputTokens": 73,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "a64e9e2f14460c4892a4b3673e6d2ec246f85260e1379e0c8b8bd1a5ebb4e516"
+  },
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 4074,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段有具体的人物和场景，能让人看到教室关闭后的情形，但例子讲完就停了。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"quote\":\"走廊里不断有人经过，我们很难集中注意力。\",\"text\":\"例子说明了教室关闭后在走廊复习的困难，但还没有说明延长图书馆开放时间与解决这个困难的关系，读者需要自己补上这一步。\",\"action\":\"在例子后面补一句分析句，用假设分析法：假如当时图书馆还开放，那么你们可以去哪里、复习条件可能有什么变化，再说明这正是延长开放时间的用处。\"}]}",
+    "Usage": {
+      "inputTokens": 3712,
+      "outputTokens": 161,
+      "cachedInputTokens": 2048
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "8ab8b39335abb8ef7118a13de8ac3651c7422a8592ac72979c7269189edd40d0"
+  },
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3960,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段有明确的观点句和一件具体的事，读者知道发生了什么，还需要一句话把这件事和延长开放时间连起来。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"text\":\"「走廊里不断有人经过，我们很难集中注意力」写出了教室关闭后的困难，但例子的结果摆在这里就停了，没有说清这个困难和「延长图书馆开放时间」之间是什么关系——读者要自己猜延长开放为什么能解决它。\",\"action\":\"请在例子后面补一句分析句，用因果分析法：说明图书馆开放会提供走廊不具备的什么条件，正是这个条件让注意力能集中。\"}]}",
+    "Usage": {
+      "inputTokens": 3712,
+      "outputTokens": 183,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "8ab8b39335abb8ef7118a13de8ac3651c7422a8592ac72979c7269189edd40d0"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 9248,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段观点清楚、例子具体，也做了让步限定，是能往下写的一段。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"development_relevance\",\"text\":\"「Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor」说明了教室关闭后的困难，但没有交代图书馆现在的开放时间。读者不知道图书馆此刻是不是也关了，就看不出现有的关闭时间和你需要的这一小时之间是什么关系——例子和「图书馆应延长开放」这条主张还差一步才接上。\",\"action\":\"在例子后面补一句分析句，交代图书馆现在几点关门，并说明如果它多开一小时，你那天就不会只能去嘈杂的走廊。\"},{\"kind\":\"good\",\"method\":\"en_qualify\",\"text\":\"「This may not suit everyone, so the school could try it once a week first」把话说到多满自己先讲清楚了，还把结论收回到一件具体可执行的事上，这让前面的主张更容易被接受。\",\"action\":\"\"}]}",
+    "Usage": {
+      "inputTokens": 3824,
+      "outputTokens": 402,
+      "cachedInputTokens": 512
+    },
+    "StopReason": "stop",
+    "ValidationError": "compressed or confrontational teaching language: 主张",
+    "RequestSHA256": "fe7d2352835f2785fcf8584aba72ad38e186548459c6266f302af0c0646c2744"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 12058,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段结构完整：观点句、例子、分析和一句限定都在，让步和限定句式用得自然；中间有一处因果跳步需要补一句分析。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"mechanism_chain\",\"text\":\"「Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor」和「A quiet library would help」之间的链条断了一环：教室关门导致你在走廊复习，但走廊的吵闹具体怎样影响了你的复习——是被打断、分心还是效率变低——没有写出来，读者只能自己补。\",\"action\":\"在走廊那句之后补一句分析句，用因果分析法把走廊的环境和复习的效果连起来：写出是什么干扰、造成了什么结果，再让「a quiet library would help」接在这后面。\",\"quote\":\"Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor.\"},{\"kind\":\"good\",\"method\":\"point_concession\",\"text\":\"「This may not suit everyone, so the school could try it once a week first」先承认方案不是对所有人都有利，再收窄到一个小范围的建议，既用了让步又把结论落到可执行的一步上。\",\"quote\":\"This may not suit everyone, so the school could try it once a week first.\"}]}",
+    "Usage": {
+      "inputTokens": 3824,
+      "outputTokens": 450,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "fe7d2352835f2785fcf8584aba72ad38e186548459c6266f302af0c0646c2744"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 7528,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这件事本身有看头——雨夜、沉默的父亲、一件雨衣——但结尾一句「我很感动」把前面的力气泄掉了，读者还没看见的分量被直接说破了。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"text\":\"「我很感动」是把感受直接说出来的词，它替读者做了读者自己想做的那件事。前面「我们一路上没说话」其实已经攒出了分量，最后这一句反而把画面关掉了。\",\"action\":\"把「我很感动」删掉，改为补写雨夜里你看见或听见的两三个具体细节——比如父亲递雨衣时的动作、雨衣上的气味或温度、路上各自的脚步声——让沉默的场景自己把那点意思送出来。\"}]}",
+    "Usage": {
+      "inputTokens": 2984,
+      "outputTokens": 225,
+      "cachedInputTokens": 512
+    },
+    "StopReason": "stop",
+    "ValidationError": "production review check: 还没",
+    "RequestSHA256": "8595259ff587ad489f3142f94ff7314fc04a929a680965306694e1cc7dc01dbd"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 5700,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这一段把事情交代清楚了，但直到「我很感动」之前，读者看到的只是两三个概括性动作，还没有看见那晚到底像什么样子。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"text\":\"「我很感动」直接把感受说了出来，但前文只写了「给了我一件雨衣」「没说话」这样概括的动作，读者没有从任何具体的东西里读出感动来。\",\"action\":\"删掉「我很感动」这句话，改成写那一刻你能看见的两三个具体细节——比如雨衣递过来时的样子、你接过去的动作、路上某个声音，让读者自己读出这份感受。\"}]}",
+    "Usage": {
+      "inputTokens": 2984,
+      "outputTokens": 246,
+      "cachedInputTokens": 2816
+    },
+    "StopReason": "stop",
+    "ValidationError": "production review check: 还没",
+    "RequestSHA256": "8595259ff587ad489f3142f94ff7314fc04a929a680965306694e1cc7dc01dbd"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 5810,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"段落观点明确，例子具体，走廊复习这件事摆出来之后还差一句解释。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"text\":\"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」写出了教室关闭后住校生的具体困难，但没有说明这个困难和延长图书馆开放时间之间的关系——读者需要知道走廊无法安静复习，如何说明图书馆是能解决这个问题的去处。\",\"action\":\"在这句之后补两三句解释：说明走廊复习的具体不便（比如被经过的人打扰到什么程度、复习效果如何），再说明若图书馆开放，这个问题为什么可能得到解决。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"},{\"kind\":\"good\",\"method\":\"point_pee\",\"text\":\"「晚自习后教室关闭，住校生缺少安静的自习场所」先用一句自己的看法，再引出后面的具体经历，这个顺序让例子一出现读者就知道它是为哪个观点服务的。\",\"quote\":\"晚自习后教室关闭，住校生缺少安静的自习场所。\"}]}",
+    "Usage": {
+      "inputTokens": 3160,
+      "outputTokens": 295
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "5c37e71d29494fae198a0017672423d92bf59ca641890a4a5cd3c3c5bba3cfcb"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 4698,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段有明确的判断和一个亲身经历作依据，读者能看懂你的方向。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\",\"text\":\"例子讲清了教室关闭后在走廊复习的困难，但没有说明这个困难和延长图书馆开放时间之间的关系——读者需要你自己点出这一步。\",\"action\":\"在这个例子之后补一两句，解释走廊里的干扰如何说明住校生需要一个安静场所、而延长图书馆开放时间正好提供了这个场所。\"}]}",
+    "Usage": {
+      "inputTokens": 3160,
+      "outputTokens": 194,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "5c37e71d29494fae198a0017672423d92bf59ca641890a4a5cd3c3c5bba3cfcb"
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 3177,
+    "Text": "{\"job\":\"这一块要让读者一句话就知道你主张什么、为什么值得读下去——把「晚自习后需要安静自习场所」变成一个明确的立场句。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"你想让读者读完这句论点后同意的具体主张是什么——是图书馆必须延长，还是可以延长？\",\"晚自习结束后，你身边的同学通常去哪里自习？那些地方的安静程度怎么样？\",\"除了安静，还有没有别的理由让你觉得图书馆该延长开放？\",\"如果有人反驳说宿舍也能自习，你打算怎么回应？\"]}",
+    "Usage": {
+      "inputTokens": 1530,
+      "outputTokens": 140
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e173e7b5471566ceab7259bd2af798ee02a581b2a7a248c448d5b41c12cd7013"
+  },
+  {
+    "Case": "TestClarityWriting/guide",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 2559,
+    "Text": "{\"job\":\"中心论点要把「晚自习后需要安静自习场所」这个观察变成一句明确的主张，让读者一眼知道你要论证什么。\",\"method_ids\":[\"point_parallel\",\"point_reasoning\"],\"questions\":[\"晚自习结束后，你身边的同学通常去哪里自习？那里的环境和你需要的安静差别在哪？\",\"除了「需要安静自习场所」，延长图书馆开放时间还能解决什么问题？\",\"有没有反方理由（比如管理成本）是你需要在论点里预先回应的？\"]}",
+    "Usage": {
+      "inputTokens": 1530,
+      "outputTokens": 103,
+      "cachedInputTokens": 1280
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e173e7b5471566ceab7259bd2af798ee02a581b2a7a248c448d5b41c12cd7013"
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3029,
+    "Text": "{\"reply\":\"先把你已经说清的部分记下来：主张是延长图书馆开放时间，理由之一是晚自习后无处自习。\\n\\n一条主张要站得住，通常还需要第二条理由——而且最好和第一条从同一个角度切进去。你这条走的是「为什么该延长」，也就是现实需要。那第二个理由，同样从「为什么」出发，你觉得延长开放时间对同学还有什么实际的好处？比如预习、查资料、借阅，或者考试周那几天。\",\"add\":[{\"kind\":\"point\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"晚自习后教室关门，学生无处自习\",\"source\":\"\"},{\"kind\":\"point\",\"text\":\"上周我和三位同学只能在走廊复习\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4593,
+      "outputTokens": 164
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "a44a9a731a97bbe3990cea7d9a62f566853930ffeabc61c276cf4d7b84182b35"
+  },
+  {
+    "Case": "TestClarityWriting/plan",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4560,
+    "Text": "{\"reply\":\"你的主张和一条亲身经历都清楚了——晚自习后教室关门，你和三位同学只能在走廊复习，这是「个人经历」这一类，说服力最弱，一篇里最多用一次，我们把它留作其中一条的支撑。\\n\\n现在这篇最缺的是那句中心论点，还有两条分论点。你主张延长开放，主要理由是什么？先从「为什么」这个角度想一条：延长开放这件事，对学生来说到底解决了什么问题？\",\"add\":[{\"kind\":\"point\",\"text\":\"学校图书馆应延长开放时间\",\"source\":\"\"}],\"ready\":false}",
+    "Usage": {
+      "inputTokens": 4593,
+      "outputTokens": 123,
+      "cachedInputTokens": 4480
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "a44a9a731a97bbe3990cea7d9a62f566853930ffeabc61c276cf4d7b84182b35"
+  }
+]

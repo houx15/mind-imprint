@@ -1,0 +1,74 @@
+[
+  {
+    "Case": "TestClarityReadingPlan/en",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 7009,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"en-argument\",\"focusBlocks\":[\"b6\",\"b9\"],\"steps\":[{\"kind\":\"predict\",\"detail\":\"看标题猜：作者会站在哪一边？他会怎么论证？\"},{\"kind\":\"read\",\"detail\":\"通读全文，留意作者何时从证据转向语言和道德层面。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第6段：随机试验的结果如何推翻前面的相关性，这是论证转折处。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第9段：作者分析“skipping”这个词的用法，这里是全文的深层论点。\"},{\"kind\":\"label\",\"detail\":\"拆开论证：找出作者的事实证据、让步和结论各在第几段。\"},{\"kind\":\"critique\",\"detail\":\"你怎么看：作者的证据足够吗？他对语言的分析有说服力吗？\"},{\"kind\":\"connect\",\"detail\":\"你原来觉得不吃早餐是坏习惯吗？读完之后想法变了吗？\"},{\"kind\":\"hunt\",\"detail\":\"找出最能代表作者中心论点的那句话，抄下来。\"}],\"oneLine\":\"不吃早餐在道德上有错吗？\",\"gist\":\"作者认为不吃早餐不是道德问题，相关证据被夸大，多余的信心在起道德说教的作用。\",\"shape\":\"质疑说法 → 查证据 → 转向语言分析 → 结论\",\"parts\":[{\"title\":\"提出问题\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"点出道德化的语气并追溯口号来历\"},{\"title\":\"证据检验\",\"from\":\"b4\",\"to\":\"b6\",\"does\":\"对比观察研究与随机试验的结果\"},{\"title\":\"追问原因\",\"from\":\"b7\",\"to\":\"b9\",\"does\":\"解释道德说法为何延续并分析语言\"},{\"title\":\"结论\",\"from\":\"b10\",\"to\":\"b12\",\"does\":\"限定结论范围并交代证据的边界\"}],\"load\":{\"b1\":\"core\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"support\",\"b5\":\"core\",\"b6\":\"core\",\"b7\":\"bridge\",\"b8\":\"core\",\"b9\":\"core\",\"b10\":\"core\",\"b11\":\"support\",\"b12\":\"support\"}}",
+    "Usage": {
+      "inputTokens": 3462,
+      "outputTokens": 469,
+      "cachedInputTokens": 2048
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "26c73a0f411674eabdb8a2edd6d518f283baed8ab562e946feb73854d63a55e0"
+  },
+  {
+    "Case": "TestClarityReadingPlan/en",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 9288,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"en-close-read\",\"focusBlocks\":[\"b5\",\"b9\"],\"steps\":[{\"kind\":\"predict\",\"detail\":\"看标题先想：你会怎么回答这个问题？带着自己的答案往下读。\"},{\"kind\":\"read\",\"detail\":\"通读全文，留意作者在哪些地方承认对方说法有道理。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第5段：这段在解释为什么观察到的关联不等于因果关系，是全文证据链的关键。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第9段：作者在这里分析「skipping」这个词本身，看语言怎么带出道德意味。\"},{\"kind\":\"label\",\"detail\":\"拆开作者的论证：找出他用来质疑「早餐最重要」这一说法的几条证据。\"},{\"kind\":\"critique\",\"detail\":\"你怎么看：作者的质疑有说服力吗？他有没有说得太少的地方？\"},{\"kind\":\"connect\",\"detail\":\"对比你预测时的想法和读完之后的想法，哪里变了，哪里没变？\"},{\"kind\":\"recall\",\"detail\":\"合上文章，用自己的话讲一遍作者从1917年到随机试验的论证过程。\"}],\n\"oneLine\":\"不吃早餐是不是一种道德上的失败？\",\"gist\":\"作者认为「早餐最重要」的说法证据不足，却借语言习惯承担了道德评判的功能。\",\"shape\":\"设问 → 追溯出处 → 检验证据 → 揭示语言 → 诚实的结论\",\"parts\":[{\"title\":\"问题的由来\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"设下问题，追溯那句流行语的出处\"},{\"title\":\"证据的检验\",\"from\":\"b4\",\"to\":\"b7\",\"does\":\"逐层比较观察研究与随机试验的结果\"},{\"title\":\"语言的道德意味\",\"from\":\"b8\",\"to\":\"b10\",\"does\":\"解释道德说法为什么流行，看用词本身\"},{\"title\":\"诚实的收尾\",\"from\":\"b11\",\"to\":\"b12\",\"does\":\"给出一个克制的结论并停在那里\"}],\n\"load\":{\"b1\":\"core\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"support\",\"b5\":\"core\",\"b6\":\"support\",\"b7\":\"bridge\",\"b8\":\"core\",\"b9\":\"core\",\"b10\":\"support\",\"b11\":\"core\",\"b12\":\"bridge\"}}",
+    "Usage": {
+      "inputTokens": 3462,
+      "outputTokens": 631,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "26c73a0f411674eabdb8a2edd6d518f283baed8ab562e946feb73854d63a55e0"
+  },
+  {
+    "Case": "TestClarityReadingPlan/zh",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 8302,
+    "Text": "{\"genre\":\"report\",\"routineKey\":\"zh-report\",\"focusBlocks\":[\"b6\"],\"steps\":[{\"kind\":\"predict\",\"detail\":\"看标题和第1段，先猜这篇文章会从哪些角度写中国的能源转型。\"},{\"kind\":\"read\",\"detail\":\"通读全文，留意文中出现的数字和研究者们的不同说法。\"},{\"kind\":\"sequence\",\"detail\":\"按文中顺序整理：装机数据、排放数据、研究者的解释，各在哪些段。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第6段：这一段区分了装机容量与实际电量，是理解前文数据的关键，容易被跳过。\"},{\"kind\":\"label\",\"detail\":\"把文中内容分成两类：国际能源署的统计属于事实，研究者的观点属于说法。\"},{\"kind\":\"critique\",\"detail\":\"比较第5段里两种解释各自依据的排放统计口径，说说你更想追问哪一种。\"},{\"kind\":\"reflect\",\"detail\":\"读完之后，列出你已经知道的内容和还想进一步了解的问题。\"},{\"kind\":\"connect\",\"detail\":\"对照你原来对中国能源情况的印象，说说哪一点和文中数据不一样。\"},{\"kind\":\"hunt\",\"detail\":\"找出文中你认为最关键的一句话，并说明它和全文的关系。\"}],\n \"oneLine\":\"中国可再生能源投入巨大，排放为何仍然最高？\",\"gist\":\"文章陈述中国在可再生能源装机上领先的同时排放总量仍居世界第一，并介绍研究者对两个事实如何共存的解释。\",\"shape\":\"投入数据 → 排放对照 → 两种解释 → 技术性区分\",\n \"parts\":[{\"title\":\"投入与成绩\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"用统计数字摆出中国在可再生能源上的规模\"},{\"title\":\"排放的对照\",\"from\":\"b4\",\"to\":\"b4\",\"does\":\"摆出与装机成绩并存的另一组事实\"},{\"title\":\"解释与区分\",\"from\":\"b5\",\"to\":\"b6\",\"does\":\"呈现研究者的不同解释，再补充一个技术性区别\"}],\n \"load\":{\"b1\":\"bridge\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"core\",\"b6\":\"core\"}}",
+    "Usage": {
+      "inputTokens": 3026,
+      "outputTokens": 525,
+      "cachedInputTokens": 512
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2fbb2c30479c33c912cfb28a5f6a98101b66171fa6bf7a37696a468a99d99b57"
+  },
+  {
+    "Case": "TestClarityReadingPlan/zh",
+    "Class": "compose",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 10609,
+    "Text": "{\"genre\":\"argument\",\"routineKey\":\"zh-scan-focus-lens\",\"focusBlocks\":[\"b6\"],\"steps\":[{\"kind\":\"predict\",\"detail\":\"先看标题，猜一猜「能源转型」这篇文章可能会讨论什么问题。\"},{\"kind\":\"read\",\"detail\":\"通读全文，留意作者把哪几个事实放在了一起对比。\"},{\"kind\":\"focus_block\",\"detail\":\"精读第6段：这一段区分了三个容易混淆的概念，是理解全文的关键。\"},{\"kind\":\"label\",\"detail\":\"把作者的论据和结论分开：哪些是数据，哪些是作者的分析。\"},{\"kind\":\"critique\",\"detail\":\"比较第5段里两种解释，说明你更同意哪一种、为什么。\"},{\"kind\":\"reflect\",\"detail\":\"用一句话概括作者最想让你注意到的那个区别。\"},{\"kind\":\"connect\",\"detail\":\"想想你平时在哪里见过「装机容量」和「发电量」被混用的情况。\"},{\"kind\":\"hunt\",\"detail\":\"找出全文最关键的一句话，说明它为什么关键。\"}],\n \"oneLine\":\"中国在可再生能源上投入巨大，排放也最高，这两件事怎么同时成立？\",\"gist\":\"作者认为中国的可再生能源成就真实存在，但装机容量不等于实际发电量，更不等于化石燃料已被替代。\",\"shape\":\"投入数据 → 排放对比 → 两种解释 → 技术性区分\",\"parts\":[{\"title\":\"投入规模\",\"from\":\"b1\",\"to\":\"b3\",\"does\":\"用数据说明中国可再生能源投入之大\"},{\"title\":\"排放事实\",\"from\":\"b4\",\"to\":\"b4\",\"does\":\"摆出与前面成就并存的另一个事实\"},{\"title\":\"两种解释\",\"from\":\"b5\",\"to\":\"b5\",\"does\":\"呈现研究者对矛盾的不同解释\"},{\"title\":\"关键区分\",\"from\":\"b6\",\"to\":\"b6\",\"does\":\"指出常被略过的概念区别，收束全文\"}],\n \"load\":{\"b1\":\"bridge\",\"b2\":\"support\",\"b3\":\"support\",\"b4\":\"core\",\"b5\":\"core\",\"b6\":\"core\"}}",
+    "Usage": {
+      "inputTokens": 3026,
+      "outputTokens": 566,
+      "cachedInputTokens": 2816
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2fbb2c30479c33c912cfb28a5f6a98101b66171fa6bf7a37696a468a99d99b57"
+  }
+]

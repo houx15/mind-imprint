@@ -1,0 +1,72 @@
+[
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 14327,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"The argument has a clear stance, one supporting reason, a concession, and a workable suggestion, which is a solid shape for a short opinion piece. What holds it back is thin development: the link from the school's closing time to studying in a corridor is asserted rather than explained, and the evidence rests on a single personal anecdote.\",\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B\",\"comment\":\"The position is stated and the proposal is qualified with a low-cost trial, so the prompt's demands are met. However, the supporting case is one personal experience; the argument for how the extra hour benefits students in general is not built out.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"B+\",\"comment\":\"The paragraph moves logically from claim to reason to objection to compromise, and 「However」 signals the turn accurately. The middle sentences sit closely together but the causal chain from closing time to corridor study is compressed.\"},{\"name\":\"Lexical Resource\",\"grade\":\"B+\",\"comment\":\"Words like 「concentrate」, 「extending the schedule」, and 「staff」 are used naturally and precisely. Vocabulary range is adequate but narrow; nearly all terms come from the school setting.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"B\",\"comment\":\"Sentences are accurate and varied in length, including a conditional with 「before」. Range is limited to simple and compound structures; one complex construction per idea would show more flexibility.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"This is a well-qualified proposal: it acknowledges the staffing cost and offers a condition under which the change could be justified, which weighs both sides instead of only arguing for one.\",\"action\":null},{\"kind\":\"issue\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"The causal jump here is too fast: the reader is not told why closing the rooms meant studying in a corridor specifically, so the logic reads as an assertion rather than a chain (mechanism_chain).\",\"action\":\"Add the missing step explaining why the corridor was the only option, such as why studying at home or elsewhere was not possible that evening.\"},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"「students like me」 signals a general claim, but the whole paragraph only supports it with one personal incident, so the generalization outruns the evidence (development_relevance).\",\"action\":\"Bring in one more piece of support beyond your own experience — an observation of other students, a plausible pattern, or a concrete situation the extra hour would fix.\"}]}",
+    "Usage": {
+      "inputTokens": 1151,
+      "outputTokens": 837
+    },
+    "StopReason": "stop",
+    "ValidationError": "litegrade: reply is not the JSON object asked for: unexpected end of JSON input",
+    "RequestSHA256": "2e7f8a8b557c5116f851be1cd542d2c19144a3aaed3bbc0c13784434e6148aa1"
+  },
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 10110,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"The essay answers the prompt and reaches a clear, cost-aware conclusion, which is a strength at this length. What holds it back is thin development: the central claim about concentration is asserted rather than explained, and several sentences do little work toward the argument.\"},\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B+\",\"comment\":\"All parts of the prompt are addressed: a position is taken, a reason is given, and a practical suggestion closes the essay. The position would be more convincing if the main benefit were explained rather than stated.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"B\",\"comment\":\"The paragraph runs as a single block, and the pivot at 「However」 comes without preparation, so the staffing problem appears abruptly. Separating the proposal from the counterpoint would make the structure easier to follow.\"},{\"name\":\"Lexical Resource\",\"grade\":\"B\",\"comment\":\"Word choice is mostly precise (「revised」, 「extending the schedule」). A few expressions are vague or slightly off in register, such as 「A quiet room」 standing in for the library itself.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"B+\",\"comment\":\"Grammar is accurate throughout, including a conditional structure and a reported-purpose clause. The range is limited: most sentences follow the same subject-verb-object pattern with little subordination.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"This is a concrete, testable proposal that anticipates the cost objection instead of ignoring it. It also adds a qualification that makes the overall position more credible.\",\"action\":null},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"This is the core benefit of the proposal, but it is only asserted. The mechanism — why quiet improves concentration, or what happens when revision happens in a noisy corridor — is left out, so the argument jumps from claim to conclusion (mechanism_chain).\",\"action\":\"Add one or two sentences after this claim explaining how noise interferes with study, using your corridor experience as the specific evidence.\"},{\"kind\":\"issue\",\"quote\":\"However, staying open requires staff.\",\"text\":\"The counterpoint arrives without any signal earlier that cost might be a concern, so the connective does not match the real relationship between the sentences (reference_linking).\",\"action\":\"Introduce the cost consideration before this sentence, or rephrase the transition so the reader knows a complication is coming.\"},{\"kind\":\"issue\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"The anecdote is relevant and vivid, but it is compressed into a single clause, and 「the classrooms and the library closed」 packs two events into one flat structure, making the reader unpack the timing (l1_information_structure).\",\"action\":\"Split the timing and the consequence into separate statements so each piece of information comes in its expected order.\"}]}",
+    "Usage": {
+      "inputTokens": 1151,
+      "outputTokens": 624,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2e7f8a8b557c5116f851be1cd542d2c19144a3aaed3bbc0c13784434e6148aa1"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 11865,
+    "Text": "{\"overall\":{\"grade\":\"C+\",\"comment\":\"这段文字提出了一个明确的请求，也考虑到了学校的难处，想法是通的。但目前只有骨架：问题发生了、提出方案、方案本身可行，都是一句话带过，读者看不到那天在走廊里的具体情况，也看不到试行之后你期望发生什么。全文更接近一份建议的提纲，而不是一篇展开的文章。\"},\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B-\",\"comment\":\"主张是明确的，即延长图书馆开放时间，理由也找对了——安静的学习场所。但支持主张的只有一个概括性的事件，没有细节：走廊里发生了什么、干扰具体是什么样子，都没有写。结尾提到值班老师和试行方案，算是考虑了对方，这是加分的地方。\"},\"name\":\"结构\",\"grade\":\"C\",\"comment\":\"顺序本身是顺的：现状、事件、请求、方案。但每一段内容都压在同一小段里，前后关系靠读者自己推断。加长之后，需要在提出请求之前把事件写实，在请求之后把方案和预期分开交代。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"学校可以每周试行一天，了解学生的需求，再决定是否增加天数。\",\"text\":\"提请求时没有只站在学生一边，还给出了低成本的试行办法，让学校有台阶可下。这种考虑对方处境的写法，比单纯喊「请延长开放时间」有说服力。\",\"action\":null},{\"kind\":\"issue\",\"quote\":\"走廊里经常有人经过，我们很难集中注意力。\",\"text\":\"这是全文最需要说服读者的地方，但只有结论，没有场景：经过的是哪些人、发生了什么、你们当时做了什么。这属于只有感受没有细节的问题。\",\"action\":\"回忆那天的具体情形，写下走廊里出现的至少两件真实发生的干扰，以及你们的反应，用动作和声音代替「很难集中注意力」这类概括。\"},{\"kind\":\"issue\",\"quote\":\"如果图书馆能多开放一小时，我们就能找到安静的学习场所。\",\"text\":\"这一句是核心主张，但它是孤零零的一个判断。到底有多少同学需要、需要到什么程度，后文没有提供任何事实或例子，判断缺少证据支撑。\",\"action\":\"去了解一周内有多少同学放学后想留校自习，把人数或几次实际被关在门外的情况写进这一段，让主张有事实垫底。\"},{\"kind\":\"issue\",\"quote\":\"不过，延长开放需要安排老师值班。\",\"text\":\"从「我们就能」到「不过」，中间没有过渡。学校为什么难以延长、值班的成本具体是什么，读者只能猜，前后两层的跳跃比较大。\",\"action\":\"在「不过」之前补一两句交代学校的现实约束，说明值班压力从何而来，再引出试行方案，让转折有来处。\"}]}",
+    "Usage": {
+      "inputTokens": 1395,
+      "outputTokens": 587
+    },
+    "StopReason": "stop",
+    "ValidationError": "litegrade: reply is not the JSON object asked for: invalid character ':' after array element",
+    "RequestSHA256": "3cf966f2d7362e1766733aa84a8256eab0b8370c28a6cae43e94094841206443"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 13481,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"文章提出了一个明确的主张，并给出了试行方案，结尾没有空喊口号，整体干脆。主要短板在语言和细节：开头直接进入主张，但缺少一个能立住的具体场景，读起来更像建议书摘要而不是一篇文章；正文语句之间衔接生硬，「我们」连续出现，节奏单调。\",\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"主张清楚，材料基本能支撑：想复习没有场所这一事件说明了需求，值班成本和试行方案让结论不显得轻率。不足是「走廊里经常有人经过」只有一句概括，没有当时的人、声音、动作，说服力弱，属于只有感受没有细节。\"},{\"name\":\"结构\",\"grade\":\"B+\",\"comment\":\"顺序合理：问题—代价—方案，段落推进有逻辑。但全文一段到底，问题、代价、建议挤在一起，读者需要自己分辨层次；「不过」之后的转折值得单独成段，让方案更醒目。\"},{\"name\":\"语言\",\"grade\":\"B-\",\"comment\":\"句子通顺但太平：几乎每句都以「我们」「学校」「走廊」开头，动词笼统，如「准备复习」「很难集中注意力」都是概括性表达。缺少一两处具体的动作或场景描写。\"},{\"name\":\"书写规范\",\"grade\":\"A-\",\"comment\":\"标点使用正确，没有错别字，标题按英文写法保留原样，格式清楚。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"学校可以每周试行一天，了解学生的需求，再决定是否增加天数。\",\"text\":\"结尾没有停留在请求，而是给出了考虑成本、逐步推进的方案，使主张更可信，也避免了口号式收尾。\",\"action\":null},{\"kind\":\"issue\",\"quote\":\"走廊里经常有人经过，我们很难集中注意力。\",\"text\":\"这是全文最需要说服读者的地方，但只有概括性结论，没有当时发生了什么：谁经过、有什么声音、你们具体怎么被打断。读者只能听你说「很难」，看不到「难」在哪里，属于只有感受没有细节。\",\"action\":\"回想那天在走廊复习时一次具体的被打断经历，把人物、动作和声音写出来，用事实让读者自己感到那里不适合学习。\"},{\"kind\":\"issue\",\"quote\":\"学校图书馆可以延长开放时间。\",\"text\":\"第一句直接亮出主张，之后立刻转入事件，中间缺少一句把这个建议和你的经历连起来的话，读起来开头与后文衔接生硬。\",\"action\":\"在主张之前先交代你写下这篇文章的缘由，说明是什么经历让你想到这个问题，再自然引出建议。\"},{\"kind\":\"issue\",\"quote\":\"我和三位同学准备复习，教室已经关闭，我们只好坐在走廊。\",\"text\":\"连续三个短句各说一件事，句与句之间没有关系词，读起来像清单，且主语反复是「我们」，节奏单调，属于句子太碎。\",\"action\":\"把这几件事之间的因果或时间关系用连接方式体现出来，让一句话里承担关联的两件事，同时换掉重复出现的主语。\"}]}",
+    "Usage": {
+      "inputTokens": 1395,
+      "outputTokens": 658,
+      "cachedInputTokens": 1280
+    },
+    "StopReason": "stop",
+    "ValidationError": "litegrade: reply is not the JSON object asked for: unexpected end of JSON input",
+    "RequestSHA256": "3cf966f2d7362e1766733aa84a8256eab0b8370c28a6cae43e94094841206443"
+  }
+]
