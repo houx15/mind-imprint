@@ -194,7 +194,7 @@ export function MySitePage() {
       </aside>
       <section className="showcase-preview-area" aria-label="主页预览">
         <div className="showcase-preview-toolbar"><span><i />实时预览</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{picked.length} 件作品</span></div>
-        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={state.availableWorks} interestTree={draft.interestTreeMode && draft.interestTreeMode !== "none" && state.availableInterestTree ? {...state.availableInterestTree, mode:draft.interestTreeMode} : undefined} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>
+        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={state.availableWorks} interestTree={draft.interestTreeMode && draft.interestTreeMode !== "none" && state.availableInterestTree ? {...state.availableInterestTree, mode:draft.interestTreeMode, title:draft.interestTreeMode === "tree" ? "兴趣树" : "兴趣"} : undefined} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>
       </section>
     </div>
   </div>;

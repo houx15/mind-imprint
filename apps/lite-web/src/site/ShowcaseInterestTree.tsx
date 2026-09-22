@@ -25,7 +25,7 @@ export function ShowcaseInterestTree({ interest }: ShowcaseInterestTreeProps) {
 
   if (interest.mode === "keywords") {
     if (keywords.length === 0) return null;
-    const title = interest.title?.trim() || "兴趣";
+    const title = interest.mode === "tree" && (!interest.title || interest.title === "兴趣") ? "兴趣树" : interest.title?.trim() || "兴趣";
     return (
       <section className="showcase-interest showcase-interest-keywords" aria-labelledby="showcase-interest-title">
         <p className="showcase-interest-label" id="showcase-interest-title">{title}</p>
