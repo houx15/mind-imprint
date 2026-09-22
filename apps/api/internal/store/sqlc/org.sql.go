@@ -44,9 +44,9 @@ func (q *Queries) ConsumeTeacherInvite(ctx context.Context, arg ConsumeTeacherIn
 }
 
 const createClass = `-- name: CreateClass :one
-INSERT INTO classes (school_id, name, join_code, created_by)
-VALUES ($1, $2, $3, $4)
-RETURNING id, school_id, name, join_code, created_at, created_by
+INSERT INTO classes (school_id, name, join_code, created_by, grade)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, school_id, name, join_code, created_at, created_by, grade
 `
 
 type CreateClassParams struct {
@@ -54,6 +54,7 @@ type CreateClassParams struct {
 	Name      string      `json:"name"`
 	JoinCode  string      `json:"join_code"`
 	CreatedBy pgtype.UUID `json:"created_by"`
+	Grade     string      `json:"grade"`
 }
 
 func (q *Queries) CreateClass(ctx context.Context, arg CreateClassParams) (Class, error) {
@@ -62,6 +63,7 @@ func (q *Queries) CreateClass(ctx context.Context, arg CreateClassParams) (Class
 		arg.Name,
 		arg.JoinCode,
 		arg.CreatedBy,
+		arg.Grade,
 	)
 	var i Class
 	err := row.Scan(
@@ -71,6 +73,7 @@ func (q *Queries) CreateClass(ctx context.Context, arg CreateClassParams) (Class
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }
@@ -169,7 +172,7 @@ func (q *Queries) GetActiveTeacherInviteByCode(ctx context.Context, code string)
 }
 
 const getClassByID = `-- name: GetClassByID :one
-SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE id = $1
+SELECT id, school_id, name, join_code, created_at, created_by, grade FROM classes WHERE id = $1
 `
 
 func (q *Queries) GetClassByID(ctx context.Context, id uuid.UUID) (Class, error) {
@@ -182,12 +185,13 @@ func (q *Queries) GetClassByID(ctx context.Context, id uuid.UUID) (Class, error)
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }
 
 const getClassBySchoolAndName = `-- name: GetClassBySchoolAndName :one
-SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE school_id = $1 AND name = $2
+SELECT id, school_id, name, join_code, created_at, created_by, grade FROM classes WHERE school_id = $1 AND name = $2
 `
 
 type GetClassBySchoolAndNameParams struct {
@@ -205,6 +209,7 @@ func (q *Queries) GetClassBySchoolAndName(ctx context.Context, arg GetClassBySch
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }
@@ -462,7 +467,7 @@ func (q *Queries) ListActiveTeacherInvitesBySchool(ctx context.Context, schoolID
 }
 
 const listClassesBySchool = `-- name: ListClassesBySchool :many
-SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE school_id = $1 ORDER BY name
+SELECT id, school_id, name, join_code, created_at, created_by, grade FROM classes WHERE school_id = $1 ORDER BY name
 `
 
 func (q *Queries) ListClassesBySchool(ctx context.Context, schoolID uuid.UUID) ([]Class, error) {
@@ -481,6 +486,7 @@ func (q *Queries) ListClassesBySchool(ctx context.Context, schoolID uuid.UUID) (
 			&i.JoinCode,
 			&i.CreatedAt,
 			&i.CreatedBy,
+			&i.Grade,
 		); err != nil {
 			return nil, err
 		}
@@ -493,7 +499,7 @@ func (q *Queries) ListClassesBySchool(ctx context.Context, schoolID uuid.UUID) (
 }
 
 const listClassesForTeacher = `-- name: ListClassesForTeacher :many
-SELECT c.id, c.school_id, c.name, c.join_code, c.created_at, c.created_by FROM classes c
+SELECT c.id, c.school_id, c.name, c.join_code, c.created_at, c.created_by, c.grade FROM classes c
 JOIN enrollments e ON e.class_id = c.id
 WHERE e.user_id = $1 AND e.role_in_class = 'teacher'
 ORDER BY c.name
@@ -515,6 +521,7 @@ func (q *Queries) ListClassesForTeacher(ctx context.Context, userID uuid.UUID) (
 			&i.JoinCode,
 			&i.CreatedAt,
 			&i.CreatedBy,
+			&i.Grade,
 		); err != nil {
 			return nil, err
 		}
@@ -558,8 +565,32 @@ func (q *Queries) ListTeachersBySchool(ctx context.Context, schoolID uuid.UUID) 
 	return items, nil
 }
 
+const setClassGrade = `-- name: SetClassGrade :one
+UPDATE classes SET grade = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by, grade
+`
+
+type SetClassGradeParams struct {
+	ID    uuid.UUID `json:"id"`
+	Grade string    `json:"grade"`
+}
+
+func (q *Queries) SetClassGrade(ctx context.Context, arg SetClassGradeParams) (Class, error) {
+	row := q.db.QueryRow(ctx, setClassGrade, arg.ID, arg.Grade)
+	var i Class
+	err := row.Scan(
+		&i.ID,
+		&i.SchoolID,
+		&i.Name,
+		&i.JoinCode,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.Grade,
+	)
+	return i, err
+}
+
 const setClassJoinCode = `-- name: SetClassJoinCode :one
-UPDATE classes SET join_code = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by
+UPDATE classes SET join_code = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by, grade
 `
 
 type SetClassJoinCodeParams struct {
@@ -577,12 +608,13 @@ func (q *Queries) SetClassJoinCode(ctx context.Context, arg SetClassJoinCodePara
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }
 
 const updateClassName = `-- name: UpdateClassName :one
-UPDATE classes SET name = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by
+UPDATE classes SET name = $2 WHERE id = $1 RETURNING id, school_id, name, join_code, created_at, created_by, grade
 `
 
 type UpdateClassNameParams struct {
@@ -600,6 +632,7 @@ func (q *Queries) UpdateClassName(ctx context.Context, arg UpdateClassNameParams
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }

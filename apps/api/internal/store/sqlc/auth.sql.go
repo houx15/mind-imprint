@@ -182,7 +182,7 @@ func (q *Queries) GetActiveEmailVerificationToken(ctx context.Context, tokenHash
 }
 
 const getClassByJoinCode = `-- name: GetClassByJoinCode :one
-SELECT id, school_id, name, join_code, created_at, created_by FROM classes WHERE join_code = $1
+SELECT id, school_id, name, join_code, created_at, created_by, grade FROM classes WHERE join_code = $1
 `
 
 func (q *Queries) GetClassByJoinCode(ctx context.Context, joinCode string) (Class, error) {
@@ -195,6 +195,7 @@ func (q *Queries) GetClassByJoinCode(ctx context.Context, joinCode string) (Clas
 		&i.JoinCode,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.Grade,
 	)
 	return i, err
 }

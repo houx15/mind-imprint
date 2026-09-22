@@ -77,6 +77,7 @@ func (a *API) adminImport(w http.ResponseWriter, r *http.Request) {
 					Name:      name,
 					JoinCode:  code,
 					CreatedBy: pgtype.UUID{Bytes: u.ID, Valid: true},
+					Grade:     "", // 批量导入的行里没有年级，永久留空
 				})
 				if cerr != nil {
 					httpx.WriteError(w, r, cerr)

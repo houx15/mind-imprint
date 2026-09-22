@@ -22,8 +22,8 @@ WHERE code = $1 AND consumed_at IS NULL AND expires_at > now();
 UPDATE teacher_invites SET consumed_at = now(), consumed_by = $2 WHERE id = $1;
 
 -- name: CreateClass :one
-INSERT INTO classes (school_id, name, join_code, created_by)
-VALUES ($1, $2, $3, $4)
+INSERT INTO classes (school_id, name, join_code, created_by, grade)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: ListClassesForTeacher :many
@@ -103,3 +103,6 @@ ON CONFLICT (user_id, class_id) DO UPDATE SET role_in_class = 'teacher';
 
 -- name: DeleteClassTeacher :execrows
 DELETE FROM enrollments WHERE class_id = $1 AND user_id = $2 AND role_in_class = 'teacher';
+
+-- name: SetClassGrade :one
+UPDATE classes SET grade = $2 WHERE id = $1 RETURNING *;

@@ -70,6 +70,7 @@ func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
 		Name:      strings.TrimSpace(body.Name),
 		JoinCode:  code,
 		CreatedBy: pgtype.UUID{Bytes: u.ID, Valid: true},
+		Grade:     "", // 建班当下先不知道年级；后续任务改为接住请求里的校验值
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

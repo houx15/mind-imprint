@@ -189,6 +189,8 @@ type Class struct {
 	JoinCode  string      `json:"join_code"`
 	CreatedAt time.Time   `json:"created_at"`
 	CreatedBy pgtype.UUID `json:"created_by"`
+	// 这个班几年级：junior1..3 / senior1..3；空串 = 没填。闭表在 internal/api/class_grade.go，不在 DB 上设 CHECK。
+	Grade string `json:"grade"`
 }
 
 type ClassWeeklyProse struct {
