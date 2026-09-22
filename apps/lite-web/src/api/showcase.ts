@@ -13,6 +13,7 @@ export interface ShowcaseState {
   heroImageUrl?: string;
   avatarUrl?: string;
   availableInterestTree?: ShowcaseInterestSnapshot;
+  aboutChatAvailable?: boolean;
 }
 export const getShowcase = () => apiFetch<ShowcaseState>("/api/v1/pbl/showcase");
 export const saveShowcase = (draft: ShowcaseConfig, expectedRevision: number) =>

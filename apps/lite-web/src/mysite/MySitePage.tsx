@@ -154,7 +154,7 @@ export function MySitePage() {
           </>}
           <div hidden={tab !== "profile"}>
             <div className="showcase-heading"><h2>一起整理个人介绍</h2><p>从想分享的内容开始。印记会帮你整理，并建议适合的展示方式。</p></div>
-            <ShowcaseAboutCoach draft={effectiveDraft!} disabled={busy || imageBusy} onBusy={setImageBusy} onConversation={messages=>patch({aboutConversation:messages})} onApply={proposal=>{patch({name:proposal.name,bio:proposal.bio,interests:proposal.interests,aboutLayout:proposal.aboutLayout});setInterestText(proposal.interests.join("、"));setNotice("介绍建议已应用，请预览并保存草稿");}}/>
+            <ShowcaseAboutCoach available={state.aboutChatAvailable === true} draft={effectiveDraft!} disabled={busy || imageBusy || !state.aboutChatAvailable} onBusy={setImageBusy} onConversation={messages=>patch({aboutConversation:messages})} onApply={proposal=>{patch({name:proposal.name,bio:proposal.bio,interests:proposal.interests,aboutLayout:proposal.aboutLayout});setInterestText(proposal.interests.join("、"));setNotice("介绍建议已应用，请预览并保存草稿");}}/>
             <details className="showcase-manual-about"><summary>编辑介绍与版式</summary>
             <div className="showcase-field-group"><h3>介绍版式</h3><div className="showcase-segments">{([["classic","名字与简介"],["orbit","照片与关键词"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.aboutLayout??"classic")===id} onClick={()=>patch({aboutLayout:id})}>{label}</button>)}</div></div>
             <label className="showcase-field mt-6">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>

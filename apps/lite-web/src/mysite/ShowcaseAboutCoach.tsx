@@ -6,8 +6,9 @@ import type { ShowcaseConfig, ShowcaseAboutMessage } from "../site/showcaseTypes
 import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { Says, errorMarkdown } from "../projects/Says";
 
-export function ShowcaseAboutCoach({draft, disabled, onBusy, onConversation, onApply}: {
+export function ShowcaseAboutCoach({draft, available, disabled, onBusy, onConversation, onApply}: {
   draft: ShowcaseConfig;
+  available: boolean;
   disabled: boolean;
   onBusy: (value:boolean) => void;
   onConversation: (messages:ShowcaseAboutMessage[]) => void;
@@ -31,6 +32,7 @@ export function ShowcaseAboutCoach({draft, disabled, onBusy, onConversation, onA
     } catch(err) {setError(`讨论失败：${apiErrorText(err)}`);}
     finally {lock.current=false;setPending(false);onBusy(false);}
   }
+  if (!available) return <p className="showcase-editor-empty">介绍对话尚未开放，可以在下方编辑介绍与版式。</p>;
   return <section className="showcase-about-coach" aria-label="讨论个人介绍">
     <div className="showcase-coach-conversation" aria-live="polite">
       {messages.length === 0 && <div className="showcase-coach-message"><span>印记</span><p>你希望来到主页的人，先了解你的哪一面？可以从兴趣爱好、正在做的事，或一段自己的故事开始。</p></div>}
