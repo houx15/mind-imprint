@@ -205,3 +205,58 @@ func TestWritingPlanKindListsMatchTheClosedSet(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 四种「文体 × 语言」的组合，每一种都要装配得出来一份完整的提示词。
+//
+// 为什么单写一条：2026-09-22 的提示词重构（b151e7ed）把 127 个文件里的文本
+// 抽进了 `internal/prompts`，他们自己带了一条按 wire request 求 sha256 的
+// parity 测试，基线是重构前的 main —— 那是对的做法。但那份基线只有 28 个
+// 样例，写作立题这一族**只覆盖了一个**（`bench/compose/lite-writing-plan`，
+// 中文议论文）。R5 加的另外三条分支（英文议论文、中文记叙文、英文记叙文）
+// 不在基线里，也就是说重构如果把其中一条的占位符漏掉，整套测试是绿的，
+// 而线上那一篇会收到一份带着 `@@KINDS@@` 字样的提示词 —— 模型看到它会
+// 照着那个字面意思回答，而屏幕上只是「图没长出来」。
+//
+// 这一条把四个组合都钉住，判的是**装配的完整性**，不是某一句话的措辞。
+func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
+	for _, genre := range []string{genreArgument, genreNarrative} {
+		for _, lang := range []string{"zh", langEnglish} {
+			name := genre + "/" + lang
+			got := writingPlanSystemFor(genre, lang)
+
+			// 占位符一个都不许活着出去。
+			for _, ph := range []string{"@@KINDS@@", "@@MATERIAL@@", "@@SKELETON@@", "%d"} {
+				if strings.Contains(got, ph) {
+					t.Errorf("%s：占位符 %q 没被换掉 —— 模型会收到它的字面意思", name, ph)
+				}
+			}
+			// 三块都得真的装进去了：块名清单、材料那一节、骨架那一节。
+			if !strings.Contains(got, "「opening」") || !strings.Contains(got, "「closing」") {
+				t.Errorf("%s：块名清单没装进去", name)
+			}
+			// 🚨 钉**术语**，不钉小标题。这一节的标题 2026-09-22 从
+			// 「一整篇的骨架」改成了「常见文章结构」—— 文案会改，而
+			// 结构的名字是这个仓库自己的词表（vocab 那条规矩：术语是我们的）。
+			// 第一版我钉的正是那个标题，于是四种组合全红，而产品没事。
+			skeletonMark := "总—分"
+			if lang == langEnglish {
+				skeletonMark = "Thesis"
+			}
+			if !strings.Contains(got, skeletonMark) {
+				t.Errorf("%s：骨架那一节没装进去（找不到 %q）", name, skeletonMark)
+			}
+			// 输出格式那一节是解析器的契约，丢了整族 add 都会被丢掉。
+			if !strings.Contains(got, `"ready"`) || !strings.Contains(got, `"kind"`) {
+				t.Errorf("%s：输出格式那一节没装进去", name)
+			}
+
+			// 文体不许串台。
+			if genre == genreNarrative && strings.Contains(got, "「thesis」") {
+				t.Errorf("%s：记叙文那一份里混进了中心论点", name)
+			}
+			if genre == genreArgument && strings.Contains(got, "「scene」") {
+				t.Errorf("%s：议论文那一份里混进了场景", name)
+			}
+		}
+	}
+}
