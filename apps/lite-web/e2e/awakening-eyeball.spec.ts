@@ -265,7 +265,18 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
 
   // 折线下面那几块同样要在。它们是这份报告作为「终点」的全部内容 ——
   // 少一块，这一趟就只是把词写进了树，没有交还给她任何东西。
-  await expect(page.getByRole("heading", { name: "你的问题" })).toBeVisible();
+  // 🚨 这里原来钉的是 heading「你的问题」。2026-09-22 的报告改版把这一块
+  // **提上去了**：标题位现在放的是她那句问题本身，「你提出的问题 · 原文」
+  // 变成了它上面的小字。内容没少，反而更显眼了 —— 是钉错了地方。
+  //
+  // 钉不变的那一截：**她那句问题被交还给她了**，而且不是空的。
+  // 那句话每一趟都不一样，所以判的是「这一块在，而且里面有字」。
+  const question = page.locator(".interest-report-question");
+  await expect(question, "报告里没有把她那句问题交还给她").toBeVisible();
+  await expect(question.getByText("你提出的问题", { exact: false })).toBeVisible();
+  const questionText = (await question.locator("h2").innerText()).trim();
+  expect(questionText.length, "她那句问题是空的").toBeGreaterThan(0);
+
   await expect(page.getByRole("heading", { name: "下一步" })).toBeVisible();
 
   // 报告里任何一处出现 undefined / null / [object Object]，都说明某个字段在
@@ -309,9 +320,15 @@ test("觉醒协议：十四屏走一遍，每一屏留一张图", async ({ brows
   const hub = page.getByRole("button", { name: /开始兴趣探索|继续兴趣探索/ });
   await expect(hub).toBeVisible();
   await expect(page.getByRole("button", { name: /能量测试/ })).toBeVisible();
+  await shot("20-hub");
+
+  // 🚨 助手与剧情 2026-09-22（f38164dd）收进了一个折叠区：「这一次做什么」
+  // 那一栏只留前三张卡，这两张退到后面。它们仍然到得了，只是要先展开。
+  // 走查跟着这件事走 —— 钉的是「展开之后两条路都在」，不是它们摆在哪一层。
+  await page.getByText("助手与剧情").click();
   await expect(page.getByRole("button", { name: /重新选择兴趣探索助手/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /回顾剧情/ })).toBeVisible();
-  await shot("20-hub");
+  await shot("20-hub-more");
 
   // 上一趟选的助手带过来了：入口那一行写的是中文名，不是空的。
   await expect(page.getByText(/当前：(热血同好|资深向导|腹黑军师)/)).toBeVisible();
