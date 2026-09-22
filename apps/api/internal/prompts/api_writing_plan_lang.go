@@ -1,35 +1,11 @@
-package api
+package prompts
 
-// —— 语言这条轴（R5，2026-09-22）——
-//
-// 同事 2026-09-22 的意见 7：
-//
-//	「actually english writing is quite different from chinese.
-//	  but now we use the same guidance. strange」
-//
-// 在这之前 `wr.Lang` 在立题这条路上只做了两件事：决定字数的单位（字 / 词），
-// 以及要求图上的节点文字用那篇文章的语言写（writing_lang.go）。**教的内容
-// 一个字都没变。** 一个写英文议论文的学生拿到的是：
-//
-//   - 一节按语文高考评分惯例排的材料说服力次序（社会/历史例子最硬、
-//     个人经历最弱、「一篇议论文最多用一个」）；
-//   - 一张语文课的篇章骨架表（总—分、总—分—总、起承转合）；
-//   - 一份写着「中心论点 / 分论点 / 论据」的块名清单。
-//
-// 这三样在英文写作课上都不是那么教的。英文议论文真正被打分的几件事是：
-// thesis statement 在第一段末尾那个固定位置、每个主体段开头一句 topic
-// sentence、材料后面必须有一到两句 commentary（老师问的 "so what?"）、
-// 单独一段 counterargument 再一段 refutation、段间要有 transition。
-//
-// 所以这三块各有一份英文版，由 `writingPlanSystemFor(genre, lang)` 按这一篇
-// 的语言挑。
-//
-// 🚨 印记**仍然用中文跟她说话**（writing_lang.go 里那条裁定：她是一个学写
-// 英文的中文母语学生，用英文给她解释 concession 是在同时教两件事）。
-// 换掉的是**教的内容**，不是说话的语言。所以下面这几段是中文写的，
-// 只有那几个术语用英文 —— 那几个词正是她要学会的东西。
+// Purpose: api/writing_plan_lang.go 的固定提示词与条件指令。
+// Consumer: internal/api/writing_plan_lang.go; builders choose conditions and render context.
+// Comments are maintenance metadata and are never sent to a model.
 
-const writingPlanMaterialZH = `## 根据观点选择材料
+// WritingPlanMaterialZH retains the production text of writingPlanMaterialZH.
+const WritingPlanMaterialZH = `## 根据观点选择材料
 
 引导学生考虑多种材料：亲身经历、读过的书、社会或历史事件、研究、报道、数据、访谈等。不要每条理由都只问个人经历，也不要仅按来源类别给材料排高低。
 
@@ -39,10 +15,11 @@ const writingPlanMaterialZH = `## 根据观点选择材料
 
 不限制个人经历的数量，也不要求每篇都有外部材料。教师明确要求引用来源时，结合该任务提醒学生落实。篇幅对应的内容数量以下面的计划检查为参考，不额外增加材料类别门槛。`
 
+// WritingPlanMaterialEN retains the production text of writingPlanMaterialEN.
 // 英文议论文那一份。它不排「个人经历最弱」那个次序 —— 英文写作课要的是
 // reason 底下有具体的 example，而 example 是她自己的经历还是读来的材料，
 // 不影响得分；真正会被扣分的是**摆完材料没有 commentary**。
-const writingPlanMaterialEN = `## 英文议论文的材料与分析
+const WritingPlanMaterialEN = `## 英文议论文的材料与分析
 
 每条 topic sentence 需要具体的例子或证据，并说明它与观点的关系。
 - 请学生说明材料中的人物、事件、数据或出处；Many people think 和 Studies show 本身没有提供可核实的信息。
@@ -51,7 +28,8 @@ const writingPlanMaterialEN = `## 英文议论文的材料与分析
 - 个人经历、书籍、新闻和调查都可以作为材料。根据材料是否具体、可靠、与观点相关来判断，不仅凭来源类别排序。
 - 涉及人群、趋势或因果时，请核对来源和适用范围。证据有限时可以用 some、often、in my experience 等限定表达（hedging），避免把个别经历概括为普遍事实。`
 
-const writingPlanSkeletonZH = `## 常见文章结构
+// WritingPlanSkeletonZH retains the production text of writingPlanSkeletonZH.
+const WritingPlanSkeletonZH = `## 常见文章结构
 
 以下结构可以用来理解学生已有的计划：
 
@@ -75,9 +53,10 @@ const writingPlanSkeletonZH = `## 常见文章结构
 这几个是**骨架**的名字，不是方法名。需要填 method 的地方（比如段落引导
 和意见里的 method 字段）一个都不许用它们。`
 
+// WritingPlanSkeletonEN retains the production text of writingPlanSkeletonEN.
 // 英文议论文那一份骨架表。名字用英文 —— 那几个词是她要学会的东西，
 // 而且她的英文老师就是这么叫它们的。
-const writingPlanSkeletonEN = `## 常见文章结构（英文议论文）
+const WritingPlanSkeletonEN = `## 常见文章结构（英文议论文）
 
 以下结构用于理解学生已有的计划，具体安排以题目和教师要求为准：
 - Thesis–body–conclusion：引言说明 thesis statement，常放在引言末尾；主体段用 topic sentence 组织理由，结尾综合论证并回应 thesis。
@@ -94,16 +73,8 @@ const writingPlanSkeletonEN = `## 常见文章结构（英文议论文）
 
 这些是篇章结构名称，不能填入段落引导或意见的 method 字段。`
 
-// —— 英文那两份块名清单 ——
-//
-// 🚨 **id 一个字都不变**（`thesis` / `point` / …）：闭表是
-// writing_kind.go，深度、父节点、下游每一处都按它算。变的只有**它在英文
-// 写作课上叫什么**，以及那一行解释。这两样才是她要学会的东西。
-//
-// 括号里保留中文，因为印记是用中文跟她讲的（writing_lang.go 的裁定）——
-// 她需要同时知道这块是什么、以及她的英文老师会怎么称呼它。
-
-const writingPlanEnglishArgumentKinds = `- kind：节点类型，只能使用以下十个 id：
+// WritingPlanEnglishArgumentKinds retains the production text of writingPlanEnglishArgumentKinds.
+const WritingPlanEnglishArgumentKinds = `- kind：节点类型，只能使用以下十个 id：
   - 「thesis」 thesis statement（中心论点）：全文要论证的观点，一篇只有一个。
   - 「point」 topic sentence（分论点）：主体段要说明的重点。
   - 「evidence」 personal experience（个人经历）：学生亲历或亲眼见到的具体事件。
@@ -127,7 +98,8 @@ const writingPlanEnglishArgumentKinds = `- kind：节点类型，只能使用以
 首次出现时附中文解释，之后沿用英文术语。说明各部分的作用，不虚构扣分规则。
 Thesis 常放在引言末尾，topic sentence 常在主体段开头；实际位置和反方段落安排以题目、教师要求和论证需要为准。`
 
-const writingPlanEnglishNarrativeKinds = `- kind：节点类型，只能使用以下六个 id：
+// WritingPlanEnglishNarrativeKinds retains the production text of writingPlanEnglishNarrativeKinds.
+const WritingPlanEnglishNarrativeKinds = `- kind：节点类型，只能使用以下六个 id：
   - 「scene」 scene（场景）：发生在具体时间、地点的事件。
   - 「detail」 detail（细节）：场景中的动作、对话或环境。
   - 「turn」 turning point（转折）：使事件发展或人物认识发生变化的时刻。

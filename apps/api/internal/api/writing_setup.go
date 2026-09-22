@@ -137,34 +137,6 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }
 
-// writingOpeningSystem is the coach's opening line. It is the single most
-// load-bearing prompt in the room: it sets whether the student feels
-// accompanied or abandoned in her first three seconds.
-//
-// 铁律① is stated as a hard prohibition rather than left implicit, because
-// "help me start this essay" is precisely the moment a model is most tempted
-// to hand over a thesis. 铁律③ (one question at a time) is stated as a count,
-// because "be concise" is not something a model reliably converts into "ask
-// exactly one thing".
-const writingOpeningSystem = `你是「印记」，一个陪中学生写作的伙伴。学生刚刚打开一次新的写作，下面是她自己写下的题目和她说过的话。
-
-接下来你们要做的是**规划**：一起把这篇要说什么、按什么顺序说，逐步想清楚。她说的每一点都会长到右边那张图上。现在由你先开口。
-
-你的开场要做到三件事，合起来不超过 120 个字：
-
-1. 用一句话把她想写的东西说回给她，让她确认你听懂了。用她自己的说法，不要换成更"高级"的表述。
-2. 用一句话告诉她这一步要干什么——先一起把要说的想清楚、理出顺序，然后再动笔。
-3. 根据题目提出一个帮助学生开始构思的问题：题目已经明确写作对象时，询问她想表达的观点或认识；需要先选词、选角度或选题时，先帮助她完成这个选择，再讨论内容。不要在写作对象尚未确定时要求她总结中心论点。
-
-绝对不要做的事：
-- 不要替她写出任何一句可以直接放进文章的话（论点、开头句、段落）。你是陪她想的，不是替她写的。
-- 不要一次问好几个问题。只问一个。
-- 不要现在就列提纲、给结构方案，也不要把「并排说几条」「先承认，再反驳」「比一比」这类方法名当成选项摆给她挑——结构要在后面从她自己说的话里得出。
-- 不要说"作为AI"、不要夸她"这个题目很棒"这类空话。
-- 不用「慢慢」「一点一点」「一步一步」「理顺」这类修饰和比喻，直接说要做的事。
-
-直接说话，不要任何前缀或标题。`
-
 // The two sentences of writingOpeningSystem that call the topic hers, and what
 // replaces them when her teacher assigned the writing. The topic is then the
 // teacher's prompt, and restating it "用她自己的说法" as what she wants to write
@@ -176,22 +148,6 @@ const (
 	openingRestateAssigned = "1. 用一句话说明老师布置的题目要求写什么，并点明这是老师的要求，不要说成是她自己想写的。"
 )
 
-// writingOpeningSystemFor is writingOpeningSystem for this writing: unchanged
-// for a writing she opened herself, with the two sentences above swapped for
-// an assigned one.
-func writingOpeningSystemFor(wr sqlc.Writing) string {
-	if wr.Origin == "brought" {
-		return writingBroughtOpeningSystem
-	}
-	if !writingIsAssigned(wr) {
-		return writingOpeningSystem
-	}
-	return strings.NewReplacer(
-		openingTopicOwn, openingTopicAssigned,
-		openingRestateOwn, openingRestateAssigned,
-	).Replace(writingOpeningSystem)
-}
-
 // writingIsAssigned: the writing was started from a teacher's assignment. Its
 // topic, language and target are the teacher's. A blank prompt counts as none,
 // the same rule as the client's isAssignedWriting.
@@ -199,82 +155,9 @@ func writingIsAssigned(wr sqlc.Writing) bool {
 	return wr.AssignedPrompt != nil && strings.TrimSpace(*wr.AssignedPrompt) != ""
 }
 
-// writingBroughtOpeningSystem is the opening for a piece she wrote elsewhere
-// and brought in for feedback.
-//
-// 🚨 2026-09-18 写作入口走查：带进来的一篇，印记的第一句是规划开场——
-// 「你最想让读者最后相信的一件事是什么？」。她的文章已经写完、就摆在左边，
-// 这句话等于没看见它。所以带进来的那一篇有自己的开场：先看见这篇，
-// 再告诉她这一页怎么用。
-const writingBroughtOpeningSystem = `你是「印记」，一个陪中学生写作的伙伴。学生带来了一篇**已经写好**的文章，想听意见。下面是题目和她的全文。现在由你先开口。
-
-你的开场做到三件事，合起来不超过 120 个字：
-
-1. 说出这篇里一处**真的写得好**的地方，要具体到她写的某个例子、某个说法或某个安排，并说明它好在哪里。不要泛泛地夸。
-2. 用一句话说明接下来怎么做：点上方的「AI审阅」，印记会通篇读一遍，先指出最要紧的一两处；她照着改，改完可以再审阅一次。
-3. 问她**一个**问题，帮你给出更有用的意见：比如这篇是为什么场合写的（考试、作业、比赛），或者她自己最没把握的是哪一部分。
-
-绝对不要做的事：
-- 不要现在就逐条挑毛病，也不要替她改写任何一句。
-- 不要问她「想写什么」「最想让读者相信什么」——文章已经写完了。
-- 不要一次问好几个问题。
-- 不要说"作为AI"。
-
-直接说话，不要任何前缀或标题。`
-
 // broughtOpeningDraftRunes bounds how much of her piece the opening reads. The
 // opening only needs enough to name one real strength.
 const broughtOpeningDraftRunes = 4000
-
-// buildBroughtOpeningPrompt is the opening's input for a brought piece: the
-// title, the language line, and her text.
-func buildBroughtOpeningPrompt(wr sqlc.Writing, body string) string {
-	var b strings.Builder
-	b.WriteString("题目：" + wr.Title + "\n")
-	b.WriteString(writingLangLine(wr))
-	if wr.TargetWords != nil {
-		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))
-	}
-	b.WriteString("\n【她带来的全文】\n")
-	body = strings.TrimSpace(body)
-	if body == "" {
-		b.WriteString("（正文是空的。）\n")
-	} else {
-		b.WriteString(cutRunes(body, broughtOpeningDraftRunes) + "\n")
-	}
-	return b.String()
-}
-
-// buildWritingOpeningPrompt assembles what the coach sees: her title, the
-// settings she just chose, and everything she has said. AI turns are excluded
-// — on the opening path there are none by construction (the handler refuses
-// to run once one exists), and including the role would only invite the model
-// to continue a conversation rather than start one.
-func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string {
-	var b strings.Builder
-	b.WriteString(writingTopicLine(wr, "题目/想法："))
-	b.WriteString(writingLangLine(wr))
-	if wr.TargetWords != nil {
-		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))
-	} else {
-		b.WriteString("她还没定篇幅（这完全没问题，别追问）。\n")
-	}
-	b.WriteString("\n【她自己说过的话】\n")
-	any := false
-	for _, m := range msgs {
-		if m.Role != "student" {
-			continue
-		}
-		if s := strings.TrimSpace(m.Content); s != "" {
-			b.WriteString("- " + s + "\n")
-			any = true
-		}
-	}
-	if !any {
-		b.WriteString("（她还没说什么，只有上面那个题目。）\n")
-	}
-	return b.String()
-}
 
 // postWritingOpening is POST /api/v1/writings/{id}/opening — the coach's
 // first line, called by the frontend immediately after the setup dialog

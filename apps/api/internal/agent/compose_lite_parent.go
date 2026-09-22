@@ -17,28 +17,6 @@ import (
 // liteParentSectionMax is the rune cap on each section of a parent report.
 const liteParentSectionMax = 400
 
-// liteParentSystemPromptTemplate is the parent report system prompt. {sections}
-// is replaced with the comma-joined liteparent.SectionsWithFacts. The
-// sentences after 套话 come from plan 4 Ruling 3, plan 3 Ruling 16 and plan 4
-// Ruling 9.
-const liteParentSystemPromptTemplate = `你在为一名学生的家长写学习报告，由老师审阅后发出。只使用给出的事实，不补充事实，不评价学生的人格。输出 JSON，键为 {sections}（只输出这些键），值为该部分的正文，每部分不超过 400 字。overview 概括这段时间做了什么；next 给出 1 到 3 条家长在家可以配合的具体做法。引用学生原话时用「」并逐字照抄给出的金句。不使用事实里没有的数字。不写其他学生的名字。说明文，不用比喻、抒情和套话。作品标题用《》，只有学生原话用「」。数字一律用阿拉伯数字。不做加减和单位换算，数字照抄给出的事实。列举多条时不编号，每条单独一行。`
-
-// liteParentPronounRule tells the model which pronoun it may use for her.
-// pronoun is 她 or 他; anything else means the teacher has not set a gender,
-// and then the prose uses neither: a guess from her name was wrong in
-// production.
-func liteParentPronounRule(pronoun string) string {
-	if pronoun == "她" || pronoun == "他" {
-		return "指这名学生时，代词只用「" + pronoun + "」。"
-	}
-	return "学生的性别未设置：不用「他」「她」指这名学生，重复学生姓名，或者写「孩子」。"
-}
-
-func liteParentSystemPrompt(sections []string, pronoun string) string {
-	return strings.Replace(liteParentSystemPromptTemplate, "{sections}", strings.Join(sections, ","), 1) +
-		liteParentPronounRule(pronoun)
-}
-
 // ComposeLiteParentReport drafts the sections of a parent report from f. The
 // user message is liteparent.FactsText(f), verbatim. Invalid output gets one
 // retry with the validation error; every call is returned in the attempts so

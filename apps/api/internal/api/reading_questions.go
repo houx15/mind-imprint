@@ -61,64 +61,6 @@ import (
 // diverge in budget later without one accidentally moving the other.
 const readingQuestionsArticleRuneBudget = 9000
 
-const readingQuestionsSystem = `你是"印记"。学生刚读完一篇文章，你要从这篇文章里"长"出几个
-她读完之后可能会想接着写一写的问题——这些问题是摆在她面前供她考虑的，不是在考她。
-
-给你的材料：文章标题、按段落编号的正文。
-
-你要做的事：
-
-1. 挑 3–5 个问题。每个问题都必须真实出自这篇文章的某一句话——可以是
-   一个"为什么会这样"，可以是一个"这到底是什么意思"，也可以是一个"不同的人会
-   怎么看这件事"，但无论哪一种，都必须是靠这篇文章、这一句话才问得出来的，换一
-   篇文章就问不出来。
-2. 每个问题配一句 anchorQuote：从文章正文里**逐字复制**出来的一句话（不要改写、
-   不要缩写、不要翻译、不要加标点），这句话就是这个问题的来处。
-3. **绝对不要**问「你怎么看待X」这种放在任何一篇文章后面都成立的空泛问题——这
-   种问题不用读这篇文章也能问，教不会她任何东西。每一条都必须是**这一篇**才问
-   得出来的：拿掉那句 anchorQuote，这个问题就应该站不住。
-
-只输出一个 JSON 对象：
-{"questions":[{"text":"...","anchorQuote":"..."}]}
-
-不要输出对象以外的任何文字或代码块标记。`
-
-// buildReadingQuestionsPrompt hands the model the title and the article,
-// tagged the same way buildReadingPlanPrompt (reading_plan.go) tags it —
-// both the id it must eventually be found under and the ordinal it may speak
-// in prose — so the same truncation-with-a-marker discipline applies here
-// too: a paragraph past the budget is still named as existing, never simply
-// dropped.
-func buildReadingQuestionsPrompt(title string, blocks []Block) string {
-	var b strings.Builder
-	if t := strings.TrimSpace(title); t != "" {
-		b.WriteString("标题：" + t + "\n")
-	}
-	b.WriteString("\n【文章，按段落】\n")
-	total := 0
-	for i, blk := range blocks {
-		text := strings.TrimSpace(blk.Text)
-		if text == "" {
-			continue
-		}
-		tag := readingBlockTag(i, blk.ID)
-		runes := []rune(text)
-		if total+len(runes) > readingQuestionsArticleRuneBudget {
-			keep := readingQuestionsArticleRuneBudget - total
-			if keep > 60 {
-				b.WriteString(tag + "：" + string(runes[:keep]) + "…（这一段更长，已截断）\n")
-				total = readingQuestionsArticleRuneBudget
-			} else {
-				b.WriteString(tag + "：（这一段没放进来，但它存在）\n")
-			}
-			continue
-		}
-		total += len(runes)
-		b.WriteString(tag + "：" + text + "\n")
-	}
-	return b.String()
-}
-
 // readingQuestionDraft is one question as the model proposes it — before
 // validateReadingQuestions decides whether it survives. No id, no
 // anchorBlock: those only exist once a draft has cleared validation and is

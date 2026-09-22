@@ -1,0 +1,80 @@
+package prompts
+
+// Definition describes source text, not a second runtime configuration.
+// Model routing remains in gateway/models.json; schemas remain with parsers.
+type Definition struct {
+	ID       string `json:"id"`
+	Source   string `json:"source"`
+	Consumer string `json:"consumer"`
+	Text     string `json:"text"`
+}
+
+// Catalog returns a fresh slice so inspection cannot mutate production rules.
+func Catalog() []Definition {
+	return []Definition{
+		{ID: "agent.projectCoachPosturePrompt", Source: "internal/prompts/agent_project_coach.go", Consumer: "internal/agent/project_coach_prompt.go", Text: ProjectCoachPosturePrompt},
+		{ID: "liteworkspace.PronounRule", Source: "internal/prompts/liteworkspace_gender.go", Consumer: "internal/liteworkspace/gender.go", Text: TeacherPronounRule},
+		{ID: "agent.liteParentSystemPromptTemplate", Source: "internal/prompts/agent_compose_lite_parent.go", Consumer: "internal/agent/compose_lite_parent_prompt.go", Text: LiteParentSystemPromptTemplate},
+		{ID: "agent.liteStudentWeeklySystemPrompt", Source: "internal/prompts/agent_compose_lite_weekly.go", Consumer: "internal/agent/compose_lite_weekly_prompt.go", Text: LiteStudentWeeklySystemPrompt},
+		{ID: "agent.liteClassWeeklySystemPrompt", Source: "internal/prompts/agent_compose_lite_weekly.go", Consumer: "internal/agent/compose_lite_weekly_prompt.go", Text: LiteClassWeeklySystemPrompt},
+		{ID: "agent.readingTakeawaySystem", Source: "internal/prompts/agent_reading_takeaway.go", Consumer: "internal/agent/reading_takeaway_prompt.go", Text: ReadingTakeawaySystem},
+		{ID: "api.liteReportSystem", Source: "internal/prompts/api_atom_report.go", Consumer: "internal/api/atom_report_prompt.go", Text: LiteReportSystem},
+		{ID: "api.assignmentExtractSystem", Source: "internal/prompts/api_lite_assignment_extract.go", Consumer: "internal/api/lite_assignment_extract_prompt.go", Text: AssignmentExtractSystem},
+		{ID: "api.liteClassSummarySystemPrompt", Source: "internal/prompts/api_lite_class_summary.go", Consumer: "internal/api/lite_class_summary_prompt.go", Text: LiteClassSummarySystemPrompt},
+		{ID: "api.readingBlockSystem", Source: "internal/prompts/api_reading_block.go", Consumer: "internal/api/reading_block_prompt.go", Text: ReadingBlockSystem},
+		{ID: "api.readingCoachSystem", Source: "internal/prompts/api_reading_coach.go", Consumer: "internal/api/reading_coach_prompt.go", Text: ReadingCoachSystem},
+		{ID: "api.coachStuckNudge", Source: "internal/prompts/api_reading_coach_repeat.go", Consumer: "internal/api/reading_coach_repeat_prompt.go", Text: CoachStuckNudge},
+		{ID: "api.readingPlanSystem", Source: "internal/prompts/api_reading_plan.go", Consumer: "internal/api/reading_plan_prompt.go", Text: ReadingPlanSystem},
+		{ID: "api.readingQuestionsSystem", Source: "internal/prompts/api_reading_questions.go", Consumer: "internal/api/reading_questions_prompt.go", Text: ReadingQuestionsSystem},
+		{ID: "api.writingRoleBoardNote", Source: "internal/prompts/api_writing_board.go", Consumer: "internal/api/writing_board_prompt.go", Text: WritingRoleBoardNote},
+		{ID: "api.writingCommentRules", Source: "internal/prompts/api_writing_comment.go", Consumer: "internal/api/writing_comment_prompt.go", Text: WritingCommentRules},
+		{ID: "api.writingCommentSystem", Source: "internal/prompts/api_writing_comment.go", Consumer: "internal/api/writing_comment_prompt.go", Text: WritingCommentSystem},
+		{ID: "api.writingSummaryAbsenceNudge", Source: "internal/prompts/api_writing_comment_summary.go", Consumer: "internal/api/writing_comment_summary_prompt.go", Text: WritingSummaryAbsenceNudge},
+		{ID: "api.writingNoPointNudge", Source: "internal/prompts/api_writing_comment_summary.go", Consumer: "internal/api/writing_comment_summary_prompt.go", Text: WritingNoPointNudge},
+		{ID: "api.writingCommentUnparseableNudge", Source: "internal/prompts/api_writing_comment_summary.go", Consumer: "internal/api/writing_comment_summary_prompt.go", Text: WritingCommentUnparseableNudge},
+		{ID: "api.deepenSystem", Source: "internal/prompts/api_writing_deepen.go", Consumer: "internal/api/writing_deepen_prompt.go", Text: DeepenSystem},
+		{ID: "api.writingGuideTeachingRules", Source: "internal/prompts/api_writing_guide.go", Consumer: "internal/api/writing_guide_prompt.go", Text: WritingGuideTeachingRules},
+		{ID: "api.writingGuideQuestionRules", Source: "internal/prompts/api_writing_guide.go", Consumer: "internal/api/writing_guide_prompt.go", Text: WritingGuideQuestionRules},
+		{ID: "api.writingGuideSystem", Source: "internal/prompts/api_writing_guide.go", Consumer: "internal/api/writing_guide_prompt.go", Text: WritingGuideSystem},
+		{ID: "api.writingGuideBatchSystem", Source: "internal/prompts/api_writing_guide.go", Consumer: "internal/api/writing_guide_prompt.go", Text: WritingGuideBatchSystem},
+		{ID: "api.writingPlanSystem", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSystem},
+		{ID: "api.writingPlanArgumentKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanArgumentKinds},
+		{ID: "api.writingPlanNarrativeKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanNarrativeKinds},
+		{ID: "api.writingPlanInviteNudge", Source: "internal/prompts/api_writing_plan_invite.go", Consumer: "internal/api/writing_plan_invite_prompt.go", Text: WritingPlanInviteNudge},
+		{ID: "api.writingPlanMaterialZH", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanMaterialZH},
+		{ID: "api.writingPlanMaterialEN", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanMaterialEN},
+		{ID: "api.writingPlanSkeletonZH", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanSkeletonZH},
+		{ID: "api.writingPlanSkeletonEN", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanSkeletonEN},
+		{ID: "api.writingPlanEnglishArgumentKinds", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanEnglishArgumentKinds},
+		{ID: "api.writingPlanEnglishNarrativeKinds", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanEnglishNarrativeKinds},
+		{ID: "api.writingPlanStalledBlock", Source: "internal/prompts/api_writing_plan_state.go", Consumer: "internal/api/writing_plan_state_prompt.go", Text: WritingPlanStalledBlock},
+		{ID: "api.writingRefusalBlock", Source: "internal/prompts/api_writing_refusal.go", Consumer: "internal/api/writing_refusal_prompt.go", Text: WritingRefusalBlock},
+		{ID: "api.writingRefusalNudge", Source: "internal/prompts/api_writing_refusal.go", Consumer: "internal/api/writing_refusal_prompt.go", Text: WritingRefusalNudge},
+		{ID: "api.writingOpeningSystem", Source: "internal/prompts/api_writing_setup.go", Consumer: "internal/api/writing_setup_prompt.go", Text: WritingOpeningSystem},
+		{ID: "api.writingBroughtOpeningSystem", Source: "internal/prompts/api_writing_setup.go", Consumer: "internal/api/writing_setup_prompt.go", Text: WritingBroughtOpeningSystem},
+		{ID: "api.writingTitleKeywordsSystem", Source: "internal/prompts/api_writing_title.go", Consumer: "internal/api/writing_title_prompt.go", Text: WritingTitleKeywordsSystem},
+		{ID: "api.writingHostileToneNudge", Source: "internal/prompts/api_writing_tone.go", Consumer: "internal/api/writing_tone_prompt.go", Text: WritingHostileToneNudge},
+		{ID: "api.writingRoomHowTo", Source: "internal/prompts/api_writing_turn.go", Consumer: "internal/api/writing_turn_prompt.go", Text: WritingRoomHowTo},
+		{ID: "api.writingCoachGroundingRules", Source: "internal/prompts/api_writing_turn.go", Consumer: "internal/api/writing_turn_prompt.go", Text: WritingCoachGroundingRules},
+		{ID: "awakening.dialogueSystemHead", Source: "internal/prompts/awakening_dialogue.go", Consumer: "internal/awakening/dialogue.go", Text: AwakeningDialogueSystemHead},
+		{ID: "awakening.dialogueSystemRulesHead", Source: "internal/prompts/awakening_dialogue.go", Consumer: "internal/awakening/dialogue.go", Text: AwakeningDialogueSystemRulesHead},
+		{ID: "awakening.dialogueSystemRulesTail", Source: "internal/prompts/awakening_dialogue.go", Consumer: "internal/awakening/dialogue.go", Text: AwakeningDialogueSystemRulesTail},
+		{ID: "awakening.reportSystemPrompt", Source: "internal/prompts/awakening_report.go", Consumer: "internal/awakening/report.go", Text: AwakeningReportSystemPrompt},
+		{ID: "awakening.selectionRules", Source: "internal/prompts/awakening_selection.go", Consumer: "internal/awakening/selection.go", Text: AwakeningSelectionRules},
+		{ID: "awakening.selectionPromptTail", Source: "internal/prompts/awakening_selection.go", Consumer: "internal/awakening/selection.go", Text: AwakeningSelectionPromptTail},
+		{ID: "awakening.selectionPromptHead", Source: "internal/prompts/awakening_selection.go", Consumer: "internal/awakening/selection.go", Text: AwakeningSelectionPromptHead},
+		{ID: "awakening.titleSystemPrompt", Source: "internal/prompts/awakening_title.go", Consumer: "internal/awakening/title.go", Text: AwakeningTitleSystemPrompt},
+		{ID: "interest.digSystemPrompt", Source: "internal/prompts/interest_dig.go", Consumer: "internal/interest/dig.go", Text: InterestDigSystemPrompt},
+		{ID: "interest.harvestSystemPromptHead", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestHarvestSystemPromptHead},
+		{ID: "interest.harvestSelectionRules", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestHarvestSelectionRules},
+		{ID: "interest.quizSelectionRules", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestQuizSelectionRules},
+		{ID: "interest.harvestSystemPromptTail", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestHarvestSystemPromptTail},
+		{ID: "litegrade.systemTemplate", Source: "internal/prompts/litegrade_prompt.go", Consumer: "internal/litegrade/prompt.go", Text: GradingSystemTemplate},
+		{ID: "liteworkspace.assignmentSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherAssignmentSystemTemplate},
+		{ID: "liteworkspace.homeSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherHomeSystemTemplate},
+		{ID: "liteworkspace.reportSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherReportSystemTemplate},
+		{ID: "news.selectSystemPrompt", Source: "internal/prompts/news_select.go", Consumer: "internal/news/select.go", Text: NewsSelectSystemPrompt},
+		{ID: "news.writeSystemPrompt", Source: "internal/prompts/news_write.go", Consumer: "internal/news/write.go", Text: NewsWriteSystemPrompt},
+		{ID: "teachingvoice.Rules", Source: "internal/prompts/teachingvoice_voice.go", Consumer: "internal/teachingvoice/voice.go", Text: TeachingVoiceRules},
+	}
+}

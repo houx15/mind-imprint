@@ -27,8 +27,29 @@ type Collector func(context.Context, gateway.Provider, gateway.Resolved, gateway
 
 func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string) error, collectors ...Collector) {
 	t.Helper()
+	// Capture synthetic fixtures without resolving credentials or calling a provider.
+	if dir := os.Getenv("PROMPT_CAPTURE_DIR"); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.MarshalIndent(struct {
+			Class   string
+			Request gateway.ChatRequest
+		}{class, req}, "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, strings.ReplaceAll(t.Name(), "/", "-")+".json")
+		if err := os.WriteFile(path, body, 0644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	if os.Getenv("CLARITY_LIVE") != "1" {
-		t.Skip("set CLARITY_LIVE=1 for paid synthetic prompt regression")
+		if verifyRequestSnapshot(t, class, req) {
+			return
+		}
+		t.Skip("no offline snapshot; set CLARITY_LIVE=1 for paid synthetic prompt regression")
 	}
 	if path := os.Getenv("CLARITY_ENV_FILE"); path != "" {
 		values, err := godotenv.Read(path)
