@@ -16,13 +16,24 @@ const SECTION_LABELS: Record<ShowcaseKind, string> = {
   project: "项目",
 };
 
-function safeWorkPath(path?: string): string | undefined {
+export function safeShowcaseWorkPath(path?: string): string | undefined {
   if (!path) return undefined;
   return /^\/s\/[A-Za-z0-9_-]+$/.test(path) ? path : undefined;
 }
 
+export function selectedShowcaseWorks(works: ShowcaseWork[], selectedWorkIds: string[]): ShowcaseWork[] {
+  const byId = new Map(works.map((work) => [work.id, work]));
+  const seen = new Set<string>();
+  return selectedWorkIds.flatMap((id) => {
+    if (seen.has(id)) return [];
+    seen.add(id);
+    const work = byId.get(id);
+    return work ? [work] : [];
+  });
+}
+
 function WorkTitle({ work, children }: { work: ShowcaseWork; children: ReactNode }) {
-  const path = work.kind === "project" ? undefined : safeWorkPath(work.publicPath);
+  const path = work.kind === "project" ? undefined : safeShowcaseWorkPath(work.publicPath);
   return path ? <a href={path}>{children}</a> : <>{children}</>;
 }
 
@@ -54,8 +65,8 @@ function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; wor
                 <h3><WorkTitle work={work}>{work.title}</WorkTitle></h3>
                 {work.summary && <p>{work.summary}</p>}
               </div>
-              {work.kind !== "project" && safeWorkPath(work.publicPath) && (
-                <a className="showcase-work-link" href={safeWorkPath(work.publicPath)} aria-label={`打开${work.title}`}>↗</a>
+              {work.kind !== "project" && safeShowcaseWorkPath(work.publicPath) && (
+                <a className="showcase-work-link" href={safeShowcaseWorkPath(work.publicPath)} aria-label={`打开${work.title}`}>↗</a>
               )}
             </article>
           ))}
@@ -70,8 +81,7 @@ export function Showcase({ config, works, narrow = false, editing = false }: Sho
   const [measuredNarrow, setMeasuredNarrow] = useState(false);
   const theme = SHOWCASE_THEMES[config.palette];
   const selected = useMemo(() => {
-    const ids = new Set(config.selectedWorkIds);
-    return works.filter((work) => ids.has(work.id));
+    return selectedShowcaseWorks(works, config.selectedWorkIds);
   }, [config.selectedWorkIds, works]);
 
   useEffect(() => {
@@ -107,7 +117,7 @@ export function Showcase({ config, works, narrow = false, editing = false }: Sho
         {(config.bio || editing) && <p className="showcase-bio">{config.bio || "个人简介将在这里显示。"}</p>}
         {config.interests.length > 0 && (
           <ul className="showcase-interests" aria-label="兴趣">
-            {config.interests.map((interest) => <li key={interest}>{interest}</li>)}
+            {config.interests.map((interest, index) => <li key={`${interest}-${index}`}>{interest}</li>)}
           </ul>
         )}
       </header>
