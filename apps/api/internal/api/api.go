@@ -346,6 +346,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/showcase/publish", liteOnly(a.publishPblShowcase))
 	mux.Handle("DELETE /api/v1/pbl/showcase/publish", liteOnly(a.unpublishPblShowcase))
 	mux.Handle("POST /api/v1/pbl/showcase/images/generate", liteOnly(a.generatePblShowcaseImage))
+	mux.Handle("POST /api/v1/pbl/showcase/images/resolve", liteOnly(a.resolvePblShowcaseImage))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/site-structure", liteOnly(a.applyPblSiteStructure))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
 	mux.Handle("PUT /api/v1/pbl/site/sections/{key}/image", liteOnly(a.putPblSiteSectionImage))

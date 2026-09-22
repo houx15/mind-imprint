@@ -114,6 +114,13 @@ func (s *Service) SignDownload(objectKey string) (string, error) {
 	return s.cdn.SignURL(objectKey, alioss.HTTPGet, int64(presignFallbackTTL.Seconds()))
 }
 
+// SignOriginDownload returns a short-lived URL signed directly against the OSS
+// origin. Showcase images use this while deployments without CDN URL auth are
+// unable to forward SDK-presigned requests through the CDN custom domain.
+func (s *Service) SignOriginDownload(objectKey string) (string, error) {
+	return s.origin.SignURL(objectKey, alioss.HTTPGet, int64(presignFallbackTTL.Seconds()))
+}
+
 // DownloadWindow is how long a SignDownload URL stays valid: the URL鉴权 window
 // when configured, else the presigned fallback TTL. Callers use it to report
 // expiresAt and schedule refresh.

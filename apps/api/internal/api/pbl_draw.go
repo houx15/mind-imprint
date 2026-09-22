@@ -142,6 +142,17 @@ func (a *API) signedOrEmpty(key string) string {
 	return url
 }
 
+func (a *API) signedShowcaseImageOrEmpty(key string) string {
+	if key == "" || a.d.OSS == nil {
+		return ""
+	}
+	url, err := a.d.OSS.SignOriginDownload(key)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
 // Inspect bytes rather than trusting an upstream Content-Type or filename.
 // Limit decoded size before decoding so a small compressed file cannot allocate
 // an arbitrarily large image. Decode also rejects truncated pixel data.

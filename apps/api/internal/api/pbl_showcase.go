@@ -212,10 +212,10 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	active := row.PublishedAt.Valid
 	state := showcaseState{Draft: draft, Revision: row.Revision, Published: active, AvailableWorks: works}
 	if ownShowcaseImage(u.ID, draft.HeroImageKey) {
-		state.HeroImageURL = a.signedOrEmpty(draft.HeroImageKey)
+		state.HeroImageURL = a.signedShowcaseImageOrEmpty(draft.HeroImageKey)
 	}
 	if ownShowcaseImage(u.ID, draft.AvatarKey) {
-		state.AvatarURL = a.signedOrEmpty(draft.AvatarKey)
+		state.AvatarURL = a.signedShowcaseImageOrEmpty(draft.AvatarKey)
 	}
 	if active {
 		var site sqlc.PblSite
@@ -551,7 +551,23 @@ func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]string{"objectKey": key, "url": a.signedOrEmpty(key)})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]string{"objectKey": key, "url": a.signedShowcaseImageOrEmpty(key)})
+}
+
+func (a *API) resolvePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
+	u, _ := UserFromContext(r.Context())
+	var in struct {
+		ObjectKey string `json:"objectKey"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&in); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	if in.ObjectKey == "" || !ownShowcaseImage(u.ID, in.ObjectKey) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片不属于当前账号", nil))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"objectKey": in.ObjectKey, "url": a.signedShowcaseImageOrEmpty(in.ObjectKey)})
 }
 
 func showcaseImageRequest(purpose, studentPrompt string) (string, string) {

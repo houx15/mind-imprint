@@ -32,8 +32,13 @@ func TestShowcaseWorksWithoutHomepageProjectAndChecksRevision(t *testing.T) {
 
 func TestShowcasePublishUsesSnapshotAndRevokePreservesDraft(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
-	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", validShowcase); rec.Code != http.StatusOK {
+	withPrompts := strings.Replace(validShowcase, `"selectedWorkIds":[]`, `"selectedWorkIds":[],"heroImagePrompt":"  my exact hero request  ","avatarImagePrompt":"my exact avatar request"`, 1)
+	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", withPrompts); rec.Code != http.StatusOK {
 		t.Fatalf("save = %d; body=%s", rec.Code, rec.Body)
+	}
+	authDraft := decodeSite(t, siteReq(t, h, cookie, http.MethodGet, "/api/v1/pbl/showcase", ""))["draft"].(map[string]any)
+	if authDraft["heroImagePrompt"] != "  my exact hero request  " || authDraft["avatarImagePrompt"] != "my exact avatar request" {
+		t.Fatalf("authenticated prompts not preserved: %#v", authDraft)
 	}
 	pub := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/publish", `{"expectedRevision":1}`)
 	if pub.Code != http.StatusOK {
@@ -47,6 +52,9 @@ func TestShowcasePublishUsesSnapshotAndRevokePreservesDraft(t *testing.T) {
 	public := siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+token, "")
 	if public.Code != http.StatusOK || !strings.Contains(public.Body.String(), `"showcase":true`) || !strings.Contains(public.Body.String(), `"layout":"studio"`) {
 		t.Fatalf("public showcase = %d; body=%s", public.Code, public.Body)
+	}
+	if strings.Contains(public.Body.String(), "ImagePrompt") || strings.Contains(public.Body.String(), "exact hero request") || strings.Contains(public.Body.String(), "exact avatar request") {
+		t.Fatalf("private image prompt leaked publicly: %s", public.Body)
 	}
 
 	changed := strings.Replace(validShowcase, `"expectedRevision":0`, `"expectedRevision":1`, 1)
@@ -222,6 +230,9 @@ func TestShowcaseRejectsForeignImagesAndBoundsGenerationBeforeProvider(t *testin
 	tooLong := `{"purpose":"hero","prompt":"` + strings.Repeat("画", 2001) + `"}`
 	if rec := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/images/generate", tooLong); rec.Code != http.StatusBadRequest {
 		t.Fatalf("oversized prompt = %d; body=%s", rec.Code, rec.Body)
+	}
+	if rec := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/images/resolve", `{"objectKey":"users/00000000-0000-0000-0000-000000000001/images/x.png"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("foreign image resolve = %d; body=%s", rec.Code, rec.Body)
 	}
 }
 
