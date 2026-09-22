@@ -179,16 +179,15 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
     "--show-accent-ink": theme.accentInk,
     "--show-wash": theme.wash,
     "--show-line": theme.line,
-    "--show-font": SHOWCASE_FONT_STACKS[config.font],
+    "--show-font": SHOWCASE_FONT_STACKS[["rounded", "handwritten", "display"].includes(config.font) ? "sans" : config.font],
   } as CSSProperties;
   const isNarrow = narrow || measuredNarrow;
   const visibleOrder = config.sectionOrder.filter((kind, index, order) => order.indexOf(kind) === index);
 
   return (
     <div ref={rootRef} className="showcase" style={style} data-layout={config.layout} data-style={visualStyle} data-illustration={illustration} data-editing={editing || undefined} data-narrow={isNarrow || undefined}>
-      <header className={`showcase-hero ${heroImageUrl ? "has-cover-art" : ""}`}>
-        {heroArt && <img className={`showcase-hero-art ${heroImageUrl ? "is-cover" : ""}`} src={heroArt} alt="" aria-hidden="true" />}
-        <div className="showcase-orbit" aria-hidden><i /><i /><i /></div>
+      <header className={`showcase-hero ${heroArt ? "has-cover-art" : ""}`}>
+        {heroArt && <img className="showcase-hero-art is-cover" src={heroArt} alt="" aria-hidden="true" />}
         <h1>{config.heroTitle?.trim() || (config.name ? `欢迎来到${config.name}的空间` : editing ? "欢迎来到我的空间" : "")}</h1>
         {(config.tagline || editing) && <p className="showcase-tagline">{config.tagline || "主页介绍"}</p>}
         <a className="showcase-enter" href="#showcase-about">进入我的空间 <span aria-hidden>↓</span></a>
