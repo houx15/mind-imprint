@@ -202,6 +202,7 @@ export function WritingPromptLibraryPage() {
                   {data.recommended.map((r) => (
                     <PromptCard
                       key={`rec:${r.prompt.id}`}
+                      recommended
                       prompt={r.prompt}
                       busy={busy}
                       onStart={(id) => void start(id)}

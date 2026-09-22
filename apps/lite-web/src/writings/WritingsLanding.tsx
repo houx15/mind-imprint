@@ -313,6 +313,7 @@ export function WritingsLanding() {
                 {recommended.map((p) => (
                   <PromptCard
                     key={p.id}
+                    recommended
                     prompt={p}
                     busy={startingPrompt}
                     onStart={(id) => void startFromPrompt(id)}
@@ -332,7 +333,7 @@ export function WritingsLanding() {
           )}
 
           {(!recommended || recommended.length === 0) && (
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="writing-topic-fallback mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {WRITING_TOPICS.map((topic, i) => (
                 <PromptTile
                   key={topic.id}

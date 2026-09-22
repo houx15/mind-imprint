@@ -1,0 +1,32 @@
+/* Shared prompt cards: original text, source and constraints retain their data. */
+.writing-library-card { min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--mk-border); border-radius: 7px 20px 20px 20px; background: var(--mk-surface); box-shadow: 0 3px 10px color-mix(in srgb, var(--mk-ink) 4%, transparent); overflow: hidden; transition: border-color .18s, box-shadow .18s; }
+.writing-library-card:hover, .writing-library-card:focus-within { border-color: var(--mk-accent-300); box-shadow: 0 8px 24px color-mix(in srgb, var(--mk-ink) 7%, transparent); }
+.writing-library-card__header { display: flex; align-items: center; gap: 12px; padding: 22px 22px 18px; }
+.writing-library-card__mark { display: grid; place-items: center; width: 40px; height: 44px; flex: none; border: 1px solid var(--mk-accent-200); border-radius: 8px 8px 14px 4px; color: var(--mk-accent-700); background: var(--mk-accent-50); }
+.writing-library-card__identity { min-width: 0; flex: 1; }
+.writing-library-card__identity h3 { margin: 0 0 5px; color: var(--mk-ink); font-size: 17px; font-weight: 600; }
+.writing-library-card__identity > span { color: var(--mk-muted); font-size: 11px; line-height: 1.5; }
+.writing-library-card__recommend { align-self: flex-start; padding: 4px 8px; border-radius: 20px; background: var(--mk-accent-50); color: var(--mk-accent-700); font-size: 11px; white-space: nowrap; }
+.writing-library-card__body { padding: 0 22px; }
+.writing-library-card__kind { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-top: 16px; border-top: 1px solid var(--mk-border); color: var(--mk-muted); font-size: 11px; line-height: 1.6; }
+.writing-library-card__kind > span:last-child { flex-shrink: 0; }
+.writing-library-card__text { margin: 12px 0 0; color: var(--mk-ink); font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.writing-library-card__expand { display: inline-flex; align-items: center; gap: 5px; margin: 10px 0 0; padding: 4px 0; color: var(--mk-accent-700); font-size: 12px; background: none; cursor: pointer; }
+.writing-library-card__expand:hover { text-decoration: underline; text-underline-offset: 4px; }
+.writing-library-card__topics { display: flex; flex-wrap: wrap; gap: 5px 12px; list-style: none; padding: 0; margin: 16px 0 20px; color: var(--mk-muted); font-size: 11px; }
+.writing-library-card__topics li::before { content: "#"; margin-right: 3px; color: var(--mk-accent-700); }
+.writing-library-card__bottom { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; margin-top: auto; padding: 18px 22px 22px; }
+.writing-library-card__requirements { display: flex; flex-wrap: wrap; gap: 12px 22px; width: 100%; padding: 14px 0 0; margin: 0; border-top: 1px dashed var(--mk-border); }
+.writing-library-card__requirements div { min-width: 0; }
+.writing-library-card__requirements dt { color: var(--mk-muted); font-size: 10px; margin-bottom: 5px; }
+.writing-library-card__requirements dd { margin: 0; color: var(--mk-ink); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.writing-library-card__source { margin: 0; color: var(--mk-muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.writing-library-card__bottom > button { align-self: stretch; justify-content: space-between; }
+.writing-library-card.is-recommended { background: linear-gradient(140deg, var(--mk-accent-50), var(--mk-surface) 48%); border-color: color-mix(in srgb, var(--mk-accent-500) 28%, var(--mk-border)); }
+.writing-library-card :is(button):focus-visible { outline: 2px solid var(--mk-accent-700); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .writing-library-card { transition: none; } }
+
+.writing-library-card__text:not(.is-open) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
+
+.writing-topic-fallback > button { padding: 22px; gap: 14px; border-radius: 7px 20px 20px 20px; box-shadow: 0 3px 10px color-mix(in srgb, var(--mk-ink) 4%, transparent); }
+.writing-topic-fallback > button > span:last-child { line-height: 1.8; }
