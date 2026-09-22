@@ -64,7 +64,11 @@ test("带读: 印记 plans the route and leads, and she administrates none of it
   await startReading(page, titled("带读走查"));
 
   // The invitation, before anything has been spent.
-  await expect(page.getByText("让我来带你详细读一遍这篇文章。")).toBeVisible();
+  // 🚨 这里原来钉的是那句邀请语（「让我来带你详细读一遍这篇文章。」）。
+  // 2026-09-22 的文案改版把它换成了一个名词标题「阅读引导」——界面文案规则 1
+  // （标签是名词，不是句子），改得对。
+  // 钉不变的那一截：**那块邀请还在，而且它带着一颗「开始」**。
+  await expect(page.getByText("阅读引导")).toBeVisible();
   const start = page.getByRole("button", { name: "开始", exact: true });
   await expect(start).toBeVisible();
 
@@ -372,7 +376,9 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
   await expect(page.getByText(`“${quote}”`)).toBeVisible();
 
   await page.getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/).fill("这句提到具体国家了吗？");
-  await page.getByRole("button", { name: "发送" }).click();
+  // 🚨 exact：划选工具条那一轮之后，页面上还有一颗「发送 1 处引文 →」，
+  // 裸名字会 strict mode 撞车。
+  await page.getByRole("button", { name: "发送", exact: true }).click();
 
   await expect.poll(() => captured.body).not.toBeNull();
   // The structured field, not just the inlined blockquote in `text`.
