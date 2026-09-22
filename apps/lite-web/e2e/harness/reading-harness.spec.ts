@@ -76,17 +76,15 @@ test("点开是展开视图：这一步、它的说明、定位原文、十五�
   expect(wb.y).toBeGreaterThanOrEqual(discBox.y + discBox.height - 1);
   expect(tabsBox).toBeTruthy();
 
-  // 十五个圆点都在，而且那一排是**横向滚**，不是把框撑破。
-  //
-  // 🚨 这条第一版写的是「最后一颗圆点在框里面」—— 那是在钉一件设计从来
-  // 没有承诺过的事：十五颗圆点本来就摆不下，那一排一直是 `overflow-x: auto`
-  // （产品负责人那张截图里它就停在 13）。判据要钉真失败（框被撑破），
-  // 不是它的影子。
+  // Every step wraps inside the panel; the final step must not be clipped.
   const dots = wide.locator(".mk-planwide__path li");
   await expect(dots).toHaveCount(15);
-  const path = wide.locator(".mk-planwide__path");
-  const scrolls = await path.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
-  expect(scrolls, "那一排该是横向滚的").toBe(true);
+  for (const dot of await dots.all()) {
+    const box = (await dot.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(wb.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(wb.x + wb.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(wb.y + wb.height);
+  }
 
   await wide.getByRole("button", { name: /定位原文/ }).click();
   await expect(page.getByTestId("log")).toContainText("定位原文 → b10");
@@ -157,4 +155,19 @@ test("阅读成果里的我摘抄的：回原文 + 和印记说", async ({ page 
   await expect(log).toContainText("和印记说 b3");
 
   await page.screenshot({ path: `${OUT}/read-05-harvest.png`, fullPage: true });
+});
+
+// Measured browser bounds catch off-screen controls that jsdom cannot see.
+test("选区靠近视口边缘时，整条工具条仍可使用", async ({ page }) => {
+  for (const [x, y] of [[8, 100], [1278, 815]]) {
+    await page.goto(`/reading.html?x=${x}&y=${y}`);
+    const bar = page.locator(".mk-seltools").first();
+    await expect(bar).toBeVisible();
+    const box = (await bar.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(7);
+    expect(box.x + box.width).toBeLessThanOrEqual(1273);
+    expect(box.y + box.height).toBeLessThanOrEqual(813);
+    await bar.getByRole("button", { name: "摘抄", exact: true }).click();
+    await expect(page.getByTestId("log")).toContainText("摘抄");
+  }
 });

@@ -1,3 +1,5 @@
+import { Bookmark, ArrowUpRight, MessageSquareQuote } from "lucide-react";
+import { Icon } from "@/ui";
 import type { LiteAnnotation, LiteMessage, ReadingBlockNote, ReadingWord } from "@lite/api/readingRoom";
 import { coachAnswerOf, coachCardOf } from "@lite/api/readingRoom";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
@@ -168,14 +170,16 @@ export function ReadingHarvest({
   return (
     <div className="mk-harvest">
       {excerpts.length > 0 && (
-        <Section title="我的摘抄" hint="阅读时保存的原文摘抄。">
+        <Section title="我的摘抄" hint={`已保存 ${excerpts.length} 条原文摘抄`}>
           {excerpts.map((e) => {
             const ord = ordinalOf?.(e.blockId) ?? 0;
             return (
-              <div key={e.id} className="mk-harvest__item">
+              <div key={e.id} className="mk-harvest__item mk-harvest__clipping">
+                <div className="mk-harvest__source"><Icon icon={Bookmark} size={13} />原文摘抄{ord > 0 && <span>第 {ord} 段</span>}</div>
                 <blockquote className="mk-harvest__excerpt">{e.quote}</blockquote>
                 <div className="mk-harvest__acts">
                   <button type="button" className="mk-harvest__locate" onClick={() => onLocate(e.blockId)}>
+                    <Icon icon={ArrowUpRight} size={13} />
                     {ord > 0 ? `回到第 ${ord} 段` : "回到原文"}
                   </button>
                   {onDiscuss && (
@@ -184,6 +188,7 @@ export function ReadingHarvest({
                       className="mk-harvest__locate"
                       onClick={() => onDiscuss(e.blockId, e.quote)}
                     >
+                      <Icon icon={MessageSquareQuote} size={13} />
                       讨论这句
                     </button>
                   )}

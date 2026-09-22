@@ -73,3 +73,8 @@
   .writing-compose .writing-compose__columns { grid-template-columns: minmax(0, 1fr) 270px; }
   .writing-snippets > .writing-guidance { width: clamp(240px, 20vw, 290px); }
 }
+
+/* The assigned prompt remains a readable reference beside the working area. */
+.writing-prompt-rail { background: var(--mk-surface); }
+.writing-prompt-rail .writing-prompt-rail__text { padding: 18px 18px 16px; font-size: 13px; line-height: 1.95; overflow-wrap: anywhere; }
+.writing-prompt-rail .writing-prompt-rail__target { margin: 0 18px 18px; padding: 12px 0 0; border-top: 1px solid var(--mk-border); font-variant-numeric: tabular-nums; }

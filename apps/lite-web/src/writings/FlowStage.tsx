@@ -208,7 +208,7 @@ export function FlowStage({
                         眼里是同一句话。它讲的是别的题目，不是她的。 */}
                     {s.example && (
                       <span
-                        className="mt-1 border-l pl-2 text-mk-small text-mk-faint"
+                        className="writing-structure__example"
                         style={{ borderColor: "var(--mk-border)" }}
                       >
                         比如：{s.example}

@@ -296,15 +296,13 @@ describe("ReadingPlanDial · 它是进度，不是控制台", () => {
   it("🚨 展开视图上那排圆点也不许是按钮", () => {
     // 被它顶掉的 `StepIndicator` 里，这一排圆点**是** <button>，点开一张
     // 「任务预览」浮层。搬过来的时候它们改成了 <span>：她不操作步骤。
-    // 展开视图上唯一那颗按钮是「定位原文」—— 那是滚动，不是阶段管理。
+    // 定位和收起都只是显示操作，路线上的步骤仍不可手动更改。
     const plan = PLAN.map((t) => (t.id === "t2" ? { ...t, blockId: "b3" } : t));
     const { container } = render(<ReadingPlanDial tasks={plan} onLocate={() => {}} />);
     fireEvent.click(container.querySelector(".mk-plandial__disc")!);
 
     const path = container.querySelector(".mk-planwide__path")!;
     expect(path.querySelectorAll("button, a, input, [role='button']")).toHaveLength(0);
-    // 盘 + 定位原文，就这两颗。
-    expect(container.querySelectorAll("button")).toHaveLength(2);
   });
 
   it("不许出现任何读起来像分数、评级或者连胜的东西", () => {

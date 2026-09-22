@@ -435,8 +435,9 @@
   position: relative;
   display: grid;
   /* 页签行里的一格，不再是浮在房间角上的那颗 54px 大钮。 */
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--mk-accent-500) 28%, var(--mk-border));
   border-radius: 999px;
   background: radial-gradient(
@@ -1174,7 +1175,7 @@
   margin-top: 10px;
 }
 
-.mk-lite-coachtabs button {
+.mk-lite-coachtabs > button[role="tab"] {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1191,12 +1192,12 @@
     background 120ms ease;
 }
 
-.mk-lite-coachtabs button:hover {
+.mk-lite-coachtabs > button[role="tab"]:hover {
   color: var(--mk-accent-700);
   background: var(--mk-accent-50);
 }
 
-.mk-lite-coachtabs button.is-active {
+.mk-lite-coachtabs > button[role="tab"].is-active {
   color: var(--mk-accent-700);
   background: var(--mk-accent-50);
   font-weight: 600;
@@ -2944,11 +2945,15 @@
   border-radius: var(--mk-radius-full);
   background: var(--mk-surface);
   box-shadow: 0 6px 18px rgba(31, 37, 48, 0.16);
-  transform: translateX(-50%);
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
 }
 
 .mk-seltools__btn {
-  padding: 3px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
   border: none;
   border-radius: var(--mk-radius-full);
   background: transparent;
@@ -3109,8 +3114,19 @@
 
 .mk-harvest__acts {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding-top: 10px;
+  margin-top: 12px;
+  border-top: 1px solid var(--mk-border);
 }
+.mk-harvest__clipping { padding: 16px; border-radius: 4px 14px 14px 14px; background: linear-gradient(135deg, var(--mk-accent-50), var(--mk-surface) 55%); }
+.mk-harvest__source { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; color: var(--mk-accent-700); font-size: 11px; }
+.mk-harvest__source span { margin-left: auto; color: var(--mk-muted); }
+.mk-harvest__clipping .mk-harvest__excerpt { border: 0; padding: 0; font-size: 15px; line-height: 1.85; overflow-wrap: anywhere; }
+.mk-harvest__acts .mk-harvest__locate { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.mk-seltools__btn:focus-visible, .mk-planwide button:focus-visible, .mk-harvest__locate:focus-visible { outline: 2px solid var(--mk-accent-700); outline-offset: 2px; }
+
 
 /* 报告上「全文总结」那一节（ReportView 的 Summary，2026-09-18）。 */
 .mk-rp-summary {
