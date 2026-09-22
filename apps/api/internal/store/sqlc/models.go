@@ -1032,6 +1032,14 @@ type PblSiteRef struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type PblStepSubmission struct {
+	ID          uuid.UUID `json:"id"`
+	StepID      uuid.UUID `json:"step_id"`
+	Note        string    `json:"note"`
+	Url         string    `json:"url"`
+	ConfirmedAt time.Time `json:"confirmed_at"`
+}
+
 type PblSubstep struct {
 	ID             uuid.UUID          `json:"id"`
 	StepID         uuid.UUID          `json:"step_id"`

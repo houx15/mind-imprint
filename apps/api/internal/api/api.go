@@ -373,6 +373,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan", liteOnly(a.proposePblPlan))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/approve", liteOnly(a.approvePblPlan))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/plan/steps/{sid}", liteOnly(a.setPblStepStatus))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/steps/{sid}/submission", liteOnly(a.submitPblStepDeliverable))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes", liteOnly(a.stagePblChange))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes/{cid}/resolve", liteOnly(a.resolvePblChange))
 	// 成果：交出来要说清楚猜了什么、哪里不对；落地要说得出理由。

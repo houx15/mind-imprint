@@ -2,7 +2,9 @@ import { Says, errorMarkdown } from "./Says";
 import { executionStatus, executionLabel } from "./stepProgress";
 import { ProjectProgressVisual } from "./ProjectProgressVisual";
 import { apiErrorText } from "../api/errorText";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { GrowingTextarea } from "../shared/GrowingTextarea";
+import { beforeNavigate } from "../routing";
 import {
   PLAN_DECISIONS,
   PLAN_RESOLUTION_LABELS,
@@ -26,12 +28,14 @@ export function PlanPanel({
   pending,
   onResolve,
   onApprove,
+  onSubmit,
   busy = false,
 }: {
   plan: Plan | null;
   pending: PendingChange[];
   onResolve: (id: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
+  onSubmit: (stepId: string, note: string, url: string) => Promise<void>;
   busy?: boolean;
 }) {
   // Plan Check takes the panel over rather than popping up. A popup says
@@ -71,7 +75,7 @@ export function PlanPanel({
         <ProjectProgressVisual steps={plan.steps} showSteps={false} />
         <ol className="project-plan-steps flex flex-col gap-3">
           {plan.steps.map((s) => (
-            <StepRow key={s.id} step={s} />
+            <StepRow key={s.id} step={s} approved={!unapproved} busy={busy} onSubmit={onSubmit} />
           ))}
         </ol>
       </div>
@@ -95,8 +99,22 @@ export function PlanPanel({
   );
 }
 
-function StepRow({ step }: { step: PlanStep }) {
+function StepRow({ step, approved, busy, onSubmit }: { step: PlanStep; approved: boolean; busy: boolean; onSubmit: (stepId: string, note: string, url: string) => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const [note, setNote] = useState(step.submission?.note ?? "");
+  const [url, setURL] = useState(step.submission?.url ?? "");
+  const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const dirty = note !== (step.submission?.note ?? "") || url !== (step.submission?.url ?? "");
+  useEffect(() => {
+    if (!dirty) return;
+    return beforeNavigate(async () => {
+      const message = "请先提交或清除当前产出草稿，再离开项目。";
+      setSubmitError(message);
+      throw new Error(message);
+    });
+  }, [dirty]);
   // The two waiting states are the reason the vocabulary has seven entries:
   // they let the plan say WHY nothing is moving. They must not look like the
   // others.
@@ -139,6 +157,30 @@ function StepRow({ step }: { step: PlanStep }) {
           {step.youBring && <Owned who="你" value={step.youBring} />}
           {step.decide && <Line label="判断" value={step.decide} />}
           {step.thenBring && <Line label="产出" value={step.thenBring} />}
+          {step.submission && (
+            <div className="mt-3 rounded-mk-md bg-mk-paper p-3">
+              <p className="text-mk-label uppercase text-mk-faint">已提交产出</p>
+              {step.submission.note && <p className="mt-1 whitespace-pre-wrap text-mk-small text-mk-ink">{step.submission.note}</p>}
+              {step.submission.url && <a className="mt-1 block break-all text-mk-small underline" href={step.submission.url} target="_blank" rel="noreferrer">打开链接</a>}
+              <p className="mt-1 text-mk-label text-mk-muted">由你确认完成，尚未经审核</p>
+            </div>
+          )}
+          {approved && step.status !== "cancelled" && (
+            <div className="mt-3 border-t border-mk-border pt-3">
+              <p className="text-mk-label uppercase text-mk-faint">{step.submission ? "更新产出" : "提交产出"}</p>
+              <GrowingTextarea aria-label="产出说明" value={note} disabled={busy || submitting} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="产出说明" className="mt-2 w-full rounded-mk-md border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-small" />
+              <input aria-label="产出链接" value={url} disabled={busy || submitting} onChange={(e) => setURL(e.target.value)} placeholder="产出链接（可选）" className="mt-2 w-full rounded-mk-md border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-small" />
+              <p className="mt-1 text-mk-label text-mk-muted">可以提交在外部编程 Agent 或其他工具中完成的内容，不需要导入或同步。</p>
+              <label className="mt-2 flex items-start gap-2 text-mk-small text-mk-secondary"><input type="checkbox" disabled={busy || submitting} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />我确认这是本步实际完成的产出</label>
+              {submitError && <div role="alert" className="mt-2 text-mk-small" style={{ color: "var(--mk-danger)" }}><Says content={errorMarkdown(submitError)} /></div>}
+              <button type="button" disabled={busy || submitting || !confirmed || (!note.trim() && !url.trim()) || !dirty} onClick={async () => {
+                setSubmitting(true); setSubmitError(null);
+                try { await onSubmit(step.id, note.trim(), url.trim()); }
+                catch (err) { setSubmitError(apiErrorText(err)); }
+                finally { setSubmitting(false); }
+              }} className="mt-3 rounded-mk-full bg-mk-accent-500 px-4 py-2 text-mk-small font-semibold text-white disabled:opacity-40">{submitting ? "提交中" : step.submission ? "更新产出" : "提交产出"}</button>
+            </div>
+          )}
         </div>
       )}
     </li>

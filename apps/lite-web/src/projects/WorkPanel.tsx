@@ -36,6 +36,7 @@ export function WorkPanel({
   onOpenSession,
   onResolve,
   onApprove,
+  onSubmit,
   onOpenMaterial,
   busy,
 }: {
@@ -58,6 +59,7 @@ export function WorkPanel({
   onOpenMaterial: (tool: ToolInstance) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
+  onSubmit: (stepId: string, note: string, url: string) => Promise<void>;
   busy?: boolean;
 }) {
   // 标签页只给当场做的工具。出门的那些不占标签——她人不在，一个空着的标签
@@ -114,6 +116,7 @@ export function WorkPanel({
                 pending={plan.pending}
                 onResolve={onResolve}
                 onApprove={onApprove}
+                onSubmit={onSubmit}
                 busy={busy}
               />
             </div>

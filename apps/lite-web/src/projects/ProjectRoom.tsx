@@ -13,6 +13,7 @@ import {
   postTurn,
   resolveChange,
   approvePlan,
+  submitStepDeliverable,
   sessionTrail,
   SESSION_KIND_LABELS,
   SESSION_REQUIRED_FIELD,
@@ -376,6 +377,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     }
   }
 
+  async function onSubmitStep(stepId: string, note: string, url: string) {
+    await submitStepDeliverable(projectId, stepId, { note, url, confirmed: true });
+    setPlan(await getPlan(projectId));
+  }
+
   /* ── 工具 ─────────────────────────────────────────────────────────────
    *
    * 打开一件当场做的工具，右边就切过去；打开一件出门做的，什么也不弹——她
@@ -715,6 +721,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           onOpenSession={enterSession}
           onResolve={onResolve}
             onApprove={onApprove}
+            onSubmit={onSubmitStep}
             onOpenMaterial={(t) => {
               void afterDraftSave(() => {
               // 放进列表（已经在里面就替换），再选中。同步做完，右栏立刻有东西。

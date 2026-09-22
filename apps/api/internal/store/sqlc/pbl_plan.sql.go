@@ -124,6 +124,31 @@ func (q *Queries) CreatePblPlanVersion(ctx context.Context, arg CreatePblPlanVer
 	return i, err
 }
 
+const createPblStepSubmission = `-- name: CreatePblStepSubmission :one
+INSERT INTO pbl_step_submission (step_id, note, url)
+VALUES ($1, $2, $3)
+RETURNING id, step_id, note, url, confirmed_at
+`
+
+type CreatePblStepSubmissionParams struct {
+	StepID uuid.UUID `json:"step_id"`
+	Note   string    `json:"note"`
+	Url    string    `json:"url"`
+}
+
+func (q *Queries) CreatePblStepSubmission(ctx context.Context, arg CreatePblStepSubmissionParams) (PblStepSubmission, error) {
+	row := q.db.QueryRow(ctx, createPblStepSubmission, arg.StepID, arg.Note, arg.Url)
+	var i PblStepSubmission
+	err := row.Scan(
+		&i.ID,
+		&i.StepID,
+		&i.Note,
+		&i.Url,
+		&i.ConfirmedAt,
+	)
+	return i, err
+}
+
 const getPblLivePlan = `-- name: GetPblLivePlan :one
 SELECT id, atom_id, version, summary, reason, decided_by, approved_at, created_at FROM pbl_plan_version
 WHERE atom_id = $1 AND approved_at IS NOT NULL
@@ -251,6 +276,40 @@ func (q *Queries) GetPblShownPlan(ctx context.Context, atomID uuid.UUID) (PblPla
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listLatestPblStepSubmissions = `-- name: ListLatestPblStepSubmissions :many
+SELECT DISTINCT ON (s.step_id) s.id, s.step_id, s.note, s.url, s.confirmed_at
+FROM pbl_step_submission s
+JOIN pbl_plan_step step ON step.id = s.step_id
+WHERE step.version_id = $1
+ORDER BY s.step_id, s.confirmed_at DESC
+`
+
+func (q *Queries) ListLatestPblStepSubmissions(ctx context.Context, versionID uuid.UUID) ([]PblStepSubmission, error) {
+	rows, err := q.db.Query(ctx, listLatestPblStepSubmissions, versionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PblStepSubmission
+	for rows.Next() {
+		var i PblStepSubmission
+		if err := rows.Scan(
+			&i.ID,
+			&i.StepID,
+			&i.Note,
+			&i.Url,
+			&i.ConfirmedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPblDecisions = `-- name: ListPblDecisions :many
