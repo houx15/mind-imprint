@@ -5,9 +5,11 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
+	"log/slog"
 	"strconv"
 	"strings"
 
+	"mindimprint/api/internal/guidance"
 	"mindimprint/api/internal/promptassembly"
 	"mindimprint/api/internal/prompts"
 	"mindimprint/api/internal/store/sqlc"
@@ -43,28 +45,29 @@ const writingPlanNarrativeKinds = prompts.WritingPlanNarrativeKinds
 // guidance. strange」。
 //
 // 🚨 印记仍然用中文跟她说话 —— 换掉的是教的内容，不是说话的语言。
+//
+// 2026-09-22：选哪一段由 internal/guidance 决定，这里只负责把取回来的几段
+// 填进模板。正文一个字没动。
 func writingPlanSystemFor(genre string, lang string) string {
+	k := guidance.Key{Surface: guidance.SurfaceWrite, Lang: lang, Genre: genre}
+	parts, err := guidance.Default().Resolve(k,
+		guidance.SlotKinds, guidance.SlotMaterial, guidance.SlotSkeleton)
+	if err != nil {
+		// 🚨 退到中文议论文那一套，而不是发一份带着 @@KINDS@@ 的提示词出去。
+		// 登记漏了是我们的 bug，但她那一轮仍然要有一个能用的老师。
+		slog.Error("writing plan guidance missing, falling back", "err", err,
+			"lang", lang, "genre", genre)
+		parts = map[guidance.Slot]string{
+			guidance.SlotKinds:    writingPlanArgumentKinds,
+			guidance.SlotMaterial: writingPlanMaterialZH,
+			guidance.SlotSkeleton: writingPlanSkeletonZH,
+		}
+	}
+
 	english := lang == langEnglish
-	narrative := genre == genreNarrative
-
-	kinds := writingPlanArgumentKinds
-	switch {
-	case english && narrative:
-		kinds = writingPlanEnglishNarrativeKinds
-	case english:
-		kinds = writingPlanEnglishArgumentKinds
-	case narrative:
-		kinds = writingPlanNarrativeKinds
-	}
-
-	material, skeleton := writingPlanMaterialZH, writingPlanSkeletonZH
-	if english {
-		material, skeleton = writingPlanMaterialEN, writingPlanSkeletonEN
-	}
-
-	s := strings.Replace(writingPlanSystem, "@@KINDS@@", kinds, 1)
-	s = strings.Replace(s, "@@MATERIAL@@", material, 1)
-	s = strings.Replace(s, "@@SKELETON@@", skeleton, 1)
+	s := strings.Replace(writingPlanSystem, "@@KINDS@@", parts[guidance.SlotKinds], 1)
+	s = strings.Replace(s, "@@MATERIAL@@", parts[guidance.SlotMaterial], 1)
+	s = strings.Replace(s, "@@SKELETON@@", parts[guidance.SlotSkeleton], 1)
 	s = strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
 	if english {
 		s += "\n这篇是英文写作。讨论图中已有内容时，请使用与该节点对应的英文术语并解释其作用，例如 topic sentence 或 commentary。节点 text 必须使用英文，对话 reply 用中文。计划检查中的中文标签只是计数名称，不覆盖这些教学术语。\n"
