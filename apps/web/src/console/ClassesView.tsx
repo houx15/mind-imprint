@@ -6,6 +6,17 @@ import { Button, Input, Select, Surface } from "@/ui";
 
 type Client = Pick<ApiClient, "listClasses" | "createClass" | "listTeachers">;
 
+// 与后端闭表（apps/api/internal/api/class_grade.go）一致；第一项代表「不填」。
+const GRADE_OPTIONS = [
+  { value: "", label: "未填写" },
+  { value: "junior1", label: "初一" },
+  { value: "junior2", label: "初二" },
+  { value: "junior3", label: "初三" },
+  { value: "senior1", label: "高一" },
+  { value: "senior2", label: "高二" },
+  { value: "senior3", label: "高三" },
+];
+
 export function ClassesView({
   client,
   role,
@@ -28,6 +39,7 @@ export function ClassesView({
   const [lastCreated, setLastCreated] = useState<ClassSummary | null>(null);
   const [teachers, setTeachers] = useState<Teacher[] | null>(null);
   const [teacherId, setTeacherId] = useState("");
+  const [grade, setGrade] = useState("");
 
   const isTeacher = role === "teacher";
   const isAdmin = role === "admin";
@@ -56,11 +68,14 @@ export function ClassesView({
     setBusy(true);
     setError(null);
     try {
-      const input = isAdmin ? { name: trimmed, teacher_user_id: teacherId } : { name: trimmed };
+      const input = isAdmin
+        ? { name: trimmed, teacher_user_id: teacherId, grade }
+        : { name: trimmed, grade };
       const c = await client.createClass(input);
       setLastCreated(c);
       setName("");
       setTeacherId("");
+      setGrade("");
       setCreating(false);
       load();
     } catch (e) {
@@ -116,8 +131,17 @@ export function ClassesView({
                 />
               </div>
             )}
+            <div style={{ minWidth: 140 }}>
+              <Select
+                data-testid="grade-picker"
+                value={grade}
+                onChange={setGrade}
+                placeholder="年级"
+                options={GRADE_OPTIONS}
+              />
+            </div>
             <Button onClick={() => void submit()} disabled={busy || (isAdmin && !teacherId)}>创建</Button>
-            <Button variant="ghost" onClick={() => { setCreating(false); setName(""); setTeacherId(""); }}>取消</Button>
+            <Button variant="ghost" onClick={() => { setCreating(false); setName(""); setTeacherId(""); setGrade(""); }}>取消</Button>
             {adminNoTeachers && (
               <div style={{ flexBasis: "100%", color: "var(--mk-danger)", fontSize: 13, fontWeight: 600 }}>请先在「教师」生成邀请码，邀请教师注册后再建班。</div>
             )}
@@ -170,7 +194,12 @@ export function ClassesView({
                 style={{ padding: "18px 20px", cursor: "pointer" }}
               >
                 {studioArtwork && <div className="teacher-card-index"><span>班级 {String(index + 1).padStart(2, "0")}</span><span className="teacher-card-open">进入班级 <span aria-hidden="true">→</span></span></div>}
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--mk-ink)", lineHeight: 1.45 }}>{c.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--mk-ink)", lineHeight: 1.45 }}>
+                  {c.name}
+                  {c.grade_label && (
+                    <span style={{ marginLeft: 8, fontSize: 12.5, fontWeight: 600, color: "var(--mk-muted)" }}>{c.grade_label}</span>
+                  )}
+                </div>
                 {renderClassPreview?.(c.id)}
                 <div className={studioArtwork ? "teacher-class-meta" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
                   <span style={{ fontSize: 12.5, color: "var(--mk-muted)", fontWeight: 600 }}>邀请码 {c.join_code}</span>

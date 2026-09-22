@@ -5,7 +5,7 @@ import { ClassesView } from "@/console/ClassesView";
 import type { ClassSummary } from "@/api";
 
 const cls = (over: Partial<ClassSummary> = {}): ClassSummary => ({
-  id: "c1", name: "11 年级 A · TOK", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z", ...over,
+  id: "c1", name: "11 年级 A · TOK", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z", grade: "", grade_label: "", ...over,
 });
 
 describe("ClassesView", () => {

@@ -6,6 +6,8 @@ export interface ClassSummary {
   join_code: string;
   school_id: string;
   created_at: string;
+  grade: string;
+  grade_label: string;
 }
 
 export interface RosterStudent {
@@ -35,9 +37,10 @@ export async function listClasses(): Promise<ClassSummary[]> {
   return r.classes;
 }
 
-export async function createClass(input: { name: string; teacher_user_id?: string }): Promise<ClassSummary> {
+export async function createClass(input: { name: string; teacher_user_id?: string; grade?: string }): Promise<ClassSummary> {
   const body: Record<string, unknown> = { name: input.name };
   if (input.teacher_user_id) body.teacher_user_id = input.teacher_user_id;
+  if (input.grade) body.grade = input.grade;
   const r = await apiFetch<{ class: ClassSummary }>("/api/v1/classes", {
     method: "POST",
     body: JSON.stringify(body),

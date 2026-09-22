@@ -7,7 +7,7 @@ import type { WeeklyReport } from "@/api/teacher";
 import { ApiError } from "@/api";
 
 const detail = (over: Partial<ClassDetail> = {}): ClassDetail => ({
-  class: { id: "c1", name: "11 年级 A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z" },
+  class: { id: "c1", name: "11 年级 A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z", grade: "", grade_label: "" },
   roster: [
     { id: "u1", display_name: "Phoebe", email: "p@d", last_active_at: "2026-06-26T10:00:00Z", project_count: 3, evaluation_count: 1, card_count: 7 },
     { id: "u2", display_name: "Mia", email: "m@d", last_active_at: null, project_count: 0, evaluation_count: 0, card_count: 0 },
