@@ -141,7 +141,7 @@ export function ReportView({
                             ? "color-mix(in srgb, var(--mk-lake) 16%, transparent)"
                             : "color-mix(in srgb, var(--mk-accent-400) 18%, transparent)",
                         color:
-                          w.verdict === "confirm" ? "var(--mk-lake)" : "var(--mk-accent-600)",
+                          w.verdict === "confirm" ? "var(--mk-lake)" : "var(--mk-accent-700)",
                       }}
                     >
                       {w.verdict === "confirm" ? REPORT.confirmTag : REPORT.growTag}
@@ -303,7 +303,7 @@ export function ReportView({
           onClick={() => void doExport()}
           disabled={exporting}
           className="rounded-mk-full border px-5 py-2 text-mk-body transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]"
-          style={{ borderColor: "var(--mk-accent-300)", color: "var(--mk-accent-500)" }}
+          style={{ borderColor: "var(--mk-accent-300)", color: "var(--mk-accent-700)" }}
         >
           {exporting ? REPORT.exporting : REPORT.exportImage}
         </button>

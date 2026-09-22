@@ -247,7 +247,7 @@ export function TreeView({
               （服务端给同一个词再添一条来源，强度上升），不是清空重来。
               和空树上那条邀请一样，状态未知（null）时不显示。
               🚨 只读（教师）视角下整个入口收起——这是学生自己的测试。 */}
-          {!readOnly && quizTaken !== null && live.status !== "empty" ? (
+          {!readOnly && quizTaken !== null && (live.status !== "empty" || quizTaken) ? (
             <button
               type="button"
               onClick={openQuiz}
@@ -294,7 +294,7 @@ export function TreeView({
       </header>
 
       <div className="tree-orientation">
-        <p><strong>查看兴趣来源</strong><span>点击树上的关键词，查看相关原话与学习记录。{!readOnly && "想探索新方向，可以进入兴趣测试。"}</span></p>
+        <p><strong>兴趣来源</strong><span>{known && total > 0 ? "点击树上的关键词，查看相关原话与学习记录。" : "完成的阅读、写作和项目会记录在兴趣树中。"}{!readOnly && "兴趣测试也可以帮助探索新的方向。"}</span></p>
         <details className="tree-field-menu">
           <summary>领域索引{selectedField ? ` · ${fieldById(selectedField).label}` : ""}</summary>
           <div className="tree-field-options">
