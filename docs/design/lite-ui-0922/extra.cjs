@@ -1,0 +1,61 @@
+const {chromium,expect}=require(require('path').resolve('apps/lite-web/node_modules/@playwright/test'));
+const fs=require('fs');
+const OUT=process.env.OUT||'/tmp/ui0922-before'; fs.mkdirSync(OUT,{recursive:true});
+const date='2026-09-22T08:00:00Z';
+const rubric={scale:'letter',dimensions:[{name:'内容与观点',note:'观点清晰，证据准确'},{name:'结构与论证',note:'段落连贯，论证充分'},{name:'语言表达',note:'表达准确流畅'}],focus:'请重点关注论点和证据的联系'};
+const essay=['课间能否使用手机，不能只用允许或禁止来回答。我认为，学校应允许学生在明确的时间和空间内使用手机。','首先，课间是学生与同伴交流的时间。完全禁止手机，也会限制查资料和联系家人的合理需求。规则需要区分用途，而不是把所有使用行为归为一类。','但开放使用也有代价。我曾在课间刷了十分钟视频，上课后仍难以集中注意力。因此，允许使用必须配合时长限制，并在上课前把手机放回收纳盒。','相比完全禁止，清楚的使用规则可以让学生练习自我管理。学校还应定期收集教师和学生的反馈，依据实际影响调整规则。'].join('\n\n');
+const names=['林可欣','陈一诺','周子涵','王思远','李沐然','赵嘉禾'];
+const assignment={id:'a1',classId:'c1',kind:'writing',title:'议论文写作：课间能否使用手机',instructions:'请结合具体事例，论证你的观点。注意区分事实与观点，并回应一种反对意见。',payload:{prompt:'学校是否应该允许学生在课间使用手机？',targetWords:800,lang:'zh',rubric},dueAt:'2026-09-25T15:59:00Z',createdAt:date,counts:{not_started:2,in_progress:1,done:2,done_late:1,overdue:0,returned:0,resubmitted:0},toGrade:2};
+const recipients=names.map((n,i)=>({userId:'s'+i,displayName:n,avatarColor:'teal',status:i<2?'done':i===2?'done_late':i===3?'in_progress':'not_started',statusLabel:i<3?'已完成':i===3?'进行中':i===4?'已查看':'未查看',atomId:i<4?'w1':null,startedAt:date,finishedAt:i<3?date:null,seenAt:date,returnedAt:null,returnDueAt:null,returnNote:null,versionCount:i<3?1:0,activeMinutes:22+i*3,stepsDone:0,stepsTotal:0,latestWordCount:i<3?732+i*24:0,reading:null}));
+const content={overall:{grade:'B+',comment:'观点明确，能够同时考虑合理需求与注意力风险。下一步可以补充规则实施后的具体观察，使建议更有说服力。'},dimensions:rubric.dimensions.map((d,i)=>({name:d.name,grade:['A-','B+','B'][i],comment:['观点清楚，能够正面回应题目。','提出了反方观点，但证据与规则之间还可以建立更紧密的联系。','表达基本准确，可减少重复词语。'][i]})),points:[{kind:'good',quote:'规则需要区分用途',text:'将问题从简单的允许或禁止推进到具体规则。',action:null,source:'ai'},{kind:'issue',quote:'学校还应定期收集教师和学生的反馈',text:'建议很具体，但没有说明观察什么。',action:'请补充一项可以记录的变化，例如课上走神次数。',source:'ai'}]};
+const grading={id:'g1',classId:'c1',assignmentId:'a1',userId:'s0',displayName:names[0],atomId:'w1',versionNumber:1,latestVersionNumber:1,title:assignment.title,body:essay,lang:'zh',rubric,status:'draft',content,error:null,source:'ai',reviewedAt:null,sentAt:null,studentSeenAt:null,updatedAt:date};
+const facts={studentName:names[0],className:'IB 写作研习班',teacherName:'刘老师',rangeStart:'2026-09-15',rangeEnd:'2026-09-22',days:8,activeDays:5,minutes:186,turns:24,readings:[{kind:'reading',title:'城市中的公共空间',finishedAt:'2026-09-18'},{kind:'reading',title:'人工智能与学习',finishedAt:'2026-09-20'}],writings:[{kind:'writing',title:assignment.title,finishedAt:'2026-09-21'}],projects:[],moments:[{quote:'规则需要区分用途，而不是把所有使用行为归为一类。',itemTitle:assignment.title}],assignmentsTotal:4,assignmentsOnTime:3,assignmentsLate:0,assignmentsMissed:1,keywords:[{text:'公共规则',field:'society',fieldLabel:'社会'},{text:'注意力',field:'psychology',fieldLabel:'心理学'}]};
+const report={id:'p1',studentId:'s0',classId:'c1',createdAt:date,facts,sections:['overview','reading','writing','habits','interests','next'],body:{overview:'本周可欣完成了两次阅读和一篇议论文，能够从材料中提出自己的判断。',reading:'阅读中关注公共空间与技术对学习的影响，开始区分事实和观点。',writing:'作文观点明确，并尝试回应反对意见。下一步需要加强证据与结论的连接。',habits:'本周有五天保持学习记录，四项作业中三项按时完成。',interests:'持续关注公共规则和注意力管理。',next:'建议下一篇作文选择一个具体事例，解释它如何支持论点。'},draft:{},hidden:{moments:[],keywords:[]},hiddenMentions:{}};
+let role='teacher',stage='outline', savedBody=essay, finished=false, empty=false;const mutations=[];
+const outline=[['中心论点','学校应允许有限度的课间手机使用','thesis',0],['分论点','规则应区分合理需求与娱乐使用','point',1],['论据','查资料和联系家人是合理需求','evidence',2],['分论点','限制时长可以减少注意力影响','point',1],['论据','课间刷视频后难以集中注意力','evidence',2],['反方观点','全面开放可能影响课堂秩序','counter',1]].map(([role,text,kind,depth],i)=>({id:'o'+i,role,text,kind,depth,position:i,source:'',method:'example',guide:{job:'用具体事例支持观点',methods:[],questions:['这个事例中，什么变化最能说明你的观点？']}}));
+const writing=()=>({id:'w1',title:'课间能否使用手机',lang:'zh',stage,targetWords:800,structureKey:'struct_parallel',setupAt:date,status:finished?'finished':'active',createdAt:date,updatedAt:date,lastActivityAt:date,finishedAt:finished?date:null,origin:'here'});
+(async()=>{const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage();const errors=[],missed=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/api/v1/**',async r=>{const p=new URL(r.request().url()).pathname;let data={};if(r.request().method()!=='GET')mutations.push({path:p,method:r.request().method(),body:r.request().postData()});
+if(p.endsWith('/auth/me'))data={user:{id:role==='teacher'?'t1':'s0',email:'mock@example.test',display_name:role==='teacher'?'刘老师':names[0],role,avatar_color:'teal',page_background:'paper',onboarded_at:date,school:{id:'school',name:'国际教育实验学校',edition:'lite'},classes:[{id:'c1',name:'IB 写作研习班',role_in_class:role}]}};
+else if(p==='/api/v1/classes')data={classes:[{id:'c1',name:'IB 写作研习班',join_code:'MOCK22',school_id:'school',created_at:date}]};
+else if(p.endsWith('/classes/c1/roster'))data={roster:names.map((displayName,i)=>({id:'s'+i,displayName,gender:'',avatarColor:'teal',lastActiveAt:date,activeDaysThisWeek:3,minutesTotal:300,minutesThisWeek:65,turns:20,readingsDone:2,readingsTotal:3,writingsDone:1,writingsTotal:2,projectsDone:0,projectsTotal:1,overdueAssignments:0}))};
+else if(p.endsWith('/classes/c1/assignments'))data={assignments:empty?[]:[assignment,{...assignment,id:'a2',kind:'reading',title:'阅读：城市中的公共空间',payload:{source:'library',slug:'public-space'},toGrade:0}]};
+else if(p.endsWith('/assignments/a1/gradings'))data={rows:recipients.slice(0,3).map((x,i)=>({...x,version:{number:1,submittedAt:date},grading:i===0?{id:'g1',status:'draft',overallGrade:'B+',reviewedAt:null,sentAt:null,error:null}:null}))};
+else if(p.endsWith('/assignments/a1'))data={assignment,recipients};
+else if(p.endsWith('/gradings/g1'))data={grading};
+else if(p.endsWith('/classes/c1/parent-reports'))data={reports:[{id:'p1',studentId:'s0',studentName:names[0],rangeStart:facts.rangeStart,rangeEnd:facts.rangeEnd,createdAt:date}]};
+else if(p.endsWith('/parent-reports/p1'))data={report};
+else if(p==='/api/v1/writings/w1')data=writing();
+else if(p.endsWith('/writings/w1/stage')){stage=r.request().postDataJSON().stage;data=writing();}
+else if(p.endsWith('/writings/w1/opening'))data={reply:'请从你最想说明的观点开始。',generated:false};
+else if(p.endsWith('/writings/w1/versions'))data={versions:[{number:2,title:writing().title,wordCount:358,submittedAt:date},{number:1,title:writing().title,wordCount:310,submittedAt:'2026-09-20T09:00:00Z'}],locked:false,lockReason:null};
+else if(/writings\/w1\/versions\/\d+$/.test(p))data={number:Number(p.split('/').pop()),title:writing().title,wordCount:358,submittedAt:date,body:essay};
+else if(p.endsWith('/writings/w1/gradings'))data={gradings:[{id:'g1',versionNumber:2,rubric,content,sentAt:date,seen:true,source:'ai'}]};
+else if(p.endsWith('/writings/w1/messages'))data={messages:[{seq:1,role:'user',content:'我认为课间可以使用手机，但要限制时长。',createdAt:date},{seq:2,role:'ai',content:'你已经提出了清楚的立场。请考虑：对需要联系家人的学生，规则可以怎样设计？',createdAt:date}]};
+else if(p.endsWith('/writings/w1/outline'))data={outline};
+else if(p.endsWith('/writings/w1/snippets'))data={snippets:essay.split('\n\n').map((text,i)=>({id:'n'+i,outlineId:i===0?'o0':i===3?null:'o'+(i*2-1),outlineHeading:i?'分论点':'开头',position:i===3?999:i,text,updatedAt:date}))};
+else if(p.endsWith('/writings/w1/draft')){if(r.request().method()==='PUT')savedBody=r.request().postDataJSON().body;data={body:savedBody,updatedAt:date};}
+else if(p.endsWith('/writings/w1/flow'))data={outline};
+else if(p.endsWith('/writings/w1/flow/structures'))data={structures:[['struct_parallel','并列式','从不同角度论证同一观点'],['struct_progressive','层进式','从现象到原因再到建议'],['struct_contrast','对照式','比较两种情况'],['struct_total_part','总分式','先提出观点，再分层论证']].map(([id,name,definition])=>({id,name,definition,example:'先说明合理用途，再分析风险。'})),methods:[{id:'example',name:'举例论证',definition:'用具体事例支持观点'},{id:'struct_contrast',name:'对比论证',definition:'比较不同情况'}]};
+else if(p.endsWith('/writings/w1/comments'))data={comments:[]};
+else if(p.endsWith('/guide'))data={guides:Object.fromEntries(outline.map(o=>[o.id,o.guide]))};
+else if(p==='/api/v1/library')data={articles:[],recommended:[],fields:[],tier:3};
+else if(p.endsWith('/library/recommended'))data={articles:[],tier:3};
+else if(p.endsWith('/writings/w1/report'))data={report:{version:1,kind:'writing',title:writing().title,studentName:names[0],finishedAt:date,ordinal:3,stats:[],moments:[],keep:null,gains:[],lensNotes:[],notes:[],turningPoints:[],article:null},shared:false};
+else if(p.endsWith('/lite/inbox'))data={items:[]};
+else if(p.includes('for-atom'))data={assignment:null};
+else {missed.push(p);data={messages:[],items:[],gradings:[],roster:[],students:[],nodes:[],edges:[],stats:{},report:null};}
+await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});});
+
+
+const shot=async(name)=>{await page.waitForTimeout(1400);if(await page.locator('vite-error-overlay').count())throw new Error('Vite overlay');await page.screenshot({path:OUT+'/'+name+'.png'});console.log(name, await page.locator('body').evaluate(el=>({overflow:el.scrollWidth>innerWidth,text:el.innerText.slice(0,80)})));};
+await page.setViewportSize({width:1280,height:800});
+await page.goto('http://127.0.0.1:5234/assignments/new');await page.getByRole('button',{name:'传统',exact:true}).click();await shot('assignment-form-1280');
+await page.getByRole('button',{name:'AI',exact:true}).click();await shot('assignment-ai-1280');
+empty=true;await page.goto('http://127.0.0.1:5234/assignments');await shot('assignments-empty-1280');empty=false;
+await page.goto('http://127.0.0.1:5234/parent-reports/p1');await page.getByRole('button',{name:'预览',exact:true}).click();await shot('parent-preview-1280');
+const preview=page.getByRole('complementary',{name:'预览'});console.log('PREVIEW CSS',await preview.locator('article').evaluate(el=>({rect:el.getBoundingClientRect().toJSON(),opacity:getComputedStyle(el).opacity,color:getComputedStyle(el).color,visibility:getComputedStyle(el).visibility,contentVisibility:getComputedStyle(el).contentVisibility,children:[...el.children].slice(0,2).map(x=>({rect:x.getBoundingClientRect().toJSON(),opacity:getComputedStyle(x).opacity,visibility:getComputedStyle(x).visibility}))})));
+role='student';stage='draft';await page.goto('http://127.0.0.1:5234/writings/w1');await expect(page.locator('details.writing-reference')).not.toHaveAttribute('open','');await page.locator('details.writing-reference summary').click();await expect(page.locator('details.writing-reference')).toHaveAttribute('open','');await shot('writing-reference-1280');
+finished=true;await page.reload();await expect(page.getByText('老师批改',{exact:true})).toBeVisible();await shot('writing-finished-1280');
+finished=false;stage='flow';await page.evaluate(()=>localStorage.setItem('mk-theme','dark'));await page.setViewportSize({width:1440,height:1000});await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await shot('writing-flow-dark');
+role='teacher';await page.goto('http://127.0.0.1:5234/gradings/g1');await shot('grading-dark');
+console.log(JSON.stringify({errors,unhandled:[...new Set(missed)]},null,2));await browser.close();})();
