@@ -1,0 +1,56 @@
+/* Writing studio geometry; all colors inherit the shared Lite theme tokens. */
+.writing-eyebrow { color: var(--mk-accent-700); font-size: 12px; font-weight: 600; letter-spacing: .07em; }
+.writing-stage-map { display: flex; gap: 4px; padding: 5px; border: 1px solid var(--mk-border); border-radius: 14px; background: var(--mk-surface); }
+.writing-stage-map button { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; color: var(--mk-muted); font-size: 13px; transition: background .16s, color .16s; white-space: nowrap; }
+.writing-stage-map button > span { font-size: 11px; font-variant-numeric: tabular-nums; opacity: .7; }
+.writing-stage-map button:hover { background: var(--mk-accent-50); color: var(--mk-accent-700); }
+.writing-stage-map button[aria-current="step"] { background: var(--mk-accent-500); color: var(--mk-on-accent, white); }
+.writing-stage-map button:disabled { opacity: .5; cursor: not-allowed; }
+.writing-flow { height: 100%; overflow-y: auto; padding: 28px clamp(24px, 3vw, 56px) 0; background: var(--mk-paper); }
+.writing-flow__header { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; }
+.writing-flow__header > div { flex: 1; min-width: 0; }
+.writing-flow__header h1 { margin: 6px 0; font-size: clamp(22px, 2vw, 30px); line-height: 1.4; font-weight: 600; color: var(--mk-ink); overflow-wrap: anywhere; }
+.writing-flow__layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(420px, .92fr); gap: 28px; align-items: start; }
+.writing-flow__map { position: sticky; top: 0; display: flex; flex-direction: column; gap: 12px; }
+.writing-section-title { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; color: var(--mk-ink); }
+.writing-section-title > span { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--mk-border); border-radius: 50%; font-size: 11px; color: var(--mk-accent-700); background: var(--mk-surface); }
+.writing-section-title h2 { flex: 1; font-size: 16px; font-weight: 600; }
+.writing-flow__canvas { height: clamp(360px, 58vh, 650px); overflow: hidden; border: 1px solid var(--mk-border); border-radius: 18px; background: var(--mk-surface); }
+.writing-flow__decisions { display: flex; flex-direction: column; gap: 26px; padding-bottom: 24px; }
+.writing-structures { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 4px; }
+.writing-structure { position: relative; display: flex; flex-direction: column; gap: 8px; border: 1px solid; padding: 16px; border-radius: 14px; text-align: left; transition: border-color .16s, box-shadow .16s; }
+.writing-structure:hover:not(:disabled) { box-shadow: 0 4px 16px color-mix(in srgb, var(--mk-ink) 8%, transparent); }
+.writing-structure:disabled { cursor: wait; }
+.writing-structure[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--mk-accent-500); }
+.writing-structure__diagram { height: 66px; width: 100%; color: var(--mk-accent-700); }
+.writing-structure__title { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 600; color: var(--mk-ink); }
+.writing-structure__example { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--mk-border); color: var(--mk-muted); font-size: 12px; line-height: 1.7; }
+.writing-method { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid; padding: 14px 12px; border-radius: 10px; }
+.writing-method__number { font-size: 12px; color: var(--mk-muted); font-variant-numeric: tabular-nums; }
+.writing-method > span:nth-child(2) { gap: 5px; overflow-wrap: anywhere; }
+.writing-flow__footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; background: var(--mk-paper); border-top: 1px solid var(--mk-border); z-index: 5; }
+.writing-guidance { background: var(--mk-paper); }
+.writing-snippets__desk { background: color-mix(in srgb, var(--mk-accent-500) 3%, var(--mk-paper)) !important; }
+.writing-paragraph-tabs { scroll-padding-inline: 24px; padding-bottom: 18px; }
+.writing-paragraph-tabs [aria-current="true"] { box-shadow: 0 3px 0 var(--mk-accent-500); }
+.writing-snippets [data-write-block] > article { background: var(--mk-surface) !important; box-shadow: 0 8px 24px color-mix(in srgb, var(--mk-ink) 5%, transparent); }
+.writing-snippets [data-write-block] textarea::placeholder { color: var(--mk-muted); }
+.writing-compose__toolbar { min-height: 62px; background: var(--mk-surface); }
+.writing-compose__desk { padding: 28px clamp(16px, 2vw, 36px); background: color-mix(in srgb, var(--mk-accent-500) 3%, var(--mk-paper)); }
+.writing-compose__desk .writing-manuscript { background: var(--mk-surface); border: 1px solid var(--mk-border); border-radius: 5px; box-shadow: 0 8px 28px color-mix(in srgb, var(--mk-ink) 5%, transparent); }
+.writing-compose__feedback { background: var(--mk-paper); padding: 20px; }
+@media (min-width: 1024px) { .writing-guidance { width: clamp(270px, 23vw, 340px); } }
+@media (max-width: 1100px) { .writing-flow__layout { grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr); gap: 18px; } .writing-flow__header { flex-wrap: wrap; } .writing-stage-map button { padding-inline: 10px; } }
+@media (max-width: 850px) { .writing-flow { padding: 20px 16px 0; } .writing-flow__layout { grid-template-columns: 1fr; } .writing-flow__map { position: static; } .writing-flow__canvas { height: 300px; } .writing-flow__header .writing-stage-map { width: 100%; justify-content: center; } }
+@media (prefers-reduced-motion: reduce) { .writing-structure, .writing-stage-map button { transition: none; } }
+.writing-review-invitation { padding: 16px; border: 1px solid var(--mk-border); border-radius: var(--mk-radius-md); background: var(--mk-surface); }
+.writing-review-invitation > img { width: 150px; height: 110px; object-fit: contain; margin: 0 auto 16px; }
+.writing-review-invitation > p { line-height: 1.8; }
+.writing-reference { padding-top: 16px; border-top: 1px solid var(--mk-border); }
+.writing-reference summary { color: var(--mk-ink); font-size: 13px; font-weight: 600; cursor: pointer; padding-bottom: 14px; }
+.writing-reference summary span { float: right; font-size: 11px; font-weight: 400; color: var(--mk-muted); }
+.writing-reference > p { margin-bottom: 14px; line-height: 1.7; }
+.writing-reference > ul { margin-top: 12px; }
+.student-writing-room > header > div:first-child { flex: 1 1 280px; }
+.student-writing-room > header h1 { font-size: clamp(20px, 1.8vw, 26px); line-height: 1.5; font-weight: 600; margin-top: 6px; }
+.student-writing-room > header h1 button { white-space: normal; overflow-wrap: anywhere; }

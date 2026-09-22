@@ -1,5 +1,4 @@
-import { Check } from "lucide-react";
-import { Icon } from "@/ui";
+import "./writing-studio.css";
 
 /**
  * StageMap — the 结构 / 行文 / 段落 / 成稿 indicator (four steps since 2026-09-20).
@@ -59,45 +58,15 @@ export function StageMap({
   disabled?: boolean;
 }) {
   const current = normalizeStage(stage);
-  const currentIndex = STEPS.findIndex((s) => s.key === current);
-
   return (
-    <nav aria-label="写作四步" className="flex items-center gap-1">
-      {STEPS.map((step, i) => {
-        const active = step.key === current;
-        const done = i < currentIndex;
-        return (
-          <button
-            key={step.key}
-            type="button"
-            aria-current={active ? "step" : undefined}
-            disabled={disabled}
-            onClick={() => onJump(step.key)}
-            className="flex items-center gap-1.5 rounded-mk-full px-2.5 py-1.5 text-mk-small font-medium transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:cursor-not-allowed"
-            style={
-              active
-                ? { background: "var(--mk-accent-500)", color: "white" }
-                : done
-                  ? { background: "color-mix(in srgb, var(--mk-accent-500) 12%, transparent)", color: "var(--mk-accent-700)" }
-                  : { color: "var(--mk-muted)" }
-            }
-          >
-            <span
-              className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-mk-full text-mk-label"
-              style={
-                active
-                  ? { background: "rgba(255,255,255,0.3)" }
-                  : done
-                    ? { background: "color-mix(in srgb, var(--mk-accent-500) 22%, transparent)" }
-                    : { border: "1px solid currentColor" }
-              }
-            >
-              {done ? <Icon icon={Check} size={10} /> : i + 1}
-            </span>
-            {step.label}
-          </button>
-        );
-      })}
+    <nav aria-label="写作四步" className="writing-stage-map">
+      {STEPS.map((step, i) => (
+        <button key={step.key} type="button"
+          aria-current={step.key === current ? "step" : undefined}
+          disabled={disabled} onClick={() => onJump(step.key)}>
+          <span>{String(i + 1).padStart(2, "0")}</span>{step.label}
+        </button>
+      ))}
     </nav>
   );
 }

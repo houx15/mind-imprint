@@ -252,7 +252,7 @@ export function SnippetsStage({
   const activeGuide = active?.outlineId ? (guides[active.outlineId] ?? null) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col lg:flex-row">
+    <div className="writing-snippets flex h-full min-h-0 flex-col lg:flex-row">
       {/* 读屏的人需要知道这是哪一步；看得见的人看卡片叠就知道。 */}
       <h2 className="sr-only">段落</h2>
       {/* ── 左：引导（可折叠） ─────────────────────────────── */}
@@ -272,7 +272,7 @@ export function SnippetsStage({
       ) : (
         <aside
           aria-label="引导"
-          className="mk-scroll flex shrink-0 flex-col gap-4 overflow-y-auto border-b border-mk-border bg-mk-surface p-4 lg:w-[320px] lg:border-b-0 lg:border-r"
+          className="writing-guidance mk-scroll flex shrink-0 flex-col gap-4 overflow-y-auto border-b border-mk-border bg-mk-surface p-4 lg:w-[320px] lg:border-b-0 lg:border-r"
         >
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-mk-body font-semibold text-mk-ink">引导</h2>
@@ -317,8 +317,8 @@ export function SnippetsStage({
       )}
 
       {/* ── 中：卡片 + 纸 ─────────────────────────────────── */}
-      <div className="mk-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto" style={{ background: "var(--mk-surface-2, var(--mk-surface))" }}>
-        <nav aria-label="卡片" className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2 pt-4 sm:px-8">
+      <div className="writing-snippets__desk mk-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto" style={{ background: "var(--mk-surface-2, var(--mk-surface))" }}>
+        <nav aria-label="卡片" className="writing-paragraph-tabs flex shrink-0 gap-2 overflow-x-auto px-4 pb-2 pt-4 sm:px-8">
           {slots.map((s, i) => {
             const on = s === active;
             const done = hasText(s);
@@ -746,6 +746,7 @@ function CardPaper({
           </div>
         </header>
         <textarea
+          aria-label={`${title}正文`}
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}

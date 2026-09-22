@@ -98,7 +98,7 @@ export function ProseSurface({
   }, [highlight, highlightNonce]);
 
   return (
-    <div className="relative max-w-[68ch] mx-auto bg-mk-paper">
+    <div className="writing-manuscript relative max-w-[68ch] mx-auto bg-mk-paper">
       {/* `selection:bg-mk-accent-500/30` was tried first and emitted NO CSS —
           `mk-*` are bare CSS vars, not Tailwind-native colours with an alpha
           channel, so any `/NN` suffix on one silently does nothing. `mark`
@@ -132,6 +132,7 @@ export function ProseSurface({
         )}
       </div>
       <textarea
+        aria-label="成稿正文"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}

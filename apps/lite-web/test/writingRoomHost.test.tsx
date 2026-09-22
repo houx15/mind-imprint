@@ -231,7 +231,7 @@ describe("结构 — a planning conversation, not a template to fill", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /去写/ }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "行文" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: /行文/ }).getAttribute("aria-current")).toBe("step"));
     const post = calls.find((c) => c.method === "POST" && c.url === base("/stage"))!;
     expect(post.body).toEqual({ stage: "flow" });
   });

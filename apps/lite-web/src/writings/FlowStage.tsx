@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Button, Icon } from "@/ui";
-import { ArrowLeft, GripVertical } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ListOrdered } from "lucide-react";
 import { Select } from "../teacher/controls/Select";
+import "./writing-studio.css";
+import { StructureDiagram } from "./StructureDiagram";
+import { StageMap, type WritingStageKey } from "./StageMap";
 import { MindMap } from "./MindMap";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
 import { outlineKindLabel, outlineKindOf } from "./outlineKind";
@@ -45,6 +48,8 @@ import {
  */
 export function FlowStage({
   writingId,
+  title,
+  onJump,
   outline,
   structureKey,
   onOutline,
@@ -54,6 +59,8 @@ export function FlowStage({
   onLocked,
 }: {
   writingId: string;
+  title?: string;
+  onJump?: (stage: WritingStageKey) => void;
   outline: WritingOutlineItem[];
   structureKey: string;
   onOutline: (next: WritingOutlineItem[]) => void;
@@ -145,8 +152,8 @@ export function FlowStage({
   ];
 
   return (
-    <div className="mk-scroll flex h-full flex-col gap-5 overflow-y-auto p-6">
-      <div className="flex items-center gap-2">
+    <div className="writing-flow mk-scroll">
+      <header className="writing-flow__header">
         <button
           type="button"
           onClick={onBack}
@@ -156,13 +163,15 @@ export function FlowStage({
           <Icon icon={ArrowLeft} size={18} />
         </button>
         <div className="flex flex-col">
-          <h1 className="text-mk-title font-semibold text-mk-ink">行文</h1>
+          <span className="writing-eyebrow">写作工作台 · 行文</span>
+          <h1>{title || "组织你的论证"}</h1>
           {/* 名词 + 一句说明它为什么值得做（文案规则 5：先说为什么，再请她做）。 */}
           <p className="text-mk-small text-mk-muted">
-            写之前先定这篇怎么组织：几条理由按什么顺序摆、它们之间是什么关系、每一条打算怎么证明。这一步不写正文。
+            请确定论点的顺序、关系和论证方法。这一步不写正文。
           </p>
         </div>
-      </div>
+        {onJump && <StageMap stage="flow" onJump={onJump} />}
+      </header>
 
       {error && (
         <p className="rounded-mk-md px-3 py-2 text-mk-small" style={{ background: "var(--mk-danger-bg)", color: "var(--mk-danger)" }}>
@@ -170,19 +179,21 @@ export function FlowStage({
         </p>
       )}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-mk-label font-semibold text-mk-accent-700">顺序</h2>
-        <p className="text-mk-small text-mk-muted">拖一条到另一条旁边，换它们的先后。</p>
-        <div className="h-[260px] rounded-mk-md border" style={{ borderColor: "var(--mk-border)" }}>
+      <div className="writing-flow__layout">
+      <section className="writing-flow__map">
+        <div className="writing-section-title"><span>01</span><h2>论点顺序</h2><Icon icon={ListOrdered} size={18} /></div>
+        <p className="text-mk-small text-mk-muted">请拖动节点调整顺序；落点提示会显示移动结果。</p>
+        <div className="writing-flow__canvas" style={{ borderColor: "var(--mk-border)" }}>
           <MindMap items={outline} justAdded={[]} onMove={moveNode} />
         </div>
       </section>
 
+      <div className="writing-flow__decisions">
       {structures.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-mk-label font-semibold text-mk-accent-700">论证结构</h2>
-          <p className="text-mk-small text-mk-muted">这几条理由之间是什么关系。选一个；再点一下取消。</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="writing-section-title"><span>02</span><h2>论证结构</h2></div>
+          <p className="text-mk-small text-mk-muted">请选择论点之间的关系，再次点击可取消。</p>
+          <div className="writing-structures">
             {structures.map((s) => {
               const on = s.id === structureKey;
               return (
@@ -192,18 +203,19 @@ export function FlowStage({
                   onClick={() => pickStructure(s.id)}
                   disabled={saving}
                   aria-pressed={on}
-                  className="flex flex-col gap-1 rounded-mk-md border p-3 text-left transition-colors duration-[120ms] ease-mk"
+                  className="writing-structure"
                   style={{
                     borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)",
                     background: on ? "var(--mk-accent-50)" : "var(--mk-surface)",
                   }}
                 >
-                  <span className="text-mk-body font-semibold text-mk-ink">{s.name}</span>
+                  <StructureDiagram kind={s.id} />
+                  <span className="writing-structure__title">{s.name}{on && <Icon icon={Check} size={16} />}</span>
                   <span className="text-mk-small text-mk-muted">{s.definition}</span>
                   {/* 借来的示范：光给定义，「层进式」和「并列式」在一个中学生
                       眼里是同一句话。它讲的是别的题目，不是她的。 */}
                   {s.example && (
-                    <span className="mt-1 border-l pl-2 text-mk-small text-mk-faint" style={{ borderColor: "var(--mk-border)" }}>
+                    <span className="writing-structure__example" style={{ borderColor: "var(--mk-border)" }}>
                       比如：{s.example}
                     </span>
                   )}
@@ -216,19 +228,19 @@ export function FlowStage({
 
       {blocks.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-mk-label font-semibold text-mk-accent-700">每一条打算怎么证明</h2>
-          <p className="text-mk-small text-mk-muted">现在定下来，写那一段的时候就不用从头想。不定也可以，写的时候再说。</p>
+          <div className="writing-section-title"><span>03</span><h2>论证方法</h2></div>
+          <p className="text-mk-small text-mk-muted">为分论点选择论证方法，也可以在写作时补充。</p>
           <ul className="flex list-none flex-col gap-2">
-            {blocks.map((o) => (
+            {blocks.map((o, i) => (
               <li
                 key={o.id}
-                className="flex items-center gap-3 rounded-mk-md border px-3 py-2"
+                className="writing-method"
                 style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}
               >
-                <Icon icon={GripVertical} size={14} className="shrink-0 text-mk-faint" />
+                <span className="writing-method__number">{String(i + 1).padStart(2, "0")}</span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-mk-label text-mk-accent-700">{outlineKindLabel(outlineKindOf(o))}</span>
-                  <span className="truncate text-mk-body text-mk-ink">{o.text}</span>
+                  <span className="text-mk-body text-mk-ink">{o.text}</span>
                 </span>
                 <Select
                   value={o.method ?? ""}
@@ -244,12 +256,14 @@ export function FlowStage({
         </section>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t pt-4" style={{ borderColor: "var(--mk-border)" }}>
-        <span className="text-mk-small text-mk-muted">
-          {flowLooksDone(structureKey) ? "组织方式已确定。" : "选一个论证结构，这一步就算想清楚了。"}
-        </span>
-        <Button onClick={onDone}>完成，去写段落</Button>
       </div>
+      </div>
+      <footer className="writing-flow__footer">
+        <span className="text-mk-small text-mk-muted">
+          {flowLooksDone(structureKey) ? "组织方式已确定。" : "尚未选择论证结构，可继续写作或稍后补充。"}
+        </span>
+        <Button onClick={onDone} iconEnd={<Icon icon={ArrowRight} size={16} />}>开始写段落</Button>
+      </footer>
     </div>
   );
 }

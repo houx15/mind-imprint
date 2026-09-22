@@ -467,8 +467,8 @@ export function ComposeStage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-mk-border px-4 py-2.5">
+    <div className="writing-compose flex h-full min-h-0 flex-col">
+      <div className="writing-compose__toolbar flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-mk-border px-4 py-2.5">
         <div className="flex items-center gap-2">
           <h2 className="text-mk-body font-semibold text-mk-ink">成稿</h2>
           <Button
@@ -540,7 +540,7 @@ export function ComposeStage({
       )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="mk-scroll min-h-0 overflow-y-auto bg-mk-paper">
+        <div className="writing-compose__desk mk-scroll min-h-0 overflow-y-auto bg-mk-paper">
           <ProseSurface
             value={body}
             onChange={onBodyChange}
@@ -553,7 +553,7 @@ export function ComposeStage({
 
         <aside
           ref={railRef}
-          className="mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l"
+          className="writing-compose__feedback mk-scroll flex min-h-0 flex-col gap-4 overflow-y-auto border-mk-border bg-mk-surface p-4 lg:border-l"
         >
           {reviewing && (
             <p
@@ -591,15 +591,13 @@ export function ComposeStage({
             </div>
           )}
           {/* 带进来的一篇没有段落原文；「暂无段落原文」只会让她以为漏了一步。 */}
-          {!(origin === "brought" && !snippets.some((s) => s.text.trim() !== "")) && (
-            <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
-          )}
           {/* 2026-09-18 走查：到了成稿，学生没有任何提示去请印记通读，
               「教到了吗」一栏在这一步掉到 1 —— 她直接按了「完成这篇」。
               没有审阅过的时候，在右栏把这一步摆出来。 */}
           {!comment && body.trim() !== "" && (
-            <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-3">
-              <p className="text-mk-small font-semibold text-mk-ink">提交前建议先请印记通读</p>
+            <div className="writing-review-invitation">
+              <img src={studentArtwork.writing} alt="" />
+              <p className="text-mk-body font-semibold text-mk-ink">全文审阅</p>
               <p className="mt-1 text-mk-small text-mk-muted">
                 印记会通读全文，先指出最需要修改的一两处，并说明怎么改；改完后可以再请印记看。
               </p>
@@ -614,6 +612,9 @@ export function ComposeStage({
                 请印记通读
               </Button>
             </div>
+          )}
+          {!(origin === "brought" && !snippets.some((s) => s.text.trim() !== "")) && (
+            <SnippetRail snippets={snippets} edited={wouldOverwrite} lang={lang} />
           )}
         </aside>
       </div>
@@ -754,12 +755,12 @@ function SnippetRail({
   const written = snippets.filter((s) => s.text.trim() !== "").slice().sort((a, b) => a.position - b.position);
 
   return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-mk-small font-semibold text-mk-secondary">你的段落</h3>
+    <details className="writing-reference">
+      <summary>段落原文 <span>{written.length} 段 · 展开对照</span></summary>
       {written.length > 0 && (
         <p className="text-mk-small text-mk-muted">
-          这一篇的正文是上面那一块。下面是「段落」那一步写的原文，只读，不会跟着上面变。
-          {edited && "你在上面改过的字，下面这些段里不会出现。"}
+          这里保留「段落」阶段的原文，只读，不会随成稿修改。
+          {edited && "成稿已有修改，此处仍为原文。"}
         </p>
       )}
       {written.length === 0 ? (
@@ -787,6 +788,6 @@ function SnippetRail({
           ))}
         </ul>
       )}
-    </section>
+    </details>
   );
 }
