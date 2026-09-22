@@ -43,13 +43,50 @@ func TestShareReportExplicitlyCreatesMinimalShowcaseWithoutPublishingDraft(t *te
 		t.Fatalf("share response = %#v", shared)
 	}
 	state := decodeSite(t, siteReq(t, h, cookie, http.MethodGet, "/api/v1/pbl/showcase", ""))
-	if showcaseJSON(t, state["draft"]) != showcaseJSON(t, draftBefore) {
-		t.Fatalf("private draft changed: before=%#v after=%#v", draftBefore, state["draft"])
+	beforeWithoutSelection := draftBefore.(map[string]any)
+	afterDraft := state["draft"].(map[string]any)
+	beforeSelected := beforeWithoutSelection["selectedWorkIds"]
+	afterSelected := afterDraft["selectedWorkIds"]
+	delete(beforeWithoutSelection, "selectedWorkIds")
+	delete(afterDraft, "selectedWorkIds")
+	if showcaseJSON(t, afterDraft) != showcaseJSON(t, beforeWithoutSelection) {
+		t.Fatalf("private draft content changed: before=%#v after=%#v", beforeWithoutSelection, afterDraft)
+	}
+	if len(beforeSelected.([]any)) != 0 || len(afterSelected.([]any)) != 1 || state["revision"] != float64(1) {
+		t.Fatalf("draft selection/revision not updated: selected=%#v revision=%#v", afterSelected, state["revision"])
 	}
 	public := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+tokenOf(shared["showcaseUrl"].(string)), ""))
 	config := public["config"].(map[string]any)
 	if config["bio"] != "" || config["heroImageKey"] != nil || config["avatarKey"] != nil || len(public["works"].([]any)) != 1 {
 		t.Fatalf("minimal public showcase leaked draft or missed work: %#v", public)
+	}
+}
+
+func TestShareReportAgainRefreshesPublishedWorkPathWithoutDuplicate(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "重新分享的阅读")
+	firstShare := decodeSite(t, siteReq(t, h, cookie, http.MethodPost, "/api/v1/readings/"+id+"/report/share", `{"addToShowcase":true}`))
+	showcaseToken := tokenOf(firstShare["showcaseUrl"].(string))
+	firstPublic := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+showcaseToken+"/works", ""))
+	firstItems := firstPublic["items"].([]any)
+	firstPath := firstItems[0].(map[string]any)["publicPath"].(string)
+
+	if rec := shareReportHTTPDelete(t, h, cookie, "readings", id); rec.Code != http.StatusNoContent {
+		t.Fatalf("revoke = %d; body=%s", rec.Code, rec.Body)
+	}
+	secondShare := siteReq(t, h, cookie, http.MethodPost, "/api/v1/readings/"+id+"/report/share", `{"addToShowcase":true}`)
+	if secondShare.Code != http.StatusOK {
+		t.Fatalf("re-share = %d; body=%s", secondShare.Code, secondShare.Body)
+	}
+	secondPublic := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+showcaseToken+"/works", ""))
+	secondItems := secondPublic["items"].([]any)
+	if len(secondItems) != 1 || secondPublic["total"] != float64(1) {
+		t.Fatalf("re-shared work duplicated or missing: %#v", secondPublic)
+	}
+	secondPath := secondItems[0].(map[string]any)["publicPath"].(string)
+	if secondPath == firstPath {
+		t.Fatalf("re-share retained revoked public path %q", firstPath)
 	}
 }
 

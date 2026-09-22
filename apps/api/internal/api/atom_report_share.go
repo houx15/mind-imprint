@@ -281,6 +281,42 @@ func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u Us
 	if !found || work.PublicPath == "" {
 		return "", errors.New("共享作品不可用于个人主页")
 	}
+	draft := decodeShowcase(row.Draft, u.DisplayName)
+	draftSelected := false
+	for _, selectedID := range draft.SelectedWorkIDs {
+		if selectedID == id {
+			draftSelected = true
+			break
+		}
+	}
+	if !draftSelected {
+		if len(draft.SelectedWorkIDs) >= 500 {
+			return "", errors.New("个人主页最多选择 500 个作品")
+		}
+		draft.SelectedWorkIDs = append(draft.SelectedWorkIDs, id)
+		var rawDraft map[string]json.RawMessage
+		if len(row.Draft) > 0 {
+			if err := json.Unmarshal(row.Draft, &rawDraft); err != nil {
+				return "", err
+			}
+		}
+		if rawDraft == nil {
+			rawDraft = make(map[string]json.RawMessage)
+		}
+		selectedJSON, err := json.Marshal(draft.SelectedWorkIDs)
+		if err != nil {
+			return "", err
+		}
+		rawDraft["selectedWorkIds"] = selectedJSON
+		draftJSON, err := json.Marshal(rawDraft)
+		if err != nil {
+			return "", err
+		}
+		row, err = q.SavePblShowcase(ctx, sqlc.SavePblShowcaseParams{UserID: u.ID, Revision: row.Revision, Draft: draftJSON})
+		if err != nil {
+			return "", err
+		}
+	}
 	var publication showcasePublication
 	active := row.PublishedAt.Valid && json.Unmarshal(row.PublishedConfig, &publication) == nil && publication.Config.Layout != ""
 	if !active {
@@ -293,13 +329,15 @@ func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u Us
 		if publication.AllWorks == nil {
 			publication.AllWorks = append([]showcaseWork(nil), publication.Works...)
 		}
-		seen := false
-		for _, x := range publication.AllWorks {
-			if x.ID == id {
-				seen = true
+		allWorksSeen := false
+		for i := range publication.AllWorks {
+			if publication.AllWorks[i].ID == id {
+				publication.AllWorks[i] = work
+				allWorksSeen = true
+				break
 			}
 		}
-		if !seen {
+		if !allWorksSeen {
 			publication.AllWorks = append(publication.AllWorks, work)
 		}
 		selected := false
@@ -309,6 +347,9 @@ func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u Us
 			}
 		}
 		if !selected {
+			if len(publication.Config.SelectedWorkIDs) >= 500 {
+				return "", errors.New("个人主页最多选择 500 个作品")
+			}
 			publication.Config.SelectedWorkIDs = append(publication.Config.SelectedWorkIDs, id)
 			if publication.SourceConfig != nil {
 				publication.SourceConfig.SelectedWorkIDs = append(publication.SourceConfig.SelectedWorkIDs, id)
@@ -319,9 +360,11 @@ func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u Us
 			limit = 6
 		}
 		featured := false
-		for _, x := range publication.Works {
-			if x.ID == id {
+		for i := range publication.Works {
+			if publication.Works[i].ID == id {
+				publication.Works[i] = work
 				featured = true
+				break
 			}
 		}
 		if !featured && len(publication.Works) < limit {
