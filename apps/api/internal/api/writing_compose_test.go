@@ -97,6 +97,7 @@ type commentPointResp struct {
 type commentResp struct {
 	ID        string             `json:"id"`
 	Scope     string             `json:"scope"`
+	Verdict   string             `json:"verdict"`
 	SnippetID *string            `json:"snippetId"`
 	Summary   string             `json:"summary"`
 	Points    []commentPointResp `json:"points"`
@@ -291,6 +292,75 @@ func TestWritingReview_ReturnsCommentaryDoesNotModifyDraft(t *testing.T) {
 	after, _ := getWritingDraftHTTP(t, h, cookie, id)
 	if after.Body != before.Body {
 		t.Fatalf("review modified the draft body: before=%q after=%q — review must never write writing_draft.body", before.Body, after.Body)
+	}
+}
+
+// 🚨 通篇审阅的 verdict 要跟着存下来。
+//
+// 2026-09-22 在生产库里量到：scope='draft' 的 80 条通篇意见，**十天里没有
+// 一条存下过 verdict**，而同期 scope='block' 那边是满的。原因是
+// `postWritingReview` 那次 INSERT 漏了这个字段，落库的是零值空串。
+//
+// 模型一直是给了的，只是没被带过去；而那一轮的响应是照着刚插进去的那一行
+// 拼的，所以当场看是空的、刷新之后还是空的 —— 每一段的意见都有档位，
+// 整篇那一条独独没有。
+//
+// 老的 TestWritingReview_ReturnsCommentaryDoesNotModifyDraft 抓不到它：
+// 那条的桩回复里**根本没有 verdict 字段**，存空串和漏字段看起来一模一样。
+// 所以这一条自己给一个 verdict，并且**存完再读一遍**。
+func TestWritingReview_PersistsTheVerdict(t *testing.T) {
+	draftText := "这是我写的第一段内容。"
+	reply := `{"verdict":"revise","summary":"结构清楚，但论证需要更具体的数据支撑。","points":[` +
+		`{"kind":"issue","symptom":"claim_without_evidence","text":"这句话缺一个可核实的来源。",` +
+		`"action":"在这句后面补一条你查到的数据，并写明它是从哪儿来的。","quote":"` + draftText + `"}]}`
+	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(reply))
+	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
+
+	if rec := putWritingSnippetsHTTP(t, h, cookie, id, `{"snippets":[{"position":0,"text":"`+draftText+`"}]}`); rec.Code != http.StatusOK {
+		t.Fatalf("put snippets = %d; body=%s", rec.Code, rec.Body)
+	}
+	if rec := postWritingCompose(t, h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("compose = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	rec := postWritingReview(t, h, cookie, id)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("review = %d; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Comment commentResp `json:"comment"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode review: %v — body=%s", err, rec.Body)
+	}
+	if out.Comment.Verdict != "revise" {
+		t.Fatalf("这一轮的响应里 verdict = %q，想要 revise —— 模型给了，没被带过去", out.Comment.Verdict)
+	}
+
+	// 🚨 再读一遍。响应对了不等于存对了 —— 她刷新之后读的是这一份。
+	listRec := doJSON(t, h, cookie, http.MethodGet, "/api/v1/writings/"+id+"/comments", "")
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list comments = %d; body=%s", listRec.Code, listRec.Body)
+	}
+	var listed struct {
+		Comments []commentResp `json:"comments"`
+	}
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+		t.Fatalf("decode comments: %v — body=%s", err, listRec.Body)
+	}
+	var draftComment *commentResp
+	for i := range listed.Comments {
+		if listed.Comments[i].Scope == "draft" {
+			draftComment = &listed.Comments[i]
+			break
+		}
+	}
+	if draftComment == nil {
+		t.Fatalf("列表里没有 scope=draft 的那一条：%+v", listed.Comments)
+	}
+	if draftComment.Verdict != "revise" {
+		t.Fatalf("存下来那一条的 verdict = %q，想要 revise —— 她刷新之后整篇那条就没有档位了",
+			draftComment.Verdict)
 	}
 }
 

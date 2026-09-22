@@ -309,6 +309,26 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	points := validateCommentPoints(parsed.Points, body, wr.Lang, writingDraftReviewMaxIssues)
+
+	// 🚨 verdict 要跟着存下来。
+	//
+	// 2026-09-22 在生产库里量到：scope='draft' 的 80 条通篇意见，**十天里
+	// 没有一条存下过 verdict**（scope='block' 那边 09-20 起是满的）。原因就在
+	// 下面那次 INSERT —— 它没传这个字段，于是落库的是零值空串。
+	//
+	// 模型是给了的（parsed.Verdict），只是没被带过去。她看不出问题是因为
+	// 那一轮的**响应**是照着刚插进去的那一行拼的：当场看是空的，刷新之后
+	// 还是空的，而每一段的意见都有档位 —— 整篇那一条独独没有。
+	//
+	// 归零那一条和分块那一路同一个理由（见 commentOnSnippet 里那段）：
+	// 一条 issue 都不剩就是 pass，否则她会读到「需修改」却没有一个字可以改。
+	verdict := parsed.Verdict
+	if verdict != writingVerdictPass && !writingHasIssue(points) {
+		slog.Info("writing review: no issue survived, verdict falls back to pass",
+			"atom_id", at.ID, "was", parsed.Verdict)
+		verdict = writingVerdictPass
+	}
+
 	payload, merr := json.Marshal(points)
 	if merr != nil {
 		slog.Warn("writing review: marshal points failed", "err", merr, "atom_id", at.ID)
@@ -323,6 +343,7 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		Points:    payload,
 		// 同 commentOnSnippet：存它真的读过的那一版全文。
 		SourceText: body,
+		Verdict:    verdict,
 	})
 	if serr != nil {
 		httpx.WriteError(w, r, serr)
