@@ -4,6 +4,7 @@ import "./showcaseFonts.css";
 import { SHOWCASE_ILLUSTRATIONS } from "./showcasePresets";
 import { SHOWCASE_FONT_STACKS, SHOWCASE_THEMES } from "./showcaseThemes";
 import type { ShowcaseConfig, ShowcaseKind, ShowcaseWork } from "./showcaseTypes";
+import { ShowcaseInterestTree, type ShowcaseInterestSnapshot } from "./ShowcaseInterestTree";
 
 export interface ShowcaseProps {
   config: ShowcaseConfig;
@@ -12,6 +13,7 @@ export interface ShowcaseProps {
   editing?: boolean;
   heroImageUrl?: string;
   avatarUrl?: string;
+  interestTree?: ShowcaseInterestSnapshot;
 }
 
 const SECTION_LABELS: Record<ShowcaseKind, string> = {
@@ -188,7 +190,7 @@ function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; wor
   );
 }
 
-export function Showcase({ config, works, narrow = false, editing = false, heroImageUrl, avatarUrl }: ShowcaseProps) {
+export function Showcase({ config, works, narrow = false, editing = false, heroImageUrl, avatarUrl, interestTree }: ShowcaseProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [measuredNarrow, setMeasuredNarrow] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -248,7 +250,7 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
           <h2 id="showcase-about-title">{config.name || (editing ? "姓名" : "")}</h2>
           {(config.bio || editing) && <p className="showcase-bio">{config.bio || "个人简介将在这里显示。"}</p>}
         </div>
-        {config.interests.length > 0 && <ul className="showcase-interests" aria-label="兴趣">{config.interests.map((interest, index) => <li key={`${interest}-${index}`}>{interest}</li>)}</ul>}
+        <ShowcaseInterestTree interest={interestTree} />
       </section>
       <main className="showcase-main">
         {portfolioLayout === "sections" ? visibleOrder.map((kind) => <WorkSection key={kind} kind={kind} works={selected.filter((work) => work.kind === kind)} config={config} editing={editing} />) : (
