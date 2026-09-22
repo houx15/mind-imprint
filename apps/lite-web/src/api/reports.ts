@@ -290,17 +290,18 @@ export async function getReportEnvelope(kind: AtomKind, id: string): Promise<Rep
 export async function shareReport(
   kind: AtomKind,
   id: string,
-  opts: { includeTranscript?: boolean; includeToolkit?: boolean } = {},
-): Promise<{ token: string; url: string; includeTranscript: boolean }> {
+  opts: { includeTranscript?: boolean; includeToolkit?: boolean; addToShowcase?: boolean } = {},
+): Promise<{ token: string; url: string; includeTranscript: boolean; showcaseUrl?: string; showcasePublished?: boolean }> {
   // 🚨 两位**每次都一起发**：服务端按请求体整份覆盖，只发一位等于把另一位
   // 悄悄改回 false。
-  return apiFetch<{ token: string; url: string; includeTranscript: boolean }>(
+  return apiFetch<{ token: string; url: string; includeTranscript: boolean; showcaseUrl?: string; showcasePublished?: boolean }>(
     `${atomBase(kind, id)}/report/share`,
     {
       method: "POST",
       body: JSON.stringify({
         includeTranscript: opts.includeTranscript ?? false,
         includeToolkit: opts.includeToolkit ?? false,
+        addToShowcase: opts.addToShowcase ?? false,
       }),
     },
   );
