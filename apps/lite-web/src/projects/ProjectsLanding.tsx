@@ -15,13 +15,11 @@ import {
   type ProjectStatus,
 } from "../api/projects";
 import { navigate, projectPath } from "../routing";
-import { getSite, startSiteProject, type SiteState } from "../api/site";
 import { ProjectCard } from "./ProjectCard";
 import { useZoneDrag } from "./tools/board/useZoneDrag";
 import { DragGhost } from "./tools/board/DragGhost";
 import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
-import createHomepageIllustration from "../learning/assets/ideas-workbench.webp";
 
 
 /**
@@ -56,12 +54,6 @@ export function ProjectsLanding() {
   const [view, setView] = useState<"cards" | "board">("cards");
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // spec §4 的门：她的主页发布之前，这里给的是主页那一扇门，不是自由输入框。
-  const [site, setSite] = useState<SiteState | null>(null);
-  const [siteLoading, setSiteLoading] = useState(true);
-  const [siteError, setSiteError] = useState<string | null>(null);
-  const [siteAttempt, setSiteAttempt] = useState(0);
-  const [opening, setOpening] = useState(false);
 
   /**
    * 把一个项目挪到另一列 —— 也就是「这个项目我做完了」这一下。
@@ -110,23 +102,6 @@ export function ProjectsLanding() {
 
   useEffect(() => {
     let cancelled = false;
-    setSiteLoading(true);
-    setSiteError(null);
-    getSite()
-      .then((s) => {
-        if (!cancelled) setSite(s);
-      })
-      .catch((err) => {
-        if (!cancelled) setSiteError(apiErrorText(err));
-      })
-      .finally(() => {
-        if (!cancelled) setSiteLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [siteAttempt]);
-
-  useEffect(() => {
-    let cancelled = false;
     listProjects()
       .then((rows) => {
         if (!cancelled) setProjects(rows);
@@ -143,9 +118,6 @@ export function ProjectsLanding() {
   }, []);
 
   const columns = useMemo(() => groupByStatus(projects ?? []), [projects]);
-  // 门开着 = 她的主页真的在线上。开着没做的主页项目挡不住任何事。
-  const siteReady = site?.published === true;
-
   async function handleStart() {
     const text = idea.trim();
     if (creating) return;
@@ -191,29 +163,20 @@ export function ProjectsLanding() {
             🚨 看板照常显示。门是在这道输入框上，不在她已经有的东西上——已经
             建了项目、还没有主页的学生（门上线之前的每一个人）不能因为这次改动
             就进不去自己的项目。 */}
-        <LandingHeader kind="project" title="项目" description="从真实的问题出发，规划、实践并记录你的成果。" />
+        <LandingHeader kind="project" title="项目教练" description="与印记讨论想法、定下计划，再使用适合的工具完成每一步。" />
         {/* ── 作业 ──────────────────────────────────────────────────────
             Above the gate, not inside it: a project the teacher assigned is
             reachable while her homepage is still unpublished. Renders nothing
             when no project is assigned and still open. */}
         <AssignmentStrip kind="project" className="mb-8 w-full max-w-[760px]" />
-        {siteLoading ? (
-          <p className="mt-6 text-mk-body text-mk-secondary" role="status">正在加载项目入口…</p>
-        ) : siteError ? (
-          <div className="learning-project-gate">
-            <div role="alert" className="text-mk-body text-mk-secondary"><Says content={errorMarkdown(`读取主页状态失败：${siteError}`)} /></div>
-            <button type="button" className="mt-4 text-mk-body font-semibold text-mk-accent-500" onClick={() => setSiteAttempt((n) => n + 1)}>重新加载</button>
-          </div>
-        ) : siteReady ? (
-
-          <div className="learning-project-start w-full">
+        <div className="learning-project-start w-full">
             <h2 className="text-mk-h2 text-mk-ink">新建项目</h2>
             {/* 🚨 原来写的是「一句话就行。想清楚要做什么，是我们一起的第一
                 件事。」——「一句话就行」正是文案第 7 条点名要删的那种替她减压
                 的话（它先假设了她怕）。改成先说这件事为什么值得做（第 5 条），
                 再请她做（第 3 条）。 */}
             <p className="mt-3 text-mk-body text-mk-secondary">
-              项目从一个真实的问题开始。请描述你想弄明白或想改变的那件事。
+              请描述你想做的项目。印记会先与你讨论想法，再整理计划、分工和每一步的产出。
             </p>
 
             <div
@@ -260,50 +223,7 @@ export function ProjectsLanding() {
                 <Says content={errorMarkdown(error)} />
               </div>
             )}
-          </div>
-        ) : (
-          <div className="learning-project-gate learning-project-gate-illustrated">
-            <div className="learning-project-gate-copy">
-            <p className="text-mk-small text-mk-muted">第一个项目</p>
-            <h2 className="mt-2 text-mk-h2 text-mk-ink">创建个人主页</h2>
-            <p className="mt-4 text-mk-body text-mk-secondary">
-              用一页网站向你选择的读者介绍兴趣或作品。你决定给谁看、展示什么、怎样邀请对方参与；印记协助整理结构、设计页面和执行修改。
-            </p>
-            <p className="mt-3 text-mk-body text-mk-secondary">从确定读者开始，自由描述喜欢的感觉，构思并试用第一幕，再介绍自己与展示作品。</p>
-            <button
-              type="button"
-              disabled={opening}
-              onClick={async () => {
-                setOpening(true);
-                setError(null);
-                try {
-                  const p = await startSiteProject();
-                  navigate(projectPath(p.id));
-                } catch (err) {
-                  setError(apiErrorText(err));
-                  setOpening(false);
-                }
-              }}
-              className="mt-8 inline-flex items-center justify-center gap-1.5 rounded-mk-full px-5 py-2.5 text-mk-body font-semibold text-white disabled:opacity-40"
-              style={{ background: "var(--mk-accent-500)" }}
-            >
-              {site?.projectId ? "继续制作主页" : "开始制作主页"}
-              <Icon icon={ArrowRight} size={15} />
-            </button>
-
-            <p className="mt-6 text-mk-small text-mk-muted">
-              主页发布后可创建其他项目。发布前可以预览和修改，并由你决定是否公开。
-            </p>
-
-            {error && (
-              <div className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-                <Says content={errorMarkdown(error)} />
-              </div>
-            )}
-            </div>
-            <img className="learning-project-gate-art" src={createHomepageIllustration} alt="" />
-          </div>
-        )}
+        </div>
 
         {/* ── 2 · the board ───────────────────────────────────────────── */}
         {loadError && (
