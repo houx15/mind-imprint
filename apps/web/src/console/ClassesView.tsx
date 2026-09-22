@@ -132,11 +132,14 @@ export function ClassesView({
               </div>
             )}
             <div style={{ minWidth: 140 }}>
+              {/* 不用 Select 的 placeholder：它会在 GRADE_OPTIONS[0]（未填写）之外
+                  再插一个 disabled 的 value="" 选项，两个空值互相打架，关闭态永远
+                  显示占位文字而不是真正选中的「未填写」。改用可见 label 标出字段。 */}
+              <label style={{ display: "block", marginBottom: 4, fontSize: 12, color: "var(--mk-muted)", fontWeight: 600 }}>年级</label>
               <Select
                 data-testid="grade-picker"
                 value={grade}
                 onChange={setGrade}
-                placeholder="年级"
                 options={GRADE_OPTIONS}
               />
             </div>
