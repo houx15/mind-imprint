@@ -347,6 +347,68 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 （它们为了一条自己用不上的规则担了风险），只留写作立题这一处 —— 那条测试
 住在那儿。
 
+## 8.6 · 二期 a 做完之后留下的东西（2026-09-22）
+
+年级那条轴已经通了：`classes.grade` → `ListClassGradesForUser` →
+`gradeFromClasses` → `guidance.Key.Grade` → `Resolve`。八个提交加一次终审修复
+（`98800b36..e67d5bb1`）。学生看不到任何变化 —— 那是它对的样子。
+
+### 🚨 二期 b 开工前必须先做的一件事
+
+**没有任何界面能改一个已有班级的年级。** `patchClass` 收 grade、有测试、
+空串能清掉，但 `ClassDetailView` 只有改名和换邀请码，`apps/web/src/api/classes.ts`
+里也没有对应的客户端方法。
+
+这件事卡住的是二期 b 的全部价值：线上两个班都是**批量导入**建的
+（`adminImport` 永久写空串），所以今天每一个真实班级的年级都是空的。
+**二期 b 的内容做出来，一个学生也收不到。** 把「改一个已有班级的年级」
+列成二期 b 的第一个任务。
+
+### 🚨 二期 b 会踩的三个坑
+
+1. **`TestEveryCombinationResolves` 会骗你**（§8.5 那条仍然逐字有效）：它按
+   `lang/genre` 建 want 表，然后拿七个年级去套同一份期望。第一行带 `Grades`
+   的登记（26 分）会输给已经在的文体行（28 分），内容一次不出现而测试全绿。
+   **动 Grades 之前先把 want 表也按年级分开。**
+2. **`TestGradeDoesNotChangeAnythingYet` 必须删掉。** 它是二期 a 的验收
+   （「填不填年级，结果一模一样」），二期 b 一旦登记年级内容它就必然红。
+   这是计划内的报废，不是回归。
+3. **`writingPlanSystemFor` 的 Resolve 兜底退到中文议论文**。一期终审补了
+   四行无语言的兜底行之后这条路已经取不到 error（取不到就是登记漏了），
+   但二期 b 会把组合数乘开。真要走到那儿，症状是一个写英文的学生拿到语文
+   高考的材料 —— 先看一眼再动。
+
+### 🚨 门要开得比一个 app 宽
+
+二期 a 的终审抓到两条**红着的门**，而七个任务的评审一条都看不见：
+
+- `apps/lite-web` 的 typecheck 红了。`ClassSummary` 多了两个必填字段，而
+  lite 的 `@/*` 解析到 `apps/web/src` —— **pro 的类型改动会打断 lite**。
+  计划里的门只写了 `cd apps/web && npm run typecheck`。
+- `apps/web` 有两条测试红着。整个二期 a **没有一个任务跑过 vitest**。
+
+以后碰 `apps/web` 或 `apps/lite-web` 的计划，门至少是这四条：
+
+	cd apps/lite-web && npm run typecheck
+	cd apps/web && npm run typecheck
+	cd apps/web && npm run build     # vite build 不做类型检查
+	cd apps/web && npx vitest run
+
+### 带着走的几条小账
+
+- 给 sqlc 的 params 结构体加字段**不是编译期强制的**：Go 的具名字段字面量会
+  把缺的字段悄悄补成零值。`CreateClassParams{}` 漏了 `Grade` 照样编译，写进去
+  的是空年级。加字段之后要 **grep 字面量**，别信绿色的 build。
+- 一个学生可能在不止一个班里。两个班的年级对不上时 `gradeFromClasses` 返回
+  「不知道」，**绝不挑一个**。终审确认这是对的产品行为而不是过度谨慎：猜错
+  是整篇按错误年级教而屏幕上毫无异常，不猜只是少一条线索、落回今天的内容。
+  🚨 但这条分支**一声不响** —— 二期 b 让年级真正起作用之后，值得在这里加一行
+  `slog.Info`，否则一个在两个班里的学生永远收不到年级内容而没人知道为什么。
+- `gradeTestTeacher` / `gradeTestSignIn` 是 package api 里第二份
+  createTeacher/signInAs。再有第三份就该提到 `testdb_internal_test.go` 里去。
+- `guidance` 的测试名里还留着 `Stage`（`TestStageBandFoldsGradeToBand` 等），
+  下次碰那两个文件时顺手改掉。
+
 ## 9 · 参考
 
 - `docs/reference/writing-teaching/reading-suggestion.md` —— 已实现于 `reading_genre.go`
