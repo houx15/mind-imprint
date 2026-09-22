@@ -120,6 +120,7 @@ function Harness() {
               at={{ x: 320, y: 40 }}
               tools={TOOLS}
               excerpted={false}
+              excerptable
               onPick={(t) => note(`工具 ${t}`)}
               onExcerpt={() => note("摘抄")}
               onSendToCoach={() => note("放入对话框")}
@@ -135,6 +136,7 @@ function Harness() {
               at={{ x: 320, y: 300 }}
               tools={TOOLS}
               excerpted
+              excerptable
               onPick={() => {}}
               onExcerpt={() => note("不该被按到")}
               onSendToCoach={() => note("放入对话框")}
@@ -143,7 +145,23 @@ function Harness() {
           </div>
         </Panel>
 
-        <Panel title="④ 阅读成果那一页上摘抄的那一节。每一条能回原文，也能交给印记。">
+        <Panel title="④ 只有摘要的那一篇：摘抄整颗不出现，别的照常。">
+          <div style={{ position: "relative", height: 120 }}>
+            <SelectionTools
+              quote="Not all people are like this all the time."
+              at={{ x: 900, y: 40 }}
+              tools={TOOLS}
+              excerpted={false}
+              excerptable={false}
+              onPick={(t) => note(`工具 ${t}`)}
+              onExcerpt={() => note("不该被按到")}
+              onSendToCoach={() => note("放入对话框")}
+              onDismiss={() => {}}
+            />
+          </div>
+        </Panel>
+
+        <Panel title="⑤ 阅读成果那一页上摘抄的那一节。每一条能回原文，也能交给印记。">
           <div style={{ maxWidth: 520 }}>
             <ReadingHarvest
               notes={[]}

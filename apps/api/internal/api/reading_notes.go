@@ -199,6 +199,29 @@ func (a *API) liteCreateAnnotationFor(kind string) http.HandlerFunc {
 			httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 			return
 		}
+		// 🚨 正文还没定下来之前不许摘抄（产品负责人 2026-09-22：「摘抄 is a
+		// feature that after the text is decided」）。
+		//
+		// 摘抄存的是**字偏移**，而 excerpt_only 那一篇正文里放的只是摘要/导语，
+		// 她随时会把全文粘进来换掉它。在那之前摘下的一句，换完正文之后偏移指向
+		// 的是另一段话 —— 要么她的摘抄被静默改写，要么（按 refuseIfAnchored
+		// 的现行规则）她因为摘过一句而**再也换不成正文**，被锁在一篇两句话的
+		// 摘要上。
+		//
+		// 判在这里而不是只把按钮灰掉：端点不用界面也打得到，而「今天界面没这条
+		// 路」不是一条能活过下一次改版的性质（refuseIfAnchored 顶上那段同理）。
+		if kind == "reading" {
+			src, serr := a.d.Queries.GetReadingSource(r.Context(), at.ID)
+			if serr != nil && !errors.Is(serr, pgx.ErrNoRows) {
+				httpx.WriteError(w, r, serr)
+				return
+			}
+			if serr == nil && src.ExcerptOnly {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("excerpt_only_source",
+					"这篇目前只有摘要，放入全文之后才能摘抄。", nil))
+				return
+			}
+		}
 		blockID := strings.TrimSpace(req.BlockID)
 		if blockID == "" {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("missing_block_id", "block id 不能为空。", nil))
