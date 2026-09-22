@@ -41,3 +41,19 @@ func TestWritingSymptomTableENIgnoresGenreForNow(t *testing.T) {
 			len(arg), len(nar), len(writingSymptomsEN))
 	}
 }
+
+// 🚨 语言认不出来（空串、老数据）时也要和 2026-09-22 之前一样。
+// 搬家就是搬家 —— 哪怕这条路今天被 DB 的 CHECK 挡着走不到。
+func TestWritingSymptomTableUnknownLangMatchesOldBehaviour(t *testing.T) {
+	union := writingSymptomTable("zh", genreNarrative)
+	for _, lang := range []string{"", "fr", "ZH"} {
+		if got := writingSymptomTable(lang, genreNarrative); len(got) != len(union) {
+			t.Errorf("lang=%q 记叙文拿到 %d 条，该和中文记叙一样是 %d 条",
+				lang, len(got), len(union))
+		}
+		if got := writingSymptomTable(lang, genreArgument); len(got) != len(writingSymptomsZH) {
+			t.Errorf("lang=%q 议论文拿到 %d 条，该是通用表的 %d 条",
+				lang, len(got), len(writingSymptomsZH))
+		}
+	}
+}

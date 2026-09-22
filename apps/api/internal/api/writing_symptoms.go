@@ -228,12 +228,18 @@ func writingSymptomTable(lang string, genre string) []writingSymptom {
 			Value: writingSymptomsZH},
 		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "en"},
 			Value: writingSymptomsEN},
+		// 语言认不出来（老数据、空串）时的记叙文：和 2026-09-22 之前一样给
+		// 合表。没有 Lang，所以它比上面任何一行都宽（specificity 20），
+		// 只有在 zh / en 两行都不匹配时才轮得到它。
+		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite,
+			Genres: []string{genreNarrative}}, Value: narrativeZH},
 	}
 	k := guidance.Key{Surface: guidance.SurfaceWrite, Lang: lang, Genre: genre}
 	if got, ok := guidance.Pick(k, rows); ok {
 		return got
 	}
-	// 语言认不出来时按中文通用表办 —— 和 2026-09-22 之前一致。
+	// 语言认不出来、体裁也不是记叙文时按中文通用表办；语言认不出来但是
+	// 记叙文时上面那一行接住 —— 两种情况合起来和 2026-09-22 之前完全一致。
 	return writingSymptomsZH
 }
 
