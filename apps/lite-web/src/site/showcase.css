@@ -157,15 +157,26 @@
 .showcase-title-cloud article:nth-child(3n) { transform: translateY(18px) rotate(2deg); }
 .showcase-title-cloud span { color: var(--show-muted); font-size: 9px; letter-spacing: .12em; }
 .showcase-title-cloud h3 { font-size: clamp(16px, 2.1cqw, 27px); line-height: 1.2; margin: 3px 0 0; overflow-wrap: anywhere; }
-.showcase-calendar-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
-.showcase-calendar-day { background: color-mix(in srgb, var(--show-accent) 16%, var(--show-paper)); border: 1px solid var(--show-line); min-height: 128px; padding: 14px; }
-.showcase-calendar-day[data-level="2"] { background: color-mix(in srgb, var(--show-accent) 30%, var(--show-paper)); }
-.showcase-calendar-day[data-level="3"] { background: color-mix(in srgb, var(--show-accent) 44%, var(--show-paper)); }
-.showcase-calendar-day[data-level="4"] { background: color-mix(in srgb, var(--show-accent) 58%, var(--show-paper)); }
-.showcase-calendar-day time { color: var(--show-muted); display: block; font-size: 10px; }
-.showcase-calendar-day strong { display: block; font-size: 28px; font-weight: 500; margin-top: 10px; }
-.showcase-calendar-day ul { font-size: 11px; line-height: 1.5; list-style: none; margin: 8px 0 0; padding: 0; }
-.showcase-calendar-day li + li { margin-top: 4px; }
+.showcase-calendar-legend { align-items: center; color: var(--show-muted); display: flex; font-size: 10px; gap: 5px; justify-content: flex-end; margin-bottom: 20px; }
+.showcase-calendar-legend span { margin-right: 5px; }
+.showcase-calendar-legend i, .showcase-calendar-day { background: color-mix(in srgb, var(--show-line) 38%, var(--show-paper)); border: 1px solid color-mix(in srgb, var(--show-line) 72%, transparent); border-radius: 3px; height: 13px; width: 13px; }
+.showcase-calendar [data-level="1"] { background: color-mix(in srgb, var(--show-accent) 24%, var(--show-paper)); }
+.showcase-calendar [data-level="2"] { background: color-mix(in srgb, var(--show-accent) 42%, var(--show-paper)); }
+.showcase-calendar [data-level="3"] { background: color-mix(in srgb, var(--show-accent) 64%, var(--show-paper)); }
+.showcase-calendar [data-level="4"] { background: color-mix(in srgb, var(--show-accent) 86%, var(--show-paper)); }
+.showcase-calendar-year { border-top: 1px solid var(--show-line); padding: 20px 0 26px; }
+.showcase-calendar-year > h3 { font-size: 13px; font-weight: 600; margin: 0 0 14px; }
+.showcase-calendar-scroll { overflow-x: auto; overflow-y: visible; padding: 2px 2px 150px; margin-bottom: -150px; scrollbar-width: thin; }
+.showcase-calendar-grid { display: grid; gap: 4px; grid-auto-columns: 13px; grid-auto-flow: column; grid-template-rows: repeat(7, 13px); min-width: max-content; position: relative; }
+.showcase-calendar-day { display: block; margin: 0; min-height: 0; padding: 0; position: relative; }
+.showcase-calendar-day summary { cursor: pointer; height: 100%; list-style: none; outline: none; width: 100%; }
+.showcase-calendar-day summary::-webkit-details-marker { display: none; }
+.showcase-calendar-day summary:focus-visible { box-shadow: 0 0 0 2px var(--show-paper), 0 0 0 4px var(--show-ink); border-radius: 2px; }
+.showcase-calendar-day summary > span { display: block; height: 100%; width: 100%; }
+.showcase-calendar-day > div { background: var(--show-paper); border: 1px solid var(--show-ink); border-radius: 8px; box-shadow: 4px 5px 0 color-mix(in srgb, var(--show-ink) 18%, transparent); color: var(--show-ink); left: 50%; min-width: 210px; padding: 12px 14px; position: absolute; top: 20px; transform: translateX(-50%); z-index: 5; }
+.showcase-calendar-day time { color: var(--show-muted); display: block; font-size: 10px; margin-bottom: 8px; }
+.showcase-calendar-day ul { font-size: 12px; line-height: 1.5; list-style: none; margin: 0; padding: 0; }
+.showcase-calendar-day li + li { border-top: 1px solid var(--show-line); margin-top: 7px; padding-top: 7px; }
 .showcase-undated { border-top: 1px solid var(--show-line); margin-top: 32px; padding-top: 24px; }
 .showcase-undated > h3 { color: var(--show-muted); font-size: 12px; letter-spacing: .1em; margin: 0; }
 

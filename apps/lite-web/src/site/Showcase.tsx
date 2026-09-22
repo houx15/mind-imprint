@@ -63,6 +63,45 @@ export function timelineShowcaseWorks(works: ShowcaseWork[]): ShowcaseWork[] {
     .map(({ work }) => work);
 }
 
+export interface ShowcaseCalendarDay {
+  date: string;
+  works: ShowcaseWork[];
+}
+
+export interface ShowcaseCalendarYear {
+  year: string;
+  days: ShowcaseCalendarDay[];
+}
+
+function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export function showcaseCalendarYears(works: ShowcaseWork[]): ShowcaseCalendarYear[] {
+  const byDate = new Map<string, ShowcaseWork[]>();
+  for (const work of works) {
+    const date = safeShowcaseDate(work.date);
+    if (date) byDate.set(date, [...(byDate.get(date) ?? []), work]);
+  }
+  const byYear = new Map<string, string[]>();
+  for (const date of [...byDate.keys()].sort()) {
+    const year = date.slice(0, 4);
+    byYear.set(year, [...(byYear.get(year) ?? []), date]);
+  }
+  return [...byYear.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([year, dates]) => {
+    const first = new Date(`${dates[0]}T00:00:00Z`);
+    const last = new Date(`${dates[dates.length - 1]}T00:00:00Z`);
+    first.setUTCDate(first.getUTCDate() - first.getUTCDay());
+    last.setUTCDate(last.getUTCDate() + (6 - last.getUTCDay()));
+    const days: ShowcaseCalendarDay[] = [];
+    for (const cursor = new Date(first); cursor <= last; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      const date = isoDay(cursor);
+      days.push({ date, works: byDate.get(date) ?? [] });
+    }
+    return { year, days };
+  });
+}
+
 function CompactWork({ work, index }: { work: ShowcaseWork; index: number }) {
   return (
     <article className="showcase-compact-work">
@@ -88,21 +127,23 @@ function Portfolio({ works, mode }: { works: ShowcaseWork[]; mode: Exclude<NonNu
       {works.map((work) => <article role="listitem" key={work.id}><span>{SECTION_LABELS[work.kind]}</span><h3><WorkTitle work={work}>{work.title}</WorkTitle></h3></article>)}
     </div>
   );
-  const groups = new Map<string, ShowcaseWork[]>();
-  for (const work of dated) {
-    const date = safeShowcaseDate(work.date)!;
-    groups.set(date, [...(groups.get(date) ?? []), work]);
-  }
+  const years = showcaseCalendarYears(dated);
   return (
     <div className="showcase-calendar">
-      <div className="showcase-calendar-grid" role="list" aria-label="有作品记录的日期">
-        {[...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, items]) => (
-          <div className="showcase-calendar-day" role="listitem" key={date} data-level={Math.min(items.length, 4)}>
-            <time dateTime={date}>{dateLabel(date)}</time><strong>{items.length}</strong>
-            <ul>{items.map((work) => <li key={work.id}><WorkTitle work={work}>{work.title}</WorkTitle></li>)}</ul>
+      <div className="showcase-calendar-legend"><span>作品记录</span><i data-level="0" /><i data-level="1" /><i data-level="2" /><i data-level="3" /><i data-level="4" /></div>
+      {years.map(({ year, days }) => <section className="showcase-calendar-year" key={year} aria-labelledby={`showcase-calendar-${year}`}>
+        <h3 id={`showcase-calendar-${year}`}>{year}</h3>
+        <div className="showcase-calendar-scroll">
+          <div className="showcase-calendar-grid" role="list" aria-label={`${year}年作品日历`}>
+            {days.map(({ date, works: dayWorks }) => dayWorks.length ? (
+              <details className="showcase-calendar-day" role="listitem" key={date} data-level={Math.min(dayWorks.length, 4)}>
+                <summary aria-label={`${dateLabel(date)}，${dayWorks.length}项作品`}><span aria-hidden /></summary>
+                <div><time dateTime={date}>{dateLabel(date)}</time><ul>{dayWorks.map((work) => <li key={work.id}><WorkTitle work={work}>{work.title}</WorkTitle></li>)}</ul></div>
+              </details>
+            ) : <span className="showcase-calendar-day" aria-hidden="true" key={date} data-level="0" />)}
           </div>
-        ))}
-      </div>
+        </div>
+      </section>)}
       {undated.length > 0 && <div className="showcase-undated"><h3>未记录日期</h3>{undated.map((work, index) => <CompactWork key={work.id} work={work} index={index} />)}</div>}
     </div>
   );
@@ -150,11 +191,14 @@ function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; wor
 export function Showcase({ config, works, narrow = false, editing = false, heroImageUrl, avatarUrl }: ShowcaseProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [measuredNarrow, setMeasuredNarrow] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
   const theme = SHOWCASE_THEMES[config.palette];
   const visualStyle = config.style ?? "classic";
   const illustration = config.illustration ?? "none";
   const art = SHOWCASE_ILLUSTRATIONS.find((item) => item.id === illustration)?.src;
   const heroArt = heroImageUrl || art;
+  const displayedHeroArt = heroFailed ? undefined : heroArt;
   const aboutLayout = config.aboutLayout ?? "classic";
   const portfolioLayout = config.portfolioLayout ?? "sections";
   const selected = useMemo(() => {
@@ -171,6 +215,9 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => setAvatarFailed(false), [avatarUrl]);
+  useEffect(() => setHeroFailed(false), [heroArt]);
+
   const style = {
     "--show-paper": theme.paper,
     "--show-ink": theme.ink,
@@ -186,15 +233,15 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
 
   return (
     <div ref={rootRef} className="showcase" style={style} data-layout={config.layout} data-style={visualStyle} data-illustration={illustration} data-editing={editing || undefined} data-narrow={isNarrow || undefined}>
-      <header className={`showcase-hero ${heroArt ? "has-cover-art" : ""}`}>
-        {heroArt && <img className="showcase-hero-art is-cover" src={heroArt} alt="" aria-hidden="true" />}
+      <header className={`showcase-hero ${displayedHeroArt ? "has-cover-art" : ""}`}>
+        {displayedHeroArt && <img className="showcase-hero-art is-cover" src={displayedHeroArt} alt="" aria-hidden="true" onError={() => setHeroFailed(true)} />}
         <h1>{config.heroTitle?.trim() || (config.name ? `欢迎来到${config.name}的空间` : editing ? "欢迎来到我的空间" : "")}</h1>
         {(config.tagline || editing) && <p className="showcase-tagline">{config.tagline || "主页介绍"}</p>}
         <a className="showcase-enter" href="#showcase-about">进入我的空间 <span aria-hidden>↓</span></a>
       </header>
       <section className="showcase-about" id="showcase-about" data-about-layout={aboutLayout} aria-labelledby="showcase-about-title">
         <div className="showcase-avatar">
-          {avatarUrl ? <img src={avatarUrl} alt="" /> : <span aria-hidden>{config.name.trim().slice(0, 1) || "·"}</span>}
+          {avatarUrl && !avatarFailed ? <img src={avatarUrl} alt="" onError={() => setAvatarFailed(true)} /> : <span aria-hidden>{config.name.trim().slice(0, 1) || "·"}</span>}
         </div>
         <div className="showcase-about-copy">
           <p className="showcase-kicker">关于我</p>

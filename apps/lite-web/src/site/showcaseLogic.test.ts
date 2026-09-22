@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeShowcaseDate, safeShowcaseWorkPath, selectedShowcaseWorks, timelineShowcaseWorks } from "./Showcase";
+import { safeShowcaseDate, safeShowcaseWorkPath, selectedShowcaseWorks, showcaseCalendarYears, timelineShowcaseWorks } from "./Showcase";
 import { SHOWCASE_ILLUSTRATIONS, SHOWCASE_PRESETS } from "./showcasePresets";
 import type { ShowcaseWork } from "./showcaseTypes";
 
@@ -36,6 +36,22 @@ describe("showcase publication boundaries", () => {
       { id: "new", kind: "reading", title: "New", summary: "", date: "2026-09-22" },
     ];
     expect(timelineShowcaseWorks(works).map((work) => work.id)).toEqual(["new", "old", "none"]);
+  });
+
+  it("builds calendar weeks only around real dated work", () => {
+    const works: ShowcaseWork[] = [
+      { id: "a", kind: "writing", title: "A", summary: "", date: "2026-09-22" },
+      { id: "b", kind: "reading", title: "B", summary: "", date: "2026-09-22" },
+      { id: "c", kind: "project", title: "C", summary: "", date: "2026-09-24" },
+      { id: "undated", kind: "project", title: "No date", summary: "" },
+    ];
+    const years = showcaseCalendarYears(works);
+    expect(years).toHaveLength(1);
+    expect(years[0]?.year).toBe("2026");
+    expect(years[0]?.days).toHaveLength(7);
+    expect(years[0]?.days[0]?.date).toBe("2026-09-20");
+    expect(years[0]?.days[6]?.date).toBe("2026-09-26");
+    expect(years[0]?.days.find((day) => day.date === "2026-09-22")?.works.map((work) => work.id)).toEqual(["a", "b"]);
   });
 });
 
