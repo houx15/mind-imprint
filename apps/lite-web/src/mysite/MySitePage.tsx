@@ -47,6 +47,8 @@ export function MySitePage() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const busyRef = useRef(false);
   const [tab, setTab] = useState<"profile" | "design" | "hero" | "works">("design");
+  const [profileTab, setProfileTab] = useState("chat");
+  const [heroTab, setHeroTab] = useState("text");
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [narrow, setNarrow] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -134,7 +136,10 @@ export function MySitePage() {
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
         <nav className="showcase-tabs" aria-label="主页设置">{([["design", "风格"], ["hero", "开场"], ["profile", "介绍"], ["works", "作品"]] as const).map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
-        <fieldset disabled={busy || imageBusy} className="showcase-fields">
+        {tab === "profile" && <nav className="showcase-subtabs" aria-label="介绍设置">{([["chat","对话"],["content","内容"],["avatar","头像"],["tree","兴趣树"]] as const).map(([id,label])=><button key={id} aria-pressed={profileTab===id} onClick={()=>setProfileTab(id)}>{label}</button>)}</nav>}
+        {tab === "hero" && <nav className="showcase-subtabs" aria-label="开场设置">{([["text","文字"],["art","系统配图"],["image","自定义图片"]] as const).map(([id,label])=><button key={id} aria-pressed={heroTab===id} onClick={()=>setHeroTab(id)}>{label}</button>)}</nav>}
+        <fieldset disabled={busy || imageBusy} className={`showcase-fields ${tab === "profile" && profileTab === "chat" ? "is-chat" : ""}`}>
+
           {tab === "design" && <>
             <div className="showcase-heading"><h2>选择喜欢的样子</h2><p>从一套视觉方案开始，再调整配图、字体和版式。</p></div>
             <div className="showcase-presets">{SHOWCASE_PRESETS.map(preset => {
@@ -147,24 +152,24 @@ export function MySitePage() {
           </>}
           {tab === "hero" && <>
             <div className="showcase-heading"><h2>欢迎来到你的空间</h2><p>全屏开场之后，访客可以继续查看个人介绍和作品。</p></div>
-            <label className="showcase-field">开场标题<GrowingTextarea value={draft.heroTitle ?? ""} maxLength={200} onChange={e => patch({heroTitle:e.target.value})} placeholder={`欢迎来到${draft.name || "我的"}的空间`} /></label>
+            <div hidden={heroTab !== "text"}><label className="showcase-field">开场标题<GrowingTextarea value={draft.heroTitle ?? ""} maxLength={200} onChange={e => patch({heroTitle:e.target.value})} placeholder={`欢迎来到${draft.name || "我的"}的空间`} /></label>
             <label className="showcase-field">开场介绍<GrowingTextarea value={draft.tagline} maxLength={200} onChange={e => patch({tagline:e.target.value})} placeholder="请写下想对访客说的话。" /></label>
-            <div className="showcase-field-group"><h3>开场配图</h3><div className="showcase-art-options">{SHOWCASE_ILLUSTRATIONS.map(art => <button key={art.id} aria-pressed={!draft.heroImageKey && (draft.illustration ?? "none") === art.id} onClick={() => patch({illustration:art.id,heroImageKey:""})}>{art.src ? <img src={art.src} alt="" loading="lazy" /> : <span>留白</span>}<small>{art.name}</small></button>)}</div></div>
-            <div className="showcase-field-group"><h3>自定义图片</h3><ShowcaseImagePicker prompt={draft.heroImagePrompt ?? ""} onPromptChange={value => patch({heroImagePrompt:value})} purpose="hero" currentUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url) => {if(key)setImageUrls(current=>({...current,[key]:url})); patch({heroImageKey:key});}} /></div>
-          </>}
-          <div hidden={tab !== "profile"}>
-            <div className="showcase-heading"><h2>一起整理个人介绍</h2><p>从想分享的内容开始。印记会帮你整理，并建议适合的展示方式。</p></div>
-            <ShowcaseAboutCoach available={state.aboutChatAvailable === true} draft={effectiveDraft!} disabled={busy || imageBusy || !state.aboutChatAvailable} onBusy={setImageBusy} onConversation={messages=>patch({aboutConversation:messages})} onApply={proposal=>{patch({name:proposal.name,bio:proposal.bio,interests:proposal.interests,aboutLayout:proposal.aboutLayout});setInterestText(proposal.interests.join("、"));setNotice("介绍建议已应用，请预览并保存草稿");}}/>
-            <details className="showcase-manual-about"><summary>编辑介绍与版式</summary>
+            </div><div hidden={heroTab !== "image"}><div className="showcase-field-group"><h3>自定义图片</h3><ShowcaseImagePicker prompt={draft.heroImagePrompt ?? ""} onPromptChange={value => patch({heroImagePrompt:value})} purpose="hero" currentUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url) => {if(key)setImageUrls(current=>({...current,[key]:url})); patch({heroImageKey:key});}} /></div>
+            </div><div hidden={heroTab !== "art"}><div className="showcase-field-group"><h3>开场配图</h3><div className="showcase-art-options">{SHOWCASE_ILLUSTRATIONS.map(art => <button key={art.id} aria-pressed={!draft.heroImageKey && (draft.illustration ?? "none") === art.id} onClick={() => patch({illustration:art.id,heroImageKey:""})}>{art.src ? <img src={art.src} alt="" loading="lazy" /> : <span>留白</span>}<small>{art.name}</small></button>)}</div></div>
+          </div></>}
+          <div className="showcase-profile-panel" hidden={tab !== "profile"}>
+            <div className="showcase-heading"><h2>{profileTab === "chat" ? "一起整理个人介绍" : profileTab === "content" ? "介绍内容与版式" : profileTab === "avatar" ? "个人照片或头像" : "兴趣树展示"}</h2><p>{profileTab === "chat" ? "从想分享的内容开始，讨论内容与展示方式。" : profileTab === "content" ? "修改介绍、关键词和呈现方式。" : profileTab === "avatar" ? "上传图片，或用文字描述生成新头像。" : "选择在主页分享哪些兴趣内容。"}</p></div>
+            <div className="showcase-chat-panel" hidden={profileTab !== "chat"}><ShowcaseAboutCoach available={state.aboutChatAvailable === true} draft={effectiveDraft!} disabled={busy || imageBusy || !state.aboutChatAvailable} onBusy={setImageBusy} onConversation={messages=>patch({aboutConversation:messages})} onApply={proposal=>{patch({name:proposal.name,bio:proposal.bio,interests:proposal.interests,aboutLayout:proposal.aboutLayout});setInterestText(proposal.interests.join("、"));setNotice("介绍建议已应用，请预览并保存草稿");}}/>
+            </div><div hidden={profileTab !== "content"}>
             <div className="showcase-field-group"><h3>介绍版式</h3><div className="showcase-segments">{([["classic","名字与简介"],["orbit","照片与关键词"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.aboutLayout??"classic")===id} onClick={()=>patch({aboutLayout:id})}>{label}</button>)}</div></div>
             <label className="showcase-field mt-6">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>
 
             <label className="showcase-field">个人简介<GrowingTextarea value={draft.bio} maxLength={2000} rows={4} onChange={e => patch({ bio: e.target.value })} placeholder="请介绍你的兴趣、正在探索的事情，或想分享的经历。" /></label>
             <label className="showcase-field">兴趣关键词<input value={interestText} onChange={e => {setInterestText(e.target.value); setNotice("");}} maxLength={500} placeholder="动漫、科幻、植物、摄影" /><small>用顿号或逗号分隔，最多 12 个。已填写 {interestInput.interests.length} 个。</small>{interestInput.error && <small role="alert" className="showcase-field-error">{interestInput.error}</small>}</label>
-            </details>
-            <div className="showcase-field-group"><h3>兴趣树展示</h3><div className="showcase-mode-options">{([["none","不展示"],["tree","展示兴趣树"],["keywords","展示关键词"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={(draft.interestTreeMode??"none")===id} onClick={()=>patch({interestTreeMode:id})}>{label}</button>)}</div><p className="showcase-mode-help">选择展示后，发布时会分享兴趣树中的领域与关键词，不包含对话、来源或学习记录。后续变化需要重新发布。</p>{draft.interestTreeMode && draft.interestTreeMode !== "none" && !state.availableInterestTree?.keywords.length && <p className="showcase-editor-empty">兴趣树暂无关键词。产生新的兴趣关键词后，可在这里预览并发布。</p>}</div>
-            <div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
-          </div>
+            </div>
+            <div hidden={profileTab !== "tree"}><div className="showcase-field-group"><h3>兴趣树展示</h3><div className="showcase-mode-options">{([["none","不展示"],["tree","展示兴趣树"],["keywords","展示关键词"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={(draft.interestTreeMode??"none")===id} onClick={()=>patch({interestTreeMode:id})}>{label}</button>)}</div><p className="showcase-mode-help">选择展示后，发布时会分享兴趣树中的领域与关键词，不包含对话、来源或学习记录。后续变化需要重新发布。</p>{draft.interestTreeMode && draft.interestTreeMode !== "none" && !state.availableInterestTree?.keywords.length && <p className="showcase-editor-empty">兴趣树暂无关键词。产生新的兴趣关键词后，可在这里预览并发布。</p>}</div>
+            </div><div hidden={profileTab !== "avatar"}><div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
+          </div></div>
           {tab === "works" && <>
             <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目仅展示名称与简介。</p></div>
             <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>

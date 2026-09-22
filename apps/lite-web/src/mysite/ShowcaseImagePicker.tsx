@@ -15,6 +15,7 @@ export function ShowcaseImagePicker({purpose, currentUrl, prompt, onPromptChange
   onBusy: (busy: boolean) => void;
   onPick: (key: string, url: string) => void;
 }) {
+  const [mode, setMode] = useState<"upload" | "generate">("upload");
   const input = useRef<HTMLInputElement>(null);
   const lock = useRef(false);
   const [generating, setGenerating] = useState(false);
@@ -40,15 +41,16 @@ export function ShowcaseImagePicker({purpose, currentUrl, prompt, onPromptChange
     finally { lock.current = false; setGenerating(false); onBusy(false); }
   }
   return <section className="showcase-image-picker">
+    <div className="showcase-image-methods" aria-label="图片来源"><button type="button" aria-pressed={mode === "upload"} onClick={()=>setMode("upload")}><ImagePlus size={18}/>上传图片<small>使用自己的图片</small></button><button type="button" aria-pressed={mode === "generate"} onClick={()=>setMode("generate")}><Sparkles size={18}/>AI 生图<small>描述你想要的画面</small></button></div>
     {currentUrl && !imageFailed && <img onError={() => setImageFailed(true)} src={currentUrl} alt={purpose === "hero" ? "已选开场图片" : "已选个人图片"} className={purpose === "avatar" ? "is-avatar" : ""} />}
     {imageFailed && <p role="alert" className="showcase-image-error">图片加载失败，请刷新后重试或替换图片。</p>}
     <input type="file" accept="image/png,image/jpeg,image/webp" ref={input} hidden onChange={e => {const file = e.target.files?.[0]; e.target.value = ""; if (file) void upload(file);}} />
-    <div className="showcase-image-actions"><button type="button" disabled={disabled} onClick={() => input.current?.click()}><ImagePlus size={15} />{uploading ? "上传中" : purpose === "hero" ? "上传开场图片" : "上传个人照片"}</button>{currentUrl && <button type="button" disabled={disabled} onClick={() => onPick("", "")}>移除图片</button>}</div>
+    <div hidden={mode !== "upload"}><div className="showcase-image-actions"><button type="button" disabled={disabled} onClick={() => input.current?.click()}><ImagePlus size={15} />{uploading ? "上传中" : purpose === "hero" ? "上传开场图片" : "上传个人照片"}</button>{currentUrl && <button type="button" disabled={disabled} onClick={() => onPick("", "")}>移除图片</button>}</div>
     <small>支持 PNG、JPEG、WebP，最大 10 MB。</small>
-    <p>{purpose === "hero" ? "首图预设：横向画面，适合全屏展示，标题区域留白。" : "头像预设：方形画面，主体居中，适合圆形裁切。"}系统会补充尺寸与构图要求；原始描述随草稿保存。</p>
+    </div><div hidden={mode !== "generate"}><p>{purpose === "hero" ? "首图预设：横向画面，适合全屏展示，标题区域留白。" : "头像预设：方形画面，主体居中，适合圆形裁切。"}系统会补充尺寸与构图要求；原始描述随草稿保存。</p>
     <label className="showcase-field">图片描述<GrowingTextarea value={prompt} disabled={disabled} maxLength={2000} rows={2} onChange={e => onPromptChange(e.target.value)} placeholder={purpose === "hero" ? "例如：极简的蓝色天空，一颗漂浮的星球，画面中央留白。" : "例如：戴着耳机的原创小机器人，圆形头像，浅色背景。"} /></label>
     <button type="button" className="showcase-generate" disabled={disabled || !prompt.trim()} onClick={() => void generate()}>{generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}{generating ? "图片生成中" : "生成图片"}</button>
-    <p>图片描述会发送给平台配置的图像模型。生成或上传后，请预览并保存草稿；发布前仅自己可见。</p>
+    </div><p>图片描述会发送给平台配置的图像模型。生成或上传后，请预览并保存草稿；发布前仅自己可见。</p>
     {error && <div role="alert" className="showcase-image-error"><Says content={errorMarkdown(error)} /></div>}
   </section>;
 }
