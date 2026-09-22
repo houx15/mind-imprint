@@ -29,6 +29,7 @@ export function PlanPanel({
   onResolve,
   onApprove,
   onSubmit,
+  onDiscuss,
   busy = false,
 }: {
   plan: Plan | null;
@@ -36,6 +37,7 @@ export function PlanPanel({
   onResolve: (id: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
   onSubmit: (stepId: string, note: string, url: string) => Promise<void>;
+  onDiscuss: (step: PlanStep) => void;
   busy?: boolean;
 }) {
   // Plan Check takes the panel over rather than popping up. A popup says
@@ -75,7 +77,7 @@ export function PlanPanel({
         <ProjectProgressVisual steps={plan.steps} showSteps={false} />
         <ol className="project-plan-steps flex flex-col gap-3">
           {plan.steps.map((s) => (
-            <StepRow key={s.id} step={s} approved={!unapproved} busy={busy} onSubmit={onSubmit} />
+            <StepRow key={s.id} step={s} approved={!unapproved} busy={busy} onSubmit={onSubmit} onDiscuss={onDiscuss} />
           ))}
         </ol>
       </div>
@@ -99,7 +101,7 @@ export function PlanPanel({
   );
 }
 
-function StepRow({ step, approved, busy, onSubmit }: { step: PlanStep; approved: boolean; busy: boolean; onSubmit: (stepId: string, note: string, url: string) => Promise<void> }) {
+function StepRow({ step, approved, busy, onSubmit, onDiscuss }: { step: PlanStep; approved: boolean; busy: boolean; onSubmit: (stepId: string, note: string, url: string) => Promise<void>; onDiscuss: (step: PlanStep) => void }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(step.submission?.note ?? "");
   const [url, setURL] = useState(step.submission?.url ?? "");
@@ -163,6 +165,7 @@ function StepRow({ step, approved, busy, onSubmit }: { step: PlanStep; approved:
               {step.submission.note && <p className="mt-1 whitespace-pre-wrap text-mk-small text-mk-ink">{step.submission.note}</p>}
               {step.submission.url && <a className="mt-1 block break-all text-mk-small underline" href={step.submission.url} target="_blank" rel="noreferrer">打开链接</a>}
               <p className="mt-1 text-mk-label text-mk-muted">由你确认完成，尚未经审核</p>
+              <button type="button" disabled={busy || submitting} onClick={() => onDiscuss(step)} className="mt-2 text-mk-small font-semibold text-mk-accent-500 disabled:opacity-40">与印记讨论</button>
             </div>
           )}
           {approved && step.status !== "cancelled" && (

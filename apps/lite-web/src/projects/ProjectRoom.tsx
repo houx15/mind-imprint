@@ -19,6 +19,7 @@ import {
   SESSION_REQUIRED_FIELD,
   SESSION_WRITEBACK_PROMPT,
   type PlanResolution,
+  type PlanStep,
   type PlanState,
   type Session,
   type SessionKind,
@@ -382,6 +383,19 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     setPlan(await getPlan(projectId));
   }
 
+  function discussStepSubmission(step: PlanStep) {
+    if (!step.submission) return;
+    const lines = [
+      `我想和你讨论计划中的「${step.title}」这一步。`,
+      step.submission.note ? `我提交的产出说明：${step.submission.note}` : "",
+      step.submission.url ? `产出链接：${step.submission.url}` : "",
+      step.submission.url ? "这里只提供了链接，链接内容尚未被打开或核对，请不要假设已经看过。" : "",
+    ].filter(Boolean);
+    setActiveSession(null);
+    setDraft(lines.join("\n"));
+    setShowMobileWork(false);
+  }
+
   /* ── 工具 ─────────────────────────────────────────────────────────────
    *
    * 打开一件当场做的工具，右边就切过去；打开一件出门做的，什么也不弹——她
@@ -722,6 +736,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           onResolve={onResolve}
             onApprove={onApprove}
             onSubmit={onSubmitStep}
+            onDiscuss={discussStepSubmission}
             onOpenMaterial={(t) => {
               void afterDraftSave(() => {
               // 放进列表（已经在里面就替换），再选中。同步做完，右栏立刻有东西。
