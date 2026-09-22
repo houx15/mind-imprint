@@ -219,6 +219,10 @@ func TestShowcaseRejectsForeignImagesAndBoundsGenerationBeforeProvider(t *testin
 			t.Fatalf("invalid generation = %d; body=%s", rec.Code, rec.Body)
 		}
 	}
+	tooLong := `{"purpose":"hero","prompt":"` + strings.Repeat("画", 2001) + `"}`
+	if rec := siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/images/generate", tooLong); rec.Code != http.StatusBadRequest {
+		t.Fatalf("oversized prompt = %d; body=%s", rec.Code, rec.Body)
+	}
 }
 
 func showcaseJSON(t *testing.T, v any) string {

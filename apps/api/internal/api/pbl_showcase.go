@@ -518,6 +518,15 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 
 func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	entitled, err := HasEntitlement(r.Context(), u)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
 	var in struct {
 		Prompt  string `json:"prompt"`
 		Purpose string `json:"purpose"`
@@ -527,7 +536,7 @@ func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.Prompt = strings.TrimSpace(in.Prompt)
-	if len([]rune(in.Prompt)) < 3 || len([]rune(in.Prompt)) > 800 || !oneOf(in.Purpose, "hero", "avatar") {
+	if len([]rune(in.Prompt)) < 3 || len([]rune(in.Prompt)) > 2000 || !oneOf(in.Purpose, "hero", "avatar") {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image_request", "图片描述或用途无效", nil))
 		return
 	}
