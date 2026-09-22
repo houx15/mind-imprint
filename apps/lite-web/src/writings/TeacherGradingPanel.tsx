@@ -1,3 +1,4 @@
+import "./writing-studio.css";
 import type { StudentGrading } from "../api/gradings";
 import type { WritingVersion } from "../api/writings";
 import { formatDeadline } from "../shared/deadline";
@@ -72,8 +73,8 @@ export function TeacherGradingPanel({
         const quotes = g.content.points.map((p) => p.quote);
         const unmarked = determinedUnmarkedQuotes(bodies[g.versionNumber]?.body, quotes) ?? EMPTY_SET;
         return (
-          <article key={g.id} className="flex flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-4">
-            <div className="flex flex-wrap items-baseline gap-2">
+          <article key={g.id} className="writing-teacher-feedback flex flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-4">
+            <div className="writing-teacher-feedback__score flex flex-wrap items-baseline gap-2">
               <span className="text-mk-h3 font-bold text-mk-ink">{g.content.overall.grade}</span>
               <span className="text-mk-small text-mk-muted">总评</span>
               {forLine && <span className="text-mk-small text-mk-muted">{forLine}</span>}
@@ -83,9 +84,9 @@ export function TeacherGradingPanel({
               <p className="whitespace-pre-wrap text-mk-small text-mk-ink">{g.content.overall.comment}</p>
             )}
             {g.content.dimensions.length > 0 && (
-              <dl className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1.5 text-mk-small">
+              <dl className="writing-teacher-feedback__dimensions">
                 {g.content.dimensions.map((d) => (
-                  <div key={d.name} className="contents">
+                  <div key={d.name} className="writing-teacher-feedback__dimension">
                     <dt className="text-mk-muted">{d.name}</dt>
                     <dd className="font-bold text-mk-ink">{d.grade}</dd>
                     <dd className="text-mk-ink">{d.comment}</dd>
@@ -96,7 +97,7 @@ export function TeacherGradingPanel({
             {g.content.points.length > 0 && (
               <ul className="flex flex-col gap-2">
                 {g.content.points.map((p, i) => (
-                  <li key={i} className="flex flex-col gap-1 text-mk-small">
+                  <li key={i} className="writing-teacher-feedback__point flex flex-col gap-1 text-mk-small">
                     <span className="text-mk-label font-bold text-mk-muted">{p.kind === "good" ? "优点" : "问题"}</span>
                     {p.quote && onQuote && (!clickable || clickable(p.quote, g.versionNumber, i)) ? (
                       <button

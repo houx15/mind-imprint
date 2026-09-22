@@ -27,6 +27,7 @@ import {
   type AssignmentLoadState,
 } from "./finishedWriting";
 import { GRADINGS_CHANGED_EVENT, gradingsChangedAtom } from "./gradingsChanged";
+import "./writing-studio.css";
 import { TeacherGradingPanel } from "./TeacherGradingPanel";
 import { diffVersions, type ParagraphDiff } from "./versionDiff";
 
@@ -249,7 +250,7 @@ export function FinishedWritingPage({
   });
 
   return (
-    <div className="flex w-full flex-col pb-14">
+    <div className="writing-finished flex w-full flex-col pb-14">
       <header className="mk-rp-measure flex flex-col gap-3 pt-8">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="secondary" onClick={onBack}>
@@ -314,11 +315,9 @@ export function FinishedWritingPage({
       </div>
       {tab === "transcript" && <TranscriptView kind="writing" atomId={writing.id} />}
       {tab === "source" && (
-        <div className="mk-rp-measure mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,1fr)]">
-          <article className="min-w-0">
-            {selectedSummary && selected !== latest && (
-              <p className="mb-4 text-mk-small text-mk-muted">{versionLine(selectedSummary, writing.lang)}</p>
-            )}
+        <div className="writing-finished__layout mk-rp-measure mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,44rem)_minmax(16rem,1fr)]">
+          <article className="writing-finished__paper min-w-0">
+            <div className="writing-finished__document-label"><span>成稿</span>{selectedSummary && <span>{versionLine(selectedSummary, writing.lang)}</span>}</div>
             {bodyState === "no_versions" ? (
               <p className="text-mk-body text-mk-muted">{NO_VERSION_TEXT}</p>
             ) : bodyState === "error" ? null : (

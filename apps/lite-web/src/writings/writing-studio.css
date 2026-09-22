@@ -54,3 +54,22 @@
 .student-writing-room > header > div:first-child { flex: 1 1 280px; }
 .student-writing-room > header h1 { font-size: clamp(20px, 1.8vw, 26px); line-height: 1.5; font-weight: 600; margin-top: 6px; }
 .student-writing-room > header h1 button { white-space: normal; overflow-wrap: anywhere; }
+.writing-finished__layout { align-items: start; gap: 28px; }
+.writing-finished__paper { padding: 28px clamp(24px, 3vw, 44px) 44px; background: var(--mk-surface); border: 1px solid var(--mk-border); border-radius: 5px; box-shadow: 0 10px 30px color-mix(in srgb, var(--mk-ink) 4%, transparent); }
+.writing-finished__document-label { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--mk-border); font-size: 12px; color: var(--mk-muted); }
+.writing-finished__document-label > span:first-child { color: var(--mk-accent-700); font-weight: 600; }
+.writing-teacher-feedback { padding: 20px; gap: 18px; }
+.writing-teacher-feedback__score { padding-bottom: 14px; border-bottom: 1px solid var(--mk-border); }
+.writing-teacher-feedback__score > span:first-child { font-size: 32px; line-height: 1.1; font-weight: 600; color: var(--mk-accent-700); }
+.writing-teacher-feedback > p { line-height: 1.85; }
+.writing-teacher-feedback__dimensions { display: grid; gap: 16px; font-size: 13px; }
+.writing-teacher-feedback__dimension { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; }
+.writing-teacher-feedback__dimension > dd:last-child { grid-column: 1 / -1; line-height: 1.8; }
+.writing-teacher-feedback__dimension > dd:nth-child(2) { color: var(--mk-accent-700); }
+.writing-teacher-feedback__point { padding-top: 14px; border-top: 1px solid var(--mk-border); line-height: 1.85; }
+.writing-teacher-feedback__point > button { padding: 5px 10px; margin-block: 4px; border-left: 2px solid var(--mk-accent-300); background: var(--mk-accent-50); text-decoration: none; border-radius: 0 6px 6px 0; }
+.writing-teacher-feedback__point > button:hover { color: var(--mk-accent-700); }
+@media (min-width: 1024px) {
+  .writing-compose .writing-compose__columns { grid-template-columns: minmax(0, 1fr) 270px; }
+  .writing-snippets > .writing-guidance { width: clamp(240px, 20vw, 290px); }
+}

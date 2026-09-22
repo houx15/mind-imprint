@@ -539,7 +539,7 @@ export function ComposeStage({
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="writing-compose__columns grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="writing-compose__desk mk-scroll min-h-0 overflow-y-auto bg-mk-paper">
           <ProseSurface
             value={body}

@@ -42,8 +42,8 @@ import { RoomTeacherFeedback } from "./RoomTeacherFeedback";
 import { PaneResizer } from "../projects/PaneResizer";
 import { usePaneWidth } from "../projects/usePaneWidth";
 
-/** 印记那一栏的默认宽度，和改版前固定的那一栏一样宽。 */
-const COACH_PANE_DEFAULT = 380;
+/** Leave room for the manuscript and its guidance; the coach remains resizable. */
+const COACH_PANE_DEFAULT = 320;
 const COACH_PANE_MAX = 720;
 
 /**
@@ -441,7 +441,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
   return (
     <div
-      className={`student-writing-room mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1680px]"}`}
+      className={`student-writing-room mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 max-w-[1680px]`}
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">

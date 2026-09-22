@@ -1,0 +1,17 @@
+.writing-mini-map { display: grid; gap: 8px; }
+.writing-mini-map-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.writing-mini-map-heading h2 { font-size: 13px; font-weight: 650; color: var(--mk-accent-700); }
+.writing-mini-map-heading > span, .writing-mini-map-hint { font-size: 11px; color: var(--mk-muted); }
+.writing-mini-map-preview { position: relative; display: block; width: 100%; padding: 12px 8px 30px; border: 1px solid var(--mk-border); border-radius: 14px; background: var(--mk-surface); cursor: zoom-in; transition: border-color .18s, background .18s; }
+.writing-mini-map-preview:hover { border-color: var(--mk-accent-300); background: var(--mk-accent-50); }
+.writing-mini-map-preview:focus-visible, .writing-structure-dialog button:focus-visible { outline: 2px solid var(--mk-accent-500); outline-offset: 3px; }
+.writing-mini-map-preview > svg { display: block; width: 100%; height: 138px; }
+.writing-mini-map-expand { position: absolute; bottom: 9px; right: 12px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--mk-accent-700); }
+.writing-structure-dialog { margin: auto; width: min(1100px, 92vw); height: 80vh; max-height: 90vh; padding: 0; border: 1px solid var(--mk-border); border-radius: 20px; background: var(--mk-paper); color: var(--mk-ink); box-shadow: 0 20px 80px color-mix(in srgb, var(--mk-ink) 18%, transparent); }
+.writing-structure-dialog::backdrop { background: color-mix(in srgb, var(--mk-ink) 45%, transparent); backdrop-filter: blur(3px); }
+.writing-structure-dialog-content { display: flex; flex-direction: column; height: 100%; }
+.writing-structure-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 24px; border-bottom: 1px solid var(--mk-border); }
+.writing-structure-dialog h2 { font-size: 18px; font-weight: 650; }
+.writing-structure-dialog header p { margin-top: 4px; color: var(--mk-muted); font-size: 12px; }
+.writing-structure-dialog header button { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--mk-muted); }
+.writing-structure-dialog header button:hover { color: var(--mk-ink); background: var(--mk-surface); }
