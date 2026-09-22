@@ -267,6 +267,32 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const listClassGradesForUser = `-- name: ListClassGradesForUser :many
+SELECT c.grade FROM enrollments e
+JOIN classes c ON c.id = e.class_id
+WHERE e.user_id = $1 AND e.role_in_class = 'student'
+`
+
+func (q *Queries) ListClassGradesForUser(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listClassGradesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var grade string
+		if err := rows.Scan(&grade); err != nil {
+			return nil, err
+		}
+		items = append(items, grade)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClassesForUser = `-- name: ListClassesForUser :many
 SELECT c.id, c.name, e.role_in_class
 FROM enrollments e

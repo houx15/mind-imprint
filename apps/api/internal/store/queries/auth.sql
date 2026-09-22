@@ -52,3 +52,8 @@ FROM enrollments e
 JOIN classes c ON c.id = e.class_id
 WHERE e.user_id = $1
 ORDER BY c.name;
+
+-- name: ListClassGradesForUser :many
+SELECT c.grade FROM enrollments e
+JOIN classes c ON c.id = e.class_id
+WHERE e.user_id = $1 AND e.role_in_class = 'student';
