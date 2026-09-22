@@ -23,4 +23,7 @@ export const SHOWCASE_FONT_STACKS: Record<ShowcaseFont, string> = {
   sans: '"Avenir Next","PingFang SC","Microsoft YaHei",sans-serif',
   serif: '"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif',
   mono: '"IBM Plex Mono","SFMono-Regular","PingFang SC",monospace',
+  rounded: '"Showcase Happy","PingFang SC","Microsoft YaHei",sans-serif',
+  handwritten: '"Showcase Hand","Kaiti SC","STKaiti",cursive',
+  display: '"Showcase Tech","PingFang SC","Microsoft YaHei",sans-serif',
 };

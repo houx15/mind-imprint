@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { safeShowcaseWorkPath, selectedShowcaseWorks } from "./Showcase";
+import { SHOWCASE_ILLUSTRATIONS, SHOWCASE_PRESETS } from "./showcasePresets";
 import type { ShowcaseWork } from "./showcaseTypes";
 
 describe("showcase publication boundaries", () => {
@@ -19,5 +20,20 @@ describe("showcase publication boundaries", () => {
     expect(safeShowcaseWorkPath("/s/token/record")).toBeUndefined();
     expect(safeShowcaseWorkPath("/s/token?next=https://example.com")).toBeUndefined();
     expect(safeShowcaseWorkPath("/p/token")).toBeUndefined();
+  });
+});
+
+describe("showcase visual presets", () => {
+  it("change only visual fields and reference known local illustrations", () => {
+    const protectedFields = ["name", "bio", "tagline", "interests", "selectedWorkIds", "sectionOrder"];
+    const illustrationIds = new Set(SHOWCASE_ILLUSTRATIONS.map((item) => item.id));
+    expect(SHOWCASE_PRESETS).toHaveLength(4);
+    for (const preset of SHOWCASE_PRESETS) {
+      expect(Object.keys(preset.config).some((key) => protectedFields.includes(key))).toBe(false);
+      expect(illustrationIds.has(preset.config.illustration ?? "none")).toBe(true);
+    }
+    for (const illustration of SHOWCASE_ILLUSTRATIONS) {
+      if (illustration.src) expect(illustration.src.startsWith("/images/showcase/")).toBe(true);
+    }
   });
 });

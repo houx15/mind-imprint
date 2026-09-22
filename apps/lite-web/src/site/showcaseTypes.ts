@@ -1,6 +1,8 @@
 export type ShowcaseLayout = "folio" | "journal" | "studio";
 export type ShowcasePalette = "paper" | "forest" | "ocean" | "rose" | "night" | "sunshine";
-export type ShowcaseFont = "sans" | "serif" | "mono";
+export type ShowcaseFont = "sans" | "serif" | "mono" | "rounded" | "handwritten" | "display";
+export type ShowcaseStyle = "classic" | "cute" | "dark" | "anime" | "mecha";
+export type ShowcaseIllustration = "none" | "clouds" | "moon" | "sky" | "robot";
 export type ShowcaseKind = "writing" | "reading" | "project";
 
 export interface ShowcaseConfig {
@@ -11,6 +13,8 @@ export interface ShowcaseConfig {
   layout: ShowcaseLayout;
   palette: ShowcasePalette;
   font: ShowcaseFont;
+  style?: ShowcaseStyle;
+  illustration?: ShowcaseIllustration;
   writingStyle: "cards" | "list";
   readingStyle: "shelf" | "list";
   sectionOrder: ShowcaseKind[];
@@ -33,6 +37,8 @@ export const DEFAULT_SHOWCASE: ShowcaseConfig = {
   layout: "folio",
   palette: "paper",
   font: "sans",
+  style: "classic",
+  illustration: "none",
   writingStyle: "cards",
   readingStyle: "shelf",
   sectionOrder: ["writing", "reading", "project"],
@@ -58,5 +64,7 @@ export const SHOWCASE_FONTS: ReadonlyArray<{ value: ShowcaseFont; label: string 
   { value: "sans", label: "现代无衬线" },
   { value: "serif", label: "编辑衬线" },
   { value: "mono", label: "等宽字体" },
+  { value: "rounded", label: "可爱圆体" },
+  { value: "handwritten", label: "中文手写" },
+  { value: "display", label: "机械标题" },
 ];
-

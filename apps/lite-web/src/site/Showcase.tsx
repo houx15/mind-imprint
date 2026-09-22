@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import "./showcase.css";
+import "./showcaseFonts.css";
+import { SHOWCASE_ILLUSTRATIONS } from "./showcasePresets";
 import { SHOWCASE_FONT_STACKS, SHOWCASE_THEMES } from "./showcaseThemes";
 import type { ShowcaseConfig, ShowcaseKind, ShowcaseWork } from "./showcaseTypes";
 
@@ -80,6 +82,9 @@ export function Showcase({ config, works, narrow = false, editing = false }: Sho
   const rootRef = useRef<HTMLDivElement>(null);
   const [measuredNarrow, setMeasuredNarrow] = useState(false);
   const theme = SHOWCASE_THEMES[config.palette];
+  const visualStyle = config.style ?? "classic";
+  const illustration = config.illustration ?? "none";
+  const art = SHOWCASE_ILLUSTRATIONS.find((item) => item.id === illustration)?.src;
   const selected = useMemo(() => {
     return selectedShowcaseWorks(works, config.selectedWorkIds);
   }, [config.selectedWorkIds, works]);
@@ -108,8 +113,9 @@ export function Showcase({ config, works, narrow = false, editing = false }: Sho
   const visibleOrder = config.sectionOrder.filter((kind, index, order) => order.indexOf(kind) === index);
 
   return (
-    <div ref={rootRef} className="showcase" style={style} data-layout={config.layout} data-narrow={isNarrow || undefined}>
+    <div ref={rootRef} className="showcase" style={style} data-layout={config.layout} data-style={visualStyle} data-illustration={illustration} data-narrow={isNarrow || undefined}>
       <header className="showcase-hero">
+        {art && <img className="showcase-hero-art" src={art} alt="" aria-hidden="true" />}
         <div className="showcase-orbit" aria-hidden><i /><i /><i /></div>
         <p className="showcase-kicker">个人主页 · {new Date().getFullYear()}</p>
         <h1>{config.name || (editing ? "姓名" : "")}</h1>
