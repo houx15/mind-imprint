@@ -1,0 +1,85 @@
+=== RUN   TestClarityGrading
+=== RUN   TestClarityGrading/zh
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=1 model=dashscope/glm-5.3 ms=6080 input=1905 output=394 valid=true
+=== RUN   TestClarityGrading/en
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=1 model=dashscope/glm-5.3 ms=6137 input=1659 output=451 valid=true
+--- PASS: TestClarityGrading (12.22s)
+    --- PASS: TestClarityGrading/zh (6.08s)
+    --- PASS: TestClarityGrading/en (6.14s)
+=== RUN   TestClarityReading
+=== RUN   TestClarityReading/concept
+    clarity_live_test.go:38: TestClarityReading/concept sample=1 model=dashscope/deepseek-v4.1-flash ms=3905 input=5062 output=138 valid=true
+=== RUN   TestClarityReading/help
+    clarity_live_test.go:38: TestClarityReading/help sample=1 model=dashscope/deepseek-v4.1-flash ms=2687 input=5042 output=77 valid=true
+=== RUN   TestClarityReading/partial
+    clarity_live_test.go:38: TestClarityReading/partial sample=1 model=dashscope/deepseek-v4.1-flash ms=1818 input=5043 output=70 valid=true
+=== RUN   TestClarityReading/done
+    clarity_live_test.go:38: TestClarityReading/done sample=1 model=dashscope/deepseek-v4.1-flash ms=5687 input=5062 output=137 valid=true
+=== RUN   TestClarityReading/skip
+    clarity_live_test.go:38: TestClarityReading/skip sample=1 model=dashscope/deepseek-v4.1-flash ms=3038 input=5039 output=88 valid=true
+=== RUN   TestClarityReading/read-done
+    clarity_live_test.go:38: TestClarityReading/read-done sample=1 model=dashscope/deepseek-v4.1-flash ms=3798 input=4937 output=130 valid=true
+=== RUN   TestClarityReading/connect
+    clarity_live_test.go:38: TestClarityReading/connect sample=1 model=dashscope/deepseek-v4.1-flash ms=4284 input=4959 output=172 valid=true
+=== RUN   TestClarityReading/hunt-no-pick
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=1 model=dashscope/deepseek-v4.1-flash ms=2278 input=4938 output=71 valid=true
+=== RUN   TestClarityReading/hunt-picked
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=1 model=dashscope/deepseek-v4.1-flash ms=4028 input=4960 output=161 valid=true
+=== RUN   TestClarityReading/hunt-skip
+2026/09/22 14:21:04 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=1 model=dashscope/deepseek-v4.1-flash ms=1687 input=4933 output=41 valid=true
+--- PASS: TestClarityReading (33.34s)
+    --- PASS: TestClarityReading/concept (3.92s)
+    --- PASS: TestClarityReading/help (2.70s)
+    --- PASS: TestClarityReading/partial (1.83s)
+    --- PASS: TestClarityReading/done (5.70s)
+    --- PASS: TestClarityReading/skip (3.05s)
+    --- PASS: TestClarityReading/read-done (3.81s)
+    --- PASS: TestClarityReading/connect (4.30s)
+    --- PASS: TestClarityReading/hunt-no-pick (2.29s)
+    --- PASS: TestClarityReading/hunt-picked (4.04s)
+    --- PASS: TestClarityReading/hunt-skip (1.70s)
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/plan
+    clarity_live_test.go:100: TestClarityWriting/plan sample=1 model=dashscope/deepseek-v4.1-flash ms=3419 input=4639 output=136 valid=true
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=2189 input=1774 output=97 valid=true
+=== RUN   TestClarityWriting/comment
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"开头直接给出观点，并用走廊复习的经历作为材料，观点与事例方向一致。","points":[{"kind":"issue","symptom":"evidence_not_explained","text":"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」写出了具体的事，但例子摆在这里就结束了，读者需要自己推断「走廊有人经过」和「延长图书馆开放时间」之间的关系——教室关闭后住校生没有安静去处，而走廊同样不安静，说明这项需求图书馆延长开放可以满足。","action":"请在走廊这个例子后面补一两句话，说明走廊里一直有人经过如何印证住校生确实需要延长图书馆开放时间来获得安静的自习场所。","quote":"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。"}]}
+    clarity_live_test.go:118: TestClarityWriting/comment sample=1 model=dashscope/glm-5.3 ms=4129 input=3476 output=217 valid=true
+--- PASS: TestClarityWriting (9.74s)
+    --- PASS: TestClarityWriting/plan (3.42s)
+    --- PASS: TestClarityWriting/guide (2.19s)
+    --- PASS: TestClarityWriting/comment (4.13s)
+=== RUN   TestClarityMergeWriting
+=== RUN   TestClarityMergeWriting/process
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/process sample=1 model=dashscope/deepseek-v4.1-flash ms=2807 input=4683 output=58 valid=true
+=== RUN   TestClarityMergeWriting/judgment
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/judgment sample=1 model=dashscope/deepseek-v4.1-flash ms=3019 input=4608 output=115 valid=true
+=== RUN   TestClarityMergeWriting/english-analysis
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-analysis sample=1 model=dashscope/deepseek-v4.1-flash ms=3889 input=4620 output=154 valid=true
+=== RUN   TestClarityMergeWriting/english-narrative
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-narrative sample=1 model=dashscope/deepseek-v4.1-flash ms=5889 input=4008 output=145 valid=true
+=== RUN   TestClarityMergeWriting/choose-word-opening
+    clarity_merge_live_test.go:70: TestClarityMergeWriting/choose-word-opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1429 input=467 output=46 valid=true
+--- PASS: TestClarityMergeWriting (17.04s)
+    --- PASS: TestClarityMergeWriting/process (2.81s)
+    --- PASS: TestClarityMergeWriting/judgment (3.02s)
+    --- PASS: TestClarityMergeWriting/english-analysis (3.89s)
+    --- PASS: TestClarityMergeWriting/english-narrative (5.89s)
+    --- PASS: TestClarityMergeWriting/choose-word-opening (1.43s)
+=== RUN   TestClarityPersonalPlanReady
+=== RUN   TestClarityPersonalPlanReady/zh
+    clarity_merge_live_test.go:105: TestClarityPersonalPlanReady/zh sample=1 model=dashscope/deepseek-v4.1-flash ms=2240 input=4611 output=67 valid=true
+=== RUN   TestClarityPersonalPlanReady/en
+    clarity_merge_live_test.go:105: TestClarityPersonalPlanReady/en sample=1 model=dashscope/deepseek-v4.1-flash ms=3839 input=4683 output=84 valid=true
+--- PASS: TestClarityPersonalPlanReady (6.08s)
+    --- PASS: TestClarityPersonalPlanReady/zh (2.24s)
+    --- PASS: TestClarityPersonalPlanReady/en (3.84s)
+=== RUN   TestClarityWritingInvite
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=1 model=dashscope/deepseek-v4.1-flash ms=2149 input=4767 output=71 valid=true
+--- PASS: TestClarityWritingInvite (2.15s)
+PASS
+ok  	mindimprint/api/internal/api	81.047s

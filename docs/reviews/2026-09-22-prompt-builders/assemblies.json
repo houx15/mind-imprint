@@ -1,0 +1,390 @@
+[
+  {
+    "id": "shared.voice",
+    "purpose": "共用教学语气；供阅读、写作、探询与批改按原调用关系使用",
+    "builders": [
+      "internal/teachingvoice/voice.go"
+    ],
+    "contracts": [
+      "internal/prompts/teachingvoice_voice.go"
+    ],
+    "tests": [
+      "internal/api/clarity_teaching_live_test.go"
+    ]
+  },
+  {
+    "id": "reading.coach",
+    "purpose": "带读、推进判断、卡片操作帮助、工具完成反馈；包含动态覆盖指令",
+    "builders": [
+      "internal/api/reading_coach_prompt.go",
+      "internal/api/reading_coach_repeat_prompt.go",
+      "internal/api/reading_coach_help.go"
+    ],
+    "context": [
+      "internal/api/reading_coach_context.go",
+      "internal/api/reading_disclosure.go",
+      "internal/api/reading_genre.go"
+    ],
+    "contracts": [
+      "internal/api/reading_coach.go",
+      "internal/api/reading_coach_card.go"
+    ],
+    "tests": [
+      "internal/api/prompt_context_test.go",
+      "internal/api/clarity_live_test.go",
+      "internal/api/reading_coach_readstep_internal_test.go"
+    ]
+  },
+  {
+    "id": "reading.plan",
+    "purpose": "文章分析与阅读任务生成",
+    "builders": [
+      "internal/api/reading_plan_prompt.go"
+    ],
+    "context": [
+      "internal/api/reading_routines.go"
+    ],
+    "contracts": [
+      "internal/api/reading_plan.go",
+      "internal/api/reading_outline.go"
+    ],
+    "tests": [
+      "internal/api/reading_plan_test.go",
+      "internal/api/reading_plan_genre_live_test.go"
+    ]
+  },
+  {
+    "id": "reading.block",
+    "purpose": "段落工具：解释、词义、语法、仿写等；工具自有指令在 registry 中",
+    "builders": [
+      "internal/api/reading_block_prompt.go"
+    ],
+    "context": [
+      "internal/api/reading_blocks.go",
+      "internal/api/reading_routines.go"
+    ],
+    "contracts": [
+      "internal/api/reading_block.go",
+      "internal/api/reading_block_grammar.go"
+    ],
+    "tests": [
+      "internal/api/reading_block_test.go",
+      "internal/api/reading_block_grammar_live_test.go"
+    ]
+  },
+  {
+    "id": "reading.router",
+    "purpose": "共用阅读接口的工具卡选择",
+    "builders": [
+      "internal/agent/reading_router_prompt.go"
+    ],
+    "context": [
+      "internal/agent/reading_brief.go",
+      "internal/agent/reading_deck.go"
+    ],
+    "contracts": [
+      "internal/agent/reading_router.go"
+    ],
+    "tests": [
+      "internal/agent/reading_router_test.go"
+    ]
+  },
+  {
+    "id": "reading.lens",
+    "purpose": "透镜示范与学生选句评价；卡片 spec 为动态输入",
+    "builders": [
+      "internal/agent/reading_card_example_prompt.go",
+      "internal/agent/reading_eval_prompt.go"
+    ],
+    "context": [
+      "internal/cards/specs"
+    ],
+    "contracts": [
+      "internal/agent/reading_eval.go",
+      "internal/agent/reading_card_example.go"
+    ],
+    "tests": [
+      "internal/agent/reading_eval_test.go",
+      "internal/api/clarity_live_test.go"
+    ]
+  },
+  {
+    "id": "reading.followup",
+    "purpose": "阅读收获整理与延伸问题",
+    "builders": [
+      "internal/agent/reading_takeaway_prompt.go",
+      "internal/api/reading_questions_prompt.go"
+    ],
+    "contracts": [
+      "internal/agent/reading_takeaway.go",
+      "internal/api/reading_questions.go"
+    ],
+    "tests": [
+      "internal/agent/reading_takeaway_test.go",
+      "internal/api/reading_questions_test.go"
+    ]
+  },
+  {
+    "id": "writing.opening",
+    "purpose": "新写作、教师布置题目及带成稿进入时的开场",
+    "builders": [
+      "internal/api/writing_setup_prompt.go"
+    ],
+    "context": [
+      "internal/api/writing_lang.go"
+    ],
+    "contracts": [
+      "internal/api/writing_setup.go"
+    ],
+    "tests": [
+      "internal/api/writing_setup_test.go",
+      "internal/api/clarity_merge_live_test.go"
+    ]
+  },
+  {
+    "id": "writing.plan",
+    "purpose": "中英文议论/记叙文规划；包含计划检查和条件重试",
+    "builders": [
+      "internal/api/writing_plan_prompt.go",
+      "internal/api/writing_plan_lang_prompt.go",
+      "internal/api/writing_plan_state_prompt.go",
+      "internal/api/writing_points_check_prompt.go",
+      "internal/api/writing_plan_place_prompt.go",
+      "internal/api/writing_plan_invite_prompt.go",
+      "internal/api/writing_refusal_prompt.go"
+    ],
+    "context": [
+      "internal/api/writing_plan_context.go",
+      "internal/api/writing_plan_state.go",
+      "internal/api/writing_points_check.go"
+    ],
+    "contracts": [
+      "internal/api/writing_plan.go",
+      "internal/api/writing_kind.go"
+    ],
+    "tests": [
+      "internal/api/prompt_context_test.go",
+      "internal/api/clarity_merge_live_test.go",
+      "internal/api/clarity_prose_live_test.go"
+    ]
+  },
+  {
+    "id": "writing.guide",
+    "purpose": "单段/批量写作引导与深入讨论",
+    "builders": [
+      "internal/api/writing_piece_prompt.go",
+      "internal/api/writing_guide_prompt.go",
+      "internal/api/writing_deepen_prompt.go",
+      "internal/api/writing_stall_prompt.go"
+    ],
+    "context": [
+      "internal/api/writing_piece_context.go",
+      "internal/api/writing_guide.go",
+      "internal/vocab/methods.json"
+    ],
+    "contracts": [
+      "internal/api/writing_guide.go",
+      "internal/api/writing_deepen.go"
+    ],
+    "tests": [
+      "internal/api/writing_guide_test.go",
+      "internal/api/writing_piece_context_test.go",
+      "internal/api/clarity_live_test.go"
+    ]
+  },
+  {
+    "id": "writing.feedback",
+    "purpose": "段落/整篇审阅，段落职责、帮助模式、格式及语气重试",
+    "builders": [
+      "internal/api/writing_comment_prompt.go",
+      "internal/api/writing_comment_summary_prompt.go",
+      "internal/api/writing_tone_prompt.go",
+      "internal/api/writing_stall_prompt.go"
+    ],
+    "context": [
+      "internal/api/writing_piece_context.go",
+      "internal/api/writing_repeats.go",
+      "internal/api/writing_length_gap.go",
+      "internal/api/writing_symptoms.go"
+    ],
+    "contracts": [
+      "internal/api/writing_comment.go",
+      "internal/api/writing_comment_summary.go"
+    ],
+    "tests": [
+      "internal/api/writing_comment_test.go",
+      "internal/api/writing_comment_live_test.go",
+      "internal/api/clarity_comment_delivery_test.go"
+    ]
+  },
+  {
+    "id": "writing.chat",
+    "purpose": "写作房间常规对话，复用项目陪练；状态投影包含操作说明",
+    "builders": [
+      "internal/agent/project_coach_prompt.go",
+      "internal/api/writing_turn_prompt.go",
+      "internal/api/writing_board_prompt.go"
+    ],
+    "context": [
+      "internal/api/writing_turn_context.go"
+    ],
+    "contracts": [
+      "internal/agent/project_coach.go",
+      "internal/api/writing_turn.go"
+    ],
+    "tests": [
+      "internal/api/writing_turn_test.go",
+      "internal/api/writing_projection_internal_test.go"
+    ]
+  },
+  {
+    "id": "writing.title",
+    "purpose": "从学生已有正文中提取标题构思关键词",
+    "builders": [
+      "internal/api/writing_title_prompt.go"
+    ],
+    "contracts": [
+      "internal/api/writing_title.go"
+    ],
+    "tests": [
+      "internal/api/writing_title_internal_test.go"
+    ]
+  },
+  {
+    "id": "awakening",
+    "purpose": "兴趣探询对话、收尾、兴趣选择与报告；节点问题和助手风格也是输入",
+    "builders": [
+      "internal/awakening/dialogue.go",
+      "internal/awakening/selection.go",
+      "internal/awakening/report.go",
+      "internal/awakening/title.go"
+    ],
+    "context": [
+      "internal/awakening/brief.go",
+      "internal/awakening/nodes.go",
+      "internal/awakening/awakening.go"
+    ],
+    "contracts": [
+      "internal/awakening/selection.go",
+      "internal/awakening/report.go"
+    ],
+    "tests": [
+      "internal/awakening/awakening_test.go",
+      "internal/awakening/clarity_live_test.go"
+    ]
+  },
+  {
+    "id": "interest",
+    "purpose": "学习活动兴趣提取与兴趣词延伸",
+    "builders": [
+      "internal/interest/harvest.go",
+      "internal/interest/dig.go"
+    ],
+    "context": [
+      "internal/interests/interests.json"
+    ],
+    "contracts": [
+      "internal/interest/harvest.go",
+      "internal/interest/dig.go"
+    ],
+    "tests": [
+      "internal/interest/interest_test.go",
+      "internal/interest/dig_test.go"
+    ]
+  },
+  {
+    "id": "reports",
+    "purpose": "学习报告、学生/班级周报、家长报告和班级摘要",
+    "builders": [
+      "internal/api/atom_report_prompt.go",
+      "internal/agent/compose_lite_weekly_prompt.go",
+      "internal/agent/compose_lite_parent_prompt.go",
+      "internal/api/lite_class_summary_prompt.go"
+    ],
+    "context": [
+      "internal/api/report_facts.go",
+      "internal/liteparent/facts.go",
+      "internal/liteweekly/class.go"
+    ],
+    "contracts": [
+      "internal/api/atom_report.go",
+      "internal/agent/compose_lite_parent.go",
+      "internal/agent/compose_lite_weekly.go"
+    ],
+    "tests": [
+      "internal/api/atom_report_live_test.go",
+      "internal/agent/compose_lite_weekly_test.go",
+      "internal/agent/compose_lite_parent_test.go"
+    ]
+  },
+  {
+    "id": "teacher.workspace",
+    "purpose": "教师作业助手、班级问答、报告编辑；包含工具描述与参数 schema",
+    "builders": [
+      "internal/liteworkspace/tools.go",
+      "internal/api/lite_assignment_extract_prompt.go"
+    ],
+    "context": [
+      "internal/liteworkspace/calendar.go",
+      "internal/liteworkspace/workspace.go"
+    ],
+    "contracts": [
+      "internal/liteworkspace/tools.go",
+      "internal/api/lite_assignment_extract.go"
+    ],
+    "tests": [
+      "internal/liteworkspace/tools_test.go",
+      "internal/api/lite_teacher_workspace_live_test.go"
+    ]
+  },
+  {
+    "id": "teacher.grading",
+    "purpose": "按教师 rubric 批改，含校验失败的重试指令",
+    "builders": [
+      "internal/litegrade/prompt.go"
+    ],
+    "context": [
+      "internal/litegrade/content.go",
+      "internal/liteassign/rubric.go"
+    ],
+    "contracts": [
+      "internal/litegrade/check.go",
+      "internal/api/lite_grading_run.go"
+    ],
+    "tests": [
+      "internal/litegrade/prompt_test.go",
+      "internal/api/clarity_grading_live_test.go"
+    ]
+  },
+  {
+    "id": "news",
+    "purpose": "新闻筛选与面向学生的新闻说明",
+    "builders": [
+      "internal/news/select.go",
+      "internal/news/write.go"
+    ],
+    "contracts": [
+      "internal/news/select.go",
+      "internal/news/write.go"
+    ],
+    "tests": [
+      "internal/news/live_test.go"
+    ]
+  },
+  {
+    "id": "course",
+    "purpose": "共用课程问答和开场/结束旁白；课程正文作为上下文",
+    "builders": [
+      "internal/agent/course_coach_prompt.go",
+      "internal/agent/course_scene_prompt.go"
+    ],
+    "contracts": [
+      "internal/agent/course_coach.go",
+      "internal/agent/course_scene.go"
+    ],
+    "tests": [
+      "internal/agent/course_coach_test.go",
+      "internal/agent/course_scene_test.go"
+    ]
+  }
+]

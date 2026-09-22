@@ -1,0 +1,89 @@
+{
+  "baseCommit": "03c31b99",
+  "branch": "codex/lite-prompt-builders",
+  "staticDefinitions": 64,
+  "featureAssemblies": 20,
+  "offlinePreviews": 36,
+  "mainParity": {
+    "clarityRequests": 68,
+    "additionalRequests": 28,
+    "pieceContextBoundaries": 8,
+    "changed": 0
+  },
+  "liveRecorded": {
+    "samples": 49,
+    "models": {
+      "dashscope/glm-5.3": 11,
+      "dashscope/deepseek-v4.1-flash": 38
+    },
+    "responseModels": {
+      "zhipu/glm-5.3": 11,
+      "deepseek-v4.1-flash": 38
+    },
+    "validationFailures": [],
+    "estimatedCnyCached": 0.41620119999999994
+  },
+  "reportProductionTests": {
+    "tests": 3,
+    "attempts": 5,
+    "model": "dashscope/deepseek-v4-pro",
+    "allFinalPassed": true,
+    "recoveredFirstAttemptFailures": [
+      "parent report: Chinese numeral 两个",
+      "class weekly: duplicate student card ID"
+    ],
+    "usage": [
+      {
+        "input": 457,
+        "output": 3137,
+        "cached": 0
+      },
+      {
+        "input": 712,
+        "output": 462,
+        "cached": 0
+      },
+      {
+        "input": 390,
+        "output": 4912,
+        "cached": 0
+      },
+      {
+        "input": 619,
+        "output": 3199,
+        "cached": 0
+      },
+      {
+        "input": 1294,
+        "output": 938,
+        "cached": 0
+      }
+    ],
+    "estimatedCnyCached": 0.345216
+  },
+  "teacherProductionTest": {
+    "tests": 1,
+    "modelClass": "dialogue",
+    "configuredModel": "dashscope/deepseek-v4.1-flash",
+    "finalPassed": true,
+    "calls": 3,
+    "usage": [
+      {
+        "input": 3159,
+        "output": 65
+      },
+      {
+        "input": 3595,
+        "output": 155
+      },
+      {
+        "input": 3811,
+        "output": 190
+      }
+    ],
+    "cachedInputUnavailableInLog": true,
+    "estimatedCnyUpperBound": 0.02441
+  },
+  "estimatedTotalCnyUpperBound": 0.7858272,
+  "costNote": "Catalog prices; cache discount included where recorded. Teacher input uses uncached price because its log omits cache counts. Not a provider invoice."
+}

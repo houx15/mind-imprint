@@ -1,0 +1,58 @@
+?   	mindimprint/api/cmd/api	[no test files]
+ok  	mindimprint/api/cmd/coachwalk	1.047s
+?   	mindimprint/api/cmd/costreport	[no test files]
+ok  	mindimprint/api/cmd/promptinspect	2.646s
+?   	mindimprint/api/cmd/prompttag	[no test files]
+?   	mindimprint/api/cmd/routebench	[no test files]
+ok  	mindimprint/api/internal/agent	34.675s
+ok  	mindimprint/api/internal/agent/enforcement	(cached)
+ok  	mindimprint/api/internal/api	80.871s
+ok  	mindimprint/api/internal/auth	(cached)
+ok  	mindimprint/api/internal/awakening	0.335s
+?   	mindimprint/api/internal/benchcase	[no test files]
+ok  	mindimprint/api/internal/cards	(cached)
+?   	mindimprint/api/internal/claritytest	[no test files]
+ok  	mindimprint/api/internal/coachwalk	(cached)
+ok  	mindimprint/api/internal/config	(cached)
+ok  	mindimprint/api/internal/disciplines	(cached)
+ok  	mindimprint/api/internal/docextract	(cached)
+ok  	mindimprint/api/internal/evalbench	1.099s
+ok  	mindimprint/api/internal/evalreport	0.898s
+ok  	mindimprint/api/internal/gateway	(cached)
+ok  	mindimprint/api/internal/httpx	(cached)
+ok  	mindimprint/api/internal/interest	0.311s
+ok  	mindimprint/api/internal/interests	(cached)
+ok  	mindimprint/api/internal/library	(cached)
+ok  	mindimprint/api/internal/liteassign	(cached)
+ok  	mindimprint/api/internal/litegrade	0.957s
+ok  	mindimprint/api/internal/liteparent	(cached)
+ok  	mindimprint/api/internal/liteweek	(cached)
+ok  	mindimprint/api/internal/liteweekly	(cached)
+ok  	mindimprint/api/internal/liteworkspace	0.618s
+ok  	mindimprint/api/internal/materialize	(cached)
+ok  	mindimprint/api/internal/news	0.608s
+ok  	mindimprint/api/internal/onboarding	(cached)
+ok  	mindimprint/api/internal/org	(cached)
+ok  	mindimprint/api/internal/oss	(cached)
+ok  	mindimprint/api/internal/pbl	4.635s
+ok  	mindimprint/api/internal/promptassembly	0.503s
+ok  	mindimprint/api/internal/promptlib	(cached)
+ok  	mindimprint/api/internal/prompts	0.452s
+ok  	mindimprint/api/internal/quotematch	(cached)
+ok  	mindimprint/api/internal/routebench	0.480s
+ok  	mindimprint/api/internal/rubric	(cached)
+ok  	mindimprint/api/internal/skills	(cached)
+ok  	mindimprint/api/internal/store	10.373s
+?   	mindimprint/api/internal/store/seed/courses	[no test files]
+?   	mindimprint/api/internal/store/sqlc	[no test files]
+ok  	mindimprint/api/internal/studio	(cached)
+ok  	mindimprint/api/internal/teacher	(cached)
+?   	mindimprint/api/internal/teachingvoice	[no test files]
+ok  	mindimprint/api/internal/vocab	(cached)
+ok  	mindimprint/api/internal/voice	(cached)
+ok  	mindimprint/api/internal/websearch	(cached)
+?   	mindimprint/api/tools/evalbench	[no test files]
+?   	mindimprint/api/tools/genhash	[no test files]
+?   	mindimprint/api/tools/synccards	[no test files]
+?   	mindimprint/api/tools/syncrubric	[no test files]
+?   	mindimprint/api/tools/syncskills	[no test files]

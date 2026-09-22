@@ -1,0 +1,57 @@
+?   	mindimprint/api/cmd/api	[no test files]
+ok  	mindimprint/api/cmd/coachwalk	1.000s
+?   	mindimprint/api/cmd/costreport	[no test files]
+?   	mindimprint/api/cmd/prompttag	[no test files]
+?   	mindimprint/api/cmd/routebench	[no test files]
+ok  	mindimprint/api/internal/agent	37.063s
+ok  	mindimprint/api/internal/agent/enforcement	0.955s
+ok  	mindimprint/api/internal/api	95.750s
+ok  	mindimprint/api/internal/auth	1.090s
+ok  	mindimprint/api/internal/awakening	0.925s
+?   	mindimprint/api/internal/benchcase	[no test files]
+ok  	mindimprint/api/internal/cards	1.002s
+?   	mindimprint/api/internal/claritytest	[no test files]
+ok  	mindimprint/api/internal/coachwalk	0.657s
+ok  	mindimprint/api/internal/config	0.584s
+ok  	mindimprint/api/internal/disciplines	0.846s
+ok  	mindimprint/api/internal/docextract	0.992s
+ok  	mindimprint/api/internal/evalbench	0.630s
+ok  	mindimprint/api/internal/evalreport	0.517s
+ok  	mindimprint/api/internal/gateway	1.139s
+ok  	mindimprint/api/internal/httpx	0.340s
+ok  	mindimprint/api/internal/interest	0.244s
+ok  	mindimprint/api/internal/interests	0.355s
+ok  	mindimprint/api/internal/library	0.323s
+ok  	mindimprint/api/internal/liteassign	0.357s
+ok  	mindimprint/api/internal/litegrade	0.272s
+ok  	mindimprint/api/internal/liteparent	0.294s
+ok  	mindimprint/api/internal/liteweek	0.450s
+ok  	mindimprint/api/internal/liteweekly	0.325s
+ok  	mindimprint/api/internal/liteworkspace	0.342s
+ok  	mindimprint/api/internal/materialize	0.336s
+ok  	mindimprint/api/internal/news	0.279s
+ok  	mindimprint/api/internal/onboarding	0.302s
+ok  	mindimprint/api/internal/org	0.452s
+ok  	mindimprint/api/internal/oss	0.322s
+ok  	mindimprint/api/internal/pbl	4.359s
+?   	mindimprint/api/internal/promptassembly	[no test files]
+ok  	mindimprint/api/internal/promptlib	0.461s
+?   	mindimprint/api/internal/prompts	[no test files]
+ok  	mindimprint/api/internal/quotematch	0.286s
+ok  	mindimprint/api/internal/routebench	0.443s
+ok  	mindimprint/api/internal/rubric	0.439s
+ok  	mindimprint/api/internal/skills	0.387s
+ok  	mindimprint/api/internal/store	13.148s
+?   	mindimprint/api/internal/store/seed/courses	[no test files]
+?   	mindimprint/api/internal/store/sqlc	[no test files]
+ok  	mindimprint/api/internal/studio	2.827s
+ok  	mindimprint/api/internal/teacher	0.319s
+?   	mindimprint/api/internal/teachingvoice	[no test files]
+ok  	mindimprint/api/internal/vocab	0.293s
+ok  	mindimprint/api/internal/voice	0.462s
+ok  	mindimprint/api/internal/websearch	0.325s
+?   	mindimprint/api/tools/evalbench	[no test files]
+?   	mindimprint/api/tools/genhash	[no test files]
+?   	mindimprint/api/tools/synccards	[no test files]
+?   	mindimprint/api/tools/syncrubric	[no test files]
+?   	mindimprint/api/tools/syncskills	[no test files]

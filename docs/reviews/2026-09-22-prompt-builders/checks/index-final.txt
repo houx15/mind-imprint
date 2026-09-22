@@ -1,0 +1,3 @@
+ok  	mindimprint/api/internal/prompts	0.310s
+ok  	mindimprint/api/cmd/promptinspect	0.675s
+ok  	mindimprint/api/internal/api	0.533s

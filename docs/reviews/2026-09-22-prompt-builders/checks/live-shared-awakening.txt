@@ -1,0 +1,64 @@
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/chat-concept
+    clarity_live_test.go:24: TestClarityAgent/chat-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=1992 input=276 output=64 valid=true
+=== RUN   TestClarityAgent/project-help
+    clarity_live_test.go:24: TestClarityAgent/project-help sample=1 model=dashscope/deepseek-v4.1-flash ms=3289 input=473 output=110 valid=true
+=== RUN   TestClarityAgent/course-concept
+    clarity_live_test.go:24: TestClarityAgent/course-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=1778 input=164 output=63 valid=true
+=== RUN   TestClarityAgent/project-no-ghostwriting
+    clarity_live_test.go:24: TestClarityAgent/project-no-ghostwriting sample=1 model=dashscope/deepseek-v4.1-flash ms=2158 input=465 output=64 valid=true
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步","evidence":"草稿提出观点『学校图书馆应该延长开放时间』，并给出一个事例：『上周我和三位同学只能在走廊复习』，以及由此得出的判断『这证明所有学生都需要图书馆全天开放』。","missing":"观点与事例之间的联系没有说明：这个事例能说明什么、不能说明什么，还需要核实（如当天图书馆关闭的原因、其他同学的使用情况）。『所有学生都需要』这一范围判断超出了四个人的经验所能覆盖的证据范围；『延长开放时间』与『全天开放』在草稿中前后不一致，需要确定观点究竟是什么。缺少其他类型的依据，如图书馆的使用数据、开放时间安排、其他同学的反馈。","fix":"需要补充图书馆使用情况和开放时间的具体信息；需要核实走廊复习一事的背景；需要说明事例与观点之间的推理过程；需要把观点的表述统一并限定在证据能覆盖的范围内。草稿未超字数预算，暂不涉及删减。","points":1}]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=4098 input=846 output=244 valid=true
+=== RUN   TestClarityAgent/executioner
+    clarity_live_test.go:83: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：仅有一个个人经历，就被推广为全校结论",
+            "evidence": "上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。",
+            "missing": "缺少可核实的使用数据或更多来源；'全天开放'与开头'延长开放时间'的范围不一致，未说明论证的对象和幅度",
+            "fix": "指明四人样本与'所有学生'之间的差距这一精简/补证方向：要么收窄结论范围，要么补充图书馆现有使用记录、不同年级学生的访问情况等材料；字数已超预算，可优先补最有分量的证据而非堆叠例子",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:37: TestClarityAgent/executioner sample=1 model=dashscope/glm-5.3 ms=2608 input=853 output=164 valid=true
+--- PASS: TestClarityAgent (15.93s)
+    --- PASS: TestClarityAgent/chat-concept (1.99s)
+    --- PASS: TestClarityAgent/project-help (3.29s)
+    --- PASS: TestClarityAgent/course-concept (1.78s)
+    --- PASS: TestClarityAgent/project-no-ghostwriting (2.16s)
+    --- PASS: TestClarityAgent/sceptic (4.10s)
+    --- PASS: TestClarityAgent/executioner (2.61s)
+PASS
+ok  	mindimprint/api/internal/agent	16.385s
+=== RUN   TestClarityGuideDialogue
+=== RUN   TestClarityGuideDialogue/NOVA/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2726 input=740 output=65 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=3063 input=752 output=92 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=1 model=dashscope/deepseek-v4.1-flash ms=1959 input=719 output=48 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2198 input=738 output=58 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2248 input=750 output=70 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=1 model=dashscope/deepseek-v4.1-flash ms=1748 input=717 output=59 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2479 input=762 output=83 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2548 input=774 output=93 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=1 model=dashscope/deepseek-v4.1-flash ms=4699 input=741 output=72 valid=true
+--- PASS: TestClarityGuideDialogue (23.68s)
+    --- PASS: TestClarityGuideDialogue/NOVA/opening (2.73s)
+    --- PASS: TestClarityGuideDialogue/NOVA/retry (3.06s)
+    --- PASS: TestClarityGuideDialogue/NOVA/last (1.96s)
+    --- PASS: TestClarityGuideDialogue/SAGE/opening (2.20s)
+    --- PASS: TestClarityGuideDialogue/SAGE/retry (2.25s)
+    --- PASS: TestClarityGuideDialogue/SAGE/last (1.75s)
+    --- PASS: TestClarityGuideDialogue/KIRO/opening (2.48s)
+    --- PASS: TestClarityGuideDialogue/KIRO/retry (2.55s)
+    --- PASS: TestClarityGuideDialogue/KIRO/last (4.70s)
+PASS
+ok  	mindimprint/api/internal/awakening	24.054s

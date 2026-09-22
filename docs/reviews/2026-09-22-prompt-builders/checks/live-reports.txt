@@ -1,0 +1,98 @@
+=== RUN   TestLiveLiteParentReport
+    compose_lite_parent_live_test.go:118: model: deepseek-v4-pro; sections: [overview reading writing projects interests next]
+    compose_lite_parent_live_test.go:119: facts text: 日期 2026-08-17 至 2026-09-13（8月17日至9月13日），共 28 天；学生 林小雨；班级 高一（3）班 · 阅读写作；活跃 11 天；学习 380 分钟；对话 64 轮；完成阅读 2 篇；完成写作 1 篇；完成项目 1 个；到期作业 3 份；按时完成作业 2 份；逾期完成作业 1 份；未完成作业 0 份；完成阅读《咖啡的旅程》；完成阅读《中国是否让地球变得更可持续？》；完成写作《一场雨》；完成项目《校园雨水调查》；新关键词 天气（科学与自然）；新关键词 金融（社会与世界）；「雨落在屋檐上像敲鼓」（《一场雨》）
+    compose_lite_parent_live_test.go:124: attempts: 2
+    compose_lite_parent_live_test.go:124: attempt 1: failed: overview: chinese numeral count: 两个; usage {InputTokens:457 OutputTokens:3137 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "overview": "在2026年8月17日至9月13日共28天的学习中，林小雨活跃11天，学习时长380分钟，完成64轮对话。到期的3份作业中，按时完成2份，逾期完成1份，无未完成作业。孩子完成了2篇阅读、1篇写作和1个项目，接触了天气和金融两个新关键词。",
+          "reading": "完成阅读2篇：《咖啡的旅程》和《中国是否让地球变得更可持续？》。",
+          "writing": "完成写作《一场雨》，文中有句子「雨落在屋檐上像敲鼓」。",
+          "projects": "完成项目《校园雨水调查》。",
+          "interests": "新出现了关键词天气（科学与自然）和金融（社会与世界）。",
+          "next": "请林小雨分享《校园雨水调查》的过程和收获，鼓励孩子将观察用文字记录。\n帮助林小雨规划作业时间，提前完成，避免逾期。\n在家中可以一起阅读与天气或金融相关的书籍或文章，拓展相关知识。"
+        }
+    compose_lite_parent_live_test.go:124: attempt 2: passed checks; usage {InputTokens:712 OutputTokens:462 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "overview": "在2026年8月17日至9月13日共28天的学习中，林小雨活跃11天，学习时长380分钟，完成64轮对话。到期的3份作业中，按时完成2份，逾期完成1份，无未完成作业。孩子完成了2篇阅读、1篇写作和1个项目，接触了天气和金融这2个新关键词。",
+          "reading": "完成阅读2篇：《咖啡的旅程》和《中国是否让地球变得更可持续？》。",
+          "writing": "完成写作《一场雨》，文中有句子「雨落在屋檐上像敲鼓」。",
+          "projects": "完成项目《校园雨水调查》。",
+          "interests": "新出现了关键词天气（科学与自然）和金融（社会与世界）。",
+          "next": "请林小雨分享《校园雨水调查》的过程和收获，鼓励孩子将观察用文字记录。\n帮助林小雨规划作业时间，提前完成，避免逾期。\n在家中可以一起阅读与天气或金融相关的书籍或文章，拓展相关知识。"
+        }
+    compose_lite_parent_live_test.go:133: attempt 1 overview: Chinese numerals: 两个
+    compose_lite_parent_live_test.go:138: first attempt passed: false
+    compose_lite_parent_live_test.go:143: 总体概述 (overview):
+        在2026年8月17日至9月13日共28天的学习中，林小雨活跃11天，学习时长380分钟，完成64轮对话。到期的3份作业中，按时完成2份，逾期完成1份，无未完成作业。孩子完成了2篇阅读、1篇写作和1个项目，接触了天气和金融这2个新关键词。
+    compose_lite_parent_live_test.go:143: 阅读 (reading):
+        完成阅读2篇：《咖啡的旅程》和《中国是否让地球变得更可持续？》。
+    compose_lite_parent_live_test.go:143: 写作 (writing):
+        完成写作《一场雨》，文中有句子「雨落在屋檐上像敲鼓」。
+    compose_lite_parent_live_test.go:143: 项目 (projects):
+        完成项目《校园雨水调查》。
+    compose_lite_parent_live_test.go:143: 兴趣 (interests):
+        新出现了关键词天气（科学与自然）和金融（社会与世界）。
+    compose_lite_parent_live_test.go:143: 下一步建议 (next):
+        请林小雨分享《校园雨水调查》的过程和收获，鼓励孩子将观察用文字记录。
+        帮助林小雨规划作业时间，提前完成，避免逾期。
+        在家中可以一起阅读与天气或金融相关的书籍或文章，拓展相关知识。
+--- PASS: TestLiveLiteParentReport (78.25s)
+=== RUN   TestLiveLiteWeeklyStudent
+    compose_lite_weekly_live_test.go:125: model: deepseek-v4-pro; cards: [{Kind:watch Code:overdue Label:作业逾期 Evidence:该周到期的作业中有 1 份未完成。} {Kind:praise Code:new_interest Label:新的兴趣 Evidence:兴趣树新增关键词：天气。}]
+    compose_lite_weekly_live_test.go:130: attempts: 1
+    compose_lite_weekly_live_test.go:130: attempt 1: passed checks; usage {InputTokens:390 OutputTokens:4912 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {"summary":"第 37 周（9.7–9.13），林小雨活跃 3 天（上一周 1 天），学习 85 分钟，对话 12 轮。完成作品《一场雨》，其中写道「雨落在屋檐上像敲鼓」。停滞任务《雨水花园调查》。逾期作业 1 份，按时完成作业 0 份。兴趣树新增关键词“天气”。","suggestions":[{"text":"与林小雨沟通逾期作业《雨水花园调查》，了解停滞原因，并制定完成计划。","evidenceCode":"overdue"},{"text":"围绕林小雨新兴趣关键词“天气”，提供探究活动（如观察天气变化、记录日记），激发学习动力。","evidenceCode":"new_interest"}]}
+    compose_lite_weekly_live_test.go:134: summary: 第 37 周（9.7–9.13），林小雨活跃 3 天（上一周 1 天），学习 85 分钟，对话 12 轮。完成作品《一场雨》，其中写道「雨落在屋檐上像敲鼓」。停滞任务《雨水花园调查》。逾期作业 1 份，按时完成作业 0 份。兴趣树新增关键词“天气”。
+    compose_lite_weekly_live_test.go:136: suggestion 1 [overdue]: 与林小雨沟通逾期作业《雨水花园调查》，了解停滞原因，并制定完成计划。
+    compose_lite_weekly_live_test.go:136: suggestion 2 [new_interest]: 围绕林小雨新兴趣关键词“天气”，提供探究活动（如观察天气变化、记录日记），激发学习动力。
+--- PASS: TestLiveLiteWeeklyStudent (97.02s)
+=== RUN   TestLiveLiteWeeklyClass
+    compose_lite_weekly_live_test.go:154: model: deepseek-v4-pro; cards: map[7d7c2a8e-1f00-4c2b-9a51-000000000011:[{Kind:watch Code:overdue Label:作业逾期 Evidence:该周到期的作业中有 1 份未完成。} {Kind:praise Code:new_interest Label:新的兴趣 Evidence:兴趣树新增关键词：天气。}] 7d7c2a8e-1f00-4c2b-9a51-000000000012:[{Kind:praise Code:finished_on_time Label:按时完成 Evidence:该周到期的作业按时完成 1 份。}]]
+    compose_lite_weekly_live_test.go:159: attempts: 2
+    compose_lite_weekly_live_test.go:159: attempt 1: failed: cards has userId "7d7c2a8e-1f00-4c2b-9a51-000000000011" more than once; usage {InputTokens:619 OutputTokens:3199 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "comment": "高一（3）班阅读写作第37周，2名学生参与学习，累计学习205分钟，师生对话32轮。该周布置作业2项，完成1项，作业完成率50%。林小雨按时完成作品《一场雨》，但《雨水花园调查》未完成，导致1份作业逾期；兴趣树新增关键词“天气”，展现出对自然主题的观察兴趣。王思远按时完成《雨停之前》，学习习惯良好。全班在写作上都保持一定投入，但作业按时完成率仍需提升。林小雨需在时间管理和任务规划上获得支持，王思远可继续巩固并拓展写作深度。",
+          "cards": [
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000011",
+              "lead": "上一周，林小雨完成了作品《一场雨》，但《雨水花园调查》处于停滞状态，该周到期的作业中有1份逾期未完成。",
+              "action": "建议老师线下与林小雨单独沟通，了解《雨水花园调查》未完成的具体原因，如选题困难、时间安排不当或写作过程中的障碍。协助她把调查任务拆解为多个小步骤，制定明确的阶段性时间表，提醒她按时提交。鼓励她遇到困难主动向老师请教，避免积累成逾期。同时，可结合她已完成的《一场雨》给予肯定，帮助她保持写作信心。"
+            },
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000011",
+              "lead": "上一周，林小雨的兴趣树新增关键词“天气”，在作品《一场雨》中写出了「雨落在屋檐上像敲鼓」的句子，显示出对生活细节的观察力和表达兴趣。",
+              "action": "老师可在线下交流时赞赏她对天气变化的敏锐感知和生动的语言表现。围绕“天气”关键词，推荐相关的观察任务或短文阅读，如记录一周天气变化并描述感受，鼓励她把新积累的体验融入写作。也可以引导她将《雨水花园调查》与天气知识关联，用兴趣驱动未完成的任务，让写作成为自主表达的途径。"
+            },
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000012",
+              "lead": "上一周，王思远按时完成了该周到期的作业《雨停之前》，共1份。",
+              "action": "老师可在线下肯定他按时完成作业的自律和学习习惯，询问他在创作《雨停之前》时的主要收获或遇到的挑战。根据他的完成情况，可推荐同一主题或相近风格的拓展阅读材料，或提出进阶写作建议，引导他在现有基础上深化作品的语言和立意。让他保持良好节奏，同时逐步挑战更高目标。"
+            }
+          ]
+        }
+    compose_lite_weekly_live_test.go:159: attempt 2: passed checks; usage {InputTokens:1294 OutputTokens:938 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "comment": "高一（3）班阅读写作第37周，2名学生参与学习，累计学习205分钟，师生对话32轮。该周布置作业2项，完成1项，作业完成率50%。林小雨按时完成作品《一场雨》，但《雨水花园调查》未完成，导致1份作业逾期；兴趣树新增关键词“天气”，展现出对自然主题的观察兴趣。王思远按时完成《雨停之前》，学习习惯良好。全班在写作上都保持一定投入，但作业按时完成率仍需提升。林小雨需在时间管理和任务规划上获得支持，王思远可继续巩固并拓展写作深度。",
+          "cards": [
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000011",
+              "lead": "上一周，林小雨完成了作品《一场雨》，但《雨水花园调查》处于停滞状态，该周到期的作业中有1份逾期未完成；同时兴趣树新增关键词“天气”，在作品《一场雨》中写出了「雨落在屋檐上像敲鼓」的句子。",
+              "action": "建议老师线下与林小雨沟通，了解《雨水花园调查》未完成的原因，协助她把任务拆解为小步骤并制定时间表，同时结合她已完成的《一场雨》和「雨落在屋檐上像敲鼓」的生动表达给予肯定，帮助她保持写作信心。围绕新增的“天气”关键词，可推荐相关观察任务，引导她把兴趣转化为完成未提交作业的动力。"
+            },
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000012",
+              "lead": "上一周，王思远按时完成了该周到期的作业《雨停之前》，共1份。",
+              "action": "老师可在线下肯定他按时完成作业的自律，询问他在《雨停之前》中想要表达的主要想法或遇到的困难。根据他的完成情况，提供同主题的拓展阅读材料或进阶写作建议，帮助他在保持良好节奏的同时逐步提升作品深度。"
+            }
+          ]
+        }
+    compose_lite_weekly_live_test.go:163: comment: 高一（3）班阅读写作第37周，2名学生参与学习，累计学习205分钟，师生对话32轮。该周布置作业2项，完成1项，作业完成率50%。林小雨按时完成作品《一场雨》，但《雨水花园调查》未完成，导致1份作业逾期；兴趣树新增关键词“天气”，展现出对自然主题的观察兴趣。王思远按时完成《雨停之前》，学习习惯良好。全班在写作上都保持一定投入，但作业按时完成率仍需提升。林小雨需在时间管理和任务规划上获得支持，王思远可继续巩固并拓展写作深度。
+    compose_lite_weekly_live_test.go:165: card 7d7c2a8e-1f00-4c2b-9a51-000000000011
+          lead: 上一周，林小雨完成了作品《一场雨》，但《雨水花园调查》处于停滞状态，该周到期的作业中有1份逾期未完成；同时兴趣树新增关键词“天气”，在作品《一场雨》中写出了「雨落在屋檐上像敲鼓」的句子。
+          action: 建议老师线下与林小雨沟通，了解《雨水花园调查》未完成的原因，协助她把任务拆解为小步骤并制定时间表，同时结合她已完成的《一场雨》和「雨落在屋檐上像敲鼓」的生动表达给予肯定，帮助她保持写作信心。围绕新增的“天气”关键词，可推荐相关观察任务，引导她把兴趣转化为完成未提交作业的动力。
+    compose_lite_weekly_live_test.go:165: card 7d7c2a8e-1f00-4c2b-9a51-000000000012
+          lead: 上一周，王思远按时完成了该周到期的作业《雨停之前》，共1份。
+          action: 老师可在线下肯定他按时完成作业的自律，询问他在《雨停之前》中想要表达的主要想法或遇到的困难。根据他的完成情况，提供同主题的拓展阅读材料或进阶写作建议，帮助他在保持良好节奏的同时逐步提升作品深度。
+--- PASS: TestLiveLiteWeeklyClass (90.52s)
+PASS
+ok  	mindimprint/api/internal/agent	266.146s
