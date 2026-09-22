@@ -75,6 +75,27 @@ type Source struct {
 func Resolve(k Key, slots ...Slot) (map[Slot]string, error)
 ```
 
+### 🚨 真正的原语是泛型的 Pick，Resolve 只是它上面的一层壳
+
+写实施计划时发现的：五处选取里有两处携带的**不是文本**——
+读法是 `readingRoutine`，毛病表是 `[]writingSymptom`。把它们硬塞成字符串
+是为了迁就一个只会处理字符串的 `Resolve`，那是本末倒置。
+
+所以核心原语是：
+
+```go
+type Row[T any] struct { Scope Scope; Value T }
+func Pick[T any](k Key, rows []Row[T]) (T, bool)   // 最具体的那一行胜出
+```
+
+`Resolve` 是 `Pick[string]` 上面的一层壳（多做一件事：取不到时报错）。
+一条规则、一份测试、五个调用点各带各的类型。
+
+**`vocab.ForLang` / `vocab.Structures` 例外，它们不搬。** 那两个是**过滤器**
+（返回一组方法，一页上摆四条论证结构），不是选择器（返回最合适的一条）。
+塞进 `Pick` 会把「全都要」变成「只要一条」—— 那是行为改变，不是搬家。
+两边的体裁词表由 `TestVocabGenreFieldStaysInTheClosedSet` 钉住一致。
+
 ### 为什么不做成模型自己去取的 skill 系统
 
 同事那几份资料是 `SKILL.md` + `references/` 的形状，靠模型按需读文件。
