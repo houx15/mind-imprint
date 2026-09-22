@@ -1,0 +1,54 @@
+{
+  "runs": [
+    {
+      "experiment": "prose-balanced",
+      "records": 102,
+      "failedChecks": 9,
+      "estimatedCNY": 0.7086
+    },
+    {
+      "experiment": "prose-dialogue",
+      "records": 18,
+      "failedChecks": 0,
+      "estimatedCNY": 0.0298
+    },
+    {
+      "experiment": "prose-final",
+      "records": 102,
+      "failedChecks": 12,
+      "estimatedCNY": 0.7003
+    },
+    {
+      "experiment": "prose-grade-json",
+      "records": 4,
+      "failedChecks": 2,
+      "estimatedCNY": 0.1084
+    },
+    {
+      "experiment": "prose-review",
+      "records": 4,
+      "failedChecks": 0,
+      "estimatedCNY": 0.0335
+    },
+    {
+      "experiment": "prose-rewrite",
+      "records": 102,
+      "failedChecks": 11,
+      "estimatedCNY": 0.7964
+    },
+    {
+      "experiment": "prose-rubric",
+      "records": 4,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1106
+    },
+    {
+      "experiment": "prose-verified",
+      "records": 102,
+      "failedChecks": 2,
+      "estimatedCNY": 0.645
+    }
+  ],
+  "estimatedCNY": 3.1326,
+  "pricing": "models.json; cached input at 20%; includes failed and retried calls"
+}

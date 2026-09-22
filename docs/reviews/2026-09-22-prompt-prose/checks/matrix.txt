@@ -1,0 +1,335 @@
+=== RUN   TestClarityGrading
+=== RUN   TestClarityGrading/zh
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=1 model=dashscope/glm-5.3 ms=8483 input=1905 output=572 valid=true
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=2 model=dashscope/glm-5.3 ms=4961 input=1905 output=329 valid=true
+=== RUN   TestClarityGrading/en
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=1 model=dashscope/glm-5.3 ms=31040 input=1659 output=633 valid=true
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=2 model=dashscope/glm-5.3 ms=6339 input=1659 output=402 valid=true
+--- PASS: TestClarityGrading (50.83s)
+    --- PASS: TestClarityGrading/zh (13.45s)
+    --- PASS: TestClarityGrading/en (37.38s)
+=== RUN   TestClarityReading
+=== RUN   TestClarityReading/concept
+2026/09/22 11:20:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/concept sample=1 model=dashscope/deepseek-v4.1-flash ms=5494 input=4856 output=115 valid=true
+    clarity_live_test.go:38: TestClarityReading/concept sample=2 model=dashscope/deepseek-v4.1-flash ms=3206 input=4856 output=104 valid=true
+=== RUN   TestClarityReading/help
+    clarity_live_test.go:38: TestClarityReading/help sample=1 model=dashscope/deepseek-v4.1-flash ms=2348 input=4836 output=82 valid=true
+    clarity_live_test.go:38: TestClarityReading/help sample=2 model=dashscope/deepseek-v4.1-flash ms=2489 input=4836 output=84 valid=true
+=== RUN   TestClarityReading/partial
+    clarity_live_test.go:38: TestClarityReading/partial sample=1 model=dashscope/deepseek-v4.1-flash ms=1978 input=4837 output=82 valid=true
+    clarity_live_test.go:38: TestClarityReading/partial sample=2 model=dashscope/deepseek-v4.1-flash ms=2588 input=4837 output=82 valid=true
+=== RUN   TestClarityReading/done
+    clarity_live_test.go:38: TestClarityReading/done sample=1 model=dashscope/deepseek-v4.1-flash ms=3703 input=4856 output=143 valid=true
+    clarity_live_test.go:38: TestClarityReading/done sample=2 model=dashscope/deepseek-v4.1-flash ms=3072 input=4856 output=126 valid=true
+=== RUN   TestClarityReading/skip
+2026/09/22 11:21:01 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/skip sample=1 model=dashscope/deepseek-v4.1-flash ms=1887 input=4833 output=44 valid=true
+2026/09/22 11:21:03 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/skip sample=2 model=dashscope/deepseek-v4.1-flash ms=1529 input=4833 output=35 valid=true
+=== RUN   TestClarityReading/read-done
+    clarity_live_test.go:38: TestClarityReading/read-done sample=1 model=dashscope/deepseek-v4.1-flash ms=2685 input=4731 output=101 valid=true
+    clarity_live_test.go:38: TestClarityReading/read-done sample=2 model=dashscope/deepseek-v4.1-flash ms=6500 input=4731 output=133 valid=true
+=== RUN   TestClarityReading/connect
+    clarity_live_test.go:38: TestClarityReading/connect sample=1 model=dashscope/deepseek-v4.1-flash ms=3351 input=4753 output=153 valid=true
+    clarity_live_test.go:38: TestClarityReading/connect sample=2 model=dashscope/deepseek-v4.1-flash ms=4739 input=4753 output=133 valid=true
+=== RUN   TestClarityReading/hunt-no-pick
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=1 model=dashscope/deepseek-v4.1-flash ms=2200 input=4732 output=83 valid=true
+    clarity_live_test.go:38: TestClarityReading/hunt-no-pick sample=2 model=dashscope/deepseek-v4.1-flash ms=2340 input=4732 output=68 valid=true
+=== RUN   TestClarityReading/hunt-picked
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=1 model=dashscope/deepseek-v4.1-flash ms=3856 input=4754 output=173 valid=true
+    clarity_live_test.go:38: TestClarityReading/hunt-picked sample=2 model=dashscope/deepseek-v4.1-flash ms=2369 input=4754 output=138 valid=true
+=== RUN   TestClarityReading/hunt-skip
+2026/09/22 11:21:33 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=1 model=dashscope/deepseek-v4.1-flash ms=1893 input=4727 output=27 valid=true
+2026/09/22 11:21:35 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_live_test.go:38: TestClarityReading/hunt-skip sample=2 model=dashscope/deepseek-v4.1-flash ms=2449 input=4727 output=53 valid=true
+--- PASS: TestClarityReading (60.91s)
+    --- PASS: TestClarityReading/concept (8.73s)
+    --- PASS: TestClarityReading/help (4.85s)
+    --- PASS: TestClarityReading/partial (4.58s)
+    --- PASS: TestClarityReading/done (6.79s)
+    --- PASS: TestClarityReading/skip (3.46s)
+    --- PASS: TestClarityReading/read-done (9.20s)
+    --- PASS: TestClarityReading/connect (8.11s)
+    --- PASS: TestClarityReading/hunt-no-pick (4.57s)
+    --- PASS: TestClarityReading/hunt-picked (6.25s)
+    --- PASS: TestClarityReading/hunt-skip (4.37s)
+=== RUN   TestClarityReadingLens
+=== RUN   TestClarityReadingLens/not-completed
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=1 model=dashscope/deepseek-v4.1-flash ms=2590 input=4715 output=130 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/not-completed sample=2 model=dashscope/deepseek-v4.1-flash ms=3733 input=4715 output=136 valid=true
+=== RUN   TestClarityReadingLens/completed
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=1 model=dashscope/deepseek-v4.1-flash ms=11891 input=4793 output=169 valid=true
+    clarity_live_test.go:74: TestClarityReadingLens/completed sample=2 model=dashscope/deepseek-v4.1-flash ms=6848 input=4793 output=176 valid=true
+--- PASS: TestClarityReadingLens (25.12s)
+    --- PASS: TestClarityReadingLens/not-completed (6.36s)
+    --- PASS: TestClarityReadingLens/completed (18.77s)
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/plan
+    clarity_live_test.go:100: TestClarityWriting/plan sample=1 model=dashscope/deepseek-v4.1-flash ms=4347 input=4745 output=153 valid=true
+    clarity_live_test.go:100: TestClarityWriting/plan sample=2 model=dashscope/deepseek-v4.1-flash ms=12100 input=4745 output=140 valid=true
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=1766 input=1739 output=98 valid=true
+    clarity_live_test.go:109: TestClarityWriting/guide sample=2 model=dashscope/glm-5.3 ms=2508 input=1739 output=89 valid=true
+=== RUN   TestClarityWriting/comment
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这一段开门见山给出观点，并用去走廊复习的经历说明教室关闭后住校生自习的困难。","points":[{"kind":"issue","symptom":"evidence_not_explained","quote":"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。","text":"这个例子写出了教室关闭后的具体困难，但例子摆在那里就过去了，还没有说明它和「应该延长开放时间」之间的关系——读者需要看到走廊不适合自习，与图书馆开放为什么能解决这个问题之间的推理。","action":"请在走廊的例子后面补一两句解释，说明走廊自习的困难如何导致对图书馆延长开放时间的需要，例如说明图书馆在晚间能提供什么走廊提供不了的条件，并保留你自己组织语言的空间。"}]}
+    clarity_live_test.go:118: TestClarityWriting/comment sample=1 model=dashscope/glm-5.3 ms=3309 input=3476 output=187 valid=true
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这一段开门见山提出观点，并用一次走廊自习的经历说明教室关闭后住校生自习的处境。","points":[{"kind":"issue","symptom":"evidence_not_explained","text":"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」举出了一件具体的事，读者知道发生了什么，但这件事摆在那里就过去了，没有说明走廊里有人经过带来了什么困难，以及这个困难与延长图书馆开放时间是什么关系。","action":"请在这件事之后补一两句解释，说明走廊里的干扰造成了什么后果，以及图书馆延长开放为什么能解决这个问题。"}]}
+    clarity_live_test.go:118: TestClarityWriting/comment sample=2 model=dashscope/glm-5.3 ms=2648 input=3476 output=173 valid=true
+--- PASS: TestClarityWriting (26.69s)
+    --- PASS: TestClarityWriting/plan (16.45s)
+    --- PASS: TestClarityWriting/guide (4.28s)
+    --- PASS: TestClarityWriting/comment (5.96s)
+=== RUN   TestClarityWritingInvite
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=1 model=dashscope/deepseek-v4.1-flash ms=2598 input=4823 output=79 valid=true
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=2 model=dashscope/deepseek-v4.1-flash ms=2988 input=4823 output=93 valid=true
+--- PASS: TestClarityWritingInvite (5.59s)
+=== RUN   TestClarityReadingSequence
+=== RUN   TestClarityReadingSequence/library-1
+=== RUN   TestClarityReadingSequence/library-1/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=2216 input=4717 output=75 valid=true
+=== RUN   TestClarityReadingSequence/library-1/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=3051 input=4777 output=79 valid=true
+=== RUN   TestClarityReadingSequence/library-1/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-1/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=3124 input=5018 output=121 valid=true
+=== RUN   TestClarityReadingSequence/library-2
+=== RUN   TestClarityReadingSequence/library-2/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=4145 input=4717 output=73 valid=true
+=== RUN   TestClarityReadingSequence/library-2/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=3603 input=4775 output=82 valid=true
+=== RUN   TestClarityReadingSequence/library-2/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-2/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2822 input=5019 output=116 valid=true
+=== RUN   TestClarityReadingSequence/library-3
+=== RUN   TestClarityReadingSequence/library-3/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=1641 input=4717 output=70 valid=true
+=== RUN   TestClarityReadingSequence/library-3/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=3033 input=4772 output=77 valid=true
+=== RUN   TestClarityReadingSequence/library-3/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/library-3/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2643 input=5011 output=144 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=7092 input=4724 output=81 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=1987 input=4791 output=71 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-1/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-1/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=3960 input=5025 output=133 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=3358 input=4724 output=61 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=2620 input=4771 output=76 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-2/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-2/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2807 input=5010 output=133 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-1
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-1 sample=1 model=dashscope/deepseek-v4.1-flash ms=3113 input=4724 output=74 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-2
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-2 sample=1 model=dashscope/deepseek-v4.1-flash ms=2097 input=4784 output=62 valid=true
+=== RUN   TestClarityReadingSequence/urban-heat-3/turn-3
+    clarity_reading_sequence_test.go:33: TestClarityReadingSequence/urban-heat-3/turn-3 sample=1 model=dashscope/deepseek-v4.1-flash ms=2878 input=5009 output=113 valid=true
+--- PASS: TestClarityReadingSequence (56.57s)
+    --- PASS: TestClarityReadingSequence/library-1 (8.46s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-1 (2.23s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-2 (3.08s)
+        --- PASS: TestClarityReadingSequence/library-1/turn-3 (3.15s)
+    --- PASS: TestClarityReadingSequence/library-2 (10.65s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-1 (4.17s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-2 (3.63s)
+        --- PASS: TestClarityReadingSequence/library-2/turn-3 (2.85s)
+    --- PASS: TestClarityReadingSequence/library-3 (7.39s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-1 (1.67s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-2 (3.06s)
+        --- PASS: TestClarityReadingSequence/library-3/turn-3 (2.66s)
+    --- PASS: TestClarityReadingSequence/urban-heat-1 (13.09s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-1 (7.11s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-2 (2.00s)
+        --- PASS: TestClarityReadingSequence/urban-heat-1/turn-3 (3.98s)
+    --- PASS: TestClarityReadingSequence/urban-heat-2 (8.84s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-1 (3.38s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-2 (2.64s)
+        --- PASS: TestClarityReadingSequence/urban-heat-2/turn-3 (2.82s)
+    --- PASS: TestClarityReadingSequence/urban-heat-3 (8.14s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-1 (3.13s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-2 (2.11s)
+        --- PASS: TestClarityReadingSequence/urban-heat-3/turn-3 (2.90s)
+=== RUN   TestClarityTeacherReading
+=== RUN   TestClarityTeacherReading/compare-not-verdict
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/compare-not-verdict sample=1 model=dashscope/deepseek-v4.1-flash ms=3341 input=4811 output=188 valid=true
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/compare-not-verdict sample=2 model=dashscope/deepseek-v4.1-flash ms=3689 input=4811 output=89 valid=true
+=== RUN   TestClarityTeacherReading/explain-concept
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/explain-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=4154 input=4787 output=112 valid=true
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/explain-concept sample=2 model=dashscope/deepseek-v4.1-flash ms=3688 input=4787 output=131 valid=true
+=== RUN   TestClarityTeacherReading/predict-opening
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/predict-opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1898 input=4707 output=81 valid=true
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/predict-opening sample=2 model=dashscope/deepseek-v4.1-flash ms=2087 input=4707 output=91 valid=true
+=== RUN   TestClarityTeacherReading/direct-answer
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/direct-answer sample=1 model=dashscope/deepseek-v4.1-flash ms=3477 input=4788 output=131 valid=true
+2026/09/22 11:23:57 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+    clarity_teaching_live_test.go:43: TestClarityTeacherReading/direct-answer sample=2 model=dashscope/deepseek-v4.1-flash ms=5000 input=4788 output=124 valid=true
+--- PASS: TestClarityTeacherReading (27.39s)
+    --- PASS: TestClarityTeacherReading/compare-not-verdict (7.04s)
+    --- PASS: TestClarityTeacherReading/explain-concept (7.86s)
+    --- PASS: TestClarityTeacherReading/predict-opening (4.00s)
+    --- PASS: TestClarityTeacherReading/direct-answer (8.49s)
+=== RUN   TestClarityTeacherReview
+=== RUN   TestClarityTeacherReview/argument-scope
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这段先提出图书馆可以适当延长开放时间，再用晚自习后走廊自习的经历作为材料，事情的时间、地点、人物都交代清楚了。","points":[{"kind":"issue","symptom":"evidence_not_explained","text":"「走廊里不断有人经过，我们很难集中注意力」写出了具体困难，但段落在困难面前停住了，没有说明这个困难和「延长图书馆开放时间」之间的关系——读者要自己猜：如果图书馆开着，你们就会去图书馆复习。这层联系需要用一句分析句补出来。","action":"在这句之后补一句分析句，用因果分析法说明：教室关闭造成了什么结果，这个结果和图书馆开放时间有什么关系，从而说明延长开放时间为什么有帮助。保留原文「可以适当延长」的范围，不必写成必须延长。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/argument-scope sample=1 model=dashscope/glm-5.3 ms=3016 input=3974 output=207 valid=true
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这段用走廊自习的具体经历来讨论延长图书馆开放时间的看法，已有时间、人物和场景。","points":[{"kind":"issue","symptom":"evidence_not_explained","text":"走廊复习这件事写得具体，但举完就停了，读者要自己推断它与延长开放时间的关系——教室关闭后无处可去的人应该可以去图书馆，而图书馆当时也关门了或时间不够。这一层联系原文还没有说出来。","action":"请在例子后面补一句分析句，用因果分析法说明：教室关闭导致了什么结果，延长开放时间为什么可能让这个结果改变。","quote":"走廊里不断有人经过，我们很难集中注意力。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/argument-scope sample=2 model=dashscope/glm-5.3 ms=3259 input=3974 output=178 valid=true
+=== RUN   TestClarityTeacherReview/narrative
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这段写了一个雨夜父亲送雨衣的事件，有场景、有人物、有结局，事件经过是完整的。","points":[{"kind":"issue","quote":"我很感动。","symptom":"detail_vague","text":"「我很感动」直接说出了感受，读者只知道你感动了，却看不到当时你做了什么、说了什么。前文父亲「给了我一件雨衣」是事件的关键一刻，正好需要细节来呈现。","action":"请把「我很感动」里说出来的感受，换成当时你真实发生的动作或想法，例如接过雨衣时手上的动作、当时想说而没说出口的话，让读者从这些细节里自己感受到你的心情。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/narrative sample=1 model=dashscope/glm-5.3 ms=3019 input=3283 output=155 valid=true
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"revise","summary":"这段按时间顺序写了雨夜在楼道口等爸爸、爸爸送来雨衣、两人一路无话的经历，结尾用「我很感动」直接点明感受。","points":[{"kind":"issue","symptom":"detail_vague","text":"「我很感动」是把感受直接说出来的词，读者只能知道你有这个情绪，却看不到它从哪里来——爸爸是淋着雨来的吗，他递雨衣时说了什么或什么都没说，你的眼眶或脚步有没有变化，这些被「感动」一个词盖住了。","action":"请把「我很感动」保留在句尾，但在这之前回忆雨夜里真实发生过的一两个具体细节——爸爸当时的神态或动作、递雨衣的方式、你接过来时的动作或说过的话——按你记得的样子写进这一段，让读者从这些细节里看出你的情绪，而不是只被告诉。"}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/narrative sample=2 model=dashscope/glm-5.3 ms=4588 input=3283 output=263 valid=true
+=== RUN   TestClarityTeacherReview/english
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这一段用走廊自习的具体经历说明延长图书馆开放时间的理由，并在结尾用限定语收窄了结论的适用范围。","points":[{"kind":"issue","symptom":"mechanism_chain","quote":"Last Tuesday, my classroom closed at seven, so I revised in the noisy corridor.","text":"这句话交代了教室关门和去走廊自习，但读者要自己猜出中间一环：那天晚上图书馆也没有开门，所以你才没有别的安静去处。这一环不写出来，例子和「延长开放时间有帮助」之间的关系就断了一截。","action":"请在这句之后用因果分析法补一句分析，说明那天晚上图书馆为什么没有成为选择，以及开放更晚会怎样改变这个处境。"},{"kind":"good","method":"en_qualify","quote":"This may not suit everyone, so the school could try it once a week first.","text":"这句用 may not suit everyone 限定了结论的范围，又把建议收窄到 once a week，避免了把一次经历说成对所有人都成立的普遍结论。","action":""}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/english sample=1 model=dashscope/glm-5.3 ms=7119 input=4082 output=450 valid=true
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"这一段通过你在走廊自习的经历说明图书馆延长开放的必要，并附带了让步与折中方案。","points":[{"kind":"issue","symptom":"mechanism_chain","text":"「This may not suit everyone」直接跳到了「so the school could try it once a week first」。谁会不适合、为什么一周一次就能解决他们的顾虑，中间的推理没有交代，读者只能自己猜这两个结论之间的联系。","action":"在「so」之前加一两句，说明延长开放可能给哪些人带来不便（比如管理员或值班老师），再解释为什么先试一周一次能检验或减少这种不便，让让步和折中方案之间的因果连起来。","quote":"This may not suit everyone, so the school could try it once a week first."}]}
+    clarity_teaching_live_test.go:77: TestClarityTeacherReview/english sample=2 model=dashscope/glm-5.3 ms=7520 input=4082 output=456 valid=true
+--- PASS: TestClarityTeacherReview (28.53s)
+    --- PASS: TestClarityTeacherReview/argument-scope (6.28s)
+    --- PASS: TestClarityTeacherReview/narrative (7.61s)
+    --- PASS: TestClarityTeacherReview/english (14.64s)
+=== RUN   TestClarityReadingPlan
+=== RUN   TestClarityReadingPlan/zh
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=1 model=dashscope/glm-5.3 ms=6818 input=2936 output=524 valid=true
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=2 model=dashscope/glm-5.3 ms=6019 input=2936 output=415 valid=true
+=== RUN   TestClarityReadingPlan/en
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=1 model=dashscope/glm-5.3 ms=8340 input=3372 output=652 valid=true
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=2 model=dashscope/glm-5.3 ms=7678 input=3372 output=583 valid=true
+--- PASS: TestClarityReadingPlan (28.86s)
+    --- PASS: TestClarityReadingPlan/zh (12.84s)
+    --- PASS: TestClarityReadingPlan/en (16.02s)
+PASS
+ok  	mindimprint/api/internal/api	312.336s
+=== RUN   TestClarityGuideDialogue
+=== RUN   TestClarityGuideDialogue/NOVA/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2257 input=737 output=70 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=7579 input=737 output=81 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=4659 input=747 output=72 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=3659 input=747 output=111 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=1 model=dashscope/deepseek-v4.1-flash ms=1899 input=716 output=71 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=2 model=dashscope/deepseek-v4.1-flash ms=2021 input=716 output=67 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1727 input=735 output=62 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=2726 input=735 output=70 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=3101 input=745 output=80 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=1559 input=745 output=56 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=1 model=dashscope/deepseek-v4.1-flash ms=3309 input=714 output=78 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=2 model=dashscope/deepseek-v4.1-flash ms=2490 input=714 output=56 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1548 input=759 output=63 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=1959 input=759 output=82 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2249 input=769 output=52 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=3040 input=769 output=90 valid=false
+    clarity_live_test.go:27: invented attributed quote (visible output preserved in evidence)
+=== RUN   TestClarityGuideDialogue/KIRO/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=1 model=dashscope/deepseek-v4.1-flash ms=4988 input=738 output=55 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=2 model=dashscope/deepseek-v4.1-flash ms=2639 input=738 output=57 valid=true
+--- FAIL: TestClarityGuideDialogue (53.43s)
+    --- PASS: TestClarityGuideDialogue/NOVA/opening (9.84s)
+    --- PASS: TestClarityGuideDialogue/NOVA/retry (8.32s)
+    --- PASS: TestClarityGuideDialogue/NOVA/last (3.92s)
+    --- PASS: TestClarityGuideDialogue/SAGE/opening (4.46s)
+    --- PASS: TestClarityGuideDialogue/SAGE/retry (4.66s)
+    --- PASS: TestClarityGuideDialogue/SAGE/last (5.80s)
+    --- PASS: TestClarityGuideDialogue/KIRO/opening (3.51s)
+    --- FAIL: TestClarityGuideDialogue/KIRO/retry (5.29s)
+    --- PASS: TestClarityGuideDialogue/KIRO/last (7.63s)
+FAIL
+FAIL	mindimprint/api/internal/awakening	55.006s
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/chat-concept
+    clarity_live_test.go:23: TestClarityAgent/chat-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=2449 input=276 output=65 valid=true
+    clarity_live_test.go:23: TestClarityAgent/chat-concept sample=2 model=dashscope/deepseek-v4.1-flash ms=2010 input=276 output=71 valid=true
+=== RUN   TestClarityAgent/project-help
+    clarity_live_test.go:23: TestClarityAgent/project-help sample=1 model=dashscope/deepseek-v4.1-flash ms=2892 input=473 output=126 valid=true
+    clarity_live_test.go:23: TestClarityAgent/project-help sample=2 model=dashscope/deepseek-v4.1-flash ms=2416 input=473 output=99 valid=true
+=== RUN   TestClarityAgent/course-concept
+    clarity_live_test.go:23: TestClarityAgent/course-concept sample=1 model=dashscope/deepseek-v4.1-flash ms=4389 input=164 output=58 valid=true
+    clarity_live_test.go:23: TestClarityAgent/course-concept sample=2 model=dashscope/deepseek-v4.1-flash ms=2170 input=164 output=67 valid=true
+=== RUN   TestClarityAgent/project-no-ghostwriting
+    clarity_live_test.go:23: TestClarityAgent/project-no-ghostwriting sample=1 model=dashscope/deepseek-v4.1-flash ms=2059 input=465 output=72 valid=true
+    clarity_live_test.go:23: TestClarityAgent/project-no-ghostwriting sample=2 model=dashscope/deepseek-v4.1-flash ms=1769 input=465 output=61 valid=true
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:71: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：仅有一条个人经历作为证据，结论存在明显过度概括",
+            "evidence": "草稿原文：「上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。」",
+            "missing": "1) 「所有学生都需要」这一结论远超四人经历所能支撑的范围，需要核实全校学生的实际使用需求（如使用率数据、问卷调查、座位占用统计等）；2) 「延长开放时间」与「全天开放」在草稿中前后范围不一致，需明确主张的具体范围并说明其依据；3) 「只能在走廊复习」的原因未查证——是开放时间不足还是座位不足、场地安排等其他因素，需核实因果关系；4) 目前没有任何分论点或推理链，只有一个案例直接跳到结论。",
+            "fix": "往两个方向补：一是收集能反映更大学生群体需求的客观依据（数据、多方访谈、馆方开放时间记录）；二是对「走廊复习」的成因做核实，确认问题确实出在开放时间上。同时需要把结论的适用范围收敛到证据能覆盖的程度。",
+            "points": 0
+          }
+        ]
+    clarity_live_test.go:36: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=4049 input=525 output=257 valid=true
+    clarity_live_test.go:71: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步",
+            "evidence": "“上周我和三位同学只能在走廊复习”",
+            "missing": "样本量过小且以单一经历概括全体学生（“所有学生都需要”）；无图书馆现有开放时间、使用率、座位占用等数据；未考虑其他可能解释（如考试周临时情况）",
+            "fix": "需要核实图书馆实际开放时段与自习座位供需数据；需要补充更大范围的学生使用情况调查或其他可类比的依据；需要收窄结论的适用范围，使其与样本相称",
+            "points": 1
+          }
+        ]
+        
+        关于超字数：本稿仅约 60 字，未见超字数问题，无需删减；建议优先补充证据而非精简。
+    clarity_live_test.go:71: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：仅有一条轶事式证据，且结论远超证据适用范围",
+            "evidence": "草稿中实际提交的证据仅有："上周我和三位同学只能在走廊复习"，此外无其他数据、来源或推理链条。",
+            "missing": "需要核实的事实/需要补充的依据：1) 走廊复习的原因是否真是图书馆开放时间不足（而非座位、规章等其他原因）；2) 除这四位同学外，是否有多数学生存在同样需求的证据（如使用统计、调查、访谈）；3) "全天开放"这一具体方案与其他方案（如适度延长）之间的比较依据；4) 延长的成本、人力、管理影响等反面证据。",
+            "fix": "补充方向：把单一轶事降级为引入性例子，另行收集需求面证据（馆内使用率数据、学生调查）来支撑"学生有需求"这一中间结论；再补充开放时间与需求不匹配的直接证据，才能推导"延长"而非直接跳到"全天"。同时需检查推理中"四个人→所有学生""走廊复习→需要开放时间"两处过度概括。",
+            "points": 1
+          }
+        ]
+        
+        关于字数预算：本稿仅三句，未见重复或偏离主题的段落，暂无删减建议；但"这证明所有学生……"一句属于超出证据的断言，若按证据边界收敛表述，反而更短，不存在超字数问题（若草稿另有未贴出的长段落，请补充后我再指出可精简处及删减可能损失的信息）。
+    clarity_live_test.go:36: TestClarityAgent/sceptic sample=2 model=dashscope/glm-5.3 ms=9800 input=1050 output=524 valid=false
+    clarity_live_test.go:36: production pipeline did not return a valid result; see test log (visible output preserved in evidence)
+=== RUN   TestClarityAgent/executioner
+    clarity_live_test.go:71: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：仅提出主张和单一样本",
+            "evidence": "「学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。」",
+            "missing": "缺乏多样化证据（如其他使用者情况、使用率数据、开放时间现状说明）；以四人个例推出「所有学生」的普遍结论，跳跃过大；未回应可能的反方观点（成本、管理）",
+            "fix": "方向：把个例降为引子，补充至少一类覆盖面更广的证据来源；删去或弱化「所有」「全天」等绝对化表述；可加一句对反方顾虑的简要回应。若字数超限，优先压缩结论句的绝对化部分，保留走廊复习这一具体场景作为引入",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:36: TestClarityAgent/executioner sample=1 model=dashscope/glm-5.3 ms=3611 input=532 output=197 valid=true
+    clarity_live_test.go:71: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步",
+            "evidence": "草稿给出了一个观点（\"学校图书馆应该延长开放时间\"）和一个个人经历（\"我和三位同学只能在走廊复习\"），并试图由个例推出普遍结论（\"这证明所有学生都需要图书馆全天开放\"）。",
+            "missing": "缺少支撑结论的更多证据类型（如其他学生的使用情况、图书馆实际开放时长的数据、师生或管理方观点），个例直接推全称结论的逻辑跳跃明显；没有讨论反方理由或资源限制。",
+            "fix": "保留个人经历作为具体事例即可，但需将其降格为\"佐证\"而非\"证明\"；补充一至两类不同来源的证据方向；可考虑承认个例局限并说明其代表性。注意篇幅：目前仅一段，不存在超字数问题，但若后续扩写，避免重复强调\"走廊复习\"这一细节。",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:36: TestClarityAgent/executioner sample=2 model=dashscope/glm-5.3 ms=3624 input=532 output=216 valid=true
+--- FAIL: TestClarityAgent (41.25s)
+    --- PASS: TestClarityAgent/chat-concept (4.46s)
+    --- PASS: TestClarityAgent/project-help (5.31s)
+    --- PASS: TestClarityAgent/course-concept (6.56s)
+    --- PASS: TestClarityAgent/project-no-ghostwriting (3.83s)
+    --- FAIL: TestClarityAgent/sceptic (13.85s)
+    --- PASS: TestClarityAgent/executioner (7.24s)
+FAIL
+FAIL	mindimprint/api/internal/agent	42.305s
+FAIL
