@@ -1,13 +1,12 @@
 package interest
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"mindimprint/api/internal/interests"
+	"mindimprint/api/internal/prompts"
 )
 
 // maxPerHarvest 是一次完成最多长出几个词。

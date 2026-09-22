@@ -1,7 +1,5 @@
 package liteworkspace
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"fmt"
 	"strings"
@@ -9,6 +7,7 @@ import (
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/liteparent"
+	"mindimprint/api/internal/prompts"
 )
 
 // SystemContext is what the assignment prompt needs to know that the tools

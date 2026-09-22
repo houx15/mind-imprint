@@ -30,7 +30,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
 	"log/slog"
 	"net/http"
 	"strings"

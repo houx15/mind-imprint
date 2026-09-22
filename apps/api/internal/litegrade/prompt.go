@@ -1,14 +1,13 @@
 package litegrade
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
-	"mindimprint/api/internal/teachingvoice"
 	"strings"
 
 	"mindimprint/api/internal/liteassign"
+	"mindimprint/api/internal/prompts"
+	"mindimprint/api/internal/teachingvoice"
 )
 
 // systemTemplate is the instructions sent with every 批改 call. Check (see

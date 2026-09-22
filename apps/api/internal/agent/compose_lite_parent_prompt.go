@@ -5,9 +5,9 @@ package agent
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"strings"
+
+	"mindimprint/api/internal/prompts"
 )
 
 // liteParentSystemPromptTemplate is the parent report system prompt. {sections}

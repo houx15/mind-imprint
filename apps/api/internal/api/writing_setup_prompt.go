@@ -5,11 +5,9 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"strings"
 
-
+	"mindimprint/api/internal/prompts"
 	"mindimprint/api/internal/store/sqlc"
 )
 

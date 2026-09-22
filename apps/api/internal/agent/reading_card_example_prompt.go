@@ -5,8 +5,9 @@ package agent
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/cards"
 	"strings"
+
+	"mindimprint/api/internal/cards"
 )
 
 func buildCardExamplePrompt(spec cards.Spec) string {

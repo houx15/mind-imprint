@@ -1,7 +1,5 @@
 package news
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
@@ -9,6 +7,7 @@ import (
 
 	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/interests"
+	"mindimprint/api/internal/prompts"
 )
 
 // select.go —— 从候选池里挑今天的那几条，并给每一条归好类。

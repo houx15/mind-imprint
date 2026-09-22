@@ -5,13 +5,11 @@ package agent
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"fmt"
-
 	"strings"
 
 	"mindimprint/api/internal/liteweekly"
+	"mindimprint/api/internal/prompts"
 )
 
 const liteStudentWeeklySystemPrompt = prompts.LiteStudentWeeklySystemPrompt

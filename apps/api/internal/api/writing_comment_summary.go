@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
 	"mindimprint/api/internal/gateway"
 )
 

@@ -1,31 +1,32 @@
 package api
 
 import (
+	"strings"
+
 	"mindimprint/api/internal/promptassembly"
 	"mindimprint/api/internal/store/sqlc"
-	"strings"
 )
 
 // readingCoachContext contains selected facts and explicit state signals.
 // Selection never writes teaching instructions, queries storage, or calls an LLM.
 // Source slices are read-only for the duration of this synchronous assembly.
 type readingCoachContext struct {
-	Title             string
-	Blocks            []Block
-	Outline           readingOutline
-	Tasks             []sqlc.ReadingTask
-	Picks             []readingPick
-	StudentText       string
-	LensDone          *readingLensDone
-	OpenLens          string
-	History           []sqlc.AtomMessage
-	Scope             map[string]bool
-	Current           *sqlc.ReadingTask
-	OpenCard          *coachCard
-	DroppedCardReason string
-	StepStuck         bool
-	Article           []readingContextBlock
-	Selections        []promptassembly.Selection
+	Title               string
+	Blocks              []Block
+	Outline             readingOutline
+	Tasks               []sqlc.ReadingTask
+	Picks               []readingPick
+	StudentText         string
+	LensDone            *readingLensDone
+	OverrideInstruction string
+	History             []sqlc.AtomMessage
+	Scope               map[string]bool
+	Current             *sqlc.ReadingTask
+	OpenCard            *coachCard
+	DroppedCardReason   string
+	StepStuck           bool
+	Article             []readingContextBlock
+	Selections          []promptassembly.Selection
 }
 
 type readingContextBlock struct {
@@ -40,7 +41,7 @@ func selectReadingCoachContext(title string, blocks []Block, outline readingOutl
 	}
 	c := readingCoachContext{
 		Title: title, Blocks: blocks, Outline: outline, Tasks: tasks, Picks: picks,
-		StudentText: studentText, LensDone: lensDone, OpenLens: openLens,
+		StudentText: studentText, LensDone: lensDone, OverrideInstruction: openLens,
 		History: tail, Current: currentReadingTask(tasks), OpenCard: lastOpenCard(tail),
 		DroppedCardReason: lastDroppedCard(tail), StepStuck: coachStepStuck(tasks, tail),
 		Scope: readingDisclosureScope(blocks, outline, tasks, picks, msgs),

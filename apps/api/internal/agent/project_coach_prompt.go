@@ -5,10 +5,10 @@ package agent
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"fmt"
 	"strings"
+
+	"mindimprint/api/internal/prompts"
 )
 
 // projectCoachPosturePrompt is the one agent's posture across every room. The

@@ -1,11 +1,11 @@
 package interest
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"mindimprint/api/internal/prompts"
 )
 
 // dig.go —— 「继续深挖」：一个关键词后面的四颗种子。

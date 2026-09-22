@@ -55,67 +55,63 @@ const writingPieceMaxBlocks = 12
 //
 // focus 是她现在停在的那个结构图节点，可以是 nil（自由段落没有节点）。
 // comments 是这一篇的**全部**历史意见，函数自己挑出落在 focus 这一段上的。
-func buildWritingPieceContext(
-	wr sqlc.Writing,
-	outline []sqlc.WritingOutline,
-	snippets []sqlc.WritingSnippet,
-	comments []sqlc.WritingComment,
-	focus *sqlc.WritingOutline,
-) string {
-	var b strings.Builder
+func buildWritingPieceContext(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet, comments []sqlc.WritingComment, focus *sqlc.WritingOutline) string {
+	return renderWritingPieceContext(selectWritingPieceContext(wr, outline, snippets, comments, focus)).Text
+}
 
-	// —— 稳定的那几块，排在前面（见文件顶上的成本契约）——
-	b.WriteString("\n【这一篇】\n")
-	b.WriteString(writingTopicLine(wr, "题目："))
-	b.WriteString(writingLangLine(wr))
-	b.WriteString(writingLengthLine(wr, "目标篇幅"))
+type writingPieceContext struct {
+	Writing    sqlc.Writing
+	Thesis     string
+	Cards      []writingPieceContextCard
+	TotalCards int
+	Previous   string
+}
 
-	// 🚨 **中心论点单独说一次。**
-	//
-	// 下面那份卡片清单用的是她屏幕上看到的名字（开头 / 分论点 / 结尾），
-	// 而「开头」那张卡绑的就是中心论点节点 —— 于是「中心论点」这个词在整份
-	// 上下文里一次都不出现。判任何一段站不站得住，都要先知道这篇在证明什么，
-	// 所以它得有自己的一行。
-	if t := writingThesisText(outline); t != "" {
-		b.WriteString("这一篇的中心论点：" + t + "\n")
-	}
+type writingPieceContextCard struct {
+	Name, NodeText string
+	Focus          bool
+	Body           writingPieceBody
+}
 
-	// —— 易变的那几块 ——
-	b.WriteString("\n【整篇的结构，以及她在每一块写下的字】\n")
+type writingPieceBody struct {
+	Text       string
+	TotalRunes int
+	Written    bool
+}
+
+// selectWritingPieceContext makes inclusion/truncation explicit without
+// teaching prose. It preserves the existing first-12-block/300-rune policy.
+func selectWritingPieceContext(wr sqlc.Writing, outline []sqlc.WritingOutline, snippets []sqlc.WritingSnippet, comments []sqlc.WritingComment, focus *sqlc.WritingOutline) writingPieceContext {
 	cards := writingCards(outline, snippets)
-	if len(cards) == 0 {
-		b.WriteString("（还没有结构。）\n")
-	}
-	shown := 0
-	for i, c := range cards {
-		if shown >= writingPieceMaxBlocks {
-			b.WriteString("（后面还有几块，没有全部列出。）\n")
+	c := writingPieceContext{Writing: wr, Thesis: writingThesisText(outline), TotalCards: len(cards)}
+	for i, card := range cards {
+		if i >= writingPieceMaxBlocks {
 			break
 		}
-		shown++
-		b.WriteString("- 第 " + itoa(i+1) + " 张 · " + writingPieceCardName(c))
-		if c.Node != nil {
-			if t := strings.TrimSpace(c.Node.Text); t != "" {
-				b.WriteString("：" + t)
-			}
+		block := writingPieceContextCard{Name: writingPieceCardName(card), Body: selectWritingPieceBody(card)}
+		if card.Node != nil {
+			block.NodeText = strings.TrimSpace(card.Node.Text)
+			block.Focus = focus != nil && card.Node.ID == focus.ID
 		}
-		if focus != nil && c.Node != nil && c.Node.ID == focus.ID {
-			b.WriteString("   ← **她现在停在这一块**")
-		}
-		b.WriteString("\n")
-		b.WriteString("    " + writingPieceBlockBody(c) + "\n")
+		c.Cards = append(c.Cards, block)
 	}
-
-	// —— 她在这一块收到过什么意见，以及她做到了没有 ——
 	if focus != nil {
-		if line := writingPriorCommentLines(comments, snippets, *focus); line != "" {
-			b.WriteString("\n【她这一块之前收到过的意见】\n" + line)
-			b.WriteString("🚨 她已经改过的那几条**不要再说一遍**；还没动的那几条，" +
-				"这一轮优先接着说那一条，而不是另起一个新问题。\n")
-		}
+		c.Previous = writingPriorCommentLines(comments, snippets, *focus)
 	}
+	return c
+}
 
-	return b.String()
+func selectWritingPieceBody(c writingCard) writingPieceBody {
+	if c.Snippet == nil {
+		return writingPieceBody{}
+	}
+	text := strings.TrimSpace(c.Snippet.Text)
+	r := []rune(text)
+	out := writingPieceBody{Text: text, TotalRunes: len(r), Written: text != ""}
+	if len(r) > writingPieceBlockRunes {
+		out.Text = string(r[:writingPieceBlockRunes])
+	}
+	return out
 }
 
 // writingThesisText 是图上那条中心论点的文字（没有就是空串）。
@@ -154,19 +150,7 @@ func writingPieceCardName(c writingCard) string {
 // [[observation-tool-is-the-bug-2026-09-12]] 里她连着三次跟印记说
 // 「我的字被截断了」，而那一次切的正是走查自己的眼睛。
 func writingPieceBlockBody(c writingCard) string {
-	if c.Snippet == nil {
-		return "（这一段还没写）"
-	}
-	t := strings.TrimSpace(c.Snippet.Text)
-	if t == "" {
-		return "（这一段还没写）"
-	}
-	r := []rune(t)
-	if len(r) <= writingPieceBlockRunes {
-		return "她写的：" + t
-	}
-	return "她写的：" + string(r[:writingPieceBlockRunes]) +
-		"……（这一段一共 " + itoa(len(r)) + " 字，后面还有，这里没有全列）"
+	return renderWritingPieceBody(selectWritingPieceBody(c))
 }
 
 // writingPriorCommentLines 列出落在这一块上的历史意见，并逐条说她做到了没有。

@@ -5,12 +5,10 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"fmt"
-
 	"strings"
 
+	"mindimprint/api/internal/prompts"
 )
 
 // readingBlockSystemFor 把字数上限填进去。

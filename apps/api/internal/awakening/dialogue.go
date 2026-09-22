@@ -1,11 +1,11 @@
 package awakening
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"fmt"
-	"mindimprint/api/internal/teachingvoice"
 	"strings"
+
+	"mindimprint/api/internal/prompts"
+	"mindimprint/api/internal/teachingvoice"
 )
 
 // dialogue.go —— 终端里的每一轮。

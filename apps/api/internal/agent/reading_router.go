@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-
 	"strings"
 
 	"mindimprint/api/internal/gateway"

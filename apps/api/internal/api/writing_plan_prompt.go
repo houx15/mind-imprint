@@ -5,12 +5,11 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/promptassembly"
-	"mindimprint/api/internal/prompts"
-
 	"strconv"
 	"strings"
 
+	"mindimprint/api/internal/promptassembly"
+	"mindimprint/api/internal/prompts"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -82,7 +81,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 func renderWritingPlanPrompt(c writingPlanContext) promptassembly.Document {
 	wr, rows, studentText := c.Writing, c.Rows, c.StudentText
 	var b promptassembly.Builder
-	b.Mark("assignment", "mixed", "writing_plan_prompt.go")
+	b.Mark("assignment", "mixed", "internal/api/writing_plan_prompt.go")
 	// An assigned writing's topic is the teacher's prompt; 她一开始说想写的是 would
 	// put it in her mouth. See writingTopicLine.
 	b.WriteString(writingTopicLine(wr, "她一开始说想写的是："))
@@ -103,35 +102,35 @@ func renderWritingPlanPrompt(c writingPlanContext) promptassembly.Document {
 
 	// 计划现在有什么、还缺什么，由服务端数出来当事实给它——不让它每轮从十六轮
 	// 对话里重新推一遍「她定下中心论点了吗」。见 writing_plan_state.go。
-	b.Mark("readiness", "mixed", "writing_plan_prompt.go")
+	b.Mark("readiness", "mixed", "internal/api/writing_plan_prompt.go")
 	b.WriteString(c.Shape.promptBlock(c.Need))
 
 	// 讲义（四）的分论点三原则里，「扣得住」是唯一机械可判的一条 ——
 	// 数出来当事实给它，别让它每轮自己比一遍。全扣得住就一个字都不加。
 	// 见 writing_points_check.go。
-	b.Mark("point-relevance", "mixed", "writing_plan_prompt.go")
+	b.Mark("point-relevance", "mixed", "internal/api/writing_plan_prompt.go")
 	b.WriteString(writingPointsCheckBlock(wr, rows))
 
 	// 她的分论点还不够的时候，给出讲义（四）的那四个角度，
 	// 让她知道下一条该往哪个方向想。够了就不摆。
-	b.Mark("point-angles", "instruction", "writing_plan_prompt.go")
+	b.Mark("point-angles", "instruction", "internal/api/writing_plan_prompt.go")
 	b.WriteString(writingPointAnglesBlock(wr, rows, c.Need.Points))
 
 	// 她连着两轮等于没答 → 这一轮别再问了。**只在真的停滞时出现，不做常驻**
 	// （2026-09-05：常驻提示会把该做的事挤掉）。
-	b.Mark("stalled", "instruction", "writing_plan_prompt.go")
+	b.Mark("stalled", "instruction", "internal/api/writing_plan_prompt.go")
 	if c.Stalled {
 		b.WriteString(writingPlanStalledBlock)
 	}
 
 	// 她请我们替她搜索或替她写 → 这一轮先说明再往下走。同样是一次性的。
 	// 见 writing_refusal.go（同事 2026-09-20 的意见 8）。
-	b.Mark("delegation-request", "instruction", "writing_plan_prompt.go")
+	b.Mark("delegation-request", "instruction", "internal/api/writing_plan_prompt.go")
 	if c.AskedToDoIt {
 		b.WriteString(writingRefusalBlock)
 	}
 
-	b.Mark("outline", "mixed", "writing_plan_prompt.go")
+	b.Mark("outline", "mixed", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n【当前的图】\n")
 	if len(rows) == 0 {
 		b.WriteString("（图是空的。先检查她本轮是否已经表达观点或理由，已表达就直接整理；缺失才询问。）\n")
@@ -160,13 +159,13 @@ func renderWritingPlanPrompt(c writingPlanContext) promptassembly.Document {
 	// frame offered inside a Chinese essay is a bug (vocab.For's doc comment).
 	// Both names go in — 印记 says the plain one to her, and knows the formal
 	// one for when she asks what it is really called.
-	b.Mark("methods", "mixed", "writing_plan_prompt.go")
+	b.Mark("methods", "mixed", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n【可用的方法】（只能用这里的名字，别造新词）\n")
 	for _, m := range c.Methods {
 		b.WriteString("- " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
 
-	b.Mark("history", "context", "writing_plan_prompt.go")
+	b.Mark("history", "context", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n【你们刚才聊的】\n")
 	tail := c.History
 	any := false
@@ -189,9 +188,9 @@ func renderWritingPlanPrompt(c writingPlanContext) promptassembly.Document {
 		b.WriteString("（还没聊过。）\n")
 	}
 
-	b.Mark("latest-input", "context", "writing_plan_prompt.go")
+	b.Mark("latest-input", "context", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n【她刚刚说的】\n" + studentText + "\n")
-	b.Mark("extraction-boundary", "instruction", "writing_plan_prompt.go")
+	b.Mark("extraction-boundary", "instruction", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n只能从「她刚刚说的」这段话里提取节点。她这段话里没有新的点子，add 就给空数组。向她说明时用「观点」或直接说具体想法。已经说清的理由直接整理，只问仍缺少的内容。\n")
 	return b.Document(c.Selection)
 }

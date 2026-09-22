@@ -1,12 +1,12 @@
 package news
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 	"unicode"
+
+	"mindimprint/api/internal/prompts"
 )
 
 // write.go —— 一颗星被选中之后，照着**原文**把它写出来。

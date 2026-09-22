@@ -1,11 +1,11 @@
 package liteworkspace
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"mindimprint/api/internal/prompts"
 )
 
 // Gender values stored in users.gender (migration 0175). An empty string is

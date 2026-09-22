@@ -1,13 +1,12 @@
 package awakening
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/prompts"
 )
 
 // report.go —— 走完之后那份报告。

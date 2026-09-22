@@ -1,7 +1,5 @@
 package awakening
 
-import "mindimprint/api/internal/prompts"
-
 import (
 	"fmt"
 	"sort"
@@ -9,6 +7,7 @@ import (
 
 	"mindimprint/api/internal/interest"
 	"mindimprint/api/internal/interests"
+	"mindimprint/api/internal/prompts"
 )
 
 // selection.go —— 走完之后那一次选词调用，以及三种写回的判定。

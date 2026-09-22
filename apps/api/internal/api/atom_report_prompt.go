@@ -5,10 +5,9 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/prompts"
-
 	"strings"
 
+	"mindimprint/api/internal/prompts"
 )
 
 // liteReportSystem — 印记 writing to the student about her own session. No

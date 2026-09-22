@@ -6,11 +6,9 @@ package api
 
 import (
 	"fmt"
-
 	"strings"
 
 	"mindimprint/api/internal/agent"
-
 	"mindimprint/api/internal/store/sqlc"
 )
 

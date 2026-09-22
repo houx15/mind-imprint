@@ -5,13 +5,11 @@ package api
 // where a feature has a dedicated *_context.go file.
 
 import (
-	"mindimprint/api/internal/promptassembly"
-	"mindimprint/api/internal/prompts"
-
 	"strings"
 
 	"mindimprint/api/internal/agent"
-
+	"mindimprint/api/internal/promptassembly"
+	"mindimprint/api/internal/prompts"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -82,9 +80,9 @@ func buildReadingCoachPrompt(
 
 func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	title, blocks, outline, tasks := c.Title, c.Blocks, c.Outline, c.Tasks
-	picks, studentText, lensDone, openLens := c.Picks, c.StudentText, c.LensDone, c.OpenLens
+	picks, studentText, lensDone, openLens := c.Picks, c.StudentText, c.LensDone, c.OverrideInstruction
 	var b promptassembly.Builder
-	b.Mark("title", "context", "reading_coach_context.go")
+	b.Mark("title", "context", "internal/api/reading_coach_context.go")
 	if t := strings.TrimSpace(title); t != "" {
 		b.WriteString("文章标题：" + t + "\n")
 	}
@@ -92,7 +90,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 导读。它是排读法那一次就算出来的（reading_outline.go），学生屏幕上也摆着
 	// 同一份 —— 所以这里给它，是为了让你和她看的是同一张地图，不是为了让你把它
 	// 念一遍。
-	b.Mark("outline", "mixed", "reading_coach_prompt.go")
+	b.Mark("outline", "mixed", "internal/api/reading_coach_prompt.go")
 	if strings.TrimSpace(outline.OneLine) != "" || strings.TrimSpace(outline.Shape) != "" {
 		b.WriteString("\n【全文分析（阅读引导结束后才向学生展示，请勿提前复述）】\n")
 		if v := strings.TrimSpace(outline.OneLine); v != "" {
@@ -110,7 +108,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 
 	// 体裁。议论文和认不出来的体裁这一节是空的 —— 那两种的 prompt 和
 	// 2026-09-17 之前一字不差。见 reading_genre.go。
-	b.Mark("genre", "instruction", "reading_coach_prompt.go")
+	b.Mark("genre", "instruction", "internal/api/reading_coach_prompt.go")
 	b.WriteString(buildGenreCoachSection(outline.Genre))
 
 	// 这篇分成的几个部分。通读那一步照着它一部分一部分地走 —— 见 system
@@ -119,7 +117,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 🚨 段号由**服务端**数（和 readingBlockTag 同一份）。让模型自己从 b3 数出
 	// 「第三段」，它会数错，而她屏幕上那个号码是服务端给的 —— 两边对不上，
 	// 她照着去找就找不到。
-	b.Mark("parts", "mixed", "reading_coach_prompt.go")
+	b.Mark("parts", "mixed", "internal/api/reading_coach_prompt.go")
 	if len(outline.Parts) > 0 {
 		ord := make(map[string]int, len(blocks))
 		for i, blk := range blocks {
@@ -155,7 +153,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 这一轮只展开这一步真正要读的那几段，其余点名但不铺开。见
 	// reading_disclosure.go：整篇文章占了这份 prompt 的九成，而服务端本来就
 	// 知道这一步管哪几段。nil = 不收窄（没有分部分，或这一步要通观全文）。
-	b.Mark("article", "context", "reading_coach_prompt.go")
+	b.Mark("article", "context", "internal/api/reading_coach_prompt.go")
 	scope := c.Scope
 	b.WriteString("\n【文章，按段落】\n")
 	if scope != nil {
@@ -172,7 +170,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 		}
 	}
 
-	b.Mark("tasks", "mixed", "reading_coach_prompt.go")
+	b.Mark("tasks", "mixed", "internal/api/reading_coach_prompt.go")
 	b.WriteString("\n【你排的读法】\n")
 	current := c.Current
 	for _, t := range tasks {
@@ -206,7 +204,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 		b.WriteString("\n所有步骤都走完了。跟她说一句收尾的话，别再领新的一步。\n")
 	}
 
-	b.Mark("history", "context", "reading_coach_prompt.go")
+	b.Mark("history", "context", "internal/api/reading_coach_prompt.go")
 	b.WriteString("\n【你们刚才聊的】\n")
 	tail := c.History
 	any := false
@@ -238,7 +236,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 一句引语都没有 —— 她照着做不到，当场卡死。
 	//
 	// 递出去的东西要让它知道，这和「没送到要告诉它」是同一条闭环的两半。
-	b.Mark("open-card", "mixed", "reading_coach_prompt.go")
+	b.Mark("open-card", "mixed", "internal/api/reading_coach_prompt.go")
 	if card := c.OpenCard; card != nil {
 		b.WriteString("\n【她屏幕上现在摆着这张卡片，你看不到，所以照着它说话】\n")
 		b.WriteString("类型：" + card.Type + "　问题：" + card.Prompt + "\n")
@@ -265,7 +263,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 它自己发现不了：写完就交出去了，下一轮的上文里只有它说过的话。线上实测
 	// 连着六轮在说「点这张卡」而卡片每轮都被丢掉 —— 她屏幕上是一句句指着空气的
 	// 话。这是「闭环」的失败那一侧：AI 递出去的东西没送到，也得让它知道。
-	b.Mark("delivery-failure", "mixed", "reading_coach_prompt.go")
+	b.Mark("delivery-failure", "mixed", "internal/api/reading_coach_prompt.go")
 	if why := c.DroppedCardReason; why != "" {
 		fix := cardFixIt[cardReject(why)]
 		if fix == "" {
@@ -284,7 +282,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// 🚨 这一步是不是卡住了（同一步带了三轮以上还没动）。卡住了才加这一节，
 	// 没卡住一个字都不加 —— 常驻的提示会抢掉这一轮真正该做的事。
 	// 见 reading_coach_repeat.go。
-	b.Mark("stalled", "instruction", "reading_coach_prompt.go")
+	b.Mark("stalled", "instruction", "internal/api/reading_coach_prompt.go")
 	if c.StepStuck {
 		b.WriteString(coachStuckNudge)
 	}
@@ -293,7 +291,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// paragraph, never spoken to the model as a block id (only 第几段, same as
 	// the paragraph listing above) — the id is an internal marker, not
 	// something the model should ever try to repeat back to her.
-	b.Mark("picks", "context", "reading_coach_prompt.go")
+	b.Mark("picks", "context", "internal/api/reading_coach_prompt.go")
 	if len(picks) > 0 {
 		b.WriteString("\n【她在文章里点出来的句子】\n")
 		for _, p := range picks {
@@ -308,7 +306,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 	// A completed lens is HER WORK, so it gets its own section rather than
 	// being folded into 【她刚刚说的】 — the finding is 印记's own earlier
 	// evaluation and must never read as a sentence she uttered.
-	b.Mark("lens-completion", "mixed", "reading_coach_prompt.go")
+	b.Mark("lens-completion", "mixed", "internal/api/reading_coach_prompt.go")
 	if lensDone.clean() {
 		b.WriteString("\n【她刚做完一副透镜】\n")
 		if n := strings.TrimSpace(lensDone.CardName); n != "" {
@@ -332,7 +330,7 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 		}
 	}
 
-	b.Mark("latest-input", "context", "reading_coach_prompt.go")
+	b.Mark("latest-input", "context", "internal/api/reading_coach_prompt.go")
 	if studentText != "" {
 		b.WriteString("\n【她刚刚说的】\n" + studentText + "\n")
 	} else if lensDone.clean() {
@@ -356,11 +354,13 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 			"直接领她进第一步，并且用一张卡片把她领进去。）\n")
 	}
 	// 她按了卡片底下那颗「给点提示」。级数按当前这张卡片数，见 helpRequestSection。
-	b.Mark("current-step", "instruction", "reading_coach_prompt.go")
+	b.Mark("current-step", "instruction", "internal/api/reading_coach_prompt.go")
 	b.WriteString(readingCurrentStepInstruction(tasks, studentText))
+	b.Mark("help-request", "instruction", "internal/api/reading_coach_help.go")
 	b.WriteString(helpRequestSection(studentText, coachHintRound(tail), lastOpenCard(tail)))
 	// 透镜开着这件事排在最后：它**取消**上面那条推进判据（这一轮不推进），
 	// 而最后一节才是这一轮真正的指令。
+	b.Mark("override", "instruction", "internal/api/reading_coach_prompt.go:openLensLine/toolAnswerLine")
 	b.WriteString(openLens)
 
 	return b.Document(c.Selections...)
