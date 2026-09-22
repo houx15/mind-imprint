@@ -39,6 +39,12 @@ const generatedImageFetchTimeout = 60 * time.Second
 func (a *API) drawAndStore(
 	ctx context.Context, userID, atomID uuid.UUID, purpose, prompt string,
 ) (string, error) {
+	return a.drawAndStoreSized(ctx, userID, atomID, purpose, prompt, "")
+}
+
+func (a *API) drawAndStoreSized(
+	ctx context.Context, userID, atomID uuid.UUID, purpose, prompt, size string,
+) (string, error) {
 	if a.d.OSS == nil {
 		return "", fmt.Errorf("pbl draw: no object storage configured")
 	}
@@ -50,7 +56,7 @@ func (a *API) drawAndStore(
 	if drawer == nil {
 		drawer = gateway.NewHTTPDrawer()
 	}
-	out, err := drawer.Draw(ctx, resolved, gateway.DrawRequest{Prompt: prompt})
+	out, err := drawer.Draw(ctx, resolved, gateway.DrawRequest{Prompt: prompt, Size: size})
 
 	// Record every attempted draw, including provider errors. A row records the
 	// attempt; the routing price catalog determines whether a cost can be estimated.

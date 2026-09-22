@@ -128,3 +128,38 @@ func TestPblFetchGeneratedImageHonorsFailureAndCancellation(t *testing.T) {
 		t.Fatal("cancelled download accepted")
 	}
 }
+
+func TestShowcaseImagePromptsArePreservedAndBounded(t *testing.T) {
+	original := "  watercolor skyline with my blue bicycle  "
+	c := defaultShowcase("Student")
+	c.HeroImagePrompt = original
+	c.AvatarImagePrompt = "戴眼镜的学生"
+	got, err := normalizeShowcase(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HeroImagePrompt != original {
+		t.Fatalf("hero prompt changed: %q", got.HeroImagePrompt)
+	}
+	c.HeroImagePrompt = strings.Repeat("画", 2001)
+	if _, err := normalizeShowcase(c); err == nil {
+		t.Fatal("oversized private image prompt accepted")
+	}
+}
+
+func TestShowcaseImageRequestUsesPurposePreset(t *testing.T) {
+	const student = "a robot tending a rooftop garden"
+	heroPrompt, heroSize := showcaseImageRequest("hero", student)
+	avatarPrompt, avatarSize := showcaseImageRequest("avatar", student)
+	if heroSize != "1664*928" || avatarSize != "1024*1024" {
+		t.Fatalf("sizes = %q, %q", heroSize, avatarSize)
+	}
+	for _, prompt := range []string{heroPrompt, avatarPrompt} {
+		if !strings.Contains(prompt, student) || !strings.Contains(prompt, "Do not include words") {
+			t.Fatalf("preset lost student request or lettering guard: %q", prompt)
+		}
+	}
+	if !strings.Contains(heroPrompt, "wide website hero") || !strings.Contains(avatarPrompt, "circular cropping") {
+		t.Fatalf("purpose composition missing: hero=%q avatar=%q", heroPrompt, avatarPrompt)
+	}
+}

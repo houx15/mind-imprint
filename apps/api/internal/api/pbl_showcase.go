@@ -21,24 +21,26 @@ import (
 )
 
 type showcaseConfig struct {
-	Name            string   `json:"name"`
-	Bio             string   `json:"bio"`
-	Tagline         string   `json:"tagline"`
-	Interests       []string `json:"interests"`
-	Layout          string   `json:"layout"`
-	Palette         string   `json:"palette"`
-	Font            string   `json:"font"`
-	Style           string   `json:"style,omitempty"`
-	Illustration    string   `json:"illustration,omitempty"`
-	HeroTitle       string   `json:"heroTitle,omitempty"`
-	AboutLayout     string   `json:"aboutLayout,omitempty"`
-	PortfolioLayout string   `json:"portfolioLayout,omitempty"`
-	AvatarKey       string   `json:"avatarKey,omitempty"`
-	HeroImageKey    string   `json:"heroImageKey,omitempty"`
-	WritingStyle    string   `json:"writingStyle"`
-	ReadingStyle    string   `json:"readingStyle"`
-	SectionOrder    []string `json:"sectionOrder"`
-	SelectedWorkIDs []string `json:"selectedWorkIds"`
+	Name              string   `json:"name"`
+	Bio               string   `json:"bio"`
+	Tagline           string   `json:"tagline"`
+	Interests         []string `json:"interests"`
+	Layout            string   `json:"layout"`
+	Palette           string   `json:"palette"`
+	Font              string   `json:"font"`
+	Style             string   `json:"style,omitempty"`
+	Illustration      string   `json:"illustration,omitempty"`
+	HeroTitle         string   `json:"heroTitle,omitempty"`
+	AboutLayout       string   `json:"aboutLayout,omitempty"`
+	PortfolioLayout   string   `json:"portfolioLayout,omitempty"`
+	AvatarKey         string   `json:"avatarKey,omitempty"`
+	HeroImageKey      string   `json:"heroImageKey,omitempty"`
+	HeroImagePrompt   string   `json:"heroImagePrompt,omitempty"`
+	AvatarImagePrompt string   `json:"avatarImagePrompt,omitempty"`
+	WritingStyle      string   `json:"writingStyle"`
+	ReadingStyle      string   `json:"readingStyle"`
+	SectionOrder      []string `json:"sectionOrder"`
+	SelectedWorkIDs   []string `json:"selectedWorkIds"`
 }
 
 type showcaseWork struct {
@@ -103,7 +105,7 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	}
 	c.Name, c.Bio, c.Tagline = strings.TrimSpace(c.Name), strings.TrimSpace(c.Bio), strings.TrimSpace(c.Tagline)
 	c.HeroTitle = strings.TrimSpace(c.HeroTitle)
-	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 {
+	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 || len([]rune(c.HeroImagePrompt)) > 2000 || len([]rune(c.AvatarImagePrompt)) > 2000 {
 		return c, errors.New("主页文字超过长度限制")
 	}
 	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
@@ -476,6 +478,9 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 		return nil, nil, errors.New("invalid published showcase")
 	}
 	c := publication.Config
+	// Prompts are private drafting inputs. Public pages receive only the selected images.
+	c.HeroImagePrompt = ""
+	c.AvatarImagePrompt = ""
 	if c.Style == "" {
 		c.Style = "classic"
 	}
@@ -540,12 +545,21 @@ func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image_request", "图片描述或用途无效", nil))
 		return
 	}
-	key, err := a.drawAndStore(r.Context(), u.ID, uuid.Nil, "showcase-"+in.Purpose, in.Prompt)
+	prompt, size := showcaseImageRequest(in.Purpose, in.Prompt)
+	key, err := a.drawAndStoreSized(r.Context(), u.ID, uuid.Nil, "showcase-"+in.Purpose, prompt, size)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, map[string]string{"objectKey": key, "url": a.signedOrEmpty(key)})
+}
+
+func showcaseImageRequest(purpose, studentPrompt string) (string, string) {
+	studentClause := "Student's original request (preserve its subject and intent): " + studentPrompt
+	if purpose == "hero" {
+		return "Create a wide website hero image with a clear focal area, generous negative space for interface content, and a composition that remains readable when center-cropped. Do not include words, letters, logos, captions, watermarks, or embedded typography. " + studentClause, "1664*928"
+	}
+	return "Create a square profile illustration with one clear centered subject, a simple background, and safe margins for circular cropping. Do not include words, letters, logos, captions, watermarks, or embedded typography. " + studentClause, "1024*1024"
 }
 
 // showcaseWasPublished keeps the retired homepage publishers from silently
