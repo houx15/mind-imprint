@@ -64,6 +64,8 @@
 .showcase-collection-grid p { color: var(--show-muted); font-size: 14px; line-height: 1.7; }
 .showcase-collection-grid time { color: var(--show-muted); display: block; font-size: 11px; margin-top: 24px; }
 .showcase-collection-status { color: var(--show-muted); padding: 64px 0; }
+.showcase-collection-status p { margin: 0 0 16px; }
+.showcase-collection-status button { background: transparent; border: 1px solid var(--show-line); border-radius: 999px; color: var(--show-ink); cursor: pointer; font: inherit; padding: 9px 16px; }
 .showcase-collection-more { background: var(--show-ink); border: 0; border-radius: 999px; color: var(--show-paper); cursor: pointer; display: block; font: inherit; margin-top: 32px; padding: 12px 22px; }
 .showcase-collection-more:disabled { cursor: wait; opacity: .55; }
 @media (max-width: 760px) { .showcase-collection { padding: 28px 18px 56px; } .showcase-collection > header > a { margin-bottom: 44px; } .showcase-collection-grid { grid-template-columns: 1fr; } .showcase-collection-grid article { min-height: 190px; } }

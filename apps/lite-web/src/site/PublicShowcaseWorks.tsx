@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { getPublicShowcaseWorks } from "../api/site";
+import { apiErrorText } from "../api/errorText";
 import { safeShowcaseExternalURL, safeShowcaseWorkPath } from "./Showcase";
 import { SHOWCASE_FONT_STACKS, SHOWCASE_THEMES } from "./showcaseThemes";
 import type { ShowcaseConfig, ShowcaseKind, ShowcaseWork } from "./showcaseTypes";
@@ -25,11 +26,17 @@ export function PublicShowcaseWorks({ token, config }: { token: string; config: 
   const [nextCursor, setNextCursor] = useState<string>();
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
+  const [reloadNonce, setReloadNonce] = useState(0);
   const requestID = useRef(0);
 
   useEffect(() => {
     let active = true;
     const currentRequest = ++requestID.current;
+    setItems([]);
+    setNextCursor(undefined);
+    setTotal(0);
+    setError("");
     setStatus("loading");
     getPublicShowcaseWorks(token, { kind, limit: 12 })
       .then((page) => {
@@ -39,13 +46,21 @@ export function PublicShowcaseWorks({ token, config }: { token: string; config: 
         setTotal(page.total);
         setStatus("ready");
       })
-      .catch(() => active && currentRequest === requestID.current && setStatus("error"));
-    return () => { active = false; };
-  }, [kind, token]);
+      .catch((cause) => {
+        if (!active || currentRequest !== requestID.current) return;
+        setError(apiErrorText(cause));
+        setStatus("error");
+      });
+    return () => {
+      active = false;
+      requestID.current++;
+    };
+  }, [kind, reloadNonce, token]);
 
   const loadMore = () => {
     if (!nextCursor || status === "loading") return;
     const currentRequest = ++requestID.current;
+    setError("");
     setStatus("loading");
     getPublicShowcaseWorks(token, { kind, limit: 12, cursor: nextCursor })
       .then((page) => {
@@ -55,7 +70,27 @@ export function PublicShowcaseWorks({ token, config }: { token: string; config: 
         setTotal(page.total);
         setStatus("ready");
       })
-      .catch(() => currentRequest === requestID.current && setStatus("error"));
+      .catch((cause) => {
+        if (currentRequest !== requestID.current) return;
+        setError(apiErrorText(cause));
+        setStatus("error");
+      });
+  };
+
+  const selectKind = (next: WorkFilter) => {
+    if (next === kind) return;
+    requestID.current++;
+    setItems([]);
+    setNextCursor(undefined);
+    setTotal(0);
+    setError("");
+    setStatus("loading");
+    setKind(next);
+  };
+
+  const retryCollection = () => {
+    requestID.current++;
+    setReloadNonce((value) => value + 1);
   };
 
   const theme = SHOWCASE_THEMES[config.palette];
@@ -79,9 +114,9 @@ export function PublicShowcaseWorks({ token, config }: { token: string; config: 
         <span>{total} 项公开作品</span>
       </header>
       <nav aria-label="作品类型">
-        {FILTERS.map((filter) => <button type="button" key={filter.value} aria-pressed={kind === filter.value} onClick={() => setKind(filter.value)}>{filter.label}</button>)}
+        {FILTERS.map((filter) => <button type="button" key={filter.value} aria-pressed={kind === filter.value} onClick={() => selectKind(filter.value)}>{filter.label}</button>)}
       </nav>
-      {status === "error" && items.length === 0 ? <p className="showcase-collection-status">加载作品失败，请刷新后重试。</p> : null}
+      {status === "error" ? <div className="showcase-collection-status" role="alert"><p>加载失败：{error}</p><button type="button" onClick={retryCollection}>重新加载</button></div> : null}
       {status === "ready" && items.length === 0 ? <p className="showcase-collection-status">这一类还没有公开作品。</p> : null}
       <section className="showcase-collection-grid" aria-live="polite" aria-busy={status === "loading"}>
         {items.map((work, index) => {
@@ -95,7 +130,7 @@ export function PublicShowcaseWorks({ token, config }: { token: string; config: 
           </article>;
         })}
       </section>
-      {nextCursor && <button className="showcase-collection-more" type="button" onClick={loadMore} disabled={status === "loading"}>{status === "loading" ? "加载中" : "加载更多"}</button>}
+      {nextCursor && status !== "error" && <button className="showcase-collection-more" type="button" onClick={loadMore} disabled={status === "loading"}>{status === "loading" ? "加载中" : "加载更多"}</button>}
     </main>
   );
 }
