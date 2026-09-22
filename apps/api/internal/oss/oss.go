@@ -73,6 +73,28 @@ func New(cfg config.Config) (*Service, error) {
 	}, nil
 }
 
+func NewPublicAssets(cfg config.Config) (*Service, error) {
+	set := cfg.PublicAssetOSSAccessKeyID != "" || cfg.PublicAssetOSSAccessSecret != "" || cfg.PublicAssetOSSEndpoint != "" || cfg.PublicAssetOSSBucket != "" || cfg.PublicAssetCDNDomain != ""
+	if !set {
+		return nil, nil
+	}
+	if cfg.PublicAssetOSSAccessKeyID == "" || cfg.PublicAssetOSSAccessSecret == "" || cfg.PublicAssetOSSEndpoint == "" || cfg.PublicAssetOSSBucket == "" || cfg.PublicAssetCDNDomain == "" {
+		return nil, fmt.Errorf("oss: incomplete PUBLIC_ASSET_OSS configuration")
+	}
+	return New(config.Config{OSSEndpoint: cfg.PublicAssetOSSEndpoint, OSSBucket: cfg.PublicAssetOSSBucket, OSSCDNDomain: cfg.PublicAssetCDNDomain, OSSAccessKeyID: cfg.PublicAssetOSSAccessKeyID, OSSAccessSecret: cfg.PublicAssetOSSAccessSecret})
+}
+
+func (s *Service) PublicURL(objectKey string) string {
+	return withScheme(s.cdnDomain) + "/" + objectKey
+}
+
+func (s *Service) DeleteObject(ctx context.Context, key string) error {
+	if err := s.origin.DeleteObject(key); err != nil {
+		return fmt.Errorf("oss: delete object %q: %w", key, err)
+	}
+	return nil
+}
+
 // SignUpload returns a presigned PUT URL (OSS origin host) that requires the
 // client to send exactly the given Content-Type header — it is bound into the
 // signature.

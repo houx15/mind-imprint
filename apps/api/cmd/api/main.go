@@ -100,6 +100,12 @@ func main() {
 		pool.Close()
 		os.Exit(1)
 	}
+	publicAssets, err := oss.NewPublicAssets(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "public assets: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
 	voiceSvc := buildVoice(cfg)
 
 	if *migrateUp {
@@ -202,6 +208,7 @@ func main() {
 		CORSOrigins:      cfg.CORSOrigins,
 		Fetcher:          materialize.NewFetcher(),
 		OSS:              ossSvc,
+		PublicAssets:     publicAssets,
 		OSSAdminKey:      cfg.OSSAdminKey,
 	})
 	apiHandler := theAPI.Handler()

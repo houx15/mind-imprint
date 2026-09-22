@@ -66,6 +66,7 @@ type Deps struct {
 	CORSOrigins      []string     // allowlisted SPA origins, used for WS OriginPatterns
 	Fetcher          Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
 	OSS              *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
+	PublicAssets     *oss.Service // public CDN assets; showcase publication only
 	OSSAdminKey      string       // static bearer secret authorizing the admin upload routes
 	// River enqueues background jobs (interest harvesting). Nil in tests and
 	// when the queue fails to start — every call site must tolerate that; see
@@ -347,6 +348,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/pbl/showcase/publish", liteOnly(a.unpublishPblShowcase))
 	mux.Handle("POST /api/v1/pbl/showcase/images/generate", liteOnly(a.generatePblShowcaseImage))
 	mux.Handle("POST /api/v1/pbl/showcase/images/resolve", liteOnly(a.resolvePblShowcaseImage))
+	mux.Handle("POST /api/v1/pbl/showcase/images/upload", liteOnly(a.uploadPblShowcaseImage))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/site-structure", liteOnly(a.applyPblSiteStructure))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
 	mux.Handle("PUT /api/v1/pbl/site/sections/{key}/image", liteOnly(a.putPblSiteSectionImage))
