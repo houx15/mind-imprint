@@ -7,8 +7,8 @@
     "fe": "Disputes and source assessment",
     "sys": "TOK · ESS · 思想政治",
     "tags": "src",
-    "dz": "同一场气候争议里，石油公司发言人、诺奖物理学家、研究北极冰盖的博士后，谁说的更重？把「他站在光谱哪一端」和「他在这个议题上有多少分量」拆成两根轴——奖不是在这个领域拿的，就不算数。",
-    "de": "One climate dispute: an oil-company spokesman, a Nobel physicist, a postdoc who studies Arctic ice. Two separate axes — where a voice sits on the spectrum, and how much weight it carries on this particular question. A prize won elsewhere does not count here."
+    "dz": "同一场气候争议中，不同发言者有不同立场和专业背景。学生通过立场光谱与视角对照矩阵，分别比较他们的意见、相关专长和所提供的证据。",
+    "de": "Students compare speakers in a climate dispute using a position spectrum and a perspective matrix, distinguishing their views, relevant expertise and evidence."
   },
   {
     "n": 2,
@@ -18,19 +18,19 @@
     "fe": "Verifying historical images",
     "sys": "History · TOK · 信息技术",
     "tags": "src ai",
-    "dz": "一张集中营里拉小提琴的黑白照片，配一段感人的文字，转发几十万。不问「真的假的」，而是拆成四个分别可查的主张：照片有没有档案来源、人物身份、故事细节、背景史实——可能三真一假。",
-    "de": "A black-and-white photo of a boy playing violin in a camp, a moving caption, hundreds of thousands of shares. Not “true or false”, but four separately checkable claims: the archive behind the image, the identity, the story, the history. Three can hold and one be invented."
+    "dz": "一张历史照片附带的文字可能包含多项需要核实的信息。学生分别检查照片来源、人物身份、故事细节和背景史实，再判断哪些内容有证据。",
+    "de": "Students check the source, identities, story details and historical context of a photograph, identifying which claims the evidence supports."
   },
   {
     "n": 3,
-    "zh": "信息过滤神器：从 CRAAP 到 CRRAAB",
+    "zh": "信息筛选方法：从 CRAAP 到 CRRAAB",
     "en": "The filter: from CRAAP to CRRAAB",
     "fz": "信息筛选与来源评价",
     "fe": "Filtering and evaluating sources",
     "sys": "EE · EPQ · 综合实践",
     "tags": "src",
-    "dz": "CRAAP 问的是「这份材料可靠吗」。但可靠未必用得上——一篇权威、准确、最新的论文，可能根本不回答你的问题。CRRAAB 多出来的那一层，把相关性从「有点关系」逼到「切中我这一句主张」。",
-    "de": "CRAAP asks whether a source is sound. Sound is not the same as usable: an authoritative, accurate, current paper may simply not answer your question. The extra letter pushes relevance from “related to my topic” to “bears on this sentence of mine”."
+    "dz": "可靠的材料也可能与当前问题无关。学生比较 CRAAP 与 CRRAAB 的检查方法，练习同时判断来源是否可靠、内容是否能回答研究问题。",
+    "de": "Students compare CRAAP and CRRAAB to assess both source reliability and whether a source can answer their research question."
   },
   {
     "n": 4,
@@ -40,19 +40,19 @@
     "fe": "Science communication and denial tactics",
     "sys": "ESS · Biology NOS · 科学",
     "tags": "src",
-    "dz": "两段视频，一段否认气候变化，一段反驳它。多数课到这里就停了——学生只是换一个对象去相信。这门课不停：FLICC 这把尺子要同时量两边，核查方自己也可能挑樱桃。",
-    "de": "Two videos: one denying climate change, one rebutting it. Most lessons stop there, and the student just switches which side to believe. This one does not: FLICC has to measure both, because the fact-checker can cherry-pick too."
+    "dz": "学生用 FLICC 分析两段观点不同的气候视频，检查双方是否存在选择性使用证据等问题，并说明判断的依据。",
+    "de": "Students use FLICC to examine two climate videos with different positions, checking both for selective evidence and explaining their judgments."
   },
   {
     "n": 5,
-    "zh": "一张图，四次翻案：OPCVL 史料评估",
+    "zh": "一张图，四次史料评估：OPCVL 史料评估",
     "en": "One image, four reversals: OPCVL",
     "fz": "历史史料评估",
     "fe": "Historical source evaluation",
     "sys": "History P1 · DBQ · 历史",
     "tags": "src",
-    "dz": "一张 1915 年的英国征兵海报。学生先在毫无背景的情况下写下 Value 与 Limitation，然后每揭开一层——谁构思、谁出版、进了哪个档案馆——就改写一次。四次翻案之后她自己发现：Origin 不是一个机构名字。",
-    "de": "A 1915 British recruitment poster. She writes its value and limitations knowing nothing, then rewrites after each layer is revealed: who conceived it, who published it, which archive holds it. Four reversals later she sees for herself that origin is not one institution's name."
+    "dz": "以一张 1915 年英国征兵海报为例，学生在了解作者、出版者及收藏背景后，逐次修订对史料价值与局限的判断。",
+    "de": "Students reassess the value and limitations of a 1915 British recruitment poster as they learn about its creator, publisher and archival context."
   },
   {
     "n": 6,
@@ -62,8 +62,8 @@
     "fe": "Types of claim, and how to answer them",
     "sys": "TOK · IB English",
     "tags": "arg",
-    "dz": "分类本身没有价值，分类是为了决定下一步做什么。事实去查范围与样本，观点去评估理由强不强，价值判断去追问评价标准。分错了力气就用错地方——对着一个价值判断猛查数据，永远查不出结果。",
-    "de": "Sorting a claim is worthless in itself; it decides what you do next. A fact sends you to scope and sample, an opinion to the strength of its reasons, a value judgment to the standard behind it. Sort it wrong and you dig forever in the wrong place."
+    "dz": "区分事实、观点与价值判断，有助于选择合适的核查方法。学生练习检查事实的范围与样本、观点的理由，以及价值判断所采用的标准。",
+    "de": "Students distinguish facts, opinions and value judgments, then choose appropriate checks: scope and samples, reasons, or evaluative criteria."
   },
   {
     "n": 7,
@@ -73,30 +73,30 @@
     "fe": "Synthesising public-issue information",
     "sys": "Geography · Global Politics · 地理",
     "tags": "src",
-    "dz": "长滩岛该不该开赌场。陷阱是它长得像一道辩论题，其实不是——旅游收入、环境承载、治理能力、社区利益，这几方回答的根本是不同的问题。混成「支持」和「反对」两堆，信息就废了。",
-    "de": "Should Boracay have a casino? The trap is that it looks like a debate motion and is not: tourist revenue, environmental limits, governance capacity and community interest are answering different questions. Pile them into “for” and “against” and the information is wasted."
+    "dz": "围绕长滩岛是否应开设赌场，学生整理旅游收入、环境承载、治理能力与社区利益等信息，比较各方关注的问题及方案之间的取舍。",
+    "de": "Students examine a proposed casino on Boracay through tourism income, environmental capacity, governance and community interests, comparing priorities and trade-offs."
   },
   {
     "n": 8,
-    "zh": "信息素养：从一句权威主张到多源核查写作",
+    "zh": "信息素养：从一项权威说法到多源核查写作",
     "en": "From one authoritative claim to verified writing",
     "fz": "多源核查与证据写作",
     "fe": "Multi-source checking and evidence writing",
     "sys": "Geography · AP Seminar · 语文",
     "tags": "src arg",
-    "dz": "威尼斯短租争议里，一位官员说了一句听起来很有分量的话。第一个动作不是查真假，是问：我要验证的到底是哪一句？一段发言里通常有三四句可查、两句不可查，不先切开，后面的检索全是散的。",
-    "de": "In the Venice short-let dispute, an official says something that sounds weighty. The first move is not to check it but to ask which sentence is being checked: a statement usually holds three or four checkable claims and two that are not, and searching before you separate them goes nowhere."
+    "dz": "从威尼斯短租争议中的一段发言出发，学生明确需要验证的具体说法，再通过多个来源核查，将证据用于写作。",
+    "de": "Students identify specific claims in a statement about short-term rentals in Venice, check multiple sources and use the evidence in writing."
   },
   {
     "n": 9,
-    "zh": "元认知：我怎么知道我没被自己骗？",
+    "zh": "元认知：检查自己的判断过程",
     "en": "Metacognition: how do I know I haven't fooled myself?",
     "fz": "自我推理校准",
     "fe": "Calibrating your own reasoning",
     "sys": "TOK 核心主题",
     "tags": "ai",
-    "dz": "前面所有课都在查外面的东西，这门课把镜头转过来：我是怎么一步步变得这么确定的？先审推理——前提和跳步；再审视角——谁的经验在我这里缺席了。",
-    "de": "Every other course checks something out in the world. This one turns the lens around: how did I become this certain, step by step? First the reasoning — premises and leaps. Then the standpoint — whose experience is missing from mine."
+    "dz": "学生回顾自己形成判断的过程，检查推理前提、缺少的推理步骤，以及尚未考虑的经验和视角。",
+    "de": "Students review how they reached a judgment, checking premises, missing reasoning steps and perspectives they have not considered."
   },
   {
     "n": 10,
@@ -106,8 +106,8 @@
     "fe": "Comparability and conflicting evidence",
     "sys": "Biology IA · AP Statistics · 数学 · 生物",
     "tags": "data",
-    "dz": "两篇论文，一篇说城市对濒危物种有正向作用，一篇说没有。第一反应通常是「总有一篇错了」。这门课拦住这个反应，先查四格：讨论的是不是同一批物种、数据怎么构成、范围与尺度可比吗、数字是怎么测出来的。",
-    "de": "Two papers: one finds cities help endangered species, one finds they do not. The reflex is “one of them must be wrong”. The course blocks that reflex and checks four boxes first: the same species, how the data was built, comparable scope and scale, and how the numbers were measured."
+    "dz": "面对结论不同的两篇论文，学生先比较研究对象、数据构成、范围尺度和测量方法，再判断结论是否真的冲突。",
+    "de": "Before deciding that two papers conflict, students compare their subjects, data, scope and measurement methods."
   },
   {
     "n": 11,
@@ -117,8 +117,8 @@
     "fe": "Synthesising multiple historical sources",
     "sys": "History P1+IA · 历史",
     "tags": "src",
-    "dz": "「英雄还是恶棍」本身是个陷阱，它只给两个选项。这门课把学生从「选边」拽到「评估」：航海日志是谁写给谁看的，拉斯·卡萨斯的记录带着什么目的，两者能不能互相校正。",
-    "de": "“Hero or villain” is itself the trap: it offers two options. The course drags the student from picking a side to appraising sources — who the ship's log was written for, what purpose Las Casas's account served, and whether either can correct the other."
+    "dz": "学生阅读有关哥伦布的不同史料，检查记录者、写作对象、目的与背景，并比较各份材料能帮助回答什么问题。",
+    "de": "Students assess sources about Columbus by examining authorship, audience, purpose and context, then compare the questions each source can help answer."
   },
   {
     "n": 12,
@@ -133,14 +133,14 @@
   },
   {
     "n": 13,
-    "zh": "威尼斯三选一：把一部纪录片写成一份站得住的建议",
+    "zh": "威尼斯三选一：依据纪录片材料提出建议",
     "en": "Venice, three options: a defensible recommendation",
     "fz": "纪录片材料到建议写作",
     "fe": "From documentary material to a recommendation",
     "sys": "Geography 决策题 · 地理",
     "tags": "arg",
-    "dz": "过度旅游压在威尼斯身上：邮轮、旅游团、短租房挤走本地居民。政府在限制邮轮、管理短租、协助搬迁三个方案里选一个——学生要做的不是表态，是把一部纪录片的材料变成一份站得住的建议。",
-    "de": "Overtourism presses on Venice: cruise ships, coach parties, short lets pushing residents out. The city weighs three options — limit the ships, regulate the lets, help residents move. The student's job is not to have a view but to turn a documentary into a recommendation that holds."
+    "dz": "围绕威尼斯的过度旅游问题，学生比较限制邮轮、管理短租和协助搬迁三个方案，运用纪录片中的材料提出建议并解释取舍。",
+    "de": "Students compare three responses to overtourism in Venice, using documentary evidence to recommend a policy and explain its trade-offs."
   },
   {
     "n": 14,
@@ -150,8 +150,8 @@
     "fe": "Academic paper writing",
     "sys": "EE · AP Research · 英语",
     "tags": "arg",
-    "dz": "把英文学术论文拆成两层：整篇怎么立得住，和句子怎么合规。结构、段落、引用规范、AI 使用声明，一层一层落到一份真的能交出去的稿子上。",
-    "de": "An academic paper in English, taken apart in two layers: how the whole thing stands up, and how each sentence complies. Structure, paragraphing, citation convention and the AI-use statement, down to a draft that can actually be handed in."
+    "dz": "学生练习规划英文学术论文的结构、组织段落、规范引用，并说明 AI 的使用方式，逐项检查自己的稿件。",
+    "de": "Students plan an academic essay, develop paragraphs, check citations and describe their use of AI as they review their draft."
   },
   {
     "n": 15,
@@ -166,14 +166,14 @@
   },
   {
     "n": 16,
-    "zh": "当数字想骗你：数据三问",
+    "zh": "检查数据呈现：数据三问",
     "en": "When numbers want to fool you: three questions",
     "fz": "数据与统计素养",
     "fe": "Data and statistical literacy",
     "sys": "Math AI · AP Statistics · 数学",
     "tags": "data",
-    "dz": "真实数据也能骗人，而且骗得更稳，因为每个数字都查得到。误导通常不在数字本身，在坐标轴的起点、比较的对象、分母是什么、时间区间从哪一年开始。",
-    "de": "Real data can mislead, and it misleads more reliably, because every figure checks out. The deception is rarely in the number: it is in where the axis starts, what it is compared against, what the denominator is, and which year the series begins."
+    "dz": "学生检查坐标轴、比较对象、分母和时间区间，分析数据呈现方式如何影响读者的判断，即使数字本身真实也需要核查。",
+    "de": "Students examine axes, comparison groups, denominators and time intervals to understand how data presentation can influence interpretation."
   },
   {
     "n": 17,
@@ -183,8 +183,8 @@
     "fe": "Analysis and reporting results",
     "sys": "各科 IA · AP Research · 数学",
     "tags": "data res",
-    "dz": "大多数学生的顺序是反的：先跑出一堆图表，再回头找说法。这门课把顺序正过来——问题在前，方法在后，图表只回答一个已经问出口的问题。",
-    "de": "Most students work backwards: produce a pile of charts, then look for something to say. This course puts it back in order — the question first, the method second, and a chart only ever answering a question already asked."
+    "dz": "学生从研究问题出发选择分析方法和图表，再根据结果撰写解释，检查每一项分析是否回答了原先的问题。",
+    "de": "Students choose methods and charts based on a research question, interpret the results and check whether each analysis addresses that question."
   },
   {
     "n": 18,
@@ -205,8 +205,8 @@
     "fe": "ESG greenwashing evidence chains",
     "sys": "Business Management · 思想政治",
     "tags": "data src",
-    "dz": "「ESG 是骗局吗」太大，先放下。把 Tesla 影响力报告里的绿色主张拆成可核查的事实问题，然后横向查：环境这一格好看，社会和治理这两格未必。",
-    "de": "“Is ESG a scam?” is too big a question; set it down. Break the green claims in Tesla's impact report into checkable factual ones, then read across: the environmental column looks good — what about social and governance?"
+    "dz": "以 Tesla 影响力报告为例，学生将环境相关表述拆成可核查的问题，并结合其他来源检查环境、社会与治理方面的证据。",
+    "de": "Using Tesla’s impact report, students formulate checkable questions and compare evidence across environmental, social and governance issues."
   },
   {
     "n": 20,
@@ -216,8 +216,8 @@
     "fe": "Credibility of AI-generated media",
     "sys": "Digital Society · TOK · 信息技术",
     "tags": "src ai",
-    "dz": "AI 生成的材料里有大量虚假信息。三类材料，三套查法：报告回到机构原文与术语体系，图片结合来源、EXIF 与反向搜索，视频看脸听声之外还要查上下文——破 deepfake 最有效的一招，常常是查这个人当天在哪。",
-    "de": "Much AI-made material is false, and it takes three different checks. Reports go back to the institution's own wording and terminology. Images take source, EXIF and reverse search. Video needs face and voice — and context: the best deepfake check is often simply where that person actually was that day."
+    "dz": "学生分别练习核查报告、图片与视频：查阅机构原文，检查图片来源与元数据，并结合时间、地点和上下文验证视频内容。",
+    "de": "Students practise checking reports, images and videos using original sources, provenance, metadata and contextual evidence about time and place."
   },
   {
     "n": 21,
@@ -254,14 +254,14 @@
   },
   {
     "n": 24,
-    "zh": "删得掉的让步段，不是让步段",
+    "zh": "如何写出有效的让步段",
     "en": "A concession you can delete was never a concession",
     "fz": "反方证据与论点限定",
     "fe": "Counter-evidence and bounding a claim",
     "sys": "Lang A P2 · AP Lang · 语文",
     "tags": "arg",
-    "dz": "判断一个让步段有没有用，有个简单的办法：删掉它，看论点变不变。不变，那就是装饰。真正的让步要找反方最硬的那条事实，承认它，再回来限定自己的论点。",
-    "de": "There is a simple test for a concession: delete it and see whether the argument changes. If it does not, it was decoration. A real one finds the other side's hardest fact, grants it, and then comes back to bound your own claim."
+    "dz": "学生检查让步段是否回应了相关的反方证据，以及这些证据是否需要限定或调整自己的论点。",
+    "de": "Students check whether a concession addresses relevant counterevidence and whether that evidence calls for qualifications or changes to their argument."
   },
   {
     "n": 25,
@@ -315,8 +315,8 @@
     "fe": "Managing a long inquiry",
     "sys": "EE/CAS · EPQ log · 综合实践",
     "tags": "res",
-    "dz": "四千字论文、八个月周期、没有人每周催你——这是长期探究最常见的失败结构。课程给的不是时间管理鸡汤，是一套让选择、依赖和风险变得可见的方法。",
-    "de": "Four thousand words, eight months, and nobody chasing you weekly: that is the standard shape of a failed long inquiry. What the course offers is not time-management uplift but a way to make choices, dependencies and risks visible."
+    "dz": "学生把长期研究拆成可执行的阶段和每周任务，记录选择、任务依赖及风险，并根据进展调整计划。",
+    "de": "Students divide a long-term inquiry into stages and weekly tasks, track decisions, dependencies and risks, and adjust their plan as work progresses."
   },
   {
     "n": 30,

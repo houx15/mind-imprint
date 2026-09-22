@@ -485,8 +485,8 @@ export const GUIDES: GuideOption[] = [
     id: "KIRO",
     zh: "腹黑军师",
     label: "反方陪练 · 难度 3",
-    body: "追问证据，拆条件，找反例。",
-    quote: "希望你的脑子转得够快，别让我觉得无聊。",
+    body: "比较证据，检查条件，考虑反例。",
+    quote: "我们一起比较不同的解释，看看各自有什么证据。",
     accent: "#ff7189",
   },
 ];

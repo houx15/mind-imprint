@@ -88,8 +88,8 @@ var writingSymptomsZH = []writingSymptom{
 		"材料围绕一个大词堆积；读完不知道你想说的是哪一件事。"},
 	{"claim_not_stated", writingLayerClaim, "主张没有说出来",
 		"通篇在介绍情况，找不到一句话是你自己的判断。"},
-	{"claim_too_safe", writingLayerClaim, "主张两边都站",
-		"正反都说了一遍，最后没有落在任何一边；换成谁来写都成立。"},
+	{"claim_too_safe", writingLayerClaim, "立场不明确",
+		"列出了正反观点，但未说明自己的结论或作出判断的条件。"},
 
 	// —— 第二层 · 材料 ——
 	{"claim_without_evidence", writingLayerMaterial, "有判断，没有证据",
@@ -97,8 +97,8 @@ var writingSymptomsZH = []writingSymptom{
 	{"abstract_and_dry", writingLayerMaterial, "太抽象",
 		"名词和结论密集，没有人、没有动作、没有具体的东西和场景。"},
 	{"evidence_not_explained", writingLayerMaterial, "举了例子，没有解释",
-		"例子摆在那里就过去了，没有一句话说清它凭什么支持你的判断。"},
-	{"story_without_meaning", writingLayerMaterial, "有事情，没有意义",
+		"例子摆在那里就过去了，没有说明例子如何支持文中的判断。"},
+	{"story_without_meaning", writingLayerMaterial, "事件与主题的联系不明确",
 		"读者知道发生了什么，不知道你为什么要讲这件事。"},
 	{"flat_character", writingLayerMaterial, "人物扁平",
 		"靠「勇敢」「努力」「善良」这类形容词撑着；人物没有做过选择，也没有为难过。"},
@@ -110,9 +110,9 @@ var writingSymptomsZH = []writingSymptom{
 		"每段都是一个判断，段落之间可以任意换序。"},
 	{"slow_opening", writingLayerStructure, "开头进入太慢",
 		"背景、定义、客套占了很长，真正要谈的那件事迟迟不出现。"},
-	{"hook_not_carried", writingLayerStructure, "开头接不住",
+	{"hook_not_carried", writingLayerStructure, "开头与后文脱节",
 		"第一段很有意思，第二段换了个题目，两者没有关系。"},
-	{"middle_collapse", writingLayerStructure, "中部塌陷",
+	{"middle_collapse", writingLayerStructure, "主体展开不足",
 		"开头和结尾都完整，中间变成资料堆或者同一个论点说了几遍。"},
 	{"ending_only_summary", writingLayerStructure, "结尾只是重复",
 		"结尾把前面说过的再说一遍，或者突然喊一句口号，或者抛出一个没有展开的大问题。"},
@@ -126,7 +126,7 @@ var writingSymptomsZH = []writingSymptom{
 		"主干被「进行」「实现」「对于」「在……方面」盖住；修饰层次套了三层以上。"},
 	{"sentence_choppy", writingLayerSentence, "句子太碎",
 		"连着一串短句，一行一句，本来有关系的两件事被切断了。"},
-	{"ornate_but_weak", writingLayerSentence, "有文采，没有力量",
+	{"ornate_but_weak", writingLayerSentence, "修辞多于实质内容",
 		"形容词、比喻、排比很多，事实、判断和结构很少。"},
 }
 
@@ -195,7 +195,7 @@ var writingSymptomsNarrativeZH = []writingSymptom{
 		"写着「很感动」「特别好」这一类直接说出来的感受，没有动作、神态、说过的话。"},
 	// 讲义：「精准的动词 + 恰当的修饰词」。
 	{"verb_generic", writingLayerSentence, "动词太笼统",
-		"用的是「走过去」「拿着」「看了看」，换成任何一个人都成立。"},
+		"动作只用「走过去」「拿着」「看了看」等笼统词语，未交代与人物和情境相关的细节。"},
 	// 讲义（抑扬转情法）：「制造波澜」。
 	{"no_turn", writingLayerStructure, "从头到尾一个调子",
 		"平铺直叙，读者的感受从第一句到最后一句没有变过。"},
@@ -203,8 +203,8 @@ var writingSymptomsNarrativeZH = []writingSymptom{
 	{"turn_abrupt", writingLayerStructure, "情感转得太突然",
 		"前一段还在写不满，后一段直接写感动，中间没有过渡，也没有触发的那件事。"},
 	// 讲义：结尾要「从这件事里领悟到了什么」，而不是一句放哪儿都成立的话。
-	{"feeling_unearned", writingLayerClaim, "感悟撑不住",
-		"最后那句话放在任何一篇作文里都成立，前面那件事没有把它撑起来。"},
+	{"feeling_unearned", writingLayerClaim, "感悟缺少事件依据",
+		"结尾提出了新的认识，但没有说明前文事件如何支持这一认识。"},
 }
 
 // `writing.lang` 只有 zh / en 两个值（`setWritingSetup` 拦住了别的），

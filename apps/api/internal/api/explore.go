@@ -553,7 +553,7 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	}
 	pool := news.NewFetcher().FetchAll(ctx, freshWindow)
 	if len(pool) < news.PlanetCount {
-		return nil, fmt.Sprintf("抓取失败：今天只凑到 %d 条候选，不足 %d 条。", len(pool), news.PlanetCount)
+		return nil, fmt.Sprintf("抓取失败：当前获取到 %d 条候选新闻，需要至少 %d 条。", len(pool), news.PlanetCount)
 	}
 	picked, note := a.selectPlanets(ctx, resolved, pool)
 	if note != "" {
@@ -561,7 +561,7 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	}
 	written := a.writePlanets(ctx, resolved, picked)
 	if len(written) == 0 {
-		return nil, "生成失败：选出来的新闻一条都没能照着原文写成（正文抓不到，或者模型给的出处在原文里查不到）。"
+		return nil, "生成失败：未生成可用的新闻内容：未获取到正文，或模型引用未通过原文核验。"
 	}
 	return written, ""
 }

@@ -55,7 +55,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 
 	if !docextract.IsSupported(header.Filename) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("unsupported_type",
-			"只收这几种文件："+strings.Join(docextract.Supported, " / ")+"。", nil))
+			"支持的文件格式："+strings.Join(docextract.Supported, " / ")+"。", nil))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 	title, text, err := docextract.Any(header.Filename, data)
 	if err != nil {
 		// 具体那一句给她 —— 扫描件和「文件坏了」是两回事。
-		msg := "这个文件没能解析出正文。把正文粘进来也一样能往下走。"
+		msg := "文件解析失败：未提取到正文，请尝试粘贴正文。"
 		var te *docextract.ErrText
 		if errors.As(err, &te) {
 			msg = te.Msg
@@ -81,7 +81,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 	body := strings.TrimSpace(text)
 	if body == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_text",
-			"这个文件里没有读到文字。把正文粘进来也一样能往下走。", nil))
+			"文件中未识别到文字，请尝试粘贴正文。", nil))
 		return
 	}
 
