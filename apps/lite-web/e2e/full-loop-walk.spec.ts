@@ -391,7 +391,10 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   await expect(page.getByRole("heading", { name: "行文" })).toBeVisible({ timeout: 60_000 });
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
-    page.getByRole("button", { name: /去写段落/ }).click(),
+    // 🚨 /去写段落/ 改成 /写段落/：2026-09-22 那一轮改版把这颗按钮从
+      // 「完成，去写段落」改成了「开始写段落」，两版共有的只有「写段落」三个字。
+      // 钉整句 = 把一句会改的文案当成契约。
+    page.getByRole("button", { name: /写段落/ }).click(),
   ]);
   await expect(page.getByRole("heading", { name: "段落" })).toBeVisible({ timeout: 60_000 });
 

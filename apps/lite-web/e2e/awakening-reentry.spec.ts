@@ -146,7 +146,9 @@ test("兴趣测试：线索库留住每一条她提出过的线索", async ({ br
   // 拿它去当名字会让后面那几条断言在找一个到处都是的两位数。
   const chosen = (await choices.last().locator(".awk-option-copy strong").innerText()).trim();
   await choices.last().click();
-  await page.getByRole("button", { name: "就用这个名字" }).click();
+  // 2026-09-22 文案改版：「就用这个名字」→「确认名称」（界面文案规则 2：
+  // 按钮写「做什么」，用书面词）。
+  await page.getByRole("button", { name: "确认名称" }).click();
   await expect(page).toHaveURL(/\/tree$/);
 
   /* ── 回来：线索库里那条还在，名字也在 ─────────────────────────────────── */
