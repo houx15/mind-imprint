@@ -4,8 +4,8 @@
   "category": "论证写作",
   "name": "论证构建卡（图尔敏）",
   "name_en": "Toulmin Argument Builder",
-  "purpose": "把论点搭成能立住的结构：主张、理据、证据、反方与让步，一步步写成句子",
-  "trigger_condition": "学生核完来源、要开始把观点搭成完整论证结构时",
+  "purpose": "按主张、理据、证据、反方与让步整理论证结构，明确各部分之间的推理关系。",
+  "trigger_condition": "学生已经收集或核查材料，需要组织观点与证据之间的论证关系。",
   "trigger_keywords": ["论证", "主张", "理据", "反方", "让步", "搭论证"],
   "priority": "P0",
   "disclosure_tier": "tier-1",
@@ -20,9 +20,9 @@
   "params": {
     "slots": [
       { "id": "claim",      "role": "核心主张",   "needSrc": false, "q": "你要论证的核心判断，用一句话说清。" },
-      { "id": "warrant",    "role": "理据 · 推理", "needSrc": true,  "q": "为什么这些证据能支撑主张？把中间的推理写出来。" },
-      { "id": "evidence",   "role": "支撑证据",   "needSrc": true,  "q": "挑一条证据，用自己的话概括它如何支撑主张。" },
-      { "id": "counter",    "role": "反方 · 钢人", "needSrc": false, "q": "坐到反方席——对方最硬的一张牌是什么？" },
+      { "id": "warrant",    "role": "理据 · 推理", "needSrc": true,  "q": "这些证据为什么能说明你的观点？请写出中间的推理。" },
+      { "id": "evidence",   "role": "支撑证据",   "needSrc": true,  "q": "选择一条证据，用自己的话说明它与观点的关系。" },
+      { "id": "counter",    "role": "反方 · 钢人", "needSrc": false, "q": "反对这一观点的人可能提出什么有依据的理由？" },
       { "id": "concession", "role": "让步 · 转折", "needSrc": true,  "q": "承认反方后如何转折？给一条能核查的证据。" }
     ]
   },
@@ -83,7 +83,7 @@
         "这里默认了一个前提：____，而这个前提 ____（成立/需要进一步说明）。"
       ],
       "fields": [
-        { "type": "textarea", "key": "warrant", "label": "为什么这些证据能支撑主张？把中间的推理写出来。" }
+        { "type": "textarea", "key": "warrant", "label": "这些证据为什么能说明你的观点？请写出中间的推理。" }
       ]
     },
     {
@@ -100,7 +100,7 @@
         "____ 显示：____。"
       ],
       "fields": [
-        { "type": "textarea", "key": "evidence", "label": "挑一条证据，用自己的话概括它如何支撑主张。" }
+        { "type": "textarea", "key": "evidence", "label": "选择一条证据，用自己的话说明它与观点的关系。" }
       ]
     },
     {
@@ -117,7 +117,7 @@
         "有人可能会说 ____，因为 ____。"
       ],
       "fields": [
-        { "type": "textarea", "key": "counter", "label": "坐到反方席——对方最硬的一张牌是什么？" }
+        { "type": "textarea", "key": "counter", "label": "反对这一观点的人可能提出什么有依据的理由？" }
       ]
     },
     {

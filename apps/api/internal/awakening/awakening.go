@@ -113,12 +113,12 @@ const (
 //
 // 中文名与那句自我介绍是她在选择屏上看见的字；Style 只进 prompt，她看不见。
 type GuideProfile struct {
-	ID      Guide
-	Zh      string
-	Label   string
-	Body    string
-	Quote   string
-	Accent  string
+	ID     Guide
+	Zh     string
+	Label  string
+	Body   string
+	Quote  string
+	Accent string
 	// AudioPrefix 是这个助手的语音文件前缀（hot / sage / dark）。
 	AudioPrefix string
 	// Style 写进 system prompt 的语气段落。
@@ -129,24 +129,24 @@ type GuideProfile struct {
 var Guides = []GuideProfile{
 	{
 		ID: GuideNova, Zh: "热血同好", Label: "鼓励陪伴 · 难度 1",
-		Body:  "先发现亮点，再陪你走一步。",
-		Quote: "一起去探索未知的领域吧！",
+		Body:   "先发现亮点，再陪你走一步。",
+		Quote:  "一起去探索未知的领域吧！",
 		Accent: "#55e6ff", AudioPrefix: "hot",
-		Style: "语气有能量、亲切、敏锐。先回应她说的一个具体细节，再问下一问。不要堆夸奖。",
+		Style: "语气亲切、积极。先回应学生提到的具体细节，再按当前目标提问；肯定应有具体依据。",
 	},
 	{
 		ID: GuideSage, Zh: "资深向导", Label: "证据启发 · 难度 2",
-		Body:  "给你线索，再带你比较证据。",
-		Quote: "我会为你提供线索，但路要你自己走。",
+		Body:   "给你线索，再带你比较证据。",
+		Quote:  "我会为你提供线索，但路要你自己走。",
 		Accent: "#9e8cff", AudioPrefix: "sage",
-		Style: "语气温和、克制，不用感叹号。先准确复述她刚说的那一点，再提出下一问。",
+		Style: "语气温和、克制，不用感叹号。先回应学生刚表达的具体内容，再按当前目标提问。",
 	},
 	{
 		ID: GuideKiro, Zh: "腹黑军师", Label: "反方陪练 · 难度 3",
-		Body:  "比较证据，检查条件，考虑反例。",
-		Quote: "我们一起比较不同的解释，看看各自有什么证据。",
+		Body:   "比较证据，检查条件，考虑反例。",
+		Quote:  "我们一起比较不同的解释，看看各自有什么证据。",
 		Accent: "#ff7189", AudioPrefix: "dark",
-		Style: "语气直接、认真、尊重她。联系她说过的具体内容，请她比较不同解释、核对证据或考虑适用条件。不要挑衅、嘲讽或评价她本人，也不要用暗示她本该知道答案的反问。",
+		Style: "语气直接、认真、尊重学生。联系学生说过的具体内容，请学生比较不同解释、核对证据或考虑适用条件。不要挑衅、嘲讽或评价学生本人，也不要用暗示学生本该知道答案的反问。",
 	},
 }
 

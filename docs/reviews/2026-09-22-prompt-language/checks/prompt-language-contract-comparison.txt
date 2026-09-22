@@ -1,0 +1,30 @@
+{
+  "base": "a28affca",
+  "capturedSharedRequests": 68,
+  "changedTextRequests": 68,
+  "newRequests": [
+    "TestClarityGradingNoInventedIssue",
+    "TestClarityLookback",
+    "TestClarityPBL-concept",
+    "TestClarityPBL-course",
+    "TestClarityPBL-examples",
+    "TestClarityPBL-observe",
+    "TestClarityPBL-plan",
+    "TestClarityPBL-split",
+    "TestClarityPromptLanguageDomains-awakening-report",
+    "TestClarityPromptLanguageDomains-dig",
+    "TestClarityPromptLanguageDomains-dig-shortlist",
+    "TestClarityPromptLanguageDomains-harvest",
+    "TestClarityPromptLanguageDomains-news-select",
+    "TestClarityPromptLanguageDomains-news-write",
+    "TestClarityPromptLanguageDomains-selection",
+    "TestClarityPromptLanguageDomains-title",
+    "TestClarityPromptLanguageDomains-title-boardgame",
+    "TestClarityPromptLanguageDomains-title-tidal",
+    "TestClarityWritingRoleBoard"
+  ],
+  "machineContractDifferences": [],
+  "sharedPreviews": 36,
+  "previewContractDifferences": [],
+  "comparison": "Exact comparison of class, request options, message roles/order, tool names/parameters/required/enums. Excludes message content and descriptions only. Separate functional tests cover text-embedded JSON instructions."
+}

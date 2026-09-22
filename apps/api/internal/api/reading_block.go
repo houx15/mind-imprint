@@ -54,7 +54,7 @@ const readingBlockContextRunes = 1200
 // than by asking the model to restrain itself.
 var readingShapedSuffix = map[string]string{
 	"questions": "\n\n只输出一个 JSON 对象：{\"questions\":[\"...\",\"...\"]}。每条都必须以问号结尾。不要输出对象以外的任何文字或代码块标记。",
-	"imitate":   "\n\n只输出一个 JSON 对象：{\"move\":\"这一段在写法上做了什么，一句话\",\"tryThis\":[\"一个可以用同样写法去写的话题\",\"另一个\"]}。\n\n**绝对不要写出任何一段示范文字。** 你只说写法和话题，段落由她自己写。tryThis 里每一条是一个话题或情境，不是一句范文。不要输出对象以外的任何文字或代码块标记。",
+	"imitate":   "\n\n只输出一个 JSON 对象：{\"move\":\"这一段在写法上做了什么，一句话\",\"tryThis\":[\"一个可以用同样写法去写的话题\",\"另一个\"]}。\n\n**绝对不要写出任何一段示范文字。** 你只说写法和话题，段落由学生自己写。tryThis 里每一条是一个话题或情境，不是一句范文。不要输出对象以外的任何文字或代码块标记。",
 	// 🚨 2026-09-17：语法从一段散文改成一组卡片。产品负责人逐字：
 	//
 	//	grammar, I hope we can be better, like words, become a card. sentence
@@ -71,15 +71,15 @@ var readingShapedSuffix = map[string]string{
 		`"words":[{"text":"","label":"","note":""}],` +
 		`"tenses":[{"text":"","label":"","note":"","example":"","exampleZh":""}],` +
 		`"meaning":""}` + "\n\n" +
-		"🚨 所有 text 都必须是**这一句里的原样**，一个字母一个标点都不许改。" +
+		"所有 text 都必须是**这一句里的原样**，一个字母一个标点都不许改。" +
 		"**系统会拿它回原句里逐字核对，对不上的那一段丢掉。**\n\n" +
-		"🚨 **只讲这一句的重点。** 下面四层（从句 / 句子成分 / 词法 / 时态）不需要每层都有：" +
+		"**只讲这一句的重点。** 下面四层（从句 / 句子成分 / 词法 / 时态）不需要每层都有：" +
 		"先判断这一句最值得学的是什么，通常只填 1 到 2 层，其余给空数组。" +
 		"一层里也只标关键的那几处，不要为了填满而标。例如：长句的难点在结构就讲从句或成分；" +
 		"短句的难点在一个搭配就只讲词法；时态普通就不讲时态。\n\n" +
 		"【句法】\n" +
 		"- clauses：这一句里的**从句**，一个从句一条，0 到 3 条。没有从句、或从句不是这一句的难点，就给空数组。\n" +
-		"  - text：整个从句（从引导词开始，到从句结束）。🚨 **不要把主句写进来** —— 主句由系统自己算：" +
+		"  - text：整个从句（从引导词开始，到从句结束）。**不要把主句写进来** —— 主句由系统自己算：" +
 		"句子里不属于任何从句的部分就是主句。\n" +
 		"  - label：从句的种类（定语从句 / 宾语从句 / 主语从句 / 表语从句 / 同位语从句 / 状语从句（时间/原因/条件/让步…））。\n" +
 		"  - note：它修饰或充当什么，一句话，不超过 25 字。\n" +
@@ -87,7 +87,7 @@ var readingShapedSuffix = map[string]string{
 		"  - label 只能是：主语 / 谓语 / 宾语 / 表语 / 状语 / 定语 / 补语 / 同位语 / 插入语。\n" +
 		"  - text：这个成分在句子里的原样（成分就是一个从句时，照抄那个从句）。\n" +
 		"  - note：一句话，不超过 20 字。\n" +
-		"  - 🚨 **并列句**（and / but / or / so 连起两个各有主语谓语的分句）：每个分句的主语、谓语分别标，" +
+		"  - **并列句**（and / but / or / so 连起两个各有主语谓语的分句）：每个分句的主语、谓语分别标，" +
 		"note 里写明是第几个分句；连词本身**不是成分，不要标**。谓语只抄动词部分，不要把主语一起抄进来。\n\n" +
 		"【词法】\n" +
 		"- words：这一句里值得单独学的**关键词或词组**，0 到 3 个。挑的是词性、词形或用法特别的" +
@@ -365,7 +365,7 @@ func (a *API) listReadingBlockTools(w http.ResponseWriter, r *http.Request) {
 	tools := readingBlockToolsFor(lang)
 	out := make([]map[string]string, 0, len(tools))
 	for _, t := range tools {
-		// subject 要发出去：界面凭它决定「点这件工具之后先请她点一句，还是
+		// subject 要发出去：界面凭它决定「点这件工具之后先请学生点一句，还是
 		// 直接开讲」。写死在前端会和服务端漂开 —— 和这个端点本来就存在的理由
 		// 是同一条。
 		out = append(out, map[string]string{
@@ -447,7 +447,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	blockID := r.PathValue("bid")
 	var req struct {
 		Tool string `json:"tool"`
-		// Sentence 是她在这一段里点的那一句。只有 Subject == "sentence" 的
+		// Sentence 是学生在这一段里点的那一句。只有 Subject == "sentence" 的
 		// 工具要它；服务端会拿它回段落里逐字核对。
 		Sentence string `json:"sentence"`
 	}

@@ -81,7 +81,7 @@ func TestCoachPrompt_WebsiteGetsTheRoutineInsteadOfTheGenericMoments(t *testing.
 func TestCoachPrompt_WebsiteStatesImplementedCapabilities(t *testing.T) {
 	p := coachPrompt("website")
 
-	for _, want := range []string{"读他贴进来的网址", "生成图", "把他的页面渲染出来"} {
+	for _, want := range []string{"读学生贴进来的网址", "生成图", "把学生的页面渲染出来"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("主页项目里应该放开「%s」", want)
 		}

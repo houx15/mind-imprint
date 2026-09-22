@@ -33,14 +33,14 @@ type PlacementSuggestionOut struct {
 	Reason string `json:"reason"`
 }
 
-const placementSystem = `你是一位 IB 研究导师。学生刚加进一篇文献。下面给你这篇文献的信息，和这个项目的若干【研究问题】（每个带一个 id）。请判断这篇文献最能支撑/回答哪一个问题。
+const placementSystem = `你是一位 IB 研究导师。学生刚加进一篇文献。下面给你这篇文献的信息，和这个项目的若干【研究问题】（每个带一个 id）。请判断这篇文献最有助于回答哪一个问题。
 
 只返回一个 JSON 对象：
-{"leadId": "最贴合的问题 id，或 null", "reason": "一句话中文：为什么挂这个问题（或为什么都不太贴）"}
+{"leadId": "最贴合的问题 id，或 null", "reason": "一句话中文：为什么对应这个问题（或为什么均不适合）"}
 
 要求：
-- leadId 必须是给定问题里的某个 id；如果都不太贴，返回 null。
-- reason 一句话，具体，给学生看的。
+- leadId 必须是给定问题里的某个 id；如果没有明确关联，返回 null。
+- reason 直接展示给学生，用一句话说明材料与问题的具体关联；仅依据提供的内容，不假装读过未提供的全文。
 - 只回 JSON，不要任何解释或代码块外的文字。`
 
 const maxPlacementAttempts = 2

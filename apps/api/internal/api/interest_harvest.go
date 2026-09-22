@@ -204,16 +204,16 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 		}
 		if tk, err := a.d.Queries.GetReadingTakeaway(ctx, atomID); err == nil {
 			if s := strings.TrimSpace(tk.Text); s != "" {
-				fmt.Fprintf(&b, "她写下的收获：\n%s\n\n", s)
+				fmt.Fprintf(&b, "学生写下的收获：\n%s\n\n", s)
 			}
 		}
 		if anns, err := a.d.Queries.ListAtomAnnotations(ctx, atomID); err == nil && len(anns) > 0 {
-			b.WriteString("她划出来的句子，以及她在旁边写的话：\n")
+			b.WriteString("学生标注的句子及批注：\n")
 			for _, an := range anns {
 				if q := strings.TrimSpace(an.Quote); q != "" {
 					fmt.Fprintf(&b, "- 「%s」", q)
 					if n := strings.TrimSpace(an.Note); n != "" {
-						fmt.Fprintf(&b, " —— 她写：%s", n)
+						fmt.Fprintf(&b, " —— 学生批注：%s", n)
 					}
 					b.WriteString("\n")
 				}
@@ -239,7 +239,7 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 				}
 			}
 			if len(said) > 0 {
-				b.WriteString("她在带读里说的话：\n")
+				b.WriteString("学生在阅读对话中的发言：\n")
 				for _, s := range said {
 					fmt.Fprintf(&b, "- %s\n", s)
 				}
@@ -251,7 +251,7 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 		}
 		if dr, err := a.d.Queries.GetWritingDraft(ctx, atomID); err == nil {
 			if s := strings.TrimSpace(dr.Body); s != "" {
-				fmt.Fprintf(&b, "她写的正文：\n%s\n", s)
+				fmt.Fprintf(&b, "学生撰写的正文：\n%s\n", s)
 			}
 		}
 	case "project":
@@ -260,21 +260,21 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 			// An assigned project's idea is the teacher's driving question: harvesting
 			// it would grow her tree from words she never wrote.
 			if s := strings.TrimSpace(p.Idea); s != "" && !p.Assigned {
-				fmt.Fprintf(&b, "她的立题：\n%s\n\n", s)
+				fmt.Fprintf(&b, "学生提出的项目主题：\n%s\n\n", s)
 			}
 		}
 		if ds, err := a.d.Queries.ListPblDecisions(ctx, atomID); err == nil && len(ds) > 0 {
-			b.WriteString("她做过的判断，以及理由：\n")
+			b.WriteString("学生作出的判断及理由：\n")
 			for _, d := range ds {
 				w := strings.TrimSpace(d.Why)
 				if w == "" {
 					continue
 				}
-				fmt.Fprintf(&b, "- 关于「%s」，她选了「%s」，因为：%s",
+				fmt.Fprintf(&b, "- 关于「%s」，学生选择「%s」，理由：%s",
 					strings.TrimSpace(d.Subject), strings.TrimSpace(d.Choice), w)
 				// 她明知道放弃了什么 —— 那句话往往比选择本身更能说明她在意什么。
 				if g := strings.TrimSpace(d.GaveUp); g != "" {
-					fmt.Fprintf(&b, "（她知道这样会失去：%s）", g)
+					fmt.Fprintf(&b, "（学生记录的取舍：%s）", g)
 				}
 				b.WriteString("\n")
 			}

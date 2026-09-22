@@ -57,23 +57,21 @@ func writingLengthGapBlock(wr sqlc.Writing, draftBody string) string {
 	gap := target - now
 
 	var b strings.Builder
-	b.WriteString("她现在的正文：" + strconv.Itoa(now) + " " + unit +
+	b.WriteString("学生现在的正文：" + strconv.Itoa(now) + " " + unit +
 		"（离目标还差 " + strconv.Itoa(gap) + " " + unit + "）\n")
 
 	switch {
 	case float64(gap) <= float64(target)*writingLengthNearEnough:
 		// 够了（含已经超出）。要说出口 —— 她不知道自己可以收工。
-		b.WriteString("篇幅已经到了。**这一轮要说清楚这件事**：不要再让她扩写，" +
-			"接下来只谈哪里还不够好；她要是问「够了吗」，就直接回答够了。\n")
+		b.WriteString("正文已达到目标篇幅附近，请明确告知学生。无需为字数继续扩写；" +
+			"如有实际表达问题，再据此提出修改建议。\n")
 	case gap > target/4:
-		// 缺口比四分之一还大：一句话的动作在这儿是没用的。
-		b.WriteString("🚨 这个缺口**一句话补不上**。不要给「加一个场景」「改一句」" +
-			"这种一句话尺寸的动作然后说它能补上这些字 —— 她上一轮照做了，缺口一点没动。\n" +
-			"这一轮要指出**哪一段还欠一整层**（哪条理由底下没有她见过的事、" +
-			"哪个例子只讲了发生什么没讲为什么），并说清那一层展开之后大概能占多少。\n" +
-			"🚨 仍然不许替她写，也不要让她凑字数：说的是往哪儿深下去，不是再写够多少字。\n")
+		// Focus expansion on missing substance, preserving the measured threshold.
+		b.WriteString("正文与目标篇幅相差较多。请结合稿件指出一处值得充分展开的内容，" +
+			"例如尚未解释的理由、未展开的真实材料或材料与观点的联系，并说明展开目的与大致篇幅。\n" +
+			"由学生补充内容，不代写，也不以重复或无关内容增加字数。\n")
 	default:
-		b.WriteString("缺口不大，一两句具体的展开就能补上。\n")
+		b.WriteString("篇幅差距较小，可结合实际内容建议简短补充；不要保证固定句数一定达到目标。\n")
 	}
 	return b.String()
 }

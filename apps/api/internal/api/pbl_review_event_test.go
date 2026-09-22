@@ -65,7 +65,7 @@ func TestExplicitCompletionWinsOverNewerTool(t *testing.T) {
 		t.Fatal("missing coach request")
 	}
 	b, _ := json.Marshal(provider.Requests[1])
-	start := strings.LastIndex(string(b), "【她刚做完这件事】")
+	start := strings.LastIndex(string(b), "【学生刚做完这件事】")
 	if start < 0 {
 		t.Fatal("missing event")
 	}
@@ -94,7 +94,7 @@ func TestObservationCompletionCarriesSubmittedQuestion(t *testing.T) {
 		t.Fatal(rec.Body)
 	}
 	b, _ := json.Marshal(provider.Requests[1])
-	start := strings.LastIndex(string(b), "【她刚做完这件事】")
+	start := strings.LastIndex(string(b), "【学生刚做完这件事】")
 	if start < 0 {
 		t.Fatal("missing event")
 	}

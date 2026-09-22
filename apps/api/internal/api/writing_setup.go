@@ -142,10 +142,10 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 // teacher's prompt, and restating it "用她自己的说法" as what she wants to write
 // would put the teacher's words in her mouth in the room's first turn.
 const (
-	openingTopicOwn        = "下面是她自己写下的题目和她说过的话。"
-	openingTopicAssigned   = "这篇写作是老师布置的：下面是老师布置的题目和她自己说过的话。"
-	openingRestateOwn      = "1. 用一句话把她想写的东西说回给她，让她确认你听懂了。用她自己的说法，不要换成更\"高级\"的表述。"
-	openingRestateAssigned = "1. 用一句话说明老师布置的题目要求写什么，并点明这是老师的要求，不要说成是她自己想写的。"
+	openingTopicOwn        = "下面是学生自己写下的题目和学生说过的话。"
+	openingTopicAssigned   = "这篇写作是老师布置的：下面是老师布置的题目和学生自己说过的话。"
+	openingRestateOwn      = "1. 用一句话把学生想写的东西说回给学生，让学生确认你听懂了。用学生自己的说法，不要换成更\"高级\"的表述。"
+	openingRestateAssigned = "1. 用一句话说明老师布置的题目要求写什么，并点明这是老师的要求，不要说成是学生自己想写的。"
 )
 
 // writingIsAssigned: the writing was started from a teacher's assignment. Its

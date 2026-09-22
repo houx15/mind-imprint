@@ -1,0 +1,17 @@
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/plan
+    clarity_live_test.go:100: TestClarityWriting/plan sample=1 model=dashscope/deepseek-v4.1-flash ms=3096 input=3538 output=100 valid=true
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=2459 input=1843 output=111 valid=true
+=== RUN   TestClarityWriting/comment
+    clarity_comment_delivery_test.go:39: review attempt=1 raw={"verdict":"polish","summary":"你先表明了「学校图书馆应该延长开放时间」的观点，再用晚自习后教室关闭和走廊自习的经历作为事例。","points":[{"kind":"issue","symptom":"evidence_not_explained","quote":"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。","text":"这个例子写出了教室关闭后无处自习的困难，但例子讲完就停了，读者需要自己推断走廊里有人经过与延长图书馆开放时间之间的联系。","action":"请在走廊的例子之后补充一两句解释，说明走廊复习的困难（安静无法保证）与延长图书馆开放时间能解决什么，让读者看到这个例子如何支持开头那句观点。"}]}
+    clarity_live_test.go:118: TestClarityWriting/comment sample=1 model=dashscope/glm-5.3 ms=5067 input=3184 output=274 valid=true
+--- PASS: TestClarityWriting (10.63s)
+    --- PASS: TestClarityWriting/plan (3.10s)
+    --- PASS: TestClarityWriting/guide (2.46s)
+    --- PASS: TestClarityWriting/comment (5.07s)
+=== RUN   TestClarityWritingInvite
+    clarity_prose_live_test.go:27: TestClarityWritingInvite sample=1 model=dashscope/deepseek-v4.1-flash ms=3419 input=3724 output=106 valid=true
+--- PASS: TestClarityWritingInvite (3.42s)
+PASS
+ok  	mindimprint/api/internal/api	14.588s

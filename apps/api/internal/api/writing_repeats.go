@@ -169,12 +169,11 @@ func writingRepeatBlock(text, lang string) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n【服务端数到的重复说法】（不用你再从头找一遍）\n")
+	b.WriteString("\n【系统统计的重复表达】\n")
 	for _, r := range reps {
 		b.WriteString("- 「" + r.Phrase + "」出现 " + strconv.Itoa(r.Count) + " 次\n")
 	}
-	b.WriteString("🚨 重复**不一定**是毛病：排比是重复，一篇议论文里关键词本来就该反复\n" +
-		"出现。你自己看上下文判断——真的是啰嗦或者同一个意思说了两遍，才当成 issue 说；\n" +
-		"是她有意的反复，就别提。\n")
+	b.WriteString("请结合上下文判断重复的作用。排比、强调和必要的关键词重复可以保留；" +
+		"只有重复没有增加信息、影响表达时，才作为 issue 提出修改建议。\n")
 	return b.String()
 }

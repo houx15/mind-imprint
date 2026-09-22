@@ -185,7 +185,7 @@ func AssignmentTools() []gateway.ChatTool {
 			// Recommend scores one student), so there is nothing to search for
 			// with search_library first.
 			Name: "recommend_articles",
-			Description: "为这个班推荐几篇分级阅读库文章，按全班学生的兴趣画像聚合打分，老师没有指定文章时先用这个，不要凭空推荐。" +
+			Description: "为这个班推荐几篇分级阅读库文章，按全班学生的兴趣画像聚合打分，老师没有指定文章时先调用此工具，并依据返回结果推荐。" +
 				"每条结果带 slug——那是给 set_material 用的系统参数，不要出现在给老师的回复里；" +
 				"介绍文章时用书名号里的中文标题（zhTitle）。",
 			Parameters: map[string]any{
@@ -201,7 +201,7 @@ func AssignmentTools() []gateway.ChatTool {
 		},
 		{
 			Name:        "list_students",
-			Description: "按一个闭集条件查班级名单，结果显示在卡片上，不要在回复里复述。",
+			Description: "按一个预设筛选条件查班级名单，结果显示在卡片上，不要在回复里复述。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -225,7 +225,7 @@ func AssignmentTools() []gateway.ChatTool {
 			// also list_students': one vocabulary for 「这批学生是谁」, named the
 			// same way in both places.
 			Name:        "set_recipients",
-			Description: "设定这次作业发给谁：给一个闭集条件，或者给明确的学生 ID 列表。只给其中一个。",
+			Description: "设定这次作业发给谁：给一个预设筛选条件，或者给明确的学生 ID 列表。只给其中一个。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -307,7 +307,7 @@ func HomeTools() []gateway.ChatTool {
 		},
 		{
 			Name:        "list_students",
-			Description: "按一个闭集条件查班级名单，结果显示在卡片上，不要在回复里复述。",
+			Description: "按一个预设筛选条件查班级名单，结果显示在卡片上，不要在回复里复述。",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{

@@ -1,0 +1,5 @@
+=== RUN   TestClarityLookback
+    clarity_live_test.go:58: TestClarityLookback sample=1 model=dashscope/deepseek-v4-pro ms=116435 input=979 output=4662 valid=true
+--- PASS: TestClarityLookback (116.44s)
+PASS
+ok  	mindimprint/api/internal/pbl	116.960s

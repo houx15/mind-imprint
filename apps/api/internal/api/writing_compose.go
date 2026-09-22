@@ -296,7 +296,7 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		// 通篇审阅是一次性的，没有「同一处说过两轮」可言 —— 帮法恒为默认。
 		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues, "", helpAsk, genre),
 		// 通篇审阅那一路不给整篇上下文：body 本来就是整篇。
-		buildWritingCommentPrompt(wr, "她的整篇稿子", body, "", genre),
+		buildWritingCommentPrompt(wr, "学生的整篇稿子", body, "", genre),
 		// 她真的会看到的那几条。通篇这一路没有分块的减法。
 		func(pts []CommentPoint) []CommentPoint {
 			return validateCommentPoints(pts, body, wr.Lang, writingDraftReviewMaxIssues)

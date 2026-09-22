@@ -328,40 +328,21 @@ func replyLooksCutOff(reply string) bool {
 // came from one paragraph」），线上实测 印记 收到之后连着六轮出同一张卡：
 // 它知道自己错了，不知道该改哪儿。理由是**给日志看的**，这一句是**给它看的**。
 var cardFixIt = map[cardReject]string{
-	cardRejectOneBlock: "选项不能全出自同一段。换成跨段落取：这一段一句、" +
-		"另一段一句，让她非把两处放在一起比不可。做不到就这一轮不发卡。",
-	cardRejectFewOptions: "选项没能和原文对上。每一句都要**逐字**抄自你标的那一段，" +
-		"一个字都不能改；而且要从一个标点后面开始、到一个标点为止，不要从半句中间截。",
-	cardRejectFewWords: "生词板上的词没能和原文对上。每个词都要原样出现在你标的那一段里，" +
-		"至少三个。",
-	cardRejectBannedForm: "换一个问法：问动作（他是怎么做到的）、问对比（为什么是 A 不是 B）、" +
-		"问因果（这一步凭什么成立）、或者问边界（它什么时候不成立）。",
-	cardRejectPromptLen: "问题写成一句话，不超过 60 个字。",
-	cardRejectAsksMultiple: "这张卡她只点得了**一句**，而你的问题要她指出两处（「哪两句」" +
-		"「分别」「各自」）—— 她怎么点都是错的。改成只问一处；真要她比较两句，" +
-		"就换成 label_roles 那块板，每一句都摆一次。",
-	cardRejectUnknownType: "type 只能是 choose_span / pick_in_article / short_text / " +
-		"label_roles / word_bank 五个之一（报道和记叙还可以用 order_events）。",
-	cardRejectPromised: "你在话里提到了一张卡片，但 JSON 里没有 card 这个键 —— " +
-		"她那边什么都没出现。要给就真的给，不给就别提。",
-	cardRejectCutOff: "你上一轮那句话断在半句上，她读到的是半截。" +
-		"这一轮把话说完整，句子要有收尾。",
-	cardRejectDeadTurn: "你上一轮讲完就停了，没有请她做任何事 —— 她屏幕上没有卡片、" +
-		"没有透镜，也没有一句话告诉她下一步。这一轮结尾要么给一张卡片，" +
-		"要么明确请她做一件事。",
-	cardRejectLensWon: "你同一轮既给了透镜又给了卡片。一次只交给她一件事，" +
-		"所以卡片被拿掉了 —— 她那边只有那副透镜。想让她点卡片，这一轮就别给透镜。",
-	cardRejectBoardRepeat: "这篇文章已经摆过标注板了。一篇只摆一次 —— 她摆完之后你觉得" +
-		"有一两张放错，就在话里说清那一句为什么该换个位置，然后推进，不要再发一块" +
-		"让她从头摆一遍。",
-	cardRejectOrderNotHere: "排序板只用在新闻报道和记叙文上，一篇最多两块。这一轮换一种卡片，" +
-		"或者在话里说清楚那几件事的先后。",
-	cardRejectNoOrderBoard: "清单走到了「排出事件顺序」这一步，这一步要用一块 order_events 排序板：" +
-		"从文章里逐字抄 3 到 5 句各写着一件事的原话，放进 options。",
-	cardRejectNoArgument: "这篇文章的作者没有在说服谁（它是报道 / 记叙），" +
-		"所以「主张 / 证据 / 限制」这块板在这篇上没有指称对象 —— 她只能猜。" +
-		"换一种：choose_span（在几句里挑一句）、short_text（请她写一句）、" +
-		"word_bank（生词板），或者 pick_in_article（请她在文章里点一句）。",
+	cardRejectOneBlock:     "choose_span 选项须来自至少两个段落，便于比较。原文不足以提供合适选项时，本轮不发该卡片。",
+	cardRejectFewOptions:   "请核对选项与 blockId：引文须逐字来自对应段落，从标点后的句子或分句起始处开始，到标点结束，不截取半句。",
+	cardRejectFewWords:     "word_bank 至少包含三个词，每个词须逐字出现在对应段落中。",
+	cardRejectBannedForm:   "请围绕原文中的具体动作、比较、因果或适用条件提出问题，说明需要分析的对象。",
+	cardRejectPromptLen:    "问题写成一句完整的话，不超过 60 个字。",
+	cardRejectAsksMultiple: "这类卡片只允许选择一句原文，题目也应只要求一处；需要分别处理多个句子时使用 label_roles。",
+	cardRejectUnknownType:  "type 只能是 choose_span / pick_in_article / short_text / label_roles / word_bank 五个之一；报道和记叙还可以用 order_events。",
+	cardRejectPromised:     "回复提到了卡片，但输出没有 card。需要新卡片时补全 card；不提供卡片时，将回复改为学生当前能够执行的操作。",
+	cardRejectCutOff:       "上轮回复未写完。本轮请使用完整句子，写完再结束输出。",
+	cardRejectDeadTurn:     "当前没有可用卡片或透镜，上轮也未说明下一步。请提供适用的卡片，或直接说明学生下一步需要做什么。",
+	cardRejectLensWon:      "同一轮同时提供了透镜和卡片，学生仅收到透镜。本轮选择一种工具，并使回复与所提供的工具一致。",
+	cardRejectBoardRepeat:  "本篇已使用过标注板。请依据已提交分类说明原文依据；有分类错误时在回复中解释，随后推进，不再要求重复完成标注板。",
+	cardRejectOrderNotHere: "排序板只适用于新闻报道和记叙文，一篇最多两块。本轮请选择其他适用卡片，或直接解释相关事件的先后。",
+	cardRejectNoOrderBoard: "当前是事件排序步骤，请提供 order_events：从文章逐字选择 3 到 5 个叙述事件的完整句子，写入 options。",
+	cardRejectNoArgument:   "本文以报道或记叙为主，不适合使用议论文的论证分类。请按当前任务选择 choose_span、short_text、word_bank 或 pick_in_article。",
 }
 
 // cardPromiseWords —— 这句回复是不是在**指着一张卡片说话**。

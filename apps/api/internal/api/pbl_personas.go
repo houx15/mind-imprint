@@ -292,7 +292,7 @@ func (a *API) studentMaterialFor(r *http.Request, userID, atomID uuid.UUID) (str
 		return "", err
 	}
 	if t := strings.TrimSpace(own); t != "" {
-		b.WriteString("她自己说过：\n" + t + "\n")
+		b.WriteString("学生自己说过：\n" + t + "\n")
 	}
 	return b.String(), nil
 }

@@ -158,13 +158,13 @@ func TestHelpModeBlockIsSilentByDefault(t *testing.T) {
 	}
 
 	offer := writingHelpModeBlock(helpOffer, "zh", genreArgument)
-	if !strings.Contains(offer, "两个选项") {
+	if !strings.Contains(offer, "两个不同的修改方法") {
 		t.Errorf("给选项那一档没说清要做什么：%q", offer)
 	}
 
 	show := writingHelpModeBlock(helpShow, "zh", genreArgument)
 	// 🚨 铁律①：给的是句式，不是替她写好的正文。
-	if !strings.Contains(show, "不是替她写正文") {
+	if !strings.Contains(show, "不代写段落") {
 		t.Errorf("给句式那一档没划清那条线：%q", show)
 	}
 	// 讲义三法的句式要真的摆出来 —— 只说「给一句句式」而不给，

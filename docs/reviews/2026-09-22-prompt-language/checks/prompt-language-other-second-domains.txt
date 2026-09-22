@@ -1,0 +1,18 @@
+ok  	mindimprint/api/internal/awakening	0.982s
+--- FAIL: TestBuildDigPromptSaysSoWhenTheLibraryHasNothing (0.00s)
+    dig_test.go:160: 候选为空时应该说出来：
+        关键词：样本代表性
+
+        学生相关的对话记录：
+        - 「一个避难所不是一个计划。」
+
+        【系统筛选的阅读候选】（read 只能从这些文章中选择，使用对应 slug）
+        （暂无相关候选，请省略 read。）
+--- FAIL: TestHarvestPromptCarriesTheCatalogue (0.00s)
+    interest_test.go:66: system 没说这是一张闭表
+FAIL
+FAIL	mindimprint/api/internal/interest	0.309s
+ok  	mindimprint/api/internal/news	(cached)
+ok  	mindimprint/api/internal/litegrade	(cached)
+ok  	mindimprint/api/internal/liteworkspace	(cached)
+FAIL

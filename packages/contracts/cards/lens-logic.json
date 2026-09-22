@@ -5,7 +5,7 @@
   "name": "逻辑学：推理有没有跳步？",
   "name_en": "Logic",
   "purpose": "把一句话拆成证据、隐藏前提和结论，检查结论的力度有没有超过现有依据。",
-  "trigger_condition": "当你开始怀疑作者的论证能不能成立。",
+  "trigger_condition": "学生需要检查作者的论证是否成立。",
   "trigger_keywords": [
     "逻辑",
     "论证",

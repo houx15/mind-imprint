@@ -1,0 +1,12 @@
+=== RUN   TestClarityPromptLanguageDomains
+=== RUN   TestClarityPromptLanguageDomains/title-tidal
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-tidal sample=1 model=dashscope/qwen3.7-flash ms=916 input=261 output=16 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-tidal sample=2 model=dashscope/qwen3.7-flash ms=620 input=261 output=16 valid=true
+=== RUN   TestClarityPromptLanguageDomains/title-boardgame
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-boardgame sample=1 model=dashscope/qwen3.7-flash ms=699 input=262 output=15 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-boardgame sample=2 model=dashscope/qwen3.7-flash ms=719 input=262 output=15 valid=true
+--- PASS: TestClarityPromptLanguageDomains (2.96s)
+    --- PASS: TestClarityPromptLanguageDomains/title-tidal (1.54s)
+    --- PASS: TestClarityPromptLanguageDomains/title-boardgame (1.42s)
+PASS
+ok  	mindimprint/api/internal/api	4.208s

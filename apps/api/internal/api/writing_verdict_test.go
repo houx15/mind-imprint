@@ -137,7 +137,7 @@ func TestWritingLaterBlocksText(t *testing.T) {
 // 「对每一段的分析需要明确各个段落各自的功能」。
 func TestCommentSystemDispatchesByKind(t *testing.T) {
 	opening := buildWritingCommentSystem("zh", 1, writingKindOpening, helpAsk, genreArgument)
-	if !contains(opening, "不要求开头自带完整的事例") {
+	if !contains(opening, "完整事例与详细论证可以安排在后续段落") {
 		t.Errorf("开头那一份没说清它的活：\n%s", opening)
 	}
 
@@ -154,8 +154,8 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 		"观点句", // claim
 		"材料句", // evidence
 		"分析句", // analysis
-		"限制",  // limitation
-		"别的段", // how it correlates with others
+		"适用范围", // limitation
+		"其他段落", // how it correlates with others
 	} {
 		if !contains(point, want) {
 			t.Errorf("正文那一份缺 %q —— all-statuses §6 要的四项少了一项", want)
@@ -175,23 +175,23 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 	// 🚨 正文那一份**不能**带着「不要求开头自带事例」那句话 ——
 	// 共用作用域里放某一个块的说明，是 2026-09-12 那条教训的原形
 	// （阅读室的格子说明漏进了写作室）。
-	if contains(point, "不要求开头自带完整的事例") {
+	if contains(point, "完整事例与详细论证可以安排在后续段落") {
 		t.Error("开头那一块的说明漏进了正文那一份")
 	}
 
 	closing := buildWritingCommentSystem("zh", 1, writingKindClosing, helpAsk, genreArgument)
-	if !contains(closing, "收束全文") {
+	if !contains(closing, "结尾用于综合全文") {
 		t.Errorf("结尾那一份没说清它的活：\n%s", closing)
 	}
 
 	rebuttal := buildWritingCommentSystem("zh", 1, writingKindRebuttal, helpAsk, genreArgument)
-	if !contains(rebuttal, "反方") {
+	if !contains(rebuttal, "准确针对原文中的不同观点") {
 		t.Errorf("回应那一份没说清它的活：\n%s", rebuttal)
 	}
 
 	// 通篇审阅（kind 为空）不附分块的检查表。
 	whole := buildWritingCommentSystem("zh", 3, "", helpAsk, genreArgument)
-	for _, unwanted := range []string{"这一块是**开头**", "这一块是**结尾**"} {
+	for _, unwanted := range []string{"## 审阅开头", "## 审阅结尾"} {
 		if contains(whole, unwanted) {
 			t.Errorf("通篇那一份不该带分块的检查表（%q）", unwanted)
 		}

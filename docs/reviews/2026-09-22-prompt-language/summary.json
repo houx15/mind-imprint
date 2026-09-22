@@ -1,0 +1,260 @@
+{
+  "baseCommit": "a28affca",
+  "branch": "codex/prompt-language-review",
+  "promptTemplates": 64,
+  "offlineContractComparison": {
+    "base": "a28affca",
+    "capturedSharedRequests": 68,
+    "changedTextRequests": 68,
+    "newRequests": [
+      "TestClarityGradingNoInventedIssue",
+      "TestClarityLookback",
+      "TestClarityPBL-concept",
+      "TestClarityPBL-course",
+      "TestClarityPBL-examples",
+      "TestClarityPBL-observe",
+      "TestClarityPBL-plan",
+      "TestClarityPBL-split",
+      "TestClarityPromptLanguageDomains-awakening-report",
+      "TestClarityPromptLanguageDomains-dig",
+      "TestClarityPromptLanguageDomains-dig-shortlist",
+      "TestClarityPromptLanguageDomains-harvest",
+      "TestClarityPromptLanguageDomains-news-select",
+      "TestClarityPromptLanguageDomains-news-write",
+      "TestClarityPromptLanguageDomains-selection",
+      "TestClarityPromptLanguageDomains-title",
+      "TestClarityPromptLanguageDomains-title-boardgame",
+      "TestClarityPromptLanguageDomains-title-tidal",
+      "TestClarityWritingRoleBoard"
+    ],
+    "machineContractDifferences": [],
+    "sharedPreviews": 36,
+    "previewContractDifferences": [],
+    "comparison": "Exact comparison of class, request options, message roles/order, tool names/parameters/required/enums. Excludes message content and descriptions only. Separate functional tests cover text-embedded JSON instructions."
+  },
+  "liveRecorded": {
+    "samples": 154,
+    "byBatch": {
+      "prompt-language-live-domains": 10,
+      "prompt-language-live-domains-refined": 20,
+      "prompt-language-live-final-board": 1,
+      "prompt-language-live-final-reading": 16,
+      "prompt-language-live-final-shortlist": 2,
+      "prompt-language-live-final-titles": 4,
+      "prompt-language-live-final-writing": 2,
+      "prompt-language-live-general": 25,
+      "prompt-language-live-guide-valid-fixture": 1,
+      "prompt-language-live-lookback-retry": 1,
+      "prompt-language-live-reading": 18,
+      "prompt-language-live-reading-plan-final": 4,
+      "prompt-language-live-reading-plan-last": 2,
+      "prompt-language-live-reading-refine": 18,
+      "prompt-language-live-sceptic-budget": 2,
+      "prompt-language-live-sceptic-final": 2,
+      "prompt-language-live-sceptic-revised": 2,
+      "prompt-language-live-sceptic-wording": 2,
+      "prompt-language-live-writing": 14,
+      "prompt-language-live-writing-final": 2,
+      "prompt-language-live-writing-focus": 4,
+      "prompt-language-live-writing-recheck": 2
+    },
+    "models": {
+      "dashscope/glm-5.3": 49,
+      "dashscope/deepseek-v4-flash": 9,
+      "dashscope/qwen3.7-flash": 11,
+      "dashscope/deepseek-v4.1-flash": 82,
+      "dashscope/deepseek-v4-pro": 3
+    },
+    "responseModels": {
+      "zhipu/glm-5.3": 49,
+      "deepseek-v4-flash": 9,
+      "qwen3.7-flash": 11,
+      "deepseek-v4.1-flash": 82,
+      "": 1,
+      "deepseek-v4-pro": 2
+    },
+    "automatedFailures": [
+      {
+        "batch": "prompt-language-live-domains",
+        "case": "TestClarityPromptLanguageDomains/news-select",
+        "sample": 1,
+        "reason": "select reply 里没有一条可用的新闻"
+      },
+      {
+        "batch": "prompt-language-live-final-board",
+        "case": "TestClarityWritingRoleBoard",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-final-reading",
+        "case": "TestClarityReading/hunt-picked",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 撑"
+      },
+      {
+        "batch": "prompt-language-live-final-reading",
+        "case": "TestClarityTeacherReading/compare-not-verdict",
+        "sample": 1,
+        "reason": "comparison prompt states the core answer before asking the student"
+      },
+      {
+        "batch": "prompt-language-live-final-writing",
+        "case": "TestClarityMergeWriting/english-analysis",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 撑"
+      },
+      {
+        "batch": "prompt-language-live-general",
+        "case": "TestClarityAgent/sceptic",
+        "sample": 1,
+        "reason": "review teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-general",
+        "case": "TestClarityLookback",
+        "sample": 1,
+        "reason": "provider request failed"
+      },
+      {
+        "batch": "prompt-language-live-reading-plan-final",
+        "case": "TestClarityReadingPlan/en",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-reading-plan-last",
+        "case": "TestClarityReadingPlan/en",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 撑"
+      },
+      {
+        "batch": "prompt-language-live-reading-refine",
+        "case": "TestClarityReading/hunt-picked",
+        "sample": 1,
+        "reason": "internal paragraph id in visible text"
+      },
+      {
+        "batch": "prompt-language-live-reading-refine",
+        "case": "TestClarityReadingPlan/en",
+        "sample": 1,
+        "reason": "compressed or confrontational teaching language: 撑"
+      },
+      {
+        "batch": "prompt-language-live-reading-refine",
+        "case": "TestClarityTeacherReading/direct-answer",
+        "sample": 1,
+        "reason": "internal paragraph id in visible text"
+      },
+      {
+        "batch": "prompt-language-live-sceptic-budget",
+        "case": "TestClarityAgent/sceptic",
+        "sample": 1,
+        "reason": "review teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-sceptic-budget",
+        "case": "TestClarityAgent/sceptic",
+        "sample": 2,
+        "reason": "review teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-sceptic-wording",
+        "case": "TestClarityAgent/sceptic",
+        "sample": 1,
+        "reason": "review teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-sceptic-wording",
+        "case": "TestClarityAgent/sceptic",
+        "sample": 2,
+        "reason": "review teaching language: 主张"
+      },
+      {
+        "batch": "prompt-language-live-writing-focus",
+        "case": "TestClarityMergeWriting/english-analysis",
+        "sample": 2,
+        "reason": "compressed or confrontational teaching language: 撑"
+      },
+      {
+        "batch": "prompt-language-live-writing-recheck",
+        "case": "TestClarityMergeWriting/english-analysis",
+        "sample": 1,
+        "reason": "English teaching terminology missing"
+      }
+    ],
+    "estimatedCnyCached": 1.4243132000000003
+  },
+  "reportTests": {
+    "tests": 3,
+    "usage": [
+      {
+        "input": 479,
+        "output": 5023,
+        "cached": 0
+      },
+      {
+        "input": 419,
+        "output": 2190,
+        "cached": 0
+      },
+      {
+        "input": 648,
+        "output": 6841,
+        "cached": 0
+      }
+    ]
+  },
+  "teacherToolTests": {
+    "scenarios": 2,
+    "calls": 7,
+    "usage": [
+      {
+        "input": 3187,
+        "output": 52
+      },
+      {
+        "input": 3323,
+        "output": 105
+      },
+      {
+        "input": 3261,
+        "output": 114
+      },
+      {
+        "input": 3404,
+        "output": 97
+      },
+      {
+        "input": 3190,
+        "output": 63
+      },
+      {
+        "input": 3624,
+        "output": 197
+      },
+      {
+        "input": 3880,
+        "output": 82
+      }
+    ]
+  },
+  "estimatedRecordedCny": 1.8335792000000004,
+  "costLimit": "Catalog estimate including cache discount when available. Teacher logs omit cache; their cost uses uncached input. Failed calls with no usage cannot be costed; not a complete invoice. Multiple batches represent intermediate revisions, not independent final-version samples.",
+  "finalSourceCommit": "b54c02fc",
+  "offlineChecks": {
+    "goAll": {
+      "exitCode": 0,
+      "log": "checks/prompt-language-go-final-frozen.txt"
+    },
+    "contractsTests": {
+      "passed": 338,
+      "failed": 1,
+      "preexistingFailureReproducedOn": "a28affca"
+    },
+    "contractsTypecheck": {
+      "errors": 3,
+      "preexistingFailureReproducedOn": "a28affca"
+    }
+  }
+}

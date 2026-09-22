@@ -407,9 +407,9 @@ func buildAnchorPrompt(spec cards.Spec, level GuidanceLevel) string {
 		// (spec §4). Only {dimension, question} is asked for; no block_id/
 		// quote, so parseAnchorGen skips block/offset resolution entirely.
 		instr := "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
-			"」的每个维度，提出一个具体的引导问题，帮助她自己去材料里找到相关的句子并思考。\n" +
+			"」的每个维度，提出一个具体的引导问题，帮助学生自己找到相关句子并思考。question 直接展示给学生，用“你”称呼学生。\n" +
 			"维度：\n" + dims.String() +
-			"\n重要：这次不要引用材料原句，也不要指出具体是哪一句——学生要自己在材料里找到答案对应的句子。问题必须能独立成立，不依赖你替她定位。\n" +
+			"\n重要：这次不要引用材料原句，也不要指出具体是哪一句——学生要自己在材料里找到答案对应的句子。问题必须能独立成立，不依赖你代为定位。\n" +
 			"只输出 JSON 数组，每个元素形如 {\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
 		if tagged {
 			instr += "dimension 字段必须恰好是以下之一：" + strings.Join(spec.Params.Tags, "、") + "。"
@@ -420,7 +420,7 @@ func buildAnchorPrompt(spec cards.Spec, level GuidanceLevel) string {
 
 	// L1 (unchanged, byte-identical to before this level parameter existed).
 	instr := "你是一名批判性思维教练。学生正在读下面这份材料。请针对「" + spec.Name +
-		"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。\n" +
+		"」的每个维度，在材料里挑出一处最相关的原句，提出一个指向那句话的具体引导问题。question 直接展示给学生，用“你”称呼学生。\n" +
 		"维度：\n" + dims.String() +
 		"\n只输出 JSON 数组，每个元素形如 {\"block_id\":\"m0:b0\",\"quote\":\"材料里的原句片段\",\"dimension\":\"维度名\",\"question\":\"你的问题\"}。"
 	if tagged {

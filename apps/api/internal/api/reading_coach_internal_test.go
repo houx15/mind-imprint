@@ -86,7 +86,7 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 
 	withPicks := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, nil,
 		[]readingPick{{BlockID: "b2", Quote: "但人均排放仍低于多数发达国家。"}}, "", nil, "")
-	if !strings.Contains(withPicks, "【她在文章里点出来的句子】") {
+	if !strings.Contains(withPicks, "【学生在文章里点出来的句子】") {
 		t.Fatalf("missing picks section:\n%s", withPicks)
 	}
 	if !strings.Contains(withPicks, "第2段：「但人均排放仍低于多数发达国家。」") {
@@ -95,12 +95,12 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 	// The paragraph listing above legitimately says b2（第2段）— but nothing
 	// in the picks section itself may hand the model a bare "b2" as
 	// something it could echo back to her.
-	if i := strings.Index(withPicks, "【她在文章里点出来的句子】"); i >= 0 && strings.Contains(withPicks[i:], "b2") {
+	if i := strings.Index(withPicks, "【学生在文章里点出来的句子】"); i >= 0 && strings.Contains(withPicks[i:], "b2") {
 		t.Errorf("picks section leaks the block id:\n%s", withPicks[i:])
 	}
 
 	noPicks := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, nil, nil, "", nil, "")
-	if strings.Contains(noPicks, "【她在文章里点出来的句子】") {
+	if strings.Contains(noPicks, "【学生在文章里点出来的句子】") {
 		t.Errorf("picks section must be omitted when no picks survive:\n%s", noPicks)
 	}
 }
@@ -130,7 +130,7 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// 声」. The spec's ruling is that 步骤的指令由卡片承担, so the section now
 		// states the default only for a still-active task and calls out the
 		// first turn by name. A completion turn must not attach the next tool.
-		"仅在当前任务尚未完成、需要她动手时，默认给她一张卡片",
+		"仅在当前任务尚未完成、需要学生动手时，默认给学生一张卡片",
 		"第一轮也一样",
 		// R1's headline ruling, and the correction it encodes. The literal-quote
 		// validator guarantees she must LOOK at the article; it does not
@@ -139,12 +139,12 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// and it passes every check the validator makes. The fix is the SHAPE of
 		// the question, which only the prompt can carry, so the self-check
 		// sentence is pinned verbatim.
-		"5W1H",
-		"出卡片之前先自问一句：这个问题能不能靠扫关键词答出来？能，就换一个。",
+		"围绕当前任务提出一个具体、可依据原文回答的问题",
+		"避免只需匹配关键词的机械提问",
 		// 🚨 5W1H and 不能有唯一正解 are TWO rulings that must both hold — shape
 		// vs answer space. Pinning them together is what stops a later edit
 		// "simplifying" one into the other.
-		"不能有唯一正解",
+		"允许有依据的不同答案",
 		// No two near-identical cards in a row: same options, one word changed,
 		// reads as 「你答错了，再选一次」 even with no ✓ and no ✗.
 		"不要连着出两张几乎一样的卡片",
@@ -160,18 +160,18 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// So the prompt must ASK for cross-paragraph options, or the guarantee is
 		// bought by quietly losing cards.
 		"choose_span 的选项必须跨段落取：至少来自两个不同的段落",
-		"存活的选项全部来自同一段，整张卡片会被丢掉",
+		"所有有效选项来自同一段时，卡片无法通过校验",
 		// Never scold her for a thing she was pointed at the wrong half of the
 		// screen for.
-		"不要预设她害怕、偷懒、不认真",
+		"不要预设学生害怕、偷懒、不认真",
 		// R4 (2): this used to be a literal blocklist (「还没做完」/「别急着往下走」/
 		// 「第一步还没做完」) and the model routed around it by dropping one
 		// character — 「读完第4段了，那这一步还没完」. A blocklist is the wrong
 		// instrument: it enumerates phrasings, and phrasings are infinite. The
 		// rule is now positive and about the ACT — do not comment on the fact
 		// that she has not done it — with worked examples of what to say instead.
-		"不要评价她答得快慢",
-		"不要求她操作已经收起的组件",
+		"不要评价学生答得快慢",
+		"不要求学生操作已经收起的组件",
 		// text-heavy without a card was the original complaint; the cap alone
 		// never fixed it.
 		"解释清楚后就停止",

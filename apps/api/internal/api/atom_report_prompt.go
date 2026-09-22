@@ -35,7 +35,7 @@ func buildReportPrompt(kind, title, turns string, corpus reportCorpus) string {
 	if t := strings.TrimSpace(title); t != "" {
 		b.WriteString("题目：" + t + "\n")
 	}
-	b.WriteString("\n【她自己写下的材料】\n")
+	b.WriteString("\n【学生自己写下的材料】\n")
 	b.WriteString(corpus.Text)
 	b.WriteString("\n")
 	if strings.TrimSpace(turns) != "" {

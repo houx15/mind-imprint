@@ -1,0 +1,19 @@
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:83: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步",
+            "evidence": "你以自己和三位同学上周只能在走廊复习的经历作为论据，提出学校图书馆应延长开放时间的观点；但随后直接说“这证明所有学生都需要图书馆全天开放”。",
+            "missing": "四人样本无法说明“所有学生”的需求，需要更大范围或可核实的证据，例如其他同学的反馈、图书馆现有开放时间与使用情况的记录；同时“延长开放时间”与“全天开放”是两个不同范围的说法，草稿里两者混用，需统一并说明你实际建议的是哪一种；另外只描述了走廊复习的现象，没有说明图书馆为何当时不可用、延长开放时间能否解决这一问题。",
+            "fix": "先核实图书馆当前实际的开放时间和上周不可用的具体原因；再补充除你们四人之外其他学生的使用情况或需求依据，使结论与证据范围相称；把建议统一为同一表述，并考虑保留四人经历作为具体事例而非全部依据。",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=6065 input=1062 output=231 valid=true
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步：已有观点和一个事例，但推理跨度过大，证据覆盖面不足","evidence":"草稿原话：'上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。'前一句提出观点：'学校图书馆应该延长开放时间。'","missing":"1. 三个同学的经历只能说明当天这四个人没有可用的复习场所，不能推出'所有学生'都需要；需要核实其他学生是否有类似情况，比如图书馆闭馆时段的自习需求调查、座位占用记录或更多同学的反映。2. '延长开放时间'和'全天开放'是两个不同范围的说法，草稿前后不一致，需要确认你到底建议延长到什么时段，并补充这一时段能满足需求的依据。3. 缺少对反方情况的考虑，例如晚间开放的管理和安全成本、实际使用率等事实。","fix":"先明确建议的具体开放时段；再收集能覆盖更多学生的需求数据（调查、访谈或使用记录）替换'这证明所有学生'这一以偏概全的推理；同时核实延长开放所需的人力和管理约束，让建议的范围与证据能对应。另外，全文只有三句话，远未超字数，但如果后续扩写，'我和三位同学在走廊复习'这一背景值得保留，因为它是具体事例；需要压缩的是重复表述结论的句子。","points":1}]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=2 model=dashscope/glm-5.3 ms=6647 input=1062 output=323 valid=true
+--- PASS: TestClarityAgent (12.71s)
+    --- PASS: TestClarityAgent/sceptic (12.71s)
+PASS
+ok  	mindimprint/api/internal/agent	13.795s

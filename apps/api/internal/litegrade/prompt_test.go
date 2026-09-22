@@ -12,7 +12,7 @@ func TestSystemPromptCarriesTheRubric(t *testing.T) {
 	in.Rubric.Focus = "重点看论证"
 	in.SymptomCatalog = "【第 1 层 · 立意】\n- topic_without_question（只有主题，没有问题）：…\n"
 	p := SystemPrompt(in)
-	for _, want := range []string{"内容", "结构", "语言", "书写规范", "A+ A A- B+ B B- C+ C C- D", "重点看论证", "topic_without_question", "3 到 5 条", "用中文写", "「」"} {
+	for _, want := range []string{"内容", "结构", "语言", "书写规范", "A+ A A- B+ B B- C+ C C- D", "重点看论证", "topic_without_question", "最多 5 条", "用中文写", "「」"} {
 		if !strings.Contains(p, want) {
 			t.Errorf("system prompt lacks %q", want)
 		}

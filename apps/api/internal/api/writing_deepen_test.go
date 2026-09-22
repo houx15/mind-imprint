@@ -39,12 +39,12 @@ func TestWritingTopicLine_AssignedPromptIsTheTeachers(t *testing.T) {
 			t.Errorf("%s prompt presents the assignment's title as her idea:\n%s", name, out)
 		}
 	}
-	if strings.Contains(built["plan"], "她一开始说想写的是") {
+	if strings.Contains(built["plan"], "学生一开始说想写的是") {
 		t.Errorf("plan prompt says she chose the teacher's prompt:\n%s", built["plan"])
 	}
 
 	own := sqlc.Writing{Title: "雨", Lang: "zh"}
-	if out := buildWritingPlanPrompt(own, outline, nil, ""); !strings.Contains(out, "她一开始说想写的是：雨") {
+	if out := buildWritingPlanPrompt(own, outline, nil, ""); !strings.Contains(out, "学生一开始说想写的是：雨") {
 		t.Errorf("her own writing lost its opening line:\n%s", out)
 	}
 	if out := buildWritingOpeningPrompt(own, nil); !strings.Contains(out, "题目/想法：雨") || strings.Contains(out, "老师") {

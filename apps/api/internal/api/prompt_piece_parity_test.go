@@ -12,7 +12,7 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// This fixture is also run against main 03c31b99 before writing the hashes.
+// Text hashes were updated after the 2026-09-22 prompt language review.
 // It protects Unicode truncation, block ordering, assigned-task provenance and
 // feedback state for all three consumers of the shared piece context.
 func TestWritingPieceRequestParity(t *testing.T) {
@@ -71,7 +71,7 @@ func TestWritingPieceRequestParity(t *testing.T) {
 	}
 	for id, hash := range got {
 		if want[id] != hash {
-			t.Errorf("piece context changed from main: %s", id)
+			t.Errorf("piece context changed from reviewed baseline: %s", id)
 		}
 	}
 }

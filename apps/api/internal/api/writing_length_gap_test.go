@@ -22,10 +22,10 @@ func TestWritingLengthGap_BigGapForbidsASentenceSizedAction(t *testing.T) {
 	if !strings.Contains(got, "离目标还差") {
 		t.Fatalf("没说还差多少：\n%s", got)
 	}
-	if !strings.Contains(got, "一句话补不上") {
+	if !strings.Contains(got, "正文与目标篇幅相差较多") {
 		t.Errorf("缺口这么大，必须拦住一句话尺寸的动作：\n%s", got)
 	}
-	if !strings.Contains(got, "不要让她凑字数") {
+	if !strings.Contains(got, "不以重复或无关内容增加字数") {
 		t.Errorf("铁律①：说的是往哪儿深下去，不是凑字数：\n%s", got)
 	}
 }
@@ -38,10 +38,10 @@ func TestWritingLengthGap_SaysWhenSheIsDone(t *testing.T) {
 		strings.Repeat("这是一段正文。", 140), // 840 字，超了
 	} {
 		got := writingLengthGapBlock(wr, body)
-		if !strings.Contains(got, "篇幅已经到了") {
+		if !strings.Contains(got, "正文已达到目标篇幅附近") {
 			t.Errorf("到了就要说出口（%d 字）：\n%s", countWordsForLang(body, "zh"), got)
 		}
-		if strings.Contains(got, "一句话补不上") {
+		if strings.Contains(got, "正文与目标篇幅相差较多") {
 			t.Errorf("篇幅够了还在说缺口：\n%s", got)
 		}
 	}
@@ -74,7 +74,7 @@ func TestWritingLengthGap_EnglishCountsWords(t *testing.T) {
 	// 单位要跟着语言走。英文那一篇的单位是「词」不是「字」（lengthUnit 定的，
 	// 提示词本身是中文，所以单位词也是中文）。
 	// 比的是**数字后面那个词**，不是整段里有没有「字」—— 那段给模型的话里
-	// 本来就有「不要让她凑字数」。
+	// 本来就有「不以重复或无关内容增加字数」。
 	if !strings.Contains(got, "180 词") || !strings.Contains(got, "120 词") {
 		t.Errorf("英文那一篇的单位该是「词」：\n%s", got)
 	}

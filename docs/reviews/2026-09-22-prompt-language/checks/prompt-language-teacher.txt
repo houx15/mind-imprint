@@ -1,0 +1,247 @@
+=== RUN   TestLiveWorkspaceAssignmentTurn
+    lite_teacher_workspace_live_test.go:361: class dialogue → provider=dashscope model=deepseek-v4.1-flash tier=chaperone
+=== RUN   TestLiveWorkspaceAssignmentTurn/topic-in-headline
+2026/09/22 15:52:23 github.com/testcontainers/testcontainers-go - Connected to docker:
+  Server Version: 29.5.3
+  API Version: 1.46
+  Operating System: Docker Desktop
+  Total Memory: 7936 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/houyuxin/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.34.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: 3068ee5af9f7cc1e3a90a20a546ef8e4c4f7ef4fe797105f0a4e35196f831ca2
+  Test ProcessID: fc25e63b-0357-42b3-8bfb-31e706d0799f
+2026/09/22 15:52:23 🐳 Creating container for image testcontainers/ryuk:0.10.2
+2026/09/22 15:52:23 ✅ Container created: 694c99a824d4
+2026/09/22 15:52:23 🐳 Starting container: 694c99a824d4
+2026/09/22 15:52:23 ✅ Container started: 694c99a824d4
+2026/09/22 15:52:23 ⏳ Waiting for container id 694c99a824d4 image: testcontainers/ryuk:0.10.2. Waiting for: &{Port:8080/tcp timeout:<nil> PollInterval:100ms skipInternalCheck:false}
+2026/09/22 15:52:24 🔔 Container is ready: 694c99a824d4
+2026/09/22 15:52:24 🐳 Creating container for image postgres:16-alpine
+2026/09/22 15:52:24 ✅ Container created: 11fe1f9b7c4a
+2026/09/22 15:52:24 🐳 Starting container: 11fe1f9b7c4a
+2026/09/22 15:52:24 ✅ Container started: 11fe1f9b7c4a
+2026/09/22 15:52:24 ⏳ Waiting for container id 11fe1f9b7c4a image: postgres:16-alpine. Waiting for: &{timeout:<nil> deadline:0x673f8bb288e0 Strategies:[0x673f8bafdd40]}
+2026/09/22 15:52:25 🔔 Container is ready: 11fe1f9b7c4a
+2026/09/22 15:52:25 OK   0001_init.sql (19.77ms)
+2026/09/22 15:52:25 OK   0002_seed.sql (2.16ms)
+2026/09/22 15:52:25 OK   0003_auth.sql (16.12ms)
+2026/09/22 15:52:25 OK   0004_seed_password.sql (3.18ms)
+2026/09/22 15:52:25 OK   0005_org.sql (4.12ms)
+2026/09/22 15:52:25 OK   0006_seed_admin.sql (749.58µs)
+2026/09/22 15:52:25 OK   0007_eval_async.sql (773.46µs)
+2026/09/22 15:52:25 OK   0008_eval_trigger.sql (2.3ms)
+2026/09/22 15:52:25 OK   0009_material.sql (2ms)
+2026/09/22 15:52:25 OK   0010_card_anchors.sql (787.58µs)
+2026/09/22 15:52:25 OK   0011_courses.sql (4.44ms)
+2026/09/22 15:52:25 OK   0012_seed_course.sql (1.43ms)
+2026/09/22 15:52:25 OK   0013_course_step_render.sql (1.88ms)
+2026/09/22 15:52:25 OK   0014_voice_tts_cache.sql (1.21ms)
+2026/09/22 15:52:25 OK   0015_message_source.sql (631.42µs)
+2026/09/22 15:52:25 OK   0016_refactor2_foundations.sql (22.85ms)
+2026/09/22 15:52:25 OK   0017_graph_node_open_type.sql (1.13ms)
+2026/09/22 15:52:25 OK   0018_seed_demo_project.sql (3.73ms)
+2026/09/22 15:52:25 OK   0019_llm_call_usage.sql (4.27ms)
+2026/09/22 15:52:25 OK   0020_material_source_log.sql (2.36ms)
+2026/09/22 15:52:25 OK   0021_assessment_project.sql (1.67ms)
+2026/09/22 15:52:25 OK   0022_chat_thread_scope.sql (2.9ms)
+2026/09/22 15:52:25 OK   0023_course_session_scope.sql (5.97ms)
+2026/09/22 15:52:25 OK   0024_session_assessment_scope.sql (2.86ms)
+2026/09/22 15:52:25 OK   0025_thread_assessment_scope.sql (2.88ms)
+2026/09/22 15:52:25 OK   0026_project_status_check.sql (654.63µs)
+2026/09/22 15:52:25 OK   0027_dualaxis_clean_slate.sql (1.32ms)
+2026/09/22 15:52:25 OK   0028_canonical_assessment_clean_slate.sql (670.13µs)
+2026/09/22 15:52:25 OK   0029_seed_teacher_class.sql (5.74ms)
+2026/09/22 15:52:25 OK   0030_seed_teacher_password.sql (640.5µs)
+2026/09/22 15:52:25 OK   0031_event_course_scope.sql (1.97ms)
+2026/09/22 15:52:25 OK   0032_student_evaluation_view.sql (1.26ms)
+2026/09/22 15:52:25 OK   0033_class_weekly_prose.sql (1.78ms)
+2026/09/22 15:52:25 OK   0034_seed_teacher_week.sql (3.9ms)
+2026/09/22 15:52:25 OK   0035_parent_report_prose.sql (1.75ms)
+2026/09/22 15:52:25 OK   0036_workspace_redesign.sql (12.29ms)
+2026/09/22 15:52:25 OK   0037_project_status_evaluating.sql (1ms)
+2026/09/22 15:52:25 OK   0038_continuous_session.sql (2.68ms)
+2026/09/22 15:52:25 OK   0039_reading_takeaway.sql (1.34ms)
+2026/09/22 15:52:25 OK   0040_exploration_lead.sql (2.62ms)
+2026/09/22 15:52:25 OK   0041_conversation_digest.sql (1.42ms)
+2026/09/22 15:52:25 OK   0042_project_ai_use.sql (1.51ms)
+2026/09/22 15:52:25 OK   0043_reading_note.sql (866µs)
+2026/09/22 15:52:25 OK   0044_snippet.sql (2.22ms)
+2026/09/22 15:52:25 OK   0045_snippet_section.sql (594.63µs)
+2026/09/22 15:52:25 OK   0046_exploration_lead_branch.sql (1.27ms)
+2026/09/22 15:52:25 OK   0047_user_card_theme.sql (789.96µs)
+2026/09/22 15:52:25 OK   0048_reference_abstract.sql (928.54µs)
+2026/09/22 15:52:25 OK   0049_project_writing_finished.sql (546.58µs)
+2026/09/22 15:52:25 OK   0050_course_v2.sql (11.86ms)
+2026/09/22 15:52:25 OK   0051_course_active_seconds.sql (903µs)
+2026/09/22 15:52:25 OK   0052_course_audio_manifest.sql (789.38µs)
+2026/09/22 15:52:25 OK   0053_reference_reading_status.sql (878.54µs)
+2026/09/22 15:52:25 OK   0054_question_edge.sql (2.43ms)
+2026/09/22 15:52:25 OK   0055_lead_origin_note.sql (1.21ms)
+2026/09/22 15:52:25 OK   0056_proposal_counterpoints.sql (688.13µs)
+2026/09/22 15:52:25 OK   0057_studio_state.sql (779.08µs)
+2026/09/22 15:52:25 OK   0058_project_cover.sql (600.04µs)
+2026/09/22 15:52:25 OK   0059_studio_started.sql (1.88ms)
+2026/09/22 15:52:25 OK   0060_chat_message_stage.sql (561.25µs)
+2026/09/22 15:52:25 OK   0061_writing_doc_kind.sql (4.36ms)
+2026/09/22 15:52:25 OK   0062_reference_evidence.sql (2.14ms)
+2026/09/22 15:52:25 OK   0063_revision_checkpoint.sql (2.24ms)
+2026/09/22 15:52:25 OK   0064_evaluation_report.sql (1.79ms)
+2026/09/22 15:52:25 OK   0065_drop_mirror_parent_prose.sql (2.95ms)
+2026/09/22 15:52:25 OK   0066_evaluation_report_status.sql (1.61ms)
+2026/09/22 15:52:25 OK   0067_truncate_weekly_prose_cache.sql (1.01ms)
+2026/09/22 15:52:25 OK   0068_citation.sql (1.96ms)
+2026/09/22 15:52:25 OK   0069_backfill_framework_finished.sql (995.67µs)
+2026/09/22 15:52:25 OK   0070_course_definition.sql (584.63µs)
+2026/09/22 15:52:25 OK   0071_course_session.sql (2.31ms)
+2026/09/22 15:52:25 OK   0072_course_status_cover.sql (952µs)
+2026/09/22 15:52:25 OK   0073_seed_demo_class_teacher.sql (838.17µs)
+2026/09/22 15:52:25 OK   0074_user_page_background.sql (815.38µs)
+2026/09/22 15:52:25 OK   0075_course_catalog_metadata.sql (733.5µs)
+2026/09/22 15:52:25 OK   0076_course_definition_step_count.sql (1.07ms)
+2026/09/22 15:52:25 OK   0077_course_session_attempts.sql (1.81ms)
+2026/09/22 15:52:25 OK   0078_seed_foreign_class.sql (1.34ms)
+2026/09/22 15:52:25 OK   0079_user_onboarded_at.sql (758.67µs)
+2026/09/22 15:52:25 OK   0080_feedback.sql (1.85ms)
+2026/09/22 15:52:25 OK   0081_project_is_demo.sql (681.63µs)
+2026/09/22 15:52:25 OK   0082_seed_demo_project_finished.sql (11.95ms)
+2026/09/22 15:52:25 OK   0083_seed_demo_essay_annotations.sql (1.1ms)
+2026/09/22 15:52:25 OK   0084_demo_studio_state_retrospective.sql (641.17µs)
+2026/09/22 15:52:25 OK   0085_demo_essay_newlines.sql (941.38µs)
+2026/09/22 15:52:25 OK   0086_demo_full_paper.sql (1.2ms)
+2026/09/22 15:52:25 OK   0087_demo_warren_depth_and_needs.sql (879.33µs)
+2026/09/22 15:52:25 OK   0088_demo_node_read_transition.sql (552.13µs)
+2026/09/22 15:52:25 OK   0089_demo_warren_full_second_layer.sql (738.5µs)
+2026/09/22 15:52:25 OK   0090_demo_proposal_track_guides.sql (1.25ms)
+2026/09/22 15:52:25 OK   0091_demo_reading_notes.sql (942.88µs)
+2026/09/22 15:52:25 OK   0092_atom_substrate.sql (11.27ms)
+2026/09/22 15:52:25 OK   0093_schools_edition.sql (966µs)
+2026/09/22 15:52:25 OK   0094_llm_call_atom.sql (1.16ms)
+2026/09/22 15:52:26 OK   0095_atom_card_anchors.sql (887.75µs)
+2026/09/22 15:52:26 OK   0096_atom_card_one_open.sql (756µs)
+2026/09/22 15:52:26 OK   0097_atom_card_origin.sql (758.08µs)
+2026/09/22 15:52:26 OK   0098_atom_last_activity.sql (968.67µs)
+2026/09/22 15:52:26 OK   0099_writing_tables.sql (5.35ms)
+2026/09/22 15:52:26 OK   0100_writing_structure.sql (2.52ms)
+2026/09/22 15:52:26 OK   0101_reading_plan.sql (3.65ms)
+2026/09/22 15:52:26 OK   0102_writing_room_deepening.sql (2.97ms)
+2026/09/22 15:52:26 OK   0103_reading_depth.sql (2.67ms)
+2026/09/22 15:52:26 OK   0104_reading_questions_at.sql (2.4ms)
+2026/09/22 15:52:26 OK   0105_lite_reports.sql (14.71ms)
+2026/09/22 15:52:26 OK   0106_coach_card_payload.sql (1.01ms)
+2026/09/22 15:52:26 OK   0107_atom_experience_rating.sql (1ms)
+2026/09/22 15:52:26 OK   0108_pbl_project.sql (2.77ms)
+2026/09/22 15:52:26 OK   0109_pbl_sessions_and_plan.sql (15.58ms)
+2026/09/22 15:52:26 OK   0110_pbl_artifacts_and_tools.sql (5.45ms)
+2026/09/22 15:52:26 OK   0111_pbl_method_layer.sql (21.22ms)
+2026/09/22 15:52:26 OK   0112_pbl_kind_is_hers.sql (1.12ms)
+2026/09/22 15:52:26 OK   0113_pbl_decision_is_a_choice.sql (1.18ms)
+2026/09/22 15:52:26 OK   0114_pbl_tree_positions.sql (1.05ms)
+2026/09/22 15:52:26 OK   0115_pbl_review_sections.sql (782µs)
+2026/09/22 15:52:26 OK   0116_interest_model.sql (6.98ms)
+2026/09/22 15:52:26 OK   0117_pbl_site.sql (2.66ms)
+2026/09/22 15:52:26 OK   0118_pbl_note_photo.sql (697.79µs)
+2026/09/22 15:52:26 OK   0119_interest_quiz.sql (2.14ms)
+2026/09/22 15:52:26 OK   0120_news_starmap.sql (3.9ms)
+2026/09/22 15:52:26 OK   0121_keyword_dig.sql (1.79ms)
+2026/09/22 15:52:26 OK   0122_pbl_board_axes.sql (709.46µs)
+2026/09/22 15:52:26 OK   0123_pbl_judgment_signals.sql (1.24ms)
+2026/09/22 15:52:26 OK   0124_pbl_mission_item.sql (2.17ms)
+2026/09/22 15:52:26 OK   0125_pbl_note_placed.sql (884.25µs)
+2026/09/22 15:52:26 OK   0126_pbl_note_link.sql (2.57ms)
+2026/09/22 15:52:26 OK   0127_pbl_keep_numbers.sql (1.92ms)
+2026/09/22 15:52:26 OK   0128_pbl_note_picked.sql (1.12ms)
+2026/09/22 15:52:26 OK   0129_pbl_site_ref.sql (2.16ms)
+2026/09/22 15:52:26 OK   0130_pbl_persona.sql (2.39ms)
+2026/09/22 15:52:26 OK   0131_pbl_site_look.sql (984.04µs)
+2026/09/22 15:52:26 OK   0132_pbl_note_reframe_slot.sql (715.71µs)
+2026/09/22 15:52:26 OK   0133_course_audience_and_pbl_course.sql (3.12ms)
+2026/09/22 15:52:26 OK   0134_interest_vocabulary.sql (5.14ms)
+2026/09/22 15:52:26 OK   0135_news_day_retry.sql (707.29µs)
+2026/09/22 15:52:26 OK   0136_pbl_tool_drop.sql (1.91ms)
+2026/09/22 15:52:26 OK   0137_interest_dismissal.sql (1.55ms)
+2026/09/22 15:52:26 OK   0138_news_saved_reading.sql (1.14ms)
+2026/09/22 15:52:26 OK   0139_drop_interest_dismissal.sql (1.47ms)
+2026/09/22 15:52:26 OK   0140_interest_proposal.sql (1.82ms)
+2026/09/22 15:52:26 OK   0141_news_planet_body.sql (880.42µs)
+2026/09/22 15:52:26 OK   0142_reading_library.sql (1.99ms)
+2026/09/22 15:52:26 OK   0143_reading_outline.sql (638µs)
+2026/09/22 15:52:26 OK   0144_reading_task_new_kinds.sql (931.21µs)
+2026/09/22 15:52:26 OK   0145_news_planet_evidence.sql (1.01ms)
+2026/09/22 15:52:26 OK   0146_writing_origin.sql (791.71µs)
+2026/09/22 15:52:26 OK   0147_writing_comment_source.sql (788.46µs)
+2026/09/22 15:52:26 OK   0148_atom_active_day.sql (1.61ms)
+2026/09/22 15:52:26 OK   0149_lite_assignment.sql (4.72ms)
+2026/09/22 15:52:26 OK   0150_lite_weekly_prose.sql (2.38ms)
+2026/09/22 15:52:26 OK   0151_lite_parent_report.sql (3.62ms)
+2026/09/22 15:52:26 OK   0152_lite_parent_report_export_only.sql (1.64ms)
+2026/09/22 15:52:26 OK   0153_lite_writing_versions.sql (3.17ms)
+2026/09/22 15:52:26 OK   0154_lite_grading.sql (5.35ms)
+2026/09/22 15:52:26 OK   0155_keyword_dig_library.sql (1.49ms)
+2026/09/22 15:52:26 OK   0156_reading_source_excerpt_only.sql (957.29µs)
+2026/09/22 15:52:26 OK   0157_reading_block_note_shape.sql (1.64ms)
+2026/09/22 15:52:26 OK   0158_writing_outline_source.sql (918.54µs)
+2026/09/22 15:52:26 OK   0159_pbl_review_revision.sql (1.92ms)
+2026/09/22 15:52:26 OK   0160_pbl_decision_draft.sql (981.88µs)
+2026/09/22 15:52:26 OK   0161_pbl_decision_revision.sql (883.75µs)
+2026/09/22 15:52:26 OK   0162_pbl_audience_document.sql (1.59ms)
+2026/09/22 15:52:26 OK   0163_pbl_multiple_audiences.sql (707.96µs)
+2026/09/22 15:52:26 OK   0164_pbl_creative_direction.sql (1.53ms)
+2026/09/22 15:52:26 OK   0165_pbl_code_versions.sql (1.89ms)
+2026/09/22 15:52:26 OK   0166_pbl_code_revision_feedback.sql (2.03ms)
+2026/09/22 15:52:26 OK   0167_homepage_creative_routine.sql (2.24ms)
+2026/09/22 15:52:26 OK   0168_pbl_artifact_trial_draft.sql (1.69ms)
+2026/09/22 15:52:26 OK   0169_pbl_site_publication.sql (1.6ms)
+2026/09/22 15:52:26 OK   0170_pbl_site_publication_owner.sql (2.18ms)
+2026/09/22 15:52:26 OK   0171_pbl_observation_draft.sql (1.79ms)
+2026/09/22 15:52:26 OK   0172_pbl_mission_revision.sql (602.58µs)
+2026/09/22 15:52:26 OK   0173_pbl_mission_student_edit.sql (648.79µs)
+2026/09/22 15:52:26 OK   0174_atom_report_include_transcript.sql (633.92µs)
+2026/09/22 15:52:26 OK   0175_users_gender.sql (677.42µs)
+2026/09/22 15:52:26 OK   0176_reading_task_critique.sql (870.46µs)
+2026/09/22 15:52:26 OK   0177_atom_report_include_toolkit.sql (722.71µs)
+2026/09/22 15:52:26 OK   0178_reading_source_short_feed_body_is_excerpt.sql (978.13µs)
+2026/09/22 15:52:26 OK   0179_reading_source_cut_related_trailer.sql (1.39ms)
+2026/09/22 15:52:26 OK   0180_reading_task_sequence.sql (997.08µs)
+2026/09/22 15:52:26 OK   0181_awakening_protocol.sql (7.42ms)
+2026/09/22 15:52:26 OK   0182_writing_outline_kind.sql (1.24ms)
+2026/09/22 15:52:26 OK   0183_writing_comment_verdict.sql (702.21µs)
+2026/09/22 15:52:26 OK   0184_writing_flow.sql (1.48ms)
+2026/09/22 15:52:26 OK   0185_awakening_threads.sql (2ms)
+2026/09/22 15:52:26 goose: successfully migrated database to version: 185
+    lite_teacher_workspace_live_test.go:439: --- teacher said: 这周读一篇亚运会的报道，写一篇议论文，周五交 (4.5s)
+    lite_teacher_workspace_live_test.go:439: model calls this turn: 2 (budget 6)
+    lite_teacher_workspace_live_test.go:439:   call 1 usage in=3187 out=52 reasoning=0 took=2.7s
+    lite_teacher_workspace_live_test.go:439:   call 1 tool search_library {"query":"亚运会"}
+    lite_teacher_workspace_live_test.go:439:   call 1 text: I'll look up articles about the Asian Games for this reading assignment.
+    lite_teacher_workspace_live_test.go:439:   call 2 usage in=3323 out=105 reasoning=0 took=1.6s
+    lite_teacher_workspace_live_test.go:439:   call 2 was sent tool result: {"articles":[{"disciplines":["anthropology","performance"],"slug":"asian-games","tiers":[1,2,3,4,5],"title":"Asian Games offer a few sports you may not recognize, like kabaddi and wushu","zhTitle":"《亚运会上你可能没见过的项目》"}],"ok":true}
+    lite_teacher_workspace_live_test.go:439:   call 2 tool ask_choice {"options":[{"id":"use","label":"就用这篇","slug":"asian-games"},{"id":"other","label":"换一篇"}],"question":"阅读库里有一篇《亚运会上你可能没见过的项目》，就用这篇吗？"}
+    lite_teacher_workspace_live_test.go:439:   HTTP 200 body: {"reply":"阅读库里有一篇《亚运会上你可能没见过的项目》，就用这篇吗？","choices":[{"id":"use","label":"就用这篇","slug":"asian-games","article":{"slug":"asian-games","zhTitle":"亚运会上你可能没见过的项目","reason":"卡巴迪、藤球、武术、库拉什，四套规则各自的说明。"}},{"id":"other","label":"换一篇"}],"patch":{},"cards":[]}
+    lite_teacher_workspace_live_test.go:446: --- teacher clicked: use (slug "asian-games") (3.9s)
+    lite_teacher_workspace_live_test.go:446: model calls this turn: 2 (budget 6)
+    lite_teacher_workspace_live_test.go:446:   call 1 usage in=3261 out=114 reasoning=0 took=1.9s
+    lite_teacher_workspace_live_test.go:446:   call 1 tool set_fields {"dueAt":"2026-09-25T21:00","instructions":"跟着印记读完这篇报道，完成阅读室里的任务。","kind":"reading","title":"读《亚运会上你可能没见过的项目》"}
+    lite_teacher_workspace_live_test.go:446:   call 2 usage in=3404 out=97 reasoning=0 took=2.0s
+    lite_teacher_workspace_live_test.go:446:   call 2 was sent tool result: {"ok":true,"written":["kind","title","instructions","dueAt"]}
+    lite_teacher_workspace_live_test.go:446:   call 2 text: 阅读作业卡已填好，请检查后点「发布作业」：
+
+        - 标题：《亚运会上你可能没见过的项目》
+        - 截止时间：9月25日 21:00
+
+        阅读室里没有写文章的地方，所以您的议论文没法放进这份卡里。发布这份阅读作业后，再点「布置作业」另建一份写作作业，把议论文的题目和字数填在那里。要不要我先帮您把写作题目拟好？
+    lite_teacher_workspace_live_test.go:446:   HTTP 200 body: {"reply":"阅读作业卡已填好，请检查后点「发布作业」：\n\n- 标题：《亚运会上你可能没见过的项目》\n- 截止时间：9月25日 21:00\n\n阅读室里没有写文章的地方，所以您的议论文没法放进这份卡里。发布这份阅读作业后，再点「布置作业」另建一份写作作业，把议论文的题目和字数填在那里。要不要我先帮您把写作题目拟好？","choices":[],"patch":{"dueInput":"2026-09-25T21:00","instructions":"跟着印记读完这篇报道，完成阅读室里的任务。","kind":"reading","readingSource":"library","slug":"asian-games","text":"","title":"读《亚运会上你可能没见过的项目》"},"cards":[]}
+    lite_teacher_workspace_live_test.go:460: tools this run: [search_library ask_choice set_fields]; card now: map[dueInput:2026-09-25T21:00 instructions:跟着印记读完这篇报道，完成阅读室里的任务。 kind:reading readingSource:library slug:asian-games text: title:读《亚运会上你可能没见过的项目》]
+    lite_teacher_workspace_live_test.go:461: invented slugs this run: 0 of 0 library set_material calls
+    lite_teacher_workspace_live_test.go:543: choice use = "就用这篇" (4 runes)
+    lite_teacher_workspace_live_test.go:543: choice other = "换一篇" (3 runes)
+--- PASS: TestLiveWorkspaceAssignmentTurn (11.32s)
+    --- PASS: TestLiveWorkspaceAssignmentTurn/topic-in-headline (11.32s)
+PASS
+2026/09/22 15:52:34 🐳 Stopping container: 11fe1f9b7c4a
+2026/09/22 15:52:34 ✅ Container stopped: 11fe1f9b7c4a
+2026/09/22 15:52:34 🐳 Terminating container: 11fe1f9b7c4a
+2026/09/22 15:52:35 🚫 Container terminated: 11fe1f9b7c4a
+ok  	mindimprint/api/internal/api	12.150s

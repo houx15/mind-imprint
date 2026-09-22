@@ -17,7 +17,7 @@ func buildReadingPlanPrompt(lang, title string, blocks []Block) string {
 	if t := strings.TrimSpace(title); t != "" {
 		b.WriteString("标题：" + t + "\n")
 	}
-	b.WriteString("她读这篇用的语言：" + lang + "\n")
+	b.WriteString("学生读这篇用的语言：" + lang + "\n")
 
 	b.WriteString("\n【可选的读法（routineKey 只能从这里挑）】\n")
 	for _, r := range readingRoutinesFor(lang) {

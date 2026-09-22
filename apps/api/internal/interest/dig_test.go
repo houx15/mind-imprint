@@ -156,7 +156,7 @@ func TestParseDigReplyUsesTheCatalogueTitleNotTheModelsOwn(t *testing.T) {
 // 编一个 slug —— 而那一颗会被解析那一侧丢掉，她看到的是没有理由的三颗。
 func TestBuildDigPromptSaysSoWhenTheLibraryHasNothing(t *testing.T) {
 	_, user := BuildDigPrompt("样本代表性", "", []string{"一个避难所不是一个计划。"}, nil)
-	if !strings.Contains(user, "这次一篇都没有") {
+	if !strings.Contains(user, "暂无相关候选") || !strings.Contains(user, "请省略 read") {
 		t.Errorf("候选为空时应该说出来：\n%s", user)
 	}
 }

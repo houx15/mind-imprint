@@ -22,14 +22,14 @@ func TestCourseAskPrompt(t *testing.T) {
 	)
 
 	for _, want := range []string{
-		"一条网络信息，该不该信",     // course title
-		"溯源体检",             // step title
+		"一条网络信息，该不该信",          // course title
+		"溯源体检",                 // step title
 		"学会用 CRAAP 给一条说法做信源辨识", // course goal
-		"测验",                // quiz-answer restraint mentions the quiz
-		"答案",                // ...and the answer
-		"不替他下结论",            // never conclude for the student
-		"不替他写作",             // never write for the student
-		"最多问一个",            // one question at a time
+		"测验",          // quiz-answer restraint mentions the quiz
+		"答案",          // ...and the answer
+		"分析练习由学生作出判断", // never conclude for the student
+		"作业正文由学生撰写",   // never write for the student
+		"最多问一个",       // one question at a time
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("course ask prompt is missing %q:\n%s", want, got)

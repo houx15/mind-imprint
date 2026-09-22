@@ -490,7 +490,7 @@ func TestValidateCoachCard(t *testing.T) {
 	t.Run("单引号包住的整句通过", func(t *testing.T) {
 		// R4：同上，陪跑的一条换到 s2。
 		s := []Block{
-			{ID: "s1", Text: "她问：‘城市为什么在夜里更热’，没人答得上来。"},
+			{ID: "s1", Text: "学生问：‘城市为什么在夜里更热’，没人答得上来。"},
 			{ID: "s2", Text: "这个问题后来被写进了课本。"},
 		}
 		got := validateCoachCard(&coachCard{
@@ -724,7 +724,7 @@ func TestValidateCoachCard(t *testing.T) {
 			},
 		}, one)
 		if got != nil {
-			t.Fatalf("三个选项就是第二段本身，她一段都不用读；整张卡片必须丢掉，got %+v", got)
+			t.Fatalf("三个选项就是第二段本身，学生一段都不用读；整张卡片必须丢掉，got %+v", got)
 		}
 	})
 
@@ -954,7 +954,7 @@ func TestParseReadingCoachReply_Card(t *testing.T) {
 //     side too, not left entirely to the validator to clean up after.
 func TestReadingCoachSystem_OneInstrumentPerTurnAndQuoteShape(t *testing.T) {
 	for _, want := range []string{
-		"这一轮已经给了 lens，就不要再给卡片",
+		"lens 是保留的兼容字段，本轮填写空字符串",
 		"从一个标点后面开始、到一个标点为止",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
@@ -1000,8 +1000,8 @@ func TestReadingCoachSystem_CardRulings(t *testing.T) {
 		"pick_in_article",  //
 		"short_text",       //
 		"逐字抄自文章",           // the verbatim rule
-		"不能有唯一正解",          // 🚨 the product ruling: a ladder, not a test
-		"哪一句的判断需要更多证据",       // the ruling's own example
+		"允许有依据的不同答案",       // 🚨 the product ruling: a ladder, not a test
+		"哪一句的判断需要更多证据",     // the ruling's own example
 		"reply 就不要再把它复述一遍", // the card carries the instruction now
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
@@ -1040,7 +1040,7 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("卡片的问题也不是她的话", func(t *testing.T) {
+	t.Run("卡片的问题也不是学生的话", func(t *testing.T) {
 		// 提问是 印记 写的。它跟原文一样不能算进「她自己的话」。
 		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "")
 		if !strings.Contains(got, "> 【印记问】哪一句你读着最不服气？") {
@@ -1048,7 +1048,7 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("她自己写的那句不加前缀", func(t *testing.T) {
+	t.Run("学生自己写的那句不加前缀", func(t *testing.T) {
 		// 反方向同样要命：给她的话加上 `> `，等于把她从她自己的报告里抹掉。
 		got := composeCardAnswerMessage("你读着最不服气的是哪一句？", "", "我觉得作者只算了成本，没算住在那儿的人。")
 		if strings.Contains(got, "> 我觉得") {
@@ -1059,7 +1059,7 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("既点了又打字：原文进引用，她的话留下", func(t *testing.T) {
+	t.Run("既点了又打字：原文进引用，学生的话留下", func(t *testing.T) {
 		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "这句话把人当成了温度计。")
 		for _, line := range strings.Split(quote, "\n") {
 			if !strings.Contains(got, "> "+line) {
@@ -1091,7 +1091,7 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 	// 🚨 这一条是这次改动的核心断言。判定过去是「整段一刀切」：整个字符串
 	// 匹配不上某个 block，**所有行**就都裸着落进 role='student' 的行里。
 	// 一条消息里既有文章原文的行、又有她自己写的行时，那就是原文裸奔。
-	t.Run("按行判定：文章的行带前缀，她自己的行裸着", func(t *testing.T) {
+	t.Run("按行判定：文章的行带前缀，学生自己的行裸着", func(t *testing.T) {
 		art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
 		art2 := "树冠能挡掉一部分直射，也能把水汽送回空气里。"
 		blocks := []Block{{ID: "b1", Text: art1}, {ID: "b2", Text: art2}}
@@ -1110,7 +1110,7 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 		}
 	})
 
-	t.Run("她的话即使夹在原文中间也不会被前缀掉", func(t *testing.T) {
+	t.Run("学生的话即使夹在原文中间也不会被前缀掉", func(t *testing.T) {
 		art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
 		blocks := []Block{{ID: "b1", Text: art1}}
 		hers := "我觉得作者只算了成本。"
@@ -1180,7 +1180,7 @@ func TestCardAnswerChoiceParts(t *testing.T) {
 		}
 	})
 
-	t.Run("她自己写的一段是她的话", func(t *testing.T) {
+	t.Run("学生自己写的一段是学生的话", func(t *testing.T) {
 		hers := "我觉得作者只算了成本，没算住在那儿的人。"
 		quote, own, picks := cardAnswerChoiceParts(hers, "b1", blocks)
 		if quote != "" || own != hers || len(picks) != 0 {
@@ -1210,7 +1210,7 @@ func TestCardAnswerPromptIsNotHerPointing(t *testing.T) {
 	art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
 	blocks := []Block{{ID: "b1", Text: art1}}
 
-	t.Run("印记 自己的问题不算她指了文章", func(t *testing.T) {
+	t.Run("印记 自己的问题不算学生指了文章", func(t *testing.T) {
 		// 折行之后，第二行**正好**是文章里的一句话 —— 探针 K 的形状。
 		prompt := "这一句你服气吗：\n白天吸热、夜里放热。"
 		got := composeCardAnswerMessage(prompt, "", "服气一半。", blocks...)
@@ -1297,7 +1297,7 @@ func TestQuoteIsArticleText(t *testing.T) {
 			t.Fatal("a quote spanning a hard line break was not recognized as article text")
 		}
 	})
-	t.Run("她自己的话不是原句", func(t *testing.T) {
+	t.Run("学生自己的话不是原句", func(t *testing.T) {
 		if quoteIsArticleText("我觉得作者只算了成本。", blocks) {
 			t.Fatal("her own sentence was mistaken for the article's")
 		}
@@ -1378,7 +1378,7 @@ func TestSnapQuoteToArticle(t *testing.T) {
 			"Officials cautioned that the figure could not be independently verified.",
 		},
 		{
-			"说的是别的句子 —— 宁可丢掉，也不要贴错一句让她去文章里找",
+			"说的是别的句子 —— 宁可丢掉，也不要贴错一句让学生去文章里找",
 			"完全无关的一句中文，和这一段没有任何关系。",
 			"",
 		},
@@ -1448,13 +1448,13 @@ func TestPromiseWordsCoverThePhrasingWeTeachIt(t *testing.T) {
 // 对比。她逐字报的：「名字完全不一样，我不知道哪个对应哪个，没法往下做。」
 func TestLabelPromptInventsBins(t *testing.T) {
 	for prompt, want := range map[string]bool{
-		"把这几句放进「进不去/动不了/快撑不住了」三个格子":  true,
-		"放进进不去/动不了/快撑不住了":            true,
-		"这几句在作者的论证里各自扮演什么角色？":        false,
-		"把这几句各自放进它的角色里":              false,
+		"把这几句放进「进不去/动不了/快撑不住了」三个格子": true,
+		"放进进不去/动不了/快撑不住了":           true,
+		"这几句在作者的论证里各自扮演什么角色？":       false,
+		"把这几句各自放进它的角色里":             false,
 		// 闭表里的名字照说不算编。
-		"哪一句是「主张」，哪一句是「证据」？":         false,
-		"分成主张/证据两类":                  false,
+		"哪一句是「主张」，哪一句是「证据」？": false,
+		"分成主张/证据两类":          false,
 	} {
 		if got := labelPromptInventsBins(prompt); got != want {
 			t.Errorf("labelPromptInventsBins(%q) = %v，想要 %v", prompt, got, want)
@@ -1474,7 +1474,7 @@ func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
 	}
 	got, why := validateCoachCardWhy(c, blocks)
 	if got == nil {
-		t.Fatalf("不该丢卡，丢了她这一步什么都没有：%q", why)
+		t.Fatalf("不该丢卡，丢了学生这一步什么都没有：%q", why)
 	}
 	if got.Prompt != coachLabelBoardPrompt {
 		t.Fatalf("题目没换回标准那一句：%q", got.Prompt)
@@ -1491,8 +1491,8 @@ func TestInventedBinsGetTheStandardPrompt(t *testing.T) {
 // 各自里。」—— 板上只有两句，而且这不像一道题。
 func TestPromptTellsHerHowToDrag(t *testing.T) {
 	for prompt, want := range map[string]bool{
-		"这三句各自在算账的哪一步？拖到角色各自里。": true,
-		"把它们拖进对应的格子。":            true,
+		"这三句各自在算账的哪一步？拖到角色各自里。":   true,
+		"把它们拖进对应的格子。":             true,
 		"分析下列句子，判断它们各自属于哪一类论证成分。": false,
 	} {
 		if got := promptTellsHerHowToDrag(prompt); got != want {

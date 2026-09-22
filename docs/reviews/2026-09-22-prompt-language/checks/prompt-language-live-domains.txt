@@ -1,0 +1,40 @@
+=== RUN   TestClarityGrading
+=== RUN   TestClarityGrading/zh
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=1 model=dashscope/glm-5.3 ms=12520 input=2089 output=483 valid=true
+=== RUN   TestClarityGrading/en
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=1 model=dashscope/glm-5.3 ms=12838 input=1843 output=718 valid=true
+--- PASS: TestClarityGrading (25.36s)
+    --- PASS: TestClarityGrading/zh (12.52s)
+    --- PASS: TestClarityGrading/en (12.84s)
+=== RUN   TestClarityPromptLanguageDomains
+=== RUN   TestClarityPromptLanguageDomains/selection
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/selection sample=1 model=dashscope/glm-5.3 ms=1136 input=2398 output=52 valid=true
+=== RUN   TestClarityPromptLanguageDomains/awakening-report
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/awakening-report sample=1 model=dashscope/glm-5.3 ms=2129 input=466 output=127 valid=true
+=== RUN   TestClarityPromptLanguageDomains/title
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title sample=1 model=dashscope/qwen3.7-flash ms=869 input=226 output=41 valid=true
+=== RUN   TestClarityPromptLanguageDomains/harvest
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/harvest sample=1 model=dashscope/deepseek-v4-flash ms=1466 input=2161 output=63 valid=true
+=== RUN   TestClarityPromptLanguageDomains/dig
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/dig sample=1 model=dashscope/glm-5.3 ms=2982 input=520 output=124 valid=true
+=== RUN   TestClarityPromptLanguageDomains/news-select
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-select sample=1 model=dashscope/deepseek-v4-flash ms=810 input=2602 output=23 valid=false
+    prompt_language_live_test.go:21: select reply 里没有一条可用的新闻 (visible output preserved in evidence)
+=== RUN   TestClarityPromptLanguageDomains/news-write
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-write sample=1 model=dashscope/deepseek-v4-flash ms=1527 input=401 output=101 valid=true
+--- FAIL: TestClarityPromptLanguageDomains (10.93s)
+    --- PASS: TestClarityPromptLanguageDomains/selection (1.14s)
+    --- PASS: TestClarityPromptLanguageDomains/awakening-report (2.13s)
+    --- PASS: TestClarityPromptLanguageDomains/title (0.87s)
+    --- PASS: TestClarityPromptLanguageDomains/harvest (1.47s)
+    --- PASS: TestClarityPromptLanguageDomains/dig (2.98s)
+    --- FAIL: TestClarityPromptLanguageDomains/news-select (0.81s)
+    --- PASS: TestClarityPromptLanguageDomains/news-write (1.53s)
+=== RUN   TestClarityGradingNoInventedIssue
+    prompt_language_live_test.go:62: TestClarityGradingNoInventedIssue sample=1 model=dashscope/glm-5.3 ms=2480 input=1216 output=143 valid=true
+--- PASS: TestClarityGradingNoInventedIssue (2.48s)
+FAIL
+FAIL	mindimprint/api/internal/api	39.300s
+FAIL

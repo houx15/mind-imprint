@@ -104,7 +104,7 @@ func composePrompt(sk skills.Skill) string {
 	order, _ := sk.TopoOrder()
 	var b strings.Builder
 	b.WriteString("你是一名批判性思维写作教练。下面是一条完整的写作项目流程，共若干环节，按先后顺序排列。")
-	b.WriteString("学生带着自己的任务进来，可能已经完成了其中一些环节。请根据她贴进来的内容判断：哪些环节她已经实质做过、可以跳过（keep=false），哪些还需要走一遍（keep=true）。\n")
+	b.WriteString("学生带着自己的任务进来，可能已经完成了其中一些环节。请根据学生贴进来的内容判断：哪些环节学生已经实质做过、可以跳过（keep=false），哪些还需要走一遍（keep=true）。\n")
 	b.WriteString("拿不准时保留（keep=true）——跳过只是一个建议，学生随时能把某个环节重新打开。\n\n环节：\n")
 	for _, id := range order {
 		c := sk.Contracts[id]

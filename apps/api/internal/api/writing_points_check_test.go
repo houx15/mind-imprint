@@ -164,7 +164,7 @@ func TestPointAnglesBlockOnlyWhenSheStillNeedsOne(t *testing.T) {
 			}
 		}
 		// 🚨 一次一个问题（AGENTS.md 铁律③）。
-		if !strings.Contains(got, "一次只问一个问题") {
+		if !strings.Contains(got, "选择一个角度") {
 			t.Error("没写「一次只问一个问题」—— 四个角度摆出来很容易变成一次问四件事")
 		}
 	}
