@@ -924,7 +924,7 @@ export function ReadingRoom({
                   {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
                       要回去找一个词」，不是开读前的那张地图。 */}
                   <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
-                  {loop.status === "idle" && <p className="student-selection-hint">划选文字后可摘抄或放入对话框；点击段落可查看该段的阅读工具</p>}
+                  {loop.status === "idle" && <p className="student-selection-hint">{excerptOnly ? "划选文字后可放入对话框；导入全文后可使用摘抄功能" : "划选文字后可摘抄或放入对话框；点击段落可查看该段的阅读工具"}</p>}
                   {excerptError && (
                     <p className="student-selection-hint" role="alert" style={{ color: "var(--mk-danger)" }}>
                       摘抄失败：{excerptError}

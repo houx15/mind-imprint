@@ -218,7 +218,7 @@ func (a *API) liteCreateAnnotationFor(kind string) http.HandlerFunc {
 			}
 			if serr == nil && src.ExcerptOnly {
 				httpx.WriteError(w, r, httpx.ErrBadRequest("excerpt_only_source",
-					"这篇目前只有摘要，放入全文之后才能摘抄。", nil))
+					"摘抄失败：当前只有摘要，请先导入全文。", nil))
 				return
 			}
 		}
