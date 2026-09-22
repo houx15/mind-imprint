@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 import { Icon } from "@/ui";
 import { api, type ClassSummary } from "@/api";
 import { listClassParentReports, type ParentReportSummary } from "../api/parentReports";
@@ -121,27 +121,33 @@ export function ParentReportsPage({
           {`报告按单个学生生成。请在${className ? `「${className}」的` : "班级"}名单中选择学生，然后点击「生成家长报告」。`}
         </StudioEmpty>
       ) : (
-        <div className="teacher-row-list">
-          {rows.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              className="teacher-row-card teacher-report-card"
-              aria-label={`${r.studentName} ${rangeLabel(r.rangeStart, r.rangeEnd)}`}
-              onClick={() => onOpen(r.id)}
-            >
-              <span className="teacher-avatar">{Array.from(r.studentName || "—")[0]}</span>
-              <span className="teacher-row-card-copy">
-                <strong>{r.studentName || "—"}</strong>
-                <small>
-                  <span>{rangeLabel(r.rangeStart, r.rangeEnd) || "—"}</span>
-                  <span>创建于 {publishedMonthDay(r.createdAt) || "—"}</span>
-                </small>
-              </span>
-              <Icon icon={ArrowRight} size={18} />
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="teacher-collection-head teacher-report-index">
+            <div><span>报告目录</span><strong>{className}</strong></div>
+            <p>{rows.length} 份报告 · 按创建时间排列</p>
+          </div>
+          <div className="teacher-report-library">
+            {rows.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                className="teacher-report-document"
+                aria-label={`${r.studentName} ${rangeLabel(r.rangeStart, r.rangeEnd)}`}
+                onClick={() => onOpen(r.id)}
+              >
+                <span className="teacher-report-document-top"><Icon icon={FileText} size={18} /><span>学习报告</span></span>
+                <span className="teacher-report-document-copy">
+                  <strong>{r.studentName || "—"}</strong>
+                  <small>
+                    <span>{rangeLabel(r.rangeStart, r.rangeEnd) || "—"}</span>
+
+                  </small>
+                </span>
+                <span className="teacher-report-document-foot"><span>创建于 {publishedMonthDay(r.createdAt) || "—"}</span><span>查看报告 <Icon icon={ArrowRight} size={16} /></span></span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </TeacherPage>
   );

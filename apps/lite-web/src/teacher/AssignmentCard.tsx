@@ -43,7 +43,7 @@ export function AssignmentCard({ assignment: a, onOpen }: { assignment: Assignme
   const p = progressFromCounts(a.counts);
   const file = assignmentFileName(a);
   return (
-    <article className="teacher-task cursor-pointer" onClick={onOpen}>
+    <article className="teacher-task teacher-assignment-card cursor-pointer" onClick={onOpen}>
       <div className="teacher-task-art">
         <img src={studentArtwork[KIND_ART[a.kind] ?? "ideas"]} alt="" />
       </div>
@@ -54,9 +54,10 @@ export function AssignmentCard({ assignment: a, onOpen }: { assignment: Assignme
       </p>
       <h3>{a.title}</h3>
       {file && <p className="teacher-task-file">{file}</p>}
+      <div className="teacher-task-completion"><strong>{p.done}<small> / {p.total} 人</small></strong><span>已完成</span></div>
       <ProgressBar p={p} />
       <p className="teacher-task-detail">
-        已完成 <strong>{p.done}</strong>/{p.total} · 进行中 {p.inProgress} · 未开始 {p.notStarted}
+        进行中 {p.inProgress} · 未开始 {p.notStarted}
         {p.overdue > 0 && (
           <>
             {" · "}

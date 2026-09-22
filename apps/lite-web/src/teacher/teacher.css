@@ -1477,3 +1477,92 @@ button.teacher-row-card:hover {
   font-weight: 600;
   color: var(--mk-accent-700);
 }
+
+/* Teaching desk: task overview, document library and manuscript review. */
+.teacher-assignment-overview {
+  display: grid;
+  grid-template-columns: minmax(190px, .9fr) 2.4fr;
+  gap: 28px;
+  padding: 26px 28px;
+  margin: 6px 0 28px;
+  border: 1px solid var(--mk-border);
+  border-radius: var(--mk-radius-lg);
+  background: var(--mk-surface);
+}
+.teacher-assignment-overview-title > span { font-size: 12px; color: var(--mk-accent-700); font-weight: 650; }
+.teacher-assignment-overview-title > strong { display: block; font-size: 38px; line-height: 1.3; margin: 8px 0; font-weight: 550; font-variant-numeric: tabular-nums; }
+.teacher-assignment-overview small { font-size: 12px; font-weight: 400; color: var(--mk-muted); margin-left: 8px; }
+.teacher-assignment-overview-title p { max-width: 210px; font-size: 11px; line-height: 1.7; color: var(--mk-muted); }
+.teacher-assignment-overview-metrics { display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+.teacher-assignment-overview-metrics > div { border-left: 1px solid var(--mk-border); padding: 12px 20px; }
+.teacher-assignment-overview-metrics > div > span { font-size: 12px; color: var(--mk-muted); }
+.teacher-assignment-overview-metrics strong { display: block; font-size: 30px; line-height: 1.4; font-weight: 550; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.teacher-assignment-overview-metrics [data-status=done] strong { color: var(--mk-accent-700); }
+.teacher-collection-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 18px; }
+.teacher-collection-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.teacher-collection-filters button { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: var(--mk-radius-full); color: var(--mk-muted); font-size: 13px; transition: background .15s; }
+.teacher-collection-filters button:hover { background: var(--mk-surface); color: var(--mk-ink); }
+.teacher-collection-filters button[aria-pressed=true] { background: var(--mk-accent-100); color: var(--mk-accent-800); font-weight: 650; }
+.teacher-collection-filters button > span { font-size: 11px; font-variant-numeric: tabular-nums; }
+.teacher-page .teacher-task-grid:has(.teacher-assignment-card) { grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr)); gap: 20px; }
+.teacher-page .teacher-assignment-card { position: relative; padding: 24px; border-color: var(--mk-border); overflow: hidden; }
+.teacher-page .teacher-assignment-card .teacher-task-art { position: absolute; right: 8px; top: 2px; width: 104px; height: 94px; margin: 0; background: transparent; pointer-events: none; }
+.teacher-page .teacher-assignment-card .teacher-task-art img { height: 100%; }
+.teacher-page .teacher-assignment-card .teacher-task-eyebrow { min-height: 32px; padding-right: 80px; font-size: 11px; }
+.teacher-page .teacher-assignment-card h3 { margin-top: 18px; margin-bottom: 12px; font-size: 19px; line-height: 1.5; }
+.teacher-task-completion { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 20px; }
+.teacher-task-completion > strong { font-size: 27px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.teacher-task-completion small { font-size: 12px; font-weight: 400; color: var(--mk-muted); }
+.teacher-task-completion > span { font-size: 11px; color: var(--mk-muted); }
+.teacher-page .teacher-assignment-card .teacher-progress { height: 6px; margin-top: 9px; }
+.teacher-page .teacher-assignment-card .teacher-task-foot { border-top: 1px solid var(--mk-border); margin-top: 18px; padding-top: 14px; }
+.teacher-page .teacher-assignment-card .teacher-cta { background: transparent; color: var(--mk-accent-700); padding: 6px 0 6px 12px; gap: 10px; }
+.teacher-page .teacher-task-new { min-height: 240px; }
+.teacher-report-index { padding-bottom: 16px; border-bottom: 1px solid var(--mk-border); }
+.teacher-report-index > div { display: flex; gap: 16px; align-items: baseline; }
+.teacher-report-index > div > span, .teacher-report-index p { color: var(--mk-muted); font-size: 12px; }
+.teacher-report-index strong { font-size: 20px; font-weight: 600; }
+.teacher-report-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 24px; }
+.teacher-report-document { display: flex; flex-direction: column; min-width: 0; text-align: left; padding: 25px 25px 20px; background: var(--mk-surface); border: 1px solid var(--mk-border); border-radius: 3px 18px 18px 3px; box-shadow: inset 5px 0 var(--mk-accent-100); transition: transform .18s, border-color .18s; }
+.teacher-report-document:hover { transform: translateY(-3px); border-color: var(--mk-accent-300); }
+.teacher-report-document-top { display: flex; gap: 9px; align-items: center; font-size: 11px; letter-spacing: .06em; color: var(--mk-accent-700); }
+.teacher-report-document-copy { display: flex; flex-direction: column; gap: 12px; padding-block: 30px 32px; }
+.teacher-report-document-copy strong { font-size: 25px; font-weight: 550; overflow-wrap: anywhere; }
+.teacher-report-document-copy small { font-size: 12px; color: var(--mk-muted); }
+.teacher-report-document-foot { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--mk-border); font-size: 11px; color: var(--mk-muted); }
+.teacher-report-document-foot > span:last-child { display: inline-flex; align-items: center; gap: 8px; color: var(--mk-accent-700); }
+.teacher-page .teacher-grading-article { border: 1px solid var(--mk-border); border-radius: var(--mk-radius-lg); background: var(--mk-surface); padding: 0 30px 32px; scroll-padding-top: 86px; }
+.teacher-manuscript-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 1; margin-inline: -30px; margin-bottom: 28px; padding: 18px 30px; border-bottom: 1px solid var(--mk-border); background: var(--mk-surface); }
+.teacher-manuscript-heading > div { display: flex; gap: 16px; align-items: baseline; }
+.teacher-manuscript-heading span { font-size: 11px; color: var(--mk-muted); }
+.teacher-manuscript-heading strong { font-size: 14px; font-weight: 600; }
+.teacher-page .teacher-grading-article > div { line-height: 2; font-size: 16px; }
+.teacher-page .teacher-grading-grid { gap: 24px; }
+.teacher-page .teacher-grading-actions { padding: 16px 18px; border: 1px solid var(--mk-border); border-radius: var(--mk-radius-md); background: var(--mk-surface); }
+.teacher-grading-preview > section:first-child { padding: 20px; border-radius: var(--mk-radius-md); background: var(--mk-accent-50); }
+.teacher-grading-preview > section:first-child > div > span:first-child { font-size: 32px; color: var(--mk-accent-700); }
+.teacher-grading-preview .teacher-grading-point { border-width: 0 0 1px; border-radius: 0; background: transparent; padding: 14px 0 20px; }
+.teacher-grading-preview .teacher-grading-point:last-child { border-bottom: 0; }
+.teacher-grading-preview .teacher-grading-point button { border-left: 2px solid var(--mk-accent-300); padding-left: 12px; line-height: 1.8; text-decoration: none; }
+.teacher-grading-preview .teacher-grading-point button:hover { color: var(--mk-accent-700); }
+@media (min-width: 900px) {
+  .teacher-page .teacher-grading-grid { grid-template-columns: minmax(0, 1.15fr) minmax(320px, 1fr); }
+}
+@media (max-width: 1100px) {
+  .teacher-assignment-overview { grid-template-columns: 1fr; gap: 16px; }
+  .teacher-assignment-overview-title { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .teacher-assignment-overview-title > strong { font-size: 30px; }
+  .teacher-assignment-overview-title p { max-width: 250px; }
+  .teacher-assignment-overview-metrics > div:first-child { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 600px) {
+  .teacher-assignment-overview { padding: 20px; }
+  .teacher-assignment-overview-metrics { grid-template-columns: repeat(2, 1fr); row-gap: 20px; }
+  .teacher-assignment-overview-metrics > div:nth-child(3) { border-left: 0; padding-left: 0; }
+}
+.teacher-report-edit-section { padding: 8px 0 22px; border-bottom: 1px solid var(--mk-border); }
+.teacher-report-edit-section > label { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; font-size: 17px; font-weight: 600; }
+.teacher-report-edit-section > label > span { font-size: 12px; font-weight: 500; color: var(--mk-accent-700); font-variant-numeric: tabular-nums; }
+.teacher-report-edit-section > textarea { padding: 16px; line-height: 1.9; background: var(--mk-surface); border-color: var(--mk-border); }
+.teacher-report-edit-section > textarea:focus { border-color: var(--mk-accent-300); }
+.teacher-report-edit-section > div:last-child { padding-top: 6px; font-size: 11px; }

@@ -327,6 +327,10 @@ export function GradingPage({
           appeared below its visible edge — the teacher saw nothing happen. */}
       <div className="teacher-grading-grid mt-6 grid min-h-0 flex-1 grid-cols-1 gap-8 min-[900px]:grid-cols-[minmax(0,44rem)_minmax(20rem,1fr)]">
         <article className="teacher-grading-article mk-scroll min-w-0">
+          <header className="teacher-manuscript-heading">
+            <div><span>学生原文</span><strong>{grading.displayName}</strong></div>
+            <span>版本 {grading.versionNumber}</span>
+          </header>
           {picking !== null ? (
             <div className="flex flex-col gap-2">
               <p className="text-mk-small text-mk-muted">请选择一句作为第 {picking + 1} 条意见的引文</p>
@@ -401,7 +405,7 @@ export function GradingPage({
             />
           )}
 
-          <div className="flex shrink-0 flex-col gap-2 border-t border-mk-border pt-4">
+          <div className="teacher-grading-actions flex shrink-0 flex-col gap-2 border-t border-mk-border pt-4">
             <div className="flex flex-wrap gap-2">
               {editable && (
                 <Button variant="primary" size="sm" disabled={busy} onClick={() => void run("保存", "save", saveContent)}>

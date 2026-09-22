@@ -6,7 +6,7 @@ import { AssignmentCard } from "./AssignmentCard";
 import { Select } from "./controls/Select";
 import { StudioEmpty, StudioError, StudioHeading, StudioLoading } from "./StudioArtwork";
 import { TeacherPage } from "./TeacherPage";
-import { errorText, pickClassId, readLastClassId, writeLastClassId } from "./assignmentLogic";
+import { errorText, pickClassId, progressFromCounts, readLastClassId, writeLastClassId } from "./assignmentLogic";
 
 /**
  * AssignmentsPage — `/assignments`: one class's assignments as cards, each
@@ -21,6 +21,7 @@ export function AssignmentsPage({
   onNew: (classId: string) => void;
   onOpen: (assignmentId: string) => void;
 }) {
+  const [kind, setKind] = useState("all");
   const [classes, setClasses] = useState<ClassSummary[] | null>(null);
   const [classesError, setClassesError] = useState<string | null>(null);
   const [classesNonce, setClassesNonce] = useState(0);
@@ -97,6 +98,7 @@ export function AssignmentsPage({
               value={classId}
               onChange={(id) => {
                 setClassId(id);
+                setKind("all");
                 writeLastClassId(id);
               }}
               options={classes.map((c) => ({ value: c.id, label: c.name }))}
@@ -123,15 +125,43 @@ export function AssignmentsPage({
           作业可以是一篇阅读、一篇写作或一个项目。请为这个班布置第一份作业。
         </StudioEmpty>
       ) : (
-        <div className="teacher-task-grid">
-          {rows.map((a) => (
-            <AssignmentCard key={a.id} assignment={a} onOpen={() => onOpen(a.id)} />
-          ))}
-          <button type="button" className="teacher-task-new" onClick={openNew}>
-            <strong>布置作业</strong>
-            <small>用表单填写，或向印记说明要求，由印记填写。</small>
-          </button>
-        </div>
+        <>
+          <section className="teacher-assignment-overview" aria-label="班级作业概览">
+            <div className="teacher-assignment-overview-title">
+              <span>班级作业概览</span>
+              <strong>{rows.length}<small>份作业</small></strong>
+              <p>按作业统计，每名学生可计入多份作业。</p>
+            </div>
+            <div className="teacher-assignment-overview-metrics">
+              {([
+                ["已完成", rows.reduce((sum, a) => sum + progressFromCounts(a.counts).done, 0), "done"],
+                ["进行中", rows.reduce((sum, a) => sum + progressFromCounts(a.counts).inProgress, 0), "active"],
+                ["已逾期", rows.reduce((sum, a) => sum + progressFromCounts(a.counts).overdue, 0), "overdue"],
+                ["待批改", rows.reduce((sum, a) => sum + a.toGrade, 0), "grading"],
+              ] as const).map(([label, count, status]) => (
+                <div key={label} data-status={status}><span>{label}</span><strong>{count}<small>人次</small></strong></div>
+              ))}
+            </div>
+          </section>
+          <div className="teacher-collection-head">
+            <div className="teacher-collection-filters" role="group" aria-label="作业类型">
+              {([["all", "全部"], ["reading", "阅读"], ["writing", "写作"], ["project", "项目"]] as const).map(([value, label]) => (
+                <button type="button" key={value} aria-pressed={kind === value} onClick={() => setKind(value)}>
+                  {label}<span>{rows.filter((a) => value === "all" || a.kind === value).length}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="teacher-task-grid">
+            {rows.filter((a) => kind === "all" || a.kind === kind).map((a) => (
+              <AssignmentCard key={a.id} assignment={a} onOpen={() => onOpen(a.id)} />
+            ))}
+            <button type="button" className="teacher-task-new" onClick={openNew}>
+              <strong>布置作业</strong>
+              <small>用表单填写，或向印记说明要求，由印记填写。</small>
+            </button>
+          </div>
+        </>
       )}
     </TeacherPage>
   );

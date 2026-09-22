@@ -544,15 +544,15 @@ export function ParentReportEditor({
                 草稿由印记按学习记录起草。请重新生成草稿，再逐段修改。
               </StudioEmpty>
             )}
-            {sections.map((key) => {
+            {sections.map((key, sectionIndex) => {
               const text = texts[key] ?? "";
               const count = runeCount(text);
               const state = sectionState[key];
               const mentions = report.hiddenMentions[key];
               return (
-                <div key={key} className="flex flex-col gap-1.5">
+                <div key={key} className="teacher-report-edit-section flex flex-col gap-1.5">
                   <label htmlFor={`parent-report-${key}`} className="text-mk-small font-bold text-mk-ink">
-                    {SECTION_LABELS[key]}
+                    <span aria-hidden="true">{String(sectionIndex + 1).padStart(2, "0")}</span>{SECTION_LABELS[key]}
                   </label>
                   {kept.includes(key) && (
                     <p className="text-mk-small font-semibold text-mk-accent-700" role="status">
@@ -565,7 +565,7 @@ export function ParentReportEditor({
                   <textarea
                     id={`parent-report-${key}`}
                     value={text}
-                    rows={6}
+                    rows={4}
                     disabled={anyBusy}
                     onChange={(e) => editText(key, e.target.value)}
                     onBlur={() => void saveSection(key)}
