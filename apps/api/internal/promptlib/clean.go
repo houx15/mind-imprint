@@ -36,7 +36,7 @@ var (
 	// 第三部分 写作 / 第二节 书面表达 / 四、读写结合
 	sectionLine = regexp.MustCompile(`^\s*(第[一二三四五六七八九十百\d]+\s*[部分节篇]+|[一二三四五六七八九十]+\s*[、.．])\s*`)
 	// 纯粹的栏目名。
-	bareHeading = regexp.MustCompile(`^\s*(书面表达|写作|作文|微写作|大作文|小作文|读写结合|应用文写作|继续性写作|概要写作|读后续写)\s*$`)
+	bareHeading = regexp.MustCompile(`^\s*(书面表达|写作|作文|作文题|微写作|大作文|小作文|读写结合|应用文写作|继续性写作|概要写作|读后续写|文段表达|写作表达|综合性学习与写作)\s*$`)
 	// 开头的题号：20. / 23．/ 5、
 	leadingNumber = regexp.MustCompile(`^\s*\d{1,3}\s*[.．、]\s*`)
 	// 一整组只谈分数的括号。
@@ -45,6 +45,16 @@ var (
 	scoreOnly = regexp.MustCompile(`^[\s\d分满共本题两节小计，,、；;：:]*$`)
 	// 没有括号、光秃秃挂着的分值。
 	bareScore = regexp.MustCompile(`(满分|共|本题)\s*\d{1,3}\s*分`)
+	// 括号里的编号：（二）写作
+	parenOrdinal = regexp.MustCompile(`^\s*[（(]\s*[一二三四五六七八九十\d]{1,3}\s*[）)]\s*`)
+	// 卷面管理用的那几句 —— 它们对着考场里那个学生说话，不对着这里的她说话。
+	//
+	//	将题目写在答题卡上。
+	//	不透露所在区、学校及个人信息。
+	//
+	// 这一条只收**说的是怎么交卷、别写真名**的那几句。
+	// 「不得抄袭、套作」「书写工整」不在里面：那是真的写作要求。
+	adminClause = regexp.MustCompile(`答题卡|答题纸|作文纸|试卷上|[不勿][得要]?(要)?(在文中)?(泄露|透露)`)
 )
 
 // CleanPromptText 去掉题面开头的卷面脚手架和分值标注。
@@ -60,10 +70,13 @@ func CleanPromptText(s string) string {
 			i++
 			continue
 		}
+		// 编号有两种写法：「三、」和「（二）」。两种都剥掉之后再看剩下的是不是
+		// 一个光秃秃的栏目名 —— ZKYW-018 顶着的正是「（二）写作」。
 		rest := strings.TrimSpace(sectionLine.ReplaceAllString(t, ""))
+		rest = strings.TrimSpace(parenOrdinal.ReplaceAllString(rest, ""))
 		switch {
 		// 「第三部分 写作」「四、读写结合」——砍掉编号之后只剩一个栏目名（或什么都不剩）。
-		case sectionLine.MatchString(t) && (rest == "" || bareHeading.MatchString(rest)):
+		case (sectionLine.MatchString(t) || parenOrdinal.MatchString(t)) && (rest == "" || bareHeading.MatchString(rest)):
 			i++
 		// 光秃秃的「书面表达」「作文」。
 		case bareHeading.MatchString(t):
@@ -83,7 +96,10 @@ done:
 	// ③ 全文的分值标注。
 	out = stripScores(out)
 
-	// ④ 收尾：行尾空格、连着三个以上的空行压成两个、两头修掉。
+	// ④ 卷面管理用的那几句（答题卡、别写真名）。按小句丢，见 adminClause。
+	out = dropAdminClauses(out)
+
+	// ⑤ 收尾：行尾空格、连着三个以上的空行压成两个、两头修掉。
 	var b strings.Builder
 	for n, l := range strings.Split(out, "\n") {
 		if n > 0 {
@@ -119,4 +135,43 @@ func stripScores(s string) string {
 	// 分值拿掉之后可能留下「，」「、」开头的碎渣。
 	s = strings.TrimLeft(s, " \t　")
 	return s
+}
+
+// dropAdminClauses 逐行、逐小句地把卷面管理用的那几句去掉。
+//
+// 按小句而不是按行：「不少于700字。不透露所在区、学校及个人信息。」是一行，
+// 整行丢掉会把字数要求一起丢了。
+func dropAdminClauses(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if !adminClause.MatchString(line) {
+			continue
+		}
+		lines[i] = keepNonAdminClauses(line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func keepNonAdminClauses(line string) string {
+	idx := clauseSplit.FindAllStringIndex(line, -1)
+	var b strings.Builder
+	at := 0
+	write := func(text, sep string) {
+		if strings.TrimSpace(text) == "" || adminClause.MatchString(text) {
+			return
+		}
+		b.WriteString(text)
+		b.WriteString(sep)
+	}
+	for _, r := range idx {
+		write(line[at:r[0]], line[r[0]:r[1]])
+		at = r[1]
+	}
+	if at < len(line) {
+		write(line[at:], "")
+	}
+	out := strings.TrimSpace(b.String())
+	out = strings.TrimLeft(out, "，,；;。、 \u3000")
+	// 丢掉最后那一小句之后，行尾常常剩下一个孤零零的分号。
+	return strings.TrimRight(strings.TrimSpace(out), "，,；;、 \u3000")
 }

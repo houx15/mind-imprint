@@ -279,7 +279,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/library/{slug}/levels/{tier}", liteOnly(a.startLibraryReading))
 
 	// 写作题库（2026-09-21）。同上：内容在 internal/promptlib 里 go:embed。
-	// 705 道题，所以筛 / 搜 / 翻页全在服务端做 —— 一次把全库发给前端是 900KB，
+	// 700 多道题，所以筛 / 搜 / 翻页全在服务端做 —— 一次把全库发给前端是 900KB，
 	// 而「筛完之后每一维还剩哪些值」只有看得见全库的人算得出来。
 	// 老师端和学生端看的是同一份内容，走同一条路（老师也是 lite 账号）。
 	mux.Handle("GET /api/v1/writing-prompts", liteOnly(a.listWritingPrompts))

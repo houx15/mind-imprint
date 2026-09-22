@@ -5,6 +5,7 @@ import { GuideBox } from "../../src/writings/GuideBox";
 import { MiniMap } from "../../src/writings/MiniMap";
 import type { WritingOutlineItem } from "../../src/api/writingRoom";
 import "../../src/index.css";
+import type { Writing } from "../../src/api/writings";
 
 /**
  * 一次性的看图台之二 —— R3 那三块新屏，在**真浏览器**里看一眼。
@@ -59,6 +60,14 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return realFetch(input, init);
 }) as typeof window.fetch;
 
+/** harness 用的最小 writing —— 只有 PromptSidebar 读得到的那几个字段是真的。 */
+const HARNESS_WRITING = {
+  id: "w1",
+  assignedPrompt:
+    "阅读下面的材料，根据要求写作。词语是表达思想情感的载体，也是展现社会生活变化的窗口。在你的成长过程中，你对哪一个词语的理解发生了变化？请结合自身经历，写一篇文章。",
+  targetWords: 800,
+} as unknown as Writing;
+
 function Harness() {
   const [outline, setOutline] = useState(SEED);
   const [structureKey, setStructureKey] = useState("");
@@ -79,6 +88,9 @@ function Harness() {
       <div style={{ flex: 1, minHeight: 0 }}>
         {screen === "flow" ? (
           <FlowStage
+            // 题目那一栏要一份 writing；harness 里给一个带题目的最小对象，
+            // 这样左边那一栏也在这一屏上看得见。
+            writing={HARNESS_WRITING}
             writingId="w1"
             outline={outline}
             structureKey={structureKey}

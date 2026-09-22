@@ -16,7 +16,7 @@ import type { Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
-import { AssignedPromptLine } from "./AssignedPromptLine";
+import { PromptSidebar } from "./PromptSidebar";
 import { MindMap } from "./MindMap";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
@@ -264,7 +264,11 @@ export function PlanningView({
           {/* Same line as the room header: an assigned writing starts here,
               in 结构, so the deadline has to show before she reaches 去写. */}
           <AssignmentLine atomId={writing.id} className="mt-0.5 block text-mk-small text-mk-muted" />
-          <AssignedPromptLine writing={writing} />
+          {/* 🚨 题目不在这里。它原来是这下面一行 line-clamp-2 的小字，全文只在
+              title 属性里 —— 同事 2026-09-22 的意见 1：「选择题目进入写作后，
+              无法看到完整的题目。想要看完整的题目还需要退出重新搜索，
+              可能不利于学生**边看题目边构思**」。构思正是这一屏。
+              它现在是左边那一栏，和段落、成稿两步用的是同一个 PromptSidebar。 */}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-mk-small text-mk-muted">先想清楚，再动笔</span>
@@ -291,7 +295,11 @@ export function PlanningView({
         </div>
       )}
 
-      <div className={hasMap ? "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 flex-1 justify-center"}>
+      {/* 题目那一栏在最左边，构思全程都在。她要「边看题目边构思」，
+          那这两件东西就得同时在屏幕上。 */}
+      <div className="flex min-h-0 flex-1">
+        <PromptSidebar writing={writing} />
+        <div className={hasMap ? "grid min-h-0 min-w-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 min-w-0 flex-1 justify-center"}>
         <div className={hasMap ? "flex min-h-0 flex-col" : "flex min-h-0 w-full max-w-[720px] flex-col"}>
           <div className="px-5 pt-4"><StudentCoachHeading label="写作构思" /></div>
           <ChatLog messages={chatMessages} thinking={sending || opening} className="mk-scroll min-h-0 flex-1 px-5 py-4" />
@@ -385,6 +393,7 @@ export function PlanningView({
             <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />
           </aside>
         )}
+        </div>
       </div>
     </div>
   );
