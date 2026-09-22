@@ -35,10 +35,10 @@ import { Structure } from "./surfaces/Structure";
  * 每件工具的 task 写在它自己的界面文件里，只有这一行在这里。
  */
 export const TOOL_TASKS: Record<string, string> = {
-  observe: "带着一个问题出去看看，回来说说看到了什么",
-  board: "把看到的、听到的、猜的、想问的都摊到板上",
+  observe: "请围绕问题开展观察，并记录结果",
+  board: "请整理观察、引文、推论和待研究的问题",
   reframe: "说清楚谁需要什么，为什么",
-  ideas: "多想几个办法，再挑一个先试",
+  ideas: "请提出多个方案，选择一个进行试用",
   review: "AI 可能出错，需要对它产出的内容做一次深度审核",
   decide: "深入思考 AI 提供的多个选项，做出合理的决策",
   structure: "审查整体结构是否合理",
@@ -51,7 +51,7 @@ export const TOOL_TASKS: Record<string, string> = {
   sites: "可选：探索画面与互动效果，记录灵感",
   creative: "描述喜欢的感觉，一起构思主页意象",
   look: "挑一组配色和一个风格，需要的话生成一张头图",
-  ship: "看一遍这一页，确认之后放出去",
+  ship: "请预览并检查主页，确认后发布",
 };
 
 export interface ToolSurfaceProps {

@@ -106,7 +106,7 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
     return (
       <ToolFrame
         title="上线"
-        task="请查看这一页，确认之后放出去"
+        task="请预览并检查主页，确认后发布"
         why={tool.reason}
         todo="处理中"
         onFinish={() => onFinish({}, "")}

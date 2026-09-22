@@ -389,7 +389,7 @@ export function CoachCard({
         }}
       >
         <span className="text-mk-small leading-relaxed text-mk-muted">{card.prompt}</span>
-        <span className="text-mk-small text-mk-faint">已替换。点一下可以重看这道题。</span>
+        <span className="text-mk-small text-mk-faint">已替换。点击可查看原题。</span>
       </button>
     );
   }

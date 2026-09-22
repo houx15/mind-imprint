@@ -181,7 +181,7 @@ export function FlowStage({
       {structures.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="text-mk-label font-semibold text-mk-accent-700">论证结构</h2>
-          <p className="text-mk-small text-mk-muted">这几条理由之间是什么关系。选一个；再点一下取消。</p>
+          <p className="text-mk-small text-mk-muted">请选择分论点之间的关系，再次点击可取消选择。</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {structures.map((s) => {
               const on = s.id === structureKey;

@@ -291,9 +291,9 @@ function PlainSurface({ tool, onFinish, onClose }: ToolSurfaceProps) {
   return (
     <ToolFrame
       title={tool.label}
-      task={TOOL_TASKS[tool.tool] ?? "把这件事做完，把结果写在下面"}
+      task={TOOL_TASKS[tool.tool] ?? "请完成任务并记录结果"}
       why={tool.reason}
-      todo={text.trim() ? "" : "还没写结果"}
+      todo={text.trim() ? "" : "请填写任务结果"}
       onFinish={() => onFinish({ text: text.trim() }, text.trim())}
       onClose={onClose}
     >

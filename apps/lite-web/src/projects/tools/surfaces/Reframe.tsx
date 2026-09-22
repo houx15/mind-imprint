@@ -97,7 +97,7 @@ const SLOTS: Slot[] = [
     hint: "背后的原因与影响",
     tone: "taro",
     icon: HelpCircle,
-    empty: "没有会怎样？答得出这个，问题才站得住",
+    empty: "请说明这个需求未被满足时，会产生什么具体影响",
   },
 ];
 

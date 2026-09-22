@@ -116,7 +116,7 @@ export function ReadingsLanding() {
         if (!cancelled) setHistory(rows);
       })
       .catch(() => {
-        if (!cancelled) setHistoryError("我的阅读暂时加载不出来，刷新一下再试试。");
+        if (!cancelled) setHistoryError("加载阅读记录失败，请刷新重试。");
       });
     return () => {
       cancelled = true;

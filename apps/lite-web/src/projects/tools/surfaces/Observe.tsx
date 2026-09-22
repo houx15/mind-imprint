@@ -155,7 +155,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       title={tool.label}
       task="请逐条记录观察、原话、推论或问题"
       why={tool.reason}
-      todo={filled.length === 0 ? "至少带回来一条" : ""}
+      todo={filled.length === 0 ? "请至少填写一条记录" : ""}
       finishLabel="提交记录并讨论"
       onFinish={() => void finish()}
       busy={!draft.loaded || submitting || uploading !== null}
