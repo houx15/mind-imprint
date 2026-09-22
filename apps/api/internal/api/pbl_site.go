@@ -528,6 +528,9 @@ func (a *API) putPblSiteLook(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/pbl/site/publish
 func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	if a.rejectLegacyShowcasePublish(w, r, u.ID) {
+		return
+	}
 	entitled, err := HasEntitlement(r.Context(), u)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -602,6 +605,9 @@ func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/v1/pbl/site/publish — 撤销。幂等。
 func (a *API) revokePblSite(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	if a.rejectLegacyShowcasePublish(w, r, u.ID) {
+		return
+	}
 	if _, err := a.d.Queries.SetPblSiteShare(r.Context(), sqlc.SetPblSiteShareParams{
 		UserID: u.ID, ShareToken: nil, PublishedAt: pgtype.Timestamptz{},
 	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -38,6 +39,11 @@ type showcaseWork struct {
 	Title      string `json:"title"`
 	Summary    string `json:"summary"`
 	PublicPath string `json:"publicPath,omitempty"`
+}
+
+type showcasePublication struct {
+	Config showcaseConfig `json:"config"`
+	Works  []showcaseWork `json:"works"`
 }
 
 type showcaseState struct {
@@ -86,8 +92,8 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 		out := make([]string, 0, len(in))
 		seen := map[string]bool{}
 		for _, v := range in {
-			v = trimShowcaseRunes(v, width)
-			if v == "" || seen[v] {
+			v = strings.TrimSpace(v)
+			if v == "" || len([]rune(v)) > width || seen[v] {
 				return nil, false
 			}
 			seen[v] = true
@@ -166,7 +172,27 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 			state.Published = false
 		}
 	}
-	state.HasUnpublishedChanges = !bytes.Equal(compactJSON(row.Draft), compactJSON(row.PublishedConfig))
+	var publication showcasePublication
+	publishedConfig := decodeShowcase(row.PublishedConfig, "")
+	if json.Unmarshal(row.PublishedConfig, &publication) == nil && publication.Config.Layout != "" {
+		publishedConfig = publication.Config
+	}
+	state.HasUnpublishedChanges = !reflect.DeepEqual(draft, publishedConfig)
+	if !state.HasUnpublishedChanges && publication.Config.Layout != "" {
+		byID := make(map[string]showcaseWork, len(works))
+		for _, work := range works {
+			byID[work.ID] = work
+		}
+		current := make([]showcaseWork, 0, len(draft.SelectedWorkIDs))
+		for _, id := range draft.SelectedWorkIDs {
+			if work, ok := byID[id]; ok {
+				current = append(current, work)
+			}
+		}
+		currentBlob, _ := json.Marshal(current)
+		publishedWorksBlob, _ := json.Marshal(publication.Works)
+		state.HasUnpublishedChanges = !bytes.Equal(currentBlob, publishedWorksBlob)
+	}
 	if site, siteErr := a.d.Queries.GetPblSite(r.Context(), u.ID); siteErr == nil {
 		state.HasLegacySite = !state.Published && site.ShareToken != nil && *site.ShareToken != ""
 		if state.HasLegacySite {
@@ -289,17 +315,30 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	allowed := map[string]bool{}
+	allowed := map[string]showcaseWork{}
 	for _, x := range works {
-		allowed[pbl.SiteItemID(u.ID.String(), x.AtomID.String())] = true
+		id := pbl.SiteItemID(u.ID.String(), x.AtomID.String())
+		work := showcaseWork{ID: id, Kind: x.Kind, Title: x.Title, Summary: trimShowcaseRunes(x.Summary, 240)}
+		if x.Kind != "project" {
+			work.PublicPath = publicWorkPath(x.ShareToken)
+		}
+		allowed[id] = work
 	}
+	selected := make([]showcaseWork, 0, len(c.SelectedWorkIDs))
 	for _, id := range c.SelectedWorkIDs {
-		if !allowed[id] {
+		work, ok := allowed[id]
+		if !ok {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_work", "选择的作品不存在", nil))
 			return
 		}
+		selected = append(selected, work)
 	}
-	if _, err = q.PublishPblShowcase(r.Context(), sqlc.PublishPblShowcaseParams{UserID: u.ID, Revision: in.ExpectedRevision}); err != nil {
+	publicationBlob, _ := json.Marshal(showcasePublication{Config: c, Works: selected})
+	if _, err = q.PublishPblShowcase(r.Context(), sqlc.PublishPblShowcaseParams{UserID: u.ID, Revision: in.ExpectedRevision, PublishedConfig: publicationBlob}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteError(w, r, httpx.ErrConflict("主页已在其他位置修改，请刷新后重试"))
+			return
+		}
 		httpx.WriteError(w, r, err)
 		return
 	}
@@ -357,28 +396,72 @@ func (a *API) unpublishPblShowcase(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig, []showcaseWork, error) {
 	row, err := a.d.Queries.GetPblShowcase(r.Context(), userID)
-	if errors.Is(err, pgx.ErrNoRows) || !row.PublishedAt.Valid {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, nil
 	}
 	if err != nil {
 		return nil, nil, err
 	}
-	c := decodeShowcase(row.PublishedConfig, "")
+	if !row.PublishedAt.Valid {
+		return nil, nil, nil
+	}
+	var publication showcasePublication
+	if err := json.Unmarshal(row.PublishedConfig, &publication); err != nil || publication.Config.Layout == "" {
+		return nil, nil, errors.New("invalid published showcase")
+	}
+	c := publication.Config
 	all, err := a.showcaseWorks(r, userID)
 	if err != nil {
 		return nil, nil, err
 	}
 	byID := map[string]showcaseWork{}
 	for _, x := range all {
-		if x.Kind == "project" || x.PublicPath != "" {
+		if x.Kind == "project" {
 			byID[x.ID] = x
+		} else if x.PublicPath != "" {
+			byID[x.ID+"\x00"+x.PublicPath] = x
 		}
 	}
 	selected := make([]showcaseWork, 0, len(c.SelectedWorkIDs))
-	for _, id := range c.SelectedWorkIDs {
-		if x, ok := byID[id]; ok {
-			selected = append(selected, x)
+	visibleIDs := make([]string, 0, len(c.SelectedWorkIDs))
+	for _, snap := range publication.Works {
+		key := snap.ID
+		if snap.Kind != "project" {
+			key += "\x00" + snap.PublicPath
+		}
+		if _, ok := byID[key]; ok {
+			selected = append(selected, snap)
+			visibleIDs = append(visibleIDs, snap.ID)
 		}
 	}
+	c.SelectedWorkIDs = visibleIDs
 	return &c, selected, nil
+}
+
+// showcaseWasPublished keeps the retired homepage publishers from silently
+// replacing (or appearing to replace) the standalone showcase. A revoked
+// showcase retains its snapshot, so reopening the old publisher cannot expose
+// old material by accident.
+func (a *API) showcaseWasPublished(r *http.Request, userID uuid.UUID) (bool, error) {
+	row, err := a.d.Queries.GetPblShowcase(r.Context(), userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(row.PublishedConfig) > 0 && string(row.PublishedConfig) != "null", nil
+}
+
+func (a *API) rejectLegacyShowcasePublish(w http.ResponseWriter, r *http.Request, userID uuid.UUID) bool {
+	published, err := a.showcaseWasPublished(r, userID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return true
+	}
+	if published {
+		httpx.WriteError(w, r, httpx.ErrConflict("个人主页已使用新版展示页，请在“我的主页”中发布或停止发布"))
+		return true
+	}
+	return false
 }
