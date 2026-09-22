@@ -312,6 +312,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/awakening/{id}/title", liteOnly(a.setAwakeningTitle))
 	mux.Handle("POST /api/v1/awakening/{id}/turn", liteOnly(a.postAwakeningTurn))
 	mux.Handle("POST /api/v1/awakening/{id}/finish", liteOnly(a.finishAwakeningRun))
+	// 她拿到过的每一份印记。树上那条「查看兴趣印记」读它 —— 原来只打得开最近
+	// 的一份，之前的没有任何一条路通向它们。
+	mux.Handle("GET /api/v1/awakening/history", liteOnly(a.listAwakeningReports))
 	mux.Handle("GET /api/v1/awakening/{id}/report", liteOnly(a.getAwakeningReport))
 	mux.Handle("POST /api/v1/awakening/{id}/share", liteOnly(a.shareAwakeningReport))
 	// 今日新闻星图。生成是惰性的（第一个打开的人触发，advisory lock 保证

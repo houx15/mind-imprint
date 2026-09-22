@@ -1,5 +1,5 @@
-import type { AwakeningThread } from "../api/awakening";
-import { LIBRARY, TERMINAL } from "./content";
+import type { AwakeningReportRow, AwakeningThread } from "../api/awakening";
+import { HISTORY, LIBRARY, TERMINAL } from "./content";
 
 /**
  * 线索库那一屏显示什么。
@@ -88,4 +88,37 @@ export function libraryRows(threads: AwakeningThread[], now: Date): LibraryRow[]
       extra: t.reportCount > 1 ? LIBRARY.reports.replace("{n}", String(t.reportCount)) : "",
     };
   });
+}
+
+/* ── 兴趣印记那张表 ─────────────────────────────────────────────────────── */
+
+export interface HistoryRow {
+  id: string;
+  runId: string;
+  /** 这条线索的名字；没起名就退回她自己写的第一句。 */
+  name: string;
+  /** 「今天 · 3 个词」。 */
+  meta: string;
+}
+
+/**
+ * 印记那张表怎么摆。
+ *
+ * 和线索库同一条命名规矩（threadName），所以同一条线索在两处叫同一个名字 ——
+ * 两处各写一遍就会在她起名之后只改了一边。
+ */
+export function historyRows(reports: AwakeningReportRow[], now: Date): HistoryRow[] {
+  return reports.map((p) => ({
+    id: p.id,
+    runId: p.runId,
+    name: threadName(p) || HISTORY.title,
+    meta: [
+      whenLabel(p.createdAt, now),
+      // 🚨 一个词都没长出来的那一份照实说。留空会让那一行看起来像是没加载出来，
+      // 而「这一趟没长出词」本身就是结果（memory: ai-errors-must-surface-never-fake）。
+      p.wordCount > 0 ? HISTORY.words.replace("{n}", String(p.wordCount)) : HISTORY.noWords,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  }));
 }

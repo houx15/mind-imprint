@@ -74,10 +74,13 @@ function Card({ children, accent }: { children: React.ReactNode; accent?: string
 export function ReportView({
   report,
   onBackToTree,
+  onBackToList,
   onOpenReading,
 }: {
   report: AwakeningReport;
   onBackToTree: () => void;
+  /** 从印记那张表里进来的时候给 —— 退一步回表，再挑另一份。 */
+  onBackToList?: () => void;
   /** 点一篇推荐 —— 这是「报告 → 阅读室」那条闭环的落点。tier 是给她的难度档。 */
   onOpenReading: (slug: string, tier: number) => void;
 }) {
@@ -274,6 +277,16 @@ export function ReportView({
       </Section>
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
+        {/* 她是从那张表里挑进来的，就先给她一条退回表的路。 */}
+        {onBackToList ? (
+          <button
+            type="button"
+            onClick={onBackToList}
+            className="rounded-mk-full border border-mk-line px-5 py-2 text-mk-body font-semibold text-mk-ink transition hover:opacity-80"
+          >
+            {REPORT.backToList}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onBackToTree}

@@ -10,7 +10,8 @@ package api
 //	PUT  /api/v1/awakening/{id}/title     她挑定的那个名字
 //	POST /api/v1/awakening/{id}/turn      终端里的一轮
 //	POST /api/v1/awakening/{id}/finish    走完：选词 → 写回树 → 生成报告
-//	GET  /api/v1/awakening/{id}/report    读报告
+//	GET  /api/v1/awakening/history        她拿到过的每一份兴趣印记
+//	GET  /api/v1/awakening/{id}/report    读报告（?report=<id> 取某一份）
 //
 // # 为什么「开」和「走完」是两次请求，中间还有一串
 //
@@ -791,8 +792,29 @@ func (a *API) getAwakeningReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_run_id", "作答 id 无效", nil))
 		return
 	}
-	row, err := a.d.Queries.GetAwakeningReportByRun(r.Context(),
-		sqlc.GetAwakeningReportByRunParams{RunID: id, UserID: u.ID})
+	// ?report=<id> —— 这条线索的**某一份**，不是最新那份。
+	//
+	// 一条线索可以总结不止一次（0185），而「回顾之前的」要的正是旧的那几份。
+	// 不带这个参数时仍然给最新的，所以老链接照旧能开。
+	var row sqlc.AwakeningReport
+	if q := r.URL.Query().Get("report"); q != "" {
+		rid, perr := uuid.Parse(q)
+		if perr != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_report_id", "报告 id 无效", nil))
+			return
+		}
+		row, err = a.d.Queries.GetAwakeningReportForUser(r.Context(),
+			sqlc.GetAwakeningReportForUserParams{ID: rid, UserID: u.ID})
+		// 🚨 那一份必须真的属于这条线索。带着别人那条线索的 id 来，读到的不该
+		// 是这一份 —— 归属查过了（user_id），这里再查一次它挂在哪条线索上。
+		if err == nil && row.RunID != id {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这一份印记不属于这条线索"))
+			return
+		}
+	} else {
+		row, err = a.d.Queries.GetAwakeningReportByRun(r.Context(),
+			sqlc.GetAwakeningReportByRunParams{RunID: id, UserID: u.ID})
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("这一趟还没有报告"))
 		return
@@ -802,6 +824,52 @@ func (a *API) getAwakeningReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeRawReport(w, row)
+}
+
+// awakeningReportRowDTO 是兴趣印记那张表里的一行。
+type awakeningReportRowDTO struct {
+	ID    string `json:"id"`
+	RunID string `json:"runId"`
+	// Title 是这条线索的名字；空串时界面退回 FirstText。
+	Title     string `json:"title"`
+	FirstText string `json:"firstText"`
+	CreatedAt string `json:"createdAt"`
+	// WordCount 是这一份里落进树的词数。
+	WordCount int `json:"wordCount"`
+	AttemptNo int `json:"attemptNo"`
+}
+
+// listAwakeningReports —— GET /api/v1/awakening/history
+//
+// 她拿到过的每一份兴趣印记。
+//
+// 反馈（2026-09-21）：「查看兴趣印记点进去后，只能看到上一次兴趣测试的印记，
+// 无法回顾之前的。」树上那条入口原来只带着 latestReportRunId 一个 id，
+// 之前的那些**根本没有一条路通向它们**。
+func (a *API) listAwakeningReports(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	rows, err := a.d.Queries.ListAwakeningReports(r.Context(), u.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]awakeningReportRowDTO, 0, len(rows))
+	for _, p := range rows {
+		out = append(out, awakeningReportRowDTO{
+			ID:        p.ID.String(),
+			RunID:     p.RunID.String(),
+			Title:     p.Title,
+			FirstText: p.FirstText,
+			CreatedAt: p.CreatedAt.Format(time.RFC3339),
+			WordCount: int(p.WordCount),
+			AttemptNo: int(p.AttemptNo),
+		})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reports": out})
 }
 
 // buildAwakeningReport 跑那两次 compose 调用，写回树，拼出整份报告。

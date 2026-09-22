@@ -311,6 +311,68 @@ func (q *Queries) LatestFinishedAwakeningRun(ctx context.Context, userID uuid.UU
 	return i, err
 }
 
+const listAwakeningReports = `-- name: ListAwakeningReports :many
+SELECT
+  p.id,
+  p.run_id,
+  p.created_at,
+  r.title,
+  r.attempt_no,
+  jsonb_array_length(COALESCE(p.payload->'pursuing', '[]'::jsonb))::int AS word_count,
+  COALESCE((SELECT t.student_text FROM awakening_turn t
+     WHERE t.run_id = p.run_id ORDER BY t.seq ASC LIMIT 1), '')::text AS first_text
+FROM awakening_report p
+JOIN awakening_run r ON r.id = p.run_id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
+`
+
+type ListAwakeningReportsRow struct {
+	ID        uuid.UUID `json:"id"`
+	RunID     uuid.UUID `json:"run_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Title     string    `json:"title"`
+	AttemptNo int32     `json:"attempt_no"`
+	WordCount int32     `json:"word_count"`
+	FirstText string    `json:"first_text"`
+}
+
+// 她拿到过的每一份兴趣印记，新的在前。
+//
+// 树上那条「查看兴趣印记」原来只打得开最近的一份（status.latestReportRunId），
+// 之前的一份都回不去 —— 而线索库之后她会有好几条线索、每条还可能总结不止
+// 一次。这条查的是全部。
+//
+// 词数从 payload 里数出来，好让那张表的每一行说得出「这一份里有几个词」；
+// COALESCE 兜住老的 / 没有 pursuing 的那几行。
+func (q *Queries) ListAwakeningReports(ctx context.Context, userID uuid.UUID) ([]ListAwakeningReportsRow, error) {
+	rows, err := q.db.Query(ctx, listAwakeningReports, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAwakeningReportsRow
+	for rows.Next() {
+		var i ListAwakeningReportsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RunID,
+			&i.CreatedAt,
+			&i.Title,
+			&i.AttemptNo,
+			&i.WordCount,
+			&i.FirstText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAwakeningThreads = `-- name: ListAwakeningThreads :many
 SELECT
   r.id, r.user_id, r.attempt_no, r.stage, r.route, r.navigator, r.energy_profile, r.talent, r.lens_choice, r.challenge_choice, r.archive_attempts, r.observer_question, r.created_at, r.updated_at, r.finished_at, r.title,
