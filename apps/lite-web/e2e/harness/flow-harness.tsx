@@ -5,6 +5,27 @@ import { GuideBox } from "../../src/writings/GuideBox";
 import { MiniMap } from "../../src/writings/MiniMap";
 import type { WritingOutlineItem } from "../../src/api/writingRoom";
 import "../../src/index.css";
+
+import "@/ui/themes/lite.css";
+import "../../src/learning/student-surfaces.css";
+import { LITE_ACCENT_PRESETS } from "@/ui/themes/lite";
+import type { CSSProperties } from "react";
+
+// 🚨 看图台得自己把 lite 的配色装上，否则它画出来的每一屏都是红的。
+//
+// `--mk-accent-*` 的**基础值**是 pro 那边的珊瑚红（apps/web/src/index.css）。
+// lite 的青色**不在 CSS 里** —— 它由 `AccentProvider` 把
+// `--mk-theme-accent-*` 作为**内联样式**写在 `.lite-student` 那个 div 上
+// （LiteApp.tsx / GuestTheme.tsx）。所以光加一个 class 不够，连 import 那份
+// 主题 CSS 也不够：那份 CSS 写的是 `--mk-accent-500: var(--mk-theme-accent-500)`，
+// 而那个变量要靠 React 那一层给。
+//
+// 2026-09-22 我差点照着红色的截图去查「配色是不是被改了」。
+// **看图台自己脏了，产品没事**（[[observation-tool-is-the-bug-2026-09-12]]）。
+const LITE_ACCENT_STYLE = Object.fromEntries(
+  Object.entries(LITE_ACCENT_PRESETS[0]!.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value]),
+) as CSSProperties;
+
 import type { Writing } from "../../src/api/writings";
 
 /**
@@ -74,7 +95,16 @@ function Harness() {
   const [screen, setScreen] = useState<"flow" | "snippets">("flow");
 
   return (
-    <div style={{ height: "100vh", background: "var(--mk-paper)", display: "flex", flexDirection: "column" }}>
+    <div
+      className="lite-student"
+      style={{
+        ...LITE_ACCENT_STYLE,
+        height: "100vh",
+        background: "var(--mk-paper)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <div style={{ display: "flex", gap: 8, padding: 8, borderBottom: "1px solid var(--mk-border)" }}>
         <button data-testid="go-flow" onClick={() => setScreen("flow")}>
           行文

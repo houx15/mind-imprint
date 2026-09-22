@@ -53,7 +53,21 @@ export function KindPicker({
   }, [open]);
 
   return (
-    <div ref={boxRef} className="relative">
+    // 🚨 指针事件到这里就停住，不许往上冒到那张卡上。
+    //
+    // 这一块菜单长在一张**可拖动**的卡里面（useMindMapDrag 把 onPointerDown /
+    // onPointerMove / onPointerUp 挂在卡上）。不拦住的话，在菜单里按一下就是
+    // 在卡上按了一下：那次拖动状态被开起来，随后那个 click 落不到菜单项上。
+    //
+    // 2026-09-22 看图台里量到的就是这件事 —— 菜单开得出来、看得见、点下去
+    // **什么都不发生**，一条日志都没有。jsdom 看不见它（没有真的指针事件序列）。
+    <div
+      ref={boxRef}
+      className="relative"
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         aria-haspopup="menu"
