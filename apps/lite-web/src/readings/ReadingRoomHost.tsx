@@ -33,6 +33,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
+import { ReadingArticle } from "../reports/ReadingArticle";
 import { TranscriptView } from "../reports/TranscriptView";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { ReadingQuestions } from "./ReadingQuestions";
@@ -396,6 +397,7 @@ function ReopenButton({ onReopen }: { onReopen: () => Promise<void> }) {
  * 2026-09-18 三格收成两页：报告（默认），和从报告右上角「查看阅读记录」进去的
  * 对话。原文就在报告下面（「再看一遍这篇文章」），继续阅读在对话那一页的末尾。
  * 顶上那条只有一颗返回 —— 见组件里那段产品负责人的原话。
+ * 2026-09-22：记录恢复阅读室的原文 / 对话双栏；继续阅读仍是显式操作。
  *
  * Two blocks that used to live here are gone on purpose, and both were
  * duplicates of the report rather than losses:
@@ -413,7 +415,7 @@ function ReopenButton({ onReopen }: { onReopen: () => Promise<void> }) {
  * `PublicReportPage` mounts it with no chrome at all, and a second wrapper
  * here would double the padding and cap the width twice.
  */
-function FinishedReadingPanel({
+export function FinishedReadingPanel({
   reading,
   takeaway,
   onBack,
@@ -450,12 +452,13 @@ function FinishedReadingPanel({
       </div>
 
       {page === "record" && (
-        <>
-          <TranscriptView kind="reading" atomId={reading.id} />
-          <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-6">
-            <ReopenButton onReopen={onReopen} />
+        <section className="reading-record-room" aria-label="阅读记录">
+          <header className="reading-record-heading"><div><span>阅读记录 · 已完成</span><h1>{reading.title}</h1><p>左侧查看原文，右侧回看与印记的对话。继续学习请点击“继续阅读”。</p></div><div className="reading-record-resume"><ReopenButton onReopen={onReopen}/></div></header>
+          <div className="reading-record-columns">
+            <article className="reading-record-source" aria-label="阅读原文"><ReadingArticle atomId={reading.id} defaultOpen/></article>
+            <section className="reading-record-conversation" aria-label="对话历史"><h2>对话历史<span>只读</span></h2><TranscriptView kind="reading" atomId={reading.id}/></section>
           </div>
-        </>
+        </section>
       )}
 
       {/* 🚨 报告用 `hidden` 藏，不用条件渲染拆掉。`ReportPanel` 在
