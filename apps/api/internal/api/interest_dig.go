@@ -27,7 +27,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -163,7 +162,10 @@ func (a *API) ensureKeywordDig(ctx context.Context, kw sqlc.InterestKeyword) str
 	if perr != nil {
 		slog.Warn("dig: library profile failed", "err", perr, "keyword_id", kw.ID)
 	}
-	candidates := digLibraryCandidates(profile)
+	var candidates []interest.LibraryCandidate
+	if perr == nil {
+		candidates = digLibraryCandidates(kw, evidences, profile)
+	}
 
 	seeds, note := a.digSeeds(ctx, kw, evidences, candidates)
 	for _, s := range seeds {
@@ -191,37 +193,6 @@ func (a *API) ensureKeywordDig(ctx context.Context, kw sqlc.InterestKeyword) str
 	return note
 }
 
-// digLibraryCandidateCount 是送进 prompt 的候选文章篇数。
-//
-// 十二篇：够让模型在几个学科之间真的挑一下，又不至于把这段名单撑成 prompt 里
-// 最长的一块。Recommend 已经按她的兴趣排过序，所以前十二篇就是最相关的十二篇。
-const digLibraryCandidateCount = 12
-
-// digLibraryCandidates 把她的阅读档案折成「去读」那一颗能挑的名单。
-//
-// 用的是书架同一个 Recommend，所以这里挑出来的和她在书架上看到的推荐是同一套
-// 排序（她读过的那些已经被 Recommend 剔掉了）。
-func digLibraryCandidates(p library.Profile) []interest.LibraryCandidate {
-	recs := library.Recommend(library.All(), p, digLibraryCandidateCount)
-	out := make([]interest.LibraryCandidate, 0, len(recs))
-	for _, rec := range recs {
-		title := strings.TrimSpace(rec.Article.ZhTitle)
-		if title == "" {
-			title = strings.TrimSpace(rec.Article.Title)
-		}
-		if title == "" {
-			continue
-		}
-		out = append(out, interest.LibraryCandidate{
-			Slug: rec.Article.Slug, Title: title, Reason: rec.Article.Reason,
-		})
-	}
-	return out
-}
-
-// digSeeds 发那一次调用。返回 (种子, 失败原话)。
-//
-// 失败时**返回零颗种子加一句原话** —— 绝不用四个通用动词顶上。
 func (a *API) digSeeds(
 	ctx context.Context, kw sqlc.InterestKeyword, evidences []string,
 	candidates []interest.LibraryCandidate,
