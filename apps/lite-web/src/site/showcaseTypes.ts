@@ -23,6 +23,9 @@ export interface ShowcaseConfig {
   /** Persisted object keys. Renderers receive their signed presentation URLs separately. */
   avatarKey?: string;
   heroImageKey?: string;
+  /** Student-authored image prompts belong to the private draft only. */
+  heroImagePrompt?: string;
+  avatarImagePrompt?: string;
   writingStyle: "cards" | "list";
   readingStyle: "shelf" | "list";
   sectionOrder: ShowcaseKind[];

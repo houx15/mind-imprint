@@ -149,7 +149,7 @@ export function MySitePage() {
             <label className="showcase-field">开场标题<GrowingTextarea value={draft.heroTitle ?? ""} maxLength={200} onChange={e => patch({heroTitle:e.target.value})} placeholder={`欢迎来到${draft.name || "我的"}的空间`} /></label>
             <label className="showcase-field">开场介绍<GrowingTextarea value={draft.tagline} maxLength={200} onChange={e => patch({tagline:e.target.value})} placeholder="请写下想对访客说的话。" /></label>
             <div className="showcase-field-group"><h3>开场配图</h3><div className="showcase-art-options">{SHOWCASE_ILLUSTRATIONS.map(art => <button key={art.id} aria-pressed={!draft.heroImageKey && (draft.illustration ?? "none") === art.id} onClick={() => patch({illustration:art.id,heroImageKey:""})}>{art.src ? <img src={art.src} alt="" loading="lazy" /> : <span>留白</span>}<small>{art.name}</small></button>)}</div></div>
-            <div className="showcase-field-group"><h3>自定义图片</h3><ShowcaseImagePicker purpose="hero" currentUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url) => {if(key)setImageUrls(current=>({...current,[key]:url})); patch({heroImageKey:key});}} /></div>
+            <div className="showcase-field-group"><h3>自定义图片</h3><ShowcaseImagePicker prompt={draft.heroImagePrompt ?? ""} onPromptChange={value => patch({heroImagePrompt:value})} purpose="hero" currentUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url) => {if(key)setImageUrls(current=>({...current,[key]:url})); patch({heroImageKey:key});}} /></div>
           </>}
           {tab === "profile" && <>
             <div className="showcase-heading"><h2>关于你</h2><p>请填写愿意在主页上公开的介绍。</p></div>
@@ -158,7 +158,7 @@ export function MySitePage() {
 
             <label className="showcase-field">个人简介<GrowingTextarea value={draft.bio} maxLength={2000} rows={4} onChange={e => patch({ bio: e.target.value })} placeholder="请介绍你的兴趣、正在探索的事情，或想分享的经历。" /></label>
             <label className="showcase-field">兴趣关键词<input value={interestText} onChange={e => {setInterestText(e.target.value); setNotice("");}} maxLength={500} placeholder="动漫、科幻、植物、摄影" /><small>用顿号或逗号分隔，最多 12 个。已填写 {interestInput.interests.length} 个。</small>{interestInput.error && <small role="alert" className="showcase-field-error">{interestInput.error}</small>}</label>
-            <div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
+            <div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
           </>}
           {tab === "works" && <>
             <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目仅展示名称与简介。</p></div>
