@@ -291,7 +291,7 @@ export function SnippetsStage({
               指着左栏顶部：「我觉得可以在这里保留刚刚的思维导图，然后把引导
               往下放」。到了这一步她眼前只剩一张卡和一张纸，「这一段在整篇里
               是第几块」只能靠记。只读；要改结构回上一步改。 */}
-          <MiniMap outline={outline} />
+          <MiniMap outline={outline} lang={lang} />
 
           {active && (
             <CardGuidance

@@ -51,11 +51,11 @@ func writingFlowStructureValid(id string) bool {
 	if strings.TrimSpace(id) == "" {
 		return false
 	}
-	// 🚨 这里**不挑文体**。校验回答的是「这个 id 库里有没有」；
+	// 🚨 这里**不挑文体，也不挑语言**。校验回答的是「这个 id 库里有没有」；
 	// 「这篇该看见哪几条」是目录那一条路的事（getWritingFlowStructures）。
 	// 两件事混在一起的话，她在议论文里选完结构、接着把板改成记叙文，
 	// 那次保存会以一个她读不懂的错误失败。
-	for _, m := range vocab.Structures("") {
+	for _, m := range vocab.Structures("", "") {
 		if m.ID == id {
 			return true
 		}
@@ -132,10 +132,12 @@ func (a *API) getWritingFlowStructures(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	// 摆给她看的只有这一种文体用得上的几条 —— 一篇记叙文里没有分论点，
-	// 「它们之间是并列还是层进」是句问不出口的话。见 writing_genre.go。
+	// 摆给她看的只有这一种文体、这一种语言用得上的几条 —— 一篇记叙文里没有
+	// 分论点，「它们之间是并列还是层进」是句问不出口的话（见 writing_genre.go）；
+	// 而一篇英文议论文要看的是 thesis-body-conclusion 那一套，不是总分式
+	//（同事 2026-09-22 的意见 7，见 vocab.Structures 的注释）。
 	out := make([]writingFlowStructureDTO, 0, 4)
-	for _, m := range vocab.Structures(writingGenreOf(wr, outline)) {
+	for _, m := range vocab.Structures(writingGenreOf(wr, outline), wr.Lang) {
 		ex := ""
 		if len(m.Examples) > 0 {
 			ex = m.Examples[0].Text

@@ -419,6 +419,7 @@ export function PlanningView({
               onMove={moveNode}
               onRekind={rekindNode}
               kindChoices={rekindChoices(outlineGenreOf(outline))}
+              lang={writing.lang}
             />
           </aside>
         )}

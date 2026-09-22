@@ -22,7 +22,14 @@ import type { WritingOutlineItem } from "../api/writingRoom";
  * 要改回「结构」那一步去改 —— 在两个地方都能改同一样东西，是让她不知道
  * 哪一处才算数的最快办法。
  */
-export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
+export function MiniMap({
+  outline,
+  lang,
+}: {
+  outline: WritingOutlineItem[];
+  /** 这一篇的语言 —— 卡片上那几个小标题跟着它换（同事 2026-09-22 的意见 7）。 */
+  lang?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   if (outline.length === 0) return null;
@@ -52,7 +59,7 @@ export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
             className="pointer-events-none origin-top-left"
             style={{ transform: "scale(0.62)", width: "161%", height: "161%" }}
           >
-            <MindMap items={outline} justAdded={[]} />
+            <MindMap items={outline} justAdded={[]} lang={lang} />
           </div>
         </div>
       </section>
@@ -76,7 +83,7 @@ export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
             </div>
             <div className="min-h-0 flex-1">
               {/* 放大之后仍然只读 —— 见文件顶上那段。 */}
-              <MindMap items={outline} justAdded={[]} />
+              <MindMap items={outline} justAdded={[]} lang={lang} />
             </div>
           </div>
         </div>

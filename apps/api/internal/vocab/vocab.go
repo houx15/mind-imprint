@@ -214,8 +214,11 @@ func ForLang(lang string, genre string) []Method {
 // 是「整篇」。行文那一步用它，别的地方一律把它挡在外面。
 const WholePiece = "whole"
 
-// Structures 返回整篇那一层的结构。议论文是四条论证结构（总分式 / 并列式 /
-// 层进式 / 对照式），记叙文是抑扬转情法。
+// Structures 返回整篇那一层的结构，**按语言也按文体挑**。
+//
+// 中文议论文是那四条论证结构（总分式 / 并列式 / 层进式 / 对照式），中文记叙文
+// 是抑扬转情法；英文议论文是 thesis-body-conclusion / claim-counterargument-
+// refutation / point-by-point / block，英文记叙文是 narrative arc。
 //
 // 只有行文那一步用得上：她的分论点都摆出来之后，选它们之间是什么关系。
 //
@@ -223,13 +226,30 @@ const WholePiece = "whole"
 // 那次否的是**在她想之前**让她挑；这一步发生在她自己的分论点已经在图上之后，
 // 选的是她已经摆出来的那些点之间的关系 —— 先有东西，再给它命名。
 //
-// genre 传空串就是全都要（行文那一步的测试和 --print 之类的地方）。
-func Structures(genre string) []Method {
+// # 🚨 lang 这条轴是 2026-09-22 补的，补的是一个真缺陷
+//
+// 在这之前 Structures 根本不看语言，而那四条论证结构当时标的是 "any" ——
+// 于是一个写英文议论文的学生看到的是四张语文课的卡，名字是语文课的词，
+// 「比如」后面那句示范讲的是「读书要读慢」。同事 2026-09-22 的意见 7：
+// 「english writing is quite different from chinese. but now we use the same
+// guidance. strange」。
+//
+// 和 For / ForLang 的 lang 轴是同一个道理的又一次应用（见 Method.Lang）：
+// 「这一条用不用得上」写进选择器，不写进一句请模型当心的提示。
+//
+// 两个参数都传空串就是全都要（校验那条路和 --print 之类的地方）。
+func Structures(genre string, lang string) []Method {
 	out := make([]Method, 0, 4)
 	for _, m := range loaded {
-		if m.AppliesTo == WholePiece && suits(m, genre) {
-			out = append(out, m)
+		if m.AppliesTo != WholePiece || !suits(m, genre) {
+			continue
 		}
+		// lang 传空串 = 不挑语言。挑的时候 "any" 照收（今天整篇这一层没有
+		// "any"，但这条规则和 speaks 保持一致，免得以后加一条时行为变了）。
+		if lang != "" && !speaks(m, lang) {
+			continue
+		}
+		out = append(out, m)
 	}
 	return out
 }

@@ -43,9 +43,12 @@ function isFlowBlock(item: WritingOutlineItem): boolean {
 export function FlowOrderList({
   items,
   onMove,
+  lang,
 }: {
   items: WritingOutlineItem[];
   onMove: (draggedId: string, targetId: string, mode: OutlineMoveMode) => void;
+  /** 这一篇的语言 —— 每一行那个小标题跟着它换（同事 2026-09-22 的意见 7）。 */
+  lang?: string;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<{ id: string; mode: "before" | "after" } | null>(null);
@@ -121,14 +124,14 @@ export function FlowOrderList({
             <Icon icon={GripVertical} size={14} className="mt-1 shrink-0 text-mk-faint" />
             <span className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="text-mk-label text-mk-accent-700">
-                {outlineKindLabel(outlineKindOf(o))}
+                {outlineKindLabel(outlineKindOf(o), lang)}
               </span>
               <span className="text-mk-body text-mk-ink">{o.text}</span>
               {kids.length > 0 && (
                 <span className="flex flex-col gap-0.5 pt-1">
                   {kids.map((k) => (
                     <span key={k.id} className="truncate text-mk-small text-mk-muted">
-                      {outlineKindLabel(outlineKindOf(k))} · {k.text}
+                      {outlineKindLabel(outlineKindOf(k), lang)} · {k.text}
                     </span>
                   ))}
                 </span>

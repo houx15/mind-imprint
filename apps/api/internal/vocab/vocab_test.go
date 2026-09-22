@@ -307,7 +307,7 @@ func TestVocabHasTheStandardArgumentMethods(t *testing.T) {
 
 func TestVocabHasTheFourArgumentStructures(t *testing.T) {
 	want := map[string]bool{"总分式": true, "并列式": true, "层进式": true, "对照式": true}
-	for _, m := range Structures("") {
+	for _, m := range Structures("", "") {
 		delete(want, m.Name)
 		if m.Category != "structure" {
 			t.Errorf("%s 的 category 该是 structure，得到 %q", m.Name, m.Category)
@@ -398,6 +398,52 @@ func TestVocabCategoriesAreSet(t *testing.T) {
 			if m.Category != "structure" {
 				t.Errorf("%s（whole）的 category 该是 structure", m.ID)
 			}
+		}
+	}
+}
+
+// 🚨 每一种「语言 × 文体」都得有结构可摆。
+//
+// 同事 2026-09-22 的意见 7：「english writing is quite different from chinese.
+// but now we use the same guidance. strange」。2026-09-22 起 Structures 按语言
+// 挑，而按语言挑有一个对称的翻车方式：把中文那几条挡住之后，英文那一边
+// 什么都没有，行文那一屏的「论证结构」整块不出现 —— 那不是修好，那是少给了
+// 一整块。Method.Lang 的注释里写着同一件事的另一半。
+func TestStructuresExistForEveryLangAndGenre(t *testing.T) {
+	for _, lang := range []string{"zh", "en"} {
+		for _, genre := range []string{GenreArgument, GenreNarrative} {
+			got := Structures(genre, lang)
+			if len(got) == 0 {
+				t.Errorf("%s × %s 一条结构都没有 —— 那一屏会少掉整块", lang, genre)
+			}
+			for _, m := range got {
+				if !speaks(m, lang) {
+					t.Errorf("%s × %s 里混进了 %q（lang=%s）", lang, genre, m.Name, m.Lang)
+				}
+				if !suits(m, genre) {
+					t.Errorf("%s × %s 里混进了 %q（genre=%s）", lang, genre, m.Name, m.Genre)
+				}
+			}
+		}
+	}
+}
+
+// 英文议论文该看到的是英文那一套，不是语文课那四条。
+func TestEnglishArgumentStructuresAreTheEnglishOnes(t *testing.T) {
+	names := map[string]bool{}
+	for _, m := range Structures(GenreArgument, "en") {
+		names[m.Name] = true
+	}
+	for _, zh := range []string{"总分式", "并列式", "层进式", "对照式"} {
+		if names[zh] {
+			t.Errorf("英文议论文里还摆着语文课的「%s」—— 那正是意见 7 说的那件事", zh)
+		}
+	}
+	// thesis statement 放第一段末尾、单独一段写反方，这两条是英文议论文
+	// 和中文议论文真正不同的地方。
+	for _, want := range []string{"Thesis-body-conclusion", "Claim-counterargument-refutation"} {
+		if !names[want] {
+			t.Errorf("英文议论文缺 %q", want)
 		}
 	}
 }

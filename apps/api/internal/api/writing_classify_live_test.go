@@ -154,3 +154,60 @@ func TestLiveWritingOpeningAsksForTheChoiceFirst(t *testing.T) {
 		t.Errorf("开场就问中心论点 —— 她还不知道要写哪个词。\n%s", res.Text)
 	}
 }
+
+// 意见 7：一篇英文议论文要拿到英文写作课的那一套词，不是语文课的。
+//
+//	「actually english writing is quite different from chinese.
+//	  but now we use the same guidance. strange」
+//
+// 判据：印记这一轮说的话里，至少出现一个英文写作课的术语
+// （thesis statement / topic sentence / commentary / counterargument）。
+// 它不是「读着像不像」—— 在这之前那份提示词里**一个英文术语都没有**，
+// 所以这一条只有改对了才可能过。
+//
+// 🚨 反过来不查「有没有出现分论点」：英文那份清单里故意保留了中文对照
+// （「topic sentence（分论点）」），因为印记是用中文跟她讲的，她需要同时
+// 知道这块是什么、以及她的英文老师怎么称呼它。查中文词的出现会把这件
+// 故意的事判成失败 —— 那就是拿影子当判据。
+func TestLiveWritingEnglishGuidanceUsesEnglishTerms(t *testing.T) {
+	words := int32(500)
+	wr := sqlc.Writing{
+		Lang:        "en",
+		Title:       "Should schools start later?",
+		TargetWords: &words,
+	}
+	rows := []sqlc.WritingOutline{
+		{Text: "Schools should start an hour later", Kind: writingKindThesis, Depth: 0, Position: 0},
+		{Text: "Students do not get enough sleep", Kind: writingKindPoint, Depth: 1, Position: 1},
+	}
+
+	// 她给了一个例子，但没有那一句 commentary —— 英文写作课上最常被扣分的地方。
+	raw := livePlanTurn(t, wr, rows,
+		"My classmate falls asleep in first period every day. He gets up at five thirty to take two buses.")
+	reply, ok := parseWritingPlanReply(raw)
+	if !ok {
+		t.Fatalf("解析不了：\n%s", raw)
+	}
+
+	terms := []string{"thesis statement", "topic sentence", "commentary", "counterargument", "analysis"}
+	hit := ""
+	low := strings.ToLower(reply.Reply)
+	for _, term := range terms {
+		if strings.Contains(low, term) {
+			hit = term
+			break
+		}
+	}
+	if hit == "" {
+		t.Errorf("这一轮一个英文写作课的术语都没说 —— 英文那份提示词没起作用。\n%s", reply.Reply)
+	} else {
+		t.Logf("用到了 %q：%s", hit, reply.Reply)
+	}
+
+	// 顺带：加的节点仍然要在闭表里。
+	for _, n := range reply.Add {
+		if !writingKindValid(n.Kind) {
+			t.Errorf("kind %q 不在闭表里 —— 这一条会被整条丢掉", n.Kind)
+		}
+	}
+}

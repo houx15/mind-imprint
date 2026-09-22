@@ -18,9 +18,30 @@ import (
 // 篇章骨架那一层只存在于**注释里** —— 也就是说 印记 手上一个整篇结构的词
 // 都没有，它没法说出「你这已经是总—分—总了」。
 func TestWritingPlanSystem_CarriesTheWholePieceSkeletons(t *testing.T) {
+	// 🚨 查的是**装配好的那一份**。2026-09-22 起骨架那一节按语言分成两份
+	//（同事的意见 7：英文议论文要看的是 thesis-body-conclusion 那一套，
+	// 不是总—分—总），const 里只剩一个占位符 —— 继续查 const 等于查一份
+	// 谁都收不到的东西。
+	zh := writingPlanSystemFor(genreArgument, "zh")
 	for _, name := range []string{"总—分", "总—分—总", "立场式", "起承转合"} {
-		if !strings.Contains(writingPlanSystem, name) {
-			t.Errorf("提示词里没有骨架「%s」—— 注释说两层都在，实际只有一层", name)
+		if !strings.Contains(zh, name) {
+			t.Errorf("中文那一份里没有骨架「%s」", name)
+		}
+	}
+	// 英文那一份要有英文议论文真正被打分的那几件事。
+	en := writingPlanSystemFor(genreArgument, "en")
+	for _, name := range []string{
+		"Thesis–body–conclusion", "Claim–counterargument–refutation",
+		"thesis statement", "topic sentence", "commentary",
+	} {
+		if !strings.Contains(en, name) {
+			t.Errorf("英文那一份里没有 %q", name)
+		}
+	}
+	// 🚨 两边不许串台：一篇英文议论文的提示词里不该出现语文课那几个骨架名。
+	for _, name := range []string{"总—分—总", "起承转合"} {
+		if strings.Contains(en, name) {
+			t.Errorf("英文那一份里混进了语文课的骨架「%s」—— 那正是意见 7 说的那件事", name)
 		}
 	}
 }
@@ -33,7 +54,7 @@ func TestWritingPlanSystem_CarriesTheWholePieceSkeletons(t *testing.T) {
 //
 // 这一条把「用哪种引号」钉死，免得下一个人顺手改成 『』 再去改那条测试。
 func TestWritingPlanSystem_SkeletonsAreNotQuotedAsMethods(t *testing.T) {
-	for _, quoted := range bracketed(writingPlanSystem) {
+	for _, quoted := range bracketed(writingPlanSystemFor(genreArgument, "zh")) {
 		for _, skeleton := range []string{"总—分", "总—分—总", "立场式", "起承转合"} {
 			if quoted == skeleton {
 				t.Errorf("骨架「%s」被写成了 『』—— 那是方法名的引号，methods.json 里没有它", skeleton)
@@ -52,10 +73,17 @@ func TestWritingPlanSystem_SkeletonsAreNotQuotedAsMethods(t *testing.T) {
 // 所以这一段加进去的时候必须同时带着那条禁令。没有它，下一轮很容易顺手把
 // 这张表做成一个选择题 —— 那就是把那次裁定悄悄推翻。
 func TestWritingPlanSystem_ForbidsOfferingTheSkeletonsAsAMenu(t *testing.T) {
-	if !strings.Contains(writingPlanSystem, "绝不要把这张表甩给她挑") {
-		t.Error("骨架那一段没有带上「不许做成菜单」的禁令")
-	}
-	if !strings.Contains(writingPlanSystem, "让她填表") {
-		t.Error("没有说清为什么不许挑 —— 2026-08-27 裁掉的正是「填表」那种做法")
+	// 🚨 两种语言各查一遍。骨架那一节 2026-09-22 分成了两份，而这条禁令是
+	// 2026-08-27 的裁定 —— 新开一份的时候最容易漏掉的就是它。
+	for lang, s := range map[string]string{
+		"中文": writingPlanSystemFor(genreArgument, "zh"),
+		"英文": writingPlanSystemFor(genreArgument, "en"),
+	} {
+		if !strings.Contains(s, "绝不要把这张表甩给她挑") {
+			t.Errorf("%s那一份的骨架里没有「不许做成菜单」的禁令", lang)
+		}
+		if !strings.Contains(s, "让她填表") {
+			t.Errorf("%s那一份没有说清为什么不许挑 —— 2026-08-27 裁掉的正是「填表」那种做法", lang)
+		}
 	}
 }

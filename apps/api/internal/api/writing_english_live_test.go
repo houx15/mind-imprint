@@ -160,7 +160,9 @@ func TestLiveWritingPlanSignalsReady(t *testing.T) {
 				Messages: []gateway.ChatMessage{
 					// 见 writing_kind_live_test.go 里那段：只替 %d 的话
 					// `@@KINDS@@` 还留在里面，那张闭表根本没发给模型。
-					{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument)},
+					// lang 传 wr.Lang —— 这一篇是英文的，它该拿到英文那份
+					// 提示词（thesis statement / topic sentence / commentary）。
+					{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang)},
 					{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, tc.said)},
 				},
 			})

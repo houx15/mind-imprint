@@ -68,8 +68,25 @@ export function isOutlineKind(k: string): k is OutlineKind {
  * 用的是语文课上的正式词（AGENTS.md 文案规则 6），而且是名词（规则 1）。
  * 论据分两种，各自是一个 kind —— 一个司马迁的例子没有链接可填，
  * 但它不是「她见过的事」。
+ *
+ * # 🚨 英文那一篇用英文的那一套词（2026-09-22，同事的意见 7）
+ *
+ *	「actually english writing is quite different from chinese.
+ *	  but now we use the same guidance. strange」
+ *
+ * 一篇英文议论文的图上原来印着「中心论点 / 分论点 / 论据」。那不只是翻译问题：
+ * 英文写作课上这三块叫 thesis statement / topic sentence / evidence，
+ * 而且 thesis 有一个固定位置（第一段末尾）、topic sentence 是段落的第一句、
+ * 材料后面还必须有一句 commentary —— **这些词就是她要学会的东西**。
+ *
+ * 🚨 这和「印记用中文跟她说话」不冲突（writing_lang.go 的裁定）：
+ * 界面上的这几个词是**术语**，不是对话。她是一个学写英文的中文母语学生，
+ * 她的英文老师用的就是这几个词。
+ *
+ * lang 不传就是中文 —— 只读的地方（缩略图、harness）不必都改一遍。
  */
-export function outlineKindLabel(kind: string): string {
+export function outlineKindLabel(kind: string, lang?: string): string {
+  if (lang === "en") return outlineKindLabelEN(kind);
   switch (kind) {
     case "opening":
       return "开篇";
@@ -99,6 +116,48 @@ export function outlineKindLabel(kind: string): string {
       return "转折";
     case "feeling":
       return "感悟";
+    default:
+      return "";
+  }
+}
+
+/**
+ * 英文那一套词。取值和 Go 侧 `writingPlanEnglishArgumentKinds` /
+ * `writingPlanEnglishNarrativeKinds` 里给模型的那几个名字**逐字一致** ——
+ * 印记在对话里说 "topic sentence"，图上印的却是别的词，那就是两个名字。
+ */
+function outlineKindLabelEN(kind: string): string {
+  switch (kind) {
+    case "opening":
+      return "Introduction";
+    case "thesis":
+      return "Thesis statement";
+    case "point":
+      return "Topic sentence";
+    case "counter":
+      return "Counterargument";
+    case "rebuttal":
+      return "Refutation";
+    case "gap":
+      return "Evidence still missing";
+    case "closing":
+      return "Conclusion";
+    case "evidence":
+      return "Evidence · your own";
+    case "reference":
+      return "Evidence · found";
+    // commentary / analysis —— 摆完材料之后那一句。英文老师问的 "so what?"
+    // 问的就是它，也是中学生最常缺的一块。
+    case "reasoning":
+      return "Commentary";
+    case "scene":
+      return "Scene";
+    case "detail":
+      return "Detail";
+    case "turn":
+      return "Turning point";
+    case "feeling":
+      return "Reflection";
     default:
       return "";
   }

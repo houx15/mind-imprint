@@ -86,6 +86,7 @@ export function MindMap({
   onMove,
   onRekind,
   kindChoices,
+  lang,
 }: {
   items: WritingOutlineItem[];
   justAdded: string[];
@@ -103,6 +104,12 @@ export function MindMap({
   onRekind?: (id: string, kind: OutlineKind) => void;
   /** 摆给她挑的那几种，按文体。见 rekindChoices。 */
   kindChoices?: OutlineKind[];
+  /**
+   * 这一篇用哪种语言写。卡片上那几个小标题按它挑一套词 ——
+   * 一篇英文议论文上印「分论点」是错的词（同事 2026-09-22 的意见 7）。
+   * 不传就是中文。
+   */
+  lang?: string;
   /**
    * 把一个节点挂到另一个节点底下。不给就不能拖（公开只读的地方）。
    * 算新清单那一步是纯函数，见 outlineMove.ts。
@@ -296,6 +303,7 @@ export function MindMap({
               onEdit={onEdit}
               onRekind={onRekind}
               kindChoices={kindChoices}
+              lang={lang}
               drag={drag}
             />
           ))}
@@ -318,6 +326,7 @@ function Branch({
   onEdit,
   onRekind,
   kindChoices,
+  lang,
   drag,
 }: {
   node: MindMapNode;
@@ -327,11 +336,12 @@ function Branch({
   onEdit?: (id: string, text: string) => void;
   onRekind?: (id: string, kind: OutlineKind) => void;
   kindChoices?: OutlineKind[];
+  lang?: string;
   drag: MindMapDrag;
 }) {
   const isNew = justAdded.includes(node.item.id);
   const isRoot = node.item.depth === 0;
-  const label = outlineKindLabel(outlineKindOf(node.item)) || node.item.role;
+  const label = outlineKindLabel(outlineKindOf(node.item), lang) || node.item.role;
 
   /**
    * Which root is the SPINE.
@@ -418,6 +428,7 @@ function Branch({
                 current={outlineKindOf(node.item)}
                 label={label}
                 choices={kindChoices}
+                lang={lang}
                 onPick={(k) => onRekind(node.item.id, k)}
                 justDragged={drag.justDragged}
               />
@@ -480,6 +491,7 @@ function Branch({
               onEdit={onEdit}
               onRekind={onRekind}
               kindChoices={kindChoices}
+              lang={lang}
               drag={drag}
             />
           ))}

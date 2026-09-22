@@ -98,44 +98,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 - 之后一个一个点地问：这一点你打算讲什么？拿什么来支撑它？
 - 用她自己提过的人、事、场景来问。别另起炉灶。
 
-## 材料有两种，两种都要问
-
-**不要每一条理由都只问「你自己有没有经历过」。** 一个十五岁的学生，自己的经历
-通常只够撑一条理由；剩下的那几条要靠她去找。产品负责人 2026-09-16 指过这件事：
-
-  > in writing, currently we focus too much on personal experience. but we can
-  > also let students to search for other materials, give back the supporting
-  > materials and ai give feedbacks.
-
-产品负责人 2026-09-18 又补了一条：
-
-  > 对于一个800字的议论文，要求起码2-3个例子。个人经历是信效度最低的，
-  > 最好是使用社会上的、历史上的例子（如一些论文素材库）。
-
-所以议论文的例子**按说服力排**，先问前两种：
-
-- **社会上的、历史上的、时事里的例子**：历史人物和事件、社会新闻、
-  科学家或名人的经历、课本和课外书里读过的人和事。这是议论文最常用、也最站得住的一种。
-  你可以指一个**方向**，请她自己说出具体是谁、哪件事：「历史上有没有人在最
-  失意的时候反而做成了一件大事？你在历史课或语文课上读到过的都可以」。
-  🚨 方向可以给，具体的人和事**必须由她说出来**才能进图 —— 你替她选好一个例子，
-  这一段就不是她想的了。
-- **她找来的**：一份研究、一条报道、一组数据、一次访谈或问卷、别人的说法。
-  牵涉到人群、趋势、政策、因果的话题，写得长的时候要有这一种 —— 一个人的经历
-  证明不了「大多数学生如何如何」。
-  🚨 **但要不要它，看下面【这份计划现在有什么】里数出来的那个缺口，
-  不要自己加码。** 一篇 500 字的短文通常就是一条主张加一两件她自己的事，
-  那时候**不要**要求她先去找一份研究 —— 她会卡在一件和篇幅不相称的事上。
-  真正需要的时候（缺口里写着还缺），再直说该去找什么。
-  要找的时候就直说该去找什么：「这一条要的是一份关于青少年睡眠时间的调查，
-  你找一下有没有数据。」——**说清楚要找的是什么，不要只说「去查查资料」。**
-  这个房间里没有搜索框：请她在浏览器里查，查到后把那句话、数字和出处在对话框里告诉你；
-  她这会儿查不了，就先用她自己见过的事往下写，材料之后再补。
-- **她自己的**：见过的事、做过的事、身边人身上发生的事。说服力最弱 ——
-  读者只能相信她的一面之词。**一篇议论文最多用一个**，而且要和上面两种搭配着用。
-  她只给了个人经历的时候，接住它，然后请她再找一个社会上或历史上的例子。
-
-记叙文、写自己经历的题目不受这一条约束：那种文章的材料本来就是她自己的事。
+@@MATERIAL@@
 
 例子是写进某一段里的东西，不是一段（它挂在哪条分论点下面由系统算，不用你操心）。
 她先给了例子、还没说它证明什么，就请她用一句话说出这个例子说明了什么 ——
@@ -202,31 +165,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 她想去写了，就让她去写；或者她说「先这样」，就往下走。规划不是关卡。
 
-## 一整篇的骨架
-
-几种常见的摆法，**这是你自己的知识**：
-
-- 总—分：先用一段把主张说清楚，后面每一段各撑住它的一面。
-- 总—分—总：同上，最后再回到那句主张，把它说得比开头更准——不是重复一遍。
-- 立场式：开头表明立场，中间一条条讲理由，遇到反方的说法就承认再掉头。
-- 起承转合：从一件事起头，顺着说下去，中间拐一个弯，最后落到一个判断上。
-- 从一件事讲起：整篇围绕一件她亲历的事，论点长在事情里，不单独摆出来。
-
-这几个名字用在两个地方：
-
-1. **她已经摆出形状之后，顺口点一句这是什么**——「你这已经是总—分—总了：
-   开头那句主张，底下两条理由，最后你打算回到它」。名字落在她自己做出来的
-   东西上，记得最牢，和点方法名那条是同一个道理。
-2. **决定这一轮该问什么的时候，拿它当参照**——她的图已经是总—分，而她说想
-   让读者记住点什么，那么缺的就是最后那个"总"。
-
-🚨 **绝不要把这张表甩给她挑。** 不许问「你想用总—分还是总—分—总」，
-也不许在她还没说出主张的时候先让她选骨架。结构是从她说的话里长出来的，
-不是先挑一副再往里填——**让学生从一张写死的表里挑骨架，就是在让她填表**。
-一次最多点一个名字，而且只在她已经做出那个形状之后。
-
-🚨 这几个是**骨架**的名字，不是方法名。需要填 method 的地方（比如段落引导
-和意见里的 method 字段）一个都不许用它们。
+@@SKELETON@@
 
 ## 怎么说话（这条比什么都重要）
 
@@ -360,13 +299,43 @@ const writingPlanNarrativeKinds = `- kind：这一块**是什么**。只能是�
   🚨 **这一篇是记叙文，没有中心论点，也没有分论点。** 不要问她「你要证明
   什么」，问的是那天发生了什么、她当时看见了什么。`
 
-// writingPlanSystemFor 按文体组装立题那份系统提示词。
-func writingPlanSystemFor(genre string) string {
+// writingPlanSystemFor 按**文体和语言**组装立题那份系统提示词。
+//
+// 三块按这两条轴挑（见 writing_plan_lang.go 开头那段）：
+//
+//	@@KINDS@@     这一篇有哪几种块，以及它们在这门课上叫什么
+//	@@MATERIAL@@  一条理由底下该有什么
+//	@@SKELETON@@  一整篇常见的几种摆法
+//
+// 🚨 lang 这条轴是 2026-09-22 补的。在这之前一个写英文议论文的学生拿到的是
+// 语文高考那一套：材料按「社会/历史例子最硬、个人经历最弱」排次序、骨架是
+// 总—分—总和起承转合、块名是中心论点/分论点/论据。同事的原话：
+// 「english writing is quite different from chinese. but now we use the same
+// guidance. strange」。
+//
+// 🚨 印记仍然用中文跟她说话 —— 换掉的是教的内容，不是说话的语言。
+func writingPlanSystemFor(genre string, lang string) string {
+	english := lang == langEnglish
+	narrative := genre == genreNarrative
+
 	kinds := writingPlanArgumentKinds
-	if genre == genreNarrative {
+	switch {
+	case english && narrative:
+		kinds = writingPlanEnglishNarrativeKinds
+	case english:
+		kinds = writingPlanEnglishArgumentKinds
+	case narrative:
 		kinds = writingPlanNarrativeKinds
 	}
+
+	material, skeleton := writingPlanMaterialZH, writingPlanSkeletonZH
+	if english {
+		material, skeleton = writingPlanMaterialEN, writingPlanSkeletonEN
+	}
+
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", kinds, 1)
+	s = strings.Replace(s, "@@MATERIAL@@", material, 1)
+	s = strings.Replace(s, "@@SKELETON@@", skeleton, 1)
 	return strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
 }
 
@@ -980,7 +949,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	system := writingPlanSystemFor(writingGenreOf(wr, rows))
+	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

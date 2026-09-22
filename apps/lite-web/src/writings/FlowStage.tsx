@@ -171,7 +171,7 @@ export function FlowStage({
           <p className="text-mk-small text-mk-muted">
             从上到下就是文章的顺序。拖一条到别处，或者用右边的上下按钮。挂在一条底下的材料跟着它一起走。
           </p>
-          <FlowOrderList items={outline} onMove={moveNode} />
+          <FlowOrderList items={outline} onMove={moveNode} lang={writing.lang} />
         </section>
 
         {structures.length > 0 && (

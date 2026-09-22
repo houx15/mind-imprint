@@ -97,3 +97,40 @@ describe("outlineKind", () => {
     });
   });
 });
+
+// 🚨 英文那一篇用英文那一套词（同事 2026-09-22 的意见 7）。
+//
+// 原来一篇英文议论文的图上印着「中心论点 / 分论点 / 论据」。那不是翻译问题：
+// 英文写作课上这三块叫 thesis statement / topic sentence / evidence，
+// 而这几个词就是她要学会的东西。
+describe("outlineKindLabel 的语言这条轴", () => {
+  it("英文议论文用英文写作课的词", () => {
+    expect(outlineKindLabel("thesis", "en")).toBe("Thesis statement");
+    expect(outlineKindLabel("point", "en")).toBe("Topic sentence");
+    expect(outlineKindLabel("counter", "en")).toBe("Counterargument");
+    expect(outlineKindLabel("rebuttal", "en")).toBe("Refutation");
+    // commentary —— 摆完材料之后那一句，英文老师问的 "so what?"。
+    expect(outlineKindLabel("reasoning", "en")).toBe("Commentary");
+  });
+
+  it("英文记叙文也一样", () => {
+    expect(outlineKindLabel("turn", "en")).toBe("Turning point");
+    expect(outlineKindLabel("feeling", "en")).toBe("Reflection");
+  });
+
+  it("不传语言就是中文 —— 只读的地方不必都改一遍", () => {
+    expect(outlineKindLabel("point")).toBe("分论点");
+    expect(outlineKindLabel("point", "zh")).toBe("分论点");
+  });
+
+  it("🚨 每一种 kind 两种语言都得有名字，不许留空", () => {
+    const kinds = [
+      "opening", "thesis", "point", "evidence", "reference", "reasoning",
+      "counter", "rebuttal", "gap", "closing", "scene", "detail", "turn", "feeling",
+    ];
+    for (const k of kinds) {
+      expect(outlineKindLabel(k, "en"), `${k} 的英文名是空的 —— 卡片上会只剩一行文字`).not.toBe("");
+      expect(outlineKindLabel(k, "zh"), `${k} 的中文名是空的`).not.toBe("");
+    }
+  });
+});

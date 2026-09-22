@@ -26,12 +26,15 @@ export function KindPicker({
   current,
   label,
   choices,
+  lang,
   onPick,
   justDragged,
 }: {
   current: OutlineKind;
   label: string;
   choices: OutlineKind[];
+  /** 这一篇的语言 —— 菜单里那几个词跟着它换。 */
+  lang?: string;
   onPick: (kind: OutlineKind) => void;
   /** 刚才那一下是拖不是点 —— 见 MindMap 里改文字那一处同样的判断。 */
   justDragged: () => boolean;
@@ -91,7 +94,7 @@ export function KindPicker({
               className="px-3 py-1 text-left text-mk-small transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50"
               style={{ color: k === current ? "var(--mk-accent-700)" : "var(--mk-ink)" }}
             >
-              {outlineKindLabel(k)}
+              {outlineKindLabel(k, lang)}
               {k === current ? " ·" : ""}
             </button>
           ))}
