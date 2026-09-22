@@ -95,3 +95,5 @@
   .showcase-feedback { padding: 12px 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .showcase-editor button { transition: none; } }
+
+.showcase-field small.showcase-field-error { color: var(--mk-danger); }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Monitor, Smartphone } from "lucide-react";
+import { ApiError } from "../api/client";
 import { apiErrorText } from "../api/errorText";
 import { getShowcase, publishShowcase, revokeShowcase, saveShowcase, type ShowcaseState } from "../api/showcase";
 import { beforeNavigate } from "../routing";
@@ -9,6 +10,7 @@ import { Showcase } from "../site/Showcase";
 import { SHOWCASE_THEMES } from "../site/showcaseThemes";
 import type { ShowcaseConfig, ShowcaseWork } from "../site/showcaseTypes";
 import "./showcaseEditor.css";
+import { parseShowcaseInterests } from "./showcaseDraft";
 
 const sections = { writing: "写作", reading: "阅读", project: "项目" } as const;
 const layouts = [
@@ -36,13 +38,15 @@ export function MySitePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [tab, setTab] = useState<"profile" | "design" | "works">("design");
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [narrow, setNarrow] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const effectiveDraft = draft ? { ...draft, interests: interestText.split(/[,，、\n]/).map(s => s.trim()).filter(Boolean) } : null;
+  const interestInput = parseShowcaseInterests(interestText);
+  const effectiveDraft = draft ? { ...draft, interests: interestInput.interests } : null;
   const dirty = !!state && !!effectiveDraft && JSON.stringify(effectiveDraft) !== JSON.stringify(state.draft);
 
   function accept(next: ShowcaseState) {
@@ -50,7 +54,7 @@ export function MySitePage() {
   }
   useEffect(() => {
     let cancelled = false;
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setConflict(false);
     getShowcase().then(next => { if (!cancelled) accept(next); })
       .catch(err => { if (!cancelled) setError(`读取失败：${apiErrorText(err)}`); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -69,6 +73,7 @@ export function MySitePage() {
 
   async function action(kind: "save" | "publish" | "revoke") {
     if (!state || !effectiveDraft || busyRef.current) return;
+    if (kind !== "revoke" && interestInput.error) { setError(interestInput.error); setTab("profile"); return; }
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
       let next = state;
@@ -81,7 +86,7 @@ export function MySitePage() {
       // Revocation changes visibility only; retain unsaved local edits.
       if (kind === "revoke") setState(next); else accept(next);
       setNotice(kind === "save" ? "草稿已保存，公开页面未改变" : kind === "publish" ? "主页已发布" : "主页已停止发布");
-    } catch (err) { setError(`${kind === "save" ? "保存" : kind === "publish" ? "发布" : "停止发布"}失败：${apiErrorText(err)}`); }
+    } catch (err) { if (err instanceof ApiError && err.status === 409) setConflict(true); setError(`${kind === "save" ? "保存" : kind === "publish" ? "发布" : "停止发布"}失败：${apiErrorText(err)}`); }
     finally { busyRef.current = false; setBusy(false); }
   }
   function patch(values: Partial<ShowcaseConfig>) { setDraft(current => current ? { ...current, ...values } : current); setNotice(""); }
@@ -105,6 +110,7 @@ export function MySitePage() {
   if (loading) return <div className="showcase-loading" role="status"><Loader2 className="animate-spin" size={22} />正在加载主页</div>;
   if (!state || !draft || !effectiveDraft) return <div className="showcase-loading"><div role="alert"><Says content={errorMarkdown(error)} /></div><button onClick={() => setAttempt(n => n + 1)}>重新加载</button></div>;
   const picked = state.availableWorks.filter(w => effectiveDraft.selectedWorkIds.includes(w.id));
+  const unavailableIds = draft.selectedWorkIds.filter(id => !state.availableWorks.some(work => work.id === id));
   const canPublish = !!draft.name.trim() && !!(draft.bio.trim() || draft.tagline.trim());
 
   return <div className="showcase-editor">
@@ -112,11 +118,12 @@ export function MySitePage() {
       <div><p className="showcase-eyebrow">个人展示</p><h1>我的主页</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published ? state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "已发布" : "仅自己可见"}</p></div>
       <div className="showcase-actions">
         {state.url && (state.published || state.hasLegacySite) && <a href={state.url} target="_blank" rel="noreferrer">查看公开页<ExternalLink size={14} /></a>}
-        <button disabled={busy || !dirty} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
-        <button className="showcase-primary" disabled={busy || dirty || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
+        <button disabled={busy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
+        <button className="showcase-primary" disabled={busy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
       </div>
     </header>
     {(error || notice) && <div className={`showcase-feedback ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}>{error ? <Says content={errorMarkdown(error)} /> : <><Check size={16} />{notice}</>}</div>}
+    {conflict && <div className="showcase-feedback"><span>当前修改已保留。</span><button className="underline" disabled={busy} onClick={() => {setAttempt(n => n + 1); setNotice("");}}>放弃本地修改，读取最新版本</button></div>}
     <div className="showcase-mobile-switch" aria-label="编辑或预览">{(["edit", "preview"] as const).map(v => <button key={v} aria-pressed={mobileView === v} onClick={() => setMobileView(v)}>{v === "edit" ? "编辑主页" : "查看预览"}</button>)}</div>
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
@@ -135,10 +142,11 @@ export function MySitePage() {
             <label className="showcase-field">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>
             <label className="showcase-field">开场介绍<GrowingTextarea value={draft.tagline} maxLength={200} onChange={e => patch({ tagline: e.target.value })} placeholder="例如：喜欢科幻，也喜欢把想象做成小作品。" /></label>
             <label className="showcase-field">个人简介<GrowingTextarea value={draft.bio} maxLength={2000} rows={4} onChange={e => patch({ bio: e.target.value })} placeholder="请介绍你的兴趣、正在探索的事情，或想分享的经历。" /></label>
-            <label className="showcase-field">兴趣关键词<input value={interestText} onChange={e => {setInterestText(e.target.value); setNotice("");}} maxLength={500} placeholder="动漫、科幻、植物、摄影" /><small>用顿号或逗号分隔，最多 12 个。</small></label>
+            <label className="showcase-field">兴趣关键词<input value={interestText} onChange={e => {setInterestText(e.target.value); setNotice("");}} maxLength={500} placeholder="动漫、科幻、植物、摄影" /><small>用顿号或逗号分隔，最多 12 个。已填写 {interestInput.interests.length} 个。</small>{interestInput.error && <small role="alert" className="showcase-field-error">{interestInput.error}</small>}</label>
           </>}
           {tab === "works" && <>
             <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目仅展示名称与简介。</p></div>
+            {unavailableIds.length > 0 && <div className="showcase-editor-empty"><p>{unavailableIds.length} 件已选作品已停止发布或暂不可用，不会在主页展示。</p><button className="underline mt-2" onClick={() => patch({selectedWorkIds: draft.selectedWorkIds.filter(id => !unavailableIds.includes(id))})}>移除不可用作品</button></div>}
             {draft.sectionOrder.map((kind, index) => {
               const works = state.availableWorks.filter(w => w.kind === kind).sort((a, b) => {
                 const ai = selectedWorkOrder(draft, a), bi = selectedWorkOrder(draft, b);
