@@ -74,8 +74,11 @@ type showcaseWork struct {
 }
 
 type showcasePublication struct {
-	Config showcaseConfig `json:"config"`
-	Works  []showcaseWork `json:"works"`
+	Config          showcaseConfig        `json:"config"`
+	Works           []showcaseWork        `json:"works"`
+	InterestTree    *showcaseInterestTree `json:"interestTree,omitempty"`
+	HeroSourceKey   string                `json:"heroSourceKey,omitempty"`
+	AvatarSourceKey string                `json:"avatarSourceKey,omitempty"`
 }
 
 type showcaseState struct {
@@ -321,6 +324,12 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	publishedConfig := decodeShowcase(row.PublishedConfig, "")
 	if json.Unmarshal(row.PublishedConfig, &publication) == nil && publication.Config.Layout != "" {
 		publishedConfig = publication.Config
+		if publication.HeroSourceKey != "" {
+			publishedConfig.HeroImageKey = publication.HeroSourceKey
+		}
+		if publication.AvatarSourceKey != "" {
+			publishedConfig.AvatarKey = publication.AvatarSourceKey
+		}
 		if publishedConfig.Style == "" {
 			publishedConfig.Style = "classic"
 		}
@@ -328,7 +337,10 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 			publishedConfig.Illustration = "none"
 		}
 	}
-	state.HasUnpublishedChanges = !reflect.DeepEqual(draft, publishedConfig)
+	draftComparable, publishedComparable := draft, publishedConfig
+	draftComparable.HeroImagePrompt, draftComparable.AvatarImagePrompt, draftComparable.AboutConversation = "", "", nil
+	publishedComparable.HeroImagePrompt, publishedComparable.AvatarImagePrompt, publishedComparable.AboutConversation = "", "", nil
+	state.HasUnpublishedChanges = !reflect.DeepEqual(draftComparable, publishedComparable)
 	if !state.HasUnpublishedChanges && publication.Config.Layout != "" {
 		byID := make(map[string]showcaseWork, len(works))
 		for _, work := range works {
@@ -447,6 +459,10 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	q := a.d.Queries.WithTx(tx)
+	if err := tx.QueryRow(r.Context(), `SELECT 1 FROM pbl_showcase WHERE user_id=$1 FOR UPDATE`, u.ID).Scan(new(int)); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	row, err := q.GetPblShowcase(r.Context(), u.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, httpx.ErrConflict("请先保存主页"))
@@ -492,7 +508,37 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		}
 		selected = append(selected, work)
 	}
-	publicationBlob, _ := json.Marshal(showcasePublication{Config: c, Works: selected})
+	var interestTree *showcaseInterestTree
+	if c.InterestTreeMode != "none" {
+		snapshot, treeErr := a.showcaseInterestTree(r.Context(), u.ID)
+		if treeErr != nil {
+			httpx.WriteError(w, r, treeErr)
+			return
+		}
+		snapshot.Mode = c.InterestTreeMode
+		if c.InterestTreeMode == "keywords" {
+			snapshot.Branches = nil
+		}
+		interestTree = &snapshot
+	}
+	publicConfig, publicKeys, err := a.publishShowcaseImages(r.Context(), u.ID, c)
+	committed := false
+	defer func() {
+		if !committed && a.d.PublicAssets != nil {
+			for _, key := range publicKeys {
+				_ = a.d.PublicAssets.DeleteObject(context.Background(), key)
+			}
+		}
+	}()
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	publicConfig.HeroImagePrompt, publicConfig.AvatarImagePrompt = "", ""
+	publicConfig.AboutConversation = nil
+	var previous showcasePublication
+	_ = json.Unmarshal(row.PublishedConfig, &previous)
+	publicationBlob, _ := json.Marshal(showcasePublication{Config: publicConfig, Works: selected, InterestTree: interestTree, HeroSourceKey: c.HeroImageKey, AvatarSourceKey: c.AvatarKey})
 	if _, err = q.PublishPblShowcase(r.Context(), sqlc.PublishPblShowcaseParams{UserID: u.ID, Revision: in.ExpectedRevision, PublishedConfig: publicationBlob}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteError(w, r, httpx.ErrConflict("主页已在其他位置修改，请刷新后重试"))
@@ -526,6 +572,14 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	committed = true
+	if a.d.PublicAssets != nil {
+		for _, key := range []string{previous.Config.HeroImageKey, previous.Config.AvatarKey} {
+			if strings.HasPrefix(key, "showcase/users/"+u.ID.String()+"/") {
+				_ = a.d.PublicAssets.DeleteObject(context.Background(), key)
+			}
+		}
+	}
 	a.getPblShowcase(w, r)
 }
 
@@ -538,6 +592,13 @@ func (a *API) unpublishPblShowcase(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	q := a.d.Queries.WithTx(tx)
+	row, rowErr := q.GetPblShowcase(r.Context(), u.ID)
+	if rowErr != nil && !errors.Is(rowErr, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, rowErr)
+		return
+	}
+	var previous showcasePublication
+	_ = json.Unmarshal(row.PublishedConfig, &previous)
 	if _, err = q.UnpublishPblShowcase(r.Context(), u.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -549,6 +610,13 @@ func (a *API) unpublishPblShowcase(w http.ResponseWriter, r *http.Request) {
 	if err = tx.Commit(r.Context()); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	if a.d.PublicAssets != nil {
+		for _, key := range []string{previous.Config.HeroImageKey, previous.Config.AvatarKey} {
+			if strings.HasPrefix(key, "showcase/users/"+u.ID.String()+"/") {
+				_ = a.d.PublicAssets.DeleteObject(context.Background(), key)
+			}
+		}
 	}
 	a.getPblShowcase(w, r)
 }
@@ -658,6 +726,96 @@ func (a *API) resolvePblShowcaseImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]string{"objectKey": in.ObjectKey, "url": a.signedShowcaseImageOrEmpty(in.ObjectKey)})
+}
+
+func (a *API) uploadPblShowcaseImage(w http.ResponseWriter, r *http.Request) {
+	u, _ := UserFromContext(r.Context())
+	if a.d.OSS == nil {
+		httpx.WriteError(w, r, httpx.ErrOSSUnavailable())
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, (10<<20)+(1<<20))
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片超过 10 MB 或上传内容无效", nil))
+		return
+	}
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "缺少图片文件", nil))
+		return
+	}
+	defer f.Close()
+	blob, err := io.ReadAll(io.LimitReader(f, (10<<20)+1))
+	if err != nil || len(blob) == 0 || len(blob) > 10<<20 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "图片超过 10 MB 或上传内容无效", nil))
+		return
+	}
+	contentType, ext := http.DetectContentType(blob), ""
+	switch contentType {
+	case "image/png":
+		ext = "png"
+	case "image/jpeg":
+		ext = "jpg"
+	case "image/webp":
+		ext = "webp"
+	}
+	if ext == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_image", "仅支持 PNG、JPEG 或 WebP", nil))
+		return
+	}
+	key, err := generatedImageKey(u.ID, "showcase-upload", ext)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := a.d.OSS.PutObject(r.Context(), key, contentType, blob); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]string{"objectKey": key, "url": a.signedShowcaseImageOrEmpty(key)})
+}
+
+func (a *API) publishShowcaseImages(ctx context.Context, userID uuid.UUID, c showcaseConfig) (showcaseConfig, []string, error) {
+	if c.HeroImageKey == "" && c.AvatarKey == "" {
+		return c, nil, nil
+	}
+	if a.d.OSS == nil || a.d.PublicAssets == nil {
+		return c, nil, errors.New("公开图片存储未配置")
+	}
+	created := []string{}
+	copyOne := func(source, purpose string) (string, error) {
+		if source == "" {
+			return "", nil
+		}
+		blob, err := a.d.OSS.GetObject(ctx, source)
+		if err != nil {
+			return "", err
+		}
+		ct, ext, err := generatedImageFormat(blob)
+		if err != nil && http.DetectContentType(blob) == "image/webp" {
+			ct, ext, err = "image/webp", "webp", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		key, err := publicShowcaseImageKey(userID, purpose, ext)
+		if err != nil {
+			return "", err
+		}
+		if err := a.d.PublicAssets.PutObject(ctx, key, ct, blob); err != nil {
+			return "", err
+		}
+		created = append(created, key)
+		return key, nil
+	}
+	var err error
+	if c.HeroImageKey, err = copyOne(c.HeroImageKey, "hero"); err != nil {
+		return c, created, err
+	}
+	if c.AvatarKey, err = copyOne(c.AvatarKey, "avatar"); err != nil {
+		return c, created, err
+	}
+	return c, created, nil
 }
 
 func showcaseImageRequest(purpose, studentPrompt string) (string, string) {

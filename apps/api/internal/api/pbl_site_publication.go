@@ -108,7 +108,7 @@ func (a *API) renderPublicCodeSite(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
-	if current, _, showcaseErr := a.publicShowcase(r, site.UserID); showcaseErr != nil {
+	if current, _, _, showcaseErr := a.publicShowcase(r, site.UserID); showcaseErr != nil {
 		httpx.WriteError(w, r, showcaseErr)
 		return
 	} else if current != nil {
