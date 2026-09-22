@@ -1,6 +1,6 @@
 import "./writing-studio.css";
 import { useEffect, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, BookOpenText } from "lucide-react";
 import { Icon } from "@/ui";
 import { assignedPromptOf, type Writing } from "../api/writings";
 
@@ -67,53 +67,39 @@ export function PromptSidebar({ writing }: { writing: Writing }) {
 
   if (collapsed) {
     return (
-      <aside
-        aria-label="题目"
-        className="writing-prompt-rail is-collapsed flex w-10 shrink-0 flex-col items-center border-r border-mk-border bg-mk-surface py-3"
-      >
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={false}
-          title="展开题目"
-          className="flex flex-col items-center gap-2 rounded-mk-sm px-1 py-2 text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700"
-        >
+      <aside aria-label="题目" className="writing-prompt-rail is-collapsed">
+        <button type="button" onClick={toggle} aria-expanded={false}
+          aria-label="展开题目" title="展开题目" className="writing-prompt-tab">
           <Icon icon={PanelLeftOpen} size={16} />
-          {/* 竖排「题目」两个字：折起来之后这一栏还得说得出自己是什么。 */}
-          <span className="text-mk-label [writing-mode:vertical-rl]">题目</span>
+          <span>题目</span>
         </button>
       </aside>
     );
   }
 
   return (
-    <aside
-      aria-label="题目"
-      // 240 而不是 280：构思那一屏上它要和对话、思维导图并排
-      //（2026-09-22 起三栏），而那张图本来就不宽。段落和成稿两页上
-      // 少 40px 看不出来，构思那一屏上这 40px 是图的第四张卡。
-      className="writing-prompt-rail mk-scroll flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-surface"
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-mk-border px-3 py-2">
-        <span className="text-mk-caption text-mk-muted">题目</span>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded
-          title="折起题目"
-          className="rounded-mk-sm p-1 text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700"
-        >
-          <Icon icon={PanelLeftClose} size={16} />
-        </button>
-      </div>
-      <p className="writing-prompt-rail__text whitespace-pre-wrap px-3 py-3 text-mk-small leading-relaxed text-mk-ink">
-        {prompt}
-      </p>
-      {writing.targetWords != null && (
-        <p className="writing-prompt-rail__target px-3 pb-3 text-mk-label text-mk-muted">
-          目标字数 {writing.targetWords}
-        </p>
-      )}
+    <aside aria-label="题目" className="writing-prompt-rail">
+      <section className="writing-prompt-card" aria-label="写作题目">
+        <header className="writing-prompt-card__header">
+          <span className="writing-prompt-card__mark" aria-hidden="true">
+            <Icon icon={BookOpenText} size={19} />
+          </span>
+          <h2>写作题目</h2>
+          <button type="button" onClick={toggle} aria-expanded
+            aria-label="折起题目" title="折起题目" className="writing-prompt-card__fold">
+            <Icon icon={PanelLeftClose} size={16} />
+          </button>
+        </header>
+        <div className="writing-prompt-card__body mk-scroll" tabIndex={0} role="region" aria-label="题目全文">
+          <p className="writing-prompt-rail__text">{prompt}</p>
+        </div>
+        {writing.targetWords != null && (
+          <footer className="writing-prompt-card__footer">
+            <span>目标字数 </span>
+            <strong>{writing.targetWords}</strong>
+          </footer>
+        )}
+      </section>
     </aside>
   );
 }
