@@ -97,22 +97,19 @@ func tokenOf(url string) string {
 // spec §4 说第一个项目就是做她自己的主页，产品负责人 2026-09-03 把它定成一道
 // 完整的门。在这之前这条规则只以注释和一句灰字提示存在过——所以从来没有人触发
 // 过它。这条测试是那道门本身。
-func TestSiteGate_AFreeProjectWaitsUntilHerPageIsLive(t *testing.T) {
+func TestFreeProjectDoesNotWaitForHomepagePublication(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
 
 	rec := postPblProject(t, h, cookie, "我们学校每天剩好多饭，我想弄明白这些饭去哪了。")
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("主页还没发布，自由项目却建成了：status = %d; body=%s", rec.Code, rec.Body)
-	}
-	if !strings.Contains(rec.Body.String(), "主页") {
-		t.Errorf("拦住了，但没说清为什么：%s", rec.Body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("未发布主页时创建自由项目：status = %d; body=%s", rec.Code, rec.Body)
 	}
 
 	openSiteGate(t, h, cookie)
 
 	rec = postPblProject(t, h, cookie, "我们学校每天剩好多饭，我想弄明白这些饭去哪了。")
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("主页发布之后门还关着：status = %d; body=%s", rec.Code, rec.Body)
+		t.Fatalf("主页发布后创建自由项目：status = %d; body=%s", rec.Code, rec.Body)
 	}
 }
 
@@ -339,9 +336,9 @@ func TestPublicSite_RevokedAndUnknownAreIndistinguishable(t *testing.T) {
 			revoked.Code, revoked.Body, unknown.Code, unknown.Body)
 	}
 
-	// 撤销之后 §4 那道门重新关上——线上没有页面，就是没有页面。
-	if rec := postPblProject(t, h, cookie, "另一个想法"); rec.Code != http.StatusConflict {
-		t.Errorf("页面撤下来了，门却还开着：status = %d", rec.Code)
+	// 撤销只影响公开主页，不影响新建自由项目。
+	if rec := postPblProject(t, h, cookie, "另一个想法"); rec.Code != http.StatusCreated {
+		t.Errorf("页面撤下后新建自由项目：status = %d; body=%s", rec.Code, rec.Body)
 	}
 }
 
