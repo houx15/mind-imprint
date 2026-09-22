@@ -178,6 +178,15 @@ type liteReportDTO struct {
 	// generated before this field existed re-serves without it, and the
 	// client renders the section as absent rather than empty.
 	Notes []reportNote `json:"notes,omitempty"`
+	// Excerpts is reading-kind only: 她在正文里划选后按「摘抄」留下的句子
+	// （2026-09-22）。产品负责人：「these sentences will have some kind of
+	// underline and be recorded in 阅读成果 and revealed in report」。
+	//
+	// 和 Notes 是两节，因为它们是两件事：Notes 是她**写了字**的那些批注，
+	// Excerpts 是她一个字没写、只是圈下了这一句。摘抄的时候刻意不追问为什么
+	// （「actually I don't think we need this ask」），所以没有 note 是它的
+	// **常态**，不是缺失。同样不回填。
+	Excerpts []string `json:"excerpts,omitempty"`
 	// Toolkit is reading-kind only: 段落工具上她做过的事（2026-09-17，见
 	// atom_report_toolkit.go）。确定性的，不花模型调用。和上面两项一样不回填。
 	Toolkit *reportToolkit `json:"toolkit,omitempty"`
@@ -852,7 +861,38 @@ func buildReadingNotes(notes []sqlc.AtomAnnotation) []reportNote {
 	return out
 }
 
-// maxReportNotes caps 我的笔记 — see buildReadingNotes.
+// buildReadingExcerpts is 我的摘抄: every annotation she left WITHOUT writing a
+// note, oldest first — the order ListAtomAnnotations returns, which is the
+// order she read in.
+//
+// 它和 buildReadingNotes 正好互补：那边要 note 非空，这边要 note 为空，
+// 所以同一行不会在报告上出现两次。轻量版的阅读室只从划选那条工具条往
+// atom_annotation 里写，而那条路一律不带 note —— 所以实际上这一节装的就是
+// 她摘抄的全部。
+//
+// 同一句只留一条：她可能在同一处划两次（偏移不同、原句一样），报告上两行
+// 一模一样的引文读起来像是我们数错了。
+func buildReadingExcerpts(notes []sqlc.AtomAnnotation) []string {
+	out := make([]string, 0, len(notes))
+	seen := map[string]bool{}
+	for _, n := range notes {
+		if strings.TrimSpace(n.Note) != "" {
+			continue
+		}
+		q := strings.TrimSpace(n.Quote)
+		if q == "" || seen[q] {
+			continue
+		}
+		seen[q] = true
+		out = append(out, q)
+		if len(out) == maxReportNotes {
+			break
+		}
+	}
+	return out
+}
+
+// maxReportNotes caps 我的笔记 and 我的摘抄 — see buildReadingNotes.
 const maxReportNotes = 12
 
 func countDoneReadingTasks(tasks []sqlc.ReadingTask) int {
@@ -952,7 +992,9 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		// label already names the quantity, and "17 轮 / AI 教练对话轮数"
 		// stutters.
 		{Key: "chatTurns", Label: "AI 对话轮数", Value: countStudentMessages(msgs)},
-		{Key: "highlights", Label: "划线", Value: len(notes), Unit: "处"},
+		// 轻量版里每一行 atom_annotation 都是她按「摘抄」留下的，所以这个数
+		// 就是摘抄数。标签跟着她屏幕上那颗按钮叫（2026-09-22）。
+		{Key: "highlights", Label: "摘抄", Value: len(notes), Unit: "处"},
 		{Key: "notes", Label: "笔记", Value: countAnnotationsWithNote(notes), Unit: "条"},
 		{Key: "lenses", Label: "用了透镜", Value: countSubmittedCards(cards), Unit: "个"},
 		{Key: "stepsDone", Label: "阅读任务完成数", Value: countDoneReadingTasks(tasks)},
@@ -1001,7 +1043,8 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	return liteReportDTO{
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Ordinal: ordinal, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
-		LensNotes: lensNotes, Notes: buildReadingNotes(notes), TurningPoints: prose.TurningPoints,
+		LensNotes: lensNotes, Notes: buildReadingNotes(notes), Excerpts: buildReadingExcerpts(notes),
+		TurningPoints: prose.TurningPoints,
 		Article: buildReportArticle(src, blocks),
 		Toolkit: buildReportToolkit(rd.Lang, blockNotes, msgs),
 		Boards:  buildReportBoards(msgs, decodeOutline(src.Outline).Genre),

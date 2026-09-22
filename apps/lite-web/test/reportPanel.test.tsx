@@ -62,6 +62,7 @@ const REPORT: LiteReport = {
   gains: [],
   lensNotes: [],
   notes: [],
+  excerpts: [],
   piece: "",
   prosePending: false,
 };

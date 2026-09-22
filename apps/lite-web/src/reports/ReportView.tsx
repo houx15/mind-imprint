@@ -155,6 +155,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
       <ArticleEntry article={report.article} title={report.title} />
+      <MyExcerpts excerpts={report.excerpts} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Summary summary={report.summary} />
       <Boards boards={report.boards} />
@@ -183,6 +184,7 @@ export function ReportView({
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
       <TurningPoints points={report.turningPoints} name={report.studentName} viewer={viewer} />
+      <MyExcerpts excerpts={report.excerpts} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Summary summary={report.summary} />
       <Boards boards={report.boards} />
@@ -504,6 +506,43 @@ function ArticleEntry({ article, title }: { article: LiteReport["article"]; titl
           原文{article.host ? ` · ${article.host}` : ""}
         </a>
       )}
+    </section>
+  );
+}
+
+/** 我的摘抄 — the sentences she underlined and kept.
+ *
+ *  产品负责人 2026-09-22：「she can click 摘抄, and these sentences will have
+ *  some kind of underline and be recorded in 阅读成果 and revealed in report」.
+ *
+ *  🚨 它和下面「我的笔记」是两节，不能并成一节。笔记是她**写了字**的批注，
+ *  摘抄是她一个字没写 —— 摘抄的时候刻意不追问为什么。把它们摆在一起，
+ *  摘抄那几条就成了「笔记，但是空的」，读起来像她少做了一件事；而她做的
+ *  那件事是完整的：从一整篇里挑出了这几句。
+ *
+ *  所以这一节的标签说清是谁的话（R4）：句子是文章的原话，挑出它的判断是她的。 */
+function MyExcerpts({ excerpts }: { excerpts: LiteReport["excerpts"] }) {
+  if (excerpts.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionTitle>我的摘抄</SectionTitle>
+      <p className="text-mk-small text-mk-muted">阅读时保存的原文摘抄。</p>
+      <div className="flex flex-col gap-3">
+        {excerpts.map((quote, i) => {
+          const { fg } = macaron(i);
+          return (
+            <div
+              key={`${quote}-${i}`}
+              className="mk-rp-card mk-rp-rise rounded-mk-lg p-5"
+              style={rise(i + 4)}
+            >
+              <p className="mk-rp-source pl-3 text-mk-body-lg text-mk-ink" style={{ borderColor: fg }}>
+                {quote}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

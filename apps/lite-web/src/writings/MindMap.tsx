@@ -4,7 +4,8 @@ import { Icon } from "@/ui";
 import type { WritingOutlineItem } from "../api/writingRoom";
 import { useMindMapDrag, type MindMapDrag } from "./useMindMapDrag";
 import type { OutlineMoveMode } from "./outlineMove";
-import { outlineKindLabel, outlineKindOf } from "./outlineKind";
+import { outlineKindLabel, outlineKindOf, type OutlineKind } from "./outlineKind";
+import { KindPicker } from "./KindPicker";
 
 /**
  * MindMap — the canvas that grows on the right while she plans.
@@ -83,12 +84,32 @@ export function MindMap({
   onRemove,
   onEdit,
   onMove,
+  onRekind,
+  kindChoices,
+  lang,
 }: {
   items: WritingOutlineItem[];
   justAdded: string[];
   /** Hers to delete — a planning turn can only ever add. */
   onRemove?: (id: string) => void;
   onEdit?: (id: string, text: string) => void;
+  /**
+   * 她自己改一个节点「是什么」。不给就不能改（公开只读的地方、行文那一屏）。
+   *
+   * 同事 2026-09-22 的意见 3：印记把「黑心商家哪怕赚很多钱，也是失败」摆成了
+   * 论据，而它是一条和分论点并列的反面论证。**在这之前她改不动** —— 拖动只
+   * 改深度，任何拖到深度 1 的东西一律变成分论点，「反方观点」这一种根本到不了。
+   * 算新清单那一步是纯函数，见 outlineRekind.ts。
+   */
+  onRekind?: (id: string, kind: OutlineKind) => void;
+  /** 摆给她挑的那几种，按文体。见 rekindChoices。 */
+  kindChoices?: OutlineKind[];
+  /**
+   * 这一篇用哪种语言写。卡片上那几个小标题按它挑一套词 ——
+   * 一篇英文议论文上印「分论点」是错的词（同事 2026-09-22 的意见 7）。
+   * 不传就是中文。
+   */
+  lang?: string;
   /**
    * 把一个节点挂到另一个节点底下。不给就不能拖（公开只读的地方）。
    * 算新清单那一步是纯函数，见 outlineMove.ts。
@@ -273,7 +294,18 @@ export function MindMap({
       <div className="relative flex min-h-full w-max items-center">
         <ul className="flex flex-col gap-4">
           {roots.map((node) => (
-            <Branch key={node.item.id} node={node} justAdded={justAdded} registerNode={registerNode} onRemove={onRemove} onEdit={onEdit} drag={drag} />
+            <Branch
+              key={node.item.id}
+              node={node}
+              justAdded={justAdded}
+              registerNode={registerNode}
+              onRemove={onRemove}
+              onEdit={onEdit}
+              onRekind={onRekind}
+              kindChoices={kindChoices}
+              lang={lang}
+              drag={drag}
+            />
           ))}
         </ul>
       </div>
@@ -292,6 +324,9 @@ function Branch({
   registerNode,
   onRemove,
   onEdit,
+  onRekind,
+  kindChoices,
+  lang,
   drag,
 }: {
   node: MindMapNode;
@@ -299,11 +334,14 @@ function Branch({
   registerNode: (id: string, el: HTMLDivElement | null) => void;
   onRemove?: (id: string) => void;
   onEdit?: (id: string, text: string) => void;
+  onRekind?: (id: string, kind: OutlineKind) => void;
+  kindChoices?: OutlineKind[];
+  lang?: string;
   drag: MindMapDrag;
 }) {
   const isNew = justAdded.includes(node.item.id);
   const isRoot = node.item.depth === 0;
-  const label = outlineKindLabel(outlineKindOf(node.item)) || node.item.role;
+  const label = outlineKindLabel(outlineKindOf(node.item), lang) || node.item.role;
 
   /**
    * Which root is the SPINE.
@@ -384,11 +422,21 @@ function Branch({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {/* 标题来自 kind 的那张表（outlineKind.ts），不是模型写的散文。
               同事 2026-09-20 的意见 2：「部分论据的标题不规范」。 */}
-          {label && (
-            <span className="text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
-              {label}
-            </span>
-          )}
+          {label &&
+            (onRekind && kindChoices && kindChoices.length > 0 ? (
+              <KindPicker
+                current={outlineKindOf(node.item)}
+                label={label}
+                choices={kindChoices}
+                lang={lang}
+                onPick={(k) => onRekind(node.item.id, k)}
+                justDragged={drag.justDragged}
+              />
+            ) : (
+              <span className="text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
+                {label}
+              </span>
+            ))}
           {/* contentEditable is deliberately NOT used: a stray keystroke on a
               contentEditable div silently mutates her plan with no save
               affordance. Editing goes through a prompt on click. */}
@@ -441,6 +489,9 @@ function Branch({
               registerNode={registerNode}
               onRemove={onRemove}
               onEdit={onEdit}
+              onRekind={onRekind}
+              kindChoices={kindChoices}
+              lang={lang}
               drag={drag}
             />
           ))}

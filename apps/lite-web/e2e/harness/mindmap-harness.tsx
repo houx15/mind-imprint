@@ -2,8 +2,31 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MindMap } from "../../src/writings/MindMap";
 import { moveOutlineNode, type OutlineMoveMode } from "../../src/writings/outlineMove";
+import { rekindChoices, rekindOutlineNode } from "../../src/writings/outlineRekind";
+import { outlineGenreOf, type OutlineKind } from "../../src/writings/outlineKind";
 import type { WritingOutlineItem } from "../../src/api/writingRoom";
 import "../../src/index.css";
+
+import "@/ui/themes/lite.css";
+import "../../src/learning/student-surfaces.css";
+import { LITE_ACCENT_PRESETS } from "@/ui/themes/lite";
+import type { CSSProperties } from "react";
+
+// 🚨 看图台得自己把 lite 的配色装上，否则它画出来的每一屏都是红的。
+//
+// `--mk-accent-*` 的**基础值**是 pro 那边的珊瑚红（apps/web/src/index.css）。
+// lite 的青色**不在 CSS 里** —— 它由 `AccentProvider` 把
+// `--mk-theme-accent-*` 作为**内联样式**写在 `.lite-student` 那个 div 上
+// （LiteApp.tsx / GuestTheme.tsx）。所以光加一个 class 不够，连 import 那份
+// 主题 CSS 也不够：那份 CSS 写的是 `--mk-accent-500: var(--mk-theme-accent-500)`，
+// 而那个变量要靠 React 那一层给。
+//
+// 2026-09-22 我差点照着红色的截图去查「配色是不是被改了」。
+// **看图台自己脏了，产品没事**（[[observation-tool-is-the-bug-2026-09-12]]）。
+const LITE_ACCENT_STYLE = Object.fromEntries(
+  Object.entries(LITE_ACCENT_PRESETS[0]!.scale).map(([step, value]) => [`--mk-theme-accent-${step}`, value]),
+) as CSSProperties;
+
 
 /**
  * 一次性的看图台 —— 只为了**在真浏览器里**看那张思维导图。
@@ -40,10 +63,28 @@ function Harness() {
     if (next) setItems(next);
   }
 
+  /** 她自己改一条「是什么」—— 同事 2026-09-22 的意见 3。 */
+  function onRekind(id: string, kind: OutlineKind) {
+    const res = rekindOutlineNode(items, id, kind);
+    setLog((l) => [...l, `${id} → ${kind} ${res.ok ? "ok" : "拒绝：" + res.why}`]);
+    if (res.ok) setItems(res.items);
+  }
+
   return (
-    <div style={{ display: "flex", height: "100vh", background: "var(--mk-paper)" }}>
+    <div
+      className="lite-student"
+      style={{ ...LITE_ACCENT_STYLE, display: "flex", height: "100vh", background: "var(--mk-paper)" }}
+    >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <MindMap items={items} justAdded={[]} onMove={onMove} onRemove={() => {}} onEdit={() => {}} />
+        <MindMap
+          items={items}
+          justAdded={[]}
+          onMove={onMove}
+          onRemove={() => {}}
+          onEdit={() => {}}
+          onRekind={onRekind}
+          kindChoices={rekindChoices(outlineGenreOf(items))}
+        />
       </div>
       {/* 摊平之后的样子，给断言读 —— 屏幕上对了而数据错了是最坏的一种。 */}
       <pre

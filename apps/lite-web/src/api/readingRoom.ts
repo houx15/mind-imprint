@@ -95,6 +95,9 @@ export type CoachMessagePayload = {
   /** 「回到原题」：上一张是辅助题，她答完了，而这一步还没走完 —— 她原来那张
    *  开放题从「已替换」回到可作答，连着她写了一半的草稿。服务端标的。 */
   restored?: boolean | null;
+  /** 这一轮 印记 领她去看的那一段。那条消息底下那颗「跳到第 N 段」读它。
+   *  见 `replyJumpBlock`。 */
+  focusBlock?: string | null;
 };
 
 export type LiteMessage = {
@@ -115,6 +118,24 @@ export function replyIsIncomplete(m: LiteMessage): boolean {
 /** 这条回复把原题交还给她了。见 CoachMessagePayload.restored。 */
 export function replyRestoresCard(m: LiteMessage): boolean {
   return m.payload?.restored === true;
+}
+
+/**
+ * 这条回复领她去看哪一段。没有就返回空串。
+ *
+ * 🚨 2026-09-22 起，文章**不再自动滚过去**。产品负责人报的第 3 条：
+ *
+ *	有的学生可能没读完12-16段就发现了答案发出去了，这个时候系统会自动跳转到
+ *	17段，但可能学生才读到13段，可以不用自动跳转，设置一个可点击跳转的按键
+ *	比较好。
+ *
+ * 自动滚动把「印记 走到下一步了」和「她读到哪儿了」当成了同一件事。她提前答
+ * 出来，屏幕就把她从正在读的那一段拽走 —— 而她还没读完。改成那条消息底下
+ * 一颗按钮，由她按。
+ */
+export function replyJumpBlock(m: LiteMessage): string {
+  const b = m.payload?.focusBlock;
+  return typeof b === "string" ? b.trim() : "";
 }
 
 /** The card on this message, if it carried one. Shape-checked rather than
@@ -343,6 +364,33 @@ export async function putReadingRating(id: string, rating: number): Promise<numb
 export async function listReadingAnnotations(id: string): Promise<LiteAnnotation[]> {
   const raw = await apiFetch<{ annotations: LiteAnnotation[] }>(`${base(id)}/annotations`);
   return raw.annotations ?? [];
+}
+
+/**
+ * 摘抄一句（2026-09-22）。
+ *
+ * 落进 `atom_annotation` —— 那张表、那两个端点 2026 年初就在了，轻量版一直只
+ * 读不写。摘抄要的东西它一格不差地都有：哪一段、哪几个字（span 的字偏移，
+ * 正文上那道下划线靠它画）、原句。
+ *
+ * `note` 一律空串。产品负责人 2026-09-22 明确不要「为什么摘抄这一句」那一问
+ * （「actually I don't think we need this ask」）—— 想说的时候她去「阅读成果」
+ * 那一页跟印记说。所以报告里的「我的摘抄」和「我的笔记」是两节：后者查的正是
+ * `note` 非空。
+ */
+export async function createReadingExcerpt(
+  id: string,
+  excerpt: { blockId: string; start: number; end: number; quote: string },
+): Promise<LiteAnnotation> {
+  return apiFetch<LiteAnnotation>(`${base(id)}/annotations`, {
+    method: "POST",
+    body: JSON.stringify({
+      blockId: excerpt.blockId,
+      span: { start: excerpt.start, end: excerpt.end },
+      quote: excerpt.quote,
+      note: "",
+    }),
+  });
 }
 
 export async function listReadingMessages(id: string): Promise<LiteMessage[]> {

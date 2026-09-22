@@ -117,7 +117,22 @@ func main() {
 	out := flag.String("out", "internal/promptlib/prompts.json", "编译产物")
 	retag := flag.Bool("retag", false, "整库重标话题（默认只标没有话题的）")
 	dry := flag.Bool("dry", false, "不发请求，只跑抄和推那两步")
+	// -reclean 拿**产物自己**当输入，重跑清洗和拆题那两步。
+	//
+	// 源数据是 gitignore 掉的，不在每台机器上；而清洗和拆题都是纯函数，
+	// 对着已经清洗过的文本再跑一遍结果不变（clean_test.go 里那条
+	// TestCleanPromptText_Idempotent 钉着这件事）。所以改了清洗规则之后，
+	// 不需要那份源数据也能把整库重新洗一遍。
+	reclean := flag.Bool("reclean", false, "拿 -out 当输入，只重跑清洗与拆题（不发请求）")
 	flag.Parse()
+
+	if *reclean {
+		if err := runReclean(*out); err != nil {
+			fmt.Fprintf(os.Stderr, "重洗失败：%v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	raw, err := os.ReadFile(*src)
 	if err != nil {
@@ -170,6 +185,7 @@ func main() {
 		}
 		items = append(items, p)
 	}
+	items = expandOptions(items)
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 
 	todo := make([]int, 0, len(items))
@@ -291,4 +307,58 @@ func clip(s string, n int) string {
 		return s
 	}
 	return string(r[:n]) + "…"
+}
+
+// expandOptions 把「从下面两个题目中任选一题」那几道拆开。
+//
+// 见 promptlib/options.go：库里有 24 道带这句引子，11 道的引子在说谎
+//（源数据已经拆成两条，引子留着没删），13 道真的把两三个题目挤在一张卡上。
+// 一张卡该是一道能写的题 —— 按下「用这道题写」之后，整段题面进
+// `writing.assigned_prompt`，两个题目一起进去，印记就在拿两篇文章陪她想一篇。
+func expandOptions(items []promptlib.Prompt) []promptlib.Prompt {
+	out := make([]promptlib.Prompt, 0, len(items)+16)
+	split := 0
+	for _, p := range items {
+		parts := promptlib.SplitPromptText(p.Text)
+		if len(parts) == 1 {
+			p.Text = parts[0].Text
+			out = append(out, p)
+			continue
+		}
+		split++
+		for _, part := range parts {
+			q := p
+			q.ID = p.ID + part.Suffix
+			q.Text = part.Text
+			out = append(out, q)
+		}
+	}
+	if split > 0 {
+		fmt.Fprintf(os.Stderr, "拆开了 %d 道多选题 → 共 %d 道\n", split, len(out))
+	}
+	return out
+}
+
+// runReclean 拿产物当输入，重跑清洗与拆题，写回去。
+func runReclean(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var items []promptlib.Prompt
+	if err := json.Unmarshal(b, &items); err != nil {
+		return err
+	}
+	before := len(items)
+	for i := range items {
+		items[i].Text = promptlib.CleanPromptText(items[i].Text)
+	}
+	items = expandOptions(items)
+	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	buf, _ := json.MarshalIndent(items, "", "  ")
+	if err := os.WriteFile(path, append(buf, '\n'), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "重洗完：%d 道 → %d 道\n", before, len(items))
+	return nil
 }

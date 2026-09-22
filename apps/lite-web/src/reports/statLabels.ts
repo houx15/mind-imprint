@@ -33,7 +33,10 @@ const STAT_DISPLAY: Record<string, { label: string; unit?: string; fallbackUnit?
   // fallbackUnit only fills a stored stat that has no unit at all.
   wordsRead: { label: "读了", fallbackUnit: "字" },
   chatTurns: { label: "AI 对话轮数", unit: "" },
-  highlights: { label: "划线", unit: "处" },
+  // 2026-09-22：轻量版里每一处高亮都是她按「摘抄」留下的，标签跟着她屏幕上
+  // 那颗按钮叫。🚨 这里是标签的真相源 —— 报告是**存下来的**一团 JSON，
+  // 里面冻着旧标签，改 Go 只影响以后生成的那些。
+  highlights: { label: "摘抄", unit: "处" },
   notes: { label: "笔记", unit: "条" },
   lenses: { label: "用了透镜", unit: "个" },
   stepsDone: { label: "阅读任务完成数", unit: "" },

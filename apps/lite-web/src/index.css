@@ -417,10 +417,12 @@
  * `mk-*` are BARE CSS VARIABLES: every tint is `color-mix()`, never a Tailwind
  * alpha modifier (which would emit no CSS at all).
  * ------------------------------------------------------------------------- */
+/* 2026-09-22：盘从房间左下角的浮动位置搬到了 印记 那一栏的页签行里，
+   所以它现在是 relative、跟着版面走，不再盖在正文上。产品负责人：
+   「we have a round button showing all steps. can we move it to the right
+   ai side?」 */
 .mk-plandial {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
+  position: relative;
   z-index: 40;
   /* The panel is absolutely positioned, so the wrapper's own box is just the
      disc. That is deliberate: `pointerleave` counts descendants as "still
@@ -432,8 +434,9 @@
 .mk-plandial__disc {
   position: relative;
   display: grid;
-  width: 54px;
-  height: 54px;
+  /* 页签行里的一格，不再是浮在房间角上的那颗 54px 大钮。 */
+  width: 38px;
+  height: 38px;
   border: 1px solid color-mix(in srgb, var(--mk-accent-500) 28%, var(--mk-border));
   border-radius: 999px;
   background: radial-gradient(
@@ -556,11 +559,13 @@
   color: var(--mk-muted);
 }
 
-/* ── the expanded panel ──────────────────────────────────────────────── */
+/* ── the hover panel ─────────────────────────────────────────────────────
+ * 它现在挂在盘的**下面**（盘搬进了页签行，上面是房间顶栏），并且靠右对齐
+ * （盘在那一行的最右端，往左展开才不会掉出屏幕）。 */
 .mk-plandial__panel {
   position: absolute;
-  bottom: calc(100% + 10px);
-  left: 0;
+  top: calc(100% + 10px);
+  right: 0;
   width: 292px;
   max-height: min(58vh, 440px);
   overflow-y: auto;
@@ -570,7 +575,7 @@
   background: color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-surface));
   box-shadow: 0 18px 44px rgba(31, 37, 48, 0.18);
   line-height: normal;
-  transform-origin: 27px 100%;
+  transform-origin: calc(100% - 19px) 0;
   animation: mk-plandial-open 170ms cubic-bezier(0.2, 0, 0, 1);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -582,8 +587,8 @@
 .mk-plandial__panel::after {
   content: "";
   position: absolute;
+  top: -10px;
   right: 0;
-  bottom: -10px;
   left: 0;
   height: 10px;
 }
@@ -591,7 +596,7 @@
 @keyframes mk-plandial-open {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.94);
+    transform: translateY(-6px) scale(0.94);
   }
   to {
     opacity: 1;
@@ -1151,6 +1156,22 @@
   flex: none;
   gap: 4px;
   align-items: center;
+  /* 🚨 盘的展开视图是盘的**兄弟节点**，所以它落在这一行里。不许它跟页签挤
+     同一行：换行之后它独占下面一整行。
+     第一版没写这两条，截图里那块展开视图横着捅出了整栏，还把「阅读成果」
+     四个字压成了竖排 —— 五条断言全绿。看图才看得见。 */
+  flex-wrap: wrap;
+}
+
+.mk-lite-coachtabs > .mk-planwide {
+  flex: 0 0 100%;
+  /* 🚨 `min-width: 0` 少不了。flex 子项默认 `min-width: auto`，于是十五颗
+     圆点（每颗最少 40px）把它撑到 802px，比栏还宽 —— `flex-basis: 100%`
+     管不住它。那一排自己有 `overflow-x: auto`，收窄之后它在框里横向滚。 */
+  min-width: 0;
+  /* 排在页签和盘后面，不管它在 DOM 里是第几个。 */
+  order: 1;
+  margin-top: 10px;
 }
 
 .mk-lite-coachtabs button {
@@ -1179,6 +1200,11 @@
   color: var(--mk-accent-700);
   background: var(--mk-accent-50);
   font-weight: 600;
+}
+
+/* 页签和盘之间那一格空。页签靠左，盘靠右。 */
+.mk-lite-coachtabs__spacer {
+  flex: 1;
 }
 
 .mk-lite-coachtabs__count {
@@ -2941,6 +2967,24 @@
   color: var(--mk-faint);
 }
 
+/* 摘抄。这条工具条上唯一一颗会**留下东西**的按钮，所以它是实心的：
+   放入对话框、查词、语法都是这一刻的动作，摘抄进库、进报告。 */
+.mk-seltools__btn--mark {
+  background: var(--mk-accent-600);
+  color: var(--mk-on-accent, #fff);
+  font-weight: 600;
+}
+
+.mk-seltools__btn--mark:hover:not(:disabled) {
+  background: var(--mk-accent-700);
+}
+
+.mk-seltools__btn--mark:disabled {
+  background: var(--mk-accent-50);
+  color: var(--mk-faint);
+  cursor: default;
+}
+
 /* ------------------------------------------------------------------------
  * 「阅读成果」那一页（ReadingHarvest.tsx）：她学过的词、拆过的句子、摆过的板、
  * 写下的话。2026-09-18 之前这一页只摆透镜的成果，而透镜已经不再排进读法。
@@ -3052,6 +3096,22 @@
   cursor: pointer;
 }
 
+/* 摘抄的那一句。左边一条虚杠，和「我写的」那条实杠区分开 ——
+   这一句是文章的原话，挑出它的判断才是她的。 */
+.mk-harvest__excerpt {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 3px dashed var(--mk-accent-400);
+  color: var(--mk-ink);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.mk-harvest__acts {
+  display: flex;
+  gap: 14px;
+}
+
 /* 报告上「全文总结」那一节（ReportView 的 Summary，2026-09-18）。 */
 .mk-rp-summary {
   margin: 10px 0 0;
@@ -3138,4 +3198,29 @@
   content: counter(rp-order) "、";
   counter-increment: rp-order;
   font-weight: 700;
+}
+
+/* ------------------------------------------------------------------------
+ * 「跳到第 N 段」（ReadingCoachPanel 的 JumpToBlock）。
+ *
+ * 2026-09-22：它顶替的是自动滚动。产品负责人：「可以不用自动跳转，设置一个
+ * 可点击跳转的按键比较好」—— 印记 走到下一步和她读到哪儿不是同一件事。
+ * 样子照「定位原文」那颗（同一件事的另一个位置），小一号。
+ * ------------------------------------------------------------------------ */
+.mk-jumpblock {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: var(--mk-radius-full);
+  background: var(--mk-surface);
+  color: var(--mk-accent-700);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mk-jumpblock:hover {
+  background: var(--mk-accent-50);
 }

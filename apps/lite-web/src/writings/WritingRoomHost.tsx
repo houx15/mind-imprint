@@ -404,8 +404,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   if (writing.stage === "flow") {
     return (
       <FlowStage
-        title={writing.title}
         onJump={(stage) => void jumpStage(stage)}
+        writing={writing}
         writingId={writingId}
         outline={state.outline}
         structureKey={writing.structureKey ?? ""}

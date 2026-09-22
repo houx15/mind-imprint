@@ -288,6 +288,15 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         excerptOnly={layout.excerptOnly}
         // 她把全文粘进来之后，正文、导读、清单都换了 —— 走同一条加载路径重来一遍。
         onSourceReplaced={() => setReloadKey((k) => k + 1)}
+        // 摘抄。房间负责发那一次请求（它手里才有选区的字偏移），宿主负责收着
+        // 结果 —— `source.anchors` 是从这份列表算出来的，所以往里加一条，
+        // 正文上那道下划线当场就有了，不必重新加载整间房。
+        excerpts={state.annotations}
+        onExcerpt={(a) =>
+          setState((prev) =>
+            prev.phase === "ready" ? { ...prev, annotations: [...prev.annotations, a] } : prev,
+          )
+        }
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         // 完成这篇 lands her on the report. Re-running the load is what does
@@ -579,8 +588,13 @@ export function toMaterialSource(
   };
 }
 
-/** One stored margin note → a renderable highlight. A note whose span has no
- *  real range is DROPPED rather than shown as a zero-width mark. */
+/** One stored annotation → a renderable highlight. One whose span has no
+ *  real range is DROPPED rather than shown as a zero-width mark.
+ *
+ *  🚨 `dimension` 写「摘抄」而不是「批注」。轻量版的阅读室**只**从划选那条工具条
+ *  往 `atom_annotation` 里写（2026-09-22 起），别处一行都不写 —— 所以这张表里
+ *  的每一行都是她摘抄的一句。名字要叫她屏幕上那颗按钮叫的那个名字：一处高亮
+ *  点开来说「批注」，而她按的是「摘抄」，那是两个词指同一件事。 */
 function toAnchor(a: LiteAnnotation): Anchor | null {
   const start = a.span?.start ?? 0;
   const end = a.span?.end ?? 0;
@@ -592,7 +606,7 @@ function toAnchor(a: LiteAnnotation): Anchor | null {
     start,
     end,
     quote: a.quote,
-    dimension: "批注",
+    dimension: "摘抄",
     author: "student",
     question: "",
     answer: a.note,

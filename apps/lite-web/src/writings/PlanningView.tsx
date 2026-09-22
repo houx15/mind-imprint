@@ -16,11 +16,12 @@ import type { Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
-import { AssignedPromptLine } from "./AssignedPromptLine";
+import { PromptSidebar } from "./PromptSidebar";
 import { MindMap } from "./MindMap";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
-import { outlineKindOf } from "./outlineKind";
+import { outlineGenreOf, outlineKindOf, type OutlineKind } from "./outlineKind";
+import { rekindChoices, rekindOutlineNode } from "./outlineRekind";
 import { handleWriteError } from "./writeErrors";
 import { coachOpeningNeeded } from "./openingRule";
 
@@ -253,6 +254,26 @@ export function PlanningView({
     );
   }
 
+  /**
+   * 她自己改一条「是什么」—— 同事 2026-09-22 的意见 3。
+   *
+   * 印记会判错（那张图里「黑心商家哪怕赚很多钱，也是失败」被摆成了论据，
+   * 它是一条和分论点并列的反面论证）。判错归提示词管；这里管的是
+   * **判错了她改得动**。
+   *
+   * 🚨 挂不上就把原因说给她听，不悄悄挂到别处。算得出来算不出来的那一步是
+   * 纯函数，见 outlineRekind.ts。
+   */
+  function rekindNode(id: string, kind: OutlineKind) {
+    const res = rekindOutlineNode(outline, id, kind);
+    if (!res.ok) {
+      setError(res.why);
+      return;
+    }
+    setError(null);
+    void mutate(res.items.map(outlineToReq));
+  }
+
   return (
     <div className="student-planning-room flex h-full w-full flex-col bg-mk-paper">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-mk-border px-5 py-3">
@@ -264,7 +285,11 @@ export function PlanningView({
           {/* Same line as the room header: an assigned writing starts here,
               in 结构, so the deadline has to show before she reaches 去写. */}
           <AssignmentLine atomId={writing.id} className="mt-0.5 block text-mk-small text-mk-muted" />
-          <AssignedPromptLine writing={writing} />
+          {/* 🚨 题目不在这里。它原来是这下面一行 line-clamp-2 的小字，全文只在
+              title 属性里 —— 同事 2026-09-22 的意见 1：「选择题目进入写作后，
+              无法看到完整的题目。想要看完整的题目还需要退出重新搜索，
+              可能不利于学生**边看题目边构思**」。构思正是这一屏。
+              它现在是左边那一栏，和段落、成稿两步用的是同一个 PromptSidebar。 */}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-mk-small text-mk-muted">先想清楚，再动笔</span>
@@ -291,7 +316,11 @@ export function PlanningView({
         </div>
       )}
 
-      <div className={hasMap ? "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 flex-1 justify-center"}>
+      {/* 题目那一栏在最左边，构思全程都在。她要「边看题目边构思」，
+          那这两件东西就得同时在屏幕上。 */}
+      <div className="flex min-h-0 flex-1">
+        <PromptSidebar writing={writing} />
+        <div className={hasMap ? "grid min-h-0 min-w-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,48%)]" : "flex min-h-0 min-w-0 flex-1 justify-center"}>
         <div className={hasMap ? "flex min-h-0 flex-col" : "flex min-h-0 w-full max-w-[720px] flex-col"}>
           <div className="px-5 pt-4"><StudentCoachHeading label="写作构思" /></div>
           <ChatLog messages={chatMessages} thinking={sending || opening} className="mk-scroll min-h-0 flex-1 px-5 py-4" />
@@ -359,14 +388,18 @@ export function PlanningView({
                 band would cut the drawing surface in two, and the point of
                 this panel is that it reads as one continuous sheet. */}
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 py-2">
+              {/* 🚨 shrink-0 + nowrap：旁边那句提示很长，而这一行是 flex。
+                  不写死它，被挤到装不下「你的思路」四个字的时候，浏览器会
+                  一个字一个字往下折 —— 2026-09-22 加了左边那一栏题目之后，
+                  这一块正好窄到触发它，看图台上看见的就是竖着排的四个字。 */}
               <span
-                className="rounded-mk-full px-2 py-0.5 text-mk-label text-mk-faint"
+                className="shrink-0 whitespace-nowrap rounded-mk-full px-2 py-0.5 text-mk-label text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
                 你的思路
               </span>
               <span
-                className="rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
+                className="min-w-0 rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
                 {/* 🚨 原来只说了改和删，没说**怎么加** —— 而这张图长什么样
@@ -382,9 +415,19 @@ export function PlanningView({
                 想加一条，说给印记听 —— 找来的研究、报道、数据也一样，连出处一起说；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
-            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />
+            <MindMap
+              items={outline}
+              justAdded={justAdded}
+              onRemove={removeNode}
+              onEdit={editNode}
+              onMove={moveNode}
+              onRekind={rekindNode}
+              kindChoices={rekindChoices(outlineGenreOf(outline))}
+              lang={writing.lang}
+            />
           </aside>
         )}
+        </div>
       </div>
     </div>
   );

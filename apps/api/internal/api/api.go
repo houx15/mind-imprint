@@ -279,7 +279,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/library/{slug}/levels/{tier}", liteOnly(a.startLibraryReading))
 
 	// 写作题库（2026-09-21）。同上：内容在 internal/promptlib 里 go:embed。
-	// 705 道题，所以筛 / 搜 / 翻页全在服务端做 —— 一次把全库发给前端是 900KB，
+	// 700 多道题，所以筛 / 搜 / 翻页全在服务端做 —— 一次把全库发给前端是 900KB，
 	// 而「筛完之后每一维还剩哪些值」只有看得见全库的人算得出来。
 	// 老师端和学生端看的是同一份内容，走同一条路（老师也是 lite 账号）。
 	mux.Handle("GET /api/v1/writing-prompts", liteOnly(a.listWritingPrompts))
@@ -312,6 +312,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/awakening/{id}/title", liteOnly(a.setAwakeningTitle))
 	mux.Handle("POST /api/v1/awakening/{id}/turn", liteOnly(a.postAwakeningTurn))
 	mux.Handle("POST /api/v1/awakening/{id}/finish", liteOnly(a.finishAwakeningRun))
+	// 她拿到过的每一份印记。树上那条「查看兴趣印记」读它 —— 原来只打得开最近
+	// 的一份，之前的没有任何一条路通向它们。
+	mux.Handle("GET /api/v1/awakening/history", liteOnly(a.listAwakeningReports))
 	mux.Handle("GET /api/v1/awakening/{id}/report", liteOnly(a.getAwakeningReport))
 	mux.Handle("POST /api/v1/awakening/{id}/share", liteOnly(a.shareAwakeningReport))
 	// 今日新闻星图。生成是惰性的（第一个打开的人触发，advisory lock 保证

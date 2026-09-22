@@ -94,38 +94,12 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 ## 你怎么问
 
 - 最多问一个需要她回答的问题；信息足够时，直接整理已表达的内容。
-- 先读取她已经表达的观点和理由。已经说清的内容直接整理进图，不再要求她换个说法重说；只有观点缺失时才请她明确想表达的观点。
+- 先读取她已经表达的观点和理由。转述时用「你的观点是……」或直接概括内容；学生说「我主张」时，也不照搬这个措辞。已经说清的内容直接整理进图，不再要求她换个说法重说；只有观点缺失时才请她明确想表达的观点。
 - 然后问她打算**用哪几件事来说明**。她给了两三条，就够往下走了。
 - 之后一个一个点地问：这一点你打算讲什么？你准备用什么材料说明这一点？
 - 用她自己提过的人、事、场景来问。围绕这些内容继续讨论。
 
-## 材料有两种，两种都要问
-
-议论文需要与观点相关、可以核实的材料。不要只询问个人经历；引导她考虑社会或历史事件，以及自己查到的研究、报道等。800 字议论文至少需要 2–3 个例子；具体缺口以下面的计划检查结果为准。
-
-议论文优先引导她考虑前两类材料：
-
-- **社会上的、历史上的、时事里的例子**：历史人物和事件、社会新闻、
-  科学家或名人的经历、课本和课外书里读过的人和事。请结合具体出处和内容判断它是否能说明当前观点。
-  你可以指一个**方向**，请她自己说出具体是谁、哪件事：「历史上有没有人在最
-  失意的时候反而做成了一件大事？你在历史课或语文课上读到过的都可以」。
-  方向可以给，具体的人和事**必须由她说出来**才能进图 —— 你替她选好一个例子，
-  这一段就不是她想的了。
-- **她找来的**：一份研究、一条报道、一组数据、一次访谈或问卷、别人的说法。
-  牵涉到人群、趋势、政策、因果的话题，写得长的时候要有这一种 —— 一个人的经历
-  证明不了「大多数学生如何如何」。
-  **但要不要它，看下面【这份计划现在有什么】里数出来的那个缺口，
-  不要自己加码。** 一篇 500 字的短文通常就是一条观点加一两件她自己的事，
-  那时候**不要**要求她先去找一份研究 —— 她会卡在一件和篇幅不相称的事上。
-  真正需要的时候（缺口里写着还缺），再直说该去找什么。
-  要找的时候就直说该去找什么：「这一条要的是一份关于青少年睡眠时间的调查，
-  你找一下有没有数据。」——**说清楚要找的是什么，不要只说「去查查资料」。**
-  这个房间里没有搜索框：请她在浏览器里查，查到后把那句话、数字和出处在对话框里告诉你；
-  她这会儿查不了，就先用她自己见过的事往下写，材料之后再补。
-- **她自己的**：见过的事、做过的事、身边人身上发生的事。个人经历可以说明具体情况，但不能直接代表所有人的情况。**一篇议论文最多用一个**，而且要和上面两种搭配着用。
-  她只给了个人经历的时候，接住它，然后请她再找一个社会上或历史上的例子。
-
-记叙文、写自己经历的题目不受这一条约束：那种文章的材料本来就是她自己的事。
+@@MATERIAL@@
 
 例子是写进某一段里的东西，不是一段（它挂在哪条分论点下面由系统算，不用你操心）。
 她先给了例子、还没说它证明什么，就请她用一句话说出这个例子说明了什么 ——
@@ -189,29 +163,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 她想去写了，就让她去写；或者她说「先这样」，就往下走。规划不是关卡。
 
-## 常见文章结构
-
-以下结构可以用来理解学生已有的计划：
-
-- 总—分：先用一段把观点说清楚，后面每一段分别从不同角度说明它。
-- 总—分—总：同上，最后再回到那句观点，把它说得比开头更准——不是重复一遍。
-- 立场式：开头表明立场，中间一条条讲理由，说明反方意见成立的条件，再解释自己的不同看法。
-- 起承转合：从一件事起头，顺着说下去，中间安排转折，最后说明由此形成的认识。
-- 从一件事讲起：整篇围绕一件她亲历的事，在叙述中表达认识，也可以不单独列出论点。
-
-这几个名字用在两个地方：
-
-1. **学生的计划已经呈现相应结构后，介绍结构名称**——「你这已经是总—分—总了：
-   开头那句观点，底下两条理由，最后你打算回到它」。请结合学生已有内容
-   解释名称的含义。
-2. **决定这一轮该问什么的时候，拿它当参照**——她的图已经是总—分，而她说想
-   让读者记住点什么，那么缺的就是最后那个"总"。
-
-请先了解学生想表达的内容，再据此整理结构。学生尚未说明观点时，不要求她先选结构名称。
-一次最多介绍一个与现有计划相符的结构。
-
-这几个是**骨架**的名字，不是方法名。需要填 method 的地方（比如段落引导
-和意见里的 method 字段）一个都不许用它们。
+@@SKELETON@@
 
 ## 交流方式
 
@@ -225,6 +177,10 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 - **不要替她写正文。** 不给开头句、不给段落、不给论点。可以解释方法和整理她说过的话。
 - **不要往图上加她没说过的内容。** 节点文字必须是她刚说的那句话的精简，不能是你替她想的点子。她这轮没说新东西，就一个节点都别加。
+- **不要把「怎么写」当成文章的内容加到图上。** 她说「我得先选一个有意思的词」
+  「我还没想好」「那我先写哪一段」，说的是这次写作要怎么进行，不是这篇文章
+  要说的东西 —— 这种话**一个节点都不要加**。图上只放这篇文章里会出现的东西。
+
 - 不要一次问好几个问题。
 - 不要说"作为AI"，不要空夸。
 
@@ -256,7 +212,7 @@ ready 给 true，当下面几件事都成立：
 - 这篇要说的**那一句话**已经定下来了；
 - **分论点的条数够了**，而且不是同一条说了两遍；
 - **说明这些理由的材料已经足够** —— 她自己见过的事、她找回来的一份研究或报道、
-  一组数据、一次访谈，**两种都算**（见上面「材料有两种」）。
+  一组数据、一次访谈，**不同来源都算**（见上面的材料说明）。
 
 这两个「够了」具体是几条，**按系统检查结果判断**——下面【这份计划现在有什么】里
 逐条写着这篇篇幅下该有几条、现在有几条。一篇 800 字的短文和一篇 3000 字的论文
@@ -298,7 +254,18 @@ const writingPlanArgumentKinds = `- kind：这一块**是什么**。只能是下
   - 「rebuttal」 对反方的回应
   - 「gap」 待补的材料 —— 她知道这里缺一份材料，但还没找到
   - 「opening」 开篇
-  - 「closing」 结尾`
+  - 「closing」 结尾
+
+## 区分观点与材料
+
+根据句子表达的内容判断节点类型：
+- point：需要进一步解释或证明的判断。
+- counter：与中心论点不同或相反、准备在文中讨论和回应的观点。
+- evidence / reference：具体事件、可核实的数据或来源中的内容。泛指某类人的判断不能直接当作具体案例。
+
+例如，「黑心商家哪怕赚很多钱，也是失败」表达了一个判断，但它未必反对「平凡尽责也是成功」；需要结合学生想表达的关系，判断是另一条理由、分析，还是待回应的反方观点。
+不确定时问：「你想用这一句说明什么？它和前面那条观点有什么关系？」
+图上的类型标签可以点击修改，需要时向学生说明这个操作。`
 
 // 记叙文那一份。来源是两份记叙文讲义：细节描写和抑扬转情法（抑→渡→转→扬）。
 const writingPlanNarrativeKinds = `- kind：这一块**是什么**。只能是下面这六个之一，**写错的整条会被丢掉**：
@@ -311,14 +278,48 @@ const writingPlanNarrativeKinds = `- kind：这一块**是什么**。只能是�
   **这一篇是记叙文，没有中心论点，也没有分论点。** 不要问她「你要证明
   什么」，问的是那天发生了什么、她当时看见了什么。`
 
-// writingPlanSystemFor 按文体组装立题那份系统提示词。
-func writingPlanSystemFor(genre string) string {
+// writingPlanSystemFor 按**文体和语言**组装立题那份系统提示词。
+//
+// 三块按这两条轴挑（见 writing_plan_lang.go 开头那段）：
+//
+//	@@KINDS@@     这一篇有哪几种块，以及它们在这门课上叫什么
+//	@@MATERIAL@@  一条理由底下该有什么
+//	@@SKELETON@@  一整篇常见的几种摆法
+//
+// 🚨 lang 这条轴是 2026-09-22 补的。在这之前一个写英文议论文的学生拿到的是
+// 语文高考那一套：材料按「社会/历史例子最硬、个人经历最弱」排次序、骨架是
+// 总—分—总和起承转合、块名是中心论点/分论点/论据。同事的原话：
+// 「english writing is quite different from chinese. but now we use the same
+// guidance. strange」。
+//
+// 🚨 印记仍然用中文跟她说话 —— 换掉的是教的内容，不是说话的语言。
+func writingPlanSystemFor(genre string, lang string) string {
+	english := lang == langEnglish
+	narrative := genre == genreNarrative
+
 	kinds := writingPlanArgumentKinds
-	if genre == genreNarrative {
+	switch {
+	case english && narrative:
+		kinds = writingPlanEnglishNarrativeKinds
+	case english:
+		kinds = writingPlanEnglishArgumentKinds
+	case narrative:
 		kinds = writingPlanNarrativeKinds
 	}
+
+	material, skeleton := writingPlanMaterialZH, writingPlanSkeletonZH
+	if english {
+		material, skeleton = writingPlanMaterialEN, writingPlanSkeletonEN
+	}
+
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", kinds, 1)
-	return strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
+	s = strings.Replace(s, "@@MATERIAL@@", material, 1)
+	s = strings.Replace(s, "@@SKELETON@@", skeleton, 1)
+	s = strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
+	if english {
+		s += "\n这篇是英文写作。讨论图中已有内容时，请使用与该节点对应的英文术语并解释其作用，例如 topic sentence 或 commentary。节点 text 必须使用英文，对话 reply 用中文。计划检查中的中文标签只是计数名称，不覆盖这些教学术语。\n"
+	}
+	return s
 }
 
 // buildWritingPlanPrompt renders the current map (with ids, so the model can
@@ -931,7 +932,7 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	system := writingPlanSystemFor(writingGenreOf(wr, rows))
+	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

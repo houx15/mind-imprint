@@ -17,17 +17,15 @@ export type FlowStructure = {
 };
 
 /**
- * 她在行文那一步能标方法的那几种块。
+ * 🚨 2026-09-22 这里原来有 `FLOW_METHOD_KINDS` / `flowCanCarryMethod`，
+ * 服务的是「每一条打算怎么证明」那个下拉。那一块整个拿掉了（见 FlowStage
+ * 顶上那段）：它存下来的 `method` 没有任何一条提示词读过，而产品负责人
+ * 2026-09-22 的原话是「they would hate this」。
  *
- * 只有正文那一层（分论点 / 反方观点）需要选「这一段怎么证明」。
- * 开篇和结尾的开法收法由 kind 决定，不由她在板上挑；
- * 论据和道理是写进某一段里的东西，它们自己不是一段。
+ * 排顺序的那一层现在由 `OUTLINE_KIND_DEPTH[kind] === 1` 直接算
+ *（FlowOrderList.isFlowBlock）—— 深度表本来就是这件事的真相源，
+ * 再写一份 id 名单只是在等它和闭表分岔。
  */
-export const FLOW_METHOD_KINDS = ["point", "counter"] as const;
-
-export function flowCanCarryMethod(kind: string): boolean {
-  return (FLOW_METHOD_KINDS as readonly string[]).includes(kind);
-}
 
 /**
  * 这一步算不算做完了。

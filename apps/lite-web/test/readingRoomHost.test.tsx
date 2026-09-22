@@ -115,13 +115,18 @@ describe("ReadingRoomHost", () => {
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });
 
-  it("shows where she is on BOTH step surfaces, and they agree", async () => {
-    // Two surfaces on purpose, with different jobs: the DIAL is the plan (every
-    // step, folded into a corner, one hover away) and the ROW at the top of
-    // 印记's column is the present tense (the one step she is on, always
-    // visible). What must never happen is the two pointing at different steps —
-    // they derive from the same first-`pending` rule, and this is what holds
-    // that together.
+  it("步骤只有一块面，长在印记那一栏上，而且默认不占地方", async () => {
+    // 🚨 2026-09-22 之前这里是**两块**面：房间角上那个盘，加上 印记 那一栏顶上
+    // 一整块常驻的步骤条。产品负责人附截图圈掉了后者：
+    //
+    //	红框内模块占用空间有点多，导致印记的提示句被压缩在下面很小的地方
+    //	we have a round button showing all steps. can we move it to the right
+    //	ai side? and hover can show the steps? and click can be this expanded
+    //	view?
+    //
+    // 所以这条测试现在钉三件事：常驻的那一块**没有了**、盘在 印记 那一栏里、
+    // 展开之后每一步都在。「两块面说的是同一句话」这个旧不变量随之消失 ——
+    // 只有一块面，它不可能和自己不一致。
     routes[key("GET", `/api/v1/readings/${READING_ID}/plan`)] = {
       body: {
         routineKey: "close_read",
@@ -136,27 +141,23 @@ describe("ReadingRoomHost", () => {
 
     render(<ReadingRoomHost readingId={READING_ID} />);
 
-    // The ROW, in the coach column, without touching anything: the step's own
-    // label so she knows what 印记 is asking of her right now.
-    const row = await screen.findByText("第 2 步 / 共 3 步");
-    expect(row.closest(".mk-reading-room__coach")).toBeTruthy();
-    expect(screen.getByText("找出作者最想让你信的那一句")).toBeTruthy();
+    // 盘：位置写在它的可访问名字上 —— 屏幕上那两个数字是个形状（环里的 2/3），
+    // 这句话是给看不见那个形状的人的。它现在长在 印记 那一栏里。
+    const disc = await screen.findByRole("button", { name: "带读进度 · 第 2 步 / 共 3 步" });
+    expect(disc.closest(".mk-reading-room__coach")).toBeTruthy();
 
-    // The DIAL, folded: the same position, carried as the disc's accessible
-    // name — the numbers are on screen as a shape (2/3 inside the ring) and as
-    // a sentence to anyone who cannot see the shape.
-    const disc = screen.getByRole("button", { name: "带读进度 · 第 2 步 / 共 3 步" });
-    expect(disc.closest("aside")).toBeNull();
-    expect(disc.closest(".mk-reading-room")).toBeTruthy();
+    // 🚨 常驻的那一块没有了：没碰任何东西之前，步骤标题一个字都不在屏幕上，
+    // 那块地方归 印记 的话。
+    expect(screen.queryByText("第 2 步 / 共 3 步")).toBeNull();
+    expect(screen.queryByText("找出作者最想让你信的那一句")).toBeNull();
 
-    // Expanded, the whole plan.
+    // 悬停 → 整份清单。
     // `pointerover`, not `pointerenter`: React synthesizes enter/leave from
     // the over/out pair and never subscribes to the non-bubbling events.
     fireEvent.pointerOver(disc.parentElement!);
-    // Two now — the row and the panel — and that is the point: both say the
-    // same sentence because both derive it the same way.
-    expect(screen.getAllByText("第 2 步 / 共 3 步")).toHaveLength(2);
-    expect(screen.getAllByText("这个证据够吗？")).toHaveLength(1);
+    expect(screen.getAllByText("第 2 步 / 共 3 步")).toHaveLength(1);
+    expect(screen.getByText("找出作者最想让你信的那一句")).toBeTruthy();
+    expect(screen.getByText("这个证据够吗？")).toBeTruthy();
   });
 
   it("restores the persisted transcript instead of greeting her again", async () => {

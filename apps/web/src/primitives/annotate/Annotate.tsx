@@ -139,8 +139,18 @@ export type AnnotateProps = {
   /**
    * 她在正文里划选了一段。`at` 是这次划选在屏幕上的位置（viewport 坐标，
    * 选区的下边缘中点），房间据此把工具条摆在她划的那几个字底下。
+   *
+   * `span` 是同一次划选的**字偏移**（start / end，按字符数）。摘抄要存成
+   * 一条 anchor 才能在正文上画出下划线，而 anchor 认的是偏移，不是引文 ——
+   * 同一句话在一段里出现两次的时候，引文指不出是哪一处。
+   * 可选：不需要偏移的调用方（pro 的阅读室）照旧用前三个参数。
    */
-  onReferenceSelection?: (blockId: string, quote: string, at?: { x: number; y: number }) => void;
+  onReferenceSelection?: (
+    blockId: string,
+    quote: string,
+    at?: { x: number; y: number },
+    span?: CreatedSpan,
+  ) => void;
   /** Block ids currently referenced (whole-paragraph) — rendered with a subtle highlight. */
   referencedBlockIds?: string[];
   /**
@@ -258,7 +268,7 @@ export function Annotate({
           if (rect && (rect.width > 0 || rect.height > 0)) {
             at = { x: rect.left + rect.width / 2, y: rect.bottom };
           }
-          onReferenceSelection(span.blockId, span.text.trim(), at);
+          onReferenceSelection(span.blockId, span.text.trim(), at, span);
         }
       : undefined;
 

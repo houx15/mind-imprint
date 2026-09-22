@@ -18,12 +18,31 @@ import type { ReadingBlockTool } from "@lite/api/readingRoom";
  *
  * 划选是一个还没说完的动作。选区就是「对哪几个字」，工具条就是「做什么」。
  *
+ * # 摘抄 与 放入对话框（2026-09-22）
+ *
+ * 产品负责人报的第 1、2 条：
+ *
+ *   > 可以加个句子划线、加入摘抄本的功能
+ *   > 有时候划线是为了辅助阅读，但是一划线(select texts)句子就被收到右下角，
+ *   > 还得一个个删除，可以划线后加一个"放入印记对话框"按键
+ *
+ * 所以这条工具条现在承担四件事里的两件新的，而**划选本身不再自动做任何事**。
+ * 这是它最要紧的一条：她划一句只是为了读顺一点，那一句就不该跑到任何地方去。
+ * 引用到对话框从「副作用」改成「一颗按钮」。
+ *
+ * 摘抄是记下来：它在正文上留一道下划线、进「阅读成果」、进报告。不追问为什么
+ * —— 产品负责人明确说了不要那一问（「actually I don't think we need this ask」），
+ * 想说的时候她自己去阅读成果那一页跟印记说。
+ *
  * # 摆哪几件工具由服务端的目录决定
  *
- * 不写死。`subject === "word"` 的工具（查词）只在她划的是**一个词**时出现，
- * `subject === "sentence"` 的（语法）只在她划的**不止一个词**时出现 —— 划了
- * 半句话去「查词」，讲出来的不是一张词卡。中文文章上这两件工具本来就不在目录里
- * （它们是 Lang "en" 的），那时候这条工具条一个按钮都没有，整个不渲染。
+ * 查词 / 语法这两件不写死。`subject === "word"` 的工具（查词）只在她划的是
+ * **一个词**时出现，`subject === "sentence"` 的（语法）只在她划的**不止一个词**
+ * 时出现 —— 划了半句话去「查词」，讲出来的不是一张词卡。中文文章上这两件工具
+ * 本来就不在目录里（它们是 Lang "en" 的）。
+ *
+ * 摘抄和放入对话框不跟着目录走：它们对任何一段选中的文字都成立，所以这条
+ * 工具条现在**永远至少有两颗按钮**，不再有「一个按钮都没有」那种情况。
  */
 
 /** 她划的这几个字算不算「一个词」。英文按空白切；中文没有词边界，四个字以内算。 */
@@ -35,7 +54,7 @@ export function isOneWord(quote: string): boolean {
   return [...q].length <= 4 || /^[A-Za-z][A-Za-z'’-]*$/.test(q);
 }
 
-/** 这条工具条上该有哪几件工具。一件都没有就不该渲染它。 */
+/** 这条工具条上该有哪几件**服务端目录里的**工具。 */
 export function toolsForSelection(tools: ReadingBlockTool[], quote: string): ReadingBlockTool[] {
   const oneWord = isOneWord(quote);
   return tools.filter((t) =>
@@ -47,18 +66,25 @@ export function SelectionTools({
   quote,
   at,
   tools,
+  excerpted,
   onPick,
+  onExcerpt,
+  onSendToCoach,
   onDismiss,
 }: {
   quote: string;
   /** 选区下边缘的中点，viewport 坐标。 */
   at: { x: number; y: number };
   tools: ReadingBlockTool[];
+  /** 这一句已经在摘抄本里了。按钮据此换成「已摘抄」并且不可再按 —— 同一句
+   *  摘两遍，报告里就是两条一模一样的。 */
+  excerpted: boolean;
   onPick: (toolId: string) => void;
+  onExcerpt: () => void;
+  onSendToCoach: () => void;
   onDismiss: () => void;
 }) {
   const picks = toolsForSelection(tools, quote);
-  if (picks.length === 0) return null;
   // position: fixed + portal：正文在一个会滚动的容器里，工具条不该被它裁掉。
   return createPortal(
     <div
@@ -69,6 +95,17 @@ export function SelectionTools({
       // 🚨 按下去不能让浏览器先把选区收掉 —— 选区就是「对哪几个字」。
       onMouseDown={(e) => e.preventDefault()}
     >
+      <button
+        type="button"
+        className="mk-seltools__btn mk-seltools__btn--mark"
+        onClick={onExcerpt}
+        disabled={excerpted}
+      >
+        {excerpted ? "已摘抄" : "摘抄"}
+      </button>
+      <button type="button" className="mk-seltools__btn" onClick={onSendToCoach}>
+        放入对话框
+      </button>
       {picks.map((t) => (
         <button key={t.id} type="button" className="mk-seltools__btn" onClick={() => onPick(t.id)}>
           {t.label}

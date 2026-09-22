@@ -144,12 +144,7 @@ type writingPlanShape struct {
 	// 问「你自己经历过吗」—— 2026-09-16 改成两种并列，理由见 writing_plan.go
 	// 的「材料有两种」。一个十五岁的学生，自己的经历通常只够撑一条理由。
 	Material int
-	// Wider 是 Material 里**不是她个人经历**的那几条：社会上的、历史上的、时事里的
-	// 例子，研究、报道、数据。
-	//
-	// 🚨 2026-09-18 产品负责人：「个人经历是信效度最低的，最好是使用社会上的、
-	// 历史上的例子（如一些论文素材库）。」一篇议论文只拿自己的两件事去撑，
-	// 老师读到的是「我觉得」。所以这一条单独数出来，判据里至少要有一条。
+	// Wider records external materials for internal diagnostics, not readiness.
 	Wider int
 }
 
@@ -203,7 +198,7 @@ func writingPlanShapeOf(rows []sqlc.WritingOutline) writingPlanShape {
 //
 // 判据跟着这一篇的篇幅走，见 writingPlanNeedOf。
 func (s writingPlanShape) ready(need writingPlanNeed) bool {
-	return s.Top >= 1 && s.Points >= need.Points && s.Material >= need.Material && s.Wider >= need.Wider
+	return s.Top >= 1 && s.Points >= need.Points && s.Material >= need.Material
 }
 
 // writingPlanNeed 是这一篇**按它的篇幅**该有的骨架。
@@ -225,7 +220,7 @@ func (s writingPlanShape) ready(need writingPlanNeed) bool {
 // 每条分论点撑多少：中文按 400 字，英文按 250 词（英文一个词大致抵一个半到
 // 两个汉字，这个比例和 writingLengthLine 里换算单位的那一处是同一个来源）。
 //
-//	800 字  → 2 条分论点、2 个例子（其中至少 1 个不是个人经历）
+//	800 字  → 2 条分论点、2 个例子
 //	1600 字 → 4 条、4 个
 //	3000 字 → 封顶 4 条、4 个
 //
@@ -236,12 +231,11 @@ func (s writingPlanShape) ready(need writingPlanNeed) bool {
 //
 // 🚨 2026-09-18 产品负责人：「对于一个800字的议论文，要求起码2-3个例子，
 // 目前思维导图的长度完全不够。」原来 800 字只要 1 条材料 —— 两条分论点里有一条
-// 是空推理也放她去写。现在例子至少和分论点一样多、下限 2 个，且其中至少一个
-// 不是她的个人经历（见 writingPlanShape.Wider）。
+// 是空推理也放她去写。现在例子至少和分论点一样多、下限 2 个。材料来源不作为数量门槛；
+// 具体证据是否合适，由教练结合观点与题目要求讨论。
 type writingPlanNeed struct {
 	Points   int
 	Material int
-	Wider    int
 }
 
 const (
@@ -250,25 +244,10 @@ const (
 	writingPlanMinPoints     = 2
 	writingPlanMaxPoints     = 4
 	writingPlanMinExamples   = 2
-	// writingPlanWiderFrom 是「从多长起，必须有一条不是她个人经历的材料」。
-	//
-	// 🚨 同事 2026-09-20 的验收标准：
-	//
-	//	「500字任务不默认强制多条理由和调查数据」
-	//
-	// 在这之前 Wider 无条件是 1：一篇 500 字的短文也被要求先去找一份研究或
-	// 报道，否则那道门不开。对一个写 500 字的初中生，那是一道和篇幅不相称的闸 ——
-	// 而 2026-09-18 定下 Wider 那条判据时针对的是**议论文写长了只拿自己两件事
-	// 去撑**，不是这一种。
-	//
-	// 800：一篇 800 字的议论文要两三条理由，这时候只拿个人经历确实撑不住；
-	// 500 字通常就是一条主张加一两件事，她自己的经历足够。
-	// 英文按同一比例换算（字→词）。
-	writingPlanWiderFrom = 800
 )
 
 func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
-	need := writingPlanNeed{Points: writingPlanMinPoints, Material: writingPlanMinExamples, Wider: 1}
+	need := writingPlanNeed{Points: writingPlanMinPoints, Material: writingPlanMinExamples}
 	if wr.TargetWords == nil {
 		return need
 	}
@@ -290,37 +269,7 @@ func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
 		need.Material = writingPlanMinExamples
 	}
 
-	// 🚨 短文不强制「她找来的」那一种材料 —— 见 writingPlanWiderFrom。
-	// 老师另外要求了的，仍然要（教师布置的题目里写着要查资料，就是要查）。
-	widerFrom := writingPlanWiderFrom
-	if wr.Lang == langEnglish {
-		widerFrom = writingPlanWiderFrom * writingPlanWordsPerPoint / writingPlanRunesPerPoint
-	}
-	if int(*wr.TargetWords) < widerFrom && !writingTeacherWantsResearch(wr) {
-		need.Wider = 0
-	}
 	return need
-}
-
-// writingTeacherWantsResearch：老师布置的那段话里有没有要求她去查资料。
-//
-// 🚨 同事 2026-09-20：「仅在教师要求或论证缺口下引导检索」。
-// 篇幅不够但老师明说了要查，那就还是要查 —— 老师的要求盖过篇幅这条默认。
-func writingTeacherWantsResearch(wr sqlc.Writing) bool {
-	if wr.AssignedPrompt == nil {
-		return false
-	}
-	p := strings.ToLower(*wr.AssignedPrompt)
-	for _, kw := range []string{
-		"查资料", "查找资料", "搜集", "收集资料", "调查", "文献", "引用", "数据",
-		"研究", "报道", "来源", "出处",
-		"research", "source", "cite", "citation", "evidence from", "data",
-	} {
-		if strings.Contains(p, kw) {
-			return true
-		}
-	}
-	return false
 }
 
 // promptBlock 把形状渲染成 prompt 里那一段。
@@ -339,8 +288,6 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条（这篇篇幅下要 " + strconv.Itoa(need.Points) + " 条）\n")
 	b.WriteString("- 例子（挂在某条分论点下面的材料）：" +
 		strconv.Itoa(s.Material) + " 个（要 " + strconv.Itoa(need.Material) + " 个）\n")
-	b.WriteString("- 其中社会、历史、时事上的例子或研究数据（不是她的个人经历）：" +
-		strconv.Itoa(s.Wider) + " 个（至少要 " + strconv.Itoa(need.Wider) + " 个）\n")
 
 	missing := s.missing(need)
 	if missing == "" {
@@ -365,9 +312,6 @@ func (s writingPlanShape) missing(need writingPlanNeed) string {
 	if s.Material < need.Material {
 		missing = append(missing, "与分论点相关的例子还不到 "+strconv.Itoa(need.Material)+
 			" 个（每条分论点底下至少一个）")
-	}
-	if s.Wider < need.Wider {
-		missing = append(missing, "还没有一个社会、历史或时事上的例子（个人经历说服力最弱，至少要有一个更有公信力的）")
 	}
 	return strings.Join(missing, "；")
 }

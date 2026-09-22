@@ -576,7 +576,7 @@
       "name": "总分式",
       "formal_name": "总分式",
       "applies_to": "whole",
-      "lang": "any",
+      "lang": "zh",
       "category": "structure",
       "definition": "先提出主要观点，后续各段分别从不同角度论证。结尾再总结观点，就是总—分—总结构。",
       "examples": [
@@ -593,7 +593,7 @@
       "name": "并列式",
       "formal_name": "并列式",
       "applies_to": "whole",
-      "lang": "any",
+      "lang": "zh",
       "category": "structure",
       "definition": "几条分论点地位相同，从不同角度说同一件事。顺序换了不影响读者理解——换了会影响的，那就不是并列式。",
       "examples": [
@@ -610,7 +610,7 @@
       "name": "层进式",
       "formal_name": "层进式",
       "applies_to": "whole",
-      "lang": "any",
+      "lang": "zh",
       "category": "structure",
       "definition": "后一条建立在前一条上：是什么 → 为什么 → 怎么办。顺序不能换，换了后面那条就没有落脚点。",
       "examples": [
@@ -627,7 +627,7 @@
       "name": "对照式",
       "formal_name": "对照式",
       "applies_to": "whole",
-      "lang": "any",
+      "lang": "zh",
       "category": "structure",
       "definition": "把正反两面摆在一起，一面写得重、一面作陪衬，差别本身就是论证。两面要在其他条件上尽量相似。",
       "examples": [
@@ -847,6 +847,91 @@
         }
       ],
       "patterns": [],
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_en_thesis_body_conclusion",
+      "name": "Thesis-body-conclusion",
+      "formal_name": "",
+      "applies_to": "whole",
+      "lang": "en",
+      "definition": "常见的英文议论文结构：引言说明 thesis statement，主体段围绕 topic sentence 展开，结论综合论证并回应 thesis。Thesis 常放在引言末尾，具体安排以题目和教师要求为准。",
+      "examples": [
+        {
+          "topic": "School start times",
+          "text": "Intro ends with: \"Schools should start an hour later.\" Then three body paragraphs, each opening with its own topic sentence. The conclusion says what changes if the claim is accepted."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "argument"
+    },
+    {
+      "id": "struct_en_counterargument",
+      "name": "Claim-counterargument-refutation",
+      "formal_name": "",
+      "applies_to": "whole",
+      "lang": "en",
+      "definition": "说明自己的观点，讨论相关的反方理由，再给出回应。是否单独成段，根据任务要求、篇幅和论证需要决定。",
+      "examples": [
+        {
+          "topic": "Phones in school",
+          "text": "Body 3 states the strongest objection — lessons get interrupted — in full, then answers it by narrowing when phones may be used rather than denying it."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "argument"
+    },
+    {
+      "id": "struct_en_point_by_point",
+      "name": "Point-by-point comparison",
+      "formal_name": "",
+      "applies_to": "whole",
+      "lang": "en",
+      "definition": "比较两个对象时，每段围绕同一个方面讨论两者的相同点与差异。",
+      "examples": [
+        {
+          "topic": "Two libraries",
+          "text": "One paragraph on opening hours (both), one on seating (both), one on noise (both)."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "argument"
+    },
+    {
+      "id": "struct_en_block",
+      "name": "Block comparison",
+      "formal_name": "",
+      "applies_to": "whole",
+      "lang": "en",
+      "definition": "先集中介绍一个对象，再介绍另一个对象。两部分按对应的方面展开，并说明它们的联系，方便读者比较。",
+      "examples": [
+        {
+          "topic": "Two libraries",
+          "text": "The first half is entirely about the old library; the second half answers it point for point, in the same order."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "argument"
+    },
+    {
+      "id": "struct_en_narrative_arc",
+      "name": "Narrative arc",
+      "formal_name": "",
+      "applies_to": "whole",
+      "lang": "en",
+      "definition": "一种英文叙事结构：交代人物与处境（exposition），描述事件发展（rising action），呈现转折（turning point），联系具体经历说明认识的变化（reflection）。可据故事需要调整段落安排。",
+      "examples": [
+        {
+          "topic": "Learning to swim",
+          "text": "The narrator cannot let go of the pool edge; three weeks of lessons make it worse, not better; one afternoon the instructor stops watching and she swims four strokes; the last paragraph returns to the edge of the pool, now empty."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
       "genre": "narrative"
     }
   ]

@@ -86,20 +86,28 @@ func TestFlowMethodOnlyAcceptsTheMethodLayer(t *testing.T) {
 // 抑扬转情法之后它就成了 5，而那条测试本来要守的是「每张卡有示范」，
 // 不是「库里一共几条」。分文体数回答的才是她那一块屏幕上看见几张卡。
 func TestFlowStructuresAllCarryAnExample(t *testing.T) {
-	if n := len(vocab.Structures(genreArgument)); n != 4 {
-		t.Fatalf("议论文的论证结构应当有 4 条（总分/并列/层进/对照），得到 %d", n)
+	// 语言这条轴 2026-09-22 补上（同事的意见 7）：一篇英文议论文要看的是
+	// thesis-body-conclusion 那一套，不是总分式。
+	if n := len(vocab.Structures(genreArgument, "zh")); n != 4 {
+		t.Fatalf("中文议论文的论证结构应当有 4 条（总分/并列/层进/对照），得到 %d", n)
 	}
-	if n := len(vocab.Structures(genreNarrative)); n != 1 {
-		t.Fatalf("记叙文的结构应当有 1 条（抑扬转情法），得到 %d", n)
+	if n := len(vocab.Structures(genreNarrative, "zh")); n != 1 {
+		t.Fatalf("中文记叙文的结构应当有 1 条（抑扬转情法），得到 %d", n)
+	}
+	if n := len(vocab.Structures(genreArgument, "en")); n != 4 {
+		t.Fatalf("英文议论文的结构应当有 4 条，得到 %d", n)
+	}
+	if n := len(vocab.Structures(genreNarrative, "en")); n != 1 {
+		t.Fatalf("英文记叙文的结构应当有 1 条（narrative arc），得到 %d", n)
 	}
 	// 🚨 两边不许交叉：一篇记叙文里没有分论点，「它们之间是并列还是层进」
 	// 是句问不出口的话。
-	for _, m := range vocab.Structures(genreNarrative) {
+	for _, m := range vocab.Structures(genreNarrative, "zh") {
 		if m.ID != "struct_yiyang" {
 			t.Errorf("记叙文的结构里混进了 %q", m.ID)
 		}
 	}
-	got := vocab.Structures("")
+	got := vocab.Structures("", "")
 	for _, m := range got {
 		if len(m.Examples) == 0 {
 			t.Errorf("%s 没有示范", m.Name)

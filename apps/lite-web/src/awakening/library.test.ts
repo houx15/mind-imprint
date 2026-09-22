@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { AwakeningThread } from "../api/awakening";
-import { LIBRARY } from "./content";
-import { libraryRows, threadName, whenLabel } from "./library";
+import type { AwakeningReportRow, AwakeningThread } from "../api/awakening";
+import { HISTORY, LIBRARY } from "./content";
+import { historyRows, libraryRows, threadName, whenLabel } from "./library";
 
 const thread = (over: Partial<AwakeningThread> = {}): AwakeningThread => ({
   id: "t1",
@@ -106,5 +106,46 @@ describe("libraryRows", () => {
   it("进度不超过总问数", () => {
     const rows = libraryRows([thread({ turnCount: 11 })], now);
     expect(rows[0]!.state).toBe(LIBRARY.progress.replace("{n}", "8"));
+  });
+});
+
+describe("historyRows", () => {
+  const now = new Date("2026-09-21T09:00:00+08:00");
+  const report = (over: Partial<AwakeningReportRow> = {}): AwakeningReportRow => ({
+    id: "p1",
+    runId: "t1",
+    title: "",
+    firstText: "",
+    createdAt: "2026-09-21T08:00:00+08:00",
+    wordCount: 0,
+    attemptNo: 1,
+    ...over,
+  });
+
+  it("用这条线索的名字，并说清那一份里有几个词", () => {
+    const rows = historyRows([report({ title: "潮汐发电为什么少", wordCount: 3 })], now);
+    expect(rows[0]!.name).toBe("潮汐发电为什么少");
+    expect(rows[0]!.meta).toBe(`${LIBRARY.today} · ${HISTORY.words.replace("{n}", "3")}`);
+  });
+
+  // 🚨 一个词都没长出来的那一份照实说。留空会让那一行看起来像是没加载出来，
+  // 而「这一趟没长出词」本身就是结果。
+  it("一个词都没长出来时照实说，而不是留一行空的", () => {
+    const rows = historyRows([report()], now);
+    expect(rows[0]!.meta).toContain(HISTORY.noWords);
+    expect(rows[0]!.meta).not.toContain("0 个词");
+  });
+
+  // 没起名的线索在库和印记两处必须叫同一个名字 —— 两处各写一遍，
+  // 她起名之后就只会改到一边。
+  it("没起名时和线索库退回同一个名字", () => {
+    const first = "最近老是刷到潮汐发电的视频，看了四十分钟";
+    const rows = historyRows([report({ firstText: first })], now);
+    expect(rows[0]!.name).toBe(threadName({ title: "", firstText: first }));
+  });
+
+  it("旧的那几份按她的日子说", () => {
+    const rows = historyRows([report({ createdAt: "2026-09-18T20:00:00+08:00" })], now);
+    expect(rows[0]!.meta).toContain(LIBRARY.daysAgo.replace("{n}", "3"));
   });
 });

@@ -1,4 +1,4 @@
-import type { LiteMessage, ReadingBlockNote, ReadingWord } from "@lite/api/readingRoom";
+import type { LiteAnnotation, LiteMessage, ReadingBlockNote, ReadingWord } from "@lite/api/readingRoom";
 import { coachAnswerOf, coachCardOf } from "@lite/api/readingRoom";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
 import type { ReadingOutcome } from "@/studio/reading/readingLoop";
@@ -24,6 +24,7 @@ import { parseOrderAnswer } from "./OrderBoard";
  *
  * 五样，全部是她自己做过的事，按「学到的 → 判断过的 → 写下的」排：
  *
+ *   我的摘抄  她在正文里划选后按「摘抄」留下的句子（2026-09-22）
  *   生词      她开过关键单词 / 查过的词，词卡原样
  *   语法      她拆过的句子和它的语法卡
  *   我摆的板  标注板（格子 + 她放进去的原话）、排序板（她排的先后）
@@ -32,7 +33,16 @@ import { parseOrderAnswer } from "./OrderBoard";
  *
  * 🚨 板上和词卡上的句子是**文章的原话**，不是她写的句子；「我写的」那一节才是
  * 她的话。每一节的标题因此说清是谁的（R4：报告和这一页上每一段引文都要说清
- * 是谁的话）。
+ * 是谁的话）。摘抄也是文章的原话——她做的判断是「这一句值得留下」。
+ *
+ * # 摘抄这一节上那颗「讨论这句」
+ *
+ * 产品负责人 2026-09-22：
+ *
+ *   > she can go to reading results part and chat with AI about those
+ *
+ * 摘抄的时候不追问为什么（那一问被明确否掉了）。想说的时候她到这一页来，
+ * 点那一句旁边的「讨论这句」—— 那一句进印记那一栏的输入框，下一句话由她写。
  */
 
 export type HarvestBoard = {
@@ -121,18 +131,28 @@ export function ReadingHarvest({
   notes,
   messages,
   outcomes,
+  excerpts = [],
   onLocate,
+  onDiscuss,
+  ordinalOf,
 }: {
   notes: ReadingBlockNote[];
   messages: LiteMessage[];
   outcomes: ReadingOutcome[];
+  /** 她摘抄过的句子，最早的在前（服务端按 created_at 排，就是她读的顺序）。 */
+  excerpts?: LiteAnnotation[];
   onLocate: (blockId: string) => void;
+  /** 把这一句放进印记那一栏的输入框。 */
+  onDiscuss?: (blockId: string, quote: string) => void;
+  /** 段 id → 第几段。段号是她屏幕上唯一认得的坐标。 */
+  ordinalOf?: (blockId: string) => number;
 }) {
   const words = harvestWords(notes);
   const grammar = notes.filter((n) => n.grammar && n.subject);
   const boards = harvestBoards(messages);
   const writings = harvestWritings(messages);
   const empty =
+    excerpts.length === 0 &&
     words.length === 0 && grammar.length === 0 && boards.length === 0 && writings.length === 0 && outcomes.length === 0;
 
   if (empty) {
@@ -140,13 +160,39 @@ export function ReadingHarvest({
     // 时本来就是空的，把它写成一句记账，读起来就是一条对她的催promise。
     return (
       <p className="mk-harvest__empty">
-        这里会留下你读这篇时的成果：学过的词、拆开的句子、摆过的板，以及你写下的话。
+        这里汇总本篇的阅读成果：摘抄、词汇、句子分析、工具卡和笔记。
       </p>
     );
   }
 
   return (
     <div className="mk-harvest">
+      {excerpts.length > 0 && (
+        <Section title="我的摘抄" hint="阅读时保存的原文摘抄。">
+          {excerpts.map((e) => {
+            const ord = ordinalOf?.(e.blockId) ?? 0;
+            return (
+              <div key={e.id} className="mk-harvest__item">
+                <blockquote className="mk-harvest__excerpt">{e.quote}</blockquote>
+                <div className="mk-harvest__acts">
+                  <button type="button" className="mk-harvest__locate" onClick={() => onLocate(e.blockId)}>
+                    {ord > 0 ? `回到第 ${ord} 段` : "回到原文"}
+                  </button>
+                  {onDiscuss && (
+                    <button
+                      type="button"
+                      className="mk-harvest__locate"
+                      onClick={() => onDiscuss(e.blockId, e.quote)}
+                    >
+                      讨论这句
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </Section>
+      )}
       {words.length > 0 && (
         <Section title="生词" hint="关键单词和你点开查过的词。">
           <WordCards words={words} />

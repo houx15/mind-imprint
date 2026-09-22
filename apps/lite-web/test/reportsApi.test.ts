@@ -61,6 +61,7 @@ const REPORT: LiteReport = {
   gains: ["用 CRAAP 检查了来源"],
   lensNotes: [{ lens: "信源辨识卡 CRAAP / CRRAAB", quote: "这份报告由国家能源局发布。", finding: "来源可核实。" }],
   notes: [],
+  excerpts: [],
   piece: "",
   prosePending: false,
 };

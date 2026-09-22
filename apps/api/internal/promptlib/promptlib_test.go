@@ -9,7 +9,7 @@ func TestLibraryLoads(t *testing.T) {
 		t.Fatalf("装不进来：%v", err)
 	}
 	if len(all) < 700 {
-		t.Fatalf("只有 %d 道题 —— 源数据是 705 道，少了就是编译那一步丢了东西", len(all))
+		t.Fatalf("只有 %d 道题 —— 源数据 705 道、拆开多选题之后 728 道，少了就是编译那一步丢了东西", len(all))
 	}
 	for _, p := range all {
 		if p.ID == "" || p.Text == "" {

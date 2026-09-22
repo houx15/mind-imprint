@@ -109,7 +109,7 @@ func TestWritingPlanShape_PromptBlockNamesWhatIsMissing(t *testing.T) {
 	block := writingPlanShapeOf([]sqlc.WritingOutline{node("中心论点", 0)}).promptBlock(writingPlanNeedOf(sqlc.Writing{}))
 	// 缺口里现在带着**这篇篇幅下要几条**那个数（2026-09-12：一条写死的线量不了
 	// 800 字和 3000 字两种文章），所以这里比的是带数字的那句。
-	for _, want := range []string{"分论点还不到 2 条", "例子还不到 2 个", "社会、历史或时事上的例子"} {
+	for _, want := range []string{"分论点还不到 2 条", "例子还不到 2 个"} {
 		if !contains(block, want) {
 			t.Fatalf("prompt block should name the gap %q:\n%s", want, block)
 		}

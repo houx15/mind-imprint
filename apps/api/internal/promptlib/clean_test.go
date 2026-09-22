@@ -99,7 +99,14 @@ func TestCleanPromptText_WholeLibraryStaysIntact(t *testing.T) {
 			t.Fatalf("%s 砍掉了 %d 行，脚手架没有这么厚：\n清后：%q\n原文：%q",
 				p.ID, before-after, got, p.Text)
 		}
-		tail := lastRunes(stripScores(strings.TrimSpace(p.Text)), 12)
+		// 🚨 落点是「最后一句**不是卷面管理**的话」，不是字面上的最后 12 个字。
+		// 2026-09-22 起 CleanPromptText 会丢掉「不得泄露个人信息」这类小句，
+		// 而 GKYW-045 的原文正好以它结尾 —— 按字面尾巴判，一条正确的清洗
+		// 会被记成「把任务的落点吃掉了」。
+		//
+		// 判据自己数出这一句，**不调用被测的那个函数**：否则它把一切都吃掉时
+		// 这条断言会空过。
+		tail := lastRunes(lastRealClause(stripScores(strings.TrimSpace(p.Text))), 12)
 		if tail != "" && !strings.Contains(got, tail) {
 			t.Fatalf("%s 的结尾没了（%q）——任务的落点被吃掉了：\n清后：%q", p.ID, tail, got)
 		}
@@ -123,4 +130,35 @@ func lastRunes(s string, n int) string {
 		return string(r)
 	}
 	return string(r[len(r)-n:])
+}
+
+// lastRealClause 取最后一句真正在交代任务的话：从末尾往前找，跳过只讲
+// 怎么交卷、别写真名的那几小句。这里的判据是这条测试自己的，和
+// CleanPromptText 里那张表各写一份 —— 两边同时错的概率比共用一份低。
+func lastRealClause(s string) string {
+	admin := []string{"答题卡", "答题纸", "作文纸", "泄露", "透露"}
+	clauses := strings.FieldsFunc(s, func(r rune) bool {
+		switch r {
+		case '。', '；', ';', '\n', '!', '！':
+			return true
+		}
+		return false
+	})
+	for i := len(clauses) - 1; i >= 0; i-- {
+		c := strings.TrimSpace(clauses[i])
+		if c == "" {
+			continue
+		}
+		bad := false
+		for _, a := range admin {
+			if strings.Contains(c, a) {
+				bad = true
+				break
+			}
+		}
+		if !bad {
+			return c
+		}
+	}
+	return ""
 }

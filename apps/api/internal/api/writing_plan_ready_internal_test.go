@@ -86,7 +86,7 @@ func TestPlanLooksReady(t *testing.T) {
 			why:  "one reason has nothing under it but reasoning",
 		},
 		{
-			// 「个人经历是信效度最低的」—— 两个例子都是她自己的，还不够。
+			// Personal examples count equally; readiness is not a source ranking.
 			name: "two examples, both her own experience",
 			rows: []sqlc.WritingOutline{
 				node("应该往后推一小时", 0),
@@ -95,8 +95,8 @@ func TestPlanLooksReady(t *testing.T) {
 				node("睡不够影响上午听课", 1),
 				{Text: "同桌第一节课睡着了", Depth: 2, Role: "你见过的事"},
 			},
-			want: false,
-			why:  "an argument resting only on her own anecdotes needs one wider example",
+			want: true,
+			why:  "personal examples do not impose an external-source quota",
 		},
 		{
 			// 2026-09-18 实测：一条「道理」被当成了一个不是个人经历的例子。

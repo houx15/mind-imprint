@@ -14,9 +14,29 @@ import (
 
 const (
 	fetchTimeout = 8 * time.Second
-	maxBodyBytes = 2 << 20 // 2 MiB
+	// maxBodyBytes 是我们愿意读进内存的 HTML 上限。
+	//
+	// 🚨 2026-09-22 实测：2 MiB 太小，而且失败的样子是整篇文章抓不到。
+	// `https://en.wikipedia.org/wiki/Artificial_intelligence` 直接
+	// too_large —— 一个中学生会粘的、最普通不过的链接。现在的新闻页面
+	// 光内联脚本就能到几 MiB，HTML 的大小和正文的长度早就不是一回事了。
+	//
+	// 8 MiB 装得下实测过的每一个页面，同时仍然挡得住把一整个站点塞进
+	// 一个响应里的那种东西。真正的正文长度由下游的 bodyRuneCap 管。
+	maxBodyBytes = 8 << 20 // 8 MiB
 	maxRedirects = 3
 )
+
+// 🚨 抓回来一个字都没有，不是「成功」。
+//
+// 2026-09-22 实测：`mp.weixin.qq.com` 那类页面返回 200、Content-Type 是
+// text/html，而抽出来的正文是**空字符串**。当时这算成功，于是空正文一路流到
+// 调用点，她看到的是「先把文章正文放进来。」—— 一句在说她没粘东西的话，
+// 而她粘的是一个链接。
+//
+// 这里只判「一个字都没有」这个客观事实。「抓到的太短、不像一篇文章」是产品
+// 判断，归调用点（reading_source.go 的 readableEnoughToRead）—— 抽取器的
+// 单测用的是三行的样例页，把那条产品线画在这里会把它们一起判死。
 
 // FetchError carries a stable machine reason for a failed fetch. For a DOI whose
 // body couldn't be fetched, Meta carries the Crossref metadata we DID recover
@@ -177,11 +197,18 @@ func (f *HTTPFetcher) FetchReadable(ctx context.Context, rawURL string) (title s
 		return "", "", nil, &FetchError{Reason: "too_large", Err: nil}
 	}
 	if isText {
+		if strings.TrimSpace(string(body)) == "" {
+			return "", "", nil, &FetchError{Reason: "no_text", Err: errors.New("the page came back with no readable body")}
+		}
 		return fallbackTitle, string(body), doiMeta, nil
 	}
 	title, text = extractHTML(body)
 	if title == "" {
 		title = fallbackTitle
+	}
+	// 200 + text/html 不等于抓到了正文：见上面那段注释。
+	if strings.TrimSpace(text) == "" {
+		return "", "", nil, &FetchError{Reason: "no_text", Err: errors.New("the page came back with no readable body")}
 	}
 	return title, text, doiMeta, nil
 }

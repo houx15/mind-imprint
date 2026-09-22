@@ -220,5 +220,44 @@ test("兴趣测试：线索库留住每一条她提出过的线索", async ({ br
   await expect(page.getByText("上次的兴趣测试在你的树上")).toHaveCount(0);
   await page.screenshot({ path: `${SHOTS}/re-08-back-on-first.png`, fullPage: true });
 
+  /* ── 在这条线索上也总结一次，于是她有两份印记 ─────────────────────────── */
+
+  await page.getByRole("button", { name: "现在总结" }).click();
+  await page.getByRole("button", { name: "确认总结" }).click();
+  await expect(page.getByRole("heading", { name: "你的兴趣印记" })).toBeVisible({
+    timeout: 180_000,
+  });
+  await page.getByRole("button", { name: "回到我的树" }).click();
+  await expect(page).toHaveURL(/\/tree$/);
+
+  /* ── 🚨 「查看兴趣印记」要回得到之前那一份 ────────────────────────────── */
+
+  // 2026-09-21 的反馈：「查看兴趣印记点进去后，只能看到上一次兴趣测试的印记，
+  // 无法回顾之前的。」原来这条入口只带着最近那一份的 id。
+  await page.getByRole("button", { name: "查看兴趣印记" }).click();
+  await expect(page.getByRole("heading", { name: "兴趣印记" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const imprints = page.locator(".awk-option");
+  await expect(imprints).toHaveCount(2);
+  await page.screenshot({ path: `${SHOTS}/re-09-imprints.png`, fullPage: true });
+
+  // 挑**旧的那一份**（表是新的在前，所以最后一行是先做的那条线索）。
+  await imprints.last().click();
+  await expect(page.getByRole("heading", { name: "你的兴趣印记" })).toBeVisible({
+    timeout: 30_000,
+  });
+  // 它确实是另一份：这一份属于先做的那条线索（桌游那条）。
+  await expect(page.getByText("桌游", { exact: false }).first()).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/re-10-older-imprint.png`, fullPage: true });
+
+  // 退一步回表，再挑另一份 —— 两份之间来回走得通。
+  await page.getByRole("button", { name: "返回印记列表" }).click();
+  await expect(page.getByRole("heading", { name: "兴趣印记" })).toBeVisible();
+  await imprints.first().click();
+  await expect(page.getByRole("heading", { name: "你的兴趣印记" })).toBeVisible({
+    timeout: 30_000,
+  });
+
   await ctx.close();
 });

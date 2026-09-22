@@ -14,6 +14,19 @@ import type { ReadingTask } from "@lite/api/readingRoom";
  *   > default only shows 3/5 loading state, with a circle showing progress
  *   > percent. hover then expand, and move out then fold.
  *
+ * 2026-09-22 起它有**两层**，而且搬到了 印记 那一栏的页签行上：
+ *
+ *   > we have a round button showing all steps. can we move it to the right
+ *   > ai side? and hover can show the steps? and click can be this expanded
+ *   > view?
+ *
+ *   悬停 → `.mk-plandial__panel`，浮层里的步骤清单（标题「带读进度」）
+ *   点击 → `.mk-planwide`，就地摊开的展开视图（编号徽章 + 这一步的说明 +
+ *          定位原文 + 一排编号圆点）
+ *
+ * 两层各有各的 state，这是**结构性**地解决了一类旧 bug：以前它们共用一个
+ * state，于是鼠标点在悬停已经打开的盘上会反手把它关掉。
+ *
  *  1. **The current step is the FIRST pending one** — the same rule the server
  *     uses in `currentReadingTask` (`reading_coach.go`). Not "the last one she
  *     touched", not "the one after the last done".
@@ -138,11 +151,15 @@ describe("ReadingPlanDial · 展开", () => {
     }
   });
 
-  it("鼠标点在已经悬停展开的盘上，不会反手把它关掉", () => {
+  it("🚨 鼠标点在已经悬停展开的盘上，不会反手把它关掉", () => {
     // Playwright's `click()` fires pointerover (mouse) and then click, and the
     // phone screenshot came back with the panel SHUT: hover had opened it and
     // the click toggled it straight back. Worse, it could not reopen without
     // leaving and re-entering the disc — a button that looks broken.
+    //
+    // 2026-09-22 之后这一类竞争**结构上不存在了**：悬停归 `hovered`，点击归
+    // `expanded`，两个 state 互不相干。这条测试因此改成钉那个结构：一次鼠标
+    // 点击之后，展开视图是开着的，清单一个字都没少。
     const { container } = render(<ReadingPlanDial tasks={PLAN} />);
     const disc = container.querySelector(".mk-plandial__disc")!;
 
@@ -152,7 +169,9 @@ describe("ReadingPlanDial · 展开", () => {
     pressWith(disc, "mouse");
     fireEvent.click(disc);
 
-    expect(screen.getByText("带读进度")).toBeTruthy();
+    expect(container.querySelector(".mk-planwide"), "点了之后展开视图没出来").toBeTruthy();
+    expect(disc.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("找出作者最想让你信的那一句")).toBeTruthy();
   });
 
   it("没有鼠标的时候，点一下也能展开——手机上没有 hover", () => {
@@ -160,11 +179,12 @@ describe("ReadingPlanDial · 展开", () => {
     const disc = container.querySelector(".mk-plandial__disc")!;
 
     fireEvent.click(disc);
-    expect(screen.getByText("带读进度")).toBeTruthy();
+    expect(container.querySelector(".mk-planwide")).toBeTruthy();
     expect(disc.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.click(disc);
-    expect(screen.queryByText("带读进度")).toBeNull();
+    expect(container.querySelector(".mk-planwide")).toBeNull();
+    expect(disc.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("🚨 手指点一下真的展开——不会被同一次点击自己的 focus 抵消", () => {
@@ -177,11 +197,39 @@ describe("ReadingPlanDial · 展开", () => {
     const disc = container.querySelector(".mk-plandial__disc") as HTMLButtonElement;
 
     tap(disc);
-    expect(screen.getByText("带读进度"), "一次点击展不开").toBeTruthy();
+    expect(container.querySelector(".mk-planwide"), "一次点击展不开").toBeTruthy();
 
     // …and a second tap still closes it. Touch has no hover, so the tap is the
     // only control it has: it has to toggle both ways.
     tap(disc);
+    expect(container.querySelector(".mk-planwide")).toBeNull();
+  });
+
+  it("展开视图摆的是被删掉的那块步骤条的内容：这一步、它的说明、定位原文", () => {
+    // 产品负责人 2026-09-22 圈掉了 印记 那一栏顶上那块常驻的 `StepIndicator`
+    // （「导致印记的提示句被压缩在下面很小的地方」）。它没有被删掉内容，只是
+    // 从「一直在」改成「点开才在」—— 所以它那三样东西必须都在这里。
+    const located: string[] = [];
+    const plan = PLAN.map((t) => (t.id === "t2" ? { ...t, blockId: "b3" } : t));
+    const { container } = render(<ReadingPlanDial tasks={plan} onLocate={(b) => located.push(b)} />);
+
+    fireEvent.click(container.querySelector(".mk-plandial__disc")!);
+
+    expect(screen.getByText("第 2 步 / 共 4 步")).toBeTruthy();
+    expect(screen.getByText("找出作者最想让你信的那一句")).toBeTruthy();
+    expect(screen.getByText("在第 3 段里点一句")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("定位原文"));
+    expect(located).toEqual(["b3"]);
+  });
+
+  it("展开着的时候不再弹悬停浮层——同一份清单不在屏幕上出现两次", () => {
+    const { container } = render(<ReadingPlanDial tasks={PLAN} />);
+
+    fireEvent.click(container.querySelector(".mk-plandial__disc")!);
+    hover(container.firstElementChild!);
+
+    expect(container.querySelector(".mk-planwide")).toBeTruthy();
     expect(screen.queryByText("带读进度")).toBeNull();
   });
 
@@ -229,7 +277,7 @@ describe("ReadingPlanDial · 展开", () => {
     // to point at, so it is not rendered at all rather than left breathing.
     expect(container.querySelector(".mk-plandial__halo")).toBeNull();
     hover(container.firstElementChild!);
-    expect(screen.getByText("带读走完了 · 共 4 步")).toBeTruthy();
+    expect(screen.getByText("带读已完成 · 共 4 步")).toBeTruthy();
     expect(container.querySelector(".mk-plandial__dot.is-current")).toBeNull();
   });
 });
@@ -245,17 +293,36 @@ describe("ReadingPlanDial · 它是进度，不是控制台", () => {
     expect(container.querySelectorAll("button")).toHaveLength(1);
   });
 
+  it("🚨 展开视图上那排圆点也不许是按钮", () => {
+    // 被它顶掉的 `StepIndicator` 里，这一排圆点**是** <button>，点开一张
+    // 「任务预览」浮层。搬过来的时候它们改成了 <span>：她不操作步骤。
+    // 展开视图上唯一那颗按钮是「定位原文」—— 那是滚动，不是阶段管理。
+    const plan = PLAN.map((t) => (t.id === "t2" ? { ...t, blockId: "b3" } : t));
+    const { container } = render(<ReadingPlanDial tasks={plan} onLocate={() => {}} />);
+    fireEvent.click(container.querySelector(".mk-plandial__disc")!);
+
+    const path = container.querySelector(".mk-planwide__path")!;
+    expect(path.querySelectorAll("button, a, input, [role='button']")).toHaveLength(0);
+    // 盘 + 定位原文，就这两颗。
+    expect(container.querySelectorAll("button")).toHaveLength(2);
+  });
+
   it("不许出现任何读起来像分数、评级或者连胜的东西", () => {
+    // 🚨 两层都要扫。展开视图是从被删掉的那块步骤条搬过来的，而那一块自己就
+    // 带着同名的一条测试 —— 内容搬了家，守着它的判据也要跟着搬。
     for (const tasks of [PLAN, PLAN.map((t) => task({ ...t, status: "done" }))]) {
-      cleanup();
-      const { container } = render(<ReadingPlanDial tasks={tasks} />);
-      hover(container.firstElementChild!);
-      // textContent AND innerHTML: an `aria-label="答对了"` is invisible to the
-      // first and read out loud by a screen reader — that exact hole let a
-      // scored label through a 12-assertion sweep once already.
-      const text = `${container.textContent ?? ""} ${container.innerHTML}`;
-      for (const banned of ["得分", "分数", "正确", "答错", "答对", "连胜", "%", "排名", "评级", "满分"]) {
-        expect(text, `出现了 ${banned}`).not.toContain(banned);
+      for (const layer of ["hover", "expanded"] as const) {
+        cleanup();
+        const { container } = render(<ReadingPlanDial tasks={tasks} />);
+        if (layer === "hover") hover(container.firstElementChild!);
+        else fireEvent.click(container.querySelector(".mk-plandial__disc")!);
+        // textContent AND innerHTML: an `aria-label="答对了"` is invisible to
+        // the first and read out loud by a screen reader — that exact hole let
+        // a scored label through a 12-assertion sweep once already.
+        const text = `${container.textContent ?? ""} ${container.innerHTML}`;
+        for (const banned of ["得分", "分数", "正确", "答错", "答对", "连胜", "%", "排名", "评级", "满分"]) {
+          expect(text, `${layer} 上出现了 ${banned}`).not.toContain(banned);
+        }
       }
     }
   });

@@ -68,8 +68,25 @@ export function isOutlineKind(k: string): k is OutlineKind {
  * 用的是语文课上的正式词（AGENTS.md 文案规则 6），而且是名词（规则 1）。
  * 论据分两种，各自是一个 kind —— 一个司马迁的例子没有链接可填，
  * 但它不是「她见过的事」。
+ *
+ * # 🚨 英文那一篇用英文的那一套词（2026-09-22，同事的意见 7）
+ *
+ *	「actually english writing is quite different from chinese.
+ *	  but now we use the same guidance. strange」
+ *
+ * 一篇英文议论文的图上原来印着「中心论点 / 分论点 / 论据」。那不只是翻译问题：
+ * 英文写作课上这三块叫 thesis statement / topic sentence / evidence，
+ * 而且 thesis 有一个固定位置（第一段末尾）、topic sentence 是段落的第一句、
+ * 材料后面还必须有一句 commentary —— **这些词就是她要学会的东西**。
+ *
+ * 🚨 这和「印记用中文跟她说话」不冲突（writing_lang.go 的裁定）：
+ * 界面上的这几个词是**术语**，不是对话。她是一个学写英文的中文母语学生，
+ * 她的英文老师用的就是这几个词。
+ *
+ * lang 不传就是中文 —— 只读的地方（缩略图、harness）不必都改一遍。
  */
-export function outlineKindLabel(kind: string): string {
+export function outlineKindLabel(kind: string, lang?: string): string {
+  if (lang === "en") return outlineKindLabelEN(kind);
   switch (kind) {
     case "opening":
       return "开篇";
@@ -99,6 +116,48 @@ export function outlineKindLabel(kind: string): string {
       return "转折";
     case "feeling":
       return "感悟";
+    default:
+      return "";
+  }
+}
+
+/**
+ * 英文那一套词。取值和 Go 侧 `writingPlanEnglishArgumentKinds` /
+ * `writingPlanEnglishNarrativeKinds` 里给模型的那几个名字**逐字一致** ——
+ * 印记在对话里说 "topic sentence"，图上印的却是别的词，那就是两个名字。
+ */
+function outlineKindLabelEN(kind: string): string {
+  switch (kind) {
+    case "opening":
+      return "Introduction";
+    case "thesis":
+      return "Thesis statement";
+    case "point":
+      return "Topic sentence";
+    case "counter":
+      return "Counterargument";
+    case "rebuttal":
+      return "Refutation";
+    case "gap":
+      return "Evidence still missing";
+    case "closing":
+      return "Conclusion";
+    case "evidence":
+      return "Evidence · your own";
+    case "reference":
+      return "Evidence · found";
+    // commentary / analysis —— 摆完材料之后那一句。英文老师问的 "so what?"
+    // 问的就是它，也是中学生最常缺的一块。
+    case "reasoning":
+      return "Commentary";
+    case "scene":
+      return "Scene";
+    case "detail":
+      return "Detail";
+    case "turn":
+      return "Turning point";
+    case "feeling":
+      return "Reflection";
     default:
       return "";
   }
@@ -239,4 +298,30 @@ export function rekindForDepth(
   if (depth <= 0) return hasThesis ? "closing" : "thesis";
   if (depth === 1) return "point";
   return "evidence";
+}
+
+/**
+ * 这张图在按哪一种文体摆。
+ *
+ * 🚨 这是服务端 `writingGenreOf` 的**第一条判据**，不是全部：那边还有一张
+ * 记叙文题干的词表（`narrativeIdeaMarkers`），只在**板上什么都还没有**的
+ * 时候才用。这一侧不抄那张表 —— 两份词表迟早分岔，而分岔的那天她在图上挑到
+ * 的种类服务端不认。
+ *
+ * 不抄也够用：用得上这个函数的地方（卡片上那个「这一条是什么」的菜单）
+ * 只在图上已经有节点的时候才出现，那正是第一条判据成立的时候。
+ *
+ * 拿不准就是议论文 —— 和服务端同一个方向，理由也一样（writing_genre.go：
+ * 错的代价不对称）。
+ */
+export function outlineGenreOf(
+  items: Array<Pick<WritingOutlineItem, "role" | "depth"> & { kind?: string; source?: string }>,
+): "argument" | "narrative" {
+  let sawNarrative = false;
+  for (const item of items) {
+    const g = outlineKindGenre(outlineKindOf(item));
+    if (g === "argument") return "argument";
+    if (g === "narrative") sawNarrative = true;
+  }
+  return sawNarrative ? "narrative" : "argument";
 }

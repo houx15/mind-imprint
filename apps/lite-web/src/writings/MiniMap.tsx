@@ -31,7 +31,7 @@ function layoutPreview(items: WritingOutlineItem[]) {
 }
 
 /** Read-only structure reference during paragraph writing; edit in the structure stage. */
-export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
+export function MiniMap({ outline, lang }: { outline: WritingOutlineItem[]; lang?: string }) {
   const [open, setOpen] = useState(false);
   const preview = useMemo(() => layoutPreview(outline), [outline]);
   if (!outline.length) return null;
@@ -49,7 +49,7 @@ export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
               <path key={`${from.node.item.id}-${to.node.item.id}`} d={`M ${from.x + 108} ${from.y} C ${from.x + 123} ${from.y}, ${to.x - 15} ${to.y}, ${to.x} ${to.y}`} fill="none" stroke="var(--mk-accent-300)" strokeWidth="1.5" />
             ))}
             {preview.nodes.map(({ node, x, y, root }) => {
-              const label = outlineKindLabel(outlineKindOf(node.item));
+              const label = outlineKindLabel(outlineKindOf(node.item), lang);
               const text = Array.from(node.item.text);
               return (
                 <g key={node.item.id}>
@@ -64,12 +64,12 @@ export function MiniMap({ outline }: { outline: WritingOutlineItem[] }) {
         </button>
         <p className="writing-mini-map-hint">只读预览 · 修改结构请返回「结构」</p>
       </section>
-      {open && createPortal(<StructureDialog outline={outline} onClose={() => setOpen(false)} />, document.body)}
+      {open && createPortal(<StructureDialog outline={outline} lang={lang} onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }
 
-function StructureDialog({ outline, onClose }: { outline: WritingOutlineItem[]; onClose: () => void }) {
+function StructureDialog({ outline, lang, onClose }: { outline: WritingOutlineItem[]; lang?: string; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -102,7 +102,7 @@ function StructureDialog({ outline, onClose }: { outline: WritingOutlineItem[]; 
           <div><h2 id={titleId}>这一篇的结构</h2><p id={descriptionId}>只读预览 · 修改结构请返回「结构」</p></div>
           <button type="button" onClick={onClose} aria-label="关闭结构预览" autoFocus><Icon icon={X} size={20} /></button>
         </header>
-        <div className="min-h-0 flex-1"><MindMap items={outline} justAdded={[]} /></div>
+        <div className="min-h-0 flex-1"><MindMap items={outline} justAdded={[]} lang={lang} /></div>
       </div>
     </dialog>
   );

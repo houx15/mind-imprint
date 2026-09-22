@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   type AwakeningReport,
   type AwakeningStage,
+  type AwakeningReportRow,
   type AwakeningThread,
   fetchAwakeningStatus,
+  listAwakeningReports,
   finishAwakening,
   fetchReport,
   reopenAwakeningThread,
@@ -25,6 +27,7 @@ import {
   WorldScene,
 } from "./scenes/Chapter";
 import { planReentry } from "./reentry";
+import { HistoryScene } from "./scenes/History";
 import { HubScene } from "./scenes/Hub";
 import { LibraryScene } from "./scenes/Library";
 import { NamingScene } from "./scenes/Naming";
@@ -94,6 +97,14 @@ export function AwakeningRoom({
    * 和 `replay` 一样**不进 run.stage** —— 它们不是她在这条线索上走到的位置。
    */
   const [view, setView] = useState<"" | "library" | "naming">("");
+  /*
+   * 她拿到过的每一份印记，以及「现在摆的是那张表」。
+   *
+   * 2026-09-21 的反馈：树上那条「查看兴趣印记」只打得开最近的一份。它原来
+   * 只带着一个 latestReportRunId 进来，而她可能有好几份。
+   */
+  const [history, setHistory] = useState<AwakeningReportRow[]>([]);
+  const [listing, setListing] = useState(false);
   const [threads, setThreads] = useState<AwakeningThread[]>([]);
   // 线索库这一层的操作失败时后台那句原话。照实显示，不假装什么都没发生。
   const [libError, setLibError] = useState("");
@@ -152,6 +163,8 @@ export function AwakeningRoom({
     setView("");
     setThreads([]);
     setLibError("");
+    setHistory([]);
+    setListing(false);
   }, [open]);
 
   // 一屏一句。换屏就换那一句，上一句停掉 —— 否则她快速翻过三屏会同时听见
@@ -183,15 +196,35 @@ export function AwakeningRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, report]);
 
-  // 直接看一份旧报告。
+  // 从树上点「查看兴趣印记」进来。
+  //
+  // 🚨 先看她一共有几份：**有好几份就先摆那张表**，否则「回顾之前的」这件事
+  // 没有任何一条路可走（2026-09-21 的反馈）。只有一份时直接打开那一份 ——
+  // 一张只有一行的列表是白让她多点一下。
   useEffect(() => {
     if (!open || !reportRunId) return;
     let alive = true;
-    fetchReport(reportRunId)
-      .then((r) => {
-        if (alive) setReport(r);
+    listAwakeningReports()
+      .then((rows) => {
+        if (!alive) return;
+        setHistory(rows);
+        if (rows.length > 1) {
+          setListing(true);
+          return;
+        }
+        void fetchReport(reportRunId).then((r) => {
+          if (alive) setReport(r);
+        });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // 列表读不到就退回老路：至少把最近那一份打开。
+        if (!alive) return;
+        void fetchReport(reportRunId)
+          .then((r) => {
+            if (alive) setReport(r);
+          })
+          .catch(() => undefined);
+      });
     return () => {
       alive = false;
     };
@@ -306,10 +339,28 @@ export function AwakeningRoom({
   };
 
   const body = () => {
+    // 好几份印记时先摆那张表。她从表里挑一份，再回表里挑另一份。
+    if (listing && !report) {
+      return (
+        <HistoryScene
+          reports={history}
+          onOpen={(p) => {
+            void fetchReport(p.runId, p.id)
+              .then(setReport)
+              .catch((e: unknown) =>
+                setLibError(e instanceof Error && e.message ? e.message : "读取失败"),
+              );
+          }}
+          onBack={() => onClose(grew)}
+        />
+      );
+    }
     if (report) {
       return (
         <ReportView
           report={report}
+          // 从那张表里进来的，退一步回表；否则回树。
+          onBackToList={listing ? () => setReport(null) : undefined}
           onBackToTree={() => onClose(grew)}
           onOpenReading={(slug, tier) => {
             onClose(grew);
@@ -384,6 +435,19 @@ export function AwakeningRoom({
             threads={threads}
             onOpen={(t) => void openThread(t)}
             onView={(t) => {
+              // 这条线索总结过不止一次时，先让她挑是哪一份。
+              if (t.reportCount > 1) {
+                void listAwakeningReports()
+                  .then((rows) => {
+                    setHistory(rows.filter((p) => p.runId === t.id));
+                    setListing(true);
+                    setView("");
+                  })
+                  .catch((e: unknown) =>
+                    setLibError(e instanceof Error && e.message ? e.message : "读取失败"),
+                  );
+                return;
+              }
               void fetchReport(t.id)
                 .then(setReport)
                 .catch((e: unknown) =>

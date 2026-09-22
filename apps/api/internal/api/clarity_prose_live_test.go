@@ -19,7 +19,7 @@ func TestClarityWritingInvite(t *testing.T) {
 		planRow("e", 2, "校报记录的邻校试行活动，每晚约三十人到馆", writingKindReference),
 	}
 	req := gateway.ChatRequest{Messages: []gateway.ChatMessage{
-		{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument)},
+		{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang)},
 		{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, "这些就是我的计划，我准备开始写了。")},
 		{Role: gateway.RoleAssistant, Content: `{"reply":"还有什么理由吗？","add":[],"ready":false}`},
 		{Role: gateway.RoleUser, Content: writingPlanInviteNudge},

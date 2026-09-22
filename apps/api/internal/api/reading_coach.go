@@ -123,6 +123,11 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 - card 已写明任务时，**reply 就不要再把它复述一遍**，并且 reply 不以问句收尾；只用一句交接或说明发卡理由。
 - reply 中的带引号文字只能逐字引用文章、当前卡片或学生原话。
 
+## 回应卡片答案
+
+联系当前卡片的问题，说明学生的答案回答了哪一部分，再决定是否需要进一步讨论。
+需要追问时，围绕她的答案提出一个具体问题，例如材料与观点的关系，或不同解释各自的依据。任务已经完成时按推进规则进入下一步，不为了继续对话额外提问。
+
 ## 组件回灌
 
 【她刚刚说的】以段落工具「想一想／仿写」开头时，只反馈该段：先具体说对了什么，再说一处最值得改的；仿写不代写，想一想看回答是否依据段落内容。advance、card、lens 都留空。
@@ -131,7 +136,8 @@ const readingCoachSystem = `你是「印记」，带一名中学生读文章。�
 
 ## 特别步骤
 
-- read：当前 read 步只管清单标明的段落或部分，不问「读完了吗」。用卡检验该部分大意、作者立场或定位，不讲出内容替她读；她说读完即可 done。通读练主旨和定位，别用扫细节即可回答的问题。
+- read：当前 read 步只管清单标明的段落或部分，不问「读完了吗」。用卡检验该部分大意、作者立场或定位，不讲出内容替她读；她说读完即可 done。通读练主旨和定位，别用扫细节即可回答的问题。根据【这篇分成几个部分】选择问题：介绍现象或背景时，帮助她理解现象，也可联系已知经验；提出观点时，讨论观点与理由；提供数据时，比较数据与结论的关系；出现反例时，讨论它对原结论适用范围的影响。问题必须能依据当前部分回答，背景段未提出观点时不要求学生反驳观点。
+  只有学生明确表示读完或回答了当前阅读卡片，才可判定该阅读步骤完成。仅仅询问内容不代表读完；先回答她的问题，保留当前阅读步骤。
 - connect（链接经验）：没有标准答案；接住经验、问一个能让她多说一点的问题，再 done；不评价经历或拉回正确理解。
 - hunt（找出关键句）：只有【她在文章里点出来的句子】才算完成。真点了就评价该句并 done；只说「第几段那句」但未点，留在当前步并请她在文章中划出。不同于你的预设不等于错。
 - critique（你怎么看）：围绕文章中一个具体判断、证据或来源，给两三个思考角度并用 short_text 请她选一个说；她给出有依据的判断就 done，不要求同意你。
@@ -1157,6 +1163,26 @@ func buildReadingCoachSystem(lang string) string {
 	system := strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
 	system = strings.Replace(system, "%LENS%", readingCoachLensMenu(), 1)
 	return system
+}
+
+// readingTaskAfterAdvance —— 这一轮走完之后，她站在哪一步。
+//
+// 和提交之后 `currentReadingTask(after)` 算出来的是同一个答案，只是从内存里的
+// 那份清单算，因此**在写消息之前**就拿得到。要它是因为那颗「跳到第 N 段」按钮
+// 存在消息的 payload 上（刷新之后还要在），而 payload 是在事务里写的。
+//
+// advance 为空 = 这一步没走完，她还在这一步；否则往后找第一个还 pending 的。
+func readingTaskAfterAdvance(tasks []sqlc.ReadingTask, advance string) *sqlc.ReadingTask {
+	cur := currentReadingTask(tasks)
+	if cur == nil || advance == "" {
+		return cur
+	}
+	for i := range tasks {
+		if tasks[i].Status == "pending" && tasks[i].ID != cur.ID {
+			return &tasks[i]
+		}
+	}
+	return nil
 }
 
 // currentReadingTask is the first step not yet settled. Nil when everything is
@@ -2305,6 +2331,16 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 				advance = aligned
 			}
 		}
+		// 🚨 通读那一步的 done 要有真凭据 —— 见 reading_coach_readstep.go。
+		//
+		// 排在对齐之后：对齐用「印记 已经把她领去下一部分」这个信号把空的
+		// advance 提成 done，而那正是这道闸认的三样凭据之一，所以两者不打架。
+		// 排在耗满六轮之前：走不动了替她往下走是另一件事，那一条照常生效。
+		if guarded := guardReadStepAdvance(advance, current, req.CardAnswer, studentText, parsed.Reply, tasks); guarded != advance {
+			slog.Info("reading coach: a read step tried to settle with no evidence she read it",
+				"atom_id", at.ID, "label", current.Label, "from", advance)
+			advance = guarded
+		}
 		// 🚨 一步耗满六轮，我们替她往下走。
 		//
 		// 实测下来模型**极少主动推进**：一条 150 步的走查里，八步只走完两步，
@@ -2367,6 +2403,22 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Info("reading coach: assist card answered, the original card comes back", "atom_id", at.ID)
 	}
 
+	// 这一轮领她去看哪一段。
+	//
+	// 🚨 **在写消息之前算**，而且响应里用的是同一个值。她屏幕上那颗「跳到第 N 段」
+	// 是从这条消息的 payload 读的（刷新之后还在），乐观更新读的是响应 ——
+	// 两边必须是同一个事实，否则刷新一下按钮会指向另一段。
+	//
+	// 规则和它原来在提交之后那一版一样：这一轮真的召出了一副透镜，就停在透镜
+	// 落的那一段（`parseReadingCoachReply` 要求两者配对）；否则清单自己那一步
+	// 说的段落胜过模型的随手一猜 —— 排读法的时候就已经决定这一步讲哪一段了。
+	focus := parsed.FocusBlock
+	if parsed.Lens == "" {
+		if nextNow := readingTaskAfterAdvance(tasks, parsed.Advance); nextNow != nil && nextNow.BlockID != "" {
+			focus = nextNow.BlockID
+		}
+	}
+
 	// The final card rides on the AI message's payload inside the same
 	// transaction as the words and task status. Run the completion guard first:
 	// otherwise the saved payload could show a card that the response withheld.
@@ -2378,7 +2430,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// 但要让界面说出「这条没说完」。产品负责人 2026-09-12：
 		// 「sometimes the AI response interrupts mid-stream without any notice」。
 		Payload: coachCardPayloadFull(parsed.Card, parsed.dropReason(),
-			replyLooksCutOff(parsed.Reply), restored),
+			replyLooksCutOff(parsed.Reply), restored, focus),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -2413,20 +2465,6 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		} else if lres.Card != nil {
 			cardOut, nudge = lres.Card, lres.Nudge
 		}
-	}
-
-	// F4: the card and the scroll must agree. When a lens actually minted this
-	// turn, it is aimed at parsed.FocusBlock (parseReadingCoachReply requires
-	// that pairing), and the response's focusBlock must stay there — not jump
-	// to the NEXT step's paragraph, which is a different one on any turn that
-	// both advances into a focus_block step and summons a lens. Only absent a
-	// minted lens does the plan's own paragraph win over the model's guess:
-	// the plan already decided which paragraph the next step is about, and
-	// letting a per-turn guess override it would scroll her somewhere the step
-	// never meant.
-	focus := parsed.FocusBlock
-	if cardOut == nil && next != nil && next.BlockID != "" {
-		focus = next.BlockID
 	}
 
 	resp := map[string]any{

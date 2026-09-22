@@ -95,3 +95,26 @@ test("拖到卡片中间 = 挂到它底下，整张卡亮起来", async ({ page 
   // 还是一条论据（深度没变），只是换了个爹。
   expect(await shape(page)).toContain("    evidence: 我早上经常起晚");
 });
+
+// 同事 2026-09-22 的意见 3 的界面那一半：卡片上那个小标题点得动。
+//
+// 🚨 在这之前她**没有任何办法**改它。图上能拖，但拖动只改深度，
+// 任何拖到深度 1 的东西一律变成「分论点」—— 「反方观点」这一种根本到不了。
+test("🚨 卡片上的小标题点开是「这一条是什么」，改完当场变", async ({ page }) => {
+  await page.goto("/");
+  const label = page.getByRole("button", { name: "分论点", exact: true }).first();
+  await expect(label).toBeVisible({ timeout: 20_000 });
+
+  await label.click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  // 闭表里议论文那一套都摆出来了，「反方观点」在里面。
+  await expect(menu.getByRole("menuitem", { name: /反方观点/ })).toBeVisible();
+  await page.screenshot({ path: "e2e/harness/.shots/r5-02-kind-picker.png", fullPage: true });
+
+  await menu.getByRole("menuitem", { name: /反方观点/ }).click();
+  await expect(menu).toBeHidden();
+  // 改完当场看得见 —— 图上多了一张写着「反方观点」的卡。
+  await expect(page.getByRole("button", { name: "反方观点", exact: true })).toBeVisible();
+  await page.screenshot({ path: "e2e/harness/.shots/r5-03-kind-changed.png", fullPage: true });
+});

@@ -44,6 +44,33 @@ describe("moveOutlineNode", () => {
     ]);
   });
 
+  it("🚨 \"before\" 让第一条排到第一个位置去 —— 只有 after 的话它永远排不上", () => {
+    // 同事 2026-09-22 的意见 4：「这三个论点的顺序无法拖动改变」。
+    // 一列从上往下的清单里，第一条前面没有可以「排在其后」的东西，
+    // 所以 after 一个人不够用。
+    const got = moveOutlineNode(SCREENSHOT, "理由B", "理由A", "before");
+    expect(shape(got)).toEqual([
+      "中心论点",
+      "  理由B",
+      "  理由A",
+      "    她的经历",
+      "另一个中心论点",
+    ]);
+  });
+
+  it("\"before\" 也带着整棵子树走，深度不变", () => {
+    const got = moveOutlineNode(SCREENSHOT, "理由A", "理由B", "before");
+    // 本来就在它前面，挪过去还是这个样子 —— 但它要落在 理由B 之前，
+    // 而不是掉进 理由B 底下。
+    expect(shape(got)).toEqual([
+      "中心论点",
+      "  理由A",
+      "    她的经历",
+      "  理由B",
+      "另一个中心论点",
+    ]);
+  });
+
   it("挪成兄弟时要跳过目标自己的子树，否则会变成它的孩子", () => {
     // 理由B 挪到 理由A 后面。理由A 底下挂着「她的经历」，落点必须在它之后。
     const got = moveOutlineNode(SCREENSHOT, "理由B", "理由A", "after");

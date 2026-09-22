@@ -29,8 +29,14 @@ import { OUTLINE_KIND_DEPTH, outlineKindOf, type OutlineKind } from "./outlineKi
  * `useMindMapDrag` 只会调 `"child"`。于是一条理由被挂进子层之后就再也出不来
  * —— 同事 2026-09-20 的意见 1：「论点被拖入到子论点后就没法拖出来了」。
  * `"root"` 是这次补的第三条路：落在空白画布上 = 升到最上层。
+ *
+ * `"before"`（2026-09-22）是给行文那一步的顺序清单用的：在一张地图上「拖到
+ * 它上面一点」和「拖到它下面一点」都能表达，但在一列从上往下排的清单里，
+ * 只有 `"after"` 的话，第一条**永远排不到第一个位置去** —— 它前面没有
+ * 可以「排在其后」的东西。同事 2026-09-22 的意见 4：「这三个论点的顺序
+ * 无法拖动改变」。
  */
-export type OutlineMoveMode = "child" | "after" | "root";
+export type OutlineMoveMode = "child" | "after" | "before" | "root";
 
 /**
  * 深度上限，和服务端 writingPlanMaxDepth 是同一个数。
@@ -94,7 +100,8 @@ export function moveOutlineNode(
     //    的读法它就是目标的第一个孩子。
     //  - after：跳过目标底下整棵子树，落在它后面 —— 否则会插进目标的孩子中间，
     //    变成目标的孩子而不是兄弟。
-    insertAt = at + 1;
+    //  - before：落在目标**之前**，成为它的哥哥。
+    insertAt = mode === "before" ? at : at + 1;
     if (mode === "after") {
       while (insertAt < rest.length && (rest[insertAt]?.depth ?? -1) > target.depth) insertAt++;
     }

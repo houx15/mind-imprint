@@ -106,6 +106,11 @@ export type LiteReport = {
   gains: string[];
   lensNotes: ReportLensNote[];
   notes: ReportNote[];
+  /** 我的摘抄：她在正文里划选后按「摘抄」留下的句子（阅读专属，2026-09-22）。
+   *  空数组 = 这一篇她一句都没摘，或这份报告早于这个字段。
+   *  🚨 和 `notes` 是两件事：那边是她**写了字**的批注，这边是她一个字没写、
+   *  只是圈下了这一句 —— 摘抄的时候刻意不追问为什么。 */
+  excerpts: string[];
   /** 对话里的转折。空数组 = 这次没挑出来（或这份报告早于这个字段）。 */
   turningPoints: ReportTurningPoint[];
   /** 我读的这篇。写作报告永远是 null。 */
@@ -154,6 +159,7 @@ type RawLiteReport = Omit<
   | "gains"
   | "lensNotes"
   | "notes"
+  | "excerpts"
   | "keep"
   | "piece"
   | "prosePending"
@@ -173,6 +179,7 @@ type RawLiteReport = Omit<
   gains?: string[];
   lensNotes?: ReportLensNote[];
   notes?: ReportNote[];
+  excerpts?: string[];
   piece?: string;
   keep?: { label: string; text: string; source?: "student" | "coach" } | null;
 };
@@ -185,6 +192,7 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     gains: raw.gains ?? [],
     lensNotes: raw.lensNotes ?? [],
     notes: raw.notes ?? [],
+    excerpts: raw.excerpts ?? [],
     piece: raw.piece ?? "",
     ordinal: raw.ordinal ?? 0,
     turningPoints: raw.turningPoints ?? [],

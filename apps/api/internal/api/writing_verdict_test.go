@@ -198,36 +198,30 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 	}
 }
 
-// 🚨 同事 2026-09-20 的验收标准：
-// 「500字任务不默认强制多条理由和调查数据」。
-func TestShortPieceDoesNotDemandFoundMaterial(t *testing.T) {
-	short := sqlc.Writing{Lang: "zh"}
-	w := int32(500)
-	short.TargetWords = &w
-	if need := writingPlanNeedOf(short); need.Wider != 0 {
-		t.Errorf("500 字的短文不该强制一条「她找来的」材料，need.Wider=%d", need.Wider)
+// Source category must not affect readiness, regardless of language or length.
+func TestPlanReadinessDoesNotRankMaterialSources(t *testing.T) {
+	for _, lang := range []string{"zh", "en"} {
+		for _, length := range []int32{0, 500, 1200, 3000} {
+			wr := sqlc.Writing{Lang: lang}
+			if length > 0 {
+				wr.TargetWords = &length
+			}
+			need := writingPlanNeedOf(wr)
+			personal := writingPlanShape{Top: 1, Points: need.Points, Material: need.Material}
+			external := personal
+			external.Wider = need.Material
+			if !personal.ready(need) || personal.ready(need) != external.ready(need) {
+				t.Fatalf("source quota remains for %s/%d", lang, length)
+			}
+			if personal.missing(need) != "" {
+				t.Fatal("source-only gap remains")
+			}
+		}
 	}
-
-	// 长一点的仍然要 —— 一篇 800 字只拿自己两件事去撑，老师读到的是「我觉得」。
-	long := sqlc.Writing{Lang: "zh"}
-	lw := int32(1200)
-	long.TargetWords = &lw
-	if need := writingPlanNeedOf(long); need.Wider < 1 {
-		t.Error("1200 字仍然要至少一条社会／历史上的材料")
-	}
-
-	// 🚨 老师明说了要查资料：篇幅短也还是要 —— 老师的要求盖过这条默认。
-	assigned := sqlc.Writing{Lang: "zh"}
-	assigned.TargetWords = &w
-	p := "写一篇 500 字的议论文，要求引用一份调查数据。"
-	assigned.AssignedPrompt = &p
-	if need := writingPlanNeedOf(assigned); need.Wider < 1 {
-		t.Error("老师要求查资料的时候，短文也要一条找来的材料")
-	}
-
-	// 没设篇幅：不知道她要写多长，就不替她减码，照旧要一条。
-	none := sqlc.Writing{Lang: "zh"}
-	if need := writingPlanNeedOf(none); need.Wider < 1 {
-		t.Error("没设目标字数时不该悄悄把这条判据关掉")
+	// Removing the automatic quota must not remove the teacher's task from input.
+	prompt := "写一篇议论文，要求引用一份调查数据。"
+	wr := sqlc.Writing{Lang: "zh", AssignedPrompt: &prompt}
+	if !contains(buildWritingPlanPrompt(wr, nil, nil, ""), prompt) {
+		t.Fatal("teacher requirements lost")
 	}
 }

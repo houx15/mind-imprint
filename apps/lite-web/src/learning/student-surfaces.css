@@ -336,32 +336,33 @@
   .discovery-art__label { top: 12px; font-size: 10px; }
 }
 
-/* Reading challenges expose real progress, without inventing completion or scores. */
-.lite-student .reading-quest { border: 1px solid var(--mk-accent-200); background: var(--mk-accent-50); border-radius: 16px; padding: 16px 18px; margin-bottom: 12px; flex: none; }
-.reading-quest__heading { display: flex; align-items: center; gap: 14px; }
-.reading-quest__heading > div { flex: 1; min-width: 0; }
-.reading-quest__emblem { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 15px 15px 15px 4px; background: var(--mk-accent-600); color: var(--mk-on-accent); font-size: 21px; font-weight: 650; flex: none; transform: rotate(-4deg); }
-.reading-quest__position { font-size: 11px; color: var(--mk-accent-700); letter-spacing: .04em; }
-.reading-quest .mk-stepnow__label { font-size: 16px; font-weight: 600; line-height: 1.6; margin-top: 4px; white-space: normal; color: var(--mk-ink); }
-.reading-quest__locate { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--mk-accent-200); padding: 7px 10px; border-radius: 20px; font-size: 11px; background: var(--mk-surface); color: var(--mk-accent-700); }
-.reading-quest__path { display: flex; gap: 0; padding: 16px 0 0; margin: 0; list-style: none; overflow-x: auto; }
-.reading-quest__path li { display: flex; align-items: center; flex: 1; min-width: 44px; }
-.reading-quest__path li:not(:last-child)::after { content:""; height: 1px; min-width: 14px; width: 100%; background: var(--mk-accent-200); margin-inline: 6px; }
-.reading-quest__path li:last-child { flex: 0; }
-.reading-quest__path button { width: 30px; height: 30px; flex: none; border: 1px solid var(--mk-accent-200); border-radius: 50%; display: grid; place-items: center; color: var(--mk-muted); background: var(--mk-surface); font-size: 11px; transition: transform .15s,box-shadow .15s; }
-.reading-quest__path button:hover { transform: translateY(-3px); box-shadow: 0 3px 0 var(--mk-accent-200); }
-.reading-quest__path [data-current] button { background: var(--mk-accent-600); color: var(--mk-on-accent); box-shadow: 0 0 0 4px var(--mk-accent-100); }
-.reading-quest__path [data-state="done"] button { background: var(--mk-accent-100); color: var(--mk-accent-700); }
-.reading-quest__transition { margin-top: 12px; font-size: 12px; color: var(--mk-accent-700); animation: discovery-reveal .3s ease-out; }
-.reading-quest__preview { position: relative; padding: 14px; margin-top: 12px; border-radius: 10px; background: var(--mk-surface); text-align: left; }
-.reading-quest__preview > .reading-quest__close { position: absolute; right: 8px; top: 8px; padding: 5px; }
-.reading-quest__preview > span { display: block; color: var(--mk-muted); font-size: 11px; }
-.reading-quest__preview strong { display: block; font-size: 13px; margin-top: 5px; padding-right: 18px; }
-.reading-quest__preview p { font-size: 12px; line-height: 1.8; color: var(--mk-muted); margin-top: 6px; }
-.reading-quest__source { font-size: 12px; color: var(--mk-accent-700); margin-top: 8px; }
-@media(prefers-reduced-motion:reduce) { .reading-quest__path button { transition:none; } .reading-quest__transition { animation:none; } }
+/* 带读进度的**展开视图**（ReadingPlanDial 里的 PlanExpanded）。
+ *
+ * 2026-09-22 之前这一块叫 `.reading-quest`，是 印记 那一栏顶上一块**常驻**的
+ * 步骤条。产品负责人附截图圈掉了它：它占的正是印记说话的地方。样子原样留着
+ * （她认得它），变的只有「什么时候在」—— 现在点一下页签上那个盘才出来。
+ *
+ * 一并删掉的是它的预览层（`__preview` / `__transition` / `__art`）：那一层
+ * 是点某一个圆点看那一步的详情，而展开视图本来就已经把当前这一步摊开了，
+ * 再套一层浮层是同一件事的第三块面。 */
+.mk-planwide { border: 1px solid var(--mk-accent-200); background: var(--mk-accent-50); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; flex: none; }
+.mk-planwide__head { display: flex; align-items: center; gap: 14px; }
+.mk-planwide__now { flex: 1; min-width: 0; }
+.mk-planwide__emblem { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 15px 15px 15px 4px; background: var(--mk-accent-600); color: var(--mk-on-accent); font-size: 20px; font-weight: 650; flex: none; transform: rotate(-4deg); }
+.mk-planwide__position { font-size: 11px; color: var(--mk-accent-700); letter-spacing: .04em; }
+.mk-planwide__label { font-size: 15px; font-weight: 600; line-height: 1.6; margin-top: 3px; white-space: normal; color: var(--mk-ink); }
+.mk-planwide__detail { font-size: 12px; line-height: 1.7; margin-top: 4px; color: var(--mk-secondary); }
+.mk-planwide__locate { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--mk-accent-200); padding: 7px 10px; border-radius: 20px; font-size: 11px; background: var(--mk-surface); color: var(--mk-accent-700); flex: none; }
+.mk-planwide__path { display: flex; gap: 0; padding: 14px 0 0; margin: 0; list-style: none; overflow-x: auto; }
+.mk-planwide__path li { display: flex; align-items: center; flex: 1; min-width: 40px; }
+.mk-planwide__path li:not(:last-child)::after { content:""; height: 1px; min-width: 12px; width: 100%; background: var(--mk-accent-200); margin-inline: 5px; }
+.mk-planwide__path li:last-child { flex: 0; }
+/* 🚨 圆点不是按钮。她不操作步骤——印记 带她走（见 ReadingPlanDial 的文件头）。
+   原来它们是 <button>，点开一张「任务预览」浮层；那一层连同预览一起删了。 */
+.mk-planwide__path span { width: 28px; height: 28px; flex: none; border: 1px solid var(--mk-accent-200); border-radius: 50%; display: grid; place-items: center; color: var(--mk-muted); background: var(--mk-surface); font-size: 11px; }
+.mk-planwide__path [data-current] span { background: var(--mk-accent-600); color: var(--mk-on-accent); box-shadow: 0 0 0 4px var(--mk-accent-100); }
+.mk-planwide__path [data-state="done"] span { background: var(--mk-accent-100); color: var(--mk-accent-700); }
 
-.reading-quest__art { float: right; width: 116px; height: 88px; object-fit: contain; margin: 4px 14px 4px 12px; pointer-events: none; }
 
 /* Desktop canvas: expose the origin, destination, and actual saved result. */
 .student-drag-origin { position:absolute; border:2px dashed var(--mk-accent-300); border-radius:12px; background:var(--mk-accent-50); opacity:.55; pointer-events:none; }

@@ -80,7 +80,7 @@ const writingGuideTeachingRules = `## 说明方式
 普通对话最多提出一个需要学生回答的问题，信息足够时可以不问。
 本次若输出结构化的问题列表，按下面 questions 的数量契约生成供她选择的问题，
 每条只包含一个任务，不把列表当作要求她一次答完的问卷。
-指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。` + teachingvoice.Rules
+指出具体内容及其作用，不评价学生的态度或能力。job 说明这一段要表达的内容，questions 帮助学生回忆或比较具体材料。表述学生的意见时用「你的观点」或直接说内容，避免「你主张」这类措辞。` + teachingvoice.Rules
 
 // writingGuideQuestionRules is the content discipline for `questions`,
 // shared by the single-block and batch prompts for the same

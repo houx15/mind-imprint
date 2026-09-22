@@ -22,6 +22,8 @@ import "@/studio/reading/ReadingRoom.css";
 import {
   coachAnswerOf,
   coachCardOf,
+  createReadingExcerpt,
+  type LiteAnnotation,
   type LiteMessage,
   type ReadingBlockNote,
   type ReadingBlockTool,
@@ -29,6 +31,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import type { ReadingFigure, ReadingOutline } from "../api/readings";
+import { apiErrorText } from "../api/errorText";
 import { ArticleFinder } from "./ArticleFinder";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
@@ -37,7 +40,6 @@ import { SelectionTools } from "./SelectionTools";
 import { ReadingHarvest, harvestBoards, harvestWritings, harvestWords } from "./ReadingHarvest";
 import type { CoachCardAnswer, CoachCardSpec } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
-import { StepIndicator } from "./StepIndicator";
 import { AssignmentLine, useAssignmentForAtom } from "../inbox/AssignmentLine";
 
 /**
@@ -64,8 +66,8 @@ import { AssignmentLine, useAssignmentForAtom } from "../inbox/AssignmentLine";
  *  - **The brief bar is gone.** 「你读这篇是为了」 was write-only in lite (it
  *    fed only the room composer's own `readTurn` prompt, which 带读 replaced),
  *    and the 阶段 dropdown beside it was already lite-hidden. Nothing took the
- *    slot: 「我现在在第几步」 is answered by `StepIndicator` (the row) and
- *    `ReadingPlanDial` (the floating plan).
+ *    slot: 「我现在在第几步」 is answered by `ReadingPlanDial`, the dial that
+ *    sits on 印记's own column (hover = the steps, click = the full view).
  *
  * The 2026-08-30 redesign then moved the two columns and folded the third:
  * the article is on the LEFT, 印记 on the RIGHT and wider, and the step list
@@ -168,6 +170,16 @@ export type LiteReadingRoomProps = {
   excerptOnly?: boolean;
   /** 她把全文粘进来之后，让宿主重新加载这一间（正文、导读、清单都换了）。 */
   onSourceReplaced?: () => void;
+  /**
+   * 她摘抄过的那些句子（`atom_annotation` 的行）。
+   *
+   * 正文上那道下划线是从 `source.anchors` 画的，和这一份是同一批行 —— 这里
+   * 单独再拿一次，是因为「阅读成果」那一页要按原样列出来（原句 + 段号 +
+   * 一颗「和印记说」），而 anchor 是渲染用的形状，丢掉了创建时间。
+   */
+  excerpts?: LiteAnnotation[];
+  /** 她刚摘抄了一句。房间发请求，宿主收着 —— 见宿主那边的注释。 */
+  onExcerpt?: (a: LiteAnnotation) => void;
 };
 
 /**
@@ -265,6 +277,8 @@ export function ReadingRoom({
   excerptOnly = false,
   onSourceReplaced,
   onBlockNote,
+  excerpts = [],
+  onExcerpt,
 }: LiteReadingRoomProps) {
   // DEBT: `useReadingLoop` still carries pro's signature and wants a
   // projectId. It lives under apps/web, which lite may not touch, so the
@@ -404,13 +418,38 @@ export function ReadingRoom({
   /**
    * 她在正文里划出的那几个字，以及工具条摆在哪儿。
    *
-   * 划选同时做两件事：那几个字成为一条引用（下面 addSelection），并且**留在
-   * 屏幕上**，旁边出现一条工具条（查词 / 语法）。见 SelectionTools.tsx。
+   * 🚨 2026-09-22：**划选本身不再做任何事。** 在这之前，划一句话有一个副作用
+   * —— 那句话当场变成一条引用，摞在输入框上面。产品负责人逐字报的：
+   *
+   *   > 有时候划线是为了辅助阅读，但是一划线(select texts)句子就被收到右下角，
+   *   > 还得一个个删除，可以划线后加一个「放入印记对话框」按键
+   *
+   * 她划一句只是为了读顺一点，那一句就不该跑到任何地方去。所以选区现在只做
+   * 它本来该做的那一件事：标出「对哪几个字」，然后等她说要做什么。要做什么
+   * 全在工具条上（摘抄 / 放入对话框 / 查词 / 语法），一件都不再自动发生。
+   *
+   * `start` / `end` 是这次划选的字偏移，摘抄要靠它在正文上画那道下划线。
    */
-  const [selPick, setSelPick] = useState<{ blockId: string; quote: string; x: number; y: number } | null>(null);
+  const [selPick, setSelPick] = useState<
+    { blockId: string; quote: string; start: number; end: number; x: number; y: number } | null
+  >(null);
 
-  function addSelection(blockId: string, quote: string, at?: { x: number; y: number }) {
-    setSelPick(at ? { blockId, quote, x: at.x, y: at.y } : null);
+  function addSelection(
+    blockId: string,
+    quote: string,
+    at?: { x: number; y: number },
+    span?: { start: number; end: number },
+  ) {
+    if (!at || !span) {
+      setSelPick(null);
+      return;
+    }
+    setSelPick({ blockId, quote, start: span.start, end: span.end, x: at.x, y: at.y });
+  }
+
+  /** 把她划的那一句放进输入框上面的引用里。现在由工具条上那颗按钮调，
+   *  不再是划选的副作用。 */
+  function quoteSelection(blockId: string, quote: string) {
     setQuoted((prev) => {
       // Skip an exact-duplicate quote (double drag on the same phrase).
       if (prev.some((q) => q.quote === quote)) return prev;
@@ -421,6 +460,28 @@ export function ReadingRoom({
 
   function removeQuoted(key: string) {
     setQuoted((prev) => prev.filter((q) => q.key !== key));
+  }
+
+  /** 摘抄失败时那一句。失败要说出来 —— 她按了按钮、正文上什么都没变，
+   *  不说的话她只会以为这颗按钮是坏的。 */
+  const [excerptError, setExcerptError] = useState<string | null>(null);
+
+  /** 这一句是不是已经在摘抄本里了。按**偏移**比，不按引文：同一句话在一段里
+   *  出现两次的时候，引文分不出是哪一处。 */
+  function alreadyExcerpted(blockId: string, start: number, end: number): boolean {
+    return excerpts.some(
+      (e) => e.blockId === blockId && e.span?.start === start && e.span?.end === end,
+    );
+  }
+
+  async function excerptSelection(pick: { blockId: string; quote: string; start: number; end: number }) {
+    setExcerptError(null);
+    try {
+      const saved = await createReadingExcerpt(readingId, pick);
+      onExcerpt?.(saved);
+    } catch (err) {
+      setExcerptError(apiErrorText(err));
+    }
   }
 
   const articleRef = useRef<HTMLDivElement | null>(null);
@@ -538,6 +599,7 @@ export function ReadingRoom({
 
   /** 「阅读成果」页签上那个数：她真的产出了几样东西。 */
   const harvestCount =
+    excerpts.length +
     harvestWords(blockNotes).length +
     blockNotes.filter((n) => n.grammar && n.subject).length +
     harvestBoards(liveMessages).length +
@@ -862,18 +924,40 @@ export function ReadingRoom({
                   {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
                       要回去找一个词」，不是开读前的那张地图。 */}
                   <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
-                  {loop.status === "idle" && <p className="student-selection-hint">划选文字可引用到对话；点击段落可查看该段的阅读工具</p>}
+                  {loop.status === "idle" && <p className="student-selection-hint">划选文字后可摘抄或放入对话框；点击段落可查看该段的阅读工具</p>}
+                  {excerptError && (
+                    <p className="student-selection-hint" role="alert" style={{ color: "var(--mk-danger)" }}>
+                      摘抄失败：{excerptError}
+                    </p>
+                  )}
                 </header>
                 {selPick && (
                   <SelectionTools
                     quote={selPick.quote}
                     at={{ x: selPick.x, y: selPick.y }}
                     tools={blockTools}
+                    excerpted={alreadyExcerpted(selPick.blockId, selPick.start, selPick.end)}
                     onPick={(toolId) => {
                       const { blockId, quote } = selPick;
                       setSelPick(null);
                       window.getSelection()?.removeAllRanges();
                       focusBlock(blockId, toolId, quote);
+                    }}
+                    onExcerpt={() => {
+                      const pick = selPick;
+                      setSelPick(null);
+                      window.getSelection()?.removeAllRanges();
+                      void excerptSelection(pick);
+                    }}
+                    onSendToCoach={() => {
+                      const { blockId, quote } = selPick;
+                      setSelPick(null);
+                      window.getSelection()?.removeAllRanges();
+                      quoteSelection(blockId, quote);
+                      // 引用摞在印记那一栏的输入框上面，而她可能正停在
+                      // 「阅读成果」那一页 —— 不切过去，她按了按钮、屏幕上
+                      // 什么都没有。
+                      setCoachView("chat");
                     }}
                     onDismiss={() => {
                       setSelPick(null);
@@ -1017,7 +1101,8 @@ export function ReadingRoom({
 
         {/* 印记, on the RIGHT and wider than the article now — the 262px step
             rail that used to eat the left edge of this screen folded into
-            `ReadingPlanDial` below, and this is what the width was freed for.
+            `ReadingPlanDial` (now docked on this column's tab row), and this
+            is what the width was freed for.
             The section is second in the DOM as well as second on screen, so
             reading order and tab order agree with the layout. */}
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
@@ -1044,6 +1129,12 @@ export function ReadingRoom({
               阅读成果
               <span className="mk-lite-coachtabs__count">{harvestCount}</span>
             </button>
+            {/* 带读进度。2026-09-22 从房间左下角的浮动位置搬到这里 ——
+                产品负责人：「we have a round button showing all steps. can we
+                move it to the right ai side?」。悬停给步骤清单，点击就地摊开
+                展开视图（原来那块常驻的 StepIndicator 整个删掉了）。 */}
+            <div className="mk-lite-coachtabs__spacer" />
+            <ReadingPlanDial tasks={tasks} onLocate={locateBlock} />
           </div>
 
           {/* 🚨 两页都挂着，用 hidden 藏一页，而不是二选一地渲染。
@@ -1054,15 +1145,22 @@ export function ReadingRoom({
               notes={blockNotes}
               messages={liveMessages}
               outcomes={loop.outcomes}
+              excerpts={excerpts}
+              ordinalOf={ordinalOf}
               onLocate={locateBlock}
+              onDiscuss={(blockId, quote) => {
+                quoteSelection(blockId, quote);
+                setCoachView("chat");
+              }}
             />
           </div>
 
           <div className={coachView === "chat" ? "mk-lite-coachpane" : "mk-lite-coachpane is-hidden"}>
-          {/* 我现在在第几步 — the present tense, always visible. The DIAL is the
-              plan (every step, one hover away); this row is the one step she
-              is on. Deliberately two surfaces, deliberately different jobs. */}
-          <StepIndicator tasks={tasks} onLocate={locateBlock} />
+          {/* 🚨 这里原来钉着一整块 `StepIndicator`（编号徽章 + 第几步 + 标题 +
+              定位原文 + 十五个圆点）。它和页签上那个盘是两块同一件事的面，而它
+              占掉的正是 印记 说话的地方 —— 产品负责人 2026-09-22 附截图红框圈
+              的就是它：「导致印记的提示句被压缩在下面很小的地方，需要不停上下
+              翻动」。整块删掉；它的内容搬进盘的展开视图，点一下才出来。 */}
           {/* ONE 印记. Same character, same `atom_message` table, one thread on
               screen instead of two. */}
           <ReadingCoachPanel
@@ -1115,11 +1213,6 @@ export function ReadingRoom({
           </div>
         </section>
       </main>
-
-      {/* 带读进度 · folded. Floats over the room's bottom-left corner at every
-          width — unlike the rail it replaces, which hung in an `lg:`-gated
-          aside and simply was not there on a phone. */}
-      <ReadingPlanDial tasks={tasks} />
 
       {confirmFinish && (
         <div className="mk-finishask" role="dialog" aria-modal="true" aria-label="完成这篇">

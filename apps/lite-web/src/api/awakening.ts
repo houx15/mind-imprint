@@ -18,7 +18,8 @@ import { apiFetch } from "./client";
  *   postTurn              终端里的一轮
  *   finishAwakening       走完。**这一个会慢**：服务端同步跑两次调用
  *                         （选词 + 报告），界面必须为此显示「正在生成」
- *   fetchReport           读一份已经生成的报告
+ *   fetchReport           读一份已经生成的报告（可指定是哪一份）
+ *   listAwakeningReports  她拿到过的每一份印记 —— 树上那条入口读它
  */
 
 export type AwakeningStage =
@@ -394,11 +395,55 @@ export async function finishAwakening(id: string): Promise<AwakeningReport> {
   return normalizeReport(raw.report);
 }
 
-export async function fetchReport(runId: string): Promise<AwakeningReport> {
+/**
+ * 读一份报告。
+ *
+ * `reportId` 指定这条线索的**某一份**；不给就是最新那份。一条线索可以总结
+ * 不止一次，而「回顾之前的」要的正是旧的那几份。
+ */
+export async function fetchReport(
+  runId: string,
+  reportId?: string,
+): Promise<AwakeningReport> {
+  const q = reportId ? `?report=${encodeURIComponent(reportId)}` : "";
   const raw = await apiFetch<{ report?: Partial<AwakeningReport> }>(
-    `/api/v1/awakening/${encodeURIComponent(runId)}/report`,
+    `/api/v1/awakening/${encodeURIComponent(runId)}/report${q}`,
   );
   return normalizeReport(raw.report);
+}
+
+/** 兴趣印记那张表里的一行。 */
+export interface AwakeningReportRow {
+  id: string;
+  runId: string;
+  /** 这条线索的名字；空串时显示 `firstText`。 */
+  title: string;
+  firstText: string;
+  createdAt: string;
+  /** 这一份里落进树的词数。 */
+  wordCount: number;
+  attemptNo: number;
+}
+
+/**
+ * 她拿到过的每一份兴趣印记，新的在前。
+ *
+ * 2026-09-21 的反馈：「查看兴趣印记点进去后，只能看到上一次兴趣测试的印记，
+ * 无法回顾之前的。」原来树上那条入口只带一个 latestReportRunId。
+ */
+export async function listAwakeningReports(): Promise<AwakeningReportRow[]> {
+  const raw = await apiFetch<{ reports?: Partial<AwakeningReportRow>[] }>(
+    "/api/v1/awakening/history",
+  );
+  return (raw.reports ?? []).map((p) => ({
+    id: p?.id ?? "",
+    runId: p?.runId ?? "",
+    title: p?.title ?? "",
+    firstText: p?.firstText ?? "",
+    createdAt: p?.createdAt ?? "",
+    wordCount: p?.wordCount ?? 0,
+    attemptNo: p?.attemptNo ?? 1,
+  }));
 }
 
 export async function shareReport(
