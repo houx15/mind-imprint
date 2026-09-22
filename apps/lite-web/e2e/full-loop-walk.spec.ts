@@ -454,7 +454,11 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   await expect(
     page.getByText("印记正在把这次写的东西整理成一份报告", { exact: false }),
   ).toHaveCount(0, { timeout: 600_000 });
-  await expect(page.getByText(p1)).toBeVisible();
+  // 🚨 已完成那一页上，她的正文在**两处** DOM 里：一处是留着不显示的，
+  // 一处在 `role="article"` 里。裸 getByText 于是 strict mode 撞车，
+  // 而且先解析到的那一处是 hidden —— 报出来的样子像「她的字没显示」。
+  // 钉那一处真的摆给她看的：文章体裁里的那一份。
+  await expect(page.getByRole("article").getByText(p1)).toBeVisible();
   expect(new URL(page.url()).pathname).toBe(`/writings/${writingId}`);
 });
 

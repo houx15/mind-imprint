@@ -360,6 +360,14 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
   const quote = "组件价格在这十年里下降了八成以上";
   await selectQuoteInBlock(page, "b2", quote);
 
+  // 🚨 划一下**不再自己做事**（2026-09-22）。同事：「一划线句子就被收到右下角，
+  // 还得一个个删除」—— 她划一句常常只是为了读顺一点。划选现在只标出对哪几个字，
+  // 做什么全在工具条上（摘抄 / 放入对话框 / 查词 / 语法）。
+  //
+  // 所以这一条要多按一下那颗按钮。这不是把判据放宽：要证明的仍然是
+  // 「一个 POINT 成立了」，只是那个动作现在由她自己发起。
+  await page.getByRole("button", { name: "放入对话框" }).click();
+
   // The chip is the proof a POINT was made, distinct from her typed words.
   await expect(page.getByText(`“${quote}”`)).toBeVisible();
 
