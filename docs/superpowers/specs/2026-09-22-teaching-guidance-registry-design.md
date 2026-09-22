@@ -284,6 +284,61 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 | 第三方技能被整段抄进提示词 | 教法照学、文字自己写，见 §6.5；水印本身就是为查抄袭存在的 |
 | 加了轴但到不了深处 | `TestEveryCombinationResolves` 枚举真会出现的组合，不靠抽样 |
 
+## 8.5 · 一期做完之后留下的东西（2026-09-22）
+
+一期已实现，九个提交加一次终审修复（`93431172..255e7f0e`）。parity 全程绿，
+学生看不到任何变化 —— 那是它对的样子。下面几条是**二期开工前必须先读的**。
+
+### 🚨 二期一定会踩的两个坑
+
+1. **加第一行带 `Stages` 的登记时，`TestEveryCombinationResolves` 会骗你。**
+   它今天对 7 个学段值断言的是**同一份**期望内容。二期写下
+   `{write, zh, Stages:["junior2"]}`（26 分）时，它会输给已经在的
+   `{write, zh, Genres:["narrative"]}`（28 分）—— 年级专用的内容一次都不会
+   出现，而测试照样绿，因为拿到的仍然是它期望的通用内容。
+   **动 Stages 之前先把 want 表也按学段分开。** 这正是本 spec §8 写的
+   「加了轴但到不了深处」，只是挪到了隔壁那条轴上。
+
+2. **`Scope{Genres: nil}` 和 `readingRoutine.serves()` 读法相反。**
+   `Matches` 把空 Genres 读成「不限」，`serves()` 把它读成「谁都不服务」。
+   一期已在 `pickRoutineForGenre` 里两条都查来挡住这件事。
+   要加一套通用读法（`Genres: nil`）之前，先决定这个字段到底是哪个意思。
+
+### 🚨 唯一一处依赖打分次序的地方
+
+打分是 **Surface(16) > Lang(8) > Genre(4) > Stage(2/1)** 的字典序，
+不是「轴越多越具体」（`{Lang}`=8 就压过 `{Genres,Stage}`=6）。
+
+生产里真正依赖它的只有一条：**`Lang(8) > Genre(4)`**。英文记叙文靠它留在
+英文毛病表（24 分）上，而不是掉进那张无语言的记叙文兜底（20 分）。
+**把这两条轴的次序对调，每一篇英文记叙文都会换成中文的毛病表。**
+
+### 带着走的几条小账
+
+- `vocab.Structures` 在 narrative/zh 和 narrative/en 上各只有**一条**方法
+  （`struct_yiyang`、`struct_en_narrative_arc`）。测试钉得住漂移，但一条数据
+  是很薄的钉子 —— 二期补英文记叙内容时顺手加宽。
+- `internal/api` 里有**五个**已经没人读的别名，不是三个；其中两个仍然被
+  `writingPlanSystemFor` 的兜底用着。**不要凭印象删。**
+- `writingSymptomTable` 每次调用都会拼一次 24 条的记叙文合表，包括英文和
+  中文议论文那两条根本用不上它的路径。`lookupWritingSymptom` 每条意见调一次。
+- `vocab.All()` 返回的是包级切片本身，没有复制，调用方改得动整个方法库。
+- `guidance.Default()` 把同一个可变 `*Registry` 交给每个调用方，`Add` 不加锁。
+
+### 终审对这次重构本身的评价（原样记下来）
+
+> 匹配规则今天并不划算，划算的是那条测试。
+
+四个调用点的生产代码**都变长了**，而本 spec §1 说的「各有各的兜底」其实
+**没有解决** —— 四处仍然各留各的兜底。真正变好的是
+`TestEveryCombinationResolves`：全组合枚举 + 逐字内容断言，而且用 mutation
+证明过它抓得住 en/narrative 那个缺口 —— 那正是当年放 `@@KINDS@@` 上线的
+同一种缺口。**那条测试离不开一张能枚举的注册表。**
+
+终审的建议：二期的学段轴要是没做成，就把读法表和阅读带读说明这两处迁回去
+（它们为了一条自己用不上的规则担了风险），只留写作立题这一处 —— 那条测试
+住在那儿。
+
 ## 9 · 参考
 
 - `docs/reference/writing-teaching/reading-suggestion.md` —— 已实现于 `reading_genre.go`
