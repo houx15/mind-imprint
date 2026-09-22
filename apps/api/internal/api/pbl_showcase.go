@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,32 +16,52 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
 type showcaseConfig struct {
-	Name              string   `json:"name"`
-	Bio               string   `json:"bio"`
-	Tagline           string   `json:"tagline"`
-	Interests         []string `json:"interests"`
-	Layout            string   `json:"layout"`
-	Palette           string   `json:"palette"`
-	Font              string   `json:"font"`
-	Style             string   `json:"style,omitempty"`
-	Illustration      string   `json:"illustration,omitempty"`
-	HeroTitle         string   `json:"heroTitle,omitempty"`
-	AboutLayout       string   `json:"aboutLayout,omitempty"`
-	PortfolioLayout   string   `json:"portfolioLayout,omitempty"`
-	AvatarKey         string   `json:"avatarKey,omitempty"`
-	HeroImageKey      string   `json:"heroImageKey,omitempty"`
-	HeroImagePrompt   string   `json:"heroImagePrompt,omitempty"`
-	AvatarImagePrompt string   `json:"avatarImagePrompt,omitempty"`
-	WritingStyle      string   `json:"writingStyle"`
-	ReadingStyle      string   `json:"readingStyle"`
-	SectionOrder      []string `json:"sectionOrder"`
-	SelectedWorkIDs   []string `json:"selectedWorkIds"`
+	Name              string                `json:"name"`
+	Bio               string                `json:"bio"`
+	Tagline           string                `json:"tagline"`
+	Interests         []string              `json:"interests"`
+	Layout            string                `json:"layout"`
+	Palette           string                `json:"palette"`
+	Font              string                `json:"font"`
+	Style             string                `json:"style,omitempty"`
+	Illustration      string                `json:"illustration,omitempty"`
+	HeroTitle         string                `json:"heroTitle,omitempty"`
+	AboutLayout       string                `json:"aboutLayout,omitempty"`
+	PortfolioLayout   string                `json:"portfolioLayout,omitempty"`
+	AvatarKey         string                `json:"avatarKey,omitempty"`
+	HeroImageKey      string                `json:"heroImageKey,omitempty"`
+	HeroImagePrompt   string                `json:"heroImagePrompt,omitempty"`
+	AvatarImagePrompt string                `json:"avatarImagePrompt,omitempty"`
+	WritingStyle      string                `json:"writingStyle"`
+	ReadingStyle      string                `json:"readingStyle"`
+	SectionOrder      []string              `json:"sectionOrder"`
+	SelectedWorkIDs   []string              `json:"selectedWorkIds"`
+	InterestTreeMode  string                `json:"interestTreeMode,omitempty"`
+	AboutConversation []showcaseChatMessage `json:"aboutConversation,omitempty"`
+}
+
+type showcaseChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type showcaseInterestBranch struct {
+	Label    string   `json:"label"`
+	Keywords []string `json:"keywords"`
+}
+
+type showcaseInterestTree struct {
+	Mode     string                   `json:"mode,omitempty"`
+	Title    string                   `json:"title,omitempty"`
+	Keywords []string                 `json:"keywords"`
+	Branches []showcaseInterestBranch `json:"branches,omitempty"`
 }
 
 type showcaseWork struct {
@@ -58,19 +79,20 @@ type showcasePublication struct {
 }
 
 type showcaseState struct {
-	Draft                 showcaseConfig `json:"draft"`
-	Revision              int32          `json:"revision"`
-	Published             bool           `json:"published"`
-	HasUnpublishedChanges bool           `json:"hasUnpublishedChanges"`
-	URL                   string         `json:"url"`
-	AvailableWorks        []showcaseWork `json:"availableWorks"`
-	HasLegacySite         bool           `json:"hasLegacySite"`
-	HeroImageURL          string         `json:"heroImageUrl"`
-	AvatarURL             string         `json:"avatarUrl"`
+	Draft                 showcaseConfig       `json:"draft"`
+	Revision              int32                `json:"revision"`
+	Published             bool                 `json:"published"`
+	HasUnpublishedChanges bool                 `json:"hasUnpublishedChanges"`
+	URL                   string               `json:"url"`
+	AvailableWorks        []showcaseWork       `json:"availableWorks"`
+	HasLegacySite         bool                 `json:"hasLegacySite"`
+	HeroImageURL          string               `json:"heroImageUrl"`
+	AvatarURL             string               `json:"avatarUrl"`
+	AvailableInterestTree showcaseInterestTree `json:"availableInterestTree"`
 }
 
 func defaultShowcase(name string) showcaseConfig {
-	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", AboutLayout: "classic", PortfolioLayout: "sections", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}}
+	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", AboutLayout: "classic", PortfolioLayout: "sections", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}, InterestTreeMode: "none", AboutConversation: []showcaseChatMessage{}}
 }
 
 func oneOf(v string, allowed ...string) bool {
@@ -103,6 +125,9 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	if c.PortfolioLayout == "" {
 		c.PortfolioLayout = "sections"
 	}
+	if c.InterestTreeMode == "" {
+		c.InterestTreeMode = "none"
+	}
 	c.Name, c.Bio, c.Tagline = strings.TrimSpace(c.Name), strings.TrimSpace(c.Bio), strings.TrimSpace(c.Tagline)
 	c.HeroTitle = strings.TrimSpace(c.HeroTitle)
 	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 || len([]rune(c.HeroImagePrompt)) > 2000 || len([]rune(c.AvatarImagePrompt)) > 2000 {
@@ -110,6 +135,21 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	}
 	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
 		return c, errors.New("展示样式无效")
+	}
+	if !oneOf(c.InterestTreeMode, "none", "tree", "keywords") {
+		return c, errors.New("兴趣树展示方式无效")
+	}
+	if len(c.AboutConversation) > 20 {
+		return c, errors.New("个人介绍对话超过长度限制")
+	}
+	totalConversationRunes := 0
+	for i := range c.AboutConversation {
+		m := &c.AboutConversation[i]
+		m.Content = strings.TrimSpace(m.Content)
+		totalConversationRunes += len([]rune(m.Content))
+		if !oneOf(m.Role, "user", "assistant") || m.Content == "" || len([]rune(m.Content)) > 2000 || totalConversationRunes > 20000 {
+			return c, errors.New("个人介绍对话无效")
+		}
 	}
 	clean := func(in []string, max, width int) ([]string, bool) {
 		if len(in) > max {
@@ -164,9 +204,15 @@ func decodeShowcase(raw []byte, fallback string) showcaseConfig {
 	if c.PortfolioLayout == "" {
 		c.PortfolioLayout = "sections"
 	}
+	if c.InterestTreeMode == "" {
+		c.InterestTreeMode = "none"
+	}
 	c.Interests = showcaseNonNil(c.Interests)
 	c.SectionOrder = showcaseNonNil(c.SectionOrder)
 	c.SelectedWorkIDs = showcaseNonNil(c.SelectedWorkIDs)
+	if c.AboutConversation == nil {
+		c.AboutConversation = []showcaseChatMessage{}
+	}
 	return c
 }
 func showcaseNonNil(v []string) []string {
@@ -174,6 +220,13 @@ func showcaseNonNil(v []string) []string {
 		return []string{}
 	}
 	return v
+}
+
+func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
+	c.HeroImagePrompt = ""
+	c.AvatarImagePrompt = ""
+	c.AboutConversation = nil
+	return c
 }
 
 func ownShowcaseImage(owner uuid.UUID, key string) bool {
@@ -203,6 +256,40 @@ func (a *API) showcaseWorks(r *http.Request, userID uuid.UUID) ([]showcaseWork, 
 	return out, nil
 }
 
+func (a *API) showcaseInterestTree(ctx context.Context, userID uuid.UUID) (showcaseInterestTree, error) {
+	rows, err := a.d.Queries.ListInterestKeywords(ctx, userID)
+	if err != nil {
+		return showcaseInterestTree{}, err
+	}
+	byField := make(map[string][]string)
+	all := make([]string, 0, min(len(rows), 36))
+	seen := map[string]bool{}
+	for _, row := range rows {
+		if len(all) >= 36 {
+			break
+		}
+		word := strings.TrimSpace(row.TextZh)
+		if word == "" {
+			word = strings.TrimSpace(row.TextEn)
+		}
+		if word == "" || seen[word] {
+			continue
+		}
+		seen[word] = true
+		all = append(all, word)
+		byField[row.Field] = append(byField[row.Field], word)
+	}
+	branches := make([]showcaseInterestBranch, 0, len(disciplines.Fields))
+	for _, field := range disciplines.Fields {
+		words := byField[field]
+		if len(words) == 0 {
+			continue
+		}
+		branches = append(branches, showcaseInterestBranch{Label: disciplines.FieldLabels[field], Keywords: words})
+	}
+	return showcaseInterestTree{Mode: "tree", Title: "兴趣", Keywords: all, Branches: branches}, nil
+}
+
 func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (showcaseState, error) {
 	works, err := a.showcaseWorks(r, u.ID)
 	if err != nil {
@@ -211,6 +298,10 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	draft := decodeShowcase(row.Draft, u.DisplayName)
 	active := row.PublishedAt.Valid
 	state := showcaseState{Draft: draft, Revision: row.Revision, Published: active, AvailableWorks: works}
+	state.AvailableInterestTree, err = a.showcaseInterestTree(r.Context(), u.ID)
+	if err != nil {
+		return showcaseState{}, err
+	}
 	if ownShowcaseImage(u.ID, draft.HeroImageKey) {
 		state.HeroImageURL = a.signedShowcaseImageOrEmpty(draft.HeroImageKey)
 	}
@@ -293,7 +384,7 @@ func (a *API) putPblShowcase(w http.ResponseWriter, r *http.Request) {
 		Draft            showcaseConfig `json:"draft"`
 		ExpectedRevision int32          `json:"expectedRevision"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&in); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 128<<10)).Decode(&in); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_json", "请求内容无效", nil))
 		return
 	}
@@ -462,25 +553,24 @@ func (a *API) unpublishPblShowcase(w http.ResponseWriter, r *http.Request) {
 	a.getPblShowcase(w, r)
 }
 
-func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig, []showcaseWork, error) {
+func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig, []showcaseWork, *showcaseInterestTree, error) {
 	row, err := a.d.Queries.GetPblShowcase(r.Context(), userID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if !row.PublishedAt.Valid {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	var publication showcasePublication
 	if err := json.Unmarshal(row.PublishedConfig, &publication); err != nil || publication.Config.Layout == "" {
-		return nil, nil, errors.New("invalid published showcase")
+		return nil, nil, nil, errors.New("invalid published showcase")
 	}
-	c := publication.Config
-	// Prompts are private drafting inputs. Public pages receive only the selected images.
-	c.HeroImagePrompt = ""
-	c.AvatarImagePrompt = ""
+	// Drafting prompts and coaching history are private. Public pages receive only
+	// the resulting presentation fields and selected images.
+	c := redactShowcaseForPublic(publication.Config)
 	if c.Style == "" {
 		c.Style = "classic"
 	}
@@ -495,7 +585,7 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 	}
 	all, err := a.showcaseWorks(r, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	byID := map[string]showcaseWork{}
 	for _, x := range all {
@@ -518,7 +608,7 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 		}
 	}
 	c.SelectedWorkIDs = visibleIDs
-	return &c, selected, nil
+	return &c, selected, publication.InterestTree, nil
 }
 
 func (a *API) generatePblShowcaseImage(w http.ResponseWriter, r *http.Request) {

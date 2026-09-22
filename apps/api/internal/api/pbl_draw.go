@@ -20,6 +20,7 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -129,6 +130,14 @@ func generatedImageKey(userID uuid.UUID, purpose, extension string) (string, err
 		userID.String(), purpose, hex.EncodeToString(b[:]), extension), nil
 }
 
+func publicShowcaseImageKey(userID uuid.UUID, purpose, extension string) (string, error) {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("showcase/users/%s/%s-%s.%s", userID, purpose, hex.EncodeToString(b[:]), extension), nil
+}
+
 // signedOrEmpty 把 object key 变成她那边能显示的地址。签不出来就给空串——
 // 一个签失败的地址是一张碎图，而空串至少让界面知道这里还没有图。
 func (a *API) signedOrEmpty(key string) string {
@@ -143,7 +152,13 @@ func (a *API) signedOrEmpty(key string) string {
 }
 
 func (a *API) signedShowcaseImageOrEmpty(key string) string {
-	if key == "" || a.d.OSS == nil {
+	if key == "" {
+		return ""
+	}
+	if strings.HasPrefix(key, "showcase/users/") && a.d.PublicAssets != nil {
+		return a.d.PublicAssets.PublicURL(key)
+	}
+	if a.d.OSS == nil {
 		return ""
 	}
 	url, err := a.d.OSS.SignOriginDownload(key)
