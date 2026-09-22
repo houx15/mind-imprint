@@ -30,7 +30,7 @@ func TestClarityMergeWriting(t *testing.T) {
 			if tc.name == "english-narrative" {
 				genre = genreNarrative
 			}
-			claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, wr.Lang)}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, tc.rows, nil, tc.said)}}}, func(raw string) error {
+			claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, wr.Lang, "")}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, tc.rows, nil, tc.said)}}}, func(raw string) error {
 				out, ok := parseWritingPlanReply(raw)
 				if !ok {
 					return errors.New("plan parse failed")
@@ -102,7 +102,7 @@ func TestClarityPersonalPlanReady(t *testing.T) {
 			if !planLooksReady(wr, rows) {
 				t.Fatal("personal material incorrectly blocks readiness")
 			}
-			claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 2048, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, lang)}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, "这些就是我的计划。我想开始写了。")}}}, func(raw string) error {
+			claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 2048, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, lang, "")}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, "这些就是我的计划。我想开始写了。")}}}, func(raw string) error {
 				out, ok := parseWritingPlanReply(raw)
 				if !ok {
 					return errors.New("plan parse failed")

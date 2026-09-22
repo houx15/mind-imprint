@@ -22,14 +22,14 @@ func TestWritingPlanSystem_CarriesTheWholePieceSkeletons(t *testing.T) {
 	//（同事的意见 7：英文议论文要看的是 thesis-body-conclusion 那一套，
 	// 不是总—分—总），const 里只剩一个占位符 —— 继续查 const 等于查一份
 	// 谁都收不到的东西。
-	zh := writingPlanSystemFor(genreArgument, "zh")
+	zh := writingPlanSystemFor(genreArgument, "zh", "")
 	for _, name := range []string{"总—分", "总—分—总", "立场式", "起承转合"} {
 		if !strings.Contains(zh, name) {
 			t.Errorf("中文那一份里没有骨架「%s」", name)
 		}
 	}
 	// 英文那一份要有英文议论文真正被打分的那几件事。
-	en := writingPlanSystemFor(genreArgument, "en")
+	en := writingPlanSystemFor(genreArgument, "en", "")
 	for _, name := range []string{
 		"Thesis–body–conclusion", "Claim–counterargument–refutation",
 		"thesis statement", "topic sentence", "commentary",
@@ -54,7 +54,7 @@ func TestWritingPlanSystem_CarriesTheWholePieceSkeletons(t *testing.T) {
 //
 // 这一条把「用哪种引号」钉死，免得下一个人顺手改成 『』 再去改那条测试。
 func TestWritingPlanSystem_SkeletonsAreNotQuotedAsMethods(t *testing.T) {
-	for _, quoted := range bracketed(writingPlanSystemFor(genreArgument, "zh")) {
+	for _, quoted := range bracketed(writingPlanSystemFor(genreArgument, "zh", "")) {
 		for _, skeleton := range []string{"总—分", "总—分—总", "立场式", "起承转合"} {
 			if quoted == skeleton {
 				t.Errorf("骨架「%s」被写成了 『』—— 那是方法名的引号，methods.json 里没有它", skeleton)
@@ -76,8 +76,8 @@ func TestWritingPlanSystem_ForbidsOfferingTheSkeletonsAsAMenu(t *testing.T) {
 	// 🚨 两种语言各查一遍。骨架那一节 2026-09-22 分成了两份，而这条禁令是
 	// 2026-08-27 的裁定 —— 新开一份的时候最容易漏掉的就是它。
 	for lang, s := range map[string]string{
-		"中文": writingPlanSystemFor(genreArgument, "zh"),
-		"英文": writingPlanSystemFor(genreArgument, "en"),
+		"中文": writingPlanSystemFor(genreArgument, "zh", ""),
+		"英文": writingPlanSystemFor(genreArgument, "en", ""),
 	} {
 		if !strings.Contains(s, "学生尚未说明观点时，不要求她先选结构名称") {
 			t.Errorf("%s那一份的骨架里没有「不许做成菜单」的禁令", lang)

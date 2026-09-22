@@ -44,7 +44,7 @@ func PromptAssemblyExamples() []PromptExample {
 			wr := sqlc.Writing{Lang: lang, Title: "一次图书馆里的经历"}
 			doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "我想记录上周和同学一起找资料的经历。"))
 			out = append(out, PromptExample{ID: "writing/plan/" + lang + "/" + genre, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, lang)}, {Role: gateway.RoleUser, Content: doc.Text},
+				{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, lang, "")}, {Role: gateway.RoleUser, Content: doc.Text},
 			}}, Documents: map[int]promptassembly.Document{1: doc}})
 		}
 	}

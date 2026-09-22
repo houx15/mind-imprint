@@ -222,7 +222,7 @@ func TestLiveTeachingNarrativePlanUsesNarrativeKinds(t *testing.T) {
 	const said = "我想写那天下雨我爸来接我的事。那天我在补习班楼道口等，雨下得特别大。"
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreNarrative, wr.Lang)},
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreNarrative, wr.Lang, "")},
 			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
 		},
 	})

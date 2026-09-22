@@ -39,7 +39,7 @@ func livePlanTurn(t *testing.T, wr sqlc.Writing, rows []sqlc.WritingOutline, sai
 			// `@@KINDS@@` 和 `%d` 两个占位符都还没替换 —— 也就是说这条
 			// 「模型会不会照着闭表回 kind」的测试，**从来没有把那张闭表发给
 			// 模型**。它测的是一份生产环境不会发出去的提示词。
-			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang)},
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang, "")},
 			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
 		},
 	})

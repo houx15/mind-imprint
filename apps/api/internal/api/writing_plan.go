@@ -586,7 +586,18 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang)
+	// 她在哪个年级 —— 用来挑年级对得上的教学内容。查不到、或者她在两个年级
+	// 对不上的班里，就当不知道（gradeFromClasses），落回不分年级的那一份。
+	// 🚨 查不出来不是错误，所以这里只记一行日志，不中断这一轮。
+	grade := ""
+	if gradeRows, gerr := a.d.Queries.ListClassGradesForUser(turnCtx, at.UserID); gerr != nil {
+		slog.Warn("writing plan turn: 年级查不出来，按不分年级办",
+			"err", gerr, "atom_id", at.ID,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+	} else {
+		grade = gradeFromClasses(gradeRows)
+	}
+	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang, grade)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

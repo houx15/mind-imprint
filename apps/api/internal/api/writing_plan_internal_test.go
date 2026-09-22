@@ -26,7 +26,7 @@ func TestWritingPlanSystem_TeachesWholePieceJudgment(t *testing.T) {
 	// 🚨 查的是**装配好的那一份**，不是那个 const。
 	// R4 把「这一块是什么」的清单按文体拆成了两份，const 里只剩一个占位符 ——
 	// 继续查 const 等于查一份谁都收不到的东西。
-	writingPlanSystem := writingPlanSystemFor(genreArgument, "zh")
+	writingPlanSystem := writingPlanSystemFor(genreArgument, "zh", "")
 	for _, want := range []string{
 		// 🚨 2026-09-20：原来这里钉的是「最上层不止中心论点」—— 那句话在教模型
 		// 怎么摆节点。模型不再摆节点了，所以钉住的换成新的那条契约本身：
@@ -159,8 +159,8 @@ func TestRootInsertPosition(t *testing.T) {
 // 用到它们，一篇记叙文照旧被摆成中心论点／分论点／论据。
 // 闭表和提示词是两处各自成立的东西，中间没有编译器。
 func TestWritingPlanKindListsMatchTheClosedSet(t *testing.T) {
-	argument := writingPlanSystemFor(genreArgument, "zh")
-	narrative := writingPlanSystemFor(genreNarrative, "zh")
+	argument := writingPlanSystemFor(genreArgument, "zh", "")
+	narrative := writingPlanSystemFor(genreNarrative, "zh", "")
 
 	for _, k := range []string{
 		writingKindThesis, writingKindPoint, writingKindEvidence, writingKindReference,
@@ -222,7 +222,7 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 	for _, genre := range []string{genreArgument, genreNarrative} {
 		for _, lang := range []string{"zh", langEnglish} {
 			name := genre + "/" + lang
-			got := writingPlanSystemFor(genre, lang)
+			got := writingPlanSystemFor(genre, lang, "")
 
 			// 占位符一个都不许活着出去。
 			for _, ph := range []string{"@@KINDS@@", "@@MATERIAL@@", "@@SKELETON@@", "%d"} {
@@ -266,7 +266,7 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 func TestWritingPlanSystemForLeavesNoPlaceholder(t *testing.T) {
 	for _, lang := range []string{"zh", langEnglish} {
 		for _, genre := range []string{genreArgument, genreNarrative} {
-			s := writingPlanSystemFor(genre, lang)
+			s := writingPlanSystemFor(genre, lang, "")
 			if strings.Contains(s, "@@") {
 				t.Errorf("%s/%s 的提示词里残留着占位符", lang, genre)
 			}

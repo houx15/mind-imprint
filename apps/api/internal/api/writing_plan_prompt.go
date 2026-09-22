@@ -48,8 +48,13 @@ const writingPlanNarrativeKinds = prompts.WritingPlanNarrativeKinds
 //
 // 2026-09-22：选哪一段由 internal/guidance 决定，这里只负责把取回来的几段
 // 填进模板。正文一个字没动。
-func writingPlanSystemFor(genre string, lang string) string {
-	k := guidance.Key{Surface: guidance.SurfaceWrite, Lang: lang, Genre: genre}
+//
+// 🚨 grade 这条轴是二期 a 补的接线：今天登记表里没有任何一份按年级分的内容，
+// 所以填不填、填哪个年级，Resolve 落到的都是同一份（见 guidance 的通配回退）。
+// 这不是没做完——是把轴先通到位，等二期 b 真的登记年级专属内容时，这里不用
+// 再改一行。传进来的必须是内部取值（classGrades 里的枚举），不是给她看的文案。
+func writingPlanSystemFor(genre string, lang string, grade string) string {
+	k := guidance.Key{Surface: guidance.SurfaceWrite, Lang: lang, Genre: genre, Grade: grade}
 	parts, err := guidance.Default().Resolve(k,
 		guidance.SlotKinds, guidance.SlotMaterial, guidance.SlotSkeleton)
 	if err != nil {
