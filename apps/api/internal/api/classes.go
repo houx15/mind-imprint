@@ -20,6 +20,7 @@ func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name          string `json:"name"`
 		TeacherUserID string `json:"teacher_user_id"`
+		Grade         string `json:"grade"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -27,6 +28,13 @@ func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(body.Name) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "班级名称不能为空", nil))
+		return
+	}
+	grade, gradeOK := validateClassGrade(strings.TrimSpace(body.Grade))
+	if !gradeOK {
+		// 不认识的年级是前端的 bug，不是老师填错了字 —— 直接回 400，
+		// 不要悄悄存成空串，那样他以为自己填了。
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "年级不在可选范围内", nil))
 		return
 	}
 
@@ -70,7 +78,7 @@ func (a *API) createClass(w http.ResponseWriter, r *http.Request) {
 		Name:      strings.TrimSpace(body.Name),
 		JoinCode:  code,
 		CreatedBy: pgtype.UUID{Bytes: u.ID, Valid: true},
-		Grade:     "", // 建班当下先不知道年级；后续任务改为接住请求里的校验值
+		Grade:     grade, // 已校验过；未填时是合法的空串
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -153,6 +161,7 @@ func (a *API) patchClass(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Name               *string `json:"name"`
+		Grade              *string `json:"grade"`
 		RegenerateJoinCode bool    `json:"regenerate_join_code"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
@@ -167,6 +176,19 @@ func (a *API) patchClass(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cls, err = a.d.Queries.UpdateClassName(r.Context(), sqlc.UpdateClassNameParams{ID: id, Name: strings.TrimSpace(*body.Name)})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		changed = true
+	}
+	if body.Grade != nil {
+		grade, gradeOK := validateClassGrade(strings.TrimSpace(*body.Grade))
+		if !gradeOK {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "年级不在可选范围内", nil))
+			return
+		}
+		cls, err = a.d.Queries.SetClassGrade(r.Context(), sqlc.SetClassGradeParams{ID: id, Grade: grade})
 		if err != nil {
 			httpx.WriteError(w, r, err)
 			return

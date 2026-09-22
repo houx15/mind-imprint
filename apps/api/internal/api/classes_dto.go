@@ -12,15 +12,21 @@ type classDTO struct {
 	JoinCode  string `json:"join_code"`
 	SchoolID  string `json:"school_id"`
 	CreatedAt string `json:"created_at"`
+	// Grade 是闭表里的值（junior2）；GradeLabel 是屏幕上那个词（初二）。
+	// 两个都给：前端不必自己维护一份中文对照表，那是第二份会漂的真相。
+	Grade      string `json:"grade"`
+	GradeLabel string `json:"grade_label"`
 }
 
 func toClassDTO(c sqlc.Class) classDTO {
 	return classDTO{
-		ID:        c.ID.String(),
-		Name:      c.Name,
-		JoinCode:  c.JoinCode,
-		SchoolID:  c.SchoolID.String(),
-		CreatedAt: c.CreatedAt.Format(tsLayout),
+		ID:         c.ID.String(),
+		Name:       c.Name,
+		JoinCode:   c.JoinCode,
+		SchoolID:   c.SchoolID.String(),
+		CreatedAt:  c.CreatedAt.Format(tsLayout),
+		Grade:      c.Grade,
+		GradeLabel: classGradeLabel(c.Grade),
 	}
 }
 
