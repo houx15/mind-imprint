@@ -47,13 +47,25 @@ import { AssignmentStrip } from "../inbox/AssignmentStrip";
  *   - recommendations heading: 「不知道读什么？」
  */
 
-/** A body that is nothing but one http(s) token is a LINK, not an article —
- *  the server can fetch it into readable text, which is strictly better than
- *  storing a one-line "article" that says `https://…`. Anything with prose
- *  around it is treated as pasted text. */
+/** A body that is nothing but one link is a LINK, not an article — the server
+ *  can fetch it into readable text, which is strictly better than storing a
+ *  one-line "article" that says `https://…`. Anything with prose around it is
+ *  treated as pasted text.
+ *
+ *  🚨 2026-09-22：少了 scheme 的那一份也要认。她从地址栏复制出来的常常是
+ *  `www.bbc.com/news/…`（Chrome 复制的就是这个形状），原来那条正则不认，
+ *  于是这一行 URL 被当成一篇一句话的文章存了下来 —— 产品负责人报的
+ *  「粘贴链接识别不了」里的一种。补上 https:// 交给服务端去抓。 */
 export function asLink(body: string): string | null {
   const trimmed = body.trim();
-  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
+  if (/\s/.test(trimmed) || trimmed === "") return null;
+  if (/^https?:\/\/\S+$/i.test(trimmed)) return trimmed;
+  // 一个带点的域名开头，后面可以有路径。要求域名里有一个点且后缀是字母，
+  // 免得把 `第3段。` 这种也当成链接。
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return null;
 }
 
 /** The reading's name when she did not type one. Taken from the first line

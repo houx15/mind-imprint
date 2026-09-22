@@ -939,6 +939,21 @@ type coachMessagePayload struct {
 	// 写了一半的草稿挂在那个组件上，重发一张等于把它抹掉
 	// （产品负责人 2026-09-20：「恢复原题时保留已有草稿和辅助结果」）。
 	Restored bool `json:"restored,omitempty"`
+	// FocusBlock 是这一轮 印记 领她去看的那一段。
+	//
+	// 🚨 2026-09-22 起，收到它**不再自动把文章滚过去**。产品负责人报的第 3 条：
+	//
+	//	有的学生可能没读完12-16段就发现了答案发出去了，这个时候系统会自动
+	//	跳转到17段，但可能学生才读到13段，可以不用自动跳转，设置一个可点击
+	//	跳转的按键比较好。
+	//
+	// 自动滚动把「印记 走到下一步了」和「她读到哪儿了」当成了同一件事，而它们
+	// 经常不是 —— 她提前答出来，屏幕就把她从正在读的那一段拽走。改成那条消息
+	// 底下一颗「跳到第 N 段」，由她按。
+	//
+	// 存在 payload 上而不是只放在响应里：那颗按钮属于**那一条回复**，刷新之后
+	// 她应该还能按。响应里那一份是给乐观更新用的，两边是同一个事实。
+	FocusBlock string `json:"focusBlock,omitempty"`
 }
 
 // coachCardAnswer is her answer to a chat card: which card it was, what it
@@ -993,15 +1008,18 @@ func coachCardPayload(c *coachCard) []byte {
 // coachCardPayloadWithDrop 同上，外加「这一轮那张卡为什么没发出去」。
 // 两个都空的时候不写 payload —— 大多数轮本来就是这样。
 func coachCardPayloadWithDrop(c *coachCard, why cardReject) []byte {
-	return coachCardPayloadFull(c, why, false, false)
+	return coachCardPayloadFull(c, why, false, false, "")
 }
 
-// coachCardPayloadFull —— 同上，外加「这条回复没说完」和「回到原题」这两个事实。
-func coachCardPayloadFull(c *coachCard, why cardReject, incomplete, restored bool) []byte {
-	if c == nil && !incomplete && !restored && (why == cardOK || why == cardRejectNoCard) {
+// coachCardPayloadFull —— 同上，外加「这条回复没说完」「回到原题」和
+// 「这一轮领她去看哪一段」这三个事实。
+func coachCardPayloadFull(c *coachCard, why cardReject, incomplete, restored bool, focusBlock string) []byte {
+	if c == nil && !incomplete && !restored && focusBlock == "" && (why == cardOK || why == cardRejectNoCard) {
 		return nil
 	}
-	b, err := json.Marshal(coachMessagePayload{Card: c, Dropped: string(why), Incomplete: incomplete, Restored: restored})
+	b, err := json.Marshal(coachMessagePayload{
+		Card: c, Dropped: string(why), Incomplete: incomplete, Restored: restored, FocusBlock: focusBlock,
+	})
 	if err != nil {
 		// A struct of strings cannot fail to marshal; if it somehow did, the
 		// turn is still hers — she loses the card, not the reply.

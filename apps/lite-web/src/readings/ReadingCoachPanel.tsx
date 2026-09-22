@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PencilLine, Play } from "lucide-react";
+import { MapPin, PencilLine, Play } from "lucide-react";
 import { Button, Icon, Pebble } from "@/ui";
 import { Composer } from "@/studio/ai/Composer";
 import type { ReadingCoachSlot } from "./ReadingRoom";
@@ -22,6 +22,7 @@ import {
   coachAnswerOf,
   coachCardOf,
   replyIsIncomplete,
+  replyJumpBlock,
   replyRestoresCard,
   postReadingCoachTurn,
   type ReadingLensDone,
@@ -69,6 +70,39 @@ import { apiErrorText } from "../api/errorText";
  * the SAME `atom_message` table — which is why merging them cost no migration
  * and why `initialMessages` restores a conversation started either way.
  */
+/**
+ * JumpToBlock —— 「跳到第 N 段」。
+ *
+ * 它顶替的是自动滚动。产品负责人 2026-09-22 报的第 3 条逐字：
+ *
+ *	有的学生可能没读完12-16段就发现了答案发出去了，这个时候系统会自动跳转到
+ *	17段，但可能学生才读到13段，可以不用自动跳转，设置一个可点击跳转的按键
+ *	比较好。
+ *
+ * 段号是她屏幕上唯一认得的坐标，所以按钮上写的是段号，不是 b17。数不出段号
+ * （这一篇的正文换过、段 id 对不上了）就整颗不显示 —— 一颗指着不存在的段落的
+ * 按钮比没有按钮更糟。
+ */
+function JumpToBlock({
+  blockId,
+  ordinalOf,
+  onLocate,
+}: {
+  blockId: string;
+  ordinalOf?: (blockId: string) => number;
+  onLocate?: (blockId: string) => void;
+}) {
+  if (!blockId || !onLocate) return null;
+  const ord = ordinalOf?.(blockId) ?? 0;
+  if (ord <= 0) return null;
+  return (
+    <button type="button" className="mk-jumpblock" onClick={() => onLocate(blockId)}>
+      <Icon icon={MapPin} size={13} />
+      跳到第 {ord} 段
+    </button>
+  );
+}
+
 export function ReadingCoachPanel({
   readingId,
   tasks,
@@ -322,9 +356,18 @@ export function ReadingCoachPanel({
         },
       ]);
       onTasks(res.tasks);
-      // The coach names the paragraph this step is about; jumping there is
-      // part of leading her, not a separate thing she has to do.
-      if (res.focusBlock) onFocusBlock(res.focusBlock, res.tool || undefined);
+      // 🚨 只有 印记 真的**开了一件段落工具**的时候才把文章滚过去。
+      //
+      // 2026-09-22 之前，任何一轮带回 focusBlock 都会滚动，包括「这一步走完了，
+      // 接下来读第 17 段」那种交接。产品负责人报的第 3 条：
+      //
+      //	有的学生可能没读完12-16段就发现了答案发出去了，这个时候系统会自动
+      //	跳转到17段，但可能学生才读到13段
+      //
+      // 现在交接只在那条消息底下留一颗「跳到第 N 段」（下面 replyJumpBlock），
+      // 由她按。工具那一种仍然滚：工具面板锚在那一段上，不滚过去她看不见它，
+      // 那不是「把她拽走」，那是把她刚请出来的东西摆到她面前。
+      if (res.focusBlock && res.tool) onFocusBlock(res.focusBlock, res.tool);
       // A lens landed on the article from THIS endpoint, not from the room's
       // own turn/summon flow — the room's card state has no way to have
       // picked it up on its own, so it needs telling.
@@ -524,6 +567,8 @@ export function ReadingCoachPanel({
                 这条回复没有生成完整。请让印记接着说。
               </p>
             )}
+            {/* 印记 这一轮说的是哪一段 —— 由她决定去不去。见 replyJumpBlock。 */}
+            <JumpToBlock blockId={replyJumpBlock(m)} ordinalOf={ordinalOf} onLocate={onLocateBlock} />
             <ThinkingFold text={thinkingBySeq[m.seq] ?? ""} />
           </>
         ),

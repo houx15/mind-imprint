@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -12,6 +14,7 @@ import (
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/library"
+	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -152,6 +155,41 @@ func outlineDTOFrom(o readingOutline, blocks []Block) *outlineDTO {
 	}
 }
 
+// minFetchedArticleRunes —— 抓回来的正文短到这个数以下，就不算一篇文章。
+//
+// 🚨 2026-09-22 实测的三种「抓成功了但没用」：页面靠脚本渲染（抽出来是空
+// 字符串）、只抽到导航条和 cookie 提示、只抽到一句导语。对她都是同一件事：
+// 这篇读不了，得自己粘。
+//
+// 一百二十个字符大约是三四句话。真文章远在这之上（实测 BBC 首页 3553、
+// Guardian 7060、Scientific American 7535），所以这条线不会误伤。
+// 判在这里而不是抓取器里：这是产品线，抓取器的单测用的是三行的样例页。
+const minFetchedArticleRunes = 120
+
+// readableEnoughToRead —— 抓回来的这一份够不够开一间阅读室。
+func readableEnoughToRead(body string) bool {
+	return len([]rune(strings.TrimSpace(body))) >= minFetchedArticleRunes
+}
+
+// fetchFailureDetail 把抓取器那个机器可读的原因原样交出去。
+//
+// 原因本身就是她能用上的信息：bad_status 是对方挡住了我们，too_large 是页面
+// 太大，no_text 是那一页的字得等脚本跑完才有。不带这一格的话，三件事在屏幕上
+// 长得一模一样。
+func fetchFailureDetail(err error) string {
+	if err == nil {
+		return ""
+	}
+	var fe *materialize.FetchError
+	if errors.As(err, &fe) {
+		if fe.Err != nil {
+			return fe.Reason + ": " + fe.Err.Error()
+		}
+		return fe.Reason
+	}
+	return err.Error()
+}
+
 // isHTTPURL reports whether s parses as a URL with an http or https scheme
 // and a host. Anything else is refused by putReadingSourceLite.
 func isHTTPURL(s string) bool {
@@ -225,12 +263,26 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		}
 		fetchedTitle, text, _, err := a.d.Fetcher.FetchReadable(r.Context(), srcURL)
 		if err != nil {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_failed", "这个链接抓不到正文，请直接粘贴。", nil))
+			// 🚨 带上后台真正说了什么。产品负责人 2026-09-02：「尽可能给出详细
+			// 报错信息，方便 debug」—— 而这一条尤其需要：403（对方挡机器人）、
+			// too_large、no_text（页面靠脚本渲染）是三件完全不同的事，她能做的
+			// 应对也不一样，而原来这三种都只说「抓不到正文」。
+			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_failed",
+				"链接抓取失败，请把正文直接粘贴进来。", fetchFailureDetail(err)))
 			return
 		}
 		body = strings.TrimSpace(text)
 		if title == "" {
 			title = fetchedTitle
+		}
+		// 抓成功但抓回来的不像一篇文章（导航条、cookie 提示、一句导语）。
+		// 让它走到下面那条「先把文章正文放进来」是在说她没粘东西 —— 而她粘的
+		// 是一个链接，这句话对不上她刚做的那件事。见 readableEnoughToRead。
+		if !readableEnoughToRead(body) {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_thin",
+				"链接抓取失败：这个页面取回的正文太短，读不成一篇文章。请把正文直接粘贴进来。",
+				fmt.Sprintf("fetched %d characters", len([]rune(body)))))
+			return
 		}
 	}
 

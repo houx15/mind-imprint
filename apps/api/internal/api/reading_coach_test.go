@@ -203,9 +203,14 @@ func TestReadingCoach_FocusBlockPrefersThePlansOwnParagraph(t *testing.T) {
 	}
 	// 每一轮完成当前这一步，于是走完 focusAt 轮之后，当前那一步正好是精读
 	// （下标 focusAt）。多走一轮就越过它了，那时候什么都断言不到。
+	//
+	// 🚨 每一轮都要说「读完了」。2026-09-22 起，通读那一步的 done 必须有真凭据
+	// （guardReadStepAdvance）—— 一个字都没说的空轮不再推得动它，而这条走查原来
+	// 走的正是空轮，于是它会永远停在第一步。她自己说读完了是这三样凭据里最普通
+	// 的那一样，也正是真学生在这儿会做的事。
 	var out coachTurnJSON
 	for i := 0; i < focusAt; i++ {
-		out = decodeCoachTurn(t, coachTurn(t, h, cookie, id, ""))
+		out = decodeCoachTurn(t, coachTurn(t, h, cookie, id, "读完了"))
 	}
 	if out.FocusBlock != "b3" {
 		t.Fatalf("focusBlock = %q, want the plan's own b3", out.FocusBlock)
