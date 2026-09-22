@@ -86,7 +86,7 @@ export type LiteRoute =
   //
   // 为什么是 `/p/` 而不是 `/s/`：这两条链接是两种东西。`/s/` 是一次阅读或写作
   // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
-  | { tab: "page"; token: string };
+  | { tab: "page"; token: string; view: "home" | "works" };
 // 2026-09-15: `/r/:token` (a parent report's public link) and
 // `/parent-reports/:id` (the student's copy) are gone. There is no parent end:
 // the teacher exports the report as a picture. Both paths now fall through to
@@ -137,7 +137,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       // 和 `/s` 同样的道理：没有 token 就不是一条主页链接，落回落地页而不是
       // 造出一个 token 为空的路由。
       if (!second) return { tab: "explore" };
-      return { tab: "page", token: second };
+      return { tab: "page", token: second, view: third === "works" ? "works" : "home" };
     case "s":
       // A malformed `/s` with no token is not a share route — it has nothing
       // to fetch — so it falls through to the default landing surface like
@@ -191,7 +191,9 @@ export function liteRoutePath(route: LiteRoute): string {
     case "settings":
       return "/settings";
     case "page":
-      return `/p/${encodeSegment(route.token)}`;
+      return route.view === "works"
+        ? `/p/${encodeSegment(route.token)}/works`
+        : `/p/${encodeSegment(route.token)}`;
     case "share":
       return route.view === "record"
         ? `/s/${encodeSegment(route.token)}/record`

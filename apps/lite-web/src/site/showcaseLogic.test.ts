@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeShowcaseDate, safeShowcaseWorkPath, selectedShowcaseWorks, showcaseCalendarYears, timelineShowcaseWorks } from "./Showcase";
+import { safeShowcaseDate, safeShowcaseExternalURL, safeShowcaseWorkPath, selectedShowcaseWorks, showcaseCalendarYears, timelineShowcaseWorks } from "./Showcase";
 import { SHOWCASE_ILLUSTRATIONS, SHOWCASE_PRESETS } from "./showcasePresets";
 import type { ShowcaseWork } from "./showcaseTypes";
 
@@ -20,6 +20,13 @@ describe("showcase publication boundaries", () => {
     expect(safeShowcaseWorkPath("/s/token/record")).toBeUndefined();
     expect(safeShowcaseWorkPath("/s/token?next=https://example.com")).toBeUndefined();
     expect(safeShowcaseWorkPath("/p/token")).toBeUndefined();
+  });
+
+  it("allows custom work links only over HTTPS", () => {
+    expect(safeShowcaseExternalURL("https://example.com/work?q=1")).toBe("https://example.com/work?q=1");
+    expect(safeShowcaseExternalURL("http://example.com/work")).toBeUndefined();
+    expect(safeShowcaseExternalURL("javascript:alert(1)")).toBeUndefined();
+    expect(safeShowcaseExternalURL("/relative")).toBeUndefined();
   });
 
   it("uses only real ISO calendar dates", () => {

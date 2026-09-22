@@ -34,7 +34,7 @@ export function rootElementFor(pathname: string): ReactElement {
   // never again. See that component's `currentView` comment.
   // `/p/:token` — 她的主页，访客那一面。第四个 disjoint app，理由和 `/s/` 完全
   // 一样：打开它的人没有 session，而且这一页上不该有任何属于这个产品的外壳。
-  if (route.tab === "page") return <PublicSitePage token={route.token} />;
+  if (route.tab === "page") return <PublicSitePage token={route.token} view={route.view} />;
 
   return route.tab === "share" ? (
     <PublicReportPage token={route.token} view={route.view} />

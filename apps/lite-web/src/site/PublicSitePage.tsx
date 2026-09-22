@@ -8,6 +8,7 @@ import { useNoIndex } from "../shared/useNoIndex";
 import { BuiltSite } from "./BuiltSite";
 import { themeFor } from "./themes";
 import type { SiteContent, SiteLayout, SitePalette } from "./types";
+import { PublicShowcaseWorks } from "./PublicShowcaseWorks";
 
 /**
  * `/p/:token` — 她的主页，访客看到的那一面。
@@ -23,9 +24,9 @@ import type { SiteContent, SiteLayout, SitePalette } from "./types";
  * 🚨 不可索引。服务端已经发了 `X-Robots-Tag: noindex`；这里再挂一个 meta，因为
  * 两者在不同的层，而她是未成年人，这条链接是给人的，不是给搜索引擎的。
  */
-export function PublicSitePage({ token }: { token: string }) {
+export function PublicSitePage({ token, view = "home" }: { token: string; view?: "home" | "works" }) {
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "showcase"; config: ShowcaseConfig; works: ShowcaseWork[]; interestTree?:ShowcaseInterestSnapshot; heroImageUrl?:string; avatarUrl?:string } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null; works: PublishedWork[] } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works: PublishedWork[] } | { kind: "gone" }
+    { kind: "loading" } | { kind: "showcase"; config: ShowcaseConfig; works: ShowcaseWork[]; worksTotal: number; interestTree?:ShowcaseInterestSnapshot; heroImageUrl?:string; avatarUrl?:string } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null; works: PublishedWork[] } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works: PublishedWork[] } | { kind: "gone" }
   >({ kind: "loading" });
 
   // noindex 在挂载时加上，卸载时收回。它只属于这一个页面。
@@ -36,7 +37,7 @@ export function PublicSitePage({ token }: { token: string }) {
     getPublicSite(token)
       .then((res) => {
         if (cancelled) return;
-        if ("showcase" in res && res.showcase) { setState({kind: "showcase", config: res.config, works: res.works, heroImageUrl:res.heroImageUrl, avatarUrl:res.avatarUrl, interestTree:res.interestTree}); document.title = res.config.name || "个人主页"; return; }
+        if ("showcase" in res && res.showcase) { setState({kind: "showcase", config: res.config, works: res.works, worksTotal:res.worksTotal, heroImageUrl:res.heroImageUrl, avatarUrl:res.avatarUrl, interestTree:res.interestTree}); document.title = res.config.name || "个人主页"; return; }
         if ("showcase" in res) return;
         if (res.generated) { setState({kind:"generated",renderKey:res.renderKey,comparison:res.comparison,works:res.works ?? []}); document.title="个人主页"; return; }
         setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content, works: res.works ?? [] });
@@ -77,7 +78,11 @@ export function PublicSitePage({ token }: { token: string }) {
     );
   }
 
-  if (state.kind === "showcase") return <Showcase config={state.config} works={state.works} heroImageUrl={state.heroImageUrl} avatarUrl={state.avatarUrl} interestTree={state.interestTree} />;
+  if (state.kind === "showcase") {
+    if (view === "works") return <PublicShowcaseWorks token={token} config={state.config} />;
+    const hasMore = state.worksTotal > state.works.length;
+    return <Showcase config={state.config} works={state.works} heroImageUrl={state.heroImageUrl} avatarUrl={state.avatarUrl} interestTree={state.interestTree} allWorksHref={hasMore ? `/p/${encodeURIComponent(token)}/works` : undefined} />;
+  }
 
   if(state.kind==="generated") return <>{state.comparison&&<nav aria-label="主页内容" style={{padding:"12px 24px",background:"#f4f0e6",display:"flex",gap:24}}><a href="#site-work">作品</a><a href="#process-comparison">修改过程</a></nav>}<iframe id="site-work" title="个人主页" src={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" style={{display:"block",width:"100%",height:"100dvh",border:0}}/><PublishedWorks works={state.works}/>{state.comparison&&<ProcessComparison comparison={state.comparison} source={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`}/>}</>;
 

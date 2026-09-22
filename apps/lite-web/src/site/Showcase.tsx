@@ -5,6 +5,7 @@ import { SHOWCASE_ILLUSTRATIONS } from "./showcasePresets";
 import { SHOWCASE_FONT_STACKS, SHOWCASE_THEMES } from "./showcaseThemes";
 import type { ShowcaseConfig, ShowcaseKind, ShowcaseWork } from "./showcaseTypes";
 import { ShowcaseInterestTree, type ShowcaseInterestSnapshot } from "./ShowcaseInterestTree";
+import { ShowcaseComponents } from "./ShowcaseComponents";
 
 export interface ShowcaseProps {
   config: ShowcaseConfig;
@@ -14,6 +15,7 @@ export interface ShowcaseProps {
   heroImageUrl?: string;
   avatarUrl?: string;
   interestTree?: ShowcaseInterestSnapshot;
+  allWorksHref?: string;
 }
 
 const SECTION_LABELS: Record<ShowcaseKind, string> = {
@@ -25,6 +27,16 @@ const SECTION_LABELS: Record<ShowcaseKind, string> = {
 export function safeShowcaseWorkPath(path?: string): string | undefined {
   if (!path) return undefined;
   return /^\/s\/[A-Za-z0-9_-]+$/.test(path) ? path : undefined;
+}
+
+export function safeShowcaseExternalURL(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function selectedShowcaseWorks(works: ShowcaseWork[], selectedWorkIds: string[]): ShowcaseWork[] {
@@ -39,8 +51,11 @@ export function selectedShowcaseWorks(works: ShowcaseWork[], selectedWorkIds: st
 }
 
 function WorkTitle({ work, children }: { work: ShowcaseWork; children: ReactNode }) {
-  const path = work.kind === "project" ? undefined : safeShowcaseWorkPath(work.publicPath);
-  return path ? <a href={path}>{children}</a> : <>{children}</>;
+  const internalPath = work.kind === "project" ? undefined : safeShowcaseWorkPath(work.publicPath);
+  const externalURL = work.kind === "project" ? safeShowcaseExternalURL(work.externalUrl) : undefined;
+  if (internalPath) return <a href={internalPath}>{children}</a>;
+  if (externalURL) return <a href={externalURL} target="_blank" rel="noreferrer">{children}</a>;
+  return <>{children}</>;
 }
 
 export function safeShowcaseDate(value?: string): string | undefined {
@@ -179,8 +194,8 @@ function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; wor
                 <h3><WorkTitle work={work}>{work.title}</WorkTitle></h3>
                 {work.summary && <p>{work.summary}</p>}
               </div>
-              {work.kind !== "project" && safeShowcaseWorkPath(work.publicPath) && (
-                <a className="showcase-work-link" href={safeShowcaseWorkPath(work.publicPath)} aria-label={`打开${work.title}`}>↗</a>
+              {(work.kind !== "project" ? safeShowcaseWorkPath(work.publicPath) : safeShowcaseExternalURL(work.externalUrl)) && (
+                <a className="showcase-work-link" href={work.kind !== "project" ? safeShowcaseWorkPath(work.publicPath) : safeShowcaseExternalURL(work.externalUrl)} target={work.kind === "project" ? "_blank" : undefined} rel={work.kind === "project" ? "noreferrer" : undefined} aria-label={`打开${work.title}`}>↗</a>
               )}
             </article>
           ))}
@@ -190,7 +205,7 @@ function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; wor
   );
 }
 
-export function Showcase({ config, works, narrow = false, editing = false, heroImageUrl, avatarUrl, interestTree }: ShowcaseProps) {
+export function Showcase({ config, works, narrow = false, editing = false, heroImageUrl, avatarUrl, interestTree, allWorksHref }: ShowcaseProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [measuredNarrow, setMeasuredNarrow] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -204,8 +219,10 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
   const aboutLayout = config.aboutLayout ?? "classic";
   const portfolioLayout = config.portfolioLayout ?? "sections";
   const selected = useMemo(() => {
-    return selectedShowcaseWorks(works, config.selectedWorkIds);
-  }, [config.selectedWorkIds, works]);
+    const ordered = selectedShowcaseWorks(works, config.selectedWorkIds);
+    const limit = [3, 6, 9, 12].includes(config.homeWorkLimit ?? 6) ? (config.homeWorkLimit ?? 6) : 6;
+    return ordered.slice(0, limit);
+  }, [config.homeWorkLimit, config.selectedWorkIds, works]);
 
   useEffect(() => {
     const node = rootRef.current;
@@ -252,6 +269,7 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
         </div>
         {config.interests.length > 0 && <ul className="showcase-interests" aria-label="兴趣">{config.interests.map((interest, index) => <li key={`${interest}-${index}`}>{interest}</li>)}</ul>}
       </section>
+      <ShowcaseComponents components={config.components} placement="after-about" editing={editing} />
       <ShowcaseInterestTree interest={interestTree} />
       <main className="showcase-main">
         {portfolioLayout === "sections" ? visibleOrder.map((kind) => <WorkSection key={kind} kind={kind} works={selected.filter((work) => work.kind === kind)} config={config} editing={editing} />) : (
@@ -261,6 +279,8 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
           </section>
         )}
       </main>
+      <ShowcaseComponents components={config.components} placement="after-works" editing={editing} />
+      {allWorksHref && <nav className="showcase-all-works-nav" aria-label="作品集"><a href={allWorksHref}>查看全部作品 <span aria-hidden>→</span></a></nav>}
       {(config.name || editing) && <footer className="showcase-footer"><span>{config.name || "个人主页"}</span><i aria-hidden /><span>作品与思考记录</span></footer>}
     </div>
   );
