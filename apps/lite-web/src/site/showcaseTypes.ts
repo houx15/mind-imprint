@@ -1,8 +1,10 @@
 export type ShowcaseLayout = "folio" | "journal" | "studio";
 export type ShowcasePalette = "paper" | "forest" | "ocean" | "rose" | "night" | "sunshine";
 export type ShowcaseFont = "sans" | "serif" | "mono" | "rounded" | "handwritten" | "display";
-export type ShowcaseStyle = "classic" | "cute" | "dark" | "anime" | "mecha";
+export type ShowcaseStyle = "classic" | "minimal" | "cute" | "dark" | "anime" | "mecha";
 export type ShowcaseIllustration = "none" | "clouds" | "moon" | "sky" | "robot";
+export type ShowcaseAboutLayout = "classic" | "orbit";
+export type ShowcasePortfolioLayout = "sections" | "timeline" | "planets" | "cloud" | "calendar" | "list";
 export type ShowcaseKind = "writing" | "reading" | "project";
 
 export interface ShowcaseConfig {
@@ -15,6 +17,12 @@ export interface ShowcaseConfig {
   font: ShowcaseFont;
   style?: ShowcaseStyle;
   illustration?: ShowcaseIllustration;
+  heroTitle?: string;
+  aboutLayout?: ShowcaseAboutLayout;
+  portfolioLayout?: ShowcasePortfolioLayout;
+  /** Persisted object keys. Renderers receive their signed presentation URLs separately. */
+  avatarKey?: string;
+  heroImageKey?: string;
   writingStyle: "cards" | "list";
   readingStyle: "shelf" | "list";
   sectionOrder: ShowcaseKind[];
@@ -27,6 +35,7 @@ export interface ShowcaseWork {
   title: string;
   summary: string;
   publicPath?: string;
+  date?: string;
 }
 
 export const DEFAULT_SHOWCASE: ShowcaseConfig = {
@@ -39,6 +48,11 @@ export const DEFAULT_SHOWCASE: ShowcaseConfig = {
   font: "sans",
   style: "classic",
   illustration: "none",
+  heroTitle: "",
+  aboutLayout: "classic",
+  portfolioLayout: "sections",
+  avatarKey: "",
+  heroImageKey: "",
   writingStyle: "cards",
   readingStyle: "shelf",
   sectionOrder: ["writing", "reading", "project"],
