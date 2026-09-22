@@ -7,7 +7,11 @@ export type ShowcaseAboutLayout = "classic" | "orbit";
 export type ShowcasePortfolioLayout = "sections" | "timeline" | "planets" | "cloud" | "calendar" | "list";
 export type ShowcaseKind = "writing" | "reading" | "project";
 
+export interface ShowcaseAboutMessage { role: "user" | "assistant"; content: string; }
+
 export interface ShowcaseConfig {
+  aboutConversation?: ShowcaseAboutMessage[];
+  interestTreeMode?: "none" | "tree" | "keywords";
   name: string;
   bio: string;
   tagline: string;

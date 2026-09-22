@@ -1,3 +1,4 @@
+import type { ShowcaseInterestSnapshot } from "./ShowcaseInterestTree";
 import { Showcase } from "./Showcase";
 import type { ShowcaseConfig, ShowcaseWork } from "./showcaseTypes";
 import { ProcessComparison, type ComparisonText } from "./ProcessComparison";
@@ -24,7 +25,7 @@ import type { SiteContent, SiteLayout, SitePalette } from "./types";
  */
 export function PublicSitePage({ token }: { token: string }) {
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "showcase"; config: ShowcaseConfig; works: ShowcaseWork[]; heroImageUrl?:string; avatarUrl?:string } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null; works: PublishedWork[] } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works: PublishedWork[] } | { kind: "gone" }
+    { kind: "loading" } | { kind: "showcase"; config: ShowcaseConfig; works: ShowcaseWork[]; interestTree?:ShowcaseInterestSnapshot; heroImageUrl?:string; avatarUrl?:string } | { kind: "generated"; renderKey:string; comparison?:ComparisonText|null; works: PublishedWork[] } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works: PublishedWork[] } | { kind: "gone" }
   >({ kind: "loading" });
 
   // noindex 在挂载时加上，卸载时收回。它只属于这一个页面。
@@ -35,7 +36,7 @@ export function PublicSitePage({ token }: { token: string }) {
     getPublicSite(token)
       .then((res) => {
         if (cancelled) return;
-        if ("showcase" in res && res.showcase) { setState({kind: "showcase", config: res.config, works: res.works, heroImageUrl:res.heroImageUrl, avatarUrl:res.avatarUrl}); document.title = res.config.name || "个人主页"; return; }
+        if ("showcase" in res && res.showcase) { setState({kind: "showcase", config: res.config, works: res.works, heroImageUrl:res.heroImageUrl, avatarUrl:res.avatarUrl, interestTree:res.interestTree}); document.title = res.config.name || "个人主页"; return; }
         if ("showcase" in res) return;
         if (res.generated) { setState({kind:"generated",renderKey:res.renderKey,comparison:res.comparison,works:res.works ?? []}); document.title="个人主页"; return; }
         setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content, works: res.works ?? [] });
@@ -76,7 +77,7 @@ export function PublicSitePage({ token }: { token: string }) {
     );
   }
 
-  if (state.kind === "showcase") return <Showcase config={state.config} works={state.works} heroImageUrl={state.heroImageUrl} avatarUrl={state.avatarUrl} />;
+  if (state.kind === "showcase") return <Showcase config={state.config} works={state.works} heroImageUrl={state.heroImageUrl} avatarUrl={state.avatarUrl} interestTree={state.interestTree} />;
 
   if(state.kind==="generated") return <>{state.comparison&&<nav aria-label="主页内容" style={{padding:"12px 24px",background:"#f4f0e6",display:"flex",gap:24}}><a href="#site-work">作品</a><a href="#process-comparison">修改过程</a></nav>}<iframe id="site-work" title="个人主页" src={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`} sandbox="allow-scripts" referrerPolicy="no-referrer" allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'" style={{display:"block",width:"100%",height:"100dvh",border:0}}/><PublishedWorks works={state.works}/>{state.comparison&&<ProcessComparison comparison={state.comparison} source={`${publicCodeSiteURL(token)}?publication=${encodeURIComponent(state.renderKey)}`}/>}</>;
 

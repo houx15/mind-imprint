@@ -120,3 +120,20 @@
 .showcase-preset-art { overflow:hidden; background:#f5f2ec; display:grid; place-items:center; color:#50554c; }
 .showcase-preset-art img { width:100%; height:100%; object-fit:cover; }
 .showcase-preset-art > span { font-family:Georgia,serif; font-size:23px; line-height:1.4; }
+.showcase-about-coach { padding-bottom:22px; }
+.showcase-coach-conversation { max-height:460px; overflow-y:auto; display:flex; flex-direction:column; gap:16px; padding:2px 2px 18px; }
+.showcase-coach-message { font-size:13px; line-height:1.85; }
+.showcase-coach-message > span { display:block; font-size:10px; color:var(--mk-muted); margin-bottom:6px; }
+.showcase-coach-message.is-student { padding:12px 14px; background:var(--mk-paper); border:1px solid var(--mk-line); border-radius:12px 12px 2px 12px; }
+.showcase-coach-starters { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 20px; }
+.showcase-coach-starters button { padding:6px 10px; border:1px solid var(--mk-line); border-radius:99px; font-size:11px; }
+.showcase-coach-send,.showcase-about-proposal > button { display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 16px; background:var(--mk-accent-500); color:white; border-radius:10px; font-size:12px; }
+.showcase-coach-pending { font-size:12px; color:var(--mk-muted); }
+.showcase-about-proposal { margin-top:20px; padding:17px; border:1px solid var(--mk-border); border-radius:12px; background:var(--mk-paper); font-size:12px; line-height:1.85; }
+.showcase-about-proposal h3 { display:flex; align-items:center; gap:7px; margin-bottom:15px; font-weight:650; }
+.showcase-about-proposal p { margin:10px 0; }
+.showcase-proposal-keywords { display:flex; flex-wrap:wrap; gap:5px; }
+.showcase-proposal-keywords span { padding:2px 8px; border:1px solid var(--mk-line); border-radius:99px; }
+.showcase-coach-reset { font-size:11px; color:var(--mk-muted); text-decoration:underline; }
+.showcase-manual-about { border-top:1px solid var(--mk-line); padding-top:18px; }
+.showcase-manual-about > summary { cursor:pointer; font-size:13px; font-weight:600; margin-bottom:18px; }
