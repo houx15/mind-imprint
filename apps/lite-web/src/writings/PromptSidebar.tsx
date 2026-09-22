@@ -88,7 +88,10 @@ export function PromptSidebar({ writing }: { writing: Writing }) {
   return (
     <aside
       aria-label="题目"
-      className="mk-scroll flex w-[280px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-surface"
+      // 240 而不是 280：构思那一屏上它要和对话、思维导图并排
+      //（2026-09-22 起三栏），而那张图本来就不宽。段落和成稿两页上
+      // 少 40px 看不出来，构思那一屏上这 40px 是图的第四张卡。
+      className="mk-scroll flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-surface"
     >
       <div className="flex items-center justify-between gap-2 border-b border-mk-border px-3 py-2">
         <span className="text-mk-caption text-mk-muted">题目</span>

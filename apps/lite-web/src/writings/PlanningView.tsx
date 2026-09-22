@@ -320,7 +320,7 @@ export function PlanningView({
           那这两件东西就得同时在屏幕上。 */}
       <div className="flex min-h-0 flex-1">
         <PromptSidebar writing={writing} />
-        <div className={hasMap ? "grid min-h-0 min-w-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 min-w-0 flex-1 justify-center"}>
+        <div className={hasMap ? "grid min-h-0 min-w-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,48%)]" : "flex min-h-0 min-w-0 flex-1 justify-center"}>
         <div className={hasMap ? "flex min-h-0 flex-col" : "flex min-h-0 w-full max-w-[720px] flex-col"}>
           <div className="px-5 pt-4"><StudentCoachHeading label="写作构思" /></div>
           <ChatLog messages={chatMessages} thinking={sending || opening} className="mk-scroll min-h-0 flex-1 px-5 py-4" />
@@ -388,14 +388,18 @@ export function PlanningView({
                 band would cut the drawing surface in two, and the point of
                 this panel is that it reads as one continuous sheet. */}
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 py-2">
+              {/* 🚨 shrink-0 + nowrap：旁边那句提示很长，而这一行是 flex。
+                  不写死它，被挤到装不下「你的思路」四个字的时候，浏览器会
+                  一个字一个字往下折 —— 2026-09-22 加了左边那一栏题目之后，
+                  这一块正好窄到触发它，看图台上看见的就是竖着排的四个字。 */}
               <span
-                className="rounded-mk-full px-2 py-0.5 text-mk-label text-mk-faint"
+                className="shrink-0 whitespace-nowrap rounded-mk-full px-2 py-0.5 text-mk-label text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
                 你的思路
               </span>
               <span
-                className="rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
+                className="min-w-0 rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
                 style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
               >
                 {/* 🚨 原来只说了改和删，没说**怎么加** —— 而这张图长什么样
