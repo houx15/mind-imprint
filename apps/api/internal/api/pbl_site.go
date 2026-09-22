@@ -639,14 +639,14 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404，不带细节
 		return
 	}
-	if config, works, interestTree, showcaseErr := a.publicShowcase(r, row.UserID); showcaseErr != nil {
+	if config, works, interestTree, worksTotal, showcaseErr := a.publicShowcase(r, row.UserID); showcaseErr != nil {
 		httpx.WriteError(w, r, showcaseErr)
 		return
 	} else if config != nil {
 		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 		heroURL, avatarURL := a.signedShowcaseImageOrEmpty(config.HeroImageKey), a.signedShowcaseImageOrEmpty(config.AvatarKey)
 		config.HeroImageKey, config.AvatarKey = "", ""
-		payload := map[string]any{"showcase": true, "config": config, "works": works, "heroImageUrl": heroURL, "avatarUrl": avatarURL}
+		payload := map[string]any{"showcase": true, "config": config, "works": works, "worksTotal": worksTotal, "heroImageUrl": heroURL, "avatarUrl": avatarURL}
 		if interestTree != nil {
 			payload["interestTree"] = interestTree
 		}

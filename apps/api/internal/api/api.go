@@ -543,6 +543,7 @@ func (a *API) Handler() http.Handler {
 	// 搜索引擎的）。
 	mux.Handle("GET /api/v1/public/sites/{token}/render", http.HandlerFunc(a.renderPublicCodeSite))
 	mux.Handle("GET /api/v1/public/sites/{token}", http.HandlerFunc(a.getPublicSite))
+	mux.Handle("GET /api/v1/public/sites/{token}/works", http.HandlerFunc(a.getPublicShowcaseWorks))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
