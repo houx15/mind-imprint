@@ -117,7 +117,7 @@ it("says something different on a network failure than on a 404", async () => {
   render(rootElementFor(window.location.pathname));
 
   await waitFor(() =>
-    expect(screen.getByText("网络好像断开了，请稍后再试一次。")).toBeTruthy(),
+    expect(screen.getByText("加载报告失败，请稍后重试。")).toBeTruthy(),
   );
   // Distinct wording from the 404 case — telling someone a link is dead when
   // their wifi merely dropped would be a lie.

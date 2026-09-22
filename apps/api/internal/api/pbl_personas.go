@@ -83,7 +83,7 @@ func (a *API) generatePblPersonas(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(material) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_material",
-			"生成失败：你还没有读过、写过或做过的东西可以用来想读者", nil))
+			"生成失败：当前没有可用于分析目标读者的阅读、写作或项目记录", nil))
 		return
 	}
 
@@ -217,7 +217,7 @@ func (a *API) choosePblPersona(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(kept) == 0 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_keywords",
-			"请至少留下一个关键词——后面挑配色和搭结构都要用它们", nil))
+			"配色与结构将参考这些关键词，请至少保留一个", nil))
 		return
 	}
 

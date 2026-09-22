@@ -12,9 +12,9 @@ describe("paragraphShape", () => {
 
   it("分析句那一格点得出三种写法，不是只说「要分析」", () => {
     const hint = paragraphShapeOf("point").find((s) => s.label === "分析句")?.hint ?? "";
-    expect(hint).toContain("追原因");
-    expect(hint).toContain("问假如");
-    expect(hint).toContain("找共性");
+    expect(hint).toContain("分析原因");
+    expect(hint).toContain("假设条件");
+    expect(hint).toContain("共同点");
   });
 
   // 记叙文那四块（R4）。在这之前一篇记叙文进了这间屋子会被硬塞进
@@ -32,12 +32,12 @@ describe("paragraphShape", () => {
 
   it("🚨 开头那一份明说不必举例 —— 例子在后面的段里（同事的意见 9）", () => {
     const hints = paragraphShapeOf("opening").map((s) => s.hint).join("");
-    expect(hints).toContain("不必举例");
+    expect(hints).toContain("具体例子留在主体段展开");
   });
 
   it("结尾不要求引入新证据，只要求说得比开头更准", () => {
     const steps = paragraphShapeOf("closing").map((s) => s.label);
-    expect(steps).toContain("说得比开头更准");
+    expect(steps).toContain("总结论证结果");
     expect(steps.join("")).not.toContain("新的例子");
   });
 

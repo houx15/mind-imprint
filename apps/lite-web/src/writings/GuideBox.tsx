@@ -31,7 +31,7 @@ import { paragraphShapeOf } from "./paragraphShape";
  *   3. 想一想 — 2–4 questions, now at reading size (`text-mk-body-lg`,
  *      16px/1.75) with real breathing room between them, not stacked at
  *      chrome-sized 14px.
- *   4. 要不要看几个例子 — opens VocabExamples for the named methods, on her
+ *   4. 查看例子 — opens VocabExamples for the named methods, on her
  *      ask, never painted open by default.
  *
  * ## 铁律① IS STILL ENFORCED BY THE OUTPUT TYPE, NOT THE COMPONENT'S MANNERS
@@ -241,7 +241,7 @@ export function GuideBox({
             onClick={() => setShowExamples((v) => !v)}
             iconStart={<Icon icon={BookOpen} size={14} />}
           >
-            {showExamples ? "收起例子" : "要不要看几个例子"}
+            {showExamples ? "收起例子" : "查看例子"}
           </Button>
         )}
         <Button variant="secondary" size="sm" onClick={onDeepen}>

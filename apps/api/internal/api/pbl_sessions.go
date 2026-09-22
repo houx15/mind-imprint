@@ -126,7 +126,7 @@ func (a *API) openPblSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Not a server error: she has hit the bottom of the nesting, and the
 		// honest thing is to say so rather than to silently flatten it.
-		httpx.WriteError(w, r, httpx.ErrBadRequest("too_deep", "挖得够深了，先把这一层想完", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("too_deep", "已达到讨论层级上限，请继续当前讨论", nil))
 		return
 	}
 
@@ -182,7 +182,7 @@ func (a *API) closePblSession(w http.ResponseWriter, r *http.Request) {
 	wb := pbl.WriteBack{Takeaway: req.Takeaway, Fields: req.WriteBack}
 	if err := pbl.ValidateClose(s.Kind, wb); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_writeback",
-			"先写下这一层想出来的东西，再收起来", nil))
+			"请记录本次讨论的结论后再结束", nil))
 		return
 	}
 

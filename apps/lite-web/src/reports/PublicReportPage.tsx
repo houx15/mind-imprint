@@ -156,7 +156,7 @@ function PublicReportContent({ token, view }: { token: string; view: "article" |
   }
 
   if (state === "failed") {
-    return <QuietMessage text="网络好像断开了，请稍后再试一次。" />;
+    return <QuietMessage text="加载报告失败，请稍后重试。" />;
   }
 
   // "loading" — no spinner copy of its own; a blank paper background is

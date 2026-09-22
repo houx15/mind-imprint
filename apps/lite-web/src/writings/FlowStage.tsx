@@ -140,7 +140,7 @@ export function FlowStage({
   }
 
   const methodOptions = [
-    { value: "", label: "还没定" },
+    { value: "", label: "待确定" },
     ...methods.map((m) => ({ value: m.id, label: m.name })),
   ];
 
@@ -246,7 +246,7 @@ export function FlowStage({
 
       <div className="flex items-center justify-between gap-3 border-t pt-4" style={{ borderColor: "var(--mk-border)" }}>
         <span className="text-mk-small text-mk-muted">
-          {flowLooksDone(structureKey) ? "组织方式已确定。" : "选一个论证结构，这一步就算想清楚了。"}
+          {flowLooksDone(structureKey) ? "组织方式已确定。" : "请选择论证结构；也可以先写段落，之后再调整。"}
         </span>
         <Button onClick={onDone}>完成，去写段落</Button>
       </div>

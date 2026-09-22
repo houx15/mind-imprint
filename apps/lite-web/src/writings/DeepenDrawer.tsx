@@ -185,7 +185,7 @@ export function DeepenDrawer({
             <p className="text-mk-body-lg text-mk-ink">
               这里只聊这一块。你卡在哪儿、想到什么、拿不准哪句话——都可以直接说。
             </p>
-            <p className="mt-2 text-mk-body text-mk-muted">我会一直问下去，帮你把想说的挖出来，但这一段还是你自己写。</p>
+            <p className="mt-2 text-mk-body text-mk-muted">印记会解释相关方法，并针对你的困难提出问题；正文由你完成。</p>
           </div>
         )}
 

@@ -129,7 +129,7 @@ func (a *API) handOverPblArtifact(w http.ResponseWriter, r *http.Request) {
 	// is still wrong with it is one she can only accept.
 	if len(req.Guessed) == 0 || len(req.Admits) == 0 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_disclosure",
-			"交出来的东西要说清楚：猜了什么，哪里还不对", nil))
+			"请填写成果的假设与局限", nil))
 		return
 	}
 
@@ -235,7 +235,7 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 	//                而她会拿到第二份同样不对的东西。
 	if verdict == "dropped" && strings.TrimSpace(req.Why) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_reason",
-			"重新执行需要一个明确的方向，否则只会再做出一份一样的东西", nil))
+			"请填写重做的具体要求", nil))
 		return
 	}
 
@@ -243,7 +243,7 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 		ID: aid, Verdict: &verdict, Why: strings.TrimSpace(req.Why),
 	})
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "这件已经定过了", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "该成果已完成审核", nil))
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblArtifactDTO(out))
@@ -337,14 +337,14 @@ func (a *API) summonPblTool(w http.ResponseWriter, r *http.Request) {
 	}
 	tool := strings.TrimSpace(req.Tool)
 	if tool == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_tool", "没说是哪件工具", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_tool", "缺少工具名称", nil))
 		return
 	}
 	// An unexplained tool is an ambush — this product's whole claim is that she
 	// can see what the AI is doing.
 	if strings.TrimSpace(req.Reason) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_reason",
-			"说清楚为什么这时候递这件工具", nil))
+			"请说明使用该工具的原因", nil))
 		return
 	}
 
@@ -397,7 +397,7 @@ func (a *API) acceptPblTool(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := a.d.Queries.AcceptPblTool(r.Context(), tid)
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("not_open", "这件工具不是刚递出来的状态", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("not_open", "该工具已处理，不能重复打开", nil))
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblToolDTO(out))

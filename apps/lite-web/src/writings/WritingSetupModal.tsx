@@ -81,7 +81,7 @@ export function WritingSetupModal({
       >
         <div className="flex flex-col gap-1.5">
           <h2 className="text-mk-h2 text-mk-ink">开始之前</h2>
-          {!assigned && <p className="text-mk-small text-mk-muted">都可以之后再改，现在随便填。</p>}
+          {!assigned && <p className="text-mk-small text-mk-muted">语言和目标字数可在开始后修改。</p>}
         </div>
 
         {assigned ? (
@@ -99,7 +99,7 @@ export function WritingSetupModal({
         ) : (
           <>
             <div className="flex flex-col gap-2">
-              <span className="text-mk-small text-mk-secondary">这篇用什么语言写？</span>
+              <span className="text-mk-small text-mk-secondary">写作语言</span>
               <div className="grid grid-cols-2 gap-2">
                 {LANGS.map((l) => {
                   const on = lang === l.value;
@@ -127,7 +127,7 @@ export function WritingSetupModal({
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-mk-small text-mk-secondary">大概写多长？（可以不填）</span>
+              <span className="text-mk-small text-mk-secondary">目标字数（选填）</span>
               <div className="flex items-center gap-2">
                 <input
                   type="number"

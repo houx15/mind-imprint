@@ -599,9 +599,9 @@ export const TALENT_LANES = [
 export const TALENT = {
   eyebrow: "INTEREST × TALENT / CARD SORT",
   title: "能力卡牌",
-  lead: `请选出 ${TALENT_PICK_COUNT} 张最像你的能力卡。不要选看起来厉害的，选你在真实经历里做完之后更想继续的。`,
+  lead: `请选出 ${TALENT_PICK_COUNT} 张最像你的能力卡。请根据真实经历，选择你愿意继续使用的能力。`,
   sortTitle: "三堆整理",
-  sortLead: "请把这 5 张分别放进一堆。同一项能力可能既是你的优势，也可能只是你练会的应付方式。",
+  sortLead: "请将这 5 张能力卡分类，区分你擅长的能力与愿意持续使用的能力。",
   toSort: "进入三堆整理",
   finish: "生成报告",
   disclaimer:
@@ -633,7 +633,7 @@ export const REPORT = {
     "关键词分析失败。这一趟的内容没有写进你的兴趣树，请重新做一次兴趣测试。",
   /** 一个词都没长出来时说的话。照实说，不补。 */
   emptyPursuing:
-    "这一趟没有长出新的关键词。你写下的内容里还没有足够具体的原话可以作为根据。下次多写一两句具体的经历，树上就会有东西。",
+    "本次未提取出有原话依据的兴趣关键词。你可以在后续探索中补充具体经历。",
   emptyReadings: "分级阅读库里暂时没有和这个方向对得上的材料。",
   emptyDrivers: "这一趟没有得出驱动力推测。",
   confirmTag: "再次出现",
@@ -781,7 +781,7 @@ export const NAMING = {
   /** 最后那个候选（从她原话裁出来的）底下的说明。 */
   ownWords: "你自己写的",
   skip: "先不起名",
-  confirm: "就用这个名字",
+  confirm: "确认名称",
   /** 起名那一步还在等模型时显示的字。 */
   loading: "正在拟名字",
 } as const;

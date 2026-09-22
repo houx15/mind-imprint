@@ -45,7 +45,7 @@ export function WritingsLanding() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  // 带一篇写好的进来：一个弹窗，两个框（这是什么 + 正文）。
+  // 导入已有文章：一个弹窗，两个框（这是什么 + 正文）。
   const [bringOpen, setBringOpen] = useState(false);
   const [bringTitle, setBringTitle] = useState("");
   const [bringBody, setBringBody] = useState("");
@@ -167,7 +167,7 @@ export function WritingsLanding() {
   }
 
   /**
-   * 带一篇写好的进来。
+   * 导入已有文章。
    *
    * 和 `start` 走同一个接口，只是多给一个 body —— 服务端据此把这一篇直接放在
    * 成稿那一步、来源记成 brought。这里不做任何「看起来像不像一篇文章」的判断：
@@ -271,7 +271,7 @@ export function WritingsLanding() {
               className="min-h-[112px] w-full resize-none rounded-mk-sm bg-transparent px-3 pb-2 pt-2.5 text-mk-body-lg text-mk-ink outline-none placeholder:text-[#B8ADA2] disabled:cursor-not-allowed"
             />
             <div className="flex items-center justify-between px-1.5 pb-1">
-              {/* 带一篇写好的进来。
+              {/* 导入已有文章。
                   产品负责人 2026-09-11：「we also make students available to
                   upload a written one to seek for advice」。
                   它和「开始写作」并排，不是藏在别处：写完了想要意见，
@@ -283,7 +283,7 @@ export function WritingsLanding() {
                 className="flex items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-secondary transition-colors hover:text-mk-accent-700 disabled:cursor-not-allowed"
               >
                 <Icon icon={FileUp} size={14} />
-                带一篇写好的进来
+                导入已有文章
               </button>
               <Button onClick={() => void start(idea, ideaLang)} disabled={!idea.trim()} loading={starting}>
                 开始写作
@@ -325,7 +325,7 @@ export function WritingsLanding() {
                   onClick={() => navigate(writingLibraryPath())}
                   className="text-mk-small text-mk-accent-700 underline-offset-2 hover:underline"
                 >
-                  去题库里翻更多（中考 · 高考 · 托福 · 雅思 · GRE）
+                  浏览更多写作题目（中考 · 高考 · 托福 · 雅思 · GRE）
                 </button>
               </div>
             </>
@@ -350,14 +350,14 @@ export function WritingsLanding() {
         </section>
       </div>
 
-      {/* 带一篇写好的进来。
+      {/* 导入已有文章。
           两个框：这是什么（可以不填，不填就取正文开头）、正文。
           🚨 没有第三个框问文体、也没有问语言 —— 语言在进房间之后那个 设定
           弹窗里问，那是它本来的位置，在这儿再问一次只是多一道门。 */}
       <Modal
         open={bringOpen}
         onClose={() => setBringOpen(false)}
-        title="带一篇写好的进来"
+        title="导入已有文章"
         footer={
           <>
             <Button variant="ghost" onClick={() => setBringOpen(false)}>
@@ -379,7 +379,7 @@ export function WritingsLanding() {
             <input
               value={bringTitle}
               onChange={(e) => setBringTitle(e.target.value)}
-              placeholder="这一篇叫什么"
+              placeholder="请输入文章题目"
               className="w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent"
             />
           </label>

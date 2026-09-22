@@ -183,7 +183,7 @@ describe("辅助题与回到原题", () => {
   it("辅助题在的时候，原题标成「已替换」，不再收答案", () => {
     render(panel(AFTER_ASSIST));
 
-    expect(screen.getByText("已替换。点一下可以重看这道题。")).toBeTruthy();
+    expect(screen.getByText("已替换。点击可查看原题。")).toBeTruthy();
     // 原题的输入框不在屏幕上：一个阅读流程同时只有一张卡收答案。
     expect(screen.queryByRole("textbox", { name: CARD.prompt })).toBeNull();
     expect(screen.getByRole("button", { name: ASSIST.options[0]!.quote })).toBeTruthy();

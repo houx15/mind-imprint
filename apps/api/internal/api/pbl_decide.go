@@ -142,7 +142,7 @@ func (a *API) addPblDecisionOption(w http.ResponseWriter, r *http.Request) {
 	}
 	label := strings.TrimSpace(req.Label)
 	if label == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "这条路叫什么？", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "请填写选项名称", nil))
 		return
 	}
 	d, err := a.d.Queries.GetPblDecision(r.Context(), did)
@@ -290,7 +290,7 @@ func (a *API) openPblDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	subject := strings.TrimSpace(req.Subject)
 	if subject == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_subject", "这是在定什么？", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_subject", "请填写决策主题", nil))
 		return
 	}
 
@@ -388,7 +388,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	// 🚨 一个选项不叫决定，叫已经定了。
 	if len(opts) < 2 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("too_few_options",
-			"至少要有两个选项才谈得上选", nil))
+			"请提供至少两个选项以便比较", nil))
 		return
 	}
 	choice, why, whyNot := strings.TrimSpace(req.Choice),

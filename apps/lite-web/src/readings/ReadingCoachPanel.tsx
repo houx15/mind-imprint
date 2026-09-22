@@ -640,9 +640,9 @@ export function ReadingCoachPanel({
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
         <Pebble state="idle" size={52} />
         <div className="flex flex-col gap-1.5">
-          <p className="text-mk-h2 text-mk-ink">让我来带你详细读一遍这篇文章。</p>
+          <p className="text-mk-h2 text-mk-ink">阅读引导</p>
           <p className="text-mk-body leading-relaxed text-mk-muted">
-            我先看一遍，排一条阅读路线，然后逐步带你读。想跳过哪一步，随时告诉我。
+            印记会根据文章安排阅读步骤。你可以提问，也可以跳过步骤。
           </p>
         </div>
         <Button onClick={() => void turn("")} loading={busy} iconStart={<Icon icon={Play} size={14} />}>
@@ -655,7 +655,7 @@ export function ReadingCoachPanel({
           {busy ? "处理中" : "开始"}
         </Button>
         {busy && (
-          <p className="text-mk-small text-mk-muted">正在通读全文，排一条读法。这一步要花几十秒。</p>
+          <p className="text-mk-small text-mk-muted">正在分析文章并生成阅读步骤，请稍候。</p>
         )}
         {error && <p className="text-mk-small text-mk-danger">{error}</p>}
       </div>
@@ -719,7 +719,7 @@ export function ReadingCoachPanel({
                 排在这儿，以为这就算交上去了；印记 没回应，她就再划一句、再划一句。
                 引文小块长得像**结果**，而它其实是**草稿**。 */}
             <span className="w-full text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
-              划好了 {slot.quotes.length} 处，还没发出去 —— 点右边的按钮交给印记。
+              已选择 {slot.quotes.length} 处引文，尚未发送。请点击发送引文按钮。
             </span>
             {slot.quotes.map((q) => (
               <span
@@ -753,7 +753,7 @@ export function ReadingCoachPanel({
               className="rounded-mk-full px-3 py-0.5 text-mk-label text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              发出这 {slot.quotes.length} 处 →
+              发送 {slot.quotes.length} 处引文 →
             </button>
           </div>
         )}
@@ -771,7 +771,7 @@ export function ReadingCoachPanel({
           所以报告那一整条链路在生产里根本没被走通过——报告的两个 bug
           之所以一直没被发现，也是因为这个。
 
-          文案按 AGENTS.md §界面文案怎么写：标签是名词（「读法已全部完成」，
+          文案按 AGENTS.md §界面文案怎么写：标签是名词（「本轮阅读引导已结束」，
           不是「你把这一趟都走完啦」），先说这件事为什么值得做再请她做，
           按钮写「做什么」。感叹号留给真正的节点——这是其中一个。
         */}
@@ -785,7 +785,7 @@ export function ReadingCoachPanel({
               borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
             }}
           >
-            <p className="text-mk-label text-mk-accent-700">读法已全部完成</p>
+            <p className="text-mk-label text-mk-accent-700">本轮阅读引导已结束</p>
             <p className="text-mk-small leading-relaxed text-mk-ink">
               报告会汇总这一篇的阅读时长、划线、笔记与段落工具记录。完成后仍可继续阅读，再次完成时报告会重新生成。
             </p>
@@ -823,7 +823,7 @@ export function ReadingCoachPanel({
               className="shrink-0 rounded-mk-full px-3 py-1 text-mk-label text-white"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              带我过去
+              定位到文章
             </button>
           </div>
         )}

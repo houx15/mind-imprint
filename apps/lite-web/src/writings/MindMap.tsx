@@ -220,9 +220,9 @@ export function MindMap({
     return (
       <div className="mk-canvas flex h-full items-center justify-center p-8 text-center">
         <p className="text-mk-small text-mk-faint">
-          你说的每一点都会长在这里。
+          讨论中整理出的观点和材料会显示在这里。
           <br />
-          先跟印记说说这篇最想讲什么。
+          请向印记描述这篇文章的主题或想法。
         </p>
       </div>
     );
@@ -400,7 +400,7 @@ function Branch({
               // 🚨 刚才那一下是拖，不是点。一次拖动几乎总是从字上起手，
               // 不挡这一下的话，她每挪一个节点都会被问一次要不要改它的文字。
               if (drag.justDragged()) return;
-              const next = window.prompt("改一下这一条", node.item.text);
+              const next = window.prompt("修改条目", node.item.text);
               if (next !== null && next.trim() && next.trim() !== node.item.text) onEdit(node.item.id, next.trim());
             }}
             className={[isRoot ? "text-mk-body font-semibold text-mk-ink" : "text-mk-body text-mk-ink", onEdit ? "cursor-text" : ""]
