@@ -178,6 +178,34 @@ func TestShowcaseConcurrentSaveAndPublishNeverLoseSnapshot(t *testing.T) {
 	}
 }
 
+func TestShowcaseVisualEnumsAndBackwardDefaults(t *testing.T) {
+	cases := []struct {
+		name, field, value string
+		want               int
+	}{
+		{"style", "style", "anime", 200}, {"illustration", "illustration", "robot", 200}, {"font", "font", "handwritten", 200},
+		{"bad style", "style", "glitch", 400}, {"bad illustration", "illustration", "stars", 400}, {"bad font", "font", "comic", 400},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, cookie, _, _ := liteHandler(t)
+			body := strings.Replace(validShowcase, `"font":"serif"`, `"font":"serif","`+tc.field+`":"`+tc.value+`"`, 1)
+			if tc.field == "font" {
+				body = strings.Replace(validShowcase, `"font":"serif"`, `"font":"`+tc.value+`"`, 1)
+			}
+			rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", body)
+			if rec.Code != tc.want {
+				t.Fatalf("status=%d want=%d body=%s", rec.Code, tc.want, rec.Body)
+			}
+		})
+	}
+	h, cookie, _, _ := liteHandler(t)
+	draft := decodeSite(t, siteReq(t, h, cookie, http.MethodGet, "/api/v1/pbl/showcase", ""))["draft"].(map[string]any)
+	if draft["style"] != "classic" || draft["illustration"] != "none" {
+		t.Fatalf("defaults = %#v", draft)
+	}
+}
+
 func showcaseJSON(t *testing.T, v any) string {
 	t.Helper()
 	b, err := json.Marshal(v)

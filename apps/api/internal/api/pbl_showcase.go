@@ -27,6 +27,8 @@ type showcaseConfig struct {
 	Layout          string   `json:"layout"`
 	Palette         string   `json:"palette"`
 	Font            string   `json:"font"`
+	Style           string   `json:"style,omitempty"`
+	Illustration    string   `json:"illustration,omitempty"`
 	WritingStyle    string   `json:"writingStyle"`
 	ReadingStyle    string   `json:"readingStyle"`
 	SectionOrder    []string `json:"sectionOrder"`
@@ -57,7 +59,7 @@ type showcaseState struct {
 }
 
 func defaultShowcase(name string) showcaseConfig {
-	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}}
+	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}}
 }
 
 func oneOf(v string, allowed ...string) bool {
@@ -78,11 +80,17 @@ func trimShowcaseRunes(s string, n int) string {
 }
 
 func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
+	if c.Style == "" {
+		c.Style = "classic"
+	}
+	if c.Illustration == "" {
+		c.Illustration = "none"
+	}
 	c.Name, c.Bio, c.Tagline = strings.TrimSpace(c.Name), strings.TrimSpace(c.Bio), strings.TrimSpace(c.Tagline)
 	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 {
 		return c, errors.New("主页文字超过长度限制")
 	}
-	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
+	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
 		return c, errors.New("展示样式无效")
 	}
 	clean := func(in []string, max, width int) ([]string, bool) {
@@ -125,6 +133,12 @@ func decodeShowcase(raw []byte, fallback string) showcaseConfig {
 	c := defaultShowcase(fallback)
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &c)
+	}
+	if c.Style == "" {
+		c.Style = "classic"
+	}
+	if c.Illustration == "" {
+		c.Illustration = "none"
 	}
 	c.Interests = showcaseNonNil(c.Interests)
 	c.SectionOrder = showcaseNonNil(c.SectionOrder)
@@ -176,6 +190,12 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	publishedConfig := decodeShowcase(row.PublishedConfig, "")
 	if json.Unmarshal(row.PublishedConfig, &publication) == nil && publication.Config.Layout != "" {
 		publishedConfig = publication.Config
+		if publishedConfig.Style == "" {
+			publishedConfig.Style = "classic"
+		}
+		if publishedConfig.Illustration == "" {
+			publishedConfig.Illustration = "none"
+		}
 	}
 	state.HasUnpublishedChanges = !reflect.DeepEqual(draft, publishedConfig)
 	if !state.HasUnpublishedChanges && publication.Config.Layout != "" {
@@ -410,6 +430,12 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 		return nil, nil, errors.New("invalid published showcase")
 	}
 	c := publication.Config
+	if c.Style == "" {
+		c.Style = "classic"
+	}
+	if c.Illustration == "" {
+		c.Illustration = "none"
+	}
 	all, err := a.showcaseWorks(r, userID)
 	if err != nil {
 		return nil, nil, err
