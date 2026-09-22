@@ -18,7 +18,7 @@ const (
 	KindIssue     = "issue"
 	SourceAI      = "ai"
 	SourceTeacher = "teacher"
-	MinPoints     = 3
+	MinPoints     = 0
 	MaxPoints     = 5
 )
 
@@ -148,12 +148,8 @@ func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 	return out
 }
 
-// capPoints keeps at most MaxPoints of a model's points, in their order.
-//
-// 2026-09-18 写作入口走查：一次英文批改两次都回了 6 条意见，整份批改因此
-// 失败，老师什么都拿不到。多出来的那一条是最不要紧的一条（模型按重要性排），
-// 删掉它不改任何一条留下的话。至少各留一条优点和问题，否则删完又会因为
-// 「没有优点意见」再失败一次。
+// capPoints keeps at most MaxPoints in their original order, preserving both
+// kinds when supplied. It does not add points or require either kind.
 func capPoints(ps []Point) []Point {
 	if len(ps) <= MaxPoints {
 		return ps

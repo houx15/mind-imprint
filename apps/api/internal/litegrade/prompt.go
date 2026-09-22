@@ -88,7 +88,7 @@ func UserPrompt(in Input) string {
 		fmt.Fprintf(&b, "目标字数：%d\n", in.TargetWords)
 	}
 	fmt.Fprintf(&b, "\n学生正文（第 %d 版）：\n%s\n", in.VersionNumber, in.Body)
-	b.WriteString("\n请输出完整对象：points 必须有 3–5 条，至少 1 条 good 和 1 条 issue；可用两条 good 加一条 issue，不为凑数量虚构问题。各条简洁写明原文依据与用途，输出前核对条数和数组闭合。\n")
+	b.WriteString("\n请输出完整对象：points 最多 5 条，每条都应有原文依据。不要求同时包含 good 和 issue；没有需要单独指出的内容时可返回空数组。总评与各维度仍需完整填写。\n")
 	return b.String()
 }
 
