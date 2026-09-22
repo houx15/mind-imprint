@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/disciplines"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
@@ -92,6 +93,7 @@ type showcaseState struct {
 	HeroImageURL          string               `json:"heroImageUrl"`
 	AvatarURL             string               `json:"avatarUrl"`
 	AvailableInterestTree showcaseInterestTree `json:"availableInterestTree"`
+	AboutChatAvailable    bool                 `json:"aboutChatAvailable"`
 }
 
 func defaultShowcase(name string) showcaseConfig {
@@ -301,6 +303,9 @@ func (a *API) showcaseState(r *http.Request, u User, row sqlc.PblShowcase) (show
 	draft := decodeShowcase(row.Draft, u.DisplayName)
 	active := row.PublishedAt.Valid
 	state := showcaseState{Draft: draft, Revision: row.Revision, Published: active, AvailableWorks: works}
+	if _, routeErr := a.routeE(r.Context(), gateway.ClassDialogue); routeErr == nil && a.d.Provider != nil {
+		state.AboutChatAvailable = true
+	}
 	state.AvailableInterestTree, err = a.showcaseInterestTree(r.Context(), u.ID)
 	if err != nil {
 		return showcaseState{}, err
