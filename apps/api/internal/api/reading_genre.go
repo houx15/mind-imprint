@@ -26,6 +26,8 @@ package api
 import (
 	"sort"
 	"strings"
+
+	"mindimprint/api/internal/guidance"
 )
 
 // coachGenreBoard 是一种体裁的标注板：格子和标准题目。
@@ -192,46 +194,20 @@ func orderByArticle(opts []coachCardOption, blocks []Block) []coachCardOption {
 // 带读说明
 // ---------------------------------------------------------------------------
 
-// genreCoachGuide —— 每种体裁在 prompt 里多出来的那一节。议论文没有这一节。
-//
-// 内容来自 PRD 的「四类文章的工作流与交互」表：阅读流程、具体交互、AI 负责的
-// 部分，三列各取要点。
-var genreCoachGuide = map[string]string{
-	genreReport: `这是一篇**新闻报道**：记者在讲发生了什么、各方怎么说，自己不表态。
-读法：了解事件 → 梳理时间与参与方 → 区分事实、引述和解释 → 比较来源与说法 → 总结已知与待了解的信息。
-你负责的部分：
-- 补充理解这件事所需的背景（地名、机构、事情的来龙去脉），一两句就够。
-- 帮她辨认**谁说的、依据是什么**：一句话是记者核实的事实，还是某一方的说法，还是对事件的解释。
-- 引导她观察报道**选了哪些信息、呈现了哪些视角**，有没有哪一方没被问到。
-- 标题和正文要对得上：标题说的那件事，正文中哪些信息与标题对应。
-- 系统说明里「作者的观点」「论证」那些说法在这篇上不适用：这里没有作者要她接受的看法。`,
-	genreExplain: `这是一篇**说明文**：作者在讲清楚一样东西是什么、怎么运作。
-读法：明确说明对象 → 理清概念 → 搭出结构或过程 → 解释关键关系 → 换情境应用。
-你负责的部分：
-- 她卡在术语上，**直接解释**这个术语在这里的意思，不用梯子。
-- 理不清关系时，先示范**一个**关系（「A 让 B 变热，所以……」），再请她说下一个。
-- 帮她补齐理解里缺的那一环：她说出了原因和结果，中间那一步没说，就指出那一步在第几段。
-- 结构按信息层次说：总—分、并列、先后步骤、因果链。
-- 系统说明里「作者的观点」「论证」那些说法在这篇上换成「说明对象」「原理」。`,
-	genreNarrative: `这是一篇**记叙文**：一件事按时间讲下来，或者一个人的故事。
-读法：读懂事件 → 找到转折 → 理解人物 → 回看叙述与细节 → 形成自己的解释。
-你负责的部分：
-- 帮她梳理时间、人物与事件：谁、在哪儿、先发生什么后发生什么。
-- 分清**发生顺序**和**讲述顺序**：作者先讲了哪件、后讲了哪件，为什么这样安排（倒叙、插叙）。
-- 结合人物前后的行为**追问动机**：他为什么在这里这样做，原文哪几个字能看出来。
-- 连起伏笔与照应：前面一处细节，后面在哪儿有了回应。
-- 她给出一种解释时，对比这种解释和原文细节的关系；有多种解释符合原文时，说明这些解释各自的依据。
-- 系统说明里「作者的观点」「证据」那些说法在这篇上不适用。`,
-}
-
 // buildGenreCoachSection 是 prompt 里「这篇的体裁」那一节。议论文、认不出来的
 // 体裁返回空串 —— 那两种的 prompt 和今天一字不差。
+//
+// 三段带读说明本身住在 internal/prompts（AGENTS.md：教学正文只住那儿），
+// 这里经 internal/guidance 取用；取不到（议论文、认不出来的体裁）不是故障，
+// 是这两种体裁本来就没有这一节。
 func buildGenreCoachSection(genre string) string {
 	genre = validateGenre(genre)
-	guide, ok := genreCoachGuide[genre]
-	if !ok {
+	parts, err := guidance.Default().Resolve(
+		guidance.Key{Surface: guidance.SurfaceRead, Genre: genre}, guidance.SlotCoach)
+	if err != nil {
 		return ""
 	}
+	guide := parts[guidance.SlotCoach]
 	var b strings.Builder
 	b.WriteString("\n【这篇的体裁，以及在这篇上怎么带】\n")
 	b.WriteString(guide + "\n")

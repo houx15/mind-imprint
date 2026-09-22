@@ -173,6 +173,39 @@ func TestLastPlacementReadsGenreBins(t *testing.T) {
 	}
 }
 
+// 🚨 议论文那条路一个字节都不变 —— 这是 2026-09-17 定的边界
+// （「don't bother the current experience of argument papers」）。
+// 认不出来的体裁同理，按议论文办。
+//
+// 放在这个内部测试文件（而不是 task brief 原写的 reading_genre_test.go）里，
+// 是因为 buildGenreCoachSection / genreArgument 都是包内私有标识符 ——
+// reading_genre_test.go 是 package api_test，编译不过；这个文件是 package api。
+func TestGenreCoachSectionStaysEmptyForArgument(t *testing.T) {
+	for _, genre := range []string{genreArgument, "", "不认识的体裁"} {
+		if got := buildGenreCoachSection(genre); got != "" {
+			t.Errorf("体裁 %q 不该有带读说明，拿到 %d 字", genre, len([]rune(got)))
+		}
+	}
+}
+
+// 另外三种体裁各自要拿到自己那一段，而且必须提到自己那块板的格子名。
+func TestGenreCoachSectionNamesItsOwnBins(t *testing.T) {
+	for genre, bin := range map[string]string{
+		genreReport:    "引述",
+		genreExplain:   "说明对象",
+		genreNarrative: "心理描写",
+	} {
+		got := buildGenreCoachSection(genre)
+		if got == "" {
+			t.Errorf("体裁 %q 没有带读说明", genre)
+			continue
+		}
+		if !strings.Contains(got, bin) {
+			t.Errorf("体裁 %q 的带读说明里没有格子名 %q", genre, bin)
+		}
+	}
+}
+
 func TestGenreSectionOnlyOffArgument(t *testing.T) {
 	for _, g := range []string{genreArgument, "", "editorial"} {
 		if s := buildGenreCoachSection(g); s != "" {

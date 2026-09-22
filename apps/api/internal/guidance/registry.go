@@ -34,5 +34,15 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)
 
+	// ── 阅读带读说明 ────────────────────────────────────────────────────
+	// 🚨 议论文没有这一节，所以议论文不登记 —— Resolve 取不到就是取不到，
+	// 由调用方 buildGenreCoachSection 把「没有」翻译成空字符串。
+	rd := func(genre string) Scope {
+		return Scope{Surface: SurfaceRead, Genres: []string{genre}}
+	}
+	r.Add(SlotCoach, rd("report"), prompts.ReadingCoachGenreReport)
+	r.Add(SlotCoach, rd("explain"), prompts.ReadingCoachGenreExplain)
+	r.Add(SlotCoach, rd("narrative"), prompts.ReadingCoachGenreNarrative)
+
 	return r
 })
