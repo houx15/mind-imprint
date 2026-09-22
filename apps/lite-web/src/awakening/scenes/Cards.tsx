@@ -112,12 +112,13 @@ export function EnergyScene({
           <Eyebrow>{stage.code}</Eyebrow>
           <h1 className="mt-2 text-[26px] font-semibold">{ENERGY.title}</h1>
         </div>
-        <Meter total={ENERGY_STAGES.length} done={i} />
+        <span className="awk-energy-progress">第 {i + 1} / {ENERGY_STAGES.length} 组<Meter total={ENERGY_STAGES.length} done={i + 1} /></span>
       </div>
       <p className="awk-dim mt-2 text-[14px]">{ENERGY.lead}</p>
 
-      <Panel className="mt-6">
+      <Panel className="mt-6 awk-energy-board">
         <p className="text-[16px] font-semibold leading-relaxed">{stage.ask}</p>
+        <p className="awk-energy-hint">可多选 · 点击选中，再次点击取消</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {stage.cards.map((c) => (
             <Choice

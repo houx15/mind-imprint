@@ -1,0 +1,30 @@
+/* Report colours inherit Lite tokens; counts describe only recorded choices. */
+.interest-report { max-width: 1100px; width: 100%; margin: 0 auto; padding: 40px 32px; color: var(--mk-ink); }
+.interest-report-hero { display: grid; grid-template-columns: minmax(0,1fr) 230px; align-items: center; gap: 36px; }
+.interest-report-hero img { width: 230px; height: 190px; object-fit: contain; }
+.interest-report-eyebrow { font-size: 11px; letter-spacing: .06em; color: var(--mk-accent-700); }
+.interest-report-hero h1 { font-size: 36px; font-weight: 600; margin: 10px 0 14px; }
+.interest-report-summary { font-size: 15px; line-height: 1.9; color: var(--mk-muted); max-width: 620px; }
+.interest-report-counts { display: flex; gap: 48px; padding: 24px 0; margin: 12px 0 28px; border-block: 1px solid var(--mk-border); }
+.interest-report-counts > div { display: flex; align-items: baseline; gap: 10px; }
+.interest-report-counts strong { font-size: 30px; font-weight: 600; }
+.interest-report-counts span { font-size: 12px; color: var(--mk-muted); }
+.interest-report-question { padding: 28px 30px; border-radius: 5px 20px 20px 20px; background: var(--mk-accent-50); border: 1px solid var(--mk-accent-200); }
+.interest-report-question span,.interest-quote-label { display: block; font-size: 11px; color: var(--mk-accent-700); }
+.interest-report-question h2 { font-size: 23px; line-height: 1.7; font-weight: 600; margin: 10px 0 20px; }
+.interest-report-question p { font-size: 14px; line-height: 1.9; margin-top: 8px; }
+.interest-report-section > h2 { font-size: 18px; }
+.interest-direction-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.interest-report .interest-evidence-card { padding: 22px; border-radius: 16px; }
+.interest-quote-label { margin-top: 16px; }
+.interest-talent-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; }
+.interest-talent-heading strong { font-size: 24px; font-weight: 600; color: var(--mk-accent-700); }
+.interest-talent-heading small { font-size: 11px; font-weight: 400; }
+.interest-talent-bar { height: 6px; border-radius: 8px; background: var(--mk-border); margin: 12px 0 16px; overflow: hidden; }
+.interest-talent-bar span { display: block; height: 100%; background: var(--mk-accent-500); border-radius: inherit; }
+.interest-reading-link { background: var(--mk-surface); }
+.interest-reading-why { font-size: 12px; color: var(--mk-muted); margin-top: 12px; }
+.interest-reading-action { display: block; color: var(--mk-accent-700); margin-top: 16px; font-size: 13px; }
+@media(max-width:700px) { .interest-report-hero {grid-template-columns:1fr} .interest-report-hero img {display:none} .interest-direction-grid {grid-template-columns:1fr} .interest-report-counts {gap:16px;flex-wrap:wrap} }
+
+.interest-report-poster {background:var(--mk-paper);padding:24px;border-radius:20px}

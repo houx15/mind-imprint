@@ -1,3 +1,5 @@
+import { studentArtwork } from "../learning/StudentArtwork";
+import "./interest-report.css";
 import { useRef, useState } from "react";
 
 import type { AwakeningReport } from "../api/awakening";
@@ -45,7 +47,7 @@ function Section({
   note?: string;
 }) {
   return (
-    <section className="mt-9 first:mt-0">
+    <section className="interest-report-section mt-9 first:mt-0">
       <h2 className="text-mk-h3 font-semibold text-mk-ink">{title}</h2>
       {note ? <p className="mt-1 text-mk-small text-mk-muted">{note}</p> : null}
       <div className="mt-3">{children}</div>
@@ -56,11 +58,11 @@ function Section({
 function Card({ children, accent }: { children: React.ReactNode; accent?: string }) {
   return (
     <div
-      className="rounded-mk-lg border p-4"
+      className="interest-evidence-card rounded-mk-lg border p-4"
       style={{
         borderColor: accent
           ? `color-mix(in srgb, ${accent} 38%, transparent)`
-          : "var(--mk-line)",
+          : "var(--mk-border)",
         background: accent
           ? `color-mix(in srgb, ${accent} 7%, transparent)`
           : "var(--mk-surface)",
@@ -99,15 +101,24 @@ export function ReportView({
   // data-awakening-report：走查用它整块截图。房间是 fixed 浮层、正文在内层滚动
   // 容器里，`fullPage` 只截得到第一屏 —— 报告下半部分因此一直没被人眼看过。
   return (
-    <div data-awakening-report className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
-      <div ref={posterRef}>
-        <p className="font-mono text-mk-small uppercase tracking-[0.18em] text-mk-accent-500">
-          {REPORT.eyebrow}
-        </p>
-        <h1 className="mt-2 text-mk-h1 text-mk-ink">{REPORT.title}</h1>
-        {report.summary ? (
-          <p className="mt-3 text-mk-body leading-[1.9] text-mk-secondary">{report.summary}</p>
-        ) : null}
+    <div data-awakening-report className="interest-report">
+      <div ref={posterRef} className="interest-report-poster">
+        <header className="interest-report-hero">
+          <div><p className="interest-report-eyebrow">{REPORT.eyebrow} · 第 {report.attemptNo} 次探索</p>
+            <h1>{REPORT.title}</h1>
+            {report.summary && <p className="interest-report-summary">{report.summary}</p>}
+          </div>
+          <img src={studentArtwork.discovery} alt="" />
+        </header>
+        <div className="interest-report-counts" aria-label="本次探索记录">
+          <div><strong>{report.pursuing.length}</strong><span>兴趣关键词</span></div>
+          <div><strong>{new Set(report.pursuing.map(w => w.field)).size}</strong><span>涉及领域</span></div>
+          <div><strong>{report.talent.reduce((n,p) => n+p.cards.length,0)}</strong><span>已分类能力卡</span></div>
+        </div>
+        {report.question && <section className="interest-report-question">
+          <span>你提出的问题 · 原文</span><h2>{report.question}</h2>
+          {report.workConcept && <div><span>作品设想 · 原文</span><p>{report.workConcept}</p></div>}
+        </section>}
 
         {/* 1 · 她在追什么 —— 这次动了的词 */}
         <Section title={REPORT.sections.pursuing}>
@@ -116,7 +127,7 @@ export function ReportView({
               {report.selectionFailed ? REPORT.failedPursuing : REPORT.emptyPursuing}
             </p>
           ) : (
-            <div className="grid gap-3">
+            <div className="interest-direction-grid">
               {report.pursuing.map((w) => (
                 <Card key={w.interestId}>
                   <div className="flex flex-wrap items-baseline gap-2">
@@ -144,6 +155,7 @@ export function ReportView({
                   {w.note ? (
                     <p className="mt-2 text-mk-small leading-relaxed text-mk-secondary">{w.note}</p>
                   ) : null}
+                  <span className="interest-quote-label">你的原话</span>
                   {/* 她自己的那句话，逐字。它是这个词的全部说服力。 */}
                   <p className="mt-2 border-l-2 pl-3 text-mk-small leading-[1.9] text-mk-ink"
                      style={{ borderColor: "var(--mk-accent-300)" }}>
@@ -166,11 +178,11 @@ export function ReportView({
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-mk-body font-semibold text-mk-ink">{d.label}</span>
                     <span className="font-mono text-mk-small tabular-nums text-mk-muted">
-                      {Math.round(d.confidence * 100)}%
+                      AI 推测置信度 {Math.round(d.confidence * 100)}%
                     </span>
                   </div>
                   <p className="mt-2 border-l-2 pl-3 text-mk-small leading-[1.9] text-mk-secondary"
-                     style={{ borderColor: "var(--mk-line)" }}>
+                     style={{ borderColor: "var(--mk-border)" }}>
                     {d.evidence}
                   </p>
                 </Card>
@@ -179,25 +191,14 @@ export function ReportView({
           )}
         </Section>
 
-        {/* 3 · 她的问题 —— 原样 */}
-        {report.question ? (
-          <Section title={REPORT.sections.question}>
-            <p className="text-mk-h3 leading-[1.8] text-mk-ink">{report.question}</p>
-            {report.workConcept ? (
-              <p className="mt-3 text-mk-body leading-[1.9] text-mk-secondary">
-                {report.workConcept}
-              </p>
-            ) : null}
-          </Section>
-        ) : null}
-
         {/* 4 · 能力分布 —— 她自己的分堆 */}
         {report.talent.some((p) => p.cards.length > 0) ? (
-          <Section title={REPORT.sections.talent}>
+          <Section title={REPORT.sections.talent} note="按你自己的卡片分类统计，表示选择数量。">
             <div className="grid gap-3 sm:grid-cols-3">
               {report.talent.map((pile) => (
                 <Card key={pile.key}>
-                  <div className="text-mk-small font-semibold text-mk-ink">{pile.label}</div>
+                  <div className="interest-talent-heading"><span>{pile.label}</span><strong>{pile.cards.length}<small> 张</small></strong></div>
+                  <div className="interest-talent-bar" role="img" aria-label={`${pile.label}：${pile.cards.length} 张`}><span style={{width: `${pile.cards.length / Math.max(1,...report.talent.map(p=>p.cards.length)) * 100}%`}} /></div>
                   <ul className="mt-2 grid gap-1">
                     {pile.cards.map((id) => {
                       const c = TALENT_CARDS.find((x) => x.id === id);
@@ -254,8 +255,8 @@ export function ReportView({
                 key={a.slug}
                 type="button"
                 onClick={() => onOpenReading(a.slug, a.tier)}
-                className="rounded-mk-lg border p-4 text-left transition-colors duration-[140ms] hover:bg-[rgba(51,48,46,.04)]"
-                style={{ borderColor: "var(--mk-line)" }}
+                className="interest-reading-link rounded-mk-lg border p-4 text-left transition-colors duration-[140ms] hover:bg-[rgba(51,48,46,.04)]"
+                style={{ borderColor: "var(--mk-border)" }}
               >
                 <div className="text-mk-body font-semibold text-mk-ink">
                   {a.zhTitle || a.title}
@@ -263,6 +264,8 @@ export function ReportView({
                 <div className="mt-1 text-mk-small text-mk-muted">
                   {FIELD_ZH[a.field] ?? a.field} · 第 {a.tier} 档
                 </div>
+                {a.why.length > 0 && <p className="interest-reading-why">{a.why.join("；")}</p>}
+                <span className="interest-reading-action">开始阅读 →</span>
               </button>
             ))}
           </div>
@@ -282,7 +285,7 @@ export function ReportView({
           <button
             type="button"
             onClick={onBackToList}
-            className="rounded-mk-full border border-mk-line px-5 py-2 text-mk-body font-semibold text-mk-ink transition hover:opacity-80"
+            className="rounded-mk-full border border-mk-border px-5 py-2 text-mk-body font-semibold text-mk-ink transition hover:opacity-80"
           >
             {REPORT.backToList}
           </button>

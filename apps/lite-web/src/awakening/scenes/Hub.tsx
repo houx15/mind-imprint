@@ -81,19 +81,18 @@ export function HubScene({
         </div>
 
         <div className="awk-choice-stack" aria-label="这一次做什么">
-          {cards.map((c, i) => {
-            const n = String(i + 1).padStart(2, "0");
-            return (
-              <Choice
-                key={c.key}
-                index={n}
-                hwId={`SYS-${n}`}
-                title={c.title}
-                body={c.body}
-                onClick={action[c.key]}
-              />
-            );
-          })}
+          {cards.filter(c => !["navigator", "story"].includes(c.key)).map((c, i) => (
+            <div key={c.key} className={c.key === "continue" ? "awk-hub-primary" : "awk-hub-secondary"}>
+              {c.key === "continue" && <p className="awk-hub-label">继续当前探索</p>}
+              <Choice index={String(i + 1).padStart(2, "0")} title={c.title} body={c.body} onClick={action[c.key]} />
+            </div>
+          ))}
+          <details className="awk-hub-more">
+            <summary>助手与剧情</summary>
+            {cards.filter(c => ["navigator", "story"].includes(c.key)).map(c => (
+              <Choice key={c.key} title={c.title} body={c.body} onClick={action[c.key]} />
+            ))}
+          </details>
         </div>
       </div>
     </section>

@@ -2475,3 +2475,16 @@
   color: color-mix(in srgb, var(--it-accent) 18%, #e3ecE8);
   font-size: 15px;
 }
+
+/* Preserve the story's terminal theme while clarifying choice hierarchy. */
+.awk .awk-hub-label { color: var(--cyan); font-size: 12px; margin: 0 0 10px; }
+.awk .awk-hub-primary { padding: 18px; border: 1px solid var(--cyan); background: color-mix(in srgb, var(--cyan) 6%, transparent); }
+.awk .awk-hub-primary .awk-option { min-height: 96px; }
+.awk .awk-hub-more { border-top: 1px solid var(--line); padding-top: 12px; }
+.awk .awk-hub-more summary { padding: 10px 0; color: var(--awk-muted); font-size: 13px; cursor: pointer; }
+.awk .awk-hub-more .awk-option { margin-top: 12px; }
+.awk .awk-energy-progress { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--cyan); }
+.awk .awk-energy-hint { margin: 10px 0 0; color: var(--awk-muted); font-size: 12px; }
+.awk .awk-energy-board .awk-option { min-height: 94px; }
+.awk .awk-energy-board .awk-option[aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--awk-amber); }
+.awk .awk-energy-board .awk-option[aria-pressed=true]::after { content: "已选"; color: var(--awk-amber); font-size: 11px; position: absolute; right: 18px; bottom: 10px; top: auto; opacity: 1; transform: none; }

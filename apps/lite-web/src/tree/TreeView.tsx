@@ -99,9 +99,12 @@ export function TreeView({
   // 落在最后一格（现在）。真正有几格由 `growthStops` 按她的跨度算，见下面。
   const [stop, setStop] = useState(3);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [hoverField, setHoverField] = useState<FieldId | null>(null);
+  const [hoveredField, setHoverField] = useState<FieldId | null>(null);
   // 点一片叶子看它扎在哪几条根上；点一条根看哪几片叶子共用它。连线只在这时出现。
   const [pick, setPick] = useState<Pick | null>(null);
+
+  const [selectedField, setSelectedField] = useState<FieldId | null>(null);
+  const hoverField = hoveredField ?? selectedField;
 
   const stageRef = useRef<HTMLDivElement>(null);
   // Bead labels are fixed pixel size on a stage that scales with the viewport.
@@ -244,7 +247,7 @@ export function TreeView({
               （服务端给同一个词再添一条来源，强度上升），不是清空重来。
               和空树上那条邀请一样，状态未知（null）时不显示。
               🚨 只读（教师）视角下整个入口收起——这是学生自己的测试。 */}
-          {!readOnly && quizTaken !== null ? (
+          {!readOnly && quizTaken !== null && live.status !== "empty" ? (
             <button
               type="button"
               onClick={openQuiz}
@@ -290,36 +293,22 @@ export function TreeView({
         </div>
       </header>
 
-      {/* ── field index (chip row, below xl) ───────────────────────────── */}
-      <div className="relative z-20 mb-2 mt-3 flex flex-wrap gap-1.5 px-7 xl:hidden">
-        {FIELDS.map((f, i) => (
-          <button
-            key={f.id}
-            type="button"
-            onMouseEnter={() => setHoverField(f.id)}
-            onMouseLeave={() => setHoverField(null)}
-            onFocus={() => setHoverField(f.id)}
-            onBlur={() => setHoverField(null)}
-            // 窄屏走的是这一行 chip，空枝邀请在这里也要能点开 —— 只给宽屏那一列
-            // 加上，等于让小屏幕的学生永远碰不到这个入口。
-            // 🚨 只读（教师）视角不开这个邀请——见 readOnly 的整体说明。
-            onClick={() => (!readOnly && known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
-            className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
-                       transition-colors duration-[120ms] hover:bg-[rgba(51,48,46,.05)]
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-300"
-            style={{ border: "1px solid var(--tree-line)", color: "var(--tree-ink-2)" }}
-          >
-            <span
-              className="h-1.5 w-1.5 rotate-45"
-              style={{ background: f.hue }}
-            />
-            <span className="tree-mono text-mk-faint">{String(i + 1).padStart(2, "0")}</span>
-            {f.label}
-            <span className="font-mono text-[11px] tabular-nums text-mk-faint">
-              {known ? countFor(f.id) : "—"}
-            </span>
-          </button>
-        ))}
+      <div className="tree-orientation">
+        <p><strong>查看兴趣来源</strong><span>点击树上的关键词，查看相关原话与学习记录。{!readOnly && "想探索新方向，可以进入兴趣测试。"}</span></p>
+        <details className="tree-field-menu">
+          <summary>领域索引{selectedField ? ` · ${fieldById(selectedField).label}` : ""}</summary>
+          <div className="tree-field-options">
+            {FIELDS.map(f => <button key={f.id} type="button" aria-pressed={selectedField === f.id}
+              onMouseEnter={() => setHoverField(f.id)} onMouseLeave={() => setHoverField(null)}
+              onClick={() => {
+                if (!readOnly && known && countFor(f.id) === 0) setInviteField(f.id);
+                else setSelectedField(selectedField === f.id ? null : f.id);
+              }}>
+              <span style={{ background: f.hue }} aria-hidden="true" />{f.label}<small>{known ? countFor(f.id) : "—"}</small>
+            </button>)}
+            {selectedField && <button type="button" onClick={() => setSelectedField(null)}>显示全部领域</button>}
+          </div>
+        </details>
       </div>
 
       {/* ── the structure ─────────────────────────────────────────────── */}
@@ -384,55 +373,6 @@ export function TreeView({
               收藏一条会走 `plantKeywords` 的同一条路（`kind='news'`），于是它
               就是树上一个真正的关键词，而不是另开一条轨道。 */}
         </div>
-      </div>
-
-      {/* ── field index (floating column, xl and up) ─────────────────── */}
-      <div className="pointer-events-auto absolute left-7 top-[200px] z-20 hidden w-[176px] xl:block">
-        <Sys className="mb-2 block">
-          主枝 · INDEX
-        </Sys>
-        <ul>
-          {FIELDS.map((f, i) => {
-            const n = countFor(f.id);
-            return (
-              <li key={f.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setHoverField(f.id)}
-                  onMouseLeave={() => setHoverField(null)}
-                  onFocus={() => setHoverField(f.id)}
-                  onBlur={() => setHoverField(null)}
-                  // 🚨 只有**空枝**可以点开。有词的枝上，那个数字自己说完了话；
-                  // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
-                  // 只读（教师）视角不开这个邀请。
-                  onClick={() => (!readOnly && known && n === 0 ? setInviteField(f.id) : undefined)}
-                  className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
-                             duration-[120ms] hover:bg-[rgba(51,48,46,.04)] focus-visible:outline-none
-                             focus-visible:ring-2 focus-visible:ring-mk-accent-300"
-                  style={{ borderColor: "var(--tree-line)" }}
-                >
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rotate-45"
-                    style={{ background: f.hue }}
-                  />
-                  <span className="tree-mono shrink-0 text-mk-faint">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-mk-small text-mk-secondary">{f.label}</span>
-                  {known && n === 0 ? (
-                    <span className="shrink-0 text-[11px]" style={{ color: "var(--mk-accent-400)" }}>
-                      还没有
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[11px] tabular-nums text-mk-faint">
-                      {known ? n : "—"}
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
       </div>
 
       <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} readOnly={readOnly} />
