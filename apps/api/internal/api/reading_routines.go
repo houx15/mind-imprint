@@ -1,6 +1,9 @@
 package api
 
-import "mindimprint/api/internal/gateway"
+import (
+	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/guidance"
+)
 
 // reading_routines.go — 阅读流程库：一组**写死的**读法。
 //
@@ -175,19 +178,33 @@ func (r readingRoutine) serves(genre string) bool {
 
 // pickRoutineForGenre 把模型挑的读法和它判的体裁对齐。
 //
-// 体裁认不出来（空）就不动 —— 和 hasAuthorsArgument 同一个方向：宁可放过。
-// 模型挑的那一套本来就服务这个体裁（议论文在英文里有两套可挑），也不动。
-// 只有两件事打架的时候才换，换成同语言里服务这个体裁的第一套。
+// 2026-09-22：挑哪一套由 internal/guidance 那条共用规则决定。行为不变 ——
+// 挑对了不动，挑错了换成同语言里服务这个体裁的第一套。
 func pickRoutineForGenre(chosen readingRoutine, genre string) readingRoutine {
 	genre = validateGenre(genre)
 	if genre == "" || chosen.serves(genre) {
 		return chosen
 	}
+	rows := make([]guidance.Row[readingRoutine], 0, len(readingRoutines))
 	for _, r := range readingRoutines {
-		if r.Lang == chosen.Lang && r.serves(genre) {
-			return r
+		if r.Lang != chosen.Lang {
+			continue
 		}
+		rows = append(rows, guidance.Row[readingRoutine]{
+			Scope: guidance.Scope{
+				Surface: guidance.SurfaceRead,
+				Lang:    r.Lang,
+				Genres:  r.Genres,
+			},
+			Value: r,
+		})
 	}
+	k := guidance.Key{Surface: guidance.SurfaceRead, Lang: chosen.Lang, Genre: genre}
+	if fitted, ok := guidance.Pick(k, rows); ok {
+		return fitted
+	}
+	// 同语言里没有服务这个体裁的 —— 保留模型挑的那一套，
+	// 给她一份读不对的清单，也好过给她一份读不懂的。
 	return chosen
 }
 
