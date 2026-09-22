@@ -7,6 +7,11 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
   timeout: 60_000,
-  use: { baseURL: "http://localhost:5234", viewport: { width: 1280, height: 820 } },
+  // 端口跟着 vite.config.ts 那一个走（见那里 🚨 那段：两个 worktree 同时
+  // 开看图台时，端口写死会让第二个会话**测到第一个会话的代码**）。
+  use: {
+    baseURL: `http://localhost:${process.env.E2E_HARNESS_PORT ?? 5234}`,
+    viewport: { width: 1280, height: 820 },
+  },
   reporter: [["list"]],
 });
