@@ -21,11 +21,11 @@ function nonEmpty(values: string[]): string[] {
 export function ShowcaseInterestTree({ interest }: ShowcaseInterestTreeProps) {
   if (!interest) return null;
 
-  const title = interest.title?.trim() || "兴趣";
   const keywords = nonEmpty(interest.keywords);
 
   if (interest.mode === "keywords") {
     if (keywords.length === 0) return null;
+    const title = interest.title?.trim() || "兴趣";
     return (
       <section className="showcase-interest showcase-interest-keywords" aria-labelledby="showcase-interest-title">
         <p className="showcase-interest-label" id="showcase-interest-title">{title}</p>
@@ -37,13 +37,13 @@ export function ShowcaseInterestTree({ interest }: ShowcaseInterestTreeProps) {
   const branches = (interest.branches ?? [])
     .map((branch) => ({ label: branch.label.trim(), keywords: nonEmpty(branch.keywords) }))
     .filter((branch) => branch.label && branch.keywords.length > 0);
-  if (branches.length === 0 && keywords.length === 0) return null;
+  if (branches.length === 0) return null;
+  const title = interest.title?.trim() || "兴趣树";
 
   return (
     <section className="showcase-interest showcase-interest-tree" aria-labelledby="showcase-interest-title">
       <div className="showcase-interest-tree-heading">
         <p className="showcase-interest-label" id="showcase-interest-title">{title}</p>
-        {keywords.length > 0 && <ul className="showcase-interest-roots" aria-label="兴趣关键词">{keywords.map((keyword, index) => <li key={`${keyword}-${index}`}>{keyword}</li>)}</ul>}
       </div>
       {branches.length > 0 && (
         <div className="showcase-interest-branches">

@@ -250,8 +250,9 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
           <h2 id="showcase-about-title">{config.name || (editing ? "姓名" : "")}</h2>
           {(config.bio || editing) && <p className="showcase-bio">{config.bio || "个人简介将在这里显示。"}</p>}
         </div>
-        <ShowcaseInterestTree interest={interestTree} />
+        {config.interests.length > 0 && <ul className="showcase-interests" aria-label="兴趣">{config.interests.map((interest, index) => <li key={`${interest}-${index}`}>{interest}</li>)}</ul>}
       </section>
+      <ShowcaseInterestTree interest={interestTree} />
       <main className="showcase-main">
         {portfolioLayout === "sections" ? visibleOrder.map((kind) => <WorkSection key={kind} kind={kind} works={selected.filter((work) => work.kind === kind)} config={config} editing={editing} />) : (
           <section className="showcase-section showcase-portfolio" aria-labelledby="showcase-portfolio-title">
