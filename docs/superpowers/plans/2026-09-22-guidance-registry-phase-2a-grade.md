@@ -92,8 +92,10 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go build ./...
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./cmd/promptinspect
 ```
 
-预期：13 条全绿，build 干净，parity 绿。这是一次纯改名，任何一条红都说明
-改到了不该改的东西。
+预期：**先数一下改名前有几条通过**（`go test ./internal/guidance/ -v 2>&1 | grep -c '^--- PASS'`，
+在 `6295e76c` 上是 **12** 条），改名后必须是**同样多、同样的名字**，build 干净，
+parity 绿。这是一次纯改名 —— 条数少一条就是有测试没跟着改名而被悄悄漏掉了，
+红一条就是改到了不该改的东西。
 
 - [ ] **Step 4: 提交**
 
@@ -796,11 +798,16 @@ const GRADE_OPTIONS = [
 - [ ] **Step 4: 编译与本地检查**
 
 ```bash
+cd apps/web && npm run typecheck
 cd apps/web && npm run build
 ```
 
-预期：build 通过。这个仓库的前端不写渲染断言测试（AGENTS.md：「测试只写逻辑
-测试，不堆前端渲染测试」），所以这一步看的是类型和编译。
+🚨 **两条都要跑，顺序别反。** `build` 是 `vite build`，它**不做类型检查**；
+类型错误只有 `typecheck`（`tsc --noEmit`）抓得到。只跑 build 就上，等于把
+`grade` 拼错的那种错留到运行时。
+
+预期：两条都通过。这个仓库的前端不写渲染断言测试（AGENTS.md：「测试只写逻辑
+测试，不堆前端渲染测试」），所以这一步看的就是类型和编译。
 
 - [ ] **Step 5: 提交**
 
