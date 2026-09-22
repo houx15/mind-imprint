@@ -52,7 +52,7 @@ func TestClarityTeacherReading(t *testing.T) {
 				if out.Card != nil {
 					visible += out.Card.Prompt
 				}
-				if c.name == "compare-not-verdict" && (strings.Contains(visible, "两者不是") || strings.Contains(visible, "还要看设备") || strings.Contains(strings.ReplaceAll(visible, "能不能直接说明", ""), "不能直接说明")) {
+				if c.name == "compare-not-verdict" && (strings.Contains(visible, "两者不是") || strings.Contains(visible, "不是同一个") || strings.Contains(visible, "不能直接推出") || strings.Contains(visible, "还要看设备") || strings.Contains(strings.ReplaceAll(visible, "能不能直接说明", ""), "不能直接说明")) {
 					return errors.New("comparison prompt states the core answer before asking the student")
 				}
 				if c.mustAsk && !strings.ContainsAny(visible, "?？") && !strings.Contains(visible, "能不能") && !strings.Contains(visible, "是否") {

@@ -103,7 +103,7 @@ func writingKeyRunes(s string) map[rune]bool {
 // writingSharedKeyRunesMin —— 共用几个实字才算扣住。
 //
 // 🚨 这个数是**量出来的，不是拍的**。1 太松：单个汉字撞上的概率太高
-//（「学」在半数句子里都有），判出来的「扣得住」是假的，这条判据等于不存在。
+// （「学」在半数句子里都有），判出来的「扣得住」是假的，这条判据等于不存在。
 // 3 太紧：「读书要读慢」和「慢读才能发现问题」只共用两个字，而她显然扣住了。
 const writingSharedKeyRunesMin = 2
 
@@ -112,7 +112,7 @@ const writingSharedKeyRunesMin = 2
 // # 🚨 为什么数的是**字**，不是词
 //
 // 第一版切的是「连续两个以上的实字串」，然后比子串。它在
-//「读书要读慢」↔「慢读才能发现问题」上判错了：两句共用的是「读」和「慢」，
+// 「读书要读慢」↔「慢读才能发现问题」上判错了：两句共用的是「读」和「慢」，
 // 但一句里是「读慢」，另一句里是「慢读」—— **中文的语序会翻**，
 // 而子串比对认不出翻过来的同一个词。判错的方向还正好是最糟的那个：
 // 告诉她一条写对了的分论点跑题了。
@@ -210,15 +210,12 @@ func writingPointsCheckBlock(wr sqlc.Writing, rows []sqlc.WritingOutline) string
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n【这几条分论点没有扣住中心论点】\n")
-	b.WriteString("下面这几句里，一个中心论点的关键词都没有出现。语文课上这叫\n")
-	b.WriteString("「扣不住」—— 读者读到这一段时，看不出它在证哪一句话。\n\n")
-	for _, t := range off {
-		b.WriteString("- 「" + t + "」\n")
+	b.WriteString("\n【分论点与中心观点的文字匹配提示】\n")
+	b.WriteString("以下句子与中心观点的关键词重合较少。这只是文字匹配结果，不能据此判断跑题。请结合上下文判断它们是否在解释中心观点；意思相关时无需重复关键词或改写。\n")
+	for _, text := range off {
+		b.WriteString("- 「" + text + "」\n")
 	}
-	b.WriteString("\n这是我数出来的，不是猜的。如果你判断她其实扣住了（换了个说法、\n")
-	b.WriteString("用了同义词），就不要提 —— 但如果确实跑了，这一轮就说这一件事，\n")
-	b.WriteString("请她把中心论点里的那个词放进这一句里。\n")
+	b.WriteString("如果确实缺少逻辑联系，可请学生解释这条理由与中心观点的关系，不要求把指定词语塞进句子。计划已可开始写作或学生要求动笔时，不把措辞修改当作前置条件。\n")
 	return b.String()
 }
 

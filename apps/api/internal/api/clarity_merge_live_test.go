@@ -50,6 +50,9 @@ func TestClarityMergeWriting(t *testing.T) {
 					}
 				}
 				if tc.terms {
+					if strings.Contains(out.Reply, "第二条 topic sentence") || strings.Contains(out.Reply, "挂在半空") {
+						return errors.New("existing reason ignored or metaphor introduced")
+					}
 					found := false
 					for _, term := range []string{"thesis statement", "topic sentence", "commentary", "analysis", "counterargument"} {
 						found = found || strings.Contains(strings.ToLower(out.Reply), term)
@@ -104,7 +107,7 @@ func TestClarityPersonalPlanReady(t *testing.T) {
 				if !ok {
 					return errors.New("plan parse failed")
 				}
-				if !out.Ready || writingPlanReplyAsks(out.Reply) {
+				if !out.Ready || writingPlanReplyAsks(out.Reply) || strings.Contains(out.Reply, "先改") || strings.Contains(out.Reply, "改完就") {
 					return errors.New("personal material prevents invitation to write")
 				}
 				return checkClarityTeachingLanguage(out.Reply)
