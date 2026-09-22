@@ -633,6 +633,14 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404，不带细节
 		return
 	}
+	if config, works, showcaseErr := a.publicShowcase(r, row.UserID); showcaseErr != nil {
+		httpx.WriteError(w, r, showcaseErr)
+		return
+	} else if config != nil {
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"showcase": true, "config": config, "works": works})
+		return
+	}
 
 	if publication, pubErr := a.d.Queries.GetPblSitePublication(r.Context(), row.UserID); pubErr == nil {
 		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")

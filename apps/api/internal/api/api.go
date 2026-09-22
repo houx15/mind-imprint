@@ -341,6 +341,10 @@ func (a *API) Handler() http.Handler {
 	// S5 · 她的主页。/pbl/site 在 /pbl/projects 之前注册，因为它是 §4 那道门
 	// 的另一半：projects 拒绝的时候，这里是唯一走得通的路。
 	mux.Handle("GET /api/v1/pbl/site", liteOnly(a.getPblSite))
+	mux.Handle("GET /api/v1/pbl/showcase", liteOnly(a.getPblShowcase))
+	mux.Handle("PUT /api/v1/pbl/showcase", liteOnly(a.putPblShowcase))
+	mux.Handle("POST /api/v1/pbl/showcase/publish", liteOnly(a.publishPblShowcase))
+	mux.Handle("DELETE /api/v1/pbl/showcase/publish", liteOnly(a.unpublishPblShowcase))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/site-structure", liteOnly(a.applyPblSiteStructure))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
 	mux.Handle("PUT /api/v1/pbl/site/sections/{key}/image", liteOnly(a.putPblSiteSectionImage))

@@ -989,6 +989,16 @@ type PblSession struct {
 	CreatedAt  time.Time          `json:"created_at"`
 }
 
+type PblShowcase struct {
+	UserID          uuid.UUID          `json:"user_id"`
+	Draft           []byte             `json:"draft"`
+	PublishedConfig []byte             `json:"published_config"`
+	Revision        int32              `json:"revision"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+	PublishedAt     pgtype.Timestamptz `json:"published_at"`
+}
+
 type PblSite struct {
 	UserID      uuid.UUID          `json:"user_id"`
 	AtomID      pgtype.UUID        `json:"atom_id"`
