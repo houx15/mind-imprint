@@ -8,8 +8,8 @@ func TestStageBandFoldsGradeToBand(t *testing.T) {
 		"senior1": "senior", "senior2": "senior", "senior3": "senior",
 		"": "", "primary4": "",
 	} {
-		if got := StageBand(grade); got != want {
-			t.Errorf("StageBand(%q) = %q, 想要 %q", grade, got, want)
+		if got := GradeBand(grade); got != want {
+			t.Errorf("GradeBand(%q) = %q, 想要 %q", grade, got, want)
 		}
 	}
 }
@@ -19,18 +19,18 @@ func TestStageBandFoldsGradeToBand(t *testing.T) {
 func TestPickPrefersTheMostSpecificRow(t *testing.T) {
 	rows := []Row[string]{
 		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh"}, Value: "不限学段"},
-		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Stages: []string{"junior"}}, Value: "整个初中"},
-		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Stages: []string{"junior2"}}, Value: "初二"},
+		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Grades: []string{"junior"}}, Value: "整个初中"},
+		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Grades: []string{"junior2"}}, Value: "初二"},
 	}
-	k := Key{Surface: SurfaceWrite, Lang: "zh", Stage: "junior2"}
+	k := Key{Surface: SurfaceWrite, Lang: "zh", Grade: "junior2"}
 	if got, ok := Pick(k, rows); !ok || got != "初二" {
 		t.Fatalf("初二那一行该赢，拿到 %q ok=%v", got, ok)
 	}
-	k.Stage = "junior3"
+	k.Grade = "junior3"
 	if got, ok := Pick(k, rows); !ok || got != "整个初中" {
 		t.Fatalf("初三没有自己那一行，该退到整个初中，拿到 %q ok=%v", got, ok)
 	}
-	k.Stage = "senior1"
+	k.Grade = "senior1"
 	if got, ok := Pick(k, rows); !ok || got != "不限学段" {
 		t.Fatalf("高一两行都不服务，该退到不限学段，拿到 %q ok=%v", got, ok)
 	}

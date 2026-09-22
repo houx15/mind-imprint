@@ -24,12 +24,12 @@ import (
 func TestEveryCombinationResolves(t *testing.T) {
 	langs := []string{"zh", "en", ""}
 	// 🚨 这七个学段现在全部断言同一份 want[combo] —— 因为今天没有一行按
-	// Stages 登记，取到的内容和学段无关。二期一旦有人加一行按学段登记的
-	// 内容（比如 {write, zh, Stages:["junior2"]}，分数 26），它会**输给**
+	// Grades 登记，取到的内容和学段无关。二期一旦有人加一行按学段登记的
+	// 内容（比如 {write, zh, Grades:["junior2"]}，分数 26），它会**输给**
 	// 现有的 {write, zh, Genres:["narrative"]}（分数 28，见 guidance.go
 	// specificity）：那个年级专属的内容永远选不中，而这条测试照样绿，因为
-	// want 里等着的仍是不分年级的那份泛化内容。**第一次有行开始登记 Stages
-	// 时，want 必须按 lang/genre/stage 三轴键，不能再按 lang/genre 两轴**，
+	// want 里等着的仍是不分年级的那份泛化内容。**第一次有行开始登记 Grades
+	// 时，want 必须按 lang/genre/grade 三轴键，不能再按 lang/genre 两轴**，
 	// 否则这条测试只是给了个假的安全感。
 	stages := []string{"", "junior1", "junior2", "junior3", "senior1", "senior2", "senior3"}
 
@@ -73,7 +73,7 @@ func TestEveryCombinationResolves(t *testing.T) {
 	for _, lang := range langs {
 		for _, genre := range []string{"argument", "narrative"} {
 			for _, stage := range stages {
-				k := Key{Surface: SurfaceWrite, Lang: lang, Genre: genre, Stage: stage}
+				k := Key{Surface: SurfaceWrite, Lang: lang, Genre: genre, Grade: stage}
 				got, err := Default().Resolve(k, SlotKinds, SlotMaterial, SlotSkeleton)
 				if err != nil {
 					t.Errorf("%+v 取不齐：%v", k, err)
@@ -100,25 +100,25 @@ func TestEveryCombinationResolves(t *testing.T) {
 
 // 🚨 定了学段的那一行，绝不能落到一个没说学段的 Key 上。
 //
-// Task 1 的评审发现这条分支一个测试都没有。它今天还不要紧（本期 Stage 恒为
-// ""），但二期 classes.stage 一上线它就是真的：她的年级还没读出来的时候，
+// Task 1 的评审发现这条分支一个测试都没有。它今天还不要紧（本期 Grade 恒为
+// ""），但二期 classes.grade 一上线它就是真的：她的年级还没读出来的时候，
 // 给她初二专用的教学内容就是给错人。
 func TestStageScopedRowNeverMatchesUnknownStage(t *testing.T) {
 	rows := []Row[string]{
-		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Stages: []string{"junior2"}}, Value: "初二专用"},
-		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Stages: []string{"junior"}}, Value: "整个初中"},
+		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Grades: []string{"junior2"}}, Value: "初二专用"},
+		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Grades: []string{"junior"}}, Value: "整个初中"},
 	}
 	// 学段未知 —— 两行都不该接住她。
 	if got, ok := Pick(Key{Surface: SurfaceWrite, Lang: "zh"}, rows); ok {
 		t.Errorf("学段未知时取到了 %q，定了学段的行不该匹配", got)
 	}
 	// 学段知道了，就该接住。
-	if got, ok := Pick(Key{Surface: SurfaceWrite, Lang: "zh", Stage: "junior2"}, rows); !ok || got != "初二专用" {
+	if got, ok := Pick(Key{Surface: SurfaceWrite, Lang: "zh", Grade: "junior2"}, rows); !ok || got != "初二专用" {
 		t.Errorf("学段是 junior2 时该拿到「初二专用」，拿到 %q ok=%v", got, ok)
 	}
 }
 
-// 🚨 Stages 或 Genres 里写了一个空串，是一行**写坏了的**登记。
+// 🚨 Grades 或 Genres 里写了一个空串，是一行**写坏了的**登记。
 //
 // 它必须谁都不匹配 —— 而不是反过来变成「不限」，把一行本该窄的内容
 // 撒给所有人。guidance.go 里 contains 对空串直接返回 false 就是为这件事，
@@ -127,12 +127,12 @@ func TestStageScopedRowNeverMatchesUnknownStage(t *testing.T) {
 // 条测试一条都不红）。
 func TestMalformedEmptyStringInScopeMatchesNothing(t *testing.T) {
 	rows := []Row[string]{
-		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Stages: []string{""}}, Value: "写坏了的学段行"},
+		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Grades: []string{""}}, Value: "写坏了的学段行"},
 		{Scope: Scope{Surface: SurfaceWrite, Lang: "zh", Genres: []string{""}}, Value: "写坏了的文体行"},
 	}
 	for _, k := range []Key{
 		{Surface: SurfaceWrite, Lang: "zh"},
-		{Surface: SurfaceWrite, Lang: "zh", Stage: "junior2"},
+		{Surface: SurfaceWrite, Lang: "zh", Grade: "junior2"},
 		{Surface: SurfaceWrite, Lang: "zh", Genre: "argument"},
 	} {
 		if got, ok := Pick(k, rows); ok {

@@ -15,7 +15,7 @@ type Key struct {
 	Surface string // SurfaceRead / SurfaceWrite / SurfaceComment
 	Lang    string // "zh" | "en"
 	Genre   string // argument | narrative | report | explain
-	Stage   string // "" 不限 | junior1..3 | senior1..3
+	Grade   string // "" 不限 | junior1..3 | senior1..3
 }
 
 const (
@@ -25,12 +25,12 @@ const (
 )
 
 // Scope 是一行登记：它在什么情况下适用。
-// Genres / Stages 为空表示不限；Surface / Lang 为空同理。
+// Genres / Grades 为空表示不限；Surface / Lang 为空同理。
 type Scope struct {
 	Surface string
 	Lang    string
 	Genres  []string
-	Stages  []string // 可以写年级（junior2），也可以写学段（junior）
+	Grades  []string // 可以写年级（junior2），也可以写学段（junior）
 }
 
 // Row 是注册表里的一行。T 是这一行携带的东西 —— 一段正文、一套读法、
@@ -40,12 +40,12 @@ type Row[T any] struct {
 	Value T
 }
 
-// StageBand 把年级折成学段。
+// GradeBand 把年级折成学段。
 //
-// 「整个初中通用」的内容因此只写一份，登记成 Stages: []string{"junior"}，
+// 「整个初中通用」的内容因此只写一份，登记成 Grades: []string{"junior"}，
 // 初一初二初三都取得到。
-func StageBand(stage string) string {
-	switch stage {
+func GradeBand(grade string) string {
+	switch grade {
 	case "junior1", "junior2", "junior3":
 		return "junior"
 	case "senior1", "senior2", "senior3":
@@ -65,8 +65,8 @@ func (s Scope) Matches(k Key) bool {
 	if len(s.Genres) > 0 && !contains(s.Genres, k.Genre) {
 		return false
 	}
-	if len(s.Stages) > 0 &&
-		!contains(s.Stages, k.Stage) && !contains(s.Stages, StageBand(k.Stage)) {
+	if len(s.Grades) > 0 &&
+		!contains(s.Grades, k.Grade) && !contains(s.Grades, GradeBand(k.Grade)) {
 		return false
 	}
 	return true
@@ -75,7 +75,7 @@ func (s Scope) Matches(k Key) bool {
 // specificity —— 这一行有多具体。大的赢。
 //
 // 权重拉开到 2 的幂，算出来的不是「轴的条数」，是一条严格的优先顺序：
-// Surface(16) > Lang(8) > Genre(4) > Stage(最多 3)。上一根轴单独一分，
+// Surface(16) > Lang(8) > Genre(4) > Grade(最多 3)。上一根轴单独一分，
 // 永远压过下面所有轴加在一起 —— 8 > 4+3，定了语言的一行一定赢只在文体、
 // 学段上更细的一行，不管那一行凑了几根轴。
 //
@@ -96,9 +96,9 @@ func (s Scope) specificity(k Key) int {
 		n += 4
 	}
 	switch {
-	case len(s.Stages) == 0:
+	case len(s.Grades) == 0:
 		// 不限学段，不加分。
-	case contains(s.Stages, k.Stage):
+	case contains(s.Grades, k.Grade):
 		n += 2 // 年级逐字命中
 	default:
 		n += 1 // 只命中学段
