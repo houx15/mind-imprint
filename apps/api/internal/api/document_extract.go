@@ -10,7 +10,7 @@ package api
 // 🚨 为什么不是「再写一个写作版的上传接口」：阅读那一侧的上传（
 // reading_source_file.go）把文本直接落成那一篇阅读材料，它和一个 reading id
 // 绑死。写作要的是另一件事 —— 把文字取出来放进她正在写的那个框，落库与否由她
-// 按「请印记看看」的时候决定。共用的是**取文字**这一段，不是落库那一段。
+// 按「AI审阅」的时候决定。共用的是**取文字**这一段，不是落库那一段。
 //
 // 所以这个接口只做取文字：收文件、回 {title, text}。阅读那条路照旧（它还要
 // 落库），但两边认的格式和失败话术都来自 docextract 那一处。
@@ -55,7 +55,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 
 	if !docextract.IsSupported(header.Filename) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("unsupported_type",
-			"只收这几种文件："+strings.Join(docextract.Supported, " / ")+"。", nil))
+			"支持的文件格式："+strings.Join(docextract.Supported, " / ")+"。", nil))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 	title, text, err := docextract.Any(header.Filename, data)
 	if err != nil {
 		// 具体那一句给她 —— 扫描件和「文件坏了」是两回事。
-		msg := "这个文件没能解析出正文。把正文粘进来也一样能往下走。"
+		msg := "文件解析失败：未提取到正文，请尝试粘贴正文。"
 		var te *docextract.ErrText
 		if errors.As(err, &te) {
 			msg = te.Msg
@@ -81,7 +81,7 @@ func (a *API) postDocumentExtract(w http.ResponseWriter, r *http.Request) {
 	body := strings.TrimSpace(text)
 	if body == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_text",
-			"这个文件里没有读到文字。把正文粘进来也一样能往下走。", nil))
+			"文件中未识别到文字，请尝试粘贴正文。", nil))
 		return
 	}
 

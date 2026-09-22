@@ -136,7 +136,7 @@ export function ClassWeeklyPage({
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <StudentGroup
               title="值得表扬"
-              emptyText="本周暂无值得表扬的学生"
+              emptyText="本周记录尚未触发表扬建议"
               cards={data.praise}
               prose={data.prose}
               watchUserIds={new Set(data.watch.map((c) => c.userId))}
@@ -144,7 +144,7 @@ export function ClassWeeklyPage({
             />
             <StudentGroup
               title="需要建议"
-              emptyText="本周暂无需要沟通的学生"
+              emptyText="本周记录尚未触发沟通建议"
               cards={data.watch}
               prose={data.prose}
               watchUserIds={new Set(data.watch.map((c) => c.userId))}

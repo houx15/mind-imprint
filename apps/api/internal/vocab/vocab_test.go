@@ -116,9 +116,9 @@ func TestByID_AndFor(t *testing.T) {
 	if _, ok := ByID("no_such_method"); ok {
 		t.Fatal("ByID returned ok for an unknown id")
 	}
-	openings := For("opening", "zh")
+	openings := For("opening", "zh", "")
 	if len(openings) == 0 {
-		t.Fatal(`For("opening", "zh") returned nothing`)
+		t.Fatal(`For("opening", "zh", "") returned nothing`)
 	}
 	for _, m := range openings {
 		if m.AppliesTo != "opening" && m.AppliesTo != "any" {
@@ -131,10 +131,20 @@ func TestByID_AndFor(t *testing.T) {
 // language axis exists for — deliberately as properties, not as counts, so that
 // re-tagging an entry wrongly fails here instead of quietly passing:
 //
-//  1. A Chinese piece is never offered an English EXPRESSION. Sentence frames
-//     ("While it is true that ___") are the only language-bound thing in the
-//     library, and they live in `patterns` — so "no entry carrying patterns
-//     reaches lang=zh" is the real guarantee, stronger than naming en_* ids.
+//  1. A Chinese piece is never offered an English EXPRESSION. The wording lives
+//     in `patterns` — so what we check is that no frame reaching lang=zh is
+//     written in LATIN SCRIPT, which is the failure itself rather than a
+//     stand-in for it.
+//
+//     🚨 2026-09-21: this used to read `len(m.Patterns) > 0`, on the premise
+//     (stated in this comment) that frames were the only language-bound thing
+//     in the library and therefore always English. R4 brought in the 分析句三法
+//     from a Chinese teacher's 讲义, whose whole value is their 句式
+//     (「假如……，那么……？」) — Chinese frames, for a Chinese piece. The old
+//     line fired on them: it was aimed at the shadow of the failure, not the
+//     failure. Reading the script keeps the real guarantee and also catches an
+//     English entry that someone forgot to tag `lang: "en"`, which a bare
+//     lang check would wave through.
 //  2. An English piece keeps a full vocabulary at EVERY position. Tagging the
 //     structural methods "zh" would have left an English writer with one
 //     opening method and no closings — the mirror image of the reported bug,
@@ -143,42 +153,45 @@ func TestFor_NeverOffersEnglishWordingToAChinesePiece(t *testing.T) {
 	positions := []string{"opening", "body", "closing"}
 
 	for _, pos := range append(positions, "any") {
-		for _, m := range For(pos, "zh") {
-			if len(m.Patterns) > 0 {
-				t.Errorf("For(%q, \"zh\") offered %q, which carries sentence frames — 中文作文 must never be handed English wording", pos, m.ID)
+		for _, m := range For(pos, "zh", "") {
+			if f, ok := latinFrame(m); ok {
+				t.Errorf("For(%q, \"zh\") offered %q, whose frame %q is English wording — 中文作文 must never be handed it", pos, m.ID, f)
 			}
 			if m.Lang == "en" {
 				t.Errorf("For(%q, \"zh\") offered English-only method %q", pos, m.ID)
 			}
 		}
 	}
-	for _, m := range ForLang("zh") {
-		if len(m.Patterns) > 0 || m.Lang == "en" {
-			t.Errorf(`ForLang("zh") offered %q, an English-wording entry`, m.ID)
+	for _, m := range ForLang("zh", "") {
+		if f, ok := latinFrame(m); ok {
+			t.Errorf(`ForLang("zh", "") offered %q, whose frame %q is English wording`, m.ID, f)
+		}
+		if m.Lang == "en" {
+			t.Errorf(`ForLang("zh", "") offered %q, an English-only entry`, m.ID)
 		}
 	}
 
 	// The English half: every position must still have something to teach.
 	for _, pos := range positions {
-		if got := For(pos, "en"); len(got) == 0 {
+		if got := For(pos, "en", ""); len(got) == 0 {
 			t.Errorf("For(%q, \"en\") returned nothing — an English writer has no method to be offered at this position", pos)
 		}
 	}
 	// …and the frames themselves are what an English writer gets that a
 	// Chinese one must not.
 	var sawFrames bool
-	for _, m := range For("body", "en") {
+	for _, m := range For("body", "en", "") {
 		if len(m.Patterns) > 0 {
 			sawFrames = true
 		}
 	}
 	if !sawFrames {
-		t.Error(`For("body", "en") offered no sentence frames — English writers lost the entries that are theirs`)
+		t.Error(`For("body", "en", "") offered no sentence frames — English writers lost the entries that are theirs`)
 	}
 
 	// The structural methods serve both, so a Chinese piece keeps its own.
 	for _, pos := range positions {
-		if got := For(pos, "zh"); len(got) == 0 {
+		if got := For(pos, "zh", ""); len(got) == 0 {
 			t.Errorf("For(%q, \"zh\") returned nothing", pos)
 		}
 	}
@@ -248,7 +261,7 @@ func TestEnglishPieceGetsVocabSentenceAndStoryMethods(t *testing.T) {
 		{"en_story_landing", "closing"},
 	} {
 		var found bool
-		for _, m := range For(tc.pos, "en") {
+		for _, m := range For(tc.pos, "en", "") {
 			if m.ID == tc.id {
 				found = true
 			}
@@ -262,7 +275,7 @@ func TestEnglishPieceGetsVocabSentenceAndStoryMethods(t *testing.T) {
 	// ToAChinesePiece covers that generally; naming the new families here means
 	// a future edit that retags one of them "any" fails with the reason
 	// attached, rather than as a count mismatch somewhere else.
-	for _, m := range ForLang("zh") {
+	for _, m := range ForLang("zh", "") {
 		for family, ids := range families {
 			for _, id := range ids {
 				if m.ID == id {
@@ -294,7 +307,7 @@ func TestVocabHasTheStandardArgumentMethods(t *testing.T) {
 
 func TestVocabHasTheFourArgumentStructures(t *testing.T) {
 	want := map[string]bool{"总分式": true, "并列式": true, "层进式": true, "对照式": true}
-	for _, m := range Structures() {
+	for _, m := range Structures("") {
 		delete(want, m.Name)
 		if m.Category != "structure" {
 			t.Errorf("%s 的 category 该是 structure，得到 %q", m.Name, m.Category)
@@ -312,13 +325,13 @@ func TestVocabHasTheFourArgumentStructures(t *testing.T) {
 // 「这一段用总分式」是句错话，而 ForLang 正是喂给规划和批量引导两个 prompt
 // 的那一份 —— 漏进去，模型就会在某一段的引导里说「这一段可以用总分式」。
 func TestWholePieceStructuresStayOutOfPerBlockLists(t *testing.T) {
-	for _, m := range ForLang("zh") {
+	for _, m := range ForLang("zh", "") {
 		if m.AppliesTo == "whole" {
 			t.Errorf("整篇层的 %q 漏进了 ForLang", m.Name)
 		}
 	}
 	for _, pos := range []string{"opening", "body", "closing"} {
-		for _, m := range For(pos, "zh") {
+		for _, m := range For(pos, "zh", "") {
 			if m.AppliesTo == "whole" {
 				t.Errorf("整篇层的 %q 漏进了 For(%q)", m.Name, pos)
 			}
@@ -348,16 +361,38 @@ func TestVocabKeepsTheNamesPromptsAlreadyUse(t *testing.T) {
 	}
 }
 
+// latinFrame 交出这一条里第一句用拉丁字母写的句式。
+//
+// 判的是**这句话是拿什么文字写的**，不是这一条有没有句式 —— 见
+// TestFor_NeverOffersEnglishWordingToAChinesePiece 头上那段。一个 ASCII 字母
+// 就够：中文的句式里只有汉字、省略号和句读。
+func latinFrame(m Method) (string, bool) {
+	for _, p := range m.Patterns {
+		for _, r := range p.Frame {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				return p.Frame, true
+			}
+		}
+	}
+	return "", false
+}
+
 // 每一条 body 的方法都要说清自己属于哪一类；开篇/结尾/英文句式不在这条轴上。
 func TestVocabCategoriesAreSet(t *testing.T) {
+	// body 这一层上允许的几类。R4 之前只有前两个 —— 那两类回答的是
+	// 「这一段怎么证」；analysis 回答的是「例子摆完之后那一句怎么写」，
+	// detail 回答的是「记叙文这一段怎么写具体」，都是另一层的问题。
+	bodyCategories := map[string]bool{
+		"method": true, "structure": true, "analysis": true, "detail": true,
+	}
 	for _, m := range All() {
 		switch m.AppliesTo {
 		case "body":
 			if m.Lang == "en" {
 				continue // 英文句式不在这条轴上
 			}
-			if m.Category != "method" && m.Category != "structure" {
-				t.Errorf("%s（body）的 category 是 %q，该是 method 或 structure", m.ID, m.Category)
+			if !bodyCategories[m.Category] {
+				t.Errorf("%s（body）的 category 是 %q，不在允许的几类里", m.ID, m.Category)
 			}
 		case "whole":
 			if m.Category != "structure" {

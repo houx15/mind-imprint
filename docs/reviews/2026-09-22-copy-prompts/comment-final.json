@@ -1,0 +1,38 @@
+[
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 7466,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段开门见山提出观点，再用去走廊复习的经历说明晚自习后住校生缺少安静的自习场所，例子有具体的人物和场景。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子说明了教室关闭后住校生无处自习的困难，但例子摆在这里就结束了，没有说明它和延长图书馆开放时间之间的关系，读者不知道「有人经过」的走廊如何指向图书馆开放时长的问题。\",\"action\":\"在这句之后补一两句解释，说明走廊复习的困难和图书馆开放时间之间的具体关系，例如说明晚自习后图书馆处于什么状态。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\"}]}",
+    "Usage": {
+      "inputTokens": 7453,
+      "outputTokens": 380,
+      "cachedInputTokens": 6656
+    },
+    "StopReason": "",
+    "ValidationError": "production comment check: 缺",
+    "RequestSHA256": "8727d736da08c2a082b9106d1af926ab6bf1b0eb2d4c36f21f801508e3c8e950"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3352,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这段开头直接给出了观点，并用一次亲身经历说明了教室关闭后住校生自习的困难，事例具体。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」这件事说明了晚自习后住校生确实找不到安静的自习场所，但段落到此为止，读者需要自己推断「走廊里有人经过」和「图书馆应该延长开放时间」之间的联系。\",\"action\":\"在走廊这件事之后补两三句解释，说明这次经历说明延长开放时间能解决的是哪个具体问题，例如和走廊的条件对比着说明图书馆能提供什么。\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过\"}]}",
+    "Usage": {
+      "inputTokens": 3548,
+      "outputTokens": 178,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "8727d736da08c2a082b9106d1af926ab6bf1b0eb2d4c36f21f801508e3c8e950"
+  }
+]

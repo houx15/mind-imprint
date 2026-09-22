@@ -34,7 +34,7 @@ import type { ToolSurfaceProps } from "../registry";
  * drag, add, modify, and reframe, like a small game.」
  *
  * 上一版是按堆分的几列，只能在列之间拖。这一版便签摊在一块板上，位置由她自己
- * 摆（x/y 落库），可以随便挪、点着选、把选中的几张归成一堆。
+ * 摆（x/y 落库），可以随便挪、点着选、把选中的几张添加到分组。
  *
  * 🚨 摆位置本身是有意义的，不只是好玩：把两张纸挪到一起，是"我觉得这两件事有
  * 关系"这个判断的第一次出手，而且它发生在她能把这句话说出口之前。所以位置要
@@ -597,7 +597,7 @@ export function Board({
               className="shrink-0 whitespace-nowrap rounded-mk-full px-2.5 py-0.5 text-mk-small text-white disabled:opacity-40"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              归成一堆
+              添加到分组
             </button>
             {/* 🚨 正好选中两张时，才谈得上「它们之间是什么关系」。 */}
             {picked.length === 2 &&

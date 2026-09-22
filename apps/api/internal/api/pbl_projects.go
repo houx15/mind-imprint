@@ -86,7 +86,7 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if !open {
 		httpx.WriteError(w, r, httpx.ErrConflict(
-			"先把你自己的主页做出来。往后你读的、写的、做的都要有地方放，那个地方得先存在。做完发布了，这里就打开了。"))
+			"请先完成并发布个人主页，用于展示阅读、写作与项目成果。发布后即可创建其他项目。"))
 		return
 	}
 

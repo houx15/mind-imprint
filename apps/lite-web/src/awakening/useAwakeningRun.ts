@@ -74,6 +74,16 @@ export interface UseAwakeningRun {
   patch: (patch: Partial<RunState>) => void;
   /** 把服务端那一行换成新的（终端发完一轮之后要刷新 turns）。 */
   setRun: (run: AwakeningRun) => void;
+  /**
+   * 换到另一条线索上去。
+   *
+   * 🚨 `setRun` 只换服务端那一行，**不动前端持有的那份状态**，所以用它换线索
+   * 会把上一条的助手、能量结果留在屏幕上。换线索要连状态和存盘用的 id 一起
+   * 换掉，这就是 adopt 和 setRun 分成两个的原因。
+   */
+  adopt: (run: AwakeningRun) => void;
+  /** 另起一条线索。旧的那条原样停在线索库里。 */
+  startFresh: () => Promise<AwakeningRun>;
 }
 
 export function useAwakeningRun(enabled: boolean): UseAwakeningRun {
@@ -154,5 +164,23 @@ export function useAwakeningRun(enabled: boolean): UseAwakeningRun {
 
   const setRun = useCallback((r: AwakeningRun) => setRunRaw(r), []);
 
-  return { run, state, error, loading, go, patch, setRun };
+  const adopt = useCallback((r: AwakeningRun) => {
+    idRef.current = r.id;
+    const next = stateOf(r);
+    stateRef.current = next;
+    setRunRaw(r);
+    setState(next);
+  }, []);
+
+  const startFresh = useCallback(async () => {
+    const r = await startAwakening(true);
+    idRef.current = r.id;
+    const next = stateOf(r);
+    stateRef.current = next;
+    setRunRaw(r);
+    setState(next);
+    return r;
+  }, []);
+
+  return { run, state, error, loading, go, patch, setRun, adopt, startFresh };
 }

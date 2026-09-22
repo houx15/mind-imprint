@@ -276,7 +276,7 @@ func (a *API) startLibraryReading(w http.ResponseWriter, r *http.Request) {
 	}
 	tier, err := strconv.Atoi(r.PathValue("tier"))
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "难度档位要是一个数字", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "难度档位必须为数字", nil))
 		return
 	}
 
@@ -286,7 +286,7 @@ func (a *API) startLibraryReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("这篇文章不在阅读库里"))
 		return
 	case errors.Is(err, errLibraryTierInvalid):
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "这篇文章没有这一档", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_tier", "该文章不提供此难度档位", nil))
 		return
 	case err != nil:
 		httpx.WriteError(w, r, err)

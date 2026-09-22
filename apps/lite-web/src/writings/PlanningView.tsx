@@ -325,7 +325,7 @@ export function PlanningView({
               >
                 <p className="text-mk-label text-mk-accent-700">计划已可开始写作</p>
                 <p className="text-mk-small leading-relaxed text-mk-ink">
-                  这份思路已经够撑起一篇。开头与结尾可以等主体写出来之后再定。
+                  当前思路已可用于起草。开头与结尾可以在主体段完成后再确定。
                 </p>
                 {/* 🚨 它凭什么说够了 —— 把数出来的那几个数摆出来。
                     产品负责人 2026-09-12 的原话：「AI 就判断已足以支撑一篇文章，

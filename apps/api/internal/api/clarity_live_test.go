@@ -21,7 +21,7 @@ func TestClarityReading(t *testing.T) {
 		{"concept", "focus_block", "比较装机容量和发电量，说明它们能否直接用于同一种判断", "装机容量和发电量这两个词是什么意思？", "", nil},
 		{"help", "focus_block", "找出一个关键数字并说明它衡量什么", "我不会，请给一个提示。", "", nil},
 		{"partial", "focus_block", "找出一个关键数字并说明它衡量什么", "我选第三段连续八年第一。", "", nil},
-		{"done", "focus_block", "找出一个关键数字并说明它衡量什么", "我选2023年新增太阳能装机超过一半在中国。这是中国在全球新增太阳能发电能力中的占比，不是实际发电量的占比。", "done", nil},
+		{"done", "focus_block", "找出一个关键数字并说明它衡量什么", "我选第三段的连续八年位居世界第一。它衡量的是中国可再生能源新增装机量的世界排名，不是实际发电量的排名。", "done", nil},
 		{"skip", "focus_block", "找出一个关键数字并说明它衡量什么", "请跳过这一步。", "skipped", nil},
 		{"read-done", "read", "通读全文", "我已经读完了。", "done", nil},
 		{"connect", "connect", "联系自己的经历", "我家去年装了太阳能板，阴天和晴天发的电差别很大。", "done", nil},
@@ -43,7 +43,14 @@ func TestClarityReading(t *testing.T) {
 				if out.Advance != input.advance {
 					return fmt.Errorf("advance = %q, want %q", out.Advance, input.advance)
 				}
-				return nil
+				visible := out.Reply
+				if input.name == "partial" && (strings.Contains(visible, "可再生能源新增装机") || strings.Contains(visible, "新的发电设备安装规模")) {
+					return errors.New("partial-answer hint supplies the missing statistical object")
+				}
+				if out.Card != nil {
+					visible += out.Card.Prompt
+				}
+				return checkClarityTeachingLanguage(visible)
 			})
 		})
 	}
@@ -69,6 +76,13 @@ func TestClarityReadingLens(t *testing.T) {
 				if !ok {
 					return errors.New("reading lens parse failed")
 				}
+				visible := out.Reply
+				if out.Card != nil {
+					visible += out.Card.Prompt
+				}
+				if err := checkClarityTeachingLanguage(visible); err != nil {
+					return err
+				}
 				if out.Advance != c.advance {
 					return fmt.Errorf("advance = %q, want %q", out.Advance, c.advance)
 				}
@@ -83,12 +97,12 @@ func TestClarityWriting(t *testing.T) {
 	block := sqlc.WritingOutline{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Text: "晚自习后需要安静的自习场所", Role: "一条理由"}
 	text := "学校图书馆应该延长开放时间。晚自习后教室关闭，住校生缺少安静的自习场所。上周我和三位同学因此去走廊复习，但走廊里一直有人经过。"
 	t.Run("plan", func(t *testing.T) {
-		claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: fmt.Sprintf(writingPlanSystem, writingPlanMaxNewNodes)}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, nil, nil, "我想主张延长开放。晚自习后教室关门，上周我和三位同学只能在走廊复习。请帮我整理这些想法。")}}}, func(raw string) error {
+		claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument)}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, nil, nil, "我想主张延长开放。晚自习后教室关门，上周我和三位同学只能在走廊复习。请帮我整理这些想法。")}}}, func(raw string) error {
 			_, ok := parseWritingPlanReply(raw)
 			if !ok {
 				return errors.New("plan parse failed")
 			}
-			return nil
+			return checkClarityTeachingLanguage(raw)
 		})
 	})
 	t.Run("guide", func(t *testing.T) {
@@ -97,21 +111,34 @@ func TestClarityWriting(t *testing.T) {
 			if !ok {
 				return errors.New("guide parse failed")
 			}
-			return nil
+			return checkClarityTeachingLanguage(raw)
 		})
 	})
 	t.Run("comment", func(t *testing.T) {
-		claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, "")}, {Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", text, "")}}}, func(raw string) error {
+		claritytest.Run(t, gateway.ClassReview, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, "", helpAsk, genreArgument)}, {Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", text, "", genreArgument)}}}, func(raw string) error {
 			out, ok := parseWritingComment(raw)
 			if !ok {
 				return errors.New("comment parse failed")
 			}
-			for _, p := range out.Points {
-				if !strings.Contains(text, p.Quote) {
-					return errors.New("comment quote not in original")
+			// Validate the delivered quotes after the production normalizer has
+			// recovered a verbatim quote placed in text instead of quote.
+			kept := validateCommentPoints(out.Points, text, "zh", writingBlockCommentMaxIssues)
+			for _, p := range kept {
+				if p.Quote == "" || !strings.Contains(text, p.Quote) {
+					return errors.New("delivered comment quote not in original")
 				}
 			}
+			if marker, _ := writingCommentProblem(out, kept); marker != "" {
+				return fmt.Errorf("production comment check: %s", marker)
+			}
+			visible := out.Summary
+			for _, p := range kept {
+				visible += p.Text + p.Action
+			}
+			if err := checkClarityTeachingLanguage(visible); err != nil {
+				return err
+			}
 			return nil
-		})
+		}, clarityCommentDelivery(t, text, "zh"))
 	})
 }

@@ -35,7 +35,9 @@ func liteGradingInput(src sqlc.GetLiteGradingSourceRow, rubric liteassign.Rubric
 	return litegrade.Input{
 		Lang: src.Lang, Title: src.Title, Body: src.Body, AssignedPrompt: prompt,
 		TargetWords: target, VersionNumber: int(src.Number), Rubric: rubric,
-		SymptomCatalog: writingSymptomCatalog(src.Lang),
+		// 老师批改那一路不挑文体：她交上来的可能是任何一种，
+		// 多给几条认得出的毛病不会伤到谁。
+		SymptomCatalog: writingSymptomCatalog(src.Lang, genreNarrative),
 		PersonJudging:  personDirectedVerdict,
 	}
 }
@@ -68,7 +70,13 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 	out := gradeOutcome{Attempts: liteGradingAttempts}
 	for attempt := 1; attempt <= liteGradingAttempts; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, liteGradingCallTimeout)
-		res, err := gateway.Collect(callCtx, prov, resolved, gateway.ChatRequest{Messages: msgs})
+		req := gateway.ChatRequest{Messages: msgs}
+		// Use the existing wire-level object constraint where supported. The
+		// rubric and quote checks below still validate the object's contents.
+		if resolved.Kind == gateway.KindOpenAICompatible {
+			req.ResponseFormat = gateway.ResponseFormatJSONObject
+		}
+		res, err := gateway.Collect(callCtx, prov, resolved, req)
 		cancel()
 		record(res.Usage)
 		out.LastReply, out.ParseErr = res.Text, nil

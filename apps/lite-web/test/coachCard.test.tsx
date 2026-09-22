@@ -174,7 +174,7 @@ describe("CoachCard", () => {
     expect(screen.getByText(SHORT_TEXT.prompt)).toBeTruthy();
     const box = screen.getByRole("textbox");
     fireEvent.change(box, { target: { value: "  他只算了成本，没算住在那儿的人。  " } });
-    fireEvent.click(screen.getByRole("button", { name: /说说看|发给印记|交给印记/ }));
+    fireEvent.click(screen.getByRole("button", { name: /提交回答/ }));
 
     expect(onAnswer).toHaveBeenCalledTimes(1);
     expect(onAnswer.mock.calls[0]![0]).toEqual({
@@ -189,7 +189,7 @@ describe("CoachCard", () => {
     render(<CoachCard card={SHORT_TEXT} onAnswer={onAnswer} />);
 
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "   " } });
-    fireEvent.click(screen.getByRole("button", { name: /说说看|发给印记|交给印记/ }));
+    fireEvent.click(screen.getByRole("button", { name: /提交回答/ }));
 
     expect(onAnswer).not.toHaveBeenCalled();
   });

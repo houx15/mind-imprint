@@ -51,7 +51,7 @@ import {
  * 每一块的引导存在服务端、随 `GET /outline` 回来；第一次进段落、一条都还没有
  * 的时候，整篇一次批量生成。「换一组问题」只是再要一组。
  *
- * ## 请印记看看这一段（B4）
+ * ## AI审阅这一段（B4）
  * 和成稿同一个 `CommentPanel`，意见落在纸的下面；点一条意见，纸上选中被引的那一句。
  *
  * ## 铁律①
@@ -698,7 +698,7 @@ function CardPaper({
 
   async function askForComment() {
     if (!text.trim()) {
-      setError("这一段还没有内容，请先写再请印记看。");
+      setError("这一段还没有内容，请先写再审阅。");
       return;
     }
     setCommenting(true);
@@ -788,7 +788,7 @@ function CardPaper({
             loading={commenting}
             iconStart={<Icon icon={Eye} size={14} />}
           >
-            请印记看看这一段
+            AI审阅这一段
           </Button>
           {prev && (
             <Button variant="ghost" size="sm" onClick={prev} aria-label="上一张" iconStart={<Icon icon={ChevronLeft} size={14} />}>

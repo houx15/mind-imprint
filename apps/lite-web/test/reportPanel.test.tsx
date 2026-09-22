@@ -136,7 +136,7 @@ describe("ReportPanel", () => {
     expect(screen.getByText("阅读时长")).toBeTruthy();
     // And it says so, rather than letting a report missing those two
     // sections read as a finished report that simply has none.
-    expect(screen.getByText(/处理中/)).toBeTruthy();
+    expect(screen.getByText(/正在生成/)).toBeTruthy();
   });
 
   it("fills the prose in on the follow-up fetch, with nothing for her to do", async () => {
@@ -154,7 +154,7 @@ describe("ReportPanel", () => {
     expect(await screen.findByText("学会了先看来源")).toBeTruthy();
     await waitFor(() => expect(calls).toBe(2));
     // Once the prose is in, the 处理中 line goes away on its own.
-    expect(screen.queryByText(/处理中/)).toBeNull();
+    expect(screen.queryByText(/正在生成/)).toBeNull();
   });
 
   it("does not re-fetch a report whose prose is already there", async () => {
@@ -171,7 +171,7 @@ describe("ReportPanel", () => {
     // Every reopen of a finished report must stay free — one request, and no
     // 处理中 line either.
     await waitFor(() => expect(calls).toBe(1));
-    expect(screen.queryByText(/处理中/)).toBeNull();
+    expect(screen.queryByText(/正在生成/)).toBeNull();
   });
 
   it("renders nothing loud when the server says null", async () => {

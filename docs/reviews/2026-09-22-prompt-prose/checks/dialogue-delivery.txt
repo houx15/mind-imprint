@@ -1,0 +1,40 @@
+=== RUN   TestClarityGuideDialogue
+=== RUN   TestClarityGuideDialogue/NOVA/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1821 input=740 output=58 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=2537 input=740 output=74 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2769 input=752 output=101 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=3217 input=752 output=102 valid=true
+=== RUN   TestClarityGuideDialogue/NOVA/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=1 model=dashscope/deepseek-v4.1-flash ms=2430 input=719 output=71 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/NOVA/last sample=2 model=dashscope/deepseek-v4.1-flash ms=2270 input=719 output=59 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=2768 input=738 output=88 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=2952 input=738 output=62 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2616 input=750 output=71 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=10559 input=750 output=48 valid=true
+=== RUN   TestClarityGuideDialogue/SAGE/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=1 model=dashscope/deepseek-v4.1-flash ms=4789 input=717 output=91 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/SAGE/last sample=2 model=dashscope/deepseek-v4.1-flash ms=12030 input=717 output=72 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/opening
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=1 model=dashscope/deepseek-v4.1-flash ms=1519 input=762 output=79 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/opening sample=2 model=dashscope/deepseek-v4.1-flash ms=3079 input=762 output=99 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/retry
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=1 model=dashscope/deepseek-v4.1-flash ms=2489 input=774 output=67 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/retry sample=2 model=dashscope/deepseek-v4.1-flash ms=4229 input=774 output=108 valid=true
+=== RUN   TestClarityGuideDialogue/KIRO/last
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=1 model=dashscope/deepseek-v4.1-flash ms=2349 input=741 output=70 valid=true
+    clarity_live_test.go:27: TestClarityGuideDialogue/KIRO/last sample=2 model=dashscope/deepseek-v4.1-flash ms=2480 input=741 output=83 valid=true
+--- PASS: TestClarityGuideDialogue (66.92s)
+    --- PASS: TestClarityGuideDialogue/NOVA/opening (4.36s)
+    --- PASS: TestClarityGuideDialogue/NOVA/retry (5.99s)
+    --- PASS: TestClarityGuideDialogue/NOVA/last (4.70s)
+    --- PASS: TestClarityGuideDialogue/SAGE/opening (5.72s)
+    --- PASS: TestClarityGuideDialogue/SAGE/retry (13.18s)
+    --- PASS: TestClarityGuideDialogue/SAGE/last (16.82s)
+    --- PASS: TestClarityGuideDialogue/KIRO/opening (4.60s)
+    --- PASS: TestClarityGuideDialogue/KIRO/retry (6.72s)
+    --- PASS: TestClarityGuideDialogue/KIRO/last (4.83s)
+PASS
+ok  	mindimprint/api/internal/awakening	68.006s

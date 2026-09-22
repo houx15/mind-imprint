@@ -150,10 +150,10 @@ export function Keep({
           together」）。上来就要数据，她只会觉得又是一项作业。 */}
       <div className="rounded-mk-md px-3 py-2.5" style={{ background: "var(--mk-paper)" }}>
         <p className="text-mk-small text-mk-ink">
-          东西做出来只是开始。真正让它变好的，是放出去之后你能看见什么、又据此改了什么。
+          实际使用中的反馈能帮助你判断成果需要怎样改进。
         </p>
         <p className="mt-1 text-mk-small text-mk-secondary">
-          把你观察到的带回来，我们一起看它说明了什么。
+          请记录观察结果，并说明准备据此做哪些修改。
         </p>
       </div>
 
@@ -176,7 +176,7 @@ export function Keep({
           走完一轮（记下一条「产品迭代」）就多一圈，让"又转了一圈"这件事看得见。 */}
       {laps > 0 && (
         <div className="flex items-center gap-2">
-          <span className="text-mk-small text-mk-secondary">已经转过 {laps} 圈</span>
+          <span className="text-mk-small text-mk-secondary">已完成 {laps} 次迭代</span>
           <span className="flex gap-1">
             {Array.from({ length: Math.min(laps, 8) }, (_, i) => (
               <span
@@ -400,7 +400,7 @@ export function Keep({
                           e.verdict === "met" ? "var(--mk-success)" : "var(--mk-warning)",
                       }}
                     >
-                      {e.verdict === "met" ? "已兑现" : "未兑现——这一条最值得想一想"}
+                      {e.verdict === "met" ? "已兑现" : "未达到预期"}
                     </p>
                   )}
                 </div>

@@ -77,7 +77,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 
 	// 🚨 整篇上下文（writing_piece_context.go）取代了这里原来手写的那一段。
 	// 原来那段只列每一块的**标题**，不带她在那一块写下的字 —— 于是这个
-	// 子 agent 和「请印记看看这一段」犯的是同一个错：它不知道后面的段里
+	// 子 agent 和「AI审阅这一段」犯的是同一个错：它不知道后面的段里
 	// 已经有那件具体的事了（同事 2026-09-20 的意见 6 和 9）。
 	//
 	// piece 为空（调用方读不到片段）就退回只列标题 —— 少一份上下文可以，
@@ -134,7 +134,7 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	// Position AND language (vocab.For): this sub-agent is the one that actually
 	// shows examples, so a wrong-language entry here would be read out loud.
 	b.WriteString("\n【可用的方法】（举例子只能用这里的，别自己编，例子讲的是别的题目，不是她的）\n")
-	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang, writingGenreOf(wr, outline)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	return b.String()

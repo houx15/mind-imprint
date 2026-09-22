@@ -54,8 +54,8 @@ func oneCommentTurn(t *testing.T, lang, source string) []CommentPoint {
 	wr := sqlc.Writing{Title: "食堂浪费", Lang: lang}
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(lang, writingBlockCommentMaxIssues, "")},
-			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", source, "")},
+			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(lang, writingBlockCommentMaxIssues, "", helpAsk, genreArgument)},
+			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她写的这一段", source, "", genreArgument)},
 		},
 	})
 	if err != nil {
@@ -79,7 +79,7 @@ func oneCommentTurn(t *testing.T, lang, source string) []CommentPoint {
 // 中文：至少要活下来一条，而且 issue 必须带着一句祈使。
 //
 // 🚨 「至少活下来一条」本身就是一条真断言：校验器丢得太狠的话，
-// 学生按一次「请印记看看这一段」会得到一张空白的卡 —— 那是比没有更糟的东西。
+// 学生按一次「AI审阅这一段」会得到一张空白的卡 —— 那是比没有更糟的东西。
 func TestLiveWritingComment_ZH(t *testing.T) {
 	points := oneCommentTurn(t, "zh", liveZHParagraph)
 	if len(points) == 0 {

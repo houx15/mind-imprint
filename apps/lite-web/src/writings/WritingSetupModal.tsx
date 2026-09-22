@@ -8,23 +8,27 @@ import { apiErrorText } from "../api/errorText";
 /**
  * WritingSetupModal — the first thing she sees on opening a new writing.
  *
- * Three fields, and the third one is the interesting choice. There is no
- * 文体 (genre) selector, even though genre is what decides which skeletons
- * fit: a lite student may simply not know what 文体 means, and a dropdown of
- * words she can't parse is a worse start than no question at all. So the
- * third field is an open box — "还想说点什么都行" — and the model works out
- * the genre from her own sentences. She is never asked to name a category;
- * she is asked to keep talking.
+ * 两件事：语言，和目标字数。没有 文体 选择器 —— 轻量版的学生可能根本不知道
+ * 「文体」是什么，一个她读不懂的下拉框比不问更糟；文体由模型从她自己的句子里
+ * 判断（writing_genre.go）。
  *
- * What this dialog is NOT: a gate. 目标字数 may be left blank forever (铁律②
- * — length is never a precondition), and 跳过 dismisses the whole thing with
- * the language defaulted. The one thing it always does is stamp `setupAt`, so
- * it asks once and never again.
+ * 🚨 **这里不再有那个开放输入框。** 产品负责人 2026-09-21：
  *
- * On an assigned writing the language and target are the teacher's (owner,
- * 2026-09-15): they are shown read-only, and the server keeps its stored
- * values whatever this dialog sends. The note box and the stamp work as for
- * her own writing.
+ *   「I don't think we should let students type anything in the modal
+ *     because it is a little strange. we can skip this 还想说点什么 input.
+ *     always directly enter AI-guided journey」
+ *
+ * 原来第三格是「还想说点什么？」，想让她多说两句好让后面的问题贴着她的事。
+ * 但那是**在对话开始之前**要她先写一段话 —— 而她推门进来本来就是要去说话的，
+ * 印记的第一句就在门后面等着。把那一步留在弹窗里，等于在她想说之前先要她交作业。
+ * 少了它什么都不缺：她说的每一句话仍然会到印记那里，只是从第一轮开始说。
+ *
+ * 这不是一道门：目标字数可以永远空着（铁律② —— 篇幅从来不是前置条件），
+ * 「跳过」也能把整个弹窗打发掉。它唯一一定会做的事是盖上 `setupAt`，
+ * 所以只问这一次。
+ *
+ * 从题库或老师那里来的那一篇，语言和字数都是定好的（2026-09-21 / 2026-09-15）：
+ * 只读显示，服务端不管这个弹窗发什么都保留它自己存着的值。
  */
 
 const LANGS: { value: "zh" | "en"; label: string; hint: string }[] = [
@@ -42,7 +46,6 @@ export function WritingSetupModal({
   const assigned = isAssignedWriting(writing);
   const [lang, setLang] = useState<"zh" | "en">(writing.lang === "en" ? "en" : "zh");
   const [words, setWords] = useState(writing.targetWords != null ? String(writing.targetWords) : "");
-  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +60,7 @@ export function WritingSetupModal({
     setSaving(true);
     setError(null);
     try {
-      const next = await setWritingSetup(writing.id, { lang, targetWords, note: note.trim() });
+      const next = await setWritingSetup(writing.id, { lang, targetWords, note: "" });
       onDone(next);
     } catch (err) {
       setError(apiErrorText(err));
@@ -78,7 +81,7 @@ export function WritingSetupModal({
       >
         <div className="flex flex-col gap-1.5">
           <h2 className="text-mk-h2 text-mk-ink">开始之前</h2>
-          {!assigned && <p className="text-mk-small text-mk-muted">都可以之后再改，现在随便填。</p>}
+          {!assigned && <p className="text-mk-small text-mk-muted">语言和目标字数可在开始后修改。</p>}
         </div>
 
         {assigned ? (
@@ -96,7 +99,7 @@ export function WritingSetupModal({
         ) : (
           <>
             <div className="flex flex-col gap-2">
-              <span className="text-mk-small text-mk-secondary">这篇用什么语言写？</span>
+              <span className="text-mk-small text-mk-secondary">写作语言</span>
               <div className="grid grid-cols-2 gap-2">
                 {LANGS.map((l) => {
                   const on = lang === l.value;
@@ -124,7 +127,7 @@ export function WritingSetupModal({
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-mk-small text-mk-secondary">大概写多长？（可以不填）</span>
+              <span className="text-mk-small text-mk-secondary">目标字数（选填）</span>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -140,18 +143,6 @@ export function WritingSetupModal({
             </div>
           </>
         )}
-
-        <div className="flex flex-col gap-2">
-          <span className="text-mk-small text-mk-secondary">还想说点什么？</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="比如：想写的角度、需要注意的地方……"
-            aria-label="还想说点什么"
-            className="min-h-[88px] w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-          />
-          <span className="text-mk-small text-mk-muted">说得越多，后面的问题越贴着你自己的事。</span>
-        </div>
 
         {error && (
           <p role="alert" className="text-mk-small text-mk-danger">

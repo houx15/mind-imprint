@@ -239,7 +239,7 @@ test("段落：挂在深度 1 的结尾，卡片上印的是「结尾」不是�
   await page.goto(`/writings/${writingId}`);
 
   // 先确认真的到了段落那一屏：卡片叠上那句提示只在这一步有。
-  await expect(page.getByText("请印记看看这一段")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("AI审阅这一段")).toBeVisible({ timeout: 30_000 });
 
   // 🚨 卡片叠里那一张卡本身是一个 <button>，要对着它断言。
   // 第二版对着 `[class*=rounded]` 断言，那匹配到的是**包着好几张卡的外层**，

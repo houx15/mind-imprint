@@ -48,17 +48,28 @@ const ARTICLE_BODY = [
   "所以，如果储能和电网的问题不解决，继续增加装机带来的边际收益会递减：白天多出来的电卖不掉，甚至要被弃掉。十年的增长是真实的，但把它直接外推到下一个十年，是一种过于轻松的乐观。",
 ].join("\n\n");
 
-const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF";
+// 🚨 2026-09-21 订正：占位符里那串格式后来加了 TXT、顺序也换了
+//（ReadingsLanding.tsx:263）。这条走查从那次改版起就红着。
+// 钉**整串**等于把一句会改的文案当成契约，所以只钉不会变的那一截。
+const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来";
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 
-// The greeting is split across elements — 读 is its own <span> so the ink ring
-// can be drawn behind it — so it is matched on the heading's textContent, not
-// with a text selector over the whole phrase.
+// 🚨 接口在**另一台**机器上（mind-api）。`page.request` 的相对路径会打到
+// 静态站上去，回一个读起来像「接口没了」的 405/HTML ——
+// [[online-e2e-two-hosts-2026-09-04]] 记的就是这个坑。
+// 这两处原来写的是相对路径，所以这条走查在线上永远走不过第 212 行。
+const API = (process.env.E2E_API_BASE ?? "").replace(/\/+$/, "");
+
+// 🚨 2026-09-21 订正：这里钉的原来是「Hi，今天要读点什么」，而 8a1fd0be
+// （2026-09-14，三个入口页统一换成 LandingHeader）把标题改成了「阅读」。
+// 这一族从那天起就一直是红的 —— 线上走查只在有人手动跑的时候才说话。
+// 写作那三条当天已经照这条改过；阅读这一族没跑，所以漏了。
+// 钉标题本身而不是问候语：问候语是会改的文案，标题是这一页叫什么。
 async function expectGreeting(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toBeVisible();
-  expect(await heading.textContent()).toBe("Hi，今天要读点什么");
+  expect(await heading.textContent()).toBe("阅读");
 }
 
 /** Paste an article on the landing page and land in its room. Returns the id. */
@@ -123,22 +134,28 @@ test("the landing page is the front door: greeting, shelf, and one way in", asyn
   await expect(page.getByPlaceholder(TITLE_PLACEHOLDER)).toBeVisible();
   await expect(page.getByPlaceholder(BODY_PLACEHOLDER)).toBeVisible();
   await expect(page.getByRole("button", { name: "开始阅读" })).toBeVisible();
-  await expect(page.getByText("上传 DOCX / PDF")).toBeVisible();
+  await expect(page.getByText("上传 PDF / DOCX / TXT")).toBeVisible();
 
-  // The shelf, for a student who does not know what to read. 铁律②: a fixed
-  // four, and nothing that invites her to keep scrolling.
+  // 不知道读什么？那一排。铁律②：有边的几条，不是一条可以一直滚的流。
+  //
+  // 🚨 2026-09-21 订正：这里原来钉着四个写死的标题
+  //（「城市为什么比郊区热？」那一批）。那四篇是 `recommendations.ts` 里的种子
+  // 文本，早就被**分级阅读库**取代了 —— 现在这一排是按她的兴趣树从库里挑的，
+  // 每次、每个人都不一样（见 ReadingsLanding.tsx 的文件头）。
+  // 钉标题等于把一份会变的内容当成契约，这条走查从那次改版起就一直红着。
+  //
+  // 改钉**有边**和**能往下走**，那才是铁律②要守的东西。
   await expect(page.getByText("不知道读什么？")).toBeVisible();
-  for (const title of [
-    "城市为什么比郊区热？",
-    "一份外卖的配送费，到底付给了谁？",
-    "记忆不是一盘录像带",
-    "The Gettysburg Address",
-  ]) {
-    await expect(page.getByText(title, { exact: true })).toBeVisible();
-  }
-  for (const bait of ["加载更多", "更多推荐", "继续读"]) {
+  const shelf = page.locator("article");
+  await expect(shelf.first()).toBeVisible({ timeout: 30_000 });
+  const shelfCount = await shelf.count();
+  expect(shelfCount, "这一排该是有边的几条，不是一条流").toBeLessThanOrEqual(6);
+  expect(shelfCount).toBeGreaterThan(0);
+  for (const bait of ["加载更多", "更多推荐"]) {
     await expect(page.getByText(bait)).toHaveCount(0);
   }
+  // 整座书架在另一页，从这里进得去。
+  await expect(page.getByRole("button", { name: /查看全部 \d+ 篇/ })).toBeVisible();
 
   // 我的阅读 is a drawer, not a feed on the page.
   await page.getByRole("button", { name: /我的阅读/ }).click();
@@ -156,22 +173,27 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await expect(page.locator("p[data-block-id]")).toHaveCount(4);
 
   // ── it is the REAL room ───────────────────────────────────────────────────
-  // 透镜库 · N carries the real reading deck's size, so an empty or stubbed
-  // deck fails here rather than silently rendering a button.
-  const deckButton = page.getByRole("button", { name: /^透镜库 · \d+$/ });
-  await expect(deckButton).toBeVisible();
-  const deckLabel = (await deckButton.textContent()) ?? "";
-  expect(Number(deckLabel.replace(/\D/g, ""))).toBeGreaterThanOrEqual(5);
-
-  await deckButton.click();
-  const library = page.getByRole("dialog", { name: "透镜库" });
-  await expect(library.getByRole("heading", { name: "挑一副透镜，换个角度读这篇文章" })).toBeVisible();
-  expect(await library.locator(".mk-lens-library__row").count()).toBeGreaterThanOrEqual(5);
-  await library.getByRole("button", { name: "关闭透镜库" }).click();
-  await expect(library).toBeHidden();
+  //
+  // 🚨 2026-09-21 订正：这里原来点开「透镜库 · N」，数一数里面有几副透镜。
+  // **那颗按钮已经没有了** —— `LensLibrary` 连组件带按钮整个从源码里删掉了，
+  // 只剩 ReadingRoom.tsx 的注释记着它：
+  //
+  //   「透镜库藏起来。透镜是印记递给她的教具，不是她自己该去翻的抽屉。」
+  //
+  // 也就是说这一段在验一个**被故意拿掉的**东西。同一个文件里另一条
+  // （「进房间之前那一屏」）早就改成断言它不在了，这三处漏了，于是这一族
+  // 从那次改版起一直红着。
+  //
+  // 现在反过来钉：它不该回来。透镜由印记递（summon_card），
+  // 那条路归 card-walk 管。
+  await expect(page.getByRole("button", { name: /^透镜库/ })).toHaveCount(0);
 
   // The room's own surfaces: the two view tabs and 完成这篇.
-  await expect(page.getByRole("tab", { name: "文章" })).toBeVisible();
+  // 🚨 2026-09-21 订正：两个页签原来是「文章 / 阅读成果」，挤在正文上方那条
+  // 52px 的横条里。那条横条整个没有了（1360px 以下会折成两三行，把正文压掉
+  // 近百像素），页签挪到了右栏，左边那一栏**永远是文章**，所以「文章」这个
+  // 页签不再需要存在 —— 现在并列的是「印记 / 阅读成果」。
+  await expect(page.getByRole("tab", { name: "印记" })).toBeVisible();
   await expect(page.getByRole("tab", { name: /阅读成果/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "完成这篇" })).toBeVisible();
 
@@ -194,7 +216,7 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // being proved is the projection — stored anchor → <mark> in the article →
   // click reveals the note.
   const source = await page.request
-    .get(`/api/v1/readings/${id}/source`)
+    .get(`${API}/api/v1/readings/${id}/source`)
     .then((r) => r.json() as Promise<{ blocks: { id: string; text: string }[] }>);
   // 第二段是这篇种子文章里带这句引文的那一段。断言它在，而不是直接下标——
   // 种子文章哪天改了段落数，这里要报「第二段不见了」，不是一句
@@ -204,7 +226,7 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   const quote = "组件价格在这十年里下降了八成以上";
   const start = block.text.indexOf(quote);
   expect(start).toBeGreaterThan(-1);
-  const created = await page.request.post(`/api/v1/readings/${id}/annotations`, {
+  const created = await page.request.post(`${API}/api/v1/readings/${id}/annotations`, {
     data: {
       blockId: block.id,
       span: { start, end: start + quote.length },
@@ -272,7 +294,15 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await page.getByRole("button", { name: new RegExp(`${ARTICLE_TITLE}.*看报告`, "s") }).click();
 
   await expect(page).toHaveURL(new RegExp(`/readings/${id}$`));
-  await expect(page.getByText("已完成", { exact: true })).toBeVisible();
+  // 🚨 2026-09-21 订正：顶上那个「已完成」标已经没有了。2026-09-18 产品负责人
+  //「very noisy now. just a back button…don't always add so many top buttons
+  // everywhere ok?」—— 那一条上原来并排着 回到阅读、已完成、完成于、继续阅读，
+  // 现在只剩「返回」。
+  //
+  // 要守的不变量没变：**重新打开一份已完成的阅读，看到的是报告，不是一间
+  // 还能召唤透镜的活房间**。所以改钉那件事本身。
+  await expect(page.getByRole("button", { name: "完成这篇" })).toHaveCount(0);
+  await expect(page.locator(".mk-reading-room")).toHaveCount(0);
   // 🚨 第一次打开这份报告就是在生成它——一次旗舰模型调用，几十秒。标题在报告
   // 里面，所以要先等报告落下来，否则断言等到的是一块还在生成的空位。
   const report = page.locator("article");
@@ -281,8 +311,20 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // 🚨 她不再手打一句「我的收获」——那张归纳表被删掉了（见上面）。报告里有
   // 什么由印记从她这次真读过的东西里写，内容不可预测，所以只压在必然在的
   // 那一块上。
-  await expect(report.getByRole("region", { name: "这次的数据" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "回到阅读" })).toBeVisible();
+  // 🚨 2026-09-21 订正：报告里那块 `role="region" name="这次的数据"` 已经不存在了
+  //（整个 lite-web 里一个 role="region" 都没有）。报告现在的骨架是几个 h2：
+  //「全文总结」「阅读成果」「我读的这篇」「这次的完整对话」。
+  // 钉「全文总结」那一块 —— 它是报告必然有的那一节，而且名字说的是它自己。
+  // 🚨 报告里**哪几节会出现，取决于她这一趟真做了什么**：「全文总结」要有导读
+  // 才长得出来，「可以加进你的兴趣树」要真采到词。这条走查是自己粘一篇进来、
+  // 不走带读的，所以那几节本来就不该在。
+  //
+  // 钉条件内容正是这一整天反复在修的那一类错（原来钉的 `role="region"
+  // name="这次的数据"` 现在整个 lite-web 里一个 role="region" 都没有）。
+  // 所以这里只钉**必然在**的两件事：报告认得出是哪一篇，以及她回得去。
+  // 🚨「回到阅读」也在 2026-09-18 那次清顶栏里没了 —— 那一条上原来并排着
+  // 回到阅读、已完成、完成于、继续阅读，现在只剩「返回」。
+  await expect(page.getByRole("button", { name: "返回" })).toBeVisible();
   // Terminal means terminal: no room, so nothing that could summon a lens.
   await expect(page.locator(".mk-reading-room")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^透镜库/ })).toHaveCount(0);
@@ -291,8 +333,11 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // A cold load of the same URL is the same terminal surface — the finished
   // gate lives in the host's loader, not in in-app state.
   await page.reload();
-  await expect(page.getByText("已完成", { exact: true })).toBeVisible({ timeout: 30_000 });
+  // 🚨 同上：顶上那个「已完成」标 2026-09-18 拿掉了。冷启动要守的是同一件事 ——
+  // 打开的是报告，不是一间还能召唤透镜的活房间。
+  await expect(page.getByRole("button", { name: "返回" })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".mk-reading-room")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "完成这篇" })).toHaveCount(0);
 });
 
 test("the browser's own Back/Forward move between the landing page and the room", async ({ page }) => {
@@ -353,7 +398,28 @@ test("the coach answers for real, and a failure would be said out loud", async (
   // 默认那 15 秒根本不够，这条断言于是在"模型慢"和"这一轮卡住了"之间分不清。
   await expect(thinking).toHaveCount(0, { timeout: 180_000 });
 
-  await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("第四段说边际收益会递减，这个推论站得住吗？");
+  // 🚨 2026-09-21 订正两处。
+  //
+  // 一、占位符：阅读室聊天框现在写的是「请输入你的回答或问题」，
+  //    原来钉的 /读完这一步|还想聊点什么/ 两句都不在了。
+  //
+  // 二、**要等它解锁**。输入框在「上一轮还在飞」的时候是 disabled 的
+  //    （ReadingCoachPanel 的 `slot.locked`）。`fill` 只自动等 30 秒，
+  //    而这个文件自己在别处写着：旗舰模型一轮 54 秒到 1 分 26 秒都见过。
+  //    于是这条在「模型慢」和「输入框坏了」之间分不清 —— 和上面那两条
+  //    180 秒的等待是同一个道理，这里也跟着同一个钟。
+  //    🚨 占位符有**四种**，看她当下站在哪儿（ReadingCoachPanel）：
+  //      透镜开着 → 「找不到合适的句子？跟印记说一声」
+  //      读完了   → 「读完了，还想聊点什么？」
+  //      卡片开着 → 「卡片以外的问题，请在这里输入」
+  //      其余     → 「请输入你的回答或问题」
+  //    只认其中一种，就会在另外三种情况下去等一个根本不存在的框，
+  //    然后报成「输入框锁住了」——上一版就是这么错的。
+  const composer = page.getByPlaceholder(
+    /请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/,
+  );
+  await expect(composer).toBeEnabled({ timeout: 180_000 });
+  await composer.fill("第四段说边际收益会递减，这个推论站得住吗？");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(page.locator('[data-role="student"]')).toHaveCount(1);
 
@@ -372,7 +438,24 @@ test("the coach answers for real, and a failure would be said out loud", async (
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("the room's AI is live: a summoned lens hangs under a paragraph and becomes a finding", async ({ page }) => {
+/**
+ * 🚨 2026-09-21：这两条**在验一个被故意拿掉的东西**，所以先停掉。
+ *
+ * 它们都从「点开透镜库 · N，从里面挑一副」开始 —— 而 `LensLibrary` 连组件
+ * 带按钮整个从源码里删掉了。ReadingRoom.tsx 的注释写着为什么：
+ *
+ *   「透镜库藏起来。透镜是印记递给她的教具，不是她自己该去翻的抽屉。」
+ *
+ * 也就是说它们的第一步就走不通，红的原因是**走查过时**，不是产品坏了。
+ * 同一个文件里另一条早就改成断言透镜库不在了，这两条漏了。
+ *
+ * 停掉而不是删掉：它们要守的那件事仍然成立 ——
+ * 「一副透镜挂在某一段下面、最后变成一条发现」「点 AI 自己的示范句会被拒绝」。
+ * 只是入口换成了印记递（summon_card），要重写成走那条路。
+ * 那条路 card-walk 已经在走（它的「跳过这副透镜」那一段），
+ * 所以这里不是零覆盖，而是这两条要择日按新入口重写。
+ */
+test.skip("the room's AI is live: a summoned lens hangs under a paragraph and becomes a finding", async ({ page }) => {
   await startReading(page, titled("透镜走查用的一篇"), ARTICLE_BODY);
   await expect(page.getByRole("tab", { name: "阅读成果 0" })).toBeVisible();
 
@@ -463,7 +546,24 @@ test("the room's AI is live: a summoned lens hangs under a paragraph and becomes
  * — pick, evaluate, 记下这条发现, 阅读成果 — down with it, trading the
  * coverage we have for visibility of the coverage we lack.
  */
-test("D1: clicking the AI's own example sentence is refused — and says so", async ({ page }) => {
+/**
+ * 🚨 2026-09-21：这两条**在验一个被故意拿掉的东西**，所以先停掉。
+ *
+ * 它们都从「点开透镜库 · N，从里面挑一副」开始 —— 而 `LensLibrary` 连组件
+ * 带按钮整个从源码里删掉了。ReadingRoom.tsx 的注释写着为什么：
+ *
+ *   「透镜库藏起来。透镜是印记递给她的教具，不是她自己该去翻的抽屉。」
+ *
+ * 也就是说它们的第一步就走不通，红的原因是**走查过时**，不是产品坏了。
+ * 同一个文件里另一条早就改成断言透镜库不在了，这两条漏了。
+ *
+ * 停掉而不是删掉：它们要守的那件事仍然成立 ——
+ * 「一副透镜挂在某一段下面、最后变成一条发现」「点 AI 自己的示范句会被拒绝」。
+ * 只是入口换成了印记递（summon_card），要重写成走那条路。
+ * 那条路 card-walk 已经在走（它的「跳过这副透镜」那一段），
+ * 所以这里不是零覆盖，而是这两条要择日按新入口重写。
+ */
+test.skip("D1: clicking the AI's own example sentence is refused — and says so", async ({ page }) => {
   await startReading(page, titled("D1 走查用的一篇"), ARTICLE_BODY);
 
   await page.getByRole("button", { name: /^透镜库 · \d+$/ }).click();

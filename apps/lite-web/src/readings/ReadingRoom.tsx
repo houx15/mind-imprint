@@ -379,7 +379,7 @@ export function ReadingRoom({
       // reading to its terminal surface, and this makes the two agree.
       onFinished();
     } catch {
-      setFinishError("这次没能完成，再试一下。");
+      setFinishError("完成阅读失败，请重试。");
     } finally {
       setFinishing(false);
     }

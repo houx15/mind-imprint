@@ -1,0 +1,16 @@
+=== RUN   TestClarityGrading
+=== RUN   TestClarityGrading/zh
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=1 model=dashscope/glm-5.3 ms=8939 input=1851 output=496 valid=true
+    clarity_grading_live_test.go:38: production grading attempts=2 priorFailures=[[{dimension_names_mismatch  内容、结构} {quotation_not_in_body 维度「内容」的评语 我和三位同学……坐在走廊}]]
+    clarity_grading_live_test.go:22: TestClarityGrading/zh sample=2 model=dashscope/glm-5.3 ms=15890 input=4212 output=1019 valid=true
+=== RUN   TestClarityGrading/en
+    clarity_grading_live_test.go:38: production grading attempts=1 priorFailures=[]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=1 model=dashscope/glm-5.3 ms=9017 input=1607 output=590 valid=true
+    clarity_grading_live_test.go:38: production grading attempts=2 priorFailures=[[{unparseable  litegrade: reply is not the JSON object asked for: unexpected end of JSON input}]]
+    clarity_grading_live_test.go:22: TestClarityGrading/en sample=2 model=dashscope/glm-5.3 ms=21697 input=3900 output=1386 valid=true
+--- PASS: TestClarityGrading (55.55s)
+    --- PASS: TestClarityGrading/zh (24.83s)
+    --- PASS: TestClarityGrading/en (30.72s)
+PASS
+ok  	mindimprint/api/internal/api	56.090s

@@ -153,7 +153,7 @@ func (a *API) proposePblPlan(w http.ResponseWriter, r *http.Request) {
 	for i, s := range req.Steps {
 		if strings.TrimSpace(s.Decide) == "" {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("step_without_decision",
-				"每一步都要说清楚这一步你判断什么", map[string]any{"step": i + 1}))
+				"请填写每一步需要作出的判断", map[string]any{"step": i + 1}))
 			return
 		}
 	}
@@ -324,7 +324,7 @@ func (a *API) stagePblChange(w http.ResponseWriter, r *http.Request) {
 	// has to connect to a specific finding, decision or constraint.
 	if strings.TrimSpace(req.Evidence) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_evidence",
-			"说清楚这个改动是因为什么", nil))
+			"请填写修改原因", nil))
 		return
 	}
 	grade := pbl.GradeChange(pbl.ProposedChange{Fields: req.Fields, KeepsBothDirections: req.Fork})
@@ -387,7 +387,7 @@ func (a *API) resolvePblChange(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(req.Reason) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_reason",
-			"写一句为什么——这是你的判断，不是一次点击", nil))
+			"请填写选择该决定的原因", nil))
 		return
 	}
 

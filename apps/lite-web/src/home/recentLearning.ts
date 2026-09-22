@@ -1,7 +1,6 @@
 import type { Reading } from "../api/readings";
 import type { Writing } from "../api/writings";
-import { PROJECT_STATUS_LABELS, type Project } from "../api/projects";
-import { projectPath, readingPath, writingPath } from "../routing";
+import { readingPath, writingPath } from "../routing";
 
 export interface RecentLearning {
   key: string;
@@ -14,11 +13,14 @@ export interface RecentLearning {
 }
 
 // Compare actual activity, not metadata edits; completed work stays in its
-// existing history screen. Prefix IDs because three collections share a list.
+// existing history screen. Prefix IDs because two collections share a list.
+//
+// 🚨 2026-09-21 项目那一格从底栏藏掉了（还没做完），所以这里也不再收项目条 ——
+// 底栏进不去、首页却还列着它，点下去是一个她不该看到的半成品。
+// 藏的是入口，不是数据：项目本身一条没动，路由也还在。
 export function recentLearning(
   readings: Reading[],
   writings: Writing[],
-  projects: Project[],
 ): RecentLearning[] {
   return [
     ...readings
@@ -40,17 +42,6 @@ export function recentLearning(
         status: "写作中",
         path: writingPath(w.id),
         time: w.lastActivityAt || w.updatedAt,
-      })),
-    ...projects
-      .filter((p) => p.status !== "archived")
-      .map((p) => ({
-        key: `project:${p.id}`,
-        title: p.name || p.idea || "未命名项目",
-        kind: "项目",
-        status: PROJECT_STATUS_LABELS[p.status],
-        path: projectPath(p.id),
-        time: p.lastActivityAt || p.createdAt,
-        detail: p.currentStep,
       })),
   ]
     .sort(

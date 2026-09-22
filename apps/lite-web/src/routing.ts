@@ -28,7 +28,9 @@ export type LiteRoute =
   //
   // 「library」不可能和一个阅读 id 撞车：id 是 UUID。
   | { tab: "readings"; readingId?: string; library?: boolean }
-  | { tab: "writings"; writingId?: string }
+  // 写作。`library` 打开写作题库（`/writings/library`）—— 和阅读那边同一个形状。
+  // 「library」不可能和一个写作 id 撞车：id 是 UUID。
+  | { tab: "writings"; writingId?: string; library?: boolean }
   // 项目 (PBL). The frontend path is `/projects` even though the API lives at
   // `/api/v1/pbl/projects` — the `pbl` prefix exists to keep lite's endpoints
   // clear of pro's `/api/v1/projects`, and a student's URL bar has no such
@@ -111,6 +113,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
         ? { tab: "readings", readingId: second }
         : { tab: "readings" };
     case "writings":
+      if (second === "library") return { tab: "writings", library: true };
       return second
         ? { tab: "writings", writingId: second }
         : { tab: "writings" };
@@ -167,6 +170,7 @@ export function liteRoutePath(route: LiteRoute): string {
         ? `/readings/${encodeSegment(route.readingId)}`
         : "/readings";
     case "writings":
+      if (route.library) return "/writings/library";
       return route.writingId
         ? `/writings/${encodeSegment(route.writingId)}`
         : "/writings";
@@ -209,6 +213,11 @@ export function readingPath(id: string): string {
 /** 分级阅读库那一屏。 */
 export function readingLibraryPath(): string {
   return "/readings/library";
+}
+
+/** 写作题库那一屏。 */
+export function writingLibraryPath(): string {
+  return "/writings/library";
 }
 
 /** The canonical path for a single writing — used by the landing page after

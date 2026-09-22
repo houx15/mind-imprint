@@ -15,10 +15,47 @@ VALUES (
 )
 RETURNING *;
 
--- 她还没走完的那一趟。刷新一次、第二天回来，接着这一行走。
+-- 她上次动过的那条**没总结的**线索。进门默认回到它。
+--
+-- 🚨 0185 之后一个人可以同时停着好几条，所以这里必须 ORDER BY + LIMIT 1；
+-- 原来那条没有 LIMIT 的 :one 在多行时会静悄悄地随便给一行。
 -- name: OpenAwakeningRun :one
 SELECT * FROM awakening_run
-WHERE user_id = $1 AND finished_at IS NULL;
+WHERE user_id = $1 AND finished_at IS NULL
+ORDER BY updated_at DESC
+LIMIT 1;
+
+-- 线索库：她提出过的每一条，不管总结没总结。
+--
+-- 一次查完，不要按条再查一遍轮数 —— 线索库是一屏，N+1 会让它慢得看得出来。
+-- first_text 是她在这条线索上写下的第一句话，用作没名字时的退路。
+-- name: ListAwakeningThreads :many
+SELECT
+  r.*,
+  (SELECT count(*) FROM awakening_turn t WHERE t.run_id = r.id)::int AS turn_count,
+  -- 🚨 COALESCE 不能省：一条刚开的线索一轮都还没有，两个子查询都回 NULL，
+  -- 而带 :: 转换之后 sqlc 把它们生成成非指针，NULL 会让整次扫描报错。
+  COALESCE((SELECT t.student_text FROM awakening_turn t
+     WHERE t.run_id = r.id ORDER BY t.seq ASC LIMIT 1), '')::text AS first_text,
+  COALESCE((SELECT max(t.created_at) FROM awakening_turn t WHERE t.run_id = r.id),
+     r.updated_at)::timestamptz AS last_turn_at,
+  (SELECT count(*) FROM awakening_report p WHERE p.run_id = r.id)::int AS report_count
+FROM awakening_run r
+WHERE r.user_id = $1
+ORDER BY r.updated_at DESC;
+
+-- 给一条线索起名。她从模型给的候选里挑一个，或者用她原话裁出来的那个。
+-- name: SetAwakeningRunTitle :one
+UPDATE awakening_run SET title = $3, updated_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
+-- 接着一条已经总结过的线索往下问：把章去掉，它重新变成在做的那条。
+-- 报告不动 —— 那一份记的是当时那几轮，下一次总结会另起一份。
+-- name: ReopenAwakeningRun :one
+UPDATE awakening_run SET finished_at = NULL, updated_at = now()
+WHERE id = $1 AND user_id = $2 AND finished_at IS NOT NULL
+RETURNING *;
 
 -- 带 user_id 一起匹配，所以一个人读不到、也改不了别人的那一行。
 -- name: GetAwakeningRun :one
@@ -81,16 +118,6 @@ INSERT INTO awakening_turn (run_id, seq, node_index, student_text, reply)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
--- 把这一趟的轮次清空 —— 「新的探索」。
---
--- 她保留着一条没做完的线索，回来却想换一个话题从头问。清空的是**轮次**，
--- 不是这一趟：助手和能量结果留在 awakening_run 上，她不必再选一遍。
---
--- 🚨 这一条删的是她自己写下的字，没有回收站。所以调用方先查一次归属
--- （GetAwakeningRun 带 user_id），界面上也必须先问一次。
--- name: ClearAwakeningTurns :exec
-DELETE FROM awakening_turn WHERE run_id = $1;
-
 -- 这一趟说过的全部。它同时是**语料** —— 树上每个词的 evidence 都要能在
 -- student_text 里逐字查到。
 -- name: ListAwakeningTurns :many
@@ -100,17 +127,29 @@ ORDER BY seq ASC;
 
 /* ── 报告 ────────────────────────────────────────────────────────────────── */
 
--- 一趟一份。ON CONFLICT DO NOTHING 之后返回零行，表示别人已经生成过了 ——
--- 调用方这时去读那一份，不再花第二次调用。
+-- 记一份报告。
+--
+-- 🚨 0185 起**一条线索可以有多份**：她总结过之后又想到新的东西，接着答两问
+-- 再总结，那是第二份，不是把第一份改掉。挡住重复点击的是应用层那条判据
+-- （上一份之后有没有新的回答），不是这里的唯一约束。
 -- name: InsertAwakeningReport :one
 INSERT INTO awakening_report (run_id, user_id, payload)
 VALUES ($1, $2, $3)
-ON CONFLICT (run_id) DO NOTHING
 RETURNING *;
 
+-- 这条线索最新的那一份报告。
 -- name: GetAwakeningReportByRun :one
 SELECT * FROM awakening_report
-WHERE run_id = $1 AND user_id = $2;
+WHERE run_id = $1 AND user_id = $2
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- 她一共拿到过几份报告。
+--
+-- 树上那条入口读它来判断「做过没有」。**不能再数走完的 run** —— 一条总结过
+-- 的线索被接着往下问时 finished_at 会被清掉，那样树会忘记她做过。
+-- name: CountAwakeningReports :one
+SELECT count(*) FROM awakening_report WHERE user_id = $1;
 
 -- name: GetAwakeningReportForUser :one
 SELECT * FROM awakening_report

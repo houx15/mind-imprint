@@ -1,4 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+// 🚨 阅读室聊天框的占位符有**四种**，看她当下站在哪儿（ReadingCoachPanel）：
+//   透镜开着 → 「找不到合适的句子？跟印记说一声」
+//   读完了   → 「读完了，还想聊点什么？」
+//   卡片开着 → 「卡片以外的问题，请在这里输入」
+//   其余     → 「请输入你的回答或问题」
+// 原来钉的「读完这一步」那一句早就不在了，只认一种也会在另外三种情况下
+// 去等一个根本不存在的框，然后报成「输入框锁住了」。
 
 /**
  * 带读的卡片, walked end to end against a real API, a real database and a real
@@ -67,7 +74,9 @@ const ARTICLE_BODY = [
   "但把希望全押在屋顶上，未免太轻松了。一栋楼的屋顶降下来的温度，抵不过一整条街的车流；真正管用的办法，往往是把树种回街道两边，而这件事比刷屋顶慢得多，也贵得多。",
 ].join("\n\n");
 
-const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——也可以上传 DOCX / PDF";
+// 🚨 2026-09-21 订正：占位符后来加了 TXT、顺序也换了（ReadingsLanding.tsx）。
+// 钉整串等于把一句会改的文案当成契约，只钉不会变的那一截。
+const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来";
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 
@@ -170,8 +179,16 @@ async function findChooseSpanCard(page: Page): Promise<Locator> {
       await page.getByRole("button", { name: "跳过这副透镜" }).click();
     }
     const before = await assistantTurns(page).count();
-    await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("我读完了，接着来吧。");
-    await page.getByRole("button", { name: "发送" }).click();
+    // 🚨 输入框在「上一轮还在飞」的时候是 disabled 的（ReadingCoachPanel 的
+    // slot.locked）。`fill` 只自动等 30 秒，而这个文件自己写着一轮 41 秒到
+    // 1 分 22 秒都有 —— 于是这条在「模型慢」和「输入框坏了」之间分不清。
+    const composer = page.getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/);
+    await expect(composer).toBeEnabled({ timeout: 180_000 });
+    await composer.fill("我读完了，接着来吧。");
+    // 🚨 屏幕上现在有**两颗**「发送」：卡片自己一颗，聊天框一颗 ——
+    // 裸 getByRole 会撞 strict mode，报成「点不动」。
+    // 要点的是聊天框那颗，它排在后面。
+    await page.getByRole("button", { name: "发送" }).last().click();
     await expect(assistantTurns(page)).toHaveCount(before + 1, { timeout: 180_000 });
     // 🚨 等这一轮真的说完再推下一句。
     //
@@ -266,7 +283,17 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   const paragraphs = await page.locator("p[data-block-id]").allInnerTexts();
   const optionTexts: string[] = [];
   for (let i = 0; i < optionCount; i++) {
-    const quote = (await options.nth(i).innerText()).trim();
+    // 🚨 选项按钮上现在还印着一个段号角标（「第2段」），它也进 innerText。
+    // 不剥掉的话，比对的是「第2段柏油马路和混凝土……」，原文里当然找不到 ——
+    // 于是这条会报「她不用读文章就能答这张卡」，一句听起来很严重、
+    // 而其实**是走查自己的眼睛脏了**的话
+    //（[[observation-tool-is-the-bug-2026-09-12]]：走查记下的产品缺陷，
+    // 一半是那只眼睛自己的毛病）。
+    //
+    // 要验的不变量一个字没松：剥掉角标之后，剩下的那句必须**逐字**在某一段里。
+    const quote = (await options.nth(i).innerText())
+      .trim()
+      .replace(/^第\s*\d+\s*段\s*/, "");
     expect(quote.length).toBeGreaterThanOrEqual(4);
     expect(
       paragraphs.some((p) => p.includes(quote)),
@@ -286,7 +313,7 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   await expectNothingReadsAsRightOrWrong(page, "card open");
 
   // ── she answers with a tap. Nothing typed. ────────────────────────────────
-  const composer = page.getByPlaceholder(/读完这一步|还想聊点什么/);
+  const composer = page.getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/);
   await expect(composer).toHaveValue("");
   const bubblesBefore = await page.locator('[data-role="student"]').count();
   const turnsBefore = turns.length;

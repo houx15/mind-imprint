@@ -136,16 +136,40 @@ func TestWritingLaterBlocksText(t *testing.T) {
 // 每一种块该查什么，不该查什么 —— 同事 2026-09-20 的意见 9 的前半句：
 // 「对每一段的分析需要明确各个段落各自的功能」。
 func TestCommentSystemDispatchesByKind(t *testing.T) {
-	opening := buildWritingCommentSystem("zh", 1, writingKindOpening)
+	opening := buildWritingCommentSystem("zh", 1, writingKindOpening, helpAsk, genreArgument)
 	if !contains(opening, "不要求开头自带完整的事例") {
 		t.Errorf("开头那一份没说清它的活：\n%s", opening)
 	}
 
-	point := buildWritingCommentSystem("zh", 1, writingKindPoint)
-	// 「限制」和「与其他段的关系」来自 all-statuses §6。
-	for _, want := range []string{"理由", "证据", "解释", "限制", "别的段"} {
+	point := buildWritingCommentSystem("zh", 1, writingKindPoint, helpAsk, genreArgument)
+	// docs/2026-08-09-all-statuses.md §6 那条要求原样有效：
+	//
+	//	for each claim, we need evidence, analysis, limitation,
+	//	how it correlates with others
+	//
+	// R4 起这四项用的是讲义里的名字（观点句 / 材料句 / 分析句），
+	// 因为叫得出名字她才知道要补的是什么 —— 「还差一句把它和主张连起来的话」
+	// 说的是缺什么，没说那一句叫什么。四项一项都没少，只是换了称呼。
+	for _, want := range []string{
+		"观点句", // claim
+		"材料句", // evidence
+		"分析句", // analysis
+		"限制",  // limitation
+		"别的段", // how it correlates with others
+	} {
 		if !contains(point, want) {
-			t.Errorf("正文那一份缺 %q", want)
+			t.Errorf("正文那一份缺 %q —— all-statuses §6 要的四项少了一项", want)
+		}
+	}
+	// 🚨 **阐释句**是 R4 补上的那一句（讲义的五句型里，观点句和材料句之间
+	// 的那座桥）。它最常被学生跳过，也最容易在下一次改 prompt 时被删掉。
+	if !contains(point, "阐释句") {
+		t.Error("正文那一份缺阐释句 —— 观点句和例子之间那座桥没人提，学生就会继续跳过它")
+	}
+	// 缺分析句的时候要点得出名字来，不能只说「要分析」。
+	for _, want := range []string{"因果分析法", "假设分析法", "归纳分析法"} {
+		if !contains(point, want) {
+			t.Errorf("正文那一份没点名 %q —— 只说「要分析」等于没说怎么补", want)
 		}
 	}
 	// 🚨 正文那一份**不能**带着「不要求开头自带事例」那句话 ——
@@ -155,18 +179,18 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 		t.Error("开头那一块的说明漏进了正文那一份")
 	}
 
-	closing := buildWritingCommentSystem("zh", 1, writingKindClosing)
+	closing := buildWritingCommentSystem("zh", 1, writingKindClosing, helpAsk, genreArgument)
 	if !contains(closing, "收束全文") {
 		t.Errorf("结尾那一份没说清它的活：\n%s", closing)
 	}
 
-	rebuttal := buildWritingCommentSystem("zh", 1, writingKindRebuttal)
+	rebuttal := buildWritingCommentSystem("zh", 1, writingKindRebuttal, helpAsk, genreArgument)
 	if !contains(rebuttal, "反方") {
 		t.Errorf("回应那一份没说清它的活：\n%s", rebuttal)
 	}
 
 	// 通篇审阅（kind 为空）不附分块的检查表。
-	whole := buildWritingCommentSystem("zh", 3, "")
+	whole := buildWritingCommentSystem("zh", 3, "", helpAsk, genreArgument)
 	for _, unwanted := range []string{"这一块是**开头**", "这一块是**结尾**"} {
 		if contains(whole, unwanted) {
 			t.Errorf("通篇那一份不该带分块的检查表（%q）", unwanted)

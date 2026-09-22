@@ -48,6 +48,12 @@ import (
 var writingSummaryAbsenceMarkers = []string{
 	// 中文。「缺」单独留着是故意的：缺少/缺乏/缺失/缺点 都该被这条盖住。
 	"缺", "不足", "尚未", "还没", "没能", "未能",
+	// 🚨 2026-09-21 线上走查补的。真模型绕过了上面那几个词：
+	//   「这两段各写了一边的事，但通篇**找不到**一句是你自己的判断」
+	// 说的是同一件事，一个标记都没踩上。
+	// 「没有一句」「没有一个」这样带量词的写法收进来，光秃秃的「没有」不收 ——
+	// 「这一段没有问题」是句好话，收了它每一轮都要重试。
+	"找不到", "看不到", "没有一句", "没有一个", "一句都没有", "一个都没有",
 	// 英文。全部小写比对。
 	"lack", "missing", "absent", "fails to", "fail to", "without a", "no clear",
 }
@@ -71,8 +77,8 @@ func summaryClaimsAbsence(summary string) string {
 // 再念一遍 —— 念规矩它上一轮已经读过了。
 const writingSummaryAbsenceNudge = `刚才那份 summary 里说了她「缺」什么（出现了「%s」）。
 
-summary 只说这篇稿子现在站在哪儿，不说少了什么。少了什么由下面那几条 point 去说——
-那几条必须指着她原文里的一句话，并给出她接下来要做的那个动作。
+summary 概述文章已有的内容和表达效果。需要补充或修改的内容放在 points 中，
+每条附上原文引句和具体修改建议。
 
 重新输出一次完整的 JSON，只改 summary 这一个字段，points 原样保留。`
 
@@ -86,12 +92,24 @@ summary 只说这篇稿子现在站在哪儿，不说少了什么。少了什么
 // 返回的是拿得到的那一份：重试完总评还在说「缺」，照样把结果给她。一句不好的
 // 总评下面仍然挂着几条验过的、指着她原话的意见；为这个扣下整轮，她什么都拿不到。
 // 这一点和「JSON 解析不了」不同 —— 那个是真的没有东西可给。
+// deliver 把模型原样回的 points 变成**她最后真的会看到的**那几条。
+//
+// 🚨 这个参数是 2026-09-21 真学生走查逼出来的。原来这里查的是
+// `parsed.Points` —— 模型原样回的那一份，而她看到的是它经过
+// `validateCommentPoints` 加两道减法之后剩下的那一份。闸门站在筛子的**上游**，
+// 于是「模型给了一条好意见、被服务端丢掉了」这一整类，它一次都看不见：
+// 实测三趟三趟如此（模型把引文写进 text、quote 那格空着 ⇒ no_quote ⇒ 整条丢掉）。
+//
+// 判据要落在**交付物**上，不是落在中间产物上。
+type writingCommentDeliver func([]CommentPoint) []CommentPoint
+
 func (a *API) collectWritingComment(
 	ctx context.Context,
 	userID, atomID uuid.UUID,
 	purpose string,
 	resolved gateway.Resolved,
 	system, user string,
+	deliver writingCommentDeliver,
 	logArgs ...any,
 ) (writingCommentResult, bool) {
 	msgs := []gateway.ChatMessage{
@@ -109,21 +127,59 @@ func (a *API) collectWritingComment(
 	}
 	parsed, ok := parseWritingComment(res.Text)
 	if !ok {
-		slog.Warn("writing comment: reply unparseable or empty summary", logArgs...)
-		return writingCommentResult{}, false
+		// 🚨 **读不出来就再要一次。** 这一条 2026-09-21 补：
+		// `writing_plan.go` 早就在解析失败时重问一次了，这条路却是直接报错返回 ——
+		// 同一个毛病的两条路，一条兜住了，另一条没有。
+		//
+		// 线上真的撞到过：通篇审阅那一次回来读不出来（scope=draft），
+		// 她按下「AI审阅」，等了半分钟，拿到一句「后台错误」。
+		// 而这一类坏法（字符串里一个没转义的引号、数组收错括号、
+		// 干脆没装进 JSON）和她写了什么无关，换一次采样几乎总能过；
+		// 这一轮的钱又已经花掉了。
+		//
+		// 一次，不是三次：她正同步等着。第二次还坏就老实报错 ——
+		// 那时候是真的没有东西可给（[[ai-errors-must-surface-never-fake]]）。
+		slog.Warn("writing comment: reply unparseable, retrying once",
+			append(logArgs, "reply_bytes", len(res.Text), "stop_reason", res.StopReason,
+				"reply_head", headRunes(res.Text, 220), "reply_tail", tailRunes(res.Text, 220))...)
+		res1, cerr1 := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: append(msgs, gateway.ChatMessage{
+				Role: gateway.RoleUser, Content: writingCommentUnparseableNudge,
+			}),
+		})
+		a.recordLiteLLMCall(ctx, userID, atomID, purpose, resolved, res1.Usage)
+		if cerr1 != nil {
+			slog.Warn("writing comment: retry provider call failed", append(logArgs, "err", cerr1)...)
+			return writingCommentResult{}, false
+		}
+		parsed, ok = parseWritingComment(res1.Text)
+		if !ok {
+			slog.Warn("writing comment: retry also unparseable",
+				append(logArgs, "reply_bytes", len(res1.Text), "stop_reason", res1.StopReason,
+					"reply_head", headRunes(res1.Text, 220), "reply_tail", tailRunes(res1.Text, 220))...)
+			return writingCommentResult{}, false
+		}
+		slog.Info("writing comment: retry parsed fine", logArgs...)
+		res = res1
 	}
 
-	marker := summaryClaimsAbsence(parsed.Summary)
+	// 🚨 查她真的会看到的那几条，不是模型原样回的那份。见 writingCommentDeliver。
+	delivered := parsed.Points
+	if deliver != nil {
+		delivered = deliver(parsed.Points)
+	}
+
+	marker, nudge := writingCommentProblem(parsed, delivered)
 	if marker == "" {
 		return parsed, true
 	}
 
-	// 重试那一轮把它自己上一份回复也带上，否则「points 原样保留」无从谈起。
-	slog.Info("writing comment: summary claimed an absence, retrying once",
+	// 重试那一轮把它自己上一份回复也带上，否则「原样保留」无从谈起。
+	slog.Info("writing comment: retrying once",
 		append(logArgs, "marker", marker, "summary", parsed.Summary)...)
 	retry := append(msgs,
 		gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
-		gateway.ChatMessage{Role: gateway.RoleUser, Content: fmt.Sprintf(writingSummaryAbsenceNudge, marker)},
+		gateway.ChatMessage{Role: gateway.RoleUser, Content: nudge},
 	)
 	res2, cerr2 := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{Messages: retry})
 	a.recordLiteLLMCall(ctx, userID, atomID, purpose, resolved, res2.Usage)
@@ -136,10 +192,83 @@ func (a *API) collectWritingComment(
 		slog.Warn("writing comment: absence retry unparseable", logArgs...)
 		return parsed, true
 	}
-	if m2 := summaryClaimsAbsence(parsed2.Summary); m2 != "" {
-		// 两次都在说「缺」。用第二份 —— 它至少是照着这条规矩又想了一遍的。
-		slog.Warn("writing comment: summary still claims an absence after the retry",
-			append(logArgs, "marker", m2, "summary", parsed2.Summary)...)
+	delivered2 := parsed2.Points
+	if deliver != nil {
+		delivered2 = deliver(parsed2.Points)
+	}
+	// 两次都没过同一道闸。用第二份 —— 它至少是照着这条规矩又想了一遍的。
+	// 「说了有问题却没有一条她能照着改的」那一档，调用方会把 verdict 收回
+	// 到 pass：与其让她对着一段没有任何可做之事的卡片读到「待打磨」，
+	// 不如不说这句话。
+	if m2, _ := writingCommentProblem(parsed2, delivered2); m2 != "" {
+		slog.Warn("writing comment: still not clean after the retry",
+			append(logArgs, "marker", m2, "verdict", parsed2.Verdict, "summary", parsed2.Summary,
+				"raw_points", len(parsed2.Points), "delivered", len(delivered2))...)
 	}
 	return parsed2, true
 }
+
+// writingVerdictNoPointMarker 是第二种触发的记号。不是她正文里的词，
+// 只是给日志和分支用的一个标签。
+const writingVerdictNoPointMarker = "<verdict-without-point>"
+
+// writingNoPointNudge —— 说了这篇有问题，却一条都没指出来的那一轮。
+//
+// 照着 writingSummaryAbsenceNudge 的做法：指出犯的是哪一处，不把整条规矩再念一遍。
+// 🚨 这段话原来写的是「points 却是空的」—— 而 points **往往不是空的**：
+// 里面常常有一条 good。模型照着这句话回头看自己那一份，发现 points 有东西，
+// 于是认为这条提醒不适用，原样又回一遍。
+//
+// **提醒里说的那件事必须是真发生的那件事**，否则它只是一句模型对不上号的话。
+// 现在说的是「没有一条 issue」，并且把 issue 活下来要满足的条件列清楚 ——
+// 实测里被丢掉的那些，十有八九是漏了其中一条。
+const writingNoPointNudge = `刚才那一份里，verdict 不是 pass，但 points 里**没有一条 kind 是 issue**
+（有 good 也不算——夸奖不是她能照着改的东西）。
+
+你说了这篇还有要改的地方，却没有给出一条她能动手的意见。她看到的会是一句
+挂在最上面、点不动也追不到原文的话。
+
+重新输出一次完整的 JSON：
+- 真的有要改的地方 → 至少给一条 kind 为 issue 的，并且四样都要齐，缺一样这条就会被丢掉：
+  · quote：**单独写在 quote 这个字段里**，逐字照抄她原文里的一句（写在 text 里不算）；
+  · symptom：只能用给定清单里的 id；
+  · text：说清楚是什么问题；
+  · action：她现在就能做的那一个动作。
+- 其实没有 → 把 verdict 改成 pass，summary 概述文章已有的内容和表达效果。`
+
+// writingCommentProblem —— 这一份意见有没有哪一道闸没过，以及该怎么跟它说。
+//
+// 三道，按「对她的伤害」从大到小排；命中第一道就不往下看了，因为重问那一轮
+// 只带一条提醒 —— 一次说三件事，模型哪件都做不好
+// （[[pbl-refeed-one-produce-slot-2026-09-05]] 是同一个道理）。
+//
+//  1. **说了这篇有问题，却没有一条她能照着改的。** 最伤人的一种：
+//     她被告知这儿不对，却没有一个字可以动手。
+//  2. **总评说她「缺」什么。** 总评是唯一没人验过的字段，
+//     一句没有东西撑着的断言。
+//  3. **话写成了对她的判决。** 同事的原话是「一直在挑衅我」。
+//
+// 判据全部落在**她真的会看到的那一份**上（delivered），不是模型原样回的那份。
+func writingCommentProblem(parsed writingCommentResult, delivered []CommentPoint) (marker, nudge string) {
+	if parsed.Verdict != writingVerdictPass && !writingHasIssue(delivered) {
+		return writingVerdictNoPointMarker, writingNoPointNudge
+	}
+	if m := summaryClaimsAbsence(parsed.Summary); m != "" {
+		return m, fmt.Sprintf(writingSummaryAbsenceNudge, m)
+	}
+	if p := writingHostileTone(parsed); p != "" {
+		return p, fmt.Sprintf(writingHostileToneNudge, p)
+	}
+	return "", ""
+}
+
+// writingCommentUnparseableNudge —— 上一份读不出来的时候，重问那一轮说的话。
+//
+// 照这个文件一贯的做法：指出犯的是哪一处，不把整条规矩再念一遍
+// （念规矩它上一轮已经读过了）。
+const writingCommentUnparseableNudge = `刚才那一份我读不出来 —— 它不是一个能解析的 JSON 对象。
+
+请**只输出那一个 JSON 对象**：不要围栏、不要在前面或后面加解释、
+不要先写一份再写第二份。字符串里的引号要转义，数组和对象的括号要配对。
+
+内容按上面的要求重新给一次。`

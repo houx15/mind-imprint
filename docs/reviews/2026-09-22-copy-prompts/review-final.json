@@ -1,0 +1,110 @@
+[
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 3258,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段提出了延长开放时间的看法，并用晚自习后在走廊复习的具体经历作为材料。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"这个例子写出了具体的人和场景，但例子摆在这里就结束了，没有说明「教室关闭后只能在走廊复习」这件事和「延长图书馆开放时间」之间的关系。这一句之后缺的是分析句。\",\"action\":\"在这句后面用假设分析法补一句分析：假设当时图书馆还开放，那么你们几位同学的情况可能有什么不同；再说明这个对比如何支持本段开头提出的观点。\",\"quote\":\"走廊里不断有人经过，我们很难集中注意力。\"}]}",
+    "Usage": {
+      "inputTokens": 4152,
+      "outputTokens": 173,
+      "cachedInputTokens": 3840
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "9b6935c7637e48cdc6da6dd8a7e9f008aaf656e5cc7f04a84225f089496f005b"
+  },
+  {
+    "Case": "TestClarityTeacherReview/argument-scope",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3643,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段用晚自习后只能在走廊复习的经历，讨论图书馆延长开放时间的必要，事件的时间、地点、人物都写清楚了。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"layer\":2,\"text\":\"「走廊里不断有人经过，我们很难集中注意力」写出了这个例子的结果，但例子和段首观点之间的关系没有说明：读者知道你在走廊复习遇到困难，还需要看到这个困难和「延长图书馆开放时间」之间的联系。这一句正是本段缺的分析句。\",\"action\":\"在例子之后用因果分析法补一句分析：说明因为教室关闭、走廊无法安静复习，所以延长图书馆开放时间能为晚自习后的同学提供安静的学习场所。\",\"quote\":\"走廊里不断有人经过，我们很难集中注意力\"}]}",
+    "Usage": {
+      "inputTokens": 4152,
+      "outputTokens": 203,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "9b6935c7637e48cdc6da6dd8a7e9f008aaf656e5cc7f04a84225f089496f005b"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 5848,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段先提出观点，再用走廊自习的经历作为材料，并以让步收尾，句子功能齐全。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"mechanism_chain\",\"layer\":2,\"text\":\"这句分析句解释了「安静」为什么有利，但本段要说明的是「延长开放时间」：教室七点关闭、走廊嘈杂，和图书馆多开一小时之间那一环——图书馆也在同一时间关闭，所以延长开放才能解决这个问题——还没有写出来。目前读者只看到安静的好处，看不出延长开放时间这件事起了什么作用。\",\"action\":\"在这句分析句里补上中间那一步：用因果分析法（是什么……？是……。因为……，所以……）说明教室关闭的时间与图书馆当前关闭时间的关系，再说明延长一小时如何让学生从嘈杂的走廊回到图书馆。\",\"quote\":\"A quiet library would help students like me concentrate.\"}]}",
+    "Usage": {
+      "inputTokens": 4262,
+      "outputTokens": 377,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "4b8bea823ea03d539b3bd41f1cf611bc31089b93377ffe6dd9d87da1ec4b5594"
+  },
+  {
+    "Case": "TestClarityTeacherReview/english",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 7169,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段用上周二在走廊自习的具体经历，讨论了图书馆延长开放时间的必要性，并提出了每周先试一次的建议。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"mechanism_chain\",\"layer\":2,\"text\":\"「A quiet library would help students like me concentrate」直接给出结论，但没有解释走廊的嘈杂具体怎样影响了你的复习——是打断思路、听不清网课，还是别的什么。中间这一环写出来，读者才能看出走廊的经历和图书馆的好处之间的关系。\",\"action\":\"在这句前补一句解释，写明上周二走廊的嘈杂具体影响了你的哪一项复习活动，例如被什么声音打断、打断了几次、当时正在做什么。\",\"quote\":\"A quiet library would help students like me concentrate.\"}]}",
+    "Usage": {
+      "inputTokens": 4262,
+      "outputTokens": 437,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "4b8bea823ea03d539b3bd41f1cf611bc31089b93377ffe6dd9d87da1ec4b5594"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 5598,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这一段写了雨夜父亲送雨衣的经过，事情的时间、人物和结局都交代清楚了，结尾落在「感动」这个直接说出的感受上。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"layer\":2,\"text\":\"「我很感动」是直接说出来的感受，读者不知道它在当时是什么样子：你接过雨衣时做了什么、有没有说什么话、路上没说话时你在想什么，这些都写出来了，「感动」才有画面。\",\"action\":\"删掉「我很感动」，换成本文当时真实发生的一两件具体的事，比如你接雨衣时的动作，或者一路上沉默时你注意到的父亲的某个样子。\",\"quote\":\"我很感动。\"}]}",
+    "Usage": {
+      "inputTokens": 7057,
+      "outputTokens": 328,
+      "cachedInputTokens": 6656
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "73470c93de326369452d001e7f407ce1d55142dc36e494e81ddbd3572a999273"
+  },
+  {
+    "Case": "TestClarityTeacherReview/narrative",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 4988,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这一段按时间顺序写出了雨夜等爸爸送雨衣、两人一路无话的经过，末句直接说出了自己的感受。\",\"points\":[{\"kind\":\"good\",\"method\":\"detail_scene\",\"text\":\"「那天晚上下着雨，我在楼道口等着。」天气和等待的地点放在开头，读者立刻知道你在什么处境里等，这个环境选择帮助了后文爸爸送雨衣这件事。\",\"quote\":\"那天晚上下着雨，我在楼道口等着。\"},{\"kind\":\"issue\",\"symptom\":\"detail_vague\",\"layer\":2,\"text\":\"「我很感动。」这句是直接报出感受的名字，读者知道了你的结论，却看不到你当时做了什么、注意到了什么，反而前面那些场景的力量被这句收走了。\",\"action\":\"删掉这句感受，改用你当时的一个动作或一个看见的细节来代替，例如回想爸爸递雨衣时他的手、雨衣上的雨水或他转身的样子，把其中一个写进这句话的位置。\",\"quote\":\"我很感动。\"}]}",
+    "Usage": {
+      "inputTokens": 3410,
+      "outputTokens": 247,
+      "cachedInputTokens": 3328
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "73470c93de326369452d001e7f407ce1d55142dc36e494e81ddbd3572a999273"
+  }
+]

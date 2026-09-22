@@ -1,5 +1,12 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { freshAccount } from "./freshAccount";
+// 🚨 阅读室聊天框的占位符有**四种**，看她当下站在哪儿（ReadingCoachPanel）：
+//   透镜开着 → 「找不到合适的句子？跟印记说一声」
+//   读完了   → 「读完了，还想聊点什么？」
+//   卡片开着 → 「卡片以外的问题，请在这里输入」
+//   其余     → 「请输入你的回答或问题」
+// 原来钉的「读完这一步」那一句早就不在了，只认一种也会在另外三种情况下
+// 去等一个根本不存在的框，然后报成「输入框锁住了」。
 
 /**
  * full-loop-walk —— 从**产品自己的两个入口**走完阅读和写作。
@@ -106,43 +113,56 @@ test("入口一：探索地图上的一颗星 → 阅读室 → 完成 → 在�
   // （旗舰调用，几十秒）、采集。
   test.setTimeout(1_500_000);
 
-  // ── `/` 就是探索地图，不是阅读室 ────────────────────────────────────────
-  await page.goto("/");
-  await expect(page.getByRole("tab", { name: "今日探索地图" })).toHaveAttribute(
+  // ── 探索那一格就是地图，不是阅读室 ──────────────────────────────────────
+  //
+  // 🚨 2026-09-21 订正：这里原来走的是 `/`，注释也写着「`/` 就是探索地图」。
+  // 那是首页那一格还不存在的时候写的 —— 现在 `/` 是首页（LearningHome），
+  // 探索在 `/explore`。走错门，然后报「探索地图打不开」。
+  await page.goto("/explore");
+  // 🚨 2026-09-21 订正：探索那一格 09-05/09-07 重做之后，地图和树合成了一格，
+  // 顶上那个切换器的两档叫「今日发现」和「我的兴趣树」（explore/SkyTab.tsx）。
+  // 这条钉的「今日探索地图」那一档早就不在了 —— 它从那次重做起一直红着，
+  // 而红的样子读起来像「探索地图打不开」。
+  await expect(page.getByRole("tab", { name: "今日发现" })).toHaveAttribute(
     "aria-selected",
     "true",
     { timeout: 60_000 },
   );
 
-  // ── 今天有星图 ─────────────────────────────────────────────────────────
-  // 第一个打开的人触发抓取 + 一次模型调用，要几秒到几十秒。等不到的时候，把
-  // 屏幕上那张卡的原话带出来 —— 「没有星球可点」和「今天生成失败了，原因是 X」
-  // 是两件事，报错必须说得出是哪一件。
-  const planets = page.locator(".exp-planet");
+  // ── 今天有选题 ─────────────────────────────────────────────────────────
+  //
+  // 🚨 2026-09-21 订正：这一屏从「一张星图，点一颗星」改成了
+  //「今日发现 · DAILY DISCOVERY」—— 左边一列今日选题，右边一块选题预览，
+  // 底下一颗「探索这件事」（explore/DiscoveryDesk.tsx）。
+  // 原来找的 `.exp-planet` 是旧那一屏的星球，所以这条一直报
+  //「探索地图上一颗星都没有」，读起来像今天的星图没生成 —— 而它好好的。
+  //
+  // 第一个打开的人触发抓取 + 一次模型调用，要几秒到几十秒，所以等得久一点。
+  const picks = page.locator('nav[aria-label="今日发现"] button');
   try {
-    await expect(planets.first()).toBeVisible({ timeout: 240_000 });
+    await expect(picks.first()).toBeVisible({ timeout: 240_000 });
   } catch {
-    const card = page.locator("text=/今天没有星图|星图读取失败|正在生成今天的星图/").first();
-    const said = (await card.count()) ? (await card.locator("..").innerText()).trim() : "（屏幕上什么都没说）";
-    throw new Error(`探索地图上一颗星都没有，阅读的入口不存在。屏幕上说：\n${said}`);
+    const said = (await page.locator(".discovery-desk, .exp-sky").first().innerText().catch(() => "")).trim();
+    throw new Error(`今日发现一条选题都没有，阅读的入口不存在。屏幕上说：\n${said || "（屏幕上什么都没说）"}`);
   }
-  const count = await planets.count();
-  expect(count, "星图应该是五颗").toBeGreaterThanOrEqual(1);
+  expect(await picks.count(), "今日发现应该有几条选题").toBeGreaterThanOrEqual(1);
 
-  // ── 点开一颗 ───────────────────────────────────────────────────────────
-  // aria-label 是「标题 — 主枝名」（Planet.tsx），抽屉的 label 就是这个标题。
-  const label = (await planets.first().getAttribute("aria-label")) ?? "";
-  const starTitle = label.split(" — ")[0]?.trim() ?? "";
-  expect(starTitle.length, `星球的 aria-label 读不出标题：${label}`).toBeGreaterThan(0);
+  // ── 点开一条 ───────────────────────────────────────────────────────────
+  // 右边那块预览的 h2 就是这条选题的标题，「探索这件事」把它开成一篇阅读。
+  await picks.first().click();
+  const feature = page.getByRole("region", { name: "选题预览" });
+  await expect(feature).toBeVisible({ timeout: 30_000 });
+  const starTitle = (await feature.getByRole("heading", { level: 2 }).innerText()).trim();
+  expect(starTitle.length, "预览里读不出这条选题的标题").toBeGreaterThan(0);
 
-  await planets.first().click();
+  // ── 现在读 → 落进阅读室的那一篇 ────────────────────────────────────────
+  // 「探索这件事」开的是一张 NewsSheet（ExploreView 的 onOpen 只是把 openId
+  // 设上），真正把它变成一篇阅读的是那张纸上的「现在读」—— 两步，不是一步。
+  await feature.getByRole("button", { name: /探索这件事/ }).click();
   const sheet = page.getByRole("dialog", { name: starTitle });
   await expect(sheet).toBeVisible({ timeout: 30_000 });
   // 这一屏是「这条新闻 → 它想问你 → 出处 → 现在读 / 稍后读」，两个动作都在。
-  await expect(sheet.getByRole("button", { name: /现在读/ })).toBeVisible();
   await expect(sheet.getByRole("button", { name: /稍后读/ })).toBeVisible();
-
-  // ── 现在读 → 落进阅读室的那一篇 ────────────────────────────────────────
   await sheet.getByRole("button", { name: /现在读/ }).click();
   await expect(page).toHaveURL(/\/readings\/[0-9a-f-]{36}$/, { timeout: 120_000 });
   const readingId = new URL(page.url()).pathname.split("/").pop()!;
@@ -178,7 +198,7 @@ test("入口一：探索地图上的一颗星 → 阅读室 → 完成 → 在�
   await expect(page.getByRole("alert")).toHaveCount(0);
 
   await page
-    .getByPlaceholder(/读完这一步|还想聊点什么/)
+    .getByPlaceholder(/请输入你的回答或问题|跟印记说一声|还想聊点什么|请在这里输入/)
     .fill("我最在意的是储能：如果白天多出来的电存不下来，那装机再多是不是就没意义了？");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(replies).toHaveCount(2, { timeout: 300_000 });
@@ -195,7 +215,10 @@ test("入口一：探索地图上的一颗星 → 阅读室 → 完成 → 在�
   // 第一次打开这份报告就是在生成它 —— 一次旗舰调用，几十秒。
   const report = page.locator("article");
   await expect(report).toBeVisible({ timeout: 300_000 });
-  await expect(report.getByRole("region", { name: "这次的数据" })).toBeVisible();
+  // 🚨 2026-09-21 订正：报告里那块 `role="region" name="这次的数据"` 已经没有了
+  //（整个 lite-web 现在一个 role="region" 都没有）。而报告里**哪几节会出现，
+  // 取决于她这一趟真做了什么** —— 钉条件内容正是今天反复在修的那一类错。
+  // 报告出来了本身由上面那条 `report` 守着，这里不再多钉一块可能不在的。
 
   // ── 报告最后那一节：她点头，词才上树 ───────────────────────────────────
   //
@@ -361,6 +384,15 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
   ]);
+  // 🚨 2026-09-21 订正：R3（2026-09-20）在规划和段落之间插了「行文」那一屏，
+  // 「去写」现在落在那儿，不再直接到段落。写作那一族当天已经照这条改过，
+  // 这一条当时没跑，所以漏了 —— 插一步会改掉**每一条经过这里**的走查
+  //（[[inserting-a-step-rots-every-older-walk-2026-09-21]]）。
+  await expect(page.getByRole("heading", { name: "行文" })).toBeVisible({ timeout: 60_000 });
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
+    page.getByRole("button", { name: /去写段落/ }).click(),
+  ]);
   await expect(page.getByRole("heading", { name: "段落" })).toBeVisible({ timeout: 60_000 });
 
   // 2026-09-18 起一次只摊开一张纸，换一段是点上面那一叠卡片。
@@ -395,7 +427,7 @@ test("入口二：兴趣树上刚长出来的那个词 → 继续深挖 → 去�
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page
-      .getByRole("navigation", { name: "写作三步" })
+      .getByRole("navigation", { name: "写作四步" })
       .getByRole("button", { name: "成稿" })
       .click(),
   ]);

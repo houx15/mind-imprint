@@ -23,6 +23,10 @@ import (
 )
 
 func TestWritingPlanSystem_TeachesWholePieceJudgment(t *testing.T) {
+	// 🚨 查的是**装配好的那一份**，不是那个 const。
+	// R4 把「这一块是什么」的清单按文体拆成了两份，const 里只剩一个占位符 ——
+	// 继续查 const 等于查一份谁都收不到的东西。
+	writingPlanSystem := writingPlanSystemFor(genreArgument)
 	for _, want := range []string{
 		// 🚨 2026-09-20：原来这里钉的是「最上层不止中心论点」—— 那句话在教模型
 		// 怎么摆节点。模型不再摆节点了，所以钉住的换成新的那条契约本身：
@@ -145,5 +149,59 @@ func TestRootInsertPosition(t *testing.T) {
 	}, rows...)
 	if got := topLevelInsertPosition(writingKindThesis, withOpening); got != 1 {
 		t.Fatalf("有开篇时中心论点应排在它后面，得到 %d", got)
+	}
+}
+
+// 两份清单和 writing_kind.go 的闭表必须对得上。
+//
+// 🚨 这条守的是 R4 差点漏掉的那件事：闭表里加了记叙文那四种 kind，
+// 而立题的提示词还写着「只能是下面这十个之一」—— 也就是模型**永远不会**
+// 用到它们，一篇记叙文照旧被摆成中心论点／分论点／论据。
+// 闭表和提示词是两处各自成立的东西，中间没有编译器。
+func TestWritingPlanKindListsMatchTheClosedSet(t *testing.T) {
+	argument := writingPlanSystemFor(genreArgument)
+	narrative := writingPlanSystemFor(genreNarrative)
+
+	for _, k := range []string{
+		writingKindThesis, writingKindPoint, writingKindEvidence, writingKindReference,
+		writingKindReasoning, writingKindCounter, writingKindRebuttal, writingKindGap,
+		writingKindOpening, writingKindClosing,
+	} {
+		if !strings.Contains(argument, "「"+k+"」") {
+			t.Errorf("议论文那一份提示词里没有 %q —— 模型开不出这一种块", k)
+		}
+	}
+	for _, k := range []string{
+		writingKindScene, writingKindDetail, writingKindTurn, writingKindFeeling,
+		writingKindOpening, writingKindClosing,
+	} {
+		if !strings.Contains(narrative, "「"+k+"」") {
+			t.Errorf("记叙文那一份提示词里没有 %q —— 记叙文那半边是死代码", k)
+		}
+	}
+
+	// 🚨 两边不许串台。
+	for _, k := range []string{writingKindThesis, writingKindPoint, writingKindCounter} {
+		if strings.Contains(narrative, "「"+k+"」") {
+			t.Errorf("记叙文那一份里混进了议论文的 %q —— 记叙文没有分论点", k)
+		}
+	}
+	for _, k := range []string{
+		writingKindScene, writingKindDetail, writingKindTurn, writingKindFeeling,
+	} {
+		if strings.Contains(argument, "「"+k+"」") {
+			t.Errorf("议论文那一份里混进了记叙文的 %q", k)
+		}
+	}
+
+	// 占位符必须被换掉 —— 换漏了，模型会收到一份没有 kind 清单的提示词，
+	// 于是每一条 add 都被丢掉，而屏幕上只是「图没长出来」。
+	for name, s := range map[string]string{"议论文": argument, "记叙文": narrative} {
+		if strings.Contains(s, "@@KINDS@@") {
+			t.Errorf("%s那一份里的占位符没被换掉", name)
+		}
+		if strings.Contains(s, "%d") {
+			t.Errorf("%s那一份里的 %%d 没被换掉", name)
+		}
 	}
 }

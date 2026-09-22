@@ -196,7 +196,7 @@ export function OrderBoard({
           恢复原文顺序
         </button>
         <button type="button" disabled={busy} onClick={() => onSubmit(order)} className="mk-board__submit">
-          排好了
+          提交排序
         </button>
       </div>
       {dragging && (

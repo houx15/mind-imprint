@@ -109,7 +109,7 @@ export function ReportView({
   viewer?: "owner" | "guest";
   /** 那一次自动补请求已经回来了，而金句还是没有。见 ProsePending。 */
   proseStuck?: boolean;
-  /** 她按「再看一次」时再问一次。不给就不显示那颗按钮（公开分享页）。 */
+  /** 她按「重试生成」时再问一次。不给就不显示那颗按钮（公开分享页）。 */
   onRetryProse?: () => void;
   /** 导出/分享 icon buttons, pinned in the hero's upper-right corner. Omitted
    *  entirely on the public share page: a visitor is not the owner and must
@@ -248,17 +248,17 @@ function ProsePending({
           两半都要：**顺利的时候说事实，不顺利的时候给她一颗真的能按的按钮。** */}
       {stuck && onRetry ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-mk-small text-mk-muted">这两节还没整理出来。</p>
+          <p className="text-mk-small text-mk-muted">金句与收获暂未生成。</p>
           <button
             type="button"
             onClick={onRetry}
             className="rounded-mk-full border border-mk-border px-3 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
           >
-            再看一次
+            重试生成
           </button>
         </div>
       ) : (
-        <p className="text-mk-small text-mk-muted">处理中，好了会自己出现。</p>
+        <p className="text-mk-small text-mk-muted">正在生成，完成后将自动显示。</p>
       )}
     </section>
   );

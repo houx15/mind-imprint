@@ -304,7 +304,7 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
       bodyText.slice(0, 40),
     );
     await snap(page, "bring-modal", false);
-    await page.getByRole("button", { name: "请印记看看" }).click();
+    await page.getByRole("button", { name: "AI审阅" }).click();
     await page.waitForURL(/\/writings\/[0-9a-f-]{36}/, { timeout: 30_000 }).catch(() => {});
   }
 
@@ -376,7 +376,7 @@ test(`写作入口：${ENTRY}`, async ({ browser }) => {
   }
 
   if (uploaded) {
-    const review = page.getByRole("button", { name: "请印记看看" }).first();
+    const review = page.getByRole("button", { name: "AI审阅" }).first();
     await review.click({ timeout: 20_000 }).catch(() => {});
     await settleRoom(page);
     await page.waitForTimeout(1500);

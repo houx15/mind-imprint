@@ -26,7 +26,7 @@ import { liteRoutePath, navigate } from "../routing";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
-import { AssignedPromptLine } from "./AssignedPromptLine";
+import { PromptSidebar } from "./PromptSidebar";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { flushPendingSaves } from "./pendingSaves";
@@ -458,8 +458,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
             onLocked={reload}
           />
+          {/* 🚨 题目不再挂在这里。它原来是一行 line-clamp-2 的小字，全文只在
+              title 属性里 —— 三五行的作业题和题库那些三四百字的题面，顶上这点
+              地方根本装不下（产品负责人 2026-09-21）。它现在是左边那一栏，
+              可以折起来，见 PromptSidebar。 */}
           <AssignmentLine atomId={writingId} className="mt-0.5 block text-mk-small text-mk-muted" />
-          <AssignedPromptLine writing={writing} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LengthMeter writing={writing} state={state} onChange={(n) => void changeTargetWords(n)} />
@@ -481,6 +484,9 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       {/* 2026-09-18：成稿那一页上，老师批改放进这一页自己的右栏；放在编辑区下面时，
           1000px 高的屏幕上正文只剩两百多像素。段落那一步仍然放在下面。 */}
       <div ref={workspaceRef} className="student-writing-workspace flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+        {/* 题目那一栏。她写这一篇全程都要看它，所以它一直在，而且能折起来。
+            自己开的那一篇没有题目，这一栏整个不出现。 */}
+        <PromptSidebar writing={writing} />
         {/* Wrapped in its own flex column, not a bare cell: 老师批改 sits
             BELOW the stage content here, inside the same left-hand slot the
             editor already owns — never inside the 380px coach column on the

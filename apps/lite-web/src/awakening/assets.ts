@@ -66,6 +66,8 @@ const VOICE_PREFIX: Record<string, string> = {
 
 /** 某个助手在某一屏说的那一句。查不到助手时给 NOVA 的。 */
 export function voiceUrl(guide: string, scene: VoiceScene): string {
+  // Revised quote ships with its recording so text and audio stay in sync.
+  if (guide === "KIRO" && scene === "quote") return `${import.meta.env.BASE_URL}awakening/kiro-quote-v2.mp3`;
   const prefix = VOICE_PREFIX[guide] ?? "hot";
   return `${BASE}/${prefix}-${scene}.m4a`;
 }

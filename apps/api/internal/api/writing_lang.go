@@ -184,7 +184,7 @@ func writingMethodFamiliesLine(wr sqlc.Writing) string {
 		return ""
 	}
 	return "\n【挑方法的时候】这篇是英文的，方法库里有四类，别只盯着讲道理那一类：\n" +
-		"- 论证类（en_concession / en_qualify / en_evidence，以及中文名的那些结构方法）：她在为一个主张找支撑时用。\n" +
+		"- 论证类（en_concession / en_qualify / en_evidence，以及中文名的那些结构方法）：用于说明观点与证据之间的关系。\n" +
 		"- 词汇类（en_word_*）：她写出来的意思对，但用词笼统、书面口语混着来时用。\n" +
 		"- 句式类（en_sentence_*）：她一段里每句都一样长、都从主语开头时用。这是英文写作最常见的卡点，也最容易看出进步。\n" +
 		"- 故事线（en_story_*）：这一块是记叙、是她自己的经历、或者需要一个转折时用。\n" +

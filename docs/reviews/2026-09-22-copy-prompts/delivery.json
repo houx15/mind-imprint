@@ -1,0 +1,110 @@
+[
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 28627,
+    "Text": "{\"overall\":{\"grade\":\"A-\",\"comment\":\"The essay states a clear position, supports it with a concrete personal example, and acknowledges the practical objection of staffing before proposing a reasonable trial plan. The main room for growth is that the argument relies on one brief scene and does not unpack why a quiet room improves concentration. Sentence structures are short and uniform, which keeps the writing accurate but flat.\"},\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B+\",\"comment\":\"The position, a supporting example, and a counter-consideration are all present, so the task is answered on both sides. However, the argument jumps from the claim to the corridor scene without explaining the mechanism — why the absence of a quiet space leads to poor revision outcomes — and the example is thin for a full essay.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"B+\",\"comment\":\"The paragraph moves logically from claim, to experience, to objection, to proposal, and \\\"However\\\" signals the shift accurately. Weaknesses are abrupt jumps between sentences and an unclear reference: near the end, \\\"it\\\" could point to the trial or the library, and the reader must guess.\"},{\"name\":\"Lexical Resource\",\"grade\":\"A-\",\"comment\":\"Word choice is precise and appropriate for the register: \\\"revised\\\", \\\"concentrate\\\", \\\"extending the schedule\\\" are all natural collocations. The limitation is variety: the piece is short, and verbs like \\\"try\\\" and \\\"count\\\" are functional rather than expressive.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"B+\",\"comment\":\"Grammar is accurate throughout, with correct past-tense narration and modal structures like \\\"could try\\\". The limitation is range: nearly every sentence follows subject-verb-object with similar length, and there are no complex sentences, relative clauses, or subordination.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"However, staying open requires staff.\",\"text\":\"Introducing the cost side of the argument shows the writer does not argue only one side: a real condition under which the plan is difficult is acknowledged and then answered.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"The proposal is proportionate and specific: a small trial with a measurable indicator before a bigger commitment. This gives the essay a constructive ending rather than a restatement.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"There is a missing step between claim and outcome: the reader is told the library closed and the writer revised in a corridor, but not why nowhere else was available and how the noise actually disrupted revision. The evidence asserts rather than demonstrates.\",\"action\":\"Add one or two sentences after this one explaining what the closure forced you to do and how the noise affected your revision, so the causal link from closing time to poor study conditions is spelled out.\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"This sentence is generic and does little work: it states a common belief without support and is not tied back to the specific example. The corridor scene supports the need for study space, but this claim about concentration stands on its own.\",\"action\":\"Ground this claim in your own experience: describe what actually happened to your attention or results in the corridor, so the sentence is supported by the example instead of floating beside it.\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"Every sentence in the essay is short, declarative, and of similar shape, so the piece shows no grammatical range even though it is accurate.\",\"action\":\"Vary the structure of this sentence and one or two others — for example, open with a subordinate clause or join two ideas with a relative clause — so the essay contains at least one complex sentence.\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 3433,
+      "outputTokens": 2008,
+      "cachedInputTokens": 2048
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "2e7f8a8b557c5116f851be1cd542d2c19144a3aaed3bbc0c13784434e6148aa1"
+  },
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 15121,
+    "Text": "{\"overall\":{\"grade\":\"B\",\"comment\":\"The essay states a clear position and shows some balancing with the staffing cost, but each idea is only asserted once and then dropped, so the argument never gets deep. Sentence-level control is generally accurate.\"},\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B\",\"comment\":\"The main request is answered and the position is clear, but reasons are thin: the corridor anecdote is the only support, and the \\\"quiet helps concentration\\\" claim is never explained.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"B+\",\"comment\":\"The flow is easy to follow and \\\"However\\\" marks the turn to the cost side, but one paragraph is doing proposal, evidence, objection, and solution all at once, so nothing gets room to develop.\"},{\"name\":\"Lexical Resource\",\"grade\":\"B\",\"comment\":\"Word choice is mostly natural (\\\"revised\\\", \\\"extending the schedule\\\"), but the range is narrow and several ideas are repeated with the same simple verbs.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"B+\",\"comment\":\"Sentences are accurate, though nearly all are simple subject-verb-object patterns; there is little variety in structure.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"This is a concrete, testable proposal that responds to the staffing concern instead of ignoring it — the essay's strongest move.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"The claim jumps straight from \\\"quiet room\\\" to \\\"concentrate\\\" without the middle step: why exactly does noise in the corridor prevent revision, or what happens in a quiet room that doesn't happen elsewhere? The mechanism is missing (mechanism_chain).\",\"action\":\"Add one or two sentences explaining how the corridor's noise disrupts study and what specifically changes in a quiet room, so the reader can see the link rather than take it on trust.\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"A single personal anecdote is the only evidence for a school-wide policy, and no connection is drawn between your case and other students — the example supports a narrower claim than the essay makes (development_relevance).\",\"action\":\"Generalise the support: state what other students do after seven and why this pattern is common, so the evidence matches the scale of the proposal.\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"However, staying open requires staff.\",\"text\":\"The objection is raised in one short sentence and immediately resolved, so the concession has no weight; the cost side of the argument is never really weighed (weighing_qualification).\",\"action\":\"Before giving the once-a-week solution, spend two or three sentences on what the staffing requirement actually costs the school, so the final proposal reads as a considered trade-off rather than a quick dismissal.\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"Our school library should stay open for an extra hour.\",\"text\":\"The opening states the position flatly and the closing never returns to it, so the essay ends on logistics rather than the recommendation it opened with — a short concluding sentence reinforcing the recommendation would complete the frame (paragraph_function_order).\",\"action\":\"Add a final sentence that restates your recommendation in light of the trial proposal, so the ending answers the question the opening raised.\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1151,
+      "outputTokens": 709,
+      "cachedInputTokens": 1024
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "2e7f8a8b557c5116f851be1cd542d2c19144a3aaed3bbc0c13784434e6148aa1"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 11508,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"这篇短文有自己的判断，也给出了一个可行的试行建议，读完能明白你想说什么。问题在于：只有一个笼统的事件，缺少人和动作的具体细节，说服力还不够。把「上周」那段经历写得更具体，再说明例子和结论的关系，文章会上一个台阶。\"},\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"主张是明确的，也考虑到了值班这一现实条件，并提出了试行方案，说明你想过对方的难处。但全文唯一的依据是一次走廊复习的经历，而这句经历里没有人物的动作、对话和当时的具体情形，例子摆在那里就过去了，没有说明它如何支持「延长开放」的判断。\"},{\"name\":\"结构\",\"grade\":\"B+\",\"comment\":\"段落顺序清楚：先提出主张，再用经历支撑，接着回应可能的困难，最后给出方案。衔接自然。可以加强的是中间的展开：现在支撑部分只有一段，例子说完立刻转到方案，读者刚产生疑问就被打断了。\"},{\"name\":\"语言\",\"grade\":\"B+\",\"comment\":\"句子基本通顺，用词准确，没有明显的拖沓。但叙述经历的那几句动作太笼统，「我们只好坐在走廊」「我们很难集中注意力」都是概括性的说法，读者看不到画面。\"},{\"name\":\"书写规范\",\"grade\":\"A-\",\"comment\":\"标点使用正确，没有错别字，格式整齐。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"学校可以每周试行一天，了解学生的需求，再决定是否增加天数。\",\"text\":\"结尾不是空喊愿望，而是给出了一个可操作的步骤，也回应了「安排老师值班」的困难。这样主张就显得考虑周全，不是单方面的要求。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"走廊里经常有人经过，我们很难集中注意力。\",\"text\":\"这是全文最需要说服读者的地方，但「经常有人经过」「很难集中注意力」都是概括。谁经过了？发生了什么打断你们的事？当时你们说了什么？没有这些，这个例子的分量就撑不起前面的主张。\",\"action\":\"回到当时的场景，把经过的人、被打断的具体情形和你们的反应写成两三个有动作的句子，再说明这一段经历如何证明图书馆延长开放的必要。\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"我和三位同学准备复习，教室已经关闭，我们只好坐在走廊。\",\"text\":\"句子主干清楚，但「准备复习」和「只好坐」把一次具体的经历压成了摘要。动词笼统，读者看不到你们当时做了什么选择、有多为难。\",\"action\":\"把「准备」「只好」这类概括动词换成当时的具体动作，让读者看见你们尝试过什么、被什么拦住。\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1395,
+      "outputTokens": 584,
+      "cachedInputTokens": 1280
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "3cf966f2d7362e1766733aa84a8256eab0b8370c28a6cae43e94094841206443"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 15160,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"文章有明确的主张和真实的事件依据，从问题出发提出可行的建议，结尾还考虑了执行的成本。整体是一段结构清楚的建议短文。主要不足是主体太薄：事件只有寥寥数语，建议也没有展开，说服力还没到位。\"},\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"主张明确，用亲身经历支撑观点，还提出了分步试行的方案，这是很多建议文欠缺的。但「教室已经关闭」之后的困境只交代了一句，事件本身太单薄，读者还感受不到问题有多严重。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"从事件到主张到方案，顺序清楚。但全文只有一段，事件、观点、让步、建议挤在一起，读者需要自己分辨层次；缺少开头与结尾的呼应。\"},{\"name\":\"语言\",\"grade\":\"B+\",\"comment\":\"句子通顺，几乎没有废话，因果关系交代得清楚。个别地方如「了解学生的需求」与前面的衔接略生硬。\"},{\"name\":\"书写规范\",\"grade\":\"A-\",\"comment\":\"标点使用正确，无错别字。段落划分上建议分段，属于格式问题。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"学校可以每周试行一天，了解学生的需求，再决定是否增加天数。\",\"text\":\"结尾不是空喊口号，而是给出了可操作、留有余地的方案，还回应了「安排老师值班」的成本问题，让建议显得可信。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"走廊里经常有人经过，我们很难集中注意力。\",\"text\":\"这是全文唯一的事件支撑，但只有直接说出来的感受，没有当时的具体动作和情形，读者难以体会问题的严重程度。\",\"action\":\"回想那天的情形，补出当时的具体动作和场景，比如你们各自在做什么、是谁打断了你们。\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"学校图书馆可以延长开放时间。\",\"text\":\"开篇只有主张，没有先让读者进入那件事，事件被压缩到后面几笔带过，主张显得缺乏铺垫。\",\"action\":\"把事件放在开头作为引入，先让读者看到问题，再提出主张。\",\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"我和三位同学准备复习，教室已经关闭，我们只好坐在走廊。\",\"text\":\"事件按顺序一笔带过，没有写出你们有没有尝试别的办法、有没有遇到阻力，事件本身缺少波折。\",\"action\":\"写出你们当时有没有找过其他地方、结果如何，让事件的推进有起伏。\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1395,
+      "outputTokens": 543,
+      "cachedInputTokens": 1280
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "3cf966f2d7362e1766733aa84a8256eab0b8370c28a6cae43e94094841206443"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 4717,
+    "Text": "{\"verdict\":\"polish\",\"summary\":\"这一段先给出观点，再写晚自习后教室关闭和走廊有人经过这两件具体的事，读起来方向清楚。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"quote\":\"上周我和三位同学因此去走廊复习，但走廊里一直有人经过。\",\"text\":\"走廊的例子写出了教室关闭后住校生的困难，但没有说明这个困难和延长图书馆开放时间之间的关系——读者需要自己补上「图书馆开放就能提供安静的场所」这一步。\",\"action\":\"在这个例子后面加一两句解释，说明走廊无法安静自习说明了什么，以及延长图书馆开放时间为什么能解决这个问题。\"}]}",
+    "Usage": {
+      "inputTokens": 3253,
+      "outputTokens": 193,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e07ef5348eb6316eb8fda797b101300bbb314067e0725ecd4291a8c2784e4991"
+  },
+  {
+    "Case": "TestClarityWriting/comment",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3860,
+    "Text": "{\"verdict\":\"revise\",\"summary\":\"这段开门见山提出观点，并给出了自己去走廊复习的具体经历，方向清楚。\",\"points\":[{\"kind\":\"issue\",\"symptom\":\"evidence_not_explained\",\"text\":\"「上周我和三位同学因此去走廊复习，但走廊里一直有人经过」讲清了教室关闭后住校生的困难，但没有说明这个困难和延长图书馆开放时间之间的关系——读者不知道图书馆延长开放为什么能解决这个问题。\",\"action\":\"在走廊这段经历之后补一两句，说明图书馆延长开放后你们会得到什么（例如去处、环境方面的变化），把走廊的困难和图书馆连起来。\"}]}",
+    "Usage": {
+      "inputTokens": 3253,
+      "outputTokens": 165,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "e07ef5348eb6316eb8fda797b101300bbb314067e0725ecd4291a8c2784e4991"
+  }
+]

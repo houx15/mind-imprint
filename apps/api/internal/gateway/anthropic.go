@@ -108,7 +108,7 @@ func (p *AnthropicProvider) Stream(ctx context.Context, r Resolved, req ChatRequ
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("%w: anthropic http %d", errStreamFailed, resp.StatusCode)
+		return nil, newUpstreamHTTPError("anthropic", resp.StatusCode, "")
 	}
 
 	out := make(chan StreamEvent)

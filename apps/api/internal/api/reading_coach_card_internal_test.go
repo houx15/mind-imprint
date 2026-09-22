@@ -1001,7 +1001,7 @@ func TestReadingCoachSystem_CardRulings(t *testing.T) {
 		"short_text",       //
 		"逐字抄自文章",           // the verbatim rule
 		"不能有唯一正解",          // 🚨 the product ruling: a ladder, not a test
-		"哪一句你读着最不服气",       // the ruling's own example
+		"哪一句的判断需要更多证据",       // the ruling's own example
 		"reply 就不要再把它复述一遍", // the card carries the instruction now
 	} {
 		if !strings.Contains(readingCoachSystem, want) {

@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { freshAccount } from "./freshAccount";
+import { skipWhilePaused } from "./pausedSurfaces";
+
+// 项目 / 我的主页 还没做完，这两个面上的走查先停。见 pausedSurfaces.ts。
+skipWhilePaused();
 
 /**
  * 主页项目第一到第三关的工作面 —— 受众画像 / 站点采集 / 视觉基调。

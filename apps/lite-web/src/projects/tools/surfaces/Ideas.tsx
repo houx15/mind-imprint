@@ -55,7 +55,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [draft, setDraft] = useState("");
   const [picked, setPicked] = useState<string | null>(null);
   const [why, setWhy] = useState("");
-  /** 点中的几张，用来圈成一堆。 */
+  /** 点中的几张，用来添加到分组。 */
   const [chosen, setChosen] = useState<string[]>([]);
   /** 拖到一起之后等她点头的那一对。 */
   const [pair, setPair] = useState<{ a: string; b: string } | null>(null);
@@ -177,7 +177,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     }
   }
 
-  /** 圈成一堆，并给这堆起个名字。名字是她的判断，不能省。 */
+  /** 添加到分组，并给这堆起个名字。名字是她的判断，不能省。 */
   async function group() {
     const name = groupName.trim();
     if (!name || chosen.length < 2) return;
@@ -228,7 +228,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       ? "挑一个先试"
       : why.trim()
         ? ""
-        : "一句为什么先试它";
+        : "请说明优先试用的原因";
 
   async function finish() {
     const one = ideas.find((i) => i.id === picked);
@@ -248,7 +248,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   return (
     <Stage
       title={tool.label}
-      task="先别判断好不好。把可能的办法都放上来，再看看哪几条其实是一回事。"
+      task="请先记录可能的方案，再比较并合并相近的想法。"
       why={tool.reason}
       badge={
         <span
@@ -311,7 +311,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         <p className="text-mk-small text-mk-muted">
           {enough
             ? `${ideas.length} 个办法。挑一个先试。`
-            : `还差 ${ENOUGH - ideas.length} 个。别急着挑第一个。`}
+            : `还差 ${ENOUGH - ideas.length} 个，请补充后再选择试用方案。`}
         </p>
       </div>
 
@@ -395,7 +395,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         </div>
       )}
       <p className="mt-2 text-center text-mk-small text-mk-faint">
-        拖到一起，就能合并 · 点两张以上，可以圈成一堆
+        拖到一起可预览合并 · 选择多张便签可添加到分组
       </p>
 
       {pair && <SelectionTray title="合并预览" items={ideas.filter(n => n.id === pair.a || n.id === pair.b)}>
@@ -442,7 +442,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               onClick={() => setNaming(true)}
               className="rounded-mk-full border border-mk-border px-3 py-1 text-mk-small text-mk-secondary"
             >
-              圈成一堆
+              添加到分组
             </button>
           )}
         </div>

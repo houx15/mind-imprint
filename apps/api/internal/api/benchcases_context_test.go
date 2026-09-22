@@ -128,7 +128,7 @@ func TestReadingPromptPrioritizesSkipHintAndCompletion(t *testing.T) {
 		"沿用那张卡，card、lens 留空，不推进",
 		"advance=\"done\"；不再追问",
 		"解释一个术语时可以引用其他段落，不能因证据不在当前段而要求重做",
-		"只答其中一个（如只说排名、时间或「投入很大」）仍是部分回答",
+		"只给数字、排名或时间却没有解释它统计的对象仍是部分回答",
 		"完成或组件完成回灌时只可按下一步说明给一张下一步 card",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {

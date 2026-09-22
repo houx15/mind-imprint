@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { type AwakeningRun, postTurn } from "../../api/awakening";
 import { IMAGES } from "../assets";
-import { CHALLENGE, CHALLENGE_OPTIONS, LENS, TERMINAL } from "../content";
+import { CHALLENGE, CHALLENGE_OPTIONS, GUIDES, LENS, TERMINAL } from "../content";
 import { Bubble, Choice, Dim, Eyebrow, Meter, Panel, Primary, Stage } from "../ui";
 
 /**
@@ -97,12 +97,18 @@ export function TerminalScene({
   const stateLabel = done ? "COMPLETE" : busy ? "THINKING" : "AWAITING INPUT";
   // 她已经写下的段数。一段都没有就总结不了 —— 报告里不会有一个字是她的。
   const answered = lines.filter((l) => l.who === "her").length;
+  // 这一屏的主色跟着她选的助手走：选助手那一屏三张卡各有一个颜色，进了终端
+  // 之后对话框、光标、边框都用同一个，所以「我选的是谁」一直看得见。
+  const accent = GUIDES.find((g) => g.id === run.navigator)?.accent;
 
   return (
     <section
       className="awk-term-screen"
       aria-label="兴趣信号诊断终端"
-      style={{ ["--awk-term-plate" as string]: `url(${IMAGES.archiveBackdrop})` }}
+      style={{
+        ["--awk-term-plate" as string]: `url(${IMAGES.archiveBackdrop})`,
+        ...(accent ? { ["--it-accent" as string]: accent } : {}),
+      }}
     >
       <div className="awk-term">
         <header className="awk-term-head">

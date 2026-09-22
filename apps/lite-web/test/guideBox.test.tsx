@@ -34,7 +34,7 @@ describe("GuideBox", () => {
     expect(screen.getByText(/这一段要做的事/)).toBeTruthy();
     // 段内结构那一节是按 kind 确定性渲染的，不花模型调用。
     expect(screen.getByText(/这一段里的几步/)).toBeTruthy();
-    expect(screen.getByText(/分析/)).toBeTruthy();
+    expect(screen.getByText("分析句", { exact: true })).toBeTruthy();
     // 2026-09-20 改名：「常见的几种写法」→「可以用上的方法」，而且退到
     // 「这一段里的几步」后面 —— 同事的意见 5：她站在一段空白面前要的不是
     // 「有哪几种写法」，是这一段先写什么再写什么。
@@ -42,7 +42,7 @@ describe("GuideBox", () => {
     expect(screen.getByText("正反")).toBeTruthy();
     expect(screen.getByText(/一正一反两个例子/)).toBeTruthy();
     expect(screen.getByText(/想一想/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /看几个例子/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /查看例子/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /深入一层/ })).toBeTruthy();
 
     // The old box put everything at mk-body 14px, which is what made it unreadable.
@@ -71,7 +71,7 @@ describe("GuideBox", () => {
     // question list would read as a suggestion unless she asked for it.
     expect(screen.queryByText(/东街留了装卸区/)).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /看几个例子/ }));
+    fireEvent.click(screen.getByRole("button", { name: /查看例子/ }));
 
     expect(screen.getByText(/东街留了装卸区/)).toBeTruthy();
     // The topic MUST be named beside the example — that is the whole
@@ -106,7 +106,7 @@ describe("GuideBox", () => {
     };
     render(<GuideBox guide={english} onDismiss={() => {}} onDeepen={() => {}} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /看几个例子/ }));
+    fireEvent.click(screen.getByRole("button", { name: /查看例子/ }));
     expect(screen.getByText(/While it is true that ___/)).toBeTruthy();
     // The blanks are the 铁律① line: the frame says what SHAPE the sentence
     // takes, and the part it will not write is exactly the part she fills in.
@@ -118,7 +118,7 @@ describe("GuideBox", () => {
     render(<GuideBox guide={sparse} onDismiss={() => {}} onDeepen={() => {}} />);
     expect(screen.queryByText(/这一段要做的事/)).toBeNull();
     expect(screen.queryByText(/常见的几种写法/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /看几个例子/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /查看例子/ })).toBeNull();
     expect(screen.getByText("只有一个问题？")).toBeTruthy();
   });
 

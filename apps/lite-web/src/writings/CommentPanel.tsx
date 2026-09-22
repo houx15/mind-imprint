@@ -92,7 +92,7 @@ export function CommentPanel({
    * 不给（成稿那一步暂时没给）就照旧全都当成还算数。
    */
   currentText?: string;
-  /** 「请印记再看一遍」。不给就不摆那颗按钮。 */
+  /** 「AI重新审阅」。不给就不摆那颗按钮。 */
   onRecheck?: () => void;
   rechecking?: boolean;
 }) {
@@ -221,10 +221,10 @@ export function CommentPanel({
                 第四十轮她就卡在这儿：「它说『点右边让它重看一遍』，但我只看到
                 『请印记再看一遍』这个按钮，不确定是不是就是它说的那个」——
                 屏幕上东西一多，「右边」就不是一个地址。 */}
-            这一段改过了。下面的总评和意见，读的都是你改之前那一版 —— 还没改的照样可以按着做；都改完了就按「请印记再看一遍」。
+            正文已修改。以下总评和意见针对修改前的版本，请核对哪些仍然适用；完成修改后，可点击「AI重新审阅」更新反馈。
           </span>
           <Button variant="secondary" size="sm" onClick={onRecheck} loading={rechecking}>
-            请印记再看一遍
+            AI重新审阅
           </Button>
         </div>
       )}

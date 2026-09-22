@@ -105,7 +105,7 @@ if (await deepen.count()) {
   console.log("（这张卡没有深入一层按钮）");
 }
 
-// ── 3. 成稿: 请印记看看 with the rail scrolled away ─────────────────────────
+// ── 3. 成稿: AI审阅 with the rail scrolled away ─────────────────────────
 const essay = [
   "作者说“苦乐全在主观的心，不在客观的事”。同一份工作，有人觉得苦，有人觉得乐。",
   "刚开始练跳绳时，我只是为了完成体育老师布置的任务。每天拿起跳绳，我就想着赶紧跳完，边跳边数还剩多少个。绳子一绊住脚，我便更加烦躁，觉得这项练习既累又无聊。",
@@ -116,11 +116,11 @@ const essay = [
 await must(await api.put(`${API}/api/v1/writings/${id}/draft`, { data: { body: essay } }), "draft");
 await must(await api.post(`${API}/api/v1/writings/${id}/stage`, { data: { stage: "draft" } }), "stage draft");
 await page.goto(`/writings/${id}`);
-await page.getByRole("button", { name: "请印记看看", exact: true }).waitFor();
+await page.getByRole("button", { name: "AI审阅", exact: true }).waitFor();
 const rail = page.locator("aside").last();
 await rail.evaluate((el) => el.scrollTo(0, el.scrollHeight));
 const t0 = Date.now();
-await page.getByRole("button", { name: "请印记看看", exact: true }).click();
+await page.getByRole("button", { name: "AI审阅", exact: true }).click();
 await page.getByText("印记正在通读全文").waitFor({ timeout: 10_000 });
 await shot(page, "4-review-running");
 await page.locator("[data-comment-point]").first().waitFor({ timeout: 240_000 });

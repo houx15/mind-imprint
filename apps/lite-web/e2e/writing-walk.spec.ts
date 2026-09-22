@@ -33,7 +33,7 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *     automatically, on arrival in 成稿 — the draft is simply there, not
  *     behind a button. The button survives, demoted to 从段落重新拼一次, for
  *     re-pulling after she edits 段落 again.
- *   - 请印记看看 now answers a STRUCTURED Comment (summary + points), not a
+ *   - AI审阅 now answers a STRUCTURED Comment (summary + points), not a
  *     prose blob under a "印记的反馈" heading — that heading no longer
  *     exists. `CommentPanel` renders it, and every point is a
  *     `[data-comment-point]` button that traces to a `<mark>` inside
@@ -77,19 +77,46 @@ const titled = (name: string) => `${name} ${RUN}`;
 
 const BOX_PLACEHOLDER = "说说你想写点什么，直接开始";
 const WRITING_URL = /\/writings\/[0-9a-f-]{36}$/;
-const STAGE_NAV = "写作三步";
+// 🚨 R3（2026-09-20）在规划和段落之间加了「行文」那一步，StageMap 的
+// aria-label 跟着从「写作三步」改成了「写作四步」。R3 当时只跑了
+// flow-stage 那条新走查，这几条旧的没回头跑 —— 它们从那天起就是红的。
+const STAGE_NAV = "写作四步";
+
+/**
+ * 规划之后那一步：行文。
+ *
+ * 🚨 R3（2026-09-20，同事的意见 4）在规划和段落之间加了这一屏。它和规划一样是
+ * **全屏的**（WritingRoomHost 在房间外壳之前就分叉了），所以这一屏上没有
+ * 「写作四步」那条导航 —— 走查在这里等导航会干等 30 秒，读起来像房间坏了。
+ *
+ * R3 当时只跑了 flow-stage 那条新走查，这几条旧的没回头跑。
+ */
+async function passThroughFlow(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "行文" })).toBeVisible({ timeout: 30_000 });
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
+    page.getByRole("button", { name: /去写段落/ }).click(),
+  ]);
+}
+
 
 type StageLabel = "结构" | "段落" | "成稿";
 
 /**
- * The greeting is split across elements (写 is its own <span> so the ink ring
- * can be drawn behind it), so — same convention as reading-walk's
- * expectGreeting — it is matched on the heading's textContent.
+ * 落地页那个标题。
+ *
+ * 🚨 2026-09-21 订正：这里钉的原来是「Hi，今天想写点什么」，而
+ * `8a1fd0be style(lite): refresh reading writing and project entry pages`
+ * （2026-09-14）把三个入口页统一换成了 `LandingHeader`，写作那个的标题
+ * 是「写作」。**这三条走查从那天起就一直是红的，没有人发现** ——
+ * 它们只在有人手动跑线上套件的时候才会说话。
+ *
+ * 钉标题本身而不是钉一句问候语：问候语是会改的文案，标题是这一页叫什么。
  */
 async function expectGreeting(page: Page): Promise<void> {
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toBeVisible();
-  expect(await heading.textContent()).toBe("Hi，今天想写点什么");
+  expect(await heading.textContent()).toBe("写作");
 }
 
 /**
@@ -101,24 +128,27 @@ async function expectGreeting(page: Page): Promise<void> {
  */
 async function completeSetup(
   page: Page,
-  opts: { lang?: "中文" | "English"; words?: number | null; note?: string } = {},
+  opts: { lang?: "中文" | "English"; words?: number | null } = {},
 ): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "开始之前" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-  // There is deliberately NO 文体 selector: a lite student may not know the
-  // word, so the third field is an open box instead and the model infers
-  // genre from her own sentences. Asserted so a future edit cannot quietly
-  // reintroduce a vocabulary question.
+  // 没有 文体 选择器：轻量版的学生可能不知道这个词，文体由模型从她的句子里判断。
   await expect(dialog.getByText("文体")).toHaveCount(0);
+
+  // 🚨 **这里没有任何要她打字的框。**（产品负责人 2026-09-21：
+  // 「I don't think we should let students type anything in the modal
+  //   because it is a little strange…always directly enter AI-guided journey」）
+  // 原来第三格是「还想说点什么？」——在对话开始之前先要她写一段，
+  // 而她推门进来本来就是要去说话的，印记的第一句就在门后面等着。
+  await expect(dialog.getByRole("textbox")).toHaveCount(0);
 
   if (opts.lang) await dialog.getByRole("button", { name: opts.lang }).click();
   if (opts.words != null) await dialog.getByLabel("目标字数").fill(String(opts.words));
-  if (opts.note) await dialog.getByLabel("还想说点什么").fill(opts.note);
 
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/setup") && r.request().method() === "PUT"),
-    dialog.getByRole("button", { name: opts.words == null && !opts.note ? "跳过" : "开始", exact: true }).click(),
+    dialog.getByRole("button", { name: opts.words == null ? "跳过" : "开始", exact: true }).click(),
   ]);
   await expect(dialog).toHaveCount(0, { timeout: 15_000 });
 }
@@ -166,15 +196,20 @@ test("the landing page is the front door: greeting, box, and the fixed topic she
 
   // 铁律②: a fixed shelf, never a feed a student who has nothing in mind
   // could keep scrolling.
+  //
+  // 🚨 2026-09-21 起这一排不再是写死的四条，而是从写作题库（705 道真题）
+  // 里挑的几道。**要守的不变量没变**：它是一排有边的建议，不是一条可以
+  // 一直往下滚的流。所以这里钉的是「有边」，不是那四个具体的题目名 ——
+  // 钉题目名等于把一份会变的内容当成了契约。
   await expect(page.getByText("不知道写什么？")).toBeVisible();
-  for (const title of [
-    "该不该把上学时间往后推？",
-    "短视频有没有让我们变笨？",
-    "学生该不该在学期中打工？",
-    "A Moment That Changed How I See Something",
-  ]) {
-    await expect(page.getByText(title, { exact: true })).toBeVisible();
-  }
+  const shelf = page.locator("article");
+  await expect(shelf.first()).toBeVisible({ timeout: 60_000 });
+  const shelfCount = await shelf.count();
+  expect(shelfCount, "这一排应该是有边的几条建议，不是一条流").toBeLessThanOrEqual(6);
+  expect(shelfCount).toBeGreaterThan(0);
+
+  // 整座题库在另一页，从这里进得去。
+  await expect(page.getByRole("tab", { name: /写作题库/ })).toBeVisible();
 
   // 我的写作 is a drawer, not a feed on the page.
   await page.getByRole("button", { name: /我的写作/ }).click();
@@ -200,7 +235,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const id = await startWriting(page, idea);
 
   // ── the 设定 dialog: language, length, and her own words ────────────────
-  await completeSetup(page, { lang: "中文", words: 500, note: "这是老师布置的作业，我自己更倾向不要一刀切禁止。" });
+  await completeSetup(page, { lang: "中文", words: 500 });
   await expect(page.getByPlaceholder("说说你的想法")).toBeVisible({ timeout: 30_000 });
 
   // ── the idea really made the round trip: it is BOTH the title and the
@@ -316,6 +351,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
   ]);
+  await passThroughFlow(page);
   await expect(page.getByRole("navigation", { name: STAGE_NAV })).toBeVisible({ timeout: 30_000 });
 
   // ── THE HANDOVER: the map she planned IS the outline she now writes into ─
@@ -426,7 +462,7 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const beforeReview = await draftBox.inputValue();
   const [reviewResp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/review") && r.request().method() === "POST", { timeout: 180_000 }),
-    page.getByRole("button", { name: "请印记看看", exact: true }).click(),
+    page.getByRole("button", { name: "AI审阅", exact: true }).click(),
   ]);
   const reviewed = (await reviewResp.json()) as {
     comment: { summary: string; points: { text: string; quote: string }[] };
@@ -490,8 +526,12 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await expect(
     page.getByText("印记正在把这次写的东西整理成一份报告", { exact: false }),
   ).toHaveCount(0, { timeout: 300_000 });
-  await expect(page.getByText(paragraph1)).toBeVisible();
-  await expect(page.getByText(paragraph2)).toBeVisible();
+  // 🚨 圈到成稿那一栏里再找。完成页有三栏（成稿 / 对话 / 报告），
+  // 没选中的那几栏也在 DOM 里，于是同一段字有两个节点，裸 getByText 会撞上
+  // strict mode。屏幕上她只看见一份 —— 要验的也正是**看得见**的那一份。
+  const piece = page.getByRole("article");
+  await expect(piece.getByText(paragraph1)).toBeVisible();
+  await expect(piece.getByText(paragraph2)).toBeVisible();
   await expect(page.getByRole("button", { name: "回到写作", exact: true })).toBeVisible();
   // Terminal means terminal: no stage map, no coach box, nothing that could
   // reopen this as a live room.
@@ -523,6 +563,7 @@ test("the 设定 dialog can be skipped entirely — length is never a preconditi
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
   ]);
+  await passThroughFlow(page);
   await expect(page.getByRole("navigation", { name: STAGE_NAV })).toBeVisible({ timeout: 30_000 });
 
   // No target set, so the counter offers to set one rather than showing a

@@ -166,7 +166,7 @@ func TestValidateCommentPoints_SymptomTablesAreLanguageScoped(t *testing.T) {
 func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
 		seen := map[string]bool{}
-		for _, s := range writingSymptomTable(lang) {
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			if seen[s.ID] {
 				t.Fatalf("%s: duplicate symptom id %q", lang, s.ID)
 			}
@@ -180,7 +180,7 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 		}
 		// 每一层都得有东西，否则「只留最上面那一层」在那一层上是空转。
 		byLayer := map[int]int{}
-		for _, s := range writingSymptomTable(lang) {
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			byLayer[s.Layer]++
 		}
 		for l := writingLayerClaim; l <= writingLayerSentence; l++ {
@@ -202,11 +202,11 @@ func TestWritingSymptomTablesAreWellFormed(t *testing.T) {
 // 都是可以这样机械地验一次的。
 func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。", "")
+		prompt := buildWritingCommentPrompt(sqlc.Writing{Title: "食堂浪费", Lang: lang}, "她写的这一段", "随便一句。", "", genreArgument)
 		if !contains(prompt, "【可用的方法】") {
 			t.Fatalf("%s: prompt 里没有【可用的方法】这一节", lang)
 		}
-		methods := vocab.ForLang(lang)
+		methods := vocab.ForLang(lang, genreArgument)
 		if len(methods) == 0 {
 			t.Fatalf("%s: 方法库是空的", lang)
 		}
@@ -221,8 +221,8 @@ func TestWritingCommentPrompt_CarriesTheMethodLibrary(t *testing.T) {
 // prompt 里那份目录必须真的把 id 写出来 —— 模型要回填的就是它。
 func TestWritingSymptomCatalogListsEveryID(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		cat := writingSymptomCatalog(lang)
-		for _, s := range writingSymptomTable(lang) {
+		cat := writingSymptomCatalog(lang, genreArgument)
+		for _, s := range writingSymptomTable(lang, genreArgument) {
 			if !contains(cat, s.ID) {
 				t.Fatalf("%s: catalog is missing %q", lang, s.ID)
 			}

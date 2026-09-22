@@ -33,6 +33,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"mindimprint/api/internal/teachingvoice"
 	"net/http"
 	"strings"
 	"time"
@@ -72,41 +73,39 @@ func writingGuideQuestionCap(existing string) int {
 // must exist in the registry; per-field output contracts remain below.
 const writingGuideTeachingRules = `## 说明方式
 
-说明当前步骤或方法的用途，直接回应学生的问题。她需要帮助时，给一两个适用方法
+像老师与学生讨论文章那样，先联系她正在表达的意思，再提出能帮助她发现关系的问题。学生询问概念时直接解释，不用提问回避帮助。说明当前步骤或方法的用途，直接回应学生的问题。她需要帮助时，给一两个适用方法
 并简明解释；不必每次都重复理由、方法、选择和邀请示范。
 使用【可用的方法】中的名称和 id，不造新词。专业词可以附短解释，例如
-「并列论证：用几条相互独立的理由支持同一主张」。
+「并列论证：用几条相互独立的理由说明同一观点」。
 普通对话最多提出一个需要学生回答的问题，信息足够时可以不问。
 本次若输出结构化的问题列表，按下面 questions 的数量契约生成供她选择的问题，
 每条只包含一个任务，不把列表当作要求她一次答完的问卷。
-指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。`
+指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。` + teachingvoice.Rules
 
 // writingGuideQuestionRules is the content discipline for `questions`,
 // shared by the single-block and batch prompts for the same
 // never-drift-apart reason as writingGuideTeachingRules.
 const writingGuideQuestionRules = `关于问题本身：
 - 必须是问题，不是建议，也不是示范。每一条都以问号结尾。
-- 要**具体到能马上动笔**。「你的论点是什么？」太空；「你身边有没有哪个同学因为这件事吃过亏？」才有用。
+- 要**具体到能马上动笔**。例如讨论图书馆开放时间时，可以问「放学后，你和同学通常在哪里自习？」。
 - 要贴着这一块的作用来问，不要每一块都问同样的话。
-- 要贴着她已经说过的话来问，用她提到过的人、事、场景，不要另起炉灶。
+- 要贴着她已经说过的话来问，用她提到过的人、事、场景，以这些内容作为提问的依据。
 - 每条只请求一项信息。例如「你准备使用哪份数据？」是一条问题。需要再问数据的适用范围时，另列一条。每条都让她只回答一件事。
 - **她这一块已经写了字的时候，最多给两条。** 一次只解决最上面那一层 ——
-  她盯着一段已经写完的话，收到四个问题只会读成「我写得很烂」。
+  请聚焦当前最需要解释的内容，减少同时处理的问题。
   这一块还是空的才给三到四条。
 
-🚨 **举例不是唯一的路，也不是每一处分析都要跟一个例子。**
-同事 2026-09-20 指的就是这件事：「要求分析必须跟着举例，而且引导的举例也比较简单」。
-一条理由可以靠一件具体的事撑住，也可以靠把道理一步一步推给读者看
-（「道理论证」），还可以靠和另一种情况比一比（「对比论证」）。
-她这一块已经有一个例子了，就别再要第二个 —— 问「这个例子凭什么说明你的看法」
+根据材料选择论证方法。可以用具体事例说明观点，也可以解释推理过程
+（道理论证），或比较两种情况的相同点与差异（对比论证）。
+她这一块已经有一个例子了，就别再要第二个 —— 问「这个例子怎样说明你的观点」
 比问「还有别的例子吗」有用得多。
 
-🚨 **不要吹毛求疵。** 这一块只要站得住，就说它站得住。挑一处**真的会让读者
-读不下去**的地方问，不要为了凑够条数去问一些「还可以更好」的话。
+这一块已经表达清楚，就说明已完成的内容。需要追问时，选择影响读者理解的一处问题，
+避免重复已经回答过的问题。
 
 绝对禁止：
-- **不要写出任何可以直接放进她文章里的句子。** 不给论点、不给开头、不给例句、不给现成的段落。一个字都不行。
-- 不要替她判断对错，不要说「你应该主张……」。
+- **不要写出任何可以直接放进她文章里的句子。** 不给论点、不给开头、不给例句、不给现成的段落。
+- 保留学生选择观点的权利，帮助她检查理由与材料。
 - 不要重复她已经写在这一块里的内容。`
 
 // writingGuideSystem — guides ONE block (POST /outline/{oid}/guide, the
@@ -131,7 +130,7 @@ const writingGuideSystem = `你是「印记」。学生正在写一篇文章，�
 // whole skeleton costs about what one 卡住了？ click cost, so guidance is
 // already there the moment she opens 段落 instead of waiting for her to find
 // a button.
-const writingGuideBatchSystem = `你是「印记」。学生正在写一整篇文章，提纲已经搭好了。你要针对**每一块**说清这一块要为读者做成什么事，说出一两个真正能用上的方法名，再给她 2 到 4 个能帮她想下去的问题——一次性把整篇都想一遍，而不是等她卡在某一块才想。
+const writingGuideBatchSystem = `你是「印记」。学生正在写一整篇文章，提纲已经确定。你要针对**每一块**说清这一块要为读者做成什么事，说出一两个真正能用上的方法名，再给她 2 到 4 个能帮她想下去的问题。本次需要同时生成所有段落的引导。
 
 ` + writingGuideTeachingRules + `
 
@@ -252,7 +251,7 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	// Filtered by position AND by the piece's language — see vocab.For: an
 	// English frame offered inside a Chinese essay is a bug, not a rough edge.
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang) {
+	for _, m := range vocab.For(writingKindAppliesTo(writingKindOf(block)), wr.Lang, writingGenreOf(wr, siblings)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	// See writingMethodFamiliesLine: an English piece can now be helped with
@@ -313,7 +312,7 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	}
 
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.ForLang(wr.Lang) {
+	for _, m := range vocab.ForLang(wr.Lang, writingGenreOf(wr, blocks)) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
 	b.WriteString(writingMethodFamiliesLine(wr))
@@ -781,8 +780,12 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingGuideSystem},
+			// 🚨 换一组问题换到第二、第三代还没动，就不能再问问题了 ——
+			// 改成给选项、再给句式。general-suggestions.md 交互策略那一条，
+			// R4 之前这条路上一个都没有。见 writing_stall.go。
 			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs, guidePiece) +
-				writingGuideAnotherAngle(priorWritingGuide(block))},
+				writingGuideAnotherAngle(priorWritingGuide(block)) +
+				writingHelpModeBlock(writingGuideHelpMode(priorWritingGuide(block)), wr.Lang, writingGenreOf(wr, siblings))},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res.Usage)

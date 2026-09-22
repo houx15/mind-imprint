@@ -28,7 +28,7 @@ func TestWritingTopicLine_AssignedPromptIsTheTeachers(t *testing.T) {
 		"batch":   buildWritingGuideBatchPrompt(wr, outline, nil, nil),
 		"coach":   buildWritingCoachProjection(wr, outline, nil, ""),
 		"deepen":  buildDeepenBrief(wr, outline, outline[0], "", nil, "", ""),
-		"comment": buildWritingCommentPrompt(wr, "她的整篇稿子", "雨下了一整天。", ""),
+		"comment": buildWritingCommentPrompt(wr, "她的整篇稿子", "雨下了一整天。", "", genreArgument),
 		"plan":    buildWritingPlanPrompt(wr, outline, nil, ""),
 	}
 	for name, out := range built {

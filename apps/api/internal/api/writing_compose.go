@@ -283,13 +283,24 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 文体决定递给它的是哪一套方法（议论文的论证方法，还是记叙文的细节描写）。
+	// 通篇审阅这一路不附整篇上下文，但图还是要读一下 —— 只看标题推文体，
+	// 一篇记叙文会被当成议论文来评。
+	outlineForGenre, _ := a.d.Queries.ListWritingOutline(turnCtx, at.ID)
+	genre := writingGenreOf(wr, outlineForGenre)
+
 	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
 	// collectWritingComment 里 —— 单段那一支走的是同一个函数。
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "review", resolved,
 		// 通篇审阅不分块，所以不附分块的检查表。
-		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues, ""),
+		// 通篇审阅是一次性的，没有「同一处说过两轮」可言 —— 帮法恒为默认。
+		buildWritingCommentSystem(wr.Lang, writingDraftReviewMaxIssues, "", helpAsk, genre),
 		// 通篇审阅那一路不给整篇上下文：body 本来就是整篇。
-		buildWritingCommentPrompt(wr, "她的整篇稿子", body, ""),
+		buildWritingCommentPrompt(wr, "她的整篇稿子", body, "", genre),
+		// 她真的会看到的那几条。通篇这一路没有分块的减法。
+		func(pts []CommentPoint) []CommentPoint {
+			return validateCommentPoints(pts, body, wr.Lang, writingDraftReviewMaxIssues)
+		},
 		"scope", "draft", "atom_id", at.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {

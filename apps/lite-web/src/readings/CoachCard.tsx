@@ -389,7 +389,7 @@ export function CoachCard({
         }}
       >
         <span className="text-mk-small leading-relaxed text-mk-muted">{card.prompt}</span>
-        <span className="text-mk-small text-mk-faint">已替换。点一下可以重看这道题。</span>
+        <span className="text-mk-small text-mk-faint">已替换。点击可查看原题。</span>
       </button>
     );
   }
@@ -536,7 +536,7 @@ export function CoachCard({
               ? "把每一句拖到它的角色下面。也可以先点一句，再点一个格子。"
               : "把每个词拖到你现在的状态下面。也可以先点一个词，再点一个格子。"
           }
-          submitLabel={card.type === "label_roles" ? "摆好了" : "分好了"}
+          submitLabel={card.type === "label_roles" ? "提交标注" : "提交分类"}
           busy={busy}
           prefill={prefill}
           onSubmit={(placement) =>
@@ -611,7 +611,7 @@ export function CoachCard({
               className="rounded-mk-full px-3 py-1 text-mk-small text-white transition-opacity duration-[120ms] ease-mk hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              说说看
+              提交回答
             </button>
           </div>
         </div>

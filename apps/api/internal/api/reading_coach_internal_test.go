@@ -121,8 +121,8 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// list of three "options" is three questions on three lines, which is
 		// exactly what the one-question-at-a-time rule forbids; the permission
 		// and its limit are one ruling and must be pinned together.
-		"可以用一点排版，但只用在真正有用的地方",
-		"列表里并排的是**选项**，不是问题",
+		"加粗仅用于确有必要强调的概念",
+		"一轮最多问一个需要学生回答的问题",
 		// Task 12's live walk found this one MISSING in behaviour: the card
 		// section merely permitted a card (「有时候…更管用」), so against a real
 		// model the opening turn came back as the very prose the sub-project
@@ -163,21 +163,20 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		"存活的选项全部来自同一段，整张卡片会被丢掉",
 		// Never scold her for a thing she was pointed at the wrong half of the
 		// screen for.
-		"不要训她",
+		"不要预设她害怕、偷懒、不认真",
 		// R4 (2): this used to be a literal blocklist (「还没做完」/「别急着往下走」/
 		// 「第一步还没做完」) and the model routed around it by dropping one
 		// character — 「读完第4段了，那这一步还没完」. A blocklist is the wrong
 		// instrument: it enumerates phrasings, and phrasings are infinite. The
 		// rule is now positive and about the ACT — do not comment on the fact
 		// that she has not done it — with worked examples of what to say instead.
-		"不要去评论「她还没做到」这件事本身",
-		"点完它会出现在下面",
+		"不要评价她答得快慢",
+		"不要求她操作已经收起的组件",
 		// text-heavy without a card was the original complaint; the cap alone
 		// never fixed it.
-		"没有卡片的那一轮，话要更短，不是更长",
-		// ~12 real replies contained not one **bold** — 「可以用一点排版」 was too
-		// polite a permission to ever be acted on.
-		"每一轮都用一次加粗",
+		"解释清楚后就停止",
+		// Emphasis serves explanation; the copy review removes mechanical bolding.
+		"不要求每轮使用",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("readingCoachSystem no longer mentions %q", want)

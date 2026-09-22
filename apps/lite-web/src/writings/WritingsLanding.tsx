@@ -4,10 +4,17 @@ import { Library, ArrowRight, FileUp, Paperclip } from "lucide-react";
 import { Button, Icon, Modal } from "@/ui";
 import { ApiError } from "../api/client";
 import { createWriting, extractDocument, listWritings, isWritingFinished, type Writing } from "../api/writings";
-import { navigate, writingPath } from "../routing";
+import { navigate, writingPath, writingLibraryPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { WRITING_IDEA_KEY, WRITING_IDEA_LANG_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
+import { WritingsTabs } from "./WritingsTabs";
+import { PromptCard } from "./PromptCard";
+import {
+  listWritingPrompts,
+  startWritingFromPrompt,
+  type WritingPrompt,
+} from "../api/writingPrompts";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
 import { AssignmentStrip } from "../inbox/AssignmentStrip";
@@ -38,12 +45,18 @@ export function WritingsLanding() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  // 带一篇写好的进来：一个弹窗，两个框（这是什么 + 正文）。
+  // 导入已有文章：一个弹窗，两个框（这是什么 + 正文）。
   const [bringOpen, setBringOpen] = useState(false);
   const [bringTitle, setBringTitle] = useState("");
   const [bringBody, setBringBody] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [bringFileError, setBringFileError] = useState<string | null>(null);
+
+  // 题库推荐：落地页上那一排不再是写死的四条，而是从 705 道真题里挑的。
+  // 🚨 拿不到就**什么都不显示**，不要弹一句报错——她来这一页是要开始写，
+  // 推荐拉不到不该挡在她前面（下面那排写死的备选题仍然在）。
+  const [recommended, setRecommended] = useState<WritingPrompt[] | null>(null);
+  const [startingPrompt, setStartingPrompt] = useState(false);
 
   const [history, setHistory] = useState<Writing[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -64,7 +77,23 @@ export function WritingsLanding() {
         if (!cancelled) setHistory(rows);
       })
       .catch(() => {
-        if (!cancelled) setHistoryError("我的写作暂时加载不出来，刷新一下再试试。");
+        if (!cancelled) setHistoryError("加载写作记录失败，请刷新重试。");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 题库推荐。第一页、不带任何筛选 —— 服务端只在这种情况下才给 recommended。
+  useEffect(() => {
+    let cancelled = false;
+    listWritingPrompts({ pageSize: 1 })
+      .then((res) => {
+        if (!cancelled) setRecommended(res.recommended.map((r) => r.prompt));
+      })
+      .catch(() => {
+        // 静默退回写死的那几条备选题。见 recommended 那个 state 上面的注释。
+        if (!cancelled) setRecommended([]);
       });
     return () => {
       cancelled = true;
@@ -118,7 +147,7 @@ export function WritingsLanding() {
    * 上传一份文件，把里面的文字放进上面那个框。
    *
    * 🚨 取出来的文字**落进框里**，不直接建这一篇。她仍然看得见、改得动，
-   * 按「请印记看看」的时候才真的交出去 —— 上传只是省掉复制粘贴那一下，
+   * 按「AI审阅」的时候才真的交出去 —— 上传只是省掉复制粘贴那一下，
    * 不替她做决定。失败那一句原样来自服务端（扫描件和文件坏了是两回事）。
    */
   async function bringFile(file: File | undefined) {
@@ -138,7 +167,7 @@ export function WritingsLanding() {
   }
 
   /**
-   * 带一篇写好的进来。
+   * 导入已有文章。
    *
    * 和 `start` 走同一个接口，只是多给一个 body —— 服务端据此把这一篇直接放在
    * 成稿那一步、来源记成 brought。这里不做任何「看起来像不像一篇文章」的判断：
@@ -157,6 +186,18 @@ export function WritingsLanding() {
       setStartError(apiErrorText(err));
       setStarting(false);
       setBringOpen(false);
+    }
+  }
+
+  async function startFromPrompt(id: string) {
+    if (startingPrompt) return;
+    setStartingPrompt(true);
+    setStartError(null);
+    try {
+      navigate(writingPath(await startWritingFromPrompt(id)));
+    } catch (err) {
+      setStartError(apiErrorText(err));
+      setStartingPrompt(false);
     }
   }
 
@@ -207,6 +248,10 @@ export function WritingsLanding() {
           )}
         </div>
 
+        <div className="flex justify-center">
+          <WritingsTabs active="own" />
+        </div>
+
         <LandingHeader kind="writing" title="写作" description="整理想法、组织论证，也可以带来已有文章寻求建议。" />
 
         <div className="learning-composer">
@@ -226,7 +271,7 @@ export function WritingsLanding() {
               className="min-h-[112px] w-full resize-none rounded-mk-sm bg-transparent px-3 pb-2 pt-2.5 text-mk-body-lg text-mk-ink outline-none placeholder:text-[#B8ADA2] disabled:cursor-not-allowed"
             />
             <div className="flex items-center justify-between px-1.5 pb-1">
-              {/* 带一篇写好的进来。
+              {/* 导入已有文章。
                   产品负责人 2026-09-11：「we also make students available to
                   upload a written one to seek for advice」。
                   它和「开始写作」并排，不是藏在别处：写完了想要意见，
@@ -238,7 +283,7 @@ export function WritingsLanding() {
                 className="flex items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-secondary transition-colors hover:text-mk-accent-700 disabled:cursor-not-allowed"
               >
                 <Icon icon={FileUp} size={14} />
-                带一篇写好的进来
+                导入已有文章
               </button>
               <Button onClick={() => void start(idea, ideaLang)} disabled={!idea.trim()} loading={starting}>
                 开始写作
@@ -260,38 +305,66 @@ export function WritingsLanding() {
             <Hairline />
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {WRITING_TOPICS.map((topic, i) => (
-              <PromptTile
-                key={topic.id}
-                index={i + 1}
-                tag={topic.genre}
-                title={topic.title}
-                reason={topic.reason}
-                tone={topic.tone}
-                disabled={starting}
-                onPick={() => handleTopic(topic)}
-              />
-            ))}
-          </div>
+          {/* 题库里挑的几道真题。拿不到就退回下面那排写死的备选题 ——
+              推荐是锦上添花，不该挡住她开始写。 */}
+          {recommended && recommended.length > 0 && (
+            <>
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {recommended.map((p) => (
+                  <PromptCard
+                    key={p.id}
+                    prompt={p}
+                    busy={startingPrompt}
+                    onStart={(id) => void startFromPrompt(id)}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate(writingLibraryPath())}
+                  className="text-mk-small text-mk-accent-700 underline-offset-2 hover:underline"
+                >
+                  浏览更多写作题目（中考 · 高考 · 托福 · 雅思 · GRE）
+                </button>
+              </div>
+            </>
+          )}
+
+          {(!recommended || recommended.length === 0) && (
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {WRITING_TOPICS.map((topic, i) => (
+                <PromptTile
+                  key={topic.id}
+                  index={i + 1}
+                  tag={topic.genre}
+                  title={topic.title}
+                  reason={topic.reason}
+                  tone={topic.tone}
+                  disabled={starting}
+                  onPick={() => handleTopic(topic)}
+                />
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
-      {/* 带一篇写好的进来。
+      {/* 导入已有文章。
           两个框：这是什么（可以不填，不填就取正文开头）、正文。
           🚨 没有第三个框问文体、也没有问语言 —— 语言在进房间之后那个 设定
           弹窗里问，那是它本来的位置，在这儿再问一次只是多一道门。 */}
       <Modal
         open={bringOpen}
         onClose={() => setBringOpen(false)}
-        title="带一篇写好的进来"
+        title="导入已有文章"
         footer={
           <>
             <Button variant="ghost" onClick={() => setBringOpen(false)}>
               取消
             </Button>
             <Button onClick={() => void bringIn()} disabled={!bringBody.trim()} loading={starting}>
-              请印记看看
+              AI审阅
             </Button>
           </>
         }
@@ -306,7 +379,7 @@ export function WritingsLanding() {
             <input
               value={bringTitle}
               onChange={(e) => setBringTitle(e.target.value)}
-              placeholder="这一篇叫什么"
+              placeholder="请输入文章题目"
               className="w-full rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent"
             />
           </label>
@@ -320,7 +393,7 @@ export function WritingsLanding() {
             />
           </label>
           {/* 上传。走的是和阅读那边同一件工具（docextract），取出来的文字直接
-              落进上面那个框 —— 她仍然看得见、改得动，按「请印记看看」的时候才
+              落进上面那个框 —— 她仍然看得见、改得动，按「AI审阅」的时候才
               真的交出去。 */}
           <div className="flex items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-mk-sm px-2 py-1.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-within:ring-2 focus-within:ring-mk-accent-200">

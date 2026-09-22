@@ -1,0 +1,162 @@
+{
+  "runs": [
+    {
+      "experiment": "acceptance",
+      "records": 50,
+      "failedChecks": 1,
+      "estimatedCNY": 0.1737
+    },
+    {
+      "experiment": "all-fields",
+      "records": 88,
+      "failedChecks": 8,
+      "estimatedCNY": 0.724
+    },
+    {
+      "experiment": "awakening",
+      "records": 18,
+      "failedChecks": 3,
+      "estimatedCNY": 0.023
+    },
+    {
+      "experiment": "baseline",
+      "records": 13,
+      "failedChecks": 0,
+      "estimatedCNY": 0.0897
+    },
+    {
+      "experiment": "candidate1",
+      "records": 30,
+      "failedChecks": 1,
+      "estimatedCNY": 0.1494
+    },
+    {
+      "experiment": "comment-delivered",
+      "records": 2,
+      "failedChecks": 0,
+      "estimatedCNY": 0.0268
+    },
+    {
+      "experiment": "comment-final",
+      "records": 2,
+      "failedChecks": 1,
+      "estimatedCNY": 0.0397
+    },
+    {
+      "experiment": "complete-voice",
+      "records": 88,
+      "failedChecks": 3,
+      "estimatedCNY": 0.6101
+    },
+    {
+      "experiment": "decision-first",
+      "records": 6,
+      "failedChecks": 1,
+      "estimatedCNY": 0.0252
+    },
+    {
+      "experiment": "delivery",
+      "records": 6,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1533
+    },
+    {
+      "experiment": "final",
+      "records": 66,
+      "failedChecks": 4,
+      "estimatedCNY": 0.4319
+    },
+    {
+      "experiment": "fixtures",
+      "records": 12,
+      "failedChecks": 2,
+      "estimatedCNY": 0.0382
+    },
+    {
+      "experiment": "grade-final",
+      "records": 4,
+      "failedChecks": 0,
+      "estimatedCNY": 0.128
+    },
+    {
+      "experiment": "grading",
+      "records": 4,
+      "failedChecks": 3,
+      "estimatedCNY": 0.1018
+    },
+    {
+      "experiment": "guidance",
+      "records": 50,
+      "failedChecks": 5,
+      "estimatedCNY": 0.1804
+    },
+    {
+      "experiment": "plan-final",
+      "records": 4,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1095
+    },
+    {
+      "experiment": "reading-delivery",
+      "records": 50,
+      "failedChecks": 3,
+      "estimatedCNY": 0.2138
+    },
+    {
+      "experiment": "reading-final",
+      "records": 50,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1834
+    },
+    {
+      "experiment": "reading-ordered",
+      "records": 50,
+      "failedChecks": 0,
+      "estimatedCNY": 0.2068
+    },
+    {
+      "experiment": "review-final",
+      "records": 6,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1007
+    },
+    {
+      "experiment": "review-pipeline",
+      "records": 6,
+      "failedChecks": 0,
+      "estimatedCNY": 0.1124
+    },
+    {
+      "experiment": "sequence-final",
+      "records": 18,
+      "failedChecks": 0,
+      "estimatedCNY": 0.0619
+    },
+    {
+      "experiment": "teacher-final",
+      "records": 54,
+      "failedChecks": 5,
+      "estimatedCNY": 0.3764
+    },
+    {
+      "experiment": "teaching2",
+      "records": 66,
+      "failedChecks": 5,
+      "estimatedCNY": 0.4828
+    },
+    {
+      "experiment": "teaching3",
+      "records": 66,
+      "failedChecks": 6,
+      "estimatedCNY": 0.4317
+    },
+    {
+      "experiment": "verify",
+      "records": 84,
+      "failedChecks": 3,
+      "estimatedCNY": 0.4236
+    }
+  ],
+  "estimatedTotalCNY": 5.5984,
+  "pricing": "local models.json; cached input at 20%; pipeline usage includes retries; excludes one TTS clip"
+}

@@ -50,12 +50,25 @@ test("标注板：她摆完，印记 接住，而且那一轮真的回来了", a
   //
   // 🚨 **结构那一步是全屏的，它在房间那套外壳渲染之前就分叉了**
   // （WritingRoomHost：stage === "outline" 直接 return PlanningView），
-  // 所以这一屏上**根本没有「写作三步」那条导航**。第一版这里调 jumpStage，
+  // 所以这一屏上**根本没有「写作四步」那条导航**。第一版这里调 jumpStage，
   // 等一个永远不会发出的 POST /stage，15 秒超时。
   // 出去的那颗按钮是「去写」，而它从第一秒就在——规划不是关卡。
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
     page.getByRole("button", { name: /去写/ }).click(),
+  ]);
+
+  // 🚨 **规划和段落之间多了一步**（R3，2026-09-20：同事的意见 4「前期逻辑
+  // 讨论的部分需要增加一个对于行文方式的思考和梳理部分」）。「去写」现在落在
+  // 「行文」那一屏，不再直接到段落。
+  //
+  // 这条走查是 R3 之前写的，它等的是「段落」那个标题，于是在行文那一屏上
+  // 干等 30 秒 —— 读起来像标注板坏了，其实是路上多了一站。
+  // R3 当时只跑了 flow-stage 那一条新的，没回头跑这几条旧的。
+  await expect(page.getByRole("heading", { name: "行文" })).toBeVisible({ timeout: 30_000 });
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
+    page.getByRole("button", { name: /去写段落/ }).click(),
   ]);
   await expect(page.getByRole("heading", { name: "段落" })).toBeVisible({ timeout: 30_000 });
 
@@ -126,7 +139,11 @@ test("标注板：她摆完，印记 接住，而且那一轮真的回来了", a
   const beforeReplies = await assistantReplies(page).count();
   await submit.click();
 
-  await expect(page.locator('[data-role="student"]', { hasText: "我给这一段的每一句标了它在干什么" })).toBeVisible({
+  // 🚨 只钉**不变的那一截**。前面那句话会带上这一段的标题
+  // （composeRoleBoardAnswer：`我给「分论点 1」这一段的……`，2026-09-18 加的，
+  // 为的是让印记知道她标的是开头还是主体段）。整句钉死的话，一个有标题的
+  // 段落就永远对不上 —— 而那正是它该工作的样子。
+  await expect(page.locator('[data-role="student"]', { hasText: "每一句标了它在干什么" })).toBeVisible({
     timeout: 60_000,
   });
   // 🚨 缺口那一行才是这块板真正的产出。没有它，印记 只看到她标对了什么，

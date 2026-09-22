@@ -147,7 +147,7 @@ export function FlowStage({
   }
 
   const methodOptions = [
-    { value: "", label: "还没定" },
+    { value: "", label: "待确定" },
     ...methods.map((m) => ({ value: m.id, label: m.name })),
   ];
 
@@ -192,7 +192,7 @@ export function FlowStage({
       {structures.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="writing-section-title"><span>02</span><h2>论证结构</h2></div>
-          <p className="text-mk-small text-mk-muted">请选择论点之间的关系，再次点击可取消。</p>
+          <p className="text-mk-small text-mk-muted">请选择分论点之间的关系，再次点击可取消选择。</p>
           <div className="writing-structures">
             {structures.map((s) => {
               const on = s.id === structureKey;

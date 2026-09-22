@@ -27,7 +27,15 @@ export type OutlineKind =
   | "counter"
   | "rebuttal"
   | "gap"
-  | "closing";
+  | "closing"
+  // —— 记叙文（R4，2026-09-21）——
+  // 上面十种是按议论文的骨架定的。产品负责人拿来的那位语文老师的讲义里
+  // 还有一整套记叙文的教法，而在这之前，一篇记叙文进了这间屋子会被硬塞进
+  // 中心论点／分论点／论据 —— 那是一副用不上的骨架。
+  | "scene"
+  | "detail"
+  | "turn"
+  | "feeling";
 
 /** 每种块在图上的深度。**强制**，和 Go 侧的 writingKindDepths 一致。 */
 export const OUTLINE_KIND_DEPTH: Record<OutlineKind, number> = {
@@ -41,6 +49,11 @@ export const OUTLINE_KIND_DEPTH: Record<OutlineKind, number> = {
   reasoning: 2,
   rebuttal: 2,
   gap: 2,
+  // 记叙文：场景和转折是主干，细节挂在场景底下，感悟收在主干那一层。
+  scene: 1,
+  turn: 1,
+  feeling: 1,
+  detail: 2,
 };
 
 const ALL_KINDS = Object.keys(OUTLINE_KIND_DEPTH) as OutlineKind[];
@@ -78,6 +91,14 @@ export function outlineKindLabel(kind: string): string {
       return "论据 · 你找来的材料";
     case "reasoning":
       return "道理";
+    case "scene":
+      return "场景";
+    case "detail":
+      return "细节";
+    case "turn":
+      return "转折";
+    case "feeling":
+      return "感悟";
     default:
       return "";
   }
@@ -158,7 +179,36 @@ export function outlineKindIsMaterial(kind: OutlineKind): boolean {
  * 材料、道理、对反方的回应、待补，都是这一类。
  */
 export function outlineKindIsInlineContent(kind: OutlineKind): boolean {
-  return outlineKindIsMaterial(kind) || kind === "reasoning" || kind === "rebuttal" || kind === "gap";
+  return (
+    outlineKindIsMaterial(kind) ||
+    kind === "reasoning" ||
+    kind === "rebuttal" ||
+    kind === "gap" ||
+    // 记叙文的细节写进它所属的那个场景里，不自己成为一段。
+    kind === "detail"
+  );
+}
+
+/** 这一种块属于哪一种文体。空串 = 两种都用（开篇和结尾）。 */
+export function outlineKindGenre(kind: OutlineKind): "argument" | "narrative" | "" {
+  switch (kind) {
+    case "thesis":
+    case "point":
+    case "evidence":
+    case "reference":
+    case "reasoning":
+    case "counter":
+    case "rebuttal":
+    case "gap":
+      return "argument";
+    case "scene":
+    case "detail":
+    case "turn":
+    case "feeling":
+      return "narrative";
+    default:
+      return "";
+  }
 }
 
 /**
@@ -171,8 +221,21 @@ export function outlineKindIsInlineContent(kind: OutlineKind): boolean {
  * `hasThesis` 决定深度 0 的默认：图上已经有中心论点了，再拖一个上来就是结尾
  *（一篇只有一个中心论点）。
  */
-export function rekindForDepth(kind: OutlineKind, depth: number, hasThesis: boolean): OutlineKind {
+export function rekindForDepth(
+  kind: OutlineKind,
+  depth: number,
+  hasThesis: boolean,
+  genre: "argument" | "narrative" = "argument",
+): OutlineKind {
   if (OUTLINE_KIND_DEPTH[kind] === depth) return kind;
+  // 🚨 记叙文那一边的默认种类整套都不一样。落错了，她把一件事拖成主干之后
+  // 会看见一张写着「分论点」的卡 —— 那正是 R1 修掉的那个毛病，换了个文体
+  // 又长出来一次。
+  if (genre === "narrative") {
+    if (depth <= 0) return "opening";
+    if (depth === 1) return "scene";
+    return "detail";
+  }
   if (depth <= 0) return hasThesis ? "closing" : "thesis";
   if (depth === 1) return "point";
   return "evidence";

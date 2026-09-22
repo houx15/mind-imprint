@@ -1235,7 +1235,7 @@ function BranchInvite({
         <h2 className="mt-1.5 text-mk-h2 text-mk-ink">你的树上还没有{f.label}这根枝</h2>
         <p className="mt-3 text-mk-body leading-[1.9] text-mk-secondary">{blurb}</p>
         <p className="mt-3 text-mk-small leading-[1.85] text-mk-muted">
-          关键词只从你真的做完的事情上长出来，所以这根枝空着，只是说明你还没往这边走过。
+          这个方向暂时没有关键词。完成相关学习后，系统会根据过程记录分析兴趣线索。
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2.5">

@@ -1,9 +1,7 @@
-import { useState } from "react";
-
 import type { AwakeningStage } from "../../api/awakening";
 import { HUB } from "../content";
 import { type HubCard, hubCards } from "../hub";
-import { Choice, Ghost, Primary } from "../ui";
+import { Choice } from "../ui";
 
 /**
  * 复访入口。她不是第一次进这个房间时，落在这一屏。
@@ -17,11 +15,11 @@ import { Choice, Ghost, Primary } from "../ui";
  * 兴趣探索。而 2026-09-20 学生反馈的那条更直接：**做到一半走掉的人回来只能
  * 接着那一屏往下走，到不了能量测试**。菜单解决的是这件事。
  *
- * # 保留下来的线索占两张卡，不是一张
+ * # 换一条线索是一扇门，不是一个删除动作
  *
- * 她上次按了「暂时保留兴趣线索」，这一次可能想接着问，也可能想换个话题从头
- * 问。这是两件事：一件接着上次的语料走，一件把那些语料清空。合成一张卡，
- * 总有一半的人按到的是另一件。
+ * 2026-09-21 之前这里有一张「新的探索」，按下去清空她上次写的回答 —— 因为
+ * 那时库里一个人只能有一趟没走完的。现在每一条都留着，那张卡于是指向
+ * **线索库**（scenes/Library.tsx）。
  *
  * # 🚨 这一屏不进 run.stage
  *
@@ -36,64 +34,36 @@ export function HubScene({
   returning,
   /** 已经答完几轮。0 表示这一趟的探询还没开始。 */
   turnsDone,
+  /** 线索库里有几条。0 表示她还没提出过线索，那张卡不摆。 */
+  threadCount,
   /** 「继续」那一下真正会去的那一屏。第一张卡上的字照它写。 */
   resume,
   navigator,
   hasEnergy,
-  /** 清空失败时后台那句原话。空表示没失败过。 */
-  freshError,
   onContinue,
-  onFresh,
+  onLibrary,
   onEnergy,
   onStory,
   onNavigator,
 }: {
   returning: boolean;
   turnsDone: number;
+  threadCount: number;
   resume: AwakeningStage;
   navigator: string;
   hasEnergy: boolean;
-  freshError: string;
   onContinue: () => void;
-  onFresh: () => void;
+  onLibrary: () => void;
   onEnergy: () => void;
   onStory: () => void;
   onNavigator: () => void;
 }) {
-  // 「新的探索」删的是她自己写下的字，所以先问一次。
-  const [confirmFresh, setConfirmFresh] = useState(false);
-
-  if (confirmFresh) {
-    return (
-      <section className="awk-screen" aria-label="确认新的探索">
-        <div className="awk-wrap awk-hub">
-          <div>
-            <div className="awk-eyebrow">{HUB.eyebrow}</div>
-            <h2 className="awk-h2">{HUB.fresh}</h2>
-          </div>
-          <div>
-            <p className="awk-p">{HUB.freshAsk.replace("{n}", String(turnsDone))}</p>
-            {freshError ? (
-              <p className="awk-p" style={{ color: "var(--danger)", marginTop: 12 }}>
-                {HUB.freshFailed}：{freshError}
-              </p>
-            ) : null}
-            <div className="mt-7 flex flex-wrap items-center gap-4">
-              <Primary onClick={onFresh}>{HUB.freshConfirm}</Primary>
-              <Ghost onClick={() => setConfirmFresh(false)}>{HUB.cancel}</Ghost>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   // 摆哪几张卡、每张卡上写什么，是一个有测试的纯函数（hub.ts）——
   // 一张说错的卡不会报错，它只是让她按下去之后到了别的地方。
-  const cards = hubCards({ turnsDone, resume, navigator, hasEnergy });
+  const cards = hubCards({ turnsDone, threadCount, resume, navigator, hasEnergy });
   const action: Record<HubCard["key"], () => void> = {
     continue: onContinue,
-    fresh: () => setConfirmFresh(true),
+    library: onLibrary,
     energy: onEnergy,
     navigator: onNavigator,
     story: onStory,

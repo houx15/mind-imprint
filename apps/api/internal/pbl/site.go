@@ -275,13 +275,13 @@ func BuildSite(in SiteInput) SiteContent {
 	// 数字只报真的，而且为 0 的那一行直接不出现——「写了 0 篇」是一句没人会在
 	// 自己主页上写的话。
 	if n := len(posts); n > 0 {
-		stats = append(stats, SiteStat{Label: "写了", Value: fmt.Sprintf("%d 篇", n)})
+		stats = append(stats, SiteStat{Label: "文章", Value: fmt.Sprintf("%d 篇", n)})
 	}
 	if n := len(projects); n > 0 {
-		stats = append(stats, SiteStat{Label: "做了", Value: fmt.Sprintf("%d 件", n)})
+		stats = append(stats, SiteStat{Label: "成果", Value: fmt.Sprintf("%d 件", n)})
 	}
 	if n := len(reads); n > 0 {
-		stats = append(stats, SiteStat{Label: "读了", Value: fmt.Sprintf("%d 篇", n)})
+		stats = append(stats, SiteStat{Label: "阅读", Value: fmt.Sprintf("%d 篇", n)})
 	}
 
 	updated := ""
@@ -351,10 +351,10 @@ func SiteMissing(c SiteContent) []string {
 		out = append(out, "你的名字")
 	}
 	if c.Headline == "" {
-		out = append(out, "首屏那句话")
+		out = append(out, "首屏介绍")
 	}
 	if c.Role == "" {
-		out = append(out, "名字底下那行你是谁")
+		out = append(out, "个人简介")
 	}
 	if len(c.Sections) > 0 {
 		filled := false
@@ -370,7 +370,7 @@ func SiteMissing(c SiteContent) []string {
 	// A confirmed outline holds the student's own introduction/content in
 	// sections. Do not require a duplicate paragraph above that outline.
 	if len(c.Sections) == 0 && len(c.About) == 0 {
-		out = append(out, "关于你自己的那段话")
+		out = append(out, "关于我的正文")
 	}
 	return out
 }

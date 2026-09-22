@@ -450,7 +450,7 @@ export function Structure({ projectId, projectKind, tool, onFinish, onClose }: T
       </div>
 
       <p className="mt-1.5 text-mk-small text-mk-faint">
-        拖着挪位置，拖到另一块上面就挂到它下面，点一下选中，Delete 删掉，双击改字。
+        拖动可调整位置，拖到另一条目上可设为其子条目。点击选择，按 Delete 删除，双击修改文字。
       </p>
 
       {/* 🚨 材料托盘。这是「盖全了吗」的那把尺子：
@@ -460,7 +460,7 @@ export function Structure({ projectId, projectKind, tool, onFinish, onClose }: T
       {notes.length > 0 && (
         <div className="mt-3 border-t border-mk-border pt-3">
           <div className="flex items-baseline justify-between">
-            <p className="text-mk-body font-semibold text-mk-ink">放不进去的材料</p>
+            <p className="text-mk-body font-semibold text-mk-ink">待归类材料</p>
             <p className="text-mk-small text-mk-muted">
               已放进 {notes.filter((n) => n.treeNodeId).length} / {notes.length}
             </p>
@@ -468,7 +468,7 @@ export function Structure({ projectId, projectKind, tool, onFinish, onClose }: T
           <p className="mt-0.5 text-mk-small text-mk-muted">
             {holding
               ? "请点结构里的一块，把它放进去。"
-              : "请选择一条材料，再选择对应的提纲节点。未归类的材料会保留在材料区。"}
+              : "请选择一条材料，再选择对应的提纲条目。未归类的材料会保留在材料区。"}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {notes
@@ -512,14 +512,14 @@ export function Structure({ projectId, projectKind, tool, onFinish, onClose }: T
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder={picked ? "添加子节点" : "添加提纲节点"}
+          placeholder={picked ? "添加子节点" : "添加提纲条目"}
           className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
         <button
           type="button"
           onClick={() => void add()}
           disabled={!draft.trim()}
-          aria-label="添加提纲节点"
+          aria-label="添加提纲条目"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >

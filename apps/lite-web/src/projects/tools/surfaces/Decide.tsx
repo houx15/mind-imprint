@@ -453,7 +453,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
               左右的位置才是一句话。图上那句是「越往左越关键」。 */}
           {!choice && ordered.length > 1 && (
             <div className="mt-3 flex items-center gap-2 text-mk-small text-mk-faint">
-              <span style={{ color: "var(--mk-accent-500)" }}>越往左，你越觉得该走这条</span>
+              <span style={{ color: "var(--mk-accent-500)" }}>从左到右排列方案优先级</span>
               <span
                 className="h-px flex-1"
                 style={{
@@ -594,7 +594,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   </label>
                 </div>
                 <p className="mt-0.5 text-mk-small text-mk-muted">
-                  请逐项说明它输给「{choice}」的地方。
+                  请逐项说明与「{choice}」相比，未选择该方案的原因。
                 </p>
                 <div className="mt-2 space-y-2">
                   {ordered.map((o, i) =>

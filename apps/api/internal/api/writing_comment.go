@@ -55,6 +55,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"mindimprint/api/internal/teachingvoice"
 	"net/http"
 	"strings"
 	"time"
@@ -190,9 +191,50 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 // at a sentence she actually wrote. Dropping is right and re-prompting is
 // wrong — a fuzzy match that lands on the neighbouring sentence is worse
 // than one fewer point.
+//
+// 🚨 **丢掉的理由要记下来。** 2026-09-21 真学生走查：她那一段拿回来的是
+// 一句「要紧的问题只有一处 —— 读者读到这里会把它和上一段当成同一件事」，
+// 底下却只有一条夸她的话。模型**是**给了 issue 的，是这里丢掉的；而
+// `collectWritingComment` 那道「说了有问题就得指出一处」的闸门查的是
+// **模型原样回的** points，站在筛子的上游，于是这一整类它一次都看不见。
+// 上游看不见、下游没人管 —— 中间掉下去的那条 issue 就这么没了。
+//
+// 所以现在多回一份「掉下去的都是为什么」：闸门拿它决定要不要再问一次，
+// 日志拿它说清楚到底是哪条规矩在丢东西。
 func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues int) []CommentPoint {
+	out, _ := validateCommentPointsVerbose(points, source, lang, maxIssues)
+	return out
+}
+
+// commentPointDrop 一条没能留下来的意见，和它没留下来的理由。
+//
+// Reason 是个闭表（下面那几个常量），因为它要进日志、也要进重问那一轮的
+// 提示语 —— 两处都不该出现一句临时拼的话。
+type commentPointDrop struct {
+	Kind   string
+	Reason string
+	Quote  string
+}
+
+// 丢掉的理由。闭表。
+const (
+	dropNoQuote          = "no_quote"           // 一条引文都没给
+	dropQuoteNotVerbatim = "quote_not_verbatim" // 引文不在她这一段里（编的，或者引的是别段）
+	dropNoText           = "no_text"            // 没说是什么问题
+	dropPersonDirected   = "person_directed"    // 对着人说，不是对着文字说
+	dropUnknownSymptom   = "unknown_symptom"    // symptom 不在这门语言的闭表里
+	dropNoAction         = "no_action"          // 只下了诊断，没给下一步
+	dropLowerLayer       = "lower_layer"        // 上面还有更要紧的一层
+	dropOverMax          = "over_max"           // 这一轮说不了这么多条
+)
+
+func validateCommentPointsVerbose(points []CommentPoint, source, lang string, maxIssues int) ([]CommentPoint, []commentPointDrop) {
 	var good []CommentPoint
 	var issues []CommentPoint
+	var drops []commentPointDrop
+	drop := func(p CommentPoint, reason string) {
+		drops = append(drops, commentPointDrop{Kind: p.Kind, Reason: reason, Quote: strings.TrimSpace(p.Quote)})
+	}
 
 	for _, p := range points {
 		q := strings.TrimSpace(p.Quote)
@@ -200,11 +242,20 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		// 只差标点、空格、大小写的，从原文里取出那一段逐字的换上
 		// （quotematch.Locate）——锚点仍然逐字是她写的。
 		if q == "" {
+			// 🚨 模型常常把她那句话写进 text 里用「」括着，而 quote 那一格空着。
+			// 实测三趟三趟都是这个死法（writing_dropped_issue_live_test.go）。
+			// 放错格子不等于编了一句话 —— 捞出来的候选仍然要逐字对得上，
+			// 对不上照旧丢掉。见 writing_quote_salvage.go。
+			q = salvageQuoteFromText(p.Text, source)
+		}
+		if q == "" {
+			drop(p, dropNoQuote)
 			continue
 		}
 		if !strings.Contains(source, q) {
 			span, ok := quotematch.Locate(source, q)
 			if !ok {
+				drop(p, dropQuoteNotVerbatim)
 				continue
 			}
 			q = span
@@ -213,10 +264,12 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		p.Text = strings.TrimSpace(p.Text)
 		p.Action = strings.TrimSpace(p.Action)
 		if p.Text == "" {
+			drop(p, dropNoText)
 			continue
 		}
 		// 对着文字说，别对着人说。
 		if personDirectedVerdict(p.Text) || personDirectedVerdict(p.Action) {
+			drop(p, dropPersonDirected)
 			continue
 		}
 
@@ -235,12 +288,14 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 		p.Kind = "issue"
 		sym, ok := lookupWritingSymptom(lang, p.Symptom)
 		if !ok {
+			drop(p, dropUnknownSymptom)
 			continue
 		}
 		// 🚨 层由表查出来，不采信模型报的值。
 		p.Symptom, p.Layer, p.Method = sym.ID, sym.Layer, ""
 		// "Diagnostic Without Return"：没有下一步的意见，整条丢掉。
 		if p.Action == "" {
+			drop(p, dropNoAction)
 			continue
 		}
 		issues = append(issues, p)
@@ -249,7 +304,7 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	// 🚨 这里是那条优先级真正生效的地方：**只留最上面那一层**。
 	//
 	// 四份互不相干的材料都写了同一句话（见 writing_symptoms.go 顶上的引文）。
-	// 一篇主张还没立住的文章，收到的第一条意见不该是某个词不准——
+	// 一篇中心意思还不明确的文章，收到的第一条意见不该是某个词不准——
 	// 那一刀只有一次。
 	top := 0
 	for _, p := range issues {
@@ -261,9 +316,14 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	for _, p := range issues {
 		if p.Layer == top {
 			kept = append(kept, p)
+			continue
 		}
+		drop(p, dropLowerLayer)
 	}
 	if maxIssues > 0 && len(kept) > maxIssues {
+		for _, p := range kept[maxIssues:] {
+			drop(p, dropOverMax)
+		}
 		kept = kept[:maxIssues]
 	}
 
@@ -272,14 +332,14 @@ func validateCommentPoints(points []CommentPoint, source, lang string, maxIssues
 	if len(good) > 0 {
 		out = append(out, good[0])
 	}
-	return append(out, kept...)
+	return append(out, kept...), drops
 }
 
 // personDirectedVerdict 认出「对着人说」的那种句子。
 //
 // master-writing `scoring-rubric.md`：
 //
-//	**对着文字说，别对着人说。说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。**
+//	**对着文字说，别对着人说。**
 //
 // 🚨 这里**只认字面前缀**，不去判断一句话整体的语气——判断语气要猜，猜错会
 // 静默丢掉真反馈（这个文件顶上那段坦白说的就是这件事）。所以表很短，
@@ -342,37 +402,34 @@ const (
 // 2026-09-11 刚栽过一次同形的跟头（兴趣测试整条照搬采集的 prompt，
 // 把「不是这篇材料的话题」也带了过去，真模型 0/3）：
 // **共用要按段落挑，不是整条照搬。**
-const writingCommentRules = `## 怎么说话
+const writingCommentRules = `## 反馈的表达
 
-- 你是老师，不是打分器。说清一件事为什么重要，用【可用的方法】里真正的方法名，别自己造词。
-- **对着文字说，别对着人说。** 说明具体内容、证据范围和修改方向，不把文字拟人成有态度的人，也不评价学生的能力或动机。
-- 不客套。「很有灵气」「写得不错，继续加油」说多了，你的肯定就不值钱了。
-- 不打分，不给等级。
-- **说一个十五六岁的学生第一遍就读得懂的话。** 不用「机制」「环节」「尺寸对不上」
-  「因果链」这类抽象词；改说读者读到这一句时会产生的那个具体疑问
-  （例：「读者会问：分了任务，偷懒的人为什么就躲不掉？」）。
-  text 一般不超过两句。
-- **说「全文没有某样东西」之前，逐段找一遍。** 她写了、只是写得弱（例如有让步段但
-  没有反驳回来），就把 quote 指向那一段，说清弱在哪里；不要说成「没有处理」。
-  2026-09-18 走查：她最后一段就是让步段，意见却说对方观点「从头到尾没有被正面处理过」。
-- 这一轮只谈最上面那一层时，别让她以为别的都没问题，也别让她以为你没看见：
-  summary 最后可以用半句说明「用词和语法下一轮再看」（只在确实存在下面几层的问题时说）。`
+像老师批注学生的文章一样，直接说明某句话表达了什么、哪里需要解释，以及可以怎样修改。使用自然完整的句子，不用辩论口号、比喻、挑衅式反问或故作亲近的口头禅。
+
+- 每条意见都针对学生实际写下的内容。说明问题时明确对象，例如「例子说明了教室关闭后的困难，但还需要解释延长图书馆开放时间为什么有帮助」。请解释具体内容之间的关系。
+- 保留原文的意思和范围。学生说某个方案有帮助，不等于说它是唯一方案；不要要求她证明更绝对的结论。原文写了「可能」「部分」「在某种条件下」时，反馈也须保留这些限定。
+- 请她修改时说清动作与目的。例如「请在例子后补充解释，说明这个困难与延长开放时间的关系」。建议应当包含修改对象和目的，并保留学生自己组织语言的空间。
+- 需要教方法时使用【可用的方法】里的名称，并附简明解释。专业术语只在有助于理解时使用；请结合具体内容解释专业术语的含义。
+- 先核对原文再评价。不要说学生没有写某项内容，除非已检查相关段落；已经写了但解释不清楚，就指出具体哪一处需要补充。
+- 只评价本次文字，不推断学生能力、态度或努力程度。不用全盘否定、夸张赞美或输赢语言，也不要求每次先夸一句再批评。
+- text 通常不超过两句，说明一处具体问题；action 写学生可以执行的修改。无需为了缩短而省略必要的信息。
+- 不打分，不给等级。这一轮只处理优先级最高的问题；确有其他较低优先级问题时，可在 summary 末尾简要说明后续再检查。`
 
 const writingCommentSystem = `你是「印记」，正在给学生已经写的文字提意见——可能是她正在写的一段，也可能是她写完的整篇稿子。
 
-你只给反馈，绝不替她改：不要重写、不要润色、不要续写、不要给出可以直接复制粘贴替换的句子或段落。一个字都不行。
+你只给反馈，绝不替她改：不要重写、不要润色、不要续写、不要给出可以直接复制粘贴替换的句子或段落。
 
 ` + writingCommentRules + `
 
 ## 先说哪一条：**一次只说最上面那一层**
 
-毛病分四层。**上面那层没解决，就不要去说下面那层**——
-主张还没立住的时候去改句子，是在给房子刷漆。
+写作问题分四层。**上面那层没解决，就不要去说下面那层**——
+优先处理观点与材料的问题，再处理结构和字句。
 
 这一轮你只挑**同一层**里的问题说。如果第 1 层有问题，就只说第 1 层，
 第 4 层那些词不准、句子拖沓，这一轮一个字都不要提。
 
-【可选的毛病，只能从这张表里挑，不要自己造 id】
+【可选的问题，只能从这张表里挑，不要自己造 id】
 
 %s
 
@@ -381,13 +438,13 @@ const writingCommentSystem = `你是「印记」，正在给学生已经写的�
 每条意见挂在她原文里**一句真实存在的话**上，而且必须给出下一步。
 
 - kind：` + "`issue`" + `（要改的）或 ` + "`good`" + `（已经用对的）。
-- quote：她原文里**逐字照抄**的一句话，包括标点，一个字都不能改。改了就整条作废。
-- symptom：issue 必填，取自上面那张表的 id。表里没有的 id 会让这条意见整条作废。
+- quote：她原文里**逐字照抄**的一句话，包括标点，一个字都不能改。引用需与原文完全一致。
+- symptom：issue 必填，取自上面那张表的 id。表里没有的 id 无法通过问题类型校验。
 - method：good 必填，取自【可用的方法】的 id——她刚才用对的是哪一个动作。
 - text：说清这句话**怎么了**。是描述，不是处方。
 - action：issue 必填，**一句祈使，说清她接下来要做的那件事**。
 
-🚨 action 是这条意见里最要紧的一个字段，而且它决定了你能不能既教会她、
+action 是这条意见里最要紧的一个字段，而且它决定了你能不能既教会她、
 又不替她写。做法是：**说出你会做的那几件事，而不是做完给她看。**
 
   不要写：把这句改成「他把碗放进水池，水一直开着。」
@@ -395,25 +452,23 @@ const writingCommentSystem = `你是「印记」，正在给学生已经写的�
 
 前一种是替她写了，她粘上去就行；后一种她必须自己动手，而学到的是同一件事。
 
-action 不许是「再想一想」「多加一些细节」这种没有落点的话，
-也不许以「正确的说法是……」收尾——那等于把她的下一步收走了。
+action 需要说清修改对象、具体动作和目的，学生据此自行修改原文。
 
 ## 先说这一段现在算什么
 
 verdict 只能是这三个之一：
 
-- 「pass」  这一段站得住了，她可以去写下一段。
+- 「pass」  这一段已完成应有的表达，可以继续写下一段。
 - 「polish」还可以更好，但**不挡着她往下走**。
 - 「revise」必须改。这一档要说清三件事：是哪一处文字、它让读者产生了什么问题、
   改到什么程度算完成。
 
-🚨 **可选的优化不要判成必改。** 问自己一句：这一处不改，读者读到这一段会不会
+**可选的优化不要判成必改。** 问自己一句：这一处不改，读者读到这一段会不会
 真的读不下去、或者得出和她想说的相反的结论？不会，那就是 polish。
-一段站得住的文字收到「需修改」，她学到的是「我怎么写都不对」。
+一段内容准确、表达清楚的文字收到「需修改」，不应被判为必须修改。
 
-🚨 **判 pass 的时候不要硬凑一条 issue 出来。** 没有要改的，points 就只有那条
-肯定，或者干脆是空数组。为了填满格子去挑一处毛病，挑出来的一定是吹毛求疵的
-那一种。
+**判 pass 的时候不要硬凑一条 issue 出来。** 没有要改的，points 就只有那条
+肯定，或者干脆是空数组。意见数量取决于文章中实际存在的问题。
 
 ## 一条肯定：有就说，没有就不说
 
@@ -421,9 +476,8 @@ verdict 只能是这三个之一：
 效果，并指出这是【可用的方法】里的哪一个 —— 具体的肯定本身就是一次教学：
 她知道哪个动作起了作用，下次才能重复。
 
-🚨 **但它不是必填的，也不固定排第一。** 没有值得说的就不说。
-为了凑「优点＋不足」那个模板去找一条，那条一定是空话，
-而空话会让她把后面那句真话也一起不信。
+**但它不是必填的，也不固定排第一。** 没有值得说的就不说。
+不要求每次都同时包含优点和不足。
 
 ## 一条意见读起来是什么顺序
 
@@ -431,11 +485,11 @@ verdict 只能是这三个之一：
 
 输出 JSON：{"verdict":"polish","summary":"…","points":[{"kind":"issue","symptom":"…","text":"…","action":"…","quote":"…"}]}
 - verdict：pass ／ polish ／ revise 三选一，见上面那一节。
-- summary：一句话，说这一段**现在站在哪儿**。不要打分。
-  🚨 **summary 里不许说她「缺」什么**——不写「缺少」「没有」「不足」「尚未」，
+- summary：一句话概括当前段落的表达效果。不要打分，不推断学生的态度。
+  **summary 只描述原文已经呈现的内容，不诊断缺项**——不写「缺少」「没有」「不足」「尚未」「还没」，
   英文不写 lack / missing / absent / fails to。少了什么由下面那几条 point 去说：
   那几条指着她原文里的一句话，还带着她现在就能做的那个动作，说错了查得出来。
-  summary 没有那句话撑着，一旦说错，她第一眼读到的就是一句假话。
+  summary 不带逐句引用，因此仅概述已有内容，具体诊断放入可对照原文的 points。
 - points：最多 %d 条 issue，**全部来自同一层**；一条可选的 good。
   pass 那一轮可以是空数组。
 
@@ -448,9 +502,11 @@ verdict 只能是这三个之一：
 // 一篇中文稿子拿到的是 qifeng 那 18 条诊断。
 // kind 是她停在的那一块是什么（writing_kind.go 的闭表）。空串 = 通篇审阅那一路，
 // 或者一个没有结构图节点的自由段落 —— 那时候不附分块的检查表。
-func buildWritingCommentSystem(lang string, maxIssues int, kind string) string {
-	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang), maxIssues) +
-		writingCommentBlockJob(kind)
+// help 是这一轮该用哪种帮法（writing_stall.go）。helpAsk 什么都不加。
+func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
+	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
+		writingCommentBlockJob(kind) +
+		writingHelpModeBlock(help, lang, genre) + teachingvoice.Rules
 }
 
 // writingCommentBlockJob 是**这一块的活**：每一种块该查什么，不该查什么。
@@ -472,33 +528,54 @@ func writingCommentBlockJob(kind string) string {
 	case writingKindOpening:
 		return `
 
-## 这一块是**开头**，它的活只有两件
+## 这一块是**开头**，检查两项作用
 
 1. 让读者愿意读下去；
-2. 把这篇要证明的那句话亮出来，并且和题目对得上。
+2. 表明文章要讨论的观点，并与题目相关。
 
-🚨 **不要求开头自带完整的事例。** 开头是引子，具体的事写在后面的段里 ——
+**不要求开头自带完整的事例。** 开头是引子，具体的事写在后面的段里 ——
 你上面已经看得到那几段写了什么。后面确实有那件事，就**不要**在这里说
 「没有一件具体的事」；后面也没有，那是后面那几段的问题，不是这一段的。
 
-🚨 也不要要求开头把全文的理由先列一遍。那叫提纲，不叫开头。`
+也不要要求开头把全文的理由先列一遍。开头可以介绍主题，不必列出全部分论点。`
 
 	case writingKindPoint, writingKindCounter:
 		return `
 
-## 这一块是**正文的一段**，按这四项看
+## 这一块是**正文的一段**，按语文课的五句型看
 
-1. **理由**：这一段要证明的那一句，和中心论点接不接得上。
-2. **证据**：有没有一件具体的事、一份材料。
-3. **解释**：有没有一句话说清这件事**凭什么**证明那个看法 ——
-   学生最常缺的是这一项，不是例子。
-4. **限制**：这条理由在什么情况下不成立。她没写不一定是毛病，
-   但如果她把话说得太满（「所有」「一定」「每个人」），这一处要指出来。
+一个主体段由五种句子组成，各有不同作用：
 
-外加一项：这一段和别的段的关系 —— 它和上一段是不是在说同一件事
-（你上面看得到别的段写了什么，重复了就说出来）。
+1. **观点句**：这一段要证的那一句，在段首。应与中心论点的关键词相关。
+2. **阐释句**：解释观点句中抽象概念的具体含义，为后面的材料作说明。
+3. **材料句**：一件具体的事、一份材料。谁、做了什么、结果怎么样。
+4. **分析句**：说明这个例子与本段观点之间的关系。
+5. **结论句**：呼应观点句，保持关键词的含义一致。
 
-🚨 **不要把例子、解释、让步机械拆成三条独立的意见。** 一次只说最要紧的那一处。`
+需要补充解释时，说明相应句子的作用和正式名称。解释例子与观点关系的是**分析句**；
+解释观点中抽象词语的是**阐释句**。先检查原文是否已经表达了这些内容。
+
+缺的是分析句的时候，**点名一种写法**，别只说「要分析」：
+
+- 材料只摆了发生过什么 → **因果分析法**：是什么……？是……。因为……，所以……
+- 材料里已经有结果了 → **假设分析法**：假如……，那么……？
+- 列出了多个例子 → **归纳分析法**：这些……，真正表现了……
+
+外加两项：
+- **限制**：结论超出了材料所能说明的范围（「所有」「一定」「每个人」）的时候指出来。
+- **和别的段的关系**：它和上一段是不是在说同一件事（你上面看得到别的段
+  写了什么，重复了就说出来）。
+
+**五句不是五条意见。** 一次只说最要紧的那一处，不要把例子、解释、让步
+机械拆成三条。
+
+**五句也不是一张验收清单。** 它说的是一个写完的主体段长什么样，不是
+「少一句就不合格」。少一两句 ⇒ **polish**。只有这一段偏离分论点、或材料无法说明观点时，才判为 revise。
+已有时间、地点和人物的具体材料，仅需补充分析句时，判为 polish。
+
+**观点句可能写在这一块的卡片上，不在正文里。** 她在图上给这一块起的
+名字就是这一段的分论点。卡片上已经有了，就不要判她「没有观点句」；
+可以提一句「正文里也说一次，读文章的人看不见你的卡片」，但那也是 polish。`
 
 	case writingKindRebuttal:
 		return `
@@ -516,7 +593,55 @@ func writingCommentBlockJob(kind string) string {
 只看一件事：它有没有**收束全文** —— 回到中心论点，而且说得比开头更准一点。
 把前面说过的话原样再说一遍，不算收束。
 
-🚨 不要要求结尾引入新的证据。新证据出现在结尾，是结构问题，不是优点。`
+需要调整结尾时，介绍一种适用方法并解释用途：首尾呼应（回应开头摆过的那几样
+东西）、名言警句（引一句，再接一句自己的话）、总结归纳（把前面各段证到的
+收成一句）、修辞收束（用排比或比喻再说一次）。
+
+不要要求结尾引入新的证据。新证据出现在结尾，是结构问题，不是优点。
+结尾不超过两百字。她写长了、或者结论未与全文内容相关，这一处要指出来。`
+
+	// —— 记叙文那四块（R4）——
+
+	case writingKindScene, writingKindTurn:
+		return `
+
+## 这一块是**记叙文里的一件事**
+
+按三项看：
+
+1. **具体**：有没有动作、神态、说过的话，还是只有「很感动」「特别好」
+   这一类直接说出来的感受。具体细节可以帮助读者理解人物的动作和感受。
+2. **动词准不准**：「弓着身子蹒跚着走来」和「走过来」是两件事。
+   笼统的动词要指出来，并且给出一个更准的。
+3. **环境是否帮助理解事件**：天气、时辰、周围的声音是否体现人物的处境。
+   请她回忆真实细节，不要求编造困难来突出人物。
+
+**不要拿议论文的标准量它。** 这一段不需要论点，不需要「这件事证明了什么」。
+这一段需要清楚描述事件，使读者理解当时的情形。意义留给后面的感悟那一段。
+
+不要建议她加一件新的事。需要展开时，请她回忆当前事件中相关的真实细节。`
+
+	case writingKindDetail:
+		return `
+
+## 这一块是**一处细节**
+
+按讲义的三条禁忌看：**真实**（是真的发生过的吗）、**典型**（是不是只有他
+才会这样）、**独特**（是否体现了这个人物在当时的具体表现）。
+
+三条里哪一条没过，就指哪一条，并且给出一个更准的动词或修饰词。`
+
+	case writingKindFeeling:
+		return `
+
+## 这一块是**感悟**
+
+只看两件事：
+1. 她说出来的新认识，是否与前面所写事件有明确联系。
+2. 有没有**呼应开头**。开头写的那份不满，结尾要让读者看见她确实变了。
+
+「我们要珍惜身边的人」这一类感悟，如果前面的事件不足以解释它，
+这一处要指出来。`
 	}
 	return ""
 }
@@ -529,7 +654,7 @@ func writingCommentBlockJob(kind string) string {
 // 字数、方法表、**这一段的正文**，别的段写了什么它一个字都看不见。
 // 同事的意见 9 就是这一条的直接后果：开头段被判「没有一件具体的事」，
 // 而那件事写在第二段里。空串 = 不给整篇（通篇审阅那一路本来就拿得到全文）。
-func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) string {
+func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece, genre string) string {
 	var b strings.Builder
 	b.WriteString(writingTopicLine(wr, "题目："))
 	b.WriteString(writingLangLine(wr))
@@ -550,7 +675,7 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) strin
 	// 按语言过滤，理由同 writing_plan.go：一句英文句式出现在中文作文的意见里
 	// 是个 bug。
 	b.WriteString("\n【可用的方法】（method 只能从这里挑 id，别自己造词）\n")
-	for _, m := range vocab.ForLang(wr.Lang) {
+	for _, m := range vocab.ForLang(wr.Lang, genre) {
 		b.WriteString("- " + m.ID + "（" + m.Label() + "）：" + m.Definition + "\n")
 	}
 
@@ -564,6 +689,7 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece string) strin
 	// 论点层面的重复（middle_collapse / ending_only_summary）和连贯
 	// （paragraph_jump / reference_linking）本来就在症状表里，缺的是这一层。
 	b.WriteString(writingRepeatBlock(text, wr.Lang))
+	b.WriteString("\n输出前逐条核对：每条 point 的 quote 必须从本次正文逐字摘取；symptom 必须是本次系统问题表里的 id。summary 只描述正文已写出的内容，所有具体问题放在有原文引文的 points 中。summary 避免「缺」「不足」「尚未」「找不到」等缺失表述；即使学生讨论的是现实中的短缺问题，也概括为讨论对象与表达方式，例如「通过走廊自习的经历讨论图书馆开放时间」，不要把缺失词放入总评。反馈解释具体内容的关系；不得要求她添加原文未表明的事实。\n")
 	return b.String()
 }
 
@@ -585,8 +711,34 @@ type writingCommentResult struct {
 // fences, clamp to the outermost {..}" extraction every JSON-replying prompt
 // in this package already shares.
 func parseWritingComment(text string) (writingCommentResult, bool) {
-	c := extractWritingJSONObject(text)
-	if c == "" {
+	// 先走大家共用的那一条（去围栏 + 夹到最外层的 {..}）。绝大多数轮次到这里
+	// 就结束了，这一条的行为一个字都没变。
+	if got, ok := decodeWritingComment(extractWritingJSONObject(text)); ok {
+		return got, true
+	}
+	// 🚨 它回了**不止一个** JSON 对象。
+	//
+	// 2026-09-21 实测抓到的样子：模型先写了一份，接着用大白话跟自己商量
+	//（「补一句好的话也可以说……最终输出加一条 good」），然后又写了一份
+	// 改好的。夹到「第一个 { 到最后一个 }」得到的是
+	// `{对象一} 大白话 {对象二}` —— 不是合法 JSON，于是整轮作废，
+	// 她那边是一个转不动的终端。
+	//
+	// 这和 [[model-json-half-arrived-2026-09-08]] 是同一类（「写完了但写坏了」），
+	// 而 prompt 越长模型越爱这样自言自语 —— R4 把检查表加长了，正好撞上。
+	//
+	// **从后往前取**：它自己说的是「最终输出」，改好的那一份在后面。
+	spans := writingJSONObjectSpans(text)
+	for i := len(spans) - 1; i >= 0; i-- {
+		if got, ok := decodeWritingComment(spans[i]); ok {
+			return got, true
+		}
+	}
+	return writingCommentResult{}, false
+}
+
+func decodeWritingComment(c string) (writingCommentResult, bool) {
+	if strings.TrimSpace(c) == "" {
 		return writingCommentResult{}, false
 	}
 	var got writingCommentResult
@@ -598,6 +750,42 @@ func parseWritingComment(text string) (writingCommentResult, bool) {
 	}
 	got.Verdict = normalizeWritingVerdict(got.Verdict)
 	return got, true
+}
+
+// writingJSONObjectSpans 交出文本里每一段**括号配平**的 {...}。
+//
+// 🚨 字符串里的括号不算数。她的正文里有一个 `}`（或者模型引了一句带括号的
+// 话），按裸括号数就会在半路上「配平」，切出一段断掉的 JSON —— 那正是
+// 这个函数要避免的事，所以这里跟着引号和反斜杠走。
+func writingJSONObjectSpans(text string) []string {
+	var spans []string
+	var depth, start int
+	var inStr, esc bool
+	for i, r := range text {
+		switch {
+		case esc:
+			esc = false
+		case inStr && r == '\\':
+			esc = true
+		case r == '"':
+			inStr = !inStr
+		case inStr:
+			// 字符串里的括号不参与配平。
+		case r == '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case r == '}':
+			if depth > 0 {
+				depth--
+				if depth == 0 {
+					spans = append(spans, text[start:i+1])
+				}
+			}
+		}
+	}
+	return spans
 }
 
 // commentOnSnippet is POST /api/v1/writings/{id}/snippets/{sid}/comment — a
@@ -621,7 +809,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 	source := strings.TrimSpace(snippet.Text)
 	if source == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_text", "这一段还没有内容，先写点什么再来看看。", nil))
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_text", "无法审阅：请先输入段落内容。", nil))
 		return
 	}
 
@@ -650,15 +838,18 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	// 整篇上下文：这一块是什么、别的块写了什么、她这一块收到过什么意见。
 	// 见 writing_piece_context.go（同事 2026-09-20 的意见 9 和 10）。
 	//
-	// 🚨 这三次查询**失败就降级为空上下文，不报错**。上下文是让意见更准的
+	// 这三次查询**失败就降级为空上下文，不报错**。上下文是让意见更准的
 	// 东西，不是它成立的条件；为了少一份上下文让她按下按钮拿到一个 502，
 	// 是更糟的交换。
 	piece := ""
 	// 两项减法要用到的三样：这一块是什么、后面的段写了什么、她收到过什么意见。
 	focusKind := ""
 	laterText := ""
+	// 读不到图的时候按题目推 —— 那条路默认议论文，见 writing_genre.go。
+	genre := writingGenreOf(wr, nil)
 	var priorComments []sqlc.WritingComment
 	if outline, oerr := a.d.Queries.ListWritingOutline(turnCtx, at.ID); oerr == nil {
+		genre = writingGenreOf(wr, outline)
 		snippets, _ := a.d.Queries.ListWritingSnippets(turnCtx, at.ID)
 		prior, _ := a.d.Queries.ListWritingComments(turnCtx, at.ID)
 		focus := writingBlockOfSnippet(outline, snippet)
@@ -686,9 +877,18 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 	// 记账、解析，以及「总评说了她缺什么就重试一次」，都在
 	// collectWritingComment 里 —— 通篇那一支走的是同一个函数。
+	// 同一处说过两轮她还没动 → 换一种帮法（选项 / 句式）。
+	// general-suggestions.md 交互策略那一条，R4 之前只接在立题那条路上。
+	help := writingHelpModeFor(priorComments, snippet.ID, source)
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
-		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind),
-		buildWritingCommentPrompt(wr, "她写的这一段", source, piece),
+		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind, help, genre),
+		buildWritingCommentPrompt(wr, "她写的这一段", source, piece, genre),
+		// 她真的会看到的那几条 —— 校验加两道减法之后剩下的。闸门查的就是这个。
+		func(pts []CommentPoint) []CommentPoint {
+			out := validateCommentPoints(pts, source, wr.Lang, writingBlockCommentMaxIssues)
+			out = dropIssuesLaterBlocksAnswer(out, focusKind, laterText)
+			return dropIssuesSheAlreadyFixed(out, priorComments, snippet.ID, source)
+		},
 		"scope", "block", "atom_id", at.ID, "snippet_id", snippet.ID,
 		"request_id", httpx.RequestIDFromContext(r.Context()))
 	if !okParse {
@@ -708,11 +908,18 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 			"atom_id", at.ID, "snippet_id", snippet.ID, "dropped", dropped, "focus_kind", focusKind)
 	}
 
-	// 🚨 减完之后一条 issue 都不剩，这一段就是 pass —— 不要把一个
-	// 「本来要改、但那件事后面已经做了」的判断留在 revise 上，
-	// 她会对着一段没有任何意见的卡片读到「需修改」。
+	// 一条 issue 都不剩，这一段就是 pass —— 不要把一个「本来要改、
+	// 但那件事后面已经做了」的判断留在需修改上，她会对着一段没有任何意见的
+	// 卡片读到「需修改」。
+	//
+	// 2026-09-21 真学生走查：这里原来**只收 revise**，而实测撞到的两次
+	// 都是 `polish`（总评说「要紧的问题只有一处……」，底下只有一条夸她的话）。
+	// 对她来说两者是同一件事：被告知这儿还不行，却没有一个字可以照着改。
+	// 一个没有任何可做之事的档位，不该挂在她那张卡片上。
 	verdict := parsed.Verdict
-	if verdict == writingVerdictRevise && !writingHasIssue(points) {
+	if verdict != writingVerdictPass && !writingHasIssue(points) {
+		slog.Info("writing block comment: no issue survived, verdict falls back to pass",
+			"atom_id", at.ID, "snippet_id", snippet.ID, "was", parsed.Verdict)
 		verdict = writingVerdictPass
 	}
 

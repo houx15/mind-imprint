@@ -1,0 +1,72 @@
+[
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 8347,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"The position is clear and supported with a personal example, and the ending shows an awareness of the staffing cost. The main gap is that the argument moves from the example to the conclusion quickly: the reasoning about why a quiet room leads to better concentration and how the trial would work is left unstated.\"},\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B+\",\"comment\":\"The request is answered directly and a concrete example supports it. The idea of a weekly trial addresses a potential objection, though the conditions under which the extension should happen are only touched on.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"A-\",\"comment\":\"Each sentence has a clear role and the order is logical: claim, example, explanation, counterpoint, proposal. The shift from the library to the corridor and back is easy to follow.\"},{\"name\":\"Lexical Resource\",\"grade\":\"B+\",\"comment\":\"Words are used precisely: 「revised」, 「concentrate」 and 「extending the schedule」 all fit the school context. Vocabulary is limited in range but accurate.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"A-\",\"comment\":\"Sentences are grammatically accurate and correctly punctuated. The structures are mostly simple; varying them would show more range.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"This acknowledges the staffing problem raised in the previous sentence and responds to it with a testable condition, which is a step toward weighing the two sides rather than only listing benefits.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"good\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"A specific dated example grounds the claim in an observable situation instead of a general statement, which makes the opening more convincing.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"The link between the example and this claim is asserted but not explained: why the corridor noise prevented revision and what specifically changes in a quiet room is left for the reader to fill in.\",\"action\":\"Add one or two sentences explaining what the noise stopped you from doing and what a quiet hour would let you do, so the reasoning from the example to the claim is visible.\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1654,
+      "outputTokens": 604
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "3dd8503d8780241b40694fddd29b6193588ce958dca03a36fd15de5a77a548ae"
+  },
+  {
+    "Case": "TestClarityGrading/en",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 7870,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"The piece answers the prompt with a clear position, one concrete supporting detail, and a qualification about staffing, so the argument is complete in shape. What holds it back is depth: the main benefit is stated but not fully explained, and some sentences sit side by side without explicit linking, so the reader supplies connections the text does not make.\"},\"dimensions\":[{\"name\":\"Task Response\",\"grade\":\"B+\",\"comment\":\"The position is stated, one reason is given, and the staffing concern is weighed with a proposed trial. The concentration benefit, however, is only asserted; the explanation of why the current arrangement harms revision is one sentence and ends there.\"},{\"name\":\"Coherence and Cohesion\",\"grade\":\"B\",\"comment\":\"Sentence order within paragraphs is logical, but the pivot with 「However」 jumps to staffing with no bridge from the benefit side, and the trial proposal arrives as a new fact rather than a conclusion drawn from the two sides.\"},{\"name\":\"Lexical Resource\",\"grade\":\"A-\",\"comment\":\"Words are precise for the topic: 「revised」「noisy corridor」「extending the schedule」 are natural choices. Word variety is limited by length rather than by misuse.\"},{\"name\":\"Grammatical Range and Accuracy\",\"grade\":\"B+\",\"comment\":\"Grammar is accurate throughout. Sentence patterns are mostly subject-verb-object with one short opener, so range is narrow; the conditional about counting students is the only structurally varied move.\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"The school could try this once a week and count how many students use it before extending the schedule.\",\"text\":\"This sentence qualifies the proposal with a condition and a test, which shows weighing rather than one-sided advocacy: the hour is offered as an experiment, not a demand.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"good\",\"quote\":\"Last Tuesday, the classrooms and the library closed at seven, so I revised in the noisy corridor.\",\"text\":\"A dated personal case makes the problem concrete instead of generic, and gives the argument evidence a reader can picture.\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"A quiet room would help students like me concentrate.\",\"text\":\"This is the mechanism stated as a result only; why the corridor fails and how quiet translates into better revision is left implicit, so the central benefit rests on one unexplained sentence. The move from this benefit to 「However, staying open requires staff」 also lacks a linking phrase that signals the cost is being weighed against it.\",\"action\":\"Add one or two sentences after this one explaining the causal step, then place an explicit contrast phrase before the staffing point so the reader sees that costs are now being weighed against the stated benefit.\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1654,
+      "outputTokens": 554,
+      "cachedInputTokens": 1536
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "3dd8503d8780241b40694fddd29b6193588ce958dca03a36fd15de5a77a548ae"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 6985,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"文章提出了一个明确的观点（延长图书馆开放时间），并用亲身经历说明需求，还考虑了实施成本与试行方案。主要不足是支持观点的材料单一，只有一次个人经历，还没有说明这次经历如何代表更多学生的需求。\"},\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"观点明确，有具体事件支撑，也回应了「值班安排」这一现实困难。但「了解学生的需求」之外，还没有其他学生需要延长开放的事实或数据，判断与材料的对应关系需要补足。\"},{\"name\":\"结构\",\"grade\":\"A-\",\"comment\":\"从需求、困难到建议方案，顺序清楚，段落之间衔接自然，结尾落在可操作的试行建议上，不空泛。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"句子简短、意思清楚，没有多余的修饰，表达直接。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确，没有错别字。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"不过，延长开放需要安排老师值班。\",\"text\":\"这一句主动考虑了对方的顾虑，没有只站在学生的角度提要求，使建议更容易被学校接受。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"good\",\"quote\":\"学校可以每周试行一天，了解学生的需求，再决定是否增加天数。\",\"text\":\"结尾给出了具体可行的步骤，而不是只喊一句「希望延长」，让观点落地。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"如果图书馆能多开放一小时，我们就能找到安静的学习场所。\",\"text\":\"支持延长开放的材料目前只有「我和三位同学」的一次经历，还不能说明这是许多学生共同的需求，判断缺少更广泛的依据。\",\"action\":\"补充一到两份能说明更多学生有同样需求的材料，例如其他同学的情况或一次简单的调查，并写明这份材料说明了什么。\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 1900,
+      "outputTokens": 448
+    },
+    "StopReason": "",
+    "ValidationError": "compressed or confrontational teaching language: 撑",
+    "RequestSHA256": "55e98673e085fbb320ba75828c029677eed732b9f229c2165c66f71f2dabebad"
+  },
+  {
+    "Case": "TestClarityGrading/zh",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 10513,
+    "Text": "{\"overall\":{\"grade\":\"B+\",\"comment\":\"观点明确，用自己放学后无处自习的经历说明延长图书馆开放时间的理由，还考虑了值班安排和试行方案，是完整的议论段。不足在于只有一处事实依据，缺少其他学生的情况，说服力有限。\"},\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"观点清楚，事件材料能说明问题，也提出了可行的做法；但支持观点的事实只有自己一次的经历，可以补充更多同学的情况。\"},{\"name\":\"结构\",\"grade\":\"A-\",\"comment\":\"先说观点，再讲经历，接着回应值班问题并提出试行方案，顺序合理，衔接自然。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达准确、简洁，句子通顺，没有多余修饰。\"},{\"name\":\"书写规范\",\"grade\":\"A-\",\"comment\":\"标点和格式使用正确，未见错别字。\"}],\"points\":[{\"kind\":\"good\",\"quote\":\"学校图书馆可以延长开放时间。\",\"text\":\"第一句就表明了观点，读者一开始就知道这段文字要说明什么，没有铺垫和绕弯。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"good\",\"quote\":\"不过，延长开放需要安排老师值班。\",\"text\":\"这句主动考虑了学校的难处，再顺势提出试行方案，让观点显得不只站在学生一边，这是议论时做得好的地方。\",\"action\":null,\"source\":\"ai\"},{\"kind\":\"issue\",\"quote\":\"上周放学后，我和三位同学准备复习，教室已经关闭，我们只好坐在走廊。\",\"text\":\"这是全文唯一的依据，只说明了你们四个人一次的情况。要证明更多学生需要延长开放，还需要其他事实，比如调查同学的想法或统计每天想留下来的人数，否则判断缺少足够的材料支撑。\",\"action\":\"补充一两项事实，说明其他学生也有同样的需求，例如了解不同班级同学放学后的去向，并写明这些情况说明了什么。\",\"source\":\"ai\"}]}",
+    "Usage": {
+      "inputTokens": 4183,
+      "outputTokens": 752,
+      "cachedInputTokens": 3584
+    },
+    "StopReason": "",
+    "ValidationError": "compressed or confrontational teaching language: 撑",
+    "RequestSHA256": "55e98673e085fbb320ba75828c029677eed732b9f229c2165c66f71f2dabebad"
+  }
+]

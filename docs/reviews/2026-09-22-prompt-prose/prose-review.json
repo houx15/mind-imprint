@@ -1,0 +1,74 @@
+[
+  {
+    "Case": "TestClarityAgent/executioner",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 2752,
+    "Text": "[{\"criterion_code\":\"A\",\"criterion_name\":\"论证与证据\",\"band\":\"刚起步\",\"evidence\":\"草稿给出观点“学校图书馆应该延长开放时间”，并提供了个人经历“上周我和三位同学只能在走廊复习”作为例子。\",\"missing\":\"论证从个人一次经历直接推到“所有学生都需要”，缺少更广范围的证据，如其他同学的问卷、图书馆使用统计或不同年级的反馈；“这证明所有学生”属于过度概括，尚未与评分表要求的多层次证据对应。\",\"fix\":\"方向上可补充覆盖面更广的数据或多个不同来源的例子，把个人经历定位为补充说明而非证明；同时把结论的适用范围收敛到证据能说明的程度。\",\"points\":1}]",
+    "Usage": {
+      "inputTokens": 853,
+      "outputTokens": 166,
+      "cachedInputTokens": 256
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "773a12d561f6dc4d3c3cb477fcd565a218df67f77de7dddecb7f12cf6201f5ed"
+  },
+  {
+    "Case": "TestClarityAgent/executioner",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3487,
+    "Text": "[{\"criterion_code\":\"A\",\"criterion_name\":\"论证与证据\",\"band\":\"刚起步，仅提出观点和个别经历\",\"evidence\":\"「学校图书馆应该延长开放时间」「上周我和三位同学只能在走廊复习」「这证明所有学生都需要图书馆全天开放」\",\"missing\":\"从个别经历推广到「所有学生」的论证跨度很大；缺少图书馆实际开放时间、使用人数、其他学生意见等更广的证据，也缺少对反方（如管理成本、安全）的考虑\",\"fix\":\"方向上可保留走廊复习这段作为具体事例，但需要补充能说明需求面更广的材料，并把「证明」一词对应的推断范围收窄到证据能说明的程度；同时说明延长开放与全天开放之间的差别是否要保留。字数超预算时，可精简的应是重复强调观点的句子，事例本身信息量建议保留\",\"points\":1}]",
+    "Usage": {
+      "inputTokens": 853,
+      "outputTokens": 203,
+      "cachedInputTokens": 768
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "773a12d561f6dc4d3c3cb477fcd565a218df67f77de7dddecb7f12cf6201f5ed"
+  },
+  {
+    "Case": "TestClarityAgent/sceptic",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 1,
+    "Millis": 2558,
+    "Text": "[{\"criterion_code\":\"A\",\"criterion_name\":\"论证与证据\",\"band\":\"刚起步，仅有个人经历，结论范围过大\",\"evidence\":\"「上周我和三位同学只能在走廊复习」「这证明所有学生都需要图书馆全天开放」\",\"missing\":\"需核实是否只有走廊可复习、样本是否具有代表性、延长开放时间与全天开放是否为同一概念、其他学生的实际使用情况\",\"fix\":\"补充图书馆实际使用数据或更多学生的反馈来源；区分延长开放时间与全天开放的差异；将结论限定在证据覆盖的范围内\",\"points\":1}]",
+    "Usage": {
+      "inputTokens": 846,
+      "outputTokens": 133,
+      "cachedInputTokens": 256
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "ff2ffa25b63f69c09e303267a003417e64d18c90ac42547896012e364b54b298"
+  },
+  {
+    "Case": "TestClarityAgent/sceptic",
+    "Class": "review",
+    "Model": "dashscope/glm-5.3",
+    "WireModel": "ZHIPU/GLM-5.3",
+    "ResponseModel": "zhipu/glm-5.3",
+    "Sample": 2,
+    "Millis": 3839,
+    "Text": "[{\"criterion_code\":\"A\",\"criterion_name\":\"论证与证据\",\"band\":\"刚起步\",\"evidence\":\"「学校图书馆应该延长开放时间。上周我和三位同学只能在走廊复习。」\",\"missing\":\"「这证明所有学生都需要图书馆全天开放」这一结论以四位同学的经历为据，样本范围与结论覆盖范围差距很大，需要更大范围的使用情况数据；结论从「延长开放时间」跳到「全天开放」，前后范围不一致；走廊复习的原因需要核实（是否开放时间不足所致）；全稿约三句话，未见超字数问题，但论证链条本身每一步都缺少中间证据\",\"fix\":\"需要补充图书馆实际开放时段与使用率的可核实信息、更大范围学生的需求调查，并核实走廊复习与开放时间的因果关系；需要统一结论的范围表述；不需要删减段落\",\"points\":1}]",
+    "Usage": {
+      "inputTokens": 846,
+      "outputTokens": 190,
+      "cachedInputTokens": 768
+    },
+    "StopReason": "",
+    "ValidationError": "",
+    "RequestSHA256": "ff2ffa25b63f69c09e303267a003417e64d18c90ac42547896012e364b54b298"
+  }
+]

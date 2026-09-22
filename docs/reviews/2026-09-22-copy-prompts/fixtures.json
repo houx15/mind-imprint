@@ -1,0 +1,218 @@
+[
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4055,
+    "Text": "{\"reply\":\"你选的是第三段的「连续八年位居世界第一」，并且指出它衡量的是可再生能源新增装机量的世界排名，而不是发电量排名——这一层你说得对，原文里这个数字统计的是新增装机量，确实不是实际发出的电量。不过这一步还想请你找出一个带具体数值的数字，并说明它衡量的是什么。\\n\\n看看第二段，那里有一个具体数字，它旁边带着单位，那个单位能帮你判断它在统计哪一类规模。\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"第二段中那个具体数字统计的是什么？请用自己的话说。\"}}",
+    "Usage": {
+      "inputTokens": 4238,
+      "outputTokens": 141,
+      "cachedInputTokens": 3072
+    },
+    "StopReason": "stop",
+    "ValidationError": "advance = \"\", want \"done\"",
+    "RequestSHA256": "3c6a0b4241e23ea7385b4a4728a3272febf63969f26859ba62c73bb347d26b94"
+  },
+  {
+    "Case": "TestClarityReading/done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2358,
+    "Text": "{\"reply\":\"你说的没错：连续八年位居第一说的是新增装机量的排名，不是发电量的排名。任务还差一点——请找出这个排名所依据的那个具体数字或数量，并说明它统计的是什么。\",\"advance\":\"\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"第三段里，连续八年第一说的是哪一项数量在连续增长？它统计的是什么？\"}}",
+    "Usage": {
+      "inputTokens": 4238,
+      "outputTokens": 93,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "advance = \"\", want \"done\"",
+    "RequestSHA256": "3c6a0b4241e23ea7385b4a4728a3272febf63969f26859ba62c73bb347d26b94"
+  },
+  {
+    "Case": "TestClarityReading/read-done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2987,
+    "Text": "{\"reply\":\"读完了，好。第3段说中国的可再生能源新增装机量连续八年世界第一，这是对一个事实的陈述。\\n\\n下一步我们来总结读后的观点变化：读之前，你可能会觉得中国的能源转型就是一件事，读完之后，你注意到哪些原来没想到或看法被调整的地方？\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读完后，你对中国能源转型的看法和读之前比，有什么变化？\"}}",
+    "Usage": {
+      "inputTokens": 4158,
+      "outputTokens": 112,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2734067fa072038d1cb3f4def5acb8e1385695963675f8cb7e6c6fb5cbae8ff7"
+  },
+  {
+    "Case": "TestClarityReading/read-done",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 6922,
+    "Text": "{\"reply\":\"好的，第3段你读完了。这一段说的是中国可再生能源新增装机量连续八年世界第一，和前面第1、2段讲的投入规模、新增装机占比连在一起，都在说中国在可再生能源上的分量很重。\\n\\n接下来做「总结读后的观点变化」。这一步请你回看自己读之前对「中国的能源转型」有什么印象，再和文中第4、5、6段说的排放总量、两种解释以及装机容量与实际发电量的区别对照，说说你的看法有没有变化，变在哪里。\",\"advance\":\"done\",\"focusBlock\":\"b3\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"读文章前后，你对中国的能源转型的看法有变化吗？说说变化和依据。\"}}",
+    "Usage": {
+      "inputTokens": 4158,
+      "outputTokens": 161,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "2734067fa072038d1cb3f4def5acb8e1385695963675f8cb7e6c6fb5cbae8ff7"
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3092,
+    "Text": "{\"reply\":\"你把「新增装机超过一半」直接换成了「实际发电量也超过一半」，中间少了一步。我们想了解的是实际发电量，装机规模能直接反映发电量吗？看看第 6 段里关于装机容量和实际发电量的说法，再想想两者之间还需要考虑什么。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"questions\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4193,
+      "outputTokens": 89,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "7b69abb608f085b31a87bd322babd17b46ea8b28d14a1bb53224ab98518637e4"
+  },
+  {
+    "Case": "TestClarityTeacherReading/compare-not-verdict",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2868,
+    "Text": "{\"reply\":\"你先注意到了第2段那个「超过一半」，不过那句话说的是新增的太阳能发电装机，也就是新增加的发电能力。我们这一步想弄清楚的是：这种能力上的数字，能不能直接拿来判断实际发出了多少电。请看看第6段是怎么区分这两个概念的，然后说说，装机和实际发电量之间还隔着哪些条件。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4193,
+      "outputTokens": 94,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "7b69abb608f085b31a87bd322babd17b46ea8b28d14a1bb53224ab98518637e4"
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 3207,
+    "Text": "{\"reply\":\"装机容量不是实际发电量。这一点文章在第6段说得很清楚：装机容量衡量的是发电能力，也就是设备在满负荷情况下最多能发出多少电；而实际发出的电量还要看阳光、风力等条件，以及设备实际运行了多久。所以第2段只说明中国新增的太阳能发电能力占全球一半以上，并没有说中国实际发出的太阳能电量也占全球一半以上。\\n\\n你可以顺着这个区别想一个例子：一排太阳能板装好了，但遇上连续阴天，它发出来的电和它的装机容量之间会是什么关系？\",\"advance\":\"\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4170,
+      "outputTokens": 143,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "5573b0201b1a4ca27ab8989f7e6af87a26aa17e430d2aca0c3533f4ba267805d"
+  },
+  {
+    "Case": "TestClarityTeacherReading/direct-answer",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 4368,
+    "Text": "{\"reply\":\"你问的是词义，我直接说清楚。装机容量指的是设备在满负荷运行时能达到的发电能力，是一个上限；实际发电量是这些设备在一年里真正发出来的电能。第6段那句话说的就是这个区别：装机容量衡量的是发电能力，而不是实际发出的电量。\\n\\n不过，这一轮我们还要在文章里比较这两项。请你回到第6段，找出那句话里说明「装机容量不等于什么」的部分，把它读出来告诉我。\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4170,
+      "outputTokens": 125,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "5573b0201b1a4ca27ab8989f7e6af87a26aa17e430d2aca0c3533f4ba267805d"
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 4628,
+    "Text": "{\"reply\":\"装机容量指的是一个电站或一类设备**最多能发出多少电**，也就是发电能力；发电量则是它在一段时间里**实际发出多少电**。第6段正是要区分这两个概念。\\n\\n现在回到这一步的任务：把第6段说的这点，和第2段那个「新增太阳能发电装机超过一半在中国」的数字放在一起看。请说一说，为什么知道了这个装机数字，还不能直接得出中国实际发出的太阳能电量也超过一半？\",\"advance\":\"\",\"focusBlock\":\"b6\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4169,
+      "outputTokens": 122,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "512bb24dd162749f7356d4d7bfe1a0f9b1de82dfcb026e06497d5f5005752677"
+  },
+  {
+    "Case": "TestClarityTeacherReading/explain-concept",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 3710,
+    "Text": "{\"reply\":\"装机容量指的是一个发电设施在满负荷运转时能够发出的最大功率，可以理解成「能发多少电的能力」，它描述的是发电的潜在上限。原文第2段的数字统计的就是这种装机能力。不过第6段特别提醒，装机容量和实际发出的电量不是一回事。\\n\\n回到我们这一步：请你说说，为什么一个地方装机容量大，不代表它实际发出的电量也大？\",\"advance\":\"\",\"focusBlock\":\"b2\",\"tool\":\"\",\"lens\":\"\",\"card\":null}",
+    "Usage": {
+      "inputTokens": 4169,
+      "outputTokens": 112,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "512bb24dd162749f7356d4d7bfe1a0f9b1de82dfcb026e06497d5f5005752677"
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 1,
+    "Millis": 2207,
+    "Text": "{\"reply\":\"读文章之前，我们先根据标题想一想：这个标题里最核心的词是「能源转型」。请你说说，看到这个标题，你预计文章会讨论哪些问题？\",\"advance\":\"\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"看到「中国的能源转型」这个标题，你预计文章会讨论什么问题？\"}}",
+    "Usage": {
+      "inputTokens": 4134,
+      "outputTokens": 83,
+      "cachedInputTokens": 3456
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "dcabf91d7b7eac39c306ef05e68d8b40cfce9da417d0f1237d07940e7e974391"
+  },
+  {
+    "Case": "TestClarityTeacherReading/predict-opening",
+    "Class": "dialogue",
+    "Model": "dashscope/deepseek-v4.1-flash",
+    "WireModel": "deepseek-v4.1-flash",
+    "ResponseModel": "deepseek-v4.1-flash",
+    "Sample": 2,
+    "Millis": 2089,
+    "Text": "{\"reply\":\"先根据标题想一想：看到「中国的能源转型」这几个字，你预计文章会讨论中国在能源方面的哪些变化或问题？写下你的预测，再往下读，看文章和你设想的是不是一回事。\",\"advance\":\"\",\"focusBlock\":\"\",\"tool\":\"\",\"lens\":\"\",\"card\":{\"type\":\"short_text\",\"prompt\":\"看到这个标题，你预计文章会讨论哪些内容？\"}}",
+    "Usage": {
+      "inputTokens": 4134,
+      "outputTokens": 87,
+      "cachedInputTokens": 4096
+    },
+    "StopReason": "stop",
+    "ValidationError": "",
+    "RequestSHA256": "dcabf91d7b7eac39c306ef05e68d8b40cfce9da417d0f1237d07940e7e974391"
+  }
+]

@@ -28,6 +28,24 @@ const ARTIFACTS =
 
 export default defineConfig({
   testDir: ".",
+  // 🚨 这几个子目录**结构上不是线上走查**，但 `testDir: "."` 会把它们一起扫进来，
+  // 于是打线上的时候必红 —— 而红的原因和线上没有半点关系（2026-09-21 实测：
+  // 一次全量跑 12 条红里有 4 条是它们）。红成噪音的套件，等于没有套件。
+  //
+  //   harness/    看图台。要另开一个本地 vite（:5199），线上没有那台。
+  //   readwalk/   模拟学生走查。自带 brain.ts，要另一把 key、另一套固定装置。
+  //   camp/       同上，四天营那一族。
+  //   cost/       算账用的脚本，不是走查。
+  //   writewalk/  写作那一族的录像脚本，同样要本地栈。
+  //
+  // 它们照旧在本地跑（各自的 config / run-stack.sh），只是不归这份 config 管。
+  testIgnore: [
+    "**/harness/**",
+    "**/readwalk/**",
+    "**/camp/**",
+    "**/cost/**",
+    "**/writewalk/**",
+  ],
   fullyParallel: false,
   workers: 1,
   retries: 0,

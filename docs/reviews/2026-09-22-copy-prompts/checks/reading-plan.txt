@@ -1,0 +1,12 @@
+=== RUN   TestClarityReadingPlan
+=== RUN   TestClarityReadingPlan/zh
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=1 model=dashscope/glm-5.3 ms=8302 input=3026 output=525 valid=true
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=2 model=dashscope/glm-5.3 ms=10609 input=3026 output=566 valid=true
+=== RUN   TestClarityReadingPlan/en
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=1 model=dashscope/glm-5.3 ms=7009 input=3462 output=469 valid=true
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=2 model=dashscope/glm-5.3 ms=9288 input=3462 output=631 valid=true
+--- PASS: TestClarityReadingPlan (35.21s)
+    --- PASS: TestClarityReadingPlan/zh (18.91s)
+    --- PASS: TestClarityReadingPlan/en (16.30s)
+PASS
+ok  	mindimprint/api/internal/api	36.394s

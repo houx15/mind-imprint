@@ -192,7 +192,7 @@ func TestCommentPromptCarriesTheWholePiece(t *testing.T) {
 	piece := "\n【整篇的结构，以及她在每一块写下的字】\n" +
 		"- 第 2 张 · 分论点：放学能联系家长\n    她写的：上周三五点半我放学等车。\n"
 
-	got := buildWritingCommentPrompt(wr, "她写的这一段", "手机可以帮助我们联系家长。", piece)
+	got := buildWritingCommentPrompt(wr, "她写的这一段", "手机可以帮助我们联系家长。", piece, genreArgument)
 	if !strings.Contains(got, "上周三五点半我放学等车") {
 		t.Errorf("整篇上下文没进 prompt：\n%s", got)
 	}
