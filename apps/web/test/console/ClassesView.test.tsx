@@ -46,7 +46,7 @@ describe("ClassesView", () => {
     await userEvent.click(await screen.findByText("+ 新建班级"));
     await userEvent.type(screen.getByPlaceholderText(/班级名称/), "新班");
     await userEvent.click(screen.getByText("创建"));
-    await waitFor(() => expect(client.createClass).toHaveBeenCalledWith({ name: "新班" }));
+    await waitFor(() => expect(client.createClass).toHaveBeenCalledWith({ name: "新班", grade: "" }));
     expect(await screen.findByText(/EF-GH/)).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("ClassesView", () => {
     await userEvent.type(screen.getByPlaceholderText(/班级名称/), "新建");
     await userEvent.selectOptions(await screen.findByTestId("teacher-picker"), "u1");
     await userEvent.click(screen.getByText("创建"));
-    await waitFor(() => expect(client.createClass).toHaveBeenCalledWith({ name: "新建", teacher_user_id: "u1" }));
+    await waitFor(() => expect(client.createClass).toHaveBeenCalledWith({ name: "新建", teacher_user_id: "u1", grade: "" }));
   });
 
   it("admin with no teachers cannot create (submit disabled)", async () => {

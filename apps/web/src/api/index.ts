@@ -38,7 +38,7 @@ export interface ApiClient {
   putOnboarding(): Promise<void>;
   submitFeedback(text: string): Promise<void>;
   listClasses(): Promise<ClassSummary[]>;
-  createClass(input: { name: string; teacher_user_id?: string }): Promise<ClassSummary>;
+  createClass(input: { name: string; teacher_user_id?: string; grade?: string }): Promise<ClassSummary>;
   getClass(id: string): Promise<ClassDetail>;
   renameClass(id: string, name: string): Promise<ClassSummary>;
   regenerateJoinCode(id: string): Promise<ClassSummary>;

@@ -36,7 +36,7 @@ func (r *Registry) Resolve(k Key, slots ...Slot) (map[Slot]string, error) {
 		text, ok := Pick(k, r.slots[slot])
 		if !ok || text == "" {
 			return nil, fmt.Errorf(
-				"guidance: 槽 %q 在 surface=%q lang=%q genre=%q stage=%q 上没有内容",
+				"guidance: 槽 %q 在 surface=%q lang=%q genre=%q grade=%q 上没有内容",
 				slot, k.Surface, k.Lang, k.Genre, k.Grade)
 		}
 		out[slot] = text

@@ -16,7 +16,7 @@ function draft(over: Partial<AssignmentDraft> = {}): AssignmentDraft {
 }
 
 const classes: ClassSummary[] = [
-  { id: "c1", name: "高二 3 班", join_code: "AAAA-BBBB", school_id: "s1", created_at: "2026-01-01T00:00:00Z" },
+  { id: "c1", name: "高二 3 班", join_code: "AAAA-BBBB", school_id: "s1", created_at: "2026-01-01T00:00:00Z", grade: "", grade_label: "" },
 ];
 
 describe("draftPreviewItem", () => {
