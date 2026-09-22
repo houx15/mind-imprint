@@ -44,7 +44,7 @@ type Key struct {
 	Surface string // "read" | "write" | "comment"
 	Lang    string // "zh" | "en"
 	Genre   string // argument | narrative | report | explain
-	Stage   string // "" 不限 | junior1..3 | senior1..3，见 §4
+	Grade   string // "" 不限 | junior1..3 | senior1..3，见 §4
 }
 
 // Slot 是提示词模板上的一个洞。
@@ -69,7 +69,7 @@ type Source struct {
 
 // Resolve 取这一次要用的每个槽。
 //
-// 命中顺序：完全匹配 → 去掉 Stage → 去掉 Genre。三步都取不到就报错。
+// 命中顺序：完全匹配 → 去掉 Grade → 去掉 Genre。三步都取不到就报错。
 // 🚨 取不到必须报错，不能返回空串：2026-09-22 那次「按语言挑」的教训是
 // 挡住中文之后英文那边空了 —— 少给一整块，而线上看起来只是印记话少了。
 func Resolve(k Key, slots ...Slot) (map[Slot]string, error)
@@ -127,8 +127,16 @@ func Pick[T any](k Key, rows []Row[T]) (T, bool)   // 最具体的那一行胜�
 
 ### 学段
 
-`classes` 加一列 `stage text not null default ''`，建班时设。迁移号取 **0186**
+`classes` 加一列 `grade text not null default ''`，建班时设。迁移号取 **0186**
 （现最高 0185）—— 分支开久了迁移号会撞，撞了 goose 直接起不来，所以这一号要尽早落。
+
+🚨 **叫 `grade`，不叫 `stage`；`guidance.Key.Stage` 同时改名成 `Grade`。**
+2026-09-22 二期开工前查出来的：`writing.stage` 在这个仓库里**已经**是另一个
+意思 —— 写作**流程**阶段（`ideate|outline|snippets|draft|finished`，
+`0099_writing_tables.sql:12-14`），而且 `sqlc.Writing.Stage` 到处在用。
+再让 `sqlc.Class.Stage` 和 `guidance.Key.Stage` 表示「几年级」，一个词在同一个
+包里就有两个意思。改名现在是零成本（四处 `guidance.Key{...}` 一处都没设过
+这个字段），等二期 b 往里填内容之后就不是了。
 
 取值到**年级**这一层，不是 junior / senior 两档：
 
@@ -140,9 +148,9 @@ func Pick[T any](k Key, rows []Row[T]) (T, bool)   // 最具体的那一行胜�
 语言优美」。两档表达不了这三行，而一个班本来就是一个年级。
 
 `Resolve` 的回退链因此多一级：年级 → 学段（junior / senior）→ 不限。
-`guidance.StageBand("junior2") == "junior"`，让「整个初中通用」的内容只写一份。
+`guidance.GradeBand("junior2") == "junior"`，让「整个初中通用」的内容只写一份。
 
-学段经 `enrollments` 流到学生，再流到她的 writing / reading。取不到就是 `''`，
+年级经 `enrollments` 流到学生，再流到她的 writing / reading。取不到就是 `''`，
 `Resolve` 退到不限学段那一行。**本期不产出任何小学内容。**
 
 ## 5 · 判据：一条现在写不出来的测试
@@ -151,7 +159,7 @@ func Pick[T any](k Key, rows []Row[T]) (T, bool)   // 最具体的那一行胜�
 
 ```
 TestEveryCombinationResolves —— 枚举所有真的会出现的
-(Surface × Lang × Genre × Stage)：
+(Surface × Lang × Genre × Grade)：
   1. 模板声明的每一个槽都取得到；
   2. 渲染出来的提示词里不许残留字面的 @@SLOT@@。
 ```
@@ -183,7 +191,7 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 
 ### 二期 · 英文写作
 
-- `classes.stage` 迁移 0186 + 建班表单那一格。
+- `classes.grade` 迁移 0186 + 建班表单那一格（二期 a）。
 - 英文议论文的**题目拆解**进 `SlotCoach`：TOPIC + TASK 两段式；四类 TASK
   （agree / discuss / advantage / reason&solution）都可归约成 two tasks。
   这一条来自 `思维印记-英文写作逻辑框架搭建.md`，是那份资料里最有价值的部分。
@@ -291,12 +299,12 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 
 ### 🚨 二期一定会踩的两个坑
 
-1. **加第一行带 `Stages` 的登记时，`TestEveryCombinationResolves` 会骗你。**
+1. **加第一行带 `Grades` 的登记时，`TestEveryCombinationResolves` 会骗你。**
    它今天对 7 个学段值断言的是**同一份**期望内容。二期写下
-   `{write, zh, Stages:["junior2"]}`（26 分）时，它会输给已经在的
+   `{write, zh, Grades:["junior2"]}`（26 分）时，它会输给已经在的
    `{write, zh, Genres:["narrative"]}`（28 分）—— 年级专用的内容一次都不会
    出现，而测试照样绿，因为拿到的仍然是它期望的通用内容。
-   **动 Stages 之前先把 want 表也按学段分开。** 这正是本 spec §8 写的
+   **动 Grades 之前先把 want 表也按学段分开。** 这正是本 spec §8 写的
    「加了轴但到不了深处」，只是挪到了隔壁那条轴上。
 
 2. **`Scope{Genres: nil}` 和 `readingRoutine.serves()` 读法相反。**
@@ -306,8 +314,8 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 
 ### 🚨 唯一一处依赖打分次序的地方
 
-打分是 **Surface(16) > Lang(8) > Genre(4) > Stage(2/1)** 的字典序，
-不是「轴越多越具体」（`{Lang}`=8 就压过 `{Genres,Stage}`=6）。
+打分是 **Surface(16) > Lang(8) > Genre(4) > Grade(2/1)** 的字典序，
+不是「轴越多越具体」（`{Lang}`=8 就压过 `{Genres,Grade}`=6）。
 
 生产里真正依赖它的只有一条：**`Lang(8) > Genre(4)`**。英文记叙文靠它留在
 英文毛病表（24 分）上，而不是掉进那张无语言的记叙文兜底（20 分）。
