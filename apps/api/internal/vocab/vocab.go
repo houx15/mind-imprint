@@ -191,6 +191,19 @@ func For(appliesTo string, lang string, genre string) []Method {
 	return out
 }
 
+// 🚨 ForLang / Structures 是**过滤器**，不接入 internal/guidance 的 Pick。
+//
+// guidance.Pick 回答的是「这一档信息该给哪一条」，赢家只有一条；ForLang 和
+// Structures 回答的是「这个体裁 × 语言下有哪些方法都用得上」，答案是一整批 ——
+// 写作面一页上要同时摆四条论证结构给她挑，不是先替她挑好其中最贴的一条。
+// 把这两个函数改造成走 Pick，会把「全都给」悄悄变成「只给一条」，那是行为
+// 改变，不是把选取逻辑挪个地方而已。
+//
+// 两边真正共用的是体裁这条轴的取值（argument / narrative / report / explain），
+// 不是选取的算法；这条轴由 TestVocabGenreFieldStaysInTheClosedSet 和
+// TestVocabAxesAgreeWithGuidanceClosedSets（apps/api/internal/api） 钉住，
+// 防止 vocab 这边的 genre 和 guidance/api 那边的体裁闭表各自漂开。
+
 // ForLang returns every method usable in a language, at ANY position. It
 // serves the two prompts that must cover the whole piece at once (the planning
 // turn, and the batch guide that guides every block in one call): they annotate
