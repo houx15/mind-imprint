@@ -260,3 +260,23 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 拼完的成品里不许残留 @@。模板上多开一个洞而忘了登记，
+// 只有这一条查得出来 —— guidance 那边查的是槽的内容，不是成品。
+func TestWritingPlanSystemForLeavesNoPlaceholder(t *testing.T) {
+	for _, lang := range []string{"zh", langEnglish} {
+		for _, genre := range []string{genreArgument, genreNarrative} {
+			s := writingPlanSystemFor(genre, lang)
+			if strings.Contains(s, "@@") {
+				t.Errorf("%s/%s 的提示词里残留着占位符", lang, genre)
+			}
+			if strings.Contains(s, "%d") {
+				t.Errorf("%s/%s 的提示词里残留着 %%d", lang, genre)
+			}
+			if len([]rune(s)) < 500 {
+				t.Errorf("%s/%s 的提示词只有 %d 字，像是少拼了几段",
+					lang, genre, len([]rune(s)))
+			}
+		}
+	}
+}
