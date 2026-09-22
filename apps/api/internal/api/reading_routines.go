@@ -204,7 +204,7 @@ var readingRoutines = []readingRoutine{
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请先根据标题预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，分析其中的内容与写法。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskReflect, Label: "总结论点", Detail: "用你自己的话总结本文的论点：作者的中心论点是什么？他分几层来论证？"},
@@ -247,7 +247,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇报的是一件什么事？"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先弄清楚两件事：发生了什么，牵涉到哪几方。"},
 			{Kind: taskSequence, Label: "排出事件时间线", Detail: "把几件事按发生的先后排好。报道常常先讲结果，再回头交代经过。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，分析其中的内容与写法。"},
 			{Kind: taskLabel, Label: "分清事实与说法", Detail: "把几句话各自归类：记者核实的事实、某一方说的话、对事件的解释。"},
 			{Kind: taskCritique, Label: "比较来源", Detail: "各方的说法依据是什么？有没有哪一方没被问到？哪一句还需要别的来源？"},
 			{Kind: taskReflect, Label: "已知与待了解", Detail: "这件事目前能确定的是什么，还有哪些没有弄清楚？"},
@@ -268,7 +268,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "通读全文", Detail: "先找到说明对象，再看作者分几块来讲它。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理，值得细读。"},
 			{Kind: taskLabel, Label: "理清说明结构", Detail: "把几句话各自归类：说明对象、原理与过程、例子与数据。"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "请选择一处，说明作者的解释或例子是否帮助你理解了原理。"},
 			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
 			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？会有什么不同？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最能概括这个原理？把它点出来。"},
@@ -278,11 +278,11 @@ var readingRoutines = []readingRoutine{
 		Key:    "en-close-read",
 		Lang:   "en",
 		Genres: []string{genreArgument},
-		Name:  "Close Read",
-		Blurb: "英文文章的默认读法：先看懂，再看它是怎么写的。",
+		Name:   "Close Read",
+		Blurb:  "英文文章的默认读法：先看懂，再看它是怎么写的。",
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请根据标题和第一句预测文章主题。"},
-			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先理解大意。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、写作解析，一样一样看。哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
@@ -292,8 +292,8 @@ var readingRoutines = []readingRoutine{
 			// 是让她把刚看过的那一句背一遍，什么都测不出来。
 			// hunt 必须是最后一步 —— 见 reading_routines_internal_test.go：
 			// 打字的答案可以凭印象给，点出来的句子不能。
-			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：作者的主张一句话，加上你记住的两三个表达。"},
-			{Kind: taskHunt, Label: "找出中心论点", Detail: "现在回到文章里：作者直接说出主张的是哪一句？把它点出来，对照你刚才的复述。"},
+			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：请用自己的话概括作者的观点，再回忆两三个文中的表达。"},
+			{Kind: taskHunt, Label: "找出中心论点", Detail: "现在回到文章里：作者直接表达主要观点的是哪一句？把它点出来，对照你刚才的复述。"},
 		},
 	},
 	{
@@ -317,7 +317,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskSequence, Label: "排出事件时间线", Detail: "把几件事按发生的先后排好。报道常常先讲结果，再回头交代经过。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词，一样一样看。哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "分清事实与说法", Detail: "把几句话各自归类：记者核实的事实、某一方说的话、对事件的解释。"},
-			{Kind: taskCritique, Label: "比较来源", Detail: "这篇报道有没有哪一方没被问到？哪一句你觉得还需要别的来源才敢信？"},
+			{Kind: taskCritique, Label: "比较来源", Detail: "这篇报道有没有哪一方没被问到？哪一句还需要其他来源核实？"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			{Kind: taskRecall, Label: "合上文章复述", Detail: "先别看原文：这件事一句话讲完，加上你记住的两三个细节。"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "现在回到文章里：哪一句最能对上你刚才那句复述？把它点出来。"},
@@ -334,7 +334,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先找到说明对象。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段讲的是关键的概念或原理。点开段落工具：翻译、关键单词；哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "理清说明结构", Detail: "把几句话各自归类：说明对象、原理与过程、例子与数据。"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "这篇解释清楚了吗？哪一环还没讲透，例子撑不撑得住？挑一处说。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "请选择一处，说明作者的解释或例子是否帮助你理解了原理。"},
 			{Kind: taskReflect, Label: "解释关键关系", Detail: "用你自己的话说清楚：文中的一个原因是怎么导致那个结果的？"},
 			{Kind: taskConnect, Label: "换个情境用一用", Detail: "把文中的原理放到另一个情境里，它还成立吗？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "回到文章里：哪一句最能概括这个原理？把它点出来。"},
@@ -361,15 +361,15 @@ var readingRoutines = []readingRoutine{
 		Key:    "en-argument",
 		Lang:   "en",
 		Genres: []string{genreArgument},
-		Name:  "Follow the Argument",
-		Blurb: "适合英文议论文、社论、TOEFL 阅读——作者在说服你的时候用。",
+		Name:   "Follow the Argument",
+		Blurb:  "适合英文议论文、社论、TOEFL 阅读——作者在说服你的时候用。",
 		Steps: []readingRoutineStep{
-			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：作者大概站哪一边？正文先别读。"},
-			{Kind: taskRead, Label: "通读全文", Detail: "先找出作者站哪一边。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具，看他是怎么把话说重的。"},
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：请预测作者可能持有什么观点，暂不阅读正文。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "请先找出作者对这个问题的观点。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "请打开段落工具，分析作者怎样表达观点、使用理由。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归类：作者的论点、他驳的那个观点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
-			{Kind: taskConnect, Label: "观点变化", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
+			{Kind: taskConnect, Label: "观点变化", Detail: "读之前你自己是什么立场？文章是否改变了你的看法？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最没说服你？把它点出来。"},
 		},
 	},
@@ -520,15 +520,15 @@ var readingBlockTools = []readingBlockTool{
 		// 一件工具讲两件事，200 字装不下 —— 所以这一件自己带一个上限。
 		Shape: "prose", ID: "craft", Label: "写作解析", Lang: "en", MaxRunes: 320,
 		Instruction: "分两小段讲。\n" +
-			"**这一段在干什么**：它在整篇里承担什么（提出主张、举例、让步、转折、收束……），" +
+			"**这一段在干什么**：它在整篇里承担什么（提出观点、举例、让步、转折、收束……），" +
 			"以及作者用什么手法让它起作用。两三句话，说的是写法，不是内容摘要。\n" +
-			"**作者说得有多满**：英文里把握度写在动词上，从强到弱是 " +
+			"**作者表达的确定程度**：英文里把握度写在动词上，从强到弱是 " +
 			"shows / demonstrates（证明）> found / reported（报告了观察到的事）> " +
 			"suggests / indicates（提示）> may / could / might（可能）> " +
 			"is associated with（只是同时出现，不是因果）。" +
 			"从这一段里挑 1–2 处，摘出那个动词或短语，说清它属于哪一级，" +
 			"以及**如果换成更强的那一级，这句话会多说出什么**。" +
-			"这一段全是叙述、没有主张，就直说这一段没有在下判断，不要硬找。",
+			"这一段只叙述事件，没有表达观点，就直说这一段没有在下判断，不要硬找。",
 	},
 	{
 		Shape: "prose", ID: "rhetoric", Label: "成语修辞", Lang: "zh",

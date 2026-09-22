@@ -2,6 +2,7 @@ package awakening
 
 import (
 	"fmt"
+	"mindimprint/api/internal/teachingvoice"
 	"strings"
 )
 
@@ -110,6 +111,7 @@ func BuildDialoguePrompt(in DialogueInput) (system, user string) {
 		sb.WriteString("3. 最后把这一步要问的问题问出来。可以换成你自己的说法，但**要问的那件事不能换**。\n")
 	}
 	sb.WriteString(dialogueSystemRulesTail)
+	sb.WriteString(teachingvoice.Rules)
 	fmt.Fprintf(&sb, "回复长度不超过 %d 字。\n", dialogueMaxRunes)
 
 	return sb.String(), buildDialogueUser(in)
@@ -321,4 +323,3 @@ func attributedAt(r []rune, open int) bool {
 	}
 	return false
 }
-

@@ -3,6 +3,7 @@ package litegrade
 import (
 	"encoding/json"
 	"fmt"
+	"mindimprint/api/internal/teachingvoice"
 	"strings"
 
 	"mindimprint/api/internal/liteassign"
@@ -31,6 +32,7 @@ const systemTemplate = `你在为一位写作老师起草批改。学生已经�
 %s%s
 ## 意见
 
+- 依据作业要求和实际文体评价。下面的问题表包含不同文体的可能问题，不是每篇都必须满足的清单；议论文不要因缺少人物动作、情节波折或首尾呼应就判为不足。先核对学生已经写出的分析与限定，不要求她重复已有内容。议论文的具体性体现在事实、范围、来源和推理，不因缺少人物对话、动作描写或描述性词语而扣分，也不把语句朴素本身当作语言问题。
 - points 共 3 到 5 条，至少 1 条 good（她已经做好的地方），至少 1 条 issue（需要修改的地方）。
 - 每条的 quote 从她的正文里逐字照抄一句话，包括标点。
 - issue 必须有 action：一句祈使句，说清她接下来要做的事。写出要做的动作，不写改好的句子。
@@ -58,7 +60,7 @@ const systemTemplate = `你在为一位写作老师起草批改。学生已经�
 {"overall":{"grade":"…","comment":"…"},"dimensions":[%s],"points":[{"kind":"good","quote":"…","text":"…","action":null},{"kind":"issue","quote":"…","text":"…","action":"…"}]}`
 
 func SystemPrompt(in Input) string {
-	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, languageName(in.Lang), dimensionSkeleton(in.Rubric))
+	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, languageName(in.Lang), dimensionSkeleton(in.Rubric)) + teachingvoice.Rules
 }
 
 func scaleLine(r liteassign.Rubric) string {
@@ -122,6 +124,7 @@ func UserPrompt(in Input) string {
 		fmt.Fprintf(&b, "目标字数：%d\n", in.TargetWords)
 	}
 	fmt.Fprintf(&b, "\n学生正文（第 %d 版）：\n%s\n", in.VersionNumber, in.Body)
+	b.WriteString("\n请输出完整对象：points 必须有 3–5 条，至少 1 条 good 和 1 条 issue；可用两条 good 加一条 issue，不为凑数量虚构问题。各条简洁写明原文依据与用途，输出前核对条数和数组闭合。\n")
 	return b.String()
 }
 

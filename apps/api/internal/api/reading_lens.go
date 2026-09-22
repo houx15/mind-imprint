@@ -51,7 +51,7 @@ const (
 	liteSummonSiftFirst     = "先做完信源体检（CRAAP），再用 SIFT 深挖这篇文章。"
 	liteSummonCraapDone     = "这篇文章已经做过信源体检了，换一副深读的透镜看看？"
 	liteSummonUnknownCard   = "这不是可用的阅读透镜。"
-	liteSummonNoExampleHint = "这副透镜就位了——直接在文章里挑一句你最想用它来读的话。"
+	liteSummonNoExampleHint = "透镜已打开，请在文章中选择一句要分析的话。"
 )
 
 // liteModelWorkTimeout caps a detached lens call. Same 150s ceiling

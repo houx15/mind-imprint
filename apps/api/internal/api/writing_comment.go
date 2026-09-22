@@ -55,6 +55,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"mindimprint/api/internal/teachingvoice"
 	"net/http"
 	"strings"
 	"time"
@@ -508,7 +509,7 @@ verdict 只能是这三个之一：
 func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
 	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
 		writingCommentBlockJob(kind) +
-		writingHelpModeBlock(help, lang, genre)
+		writingHelpModeBlock(help, lang, genre) + teachingvoice.Rules
 }
 
 // writingCommentBlockJob 是**这一块的活**：每一种块该查什么，不该查什么。
@@ -693,7 +694,7 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text, piece, genre string
 	// 论点层面的重复（middle_collapse / ending_only_summary）和连贯
 	// （paragraph_jump / reference_linking）本来就在症状表里，缺的是这一层。
 	b.WriteString(writingRepeatBlock(text, wr.Lang))
-	b.WriteString("\n输出前逐条核对：每条 point 的 quote 必须从本次正文逐字摘取；symptom 必须是本次系统问题表里的 id。summary 只描述正文已写出的内容，所有具体问题放在有原文引文的 points 中。反馈解释具体内容的关系，不用主张、撑、力度、分量等缩略评价；不得要求她添加原文未表明的事实。\n")
+	b.WriteString("\n输出前逐条核对：每条 point 的 quote 必须从本次正文逐字摘取；symptom 必须是本次系统问题表里的 id。summary 只描述正文已写出的内容，所有具体问题放在有原文引文的 points 中。summary 避免「缺」「不足」「尚未」「找不到」等缺失表述；即使学生讨论的是现实中的短缺问题，也概括为讨论对象与表达方式，例如「通过走廊自习的经历讨论图书馆开放时间」，不要把缺失词放入总评。反馈解释具体内容的关系，不用主张、撑、力度、分量等缩略评价；不得要求她添加原文未表明的事实。\n")
 	return b.String()
 }
 

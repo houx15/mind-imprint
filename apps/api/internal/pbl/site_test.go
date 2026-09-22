@@ -56,7 +56,7 @@ func TestSiteMissingBlocksAnEmptyPage(t *testing.T) {
 	if len(missing) == 0 {
 		t.Fatal("一个字都没有的页面居然可以发布")
 	}
-	want := []string{"首屏那句话", "名字底下那行你是谁", "关于你自己的那段话"}
+	want := []string{"首屏介绍", "个人简介", "关于我的正文"}
 	for _, w := range want {
 		found := false
 		for _, m := range missing {
@@ -82,7 +82,7 @@ func TestSiteMissingUsesStructuredBodyWithoutDuplicateAbout(t *testing.T) {
 		t.Fatalf("empty outline must remain blocked: %v", got)
 	}
 	c.Sections = nil
-	if got := SiteMissing(c); len(got) != 1 || got[0] != "关于你自己的那段话" {
+	if got := SiteMissing(c); len(got) != 1 || got[0] != "关于我的正文" {
 		t.Fatalf("legacy layout still needs its body: %v", got)
 	}
 }

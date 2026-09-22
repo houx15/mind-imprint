@@ -119,7 +119,7 @@ func TestLensDoneCarriesTheVerdict(t *testing.T) {
 		VerdictReason: "这一句里没有「应该」，也没有谁的什么被压下去。",
 	}
 	prompt := buildReadingCoachPrompt("谈礼貌", consistencyBlocks(), readingOutline{}, nil, nil, nil, "", done, "")
-	if !strings.Contains(prompt, "这一句撑不住，得重选") {
+	if !strings.Contains(prompt, verdictWord[done.Verdict]) {
 		t.Errorf("the verdict never reached the prompt:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, done.VerdictReason) {

@@ -196,7 +196,7 @@ func TestSummonCard_OpensTheLensEvenWithNoGroundableExample(t *testing.T) {
 	if len(out.Card.Anchors) != 0 {
 		t.Fatalf("anchors = %+v, want none — never fabricate an example", out.Card.Anchors)
 	}
-	if !strings.Contains(out.Nudge, "挑一句") {
+	if !strings.Contains(out.Nudge, "选择一句") {
 		t.Fatalf("nudge = %q, want the find-your-own-sentence nudge", out.Nudge)
 	}
 }

@@ -49,6 +49,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"mindimprint/api/internal/teachingvoice"
 	"net/http"
 	"strconv"
 	"strings"
@@ -283,7 +284,7 @@ ready 给 true 的那一轮，reply 里要做两件事：说一句这份计划�
 其余每一轮都给 false。开头和结尾还没想好**不算缺**——那两块要等主体有了再谈，
 不该拿来拦着她。
 
-不要输出对象以外的任何文字或代码块标记。`
+不要输出对象以外的任何文字或代码块标记。` + teachingvoice.Rules
 
 // —— 这一块「是什么」的清单，按文体两份（R4，2026-09-21）——
 //
@@ -378,7 +379,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 
 	b.WriteString("\n【当前的图】\n")
 	if len(rows) == 0 {
-		b.WriteString("（图是空的。先检查她本轮是否已经表达主张或理由，已表达就直接整理；缺失才询问。）\n")
+		b.WriteString("（图是空的。先检查她本轮是否已经表达观点或理由，已表达就直接整理；缺失才询问。）\n")
 	} else {
 		// 🚨 不再给节点编号。模型不需要指着某一个节点说「挂在它下面」——
 		// 位置由 kind 算出来（writing_kind.go）。给它一份带 id 的清单，只会
@@ -435,7 +436,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	}
 
 	b.WriteString("\n【她刚刚说的】\n" + studentText + "\n")
-	b.WriteString("\n只能从「她刚刚说的」这段话里提取节点。她这段话里没有新的点子，add 就给空数组。\n")
+	b.WriteString("\n只能从「她刚刚说的」这段话里提取节点。她这段话里没有新的点子，add 就给空数组。向她说明时用「观点」或直接说具体想法，不用「主张」。已经说清的理由直接整理，只问仍缺少的内容。\n")
 	return b.String()
 }
 

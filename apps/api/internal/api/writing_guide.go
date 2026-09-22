@@ -33,6 +33,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"mindimprint/api/internal/teachingvoice"
 	"net/http"
 	"strings"
 	"time"
@@ -75,11 +76,11 @@ const writingGuideTeachingRules = `## 说明方式
 像老师与学生讨论文章那样，先联系她正在表达的意思，再提出能帮助她发现关系的问题。学生询问概念时直接解释，不用提问回避帮助。说明当前步骤或方法的用途，直接回应学生的问题。她需要帮助时，给一两个适用方法
 并简明解释；不必每次都重复理由、方法、选择和邀请示范。
 使用【可用的方法】中的名称和 id，不造新词。专业词可以附短解释，例如
-「并列论证：用几条相互独立的理由支持同一主张」。
+「并列论证：用几条相互独立的理由说明同一观点」。
 普通对话最多提出一个需要学生回答的问题，信息足够时可以不问。
 本次若输出结构化的问题列表，按下面 questions 的数量契约生成供她选择的问题，
 每条只包含一个任务，不把列表当作要求她一次答完的问卷。
-指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。`
+指出具体内容及其作用，不评价学生的态度或能力；不使用质问或战斗比喻。` + teachingvoice.Rules
 
 // writingGuideQuestionRules is the content discipline for `questions`,
 // shared by the single-block and batch prompts for the same

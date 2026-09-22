@@ -152,7 +152,7 @@ func TestPublishSite_RefusesAPageWithNoWordsOfHers(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("一个字都没写就发布出去了：status = %d; body=%s", rec.Code, rec.Body)
 	}
-	for _, want := range []string{"首屏那句话", "关于你自己的那段话"} {
+	for _, want := range []string{"首屏介绍", "关于我的正文"} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Errorf("没说清缺什么，缺 %q：%s", want, rec.Body)
 		}

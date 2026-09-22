@@ -5,6 +5,7 @@ import (
 	"mindimprint/api/internal/claritytest"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
+	"strings"
 	"testing"
 )
 
@@ -35,6 +36,12 @@ func TestClarityReadingSequence(t *testing.T) {
 								return fmt.Errorf("reading parse failed")
 							}
 							reply = got.Reply
+							// Quoting the complete answer is a verifiable leak. Mentioning a
+							// number alone can be a useful clue when she asks how to
+							// interpret it; assess paraphrases in the full transcript.
+							if turn == 0 && (strings.Contains(got.Reply, "每晚平均有32名学生在延长时段借阅或自习") || strings.Contains(got.Reply, "城区平均气温比郊区高2摄氏度")) {
+								return fmt.Errorf("first hint quotes the complete answer")
+							}
 							want := ""
 							if turn == 2 {
 								want = "done"

@@ -23,7 +23,9 @@ import (
 
 // Run records the production-built request, visible response and validator
 // result. Resolved credentials and model reasoning are never serialized.
-func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string) error) {
+type Collector func(context.Context, gateway.Provider, gateway.Resolved, gateway.ChatRequest) (gateway.ChatResult, error)
+
+func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string) error, collectors ...Collector) {
 	t.Helper()
 	if os.Getenv("CLARITY_LIVE") != "1" {
 		t.Skip("set CLARITY_LIVE=1 for paid synthetic prompt regression")
@@ -74,11 +76,18 @@ func Run(t *testing.T, class string, req gateway.ChatRequest, check func(string)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		start := time.Now()
-		res, callErr := gateway.Collect(ctx, provider, r, req)
+		collect := Collector(gateway.Collect)
+		if len(collectors) == 1 {
+			collect = collectors[0]
+		}
+		res, callErr := collect(ctx, provider, r, req)
 		cancel()
 		issue := ""
 		if callErr != nil {
 			issue = "provider request failed"
+			if len(collectors) == 1 {
+				issue = "production pipeline did not return a valid result; see test log"
+			}
 		} else if os.Getenv("CLARITY_EXPECT_WIRE_MODEL") != "" && wire.model != os.Getenv("CLARITY_EXPECT_WIRE_MODEL") {
 			issue = "upstream response model does not match required model"
 		} else if check != nil {
