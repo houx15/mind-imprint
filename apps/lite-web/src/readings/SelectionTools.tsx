@@ -1,3 +1,6 @@
+import { useLayoutEffect, useRef } from "react";
+import { BookmarkPlus, Check, MessageSquareQuote, X } from "lucide-react";
+import { Icon } from "@/ui";
 import { createPortal } from "react-dom";
 import type { ReadingBlockTool } from "@lite/api/readingRoom";
 
@@ -94,12 +97,30 @@ export function SelectionTools({
   onDismiss: () => void;
 }) {
   const picks = toolsForSelection(tools, quote);
+  const barRef = useRef<HTMLDivElement>(null);
+  // Measure the whole toolbar, not just its anchor: selections near either
+  // edge and the last visible line must keep every action reachable.
+  useLayoutEffect(() => {
+    function place() {
+      const bar = barRef.current;
+      if (!bar) return;
+      const { width, height } = bar.getBoundingClientRect();
+      bar.style.left = `${Math.max(8, Math.min(at.x - width / 2, window.innerWidth - width - 8))}px`;
+      const below = at.y + 8;
+      bar.style.top = `${Math.max(8, Math.min(below, window.innerHeight - height - 8))}px`;
+    }
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [at.x, at.y, quote, excerptable, excerpted, tools]);
   // position: fixed + portal：正文在一个会滚动的容器里，工具条不该被它裁掉。
   return createPortal(
     <div
+      ref={barRef}
       className="mk-seltools"
       role="group"
       aria-label="对选中的文字"
+      onKeyDown={(e) => { if (e.key === "Escape") onDismiss(); }}
       style={{ left: Math.max(8, Math.min(at.x, window.innerWidth - 8)), top: at.y + 8 }}
       // 🚨 按下去不能让浏览器先把选区收掉 —— 选区就是「对哪几个字」。
       onMouseDown={(e) => e.preventDefault()}
@@ -111,10 +132,12 @@ export function SelectionTools({
           onClick={onExcerpt}
           disabled={excerpted}
         >
+          <Icon icon={excerpted ? Check : BookmarkPlus} size={14} />
           {excerpted ? "已摘抄" : "摘抄"}
         </button>
       )}
       <button type="button" className="mk-seltools__btn" onClick={onSendToCoach}>
+        <Icon icon={MessageSquareQuote} size={14} />
         放入对话框
       </button>
       {picks.map((t) => (
@@ -122,8 +145,8 @@ export function SelectionTools({
           {t.label}
         </button>
       ))}
-      <button type="button" className="mk-seltools__btn mk-seltools__btn--quiet" onClick={onDismiss}>
-        关闭
+      <button type="button" className="mk-seltools__btn mk-seltools__btn--quiet" aria-label="关闭" title="关闭" onClick={onDismiss}>
+        <Icon icon={X} size={14} />
       </button>
     </div>,
     document.body,

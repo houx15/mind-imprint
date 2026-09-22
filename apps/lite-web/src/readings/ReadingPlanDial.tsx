@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Check, Flag, MapPin, SkipForward } from "lucide-react";
+import { Check, Flag, MapPin, SkipForward, ChevronUp } from "lucide-react";
 import { Icon } from "@/ui";
 import type { ReadingTask } from "../api/readingRoom";
 
@@ -76,6 +76,7 @@ export function ReadingPlanDial({
   const [hovered, setHovered] = useState(false);
   /** 点击那一层：就地摊开的展开视图。它由点击开关，不跟着鼠标走。 */
   const [expanded, setExpanded] = useState(false);
+  const discRef = useRef<HTMLButtonElement>(null);
   const foldTimer = useRef<number | null>(null);
 
   function cancelFold() {
@@ -126,9 +127,11 @@ export function ReadingPlanDial({
           setHovered(true);
         }}
         onBlur={() => setHovered(false)}
+        onKeyDown={(e) => { if (e.key === "Escape") { setHovered(false); setExpanded(false); } }}
       >
         <button
           type="button"
+          ref={discRef}
           className="mk-plandial__disc"
           aria-expanded={expanded}
           aria-controls="mk-plandial-expanded"
@@ -209,6 +212,11 @@ export function ReadingPlanDial({
           current={current}
           index={index}
           onLocate={onLocate}
+          onClose={() => {
+            setExpanded(false);
+            discRef.current?.focus();
+            setHovered(false);
+          }}
         />
       )}
     </>
@@ -228,15 +236,17 @@ function PlanExpanded({
   current,
   index,
   onLocate,
+  onClose,
 }: {
   id: string;
   tasks: ReadingTask[];
   current: ReadingTask | null;
   index: number;
+  onClose: () => void;
   onLocate?: (blockId: string) => void;
 }) {
   return (
-    <section id={id} className="mk-planwide" aria-label="阅读任务">
+    <section id={id} className="mk-planwide" aria-label="阅读任务" onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
       <div className="mk-planwide__head">
         <span className="mk-planwide__emblem" aria-hidden="true">
           {current ? String(index + 1).padStart(2, "0") : <Icon icon={Flag} size={20} />}
@@ -248,23 +258,27 @@ function PlanExpanded({
           {current && <p className="mk-planwide__label">{current.label}</p>}
           {current?.detail && <p className="mk-planwide__detail">{current.detail}</p>}
         </div>
-        {current?.blockId && onLocate && (
-          <button
-            type="button"
-            className="mk-planwide__locate"
-            onClick={() => onLocate(current.blockId)}
-          >
-            <Icon icon={MapPin} size={14} />
-            定位原文
-          </button>
-        )}
+        <button type="button" className="mk-planwide__close" onClick={onClose} aria-label="收起阅读任务" title="收起阅读任务">
+          <Icon icon={ChevronUp} size={16} />
+        </button>
       </div>
+      {current?.blockId && onLocate && (
+        <button
+          type="button"
+          className="mk-planwide__locate"
+          onClick={() => onLocate(current.blockId)}
+        >
+          <Icon icon={MapPin} size={14} />
+          定位原文
+        </button>
+      )}
       <ol className="mk-planwide__path" aria-label="任务路线">
         {tasks.map((task, i) => (
           <li
             key={task.id}
             data-state={task.status}
             data-current={task.id === current?.id || undefined}
+            aria-current={task.id === current?.id ? "step" : undefined}
             title={task.label}
           >
             <span aria-label={`任务 ${i + 1}：${task.label}`}>

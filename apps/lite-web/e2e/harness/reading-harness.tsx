@@ -7,6 +7,13 @@ import { SelectionTools } from "../../src/readings/SelectionTools";
 import { ReadingHarvest } from "../../src/readings/ReadingHarvest";
 import type { LiteAnnotation, ReadingBlockTool, ReadingTask } from "../../src/api/readingRoom";
 import "../../src/index.css";
+import "@/ui/themes/lite.css";
+// Mirror the real shell's portal scope as well as its accent provider.
+document.body.classList.add("lite-student-theme");
+for (const [step, value] of Object.entries(LITE_ACCENT_PRESETS[0]!.scale)) {
+  document.body.style.setProperty(`--mk-theme-accent-${step}`, value);
+}
+const anchor = new URLSearchParams(location.search);
 // 🚨 展开视图那一块的规则住在这里，而它是 `LiteApp.tsx` 导入的，不是
 // `index.css`。第一版看图台只导了后者，于是那一块画出来**完全没有样式**
 // （徽章没了、圆点竖着排），而五条断言全绿 —— 正是 AGENTS.md 那条：
@@ -117,7 +124,7 @@ function Harness() {
           <div style={{ position: "relative", height: 120 }}>
             <SelectionTools
               quote="Not all people are like this all the time."
-              at={{ x: 320, y: 40 }}
+              at={{ x: Number(anchor.get("x") ?? 320), y: Number(anchor.get("y") ?? 40) }}
               tools={TOOLS}
               excerpted={false}
               excerptable

@@ -1,3 +1,4 @@
+import "./writing-studio.css";
 import { useEffect, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Icon } from "@/ui";
@@ -68,7 +69,7 @@ export function PromptSidebar({ writing }: { writing: Writing }) {
     return (
       <aside
         aria-label="题目"
-        className="flex w-10 shrink-0 flex-col items-center border-r border-mk-border bg-mk-surface py-3"
+        className="writing-prompt-rail is-collapsed flex w-10 shrink-0 flex-col items-center border-r border-mk-border bg-mk-surface py-3"
       >
         <button
           type="button"
@@ -91,7 +92,7 @@ export function PromptSidebar({ writing }: { writing: Writing }) {
       // 240 而不是 280：构思那一屏上它要和对话、思维导图并排
       //（2026-09-22 起三栏），而那张图本来就不宽。段落和成稿两页上
       // 少 40px 看不出来，构思那一屏上这 40px 是图的第四张卡。
-      className="mk-scroll flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-surface"
+      className="writing-prompt-rail mk-scroll flex w-[240px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-surface"
     >
       <div className="flex items-center justify-between gap-2 border-b border-mk-border px-3 py-2">
         <span className="text-mk-caption text-mk-muted">题目</span>
@@ -105,11 +106,11 @@ export function PromptSidebar({ writing }: { writing: Writing }) {
           <Icon icon={PanelLeftClose} size={16} />
         </button>
       </div>
-      <p className="whitespace-pre-wrap px-3 py-3 text-mk-small leading-relaxed text-mk-ink">
+      <p className="writing-prompt-rail__text whitespace-pre-wrap px-3 py-3 text-mk-small leading-relaxed text-mk-ink">
         {prompt}
       </p>
       {writing.targetWords != null && (
-        <p className="px-3 pb-3 text-mk-label text-mk-muted">
+        <p className="writing-prompt-rail__target px-3 pb-3 text-mk-label text-mk-muted">
           目标字数 {writing.targetWords}
         </p>
       )}
