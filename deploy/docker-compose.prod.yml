@@ -73,6 +73,13 @@ services:
       OSS_ADMIN_KEY: ${OSS_ADMIN_KEY:-}
       OSS_CDN_AUTH_KEY: ${OSS_CDN_AUTH_KEY:-}
       OSS_CDN_AUTH_WINDOW: ${OSS_CDN_AUTH_WINDOW:-7200}
+      # Explicitly published showcase images are copied out of the private
+      # draft bucket into this public asset bucket at publish time.
+      PUBLIC_ASSET_OSS_ENDPOINT: ${PUBLIC_ASSET_OSS_ENDPOINT:-}
+      PUBLIC_ASSET_OSS_BUCKET: ${PUBLIC_ASSET_OSS_BUCKET:-}
+      PUBLIC_ASSET_CDN_DOMAIN: ${PUBLIC_ASSET_CDN_DOMAIN:-}
+      PUBLIC_ASSET_OSS_ACCESS_KEY_ID: ${PUBLIC_ASSET_OSS_ACCESS_KEY_ID:-}
+      PUBLIC_ASSET_OSS_ACCESS_KEY_SECRET: ${PUBLIC_ASSET_OSS_ACCESS_KEY_SECRET:-}
     ports:
       - "127.0.0.1:8090:8080"
 
