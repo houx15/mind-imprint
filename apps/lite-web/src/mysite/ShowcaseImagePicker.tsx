@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Sparkles, Loader2 } from "lucide-react";
 import { apiErrorText } from "../api/errorText";
 import { uploadUserImage, resolveUrl } from "../api/oss";
@@ -20,6 +20,8 @@ export function ShowcaseImagePicker({purpose, currentUrl, disabled, onBusy, onPi
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [currentUrl]);
   async function upload(file: File) {
     if (lock.current) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
@@ -38,7 +40,8 @@ export function ShowcaseImagePicker({purpose, currentUrl, disabled, onBusy, onPi
     finally { lock.current = false; setGenerating(false); onBusy(false); }
   }
   return <section className="showcase-image-picker">
-    {currentUrl && <img src={currentUrl} alt={purpose === "hero" ? "已选开场图片" : "已选个人图片"} className={purpose === "avatar" ? "is-avatar" : ""} />}
+    {currentUrl && !imageFailed && <img onError={() => setImageFailed(true)} src={currentUrl} alt={purpose === "hero" ? "已选开场图片" : "已选个人图片"} className={purpose === "avatar" ? "is-avatar" : ""} />}
+    {imageFailed && <p role="alert" className="showcase-image-error">图片加载失败，请刷新后重试或替换图片。</p>}
     <input type="file" accept="image/png,image/jpeg,image/webp" ref={input} hidden onChange={e => {const file = e.target.files?.[0]; e.target.value = ""; if (file) void upload(file);}} />
     <div className="showcase-image-actions"><button type="button" disabled={disabled} onClick={() => input.current?.click()}><ImagePlus size={15} />{uploading ? "上传中" : purpose === "hero" ? "上传开场图片" : "上传个人照片"}</button>{currentUrl && <button type="button" disabled={disabled} onClick={() => onPick("", "")}>移除图片</button>}</div>
     <small>支持 PNG、JPEG、WebP，最大 10 MB。</small>
