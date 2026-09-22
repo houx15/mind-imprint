@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { getReadingSource, type ReadingSource } from "../api/readings";
+import { Fragment, useEffect, useState } from "react";
+import { getReadingSource, type ReadingFigure, type ReadingSource } from "../api/readings";
 import { useAlive } from "../shared/useAlive";
+import "./reading-record.css";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -33,6 +34,7 @@ export function ReadingArticle({ atomId, defaultOpen = false }: { atomId: string
   const [source, setSource] = useState<ReadingSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const alive = useAlive();
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     if (!open || source) return;
@@ -43,7 +45,7 @@ export function ReadingArticle({ atomId, defaultOpen = false }: { atomId: string
       .catch((err) => {
         if (alive.current) setError(apiErrorText(err));
       });
-  }, [open, source, atomId, alive]);
+  }, [open, source, atomId, alive, retry]);
 
   if (!open) {
     return (
@@ -71,19 +73,23 @@ export function ReadingArticle({ atomId, defaultOpen = false }: { atomId: string
           </button>
         )}
       </div>
-      {error && <p className="mt-2 text-mk-small text-mk-danger">{error}</p>}
+      {error && <div className="mt-2 text-mk-small text-mk-danger"><p>加载失败：{error}</p><button type="button" onClick={() => {setError(null); setRetry(n => n + 1);}}>重试</button></div>}
       {!source && !error && <p className="mt-2 text-mk-small text-mk-muted">正在取这篇文章…</p>}
       {source && (
-        // 只读。她在这里不标注、不划句 —— 这一篇已经读完了，这是回头看一眼。
-        <div className="mt-3 flex flex-col gap-3">
-          {source.blocks.map((b, i) => (
-            <p key={b.id} className="text-mk-body leading-relaxed text-mk-ink">
-              <span className="mr-2 select-none text-mk-caption text-mk-muted">{i + 1}</span>
-              {b.text}
-            </p>
-          ))}
+        <div className="reading-article-content">
+          {source.byline && <p className="reading-article-byline">{source.byline}</p>}
+          {source.excerptOnly && <aside className="reading-article-notice">我们无法直接获取正文，如果想要阅读全文，请跳转原网站 {/^https?:\/\//i.test(source.sourceUrl) && <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">点击跳转 ↗</a>}</aside>}
+          {source.figures?.filter(f => !f.after).map((f,i) => <SourceFigure key={i} figure={f}/>)}
+          {source.blocks.map((b, i) => <Fragment key={b.id}>
+            {source.headings?.includes(b.id) ? <h4>{b.text}</h4> : <p className="reading-article-paragraph"><span aria-hidden="true">{i + 1}</span>{b.text}</p>}
+            {source.figures?.filter(f => f.after === b.id).map((f,j) => <SourceFigure key={j} figure={f}/>)}
+          </Fragment>)}
         </div>
       )}
     </section>
   );
+}
+
+function SourceFigure({figure}: {figure: ReadingFigure}) {
+  return <figure className="mk-reading-figure"><img src={figure.url} alt={figure.caption} width={figure.width} height={figure.height} loading="lazy"/><figcaption>{figure.caption}{figure.credit && <span className="mk-reading-figure__credit">{figure.credit}</span>}</figcaption></figure>;
 }

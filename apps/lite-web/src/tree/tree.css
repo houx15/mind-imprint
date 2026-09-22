@@ -203,3 +203,16 @@
 @media (prefers-reduced-motion: reduce) {
   .tree-sheet-in { animation: none !important; opacity: 1 !important; transform: none !important; }
 }
+
+/* Discovery controls stay secondary to the tree itself. */
+.tree-orientation { position: relative; z-index: 21; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 22px 28px 0; padding: 14px 18px; border: 1px solid var(--mk-border); border-radius: 14px; background: var(--mk-surface); }
+.tree-orientation p { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 14px; font-size: 12px; line-height: 1.7; color: var(--mk-muted); }
+.tree-orientation strong { color: var(--mk-ink); font-weight: 600; }
+.tree-field-menu { position: relative; flex: none; color: var(--mk-accent-700); font-size: 12px; }
+.tree-field-menu summary { cursor: pointer; padding: 6px; }
+.tree-field-options { position: absolute; right: 0; top: calc(100% + 8px); width: 230px; padding: 10px; border: 1px solid var(--mk-border); border-radius: 14px; background: var(--mk-surface); box-shadow: 0 12px 32px color-mix(in srgb,var(--mk-ink) 12%,transparent); }
+.tree-field-options button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; color: var(--mk-ink); font-size: 12px; text-align: left; }
+.tree-field-options button:hover, .tree-field-options button[aria-pressed=true] { background: var(--mk-accent-50); }
+.tree-field-options button > span { width: 7px; height: 7px; border-radius: 50%; }
+.tree-field-options small { margin-left: auto; color: var(--mk-muted); }
+.tree-field-menu :is(button,summary):focus-visible { outline: 2px solid var(--mk-accent-700); outline-offset: 2px; }

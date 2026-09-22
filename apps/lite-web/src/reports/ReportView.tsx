@@ -1,3 +1,4 @@
+import "./reading-record.css";
 import { ReportVisualSummary } from "./ReportVisualSummary";
 import { studentArtwork } from "../learning/StudentArtwork";
 import type { LiteReport } from "@lite/api/reports";
@@ -524,18 +525,19 @@ function ArticleEntry({ article, title }: { article: LiteReport["article"]; titl
 function MyExcerpts({ excerpts }: { excerpts: LiteReport["excerpts"] }) {
   if (excerpts.length === 0) return null;
   return (
-    <section className="flex flex-col gap-4">
-      <SectionTitle>我的摘抄</SectionTitle>
+    <section className="reading-report-excerpts flex flex-col gap-4">
+      <SectionTitle>我的摘抄 <span className="reading-excerpts-count">{excerpts.length} 条</span></SectionTitle>
       <p className="text-mk-small text-mk-muted">阅读时保存的原文摘抄。</p>
-      <div className="flex flex-col gap-3">
+      <div className="reading-excerpts-list">
         {excerpts.map((quote, i) => {
           const { fg } = macaron(i);
           return (
             <div
               key={`${quote}-${i}`}
-              className="mk-rp-card mk-rp-rise rounded-mk-lg p-5"
+              className="reading-excerpt-item mk-rp-rise"
               style={rise(i + 4)}
             >
+              <span className="reading-excerpt-number" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
               <p className="mk-rp-source pl-3 text-mk-body-lg text-mk-ink" style={{ borderColor: fg }}>
                 {quote}
               </p>
