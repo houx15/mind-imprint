@@ -13,7 +13,7 @@ import (
 // draft_annotations.go — slice 3b · the 批注 reviewer. A flagship reasoning model
 // reads the student's proposal and returns layered (paper/paragraph/sentence),
 // colored (good=green/suggest=blue/problem=red) teacher annotations. It NEVER
-// rewrites the student's text (铁律①) — each note is a direction. 批注 is
+// rewrites the student's text (不代写正文) — each note is a direction. 批注 is
 // deliberately sparse: paragraph/sentence marks only where warranted; green only
 // at the paper level. Rendered view-only in the left panel (never overlaid on the
 // editable draft).
@@ -46,14 +46,14 @@ func annotationDocNoun(doc string) string {
 }
 
 func draftAnnotationSystemFor(docNoun string) string {
-	return `你是一位批改` + docNoun + `的 IB 导师。通读学生写的` + docNoun + `，像老师用红蓝绿笔在纸上批注一样，给出分层的批注。批注要克制——只标你真的有话要说的地方，不要每段每句都标。绝不替学生改写正文，只给方向（铁律①）。
+	return `你是一位批改` + docNoun + `的 IB 导师。通读学生写的` + docNoun + `，根据文章整体、段落和句子三个层次提供批注。批注直接给学生看，用“你”称呼学生。只标有原文依据、能帮助理解或修改的内容，不逐句罗列评价。说明建议修改的内容及理由，由学生完成正文修改。
 
 只返回一个 JSON 对象：
 {"annotations":[{"level":"paper|paragraph|sentence","nature":"good|suggest|problem","quote":"（句子级：原文照抄的那句话；其它为空）","locator":"（段落级/句子级：如「第2段」；paper 为空）","note":"你的批注（一句到几句，是建议方向，不是改写）"}]}
 
 分层规则：
-- paper（整体）：给一段总体评价——至少一条做得好的地方（nature=good），以及最需要加强的一两点（nature=suggest 或 problem）。
-- paragraph（段落）：只在某段确有可改进处时给（nature=suggest 或 problem，别用 good），带 locator，note 要具体、可举例说明。不要每段都评。
+- paper（整体）：概括文章的整体表现，说明有依据的优点（nature=good），并在确有需要时提出一两项改进建议（nature=suggest 或 problem）。
+- paragraph（段落）：只在某段确有可改进处时给（nature=suggest 或 problem，不使用 good），带 locator，note 要具体、可举例说明。不要每段都评。
 - sentence（句子）：只针对个别值得指出的句子/短语（nature=suggest 或 problem），quote 照抄原句。
 - good（绿）只用于 paper 级；段落与句子只用 suggest（蓝）或 problem（红）。
 - 批注总数不超过 10 条。用中文。只回 JSON，不要任何解释或代码块外的文字。`
@@ -73,7 +73,7 @@ func ReviewDraftAnnotations(ctx context.Context, prov gateway.Provider, resolved
 	if s := strings.TrimSpace(in.Focus); s != "" {
 		fmt.Fprintf(&b, "（重点看这一部分：%s）\n", s)
 	}
-	fmt.Fprintf(&b, "学生写的提案：\n%s\n", strings.TrimSpace(in.Draft))
+	fmt.Fprintf(&b, "学生当前草稿：\n%s\n", strings.TrimSpace(in.Draft))
 
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
@@ -141,7 +141,7 @@ func parseDraftAnnotations(text string) ([]DraftAnnotationOut, error) {
 			continue
 		}
 		if enforcement.BannedPhrasing(note) != nil {
-			continue // a 批注 that reads like a rewrite is dropped (铁律①), not fatal
+			continue // a 批注 that reads like a rewrite is dropped (不代写正文), not fatal
 		}
 		out = append(out, DraftAnnotationOut{
 			Level: a.Level, Nature: a.Nature,

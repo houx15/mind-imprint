@@ -41,13 +41,13 @@ func TestLensDoneSuppressesThePressedStartFallback(t *testing.T) {
 	}
 	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", done, "")
 
-	if strings.Contains(prompt, "她刚点了「开始」") {
+	if strings.Contains(prompt, "学生刚点了「开始」") {
 		t.Fatalf("a finished lens must never look like 开始 — 印记 would re-introduce the plan:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "【她刚做完一副透镜】") {
+	if !strings.Contains(prompt, "【学生刚做完一副透镜】") {
 		t.Fatalf("missing the lens-done section:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "她是把透镜做完了") {
+	if !strings.Contains(prompt, "学生已完成透镜选句") {
 		t.Fatalf("the empty-text branch must say what actually happened:\n%s", prompt)
 	}
 }
@@ -62,15 +62,15 @@ func TestLensDoneAttributesTheFindingToTheCoach(t *testing.T) {
 	}
 	prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", done, "")
 
-	i := strings.Index(prompt, "【她刚做完一副透镜】")
+	i := strings.Index(prompt, "【学生刚做完一副透镜】")
 	if i < 0 {
 		t.Fatalf("missing section:\n%s", prompt)
 	}
 	section := prompt[i:]
-	if !strings.Contains(section, "她自己在文章里找的那一句") {
+	if !strings.Contains(section, "学生自己在文章里找的那一句") {
 		t.Errorf("the quote must be marked as HERS:\n%s", section)
 	}
-	if !strings.Contains(section, "这是你自己的话，不是她说的") {
+	if !strings.Contains(section, "不属于学生的作答，不据此推断学生已有的认识") {
 		t.Errorf("the finding must be marked as the coach's own words:\n%s", section)
 	}
 }
@@ -92,10 +92,10 @@ func TestLensDoneWithNoQuoteIsNotACompletedLens(t *testing.T) {
 				t.Fatalf("clean() must reject %s", tc.name)
 			}
 			prompt := buildReadingCoachPrompt("标题", lensDoneBlocks(), readingOutline{}, nil, nil, nil, "", tc.done, "")
-			if strings.Contains(prompt, "【她刚做完一副透镜】") {
+			if strings.Contains(prompt, "【学生刚做完一副透镜】") {
 				t.Errorf("no section for %s:\n%s", tc.name, prompt)
 			}
-			if !strings.Contains(prompt, "她刚点了「开始」") {
+			if !strings.Contains(prompt, "学生刚点了「开始」") {
 				t.Errorf("the real 开始 turn must keep its own line for %s:\n%s", tc.name, prompt)
 			}
 		})
@@ -112,10 +112,10 @@ func TestLensDoneStillYieldsToWhatSheTyped(t *testing.T) {
 	if !strings.Contains(prompt, "我觉得这句在换口径") {
 		t.Errorf("her own words must survive:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "【她刚做完一副透镜】") {
+	if !strings.Contains(prompt, "【学生刚做完一副透镜】") {
 		t.Errorf("the lens section must survive alongside her words:\n%s", prompt)
 	}
-	if strings.Contains(prompt, "她是把透镜做完了") {
+	if strings.Contains(prompt, "学生已完成透镜选句") {
 		t.Errorf("the no-text explanation must not appear when she DID type:\n%s", prompt)
 	}
 }

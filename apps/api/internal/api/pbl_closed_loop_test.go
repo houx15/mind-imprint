@@ -92,7 +92,7 @@ func TestPblRefeed_StructureReachesTheCoach(t *testing.T) {
 		t.Fatalf("turn 2 = %d; body=%s", rec.Code, rec.Body)
 	}
 	ctx := lastUserText(prov)
-	if !strings.Contains(ctx, "她定下来的结构") {
+	if !strings.Contains(ctx, "学生定下来的结构") {
 		t.Fatalf("结构没回到印记那里——环没闭上：\n%s", ctx)
 	}
 	if !strings.Contains(ctx, "开场怎么说") || !strings.Contains(ctx, "先说钱去哪了") {
@@ -241,7 +241,7 @@ func TestPblRefeed_HerReassignmentReachesTheCoach(t *testing.T) {
 	if !strings.Contains(ctx, "这一步的分工") {
 		t.Fatalf("分工没回到印记那里——环没闭上：\n%s", ctx)
 	}
-	if !strings.Contains(ctx, "她改的") {
+	if !strings.Contains(ctx, "学生改的") {
 		t.Fatalf("「她改的」这条信号丢了，而它正是这件工具最要紧的产出：\n%s", ctx)
 	}
 	if !strings.Contains(ctx, "文案得用我们班自己的说法") {

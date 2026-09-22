@@ -56,7 +56,7 @@ func (p *coachOnlyProvider) Stream(ctx context.Context, _ gateway.Resolved, req 
 	text := p.replies[0]
 	isCoach := false
 	for _, m := range req.Messages {
-		if m.Role == gateway.RoleSystem && strings.Contains(m.Content, "你是「印记」，带一名中学生读文章") {
+		if m.Role == gateway.RoleSystem && strings.Contains(m.Content, "你是「印记」，帮助中学生理解文章、练习阅读方法") {
 			isCoach = true
 		}
 	}

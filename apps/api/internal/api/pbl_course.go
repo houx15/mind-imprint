@@ -307,7 +307,7 @@ func (a *API) gatherPblCourseWork(ctx context.Context, atomID uuid.UUID, title m
 		if name == "" {
 			name = x.CourseSlug
 		}
-		out = append(out, "他上完了《"+name+"》这一课，回来写下："+take)
+		out = append(out, "学生完成了《"+name+"》这一课，回来写下："+take)
 	}
 	return out
 }

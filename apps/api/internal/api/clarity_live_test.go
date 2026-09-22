@@ -94,7 +94,7 @@ func TestClarityReadingLens(t *testing.T) {
 
 func TestClarityWriting(t *testing.T) {
 	wr := sqlc.Writing{Title: "学校图书馆是否应延长开放时间", Lang: "zh"}
-	block := sqlc.WritingOutline{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Text: "晚自习后需要安静的自习场所", Role: "一条理由"}
+	block := sqlc.WritingOutline{ID: uuid.MustParse("10000000-0000-0000-0000-000000000001"), Text: "晚自习后需要安静的自习场所", Role: "一条理由", Kind: writingKindPoint, Depth: 1}
 	text := "学校图书馆应该延长开放时间。晚自习后教室关闭，住校生缺少安静的自习场所。上周我和三位同学因此去走廊复习，但走廊里一直有人经过。"
 	t.Run("plan", func(t *testing.T) {
 		claritytest.Run(t, gateway.ClassDialogue, gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang)}, {Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, nil, nil, "我想主张延长开放。晚自习后教室关门，上周我和三位同学只能在走廊复习。请帮我整理这些想法。")}}}, func(raw string) error {

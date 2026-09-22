@@ -257,7 +257,7 @@ func TestBuildReadingLensNotesDropsDegradedFinding(t *testing.T) {
 }
 
 func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
-	if !strings.Contains(liteReportSystem, "用\"你\"称呼她本人") {
+	if !strings.Contains(liteReportSystem, "用“你”称呼学生") {
 		t.Error("liteReportSystem must explicitly instruct gains to address her as 你, not describe her in third person")
 	}
 	for _, banned := range []string{"她抓住了", "她能说出", "她调整了", "这位学生", "该生"} {
@@ -381,7 +381,7 @@ func TestTurnsBlockNumbersHerTurnsAndSaysWhoSpoke(t *testing.T) {
 		{Seq: 1, Role: "student", Content: "我觉得人均排放更重要。"},
 		{Seq: 2, Role: "ai", Content: "为什么？"},
 	}))
-	for _, want := range []string{"1.", "她：", "你："} {
+	for _, want := range []string{"1.", "学生：", "你："} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("block does not read as a numbered transcript (missing %q):\n%s", want, block)
 		}

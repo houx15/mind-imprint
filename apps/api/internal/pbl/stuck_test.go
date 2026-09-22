@@ -137,10 +137,10 @@ func TestBuildCoachContext_AnswersAnExplicitAskAtOnce(t *testing.T) {
 		AskedForHelp: true,
 	}
 	got := buildCoachContext(in)
-	if !strings.Contains(got, "自己开口要例子或选项") {
+	if !strings.Contains(got, "明确要求例子或选项") {
 		t.Fatalf("她明说要例子，上下文里却没提这件事：\n%s", got)
 	}
-	if !strings.Contains(got, "不要再抛敞开的问题") {
+	if !strings.Contains(got, "更小更具体的问题") {
 		t.Error("说了她开口要例子，却没说这一轮该改成什么打法")
 	}
 }
@@ -152,13 +152,13 @@ func TestBuildCoachContext_TellsTheModelSheIsStuck(t *testing.T) {
 		Idea:   "做一个我自己的主页",
 		Recent: []Turn{{Role: "student", Content: "不知道"}},
 	}
-	if got := buildCoachContext(in); strings.Contains(got, "连着答不上来") {
+	if got := buildCoachContext(in); strings.Contains(got, "学生需要进一步帮助") {
 		t.Error("只卡了一次就报了——第一次换个问法再问一遍是对的")
 	}
 
 	in.Stuck = 2
 	got := buildCoachContext(in)
-	if !strings.Contains(got, "连着答不上来") {
+	if !strings.Contains(got, "学生需要进一步帮助") {
 		t.Fatal("她连着两轮答不上来，上下文里却一个字都没说")
 	}
 	if !strings.Contains(got, "例子") {
@@ -191,12 +191,12 @@ func TestBuildCoachContext_CarriesTheDroppedTool(t *testing.T) {
 func TestCoachSystem_HasAWayOutWhenSheCannotAnswer(t *testing.T) {
 	p := sprintCoachSystem("", "  observe（观察日记）—— 他要离开屏幕去做\n", "", "  plan —— 一份计划\n")
 	for _, want := range []string{
-		"【他答不上来的时候】",
+		"【学生需要帮助时】",
 		// 🚨 「挑一个」和「都不是」必须写在同一个问句里。这一句是 2026-09-05
 		// 真模型实测逼出来的：上一版把出口写成「哪个更接近？都不是的话是什么？」，
 		// 模型照着写了两个问号，破铁律③。
 		"哪类更接近你的用途，也可以提出其他读者？",
-		"服务端只认原话", // 🚨 例子不能变成替她填的答案：铁律① + GroundSiteDraft。
+		"保存的学生内容以原话为依据，不将示例作为学生已确认的经历或判断", // 🚨 例子不能变成替她填的答案：铁律① + GroundSiteDraft。
 	} {
 		if !strings.Contains(p, want) {
 			t.Errorf("系统提示里没有 %q", want)

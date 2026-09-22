@@ -118,7 +118,7 @@ func TestWritingPlanShape_PromptBlockNamesWhatIsMissing(t *testing.T) {
 	full := writingPlanShapeOf([]sqlc.WritingOutline{
 		node("a", 0), node("b", 1), node("d", 2), node("c", 1), node("e", 2),
 	}).promptBlock(writingPlanNeedOf(sqlc.Writing{}))
-	if !contains(full, "这一轮就请她去写") {
+	if !contains(full, "本轮邀请学生开始写作") {
 		t.Fatalf("a plan that meets every criterion must say so:\n%s", full)
 	}
 }

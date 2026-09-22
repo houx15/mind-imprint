@@ -52,7 +52,7 @@ func BuildSelectionPrompt(answers []string, researchQuestion string) (system, us
 	system = selectionPromptHead + interests.PromptList() + "\n" + selectionRules + selectionPromptTail
 
 	var b strings.Builder
-	b.WriteString("她在这场谈话里说的话，按顺序：\n\n")
+	b.WriteString("学生在这场谈话里说的话，按顺序：\n\n")
 	for i, a := range answers {
 		a = strings.TrimSpace(a)
 		if a == "" {
@@ -65,7 +65,7 @@ func BuildSelectionPrompt(answers []string, researchQuestion string) (system, us
 		fmt.Fprintf(&b, "【%s】%s\n\n", label, a)
 	}
 	if q := strings.TrimSpace(researchQuestion); q != "" {
-		fmt.Fprintf(&b, "她最后确定下来的问题：%s\n", q)
+		fmt.Fprintf(&b, "学生最后确定下来的问题：%s\n", q)
 	}
 	return system, b.String()
 }

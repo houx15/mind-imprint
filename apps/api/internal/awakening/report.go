@@ -138,7 +138,7 @@ const reportSystemPrompt = prompts.AwakeningReportSystemPrompt
 // BuildReportPrompt 拼出报告那一次调用的 system 与 user 两段。
 func BuildReportPrompt(answers []string) (system, user string) {
 	var b strings.Builder
-	b.WriteString("她的回答，按顺序：\n\n")
+	b.WriteString("学生的回答，按顺序：\n\n")
 	for i, a := range answers {
 		a = strings.TrimSpace(a)
 		if a == "" {

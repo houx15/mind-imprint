@@ -28,7 +28,7 @@ func buildCardExamplePrompt(spec cards.Spec) string {
 		}
 		b.WriteString("这副透镜是做什么的：" + what + "\n")
 	}
-	b.WriteString("请从文章里挑出恰好一句最能示范这副透镜的原句，并用不超过两句话解释为什么这句适合——克制、贴合原文，不要替她下最终结论，只是给她一个示范起点。\n")
+	b.WriteString("请从文章里挑出恰好一句最能示范这副透镜的原句，并用不超过两句话解释为什么这句适合——解释应具体说明原句与所选分析方法的关系，不扩展为全文结论。quote 与 why 会直接展示给学生，称呼学生时使用「你」。\n")
 	b.WriteString("只输出 JSON：{\"block_id\":\"示范句所在的 block id\",\"quote\":\"该 block 里的一句原文，必须逐字来自原文\",\"why\":\"不超过两句话的中文解释\"}。不要输出任何多余文字。")
 	return b.String()
 }

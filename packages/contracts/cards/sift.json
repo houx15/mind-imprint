@@ -5,8 +5,8 @@
   "category": "信源核查",
   "name": "横向核查卡 SIFT",
   "name_en": "SIFT Lateral Reading",
-  "purpose": "不要盯着可疑页面本身较劲——离开这一页、另开标签，看别人怎么评价这个来源，再回来下判断",
-  "trigger_condition": "学生面对一条来路不明的说法/截图/视频，倾向于停在原页面判断真假",
+  "purpose": "通过查询来源背景、比较独立报道和追溯原始出处，核实一项说法。",
+  "trigger_condition": "学生需要判断一条出处不明的说法、截图或视频是否可信。",
   "trigger_keywords": ["是真的吗", "谁说的", "网上看到", "这条消息", "截图", "转发"],
   "priority": "P0",
   "disclosure_tier": "tier-0",
@@ -22,7 +22,7 @@
     "lateral_dimension": "find",
     "tags": ["stop", "investigate", "find", "trace_origin"],
     "tag_prompts": {
-      "stop": "先别急着信也别急着转。你现在的第一反应是什么？",
+      "stop": "在判断或转发前，请说说你对这条信息的初步看法。",
       "investigate": "另开一个标签，搜这个来源/作者是谁。它是机构、个人，还是营销号？",
       "find": "找一个**独立的**来源，看它怎么说同一件事。",
       "trace_origin": "这条说法/数据/图片，最原始的出处在哪？"

@@ -11,7 +11,9 @@ import (
 	"mindimprint/api/internal/gateway"
 )
 
-// Captured on main 03c31b99 before the prompt refactor. These hashes protect
+// Updated after the 2026-09-22 prompt language review. Before/after requests
+// and contract comparisons are in docs/reviews/2026-09-22-prompt-language.
+// These hashes protect
 // message roles, bytes/order, tool schemas and request options together.
 // They do not claim that model output or teaching quality is deterministic.
 //

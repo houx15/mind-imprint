@@ -283,7 +283,7 @@ func writingPlanNeedOf(wr sqlc.Writing) writingPlanNeed {
 // 两边说的话对不上，她就卡在中间。
 func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 	var b strings.Builder
-	b.WriteString("\n【这份计划现在有什么】（服务端数出来的，不用你再数一遍）\n")
+	b.WriteString("\n【这份计划现在有什么】（系统统计）\n")
 	b.WriteString("- 最上层的块：" + strconv.Itoa(s.Top) + " 个\n")
 	b.WriteString("- 分论点：" + strconv.Itoa(s.Points) + " 条（这篇篇幅下要 " + strconv.Itoa(need.Points) + " 条）\n")
 	b.WriteString("- 例子（挂在某条分论点下面的材料）：" +
@@ -291,11 +291,11 @@ func (s writingPlanShape) promptBlock(need writingPlanNeed) string {
 
 	missing := s.missing(need)
 	if missing == "" {
-		b.WriteString("- **判据都满足了。这一轮就请她去写。**\n")
+		b.WriteString("- 已满足开始写作的条件，本轮邀请学生开始写作。\n")
 		return b.String()
 	}
 	b.WriteString("- 还缺：" + missing + "。\n")
-	b.WriteString("- **按上面这个顺序补，一轮补一件。**\n")
+	b.WriteString("- 以上数量用于选择后续构思方向。先回应学生本轮内容；若本轮仍在讨论一份材料，不同时追问另一项数量缺口。\n")
 	return b.String()
 }
 

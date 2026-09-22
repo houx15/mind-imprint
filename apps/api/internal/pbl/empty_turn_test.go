@@ -28,13 +28,13 @@ func TestBuildCoachContext_EmptyTurnSaysWhatJustHappened(t *testing.T) {
 		t.Fatalf("没告诉印记刚发生了什么：\n%s", ctx)
 	}
 	// 光说发生了什么不够——必须明确禁止那两个具体的失败动作。
-	for _, want := range []string{"不要重复你上一句", "不要再把这件事请她做一遍"} {
+	for _, want := range []string{"不重复提问", "再次完成同一任务"} {
 		if !strings.Contains(ctx, want) {
 			t.Fatalf("缺少禁止重复的指令：%s\n---\n%s", want, ctx)
 		}
 	}
 	// 这一段必须排在对话后面，否则会被后面的上文盖过去。
-	if i, j := strings.Index(ctx, "她刚做完这件事"), strings.Index(ctx, "刚才说到"); i < j {
+	if i, j := strings.Index(ctx, "学生刚做完这件事"), strings.Index(ctx, "刚才说到"); i < j {
 		t.Fatalf("「刚做完这件事」排在了对话前面，会被盖过去：\n%s", ctx)
 	}
 }
@@ -42,7 +42,7 @@ func TestBuildCoachContext_EmptyTurnSaysWhatJustHappened(t *testing.T) {
 // 她打了字的那一轮不该出现这一段——那一轮的上文本来就以她的话结尾。
 func TestBuildCoachContext_NoEventSectionWhenSheTyped(t *testing.T) {
 	ctx := buildCoachContext(CoachInput{Idea: "下课没人去操场"})
-	if strings.Contains(ctx, "她刚做完这件事") {
+	if strings.Contains(ctx, "学生刚做完这件事") {
 		t.Fatalf("没有事件却出现了事件那一段：\n%s", ctx)
 	}
 }
@@ -73,7 +73,7 @@ func TestCoachSystem_TellsModelToolReasonAddressesHer(t *testing.T) {
 	if !strings.Contains(coachSystem, "tool_reason") {
 		t.Fatal("system prompt 里没有 tool_reason 的说明")
 	}
-	if !strings.Contains(coachSystem, "「你」称呼她") {
+	if !strings.Contains(coachSystem, "「你」称呼学生") {
 		t.Fatalf("没有规定 tool_reason 用第二人称——第三人称会印到她屏幕上")
 	}
 }

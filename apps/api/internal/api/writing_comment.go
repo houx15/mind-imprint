@@ -581,7 +581,7 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 	help := writingHelpModeFor(priorComments, snippet.ID, source)
 	parsed, okParse := a.collectWritingComment(turnCtx, u.ID, at.ID, "block_comment", resolved,
 		buildWritingCommentSystem(wr.Lang, writingBlockCommentMaxIssues, focusKind, help, genre),
-		buildWritingCommentPrompt(wr, "她写的这一段", source, piece, genre),
+		buildWritingCommentPrompt(wr, "学生写的这一段", source, piece, genre),
 		// 她真的会看到的那几条 —— 校验加两道减法之后剩下的。闸门查的就是这个。
 		func(pts []CommentPoint) []CommentPoint {
 			out := validateCommentPoints(pts, source, wr.Lang, writingBlockCommentMaxIssues)

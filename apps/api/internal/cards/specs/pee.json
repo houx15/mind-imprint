@@ -5,8 +5,8 @@
   "category": "论证写作",
   "name": "PEE 写作卡",
   "name_en": "PEE Paragraph (Point-Evidence-Explanation)",
-  "purpose": "把一段论证写成 Point（要点）→ Evidence（论据）→ Explanation（解释）的结构，让学生自己搭骨架，而不是让 AI 代写",
-  "trigger_condition": "学生进入写作产出环节，想让 AI 直接代写段落",
+  "purpose": "按 Point（观点）、Evidence（论据）、Explanation（解释）组织论证段，引导学生自行表达三者的关系。",
+  "trigger_condition": "学生需要组织论证段落，或希望了解观点、论据与解释如何衔接。",
   "trigger_keywords": ["怎么写", "段落", "帮我写一段", "论文结构", "开头结尾", "字数"],
   "priority": "P1",
   "disclosure_tier": "tier-1",
@@ -78,7 +78,7 @@
         "____ 显示：____。"
       ],
       "fields": [
-        { "type": "textarea", "key": "evidence", "label": "用什么证据支持？引文中的词/数据（不要让 AI 替你找）" }
+        { "type": "textarea", "key": "evidence", "label": "请填写能说明这个观点的证据，并标明引文中的词句或数据" }
       ]
     },
     {
@@ -95,7 +95,7 @@
         "换句话说，____ 意味着 ____，因此 ____。"
       ],
       "fields": [
-        { "type": "textarea", "key": "explanation", "label": "解释（Explanation）：这个证据为什么支撑你的要点？" },
+        { "type": "textarea", "key": "explanation", "label": "解释（Explanation）：这个证据为什么能说明你的观点？" },
         { "type": "multi_choice", "key": "self_check", "label": "自查（可多选）", "options": ["三部分都填了（P / E / E）", "证据是精确引文/数据，不是模糊描述", "解释扣住了 Point，没有跑题", "这段扣住了开篇立场"] }
       ]
     }

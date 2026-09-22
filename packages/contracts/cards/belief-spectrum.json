@@ -4,8 +4,8 @@
   "category": "立场与价值",
   "name": "立场光谱卡（Belief Spectrum）",
   "name_en": "Belief Spectrum",
-  "purpose": "把对错两派摊成一条连续光谱，定位各方与自己",
-  "trigger_condition": "学生把争议议题简化成「对错两派」，看不到中间的连续立场",
+  "purpose": "梳理争议中的不同立场及其程度差异，说明各方和自己的位置与理由。",
+  "trigger_condition": "学生需要比较争议中的多种立场，特别是简单赞成或反对之外的条件与差异。",
   "trigger_keywords": ["两派", "谁对谁错", "专家吵架", "争议", "中立", "我站哪边"],
   "priority": "P1",
   "disclosure_tier": "tier-1",
@@ -47,8 +47,8 @@
           { "type": "textarea", "key": "evidence", "label": "它引什么证据" },
           { "type": "textarea", "key": "interest", "label": "背后有什么利益 / 背景" }
         ] },
-        { "type": "spectrum", "key": "self", "label": "我现在站这里", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
-        { "type": "textarea", "key": "self_reason", "label": "我站这里的理由（他们的分歧在证据、价值，还是利益？）" }
+        { "type": "spectrum", "key": "self", "label": "我的立场", "stops": ["这一极", "偏这边", "中间", "偏那边", "那一极"] },
+        { "type": "textarea", "key": "self_reason", "label": "选择这一立场的理由（各方分歧涉及证据、价值还是利益？）" }
       ]
     }
   ]

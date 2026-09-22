@@ -85,14 +85,14 @@ func TestWritingPlanPromptCarriesTheRefusalBlock(t *testing.T) {
 	rows := []sqlc.WritingOutline{{Text: "学校应允许学生带手机", Kind: writingKindThesis, Depth: 0}}
 
 	asked := buildWritingPlanPrompt(wr, rows, nil, "我懒得搜，你帮我找吧")
-	if !strings.Contains(asked, "她刚才请你替她做一件你不做的事") {
+	if !strings.Contains(asked, "学生请求代为搜索或撰写正文") {
 		t.Errorf("她请我们代劳，prompt 里却没有那一段：\n%s", asked)
 	}
 
 	// 🚨 一次性：下一轮她说了正事，这一段就不该还在 —— 常驻的提示会把该做的
 	// 事挤掉（2026-09-05：六轮里一直在补一张卡）。
 	normal := buildWritingPlanPrompt(wr, rows, nil, "我找到一份 2008 年的手机学单词研究")
-	if strings.Contains(normal, "她刚才请你替她做一件你不做的事") {
+	if strings.Contains(normal, "学生请求代为搜索或撰写正文") {
 		t.Errorf("正常的一轮里不该出现那一段：\n%s", normal)
 	}
 }

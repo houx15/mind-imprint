@@ -382,7 +382,7 @@ const maxTurningPoints = 3
 func buildTurnsBlock(pairs []turnPair) string {
 	var b strings.Builder
 	for i, p := range pairs {
-		fmt.Fprintf(&b, "%d. 她：%s\n", i+1, capRunes(p.Student, turnPromptCap))
+		fmt.Fprintf(&b, "%d. 学生：%s\n", i+1, capRunes(p.Student, turnPromptCap))
 		if p.Coach != "" {
 			fmt.Fprintf(&b, "   你：%s\n", capRunes(p.Coach, turnPromptCap))
 		}

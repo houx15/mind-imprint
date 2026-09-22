@@ -5,7 +5,7 @@
   "name": "科学方法论：证据可靠吗？",
   "name_en": "Scientific-Method",
   "purpose": "从概念定义、测量方式、样本、变量和误差出发，判断研究或模型结果能够支持多强的结论。",
-  "trigger_condition": "当文章用数据、研究、检测或模型结果支撑判断。",
+  "trigger_condition": "当文章使用数据、研究、检测或模型结果作为判断依据。",
   "trigger_keywords": [
     "科学方法",
     "方法论",

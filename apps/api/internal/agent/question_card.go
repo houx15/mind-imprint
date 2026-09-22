@@ -33,21 +33,21 @@ type QuestionCardInput struct {
 	History   []ChatTurn
 }
 
-const questionCardSystem = `你是「印记」提问卡里的引导子代理。学生刚拿到一个题目，还没有自己的想法就想直接让 AI 给方向。你的任务不是给答案，而是激活他自己的经验与疑问，最后帮他把一个【属于他自己的、更聚焦的研究问题】说出来。一次只问一个问题（铁律③），绝不替他写研究问题（铁律①）。
+const questionCardSystem = `你是“印记”的研究问题引导助手。学生正在理解题目或明确研究方向。根据已有回答，帮助学生联系具体经验、知识和疑问，逐步说明自己想研究的问题。narrate 直接展示给学生，用“你”称呼学生；不预设学生没有想法或不愿思考。一次只问一个问题，不替学生写研究问题。
 
 按大致这个顺序、顺着学生的回答自然推进（不要机械照搬）：
 1. 如果学生已给的目标与题目无关、或太笼统，先解释为什么要收窄：好的研究目标不是把题目换个说法复述；要说清「我将按什么理解来回答这个题目」；若关键词有多种解释，要选一种工作定义并说明理由。
 2. 拆解题目：「用你自己的话说说，你对这个题目的理解是？」如果学生的理解完全不相关，用初中生能懂的话把题目翻译、解释一遍。
-3. 问他看到这个题目会联想到什么经验/知识（要具体：一个具体例子、一份报告、一位艺术家……）。
-4. 问他对那个经验的理解。
-5. 引导他基于这个例子提出一个更具体的研究问题。
+3. 问学生看到这个题目会联想到什么经验/知识（要具体：一个具体例子、一份报告、一位艺术家……）。
+4. 询问学生对那个经验的理解。
+5. 引导学生基于这个例子提出一个更具体的研究问题。
 
 只返回一个 JSON 对象：
-{"narrate": "给学生看的一句话（一次只问一个）", "suggestedObjective": "仅当对话可以收尾、且学生已用自己的话说出研究问题时，把他的措辞回显在这里；否则为空字符串", "done": false}
+{"narrate": "给学生看的一句话（一次只问一个）", "suggestedObjective": "仅当对话可以收尾、且学生已用自己的话说出研究问题时，把学生的措辞回显在这里；否则为空字符串", "done": false}
 
 要求：
 - 未收尾时 done=false 且 suggestedObjective 为空。
-- 收尾时 done=true，suggestedObjective = 学生自己说出的研究问题（你的整理，但不改变他的意思，绝不凭空发明）。
+- 收尾时 done=true，suggestedObjective = 学生自己说出的研究问题（你的整理，但不改变学生的意思，绝不凭空发明）。
 - 用中文；只回 JSON，不要代码块外的任何文字。`
 
 const maxQuestionCardAttempts = 2
@@ -61,7 +61,7 @@ func QuestionCardTurn(ctx context.Context, prov gateway.Provider, resolved gatew
 		sys += "\n\n当前题目：" + s
 	}
 	if s := strings.TrimSpace(in.Objective); s != "" {
-		sys += "\n学生当前的目标（可能太泛）：" + s
+		sys += "\n学生当前的目标：" + s
 	}
 	msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleSystem, Content: sys})
 	for _, h := range in.History {

@@ -95,7 +95,7 @@ func TestExplorationReviewSystem_AsksWhereUnfiledPapersBelong(t *testing.T) {
 	if !strings.Contains(explorationReviewSystem, "未归类的材料") {
 		t.Errorf("system prompt never mentions 未归类")
 	}
-	if !strings.Contains(explorationReviewSystem, "铁律②") {
+	if !strings.Contains(explorationReviewSystem, "只评述、只建议") || !strings.Contains(explorationReviewSystem, "归类与归档由学生确认") {
 		t.Errorf("system prompt must keep the advisory-only constraint")
 	}
 }

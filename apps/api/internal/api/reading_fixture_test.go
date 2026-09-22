@@ -28,7 +28,7 @@ func TestReadingFixturesHaveACurrentStep(t *testing.T) {
 		if strings.Contains(user, "所有步骤都走完了") {
 			t.Errorf("%s: the fixture tells the coach every step is finished", name)
 		}
-		if n := strings.Count(user, "她现在在这一步"); n != 1 {
+		if n := strings.Count(user, "学生现在在这一步"); n != 1 {
 			t.Errorf("%s: current-step marker appears %d times, want exactly 1", name, n)
 		}
 	}

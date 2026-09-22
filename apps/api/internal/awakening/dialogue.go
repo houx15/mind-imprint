@@ -86,19 +86,19 @@ func BuildDialoguePrompt(in DialogueInput) (system, user string) {
 	sb.WriteString(dialogueSystemHead)
 	fmt.Fprintf(&sb, "\n你这一轮的身份是「%s」。%s\n", in.Guide.Zh, in.Guide.Style)
 	fmt.Fprintf(&sb, "\n当前进度：第 %d 步，共 %d 步。\n", in.NodeIndex+1, NodeCount)
-	fmt.Fprintf(&sb, "这一步要问出来的东西：%s\n", node.Objective)
+	fmt.Fprintf(&sb, "本轮需要了解的内容：%s\n", node.Objective)
 	if in.Last {
 		// 最后一问她已经答完了。再问一次只会让她以为自己答错了。
-		sb.WriteString("她刚回答的是最后一个问题，后面没有问题了。这一轮只做两件事：" +
-			"接住她这句里的一个具体的东西，再做一句暂定的推断。**不要再提问。**\n")
+		sb.WriteString("学生刚回答的是最后一个问题，后面没有问题了。这一轮只做两件事：" +
+			"回应学生刚表达的具体内容；依据充分时可提出一句暂定理解，依据不足时只作简短确认。不要再提问。\n")
 	} else {
 		fmt.Fprintf(&sb, "这一步要问的问题：%s\n", ask)
 	}
 	if in.Retry {
-		sb.WriteString("她上一句太短，没有可以引用的内容。这一轮**不要**重复上一个问法，换成上面这个更具体的入口，并且不要评价回答或推测困难原因。\n")
+		sb.WriteString("本轮需要进一步了解学生的回答。请使用上面的具体问法帮助学生补充内容，不重复此前的问题，也不评价回答长短或推测困难原因。\n")
 	}
 	if in.EnergyFocus != "" {
-		fmt.Fprintf(&sb, "\n她在前一屏的能量卡牌里选出的方向：%s\n", truncRunes(in.EnergyFocus, 160))
+		fmt.Fprintf(&sb, "\n学生在前一屏的能量卡牌里选出的方向：%s\n", truncRunes(in.EnergyFocus, 160))
 	}
 	if t := in.Brief.Text(); t != "" {
 		sb.WriteString("\n")
@@ -148,7 +148,7 @@ func buildDialogueUser(in DialogueInput) string {
 		sb.WriteString(strings.Join(parts, "\n\n"))
 		sb.WriteString("\n\n")
 	}
-	sb.WriteString("她刚刚说：\n")
+	sb.WriteString("学生刚刚说：\n")
 	sb.WriteString(in.Latest)
 	sb.WriteString("\n\n请按上面的规则回这一轮。")
 	return sb.String()

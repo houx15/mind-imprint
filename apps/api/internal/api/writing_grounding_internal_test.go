@@ -24,7 +24,7 @@ func TestWritingCoachProjection_GroundingRulesArriveOnceSheHasWritten(t *testing
 		snippet(0, "上周五我数了一下，六个桶是满的。"),
 	}, "")
 
-	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾", "以这里为准"} {
+	for _, want := range []string{"逐字引用对应原文", "暂时无法取得", "给出一项针对原文的修改建议", "以这里为准"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("她已经写了东西，上文里却没有 %q：\n%s", want, got)
 		}
@@ -44,7 +44,7 @@ func TestWritingCoachProjection_NoGroundingRulesBeforeSheWrites(t *testing.T) {
 		{snippet(0, "   ")}, // 只有空白，等于没写
 	} {
 		got := buildWritingCoachProjection(wr, nil, snips, "")
-		if strings.Contains(got, "逐字引出来") {
+		if strings.Contains(got, "逐字引用对应原文") {
 			t.Errorf("她还没写，不该加这两条：\n%s", got)
 		}
 	}
@@ -81,7 +81,7 @@ func TestWritingCoachProjection_DraftWinsOverTheFrozenSnippets(t *testing.T) {
 	// 🚨 那三条规矩在成稿这一支上同样要有。成稿这一支是后加的、而且提前
 	// return，差一点就把它们漏在另一支里 —— 上面那条测试当时用的是空成稿，
 	// 绿着也发现不了。
-	for _, want := range []string{"逐字引出来", "取不到", "一句祈使收尾"} {
+	for _, want := range []string{"逐字引用对应原文", "暂时无法取得", "给出一项针对原文的修改建议"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("成稿这一支上少了 %q", want)
 		}

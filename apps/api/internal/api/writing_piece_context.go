@@ -187,11 +187,11 @@ func writingPriorCommentLines(
 			if p.Kind != "issue" || strings.TrimSpace(p.Action) == "" {
 				continue
 			}
-			state := "她还没动这一段。"
+			state := "学生还没动这一段。"
 			if acted {
-				state = "她已经改过这一段了。"
+				state = "学生已经改过这一段了。"
 			}
-			b.WriteString("- 说的是：" + p.Text + "\n  让她做：" + p.Action + "\n  " + state + "\n")
+			b.WriteString("- 说的是：" + p.Text + "\n  让学生做：" + p.Action + "\n  " + state + "\n")
 		}
 	}
 	return b.String()

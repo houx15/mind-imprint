@@ -267,10 +267,9 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 				"talk_quote", talkOnly)
 			retryHistory := append(append([]agent.ChatTurn{}, history...), agent.ChatTurn{
 				Role: "user",
-				Content: "【你引的那句不在她正文里】「" + talkOnly + "」是她在**对话里**跟你说的，" +
-					"她的作品里没有这句。她会照着你的话去正文里找，找不到就会以为自己弄丢了什么。" +
-					"请重答一遍：要么改成引【已经写好的片段】里逐字有的句子，" +
-					"要么把出处说出来（「你刚才跟我说的……」），别让它读起来像她写过的。",
+				Content: "【引文来源需要纠正】「" + talkOnly + "」出自学生的对话，不在当前正文中。" +
+					"请重新回复：若评价正文，逐字引用【已经写好的片段】中的句子；" +
+					"若讨论这句对话，明确说明「你刚才提到……」，不将其描述为正文内容。",
 			})
 			out2, usage2, cerr2 := agent.ProposeProjectCoachReply(turnCtx, a.d.Provider, resolved, retryHistory, projection, surfaceLabel)
 			// 打到 provider 就已经花钱了，无论这一版用不用 —— 先记账。
@@ -291,10 +290,9 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 				"ghost_quote", ghost)
 			retryHistory := append(append([]agent.ChatTurn{}, history...), agent.ChatTurn{
 				Role: "user",
-				Content: "【刚才那一版你引错了】你引的那句「" + ghost + "」" +
-					"在她现在的正文里一个字都找不到 —— 多半是你在照着这段对话里更早的" +
-					"版本说话，而她已经改过了。请重答一遍：只引【已经写好的片段】里" +
-					"逐字有的句子，或者干脆不引、直接说第几段的第几句。",
+				Content: "【引文需要纠正】上一轮引用的「" + ghost + "」不在当前提供的原文中。" +
+					"请依据当前稿件重新回复：引文须与【已经写好的片段】逐字一致；" +
+					"也可以明确指出段落和句子位置，不生成或引用旧版本的句子。",
 			})
 			out2, usage2, cerr2 := agent.ProposeProjectCoachReply(turnCtx, a.d.Provider, resolved, retryHistory, projection, surfaceLabel)
 			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "writing_turn", resolved, usage2)

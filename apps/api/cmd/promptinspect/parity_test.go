@@ -23,9 +23,9 @@ func requestHash(e api.PromptExample) string {
 	return fmt.Sprintf("%x", sha256.Sum256(b))
 }
 
-// Baseline requests were rendered by main 03c31b99, not reconstructed from
-// refactored text. Explicit external input allows a reviewed future migration
-// to establish a new baseline without silently blessing the current output.
+// Baseline requests were reviewed in the 2026-09-22 prompt language audit.
+// Before/after evidence is in docs/reviews/2026-09-22-prompt-language. Explicit
+// external input is required to deliberately establish a new text baseline.
 func TestMainRequestParity(t *testing.T) {
 	expected := map[string]string{}
 	baseline := os.Getenv("PROMPT_COMPARE_BASELINE")
@@ -59,7 +59,7 @@ func TestMainRequestParity(t *testing.T) {
 	}
 	for id, want := range expected {
 		if current[id] != want {
-			t.Errorf("request differs from main baseline: %s", id)
+			t.Errorf("request differs from reviewed baseline: %s", id)
 		}
 	}
 	if baseline != "" && !t.Failed() && os.Getenv("PROMPT_RECORD_BASELINE") == "1" {

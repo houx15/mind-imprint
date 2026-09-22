@@ -21,13 +21,13 @@ func TestBuildEvalPrompt_SpeaksToHer(t *testing.T) {
 
 	// The rule itself must be stated, not merely implied by the field examples —
 	// a model that ignores one example still has the rule to fall back on.
-	if !strings.Contains(got, "用「你」称呼她") {
+	if !strings.Contains(got, "称呼学生时使用「你」") {
 		t.Errorf("prompt no longer states the second-person rule:\n%s", got)
 	}
 
 	// The field templates are what the model copies most literally, so they are
 	// where a regression would actually land.
-	for _, want := range []string{`"finding":"你这句读出了什么"`, `"judgment":"你的论断"`} {
+	for _, want := range []string{`"finding":""`, `"judgment":""`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("field template %q missing — did it revert to 她?\n%s", want, got)
 		}

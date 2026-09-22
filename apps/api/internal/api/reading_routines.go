@@ -206,8 +206,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，分析其中的内容与写法。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
-			{Kind: taskReflect, Label: "总结论点", Detail: "用你自己的话总结本文的论点：作者的中心论点是什么？他分几层来论证？"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？作者给的证据够不够？有没有另一种解释？挑一个角度说。"},
+			{Kind: taskReflect, Label: "总结论点", Detail: "用你自己的话总结本文的论点：作者的中心论点是什么？作者分几层来论证？"},
 			// 🚨 2026-09-17 改写。原来这句是「这篇讲的事，你自己身边、新闻里、
 			// 或者别的书里，有没有碰到过？」——产品负责人报的「有点抽象，还有
 			// 点鸡肋」说的就是它：一个没有落点的问题只能换来一句泛泛的话。
@@ -285,7 +285,7 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先理解大意。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、写作解析，一样一样看。哪一句读不通，就划选那一句点「句子解析」。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？作者给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
 			// 🚨 复述在前，找句在后，而且是这个顺序才对：她先凭记忆说一遍，
 			// 再回文章里核对自己说得准不准。反过来（点完句子再合上文章复述）
@@ -367,8 +367,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：请预测作者可能持有什么观点，暂不阅读正文。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先找出作者对这个问题的观点。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "请打开段落工具，分析作者怎样表达观点、使用理由。"},
-			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归类：作者的论点、他驳的那个观点、论据、论证。"},
-			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？他给的证据够不够？有没有另一种解释？挑一个角度说。"},
+			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归类：作者的论点、作者反驳的观点、论据、论证。"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？作者给的证据够不够？有没有另一种解释？挑一个角度说。"},
 			{Kind: taskConnect, Label: "观点变化", Detail: "读之前你自己是什么立场？文章是否改变了你的看法？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "文中哪一句最没说服你？把它点出来。"},
 		},
@@ -477,8 +477,8 @@ var readingBlockTools = []readingBlockTool{
 		// 2026-09-16：从一段散文改成一组词卡。散文没法变成卡片，更没法回到正文
 		// 里把那个词标出来 —— 要标，就得知道**哪几个字**是那个词。
 		Shape: "words", ID: "vocabulary", Label: "关键单词", Lang: "en",
-		Instruction: "挑出这一段里**真正值得学**的 3–5 个词（不是最长的，是最有用的、在这里意思特别的）。" +
-			"不要把整段的词都列出来，那是词典干的事；也不要挑初中就学过的。",
+		Instruction: "从这一段选择 3–5 个值得讲解的词。" +
+			"优先选择影响本段理解、含义特殊或用法值得学习的词，避免仅因单词较长而入选。",
 	},
 	{
 		// 🚨 2026-09-17 新增：点一个词，讲这一个词。产品负责人逐字：
@@ -490,7 +490,7 @@ var readingBlockTools = []readingBlockTool{
 		// 所以正文里的荧光笔、卡片的样子、报告里的生词表都不用另写一份。
 		Shape: "words", ID: "lookup", Label: "查词", Lang: "en", Subject: "word",
 		Class: gateway.ClassDigest,
-		Instruction: "她点了这一段里的**一个词**（见下面【要讲解的这一个词】），只讲这一个词，给**一张**词卡。" +
+		Instruction: "学生点了这一段里的**一个词**（见下面【要讲解的这一个词】），只讲这一个词，给**一张**词卡。" +
 			"讲的是它在**这一句里**的意思；它是一个词组的一部分时，term 写整个词组（仍然要逐字出现在段落里）。",
 	},
 	{
@@ -522,17 +522,14 @@ var readingBlockTools = []readingBlockTool{
 		Instruction: "分两小段讲。\n" +
 			"**这一段在干什么**：它在整篇里承担什么（提出观点、举例、让步、转折、收束……），" +
 			"以及作者用什么手法让它起作用。两三句话，说的是写法，不是内容摘要。\n" +
-			"**作者表达的确定程度**：英文里把握度写在动词上，从强到弱是 " +
-			"shows / demonstrates（证明）> found / reported（报告了观察到的事）> " +
-			"suggests / indicates（提示）> may / could / might（可能）> " +
-			"is associated with（只是同时出现，不是因果）。" +
-			"从这一段里挑 1–2 处，摘出那个动词或短语，说清它属于哪一级，" +
-			"以及**如果换成更强的那一级，这句话会多说出什么**。" +
-			"这一段只叙述事件，没有表达观点，就直说这一段没有在下判断，不要硬找。",
+			"**作者表达的确定程度**：从本段选 1–2 处动词或短语，结合语境说明作者是在报告观察、提出解释，还是表达可能性。" +
+			"例如 may / could / might 表示可能，suggests / indicates 常提示尚需判断的关系；shows / demonstrates 的力度仍取决于实际证据。" +
+			"若出现 is associated with，说明它表达相关关系，单凭该词组不能确定因果；相关与因果不作为同一条确定程度的等级。" +
+			"可以比较换成更确定的表达后，结论会增加哪些原文尚未证明的内容。只分析实际出现的表达；纯事件叙述无需附加观点强弱判断。",
 	},
 	{
 		Shape: "prose", ID: "rhetoric", Label: "成语修辞", Lang: "zh",
-		Instruction: "指出这一段用到的成语、俗语和修辞手法（比喻、排比、反问、对比……），每个都说清楚它在这里起了什么效果。没有就直说没有，不要硬找。",
+		Instruction: "指出这一段用到的成语、俗语和修辞手法（比喻、排比、反问、对比……），每个都说清楚它在这里起了什么效果。未发现相关表达时如实说明。",
 	},
 	{
 		Shape: "prose", ID: "examples", Label: "案例", Lang: "zh",
@@ -561,11 +558,11 @@ var readingBlockTools = []readingBlockTool{
 var readingWritingTools = []readingBlockTool{
 	{
 		Shape: "questions", ID: "questions", Label: "想一想", Lang: "",
-		Instruction: "针对这一段，给她 2 到 4 个能帮她想下去的问题。必须是问题，每条以问号结尾，一条一个问题。要具体到这一段的内容，不要问「这段讲了什么」这种空问题。**不要在问题里把答案说出来。**",
+		Instruction: "针对这一段，给学生 2 到 4 个能帮学生想下去的问题。必须是问题，每条以问号结尾，一条一个问题。要具体到这一段的内容，不要问「这段讲了什么」这种空问题。**不要在问题里把答案说出来。**",
 	},
 	{
 		Shape: "imitate", ID: "imitate", Label: "仿写", Lang: "",
-		Instruction: "先用一句话说清楚这一段**在写法上做了什么**（比如「先给一个日常场景，再解释背后的原理」），然后给 2 到 3 个她可以用同一个写法去写的、和原文无关的话题。",
+		Instruction: "先用一句话说清楚这一段**在写法上做了什么**（比如「先给一个日常场景，再解释背后的原理」），然后给 2 到 3 个学生可以用同一个写法去写的、和原文无关的话题。",
 	},
 }
 
