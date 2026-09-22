@@ -1,0 +1,62 @@
+export type ShowcaseLayout = "folio" | "journal" | "studio";
+export type ShowcasePalette = "paper" | "forest" | "ocean" | "rose" | "night" | "sunshine";
+export type ShowcaseFont = "sans" | "serif" | "mono";
+export type ShowcaseKind = "writing" | "reading" | "project";
+
+export interface ShowcaseConfig {
+  name: string;
+  bio: string;
+  tagline: string;
+  interests: string[];
+  layout: ShowcaseLayout;
+  palette: ShowcasePalette;
+  font: ShowcaseFont;
+  writingStyle: "cards" | "list";
+  readingStyle: "shelf" | "list";
+  sectionOrder: ShowcaseKind[];
+  selectedWorkIds: string[];
+}
+
+export interface ShowcaseWork {
+  id: string;
+  kind: ShowcaseKind;
+  title: string;
+  summary: string;
+  publicPath?: string;
+}
+
+export const DEFAULT_SHOWCASE: ShowcaseConfig = {
+  name: "",
+  bio: "",
+  tagline: "",
+  interests: [],
+  layout: "folio",
+  palette: "paper",
+  font: "sans",
+  writingStyle: "cards",
+  readingStyle: "shelf",
+  sectionOrder: ["writing", "reading", "project"],
+  selectedWorkIds: [],
+};
+
+export const SHOWCASE_LAYOUTS: ReadonlyArray<{ value: ShowcaseLayout; label: string }> = [
+  { value: "folio", label: "作品集" },
+  { value: "journal", label: "刊物" },
+  { value: "studio", label: "工作室" },
+];
+
+export const SHOWCASE_PALETTES: ReadonlyArray<{ value: ShowcasePalette; label: string }> = [
+  { value: "paper", label: "纸张" },
+  { value: "forest", label: "森林" },
+  { value: "ocean", label: "海洋" },
+  { value: "rose", label: "玫瑰" },
+  { value: "night", label: "夜色" },
+  { value: "sunshine", label: "阳光" },
+];
+
+export const SHOWCASE_FONTS: ReadonlyArray<{ value: ShowcaseFont; label: string }> = [
+  { value: "sans", label: "现代无衬线" },
+  { value: "serif", label: "编辑衬线" },
+  { value: "mono", label: "等宽字体" },
+];
+
