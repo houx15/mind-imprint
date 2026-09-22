@@ -20,7 +20,8 @@ import { PromptSidebar } from "./PromptSidebar";
 import { MindMap } from "./MindMap";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
-import { outlineKindOf } from "./outlineKind";
+import { outlineGenreOf, outlineKindOf, type OutlineKind } from "./outlineKind";
+import { rekindChoices, rekindOutlineNode } from "./outlineRekind";
 import { handleWriteError } from "./writeErrors";
 import { coachOpeningNeeded } from "./openingRule";
 
@@ -253,6 +254,26 @@ export function PlanningView({
     );
   }
 
+  /**
+   * 她自己改一条「是什么」—— 同事 2026-09-22 的意见 3。
+   *
+   * 印记会判错（那张图里「黑心商家哪怕赚很多钱，也是失败」被摆成了论据，
+   * 它是一条和分论点并列的反面论证）。判错归提示词管；这里管的是
+   * **判错了她改得动**。
+   *
+   * 🚨 挂不上就把原因说给她听，不悄悄挂到别处。算得出来算不出来的那一步是
+   * 纯函数，见 outlineRekind.ts。
+   */
+  function rekindNode(id: string, kind: OutlineKind) {
+    const res = rekindOutlineNode(outline, id, kind);
+    if (!res.ok) {
+      setError(res.why);
+      return;
+    }
+    setError(null);
+    void mutate(res.items.map(outlineToReq));
+  }
+
   return (
     <div className="student-planning-room flex h-full w-full flex-col bg-mk-paper">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-mk-border px-5 py-3">
@@ -390,7 +411,15 @@ export function PlanningView({
                 想加一条，说给印记听 —— 找来的研究、报道、数据也一样，连出处一起说；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
-            <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} onMove={moveNode} />
+            <MindMap
+              items={outline}
+              justAdded={justAdded}
+              onRemove={removeNode}
+              onEdit={editNode}
+              onMove={moveNode}
+              onRekind={rekindNode}
+              kindChoices={rekindChoices(outlineGenreOf(outline))}
+            />
           </aside>
         )}
         </div>

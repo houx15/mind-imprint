@@ -240,3 +240,29 @@ export function rekindForDepth(
   if (depth === 1) return "point";
   return "evidence";
 }
+
+/**
+ * 这张图在按哪一种文体摆。
+ *
+ * 🚨 这是服务端 `writingGenreOf` 的**第一条判据**，不是全部：那边还有一张
+ * 记叙文题干的词表（`narrativeIdeaMarkers`），只在**板上什么都还没有**的
+ * 时候才用。这一侧不抄那张表 —— 两份词表迟早分岔，而分岔的那天她在图上挑到
+ * 的种类服务端不认。
+ *
+ * 不抄也够用：用得上这个函数的地方（卡片上那个「这一条是什么」的菜单）
+ * 只在图上已经有节点的时候才出现，那正是第一条判据成立的时候。
+ *
+ * 拿不准就是议论文 —— 和服务端同一个方向，理由也一样（writing_genre.go：
+ * 错的代价不对称）。
+ */
+export function outlineGenreOf(
+  items: Array<Pick<WritingOutlineItem, "role" | "depth"> & { kind?: string; source?: string }>,
+): "argument" | "narrative" {
+  let sawNarrative = false;
+  for (const item of items) {
+    const g = outlineKindGenre(outlineKindOf(item));
+    if (g === "argument") return "argument";
+    if (g === "narrative") sawNarrative = true;
+  }
+  return sawNarrative ? "narrative" : "argument";
+}

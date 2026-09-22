@@ -28,7 +28,6 @@ package api
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -159,7 +158,9 @@ func TestLiveWritingPlanSignalsReady(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			res, err := gateway.Collect(ctx, p, r, gateway.ChatRequest{
 				Messages: []gateway.ChatMessage{
-					{Role: gateway.RoleSystem, Content: strings.Replace(writingPlanSystem, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)},
+					// 见 writing_kind_live_test.go 里那段：只替 %d 的话
+					// `@@KINDS@@` 还留在里面，那张闭表根本没发给模型。
+					{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument)},
 					{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, tc.said)},
 				},
 			})

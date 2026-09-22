@@ -34,7 +34,12 @@ func livePlanTurn(t *testing.T, wr sqlc.Writing, rows []sqlc.WritingOutline, sai
 
 	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingPlanSystem},
+			// 🚨 用 writingPlanSystemFor，不要用那个模板本身。
+			// 2026-09-22 发现：这里原来传的是 `writingPlanSystem`，里面
+			// `@@KINDS@@` 和 `%d` 两个占位符都还没替换 —— 也就是说这条
+			// 「模型会不会照着闭表回 kind」的测试，**从来没有把那张闭表发给
+			// 模型**。它测的是一份生产环境不会发出去的提示词。
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument)},
 			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
 		},
 	})
