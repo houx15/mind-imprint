@@ -49,10 +49,10 @@ import "strings"
 //
 // 🚨 这四个数字会进 JSON、进数据库、进统计，**不要重新编号**。
 const (
-	writingLayerClaim    = 1 // 立意：这篇要说的那句话立住了没有
-	writingLayerMaterial = 2 // 材料：撑着它的东西在不在
+	writingLayerClaim     = 1 // 立意：这篇要说的那句话立住了没有
+	writingLayerMaterial  = 2 // 材料：撑着它的东西在不在
 	writingLayerStructure = 3 // 结构与段落：顺序、每段在做什么、怎么接
-	writingLayerSentence = 4 // 字句：最后才碰
+	writingLayerSentence  = 4 // 字句：最后才碰
 )
 
 // writingLayerNames 是四层在界面和 prompt 里的说法。
@@ -86,7 +86,7 @@ var writingSymptomsZH = []writingSymptom{
 	// —— 第一层 · 立意 ——
 	{"topic_without_question", writingLayerClaim, "只有主题，没有问题",
 		"材料围绕一个大词堆积；读完不知道你想说的是哪一件事。"},
-	{"claim_not_stated", writingLayerClaim, "主张没有说出来",
+	{"claim_not_stated", writingLayerClaim, "观点未明确表达",
 		"通篇在介绍情况，找不到一句话是你自己的判断。"},
 	{"claim_too_safe", writingLayerClaim, "立场不明确",
 		"列出了正反观点，但未说明自己的结论或作出判断的条件。"},
@@ -101,7 +101,7 @@ var writingSymptomsZH = []writingSymptom{
 	{"story_without_meaning", writingLayerMaterial, "事件与主题的联系不明确",
 		"读者知道发生了什么，不知道你为什么要讲这件事。"},
 	{"flat_character", writingLayerMaterial, "人物扁平",
-		"靠「勇敢」「努力」「善良」这类形容词撑着；人物没有做过选择，也没有为难过。"},
+		"主要使用「勇敢」「努力」「善良」等形容词评价人物，未描述体现这些特点的具体行为。"},
 
 	// —— 第三层 · 结构与段落 ——
 	{"loose_whole", writingLayerStructure, "全文松散",
@@ -147,13 +147,13 @@ var writingSymptomsEN = []writingSymptom{
 	{"weighing_qualification", writingLayerClaim, "没有权衡，也没有限定",
 		"只把一边说完；没有交代在什么条件下成立、什么条件下不成立。"},
 	{"mechanism_chain", writingLayerMaterial, "缺中间那一步",
-		"从主张直接跳到结果，中间「为什么会这样」那一环没有写出来。"},
+		"从观点直接写到结果，中间「为什么会这样」那一环没有写出来。"},
 	{"development_relevance", writingLayerMaterial, "解释和例子跑题",
 		"例子本身没问题，但它支持的不是这一段要说的那句话。"},
 
 	// —— CC 连贯 ——
 	{"paragraph_function_order", writingLayerStructure, "句子的角色和顺序乱了",
-		"一段里主张、证据、解释的先后颠倒，或者一段同时在做两件事。"},
+		"一段里观点、证据、解释的先后颠倒，或者一段同时在做两件事。"},
 	{"reference_linking", writingLayerStructure, "指代和连接对不上",
 		"this / it / such 指向不明；连接词用的关系和句子真实的关系不一致。"},
 
@@ -187,7 +187,7 @@ var writingSymptomsEN = []writingSymptom{
 // 记叙文讲义（细节描写、抑扬转情法）。
 //
 // 🚨 **是补一张小表，不是改那张大表。** 中文那 16 条里有一多半
-//（句子太碎、只有主题没有问题、字句层的每一条）记叙文照样用得上。
+// （句子太碎、只有主题没有问题、字句层的每一条）记叙文照样用得上。
 // 两张合起来给记叙文，议论文那一篇一条都不多拿。
 var writingSymptomsNarrativeZH = []writingSymptom{
 	// 讲义：「细节是作文的灵魂……多写动作、神态、语言，少写空洞的感受。」

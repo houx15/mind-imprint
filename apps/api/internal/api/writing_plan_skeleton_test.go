@@ -52,10 +52,10 @@ func TestWritingPlanSystem_SkeletonsAreNotQuotedAsMethods(t *testing.T) {
 // 所以这一段加进去的时候必须同时带着那条禁令。没有它，下一轮很容易顺手把
 // 这张表做成一个选择题 —— 那就是把那次裁定悄悄推翻。
 func TestWritingPlanSystem_ForbidsOfferingTheSkeletonsAsAMenu(t *testing.T) {
-	if !strings.Contains(writingPlanSystem, "绝不要把这张表甩给她挑") {
+	if !strings.Contains(writingPlanSystem, "学生尚未说明观点时，不要求她先选结构名称") {
 		t.Error("骨架那一段没有带上「不许做成菜单」的禁令")
 	}
-	if !strings.Contains(writingPlanSystem, "让她填表") {
+	if !strings.Contains(writingPlanSystem, "先了解学生想表达的内容，再据此整理结构") {
 		t.Error("没有说清为什么不许挑 —— 2026-08-27 裁掉的正是「填表」那种做法")
 	}
 }

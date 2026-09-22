@@ -360,10 +360,10 @@ func (s writingPlanShape) missing(need writingPlanNeed) string {
 		missing = append(missing, "这篇要说的那一句话还没定下来")
 	}
 	if s.Points < need.Points {
-		missing = append(missing, "支撑它的分论点还不到 "+strconv.Itoa(need.Points)+" 条")
+		missing = append(missing, "说明中心论点的分论点还不到 "+strconv.Itoa(need.Points)+" 条")
 	}
 	if s.Material < need.Material {
-		missing = append(missing, "撑得住这些分论点的例子还不到 "+strconv.Itoa(need.Material)+
+		missing = append(missing, "与分论点相关的例子还不到 "+strconv.Itoa(need.Material)+
 			" 个（每条分论点底下至少一个）")
 	}
 	if s.Wider < need.Wider {

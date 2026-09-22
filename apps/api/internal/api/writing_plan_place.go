@@ -151,5 +151,5 @@ func writingPlanPlaceNudge(unplaced []string) string {
 	return "你在 reply 里提到了她这一轮说的「" + strings.Join(unplaced, "」「") +
 		"」，但图上没有它，add 里也没有（或者 parentId 不是【当前的图】里的 id，那一条会被丢掉）。\n" +
 		"请重新输出完整的 JSON：把它加进 add；parentId 逐字复制【当前的图】里那串 id；" +
-		"分论点挂在中心论点下面，例子挂在它支撑的那条分论点下面。reply 可以不变。"
+		"分论点挂在中心论点下面，例子放在它所说明的那条分论点下面。reply 可以不变。"
 }

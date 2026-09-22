@@ -77,8 +77,8 @@ func summaryClaimsAbsence(summary string) string {
 // 再念一遍 —— 念规矩它上一轮已经读过了。
 const writingSummaryAbsenceNudge = `刚才那份 summary 里说了她「缺」什么（出现了「%s」）。
 
-summary 只说这篇稿子现在站在哪儿，不说少了什么。少了什么由下面那几条 point 去说——
-那几条必须指着她原文里的一句话，并给出她接下来要做的那个动作。
+summary 概述文章已有的内容和表达效果。需要补充或修改的内容放在 points 中，
+每条附上原文引句和具体修改建议。
 
 重新输出一次完整的 JSON，只改 summary 这一个字段，points 原样保留。`
 
@@ -234,7 +234,7 @@ const writingNoPointNudge = `刚才那一份里，verdict 不是 pass，但 poin
   · symptom：只能用给定清单里的 id；
   · text：说清楚是什么问题；
   · action：她现在就能做的那一个动作。
-- 其实没有 → 把 verdict 改成 pass，summary 改成说这一篇现在站在哪儿。`
+- 其实没有 → 把 verdict 改成 pass，summary 概述文章已有的内容和表达效果。`
 
 // writingCommentProblem —— 这一份意见有没有哪一道闸没过，以及该怎么跟它说。
 //

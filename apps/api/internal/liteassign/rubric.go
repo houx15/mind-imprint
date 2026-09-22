@@ -40,14 +40,14 @@ var LetterGrades = []string{"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "
 func DefaultRubric(lang string) Rubric {
 	if lang == "en" {
 		return Rubric{Scale: ScaleLetter, Dimensions: []RubricDimension{
-			{Name: "Task Response", Note: "是否回应题目的全部要求，观点是否展开并有支撑"},
+			{Name: "Task Response", Note: "是否回应题目的全部要求，观点是否展开并有依据"},
 			{Name: "Coherence and Cohesion", Note: "段落安排是否清楚，句与句、段与段之间是否衔接"},
 			{Name: "Lexical Resource", Note: "用词是否准确、多样，搭配是否得当"},
 			{Name: "Grammatical Range and Accuracy", Note: "句式是否多样，语法是否准确"},
 		}}
 	}
 	return Rubric{Scale: ScaleLetter, Dimensions: []RubricDimension{
-		{Name: "内容", Note: "立意是否明确，材料是否支撑观点"},
+		{Name: "内容", Note: "立意是否明确，材料是否能说明观点"},
 		{Name: "结构", Note: "段落顺序是否清楚，段与段之间是否衔接"},
 		{Name: "语言", Note: "表达是否准确、通顺"},
 		{Name: "书写规范", Note: "标点、错别字与格式"},
