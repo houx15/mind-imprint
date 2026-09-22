@@ -135,6 +135,7 @@ export function SharePanel({
   }, []);
 
   async function handleShare(forceShowcase = false) {
+    const previous = state;
     setError(null);
     setState({ phase: "sharing" });
     try {
@@ -157,7 +158,7 @@ export function SharePanel({
       setState({ phase: "on", url, qr });
       onSharedChange?.(token);
     } catch (err) {
-      setState({ phase: "off" });
+      setState(previous.phase === "on" ? previous : { phase: "off" });
       setError(apiErrorText(err));
     }
   }

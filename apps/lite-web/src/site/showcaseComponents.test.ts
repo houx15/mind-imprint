@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { componentDocument } from "./ShowcaseComponents";
+import { componentDocument, isolatedComponentDocument } from "./ShowcaseComponents";
 
 describe("component document isolation",()=>{
+  it("keeps hostile document boundaries inside the inner srcdoc attribute",()=>{
+    const source=`</iframe><script>parent.document.body.remove()</script><p title="&quot;">学生作品</p>`;
+    const doc=new DOMParser().parseFromString(isolatedComponentDocument(source),"text/html");
+    expect(doc.querySelectorAll("script")).toHaveLength(0);
+    expect(doc.querySelectorAll("iframe")).toHaveLength(1);
+    expect(doc.querySelector("iframe")?.getAttribute("srcdoc")).toBe(componentDocument(source));
+    expect(doc.querySelector("meta[http-equiv]")?.getAttribute("content")).toContain("frame-src about:");
+  });
   // Source comes from arbitrary student files; CSP must precede even a supplied
   // full HTML document, so imported scripts cannot execute before restrictions.
   it("places resource policy before student HTML and preserves inline Canvas code",()=>{
