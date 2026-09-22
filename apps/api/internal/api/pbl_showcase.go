@@ -3,9 +3,12 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -281,8 +284,41 @@ func validShowcaseHTTPS(v string) bool {
 	return !strings.EqualFold(u.Hostname(), "localhost") && net.ParseIP(u.Hostname()) == nil
 }
 func validShowcaseSVG(v string) bool {
-	l := strings.ToLower(strings.TrimSpace(v))
-	return strings.HasPrefix(l, "<svg") && strings.HasSuffix(l, "</svg>") && !strings.Contains(l, "<iframe") && !strings.Contains(l, "<foreignobject")
+	d := xml.NewDecoder(strings.NewReader(v))
+	depth, roots := 0, 0
+	for {
+		tok, err := d.Token()
+		if errors.Is(err, io.EOF) {
+			return roots == 1 && depth == 0
+		}
+		if err != nil {
+			return false
+		}
+		switch x := tok.(type) {
+		case xml.Directive:
+			return false
+		case xml.StartElement:
+			if depth == 0 {
+				roots++
+				if roots != 1 || !strings.EqualFold(x.Name.Local, "svg") {
+					return false
+				}
+			}
+			if strings.EqualFold(x.Name.Local, "foreignObject") || strings.EqualFold(x.Name.Local, "iframe") {
+				return false
+			}
+			depth++
+		case xml.EndElement:
+			depth--
+			if depth < 0 {
+				return false
+			}
+		case xml.CharData:
+			if depth == 0 && strings.TrimSpace(string(x)) != "" {
+				return false
+			}
+		}
+	}
 }
 
 func decodeShowcase(raw []byte, fallback string) showcaseConfig {
@@ -330,6 +366,7 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 	c.HeroImagePrompt = ""
 	c.AvatarImagePrompt = ""
 	c.AboutConversation = nil
+	c.CustomWorks = nil
 	enabled := make([]showcaseComponent, 0, len(c.Components))
 	for _, x := range c.Components {
 		if x.Enabled {
@@ -922,6 +959,14 @@ func (a *API) getPublicShowcaseWorks(w http.ResponseWriter, r *http.Request) {
 		}
 		items = filtered
 	}
+	fingerprintInput := append([]byte(nil), row.PublishedConfig...)
+	fingerprintInput = append(fingerprintInput, kind...)
+	fingerprintInput = append(fingerprintInput, row.PublishedAt.Time.UTC().Format(time.RFC3339Nano)...)
+	for _, x := range items {
+		fingerprintInput = append(fingerprintInput, x.ID...)
+		fingerprintInput = append(fingerprintInput, x.PublicPath...)
+	}
+	fingerprint := fmt.Sprintf("%x", sha256.Sum256(fingerprintInput))[:16]
 	limit := 12
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		n, e := strconv.Atoi(raw)
@@ -938,9 +983,18 @@ func (a *API) getPublicShowcaseWorks(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_cursor", "分页游标无效", nil))
 			return
 		}
-		offset, e = strconv.Atoi(string(b))
+		var cursor struct {
+			Offset      int    `json:"o"`
+			Fingerprint string `json:"f"`
+		}
+		e = json.Unmarshal(b, &cursor)
+		offset = cursor.Offset
 		if e != nil || offset < 0 || offset > len(items) {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_cursor", "分页游标无效", nil))
+			return
+		}
+		if cursor.Fingerprint != fingerprint {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("stale_cursor", "作品列表已更新，请重新加载", nil))
 			return
 		}
 	}
@@ -948,7 +1002,11 @@ func (a *API) getPublicShowcaseWorks(w http.ResponseWriter, r *http.Request) {
 	page := items[offset:end]
 	next := ""
 	if end < len(items) {
-		next = base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(end)))
+		b, _ := json.Marshal(struct {
+			Offset      int    `json:"o"`
+			Fingerprint string `json:"f"`
+		}{end, fingerprint})
+		next = base64.RawURLEncoding.EncodeToString(b)
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": page, "nextCursor": next, "total": len(items)})
