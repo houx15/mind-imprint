@@ -34,6 +34,12 @@ import type { ReadingBlockTool } from "@lite/api/readingRoom";
  * —— 产品负责人明确说了不要那一问（「actually I don't think we need this ask」），
  * 想说的时候她自己去阅读成果那一页跟印记说。
  *
+ * 🚨 **摘抄是正文定下来之后才有的事**（产品负责人 2026-09-22：「摘抄 is a
+ * feature that after the text is decided」）。只有摘要的那一篇（`excerptOnly`）
+ * 上这颗按钮不出现 —— 摘抄记的是字偏移，而她随时会把全文粘进来换掉这份摘要，
+ * 换完之后那个偏移指的是另一段话。服务端同样拦着（`excerpt_only_source`），
+ * 这里只是不把一颗按下去会报错的按钮摆给她看。
+ *
  * # 摆哪几件工具由服务端的目录决定
  *
  * 查词 / 语法这两件不写死。`subject === "word"` 的工具（查词）只在她划的是
@@ -41,8 +47,8 @@ import type { ReadingBlockTool } from "@lite/api/readingRoom";
  * 时出现 —— 划了半句话去「查词」，讲出来的不是一张词卡。中文文章上这两件工具
  * 本来就不在目录里（它们是 Lang "en" 的）。
  *
- * 摘抄和放入对话框不跟着目录走：它们对任何一段选中的文字都成立，所以这条
- * 工具条现在**永远至少有两颗按钮**，不再有「一个按钮都没有」那种情况。
+ * 放入对话框不跟着目录走：它对任何一段选中的文字都成立，所以这条工具条永远
+ * 至少有它和「关闭」两颗，不再有「一个按钮都没有」那种情况。
  */
 
 /** 她划的这几个字算不算「一个词」。英文按空白切；中文没有词边界，四个字以内算。 */
@@ -67,6 +73,7 @@ export function SelectionTools({
   at,
   tools,
   excerpted,
+  excerptable,
   onPick,
   onExcerpt,
   onSendToCoach,
@@ -79,6 +86,8 @@ export function SelectionTools({
   /** 这一句已经在摘抄本里了。按钮据此换成「已摘抄」并且不可再按 —— 同一句
    *  摘两遍，报告里就是两条一模一样的。 */
   excerpted: boolean;
+  /** 这一篇的正文定下来了（不是只有摘要），可以摘抄。false 时整颗按钮不出现。 */
+  excerptable: boolean;
   onPick: (toolId: string) => void;
   onExcerpt: () => void;
   onSendToCoach: () => void;
@@ -95,14 +104,16 @@ export function SelectionTools({
       // 🚨 按下去不能让浏览器先把选区收掉 —— 选区就是「对哪几个字」。
       onMouseDown={(e) => e.preventDefault()}
     >
-      <button
-        type="button"
-        className="mk-seltools__btn mk-seltools__btn--mark"
-        onClick={onExcerpt}
-        disabled={excerpted}
-      >
-        {excerpted ? "已摘抄" : "摘抄"}
-      </button>
+      {excerptable && (
+        <button
+          type="button"
+          className="mk-seltools__btn mk-seltools__btn--mark"
+          onClick={onExcerpt}
+          disabled={excerpted}
+        >
+          {excerpted ? "已摘抄" : "摘抄"}
+        </button>
+      )}
       <button type="button" className="mk-seltools__btn" onClick={onSendToCoach}>
         放入对话框
       </button>

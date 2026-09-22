@@ -937,6 +937,8 @@ export function ReadingRoom({
                     at={{ x: selPick.x, y: selPick.y }}
                     tools={blockTools}
                     excerpted={alreadyExcerpted(selPick.blockId, selPick.start, selPick.end)}
+                    // 摘抄是正文定下来之后的事 —— 只有摘要的那一篇不摆这颗按钮。
+                    excerptable={!excerptOnly}
                     onPick={(toolId) => {
                       const { blockId, quote } = selPick;
                       setSelPick(null);

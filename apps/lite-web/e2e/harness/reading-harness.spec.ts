@@ -131,6 +131,19 @@ test("划选工具条：摘抄和放入对话框一直在，查词/语法看划�
   await page.screenshot({ path: `${OUT}/read-04-seltools.png`, fullPage: true });
 });
 
+test("只有摘要的那一篇：摘抄整颗不出现，别的照常", async ({ page }) => {
+  // 🚨 摘抄是正文定下来之后的事（产品负责人 2026-09-22：「摘抄 is a feature
+  // that after the text is decided」）。摘要那一篇上它整颗不该在 —— 摘下的
+  // 偏移会被她随后粘进来的全文换掉，而且按现行规则她会因此再也换不成正文。
+  const excerptOnly = page.locator(".mk-seltools").nth(2);
+  await expect(excerptOnly.getByRole("button", { name: /摘抄/ })).toHaveCount(0);
+  // 别的照常：她还是能把这一句交给印记、还能查语法。
+  await expect(excerptOnly.getByRole("button", { name: "放入对话框" })).toBeVisible();
+  await expect(excerptOnly.getByRole("button", { name: "语法" })).toBeVisible();
+
+  await page.screenshot({ path: `${OUT}/read-06-excerpt-only.png`, fullPage: true });
+});
+
 test("阅读成果里的我摘抄的：回原文 + 和印记说", async ({ page }) => {
   // 钉那一节真正的标题（h3），不是裸 getByText —— 看图台的小标题里也有这三个字。
   await expect(page.getByRole("heading", { name: "我摘抄的", exact: true })).toBeVisible();
