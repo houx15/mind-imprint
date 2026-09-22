@@ -26,6 +26,7 @@ import { KeywordDrawer } from "./KeywordDrawer";
 import { treeCopy } from "./treeCopy";
 import { useAwakeningStatus } from "../awakening/useAwakeningStatus";
 import { DOOR } from "../awakening/content";
+import { shouldShowQuizDoor } from "./quizDoor";
 import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
 
@@ -127,6 +128,20 @@ export function TreeView({
   // 有一趟没走完就是「继续」，走过就是「再走一次」，都没有就是「开始」。
   const doorLabel =
     awakening?.open ? DOOR.resume : quizTaken ? DOOR.again : DOOR.firstTime;
+  /**
+   * 她手上有一趟没走完的测试。
+   *
+   * 🚨 这一条是那颗入口的**第三个**出现理由，不能漏。2026-09-22 那次改动把
+   * 条件收成了「树不空，或者她做过一趟」——本意是别在空树上同时摆两个入口
+   * （页眉这颗和空状态里那条邀请）。但一个**做到一半离开**的学生正好两条都不
+   * 满足：树还是空的，quizTaken 也还是 false。于是她回来时页眉那颗没了，
+   * 屏幕上只剩空状态里那颗「开始兴趣测试」——按下去是从头再来，
+   * 她上一趟说过的话没有任何一条路通回去。
+   *
+   * 空状态那条邀请只在 `quizTaken === false` 时出现，而它写死了「开始」；
+   * 所以「继续」这件事只能由页眉这颗说。
+   */
+  const resumable = Boolean(awakening?.open);
   const openQuiz = () => navigate(liteRoutePath({ tab: "tree", awakening: true }));
   const openReport = () =>
     navigate(liteRoutePath({ tab: "tree", reportRunId: awakening?.latestReportRunId ?? "" }));
@@ -247,7 +262,12 @@ export function TreeView({
               （服务端给同一个词再添一条来源，强度上升），不是清空重来。
               和空树上那条邀请一样，状态未知（null）时不显示。
               🚨 只读（教师）视角下整个入口收起——这是学生自己的测试。 */}
-          {!readOnly && quizTaken !== null && (live.status !== "empty" || quizTaken) ? (
+          {shouldShowQuizDoor({
+            readOnly,
+            quizTaken,
+            treeEmpty: live.status === "empty",
+            resumable,
+          }) ? (
             <button
               type="button"
               onClick={openQuiz}
