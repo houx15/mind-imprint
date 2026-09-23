@@ -6,6 +6,7 @@ import {
   patchGrading,
   queueWritingGrading,
   regradeGrading,
+  saveGradingDraft,
   sendGrading,
   type GradingContent,
   type TeacherGrading,
@@ -194,11 +195,11 @@ export function GradingPage({
     }
   }
 
-  function saveContent(): Promise<TeacherGrading> {
+  function saveContent(asDraft = false): Promise<TeacherGrading> {
     const body = contentForSave(content);
-    const invalid = grading ? validateGradingContent(body, grading.rubric) : null;
+    const invalid = !asDraft && grading ? validateGradingContent(body, grading.rubric) : null;
     if (invalid) return Promise.reject(new Error(invalid));
-    return patchGrading(gradingId, body);
+    return asDraft ? saveGradingDraft(gradingId, body) : patchGrading(gradingId, body);
   }
 
   async function openReturn() {
@@ -283,8 +284,8 @@ export function GradingPage({
             title={grading.title}
             description={
               grading.source === "teacher"
-                ? "请填写等级与意见，保存后发送给学生。"
-                : "AI 批改可能出错。请对照左侧正文审核每一条意见，修改后发送给学生。"
+                ? "请填写等级与意见。可以先保存草稿，审核后再发送给学生。"
+                : "AI 批改可能出错。请对照左侧正文审核意见；可以先保存草稿，稍后发送。"
             }
           >
             <p className="flex flex-wrap items-center gap-2 text-mk-small text-mk-muted">
@@ -408,8 +409,8 @@ export function GradingPage({
           <div className="teacher-grading-actions flex shrink-0 flex-col gap-2 border-t border-mk-border pt-4">
             <div className="flex flex-wrap gap-2">
               {editable && (
-                <Button variant="primary" size="sm" disabled={busy} onClick={() => void run("保存", "save", saveContent)}>
-                  {grading.status === "sent" ? "保存并发送" : "保存"}
+                <Button variant={grading.status === "sent" ? "primary" : "secondary"} size="sm" disabled={busy || (!dirty && grading.status === "draft")} onClick={() => void run("保存", "save", () => saveContent(grading.status === "draft"))}>
+                  {grading.status === "sent" ? "保存并更新已发送批改" : "保存草稿"}
                 </Button>
               )}
               {editable && grading.status === "draft" && !grading.reviewedAt && (
@@ -419,7 +420,7 @@ export function GradingPage({
               )}
               {editable && grading.status === "draft" && (
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   size="sm"
                   disabled={busy}
                   onClick={() =>
@@ -429,15 +430,20 @@ export function GradingPage({
                         // fails, the page must show the already-saved content
                         // (reviewedAt set, no stale `dirty`), not the state
                         // from before this save.
-                        const saved = await saveContent();
+                        const saved = await saveContent(false);
                         if (alive.current) apply(saved, true);
                       }
                       return sendGrading(gradingId);
                     })
                   }
                 >
-                  发送
+                  {dirty ? "保存并发送" : "发送给学生"}
                 </Button>
+              )}
+              {editable && grading.status === "draft" && (
+                <span className="self-center text-mk-small text-mk-muted" role="status">
+                  {dirty ? "有未保存的修改" : "草稿仅教师可见"}
+                </span>
               )}
               {/* The AI failed and left nothing: she can write it herself. */}
               {grading.status === "failed" && grading.content === null && (

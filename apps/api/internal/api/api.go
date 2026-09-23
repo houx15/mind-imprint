@@ -293,6 +293,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/lite/inbox/gradings/{gid}/seen", liteOnly(a.markLiteGradingSeen))
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/seen", liteOnly(a.markLiteAssignmentSeen))
 	mux.Handle("POST /api/v1/lite/assignments/{aid}/start", liteOnly(a.startLiteAssignment))
+	mux.Handle("POST /api/v1/lite/assignments/{aid}/issue", liteOnly(a.reportLiteAssignmentIssue))
 	mux.Handle("GET /api/v1/lite/assignments/for-atom/{atomId}", liteOnly(a.getLiteAssignmentForAtom))
 
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，

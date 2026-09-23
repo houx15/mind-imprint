@@ -916,6 +916,37 @@ func gradingContent(grade string, points []map[string]any) map[string]any {
 	}
 }
 
+func TestLiteGradingDraftStaysPrivateUntilComplete(t *testing.T) {
+	f := newGradingFixture(t)
+	aid, _, _ := f.submit(t)
+	f.queueAll(t, aid, false)
+	f.runJobs(t)
+	gid := f.rows(t, aid)[0].Grading.ID
+	path := "/api/v1/lite/teacher/gradings/" + gid
+	partial := gradingContent("", []map[string]any{{"kind": "issue", "quote": nil, "text": "", "source": "teacher"}})
+	var saved struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", path, map[string]any{"content": partial, "saveDraft": true}, &saved); code != http.StatusOK {
+		t.Fatalf("save partial draft = %d", code)
+	}
+	if saved.Grading.Status != "draft" || saved.Grading.ReviewedAt != nil {
+		t.Fatalf("draft state = %+v", saved.Grading)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "POST", path+"/send", nil); code != http.StatusBadRequest || ec != "invalid_grading" {
+		t.Fatalf("send partial draft = %d %s", code, ec)
+	}
+	if code, ec := writeErrorCode(t, f.h, f.teacher, "PATCH", path, map[string]any{}); code != http.StatusBadRequest || ec != "invalid_grading" {
+		t.Fatalf("review partial draft = %d %s", code, ec)
+	}
+	var persisted struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := getJSON(t, f.h, f.teacher, path, &persisted); code != http.StatusOK || persisted.Grading.ReviewedAt != nil {
+		t.Fatalf("persisted private draft = %d %+v", code, persisted.Grading)
+	}
+}
+
 func TestLiteGradingPatchAndSend(t *testing.T) {
 	f := newGradingFixture(t)
 	aid, _, _ := f.submit(t)

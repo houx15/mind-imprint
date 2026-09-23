@@ -39,7 +39,9 @@ type AssignmentSummaryDTO struct {
 	Counts map[string]int `json:"counts"`
 	// ToGrade counts students whose latest submitted version has no sent
 	// grading yet (writing only; 0 otherwise).
-	ToGrade int `json:"toGrade"`
+	ToGrade            int `json:"toGrade"`
+	IssueCount         int `json:"issueCount"`
+	NeedsReadingReview int `json:"needsReadingReview"`
 }
 
 // RecipientDTO is one student on an assignment. Status is derived on read.
@@ -65,6 +67,7 @@ type RecipientDTO struct {
 	ActiveMinutes   int `json:"activeMinutes"`
 	StepsDone       int `json:"stepsDone"`
 	StepsTotal      int `json:"stepsTotal"`
+	CardsSubmitted  int `json:"cardsSubmitted"`
 	LatestWordCount int `json:"latestWordCount"`
 	// Reading is this student's article on a personalized reading homework; nil otherwise.
 	Reading *RecipientReadingDTO `json:"reading"`
@@ -74,6 +77,38 @@ type RecipientDTO struct {
 var assignmentStatuses = []string{"not_started", "in_progress", "done", "done_late", "overdue", "returned", "resubmitted"}
 
 const maxAssignmentTitleRunes = 200
+
+// A link assignment must be readable when it is published. Keep the fetched
+// text with the URL so every student gets the article the teacher checked,
+// even if the site later blocks requests or changes its contents. The client
+// never supplies this cached text: ValidatePayload removes it first.
+func (a *API) prepareAssignedReadingURL(ctx context.Context, kind string, payload json.RawMessage, previous *sqlc.LiteAssignment) (json.RawMessage, error) {
+	if kind != "reading" {
+		return payload, nil
+	}
+	var p liteassign.ReadingPayload
+	if err := json.Unmarshal(payload, &p); err != nil || p.Source != "url" {
+		return payload, nil
+	}
+	if previous != nil && previous.Kind == "reading" {
+		var old liteassign.ReadingPayload
+		if json.Unmarshal(previous.Payload, &old) == nil && old.Source == "url" && old.URL == p.URL && old.Text != "" {
+			p.Text = old.Text
+			p.ArticleTitle = old.ArticleTitle
+			return json.Marshal(p)
+		}
+	}
+	title, body, err := a.resolveReadingSource(ctx, "", p.URL, "")
+	if err != nil {
+		return nil, httpx.ErrBadRequest("source_unreadable", "链接无法读取正文。请更换链接，或上传有文字层的 PDF、DOCX 文件。", nil)
+	}
+	if utf8.RuneCountInString(body) > 50000 {
+		return nil, httpx.ErrBadRequest("source_too_long", "链接正文超过 50000 字，请选择较短的文章", nil)
+	}
+	p.Text = body
+	p.ArticleTitle = title
+	return json.Marshal(p)
+}
 
 // tsPtr converts a nullable timestamp for liteassign.Status. Shared by the
 // teacher and student assignment handlers.
@@ -151,6 +186,7 @@ func newRecipientDTO(row sqlc.ListLiteAssignmentRecipientsRow, dueAt, now time.T
 		ReturnedAt: tsStringPtr(row.ReturnedAt), ReturnDueAt: tsStringPtr(row.ReturnDueAt),
 		ReturnNote: row.ReturnNote, VersionCount: int(row.VersionCount),
 		ActiveMinutes: int(row.ActiveSeconds) / 60, StepsDone: int(row.StepsDone), StepsTotal: int(row.StepsTotal),
+		CardsSubmitted:  int(row.CardsSubmitted),
 		LatestWordCount: int(row.LatestWordCount),
 	}
 }
@@ -297,6 +333,11 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	payload, err = a.prepareAssignedReadingURL(ctx, req.Kind, payload, nil)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	if liteassign.PicksOutside(payload, ids) {
 		httpx.WriteError(w, r, errPickNotRecipient())
 		return
@@ -358,6 +399,34 @@ func (a *API) classAssignmentSummaries(ctx context.Context, classID uuid.UUID) (
 		ids = append(ids, row.ID)
 	}
 	if len(ids) > 0 {
+		tx, err := a.d.Pool.Begin(ctx)
+		if err != nil {
+			return nil, err
+		}
+		issueRows, err := tx.Query(ctx, `SELECT assignment_id, count(*)::int FROM lite_assignment_issue WHERE assignment_id = ANY($1::uuid[]) AND resolved_at IS NULL GROUP BY assignment_id`, ids)
+		if err != nil {
+			tx.Rollback(ctx)
+			return nil, err
+		}
+		for issueRows.Next() {
+			var issueID uuid.UUID
+			var count int
+			if err := issueRows.Scan(&issueID, &count); err != nil {
+				issueRows.Close()
+				tx.Rollback(ctx)
+				return nil, err
+			}
+			out[index[issueID]].IssueCount = count
+		}
+		if err := issueRows.Err(); err != nil {
+			issueRows.Close()
+			tx.Rollback(ctx)
+			return nil, err
+		}
+		issueRows.Close()
+		if err := tx.Rollback(ctx); err != nil {
+			return nil, err
+		}
 		recipients, err := a.d.Queries.ListLiteAssignmentRecipients(ctx, ids)
 		if err != nil {
 			return nil, err
@@ -371,6 +440,9 @@ func (a *API) classAssignmentSummaries(ctx context.Context, classID uuid.UUID) (
 			status := liteassign.StatusWithReturn(rc.StartedAt.Valid, tsPtr(rc.FinishedAt), rows[i].DueAt, now,
 				returnOf(rc.ReturnedAt, rc.ReturnDueAt, rc.Resubmitted))
 			out[i].Counts[status]++
+			if rows[i].Kind == "reading" && (status == "done" || status == "done_late") && rc.StepsTotal > 0 && rc.StepsDone < rc.StepsTotal {
+				out[i].NeedsReadingReview++
+			}
 			if rc.ToGrade {
 				out[i].ToGrade++
 			}
@@ -422,7 +494,12 @@ func (a *API) getLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		dto.Reading = readings[row.UserID]
 		recipients = append(recipients, dto)
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignment": newAssignmentDTO(as), "recipients": recipients})
+	issues, err := a.liteAssignmentIssues(r.Context(), as.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"assignment": newAssignmentDTO(as), "recipients": recipients, "issues": issues})
 }
 
 // samePayload compares two JSON payloads by value. The stored copy comes back
@@ -611,6 +688,11 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		validated, err = a.prepareAssignedReadingURL(ctx, params.Kind, validated, &locked)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 		params.Payload = validated
 		settingsChanged = params.Kind != locked.Kind || !samePayload(validated, locked.Payload)
 	}
@@ -681,6 +763,12 @@ func (a *API) patchLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	if settingsChanged {
+		if _, err := tx.Exec(ctx, `UPDATE lite_assignment_issue SET resolved_at = now() WHERE assignment_id = $1 AND resolved_at IS NULL`, locked.ID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		httpx.WriteError(w, r, err)

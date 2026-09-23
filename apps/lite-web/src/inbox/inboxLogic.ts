@@ -35,7 +35,7 @@ export function openItemsForKind(items: readonly InboxItemDTO[], kind: Assignmen
   return items
     .filter(
       (it): it is AssignmentInboxItem =>
-        it.type === "assignment" && (kind === null || it.kind === kind) && OPEN_STATUSES.includes(it.status),
+        it.type === "assignment" && (kind === null || it.kind === kind) && (OPEN_STATUSES.includes(it.status) || it.needsReadingReview === true),
     )
     .sort((a, b) => Date.parse(stripDueAt(a)) - Date.parse(stripDueAt(b)));
 }

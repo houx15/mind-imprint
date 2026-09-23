@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -146,7 +145,7 @@ func TestInboxOnlyAssignmentsWithPlan2Keys(t *testing.T) {
 	if out.Unread != 1 || len(out.Items) != 1 || out.Items[0]["type"] != "assignment" || out.Items[0]["id"] != aid {
 		t.Fatalf("inbox = %d %+v, want only the assignment", out.Unread, out.Items)
 	}
-	wantAssignKeys := []string{"atomId", "className", "dueAt", "id", "instructions", "kind", "returnDueAt", "returnNote", "status", "statusLabel", "title", "type", "unread"}
+	wantAssignKeys := []string{"atomId", "className", "dueAt", "id", "instructions", "kind", "needsReadingReview", "returnDueAt", "returnNote", "status", "statusLabel", "title", "type", "unread"}
 	if got := keysOf(out.Items[0]); !reflect.DeepEqual(got, wantAssignKeys) {
 		t.Fatalf("assignment keys = %v, want %v", got, wantAssignKeys)
 	}
@@ -331,16 +330,14 @@ func TestStartReadingTextUsesTextLanguage(t *testing.T) {
 	}
 }
 
-func TestStartReadingURLFetchFailedHidesCause(t *testing.T) {
+func TestPublishReadingURLFetchFailedHidesCause(t *testing.T) {
 	_, pool, teacher, classID, studentID := liteTeacherFixture(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool, Fetcher: errFetcher{},
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
-	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("Rain",
-		map[string]any{"source": "url", "url": "https://example.com/rain"}, []string{studentID.String()}))
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/lite/assignments/"+aid+"/start", bytes.NewReader(nil)), signInAs(t, pool, studentID)))
+	rec := doJSON(t, h, teacher, "POST", "/api/v1/lite/teacher/classes/"+classID+"/assignments",
+		mustJSON(t, readingAssignmentBody("Rain", map[string]any{"source": "url", "url": "https://example.com/rain"}, []string{studentID.String()})))
 	var e struct {
 		Error struct {
 			Code    string `json:"code"`
@@ -348,13 +345,16 @@ func TestStartReadingURLFetchFailedHidesCause(t *testing.T) {
 		} `json:"error"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &e)
-	if rec.Code != http.StatusBadRequest || e.Error.Code != "fetch_failed" || e.Error.Message != "开始失败：链接无法读取正文，请告知老师更换阅读材料" {
-		t.Fatalf("fetch failure = %d body=%s", rec.Code, rec.Body)
+	if rec.Code != http.StatusBadRequest || e.Error.Code != "source_unreadable" || !strings.Contains(e.Error.Message, "链接无法读取正文") {
+		t.Fatalf("publish failure = %d body=%s", rec.Code, rec.Body)
 	}
 	if strings.Contains(rec.Body.String(), "simulated") {
 		t.Fatalf("response leaked the fetcher error: %s", rec.Body)
 	}
-	assertNotStarted(t, pool, aid, studentID)
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM lite_assignment WHERE class_id=$1`, classID).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("failed publication persisted %d assignments: %v", n, err)
+	}
 }
 
 // enArticleFetcher serves one English article. It embeds errFetcher for the
@@ -365,6 +365,116 @@ func (enArticleFetcher) FetchReadable(ctx context.Context, rawURL string) (strin
 	return "Why the Rain Stays",
 		"The rain came in the night and stayed for eleven days.\n\nNobody in the town could remember a week like it.",
 		nil, nil
+}
+
+type changingArticleFetcher struct {
+	errFetcher
+	calls int
+}
+
+func (f *changingArticleFetcher) FetchReadable(_ context.Context, _ string) (string, string, *materialize.DOIMeta, error) {
+	f.calls++
+	if f.calls > 1 {
+		return "", "", nil, fmt.Errorf("page no longer available")
+	}
+	return "Saved page title", "This is the readable article body for the whole class.", nil, nil
+}
+
+func TestStartReadingURLUsesPublishedSnapshot(t *testing.T) {
+	_, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	fetcher := &changingArticleFetcher{}
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Fetcher: fetcher,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID}).Handler()
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("Class assignment",
+		map[string]any{"source": "url", "url": "https://example.com/article"}, []string{studentID.String()}))
+	started := startAssignment(t, h, signInAs(t, pool, studentID), aid)
+	if fetcher.calls != 1 {
+		t.Fatalf("fetch calls = %d, want publication only", fetcher.calls)
+	}
+	var title, body string
+	if err := pool.QueryRow(context.Background(), `SELECT s.title, s.body FROM reading_source s WHERE s.atom_id=$1`, started.AtomID).Scan(&title, &body); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Saved page title" || !strings.Contains(body, "readable article") {
+		t.Fatalf("saved source = %q %q", title, body)
+	}
+}
+
+func TestReadingIssueReachesTeacherAndClearsAfterMaterialChange(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("阅读材料",
+		map[string]any{"source": "text", "text": "第一版材料。"}, []string{studentID.String()}))
+	path := "/api/v1/lite/assignments/" + aid + "/issue"
+	student := signInAs(t, pool, studentID)
+	if code := assignJSON(t, h, student, "POST", path, map[string]any{"detail": "材料打开后只有空白"}, nil); code != http.StatusNoContent {
+		t.Fatalf("report = %d", code)
+	}
+	other := createStudent(t, pool, SeedSchoolID, "reading-issue-other@demo.local")
+	if code := assignJSON(t, h, signInAs(t, pool, other), "POST", path, map[string]any{"detail": "fake"}, nil); code != http.StatusNotFound {
+		t.Fatalf("non-recipient report = %d", code)
+	}
+	var detail struct {
+		Issues []struct {
+			Detail string `json:"detail"`
+		} `json:"issues"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK || len(detail.Issues) != 1 || detail.Issues[0].Detail != "材料打开后只有空白" {
+		t.Fatalf("teacher issues = %d %+v", code, detail.Issues)
+	}
+	var list struct {
+		Assignments []struct {
+			IssueCount int `json:"issueCount"`
+		} `json:"assignments"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &list); code != http.StatusOK || len(list.Assignments) != 1 || list.Assignments[0].IssueCount != 1 {
+		t.Fatalf("teacher issue priority = %d %+v", code, list)
+	}
+	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid,
+		map[string]any{"payload": map[string]any{"source": "text", "text": "第二版可阅读材料。"}}, nil); code != http.StatusOK {
+		t.Fatalf("replace material = %d", code)
+	}
+	detail = struct {
+		Issues []struct {
+			Detail string `json:"detail"`
+		} `json:"issues"`
+	}{}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK || len(detail.Issues) != 0 {
+		t.Fatalf("resolved issues = %d %+v", code, detail.Issues)
+	}
+}
+
+func TestReadingAssignmentSummarySeparatesUnfinishedPlan(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("阅读材料",
+		map[string]any{"source": "text", "text": "第一段材料。\n\n第二段材料。"}, []string{studentID.String()}))
+	started := startAssignment(t, h, signInAs(t, pool, studentID), aid)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO reading_task (atom_id, position, kind, label, status) VALUES ($1, 1, 'read', '通读', 'done'), ($1, 2, 'reflect', '复盘', 'pending')`, started.AtomID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE reading SET status='finished', finished_at=now() WHERE atom_id=$1`, started.AtomID); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Assignments []struct {
+			NeedsReadingReview int            `json:"needsReadingReview"`
+			Counts             map[string]int `json:"counts"`
+		} `json:"assignments"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &out); code != http.StatusOK || len(out.Assignments) != 1 {
+		t.Fatalf("list = %d %+v", code, out)
+	}
+	if out.Assignments[0].NeedsReadingReview != 1 || out.Assignments[0].Counts["done"] != 1 {
+		t.Fatalf("reading review count = %+v", out.Assignments[0])
+	}
+	var inbox struct {
+		Items []struct {
+			NeedsReadingReview bool `json:"needsReadingReview"`
+		} `json:"items"`
+	}
+	if code := getJSON(t, h, signInAs(t, pool, studentID), "/api/v1/lite/inbox", &inbox); code != http.StatusOK || len(inbox.Items) != 1 || !inbox.Items[0].NeedsReadingReview {
+		t.Fatalf("student reminder = %d %+v", code, inbox)
+	}
 }
 
 // TestStartReadingURLUsesFetchedTitleAndLang: the assignment's title is the

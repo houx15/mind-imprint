@@ -550,6 +550,7 @@ function ReadingSection({
   return (
     <section className="teacher-record-section">
       <h2 className="text-mk-h3 text-mk-ink">阅读</h2>
+      <div className="teacher-reading-evidence-summary" aria-label="阅读互动汇总"><span><strong>{lenses.length}</strong> 张阅读卡片</span><span><strong>{highlights.length}</strong> 条划线与笔记</span><span><strong>{takeaway?.trim() ? 1 : 0}</strong> 条阅读收获</span></div>
 
       {source && (source.librarySlug || source.url) ? (
         <p className="mt-2 text-mk-small text-mk-ink">

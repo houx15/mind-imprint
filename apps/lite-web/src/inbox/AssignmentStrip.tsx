@@ -1,19 +1,20 @@
 import { useState } from "react";
-import type { AssignmentKind } from "../api/assignments";
+import { reportAssignmentIssue, type AssignmentKind } from "../api/assignments";
 import { formatDeadline, STATUS_LABEL, type AssignmentStatus } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { statusChipStyle } from "../teacher/assignmentLogic";
 import { kindLabel } from "../teacher/format";
 import { openItemsForKind, startButtonLabel, stripDueAt, unreadGradings } from "./inboxLogic";
 import { openAssignment, openGrading } from "./openAssignment";
+import { MaterialIssueFeedback } from "./MaterialIssueFeedback";
 import { useInbox } from "./useInbox";
 
 /** Status chip, same colours as the teacher end. */
-export function AssignmentStatusChip({ status, label }: { status: AssignmentStatus; label: string }) {
+export function AssignmentStatusChip({ status, label, needsReadingReview = false }: { status: AssignmentStatus; label: string; needsReadingReview?: boolean }) {
   return (
     <span
       className="inline-block whitespace-nowrap rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
-      style={statusChipStyle(status)}
+      style={needsReadingReview ? { background: "color-mix(in srgb, var(--mk-warning) 14%, var(--mk-surface))", color: "var(--mk-warning-ink, var(--mk-ink))" } : statusChipStyle(status)}
     >
       {label || STATUS_LABEL[status]}
     </span>
@@ -33,6 +34,8 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
   const alive = useAlive();
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [issueItemId, setIssueItemId] = useState<string | null>(null);
+  const [issueState, setIssueState] = useState<"idle" | "sending" | "sent">("idle");
 
   const items = openItemsForKind(inbox.items, kind);
   // Only the home page (every kind) lists new gradings.
@@ -55,10 +58,12 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
     if (!item || openingId) return;
     setOpeningId(id);
     setStartError(null);
+    setIssueItemId(null);
+    setIssueState("idle");
     const err = await openAssignment(item, inbox.reload);
     if (!alive.current) return;
     setOpeningId(null);
-    if (err) setStartError(err);
+    if (err) { setStartError(err); if (item.kind === "reading") setIssueItemId(item.id); }
   }
 
   return (
@@ -130,9 +135,11 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
               {item.status === "returned" && item.returnNote && (
                 <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-secondary">退回说明：{item.returnNote}</p>
               )}
+              {item.needsReadingReview && <p className="mt-0.5 text-mk-small font-semibold text-mk-accent-700">阅读计划尚未完成，可返回原阅读继续。</p>}
+              {item.kind === "reading" && <MaterialIssueFeedback assignmentId={item.id} />}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <AssignmentStatusChip status={item.status} label={item.statusLabel} />
+              <AssignmentStatusChip status={item.status} label={item.needsReadingReview ? "阅读待继续" : item.statusLabel} needsReadingReview={item.needsReadingReview} />
               <button
                 type="button"
                 disabled={openingId !== null}
@@ -140,16 +147,14 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
                 className="whitespace-nowrap rounded-mk-full px-3.5 py-1.5 text-mk-small font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
                 style={{ background: "var(--mk-accent-500)" }}
               >
-                {openingId === item.id ? "处理中" : startButtonLabel(item)}
+                {openingId === item.id ? "处理中" : item.needsReadingReview ? "查看并继续" : startButtonLabel(item)}
               </button>
             </div>
           </li>
         ))}
       </ul>
       {startError && (
-        <p role="alert" className="px-1 pt-1 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {startError}
-        </p>
+        <div role="alert" className="flex flex-wrap items-center gap-2 px-1 pt-2 text-mk-small" style={{ color: "var(--mk-danger)" }}><span>{startError}</span>{issueItemId && <button type="button" className="rounded-mk-full border border-mk-border px-3 py-1 font-semibold text-mk-accent-700" disabled={issueState !== "idle"} onClick={() => { setIssueState("sending"); void reportAssignmentIssue(issueItemId, startError.slice(0, 450)).then(() => setIssueState("sent")).catch((e: unknown) => { setIssueState("idle"); setStartError(`反馈失败：${e instanceof Error ? e.message : String(e)}`); }); }}>{issueState === "sent" ? "已通知老师" : issueState === "sending" ? "发送中" : "反馈给老师"}</button>}</div>
       )}
     </section>
   );

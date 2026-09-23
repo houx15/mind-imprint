@@ -302,6 +302,14 @@ export async function patchGrading(gid: string, content?: GradingContent): Promi
   return normalizeTeacherGrading(r.grading);
 }
 
+export async function saveGradingDraft(gid: string, content: GradingContent): Promise<TeacherGrading> {
+  const r = await apiFetch<{ grading: unknown }>(`${teacherBase}/gradings/${enc(gid)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content, saveDraft: true }),
+  });
+  return normalizeTeacherGrading(r.grading);
+}
+
 /** POST .../gradings/{gid}/send. 409 `grading_not_sendable` unless the row is
  * a draft or already sent, with content. */
 export async function sendGrading(gid: string): Promise<TeacherGrading> {

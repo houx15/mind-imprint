@@ -24,6 +24,9 @@ type ReadingPayload struct {
 	Tier   *int   `json:"tier,omitempty"`
 	URL    string `json:"url,omitempty"`
 	Text   string `json:"text,omitempty"`
+	// Server-cached page title for URL assignments. Client input is discarded
+	// by ValidatePayload; publication fills it together with Text.
+	ArticleTitle string `json:"articleTitle,omitempty"`
 	// FileName is set when the teacher uploaded a document for a text source.
 	FileName string `json:"fileName,omitempty"`
 	// Disciplines and Picks belong to the personalized source. Picks is keyed
@@ -223,6 +226,7 @@ func ValidatePayload(kind string, raw json.RawMessage) (json.RawMessage, error) 
 		}
 		p.Slug, p.URL, p.Text = strings.TrimSpace(p.Slug), strings.TrimSpace(p.URL), strings.TrimSpace(p.Text)
 		p.FileName = strings.TrimSpace(p.FileName)
+		p.ArticleTitle = ""
 		switch p.Source {
 		case "library":
 			if p.Slug == "" {

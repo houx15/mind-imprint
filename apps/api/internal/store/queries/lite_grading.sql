@@ -128,6 +128,14 @@ SET content = COALESCE(sqlc.narg(content)::jsonb, content),
 WHERE id = sqlc.arg(id) AND status IN ('draft', 'sent') AND content IS NOT NULL
 RETURNING *;
 
+-- name: SaveLiteGradingDraft :one
+-- 暂存未完成的批改，不标记审阅，也不向学生发送。
+UPDATE lite_grading
+SET content = sqlc.arg(content)::jsonb, reviewed_at = NULL,
+    error = NULL, updated_at = now()
+WHERE id = sqlc.arg(id) AND status = 'draft' AND content IS NOT NULL
+RETURNING *;
+
 -- name: SendLiteGrading :one
 UPDATE lite_grading
 SET status = 'sent', sent_at = now(), student_seen_at = NULL,
