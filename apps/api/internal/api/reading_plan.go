@@ -686,15 +686,42 @@ func (a *API) setReadingTaskStatus(w http.ResponseWriter, r *http.Request) {
 // is deliberately blunt — any meaningful run of CJK means the paragraph tools
 // should be the Chinese set — because the cost of being wrong is offering the
 // wrong four buttons, which she can simply not press.
+// # 🚨 2026-09-23：24 个字那条线把五言绝句判成了英文
+//
+// 线上真的走了一遍《江雪》，拿回来的读法是 **en-narrative** —— 一首中文诗
+// 被排上了英文记叙文那一套，段落工具条上摆的是翻译和查词。
+//
+// 原因是这个函数只有一条判据：**CJK 字数 ≥ 24 才算中文，否则一律英文**。
+// 而一首五言绝句正好 20 个字：
+//
+//	千山鸟飞绝，万径人踪灭。孤舟蓑笠翁，独钓寒江雪。   20
+//	床前明月光，疑是地上霜。举头望明月，低头思故乡。   20
+//
+// **每一首五绝都过不了那条线。** 七绝 28 个字刚好过，所以这件事一直没露头 ——
+// 直到诗词成为一种体裁、真的有人拿一首五绝进来。
+//
+// 改法是把「有多少中文字」换成「中文字比拉丁字母多不多」：
+// 24 那条快路留着（长文章一个字节都不变），底下补一条比例判据。
+// 一段 20 个中文字、0 个字母的文本显然是中文，而一篇夹了三个中文字的英文
+// 文章仍然是英文（3 >= 500 不成立）。
 func readingLangOf(body string) string {
-	cjk := 0
+	cjk, latin := 0, 0
 	for _, ch := range body {
-		if (ch >= 0x4e00 && ch <= 0x9fff) || (ch >= 0x3400 && ch <= 0x4dbf) {
+		switch {
+		case (ch >= 0x4e00 && ch <= 0x9fff) || (ch >= 0x3400 && ch <= 0x4dbf):
 			cjk++
 			if cjk >= 24 {
+				// 长文章走原来那条快路：够多的中文就是中文，不必数字母。
 				return "zh"
 			}
+		case (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'):
+			latin++
 		}
+	}
+	// 短文本（一首诗、一段题记）：看哪一种字多。
+	// 平手也算中文 —— 一个中文字都没有时 cjk==0，下面那一条拦得住。
+	if cjk > 0 && cjk >= latin {
+		return "zh"
 	}
 	return "en"
 }
