@@ -82,9 +82,7 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", parts[guidance.SlotKinds], 1)
 	s = strings.Replace(s, "@@MATERIAL@@", parts[guidance.SlotMaterial], 1)
 	s = strings.Replace(s, "@@SKELETON@@", parts[guidance.SlotSkeleton], 1)
-	// @@COACH@@ 是共享常量里的一个真占位符（不是锚点插入 —— 那条 workaround
-	// 是绕开 benchcases_lite_writing.go 里一个先于本任务就存在的毛病，已在
-	// 2026-09-23 改正：见该文件 writingPlanCase 的注释）。
+	// @@COACH@@ 是 prompts.WritingPlanSystem 里的占位符，和上面三个同一套。
 	if coach == "" {
 		// 整行删掉 —— 留下一个空行会让中文那三条分支和今天差一个字节。
 		s = strings.Replace(s, "@@COACH@@\n", "", 1)

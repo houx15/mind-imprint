@@ -83,6 +83,8 @@ func writingPlanCase() benchcase.Case {
 	// 未装配提示词的用例，量的是一份生产从不发出的提示词；routebench 拿它决定
 	// compose 该绑哪个模型，那就是拿假数据做真决定。grade 传 ""，因为这份
 	// fixture 没有班级。
+	//
+	// 这条线由 cmd/routebench 的 TestBenchCasesSendAssembledPrompts 守着。
 	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang, "")
 
 	return benchcase.Case{

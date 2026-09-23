@@ -24,7 +24,15 @@
   "interest/harvest": "1eb277f310f0ebee87d346c418627117d069e61fb9280c22172b1c7aeec00703",
   "news/select": "7955d6085a189cbdeb86732822b88aed473e26c7be116bd2c32da505908a4efb",
   "news/write": "8c3e8d5391bc14ff568a3e1ab8d98fbba190fa1c5e0620397191672e5c4df161",
+  "reading/concept": "f740ec5eb5d50709d2f2b83bdd58317be26f4a832c867c8c8027fe1ed4005105",
+  "reading/lens-completed": "05b558efa5fce288d29f3d55f763e1f83a6145b2932ea7c2a74881d0a04b207f",
+  "reading/open-lens": "cda89c30bdb47b0168d98c48417acf514a42faf990247416ff002ef460eee6ac",
   "teacher/assignment": "289698e24940a41a9f1a41f2c75eacb71ca7a96d11df6a79ad8c8f59c2632fd7",
   "teacher/home": "2360bd75f3ca6dbe1673e5c55ab7b8f985fd93e1efd251786740267ac48d9c93",
-  "teacher/report": "6aa7593e80cba1461e523cc4d139617ebae36e97a0432c612a36ab65f6226e24"
+  "teacher/report": "6aa7593e80cba1461e523cc4d139617ebae36e97a0432c612a36ab65f6226e24",
+  "writing/feedback/long-context": "b82d41ccbd026ff42cf049f9deccc88e8e662422cacbf5d4198395a5f0feb097",
+  "writing/plan/en/argument": "640e76ac2b60d490232529f897fd7d41d8b5754f21e9cbfc3a65b70b5d89309d",
+  "writing/plan/en/narrative": "32c9656a19cbf4ee834dd035454b97893b540525e726e6011754739de182a30d",
+  "writing/plan/zh/argument": "4321054b65c552303c45768d152342b902c2365624247c323295e806efb05ec1",
+  "writing/plan/zh/narrative": "ce74735de33ae2519c99e26c03f10d9c7cf9ac81ab2e955651b7506ef37e8871"
 }
