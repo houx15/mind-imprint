@@ -8,6 +8,7 @@ import (
 	"mindimprint/api/internal/liteassign"
 	"mindimprint/api/internal/prompts"
 	"mindimprint/api/internal/teachingvoice"
+	"mindimprint/api/internal/textstat"
 )
 
 // systemTemplate is the instructions sent with every 批改 call. Check (see
@@ -25,10 +26,34 @@ import (
 // points[].dimension / .symptom aren't checked here either —
 // SanitizeProvenance (check.go) clears either instead of failing the
 // grading over them; see prompts.GradingSystemTemplate's doc comment.
+//
+// Its "## 事实" section is filled by factsBlock (below) — Check does not
+// gate on it either; the four numbers only steer wording, they carry no
+// contract of their own.
 const systemTemplate = prompts.GradingSystemTemplate
 
 func SystemPrompt(in Input) string {
-	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, languageName(in.Lang), dimensionSkeleton(in.Rubric)) + teachingvoice.Rules
+	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, factsBlock(in), languageName(in.Lang), dimensionSkeleton(in.Rubric)) + teachingvoice.Rules
+}
+
+// factsBlock renders the four countable measures internal/textstat computes
+// from her submitted body (Input.Body) — the model is told not to recompute
+// them; see GradingSystemTemplate's "## 事实" section for the instruction
+// itself.
+//
+// 🚨 These numbers inform the model's judgment and, via points[].dimension /
+// .comment prose, the teacher's 依据 view. They are never rendered to the
+// student as a score — the product owner ruled out exact scores for
+// students (task-4-brief.md); the prompt tells the model the same thing
+// ("不要把这里的具体数字写进给学生看的内容里").
+func factsBlock(in Input) string {
+	s := textstat.Compute(in.Body, in.Lang)
+	var b strings.Builder
+	fmt.Fprintf(&b, "- 词汇多样度（不重复词数 / 总词数）：%.0f%%\n", s.TypeTokenRatio*100)
+	fmt.Fprintf(&b, "- 平均句长：%.1f 词\n", s.MeanSentenceLength)
+	fmt.Fprintf(&b, "- 复杂句占比：%.0f%%\n", s.ComplexSentenceRatio*100)
+	fmt.Fprintf(&b, "- 连接词密度：每句 %.1f 个\n", s.ConnectiveDensity)
+	return b.String()
 }
 
 func scaleLine(r liteassign.Rubric) string {

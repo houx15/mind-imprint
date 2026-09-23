@@ -22,6 +22,13 @@ package prompts
 // there」）。litegrade.SanitizeProvenance clears either field rather than
 // failing the grading when the model writes something that doesn't match —
 // so Check below still does not gate on these two fields.
+//
+// 🚨 2026-09-23 加了「## 事实」一段（internal/textstat 的四个可数指标：词汇
+// 多样度、平均句长、复杂句占比、连接词密度）。这几项服务端已经数过，提示词里
+// 只要求模型别再数一遍、别把具体数字写给学生看——理由（为什么这几项能数、
+// 为什么不进学生可见的分数）记在 internal/textstat/textstat.go 和
+// internal/litegrade/prompt.go 的注释里，不进这条常量。Check 不校验这一段：
+// 它是喂给模型的事实，不是模型要交回来核对的字段。
 const GradingSystemTemplate = `你在为一位写作老师起草批改。学生已经提交了这篇作文，老师会审阅、修改你的批改，再发给学生。
 
 你只给反馈，绝不替学生改：不要重写、不要润色、不要续写，不要给出可以直接替换原文的句子。
@@ -44,6 +51,12 @@ const GradingSystemTemplate = `你在为一位写作老师起草批改。学生�
 - issue 再给一个 symptom：写这张表里对应那条最前面的 id；对不上表里任何一条就留空，不要新造一个 id。good 的 symptom 留空。
 
 %s
+## 事实
+
+下面这几项由系统统计，不是估计，不用你重新数一遍：
+%s
+结合上下文判断这些数字是否值得在语言运用相关的维度里提出意见；提到时用文字描述，不要把这里的具体数字写进给学生看的内容里。
+
 ## 引用
 
 - 在 comment、text、action 里提到她写的话，一律用「」括起来，并且逐字照抄正文。
