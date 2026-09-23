@@ -700,6 +700,37 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 🚨 它说自己改了图上已有的那一条 —— 而这一路改不动任何既有节点。
+	//
+	// 产品负责人 2026-09-23 第 6 条：「if we talked with AI that we want to
+	// change the central topic texts. the mindmap is not modified.」
+	// 真正坏掉的不是「图没改」（那是这条路的设计），是**她和印记谈好了，
+	// 然后什么都没发生**。见 writing_plan_edit_claim.go。
+	if claim := writingPlanClaimsAnEdit(parsed.Reply); claim != "" {
+		slog.Info("writing plan turn: reply claims it edited a node, retrying once",
+			"atom_id", at.ID, "sentence", claim,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		prior, _ := json.Marshal(parsed)
+		res2, cerr2 := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: system},
+				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, studentText)},
+				{Role: gateway.RoleAssistant, Content: string(prior)},
+				{Role: gateway.RoleUser, Content: writingPlanEditClaimNudge},
+			},
+		})
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "plan_turn", resolved, res2.Usage)
+		if cerr2 == nil {
+			// 只在第二次**确实更好**的时候采用：解析得动，而且不再说自己改过。
+			// 她的东西一条都不能少，所以落地的节点数不许倒退。
+			if p2, ok2 := parseWritingPlanReply(res2.Text); ok2 &&
+				writingPlanClaimsAnEdit(p2.Reply) == "" &&
+				planAddsThatLand(rows, p2.Add) >= planAddsThatLand(rows, parsed.Add) {
+				parsed = p2
+			}
+		}
+	}
+
 	// 🚨 模型说「可以写了」，而服务端数出来还差（她也没说要去写）：再要一次。
 	// 2026-09-18 本地实测：两条分论点、一个例子（还是她自己的经历），印记就说
 	// 「你的计划已经站得住了……现在就动笔写吧」—— 那条「800 字起码 2–3 个例子、
