@@ -774,6 +774,7 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go run ./cmd/promptinspect --hel
 - Modify: `apps/api/internal/api/writing_grade_key_test.go`（注释改一句）
 - Modify: `apps/web/src/console/ClassesView.tsx`（一条注释里的过期常量名）
 - Modify: `apps/web/src/console/ClassDetailView.tsx`（年级下拉补 `disabled={busy}`）
+- Modify: `apps/web/test/console/OverviewView.test.tsx`（一条会偶尔红的判据）
 - Test: `gradeFromClasses` 现有的测试文件（用 Step 1 的 grep 找）
 
 这三件都是 spec §8.6「带着走的几条小账」里记下的，本期正好碰这几个文件。
@@ -896,7 +897,30 @@ Task 2 的评审发现：`apps/web/src/console/ClassDetailView.tsx` 里新加的
 
 **其余属性一个都不动** —— 尤其不要顺手加 `placeholder`。
 
-- [ ] **Step 7: 一条过期的注释**
+- [ ] **Step 7: 一条真的会偶尔红的测试**
+
+`apps/web/test/console/OverviewView.test.tsx` 第一条测试**判据站在数据到达之前**：
+
+```tsx
+    expect(await screen.findByText("概览")).toBeInTheDocument();   // 无条件渲染的字
+    expect(screen.getByText("120")).toBeInTheDocument();           // 要等 getOverview 落地
+```
+
+「概览」在 `{data && ...}` **外面**，所以那个 `await` 可以在 mock 的 `getOverview()` 落地、`setData` 提交重渲染**之前**就满足；紧跟的同步 `getByText("120")` 于是撞上还没到的状态。Task 3 跑全量时它红过一次，单跑五次都绿 —— 机理是实的，并行跑满时会偶尔红。
+
+改成先等**数据来了才有**的那个字：
+
+```tsx
+    expect(await screen.findByText("120")).toBeInTheDocument();
+    expect(screen.getByText("概览")).toBeInTheDocument();
+```
+
+其余三条 `getByText` 不动 —— 它们和 `120` 在同一次渲染里。
+**第二条测试不用动**，它等的 `暂无用量。` 本来就是数据依赖的。
+
+这不是本期改坏的东西，是路过时看见的。AGENTS.md / memory：整个产品都归你，不只是你今天改的那块。
+
+- [ ] **Step 8: 一条过期的注释**
 
 `apps/web/src/console/ClassesView.tsx` 里那条解释「为什么不给 Select 传 placeholder」的注释，正文里还写着旧名 `GRADE_OPTIONS[0]`。Task 1 把那个常量改名成了 `CLASS_GRADE_OPTIONS` 并挪到了 `api/classes.ts`，注释没跟着改（Task 1 的 brief 明说别动那一块的其余部分，所以那时不改是对的）。
 
@@ -909,7 +933,7 @@ cd apps/web && npm run typecheck
 cd apps/web && npx vitest run
 ```
 
-- [ ] **Step 8: 跑全后端的门**
+- [ ] **Step 9: 跑全后端的门**
 
 ```
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go build ./...
@@ -917,7 +941,7 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/guidance/... 
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/api -run 'Writing|Grade|Class' -timeout 1800s
 ```
 
-- [ ] **Step 9: 提交**
+- [ ] **Step 10: 提交**
 
 暂存改过的那几个文件（含 `apps/web/src/console/ClassesView.tsx`），信息写：`chore(grade): 年级对不上时记一行；测试名里的 Stage 改成 Grade`
 
