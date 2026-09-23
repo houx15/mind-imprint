@@ -37,7 +37,7 @@ function selectedWorkOrder(config: ShowcaseConfig, work: ShowcaseWork) {
   return config.selectedWorkIds.indexOf(work.id);
 }
 
-export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideStage}) {
+export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
   const [state, setState] = useState<ShowcaseState | null>(null);
   const [draft, setDraft] = useState<ShowcaseConfig | null>(null);
   const [interestText, setInterestText] = useState("");
@@ -49,7 +49,7 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
   const [imageBusy, setImageBusy] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const busyRef = useRef(false);
-  const [tab, setTab] = useState<ShowcaseGuideStage>(initialStage);
+  const [tab, setTab] = useState<ShowcaseGuideStage>("design");
   const [profileTab, setProfileTab] = useState("content");
   const [heroTab, setHeroTab] = useState("text");
   const [shareUrl, setShareUrl] = useState("");
@@ -58,7 +58,6 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
   const [attempt, setAttempt] = useState(0);
   const previewAreaRef = useRef<HTMLElement>(null);
   const [componentRequest,setComponentRequest]=useState<{id:number;prompt:string}|null>(null);
-  useEffect(()=>setTab(initialStage),[initialStage]);
   const interestInput = parseShowcaseInterests(interestText);
   const effectiveDraft = draft ? { ...draft, interests: interestInput.interests } : null;
   const availableWorks: ShowcaseWork[] = [...(state?.availableWorks??[]).filter(work=>!work.id.startsWith("external:")), ...(draft?.customWorks??[]).map(work=>({id:`external:${work.id}`,kind:"project" as const,title:work.title,summary:work.summary,externalUrl:work.url,date:work.date}))];
@@ -87,7 +86,7 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
     return () => { remove(); window.removeEventListener("beforeunload", warn); };
   }, [dirty, busy, imageBusy]);
   useEffect(() => {
-    if (loading || (mobileView === "edit" && window.matchMedia("(max-width: 700px)").matches)) return;
+    if (managerMode || loading || (mobileView === "edit" && window.matchMedia("(max-width: 700px)").matches)) return;
     const frame = previewAreaRef.current;
     if (!frame) return;
     const selector = tab === "hero" || tab === "design" ? ".showcase-hero" : tab === "profile" ? profileTab === "tree" ? ".showcase-interest" : ".showcase-about" : tab === "works" ? ".showcase-main" : tab === "components" ? ".showcase-custom-components" : ".showcase";
@@ -95,7 +94,7 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
     if (!target) return;
     const top = target.getBoundingClientRect().top - frame.getBoundingClientRect().top + frame.scrollTop - 18;
     frame.scrollTo({top:Math.max(0,top),behavior:"smooth"});
-  }, [tab,profileTab,mobileView,loading]);
+  }, [tab,profileTab,mobileView,loading,managerMode]);
 
   async function action(kind: "save" | "publish" | "revoke") {
     if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
@@ -140,14 +139,48 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
   const unavailableIds = draft.selectedWorkIds.filter(id => !availableWorks.some(work => work.id === id));
   const canPublish = !!draft.name.trim() && !!(draft.bio.trim() || draft.tagline.trim());
 
+  const worksControls = <>
+
+            <div className="showcase-heading"><h2>管理公开作品</h2><p>选择要放进主页的写作和阅读报告，调整展示形式。报告的公开状态可在对应的报告页面修改。</p></div>
+            <label className="showcase-field">首页展示数量<select value={draft.homeWorkLimit??6} onChange={e=>patch({homeWorkLimit:Number(e.target.value)})}>{[3,6,9,12].map(n=><option key={n} value={n}>{n} 件</option>)}</select><small>勾选的全部作品可在“全部作品”页查看。</small></label>
+            <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>patch({customWorks,selectedWorkIds:draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id))})}/>
+            <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
+            {(draft.portfolioLayout??"sections")==="sections" && <><div className="showcase-field-group"><h3>写作展示</h3><div className="showcase-segments">{([["cards","文章卡片"],["list","文章列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.writingStyle===id} onClick={()=>patch({writingStyle:id})}>{label}</button>)}</div></div><div className="showcase-field-group"><h3>阅读展示</h3><div className="showcase-segments">{([["shelf","阅读书架"],["list","阅读列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.readingStyle===id} onClick={()=>patch({readingStyle:id})}>{label}</button>)}</div></div></>}
+            {unavailableIds.length > 0 && <div className="showcase-editor-empty"><p>{unavailableIds.length} 件已选作品已停止发布或暂不可用，不会在主页展示。</p><button className="underline mt-2" onClick={() => patch({selectedWorkIds: draft.selectedWorkIds.filter(id => !unavailableIds.includes(id))})}>移除不可用作品</button></div>}
+            {draft.sectionOrder.map((kind, index) => {
+              const works = availableWorks.filter(w => w.kind === kind).sort((a, b) => {
+                const ai = selectedWorkOrder(draft, a), bi = selectedWorkOrder(draft, b);
+                return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+              });
+              const selected = works.filter(w => draft.selectedWorkIds.includes(w.id));
+              return <section className="showcase-work-group" key={kind}><header><h3>{sections[kind]}</h3><span>版块顺序</span><button aria-label={`上移${sections[kind]}版块`} disabled={index === 0} onClick={() => moveSection(index, -1)}><ArrowUp size={15} /></button><button aria-label={`下移${sections[kind]}版块`} disabled={index === draft.sectionOrder.length - 1} onClick={() => moveSection(index, 1)}><ArrowDown size={15} /></button></header>
+                {works.length === 0 ? <p className="showcase-editor-empty">{kind === "project" ? "完成项目后，可在这里选择展示。" : `发布${kind === "writing" ? "文章" : "阅读成果"}后，可在这里选择展示。`}</p> : works.map(work => {
+                  const checked = draft.selectedWorkIds.includes(work.id);
+                  return <div className="showcase-work-option" key={work.id}><div className="showcase-work-copy"><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id] })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{work.managePath&&<button type="button" className="showcase-manage-report" onClick={()=>navigate(work.managePath!)}>在报告页管理公开状态</button>}</div>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
+                })}</section>;
+            })}
+  </>;
+
+  if (managerMode) return <div className="showcase-editor showcase-works-page">
+    <header className="showcase-toolbar"><div><p className="showcase-eyebrow">个人展示</p><h1>作品管理</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published && state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "选择主页要展示的作品"}</p></div>
+      <div className="showcase-actions"><button type="button" onClick={()=>navigate("/site")}>返回主页制作</button><button disabled={busy || !dirty} onClick={()=>void action("save")}>保存草稿</button><button className="showcase-primary" disabled={busy || dirty || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={()=>void action("publish")}>{state.published ? "更新发布" : "发布主页"}</button></div>
+    </header>
+    {(error || notice) && <div className={`showcase-feedback ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}>{error ? <Says content={errorMarkdown(error)} /> : <><Check size={16} />{notice}</>}</div>}
+    {conflict && <div className="showcase-feedback"><span>当前修改已保留。</span><button className="underline" disabled={busy} onClick={() => {setAttempt(n => n + 1); setNotice("");}}>放弃本地修改，读取最新版本</button></div>}
+    {shareUrl && <PortfolioShareDialog url={shareUrl} onClose={()=>setShareUrl("")}/>}
+    <main className="showcase-works-content"><fieldset disabled={busy} className="showcase-fields">{worksControls}</fieldset></main>
+  </div>;
+
   return <div className="showcase-editor">
     <header className="showcase-toolbar">
       <div><p className="showcase-eyebrow">个人展示</p><h1>我的主页</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published ? state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "已发布" : "仅自己可见"}</p></div>
       <div className="showcase-actions">
         {state.url && (state.published || state.hasLegacySite) && <a href={state.url} target="_blank" rel="noreferrer">查看公开页<ExternalLink size={14} /></a>}
         <button type="button" onClick={()=>navigate("/site/works")}>管理作品</button>
+        {dirty && <button disabled={busy || imageBusy} onClick={() => {accept(state); setError(""); setNotice("修改已撤销");}}>撤销修改</button>}
         <button disabled={busy || imageBusy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
         <button className="showcase-primary" disabled={busy || imageBusy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
+        {(state.published || state.hasLegacySite) && <><button disabled={busy || imageBusy} onClick={() => void navigator.clipboard.writeText(state.url).then(() => setNotice("公开链接已复制")).catch(() => setError("复制失败，请从公开页面复制地址"))}><Copy size={14} />复制链接</button><button disabled={busy || imageBusy} onClick={() => void action("revoke")}>停止发布</button></>}
       </div>
     </header>
     {(error || notice) && <div className={`showcase-feedback ${error ? "is-error" : ""}`} role={error ? "alert" : "status"}>{error ? <Says content={errorMarkdown(error)} /> : <><Check size={16} />{notice}</>}</div>}
@@ -157,7 +190,7 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
         <nav className="showcase-tabs" aria-label="主页制作步骤">{GUIDE_STEPS.map((step,index) => <button key={step.id} aria-pressed={tab === step.id} onClick={() => setTab(step.id)}><span>{index+1}</span>{step.title}</button>)}</nav>
-        <ShowcaseDesignGuide stage={tab} draft={effectiveDraft} interestTree={state.availableInterestTree} available={state.aboutChatAvailable===true} disabled={busy||imageBusy} onBusy={setImageBusy} onStep={setTab} onComponentIdea={prompt=>{patch({componentPrompt:prompt});setComponentRequest(current=>({id:(current?.id??0)+1,prompt}));}} onConversation={messages=>patch({guideConversation:messages})} onApply={proposal=>{const {reason,...changes}=proposal;patch(changes);if(changes.interests)setInterestText(changes.interests.join("、"));setNotice("设计建议已应用，请预览并保存草稿");}}/>
+        <ShowcaseDesignGuide stage={tab} draft={effectiveDraft} interestTree={state.availableInterestTree} available={state.aboutChatAvailable===true} disabled={busy||imageBusy} onBusy={setImageBusy} onStep={setTab} onComponentIdea={prompt=>{patch({componentPrompt:prompt});setComponentRequest(current=>({id:(current?.id??0)+1,prompt}));}} onConversation={messages=>patch({guideConversation:messages})} onApply={proposal=>{const {reason,...changes}=proposal;patch(changes);if(changes.interests)setInterestText(changes.interests.join("、"));setNotice("设计建议已应用，请预览并保存草稿");}}>
         {tab === "profile" && <nav className="showcase-subtabs" aria-label="介绍设置">{([["content","内容"],["tree","兴趣树"],["avatar","头像"]] as const).map(([id,label])=><button key={id} aria-pressed={profileTab===id} onClick={()=>setProfileTab(id)}>{label}</button>)}</nav>}
         {tab === "hero" && <nav className="showcase-subtabs" aria-label="开场设置">{([["text","文字"],["art","系统配图"],["image","自定义图片"]] as const).map(([id,label])=><button key={id} aria-pressed={heroTab===id} onClick={()=>setHeroTab(id)}>{label}</button>)}</nav>}
         <fieldset disabled={busy || imageBusy} className="showcase-fields">
@@ -192,35 +225,10 @@ export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideS
             </div><div hidden={profileTab !== "avatar"}><div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
           </div></div>
           {tab === "components" && <ShowcaseComponentEditor components={draft.components??[]} disabled={busy||imageBusy} onBusy={setImageBusy} prompt={draft.componentPrompt??""} onPromptChange={componentPrompt=>patch({componentPrompt})} style={draft.style} palette={draft.palette} generationRequest={componentRequest} onRequestConsumed={()=>setComponentRequest(null)} onChange={components=>patch({components})}/>}
-          {tab === "works" && <>
-            <div className="showcase-heading"><h2>管理公开作品</h2><p>选择要放进主页的写作和阅读报告，调整展示形式。报告的公开状态可在对应的报告页面修改。</p></div>
-            <label className="showcase-field">首页展示数量<select value={draft.homeWorkLimit??6} onChange={e=>patch({homeWorkLimit:Number(e.target.value)})}>{[3,6,9,12].map(n=><option key={n} value={n}>{n} 件</option>)}</select><small>勾选的全部作品可在“全部作品”页查看。</small></label>
-            <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>patch({customWorks,selectedWorkIds:draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id))})}/>
-            <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
-            {(draft.portfolioLayout??"sections")==="sections" && <><div className="showcase-field-group"><h3>写作展示</h3><div className="showcase-segments">{([["cards","文章卡片"],["list","文章列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.writingStyle===id} onClick={()=>patch({writingStyle:id})}>{label}</button>)}</div></div><div className="showcase-field-group"><h3>阅读展示</h3><div className="showcase-segments">{([["shelf","阅读书架"],["list","阅读列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.readingStyle===id} onClick={()=>patch({readingStyle:id})}>{label}</button>)}</div></div></>}
-            {unavailableIds.length > 0 && <div className="showcase-editor-empty"><p>{unavailableIds.length} 件已选作品已停止发布或暂不可用，不会在主页展示。</p><button className="underline mt-2" onClick={() => patch({selectedWorkIds: draft.selectedWorkIds.filter(id => !unavailableIds.includes(id))})}>移除不可用作品</button></div>}
-            {draft.sectionOrder.map((kind, index) => {
-              const works = availableWorks.filter(w => w.kind === kind).sort((a, b) => {
-                const ai = selectedWorkOrder(draft, a), bi = selectedWorkOrder(draft, b);
-                return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
-              });
-              const selected = works.filter(w => draft.selectedWorkIds.includes(w.id));
-              return <section className="showcase-work-group" key={kind}><header><h3>{sections[kind]}</h3><span>版块顺序</span><button aria-label={`上移${sections[kind]}版块`} disabled={index === 0} onClick={() => moveSection(index, -1)}><ArrowUp size={15} /></button><button aria-label={`下移${sections[kind]}版块`} disabled={index === draft.sectionOrder.length - 1} onClick={() => moveSection(index, 1)}><ArrowDown size={15} /></button></header>
-                {works.length === 0 ? <p className="showcase-editor-empty">{kind === "project" ? "完成项目后，可在这里选择展示。" : `发布${kind === "writing" ? "文章" : "阅读成果"}后，可在这里选择展示。`}</p> : works.map(work => {
-                  const checked = draft.selectedWorkIds.includes(work.id);
-                  return <div className="showcase-work-option" key={work.id}><div className="showcase-work-copy"><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id] })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{work.managePath&&<button type="button" className="showcase-manage-report" onClick={()=>navigate(work.managePath!)}>在报告页管理公开状态</button>}</div>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
-                })}</section>;
-            })}
-          </>}
+          {tab === "works" && <div className="showcase-works-entrance"><h2>管理主页作品</h2><p>请在作品管理页选择公开报告、调整作品顺序和展示方式。</p><button type="button" disabled={busy || imageBusy} onClick={()=>navigate("/site/works")}>打开作品管理</button></div>}
           {tab === "finish" && <div className="showcase-heading"><h2>检查并发布</h2><p>右侧是访客将看到的主页。请检查文字、图片、作品与组件；保存草稿后，再决定是否发布。</p><p className="showcase-mode-help">保存草稿仅自己可见。发布后，持有链接的人可以查看你选择的作品和组件。</p></div>}
         </fieldset>
-        <div className="showcase-publishing">
-          {state.hasLegacySite && <p>原主页仍在公开展示。发布当前版本后，将使用这里的版式与内容；原项目记录保留。</p>}
-          <p>保存草稿仅自己可见。发布后，持有链接的人可以查看主页；只展示你勾选的作品。</p>
-          {!canPublish && <p>发布需要展示名称，以及开场介绍或个人简介。</p>}
-          {dirty && <button disabled={busy || imageBusy} onClick={() => {accept(state); setError(""); setNotice("修改已撤销");}}>撤销未保存的修改</button>}
-          {(state.published || state.hasLegacySite) && <div className="showcase-link-actions"><button disabled={busy || imageBusy} onClick={() => void navigator.clipboard.writeText(state.url).then(() => setNotice("公开链接已复制")).catch(() => setError("复制失败，请从公开页面复制地址"))}><Copy size={14} />复制链接</button><button disabled={busy || imageBusy} onClick={() => void action("revoke")}>停止发布</button></div>}
-        </div>
+        </ShowcaseDesignGuide>
       </aside>
       <section ref={previewAreaRef} className="showcase-preview-area" aria-label="主页预览">
         <div className="showcase-preview-toolbar"><span><i />实时预览</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{picked.length} 件作品</span></div>
