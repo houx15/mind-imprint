@@ -14,6 +14,7 @@ import {
   Compass,
   GraduationCap,
   PenLine,
+  UserRound,
 } from "lucide-react";
 import { AccentProvider, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
@@ -82,28 +83,19 @@ type LiteTab =
   | "courses"
   | "mysite";
 
-// 顺序本身在说一句话：**探索（找到）→ 读 → 写 → 做 → 课程 → 主页（东西放在
-// 那里）。**
+// 探索、阅读、写作与课程是学习入口；我的主页用于制作和展示作品集。
 //
 // 2026-09-05：我的树不再单独占一格。它和探索地图是同一件事的两半 —— 树是她已经
 // 有的，地图是她还没走过的 —— 合进「探索」那一格，由顶部切换器换
-// （`explore/SkyTab.tsx`）。腾出来的一格给了「我的主页」：主页发布之后她随时能
-// 回来改，而在这之前，回到那一页的路只有「项目室 → 主页项目 → 侧栏那一行」。
+// （`explore/SkyTab.tsx`）。腾出来的一格给了「我的主页」，随时可以回来制作或修改。
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "home", label: "首页", icon: House },
   { key: "explore", label: "探索", icon: Compass },
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
-  // 🚨 2026-09-21 产品负责人：「hide 项目 and 我的主页 tabs for lite version
-  // now because the two are not finished yet」。两格从底栏拿掉，
-  // **路由没动** —— 手上正做着一个项目的人，输网址还进得去，数据一个字不动。
-  //
-  // 课程留在底栏。它原来的注释说「课程紧挨着项目，因为它是从项目里走到的」，
-  // 那条路暂时没有了，但课程自己那一格本来就成立（她可以直接去上一课）。
-  //
-  // 藏的不只是这两格：首页那一行「我的项目」和「最近在学」里的项目条
-  // 也一起藏掉了，否则底栏看不见、首页还在请她进去。
+  // 项目仍按 2026-09-21 的决定隐藏；个人主页完成线上验收后重新开放。
   { key: "courses", label: "课程", icon: GraduationCap },
+  { key: "mysite", label: "我的主页", icon: UserRound },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
