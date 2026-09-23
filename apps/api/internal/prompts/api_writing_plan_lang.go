@@ -123,23 +123,45 @@ const WritingPlanEnglishNarrativeKinds = `- kind：节点类型，只能使用�
 //
 // 🚨 只挂在 {write, en, argument} 上。中文议论文的题目不是这个形状，
 // 英文记叙文没有 TASK 可拆。
-const WritingPlanEnglishTaskSplit = `## 先拆题目：TOPIC 与 TASK
+//
+// 🚨 2026-09-23 评审推翻了第一版的三处，都是这一节和它周围那份提示词打架：
+//
+//  1. 第一版写「讨论 thesis statement 之前，先和学生把这两部分分开」——
+//     无条件的次序。而这一族里其余每个常量都带着条件闸（Skeleton 那两份：
+//     「学生尚未说明观点时，不要求她先选结构名称」），WritingPlanSystem
+//     的「你怎么问」更是被专门改成「已经说清的内容直接整理进图，不再要求
+//     她换个说法重说」。一个开口就把观点和理由说全了的学生，会被这一节
+//     拉回去做一遍拆题练习。现在改成按她说到哪儿分两支。
+//  2. 第一版写「这四种都可以拆成两项任务」，而按它自己那张表，
+//     discuss both views 写着三件事，advantages and disadvantages 的第三件
+//     （哪边更重要）只在题目写 outweigh 时才要答。两种没给归约示范的恰好
+//     就是有歧义的那两种，模型会自己挑一种，挑出来的图不一样。现在四种
+//     逐条写清楚要回答几件事，并把那句普遍断言换成「数清楚这一道题要
+//     回答几件事」——那才是这段资料真正有用的地方。
+//  3. 第一版写「每一项任务在图上对应一条或一组 topic sentence」，但它自己
+//     举的例子第二项是「反方的理由、为什么不成立」，那是 counterargument
+//     加 refutation，不是 topic sentence。这正是同一份提示词里
+//     「结合学生内容辨别节点类型」那一节要防的漂移。
+const WritingPlanEnglishTaskSplit = `## 题目里的 TOPIC 与 TASK
 
-英文议论文的题目由两部分组成：TOPIC 给出话题和语境，TASK 给出这篇要完成的任务。讨论 thesis statement 之前，先和学生把这两部分分开，并确认 TASK 有几项。
+英文议论文的题目由两部分组成：TOPIC 给出话题和语境，TASK 给出这篇要完成的任务。
 
-常见的四种 TASK：
-- agree / disagree：是否同意题目中的看法。
-- discuss both views and give your opinion：说明双方的理由，再说明自己的看法。
-- advantages and disadvantages：优点与缺点，以及哪一边更重要。
+学生还没说明这篇要回答什么时，你把题目分成这两部分说给她听，再用一个问题确认这个 TASK 要回答几件事。她已经说明了观点和理由，就直接整理进图，不要求她重做一遍这个拆分；这时把 TASK 当作对照表，看她的计划有没有漏掉其中一件。
+
+常见的四种 TASK，以及每一种要回答的几件事：
+
+- agree / disagree：你的立场（同意、不同意，或在什么范围内同意），以及为什么反方的理由不足以改变它。
+- discuss both views and give your opinion：一方的理由、另一方的理由，以及自己的看法。题目写了 give your opinion，第三件就是必答的。
+- advantages and disadvantages：优点和缺点。题目写成 Do the advantages outweigh the disadvantages 时，还要回答哪一边更重要；只写 Discuss 时不要求她下这个判断。
 - reasons and solutions：原因，以及对应的办法。
 
-这四种都可以拆成**两项任务**。agree / disagree 的两项是「为什么同意」和「反方的理由是什么、为什么它不成立」；reasons and solutions 的两项是「原因」和「办法」。请学生用自己的话说出这两项各要回答什么问题。
+数清楚这一道题要回答几件事，比判断它属于哪一类更要紧。
 
-拆完题目之后：
-- 每一项任务在图上对应一条或一组 topic sentence。两项都要有内容；只写了其中一项，这篇没有完成题目的要求。
-- thesis statement 要同时回应这两项任务。
-- 题目里限定的范围（人群、地点、时间）保留在 thesis statement 和 topic sentence 里，不要换成更大的说法。
+这几件事对应图上不同的节点类型：
+- 她自己这一方的理由是 topic sentence。
+- 反方的理由是 counterargument，她对它的回应是 refutation —— 这两样都不是 topic sentence。
+- thesis statement 要覆盖题目要求的全部内容，不只是其中一件。
 
-学生自己命题、题目里没有明确的 TASK 时，请她说明这篇要回答哪个问题，再按同样的方式拆成两项。
+题目里限定的范围（人群、地点、时间）保留在 thesis statement 和 topic sentence 里，不要换成更大的说法。
 
-这一节只用来确认这篇要完成哪几件事。不给她开头句，也不给任何一段的句子。`
+学生自己命题、题目里没有明确的 TASK 时，请她说明这篇要回答哪个问题，再按同样的方式数清楚它包含几件事。`
