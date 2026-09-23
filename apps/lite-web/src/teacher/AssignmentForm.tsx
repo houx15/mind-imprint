@@ -3,6 +3,7 @@ import { Button } from "@/ui";
 import { api, type ClassSummary } from "@/api";
 import { createAssignment, extractWritingFields, type AssignmentKind } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
+import { getLibraryShelf, type LibraryArticle } from "../api/library";
 import { useAlive } from "../shared/useAlive";
 import { postWorkspaceTurn } from "../api/teacherWorkspace";
 import { AssignmentAIMode } from "./AssignmentAIMode";
@@ -53,11 +54,6 @@ import {
  * (assignmentLogic.ts); this file only holds state and renders.
  */
 
-const MODE_OPTIONS: { value: AssignmentMode; label: string }[] = [
-  { value: "traditional", label: "传统" },
-  { value: "ai", label: "AI" },
-];
-
 /** 类型. Rendered by the form right after 班级 (and first in the detail page's
  * edit), ahead of 标题 / 说明 / 截止时间, per the spec's field order. */
 export function KindField({ value, onChange }: { value: AssignmentKind; onChange: (kind: AssignmentKind) => void }) {
@@ -99,6 +95,7 @@ export function SettingsFields({
           )}
           {value.readingSource === "url" && (
             <Field label="链接">
+              <p className="mb-2 text-mk-small text-mk-muted">发布时会先读取网页正文。付费墙、需登录或只含图片的页面可能无法处理；失败时请上传有文字层的文件或粘贴正文。</p>
               <input
                 type="url"
                 inputMode="url"
@@ -267,6 +264,10 @@ export function AssignmentForm({
   onCreated: (assignmentId: string) => void;
 }) {
   const [mode, setModeState] = useState<AssignmentMode>(() => readAssignmentMode());
+  const [quick, setQuick] = useState(true);
+  const [quickArticles, setQuickArticles] = useState<LibraryArticle[] | null>(null);
+  const [quickError, setQuickError] = useState<string | null>(null);
+  const [quickNonce, setQuickNonce] = useState(0);
   function setMode(next: AssignmentMode) {
     writeAssignmentMode(next);
     setModeState(next);
@@ -286,6 +287,18 @@ export function AssignmentForm({
     dueInput: "",
     userIds: [],
   }));
+
+  useEffect(() => {
+    if (!quick) return;
+    let cancelled = false;
+    setQuickError(null);
+    getLibraryShelf().then((shelf) => {
+      if (!cancelled) setQuickArticles(shelf.articles);
+    }).catch((e: unknown) => {
+      if (!cancelled) setQuickError(errorText(e));
+    });
+    return () => { cancelled = true; };
+  }, [quick, quickNonce]);
 
   // The AI mode's conversation. Held here, above the mode toggle, so
   // switching to 传统 and back keeps it (AssignmentAIMode unmounts).
@@ -440,12 +453,14 @@ export function AssignmentForm({
         kicker="作业"
         title="布置作业"
         description={
-          mode === "ai"
+          quick
+            ? "选择文章、截止时间和学生，即可布置阅读作业。文章标题会作为作业标题。"
+            : mode === "ai"
             ? "作业会显示在学生首页和收件箱。请在右侧向印记说明要求，印记填写左侧的作业卡，发布前可修改。"
             : "作业会显示在学生首页和收件箱。请按顺序填写四项内容，然后发布。"
         }
         kind="ideas"
-        actions={<Segmented label="模式" options={MODE_OPTIONS} value={mode} onChange={setMode} />}
+        actions={<div className="flex flex-wrap items-center gap-2"><Button variant={quick ? "primary" : "secondary"} size="sm" onClick={() => { setDraft((d) => ({ ...d, ...emptySettings("reading"), kind: "reading", readingSource: "library", title: "", instructions: "请完成阅读计划，并填写至少一张阅读卡片。" })); setQuick(true); }}>快速布置阅读</Button><Button variant={!quick && mode === "traditional" ? "primary" : "secondary"} size="sm" onClick={() => { setQuick(false); setMode("traditional"); }}>完整表单</Button><Button variant={!quick && mode === "ai" ? "primary" : "secondary"} size="sm" onClick={() => { setQuick(false); setMode("ai"); }}>AI 协助</Button></div>}
       />
       {preselectNote && (
         <p className="mb-2 text-mk-small font-semibold text-mk-accent-700" role="status">
@@ -459,7 +474,7 @@ export function AssignmentForm({
   // with this header above both columns). Nesting it inside this page's
   // `TeacherPage` applied the page padding twice: the panel sat 33px right of
   // the title and 30px lower than the canvas.
-  if (mode === "ai" && classes !== null && classes.length > 0 && !classesError) {
+  if (!quick && mode === "ai" && classes !== null && classes.length > 0 && !classesError) {
     return (
       <AssignmentAIMode
         draft={draft}
@@ -477,6 +492,26 @@ export function AssignmentForm({
   }
 
   const className = classes?.find((c) => c.id === draft.classId)?.name ?? "";
+
+  if (quick && classes && classes.length > 0 && !classesError) {
+    return <TeacherPage width="narrow">
+      {header}
+      <form className="teacher-form-card teacher-quick-form" noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <Field label="班级"><Select value={draft.classId} onChange={changeClass} options={classes.map((c) => ({ value: c.id, label: c.name }))} /></Field>
+        <Field label="阅读文章">
+          {quickError ? <StudioError message={quickError} onRetry={() => setQuickNonce((n) => n + 1)} /> : quickArticles === null ? <StudioLoading /> :
+            <select className={INPUT_CLS} value={draft.slug} onChange={(e) => {
+              const article = quickArticles.find((a) => a.slug === e.target.value);
+              setDraft((d) => ({ ...d, kind: "reading", readingSource: "library", slug: e.target.value, tier: null, title: article?.zhTitle || article?.title || "", instructions: d.instructions || "请完成阅读计划，并填写至少一张阅读卡片。" }));
+            }}><option value="">请选择文章</option>{quickArticles.map((a) => <option key={a.slug} value={a.slug}>{a.zhTitle || a.title}</option>)}</select>}
+        </Field>
+        {draft.slug && <p className="text-mk-small text-mk-muted">作业标题：{draft.title} · 按学生阅读水平选择难度</p>}
+        <Field label="截止时间（北京时间）"><DateField withTime shortcuts value={draft.dueInput} onChange={(dueInput) => setDraft((d) => ({ ...d, dueInput }))} /></Field>
+        <RecipientChecklist roster={roster} error={rosterError} onRetry={() => setRosterNonce((n) => n + 1)} selected={draft.userIds} onChange={(userIds) => setDraft((d) => ({ ...d, userIds }))} />
+        <div className="teacher-publish-bar"><p><strong>{publishSummary(className, draft.userIds.length, draft.dueInput)}</strong>{message && <span className="mt-1 block font-semibold text-mk-danger" role="alert">{message}</span>}</p><Button type="submit" variant="primary" disabled={busy || !draft.slug}>{busy ? "发布中" : "发布阅读作业"}</Button></div>
+      </form>
+    </TeacherPage>;
+  }
 
   return (
     <TeacherPage width="narrow">

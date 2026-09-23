@@ -41,8 +41,9 @@ type InboxItemDTO struct {
 	AtomID       *string `json:"atomId"`
 	Unread       bool    `json:"unread"`
 	// Set when the teacher returned this writing homework (0153).
-	ReturnDueAt *string `json:"returnDueAt"`
-	ReturnNote  *string `json:"returnNote"`
+	ReturnDueAt        *string `json:"returnDueAt"`
+	ReturnNote         *string `json:"returnNote"`
+	NeedsReadingReview bool    `json:"needsReadingReview"`
 }
 
 // getLiteInbox handles GET /api/v1/lite/inbox. Archived assignments, and those
@@ -71,6 +72,7 @@ func (a *API) getLiteInbox(w http.ResponseWriter, r *http.Request) {
 			Status: status, StatusLabel: liteassign.StatusLabel(status),
 			AtomID: uuidStringPtr(row.AtomID), Unread: !row.SeenAt.Valid,
 			ReturnDueAt: tsStringPtr(row.ReturnDueAt), ReturnNote: row.ReturnNote,
+			NeedsReadingReview: row.Kind == "reading" && (status == "done" || status == "done_late") && row.StepsTotal > 0 && row.StepsDone < row.StepsTotal,
 		})
 	}
 
@@ -235,6 +237,11 @@ func (a *API) startLiteAssignment(w http.ResponseWriter, r *http.Request) {
 	// 2. Network work.
 	article, err := a.fetchAssignedArticle(ctx, as)
 	if err != nil {
+		if as.Kind == "reading" && (errors.Is(err, errFetchFailed) || errors.Is(err, errMissingSourceText) || errors.Is(err, errFetchUnavailable)) {
+			if issueErr := a.saveLiteAssignmentIssue(ctx, as.ID, u.ID, "阅读链接无法读取正文，请更换材料。"); issueErr != nil {
+				slog.Warn("lite assignment: could not record material issue", "assignment_id", as.ID.String(), "err", issueErr)
+			}
+		}
 		httpx.WriteError(w, r, startErrorResponse(err, as.ID))
 		return
 	}
@@ -327,7 +334,9 @@ func (a *API) fetchAssignedArticle(ctx context.Context, as sqlc.LiteAssignment) 
 	if p.Source != "url" {
 		return nil, nil
 	}
-	title, body, err := a.resolveReadingSource(ctx, "", p.URL, "")
+	// New assignments carry the text verified at publication. Older URL
+	// assignments have no cached text and retain the original fetch path.
+	title, body, err := a.resolveReadingSource(ctx, p.ArticleTitle, p.URL, p.Text)
 	if err != nil {
 		return nil, err
 	}

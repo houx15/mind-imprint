@@ -354,7 +354,7 @@ export function ClassPage({
           </>
         )}
 
-        {roster && <LearningSnapshot rows={roster} selectedDays={selectedDays} onSelectDays={setSelectedDays} />}
+        {roster && <LearningSnapshot rows={roster} selectedDays={selectedDays} onSelectDays={setSelectedDays} onOpenStudent={onOpenStudent} />}
 
         <ClassAssignments
           classId={classId}
@@ -519,9 +519,9 @@ function ClassAssignments({
           作业会显示在学生首页和收件箱。请为本班布置第一份作业。
         </StudioEmpty>
       ) : (
-        <div className="teacher-task-grid">
-          {rows.slice(0, 3).map((a) => (
-            <AssignmentCard key={a.id} assignment={a} onOpen={() => onOpen?.(a.id)} />
+        <div className="teacher-assignment-list">
+          {[...rows].sort((a, b) => b.issueCount - a.issueCount || b.toGrade - a.toGrade || b.counts.overdue - a.counts.overdue || Date.parse(a.dueAt) - Date.parse(b.dueAt)).slice(0, 3).map((a) => (
+            <AssignmentCard key={a.id} assignment={a} compact onOpen={() => onOpen?.(a.id)} />
           ))}
         </div>
       )}

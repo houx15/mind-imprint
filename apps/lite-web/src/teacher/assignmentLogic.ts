@@ -767,12 +767,13 @@ export function disciplineOptions(articles: LibraryArticle[]): LibraryTag[] {
  */
 export function recipientProgressText(
   kind: AssignmentKind,
-  r: Pick<RecipientDTO, "atomId" | "activeMinutes" | "stepsDone" | "stepsTotal" | "versionCount" | "latestWordCount">,
+  r: Pick<RecipientDTO, "atomId" | "activeMinutes" | "stepsDone" | "stepsTotal" | "versionCount" | "latestWordCount"> & { cardsSubmitted?: number },
   targetWords: number | null = null,
 ): string {
   if (!r.atomId) return "—";
   const parts: string[] = [];
   if (kind === "reading" && r.stepsTotal > 0) parts.push(`${r.stepsDone}/${r.stepsTotal} 步`);
+  if (kind === "reading") parts.push(`卡片 ${r.cardsSubmitted ?? 0} 张`);
   if (kind === "writing" && r.versionCount > 0) {
     parts.push(`v${r.versionCount} · ${r.latestWordCount}${targetWords ? ` / ${targetWords}` : ""} 字`);
   }
@@ -807,7 +808,7 @@ export function recipientProgress(
   r: Pick<
     RecipientDTO,
     "atomId" | "status" | "activeMinutes" | "stepsDone" | "stepsTotal" | "versionCount" | "latestWordCount"
-  >,
+  > & { cardsSubmitted?: number },
   targetWords: number | null = null,
 ): { text: string; warn: boolean } {
   const text = recipientProgressText(kind, r, targetWords);

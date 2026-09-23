@@ -5,6 +5,7 @@ import {
   getAssignment,
   patchAssignment,
   type AssignmentDTO,
+  type AssignmentIssueDTO,
   type RecipientDTO,
 } from "../api/assignments";
 import { listAssignmentGradings } from "../api/gradings";
@@ -33,6 +34,7 @@ import {
   isArchiveSuccess,
   progressFromCounts,
   recipientProgress,
+  readingUnfinished,
   recipientReadingText,
   recipientStarted,
   settingsAccess,
@@ -82,7 +84,7 @@ export function AssignmentDetailPage({
   onOpenItem: (classId: string, userId: string, atomId: string) => void;
   onOpenGrading: (gradingId: string) => void;
 }) {
-  const [data, setData] = useState<{ assignment: AssignmentDTO; recipients: RecipientDTO[] } | null>(null);
+  const [data, setData] = useState<{ assignment: AssignmentDTO; recipients: RecipientDTO[]; issues: AssignmentIssueDTO[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -135,6 +137,7 @@ export function AssignmentDetailPage({
 
   const assignment = data?.assignment ?? null;
   const recipients = data?.recipients ?? [];
+  const issues = data?.issues ?? [];
   const access = assignment ? settingsAccess(recipients, settingsFromAssignment(assignment.kind, assignment.payload)) : "none";
   const editable = access === "all";
 
@@ -402,6 +405,8 @@ export function AssignmentDetailPage({
           )}
 
           <ProgressSummary recipients={recipients} toGrade={toGrade} />
+          {issues.length > 0 && <section className="teacher-material-issues" role="alert"><strong>{issues.length} 名学生反馈阅读材料问题</strong>{issues.map((issue) => <p key={issue.userId}>{issue.displayName}：{issue.detail}</p>)}<small>请检查材料链接。若尚无学生开始，可在上方修改作业中更换材料。</small></section>}
+          {assignment.kind === "reading" && <div className="teacher-reading-requirements"><strong>阅读成果</strong><span>{recipients.filter((r) => r.cardsSubmitted > 0).length}/{recipients.length} 名学生填写了阅读卡片</span><span>{recipients.filter((r) => readingUnfinished(assignment.kind, r)).length} 名学生结束阅读时尚未完成计划</span><small>点开学生的「查看」可阅读她填写的卡片、划线笔记和阅读收获；教师无法查看私人对话。</small></div>}
 
           {assignment.kind === "writing" && (
             <div role="tablist" aria-label="作业视图" className="mt-8 flex gap-2 border-b border-mk-border">
@@ -459,7 +464,7 @@ export function AssignmentDetailPage({
                             <td className="border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">{recipientReadingText(r.reading)}</td>
                           )}
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3">
-                            <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />
+                            {readingUnfinished(assignment.kind, r) ? <span className="teacher-reading-incomplete">已结束 · 计划未完成</span> : <StatusChip status={r.status} label={r.statusLabel || STATUS_LABEL[r.status]} />}
                           </td>
                           <td className="whitespace-nowrap border-b border-mk-border px-3 py-3 text-mk-small text-mk-ink">
                             <ProgressCell

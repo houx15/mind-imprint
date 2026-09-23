@@ -26,6 +26,8 @@ export function UploadSourceField({
   const alive = useAlive();
 
   async function extract(file: File) {
+    if (!/\.(pdf|docx|txt|md)$/i.test(file.name)) { setError("该文件格式无法处理。请上传 PDF、DOCX、TXT 或 Markdown 文件。"); return; }
+    if (file.size >= 30 * 1024 * 1024) { setError("文件超过 30 MB，请选择较小的文件。"); return; }
     setBusy(true);
     setError(null);
     try {

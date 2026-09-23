@@ -74,6 +74,14 @@ export interface AssignmentSummaryDTO extends AssignmentDTO {
   counts: Record<AssignmentStatus, number>;
   /** Writing only: students whose latest version has no sent grading. */
   toGrade: number;
+  issueCount: number;
+}
+
+export interface AssignmentIssueDTO {
+  userId: string;
+  displayName: string;
+  detail: string;
+  reportedAt: string;
 }
 
 /** One student's article on a personalized reading homework
@@ -107,6 +115,7 @@ export interface RecipientDTO {
   activeMinutes: number;
   stepsDone: number;
   stepsTotal: number;
+  cardsSubmitted: number;
   latestWordCount: number;
   /** This student's article on a personalized reading homework; null on any
    * other homework. */
@@ -139,6 +148,7 @@ export interface AssignmentInboxItem {
   unread: boolean;
   returnDueAt: string | null;
   returnNote: string | null;
+  needsReadingReview?: boolean;
 }
 
 /** A sent 批改 of one of her writings. */
@@ -300,7 +310,7 @@ function normalizeCounts(raw: unknown): Record<AssignmentStatus, number> {
 
 export function normalizeAssignmentSummaryDTO(raw: Record<string, unknown>): AssignmentSummaryDTO {
   const toGrade = typeof raw.toGrade === "number" && Number.isFinite(raw.toGrade) && raw.toGrade > 0 ? Math.floor(raw.toGrade) : 0;
-  return { ...normalizeAssignmentDTO(raw), counts: normalizeCounts(raw.counts), toGrade };
+  return { ...normalizeAssignmentDTO(raw), counts: normalizeCounts(raw.counts), toGrade, issueCount: typeof raw.issueCount === "number" ? raw.issueCount : 0 };
 }
 
 export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDTO {
@@ -321,6 +331,7 @@ export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDT
     activeMinutes: typeof raw.activeMinutes === "number" ? raw.activeMinutes : 0,
     stepsDone: typeof raw.stepsDone === "number" ? raw.stepsDone : 0,
     stepsTotal: typeof raw.stepsTotal === "number" ? raw.stepsTotal : 0,
+    cardsSubmitted: typeof raw.cardsSubmitted === "number" ? raw.cardsSubmitted : 0,
     latestWordCount: typeof raw.latestWordCount === "number" ? raw.latestWordCount : 0,
     reading: normalizeRecipientReading(raw.reading),
   };
@@ -341,6 +352,7 @@ function normalizeInboxItem(raw: Record<string, unknown>): AssignmentInboxItem {
     unread: raw.unread === true,
     returnDueAt: nullableString(raw.returnDueAt),
     returnNote: nullableString(raw.returnNote),
+    needsReadingReview: raw.needsReadingReview === true,
   };
 }
 
@@ -437,14 +449,19 @@ export async function createAssignment(classId: string, input: CreateAssignmentI
   return normalizeAssignmentDTO(obj(r.assignment));
 }
 
-export async function getAssignment(aid: string): Promise<{ assignment: AssignmentDTO; recipients: RecipientDTO[] }> {
-  const r = await apiFetch<{ assignment: unknown; recipients?: unknown[] }>(
+export async function getAssignment(aid: string): Promise<{ assignment: AssignmentDTO; recipients: RecipientDTO[]; issues: AssignmentIssueDTO[] }> {
+  const r = await apiFetch<{ assignment: unknown; recipients?: unknown[]; issues?: unknown[] }>(
     `${teacherBase}/assignments/${encodeURIComponent(aid)}`,
   );
   return {
     assignment: normalizeAssignmentDTO(obj(r.assignment)),
     recipients: arr<unknown>(r.recipients).map((row) => normalizeRecipientDTO(obj(row))),
+    issues: arr<unknown>(r.issues).map((row) => { const issue = obj(row); return { userId: s(issue.userId), displayName: s(issue.displayName), detail: s(issue.detail), reportedAt: s(issue.reportedAt) }; }),
   };
+}
+
+export function reportAssignmentIssue(aid: string, detail: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/lite/assignments/${encodeURIComponent(aid)}/issue`, { method: "POST", body: JSON.stringify({ detail }) });
 }
 
 export async function patchAssignment(aid: string, patch: PatchAssignmentInput): Promise<AssignmentDTO> {

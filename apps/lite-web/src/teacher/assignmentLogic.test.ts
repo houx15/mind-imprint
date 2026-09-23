@@ -92,6 +92,7 @@ function recipient(over: Partial<RecipientDTO> = {}): RecipientDTO {
     returnedAt: null,
     returnDueAt: null,
     returnNote: null,
+    cardsSubmitted: 0,
     versionCount: 0,
     activeMinutes: 0,
     stepsDone: 0,

@@ -308,6 +308,7 @@ SELECT r.assignment_id, r.user_id, r.seen_at, r.atom_id, r.started_at,
        COALESCE(at.active_seconds, 0)::int AS active_seconds,
        (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id AND t.status = 'done')::int AS steps_done,
        (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id)::int AS steps_total,
+       (SELECT count(*) FROM atom_card c WHERE c.atom_id = r.atom_id AND c.status = 'submitted')::int AS cards_submitted,
        COALESCE((SELECT v.word_count FROM writing_version v WHERE v.atom_id = r.atom_id
                  ORDER BY v.number DESC LIMIT 1), 0)::int AS latest_word_count,
        -- 待批改：最新提交版本还没有已发送的批改。
@@ -342,6 +343,7 @@ type ListLiteAssignmentRecipientsRow struct {
 	ActiveSeconds   int32              `json:"active_seconds"`
 	StepsDone       int32              `json:"steps_done"`
 	StepsTotal      int32              `json:"steps_total"`
+	CardsSubmitted  int32              `json:"cards_submitted"`
 	LatestWordCount int32              `json:"latest_word_count"`
 	ToGrade         bool               `json:"to_grade"`
 }
@@ -374,6 +376,7 @@ func (q *Queries) ListLiteAssignmentRecipients(ctx context.Context, assignmentId
 			&i.ActiveSeconds,
 			&i.StepsDone,
 			&i.StepsTotal,
+			&i.CardsSubmitted,
 			&i.LatestWordCount,
 			&i.ToGrade,
 		); err != nil {
@@ -450,6 +453,8 @@ SELECT a.id, a.kind, a.title, a.instructions, a.payload, a.due_at, a.created_at,
        r.returned_at, r.return_due_at, r.return_note,
        c.name AS class_name,
        COALESCE(rd.finished_at, w.finished_at, p.finished_at) AS finished_at,
+       (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id AND t.status = 'done')::int AS steps_done,
+       (SELECT count(*) FROM reading_task t WHERE t.atom_id = r.atom_id)::int AS steps_total,
        EXISTS (SELECT 1 FROM writing_version v
                WHERE v.atom_id = r.atom_id AND v.submitted_at > r.returned_at)::bool AS resubmitted
 FROM lite_assignment_recipient r
@@ -481,6 +486,8 @@ type ListLiteInboxAssignmentsRow struct {
 	ReturnNote   *string            `json:"return_note"`
 	ClassName    string             `json:"class_name"`
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	StepsDone    int32              `json:"steps_done"`
+	StepsTotal   int32              `json:"steps_total"`
 	Resubmitted  bool               `json:"resubmitted"`
 }
 
@@ -510,6 +517,8 @@ func (q *Queries) ListLiteInboxAssignments(ctx context.Context, userID uuid.UUID
 			&i.ReturnNote,
 			&i.ClassName,
 			&i.FinishedAt,
+			&i.StepsDone,
+			&i.StepsTotal,
 			&i.Resubmitted,
 		); err != nil {
 			return nil, err

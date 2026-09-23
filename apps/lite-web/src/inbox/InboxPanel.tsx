@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import type { AssignmentInboxItem, GradingInboxItem, InboxItemDTO } from "../api/assignments";
+import { reportAssignmentIssue, type AssignmentInboxItem, type GradingInboxItem, type InboxItemDTO } from "../api/assignments";
 import { formatDeadline } from "../shared/deadline";
 import { useAlive } from "../shared/useAlive";
 import { kindLabel } from "../teacher/format";
@@ -41,6 +41,8 @@ export function InboxPanel({
   const alive = useAlive();
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [issueItemId, setIssueItemId] = useState<string | null>(null);
+  const [issueSent, setIssueSent] = useState(false);
   const [left, setLeft] = useState(16);
 
   // Measured before paint, so the panel never flashes at the fallback spot.
@@ -90,10 +92,12 @@ export function InboxPanel({
       return;
     }
     setStartError(null);
+    setIssueItemId(null);
+    setIssueSent(false);
     const err = await openAssignment(item, inbox.reload);
     if (!alive.current) return;
     setOpeningId(null);
-    if (err) setStartError(err);
+    if (err) { setStartError(err); if (item.kind === "reading") setIssueItemId(item.id); }
   }
 
   return createPortal(
@@ -160,9 +164,7 @@ export function InboxPanel({
       </div>
 
       {startError && (
-        <p role="alert" className="border-t border-mk-border px-4 py-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
-          {startError}
-        </p>
+        <div role="alert" className="border-t border-mk-border px-4 py-2 text-mk-small" style={{ color: "var(--mk-danger)" }}><p>{startError}</p>{issueItemId && <button type="button" disabled={issueSent} className="mt-1 font-semibold text-mk-accent-700 underline" onClick={() => { void reportAssignmentIssue(issueItemId, startError.slice(0, 450)).then(() => setIssueSent(true)).catch((e: unknown) => setStartError(`反馈失败：${e instanceof Error ? e.message : String(e)}`)); }}>{issueSent ? "已通知老师" : "反馈给老师"}</button>}</div>
       )}
     </div>,
     document.body,
@@ -198,7 +200,7 @@ function AssignmentRowBody({ item, opening }: { item: AssignmentInboxItem; openi
           {opening ? (
             <span className="text-mk-small text-mk-muted">处理中</span>
           ) : (
-            <AssignmentStatusChip status={item.status} label={item.statusLabel} />
+            <AssignmentStatusChip status={item.status} label={item.needsReadingReview ? "阅读待继续" : item.statusLabel} needsReadingReview={item.needsReadingReview} />
           )}
         </span>
       </span>

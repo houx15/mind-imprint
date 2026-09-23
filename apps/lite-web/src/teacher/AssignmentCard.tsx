@@ -39,9 +39,16 @@ export function ProgressBar({ p }: { p: ProgressCounts }) {
  * art band, 类型 · 截止, title, progress, and a 查看 button. The whole card
  * opens the homework for a mouse; the button is the keyboard target.
  */
-export function AssignmentCard({ assignment: a, onOpen }: { assignment: AssignmentSummaryDTO; onOpen: () => void }) {
+export function AssignmentCard({ assignment: a, onOpen, compact = false }: { assignment: AssignmentSummaryDTO; onOpen: () => void; compact?: boolean }) {
   const p = progressFromCounts(a.counts);
   const file = assignmentFileName(a);
+  if (compact) return <button type="button" className="teacher-assignment-row" onClick={onOpen}>
+    <span className="teacher-assignment-row-art"><img src={studentArtwork[KIND_ART[a.kind] ?? "ideas"]} alt="" /></span>
+    <span className="teacher-assignment-row-main"><small>{kindLabel(a.kind)} · 截止 {formatDeadline(a.dueAt)}</small><strong>{a.title}</strong>{file && <small>{file}</small>}</span>
+    <span className="teacher-assignment-row-count"><b>{p.done}/{p.total}</b><small>已完成</small></span>
+    <span className="teacher-assignment-row-alert">{a.issueCount > 0 ? `材料问题 ${a.issueCount}` : a.toGrade > 0 ? `待批改 ${a.toGrade}` : p.overdue > 0 ? `已逾期 ${p.overdue}` : p.inProgress > 0 ? `进行中 ${p.inProgress}` : ""}</span>
+    <Icon icon={ArrowRight} size={16} />
+  </button>;
   return (
     <article className="teacher-task teacher-assignment-card cursor-pointer" onClick={onOpen}>
       <div className="teacher-task-art">

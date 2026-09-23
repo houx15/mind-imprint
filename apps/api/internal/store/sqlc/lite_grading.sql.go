@@ -698,6 +698,28 @@ WHERE id = $2 AND status IN ('draft', 'sent') AND content IS NOT NULL
 RETURNING id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at
 `
 
+const saveLiteGradingDraft = `-- name: SaveLiteGradingDraft :one
+UPDATE lite_grading
+SET content = $1::jsonb, reviewed_at = NULL,
+    error = NULL, updated_at = now()
+WHERE id = $2 AND status = 'draft' AND content IS NOT NULL
+RETURNING id, atom_id, version_id, user_id, class_id, assignment_id, rubric, status, ai, content, error, requested_by, reviewed_at, sent_at, student_seen_at, created_at, updated_at
+`
+
+type SaveLiteGradingDraftParams struct {
+	Content []byte    `json:"content"`
+	ID      uuid.UUID `json:"id"`
+}
+
+func (q *Queries) SaveLiteGradingDraft(ctx context.Context, arg SaveLiteGradingDraftParams) (LiteGrading, error) {
+	row := q.db.QueryRow(ctx, saveLiteGradingDraft, arg.Content, arg.ID)
+	var i LiteGrading
+	err := row.Scan(&i.ID, &i.AtomID, &i.VersionID, &i.UserID, &i.ClassID,
+		&i.AssignmentID, &i.Rubric, &i.Status, &i.Ai, &i.Content, &i.Error,
+		&i.RequestedBy, &i.ReviewedAt, &i.SentAt, &i.StudentSeenAt, &i.CreatedAt, &i.UpdatedAt)
+	return i, err
+}
+
 type UpdateLiteGradingContentParams struct {
 	Content []byte    `json:"content"`
 	ID      uuid.UUID `json:"id"`

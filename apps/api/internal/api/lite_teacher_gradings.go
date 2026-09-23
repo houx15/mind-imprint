@@ -794,23 +794,31 @@ func (a *API) getLiteGrading(w http.ResponseWriter, r *http.Request) {
 }
 
 // patchLiteGrading handles PATCH /api/v1/lite/teacher/gradings/{gid}.
-// With content: a shape check (litegrade.CheckTeacherEdit), then save. Without
-// content: 标记已审阅. Either way reviewed_at is set. Editing a sent row
-// re-sends it. ai is never changed.
+// A saveDraft PATCH persists incomplete teacher-only content. Ordinary PATCH
+// validates complete content and marks it reviewed. Editing a sent row re-sends it.
 func (a *API) patchLiteGrading(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	g, ok := a.loadTeacherGrading(w, r)
 	if !ok {
 		return
 	}
+	if g.Status != "draft" && g.Status != "sent" {
+		httpx.WriteError(w, r, &httpx.APIError{Status: http.StatusConflict, Code: "grading_not_editable", Message: "批改中或批改失败时不能修改"})
+		return
+	}
 	var req struct {
-		Content json.RawMessage `json:"content"`
+		Content   json.RawMessage `json:"content"`
+		SaveDraft bool            `json:"saveDraft"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	var content []byte
+	if req.SaveDraft && (req.Content == nil || strings.TrimSpace(string(req.Content)) == "null") {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "请提供需要暂存的批改内容", nil))
+		return
+	}
 	if req.Content != nil && strings.TrimSpace(string(req.Content)) != "null" {
 		var c litegrade.Content
 		if err := json.Unmarshal(req.Content, &c); err != nil {
@@ -830,7 +838,13 @@ func (a *API) patchLiteGrading(w http.ResponseWriter, r *http.Request) {
 		in := liteGradingInput(src, rubric)
 		c = litegrade.NormalizeTeacher(c, rubric)
 		c = litegrade.SanitizeProvenance(c, in)
-		if rs := litegrade.CheckTeacherEdit(c, in); len(rs) > 0 {
+		var rs []litegrade.Reason
+		if req.SaveDraft {
+			rs = litegrade.CheckTeacherDraft(c, in)
+		} else {
+			rs = litegrade.CheckTeacherEdit(c, in)
+		}
+		if len(rs) > 0 {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容有误："+litegrade.JoinReasons(rs), nil))
 			return
 		}
@@ -839,7 +853,34 @@ func (a *API) patchLiteGrading(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	updated, err := a.d.Queries.UpdateLiteGradingContent(ctx, sqlc.UpdateLiteGradingContentParams{ID: g.ID, Content: content})
+	var updated sqlc.LiteGrading
+	var err error
+	if req.SaveDraft {
+		updated, err = a.d.Queries.SaveLiteGradingDraft(ctx, sqlc.SaveLiteGradingDraftParams{ID: g.ID, Content: content})
+	} else {
+		if content == nil {
+			var c litegrade.Content
+			if e := json.Unmarshal(g.Content, &c); e != nil {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容格式错误", nil))
+				return
+			}
+			var rubric liteassign.Rubric
+			if e := json.Unmarshal(g.Rubric, &rubric); e != nil {
+				httpx.WriteError(w, r, e)
+				return
+			}
+			src, e := a.d.Queries.GetLiteGradingSource(ctx, g.VersionID)
+			if e != nil {
+				httpx.WriteError(w, r, e)
+				return
+			}
+			if rs := litegrade.CheckTeacherEdit(c, liteGradingInput(src, rubric)); len(rs) > 0 {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容有误："+litegrade.JoinReasons(rs), nil))
+				return
+			}
+		}
+		updated, err = a.d.Queries.UpdateLiteGradingContent(ctx, sqlc.UpdateLiteGradingContentParams{ID: g.ID, Content: content})
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, &httpx.APIError{Status: http.StatusConflict, Code: "grading_not_editable", Message: "批改中或批改失败时不能修改"})
 		return
@@ -859,6 +900,29 @@ func errGradingNotSendable() *httpx.APIError {
 func (a *API) sendLiteGrading(w http.ResponseWriter, r *http.Request) {
 	g, ok := a.loadTeacherGrading(w, r)
 	if !ok {
+		return
+	}
+	if g.Status != "draft" && g.Status != "sent" {
+		httpx.WriteError(w, r, errGradingNotSendable())
+		return
+	}
+	var c litegrade.Content
+	var rubric liteassign.Rubric
+	if err := json.Unmarshal(g.Content, &c); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容格式错误", nil))
+		return
+	}
+	if err := json.Unmarshal(g.Rubric, &rubric); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	src, err := a.d.Queries.GetLiteGradingSource(r.Context(), g.VersionID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if rs := litegrade.CheckTeacherEdit(c, liteGradingInput(src, rubric)); len(rs) > 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "请先完成批改："+litegrade.JoinReasons(rs), nil))
 		return
 	}
 	sent, err := a.d.Queries.SendLiteGrading(r.Context(), g.ID)

@@ -227,6 +227,40 @@ func CheckTeacherEdit(c Content, in Input) []Reason {
 	return rs
 }
 
+// CheckTeacherDraft allows unfinished fields while preserving the rubric and
+// quote provenance. A draft stays teacher-only until the full edit check passes.
+func CheckTeacherDraft(c Content, in Input) []Reason {
+	var rs []Reason
+	if c.Overall.Grade != "" && !liteassign.GradeInScale(in.Rubric, c.Overall.Grade) {
+		rs = append(rs, Reason{Code: ReasonGradeOutOfScale, Where: "总评", Detail: c.Overall.Grade})
+	}
+	if !sameNames(c.Dimensions, in.Rubric.Dimensions) {
+		names := make([]string, 0, len(c.Dimensions))
+		for _, d := range c.Dimensions {
+			names = append(names, d.Name)
+		}
+		rs = append(rs, Reason{Code: ReasonDimensionNames, Detail: strings.Join(names, "、")})
+	}
+	for _, d := range c.Dimensions {
+		if d.Grade != "" && !liteassign.GradeInScale(in.Rubric, d.Grade) {
+			rs = append(rs, Reason{Code: ReasonGradeOutOfScale, Where: "维度「" + d.Name + "」", Detail: d.Grade})
+		}
+	}
+	cp := newCorpus(in)
+	for i, p := range c.Points {
+		where := fmt.Sprintf("第 %d 条意见", i+1)
+		if p.Kind != KindGood && p.Kind != KindIssue {
+			rs = append(rs, Reason{Code: ReasonPointKind, Where: where, Detail: p.Kind})
+		}
+		if !blank(p.Quote) {
+			if r := cp.reason(where, *p.Quote, ReasonQuoteNotInBody); r != nil {
+				rs = append(rs, *r)
+			}
+		}
+	}
+	return rs
+}
+
 func shapeReasons(c Content, in Input) []Reason {
 	var rs []Reason
 	if !liteassign.GradeInScale(in.Rubric, c.Overall.Grade) {

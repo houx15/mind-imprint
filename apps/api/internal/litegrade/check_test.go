@@ -54,6 +54,28 @@ func hasCode(rs []Reason, code string) bool {
 	return false
 }
 
+func TestCheckTeacherDraftAllowsPartialButRejectsInvalidEvidence(t *testing.T) {
+	in := testInput()
+	c := BlankContent(in.Rubric)
+	c.Overall.Comment = "待补充"
+	c.Points = []Point{{Kind: KindIssue, Text: "", Quote: nil}}
+	if rs := CheckTeacherDraft(c, in); len(rs) != 0 {
+		t.Fatalf("partial draft rejected: %v", codes(rs))
+	}
+	if !hasCode(CheckTeacherEdit(c, in), ReasonGradeOutOfScale) {
+		t.Fatal("incomplete draft passed send check")
+	}
+	c.Points[0].Quote = sp("这句没有出现在原文")
+	if !hasCode(CheckTeacherDraft(c, in), ReasonQuoteNotInBody) {
+		t.Fatal("fabricated quotation accepted")
+	}
+	c.Points[0].Quote = nil
+	c.Dimensions[0].Grade = "E"
+	if !hasCode(CheckTeacherDraft(c, in), ReasonGradeOutOfScale) {
+		t.Fatal("invalid grade accepted")
+	}
+}
+
 func TestCheckAcceptsValidContent(t *testing.T) {
 	if rs := Check(validContent(), testInput()); len(rs) != 0 {
 		t.Fatalf("valid content rejected: %v", codes(rs))
