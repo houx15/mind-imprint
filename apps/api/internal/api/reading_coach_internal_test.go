@@ -48,26 +48,100 @@ func TestParseReadingCoachReplyLens(t *testing.T) {
 	}
 }
 
-// TestValidateReadingPicks — a pick is only kept when it points at a real
-// paragraph AND quotes it literally. A paraphrase, a right-words-wrong-block
-// pick, an unknown block id, and an empty quote are all dropped silently.
+// TestValidateReadingPicks — 一条 pick 活下来的条件是**它真的引了文章里的一句
+// 话**。改述、空串照旧丢掉。
+//
+// 🚨 2026-09-23 这条测试改过，因为判据改了（产品负责人第 1 条：「学生划线句
+// 包括答案句，AI就识别不出来，必须得一个字不差。」）：
+//
+//   - 原来「段号报错」= 整条丢掉。现在是**把段号纠正过来**。段号是客户端从
+//     DOM 上算出来的，算错了是我们的毛病，不是她没点。丢掉的代价她担着 ——
+//     印记 连【她在文章里点出来的句子】那一栏都看不见。
+//   - 原来是字节级比对。现在按 quotematch 的规矩找（归一化），但存下来的
+//     Quote 仍然是**原文里逐字的那一段**。
+//
+// 没有放宽的：归一化之后仍然要在某一段里连续出现。改述照旧一条都进不来。
 func TestValidateReadingPicks(t *testing.T) {
 	blocks := []Block{
 		{ID: "b1", Text: "中国的碳排放总量位居世界第一。"},
 		{ID: "b2", Text: "但人均排放仍低于多数发达国家。"},
 	}
 	got := validateReadingPicks([]readingPick{
-		{BlockID: "b1", Quote: "碳排放总量位居世界第一"},     // literal substring — kept
-		{BlockID: "b2", Quote: "人均排放低于发达国家"},      // paraphrase — dropped
-		{BlockID: "b9", Quote: "中国的碳排放总量"},        // no such block — dropped
-		{BlockID: "b1", Quote: "  "},              // empty — dropped
-		{BlockID: "b1", Quote: "但人均排放仍低于多数发达国家。"}, // right words, wrong block — dropped
+		{BlockID: "b1", Quote: "碳排放总量位居世界第一"},     // 逐字 —— 留下
+		{BlockID: "b2", Quote: "人均排放低于发达国家"},      // 改述 —— 丢掉
+		{BlockID: "b1", Quote: "  "},              // 空 —— 丢掉
+		{BlockID: "b9", Quote: "中国的碳排放总量"},        // 段号不存在 —— 纠正成 b1
+		{BlockID: "b1", Quote: "但人均排放仍低于多数发达国家。"}, // 段号报错 —— 纠正成 b2
 	}, blocks)
-	if len(got) != 1 {
-		t.Fatalf("kept %d picks, want 1: %+v", len(got), got)
+	if len(got) != 3 {
+		t.Fatalf("kept %d picks, want 3: %+v", len(got), got)
 	}
-	if got[0].BlockID != "b1" || got[0].Quote != "碳排放总量位居世界第一" {
-		t.Errorf("kept the wrong pick: %+v", got[0])
+	want := []readingPick{
+		{BlockID: "b1", Quote: "碳排放总量位居世界第一"},
+		{BlockID: "b1", Quote: "中国的碳排放总量"},
+		{BlockID: "b2", Quote: "但人均排放仍低于多数发达国家"},
+	}
+	for i, w := range want {
+		if got[i].BlockID != w.BlockID || got[i].Quote != w.Quote {
+			t.Errorf("pick %d = %+v, want %+v", i, got[i], w)
+		}
+	}
+}
+
+// 🚨 标点漂移不再让一条对的 pick 掉地上。这是产品负责人那一条的核心：
+// 浏览器的选区带上或落下一个句号、一个半角逗号，都不该让「我明明划了」变成
+// 「它说我没划」。
+func TestValidateReadingPicksSurvivesPunctuationDrift(t *testing.T) {
+	blocks := []Block{{ID: "b1", Text: "我料定这老女人并没有伤，别人也没有看见。"}}
+	for _, quote := range []string{
+		"我料定这老女人并没有伤。",  // 多了一个句号
+		"我料定这老女人并没有伤",   // 少了那个逗号
+		" 我料定这老女人并没有伤 ", // 两头带空格
+		"我料定这老女人并没有伤,",  // 半角逗号
+	} {
+		got := validateReadingPicks([]readingPick{{BlockID: "b1", Quote: quote}}, blocks)
+		if len(got) != 1 {
+			t.Fatalf("%q: 被丢掉了", quote)
+		}
+		// 🚨 存下来的仍然是**原文里**那一段，不是她选区里的字。
+		if got[0].Quote != "我料定这老女人并没有伤" {
+			t.Errorf("%q: 存的不是原文的那一段：%q", quote, got[0].Quote)
+		}
+	}
+}
+
+// 🚨 跨了空行的选区拆成每段一条，而不是整条丢掉。她拖过一个空行的意思是
+// 「这两段我都要」，不是「我什么都没划」。
+func TestValidateReadingPicksSplitsACrossParagraphSelection(t *testing.T) {
+	blocks := []Block{
+		{ID: "b1", Text: "中国的碳排放总量位居世界第一。"},
+		{ID: "b2", Text: "但人均排放仍低于多数发达国家。"},
+	}
+	got := validateReadingPicks([]readingPick{
+		{BlockID: "b1", Quote: "中国的碳排放总量位居世界第一。\n\n但人均排放仍低于多数发达国家。"},
+	}, blocks)
+	if len(got) != 2 {
+		t.Fatalf("kept %d, want 2: %+v", len(got), got)
+	}
+	if got[0].BlockID != "b1" || got[1].BlockID != "b2" {
+		t.Errorf("段号不对：%+v", got)
+	}
+}
+
+// 🚨 **绝不放宽比对。** 改述、她自己写的话、文章里根本没有的字，一条都不许
+// 变成 pick —— 松了这一条，hunt 那一步就能靠她没点过的东西结束
+// （memory: detector-must-target-the-real-failure）。
+func TestValidateReadingPicksStillRefusesWhatIsNotInTheArticle(t *testing.T) {
+	blocks := []Block{{ID: "b1", Text: "中国的碳排放总量位居世界第一。"}}
+	for _, quote := range []string{
+		"人均排放低于发达国家",        // 改述
+		"我觉得这说明中国做得不够好",     // 她自己写的
+		"碳排放总量位居世界第二",       // 改了一个字
+		"位居世界第一的是中国的碳排放总量", // 同样的字，另一个顺序
+	} {
+		if got := validateReadingPicks([]readingPick{{BlockID: "b1", Quote: quote}}, blocks); len(got) != 0 {
+			t.Errorf("%q: 不该被当成原文：%+v", quote, got)
+		}
 	}
 }
 

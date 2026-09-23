@@ -300,6 +300,15 @@ func renderReadingCoachPrompt(c readingCoachContext) promptassembly.Document {
 			}
 			b.WriteString("第" + itoaSmall(ord) + "段：「" + p.Quote + "」\n")
 		}
+		// 🚨 产品负责人 2026-09-23 第 1 条，那张截图里的事：她点的那一句
+		// 来自第 3 段，而当时在看第 5 段 —— 可是这一问要的那几个字
+		// （「慢慢地倒了」）**就在她点的这句话里**。印记 只回了一句
+		// 「你写的是第3段……现在我们在看第5段」，下一轮她说「你告诉我答案吧」。
+		//
+		// 规矩写成「在什么情况下该怎么做」（AGENTS.md §3），理由留在注释里（§2）。
+		b.WriteString("学生点的句子与当前讨论的段落不同时，先看这句话里有没有当前这一问要的内容：" +
+			"有就先认下来，说明这几个字在这里说明了什么，再说明当前段落里哪一处在做同一件事；" +
+			"都没有时才说明这一问在看哪一段。\n")
 	}
 
 	// A completed lens is HER WORK, so it gets its own section rather than

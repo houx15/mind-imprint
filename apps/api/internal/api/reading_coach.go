@@ -39,6 +39,7 @@ import (
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/quotematch"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -56,26 +57,30 @@ type readingPick struct {
 	Quote   string `json:"quote"`
 }
 
-// validateReadingPicks keeps only picks that point at a real paragraph AND
-// quote it literally. Anything else — an unknown block id, an empty quote, a
-// paraphrase, or words that are real but belong to a different paragraph —
-// is dropped silently rather than passed on for the model to sort out.
+// validateReadingPicks keeps only picks that really quote a paragraph of the
+// article. A paraphrase, or words that appear nowhere in the article, is
+// dropped silently rather than passed on for the model to sort out.
+//
+// 🚨 2026-09-23：这里原来是字节级的 `strings.Contains(body, q)`，而且要求她
+// 自己报的段号先对上。产品负责人第 1 条报的就是它：「学生划线句包括答案句，
+// AI就识别不出来，必须得一个字不差。」三种真实的翻车方式（标点漂移、段号报
+// 错、跨段落划）见 reading_pick_match.go 的文件头。
+//
+// 放宽的只有**怎么找**：归一化之后仍然要在某一段里连续出现，存下来的 Quote
+// 仍然是**原文里逐字的那一段**（quotematch.Locate 把它取回来）。「必须是原文」
+// 这条一个字都没松。
 func validateReadingPicks(picks []readingPick, blocks []Block) []readingPick {
-	byID := make(map[string]string, len(blocks))
-	for _, b := range blocks {
-		byID[b.ID] = b.Text
-	}
 	out := make([]readingPick, 0, len(picks))
 	for _, p := range picks {
-		q := strings.TrimSpace(p.Quote)
-		if q == "" {
+		if strings.TrimSpace(p.Quote) == "" {
 			continue
 		}
-		body, ok := byID[p.BlockID]
-		if !ok || !strings.Contains(body, q) {
+		if id, span, ok := locateReadingPick(blocks, p.BlockID, p.Quote); ok {
+			out = append(out, readingPick{BlockID: id, Quote: span})
 			continue
 		}
-		out = append(out, readingPick{BlockID: p.BlockID, Quote: q})
+		// 整条找不到 —— 看看是不是一条跨了空行的选区。
+		out = append(out, splitReadingPickAcrossBlocks(blocks, p.Quote)...)
 	}
 	return out
 }
@@ -133,8 +138,12 @@ func quotedLinesCiteArticle(content string, blocks []Block) bool {
 		if quote == "" {
 			continue
 		}
+		// 🚨 和 validateReadingPicks 同一条规矩：归一化之后再找。
+		// 转录里那几行 `> ` 是**她点过什么**的唯一重建依据，用字节比对的话，
+		// 一个被浏览器带上的句号就能让「她上一轮点过」变成「她没点过」，
+		// 而 F3 会据此拒绝让这一步结束。见 reading_pick_match.go。
 		for _, blk := range blocks {
-			if strings.Contains(blk.Text, quote) {
+			if _, ok := quotematch.Locate(blk.Text, quote); ok {
 				return true
 			}
 		}
@@ -157,8 +166,10 @@ func quoteIsArticleText(s string, blocks []Block) bool {
 	if s == "" {
 		return false
 	}
+	// 同上：按 quotematch 的规矩找。少一个句号仍然是文章的话，仍然要带着
+	// `> ` 进转录 —— 否则它会被当成她自己写的，进而进入幻引的语料。
 	for _, blk := range blocks {
-		if strings.Contains(blk.Text, s) {
+		if _, ok := quotematch.Locate(blk.Text, s); ok {
 			return true
 		}
 	}
