@@ -32,11 +32,13 @@ const writingPlanNarrativeKinds = prompts.WritingPlanNarrativeKinds
 
 // writingPlanSystemFor 按**文体和语言**组装立题那份系统提示词。
 //
-// 三块按这两条轴挑（见 writing_plan_lang.go 开头那段）：
+// 四块按这两条轴挑（见 writing_plan_lang.go 开头那段）：
 //
 //	@@KINDS@@     这一篇有哪几种块，以及它们在这门课上叫什么
 //	@@MATERIAL@@  一条理由底下该有什么
 //	@@SKELETON@@  一整篇常见的几种摆法
+//	@@COACH@@     这一篇特有的带法。**可选** —— 今天只有英文议论文有一节
+//	              （题目拆解），取不到就整行删掉，不是故障。
 //
 // 🚨 lang 这条轴是 2026-09-22 补的。在这之前一个写英文议论文的学生拿到的是
 // 语文高考那一套：材料按「社会/历史例子最硬、个人经历最弱」排次序、骨架是
@@ -73,9 +75,16 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 	// 取不到不是故障 —— 中文议论文和两种记叙文本来就没有这一节，所以这里
 	// 不记日志、不兜底，直接把那一行占位符整行删掉。阅读面的
 	// buildGenreCoachSection 是同一个形状。
+	//
+	// 🚨 上面那三块走了兜底（退到中文议论文）的时候，这一节也要一起丢掉。
+	// 否则会拼出一份「中文高考的材料次序 + 英文题目拆解」的混合体 —— 那比
+	// 两者中的任何一个都糟。今天走不到（覆盖测试保证那三块取得齐），
+	// 但兜底分支存在的意义就是为了走不到的那天。
 	coach := ""
-	if p, cerr := guidance.Default().Resolve(k, guidance.SlotCoach); cerr == nil {
-		coach = p[guidance.SlotCoach]
+	if err == nil {
+		if p, cerr := guidance.Default().Resolve(k, guidance.SlotCoach); cerr == nil {
+			coach = p[guidance.SlotCoach]
+		}
 	}
 
 	english := lang == langEnglish

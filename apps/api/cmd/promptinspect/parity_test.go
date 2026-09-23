@@ -62,6 +62,21 @@ func TestMainRequestParity(t *testing.T) {
 			t.Errorf("request differs from main baseline: %s", id)
 		}
 	}
+	// 🚨 这个循环只走 expected。一条新装配加进 examples() 而没进基线，
+	// 上面那段一个字都不会说 —— 它就**不在被比的集合里**。
+	//
+	// 2026-09-23 之前正是这样：examples() 吐 36 条，基线里 28 条，另外 8 条
+	// （含四条 writing/plan/* 装配）从来没被比过。AGENTS.md「提示词怎么写」
+	// 第 6 条记的那次事故就是这个形状 —— 基线不等于覆盖。
+	//
+	// 这一条把「覆盖」本身变成判据：examples() 里每一条都必须在基线里有位置。
+	// 新开一条装配就补一条基线，不能只加装配。
+	for id := range current {
+		if _, ok := expected[id]; !ok {
+			t.Errorf("装配 %s 不在基线里 —— 它从来没有被比对过。"+
+				"新开一条装配要同时录一条基线（见 README.txt 怎么重录）", id)
+		}
+	}
 	if baseline != "" && !t.Failed() && os.Getenv("PROMPT_RECORD_BASELINE") == "1" {
 		if err := os.MkdirAll("testdata", 0755); err != nil {
 			t.Fatal(err)

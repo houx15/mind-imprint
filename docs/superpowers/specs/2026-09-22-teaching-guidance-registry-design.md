@@ -423,6 +423,79 @@ implement this template to their writing**.」
 - `guidance` 的测试名里还留着 `Stage`（`TestStageBandFoldsGradeToBand` 等），
   下次碰那两个文件时顺手改掉。
 
+## 8.7 · 二期 b 做完之后留下的东西（2026-09-23）
+
+15 个提交 `a1731fa2..5f6fbbb0`，七个任务全部通过评审。交付了三件：
+老师能改一个已有班级的年级了（pro 控制台 + lite 教师端**两块**界面）；
+写英文议论文的学生在立题那一步先拿到 TOPIC + TASK 的拆解；
+以及一条本来不在计划里、但比计划内那些都重要的修复（见下）。
+
+### 🚨 最重要的一条：routebench 一直在拿一份没装配过的提示词挑模型
+
+`benchcases_lite_writing.go` 的 `writingPlanCase()` 把**原始模板常量**当系统
+提示词发了出去 —— `@@KINDS@@` / `@@MATERIAL@@` / `@@SKELETON@@` / `%d` 一个
+都没替换。生产走的是 `writingPlanSystemFor(...)`。
+
+`cmd/routebench` 拿这批用例去花钱跑候选模型、决定哪个模型绑到哪一档，而这条
+用例按它自己的注释是「compose 档在 lite 里最贵的一个调用点（占 compose
+46%）」。**给最贵那个调用点挑模型的那次实测，量的是一份没有节点类型表、
+没有材料那一节、没有骨架的提示词。**
+
+已修，并留下一道闸：`cmd/routebench/benchcases_assembled_test.go` 的
+`TestBenchCasesSendAssembledPrompts` —— 三个来源包、所有 role、四种占位符
+（`@@` / `%s` / `%d` / `%LENS%`）全查，且三个包各自不许为空。这道闸当面红过
+一次（故意塞一个 `%s`，它点名了那条用例）。
+
+🚨 **连带更正 spec 的一个前提**：`bench/compose/lite-writing-plan` 这条 parity
+样例**从来没有守过装配** —— 它守的是原始模板的字节。有意重录了这一条，
+现在它守的是装配后的那一份。
+
+### 🚨 parity 基线过去只盖了 28/36 条
+
+`examples()` 吐 36 条，基线里只有 28 条，而 `TestMainRequestParity` **只遍历
+基线那张表** —— 另外 8 条（含**四条 `writing/plan/*` 装配**）一次都没被比过。
+AGENTS.md §6 记的那次事故就是这个形状。八条已全部补进基线（纯新增，原 28 条
+哈希一个没动），并加了一条判据：`examples()` 里每一条都必须在基线里有位置。
+
+### 🚨 过滤器是七次评审都看不见的那个洞
+
+计划里的后端门是 `go test ./internal/api -run 'Writing|Grade|Class'`。
+`TestClarityMergeWriting` 名字里有 Writing，被跑到了；
+**`TestClarityPersonalPlanReady` 三个词一个都不含，没被跑到** ——
+它的 en 快照因为这次改动变了却没被重录，**不带过滤器跑整包就是红的**。
+终审跑无过滤版本才抓到。
+
+教训两条，下次照办：
+1. **期末那一次门不许带 `-run` 过滤。** 每个任务跑过滤版本省时间可以，
+   收尾必须 `go test ./...` 跑全。
+2. **`go test … | tail` 的退出码是 tail 的。** memory 里记过一次，这次终审
+   自己又踩了一次并当场发现。判断绿红要看真实退出码。
+
+### 带着走的几条小账
+
+- `SlotMaterial` / `SlotSkeleton` 登记在 `{write, en}` 上**不分文体**，所以
+  写**英文记叙文**的学生会收到一节标题写着「英文议论文的材料与分析」的内容，
+  以及 Thesis–body–conclusion 那套骨架，而三屏之后的块名表又告诉她
+  「这是记叙文，不使用议论文的 thesis、point 等节点类型」—— 同一份文档里
+  两条指令打架。**先于二期 b 就存在**，`TestWritingPlanSystemFor_EveryGenreAndLangAssembles`
+  的「文体不许串台」只查 `「thesis」`/`「scene」` 这种方括号块名，看不见散文里的串台。
+  **留给三期。**
+- `## 教学术语` 后面跟着一段本该在 `## 输出格式` 底下的输出格式碎片。
+  **中文议论文那一份也有同样的形状**（`## 区分观点与材料` 夹在 `- kind：`
+  和 `- text：` 之间），所以这是「把 `##` 小标题放进 `@@KINDS@@` 常量」的
+  长期后果，不是二期 b 弄出来的。要改就是 `WritingPlanSystem` 的分节重构，
+  按 AGENTS.md §7 属于「单独一次提交、单独跑一次 LIVE_LLM」。**没有排期。**
+- 年级那条轴到二期 b 为止仍然**是通的但不起作用**：生产注册表里一行
+  `Grades` 都没有。`TestGradeDoesNotChangeAnythingYet` 仍然成立。
+  第一个登记年级内容的人要同时做三件事：拆 `coverage_test.go` 的 want 表
+  （两轴→三轴）、删掉那条验收测试、检查 `benchcases_lite_writing.go` 传的
+  grade（今天是 `""`）。
+- **合并前还欠两条验证**（二期 b 这个环境里做不了，不是取消）：
+  真的打开 pro 和 lite 那两屏看一眼（lite 那块没有任何测试挡着，
+  控件的**接线**终审核过了，**布局**没有）；以及跑一次 `LIVE_LLM`，
+  判据是拿一道 discuss-both-views 的英文题走一轮立题，看印记有没有先把题目
+  拆成两项、有没有把整句开头塞给她。
+
 ## 9 · 参考
 
 - `docs/reference/writing-teaching/reading-suggestion.md` —— 已实现于 `reading_genre.go`
