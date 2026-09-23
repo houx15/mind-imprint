@@ -15,7 +15,7 @@ export function ShowcaseImagePicker({purpose, currentUrl, prompt, onPromptChange
   onBusy: (busy: boolean) => void;
   onPick: (key: string, url: string) => void;
 }) {
-  const [mode, setMode] = useState<"upload" | "generate">("upload");
+  const [mode, setMode] = useState<"upload" | "generate">("generate");
   const input = useRef<HTMLInputElement>(null);
   const lock = useRef(false);
   const [generating, setGenerating] = useState(false);

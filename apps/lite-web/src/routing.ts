@@ -59,7 +59,7 @@ export type LiteRoute =
   // 2026-09-05 加：主页发布之后项目进 keeping，她随时能回来改，但在这之前回到
   // 那一页的路只有「项目室 → 主页项目 → 侧栏那一行」。也就是说她必须先想起
   // 自己的主页是一个项目，才找得到它。
-  | { tab: "mysite" }
+  | { tab: "mysite"; view?: "works" }
   // 设置 is a route, not a rail tab: it is reached from the account button at
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
@@ -128,7 +128,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       if (second === "report" && third) return { tab: "tree", reportRunId: third };
       return { tab: "tree" };
     case "site":
-      return { tab: "mysite" };
+      return second === "works" ? { tab: "mysite", view: "works" } : { tab: "mysite" };
     case "explore":
       return { tab: "explore" };
     case "settings":
@@ -187,7 +187,7 @@ export function liteRoutePath(route: LiteRoute): string {
     case "explore":
       return "/explore";
     case "mysite":
-      return "/site";
+      return route.view === "works" ? "/site/works" : "/site";
     case "settings":
       return "/settings";
     case "page":

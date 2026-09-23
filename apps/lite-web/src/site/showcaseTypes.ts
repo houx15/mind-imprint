@@ -25,6 +25,8 @@ export interface ShowcaseConfig {
   customWorks?: ShowcaseCustomWork[];
   homeWorkLimit?: number;
   aboutConversation?: ShowcaseAboutMessage[];
+  guideConversation?: ShowcaseAboutMessage[];
+  componentPrompt?: string;
   interestTreeMode?: "none" | "tree" | "keywords";
   name: string;
   bio: string;
@@ -57,6 +59,8 @@ export interface ShowcaseWork {
   summary: string;
   publicPath?: string;
   externalUrl?: string;
+  /** Private editor link, supplied only by the authenticated showcase state. */
+  managePath?: string;
   date?: string;
 }
 

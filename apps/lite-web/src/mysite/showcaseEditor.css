@@ -184,3 +184,38 @@
 .showcase-component-preview { overflow:hidden; border:1px solid var(--mk-line); border-radius:10px; background:white; }
 .showcase-link-editor { padding:14px; border:1px solid var(--mk-line); border-radius:10px; margin:12px 0; }
 .showcase-field select { border:1px solid var(--mk-line); border-radius:8px; padding:9px; background:var(--mk-surface); font-size:12px; }
+
+/* The guide stays visible while its current tool card scrolls independently. */
+.showcase-workspace { grid-template-columns: minmax(390px, 430px) minmax(0, 1fr); }
+.showcase-tabs { gap: 3px; padding: 12px 14px 9px; overflow-x: auto; border-bottom: 1px solid var(--mk-line); }
+.showcase-tabs button { display:flex; align-items:center; justify-content:center; gap:4px; flex:1 0 auto; min-width:53px; padding:7px 3px; border:0; border-radius:8px; font-size:11px; }
+.showcase-tabs button span { display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--mk-paper); font-size:10px; }
+.showcase-tabs button[aria-pressed=true] { background:var(--mk-accent-50); color:var(--mk-accent-500); font-weight:650; }
+.showcase-guide { display:flex; flex-direction:column; flex-shrink:0; min-height:0; max-height:min(44dvh, 350px); padding:14px 19px 11px; background:var(--mk-paper); border-bottom:1px solid var(--mk-line); }
+.showcase-guide-heading,.showcase-guide-step-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.showcase-guide-heading span { display:flex; align-items:center; gap:5px; color:var(--mk-accent-500); font-size:12px; font-weight:650; }
+.showcase-guide-heading strong { font-size:11px; color:var(--mk-muted); }
+.showcase-guide-messages { flex:1; min-height:52px; overflow-y:auto; padding:12px 2px 8px; display:flex; flex-direction:column; gap:9px; overscroll-behavior:contain; }
+.showcase-guide-message { padding:10px 11px; border:1px solid var(--mk-line); border-radius:11px; background:var(--mk-surface); font-size:12px; line-height:1.6; }
+.showcase-guide-message b { display:block; margin-bottom:3px; font-size:10px; color:var(--mk-accent-500); }
+.showcase-guide-message p+p { margin-top:6px; }
+.showcase-guide-message.is-student { margin-left:18px; background:var(--mk-accent-50); }
+.showcase-guide-tree { color:var(--mk-secondary); }
+.showcase-guide-composer { display:flex; align-items:flex-end; gap:6px; border:1px solid var(--mk-border); border-radius:11px; background:var(--mk-surface); padding:5px; }
+.showcase-guide-composer textarea { flex:1; min-height:38px; max-height:90px; padding:5px; border:0; background:transparent; resize:none; font-size:12px; outline:0; }
+.showcase-guide-composer button { display:grid; place-items:center; width:32px; height:32px; border-radius:8px; color:white; background:var(--mk-accent-500); }
+.showcase-guide-step-actions { padding-top:8px; }
+.showcase-guide-step-actions button { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--mk-secondary); }
+.showcase-guide-proposal { padding:8px 10px; border:1px solid var(--mk-accent-500); border-radius:8px; font-size:11px; line-height:1.5; margin-bottom:7px; }
+.showcase-guide-proposal button { margin-top:5px; font-weight:650; color:var(--mk-accent-500); }
+.showcase-guide-error,.showcase-guide-pending { font-size:11px; line-height:1.4; color:var(--mk-danger); }
+.showcase-component-candidate { margin:16px 0; padding:13px; border:1px solid var(--mk-accent-500); border-radius:11px; background:var(--mk-paper); font-size:12px; }
+.showcase-component-candidate h3 { font-weight:650; }
+.showcase-component-candidate p { margin-top:5px; color:var(--mk-secondary); }
+.showcase-component-manual { margin:16px 0; padding:10px; border:1px solid var(--mk-line); border-radius:9px; font-size:12px; }
+.showcase-component-manual summary { cursor:pointer; }
+.showcase-work-option .showcase-work-copy { flex:1; min-width:0; }
+.showcase-work-option .showcase-work-copy label { width:100%; }
+.showcase-manage-report { margin:5px 0 0 27px; font-size:11px; color:var(--mk-accent-500); text-decoration:underline; text-underline-offset:2px; }
+@media (max-width:1000px) { .showcase-workspace { grid-template-columns: minmax(320px, 350px) minmax(0, 1fr); } }
+@media (max-width:700px) { .showcase-workspace { display:block; } .showcase-guide { max-height:min(42dvh, 300px); } }

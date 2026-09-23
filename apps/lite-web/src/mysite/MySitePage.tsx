@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Monitor, Smartphone } from "lucide-react";
 import { ApiError } from "../api/client";
 import { apiErrorText } from "../api/errorText";
-import { getShowcase, publishShowcase, revokeShowcase, saveShowcase, type ShowcaseState } from "../api/showcase";
-import { beforeNavigate } from "../routing";
+import { getShowcase, publishShowcase, revokeShowcase, saveShowcase, type ShowcaseGuideStage, type ShowcaseState } from "../api/showcase";
+import { beforeNavigate, navigate } from "../routing";
 import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { Says, errorMarkdown } from "../projects/Says";
 import { Showcase } from "../site/Showcase";
 import { ShowcaseComponentEditor } from "./ShowcaseComponentEditor";
 import { ShowcaseLinkEditor } from "./ShowcaseLinkEditor";
 import { PortfolioShareDialog } from "../shared/PortfolioShareDialog";
-import { ShowcaseAboutCoach } from "./ShowcaseAboutCoach";
+import { GUIDE_STEPS, ShowcaseDesignGuide } from "./ShowcaseDesignGuide";
 import { ShowcaseImagePicker } from "./ShowcaseImagePicker";
 import { SHOWCASE_PRESETS, SHOWCASE_ILLUSTRATIONS } from "../site/showcasePresets";
 import { SHOWCASE_THEMES, SHOWCASE_FONT_STACKS } from "../site/showcaseThemes";
@@ -37,7 +37,7 @@ function selectedWorkOrder(config: ShowcaseConfig, work: ShowcaseWork) {
   return config.selectedWorkIds.indexOf(work.id);
 }
 
-export function MySitePage() {
+export function MySitePage({initialStage="design"}:{initialStage?:ShowcaseGuideStage}) {
   const [state, setState] = useState<ShowcaseState | null>(null);
   const [draft, setDraft] = useState<ShowcaseConfig | null>(null);
   const [interestText, setInterestText] = useState("");
@@ -49,13 +49,16 @@ export function MySitePage() {
   const [imageBusy, setImageBusy] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const busyRef = useRef(false);
-  const [tab, setTab] = useState<"profile" | "design" | "hero" | "works" | "components">("design");
-  const [profileTab, setProfileTab] = useState("chat");
+  const [tab, setTab] = useState<ShowcaseGuideStage>(initialStage);
+  const [profileTab, setProfileTab] = useState("content");
   const [heroTab, setHeroTab] = useState("text");
   const [shareUrl, setShareUrl] = useState("");
   const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
   const [narrow, setNarrow] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const previewAreaRef = useRef<HTMLElement>(null);
+  const [componentRequest,setComponentRequest]=useState<{id:number;prompt:string}|null>(null);
+  useEffect(()=>setTab(initialStage),[initialStage]);
   const interestInput = parseShowcaseInterests(interestText);
   const effectiveDraft = draft ? { ...draft, interests: interestInput.interests } : null;
   const availableWorks: ShowcaseWork[] = [...(state?.availableWorks??[]).filter(work=>!work.id.startsWith("external:")), ...(draft?.customWorks??[]).map(work=>({id:`external:${work.id}`,kind:"project" as const,title:work.title,summary:work.summary,externalUrl:work.url,date:work.date}))];
@@ -83,6 +86,16 @@ export function MySitePage() {
     window.addEventListener("beforeunload", warn);
     return () => { remove(); window.removeEventListener("beforeunload", warn); };
   }, [dirty, busy, imageBusy]);
+  useEffect(() => {
+    if (loading || (mobileView === "edit" && window.matchMedia("(max-width: 700px)").matches)) return;
+    const frame = previewAreaRef.current;
+    if (!frame) return;
+    const selector = tab === "hero" || tab === "design" ? ".showcase-hero" : tab === "profile" ? profileTab === "tree" ? ".showcase-interest" : ".showcase-about" : tab === "works" ? ".showcase-main" : tab === "components" ? ".showcase-custom-components" : ".showcase";
+    const target = frame.querySelector<HTMLElement>(selector) ?? frame.querySelector<HTMLElement>(".showcase");
+    if (!target) return;
+    const top = target.getBoundingClientRect().top - frame.getBoundingClientRect().top + frame.scrollTop - 18;
+    frame.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+  }, [tab,profileTab,mobileView,loading]);
 
   async function action(kind: "save" | "publish" | "revoke") {
     if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
@@ -132,6 +145,7 @@ export function MySitePage() {
       <div><p className="showcase-eyebrow">个人展示</p><h1>我的主页</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published ? state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "已发布" : "仅自己可见"}</p></div>
       <div className="showcase-actions">
         {state.url && (state.published || state.hasLegacySite) && <a href={state.url} target="_blank" rel="noreferrer">查看公开页<ExternalLink size={14} /></a>}
+        <button type="button" onClick={()=>navigate("/site/works")}>管理作品</button>
         <button disabled={busy || imageBusy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
         <button className="showcase-primary" disabled={busy || imageBusy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
       </div>
@@ -142,10 +156,11 @@ export function MySitePage() {
     {shareUrl && <PortfolioShareDialog url={shareUrl} onClose={()=>setShareUrl("")}/>}
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
-        <nav className="showcase-tabs" aria-label="主页设置">{([["design", "风格"], ["hero", "开场"], ["profile", "介绍"], ["works", "作品"], ["components", "组件"]] as const).map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}</nav>
-        {tab === "profile" && <nav className="showcase-subtabs" aria-label="介绍设置">{([["chat","对话"],["content","内容"],["avatar","头像"],["tree","兴趣树"]] as const).map(([id,label])=><button key={id} aria-pressed={profileTab===id} onClick={()=>setProfileTab(id)}>{label}</button>)}</nav>}
+        <nav className="showcase-tabs" aria-label="主页制作步骤">{GUIDE_STEPS.map((step,index) => <button key={step.id} aria-pressed={tab === step.id} onClick={() => setTab(step.id)}><span>{index+1}</span>{step.title}</button>)}</nav>
+        <ShowcaseDesignGuide stage={tab} draft={effectiveDraft} interestTree={state.availableInterestTree} available={state.aboutChatAvailable===true} disabled={busy||imageBusy} onBusy={setImageBusy} onStep={setTab} onComponentIdea={prompt=>{patch({componentPrompt:prompt});setComponentRequest(current=>({id:(current?.id??0)+1,prompt}));}} onConversation={messages=>patch({guideConversation:messages})} onApply={proposal=>{const {reason,...changes}=proposal;patch(changes);if(changes.interests)setInterestText(changes.interests.join("、"));setNotice("设计建议已应用，请预览并保存草稿");}}/>
+        {tab === "profile" && <nav className="showcase-subtabs" aria-label="介绍设置">{([["content","内容"],["tree","兴趣树"],["avatar","头像"]] as const).map(([id,label])=><button key={id} aria-pressed={profileTab===id} onClick={()=>setProfileTab(id)}>{label}</button>)}</nav>}
         {tab === "hero" && <nav className="showcase-subtabs" aria-label="开场设置">{([["text","文字"],["art","系统配图"],["image","自定义图片"]] as const).map(([id,label])=><button key={id} aria-pressed={heroTab===id} onClick={()=>setHeroTab(id)}>{label}</button>)}</nav>}
-        <fieldset disabled={busy || imageBusy} className={`showcase-fields ${tab === "profile" && profileTab === "chat" ? "is-chat" : ""}`}>
+        <fieldset disabled={busy || imageBusy} className="showcase-fields">
 
           {tab === "design" && <>
             <div className="showcase-heading"><h2>选择喜欢的样子</h2><p>从一套视觉方案开始，再调整配图、字体和版式。</p></div>
@@ -165,9 +180,8 @@ export function MySitePage() {
             </div><div hidden={heroTab !== "art"}><div className="showcase-field-group"><h3>开场配图</h3><div className="showcase-art-options">{SHOWCASE_ILLUSTRATIONS.map(art => <button key={art.id} aria-pressed={!draft.heroImageKey && (draft.illustration ?? "none") === art.id} onClick={() => patch({illustration:art.id,heroImageKey:""})}>{art.src ? <img src={art.src} alt="" loading="lazy" /> : <span>留白</span>}<small>{art.name}</small></button>)}</div></div>
           </div></>}
           <div className="showcase-profile-panel" hidden={tab !== "profile"}>
-            <div className="showcase-heading"><h2>{profileTab === "chat" ? "一起整理个人介绍" : profileTab === "content" ? "介绍内容与版式" : profileTab === "avatar" ? "个人照片或头像" : "兴趣树展示"}</h2><p>{profileTab === "chat" ? "从想分享的内容开始，讨论内容与展示方式。" : profileTab === "content" ? "修改介绍、关键词和呈现方式。" : profileTab === "avatar" ? "上传图片，或用文字描述生成新头像。" : "选择在主页分享哪些兴趣内容。"}</p></div>
-            <div className="showcase-chat-panel" hidden={profileTab !== "chat"}><ShowcaseAboutCoach available={state.aboutChatAvailable === true} draft={effectiveDraft!} disabled={busy || imageBusy || !state.aboutChatAvailable} onBusy={setImageBusy} onConversation={messages=>patch({aboutConversation:messages})} onApply={proposal=>{patch({name:proposal.name,bio:proposal.bio,interests:proposal.interests,aboutLayout:proposal.aboutLayout});setInterestText(proposal.interests.join("、"));setNotice("介绍建议已应用，请预览并保存草稿");}}/>
-            </div><div hidden={profileTab !== "content"}>
+            <div className="showcase-heading"><h2>{profileTab === "content" ? "介绍内容与版式" : profileTab === "avatar" ? "个人照片或头像" : "兴趣树展示"}</h2><p>{profileTab === "content" ? "请填写愿意公开的基本信息，再与印记讨论如何呈现。" : profileTab === "avatar" ? "上传图片，或用文字描述生成新头像。" : "选择在主页分享哪些兴趣内容。"}</p></div>
+            <div hidden={profileTab !== "content"}>
             <div className="showcase-field-group"><h3>介绍版式</h3><div className="showcase-segments">{([["classic","名字与简介"],["orbit","照片与关键词"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.aboutLayout??"classic")===id} onClick={()=>patch({aboutLayout:id})}>{label}</button>)}</div></div>
             <label className="showcase-field mt-6">展示名称<input value={draft.name} maxLength={80} onChange={e => patch({ name: e.target.value })} placeholder="名字或昵称" /></label>
 
@@ -177,9 +191,9 @@ export function MySitePage() {
             <div hidden={profileTab !== "tree"}><div className="showcase-field-group"><h3>兴趣树展示</h3><div className="showcase-mode-options">{([["none","不展示"],["tree","展示兴趣树"],["keywords","展示关键词"]] as const).map(([id,label])=><button type="button" key={id} aria-pressed={(draft.interestTreeMode??"none")===id} onClick={()=>patch({interestTreeMode:id})}>{label}</button>)}</div><p className="showcase-mode-help">选择展示后，发布时会分享兴趣树中的领域与关键词，不包含对话、来源或学习记录。后续变化需要重新发布。</p>{draft.interestTreeMode && draft.interestTreeMode !== "none" && !state.availableInterestTree?.keywords.length && <p className="showcase-editor-empty">兴趣树暂无关键词。产生新的兴趣关键词后，可在这里预览并发布。</p>}</div>
             </div><div hidden={profileTab !== "avatar"}><div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
           </div></div>
-          {tab === "components" && <ShowcaseComponentEditor components={draft.components??[]} disabled={busy||imageBusy} onChange={components=>patch({components})}/>}
+          {tab === "components" && <ShowcaseComponentEditor components={draft.components??[]} disabled={busy||imageBusy} onBusy={setImageBusy} prompt={draft.componentPrompt??""} onPromptChange={componentPrompt=>patch({componentPrompt})} style={draft.style} palette={draft.palette} generationRequest={componentRequest} onRequestConsumed={()=>setComponentRequest(null)} onChange={components=>patch({components})}/>}
           {tab === "works" && <>
-            <div className="showcase-heading"><h2>选择展示内容</h2><p>写作与阅读从已发布的作品中选择。项目可展示名称、简介和外部作品链接。</p></div>
+            <div className="showcase-heading"><h2>管理公开作品</h2><p>选择要放进主页的写作和阅读报告，调整展示形式。报告的公开状态可在对应的报告页面修改。</p></div>
             <label className="showcase-field">首页展示数量<select value={draft.homeWorkLimit??6} onChange={e=>patch({homeWorkLimit:Number(e.target.value)})}>{[3,6,9,12].map(n=><option key={n} value={n}>{n} 件</option>)}</select><small>勾选的全部作品可在“全部作品”页查看。</small></label>
             <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>patch({customWorks,selectedWorkIds:draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id))})}/>
             <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
@@ -194,10 +208,11 @@ export function MySitePage() {
               return <section className="showcase-work-group" key={kind}><header><h3>{sections[kind]}</h3><span>版块顺序</span><button aria-label={`上移${sections[kind]}版块`} disabled={index === 0} onClick={() => moveSection(index, -1)}><ArrowUp size={15} /></button><button aria-label={`下移${sections[kind]}版块`} disabled={index === draft.sectionOrder.length - 1} onClick={() => moveSection(index, 1)}><ArrowDown size={15} /></button></header>
                 {works.length === 0 ? <p className="showcase-editor-empty">{kind === "project" ? "完成项目后，可在这里选择展示。" : `发布${kind === "writing" ? "文章" : "阅读成果"}后，可在这里选择展示。`}</p> : works.map(work => {
                   const checked = draft.selectedWorkIds.includes(work.id);
-                  return <div className="showcase-work-option" key={work.id}><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id] })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
+                  return <div className="showcase-work-option" key={work.id}><div className="showcase-work-copy"><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id] })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{work.managePath&&<button type="button" className="showcase-manage-report" onClick={()=>navigate(work.managePath!)}>在报告页管理公开状态</button>}</div>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
                 })}</section>;
             })}
           </>}
+          {tab === "finish" && <div className="showcase-heading"><h2>检查并发布</h2><p>右侧是访客将看到的主页。请检查文字、图片、作品与组件；保存草稿后，再决定是否发布。</p><p className="showcase-mode-help">保存草稿仅自己可见。发布后，持有链接的人可以查看你选择的作品和组件。</p></div>}
         </fieldset>
         <div className="showcase-publishing">
           {state.hasLegacySite && <p>原主页仍在公开展示。发布当前版本后，将使用这里的版式与内容；原项目记录保留。</p>}
@@ -207,7 +222,7 @@ export function MySitePage() {
           {(state.published || state.hasLegacySite) && <div className="showcase-link-actions"><button disabled={busy || imageBusy} onClick={() => void navigator.clipboard.writeText(state.url).then(() => setNotice("公开链接已复制")).catch(() => setError("复制失败，请从公开页面复制地址"))}><Copy size={14} />复制链接</button><button disabled={busy || imageBusy} onClick={() => void action("revoke")}>停止发布</button></div>}
         </div>
       </aside>
-      <section className="showcase-preview-area" aria-label="主页预览">
+      <section ref={previewAreaRef} className="showcase-preview-area" aria-label="主页预览">
         <div className="showcase-preview-toolbar"><span><i />实时预览</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{picked.length} 件作品</span></div>
         <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={availableWorks} interestTree={draft.interestTreeMode && draft.interestTreeMode !== "none" && state.availableInterestTree ? {...state.availableInterestTree, mode:draft.interestTreeMode, title:draft.interestTreeMode === "tree" ? "兴趣树" : "兴趣"} : undefined} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>
       </section>

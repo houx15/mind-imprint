@@ -53,6 +53,8 @@ type showcaseConfig struct {
 	SelectedWorkIDs   []string              `json:"selectedWorkIds"`
 	InterestTreeMode  string                `json:"interestTreeMode,omitempty"`
 	AboutConversation []showcaseChatMessage `json:"aboutConversation,omitempty"`
+	GuideConversation []showcaseChatMessage `json:"guideConversation,omitempty"`
+	ComponentPrompt   string                `json:"componentPrompt,omitempty"`
 	HomeWorkLimit     int                   `json:"homeWorkLimit,omitempty"`
 	CustomWorks       []showcaseCustomWork  `json:"customWorks,omitempty"`
 	Components        []showcaseComponent   `json:"components,omitempty"`
@@ -100,6 +102,7 @@ type showcaseWork struct {
 	PublicPath  string `json:"publicPath,omitempty"`
 	Date        string `json:"date,omitempty"`
 	ExternalURL string `json:"externalUrl,omitempty"`
+	ManagePath  string `json:"managePath,omitempty"`
 }
 
 type showcasePublication struct {
@@ -171,7 +174,7 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	}
 	c.Name, c.Bio, c.Tagline = strings.TrimSpace(c.Name), strings.TrimSpace(c.Bio), strings.TrimSpace(c.Tagline)
 	c.HeroTitle = strings.TrimSpace(c.HeroTitle)
-	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 || len([]rune(c.HeroImagePrompt)) > 2000 || len([]rune(c.AvatarImagePrompt)) > 2000 {
+	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 || len([]rune(c.HeroImagePrompt)) > 2000 || len([]rune(c.AvatarImagePrompt)) > 2000 || len([]rune(c.ComponentPrompt)) > 1000 {
 		return c, errors.New("主页文字超过长度限制")
 	}
 	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
@@ -214,6 +217,9 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	if len(c.AboutConversation) > 20 {
 		return c, errors.New("个人介绍对话超过长度限制")
 	}
+	if len(c.GuideConversation) > 60 {
+		return c, errors.New("主页设计对话超过长度限制")
+	}
 	totalConversationRunes := 0
 	for i := range c.AboutConversation {
 		m := &c.AboutConversation[i]
@@ -221,6 +227,15 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 		totalConversationRunes += len([]rune(m.Content))
 		if !oneOf(m.Role, "user", "assistant") || m.Content == "" || len([]rune(m.Content)) > 2000 || totalConversationRunes > 20000 {
 			return c, errors.New("个人介绍对话无效")
+		}
+	}
+	guideRunes := 0
+	for i := range c.GuideConversation {
+		m := &c.GuideConversation[i]
+		m.Content = strings.TrimSpace(m.Content)
+		guideRunes += len([]rune(m.Content))
+		if !oneOf(m.Role, "user", "assistant") || m.Content == "" || len([]rune(m.Content)) > 2000 || guideRunes > 60000 {
+			return c, errors.New("主页设计对话无效")
 		}
 	}
 	clean := func(in []string, max, width int) ([]string, bool) {
@@ -366,6 +381,8 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 	c.HeroImagePrompt = ""
 	c.AvatarImagePrompt = ""
 	c.AboutConversation = nil
+	c.GuideConversation = nil
+	c.ComponentPrompt = ""
 	c.CustomWorks = nil
 	enabled := make([]showcaseComponent, 0, len(c.Components))
 	for _, x := range c.Components {
@@ -378,7 +395,7 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 }
 
 func showcaseSemanticConfig(c showcaseConfig) showcaseConfig {
-	c.HeroImagePrompt, c.AvatarImagePrompt, c.AboutConversation = "", "", nil
+	c.HeroImagePrompt, c.AvatarImagePrompt, c.ComponentPrompt, c.AboutConversation, c.GuideConversation = "", "", "", nil, nil
 	enabled := make([]showcaseComponent, 0, len(c.Components))
 	for _, x := range c.Components {
 		if x.Enabled {
@@ -423,6 +440,11 @@ func (a *API) showcaseWorks(r *http.Request, userID uuid.UUID) ([]showcaseWork, 
 		x := showcaseWork{ID: pbl.SiteItemID(uid, w.AtomID.String()), Kind: w.Kind, Title: w.Title, Summary: trimShowcaseRunes(w.Summary, 240), Date: w.Date}
 		if w.Kind != "project" {
 			x.PublicPath = publicWorkPath(w.ShareToken)
+			if w.Kind == "reading" {
+				x.ManagePath = "/readings/" + w.AtomID.String()
+			} else if w.Kind == "writing" {
+				x.ManagePath = "/writings/" + w.AtomID.String()
+			}
 		}
 		out = append(out, x)
 	}
@@ -735,9 +757,7 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	publicConfig.HeroImagePrompt, publicConfig.AvatarImagePrompt = "", ""
-	publicConfig.AboutConversation = nil
-	publicConfig.CustomWorks = nil
+	publicConfig = redactShowcaseForPublic(publicConfig)
 	var previous showcasePublication
 	_ = json.Unmarshal(row.PublishedConfig, &previous)
 	sourceConfig := showcaseSemanticConfig(c)

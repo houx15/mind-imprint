@@ -13,6 +13,7 @@ export function PortfolioShareDialog({url,onClose}:{url:string;onClose:()=>void}
     <p>复制分享文案，把主页发给朋友。</p>
     <textarea readOnly aria-label="分享文案" value={text} rows={3}/>
     <a href={url} target="_blank" rel="noopener noreferrer">查看个人主页</a>
+    <a href="/site/works">管理个人作品集</a>
     <button type="button" className="portfolio-share-copy" onClick={()=>{void navigator.clipboard.writeText(text).then(()=>{setCopied(true);setError('');}).catch(()=>setError('复制失败，请选中上方文案手动复制'));}}>{copied?'已复制':'复制分享文案'}</button>
     {error&&<p role="alert">{error}</p>}
   </dialog>;

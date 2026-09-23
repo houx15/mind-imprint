@@ -371,7 +371,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             }
           />
         ) : route.tab === "mysite" ? (
-          <MySitePage />
+          <MySitePage initialStage={route.view === "works" ? "works" : "design"} />
         ) : route.tab === "projects" ? (
           route.projectId ? (
             <ProjectRoom key={route.projectId} projectId={route.projectId} />
