@@ -932,7 +932,12 @@ func TestLiteGradingPatchAndSend(t *testing.T) {
 	}
 	f.runJobs(t)
 
-	teacherPoint := []map[string]any{{"kind": "issue", "quote": nil, "text": "第二段请补充数据来源。", "action": nil, "source": "teacher"}}
+	teacherPoint := []map[string]any{{
+		"kind": "issue", "quote": nil, "text": "第二段请补充数据来源。", "action": nil, "source": "teacher",
+		// 2026-09-23: dimension 逐字匹配 rubric 保留；symptom 是闭表里的真 id，
+		// PATCH 之后应该换成她读得懂的名字（SanitizeProvenance）。
+		"dimension": "内容", "symptom": "topic_without_question",
+	}}
 	rec := doJSON(t, f.h, f.teacher, "PATCH", path, mustJSON(t, map[string]any{"content": gradingContent("E", teacherPoint)}))
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_grading") || !strings.Contains(rec.Body.String(), "总评的等级不在评分标准内：E") {
 		t.Fatalf("bad grade = %d %s", rec.Code, rec.Body)
@@ -951,6 +956,14 @@ func TestLiteGradingPatchAndSend(t *testing.T) {
 	}
 	if resp.Grading.ReviewedAt == nil || resp.Grading.Status != "draft" || !strings.Contains(string(resp.Grading.Content), `"source":"teacher"`) {
 		t.Fatalf("patched = %+v %s", resp.Grading, resp.Grading.Content)
+	}
+	// A rubric-matching dimension survives verbatim; a real symptom id is
+	// resolved to its teacher-facing name, not left as a raw code.
+	if !strings.Contains(string(resp.Grading.Content), `"dimension":"内容"`) {
+		t.Fatalf("dimension must survive a PATCH: %s", resp.Grading.Content)
+	}
+	if !strings.Contains(string(resp.Grading.Content), `"symptom":"只有主题，没有问题"`) {
+		t.Fatalf("symptom id must resolve to its name on a PATCH: %s", resp.Grading.Content)
 	}
 	var ai []byte
 	if err := f.pool.QueryRow(context.Background(), `SELECT ai FROM lite_grading WHERE id = $1`, gid).Scan(&ai); err != nil || !strings.Contains(string(ai), `"B+"`) {

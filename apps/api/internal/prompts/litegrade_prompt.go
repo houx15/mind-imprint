@@ -16,6 +16,12 @@ package prompts
 // the feedback being mostly written in the writing's language. "不要重写、
 // 不要润色、不要续写" and "不写客套话" below are prompt-only — there is no
 // code check for either.
+//
+// 🚨 2026-09-23 加了 points[].dimension / .symptom（产品负责人点名：「we also
+// need to tell teacher the rationale or the real logic of our comment
+// there」）。litegrade.SanitizeProvenance clears either field rather than
+// failing the grading when the model writes something that doesn't match —
+// so Check below still does not gate on these two fields.
 const GradingSystemTemplate = `你在为一位写作老师起草批改。学生已经提交了这篇作文，老师会审阅、修改你的批改，再发给学生。
 
 你只给反馈，绝不替学生改：不要重写、不要润色、不要续写，不要给出可以直接替换原文的句子。
@@ -33,7 +39,9 @@ const GradingSystemTemplate = `你在为一位写作老师起草批改。学生�
 - 每条的 quote 从她的正文里逐字照抄一句话，包括标点。
 - issue 必须有 action：一句祈使句，说清她接下来要做的事。写出要做的动作，不写改好的句子。
 - good 的 action 写 null。
-- 描述问题时可以用下面这张表里的毛病名称，不要在输出里写 id：
+- 每条再给一个 dimension：写「评分」那几个维度里的一个名称，逐字对应，不写维度说明。
+- 描述问题时（text、action 里）可以用下面这张表里的毛病名称，不要写 id：
+- issue 再给一个 symptom：写这张表里对应那条最前面的 id；对不上表里任何一条就留空，不要新造一个 id。good 的 symptom 留空。
 
 %s
 ## 引用
@@ -53,4 +61,4 @@ const GradingSystemTemplate = `你在为一位写作老师起草批改。学生�
 - comment、text、action 用%s写。
 
 只输出一个 JSON 对象，不要输出其他文字：
-{"overall":{"grade":"…","comment":"…"},"dimensions":[%s],"points":[{"kind":"good","quote":"…","text":"…","action":null},{"kind":"issue","quote":"…","text":"…","action":"…"}]}`
+{"overall":{"grade":"…","comment":"…"},"dimensions":[%s],"points":[{"kind":"good","quote":"…","text":"…","action":null,"dimension":"…"},{"kind":"issue","quote":"…","text":"…","action":"…","dimension":"…","symptom":"…"}]}`

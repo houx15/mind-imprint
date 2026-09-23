@@ -162,6 +162,46 @@ func Check(c Content, in Input) []Reason {
 	return rs
 }
 
+// SanitizeProvenance clears a point's Dimension when it is not one of this
+// rubric's dimension names, and its Symptom when it does not name a row in
+// the closed symptom table (via in.SymptomLookup) — turning a recognised
+// Symptom id into its teacher-facing name along the way. Never drops the
+// point itself: a wrong or invented provenance label costs the teacher one
+// line of context, not the whole piece of feedback she'd otherwise never
+// see. Same discipline as writing_comment.go's lookupWritingSymptom
+// ("不在表里的一律丢掉整条" — here what's dropped is the label, not the point).
+//
+// Call this once, right after NormalizeAI/NormalizeTeacher and before Check:
+// Check only verifies what SystemPrompt asks for and never fails a grading
+// over Dimension/Symptom (an unrecognised value here is fine, not a reason
+// to retry).
+func SanitizeProvenance(c Content, in Input) Content {
+	dimNames := make(map[string]bool, len(in.Rubric.Dimensions))
+	for _, d := range in.Rubric.Dimensions {
+		dimNames[d.Name] = true
+	}
+	out := c
+	out.Points = make([]Point, len(c.Points))
+	for i, p := range c.Points {
+		if p.Dimension != "" && !dimNames[p.Dimension] {
+			p.Dimension = ""
+		}
+		if p.Symptom != "" {
+			name, ok := "", false
+			if in.SymptomLookup != nil {
+				name, ok = in.SymptomLookup(p.Symptom)
+			}
+			if ok {
+				p.Symptom = name
+			} else {
+				p.Symptom = ""
+			}
+		}
+		out.Points[i] = p
+	}
+	return out
+}
+
 // CheckTeacherEdit is the shape check on a teacher's PATCH: grades in scale,
 // the rubric's dimension names, known point kinds, non-empty point text, and a
 // quote that is null or hers. No 3–5 limit, no action requirement, and no

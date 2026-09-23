@@ -49,6 +49,19 @@ type Point struct {
 	Text   string  `json:"text"`
 	Action *string `json:"action"`
 	Source string  `json:"source"`
+	// Dimension 是这条意见挂在 rubric 的哪一维上（逐字来自 Rubric.Dimensions
+	// 的 Name）。Symptom 是它命中了毛病闭表里的哪一条（和学生端
+	// CommentPoint.Symptom 同一套 id）。
+	//
+	// 这两样是给**老师**看的：批改卡上点开一条意见，她要看到这条是从哪一维、
+	// 哪条毛病来的、引的是学生哪一句。产品负责人 2026-09-22：
+	// 「we also need to tell teacher the rationale or the real logic of our
+	// comment there」。
+	//
+	// 🚨 两个都允许为空 —— 模型给不出来时宁可没有，不要编一个。校验时
+	// 不在闭表里的直接清空（照 CommentPoint.Symptom 的 lookupWritingSymptom 那套）。
+	Dimension string `json:"dimension"`
+	Symptom   string `json:"symptom"`
 }
 
 // Input is everything the prompt and Check need about one submitted version.
@@ -64,6 +77,21 @@ type Input struct {
 	// PersonJudging reports a sentence that judges the student instead of the
 	// text. internal/api passes personDirectedVerdict; nil skips the check.
 	PersonJudging func(string) bool
+	// SymptomLookup resolves a Point.Symptom id to the writing room's closed
+	// symptom table's teacher-facing name (writingSymptom.Name), for this
+	// writing's language. internal/api wires it to lookupWritingSymptom —
+	// litegrade cannot import internal/api itself (internal/api already
+	// imports litegrade; the reverse would be a cycle), the same reason
+	// PersonJudging above is a callback rather than a direct call.
+	//
+	// 🚨 The model is asked to write the table's id (reliable exact match,
+	// same discipline CommentPoint.Symptom already uses) but a teacher
+	// reading the 依据 modal needs a name she can read, not a code like
+	// `topic_without_question` — so SanitizeProvenance below rewrites a
+	// valid id to its name once, rather than asking every reader of a
+	// grading to resolve it again. ok=false (unknown id, or SymptomLookup
+	// nil) clears the field instead of showing her a code or a guess.
+	SymptomLookup func(id string) (name string, ok bool)
 }
 
 var ErrUnparseable = errors.New("litegrade: reply is not the JSON object asked for")
@@ -130,7 +158,10 @@ func normalize(c Content, r liteassign.Rubric, fromAI bool) Content {
 	out.Dimensions = orderDimensions(dims, r)
 	out.Points = make([]Point, 0, len(c.Points))
 	for _, p := range c.Points {
-		q := Point{Kind: strings.TrimSpace(p.Kind), Quote: trimPtr(p.Quote), Text: strings.TrimSpace(p.Text), Action: trimPtr(p.Action)}
+		q := Point{
+			Kind: strings.TrimSpace(p.Kind), Quote: trimPtr(p.Quote), Text: strings.TrimSpace(p.Text), Action: trimPtr(p.Action),
+			Dimension: strings.TrimSpace(p.Dimension), Symptom: strings.TrimSpace(p.Symptom),
+		}
 		if q.Kind == KindGood {
 			q.Action = nil
 		}

@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/ui";
-import { LETTER_GRADES, type GradingContent, type Rubric } from "../api/gradings";
+import { LETTER_GRADES, type GradingContent, type GradingPoint, type Rubric } from "../api/gradings";
 import { NumberField } from "./controls/NumberField";
 import { Select } from "./controls/Select";
 import { INPUT_CLS } from "./formParts";
-import { gradingContentReducer, gradingPointLabel, previewValue, type GradingMode } from "./gradingLogic";
+import { gradingContentReducer, gradingPointLabel, pointHasBasis, previewValue, type GradingMode } from "./gradingLogic";
 
 /**
  * GradingCard — the right column of `GradingPage`: one card holding the
@@ -46,6 +46,11 @@ export function GradingCard({
     if (body.current) body.current.scrollTop = 0;
   }, [mode]);
 
+  // Which point's 依据 modal is open, by index — null when none is. Shared
+  // across both views: whichever one is mounted opens the same modal.
+  const [basisIndex, setBasisIndex] = useState<number | null>(null);
+  const basisPoint = basisIndex !== null ? content.points[basisIndex] : undefined;
+
   return (
     <div className="teacher-grading-card min-h-0 min-[900px]:flex-1">
       <header className="teacher-grading-card-head">
@@ -65,7 +70,7 @@ export function GradingCard({
       </header>
       <div ref={body} className="teacher-grading-editor mk-scroll min-h-0 min-[900px]:flex-1">
         {mode === "preview" ? (
-          <GradingPreview content={content} unmarked={unmarked} onShowQuote={onShowQuote} />
+          <GradingPreview content={content} unmarked={unmarked} onShowQuote={onShowQuote} onShowBasis={setBasisIndex} />
         ) : (
           <GradingEditor
             rubric={rubric}
@@ -74,8 +79,74 @@ export function GradingCard({
             onEdit={onEdit}
             onPickQuote={onPickQuote}
             onShowQuote={onShowQuote}
+            onShowBasis={setBasisIndex}
           />
         )}
+      </div>
+      {basisPoint && <PointBasisDialog point={basisPoint} onClose={() => setBasisIndex(null)} />}
+    </div>
+  );
+}
+
+/**
+ * PointBasisDialog — 依据: where one point came from (维度/对应毛病/学生原句),
+ * for the teacher who otherwise has no way to tell. Centred overlay + Esc to
+ * close, same pattern as ReturnDialog.tsx.
+ *
+ * Only rendered when `pointHasBasis` is true, so every row here is filled —
+ * no "待填写"/em-dash placeholders, unlike 预览's Value.
+ */
+function PointBasisDialog({ point, onClose }: { point: GradingPoint; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "color-mix(in srgb, var(--mk-ink) 42%, transparent)" }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="point-basis-title"
+        className="flex max-h-full w-full max-w-[440px] flex-col gap-4 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg"
+      >
+        <h2 id="point-basis-title" className="text-mk-h2 text-mk-ink">
+          依据
+        </h2>
+        <dl className="flex flex-col gap-3">
+          {point.dimension && (
+            <div className="flex flex-col gap-1">
+              <dt className="text-mk-small text-mk-muted">维度</dt>
+              <dd className="text-mk-body text-mk-ink">{point.dimension}</dd>
+            </div>
+          )}
+          {point.symptom && (
+            <div className="flex flex-col gap-1">
+              <dt className="text-mk-small text-mk-muted">对应毛病</dt>
+              <dd className="text-mk-body text-mk-ink">{point.symptom}</dd>
+            </div>
+          )}
+          {point.quote && (
+            <div className="flex flex-col gap-1">
+              <dt className="text-mk-small text-mk-muted">学生原句</dt>
+              <dd className="whitespace-pre-wrap text-mk-body text-mk-ink">「{point.quote}」</dd>
+            </div>
+          )}
+        </dl>
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            关闭
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -114,10 +185,12 @@ function GradingPreview({
   content,
   unmarked,
   onShowQuote,
+  onShowBasis,
 }: {
   content: GradingContent;
   unmarked: ReadonlySet<number>;
   onShowQuote: (index: number) => void;
+  onShowBasis: (index: number) => void;
 }) {
   const grade = previewValue(content.overall.grade);
   return (
@@ -160,6 +233,11 @@ function GradingPreview({
                     {p.kind === "good" ? "优点" : "问题"}
                   </span>
                   <span className="text-mk-label text-mk-muted">{p.source === "ai" ? "AI" : "老师"}</span>
+                  {pointHasBasis(p) && (
+                    <button type="button" onClick={() => onShowBasis(i)} className="text-mk-label text-mk-secondary underline">
+                      依据
+                    </button>
+                  )}
                 </p>
                 {p.quote && (
                   <button type="button" onClick={() => onShowQuote(i)} className="text-left text-mk-small text-mk-secondary underline">
@@ -187,6 +265,7 @@ function GradingEditor({
   onEdit,
   onPickQuote,
   onShowQuote,
+  onShowBasis,
 }: {
   rubric: Rubric;
   content: GradingContent;
@@ -194,6 +273,7 @@ function GradingEditor({
   onEdit: (a: Parameters<typeof gradingContentReducer>[1]) => void;
   onPickQuote: (index: number) => void;
   onShowQuote: (index: number) => void;
+  onShowBasis: (index: number) => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -243,6 +323,11 @@ function GradingEditor({
                 ]}
               />
               <span className="text-mk-label text-mk-muted">{p.source === "ai" ? "AI" : "老师"}</span>
+              {pointHasBasis(p) && (
+                <Button variant="link" size="sm" aria-label={gradingPointLabel(i, "依据")} onClick={() => onShowBasis(i)}>
+                  依据
+                </Button>
+              )}
               <Button variant="ghost" size="sm" aria-label={gradingPointLabel(i, "删除")} onClick={() => onEdit({ type: "deletePoint", index: i })}>
                 删除
               </Button>

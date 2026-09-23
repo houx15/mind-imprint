@@ -33,9 +33,28 @@ describe("normalizeGradingContent", () => {
       ],
     });
     expect(c?.points).toEqual([
-      { kind: "good", quote: "雨", text: "具体", action: null, source: "ai" },
-      { kind: "issue", quote: null, text: "说明", action: null, source: "teacher" },
+      { kind: "good", quote: "雨", text: "具体", action: null, source: "ai", dimension: "", symptom: "" },
+      { kind: "issue", quote: null, text: "说明", action: null, source: "teacher", dimension: "", symptom: "" },
     ]);
+  });
+  // 2026-09-23: points[].dimension / .symptom — the 依据 modal's fields.
+  // Both are plain strings on the wire (never omitted, per litegrade.Point's
+  // json tags), but an OLD stored grading (written before this shipped)
+  // simply has no such key at all — normalizeGradingContent must read that
+  // the same as an empty string, not throw or leave it undefined.
+  it("reads dimension/symptom when present, and defaults to empty string when the key is missing entirely (old rows)", () => {
+    const c = normalizeGradingContent({
+      overall: { grade: "B", comment: "x" },
+      dimensions: [],
+      points: [
+        { kind: "issue", quote: "雨", text: "说明", action: "补", source: "ai", dimension: "内容", symptom: "只有主题，没有问题" },
+        { kind: "issue", quote: "雨", text: "说明", action: "补", source: "ai" }, // no dimension/symptom key at all
+      ],
+    });
+    expect(c?.points[0]!.dimension).toBe("内容");
+    expect(c?.points[0]!.symptom).toBe("只有主题，没有问题");
+    expect(c?.points[1]!.dimension).toBe("");
+    expect(c?.points[1]!.symptom).toBe("");
   });
   it("returns null for null content", () => {
     expect(normalizeGradingContent(null)).toBeNull();

@@ -401,3 +401,84 @@ func TestCheckLanguageThresholdBoundary(t *testing.T) {
 		t.Fatalf("50%% Han prose accepted just under the threshold: %v", codes(rs))
 	}
 }
+
+// --- SanitizeProvenance: 2026-09-23, points[].dimension / .symptom — the
+// modal that tells the teacher where one point came from.
+
+func testSymptomLookup(id string) (string, bool) {
+	switch id {
+	case "topic_without_question":
+		return "只有主题，没有问题", true
+	case "evidence_not_explained":
+		return "举了例子，没有解释", true
+	}
+	return "", false
+}
+
+func TestSanitizeProvenanceKeepsAMatchingDimension(t *testing.T) {
+	c := Content{Points: []Point{{Kind: KindGood, Dimension: "内容"}}}
+	out := SanitizeProvenance(c, testInput())
+	if out.Points[0].Dimension != "内容" {
+		t.Fatalf("a dimension matching the rubric must survive, got %q", out.Points[0].Dimension)
+	}
+}
+
+func TestSanitizeProvenanceClearsAnUnknownDimensionButKeepsThePoint(t *testing.T) {
+	c := Content{Points: []Point{{Kind: KindGood, Text: "真实的一条意见", Dimension: "论证深度"}}}
+	out := SanitizeProvenance(c, testInput())
+	if len(out.Points) != 1 {
+		t.Fatalf("an unrecognised dimension must not drop the point, got %d points", len(out.Points))
+	}
+	if out.Points[0].Dimension != "" {
+		t.Fatalf("dimension not in the rubric must be cleared, got %q", out.Points[0].Dimension)
+	}
+	if out.Points[0].Text != "真实的一条意见" {
+		t.Fatalf("the rest of the point must be untouched, got %+v", out.Points[0])
+	}
+}
+
+func TestSanitizeProvenanceResolvesAKnownSymptomIDToItsName(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = testSymptomLookup
+	c := Content{Points: []Point{{Kind: KindIssue, Symptom: "topic_without_question"}}}
+	out := SanitizeProvenance(c, in)
+	if out.Points[0].Symptom != "只有主题，没有问题" {
+		t.Fatalf("a known symptom id must resolve to its teacher-facing name, got %q", out.Points[0].Symptom)
+	}
+}
+
+func TestSanitizeProvenanceClearsAnUnknownSymptomButKeepsThePoint(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = testSymptomLookup
+	c := Content{Points: []Point{{Kind: KindIssue, Text: "真实的一条意见", Symptom: "made_up_id"}}}
+	out := SanitizeProvenance(c, in)
+	if len(out.Points) != 1 {
+		t.Fatalf("an unrecognised symptom must not drop the point, got %d points", len(out.Points))
+	}
+	if out.Points[0].Symptom != "" {
+		t.Fatalf("an id absent from the closed table must be cleared, got %q", out.Points[0].Symptom)
+	}
+	if out.Points[0].Text != "真实的一条意见" {
+		t.Fatalf("the rest of the point must be untouched, got %+v", out.Points[0])
+	}
+}
+
+func TestSanitizeProvenanceClearsSymptomWhenLookupIsNil(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = nil
+	c := Content{Points: []Point{{Kind: KindIssue, Symptom: "topic_without_question"}}}
+	out := SanitizeProvenance(c, in)
+	if out.Points[0].Symptom != "" {
+		t.Fatalf("no SymptomLookup must clear rather than guess, got %q", out.Points[0].Symptom)
+	}
+}
+
+func TestSanitizeProvenanceLeavesBlankFieldsBlank(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = testSymptomLookup
+	c := Content{Points: []Point{{Kind: KindGood}}}
+	out := SanitizeProvenance(c, in)
+	if out.Points[0].Dimension != "" || out.Points[0].Symptom != "" {
+		t.Fatalf("a point with no provenance must not gain one, got %+v", out.Points[0])
+	}
+}

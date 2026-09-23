@@ -11,6 +11,7 @@ import {
   gradingPageSteps,
   gradingSteps,
   initialGradingMode,
+  pointHasBasis,
   previewValue,
   queueResultText,
   reviewedDraftIds,
@@ -71,7 +72,7 @@ const letter: Rubric = { scale: "letter", dimensions: [{ name: "内容", note: "
 const content = (): GradingContent => ({
   overall: { grade: "B", comment: "x" },
   dimensions: [{ name: "内容", grade: "B", comment: "" }],
-  points: [{ kind: "issue", quote: "雨", text: "说明", action: "补充", source: "ai" }],
+  points: [{ kind: "issue", quote: "雨", text: "说明", action: "补充", source: "ai", dimension: "内容", symptom: "只有主题，没有问题" }],
 });
 
 describe("gradingContentReducer", () => {
@@ -85,7 +86,15 @@ describe("gradingContentReducer", () => {
     expect(start.overall.grade).toBe("B");
     expect(c.overall.grade).toBe("A-");
     expect(c.dimensions[0]!.comment).toBe("材料具体。");
-    expect(c.points[1]).toEqual({ kind: "issue", quote: "雨", text: "请注明数据来源。", action: "", source: "teacher" });
+    expect(c.points[1]).toEqual({
+      kind: "issue",
+      quote: "雨",
+      text: "请注明数据来源。",
+      action: "",
+      source: "teacher",
+      dimension: "",
+      symptom: "",
+    });
     // points[0]'s action ("补充") is kept in memory across the switch to
     // "good" — only contentForSave nulls a good point's action, at the
     // save boundary, not the reducer (fix round 1: see the dedicated round
@@ -106,16 +115,24 @@ describe("gradingContentReducer", () => {
     c = gradingContentReducer(c, { type: "pointKind", index: 0, value: "issue" });
     expect(c.points[0]!.action).toBe("补充"); // restored, not reset to ""
   });
-  it("contentForSave trims and turns blank quote/action into null", () => {
+  it("contentForSave trims and turns blank quote/action into null, and carries dimension/symptom through untouched", () => {
     const c = content();
-    c.points[0] = { kind: "issue", quote: "  ", text: " 说明 ", action: "", source: "teacher" };
-    expect(contentForSave(c).points[0]).toEqual({ kind: "issue", quote: null, text: "说明", action: null, source: "teacher" });
+    c.points[0] = { kind: "issue", quote: "  ", text: " 说明 ", action: "", source: "teacher", dimension: "内容", symptom: "只有主题，没有问题" };
+    expect(contentForSave(c).points[0]).toEqual({
+      kind: "issue",
+      quote: null,
+      text: "说明",
+      action: null,
+      source: "teacher",
+      dimension: "内容",
+      symptom: "只有主题，没有问题",
+    });
   });
   // The reducer no longer nulls a good point's action; contentForSave is
   // still the one place that must, since that's what the server receives.
   it("contentForSave still nulls a good point's leftover in-memory action", () => {
     const c = content();
-    c.points[0] = { kind: "good", quote: "雨", text: "开头有画面感", action: "补充", source: "teacher" };
+    c.points[0] = { kind: "good", quote: "雨", text: "开头有画面感", action: "补充", source: "teacher", dimension: "", symptom: "" };
     expect(contentForSave(c).points[0]!.action).toBeNull();
   });
 });
@@ -145,6 +162,19 @@ describe("gradingPointLabel", () => {
   it("names a point's control by its 1-based position", () => {
     expect(gradingPointLabel(0, "删除")).toBe("意见 1 删除");
     expect(gradingPointLabel(2, "修改建议")).toBe("意见 3 修改建议");
+  });
+});
+
+describe("pointHasBasis", () => {
+  const blank = { dimension: "", symptom: "", quote: null };
+  it("is false when dimension, symptom and quote are all blank", () => {
+    expect(pointHasBasis(blank)).toBe(false);
+    expect(pointHasBasis({ ...blank, quote: "  " })).toBe(false); // whitespace-only quote is still blank
+  });
+  it("is true when only one of the three is present", () => {
+    expect(pointHasBasis({ ...blank, dimension: "内容" })).toBe(true);
+    expect(pointHasBasis({ ...blank, symptom: "只有主题，没有问题" })).toBe(true);
+    expect(pointHasBasis({ ...blank, quote: "去年秋天" })).toBe(true);
   });
 });
 

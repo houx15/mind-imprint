@@ -826,6 +826,7 @@ func (a *API) patchLiteGrading(w http.ResponseWriter, r *http.Request) {
 		}
 		in := liteGradingInput(src, rubric)
 		c = litegrade.NormalizeTeacher(c, rubric)
+		c = litegrade.SanitizeProvenance(c, in)
 		if rs := litegrade.CheckTeacherEdit(c, in); len(rs) > 0 {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_grading", "批改内容有误："+litegrade.JoinReasons(rs), nil))
 			return

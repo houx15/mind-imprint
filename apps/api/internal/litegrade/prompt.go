@@ -21,6 +21,10 @@ import (
 // the feedback being mostly written in the writing's language. "不要重写、
 // 不要润色、不要续写" and "不写客套话" below are prompt-only — there is no
 // code check for either.
+//
+// points[].dimension / .symptom aren't checked here either —
+// SanitizeProvenance (check.go) clears either instead of failing the
+// grading over them; see prompts.GradingSystemTemplate's doc comment.
 const systemTemplate = prompts.GradingSystemTemplate
 
 func SystemPrompt(in Input) string {

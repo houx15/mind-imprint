@@ -33,6 +33,43 @@ func runTestInput() litegrade.Input {
 	return liteGradingInput(sqlc.GetLiteGradingSourceRow{Number: 1, Title: "雨水去哪儿了", Body: runTestBody, Lang: "zh"}, liteassign.DefaultRubric("zh"))
 }
 
+// runTestValidWithProvenance is runTestValid with points[].dimension /
+// .symptom set: a real dimension + real symptom id on the good point, an
+// unrecognised dimension + unrecognised symptom id on the first issue.
+const runTestValidWithProvenance = `{"overall":{"grade":"B+","comment":"用「去年秋天，我在那里摔过一跤。」引出问题。"},
+"dimensions":[{"name":"内容","grade":"B+","comment":"问题来自亲身经历。"},{"name":"结构","grade":"B","comment":"两段之间没有过渡句。"},{"name":"语言","grade":"A-","comment":"表达清楚。"},{"name":"书写规范","grade":"A","comment":"标点使用正确。"}],
+"points":[{"kind":"good","quote":"去年秋天，我在那里摔过一跤。","text":"用具体经历引出问题。","action":null,"dimension":"内容","symptom":"topic_without_question"},
+{"kind":"issue","quote":"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。","text":"材料与后门空地之间没有说明联系。","action":"在这句后面写一句说明雨水花园和后门空地的关系。","dimension":"论证深度","symptom":"made_up_id"},
+{"kind":"issue","quote":"学校后门那片空地一下雨就积水。","text":"积水的程度没有数据。","action":"补充一次积水的深度或持续时间。"}]}`
+
+// 2026-09-23: gradeWithRetry must sanitize provenance end to end — a real
+// dimension/symptom survives (the symptom id turns into its teacher-facing
+// name), an invented one is cleared without dropping the point or failing
+// Check (which does not gate on these two fields at all).
+func TestGradeWithRetrySanitizesPointProvenance(t *testing.T) {
+	prov := gateway.NewSequenceStubProvider(runTestScript(runTestValidWithProvenance))
+	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) {})
+	if len(out.Reasons) != 0 || out.Attempts != 1 {
+		t.Fatalf("reasons=%v attempts=%d", out.Reasons, out.Attempts)
+	}
+	good, issue := out.Content.Points[0], out.Content.Points[1]
+	if good.Dimension != "内容" {
+		t.Fatalf("a rubric-matching dimension must survive, got %q", good.Dimension)
+	}
+	if good.Symptom != "只有主题，没有问题" {
+		t.Fatalf("a real symptom id must resolve to its name, got %q", good.Symptom)
+	}
+	if issue.Dimension != "" {
+		t.Fatalf("a dimension not in the rubric must be cleared, got %q", issue.Dimension)
+	}
+	if issue.Symptom != "" {
+		t.Fatalf("an id absent from the closed table must be cleared, got %q", issue.Symptom)
+	}
+	if issue.Text != "材料与后门空地之间没有说明联系。" {
+		t.Fatalf("clearing provenance must not touch the rest of the point: %+v", issue)
+	}
+}
+
 func TestGradeWithRetryFirstReplyPasses(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(runTestScript(runTestValid))
 	calls := 0
@@ -101,6 +138,15 @@ func TestLiteGradingInputWiring(t *testing.T) {
 	}
 	if in.SymptomCatalog != writingSymptomCatalog("en", genreNarrative) || in.AssignedPrompt != prompt || in.TargetWords != 800 || in.VersionNumber != 2 {
 		t.Fatalf("input = %+v", in)
+	}
+	if in.SymptomLookup == nil {
+		t.Fatal("SymptomLookup must be wired")
+	}
+	if name, ok := in.SymptomLookup("task_instruction_coverage"); !ok || name == "" {
+		t.Fatalf("a real symptom id must resolve to a non-empty name, got %q ok=%v", name, ok)
+	}
+	if _, ok := in.SymptomLookup("made_up_id"); ok {
+		t.Fatal("an unknown symptom id must not resolve")
 	}
 }
 

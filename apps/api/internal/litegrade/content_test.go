@@ -33,8 +33,8 @@ func TestNormalize(t *testing.T) {
 			{Name: "书写规范", Grade: "A"}, {Name: "语言", Grade: "A"}, {Name: "结构", Grade: "B"}, {Name: "内容", Grade: "B"},
 		},
 		Points: []Point{
-			{Kind: "good", Quote: sp(" 去年秋天 "), Text: " 具体 ", Action: sp("不该有"), Source: "teacher"},
-			{Kind: "issue", Quote: sp("  "), Text: "x", Action: sp("  ")},
+			{Kind: "good", Quote: sp(" 去年秋天 "), Text: " 具体 ", Action: sp("不该有"), Source: "teacher", Dimension: " 内容 "},
+			{Kind: "issue", Quote: sp("  "), Text: "x", Action: sp("  "), Symptom: " topic_without_question "},
 		},
 	}
 	ai := NormalizeAI(c, r)
@@ -43,6 +43,12 @@ func TestNormalize(t *testing.T) {
 	}
 	if ai.Points[0].Action != nil || *ai.Points[0].Quote != "去年秋天" || ai.Points[0].Source != SourceAI {
 		t.Fatalf("good point = %+v", ai.Points[0])
+	}
+	if ai.Points[0].Dimension != "内容" {
+		t.Fatalf("dimension must be trimmed and carried through, got %q", ai.Points[0].Dimension)
+	}
+	if ai.Points[1].Symptom != "topic_without_question" {
+		t.Fatalf("symptom must be trimmed and carried through, got %q", ai.Points[1].Symptom)
 	}
 	if ai.Points[1].Quote != nil || ai.Points[1].Action != nil {
 		t.Fatalf("blank quote/action must become nil: %+v", ai.Points[1])

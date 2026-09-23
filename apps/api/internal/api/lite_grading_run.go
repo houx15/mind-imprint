@@ -39,6 +39,10 @@ func liteGradingInput(src sqlc.GetLiteGradingSourceRow, rubric liteassign.Rubric
 		// 多给几条认得出的毛病不会伤到谁。
 		SymptomCatalog: writingSymptomCatalog(src.Lang, genreNarrative),
 		PersonJudging:  personDirectedVerdict,
+		SymptomLookup: func(id string) (string, bool) {
+			s, ok := lookupWritingSymptom(src.Lang, id)
+			return s.Name, ok
+		},
 	}
 }
 
@@ -90,6 +94,7 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 			out.Reasons = []litegrade.Reason{{Code: litegrade.ReasonUnparseable, Detail: perr.Error()}}
 		} else {
 			content = litegrade.NormalizeAI(content, in.Rubric)
+			content = litegrade.SanitizeProvenance(content, in)
 			if out.Reasons = litegrade.Check(content, in); len(out.Reasons) == 0 {
 				return gradeOutcome{Content: content, Attempts: attempt, LastReply: res.Text, Tried: out.Tried}
 			}

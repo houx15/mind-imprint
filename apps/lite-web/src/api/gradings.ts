@@ -37,6 +37,12 @@ export interface GradingPoint {
   text: string;
   action: string | null;
   source: "ai" | "teacher";
+  /** Which rubric dimension this point belongs to (exact `RubricDimension.name`), or "" when
+   *  the model didn't give one or gave one the server couldn't match. */
+  dimension: string;
+  /** Which symptom in the writing room's closed table this point matched, already resolved to
+   *  its teacher-facing name server-side (never a raw id) — or "" when there isn't one. */
+  symptom: string;
 }
 export interface GradingContent {
   overall: { grade: string; comment: string };
@@ -158,6 +164,8 @@ export function normalizeGradingContent(raw: unknown): GradingContent | null {
       text: s(p.text),
       action: ns(p.action),
       source: p.source === "ai" ? "ai" : "teacher",
+      dimension: s(p.dimension),
+      symptom: s(p.symptom),
     })),
   };
 }

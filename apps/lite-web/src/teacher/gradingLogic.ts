@@ -218,6 +218,20 @@ export function failureText(error: string | null): string {
   return `批改失败：${error ?? "没有更多信息"}`;
 }
 
+/**
+ * Whether one point has anything to show in the 依据 modal: which rubric
+ * dimension it belongs to, which symptom it matched, or the sentence it
+ * quotes. All three can be blank — 人工批改 has none of them, and a model
+ * point can lose one or both to SanitizeProvenance (apps/api/internal/
+ * litegrade/check.go) when the value it gave didn't match anything real.
+ *
+ * 🚨 Nothing behind it → no button. A modal that opens empty tells her less
+ * than not offering one at all (task-3-brief, 2026-09-23).
+ */
+export function pointHasBasis(p: Pick<GradingPoint, "dimension" | "symptom" | "quote">): boolean {
+  return p.dimension.trim() !== "" || p.symptom.trim() !== "" || (p.quote ?? "").trim() !== "";
+}
+
 /** The grading card's two views: the form, or the finished grading as the
  *  student will read it. */
 export type GradingMode = "edit" | "preview";
@@ -332,7 +346,11 @@ export function gradingContentReducer(state: GradingContent, action: GradingCont
     case "deletePoint":
       return { ...state, points: state.points.filter((_, i) => i !== action.index) };
     case "addPoint":
-      return { ...state, points: [...state.points, { kind: "issue", quote: null, text: "", action: "", source: "teacher" }] };
+      return {
+        ...state,
+        // A point she types herself has no model provenance to show.
+        points: [...state.points, { kind: "issue", quote: null, text: "", action: "", source: "teacher", dimension: "", symptom: "" }],
+      };
   }
 }
 
@@ -352,6 +370,11 @@ export function contentForSave(c: GradingContent): GradingContent {
       text: p.text.trim(),
       action: p.kind === "good" ? null : blankToNull(p.action),
       source: p.source,
+      // Not editable from this page — carried through as received, the
+      // server re-derives/clears them from the rubric and the symptom
+      // table on save regardless (litegrade.SanitizeProvenance).
+      dimension: p.dimension,
+      symptom: p.symptom,
     })),
   };
 }
