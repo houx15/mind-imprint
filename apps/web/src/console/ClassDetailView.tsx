@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import type { ApiClient, ClassDetail, ClassRoster, Teacher } from "../api";
-import { ApiError } from "../api";
+import { ApiError, CLASS_GRADE_OPTIONS } from "../api";
 import { ClassRosterTable } from "./ClassRosterTable";
 import { ClassWeeklyView } from "./ClassWeeklyView";
-import { Button } from "@/ui";
+import { Button, Select } from "@/ui";
 
 type Client = Pick<
   ApiClient,
   | "getClass"
   | "renameClass"
   | "regenerateJoinCode"
+  | "setClassGrade"
   | "removeEnrollment"
   | "listTeachers"
   | "assignTeacher"
@@ -114,6 +115,21 @@ export function ClassDetailView({
       setConfirmRegen(false);
     } catch (e) {
       setMutationError(e instanceof ApiError ? e.message : "轮换失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 年级改了就直接存，不做「编辑 / 保存」两步 —— 这是一个七选一的下拉，
+  // 没有可打错的中间态。失败时把后台原话摆出来（AGENTS.md 文案第 8 条）。
+  async function doSetGrade(grade: string) {
+    setMutationError(null);
+    setBusy(true);
+    try {
+      const updated = await client.setClassGrade(classId, grade);
+      setDetail((d) => (d ? { ...d, class: updated } : d));
+    } catch (e) {
+      setMutationError(e instanceof ApiError ? `修改年级失败：${e.message}` : "修改年级失败");
     } finally {
       setBusy(false);
     }
@@ -224,6 +240,20 @@ export function ClassDetailView({
               <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(false)}>取消</Button>
             </span>
           )}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+          <label htmlFor="class-grade-picker" style={{ fontSize: 13, fontWeight: 700, color: "var(--mk-ink)" }}>年级</label>
+          {/* 🚨 不传 placeholder：共用 Select 会把它渲染成一个 disabled 的
+              value="" 选项，排在 CLASS_GRADE_OPTIONS[0]（未填写）前面，于是
+              「未填写」这个状态永远显示不出来。可见的 <label> 代替它。 */}
+          <Select
+            id="class-grade-picker"
+            data-testid="class-grade-picker"
+            value={c.grade}
+            onChange={(v) => void doSetGrade(v)}
+            options={CLASS_GRADE_OPTIONS}
+          />
         </div>
 
         {mutationError && (

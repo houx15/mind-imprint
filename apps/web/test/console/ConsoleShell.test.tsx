@@ -47,6 +47,7 @@ function client(overrideWeekly?: WeeklyReport) {
     getClass: vi.fn(async () => detail),
     renameClass: vi.fn(),
     regenerateJoinCode: vi.fn(),
+    setClassGrade: vi.fn(),
     removeEnrollment: vi.fn(),
     getOverview: vi.fn(async () => ({ counts: { student: 0, teacher: 0, class: 0, project: 0, evaluation: 0, active_student: 0 }, usage_by_tier: [] })),
     listTeacherInvites: vi.fn(async () => []),

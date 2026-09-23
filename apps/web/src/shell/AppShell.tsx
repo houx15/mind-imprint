@@ -12,7 +12,7 @@ const defaultSession = createSession({ storage: window.localStorage });
 type ShellClient = Pick<
   ApiClient,
   | "getMe" | "signin" | "signout"
-  | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
+  | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "setClassGrade" | "removeEnrollment"
   | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
   | "listTeachers" | "assignTeacher" | "removeTeacher"
   | "getClassRosterReport" | "getStudentDetail" | "getStudentEvaluationReport"

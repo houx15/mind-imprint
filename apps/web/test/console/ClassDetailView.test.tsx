@@ -53,6 +53,7 @@ function makeClient(d: ClassDetail, roster: ClassRoster = classRoster()) {
     getClassRosterReport: vi.fn(async () => roster),
     renameClass: vi.fn(),
     regenerateJoinCode: vi.fn(),
+    setClassGrade: vi.fn(),
     removeEnrollment: vi.fn(),
     listTeachers: vi.fn(async () => [{ id: "t2", display_name: "Mr Li", email: "li@x" }]),
     assignTeacher: vi.fn(async () => ({ teachers: [{ id: "t1", display_name: "Ms Chen", email: "chen@x" }, { id: "t2", display_name: "Mr Li", email: "li@x" }] })),
@@ -204,6 +205,25 @@ describe("ClassDetailView mutations", () => {
     expect(await screen.findByText("服务器错误")).toBeInTheDocument();
     // The full-page "重试" link is NOT present
     expect(screen.queryByText("重试")).not.toBeInTheDocument();
+  });
+
+  it("sets the grade and shows the new label", async () => {
+    const client = makeClient(detail());
+    client.setClassGrade.mockResolvedValue({ ...detail().class, grade: "junior2", grade_label: "初二" });
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
+    await userEvent.selectOptions(await screen.findByTestId("class-grade-picker"), "junior2");
+    await waitFor(() => expect(client.setClassGrade).toHaveBeenCalledWith("c1", "junior2"));
+    expect((await screen.findByTestId("class-grade-picker")) as HTMLSelectElement).toHaveValue("junior2");
+  });
+
+  // 🚨「未填写」是一个可以选回去的值，不是一个不能选的占位符。
+  // 给 Select 传了 placeholder 的话，这一条会红 —— 那正是它存在的理由。
+  it("choosing 未填写 clears the grade", async () => {
+    const client = makeClient(detail({ class: { ...detail().class, grade: "junior2", grade_label: "初二" } }));
+    client.setClassGrade.mockResolvedValue({ ...detail().class, grade: "", grade_label: "" });
+    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
+    await userEvent.selectOptions(await screen.findByTestId("class-grade-picker"), "");
+    await waitFor(() => expect(client.setClassGrade).toHaveBeenCalledWith("c1", ""));
   });
 });
 

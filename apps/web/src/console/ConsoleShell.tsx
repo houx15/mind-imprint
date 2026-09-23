@@ -13,7 +13,7 @@ import { ImportView } from "./ImportView";
 
 export type ConsoleClient = Pick<
   ApiClient,
-  | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
+  | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "setClassGrade" | "removeEnrollment"
   | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
   | "listTeachers" | "assignTeacher" | "removeTeacher"
   | "getClassRosterReport" | "getStudentDetail" | "getStudentEvaluationReport"
