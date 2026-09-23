@@ -1,3 +1,8 @@
+-- 🚨 0191 合并时从 0190 改过号。另一个会话的 0189_lite_assignment_issue
+-- 已经在 origin/main 上，而 goose 碰到重复的版本号会直接起不来
+-- （memory: wip-recovery-and-migration-renumber-2026-09-16 —— 这是同一类
+-- 事故的第三次）。这一条只动 reading.archived_at，和那一条没有任何依赖，换号安全。
+--
 -- 阅读列表里，她自己收起一篇。
 --
 -- 产品负责人 2026-09-23 第 3 条：
