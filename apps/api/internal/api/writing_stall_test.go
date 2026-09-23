@@ -179,3 +179,22 @@ func TestHelpModeBlockIsSilentByDefault(t *testing.T) {
 		t.Errorf("英文那一篇拿到了中文句式：%q", en)
 	}
 }
+
+// 英文那一篇，helpShow 要给英文句式，而且不许混进中文句式。
+func TestHelpShowOffersFramesInThePieceOwnLanguage(t *testing.T) {
+	en := writingHelpModeBlock(helpShow, langEnglish, genreArgument)
+	if !strings.Contains(en, "While it is true that") {
+		t.Error("英文议论文卡住求助，却一条英文句式都没给")
+	}
+	if strings.Contains(en, "假如") {
+		t.Error("英文那一篇里混进了中文句式")
+	}
+
+	zh := writingHelpModeBlock(helpShow, "zh", genreArgument)
+	if !strings.Contains(zh, "假如") {
+		t.Error("中文议论文那条路本来就有句式，不该被这次改动弄丢")
+	}
+	if strings.Contains(zh, "While it is true that") {
+		t.Error("中文那一篇里混进了英文句式")
+	}
+}

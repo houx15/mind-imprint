@@ -37,12 +37,10 @@ func writingHelpModeBlock(mode writingHelpMode, lang, genre string) string {
 
 🚨 句式不是替她写正文：你给的是带着空格的骨架（「因为……，所以……」），
 填什么由她定。绝不要把她那一段替她写出来。`)
-		if lang == "zh" {
-			frames := writingHelpFrames(genre)
-			if frames != "" {
-				b.WriteString("\n\n可以给的句式：\n")
-				b.WriteString(frames)
-			}
+		frames := writingHelpFrames(lang, genre)
+		if frames != "" {
+			b.WriteString("\n\n可以给的句式：\n")
+			b.WriteString(frames)
 		}
 		return b.String()
 	}
@@ -50,14 +48,23 @@ func writingHelpModeBlock(mode writingHelpMode, lang, genre string) string {
 }
 
 // writingHelpFrames 把库里带句式的那几条摆出来，供 helpShow 那一档引用。
-func writingHelpFrames(genre string) string {
+//
+// 🚨 lang 是参数，不是写死的。2026-09-23 之前这里写死 "zh"，而调用点外面
+// 还套着一道 `if lang == "zh"` —— 两处叠在一起，写英文的学生在这条路上
+// 一条句式都拿不到，而库里给她备着 23 条。
+func writingHelpFrames(lang, genre string) string {
 	var b strings.Builder
-	for _, m := range vocab.ForLang("zh", genre) {
+	for _, m := range vocab.ForLang(lang, genre) {
 		for _, p := range m.Patterns {
 			b.WriteString("- ")
 			b.WriteString(m.Name)
 			b.WriteString("：")
 			b.WriteString(p.Frame)
+			if p.Gloss != "" {
+				b.WriteString("（")
+				b.WriteString(p.Gloss)
+				b.WriteString("）")
+			}
 			b.WriteString("\n")
 		}
 	}
