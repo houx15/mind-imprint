@@ -50,6 +50,7 @@ func Catalog() []Definition {
 		{ID: "api.writingPlanSkeletonEN", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanSkeletonEN},
 		{ID: "api.writingPlanEnglishArgumentKinds", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanEnglishArgumentKinds},
 		{ID: "api.writingPlanEnglishNarrativeKinds", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanEnglishNarrativeKinds},
+		{ID: "api.writingPlanEnglishTaskSplit", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanEnglishTaskSplit},
 		{ID: "api.writingPlanStalledBlock", Source: "internal/prompts/api_writing_plan_state.go", Consumer: "internal/api/writing_plan_state_prompt.go", Text: WritingPlanStalledBlock},
 		{ID: "api.writingRefusalBlock", Source: "internal/prompts/api_writing_refusal.go", Consumer: "internal/api/writing_refusal_prompt.go", Text: WritingRefusalBlock},
 		{ID: "api.writingRefusalNudge", Source: "internal/prompts/api_writing_refusal.go", Consumer: "internal/api/writing_refusal_prompt.go", Text: WritingRefusalNudge},

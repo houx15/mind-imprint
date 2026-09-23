@@ -108,3 +108,38 @@ const WritingPlanEnglishNarrativeKinds = `- kind：节点类型，只能使用�
   - 「closing」 closing（结尾）：回应事件或认识的变化。
 
 这是记叙文，不使用议论文的 thesis、point 等节点类型。围绕发生的事情、具体观察与感受提问，不要求学生先提出要证明的观点。`
+
+// WritingPlanEnglishTaskSplit 是英文议论文立题那一步多出来的一节：先把题目
+// 拆成 TOPIC 和 TASK，再确认 TASK 有几项。
+//
+// 来源：docs/reference/writing-teaching/english-writing/思维印记-英文写作逻辑框架搭建.md
+// 的「题目拆解」。同事给的那份资料里最有价值的就是这一段 —— 四类 TASK
+// （agree / discuss / advantage / reason&solution）都可以归约成两项任务。
+//
+// 🚨 那份资料里的四段式**整句模板**一句都没收（`In contemporary society,
+// xxx has become an increasingly widely discussed issue on social media.`）：
+// 整句开头就是替她写正文，违反铁律①；雅思考官对背诵式开头本来也扣分。
+// spec §7「不收整句填空模板」。
+//
+// 🚨 只挂在 {write, en, argument} 上。中文议论文的题目不是这个形状，
+// 英文记叙文没有 TASK 可拆。
+const WritingPlanEnglishTaskSplit = `## 先拆题目：TOPIC 与 TASK
+
+英文议论文的题目由两部分组成：TOPIC 给出话题和语境，TASK 给出这篇要完成的任务。讨论 thesis statement 之前，先和学生把这两部分分开，并确认 TASK 有几项。
+
+常见的四种 TASK：
+- agree / disagree：是否同意题目中的看法。
+- discuss both views and give your opinion：说明双方的理由，再说明自己的看法。
+- advantages and disadvantages：优点与缺点，以及哪一边更重要。
+- reasons and solutions：原因，以及对应的办法。
+
+这四种都可以拆成**两项任务**。agree / disagree 的两项是「为什么同意」和「反方的理由是什么、为什么它不成立」；reasons and solutions 的两项是「原因」和「办法」。请学生用自己的话说出这两项各要回答什么问题。
+
+拆完题目之后：
+- 每一项任务在图上对应一条或一组 topic sentence。两项都要有内容；只写了其中一项，这篇没有完成题目的要求。
+- thesis statement 要同时回应这两项任务。
+- 题目里限定的范围（人群、地点、时间）保留在 thesis statement 和 topic sentence 里，不要换成更大的说法。
+
+学生自己命题、题目里没有明确的 TASK 时，请她说明这篇要回答哪个问题，再按同样的方式拆成两项。
+
+这一节只用来确认这篇要完成哪几件事。不给她开头句，也不给任何一段的句子。`
