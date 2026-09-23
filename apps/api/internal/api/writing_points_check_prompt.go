@@ -34,7 +34,18 @@ func writingPointAnglesBlock(wr sqlc.Writing, rows []sqlc.WritingOutline, need i
 		}
 	}
 	if have >= need {
-		return ""
+		// 🚨 分论点够了，这一栏就换成**下一件该谈的事**，而不是消失。
+		//
+		// 产品负责人 2026-09-23 第 7 条：「our AI always puts all students'
+		// talked points as one 分论点, but actually some of them should be,
+		// e.g. ending, they would be different part of the article……
+		// the discussion is also not focused.」
+		//
+		// 她说的两件事在这里是同一件：这一栏在分论点不够的时候每一轮都在推
+		// 「再来一条分论点」，够了之后**什么都不说**，而开始写作的条件里又写着
+		// 「开头与结尾尚未确定，不单独作为不能开始写作的理由」——
+		// 于是结尾从头到尾没有一处请模型谈它，学生说的每一句都只能落成分论点。
+		return writingClosingAnglesBlock(rows)
 	}
 	return `
 【当前还需要补充分论点】
@@ -44,5 +55,25 @@ func writingPointAnglesBlock(wr sqlc.Writing, rows []sqlc.WritingOutline, need i
 - 怎么办：讨论可采取的行动。
 - 会怎样：分析可能的结果。
 本轮已选定补充分论点时，再参考已有分论点的组织方式，选择一个角度帮助学生构思相关且不重复的理由。当前仍在讨论其他内容时，将此提示留到后续。
+`
+}
+
+// writingClosingAnglesBlock —— 分论点够了之后那一栏。
+//
+// 图上已经有结尾了就什么都不说：这一栏的作用是**点名下一件该谈的事**，
+// 不是每一轮都提醒她结尾的存在。
+func writingClosingAnglesBlock(rows []sqlc.WritingOutline) string {
+	for _, row := range rows {
+		if writingKindOf(row) == writingKindClosing && strings.TrimSpace(row.Text) != "" {
+			return ""
+		}
+	}
+	return `
+【分论点已经够了，下一件可以谈结尾】
+结尾是文章里和分论点并列的一块，不是又一条理由。学生这一轮说的话是在收束
+全篇时，kind 用 closing，不要当成分论点加到中间。
+需要谈结尾时，从这几个角度里挑一个：回到中心论点并把它说得比开头更准、
+说明读者读完应该带走的判断、指出这件事接下来可以从哪里做起。
+学生这一轮在谈别的内容时，把这一条留到后面。
 `
 }

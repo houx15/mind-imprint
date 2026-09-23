@@ -144,6 +144,12 @@ func TestPointsCheckBlockIsSilentWhenNothingIsWrong(t *testing.T) {
 
 // 四个角度只在她还差分论点的时候摆。够了之后再教她怎么想，
 // 是在她已经想好之后教她怎么想 —— 那一轮该做的是别的事。
+//
+// 🚨 2026-09-23 改过：这条测试原来断言「够了之后这一栏是空的」，理由就是上面
+// 那句「那一轮该做的是别的事」—— 可它从来没说过别的事是什么，于是那一栏在
+// 分论点够了之后**整轮沉默**，而结尾从头到尾没有一处请模型谈它。
+// 产品负责人第 7 条报的就是这个后果（「some of them should be, e.g. ending」）。
+// 现在它接力到结尾那一栏；原来那条守的东西（够了就不再摆四个角度）没有松。
 func TestPointAnglesBlockOnlyWhenSheStillNeedsOne(t *testing.T) {
 	zh := sqlc.Writing{Lang: "zh"}
 	rows := []sqlc.WritingOutline{
@@ -151,9 +157,16 @@ func TestPointAnglesBlockOnlyWhenSheStillNeedsOne(t *testing.T) {
 		kindRow(writingKindPoint, "慢读才能发现问题"),
 		kindRow(writingKindPoint, "读得慢才看得出作者的立场"),
 	}
-	// 两条分论点、要的也是两条 —— 够了，不摆。
-	if got := writingPointAnglesBlock(zh, rows, 2); got != "" {
-		t.Errorf("分论点已经够了，不该再摆「可以从哪几个角度想」：%q", got)
+	// 两条分论点、要的也是两条 —— 够了，四个角度一个都不许再摆。
+	got := writingPointAnglesBlock(zh, rows, 2)
+	for _, angle := range []string{"是什么", "为什么", "怎么办", "会怎样"} {
+		if strings.Contains(got, angle) {
+			t.Errorf("分论点已经够了，不该再摆「可以从哪几个角度想」：%q", got)
+		}
+	}
+	// 接力到下一件该谈的事：结尾。
+	if !strings.Contains(got, "结尾") {
+		t.Errorf("够了之后这一栏该点名下一件事，而不是沉默：%q", got)
 	}
 	if got := writingPointAnglesBlock(zh, rows, 3); got == "" {
 		t.Error("还差一条分论点，四个角度该摆出来")

@@ -6,7 +6,7 @@
   "awakening/selection": "b7ee2be2d7bccd61389cfe690147946391b1a99f58492a13dc8815035d80c861",
   "awakening/title": "4968571a08410286571dc767dc823b96065ad6651a1daaccb93e5ee839070f8e",
   "bench/assess/lite-reading-report": "67c27028046df5585ba26e27478a9f03095a8aea399a4970463aa0a103a1782e",
-  "bench/compose/lite-writing-plan": "7d6f8bda9d1222fb166e8e1097867df3d34e9209947a0de8e2f6a09ecdddc190",
+  "bench/compose/lite-writing-plan": "8530be5b2472c5e34afa5a70d7f15096b8bacde89941e4ddfc8d01d3515ab419",
   "bench/compose/reading-router": "4594d174082c846830bb0c0b6d4ea2fcd5083411e0c81067b7f73f95277bacf5",
   "bench/dialogue/lite-reading-coach": "9a714f2739f15ce0c4e55d37627ef8a963f04d18fa527e6672d2adcbdf720099",
   "bench/dialogue/lite-reading-coach/complete": "0f32a446beb032c7f7ef4f4c7e3d781b9a7cf037da5ef87a0389947270ea9ed1",
@@ -35,6 +35,7 @@
   "writing/help-show/zh": "b093954a4a5da537550994643bfa46998da780654948384a553867464ea1ca64",
   "writing/plan/en/argument": "a70ebe162351cf255cdb4703fbeeea928c4fe0cc9b745b33ac0d60eb2247ac8c",
   "writing/plan/en/narrative": "85f5f9cb8276dc2c5efb828d038e3bfb61a8baf7d724301b8833eaa22bfa2185",
-  "writing/plan/zh/argument": "bde47cae410e2eea3ab43e433b85cb88d58eafa9ec9ea9099d6640b27d7e03db",
+  "writing/plan/zh/argument": "916bb5f36d8142f04d8301e8210037f48efde863132a1b86f979d17cb3991efc",
+  "writing/plan/zh/argument/closing-next": "058ed6cd75f658e24eb5bdefc6adc7c5d0e6cc964bb3b6f5ef1fc494663f2767",
   "writing/plan/zh/narrative": "26757ffe3362cf80f25891d512408c1e8fffc95bd53d16d78642faee1001c7d1"
 }

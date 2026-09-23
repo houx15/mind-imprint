@@ -48,6 +48,28 @@ func PromptAssemblyExamples() []PromptExample {
 			}}, Documents: map[int]promptassembly.Document{1: doc}})
 		}
 	}
+	// 🚨 分论点够了、还没有结尾的那一轮。
+	//
+	// 上面那四条 writing/plan/* 传的 outline 都是 nil，所以【分论点已经够了，
+	// 下一件可以谈结尾】那一栏在它们身上**一条都不渲染** —— 新开的分支不进
+	// 基线，就是 AGENTS.md「提示词怎么写」第 6 条记的那个形状（基线不等于覆盖）。
+	// 这一条专门把它摆进来。
+	{
+		wr := sqlc.Writing{Lang: "zh", Title: "读书该快还是该慢"}
+		rows := []sqlc.WritingOutline{
+			{Kind: writingKindThesis, Text: "读书要读慢", Depth: 0, Position: 0},
+			{Kind: writingKindPoint, Text: "慢读才能发现问题", Depth: 1, Position: 1},
+			{Kind: writingKindPoint, Text: "读得慢才看得出作者的立场", Depth: 1, Position: 2},
+			{Kind: writingKindPoint, Text: "慢下来才记得住", Depth: 1, Position: 3},
+			{Kind: writingKindEvidence, Text: "我读《城南旧事》那次", Depth: 2, Position: 4},
+			{Kind: writingKindReference, Text: "一项关于阅读速度与留存率的研究", Depth: 2, Position: 5},
+		}
+		doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, rows, nil, "我想最后再说一句，让读者也去试试慢读。"))
+		out = append(out, PromptExample{ID: "writing/plan/zh/argument/closing-next", Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, "zh", "")}, {Role: gateway.RoleUser, Content: doc.Text},
+		}}, Documents: map[int]promptassembly.Document{1: doc}})
+	}
+
 	// 卡住的那一档（helpShow）：说过三轮她还没动，这一轮摆句式给她照着填。
 	//
 	// 🚨 两种语言都录，录的是两件不同的事。en 那条钉住**新给出来的内容**
