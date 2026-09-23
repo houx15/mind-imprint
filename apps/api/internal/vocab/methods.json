@@ -269,7 +269,7 @@
           "label": "Bounded claim",
           "frame": "In the case of ___, ___; it is less clear whether ___.",
           "gloss": "就……而言，……；至于……，还不好说",
-          "example": "In the case of the Antarctic summer stations, solar panels now cover most of the daily demand; it is less clear whether the same array would carry a station through the winter dark."
+          "example": "In the case of the violin, an instrument built three hundred years ago can still outlast a new one in tone; it is less clear whether the wood, the varnish, or the maker's hand accounts for it."
         }
       ],
       "category": "",
@@ -288,13 +288,13 @@
           "label": "Cite a study",
           "frame": "A 2019 study of ___ found that ___.",
           "gloss": "一项 2019 年针对……的研究发现……",
-          "example": "A 2019 study of thirty-four mountain glaciers found that the ice was thinning fastest on the slopes that face away from the sun."
+          "example": "A 2019 study of the galaxy M87 found that the shadow at its centre was the width predicted for a black hole of six and a half billion solar masses."
         },
         {
           "label": "Say what it shows",
           "frame": "This suggests that ___, because ___.",
           "gloss": "这说明……，因为……",
-          "example": "This suggests that shade alone no longer protects the ice, because the heat now reaches it through the air rather than through direct sunlight."
+          "example": "This suggests that the century-old equations were describing something real, because the width the telescopes measured and the width the equations gave were the same."
         }
       ],
       "category": "",
@@ -318,13 +318,13 @@
           "label": "Let the verb carry it",
           "frame": "Replace was very ___ with one verb that shows it: ___.",
           "gloss": "把「was very ……」换成一个能让人看见的动词：……",
-          "example": "Replace was very tired with one verb that shows it: staggered."
+          "example": "Replace \"was very tired\" with one verb that shows it: \"staggered.\""
         },
         {
           "label": "Name the thing exactly",
           "frame": "not ___ (a category), but ___ (the specific one)",
-          "gloss": "不写……（一个大类），写……（具体的那一个）",
-          "example": "not a bird, but the grey heron that stands in the shallows every morning"
+          "gloss": "不说……（一个大类），而说……（具体的那一个）",
+          "example": "The photograph shows not a bird, but the grey heron that stands in the shallows outside the lock gates every morning."
         }
       ],
       "category": "",
@@ -377,7 +377,7 @@
         {
           "label": "Long, long, then short",
           "frame": "___ , and ___ . ___ . (the last one three to five words)",
-          "gloss": "先一个长句，再一个短句（短的那句三到五个词）",
+          "gloss": "……，并且……。……。（最后一句三到五个词）",
           "example": "The crew had chipped ice off the rigging for eleven days, and every morning the same white weight was back before noon. Then the wind dropped."
         }
       ],
@@ -704,7 +704,7 @@
           "label": "先问后答，再补因果",
           "frame": "是什么……？是……。因为……，所以……",
           "gloss": "",
-          "example": "是什么让都江堰用了两千多年还在灌溉成都平原？是那套顺着水势设计的分水工程。因为鱼嘴把岷江分成内外两江，泥沙随着外江漂走，所以内江年年都送得出清水。"
+          "example": "是什么让一口铸铁锅越用越不粘？是反复受热后留在锅面上的那层油膜。因为油脂在高温下聚合成一层极薄的硬壳，把铁面上的细孔一层层填平，所以锅用得越久，表面越光滑。"
         }
       ],
       "genre": "argument"
@@ -728,7 +728,7 @@
           "label": "假设一个相反的情形",
           "frame": "假如……，那么……？",
           "gloss": "",
-          "example": "假如蜜蜂从这片果园里消失，那么这些靠风授不了粉的果树，还结得出今天这样的果子吗？"
+          "example": "假如蜜蜂从这片果园里消失，那么这些无法靠风授粉的果树，还结得出今天这样的果子吗？"
         },
         {
           "label": "从结果回推",
@@ -758,13 +758,13 @@
           "label": "把几个例子收成一句",
           "frame": "这些……，真正表现了……",
           "gloss": "",
-          "example": "这些在洪水里守堤的人、在雪夜里通车的人、在地震后第一时间进山的人，真正表现了把别人的安危放在自己前头的担当。"
+          "example": "这些在雨前贴着水面低飞的燕子、在暴雨来临之前成队搬家的蚂蚁、在寒流到达前两天就南下的雁群，真正表现了动物对气压变化的敏感。"
         },
         {
           "label": "从一类人说到普遍",
           "frame": "大凡……的人，其……皆来自……",
           "gloss": "",
-          "example": "大凡能把一门手艺做到极处的人，其从容皆来自日复一日的枯燥练习。"
+          "example": "大凡在高原上长大的人，其耐受稀薄空气的能力皆来自血液里偏高的红细胞数量。"
         }
       ],
       "genre": "argument"

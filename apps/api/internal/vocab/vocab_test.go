@@ -156,8 +156,8 @@ func TestFor_NeverOffersEnglishWordingToAChinesePiece(t *testing.T) {
 
 	for _, pos := range append(positions, "any") {
 		for _, m := range For(pos, "zh", "") {
-			if f, ok := latinFrame(m); ok {
-				t.Errorf("For(%q, \"zh\") offered %q, whose frame %q is English wording — 中文作文 must never be handed it", pos, m.ID, f)
+			if field, f, ok := latinFrame(m); ok {
+				t.Errorf("For(%q, \"zh\") offered %q, whose %s %q is English wording — 中文作文 must never be handed it", pos, m.ID, field, f)
 			}
 			if m.Lang == "en" {
 				t.Errorf("For(%q, \"zh\") offered English-only method %q", pos, m.ID)
@@ -165,8 +165,8 @@ func TestFor_NeverOffersEnglishWordingToAChinesePiece(t *testing.T) {
 		}
 	}
 	for _, m := range ForLang("zh", "") {
-		if f, ok := latinFrame(m); ok {
-			t.Errorf(`ForLang("zh", "") offered %q, whose frame %q is English wording`, m.ID, f)
+		if field, f, ok := latinFrame(m); ok {
+			t.Errorf(`ForLang("zh", "") offered %q, whose %s %q is English wording`, m.ID, field, f)
 		}
 		if m.Lang == "en" {
 			t.Errorf(`ForLang("zh", "") offered %q, an English-only entry`, m.ID)
@@ -372,17 +372,25 @@ func TestVocabKeepsTheNamesPromptsAlreadyUse(t *testing.T) {
 // 🚨 2026-09-23：一条句式现在有三段可读的字 —— 骨架、中文读法、例句。只扫
 // 骨架的话，一句英文例句挂在中文的句式上，这条测试看不见，而学生看得见。
 // 判定口径一个字没动，扫的范围从一段扩到三段。
-func latinFrame(m Method) (string, bool) {
+//
+// 🚨 扫三段之后必须一并交出**是哪一段**：原来两处调用点都写死「whose frame %q
+// is English wording」，把例句里的英文报成骨架里的英文，下一个人会拿着这句话去
+// 骨架里 grep 一段根本不在那儿的英文。
+func latinFrame(m Method) (field, text string, found bool) {
 	for _, p := range m.Patterns {
-		for _, s := range []string{p.Frame, p.Gloss, p.Example} {
-			for _, r := range s {
+		for _, f := range []struct{ name, text string }{
+			{"frame", p.Frame},
+			{"gloss", p.Gloss},
+			{"example", p.Example},
+		} {
+			for _, r := range f.text {
 				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-					return s, true
+					return f.name, f.text, true
 				}
 			}
 		}
 	}
-	return "", false
+	return "", "", false
 }
 
 // 每一条 body 的方法都要说清自己属于哪一类；开篇/结尾/英文句式不在这条轴上。
@@ -489,6 +497,13 @@ func TestEveryPatternIsTeachable(t *testing.T) {
 			}
 			if strings.TrimSpace(p.Example) == "" {
 				t.Errorf("%s 没有例句", where)
+			}
+			// 例句里还留着骨架的空格，说明它是复制来的，不是写出来的。
+			if strings.Contains(p.Example, "___") {
+				t.Errorf("%s 的例句里还留着 ___：%q", where, p.Example)
+			}
+			if m.Lang == "zh" && strings.Contains(p.Example, "……") {
+				t.Errorf("%s 的例句里还留着 ……：%q", where, p.Example)
 			}
 		}
 	}
