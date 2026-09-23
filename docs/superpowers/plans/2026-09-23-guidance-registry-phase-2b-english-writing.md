@@ -773,6 +773,7 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go run ./cmd/promptinspect --hel
 - Modify: `apps/api/internal/guidance/guidance_test.go`、`apps/api/internal/guidance/coverage_test.go`（测试名里的 `Stage` 改成 `Grade`）
 - Modify: `apps/api/internal/api/writing_grade_key_test.go`（注释改一句）
 - Modify: `apps/web/src/console/ClassesView.tsx`（一条注释里的过期常量名）
+- Modify: `apps/web/src/console/ClassDetailView.tsx`（年级下拉补 `disabled={busy}`）
 - Test: `gradeFromClasses` 现有的测试文件（用 Step 1 的 grep 找）
 
 这三件都是 spec §8.6「带着走的几条小账」里记下的，本期正好碰这几个文件。
@@ -876,7 +877,26 @@ cd apps/api && grep -rn "Stage\|stage" internal/guidance/
 // 否则那一行内容会输给已在的文体行（26 分对 28 分），一次都不出现而测试全绿。
 ```
 
-- [ ] **Step 6: 一条过期的注释**
+- [ ] **Step 6: pro 那个年级下拉在存盘途中没有禁用**
+
+Task 2 的评审发现：`apps/web/src/console/ClassDetailView.tsx` 里新加的那个 `<Select>` 没有 `disabled={busy}`，而同一个文件里的「确认轮换」「保存」都有，lite 那块（Task 3）也有。
+
+给它补上 `disabled={busy}`：
+
+```tsx
+          <Select
+            id="class-grade-picker"
+            data-testid="class-grade-picker"
+            value={c.grade}
+            onChange={(v) => void doSetGrade(v)}
+            options={CLASS_GRADE_OPTIONS}
+            disabled={busy}
+          />
+```
+
+**其余属性一个都不动** —— 尤其不要顺手加 `placeholder`。
+
+- [ ] **Step 7: 一条过期的注释**
 
 `apps/web/src/console/ClassesView.tsx` 里那条解释「为什么不给 Select 传 placeholder」的注释，正文里还写着旧名 `GRADE_OPTIONS[0]`。Task 1 把那个常量改名成了 `CLASS_GRADE_OPTIONS` 并挪到了 `api/classes.ts`，注释没跟着改（Task 1 的 brief 明说别动那一块的其余部分，所以那时不改是对的）。
 
@@ -889,7 +909,7 @@ cd apps/web && npm run typecheck
 cd apps/web && npx vitest run
 ```
 
-- [ ] **Step 7: 跑全后端的门**
+- [ ] **Step 8: 跑全后端的门**
 
 ```
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go build ./...
@@ -897,7 +917,7 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/guidance/... 
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/api -run 'Writing|Grade|Class' -timeout 1800s
 ```
 
-- [ ] **Step 8: 提交**
+- [ ] **Step 9: 提交**
 
 暂存改过的那几个文件（含 `apps/web/src/console/ClassesView.tsx`），信息写：`chore(grade): 年级对不上时记一行；测试名里的 Stage 改成 Grade`
 
