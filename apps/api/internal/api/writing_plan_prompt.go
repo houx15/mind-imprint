@@ -69,10 +69,33 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 		}
 	}
 
+	// 这一篇的带读说明是**可选**的：今天只有英文议论文有一节（题目拆解）。
+	// 取不到不是故障 —— 中文议论文和两种记叙文本来就没有这一节，所以这里
+	// 不记日志、不兜底，直接把那一行占位符整行删掉。阅读面的
+	// buildGenreCoachSection 是同一个形状。
+	coach := ""
+	if p, cerr := guidance.Default().Resolve(k, guidance.SlotCoach); cerr == nil {
+		coach = p[guidance.SlotCoach]
+	}
+
 	english := lang == langEnglish
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", parts[guidance.SlotKinds], 1)
 	s = strings.Replace(s, "@@MATERIAL@@", parts[guidance.SlotMaterial], 1)
 	s = strings.Replace(s, "@@SKELETON@@", parts[guidance.SlotSkeleton], 1)
+	if coach != "" {
+		// 🚨 这里**没有**在 prompts.WritingPlanSystem 常量里预先开一个
+		// @@COACH@@ 占位符（brief 的 Step 4 原方案）。那个常量被
+		// benchcases_lite_writing.go 的 compose/lite-writing-plan 用例**原样
+		// 未展开**地当系统提示词发出去（一个先于本任务就存在的毛病 ——
+		// @@KINDS@@/@@MATERIAL@@/@@SKELETON@@/%d 都还没替换，它测的从来
+		// 不是生产会发出的那份提示词，parity 基线却是照着这份原文录的）。
+		// 在共享常量里加一行字面 @@COACH@@，会把那条 bench 请求的字节也
+		// 带着改掉，让 promptinspect 的 parity 基线变红 —— 而基线不许重录。
+		// 所以改成按**锚点**在装配后的字符串上插入，只影响真正调用
+		// writingPlanSystemFor 的路径；锚点在模板里只出现一次。
+		anchor := "\n\n## 你怎么问\n"
+		s = strings.Replace(s, anchor, "\n\n"+coach+"\n\n## 你怎么问\n", 1)
+	}
 	s = strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
 	if english {
 		s += "\n这篇是英文写作。讨论图中已有内容时，请使用与该节点对应的英文术语并解释其作用，例如 topic sentence 或 commentary。节点 text 必须使用英文，对话 reply 用中文。计划检查中的中文标签只是计数名称，不覆盖这些教学术语。\n"

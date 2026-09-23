@@ -44,6 +44,14 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
 
+	// 🚨 写作面的带读说明只有英文议论文有一行：题目拆解（TOPIC + TASK）。
+	// 中文议论文的题目不是这个形状，两种记叙文没有 TASK 可拆 —— 所以这里
+	// **不登记兜底行**。取不到不是故障，是这一篇本来就没有这一节，由
+	// writingPlanSystemFor 把「没有」翻译成「整节不出现」。
+	// 和阅读面的 SlotCoach 同一条纪律（议论文那边也没有登记）。
+	r.Add(SlotCoach, Scope{Surface: SurfaceWrite, Lang: "en", Genres: []string{"argument"}},
+		prompts.WritingPlanEnglishTaskSplit)
+
 	// ── 阅读带读说明 ────────────────────────────────────────────────────
 	// 🚨 议论文没有这一节，所以议论文不登记 —— Resolve 取不到就是取不到，
 	// 由调用方 buildGenreCoachSection 把「没有」翻译成空字符串。

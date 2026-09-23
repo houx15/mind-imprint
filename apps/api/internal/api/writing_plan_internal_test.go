@@ -225,7 +225,7 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 			got := writingPlanSystemFor(genre, lang, "")
 
 			// 占位符一个都不许活着出去。
-			for _, ph := range []string{"@@KINDS@@", "@@MATERIAL@@", "@@SKELETON@@", "%d"} {
+			for _, ph := range []string{"@@KINDS@@", "@@MATERIAL@@", "@@SKELETON@@", "@@COACH@@", "%d"} {
 				if strings.Contains(got, ph) {
 					t.Errorf("%s：占位符 %q 没被换掉 —— 模型会收到它的字面意思", name, ph)
 				}
@@ -248,6 +248,15 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 			// 输出格式那一节是解析器的契约，丢了整族 add 都会被丢掉。
 			if !strings.Contains(got, `"ready"`) || !strings.Contains(got, `"kind"`) {
 				t.Errorf("%s：输出格式那一节没装进去", name)
+			}
+
+			// 🚨 题目拆解只挂在英文议论文上。中文议论文的题目不是这个形状，
+			// 英文记叙文没有 TASK 可拆 —— 串到那三条分支上就是给错教学内容，
+			// 而她看不出来（印记仍然在用中文跟她说话）。
+			const taskSplitMark = "TOPIC 与 TASK"
+			wantTaskSplit := lang == langEnglish && genre == genreArgument
+			if has := strings.Contains(got, taskSplitMark); has != wantTaskSplit {
+				t.Errorf("%s：题目拆解那一节 在=%v，应该 在=%v", name, has, wantTaskSplit)
 			}
 
 			// 文体不许串台。

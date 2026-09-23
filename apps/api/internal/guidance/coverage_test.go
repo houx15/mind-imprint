@@ -140,3 +140,59 @@ func TestMalformedEmptyStringInScopeMatchesNothing(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 写作面的 SlotCoach 只有一行，所以它的判据是**在哪几个组合上取得到**，
+// 而不是「取到的非空」。取得到的地方多一个，就是一批学生悄悄换了教学内容。
+func TestWriteCoachIsOnlyOnEnglishArgument(t *testing.T) {
+	grades := []string{"", "junior1", "junior2", "junior3", "senior1", "senior2", "senior3"}
+	for _, lang := range []string{"zh", "en", ""} {
+		for _, genre := range []string{"argument", "narrative", "report", "explain", ""} {
+			for _, grade := range grades {
+				k := Key{Surface: SurfaceWrite, Lang: lang, Genre: genre, Grade: grade}
+				got, err := Default().Resolve(k, SlotCoach)
+				wantIt := lang == "en" && genre == "argument"
+				if !wantIt {
+					if err == nil {
+						t.Errorf("%+v 取到了写作面的带读说明，但只有英文议论文该有", k)
+					}
+					continue
+				}
+				if err != nil {
+					t.Errorf("%+v 该取到题目拆解，却取不到：%v", k, err)
+					continue
+				}
+				if got[SlotCoach] != prompts.WritingPlanEnglishTaskSplit {
+					t.Errorf("%+v 取到的不是题目拆解那一段", k)
+				}
+			}
+		}
+	}
+}
+
+// 🚨 两面不许串台。Scope.Matches 第一条比的就是 Surface，但在写作面加了
+// SlotCoach 之前，没有任何东西测过「阅读面那三行还在不在」。
+func TestReadCoachStillResolvesAfterWriteCoachWasAdded(t *testing.T) {
+	want := map[string]string{
+		"report":    prompts.ReadingCoachGenreReport,
+		"explain":   prompts.ReadingCoachGenreExplain,
+		"narrative": prompts.ReadingCoachGenreNarrative,
+	}
+	for genre, text := range want {
+		// 阅读面的 Key 不带 Lang —— buildGenreCoachSection 就是这么调的。
+		for _, lang := range []string{"", "zh", "en"} {
+			k := Key{Surface: SurfaceRead, Lang: lang, Genre: genre}
+			got, err := Default().Resolve(k, SlotCoach)
+			if err != nil {
+				t.Errorf("%+v 取不到带读说明：%v", k, err)
+				continue
+			}
+			if got[SlotCoach] != text {
+				t.Errorf("%+v 取到的不是 %s 该用的那一段", k, genre)
+			}
+		}
+	}
+	// 阅读面的议论文本来就没有带读说明 —— 加了写作面那一行之后仍然没有。
+	if _, err := Default().Resolve(Key{Surface: SurfaceRead, Genre: "argument"}, SlotCoach); err == nil {
+		t.Error("阅读面的议论文取到了带读说明，它本来就不该有")
+	}
+}
