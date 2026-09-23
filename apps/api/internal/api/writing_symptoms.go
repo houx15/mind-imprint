@@ -209,27 +209,58 @@ var writingSymptomsNarrativeZH = []writingSymptom{
 		"结尾提出了新的认识，但没有说明前文事件如何支持这一认识。"},
 }
 
+// writingSymptomsNarrativeEN —— 英文记叙文特有的几条（phase 4，2026-09-23）。
+//
+// 🚨 不是把 `writingSymptomsNarrativeZH` 那 5 条直译过来。中文母语者写
+// 英文记叙文会撞上的是英语这门语言自己的机关——时态、对话标点、
+// 「直接说感受」这几件事在英文里有专门的名字和专门的信号，跟中文记叙文
+// 那五条（细节、动词、抑扬转情）不是同一批问题。
+//
+// 和 `writingSymptomsNarrativeZH` 同一个规矩：这张是**加在**
+// `writingSymptomsEN` 上面的，议论文那 13 条一条都不少拿。
+var writingSymptomsNarrativeEN = []writingSymptom{
+	// show, don't tell —— 结果和情绪被形容词直接说出来，没有画面撑着。
+	{"showing_vs_telling", writingLayerMaterial, "只说结论，没有画面",
+		"情绪或结果被形容词直接说出来（very happy / so scared），没有动作、场景、感官细节让读者自己看到。"},
+	// 记叙文默认过去时，中文没有时态变化，转换到英文时最容易滑掉。
+	{"tense_drift", writingLayerSentence, "时态在叙述中途跳变",
+		"整段在讲过去发生的事，动词忽然滑进现在时，或者一句话里两种时态混用。"},
+	{"filtering_distance", writingLayerSentence, "隔着一层的叙述",
+		"反复用 I saw / I felt / I noticed / I heard 这类词把读者放在你和事件中间，而不是直接写那件事本身。"},
+	{"dialogue_mechanics", writingLayerSentence, "对话标点和提示语不对",
+		"引号里该有的标点漏在引号外面，换人说话没有换行，或者提示语只会用 said 不带动作。"},
+	{"connector_monotony", writingLayerStructure, "只靠 and then 串事情",
+		"事件全靠 and then / after that 一件件接起来，重要时刻和次要时刻用的笔墨一样多。"},
+}
+
 // writingSymptomTable —— 这一次摆给模型看的是哪张毛病表。
 //
 // 2026-09-22：挑哪一张由 internal/guidance 那条共用规则决定。行为不变。
 //
-// 🚨 英文今天只有一张表，不分文体。补英文记叙那一张属于四期，
-// 不在这一次的范围里（TestWritingSymptomTableENIgnoresGenreForNow 钉着）。
+// 英文记叙（`writingSymptomsNarrativeEN`）和英文议论文一样，都补在
+// 2026-09-23（phase 4）——英文以前只有一张不分文体的表，`Lang(8)+Genre(4)=28`
+// 压过只定语言的那一行 `{en}`(24)，两种体裁从此各拿各的表。
 func writingSymptomTable(lang string, genre string) []writingSymptom {
 	narrativeZH := make([]writingSymptom, 0, len(writingSymptomsZH)+len(writingSymptomsNarrativeZH))
 	narrativeZH = append(narrativeZH, writingSymptomsZH...)
 	narrativeZH = append(narrativeZH, writingSymptomsNarrativeZH...)
 
+	narrativeEN := make([]writingSymptom, 0, len(writingSymptomsEN)+len(writingSymptomsNarrativeEN))
+	narrativeEN = append(narrativeEN, writingSymptomsEN...)
+	narrativeEN = append(narrativeEN, writingSymptomsNarrativeEN...)
+
 	rows := []guidance.Row[[]writingSymptom]{
 		// 先登记的在平局时胜出，所以更具体的那几行要排在前面。
 		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "zh",
 			Genres: []string{genreNarrative}}, Value: narrativeZH},
+		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "en",
+			Genres: []string{genreNarrative}}, Value: narrativeEN},
 		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "zh"},
 			Value: writingSymptomsZH},
 		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite, Lang: "en"},
 			Value: writingSymptomsEN},
 		// 语言认不出来（老数据、空串）时的记叙文：和 2026-09-22 之前一样给
-		// 合表。没有 Lang，所以它比上面任何一行都宽（specificity 20），
+		// 中文合表。没有 Lang，所以它比上面任何一行都宽（specificity 20），
 		// 只有在 zh / en 两行都不匹配时才轮得到它。
 		{Scope: guidance.Scope{Surface: guidance.SurfaceWrite,
 			Genres: []string{genreNarrative}}, Value: narrativeZH},

@@ -30,15 +30,34 @@ func TestWritingSymptomTableZHArgumentIsTheGeneralTable(t *testing.T) {
 	}
 }
 
-// 🚨 英文今天**不分文体**：两种体裁拿到的是同一张表。
-// 这是一个已知缺口（spec 四期补英文记叙那张表），不是这一次要改的行为。
-// 钉住它，免得搬家时悄悄变了样。
-func TestWritingSymptomTableENIgnoresGenreForNow(t *testing.T) {
+// 英文记叙有自己的毛病，和英文议论文不是同一批（phase 4，2026-09-23）。
+func TestWritingSymptomTableENSplitsByGenre(t *testing.T) {
 	arg := writingSymptomTable("en", genreArgument)
 	nar := writingSymptomTable("en", genreNarrative)
-	if len(arg) != len(nar) || len(arg) != len(writingSymptomsEN) {
-		t.Errorf("英文两种体裁今天该是同一张表：议论 %d、记叙 %d、表 %d",
-			len(arg), len(nar), len(writingSymptomsEN))
+	if len(nar) == 0 {
+		t.Fatal("英文记叙一条毛病都没有")
+	}
+	sameIDs := func(a, b []writingSymptom) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i].ID != b[i].ID {
+				return false
+			}
+		}
+		return true
+	}
+	if sameIDs(arg, nar) {
+		t.Error("英文记叙和英文议论文拿到的是同一张表")
+	}
+	// 🚨 英文记叙那张是**加在**英文那张上面的，不是替换 ——
+	// 照 writingSymptomsNarrativeZH 的做法（:191-193 的注释）。
+	if len(nar) <= len(arg) {
+		t.Error("记叙那张应该是在通用英文表之上再加几条")
+	}
+	if len(arg) != len(writingSymptomsEN) {
+		t.Errorf("英文议论该是通用表 %d 条，拿到 %d 条", len(writingSymptomsEN), len(arg))
 	}
 }
 
