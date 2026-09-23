@@ -175,8 +175,56 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
             })}
           </div>
         )}
+
+        {/*
+          🚨 2026-09-23 产品负责人第 2 条：「when export reading report png, the
+          picture seems to be truncated and is not complete.」
+
+          屏幕上那份报告有十来节，而这张海报原来只画四样：抬头、数据条、
+          我的收获、最多三句金句。她自己做的那几样 —— 摘抄、笔记、透镜查到的、
+          这次的收获 —— **一节都不在图里**。从她那一侧看，导出来的就是一张
+          「不完整」的图。
+
+          这里补的都是**她自己产出**的内容，照旧遵守报告一贯的「没有就整节不画，
+          不画空标题」（ReportView 的 StatStrip 同一条规矩）。
+
+          金句那条三句的上限**没有动**：那是写在上面的一个明确取舍
+          （"given real space, not shrunk to fit more in"），不是漏掉的一节。
+        */}
+        <PosterList title="我的摘抄" items={report.excerpts} />
+        <PosterList title="我的笔记" items={report.notes.map((n) => `${n.quote}\n—— ${n.note}`)} />
+        <PosterList
+          title="我用透镜查到的"
+          items={report.lensNotes.map((n) => `${n.lens}｜${n.quote}\n—— ${n.finding}`)}
+        />
+        <PosterList title="这次的收获" items={report.gains} />
       </div>
       </div>
     );
   },
 );
+
+/**
+ * 海报上一节列表：一个小标题 + 每条一段。
+ *
+ * 空数组整节不画 —— 和报告页一贯的「没有就是没有，不留空标题」一致。
+ * 条数不设上限：这张图的全部意义就是**她做过的事都在上面**，而画布高度
+ * 那一头由 exportPoster 的 fittingPixelRatio 兜着（超过上限自己降倍率，
+ * 不再被 html-to-image 悄悄缩放）。
+ */
+function PosterList({ title, items }: { title: string; items: string[] }) {
+  const rows = items.map((t) => t.trim()).filter((t) => t !== "");
+  if (rows.length === 0) return null;
+  return (
+    <section style={{ padding: "30px 0", borderTop: "1px solid var(--mk-border)" }}>
+      <p style={{ fontSize: 22, color: MUTED, margin: "0 0 18px" }}>{title}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {rows.map((t, i) => (
+          <p key={i} style={{ margin: 0, fontSize: 30, lineHeight: 1.6, color: INK, whiteSpace: "pre-wrap" }}>
+            {t}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
