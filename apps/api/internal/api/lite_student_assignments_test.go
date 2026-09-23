@@ -421,7 +421,11 @@ func TestReadingIssueReachesTeacherAndClearsAfterMaterialChange(t *testing.T) {
 	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK || len(detail.Issues) != 1 || detail.Issues[0].Detail != "材料打开后只有空白" {
 		t.Fatalf("teacher issues = %d %+v", code, detail.Issues)
 	}
-	var list struct { Assignments []struct { IssueCount int `json:"issueCount"` } `json:"assignments"` }
+	var list struct {
+		Assignments []struct {
+			IssueCount int `json:"issueCount"`
+		} `json:"assignments"`
+	}
 	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &list); code != http.StatusOK || len(list.Assignments) != 1 || list.Assignments[0].IssueCount != 1 {
 		t.Fatalf("teacher issue priority = %d %+v", code, list)
 	}

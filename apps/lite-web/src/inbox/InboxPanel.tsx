@@ -7,6 +7,7 @@ import { kindLabel } from "../teacher/format";
 import { AssignmentStatusChip } from "./AssignmentStrip";
 import { INBOX_PANEL_WIDTH, inboxPanelLeft, sortUnreadFirst } from "./inboxLogic";
 import { openAssignment, openGrading } from "./openAssignment";
+import { MaterialIssueFeedback } from "./MaterialIssueFeedback";
 import type { InboxState } from "./useInbox";
 
 /**
@@ -157,6 +158,7 @@ export function InboxPanel({
                     <AssignmentRowBody item={item} opening={openingId === item.id} />
                   )}
                 </button>
+                {item.type === "assignment" && item.kind === "reading" && <div className="px-2.5 pb-2"><MaterialIssueFeedback assignmentId={item.id} /></div>}
               </li>
             ))}
           </ul>

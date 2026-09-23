@@ -6,6 +6,7 @@ import { statusChipStyle } from "../teacher/assignmentLogic";
 import { kindLabel } from "../teacher/format";
 import { openItemsForKind, startButtonLabel, stripDueAt, unreadGradings } from "./inboxLogic";
 import { openAssignment, openGrading } from "./openAssignment";
+import { MaterialIssueFeedback } from "./MaterialIssueFeedback";
 import { useInbox } from "./useInbox";
 
 /** Status chip, same colours as the teacher end. */
@@ -135,6 +136,7 @@ export function AssignmentStrip({ kind = null, className = "" }: { kind?: Assign
                 <p className="mt-0.5 line-clamp-2 text-mk-small text-mk-secondary">退回说明：{item.returnNote}</p>
               )}
               {item.needsReadingReview && <p className="mt-0.5 text-mk-small font-semibold text-mk-accent-700">阅读计划尚未完成，可返回原阅读继续。</p>}
+              {item.kind === "reading" && <MaterialIssueFeedback assignmentId={item.id} />}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <AssignmentStatusChip status={item.status} label={item.needsReadingReview ? "阅读待继续" : item.statusLabel} needsReadingReview={item.needsReadingReview} />
