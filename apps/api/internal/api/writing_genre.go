@@ -52,6 +52,35 @@ var narrativeIdeaMarkers = []string{
 	"记叙文", "写人记事", "叙事",
 }
 
+// narrativeIdeaMarkersEN —— 英文题目里的同一件事，按**小写**比。
+//
+// 🚨 2026-09-23 实测：在这张表出现之前，文体这条轴在英文那边是**死的**。
+// 上面那张表全是中文子串，strings.Contains 在一句英文题目上永远不命中，
+// 于是每一篇英文都落到最后那句 `return genreArgument`。
+// 「A narrative essay about my grandmother」「Narrative writing: the day
+// everything changed」「Tell the story of a time you failed」——
+// 五句英文记叙文题目，五句都被判成 argument。后果不是少给几个词：
+// 她拿到的是 thesis statement / topic sentence 和 TOPIC/TASK 拆解，
+// 一整套议论文的骨架压在一篇记叙文上。
+//
+// 这张表照上面那条「宁可漏不可多」写：收的是成套的说法，不收单个常用词。
+// 「a day」「the day」「memorable」「childhood」这些都**故意没有**——
+// 「Should schools start the day later?」里就有「the day」，
+// 收了它就会把一篇议论文判成记叙文，而那正是代价大的那个方向。
+var narrativeIdeaMarkersEN = []string{
+	"narrative",
+	// 🚨 没有裸的 "story of"：它在 "Discuss both views: is the story of
+	// progress overstated?" 里就命中，把一篇议论文判成记叙文。
+	// 这条是写这张表时被下面那个反方向用例当场抓到的。
+	"tell the story", "a story about", "your story",
+	"personal essay", "memoir", "recount",
+	"a time when", "a time you", "a time i",
+	"never forget", "unforgettable",
+	"most memorable", "a memorable",
+	"write about a day", "a day you", "the day you",
+	"describe an experience", "an experience you",
+}
+
 // writingGenreOf 推断这一篇的文体。见文件头。
 //
 // outline 传 nil 也成立（还没摆图的时候），那时只看题目。
@@ -79,6 +108,16 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 	}
 	for _, marker := range narrativeIdeaMarkers {
 		if strings.Contains(idea, marker) {
+			return genreNarrative
+		}
+	}
+	// 英文那几条按小写比：题目的大小写是她自己敲的，"Narrative" 和
+	// "narrative" 不该是两种结果。两张表都查，不看 wr.Lang —— 一篇中文
+	// 作业的题目里出现 "narrative essay" 同样说明它是记叙文，而按 Lang
+	// 分叉只会多出一条「语言判错了所以文体也跟着判错」的路。
+	lower := strings.ToLower(idea)
+	for _, marker := range narrativeIdeaMarkersEN {
+		if strings.Contains(lower, marker) {
 			return genreNarrative
 		}
 	}
