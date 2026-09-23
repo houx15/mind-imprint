@@ -3,13 +3,14 @@ import { BackLink, SectionHead, StudioEmpty, StudioError, StudioHeading, StudioL
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
-import { api } from "@/api";
+import { api, CLASS_GRADE_OPTIONS } from "@/api";
 import { listAssignments, type AssignmentSummaryDTO } from "../api/assignments";
 import { getRoster, type RosterRow } from "../api/teacher";
 import { formatMinutes } from "./format";
 import { errorText } from "./assignmentLogic";
 import { AssignmentCard } from "./AssignmentCard";
 import { TeacherPage } from "./TeacherPage";
+import { Select } from "./controls/Select";
 
 /**
  * ClassPage — the lite teacher end's one class: name + join code header,
@@ -104,6 +105,7 @@ export function ClassPage({
 
   const [name, setName] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [grade, setGrade] = useState("");
   const [headerError, setHeaderError] = useState<string | null>(null);
 
   const [roster, setRoster] = useState<RosterRow[] | null>(null);
@@ -149,6 +151,7 @@ export function ClassPage({
       .then((d) => {
         setName(d.class.name);
         setJoinCode(d.class.join_code);
+        setGrade(d.class.grade);
       })
       .catch((e) => setHeaderError(errorText(e)));
   }
@@ -193,6 +196,20 @@ export function ClassPage({
       setConfirmRegen(false);
     } catch (e) {
       setMutationError(`更换邀请码失败：${errorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 年级是一个七选一的下拉，改了就存，不做两步确认。
+  async function doSetGrade(next: string) {
+    setMutationError(null);
+    setBusy(true);
+    try {
+      const updated = await api.setClassGrade(classId, next);
+      setGrade(updated.grade);
+    } catch (e) {
+      setMutationError(`修改年级失败：${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -294,6 +311,17 @@ export function ClassPage({
                   <Button variant="ghost" size="sm" onClick={() => setConfirmRegen(true)}>
                     更换邀请码
                   </Button>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span>年级</span>
+                    <Select
+                      value={grade}
+                      options={CLASS_GRADE_OPTIONS}
+                      onChange={(v) => void doSetGrade(v)}
+                      ariaLabel="年级"
+                      size="sm"
+                      disabled={busy}
+                    />
+                  </span>
                   <span className="teacher-invite-spacer" />
                   <Button
                     variant="ghost"
