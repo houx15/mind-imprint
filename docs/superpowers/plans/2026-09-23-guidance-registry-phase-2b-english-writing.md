@@ -215,7 +215,9 @@ export async function setClassGrade(id: string, grade: string): Promise<ClassSum
 cd apps/web && npx vitest run test/api/classes.test.ts test/console/ClassesView.test.tsx
 ```
 
-预期：全绿。`ClassesView.test.tsx` 里那条 `grade-picker` 的测试必须仍然绿 —— 它证明搬走选项表没搬坏建班表单。
+预期：全绿。
+
+🚨 **更正（控制者，Task 1 评审之后）**：这里原本写着「`ClassesView.test.tsx` 里那条 `grade-picker` 的测试必须仍然绿」—— **那条测试不存在**，我在没 grep 的情况下断言了它。真正盖住这次搬家的是 `create flow calls createClass and surfaces the new join code`（第 42-51 行），它断言 `createClass` 收到 `grade: ""`，间接证明 `CLASS_GRADE_OPTIONS[0].value === ""` 一路传对了。**那一条必须绿。**
 
 - [ ] **Step 6: 跑全四条门**
 
@@ -770,6 +772,7 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go run ./cmd/promptinspect --hel
 - Modify: `apps/api/internal/api/writing_plan.go:598` 附近（调用方 + 一行日志）
 - Modify: `apps/api/internal/guidance/guidance_test.go`、`apps/api/internal/guidance/coverage_test.go`（测试名里的 `Stage` 改成 `Grade`）
 - Modify: `apps/api/internal/api/writing_grade_key_test.go`（注释改一句）
+- Modify: `apps/web/src/console/ClassesView.tsx`（一条注释里的过期常量名）
 - Test: `gradeFromClasses` 现有的测试文件（用 Step 1 的 grep 找）
 
 这三件都是 spec §8.6「带着走的几条小账」里记下的，本期正好碰这几个文件。
@@ -873,7 +876,20 @@ cd apps/api && grep -rn "Stage\|stage" internal/guidance/
 // 否则那一行内容会输给已在的文体行（26 分对 28 分），一次都不出现而测试全绿。
 ```
 
-- [ ] **Step 6: 跑全后端的门**
+- [ ] **Step 6: 一条过期的注释**
+
+`apps/web/src/console/ClassesView.tsx` 里那条解释「为什么不给 Select 传 placeholder」的注释，正文里还写着旧名 `GRADE_OPTIONS[0]`。Task 1 把那个常量改名成了 `CLASS_GRADE_OPTIONS` 并挪到了 `api/classes.ts`，注释没跟着改（Task 1 的 brief 明说别动那一块的其余部分，所以那时不改是对的）。
+
+把注释里的 `GRADE_OPTIONS[0]` 改成 `CLASS_GRADE_OPTIONS[0]`。**只改这一处文字，代码一行不动。**
+
+改完跑一次前端的门（这是本任务唯一碰前端的一步）：
+
+```
+cd apps/web && npm run typecheck
+cd apps/web && npx vitest run
+```
+
+- [ ] **Step 7: 跑全后端的门**
 
 ```
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go build ./...
@@ -881,9 +897,9 @@ cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/guidance/... 
 cd apps/api && CGO_ENABLED=0 ~/sdk/go1.26.0/bin/go test ./internal/api -run 'Writing|Grade|Class' -timeout 1800s
 ```
 
-- [ ] **Step 7: 提交**
+- [ ] **Step 8: 提交**
 
-暂存改过的那几个文件，信息写：`chore(grade): 年级对不上时记一行；测试名里的 Stage 改成 Grade`
+暂存改过的那几个文件（含 `apps/web/src/console/ClassesView.tsx`），信息写：`chore(grade): 年级对不上时记一行；测试名里的 Stage 改成 Grade`
 
 ---
 
