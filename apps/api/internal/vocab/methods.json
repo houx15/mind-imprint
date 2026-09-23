@@ -487,7 +487,7 @@
         }
       ],
       "category": "",
-      "genre": ""
+      "genre": "narrative"
     },
     {
       "id": "en_story_turn",
@@ -517,7 +517,7 @@
         }
       ],
       "category": "",
-      "genre": ""
+      "genre": "narrative"
     },
     {
       "id": "en_story_landing",
@@ -547,7 +547,7 @@
         }
       ],
       "category": "",
-      "genre": ""
+      "genre": "narrative"
     },
     {
       "id": "point_quote",

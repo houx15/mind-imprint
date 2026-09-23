@@ -182,6 +182,20 @@ const ARTICLES: Article[] = [
     ].join("\n\n"),
   },
   {
+    name: "英文记叙文",
+    genre: "narrative",
+    routine: "en-narrative",
+    title: "The Last Bus",
+    body: [
+      "That winter I worked the night shift at a factory on the edge of town, and every night I had to catch the last bus home.",
+      "One night I came out late. When I reached the stop my watch said 10:47. The timetable on the pole said 10:45. There was nobody under the sign, only a streetlight swinging in the wind. I thought I would be walking.",
+      "I set off along the road. After about twenty minutes I heard an engine behind me. A bus pulled up beside me and the door opened. The driver was a man of about fifty. He said, \"Get in. I am running late tonight.\"",
+      "I was the only passenger. He drove slowly, and after two stops I realised he kept watching the mirror, looking for anyone else running up behind us the way I had.",
+      "When we reached my stop I asked him whether he did this every night. He smiled and said, \"Not every night. Only when it is very cold.\"",
+      "I changed jobs later and never took that route again. But on the coldest nights I still think of that swinging streetlight, and the door that opened.",
+    ].join("\n\n"),
+  },
+  {
     name: "记叙文",
     genre: "narrative",
     routine: "zh-narrative",
