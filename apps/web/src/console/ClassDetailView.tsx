@@ -253,6 +253,7 @@ export function ClassDetailView({
             value={c.grade}
             onChange={(v) => void doSetGrade(v)}
             options={CLASS_GRADE_OPTIONS}
+            disabled={busy}
           />
         </div>
 

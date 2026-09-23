@@ -15,7 +15,15 @@ package api
 // 所以这里的规矩是：**两个班的年级对不上就当不知道，绝不挑一个。**
 // 挑错的代价是她整篇拿到另一个年级的教学内容，而屏幕上一点异常都没有；
 // 退回「不知道」只是少一条线索 —— 她拿到的是今天那份不分年级的内容。
-func gradeFromClasses(grades []string) string {
+//
+// gradeFromClasses —— 她在哪个年级。
+//
+// 两个班的年级对不上时返回「不知道」（空串）而不是挑一个：猜错是整篇按
+// 错误年级教，而屏幕上毫无异常；不猜只是少一条线索，落回不分年级的内容。
+//
+// 第二个返回值区分「对不上」和「本来就没填」—— 调用方据此记日志。没有它，
+// 一个同时在两个班里的学生会永远收不到年级内容，而没有人知道为什么。
+func gradeFromClasses(grades []string) (string, bool) {
 	found := ""
 	for _, g := range grades {
 		if g == "" {
@@ -26,8 +34,8 @@ func gradeFromClasses(grades []string) string {
 			continue
 		}
 		if found != g {
-			return "" // 对不上 —— 不猜。
+			return "", true // 对不上 —— 不猜
 		}
 	}
-	return found
+	return found, false
 }

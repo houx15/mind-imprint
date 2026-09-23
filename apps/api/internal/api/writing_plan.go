@@ -595,7 +595,12 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 			"err", gerr, "atom_id", at.ID,
 			"request_id", httpx.RequestIDFromContext(r.Context()))
 	} else {
-		grade = gradeFromClasses(gradeRows)
+		var conflict bool
+		grade, conflict = gradeFromClasses(gradeRows)
+		if conflict {
+			slog.Info("writing plan turn: 学生在年级对不上的两个班里，按不分年级办",
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
 	}
 	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang, grade)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{

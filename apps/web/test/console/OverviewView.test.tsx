@@ -13,8 +13,8 @@ describe("OverviewView", () => {
   it("renders the six counts and the usage row", async () => {
     const client = { getOverview: vi.fn(async () => overview()) };
     render(<OverviewView client={client} />);
-    expect(await screen.findByText("概览")).toBeInTheDocument();
-    expect(screen.getByText("120")).toBeInTheDocument();
+    expect(await screen.findByText("120")).toBeInTheDocument();
+    expect(screen.getByText("概览")).toBeInTheDocument();
     expect(screen.getByText("活跃学生")).toBeInTheDocument();
     expect(screen.getByText("chaperone")).toBeInTheDocument();
     expect(screen.getByText("1.23")).toBeInTheDocument();

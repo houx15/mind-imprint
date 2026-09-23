@@ -2,7 +2,7 @@ package guidance
 
 import "testing"
 
-func TestStageBandFoldsGradeToBand(t *testing.T) {
+func TestGradeBandFoldsGradeToBand(t *testing.T) {
 	for grade, want := range map[string]string{
 		"junior1": "junior", "junior2": "junior", "junior3": "junior",
 		"senior1": "senior", "senior2": "senior", "senior3": "senior",

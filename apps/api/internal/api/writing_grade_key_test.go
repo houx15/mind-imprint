@@ -3,8 +3,13 @@ package api
 import "strings"
 import "testing"
 
-// 🚨 这一期不加任何一行年级专属的内容，所以**填不填年级，结果必须一模一样**。
-// 这条测试就是这期的验收：轴通了，而她看到的东西没变。
+// 🚨 到二期 b 为止，注册表里**一行按年级分的内容都没有**，所以填不填年级、
+// 填哪个年级，结果必须一模一样。这条测试是二期 a 的验收，二期 b 复核过一次
+// 仍然成立（见二期 b 计划里那条裁定：学段今天只用来记录，不用来分叉教学内容）。
+//
+// 第一个人登记 Grades 行的时候，这条测试会红 —— 那是计划内的报废，不是回归。
+// 同时要做的是把 coverage_test.go 的 want 表从 lang/genre 两轴改成三轴，
+// 否则那一行内容会输给已在的文体行（26 分对 28 分），一次都不出现而测试全绿。
 func TestGradeDoesNotChangeAnythingYet(t *testing.T) {
 	for _, lang := range []string{"zh", langEnglish} {
 		for _, genre := range []string{genreArgument, genreNarrative} {
