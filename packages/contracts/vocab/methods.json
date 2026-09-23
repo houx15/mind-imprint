@@ -236,11 +236,15 @@
       "patterns": [
         {
           "label": "Admit then limit",
-          "frame": "While it is true that ___, this does not mean ___."
+          "frame": "While it is true that ___, this does not mean ___.",
+          "gloss": "尽管……，但这并不意味着……",
+          "example": "While it is true that most lighthouses now run without a keeper, this does not mean the old logbooks have stopped being useful."
         },
         {
           "label": "Grant the strongest case",
-          "frame": "Critics are right that ___. What this overlooks, however, is ___."
+          "frame": "Critics are right that ___. What this overlooks, however, is ___.",
+          "gloss": "批评者说得对，……。不过这种说法忽略了……",
+          "example": "Critics are right that repairing a damaged book by hand takes weeks. What this overlooks, however, is that a scanned copy cannot tell a reader what the paper was made of."
         }
       ],
       "category": "",
@@ -257,11 +261,15 @@
       "patterns": [
         {
           "label": "Degree",
-          "frame": "To a large extent, ___ — though ___."
+          "frame": "To a large extent, ___ — though ___.",
+          "gloss": "在很大程度上……，不过……",
+          "example": "To a large extent, an orchard can be pollinated by managed honeybees alone — though on the coldest mornings only the wild bees are flying."
         },
         {
           "label": "Bounded claim",
-          "frame": "In the case of ___, ___; it is less clear whether ___."
+          "frame": "In the case of ___, ___; it is less clear whether ___.",
+          "gloss": "就……而言，……；至于……，还不好说",
+          "example": "In the case of the Antarctic summer stations, solar panels now cover most of the daily demand; it is less clear whether the same array would carry a station through the winter dark."
         }
       ],
       "category": "",
@@ -278,11 +286,15 @@
       "patterns": [
         {
           "label": "Cite a study",
-          "frame": "A 2019 study of ___ found that ___."
+          "frame": "A 2019 study of ___ found that ___.",
+          "gloss": "一项 2019 年针对……的研究发现……",
+          "example": "A 2019 study of thirty-four mountain glaciers found that the ice was thinning fastest on the slopes that face away from the sun."
         },
         {
           "label": "Say what it shows",
-          "frame": "This suggests that ___, because ___."
+          "frame": "This suggests that ___, because ___.",
+          "gloss": "这说明……，因为……",
+          "example": "This suggests that shade alone no longer protects the ice, because the heat now reaches it through the air rather than through direct sunlight."
         }
       ],
       "category": "",
@@ -304,11 +316,15 @@
       "patterns": [
         {
           "label": "Let the verb carry it",
-          "frame": "Replace was very ___ with one verb that shows it: ___."
+          "frame": "Replace was very ___ with one verb that shows it: ___.",
+          "gloss": "把「was very ……」换成一个能让人看见的动词：……",
+          "example": "Replace was very tired with one verb that shows it: staggered."
         },
         {
           "label": "Name the thing exactly",
-          "frame": "not ___ (a category), but ___ (the specific one)"
+          "frame": "not ___ (a category), but ___ (the specific one)",
+          "gloss": "不写……（一个大类），写……（具体的那一个）",
+          "example": "not a bird, but the grey heron that stands in the shallows every morning"
         }
       ],
       "category": "",
@@ -330,11 +346,15 @@
       "patterns": [
         {
           "label": "A neutral verb for a claim",
-          "frame": "___ suggests / indicates / points to ___."
+          "frame": "___ suggests / indicates / points to ___.",
+          "gloss": "……表明 / 显示 / 指向……（提出说法用中性的动词）",
+          "example": "The ship's log indicates that the cargo was loaded two days before the storm warning was issued."
         },
         {
           "label": "Name the actor instead of a vague one",
-          "frame": "___ (who exactly) does ___ (what exactly)."
+          "frame": "___ (who exactly) does ___ (what exactly).",
+          "gloss": "……（究竟是谁）做了……（究竟做了什么）",
+          "example": "The harbour master decides each morning which boats may leave the basin."
         }
       ],
       "category": "",
@@ -356,7 +376,9 @@
       "patterns": [
         {
           "label": "Long, long, then short",
-          "frame": "___ , and ___ . ___ . (the last one three to five words)"
+          "frame": "___ , and ___ . ___ . (the last one three to five words)",
+          "gloss": "先一个长句，再一个短句（短的那句三到五个词）",
+          "example": "The crew had chipped ice off the rigging for eleven days, and every morning the same white weight was back before noon. Then the wind dropped."
         }
       ],
       "category": "",
@@ -373,15 +395,21 @@
       "patterns": [
         {
           "label": "Concession first",
-          "frame": "Although ___ , ___ ."
+          "frame": "Although ___ , ___ .",
+          "gloss": "尽管……，……",
+          "example": "Although the lighthouse has run without a keeper since 1998, the fog bell is still rung by hand twice a year."
         },
         {
           "label": "Cause first",
-          "frame": "Because ___ , ___ ."
+          "frame": "Because ___ , ___ .",
+          "gloss": "因为……，所以……",
+          "example": "Because the river freezes solid by December, the villages upstream do a whole year of trading in six weeks of autumn."
         },
         {
           "label": "Time first",
-          "frame": "By the time ___ , ___ ."
+          "frame": "By the time ___ , ___ .",
+          "gloss": "等到……的时候，……",
+          "example": "By the time the supply plane reached the camp, the team had been eating half rations for nine days."
         }
       ],
       "category": "",
@@ -398,11 +426,15 @@
       "patterns": [
         {
           "label": "Identify in passing",
-          "frame": "___ , a ___ , ___ ."
+          "frame": "___ , a ___ , ___ .",
+          "gloss": "……，一位……，……（名字后面用逗号补出身份）",
+          "example": "Marie Tharp, a geologist who was not allowed on the survey ships, drew the first map of the ocean floor from other people's soundings."
         },
         {
           "label": "Add the telling detail",
-          "frame": "___ , who ___ , ___ ."
+          "frame": "___ , who ___ , ___ .",
+          "gloss": "……，他／她……，……（用 who 从句补一个关键细节）",
+          "example": "The ferry pilot, who had crossed the same channel four thousand times, still slowed at the same sandbank on every trip."
         }
       ],
       "category": "",
@@ -419,11 +451,15 @@
       "patterns": [
         {
           "label": "Three of a kind",
-          "frame": "___ , ___ , and ___ . (same part of speech, same shape)"
+          "frame": "___ , ___ , and ___ . (same part of speech, same shape)",
+          "gloss": "……、……、……（三项用同一种词性、同一个形状）",
+          "example": "The restorers wash the page, flatten it under felt, and stitch it back into the spine."
         },
         {
           "label": "Not only, but also",
-          "frame": "not only ___ but also ___"
+          "frame": "not only ___ but also ___",
+          "gloss": "不仅……而且……",
+          "example": "The new harbour wall shelters not only the fishing boats but also the road that runs behind them."
         }
       ],
       "category": "",
@@ -445,7 +481,9 @@
       "patterns": [
         {
           "label": "Time and place, then one action",
-          "frame": "At ___ , ___ was ___ ."
+          "frame": "At ___ , ___ was ___ .",
+          "gloss": "在……（时间地点），……正在……",
+          "example": "At the far end of the platform, a woman in a station coat was chalking the delay onto a board nobody was reading."
         }
       ],
       "category": "",
@@ -467,11 +505,15 @@
       "patterns": [
         {
           "label": "Name the moment",
-          "frame": "It was not until ___ that ___ ."
+          "frame": "It was not until ___ that ___ .",
+          "gloss": "直到……，才……",
+          "example": "It was not until the second night on the ice that I understood why the guide had made us unpack and repack every bag before we set out."
         },
         {
           "label": "Before and after",
-          "frame": "Until then, ___ . After that, ___ ."
+          "frame": "Until then, ___ . After that, ___ .",
+          "gloss": "在那之前，……。在那之后，……",
+          "example": "Until then, the climb had been a question of how fast we could go. After that, it was a question of whether we could stop in time."
         }
       ],
       "category": "",
@@ -493,11 +535,15 @@
       "patterns": [
         {
           "label": "Return to the image",
-          "frame": "I still ___ . I know that ___ ."
+          "frame": "I still ___ . I know that ___ .",
+          "gloss": "我仍然……。我知道的是……",
+          "example": "I still cannot say what the old ferryman was watching for out on the water. I know that he pushed off at the same minute every evening, whether anyone was waiting on the far bank or not."
         },
         {
           "label": "Say what changed, not what it means",
-          "frame": "Before ___ , I ___ . Now ___ ."
+          "frame": "Before ___ , I ___ . Now ___ .",
+          "gloss": "在……之前，我……。现在……",
+          "example": "Before that winter on the lake, I measured a day by how far we had walked. Now I measure it by how much light was left when we turned around."
         }
       ],
       "category": "",
@@ -656,7 +702,9 @@
       "patterns": [
         {
           "label": "先问后答，再补因果",
-          "frame": "是什么……？是……。因为……，所以……"
+          "frame": "是什么……？是……。因为……，所以……",
+          "gloss": "",
+          "example": "是什么让都江堰用了两千多年还在灌溉成都平原？是那套顺着水势设计的分水工程。因为鱼嘴把岷江分成内外两江，泥沙随着外江漂走，所以内江年年都送得出清水。"
         }
       ],
       "genre": "argument"
@@ -678,11 +726,15 @@
       "patterns": [
         {
           "label": "假设一个相反的情形",
-          "frame": "假如……，那么……？"
+          "frame": "假如……，那么……？",
+          "gloss": "",
+          "example": "假如蜜蜂从这片果园里消失，那么这些靠风授不了粉的果树，还结得出今天这样的果子吗？"
         },
         {
           "label": "从结果回推",
-          "frame": "若不是……，……？"
+          "frame": "若不是……，……？",
+          "gloss": "",
+          "example": "若不是当年的测绘队把每一处水深都记了下来，今天这条航道又凭什么敢让万吨货轮通过？"
         }
       ],
       "genre": "argument"
@@ -704,11 +756,15 @@
       "patterns": [
         {
           "label": "把几个例子收成一句",
-          "frame": "这些……，真正表现了……"
+          "frame": "这些……，真正表现了……",
+          "gloss": "",
+          "example": "这些在洪水里守堤的人、在雪夜里通车的人、在地震后第一时间进山的人，真正表现了把别人的安危放在自己前头的担当。"
         },
         {
           "label": "从一类人说到普遍",
-          "frame": "大凡……的人，其……皆来自……"
+          "frame": "大凡……的人，其……皆来自……",
+          "gloss": "",
+          "example": "大凡能把一门手艺做到极处的人，其从容皆来自日复一日的枯燥练习。"
         }
       ],
       "genre": "argument"

@@ -2,7 +2,9 @@ package vocab
 
 import (
 	"bytes"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -361,16 +363,22 @@ func TestVocabKeepsTheNamesPromptsAlreadyUse(t *testing.T) {
 	}
 }
 
-// latinFrame 交出这一条里第一句用拉丁字母写的句式。
+// latinFrame 交出这一条句式里第一段用拉丁字母写的英文。
 //
 // 判的是**这句话是拿什么文字写的**，不是这一条有没有句式 —— 见
 // TestFor_NeverOffersEnglishWordingToAChinesePiece 头上那段。一个 ASCII 字母
 // 就够：中文的句式里只有汉字、省略号和句读。
+//
+// 🚨 2026-09-23：一条句式现在有三段可读的字 —— 骨架、中文读法、例句。只扫
+// 骨架的话，一句英文例句挂在中文的句式上，这条测试看不见，而学生看得见。
+// 判定口径一个字没动，扫的范围从一段扩到三段。
 func latinFrame(m Method) (string, bool) {
 	for _, p := range m.Patterns {
-		for _, r := range p.Frame {
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
-				return p.Frame, true
+		for _, s := range []string{p.Frame, p.Gloss, p.Example} {
+			for _, r := range s {
+				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+					return s, true
+				}
 			}
 		}
 	}
@@ -464,5 +472,24 @@ func TestPatternCarriesGlossAndExample(t *testing.T) {
 	}
 	if p.Example == "" {
 		t.Errorf("%s 的第一条句式没有例句", m.ID)
+	}
+}
+
+// 每一条英文句式都要有中文读法 —— 一行英文骨架对着中学生等于没说。
+// 中文句式本来读得懂，Gloss 允许为空。例句一条都不能少。
+func TestEveryPatternIsTeachable(t *testing.T) {
+	for _, m := range All() {
+		for i, p := range m.Patterns {
+			where := fmt.Sprintf("%s 第 %d 条句式（%s）", m.ID, i+1, p.Label)
+			if strings.TrimSpace(p.Frame) == "" {
+				t.Errorf("%s 没有骨架", where)
+			}
+			if m.Lang == "en" && strings.TrimSpace(p.Gloss) == "" {
+				t.Errorf("%s 是英文句式却没有中文读法", where)
+			}
+			if strings.TrimSpace(p.Example) == "" {
+				t.Errorf("%s 没有例句", where)
+			}
+		}
 	}
 }
