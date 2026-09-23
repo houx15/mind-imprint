@@ -115,6 +115,23 @@ const (
 	// （那就是讲述顺序），她要排成的是发生顺序 —— 两者不一样的地方，就是这篇
 	// 文章的叙述手法。议论文和说明文的读法里没有这一步。
 	taskSequence readingTaskKind = "sequence"
+
+	// 看作者怎么安排这篇：叙述顺序、详略、线索。
+	//
+	// 🚨 2026-09-23 产品负责人第 5 条：「when reading a 记叙文, it always
+	// focuses on very detailed things and ignores the general structure,
+	// the writing format etc. to give guidance.」
+	//
+	// 她是对的，而且原因在清单里**量得出来**：zh-narrative 那一套七步里，
+	// 除了 sequence 之外每一步都是句子或段落那一层的（精读一段、给几句话
+	// 贴描写类型、说一个人物的动机、点一句写得好的），而它是九套读法里唯一
+	// 既没有 predict 也没有 reflect 的一套 —— **整篇那一层根本没有位置**。
+	// 陪练不是不想谈结构，是清单上没有一步请它谈。
+	//
+	// 和 sequence 分开，因为它们问的是两件事：sequence 排的是**事情**的
+	// 先后（那块板），shape 问的是**作者**为什么这样排。合在一步里她只会
+	// 做板那一半 —— 和 label/critique 当初必须拆开是同一个理由。
+	taskShape readingTaskKind = "shape"
 )
 
 // focusBlockLabelBase is the 精读 step's label WITHOUT its paragraph number.
@@ -248,12 +265,17 @@ var readingRoutines = []readingRoutine{
 		Name:   "跟着故事读",
 		Blurb:  "记叙文的读法：有人、有事、有转折（记叙文、小说片段、人物故事）。",
 		Steps: []readingRoutineStep{
+			// 2026-09-23：补上 predict 和 shape。在这之前这是九套读法里唯一
+			// 既没有 predict 也没有 reflect 的一套，整篇那一层没有位置。
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇大概会讲一件什么事？"},
 			{Kind: taskRead, Label: "通读全文", Detail: "先把故事看完：谁、在哪儿、发生了什么。"},
 			{Kind: taskSequence, Label: "排出事件顺序", Detail: "把几件事按发生的先后排好，再和文章讲述的顺序对照。"},
+			{Kind: taskShape, Label: "看作者怎么安排这篇", Detail: "这篇是按事情发生的先后讲下来的，还是先写了后面的事再回头补？哪一段写得最细，哪几段几句话就带过去了？"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里发生了转折，请看作者是怎么写的。"},
 			{Kind: taskLabel, Label: "看人物怎么写", Detail: "把几句话各自归到一种描写：动作、语言、心理、环境。"},
 			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
 			{Kind: taskConnect, Label: "角色选择", Detail: "如果遇到相同情境，你会如何处理？"},
+			{Kind: taskReflect, Label: "这篇写的是什么", Detail: "用你自己的话说清楚：这件事之后，人物或者叙述者有什么不一样了？"},
 			{Kind: taskHunt, Label: "找出关键句", Detail: "文中你觉得写得最好的是哪一句？不是最重要的，是写得最好的。把它点出来。"},
 		},
 	},
@@ -369,8 +391,13 @@ var readingRoutines = []readingRoutine{
 		Name:   "Follow the Story",
 		Blurb:  "英文记叙文、小说片段、人物故事的读法——有人、有事、有转折。",
 		Steps: []readingRoutineStep{
+			// 2026-09-23：和 zh-narrative 同一条理由补上 predict 和 shape。
+			// 英文那一套原来同样没有整篇那一层（它有 recall，但复述问的是
+			// 「你记住了什么」，不是「作者怎么安排的」）。
+			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：这篇大概会讲一件什么事？"},
 			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先弄清楚谁、在哪儿、发生了什么。"},
 			{Kind: taskSequence, Label: "排出事件顺序", Detail: "把几件事按发生的先后排好，再和文章讲述的顺序对照。"},
+			{Kind: taskShape, Label: "看作者怎么安排这篇", Detail: "这篇是按事情发生的先后讲下来的，还是先写了后面的事再回头补？哪一段写得最细，哪几段几句话就带过去了？"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里发生了转折。点开段落工具：翻译、关键单词、写作解析。"},
 			{Kind: taskLabel, Label: "看人物怎么写", Detail: "把几句话各自归到一种描写：动作、语言、心理、环境。"},
 			{Kind: taskCritique, Label: "人物为什么这样做", Detail: "结合前后的行为，说出你对人物动机的解释，并指出原文依据。"},
