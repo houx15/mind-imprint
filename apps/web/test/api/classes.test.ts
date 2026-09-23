@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
+  setClassGrade, CLASS_GRADE_OPTIONS,
 } from "@/api/classes";
 
 const ok = (body: unknown, status = 200) =>
@@ -58,5 +59,31 @@ describe("classes api", () => {
     await removeEnrollment("c1", "u1");
     expect(callOf(spy)[0]).toContain("/api/v1/classes/c1/enrollments/u1");
     expect(callOf(spy)[1].method).toBe("DELETE");
+  });
+
+  it("setClassGrade PATCHes {grade}", async () => {
+    const spy = ok({ class: { id: "c1", name: "11A", join_code: "AB-CD", school_id: "s1", created_at: "z", grade: "junior2", grade_label: "初二" } });
+    vi.stubGlobal("fetch", spy);
+    const c = await setClassGrade("c1", "junior2");
+    expect(c.grade_label).toBe("初二");
+    expect(callOf(spy)[0]).toContain("/api/v1/classes/c1");
+    expect(callOf(spy)[1].method).toBe("PATCH");
+    expect(callOf(spy)[1].body).toBe(JSON.stringify({ grade: "junior2" }));
+  });
+
+  // 🚨 空串是合法值，它的意思是「清掉年级」。写成 `if (grade)` 提前 return
+  // 就会让「改回未填写」这个动作静默失败。
+  it("setClassGrade sends an empty string to clear the grade", async () => {
+    const spy = ok({ class: { id: "c1", name: "11A", join_code: "AB-CD", school_id: "s1", created_at: "z", grade: "", grade_label: "" } });
+    vi.stubGlobal("fetch", spy);
+    await setClassGrade("c1", "");
+    expect(callOf(spy)[1].body).toBe(JSON.stringify({ grade: "" }));
+  });
+
+  it("CLASS_GRADE_OPTIONS starts with the empty option and covers the closed set", () => {
+    expect(CLASS_GRADE_OPTIONS[0]).toEqual({ value: "", label: "未填写" });
+    expect(CLASS_GRADE_OPTIONS.map((o) => o.value)).toEqual(
+      ["", "junior1", "junior2", "junior3", "senior1", "senior2", "senior3"],
+    );
   });
 });

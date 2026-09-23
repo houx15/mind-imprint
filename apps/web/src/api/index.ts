@@ -3,7 +3,7 @@ import { signup, verifyEmail, signin, signout, getMe, setAccent, setBackground, 
 import type { AccentId } from "../ui/accent";
 import type { BackgroundId } from "../ui/background";
 import {
-  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
+  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment, setClassGrade, CLASS_GRADE_OPTIONS,
   type ClassSummary, type RosterStudent, type ClassDetail, type Teacher,
 } from "./classes";
 import {
@@ -26,6 +26,7 @@ import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBri
 
 export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, CourseAskEvent, RosterEntry, ClassLiveHeader, ClassRoster, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
 export { ApiError } from "./client";
+export { CLASS_GRADE_OPTIONS };
 
 export interface ApiClient {
   signup(input: { email: string; password: string; display_name: string; join_code: string }): Promise<void>;
@@ -42,6 +43,7 @@ export interface ApiClient {
   getClass(id: string): Promise<ClassDetail>;
   renameClass(id: string, name: string): Promise<ClassSummary>;
   regenerateJoinCode(id: string): Promise<ClassSummary>;
+  setClassGrade(id: string, grade: string): Promise<ClassSummary>;
   removeEnrollment(id: string, userId: string): Promise<void>;
   getOverview(): Promise<Overview>;
   listTeacherInvites(): Promise<TeacherInvite[]>;
@@ -99,7 +101,7 @@ export interface ApiClient {
 
 export const api: ApiClient = {
   signup, verifyEmail, signin, signout, getMe, setAccent, setBackground, putOnboarding, submitFeedback,
-  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
+  listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment, setClassGrade,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, getCourseAnswerReport, restartCourse, getCourseHistory, courseAsk,
   listProjects, finishProject, createProject, renameProject, getProjectCovers,

@@ -1,21 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { ApiClient, ClassSummary, Teacher } from "../api";
-import { ApiError } from "../api";
+import { ApiError, CLASS_GRADE_OPTIONS } from "../api";
 import { shortDate } from "./time";
 import { Button, Input, Select, Surface } from "@/ui";
 
 type Client = Pick<ApiClient, "listClasses" | "createClass" | "listTeachers">;
-
-// 与后端闭表（apps/api/internal/api/class_grade.go）一致；第一项代表「不填」。
-const GRADE_OPTIONS = [
-  { value: "", label: "未填写" },
-  { value: "junior1", label: "初一" },
-  { value: "junior2", label: "初二" },
-  { value: "junior3", label: "初三" },
-  { value: "senior1", label: "高一" },
-  { value: "senior2", label: "高二" },
-  { value: "senior3", label: "高三" },
-];
 
 export function ClassesView({
   client,
@@ -140,7 +129,7 @@ export function ClassesView({
                 data-testid="grade-picker"
                 value={grade}
                 onChange={setGrade}
-                options={GRADE_OPTIONS}
+                options={CLASS_GRADE_OPTIONS}
               />
             </div>
             <Button onClick={() => void submit()} disabled={busy || (isAdmin && !teacherId)}>创建</Button>

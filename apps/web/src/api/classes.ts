@@ -10,6 +10,20 @@ export interface ClassSummary {
   grade_label: string;
 }
 
+// 与后端闭表（apps/api/internal/api/class_grade.go 的 classGrades）一致。
+// 放在这里而不是某一个页面里：pro 的班级列表、pro 的班级详情、lite 的教师端
+// 三处都要用同一份，而 lite 的 `@/*` 解析到 apps/web/src，所以它拿得到。
+// 第一项代表「不填」—— 它是一个合法值，不是占位符。
+export const CLASS_GRADE_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "未填写" },
+  { value: "junior1", label: "初一" },
+  { value: "junior2", label: "初二" },
+  { value: "junior3", label: "初三" },
+  { value: "senior1", label: "高一" },
+  { value: "senior2", label: "高二" },
+  { value: "senior3", label: "高三" },
+];
+
 export interface RosterStudent {
   id: string;
   display_name: string;
@@ -64,6 +78,16 @@ export async function regenerateJoinCode(id: string): Promise<ClassSummary> {
   const r = await apiFetch<{ class: ClassSummary }>(`/api/v1/classes/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ regenerate_join_code: true }),
+  });
+  return r.class;
+}
+
+// 🚨 grade 传空串是合法的，意思是把年级清掉（后端 validateClassGrade 认空串）。
+// 不要在这里加 `if (!grade) return`。
+export async function setClassGrade(id: string, grade: string): Promise<ClassSummary> {
+  const r = await apiFetch<{ class: ClassSummary }>(`/api/v1/classes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ grade }),
   });
   return r.class;
 }
