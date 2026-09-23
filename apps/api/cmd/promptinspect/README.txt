@@ -13,6 +13,7 @@ Run from apps/api. No model key, database or network connection is needed.
   go run ./cmd/promptinspect -case reading/open-lens
   go run ./cmd/promptinspect -case writing/plan/en/argument
   go run ./cmd/promptinspect -case writing/feedback/long-context
+  go run ./cmd/promptinspect -case writing/help-show/en
   go run ./cmd/promptinspect -case teacher/assignment
   go run ./cmd/promptinspect -all > /tmp/lite-prompt-examples.json
       Render synthetic inputs using production builder functions. Output
@@ -63,7 +64,7 @@ endorsed as sufficient for every future diagnosis.
 Verification
 ------------
   go test ./...
-      Existing functional tests plus 68 request snapshots, 36 additional
+      Existing functional tests plus 68 request snapshots, 38 additional
       main-built request snapshots (including tools), and 8 shared writing
       context boundary snapshots. Opt-in live tests still require their flags.
       Snapshots check bytes/options/order, not the quality of model responses.

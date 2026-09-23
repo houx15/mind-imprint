@@ -48,6 +48,24 @@ func PromptAssemblyExamples() []PromptExample {
 			}}, Documents: map[int]promptassembly.Document{1: doc}})
 		}
 	}
+	// 卡住的那一档（helpShow）：说过三轮她还没动，这一轮摆句式给她照着填。
+	//
+	// 🚨 两种语言都录，录的是两件不同的事。en 那条钉住**新给出来的内容**
+	// （在这之前英文那一篇一条句式都拿不到）；zh 那条钉住**它没变**——
+	// 在这之前「zh 没变」只靠两句 strings.Contains 撑着，句式重新排序、
+	// 或者掉了一个中文读法的括号，那两句一个字都不会说。
+	for _, lang := range []string{"zh", "en"} {
+		stuck := sqlc.Writing{Lang: lang, Title: "校园观察"}
+		body := "我觉得鸟会挑屋檐下筑巢。"
+		if lang == "en" {
+			body = "I think birds choose the eaves because it is sheltered."
+		}
+		out = append(out, PromptExample{ID: "writing/help-show/" + lang, Class: gateway.ClassReview, Request: gateway.ChatRequest{Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: buildWritingCommentSystem(lang, writingBlockCommentMaxIssues, writingKindPoint, helpShow, genreArgument)},
+			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(stuck, "筑巢位置的选择", body, "", genreArgument)},
+		}}})
+	}
+
 	wr := sqlc.Writing{Lang: "zh", Title: "校园观察"}
 	node := sqlc.WritingOutline{ID: fixtureTaskID(1), Kind: writingKindPoint, Depth: 1, Text: "筑巢位置的选择"}
 	text := strings.Repeat("我观察到鸟把树枝衔进屋檐。", 40)

@@ -34,10 +34,15 @@ const writingCommentSystem = prompts.WritingCommentSystem
 // kind 是她停在的那一块是什么（writing_kind.go 的闭表）。空串 = 通篇审阅那一路，
 // 或者一个没有结构图节点的自由段落 —— 那时候不附分块的检查表。
 // help 是这一轮该用哪种帮法（writing_stall.go）。helpAsk 什么都不加。
+//
+// 🚨 helpShow 那一档摆的句式按**位置**挑，位置从 kind 算（writingKindAppliesTo）。
+// kind 是空串的两条路都落在 "body" 上，这是对的：通篇审阅那一路永远传
+// helpAsk，一条句式都不会摆出来；另一路是一段没有结构图节点的自由段落，
+// 那就是正文散文，body 正是它的桶。
 func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
 	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
 		writingCommentBlockJob(kind) +
-		writingHelpModeBlock(help, lang, genre) + teachingvoice.Rules
+		writingHelpModeBlock(help, writingKindAppliesTo(kind), lang, genre) + teachingvoice.Rules
 }
 
 // writingCommentBlockJob 是**这一块的活**：每一种块该查什么，不该查什么。

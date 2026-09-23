@@ -553,7 +553,8 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 			// R4 之前这条路上一个都没有。见 writing_stall.go。
 			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs, guidePiece) +
 				writingGuideAnotherAngle(priorWritingGuide(block)) +
-				writingHelpModeBlock(writingGuideHelpMode(priorWritingGuide(block)), wr.Lang, writingGenreOf(wr, siblings))},
+				writingHelpModeBlock(writingGuideHelpMode(priorWritingGuide(block)),
+					writingKindAppliesTo(writingKindOf(block)), wr.Lang, writingGenreOf(wr, siblings))},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_guide", resolved, res.Usage)

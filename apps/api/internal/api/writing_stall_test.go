@@ -153,16 +153,16 @@ func TestGuideHelpModeLadder(t *testing.T) {
 // 2026-09-05 的教训：这类提示做成常驻，模型会一直去处理那条提示、
 // 把该做的事挤掉（六轮里一直在补一张卡，她的主页三处一直是空的）。
 func TestHelpModeBlockIsSilentByDefault(t *testing.T) {
-	if got := writingHelpModeBlock(helpAsk, "zh", genreArgument); got != "" {
+	if got := writingHelpModeBlock(helpAsk, "body", "zh", genreArgument); got != "" {
 		t.Errorf("默认那一档不该加任何字：%q", got)
 	}
 
-	offer := writingHelpModeBlock(helpOffer, "zh", genreArgument)
+	offer := writingHelpModeBlock(helpOffer, "body", "zh", genreArgument)
 	if !strings.Contains(offer, "两个选项") {
 		t.Errorf("给选项那一档没说清要做什么：%q", offer)
 	}
 
-	show := writingHelpModeBlock(helpShow, "zh", genreArgument)
+	show := writingHelpModeBlock(helpShow, "body", "zh", genreArgument)
 	// 🚨 铁律①：给的是句式，不是替她写好的正文。
 	if !strings.Contains(show, "不是替她写正文") {
 		t.Errorf("给句式那一档没划清那条线：%q", show)
@@ -175,14 +175,14 @@ func TestHelpModeBlockIsSilentByDefault(t *testing.T) {
 		}
 	}
 	// 英文那一篇不摆中文句式。
-	if en := writingHelpModeBlock(helpShow, "en", genreArgument); strings.Contains(en, "假如") {
+	if en := writingHelpModeBlock(helpShow, "body", "en", genreArgument); strings.Contains(en, "假如") {
 		t.Errorf("英文那一篇拿到了中文句式：%q", en)
 	}
 }
 
 // 英文那一篇，helpShow 要给英文句式，而且不许混进中文句式。
 func TestHelpShowOffersFramesInThePieceOwnLanguage(t *testing.T) {
-	en := writingHelpModeBlock(helpShow, langEnglish, genreArgument)
+	en := writingHelpModeBlock(helpShow, "body", langEnglish, genreArgument)
 	if !strings.Contains(en, "While it is true that") {
 		t.Error("英文议论文卡住求助，却一条英文句式都没给")
 	}
@@ -190,11 +190,43 @@ func TestHelpShowOffersFramesInThePieceOwnLanguage(t *testing.T) {
 		t.Error("英文那一篇里混进了中文句式")
 	}
 
-	zh := writingHelpModeBlock(helpShow, "zh", genreArgument)
+	zh := writingHelpModeBlock(helpShow, "body", "zh", genreArgument)
 	if !strings.Contains(zh, "假如") {
 		t.Error("中文议论文那条路本来就有句式，不该被这次改动弄丢")
 	}
 	if strings.Contains(zh, "While it is true that") {
 		t.Error("中文那一篇里混进了英文句式")
+	}
+}
+
+// 🚨 句式按位置挑。
+//
+// 每一条 en_* 的 genre 都是空串，所以文体那条轴在英文这边筛不掉任何东西；
+// 位置是这条路上唯一还在起作用的筛子。少了它，一个卡在议论文分论点上的
+// 学生会收到记叙文的开场句式和收尾句式，一共 23 条，而提示词上面那句写的是
+// 「这一轮给她一句句式」。
+func TestHelpShowFramesFollowThePosition(t *testing.T) {
+	body := writingHelpModeBlock(helpShow, writingKindAppliesTo(writingKindPoint), langEnglish, genreArgument)
+	for _, notThere := range []string{"Opening inside a moment", "Landing the meaning"} {
+		if strings.Contains(body, notThere) {
+			t.Errorf("正文一段拿到了 %q —— 那是开头/结尾那一格的句式", notThere)
+		}
+	}
+	if !strings.Contains(body, "While it is true that") {
+		t.Error("正文一段该有的让步句式没了")
+	}
+
+	opening := writingHelpModeBlock(helpShow, writingKindAppliesTo(writingKindOpening), langEnglish, genreArgument)
+	if strings.Contains(opening, "While it is true that") {
+		t.Error("开头拿到了正文那一格的让步句式")
+	}
+	if !strings.Contains(opening, "Opening inside a moment") {
+		t.Error("开头一条开场句式都没有")
+	}
+
+	// 中文那一路：三条分析句法都在正文那一格，开头一格本来就没有句式。
+	zhOpening := writingHelpModeBlock(helpShow, writingKindAppliesTo(writingKindOpening), "zh", genreArgument)
+	if strings.Contains(zhOpening, "假如") {
+		t.Error("中文开头拿到了正文那一格的分析句法")
 	}
 }

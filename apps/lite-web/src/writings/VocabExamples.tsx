@@ -8,11 +8,22 @@ import type { WritingGuideMethod } from "../api/writingRoom";
  * from vocab's registry (apps/api/internal/vocab), never a sentence written
  * about HER piece.
  *
- * The 铁律① property this component exists to guarantee: every example is
- * labelled with the `topic` it is actually about, right next to the text, so
- * an example about 两个菜市场 can never be read as a suggestion for her essay
- * about something else entirely. This is not a caption for decoration — drop
- * it and a borrowed example becomes indistinguishable from a written one.
+ * The 铁律① property this component exists to guarantee for the METHOD-level
+ * examples: every one of them is labelled with the `topic` it is actually
+ * about, right next to the text, so an example about 两个菜市场 can never be
+ * read as a suggestion for her essay about something else entirely. That
+ * caption is not decoration — drop it and a borrowed example becomes
+ * indistinguishable from a written one. Keep it on `m.examples`.
+ *
+ * The PATTERN-level examples below do NOT carry that caption. They render as a
+ * bare 例句：, by product ruling 2026-09-23 (「just say 例句： is ok」), and
+ * `Pattern` has no `topic` field to render even if we wanted one. What stands
+ * in for the caption there is the frame printed directly above the sentence:
+ * the student reads the skeleton with its blanks first, so the sentence below
+ * it is visibly one filled-in instance of that skeleton, not advice about her
+ * piece. The barrier that keeps a pattern example off her topic is upstream
+ * and editorial — the avoid-list in the `Pattern` doc comment in
+ * apps/api/internal/vocab/vocab.go. Do not add the caption back here.
  *
  * ## 句式 (Task 11)
  *

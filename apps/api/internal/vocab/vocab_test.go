@@ -464,25 +464,6 @@ func TestEnglishArgumentStructuresAreTheEnglishOnes(t *testing.T) {
 	}
 }
 
-// 句式的两个新字段要真的从 JSON 里读进来。这一条在内容写进去之前会红，
-// 那是对的 —— Task 2 才填内容。
-func TestPatternCarriesGlossAndExample(t *testing.T) {
-	m, ok := ByID("en_concession")
-	if !ok {
-		t.Fatal("en_concession 不在库里")
-	}
-	if len(m.Patterns) == 0 {
-		t.Fatal("en_concession 一条句式都没有")
-	}
-	p := m.Patterns[0]
-	if p.Gloss == "" {
-		t.Errorf("%s 的第一条句式没有中文读法", m.ID)
-	}
-	if p.Example == "" {
-		t.Errorf("%s 的第一条句式没有例句", m.ID)
-	}
-}
-
 // 每一条英文句式都要有中文读法 —— 一行英文骨架对着中学生等于没说。
 // 中文句式本来读得懂，Gloss 允许为空。例句一条都不能少。
 func TestEveryPatternIsTeachable(t *testing.T) {
