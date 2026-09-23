@@ -19,12 +19,12 @@ func TestBuildCoachContext_AssignedProjectIsTheTeachersQuestion(t *testing.T) {
 			t.Errorf("assigned context is missing %q:\n%s", want, assigned)
 		}
 	}
-	if strings.Contains(assigned, "他一开始是这么说的") {
+	if strings.Contains(assigned, "学生一开始是这么说的") {
 		t.Errorf("assigned context introduces the teacher's question as her words:\n%s", assigned)
 	}
 
 	own := buildCoachContext(CoachInput{Idea: "下课没人去操场"})
-	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
+	if !strings.Contains(own, "学生一开始是这么说的：下课没人去操场") {
 		t.Errorf("her own project lost its opening line:\n%s", own)
 	}
 	if strings.Contains(own, "老师") {
@@ -42,7 +42,7 @@ func TestBuildLookbackContext_AssignedProjectIsTheTeachersQuestion(t *testing.T)
 			t.Errorf("assigned lookback is missing %q:\n%s", want, assigned)
 		}
 	}
-	if strings.Contains(assigned, "他一开始是这么说的") {
+	if strings.Contains(assigned, "学生一开始是这么说的") {
 		t.Errorf("assigned lookback introduces the teacher's question as her words:\n%s", assigned)
 	}
 	// No brief: no 补充说明 line at all, not an empty one.
@@ -56,7 +56,7 @@ func TestBuildLookbackContext_AssignedProjectIsTheTeachersQuestion(t *testing.T)
 	}
 
 	own := buildLookbackContext(LookbackInput{Name: "操场", Idea: "下课没人去操场"})
-	if !strings.Contains(own, "他一开始是这么说的：下课没人去操场") {
+	if !strings.Contains(own, "学生一开始是这么说的：下课没人去操场") {
 		t.Errorf("her own project lost its opening line:\n%s", own)
 	}
 }
@@ -190,10 +190,10 @@ func TestBuildCoachContext_InsideASession(t *testing.T) {
 	ctx := buildCoachContext(CoachInput{
 		Idea: "剩饭", SessionKind: "free", SessionQuestion: "剩的是米饭还是菜？",
 	})
-	if !strings.Contains(ctx, "支线") {
+	if !strings.Contains(ctx, "专题讨论") {
 		t.Fatalf("session context does not say it is a side thread:\n%s", ctx)
 	}
-	if !strings.Contains(ctx, "不要再给钩子") {
+	if !strings.Contains(ctx, "不提供 hook") {
 		t.Fatalf("session context does not suppress further hooks:\n%s", ctx)
 	}
 }
@@ -234,7 +234,7 @@ func TestBuildCoachContext_WindowsTheThread(t *testing.T) {
 // A project with no approved plan says so, rather than pretending to have one.
 func TestBuildCoachContext_NoPlanYet(t *testing.T) {
 	ctx := buildCoachContext(CoachInput{Idea: "剩饭"})
-	if !strings.Contains(ctx, "还没有计划") {
+	if !strings.Contains(ctx, "尚未生成计划") {
 		t.Fatalf("context does not say there is no plan yet:\n%s", ctx)
 	}
 }

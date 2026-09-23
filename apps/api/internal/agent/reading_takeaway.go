@@ -77,7 +77,7 @@ func ComposeReadingTakeawaySuggestions(ctx context.Context, prov gateway.Provide
 		return nil, "", gateway.ChatUsage{}, fmt.Errorf("agent: empty reading record — nothing to organize")
 	}
 	recJSON, _ := json.Marshal(in.Record)
-	user := "阅读目的：" + in.Brief.Reason + "（" + in.Brief.PhaseTag + "）\n她已确认的内容：\n" + string(recJSON)
+	user := "阅读目的：" + in.Brief.Reason + "（" + in.Brief.PhaseTag + "）\n学生已确认的内容：\n" + string(recJSON)
 	res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: readingTakeawaySystem},

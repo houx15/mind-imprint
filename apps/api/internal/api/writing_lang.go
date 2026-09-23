@@ -113,7 +113,7 @@ func writingLengthLine(wr sqlc.Writing, label string) string {
 	if wr.Lang == langEnglish {
 		// Said twice on purpose — see above. 「约 500 词（English words，不是
 		// 汉字）」 leaves no reading in which this is a two-paragraph piece.
-		b.WriteString("（English words，不是汉字；500 词是一篇完整的文章，不是一小段）")
+		b.WriteString("（按 English words 计数，不是汉字数量）")
 	}
 	b.WriteString("\n")
 	return b.String()
@@ -151,11 +151,11 @@ func writingTopicLine(wr sqlc.Writing, label string) string {
 func writingLangLine(wr sqlc.Writing) string {
 	if wr.Lang == langEnglish {
 		return "写作语言：英文。\n" +
-			"🚨 语言规则（两个不同的东西，不要混）：\n" +
-			"- 你**跟她说话**——提问、讲方法、解释为什么——仍然用中文。她是中文母语的学生，正在学用英文写作；用英文给她讲「让步」等于一次教两件事。\n" +
-			"- 但**任何会进入这篇文章的字**必须是英文：提纲/思维导图的节点、候选标题、你替她拟的措辞、示例句式。那些字就是她文章自己的字。\n"
+			"语言要求：\n" +
+			"- 面向学生的提问、方法说明和反馈用中文。\n" +
+			"- 提纲与思维导图节点、从原文提取的标题关键词、通用示例句式用英文。正文仍由学生自己完成。\n"
 	}
-	return "写作语言：中文。跟她说话和文章内容都用中文。\n"
+	return "写作语言：中文。跟学生说话和文章内容都用中文。\n"
 }
 
 // writingMethodFamiliesLine tells the guide prompts that an English piece has
@@ -183,10 +183,10 @@ func writingMethodFamiliesLine(wr sqlc.Writing) string {
 	if wr.Lang != langEnglish {
 		return ""
 	}
-	return "\n【挑方法的时候】这篇是英文的，方法库里有四类，别只盯着讲道理那一类：\n" +
+	return "\n【选择方法】英文方法库包含四类，请根据当前段落的具体需要选择：\n" +
 		"- 论证类（en_concession / en_qualify / en_evidence，以及中文名的那些结构方法）：用于说明观点与证据之间的关系。\n" +
-		"- 词汇类（en_word_*）：她写出来的意思对，但用词笼统、书面口语混着来时用。\n" +
-		"- 句式类（en_sentence_*）：她一段里每句都一样长、都从主语开头时用。这是英文写作最常见的卡点，也最容易看出进步。\n" +
-		"- 故事线（en_story_*）：这一块是记叙、是她自己的经历、或者需要一个转折时用。\n" +
-		"判断依据是**她这一块实际卡在哪**，不是这篇文章的体裁：一段议论里也会有句式问题。\n"
+		"- 词汇类（en_word_*）：用于提高用词的准确性，或调整不符合写作场景的语体。\n" +
+		"- 句式类（en_sentence_*）：用于处理句式重复或表达关系不清的问题。\n" +
+		"- 故事线（en_story_*）：这一块是记叙、是学生自己的经历、或者需要一个转折时用。\n" +
+		"以当前段落的实际需要为依据；例如议论文段落也可能需要句式方面的帮助。\n"
 }

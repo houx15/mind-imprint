@@ -15,7 +15,7 @@ func TestCurrentEvidenceFollowsHistoricalClaims(t *testing.T) {
 	})
 	history := strings.Index(ctx, "旧结论：公告栏不是主要渠道")
 	evidence := strings.Index(ctx, "【虚构测试记录，未实地观察】")
-	event := strings.Index(ctx, "【她刚做完这件事】")
+	event := strings.Index(ctx, "【学生刚做完这件事】")
 	if history < 0 || evidence <= history || event <= evidence {
 		t.Fatalf("source ordering lost: %s", ctx)
 	}

@@ -5,8 +5,8 @@
   "category": "研究流程",
   "name": "检索方向审视",
   "name_en": "Search-Plan Audit",
-  "purpose": "在真正去查之前，逐条想清楚每个检索方向会给你哪一类证据、又系统性地漏掉什么",
-  "trigger_condition": "学生已经写下检索计划（打算去哪找证据），但没有想过每个方向的偏差与盲区",
+  "purpose": "在检索前明确各方向可能提供的证据及覆盖不到的信息，改进检索计划。",
+  "trigger_condition": "学生已有检索方向，需要检查证据类型、覆盖范围及遗漏的信息。",
   "trigger_keywords": ["去哪找", "检索", "找证据", "搜", "查资料"],
   "priority": "P1",
   "disclosure_tier": "tier-1",
@@ -21,8 +21,8 @@
   "params": {
     "cols": [
       { "id": "evidence_type", "label": "会给什么", "q": "这个方向最可能给你哪一类证据？" },
-      { "id": "blind_spot", "label": "看不见什么", "q": "它系统性地看不见什么？绕开了谁、绕开了哪种反面情况？" },
-      { "id": "disconfirm", "label": "能否证伪", "q": "如果你的结论其实是错的，这个方向找得到反证吗，还是只会印证你？" }
+      { "id": "blind_spot", "label": "看不见什么", "q": "这个检索方向可能遗漏哪些人群、情况或不同证据？" },
+      { "id": "disconfirm", "label": "能否证伪", "q": "这个检索方向能否找到不支持原结论的证据？请说明理由。" }
     ],
     "min_items": 1,
     "row_prompt": "你检索计划里的一条方向",

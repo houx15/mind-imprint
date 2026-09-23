@@ -76,7 +76,7 @@ func TestPieceContextCarriesPriorComments(t *testing.T) {
 	if !strings.Contains(got, "把那天几点、在哪儿写进去") {
 		t.Errorf("上一条意见没进上下文：\n%s", got)
 	}
-	if !strings.Contains(got, "她已经改过") {
+	if !strings.Contains(got, "学生已经改过") {
 		t.Errorf("没说她已经照着改过了 —— 于是它会把同一件事再说一遍：\n%s", got)
 	}
 }
@@ -110,7 +110,7 @@ func TestPieceContextPutsVolatileLast(t *testing.T) {
 	got := buildWritingPieceContext(sqlc.Writing{Lang: "zh", Title: "校服该不该穿"},
 		[]sqlc.WritingOutline{o}, nil, nil, &o)
 	title := strings.Index(got, "校服该不该穿")
-	focus := strings.Index(got, "她现在停在这一块")
+	focus := strings.Index(got, "学生现在停在这一块")
 	if title < 0 {
 		t.Fatalf("题目没进去：\n%s", got)
 	}

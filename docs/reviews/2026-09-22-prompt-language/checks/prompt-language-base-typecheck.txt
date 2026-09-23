@@ -1,0 +1,3 @@
+test/library.test.ts(39,12): error TS2532: Object is possibly 'undefined'.
+test/library.test.ts(40,12): error TS2532: Object is possibly 'undefined'.
+test/library.test.ts(41,12): error TS2532: Object is possibly 'undefined'.

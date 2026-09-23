@@ -73,8 +73,8 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 	// 一旦有成稿，就**只**给成稿：两份她的文字同时摆在上文里，正是让它挑错
 	// 一份的原因。段落那几块此刻是历史，不是她的正文。
 	if body := strings.TrimSpace(draftBody); body != "" {
-		b.WriteString("正文（**这是她此刻的正文，以这里为准**；" +
-			"上面对话里你早先引过的句子她可能已经改掉了，不要照着那些再提一遍）：\n")
+		b.WriteString("正文（**这是学生此刻的正文，以这里为准**；" +
+			"上面对话里你早先引过的句子学生可能已经改掉了，不要照着那些再提一遍）：\n")
 		b.WriteString(writingProjectionSnippet(body) + "\n")
 		// 🚨 这三条在成稿这一支上同样要有。差点漏掉：这一支是后加的、而且
 		// 提前 return，而那条测试当时用的是空成稿，绿着也没发现。
@@ -103,8 +103,8 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 		//	  这些词了。我不知道该听它的还是按我现在的正文来」
 		//
 		// 最后那半句是真正的代价：**她开始怀疑该信屏幕上的哪一个**。
-		b.WriteString("已经写好的片段（**这是她此刻的正文，以这里为准**；" +
-			"上面对话里你早先引过的句子她可能已经改掉了，不要照着那些再提一遍）：\n")
+		b.WriteString("已经写好的片段（**这是学生此刻的正文，以这里为准**；" +
+			"上面对话里你早先引过的句子学生可能已经改掉了，不要照着那些再提一遍）：\n")
 		// 🚨 **带上这一块的标题，别只给一个号。**
 		//
 		// 第三十六轮中文那一路：「印记说的『第3段最后那两句』跟我现在看到的
@@ -150,7 +150,7 @@ func writingProjectionSnippet(text string) string {
 	if len(r) <= writingProjectionSnippetRunes {
 		return text
 	}
-	return fmt.Sprintf("%s……（这一段一共 %d 字，上面只给了前 %d 字，后面的她已经写了，只是没放进来——别据此说她少写了什么）",
+	return fmt.Sprintf("%s……（这一段一共 %d 字，上面只给了前 %d 字，后文未展示，不能据此判断学生未写相关内容）",
 		string(r[:writingProjectionSnippetRunes]), len(r), writingProjectionSnippetRunes)
 }
 

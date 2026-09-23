@@ -130,10 +130,10 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				}
 				if missing := pbl.SiteMissing(content); len(missing) > 0 {
 					add("旧模板文字完整性检查还缺：" + strings.Join(missing, "、") +
-						"。这不是生成版本的发布条件，不要为了旧模板要求学生填写无关字段。保存的每一句必须是她**说过的原话**，逐字照抄——" +
+						"。这不是生成版本的发布条件，不要为了旧模板要求学生填写无关字段。保存的每一句必须是学生**说过的原话**，逐字照抄——" +
 						"改写过的句子会被丢掉，页面上不会有任何变化。")
 				} else {
-					add("主页基本文字已保存，可以生成site成果并递review，审核无需先发布。仍有空正文的模块时明确指出，不得称所有模块已完成；不要让她重新提供已保存的原话。")
+					add("主页基本文字已保存，可以生成site成果并递review，审核无需先发布。仍有空正文的模块时明确指出，不得称所有模块已完成；不要让学生重新提供已保存的原话。")
 				}
 			}
 		}
@@ -145,7 +145,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			if !p.Chosen {
 				continue
 			}
-			line := "她定下的读者是：" + p.Label
+			line := "学生定下的读者是：" + p.Label
 			if strings.TrimSpace(p.WhyKnows) != "" {
 				line += "（" + p.WhyKnows + "）"
 			}
@@ -153,7 +153,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				line += "；人物板记录（学生判断）：" + p.Wants
 			}
 			if strings.TrimSpace(p.Feeling) != "" {
-				line += "；这一页该给他的感觉：" + p.Feeling
+				line += "；希望这一页给读者的感受：" + p.Feeling
 			}
 			add(line)
 			var kws []string
@@ -161,7 +161,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				_ = json.Unmarshal(p.Keywords, &kws)
 			}
 			if len(kws) > 0 {
-				add("她留下的关键词：" + strings.Join(kws, "、"))
+				add("学生留下的关键词：" + strings.Join(kws, "、"))
 			}
 		}
 	}
@@ -196,9 +196,9 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	if rs, err := a.d.Queries.ListPblReframes(ctx, atomID); err == nil {
 		for _, x := range rs {
 			if x.ConfirmedAt.Valid {
-				add("她把问题定成了：" + x.Who + "需要" + x.Needs + "，因为" + trimBecause(x.Why))
+				add("学生把问题定成了：" + x.Who + "需要" + x.Needs + "，因为" + trimBecause(x.Why))
 				if strings.TrimSpace(x.Hmw) != "" {
-					add("她的「我们可以怎样」：" + x.Hmw)
+					add("学生的「我们可以怎样」：" + x.Hmw)
 				}
 			}
 		}
@@ -226,7 +226,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			// 但"她带回来一张照片"本身就是要接的话——不说，她辛辛苦苦拍的东西
 			// 在对话里等于没发生过。闭环（产品负责人 2026-09-03）。
 			if strings.TrimSpace(n.ImageKey) != "" {
-				body += "（她还拍了一张照片）"
+				body += "（学生还拍了一张照片）"
 			}
 			// 她摆在哪个角上。轴见 Board.tsx：横 = 有多确定，纵 = 有多要紧。
 			//
@@ -237,7 +237,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			// 做过这个判断，要么发现印记在编。两种都比不说更糟。
 			if axes && n.Dragged {
 				if q := boardQuadrant(n.X, n.Y); q != "" {
-					body += "（她摆在「" + q + "」那一角）"
+					body += "（学生摆在「" + q + "」那一角）"
 				}
 			}
 			// 她挑出来先试的那一条，和为什么先试它。
@@ -245,7 +245,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			// 🚨 不带这一句，印记只能照着列表顺序猜——线上就猜错过：她挑的是第
 			// 三条，印记说的是第一条。
 			if n.PickedAt.Valid {
-				body += "【她挑了这条先试"
+				body += "【学生挑了这条先试"
 				if w := strings.TrimSpace(n.PickWhy); w != "" {
 					body += "，因为" + w
 				}
@@ -256,9 +256,9 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 		for _, k := range []struct{ kind, label string }{
 			{"observation", "学生归类为观察的记录（未核验，真实性以正文限定为准）"},
 			{"quote", "学生归类为他人原话的记录（未核验来源）"},
-			{"assumption", "她自己标出来的推论"},
-			{"question", "她提出的问题"},
-			{"idea", "她想到的点子"},
+			{"assumption", "学生自己标出来的推论"},
+			{"question", "学生提出的问题"},
+			{"idea", "学生想到的点子"},
 		} {
 			if xs := byKind[k.kind]; len(xs) > 0 {
 				add(k.label + "：" + strings.Join(xs, "；"))
@@ -281,7 +281,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				}
 				continue
 			}
-			line := "关于「" + d.Subject + "」，她选了「" + d.Choice + "」，因为" + d.Why
+			line := "关于「" + d.Subject + "」，学生选了「" + d.Choice + "」，因为" + d.Why
 			if strings.TrimSpace(d.WhyNot) != "" {
 				line += "；没选别的是因为" + d.WhyNot
 			}
@@ -304,7 +304,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 					for _, o := range ranked {
 						labels = append(labels, strings.TrimSpace(o.Label))
 					}
-					line += "；她把这几条排成：" + strings.Join(labels, " > ")
+					line += "；学生把这几条排成：" + strings.Join(labels, " > ")
 				}
 			}
 			// 🚨 她自己加的那条路。「这些都不对，我要的是另一样」和「在给定的
@@ -317,11 +317,11 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 					}
 				}
 				if len(mine) > 0 {
-					line += "；这几条是她自己加进去的：" + strings.Join(mine, "、")
+					line += "；这几条是学生自己加进去的：" + strings.Join(mine, "、")
 				}
 			}
 			if f := strings.TrimSpace(d.Flip); f != "" {
-				line += "；她说会让她改主意的情况是：" + f
+				line += "；学生认为可能改变自己想法的情况是：" + f
 			}
 			add(line)
 		}
@@ -353,7 +353,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			if title == "" {
 				title = "我交的一份东西"
 			}
-			line := "她对《" + title + "》的判断：" + word[*x.Verdict]
+			line := "学生对《" + title + "》的判断：" + word[*x.Verdict]
 			if strings.TrimSpace(x.Why) != "" {
 				line += "，理由是「" + x.Why + "」"
 			}
@@ -380,7 +380,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				for _, m := range ms {
 					if ans := strings.TrimSpace(m.Answer); ans != "" {
 						add("审《" + title + "》时，对「" + strings.TrimSpace(m.Question) +
-							"」她答：" + ans)
+							"」学生答：" + ans)
 					}
 				}
 			}
@@ -388,7 +388,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				for _, d := range ds {
 					if ans := strings.TrimSpace(d.Answer); ans != "" {
 						add("审《" + title + "》时，关于「" + strings.TrimSpace(d.Prompt) +
-							"」她答：" + ans)
+							"」学生答：" + ans)
 					}
 				}
 			}
@@ -403,17 +403,17 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	if ls, err := a.d.Queries.ListPblNoteLinksWithBodies(ctx, atomID); err == nil {
 		word := map[string]string{
 			"causes": "导致", "contradicts": "和这一条矛盾",
-			"same": "和这一条说的是同一件事", "supports": "撑着这一条",
+			"same": "和这一条说的是同一件事", "supports": "为这一条提供依据",
 		}
 		for _, l := range ls {
 			w := word[l.Relation]
 			if w == "" {
 				continue
 			}
-			line := "她把「" + strings.TrimSpace(l.FromBody) + "」和「" +
+			line := "学生把「" + strings.TrimSpace(l.FromBody) + "」和「" +
 				strings.TrimSpace(l.ToBody) + "」连了起来：" + w
 			if l.Relation == "contradicts" {
-				line += "（这一对是她自己标出来的矛盾）"
+				line += "（这一对是学生自己标出来的矛盾）"
 			}
 			add(line)
 		}
@@ -441,7 +441,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			}
 		}
 		if placed > 0 && loose > 0 {
-			add("她把材料往结构里放，还有 " + strconv.Itoa(loose) +
+			add("学生把材料往结构里放，还有 " + strconv.Itoa(loose) +
 				" 条放不进去：" + strings.Join(looseBodies, "；"))
 		}
 	}
@@ -460,7 +460,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				b.WriteString("：" + body)
 			}
 		}
-		add("她定下来的结构：" + b.String())
+		add("学生定下来的结构：" + b.String())
 	}
 	// 她对结构那三个问题的回答。
 	if cs, err := a.d.Queries.ListPblTreeChecks(ctx, sqlc.ListPblTreeChecksParams{
@@ -468,7 +468,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	}); err == nil {
 		for _, c := range cs {
 			if ans := strings.TrimSpace(c.Answer); ans != "" {
-				add("看结构时她对「" + strings.TrimSpace(c.Question) + "」的判断：" + ans)
+				add("看结构时学生对「" + strings.TrimSpace(c.Question) + "」的判断：" + ans)
 			}
 		}
 	}
@@ -476,7 +476,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	// 🚨 某一步的分工，她确认过的那一版。
 	if v, err := a.d.Queries.GetPblLivePlan(ctx, atomID); err == nil {
 		if ss, serr := a.d.Queries.ListPblSubstepsForPlan(ctx, v.ID); serr == nil && len(ss) > 0 {
-			who := map[string]string{"yinji": "印记", "student": "她自己", "both": "两个人一起"}
+			who := map[string]string{"yinji": "印记", "student": "学生自己", "both": "两个人一起"}
 			var lines []string
 			for _, x := range ss {
 				// 🚨 她改过的那一版才算数，而且"她改过"本身就是信号（铁律④）：
@@ -497,11 +497,11 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				}
 				line := strings.TrimSpace(x.Title) + "（" + owner
 				if moved {
-					line += "，她改的"
+					line += "，学生改的"
 				}
 				// 🚨 她发现方案里少了一件事——审一份方案不等于逐格同意。
 				if x.AddedByStudent {
-					line += "，她补的"
+					line += "，学生补的"
 				}
 				line += "）"
 				if why != "" {
@@ -524,9 +524,9 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 		// 🚨 「现在还这么想吗」比答案本身更要紧：她说「当时没想清楚」，印记
 		// 下一轮就该问那一处到底哪儿没想清楚。
 		stance := map[string]string{
-			"still":   "她说现在仍这么想",
-			"changed": "她说现在会改",
-			"unclear": "她说当时没想清楚",
+			"still":   "学生说现在仍这么想",
+			"changed": "学生说现在会改",
+			"unclear": "学生说当时没想清楚",
 		}
 		for _, x := range ps {
 			ans := strings.TrimSpace(x.Answer)
@@ -534,7 +534,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			if ans == "" && st == "" {
 				continue
 			}
-			line := "复盘时她对「" + strings.TrimSpace(x.Prompt) + "」"
+			line := "复盘时学生对「" + strings.TrimSpace(x.Prompt) + "」"
 			if latestRevision > 1 {
 				label := "当前复盘"
 				if x.Revision < latestRevision {
@@ -546,7 +546,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 				line += "：" + st
 			}
 			if ans != "" {
-				line += "，她写的是：" + ans
+				line += "，学生写的是：" + ans
 			}
 			add(line)
 		}
@@ -589,7 +589,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {
-			line := "上线之后她记下（类型：" + k.Kind + "；阶段：" + k.Stage + "）：" + strings.TrimSpace(k.Body)
+			line := "上线之后学生记下（类型：" + k.Kind + "；阶段：" + k.Stage + "）：" + strings.TrimSpace(k.Body)
 			if k.Kind == "thought" {
 				line += "。这是学生的想法，不自动代表已经取得现场反馈或验证结果。"
 			}
@@ -609,7 +609,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles 
 			// 她改一件事时的预期，以及后来兑现没有。没兑现最值钱：那说明她原来
 			// 想错了，而印记该接着问的正是那一句。
 			if e := strings.TrimSpace(k.Expect); e != "" {
-				line += "；她当时预期：" + e
+				line += "；学生当时预期：" + e
 				switch k.Verdict {
 				case "met":
 					line += "（后来兑现了）"
@@ -750,7 +750,7 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID, completedID ..
 	if def, ok := pbl.LookupTool(last.Tool); ok {
 		label = def.Label
 	}
-	line := "她做完了「" + label + "」"
+	line := "学生做完了「" + label + "」"
 	if last.Tool == "board" {
 		line += "。这是思考板完成后的回流，板上已保存便签及其类型见工具产出。请先回应已写内容，再推进一个相关问题；不要重新回答历史的打开工具请求，不要否认工具已使用，也不要要求重写已有记录。推论仍是假设，完成操作不证明已去现场、已验证或已掌握方法"
 	}
@@ -786,9 +786,9 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID, completedID ..
 				if artifact, err := a.d.Queries.GetPblArtifact(r.Context(), id); err == nil && artifact.AtomID == atomID && artifact.Verdict != nil {
 					switch *artifact.Verdict {
 					case "revise", "dropped":
-						line = "她完成了审核操作，但未通过成果，要求修改或重做《" + artifact.Title + "》。必须先处理以下意见，不能推进上线或声称修改已完成"
+						line = "学生完成了审核操作，但未通过成果，要求修改或重做《" + artifact.Title + "》。必须先处理以下意见，不能推进上线或声称修改已完成"
 					case "kept":
-						line = "她审核通过了《" + artifact.Title + "》"
+						line = "学生审核通过了《" + artifact.Title + "》"
 					}
 					if artifact.Why != "" {
 						line += "；理由：" + artifact.Why
@@ -812,7 +812,7 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID, completedID ..
 		}
 	}
 	if note := strings.TrimSpace(last.StudentNote); note != "" {
-		line += "，她写下的是：" + note
+		line += "，学生写下的是：" + note
 	}
 	return line + "。"
 }

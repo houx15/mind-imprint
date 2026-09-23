@@ -1,0 +1,12 @@
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=5270 input=1859 output=110 valid=true
+--- PASS: TestClarityWriting (5.27s)
+    --- PASS: TestClarityWriting/guide (5.27s)
+=== RUN   TestClarityMergeWriting
+=== RUN   TestClarityMergeWriting/english-analysis
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-analysis sample=1 model=dashscope/deepseek-v4.1-flash ms=2978 input=3595 output=85 valid=true
+--- PASS: TestClarityMergeWriting (2.98s)
+    --- PASS: TestClarityMergeWriting/english-analysis (2.98s)
+PASS
+ok  	mindimprint/api/internal/api	8.838s

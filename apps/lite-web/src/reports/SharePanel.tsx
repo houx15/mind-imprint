@@ -1,3 +1,4 @@
+import { PortfolioShareDialog } from "../shared/PortfolioShareDialog";
 import { apiErrorText } from "../api/errorText";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
@@ -107,6 +108,9 @@ export function SharePanel({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [withTranscript, setWithTranscript] = useState(initialIncludeTranscript);
+  const [addToShowcase, setAddToShowcase] = useState(false);
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const [withToolkit, setWithToolkit] = useState(initialIncludeToolkit);
 
   // Mount-only: fill in the QR image for a share that was ALREADY live when
@@ -130,14 +134,20 @@ export function SharePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleShare() {
+  async function handleShare(forceShowcase = false) {
+    const previous = state;
     setError(null);
     setState({ phase: "sharing" });
     try {
-      const { token } = await shareReport(kind, atomId, {
+      const { token, showcaseUrl, showcasePublished } = await shareReport(kind, atomId, {
         includeTranscript: withTranscript,
         includeToolkit: withToolkit,
+        addToShowcase: forceShowcase || addToShowcase,
       });
+      if (showcasePublished && showcaseUrl) {
+        const path = new URL(showcaseUrl, window.location.origin).pathname;
+        if (/^\/p\/[A-Za-z0-9_-]+$/.test(path)) { setPortfolioUrl(`${window.location.origin}${path}`); setShowPortfolio(true); }
+      }
       const url = buildShareUrl(token);
       let qr: string | null = null;
       try {
@@ -148,7 +158,7 @@ export function SharePanel({
       setState({ phase: "on", url, qr });
       onSharedChange?.(token);
     } catch (err) {
-      setState({ phase: "off" });
+      setState(previous.phase === "on" ? previous : { phase: "off" });
       setError(apiErrorText(err));
     }
   }
@@ -213,6 +223,8 @@ export function SharePanel({
   if (state.phase === "on" || state.phase === "unsharing") {
     return (
       <section className="flex flex-col gap-4 rounded-mk-lg border border-mk-border bg-mk-surface p-6">
+        {showPortfolio && portfolioUrl && <PortfolioShareDialog url={portfolioUrl} onClose={()=>setShowPortfolio(false)}/>}
+        {portfolioUrl ? <button type="button" className="w-fit text-mk-small underline" onClick={()=>setShowPortfolio(true)}>分享个人作品集</button> : <div><p className="text-mk-small text-mk-muted">可以把本次作品加入个人作品集。尚未发布主页时，仅使用公开昵称与本次作品创建基础主页。</p><button type="button" className="w-fit text-mk-small underline" disabled={state.phase === "unsharing"} onClick={()=>void handleShare(true)}>展示到个人作品集</button></div>}
         <p className="text-mk-small text-mk-muted">
           {shared}现在任何拿到链接的人都能打开，不用登录。想收回的时候，点下面的「停止分享」就会立刻失效。
         </p>
@@ -304,9 +316,10 @@ export function SharePanel({
       <p className="text-mk-small text-mk-muted">
         分享之后，任何拿到这个链接的人都能打开{shared}，不用登录也能看——如果你想收回，随时点「停止分享」就会立刻失效。
       </p>
+      <label className="flex items-start gap-2 text-mk-small"><input type="checkbox" checked={addToShowcase} disabled={state.phase === "sharing"} onChange={e=>setAddToShowcase(e.target.checked)}/><span>同时展示到我的个人作品集<small className="mt-1 block text-mk-muted">尚未发布主页时，将使用公开昵称和本次作品创建基础主页；不会公开正在编辑的介绍、图片或组件。</small></span></label>
       <button
         type="button"
-        onClick={handleShare}
+        onClick={()=>void handleShare()}
         disabled={state.phase === "sharing"}
         className="w-fit rounded-mk-full px-4 py-2 text-mk-small text-white disabled:cursor-not-allowed disabled:opacity-60"
         style={{ background: "var(--mk-accent-500)" }}

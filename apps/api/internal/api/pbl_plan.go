@@ -21,17 +21,18 @@ import (
 // Check records her decision. Everything else here is bookkeeping around that.
 
 type pblStepDTO struct {
-	ID        string `json:"id"`
-	Ordinal   int    `json:"ordinal"`
-	Title     string `json:"title"`
-	Blurb     string `json:"blurb"`
-	Goal      string `json:"goal"`
-	YouBring  string `json:"youBring"`
-	IBring    string `json:"iBring"`
-	Decide    string `json:"decide"`
-	ThenBring string `json:"thenBring"`
-	Status    string `json:"status"`
-	Progress  string `json:"progress,omitempty"`
+	ID         string                `json:"id"`
+	Ordinal    int                   `json:"ordinal"`
+	Title      string                `json:"title"`
+	Blurb      string                `json:"blurb"`
+	Goal       string                `json:"goal"`
+	YouBring   string                `json:"youBring"`
+	IBring     string                `json:"iBring"`
+	Decide     string                `json:"decide"`
+	ThenBring  string                `json:"thenBring"`
+	Status     string                `json:"status"`
+	Submission *pblStepSubmissionDTO `json:"submission,omitempty"`
+	Progress   string                `json:"progress,omitempty"`
 }
 
 type pblPlanDTO struct {
@@ -98,6 +99,20 @@ func (a *API) getPblPlan(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, s := range steps {
 		out.Steps = append(out.Steps, toPblStepDTO(s))
+	}
+	submissions, err := a.d.Queries.ListLatestPblStepSubmissions(r.Context(), v.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	byStep := make(map[uuid.UUID]pblStepSubmissionDTO, len(submissions))
+	for _, submission := range submissions {
+		byStep[submission.StepID] = toPblStepSubmissionDTO(submission)
+	}
+	for i, step := range steps {
+		if submission, exists := byStep[step.ID]; exists {
+			out.Steps[i].Submission = &submission
+		}
 	}
 	a.attachHomepageProgress(r, atomID, &out)
 

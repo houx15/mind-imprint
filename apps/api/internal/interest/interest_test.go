@@ -62,7 +62,7 @@ func TestHarvestPromptCarriesTheCatalogue(t *testing.T) {
 			t.Errorf("候选清单里没有 %s —— 模型选不到它", want)
 		}
 	}
-	if !strings.Contains(system, "不能自己造词") {
+	if !strings.Contains(system, "不新增表外名称或 id") {
 		t.Error("system 没说这是一张闭表")
 	}
 }

@@ -104,6 +104,27 @@ func TestSignDownloadTargetsCDNHost(t *testing.T) {
 	}
 }
 
+func TestSignOriginDownloadTargetsOriginHost(t *testing.T) {
+	svc, err := New(testCfg())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	raw, err := svc.SignOriginDownload("users/u1/generated/showcase-avatar.png")
+	if err != nil {
+		t.Fatalf("SignOriginDownload: %v", err)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if u.Host != "mind-imprint.oss-cn-beijing.aliyuncs.com" {
+		t.Fatalf("origin download host = %q", u.Host)
+	}
+	if u.Query().Get("Signature") == "" {
+		t.Fatal("origin download URL missing signature")
+	}
+}
+
 func TestSignTypeA_KnownVector(t *testing.T) {
 	const domain = "mind-oss.uni-robot.cn"
 	const key = "courses/x/assets/videos/case.mp4"

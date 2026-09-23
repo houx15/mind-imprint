@@ -528,6 +528,9 @@ func (a *API) putPblSiteLook(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/pbl/site/publish
 func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	if a.rejectLegacyShowcasePublish(w, r, u.ID) {
+		return
+	}
 	entitled, err := HasEntitlement(r.Context(), u)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -602,6 +605,9 @@ func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/v1/pbl/site/publish — 撤销。幂等。
 func (a *API) revokePblSite(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
+	if a.rejectLegacyShowcasePublish(w, r, u.ID) {
+		return
+	}
 	if _, err := a.d.Queries.SetPblSiteShare(r.Context(), sqlc.SetPblSiteShareParams{
 		UserID: u.ID, ShareToken: nil, PublishedAt: pgtype.Timestamptz{},
 	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -631,6 +637,20 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 	row, err := a.d.Queries.GetPblSiteByShareToken(r.Context(), &token)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404，不带细节
+		return
+	}
+	if config, works, interestTree, worksTotal, showcaseErr := a.publicShowcase(r, row.UserID); showcaseErr != nil {
+		httpx.WriteError(w, r, showcaseErr)
+		return
+	} else if config != nil {
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+		heroURL, avatarURL := a.signedShowcaseImageOrEmpty(config.HeroImageKey), a.signedShowcaseImageOrEmpty(config.AvatarKey)
+		config.HeroImageKey, config.AvatarKey = "", ""
+		payload := map[string]any{"showcase": true, "config": config, "works": works, "worksTotal": worksTotal, "heroImageUrl": heroURL, "avatarUrl": avatarURL}
+		if interestTree != nil {
+			payload["interestTree"] = interestTree
+		}
+		httpx.WriteJSON(w, http.StatusOK, payload)
 		return
 	}
 

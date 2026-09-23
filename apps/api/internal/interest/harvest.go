@@ -74,12 +74,12 @@ const harvestSystemPromptTail = prompts.InterestHarvestSystemPromptTail
 // 批注，写作里是她的正文。
 func BuildHarvestPrompt(kind, title, body string) (system, user string) {
 	label := map[string]string{
-		"reading": "她刚读完的一篇文章，以及她自己写下的收获与批注",
-		"writing": "她刚写完的一篇文章",
-		"project": "她刚做完、正在复盘的一个项目",
+		"reading": "学生刚读完的一篇文章，以及学生自己写下的收获与批注",
+		"writing": "学生刚写完的一篇文章",
+		"project": "学生刚做完、正在复盘的一个项目",
 	}[kind]
 	if label == "" {
-		label = "她刚完成的一件事"
+		label = "学生刚完成的一件事"
 	}
 	system = harvestSystemPromptHead + interests.PromptList() + "\n" + harvestSelectionRules + harvestSystemPromptTail
 

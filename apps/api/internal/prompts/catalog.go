@@ -12,6 +12,9 @@ type Definition struct {
 // Catalog returns a fresh slice so inspection cannot mutate production rules.
 func Catalog() []Definition {
 	return []Definition{
+		{ID: "api.showcaseAboutSystem", Source: "internal/prompts/showcase_about.go", Consumer: "internal/api/pbl_showcase_about.go", Text: ShowcaseAboutSystem},
+		{ID: "api.showcaseGuideSystem", Source: "internal/prompts/showcase_guide.go", Consumer: "internal/api/pbl_showcase_guide.go", Text: ShowcaseGuideSystem},
+		{ID: "api.showcaseComponentSystem", Source: "internal/prompts/showcase_guide.go", Consumer: "internal/api/pbl_showcase_guide.go", Text: ShowcaseComponentSystem},
 		{ID: "agent.projectCoachPosturePrompt", Source: "internal/prompts/agent_project_coach.go", Consumer: "internal/agent/project_coach_prompt.go", Text: ProjectCoachPosturePrompt},
 		{ID: "liteworkspace.PronounRule", Source: "internal/prompts/liteworkspace_gender.go", Consumer: "internal/liteworkspace/gender.go", Text: TeacherPronounRule},
 		{ID: "agent.liteParentSystemPromptTemplate", Source: "internal/prompts/agent_compose_lite_parent.go", Consumer: "internal/agent/compose_lite_parent_prompt.go", Text: LiteParentSystemPromptTemplate},

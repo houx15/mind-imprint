@@ -81,7 +81,7 @@ func TestDropNoticeTellsItNotToMentionTheCard(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
-	if !strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
+	if !strings.Contains(prompt, "上轮工具未展示给学生") {
 		t.Fatal("prompt 里没有那一节")
 	}
 	if !strings.Contains(prompt, string(cardRejectOneBlock)) {
@@ -99,7 +99,7 @@ func TestDropNoticeIsNotForHerEars(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
-	if !strings.Contains(prompt, "这件事不要说给她听") {
+	if !strings.Contains(prompt, "这件事不要说给学生听") {
 		t.Fatal("那一节没有交代「别把这件事讲给她」")
 	}
 }
@@ -234,7 +234,7 @@ func TestOpenCardIsShownToTheCoach(t *testing.T) {
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(card, cardOK))}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
 
-	if !strings.Contains(prompt, "她屏幕上现在摆着这张卡片") {
+	if !strings.Contains(prompt, "学生当前打开的卡片") {
 		t.Fatal("prompt 里没有那一节 —— 模型看不见自己递出去的东西")
 	}
 	for _, o := range card.Options {
@@ -242,7 +242,7 @@ func TestOpenCardIsShownToTheCoach(t *testing.T) {
 			t.Errorf("板上这一句没给它看：%q", o.Quote)
 		}
 	}
-	if !strings.Contains(prompt, "只能要求她用板上真有的东西") {
+	if !strings.Contains(prompt, "要求学生操作的内容必须存在于当前卡片") {
 		t.Error("没告诉它别让她去找板上没有的东西")
 	}
 	// 段号要说出来 —— 它对她说话时只能说「第几段」。
@@ -278,7 +278,7 @@ func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil, "")
-	if strings.Contains(prompt, "你上一轮递出去的东西没有到她屏幕上") {
+	if strings.Contains(prompt, "上轮工具未展示给学生") {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
 	}
 }

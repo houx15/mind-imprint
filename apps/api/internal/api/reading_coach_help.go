@@ -70,7 +70,7 @@ func helpRequestSection(studentText string, round int, open *coachCard) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n【她按了「给点提示」】\n")
+	b.WriteString("\n【学生按了「给点提示」】\n")
 	switch {
 	case round <= 1:
 		b.WriteString("这是这张卡片上的第 1 次提示：只给**方向** —— 这一步该往哪儿想、" +
@@ -83,22 +83,22 @@ func helpRequestSection(studentText string, round int, open *coachCard) string {
 			"一两个词，说它们为什么要紧，仍然不要把整句答案说出来。\n")
 	default:
 		b.WriteString("提示已经给满三次了，不要再给新的提示。用一句最具体的指令把这一步说清楚" +
-			"（她要做的动作 + 第几段），然后停。\n")
+			"（学生要做的动作 + 第几段），然后停。\n")
 	}
 	// 🚨 「卡片还开着」只在**真的**开着的时候说。她也可能在没有卡片的时候打出
 	// 这四个字 —— 那时这句话是假的，而模型会照着它去指一张屏幕上没有的卡
 	// （[[full-loop-two-entrances-2026-09-08]] 那一类）。
 	if open != nil {
-		b.WriteString("🚨 她屏幕上那张卡片还开着，题目和她写了一半的草稿都留着 —— " +
-			"**不要再发新卡片**，不要替她把题做掉，advance 留空。\n")
+		b.WriteString("学生屏幕上那张卡片还开着，题目和学生写了一半的草稿都留着 —— " +
+			"**不要再发新卡片**，不要替学生把题做掉，advance 留空。\n")
 	} else {
-		b.WriteString("🚨 这一轮不推进，advance 留空。\n")
+		b.WriteString("这一轮不推进，advance 留空。\n")
 	}
 	if round >= coachHintCap && openCardIsOpenForm(open) {
-		b.WriteString("🚨 她在这张卡片上按了三次提示还没动。这张卡要她自己写／自己回文章里去指，" +
+		b.WriteString("学生在这张卡片上已请求至少三次提示，尚未提交答案。这张卡要学生自己写／自己回文章里去指，" +
 			"这一轮可以换一个问法把同一件事变成一道选择题：card 的 type 用 choose_span，" +
 			"问的仍然是**同一件事**，选项从文章里逐字抄 2 到 4 句（跨段落取）。" +
-			"换了之后她原来那张卡会标成「已替换」，她答完这道选择题会回到原题。\n")
+			"换了之后学生原来那张卡会标成「已替换」，学生答完这道选择题会回到原题。\n")
 	}
 	return b.String()
 }

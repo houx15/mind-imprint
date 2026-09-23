@@ -143,11 +143,11 @@ func liteWorkspaceChosenArticle(run *liteWorkspaceRun, req liteWorkspaceTurnRequ
 	// model repeats what it reads, so a raw kind or an English title here
 	// ends up in the reply.
 	if run.kind != "reading" {
-		return "\n（她点的这个选项是库里的《" + art.ZhTitle + "》，但现在这份作业是" + liteworkspace.KindLabel(run.kind) +
+		return "\n（老师选择的选项对应库中的《" + art.ZhTitle + "》，但现在这份作业是" + liteworkspace.KindLabel(run.kind) +
 			"作业，没有阅读材料这一栏，所以材料没有设上。要用这篇就先把类型设成阅读，再设材料。）"
 	}
 	run.setMaterial(map[string]any{"source": "library", "slug": art.Slug})
-	return "\n（她点的这个选项对应库里的《" + art.ZhTitle + "》，材料已经设成这一篇了，不用再查一次。）"
+	return "\n（老师选择的选项对应库中的《" + art.ZhTitle + "》，材料已经设成这一篇了，不用再查一次。）"
 }
 
 // liteWorkspaceCardState renders the card's filled cells. An unparseable or
@@ -572,10 +572,10 @@ func (run *liteWorkspaceRun) setFields(args map[string]any) string {
 	// (2026-09-17) a fresh card turned into a writing homework got
 	// 「之前阅读库里的材料已清掉」 about an article she never saw.
 	if cleared && run.materialOnCard {
-		out["note"] = "类型不是 reading 了，作业卡上没有阅读材料这一栏，原来选的文章已经清掉。" +
-			"跟老师说清楚这件事，不要再提那篇文章；她要保留文章就把类型改回 reading"
+		out["note"] = "作业类型已由 reading 改为其他类型，卡片不再包含阅读材料，原先选定的文章已移除。" +
+			"请向老师说明这项变化；如需保留阅读材料，需要将作业类型改回 reading。"
 	} else if cleared {
-		out["note"] = "这一轮选的阅读材料已随类型一起清掉，老师没有看到过它，回复里不要提"
+		out["note"] = "本轮选择的阅读材料已随作业类型变更而移除，且尚未展示给老师。回复只需说明当前作业设置。"
 	}
 	return liteWorkspaceToolOK(out)
 }

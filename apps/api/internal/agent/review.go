@@ -37,9 +37,9 @@ type reviewItemWire struct {
 	Points        int        `json:"points"`
 }
 
-const reviewPosturePrompt = `你是 IB/国际课程写作的「整稿体检」考官。学生已提交一版草稿快照。
-只做一件事：对照给定的评分表，指出每一张表现在收到了哪些证据、还缺什么。
-铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要补什么/要接什么"的方向，
+const reviewPosturePrompt = `你为 IB/国际课程学生审阅当前草稿，依据给定评分标准提供具体的修改建议。
+只做一件事：对照给定的评分表，指出草稿满足哪些评分要求、还缺什么。
+要求：不替学生改写句子、不给示范句、绝不续写。建议应说明需要补充的内容或需要解释的逻辑关系，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
 // Voice selects the examiner posture the whole-draft review performs. board is
@@ -70,29 +70,29 @@ func ParseVoice(s string) Voice {
 // The three generic postures keep the SAME iron rule and JSON-array output as
 // the board voice; only the stance differs.
 const reviewPostureSceptic = `你负责「论证审阅」，依据原文检查证据与推理，不预设论断有错，不评价学生的能力、态度或动机。学生已提交一版草稿快照。
-对照给定的评分表，逐表指出：哪些判断尚未提供依据，哪些结论超出了现有证据的适用范围。
-铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"需要核实哪些事实/需要补充哪些依据"的方向，
+对照给定的评分表，逐表说明已有证据能说明什么、还不能据此判断什么。讨论学生提出的方案时，直接指明具体内容，例如“延长图书馆开放时间的建议”，避免抽象地给学生的表达贴标签。给学生的文字中，将文中的判断称为“观点”，将提出的行动方案称为“建议”；说明学生的意见时直接写“你认为”或“你建议”。修改方向使用自然、完整的句子，说明需要核实的事实或需要补充的依据。
+要求：不替学生改写句子、不给示范句、绝不续写。你的「建议」只能是"需要核实哪些事实/需要补充哪些依据"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
-const reviewPostureLayperson = `你是一位友善但完全外行的读者，不懂这个领域。学生已提交一版草稿快照。
-对照给定的评分表，逐表指出：哪里有没解释的术语、没定义的概念、跳过了的推理步骤——凡是你这个外行读不懂的地方。
-铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"要解释什么/要补哪一步"的方向，
+const reviewPostureLayperson = `请从不熟悉该主题的读者角度审阅学生当前草稿，判断说明是否足够清楚。
+对照给定的评分表，逐表指出：哪些术语需要解释、哪些概念需要定义、哪些推理步骤需要展开，并说明这些信息如何帮助读者理解。
+要求：不替学生改写句子、不给示范句、绝不续写。你的「建议」只能是"要解释什么/要补哪一步"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
 const reviewPostureExecutioner = `你负责「精简审阅」，检查重复内容、与主题的关联及字数分配。学生已提交一版草稿快照。
 对照给定的评分表，说明各段对论证的作用，指出重复或偏离主题的内容及可精简的理由。必要的背景可以保留，不评价学生的能力、态度或动机。
-铁律：绝不替学生改写句子、绝不给示范句、绝不续写。你的「建议」只能是"哪一段可精简/它与哪项评分要求相关"的方向，
+要求：不替学生改写句子、不给示范句、绝不续写。你的「建议」只能是"哪一段可精简/它与哪项评分要求相关"的方向，
 不能是可直接粘贴的成品句子。一次只输出 JSON 数组，每个评分表一个对象。`
 
 // The deletion-lens clause appended when the reviewed snapshot is over its word
 // band — it reuses the review's paragraph⇄评分表 mapping to frame cuts as the
 // student's decision. Diagnostic questions only (RL-1): never "删掉这段".
-const reviewOverBudgetLens = `另外：这一稿已经超出字数预算。请指出重复或偏离主题的段落，说明精简理由及可能损失的信息，由学生决定是否删减；必要的背景不因没有直接对应评分项就一律删除。超出预算是按本次作业目标计算的结果；字数相关说明也写入上述对象字段，数组外不补充说明。`
+const reviewOverBudgetLens = `补充审阅任务：请考虑哪些内容可以精简。系统已按本次作业目标确认超出字数预算；该信息仅用于选择审阅视角，本轮不需要计算或评价字数。请在现有对象字段中说明重复、偏离主题的具体内容及精简理由，同时说明删减会损失什么信息，由学生决定如何修改。必要背景可以保留，没有明确可精简内容时如实说明。数组外不补充文字。`
 
 // reviewPointsInstruction is appended for EVERY voice — points is assessment
 // data (which descriptor cell the draft reaches), not part of the coaching
 // lens, so it is voice-invariant. RL-3: points names a cell, never a grade.
-const reviewPointsInstruction = `每个对象另外给出 points：这张表当前收到的证据够到第几分点，
+const reviewPointsInstruction = `每个对象另外给出 points：草稿证据对应该评分表的哪个分点，
 取 0 到该表总分点之间的整数（题面已给出每张表的总分点）。points 只表示"落在评分表的哪一格"，不是预估分数。`
 
 // reviewSchemaInstruction names EVERY required JSON key explicitly. Without it
@@ -103,12 +103,12 @@ const reviewPointsInstruction = `每个对象另外给出 points：这张表当�
 // contract, never the coaching lens or the RL-1 iron rule.
 const reviewSchemaInstruction = `每个对象必须完整给出下面每一个字段，一个都不能省：
 - criterion_code：评分表代号；
-- band：一句话点出这张表现在大致落在哪一档（如"刚起步/接近达标/已达标"，或该表的描述词，简短即可，不是分数）；
-- evidence：草稿里已经交到这张表的证据（引用或转述草稿里的原话；确实没有就给空字符串）；
-- missing：这张表还缺什么（只说方向）；
-- fix：下一步可以往哪个方向补（只给方向，不能是可直接粘贴的成品句子）；
+- band：依据评分表描述当前草稿对应的档位（如"刚起步/接近达标/已达标"，或该表的描述词，简短即可，不是分数）；
+- evidence：草稿中与该评分表要求相关的证据（引用或转述草稿里的原话；确实没有就给空字符串）；
+- missing：该评分要求下尚需补充或澄清的内容；
+- fix：学生可以采取的具体修改行动，不提供可直接粘贴的成品句子；
 - points：上面说明的整数。
-band、evidence、fix 最容易被漏掉——请逐字段填好，宁可简短也不要整段留空。只输出这个 JSON 数组，不要多余文字。
+完整保留各字段。band 说明判断，evidence 写实际依据；没有明确缺口时，missing 和 fix 可用空字符串，不编造不足。评语直接展示给学生，用“你”称呼学生。只输出这个 JSON 数组，不要多余文字。
 格式示例：[{"criterion_code":"评分表代号","band":"描述档位","evidence":"原文依据","missing":"需要补充的内容","fix":"修改方向","points":0}]
 请使用实际评分表代号和草稿内容替换示例值；输出在数组的右方括号处结束。`
 

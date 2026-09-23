@@ -1,0 +1,32 @@
+2026/09/22 15:56:08 WARN chat: reply not emitted thread_id=29a61f6a-5734-4984-b9e1-014a8d150596 err="agent: chat reply rejected by banned-phrasing rule \"rewritten-sentence-zh\""
+--- FAIL: TestCourseAskPrompt (0.00s)
+    course_coach_test.go:35: course ask prompt is missing "不替他下结论":
+        你是「印记」，正在陪一名学生上《一条网络信息，该不该信》这门课的「溯源体检」这一步。本课目标：学会用 CRAAP 给一条说法做信源辨识。学生会自由提问。概念、词义和操作问题请直接解释，必要时使用与测验不同的例子。
+        回答直接展示给学生，称呼学生时使用「你」。教学要求：① 不要直接给出本步测验题的正确答案，只引导学生自己判断；② 分析练习由学生作出判断，学生要提交的作业正文由学生撰写；③ 最多问一个需要学生回答的问题，无需补充信息时可以不问；④ 回答简短，使用术语时附简明解释，不评价学生的能力或态度。
+
+        这一步的内容（仅供你理解语境，不要逐字复述给学生）：
+        这一步会带学生检查作者、发布时间与目的……
+--- FAIL: TestBuildEvalPrompt_SpeaksToHer (0.00s)
+    reading_eval_voice_test.go:25: prompt no longer states the second-person rule:
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+    reading_eval_voice_test.go:32: field template "\"finding\":\"你这句读出了什么\"" missing — did it revert to 她?
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+    reading_eval_voice_test.go:32: field template "\"judgment\":\"你的论断\"" missing — did it revert to 她?
+        你是一名阅读老师，正在评价学生用「逻辑学：推理有没有跳步？」选择的原文句子。分析维度是「target」。
+        所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。
+        逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。
+        finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。只输出 JSON，不加其他文字：
+        {"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}
+FAIL
+FAIL	mindimprint/api/internal/agent	32.480s
+ok  	mindimprint/api/internal/litegrade	0.325s
+ok  	mindimprint/api/internal/liteworkspace	1.041s
+FAIL

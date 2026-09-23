@@ -45,7 +45,7 @@ const titleSystemPrompt = prompts.AwakeningTitleSystemPrompt
 // BuildTitlePrompt 拼起名那一次调用。语料只有她自己写下的话。
 func BuildTitlePrompt(answers []string) (system, user string) {
 	var b strings.Builder
-	b.WriteString("她在这条线索上说过的话：\n\n")
+	b.WriteString("学生在这条线索上说过的话：\n\n")
 	for i, a := range answers {
 		a = strings.TrimSpace(a)
 		if a == "" {

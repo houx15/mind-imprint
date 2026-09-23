@@ -50,7 +50,7 @@ type GuideDirection struct {
 	Why       string `json:"why"`       // one line: the gap it fills
 }
 
-const explorationGuideSystem = `你在帮学生看清研究的森林，而不是替他做研究。指出下一个必要的方向或没接上的缺口，用一句话说明它填补什么。绝不替学生检索、绝不替他下结论、绝不替他判定某个来源的价值。最多给 3 条，每条是一个可追问的方向，不是一个答案。只输出 JSON：{"directions":[{"direction":"...","why":"..."}]}。`
+const explorationGuideSystem = `你帮助学生根据已有研究记录选择下一步研究方向。direction 和 why 会直接展示给学生，用“你”称呼学生。依据已记录的问题、来源和待探索线索，提出最多 3 个具体、可继续追问的方向，并说明各自补充哪一项信息。只有标题或状态时，不假装读过来源正文，不替学生判定来源价值或得出研究结论。本次不执行检索。只输出 JSON：{"directions":[{"direction":"...","why":"..."}]}。`
 
 // HasGraphContent reports whether there is anything in the exploration graph
 // to point from. An empty graph (no engaged sources, no open leads) means
@@ -94,7 +94,7 @@ func ComposeExplorationGuide(ctx context.Context, prov gateway.Provider, r gatew
 	if strings.TrimSpace(in.FocusLead) != "" {
 		b.WriteString("\n学生想重点深挖这条线索：" + in.FocusLead + "\n")
 		if strings.TrimSpace(in.Thought) != "" {
-			b.WriteString("她此刻的想法：" + in.Thought + "\n")
+			b.WriteString("学生此刻的想法：" + in.Thought + "\n")
 		}
 		b.WriteString("请围绕这条线索给出下一步可追问的方向。\n")
 	}

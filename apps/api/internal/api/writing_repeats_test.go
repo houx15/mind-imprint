@@ -94,7 +94,7 @@ func TestWritingRepeatBlock_SaysRepetitionIsNotAutomaticallyAFault(t *testing.T)
 	if got == "" {
 		t.Fatal("有重复却没渲染出来")
 	}
-	if !strings.Contains(got, "不一定") {
+	if !strings.Contains(got, "排比、强调和必要的关键词重复可以保留") {
 		t.Errorf("没说清重复不一定是毛病：\n%s", got)
 	}
 }

@@ -219,12 +219,12 @@ func TestStartIsIdempotentUnderConcurrency(t *testing.T) {
 	}
 }
 
-func TestStartProjectBypassesHomepageGate(t *testing.T) {
+func TestAssignedAndStudentCreatedProjectsAreBothAvailable(t *testing.T) {
 	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
 	student := signInAs(t, pool, studentID)
-	// The gate is closed for a fresh student.
-	if code := assignJSON(t, h, student, "POST", "/api/v1/pbl/projects", map[string]any{"idea": "x"}, nil); code != http.StatusConflict {
-		t.Fatalf("own project = %d, want 409 (gate)", code)
+	// A fresh student can start their own project without publishing a homepage.
+	if code := assignJSON(t, h, student, "POST", "/api/v1/pbl/projects", map[string]any{"idea": "x"}, nil); code != http.StatusCreated {
+		t.Fatalf("own project = %d, want 201", code)
 	}
 	aid := createAssignment(t, h, teacher, classID, map[string]any{
 		"kind": "project", "title": "杯子", "instructions": "",
@@ -249,11 +249,16 @@ func TestStartProjectBypassesHomepageGate(t *testing.T) {
 		ID       string `json:"id"`
 		Assigned bool   `json:"assigned"`
 	}
-	if code := getJSON(t, h, student, "/api/v1/pbl/projects", &list); code != http.StatusOK || len(list) != 1 || list[0].ID != out.AtomID || !list[0].Assigned {
-		t.Fatalf("project list = %d %+v, want the assigned project", code, list)
+	code := getJSON(t, h, student, "/api/v1/pbl/projects", &list)
+	foundAssigned := false
+	for _, project := range list {
+		foundAssigned = foundAssigned || (project.ID == out.AtomID && project.Assigned)
 	}
-	if code := assignJSON(t, h, student, "POST", "/api/v1/pbl/projects", map[string]any{"idea": "y"}, nil); code != http.StatusConflict {
-		t.Fatalf("own project after assigned start = %d, want still 409", code)
+	if code != http.StatusOK || len(list) != 2 || !foundAssigned {
+		t.Fatalf("project list = %d %+v, want own and assigned projects", code, list)
+	}
+	if code := assignJSON(t, h, student, "POST", "/api/v1/pbl/projects", map[string]any{"idea": "y"}, nil); code != http.StatusCreated {
+		t.Fatalf("own project after assigned start = %d, want 201", code)
 	}
 }
 

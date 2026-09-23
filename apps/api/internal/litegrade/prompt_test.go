@@ -15,9 +15,9 @@ func TestSystemPromptCarriesTheRubric(t *testing.T) {
 	in.SymptomCatalog = "【第 1 层 · 立意】\n- topic_without_question（只有主题，没有问题）：…\n"
 	p := SystemPrompt(in)
 	for _, want := range []string{
-		"内容", "结构", "语言", "书写规范", "A+ A A- B+ B B- C+ C C- D", "重点看论证", "topic_without_question", "3 到 5 条", "用中文写", "「」",
-		// 2026-09-23: points[].dimension / .symptom — the teacher-facing
-		// 依据 modal's two provenance fields.
+		"内容", "结构", "语言", "书写规范", "A+ A A- B+ B B- C+ C C- D", "重点看论证", "topic_without_question", "最多 5 条", "用中文写", "「」",
+		// 2026-09-23: points[].dimension / .symptom - the teacher-facing
+		// 依据 modal provenance fields.
 		"每条再给一个 dimension", "issue 再给一个 symptom", "不要新造一个 id",
 	} {
 		if !strings.Contains(p, want) {

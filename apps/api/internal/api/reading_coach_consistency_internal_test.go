@@ -125,7 +125,7 @@ func TestLensDoneCarriesTheVerdict(t *testing.T) {
 	if !strings.Contains(prompt, done.VerdictReason) {
 		t.Errorf("the verdict's reason never reached the prompt:\n%s", prompt)
 	}
-	if !strings.Contains(prompt, "她屏幕上已经看到了这一句") {
+	if !strings.Contains(prompt, "学生屏幕上已经看到了这一句") {
 		t.Errorf("the prompt must say she already read it, or 印记 feels free to contradict it:\n%s", prompt)
 	}
 }
@@ -156,11 +156,11 @@ func TestOpenLensSectionStopsTheCoachFromMovingOn(t *testing.T) {
 	if !strings.Contains(line, "伦理学") {
 		t.Errorf("the open lens must be named:\n%s", line)
 	}
-	if !strings.Contains(line, "不要领新的一步") {
+	if !strings.Contains(line, "不提供新卡片或推进步骤") {
 		t.Errorf("the section must stop the coach advancing:\n%s", line)
 	}
-	if !strings.Contains(line, "先信她") {
-		t.Errorf("「文章里没有这种句子」时先信她，是这一节存在的理由之一:\n%s", line)
+	if !strings.Contains(line, "检查所提供的原文") {
+		t.Errorf("「文章里没有这种句子」时检查所提供的原文，是这一节存在的理由之一:\n%s", line)
 	}
 	if openLensLine(false, "伦理学") != "" {
 		t.Error("no open lens must add nothing at all")
@@ -172,7 +172,7 @@ func TestOpenLensSectionStopsTheCoachFromMovingOn(t *testing.T) {
 	// 🚨 它必须排在推进判据**后面**：那一节说「她做完了就 done」，而这一节
 	// 取消它。最后一节才是这一轮真正的指令。
 	iRule := strings.Index(prompt, "【本轮推进判据】")
-	iOpen := strings.Index(prompt, "【她屏幕上正开着")
+	iOpen := strings.Index(prompt, "【学生屏幕上正开着")
 	if iRule < 0 || iOpen < 0 || iOpen < iRule {
 		t.Errorf("the open-lens section must come AFTER the advance rule (rule=%d open=%d)", iRule, iOpen)
 	}

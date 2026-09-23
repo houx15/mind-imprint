@@ -83,7 +83,12 @@ type Config struct {
 	OSSCDNAuthKey string `env:"OSS_CDN_AUTH_KEY"`
 	// OSSCDNAuthWindow is the URL鉴权 validity window in seconds; it must mirror
 	// the console 验证时长. Used to report expiresAt / schedule client refresh.
-	OSSCDNAuthWindow int `env:"OSS_CDN_AUTH_WINDOW" envDefault:"7200"`
+	OSSCDNAuthWindow           int    `env:"OSS_CDN_AUTH_WINDOW" envDefault:"7200"`
+	PublicAssetOSSEndpoint     string `env:"PUBLIC_ASSET_OSS_ENDPOINT"`
+	PublicAssetOSSBucket       string `env:"PUBLIC_ASSET_OSS_BUCKET"`
+	PublicAssetCDNDomain       string `env:"PUBLIC_ASSET_CDN_DOMAIN"`
+	PublicAssetOSSAccessKeyID  string `env:"PUBLIC_ASSET_OSS_ACCESS_KEY_ID"`
+	PublicAssetOSSAccessSecret string `env:"PUBLIC_ASSET_OSS_ACCESS_KEY_SECRET"`
 }
 
 // Load reads .env.local if present (ignored if absent), then parses the

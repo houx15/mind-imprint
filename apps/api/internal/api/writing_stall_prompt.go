@@ -1,8 +1,7 @@
 package api
 
-// Prompt assembly for writing_stall.go. Pure: no database or model calls.
-// Static teaching text lives in internal/prompts; context selection is separate
-// where a feature has a dedicated *_context.go file.
+// Writing prompt assembly. These functions render selected context without database or model calls.
+// Preserve context selection and the order of stable and changing prompt sections.
 
 import (
 	"strings"
@@ -22,24 +21,24 @@ func writingHelpModeBlock(mode writingHelpMode, appliesTo, lang, genre string) s
 	case helpOffer:
 		return `
 
-## 🚨 这一处已经说过两轮了，她没有改
+## 同一修改建议已连续出现两轮
 
-再问一遍同一个问题不会有别的结果。**这一轮改成给她两个选项。**
+先核对当前文字是否仍需这项修改；确有需要时，本轮提供两个不同的修改方法，帮助学生选择。
 
-- 把「你觉得这里该补什么」换成「这里有两条路：A……，B……。你想走哪一条？」
-- 两个选项都要具体到她可以直接照着写，不要是「补充论据」这种说法。
+- 结合原文说明两种修改方法及各自用途，再问学生想采用哪一种。
+- 每个选项说明具体修改对象与动作，不提供可直接复制的正文。
 - 这一轮只给选项，不要再追问。`
 
 	case helpShow:
 		var b strings.Builder
 		b.WriteString(`
 
-## 🚨 这一处说过三轮了，换选项她也没动
+## 同一修改建议已连续出现三轮
 
-**这一轮给她一句句式**，让她照着填。
+先核对当前文字是否仍需这项修改；确有需要时，本轮提供一句带空格的通用句式，由学生填写内容。
 
-🚨 句式不是替她写正文：你给的是带着空格的骨架（「因为……，所以……」），
-填什么由她定。绝不要把她那一段替她写出来。`)
+句式只表示内容之间的关系，保留待填写部分（「因为……，所以……」），
+内容由学生填写，不代写段落。`)
 		frames := writingHelpFrames(appliesTo, lang, genre)
 		if frames != "" {
 			b.WriteString("\n\n可以给的句式：\n")

@@ -1,0 +1,10 @@
+=== RUN   TestClarityReadingPlan
+=== RUN   TestClarityReadingPlan/en
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=1 model=dashscope/glm-5.3 ms=7437 input=2774 output=481 valid=false
+    clarity_teaching_live_test.go:111: compressed or confrontational teaching language: 撑 (visible output preserved in evidence)
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=2 model=dashscope/glm-5.3 ms=7577 input=2774 output=450 valid=true
+--- FAIL: TestClarityReadingPlan (15.02s)
+    --- FAIL: TestClarityReadingPlan/en (15.02s)
+FAIL
+FAIL	mindimprint/api/internal/api	15.504s
+FAIL

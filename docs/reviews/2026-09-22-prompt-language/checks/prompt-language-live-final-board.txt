@@ -1,0 +1,7 @@
+=== RUN   TestClarityWritingRoleBoard
+    clarity_writing_board_live_test.go:33: TestClarityWritingRoleBoard sample=1 model=dashscope/deepseek-v4.1-flash ms=5009 input=1211 output=151 valid=false
+    clarity_writing_board_live_test.go:33: compressed or confrontational teaching language: 主张 (visible output preserved in evidence)
+--- FAIL: TestClarityWritingRoleBoard (5.01s)
+FAIL
+FAIL	mindimprint/api/internal/api	6.155s
+FAIL

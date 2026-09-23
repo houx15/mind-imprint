@@ -1,0 +1,7 @@
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=2533 input=1713 output=105 valid=true
+--- PASS: TestClarityWriting (2.54s)
+    --- PASS: TestClarityWriting/guide (2.53s)
+PASS
+ok  	mindimprint/api/internal/api	3.682s

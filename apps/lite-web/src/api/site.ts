@@ -1,3 +1,5 @@
+import type { ShowcaseInterestSnapshot } from "../site/ShowcaseInterestTree";
+import type { ShowcaseConfig, ShowcaseWork } from "../site/showcaseTypes";
 import { API_BASE, apiFetch } from "./client";
 import type { SiteContent, SiteDraft, SiteLayout, SitePalette } from "../site/types";
 
@@ -99,10 +101,28 @@ export interface PublishedWork {
 export function getPublicSite(
   token: string,
 ): Promise<
+  | {showcase: true; config: ShowcaseConfig; works: ShowcaseWork[]; worksTotal: number; interestTree?:ShowcaseInterestSnapshot; heroImageUrl?:string; avatarUrl?:string}
   | {generated: true; renderKey: string; comparison?: {feedback:string;observation:string}|null; works?: PublishedWork[]}
   | {generated?: false; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent; works?: PublishedWork[] }
 > {
   return apiFetch(`/api/v1/public/sites/${encodeURIComponent(token)}`);
+}
+
+export interface PublicShowcaseWorksPage {
+  items: ShowcaseWork[];
+  nextCursor?: string;
+  total: number;
+}
+
+export function getPublicShowcaseWorks(
+  token: string,
+  options: { cursor?: string; limit?: number; kind?: "all" | ShowcaseWork["kind"] } = {},
+): Promise<PublicShowcaseWorksPage> {
+  const query = new URLSearchParams();
+  query.set("limit", String(options.limit ?? 12));
+  query.set("kind", options.kind ?? "all");
+  if (options.cursor) query.set("cursor", options.cursor);
+  return apiFetch(`/api/v1/public/sites/${encodeURIComponent(token)}/works?${query}`);
 }
 
 export function applySiteStructure(projectId: string): Promise<SiteState> {

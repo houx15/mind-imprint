@@ -79,7 +79,7 @@ func TestWritingPlanSystem_ForbidsOfferingTheSkeletonsAsAMenu(t *testing.T) {
 		"中文": writingPlanSystemFor(genreArgument, "zh", ""),
 		"英文": writingPlanSystemFor(genreArgument, "en", ""),
 	} {
-		if !strings.Contains(s, "学生尚未说明观点时，不要求她先选结构名称") {
+		if !strings.Contains(s, "学生尚未说明观点时，不要求学生先选结构名称") {
 			t.Errorf("%s那一份的骨架里没有「不许做成菜单」的禁令", lang)
 		}
 		if !strings.Contains(s, "先了解学生想表达的内容，再据此整理结构") {

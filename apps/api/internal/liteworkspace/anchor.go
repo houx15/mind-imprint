@@ -110,7 +110,7 @@ func AnchoredSpan(typed, startAnchor, endAnchor string) (string, error) {
 
 	start := indexRunes(hay, sa, 0)
 	if start < 0 {
-		return "", fmt.Errorf("startAnchor 在老师这一轮的消息里找不到：%s。请从她贴的正文开头原样复制一段，不要改字、不要补标点；也可以换成开头处更短的一段（不少于 %d 字）", startAnchor, MinAnchorRunes)
+		return "", fmt.Errorf("startAnchor 在老师这一轮的消息里找不到：%s。请从老师提供的正文开头原样复制一段，不要改字、不要补标点；也可以换成开头处更短的一段（不少于 %d 字）", startAnchor, MinAnchorRunes)
 	}
 	startEnd := start + len(sa)
 
@@ -130,7 +130,7 @@ func AnchoredSpan(typed, startAnchor, endAnchor string) (string, error) {
 		if indexRunes(hay, ea, 0) >= 0 {
 			return "", fmt.Errorf("endAnchor 只出现在 startAnchor 之前（或整个落在 startAnchor 里面）：%s。endAnchor 应取那段正文的结尾，startAnchor 取开头，请检查是否写反了", endAnchor)
 		}
-		return "", fmt.Errorf("endAnchor 在老师这一轮的消息里找不到：%s。请从她贴的正文结尾原样复制一段，不要改字、不要补标点；也可以换成结尾处更短的一段（不少于 %d 字）", endAnchor, MinAnchorRunes)
+		return "", fmt.Errorf("endAnchor 在老师这一轮的消息里找不到：%s。请从老师提供的正文结尾原样复制一段，不要改字、不要补标点；也可以换成结尾处更短的一段（不少于 %d 字）", endAnchor, MinAnchorRunes)
 	}
 	from, to := widenToPunctuation(orig, start, end+len(ea))
 	return string(orig[from:to]), nil

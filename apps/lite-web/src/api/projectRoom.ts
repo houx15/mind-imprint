@@ -169,6 +169,14 @@ export interface PlanStep {
   thenBring: string;
   status: StepStatus;
   progress?: "todo" | "doing" | "done";
+  submission?: StepSubmission;
+}
+
+export interface StepSubmission {
+  id: string;
+  note: string;
+  url: string;
+  confirmedAt: string;
 }
 
 export interface Plan {
@@ -210,6 +218,17 @@ export function setStepStatus(projectId: string, stepId: string, status: StepSta
   return apiFetch<PlanStep>(`${base(projectId)}/plan/steps/${stepId}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function submitStepDeliverable(
+  projectId: string,
+  stepId: string,
+  body: { note: string; url: string; confirmed: boolean },
+): Promise<{ submission: StepSubmission; status: "done" }> {
+  return apiFetch(`${base(projectId)}/plan/steps/${stepId}/submission`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

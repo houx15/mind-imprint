@@ -94,9 +94,9 @@ func BuildDigPrompt(textZh, note string, evidences []string, candidates []Librar
 	var b strings.Builder
 	fmt.Fprintf(&b, "关键词：%s\n", textZh)
 	if n := strings.TrimSpace(note); n != "" {
-		fmt.Fprintf(&b, "我们对它的理解：%s\n", n)
+		fmt.Fprintf(&b, "相关说明：%s\n", n)
 	}
-	b.WriteString("\n她自己写下的、让这个词出现的话：\n")
+	b.WriteString("\n学生相关的对话记录：\n")
 	if len(evidences) == 0 {
 		// 不该发生（evidence 是 NOT NULL 且应用层挡空串），但如果发生了，
 		// 说实话比编一句更好。
@@ -110,9 +110,9 @@ func BuildDigPrompt(textZh, note string, evidences []string, candidates []Librar
 		fmt.Fprintf(&b, "- 「%s」\n", truncRunes(e, 200))
 	}
 
-	b.WriteString("\n【阅读库里的文章】（去读那一颗只能从这里挑，按 slug）\n")
+	b.WriteString("\n【系统筛选的阅读候选】（read 只能从这些文章中选择，使用对应 slug）\n")
 	if len(candidates) == 0 {
-		b.WriteString("（这次一篇都没有。请省略 read 那一颗。）\n")
+		b.WriteString("（暂无相关候选，请省略 read。）\n")
 	}
 	for _, c := range candidates {
 		fmt.Fprintf(&b, "- %s ｜ %s", c.Slug, truncRunes(strings.TrimSpace(c.Title), 80))

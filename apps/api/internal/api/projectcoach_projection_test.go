@@ -337,10 +337,10 @@ func TestProjection_ReflectionSupportNudge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("projection: %v", err)
 	}
-	if !strings.Contains(proj, "这不是答辩") {
+	if !strings.Contains(proj, "学生正在撰写回顾，请帮助学生梳理真实经历与自己的理解") {
 		t.Fatalf("reflection projection must carry the supportive nudge:\n%s", proj)
 	}
-	if strings.Contains(proj, "追问她") {
+	if strings.Contains(proj, "追问学生") {
 		t.Fatalf("reflection projection must not steer the coach to interrogate her:\n%s", proj)
 	}
 
@@ -348,7 +348,7 @@ func TestProjection_ReflectionSupportNudge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("projection (writing): %v", err)
 	}
-	if strings.Contains(proj2, "这不是答辩") {
+	if strings.Contains(proj2, "学生正在撰写回顾，请帮助学生梳理真实经历与自己的理解") {
 		t.Fatalf("non-reflection projection must NOT carry the reflection nudge:\n%s", proj2)
 	}
 }

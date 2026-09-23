@@ -22,13 +22,13 @@ func readingSuiteCase(t *testing.T, id string) benchcase.Case {
 func TestReadingBenchmarkContainsOneCurrentStepAndHistory(t *testing.T) {
 	c := readingCoachCase()
 	user := c.Request.Messages[1].Content
-	if strings.Count(user, "← **她现在在这一步**") != 1 || strings.Contains(user, "所有步骤都走完了") {
+	if strings.Count(user, "← **学生现在在这一步**") != 1 || strings.Contains(user, "所有步骤都走完了") {
 		t.Fatal("long-context fixture has no single active step")
 	}
 	if !strings.Contains(user, "(focus_block)") || !strings.Contains(user, "(reflect)") {
 		t.Fatal("fixture must use registered task kinds")
 	}
-	if strings.Count(user, "你：")+strings.Count(user, "她：") != readingCoachTurnsWindow || len([]rune(user)) < 8000 {
+	if strings.Count(user, "你：")+strings.Count(user, "学生：") != readingCoachTurnsWindow || len([]rune(user)) < 8000 {
 		t.Fatal("long-context fixture lost the production-sized article or 14-turn history")
 	}
 }
@@ -43,7 +43,7 @@ func TestLiteReadingSuiteHasNineCurrentCases(t *testing.T) {
 		if c.Parse == nil || c.Validate == nil || c.Version != 8 {
 			t.Errorf("%s lacks parser, expectation or current fixture version", c.ID)
 		}
-		if len(c.Request.Messages) != 2 || !strings.Contains(c.Request.Messages[1].Content, "她现在在这一步") {
+		if len(c.Request.Messages) != 2 || !strings.Contains(c.Request.Messages[1].Content, "学生现在在这一步") {
 			t.Errorf("%s does not use the production prompt with one current task", c.ID)
 		}
 		if strings.Contains(c.ID, "lens") || strings.Contains(c.ID, "connect") || strings.Contains(c.ID, "concept") {
@@ -83,7 +83,7 @@ func TestReadingCompleteFixtureCoversBothAnswerIdeas(t *testing.T) {
 
 func TestReadingHelpFixtureUsesTheRealHelpControl(t *testing.T) {
 	c := readingSuiteCase(t, "dialogue/lite-reading-coach/help")
-	if !strings.Contains(c.Request.Messages[1].Content, "【她按了「给点提示」】") {
+	if !strings.Contains(c.Request.Messages[1].Content, "【学生按了「给点提示」】") {
 		t.Fatal("help fixture must exercise the production help-control path")
 	}
 }
@@ -114,7 +114,7 @@ func TestReadingFixtureExpectationsAreAdvisoryEvidence(t *testing.T) {
 func TestReadingPromptKeepsFourAgreedBehaviors(t *testing.T) {
 	for _, want := range []string{
 		"直接给当前问题的完整答案", "只补下一层方向、位置或局部词语线索",
-		"跳过不附加工具；完成时按当前步骤说明直接交接下一步", "对她已提交的合理分类，不要为了延长这一步而要求重新分类",
+		"跳过不附加工具；完成时按当前步骤说明直接交接下一步", "对学生已提交的合理分类，不要为了延长这一步而要求重新分类",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("prompt lost %q", want)
@@ -129,7 +129,7 @@ func TestReadingPromptPrioritizesSkipHintAndCompletion(t *testing.T) {
 		"advance=\"done\"；不再追问",
 		"解释一个术语时可以引用其他段落，不能因证据不在当前段而要求重做",
 		"只给数字、排名或时间却没有解释它统计的对象仍是部分回答",
-		"完成或组件完成回灌时只可按下一步说明给一张下一步 card",
+		"完成或组件完成提交结果时只可按下一步说明给一张下一步 card",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("prompt lost priority rule %q", want)
@@ -140,12 +140,12 @@ func TestReadingPromptPrioritizesSkipHintAndCompletion(t *testing.T) {
 func TestFocusStepInstructionOnlyIntroducesAnUnansweredStep(t *testing.T) {
 	tasks := []sqlc.ReadingTask{{Kind: string(taskFocusBlock), Status: "pending"}}
 	opening := readingCurrentStepInstruction(tasks, "")
-	if !strings.Contains(opening, "她尚未对当前步骤作答") {
+	if !strings.Contains(opening, "学生尚未对当前步骤作答") {
 		t.Fatalf("opening focus step lost its introduction: %s", opening)
 	}
 	for _, input := range []string{coachAskHint, "请跳过这一步。", "我已经回答了。"} {
 		got := readingCurrentStepInstruction(tasks, input)
-		if strings.Contains(got, "她尚未对当前步骤作答") || !strings.Contains(got, "她已经对当前步骤作答或提出操作请求") {
+		if strings.Contains(got, "学生尚未对当前步骤作答") || !strings.Contains(got, "学生已经对当前步骤作答或提出操作请求") {
 			t.Errorf("input %q got the opening instruction: %s", input, got)
 		}
 	}
@@ -155,7 +155,7 @@ func TestReadingPromptPlacesHelpAfterCurrentStepInstruction(t *testing.T) {
 	tasks := []sqlc.ReadingTask{{Kind: string(taskFocusBlock), Status: "pending"}}
 	prompt := buildReadingCoachPrompt("标题", nil, readingOutline{}, tasks, nil, nil, coachAskHint, nil, "")
 	step := strings.Index(prompt, "【本轮推进判据】")
-	help := strings.Index(prompt, "【她按了「给点提示」】")
+	help := strings.Index(prompt, "【学生按了「给点提示」】")
 	if step < 0 || help < 0 || step > help {
 		t.Fatalf("help must be the later, turn-specific instruction:\n%s", prompt)
 	}

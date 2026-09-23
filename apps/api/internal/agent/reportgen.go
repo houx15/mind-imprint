@@ -157,11 +157,11 @@ func GenerateRubric(ctx context.Context, prov gateway.Provider, resolved gateway
 func rubricSystemPrompt() string {
 	var b strings.Builder
 	m := rubric.Model()
-	b.WriteString("你是「印记」的过程评估分析器。基于学生的真实全过程记录，对两条轴逐维给出判定。铁律：\n")
+	b.WriteString("你是「印记」的过程评估分析器。基于学生的真实全过程记录，对两条轴逐维给出判定。说明与建议直接展示给学生，用“你”称呼学生，区分已观察到的行为和证据不足的情况。评估要求：\n")
 	b.WriteString("· 公理：" + m.Axiom + "\n")
 	b.WriteString("· 两轴永不合成总分。认知深度按 L1-L4 档；智识自主按 0-5 行为计数带（不是质量分）。\n")
 	b.WriteString("· 只依据记录里真实出现的证据判定；证据不足就给保守档并说明「暂无足够证据」，绝不拔高。\n")
-	b.WriteString("· evidence 里每条的 id 只能取用户消息中【可引用的证据】里方括号内的 id；找不到贴切的就把 id 留空字符串，绝不编造 id。\n")
+	b.WriteString("· evidence 里每条的 id 只能取用户消息中【可引用的证据】里方括号内的 id；找不到贴切的就把 id 留空字符串，不编造 id。\n")
 	b.WriteString("· D6 反思维度只认学生亲手写的反思；若无，summary 注明「学生未留下自写反思（NA）」并给最低档 1，不惩罚性判低。\n\n")
 	b.WriteString("【认知深度 D1-D6（id · 名称 · 看的是 · L1/L2/L3/L4 锚点）】\n")
 	for _, d := range m.Depth {
@@ -195,8 +195,8 @@ type promptLensReply struct {
 // GeneratePromptLens reads only the student's own prompts to AI and produces the
 // 提问透镜 summary + a small set of notable prompts.
 func GeneratePromptLens(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in ReportGenContext) (evalreport.PromptLens, gateway.ChatUsage, error) {
-	system := "你是「印记」的提问透镜分析器。根据学生对 AI 的提问及可引用证据，描述她如何查询知识、澄清概念、检验推理或请求协助。挑出最有代表性的 3-6 条提问（记录不足时按实际数量），说明每条的具体用途；不要仅凭提问措辞推断能力、态度、依赖程度或后续是否采纳。缺少后续证据时明确说明无法判断。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
-		`{"summary":"一段话·整体提问画像","prompts":[{"stage":"阶段","quote":"提问原话","ref":{"id":"<id或空>","label":"简短标签"},"observation":"这条提问体现了什么","relatedDomains":["相关学科/主题"],"attention":false}]}` +
+	system := "你是「印记」的提问透镜分析器。根据学生对 AI 的提问及可引用证据，说明文字直接展示给学生，用“你”称呼学生。描述学生如何查询知识、澄清概念、检验推理或请求协助。挑出最有代表性的 3-6 条提问（记录不足时按实际数量），说明每条的具体用途；不要仅凭提问措辞推断能力、态度、依赖程度或后续是否采纳。缺少后续证据时明确说明无法判断。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
+		`{"summary":"一段话概括提问的实际用途","prompts":[{"stage":"阶段","quote":"提问原话","ref":{"id":"<id或空>","label":"简短标签"},"observation":"这条提问体现了什么","relatedDomains":["相关学科/主题"],"attention":false}]}` +
 		"\nattention=true 仅用于有明确记录支持的风险，例如请求代写要提交的作业正文。查询知识、求概念解释或请求学习示范本身不触发提醒；不把求助等同于代写。不要输出对象以外的文字或代码块标记。"
 	user := fmt.Sprintf("题目：%s\n\n【可引用的证据】\n%s\n\n【学生对 AI 的提问记录】\n%s\n", in.Title, in.Candidates, in.Prompts)
 	obj, usage, err := collectReport(ctx, prov, resolved, system, user)
@@ -237,7 +237,7 @@ var validRiskTypes = map[string]bool{
 // GenerateRisks scans the risk-signal slice and returns any flagged behaviours
 // (possibly none — an empty list is the healthy case, reported as such).
 func GenerateRisks(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in ReportGenContext) ([]evalreport.RiskEntry, gateway.ChatUsage, error) {
-	system := "你是「印记」的风险审阅器。只标记记录里真实出现的、值得提醒的行为，绝不臆测。type 只能取：ai-ghostwrite（疑似让 AI 代写正文）、missing-source（引用未溯源）、argument-logic（论证逻辑跳跃）、data-scope（数据/结论范围过宽）、rabbit-hole-offtopic（跑题的兔子洞）。没有风险就返回空数组。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
+	system := "你是「印记」的风险审阅器。说明直接展示给学生，用“你”称呼学生；不评价能力、态度或动机。只标记记录里真实出现的、值得提醒的行为，不臆测。type 只能取：ai-ghostwrite（疑似让 AI 代写正文）、missing-source（引用未溯源）、argument-logic（论证逻辑跳跃）、data-scope（数据/结论范围过宽）、rabbit-hole-offtopic（偏离当前研究问题的探索）。没有风险就返回空数组。ref.id 只能取【可引用的证据】里的方括号 id，取不到留空。只输出一个 JSON 对象：" +
 		`{"risks":[{"type":"missing-source","behaviour":"具体行为描述","ref":{"id":"<id或空>","label":"标签"},"suggestion":"一句改进建议"}]}` +
 		"\n不要输出对象以外的文字或代码块标记。"
 	user := fmt.Sprintf("题目：%s\n\n【可引用的证据】\n%s\n\n【风险信号记录（正文、引用、来源、跑题等）】\n%s\n", in.Title, in.Candidates, in.RiskSignals)
@@ -281,8 +281,8 @@ type abstractReply struct {
 // GenerateAbstract synthesises the 综述 · 学生画像 from the full digest plus the
 // axis results already produced (it summarises what depth/autonomy found).
 func GenerateAbstract(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in ReportGenContext, axes RubricResult) (evalreport.Abstract, gateway.ChatUsage, error) {
-	system := "你是「印记」的过程评估综述器。用一段克制、诚实、对学生说话的画像总结这个项目的思考过程：材料一句、写作一句、与 AI 协作一句，再给一段建议 + 2-3 条可操作的下一步。绝不吹捧、绝不替学生定论。只输出一个 JSON 对象：" +
-		`{"overview":"一段总画像","materialSentence":"材料一句","writingSentence":"写作一句","aiSentence":"与AI协作一句","suggestionParagraph":"一段建议","suggestionSentences":["下一步1","下一步2"],"recommendedCourses":[]}` +
+	system := "你是「印记」的过程评估综述器。基于实际记录总结这个项目的思考过程：材料一句、写作一句、与 AI 协作一句，再给一段建议 + 2-3 条可操作的下一步。用“你”称呼学生；不从活动次数推断能力、态度或习惯，不把助手的建议当作学生已经采纳的想法。只输出一个 JSON 对象：" +
+		`{"overview":"项目学习概述","materialSentence":"材料一句","writingSentence":"写作一句","aiSentence":"与AI协作一句","suggestionParagraph":"一段建议","suggestionSentences":["下一步1","下一步2"],"recommendedCourses":[]}` +
 		"\nrecommendedCourses 没有把握就留空数组。不要输出对象以外的文字或代码块标记。"
 	var ax strings.Builder
 	for _, d := range axes.Depth {

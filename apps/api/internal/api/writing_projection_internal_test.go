@@ -39,7 +39,7 @@ func TestWritingProjectionSnippet_SaysSoWhenItReallyTruncates(t *testing.T) {
 	if len([]rune(got)) <= writingProjectionSnippetRunes {
 		t.Fatal("截断之后什么都没说")
 	}
-	for _, want := range []string{"一共", "别据此说她少写了什么"} {
+	for _, want := range []string{"一共", "不能据此判断学生未写相关内容"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("截断说明里少了 %q：\n%s", want, got[len(got)-300:])
 		}

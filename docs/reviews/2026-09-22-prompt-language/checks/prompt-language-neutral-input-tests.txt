@@ -1,0 +1,598 @@
+ok  	mindimprint/api/internal/agent	44.818s
+2026/09/22 16:18:36 OK   0001_init.sql (30.21ms)
+2026/09/22 16:18:36 OK   0002_seed.sql (4.52ms)
+2026/09/22 16:18:36 OK   0003_auth.sql (5.58ms)
+2026/09/22 16:18:36 OK   0004_seed_password.sql (1.71ms)
+2026/09/22 16:18:36 OK   0005_org.sql (4.64ms)
+2026/09/22 16:18:36 OK   0006_seed_admin.sql (1.58ms)
+2026/09/22 16:18:36 OK   0007_eval_async.sql (1.44ms)
+2026/09/22 16:18:36 OK   0008_eval_trigger.sql (5.16ms)
+2026/09/22 16:18:36 OK   0009_material.sql (3.55ms)
+2026/09/22 16:18:36 OK   0010_card_anchors.sql (2.35ms)
+2026/09/22 16:18:36 OK   0011_courses.sql (6.61ms)
+2026/09/22 16:18:36 OK   0012_seed_course.sql (2.93ms)
+2026/09/22 16:18:36 OK   0013_course_step_render.sql (2.14ms)
+2026/09/22 16:18:36 OK   0014_voice_tts_cache.sql (3.16ms)
+2026/09/22 16:18:36 OK   0015_message_source.sql (1.35ms)
+2026/09/22 16:18:36 OK   0016_refactor2_foundations.sql (61.45ms)
+2026/09/22 16:18:36 OK   0017_graph_node_open_type.sql (4.46ms)
+2026/09/22 16:18:36 OK   0018_seed_demo_project.sql (10.58ms)
+2026/09/22 16:18:37 OK   0019_llm_call_usage.sql (10.04ms)
+2026/09/22 16:18:37 OK   0020_material_source_log.sql (6.49ms)
+2026/09/22 16:18:37 OK   0021_assessment_project.sql (5.8ms)
+2026/09/22 16:18:37 OK   0022_chat_thread_scope.sql (8.58ms)
+2026/09/22 16:18:37 OK   0023_course_session_scope.sql (16.31ms)
+2026/09/22 16:18:37 OK   0024_session_assessment_scope.sql (9.43ms)
+2026/09/22 16:18:37 OK   0025_thread_assessment_scope.sql (11.39ms)
+2026/09/22 16:18:37 OK   0026_project_status_check.sql (3.02ms)
+2026/09/22 16:18:37 OK   0027_dualaxis_clean_slate.sql (3.16ms)
+2026/09/22 16:18:37 OK   0028_canonical_assessment_clean_slate.sql (1.76ms)
+2026/09/22 16:18:37 OK   0029_seed_teacher_class.sql (10.72ms)
+2026/09/22 16:18:37 OK   0030_seed_teacher_password.sql (1.87ms)
+2026/09/22 16:18:37 OK   0031_event_course_scope.sql (4.68ms)
+2026/09/22 16:18:37 OK   0032_student_evaluation_view.sql (2.41ms)
+2026/09/22 16:18:37 OK   0033_class_weekly_prose.sql (3.58ms)
+2026/09/22 16:18:37 OK   0034_seed_teacher_week.sql (10.22ms)
+2026/09/22 16:18:37 OK   0035_parent_report_prose.sql (3.69ms)
+2026/09/22 16:18:37 OK   0036_workspace_redesign.sql (20.54ms)
+2026/09/22 16:18:37 OK   0037_project_status_evaluating.sql (2.82ms)
+2026/09/22 16:18:37 OK   0038_continuous_session.sql (5.35ms)
+2026/09/22 16:18:37 OK   0039_reading_takeaway.sql (5.03ms)
+2026/09/22 16:18:37 OK   0040_exploration_lead.sql (4.79ms)
+2026/09/22 16:18:37 OK   0041_conversation_digest.sql (13.97ms)
+2026/09/22 16:18:37 OK   0042_project_ai_use.sql (6.66ms)
+2026/09/22 16:18:37 OK   0043_reading_note.sql (5.73ms)
+2026/09/22 16:18:37 OK   0044_snippet.sql (4.93ms)
+2026/09/22 16:18:37 OK   0045_snippet_section.sql (2.15ms)
+2026/09/22 16:18:37 OK   0046_exploration_lead_branch.sql (3.76ms)
+2026/09/22 16:18:37 OK   0047_user_card_theme.sql (2.21ms)
+2026/09/22 16:18:37 OK   0048_reference_abstract.sql (3.04ms)
+2026/09/22 16:18:37 OK   0049_project_writing_finished.sql (2.88ms)
+2026/09/22 16:18:37 OK   0050_course_v2.sql (29.8ms)
+2026/09/22 16:18:37 OK   0051_course_active_seconds.sql (3.36ms)
+2026/09/22 16:18:37 OK   0052_course_audio_manifest.sql (1.88ms)
+2026/09/22 16:18:37 OK   0053_reference_reading_status.sql (1.74ms)
+2026/09/22 16:18:37 OK   0054_question_edge.sql (7.26ms)
+2026/09/22 16:18:37 OK   0055_lead_origin_note.sql (2.7ms)
+2026/09/22 16:18:37 OK   0056_proposal_counterpoints.sql (5.29ms)
+2026/09/22 16:18:37 OK   0057_studio_state.sql (2.72ms)
+2026/09/22 16:18:37 OK   0058_project_cover.sql (4.52ms)
+2026/09/22 16:18:37 OK   0059_studio_started.sql (3.6ms)
+2026/09/22 16:18:37 OK   0060_chat_message_stage.sql (3.82ms)
+2026/09/22 16:18:37 OK   0061_writing_doc_kind.sql (9.01ms)
+2026/09/22 16:18:37 OK   0062_reference_evidence.sql (3.6ms)
+2026/09/22 16:18:37 OK   0063_revision_checkpoint.sql (4.34ms)
+2026/09/22 16:18:37 OK   0064_evaluation_report.sql (6.2ms)
+2026/09/22 16:18:37 OK   0065_drop_mirror_parent_prose.sql (3.64ms)
+2026/09/22 16:18:37 OK   0066_evaluation_report_status.sql (2.87ms)
+2026/09/22 16:18:37 OK   0067_truncate_weekly_prose_cache.sql (2.12ms)
+2026/09/22 16:18:37 OK   0068_citation.sql (3.48ms)
+2026/09/22 16:18:37 OK   0069_backfill_framework_finished.sql (1.88ms)
+2026/09/22 16:18:37 OK   0070_course_definition.sql (2.35ms)
+2026/09/22 16:18:37 OK   0071_course_session.sql (3.13ms)
+2026/09/22 16:18:37 OK   0072_course_status_cover.sql (2.42ms)
+2026/09/22 16:18:37 OK   0073_seed_demo_class_teacher.sql (1.89ms)
+2026/09/22 16:18:37 OK   0074_user_page_background.sql (2.17ms)
+2026/09/22 16:18:37 OK   0075_course_catalog_metadata.sql (1.65ms)
+2026/09/22 16:18:37 OK   0076_course_definition_step_count.sql (2.53ms)
+2026/09/22 16:18:37 OK   0077_course_session_attempts.sql (7.32ms)
+2026/09/22 16:18:37 OK   0078_seed_foreign_class.sql (4.34ms)
+2026/09/22 16:18:37 OK   0079_user_onboarded_at.sql (1.81ms)
+2026/09/22 16:18:37 OK   0080_feedback.sql (3.72ms)
+2026/09/22 16:18:37 OK   0081_project_is_demo.sql (2.58ms)
+2026/09/22 16:18:37 OK   0082_seed_demo_project_finished.sql (46ms)
+2026/09/22 16:18:37 OK   0083_seed_demo_essay_annotations.sql (6.1ms)
+2026/09/22 16:18:37 OK   0084_demo_studio_state_retrospective.sql (1.61ms)
+2026/09/22 16:18:37 OK   0085_demo_essay_newlines.sql (2.82ms)
+2026/09/22 16:18:37 OK   0086_demo_full_paper.sql (2.8ms)
+2026/09/22 16:18:37 OK   0087_demo_warren_depth_and_needs.sql (2.53ms)
+2026/09/22 16:18:37 OK   0088_demo_node_read_transition.sql (2.46ms)
+2026/09/22 16:18:37 OK   0089_demo_warren_full_second_layer.sql (1.92ms)
+2026/09/22 16:18:37 OK   0090_demo_proposal_track_guides.sql (3.68ms)
+2026/09/22 16:18:37 OK   0091_demo_reading_notes.sql (2.95ms)
+2026/09/22 16:18:37 OK   0092_atom_substrate.sql (22.07ms)
+2026/09/22 16:18:37 OK   0093_schools_edition.sql (2.65ms)
+2026/09/22 16:18:37 OK   0094_llm_call_atom.sql (2.97ms)
+2026/09/22 16:18:37 OK   0095_atom_card_anchors.sql (3.25ms)
+2026/09/22 16:18:37 OK   0096_atom_card_one_open.sql (1.94ms)
+2026/09/22 16:18:37 OK   0097_atom_card_origin.sql (2.46ms)
+2026/09/22 16:18:37 OK   0098_atom_last_activity.sql (3.59ms)
+2026/09/22 16:18:37 OK   0099_writing_tables.sql (12.8ms)
+2026/09/22 16:18:37 OK   0100_writing_structure.sql (6.79ms)
+2026/09/22 16:18:37 OK   0101_reading_plan.sql (9.03ms)
+2026/09/22 16:18:37 OK   0102_writing_room_deepening.sql (8.19ms)
+2026/09/22 16:18:37 OK   0103_reading_depth.sql (6.28ms)
+2026/09/22 16:18:37 OK   0104_reading_questions_at.sql (1.96ms)
+2026/09/22 16:18:37 OK   0105_lite_reports.sql (7.74ms)
+2026/09/22 16:18:37 OK   0106_coach_card_payload.sql (9.05ms)
+2026/09/22 16:18:37 OK   0107_atom_experience_rating.sql (6.98ms)
+2026/09/22 16:18:37 OK   0108_pbl_project.sql (40.29ms)
+2026/09/22 16:18:37 OK   0109_pbl_sessions_and_plan.sql (90.52ms)
+2026/09/22 16:18:37 OK   0110_pbl_artifacts_and_tools.sql (15.7ms)
+2026/09/22 16:18:37 OK   0111_pbl_method_layer.sql (72.34ms)
+2026/09/22 16:18:37 OK   0112_pbl_kind_is_hers.sql (3ms)
+2026/09/22 16:18:37 OK   0113_pbl_decision_is_a_choice.sql (4.21ms)
+2026/09/22 16:18:37 OK   0114_pbl_tree_positions.sql (3.8ms)
+2026/09/22 16:18:37 OK   0115_pbl_review_sections.sql (4.87ms)
+2026/09/22 16:18:37 OK   0116_interest_model.sql (23.09ms)
+2026/09/22 16:18:37 OK   0117_pbl_site.sql (7.74ms)
+2026/09/22 16:18:37 OK   0118_pbl_note_photo.sql (3.58ms)
+2026/09/22 16:18:37 OK   0119_interest_quiz.sql (6.6ms)
+2026/09/22 16:18:37 OK   0120_news_starmap.sql (15.15ms)
+2026/09/22 16:18:37 OK   0121_keyword_dig.sql (7.87ms)
+2026/09/22 16:18:37 OK   0122_pbl_board_axes.sql (3.02ms)
+2026/09/22 16:18:37 OK   0123_pbl_judgment_signals.sql (5.61ms)
+2026/09/22 16:18:37 OK   0124_pbl_mission_item.sql (7.4ms)
+2026/09/22 16:18:37 OK   0125_pbl_note_placed.sql (4.89ms)
+2026/09/22 16:18:37 OK   0126_pbl_note_link.sql (9.02ms)
+2026/09/22 16:18:37 OK   0127_pbl_keep_numbers.sql (9.48ms)
+2026/09/22 16:18:37 OK   0128_pbl_note_picked.sql (5.13ms)
+2026/09/22 16:18:37 OK   0129_pbl_site_ref.sql (9.44ms)
+2026/09/22 16:18:37 OK   0130_pbl_persona.sql (10.03ms)
+2026/09/22 16:18:37 OK   0131_pbl_site_look.sql (5.45ms)
+2026/09/22 16:18:37 OK   0132_pbl_note_reframe_slot.sql (5.01ms)
+2026/09/22 16:18:37 OK   0133_course_audience_and_pbl_course.sql (10.71ms)
+2026/09/22 16:18:37 OK   0134_interest_vocabulary.sql (26.32ms)
+2026/09/22 16:18:37 OK   0135_news_day_retry.sql (5.01ms)
+2026/09/22 16:18:37 OK   0136_pbl_tool_drop.sql (9.05ms)
+2026/09/22 16:18:37 OK   0137_interest_dismissal.sql (4.54ms)
+2026/09/22 16:18:37 OK   0138_news_saved_reading.sql (4.31ms)
+2026/09/22 16:18:37 OK   0139_drop_interest_dismissal.sql (4.28ms)
+2026/09/22 16:18:37 OK   0140_interest_proposal.sql (8.56ms)
+2026/09/22 16:18:37 OK   0141_news_planet_body.sql (3.27ms)
+2026/09/22 16:18:37 OK   0142_reading_library.sql (5.18ms)
+2026/09/22 16:18:37 OK   0143_reading_outline.sql (2.31ms)
+2026/09/22 16:18:37 OK   0144_reading_task_new_kinds.sql (4.34ms)
+2026/09/22 16:18:37 OK   0145_news_planet_evidence.sql (3.7ms)
+2026/09/22 16:18:37 OK   0146_writing_origin.sql (2.45ms)
+2026/09/22 16:18:37 OK   0147_writing_comment_source.sql (3.89ms)
+2026/09/22 16:18:38 OK   0148_atom_active_day.sql (5.67ms)
+2026/09/22 16:18:38 OK   0149_lite_assignment.sql (15.29ms)
+2026/09/22 16:18:38 OK   0150_lite_weekly_prose.sql (9.37ms)
+2026/09/22 16:18:38 OK   0151_lite_parent_report.sql (9.53ms)
+2026/09/22 16:18:38 OK   0152_lite_parent_report_export_only.sql (6.04ms)
+2026/09/22 16:18:38 OK   0153_lite_writing_versions.sql (8.2ms)
+2026/09/22 16:18:38 OK   0154_lite_grading.sql (10.56ms)
+2026/09/22 16:18:38 OK   0155_keyword_dig_library.sql (5.17ms)
+2026/09/22 16:18:38 OK   0156_reading_source_excerpt_only.sql (4.12ms)
+2026/09/22 16:18:38 OK   0157_reading_block_note_shape.sql (8.47ms)
+2026/09/22 16:18:38 OK   0158_writing_outline_source.sql (4.83ms)
+2026/09/22 16:18:38 OK   0159_pbl_review_revision.sql (5.16ms)
+2026/09/22 16:18:38 OK   0160_pbl_decision_draft.sql (3.36ms)
+2026/09/22 16:18:38 OK   0161_pbl_decision_revision.sql (2.2ms)
+2026/09/22 16:18:38 OK   0162_pbl_audience_document.sql (10.69ms)
+2026/09/22 16:18:38 OK   0163_pbl_multiple_audiences.sql (3.43ms)
+2026/09/22 16:18:38 OK   0164_pbl_creative_direction.sql (6.42ms)
+2026/09/22 16:18:38 OK   0165_pbl_code_versions.sql (8.5ms)
+2026/09/22 16:18:38 OK   0166_pbl_code_revision_feedback.sql (9.97ms)
+2026/09/22 16:18:38 OK   0167_homepage_creative_routine.sql (9.71ms)
+2026/09/22 16:18:38 OK   0168_pbl_artifact_trial_draft.sql (6.19ms)
+2026/09/22 16:18:38 OK   0169_pbl_site_publication.sql (5.63ms)
+2026/09/22 16:18:38 OK   0170_pbl_site_publication_owner.sql (5.84ms)
+2026/09/22 16:18:38 OK   0171_pbl_observation_draft.sql (6.03ms)
+2026/09/22 16:18:38 OK   0172_pbl_mission_revision.sql (2.45ms)
+2026/09/22 16:18:38 OK   0173_pbl_mission_student_edit.sql (3.89ms)
+2026/09/22 16:18:38 OK   0174_atom_report_include_transcript.sql (3.18ms)
+2026/09/22 16:18:38 OK   0175_users_gender.sql (3.9ms)
+2026/09/22 16:18:38 OK   0176_reading_task_critique.sql (4.09ms)
+2026/09/22 16:18:38 OK   0177_atom_report_include_toolkit.sql (3.79ms)
+2026/09/22 16:18:38 OK   0178_reading_source_short_feed_body_is_excerpt.sql (7.25ms)
+2026/09/22 16:18:38 OK   0179_reading_source_cut_related_trailer.sql (4.03ms)
+2026/09/22 16:18:38 OK   0180_reading_task_sequence.sql (4.23ms)
+2026/09/22 16:18:38 OK   0181_awakening_protocol.sql (32.36ms)
+2026/09/22 16:18:38 OK   0182_writing_outline_kind.sql (8.22ms)
+2026/09/22 16:18:38 OK   0183_writing_comment_verdict.sql (3.04ms)
+2026/09/22 16:18:38 OK   0184_writing_flow.sql (7.55ms)
+2026/09/22 16:18:38 OK   0185_awakening_threads.sql (9.66ms)
+2026/09/22 16:18:38 goose: successfully migrated database to version: 185
+--- FAIL: TestTurnsBlockNumbersHerTurnsAndSaysWhoSpoke (0.00s)
+    atom_report_internal_test.go:386: block does not read as a numbered transcript (missing "她："):
+        1. 学生：我觉得人均排放更重要。
+           你：为什么？
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:38 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:39 ERROR lite class summary: compose panicked panic=boom
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite grading: failed grading_id=6905a604-b21d-42c8-81f1-746180c77dfb attempts=2 reasons="回复不是有效的 JSON" parse_err="litegrade: reply is not the JSON object asked for" reply=抱歉，我无法批改。
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=stub model=stub-review
+2026/09/22 16:18:40 WARN lite grading: failed grading_id=d4a2b40d-c15e-48d2-b6cd-c20114c85fb9 attempts=2 reasons="第 2 条意见的说明评价的是学生本人，不是文字" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年秋天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"你很懒，材料引用得不认真。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+2026/09/22 16:18:40 WARN lite llm_call: unpriced model — cost recorded as 0 provider=dashscope_image model=qwen-image-3.0
+--- FAIL: TestWritingPieceRequestParity (0.00s)
+    prompt_piece_parity_test.go:74: piece context changed from main: en/free
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/empty
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/truncated
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/missing-body
+    prompt_piece_parity_test.go:74: piece context changed from main: zh/free
+    prompt_piece_parity_test.go:74: piece context changed from main: en/empty
+    prompt_piece_parity_test.go:74: piece context changed from main: en/truncated
+    prompt_piece_parity_test.go:74: piece context changed from main: en/missing-body
+2026/09/22 16:18:40 INFO reading coach: card dropped why="fewer than 2 options survived the article check" type=choose_span prompt=哪一句你读着最不服气？
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="a lens was given this turn, so the card was dropped (铁律③)"
+2026/09/22 16:18:40 INFO reading coach: lens dropped why="the lens had no focusBlock to land on"
+2026/09/22 16:18:40 INFO reading coach: card dropped why="fewer than 2 options survived the article check" type=choose_span prompt=哪一句更像主张？
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply promises a card but none was attached" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply promises a card but none was attached" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: lens dropped why="the lens had no focusBlock to land on"
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: lens dropped why="the lens id is not in the deck"
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: lens dropped why="the lens id is not in the deck"
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: lens dropped why="the lens id is not in the deck"
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the turn hands her nothing to do" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:40 INFO reading coach: card dropped why="the reply ends mid-sentence" type="" prompt=""
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=124 nodes_kept=0
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=105 nodes_kept=1
+2026/09/22 16:18:41 WARN writing plan turn: dropped node with unknown kind kind="" text=校车该不该装安全带
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=64 nodes_kept=0
+2026/09/22 16:18:41 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=603
+2026/09/22 16:18:41 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=454
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=142 nodes_kept=0
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=106 nodes_kept=1
+2026/09/22 16:18:41 WARN writing plan turn: reply salvaged from broken JSON reply_bytes=80 nodes_kept=0
+2026/09/22 16:18:41 WARN writing plan turn: reply arrived as plain prose, kept it and added nothing reply_bytes=102
+2026/09/22 16:18:41 WARN writing plan turn: dropped node with unknown kind kind=我编的一个 text=这条要丢掉
+
+  article              6039 runes (9 paragraphs)
+  system               6798 runes
+  whole article sent   7031 user runes -> prompt 13829
+  this part only       3239 user runes -> prompt 10037
+  user cut 54%   whole prompt cut 27%
+2026/09/22 16:18:41 WARN advance gates failed err="advance_test: injected LoadGraph failure" project_id=00000000-0000-0000-0000-000000000101
+2026/09/22 16:18:41 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:41 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:41 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:42 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:42 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:42 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:43 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:43 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:43 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:44 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:45 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:45 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:45 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:45 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:45 WARN chat llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:46 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN summary llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN coach: model turn failed; surfacing to student err="orchestrator: output not parseable" request_id=""
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:47 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 INFO coach: dropped summon_card not valid for status card=cda status=framework request_id=""
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN revision: read artifact failed artifact=proposal trigger=ask_feedback err="no rows in result set"
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN revision: read artifact failed artifact=proposal trigger=ask_feedback err="no rows in result set"
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN revision: read artifact failed artifact=draft trigger=ask_feedback err="no rows in result set"
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN revision: read artifact failed artifact=draft trigger=ask_feedback err="no rows in result set"
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:48 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:49 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:51 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:51 WARN scene: generation failed, using fallback text err="context deadline exceeded" slug=a-mid which=opening request_id=""
+2026/09/22 16:18:52 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:52 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:52 WARN course ask: reply not emitted err="agent: course ask reply rejected by banned-phrasing rule \"rewritten-sentence-zh\"" request_id=""
+2026/09/22 16:18:52 WARN course llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:54 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 16:18:55 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:55 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN plan generate: model reply unparseable — seeding default plan
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN framework review: reviewer failed — no verdict err="framework review: empty verdict" request_id=""
+2026/09/22 16:18:55 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:55 WARN revision: read artifact failed artifact=draft trigger=advance err="no rows in result set"
+2026/09/22 16:18:55 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:56 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:57 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:57 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:57 WARN llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:18:58 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=建议老师联系[学生]，了解她这周的学习情况。
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=建议老师联系[学生]，了解她这周的学习情况。
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的学生姓名：[学生] summary=请老师也关注一下[学生]这周的状态。
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：100 summary="本周有 100 位学生完成了写作练习。"
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：100 summary="本周有 100 位学生完成了写作练习。"
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：99 summary="这周有 99 位学生完成了写作练习。"
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:01 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：99 summary="这周有 99 位学生完成了写作练习。"
+2026/09/22 16:19:01 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite class summary: summary failed the grounding check request_id="" attempt=1 reason=摘要里出现了本轮没有依据的人数：7 summary="本周有 7 位学生需要关注。"
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite class summary: summary failed the grounding check request_id="" attempt=2 reason=摘要里出现了本轮没有依据的人数：7 summary="本周有 7 位学生需要关注。"
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:02 WARN lite grading: failed grading_id=e812c8e8-8544-45ce-ac03-1826abcf45b4 attempts=2 reasons="回复不是有效的 JSON" parse_err="litegrade: reply is not the JSON object asked for" reply=抱歉，我无法批改。
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:02 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite grading: failed grading_id=045f09ff-b58d-4b85-aa83-dfc2d3a3ade3 attempts=2 reasons="第 1 条意见的引文不在正文中：「去年冬天，我在那里摔过一跤。」" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年冬天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"材料与后门空地之间没有说明联系。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN interest harvest: enqueue failed err="connection refused" atom_id=21aff219-27fd-4e6b-8698-0a4dd06f6c00
+2026/09/22 16:19:03 WARN lite grading: queue-all enqueue failed err="入队失败：connection refused" user_id=690bf447-8494-402d-af5b-50e6e2796534
+2026/09/22 16:19:03 WARN lite grading: queue-all enqueue failed err="入队失败：connection refused" user_id=1e638223-6fa7-4f47-b476-d955ac57703e
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:03 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite grading: failed grading_id=d28aed12-a24c-4ed2-9247-f93c61b541b5 attempts=2 reasons="总评的等级不在评分标准内：B+；维度「内容」的等级不在评分标准内：B+；维度「结构」的等级不在评分标准内：B；维度「语言」的等级不在评分标准内：A-；维度「书写规范」的等级不在评分标准内：A；评分维度与评分标准不一致：内容、结构、语言、书写规范；第 1 条意见的引文不在正文中：「去年冬天，我在那里摔过一跤。」" parse_err="" reply="{\"overall\":{\"grade\":\"B+\",\"comment\":\"用「去年秋天，我在那里摔过一跤。」引出问题。\"},\n\"dimensions\":[{\"name\":\"内容\",\"grade\":\"B+\",\"comment\":\"问题来自亲身经历。\"},{\"name\":\"结构\",\"grade\":\"B\",\"comment\":\"两段之间没有过渡句。\"},{\"name\":\"语言\",\"grade\":\"A-\",\"comment\":\"表达清楚。\"},{\"name\":\"书写规范\",\"grade\":\"A\",\"comment\":\"标点使用正确。\"}],\n\"points\":[{\"kind\":\"good\",\"quote\":\"去年冬天，我在那里摔过一跤。\",\"text\":\"用具体经历引出问题。\",\"action\":null},\n{\"kind\":\"issue\",\"quote\":\"我读到城市里的雨水花园：用下凹的绿地先把雨水接住。\",\"text\":\"材料与后门空地之间没有说明联系。\",\"action\":\"在这句后面写一句说明雨水花园和后门空地的关系。\"},\n{\"kind\":\"issue\",\"quote\":\"学校后门那片空地一下雨就积水。\",\"text\":\"积水的程度没有数据。\",\"action\":\"补充一次积水的深度或持续时间。\"}]}"
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: overview: quote not in corpus: 雨水不是废水" report_id=91261534-ac77-442b-b38f-5c3417e3aa37 request_id=""
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:04 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: output is not valid JSON: invalid character 'ä' looking for beginning of value" report_id=620b8c9b-65d1-46ab-93e7-1e869c701e48 request_id=""
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite parent report: draft rejected err="agent: lite parent report: rejected after 2 attempts: output is not valid JSON: invalid character 'ä' looking for beginning of value" report_id=cce84873-b04f-474c-87e0-a08cf908504c request_id=""
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite parent report: draft discarded code=student_left report_id=9d7baf67-7277-4d3f-b705-969f748be4cf attempts=1 request_id=""
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:05 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:06 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:06 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:06 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:06 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:07 WARN lite assignment start: fetch failed err="fetch failed: simulated fetch failure" assignment_id=40d2af1e-87a9-45dc-bc4f-225c61625816
+2026/09/22 16:19:07 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 16:19:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:07 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=3 source_chars=111 candidate_chars=122 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 16:19:07 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:08 INFO pbl model stage stage=dialogue duration_ms=0 request_id="" failed=false
+2026/09/22 16:19:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:08 INFO pbl model stage stage=evidence attempt=1 format_attempt=1 duration_ms=0 request_id="" failed=false supported=true source_count=3 source_chars=111 candidate_chars=122 text_chars=30 reasoning_chars=0 stop_reason=stop input_tokens=30 output_tokens=20 reasoning_tokens=<nil>
+2026/09/22 16:19:08 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:09 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:09 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:10 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:10 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason=回复说作业已经布置或发布，但作业还没有发布：你只填作业卡，老师检查后点「发布作业」才会发给学生。请说「作业卡已填好，请检查后点「发布作业」」 text=已布置好。项目《手机学习时间调查》发给全班。
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason="回复说「驱动问题」已经填好，但作业卡上这一栏是空的。先调用 set_fields 把它写进去，再告诉老师" text=好了，驱动问题已写入。还需要改什么吗？
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite workspace: reply made a false claim request_id="" surface=assignment attempt=1 reason="老师说的是周五，但截止时间 9月20日 是周日。按提示里的日历找到周五那一天，用 set_fields 改正截止时间，再告诉老师" text=截止时间定在周五晚上九点。
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:11 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply failed the grounding check request_id="" surface=assignment kind=names ungrounded=1 grounded="0 个" text=[学生]也可以加上。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text=已经打开了本周报告页面。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text=已经打开了本周报告页面。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=2 reason="回复说页面已经打开，但没有任何页面被打开。open_page 只在回复下方放一个按钮，老师点了才会跳转，请说「请点击下方按钮前往」" text="接下来看什么？\n已为您跳转到本周报告\n看家长报告"
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason="回复让老师点击下方按钮，但本轮没有调用 open_page，下方没有按钮。需要给入口时先调用 open_page" text=请点击下方按钮前往本周报告。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason=老师问了一个问题，左侧已经列出查到的数据，但回复只有一个追问。先用一句话回答老师的问题、说明左侧列的是什么（不写姓名和人数），再问下一步 text="接下来想看什么？\n看看全班本周概况\n不用了"
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=home attempt=1 reason=回复或选项提出提醒、通知或联系学生，但没有工具能给学生发消息。可以建议老师布置一份作业（学生会在收件箱看到），或前往学生的学习页 text="接下来您想怎么做？\n看看全班本周概况\n提醒该生开始学习"
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=1 reason=报告的段落是固定的，不能新增或删除段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text="要怎么改？\n新增一个『写作』段落\n改写「下一步建议」"
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=1 reason=这份报告没有「兴趣」段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text=我可以把兴趣部分写得更具体。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite workspace: reply made a false claim request_id="" surface=parentReport attempt=2 reason=这份报告没有「兴趣」段落，只能改写这几段：「总体概述」、「阅读」、「下一步建议」 text=我可以改写「兴趣」。
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-reasoner
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+2026/09/22 16:19:12 WARN lite llm_call: unpriced model — cost recorded as 0 provider=deepseek model=deepseek-chat
+FAIL
+FAIL	mindimprint/api/internal/api	88.366s
+ok  	mindimprint/api/internal/interest	0.304s
+FAIL

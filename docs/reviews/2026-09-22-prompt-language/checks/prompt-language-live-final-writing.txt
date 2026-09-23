@@ -1,0 +1,14 @@
+=== RUN   TestClarityWriting
+=== RUN   TestClarityWriting/guide
+    clarity_live_test.go:109: TestClarityWriting/guide sample=1 model=dashscope/glm-5.3 ms=2099 input=1713 output=94 valid=true
+--- PASS: TestClarityWriting (2.10s)
+    --- PASS: TestClarityWriting/guide (2.10s)
+=== RUN   TestClarityMergeWriting
+=== RUN   TestClarityMergeWriting/english-analysis
+    clarity_merge_live_test.go:33: TestClarityMergeWriting/english-analysis sample=1 model=dashscope/deepseek-v4.1-flash ms=5797 input=3636 output=126 valid=false
+    clarity_merge_live_test.go:33: compressed or confrontational teaching language: 撑 (visible output preserved in evidence)
+--- FAIL: TestClarityMergeWriting (5.80s)
+    --- FAIL: TestClarityMergeWriting/english-analysis (5.80s)
+FAIL
+FAIL	mindimprint/api/internal/api	9.078s
+FAIL

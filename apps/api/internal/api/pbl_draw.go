@@ -20,6 +20,7 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,12 @@ const generatedImageFetchTimeout = 60 * time.Second
 func (a *API) drawAndStore(
 	ctx context.Context, userID, atomID uuid.UUID, purpose, prompt string,
 ) (string, error) {
+	return a.drawAndStoreSized(ctx, userID, atomID, purpose, prompt, "")
+}
+
+func (a *API) drawAndStoreSized(
+	ctx context.Context, userID, atomID uuid.UUID, purpose, prompt, size string,
+) (string, error) {
 	if a.d.OSS == nil {
 		return "", fmt.Errorf("pbl draw: no object storage configured")
 	}
@@ -50,7 +57,7 @@ func (a *API) drawAndStore(
 	if drawer == nil {
 		drawer = gateway.NewHTTPDrawer()
 	}
-	out, err := drawer.Draw(ctx, resolved, gateway.DrawRequest{Prompt: prompt})
+	out, err := drawer.Draw(ctx, resolved, gateway.DrawRequest{Prompt: prompt, Size: size})
 
 	// Record every attempted draw, including provider errors. A row records the
 	// attempt; the routing price catalog determines whether a cost can be estimated.
@@ -123,6 +130,14 @@ func generatedImageKey(userID uuid.UUID, purpose, extension string) (string, err
 		userID.String(), purpose, hex.EncodeToString(b[:]), extension), nil
 }
 
+func publicShowcaseImageKey(userID uuid.UUID, purpose, extension string) (string, error) {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("showcase/users/%s/%s-%s.%s", userID, purpose, hex.EncodeToString(b[:]), extension), nil
+}
+
 // signedOrEmpty 把 object key 变成她那边能显示的地址。签不出来就给空串——
 // 一个签失败的地址是一张碎图，而空串至少让界面知道这里还没有图。
 func (a *API) signedOrEmpty(key string) string {
@@ -130,6 +145,23 @@ func (a *API) signedOrEmpty(key string) string {
 		return ""
 	}
 	url, err := a.d.OSS.SignDownload(key)
+	if err != nil {
+		return ""
+	}
+	return url
+}
+
+func (a *API) signedShowcaseImageOrEmpty(key string) string {
+	if key == "" {
+		return ""
+	}
+	if strings.HasPrefix(key, "showcase/users/") && a.d.PublicAssets != nil {
+		return a.d.PublicAssets.PublicURL(key)
+	}
+	if a.d.OSS == nil {
+		return ""
+	}
+	url, err := a.d.OSS.SignOriginDownload(key)
 	if err != nil {
 		return ""
 	}

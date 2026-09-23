@@ -61,7 +61,7 @@ var validEdgeProposalLabel = map[string]bool{
 	"子问题": true, "支持": true, "反驳/张力": true, "细化": true, "依赖/前提": true,
 }
 
-const edgeProposerSystem = `你在帮学生看清她自己提出的这些问题之间的关系，而不是替她决定答案或替她下结论。每个问题已经编号（从 1 开始）。找出问题之间真实存在的关系，每条关系只能用这五个固定标签之一描述：子问题、支持、反驳/张力、细化、依赖/前提——不要发明新标签，没有关系就不要硬凑。不要重复"已经存在的关系"里列出的连接。每条关系给一句话说明理由。只输出 JSON，不要任何其他文字：{"proposals":[{"from":<问题编号>,"to":<问题编号>,"label":"...","why":"..."}]}。`
+const edgeProposerSystem = `请分析学生已提出的问题之间的关系，帮助学生组织研究思路。依据问题文字判断关联，不替学生回答这些问题。每个问题已经编号（从 1 开始）。找出问题之间真实存在的关系，每条关系只能用这五个固定标签之一描述：子问题、支持、反驳/张力、细化、依赖/前提——不要发明新标签，没有充分依据时不添加关系。不要重复"已经存在的关系"里列出的连接。每条关系给一句话说明理由，理由直接展示给学生，应说明两个问题的具体联系，不重复关系标签。只输出 JSON，不要任何其他文字：{"proposals":[{"from":<问题编号>,"to":<问题编号>,"label":"...","why":"..."}]}。`
 
 // ProposeQuestionEdges proposes labeled edges between the student's own root
 // question nodes via one isolated LLM call. Every proposal is defensively

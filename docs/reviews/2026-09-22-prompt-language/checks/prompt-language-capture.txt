@@ -1,0 +1,10 @@
+# mindimprint/api/internal/litegrade
+internal/litegrade/content.go:87:6: syntax error: unexpected name capPoints, expected (
+internal/litegrade/content.go:125:6: syntax error: unexpected name rubricDimensionName, expected (
+internal/litegrade/content.go:141:6: syntax error: unexpected name trimPtr, expected (
+internal/litegrade/content.go:154:6: syntax error: unexpected name orderDimensions, expected (
+FAIL	mindimprint/api/internal/api [build failed]
+ok  	mindimprint/api/internal/agent	2.530s
+ok  	mindimprint/api/internal/awakening	1.238s
+ok  	mindimprint/api/internal/pbl	2.012s
+FAIL

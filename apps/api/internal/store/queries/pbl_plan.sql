@@ -52,6 +52,18 @@ SELECT s.*, v.atom_id
 FROM pbl_plan_step s JOIN pbl_plan_version v ON v.id = s.version_id
 WHERE s.id = $1;
 
+-- name: CreatePblStepSubmission :one
+INSERT INTO pbl_step_submission (step_id, note, url)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: ListLatestPblStepSubmissions :many
+SELECT DISTINCT ON (s.step_id) s.*
+FROM pbl_step_submission s
+JOIN pbl_plan_step step ON step.id = s.step_id
+WHERE step.version_id = $1
+ORDER BY s.step_id, s.confirmed_at DESC;
+
 -- ── 待审阅的结构性变更 ─────────────────────────────────────────────────────
 
 -- name: StagePblPendingChange :one

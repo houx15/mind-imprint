@@ -34,8 +34,8 @@ func (v AIUseRecordView) empty() bool {
 
 const aiUseSeedSystem = `你在帮一个学生起草「我是怎么用 AI 的」自述——只是给一个初稿，学生会自己改写。依据下面这份客观交互记录，用第一人称写两段：
 - used_for：AI 在这个项目里真正帮你做了什么（澄清检索词、核对来源功能、追问论证、检查过度概括、答辩追问等）。
-- not_used_for：你明确没有让 AI 做什么（代写正文、编造材料细节、预测分数、替你写反思等）。
-绝不夸大 AI 的作用，绝不把「思考」说成是 AI 做的——AI 是过程工具，不是代写者。每段一两句话。只输出 JSON：{"used_for":"...","not_used_for":"..."}。`
+- not_used_for：记录能够确认 AI 未参与的工作有哪些（代写正文、编造材料细节、预测分数、替你写反思等）。
+如实说明 AI 与学生各自的工作，不夸大或隐瞒 AI 的参与。记录中未出现某项活动，不等于可以证明从未使用 AI；依据不足时说明“本次记录未显示”，不要替学生作未经证实的声明。每段一两句话。只输出 JSON：{"used_for":"...","not_used_for":"..."}。`
 
 // ComposeAIUseSeed seeds the student's AI-use draft from the objective record via
 // one isolated mid-tier call. An empty record → ("", "", zero usage, nil) with

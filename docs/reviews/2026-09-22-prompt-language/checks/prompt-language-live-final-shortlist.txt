@@ -1,0 +1,8 @@
+=== RUN   TestClarityPromptLanguageDomains
+=== RUN   TestClarityPromptLanguageDomains/dig-shortlist
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/dig-shortlist sample=1 model=dashscope/glm-5.3 ms=3497 input=695 output=147 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/dig-shortlist sample=2 model=dashscope/glm-5.3 ms=3211 input=695 output=148 valid=true
+--- PASS: TestClarityPromptLanguageDomains (6.71s)
+    --- PASS: TestClarityPromptLanguageDomains/dig-shortlist (6.71s)
+PASS
+ok  	mindimprint/api/internal/api	7.260s

@@ -1,0 +1,17 @@
+@font-face {
+  font-family: "Showcase Happy";
+  src: url("/fonts/showcase/ZCOOLKuaiLe-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Showcase Hand";
+  src: url("/fonts/showcase/MaShanZheng-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Showcase Tech";
+  src: url("/fonts/showcase/ZCOOLQingKeHuangYou-Regular.woff2") format("woff2");
+  font-display: swap;
+}

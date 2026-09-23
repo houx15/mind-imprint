@@ -42,7 +42,7 @@ const claimRevisionSystem = `你是一位严谨的 IB 研究导师。学生在�
 
 要求：
 - kind 只能是 "rephrase" 或 "total_change"。
-- why 用中文，一句话，具体说明差别（尤其 total_change 要点出材料/论述为何不再适用）。
+- why 用中文，一句话，直接对学生说明差别，不评价修改意愿或能力（尤其 total_change 要点出材料/论述为何不再适用）。
 - 只回 JSON，不要任何解释或代码块外的文字。`
 
 const maxClaimRevisionAttempts = 2
@@ -56,7 +56,7 @@ func ClassifyClaimRevision(ctx context.Context, prov gateway.Provider, resolved 
 	if s := strings.TrimSpace(in.Title); s != "" {
 		fmt.Fprintf(&b, "题目：%s\n", s)
 	}
-	fmt.Fprintf(&b, "原子问题：%s\n新子问题：%s\n", strings.TrimSpace(in.OldText), strings.TrimSpace(in.NewText))
+	fmt.Fprintf(&b, "原来的子问题：%s\n新子问题：%s\n", strings.TrimSpace(in.OldText), strings.TrimSpace(in.NewText))
 	if len(in.Siblings) > 0 {
 		b.WriteString("其它子问题（用于判断是否与它们重复/冲突）：\n")
 		for i, sq := range in.Siblings {

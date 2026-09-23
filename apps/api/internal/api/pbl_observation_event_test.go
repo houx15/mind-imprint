@@ -85,7 +85,7 @@ func TestExplicitObservationEndDoesNotReplaySubmission(t *testing.T) {
 		t.Fatal(rec.Body)
 	}
 	raw, _ := json.Marshal(provider.Requests[1])
-	start := strings.LastIndex(string(raw), "【她刚做完这件事】")
+	start := strings.LastIndex(string(raw), "【学生刚做完这件事】")
 	if start < 0 {
 		t.Fatal("missing event")
 	}

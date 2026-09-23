@@ -1,0 +1,10 @@
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步：有个人经历作为证据，但从个案推及全体的推理缺少依据","evidence":"草稿原文：'上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。'前半句是你的个人经历，后半句是由此推出的普遍结论。","missing":"需要补充能说明需求面有多广的依据，例如其他同学的使用情况、座位或自习空间的占用数据；还需核实'全天开放'与'延长开放时间'之间的关系，两者范围不同。'这证明'一词的强度目前超出了四人经历所能说明的范围。","fix":"可以先向更多同学了解或收集图书馆使用数据，说明有类似需求的人数和场景；再决定是保留'延长'还是改为'全天'，并让结论与收集到的证据范围一致。另外你这一稿共三句话，尚未看出超出字数预算的迹象，暂时不需要删减。","points":1}]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=5365 input=1022 output=247 valid=true
+    clarity_live_test.go:83: production review attempt: [{"criterion_code":"A","band":"刚起步：有个人经历作为证据，但推理从少数个案跳到全体学生","evidence":"“上周我和三位同学只能在走廊复习。这证明所有学生都需要图书馆全天开放。”","missing":"草稿把四个人的经历直接当成全校学生的需求，缺少图书馆座位使用情况、开放时间安排或更多同学的反馈等依据；“延长开放时间”与“全天开放”之间也不一致，需要确定你到底建议哪一种。另外，这一稿超出字数预算：如果补充依据，需要同时删减。目前没有明显重复的段落，但“这证明所有学生”这类扩大化的说法占字数又缺乏依据，是优先精简的位置；删掉它会损失一点语气强度，但换来的是更准确的表述。","fix":"需要核实的方向：图书馆当前开放到几点、高峰时段座位是否紧张、是否有其他同学遇到同样情况；以及明确你建议延长到什么时间。需要补充的依据方向：能反映更多学生使用情况的信息，而不是只靠一次经历。","points":1}]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=2 model=dashscope/glm-5.3 ms=6159 input=1022 output=282 valid=true
+--- PASS: TestClarityAgent (11.53s)
+    --- PASS: TestClarityAgent/sceptic (11.53s)
+PASS
+ok  	mindimprint/api/internal/agent	12.599s

@@ -84,8 +84,8 @@ func TestSpotCheckPromptsDifferByStation(t *testing.T) {
 		t.Fatal("the two stations must use different postures")
 	}
 	for _, p := range []string{src, arg} {
-		if !strings.Contains(p, "绝不替学生改写句子") {
-			t.Error("every posture must carry the RL-1 iron rule verbatim")
+		if !strings.Contains(p, "不替学生改写句子") {
+			t.Error("every posture must prohibit rewriting student sentences")
 		}
 	}
 	if strings.Contains(src, "分点") || strings.Contains(arg, "分点") {

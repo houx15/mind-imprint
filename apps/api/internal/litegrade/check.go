@@ -52,7 +52,7 @@ func (r Reason) Message() string {
 	case ReasonDimensionNames:
 		return "评分维度与评分标准不一致：" + r.Detail
 	case ReasonPointCount:
-		return "意见共 " + r.Detail + " 条，需要 3 到 5 条"
+		return "意见共 " + r.Detail + " 条，最多允许 5 条"
 	case ReasonNoGoodPoint:
 		return "没有优点意见"
 	case ReasonNoIssuePoint:
@@ -105,8 +105,7 @@ const languageThreshold = 0.6
 //
 // Check verifies only some of what SystemPrompt asks for: the grade scale
 // (ReasonGradeOutOfScale), the rubric's dimension names (ReasonDimensionNames),
-// the point count and the good/issue mix (ReasonPointCount, ReasonNoGoodPoint,
-// ReasonNoIssuePoint), a required action on every issue
+// the maximum point count (ReasonPointCount), a required action on every issue
 // (ReasonIssueWithoutAction), every quote and every 「」/『』/“” quotation
 // being a match of her body once normalized — or, if not, of the assigned
 // prompt (ReasonQuoteMissing, ReasonQuoteNotInBody, ReasonQuotationNotInBody,
@@ -128,14 +127,10 @@ func Check(c Content, in Input) []Reason {
 	if n := len(c.Points); n < MinPoints || n > MaxPoints {
 		rs = append(rs, Reason{Code: ReasonPointCount, Detail: strconv.Itoa(n)})
 	}
-	good, issue := false, false
 	for i, p := range c.Points {
 		where := fmt.Sprintf("第 %d 条意见", i+1)
 		switch p.Kind {
-		case KindGood:
-			good = true
 		case KindIssue:
-			issue = true
 			if blank(p.Action) {
 				rs = append(rs, Reason{Code: ReasonIssueWithoutAction, Where: where})
 			}
@@ -149,12 +144,6 @@ func Check(c Content, in Input) []Reason {
 		if p.Action != nil {
 			rs = append(rs, textReasons(where+"的修改建议", *p.Action, in, cp, false)...)
 		}
-	}
-	if !good {
-		rs = append(rs, Reason{Code: ReasonNoGoodPoint})
-	}
-	if !issue {
-		rs = append(rs, Reason{Code: ReasonNoIssuePoint})
 	}
 	if r := languageReason(c, in); r != nil {
 		rs = append(rs, *r)
@@ -219,7 +208,7 @@ func SanitizeProvenance(c Content, in Input) Content {
 
 // CheckTeacherEdit is the shape check on a teacher's PATCH: grades in scale,
 // the rubric's dimension names, known point kinds, non-empty point text, and a
-// quote that is null or hers. No 3–5 limit, no action requirement, and no
+// quote that is null or hers. No point-count limit, no action requirement, and no
 // language check — this is the teacher's own edit, not a model result.
 func CheckTeacherEdit(c Content, in Input) []Reason {
 	cp := newCorpus(in)

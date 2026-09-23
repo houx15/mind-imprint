@@ -52,15 +52,23 @@ describe("parseLiteRoute", () => {
   // `/p/:token` — 她自己的主页，访客那一面（S5）。和 `/s/` 是两种东西：`/s/`
   // 是一次阅读或写作的记录，会有很多条；`/p/` 是她这个人的主页，只有一个。
   it("reads a personal-page token", () =>
-    expect(parseLiteRoute("/p/abc")).toEqual({ tab: "page", token: "abc" }));
+    expect(parseLiteRoute("/p/abc")).toEqual({ tab: "page", token: "abc", view: "home" }));
   // 同 `/s`：没有 token 就没有东西可取，落回落地页，而不是造出一个 token 为
   // 空的路由。
   it("does not treat a bare /p as a page route", () =>
     expect(parseLiteRoute("/p")).toEqual({ tab: "explore" }));
   it("round-trips a personal-page path", () =>
-    expect(parseLiteRoute(liteRoutePath({ tab: "page", token: "abc" }))).toEqual({
+    expect(parseLiteRoute(liteRoutePath({ tab: "page", token: "abc", view: "home" }))).toEqual({
       tab: "page",
       token: "abc",
+      view: "home",
+    }));
+
+  it("round-trips a personal-page work collection", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "page", token: "abc", view: "works" }))).toEqual({
+      tab: "page",
+      token: "abc",
+      view: "works",
     }));
 
   // `/r/:token` and `/parent-reports/:id` were removed on 2026-09-15 (there is

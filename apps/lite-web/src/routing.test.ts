@@ -30,7 +30,11 @@ const ROUTES: LiteRoute[] = [
   { tab: "tree" },
   { tab: "tree", awakening: true },
   { tab: "tree", reportRunId: "9f1c2b3a-0000-4000-8000-000000000001" },
+  { tab: "mysite" },
+  { tab: "mysite", view: "works" },
   { tab: "settings" },
+  { tab: "page", token: "site-token", view: "home" },
+  { tab: "page", token: "site-token", view: "works" },
 ];
 
 describe("lite routing", () => {
@@ -46,6 +50,11 @@ describe("lite routing", () => {
       tab: "courses",
       slug: "vibe-coding",
     });
+  });
+
+  it("keeps the public homepage and work collection as distinct refresh-safe routes", () => {
+    expect(parseLiteRoute("/p/site-token")).toEqual({ tab: "page", token: "site-token", view: "home" });
+    expect(parseLiteRoute("/p/site-token/works")).toEqual({ tab: "page", token: "site-token", view: "works" });
   });
 
   it("encodes a slug that needs it", () => {

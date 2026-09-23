@@ -184,7 +184,7 @@ func TestWritingGuideAnotherAngle(t *testing.T) {
 	if !strings.Contains(got, "闹钟响了你还想睡那次？") {
 		t.Errorf("上一组的问题没喂回去：%s", got)
 	}
-	if !strings.Contains(got, "换一个**角度**") {
+	if !strings.Contains(got, "选择不同的构思方向") {
 		t.Errorf("没说清这一轮要做什么：%s", got)
 	}
 }

@@ -1,0 +1,44 @@
+=== RUN   TestClarityPromptLanguageDomains
+=== RUN   TestClarityPromptLanguageDomains/selection
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/selection sample=1 model=dashscope/glm-5.3 ms=1917 input=2359 output=83 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/selection sample=2 model=dashscope/glm-5.3 ms=1708 input=2359 output=47 valid=true
+=== RUN   TestClarityPromptLanguageDomains/awakening-report
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/awakening-report sample=1 model=dashscope/glm-5.3 ms=1919 input=474 output=122 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/awakening-report sample=2 model=dashscope/glm-5.3 ms=2200 input=474 output=97 valid=true
+=== RUN   TestClarityPromptLanguageDomains/title
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title sample=1 model=dashscope/qwen3.7-flash ms=849 input=241 output=32 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title sample=2 model=dashscope/qwen3.7-flash ms=779 input=241 output=29 valid=true
+=== RUN   TestClarityPromptLanguageDomains/title-tidal
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-tidal sample=1 model=dashscope/qwen3.7-flash ms=879 input=212 output=28 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-tidal sample=2 model=dashscope/qwen3.7-flash ms=630 input=212 output=16 valid=true
+=== RUN   TestClarityPromptLanguageDomains/title-boardgame
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-boardgame sample=1 model=dashscope/qwen3.7-flash ms=748 input=213 output=28 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/title-boardgame sample=2 model=dashscope/qwen3.7-flash ms=859 input=213 output=16 valid=true
+=== RUN   TestClarityPromptLanguageDomains/harvest
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/harvest sample=1 model=dashscope/deepseek-v4-flash ms=1327 input=2142 output=56 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/harvest sample=2 model=dashscope/deepseek-v4-flash ms=1429 input=2142 output=46 valid=true
+=== RUN   TestClarityPromptLanguageDomains/dig
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/dig sample=1 model=dashscope/glm-5.3 ms=2888 input=621 output=122 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/dig sample=2 model=dashscope/glm-5.3 ms=2762 input=621 output=111 valid=true
+=== RUN   TestClarityPromptLanguageDomains/news-select
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-select sample=1 model=dashscope/deepseek-v4-flash ms=1150 input=2606 output=57 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-select sample=2 model=dashscope/deepseek-v4-flash ms=1915 input=2606 output=55 valid=true
+=== RUN   TestClarityPromptLanguageDomains/news-write
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-write sample=1 model=dashscope/deepseek-v4-flash ms=1828 input=401 output=108 valid=true
+    prompt_language_live_test.go:21: TestClarityPromptLanguageDomains/news-write sample=2 model=dashscope/deepseek-v4-flash ms=1660 input=401 output=91 valid=true
+--- PASS: TestClarityPromptLanguageDomains (27.47s)
+    --- PASS: TestClarityPromptLanguageDomains/selection (3.63s)
+    --- PASS: TestClarityPromptLanguageDomains/awakening-report (4.12s)
+    --- PASS: TestClarityPromptLanguageDomains/title (1.63s)
+    --- PASS: TestClarityPromptLanguageDomains/title-tidal (1.51s)
+    --- PASS: TestClarityPromptLanguageDomains/title-boardgame (1.61s)
+    --- PASS: TestClarityPromptLanguageDomains/harvest (2.76s)
+    --- PASS: TestClarityPromptLanguageDomains/dig (5.65s)
+    --- PASS: TestClarityPromptLanguageDomains/news-select (3.07s)
+    --- PASS: TestClarityPromptLanguageDomains/news-write (3.49s)
+=== RUN   TestClarityGradingNoInventedIssue
+    prompt_language_live_test.go:83: TestClarityGradingNoInventedIssue sample=1 model=dashscope/glm-5.3 ms=2830 input=1219 output=165 valid=true
+    prompt_language_live_test.go:83: TestClarityGradingNoInventedIssue sample=2 model=dashscope/glm-5.3 ms=3055 input=1219 output=143 valid=true
+--- PASS: TestClarityGradingNoInventedIssue (5.89s)
+PASS
+ok  	mindimprint/api/internal/api	33.877s

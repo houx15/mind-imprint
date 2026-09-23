@@ -99,17 +99,11 @@ func TestCheckRejections(t *testing.T) {
 		{"dimension added", func(c *Content, _ *Input) {
 			c.Dimensions = append(c.Dimensions, Dimension{Name: "创意", Grade: "A", Comment: "有新意。"})
 		}, ReasonDimensionNames},
-		{"two points", func(c *Content, _ *Input) { c.Points = c.Points[:2] }, ReasonPointCount},
 		{"six points", func(c *Content, _ *Input) {
 			for len(c.Points) < 6 {
 				c.Points = append(c.Points, c.Points[2])
 			}
 		}, ReasonPointCount},
-		{"no good point", func(c *Content, _ *Input) { c.Points[0] = c.Points[1] }, ReasonNoGoodPoint},
-		{"no issue point", func(c *Content, _ *Input) {
-			c.Points[1] = c.Points[0]
-			c.Points[2] = c.Points[0]
-		}, ReasonNoIssuePoint},
 		{"issue without action", func(c *Content, _ *Input) { c.Points[1].Action = nil }, ReasonIssueWithoutAction},
 		{"issue with blank action", func(c *Content, _ *Input) { c.Points[2].Action = sp("   ") }, ReasonIssueWithoutAction},
 		{"point judges her as a person", func(c *Content, _ *Input) { c.Points[1].Text = "你很粗心，没有检查。" }, ReasonPersonJudging},
@@ -178,7 +172,7 @@ func TestCheckTeacherEditIsShapeOnly(t *testing.T) {
 
 func TestJoinReasonsDedupes(t *testing.T) {
 	rs := []Reason{{Code: ReasonNoGoodPoint}, {Code: ReasonNoGoodPoint}, {Code: ReasonPointCount, Detail: "2"}}
-	if got := JoinReasons(rs); got != "没有优点意见；意见共 2 条，需要 3 到 5 条" {
+	if got := JoinReasons(rs); got != "没有优点意见；意见共 2 条，最多允许 5 条" {
 		t.Fatalf("JoinReasons = %q", got)
 	}
 }
@@ -399,6 +393,35 @@ func TestCheckLanguageThresholdBoundary(t *testing.T) {
 	belowThreshold := Content{Overall: Overall{Comment: strings.Repeat("中", 5) + strings.Repeat("x", 5)}} // 5/10 = 0.50
 	if rs := Check(belowThreshold, testInput()); !hasCode(rs, ReasonLanguageMismatch) {
 		t.Fatalf("50%% Han prose accepted just under the threshold: %v", codes(rs))
+	}
+}
+
+// Feedback need not invent strengths or problems to meet a category quota.
+// Grades, dimension comments, quotations and action checks still apply.
+func TestCheckAcceptsEvidenceDrivenPointCounts(t *testing.T) {
+	base := validContent()
+	for _, points := range [][]Point{{}, {base.Points[0]}, {base.Points[1]}, base.Points[:2]} {
+		c := validContent()
+		c.Points = points
+		if rs := Check(c, testInput()); len(rs) != 0 {
+			t.Fatalf("valid %d-point feedback rejected: %v", len(points), rs)
+		}
+		c.Overall.Grade = "INVALID"
+		if rs := Check(c, testInput()); !hasCode(rs, ReasonGradeOutOfScale) {
+			t.Fatal("point-count flexibility bypassed grading checks")
+		}
+	}
+	c := validContent()
+	c.Points = []Point{c.Points[1]}
+	c.Points[0].Action = nil
+	if rs := Check(c, testInput()); !hasCode(rs, ReasonIssueWithoutAction) {
+		t.Fatal("single issue must retain an action")
+	}
+	c = validContent()
+	c.Points = []Point{c.Points[0]}
+	c.Points[0].Quote = sp("正文里不存在的句子。")
+	if rs := Check(c, testInput()); !hasCode(rs, ReasonQuoteNotInBody) {
+		t.Fatal("praise-only feedback must retain source evidence")
 	}
 }
 

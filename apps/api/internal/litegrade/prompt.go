@@ -130,11 +130,11 @@ func UserPrompt(in Input) string {
 		fmt.Fprintf(&b, "目标字数：%d\n", in.TargetWords)
 	}
 	fmt.Fprintf(&b, "\n学生正文（第 %d 版）：\n%s\n", in.VersionNumber, in.Body)
-	// 🚨 统计块排在她的正文**后面**，而且只在这条用户消息里 —— 它是每个学生
+	// 🚨 统计块排在学生的正文**后面**，而且只在这条用户消息里 —— 它是每个学生
 	// 都不一样的东西，放进系统提示词会把整个班共用的前缀打碎（见
 	// prompts.GradingFactsBlock）。
 	fmt.Fprintf(&b, prompts.GradingFactsBlock, factsBlock(in))
-	b.WriteString("\n请输出完整对象：points 必须有 3–5 条，至少 1 条 good 和 1 条 issue；可用两条 good 加一条 issue，不为凑数量虚构问题。各条简洁写明原文依据与用途，输出前核对条数和数组闭合。\n")
+	b.WriteString("\n请输出完整对象：points 最多 5 条，每条都应有原文依据。不要求同时包含 good 和 issue；没有需要单独指出的内容时可返回空数组。总评与各维度仍需完整填写。\n")
 	return b.String()
 }
 

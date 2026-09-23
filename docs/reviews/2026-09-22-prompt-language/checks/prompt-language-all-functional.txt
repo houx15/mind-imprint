@@ -1,0 +1,64 @@
+# mindimprint/api/internal/litegrade
+internal/litegrade/content.go:87:6: syntax error: unexpected name capPoints, expected (
+internal/litegrade/content.go:125:6: syntax error: unexpected name rubricDimensionName, expected (
+internal/litegrade/content.go:141:6: syntax error: unexpected name trimPtr, expected (
+internal/litegrade/content.go:154:6: syntax error: unexpected name orderDimensions, expected (
+FAIL	mindimprint/api/cmd/api [build failed]
+FAIL	mindimprint/api/cmd/coachwalk [build failed]
+?   	mindimprint/api/cmd/costreport	[no test files]
+FAIL	mindimprint/api/cmd/promptinspect [build failed]
+?   	mindimprint/api/cmd/prompttag	[no test files]
+FAIL	mindimprint/api/cmd/routebench [build failed]
+ok  	mindimprint/api/internal/agent	32.560s
+ok  	mindimprint/api/internal/agent/enforcement	0.303s
+FAIL	mindimprint/api/internal/api [build failed]
+ok  	mindimprint/api/internal/auth	0.399s
+ok  	mindimprint/api/internal/awakening	0.939s
+?   	mindimprint/api/internal/benchcase	[no test files]
+ok  	mindimprint/api/internal/cards	0.983s
+?   	mindimprint/api/internal/claritytest	[no test files]
+ok  	mindimprint/api/internal/coachwalk	1.217s
+ok  	mindimprint/api/internal/config	0.283s
+ok  	mindimprint/api/internal/disciplines	0.359s
+ok  	mindimprint/api/internal/docextract	0.340s
+ok  	mindimprint/api/internal/evalbench	0.570s
+ok  	mindimprint/api/internal/evalreport	0.431s
+ok  	mindimprint/api/internal/gateway	1.019s
+ok  	mindimprint/api/internal/httpx	0.475s
+ok  	mindimprint/api/internal/interest	0.531s
+ok  	mindimprint/api/internal/interests	0.554s
+ok  	mindimprint/api/internal/library	0.412s
+ok  	mindimprint/api/internal/liteassign	0.406s
+FAIL	mindimprint/api/internal/litegrade [build failed]
+ok  	mindimprint/api/internal/liteparent	0.330s
+ok  	mindimprint/api/internal/liteweek	0.332s
+ok  	mindimprint/api/internal/liteweekly	0.275s
+ok  	mindimprint/api/internal/liteworkspace	0.410s
+ok  	mindimprint/api/internal/materialize	0.416s
+ok  	mindimprint/api/internal/news	0.412s
+ok  	mindimprint/api/internal/onboarding	0.364s
+ok  	mindimprint/api/internal/org	0.317s
+ok  	mindimprint/api/internal/oss	0.312s
+ok  	mindimprint/api/internal/pbl	4.426s
+ok  	mindimprint/api/internal/promptassembly	0.383s
+ok  	mindimprint/api/internal/promptlib	0.557s
+ok  	mindimprint/api/internal/prompts	0.384s
+ok  	mindimprint/api/internal/quotematch	0.350s
+ok  	mindimprint/api/internal/routebench	0.453s
+ok  	mindimprint/api/internal/rubric	0.309s
+ok  	mindimprint/api/internal/skills	0.367s
+ok  	mindimprint/api/internal/store	10.285s
+?   	mindimprint/api/internal/store/seed/courses	[no test files]
+?   	mindimprint/api/internal/store/sqlc	[no test files]
+ok  	mindimprint/api/internal/studio	2.669s
+ok  	mindimprint/api/internal/teacher	0.328s
+?   	mindimprint/api/internal/teachingvoice	[no test files]
+ok  	mindimprint/api/internal/vocab	0.245s
+ok  	mindimprint/api/internal/voice	0.459s
+ok  	mindimprint/api/internal/websearch	0.348s
+?   	mindimprint/api/tools/evalbench	[no test files]
+?   	mindimprint/api/tools/genhash	[no test files]
+?   	mindimprint/api/tools/synccards	[no test files]
+?   	mindimprint/api/tools/syncrubric	[no test files]
+?   	mindimprint/api/tools/syncskills	[no test files]
+FAIL

@@ -1,0 +1,85 @@
+=== RUN   TestLiveLiteParentReport
+    compose_lite_parent_live_test.go:118: model: deepseek-v4-pro; sections: [overview reading writing projects interests next]
+    compose_lite_parent_live_test.go:119: facts text: 日期 2026-08-17 至 2026-09-13（8月17日至9月13日），共 28 天；学生 林小雨；班级 高一（3）班 · 阅读写作；活跃 11 天；学习 380 分钟；对话 64 轮；完成阅读 2 篇；完成写作 1 篇；完成项目 1 个；到期作业 3 份；按时完成作业 2 份；逾期完成作业 1 份；未完成作业 0 份；完成阅读《咖啡的旅程》；完成阅读《中国是否让地球变得更可持续？》；完成写作《一场雨》；完成项目《校园雨水调查》；新关键词 天气（科学与自然）；新关键词 金融（社会与世界）；「雨落在屋檐上像敲鼓」（《一场雨》）
+    compose_lite_parent_live_test.go:124: attempts: 1
+    compose_lite_parent_live_test.go:124: attempt 1: passed checks; usage {InputTokens:479 OutputTokens:5023 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "overview": "2026年8月17日至9月13日，共28天。林小雨在阅读写作班活跃11天，累计学习380分钟，进行64轮对话。期间完成阅读2篇，写作1篇，项目1个。到期作业共3份，按时完成2份，逾期完成1份，未完成0份。新关键词：天气（科学与自然）、金融（社会与世界）。",
+          "reading": "完成阅读2篇：《咖啡的旅程》《中国是否让地球变得更可持续？》。",
+          "writing": "完成写作《一场雨》。文中写道：「雨落在屋檐上像敲鼓」。",
+          "projects": "完成项目《校园雨水调查》。",
+          "interests": "近期学习内容围绕咖啡的旅程、中国的可持续发展以及天气现象。新关键词为天气和金融。",
+          "next": "可以和孩子一起记录一周的降雨数据，与《校园雨水调查》相互补充。\n可以查找关于咖啡贸易的资料，与孩子讨论《咖啡的旅程》中的内容，并用图表呈现咖啡的流通路径。\n可以阅读关于中国环保政策的新闻，鼓励孩子结合《中国是否让地球变得更可持续？》分享自己的思考。"
+        }
+    compose_lite_parent_live_test.go:133: attempt 1 next: Chinese numerals: 一周
+    compose_lite_parent_live_test.go:138: first attempt passed: true
+    compose_lite_parent_live_test.go:143: 总体概述 (overview):
+        2026年8月17日至9月13日，共28天。林小雨在阅读写作班活跃11天，累计学习380分钟，进行64轮对话。期间完成阅读2篇，写作1篇，项目1个。到期作业共3份，按时完成2份，逾期完成1份，未完成0份。新关键词：天气（科学与自然）、金融（社会与世界）。
+    compose_lite_parent_live_test.go:143: 阅读 (reading):
+        完成阅读2篇：《咖啡的旅程》《中国是否让地球变得更可持续？》。
+    compose_lite_parent_live_test.go:143: 写作 (writing):
+        完成写作《一场雨》。文中写道：「雨落在屋檐上像敲鼓」。
+    compose_lite_parent_live_test.go:143: 项目 (projects):
+        完成项目《校园雨水调查》。
+    compose_lite_parent_live_test.go:143: 兴趣 (interests):
+        近期学习内容围绕咖啡的旅程、中国的可持续发展以及天气现象。新关键词为天气和金融。
+    compose_lite_parent_live_test.go:143: 下一步建议 (next):
+        可以和孩子一起记录一周的降雨数据，与《校园雨水调查》相互补充。
+        可以查找关于咖啡贸易的资料，与孩子讨论《咖啡的旅程》中的内容，并用图表呈现咖啡的流通路径。
+        可以阅读关于中国环保政策的新闻，鼓励孩子结合《中国是否让地球变得更可持续？》分享自己的思考。
+--- PASS: TestLiveLiteParentReport (113.52s)
+=== RUN   TestLiveLiteWeeklyStudent
+    compose_lite_weekly_live_test.go:125: model: deepseek-v4-pro; cards: [{Kind:watch Code:overdue Label:作业逾期 Evidence:该周到期的作业中有 1 份未完成。} {Kind:praise Code:new_interest Label:新的兴趣 Evidence:兴趣树新增关键词：天气。}]
+    compose_lite_weekly_live_test.go:130: attempts: 1
+    compose_lite_weekly_live_test.go:130: attempt 1: passed checks; usage {InputTokens:419 OutputTokens:2190 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "summary": "第37周（9.7–9.13），林小雨活跃3天，上一周活跃1天。学习85分钟，对话12轮。完成作品《一场雨》，其中写道「雨落在屋檐上像敲鼓」。停滞作品《雨水花园调查》。新增关键词天气。逾期作业1份，按时完成0份，逾期完成0份。",
+          "suggestions": [
+            {
+              "text": "下周个别提醒林小雨查看并补交逾期的1份作业，明确截止时间。",
+              "evidenceCode": "overdue"
+            },
+            {
+              "text": "围绕新关键词天气，提供相关阅读材料或设计一个观察活动，帮助林小雨拓展兴趣。",
+              "evidenceCode": "new_interest"
+            },
+            {
+              "text": "引导林小雨将天气主题融入《雨水花园调查》，重新启动该作品。",
+              "evidenceCode": "new_interest"
+            }
+          ]
+        }
+    compose_lite_weekly_live_test.go:134: summary: 第37周（9.7–9.13），林小雨活跃3天，上一周活跃1天。学习85分钟，对话12轮。完成作品《一场雨》，其中写道「雨落在屋檐上像敲鼓」。停滞作品《雨水花园调查》。新增关键词天气。逾期作业1份，按时完成0份，逾期完成0份。
+    compose_lite_weekly_live_test.go:136: suggestion 1 [overdue]: 下周个别提醒林小雨查看并补交逾期的1份作业，明确截止时间。
+    compose_lite_weekly_live_test.go:136: suggestion 2 [new_interest]: 围绕新关键词天气，提供相关阅读材料或设计一个观察活动，帮助林小雨拓展兴趣。
+    compose_lite_weekly_live_test.go:136: suggestion 3 [new_interest]: 引导林小雨将天气主题融入《雨水花园调查》，重新启动该作品。
+--- PASS: TestLiveLiteWeeklyStudent (46.56s)
+=== RUN   TestLiveLiteWeeklyClass
+    compose_lite_weekly_live_test.go:154: model: deepseek-v4-pro; cards: map[7d7c2a8e-1f00-4c2b-9a51-000000000011:[{Kind:watch Code:overdue Label:作业逾期 Evidence:该周到期的作业中有 1 份未完成。} {Kind:praise Code:new_interest Label:新的兴趣 Evidence:兴趣树新增关键词：天气。}] 7d7c2a8e-1f00-4c2b-9a51-000000000012:[{Kind:praise Code:finished_on_time Label:按时完成 Evidence:该周到期的作业按时完成 1 份。}]]
+    compose_lite_weekly_live_test.go:159: attempts: 1
+    compose_lite_weekly_live_test.go:159: attempt 1: passed checks; usage {InputTokens:648 OutputTokens:6841 CachedInputTokens:0 ReasoningTokens:<nil>}
+        {
+          "comment": "本周高一（3）班阅读写作课共2名学生参与，学习总时长205分钟，对话32轮。完成作品2份：《一场雨》和《雨停之前》。到期作业2份，1份按时完成，1份逾期，作业完成率50%。林小雨兴趣树新增关键词“天气”，其作业《雨水花园调查》逾期未完成。王思远按时完成到期作业。",
+          "cards": [
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000011",
+              "lead": "林小雨上周完成作品《一场雨》，其中「雨落在屋檐上像敲鼓」；兴趣树新增关键词“天气”；但作业《雨水花园调查》逾期未完成。",
+              "action": "教师可当面肯定她在《一场雨》中对雨景的生动描写，并对她新增“天气”兴趣关键词表示关注，鼓励她在后续写作中继续捕捉生活细节。针对《雨水花园调查》逾期的情况，可以私下询问她是否遇到理解或时间安排上的困难，帮助她梳理调查步骤，共同制定一个包含具体期限的完成计划，并提醒她按时提交的重要性。"
+            },
+            {
+              "userId": "7d7c2a8e-1f00-4c2b-9a51-000000000012",
+              "lead": "王思远上周按时完成作业《雨停之前》。",
+              "action": "教师可以在课堂上或课下肯定他按时提交作业的表现，与他一起回顾《雨停之前》的内容，询问他在写作过程中的想法，并鼓励他尝试不同风格的阅读或写作，以拓展视野。"
+            }
+          ]
+        }
+    compose_lite_weekly_live_test.go:163: comment: 本周高一（3）班阅读写作课共2名学生参与，学习总时长205分钟，对话32轮。完成作品2份：《一场雨》和《雨停之前》。到期作业2份，1份按时完成，1份逾期，作业完成率50%。林小雨兴趣树新增关键词“天气”，其作业《雨水花园调查》逾期未完成。王思远按时完成到期作业。
+    compose_lite_weekly_live_test.go:165: card 7d7c2a8e-1f00-4c2b-9a51-000000000011
+          lead: 林小雨上周完成作品《一场雨》，其中「雨落在屋檐上像敲鼓」；兴趣树新增关键词“天气”；但作业《雨水花园调查》逾期未完成。
+          action: 教师可当面肯定她在《一场雨》中对雨景的生动描写，并对她新增“天气”兴趣关键词表示关注，鼓励她在后续写作中继续捕捉生活细节。针对《雨水花园调查》逾期的情况，可以私下询问她是否遇到理解或时间安排上的困难，帮助她梳理调查步骤，共同制定一个包含具体期限的完成计划，并提醒她按时提交的重要性。
+    compose_lite_weekly_live_test.go:165: card 7d7c2a8e-1f00-4c2b-9a51-000000000012
+          lead: 王思远上周按时完成作业《雨停之前》。
+          action: 教师可以在课堂上或课下肯定他按时提交作业的表现，与他一起回顾《雨停之前》的内容，询问他在写作过程中的想法，并鼓励他尝试不同风格的阅读或写作，以拓展视野。
+--- PASS: TestLiveLiteWeeklyClass (157.90s)
+PASS
+ok  	mindimprint/api/internal/agent	319.061s

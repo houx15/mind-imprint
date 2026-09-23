@@ -128,7 +128,7 @@ func (b TreeBrief) Text() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("她的兴趣树上已经有这些词（括号里是强度，1 到 5，由出现过几次推出来）：\n")
+	sb.WriteString("学生的兴趣树上已经有这些词（括号里是强度，1 到 5，由出现过几次推出来）：\n")
 	for _, k := range b.Top {
 		zh := k.Zh
 		if zh == "" {
@@ -148,17 +148,17 @@ func (b TreeBrief) Text() string {
 		for _, f := range b.EmptyFields {
 			names = append(names, fieldZh[f])
 		}
-		fmt.Fprintf(&sb, "她一个词都还没有的方向：%s。\n", strings.Join(names, "、"))
+		fmt.Fprintf(&sb, "学生一个词都还没有的方向：%s。\n", strings.Join(names, "、"))
 	}
 
 	if b.DaysSinceLast > 0 {
-		fmt.Fprintf(&sb, "距离她上一次走这条协议，过了 %d 天。\n", b.DaysSinceLast)
+		fmt.Fprintf(&sb, "距离学生上一次完成兴趣探询，过了 %d 天。\n", b.DaysSinceLast)
 	}
 
 	sb.WriteString(`怎么用这份简报：
-- 第一问从她已经有的词出发，问那条线现在还在不在、有没有变。不要重新问「你最近喜欢什么」。
-- 她提到上面没有的方向时，顺着追，不要把她拉回旧词。
-- **不要**把这些词念给她听，也不要评价她的树长得好不好。这是你知道的背景，不是这一轮的内容。
+- 第一问从学生已经有的词出发，了解学生目前是否仍关注这个方向，以及想法是否有变化。不要重新问「你最近喜欢什么」。
+- 学生提到上面没有的方向时，围绕新方向提问，不要求学生继续讨论已有关键词。
+- 将这些词作为理解学生兴趣的背景，不逐项复述或评价兴趣树。记录中没有某个领域，不代表学生对该领域没有兴趣。
 `)
 	return sb.String()
 }

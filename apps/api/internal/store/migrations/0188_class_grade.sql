@@ -1,4 +1,4 @@
--- 0186_class_grade.sql —— 这个班是几年级。
+-- 0188_class_grade.sql —— 这个班是几年级。
 --
 -- 产品负责人 2026-09-22：「during a class creating we can add 学段。」
 -- 不按每篇作文推断，也不问学生 —— 建班的人知道这件事，问一次就够了。
@@ -15,6 +15,10 @@
 -- 🚨 **和 writing.stage 不是一回事**。那一列是写作流程走到哪儿
 -- （ideate/outline/…），这一列是她读几年级。名字不同是故意的。
 --
+-- 🚨 2026-09-23 合并时从 0186 改成 0188：另一条分支的
+-- 0186_pbl_showcase / 0187_pbl_step_submission 先进了 main，goose 碰上
+-- 重号直接 panic。这一列只动 classes，与那两条无依赖，换号安全。
+
 -- additive：老班全部回填空串 = 不知道年级，行为和这次迁移之前一模一样。
 
 -- +goose Up

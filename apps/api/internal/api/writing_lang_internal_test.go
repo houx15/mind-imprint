@@ -51,8 +51,7 @@ func TestWritingLengthLineSpellsOutTheUnitForEnglish(t *testing.T) {
 	// 「约 500 词」 sitting inside an otherwise Chinese prompt is still
 	// readable as 字 by habit, and the cost of that misreading is the bug
 	// this file was created for. The English branch names the unit a second
-	// time, unambiguously, and says out loud that 500 of them is a whole
-	// essay.
+	// time, unambiguously, without assuming what length makes a complete essay.
 	got := writingLengthLine(sqlc.Writing{Lang: "en", TargetWords: words(500)}, "目标篇幅")
 	if !strings.Contains(got, "English words") {
 		t.Fatalf("english length line must name the unit in English: %q", got)

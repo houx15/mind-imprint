@@ -31,7 +31,7 @@ func TestWritingPlanSystem_TeachesWholePieceJudgment(t *testing.T) {
 		// 🚨 2026-09-20：原来这里钉的是「最上层不止中心论点」—— 那句话在教模型
 		// 怎么摆节点。模型不再摆节点了，所以钉住的换成新的那条契约本身：
 		// 它只说这一块是什么，位置不归它管。
-		"你不决定它挂在哪儿",
+		"系统根据 kind 安排节点位置与标题",
 		"「closing」 结尾",
 		"「reasoning」 道理",
 		"不超过 200 字",
@@ -84,7 +84,7 @@ func TestWritingPlanSystem_NamesOnlyRealMethods(t *testing.T) {
 	}
 	// Guard against this test passing vacuously if the quoting convention
 	// changes and bracketed stops finding anything.
-	if n := len(bracketed(writingPlanSystem)); n < 3 {
+	if n := len(bracketed(writingPlanSystem)); n < 2 {
 		t.Fatalf("found only %d 『』-quoted method names in writingPlanSystem — the prompt or the quoting convention changed, and this test is no longer checking anything", n)
 	}
 	// Examples need not list a fixed menu on every turn. The selected

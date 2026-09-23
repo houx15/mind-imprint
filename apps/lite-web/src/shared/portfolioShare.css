@@ -1,0 +1,8 @@
+.portfolio-share-dialog { border:0; border-radius:20px; padding:32px; width:min(440px,calc(100vw - 32px)); color:#233c3c; background:#fafbf9; box-shadow:0 24px 80px #122c3240; }
+.portfolio-share-dialog::backdrop { background:#102b3f88; }
+.portfolio-share-dialog h2 { font-size:22px; font-weight:650; margin:8px 0 12px; }
+.portfolio-share-dialog p { font-size:13px; line-height:1.8; }
+.portfolio-share-dialog textarea { display:block; width:100%; margin:20px 0; padding:14px; border:1px solid #d7dfdb; border-radius:10px; font-size:13px; resize:none; background:white; }
+.portfolio-share-dialog a { font-size:13px; text-decoration:underline; }
+.portfolio-share-copy { display:block; width:100%; margin-top:20px; border-radius:10px; background:#387e87; color:white; padding:12px; font-size:14px; }
+.portfolio-share-close { position:absolute; right:14px; top:10px; font-size:24px; }

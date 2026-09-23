@@ -1,0 +1,14 @@
+=== RUN   TestClarityReadingPlan
+=== RUN   TestClarityReadingPlan/zh
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=1 model=dashscope/glm-5.3 ms=7060 input=2228 output=428 valid=true
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/zh sample=2 model=dashscope/glm-5.3 ms=7799 input=2228 output=436 valid=true
+=== RUN   TestClarityReadingPlan/en
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=1 model=dashscope/glm-5.3 ms=8365 input=2664 output=513 valid=false
+    clarity_teaching_live_test.go:111: compressed or confrontational teaching language: 主张 (visible output preserved in evidence)
+    clarity_teaching_live_test.go:111: TestClarityReadingPlan/en sample=2 model=dashscope/glm-5.3 ms=7930 input=2664 output=490 valid=true
+--- FAIL: TestClarityReadingPlan (31.16s)
+    --- PASS: TestClarityReadingPlan/zh (14.86s)
+    --- FAIL: TestClarityReadingPlan/en (16.30s)
+FAIL
+FAIL	mindimprint/api/internal/api	31.701s
+FAIL

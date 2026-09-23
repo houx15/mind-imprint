@@ -1,0 +1,31 @@
+=== RUN   TestClarityAgent
+=== RUN   TestClarityAgent/sceptic
+    clarity_live_test.go:83: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步：有个人经历作为依据，但从个例推出普遍观点的推理链条还没有建立",
+            "evidence": "你写了“上周我和三位同学只能在走廊复习”，这是具体的一次经历；观点是“这证明所有学生都需要图书馆全天开放”。",
+            "missing": "你需要补充能说明“所有学生”这一范围的依据：除你们四人之外，是否还有其他同学也有类似情况，比如图书馆使用统计、其他同学的反馈或座位需求记录。另外，“延长开放时间”和“全天开放”是两个不同范围的建议，需要先明确你主张的是哪一个，再决定要哪些证据支持。",
+            "fix": "可以往两个方向补充：一是核实图书馆当前开放时间、使用人数或座位占用的实际情况；二是收集更多同学是否也需要延长开放的依据，使“所有学生”的说法有对应的数据来源。若无法获得更大范围的依据，也可以考虑把观点的范围收窄到你已有证据能支持的幅度。",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=1 model=dashscope/glm-5.3 ms=9941 input=1072 output=227 valid=false
+    clarity_live_test.go:37: review teaching language: 主张 (visible output preserved in evidence)
+    clarity_live_test.go:83: production review attempt: [
+          {
+            "criterion_code": "A",
+            "band": "刚起步",
+            "evidence": "你提出观点'学校图书馆应该延长开放时间'，并给出依据'上周我和三位同学只能在走廊复习'，随后推断'这证明所有学生都需要图书馆全天开放'。",
+            "missing": "'三位同学在走廊复习'这个材料只能说明上周你和这几位同学遇到了座位不足的情况，还不能据此判断所有学生都有同样需求，也不能直接推出需要'全天开放'这一具体程度。你还缺少支持'延长开放时间'与'解决座位不足'之间关联的依据，例如走廊复习是因为闭馆时间还是座位数量。此外，'全天开放'与开头'延长开放时间'是两个不同强度的建议，需要确定你要主张哪一种。",
+            "fix": "需要核实的方向包括：图书馆当前开放时间到几点、座位总数与高峰期使用情况、是否常有无座位的记录。可以补充的依据方向：更大范围学生的使用情况或需求调查，以说明需求是否普遍。若坚持'全天开放'的建议，需要单独给出能支持这一强度的依据；否则可考虑将建议表述与现有证据能支撑的范围对齐。可精简方向：若补充了更普遍的证据，'我和三位同学'的个人事例可缩短为一句背景，删减会损失具体情境感，由你决定保留程度。",
+            "points": 1
+          }
+        ]
+    clarity_live_test.go:37: TestClarityAgent/sceptic sample=2 model=dashscope/glm-5.3 ms=7659 input=1072 output=303 valid=false
+    clarity_live_test.go:37: review teaching language: 主张 (visible output preserved in evidence)
+--- FAIL: TestClarityAgent (17.60s)
+    --- FAIL: TestClarityAgent/sceptic (17.60s)
+FAIL
+FAIL	mindimprint/api/internal/agent	18.036s
+FAIL

@@ -66,6 +66,7 @@ type Deps struct {
 	CORSOrigins      []string     // allowlisted SPA origins, used for WS OriginPatterns
 	Fetcher          Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
 	OSS              *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
+	PublicAssets     *oss.Service // public CDN assets; showcase publication only
 	OSSAdminKey      string       // static bearer secret authorizing the admin upload routes
 	// River enqueues background jobs (interest harvesting). Nil in tests and
 	// when the queue fails to start — every call site must tolerate that; see
@@ -341,6 +342,16 @@ func (a *API) Handler() http.Handler {
 	// S5 · 她的主页。/pbl/site 在 /pbl/projects 之前注册，因为它是 §4 那道门
 	// 的另一半：projects 拒绝的时候，这里是唯一走得通的路。
 	mux.Handle("GET /api/v1/pbl/site", liteOnly(a.getPblSite))
+	mux.Handle("GET /api/v1/pbl/showcase", liteOnly(a.getPblShowcase))
+	mux.Handle("PUT /api/v1/pbl/showcase", liteOnly(a.putPblShowcase))
+	mux.Handle("POST /api/v1/pbl/showcase/publish", liteOnly(a.publishPblShowcase))
+	mux.Handle("DELETE /api/v1/pbl/showcase/publish", liteOnly(a.unpublishPblShowcase))
+	mux.Handle("POST /api/v1/pbl/showcase/images/generate", liteOnly(a.generatePblShowcaseImage))
+	mux.Handle("POST /api/v1/pbl/showcase/images/resolve", liteOnly(a.resolvePblShowcaseImage))
+	mux.Handle("POST /api/v1/pbl/showcase/images/upload", liteOnly(a.uploadPblShowcaseImage))
+	mux.Handle("POST /api/v1/pbl/showcase/about/chat", liteOnly(a.postPblShowcaseAboutChat))
+	mux.Handle("POST /api/v1/pbl/showcase/guide/chat", liteOnly(a.postPblShowcaseGuideChat))
+	mux.Handle("POST /api/v1/pbl/showcase/components/generate", liteOnly(a.postPblShowcaseComponentGenerate))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/site-structure", liteOnly(a.applyPblSiteStructure))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
 	mux.Handle("PUT /api/v1/pbl/site/sections/{key}/image", liteOnly(a.putPblSiteSectionImage))
@@ -369,6 +380,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan", liteOnly(a.proposePblPlan))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/approve", liteOnly(a.approvePblPlan))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/plan/steps/{sid}", liteOnly(a.setPblStepStatus))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/steps/{sid}/submission", liteOnly(a.submitPblStepDeliverable))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes", liteOnly(a.stagePblChange))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes/{cid}/resolve", liteOnly(a.resolvePblChange))
 	// 成果：交出来要说清楚猜了什么、哪里不对；落地要说得出理由。
@@ -533,6 +545,7 @@ func (a *API) Handler() http.Handler {
 	// 搜索引擎的）。
 	mux.Handle("GET /api/v1/public/sites/{token}/render", http.HandlerFunc(a.renderPublicCodeSite))
 	mux.Handle("GET /api/v1/public/sites/{token}", http.HandlerFunc(a.getPublicSite))
+	mux.Handle("GET /api/v1/public/sites/{token}/works", http.HandlerFunc(a.getPublicShowcaseWorks))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))

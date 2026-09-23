@@ -1,0 +1,386 @@
+[
+  {
+    "id": "agent.projectCoachPosturePrompt",
+    "source": "internal/prompts/agent_project_coach.go",
+    "consumer": "internal/agent/project_coach_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "liteworkspace.PronounRule",
+    "source": "internal/prompts/liteworkspace_gender.go",
+    "consumer": "internal/liteworkspace/gender.go",
+    "text": ""
+  },
+  {
+    "id": "agent.liteParentSystemPromptTemplate",
+    "source": "internal/prompts/agent_compose_lite_parent.go",
+    "consumer": "internal/agent/compose_lite_parent_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "agent.liteStudentWeeklySystemPrompt",
+    "source": "internal/prompts/agent_compose_lite_weekly.go",
+    "consumer": "internal/agent/compose_lite_weekly_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "agent.liteClassWeeklySystemPrompt",
+    "source": "internal/prompts/agent_compose_lite_weekly.go",
+    "consumer": "internal/agent/compose_lite_weekly_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "agent.readingTakeawaySystem",
+    "source": "internal/prompts/agent_reading_takeaway.go",
+    "consumer": "internal/agent/reading_takeaway_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.liteReportSystem",
+    "source": "internal/prompts/api_atom_report.go",
+    "consumer": "internal/api/atom_report_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.assignmentExtractSystem",
+    "source": "internal/prompts/api_lite_assignment_extract.go",
+    "consumer": "internal/api/lite_assignment_extract_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.liteClassSummarySystemPrompt",
+    "source": "internal/prompts/api_lite_class_summary.go",
+    "consumer": "internal/api/lite_class_summary_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.readingBlockSystem",
+    "source": "internal/prompts/api_reading_block.go",
+    "consumer": "internal/api/reading_block_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.readingCoachSystem",
+    "source": "internal/prompts/api_reading_coach.go",
+    "consumer": "internal/api/reading_coach_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.coachStuckNudge",
+    "source": "internal/prompts/api_reading_coach_repeat.go",
+    "consumer": "internal/api/reading_coach_repeat_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.readingPlanSystem",
+    "source": "internal/prompts/api_reading_plan.go",
+    "consumer": "internal/api/reading_plan_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.readingQuestionsSystem",
+    "source": "internal/prompts/api_reading_questions.go",
+    "consumer": "internal/api/reading_questions_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingRoleBoardNote",
+    "source": "internal/prompts/api_writing_board.go",
+    "consumer": "internal/api/writing_board_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingCommentRules",
+    "source": "internal/prompts/api_writing_comment.go",
+    "consumer": "internal/api/writing_comment_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingCommentSystem",
+    "source": "internal/prompts/api_writing_comment.go",
+    "consumer": "internal/api/writing_comment_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingSummaryAbsenceNudge",
+    "source": "internal/prompts/api_writing_comment_summary.go",
+    "consumer": "internal/api/writing_comment_summary_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingNoPointNudge",
+    "source": "internal/prompts/api_writing_comment_summary.go",
+    "consumer": "internal/api/writing_comment_summary_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingCommentUnparseableNudge",
+    "source": "internal/prompts/api_writing_comment_summary.go",
+    "consumer": "internal/api/writing_comment_summary_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.deepenSystem",
+    "source": "internal/prompts/api_writing_deepen.go",
+    "consumer": "internal/api/writing_deepen_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingGuideTeachingRules",
+    "source": "internal/prompts/api_writing_guide.go",
+    "consumer": "internal/api/writing_guide_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingGuideQuestionRules",
+    "source": "internal/prompts/api_writing_guide.go",
+    "consumer": "internal/api/writing_guide_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingGuideSystem",
+    "source": "internal/prompts/api_writing_guide.go",
+    "consumer": "internal/api/writing_guide_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingGuideBatchSystem",
+    "source": "internal/prompts/api_writing_guide.go",
+    "consumer": "internal/api/writing_guide_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanSystem",
+    "source": "internal/prompts/api_writing_plan.go",
+    "consumer": "internal/api/writing_plan_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanArgumentKinds",
+    "source": "internal/prompts/api_writing_plan.go",
+    "consumer": "internal/api/writing_plan_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanNarrativeKinds",
+    "source": "internal/prompts/api_writing_plan.go",
+    "consumer": "internal/api/writing_plan_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanInviteNudge",
+    "source": "internal/prompts/api_writing_plan_invite.go",
+    "consumer": "internal/api/writing_plan_invite_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanMaterialZH",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanMaterialEN",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanSkeletonZH",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanSkeletonEN",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanEnglishArgumentKinds",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanEnglishNarrativeKinds",
+    "source": "internal/prompts/api_writing_plan_lang.go",
+    "consumer": "internal/api/writing_plan_lang_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingPlanStalledBlock",
+    "source": "internal/prompts/api_writing_plan_state.go",
+    "consumer": "internal/api/writing_plan_state_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingRefusalBlock",
+    "source": "internal/prompts/api_writing_refusal.go",
+    "consumer": "internal/api/writing_refusal_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingRefusalNudge",
+    "source": "internal/prompts/api_writing_refusal.go",
+    "consumer": "internal/api/writing_refusal_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingOpeningSystem",
+    "source": "internal/prompts/api_writing_setup.go",
+    "consumer": "internal/api/writing_setup_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingBroughtOpeningSystem",
+    "source": "internal/prompts/api_writing_setup.go",
+    "consumer": "internal/api/writing_setup_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingTitleKeywordsSystem",
+    "source": "internal/prompts/api_writing_title.go",
+    "consumer": "internal/api/writing_title_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingHostileToneNudge",
+    "source": "internal/prompts/api_writing_tone.go",
+    "consumer": "internal/api/writing_tone_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingRoomHowTo",
+    "source": "internal/prompts/api_writing_turn.go",
+    "consumer": "internal/api/writing_turn_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "api.writingCoachGroundingRules",
+    "source": "internal/prompts/api_writing_turn.go",
+    "consumer": "internal/api/writing_turn_prompt.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.dialogueSystemHead",
+    "source": "internal/prompts/awakening_dialogue.go",
+    "consumer": "internal/awakening/dialogue.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.dialogueSystemRulesHead",
+    "source": "internal/prompts/awakening_dialogue.go",
+    "consumer": "internal/awakening/dialogue.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.dialogueSystemRulesTail",
+    "source": "internal/prompts/awakening_dialogue.go",
+    "consumer": "internal/awakening/dialogue.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.reportSystemPrompt",
+    "source": "internal/prompts/awakening_report.go",
+    "consumer": "internal/awakening/report.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.selectionRules",
+    "source": "internal/prompts/awakening_selection.go",
+    "consumer": "internal/awakening/selection.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.selectionPromptTail",
+    "source": "internal/prompts/awakening_selection.go",
+    "consumer": "internal/awakening/selection.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.selectionPromptHead",
+    "source": "internal/prompts/awakening_selection.go",
+    "consumer": "internal/awakening/selection.go",
+    "text": ""
+  },
+  {
+    "id": "awakening.titleSystemPrompt",
+    "source": "internal/prompts/awakening_title.go",
+    "consumer": "internal/awakening/title.go",
+    "text": ""
+  },
+  {
+    "id": "interest.digSystemPrompt",
+    "source": "internal/prompts/interest_dig.go",
+    "consumer": "internal/interest/dig.go",
+    "text": ""
+  },
+  {
+    "id": "interest.harvestSystemPromptHead",
+    "source": "internal/prompts/interest_harvest.go",
+    "consumer": "internal/interest/harvest.go",
+    "text": ""
+  },
+  {
+    "id": "interest.harvestSelectionRules",
+    "source": "internal/prompts/interest_harvest.go",
+    "consumer": "internal/interest/harvest.go",
+    "text": ""
+  },
+  {
+    "id": "interest.quizSelectionRules",
+    "source": "internal/prompts/interest_harvest.go",
+    "consumer": "internal/interest/harvest.go",
+    "text": ""
+  },
+  {
+    "id": "interest.harvestSystemPromptTail",
+    "source": "internal/prompts/interest_harvest.go",
+    "consumer": "internal/interest/harvest.go",
+    "text": ""
+  },
+  {
+    "id": "litegrade.systemTemplate",
+    "source": "internal/prompts/litegrade_prompt.go",
+    "consumer": "internal/litegrade/prompt.go",
+    "text": ""
+  },
+  {
+    "id": "liteworkspace.assignmentSystemTemplate",
+    "source": "internal/prompts/liteworkspace_tools.go",
+    "consumer": "internal/liteworkspace/tools.go",
+    "text": ""
+  },
+  {
+    "id": "liteworkspace.homeSystemTemplate",
+    "source": "internal/prompts/liteworkspace_tools.go",
+    "consumer": "internal/liteworkspace/tools.go",
+    "text": ""
+  },
+  {
+    "id": "liteworkspace.reportSystemTemplate",
+    "source": "internal/prompts/liteworkspace_tools.go",
+    "consumer": "internal/liteworkspace/tools.go",
+    "text": ""
+  },
+  {
+    "id": "news.selectSystemPrompt",
+    "source": "internal/prompts/news_select.go",
+    "consumer": "internal/news/select.go",
+    "text": ""
+  },
+  {
+    "id": "news.writeSystemPrompt",
+    "source": "internal/prompts/news_write.go",
+    "consumer": "internal/news/write.go",
+    "text": ""
+  },
+  {
+    "id": "teachingvoice.Rules",
+    "source": "internal/prompts/teachingvoice_voice.go",
+    "consumer": "internal/teachingvoice/voice.go",
+    "text": ""
+  }
+]

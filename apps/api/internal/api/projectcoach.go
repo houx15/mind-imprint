@@ -293,7 +293,7 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	// search keywords and point at databases — but never search for her or hand
 	// her conclusions (克制).
 	if surface == "find_sources" {
-		b.WriteString("（学生在找资料：主动帮他想几个检索关键词，提醒中文和英文期刊都值得查，可以先从中国知网、Google Scholar 入手；读过几篇后再从里面滚出新的关键词和关键学者。给方向和关键词，别替他去搜、别直接下可信与否的结论。）\n")
+		b.WriteString("（学生在找资料：根据研究问题建议几个检索关键词，提醒中文和英文期刊都值得查，可以先从中国知网、Google Scholar 入手；读过几篇后再根据阅读内容补充关键词和相关学者。给方向和关键词，由学生自行检索、别直接下可信与否的结论。）\n")
 	}
 	// Studio batch-5 followup: 回顾 is where the student fills in HER OWN
 	// reflection (AI 使用声明 + 学习报告/元认知/认知者视角 这类回顾卡). This is NOT a
@@ -303,7 +303,7 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 	// 个开放问题，帮她想起具体细节和例子。绝不替她下结论、绝不替她把话写出来——那些话必
 	// 须是她自己的（铁律①）。
 	if surface == "reflection" {
-		b.WriteString("（学生在写回顾：这不是答辩，别追问、别考她——是陪她把自己的思考和感受说清楚。她可能卡在目标有没有达成、方法和数据用得怎么样、过程中遇到的问题、局限在哪，或者收获与接下来想怎么不一样地做；也可能是在写和 AI 互动的使用声明。看她卡在哪一部分，就顺着那部分一次问一个具体的开放问题，帮她想起细节、举个例子、找到自己的措辞；如果她已经写得不错，明确认可她、再问下一处还没写的。绝不替她下结论、绝不替她把话写出来——那些话必须是她自己的。）\n")
+		b.WriteString("（学生正在撰写回顾，请帮助学生梳理真实经历与自己的理解。根据当前内容，选择目标完成情况、方法与数据、遇到的问题、研究局限、后续改进或 AI 使用情况中的一个相关方面，提出一个具体的开放问题。已说明的内容直接确认，不重复询问。回顾结论及正文由学生自己表达。）\n")
 	}
 
 	// 计划 status. Once a plan EXISTS the coach must (a) STOP offering to generate
@@ -344,7 +344,7 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				fmt.Fprintf(&b, "- [%s] %s · %s（%s）\n", p.ID.String(), strings.TrimSpace(p.Stage), strings.TrimSpace(p.Title), col)
 			}
 			if step, ok := nextPlanStep(plan); ok {
-				fmt.Fprintf(&b, "按计划下一步是：%s（属于「%s」，在「%s」房间做）。像 agent 一样带学生走：先在 narrate 里说清这一步、问他要不要现在开始，得到肯定后再 open_tool 打开「%s」并用 set_status 推进阶段；他若想先做别的就顺着他。别替他做，也别一次抛多步。\n",
+				fmt.Fprintf(&b, "按计划下一步是：%s（属于「%s」，在「%s」房间做）。先在 narrate 里说明下一步任务，询问学生是否现在开始，得到肯定后再 open_tool 打开「%s」并用 set_status 推进阶段；学生若有其他安排，尊重这一选择。任务由学生完成，每次只说明一个步骤。\n",
 					step.title, step.stageLabel, step.roomLabel, step.tool)
 			}
 		}
@@ -450,9 +450,9 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 			if len(unfiled) > 0 {
 				fmt.Fprintf(&b, "未归类的来源（%d 篇，还没挂到任何问题下）：%s\n", len(unfiled), strings.Join(cappedTexts(unfiled, 6), " / "))
 				if len(questions) == 0 {
-					b.WriteString("（她手上有材料但还没立下任何问题：可以就着这些材料提议 2-3 个值得追的问题，用 propose_question 一次提一个，她确认后就会成为地图上的节点。）\n")
+					b.WriteString("（学生已有材料，尚未确定研究问题。可以根据材料构思 2–3 个研究方向，用 propose_question 每次提出一个候选问题，学生确认后加入地图。）\n")
 				} else {
-					b.WriteString("（如果她请你帮忙整理/归类文献：逐篇说这一篇该挂到上面哪个问题下、为什么，然后请她到「未归类」里点一下确认——别说你已经帮她归好了，归位得由她点。）\n")
+					b.WriteString("（学生要求整理文献时，逐篇说明建议关联的研究问题及理由，再请学生在「未归类」中确认。只有学生完成确认后，文献归类才生效。）\n")
 				}
 			}
 		}
@@ -639,22 +639,22 @@ func formingCoverageNudge(objective, reason, activities, resources, counterpoint
 		// four REQUIRED sections gate plan generation; 反例/张力 is optional, so if
 		// she hasn't noted one yet, invite it lightly — never require it.
 		if strings.TrimSpace(counterpoints) == "" {
-			return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』。可以顺带（一次、不强求）邀请她想想：这个论点最可能撞上的反例或张力是什么？愿意的话记进「可能的反例/张力」。别反复追问同一件事。）\n"
+			return "（开题四问都落定了——明确告诉学生开题已经成形，随时可以点『生成项目计划』。可以顺带（一次、不强求）邀请学生思考：是否有需要考虑的反例或不同解释？愿意的话记进「可能的反例/张力」。别反复追问同一件事。）\n"
 		}
 		return "（开题四问都落定了，反例/张力也记了——明确告诉学生开题已经成形，随时可以点『生成项目计划』，不要再反复追问同一件事。）\n"
 	}
 	var b strings.Builder
 	b.WriteString("（开题还没落定：" + strings.Join(missing, "、") +
-		"。先针对学生刚说的那一维给一条具体、贴着他内容的反馈——拿它和这一维的标准对一下，指出还差哪一点，再顺势往其中一个还没谈到的维度带一步，一次只带一个。各维的标准：\n")
+		"。先依据相应标准，回应学生刚谈到的内容；需要补充时说明具体缺少什么。当前内容已充分时，再讨论一个尚未涉及的维度。各维的标准：\n")
 	b.WriteString("- 目标：一句清晰、完整、可研究的研究问题（要是完整的句子，不是一个话题词）。\n")
 	b.WriteString("- 缘由：学生自己的经历，以及这段经历和这个主题的具体联系。\n")
 	b.WriteString("- 活动与时间：要覆盖四个阶段——澄清问题 → 收集素材/搭故事线 → 写作 → 回顾。\n")
 	b.WriteString("- 资源：每个阶段都有对应的资源支撑（资源要和活动对得上）。\n")
-	b.WriteString("若他其实已经在对话里说清了某一维，先认可它、请他确认要不要记进右侧的开题栏，别再重复追问同一维；给反馈和方向，但始终别替他写。")
+	b.WriteString("若学生已在对话里说清某一维，请确认是否记录到右侧开题栏，不重复追问。提供反馈和方向，开题内容由学生撰写。")
 	// While still shaping 目标/缘由, nudge him to START collecting possible
 	// literature/materials in passing — 顺手收集，不替他搜。
 	if strings.TrimSpace(objective) == "" || strings.TrimSpace(reason) == "" {
-		b.WriteString("在聊目标/缘由时，可以顺带提醒他开始留意、收集一些可能支撑这个想法的文献或素材（顺手收集就好，别替他去搜）。")
+		b.WriteString("在聊目标/缘由时，可以建议学生留意、收集与研究问题相关的文献或素材，由学生自行检索。")
 	}
 	b.WriteString("）\n")
 	return b.String()

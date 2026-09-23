@@ -41,6 +41,7 @@ package api
 // 4) as the ONE generator — this file never re-derives a report.
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -49,10 +50,14 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -188,6 +193,7 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 			// IncludeToolkit：阅读报告上「段落工具」那一节（有她自己写的仿写）
 			// 要不要一起公开。2026-09-17 起，和对话一样单独勾选、默认不公开。
 			IncludeToolkit bool `json:"includeToolkit"`
+			AddToShowcase  bool `json:"addToShowcase"`
 		}
 		if r.Body != nil {
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -203,10 +209,34 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 				return
 			}
 		}
-		if _, err := a.d.Queries.SetAtomReportShare(ctx, sqlc.SetAtomReportShareParams{
+		tx, err := a.d.Pool.Begin(ctx)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		defer tx.Rollback(ctx)
+		q := a.d.Queries.WithTx(tx)
+		if _, err := q.SetAtomReportShare(ctx, sqlc.SetAtomReportShareParams{
 			AtomID: at.ID, ShareToken: &token, IncludeTranscript: body.IncludeTranscript,
 			IncludeToolkit: body.IncludeToolkit,
 		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		showcaseURL := ""
+		if body.AddToShowcase {
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "showcase:"+u.ID.String()); err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
+			showcaseToken, addErr := a.addSharedWorkToShowcase(ctx, q, u, at.ID)
+			if addErr != nil {
+				httpx.WriteError(w, r, addErr)
+				return
+			}
+			showcaseURL = publicSiteURL(r, a.d.CORSOrigins, showcaseToken)
+		}
+		if err := tx.Commit(ctx); err != nil {
 			httpx.WriteError(w, r, err)
 			return
 		}
@@ -216,8 +246,154 @@ func (a *API) shareAtomReportFor(kind string) http.HandlerFunc {
 			"url":               publicShareURL(r, a.d.CORSOrigins, token),
 			"includeTranscript": body.IncludeTranscript,
 			"includeToolkit":    body.IncludeToolkit,
+			"showcasePublished": body.AddToShowcase,
+			"showcaseUrl":       showcaseURL,
 		})
 	}
+}
+
+func (a *API) addSharedWorkToShowcase(ctx context.Context, q *sqlc.Queries, u User, atomID uuid.UUID) (string, error) {
+	row, err := q.EnsurePblShowcase(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	row, err = q.GetPblShowcase(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	works, err := q.ListShowcaseWorks(ctx, u.ID)
+	if err != nil {
+		return "", err
+	}
+	id := pbl.SiteItemID(u.ID.String(), atomID.String())
+	var work showcaseWork
+	found := false
+	for _, x := range works {
+		if pbl.SiteItemID(u.ID.String(), x.AtomID.String()) == id {
+			work = showcaseWork{ID: id, Kind: x.Kind, Title: x.Title, Summary: trimShowcaseRunes(x.Summary, 240), Date: x.Date}
+			if x.Kind != "project" {
+				work.PublicPath = publicWorkPath(x.ShareToken)
+			}
+			found = true
+			break
+		}
+	}
+	if !found || work.PublicPath == "" {
+		return "", errors.New("共享作品不可用于个人主页")
+	}
+	draft := decodeShowcase(row.Draft, u.DisplayName)
+	draftSelected := false
+	for _, selectedID := range draft.SelectedWorkIDs {
+		if selectedID == id {
+			draftSelected = true
+			break
+		}
+	}
+	if !draftSelected {
+		if len(draft.SelectedWorkIDs) >= 500 {
+			return "", errors.New("个人主页最多选择 500 个作品")
+		}
+		draft.SelectedWorkIDs = append(draft.SelectedWorkIDs, id)
+		var rawDraft map[string]json.RawMessage
+		if len(row.Draft) > 0 {
+			if err := json.Unmarshal(row.Draft, &rawDraft); err != nil {
+				return "", err
+			}
+		}
+		if rawDraft == nil {
+			rawDraft = make(map[string]json.RawMessage)
+		}
+		selectedJSON, err := json.Marshal(draft.SelectedWorkIDs)
+		if err != nil {
+			return "", err
+		}
+		rawDraft["selectedWorkIds"] = selectedJSON
+		draftJSON, err := json.Marshal(rawDraft)
+		if err != nil {
+			return "", err
+		}
+		row, err = q.SavePblShowcase(ctx, sqlc.SavePblShowcaseParams{UserID: u.ID, Revision: row.Revision, Draft: draftJSON})
+		if err != nil {
+			return "", err
+		}
+	}
+	var publication showcasePublication
+	active := row.PublishedAt.Valid && json.Unmarshal(row.PublishedConfig, &publication) == nil && publication.Config.Layout != ""
+	if !active {
+		c := defaultShowcase(u.DisplayName)
+		c.Tagline = "我的作品集"
+		c.SelectedWorkIDs = []string{id}
+		source := showcaseSemanticConfig(c)
+		publication = showcasePublication{Config: redactShowcaseForPublic(c), SourceConfig: &source, Works: []showcaseWork{work}, AllWorks: []showcaseWork{work}}
+	} else {
+		if publication.AllWorks == nil {
+			publication.AllWorks = append([]showcaseWork(nil), publication.Works...)
+		}
+		allWorksSeen := false
+		for i := range publication.AllWorks {
+			if publication.AllWorks[i].ID == id {
+				publication.AllWorks[i] = work
+				allWorksSeen = true
+				break
+			}
+		}
+		if !allWorksSeen {
+			publication.AllWorks = append(publication.AllWorks, work)
+		}
+		selected := false
+		for _, x := range publication.Config.SelectedWorkIDs {
+			if x == id {
+				selected = true
+			}
+		}
+		if !selected {
+			if len(publication.Config.SelectedWorkIDs) >= 500 {
+				return "", errors.New("个人主页最多选择 500 个作品")
+			}
+			publication.Config.SelectedWorkIDs = append(publication.Config.SelectedWorkIDs, id)
+			if publication.SourceConfig != nil {
+				publication.SourceConfig.SelectedWorkIDs = append(publication.SourceConfig.SelectedWorkIDs, id)
+			}
+		}
+		limit := publication.Config.HomeWorkLimit
+		if limit == 0 {
+			limit = 6
+		}
+		featured := false
+		for i := range publication.Works {
+			if publication.Works[i].ID == id {
+				publication.Works[i] = work
+				featured = true
+				break
+			}
+		}
+		if !featured && len(publication.Works) < limit {
+			publication.Works = append(publication.Works, work)
+		}
+	}
+	blob, _ := json.Marshal(publication)
+	if _, err := q.PublishPblShowcase(ctx, sqlc.PublishPblShowcaseParams{UserID: u.ID, Revision: row.Revision, PublishedConfig: blob}); err != nil {
+		return "", err
+	}
+	site, err := q.GetPblSite(ctx, u.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		site, err = q.EnsurePblSite(ctx, sqlc.EnsurePblSiteParams{UserID: u.ID, AtomID: pgtype.UUID{}})
+	}
+	if err != nil {
+		return "", err
+	}
+	token := site.ShareToken
+	if token == nil || *token == "" {
+		fresh, e := newShareToken()
+		if e != nil {
+			return "", e
+		}
+		token = &fresh
+	}
+	if _, err := q.SetPblSiteShare(ctx, sqlc.SetPblSiteShareParams{UserID: u.ID, ShareToken: token, PublishedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}}); err != nil {
+		return "", err
+	}
+	return *token, nil
 }
 
 // revokeAtomShareFor is the shared body behind DELETE /api/v1/readings/{id}/report/share

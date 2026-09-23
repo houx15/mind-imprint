@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiErrorText } from "../api/errorText";
 import { listMaterials, type Material } from "../api/materials";
 import { SELF_OPENED, acceptTool, summonTool, type ToolInstance as Tool } from "../api/tools";
-import type { PlanResolution, PlanState } from "../api/projectRoom";
+import type { PlanResolution, PlanState, PlanStep } from "../api/projectRoom";
 import type { ToolInstance } from "../api/tools";
 import { PlanPanel } from "./PlanPanel";
 import { TOOL_TASKS, surfaceFor, type ToolSurfaceProps } from "./tools/registry";
@@ -36,6 +36,8 @@ export function WorkPanel({
   onOpenSession,
   onResolve,
   onApprove,
+  onSubmit,
+  onDiscuss,
   onOpenMaterial,
   busy,
 }: {
@@ -58,6 +60,8 @@ export function WorkPanel({
   onOpenMaterial: (tool: ToolInstance) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
+  onSubmit: (stepId: string, note: string, url: string) => Promise<void>;
+  onDiscuss: (step: PlanStep) => void;
   busy?: boolean;
 }) {
   // 标签页只给当场做的工具。出门的那些不占标签——她人不在，一个空着的标签
@@ -114,6 +118,8 @@ export function WorkPanel({
                 pending={plan.pending}
                 onResolve={onResolve}
                 onApprove={onApprove}
+                onSubmit={onSubmit}
+                onDiscuss={onDiscuss}
                 busy={busy}
               />
             </div>

@@ -18,13 +18,11 @@ import (
 // (`fallbackEval` below was already second person, so the degraded path was
 // more correct than the live one.)
 func buildEvalPrompt(spec cards.Spec, dimension string) string {
-	return "你是一名批判性阅读教练，正在跟一个中学生说话。她用「" + spec.Name + "」这张卡，从文章里选了一句她认为相关的证据。" +
-		"针对维度「" + dimension + "」，评估她的选句，只输出 JSON。\n" +
-		"**JSON 里所有给她看的文字都要用「你」称呼她，绝对不要用「她」**——这些话会原样出现在她自己的屏幕上，" +
-		"用第三人称等于当着她的面向别人汇报她。\n" +
-		"{\"checks\":[{\"key\":\"target\",\"status\":\"pass|partial|miss\",\"evidence\":\"必须逐字来自她选的句子\",\"explanation\":\"一句话，对她说\"}," +
-		"{\"key\":\"evidence\",\"status\":\"...\",\"evidence\":\"...\",\"explanation\":\"...\"}," +
-		"{\"key\":\"centrality\",\"status\":\"...\",\"evidence\":\"...\",\"explanation\":\"...\"}]," +
-		"\"finding\":\"你这句读出了什么\",\"judgment\":\"你的论断\",\"support\":\"支撑\",\"caveat\":\"保留\",\"next_step\":\"下一步只做一件事\"}\n" +
-		"target=她是否找对了对象；evidence=句子里有没有可直接引用的线索；centrality=线索是否足够关键。不要输出多余文字。"
+	return "你是一名阅读老师，正在评价学生用「" + spec.Name + "」选择的原文句子。分析维度是「" + dimension + "」。\n" +
+		"所有自然语言字段会直接展示给学生，称呼学生时使用「你」。根据所选原句与分析目标说明判断，不评价学生的能力或态度。\n" +
+		"逐项判断 target（选句是否对应分析对象）、evidence（是否包含可引用的依据）、centrality（该线索对当前分析维度是否关键）。" +
+		"status 使用 pass / partial / miss，分别表示符合、部分符合、不符合。evidence 只引用学生所选句子中的原文；没有相应依据时留空。explanation 用一句话说明判断理由。\n" +
+		"finding 说明这处选句体现的理解；judgment 说明这句原文可以得出的判断，不将模型推论写成学生已经表达的观点；support 说明依据；caveat 说明实际存在的局限，没有则留空；next_step 提出一个具体的后续阅读动作。" +
+		"只输出 JSON，不加其他文字：\n" +
+		`{"checks":[{"key":"target","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"evidence","status":"pass|partial|miss","evidence":"","explanation":""},{"key":"centrality","status":"pass|partial|miss","evidence":"","explanation":""}],"finding":"","judgment":"","support":"","caveat":"","next_step":""}`
 }

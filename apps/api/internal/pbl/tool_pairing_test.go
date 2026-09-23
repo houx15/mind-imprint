@@ -75,7 +75,7 @@ func TestCoachSystem_LimitIsOneQuestionNotOneAction(t *testing.T) {
 	if strings.Contains(coachSystem, "一轮最多做一件。") {
 		t.Error("旧的「一轮最多做一件」还在——它会把工具和它的产出永远分到两轮")
 	}
-	if !strings.Contains(coachSystem, "最多问他一个问题") {
+	if !strings.Contains(coachSystem, "回复和 hook 合起来最多提出一个需要学生回答的问题") {
 		t.Error("没写清楚一轮只问一个问题（铁律③）")
 	}
 	// 两个问题连着抛，她只答后一个。这条要硬。
@@ -88,7 +88,7 @@ func TestCoachSystem_LimitIsOneQuestionNotOneAction(t *testing.T) {
 	}
 	// 工具和产出必须能同一轮一起给。
 	if !strings.Contains(coachSystem, "tool 和\nproduce 一起给") &&
-		!strings.Contains(coachSystem, "同一轮一起") {
+		!strings.Contains(coachSystem, "同一轮返回") {
 		t.Error("没写清楚工具和它的产出要同一轮一起给")
 	}
 }
@@ -103,11 +103,11 @@ func TestBuildCoachContext_SaysWhichToolsAreAlreadyOnHerScreen(t *testing.T) {
 		ToolsUsed:    []string{"观察日记"},
 		ToolsOffered: []string{"头脑风暴"},
 	})
-	if !strings.Contains(ctx, "已经递过、她还没做的工具") ||
+	if !strings.Contains(ctx, "已经递过、学生还没做的工具") ||
 		!strings.Contains(ctx, "头脑风暴") {
 		t.Fatalf("没告诉印记哪几张卡还挂在她屏幕上：\n%s", ctx)
 	}
-	if !strings.Contains(ctx, "不要再递一遍") {
+	if !strings.Contains(ctx, "不重复创建") {
 		t.Fatalf("没说清楚挂着的那张不要再递：\n%s", ctx)
 	}
 	// 做完的那一段还在，两段互不干扰。
@@ -120,7 +120,7 @@ func TestBuildCoachContext_SaysWhichToolsAreAlreadyOnHerScreen(t *testing.T) {
 // 只会让印记不敢递工具。
 func TestBuildCoachContext_NoOfferedSectionWhenHerScreenIsClear(t *testing.T) {
 	ctx := buildCoachContext(CoachInput{Idea: "下课没人去操场"})
-	if strings.Contains(ctx, "已经递过、她还没做的工具") {
+	if strings.Contains(ctx, "已经递过、学生还没做的工具") {
 		t.Fatalf("没有挂着的卡却出现了那一段：\n%s", ctx)
 	}
 }

@@ -69,27 +69,6 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 🚨 spec §4 的那道门，产品负责人 2026-09-03 定成完整的门。
-	//
-	// 「If a student has no site yet, her first project is building one. Not
-	// offered — it is what the first project is.」这条规则写在 spec 里、写在
-	// 0108 的迁移注释里、写在 landing 上一句灰字里，但从来没有任何东西拦住过
-	// 任何人——CountPblProjectsByUser 这个查询甚至带着 §4 的注释躺在
-	// queries/pbl_project.sql 里，除了一个测试之外没有任何调用方。spec §12：
-	// 「置灰的按钮是装饰。门槛住在 handler 里。」这就是那个 handler。
-	//
-	// 检查放在解析请求体之前：她的那句话还没被读，就已经知道这条路现在不通。
-	open, err := a.siteGateOpen(r, u.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if !open {
-		httpx.WriteError(w, r, httpx.ErrConflict(
-			"请先完成并发布个人主页，用于展示阅读、写作与项目成果。发布后即可创建其他项目。"))
-		return
-	}
-
 	var req struct {
 		Idea string `json:"idea"`
 	}

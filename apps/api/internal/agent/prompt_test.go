@@ -24,7 +24,7 @@ func TestBuildCatalogTextFormatsOneEntry(t *testing.T) {
 	want := "【信息素养】\n" +
 		"· craap｜SIFT×CRAAP 信息核查（步骤引导卡）\n" +
 		"   何时用：学生准备直接采信或引用一个网络来源，但还没核查出处\n" +
-		"   能帮他：先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)"
+		"   用途：先横向找更多来源(SIFT)，必要时再纵向深挖单一材料(CRAAP)"
 	if got != want {
 		t.Fatalf("catalog text mismatch:\n got: %q\nwant: %q", got, want)
 	}
@@ -38,7 +38,7 @@ func TestBuildCatalogTextNoKindWhenEmpty(t *testing.T) {
 	if strings.Contains(got, "（）") {
 		t.Fatalf("empty interaction_type must not render parens: %q", got)
 	}
-	want := "【C】\n· x｜N\n   何时用：T\n   能帮他：P"
+	want := "【C】\n· x｜N\n   何时用：T\n   用途：P"
 	if got != want {
 		t.Fatalf("mismatch:\n got: %q\nwant: %q", got, want)
 	}
@@ -132,6 +132,6 @@ func TestBuildSystemPromptMatchesGolden(t *testing.T) {
 	}
 	want := string(wantBytes)
 	if got != want {
-		t.Fatalf("system prompt drifted from TS golden.\nfirst diff context — got len=%d want len=%d", len(got), len(want))
+		t.Fatalf("system prompt differs from reviewed golden.\nfirst diff context — got len=%d want len=%d", len(got), len(want))
 	}
 }

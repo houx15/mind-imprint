@@ -17,6 +17,9 @@ import (
 
 func (a *API) publishPblCodeSite(w http.ResponseWriter, r *http.Request, value string) {
 	user, _ := UserFromContext(r.Context())
+	if a.rejectLegacyShowcasePublish(w, r, user.ID) {
+		return
+	}
 	id, err := uuid.Parse(value)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_version", "主页版本无效", nil))
@@ -102,6 +105,13 @@ func (a *API) renderPublicCodeSite(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	site, err := a.d.Queries.GetPblSiteByShareToken(r.Context(), &token)
 	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	if current, _, _, _, showcaseErr := a.publicShowcase(r, site.UserID); showcaseErr != nil {
+		httpx.WriteError(w, r, showcaseErr)
+		return
+	} else if current != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}

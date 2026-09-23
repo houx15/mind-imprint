@@ -112,7 +112,7 @@ func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	}
 	b.WriteString("\n候选领域（中文名 · id）：\n")
 	b.WriteString(interests.PromptList())
-	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), SelectCount())
+	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), min(len(items), SelectCount()))
 	for i, it := range items {
 		fmt.Fprintf(&b, "[%d] (%s) %s\n", i, it.Source, it.Title)
 		if s := ExcerptFor(it, promptExcerptRunes); s != "" {
