@@ -1001,8 +1001,8 @@ describe("selectedDisciplinesText", () => {
 describe("recipientProgressText", () => {
   const base = { atomId: "a", activeMinutes: 0, stepsDone: 0, stepsTotal: 0, versionCount: 0, latestWordCount: 0 };
   it("shows reading steps and minutes", () => {
-    expect(recipientProgressText("reading", { ...base, stepsDone: 11, stepsTotal: 15, activeMinutes: 25 })).toBe("11/15 步 · 25 分钟");
-    expect(recipientProgressText("reading", { ...base, stepsDone: 2, stepsTotal: 14 })).toBe("2/14 步 · 不到 1 分钟");
+    expect(recipientProgressText("reading", { ...base, stepsDone: 11, stepsTotal: 15, activeMinutes: 25 })).toBe("11/15 步 · 卡片 0 张 · 25 分钟");
+    expect(recipientProgressText("reading", { ...base, stepsDone: 2, stepsTotal: 14 })).toBe("2/14 步 · 卡片 0 张 · 不到 1 分钟");
   });
   it("shows the latest writing version, or that nothing is submitted", () => {
     expect(recipientProgressText("writing", { ...base, versionCount: 2, latestWordCount: 395, activeMinutes: 21 })).toBe("v2 · 395 字 · 21 分钟");
@@ -1025,17 +1025,17 @@ describe("recipientProgress (未读完)", () => {
     latestWordCount: 0,
   };
   it("flags a finished reading that skipped steps", () => {
-    expect(recipientProgress("reading", base)).toEqual({ text: "3/14 步 · 未读完 · 12 分钟", warn: true });
+    expect(recipientProgress("reading", base)).toEqual({ text: "3/14 步 · 未读完 · 卡片 0 张 · 12 分钟", warn: true });
     expect(recipientProgress("reading", { ...base, status: "done_late", activeMinutes: 0 })).toEqual({
-      text: "3/14 步 · 未读完 · 不到 1 分钟",
+      text: "3/14 步 · 未读完 · 卡片 0 张 · 不到 1 分钟",
       warn: true,
     });
   });
   it("leaves a reading alone when every step is done, it is not finished, or there is no plan", () => {
-    expect(recipientProgress("reading", { ...base, stepsDone: 14 })).toEqual({ text: "14/14 步 · 12 分钟", warn: false });
-    expect(recipientProgress("reading", { ...base, status: "in_progress" })).toEqual({ text: "3/14 步 · 12 分钟", warn: false });
+    expect(recipientProgress("reading", { ...base, stepsDone: 14 })).toEqual({ text: "14/14 步 · 卡片 0 张 · 12 分钟", warn: false });
+    expect(recipientProgress("reading", { ...base, status: "in_progress" })).toEqual({ text: "3/14 步 · 卡片 0 张 · 12 分钟", warn: false });
     expect(recipientProgress("reading", { ...base, status: "overdue" }).warn).toBe(false);
-    expect(recipientProgress("reading", { ...base, stepsDone: 0, stepsTotal: 0 })).toEqual({ text: "12 分钟", warn: false });
+    expect(recipientProgress("reading", { ...base, stepsDone: 0, stepsTotal: 0 })).toEqual({ text: "卡片 0 张 · 12 分钟", warn: false });
     expect(readingUnfinished("reading", { ...base, atomId: null })).toBe(false);
   });
   it("never flags writing or project homework", () => {

@@ -1506,7 +1506,8 @@ button.teacher-row-card:hover {
 .teacher-assignment-row-main small, .teacher-assignment-row-count small { font-size: 11px; color: var(--mk-muted); }
 .teacher-assignment-row-count { display: flex; flex: 0 0 80px; flex-direction: column; }
 .teacher-assignment-row-count b { font-size: 16px; font-variant-numeric: tabular-nums; }
-.teacher-assignment-row-alert { flex: 0 0 96px; color: var(--mk-danger); font-size: 12px; font-weight: 650; }
+.teacher-assignment-row-alert { flex: 0 0 96px; color: var(--mk-muted); font-size: 12px; font-weight: 650; }
+.teacher-assignment-row-alert[data-alert="true"] { color: var(--mk-danger); }
 .teacher-assignment-priority { display: flex; flex-wrap: wrap; gap: 6px 15px; align-items: center; padding: 12px 18px; border-left: 3px solid var(--mk-warning); border-radius: var(--mk-radius-sm); background: var(--mk-accent-50); font-size: 13px; }
 .teacher-assignment-priority strong { color: var(--mk-ink); }
 .teacher-assignment-priority span { color: var(--mk-muted); }

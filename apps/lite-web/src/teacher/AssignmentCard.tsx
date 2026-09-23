@@ -19,17 +19,17 @@ export const PROGRESS_HUE = {
 } as const;
 
 /** A bar split into 已完成 / 进行中 / 已逾期; the rest is the track (未开始). */
-export function ProgressBar({ p }: { p: ProgressCounts }) {
+export function ProgressBar({ p, reviewCount = 0 }: { p: ProgressCounts; reviewCount?: number }) {
   const pct = (n: number) => (p.total > 0 ? `${(n / p.total) * 100}%` : "0%");
   return (
     <div
       className="teacher-progress"
       role="img"
-      aria-label={`已完成 ${p.done}，进行中 ${p.inProgress}，已逾期 ${p.overdue}，未开始 ${p.notStarted}，共 ${p.total} 人`}
+      aria-label={`已完成 ${Math.max(0, p.done - reviewCount)}，阅读待继续 ${reviewCount}，进行中 ${p.inProgress}，已逾期 ${p.overdue}，未开始 ${p.notStarted}，共 ${p.total} 人`}
     >
-      {(["done", "inProgress", "overdue"] as const).map((k) => (
-        <span key={k} style={{ width: pct(p[k]), "--seg-hue": PROGRESS_HUE[k] } as CSSProperties} />
-      ))}
+      <span style={{ width: pct(Math.max(0, p.done - reviewCount)), "--seg-hue": PROGRESS_HUE.done } as CSSProperties} />
+      {reviewCount > 0 && <span style={{ width: pct(reviewCount), "--seg-hue": PROGRESS_HUE.toGrade } as CSSProperties} />}
+      {(["inProgress", "overdue"] as const).map((k) => <span key={k} style={{ width: pct(p[k]), "--seg-hue": PROGRESS_HUE[k] } as CSSProperties} />)}
     </div>
   );
 }
@@ -45,8 +45,8 @@ export function AssignmentCard({ assignment: a, onOpen, compact = false }: { ass
   if (compact) return <button type="button" className="teacher-assignment-row" onClick={onOpen}>
     <span className="teacher-assignment-row-art"><img src={studentArtwork[KIND_ART[a.kind] ?? "ideas"]} alt="" /></span>
     <span className="teacher-assignment-row-main"><small>{kindLabel(a.kind)} · 截止 {formatDeadline(a.dueAt)}</small><strong>{a.title}</strong>{file && <small>{file}</small>}</span>
-    <span className="teacher-assignment-row-count"><b>{p.done}/{p.total}</b><small>已完成</small></span>
-    <span className="teacher-assignment-row-alert">{a.issueCount > 0 ? `材料问题 ${a.issueCount}` : a.toGrade > 0 ? `待批改 ${a.toGrade}` : p.overdue > 0 ? `已逾期 ${p.overdue}` : p.inProgress > 0 ? `进行中 ${p.inProgress}` : ""}</span>
+    <span className="teacher-assignment-row-count"><b>{Math.max(0, p.done - a.needsReadingReview)}/{p.total}</b><small>已完成</small></span>
+    <span className="teacher-assignment-row-alert" data-alert={a.issueCount > 0 || a.toGrade > 0 || a.needsReadingReview > 0 || p.overdue > 0 ? "true" : undefined}>{a.issueCount > 0 ? `材料问题 ${a.issueCount}` : a.toGrade > 0 ? `待批改 ${a.toGrade}` : a.needsReadingReview > 0 ? `阅读待继续 ${a.needsReadingReview}` : p.overdue > 0 ? `已逾期 ${p.overdue}` : p.inProgress > 0 ? `进行中 ${p.inProgress}` : ""}</span>
     <Icon icon={ArrowRight} size={16} />
   </button>;
   return (
@@ -61,8 +61,8 @@ export function AssignmentCard({ assignment: a, onOpen, compact = false }: { ass
       </p>
       <h3>{a.title}</h3>
       {file && <p className="teacher-task-file">{file}</p>}
-      <div className="teacher-task-completion"><strong>{p.done}<small> / {p.total} 人</small></strong><span>已完成</span></div>
-      <ProgressBar p={p} />
+      <div className="teacher-task-completion"><strong>{Math.max(0, p.done - a.needsReadingReview)}<small> / {p.total} 人</small></strong><span>已完成</span></div>
+      <ProgressBar p={p} reviewCount={a.needsReadingReview} />
       <p className="teacher-task-detail">
         进行中 {p.inProgress} · 未开始 {p.notStarted}
         {p.overdue > 0 && (

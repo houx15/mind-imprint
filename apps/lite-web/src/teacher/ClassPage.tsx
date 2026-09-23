@@ -520,7 +520,7 @@ function ClassAssignments({
         </StudioEmpty>
       ) : (
         <div className="teacher-assignment-list">
-          {[...rows].sort((a, b) => b.issueCount - a.issueCount || b.toGrade - a.toGrade || b.counts.overdue - a.counts.overdue || Date.parse(a.dueAt) - Date.parse(b.dueAt)).slice(0, 3).map((a) => (
+          {[...rows].sort((a, b) => b.issueCount - a.issueCount || b.toGrade - a.toGrade || b.needsReadingReview - a.needsReadingReview || b.counts.overdue - a.counts.overdue || Date.parse(a.dueAt) - Date.parse(b.dueAt)).slice(0, 3).map((a) => (
             <AssignmentCard key={a.id} assignment={a} compact onOpen={() => onOpen?.(a.id)} />
           ))}
         </div>

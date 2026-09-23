@@ -39,8 +39,9 @@ type AssignmentSummaryDTO struct {
 	Counts map[string]int `json:"counts"`
 	// ToGrade counts students whose latest submitted version has no sent
 	// grading yet (writing only; 0 otherwise).
-	ToGrade    int `json:"toGrade"`
-	IssueCount int `json:"issueCount"`
+	ToGrade            int `json:"toGrade"`
+	IssueCount         int `json:"issueCount"`
+	NeedsReadingReview int `json:"needsReadingReview"`
 }
 
 // RecipientDTO is one student on an assignment. Status is derived on read.
@@ -323,16 +324,16 @@ func (a *API) createLiteAssignment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, payloadErrorResponse(err))
 		return
 	}
-	payload, err = a.prepareAssignedReadingURL(ctx, req.Kind, payload, nil)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
 	if len(req.UserIDs) == 0 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_recipients", "请至少选择一名学生", nil))
 		return
 	}
 	ids, err := a.assignmentRecipientIDs(ctx, classID, req.UserIDs)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	payload, err = a.prepareAssignedReadingURL(ctx, req.Kind, payload, nil)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -439,6 +440,9 @@ func (a *API) classAssignmentSummaries(ctx context.Context, classID uuid.UUID) (
 			status := liteassign.StatusWithReturn(rc.StartedAt.Valid, tsPtr(rc.FinishedAt), rows[i].DueAt, now,
 				returnOf(rc.ReturnedAt, rc.ReturnDueAt, rc.Resubmitted))
 			out[i].Counts[status]++
+			if rows[i].Kind == "reading" && (status == "done" || status == "done_late") && rc.StepsTotal > 0 && rc.StepsDone < rc.StepsTotal {
+				out[i].NeedsReadingReview++
+			}
 			if rc.ToGrade {
 				out[i].ToGrade++
 			}

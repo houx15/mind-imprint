@@ -421,6 +421,10 @@ func TestReadingIssueReachesTeacherAndClearsAfterMaterialChange(t *testing.T) {
 	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK || len(detail.Issues) != 1 || detail.Issues[0].Detail != "材料打开后只有空白" {
 		t.Fatalf("teacher issues = %d %+v", code, detail.Issues)
 	}
+	var list struct { Assignments []struct { IssueCount int `json:"issueCount"` } `json:"assignments"` }
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &list); code != http.StatusOK || len(list.Assignments) != 1 || list.Assignments[0].IssueCount != 1 {
+		t.Fatalf("teacher issue priority = %d %+v", code, list)
+	}
 	if code := assignJSON(t, h, teacher, "PATCH", "/api/v1/lite/teacher/assignments/"+aid,
 		map[string]any{"payload": map[string]any{"source": "text", "text": "第二版可阅读材料。"}}, nil); code != http.StatusOK {
 		t.Fatalf("replace material = %d", code)
@@ -432,6 +436,40 @@ func TestReadingIssueReachesTeacherAndClearsAfterMaterialChange(t *testing.T) {
 	}{}
 	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/assignments/"+aid, &detail); code != http.StatusOK || len(detail.Issues) != 0 {
 		t.Fatalf("resolved issues = %d %+v", code, detail.Issues)
+	}
+}
+
+func TestReadingAssignmentSummarySeparatesUnfinishedPlan(t *testing.T) {
+	h, pool, teacher, classID, studentID := liteTeacherFixture(t)
+	aid := createAssignment(t, h, teacher, classID, readingAssignmentBody("阅读材料",
+		map[string]any{"source": "text", "text": "第一段材料。\n\n第二段材料。"}, []string{studentID.String()}))
+	started := startAssignment(t, h, signInAs(t, pool, studentID), aid)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO reading_task (atom_id, position, kind, label, status) VALUES ($1, 1, 'read', '通读', 'done'), ($1, 2, 'reflect', '复盘', 'pending')`, started.AtomID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE reading SET status='finished', finished_at=now() WHERE atom_id=$1`, started.AtomID); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Assignments []struct {
+			NeedsReadingReview int            `json:"needsReadingReview"`
+			Counts             map[string]int `json:"counts"`
+		} `json:"assignments"`
+	}
+	if code := getJSON(t, h, teacher, "/api/v1/lite/teacher/classes/"+classID+"/assignments", &out); code != http.StatusOK || len(out.Assignments) != 1 {
+		t.Fatalf("list = %d %+v", code, out)
+	}
+	if out.Assignments[0].NeedsReadingReview != 1 || out.Assignments[0].Counts["done"] != 1 {
+		t.Fatalf("reading review count = %+v", out.Assignments[0])
+	}
+	var inbox struct {
+		Items []struct {
+			NeedsReadingReview bool `json:"needsReadingReview"`
+		} `json:"items"`
+	}
+	if code := getJSON(t, h, signInAs(t, pool, studentID), "/api/v1/lite/inbox", &inbox); code != http.StatusOK || len(inbox.Items) != 1 || !inbox.Items[0].NeedsReadingReview {
+		t.Fatalf("student reminder = %d %+v", code, inbox)
 	}
 }
 

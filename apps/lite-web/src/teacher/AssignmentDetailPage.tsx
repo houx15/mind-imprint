@@ -404,7 +404,7 @@ export function AssignmentDetailPage({
             />
           )}
 
-          <ProgressSummary recipients={recipients} toGrade={toGrade} />
+          <ProgressSummary recipients={recipients} kind={assignment.kind} toGrade={toGrade} />
           {issues.length > 0 && <section className="teacher-material-issues" role="alert"><strong>{issues.length} 名学生反馈阅读材料问题</strong>{issues.map((issue) => <p key={issue.userId}>{issue.displayName}：{issue.detail}</p>)}<small>请检查材料链接。若尚无学生开始，可在上方修改作业中更换材料。</small></section>}
           {assignment.kind === "reading" && <div className="teacher-reading-requirements"><strong>阅读成果</strong><span>{recipients.filter((r) => r.cardsSubmitted > 0).length}/{recipients.length} 名学生填写了阅读卡片</span><span>{recipients.filter((r) => readingUnfinished(assignment.kind, r)).length} 名学生结束阅读时尚未完成计划</span><small>点开学生的「查看」可阅读她填写的卡片、划线笔记和阅读收获；教师无法查看私人对话。</small></div>}
 
@@ -652,15 +652,17 @@ function AssignmentHeader({
 
 /** 未开始 / 进行中 / 已完成 / 已逾期, plus 待批改 on a writing homework once
  *  its gradings have loaded. */
-function ProgressSummary({ recipients, toGrade }: { recipients: RecipientDTO[]; toGrade: number | null }) {
+function ProgressSummary({ recipients, kind, toGrade }: { recipients: RecipientDTO[]; kind: AssignmentDTO["kind"]; toGrade: number | null }) {
   const p = progressFromCounts(countStatuses(recipients));
   if (p.total === 0) return null;
+  const reviewCount = kind === "reading" ? recipients.filter((r) => readingUnfinished(kind, r)).length : 0;
   const tiles: { label: string; n: number; hue: string; alert?: boolean }[] = [
     { label: "未开始", n: p.notStarted, hue: PROGRESS_HUE.notStarted },
     { label: "进行中", n: p.inProgress, hue: PROGRESS_HUE.inProgress },
-    { label: "已完成", n: p.done, hue: PROGRESS_HUE.done },
+    { label: "已完成", n: Math.max(0, p.done - reviewCount), hue: PROGRESS_HUE.done },
     { label: "已逾期", n: p.overdue, hue: PROGRESS_HUE.overdue, alert: p.overdue > 0 },
   ];
+  if (kind === "reading") tiles.push({ label: "待继续阅读", n: reviewCount, hue: PROGRESS_HUE.toGrade, alert: reviewCount > 0 });
   if (toGrade !== null) tiles.push({ label: "待批改", n: toGrade, hue: PROGRESS_HUE.toGrade, alert: toGrade > 0 });
   return (
     <section aria-label="作业进度" className="mt-6">
@@ -672,9 +674,9 @@ function ProgressSummary({ recipients, toGrade }: { recipients: RecipientDTO[]; 
           </div>
         ))}
       </div>
-      <ProgressBar p={p} />
+      <ProgressBar p={p} reviewCount={reviewCount} />
       <p className="mt-2 text-mk-small text-mk-muted">
-        共 {p.total} 名学生，已完成 {p.done} 名。
+        共 {p.total} 名学生，已完成 {Math.max(0, p.done - reviewCount)} 名。
       </p>
     </section>
   );

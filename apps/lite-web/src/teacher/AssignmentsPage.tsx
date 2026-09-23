@@ -126,7 +126,7 @@ export function AssignmentsPage({
         </StudioEmpty>
       ) : (
         <>
-          {(rows.some((a) => a.issueCount > 0 || a.toGrade > 0 || a.counts.overdue > 0)) && <div className="teacher-assignment-priority" role="status"><strong>需要关注</strong><span>{rows.reduce((n, a) => n + a.issueCount, 0)} 条材料反馈 · {rows.reduce((n, a) => n + a.toGrade, 0)} 份待批改 · {rows.reduce((n, a) => n + a.counts.overdue, 0)} 人次逾期</span></div>}
+          {(rows.some((a) => a.issueCount > 0 || a.toGrade > 0 || a.needsReadingReview > 0 || a.counts.overdue > 0)) && <div className="teacher-assignment-priority" role="status"><strong>需要关注</strong><span>{rows.reduce((n, a) => n + a.issueCount, 0)} 条材料反馈 · {rows.reduce((n, a) => n + a.toGrade, 0)} 份待批改 · {rows.reduce((n, a) => n + a.needsReadingReview, 0)} 人待继续阅读 · {rows.reduce((n, a) => n + a.counts.overdue, 0)} 人次逾期</span></div>}
           <div className="teacher-collection-head">
             <div className="teacher-collection-filters" role="group" aria-label="作业类型">
               {([["reading", "阅读"], ["writing", "写作"], ["project", "项目"], ["all", "全部"]] as const).map(([value, label]) => (
@@ -137,7 +137,7 @@ export function AssignmentsPage({
             </div>
           </div>
           <div className="teacher-assignment-list">
-            {rows.filter((a) => kind === "all" || a.kind === kind).sort((a, b) => b.issueCount - a.issueCount || b.toGrade - a.toGrade || b.counts.overdue - a.counts.overdue || Date.parse(a.dueAt) - Date.parse(b.dueAt)).map((a) => (
+            {rows.filter((a) => kind === "all" || a.kind === kind).sort((a, b) => b.issueCount - a.issueCount || b.toGrade - a.toGrade || b.needsReadingReview - a.needsReadingReview || b.counts.overdue - a.counts.overdue || Date.parse(a.dueAt) - Date.parse(b.dueAt)).map((a) => (
               <AssignmentCard key={a.id} assignment={a} compact onOpen={() => onOpen(a.id)} />
             ))}
             {rows.filter((a) => kind === "all" || a.kind === kind).length === 0 && <p className="teacher-group-empty">暂无{kind === "reading" ? "阅读" : kind === "writing" ? "写作" : "项目"}作业</p>}

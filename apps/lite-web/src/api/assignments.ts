@@ -75,6 +75,7 @@ export interface AssignmentSummaryDTO extends AssignmentDTO {
   /** Writing only: students whose latest version has no sent grading. */
   toGrade: number;
   issueCount: number;
+  needsReadingReview: number;
 }
 
 export interface AssignmentIssueDTO {
@@ -310,7 +311,7 @@ function normalizeCounts(raw: unknown): Record<AssignmentStatus, number> {
 
 export function normalizeAssignmentSummaryDTO(raw: Record<string, unknown>): AssignmentSummaryDTO {
   const toGrade = typeof raw.toGrade === "number" && Number.isFinite(raw.toGrade) && raw.toGrade > 0 ? Math.floor(raw.toGrade) : 0;
-  return { ...normalizeAssignmentDTO(raw), counts: normalizeCounts(raw.counts), toGrade, issueCount: typeof raw.issueCount === "number" ? raw.issueCount : 0 };
+  return { ...normalizeAssignmentDTO(raw), counts: normalizeCounts(raw.counts), toGrade, issueCount: typeof raw.issueCount === "number" ? raw.issueCount : 0, needsReadingReview: typeof raw.needsReadingReview === "number" ? raw.needsReadingReview : 0 };
 }
 
 export function normalizeRecipientDTO(raw: Record<string, unknown>): RecipientDTO {
