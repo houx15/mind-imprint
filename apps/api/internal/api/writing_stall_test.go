@@ -220,8 +220,22 @@ func TestHelpShowFramesFollowThePosition(t *testing.T) {
 	if strings.Contains(opening, "While it is true that") {
 		t.Error("开头拿到了正文那一格的让步句式")
 	}
-	if !strings.Contains(opening, "Opening inside a moment") {
-		t.Error("开头一条开场句式都没有")
+	// 🚨 这里原来断言英文**议论文**的开头含有 "Opening inside a moment"，
+	// 而那是 en_story_scene —— 一条记叙文的开场句式。它当时是唯一一条
+	// applies_to:"opening" 的英文句式，因为那会儿每条 en_* 的 genre 都是
+	// 空串，文体这条轴在英文侧根本没起作用。也就是说，这条断言钉住的是
+	// 那个 bug 本身。2026-09-23 给 en_story_* 打上 narrative 之后，
+	// 它该出现在记叙文那一格，议论文那一格不该再有它。
+	if strings.Contains(opening, "Opening inside a moment") {
+		t.Error("英文议论文的开头拿到了记叙文的开场句式")
+	}
+	if strings.TrimSpace(writingHelpFrames(writingKindAppliesTo(writingKindOpening), langEnglish, genreArgument)) == "" {
+		t.Error("英文议论文的开头一条句式都没有")
+	}
+
+	narrativeOpening := writingHelpModeBlock(helpShow, writingKindAppliesTo(writingKindOpening), langEnglish, genreNarrative)
+	if !strings.Contains(narrativeOpening, "Opening inside a moment") {
+		t.Error("英文记叙文的开头没拿到那条开场句式")
 	}
 
 	// 中文那一路：三条分析句法都在正文那一格，开头一格本来就没有句式。

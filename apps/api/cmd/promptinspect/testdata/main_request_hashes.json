@@ -31,10 +31,10 @@
   "teacher/home": "743e12b6a973a148234f0a221414a2f1e7086245aa360f85f41e0692e2c88f61",
   "teacher/report": "cc52d00b6439a571ae04710932c609e6d032bb38060f18b244dddeb3d49720a4",
   "writing/feedback/long-context": "9482d2445adbfcbc503b3cee3ba638a5d47baaaef4c22d2d8511bb6dd5e65bef",
-  "writing/help-show/en": "55df42eda14ad93530e9f465486dfbc05f8a02caee2c7357bc66d0550e688b3f",
-  "writing/help-show/zh": "0988142d40779fd1bd32af5e8d82fdf99bfe36dca1f1955bf86a55dca7a0137d",
-  "writing/plan/en/argument": "58fcc3ab584dd752d7eb7d70a4b64961730001c531cc9192f1e068e32e575c30",
-  "writing/plan/en/narrative": "42f14ffdc99e88a1a8ec3afe4bb2a149b4dbd3b1bd8d880f85995eb6a0c08b54",
+  "writing/help-show/en": "dbdcede5343eaa0ba81aa80fd0bac6d0591ada259c191cd3c415fbf271ac524b",
+  "writing/help-show/zh": "b093954a4a5da537550994643bfa46998da780654948384a553867464ea1ca64",
+  "writing/plan/en/argument": "a70ebe162351cf255cdb4703fbeeea928c4fe0cc9b745b33ac0d60eb2247ac8c",
+  "writing/plan/en/narrative": "85f5f9cb8276dc2c5efb828d038e3bfb61a8baf7d724301b8833eaa22bfa2185",
   "writing/plan/zh/argument": "bde47cae410e2eea3ab43e433b85cb88d58eafa9ec9ea9099d6640b27d7e03db",
   "writing/plan/zh/narrative": "26757ffe3362cf80f25891d512408c1e8fffc95bd53d16d78642faee1001c7d1"
 }
