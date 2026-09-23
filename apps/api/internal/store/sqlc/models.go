@@ -1188,6 +1188,7 @@ type Reading struct {
 	QuestionsAt pgtype.Timestamptz `json:"questions_at"`
 	LibrarySlug string             `json:"library_slug"`
 	LibraryTier int16              `json:"library_tier"`
+	ArchivedAt  pgtype.Timestamptz `json:"archived_at"`
 }
 
 type ReadingBlockNote struct {

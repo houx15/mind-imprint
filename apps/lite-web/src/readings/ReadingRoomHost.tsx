@@ -206,6 +206,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         headings: [] as string[],
         outline: undefined as ReadingOutline | undefined,
         excerptOnly: false,
+        sourceEditable: false,
       };
     }
     return {
@@ -213,6 +214,10 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
       headings: state.source.headings ?? [],
       outline: state.source.outline,
       excerptOnly: state.source.excerptOnly ?? false,
+      // 正文还能不能整份换掉。服务端算的（没有东西锚在正文上就还能换）——
+      // 老的响应里没有这个字段，读出来 undefined ⇒ false ⇒ 不摆那个入口，
+      // 和 2026-09-23 之前一样。
+      sourceEditable: state.source.editable ?? false,
     };
   }, [state]);
 
@@ -287,6 +292,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         headingBlockIds={layout.headings}
         outline={layout.outline}
         excerptOnly={layout.excerptOnly}
+        sourceEditable={layout.sourceEditable}
         // 她把全文粘进来之后，正文、导读、清单都换了 —— 走同一条加载路径重来一遍。
         onSourceReplaced={() => setReloadKey((k) => k + 1)}
         // 摘抄。房间负责发那一次请求（它手里才有选区的字偏移），宿主负责收着

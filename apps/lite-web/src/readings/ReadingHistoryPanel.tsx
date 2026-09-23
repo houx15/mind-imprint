@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, Check } from "lucide-react";
+import { BookOpen, ChevronRight, Check, Archive } from "lucide-react";
 import { Drawer, Icon, Illustration } from "@/ui";
 import type { Reading } from "../api/readings";
 
@@ -55,6 +55,16 @@ export interface ReadingHistoryPanelProps {
    *  the second half of the same promise — a drawer is for picking up where
    *  she left off, not for scrolling a year of history. */
   limit?: number;
+  /**
+   * 把这一篇从列表里收起来。没传就不摆那个按钮。
+   *
+   * 🚨 2026-09-23 产品负责人第 3 条：「阅读列表里旧的也没办法删除。」
+   * 粘错一次就多一条永远去不掉的记录 —— 而「再开一个新的」正是产品让她做的事。
+   *
+   * 叫 archive 不叫 delete，因为服务端做的就是收起来：她的段落、批注、
+   * 和印记说过的话一条都没删（铁律④），老师那一侧照旧看得见。
+   */
+  onArchive?: (reading: Reading) => Promise<void> | void;
 }
 
 const DEFAULT_LIMIT = 40;
@@ -142,18 +152,29 @@ function HistoryRow({
   action,
   tone,
   onSelect,
+  onArchive,
 }: {
   reading: Reading;
   meta: string;
   action: string;
   tone: "open" | "done";
   onSelect: (r: Reading) => void;
+  onArchive?: (r: Reading) => Promise<void> | void;
 }) {
+  // 收起来要按两次。第二次那一下是「确认」，不是弹窗 ——
+  // 🚨 window.confirm 会把整个页面挡住，走查和自动化都过不去。
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   return (
+    // 🚨 外层从 <button> 换成 <div>：按钮不能套按钮（HTML 不允许，而且
+    // 里面那一下会被外面那一下吃掉 —— memory control-that-is-not-wired-2026-09-22
+    // 里三个假控件之一就是这个形状）。整行可点的那一块自己是一个 button。
+    <div className="group flex w-full items-center gap-1 rounded-mk-md border border-mk-border bg-mk-surface transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:bg-mk-accent-50">
     <button
       type="button"
       onClick={() => onSelect(reading)}
-      className="group flex w-full items-center gap-3 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-3 text-left transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      className="flex min-w-0 flex-1 items-center gap-3 rounded-mk-md px-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full"
@@ -191,6 +212,50 @@ function HistoryRow({
         <Icon icon={ChevronRight} size={14} />
       </span>
     </button>
+    {onArchive &&
+      (confirming ? (
+        <span className="flex shrink-0 items-center gap-1 pr-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onArchive(reading);
+              } finally {
+                setBusy(false);
+                setConfirming(false);
+              }
+            }}
+            className="rounded-mk-sm px-2 py-1 text-mk-small text-mk-danger underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+          >
+            {busy ? "收起中…" : "确认收起"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="rounded-mk-sm px-2 py-1 text-mk-small text-mk-muted underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+          >
+            取消
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          aria-label={`收起《${reading.title}》`}
+          onClick={() => setConfirming(true)}
+          // 🚨 **一直看得见**，只是淡。
+          //
+          // 第一版写的是 `opacity-0 group-hover:opacity-100` —— 在真浏览器里
+          // 看着挺干净，可触摸屏上**没有 hover**：一个用 iPad 的学生永远
+          // 看不见这颗按钮，而初中生用平板的不少。
+          // 「悬停才出现」在这个产品里等于「一半的人没有这个功能」。
+          className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-mk-muted opacity-50 transition-opacity duration-[120ms] ease-mk hover:text-mk-danger focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 group-hover:opacity-100"
+        >
+          <Icon icon={Archive} size={15} />
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -202,6 +267,7 @@ export function ReadingHistoryPanel({
   onSelect,
   initialFilter = "all",
   limit = DEFAULT_LIMIT,
+  onArchive,
 }: ReadingHistoryPanelProps) {
   const [filter, setFilter] = useState<ReadingFilter>(initialFilter);
   // Re-armed on every OPEN, not on every render: 我的阅读 and the 还没读完
@@ -277,6 +343,7 @@ export function ReadingHistoryPanel({
                             ? `上次读到 ${shortDay(r.lastActivityAt)}`
                             : "还没放正文进来"
                       }
+                      onArchive={onArchive}
                       action={done ? "看报告" : "继续"}
                       onSelect={onSelect}
                     />

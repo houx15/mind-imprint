@@ -4,6 +4,7 @@ import { Paperclip, Library, ArrowRight } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import {
+  archiveReading,
   createReading,
   listReadings,
   putReadingSource,
@@ -358,6 +359,12 @@ export function ReadingsLanding() {
         onSelect={(r) => {
           setPanelOpen(false);
           navigate(readingPath(r.id));
+        }}
+        onArchive={async (r) => {
+          await archiveReading(r.id);
+          // 就地拿掉那一行，不整份重拉：列表已经在手上，重拉一次会让抽屉
+          // 闪一下，而她刚刚做的那个动作的结果正是「这一行没了」。
+          setHistory((rows) => (rows ?? []).filter((x) => x.id !== r.id));
         }}
       />
     </div>

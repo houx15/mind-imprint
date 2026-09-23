@@ -13,10 +13,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const archiveReading = `-- name: ArchiveReading :exec
+UPDATE reading SET archived_at = COALESCE(archived_at, now()), updated_at = now()
+WHERE atom_id = $1
+`
+
+// 她在列表里把这一篇收起来。幂等：已经收起来的再收一次还是同一个时间。
+func (q *Queries) ArchiveReading(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, archiveReading, atomID)
+	return err
+}
+
 const createLibraryReading = `-- name: CreateLibraryReading :one
 INSERT INTO reading (atom_id, title, lang, library_slug, library_tier)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
+RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier, archived_at
 `
 
 type CreateLibraryReadingParams struct {
@@ -50,12 +61,13 @@ func (q *Queries) CreateLibraryReading(ctx context.Context, arg CreateLibraryRea
 		&i.QuestionsAt,
 		&i.LibrarySlug,
 		&i.LibraryTier,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
 
 const createReading = `-- name: CreateReading :one
-INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
+INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier, archived_at
 `
 
 type CreateReadingParams struct {
@@ -78,12 +90,13 @@ func (q *Queries) CreateReading(ctx context.Context, arg CreateReadingParams) (R
 		&i.QuestionsAt,
 		&i.LibrarySlug,
 		&i.LibraryTier,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
 
 const getReading = `-- name: GetReading :one
-SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier FROM reading WHERE atom_id = $1
+SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier, archived_at FROM reading WHERE atom_id = $1
 `
 
 func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, error) {
@@ -100,6 +113,7 @@ func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, er
 		&i.QuestionsAt,
 		&i.LibrarySlug,
 		&i.LibraryTier,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -407,14 +421,14 @@ func (q *Queries) ListReadingTasks(ctx context.Context, atomID uuid.UUID) ([]Rea
 }
 
 const listReadingsByUser = `-- name: ListReadingsByUser :many
-SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key, r.questions_at, r.library_slug, r.library_tier,
+SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key, r.questions_at, r.library_slug, r.library_tier, r.archived_at,
        a.created_at AS atom_created_at,
        a.last_activity_at,
        (s.atom_id IS NOT NULL)::bool AS has_source
 FROM reading r
 JOIN atom a ON a.id = r.atom_id
 LEFT JOIN reading_source s ON s.atom_id = r.atom_id
-WHERE a.user_id = $1 AND a.kind = 'reading'
+WHERE a.user_id = $1 AND a.kind = 'reading' AND r.archived_at IS NULL
 ORDER BY a.created_at DESC
 `
 
@@ -429,6 +443,7 @@ type ListReadingsByUserRow struct {
 	QuestionsAt    pgtype.Timestamptz `json:"questions_at"`
 	LibrarySlug    string             `json:"library_slug"`
 	LibraryTier    int16              `json:"library_tier"`
+	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 	HasSource      bool               `json:"has_source"`
@@ -441,6 +456,9 @@ type ListReadingsByUserRow struct {
 // (a textbook N+1 — and it pulled each article's whole BODY across the wire
 // only to test the row's existence). Existence is all the DTO needs, so it is
 // computed here.
+//
+// 🚨 收起来的那些不在这张列表里（迁移 0190）。这只影响**她自己那张列表** ——
+// 老师那一侧和过程评估走的是别的查询，照旧看得见（铁律④：过程即数据）。
 func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]ListReadingsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listReadingsByUser, userID)
 	if err != nil {
@@ -461,6 +479,7 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.QuestionsAt,
 			&i.LibrarySlug,
 			&i.LibraryTier,
+			&i.ArchivedAt,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 			&i.HasSource,
@@ -476,7 +495,7 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 }
 
 const markReadingQuestionsGenerated = `-- name: MarkReadingQuestionsGenerated :one
-UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
+UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier, archived_at
 `
 
 // Records that a generation ATTEMPT happened, independent of how many
@@ -497,6 +516,7 @@ func (q *Queries) MarkReadingQuestionsGenerated(ctx context.Context, atomID uuid
 		&i.QuestionsAt,
 		&i.LibrarySlug,
 		&i.LibraryTier,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -616,7 +636,7 @@ func (q *Queries) SetReadingFinished(ctx context.Context, atomID uuid.UUID) erro
 }
 
 const setReadingRoutine = `-- name: SetReadingRoutine :one
-UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
+UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier, archived_at
 `
 
 type SetReadingRoutineParams struct {
@@ -640,6 +660,7 @@ func (q *Queries) SetReadingRoutine(ctx context.Context, arg SetReadingRoutinePa
 		&i.QuestionsAt,
 		&i.LibrarySlug,
 		&i.LibraryTier,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -676,6 +697,16 @@ func (q *Queries) SetReadingTaskStatus(ctx context.Context, arg SetReadingTaskSt
 		&i.CompletedAt,
 	)
 	return i, err
+}
+
+const unarchiveReading = `-- name: UnarchiveReading :exec
+UPDATE reading SET archived_at = NULL, updated_at = now() WHERE atom_id = $1
+`
+
+// 收错了放回去。没有界面入口，但端点存在 —— 「收起来」不该是一条单向的门。
+func (q *Queries) UnarchiveReading(ctx context.Context, atomID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, unarchiveReading, atomID)
+	return err
 }
 
 const updateReadingSourceOutline = `-- name: UpdateReadingSourceOutline :one

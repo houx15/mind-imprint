@@ -168,6 +168,17 @@ export type LiteReadingRoomProps = {
    * 很短的文章一模一样，她会以为自己读完了。**
    */
   excerptOnly?: boolean;
+  /**
+   * 这份正文现在还能不能整份换掉。
+   *
+   * 🚨 2026-09-23 产品负责人第 3 条：「自己粘贴文本后，系统会自动分段，
+   * 如果学生发现分段分错了，无法重新编辑，只能再开一个新的。」
+   *
+   * 服务端一直允许（只要还没有东西锚在正文上），拦住她的是这一侧：
+   * 粘贴框原来只在 `excerptOnly` 的时候才挂上去，于是她粘完一次就回不去了。
+   * 判据由服务端给，这一侧不自己猜。
+   */
+  sourceEditable?: boolean;
   /** 她把全文粘进来之后，让宿主重新加载这一间（正文、导读、清单都换了）。 */
   onSourceReplaced?: () => void;
   /**
@@ -275,6 +286,7 @@ export function ReadingRoom({
   headingBlockIds,
   outline,
   excerptOnly = false,
+  sourceEditable = false,
   onSourceReplaced,
   onBlockNote,
   excerpts = [],
@@ -1062,7 +1074,28 @@ export function ReadingRoom({
                 {excerptOnly && (
                   <ExcerptOnlyNotice url={source.sourceUrl} onPaste={() => setPasteOpen(true)} />
                 )}
-                {excerptOnly && (
+                {/*
+                  🚨 分段分错了，她要回得去。产品负责人 2026-09-23 第 3 条：
+                  「自己粘贴文本后，系统会自动分段，如果学生发现分段分错了，
+                    无法重新编辑，只能再开一个新的。」
+
+                  只在**还没有东西锚在正文上**的时候摆（服务端给的 editable）：
+                  锚定之后换正文会把每一张卡、每一条批注悄悄重新指到别的句子上，
+                  那比不给她改糟得多。摘要那一篇上面已经有自己的入口，不重复摆。
+                */}
+                {!excerptOnly && sourceEditable && (
+                  <p className="mk-reading-room__resplit text-mk-small text-mk-muted">
+                    分段不对？
+                    <button
+                      type="button"
+                      onClick={() => setPasteOpen(true)}
+                      className="ml-1 text-mk-accent-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                    >
+                      重新编辑原文
+                    </button>
+                  </p>
+                )}
+                {(excerptOnly || sourceEditable) && (
                   <PasteFullTextModal
                     open={pasteOpen}
                     onClose={() => setPasteOpen(false)}
@@ -1070,6 +1103,7 @@ export function ReadingRoom({
                     title={source.title ?? ""}
                     sourceUrl={source.sourceUrl}
                     abstract={source.blocks.map((b) => b.text)}
+                    mode={excerptOnly ? "abstract" : "resplit"}
                     onReplaced={() => {
                       setPasteOpen(false);
                       onSourceReplaced?.();

@@ -243,6 +243,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/readings/{id}", liteOnly(a.renameReading))
 	mux.Handle("POST /api/v1/readings/{id}/finish", liteOnly(a.finishReading))
 	mux.Handle("POST /api/v1/readings/{id}/reopen", liteOnly(a.reopenReading))
+	// 收起来 / 放回去。收起来只影响她自己那张列表，不删任何过程数据 ——
+	// 见 reading_archive.go 的文件头（铁律④ + 教师可见性）。
+	mux.Handle("DELETE /api/v1/readings/{id}", liteOnly(a.archiveReading))
+	mux.Handle("POST /api/v1/readings/{id}/unarchive", liteOnly(a.unarchiveReading))
 	mux.Handle("PUT /api/v1/readings/{id}/source", liteOnly(a.putReadingSourceLite))
 	mux.Handle("GET /api/v1/readings/{id}/source", liteOnly(a.getReadingSourceLite))
 	mux.Handle("POST /api/v1/readings/{id}/source/file", liteOnly(a.postReadingSourceFileLite))

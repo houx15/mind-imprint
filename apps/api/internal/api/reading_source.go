@@ -85,6 +85,19 @@ type sourceDTO struct {
 	// 算出来的（reading_outline.go），阅读室把它摆在正文顶上。
 	// 排读法之前它是空的，那时候整个字段省略。
 	Outline *outlineDTO `json:"outline,omitempty"`
+	// Editable —— 这份正文现在还能不能整份换掉（PUT /source）。
+	//
+	// 🚨 2026-09-23 产品负责人第 3 条：「自己粘贴文本后，系统会自动分段，
+	// 如果学生发现分段分错了，无法重新编辑，只能再开一个新的。」
+	//
+	// 服务端**一直是允许的** —— refuseIfAnchored 只在已经有东西锚在正文上
+	// 之后才拦（那时候换掉正文会把每一张卡、每一条批注悄悄重新指到别的句子
+	// 上，见那个函数的注释）。拦住她的是界面：阅读室只在 excerptOnly 的时候
+	// 才挂那个粘贴框，于是她粘完一次就再也回不去了。
+	//
+	// 这一位就是给界面用的：正文还没被锚定时摆一个「重新编辑原文」。
+	// 判据由服务端给，客户端不自己猜 —— 猜错的那一侧是她按下去之后拿到 409。
+	Editable bool `json:"editable"`
 }
 
 // outlineDTO 是导读发给前端的形状。
@@ -325,6 +338,7 @@ func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		Figures: figures, Headings: headings,
 		Outline:     outlineDTOFrom(decodeOutline(row.Outline), blocks),
 		ExcerptOnly: row.ExcerptOnly,
+		Editable:    a.sourceStillEditable(r, at.ID),
 	})
 }
 
@@ -397,4 +411,14 @@ func (a *API) replaceReadingBody(ctx context.Context, atomID uuid.UUID, title, b
 		}
 	}
 	return row, nil
+}
+
+// sourceStillEditable —— 这份正文现在还能不能整份换掉。
+//
+// 和 refuseIfAnchored 同一个判据（锚在正文上的东西一条都还没有），只是不写
+// 响应、不报错。查不出来时返回 false：少一个按钮，比给一个按下去就 409 的
+// 按钮好（AI errors must surface, never fake 的同一条方向 —— 不装作能做）。
+func (a *API) sourceStillEditable(r *http.Request, atomID uuid.UUID) bool {
+	n, err := a.d.Queries.CountAtomEvidence(r.Context(), atomID)
+	return err == nil && n == 0
 }

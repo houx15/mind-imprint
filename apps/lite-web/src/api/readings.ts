@@ -108,6 +108,20 @@ export interface ReadingSource {
   headings?: string[];
   /** 导读。排读法之前没有。 */
   outline?: ReadingOutline;
+  /**
+   * 这份正文现在还能不能整份换掉（`putReadingSource`）。
+   *
+   * 🚨 2026-09-23 产品负责人第 3 条：「自己粘贴文本后，系统会自动分段，
+   * 如果学生发现分段分错了，无法重新编辑，只能再开一个新的。」
+   *
+   * 服务端**一直是允许的** —— 它只在已经有东西锚在正文上之后才拦（换掉正文
+   * 会把每一张卡、每一条批注悄悄重新指到别的句子上）。拦住她的是这一侧：
+   * 阅读室只在 `excerptOnly` 的时候才挂粘贴框，于是她粘完一次就回不去了。
+   *
+   * 判据由服务端给，**客户端不自己猜** —— 猜错的那一侧是她按下去之后拿到 409。
+   * 老的响应里没有这个字段，读出来是 undefined ⇒ 不摆按钮，和原来一样。
+   */
+  editable?: boolean;
 }
 
 /**
@@ -183,6 +197,22 @@ export async function renameReading(id: string, title: string): Promise<Reading>
     method: "PATCH",
     body: JSON.stringify({ title }),
   });
+}
+
+/**
+ * DELETE /api/v1/readings/{id} —— 在列表里把这一篇收起来。
+ *
+ * 🚨 名字叫 archive 不叫 delete，因为服务端做的就是收起来：她的段落、批注、
+ * 和印记说过的话一条都没删（铁律④「过程即数据」，而且老师那一侧照旧看得见）。
+ * 叫 delete 会让下一个人以为这条路会毁数据，进而不敢用它。
+ */
+export async function archiveReading(id: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/readings/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** POST /api/v1/readings/{id}/unarchive —— 收错了放回去。 */
+export async function unarchiveReading(id: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/readings/${encodeURIComponent(id)}/unarchive`, { method: "POST" });
 }
 
 /**

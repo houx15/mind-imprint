@@ -19,11 +19,23 @@ SELECT r.*,
 FROM reading r
 JOIN atom a ON a.id = r.atom_id
 LEFT JOIN reading_source s ON s.atom_id = r.atom_id
-WHERE a.user_id = $1 AND a.kind = 'reading'
+--
+-- 🚨 收起来的那些不在这张列表里（迁移 0190）。这只影响**她自己那张列表** ——
+-- 老师那一侧和过程评估走的是别的查询，照旧看得见（铁律④：过程即数据）。
+WHERE a.user_id = $1 AND a.kind = 'reading' AND r.archived_at IS NULL
 ORDER BY a.created_at DESC;
 
 -- name: RenameReading :exec
 UPDATE reading SET title = $2, updated_at = now() WHERE atom_id = $1;
+
+-- name: ArchiveReading :exec
+-- 她在列表里把这一篇收起来。幂等：已经收起来的再收一次还是同一个时间。
+UPDATE reading SET archived_at = COALESCE(archived_at, now()), updated_at = now()
+WHERE atom_id = $1;
+
+-- name: UnarchiveReading :exec
+-- 收错了放回去。没有界面入口，但端点存在 —— 「收起来」不该是一条单向的门。
+UPDATE reading SET archived_at = NULL, updated_at = now() WHERE atom_id = $1;
 
 -- name: SetReadingFinished :exec
 -- Guarded on status, so a SECOND POST /finish is a genuine no-op rather than a

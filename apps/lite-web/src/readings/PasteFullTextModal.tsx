@@ -40,17 +40,34 @@ export function PasteFullTextModal({
   abstract,
   sourceUrl,
   onReplaced,
+  mode = "abstract",
 }: {
   open: boolean;
   onClose: () => void;
   readingId: string;
   title: string;
-  /** 现在正文区里那几段（就是那段摘要）。 */
+  /** 现在正文区里那几段（摘要那一档就是那段摘要；重新分段那一档是正文）。 */
   abstract: string[];
   sourceUrl: string;
   onReplaced: () => void;
+  /**
+   * 这个框这一次是来干什么的。
+   *
+   * - `"abstract"`（默认，原来的唯一一种）：这一篇只拿到了摘要，先问她要不要
+   *   读全文，要读才给两条路。
+   * - `"resplit"`：她已经有正文了，**分段分错了要重贴**
+   *   （产品负责人 2026-09-23 第 3 条）。这一档不问「想读全文吗」——
+   *   她已经在读了；也不查「粘进来的比原来长」—— 重新分段常常一个字都不多。
+   *
+   * 🚨 分成两档而不是复用同一套字：这个框整篇的措辞都是按摘要那一档写的
+   *（「我们只获取到了这篇文章的摘要」「只读摘要，后面的通读、精读都做不完整」）。
+   * 原样搬到重新分段那一档上，每一句都是假话。
+   */
+  mode?: "abstract" | "resplit";
 }) {
-  const [wantsMore, setWantsMore] = useState(false);
+  const resplit = mode === "resplit";
+  // 重新分段那一档没有「先问要不要」这一屏：她按进来就是要改。
+  const [wantsMore, setWantsMore] = useState(resplit);
   const [text, setText] = useState("");
   const [phase, setPhase] = useState<"idle" | "saving" | "planning">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +101,9 @@ export function PasteFullTextModal({
     const body = text.trim();
     if (!body) return;
     // 粘进来的比摘要还短：多半只复制到了一部分。
-    if (Array.from(body).length <= abstractLength) {
+    // 🚨 重新分段那一档不查这一条 —— 她要做的正是把同一篇重贴一遍，
+    // 段落改对了，字数常常一个都不多。
+    if (!resplit && Array.from(body).length <= abstractLength) {
       setError("粘贴的内容不比摘要长，请确认复制的是文章全文。");
       return;
     }
@@ -108,10 +127,10 @@ export function PasteFullTextModal({
         wantsMore ? (
           <>
             <Button variant="ghost" onClick={onClose} disabled={busy}>
-              先读摘要
+              {resplit ? "取消" : "先读摘要"}
             </Button>
             <Button onClick={savePasted} disabled={!text.trim() || busy} loading={busy}>
-              {statusLabel || "保存全文"}
+              {statusLabel || (resplit ? "保存并重新分段" : "保存全文")}
             </Button>
           </>
         ) : (
@@ -125,13 +144,19 @@ export function PasteFullTextModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <p className="flex items-center gap-1.5 text-mk-small text-mk-muted">
-          我们只获取到了这篇文章的摘要
-          <WhyNoFullText />
-        </p>
+        {resplit ? (
+          <p className="text-mk-small text-mk-muted">
+            系统按空行把正文分成段落。分得不对时，请重新粘贴一次，并在需要分段的地方留一个空行。
+          </p>
+        ) : (
+          <p className="flex items-center gap-1.5 text-mk-small text-mk-muted">
+            我们只获取到了这篇文章的摘要
+            <WhyNoFullText />
+          </p>
+        )}
 
         <div className="mk-rp-source rounded-mk-md bg-mk-accent-50 px-3 py-2.5">
-          <p className="mb-1 text-mk-label text-mk-accent-700">摘要</p>
+          <p className="mb-1 text-mk-label text-mk-accent-700">{resplit ? "现在的分段" : "摘要"}</p>
           <div className="mk-scroll flex max-h-48 flex-col gap-1.5 overflow-y-auto text-mk-body leading-relaxed text-mk-ink">
             {shown.map((p, i) => (
               <p key={i}>{p}</p>
@@ -180,7 +205,9 @@ export function PasteFullTextModal({
             <div className="flex flex-col gap-1.5 rounded-mk-md border border-mk-border p-3">
               <p className="text-mk-label text-mk-ink">方式二：粘贴全文</p>
               <p className="text-mk-small text-mk-muted">
-                请在原文网页上选中正文并复制（只选文章正文，不要选到导航栏和广告），粘贴到下面，再点击「保存全文」。
+                {resplit
+                  ? "把这一篇重新粘一次：段与段之间留一个空行，系统按空行分段。"
+                  : "请在原文网页上选中正文并复制（只选文章正文，不要选到导航栏和广告），粘贴到下面，再点击「保存全文」。"}
               </p>
               <textarea
                 aria-label="文章全文"
@@ -194,7 +221,9 @@ export function PasteFullTextModal({
             </div>
 
             <p className="text-mk-small text-mk-muted">
-              保存之后，印记会按全文重新安排阅读步骤；之前的对话会保留。
+              {resplit
+                ? "保存之后，印记会按新的分段重新安排阅读步骤；之前的对话会保留。"
+                : "保存之后，印记会按全文重新安排阅读步骤；之前的对话会保留。"}
             </p>
             {statusLabel && <p className="text-mk-small text-mk-muted">{statusLabel}…</p>}
           </>
