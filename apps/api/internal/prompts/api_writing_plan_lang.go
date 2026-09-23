@@ -116,10 +116,14 @@ const WritingPlanEnglishNarrativeKinds = `- kind：节点类型，只能使用�
 // 的「题目拆解」。同事给的那份资料里最有价值的就是这一段 —— 四类 TASK
 // （agree / discuss / advantage / reason&solution）都可以归约成两项任务。
 //
-// 那份资料里的四段式**整句模板**一句都没收（`In contemporary society,
-// xxx has become an increasingly widely discussed issue on social media.`）：
-// 给她一句能直接粘进去的开头，就是替她把这篇写了一部分。雅思考官对背诵式
-// 开头本来也扣分。spec §7「不收整句填空模板」。
+// 那份资料里的四段式整句开头（`In contemporary society, xxx has become an
+// increasingly widely discussed issue on social media.`）没有收进**这一节**，
+// 理由是这一节讲的是「这道题要回答几件事」，跟怎么起笔无关；雅思考官对背诵式
+// 开头也扣分。
+//
+// 🚨 这**不是**因为模板不能给。句式和模板照给 —— 她自己把它用到自己的文章
+// 里（`VocabExamples.tsx` 今天就在给）。三期会把 methods.json 的 patterns
+// 补上 gloss 和例句。别把这条注释读成「模板不许出现」。
 //
 // 🚨 只挂在 {write, en, argument} 上。中文议论文的题目不是这个形状，
 // 英文记叙文没有 TASK 可拆。

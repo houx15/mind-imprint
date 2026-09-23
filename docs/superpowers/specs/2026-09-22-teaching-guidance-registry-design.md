@@ -279,7 +279,21 @@ TestEveryCombinationResolves —— 枚举所有真的会出现的
 - 不做模型自取的 skill 检索（理由见 §3）。
 - 本期不产出小学内容。
 - 不给学生看分数。
-- 不收整句填空模板。
+- 不替她写、不替她改完她的文章。**这条门就是这么一句话，不要展开成别的。**
+
+🚨 **2026-09-23 产品负责人更正：「so templates are totally ok」。**
+原来这里写着「不收整句填空模板」—— 那是我把一句有分寸的话收紧成了禁令，
+而且和产品的现状**相反**：句式今天就已经摆在学生面前了
+（`GuideBox` →「查看例子」→ `VocabExamples.tsx`，标题写着
+「常用的句式（横线上的内容要你自己填）：」）。
+
+产品负责人原来的原话是分寸，不是禁令：「for english writing, maybe sometimes
+students need templates. but I would suggest templates only work when we comment
+on their writing. we propose a better sentence form etc. and **they themselves
+implement this template to their writing**.」
+
+所以规矩是：**句式、模板、更好的句子形式，都给。** 她自己把它用到自己的
+文章里。我们不动她的文稿，也不替她把哪一段写完 —— 就这一条。
 
 ## 8 · 风险
 
