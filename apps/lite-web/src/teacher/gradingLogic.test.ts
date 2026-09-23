@@ -167,14 +167,17 @@ describe("gradingPointLabel", () => {
 
 describe("pointHasBasis", () => {
   const blank = { dimension: "", symptom: "", quote: null };
-  it("is false when dimension, symptom and quote are all blank", () => {
+  it("is false when dimension and symptom are both blank", () => {
     expect(pointHasBasis(blank)).toBe(false);
-    expect(pointHasBasis({ ...blank, quote: "  " })).toBe(false); // whitespace-only quote is still blank
   });
-  it("is true when only one of the three is present", () => {
+  it("is true when either provenance field is present", () => {
     expect(pointHasBasis({ ...blank, dimension: "内容" })).toBe(true);
     expect(pointHasBasis({ ...blank, symptom: "只有主题，没有问题" })).toBe(true);
-    expect(pointHasBasis({ ...blank, quote: "去年秋天" })).toBe(true);
+    expect(pointHasBasis({ dimension: " ", symptom: " ", quote: null })).toBe(false);
+  });
+  // 🚨 引文不算依据：它就印在这条意见下面，弹窗里再给一遍等于什么都没给。
+  it("is false when the only thing behind the button is the quote she is already reading", () => {
+    expect(pointHasBasis({ ...blank, quote: "去年秋天" })).toBe(false);
   });
 });
 

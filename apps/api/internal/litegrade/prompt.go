@@ -27,32 +27,45 @@ import (
 // SanitizeProvenance (check.go) clears either instead of failing the
 // grading over them; see prompts.GradingSystemTemplate's doc comment.
 //
-// Its "## 事实" section is filled by factsBlock (below) — Check does not
-// gate on it either; the four numbers only steer wording, they carry no
-// contract of their own.
+// The countable measures (internal/textstat) are NOT here: factsBlock goes
+// into the USER message — see prompts.GradingFactsBlock for why. Check does
+// not gate on them either; the four numbers only steer wording, they carry
+// no contract of their own.
+//
+// 🚨 **This template is byte-identical for every student in one assignment.**
+// Keep it that way: anything per-student belongs in UserPrompt. A volatile
+// block in here breaks the implicit prefix cache for the whole class batch
+// (AGENTS.md 「prompt 块的顺序是一条成本契约」).
 const systemTemplate = prompts.GradingSystemTemplate
 
 func SystemPrompt(in Input) string {
-	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, factsBlock(in), languageName(in.Lang), dimensionSkeleton(in.Rubric)) + teachingvoice.Rules
+	return fmt.Sprintf(systemTemplate, scaleLine(in.Rubric), dimensionLines(in.Rubric), focusLine(in.Rubric), in.SymptomCatalog, languageName(in.Lang), dimensionSkeleton(in.Rubric)) + teachingvoice.Rules
 }
 
-// factsBlock renders the four countable measures internal/textstat computes
-// from her submitted body (Input.Body) — the model is told not to recompute
-// them; see GradingSystemTemplate's "## 事实" section for the instruction
-// itself.
+// factsBlock renders the countable measures internal/textstat computes from
+// her submitted body (Input.Body) — the model is told not to recompute
+// them; see prompts.GradingFactsBlock for the instruction itself.
 //
 // 🚨 These numbers inform the model's judgment and, via points[].dimension /
 // .comment prose, the teacher's 依据 view. They are never rendered to the
 // student as a score — the product owner ruled out exact scores for
 // students (task-4-brief.md); the prompt tells the model the same thing
 // ("不要把这里的具体数字写进给学生看的内容里").
+//
+// 🚨 中文那一路的「词」其实是**字**：textstat 的分词规则（wordTokens，照
+// agent.CountWords）把每个汉字算一个 token，所以中文的多样度是字种比、
+// 句长是字数。标签按语言分开写，不让两种语言的数字看起来可比。
 func factsBlock(in Input) string {
 	s := textstat.Compute(in.Body, in.Lang)
+	unit, variety := "字", "用字多样度（不重复字数 / 总字数，中文按字计）"
+	if in.Lang == "en" {
+		unit, variety = "词", "词汇多样度（不重复词数 / 总词数）"
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "- 词汇多样度（不重复词数 / 总词数）：%.0f%%\n", s.TypeTokenRatio*100)
-	fmt.Fprintf(&b, "- 平均句长：%.1f 词\n", s.MeanSentenceLength)
-	fmt.Fprintf(&b, "- 复杂句占比：%.0f%%\n", s.ComplexSentenceRatio*100)
-	fmt.Fprintf(&b, "- 连接词密度：每句 %.1f 个\n", s.ConnectiveDensity)
+	fmt.Fprintf(&b, "- %s：%.0f%%\n", variety, s.TypeTokenRatio*100)
+	fmt.Fprintf(&b, "- 平均句长：%.1f %s\n", s.MeanSentenceLength, unit)
+	fmt.Fprintf(&b, "- 含从句的句子占比（按连词词表匹配）：%.0f%%\n", s.ComplexSentenceRatio*100)
+	fmt.Fprintf(&b, "- 连接词密度（按连接词词表匹配）：每句 %.1f 个\n", s.ConnectiveDensity)
 	return b.String()
 }
 
@@ -117,6 +130,10 @@ func UserPrompt(in Input) string {
 		fmt.Fprintf(&b, "目标字数：%d\n", in.TargetWords)
 	}
 	fmt.Fprintf(&b, "\n学生正文（第 %d 版）：\n%s\n", in.VersionNumber, in.Body)
+	// 🚨 统计块排在她的正文**后面**，而且只在这条用户消息里 —— 它是每个学生
+	// 都不一样的东西，放进系统提示词会把整个班共用的前缀打碎（见
+	// prompts.GradingFactsBlock）。
+	fmt.Fprintf(&b, prompts.GradingFactsBlock, factsBlock(in))
 	b.WriteString("\n请输出完整对象：points 必须有 3–5 条，至少 1 条 good 和 1 条 issue；可用两条 good 加一条 issue，不为凑数量虚构问题。各条简洁写明原文依据与用途，输出前核对条数和数组闭合。\n")
 	return b.String()
 }

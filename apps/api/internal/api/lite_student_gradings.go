@@ -64,11 +64,18 @@ func (a *API) listWritingGradingsHandler(w http.ResponseWriter, r *http.Request)
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// 毛病名称按这篇的语言查（gradingContentForView）。
+	wr, err := a.d.Queries.GetWriting(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	out := make([]studentGradingDTO, 0, len(rows))
 	for _, g := range rows {
 		out = append(out, studentGradingDTO{
 			ID: g.ID.String(), VersionNumber: g.VersionNumber,
-			Rubric: json.RawMessage(g.Rubric), Content: json.RawMessage(g.Content),
+			// 同老师那一路：symptom 存 id，渲染时换成名字。
+			Rubric: json.RawMessage(g.Rubric), Content: gradingContentForView(g.Content, wr.Lang),
 			SentAt: g.SentAt.Time.Format(time.RFC3339), Seen: g.StudentSeenAt.Valid,
 			Source: studentGradingSource(g.AiDrafted),
 		})

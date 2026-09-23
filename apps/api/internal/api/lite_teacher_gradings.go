@@ -324,7 +324,10 @@ func (a *API) teacherGradingResponse(w http.ResponseWriter, r *http.Request, g s
 		UserID: g.UserID.String(), DisplayName: student.DisplayName, AtomID: g.AtomID.String(),
 		VersionNumber: src.Number, LatestVersionNumber: latest.Number,
 		Title: src.Title, Body: src.Body, Lang: src.Lang,
-		Rubric: json.RawMessage(g.Rubric), Status: g.Status, Content: json.RawMessage(g.Content), Error: g.Error,
+		// 🚨 存的是 symptom 的 id，渲染时才换成老师读得懂的名字
+		// （gradingContentForView）—— 她永远不会看到 tense_drift 这样的码，
+		// 而库里留着那个 id，保存那一趟送回来也认得出。
+		Rubric: json.RawMessage(g.Rubric), Status: g.Status, Content: gradingContentForView(g.Content, src.Lang), Error: g.Error,
 		Source:     gradingSource(g.Ai, g.Content),
 		ReviewedAt: tsStringPtr(g.ReviewedAt), SentAt: tsStringPtr(g.SentAt), StudentSeenAt: tsStringPtr(g.StudentSeenAt),
 		UpdatedAt: g.UpdatedAt.Format(time.RFC3339),

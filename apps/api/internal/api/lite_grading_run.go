@@ -6,6 +6,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -39,9 +40,11 @@ func liteGradingInput(src sqlc.GetLiteGradingSourceRow, rubric liteassign.Rubric
 		// 多给几条认得出的毛病不会伤到谁。
 		SymptomCatalog: writingSymptomCatalog(src.Lang, genreNarrative),
 		PersonJudging:  personDirectedVerdict,
-		SymptomLookup: func(id string) (string, bool) {
-			s, ok := lookupWritingSymptom(src.Lang, id)
-			return s.Name, ok
+		// 认 id 也认名字，一律答回 id —— 老师那一趟会把渲染给她看的名字
+		// 原样送回来（见 resolveWritingSymptom / SanitizeProvenance）。
+		SymptomLookup: func(idOrName string) (string, string, bool) {
+			s, ok := resolveWritingSymptom(src.Lang, idOrName)
+			return s.ID, s.Name, ok
 		},
 	}
 }
@@ -113,6 +116,54 @@ func gradeWithRetry(ctx context.Context, prov gateway.Provider, resolved gateway
 			gateway.ChatMessage{Role: gateway.RoleAssistant, Content: res.Text},
 			gateway.ChatMessage{Role: gateway.RoleUser, Content: litegrade.RetryNudge(out.Reasons)},
 		)
+	}
+	return out
+}
+
+// gradingContentForView turns the STORED grading content into the shape a
+// reader sees: each point's Symptom, stored as the closed table's id, is
+// resolved to that table's teacher-facing name for this writing's language.
+//
+// 🚨 **The id is what is stored; the name is only ever rendered.** Storing
+// the name instead cost us 对应毛病 on every teacher save — SanitizeProvenance
+// ran a second time on the PATCH body, could not match the name it had
+// written itself, and blanked the field (2026-09-23, proven by direct
+// execution). It would also strand old gradings on a stale string the day a
+// symptom is renamed, and break "how often does this symptom fire in this
+// class?", which needs the join key.
+//
+// The round trip is safe in both directions: this hands the teacher a name,
+// her client sends that name back, and resolveWritingSymptom recognises a
+// name as well as an id and answers with the id.
+//
+// Anything it cannot make sense of is passed through untouched — an
+// unreadable row must not 500 a list, the same posture toCommentDTO takes.
+func gradingContentForView(content []byte, lang string) json.RawMessage {
+	if len(content) == 0 {
+		return json.RawMessage(content)
+	}
+	var c litegrade.Content
+	if err := json.Unmarshal(content, &c); err != nil {
+		return json.RawMessage(content)
+	}
+	changed := false
+	for i, p := range c.Points {
+		if strings.TrimSpace(p.Symptom) == "" {
+			continue
+		}
+		s, ok := resolveWritingSymptom(lang, p.Symptom)
+		if !ok || s.Name == p.Symptom {
+			continue
+		}
+		c.Points[i].Symptom = s.Name
+		changed = true
+	}
+	if !changed {
+		return json.RawMessage(content)
+	}
+	out, err := json.Marshal(c)
+	if err != nil {
+		return json.RawMessage(content)
 	}
 	return out
 }

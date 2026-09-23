@@ -198,24 +198,83 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 	}
 }
 
-// 一层的等级只看落在这一层的 points。四层各自独立 —— 立意没问题、
-// 字句一堆问题，她该看到的是「立意 pass，字句 revise」，而不是一个
-// 笼统的 polish 把两件事拌在一起。
+// 一层的等级只看落在这一层的 points。四层各自独立 —— 字句有问题、
+// 立意这一轮没被点名，她该看到的是两个不同的格子，而不是一个笼统的 polish
+// 把两件事拌在一起。
 func TestLayerVerdictsComeFromThatLayerOnly(t *testing.T) {
 	c := Comment{Points: []CommentPoint{
 		{Kind: "issue", Layer: writingLayerSentence, Action: "把这句拆成两句"},
 		{Kind: "good", Layer: writingLayerClaim},
 	}}
 	got := layerVerdictsOf(c)
-	if got[writingLayerClaim] != writingVerdictPass {
-		t.Errorf("立意那层没有 issue，应该 pass，拿到 %q", got[writingLayerClaim])
+	if got[writingLayerSentence] != writingVerdictPolish {
+		t.Errorf("字句那层有一条 issue，应该 polish，拿到 %q", got[writingLayerSentence])
 	}
-	if got[writingLayerSentence] == writingVerdictPass {
-		t.Error("字句那层有一条带 action 的 issue，不该是 pass")
+	// 🚨 这一轮有 issue，只是不在立意那层 —— 那是「本轮未看」，不是「已通过」。
+	// 上一版这里断言的是 pass，正好把 dropLowerLayer 那个缺陷锁在原地。
+	if got[writingLayerClaim] != writingVerdictUnchecked {
+		t.Errorf("这一轮有 issue、立意没被点名，应该 unchecked，拿到 %q", got[writingLayerClaim])
 	}
 	// 没有任何 point 的那两层也要有值 —— 屏幕上四个格子都要有东西。
 	if got[writingLayerMaterial] == "" || got[writingLayerStructure] == "" {
 		t.Error("没有 point 的层也要给一个等级，不能是空")
+	}
+}
+
+// 一条 issue 都没有的那一轮，四层才是真的都 pass。
+func TestLayerVerdictsAllPassOnlyWhenThereAreNoIssues(t *testing.T) {
+	got := layerVerdictsOf(Comment{Points: []CommentPoint{{Kind: "good", Layer: writingLayerClaim}}})
+	for _, layer := range []int{writingLayerClaim, writingLayerMaterial, writingLayerStructure, writingLayerSentence} {
+		if got[layer] != writingVerdictPass {
+			t.Errorf("一条 issue 都没有时第 %d 层应该 pass，拿到 %q", layer, got[layer])
+		}
+	}
+}
+
+// 🚨 **走一遍服务端真的会产出的形状。**
+//
+// 上面那几条测的是纯函数，喂给它的 Comment 里两层都带着 issue —— 而
+// validateCommentPoints 永远不会交出这样一条评语：它只留最上面那一层
+// （dropLowerLayer）。2026-09-23 复查点名的就是这件事：被测的数据是流水线
+// 产不出来的，于是「下面那几层的 issue 被静默丢掉」这一整类一次都看不见。
+//
+// 这条从模型那一端的形状起跑：立意一条 + 字句两条，全部 quote 逐字在正文里、
+// 全部带 action、symptom 全是闭表里的真 id。服务端留下立意、丢掉字句两条，
+// 于是字句那格**必须**是「本轮未看」，不能是「已通过」。
+func TestLayerVerdictsAfterValidateShowSuppressedLayersAsUnchecked(t *testing.T) {
+	source := "城市的树越来越少。我们应该多种树，因为树能降温，而且它还能挡住灰尘，所以我认为每个小区都要有一片树林，这件事非常非常重要。"
+	raw := []CommentPoint{
+		{Kind: "issue", Layer: writingLayerClaim, Symptom: "topic_without_question",
+			Text: "这一段说的是哪一件事还不清楚。", Action: "用一句话写出你要论证的那个判断。",
+			Quote: "我们应该多种树，因为树能降温，而且它还能挡住灰尘，所以我认为每个小区都要有一片树林，这件事非常非常重要。"},
+		{Kind: "issue", Layer: writingLayerSentence, Symptom: "sentence_bloat",
+			Text: "这句话一直没有停下来。", Action: "把这句拆成两句。",
+			Quote: "我们应该多种树，因为树能降温，而且它还能挡住灰尘，所以我认为每个小区都要有一片树林，这件事非常非常重要。"},
+		{Kind: "issue", Layer: writingLayerSentence, Symptom: "ornate_but_weak",
+			Text: "这里连着两个「非常」。", Action: "删掉其中一个「非常」。",
+			Quote: "这件事非常非常重要。"},
+	}
+	kept := validateCommentPoints(raw, source, "zh", 3)
+
+	// 流水线只留最上面那一层：立意那一条。
+	for _, p := range kept {
+		if p.Kind == "issue" && p.Layer != writingLayerClaim {
+			t.Fatalf("validateCommentPoints 应该只留最上面那一层，却留下了第 %d 层：%+v", p.Layer, p)
+		}
+	}
+	if len(kept) == 0 {
+		t.Fatal("立意那条不该被丢掉")
+	}
+
+	got := layerVerdictsOf(Comment{Points: kept})
+	if got[writingLayerClaim] != writingVerdictPolish {
+		t.Errorf("立意留下一条 issue，应该 polish，拿到 %q", got[writingLayerClaim])
+	}
+	if got[writingLayerSentence] == writingVerdictPass {
+		t.Error("字句那两条是被 dropLowerLayer 压下去的，不能画成「已通过」")
+	}
+	if got[writingLayerSentence] != writingVerdictUnchecked {
+		t.Errorf("被压下去的层应该是 unchecked，拿到 %q", got[writingLayerSentence])
 	}
 }
 
@@ -247,6 +306,7 @@ func TestLayerVerdictUsesAllThreeLevels(t *testing.T) {
 
 // 不认识的值归一到 polish 而不是 revise —— writing_verdict.go 已有的
 // 非对称兜底，按层算的时候不许把它改成对称的。
+// （层号 99 认不出来 ⇒ 四层一条都没接住，于是四格都是 unchecked。）
 func TestLayerVerdictNeverInventsRevise(t *testing.T) {
 	c := Comment{Points: []CommentPoint{{Kind: "issue", Layer: 99}}}
 	for _, v := range layerVerdictsOf(c) {

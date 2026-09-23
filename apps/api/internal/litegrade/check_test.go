@@ -405,14 +405,18 @@ func TestCheckLanguageThresholdBoundary(t *testing.T) {
 // --- SanitizeProvenance: 2026-09-23, points[].dimension / .symptom — the
 // modal that tells the teacher where one point came from.
 
-func testSymptomLookup(id string) (string, bool) {
-	switch id {
-	case "topic_without_question":
-		return "只有主题，没有问题", true
-	case "evidence_not_explained":
-		return "举了例子，没有解释", true
+// testSymptomLookup mirrors internal/api's resolveWritingSymptom: it takes an
+// id OR a display name and always answers with the id.
+func testSymptomLookup(v string) (string, string, bool) {
+	for _, row := range [][2]string{
+		{"topic_without_question", "只有主题，没有问题"},
+		{"evidence_not_explained", "举了例子，没有解释"},
+	} {
+		if v == row[0] || v == row[1] {
+			return row[0], row[1], true
+		}
 	}
-	return "", false
+	return "", "", false
 }
 
 func TestSanitizeProvenanceKeepsAMatchingDimension(t *testing.T) {
@@ -437,13 +441,46 @@ func TestSanitizeProvenanceClearsAnUnknownDimensionButKeepsThePoint(t *testing.T
 	}
 }
 
-func TestSanitizeProvenanceResolvesAKnownSymptomIDToItsName(t *testing.T) {
+func TestSanitizeProvenanceStoresTheSymptomID(t *testing.T) {
 	in := testInput()
 	in.SymptomLookup = testSymptomLookup
 	c := Content{Points: []Point{{Kind: KindIssue, Symptom: "topic_without_question"}}}
 	out := SanitizeProvenance(c, in)
-	if out.Points[0].Symptom != "只有主题，没有问题" {
-		t.Fatalf("a known symptom id must resolve to its teacher-facing name, got %q", out.Points[0].Symptom)
+	if out.Points[0].Symptom != "topic_without_question" {
+		t.Fatalf("the id is what gets stored, got %q", out.Points[0].Symptom)
+	}
+}
+
+// 🚨 **It runs twice on the same value.** Once at generation, once on every
+// teacher PATCH — the client sends the whole content back. The first version
+// stored the display NAME and matched on id only, so the second run blanked
+// 对应毛病 on every single save (2026-09-23, proven by direct execution).
+func TestSanitizeProvenanceIsIdempotent(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = testSymptomLookup
+	once := SanitizeProvenance(Content{Points: []Point{
+		{Kind: KindIssue, Dimension: "内容", Symptom: "topic_without_question"},
+	}}, in)
+	twice := SanitizeProvenance(once, in)
+	if twice.Points[0].Symptom != once.Points[0].Symptom {
+		t.Fatalf("second pass changed symptom: %q -> %q", once.Points[0].Symptom, twice.Points[0].Symptom)
+	}
+	if twice.Points[0].Symptom == "" {
+		t.Fatal("a second pass blanked the symptom — this is the teacher-save bug")
+	}
+	if twice.Points[0].Dimension != "内容" {
+		t.Fatalf("second pass changed dimension, got %q", twice.Points[0].Dimension)
+	}
+}
+
+// A client echoing back the DISPLAY NAME (what the teacher's view renders,
+// or a row stored before 2026-09-23) is upgraded to the id, never blanked.
+func TestSanitizeProvenanceAcceptsADisplayNameAndCanonicalisesIt(t *testing.T) {
+	in := testInput()
+	in.SymptomLookup = testSymptomLookup
+	out := SanitizeProvenance(Content{Points: []Point{{Kind: KindIssue, Symptom: "只有主题，没有问题"}}}, in)
+	if out.Points[0].Symptom != "topic_without_question" {
+		t.Fatalf("a display name must canonicalise to the id, got %q", out.Points[0].Symptom)
 	}
 }
 

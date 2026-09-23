@@ -934,9 +934,14 @@ func TestLiteGradingPatchAndSend(t *testing.T) {
 
 	teacherPoint := []map[string]any{{
 		"kind": "issue", "quote": nil, "text": "第二段请补充数据来源。", "action": nil, "source": "teacher",
-		// 2026-09-23: dimension 逐字匹配 rubric 保留；symptom 是闭表里的真 id，
-		// PATCH 之后应该换成她读得懂的名字（SanitizeProvenance）。
-		"dimension": "内容", "symptom": "topic_without_question",
+		// 🚨 **送的是老师屏幕上那个名字，不是 id。**
+		//
+		// 这一格必须和 gradingLogic.ts 的 contentForSave 真正发出去的东西一样：
+		// 服务端渲染给她的是名字（gradingContentForView），她按保存时客户端把
+		// 收到的那份原样送回来。上一版这里送的是 id —— 一条真客户端发不出的
+		// 形状 —— 于是「每保存一次就把对应毛病清空一次」这个缺陷一次都没被
+		// 看见（2026-09-23 复查）。
+		"dimension": "内容", "symptom": "只有主题，没有问题",
 	}}
 	rec := doJSON(t, f.h, f.teacher, "PATCH", path, mustJSON(t, map[string]any{"content": gradingContent("E", teacherPoint)}))
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_grading") || !strings.Contains(rec.Body.String(), "总评的等级不在评分标准内：E") {
@@ -957,13 +962,35 @@ func TestLiteGradingPatchAndSend(t *testing.T) {
 	if resp.Grading.ReviewedAt == nil || resp.Grading.Status != "draft" || !strings.Contains(string(resp.Grading.Content), `"source":"teacher"`) {
 		t.Fatalf("patched = %+v %s", resp.Grading, resp.Grading.Content)
 	}
-	// A rubric-matching dimension survives verbatim; a real symptom id is
-	// resolved to its teacher-facing name, not left as a raw code.
+	// A rubric-matching dimension survives verbatim; the symptom comes back
+	// as the name the teacher reads, never as a raw code.
 	if !strings.Contains(string(resp.Grading.Content), `"dimension":"内容"`) {
 		t.Fatalf("dimension must survive a PATCH: %s", resp.Grading.Content)
 	}
 	if !strings.Contains(string(resp.Grading.Content), `"symptom":"只有主题，没有问题"`) {
-		t.Fatalf("symptom id must resolve to its name on a PATCH: %s", resp.Grading.Content)
+		t.Fatalf("symptom must render as its name on a PATCH: %s", resp.Grading.Content)
+	}
+	if strings.Contains(string(resp.Grading.Content), "topic_without_question") {
+		t.Fatalf("the teacher must never see a raw id: %s", resp.Grading.Content)
+	}
+	// 🚨 **存的是 id。** 名字只在渲染那一步换上去 —— 存名字的那一版不是
+	// 幂等的，第二次 SanitizeProvenance 认不出自己写下的东西，把这一格清空。
+	var stored []byte
+	if err := f.pool.QueryRow(context.Background(), `SELECT content FROM lite_grading WHERE id = $1`, gid).Scan(&stored); err != nil {
+		t.Fatalf("read stored content: %v", err)
+	}
+	if !strings.Contains(string(stored), "topic_without_question") || strings.Contains(string(stored), "只有主题，没有问题") {
+		t.Fatalf("the id is what gets stored, not the display name: %s", stored)
+	}
+	// 再保存一次同一份内容 —— 对应毛病必须还在（这就是那条 blocker）。
+	var again struct {
+		Grading teacherGradingView `json:"grading"`
+	}
+	if code := assignJSON(t, f.h, f.teacher, "PATCH", path, map[string]any{"content": gradingContent("B", teacherPoint)}, &again); code != http.StatusOK {
+		t.Fatalf("second patch = %d", code)
+	}
+	if !strings.Contains(string(again.Grading.Content), `"symptom":"只有主题，没有问题"`) {
+		t.Fatalf("a second save must not wipe 对应毛病: %s", again.Grading.Content)
 	}
 	var ai []byte
 	if err := f.pool.QueryRow(context.Background(), `SELECT ai FROM lite_grading WHERE id = $1`, gid).Scan(&ai); err != nil || !strings.Contains(string(ai), `"B+"`) {

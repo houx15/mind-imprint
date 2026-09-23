@@ -76,6 +76,23 @@ const VERDICT_CHIP: Record<string, { label: string; bg: string; fg: string; bord
     fg: "var(--mk-danger)",
     border: "var(--mk-danger)",
   },
+  // 🚨 **第四个值，只出现在分层那一排**（服务端 writingVerdictUnchecked）。
+  // 整体结论仍然只有三个值。
+  //
+  // 它说的是「这一轮没看这一层」：服务端只留最上面那一层的 issue
+  // （validateCommentPoints 的 dropLowerLayer），所以一层没有 point 有两种
+  // 可能 —— 干净，或者查出来了但被压下去了。画成「已通过」是在对她说一句
+  // 没发生过的话：她改完上面那层再点一次，这一格会忽然变成「可优化」。
+  //
+  // 样子要**两边都不像**：不能像「已通过」那样用强调色（那是表扬），
+  // 也不能像「需修改」那样用 danger（那是错误）。虚线边框 + 透明底 +
+  // 弱化的字，读起来是「这里还没有结论」。
+  unchecked: {
+    label: "本轮未看",
+    bg: "transparent",
+    fg: "var(--mk-muted)",
+    border: "var(--mk-border)",
+  },
 };
 
 export function CommentPanel({
@@ -257,7 +274,13 @@ export function CommentPanel({
               <span
                 key={key}
                 className="rounded-mk-full px-2 py-0.5 text-mk-small font-medium"
-                style={{ background: layerChip.bg, color: layerChip.fg, border: `1px solid ${layerChip.border}` }}
+                style={{
+                  background: layerChip.bg,
+                  color: layerChip.fg,
+                  // 「本轮未看」用虚线：一眼就和有结论的那三格分开，
+                  // 而且虚线既不是表扬也不是报错。
+                  border: `1px ${layerVerdict === "unchecked" ? "dashed" : "solid"} ${layerChip.border}`,
+                }}
               >
                 {COMMENT_LAYER_NAMES[Number(key)]}·{layerChip.label}
               </span>

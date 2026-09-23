@@ -297,6 +297,35 @@ func lookupWritingSymptom(lang, id string) (writingSymptom, bool) {
 	return writingSymptom{}, false
 }
 
+// resolveWritingSymptom 认一个 id **或**一条毛病的显示名，答回那一行。
+//
+// 🚨 为什么要认名字：批改那一路的 content 会**来回**一趟 —— 服务端发给老师
+// 的批改卡是给人看的（名字），她按保存时客户端把整份内容原样送回来。
+// 只认 id 的话，第二趟一定认不出第一趟写下的东西，于是「对应毛病」每保存
+// 一次就被清空一次（2026-09-23 实测）。认两种写法、**一律答回 id**，
+// 这条路就是幂等的：litegrade.SanitizeProvenance 存 id，
+// gradingContentForView 渲染时才换成名字。
+//
+// 查的是并集、不按文体挡，理由同 lookupWritingSymptom。
+func resolveWritingSymptom(lang, idOrName string) (writingSymptom, bool) {
+	v := strings.TrimSpace(idOrName)
+	if v == "" {
+		return writingSymptom{}, false
+	}
+	table := writingSymptomTable(lang, genreNarrative)
+	for _, s := range table {
+		if s.ID == v {
+			return s, true
+		}
+	}
+	for _, s := range table {
+		if s.Name == v {
+			return s, true
+		}
+	}
+	return writingSymptom{}, false
+}
+
 // writingSymptomCatalog 把那张表渲染进 prompt。
 //
 // 按层分组，层内按表里的顺序。渲染成

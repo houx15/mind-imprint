@@ -44,6 +44,13 @@ func writingVerdictValid(v string) bool {
 	return false
 }
 
+// writingVerdictUnchecked —— **只给 layerVerdictsOf 用的第四个值。**
+//
+// 🚨 不要把它加进 writingVerdictValid 或 Comment.Verdict 的闭表：那条闭表
+// 仍然是三个值。整体结论说的是「这一段算什么」，那个判断每一轮都做得出来；
+// 这个值说的是「这一层这一轮没看」，只有分层那张图有这个状态。
+const writingVerdictUnchecked = "unchecked"
+
 // normalizeWritingVerdict 收一收模型给的那个字符串。
 //
 // 认不出来的**退到 polish**，不是 revise：判错的方向不对称 ——
@@ -77,16 +84,26 @@ func writingHasIssue(points []CommentPoint) bool {
 // 不看别的评语、别的段，也不问模型（Layer 已经是服务端从 Symptom 查出来的，
 // 见 CommentPoint.Layer 上的注释，这里在它上面再算一层）。
 //
-// 判据（和 normalizeWritingVerdict 同一个不对称）：
+// 判据：
 //
-//   - 这一层一个 issue 都没有 → pass。「没提到」和「明确没问题」在这里是
-//     同一件事：一层完全没被点名，恰恰说明它没有拖后腿。
-//   - 这一层**一条** issue → polish。一处可以更好，不挡着她往下走。
-//   - 这一层**两条及以上** issue → revise。同一层连着几处，这一层要回去重来。
+//   - 这条评语**一条 issue 都没有** → 四层全 pass。这一轮没有任何一层被点名，
+//     她是真的干净。
+//   - 有 issue 的那几层：**一条** → polish（一处可以更好，不挡着她往下走）；
+//     **两条及以上** → revise（同一层连着几处，这一层要回去重来）。
+//   - 这一轮有 issue、但**不在这一层** → unchecked（「本轮未看」），不是 pass。
+//
+// 🚨 **「没有 point」读不成「没问题」。** 这是 2026-09-23 复查抓到的那条：
+// validateCommentPoints 只留**最上面那一层**，把下面每一层的 issue 全部
+// 丢掉（dropLowerLayer，writing_comment.go）。所以一层「被查出问题、然后被
+// 服务端刻意压下去」和「本来就干净」，在活下来的 points 里长得一模一样 ——
+// 而上一版把两者都画成「已通过」。真实后果：她那一段立意弱、外加三处长句，
+// 模型两样都报了，服务端留下立意、丢掉字句，屏幕上写着「字句·已通过」；
+// 她改完立意再点一次，字句忽然变成「可优化」，而没有任何东西解释这一下。
+// 有 issue 的那一轮里，别的层只能说「这一轮没看」。
 //
 // 🚨 为什么按**条数**，不按「那条意见带没带 Action」：
 // validateCommentPoints 会把没有 Action 的 point 整条丢掉
-// （writing_comment.go:304，dropNoAction），所以活下来的 issue **全都**带
+// （writing_comment.go，dropNoAction），所以活下来的 issue **全都**带
 // Action。拿「带不带 Action」当判据，三档会塌成两档（pass / revise），
 // polish 那一支变成走不到的死代码 —— 而 revise 在她屏幕上是危险色。
 // 一处小的用词问题就会让「字句」变红，正好撞上 CommentPanel 里那条
@@ -94,22 +111,25 @@ func writingHasIssue(points []CommentPoint) bool {
 //
 // 兜底方向和 normalizeWritingVerdict 一致：拿不准就退到更轻的那一档。
 //
-// 四层都会有值，哪怕这条评语一个 point 都没提到那一层：学生的卡片上永远是
-// 四个格子，不是零散的一两个（未被提到 = 上面第一条 = pass）。
+// 四层永远都有值：学生的卡片上是四个格子，不是零散的一两个。
 func layerVerdictsOf(c Comment) map[int]string {
 	issues := map[int]int{}
+	total := 0
 	for _, p := range c.Points {
 		if p.Kind != "issue" {
 			continue
 		}
 		issues[p.Layer]++
+		total++
 	}
 	layers := []int{writingLayerClaim, writingLayerMaterial, writingLayerStructure, writingLayerSentence}
 	out := make(map[int]string, len(layers))
 	for _, layer := range layers {
 		switch n := issues[layer]; {
-		case n == 0:
+		case n == 0 && total == 0:
 			out[layer] = writingVerdictPass
+		case n == 0:
+			out[layer] = writingVerdictUnchecked
 		case n == 1:
 			out[layer] = writingVerdictPolish
 		default:

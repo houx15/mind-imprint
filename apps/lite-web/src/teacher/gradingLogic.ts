@@ -220,16 +220,22 @@ export function failureText(error: string | null): string {
 
 /**
  * Whether one point has anything to show in the 依据 modal: which rubric
- * dimension it belongs to, which symptom it matched, or the sentence it
- * quotes. All three can be blank — 人工批改 has none of them, and a model
- * point can lose one or both to SanitizeProvenance (apps/api/internal/
- * litegrade/check.go) when the value it gave didn't match anything real.
+ * dimension it belongs to, or which symptom it matched. Both can be blank —
+ * 人工批改 has neither, and a model point can lose one or both to
+ * SanitizeProvenance (apps/api/internal/litegrade/check.go) when the value
+ * it gave didn't match anything real.
  *
  * 🚨 Nothing behind it → no button. A modal that opens empty tells her less
  * than not offering one at all (task-3-brief, 2026-09-23).
+ *
+ * 🚨 **The quote does not count.** It is already rendered right under the
+ * point, in both 编辑 and 预览, so a point whose only "basis" is its quote
+ * opens a modal showing her exactly what she is already looking at — a
+ * button that promises a reason and delivers the same sentence. Gate on the
+ * two fields the modal can actually add: 维度 and 对应毛病.
  */
 export function pointHasBasis(p: Pick<GradingPoint, "dimension" | "symptom" | "quote">): boolean {
-  return p.dimension.trim() !== "" || p.symptom.trim() !== "" || (p.quote ?? "").trim() !== "";
+  return p.dimension.trim() !== "" || p.symptom.trim() !== "";
 }
 
 /** The grading card's two views: the form, or the finished grading as the
@@ -370,9 +376,17 @@ export function contentForSave(c: GradingContent): GradingContent {
       text: p.text.trim(),
       action: p.kind === "good" ? null : blankToNull(p.action),
       source: p.source,
-      // Not editable from this page — carried through as received, the
-      // server re-derives/clears them from the rubric and the symptom
-      // table on save regardless (litegrade.SanitizeProvenance).
+      // Not editable from this page — carried through exactly as received.
+      //
+      // 🚨 The server validates them again on save
+      // (litegrade.SanitizeProvenance): a dimension that no longer matches
+      // the rubric, or a symptom that names no row in the closed table, is
+      // CLEARED. It never re-derives anything — there is nothing here for it
+      // to derive from, so sending a value it cannot recognise loses that
+      // value. What comes down is the symptom's display NAME
+      // (internal/api's gradingContentForView); the server recognises a name
+      // as well as an id, so echoing it back is safe. Do not "clean up"
+      // these two fields on the way out.
       dimension: p.dimension,
       symptom: p.symptom,
     })),

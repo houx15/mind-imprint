@@ -155,7 +155,12 @@ type Comment struct {
 	// 🚨 **不进数据库。** 它是 Points 的纯函数——不像 Verdict 那样有
 	// 「空 = 老数据」的历史包袱，toCommentDTO 每次读都现算，连 0183 之前
 	// 存的老行也算得出四个值。键是 writingLayerClaim 等那四个数字，
-	// json 序列化成字符串键；不摆分数，值只在 pass/polish/revise 闭集里。
+	// json 序列化成字符串键；不摆分数。
+	//
+	// 🚨 值的闭集是**四个**：pass / polish / revise，外加只有这张图才有的
+	// unchecked（「本轮未看」）。Verdict 那个字段仍然只有三个值 ——
+	// 多出来的那个是为了区分「这一层干净」和「这一层的 issue 被
+	// validateCommentPoints 的 dropLowerLayer 压下去了」，见 layerVerdictsOf。
 	LayerVerdicts map[int]string `json:"layer_verdicts"`
 }
 

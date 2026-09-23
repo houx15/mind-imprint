@@ -43,9 +43,11 @@ const runTestValidWithProvenance = `{"overall":{"grade":"B+","comment":"用「�
 {"kind":"issue","quote":"学校后门那片空地一下雨就积水。","text":"积水的程度没有数据。","action":"补充一次积水的深度或持续时间。"}]}`
 
 // 2026-09-23: gradeWithRetry must sanitize provenance end to end — a real
-// dimension/symptom survives (the symptom id turns into its teacher-facing
-// name), an invented one is cleared without dropping the point or failing
-// Check (which does not gate on these two fields at all).
+// dimension/symptom survives (the symptom stays the closed table's **id**;
+// the teacher-facing name is put on at the DTO boundary by
+// gradingContentForView, so that SanitizeProvenance stays idempotent across
+// the teacher's saves), an invented one is cleared without dropping the
+// point or failing Check (which does not gate on these two fields at all).
 func TestGradeWithRetrySanitizesPointProvenance(t *testing.T) {
 	prov := gateway.NewSequenceStubProvider(runTestScript(runTestValidWithProvenance))
 	out := gradeWithRetry(context.Background(), prov, gateway.Resolved{Provider: "stub"}, runTestInput(), func(gateway.ChatUsage) {})
@@ -56,8 +58,8 @@ func TestGradeWithRetrySanitizesPointProvenance(t *testing.T) {
 	if good.Dimension != "内容" {
 		t.Fatalf("a rubric-matching dimension must survive, got %q", good.Dimension)
 	}
-	if good.Symptom != "只有主题，没有问题" {
-		t.Fatalf("a real symptom id must resolve to its name, got %q", good.Symptom)
+	if good.Symptom != "topic_without_question" {
+		t.Fatalf("the stored symptom is the id, got %q", good.Symptom)
 	}
 	if issue.Dimension != "" {
 		t.Fatalf("a dimension not in the rubric must be cleared, got %q", issue.Dimension)
@@ -142,10 +144,18 @@ func TestLiteGradingInputWiring(t *testing.T) {
 	if in.SymptomLookup == nil {
 		t.Fatal("SymptomLookup must be wired")
 	}
-	if name, ok := in.SymptomLookup("task_instruction_coverage"); !ok || name == "" {
-		t.Fatalf("a real symptom id must resolve to a non-empty name, got %q ok=%v", name, ok)
+	id, name, ok := in.SymptomLookup("task_instruction_coverage")
+	if !ok || id != "task_instruction_coverage" || name == "" {
+		t.Fatalf("a real symptom id must resolve to itself plus a non-empty name, got %q/%q ok=%v", id, name, ok)
 	}
-	if _, ok := in.SymptomLookup("made_up_id"); ok {
+	// 🚨 它也要认显示名，并且答回 id —— 老师那一趟送回来的是名字
+	// （gradingContentForView 渲染的就是名字）。只认 id 的那一版让
+	// SanitizeProvenance 在每次保存时把对应毛病清空。
+	backID, backName, ok := in.SymptomLookup(name)
+	if !ok || backID != "task_instruction_coverage" || backName != name {
+		t.Fatalf("a display name must resolve back to its id, got %q/%q ok=%v", backID, backName, ok)
+	}
+	if _, _, ok := in.SymptomLookup("made_up_id"); ok {
 		t.Fatal("an unknown symptom id must not resolve")
 	}
 }

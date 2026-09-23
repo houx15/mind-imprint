@@ -19,14 +19,26 @@ func TestSystemPromptCarriesTheRubric(t *testing.T) {
 		// 2026-09-23: points[].dimension / .symptom — the teacher-facing
 		// 依据 modal's two provenance fields.
 		"每条再给一个 dimension", "issue 再给一个 symptom", "不要新造一个 id",
-		// 2026-09-23: the countable-facts block (internal/textstat) — the
-		// instruction not to recompute and not to surface the raw numbers to
-		// the student.
-		"## 事实", "不用你重新数一遍", "不要把这里的具体数字写进给学生看的内容里",
 	} {
 		if !strings.Contains(p, want) {
 			t.Errorf("system prompt lacks %q", want)
 		}
+	}
+	// 🚨 那几个可数指标是**每个学生都不一样**的，不能待在系统提示词里：
+	// 一个易变块插在中间，整班批改就丢掉了共用前缀的缓存命中
+	// （AGENTS.md「prompt 块的顺序是一条成本契约」）。它们在 UserPrompt 里。
+	for _, unwanted := range []string{"多样度", "平均句长", "连接词密度", "不用你重新数"} {
+		if strings.Contains(p, unwanted) {
+			t.Errorf("per-student facts must not be in the SYSTEM prompt: %q", unwanted)
+		}
+	}
+	// 同一份 rubric、同一种语言、不同的学生 ⇒ 系统提示词**逐字相同**。
+	other := in
+	other.Body = "完全不同的另一位学生交上来的正文，长度和用词都不一样。"
+	other.Title = "另一个标题"
+	other.VersionNumber = 7
+	if SystemPrompt(other) != p {
+		t.Fatal("the system prompt must be byte-identical across students in one assignment")
 	}
 	if !strings.Contains(p, `"action":null,"dimension":"…"`) || !strings.Contains(p, `"action":"…","dimension":"…","symptom":"…"`) {
 		t.Fatalf("output skeleton must show dimension/symptom on the good and issue examples: %s", p)
@@ -80,10 +92,10 @@ func TestFactsBlockReflectsTextstat(t *testing.T) {
 	in := testInput()
 	s := textstat.Compute(in.Body, in.Lang)
 	want := []string{
-		fmt.Sprintf("词汇多样度（不重复词数 / 总词数）：%.0f%%", s.TypeTokenRatio*100),
-		fmt.Sprintf("平均句长：%.1f 词", s.MeanSentenceLength),
-		fmt.Sprintf("复杂句占比：%.0f%%", s.ComplexSentenceRatio*100),
-		fmt.Sprintf("连接词密度：每句 %.1f 个", s.ConnectiveDensity),
+		fmt.Sprintf("用字多样度（不重复字数 / 总字数，中文按字计）：%.0f%%", s.TypeTokenRatio*100),
+		fmt.Sprintf("平均句长：%.1f 字", s.MeanSentenceLength),
+		fmt.Sprintf("含从句的句子占比（按连词词表匹配）：%.0f%%", s.ComplexSentenceRatio*100),
+		fmt.Sprintf("连接词密度（按连接词词表匹配）：每句 %.1f 个", s.ConnectiveDensity),
 	}
 	got := factsBlock(in)
 	for _, w := range want {
@@ -97,6 +109,47 @@ func TestFactsBlockReflectsTextstat(t *testing.T) {
 	in2.Body = "这是一段完全不同的正文，用来确认事实块会跟着正文变化，而不是写死的。"
 	if factsBlock(in2) == got {
 		t.Fatal("factsBlock did not change with a different Body")
+	}
+}
+
+// 🚨 中文那一路的 token 是**字**，不是词（textstat.wordTokens 照
+// agent.CountWords，每个汉字一个 token）。两种语言的标签必须分开写，
+// 否则那两个数字看起来可比，而它们不可比。
+func TestFactsBlockLabelsTheUnitPerLanguage(t *testing.T) {
+	zh := factsBlock(testInput())
+	if !strings.Contains(zh, "中文按字计") || !strings.Contains(zh, "平均句长：") || strings.Contains(zh, "词汇多样度") {
+		t.Fatalf("zh facts must be labelled in 字, got:\n%s", zh)
+	}
+	if !strings.Contains(zh, " 字\n") {
+		t.Fatalf("zh mean sentence length must be labelled 字, got:\n%s", zh)
+	}
+	in := testInput()
+	in.Lang = "en"
+	en := factsBlock(in)
+	if !strings.Contains(en, "词汇多样度（不重复词数 / 总词数）") || !strings.Contains(en, " 词\n") {
+		t.Fatalf("en facts must be labelled in 词, got:\n%s", en)
+	}
+}
+
+// 🚨 统计块住在**用户**消息里，而且排在她的正文后面 —— 它是每个学生都不一样
+// 的东西（prompts.GradingFactsBlock 的注释说明了这条成本契约）。
+func TestUserPromptCarriesTheFactsBlock(t *testing.T) {
+	in := testInput()
+	p := UserPrompt(in)
+	for _, want := range []string{"这篇的几项统计", "你不用重新数", "不要把这里的具体数字写进给学生看的内容里", "平均句长："} {
+		if !strings.Contains(p, want) {
+			t.Errorf("user prompt lacks %q:\n%s", want, p)
+		}
+	}
+	if strings.Index(p, "学生正文") > strings.Index(p, "这篇的几项统计") {
+		t.Fatal("the facts block must come after her body, not before it")
+	}
+	if strings.Contains(p, "%!") {
+		t.Fatalf("format verbs leaked: %s", p)
+	}
+	// 「不是估计」不能回来：这两项是按词表匹配的近似值，不是句法分析。
+	if strings.Contains(p, "不是估计") {
+		t.Fatal("ComplexSentenceRatio / ConnectiveDensity are lexical proxies; do not call them exact")
 	}
 }
 

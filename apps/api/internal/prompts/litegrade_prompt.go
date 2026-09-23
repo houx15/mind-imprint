@@ -23,12 +23,10 @@ package prompts
 // failing the grading when the model writes something that doesn't match —
 // so Check below still does not gate on these two fields.
 //
-// 🚨 2026-09-23 加了「## 事实」一段（internal/textstat 的四个可数指标：词汇
-// 多样度、平均句长、复杂句占比、连接词密度）。这几项服务端已经数过，提示词里
-// 只要求模型别再数一遍、别把具体数字写给学生看——理由（为什么这几项能数、
-// 为什么不进学生可见的分数）记在 internal/textstat/textstat.go 和
-// internal/litegrade/prompt.go 的注释里，不进这条常量。Check 不校验这一段：
-// 它是喂给模型的事实，不是模型要交回来核对的字段。
+// 🚨 2026-09-23 那几个可数指标（internal/textstat）住在 GradingFactsBlock，
+// 由 UserPrompt 拼进**用户**那条消息，不在这条常量里 —— 理由见
+// GradingFactsBlock 的注释（前缀缓存）。Check 不校验它：那是喂给模型的事实，
+// 不是模型要交回来核对的字段。
 const GradingSystemTemplate = `你在为一位写作老师起草批改。学生已经提交了这篇作文，老师会审阅、修改你的批改，再发给学生。
 
 你只给反馈，绝不替学生改：不要重写、不要润色、不要续写，不要给出可以直接替换原文的句子。
@@ -47,16 +45,10 @@ const GradingSystemTemplate = `你在为一位写作老师起草批改。学生�
 - issue 必须有 action：一句祈使句，说清她接下来要做的事。写出要做的动作，不写改好的句子。
 - good 的 action 写 null。
 - 每条再给一个 dimension：写「评分」那几个维度里的一个名称，逐字对应，不写维度说明。
-- 描述问题时（text、action 里）可以用下面这张表里的毛病名称，不要写 id：
-- issue 再给一个 symptom：写这张表里对应那条最前面的 id；对不上表里任何一条就留空，不要新造一个 id。good 的 symptom 留空。
+- issue 再给一个 symptom：写下面这张表里对应那条最前面的 id；对不上表里任何一条就留空，不要新造一个 id。good 的 symptom 留空。
+- 描述问题时（text、action 里）用这张表里的毛病名称，不要写 id：
 
 %s
-## 事实
-
-下面这几项由系统统计，不是估计，不用你重新数一遍：
-%s
-结合上下文判断这些数字是否值得在语言运用相关的维度里提出意见；提到时用文字描述，不要把这里的具体数字写进给学生看的内容里。
-
 ## 引用
 
 - 在 comment、text、action 里提到她写的话，一律用「」括起来，并且逐字照抄正文。
@@ -75,3 +67,27 @@ const GradingSystemTemplate = `你在为一位写作老师起草批改。学生�
 
 只输出一个 JSON 对象，不要输出其他文字：
 {"overall":{"grade":"…","comment":"…"},"dimensions":[%s],"points":[{"kind":"good","quote":"…","text":"…","action":null,"dimension":"…"},{"kind":"issue","quote":"…","text":"…","action":"…","dimension":"…","symptom":"…"}]}`
+
+// GradingFactsBlock renders internal/textstat's countable measures for one
+// submission. litegrade.UserPrompt appends it; the %s is the measure lines.
+//
+// 🚨 **It lives in the USER message on purpose, and must stay there.**
+// AGENTS.md: 「prompt 块的顺序是一条成本契约：把任何易变的东西…挪到正文前面，
+// 就把整个前缀打碎了，那一轮全价。」 These numbers are per-student. Sitting
+// mid-document in GradingSystemTemplate they split the system prompt into
+// a stable head and a volatile tail, so a class batch lost the prefix-cache
+// hit on everything after them — and the surviving stable head (~2.1 KB,
+// mostly Chinese) sat near DashScope's 1024-token implicit-cache floor,
+// i.e. possibly no hit at all. The user message is already fully volatile
+// (it carries her essay), so nothing is lost by putting them there and the
+// whole system prompt goes back to being byte-identical across the class.
+//
+// 🚨 The wording says 「按词表统计」, not 「不是估计」. ComplexSentenceRatio
+// and ConnectiveDensity are lexical proxies matched against closed word
+// lists, not a parse; telling the model they are exact makes it assert a
+// clause count it cannot see. See internal/textstat/textstat.go.
+const GradingFactsBlock = `
+这篇的几项统计（系统按词表数好的，你不用重新数；它们是关键词匹配出来的粗略指标，不是逐句语法分析）：
+%s
+结合正文判断这些数字是否值得写进批改；提到时用文字描述，不要把这里的具体数字写进给学生看的内容里。
+`

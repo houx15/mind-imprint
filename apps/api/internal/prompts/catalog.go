@@ -74,6 +74,7 @@ func Catalog() []Definition {
 		{ID: "interest.quizSelectionRules", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestQuizSelectionRules},
 		{ID: "interest.harvestSystemPromptTail", Source: "internal/prompts/interest_harvest.go", Consumer: "internal/interest/harvest.go", Text: InterestHarvestSystemPromptTail},
 		{ID: "litegrade.systemTemplate", Source: "internal/prompts/litegrade_prompt.go", Consumer: "internal/litegrade/prompt.go", Text: GradingSystemTemplate},
+		{ID: "litegrade.factsBlock", Source: "internal/prompts/litegrade_prompt.go", Consumer: "internal/litegrade/prompt.go", Text: GradingFactsBlock},
 		{ID: "liteworkspace.assignmentSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherAssignmentSystemTemplate},
 		{ID: "liteworkspace.homeSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherHomeSystemTemplate},
 		{ID: "liteworkspace.reportSystemTemplate", Source: "internal/prompts/liteworkspace_tools.go", Consumer: "internal/liteworkspace/tools.go", Text: TeacherReportSystemTemplate},

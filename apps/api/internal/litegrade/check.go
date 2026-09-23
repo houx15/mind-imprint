@@ -163,13 +163,28 @@ func Check(c Content, in Input) []Reason {
 }
 
 // SanitizeProvenance clears a point's Dimension when it is not one of this
-// rubric's dimension names, and its Symptom when it does not name a row in
-// the closed symptom table (via in.SymptomLookup) — turning a recognised
-// Symptom id into its teacher-facing name along the way. Never drops the
-// point itself: a wrong or invented provenance label costs the teacher one
-// line of context, not the whole piece of feedback she'd otherwise never
-// see. Same discipline as writing_comment.go's lookupWritingSymptom
-// ("不在表里的一律丢掉整条" — here what's dropped is the label, not the point).
+// rubric's dimension names, and normalises its Symptom to the closed
+// symptom table's canonical **id** (via in.SymptomLookup), clearing it when
+// it names nothing in the table. Never drops the point itself: a wrong or
+// invented provenance label costs the teacher one line of context, not the
+// whole piece of feedback she'd otherwise never see. Same discipline as
+// writing_comment.go's lookupWritingSymptom ("不在表里的一律丢掉整条" —
+// here what's dropped is the label, not the point).
+//
+// 🚨 **It must be idempotent, because it runs twice on the same value.**
+// Once when the model's grading is generated, and again on every teacher
+// PATCH (lite_teacher_gradings.go) — the client sends the whole content
+// back. The first version stored the display NAME and matched on id only,
+// so the second run could not recognise what the first run had written and
+// blanked 对应毛病 on every save. Measured 2026-09-23 by direct execution.
+//
+// Two things keep it idempotent now: the stored value is always the id (its
+// own output is therefore valid input), and SymptomLookup accepts an id or
+// a name and answers with the id (so a client echoing a display name — an
+// old row, or a stale tab — is upgraded rather than blanked). The name is
+// produced where the teacher's view is built, not here: internal/api's
+// gradingContentForView. That also preserves the join key and survives a
+// symptom being renamed, which a stored name would not.
 //
 // Call this once, right after NormalizeAI/NormalizeTeacher and before Check:
 // Check only verifies what SystemPrompt asks for and never fails a grading
@@ -187,12 +202,12 @@ func SanitizeProvenance(c Content, in Input) Content {
 			p.Dimension = ""
 		}
 		if p.Symptom != "" {
-			name, ok := "", false
+			id, ok := "", false
 			if in.SymptomLookup != nil {
-				name, ok = in.SymptomLookup(p.Symptom)
+				id, _, ok = in.SymptomLookup(p.Symptom)
 			}
 			if ok {
-				p.Symptom = name
+				p.Symptom = id
 			} else {
 				p.Symptom = ""
 			}

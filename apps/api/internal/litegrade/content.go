@@ -77,21 +77,28 @@ type Input struct {
 	// PersonJudging reports a sentence that judges the student instead of the
 	// text. internal/api passes personDirectedVerdict; nil skips the check.
 	PersonJudging func(string) bool
-	// SymptomLookup resolves a Point.Symptom id to the writing room's closed
-	// symptom table's teacher-facing name (writingSymptom.Name), for this
-	// writing's language. internal/api wires it to lookupWritingSymptom —
-	// litegrade cannot import internal/api itself (internal/api already
-	// imports litegrade; the reverse would be a cycle), the same reason
-	// PersonJudging above is a callback rather than a direct call.
+	// SymptomLookup resolves whatever is in Point.Symptom against the writing
+	// room's closed symptom table for this writing's language, returning that
+	// row's canonical id and its teacher-facing name (writingSymptom.Name).
+	// internal/api wires it to resolveWritingSymptom — litegrade cannot
+	// import internal/api itself (internal/api already imports litegrade; the
+	// reverse would be a cycle), the same reason PersonJudging above is a
+	// callback rather than a direct call.
+	//
+	// 🚨 It accepts an id **or** a name, and always answers with the id.
+	// That is what makes SanitizeProvenance idempotent — see its doc comment.
 	//
 	// 🚨 The model is asked to write the table's id (reliable exact match,
-	// same discipline CommentPoint.Symptom already uses) but a teacher
-	// reading the 依据 modal needs a name she can read, not a code like
-	// `topic_without_question` — so SanitizeProvenance below rewrites a
-	// valid id to its name once, rather than asking every reader of a
-	// grading to resolve it again. ok=false (unknown id, or SymptomLookup
-	// nil) clears the field instead of showing her a code or a guess.
-	SymptomLookup func(id string) (name string, ok bool)
+	// same discipline CommentPoint.Symptom already uses) and the id is what
+	// gets STORED. A teacher reading the 依据 modal needs a name she can
+	// read, not a code like `topic_without_question`, so the id is resolved
+	// to that name where her view is built (internal/api's
+	// gradingContentForView) — not in the stored value. Keeping the id in
+	// storage keeps the join key ("how often does this symptom fire in this
+	// class?") and survives a symptom being renamed.
+	// ok=false (unrecognised, or SymptomLookup nil) clears the field instead
+	// of showing her a code or a guess.
+	SymptomLookup func(idOrName string) (id, name string, ok bool)
 }
 
 var ErrUnparseable = errors.New("litegrade: reply is not the JSON object asked for")

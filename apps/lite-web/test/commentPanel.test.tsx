@@ -77,17 +77,65 @@ describe("CommentPanel", () => {
     expect(document.querySelectorAll("[data-comment-point]").length).toBe(0);
   });
 
-  it("shows all four layer chips, even when a layer has no points", () => {
+  /**
+   * 🚨 只用服务端**真的会发出来**的形状。
+   *
+   * 上一版这条写的是 {"1":"pass","2":"polish","3":"revise","4":"pass"} ——
+   * 两层同时非 pass，而 validateCommentPoints 只留最上面那一层
+   * （dropLowerLayer），所以那一份 payload 线上一次都不会出现。测一个产不出
+   * 的形状，等于没测。
+   *
+   * 真实的两种形状只有：
+   *   - 有 issue 的那一轮：命中的那一层给等级，其余三层是「本轮未看」。
+   *   - 一条 issue 都没有：四层全「已通过」。
+   */
+  it("shows all four layer chips: the layer that was looked at, and the three that were not", () => {
     const withLayers: Comment = {
       ...COMMENT,
-      layer_verdicts: { "1": "pass", "2": "polish", "3": "revise", "4": "pass" },
+      layer_verdicts: { "1": "polish", "2": "unchecked", "3": "unchecked", "4": "unchecked" },
     };
     render(<CommentPanel comment={withLayers} onTrace={() => {}} />);
 
-    expect(screen.getByText("立意·已通过")).toBeTruthy();
-    expect(screen.getByText("材料·可优化")).toBeTruthy();
-    expect(screen.getByText("结构·需修改")).toBeTruthy();
-    expect(screen.getByText("字句·已通过")).toBeTruthy();
+    expect(screen.getByText("立意·可优化")).toBeTruthy();
+    expect(screen.getByText("材料·本轮未看")).toBeTruthy();
+    expect(screen.getByText("结构·本轮未看")).toBeTruthy();
+    expect(screen.getByText("字句·本轮未看")).toBeTruthy();
+  });
+
+  /**
+   * 🚨 「本轮未看」不能长得像「已通过」，也不能长得像报错。
+   *
+   * 这一格的意思是「这一轮没看这一层」—— 服务端把下面那几层的 issue 压下去
+   * 了（dropLowerLayer），所以它既不是表扬也不是错误。这里钉的是两个人眼一定
+   * 会读错、而代码里看不出来的不变量：它没有沿用「已通过」的强调色，
+   * 也没有沿用「需修改」的 danger 色。
+   */
+  it("renders 本轮未看 as neither praise nor error", () => {
+    const withLayers: Comment = {
+      ...COMMENT,
+      layer_verdicts: { "1": "pass", "2": "unchecked", "3": "unchecked", "4": "unchecked" },
+    };
+    render(<CommentPanel comment={withLayers} onTrace={() => {}} />);
+
+    const pass = screen.getByText("立意·已通过") as HTMLElement;
+    const unchecked = screen.getByText("材料·本轮未看") as HTMLElement;
+
+    expect(unchecked.style.background).not.toBe(pass.style.background);
+    expect(unchecked.style.color).not.toBe(pass.style.color);
+    expect(unchecked.style.border).not.toContain("danger");
+    // 虚线：一眼就和有结论的那三格分开。
+    expect(unchecked.style.border).toContain("dashed");
+    expect(pass.style.border).toContain("solid");
+  });
+
+  it("shows four 已通过 chips only when nothing at all was flagged", () => {
+    const clean: Comment = {
+      ...COMMENT,
+      layer_verdicts: { "1": "pass", "2": "pass", "3": "pass", "4": "pass" },
+    };
+    render(<CommentPanel comment={clean} onTrace={() => {}} />);
+
+    expect(screen.getAllByText(/·已通过$/).length).toBe(4);
   });
 
   it("renders no layer chips when layer_verdicts is empty (old comment row)", () => {

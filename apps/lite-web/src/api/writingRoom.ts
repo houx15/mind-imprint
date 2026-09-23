@@ -203,6 +203,18 @@ export const COMMENT_LAYER_NAMES: Record<number, string> = {
  */
 export type CommentVerdict = "pass" | "polish" | "revise";
 
+/**
+ * 分层那一排**多一个**值：`unchecked`（服务端 writingVerdictUnchecked，
+ * 屏幕上写「本轮未看」）。
+ *
+ * 🚨 它不进 `CommentVerdict`：整体结论仍然只有三个值。多出来的这个只回答
+ * 分层那张图独有的一个问题 —— 服务端只留最上面那一层的 issue
+ * （validateCommentPoints 的 dropLowerLayer），所以一层没有 point 有两种
+ * 可能：本来就干净，或者查出来了但被压下去了。把后者画成「已通过」是对她
+ * 说一句没发生过的话（她改完上面那层再点一次，这一格会忽然变成「可优化」）。
+ */
+export type CommentLayerVerdict = CommentVerdict | "unchecked";
+
 export type Comment = {
   id: string;
   scope: string;
@@ -222,10 +234,11 @@ export type Comment = {
   /**
    * 四层各自的等级 —— 服务端 layerVerdictsOf（writing_verdict.go）把整体的
    * `verdict` 拆开算的结果，键是 COMMENT_LAYER_NAMES 的键（1..4）转成的字符串，
-   * 值在 CommentVerdict 闭集里。**服务端算，不进数据库**，是 points 的纯函数，
-   * 所以四层永远都有值——不像 verdict 那样有「空 = 老数据」的历史包袱。
+   * 值在 CommentLayerVerdict 闭集里（比 verdict 多一个 `unchecked`）。
+   * **服务端算，不进数据库**，是 points 的纯函数，所以四层永远都有值——
+   * 不像 verdict 那样有「空 = 老数据」的历史包袱。
    */
-  layer_verdicts: Record<string, CommentVerdict>;
+  layer_verdicts: Record<string, CommentLayerVerdict>;
 };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;
