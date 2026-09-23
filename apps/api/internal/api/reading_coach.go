@@ -1361,6 +1361,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			parsed.leak = "the reply prints the protocol word " + w + " where she can read it"
 		} else if replyCallsHerShe(parsed.Reply, blocks) {
 			parsed.leak = "the reply calls her 「她」 to her face"
+		} else if shipsOrderBoard(parsed, needOrderBoard) {
+			// 🚨 发排序板那一轮，话里先把顺序背了一遍 —— 板子就是答案。
+			// 见 reading_order_recital.go。
+			if s := firstOrderAnswerRecital(parsed.Reply); s != "" {
+				parsed.leak = "the reply recites the order on the turn that hands out the order board: " + s
+			}
 		}
 	}
 	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
@@ -1441,6 +1447,9 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 				// 第二张排序板也一样要过体裁那一关，否则「重来一次」只是把同一张
 				// 不适用的板又发了一遍。
 				!(again.Card != nil && again.Card.Type == coachCardOrderEvents && !genreHasOrderBoard(genre)) &&
+				// 第二次还是把顺序背了一遍，就不算「确实更好」—— 留着第一次那份，
+				// 下面那一刀照样会把那句话拿掉。
+				!(shipsOrderBoard(again, needOrderBoard) && firstOrderAnswerRecital(again.Reply) != "") &&
 				firstGhostQuote(again.Reply, readingQuoteCorpus(
 					src.Title, blocks, decodeOutline(src.Outline), tasks, msgs, again.Card, lensDone)) == "" {
 				res, parsed = retryRes, again
@@ -1702,10 +1711,28 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			"atom_id", at.ID, "word", w)
 	}
 
+	// 🚨 两次都在发板那一轮把顺序背了一遍，就把那一句拿掉。
+	//
+	// 同上一条：被拿掉的那一句不承载教学内容 —— 事情都在板子上，话里再数一遍
+	// 只是把答案先说了。见 stripOrderAnswerRecital。
+	if shipsOrderBoard(parsed, false) {
+		if s := firstOrderAnswerRecital(parsed.Reply); s != "" {
+			parsed.Reply = stripOrderAnswerRecital(parsed.Reply)
+			slog.Info("reading coach: stripped the order recital from an order-board turn",
+				"atom_id", at.ID, "sentence", s)
+		}
+	}
+
 	parsed.Card = dropAlreadyPlaced(parsed.Card, lastBoardPlacement(msgs))
 
 	// 标注板的格子换成这篇体裁的那一套。议论文原样不动。见 fitBoardToGenre。
 	parsed.Card = fitBoardToGenre(parsed.Card, genre)
+
+	// 🚨 排序板的选项在发出去之前打乱 —— 摆出来的顺序不能就是答案。
+	// 放在这里是因为这是所有来路（模型给的、buildOrderBoard 兜底的、
+	// replyPromisesACard 补的）汇合之后、落库之前的最后一处。见
+	// reading_order_shuffle.go。
+	parsed.Card = shuffleOrderOptions(parsed.Card)
 	if current := currentReadingTask(tasks); current != nil {
 		advance := protectedReadingCoachAdvance(parsed.Advance, current, req.CardAnswer, picks, msgs, blocks, studentText)
 		parsed.Advance = advance
