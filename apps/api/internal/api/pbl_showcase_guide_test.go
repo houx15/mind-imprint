@@ -25,6 +25,45 @@ func TestShowcaseGuideRequestAndProposalStayWithinCurrentStep(t *testing.T) {
 	}
 }
 
+func TestShowcaseGuideRevisionRoutesOnlyToKnownEditors(t *testing.T) {
+	in := showcaseGuideRequest{Stage: "revise", Messages: []showcaseChatMessage{{Role: "user", Content: "我想换头像"}}}
+	if _, err := normalizeShowcaseGuideRequest(in); err != nil {
+		t.Fatalf("revise stage should be accepted: %v", err)
+	}
+
+	routed, err := parseShowcaseGuideReply(`{"reply":"请前往个人资料编辑头像。","navigateTo":"profile-avatar"}`, "revise")
+	if err != nil {
+		t.Fatalf("valid revision route: %v", err)
+	}
+	if routed.NavigateTo != "profile-avatar" || routed.Proposal != nil {
+		t.Fatalf("revision route = %#v", routed)
+	}
+	for _, target := range []string{"design", "hero-text", "hero-image", "hero-art", "profile-content", "profile-tree", "profile-avatar", "works", "components", "finish"} {
+		raw := `{"reply":"请前往对应编辑器。","navigateTo":"` + target + `"}`
+		if _, err := parseShowcaseGuideReply(raw, "revise"); err != nil {
+			t.Errorf("documented revision target %q rejected: %v", target, err)
+		}
+	}
+
+	clarify, err := parseShowcaseGuideReply(`{"reply":"你想修改首页的哪一部分？"}`, "revise")
+	if err != nil {
+		t.Fatalf("clarifying reply without route should be accepted: %v", err)
+	}
+	if clarify.NavigateTo != "" || clarify.Proposal != nil {
+		t.Fatalf("clarifying reply must not route or propose: %#v", clarify)
+	}
+
+	if _, err := parseShowcaseGuideReply(`{"reply":"去修改。","navigateTo":"account-settings"}`, "revise"); err == nil {
+		t.Fatal("unknown revision route must fail")
+	}
+	if _, err := parseShowcaseGuideReply(`{"reply":"直接改好。","proposal":{"heroTitle":"新标题","reason":"学生提出"}}`, "revise"); err == nil {
+		t.Fatal("revision stage must not return proposal fields")
+	}
+	if _, err := parseShowcaseGuideReply(`{"reply":"去修改标题。","navigateTo":"hero-text"}`, "hero"); err == nil {
+		t.Fatal("navigateTo must stay exclusive to the revision stage")
+	}
+}
+
 func TestShowcaseGeneratedComponentIsValidatedBeforeDraft(t *testing.T) {
 	if _, err := normalizeShowcaseComponentRequest(showcaseComponentRequest{Prompt: "画一颗星球", Format: "svg", Style: "cute", Palette: "ocean"}); err != nil {
 		t.Fatal(err)

@@ -26,6 +26,9 @@ export interface ShowcaseConfig {
   homeWorkLimit?: number;
   aboutConversation?: ShowcaseAboutMessage[];
   guideConversation?: ShowcaseAboutMessage[];
+  /** Private guide progress. Older saved homepages enter revision mode. */
+  guideStage?: "design" | "hero" | "profile" | "works" | "components" | "finish";
+  guideCompleted?: boolean;
   componentPrompt?: string;
   interestTreeMode?: "none" | "tree" | "keywords";
   name: string;

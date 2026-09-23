@@ -58,8 +58,9 @@ type showcaseGuideProposal struct {
 }
 
 type showcaseGuideReply struct {
-	Reply    string                 `json:"reply"`
-	Proposal *showcaseGuideProposal `json:"proposal,omitempty"`
+	Reply      string                 `json:"reply"`
+	Proposal   *showcaseGuideProposal `json:"proposal,omitempty"`
+	NavigateTo string                 `json:"navigateTo,omitempty"`
 }
 
 var showcaseGuideFields = map[string]map[string]bool{
@@ -69,6 +70,20 @@ var showcaseGuideFields = map[string]map[string]bool{
 	"works":      {"portfolioLayout": true, "writingStyle": true, "readingStyle": true, "homeWorkLimit": true},
 	"components": {},
 	"finish":     {},
+	"revise":     {},
+}
+
+var showcaseGuideNavigateTargets = map[string]bool{
+	"design":          true,
+	"hero-text":       true,
+	"hero-image":      true,
+	"hero-art":        true,
+	"profile-content": true,
+	"profile-tree":    true,
+	"profile-avatar":  true,
+	"works":           true,
+	"components":      true,
+	"finish":          true,
 }
 
 func normalizeShowcaseGuideRequest(in showcaseGuideRequest) (showcaseGuideRequest, error) {
@@ -102,6 +117,15 @@ func parseShowcaseGuideReply(raw, stage string) (showcaseGuideReply, error) {
 	out.Reply = strings.TrimSpace(out.Reply)
 	if out.Reply == "" || len([]rune(out.Reply)) > 1200 {
 		return out, errors.New("模型回复无效")
+	}
+	out.NavigateTo = strings.TrimSpace(out.NavigateTo)
+	if out.NavigateTo != "" {
+		if stage != "revise" || !showcaseGuideNavigateTargets[out.NavigateTo] {
+			return out, errors.New("模型返回的编辑目标无效")
+		}
+	}
+	if stage == "revise" && out.Proposal != nil {
+		return out, errors.New("修订阶段不能直接返回修改建议")
 	}
 	if out.Proposal == nil {
 		return out, nil

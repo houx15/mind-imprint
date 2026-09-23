@@ -42,11 +42,12 @@ export interface ShowcaseAboutProposal {
 export const chatShowcaseAbout = (messages: ShowcaseAboutMessage[], profile: Pick<ShowcaseConfig,"name"|"bio"|"interests"|"aboutLayout">) =>
   apiFetch<{reply:string;proposal?:ShowcaseAboutProposal}>("/api/v1/pbl/showcase/about/chat", {method:"POST",body:JSON.stringify({messages,profile})});
 
-export type ShowcaseGuideStage = "design" | "hero" | "profile" | "works" | "components" | "finish";
+export type ShowcaseGuideStage = "revise" | "design" | "hero" | "profile" | "works" | "components" | "finish";
+export type ShowcaseGuideDestination = "design" | "hero-text" | "hero-image" | "hero-art" | "profile-content" | "profile-tree" | "profile-avatar" | "works" | "components" | "finish";
 export type ShowcaseGuideProposal = Partial<Pick<ShowcaseConfig,"style"|"layout"|"palette"|"font"|"heroTitle"|"tagline"|"heroImagePrompt"|"name"|"bio"|"interests"|"aboutLayout"|"interestTreeMode"|"portfolioLayout"|"writingStyle"|"readingStyle"|"homeWorkLimit">> & {reason:string};
 export const chatShowcaseGuide = (stage: ShowcaseGuideStage, messages: ShowcaseAboutMessage[], context: ShowcaseConfig) => {
   const {name,bio,tagline,heroTitle,interests,style,layout,palette,font,aboutLayout,interestTreeMode,portfolioLayout,writingStyle,readingStyle,homeWorkLimit} = context;
-  return apiFetch<{reply:string;proposal?:ShowcaseGuideProposal}>("/api/v1/pbl/showcase/guide/chat", {method:"POST",body:JSON.stringify({stage,messages:messages.slice(-20),context:{name,bio,tagline,heroTitle,interests,style,layout,palette,font,aboutLayout,interestTreeMode,portfolioLayout,writingStyle,readingStyle,homeWorkLimit}})});
+  return apiFetch<{reply:string;proposal?:ShowcaseGuideProposal;navigateTo?:ShowcaseGuideDestination}>("/api/v1/pbl/showcase/guide/chat", {method:"POST",body:JSON.stringify({stage,messages:messages.slice(-20),context:{name,bio,tagline,heroTitle,interests,style,layout,palette,font,aboutLayout,interestTreeMode,portfolioLayout,writingStyle,readingStyle,homeWorkLimit}})});
 };
 
 export interface GeneratedShowcaseComponent {title:string;source:string;height:number;placement:"after-about"|"after-works";explanation:string}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Monitor, Smartphone } from "lucide-react";
 import { ApiError } from "../api/client";
 import { apiErrorText } from "../api/errorText";
-import { getShowcase, publishShowcase, revokeShowcase, saveShowcase, type ShowcaseGuideStage, type ShowcaseState } from "../api/showcase";
+import { getShowcase, publishShowcase, revokeShowcase, saveShowcase, type ShowcaseGuideDestination, type ShowcaseGuideStage, type ShowcaseState } from "../api/showcase";
 import { beforeNavigate, navigate } from "../routing";
 import { GrowingTextarea } from "../shared/GrowingTextarea";
 import { Says, errorMarkdown } from "../projects/Says";
@@ -17,6 +17,7 @@ import { SHOWCASE_THEMES, SHOWCASE_FONT_STACKS } from "../site/showcaseThemes";
 import type { ShowcaseConfig, ShowcasePortfolioLayout, ShowcaseWork } from "../site/showcaseTypes";
 import "./showcaseEditor.css";
 import { parseShowcaseInterests } from "./showcaseDraft";
+import { destinationEditor, initialShowcaseGuide, type ShowcaseGuidePhase } from "./showcaseGuideFlow";
 
 const sections = { writing: "写作", reading: "阅读", project: "项目" } as const;
 const layouts = [
@@ -59,7 +60,9 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
   const [imageBusy, setImageBusy] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const busyRef = useRef(false);
+  const controlledNavigation = useRef(false);
   const [tab, setTab] = useState<ShowcaseGuideStage>("design");
+  const [guidePhase, setGuidePhase] = useState<ShowcaseGuidePhase>("welcome");
   const [profileTab, setProfileTab] = useState("content");
   const [heroTab, setHeroTab] = useState("text");
   const [shareUrl, setShareUrl] = useState("");
@@ -80,7 +83,7 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError(""); setConflict(false);
-    getShowcase().then(next => { if (!cancelled) accept(next); })
+    getShowcase().then(next => { if (!cancelled) { accept(next); const guide = initialShowcaseGuide(next); setGuidePhase(guide.phase); setTab(guide.stage); } })
       .catch(err => { if (!cancelled) setError(`读取失败：${apiErrorText(err)}`); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -88,6 +91,7 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
   useEffect(() => {
     if (!dirty && !busy && !imageBusy) return;
     const remove = beforeNavigate(async () => {
+      if (controlledNavigation.current) return;
       setError(busy || imageBusy ? "正在处理，请稍后离开。" : "修改尚未保存，请保存草稿或撤销修改后离开。");
       throw new Error("showcase editor pending");
     });
@@ -99,12 +103,12 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
     if (managerMode || loading || (mobileView === "edit" && window.matchMedia("(max-width: 700px)").matches)) return;
     const frame = previewAreaRef.current;
     if (!frame) return;
-    const selector = tab === "hero" || tab === "design" ? ".showcase-hero" : tab === "profile" ? profileTab === "tree" ? ".showcase-interest" : ".showcase-about" : tab === "works" ? ".showcase-main" : tab === "components" ? ".showcase-custom-components" : ".showcase";
+    const selector = tab === "hero" || tab === "design" || tab === "revise" || guidePhase === "welcome" ? ".showcase-hero" : tab === "profile" ? profileTab === "tree" ? ".showcase-interest" : ".showcase-about" : tab === "works" ? ".showcase-main" : tab === "components" ? ".showcase-custom-components" : ".showcase";
     const target = frame.querySelector<HTMLElement>(selector) ?? frame.querySelector<HTMLElement>(".showcase");
     if (!target) return;
     const top = target.getBoundingClientRect().top - frame.getBoundingClientRect().top + frame.scrollTop - 18;
     frame.scrollTo({top:Math.max(0,top),behavior:"smooth"});
-  }, [tab,profileTab,mobileView,loading,managerMode]);
+  }, [tab,profileTab,mobileView,loading,managerMode,guidePhase]);
 
   async function action(kind: "save" | "publish" | "revoke") {
     if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
@@ -117,6 +121,7 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
         if (dirty) { setError("请先保存草稿，再发布当前版本。"); return; }
         next = await publishShowcase(state.revision);
         setShareUrl(next.url);
+        setGuidePhase("revise"); setTab("revise");
       }
       if (kind === "revoke") next = await revokeShowcase();
       // Revocation changes visibility only; retain unsaved local edits.
@@ -126,6 +131,44 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
     finally { busyRef.current = false; setBusy(false); }
   }
   function patch(values: Partial<ShowcaseConfig>) { setDraft(current => current ? { ...current, ...values } : current); setNotice(""); }
+  function startGuide() { setGuidePhase("build"); setTab("design"); patch({guideStage:"design"}); }
+  function goToStep(stage: ShowcaseGuideStage) {
+    setTab(stage);
+    if (guidePhase === "build" && stage !== "revise") patch({guideStage:stage});
+  }
+  function goToDestination(destination: ShowcaseGuideDestination) {
+    const editor = destinationEditor(destination);
+    if (editor.heroTab) setHeroTab(editor.heroTab);
+    if (editor.profileTab) setProfileTab(editor.profileTab);
+    goToStep(editor.stage);
+    if (window.matchMedia("(max-width: 700px)").matches) setMobileView("edit");
+  }
+  async function completeGuide() {
+    if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
+    if (!effectiveDraft.name.trim() || !(effectiveDraft.bio.trim() || effectiveDraft.tagline.trim())) {setError("请先填写展示名称，以及个人简介或开场介绍。");goToStep("profile");return;}
+    if (interestInput.error) {setError(interestInput.error); goToStep("profile"); return;}
+    busyRef.current=true; setBusy(true); setError("");
+    try {
+      const next=await saveShowcase({...effectiveDraft,guideStage:"finish",guideCompleted:true},state.revision);
+      accept(next);setGuidePhase("revise");setTab("revise");setNotice("初版已保存。可以告诉印记你想修改哪里，或发布主页。");
+    } catch(err) {if (err instanceof ApiError && err.status===409)setConflict(true);setError(`保存失败：${apiErrorText(err)}`);}
+    finally {busyRef.current=false;setBusy(false);}
+  }
+  async function openWorksManager() {
+    if (!state || !effectiveDraft || busyRef.current || imageBusy) return;
+    if (interestInput.error) { setError(interestInput.error); goToStep("profile"); return; }
+    busyRef.current = true; setBusy(true); setError("");
+    try {
+      if (dirty) accept(await saveShowcase(effectiveDraft, state.revision));
+      controlledNavigation.current = true;
+      navigate("/site/works");
+      window.setTimeout(() => { controlledNavigation.current = false; }, 0);
+    } catch (err) {
+      controlledNavigation.current = false;
+      if (err instanceof ApiError && err.status === 409) setConflict(true);
+      setError(`保存失败：${apiErrorText(err)}`);
+    } finally { busyRef.current = false; setBusy(false); }
+  }
   function moveSection(index: number, offset: number) {
     if (!draft) return;
     const order = [...draft.sectionOrder];
@@ -188,7 +231,7 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
       <div><p className="showcase-eyebrow">个人展示</p><h1>我的主页</h1><p className="showcase-status">{dirty ? "有未保存的修改" : state.published ? state.hasUnpublishedChanges ? "草稿已保存 · 待更新发布" : "已发布" : "仅自己可见"}</p></div>
       <div className="showcase-actions">
         {state.url && (state.published || state.hasLegacySite) && <a href={state.url} target="_blank" rel="noreferrer">查看公开页<ExternalLink size={14} /></a>}
-        <button type="button" onClick={()=>navigate("/site/works")}>管理作品</button>
+        <button type="button" disabled={busy || imageBusy} onClick={()=>void openWorksManager()}>管理作品</button>
         {dirty && <button disabled={busy || imageBusy} onClick={() => {accept(state); setError(""); setNotice("修改已撤销");}}>撤销修改</button>}
         <button disabled={busy || imageBusy || !dirty || !!interestInput.error} onClick={() => void action("save")}>{busy ? "处理中" : "保存草稿"}</button>
         <button className="showcase-primary" disabled={busy || imageBusy || dirty || !!interestInput.error || !canPublish || (state.published && !state.hasUnpublishedChanges)} onClick={() => void action("publish")}>{state.published || state.hasLegacySite ? "更新发布" : "发布主页"}</button>
@@ -201,8 +244,8 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
     {shareUrl && <PortfolioShareDialog url={shareUrl} onClose={()=>setShareUrl("")}/>}
     <div className="showcase-workspace" data-mobile-view={mobileView}>
       <aside className="showcase-controls">
-        <nav className="showcase-tabs" aria-label="主页制作步骤">{GUIDE_STEPS.map((step,index) => <button key={step.id} aria-pressed={tab === step.id} onClick={() => setTab(step.id)}><span>{index+1}</span>{step.title}</button>)}</nav>
-        <ShowcaseDesignGuide stage={tab} draft={effectiveDraft} interestTree={state.availableInterestTree} available={state.aboutChatAvailable===true} disabled={busy||imageBusy} onBusy={setImageBusy} onStep={setTab} onComponentIdea={prompt=>{patch({componentPrompt:prompt});setComponentRequest(current=>({id:(current?.id??0)+1,prompt}));}} onConversation={messages=>patch({guideConversation:messages})} onApply={proposal=>{const {reason,...changes}=proposal;patch(changes);if(changes.interests)setInterestText(changes.interests.join("、"));setNotice("设计建议已应用，请预览并保存草稿");}}>
+        {guidePhase !== "welcome" && <nav className="showcase-tabs" aria-label="主页制作步骤">{guidePhase === "revise" && <button aria-pressed={tab === "revise"} onClick={() => goToStep("revise")}>修改需求</button>}{GUIDE_STEPS.map((step,index) => <button key={step.id} aria-pressed={tab === step.id} onClick={() => goToStep(step.id)}><span>{index+1}</span>{step.title}</button>)}</nav>}
+        <ShowcaseDesignGuide phase={guidePhase} stage={tab} draft={effectiveDraft} interestTree={state.availableInterestTree} available={state.aboutChatAvailable===true} disabled={busy||imageBusy} onBusy={setImageBusy} onStart={startGuide} onStep={goToStep} onNavigate={goToDestination} onComplete={()=>void completeGuide()} onComponentIdea={prompt=>{patch({componentPrompt:prompt});setComponentRequest(current=>({id:(current?.id??0)+1,prompt}));}} onConversation={messages=>patch({guideConversation:messages})} onApply={proposal=>{const {reason,...changes}=proposal;patch(changes);if(changes.interests)setInterestText(changes.interests.join("、"));setNotice("设计建议已应用，请预览并保存草稿");}}>
         {tab === "profile" && <nav className="showcase-subtabs" aria-label="介绍设置">{([["content","内容"],["tree","兴趣树"],["avatar","头像"]] as const).map(([id,label])=><button key={id} aria-pressed={profileTab===id} onClick={()=>setProfileTab(id)}>{label}</button>)}</nav>}
         {tab === "hero" && <nav className="showcase-subtabs" aria-label="开场设置">{([["text","文字"],["art","系统配图"],["image","自定义图片"]] as const).map(([id,label])=><button key={id} aria-pressed={heroTab===id} onClick={()=>setHeroTab(id)}>{label}</button>)}</nav>}
         <fieldset disabled={busy || imageBusy} className="showcase-fields">
@@ -237,14 +280,14 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
             </div><div hidden={profileTab !== "avatar"}><div className="showcase-field-group"><h3>个人照片或头像</h3><ShowcaseImagePicker prompt={draft.avatarImagePrompt ?? ""} onPromptChange={value => patch({avatarImagePrompt:value})} purpose="avatar" currentUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : ""} disabled={busy || imageBusy} onBusy={setImageBusy} onPick={(key,url)=>{if(key)setImageUrls(current=>({...current,[key]:url}));patch({avatarKey:key});}} /></div>
           </div></div>
           {tab === "components" && <ShowcaseComponentEditor components={draft.components??[]} disabled={busy||imageBusy} onBusy={setImageBusy} prompt={draft.componentPrompt??""} onPromptChange={componentPrompt=>patch({componentPrompt})} style={draft.style} palette={draft.palette} generationRequest={componentRequest} onRequestConsumed={()=>setComponentRequest(null)} onChange={components=>patch({components})}/>}
-          {tab === "works" && <div className="showcase-works-entrance"><h2>管理主页作品</h2><p>请在作品管理页选择公开报告、调整作品顺序和展示方式。</p><button type="button" disabled={busy || imageBusy} onClick={()=>navigate("/site/works")}>打开作品管理</button></div>}
+          {tab === "works" && <div className="showcase-works-entrance"><h2>管理主页作品</h2><p>请在作品管理页选择公开报告、调整作品顺序和展示方式。</p><button type="button" disabled={busy || imageBusy} onClick={()=>void openWorksManager()}>打开作品管理</button></div>}
           {tab === "finish" && <div className="showcase-heading"><h2>检查并发布</h2><p>右侧是访客将看到的主页。请检查文字、图片、作品与组件；保存草稿后，再决定是否发布。</p><p className="showcase-mode-help">保存草稿仅自己可见。发布后，持有链接的人可以查看你选择的作品和组件。</p></div>}
         </fieldset>
         </ShowcaseDesignGuide>
       </aside>
       <section ref={previewAreaRef} className="showcase-preview-area" aria-label="主页预览">
-        <div className="showcase-preview-toolbar"><span><i />实时预览</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{picked.length} 件作品</span></div>
-        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""}`}><Showcase config={effectiveDraft} works={availableWorks} interestTree={draft.interestTreeMode && draft.interestTreeMode !== "none" && state.availableInterestTree ? {...state.availableInterestTree, mode:draft.interestTreeMode, title:draft.interestTreeMode === "tree" ? "兴趣树" : "兴趣"} : undefined} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>
+        <div className="showcase-preview-toolbar"><span><i />{guidePhase === "welcome" ? "空间预览" : "实时预览"}</span><div><button aria-label="宽屏预览" aria-pressed={!narrow} disabled={guidePhase === "welcome"} onClick={() => setNarrow(false)}><Monitor size={16} /></button><button aria-label="手机预览" aria-pressed={narrow} disabled={guidePhase === "welcome"} onClick={() => setNarrow(true)}><Smartphone size={16} /></button></div><span>{guidePhase === "welcome" ? "准备开始" : `${picked.length} 件作品`}</span></div>
+        <div className={`showcase-preview-frame ${narrow ? "is-narrow" : ""} ${guidePhase === "welcome" ? "is-dormant" : ""}`}><div className="showcase-preview-canvas" aria-hidden={guidePhase === "welcome"}><Showcase config={effectiveDraft} works={availableWorks} interestTree={draft.interestTreeMode && draft.interestTreeMode !== "none" && state.availableInterestTree ? {...state.availableInterestTree, mode:draft.interestTreeMode, title:draft.interestTreeMode === "tree" ? "兴趣树" : "兴趣"} : undefined} heroImageUrl={draft.heroImageKey ? imageUrls[draft.heroImageKey] : undefined} avatarUrl={draft.avatarKey ? imageUrls[draft.avatarKey] : undefined} narrow={narrow || undefined} editing /></div>{guidePhase === "welcome" && <div className="showcase-preview-dormant"><span>个人作品空间</span><p>从风格开始，逐步完成你的主页。</p></div>}</div>
       </section>
     </div>
   </div>;

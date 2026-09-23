@@ -55,6 +55,8 @@ type showcaseConfig struct {
 	InterestTreeMode  string                `json:"interestTreeMode,omitempty"`
 	AboutConversation []showcaseChatMessage `json:"aboutConversation,omitempty"`
 	GuideConversation []showcaseChatMessage `json:"guideConversation,omitempty"`
+	GuideStage        string                `json:"guideStage,omitempty"`
+	GuideCompleted    bool                  `json:"guideCompleted,omitempty"`
 	ComponentPrompt   string                `json:"componentPrompt,omitempty"`
 	HomeWorkLimit     int                   `json:"homeWorkLimit,omitempty"`
 	CustomWorks       []showcaseCustomWork  `json:"customWorks,omitempty"`
@@ -183,6 +185,9 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	}
 	if !oneOf(c.InterestTreeMode, "none", "tree", "keywords") {
 		return c, errors.New("兴趣树展示方式无效")
+	}
+	if c.GuideStage != "" && !oneOf(c.GuideStage, "design", "hero", "profile", "works", "components", "finish") {
+		return c, errors.New("主页引导步骤无效")
 	}
 	if !oneOf(strconv.Itoa(c.HomeWorkLimit), "3", "6", "9", "12") {
 		return c, errors.New("首页作品数量无效")
@@ -396,6 +401,8 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 	c.AvatarImagePrompt = ""
 	c.AboutConversation = nil
 	c.GuideConversation = nil
+	c.GuideStage = ""
+	c.GuideCompleted = false
 	c.ComponentPrompt = ""
 	c.CustomWorks = nil
 	enabled := make([]showcaseComponent, 0, len(c.Components))
@@ -410,6 +417,7 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 
 func showcaseSemanticConfig(c showcaseConfig) showcaseConfig {
 	c.HeroImagePrompt, c.AvatarImagePrompt, c.ComponentPrompt, c.AboutConversation, c.GuideConversation = "", "", "", nil, nil
+	c.GuideStage, c.GuideCompleted = "", false
 	c.FeaturedWorkIDs = showcaseNonNil(c.FeaturedWorkIDs)
 	enabled := make([]showcaseComponent, 0, len(c.Components))
 	for _, x := range c.Components {
