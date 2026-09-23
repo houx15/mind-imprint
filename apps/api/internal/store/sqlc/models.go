@@ -1410,6 +1410,7 @@ type Writing struct {
 	Origin         string             `json:"origin"`
 	AssignedPrompt *string            `json:"assigned_prompt"`
 	RevisingAt     pgtype.Timestamptz `json:"revising_at"`
+	Genre          string             `json:"genre"`
 }
 
 type WritingComment struct {

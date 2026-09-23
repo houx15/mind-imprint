@@ -24,7 +24,7 @@ func (q *Queries) ClearWritingRevising(ctx context.Context, atomID uuid.UUID) er
 
 const createWriting = `-- name: CreateWriting :one
 
-INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at
+INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre
 `
 
 type CreateWritingParams struct {
@@ -55,6 +55,7 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
@@ -125,7 +126,7 @@ func (q *Queries) GetLatestWritingDraftComment(ctx context.Context, atomID uuid.
 }
 
 const getWriting = `-- name: GetWriting :one
-SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at FROM writing WHERE atom_id = $1
+SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre FROM writing WHERE atom_id = $1
 `
 
 func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, error) {
@@ -145,6 +146,7 @@ func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, er
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
@@ -161,7 +163,7 @@ func (q *Queries) GetWritingDraft(ctx context.Context, atomID uuid.UUID) (Writin
 }
 
 const getWritingForUpdate = `-- name: GetWritingForUpdate :one
-SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at FROM writing WHERE atom_id = $1 FOR UPDATE
+SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre FROM writing WHERE atom_id = $1 FOR UPDATE
 `
 
 // 完成、放弃修改时先锁住这一行，版本号才不会重复。
@@ -182,6 +184,7 @@ func (q *Queries) GetWritingForUpdate(ctx context.Context, atomID uuid.UUID) (Wr
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
@@ -336,7 +339,7 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, w.origin, w.assigned_prompt, w.revising_at, a.created_at AS atom_created_at, a.last_activity_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, w.origin, w.assigned_prompt, w.revising_at, w.genre, a.created_at AS atom_created_at, a.last_activity_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
@@ -357,6 +360,7 @@ type ListWritingsByUserRow struct {
 	Origin         string             `json:"origin"`
 	AssignedPrompt *string            `json:"assigned_prompt"`
 	RevisingAt     pgtype.Timestamptz `json:"revising_at"`
+	Genre          string             `json:"genre"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 }
@@ -394,6 +398,7 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.Origin,
 			&i.AssignedPrompt,
 			&i.RevisingAt,
+			&i.Genre,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 		); err != nil {
@@ -566,6 +571,22 @@ func (q *Queries) SetWritingFinished(ctx context.Context, atomID uuid.UUID) erro
 	return err
 }
 
+const setWritingGenre = `-- name: SetWritingGenre :exec
+UPDATE writing SET genre = $2, updated_at = now() WHERE atom_id = $1
+`
+
+type SetWritingGenreParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	Genre  string    `json:"genre"`
+}
+
+// 她自己说这一篇是什么文体（迁移 0191）。空串 = 收回，回到推断。
+// 取值由服务端的闭表收（validateWritingGenre），这里不再校验一遍。
+func (q *Queries) SetWritingGenre(ctx context.Context, arg SetWritingGenreParams) error {
+	_, err := q.db.Exec(ctx, setWritingGenre, arg.AtomID, arg.Genre)
+	return err
+}
+
 const setWritingOutlineGuide = `-- name: SetWritingOutlineGuide :exec
 UPDATE writing_outline SET guide = $2 WHERE id = $1
 `
@@ -599,7 +620,7 @@ func (q *Queries) SetWritingOutlineMethod(ctx context.Context, arg SetWritingOut
 const setWritingRevising = `-- name: SetWritingRevising :one
 UPDATE writing SET revising_at = COALESCE(revising_at, now()), updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre
 `
 
 // 已在修改中时保留原来的时间。
@@ -620,6 +641,7 @@ func (q *Queries) SetWritingRevising(ctx context.Context, atomID uuid.UUID) (Wri
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
@@ -628,7 +650,7 @@ const setWritingSetup = `-- name: SetWritingSetup :one
 UPDATE writing
 SET lang = $2, target_words = $3, setup_at = now(), updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre
 `
 
 type SetWritingSetupParams struct {
@@ -658,12 +680,13 @@ func (q *Queries) SetWritingSetup(ctx context.Context, arg SetWritingSetupParams
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
 
 const setWritingStage = `-- name: SetWritingStage :one
-UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at
+UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre
 `
 
 type SetWritingStageParams struct {
@@ -691,6 +714,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }
@@ -698,7 +722,7 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 const setWritingStructure = `-- name: SetWritingStructure :one
 UPDATE writing SET structure_key = $2, updated_at = now()
 WHERE atom_id = $1
-RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at, origin, assigned_prompt, revising_at, genre
 `
 
 type SetWritingStructureParams struct {
@@ -725,6 +749,7 @@ func (q *Queries) SetWritingStructure(ctx context.Context, arg SetWritingStructu
 		&i.Origin,
 		&i.AssignedPrompt,
 		&i.RevisingAt,
+		&i.Genre,
 	)
 	return i, err
 }

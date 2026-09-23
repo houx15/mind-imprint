@@ -508,6 +508,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/writings/{id}/outline", liteOnly(a.getWritingOutline))
 	mux.Handle("PUT /api/v1/writings/{id}/outline", liteOnly(a.putWritingOutline))
 	// 行文那一步（0184）：整篇的论证结构 + 每一块的论证方法。不收正文。
+	// 这一篇按什么文体在教，以及她自己改一种。见 writing_genre_route.go。
+	mux.Handle("GET /api/v1/writings/{id}/genre", liteOnly(a.getWritingGenre))
+	mux.Handle("PUT /api/v1/writings/{id}/genre", liteOnly(a.putWritingGenre))
 	mux.Handle("GET /api/v1/writings/{id}/flow/structures", liteOnly(a.getWritingFlowStructures))
 	mux.Handle("PUT /api/v1/writings/{id}/flow", liteOnly(a.putWritingFlow))
 	mux.Handle("POST /api/v1/writings/{id}/outline/{oid}/guide", liteOnly(a.guideWritingBlock))

@@ -646,3 +646,28 @@ export async function putWritingFlow(
   });
   return raw.outline ?? [];
 }
+
+/**
+ * 这一篇按什么文体在教 —— 服务端 `writing_genre_route.go`。
+ *
+ * 🚨 `chosen` 分的是「她定的」和「我们推断的」。界面据此说
+ * 「你定的是议论文」还是「印记按议论文在教」—— 把推断说成是她的选择，
+ * 是替她做主之后再赖给她。
+ */
+export type WritingGenreState = {
+  genre: string;
+  chosen: boolean;
+  choices: { id: string; label: string; blurb: string }[];
+};
+
+export async function getWritingGenre(id: string): Promise<WritingGenreState> {
+  return apiFetch<WritingGenreState>(`/api/v1/writings/${encodeURIComponent(id)}/genre`);
+}
+
+/** 空串 = 收回她的选择，回到推断。 */
+export async function putWritingGenre(id: string, genre: string): Promise<WritingGenreState> {
+  return apiFetch<WritingGenreState>(`/api/v1/writings/${encodeURIComponent(id)}/genre`, {
+    method: "PUT",
+    body: JSON.stringify({ genre }),
+  });
+}

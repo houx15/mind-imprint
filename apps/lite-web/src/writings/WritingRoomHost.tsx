@@ -89,6 +89,17 @@ const EMPTY_DRAFT: WritingDraft = { body: "", updatedAt: null };
 export function WritingRoomHost({ writingId }: { writingId: string }) {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [roomError, setRoomError] = useState<string | null>(null);
+  /**
+   * 这一篇按什么文体在教 —— **整间屋子只有这一个答案**。
+   *
+   * 🚨 服务端 writingGenreOf 才是判定点（她自己说过的压过推断）。这一侧原来
+   * 有两处各自用 outlineGenreOf 再推一遍（结构那一屏的「这一条是什么」菜单、
+   * 段落那一屏的卡片名字）—— 她选了书信而图上还摆着议论文的节点时，
+   * 那两处会得出和服务端不一样的答案，于是菜单里给的还是分论点。
+   *
+   * 空串 = 还没取到，用的地方退回本地推断（和 2026-09-23 之前一样）。
+   */
+  const [roomGenre, setRoomGenre] = useState("");
   const [sending, setSending] = useState(false);
   const [draftText, setDraftText] = useState("");
   /**
@@ -381,6 +392,8 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         writing={writing}
         messages={state.messages}
         outline={state.outline}
+        genre={roomGenre}
+        onGenre={setRoomGenre}
         onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
         onMessages={(next) => setState((s) => (s.phase === "ready" ? { ...s, messages: next } : s))}
         onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
@@ -513,6 +526,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             <StagePanel
               state={state}
               writingId={writingId}
+              roomGenre={roomGenre}
               setState={setState}
               onGoToStructure={() => void jumpStage("outline")}
               onGoToDraft={() => void jumpStage("draft")}
@@ -659,6 +673,7 @@ function LengthMeter({
 function StagePanel({
   state,
   writingId,
+  roomGenre,
   setState,
   onGoToStructure,
   onGoToDraft,
@@ -669,6 +684,8 @@ function StagePanel({
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
+  /** 这一篇按什么文体在教。房间那一层持有，整间屋子只有这一个答案。 */
+  roomGenre: string;
   setState: Dispatch<SetStateAction<LoadState>>;
   onGoToStructure: () => void;
   /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
@@ -695,6 +712,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           lang={writing.lang}
+          genre={roomGenre}
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}
@@ -732,6 +750,7 @@ function StagePanel({
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
           lang={writing.lang}
+          genre={roomGenre}
           onGoToStructure={onGoToStructure}
           onGoToDraft={onGoToDraft}
           onSay={onSay}

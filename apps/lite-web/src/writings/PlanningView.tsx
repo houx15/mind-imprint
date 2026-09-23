@@ -18,8 +18,10 @@ import { EditableTitle } from "./EditableTitle";
 import { AssignmentLine } from "../inbox/AssignmentLine";
 import { PromptSidebar } from "./PromptSidebar";
 import { MindMap } from "./MindMap";
+import { GenrePicker } from "./GenrePicker";
 import { planShapeLine, planShapeOf } from "./planShape";
 import { moveOutlineNode, type OutlineMoveMode } from "./outlineMove";
+import type { WritingGenre } from "./outlineKind";
 import { outlineGenreOf, outlineKindOf, type OutlineKind } from "./outlineKind";
 import { rekindChoices, rekindOutlineNode } from "./outlineRekind";
 import { handleWriteError } from "./writeErrors";
@@ -71,6 +73,8 @@ export function PlanningView({
   onBack,
   onLocked,
   banner,
+  genre = "",
+  onGenre,
 }: {
   writing: Writing;
   messages: LiteMessage[];
@@ -93,6 +97,10 @@ export function PlanningView({
   /** Shown under the header: the revising strip while she edits a finished
    *  writing from 结构 (spec A2). */
   banner?: ReactNode;
+  /** 这一篇按什么文体在教 —— 由房间那一层持有，整间屋子只有这一个答案。
+   *  空串 = 还没取到，这时退回本地推断。 */
+  genre?: string;
+  onGenre?: (genre: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -415,6 +423,18 @@ export function PlanningView({
                 想加一条，说给印记听 —— 找来的研究、报道、数据也一样，连出处一起说；点一条可以改，也能删；拖一条到另一条上面，它就挂到那一条下面
               </span>
             </div>
+            {/* 🚨 这一篇按什么文体在教，就摆在图的上面 —— 图上那几个块的名字
+                （中心论点 / 场景 / 要点）全由它决定，她在这里看见的和图上
+                看见的是同一件事。产品负责人 2026-09-23：「let the students
+                select/talk with ai about what genre they are going to write」。
+                见 GenrePicker.tsx 的文件头（它不是进门那一步的文体单选）。 */}
+            <div className="px-1 pb-2">
+              <GenrePicker
+                writingId={writing.id}
+                outlineVersion={outline.length}
+                onGenre={onGenre}
+              />
+            </div>
             <MindMap
               items={outline}
               justAdded={justAdded}
@@ -422,7 +442,11 @@ export function PlanningView({
               onEdit={editNode}
               onMove={moveNode}
               onRekind={rekindNode}
-              kindChoices={rekindChoices(outlineGenreOf(outline))}
+              // 🚨 文体只有**一个**判定点：服务端（writingGenreOf，她自己说过的
+              //    压过推断）。这里原来自己用 outlineGenreOf 再推一遍 ——
+              //    她选了书信而图上还摆着议论文的节点时，两边答案不一样，
+              //    菜单里给的还是分论点。服务端那一份还没到之前才退回本地推断。
+              kindChoices={rekindChoices((genre as WritingGenre) || outlineGenreOf(outline))}
               lang={writing.lang}
             />
           </aside>

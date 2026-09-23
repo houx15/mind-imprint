@@ -39,6 +39,11 @@ UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING *
 -- name: SetWritingTargetWords :exec
 UPDATE writing SET target_words = $2, updated_at = now() WHERE atom_id = $1;
 
+-- name: SetWritingGenre :exec
+-- 她自己说这一篇是什么文体（迁移 0191）。空串 = 收回，回到推断。
+-- 取值由服务端的闭表收（validateWritingGenre），这里不再校验一遍。
+UPDATE writing SET genre = $2, updated_at = now() WHERE atom_id = $1;
+
 -- name: SetWritingAssignedPrompt :exec
 -- 老师布置的题目存在这里，不作为她的第一条消息。建写作的同一个事务里写。
 UPDATE writing SET assigned_prompt = $2 WHERE atom_id = $1;

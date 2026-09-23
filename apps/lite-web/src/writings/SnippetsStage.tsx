@@ -96,6 +96,7 @@ export function SnippetsStage({
   snippets,
   onSnippetsChange,
   lang,
+  genre: roomGenre,
   onGoToStructure,
   onGoToDraft,
   onSay,
@@ -109,6 +110,14 @@ export function SnippetsStage({
   onSay: (text: string, board?: WritingBoardKind) => Promise<void>;
   /** 这一篇是中文还是英文 —— 决定篇幅按「字」还是「词」说。见 wordUnit.ts。 */
   lang: string;
+  /**
+   * 这一篇按什么文体在教 —— 由房间那一层持有（服务端判定，她自己说过的
+   * 压过推断）。空串 = 还没取到，这时退回本地推断。
+   *
+   * 🚨 这里原来自己用 outlineGenreOf(outline) 推一遍，那是**第二个判定点**：
+   * 她选了书信而图上还摆着议论文的节点时，卡片名字会和服务端不一样。
+   */
+  genre?: string;
   /** Sends her to 结构 from the empty state. */
   onGoToStructure: () => void;
   /** 去成稿。不是关卡 —— 顶上那条导航一直都能点。 */
@@ -119,9 +128,10 @@ export function SnippetsStage({
   const slots = buildSlots(outline, snippets);
   // 这一篇在按哪一种文体摆。开头卡和结尾卡没有自己的节点 kind（它们是虚拟卡），
   // 所以那两张要做的事只能从整篇的文体来 —— 一篇记叙文的开头是「从现场写起」，
-  // 不是「提出中心论点」。判据和图上那个「这一条是什么」菜单用的是同一个
-  //（outlineGenreOf），不另起一套。
-  const genre = outlineGenreOf(outline);
+  // 不是「提出中心论点」。
+  //
+  // 🚨 服务端那一份优先：她自己说过的文体压过任何推断，而推断只看图上摆了什么。
+  const genre = roomGenre || outlineGenreOf(outline);
 
   // 当前摊开的那一张。默认是第一张还没写的；都写过了就第一张。
   const [activeKey, setActiveKey] = useState<string | null>(null);

@@ -117,6 +117,22 @@ var letterIdeaMarkersEN = []string{
 //
 // outline 传 nil 也成立（还没摆图的时候），那时只看题目。
 func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
+	// 0. 🚨 **她自己说过的，压过一切**（迁移 0191）。
+	//
+	// 产品负责人 2026-09-23：「for writing, maybe we need to let the students
+	// select/talk with ai about what genre they are going to write.」
+	//
+	// 放在最前面，而不是最后当兜底：下面那两条都是**猜**，而这一条是她说的。
+	// 一篇散文的题目长得和记叙文一模一样，题目那张表永远猜不出来 ——
+	// 所以「让她自己说」不是锦上添花，它是某几种文体唯一到得了的路。
+	//
+	// 这一条同时也是纠错的出口：判错了她能改，而且改完立刻全屋生效
+	// （writing_plan / writing_flow / writing_guide / writing_comment 等
+	// 十二处都从这个函数取文体，没有第二个判定点）。
+	if g := validateWritingGenre(wr.Genre); g != "" {
+		return g
+	}
+
 	// 1. 板上已经有议论文的骨架 —— 她在按议论文摆，不必再猜。
 	//    这一条放在最前面：她的动作胜过题目里的字。
 	var sawNarrativeKind, sawLetterKind bool
@@ -187,4 +203,44 @@ func writingGenreLabel(genre string) string {
 		return "书信"
 	}
 	return "议论文"
+}
+
+// validateWritingGenre 把一个外来的取值收进**写作面**的闭表。
+//
+// 认不出来就是空串，调用方按「她没说过」处理（回到推断）。
+//
+// 🚨 和阅读面的 validateGenre 是两张表，故意的：report / explain 是
+// 「读到的文章是什么」，她写不出一篇「新闻报道体」的作业交上去；
+// 而 letter 反过来不该落到任何一套读法上。同一个包里两个函数，
+// 名字里各带自己的面，免得下一个人随手用错那一个。
+func validateWritingGenre(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case genreArgument:
+		return genreArgument
+	case genreNarrative:
+		return genreNarrative
+	case genreLetter:
+		return genreLetter
+	}
+	return ""
+}
+
+// writingGenreChoices 是摆给她挑的那几种，以及每一种的一句说明。
+//
+// 说明写成「什么时候选它」而不是定义（同 vocab 的 when_to_use）：
+// 「记叙文」三个字对一个初中生未必读得懂，但「写一件真实发生过的事」读得懂。
+// 这正是 writing_setup.go 当初不做文体单选的那条理由 —— 它没有过时，
+// 过时的是「因此干脆不让她选」。
+func writingGenreChoices() []writingGenreChoiceDTO {
+	return []writingGenreChoiceDTO{
+		{ID: genreArgument, Label: "议论文", Blurb: "要说清一个看法，并且给出理由和材料。"},
+		{ID: genreNarrative, Label: "记叙文", Blurb: "写一件真实发生过的事，写出当时的场景和你的变化。"},
+		{ID: genreLetter, Label: "书信", Blurb: "写给一个具体的人，要让他知道什么、或者请他做什么。"},
+	}
+}
+
+type writingGenreChoiceDTO struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Blurb string `json:"blurb"`
 }
