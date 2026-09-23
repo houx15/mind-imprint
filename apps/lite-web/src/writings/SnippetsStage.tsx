@@ -9,7 +9,9 @@ import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import { RoleBoard } from "./RoleBoard";
 import { MiniMap } from "./MiniMap";
-import { buildSlots, slotTitle, type Slot } from "./slots";
+import { buildSlots, slotTitle, slotBodyKind, type Slot } from "./slots";
+import { slotJob, slotClaimLabel, slotHeadingLabel } from "./slotCopy";
+import { outlineGenreOf } from "./outlineKind";
 import { splitSentences, ROLE_BOARD_MIN } from "./sentences";
 import { registerPendingSave } from "./pendingSaves";
 import { handleWriteError } from "./writeErrors";
@@ -74,14 +76,10 @@ const slotKey = (s: Slot) => `${s.kind}-${s.outlineId ?? `p${s.position}`}`;
 
 const hasText = (s: Slot) => (s.snippet?.text ?? "").trim() !== "";
 
-/** 这一张卡要做的事 —— 骨架的说明，和她写什么无关，所以是写死的。 */
-function slotJob(s: Slot): string {
-  if (s.kind === "opening") return "提出这篇要证明的中心论点，让读者知道你要说什么、为什么值得读下去。";
-  if (s.kind === "closing") return "回到中心论点，把它说得比开头更准；可以写读者读完应该带走的判断。";
-  if (s.kind === "free") return "放在全文最后，也可以在成稿里挪到合适的位置。";
-  if (s.needsPoint) return "下面的例子还没有对应的分论点。请先用一句话写出这些例子证明了什么，再展开例子。";
-  return "先写出这条分论点，再用下面的例子证明它，最后说明例子和论点的关系。";
-}
+// 🚨 这一张卡要做的事那一句，以及卡里那两个小标题，都搬去了 slotCopy.ts。
+// 原来它们写死成议论文的措辞，于是一篇记叙文走到段落这一步就没有对应的模版
+// （产品负责人 2026-09-23 报的断点），英文那边也在这里退回中文术语。
+// 见 slotCopy.ts 的文件头。
 
 const FOLD_KEY = "lite:writingGuideFolded";
 function readFolded(): boolean {
@@ -119,6 +117,11 @@ export function SnippetsStage({
   onLocked?: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
+  // 这一篇在按哪一种文体摆。开头卡和结尾卡没有自己的节点 kind（它们是虚拟卡），
+  // 所以那两张要做的事只能从整篇的文体来 —— 一篇记叙文的开头是「从现场写起」，
+  // 不是「提出中心论点」。判据和图上那个「这一条是什么」菜单用的是同一个
+  //（outlineGenreOf），不另起一套。
+  const genre = outlineGenreOf(outline);
 
   // 当前摊开的那一张。默认是第一张还没写的；都写过了就第一张。
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -245,8 +248,15 @@ export function SnippetsStage({
     );
   }
 
-  let pointNo = 0;
-  const titles = slots.map((s) => slotTitle(s, s.kind === "point" ? ++pointNo : 0));
+  // 编号按 kind 分别数。混着场景和转折时一路数下来会印出「场景 1、转折 2」，
+  // 而屏幕上只有一张转折卡 —— 那个 2 指不到任何东西。
+  const kindNo: Record<string, number> = {};
+  const titles = slots.map((s) => {
+    if (s.kind !== "point") return slotTitle(s, 0, lang, genre);
+    const k = slotBodyKind(s, genre);
+    kindNo[k] = (kindNo[k] ?? 0) + 1;
+    return slotTitle(s, kindNo[k], lang, genre);
+  });
   const allWritten = slots.every(hasText);
   const someWritten = slots.some(hasText);
   const activeGuide = active?.outlineId ? (guides[active.outlineId] ?? null) : null;
@@ -299,6 +309,8 @@ export function SnippetsStage({
               writingId={writingId}
               slot={active}
               title={titles[activeIndex] ?? ""}
+              lang={lang}
+              genre={genre}
               guide={activeGuide}
               batching={batching}
               batchError={batchError}
@@ -457,6 +469,8 @@ function CardGuidance({
   onGuide,
   onDeepen,
   onLocked,
+  lang,
+  genre,
 }: {
   writingId: string;
   slot: Slot;
@@ -468,6 +482,8 @@ function CardGuidance({
   onGuide: (next: WritingBlockGuide) => void;
   onDeepen: () => void;
   onLocked?: () => void;
+  lang: string;
+  genre: string;
 }) {
   const [collapsed, setCollapsed] = useState(() => hasText(slot));
   const [guiding, setGuiding] = useState(false);
@@ -491,19 +507,19 @@ function CardGuidance({
     <div className="flex flex-col gap-4">
       <section className="flex flex-col gap-1">
         <span className="text-mk-label font-semibold text-mk-accent-700">{title}</span>
-        <p className="text-mk-body text-mk-ink">{slotJob(slot)}</p>
+        <p className="text-mk-body text-mk-ink">{slotJob(slot, lang, genre)}</p>
       </section>
 
       {slot.claim && (
         <section className="flex flex-col gap-1">
-          <h3 className="text-mk-label font-semibold text-mk-secondary">中心论点</h3>
+          <h3 className="text-mk-label font-semibold text-mk-secondary">{slotClaimLabel(lang)}</h3>
           <p className="font-mk-piece text-mk-body-lg text-mk-ink">{slot.claim}</p>
         </section>
       )}
 
       {slot.kind === "point" && slot.heading && (
         <section className="flex flex-col gap-1">
-          <h3 className="text-mk-label font-semibold text-mk-secondary">分论点</h3>
+          <h3 className="text-mk-label font-semibold text-mk-secondary">{slotHeadingLabel(slot, lang, genre)}</h3>
           <p className="font-mk-piece text-mk-body-lg text-mk-ink">{slot.heading}</p>
         </section>
       )}

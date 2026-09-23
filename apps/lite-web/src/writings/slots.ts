@@ -1,5 +1,5 @@
 import type { WritingOutlineItem, WritingSnippet } from "../api/writingRoom";
-import { outlineKindIsInlineContent, outlineKindOf } from "./outlineKind";
+import { outlineKindIsInlineContent, outlineKindLabel, outlineKindOf } from "./outlineKind";
 
 /**
  * 段落那一步的一叠卡片 —— 从结构图派生出来的写作结构。
@@ -208,16 +208,65 @@ export function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnipp
   return slots;
 }
 
-/** 卡片的名字：屏幕上、卡片叠里都用这一个。 */
-export function slotTitle(s: Slot, pointIndex: number): string {
+/**
+ * 卡片的名字：屏幕上、卡片叠里都用这一个。
+ *
+ * 🚨 2026-09-23 产品负责人报的断点，这一行就是它：
+ *
+ *   「在「结构」这一步，它们标的是 场景、转折、感悟。在「行文」这一步，
+ *     还是 场景、转折、感悟。到了「段落」这一步，全部变成
+ *     分论点 1、分论点 2、分论点 3。」
+ *
+ * 前两步按节点的 kind 印名字，这一步原来只看卡片那一层的 `kind`
+ *（opening/point/closing/free 四种），于是一篇记叙文的场景、转折、感悟
+ * 三张卡全被印成「分论点 N」。同一条轴在最后一段路上断了。
+ *
+ * 现在主体卡走 `outlineKindLabel(s.outlineKind, lang)` —— 和图上、行文那一步
+ * **同一个函数**，所以三处印的必然是同一个词，英文那边也自动跟着走
+ *（原来一篇英文议论文在这里印的是「分论点」，而图上印的是 "Topic sentence"）。
+ *
+ * 编号只在同一种 kind 内部连排：三张场景卡是「场景 1/2/3」，
+ * 场景两张加一张转折是「场景 1」「场景 2」「转折 1」。原来的
+ * `pointIndex` 是一路数下来的，混着两种 kind 时会印出「分论点 1、分论点 3」。
+ */
+export function slotTitle(s: Slot, kindIndex: number, lang = "zh", genre = "argument"): string {
+  const en = lang === "en";
   switch (s.kind) {
     case "opening":
-      return "开头";
+      return en ? "Introduction" : "开头";
     case "closing":
-      return "结尾";
+      return en ? "Conclusion" : "结尾";
     case "free":
-      return "自由段落";
-    default:
-      return `分论点 ${pointIndex}`;
+      return en ? "Loose paragraph" : "自由段落";
+    default: {
+      const label = outlineKindLabel(slotBodyKind(s, genre), lang);
+      return kindIndex > 0 ? `${label} ${kindIndex}` : label;
+    }
   }
+}
+
+/**
+ * 一张主体卡该按哪一种 kind 命名。
+ *
+ * 🚨 节点的 kind 不能直接拿来用。`buildSlots` 会把一些**不是段落层**的节点
+ * 摆成主体卡：第二个深度 0 的节点（老数据里它算 thesis）、一条她已经写过字的
+ * 论据、前面还没有分论点的第一条材料。那几张卡的活是「先写出这一段要说的那
+ * 句话」，所以印成「中心论点」或者「论据 · 你见过的事」都是错的 ——
+ * 那不是这一段的名字，是它里面那样东西的名字。
+ *
+ * 挡的只有**深度 0 那三种**（中心论点 / 开篇 / 结尾）。它们不是段落层的
+ * 名字：一个被摆成主体卡的 thesis 节点，这张卡的活是「先写出这一段要说的
+ * 那句话」，印成「中心论点」是把整篇的那一句安到一段上。
+ *
+ * 别的都按自己的名字印，方向和 2026-09-20 那次修的一样（那次是「结尾」被
+ * 印成「分论点 3」，产品负责人的原话：「这个是总结，不是分论点」）——
+ * 她在图上把一条标成什么，这张卡就叫什么。
+ *
+ * 退回时按文体挑默认段落名：议论文是分论点，记叙文是场景。
+ */
+const NOT_BODY_KINDS = new Set(["thesis", "opening", "closing", ""]);
+
+export function slotBodyKind(s: Slot, genre: string): string {
+  if (!NOT_BODY_KINDS.has(s.outlineKind)) return s.outlineKind;
+  return genre === "narrative" ? "scene" : "point";
 }

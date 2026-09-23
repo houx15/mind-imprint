@@ -528,7 +528,14 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 		return nil, cardRejectFewOptions
 	}
 	if c.Type == coachCardOrderEvents {
-		// 按原文顺序摆，模型给的那个顺序不能漏到屏幕上。见 orderByArticle。
+		// 先归到原文顺序，模型给的那个顺序不能漏到屏幕上（它读文章时多半
+		// 已经把顺序想好了）。见 orderByArticle。
+		//
+		// 🚨 归到原文顺序**不是**最终摆法：原文顺序在一篇报道里通常就是答案。
+		// 落库之前还有一刀 shuffleOrderOptions 把它打乱
+		//（reading_coach.go，fitBoardToGenre 之后）。这里归一次是为了先把
+		// 模型的顺序擦掉，打乱那一刀才有一个确定的起点。
+		//
 		// 题目里写了怎么拖、或者数目对不上，换成标准那一句 —— 同标注板。
 		p := prompt
 		if promptTellsHerHowToDrag(p) || promptCountMismatch(p, len(out)) {
