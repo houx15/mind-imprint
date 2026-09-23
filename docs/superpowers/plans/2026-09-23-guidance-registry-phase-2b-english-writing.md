@@ -20,7 +20,7 @@
 - **陈述句，不是训斥。** 用「在什么情况下该怎么做」，不用「绝不许……」。§3。
 - **不打比喻，直接说那个东西的名字。** §4；界面文案规则 10 同样适用于提示词。
 - **术语只从注册表来。** 新正文里出现的块名必须逐字存在于 `WritingPlanEnglishArgumentKinds`（thesis statement / topic sentence / commentary / counterargument / refutation），方法名必须逐字存在于 `packages/contracts/vocab/methods.json`。§5。
-- **不收那份资料里的填空模板。** `In contemporary society, xxx has become an increasingly widely discussed issue on social media.` 这类整句开头违反铁律①，本期**一个都不收**。spec §6「二期」第三条、§7。
+- **不收那份资料里的填空模板。** `In contemporary society, xxx has become an increasingly widely discussed issue on social media.` 给她一句能直接粘进去的开头，就是替她把这篇写了一部分。本期**一个都不收**。spec §6「二期」第三条、§7。
 - **教法照学，文字自己写。** `docs/reference/writing-teaching/` 下的资料是别人发布的作品，`英语作文批改/SKILL.md` 里还埋着 12 处水印与授权指纹。教学内容照收，句子不许整段粘进 `internal/prompts`。spec §6.5。
 - **中文那三条分支的装配结果必须逐字节不变。** `zh/argument`、`zh/narrative`、`en/narrative` 三种组合的 `writingPlanSystemFor` 输出和今天完全一样；`cmd/promptinspect` 的 `bench/compose/lite-writing-plan` 基线哈希不许动。
 - **印记仍然用中文跟她说话。** 换的是教的内容，不是说话的语言。术语用英文，解释用中文。
@@ -473,7 +473,7 @@ cd apps/web && npx vitest run
 **Interfaces:**
 - Produces: `prompts.WritingPlanEnglishTaskSplit string` —— Task 5 会把它登记进 `guidance`。
 
-**这一段正文的来源与边界：** 来自 `docs/reference/writing-teaching/english-writing/思维印记-英文写作逻辑框架搭建.md` 的「题目拆解」一节：TOPIC+TASK 两段式、四类 TASK、四类都可归约成 two tasks。**那份资料里的四段式整句模板一句都不收**（`In contemporary society, xxx has become...`）—— 整句开头违反铁律①，spec §7 明令不收。这段话写进 Go 注释，不进提示词。
+**这一段正文的来源与边界：** 来自 `docs/reference/writing-teaching/english-writing/思维印记-英文写作逻辑框架搭建.md` 的「题目拆解」一节：TOPIC+TASK 两段式、四类 TASK、四类都可归约成 two tasks。**那份资料里的四段式整句模板一句都不收**（`In contemporary society, xxx has become...`）—— 给她一句能直接粘进去的开头就是替她写了一部分，spec §7 明令不收。这段话写进 Go 注释，不进提示词。
 
 - [ ] **Step 1: 加常量**
 
@@ -493,7 +493,7 @@ cd apps/web && npx vitest run
 //
 // 🚨 那份资料里的四段式**整句模板**一句都没收（`In contemporary society,
 // xxx has become an increasingly widely discussed issue on social media.`）：
-// 整句开头就是替她写正文，违反铁律①；雅思考官对背诵式开头本来也扣分。
+// 给她一句能直接粘进去的开头，就是替她把这篇写了一部分。雅思考官对背诵式
 // spec §7「不收整句填空模板」。
 //
 // 🚨 只挂在 {write, en, argument} 上。中文议论文的题目不是这个形状，
