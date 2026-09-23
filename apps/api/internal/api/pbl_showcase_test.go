@@ -132,6 +132,37 @@ func TestPublicShowcaseWorksPaginationAndStaleCursor(t *testing.T) {
 	}
 }
 
+func TestShowcaseFeaturedWorksAppearWithinHomepageLimit(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	custom := `"selectedWorkIds":["external:a","external:b","external:c","external:d"],"featuredWorkIds":["external:d","external:b"],"homeWorkLimit":3,"customWorks":[{"id":"a","title":"A","url":"https://example.org/a"},{"id":"b","title":"B","url":"https://example.org/b"},{"id":"c","title":"C","url":"https://example.org/c"},{"id":"d","title":"D","url":"https://example.org/d"}]`
+	body := strings.Replace(validShowcase, `"selectedWorkIds":[]`, custom, 1)
+	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", body); rec.Code != http.StatusOK {
+		t.Fatalf("save = %d %s", rec.Code, rec.Body)
+	}
+	pub := decodeSite(t, siteReq(t, h, cookie, http.MethodPost, "/api/v1/pbl/showcase/publish", `{"expectedRevision":1}`))
+	token := tokenOf(pub["url"].(string))
+	page := decodeSite(t, siteReq(t, h, nil, http.MethodGet, "/api/v1/public/sites/"+token, ""))
+	items := page["works"].([]any)
+	if len(items) != 3 || items[0].(map[string]any)["id"] != "external:d" || items[1].(map[string]any)["id"] != "external:b" || items[2].(map[string]any)["id"] != "external:a" {
+		t.Fatalf("featured homepage order = %#v", items)
+	}
+	if page["worksTotal"] != float64(4) {
+		t.Fatalf("all works count changed: %#v", page)
+	}
+}
+
+func TestShowcaseFeaturedWorksMustBeSelected(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	unselected := strings.Replace(validShowcase, `"selectedWorkIds":[]`, `"selectedWorkIds":[],"featuredWorkIds":["missing"]`, 1)
+	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", unselected); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unselected focus = %d %s", rec.Code, rec.Body)
+	}
+	tooMany := strings.Replace(validShowcase, `"selectedWorkIds":[]`, `"selectedWorkIds":["a","b","c"],"featuredWorkIds":["a","b","c"]`, 1)
+	if rec := siteReq(t, h, cookie, http.MethodPut, "/api/v1/pbl/showcase", tooMany); rec.Code != http.StatusBadRequest {
+		t.Fatalf("too many focus works = %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestShowcasePublishUsesSnapshotAndRevokePreservesDraft(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
 	withPrompts := strings.Replace(validShowcase, `"selectedWorkIds":[]`, `"selectedWorkIds":[],"heroImagePrompt":"  my exact hero request  ","avatarImagePrompt":"my exact avatar request"`, 1)

@@ -4,7 +4,7 @@ export type ShowcaseFont = "sans" | "serif" | "mono" | "rounded" | "handwritten"
 export type ShowcaseStyle = "classic" | "minimal" | "cute" | "dark" | "anime" | "mecha";
 export type ShowcaseIllustration = "none" | "clouds" | "moon" | "sky" | "robot";
 export type ShowcaseAboutLayout = "classic" | "orbit";
-export type ShowcasePortfolioLayout = "sections" | "timeline" | "planets" | "cloud" | "calendar" | "list";
+export type ShowcasePortfolioLayout = "sections" | "flow" | "timeline" | "film" | "planets" | "cloud" | "calendar" | "list";
 export type ShowcaseKind = "writing" | "reading" | "project";
 
 export interface ShowcaseAboutMessage { role: "user" | "assistant"; content: string; }
@@ -50,6 +50,8 @@ export interface ShowcaseConfig {
   readingStyle: "shelf" | "list";
   sectionOrder: ShowcaseKind[];
   selectedWorkIds: string[];
+  /** Up to two selected works receive an expanded introduction on the homepage. */
+  featuredWorkIds?: string[];
 }
 
 export interface ShowcaseWork {
@@ -83,6 +85,7 @@ export const DEFAULT_SHOWCASE: ShowcaseConfig = {
   readingStyle: "shelf",
   sectionOrder: ["writing", "reading", "project"],
   selectedWorkIds: [],
+  featuredWorkIds: [],
 };
 
 export const SHOWCASE_LAYOUTS: ReadonlyArray<{ value: ShowcaseLayout; label: string }> = [

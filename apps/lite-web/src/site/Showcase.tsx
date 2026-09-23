@@ -50,6 +50,13 @@ export function selectedShowcaseWorks(works: ShowcaseWork[], selectedWorkIds: st
   });
 }
 
+export function featuredFirstShowcaseWorks(works: ShowcaseWork[], featuredWorkIds: string[] = []): ShowcaseWork[] {
+  const byId = new Map(works.map(work => [work.id, work]));
+  const featured = [...new Set(featuredWorkIds)].flatMap(id => byId.get(id) ? [byId.get(id)!] : []);
+  const used = new Set(featured.map(work => work.id));
+  return [...featured, ...works.filter(work => !used.has(work.id))];
+}
+
 function WorkTitle({ work, children }: { work: ShowcaseWork; children: ReactNode }) {
   const internalPath = work.kind === "project" ? undefined : safeShowcaseWorkPath(work.publicPath);
   const externalURL = work.kind === "project" ? safeShowcaseExternalURL(work.externalUrl) : undefined;
@@ -129,38 +136,59 @@ function CompactWork({ work, index }: { work: ShowcaseWork; index: number }) {
   );
 }
 
+function PortfolioTile({ work, index }: { work: ShowcaseWork; index: number }) {
+  return <article className="showcase-portfolio-tile" data-kind={work.kind}>
+    <div className="showcase-portfolio-tile-meta"><span>{SECTION_LABELS[work.kind]}</span><span>{String(index + 1).padStart(2, "0")}</span></div>
+    <div className="showcase-portfolio-tile-body"><h3><WorkTitle work={work}>{work.title}</WorkTitle></h3>{work.summary && <p>{work.summary}</p>}</div>
+    <time dateTime={safeShowcaseDate(work.date)}>{safeShowcaseDate(work.date) ? dateLabel(work.date) : ""}</time>
+  </article>;
+}
+
+function FilmPortfolio({ works }: { works: ShowcaseWork[] }) {
+  const track = useRef<HTMLDivElement>(null);
+  const move = (direction: -1 | 1) => track.current?.scrollBy({ left: direction * (track.current.clientWidth * .82), behavior: "smooth" });
+  return <div className="showcase-film">
+    <div className="showcase-film-heading"><span>精选放映 · {works.length} 件作品</span><div><button type="button" onClick={() => move(-1)} aria-label="上一张作品">←</button><button type="button" onClick={() => move(1)} aria-label="下一张作品">→</button></div></div>
+    <div ref={track} className="showcase-film-track" role="region" aria-label="胶片作品，可横向滚动" tabIndex={0}>
+      {works.map((work, index) => <div className="showcase-film-frame" key={work.id}><PortfolioTile work={work} index={index} /></div>)}
+    </div>
+  </div>;
+}
+
+function CalendarYear({ year, days }: ShowcaseCalendarYear) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const selected = days.find((day) => day.date === selectedDate);
+  return <section className="showcase-calendar-year" aria-labelledby={`showcase-calendar-${year}`}>
+    <h3 id={`showcase-calendar-${year}`}>{year}</h3>
+    <div className="showcase-calendar-scroll"><div className="showcase-calendar-grid" aria-label={`${year}年作品日历`}>
+      {days.map(({ date, works }) => works.length ? <button type="button" className="showcase-calendar-day" key={date} data-level={Math.min(works.length, 4)} aria-label={`${dateLabel(date)}，${works.length}项作品`} aria-pressed={selectedDate === date} onClick={() => setSelectedDate(current => current === date ? null : date)} /> : <span className="showcase-calendar-day" aria-hidden="true" key={date} data-level="0" />)}
+    </div></div>
+    {selected?.works.length ? <div className="showcase-calendar-selection"><time dateTime={selected.date}>{dateLabel(selected.date)}</time>{selected.works.map((work,index)=><CompactWork key={work.id} work={work} index={index}/>)}</div> : <p className="showcase-calendar-help">选择有颜色的日期，查看当天的作品。</p>}
+  </section>;
+}
+
 function Portfolio({ works, mode }: { works: ShowcaseWork[]; mode: Exclude<NonNullable<ShowcaseConfig["portfolioLayout"]>, "sections"> }) {
   const dated = works.filter((work) => safeShowcaseDate(work.date));
   const undated = works.filter((work) => !safeShowcaseDate(work.date));
   if (mode === "list") return <div className="showcase-portfolio-list">{works.map((work, index) => <CompactWork key={work.id} work={work} index={index} />)}</div>;
-  if (mode === "timeline") return <div className="showcase-timeline">{timelineShowcaseWorks(works).map((work, index) => <CompactWork key={work.id} work={work} index={index} />)}</div>;
+  if (mode === "flow") return <div className="showcase-flow">{works.map((work, index) => <PortfolioTile key={work.id} work={work} index={index} />)}</div>;
+  if (mode === "film") return <FilmPortfolio works={works} />;
+  if (mode === "timeline") return <div className="showcase-timeline">{timelineShowcaseWorks(works).map((work, index) => <article className="showcase-timeline-item" key={work.id}><time dateTime={safeShowcaseDate(work.date)}>{dateLabel(work.date)}</time><PortfolioTile work={work} index={index}/></article>)}</div>;
   if (mode === "planets") return (
     <div className="showcase-planets" role="list" aria-label="作品星球">
-      {works.map((work) => <article role="listitem" className="showcase-planet" key={work.id}><span aria-hidden>{SECTION_LABELS[work.kind]}</span><h3><WorkTitle work={work}>{work.title}</WorkTitle></h3>{work.summary && <p>{work.summary}</p>}</article>)}
+      {works.map((work,index) => <div role="listitem" className="showcase-planet" key={work.id}><PortfolioTile work={work} index={index}/></div>)}
     </div>
   );
   if (mode === "cloud") return (
     <div className="showcase-title-cloud" role="list" aria-label="作品云">
-      {works.map((work) => <article role="listitem" key={work.id}><span>{SECTION_LABELS[work.kind]}</span><h3><WorkTitle work={work}>{work.title}</WorkTitle></h3></article>)}
+      {works.map((work) => <article role="listitem" key={work.id} data-kind={work.kind}><span>{SECTION_LABELS[work.kind]}</span><h3><WorkTitle work={work}>{work.title}</WorkTitle></h3></article>)}
     </div>
   );
   const years = showcaseCalendarYears(dated);
   return (
     <div className="showcase-calendar">
       <div className="showcase-calendar-legend"><span>作品记录</span><i data-level="0" /><i data-level="1" /><i data-level="2" /><i data-level="3" /><i data-level="4" /></div>
-      {years.map(({ year, days }) => <section className="showcase-calendar-year" key={year} aria-labelledby={`showcase-calendar-${year}`}>
-        <h3 id={`showcase-calendar-${year}`}>{year}</h3>
-        <div className="showcase-calendar-scroll">
-          <div className="showcase-calendar-grid" role="list" aria-label={`${year}年作品日历`}>
-            {days.map(({ date, works: dayWorks }) => dayWorks.length ? (
-              <details className="showcase-calendar-day" role="listitem" key={date} data-level={Math.min(dayWorks.length, 4)}>
-                <summary aria-label={`${dateLabel(date)}，${dayWorks.length}项作品`}><span aria-hidden /></summary>
-                <div><time dateTime={date}>{dateLabel(date)}</time><ul>{dayWorks.map((work) => <li key={work.id}><WorkTitle work={work}>{work.title}</WorkTitle></li>)}</ul></div>
-              </details>
-            ) : <span className="showcase-calendar-day" aria-hidden="true" key={date} data-level="0" />)}
-          </div>
-        </div>
-      </section>)}
+      {years.map(({ year, days }) => <CalendarYear key={year} year={year} days={days}/>)}
       {undated.length > 0 && <div className="showcase-undated"><h3>未记录日期</h3>{undated.map((work, index) => <CompactWork key={work.id} work={work} index={index} />)}</div>}
     </div>
   );
@@ -173,6 +201,18 @@ function EmptySection({ kind }: { kind: ShowcaseKind }) {
       <p>公开作品将在这里显示。</p>
     </div>
   );
+}
+
+function FeaturedWorks({ works }: { works: ShowcaseWork[] }) {
+  if (!works.length) return null;
+  return <section className="showcase-featured" aria-labelledby="showcase-featured-title">
+    <div className="showcase-featured-heading"><p>重点作品</p><h2 id="showcase-featured-title">先看这些作品</h2></div>
+    <div className="showcase-featured-grid">{works.map((work,index)=><article className="showcase-featured-work" key={work.id}>
+      <div className="showcase-featured-meta"><span>{SECTION_LABELS[work.kind]} · {String(index+1).padStart(2,"0")}</span>{safeShowcaseDate(work.date)&&<time dateTime={work.date}>{dateLabel(work.date)}</time>}</div>
+      <h3><WorkTitle work={work}>{work.title}</WorkTitle></h3>
+      {work.summary&&<p>{work.summary}</p>}
+    </article>)}</div>
+  </section>;
 }
 
 function WorkSection({ kind, works, config, editing }: { kind: ShowcaseKind; works: ShowcaseWork[]; config: ShowcaseConfig; editing: boolean }) {
@@ -219,10 +259,13 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
   const aboutLayout = config.aboutLayout ?? "classic";
   const portfolioLayout = config.portfolioLayout ?? "sections";
   const selected = useMemo(() => {
-    const ordered = selectedShowcaseWorks(works, config.selectedWorkIds);
+    const ordered = featuredFirstShowcaseWorks(selectedShowcaseWorks(works, config.selectedWorkIds), config.featuredWorkIds);
     const limit = [3, 6, 9, 12].includes(config.homeWorkLimit ?? 6) ? (config.homeWorkLimit ?? 6) : 6;
     return ordered.slice(0, limit);
-  }, [config.homeWorkLimit, config.selectedWorkIds, works]);
+  }, [config.homeWorkLimit, config.selectedWorkIds, config.featuredWorkIds, works]);
+  const featuredIDs = new Set(config.featuredWorkIds ?? []);
+  const featuredWorks = selected.filter(work => featuredIDs.has(work.id));
+  const regularWorks = selected.filter(work => !featuredIDs.has(work.id));
 
   useEffect(() => {
     const node = rootRef.current;
@@ -272,12 +315,13 @@ export function Showcase({ config, works, narrow = false, editing = false, heroI
       <ShowcaseComponents components={config.components} placement="after-about" editing={editing} />
       <ShowcaseInterestTree interest={interestTree} />
       <main className="showcase-main">
-        {portfolioLayout === "sections" ? visibleOrder.map((kind) => <WorkSection key={kind} kind={kind} works={selected.filter((work) => work.kind === kind)} config={config} editing={editing} />) : (
+        <FeaturedWorks works={featuredWorks}/>
+        {portfolioLayout === "sections" ? visibleOrder.map((kind) => <WorkSection key={kind} kind={kind} works={regularWorks.filter((work) => work.kind === kind)} config={config} editing={editing && selected.length===0} />) : regularWorks.length || (editing && selected.length===0) ? (
           <section className="showcase-section showcase-portfolio" aria-labelledby="showcase-portfolio-title">
-            <div className="showcase-section-heading"><p>01</p><h2 id="showcase-portfolio-title">作品</h2><span>{selected.length ? `${selected.length} 项` : "待添加"}</span></div>
-            {selected.length ? <Portfolio works={selected} mode={portfolioLayout} /> : editing ? <EmptySection kind="project" /> : null}
+            <div className="showcase-section-heading"><p>01</p><h2 id="showcase-portfolio-title">作品</h2><span>{regularWorks.length ? `${regularWorks.length} 项` : "待添加"}</span></div>
+            {regularWorks.length ? <Portfolio works={regularWorks} mode={portfolioLayout} /> : editing ? <EmptySection kind="project" /> : null}
           </section>
-        )}
+        ) : null}
       </main>
       <ShowcaseComponents components={config.components} placement="after-works" editing={editing} />
       {allWorksHref && <nav className="showcase-all-works-nav" aria-label="作品集"><a href={allWorksHref}>查看全部作品 <span aria-hidden>→</span></a></nav>}

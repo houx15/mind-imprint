@@ -14,7 +14,7 @@ import { GUIDE_STEPS, ShowcaseDesignGuide } from "./ShowcaseDesignGuide";
 import { ShowcaseImagePicker } from "./ShowcaseImagePicker";
 import { SHOWCASE_PRESETS, SHOWCASE_ILLUSTRATIONS } from "../site/showcasePresets";
 import { SHOWCASE_THEMES, SHOWCASE_FONT_STACKS } from "../site/showcaseThemes";
-import type { ShowcaseConfig, ShowcaseWork } from "../site/showcaseTypes";
+import type { ShowcaseConfig, ShowcasePortfolioLayout, ShowcaseWork } from "../site/showcaseTypes";
 import "./showcaseEditor.css";
 import { parseShowcaseInterests } from "./showcaseDraft";
 
@@ -32,6 +32,16 @@ const palettes = [
   { id: "night", label: "夜空" },
   { id: "sunshine", label: "晴日" },
 ] as const;
+const portfolioChoices: {id:ShowcasePortfolioLayout;label:string;detail:string}[] = [
+  {id:"sections",label:"分类展厅",detail:"写作、阅读、项目各有自己的版块"},
+  {id:"flow",label:"流式画廊",detail:"大小错落的作品卡，适合内容丰富的主页"},
+  {id:"timeline",label:"成长时间轴",detail:"按完成日期阅读作品和变化"},
+  {id:"film",label:"胶片放映",detail:"横向翻阅几件精选作品"},
+  {id:"list",label:"清晰目录",detail:"以标题和简介为主，查找最方便"},
+  {id:"planets",label:"作品星系",detail:"每件作品是一颗独立的星球"},
+  {id:"cloud",label:"标题云",detail:"用大大小小的标题展现创作主题"},
+  {id:"calendar",label:"作品日历",detail:"按日期回看公开成果"},
+];
 
 function selectedWorkOrder(config: ShowcaseConfig, work: ShowcaseWork) {
   return config.selectedWorkIds.indexOf(work.id);
@@ -143,8 +153,9 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
 
             <div className="showcase-heading"><h2>管理公开作品</h2><p>选择要放进主页的写作和阅读报告，调整展示形式。报告的公开状态可在对应的报告页面修改。</p></div>
             <label className="showcase-field">首页展示数量<select value={draft.homeWorkLimit??6} onChange={e=>patch({homeWorkLimit:Number(e.target.value)})}>{[3,6,9,12].map(n=><option key={n} value={n}>{n} 件</option>)}</select><small>勾选的全部作品可在“全部作品”页查看。</small></label>
-            <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>patch({customWorks,selectedWorkIds:draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id))})}/>
-            <div className="showcase-field-group"><h3>作品呈现</h3><div className="showcase-mode-options">{([["sections","分类展示"],["timeline","时间轴"],["planets","星球"],["cloud","词云"],["calendar","作品日历"],["list","列表"]] as const).map(([id,label])=><button key={id} aria-pressed={(draft.portfolioLayout??"sections")===id} onClick={()=>patch({portfolioLayout:id})}>{label}</button>)}</div><p className="showcase-mode-help">时间轴与日历使用作品的完成日期。没有日期的作品单独列出。</p></div>
+            <ShowcaseLinkEditor items={draft.customWorks??[]} onChange={customWorks=>{const selectedWorkIds=draft.selectedWorkIds.filter(id=>!id.startsWith("external:")||customWorks.some(work=>`external:${work.id}`===id));patch({customWorks,selectedWorkIds,featuredWorkIds:(draft.featuredWorkIds??[]).filter(id=>selectedWorkIds.includes(id))});}}/>
+            <div className="showcase-field-group"><h3>作品呈现</h3><p className="showcase-mode-help">先选一种展示方式，在主页制作页预览。时间轴和日历使用作品的完成日期。</p><div className="showcase-portfolio-choices">{portfolioChoices.map(choice=><button type="button" key={choice.id} aria-pressed={(draft.portfolioLayout??"sections")===choice.id} onClick={()=>patch({portfolioLayout:choice.id})}><span className="showcase-portfolio-choice-art" data-mode={choice.id} aria-hidden="true"><i/><i/><i/></span><strong>{choice.label}</strong><small>{choice.detail}</small></button>)}</div></div>
+            <div className="showcase-featured-editor"><div><h3>重点作品</h3><span>{(draft.featuredWorkIds??[]).length} / 2</span></div><p>可从已选作品中指定最多两件，放在作品区开头详细介绍。保持空白就是纯粹的列表或画廊。</p>{(draft.featuredWorkIds??[]).length>0&&<button type="button" onClick={()=>patch({featuredWorkIds:[]})}>取消全部重点作品</button>}</div>
             {(draft.portfolioLayout??"sections")==="sections" && <><div className="showcase-field-group"><h3>写作展示</h3><div className="showcase-segments">{([["cards","文章卡片"],["list","文章列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.writingStyle===id} onClick={()=>patch({writingStyle:id})}>{label}</button>)}</div></div><div className="showcase-field-group"><h3>阅读展示</h3><div className="showcase-segments">{([["shelf","阅读书架"],["list","阅读列表"]] as const).map(([id,label])=><button key={id} aria-pressed={draft.readingStyle===id} onClick={()=>patch({readingStyle:id})}>{label}</button>)}</div></div></>}
             {unavailableIds.length > 0 && <div className="showcase-editor-empty"><p>{unavailableIds.length} 件已选作品已停止发布或暂不可用，不会在主页展示。</p><button className="underline mt-2" onClick={() => patch({selectedWorkIds: draft.selectedWorkIds.filter(id => !unavailableIds.includes(id))})}>移除不可用作品</button></div>}
             {draft.sectionOrder.map((kind, index) => {
@@ -156,7 +167,8 @@ export function MySitePage({managerMode=false}:{managerMode?:boolean}) {
               return <section className="showcase-work-group" key={kind}><header><h3>{sections[kind]}</h3><span>版块顺序</span><button aria-label={`上移${sections[kind]}版块`} disabled={index === 0} onClick={() => moveSection(index, -1)}><ArrowUp size={15} /></button><button aria-label={`下移${sections[kind]}版块`} disabled={index === draft.sectionOrder.length - 1} onClick={() => moveSection(index, 1)}><ArrowDown size={15} /></button></header>
                 {works.length === 0 ? <p className="showcase-editor-empty">{kind === "project" ? "完成项目后，可在这里选择展示。" : `发布${kind === "writing" ? "文章" : "阅读成果"}后，可在这里选择展示。`}</p> : works.map(work => {
                   const checked = draft.selectedWorkIds.includes(work.id);
-                  return <div className="showcase-work-option" key={work.id}><div className="showcase-work-copy"><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id] })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{work.managePath&&<button type="button" className="showcase-manage-report" onClick={()=>navigate(work.managePath!)}>在报告页管理公开状态</button>}</div>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
+                  const featured=(draft.featuredWorkIds??[]).includes(work.id);
+                  return <div className="showcase-work-option" key={work.id}><div className="showcase-work-copy"><label><input type="checkbox" checked={checked} onChange={() => patch({ selectedWorkIds: checked ? draft.selectedWorkIds.filter(id => id !== work.id) : [...draft.selectedWorkIds, work.id], featuredWorkIds: checked ? (draft.featuredWorkIds??[]).filter(id=>id!==work.id) : (draft.featuredWorkIds??[]) })} /><span><strong>{work.title}</strong>{work.summary && <small>{work.summary}</small>}</span></label>{checked&&<button type="button" className="showcase-featured-toggle" aria-pressed={featured} disabled={!featured&&(draft.featuredWorkIds??[]).length>=2} onClick={()=>patch({featuredWorkIds:featured?(draft.featuredWorkIds??[]).filter(id=>id!==work.id):[...(draft.featuredWorkIds??[]),work.id]})}>{featured?"★ 已设为重点":"☆ 设为重点"}</button>}{work.managePath&&<button type="button" className="showcase-manage-report" onClick={()=>navigate(work.managePath!)}>在报告页管理公开状态</button>}</div>{checked && <div className="showcase-work-order"><button aria-label={`上移作品 ${work.title}`} disabled={selected[0]?.id === work.id} onClick={() => moveWork(work.id, -1, kind)}><ArrowUp size={13} /></button><button aria-label={`下移作品 ${work.title}`} disabled={selected[selected.length - 1]?.id === work.id} onClick={() => moveWork(work.id, 1, kind)}><ArrowDown size={13} /></button></div>}</div>;
                 })}</section>;
             })}
   </>;

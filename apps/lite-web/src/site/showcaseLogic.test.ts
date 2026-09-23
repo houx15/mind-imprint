@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeShowcaseDate, safeShowcaseExternalURL, safeShowcaseWorkPath, selectedShowcaseWorks, showcaseCalendarYears, timelineShowcaseWorks } from "./Showcase";
+import { featuredFirstShowcaseWorks, safeShowcaseDate, safeShowcaseExternalURL, safeShowcaseWorkPath, selectedShowcaseWorks, showcaseCalendarYears, timelineShowcaseWorks } from "./Showcase";
 import { SHOWCASE_ILLUSTRATIONS, SHOWCASE_PRESETS } from "./showcasePresets";
 import type { ShowcaseWork } from "./showcaseTypes";
 
@@ -12,6 +12,12 @@ describe("showcase publication boundaries", () => {
     ];
     expect(selectedShowcaseWorks(works, ["c", "a", "missing", "c"]).map((work) => work.id)).toEqual(["c", "a"]);
     expect(selectedShowcaseWorks(works, [])).toEqual([]);
+  });
+
+  it("brings valid focus works into the homepage limit without duplicating them", () => {
+    const works: ShowcaseWork[] = ["a", "b", "c", "d"].map(id => ({ id, kind: "writing", title: id, summary: "" }));
+    expect(featuredFirstShowcaseWorks(works, ["d", "d", "missing"]).slice(0, 3).map(work => work.id)).toEqual(["d", "a", "b"]);
+    expect(featuredFirstShowcaseWorks(works, []).map(work => work.id)).toEqual(["a", "b", "c", "d"]);
   });
 
   it("accepts only a local single-token shared-work route", () => {
@@ -64,7 +70,7 @@ describe("showcase publication boundaries", () => {
 
 describe("showcase visual presets", () => {
   it("change only visual fields and reference known public CDN illustrations", () => {
-    const protectedFields = ["name", "bio", "tagline", "heroTitle", "interests", "selectedWorkIds", "sectionOrder", "avatarKey", "heroImageKey"];
+    const protectedFields = ["name", "bio", "tagline", "heroTitle", "interests", "selectedWorkIds", "featuredWorkIds", "sectionOrder", "avatarKey", "heroImageKey"];
     const illustrationIds = new Set(SHOWCASE_ILLUSTRATIONS.map((item) => item.id));
     expect(SHOWCASE_PRESETS).toHaveLength(5);
     for (const preset of SHOWCASE_PRESETS) {

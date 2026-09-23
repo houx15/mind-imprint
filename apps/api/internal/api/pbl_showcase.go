@@ -51,6 +51,7 @@ type showcaseConfig struct {
 	ReadingStyle      string                `json:"readingStyle"`
 	SectionOrder      []string              `json:"sectionOrder"`
 	SelectedWorkIDs   []string              `json:"selectedWorkIds"`
+	FeaturedWorkIDs   []string              `json:"featuredWorkIds,omitempty"`
 	InterestTreeMode  string                `json:"interestTreeMode,omitempty"`
 	AboutConversation []showcaseChatMessage `json:"aboutConversation,omitempty"`
 	GuideConversation []showcaseChatMessage `json:"guideConversation,omitempty"`
@@ -130,7 +131,7 @@ type showcaseState struct {
 }
 
 func defaultShowcase(name string) showcaseConfig {
-	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", AboutLayout: "classic", PortfolioLayout: "sections", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}, InterestTreeMode: "none", AboutConversation: []showcaseChatMessage{}, HomeWorkLimit: 6, CustomWorks: []showcaseCustomWork{}, Components: []showcaseComponent{}}
+	return showcaseConfig{Name: strings.TrimSpace(name), Interests: []string{}, Layout: "folio", Palette: "paper", Font: "sans", Style: "classic", Illustration: "none", AboutLayout: "classic", PortfolioLayout: "sections", WritingStyle: "cards", ReadingStyle: "shelf", SectionOrder: []string{"writing", "reading", "project"}, SelectedWorkIDs: []string{}, FeaturedWorkIDs: []string{}, InterestTreeMode: "none", AboutConversation: []showcaseChatMessage{}, HomeWorkLimit: 6, CustomWorks: []showcaseCustomWork{}, Components: []showcaseComponent{}}
 }
 
 func oneOf(v string, allowed ...string) bool {
@@ -177,7 +178,7 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	if len([]rune(c.Name)) > 80 || len([]rune(c.Tagline)) > 200 || len([]rune(c.Bio)) > 2000 || len([]rune(c.HeroTitle)) > 200 || len([]rune(c.HeroImagePrompt)) > 2000 || len([]rune(c.AvatarImagePrompt)) > 2000 || len([]rune(c.ComponentPrompt)) > 1000 {
 		return c, errors.New("主页文字超过长度限制")
 	}
-	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
+	if !oneOf(c.Layout, "folio", "journal", "studio") || !oneOf(c.Palette, "paper", "forest", "ocean", "rose", "night", "sunshine") || !oneOf(c.Font, "sans", "serif", "mono", "rounded", "handwritten", "display") || !oneOf(c.Style, "classic", "cute", "dark", "anime", "mecha", "minimal") || !oneOf(c.Illustration, "none", "clouds", "moon", "sky", "robot") || !oneOf(c.AboutLayout, "classic", "orbit") || !oneOf(c.PortfolioLayout, "sections", "flow", "timeline", "film", "planets", "cloud", "calendar", "list") || !oneOf(c.WritingStyle, "cards", "list") || !oneOf(c.ReadingStyle, "shelf", "list") {
 		return c, errors.New("展示样式无效")
 	}
 	if !oneOf(c.InterestTreeMode, "none", "tree", "keywords") {
@@ -260,6 +261,18 @@ func normalizeShowcase(c showcaseConfig) (showcaseConfig, error) {
 	}
 	if c.SelectedWorkIDs, ok = clean(c.SelectedWorkIDs, 500, 80); !ok {
 		return c, errors.New("作品选择无效")
+	}
+	if c.FeaturedWorkIDs, ok = clean(c.FeaturedWorkIDs, 2, 80); !ok {
+		return c, errors.New("重点作品无效")
+	}
+	selectedIDs := make(map[string]bool, len(c.SelectedWorkIDs))
+	for _, id := range c.SelectedWorkIDs {
+		selectedIDs[id] = true
+	}
+	for _, id := range c.FeaturedWorkIDs {
+		if !selectedIDs[id] {
+			return c, errors.New("重点作品必须已选入主页")
+		}
 	}
 	for _, id := range c.SelectedWorkIDs {
 		if strings.HasPrefix(id, "external:") && !customIDs[strings.TrimPrefix(id, "external:")] {
@@ -359,6 +372,7 @@ func decodeShowcase(raw []byte, fallback string) showcaseConfig {
 	c.Interests = showcaseNonNil(c.Interests)
 	c.SectionOrder = showcaseNonNil(c.SectionOrder)
 	c.SelectedWorkIDs = showcaseNonNil(c.SelectedWorkIDs)
+	c.FeaturedWorkIDs = showcaseNonNil(c.FeaturedWorkIDs)
 	if c.AboutConversation == nil {
 		c.AboutConversation = []showcaseChatMessage{}
 	}
@@ -396,6 +410,7 @@ func redactShowcaseForPublic(c showcaseConfig) showcaseConfig {
 
 func showcaseSemanticConfig(c showcaseConfig) showcaseConfig {
 	c.HeroImagePrompt, c.AvatarImagePrompt, c.ComponentPrompt, c.AboutConversation, c.GuideConversation = "", "", "", nil, nil
+	c.FeaturedWorkIDs = showcaseNonNil(c.FeaturedWorkIDs)
 	enabled := make([]showcaseComponent, 0, len(c.Components))
 	for _, x := range c.Components {
 		if x.Enabled {
@@ -728,6 +743,25 @@ func (a *API) publishPblShowcase(w http.ResponseWriter, r *http.Request) {
 		selected = append(selected, work)
 	}
 	allSelected := append([]showcaseWork(nil), selected...)
+	if len(c.FeaturedWorkIDs) > 0 {
+		featured := make(map[string]bool, len(c.FeaturedWorkIDs))
+		ordered := make([]showcaseWork, 0, len(selected))
+		for _, id := range c.FeaturedWorkIDs {
+			for _, work := range selected {
+				if work.ID == id {
+					ordered = append(ordered, work)
+					featured[id] = true
+					break
+				}
+			}
+		}
+		for _, work := range selected {
+			if !featured[work.ID] {
+				ordered = append(ordered, work)
+			}
+		}
+		selected = ordered
+	}
 	if len(selected) > c.HomeWorkLimit {
 		selected = selected[:c.HomeWorkLimit]
 	}
@@ -904,6 +938,17 @@ func (a *API) publicShowcase(r *http.Request, userID uuid.UUID) (*showcaseConfig
 		}
 	}
 	c.SelectedWorkIDs = visibleIDs
+	visible := make(map[string]bool, len(visibleIDs))
+	for _, id := range visibleIDs {
+		visible[id] = true
+	}
+	featuredIDs := make([]string, 0, len(c.FeaturedWorkIDs))
+	for _, id := range c.FeaturedWorkIDs {
+		if visible[id] {
+			featuredIDs = append(featuredIDs, id)
+		}
+	}
+	c.FeaturedWorkIDs = featuredIDs
 	allVisible, err := a.visiblePublishedWorks(r, userID, publication)
 	if err != nil {
 		return nil, nil, nil, 0, err

@@ -134,7 +134,7 @@ func parseShowcaseGuideReply(raw, stage string) (showcaseGuideReply, error) {
 		p.Font != "" && !oneOf(p.Font, "sans", "serif", "mono") ||
 		p.AboutLayout != "" && !oneOf(p.AboutLayout, "classic", "orbit") ||
 		p.InterestTreeMode != "" && !oneOf(p.InterestTreeMode, "none", "tree", "keywords") ||
-		p.PortfolioLayout != "" && !oneOf(p.PortfolioLayout, "sections", "timeline", "planets", "cloud", "calendar", "list") ||
+		p.PortfolioLayout != "" && !oneOf(p.PortfolioLayout, "sections", "flow", "timeline", "film", "planets", "cloud", "calendar", "list") ||
 		p.WritingStyle != "" && !oneOf(p.WritingStyle, "cards", "list") ||
 		p.ReadingStyle != "" && !oneOf(p.ReadingStyle, "shelf", "list") ||
 		p.HomeWorkLimit != 0 && p.HomeWorkLimit != 3 && p.HomeWorkLimit != 6 && p.HomeWorkLimit != 9 && p.HomeWorkLimit != 12 {

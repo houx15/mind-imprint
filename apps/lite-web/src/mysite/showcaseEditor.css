@@ -232,3 +232,37 @@
 .showcase-works-content { flex:1; min-height:0; overflow-y:auto; background:var(--mk-surface); }
 .showcase-works-content .showcase-fields { max-width:760px; margin:0 auto; padding:28px 32px 80px; overflow:visible; }
 @media (max-width:700px) { .showcase-works-content .showcase-fields { padding:20px 18px 70px; } }
+.showcase-portfolio-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.showcase-portfolio-choices button { background:var(--mk-paper); border:1px solid var(--mk-line); border-radius:14px; display:flex; flex-direction:column; min-width:0; padding:10px; text-align:left; }
+.showcase-portfolio-choices button[aria-pressed=true] { border-color:var(--mk-accent-500); box-shadow:0 0 0 1px var(--mk-accent-500); }
+.showcase-portfolio-choices strong { font-size:13px; margin:11px 4px 2px; }
+.showcase-portfolio-choices small { color:var(--mk-muted); font-size:11px; line-height:1.55; margin:0 4px 5px; }
+.showcase-portfolio-choice-art { background:#f3efe6; border-radius:8px; display:grid; gap:5px; grid-template-columns:repeat(3,1fr); height:85px; overflow:hidden; padding:13px; width:100%; }
+.showcase-portfolio-choice-art i { background:#d8d0bf; display:block; }
+.showcase-portfolio-choice-art[data-mode=sections] { grid-template-rows:repeat(3,1fr); }
+.showcase-portfolio-choice-art[data-mode=sections] i { grid-column:1/-1; }
+.showcase-portfolio-choice-art[data-mode=flow] { grid-template-columns:1.4fr 1fr; }
+.showcase-portfolio-choice-art[data-mode=flow] i:first-child { grid-row:span 2; background:#b8c9be; }
+.showcase-portfolio-choice-art[data-mode=timeline] { display:flex; flex-direction:column; border-left:2px solid #8b9f91; margin-left:5px; width:calc(100% - 5px); }
+.showcase-portfolio-choice-art[data-mode=timeline] i { height:12px; margin-left:14px; }
+.showcase-portfolio-choice-art[data-mode=film] { align-items:center; background:#293433; display:flex; overflow:hidden; }
+.showcase-portfolio-choice-art[data-mode=film] i { background:#e8e1d3; flex:0 0 55%; height:52px; }
+.showcase-portfolio-choice-art[data-mode=list] { display:flex; flex-direction:column; }
+.showcase-portfolio-choice-art[data-mode=list] i { height:11px; }
+.showcase-portfolio-choice-art[data-mode=planets] { align-items:center; background:#e6eee9; display:flex; justify-content:space-around; }
+.showcase-portfolio-choice-art[data-mode=planets] i { border-radius:50%; height:28px; width:28px; }
+.showcase-portfolio-choice-art[data-mode=planets] i:nth-child(2) { height:43px; width:43px; background:#a9bdb1; }
+.showcase-portfolio-choice-art[data-mode=cloud] { align-items:center; display:flex; justify-content:center; }
+.showcase-portfolio-choice-art[data-mode=cloud] i { border-radius:20px; height:15px; width:30%; }
+.showcase-portfolio-choice-art[data-mode=cloud] i:nth-child(2) { height:26px; width:44%; }
+.showcase-portfolio-choice-art[data-mode=calendar] { grid-template-columns:repeat(7,1fr); gap:4px; }
+.showcase-portfolio-choice-art[data-mode=calendar] i { box-shadow:12px 0 #d8d0bf,24px 0 #b8c9be,36px 0 #d8d0bf,48px 0 #d8d0bf; height:10px; }
+.showcase-featured-editor { background:var(--mk-paper); border:1px solid var(--mk-line); border-radius:12px; margin:24px 0; padding:16px; }
+.showcase-featured-editor > div { align-items:center; display:flex; justify-content:space-between; }
+.showcase-featured-editor h3 { font-size:13px; font-weight:650; }
+.showcase-featured-editor span,.showcase-featured-editor p { color:var(--mk-muted); font-size:11px; }
+.showcase-featured-editor p { line-height:1.7; margin:9px 0 0; }
+.showcase-featured-editor > button { border:0; color:var(--mk-accent-500); font-size:11px; margin-top:12px; padding:0; }
+.showcase-work-option button.showcase-featured-toggle { border:0; color:var(--mk-muted); font-size:11px; margin:8px 0 0 26px; padding:2px 0; }
+.showcase-work-option button.showcase-featured-toggle[aria-pressed=true] { color:var(--mk-accent-500); font-weight:650; }
+@media(max-width:520px) { .showcase-portfolio-choices { grid-template-columns:1fr 1fr; gap:8px; } .showcase-portfolio-choices button { padding:7px; } .showcase-portfolio-choice-art { height:67px; } }
