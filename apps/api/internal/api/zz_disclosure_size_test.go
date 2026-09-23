@@ -46,7 +46,7 @@ func TestDisclosurePromptSize(t *testing.T) {
 	narrowed := buildReadingCoachPrompt("测试文章", blocks, readingOutline{Parts: parts},
 		tasks, nil, nil, student, nil, "")
 
-	sys := len([]rune(buildReadingCoachSystem(readingLangOf(article))))
+	sys := len([]rune(buildReadingCoachSystem(readingLangOf(article), "")))
 	f, n := len([]rune(full)), len([]rune(narrowed))
 	fmt.Printf("\n  article            %6d runes (9 paragraphs)\n", len([]rune(article)))
 	fmt.Printf("  system             %6d runes\n", sys)

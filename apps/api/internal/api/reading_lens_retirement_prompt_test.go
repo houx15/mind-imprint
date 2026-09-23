@@ -12,7 +12,7 @@ import (
 // wire field is intentional: stored replies and clients still use its schema.
 func TestReadingRequestDoesNotOfferRetiredLenses(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		system := buildReadingCoachSystem(lang)
+		system := buildReadingCoachSystem(lang, "")
 		user := buildReadingCoachPrompt("文章", []Block{{ID: "b1", Text: "正文。"}}, readingOutline{}, []sqlc.ReadingTask{{ID: fixtureTaskID(1), Kind: "critique", Label: "评价文章", Status: "pending"}}, nil, nil, "", nil, "")
 		request := system + user
 		for _, id := range agent.ReadingDeckIDs {

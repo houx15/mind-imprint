@@ -137,7 +137,7 @@ func (d *LongReadWalkDriver) Site() string {
 func (d *LongReadWalkDriver) Request() gateway.ChatRequest {
 	return gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(d.lang)},
+			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(d.lang, "")},
 			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(
 				d.title, d.blocks, d.outline, d.tasks, d.msgs, nil, d.student, nil, "")},
 		},

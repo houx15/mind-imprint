@@ -362,7 +362,10 @@ func (a *API) listReadingBlockTools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := readingLangOf(src.Body)
-	tools := readingBlockToolsFor(lang)
+	// 🚨 按体裁收窄：文言文那两件（字词释义 / 句法）和诗词那一件（意象）
+	// 不该出现在一篇现代散文的工具条上。体裁在排读法那一次就判好了，
+	// 存在导读里。
+	tools := readingBlockToolsFor(lang, decodeOutline(src.Outline).Genre)
 	out := make([]map[string]string, 0, len(tools))
 	for _, t := range tools {
 		// subject 要发出去：界面凭它决定「点这件工具之后先请学生点一句，还是

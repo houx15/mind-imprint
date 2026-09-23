@@ -274,7 +274,7 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 // buildReadingCoachSystem runs, for both languages.
 func TestBuildReadingCoachSystem_NoPlaceholderSurvives(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
-		system := buildReadingCoachSystem(lang)
+		system := buildReadingCoachSystem(lang, "")
 		if strings.Contains(system, "%LENS%") {
 			t.Errorf("lang=%s: %%LENS%% placeholder survived assembly", lang)
 		}

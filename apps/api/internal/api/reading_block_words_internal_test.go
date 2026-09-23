@@ -149,13 +149,26 @@ func TestBuildReadingBlockPromptScopesToOneSentence(t *testing.T) {
 	}
 }
 
-// 按句子讲的只有语法那一件。别的工具带上 subject 会让同一段缓存出好几份
-// 一模一样的讲解 —— 而且「关键单词」按句子挑词根本讲不通。
-func TestOnlyGrammarTeachesOneSentence(t *testing.T) {
+// 按句子讲的工具是**闭表**，而且判据是一句话：**换一句话，它讲的东西会不会变。**
+//
+// 会变的才按句子讲；不变的带上 subject 只会让同一段缓存出好几份一模一样的
+// 讲解。「关键单词」按句子挑词根本讲不通，所以它按整段。
+//
+// 🚨 2026-09-23 从「只有 grammar」扩成三件。新加的两件是文言文专用的
+// （字词释义 / 句法），而它们和 grammar 是同一个形状：她卡在哪一句，就讲哪
+// 一句 —— 换一句，要讲的通假字和句式整个不一样。
+// 判据从「只能是 grammar」改成这张闭表加上面那条理由，是因为原来那一版钉的
+// 是**名单**，而名单本身说不出为什么。
+func TestOnlyPerSentenceToolsTeachOneSentence(t *testing.T) {
+	perSentence := map[string]bool{
+		"grammar":          true, // 英文：这一句的句法、词法、时态
+		"classical_words":  true, // 文言文：这一句里的通假、古今异义、专名、典故
+		"classical_syntax": true, // 文言文：这一句的判断句 / 宾语前置 / 被动 / 省略
+	}
 	for _, tool := range append(append([]readingBlockTool{}, readingBlockTools...), readingWritingTools...) {
-		wantSentence := tool.ID == "grammar"
-		if (tool.Subject == "sentence") != wantSentence {
-			t.Errorf("%s 的 subject = %q，按句子讲的应该只有 grammar", tool.ID, tool.Subject)
+		if (tool.Subject == "sentence") != perSentence[tool.ID] {
+			t.Errorf("%s 的 subject = %q —— 按句子讲的工具见这条测试里那张闭表，"+
+				"加一件要同时说清楚「换一句话它讲的东西会不会变」", tool.ID, tool.Subject)
 		}
 	}
 }

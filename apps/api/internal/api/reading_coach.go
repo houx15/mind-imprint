@@ -1236,7 +1236,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lang := readingLangOf(src.Body)
-	system := buildReadingCoachSystem(lang)
+	// 🚨 体裁也传给工具菜单：菜单里列出一件这一篇上根本发不出去的工具
+	// （文言文的字词释义出现在一篇现代散文上），印记会把它推荐给她，
+	// 而她点开之后什么都没有。
+	system := buildReadingCoachSystem(lang, decodeOutline(src.Outline).Genre)
 	chatReq := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

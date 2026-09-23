@@ -33,7 +33,7 @@ func TestLiveToolAnswerFeedback(t *testing.T) {
 		{"想一想 · 第4段：这个数字由平台自己提供，这对它的可信度有什么影响？",
 			"我觉得不太可信，因为平台自己说自己好，就像考试自己给自己打分。"},
 	}
-	system := buildReadingCoachSystem("zh")
+	system := buildReadingCoachSystem("zh", "")
 	for i := 0; i < 6; i++ {
 		c := cases[i%2]
 		content := composeCardAnswerMessage(c.prompt, "", c.hers, blocks...)

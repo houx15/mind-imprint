@@ -156,6 +156,16 @@ const (
 	genreNarrative = "narrative" // 记叙：一件事按时间讲下来
 	genreExplain   = "explain"   // 说明：讲清楚一样东西是怎么回事
 
+	// —— 2026-09-23 加的两种，只在中文那边 ——
+	//
+	// 产品负责人：「since we will face reading poems/文言文 in chinese reading
+	// …… these are very important scene in junior study.」
+	//
+	// 在这之前这两种都会落到上面四种里的某一个：一首绝句被当成「记叙」按时间
+	// 排事件，一篇《陋室铭》被当成「说明」去找说明对象。两种都不是它们。
+	genrePoem      = "poem"      // 诗歌：古诗、词、曲
+	genreClassical = "classical" // 文言文：古文、史传、寓言
+
 	// 🚨 书信只在**写作面**用得上，阅读那张闭表不收它。
 	//
 	// 2026-09-23 产品负责人：「书信 is a very important format in junior
@@ -180,6 +190,10 @@ func validateGenre(s string) string {
 		return genreNarrative
 	case genreExplain:
 		return genreExplain
+	case genrePoem:
+		return genrePoem
+	case genreClassical:
+		return genreClassical
 	}
 	return ""
 }

@@ -65,7 +65,7 @@ const (
 // 这一节整个不显示，而不是一个空框。
 func buildReportToolkit(lang string, notes []sqlc.ReadingBlockNote, msgs []sqlc.AtomMessage) *reportToolkit {
 	labels := map[string]string{}
-	for _, t := range readingBlockToolsFor(lang) {
+	for _, t := range readingBlockToolsAll() {
 		labels[t.ID] = t.Label
 	}
 
@@ -83,7 +83,7 @@ func buildReportToolkit(lang string, notes []sqlc.ReadingBlockNote, msgs []sqlc.
 		}
 		blocksByTool[n.Tool][n.BlockID] = true
 	}
-	for _, t := range readingBlockToolsFor(lang) {
+	for _, t := range readingBlockToolsAll() {
 		if bs := blocksByTool[t.ID]; len(bs) > 0 {
 			out.Tools = append(out.Tools, reportToolUse{Label: t.Label, Blocks: len(bs)})
 		}

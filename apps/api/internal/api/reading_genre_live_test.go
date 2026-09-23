@@ -178,7 +178,7 @@ func TestLiveGenreBoardsAndCards(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		res, err := gateway.Collect(ctx, prov, r, gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("en")},
+				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("en", "")},
 				{Role: gateway.RoleUser, Content: prompt},
 			},
 		})

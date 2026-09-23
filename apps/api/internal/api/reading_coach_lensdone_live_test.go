@@ -118,7 +118,7 @@ func TestLiveLensDoneReplyParses(t *testing.T) {
 	// the one whose 「advance: done」 the new rules ask for.
 	tasks := liveLensDoneTasks()
 
-	system := buildReadingCoachSystem("zh")
+	system := buildReadingCoachSystem("zh", "")
 	prompt := buildReadingCoachPrompt("一份外卖的配送费，到底付给了谁？", blocks, readingOutline{}, tasks, nil, nil, "", done, "")
 
 	truncated, firstPass := 0, 0

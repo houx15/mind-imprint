@@ -75,6 +75,10 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotCoach, rd("report"), prompts.ReadingCoachGenreReport)
 	r.Add(SlotCoach, rd("explain"), prompts.ReadingCoachGenreExplain)
 	r.Add(SlotCoach, rd("narrative"), prompts.ReadingCoachGenreNarrative)
+	// 2026-09-23。产品负责人：「since we will face reading poems/文言文 in
+	// chinese reading…… these are very important scene in junior study.」
+	r.Add(SlotCoach, rd("poem"), prompts.ReadingCoachGenrePoem)
+	r.Add(SlotCoach, rd("classical"), prompts.ReadingCoachGenreClassical)
 
 	return r
 })

@@ -39,7 +39,7 @@ func TestClarityTeacherReading(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			blocks := SplitBlocks(benchReadingArticle)
 			tasks := []sqlc.ReadingTask{{ID: fixtureTaskID(1), Position: 1, Kind: c.kind, Label: c.label, BlockID: "b2", Status: "pending"}}
-			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh")}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, nil, nil, c.input, nil, "")}}}
+			req := gateway.ChatRequest{Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh", "")}, {Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型", blocks, readingOutline{}, tasks, nil, nil, c.input, nil, "")}}}
 			claritytest.Run(t, gateway.ClassDialogue, req, func(raw string) error {
 				out, ok := parseReadingCoachReply(raw, blocks, "zh", func(string) bool { return true })
 				if !ok {

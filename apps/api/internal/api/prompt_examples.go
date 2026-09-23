@@ -36,7 +36,7 @@ func PromptAssemblyExamples() []PromptExample {
 		tasks := []sqlc.ReadingTask{{Kind: "focus_block", Label: "比较两个指标", Status: "pending", BlockID: "b1"}}
 		doc := renderReadingCoachPrompt(selectReadingCoachContext("能源指标", blocks, readingOutline{}, tasks, nil, nil, c.text, c.done, c.open))
 		out = append(out, PromptExample{ID: c.id, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh")}, {Role: gateway.RoleUser, Content: doc.Text},
+			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh", "")}, {Role: gateway.RoleUser, Content: doc.Text},
 		}}, Documents: map[int]promptassembly.Document{1: doc}})
 	}
 	// 🚨 2026-09-23 加上 genreLetter。AGENTS.md 第 6 条：新开一条分支不进基线，

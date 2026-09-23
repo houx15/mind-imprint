@@ -83,7 +83,7 @@ func readingCoachCase() benchcase.Case {
 		Site:    "postReadingCoachTurn (POST /readings/{id}/coach)",
 		Request: gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang)},
+				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang, "")},
 				{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(
 					"中国的能源转型：投入与结果", blocks, readingOutline{}, tasks, msgs, picks, student, nil, "")},
 			},
@@ -143,7 +143,7 @@ func readingCoachSuiteCases() []benchcase.Case {
 			Suite: liteReadingCoachSuite, Version: version, ID: id, Class: gateway.ClassDialogue,
 			Site: "postReadingCoachTurn (POST /readings/{id}/coach)",
 			Request: gateway.ChatRequest{Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang)},
+				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang, "")},
 				{Role: gateway.RoleUser, Content: buildReadingCoachPrompt("中国的能源转型：投入与结果", blocks, readingOutline{}, tasks, nil, picks, student, nil, "")},
 			}},
 			Parse: readingBenchParse(blocks, lang),

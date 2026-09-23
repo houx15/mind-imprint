@@ -504,9 +504,11 @@ func readingNextStepHandoff(tasks []sqlc.ReadingTask, current *sqlc.ReadingTask)
 // into the coach's own prompt, from the same table the explain endpoint
 // validates against — so an id the coach names is always an id the endpoint
 // will accept.
-func readingCoachToolMenu(lang string) string {
+func readingCoachToolMenu(lang string, genre string) string {
 	var b strings.Builder
-	for _, t := range readingBlockToolsFor(lang) {
+	// 🚨 体裁也要传：菜单里列出一件这一篇上根本发不出去的工具，
+	// 印记会把它推荐给她，而她点开之后什么都没有。
+	for _, t := range readingBlockToolsFor(lang, genre) {
 		b.WriteString("- tool=" + t.ID + " · " + t.Label + "\n")
 	}
 	return b.String()
@@ -515,6 +517,7 @@ func readingCoachToolMenu(lang string) string {
 // buildReadingCoachSystem includes only tools available in the current reading
 // flow. Retired lens data is handled by conditional legacy context, never by a
 // catalog that invites the model to create new lens activities.
-func buildReadingCoachSystem(lang string) string {
-	return strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
+// genre 传空串 = 不按体裁收窄（走查和基准用例那几条没有导读可读）。
+func buildReadingCoachSystem(lang string, genre string) string {
+	return strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang, genre), 1)
 }

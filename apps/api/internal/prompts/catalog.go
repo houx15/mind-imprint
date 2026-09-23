@@ -28,6 +28,10 @@ func Catalog() []Definition {
 		{ID: "api.readingCoachGenreReport", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreReport},
 		{ID: "api.readingCoachGenreExplain", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreExplain},
 		{ID: "api.readingCoachGenreNarrative", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreNarrative},
+		// 2026-09-23：诗歌与文言文（产品负责人「we will face reading
+		// poems/文言文 in chinese reading」）。
+		{ID: "api.readingCoachGenrePoem", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenrePoem},
+		{ID: "api.readingCoachGenreClassical", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreClassical},
 		{ID: "api.readingCoachSystem", Source: "internal/prompts/api_reading_coach.go", Consumer: "internal/api/reading_coach_prompt.go", Text: ReadingCoachSystem},
 		{ID: "api.coachStuckNudge", Source: "internal/prompts/api_reading_coach_repeat.go", Consumer: "internal/api/reading_coach_repeat_prompt.go", Text: CoachStuckNudge},
 		{ID: "api.readingPlanSystem", Source: "internal/prompts/api_reading_plan.go", Consumer: "internal/api/reading_plan_prompt.go", Text: ReadingPlanSystem},

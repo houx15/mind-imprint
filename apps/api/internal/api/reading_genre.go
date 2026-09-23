@@ -67,6 +67,22 @@ var coachGenreBoards = map[string]coachGenreBoard{
 		Prompt: "分析下列句子，判断它们各自属于哪一种描写。",
 		Named:  "「动作描写 / 语言描写 / 心理描写 / 环境描写」——人物做了什么、说了什么、想了什么，以及周围的环境",
 	},
+	// 2026-09-23。诗词里最基本的那一刀就是写景和抒情 ——
+	// 「一切景语皆情语」那句话要成立，她得先分得出哪句是景、哪句是情。
+	// 四格照语文课上的分法（表达方式），不另造名字。
+	genrePoem: {
+		Bins:   []string{"写景", "叙事", "抒情", "说理"},
+		Prompt: "分析下列诗句，判断它们各自属于哪一种表达方式。",
+		Named:  "「写景 / 叙事 / 抒情 / 说理」——写眼前的景物、讲一件事、直接说心情、讲一个道理",
+	},
+	// 2026-09-23。文言文和记叙文的四格不一样：这里要分的是**表达方式**
+	// （叙事 / 描写 / 议论 / 对话），因为文言文最常见的形状就是先叙后议，
+	// 而她要学会的正是认出那个「议」从哪一句开始。
+	genreClassical: {
+		Bins:   []string{"叙事", "描写", "议论", "对话"},
+		Prompt: "分析下列句子，判断它们各自属于哪一种表达方式。",
+		Named:  "「叙事 / 描写 / 议论 / 对话」——讲发生了什么、描摹人或景、作者的评断、人物说的话",
+	},
 }
 
 // genreBoardFor —— 这篇文章该用哪一块标注板。议论文和认不出来的体裁返回 false：
@@ -210,7 +226,8 @@ func buildGenreCoachSection(genre string) string {
 		// 但 report / explain / narrative 三种理应有登记 —— 取不到说明
 		// 注册表漏了一行，整节带读说明会静默消失，线上看起来只是「印记
 		// 这一次话比平时少」，日志里要留一条能查的记录。
-		if genre == genreReport || genre == genreExplain || genre == genreNarrative {
+		if genre == genreReport || genre == genreExplain || genre == genreNarrative ||
+			genre == genrePoem || genre == genreClassical {
 			slog.Warn("reading coach genre section missing", "genre", genre, "err", err)
 		}
 		return ""

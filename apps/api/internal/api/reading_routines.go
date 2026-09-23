@@ -319,6 +319,62 @@ var readingRoutines = []readingRoutine{
 		},
 	},
 	{
+		// 🚨 2026-09-23 新增。产品负责人：「since we will face reading
+		// poems/文言文 in chinese reading…… these are very important scene in
+		// junior study.」在这之前一首绝句会落到上面四种里的某一个 ——
+		// 被当成「记叙」去排事件顺序，或者被当成「说明」去找说明对象。
+		//
+		// 步骤照她给的那份诗歌鉴赏讲义（shige/SKILL.md 的「多维分析」）：
+		// 白话翻译 → 情感脉络 → 意象拆解 → 手法识别 → 典故背景。
+		// 讲义里那条输出原则也搬进了判据：**「为什么好」比「用了什么」重要** ——
+		// 所以「你怎么看」那一步问的不是它用了什么手法，是那个手法在这里做成了
+		// 什么。
+		//
+		// 🚨 没有 sequence 那一步：一首诗里没有「几件事的先后」可排。
+		Key:    "zh-poem",
+		Lang:   "zh",
+		Genres: []string{genrePoem},
+		Name:   "读一首诗",
+		Blurb:  "古诗词的读法：先读懂字面，再看它怎么把情感写出来（绝句、律诗、词、曲）。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看题目和作者：这一首大概在写什么？正文先别读。"},
+			{Kind: taskRead, Label: "读懂字面", Detail: "先把每一句的意思用白话说一遍。不认识的字先跳过，不影响先读一遍。"},
+			{Kind: taskShape, Label: "看这一首怎么安排", Detail: "绝句看起承转合、末句有没有翻转；律诗看对仗和中间两联；词看上下阕怎么接。这一首的转在哪一句？"},
+			{Kind: taskLabel, Label: "分清写景与抒情", Detail: "把几句各自归到一种：写景、叙事、抒情、说理。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这几句里有这一首最要紧的意象，值得细读。"},
+			{Kind: taskCritique, Label: "它为什么好", Detail: "挑一处说明它为什么写得好 —— 不是它用了什么手法，是那个手法在这里做成了什么。"},
+			{Kind: taskConnect, Label: "你有没有过这种时候", Detail: "这一首里的那种心情，你自己在什么时候有过？"},
+			{Kind: taskReflect, Label: "情感脉络", Detail: "用你自己的话说清楚：这一首从哪一种心情起头，到哪一种心情收住？"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "这一首里最经得起回味的是哪一句？把它点出来。"},
+		},
+	},
+	{
+		// 🚨 2026-09-23 新增，理由同上。
+		//
+		// 步骤照她给的那份古文讲义（guwen/SKILL.md 的「四层译讲法」）：
+		// 逐句白话 → 关键字词（通假 / 古今异义 / 专名 / 典故）→
+		// 句法（判断句 / 宾语前置 / 被动 / 省略）→ 背景与寓意。
+		//
+		// 讲义里那条「分层译讲，不堆砌」也是这套读法的形状：字面先通，
+		// 再谈道理。反过来（先讲寓意再回来抠字）她会把译文当成结论背下来。
+		Key:    "zh-classical",
+		Lang:   "zh",
+		Genres: []string{genreClassical},
+		Name:   "读文言文",
+		Blurb:  "文言文的读法：先把字面读通，再看它在讲什么道理（古文、史传、寓言）。",
+		Steps: []readingRoutineStep{
+			{Kind: taskPredict, Label: "先预测", Detail: "只看题目和作者：这一篇大概在讲什么？正文先别读。"},
+			{Kind: taskRead, Label: "读通字面", Detail: "先把全篇过一遍，把读不通的句子标出来。这一步不求每个字都懂。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段有几处关键的字词和句式。点开段落工具：字词释义、句法。"},
+			{Kind: taskLabel, Label: "分清叙事与议论", Detail: "把几句各自归到一种：叙事、描写、议论、对话。"},
+			{Kind: taskShape, Label: "看作者怎么安排这一篇", Detail: "这一篇是先叙后议，还是借一件事说一个道理？哪一段是转折？"},
+			{Kind: taskCritique, Label: "你怎么看", Detail: "作者的说法你同意吗？他举的那件事撑得住他的结论吗？挑一个角度说。"},
+			{Kind: taskConnect, Label: "换到今天", Detail: "这一篇讲的道理，放到今天你身边的事情上还成立吗？"},
+			{Kind: taskReflect, Label: "这一篇在讲什么", Detail: "用你自己的话说清楚：作者想让人明白的是什么？"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "全篇哪一句最能说明作者的意思？把它点出来。"},
+		},
+	},
+	{
 		Key:    "en-close-read",
 		Lang:   "en",
 		Genres: []string{genreArgument},
@@ -483,6 +539,14 @@ type readingBlockTool struct {
 	// questions / imitate 是 铁律① 由**输出类型**守着，而不是靠劝模型收敛 ——
 	// 和写作室那个引导框同一个招。
 	Shape string `json:"shape"`
+	// Genres 把一件工具收窄到某几种体裁（reading_outline.go 的闭表）。
+	// 空 = 这一语言下的每一篇都给。
+	//
+	// 🚨 2026-09-23 加的。在这之前工具只按语言挑，于是「字词释义」「句法」
+	// 这两件只有文言文用得上的工具会出现在每一篇中文文章上 ——
+	// 一篇现代散文的段落工具条上摆着「通假字、古今异义」是没有意义的按钮，
+	// 而没有意义的按钮会让她不信任整条工具条。
+	Genres []string `json:"-"`
 	// MaxRunes 是这件工具最多写多少字，0 = 用默认的 200
 	// （readingBlockDefaultMaxRunes）。讲解越长她越不读，所以多给字数要有理由：
 	// 现在只有「写作解析」多给，因为 2026-09-17 把「把握度」并进了它。
@@ -577,6 +641,45 @@ var readingBlockTools = []readingBlockTool{
 			"可以比较换成更确定的表达后，结论会增加哪些原文尚未证明的内容。只分析实际出现的表达；纯事件叙述无需附加观点强弱判断。",
 	},
 	{
+		// 🚨 2026-09-23，文言文专用。产品负责人：「we will face reading
+		// poems/文言文 in chinese reading」。
+		//
+		// 分类照她给的那份古文讲义（guwen/SKILL.md 的第二层）：
+		// 通假字 / 古今异义 / 专有名词 / 典故。这四类是中学文言文真正要背的
+		// 那几样，也是她读不通一句话时的四种原因。
+		//
+		// 只给文言文：一篇现代散文上摆「通假字」是个没有意义的按钮。
+		Shape: "words", ID: "classical_words", Label: "字词释义", Lang: "zh",
+		Genres: []string{genreClassical}, Subject: "sentence",
+		Class: gateway.ClassDigest,
+		Instruction: "挑这一句里最值得讲的两三个字词，每个给一张词卡。" +
+			"每张写清楚它属于哪一类：通假字（在这里当作另一个字）、古今异义（今天的意思和这里不一样）、" +
+			"专有名词（人名、地名、官职、年号）、典故。" +
+			"讲的是它**在这一句里**的意思；有两种解释时把两种都写出来并说明各自的依据，不把一家之言说成定论。",
+	},
+	{
+		// 🚨 2026-09-23，文言文专用。讲义的第三层：判断句 / 宾语前置 /
+		// 被动 / 省略。「点到为止」也是讲义的原话 —— 一句话里把四种句式全讲
+		// 一遍，一个中学生一样都记不住。
+		Shape: "prose", ID: "classical_syntax", Label: "句法", Lang: "zh",
+		Genres: []string{genreClassical}, Subject: "sentence", MaxRunes: 260,
+		Instruction: "只讲这一句的句式，挑最要紧的一两处：判断句（……者……也）、宾语前置、被动、省略。" +
+			"先指出是哪一种、在哪几个字上，再说清楚它省了什么或者哪两个词调了位置，" +
+			"最后把这一句按今天的语序顺过来说一遍。没有特殊句式就直说这一句是正常语序，并把它的意思说一遍。",
+	},
+	{
+		// 🚨 2026-09-23，诗词专用。照她给的那份诗歌鉴赏讲义
+		// （shige/SKILL.md 的「核心意象」表：意象 | 象征 | 情感）。
+		//
+		// 讲义里那条输出原则写进了说明：**「为什么好」比「用了什么」重要**。
+		Shape: "prose", ID: "poem_images", Label: "意象", Lang: "zh",
+		Genres: []string{genrePoem}, MaxRunes: 300,
+		Instruction: "挑这几句里两三处具体的景物或器物，一处一行：先写它是什么，" +
+			"再写它在这一首里带着什么情绪。常见的意象有固定的用法（月与思乡、柳与离别、梧桐与孤寂），" +
+			"可以说出来，但要回到这一首的上下文核对，对不上就按这一首的说。" +
+			"说出手法的名字之后要接着说它在这里做成了什么 —— 只说「这里用了借景抒情」等于没说。",
+	},
+	{
 		Shape: "prose", ID: "rhetoric", Label: "成语修辞", Lang: "zh",
 		Instruction: "指出这一段用到的成语、俗语和修辞手法（比喻、排比、反问、对比……），每个都说清楚它在这里起了什么效果。未发现相关表达时如实说明。",
 	},
@@ -615,19 +718,45 @@ var readingWritingTools = []readingBlockTool{
 	},
 }
 
-func readingBlockToolsFor(lang string) []readingBlockTool {
+// readingBlockToolsFor 挑**这一篇**用得上的段落工具。
+//
+// 🚨 体裁认不出来（空串、老数据）时，带体裁的那几件工具**不给** ——
+// 这个方向是故意的，而且和别处的「空 = 不限」相反：
+//
+//	一篇认不出体裁的中文文章上摆着「通假字、古今异义」，是一个按下去
+//	讲不出东西的按钮，而没有意义的按钮会让她不信任整条工具条。
+//	少一件工具的代价，比多一件假的小得多。
+//
+// 要「库里一共有哪几件」（报告那一侧按 id 查标签）用 readingBlockToolsAll。
+func readingBlockToolsFor(lang string, genre string) []readingBlockTool {
 	want := lang
 	if want != "en" {
 		want = "zh"
 	}
+	genre = validateGenre(genre)
 	out := make([]readingBlockTool, 0, len(readingBlockTools)+len(readingWritingTools))
 	for _, t := range readingBlockTools {
-		if t.Lang == want {
-			out = append(out, t)
+		if t.Lang != want {
+			continue
 		}
+		if len(t.Genres) > 0 && !containsString(t.Genres, genre) {
+			continue
+		}
+		out = append(out, t)
 	}
 	// The language-independent pair always comes last: understand first, then
 	// make the move yourself.
+	out = append(out, readingWritingTools...)
+	return out
+}
+
+// readingBlockToolsAll —— 库里的每一件工具，不按语言也不按体裁挑。
+//
+// 报告那一侧用它：它数的是**她真的用过**哪几件，按 id 查回标签。
+// 按体裁挑会让一篇文言文的报告漏掉「字词释义」那一行 —— 她明明用过。
+func readingBlockToolsAll() []readingBlockTool {
+	out := make([]readingBlockTool, 0, len(readingBlockTools)+len(readingWritingTools))
+	out = append(out, readingBlockTools...)
 	out = append(out, readingWritingTools...)
 	return out
 }
