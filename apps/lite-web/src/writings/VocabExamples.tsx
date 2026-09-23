@@ -60,6 +60,12 @@ export function VocabExamples({ methods }: { methods: WritingGuideMethod[] }) {
                 <div key={i} className="flex flex-col gap-0.5 border-l-2 pl-2.5" style={{ borderColor: "var(--mk-accent-300)" }}>
                   <span className="text-mk-small text-mk-muted">{p.label}</span>
                   <p className="text-mk-body text-mk-ink">{p.frame}</p>
+                  {p.gloss && (
+                    <p className="text-mk-small text-mk-muted">{p.gloss}</p>
+                  )}
+                  {p.example && (
+                    <p className="text-mk-body text-mk-ink">例句：{p.example}</p>
+                  )}
                 </div>
               ))}
             </div>

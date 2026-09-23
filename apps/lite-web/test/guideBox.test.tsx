@@ -120,6 +120,36 @@ describe("GuideBox", () => {
     expect(screen.getByText(/横线上的内容要你自己填/)).toBeTruthy();
   });
 
+  it("每条句式都带着中文读法和一句例句", async () => {
+    const english: WritingBlockGuide = {
+      job: "Concede the strongest objection before answering it.",
+      methods: [
+        {
+          name: "Conceding, then turning",
+          formalName: "Concession",
+          definition: "Grant what is true, then say what it does not settle.",
+          examples: [],
+          patterns: [
+            {
+              label: "Admit then limit",
+              frame: "While it is true that ___, this does not mean ___.",
+              gloss: "尽管……，但这并不意味着……",
+              example:
+                "While it is true that online classes save commuting time, this does not mean they suit every subject.",
+            },
+          ],
+        },
+      ],
+      questions: ["What is the strongest thing someone could say against you?"],
+    };
+    render(<GuideBox guide={english} onDismiss={() => {}} onDeepen={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /查看例子/ }));
+    expect(await screen.findByText(/尽管……，但这并不意味着……/)).toBeTruthy();
+    expect(screen.getByText(/例句：/)).toBeTruthy();
+    expect(screen.getByText(/online classes save commuting time/)).toBeTruthy();
+  });
+
   it("omits parts that have nothing to show, rather than rendering an empty section", () => {
     const sparse: WritingBlockGuide = { job: "", methods: [], questions: ["只有一个问题？"] };
     render(<GuideBox guide={sparse} onDismiss={() => {}} onDeepen={() => {}} />);
