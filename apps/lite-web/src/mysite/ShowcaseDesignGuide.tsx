@@ -67,9 +67,9 @@ export function ShowcaseDesignGuide({stage,draft,interestTree,disabled,available
     <div ref={conversation} className="showcase-guide-messages" aria-live="polite">
       <div className="showcase-guide-message"><b>印记</b><p>{step.message}</p>{stage==="profile"&&!!interestTree?.keywords.length&&<p className="showcase-guide-tree">你的兴趣树有：{interestTree.keywords.slice(0,8).join("、")}。你想在主页展示其中哪些？</p>}{stage==="profile"&&<p>介绍完成后，也可以上传照片或生成头像。</p>}{stage==="works"&&<p>报告的公开状态仍在各自的报告页管理。</p>}</div>
       {recent.map((message,i)=><div className={`showcase-guide-message ${message.role==="user"?"is-student":""}`} key={`${messages.length-recent.length+i}-${message.role}`}><b>{message.role==="user"?"我":"印记"}</b><p>{message.content}</p></div>)}
-      <div className="showcase-guide-tools">{children}</div>
       {pending&&<p className="showcase-guide-pending">印记正在整理建议…</p>}
       {proposal&&<div className="showcase-guide-proposal"><p>{proposal.reason}</p><button type="button" disabled={disabled} onClick={()=>{onApply(proposal);setProposal(null);}}>应用建议到预览</button></div>}
+      <div className="showcase-guide-tools">{children}</div>
     </div>
     <div className="showcase-guide-composer">
       <GrowingTextarea value={input} rows={2} maxLength={stage==="components"?1000:2000} disabled={disabled||(!available&&stage!=="components")} onChange={e=>setInput(e.target.value)} placeholder={stage==="components"?"例如：一片点击后会长出星星的夜空。":"告诉印记你想修改什么…"}/>
