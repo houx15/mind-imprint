@@ -38,9 +38,22 @@ type Example struct {
 	Text  string `json:"text"`
 }
 
+// Pattern 是一条句式：骨架（她照着填）、中文读法、以及一句写好的例句。
+//
+// Gloss 是骨架的中文读法。产品负责人 2026-09-22 的原话：
+// 「`Although [反方的事实], [你的主张]` is not a good thing that easy to
+// understand. Although(尽管) xxx, xxx, and gives an example?」——
+// 一行英文骨架对着一个中学生等于没说，她需要知道这几个词是什么意思。
+// 中文那几条句式本来就读得懂，Gloss 留空。
+//
+// Example 是把这个骨架填满的一整句，写的时候挑一个学生不会拿来写这一篇的
+// 话题。屏幕上它前面就一个「例句：」，不摆话题标签 —— 产品负责人
+// 2026-09-23：「just say 例句： is ok」。
 type Pattern struct {
-	Label string `json:"label"`
-	Frame string `json:"frame"`
+	Label   string `json:"label"`
+	Frame   string `json:"frame"`
+	Gloss   string `json:"gloss"`
+	Example string `json:"example"`
 }
 
 // Method is one entry in the library. It carries TWO names on purpose

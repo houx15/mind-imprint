@@ -86,8 +86,14 @@ export type WritingGuideExample = { topic: string; text: string };
 
 /** A sentence frame for a method (apps/api/internal/vocab.Pattern) — a shape
  *  to fill in, not filled-in words, so it never doubles as a sentence for
- *  her essay. */
-export type WritingGuidePattern = { label: string; frame: string };
+ *  her essay. `gloss` is the Chinese reading of the frame; `example` is one
+ *  worked sentence, about a topic she is not writing on. */
+export type WritingGuidePattern = {
+  label: string;
+  frame: string;
+  gloss: string;
+  example: string;
+};
 
 /**
  * A method resolved for display — writing_guide.go's writingGuideMethodDTO.

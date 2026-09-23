@@ -99,7 +99,14 @@ describe("GuideBox", () => {
           formalName: "Concession",
           definition: "Grant what is true, then say what it does not settle.",
           examples: [],
-          patterns: [{ label: "Admit then limit", frame: "While it is true that ___, this does not mean ___." }],
+          patterns: [
+            {
+              label: "Admit then limit",
+              frame: "While it is true that ___, this does not mean ___.",
+              gloss: "",
+              example: "",
+            },
+          ],
         },
       ],
       questions: ["What is the strongest thing someone could say against you?"],
