@@ -76,13 +76,22 @@ func writingPlanCase() benchcase.Case {
 	}
 	student := "还有一条是，问题不在手机本身，在于怎么用它。我们班有人用手机查单词。"
 
+	// 🚨 2026-09-23：这里必须走 writingPlanSystemFor，不能直接发 writingPlanSystem
+	// 这个常量。常量里还留着 @@KINDS@@/@@MATERIAL@@/@@SKELETON@@/@@COACH@@/%d
+	// 这些占位符，生产从来不会把它们原样发给模型 —— writing_plan.go 里唯一的调用
+	// 点永远经过 writingPlanSystemFor(genre, lang, grade) 先装配一遍。一个发
+	// 未装配提示词的用例，量的是一份生产从不发出的提示词；routebench 拿它决定
+	// compose 该绑哪个模型，那就是拿假数据做真决定。grade 传 ""，因为这份
+	// fixture 没有班级。
+	system := writingPlanSystemFor(writingGenreOf(wr, rows), wr.Lang, "")
+
 	return benchcase.Case{
 		ID:    "compose/lite-writing-plan",
 		Class: gateway.ClassCompose,
 		Site:  "postWritingPlanTurn (POST /writings/{id}/plan/turn)",
 		Request: gateway.ChatRequest{
 			Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: writingPlanSystem},
+				{Role: gateway.RoleSystem, Content: system},
 				{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, msgs, student)},
 			},
 		},

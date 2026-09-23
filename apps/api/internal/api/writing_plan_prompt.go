@@ -82,19 +82,15 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", parts[guidance.SlotKinds], 1)
 	s = strings.Replace(s, "@@MATERIAL@@", parts[guidance.SlotMaterial], 1)
 	s = strings.Replace(s, "@@SKELETON@@", parts[guidance.SlotSkeleton], 1)
-	if coach != "" {
-		// 🚨 这里**没有**在 prompts.WritingPlanSystem 常量里预先开一个
-		// @@COACH@@ 占位符（brief 的 Step 4 原方案）。那个常量被
-		// benchcases_lite_writing.go 的 compose/lite-writing-plan 用例**原样
-		// 未展开**地当系统提示词发出去（一个先于本任务就存在的毛病 ——
-		// @@KINDS@@/@@MATERIAL@@/@@SKELETON@@/%d 都还没替换，它测的从来
-		// 不是生产会发出的那份提示词，parity 基线却是照着这份原文录的）。
-		// 在共享常量里加一行字面 @@COACH@@，会把那条 bench 请求的字节也
-		// 带着改掉，让 promptinspect 的 parity 基线变红 —— 而基线不许重录。
-		// 所以改成按**锚点**在装配后的字符串上插入，只影响真正调用
-		// writingPlanSystemFor 的路径；锚点在模板里只出现一次。
-		anchor := "\n\n## 你怎么问\n"
-		s = strings.Replace(s, anchor, "\n\n"+coach+"\n\n## 你怎么问\n", 1)
+	// @@COACH@@ 是共享常量里的一个真占位符（不是锚点插入 —— 那条 workaround
+	// 是绕开 benchcases_lite_writing.go 里一个先于本任务就存在的毛病，已在
+	// 2026-09-23 改正：见该文件 writingPlanCase 的注释）。
+	if coach == "" {
+		// 整行删掉 —— 留下一个空行会让中文那三条分支和今天差一个字节。
+		s = strings.Replace(s, "@@COACH@@\n", "", 1)
+	} else {
+		// 多补一个 \n：常量结尾没有换行，不补的话小标题前面没有空行。
+		s = strings.Replace(s, "@@COACH@@", coach+"\n", 1)
 	}
 	s = strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
 	if english {

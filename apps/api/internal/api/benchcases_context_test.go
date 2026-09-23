@@ -5,8 +5,34 @@ import (
 	"testing"
 
 	"mindimprint/api/internal/benchcase"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
+
+// TestBenchCasesSendAssembledPrompts guards a 2026-09-23 finding: writingPlanCase
+// (benchcases_lite_writing.go) sent the raw prompts.WritingPlanSystem constant —
+// with @@KINDS@@ / @@MATERIAL@@ / @@SKELETON@@ / %d still literal — as its system
+// message, instead of what production actually sends via writingPlanSystemFor.
+// cmd/routebench spends candidate models against these bench cases to decide
+// which model gets bound to a capability class; compose/lite-writing-plan is the
+// most expensive lite compose call point, so the benchmark that picks its model
+// was measuring a prompt production never sends. A bench case sending an
+// unassembled system prompt must be impossible to reintroduce silently.
+func TestBenchCasesSendAssembledPrompts(t *testing.T) {
+	for _, c := range BenchCases() {
+		for _, m := range c.Request.Messages {
+			if m.Role != gateway.RoleSystem {
+				continue
+			}
+			if strings.Contains(m.Content, "@@") {
+				t.Errorf("%s: system message still contains an unreplaced @@..@@ placeholder", c.ID)
+			}
+			if strings.Contains(m.Content, "%d") {
+				t.Errorf("%s: system message still contains a bare %%d placeholder", c.ID)
+			}
+		}
+	}
+}
 
 func readingSuiteCase(t *testing.T, id string) benchcase.Case {
 	t.Helper()
