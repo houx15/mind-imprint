@@ -107,6 +107,24 @@ export const AutonomyDimResult = z.object({
 }).strict();
 export type AutonomyDimResult = z.infer<typeof AutonomyDimResult>;
 
+// Strict variants for the MODEL OUTPUT contract only.
+//
+// The tolerance above is a READ rule: it exists so a legacy row whose evidence
+// serialized as JSON `null` still renders. It must not travel into the schema
+// we hand the model, because there `anyOf: [array, null]` reads as permission
+// to return a dimension with no evidence at all — and evidence quoted verbatim
+// from the student's own words is the whole point of a dimension result
+// (`assess` class; the live check is that every 金句 appears in what she said).
+//
+// This is the same split EvaluationReportModelOutput already makes for
+// abstract's recommendation fields, and for the same stated reason: a model
+// response must be complete, so omissions stay observable.
+const strictEvidence = { evidence: z.array(EvidenceItem) };
+export const DepthDimModelOutput = DepthDimResult.extend(strictEvidence);
+export type DepthDimModelOutput = z.infer<typeof DepthDimModelOutput>;
+export const AutonomyDimModelOutput = AutonomyDimResult.extend(strictEvidence);
+export type AutonomyDimModelOutput = z.infer<typeof AutonomyDimModelOutput>;
+
 export const PromptItem = z.object({
   stage: z.string(),
   quote: z.string(),
@@ -161,20 +179,20 @@ export const EvaluationReportModelOutput = z.object({
     recommendedCourses: z.array(RecommendedCourse),
   }).strict(),
   depth: z.tuple([
-    DepthDimResult.extend({ id: z.literal("D1") }),
-    DepthDimResult.extend({ id: z.literal("D2") }),
-    DepthDimResult.extend({ id: z.literal("D3") }),
-    DepthDimResult.extend({ id: z.literal("D4") }),
-    DepthDimResult.extend({ id: z.literal("D5") }),
-    DepthDimResult.extend({ id: z.literal("D6") }),
+    DepthDimModelOutput.extend({ id: z.literal("D1") }),
+    DepthDimModelOutput.extend({ id: z.literal("D2") }),
+    DepthDimModelOutput.extend({ id: z.literal("D3") }),
+    DepthDimModelOutput.extend({ id: z.literal("D4") }),
+    DepthDimModelOutput.extend({ id: z.literal("D5") }),
+    DepthDimModelOutput.extend({ id: z.literal("D6") }),
   ]),
   autonomy: z.tuple([
-    AutonomyDimResult.extend({ id: z.literal("A1") }),
-    AutonomyDimResult.extend({ id: z.literal("A2") }),
-    AutonomyDimResult.extend({ id: z.literal("A3") }),
-    AutonomyDimResult.extend({ id: z.literal("A4") }),
-    AutonomyDimResult.extend({ id: z.literal("A5") }),
-    AutonomyDimResult.extend({ id: z.literal("A6") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A1") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A2") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A3") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A4") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A5") }),
+    AutonomyDimModelOutput.extend({ id: z.literal("A6") }),
   ]),
   promptLens: PromptLens,
   risks: z.array(RiskEntry),

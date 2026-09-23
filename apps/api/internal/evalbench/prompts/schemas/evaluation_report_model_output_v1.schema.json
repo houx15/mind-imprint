@@ -292,10 +292,7 @@
                   "type": "string"
                 },
                 "evidence": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence/items"
-                  }
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "type": "string"
@@ -324,7 +321,7 @@
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
                 },
                 "evidence": {
-                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
@@ -353,7 +350,7 @@
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
                 },
                 "evidence": {
-                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
@@ -382,7 +379,7 @@
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
                 },
                 "evidence": {
-                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
@@ -411,7 +408,7 @@
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
                 },
                 "evidence": {
-                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
@@ -440,7 +437,7 @@
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
                 },
                 "evidence": {
-                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
                 },
                 "suggestion": {
                   "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"

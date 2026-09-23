@@ -334,36 +334,43 @@
                 "type": "string"
               },
               "evidence": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "ts": {
-                      "type": "string"
-                    },
-                    "stage": {
-                      "type": "string"
-                    },
-                    "quote": {
-                      "type": "string"
-                    },
-                    "observation": {
-                      "type": "string"
-                    },
-                    "boundary": {
-                      "type": "string"
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ts": {
+                          "type": "string"
+                        },
+                        "stage": {
+                          "type": "string"
+                        },
+                        "quote": {
+                          "type": "string"
+                        },
+                        "observation": {
+                          "type": "string"
+                        },
+                        "boundary": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "quote",
+                        "observation"
+                      ],
+                      "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "id",
-                    "quote",
-                    "observation"
-                  ],
-                  "additionalProperties": false
-                }
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "suggestion": {
                 "type": "string"
@@ -373,7 +380,6 @@
               "id",
               "level",
               "summary",
-              "evidence",
               "suggestion"
             ],
             "additionalProperties": false
@@ -404,10 +410,17 @@
                 "type": "string"
               },
               "evidence": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/items"
-                }
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/EvaluationReport/properties/depth/items/properties/evidence/anyOf/0/items"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "suggestion": {
                 "type": "string"
@@ -417,7 +430,6 @@
               "id",
               "band",
               "summary",
-              "evidence",
               "suggestion"
             ],
             "additionalProperties": false
