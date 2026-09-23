@@ -136,3 +136,38 @@ func TestLetterGetsTheLetterKindsNotTheArgumentOnes(t *testing.T) {
 		}
 	}
 }
+
+// 🚨 散文**只能由她自己说**：它没有题目词表。
+//
+// 一篇散文的题目和一篇记叙文的题目长得一模一样（《背影》《秋天的怀念》
+// 可以是任何一种），从字面上分不出来。所以推断永远不会返回 prose ——
+// 这一条钉住那个方向，免得下一个人「顺手补一张散文题目词表」，
+// 而那张表只会把记叙文判成散文。
+func TestProseIsOnlyEverReachedByHerSayingSo(t *testing.T) {
+	for _, title := range []string{
+		"背影", "秋天的怀念", "那一把旧竹尺", "记一次难忘的经历",
+		"A letter to my pen pal", "读书该快还是该慢",
+	} {
+		if got := writingGenreOf(letterWriting(title), nil); got == genreProse {
+			t.Errorf("%q 被推断成了散文 —— 散文没有、也不该有题目词表", title)
+		}
+	}
+	// 她说了就是散文，压过题目里的一切。
+	wr := sqlc.Writing{Title: "记一次难忘的经历", Genre: genreProse}
+	if got := writingGenreOf(wr, nil); got != genreProse {
+		t.Errorf("她说了是散文，却判成 %s", got)
+	}
+	// 摆给她挑的那张单子上要有它 —— 那是它唯一到得了的路。
+	var listed bool
+	for _, c := range writingGenreChoices() {
+		if c.ID == genreProse {
+			listed = true
+			if c.Label != "散文" || strings.TrimSpace(c.Blurb) == "" {
+				t.Errorf("散文那一项不完整：%+v", c)
+			}
+		}
+	}
+	if !listed {
+		t.Error("散文不在可选的那张单子上 —— 那它一辈子都到不了")
+	}
+}

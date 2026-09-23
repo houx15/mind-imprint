@@ -222,7 +222,7 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 	// 🚨 2026-09-23 加上书信。AGENTS.md「提示词怎么写」第 6 条：新开一条分支
 	// 就补一条装配测试 —— 占位符在没被覆盖的那条分支上漏掉，整套测试照样绿，
 	// 而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
-	for _, genre := range []string{genreArgument, genreNarrative, genreLetter} {
+	for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse} {
 		for _, lang := range []string{"zh", langEnglish} {
 			name := genre + "/" + lang
 			got := writingPlanSystemFor(genre, lang, "")
@@ -248,6 +248,10 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 			// 书信两种语言共用同一份信件结构（那几种安排按用途分，不按语言分）。
 			if genre == genreLetter {
 				skeletonMark = "常见的信件结构"
+			}
+			// 散文同理：它的几种结构（一线串珠、以人为线索…）按线索分，不按语言分。
+			if genre == genreProse {
+				skeletonMark = "常见的散文结构"
 			}
 			if !strings.Contains(got, skeletonMark) {
 				t.Errorf("%s：骨架那一节没装进去（找不到 %q）", name, skeletonMark)

@@ -271,7 +271,7 @@ const NOT_BODY_KINDS = new Set(["thesis", "opening", "closing", ""]);
 
 export function slotBodyKind(s: Slot, genre: string): string {
   if (!NOT_BODY_KINDS.has(s.outlineKind)) return s.outlineKind;
-  if (genre === "narrative") return "scene";
+  if (genre === "narrative" || genre === "prose") return "scene";
   if (genre === "letter") return "matter";
   return "point";
 }

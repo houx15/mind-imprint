@@ -120,7 +120,8 @@ export function rekindOutlineNode(
  * 那一刀。开篇和结尾排在最后 —— 它们几乎不会被认错。
  */
 export function rekindChoices(genre: WritingGenre): OutlineKind[] {
-  if (genre === "narrative") {
+  // 散文和记叙文共用那一套块 —— 差别在整篇怎么合起来，不在某一段是什么。
+  if (genre === "narrative" || genre === "prose") {
     return ["scene", "detail", "turn", "feeling", "opening", "closing"];
   }
   // 书信：一封信里没有分论点，也没有中心论点。

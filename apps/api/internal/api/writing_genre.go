@@ -201,6 +201,8 @@ func writingGenreLabel(genre string) string {
 		return "记叙文"
 	case genreLetter:
 		return "书信"
+	case genreProse:
+		return "散文"
 	}
 	return "议论文"
 }
@@ -221,6 +223,8 @@ func validateWritingGenre(s string) string {
 		return genreNarrative
 	case genreLetter:
 		return genreLetter
+	case genreProse:
+		return genreProse
 	}
 	return ""
 }
@@ -236,6 +240,10 @@ func writingGenreChoices() []writingGenreChoiceDTO {
 		{ID: genreArgument, Label: "议论文", Blurb: "要说清一个看法，并且给出理由和材料。"},
 		{ID: genreNarrative, Label: "记叙文", Blurb: "写一件真实发生过的事，写出当时的场景和你的变化。"},
 		{ID: genreLetter, Label: "书信", Blurb: "写给一个具体的人，要让他知道什么、或者请他做什么。"},
+		// 🚨 散文排在最后，而且只在这里出现 —— 它没有题目词表。
+		// 一篇散文的题目和一篇记叙文的题目长得一模一样，从字面上分不出来，
+		// 所以它**只能由她自己说**。
+		{ID: genreProse, Label: "散文", Blurb: "几件不连着的小事，靠一样东西串起来，写出一点体会。"},
 	}
 }
 

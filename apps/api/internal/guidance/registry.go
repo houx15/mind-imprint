@@ -32,6 +32,10 @@ var Default = sync.OnceValue(func() *Registry {
 	// under the structure of 议论文.」
 	r.Add(SlotKinds, w("zh", "letter"), prompts.WritingPlanLetterKinds)
 	r.Add(SlotKinds, w("en", "letter"), prompts.WritingPlanLetterKindsEN)
+	// 散文（2026-09-23）。块的种类和记叙文共用，换的是怎么问 ——
+	// 差别在整篇怎么合起来，不在某一段是什么。两种语言同一份。
+	r.Add(SlotKinds, w("zh", "prose"), prompts.WritingPlanProseKinds)
+	r.Add(SlotKinds, w("en", "prose"), prompts.WritingPlanProseKinds)
 
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
@@ -43,6 +47,8 @@ var Default = sync.OnceValue(func() *Registry {
 	// SlotKinds 那两份里（英文那份专门讲 register），不重复一遍。
 	r.Add(SlotSkeleton, w("zh", "letter"), prompts.WritingPlanSkeletonLetter)
 	r.Add(SlotSkeleton, w("en", "letter"), prompts.WritingPlanSkeletonLetter)
+	r.Add(SlotSkeleton, w("zh", "prose"), prompts.WritingPlanSkeletonProse)
+	r.Add(SlotSkeleton, w("en", "prose"), prompts.WritingPlanSkeletonProse)
 
 	// 🚨 语言认不出来（空串、老数据）时的兜底。改之前这条路走的是中文那一支：
 	// 记叙文拿记叙文的块名，其余拿议论文的。少了这四行，它会拿到议论文的
@@ -55,6 +61,10 @@ var Default = sync.OnceValue(func() *Registry {
 		prompts.WritingPlanLetterKinds)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"letter"}},
 		prompts.WritingPlanSkeletonLetter)
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"prose"}},
+		prompts.WritingPlanProseKinds)
+	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"prose"}},
+		prompts.WritingPlanSkeletonProse)
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
 

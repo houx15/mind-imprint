@@ -26,11 +26,15 @@ test("推断和她自己定的分得开，换完之后整屋跟着变", async ({
   await page.getByRole("button", { name: "换一种" }).click();
 
   // 三种都在，而且每一种后面跟的是「什么时候选它」，不是定义。
-  for (const [label, blurb] of [
+  const shown: Array<[string, string]> = [
     ["议论文", "要说清一个看法"],
     ["记叙文", "写一件真实发生过的事"],
     ["书信", "写给一个具体的人"],
-  ]) {
+    // 🚨 散文**只能由她自己选** —— 它没有题目词表，题目上和记叙文分不出来。
+    // 所以它出现在这张单子上，是它唯一到得了的路。
+    ["散文", "几件不连着的小事"],
+  ];
+  for (const [label, blurb] of shown) {
     const card = page.getByRole("button", { name: new RegExp(`^${label}`) });
     await expect(card).toBeVisible();
     await expect(card).toContainText(blurb);

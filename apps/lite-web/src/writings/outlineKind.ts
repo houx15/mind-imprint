@@ -276,7 +276,13 @@ export function outlineKindIsInlineContent(kind: OutlineKind): boolean {
 }
 
 /** 这一种块属于哪一种文体。空串 = 两种都用（开篇和结尾）。 */
-export type WritingGenre = "argument" | "narrative" | "letter";
+/**
+ * 🚨 "prose"（散文）**只能由她自己选**：一篇散文的题目和一篇记叙文的题目
+ * 长得一模一样，从字面上分不出来，所以推断永远推不出它。
+ * 块的种类和记叙文共用（场景 / 细节 / 转折 / 体会）—— 两种的差别在整篇怎么
+ * 合起来，不在某一段是什么。所以这一侧只有「按记叙文那一套画」这一件事要做。
+ */
+export type WritingGenre = "argument" | "narrative" | "letter" | "prose";
 
 export function outlineKindGenre(kind: OutlineKind): WritingGenre | "" {
   switch (kind) {
@@ -323,6 +329,12 @@ export function rekindForDepth(
   // 🚨 书信那一边的默认种类同样整套不一样。落错了，她把一件要说的事拖到
   // 主干之后会看见一张写着「分论点」的卡 —— 记叙文那次的同一个毛病，
   // 换了个文体又长出来一次。
+  // 散文和记叙文共用那一套块，所以它走记叙文那一支。
+  if (genre === "narrative" || genre === "prose") {
+    if (depth <= 0) return "opening";
+    if (depth === 1) return "scene";
+    return "detail";
+  }
   if (genre === "letter") {
     if (depth <= 0) return "purpose";
     // 一封信只有两层：目的那一层和要点那一层。更深的也收到要点上 ——
@@ -332,11 +344,6 @@ export function rekindForDepth(
   // 🚨 记叙文那一边的默认种类整套都不一样。落错了，她把一件事拖成主干之后
   // 会看见一张写着「分论点」的卡 —— 那正是 R1 修掉的那个毛病，换了个文体
   // 又长出来一次。
-  if (genre === "narrative") {
-    if (depth <= 0) return "opening";
-    if (depth === 1) return "scene";
-    return "detail";
-  }
   if (depth <= 0) return hasThesis ? "closing" : "thesis";
   if (depth === 1) return "point";
   return "evidence";

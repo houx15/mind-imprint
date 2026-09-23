@@ -56,6 +56,9 @@ func Catalog() []Definition {
 		{ID: "api.writingPlanLetterKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanLetterKinds},
 		{ID: "api.writingPlanLetterKindsEN", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanLetterKindsEN},
 		{ID: "api.writingPlanSkeletonLetter", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonLetter},
+		// 散文（2026-09-23）。它只能由她自己选 —— 题目上和记叙文分不出来。
+		{ID: "api.writingPlanProseKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanProseKinds},
+		{ID: "api.writingPlanSkeletonProse", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonProse},
 		{ID: "api.writingPlanInviteNudge", Source: "internal/prompts/api_writing_plan_invite.go", Consumer: "internal/api/writing_plan_invite_prompt.go", Text: WritingPlanInviteNudge},
 		{ID: "api.writingPlanMaterialZH", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanMaterialZH},
 		{ID: "api.writingPlanMaterialEN", Source: "internal/prompts/api_writing_plan_lang.go", Consumer: "internal/api/writing_plan_lang_prompt.go", Text: WritingPlanMaterialEN},
