@@ -27,12 +27,22 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotKinds, w("zh", "narrative"), prompts.WritingPlanNarrativeKinds)
 	r.Add(SlotKinds, w("en", ""), prompts.WritingPlanEnglishArgumentKinds)
 	r.Add(SlotKinds, w("en", "narrative"), prompts.WritingPlanEnglishNarrativeKinds)
+	// 书信（2026-09-23）。产品负责人：「书信 is a very important format in
+	// junior english. but currently we would guide students to write a letter
+	// under the structure of 议论文.」
+	r.Add(SlotKinds, w("zh", "letter"), prompts.WritingPlanLetterKinds)
+	r.Add(SlotKinds, w("en", "letter"), prompts.WritingPlanLetterKindsEN)
 
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
 
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)
+	// 🚨 书信的篇章结构**两种语言同一份**：那几种安排（邀请 / 建议 / 道歉 /
+	// 感谢 / 申请）是按信的用途分的，不按语言分。语气和措辞的差别写在
+	// SlotKinds 那两份里（英文那份专门讲 register），不重复一遍。
+	r.Add(SlotSkeleton, w("zh", "letter"), prompts.WritingPlanSkeletonLetter)
+	r.Add(SlotSkeleton, w("en", "letter"), prompts.WritingPlanSkeletonLetter)
 
 	// 🚨 语言认不出来（空串、老数据）时的兜底。改之前这条路走的是中文那一支：
 	// 记叙文拿记叙文的块名，其余拿议论文的。少了这四行，它会拿到议论文的
@@ -41,6 +51,10 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotKinds, Scope{Surface: SurfaceWrite}, prompts.WritingPlanArgumentKinds)
 	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"narrative"}},
 		prompts.WritingPlanNarrativeKinds)
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"letter"}},
+		prompts.WritingPlanLetterKinds)
+	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"letter"}},
+		prompts.WritingPlanSkeletonLetter)
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
 

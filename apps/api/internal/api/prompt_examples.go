@@ -39,8 +39,11 @@ func PromptAssemblyExamples() []PromptExample {
 			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh")}, {Role: gateway.RoleUser, Content: doc.Text},
 		}}, Documents: map[int]promptassembly.Document{1: doc}})
 	}
+	// 🚨 2026-09-23 加上 genreLetter。AGENTS.md 第 6 条：新开一条分支不进基线，
+	// 就是「基线不等于覆盖」那个形状 —— 占位符在没被覆盖的分支上漏掉，
+	// 整套测试照样绿，而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
 	for _, lang := range []string{"zh", "en"} {
-		for _, genre := range []string{genreArgument, genreNarrative} {
+		for _, genre := range []string{genreArgument, genreNarrative, genreLetter} {
 			wr := sqlc.Writing{Lang: lang, Title: "一次图书馆里的经历"}
 			doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "我想记录上周和同学一起找资料的经历。"))
 			out = append(out, PromptExample{ID: "writing/plan/" + lang + "/" + genre, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{

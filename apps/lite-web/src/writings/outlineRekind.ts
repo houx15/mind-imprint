@@ -1,4 +1,5 @@
 import type { WritingOutlineItem } from "../api/writingRoom";
+import type { WritingGenre } from "./outlineKind";
 import { OUTLINE_KIND_DEPTH, outlineKindLabel, outlineKindOf, type OutlineKind } from "./outlineKind";
 
 /**
@@ -118,9 +119,13 @@ export function rekindOutlineNode(
  * 顺序是按「最常摆错的排前面」定的：同事那张图里错的正是论据和反方观点之间
  * 那一刀。开篇和结尾排在最后 —— 它们几乎不会被认错。
  */
-export function rekindChoices(genre: "argument" | "narrative"): OutlineKind[] {
+export function rekindChoices(genre: WritingGenre): OutlineKind[] {
   if (genre === "narrative") {
     return ["scene", "detail", "turn", "feeling", "opening", "closing"];
+  }
+  // 书信：一封信里没有分论点，也没有中心论点。
+  if (genre === "letter") {
+    return ["matter", "purpose", "courtesy", "opening", "closing"];
   }
   return [
     "point",

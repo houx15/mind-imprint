@@ -449,7 +449,14 @@ func insertPlanNode(
 	// 于是她屏幕上出现一张写着「中心论点」的卡，内容是「大雨天，爸爸来补习班
 	// 接我」。文体那条轴一路都对，最后一步把它抹掉了。
 	if parent == nil && depth > 0 {
-		if writingKindGenre(kind) == genreNarrative {
+		// 🚨 **书信同样不能走议论文那条兜底。** 2026-09-23 加书信那一档时，
+		// 一条挂不上的「要点」会在这里被改成「分论点」，再改成「中心论点」——
+		// 于是她屏幕上出现一张写着「中心论点」的卡，内容是「想请您周六来参加
+		// 我们的读书会」。这和上面记叙文那一段记的是同一次事故，换了个文体。
+		if writingKindGenre(kind) == genreLetter {
+			// 一封信的要点挂不到写信目的上是**正常的** —— 她常常先说要说的那
+			// 几件事，最后才说清这封信是为什么写的。留它当顶层节点，不改种类。
+		} else if writingKindGenre(kind) == genreNarrative {
 			// 细节还没有场景可挂 → 它自己先当一个场景（和论据→分论点同一个道理）。
 			if kind == writingKindDetail {
 				kind = writingKindScene

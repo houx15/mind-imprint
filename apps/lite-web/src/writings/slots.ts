@@ -233,8 +233,11 @@ export function slotTitle(s: Slot, kindIndex: number, lang = "zh", genre = "argu
   const en = lang === "en";
   switch (s.kind) {
     case "opening":
+      // 一封信的第一块是称呼，不是「开头」；最后一块是结束语和落款。
+      if (genre === "letter") return en ? "Salutation" : "称呼";
       return en ? "Introduction" : "开头";
     case "closing":
+      if (genre === "letter") return en ? "Sign-off" : "结束语与落款";
       return en ? "Conclusion" : "结尾";
     case "free":
       return en ? "Loose paragraph" : "自由段落";
@@ -268,5 +271,7 @@ const NOT_BODY_KINDS = new Set(["thesis", "opening", "closing", ""]);
 
 export function slotBodyKind(s: Slot, genre: string): string {
   if (!NOT_BODY_KINDS.has(s.outlineKind)) return s.outlineKind;
-  return genre === "narrative" ? "scene" : "point";
+  if (genre === "narrative") return "scene";
+  if (genre === "letter") return "matter";
+  return "point";
 }

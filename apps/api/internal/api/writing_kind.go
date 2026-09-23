@@ -65,6 +65,25 @@ const (
 	writingKindDetail  = "detail"  // 细节：场景里的动作、神态、话、环境
 	writingKindTurn    = "turn"    // 转折：让你改观的那一下（讲义的「转」）
 	writingKindFeeling = "feeling" // 感悟：这件事之后你明白了什么（讲义的「扬」）
+
+	// —— 书信的三种（2026-09-23）——
+	//
+	// 产品负责人：「书信 is a very important format in junior english. but
+	// currently we would guide students to write a letter under the structure
+	// of 议论文.」在这之前一封信必然被判成议论文，于是一个初中生被要求给一封
+	// 信写中心论点、分论点和论据。
+	//
+	// 只有三种，而且**不包括称呼和落款**：那两样是格式不是内容，段落那一步的
+	// 开头卡和结尾卡已经各占一张（writingCards 会给没有开篇/结尾节点的一篇
+	// 补上虚拟卡），在图上再摆一个「称呼」只是让她多拖一个不用想的块。
+	//
+	// 骨架来自同事那份应用文讲义：一封信要办成一件事（purpose），
+	// 为此要说清几件事（matter），最后要有一句给收信人的话（courtesy）。
+	// 讲义里那句「结尾是真诚的交际收束，还是观点总结式套话」指的就是最后这一种 ——
+	// 把给朋友的信写成议论文总结，是这一档最常见的失分。
+	writingKindPurpose  = "purpose"  // 写信目的：这封信要办成的那件事
+	writingKindMatter   = "matter"   // 要点：为办成那件事，要说清楚的一件事
+	writingKindCourtesy = "courtesy" // 结尾的话：给收信人的那一句（期待回复 / 致谢 / 祝愿）
 )
 
 var writingKindDepths = map[string]int32{
@@ -76,6 +95,10 @@ var writingKindDepths = map[string]int32{
 	// 感悟收在主干那一层。
 	writingKindScene: 1, writingKindTurn: 1, writingKindFeeling: 1,
 	writingKindDetail: 2,
+	// 书信：目的和结尾的话各自成块（深度 0，和开篇/结尾同层），
+	// 要点是中间那一层（深度 1）—— 一封信的主体就是几件要说清的事。
+	writingKindPurpose: 0, writingKindCourtesy: 0,
+	writingKindMatter:  1,
 }
 
 // writingKindGenre 说这一种块属于哪一种文体。空串 = 两种都用
@@ -91,6 +114,8 @@ func writingKindGenre(k string) string {
 		return genreArgument
 	case writingKindScene, writingKindDetail, writingKindTurn, writingKindFeeling:
 		return genreNarrative
+	case writingKindPurpose, writingKindMatter, writingKindCourtesy:
+		return genreLetter
 	}
 	return ""
 }
@@ -153,6 +178,12 @@ func writingKindLabel(k, source string) string {
 		return "转折"
 	case writingKindFeeling:
 		return "感悟"
+	case writingKindPurpose:
+		return "写信目的"
+	case writingKindMatter:
+		return "要点"
+	case writingKindCourtesy:
+		return "结尾的话"
 	}
 	return ""
 }
@@ -169,7 +200,9 @@ func writingKindLabel(k, source string) string {
 // 分论点 3」）的另一面。挂不上的由调用方处理，见 insertPlanNode。
 func writingKindParentOf(k string, rows []sqlc.WritingOutline) *sqlc.WritingOutline {
 	switch k {
-	case writingKindOpening, writingKindThesis, writingKindClosing:
+	case writingKindOpening, writingKindThesis, writingKindClosing,
+		// 书信：写信目的和结尾的话各自成块，和开篇/结尾同层，没有父。
+		writingKindPurpose, writingKindCourtesy:
 		return nil
 	case writingKindPoint, writingKindCounter:
 		return lastWritingKind(rows, writingKindThesis)
@@ -187,6 +220,14 @@ func writingKindParentOf(k string, rows []sqlc.WritingOutline) *sqlc.WritingOutl
 		}
 		// 转折本身也是一个场景，细节可以挂在它下面。
 		return lastWritingKind(rows, writingKindTurn)
+	// 书信：要点挂在写信目的下面 —— 一封信的几件事都是为那个目的服务的。
+	// 还没有写信目的时挂在开篇（称呼）上；两样都没有就留在顶层，
+	// 和记叙文的场景同一条（insertPlanNode 的兜底不会把它改成分论点）。
+	case writingKindMatter:
+		if p := lastWritingKind(rows, writingKindPurpose); p != nil {
+			return p
+		}
+		return lastWritingKind(rows, writingKindOpening)
 	}
 	return nil
 }

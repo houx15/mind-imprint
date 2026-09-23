@@ -31,7 +31,37 @@ describe("outlineKind", () => {
       turn: 1,
       feeling: 1,
       detail: 2,
+      // 书信那三种（2026-09-23）：目的和结尾的话各自成块（和开篇/结尾同层），
+      // 要点是中间那一层。称呼和落款不在表里 —— 那两样是格式不是内容。
+      purpose: 0,
+      matter: 1,
+      courtesy: 0,
     });
+  });
+
+  it("书信那三种块也有标题，两种语言都有", () => {
+    expect(outlineKindLabel("purpose")).toBe("写信目的");
+    expect(outlineKindLabel("matter")).toBe("要点");
+    expect(outlineKindLabel("courtesy")).toBe("结尾的话");
+    // 🚨 英文那一篇印英文的那套词，和 Go 侧给模型的名字逐字一致。
+    expect(outlineKindLabel("purpose", "en")).toBe("Purpose");
+    expect(outlineKindLabel("matter", "en")).toBe("Point");
+    expect(outlineKindLabel("courtesy", "en")).toBe("Closing courtesy");
+  });
+
+  // 🚨 一封信里没有分论点。她把一块拖到某一层之后，落的该是书信那套种类。
+  //
+  // 注意这里**没有**断言 `rekindForDepth("point", 1, …, "letter")` 变成
+  // "matter"：这个函数开头那句「深度对得上就不动」是故意的（把一条论据从一个
+  // 分论点挪到另一个，它还是论据），而 point 本来就是深度 1。
+  // 一封信里出现 point 是数据本身不对，不是拖动该顺手纠正的事。
+  it("书信里拖动落的是书信那套种类", () => {
+    expect(rekindForDepth("matter", 0, false, "letter")).toBe("purpose");
+    expect(rekindForDepth("purpose", 1, false, "letter")).toBe("matter");
+    expect(rekindForDepth("courtesy", 2, false, "letter")).toBe("matter");
+    // 别的文体一个字都没变。
+    expect(rekindForDepth("evidence", 1, false, "argument")).toBe("point");
+    expect(rekindForDepth("evidence", 1, false, "narrative")).toBe("scene");
   });
 
   it("记叙文那四种块也有标题 —— 没有的话她会看见一张没名字的卡", () => {

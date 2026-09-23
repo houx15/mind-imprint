@@ -155,6 +155,18 @@ const (
 	genreReport    = "report"    // 新闻报道：发生了什么、各方怎么说
 	genreNarrative = "narrative" // 记叙：一件事按时间讲下来
 	genreExplain   = "explain"   // 说明：讲清楚一样东西是怎么回事
+
+	// 🚨 书信只在**写作面**用得上，阅读那张闭表不收它。
+	//
+	// 2026-09-23 产品负责人：「书信 is a very important format in junior
+	// english. but currently we would guide students to write a letter under
+	// the structure of 议论文.」
+	//
+	// 放在这个 const 块里而不是另起一套，理由和 writing_genre.go 文件头那段
+	// 一样：同一个值两个名字，迟早有人在一处改了另一处没改。
+	// validateGenre（阅读那边收模型给的体裁）**故意不认它** —— 一封信不是
+	// 一篇拿来读的文章，它不该落到任何一套读法上。
+	genreLetter = "letter" // 书信：写给一个具体的人，要办成一件事
 )
 
 // validateGenre 把模型给的体裁收进闭表。认不出来就是空 —— 空不挡任何东西。

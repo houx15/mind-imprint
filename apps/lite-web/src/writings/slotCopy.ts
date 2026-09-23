@@ -59,6 +59,7 @@ export function slotIsNarrative(s: Slot): boolean {
 export function slotJob(s: Slot, lang: string, genre: string): string {
   const en = lang === "en";
   const narrative = genre === "narrative";
+  const letter = genre === "letter";
 
   if (s.kind === "free") {
     return en
@@ -67,6 +68,14 @@ export function slotJob(s: Slot, lang: string, genre: string): string {
   }
 
   if (s.kind === "opening") {
+    // 🚨 书信的开头是**称呼加一句开门见山的话**，不是「提出中心论点」。
+    // 同事那份应用文讲义里，升格的第一个动作就是删掉套话开场
+    // （I want to share some ideas with you, wish you can be interested…）。
+    if (letter) {
+      return en
+        ? "Write the salutation and get to the point in the first line: who you are writing to, and why you are writing. Cut any warm-up sentence that says nothing."
+        : "写称呼，然后第一句就说清楚这封信是为什么写的。套话开场（「近来好吗，我有些想法想和你分享」）一句都不要。";
+    }
     if (narrative) {
       return en
         ? "Open on the moment itself: when, where, who is there. Let the reader stand inside the scene before anything is explained."
@@ -78,6 +87,13 @@ export function slotJob(s: Slot, lang: string, genre: string): string {
   }
 
   if (s.kind === "closing") {
+    // 书信的结尾是**给收信人的一句话**，不是观点总结。讲义把这一条单列为
+    // 这一档最常见的失分：把给朋友的信写成了议论文的总结。
+    if (letter) {
+      return en
+        ? "Close by speaking to the reader: what you hope they will do, or a line of thanks. End with a sign-off and your name. This is not the place to summarise your opinion."
+        : "结尾写给收信人：希望他做什么，或者一句谢谢。最后写上结束语和署名。这里不是总结观点的地方。";
+    }
     if (narrative) {
       return en
         ? "Say what you understand now that you did not understand before. Come back to something concrete from the scene rather than ending on a general lesson."
@@ -106,6 +122,18 @@ export function slotJob(s: Slot, lang: string, genre: string): string {
       return en
         ? "Write what this left you with. Tie it back to the detail you already wrote rather than reaching for a general lesson."
         : "写这件事在你心里留下了什么。接住前面写过的那处细节，不要另起一句大道理。";
+    case "purpose":
+      return en
+        ? "Say in one or two sentences what this letter is for — what you want the reader to know or do."
+        : "用一两句写清楚这封信要办成的那件事：你希望收信人知道什么、或者做什么。";
+    case "matter":
+      return en
+        ? "Write this point so the reader can act on it: the time, the place, what to bring, how to reply — whatever this particular point needs."
+        : "把这一件事写到收信人能照着做：时间、地点、要带什么、怎么回复 —— 这一条需要哪样就写哪样。「希望你能来」是一个愿望，不是一个要点。";
+    case "courtesy":
+      return en
+        ? "One line to the reader: looking forward to a reply, a thank-you, or a wish. Keep the tone matched to who they are to you."
+        : "给收信人的一句话：期待回复、道谢，或者一句祝愿。语气按你和他的关系来定。";
     case "counter":
       return en
         ? "State the strongest version of the opposing view, then say what you still hold and why."

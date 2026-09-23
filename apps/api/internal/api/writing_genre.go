@@ -81,20 +81,59 @@ var narrativeIdeaMarkersEN = []string{
 	"describe an experience", "an experience you",
 }
 
+// —— 书信 ——
+//
+// 🚨 2026-09-23 产品负责人：「书信 is a very important format in junior
+// english. but currently we would guide students to write a letter under the
+// structure of 议论文.」她说得对：在这之前这里只有两个取值，一封信必然落到
+// 最后那句 `return genreArgument`，于是一个初中生被要求给一封信写中心论点。
+//
+// 书信和另外两种不一样的地方在于：**它的题目几乎总是自报家门。** 一篇记叙文
+// 的题目可以长得像议论文，而一封信的题目里基本都有「信」「Dear」「write to」
+// 这样的词 —— 所以这张表可以收得比记叙文那张更实，漏判的风险小得多。
+//
+// 仍然按「宁可漏不可多」写：收的是成套的说法。「邀请」「建议」这类单个词
+// **故意没有** —— 「请给出你的建议」是一道议论文题。
+var letterIdeaMarkers = []string{
+	"一封信", "写信", "给你的信", "的一封信", "书信",
+	"感谢信", "建议信", "邀请函", "倡议书", "申请信", "道歉信", "慰问信", "表扬信",
+	"致全体", "致同学", "致老师", "回信", "写一封",
+}
+
+// letterIdeaMarkersEN —— 英文那一套，按**小写**比。
+//
+// 「dear」单独收是安全的：一道议论文题里不会出现它，而一封信的题干和范文
+// 开头几乎一定有。「letter」同理。
+var letterIdeaMarkersEN = []string{
+	"a letter", "the letter", "letter to", "write to", "write a letter",
+	"write an email", "an email to", "email to",
+	"dear ", "dear sir", "dear madam",
+	"thank-you note", "note to",
+	"invitation", "apology letter", "application letter", "letter of application",
+	"reply to his", "reply to her", "reply to the letter",
+}
+
 // writingGenreOf 推断这一篇的文体。见文件头。
 //
 // outline 传 nil 也成立（还没摆图的时候），那时只看题目。
 func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 	// 1. 板上已经有议论文的骨架 —— 她在按议论文摆，不必再猜。
 	//    这一条放在最前面：她的动作胜过题目里的字。
-	var sawNarrativeKind bool
+	var sawNarrativeKind, sawLetterKind bool
 	for _, row := range outline {
 		switch writingKindOf(row) {
 		case writingKindThesis, writingKindPoint, writingKindCounter, writingKindRebuttal:
 			return genreArgument
 		case writingKindScene, writingKindDetail, writingKindTurn, writingKindFeeling:
 			sawNarrativeKind = true
+		case writingKindPurpose, writingKindMatter, writingKindCourtesy:
+			sawLetterKind = true
 		}
+	}
+	// 书信排在记叙文前面：一封信里可以有一段小小的叙事（「上周我去了……」），
+	// 反过来一篇记叙文里不会出现写信目的和结尾的礼貌话。
+	if sawLetterKind {
+		return genreLetter
 	}
 	if sawNarrativeKind {
 		return genreNarrative
@@ -105,6 +144,19 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 	idea := wr.Title
 	if wr.AssignedPrompt != nil {
 		idea += " " + *wr.AssignedPrompt
+	}
+	lowerIdea := strings.ToLower(idea)
+	// 书信先查：「给外婆写一封信，记一件让你难忘的事」两张表都命中，
+	// 而它要按信来写（称呼、目的、落款一样都少不了）。
+	for _, marker := range letterIdeaMarkers {
+		if strings.Contains(idea, marker) {
+			return genreLetter
+		}
+	}
+	for _, marker := range letterIdeaMarkersEN {
+		if strings.Contains(lowerIdea, marker) {
+			return genreLetter
+		}
 	}
 	for _, marker := range narrativeIdeaMarkers {
 		if strings.Contains(idea, marker) {
@@ -128,8 +180,11 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 
 // writingGenreLabel 是她在界面上看得见的那个词。
 func writingGenreLabel(genre string) string {
-	if genre == genreNarrative {
+	switch genre {
+	case genreNarrative:
 		return "记叙文"
+	case genreLetter:
+		return "书信"
 	}
 	return "议论文"
 }

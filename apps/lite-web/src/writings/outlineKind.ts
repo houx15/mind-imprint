@@ -35,13 +35,26 @@ export type OutlineKind =
   | "scene"
   | "detail"
   | "turn"
-  | "feeling";
+  | "feeling"
+  // —— 书信（2026-09-23）——
+  // 产品负责人：「书信 is a very important format in junior english. but
+  // currently we would guide students to write a letter under the structure
+  // of 议论文.」在这之前一封信必然落到议论文那一支。
+  // 称呼和落款**不在这里**：那两样是格式不是内容，段落那一步的开头卡和
+  // 结尾卡已经各占一张。
+  | "purpose"
+  | "matter"
+  | "courtesy";
 
 /** 每种块在图上的深度。**强制**，和 Go 侧的 writingKindDepths 一致。 */
 export const OUTLINE_KIND_DEPTH: Record<OutlineKind, number> = {
   opening: 0,
   thesis: 0,
   closing: 0,
+  // 书信：目的和结尾的话各自成块（和开篇/结尾同层），要点是中间那一层。
+  purpose: 0,
+  courtesy: 0,
+  matter: 1,
   point: 1,
   counter: 1,
   evidence: 2,
@@ -116,6 +129,12 @@ export function outlineKindLabel(kind: string, lang?: string): string {
       return "转折";
     case "feeling":
       return "感悟";
+    case "purpose":
+      return "写信目的";
+    case "matter":
+      return "要点";
+    case "courtesy":
+      return "结尾的话";
     default:
       return "";
   }
@@ -158,6 +177,14 @@ function outlineKindLabelEN(kind: string): string {
       return "Turning point";
     case "feeling":
       return "Reflection";
+    // 书信。名字和 Go 侧 WritingPlanLetterKindsEN 里给模型的那几个逐字一致 ——
+    // 印记在对话里说 "purpose"，图上印别的词，那就是两个名字。
+    case "purpose":
+      return "Purpose";
+    case "matter":
+      return "Point";
+    case "courtesy":
+      return "Closing courtesy";
     default:
       return "";
   }
@@ -249,7 +276,9 @@ export function outlineKindIsInlineContent(kind: OutlineKind): boolean {
 }
 
 /** 这一种块属于哪一种文体。空串 = 两种都用（开篇和结尾）。 */
-export function outlineKindGenre(kind: OutlineKind): "argument" | "narrative" | "" {
+export type WritingGenre = "argument" | "narrative" | "letter";
+
+export function outlineKindGenre(kind: OutlineKind): WritingGenre | "" {
   switch (kind) {
     case "thesis":
     case "point":
@@ -265,6 +294,10 @@ export function outlineKindGenre(kind: OutlineKind): "argument" | "narrative" | 
     case "turn":
     case "feeling":
       return "narrative";
+    case "purpose":
+    case "matter":
+    case "courtesy":
+      return "letter";
     default:
       return "";
   }
@@ -284,9 +317,18 @@ export function rekindForDepth(
   kind: OutlineKind,
   depth: number,
   hasThesis: boolean,
-  genre: "argument" | "narrative" = "argument",
+  genre: WritingGenre = "argument",
 ): OutlineKind {
   if (OUTLINE_KIND_DEPTH[kind] === depth) return kind;
+  // 🚨 书信那一边的默认种类同样整套不一样。落错了，她把一件要说的事拖到
+  // 主干之后会看见一张写着「分论点」的卡 —— 记叙文那次的同一个毛病，
+  // 换了个文体又长出来一次。
+  if (genre === "letter") {
+    if (depth <= 0) return "purpose";
+    // 一封信只有两层：目的那一层和要点那一层。更深的也收到要点上 ——
+    // 中间那一层错了代价最小（同 writingKindDepth 的兜底方向）。
+    return "matter";
+  }
   // 🚨 记叙文那一边的默认种类整套都不一样。落错了，她把一件事拖成主干之后
   // 会看见一张写着「分论点」的卡 —— 那正是 R1 修掉的那个毛病，换了个文体
   // 又长出来一次。
@@ -316,12 +358,17 @@ export function rekindForDepth(
  */
 export function outlineGenreOf(
   items: Array<Pick<WritingOutlineItem, "role" | "depth"> & { kind?: string; source?: string }>,
-): "argument" | "narrative" {
+): WritingGenre {
   let sawNarrative = false;
+  let sawLetter = false;
   for (const item of items) {
     const g = outlineKindGenre(outlineKindOf(item));
     if (g === "argument") return "argument";
     if (g === "narrative") sawNarrative = true;
+    if (g === "letter") sawLetter = true;
   }
+  // 书信排在记叙文前面，和 Go 侧 writingGenreOf 同一条：一封信里可以有一段
+  // 小小的叙事，反过来一篇记叙文里不会出现写信目的和结尾的礼貌话。
+  if (sawLetter) return "letter";
   return sawNarrative ? "narrative" : "argument";
 }
