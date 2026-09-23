@@ -241,6 +241,31 @@ export function CommentPanel({
         </span>
       )}
 
+      {/* 四层各自的等级，紧跟在整体结论下面。总评说的是「这一段整体算什么」，
+          这一排说的是「哪一层」——立意站住了、字句还有问题，她该看到的是
+          两个不同颜色的格子，而不是一个笼统的可优化把两件事拌在一起
+          （产品负责人：不给分数，给等级/颜色反馈）。
+          🚨 颜色照 VERDICT_CHIP 那一套：polish 用中性色，不用 danger
+          （:54-55 那条注释同样管这四个格子）。 */}
+      {comment.layer_verdicts && Object.keys(comment.layer_verdicts).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {Object.keys(COMMENT_LAYER_NAMES).map((key) => {
+            const layerVerdict = comment.layer_verdicts[key];
+            const layerChip = layerVerdict ? VERDICT_CHIP[layerVerdict] : undefined;
+            if (!layerChip) return null;
+            return (
+              <span
+                key={key}
+                className="rounded-mk-full px-2 py-0.5 text-mk-small font-medium"
+                style={{ background: layerChip.bg, color: layerChip.fg, border: `1px solid ${layerChip.border}` }}
+              >
+                {COMMENT_LAYER_NAMES[Number(key)]}·{layerChip.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <p className="text-mk-body-lg font-semibold text-mk-ink">{comment.summary}</p>
 
       {livePoints.length > 0 && (

@@ -67,6 +67,58 @@ func writingHasIssue(points []CommentPoint) bool {
 	return false
 }
 
+// layerVerdictsOf 把一条整体结论拆成四层各自的等级（立意/材料/结构/字句）。
+//
+// # 为什么（产品负责人：数值分数不给，但可以给等级/颜色反馈）
+//
+// 一条 `Comment.Verdict` 是这一段的总判断，但一段立意站得住、字句一堆问题的
+// 稿子，读到的只有一个笼统的 polish——两件不相干的事被拌在一起说。
+// 这个函数只回答「这一层，单独看，算什么」，**只看这条评语自己的 points**，
+// 不看别的评语、别的段，也不问模型（Layer 已经是服务端从 Symptom 查出来的，
+// 见 CommentPoint.Layer 上的注释，这里在它上面再算一层）。
+//
+// 判据（和 normalizeWritingVerdict 同一个不对称）：
+//
+//   - 这一层一个 issue 都没有 → pass。「没提到」和「明确没问题」在这里是
+//     同一件事：一层完全没被点名，恰恰说明它没有拖后腿。
+//   - 这一层**一条** issue → polish。一处可以更好，不挡着她往下走。
+//   - 这一层**两条及以上** issue → revise。同一层连着几处，这一层要回去重来。
+//
+// 🚨 为什么按**条数**，不按「那条意见带没带 Action」：
+// validateCommentPoints 会把没有 Action 的 point 整条丢掉
+// （writing_comment.go:304，dropNoAction），所以活下来的 issue **全都**带
+// Action。拿「带不带 Action」当判据，三档会塌成两档（pass / revise），
+// polish 那一支变成走不到的死代码 —— 而 revise 在她屏幕上是危险色。
+// 一处小的用词问题就会让「字句」变红，正好撞上 CommentPanel 里那条
+// 「polish 不能长得像错误」。条数是服务端数得出来的事实，不用问模型。
+//
+// 兜底方向和 normalizeWritingVerdict 一致：拿不准就退到更轻的那一档。
+//
+// 四层都会有值，哪怕这条评语一个 point 都没提到那一层：学生的卡片上永远是
+// 四个格子，不是零散的一两个（未被提到 = 上面第一条 = pass）。
+func layerVerdictsOf(c Comment) map[int]string {
+	issues := map[int]int{}
+	for _, p := range c.Points {
+		if p.Kind != "issue" {
+			continue
+		}
+		issues[p.Layer]++
+	}
+	layers := []int{writingLayerClaim, writingLayerMaterial, writingLayerStructure, writingLayerSentence}
+	out := make(map[int]string, len(layers))
+	for _, layer := range layers {
+		switch n := issues[layer]; {
+		case n == 0:
+			out[layer] = writingVerdictPass
+		case n == 1:
+			out[layer] = writingVerdictPolish
+		default:
+			out[layer] = writingVerdictRevise
+		}
+	}
+	return out
+}
+
 // —— 减法一：后面的段已经承接了的，不要在这一段里要 ——
 
 // writingOpeningExcusedSymptoms 是**开头段不该被要求**的那几种毛病。

@@ -219,6 +219,13 @@ export type Comment = {
    * 空串 = 2026-09-11 之前存的老评论，不知道那一版长什么样。
    */
   sourceText: string;
+  /**
+   * 四层各自的等级 —— 服务端 layerVerdictsOf（writing_verdict.go）把整体的
+   * `verdict` 拆开算的结果，键是 COMMENT_LAYER_NAMES 的键（1..4）转成的字符串，
+   * 值在 CommentVerdict 闭集里。**服务端算，不进数据库**，是 points 的纯函数，
+   * 所以四层永远都有值——不像 verdict 那样有「空 = 老数据」的历史包袱。
+   */
+  layer_verdicts: Record<string, CommentVerdict>;
 };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;

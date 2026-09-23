@@ -149,6 +149,14 @@ type Comment struct {
 	//
 	// 空串 = 0147 之前的老行，不知道那一版长什么样；前端据此退回老判据。
 	SourceText string `json:"sourceText"`
+	// LayerVerdicts 是把 Verdict 拆开之后的四层各自的等级（写作按
+	// 立意/材料/结构/字句分开看，见 layerVerdictsOf，writing_verdict.go）。
+	//
+	// 🚨 **不进数据库。** 它是 Points 的纯函数——不像 Verdict 那样有
+	// 「空 = 老数据」的历史包袱，toCommentDTO 每次读都现算，连 0183 之前
+	// 存的老行也算得出四个值。键是 writingLayerClaim 等那四个数字，
+	// json 序列化成字符串键；不摆分数，值只在 pass/polish/revise 闭集里。
+	LayerVerdicts map[int]string `json:"layer_verdicts"`
 }
 
 // toCommentDTO decodes a stored writing_comment row into the wire shape.
@@ -177,6 +185,7 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 		s := uuid.UUID(row.SnippetID.Bytes).String()
 		out.SnippetID = &s
 	}
+	out.LayerVerdicts = layerVerdictsOf(out)
 	return out
 }
 

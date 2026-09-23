@@ -23,6 +23,7 @@ const COMMENT: Comment = {
     { text: "这里的让步只是复述对方观点，没有正面回应。", quote: "有人会说这样成本更低" },
   ],
   sourceText: "",
+  layer_verdicts: {},
   createdAt: "2026-08-28T00:00:00Z",
 };
 
@@ -74,5 +75,24 @@ describe("CommentPanel", () => {
 
     expect(screen.getByText(bare.summary)).toBeTruthy();
     expect(document.querySelectorAll("[data-comment-point]").length).toBe(0);
+  });
+
+  it("shows all four layer chips, even when a layer has no points", () => {
+    const withLayers: Comment = {
+      ...COMMENT,
+      layer_verdicts: { "1": "pass", "2": "polish", "3": "revise", "4": "pass" },
+    };
+    render(<CommentPanel comment={withLayers} onTrace={() => {}} />);
+
+    expect(screen.getByText("立意·已通过")).toBeTruthy();
+    expect(screen.getByText("材料·可优化")).toBeTruthy();
+    expect(screen.getByText("结构·需修改")).toBeTruthy();
+    expect(screen.getByText("字句·已通过")).toBeTruthy();
+  });
+
+  it("renders no layer chips when layer_verdicts is empty (old comment row)", () => {
+    render(<CommentPanel comment={COMMENT} onTrace={() => {}} />);
+
+    expect(screen.queryByText(/立意·/)).toBeNull();
   });
 });

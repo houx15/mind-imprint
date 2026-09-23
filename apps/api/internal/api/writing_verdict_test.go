@@ -198,6 +198,64 @@ func TestCommentSystemDispatchesByKind(t *testing.T) {
 	}
 }
 
+// 一层的等级只看落在这一层的 points。四层各自独立 —— 立意没问题、
+// 字句一堆问题，她该看到的是「立意 pass，字句 revise」，而不是一个
+// 笼统的 polish 把两件事拌在一起。
+func TestLayerVerdictsComeFromThatLayerOnly(t *testing.T) {
+	c := Comment{Points: []CommentPoint{
+		{Kind: "issue", Layer: writingLayerSentence, Action: "把这句拆成两句"},
+		{Kind: "good", Layer: writingLayerClaim},
+	}}
+	got := layerVerdictsOf(c)
+	if got[writingLayerClaim] != writingVerdictPass {
+		t.Errorf("立意那层没有 issue，应该 pass，拿到 %q", got[writingLayerClaim])
+	}
+	if got[writingLayerSentence] == writingVerdictPass {
+		t.Error("字句那层有一条带 action 的 issue，不该是 pass")
+	}
+	// 没有任何 point 的那两层也要有值 —— 屏幕上四个格子都要有东西。
+	if got[writingLayerMaterial] == "" || got[writingLayerStructure] == "" {
+		t.Error("没有 point 的层也要给一个等级，不能是空")
+	}
+}
+
+// 🚨 三档都要够得着。
+//
+// 第一版按「那条 issue 带没带 Action」判，而 validateCommentPoints 会把没有
+// Action 的 point 整条丢掉（dropNoAction），于是活下来的 issue 全都带 Action，
+// 三档塌成两档：pass 或 revise，polish 那一支永远走不到。后果是一处小的用词
+// 问题就把「字句」判成 revise —— 屏幕上那是危险色，而 CommentPanel 里写着
+// 「polish 不能长得像错误」。
+//
+// 这条测试钉住「一条 = polish，两条 = revise」，让中间那一档留在路上。
+func TestLayerVerdictUsesAllThreeLevels(t *testing.T) {
+	one := layerVerdictsOf(Comment{Points: []CommentPoint{
+		{Kind: "issue", Layer: writingLayerSentence, Action: "把这句拆成两句"},
+	}})
+	if one[writingLayerSentence] != writingVerdictPolish {
+		t.Errorf("一层只有一条 issue，应该是 polish，拿到 %q", one[writingLayerSentence])
+	}
+
+	two := layerVerdictsOf(Comment{Points: []CommentPoint{
+		{Kind: "issue", Layer: writingLayerSentence, Action: "把这句拆成两句"},
+		{Kind: "issue", Layer: writingLayerSentence, Action: "换掉重复的那个词"},
+	}})
+	if two[writingLayerSentence] != writingVerdictRevise {
+		t.Errorf("一层有两条 issue，应该是 revise，拿到 %q", two[writingLayerSentence])
+	}
+}
+
+// 不认识的值归一到 polish 而不是 revise —— writing_verdict.go 已有的
+// 非对称兜底，按层算的时候不许把它改成对称的。
+func TestLayerVerdictNeverInventsRevise(t *testing.T) {
+	c := Comment{Points: []CommentPoint{{Kind: "issue", Layer: 99}}}
+	for _, v := range layerVerdictsOf(c) {
+		if v == writingVerdictRevise {
+			t.Error("一个认不出层号的 point 把某一层判成了 revise")
+		}
+	}
+}
+
 // Source category must not affect readiness, regardless of language or length.
 func TestPlanReadinessDoesNotRankMaterialSources(t *testing.T) {
 	for _, lang := range []string{"zh", "en"} {
