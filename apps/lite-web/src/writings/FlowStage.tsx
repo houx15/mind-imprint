@@ -204,6 +204,15 @@ export function FlowStage({
                   >
                     <StructureDiagram kind={s.id} /><span className="text-mk-body font-semibold text-mk-ink">{s.name}</span>{on && <Icon icon={Check} size={16} />}
                     <span className="text-mk-small text-mk-muted">{s.definition}</span>
+                    {/* 判断办法：什么时候该挑这一条。产品负责人 2026-09-23 点名
+                        缺的就是它 —— 定义说它是什么，例子说它长什么样，
+                        两样都答不了「我这一篇该用哪一条」，而那正是这一屏要她
+                        做的决定。 */}
+                    {s.whenToUse && (
+                      <span className="writing-structure__when text-mk-small text-mk-ink">
+                        什么时候用：{s.whenToUse}
+                      </span>
+                    )}
                     {/* 借来的示范：光给定义，「层进式」和「并列式」在一个中学生
                         眼里是同一句话。它讲的是别的题目，不是她的。 */}
                     {s.example && (

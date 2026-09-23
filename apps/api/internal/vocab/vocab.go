@@ -145,10 +145,24 @@ type Method struct {
 	//
 	// 🚨 空串是「两种都用」，不是「都不用」。开篇的几种开法、英文的那一套
 	// 都是空串：一篇记叙文也要开头。
-	Genre      string    `json:"genre"`
-	Definition string    `json:"definition"`
-	Examples   []Example `json:"examples"`
-	Patterns   []Pattern `json:"patterns"`
+	Genre      string `json:"genre"`
+	Definition string `json:"definition"`
+	// WhenToUse 回答「什么时候该用这一条」——**判断办法**，不是定义。
+	//
+	// 🚨 2026-09-23 产品负责人：「英文的四个（Thesis-body-conclusion、
+	// Claim-counterargument-refutation、Point-by-point comparison、
+	// Block comparison）只有定义和例子，没有判断方法。」
+	//
+	// 她点的是英文那四条，但查下来十条整篇结构**一条都没有**，所以十条一起补。
+	// 写的时候尽量落到一个她自己做得了的动作上（「把两条理由调换顺序读一遍，
+	// 读起来一样顺，就是并列」），而不是又一句定义的改写 —— 一条判断办法要是
+	// 只能靠她已经懂了才用得上，它就没有帮到任何人。
+	//
+	// 今天只有 category=="structure" 的十条填了它。别的条目留空，
+	// 调用点按空串处理（那一行整行不显示，同报告里「没有就是没有」那条规矩）。
+	WhenToUse string    `json:"when_to_use,omitempty"`
+	Examples  []Example `json:"examples"`
+	Patterns  []Pattern `json:"patterns"`
 }
 
 // 文体的两个取值。词表在这里和 api 包的 writing_genre.go 各一份

@@ -599,6 +599,17 @@ export type FlowStructureDTO = {
   id: string;
   name: string;
   definition: string;
+  /**
+   * 判断办法：什么时候该挑这一条。
+   *
+   * 🚨 2026-09-23 产品负责人：「英文的四个（Thesis-body-conclusion、
+   * Claim-counterargument-refutation、Point-by-point comparison、
+   * Block comparison）只有定义和例子，没有判断方法。」
+   *
+   * 定义说它是什么，例子说它长什么样，两样都答不了「我这一篇该用哪一条」——
+   * 而那正是这一屏要她做的决定。老的响应里没有这个字段 ⇒ undefined ⇒ 整行不显示。
+   */
+  whenToUse?: string;
   example: string;
 };
 

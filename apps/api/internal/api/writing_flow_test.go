@@ -91,8 +91,13 @@ func TestFlowStructuresAllCarryAnExample(t *testing.T) {
 	if n := len(vocab.Structures(genreArgument, "zh")); n != 4 {
 		t.Fatalf("中文议论文的论证结构应当有 4 条（总分/并列/层进/对照），得到 %d", n)
 	}
-	if n := len(vocab.Structures(genreNarrative, "zh")); n != 1 {
-		t.Fatalf("中文记叙文的结构应当有 1 条（抑扬转情法），得到 %d", n)
+	// 🚨 2026-09-23 从 1 条变成 7 条。产品负责人：「记叙文 has many kinds of
+	// 叙事结构, e.g. 时间顺序, or 倒叙, or 插叙, 一波三折, 双线并进,
+	// 以物为线索……if we always ask students to write one thing, it is too
+	// fixed.」在那之前中文记叙文整篇那一层只有抑扬转情法一条 ——
+	// 「行文」那一屏对一篇记叙文来说是一道单选题。
+	if n := len(vocab.Structures(genreNarrative, "zh")); n != 7 {
+		t.Fatalf("中文记叙文的结构应当有 7 条（抑扬转情法 + 六种叙事结构），得到 %d", n)
 	}
 	if n := len(vocab.Structures(genreArgument, "en")); n != 4 {
 		t.Fatalf("英文议论文的结构应当有 4 条，得到 %d", n)
@@ -102,9 +107,17 @@ func TestFlowStructuresAllCarryAnExample(t *testing.T) {
 	}
 	// 🚨 两边不许交叉：一篇记叙文里没有分论点，「它们之间是并列还是层进」
 	// 是句问不出口的话。
+	//
+	// 判据从「只能是 struct_yiyang」改成「每一条都标着记叙文」—— 原来那一版
+	// 钉的是**名单**，加一条新结构它就红，而它真正要守的是不许混进议论文那几条。
 	for _, m := range vocab.Structures(genreNarrative, "zh") {
-		if m.ID != "struct_yiyang" {
-			t.Errorf("记叙文的结构里混进了 %q", m.ID)
+		if m.Genre != genreNarrative {
+			t.Errorf("记叙文的结构里混进了 %q（genre=%q）", m.ID, m.Genre)
+		}
+	}
+	for _, m := range vocab.Structures(genreArgument, "zh") {
+		if m.Genre != genreArgument {
+			t.Errorf("议论文的结构里混进了 %q（genre=%q）", m.ID, m.Genre)
 		}
 	}
 	got := vocab.Structures("", "")

@@ -96,6 +96,12 @@ type writingFlowStructureDTO struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
+	// WhenToUse 是**判断办法**：什么时候该挑这一条。
+	//
+	// 🚨 2026-09-23 产品负责人：「英文的四个……只有定义和例子，没有判断方法。」
+	// 定义说的是它是什么，例子说的是它长什么样，两样都答不了她手上这一篇
+	// 该用哪一条 —— 而那正是这一屏要她做的决定。
+	WhenToUse string `json:"whenToUse,omitempty"`
 	// Example 是这种结构摆出来长什么样 —— 一句借来的示范（讲的是别的题目）。
 	// 光给定义，「层进式」和「并列式」在一个中学生眼里是同一句话。
 	Example string `json:"example"`
@@ -143,7 +149,8 @@ func (a *API) getWritingFlowStructures(w http.ResponseWriter, r *http.Request) {
 			ex = m.Examples[0].Text
 		}
 		out = append(out, writingFlowStructureDTO{
-			ID: m.ID, Name: m.Name, Definition: m.Definition, Example: ex,
+			ID: m.ID, Name: m.Name, Definition: m.Definition,
+			WhenToUse: m.WhenToUse, Example: ex,
 		})
 	}
 

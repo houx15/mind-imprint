@@ -625,6 +625,7 @@
       "lang": "zh",
       "category": "structure",
       "definition": "先提出主要观点，后续各段分别从不同角度论证。结尾再总结观点，就是总—分—总结构。",
+      "when_to_use": "题目要你证明一个看法，而你手上几条理由都指向同一句话时用它：开头把那句话说出来，后面每一段各证一条，结尾再回到它。",
       "examples": [
         {
           "topic": "读书该快还是该慢",
@@ -642,6 +643,7 @@
       "lang": "zh",
       "category": "structure",
       "definition": "用地位相同、相互独立的分论点，从不同角度说明同一中心观点。各部分应相关且不重复。",
+      "when_to_use": "几条理由地位相同、谁先谁后都说得通时用它。判断办法：把两条理由调换顺序读一遍，读起来一样顺，就是并列。",
       "examples": [
         {
           "topic": "读书该快还是该慢",
@@ -659,6 +661,7 @@
       "lang": "zh",
       "category": "structure",
       "definition": "按逐步深入的关系组织内容，例如先说明是什么，再解释为什么，最后讨论怎么办。后一部分建立在前一部分的基础上。",
+      "when_to_use": "几条理由必须按顺序读、后一条建立在前一条上时用它（是什么 → 为什么 → 怎么办）。判断办法：调换顺序之后读不通，就是层进。",
       "examples": [
         {
           "topic": "读书该快还是该慢",
@@ -676,6 +679,7 @@
       "lang": "zh",
       "category": "structure",
       "definition": "比较正反两方面或不同情况，围绕相同标准分析差异，突出与中心观点有关的关系。比较时需考虑其他条件的差别。",
+      "when_to_use": "手上有正反两面、而且两面都举得出具体例子时用它（做到的和没做到的、从前和现在、这个人和那个人）。只有一面举得出例子时不用它，那会写成一面倒。",
       "examples": [
         {
           "topic": "读书该快还是该慢",
@@ -845,6 +849,7 @@
       "lang": "zh",
       "category": "structure",
       "definition": "按抑、渡、转、扬组织叙事：先写原有的不满或误解，通过具体事件呈现认识变化，最后说明新的理解。前后变化应有真实事件和细节作为依据。",
+      "when_to_use": "你对某个人或某件事的看法前后翻过一次，而且说得出是哪一件事让你改观时用它。判断办法：能指出「在那之前我以为……那天之后我才知道……」中间的那件事，就用它。",
       "examples": [
         {
           "topic": "写一个你讨厌的人",
@@ -912,6 +917,7 @@
       "applies_to": "whole",
       "lang": "en",
       "definition": "常见的英文议论文结构：引言说明 thesis statement，主体段围绕 topic sentence 展开，结论综合论证并回应 thesis。Thesis 常放在引言末尾，具体安排以题目和教师要求为准。",
+      "when_to_use": "题目要你为一个立场辩护（Do you agree? / To what extent…? / Discuss），而你的理由都支持同一个主张时用它。判断办法：能用一句话说出你要证明什么，就用它。",
       "examples": [
         {
           "topic": "School start times",
@@ -929,6 +935,7 @@
       "applies_to": "whole",
       "lang": "en",
       "definition": "说明自己的观点，讨论相关的反方理由，再给出回应。是否单独成段，根据任务要求、篇幅和论证需要决定。",
+      "when_to_use": "题目本身摆出两方（Discuss both views / Some people think…while others…），或者你预计读者会不同意时用它。判断办法：写得出一句读者可能拿来反驳你的话，就用它。",
       "examples": [
         {
           "topic": "Phones in school",
@@ -946,6 +953,7 @@
       "applies_to": "whole",
       "lang": "en",
       "definition": "比较两个对象时，每段围绕同一个方面讨论两者的相同点与差异。",
+      "when_to_use": "你在比较两样东西，而且比的是两三个共同的方面时用它。判断办法：列得出「这两样都要谈的是哪几点」，就按点来比。",
       "examples": [
         {
           "topic": "Two libraries",
@@ -963,6 +971,7 @@
       "applies_to": "whole",
       "lang": "en",
       "definition": "先集中介绍一个对象，再介绍另一个对象。两部分按对应的方面展开，并说明它们的联系，方便读者比较。",
+      "when_to_use": "你在比较两样东西，而且每一样都要先整个讲清楚、读者才判断得了时用它。判断办法：拆成几点之后每一点都太碎，就整块地写。",
       "examples": [
         {
           "topic": "Two libraries",
@@ -980,10 +989,119 @@
       "applies_to": "whole",
       "lang": "en",
       "definition": "一种英文叙事结构：交代人物与处境（exposition），描述事件发展（rising action），呈现转折（turning point），联系具体经历说明认识的变化（reflection）。可据故事需要调整段落安排。",
+      "when_to_use": "题目要你写一次经历或一件事（Tell the story of… / Write about a time when…）时用它。判断办法：说得出这件事是在哪一刻变了方向，就用它。",
       "examples": [
         {
           "topic": "Learning to swim",
           "text": "The narrator cannot let go of the pool edge; three weeks of lessons make it worse, not better; one afternoon the instructor stops watching and she swims four strokes; the last paragraph returns to the edge of the pool, now empty."
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_shunxu",
+      "name": "时间顺序",
+      "formal_name": "顺叙",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "按事情发生的先后一路写下来：先发生的先写，后发生的后写。最常用的一种，读者跟得最稳。",
+      "when_to_use": "这件事本身就有清楚的先后、而且越往后越要紧时用它。判断办法：你能一口气说出「先……然后……最后……」，就按时间顺序写。",
+      "examples": [
+        {
+          "topic": "学骑车",
+          "text": "先写爸爸扶着后座在巷子里跑；再写他松手那一下我摔进冬青丛；最后写我自己蹬上车、回头看见他还站在原地。"
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_daoxu",
+      "name": "倒叙",
+      "formal_name": "倒叙",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "先写结果或最要紧的那一幕，再回头从头讲这件事是怎么来的。开头那一段和后面的经过之间要有一句话把读者带回去。",
+      "when_to_use": "这件事的结果比经过更抓人，而经过又必须交代清楚时用它。判断办法：你最想让读者先看见的那一幕不在开头，就把它提到开头。",
+      "examples": [
+        {
+          "topic": "外婆的针线笸箩",
+          "text": "开头写我在搬家那天打开那只笸箩，里面还躺着半只没织完的袖子；接着回到三年前她教我认针脚的那个下午，一路写到她住院前最后一次拿起它。"
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_chaxu",
+      "name": "插叙",
+      "formal_name": "插叙",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "主线按时间往下走，中途插进一段从前的事，交代清楚之后回到主线继续。插进去的那一段要为主线服务，不另起一个故事。",
+      "when_to_use": "主线走到某一处，读者不知道从前发生过什么就看不懂人物为什么这样做时用它。判断办法：你想在某一处写「其实早在……」，那就是该插叙的地方。",
+      "examples": [
+        {
+          "topic": "校运会",
+          "text": "写到我站在起跑线上腿发软，插进去一段去年摔倒在同一条跑道上的事，再回到发令枪响。"
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_yibosanzhe",
+      "name": "一波三折",
+      "formal_name": "一波三折",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "一件事上连着出现几次转折：眼看要成又出岔子，眼看没救又有转机。每一次转折都要有具体的事，不靠「没想到」三个字带过。",
+      "when_to_use": "这件事的过程本身有起落、而且每一次起落你都说得出是什么事造成的时用它。判断办法：你数得出两次以上「本来以为……结果……」，就用它。",
+      "examples": [
+        {
+          "topic": "修钟表",
+          "text": "先写我拆开那只停摆的座钟、以为换个电池就好；装回去仍然不走；拆第二遍发现齿轮上缠着一根头发；取下来之后它却整整快了十分钟。"
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_shuangxian",
+      "name": "双线并进",
+      "formal_name": "双线并进",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "两条线交替往下写，最后并到一处。常见的一种是外面发生的事和心里的变化各一条。",
+      "when_to_use": "这件事里有两样东西在同时变、而且最后要碰到一起时用它。判断办法：你说得出两条线各自是什么、又说得出它们在哪一段合上，才用它；合不上就会写成两篇。",
+      "examples": [
+        {
+          "topic": "晒被子",
+          "text": "一条线写奶奶每天把被子抱到阳台上又抱回来；另一条线写我从嫌麻烦到主动去帮她抬。两条线在她抬不动的那个早晨合上。"
+        }
+      ],
+      "patterns": [],
+      "category": "structure",
+      "genre": "narrative"
+    },
+    {
+      "id": "struct_yiwu_xiansuo",
+      "name": "以物为线索",
+      "formal_name": "一线串珠",
+      "applies_to": "whole",
+      "lang": "zh",
+      "definition": "用一样反复出现的东西把几个片段串起来，每个片段写它在不同时候的样子，末段收束点题。",
+      "when_to_use": "你手上是几件分散的小事、不是一件连贯的事，而它们之间有同一样东西时用它。判断办法：说得出那样东西是什么、并且它在每个片段里都真的出现过，才用它。",
+      "examples": [
+        {
+          "topic": "搬家",
+          "text": "用那把旧竹尺串起三件事：一年级她替我在门框上刻第一道线、五年级我踮脚够不到新的那一道、搬家那天门框被拆下来靠在墙边。"
         }
       ],
       "patterns": [],
