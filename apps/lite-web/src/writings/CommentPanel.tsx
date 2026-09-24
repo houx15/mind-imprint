@@ -258,6 +258,25 @@ export function CommentPanel({
         </span>
       )}
 
+      {/* 当前档位。🚨 只有通篇审阅那一条有（五档是给一整篇用的尺子，
+          套到一个自然段上没有意义），所以 band 缺省时整块不渲染。
+
+          产品负责人 2026-09-25 要它给学生看。工程这一侧的做法是
+          **服务端从这一轮真正挑出来的毛病算**，模型不参与评分 ——
+          所以它和下面那排四层等级说的是同一件事的两个粒度，不会打架。
+
+          那一行小字（bandNote）不是装饰：学生看见一个数字会默认它是分数，
+          而它说的其实是「你现在卡在哪一层」。 */}
+      {typeof comment.band === "number" && comment.band > 0 && (
+        <div className="mk-comment-band">
+          <div className="mk-comment-band__row">
+            <span className="mk-comment-band__num">第 {comment.band} 档</span>
+            {comment.bandLabel && <span className="mk-comment-band__label">{comment.bandLabel}</span>}
+          </div>
+          {comment.bandNote && <p className="mk-comment-band__note">{comment.bandNote}</p>}
+        </div>
+      )}
+
       {/* 四层各自的等级，紧跟在整体结论下面。总评说的是「这一段整体算什么」，
           这一排说的是「哪一层」——立意站住了、字句还有问题，她该看到的是
           两个不同颜色的格子，而不是一个笼统的可优化把两件事拌在一起

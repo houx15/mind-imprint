@@ -239,6 +239,19 @@ export type Comment = {
    * 不像 verdict 那样有「空 = 老数据」的历史包袱。
    */
   layer_verdicts: Record<string, CommentLayerVerdict>;
+  /**
+   * 当前档位（1–5）。**只有通篇审阅那一条有**，缺省/0 = 这一条没有档位，
+   * 界面据此不渲染那一块。
+   *
+   * 🚨 它是**服务端从这一轮挑出来的毛病算的**（writing_band.go），模型没有
+   * 参与评分 —— 批改提示词里那两句「不打分，不给等级」因此一个字都没改。
+   * 五档是给一整篇用的尺子，所以单段那一条不带它。
+   */
+  band?: number;
+  /** 这一档是什么意思。 */
+  bandLabel?: string;
+  /** 这把尺子量的是什么 —— 少了它，那个数字会被读成考试分数。 */
+  bandNote?: string;
 };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;

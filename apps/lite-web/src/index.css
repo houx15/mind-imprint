@@ -1089,6 +1089,44 @@
   }
 }
 
+/* ── 通篇审阅的当前档位 ─────────────────────────────────────────────────
+ *
+ * 产品负责人 2026-09-25 要档位给学生看。它只出现在通篇审阅那一条上。
+ *
+ * 🚨 数字要大得能一眼看见，但**旁边那句话和底下那行小字不能被它压掉** ——
+ * 一个孤零零的「第 3 档」会被读成考试分数，而它说的是「你现在卡在结构」。
+ * 所以三样东西在同一块里：数字、这一档是什么意思、这把尺子量的是什么。
+ */
+.mk-lite-room .mk-comment-band,
+.lite-student .mk-comment-band {
+  border: 1px solid color-mix(in srgb, var(--mk-accent) 24%, var(--mk-border));
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--mk-accent) 6%, var(--mk-surface));
+}
+.mk-comment-band__row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mk-comment-band__num {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--mk-accent-700);
+  white-space: nowrap;
+}
+.mk-comment-band__label {
+  font-size: 13px;
+  color: var(--mk-ink);
+}
+.mk-comment-band__note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--mk-muted);
+}
+
 /* ── 诗按诗的样子摆 ─────────────────────────────────────────────────────
  *
  * 产品负责人 2026-09-24：「for short poems, maybe we can have a better

@@ -162,6 +162,19 @@ type Comment struct {
 	// 多出来的那个是为了区分「这一层干净」和「这一层的 issue 被
 	// validateCommentPoints 的 dropLowerLayer 压下去了」，见 layerVerdictsOf。
 	LayerVerdicts map[int]string `json:"layer_verdicts"`
+	// Band 是通篇审阅那一条上的「当前档位」（1–5，见 writing_band.go）。
+	//
+	// 🚨 **0 = 这一条没有档位**，前端据此不渲染那一块。只有 Scope="draft"
+	// 的通篇审阅有档位：五档是给一整篇用的尺子，套到一个自然段上没有意义。
+	//
+	// 🚨 和 LayerVerdicts 一样**不进数据库**，也一样是 Points 的纯函数 ——
+	// 每次读现算。所以老行也算得出来，而且模型没有参与评分这件事
+	//（「不打分，不给等级」那两句因此一个字都不用改）。
+	Band int `json:"band,omitempty"`
+	// BandLabel / BandNote 是那个数字旁边的字：这一档是什么意思，
+	// 以及这把尺子量的是什么。Band 为 0 时都是空串。
+	BandLabel string `json:"bandLabel,omitempty"`
+	BandNote  string `json:"bandNote,omitempty"`
 }
 
 // toCommentDTO decodes a stored writing_comment row into the wire shape.
@@ -191,6 +204,12 @@ func toCommentDTO(row sqlc.WritingComment) Comment {
 		out.SnippetID = &s
 	}
 	out.LayerVerdicts = layerVerdictsOf(out)
+	// 档位只挂在通篇那一条上 —— 五档是给一整篇用的尺子（见 writing_band.go）。
+	if out.Scope == "draft" {
+		out.Band = writingBandOf(out.Points)
+		out.BandLabel = writingBandLabel(out.Band)
+		out.BandNote = writingBandScaleNote
+	}
 	return out
 }
 
