@@ -39,6 +39,29 @@ func PromptAssemblyExamples() []PromptExample {
 			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh", "")}, {Role: gateway.RoleUser, Content: doc.Text},
 		}}, Documents: map[int]promptassembly.Document{1: doc}})
 	}
+	// 🚨 每一种体裁的带读说明各录一条。
+	//
+	// 2026-09-25 发现：在这之前 examples() 里只有 buildReadingCoachSystem("zh", "")
+	// 一条，也就是**体裁那一栏是空的**。于是 report / explain / narrative /
+	// poem / classical / prose 六段带读说明**一条都没有线上基线** ——
+	// 改坏其中任何一段，整套测试照样绿。正是 AGENTS.md 第 6 条那句
+	// 「基线不等于覆盖」。
+	//
+	// 用户那一栏照旧（同一段文章），变的只有系统提示词里的体裁那一节，
+	// 这样 diff 出来一眼能看出是哪一段被动了。
+	for _, genre := range []string{genreReport, genreExplain, genreNarrative, genrePoem, genreClassical, genreProse} {
+		blocks := SplitBlocks("新增装机容量增长了。\n\n实际发电量还与设备运行时间有关。")
+		tasks := []sqlc.ReadingTask{{Kind: "focus_block", Label: "比较两个指标", Status: "pending", BlockID: "b1"}}
+		// 🚨 体裁那一节住在**用户**那一栏里（reading_coach_prompt.go 第 111 行
+		// 从 outline.Genre 取），不在系统提示词里 —— 系统那边的 genre 只用来
+		// 收窄工具单。第一版这里只把 genre 传给了 buildReadingCoachSystem，
+		// 于是 report / explain / narrative / prose 四条录出来的 hash 一模一样，
+		// 那一节一个字都没被覆盖到。录基线的时候一眼看出来的。
+		doc := renderReadingCoachPrompt(selectReadingCoachContext("能源指标", blocks, readingOutline{Genre: genre}, tasks, nil, nil, "这一段在说什么？", nil, ""))
+		out = append(out, PromptExample{ID: "reading/coach/zh/" + genre, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: buildReadingCoachSystem("zh", genre)}, {Role: gateway.RoleUser, Content: doc.Text},
+		}}, Documents: map[int]promptassembly.Document{1: doc}})
+	}
 	// 🚨 2026-09-23 加上 genreLetter。AGENTS.md 第 6 条：新开一条分支不进基线，
 	// 就是「基线不等于覆盖」那个形状 —— 占位符在没被覆盖的分支上漏掉，
 	// 整套测试照样绿，而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
