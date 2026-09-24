@@ -65,6 +65,8 @@ func Catalog() []Definition {
 		{ID: "api.writingPlanSummaryKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSummaryKinds},
 		{ID: "api.writingPlanSkeletonSummary", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonSummary},
 		{ID: "api.writingPlanMaterialContinuation", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanMaterialContinuation},
+		{ID: "api.writingPlanMaterialLetter", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanMaterialLetter},
+		{ID: "api.writingPlanMaterialProse", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanMaterialProse},
 		{ID: "api.writingCommentChinglishEN", Source: "internal/prompts/api_writing_comment.go", Consumer: "internal/api/writing_comment_prompt.go", Text: WritingCommentChinglishEN},
 		{ID: "api.writingCeilingJunior", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingCeilingJunior},
 		{ID: "api.writingCeilingSenior", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingCeilingSenior},

@@ -73,11 +73,22 @@ var Default = sync.OnceValue(func() *Registry {
 	for _, lang := range []string{"zh", "en"} {
 		r.Add(SlotMaterial, w(lang, "continuation"), prompts.WritingPlanMaterialContinuation)
 		r.Add(SlotMaterial, w(lang, "summary"), prompts.WritingPlanMaterialSummary)
+		// 2026-09-25 补上书信和散文。上一轮留着没动，理由是「它们至少『找材料』
+		// 这件事本身成立」—— 只说对了一半：应用文的证据是**细节与画面**不是
+		// 出处（源里逐字「CRAAP 式溯源在这一面不适用」），散文的材料是她自己
+		// 看见的和想起来的。要一封 80 词的邀请信「说明来源是否可辨识」，
+		// 是在把她往扣分的方向推。
+		r.Add(SlotMaterial, w(lang, "letter"), prompts.WritingPlanMaterialLetter)
+		r.Add(SlotMaterial, w(lang, "prose"), prompts.WritingPlanMaterialProse)
 	}
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"continuation"}},
 		prompts.WritingPlanMaterialContinuation)
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"summary"}},
 		prompts.WritingPlanMaterialSummary)
+	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"letter"}},
+		prompts.WritingPlanMaterialLetter)
+	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"prose"}},
+		prompts.WritingPlanMaterialProse)
 
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)

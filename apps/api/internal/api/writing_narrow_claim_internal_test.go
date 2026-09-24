@@ -67,6 +67,10 @@ func TestContinuationAndSummaryDoNotGetArgumentMaterialGuidance(t *testing.T) {
 	}{
 		{genreContinuation, "这一篇的材料就是前文"},
 		{genreSummary, "概要没有自己的材料"},
+		// 2026-09-25 补：应用文的证据是细节与画面不是出处（源逐字
+		// 「CRAAP 式溯源在这一面不适用」）；散文的材料是她自己看见的。
+		{genreLetter, "这一档的材料是细节，不是出处"},
+		{genreProse, "散文的材料是她自己看见的和想起来的"},
 	} {
 		for _, lang := range []string{"zh", "en"} {
 			s := writingPlanSystemFor(tc.genre, lang, "")
