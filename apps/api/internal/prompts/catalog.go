@@ -32,6 +32,9 @@ func Catalog() []Definition {
 		// poems/文言文 in chinese reading」）。
 		{ID: "api.readingCoachGenrePoem", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenrePoem},
 		{ID: "api.readingCoachGenreClassical", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreClassical},
+		// 2026-09-24：散文成为一种阅读体裁（产品负责人：reading-suggestion.md
+		// 里「先列一下放着」那一句「is very old... and we are about to do them now」）。
+		{ID: "api.readingCoachGenreProse", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreProse},
 		{ID: "api.readingCoachSystem", Source: "internal/prompts/api_reading_coach.go", Consumer: "internal/api/reading_coach_prompt.go", Text: ReadingCoachSystem},
 		{ID: "api.coachStuckNudge", Source: "internal/prompts/api_reading_coach_repeat.go", Consumer: "internal/api/reading_coach_repeat_prompt.go", Text: CoachStuckNudge},
 		{ID: "api.readingPlanSystem", Source: "internal/prompts/api_reading_plan.go", Consumer: "internal/api/reading_plan_prompt.go", Text: ReadingPlanSystem},

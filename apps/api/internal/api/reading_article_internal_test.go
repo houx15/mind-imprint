@@ -74,6 +74,7 @@ func TestArticleToolsAreOnePerGenre(t *testing.T) {
 		genreExplain:   "explain_map",
 		genreReport:    "report_map",
 		genreNarrative: "narrative_map",
+		genreProse:     "prose_map",
 		genrePoem:      "poem_shape",
 		genreClassical: "classical_shape",
 	}
@@ -92,17 +93,13 @@ func TestArticleToolsAreOnePerGenre(t *testing.T) {
 			t.Errorf("%q 的 shape 不是 article —— 它的产物不会被当成一张图解析", got[0].ID)
 		}
 	}
-	// 🚨 散文（genreProse）今天**还不是一种阅读体裁** —— validateGenre 只认
-	// 阅读那张闭表，而散文是 2026-09-23 作为**写作**文体加进来的。
-	// narrative_map 的 Genres 里已经列着它，等散文成为阅读体裁那一天就生效；
-	// 在那之前 readingArticleToolsFor("zh","prose") 必然是空的，因为
-	// validateGenre 先把 "prose" 变成了空串。
-	//
-	// 她给的那份《记叙文和散文》how-to 里散文有自己整整八步的读法
-	// （线索 / 景物物象 / 情感，而不是事件 / 人物），所以这件事是要补的，
-	// 不是设计如此。
-	if got := readingArticleToolsFor("zh", genreProse); len(got) != 0 {
-		t.Errorf("散文还不是阅读体裁，却拿到了 %d 件整篇工具", len(got))
+	// 🚨 散文和记叙文**不许共用同一件**。产品负责人给的那份 how-to 把轴分开了：
+	// 「记叙文侧重事件和人物，散文侧重线索、景物或物象和情感」。
+	// 共用一套 label 闭表（起因/经过/转折/结果）等于逼一篇《荷塘月色》交出
+	// 一件事的来龙去脉，而它根本没有一件贯穿的事。
+	if readingArticleToolsFor("zh", genreProse)[0].ID ==
+		readingArticleToolsFor("zh", genreNarrative)[0].ID {
+		t.Error("散文和记叙文共用了同一件整篇工具 —— 它们的轴不一样")
 	}
 	if got := readingArticleToolsFor("zh", ""); len(got) != 0 {
 		t.Errorf("体裁认不出来时给了 %d 件整篇工具 —— 分类词会拿错一套", len(got))

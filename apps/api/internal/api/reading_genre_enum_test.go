@@ -35,9 +35,13 @@ func TestPromptGenreListMatchesTheClosedTable(t *testing.T) {
 				"这一体裁的读法、板、工具全都到不了学生那里", g)
 		}
 	}
-	// 反方向：提示词里不许出现闭表之外的体裁名（写作面那两种）。
-	// validateGenre 会把它们丢掉，于是那一篇静默退回「认不出来」。
-	for _, notRead := range []string{genreLetter, genreProse} {
+	// 反方向：提示词里不许出现闭表之外的体裁名。
+	// validateGenre 会把它丢掉，于是那一篇静默退回「认不出来」。
+	//
+	// 🚨 2026-09-24 起这里只剩书信一种。散文进了阅读闭表 —— 产品负责人：
+	// 「this is very old... and we are about to do them now.」
+	// 书信仍然不收：一封信不是一篇拿来读的文章。
+	for _, notRead := range []string{genreLetter} {
 		if strings.Contains(prompts.ReadingPlanSystem, `/ `+notRead) {
 			t.Errorf("排读法的提示词里出现了写作面的体裁 %q", notRead)
 		}
@@ -65,7 +69,7 @@ func TestEveryGenreAndRoutineLineUp(t *testing.T) {
 	inTable := map[string]bool{}
 	for _, g := range []string{
 		genreArgument, genreReport, genreNarrative, genreExplain,
-		genrePoem, genreClassical,
+		genrePoem, genreClassical, genreProse,
 	} {
 		inTable[g] = true
 		var served bool

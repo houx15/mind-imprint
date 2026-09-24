@@ -83,6 +83,16 @@ var coachGenreBoards = map[string]coachGenreBoard{
 		Prompt: "分析下列句子，判断它们各自属于哪一种表达方式。",
 		Named:  "「叙事 / 描写 / 议论 / 对话」——讲发生了什么、描摹人或景、作者的评断、人物说的话",
 	},
+	// 2026-09-24。散文的四格和记叙文不一样：记叙文那四格分的是**描写对象**
+	// （动作 / 语言 / 心理 / 环境），散文这四格分的是**表达方式**。
+	// 理由在她给的那份 how-to 里：「记叙文侧重事件和人物，散文侧重线索、
+	// 景物或物象和情感」—— 散文里要认出来的是哪几句在写景、哪几句在抒情，
+	// 因为「形散神聚」那个「神」就藏在抒情和议论那几句里。
+	genreProse: {
+		Bins:   []string{"写景", "叙事", "抒情", "议论"},
+		Prompt: "分析下列句子，判断它们各自属于哪一种表达方式。",
+		Named:  "「写景 / 叙事 / 抒情 / 议论」——描摹景物、讲一件事、直接说情感、作者的体会",
+	},
 }
 
 // genreBoardFor —— 这篇文章该用哪一块标注板。议论文和认不出来的体裁返回 false：
@@ -227,7 +237,7 @@ func buildGenreCoachSection(genre string) string {
 		// 注册表漏了一行，整节带读说明会静默消失，线上看起来只是「印记
 		// 这一次话比平时少」，日志里要留一条能查的记录。
 		if genre == genreReport || genre == genreExplain || genre == genreNarrative ||
-			genre == genrePoem || genre == genreClassical {
+			genre == genrePoem || genre == genreClassical || genre == genreProse {
 			slog.Warn("reading coach genre section missing", "genre", genre, "err", err)
 		}
 		return ""
