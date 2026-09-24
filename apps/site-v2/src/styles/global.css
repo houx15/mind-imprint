@@ -278,9 +278,30 @@ select:focus-visible {
   font-size: 13px;
   font-weight: 500;
 }
-#primary-nav > a:hover,
-#primary-nav > a[aria-current="page"] {
+#primary-nav > a {
+  position: relative;
+  padding-block: 28px;
+  white-space: nowrap;
+}
+#primary-nav > a:hover {
   color: var(--blue);
+}
+#primary-nav > a[aria-current="page"],
+.nav-product.is-current summary {
+  position: relative;
+  color: var(--ink);
+  font-weight: 700;
+}
+#primary-nav > a[aria-current="page"]::after,
+.nav-product.is-current summary::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 17px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--green);
 }
 .nav-actions {
   display: flex;
@@ -297,6 +318,7 @@ select:focus-visible {
 }
 .nav-product summary {
   list-style: none;
+  position: relative;
   display: flex;
   gap: 7px;
   align-items: center;
