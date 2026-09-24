@@ -87,6 +87,9 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   // out of the room — the article is the point, these are the scaffolding.
   const [plan, setPlan] = useState<ReadingPlan | null>(null);
   const [blockTools, setBlockTools] = useState<ReadingBlockTool[]>([]);
+  // 这一篇按什么文体在教。正文那一栏靠它决定**诗按诗的样子摆**。
+  // 空串 = 还没排过读法，走原来那条路。
+  const [genre, setGenre] = useState("");
   const [blockNotes, setBlockNotes] = useState<ReadingBlockNote[]>([]);
 
   useEffect(() => {
@@ -134,12 +137,13 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
           listReadingCards(readingId).catch(() => [] as LiteCard[]),
           getReadingPlan(readingId).catch(() => null),
-          listReadingBlockTools(readingId).catch(() => ({ lang: "zh", tools: [] as ReadingBlockTool[] })),
+          listReadingBlockTools(readingId).catch(() => ({ lang: "zh", genre: "", tools: [] as ReadingBlockTool[] })),
           listReadingBlockNotes(readingId).catch(() => [] as ReadingBlockNote[]),
         ]);
         if (!cancelled) {
           setPlan(loadedPlan);
           setBlockTools(tools.tools);
+          setGenre(tools.genre);
           setBlockNotes(notes);
           setState({ phase: "ready", reading, source, annotations, messages, cards });
         }
@@ -328,6 +332,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // 段落工具 (0101). Loaded here (one fetch per reading), rendered under
         // whichever paragraph is open inside the room.
         blockTools={blockTools}
+        genre={genre}
         blockNotes={blockNotes}
         onBlockNote={(note) =>
           setBlockNotes((prev) => [

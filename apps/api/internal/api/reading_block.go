@@ -466,7 +466,12 @@ func (a *API) listReadingBlockTools(w http.ResponseWriter, r *http.Request) {
 			"id": t.ID, "label": t.Label, "subject": t.Subject, "scope": t.Scope,
 		})
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"lang": lang, "tools": out})
+	// 🚨 genre 要发出去：正文那一栏靠它决定**一首诗按诗的样子摆**
+	// （诗行居中成一列、行与行之间留白、段号收起来）。
+	// 前端自己从工具单里反推体裁是做得到的（有 poem_shape 就是诗），
+	// 但那条路把「这一篇是什么」和「这一篇有哪几件工具」绑死了 ——
+	// 判定只有一个点，就写在这里发出去。
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"lang": lang, "genre": genre, "tools": out})
 }
 
 // blockNoteDTO 是一份已经开过的讲解。

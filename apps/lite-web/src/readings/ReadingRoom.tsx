@@ -151,6 +151,17 @@ export type LiteReadingRoomProps = {
   /** 段落工具 — the per-paragraph tools (翻译 / 关键单词 / 语法 / 写作解析) and
    *  whatever she has already run on a paragraph. */
   blockTools: ReadingBlockTool[];
+  /**
+   * 这一篇按什么文体在教（服务端排读法那一次判的，见 reading_outline.go 的闭表）。
+   *
+   * 正文那一栏只拿它做一件事：**诗按诗的样子摆**。空串 = 还没排过读法或者
+   * 认不出来，那就走原来那条路 —— 按诗的样子去摆一篇说明文比不摆更糟。
+   *
+   * 🚨 它画成 `data-genre`，样式全在轻量版自己的 CSS 里，和 coreBlockIds /
+   * activeBlockIds 同一条纪律：正文的**文字**一个字都不动。标注的锚点是段落
+   * 文本里的偏移，往正文里插一个字，之前存下来的每一条标注就都错位。
+   */
+  genre?: string;
   blockNotes: ReadingBlockNote[];
   onBlockNote: (note: ReadingBlockNote) => void;
   /** 正文里的图（分级阅读库开来的那些才有）。每张跟在自己那一段之后；
@@ -282,6 +293,7 @@ export function ReadingRoom({
   coachMessages,
   initialOutcomes,
   blockTools,
+  genre = "",
   blockNotes,
   figures,
   headingBlockIds,
@@ -915,7 +927,7 @@ export function ReadingRoom({
       <main className="mk-reading-room__workspace" ref={workspaceRef} style={{ "--mk-room-left": `${leftPct}%` } as CSSProperties}>
         <section className="mk-reading-room__reading" aria-label="阅读材料区">
           <article className="mk-reading-room__article" ref={articleRef}>
-              <div className="mk-reading-room__article-inner">
+              <div className="mk-reading-room__article-inner" data-genre={genre || undefined}>
                 <header className="mk-reading-room__article-header">
                   <div className="mk-reading-room__article-type">课堂阅读材料</div>
                   <h2>{source.title}</h2>
@@ -1002,98 +1014,109 @@ export function ReadingRoom({
                     }}
                   />
                 )}
-                <Annotate
-                  blocks={source.blocks}
-                  headingBlockIds={headingBlockIds}
-                  coreBlockIds={outline?.core}
-                  activeBlockIds={activePart?.blockIds}
-                  blockLead={activePart?.lead}
-                  blockMarks={blockMarks}
-                  keywordTerms={keywordTerms}
-                  cardQuotes={cardQuotes}
-                  state={{ material_id: source.id, spans }}
-                  activeSpanId={activeSpanId}
-                  onSelectSpan={setActiveSpanId}
-                  lensMarkSpanId={loop.outcomes[0]?.id}
-                  renderActiveCard={(span) => {
-                    const o = outcomeBySpanId.get(span.id);
-                    // A confirmed finding → the real 透镜卡 feedback recap.
-                    if (o?.eval) return <ConfirmedFindingCard cardName={o.cardName} eval={o.eval} finding={o.finding} />;
-                    // A plain 印记 flag (dimension + the question it hung on the
-                    // sentence) → a lighter taro card in the same family.
-                    return (
-                      <div className="overflow-hidden rounded-mk-sm border border-mk-taro-bg bg-mk-surface shadow-mk-sm">
-                        <div className="h-1 bg-mk-taro-fg" />
-                        <div className="px-[15px] pb-[14px] pt-[12px]">
-                          {span.tag && <div className="mb-2 font-sans text-[12px] font-bold text-mk-taro-fg">{span.tag}</div>}
-                          <div className="font-sans text-[14px] leading-[1.6] text-mk-secondary">{span.note}</div>
+                {/*
+                  诗的那块纸。🚨 这个 div 每一篇都在，只有诗上才带类名 ——
+                  样式全挂在类名上，别的文体拿到的是一个没有任何声明的容器，
+                  版式一个像素都不变。
+
+                  为什么要多这一层：诗行是共用组件 Annotate 画的，而「一块纸」
+                  是一个把它们**围起来**的元素。给 Annotate 自己加类名会改到
+                  pro 的 DOM（memory: lite-must-not-break-pro），所以围一层。
+                */}
+                <div className={genre === "poem" ? "mk-poem-sheet" : undefined}>
+                  <Annotate
+                    blocks={source.blocks}
+                    headingBlockIds={headingBlockIds}
+                    coreBlockIds={outline?.core}
+                    activeBlockIds={activePart?.blockIds}
+                    blockLead={activePart?.lead}
+                    blockMarks={blockMarks}
+                    keywordTerms={keywordTerms}
+                    cardQuotes={cardQuotes}
+                    state={{ material_id: source.id, spans }}
+                    activeSpanId={activeSpanId}
+                    onSelectSpan={setActiveSpanId}
+                    lensMarkSpanId={loop.outcomes[0]?.id}
+                    renderActiveCard={(span) => {
+                      const o = outcomeBySpanId.get(span.id);
+                      // A confirmed finding → the real 透镜卡 feedback recap.
+                      if (o?.eval) return <ConfirmedFindingCard cardName={o.cardName} eval={o.eval} finding={o.finding} />;
+                      // A plain 印记 flag (dimension + the question it hung on the
+                      // sentence) → a lighter taro card in the same family.
+                      return (
+                        <div className="overflow-hidden rounded-mk-sm border border-mk-taro-bg bg-mk-surface shadow-mk-sm">
+                          <div className="h-1 bg-mk-taro-fg" />
+                          <div className="px-[15px] pb-[14px] pt-[12px]">
+                            {span.tag && <div className="mb-2 font-sans text-[12px] font-bold text-mk-taro-fg">{span.tag}</div>}
+                            <div className="font-sans text-[14px] leading-[1.6] text-mk-secondary">{span.note}</div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }}
-                  selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
-                  onCreateSpan={loop.pickSentence}
-                  onReferenceBlock={loop.status === "idle" ? pickBlock : undefined}
-                  onReferenceSelection={loop.status === "idle" ? addSelection : undefined}
-                  renderAfterBlock={(blockId) => {
-                    // Composed, not either/or: a paragraph can carry the
-                    // hanging card AND the paragraph tools at the same time,
-                    // and neither may hide the other.
-                    const hanging =
-                      card && cardBlockId === blockId ? (
-                        <HangingCard
-                          cardName={card.cardName}
-                          status={card.status}
-                          exampleWhy={card.exampleWhy}
-                          eval={card.eval}
-                          onStartPick={card.onStartPick}
-                          onConfirm={card.onConfirm}
-                          onRepick={card.onRepick}
-                          onSkip={card.onSkip}
-                          hasExample={card.hasExample}
-                          pickHint={card.pickHint}
-                        />
-                      ) : null;
-                    const aside =
-                      blockTools.length > 0 && blockAnchor?.id === blockId ? (
-                        <BlockToolsPanel
-                          readingId={readingId}
-                          blockId={blockId}
-                          blockText={
-                            source.blocks.find((b) => b.id === blockId)?.text ?? ""
-                          }
-                          anchorEl={blockAnchor.el}
-                          pointerX={blockAnchor.x}
-                          tools={blockTools}
-                          notes={blockNotes}
-                          onNote={onBlockNote}
-                          ordinal={ordinalOf(blockId)}
-                          onToolAnswer={sendToolAnswer}
-                          autoTool={autoTool}
-                          autoSubject={autoSubject}
-                          onAutoToolConsumed={() => {
-                            setAutoTool(null);
-                            setAutoSubject(null);
-                          }}
-                          onClose={() => {
-                            setBlockAnchor(null);
-                            setAutoTool(null);
-                          }}
-                        />
-                      ) : null;
-                    const pictures = (figuresAfter.get(blockId) ?? []).map((f) => (
-                      <ArticleFigure key={f.url} figure={f} />
-                    ));
-                    if (!hanging && !aside && pictures.length === 0) return null;
-                    return (
-                      <>
-                        {pictures}
-                        {hanging}
-                        {aside}
-                      </>
-                    );
-                  }}
-                />
+                      );
+                    }}
+                    selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
+                    onCreateSpan={loop.pickSentence}
+                    onReferenceBlock={loop.status === "idle" ? pickBlock : undefined}
+                    onReferenceSelection={loop.status === "idle" ? addSelection : undefined}
+                    renderAfterBlock={(blockId) => {
+                      // Composed, not either/or: a paragraph can carry the
+                      // hanging card AND the paragraph tools at the same time,
+                      // and neither may hide the other.
+                      const hanging =
+                        card && cardBlockId === blockId ? (
+                          <HangingCard
+                            cardName={card.cardName}
+                            status={card.status}
+                            exampleWhy={card.exampleWhy}
+                            eval={card.eval}
+                            onStartPick={card.onStartPick}
+                            onConfirm={card.onConfirm}
+                            onRepick={card.onRepick}
+                            onSkip={card.onSkip}
+                            hasExample={card.hasExample}
+                            pickHint={card.pickHint}
+                          />
+                        ) : null;
+                      const aside =
+                        blockTools.length > 0 && blockAnchor?.id === blockId ? (
+                          <BlockToolsPanel
+                            readingId={readingId}
+                            blockId={blockId}
+                            blockText={
+                              source.blocks.find((b) => b.id === blockId)?.text ?? ""
+                            }
+                            anchorEl={blockAnchor.el}
+                            pointerX={blockAnchor.x}
+                            tools={blockTools}
+                            notes={blockNotes}
+                            onNote={onBlockNote}
+                            ordinal={ordinalOf(blockId)}
+                            onToolAnswer={sendToolAnswer}
+                            autoTool={autoTool}
+                            autoSubject={autoSubject}
+                            onAutoToolConsumed={() => {
+                              setAutoTool(null);
+                              setAutoSubject(null);
+                            }}
+                            onClose={() => {
+                              setBlockAnchor(null);
+                              setAutoTool(null);
+                            }}
+                          />
+                        ) : null;
+                      const pictures = (figuresAfter.get(blockId) ?? []).map((f) => (
+                        <ArticleFigure key={f.url} figure={f} />
+                      ));
+                      if (!hanging && !aside && pictures.length === 0) return null;
+                      return (
+                        <>
+                          {pictures}
+                          {hanging}
+                          {aside}
+                        </>
+                      );
+                    }}
+                  />
+                </div>
                 {excerptOnly && (
                   <ExcerptOnlyNotice url={source.sourceUrl} onPaste={() => setPasteOpen(true)} />
                 )}

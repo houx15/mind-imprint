@@ -643,11 +643,15 @@ export type ReadingBlockTool = {
 /** Which tools exist depends on the ARTICLE's language. Fetched rather than
  *  hardcoded so the buttons she sees and the ids the server accepts cannot
  *  drift apart. */
-export async function listReadingBlockTools(id: string): Promise<{ lang: string; tools: ReadingBlockTool[] }> {
-  const raw = await apiFetch<{ lang: string; tools: ReadingBlockTool[] }>(
+export async function listReadingBlockTools(
+  id: string,
+): Promise<{ lang: string; genre: string; tools: ReadingBlockTool[] }> {
+  const raw = await apiFetch<{ lang: string; genre?: string; tools: ReadingBlockTool[] }>(
     `/api/v1/readings/${encodeURIComponent(id)}/blocks/tools`,
   );
-  return { lang: raw.lang ?? "zh", tools: raw.tools ?? [] };
+  // genre 空串 = 还没排过读法（或者认不出来）。正文那一栏据此走原来那条路，
+  // 不猜一个 —— 按诗的样子去摆一篇说明文，比不摆更糟。
+  return { lang: raw.lang ?? "zh", genre: raw.genre ?? "", tools: raw.tools ?? [] };
 }
 
 /**

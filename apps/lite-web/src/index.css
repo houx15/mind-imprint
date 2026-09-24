@@ -1089,6 +1089,72 @@
   }
 }
 
+/* ── 诗按诗的样子摆 ─────────────────────────────────────────────────────
+ *
+ * 产品负责人 2026-09-24：「for short poems, maybe we can have a better
+ * display. it is always short and it is somekind of old poems need some
+ * ancient vibe, maybe we can use a card-like format to show them.」
+ *
+ * 一首五绝二十个字，摊在一栏七百像素宽的说明文版式里，读起来像一篇文章掉了
+ * 前后文。这一段把它摆成一块单独的纸。
+ *
+ * 🚨 改的只有**怎么画**，正文的字一个都没动。标注的锚点是段落文本里的偏移，
+ * 往正文里插一个字，之前存下来的每一条标注就都错位（段号用 ::before 画出来
+ * 也是这个理由）。`data-genre` 由服务端算好发过来，见 reading_block.go。
+ *
+ * 🚨 `white-space: pre-wrap` 是这一段里唯一**修好了一处真毛病**的声明：
+ * SplitBlocks 只在空行处切段，所以「一句一行、中间不空行」粘进来的一首诗
+ * **是一段**，段里带着换行 —— 而默认的 white-space 把那几个换行折成空格，
+ * 于是《江雪》在屏幕上是连成一行的二十个字。
+ *
+ * 🚨 字号、行高、外边距都要 !important：Annotate 是共用组件，这三样写在它的
+ * 行内 style 上（fontSize 15 / lineHeight 2.1 / margin 0 0 14px），
+ * 行内样式压得过任何不带 !important 的规则。
+ */
+.mk-lite-room .mk-reading-room__article-inner[data-genre="poem"] .mk-poem-sheet {
+  max-width: 560px;
+  margin: 6px auto 4px;
+  padding: 32px 30px 26px;
+  border: 1px solid color-mix(in srgb, #8a6a3b 26%, var(--mk-border));
+  border-radius: 8px;
+  /* 一点点赭石混进纸色 —— 深浅主题都跟着 --mk-surface 走，不写死颜色。 */
+  background: color-mix(in srgb, #b08d57 6%, var(--mk-surface));
+}
+
+/* 诗行：居中成一列，字距拉开，衬线体。
+ *
+ * 🚨 是「整列居中」不是「每行居中」（width: fit-content + margin auto）。
+ * 五言七言每行一样长，两种看起来一模一样；而现代诗的行长是作者排出来的，
+ * 逐行居中会把它排成另一首诗。 */
+.mk-lite-room .mk-reading-room__article-inner[data-genre="poem"] .mk-poem-sheet p[data-block-id] {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  font-size: 20px !important;
+  line-height: 2.1 !important;
+  letter-spacing: 0.14em;
+  white-space: pre-wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 14px !important;
+  text-align: left;
+}
+
+/* 🚨 诗上收起段号。
+ *
+ * 一首四句的诗粘进来常常**只有一段**，那个「1」不告诉她任何事；而这块卡片
+ * 想说的正是「这不是一摞段落」。定位上也到不了：段号画在段落左边 2.4em 处，
+ * 而这里的段落被收窄成了诗的宽度，那个数字会落到卡片外面。
+ * 按段跳转不受影响 —— 查找那一栏靠的是滚动，不是这个数字。 */
+.mk-lite-room .mk-reading-room__article-inner[data-genre="poem"] .mk-poem-sheet p[data-block-id]::before {
+  display: none;
+}
+
+/* 题目跟着换成衬线体。卡片在正文那一栏里，题目在它上面 —— 两处不一致，
+ * 卡片看起来像是从别的地方贴进来的。 */
+.mk-lite-room .mk-reading-room__article-inner[data-genre="poem"] .mk-reading-room__article-header h2 {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+  letter-spacing: 0.08em;
+}
+
 /* ── 正文里的表格 ───────────────────────────────────────────────────────
  *
  * 论文常常带 markdown 表格，正文原来按纯文本渲染，她看到的是一屏竖线和横杠。
