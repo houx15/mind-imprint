@@ -25,8 +25,14 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// livePlanTurn 跑一次真的规划轮，返回模型原样回的那份文本。
+// livePlanTurn 跑一次真的规划轮（议论文那一档），返回模型原样回的那份文本。
 func livePlanTurn(t *testing.T, wr sqlc.Writing, rows []sqlc.WritingOutline, said string) string {
+	t.Helper()
+	return livePlanTurnFor(t, genreArgument, wr, rows, said)
+}
+
+// livePlanTurnFor 和上面一样，但指定文体 —— 书信那一档发的是另一份系统提示词。
+func livePlanTurnFor(t *testing.T, genre string, wr sqlc.Writing, rows []sqlc.WritingOutline, said string) string {
 	t.Helper()
 	prov, resolved := liveClass(t, gateway.ClassCompose)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -39,7 +45,7 @@ func livePlanTurn(t *testing.T, wr sqlc.Writing, rows []sqlc.WritingOutline, sai
 			// `@@KINDS@@` 和 `%d` 两个占位符都还没替换 —— 也就是说这条
 			// 「模型会不会照着闭表回 kind」的测试，**从来没有把那张闭表发给
 			// 模型**。它测的是一份生产环境不会发出去的提示词。
-			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreArgument, wr.Lang, "")},
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, wr.Lang, "")},
 			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
 		},
 	})
