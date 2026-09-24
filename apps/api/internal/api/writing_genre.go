@@ -129,6 +129,41 @@ var letterIdeaMarkersEN = []string{
 	"a proposal to", "an entry for",
 }
 
+// continuationIdeaMarkers —— 读后续写的题目词表。
+var continuationIdeaMarkers = []string{
+	"读后续写", "续写", "故事续写", "接着写下去",
+}
+
+// continuationIdeaMarkersEN —— 英文那一套，按小写比。
+//
+// 🚨 不收光秃秃的 "continue"：「continue to improve…」在一道议论文题里很常见。
+var continuationIdeaMarkersEN = []string{
+	"continue the story", "continue writing the story", "story continuation",
+	"continuation writing", "complete the story",
+}
+
+// looksLikeContinuation 判这一道题是不是读后续写。
+//
+// 🚨 除了词表，还有一条**形式判据**，而且它比词表可靠：读后续写的题面会把
+// 两个段首句印出来，惯例是 `Paragraph 1:` / `Paragraph 2:`。两个都在，
+// 基本不可能是别的题型 —— 语料里 43 道读后续写全是这个形状
+// （distilled/english-letters-genres.md §3.3：「题目同时给出①一段前文
+// ②两个段首句③词数要求 150词左右」）。
+func looksLikeContinuation(idea, lowerIdea string) bool {
+	for _, marker := range continuationIdeaMarkers {
+		if strings.Contains(idea, marker) {
+			return true
+		}
+	}
+	for _, marker := range continuationIdeaMarkersEN {
+		if strings.Contains(lowerIdea, marker) {
+			return true
+		}
+	}
+	// 两个段首句同时印着 —— 形式判据。
+	return strings.Contains(lowerIdea, "paragraph 1") && strings.Contains(lowerIdea, "paragraph 2")
+}
+
 // writingGenreOf 推断这一篇的文体。见文件头。
 //
 // outline 传 nil 也成立（还没摆图的时候），那时只看题目。
@@ -178,6 +213,15 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 		idea += " " + *wr.AssignedPrompt
 	}
 	lowerIdea := strings.ToLower(idea)
+	// 🚨 读后续写**最先查**，它和别的几种都会重叠。
+	//
+	// 一道读后续写题的题面里几乎一定有一段记叙性的前文（记叙文词表会命中），
+	// 有时前文本身是一封信或一封邮件（书信词表也会命中）。但它的写法和那两种
+	// 都不一样 —— 接住两个印好的段首句、两段均衡、伏笔回收、不说教。
+	// 先查它，后面两张表就不会把它抢走。
+	if looksLikeContinuation(idea, lowerIdea) {
+		return genreContinuation
+	}
 	// 书信先查：「给外婆写一封信，记一件让你难忘的事」两张表都命中，
 	// 而它要按信来写（称呼、目的、落款一样都少不了）。
 	for _, marker := range letterIdeaMarkers {
@@ -222,6 +266,8 @@ func writingGenreLabel(genre string) string {
 		return "书信与应用文"
 	case genreProse:
 		return "散文"
+	case genreContinuation:
+		return "读后续写"
 	}
 	return "议论文"
 }
@@ -244,6 +290,8 @@ func validateWritingGenre(s string) string {
 		return genreLetter
 	case genreProse:
 		return genreProse
+	case genreContinuation:
+		return genreContinuation
 	}
 	return ""
 }
@@ -259,6 +307,7 @@ func writingGenreChoices() []writingGenreChoiceDTO {
 		{ID: genreArgument, Label: "议论文", Blurb: "要说清一个看法，并且给出理由和材料。"},
 		{ID: genreNarrative, Label: "记叙文", Blurb: "写一件真实发生过的事，写出当时的场景和你的变化。"},
 		{ID: genreLetter, Label: "书信与应用文", Blurb: "写给具体的人或者一群人，要办成一件事：信、邮件、通知、演讲稿、倡议书。"},
+		{ID: genreContinuation, Label: "读后续写", Blurb: "给了一段故事的前半截和两个开头句，接着往下写两段。"},
 		// 🚨 散文排在最后，而且只在这里出现 —— 它没有题目词表。
 		// 一篇散文的题目和一篇记叙文的题目长得一模一样，从字面上分不出来，
 		// 所以它**只能由她自己说**。

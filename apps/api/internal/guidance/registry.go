@@ -36,6 +36,14 @@ var Default = sync.OnceValue(func() *Registry {
 	// 差别在整篇怎么合起来，不在某一段是什么。两种语言同一份。
 	r.Add(SlotKinds, w("zh", "prose"), prompts.WritingPlanProseKinds)
 	r.Add(SlotKinds, w("en", "prose"), prompts.WritingPlanProseKinds)
+	// 读后续写（2026-09-24）。高考英语写作里它占 25 分、43% 的题量，在这之前
+	// 一件都没做 —— 一道续写题会落到记叙文那一支，于是没有人告诉学生
+	// 「第一段末句要把人物送到第二段首句的场面里」。
+	//
+	// 两种语言同一份：它是英语高考的题型，中文那边没有对应的题；挂 zh 只是为了
+	// 语言判错时不至于空着（那时它会退到下面那条没有 Lang 的兜底）。
+	r.Add(SlotKinds, w("zh", "continuation"), prompts.WritingPlanContinuationKinds)
+	r.Add(SlotKinds, w("en", "continuation"), prompts.WritingPlanContinuationKinds)
 
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
@@ -62,6 +70,8 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotSkeleton, w("en", "letter"), prompts.WritingPlanSkeletonLetterEN)
 	r.Add(SlotSkeleton, w("zh", "prose"), prompts.WritingPlanSkeletonProse)
 	r.Add(SlotSkeleton, w("en", "prose"), prompts.WritingPlanSkeletonProse)
+	r.Add(SlotSkeleton, w("zh", "continuation"), prompts.WritingPlanSkeletonContinuation)
+	r.Add(SlotSkeleton, w("en", "continuation"), prompts.WritingPlanSkeletonContinuation)
 
 	// 🚨 语言认不出来（空串、老数据）时的兜底。改之前这条路走的是中文那一支：
 	// 记叙文拿记叙文的块名，其余拿议论文的。少了这四行，它会拿到议论文的
@@ -78,6 +88,10 @@ var Default = sync.OnceValue(func() *Registry {
 		prompts.WritingPlanProseKinds)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"prose"}},
 		prompts.WritingPlanSkeletonProse)
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"continuation"}},
+		prompts.WritingPlanContinuationKinds)
+	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"continuation"}},
+		prompts.WritingPlanSkeletonContinuation)
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
 

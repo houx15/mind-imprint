@@ -122,6 +122,23 @@ func renderWritingPlanPrompt(c writingPlanContext) promptassembly.Document {
 	if c.AskedToDoIt {
 		b.WriteString(writingRefusalBlock)
 	}
+	// 读后续写的判前输入检查（源材料 §4.1 是一条硬门槛）。
+	//
+	// 🚨 服务端算得出来的事实就别让模型每轮自己判：题面里有没有前文、
+	// 有没有那两个段首句，是一次字符串解析的事。算好了写进去，模型只要照做。
+	//
+	// 别的文体上这一块**一个字节都不写**，所以它们的 prompt 逐字不变
+	// （Mark 只记偏移，不产出文字）——「块的顺序是成本契约」那条因此没被碰到。
+	b.Mark("continuation-inputs", "mixed", "internal/api/writing_plan_prompt.go")
+	if writingGenreOf(wr, rows) == genreContinuation {
+		assigned := ""
+		if wr.AssignedPrompt != nil {
+			assigned = *wr.AssignedPrompt
+		}
+		if note := continuationGateNote(parseContinuationInputs(assigned)); note != "" {
+			b.WriteString("\n" + note + "\n")
+		}
+	}
 
 	b.Mark("outline", "mixed", "internal/api/writing_plan_prompt.go")
 	b.WriteString("\n【当前的图】\n")

@@ -60,6 +60,8 @@ func Catalog() []Definition {
 		{ID: "api.writingPlanLetterKindsEN", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanLetterKindsEN},
 		{ID: "api.writingPlanSkeletonLetter", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonLetter},
 		{ID: "api.writingPlanSkeletonLetterEN", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonLetterEN},
+		{ID: "api.writingPlanContinuationKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanContinuationKinds},
+		{ID: "api.writingPlanSkeletonContinuation", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonContinuation},
 		// 散文（2026-09-23）。它只能由她自己选 —— 题目上和记叙文分不出来。
 		{ID: "api.writingPlanProseKinds", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanProseKinds},
 		{ID: "api.writingPlanSkeletonProse", Source: "internal/prompts/api_writing_plan.go", Consumer: "internal/api/writing_plan_prompt.go", Text: WritingPlanSkeletonProse},

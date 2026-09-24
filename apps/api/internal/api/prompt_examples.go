@@ -43,13 +43,41 @@ func PromptAssemblyExamples() []PromptExample {
 	// 就是「基线不等于覆盖」那个形状 —— 占位符在没被覆盖的分支上漏掉，
 	// 整套测试照样绿，而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
 	for _, lang := range []string{"zh", "en"} {
-		for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse} {
+		// 🚨 2026-09-24 加上 genreContinuation，同一条理由。
+		for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse, genreContinuation} {
 			wr := sqlc.Writing{Lang: lang, Title: "一次图书馆里的经历"}
 			doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "我想记录上周和同学一起找资料的经历。"))
 			out = append(out, PromptExample{ID: "writing/plan/" + lang + "/" + genre, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, lang, "")}, {Role: gateway.RoleUser, Content: doc.Text},
 			}}, Documents: map[int]promptassembly.Document{1: doc}})
 		}
+	}
+	// 🚨 读后续写：依据齐备的那一份。
+	//
+	// 上面那条 writing/plan/*/continuation 的 AssignedPrompt 是空的，走的是
+	// 「依据还不齐」那一支；判前输入检查**通过**之后长什么样，它一个字都没覆盖。
+	// 同一条理由（基线不等于覆盖），把齐备的那一份也摆进来。
+	{
+		assigned := continuationExampleAssigned
+		wr := sqlc.Writing{Lang: "en", Title: "读后续写", AssignedPrompt: &assigned}
+		doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "第一段我想写他发现家里没人。"))
+		out = append(out, PromptExample{ID: "writing/plan/en/continuation/inputs-ready", Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreContinuation, "en", "")}, {Role: gateway.RoleUser, Content: doc.Text},
+		}}, Documents: map[int]promptassembly.Document{1: doc}})
+	}
+	// 🚨 读后续写：依据**不齐**的那一份 —— 判前输入检查拦下来的样子。
+	//
+	// 这一条比上一条更要紧：门槛那句话是这一档唯一一段由服务端算出来、
+	// 再写进提示词的文字，它写错了，学生会收到一份对着不存在的前文做出的
+	// 情节判断。上面 writing/plan/*/continuation 那两条都走不到它
+	// （题面是空的，文体反而推断不成续写）。
+	{
+		assigned := "读后续写：根据材料续写两段，词数 150 左右。"
+		wr := sqlc.Writing{Lang: "en", Title: "读后续写", AssignedPrompt: &assigned}
+		doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "我不知道第一段该怎么起头。"))
+		out = append(out, PromptExample{ID: "writing/plan/en/continuation/inputs-missing", Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genreContinuation, "en", "")}, {Role: gateway.RoleUser, Content: doc.Text},
+		}}, Documents: map[int]promptassembly.Document{1: doc}})
 	}
 	// 🚨 分论点够了、还没有结尾的那一轮。
 	//
@@ -102,3 +130,19 @@ func PromptAssemblyExamples() []PromptExample {
 	}}, ContextFragments: map[string]promptassembly.Document{"piece": piece}})
 	return out
 }
+
+// continuationExampleAssigned —— 一道读后续写题的题面（前文 + 两个段首句）。
+//
+// 只给 promptinspect 的样例用：判前输入检查**通过**之后 prompt 长什么样，
+// 没有这一份就一个字都没被比过。内容是为这份样例写的，不是真题。
+const continuationExampleAssigned = `阅读下面材料，根据其内容和所给段落开头语续写两段。
+
+David had been training for the school marathon for three months. Every evening his
+younger brother Toby waited at the gate with a packet of biscuits, and Toby had never
+missed a single evening. On the day before the race David twisted his ankle on a loose
+stone, and that night he sat on the step without saying anything while Toby held out
+the biscuits and did not know what to say.
+
+Paragraph 1: The next morning David woke to find the house completely silent.
+Paragraph 2: When he finally reached the starting line, Toby was already there.`
+
