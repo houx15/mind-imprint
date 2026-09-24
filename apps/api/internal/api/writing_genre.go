@@ -129,6 +129,28 @@ var letterIdeaMarkersEN = []string{
 	"a proposal to", "an entry for",
 }
 
+// summaryIdeaMarkers —— 概要写作的题目词表。
+var summaryIdeaMarkers = []string{"概要写作", "写一篇概要", "内容概要"}
+
+// looksLikeSummary 判这一道题是不是概要写作。
+//
+// 🚨 主判据是那串**逐字固定**的 Directions：语料里 16 道概要写作题全都写着
+// 「Summarize the main idea…in no more than 60 words…Use your own words」。
+// 「summarize + 词数上限」两样同时出现，别的题型不会长这样。
+func looksLikeSummary(idea, lowerIdea string) bool {
+	for _, marker := range summaryIdeaMarkers {
+		if strings.Contains(idea, marker) {
+			return true
+		}
+	}
+	if strings.Contains(lowerIdea, "summary writing") {
+		return true
+	}
+	hasSummarize := strings.Contains(lowerIdea, "summarize the main idea") ||
+		strings.Contains(lowerIdea, "summarise the main idea")
+	return hasSummarize && strings.Contains(lowerIdea, "no more than")
+}
+
 // continuationIdeaMarkers —— 读后续写的题目词表。
 var continuationIdeaMarkers = []string{
 	"读后续写", "续写", "故事续写", "接着写下去",
@@ -186,7 +208,7 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 
 	// 1. 板上已经有议论文的骨架 —— 她在按议论文摆，不必再猜。
 	//    这一条放在最前面：她的动作胜过题目里的字。
-	var sawNarrativeKind, sawLetterKind bool
+	var sawNarrativeKind, sawLetterKind, sawSummaryKind bool
 	for _, row := range outline {
 		switch writingKindOf(row) {
 		case writingKindThesis, writingKindPoint, writingKindCounter, writingKindRebuttal:
@@ -195,7 +217,14 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 			sawNarrativeKind = true
 		case writingKindPurpose, writingKindMatter, writingKindCourtesy:
 			sawLetterKind = true
+		case writingKindGist, writingKindKey:
+			sawSummaryKind = true
 		}
+	}
+	// 概要最先认：主旨和要点这两种块**只有**概要用得上，
+	// 而别的文体的块在一篇概要里不会出现。
+	if sawSummaryKind {
+		return genreSummary
 	}
 	// 书信排在记叙文前面：一封信里可以有一段小小的叙事（「上周我去了……」），
 	// 反过来一篇记叙文里不会出现写信目的和结尾的礼貌话。
@@ -213,6 +242,11 @@ func writingGenreOf(wr sqlc.Writing, outline []sqlc.WritingOutline) string {
 		idea += " " + *wr.AssignedPrompt
 	}
 	lowerIdea := strings.ToLower(idea)
+	// 概要写作先查：它的指令串是逐字固定的，认出来就不会错
+	// （Summarize the main idea … in no more than 60 words … Use your own words）。
+	if looksLikeSummary(idea, lowerIdea) {
+		return genreSummary
+	}
 	// 🚨 读后续写**最先查**，它和别的几种都会重叠。
 	//
 	// 一道读后续写题的题面里几乎一定有一段记叙性的前文（记叙文词表会命中），
@@ -268,6 +302,8 @@ func writingGenreLabel(genre string) string {
 		return "散文"
 	case genreContinuation:
 		return "读后续写"
+	case genreSummary:
+		return "概要写作"
 	}
 	return "议论文"
 }
@@ -292,6 +328,8 @@ func validateWritingGenre(s string) string {
 		return genreProse
 	case genreContinuation:
 		return genreContinuation
+	case genreSummary:
+		return genreSummary
 	}
 	return ""
 }
@@ -308,6 +346,7 @@ func writingGenreChoices() []writingGenreChoiceDTO {
 		{ID: genreNarrative, Label: "记叙文", Blurb: "写一件真实发生过的事，写出当时的场景和你的变化。"},
 		{ID: genreLetter, Label: "书信与应用文", Blurb: "写给具体的人或者一群人，要办成一件事：信、邮件、通知、演讲稿、倡议书。"},
 		{ID: genreContinuation, Label: "读后续写", Blurb: "给了一段故事的前半截和两个开头句，接着往下写两段。"},
+		{ID: genreSummary, Label: "概要写作", Blurb: "读一篇文章，用自己的话把它的主旨和要点压进 60 词以内。"},
 		// 🚨 散文排在最后，而且只在这里出现 —— 它没有题目词表。
 		// 一篇散文的题目和一篇记叙文的题目长得一模一样，从字面上分不出来，
 		// 所以它**只能由她自己说**。

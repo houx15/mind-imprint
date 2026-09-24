@@ -44,6 +44,12 @@ var Default = sync.OnceValue(func() *Registry {
 	// 语言判错时不至于空着（那时它会退到下面那条没有 Lang 的兜底）。
 	r.Add(SlotKinds, w("zh", "continuation"), prompts.WritingPlanContinuationKinds)
 	r.Add(SlotKinds, w("en", "continuation"), prompts.WritingPlanContinuationKinds)
+	// 概要写作（2026-09-24）。高考英语写作 16% 的题量、10 分。
+	// 🚨 教学内容是补出来的，不是老师那几份讲义里的 —— 见
+	// prompts.WritingPlanSkeletonSummary 上面那段注释和
+	// docs/2026-09-24-teaching-rulings.md。
+	r.Add(SlotKinds, w("zh", "summary"), prompts.WritingPlanSummaryKinds)
+	r.Add(SlotKinds, w("en", "summary"), prompts.WritingPlanSummaryKinds)
 
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
@@ -72,6 +78,8 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotSkeleton, w("en", "prose"), prompts.WritingPlanSkeletonProse)
 	r.Add(SlotSkeleton, w("zh", "continuation"), prompts.WritingPlanSkeletonContinuation)
 	r.Add(SlotSkeleton, w("en", "continuation"), prompts.WritingPlanSkeletonContinuation)
+	r.Add(SlotSkeleton, w("zh", "summary"), prompts.WritingPlanSkeletonSummary)
+	r.Add(SlotSkeleton, w("en", "summary"), prompts.WritingPlanSkeletonSummary)
 
 	// 🚨 语言认不出来（空串、老数据）时的兜底。改之前这条路走的是中文那一支：
 	// 记叙文拿记叙文的块名，其余拿议论文的。少了这四行，它会拿到议论文的
@@ -92,6 +100,10 @@ var Default = sync.OnceValue(func() *Registry {
 		prompts.WritingPlanContinuationKinds)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"continuation"}},
 		prompts.WritingPlanSkeletonContinuation)
+	r.Add(SlotKinds, Scope{Surface: SurfaceWrite, Genres: []string{"summary"}},
+		prompts.WritingPlanSummaryKinds)
+	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite, Genres: []string{"summary"}},
+		prompts.WritingPlanSkeletonSummary)
 	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite}, prompts.WritingPlanMaterialZH)
 	r.Add(SlotSkeleton, Scope{Surface: SurfaceWrite}, prompts.WritingPlanSkeletonZH)
 

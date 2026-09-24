@@ -203,6 +203,18 @@ const (
 	// 高考英语写作里它占 25 分、43% 的题量（distilled/english-letters-genres.md
 	// §3.3、§4），在 2026-09-24 之前这个产品一件都没做。
 	genreContinuation = "continuation" // 读后续写：接着给定的前文和两个段首句写
+
+	// 概要写作。同样只在写作面。
+	//
+	// 高考英语写作里它占 10 分、16% 的题量，识别串是逐字固定的
+	// （Summarize the main idea … in no more than 60 words … Use your own words）。
+	//
+	// 🚨 它的教学内容是**补**出来的，不是老师那几份讲义里的：
+	// distilled/english-letters-genres.md 把「概要写作的方法」列在
+	// 「语料自身的空缺」里，并且写明「不要从书信骨架外推」。所以它照的是
+	// 通行的概要写作教法，出处写在 WritingPlanSkeletonSummary 的注释里，
+	// 也记在 docs/2026-09-24-teaching-rulings.md 里等教研组过目。
+	genreSummary = "summary" // 概要写作：把一篇文章的主旨和要点压进 60 词
 )
 
 // validateGenre 把模型给的体裁收进闭表。认不出来就是空 —— 空不挡任何东西。

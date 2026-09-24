@@ -44,7 +44,7 @@ func PromptAssemblyExamples() []PromptExample {
 	// 整套测试照样绿，而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
 	for _, lang := range []string{"zh", "en"} {
 		// 🚨 2026-09-24 加上 genreContinuation，同一条理由。
-		for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse, genreContinuation} {
+		for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse, genreContinuation, genreSummary} {
 			wr := sqlc.Writing{Lang: lang, Title: "一次图书馆里的经历"}
 			doc := renderWritingPlanPrompt(selectWritingPlanContext(wr, nil, nil, "我想记录上周和同学一起找资料的经历。"))
 			out = append(out, PromptExample{ID: "writing/plan/" + lang + "/" + genre, Class: gateway.ClassDialogue, Request: gateway.ChatRequest{MaxTokens: 4096, Messages: []gateway.ChatMessage{

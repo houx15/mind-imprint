@@ -224,7 +224,7 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 	// 而线上那一篇收到的是字面写着 @@KINDS@@ 的提示词。
 	// 🚨 2026-09-24 加上读后续写，理由同上：这条分支加进去那天整套测试是绿的，
 	// 正因为它**不在这张名单里** —— 绿的意思是「没被比过」，不是「对」。
-	for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse, genreContinuation} {
+	for _, genre := range []string{genreArgument, genreNarrative, genreLetter, genreProse, genreContinuation, genreSummary} {
 		for _, lang := range []string{"zh", langEnglish} {
 			name := genre + "/" + lang
 			got := writingPlanSystemFor(genre, lang, "")
@@ -264,6 +264,9 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 			// 读后续写：起点和落点都是题目给的，所以它的骨架那一节从那句话起。
 			if genre == genreContinuation {
 				skeletonMark = "这一篇的起点和落点都是题目给的"
+			}
+			if genre == genreSummary {
+				skeletonMark = "概要写的是别人那篇文章"
 			}
 			if !strings.Contains(got, skeletonMark) {
 				t.Errorf("%s：骨架那一节没装进去（找不到 %q）", name, skeletonMark)

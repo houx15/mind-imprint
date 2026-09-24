@@ -86,6 +86,18 @@ const (
 	writingKindCourtesy = "courtesy" // 结尾的话：给收信人的那一句（期待回复 / 致谢 / 祝愿）
 )
 
+// 概要写作那两种（2026-09-24）。
+//
+// 🚨 为什么不借书信的 purpose / matter，也不借议论文的 thesis / point：
+// writingGenreOf 第 1 步是**看板上有什么块**来倒推文体的。借哪一套，
+// 一篇概要一旦摆上节点就会被判成那一种文体 —— 借书信就变成信，
+// 借议论文就变成议论文。块的种类在这个仓库里同时是文体的证据，
+// 所以新文体要自己的块。
+const (
+	writingKindGist  = "gist"  // 主旨：这篇文章整体在说什么
+	writingKindKey   = "key"   // 要点：文章用来支撑主旨的一层意思
+)
+
 var writingKindDepths = map[string]int32{
 	writingKindOpening: 0, writingKindThesis: 0, writingKindClosing: 0,
 	writingKindPoint: 1, writingKindCounter: 1,
@@ -99,6 +111,10 @@ var writingKindDepths = map[string]int32{
 	// 要点是中间那一层（深度 1）—— 一封信的主体就是几件要说清的事。
 	writingKindPurpose: 0, writingKindCourtesy: 0,
 	writingKindMatter:  1,
+	// 概要：主旨一块（深度 0），要点挂在它底下（深度 1）。
+	// 一篇 60 词的概要就是这个形状：一句主旨加两三条要点。
+	writingKindGist: 0,
+	writingKindKey:  1,
 }
 
 // writingKindGenre 说这一种块属于哪一种文体。空串 = 两种都用
@@ -116,6 +132,8 @@ func writingKindGenre(k string) string {
 		return genreNarrative
 	case writingKindPurpose, writingKindMatter, writingKindCourtesy:
 		return genreLetter
+	case writingKindGist, writingKindKey:
+		return genreSummary
 	}
 	return ""
 }
@@ -178,6 +196,10 @@ func writingKindLabel(k, source string) string {
 		return "转折"
 	case writingKindFeeling:
 		return "感悟"
+	case writingKindGist:
+		return "主旨"
+	case writingKindKey:
+		return "要点"
 	case writingKindPurpose:
 		return "写信目的"
 	case writingKindMatter:
