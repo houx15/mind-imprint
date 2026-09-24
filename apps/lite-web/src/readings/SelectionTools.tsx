@@ -63,11 +63,43 @@ export function isOneWord(quote: string): boolean {
   return [...q].length <= 4 || /^[A-Za-z][A-Za-z'’-]*$/.test(q);
 }
 
+const HAN = /[㐀-䶿一-鿿]/;
+
+/**
+ * 这一段汉字选区短到**分不出**她要的是「一个词」还是「一小句」。
+ *
+ * 🚨 2026-09-24：中文这边第一次同时有了词一级（查字）和句一级（白话翻译 /
+ * 字词释义 / 句法）的工具，于是 isOneWord 那条「四个字以内算一个词」的线
+ * 第一次承重，而它在两种中文上给出的答案是反的：
+ *
+ *	热岛效应   四个字，是一个词（现代汉语）
+ *	俄而雪骤   四个字，是一整句（文言）
+ *
+ * 光看这四个字分不出来，而工具条上又没有体裁这一位。所以三到四个字的汉字
+ * 选区**两级工具都摆**，让她自己说要哪一个 —— 这正是这条工具条存在的理由：
+ * 选区是「对哪几个字」，工具条是「做什么」。
+ *
+ * 一两个字不在其中：一个字的「句法」是没有意义的按钮。
+ */
+function ambiguousHanSpan(quote: string): boolean {
+  const chars = [...quote.trim()];
+  if (chars.length < 3 || chars.length > 4) return false;
+  return chars.every((c) => HAN.test(c));
+}
+
 /** 这条工具条上该有哪几件**服务端目录里的**工具。 */
 export function toolsForSelection(tools: ReadingBlockTool[], quote: string): ReadingBlockTool[] {
   const oneWord = isOneWord(quote);
+  const alsoPhrase = ambiguousHanSpan(quote);
   return tools.filter((t) =>
-    t.subject === "word" ? oneWord : t.subject === "sentence" ? !oneWord : false,
+    // 整篇那几件不在这里 —— 它们读的是全文，和她划的这几个字无关。
+    t.scope === "article"
+      ? false
+      : t.subject === "word"
+        ? oneWord
+        : t.subject === "sentence"
+          ? !oneWord || alsoPhrase
+          : false,
   );
 }
 

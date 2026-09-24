@@ -708,7 +708,7 @@ func readingLangOf(body string) string {
 	cjk, latin := 0, 0
 	for _, ch := range body {
 		switch {
-		case (ch >= 0x4e00 && ch <= 0x9fff) || (ch >= 0x3400 && ch <= 0x4dbf):
+		case isHanRune(ch):
 			cjk++
 			if cjk >= 24 {
 				// 长文章走原来那条快路：够多的中文就是中文，不必数字母。

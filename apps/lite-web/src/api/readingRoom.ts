@@ -630,6 +630,14 @@ export type ReadingBlockTool = {
    * 同一条：写死会和服务端漂开。
    */
   subject?: string;
+  /**
+   * 这件工具读的是多大一块：`""` = 一个段落，`"article"` = 整篇。
+   *
+   * 整篇那几件不进段落工具条，也不进划选工具条 —— 它们摆在正文上面那一栏
+   * （ArticleMap）。诗和记叙文最需要的那几样（起承转合、线索、详略、转）
+   * 结构上不在段落这个尺度上。
+   */
+  scope?: string;
 };
 
 /** Which tools exist depends on the ARTICLE's language. Fetched rather than
@@ -671,7 +679,31 @@ export type ReadingBlockNote = {
   words?: ReadingWord[];
   /** 语法卡（2026-09-17 起）。老的语法笔记是一段散文，没有这一项。 */
   grammar?: ReadingGrammar;
+  /** 整篇那一层的那张图（2026-09-24 起）。只有 scope "article" 的工具有。 */
+  article?: ReadingArticleOutline;
 };
+
+/**
+ * 整篇那一层的产物：全文被拆成的几块 + 组织方式 + 一句主旨。
+ *
+ * 每一块的 `quote` 逐字来自原文 —— 服务端拿它回全文里核对过，核不上的那一块
+ * 已经被丢掉。所以点一块一定跳得到正文里的某个位置。
+ */
+export type ReadingArticleOutline = {
+  parts: { label: string; quote: string; note?: string }[];
+  spine?: string;
+  takeaway?: string;
+};
+
+/**
+ * 整篇那一份讲解在服务端占的 block_id。
+ *
+ * 整篇工具不指向任何一段，但 explain 那条路由的形状是
+ * `/blocks/{bid}/explain`，空段会拼出 `/blocks//explain` 而那条路径匹配不上。
+ * 服务端对 scope "article" 的工具会把 bid 换成它自己的哨兵值，所以这里传什么
+ * 都不影响存到哪 —— 传这个值是为了让请求本身读起来就是「这一次是整篇」。
+ */
+export const READING_ARTICLE_BLOCK_ID = "@article";
 
 /** 语法卡里句子被标出来的一段。`text` 逐字来自那一句（服务端核对过）。
  *  `label` 是它是什么（从句种类 / 成分 / 词性词形 / 时态）；第一版的卡片把

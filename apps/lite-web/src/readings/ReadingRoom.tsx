@@ -37,6 +37,7 @@ import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { PasteFullTextModal } from "./PasteFullTextModal";
 import { SelectionTools } from "./SelectionTools";
+import { ArticleMap } from "./ArticleMap";
 import { ReadingHarvest, harvestBoards, harvestWritings, harvestWords } from "./ReadingHarvest";
 import type { CoachCardAnswer, CoachCardSpec } from "./CoachCard";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -706,6 +707,19 @@ export function ReadingRoom({
   }
 
   /**
+   * 跳到正文里含有这句引文的那一段（整篇结构图上点一块）。
+   *
+   * 引文是服务端核对过的 —— 它逐字来自全文，所以一定找得到某一段。
+   * 找不到时什么也不做：与其把她滚到一个随便的位置，不如不动。
+   */
+  function locateQuote(quote: string) {
+    const q = quote.trim();
+    if (!q) return;
+    const hit = source?.blocks.find((b) => b.text.includes(q));
+    if (hit) locateBlock(hit.id);
+  }
+
+  /**
    * Scroll the article to a paragraph 印记 singled out, and open its tools.
    *
    * Reaches for the DOM rather than a ref because `data-block-id` is already
@@ -936,6 +950,15 @@ export function ReadingRoom({
                   {/* 查找与跳转。摆在题图之后、正文之前：它服务的是「读到一半
                       要回去找一个词」，不是开读前的那张地图。 */}
                   <ArticleFinder blocks={source.blocks} onJump={locateBlock} />
+                  {/* 整篇那一层。摆在正文上面，因为它讲的是全文 ——
+                      诗的起承转合、记叙文的线索与详略都不在段落这个尺度上。 */}
+                  <ArticleMap
+                    readingId={readingId}
+                    tools={blockTools}
+                    notes={blockNotes}
+                    onNote={onBlockNote}
+                    onJumpToQuote={locateQuote}
+                  />
                   {loop.status === "idle" && <p className="student-selection-hint">{excerptOnly ? "划选文字后可放入对话框；导入全文后可使用摘抄功能" : "划选文字后可摘抄或放入对话框；点击段落可查看该段的阅读工具"}</p>}
                   {excerptError && (
                     <p className="student-selection-hint" role="alert" style={{ color: "var(--mk-danger)" }}>

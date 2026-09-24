@@ -31,6 +31,10 @@ const readingBlockSystem = prompts.ReadingBlockSystem
 // 「查词」（Subject == "word"）时，subject 是她点的那一个词：给的是那个词和它
 // 所在的整段 —— 一个词在这里是什么意思，只有看着它那一句才说得准。
 func buildReadingBlockPromptFor(t readingBlockTool, title string, blocks []Block, idx int, subject string) string {
+	// 整篇那一层给的是全文（每段带段号和字数），不是某一段。
+	if t.Scope == "article" {
+		return buildReadingArticlePrompt(title, blocks)
+	}
 	if t.Subject != "word" || subject == "" {
 		return buildReadingBlockPrompt(title, blocks, idx, subject)
 	}

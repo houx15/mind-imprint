@@ -160,10 +160,23 @@ func TestBuildReadingBlockPromptScopesToOneSentence(t *testing.T) {
 // 判据从「只能是 grammar」改成这张闭表加上面那条理由，是因为原来那一版钉的
 // 是**名单**，而名单本身说不出为什么。
 func TestOnlyPerSentenceToolsTeachOneSentence(t *testing.T) {
+	// 🚨 2026-09-24 又加了一件：白话翻译。
+	//
+	// 它过得了那条判据 —— **换一句话，译文当然整个不一样**，这是这张表里
+	// 最显然的一件。它之所以到今天才有，是因为中文那边原来只有第二层
+	// （字词释义）和第三层（句法）两颗按钮，而那份古文讲义里第一层
+	// （白话翻译）才是**默认层**：
+	//
+	//	分层译讲，不堆砌：按「白话翻译 → 关键字词 → 句法 → 背景寓意」
+	//	四层递进；用户要哪层给哪层，不强行全给。
+	//
+	// 产品负责人 2026-09-24：「students may select some texts and need the
+	// explanation/translation」。
 	perSentence := map[string]bool{
-		"grammar":          true, // 英文：这一句的句法、词法、时态
-		"classical_words":  true, // 文言文：这一句里的通假、古今异义、专名、典故
-		"classical_syntax": true, // 文言文：这一句的判断句 / 宾语前置 / 被动 / 省略
+		"grammar":             true, // 英文：这一句的句法、词法、时态
+		"classical_words":     true, // 文言文：这一句里的通假、古今异义、专名、典故
+		"classical_syntax":    true, // 文言文：这一句的判断句 / 宾语前置 / 被动 / 省略
+		"classical_translate": true, // 文言文与诗词：这几个字的白话（第一层）
 	}
 	for _, tool := range append(append([]readingBlockTool{}, readingBlockTools...), readingWritingTools...) {
 		if (tool.Subject == "sentence") != perSentence[tool.ID] {

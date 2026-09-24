@@ -3240,3 +3240,123 @@
 .mk-jumpblock:hover {
   background: var(--mk-accent-50);
 }
+
+/* ---------------------------------------------------------------------------
+ * 整篇结构（ArticleMap）—— 正文上面那一栏。
+ *
+ * 产品负责人 2026-09-24：「for poems or 记叙文, we also need a whole-level view
+ * of analysis」。它不在任何一段旁边，因为它讲的是全文。
+ *
+ * 🚨 颜色一律走 color-mix：mk 的 token 是裸 CSS 变量，Tailwind 的 alpha 语法
+ * （bg-mk-accent-500/10）在它们上面一个字节的 CSS 都不产出。
+ * ------------------------------------------------------------------------- */
+.mk-artmap {
+  margin: 10px 0 14px;
+}
+.mk-artmap__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mk-artmap__btn {
+  flex: 0 0 auto;
+  padding: 4px 11px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: var(--mk-radius-full, 999px);
+  background: var(--mk-surface);
+  color: var(--mk-accent-700);
+  font-size: var(--mk-text-small, 13px);
+  cursor: pointer;
+  transition: background-color 120ms var(--mk-ease, ease);
+}
+.mk-artmap__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mk-accent-500) 8%, var(--mk-surface));
+}
+.mk-artmap__btn[aria-pressed="true"] {
+  background: var(--mk-accent-500);
+  border-color: var(--mk-accent-500);
+  color: #fff;
+}
+.mk-artmap__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.mk-artmap__panel {
+  margin-top: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--mk-accent-200);
+  border-radius: var(--mk-radius-md, 12px);
+  background: color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-paper));
+}
+.mk-artmap__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.mk-artmap__spine,
+.mk-artmap__takeaway {
+  margin: 0 0 10px;
+  font-size: var(--mk-text-small, 13px);
+  line-height: 1.7;
+  color: var(--mk-ink);
+}
+.mk-artmap__takeaway {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid color-mix(in srgb, var(--mk-accent-500) 16%, transparent);
+}
+.mk-artmap__spine-key {
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: var(--mk-radius-full, 999px);
+  background: color-mix(in srgb, var(--mk-accent-500) 12%, transparent);
+  color: var(--mk-accent-700);
+  font-size: var(--mk-text-caption, 12px);
+}
+.mk-artmap__parts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mk-artmap__part {
+  padding-left: 11px;
+  border-left: 2px solid color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
+}
+/* 一块整体是一颗按钮：点它跳到正文里那句引文的位置。引文是服务端逐字核对过
+   的，所以这一跳一定落得下去。 */
+.mk-artmap__jump {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.mk-artmap__jump:hover .mk-artmap__quote {
+  color: var(--mk-accent-700);
+  text-decoration: underline;
+}
+.mk-artmap__label {
+  flex: 0 0 auto;
+  color: var(--mk-accent-700);
+  font-size: var(--mk-text-caption, 12px);
+}
+.mk-artmap__quote {
+  min-width: 0;
+  color: var(--mk-ink);
+  font-size: var(--mk-text-small, 13px);
+}
+.mk-artmap__note {
+  margin: 3px 0 0;
+  color: var(--mk-secondary);
+  font-size: var(--mk-text-caption, 12px);
+  line-height: 1.65;
+}

@@ -115,6 +115,45 @@ var readingShapedSuffix = map[string]string{
 		"- example：一个**新造的**英文例句，用上这个词，不要抄原文那一句。一行，不超过 20 个词。\n" +
 		"- exampleZh：上面那句的中文翻译。\n" +
 		"不要输出对象以外的任何文字或代码块标记。",
+	// 🚨 中文的字词卡**不共用**上面那份英文约定。产品负责人 2026-09-24：
+	// 「I think we need to make chinese lookup different from english.」
+	//
+	// 差别不在语气，在里面填什么。英文那份要的是 词性 + 词根 + 搭配 +
+	// **一句新造的英文例句**；一个文言字要的是完全另外一套：它属于哪一类
+	// （通假 / 古今异义 / 活用 …）、它今天的意思和这里的意思差在哪、
+	// 以及**凭什么这么判**。给「俄而」造一句英文例句是没有意义的。
+	//
+	// 字段沿用词卡那五个（term/pos/meaning/note/example/exampleZh），因为
+	// 产物是同一种卡：正文里的荧光笔、卡片的样子、报告里的生词表都按它们走。
+	// 这里换的是每个字段**装什么**。
+	//
+	// 「凭什么这么判」这一格是整张卡里最要紧的：产品负责人的标准抱怨是材料
+	// 「只有定义和例子，没有判断方法」。一张只写「『冥』通『溟』」的卡是在
+	// 给答案；写上「按『幽冥』读不通，而『溟』是海，读得通」才是在教她怎么判。
+	"hanwords": "\n\n只输出一个 JSON 对象：" +
+		`{"words":[{"term":"","pos":"","meaning":"","note":"","example":"","exampleZh":""}]}` + "\n\n" +
+		"- term：这个字或词**在这一段里的原样**，一个字都不许改。" +
+		"**系统会拿它回段落里逐字核对，对不上的整张卡片丢掉。**\n" +
+		"- pos：它属于哪一类，只能从这张表里取：通假字 / 古今异义 / 一词多义 / 词类活用 / " +
+		"偏义复词 / 专有名词 / 典故 / 虚词 / 实词。都不属于就写它的词性（名词 / 动词 / 形容词 …）。\n" +
+		"- meaning：它**在这一句里**的意思，一句话，不超过 20 字。\n" +
+		"- note：**凭什么这么判**，两句以内。这一格不是补充说明，是判断方法：\n" +
+		"  - 通假字：按今天这个字读不通在哪，换成哪个字才通。\n" +
+		"  - 古今异义：今天这个词是什么意思，这里是什么意思，两者差在哪。\n" +
+		"  - 词类活用：它本来是什么词性，这里当什么词用，是被什么位置逼成这样的。\n" +
+		"  - 一词多义：这一句里靠什么定下是这一个义项（看它后面接的是名词还是动词、看上下文）。\n" +
+		"  - 专有名词：它指谁或指哪里，不必翻译。\n" +
+		"  - 典故：它出自哪里，作者借它说什么。说不准出处就直说说不准。\n" +
+		"  - 虚词：它在这一句里起什么作用（提宾、取消独立性、句中停顿、发语词 …），" +
+		"凭它在句子里的位置怎么判。\n" +
+		"- example：**原文里或别处另一处**用同一个用法的句子，一句就够。" +
+		"举不出来就留空，不要造一句古文。\n" +
+		"- exampleZh：上面那句的白话。example 留空时这一格也留空。\n" +
+		"有两种通行的解释时，note 里把两种都写出来并各自说依据，不把一种说成定论。\n" +
+		"不要输出对象以外的任何文字或代码块标记。",
+	// 整篇那一层的约定住在 reading_article.go —— 它和那件工具的产物结构
+	// （readingArticleOutline）必须一起改，放在一起才看得出这件事。
+	"article": readingArticleShapeSuffix,
 }
 
 // readingWord 是一张词卡。
@@ -219,11 +258,47 @@ func lookupCardFor(words []readingWord, tapped string) *readingWord {
 	return nil
 }
 
-// lookupTokens 把一个词或词组切成小写的整词：字母、撇号、连字符算词的一部分。
+// lookupTokens 把一个词或词组切成可以逐项比对的 token。
+//
+// 拉丁字母按**整词**切（字母、撇号、连字符算词的一部分）；汉字**一个字一个
+// token**。
+//
+// 🚨 汉字那一条是 2026-09-24 补的，在此之前这个函数只认 a–z，于是
+// lookupTokens("蓑") 返回**空切片** —— 而 lookupCardFor 的第一件事就是
+//
+//	want := lookupTokens(tapped)
+//	if len(want) == 0 { return nil }
+//
+// 所以任何一件讲中文单字的工具（Subject == "word"）会 100% 走进
+// 「没有一张卡讲她点的那个词」那条失败分支，一次都不会成功。查词至今只有
+// 英文一件（Lang "en"），这条线因此从没被走到过。
+//
+// 按字切而不是按整串比，是因为中文没有词边界：她点「蓑」，而卡片按提示词的
+// 要求讲的是整个词「蓑笠」——「term 里连着出现她点的那几个字」这条判据
+// 只有在按字切之后才成立。
 func lookupTokens(s string) []string {
-	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !(r == '\'' || r == '’' || r == '-' || ('a' <= r && r <= 'z'))
-	})
+	var out []string
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			out = append(out, string(cur))
+			cur = cur[:0]
+		}
+	}
+	for _, r := range strings.ToLower(s) {
+		switch {
+		case isHanRune(r):
+			// 汉字自成一个 token，并且切断前面正在攒的那个拉丁词。
+			flush()
+			out = append(out, string(r))
+		case r == '\'' || r == '’' || r == '-' || ('a' <= r && r <= 'z'):
+			cur = append(cur, r)
+		default:
+			flush()
+		}
+	}
+	flush()
+	return out
 }
 
 // wordCardsAsProse 把一组词卡写成 body 那一列里的纯文字。
@@ -365,14 +440,18 @@ func (a *API) listReadingBlockTools(w http.ResponseWriter, r *http.Request) {
 	// 🚨 按体裁收窄：文言文那两件（字词释义 / 句法）和诗词那一件（意象）
 	// 不该出现在一篇现代散文的工具条上。体裁在排读法那一次就判好了，
 	// 存在导读里。
-	tools := readingBlockToolsFor(lang, decodeOutline(src.Outline).Genre)
+	genre := decodeOutline(src.Outline).Genre
+	tools := readingBlockToolsFor(lang, genre)
+	// 整篇那几件走同一个端点：界面凭 scope 把它们摆在另一个地方（不在段落
+	// 工具条里），而「库里有哪几件」仍然只有服务端一份。
+	tools = append(tools, readingArticleToolsFor(lang, genre)...)
 	out := make([]map[string]string, 0, len(tools))
 	for _, t := range tools {
 		// subject 要发出去：界面凭它决定「点这件工具之后先请学生点一句，还是
 		// 直接开讲」。写死在前端会和服务端漂开 —— 和这个端点本来就存在的理由
 		// 是同一条。
 		out = append(out, map[string]string{
-			"id": t.ID, "label": t.Label, "subject": t.Subject,
+			"id": t.ID, "label": t.Label, "subject": t.Subject, "scope": t.Scope,
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"lang": lang, "tools": out})
@@ -390,6 +469,9 @@ type blockNoteDTO struct {
 	// Grammar 是语法那件工具的卡片（2026-09-17 起）。老的语法笔记是一段散文，
 	// 没有这一项 —— 界面据此退回渲染 body。
 	Grammar *readingGrammar `json:"grammar,omitempty"`
+	// Article 是整篇那一层的那张图（2026-09-24 起）。只有 Scope "article" 的
+	// 工具有这一项。
+	Article *readingArticleOutline `json:"article,omitempty"`
 }
 
 // blockNoteDTOFrom 把一行 reading_block_note 变成发出去的那份。
@@ -402,12 +484,14 @@ func blockNoteDTOFrom(row sqlc.ReadingBlockNote) blockNoteDTO {
 	}
 	if len(row.Data) > 0 {
 		var payload struct {
-			Words   []readingWord   `json:"words"`
-			Grammar *readingGrammar `json:"grammar"`
+			Words   []readingWord          `json:"words"`
+			Grammar *readingGrammar        `json:"grammar"`
+			Article *readingArticleOutline `json:"article"`
 		}
 		if err := json.Unmarshal(row.Data, &payload); err == nil {
 			dto.Words = payload.Words
 			dto.Grammar = payload.Grammar
+			dto.Article = payload.Article
 		}
 	}
 	return dto
@@ -465,6 +549,12 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	sentence := strings.TrimSpace(req.Sentence)
 	switch {
+	case tool.Scope == "article":
+		// 整篇那一层没有「哪一段」也没有「哪一句」：它读的就是全文。
+		// blockID 被换成哨兵值，于是缓存的键对同一篇只有一份，
+		// 她从第几段点进来都重放同一张图。
+		blockID = readingArticleBlockID
+		sentence = ""
 	case tool.Subject != "sentence" && tool.Subject != "word":
 		// 讲整段的工具。带了句子也当没带 —— 否则同一段会按她随手划到
 		// 哪儿缓存出好几份一模一样的讲解。
@@ -489,7 +579,8 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		dto := blockNoteDTOFrom(row)
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
 			"blockId": dto.BlockID, "tool": dto.Tool, "body": dto.Body,
-			"subject": dto.Subject, "words": dto.Words, "grammar": dto.Grammar, "cached": true,
+			"subject": dto.Subject, "words": dto.Words, "grammar": dto.Grammar,
+			"article": dto.Article, "cached": true,
 		})
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -510,7 +601,8 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if idx < 0 {
+	// 整篇那一层不指向任何一段，所以这道「这一段存在吗」的闸对它不适用。
+	if idx < 0 && tool.Scope != "article" {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
@@ -589,11 +681,13 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	body := strings.TrimSpace(res.Text)
 	var words []readingWord
 	var grammar *readingGrammar
+	var article *readingArticleOutline
 	var data []byte
 	switch {
 	case cerr != nil || body == "":
 		// 下面那道统一的失败分支会处理。
-	case tool.Shape == "words":
+	// hanwords 是中文那份契约，产物和 words 是同一种卡（见 readingShapedSuffix）。
+	case tool.Shape == "words" || tool.Shape == "hanwords":
 		// 🚨 每个 term 都要回这一段里逐字核对。核不上的丢光了，这件工具就算
 		// 失败 —— 绝不返回一组空卡片，也绝不把原始回话当散文渲染出去：
 		// 一张指着这一段里没有的词的卡片，荧光笔无处可落，讲解也验不了。
@@ -638,6 +732,22 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 		if encoded, merr := json.Marshal(map[string]any{"grammar": g}); merr == nil {
 			data = encoded
 		}
+	case tool.Shape == "article":
+		// 🚨 每一块的引文都要回**全文**里逐字核对。整篇这一层最容易出的毛病是
+		// 模型凭印象说「这篇分成四块」而四块都指不到原文哪里 —— 那种话一个字
+		// 都验不了。核不上的整块丢掉，一块都不剩就算这件工具失败。
+		o, okArt := parseArticleOutline(sliceBlockJSON(body), src.Body)
+		if !okArt {
+			slog.Warn("reading article explain: no part survived the verbatim check",
+				"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		article = o
+		body = articleOutlineAsProse(o)
+		if encoded, merr := json.Marshal(map[string]any{"article": o}); merr == nil {
+			data = encoded
+		}
 	case tool.Shape != "prose":
 		shaped, okShape := parseShapedBlockReply(tool.Shape, body)
 		if !okShape {
@@ -669,6 +779,7 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"blockId": blockID, "tool": tool.ID, "body": body,
-		"subject": sentence, "words": words, "grammar": grammar, "cached": false,
+		"subject": sentence, "words": words, "grammar": grammar,
+		"article": article, "cached": false,
 	})
 }

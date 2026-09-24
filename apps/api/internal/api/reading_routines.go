@@ -547,6 +547,25 @@ type readingBlockTool struct {
 	// 一篇现代散文的段落工具条上摆着「通假字、古今异义」是没有意义的按钮，
 	// 而没有意义的按钮会让她不信任整条工具条。
 	Genres []string `json:"-"`
+	// NotGenres 把一件**通用**工具从某几种体裁上撤掉。空 = 不撤。
+	//
+	// 🚨 它和 Genres 在两件事上相反，两件都是故意的：
+	//
+	//  1. 方向相反 —— Genres 是白名单，这是黑名单。
+	//  2. **体裁认不出来时的默认相反。** 白名单在体裁为空时不给
+	//     （宁可少一件，也不摆一个按下去讲不出东西的按钮）；黑名单在体裁为空时
+	//     照给。因为它修饰的是一件本来每篇都有的通用工具，认不出体裁就撤掉它，
+	//     等于把老数据上本来有的东西拿走了。
+	//
+	// 2026-09-24：「结构解析」和「案例」因此从诗词上撤掉。产品负责人走查
+	// 《江雪》时这两件都在工具条上，而它们问的是：
+	//
+	//	把这一段按句子拆成 2 到 5 个层次 …… 这一段举了哪些具体的事例、数据或引用
+	//
+	// 「千山鸟飞绝，万径人踪灭。」十个字里没有层次可拆，也没有数据可举。
+	// 诗词的结构是整首的起承转合，而那一层根本不在「段落」这个尺度上 ——
+	// 《江雪》被切成了两段，任何一件段落工具都看不见整首诗。
+	NotGenres []string `json:"-"`
 	// MaxRunes 是这件工具最多写多少字，0 = 用默认的 200
 	// （readingBlockDefaultMaxRunes）。讲解越长她越不读，所以多给字数要有理由：
 	// 现在只有「写作解析」多给，因为 2026-09-17 把「把握度」并进了它。
@@ -571,6 +590,22 @@ type readingBlockTool struct {
 	// 这一位同时决定三件事：界面先请她点一句、prompt 里给的是那一句、缓存的键
 	// 把那一句算进去。
 	Subject string `json:"subject,omitempty"`
+	// Scope 说这件工具读的是多大一块：空 = 一个段落，"article" = 整篇。
+	//
+	// 🚨 2026-09-24 加的，产品负责人：「for poems or 记叙文, we also need a
+	// whole-level view of analysis (actually, all need that, the article
+	// structure, etc.」
+	//
+	// 这不是「把段落工具的说明改长一点」能办到的事，有三件东西**结构上**不在
+	// 段落这个尺度上：
+	//
+	//   - 详略安排：要比较各段的长短，一个段落自己比不出来。
+	//   - 首尾呼应：要同时拿着第一段和最后一段。
+	//   - 叙事的「转」：从一种心态到另一种，是一条跨段的链子。
+	//
+	// 《江雪》被切成两段，所以连「这首诗的起承转合」都没有任何一件段落工具
+	// 看得见。这一位就是为此存在的。
+	Scope string `json:"scope,omitempty"`
 }
 
 // 铁律 CHECK. These are EXPLANATORY, and that is why they are safe: 铁律①
@@ -668,6 +703,56 @@ var readingBlockTools = []readingBlockTool{
 			"最后把这一句按今天的语序顺过来说一遍。没有特殊句式就直说这一句是正常语序，并把它的意思说一遍。",
 	},
 	{
+		// 🚨 2026-09-24：**第一层**。产品负责人：「students may select some texts
+		// and need the explanation/translation, like in the skills I provided you.」
+		//
+		// 那份古文讲义（guwen/SKILL.md）的第一条核心约束是
+		//
+		//	分层译讲，不堆砌：按「白话翻译 → 关键字词 → 句法 → 背景寓意」
+		//	四层递进；用户要哪层给哪层，不强行全给。
+		//
+		// 而**第一层没有入口**。在这之前中文这边只有第二层（字词释义）和
+		// 第三层（句法）两颗按钮，于是她想知道「这几个字什么意思」时，
+		// 只能从「句法」进去，先读一段句式分析。讲义里第一层是**默认层**，
+		// 第三层写的是「点到即止」，第四层写的是「如需」—— 默认反了。
+		//
+		// 诗词一起给：一首诗最常被问的就是这一句话是什么意思。
+		Shape: "prose", ID: "classical_translate", Label: "白话翻译", Lang: "zh",
+		Genres: []string{genreClassical, genrePoem}, Subject: "sentence",
+		Class: gateway.ClassDigest, MaxRunes: 200,
+		// 「按句直译，保留原意；标点、语气尽量对应原文」+「忠于原意，不增删」
+		// 都是讲义的原话。六字诀（留删补换调变）不在讲义里，所以这里只写
+		// 它实际要求的那几个动作，不端出一套它没说过的口诀。
+		Instruction: "把学生划出的这几个字译成白话。按句直译，语序调成今天的说法，" +
+			"原文省掉的成分补出来并放在括号里，标点和语气尽量对应原文。\n" +
+			"人名、地名、官名、年号、书名照抄不译。\n" +
+			"不增不删：不要发挥、不要替作者多说一层意思、不要把直译换成大意概述。\n" +
+			"遇到比喻、借代、用典、互文，译出它指的那件事，不要停在字面。\n" +
+			"这几个字有两种通行的读法时，两种都写出来并各自说依据，不把一种说成定论；" +
+			"拿不准的地方直说拿不准，不要猜。\n" +
+			"只给译文和必须的括号补充，不讲句式、不讲字词来历 —— 那是另外两件工具。",
+	},
+	{
+		// 🚨 2026-09-24：**第二层里她自己挑的那一个字**。产品负责人：
+		// 「I think we need to make chinese lookup different from english.」
+		//
+		// 和「字词释义」的分工，同英文那边「关键单词」与「查词」的分工：
+		// 前者是模型替她挑的两三个字，后者是**她自己**卡住的那一个 ——
+		// 后者才是她真正不认识的。
+		//
+		// 🚨 它和英文的「查词」不共用输出约定。英文那份 words 契约里写着
+		// 「example：一个**新造的**英文例句」——给一个文言字造一句英文例句是
+		// 没有意义的。所以这件工具用 Shape "hanwords"，另一份契约：
+		// 类别（通假/古今异义/活用…）、本义、在这里的意思、凭什么这么判。
+		// 产物仍然是词卡（同一个 words 字段），所以正文里的荧光笔、卡片的样子、
+		// 报告里的生词表都不用另写一份。
+		Shape: "hanwords", ID: "classical_word", Label: "查字", Lang: "zh",
+		Genres: []string{genreClassical, genrePoem}, Subject: "word",
+		Class: gateway.ClassDigest,
+		Instruction: "学生点了一个字或一个词（见下面【要讲解的这一个词】），只讲这一个，给**一张**卡。" +
+			"讲的是它**在这一句里**的意思；它是一个词的一部分时，term 写整个词（仍然要逐字出现在段落里）。",
+	},
+	{
 		// 🚨 2026-09-23，诗词专用。照她给的那份诗歌鉴赏讲义
 		// （shige/SKILL.md 的「核心意象」表：意象 | 象征 | 情感）。
 		//
@@ -684,7 +769,9 @@ var readingBlockTools = []readingBlockTool{
 		Instruction: "指出这一段用到的成语、俗语和修辞手法（比喻、排比、反问、对比……），每个都说清楚它在这里起了什么效果。未发现相关表达时如实说明。",
 	},
 	{
+		// 诗词上撤掉：一首绝句里没有事例、数据、引用可以点。见 NotGenres。
 		Shape: "prose", ID: "examples", Label: "案例", Lang: "zh",
+		NotGenres:   []string{genrePoem},
 		Instruction: "这一段举了哪些具体的事例、数据或引用？每个说清楚它是用来支持什么的。没有具体事例就直说这一段是在讲道理，不是在举例。",
 	},
 	{
@@ -693,7 +780,10 @@ var readingBlockTools = []readingBlockTool{
 		// 原来的说明只问「这一段在整篇里在干什么」，模型照做了 —— 给的就是一句概述。
 		// 改成先拆段内的层次（哪几句是一层、这一层在干什么、层与层怎么接），
 		// 最后才用一句话说这一段在全文的位置。
+		// 诗词上撤掉：它拆的是段内层次，而诗的结构是整首的起承转合，
+		// 那一层落在「整篇」尺度上（见 readingArticleTools 的 poem_shape）。
 		Shape: "prose", ID: "structure", Label: "结构解析", Lang: "zh", MaxRunes: 360,
+		NotGenres: []string{genrePoem},
 		// 2026-09-18 线上第一次跑：一句一条列了十一条、远超字数上限。层次是几句合成一层，
 		// 所以明说 2 到 5 层、不要一句一层。
 		Instruction: "把这一段**按句子拆成 2 到 5 个层次**（一层通常包括几句，不要一句一层），写成编号列表，一层一行：" +
@@ -742,6 +832,10 @@ func readingBlockToolsFor(lang string, genre string) []readingBlockTool {
 		if len(t.Genres) > 0 && !containsString(t.Genres, genre) {
 			continue
 		}
+		// 黑名单只在体裁真的判出来了的时候才撤 —— 见 NotGenres 的第 2 条。
+		if genre != "" && containsString(t.NotGenres, genre) {
+			continue
+		}
 		out = append(out, t)
 	}
 	// The language-independent pair always comes last: understand first, then
@@ -755,9 +849,13 @@ func readingBlockToolsFor(lang string, genre string) []readingBlockTool {
 // 报告那一侧用它：它数的是**她真的用过**哪几件，按 id 查回标签。
 // 按体裁挑会让一篇文言文的报告漏掉「字词释义」那一行 —— 她明明用过。
 func readingBlockToolsAll() []readingBlockTool {
-	out := make([]readingBlockTool, 0, len(readingBlockTools)+len(readingWritingTools))
+	out := make([]readingBlockTool, 0,
+		len(readingBlockTools)+len(readingWritingTools)+len(readingArticleTools))
 	out = append(out, readingBlockTools...)
 	out = append(out, readingWritingTools...)
+	// 整篇那几件也算进来：报告那一侧按 id 查回标签，漏掉它们会让一份用过
+	// 「论证图」的报告少掉那一行 —— 她明明用过。
+	out = append(out, readingArticleTools...)
 	return out
 }
 
@@ -768,6 +866,11 @@ func findReadingBlockTool(id string) (readingBlockTool, bool) {
 		}
 	}
 	for _, t := range readingWritingTools {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	for _, t := range readingArticleTools {
 		if t.ID == id {
 			return t, true
 		}
