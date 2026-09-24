@@ -76,6 +76,18 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 		}
 	}
 
+	// 年级门槛（2026-09-25）。和带读说明同一个形状：**可选**，取不到就整行删掉。
+	//
+	// 她的班没填年级时 grade 是空串，这一节取不到，装出来的提示词和这一节
+	// 存在之前逐字节相同 —— 今天库里绝大多数写作就是这一支，所以那些分支的
+	// 缓存前缀一个字节都没动（「块的顺序是成本契约」）。
+	ceiling := ""
+	if err == nil {
+		if p, cerr := guidance.Default().Resolve(k, guidance.SlotCeiling); cerr == nil {
+			ceiling = p[guidance.SlotCeiling]
+		}
+	}
+
 	english := lang == langEnglish
 	s := strings.Replace(writingPlanSystem, "@@KINDS@@", parts[guidance.SlotKinds], 1)
 	s = strings.Replace(s, "@@MATERIAL@@", parts[guidance.SlotMaterial], 1)
@@ -87,6 +99,17 @@ func writingPlanSystemFor(genre string, lang string, grade string) string {
 	} else {
 		// 多补一个 \n：常量结尾没有换行，不补的话小标题前面没有空行。
 		s = strings.Replace(s, "@@COACH@@", coach+"\n", 1)
+	}
+	if ceiling == "" {
+		// 🚨 连同**前面那个空行**一起删。只删 "@@CEILING@@\n" 会在材料那一节
+		// 后面留下一个多余的换行 —— 于是每一篇没有年级的作文（今天库里的
+		// 多数）prompt 都差一个字节，缓存前缀白白打碎一次。
+		// TestNoGradeMeansNoCeilingSection 钉的就是这个。
+		s = strings.Replace(s, "\n@@CEILING@@\n", "", 1)
+	} else {
+		// 模板里 @@CEILING@@ 后面本来就跟着 "\n\n"，所以这里**不再补换行** ——
+		// 补了就是三个换行，和别的小节之间的间距对不上。
+		s = strings.Replace(s, "@@CEILING@@", ceiling, 1)
 	}
 	s = strings.Replace(s, "%d", strconv.Itoa(writingPlanMaxNewNodes), 1)
 	if english {

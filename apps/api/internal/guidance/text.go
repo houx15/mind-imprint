@@ -10,6 +10,13 @@ const (
 	SlotMaterial Slot = "material" // 材料怎么选
 	SlotSkeleton Slot = "skeleton" // 常见文章结构
 	SlotCoach    Slot = "coach"    // 这一篇怎么带
+	// SlotCeiling 是「她学到哪儿了」—— 只按**年级**登记，不按文体。
+	//
+	// 🚨 它是第一个真正用上 Grades 的槽。Key.Grade 这条轴 2026-09-22 就
+	// 建好了（classes.grade → writingPlanSystemFor 的第三个参数），
+	// 但在这之前**没有任何一行按年级登记过内容**，于是它跑了三天空车：
+	// 印记照样会建议一个初一学生用虚拟语气。
+	SlotCeiling Slot = "ceiling"
 )
 
 // Registry 是「哪个槽在什么情况下用哪段正文」。

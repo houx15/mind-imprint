@@ -34,6 +34,12 @@ func livePlanTurn(t *testing.T, wr sqlc.Writing, rows []sqlc.WritingOutline, sai
 // livePlanTurnFor 和上面一样，但指定文体 —— 书信那一档发的是另一份系统提示词。
 func livePlanTurnFor(t *testing.T, genre string, wr sqlc.Writing, rows []sqlc.WritingOutline, said string) string {
 	t.Helper()
+	return livePlanTurnForGrade(t, genre, "", wr, rows, said)
+}
+
+// livePlanTurnForGrade 再加一个年级 —— 年级门槛那一节按它装配。
+func livePlanTurnForGrade(t *testing.T, genre, grade string, wr sqlc.Writing, rows []sqlc.WritingOutline, said string) string {
+	t.Helper()
 	prov, resolved := liveClass(t, gateway.ClassCompose)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
@@ -45,7 +51,7 @@ func livePlanTurnFor(t *testing.T, genre string, wr sqlc.Writing, rows []sqlc.Wr
 			// `@@KINDS@@` 和 `%d` 两个占位符都还没替换 —— 也就是说这条
 			// 「模型会不会照着闭表回 kind」的测试，**从来没有把那张闭表发给
 			// 模型**。它测的是一份生产环境不会发出去的提示词。
-			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, wr.Lang, "")},
+			{Role: gateway.RoleSystem, Content: writingPlanSystemFor(genre, wr.Lang, grade)},
 			{Role: gateway.RoleUser, Content: buildWritingPlanPrompt(wr, rows, nil, said)},
 		},
 	})

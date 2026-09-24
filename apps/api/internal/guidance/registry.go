@@ -51,6 +51,14 @@ var Default = sync.OnceValue(func() *Registry {
 	r.Add(SlotKinds, w("zh", "summary"), prompts.WritingPlanSummaryKinds)
 	r.Add(SlotKinds, w("en", "summary"), prompts.WritingPlanSummaryKinds)
 
+	// 年级门槛（2026-09-25）。只按学段登记，不按语言也不按文体 ——
+	// 「她学到哪儿了」和她这一篇写什么、用哪种语言无关。
+	// 取不到不是故障（她的班没填年级就是空串），调用方按可选处理。
+	r.Add(SlotCeiling, Scope{Surface: SurfaceWrite, Grades: []string{"junior"}},
+		prompts.WritingCeilingJunior)
+	r.Add(SlotCeiling, Scope{Surface: SurfaceWrite, Grades: []string{"senior"}},
+		prompts.WritingCeilingSenior)
+
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
 	// 🚨 SlotMaterial 原来**只按语言登记，不按文体** —— 于是每一种文体拿到的
