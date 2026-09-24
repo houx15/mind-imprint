@@ -30,7 +30,7 @@ import "../../src/learning/student-surfaces.css";
 const CHOICES = [
   { id: "argument", label: "议论文", blurb: "要说清一个看法，并且给出理由和材料。" },
   { id: "narrative", label: "记叙文", blurb: "写一件真实发生过的事，写出当时的场景和你的变化。" },
-  { id: "letter", label: "书信", blurb: "写给一个具体的人，要让他知道什么、或者请他做什么。" },
+  { id: "letter", label: "书信与应用文", blurb: "写给具体的人或者一群人，要办成一件事：信、邮件、通知、演讲稿、倡议书。" },
   { id: "prose", label: "散文", blurb: "几件不连着的小事，靠一样东西串起来，写出一点体会。" },
 ];
 

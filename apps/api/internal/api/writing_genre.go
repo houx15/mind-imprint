@@ -98,6 +98,15 @@ var letterIdeaMarkers = []string{
 	"一封信", "写信", "给你的信", "的一封信", "书信",
 	"感谢信", "建议信", "邀请函", "倡议书", "申请信", "道歉信", "慰问信", "表扬信",
 	"致全体", "致同学", "致老师", "回信", "写一封",
+	// 🚨 2026-09-24 补：这一档是**应用文**，不只是信。
+	//
+	// 补之前，「写一则通知」「写一篇演讲稿」两张表一条都不命中，落到最后那句
+	// 「拿不准就是议论文」—— 于是一则通知被要求写中心论点、分论点和论据，
+	// 正是产品负责人当初报的那个毛病（「a letter under the structure of
+	// 议论文」），只不过换了一种应用文。倡议书本来就在上面这一行里，所以
+	// 这一档一直就不只是「信」，只是名单漏了几种。
+	"通知", "公告", "启事", "演讲稿", "发言稿", "演讲比赛",
+	"邮件", "电子邮件", "投稿", "征文", "调查报告",
 }
 
 // letterIdeaMarkersEN —— 英文那一套，按**小写**比。
@@ -111,6 +120,13 @@ var letterIdeaMarkersEN = []string{
 	"thank-you note", "note to",
 	"invitation", "apology letter", "application letter", "letter of application",
 	"reply to his", "reply to her", "reply to the letter",
+	// 应用文的其余几种（同上）。这里收的都是**带冠词或动词的整串**，
+	// 不收光秃秃的 report / notice / speech —— 那几个词在一道议论文题的
+	// 题面里也会出现（"students notice that…"），单收会把议论文判成应用文。
+	"a speech", "your speech", "speech contest", "give a speech",
+	"a notice", "write a notice", "an announcement",
+	"a news report", "news report", "write a report",
+	"a proposal to", "an entry for",
 }
 
 // writingGenreOf 推断这一篇的文体。见文件头。
@@ -200,7 +216,10 @@ func writingGenreLabel(genre string) string {
 	case genreNarrative:
 		return "记叙文"
 	case genreLetter:
-		return "书信"
+		// 🚨 这一档装的是**应用文**，不只是信：倡议书从一开始就在它的词表里，
+		// 2026-09-24 又补进了通知、演讲稿、邮件、投稿。只写「书信」，
+		// 一个写通知的学生会看到「印记按书信在教这一篇」，那是句假话。
+		return "书信与应用文"
 	case genreProse:
 		return "散文"
 	}
@@ -239,7 +258,7 @@ func writingGenreChoices() []writingGenreChoiceDTO {
 	return []writingGenreChoiceDTO{
 		{ID: genreArgument, Label: "议论文", Blurb: "要说清一个看法，并且给出理由和材料。"},
 		{ID: genreNarrative, Label: "记叙文", Blurb: "写一件真实发生过的事，写出当时的场景和你的变化。"},
-		{ID: genreLetter, Label: "书信", Blurb: "写给一个具体的人，要让他知道什么、或者请他做什么。"},
+		{ID: genreLetter, Label: "书信与应用文", Blurb: "写给具体的人或者一群人，要办成一件事：信、邮件、通知、演讲稿、倡议书。"},
 		// 🚨 散文排在最后，而且只在这里出现 —— 它没有题目词表。
 		// 一篇散文的题目和一篇记叙文的题目长得一模一样，从字面上分不出来，
 		// 所以它**只能由她自己说**。

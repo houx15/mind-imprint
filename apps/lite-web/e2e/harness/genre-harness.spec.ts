@@ -29,7 +29,9 @@ test("推断和她自己定的分得开，换完之后整屋跟着变", async ({
   const shown: Array<[string, string]> = [
     ["议论文", "要说清一个看法"],
     ["记叙文", "写一件真实发生过的事"],
-    ["书信", "写给一个具体的人"],
+    // 🚨 这一档装的是应用文，不只是信 —— 倡议书一直在它的词表里，
+    // 2026-09-24 又补进了通知、演讲稿、邮件（writing_genre.go）。
+    ["书信与应用文", "通知"],
     // 🚨 散文**只能由她自己选** —— 它没有题目词表，题目上和记叙文分不出来。
     // 所以它出现在这张单子上，是它唯一到得了的路。
     ["散文", "几件不连着的小事"],
@@ -43,10 +45,10 @@ test("推断和她自己定的分得开，换完之后整屋跟着变", async ({
   await expect(page.getByText("图上已有的内容一条都不会动")).toBeVisible();
   await page.screenshot({ path: `${OUT}/genre-01-open.png`, fullPage: true });
 
-  await page.getByRole("button", { name: /^书信/ }).click();
+  await page.getByRole("button", { name: /^书信与应用文/ }).click();
 
   // 换完之后：措辞变成「你定的是」，房间那一层也拿到了新的。
-  await expect(page.locator("[data-genre-line]")).toHaveText("你定的是书信");
+  await expect(page.locator("[data-genre-line]")).toHaveText("你定的是书信与应用文");
   await expect(page.locator("[data-room-genre]")).toHaveText("letter");
   await page.screenshot({ path: `${OUT}/genre-02-chosen.png`, fullPage: true });
 });
