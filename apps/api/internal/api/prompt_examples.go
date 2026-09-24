@@ -49,7 +49,8 @@ func PromptAssemblyExamples() []PromptExample {
 	//
 	// 用户那一栏照旧（同一段文章），变的只有系统提示词里的体裁那一节，
 	// 这样 diff 出来一眼能看出是哪一段被动了。
-	for _, genre := range []string{genreReport, genreExplain, genreNarrative, genrePoem, genreClassical, genreProse} {
+	// 🚨 2026-09-25 加上 genreArgument：它从这一天起也有自己的一段（R13）。
+	for _, genre := range []string{genreArgument, genreReport, genreExplain, genreNarrative, genrePoem, genreClassical, genreProse} {
 		blocks := SplitBlocks("新增装机容量增长了。\n\n实际发电量还与设备运行时间有关。")
 		tasks := []sqlc.ReadingTask{{Kind: "focus_block", Label: "比较两个指标", Status: "pending", BlockID: "b1"}}
 		// 🚨 体裁那一节住在**用户**那一栏里（reading_coach_prompt.go 第 111 行

@@ -89,6 +89,7 @@ func decodeReadingPlan(t *testing.T, rec *httptest.ResponseRecorder) readingPlan
 const zhPlanReply = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"steps":[
   {"kind":"predict","detail":"看标题猜猜：作者要解释什么？"},
   {"kind":"read","detail":"这篇不长，先整体过一遍。"},
+  {"kind":"reflect","detail":"把三部分合起来说说这篇分几块。"},
   {"kind":"focus_block","detail":"第三段是全文唯一解释原理的地方。"},
   {"kind":"lens","detail":"用一个角度再看一遍。"},
   {"kind":"reflect","detail":"说说你以前是怎么以为的。"},

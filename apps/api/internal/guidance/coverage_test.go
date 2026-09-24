@@ -191,8 +191,20 @@ func TestReadCoachStillResolvesAfterWriteCoachWasAdded(t *testing.T) {
 			}
 		}
 	}
-	// 阅读面的议论文本来就没有带读说明 —— 加了写作面那一行之后仍然没有。
-	if _, err := Default().Resolve(Key{Surface: SurfaceRead, Genre: "argument"}, SlotCoach); err == nil {
-		t.Error("阅读面的议论文取到了带读说明，它本来就不该有")
+	// 🚨 2026-09-25：阅读面的议论文**现在有**带读说明了（R13，示范额度最多
+	// 一段）。这一行原来断言它没有，理由是「议论文一个字都不动」那条禁令 ——
+	// 产品负责人当天点头解了那条禁令。
+	//
+	// 断言换方向而不是删掉：它守的那件事仍然要守 —— 两面不许串台。
+	// 阅读面取到的必须是阅读那一段，不能是写作面那一段。
+	got, err := Default().Resolve(Key{Surface: SurfaceRead, Genre: "argument"}, SlotCoach)
+	if err != nil {
+		t.Fatalf("阅读面的议论文取不到带读说明：%v", err)
+	}
+	if got[SlotCoach] != prompts.ReadingCoachGenreArgument {
+		t.Error("阅读面的议论文取到的不是阅读那一段")
+	}
+	if got[SlotCoach] == prompts.WritingPlanEnglishTaskSplit {
+		t.Error("阅读面串到写作面那一段去了")
 	}
 }

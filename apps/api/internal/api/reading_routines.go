@@ -243,6 +243,19 @@ var readingRoutines = []readingRoutine{
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "请先根据标题预测文章主题。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先通读并把握大意；不影响理解的生词可暂时跳过。"},
+			// 🚨 R3「AI 通读全文、划分内容单元 → 学生分段通读并概括 →
+			// **拼出全文结构** → 按文章类型精读 → 整理阅读成果」里的第三段。
+			//
+			// 2026-09-25 产品负责人点头之后加的。在这之前它撞在
+			// 「don't bother the current experience of argument papers」
+			// （2026-09-17）那条禁令上，2026-09-24 做出来又撤了一次 ——
+			// 那一次的撤回是对的：禁令还在的时候，测试就该拦住它。
+			//
+			// 用 reflect 而不是新开一个 kind：加 kind 是代码改动（见上面那段
+			// 注释），而「把几部分合起来想一想」正是 reflect 的意思。
+			// 它指向正文上方那张论证图 —— 整篇那一层 2026-09-24 才有，
+			// 这一步以前就算写出来也没有东西可对照。
+			{Kind: taskReflect, Label: "拼出全文结构", Detail: "把刚才读过的几部分合起来：这篇文章分成哪几块，每一块在做什么？可以打开正文上方的「论证图」对照。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，分析其中的内容与写法。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归到论证三要素里：论点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？作者给的证据够不够？有没有另一种解释？挑一个角度说。"},
@@ -582,6 +595,8 @@ var readingRoutines = []readingRoutine{
 		Steps: []readingRoutineStep{
 			{Kind: taskPredict, Label: "先预测", Detail: "只看标题：请预测作者可能持有什么观点，暂不阅读正文。"},
 			{Kind: taskRead, Label: "通读全文", Detail: "请先找出作者对这个问题的观点。"},
+			// 同 zh 那一套：R3 的「拼出全文结构」，见上面那段注释。
+			{Kind: taskReflect, Label: "拼出全文结构", Detail: "把刚才读过的几部分合起来：这篇文章分成哪几块，每一块在做什么？可以打开正文上方的「论证图」对照。"},
 			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "请打开段落工具，分析作者怎样表达观点、使用理由。"},
 			{Kind: taskLabel, Label: "拆开作者的论证", Detail: "把几句话各自归类：作者的论点、作者反驳的观点、论据、论证。"},
 			{Kind: taskCritique, Label: "你怎么看", Detail: "作者说的你同意吗？作者给的证据够不够？有没有另一种解释？挑一个角度说。"},

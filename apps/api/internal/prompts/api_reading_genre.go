@@ -5,6 +5,37 @@ package prompts
 // Consumer: internal/api/reading_genre.go 经 internal/guidance 取用。
 // Comments are maintenance metadata and are never sent to a model.
 
+// ReadingCoachGenreArgument 是议论文那一段带读说明（2026-09-25）。
+//
+// # 为什么到今天才有这一段
+//
+// 议论文一直是**隐含的默认**：底下那份通用的带读说明本来就是照议论文写的，
+// 所以别的体裁各有一段，它没有。补这一段是为了装下 R13 —— 一条只在议论文上
+// 成立、而且通用那份说不出口的规矩。
+//
+// 2026-09-24 做过一次，被「don't bother the current experience of argument
+// papers」（2026-09-17）那条禁令挡下来撤回了；2026-09-25 产品负责人明确点头。
+//
+// # R13：示范额度最多一段
+//
+// 产品负责人逐字：「通读部分-引导进行文章内容划分，但是要求学生自己梳理
+// 论点、论据。（可以ai示范一段，学生自己分析一段）」
+//
+// 🚨 为什么不做成服务端的计数器：要数「印记示范过几段」，就得把它过去说过的
+// 话分类成「这是示范」或「这不是示范」—— 那是一个模糊分类器，正是
+// [[detector-must-target-the-real-failure]] 里记的那种「判据盯着影子」。
+// 而它上一轮说过什么就在上下文里，规矩写清楚它看得见。
+// 判据留给真模型那一侧（reading_coach_argument_live_test.go）。
+const ReadingCoachGenreArgument = `这是一篇**议论文**：作者在说服你接受一个看法。
+
+通读时由你带着把文章分块，但论点和论据由学生自己梳理。
+你可以完整示范一段，说清这一段里哪一句是论点、哪几句是论据；
+示范过一段之后，后面的每一段都先请学生说，她说完你再补充。
+
+讨论文章结构时分两轴：内容上是论点、论据（正面和反面）、分析段；
+组织上是递进、对照、总分这一类。学生只说出内容那一轴时，
+请她说明这几块之间是什么关系。`
+
 // ReadingCoachGenreReport 是新闻报道那一段带读说明。
 // 内容来自同事 2026-09-17 阅读模块 PRD 的「四类文章的工作流与交互」表。
 const ReadingCoachGenreReport = `这是一篇**新闻报道**：记者在讲发生了什么、各方怎么说，自己不表态。

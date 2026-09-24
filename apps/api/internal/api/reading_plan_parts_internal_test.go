@@ -144,6 +144,10 @@ func TestBuildReadingTasks_FocusLabelsAreDistinct(t *testing.T) {
 		}{
 			{Kind: "predict", Detail: "只看标题猜一猜。"},
 			{Kind: "read", Detail: "先通读一遍。"},
+			// 🚨 2026-09-25 库里在通读和精读之间插了「拼出全文结构」（R3），
+			// 这份桩也跟着插一步 —— 同 reading_plan_test.go 那份桩上面那段注释：
+			// 对不上 kind 的那一步往后，每一条 detail 都会退回库里的通用说法。
+			{Kind: "reflect", Detail: "把几部分合起来说说这篇分几块。"},
 			{Kind: "focus_block", Detail: "这一段是全文唯一给出数据的地方。"},
 		},
 	}, blocks, nil)

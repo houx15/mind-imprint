@@ -25,6 +25,7 @@ func Catalog() []Definition {
 		{ID: "api.assignmentExtractSystem", Source: "internal/prompts/api_lite_assignment_extract.go", Consumer: "internal/api/lite_assignment_extract_prompt.go", Text: AssignmentExtractSystem},
 		{ID: "api.liteClassSummarySystemPrompt", Source: "internal/prompts/api_lite_class_summary.go", Consumer: "internal/api/lite_class_summary_prompt.go", Text: LiteClassSummarySystemPrompt},
 		{ID: "api.readingBlockSystem", Source: "internal/prompts/api_reading_block.go", Consumer: "internal/api/reading_block_prompt.go", Text: ReadingBlockSystem},
+		{ID: "api.readingCoachGenreArgument", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_coach_prompt.go", Text: ReadingCoachGenreArgument},
 		{ID: "api.readingCoachGenreReport", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreReport},
 		{ID: "api.readingCoachGenreExplain", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreExplain},
 		{ID: "api.readingCoachGenreNarrative", Source: "internal/prompts/api_reading_genre.go", Consumer: "internal/api/reading_genre.go", Text: ReadingCoachGenreNarrative},

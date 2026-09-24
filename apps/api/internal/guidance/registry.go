@@ -157,6 +157,9 @@ var Default = sync.OnceValue(func() *Registry {
 	rd := func(genre string) Scope {
 		return Scope{Surface: SurfaceRead, Genres: []string{genre}}
 	}
+	// 议论文（2026-09-25，产品负责人点头之后）。装的是 R13：示范额度最多一段，
+	// 之后每一段都先请学生说。见 prompts.ReadingCoachGenreArgument 上面那段注释。
+	r.Add(SlotCoach, rd("argument"), prompts.ReadingCoachGenreArgument)
 	r.Add(SlotCoach, rd("report"), prompts.ReadingCoachGenreReport)
 	r.Add(SlotCoach, rd("explain"), prompts.ReadingCoachGenreExplain)
 	r.Add(SlotCoach, rd("narrative"), prompts.ReadingCoachGenreNarrative)

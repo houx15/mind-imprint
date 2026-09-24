@@ -48,13 +48,27 @@ func TestEveryGenreHasARoutineInEachLanguage(t *testing.T) {
 	}
 }
 
-// 🚨 议论文的三套读法，步骤一个都不许动。
-// 「don't bother the current experience of argument papers」。
+// 🚨 议论文的三套读法，步骤只能按**产品负责人点过头的那一次**动。
+//
+// 这条测试原来叫「一个都不许动」，钉的是 2026-09-17 那句
+// 「don't bother the current experience of argument papers」。它替产品负责人
+// 看住过一次：2026-09-24 我照 R3 加了一步「拼出全文结构」，被它拦下来撤回了。
+//
+// 2026-09-25 产品负责人明确点头要 R3 和 R13（R5 那道闸不要），所以三套里
+// 两套各多了一步 reflect·拼出全文结构，插在通读和精读之间 —— R3 那句
+// 「…学生分段通读并概括 → **拼出全文结构** → 按文章类型精读…」的第三段。
+//
+// 🚨 en-close-read **没有动**：产品负责人说的是议论文那条路，而这一套是英文
+// 精读，服务的体裁里虽然有议论文，它却不是照 R3 排的。少动一套少一份风险。
+//
+// 判据仍然逐字钉死整串 kind：这一族的步骤序会被别的改动顺手碰到 ——
+// 插一步就把 plan 那边**按下标配对**的 detail 全部错位（见
+// reading_plan_test.go 那份桩上面的注释），所以它要红得很吵。
 func TestArgumentRoutinesAreUnchanged(t *testing.T) {
 	want := map[string]string{
-		"zh-scan-focus-lens": "predict read focus_block label critique reflect connect hunt",
+		"zh-scan-focus-lens": "predict read reflect focus_block label critique reflect connect hunt",
 		"en-close-read":      "predict read focus_block label critique connect recall hunt",
-		"en-argument":        "predict read focus_block label critique connect hunt",
+		"en-argument":        "predict read reflect focus_block label critique connect hunt",
 	}
 	for key, kinds := range want {
 		r, ok := findReadingRoutine(key)
@@ -180,11 +194,22 @@ func TestLastPlacementReadsGenreBins(t *testing.T) {
 // 放在这个内部测试文件（而不是 task brief 原写的 reading_genre_test.go）里，
 // 是因为 buildGenreCoachSection / genreArgument 都是包内私有标识符 ——
 // reading_genre_test.go 是 package api_test，编译不过；这个文件是 package api。
-func TestGenreCoachSectionStaysEmptyForArgument(t *testing.T) {
-	for _, genre := range []string{genreArgument, "", "不认识的体裁"} {
+func TestOnlyUnknownGenresHaveNoCoachSection(t *testing.T) {
+	// 认不出来的体裁仍然没有这一节 —— 拿一套读法去套一篇没判出体裁的文章，
+	// 比不给更糟。这一半从 2026-09-17 起就没变过。
+	for _, genre := range []string{"", "不认识的体裁"} {
 		if got := buildGenreCoachSection(genre); got != "" {
 			t.Errorf("体裁 %q 不该有带读说明，拿到 %d 字", genre, len([]rune(got)))
 		}
+	}
+	// 🚨 议论文这一半 2026-09-25 反过来了：产品负责人点头要 R13
+	// （示范额度最多一段），而那条规矩只在议论文上成立，通用那份说不出口。
+	got := buildGenreCoachSection(genreArgument)
+	if got == "" {
+		t.Fatal("议论文没有带读说明 —— R13 没地方装")
+	}
+	if !strings.Contains(got, "示范") {
+		t.Error("议论文那一段里没有示范额度那条规矩")
 	}
 }
 
@@ -207,7 +232,9 @@ func TestGenreCoachSectionNamesItsOwnBins(t *testing.T) {
 }
 
 func TestGenreSectionOnlyOffArgument(t *testing.T) {
-	for _, g := range []string{genreArgument, "", "editorial"} {
+	// 🚨 2026-09-25：议论文从这张「不该有」的名单里挪走了（R13）。
+	// 剩下的两种仍然在：空串和认不出来的体裁没有自己的读法。
+	for _, g := range []string{"", "editorial"} {
 		if s := buildGenreCoachSection(g); s != "" {
 			t.Errorf("genre %q 上多了一节：%q", g, s)
 		}
@@ -223,15 +250,24 @@ func TestGenreSectionOnlyOffArgument(t *testing.T) {
 	}
 }
 
-// 🚨 议论文的整段 prompt 必须和不带体裁时一字不差 —— 这是「议论文一个字都
-// 不动」在 prompt 那一侧的保证。
-func TestArgumentCoachPromptHasNoGenreSection(t *testing.T) {
+// 🚨 2026-09-25 这条也反过来了。
+//
+// 它原来钉的是「议论文的整段 prompt 必须和不带体裁时一字不差」，是
+// 「议论文一个字都不动」在 prompt 那一侧的保证。产品负责人点头要 R13 之后，
+// 议论文多了自己的一节，所以现在钉的是**另一件事**：
+// 多出来的**只有**那一节 —— 把它原样减掉之后，仍然要和不带体裁时一字不差。
+// 否则 R13 顺手改到了别的地方，而那是没人审过的。
+func TestArgumentCoachPromptDiffersOnlyByItsOwnSection(t *testing.T) {
 	blocks := outlineBlocks(4)
 	tasks := []sqlc.ReadingTask{{Kind: string(taskLabel), Label: "拆开作者的论证", Status: "pending"}}
 	arg := buildReadingCoachPrompt("t", blocks, readingOutline{OneLine: "问", Genre: genreArgument}, tasks, nil, nil, "我读完了", nil, "")
 	none := buildReadingCoachPrompt("t", blocks, readingOutline{OneLine: "问"}, tasks, nil, nil, "我读完了", nil, "")
-	if arg != none {
-		t.Error("议论文的 prompt 和没有体裁时不一样")
+	// 多出来的只有议论文自己那一节：原样减掉之后必须和不带体裁时一字不差。
+	if without := strings.Replace(arg, buildGenreCoachSection(genreArgument), "", 1); without != none {
+		t.Error("议论文的 prompt 除了自己那一节，还有别的地方变了")
+	}
+	if arg == none {
+		t.Error("议论文没有拿到自己那一节 —— R13 没装上")
 	}
 	rep := buildReadingCoachPrompt("t", blocks, readingOutline{OneLine: "问", Genre: genreReport}, tasks, nil, nil, "我读完了", nil, "")
 	if !strings.Contains(rep, "【这篇的体裁") {
