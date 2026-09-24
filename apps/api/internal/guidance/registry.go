@@ -42,11 +42,24 @@ var Default = sync.OnceValue(func() *Registry {
 
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)
-	// 🚨 书信的篇章结构**两种语言同一份**：那几种安排（邀请 / 建议 / 道歉 /
-	// 感谢 / 申请）是按信的用途分的，不按语言分。语气和措辞的差别写在
-	// SlotKinds 那两份里（英文那份专门讲 register），不重复一遍。
+	// 🚨 书信的篇章结构 2026-09-24 起**按语言分开**。
+	//
+	// 原来两份是同一个常量，理由是「那几种安排（邀请 / 建议 / 道歉 / 感谢 /
+	// 申请）是按信的用途分的，不按语言分」。那句话今天仍然成立 —— 英文那份
+	// 里的安排和中文那份是同一批。分开是因为**另外三样**，它们不是语气和
+	// 措辞，而是会让陪练给出相反的建议：
+	//
+	//   1. 英文应用文通常要求 80 词左右，超出要扣分 ⇒「再补一个理由把这一段
+	//      写厚」在英文这一档是错的建议，在中文书信上没有问题。
+	//   2. 英文这一档的要点来自题干、漏一个直接压一档 ⇒ 第一件事是数题目里
+	//      要求做的动作，不是问她要说清什么。
+	//   3. 称呼和结束语有对仗关系（Dear Sir or Madam ↔ Yours sincerely），
+	//      缺称呼或缺署名是独立的一处失分。中文书信没有这条对仗。
+	//
+	// 产品负责人 2026-09-24 点的四处弱项里有一处正是「english letters
+	// writing」。详见 prompts.WritingPlanSkeletonLetterEN 上面那段注释。
 	r.Add(SlotSkeleton, w("zh", "letter"), prompts.WritingPlanSkeletonLetter)
-	r.Add(SlotSkeleton, w("en", "letter"), prompts.WritingPlanSkeletonLetter)
+	r.Add(SlotSkeleton, w("en", "letter"), prompts.WritingPlanSkeletonLetterEN)
 	r.Add(SlotSkeleton, w("zh", "prose"), prompts.WritingPlanSkeletonProse)
 	r.Add(SlotSkeleton, w("en", "prose"), prompts.WritingPlanSkeletonProse)
 

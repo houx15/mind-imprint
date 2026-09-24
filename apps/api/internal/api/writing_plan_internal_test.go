@@ -245,9 +245,15 @@ func TestWritingPlanSystemFor_EveryGenreAndLangAssembles(t *testing.T) {
 			if lang == langEnglish {
 				skeletonMark = "Thesis"
 			}
-			// 书信两种语言共用同一份信件结构（那几种安排按用途分，不按语言分）。
+			// 🚨 书信 2026-09-24 起**按语言分开**。分开的理由不是措辞：
+			// 英文应用文 80 词的硬上限会让「把这一段写厚」成为反的建议，
+			// 要点来自题干而不由她自拟，称呼与结束语还有对仗关系。
+			// 见 guidance/letter_lang_test.go。
 			if genre == genreLetter {
 				skeletonMark = "常见的信件结构"
+				if lang == langEnglish {
+					skeletonMark = "英文信的格式要素"
+				}
 			}
 			// 散文同理：它的几种结构（一线串珠、以人为线索…）按线索分，不按语言分。
 			if genre == genreProse {

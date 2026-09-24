@@ -128,7 +128,16 @@ func TestLetterGetsTheLetterKindsNotTheArgumentOnes(t *testing.T) {
 			}
 		}
 		// 篇章结构那一节也要是信的，不是总—分—总。
-		if !strings.Contains(s, "常见的信件结构") {
+		//
+		// 🚨 2026-09-24 起两种语言的篇章结构**不是同一份**了（英文那份带着
+		// 80 词的硬上限、要点来自题干、称呼与结束语的对仗），所以这里不能再钉
+		// 一句共同的小标题。钉的是「这一档取到的是信件那一族」：
+		// 中文那份以「常见的信件结构」起，英文那份以「英文信的格式要素」起。
+		letterMark := "常见的信件结构"
+		if lang == "en" {
+			letterMark = "英文信的格式要素"
+		}
+		if !strings.Contains(s, letterMark) {
 			t.Errorf("%s 的书信提示词用的不是信件的篇章结构", lang)
 		}
 		if strings.Contains(s, "总—分—总") {
