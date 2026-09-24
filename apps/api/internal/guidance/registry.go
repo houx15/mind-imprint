@@ -53,6 +53,23 @@ var Default = sync.OnceValue(func() *Registry {
 
 	r.Add(SlotMaterial, w("zh", ""), prompts.WritingPlanMaterialZH)
 	r.Add(SlotMaterial, w("en", ""), prompts.WritingPlanMaterialEN)
+	// 🚨 SlotMaterial 原来**只按语言登记，不按文体** —— 于是每一种文体拿到的
+	// 都是议论文那份「根据观点选择材料」。议论文和记叙文大体用得上，
+	// 这两档是错的：续写的材料就是前文，概要根本没有自己的材料。
+	// 一个被告知「去找一条研究来支撑」的概要写作学生，照做就会写出一篇一定
+	// 扣分的概要。
+	//
+	// 书信、散文那两档也在拿议论文这一份，那是 2026-09-24 之前就有的事，
+	// 没有在这一次一起改：它们至少「找材料」这件事本身是成立的，而改它们要
+	// 各写一份新文本，那是另一件事（记在 docs/2026-09-24-teaching-rulings.md）。
+	for _, lang := range []string{"zh", "en"} {
+		r.Add(SlotMaterial, w(lang, "continuation"), prompts.WritingPlanMaterialContinuation)
+		r.Add(SlotMaterial, w(lang, "summary"), prompts.WritingPlanMaterialSummary)
+	}
+	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"continuation"}},
+		prompts.WritingPlanMaterialContinuation)
+	r.Add(SlotMaterial, Scope{Surface: SurfaceWrite, Genres: []string{"summary"}},
+		prompts.WritingPlanMaterialSummary)
 
 	r.Add(SlotSkeleton, w("zh", ""), prompts.WritingPlanSkeletonZH)
 	r.Add(SlotSkeleton, w("en", ""), prompts.WritingPlanSkeletonEN)
