@@ -30,9 +30,15 @@ const writingCommentSystem = prompts.WritingCommentSystem
 // kind 是空串的两条路都归到 "body"，这是对的：通篇审阅那一路永远传 helpAsk，
 // 一条句式都不会摆出来；另一路是一段没有结构图节点的自由段落，按正文散文处理。
 func buildWritingCommentSystem(lang string, maxIssues int, kind string, help writingHelpMode, genre string) string {
-	return fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
+	s := fmt.Sprintf(writingCommentSystem, writingSymptomCatalog(lang, genre), maxIssues) +
 		writingCommentBlockJob(kind) +
-		writingHelpModeBlock(help, writingKindAppliesTo(kind), lang, genre) + teachingvoice.Rules
+		writingHelpModeBlock(help, writingKindAppliesTo(kind), lang, genre)
+	// 中式英语那一节只在英文写作上加 —— 一篇中文作文里没有「回译」这回事。
+	// 中文那一支因此逐字节不变。
+	if lang == langEnglish {
+		s += prompts.WritingCommentChinglishEN
+	}
+	return s + teachingvoice.Rules
 }
 func writingCommentBlockJob(kind string) string {
 	switch kind {
