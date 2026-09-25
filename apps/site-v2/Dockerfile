@@ -11,7 +11,6 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/lite-web/package.json apps/lite-web/package.json
 COPY apps/site/package.json apps/site/package.json
 COPY apps/site-v2/package.json apps/site-v2/package.json
-COPY apps/peraspera/package.json apps/peraspera/package.json
 RUN pnpm install --frozen-lockfile --filter site-v2...
 COPY apps/site-v2/astro.config.mjs apps/site-v2/tsconfig.json apps/site-v2/
 COPY apps/site-v2/src apps/site-v2/src

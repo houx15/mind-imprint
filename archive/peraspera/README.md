@@ -1,4 +1,6 @@
-# Per Aspera — marketing site (`apps/peraspera`)
+# Per Aspera — archived marketing site
+
+> 已归档：此目录是历史源码，不属于当前官网或 Lite 产品，也不参与 pnpm workspace 和部署。以下内容仅供历史参考；只有用户明确要求处理 Per Aspera 时才修改或发布。
 
 A bilingual (zh / en) marketing site for **Per Aspera**, an education startup that prepares
 students for the AI era. It is an **independent** app: it shares the pnpm workspace but has no code

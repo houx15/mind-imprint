@@ -269,7 +269,10 @@ This ensures Claude Code, Codex CLI, and Gemini CLI share the same context consi
 
 - `apps/web/` - 前端 SPA（React + Vite）
 - `apps/api/` - 后端 Go 服务（重构后新增）
-- `apps/site/` - 营销站（Astro 静态站，中英双语 zh 默认 / en 于 `/en/`；纯展示 + 链接到 app，不持有密钥；风格 = Toddle 暖编辑 + Apple 叙事）
+- `apps/site-v2/` - 当前官网（Astro 静态站，中英双语；发布入口 `deploy/deploy-site-v2-artifact.sh`）
+- `apps/lite-web/` - 轻量版学生端与教师端
+- `apps/site/` - 旧版官网源码，非当前官网
+- `archive/peraspera/` - 已归档的独立旧站，不属于当前产品或官网。处理「官网」「前端」「品牌英文名」等任务时，不检索、修改或部署此目录；只有用户明确点名 Per Aspera 时才重新纳入范围。归档目录不参与 pnpm workspace 与产品镜像构建。
 - `packages/contracts/` - Zod 契约 + 卡 JSON 单一真相源（前后端共享）
 - `docs/` - 权威产品规格：PRD、工具包库
 - `docs/architecture/` - 后端平台架构参考：database-schema、api-design、go-backend-best-practices
