@@ -192,8 +192,9 @@ mind-imprint/
 │       ├── audio/                # 语音录制 / 播放
 │       ├── shell/                # 应用外壳：导航 / 鉴权 / 主目录 / 成长报告 / 设置
 │       └── dev/                  # 开发期 harness（不在产品外壳里挂载）
-├── apps/site/                    # 思维印记营销站（Astro 静态站 · zh/en 双语）
-├── apps/peraspera/              # Per Aspera 母品牌营销站（独立 Astro app · 部署 Vercel）
+├── apps/site-v2/                 # 当前官网（Astro 静态站 · zh/en 双语）
+├── apps/site/                    # 旧版官网源码
+├── archive/peraspera/           # 已归档的 Per Aspera 旧站，不参与当前产品开发与部署
 ├── deploy/                       # 生产编排：docker-compose + nginx 站点 + 镜像助手（无密钥）
 └── docs/                         # 产品规格 + 开发者交接（含评估/教师端）+ 部署运行手册
 ```

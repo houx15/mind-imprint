@@ -30,7 +30,6 @@ COPY packages/course-runtime/package.json packages/course-runtime/package.json
 COPY packages/course-renderer/package.json packages/course-renderer/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/site/package.json apps/site/package.json
-COPY apps/peraspera/package.json apps/peraspera/package.json
 COPY apps/lite-web/package.json apps/lite-web/package.json
 RUN pnpm install --frozen-lockfile --filter @mind-imprint/lite-web...
 
