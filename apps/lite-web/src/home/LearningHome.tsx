@@ -79,7 +79,7 @@ export function LearningHome({ user }: { user: MeUser }) {
         <div className="learning-content">
           <header className="learning-welcome">
             <div>
-              <span className="learning-eyebrow">MIND IMPRINT</span>
+              <span className="learning-eyebrow">THE MARK OF THINKING</span>
               <h1>你好，{user.display_name || "同学"}</h1>
               <p>阅读、写作，探索你关心的问题。</p>
             </div>

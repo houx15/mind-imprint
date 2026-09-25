@@ -45,7 +45,7 @@ export const features: Feature[] = [
         "An interest tree connected to learning experiences",
       ],
     ],
-    edition: ["Mind Imprint · 探索与我的树", "Mind Imprint · Explore & My Tree"],
+    edition: ["The Mark of Thinking · 探索与我的树", "The Mark of Thinking · Explore & My Tree"],
   },
   {
     id: "reading",
@@ -134,7 +134,7 @@ export const features: Feature[] = [
       ["调查、方案与制作成果", "Research, proposals and created outcomes"],
       ["有依据的决策与复盘", "Reasoned decisions and reflection"],
     ],
-    edition: ["Mind Imprint · 项目工作区", "Mind Imprint · Project workspace"],
+    edition: ["The Mark of Thinking · 项目工作区", "The Mark of Thinking · Project workspace"],
   },
   {
     id: "courses",

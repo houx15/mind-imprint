@@ -4,7 +4,7 @@
 //
 // This is the FAMILIES service (2C): our AI-assisted interactive courses, for
 // families who share our way of learning. The courses run on our core product,
-// 思维印记 (Mind Imprint). The library is presented as TWO THREADS — 思辨
+// 思维印记 (The Mark of Thinking). The library is presented as TWO THREADS — 思辨
 // (critical thinking, modules 1-5) and 产品思维 (product thinking, module 6) —
 // broken into SIX MODULES. Modules 1-5 are drawn from docs/03_课程库_单课设计;
 // module 6 (AI 与产品) is added per the refactor plan. Plain, warm, concrete
@@ -62,13 +62,13 @@ export const introSection: {
   ],
 };
 
-/* ---- Runs on our product: 思维印记 (Mind Imprint) ----------------------- */
+/* ---- Runs on our product: 思维印记 (The Mark of Thinking) ----------------------- */
 export const productNote: { text: Bilingual; linkLabel: Bilingual; linkHref: string } = {
   text: {
     zh: "这些课都在我们自己的 AI 产品「思维印记」上进行。孩子和 AI 协作的每一步都会被记录下来,变成一条看得见的思考过程,也是我们做过程评估的依据。",
-    en: "These classes all run on our own AI product, Mind Imprint. Every step of a child's work with AI is recorded into a visible thinking process, which is also the basis for how we look at that process.",
+    en: "These classes all run on our own AI product, The Mark of Thinking. Every step of a child's work with AI is recorded into a visible thinking process, which is also the basis for how we look at that process.",
   },
-  linkLabel: { zh: "了解思维印记", en: "About Mind Imprint" },
+  linkLabel: { zh: "了解思维印记", en: "About the Mark of Thinking" },
   linkHref: "/mind-imprint",
 };
 
