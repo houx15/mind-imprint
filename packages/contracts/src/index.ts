@@ -45,3 +45,4 @@ export * from "./searchGuidance";
 export * from "./revisionCheckpoint";
 export * from "./evaluationReport";
 export * from "./discipline";
+export * from "./visualDesign";
