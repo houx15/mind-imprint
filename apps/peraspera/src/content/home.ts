@@ -69,8 +69,8 @@ export const product: {
   href: string;
 } = {
   label: { zh: "核心产品", en: "Our core product" },
-  heading: { zh: "思维印记，我们的核心产品。", en: "Mind Imprint, our core product." },
-  headingEm: { zh: "思维印记", en: "Mind Imprint" },
+  heading: { zh: "思维印记，我们的核心产品。", en: "The Mark of Thinking, our core product." },
+  headingEm: { zh: "思维印记", en: "The Mark of Thinking" },
   body: {
     zh: "这是一款 AI 教育产品，把我们整套学习方式都装了进去。它由三部分组成。",
     en: "It's one AI education product that carries our whole way of learning, and it's made of three parts.",
@@ -98,7 +98,7 @@ export const product: {
       },
     },
   ],
-  cta: { zh: "了解思维印记", en: "About Mind Imprint" },
+  cta: { zh: "了解思维印记", en: "About the Mark of Thinking" },
   href: "/mind-imprint",
 };
 
@@ -107,7 +107,7 @@ export const offerIntro: { label: Bilingual; heading: Bilingual } = {
   label: { zh: "我们的服务", en: "Our services" },
   heading: {
     zh: "三种服务，都建立在思维印记之上。",
-    en: "Three services, all built on Mind Imprint.",
+    en: "Three services, all built on The Mark of Thinking.",
   },
 };
 
@@ -123,7 +123,7 @@ export const offers: Offer[] = [
     name: { zh: "申请辅导", en: "Application coaching" },
     body: {
       zh: "一对一陪学生和家长，准备申请那些为 AI 时代而建的顶尖学校，比如马斯克创办的 Astra Nova；平时的练习就在思维印记里做。",
-      en: "One-on-one help for students and parents preparing to apply to top schools built for the AI era — like Elon Musk's Astra Nova — with the practice happening inside Mind Imprint.",
+      en: "One-on-one help for students and parents preparing to apply to top schools built for the AI era — like Elon Musk's Astra Nova — with the practice happening inside The Mark of Thinking.",
     },
     cta: { zh: "了解申请辅导", en: "Learn about coaching" },
     href: "/coaching",
@@ -132,7 +132,7 @@ export const offers: Offer[] = [
     name: { zh: "课程项目", en: "Courses" },
     body: {
       zh: "业余时间、全程在线的课程项目，孩子就在思维印记里和 AI 一起上课、动手；还没进入这些学校的家庭也能来学。",
-      en: "Part-time, fully online courses where a child learns and builds with AI right inside Mind Imprint — open to families who haven't enrolled in those schools too.",
+      en: "Part-time, fully online courses where a child learns and builds with AI right inside The Mark of Thinking — open to families who haven't enrolled in those schools too.",
     },
     cta: { zh: "了解课程项目", en: "See our courses" },
     href: "/academy",
@@ -141,7 +141,7 @@ export const offers: Offer[] = [
     name: { zh: "学校合作", en: "School partnership" },
     body: {
       zh: "陪认同这个方向的学校，把 AI 踏实地带进日常教学，用的正是思维印记，还有配套的教师培训和课程。",
-      en: "We help schools that share this direction bring AI into everyday teaching — with Mind Imprint itself, plus teacher training and courses.",
+      en: "We help schools that share this direction bring AI into everyday teaching — with The Mark of Thinking itself, plus teacher training and courses.",
     },
     cta: { zh: "了解学校合作", en: "Explore partnership" },
     href: "/partnership",

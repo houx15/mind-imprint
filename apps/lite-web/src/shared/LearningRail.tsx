@@ -35,7 +35,7 @@ export function LearningRail({ links, footer }: { links: RailLink[]; footer: Rea
         >
           <BookOpen size={29} />
           <span>
-            思维印记<small>MIND IMPRINT</small>
+            思维印记<small>THE MARK OF THINKING</small>
           </span>
         </a>
         <div className="learning-nav-links">

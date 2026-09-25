@@ -1,4 +1,4 @@
-// Per Aspera — 思维印记 (Mind Imprint) product page (/mind-imprint,
+// Per Aspera — 思维印记 (The Mark of Thinking) product page (/mind-imprint,
 // /en/mind-imprint) content.
 //
 // zh is the source of truth; en is an idiomatic (not literal) translation.
@@ -24,7 +24,7 @@ import type { Bilingual } from "./site";
 
 /* ---- Page hero --------------------------------------------------------- */
 export const hero: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
-  eyebrow: { zh: "思维印记", en: "Mind Imprint" },
+  eyebrow: { zh: "思维印记", en: "The Mark of Thinking" },
   title: {
     zh: "我们的核心产品：一款把整套学习方式装进去的 AI 教育产品——课程、工作台，和一份能看见思考过程的评估。",
     en: "Our core product: one AI education product that carries a whole way of learning — courses, workbenches, and an assessment that sees the thinking process.",
@@ -292,7 +292,7 @@ export const miPrinciples: { eyebrow: Bilingual; title: Bilingual; items: Princi
       title: { zh: "只给学生本人看", en: "Private to the student" },
       body: {
         zh: "思维印记是一面私密的成长镜子，只照给学生自己看，不用来排名或比较。",
-        en: "The mind imprint is a private mirror for growth, seen only by the student — never used for ranking or comparison.",
+        en: "The Mark of Thinking is a private mirror for growth, seen only by the student — never used for ranking or comparison.",
       },
     },
     {
@@ -329,7 +329,7 @@ export const closing: {
   title: { zh: "一个产品，支撑起我们做的每一件事。", en: "One product powers everything we do." },
   sub: {
     zh: "思维印记是核心。围着它，我们提供三种服务。",
-    en: "Mind imprint is the core. Around it, we offer three services.",
+    en: "The Mark of Thinking is the core. Around it, we offer three services.",
   },
   services: [
     {

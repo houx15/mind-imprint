@@ -56,7 +56,7 @@ export const founders: Founder[] = [
     },
     bio: {
       zh: "多年联合国 ESG 与气候课程、IB 课程辅导经验。她创立了「思维印记」这套方法——在真实国际课堂里开发出的三十多门批判性思维课，以及产品背后的过程评估标准。",
-      en: "Years of experience with UN ESG and climate programs, and with IB coaching. She created the Mind Imprint approach — 30-plus critical-thinking courses grown in real international classrooms, and the process-assessment rubric behind the product.",
+      en: "Years of experience with UN ESG and climate programs, and with IB coaching. She created the approach behind The Mark of Thinking — 30-plus critical-thinking courses grown in real international classrooms, and the process-assessment rubric behind the product.",
     },
     photoSlot: { zh: "照片位", en: "Photo placeholder" },
   },
@@ -68,7 +68,7 @@ export const founders: Founder[] = [
     },
     bio: {
       zh: "连续创业者。AI 思维、产品思维、计算思维教育者。带领「思维印记」的产品化——工作台的交互设计、评估工程，以及对 AI 的调校。",
-      en: "A serial founder, and an educator in AI, product, and computational thinking. He leads the productization of Mind Imprint — the workbench interaction, the assessment engineering, and the tuning of the AI.",
+      en: "A serial founder, and an educator in AI, product, and computational thinking. He leads the productization of The Mark of Thinking — the workbench interaction, the assessment engineering, and the tuning of the AI.",
     },
     photoSlot: { zh: "照片位", en: "Photo placeholder" },
   },
@@ -100,7 +100,7 @@ export const letter: {
     },
     {
       zh: "所以我们把这套学习方式做成了一个产品——「思维印记」。它装着我们的课程、两个工作台，还有一套过程评估。在它之上，我们做这些服务：帮准备申请的家庭做辅导，给认同这套学习方式的家庭和学校开课程。这些能力才是真正留下的东西——如果孩子最终被 Astra Nova 录取，太好了；如果没有，这些能力也已经留在他身上。",
-      en: "So we turned this way of learning into a product — Mind Imprint. It carries our courses, two workbenches, and a process assessment. On top of it we build the services: coaching for families preparing to apply, and courses for families and schools who share this way of learning. The ability itself is what actually stays with a child. If they end up at Astra Nova, wonderful. If not, the ability is already theirs to keep.",
+      en: "So we turned this way of learning into a product — The Mark of Thinking. It carries our courses, two workbenches, and a process assessment. On top of it we build the services: coaching for families preparing to apply, and courses for families and schools who share this way of learning. The ability itself is what actually stays with a child. If they end up at Astra Nova, wonderful. If not, the ability is already theirs to keep.",
     },
   ],
   signatureLine: {

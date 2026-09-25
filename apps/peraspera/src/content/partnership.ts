@@ -119,7 +119,7 @@ export const solutions: Solution[] = [
     },
     items: [
       {
-        title: { zh: "思维印记 · AI 评估工具", en: "Mind imprint · an AI evaluation tool" },
+        title: { zh: "思维印记 · AI 评估工具", en: "The Mark of Thinking · an AI evaluation tool" },
         body: {
           zh: "我们自己的 AI 评估产品,持续看到学生真实的思考力是怎么成长的。",
           en: "Our own AI evaluation product, keeping track of how students' real thinking ability grows.",
@@ -152,7 +152,7 @@ export const solutions: Solution[] = [
   },
 ];
 
-/* ---- 3a · details: 思维印记 (mind imprint) — summary + link ------------ */
+/* ---- 3a · details: 思维印记 (the mark of thinking) — summary + link ------------ */
 export const miSummary: {
   eyebrow: Bilingual;
   title: Bilingual;
@@ -161,15 +161,15 @@ export const miSummary: {
   linkLabel: Bilingual;
   linkHref: string;
 } = {
-  eyebrow: { zh: "方案详解 · 思维印记", en: "In detail · mind imprint" },
+  eyebrow: { zh: "方案详解 · 思维印记", en: "In detail · The Mark of Thinking" },
   title: {
     zh: "思维印记：一款让思考过程被看见的 AI 评估产品。",
-    en: "Mind imprint: an AI evaluation product that makes thinking visible.",
+    en: "The Mark of Thinking: an AI evaluation product that makes thinking visible.",
   },
   body: [
     {
       zh: "思维印记是我们自己的 AI 评估产品。学生带着真实的任务和 AI 协作，这一路他是怎么想的会被完整记录下来，再被评估。它看的是思考的过程；成品始终是学生自己的。",
-      en: "Mind imprint is our own AI evaluation product. A student brings a real task and works through it with AI, and the whole way they thought is recorded, then evaluated. It looks at the thinking process; the finished work stays the student's own.",
+      en: "The Mark of Thinking is our own AI evaluation product. A student brings a real task and works through it with AI, and the whole way they thought is recorded, then evaluated. It looks at the thinking process; the finished work stays the student's own.",
     },
     {
       zh: "对一所学校来说，它补上了一份成绩单看不到的那部分：AI 时代，学生的思考能力到底在不在真实地成长。它把过程变成看得见、能长期追踪的东西，给老师的判断多一份依据。",
@@ -180,7 +180,7 @@ export const miSummary: {
     zh: "我们正开始和一些学校一起试点这套评估。",
     en: "We're beginning to pilot this evaluation together with a few schools.",
   },
-  linkLabel: { zh: "完整了解思维印记", en: "Explore Mind Imprint in full" },
+  linkLabel: { zh: "完整了解思维印记", en: "Explore the product in full" },
   linkHref: "/mind-imprint",
 };
 
@@ -309,7 +309,7 @@ export const teacherTraining: {
       },
     },
     {
-      title: { zh: "看懂思维印记", en: "Read the mind imprint" },
+      title: { zh: "看懂思维印记", en: "Understand The Mark of Thinking" },
       body: {
         zh: "一份过程评估摊在面前,老师能读出学生强在哪、卡在哪,再决定下一步怎么带——把评估变成教学的依据。",
         en: "With a process evaluation in front of them, teachers can read where a student is strong and where they're stuck, then decide how to guide next — turning the evaluation into something teaching can act on.",

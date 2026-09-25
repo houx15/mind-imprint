@@ -16,7 +16,7 @@ export const nav: Record<
   Bilingual
 > = {
   home: { zh: "首页", en: "Home" },
-  mindImprint: { zh: "思维印记", en: "Mind Imprint" },
+  mindImprint: { zh: "思维印记", en: "The Mark of Thinking" },
   programs: { zh: "项目", en: "Programs" },
   coaching: { zh: "申请辅导", en: "Application coaching" },
   academy: { zh: "课程", en: "Courses" },
